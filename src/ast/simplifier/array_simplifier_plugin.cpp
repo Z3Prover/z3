@@ -68,7 +68,7 @@ bool array_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * co
     set_reduce_invoked();
     if (m_presimp)
         return false;
-#if _DEBUG
+#if Z3DEBUG
     for (unsigned i = 0; i < num_args && i < f->get_arity(); ++i) {
         SASSERT(m_manager.get_sort(args[i]) == f->get_domain(i));
     }

@@ -19,7 +19,7 @@ Revision History:
 #include"vector.h"
 
 static void tst1() {
-    vector<int> v1;
+    svector<int> v1;
     SASSERT(v1.empty());
     for (unsigned i = 0; i < 1000; i++) {
         v1.push_back(i + 3);
@@ -30,8 +30,8 @@ static void tst1() {
     for (unsigned i = 0; i < 1000; i++) {
         SASSERT(static_cast<unsigned>(v1[i]) == i + 3);
     }
-    vector<int>::iterator it = v1.begin();
-    vector<int>::iterator end = v1.end();
+    svector<int>::iterator it = v1.begin();
+    svector<int>::iterator end = v1.end();
     for (int i = 0; it != end; ++it, ++i) {
         SASSERT(*it == i + 3);
     }
@@ -42,6 +42,18 @@ static void tst1() {
     }
     SASSERT(v1.empty());
     SASSERT(v1.size() == 0);
+    unsigned i = 1000000000;
+    while (true) {
+        std::cout << "resize " << i << "\n";
+        try {            
+            v1.resize(i);
+        }
+        catch (z3_exception& e) {
+            std::cout << e.msg() << "\n";
+            break;
+        }
+        i *= 2;
+    }
 }
 
 void tst_vector() {

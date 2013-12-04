@@ -1,0 +1,18 @@
+TPTP front-end and utilities as a sample using the C++ bindings.
+To build the example execute
+   make examples
+in the build directory.
+
+This command will create the executable tptp.
+On Windows, you can just execute it.
+On OSX and Linux, you must install z3 first using 
+   sudo make install
+OR update LD_LIBRARY_PATH (Linux) or DYLD_LIBRARY_PATH (OSX) 
+   with the build directory. You need that to be able to 
+   find the Z3 shared library.
+
+The sample illustrates using Z3 from the TPTP language.
+The TPTP language is documented on http://tptp.org
+It also exposes utilities for converting between SMT-LIB 
+and TPTP format.
+

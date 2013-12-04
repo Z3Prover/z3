@@ -2,9 +2,11 @@
 #include "ast_pp.h"
 #include "dl_table_relation.h"
 #include "dl_context.h"
+#include "dl_register_engine.h"
 #include "smt_params.h"
 #include "stopwatch.h"
 #include "reg_decl_plugins.h"
+#include "dl_relation_manager.h"
 
 using namespace datalog;
 
@@ -50,7 +52,8 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
     dl_decl_util decl_util(m);
     random_gen ran(0);
 
-    context ctx_q(m, fparams);
+    register_engine re;
+    context ctx_q(m, re, fparams);
     params.set_bool("magic_sets_for_queries", use_magic_sets);
     ctx_q.updt_params(params);
     {
@@ -58,7 +61,7 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
         TRUSTME( p->parse_file(problem_file) );
         dealloc(p);
     }
-    relation_manager & rel_mgr_q = ctx_b.get_rel_context().get_rmanager();
+    relation_manager & rel_mgr_q = ctx_b.get_rel_context()->get_rmanager();
 
     decl_set out_preds = ctx_b.get_rules().get_output_predicates();
     decl_set::iterator it = out_preds.begin();
@@ -69,10 +72,10 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
         func_decl * pred_q = ctx_q.try_get_predicate_decl(symbol(pred_b->get_name().bare_str()));
         SASSERT(pred_q);
 
-        relation_base & rel_b = ctx_b.get_rel_context().get_relation(pred_b);
+        relation_base & rel_b = ctx_b.get_rel_context()->get_relation(pred_b);
 
         relation_signature sig_b = rel_b.get_signature();
-        relation_signature sig_q = ctx_q.get_rel_context().get_relation(pred_q).get_signature();
+        relation_signature sig_q = ctx_q.get_rel_context()->get_relation(pred_q).get_signature();
         SASSERT(sig_b.size()==sig_q.size());
 
         std::cerr << "Queries on random facts...\n";
@@ -135,7 +138,8 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
     dl_decl_util dl_util(m);
 
     std::cerr << "Testing queries on " << problem_dir <<"\n";
-    context ctx(m, fparams);
+    register_engine re;
+    context ctx(m, re, fparams);
     ctx.updt_params(params);
     {
         wpa_parser* p = wpa_parser::create(ctx, m);
@@ -204,14 +208,15 @@ void tst_dl_query() {
 
     std::cerr << "Testing queries on " << problem_file <<"\n";
 
-    context ctx_base(m, fparams);
+    register_engine re;
+    context ctx_base(m, re, fparams);
     ctx_base.updt_params(params);
     {
         parser* p = parser::create(ctx_base,m);
         TRUSTME( p->parse_file(problem_file) );
         dealloc(p);
     }
-    ctx_base.get_rel_context().saturate();
+    ctx_base.get_rel_context()->saturate();
 
     for(unsigned use_restarts=0; use_restarts<=1; use_restarts++) {
         params.set_uint("initial_restart_timeout", use_restarts ? 100 : 0);

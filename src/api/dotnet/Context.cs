@@ -303,6 +303,9 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create a new finite domain sort.
+	/// <param name="name">The name used to identify the sort</param>
+	/// <param size="size">The size of the sort</param>
+	/// <returns>The result is a sort</returns>
         /// </summary>
         public FiniteDomainSort MkFiniteDomainSort(Symbol name, ulong size)
         {
@@ -315,6 +318,11 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create a new finite domain sort.
+	/// <param name="name">The name used to identify the sort</param>
+	/// <param size="size">The size of the sort</param>
+	/// <returns>The result is a sort</returns>
+	/// Elements of the sort are created using <seealso cref="MkNumeral"/>, 
+	/// and the elements range from 0 to <tt>size-1</tt>.
         /// </summary>
         public FiniteDomainSort MkFiniteDomainSort(string name, ulong size)
         {

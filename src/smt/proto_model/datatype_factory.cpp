@@ -67,6 +67,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
     value_set * set = get_value_set(s);
     if (set->empty()) {
         expr * val = get_some_value(s);
+        SASSERT(val);
         if (m_util.is_recursive(s))
             m_last_fresh_value.insert(s, val);
         return val;
@@ -185,10 +186,16 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                     if (!found_sibling && m_util.is_datatype(s_arg) && m_util.are_siblings(s, s_arg)) {
                         found_sibling = true;
                         expr * maybe_new_arg = get_almost_fresh_value(s_arg);
+                        if (!maybe_new_arg) {
+                            maybe_new_arg = m_model.get_some_value(s_arg);
+                            found_sibling = false;
+                        }
+                        SASSERT(maybe_new_arg);
                         args.push_back(maybe_new_arg);
                     }
                     else {
                         expr * some_arg = m_model.get_some_value(s_arg);
+                        SASSERT(some_arg);
                         args.push_back(some_arg);
                     }
                 }

@@ -3,6 +3,7 @@
 #include "arith_decl_plugin.h"
 #include "dl_context.h"
 #include "smt_params.h"
+#include "dl_register_engine.h"
 
 using namespace datalog;
 
@@ -26,9 +27,9 @@ static lbool dl_context_eval_unary_predicate(ast_manager & m, context & ctx, cha
 static void dl_context_simple_query_test(params_ref & params) {
     ast_manager m;
     dl_decl_util decl_util(m);
-
+    register_engine re;
     smt_params fparams;
-    context ctx(m, fparams);
+    context ctx(m, re, fparams);
     ctx.updt_params(params);
 
     /* lbool status = */ dl_context_eval_unary_predicate(m, ctx, "Z 64\n\nP(x:Z)\nP(\"a\").", "P");
@@ -50,7 +51,8 @@ void dl_context_saturate_file(params_ref & params, const char * f) {
     ast_manager m;
     dl_decl_util decl_util(m);
     smt_params fparams;
-    context ctx(m, fparams);
+    register_engine re;
+    context ctx(m, re, fparams);
     ctx.updt_params(params);
 
     datalog::parser * parser = datalog::parser::create(ctx, m);
@@ -60,7 +62,7 @@ void dl_context_saturate_file(params_ref & params, const char * f) {
     }
     dealloc(parser);
     std::cerr << "Saturating...\n";
-    ctx.get_rel_context().saturate();
+    ctx.get_rel_context()->saturate();
     std::cerr << "Done\n";
 }
 

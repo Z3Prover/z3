@@ -31,6 +31,8 @@ Revision History:
 #include"dl_mk_filter_rules.h"
 #include"dl_finite_product_relation.h"
 #include"dl_context.h"
+#include"rel_context.h"
+#include"dl_register_engine.h"
 #include"datalog_parser.h"
 #include"datalog_frontend.h"
 #include"timeout.h"
@@ -118,13 +120,14 @@ unsigned read_datalog(char const * file) {
     IF_VERBOSE(1, verbose_stream() << "Z3 Datalog Engine\n";);
     smt_params     s_params;
     ast_manager m;
+    datalog::register_engine re;
     g_overall_time.start();
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
     params_ref params;
     params.set_sym("engine", symbol("datalog"));
 
-    datalog::context ctx(m, s_params, params);
+    datalog::context ctx(m, re, s_params, params);
     datalog::relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
     datalog::relation_plugin & inner_plg = *rmgr.get_relation_plugin(symbol("tr_hashtable"));
     SASSERT(&inner_plg);
@@ -179,11 +182,11 @@ unsigned read_datalog(char const * file) {
         
         bool early_termination;
         unsigned timeout = ctx.initial_restart_timeout(); 
-        if(timeout == 0) {
+        if (timeout == 0) {
             timeout = UINT_MAX;
         }
         do {
-            ctx.transform_rules();
+            ctx.get_rel_context()->transform_rules();
             
             datalog::compiler::compile(ctx, ctx.get_rules(), rules_code, termination_code);
             
@@ -229,10 +232,9 @@ unsigned read_datalog(char const * file) {
         TRACE("dl_compiler", ctx.display(tout);
               rules_code.display(*ctx.get_rel_context(), tout););
         
-        if (ctx.get_params().output_tuples()) {
+        if (ctx.output_tuples()) {
             ctx.get_rel_context()->display_output_facts(ctx.get_rules(), std::cout);
         }
-
         display_statistics(
             std::cout,
             ctx,

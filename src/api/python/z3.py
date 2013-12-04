@@ -3856,32 +3856,6 @@ def is_array(a):
     """
     return isinstance(a, ArrayRef)
 
-def is_select(a):
-    """Return `True` if `a` is a Z3 array select.
-    
-    >>> a = Array('a', IntSort(), IntSort())
-    >>> is_select(a)
-    False
-    >>> i = Int('i')
-    >>> is_select(a[i])
-    True
-    """
-    return is_app_of(a, Z3_OP_SELECT)
-
-def is_store(a):
-    """Return `True` if `a` is a Z3 array store.
-    
-    >>> a = Array('a', IntSort(), IntSort())
-    >>> is_store(a)
-    False
-    >>> i = Int('i')
-    >>> is_store(a[i])
-    False
-    >>> is_store(Store(a, i, i + 1))
-    True
-    """
-    return is_app_of(a, Z3_OP_STORE)
-
 def is_const_array(a):
     """Return `True` if `a` is a Z3 constant array.
 
@@ -4072,7 +4046,8 @@ def is_select(a):
     >>> a = Array('a', IntSort(), IntSort())
     >>> is_select(a)
     False
-    >>> is_select(a[0])
+    >>> i = Int('i')
+    >>> is_select(a[i])
     True
     """
     return is_app_of(a, Z3_OP_SELECT)
@@ -6449,7 +6424,7 @@ class Tactic:
             _z3_assert(isinstance(goal, Goal) or isinstance(goal, BoolRef), "Z3 Goal or Boolean expressions expected")
         goal = _to_goal(goal)
         if len(arguments) > 0 or len(keywords) > 0:
-            p = args2params(arguments, keywords, a.ctx)
+            p = args2params(arguments, keywords, self.ctx)
             return ApplyResult(Z3_tactic_apply_ex(self.ctx.ref(), self.tactic, goal.goal, p.params), self.ctx)
         else:
             return ApplyResult(Z3_tactic_apply(self.ctx.ref(), self.tactic, goal.goal), self.ctx)
@@ -6474,7 +6449,7 @@ class Tactic:
 
 def _to_goal(a):
     if isinstance(a, BoolRef):
-        goal = Goal()
+        goal = Goal(ctx = a.ctx)
         goal.add(a)
         return goal
     else:
@@ -6957,10 +6932,10 @@ def substitute(t, *m):
     >>> x = Int('x')
     >>> y = Int('y')
     >>> substitute(x + 1, (x, y + 1))
-    2 + y
+    y + 1 + 1
     >>> f = Function('f', IntSort(), IntSort())
     >>> substitute(f(x) + f(y), (f(x), IntVal(1)), (f(y), IntVal(1)))
-    2
+    1 + 1
     """
     if isinstance(m, tuple):
         m1 = _get_args(m)

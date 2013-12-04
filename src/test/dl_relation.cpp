@@ -1,5 +1,7 @@
 #ifdef _WINDOWS
 #include "dl_context.h"
+#include "dl_register_engine.h"
+#include "dl_relation_manager.h"
 #include "dl_interval_relation.h"
 #include "dl_bound_relation.h"
 #include "dl_product_relation.h"
@@ -10,9 +12,10 @@ namespace datalog {
     static void test_interval_relation() {
         smt_params params;
         ast_manager ast_m;
-        context ctx(ast_m, params);    
+        register_engine re;
+        context ctx(ast_m, re, params);    
         arith_util autil(ast_m);
-        relation_manager & m = ctx.get_rel_context().get_rmanager();
+        relation_manager & m = ctx.get_rel_context()->get_rmanager();
         m.register_plugin(alloc(interval_relation_plugin, m));
         interval_relation_plugin& ip = dynamic_cast<interval_relation_plugin&>(*m.get_relation_plugin(symbol("interval_relation")));
         SASSERT(&ip);
@@ -113,9 +116,10 @@ namespace datalog {
 
         smt_params params;
         ast_manager ast_m;
-        context ctx(ast_m, params);    
+        register_engine re;
+        context ctx(ast_m, re, params);    
         arith_util autil(ast_m);
-        relation_manager & m = ctx.get_rel_context().get_rmanager();
+        relation_manager & m = ctx.get_rel_context()->get_rmanager();
         m.register_plugin(alloc(bound_relation_plugin, m));
         bound_relation_plugin& br = dynamic_cast<bound_relation_plugin&>(*m.get_relation_plugin(symbol("bound_relation")));
         SASSERT(&br);

@@ -118,7 +118,7 @@ public:
 
     void mk_eq(expr * arg1, expr * arg2, expr_ref & result) {
         if (mk_eq_core(arg1, arg2, result) == BR_FAILED)
-            result = m_util.mk_le(arg1, arg2);
+            result = m_util.mk_eq(arg1, arg2);
     }
     void mk_le(expr * arg1, expr * arg2, expr_ref & result) {
         if (mk_le_core(arg1, arg2, result) == BR_FAILED)

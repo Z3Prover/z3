@@ -360,6 +360,8 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         mk_inf(ebits, sbits, x.sign, o);
     else if (is_zero(x))
         mk_zero(ebits, sbits, x.sign, o);
+    else if (x.ebits == ebits && x.sbits == sbits) 
+        set(o, x);
     else {
         set(o, x);
         unpack(o, true);
@@ -1378,12 +1380,12 @@ bool mpf_manager::has_top_exp(mpf const & x) {
 }
 
 mpf_exp_t mpf_manager::mk_bot_exp(unsigned ebits) {
-    SASSERT(ebits > 0);    
+    SASSERT(ebits >= 2);
     return m_mpz_manager.get_int64(m_powers2.m1(ebits-1, true));
 }
 
 mpf_exp_t mpf_manager::mk_top_exp(unsigned ebits) {
-    SASSERT(ebits > 0);        
+    SASSERT(ebits >= 2);        
     return m_mpz_manager.get_int64(m_powers2(ebits-1));
 }
 

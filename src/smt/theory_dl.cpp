@@ -91,7 +91,7 @@ namespace smt {
                 rational val;
                 if (ctx.e_internalized(rep_of) && th_bv && 
                     th_bv->get_fixed_value(rep_of.get(), val)) {
-                        result = m_th.u().mk_numeral(val.get_int64(), s);
+                    result = m_th.u().mk_numeral(val.get_int64(), s);
                 }
                 else {
                     result = m_th.u().mk_numeral(0, s);

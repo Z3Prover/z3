@@ -204,6 +204,8 @@ namespace z3 {
         
         func_decl function(symbol const & name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(char const * name, unsigned arity, sort const * domain, sort const & range);
+        func_decl function(symbol const&  name, sort_vector const& domain, sort const& range);
+        func_decl function(char const * name, sort_vector const& domain, sort const& range);
         func_decl function(char const * name, sort const & domain, sort const & range);
         func_decl function(char const * name, sort const & d1, sort const & d2, sort const & range);
         func_decl function(char const * name, sort const & d1, sort const & d2, sort const & d3, sort const & range);
@@ -429,6 +431,7 @@ namespace z3 {
 
         expr operator()() const;
         expr operator()(unsigned n, expr const * args) const;
+        expr operator()(expr_vector const& v) const;
         expr operator()(expr const & a) const;
         expr operator()(int a) const;
         expr operator()(expr const & a1, expr const & a2) const;
@@ -1516,6 +1519,22 @@ namespace z3 {
     inline func_decl context::function(char const * name, unsigned arity, sort const * domain, sort const & range) {
         return function(range.ctx().str_symbol(name), arity, domain, range);
     }
+
+    inline func_decl context::function(symbol const& name, sort_vector const& domain, sort const& range) {
+        array<Z3_sort> args(domain.size());
+        for (unsigned i = 0; i < domain.size(); i++) {
+            check_context(domain[i], range);
+            args[i] = domain[i];
+        }
+        Z3_func_decl f = Z3_mk_func_decl(m_ctx, name, domain.size(), args.ptr(), range);
+        check_error();
+        return func_decl(*this, f);
+    }
+    
+    inline func_decl context::function(char const * name, sort_vector const& domain, sort const& range) {
+        return function(range.ctx().str_symbol(name), domain, range);        
+    }
+
     
     inline func_decl context::function(char const * name, sort const & domain, sort const & range) {
         check_context(domain, range);
@@ -1601,6 +1620,16 @@ namespace z3 {
         check_error();
         return expr(ctx(), r);
     
+    }
+    inline expr func_decl::operator()(expr_vector const& args) const {
+        array<Z3_ast> _args(args.size());
+        for (unsigned i = 0; i < args.size(); i++) {
+            check_context(*this, args[i]);
+            _args[i] = args[i];
+        }
+        Z3_ast r = Z3_mk_app(ctx(), *this, args.size(), _args.ptr());
+        check_error();
+        return expr(ctx(), r);    
     }
     inline expr func_decl::operator()() const {
         Z3_ast r = Z3_mk_app(ctx(), *this, 0, 0);

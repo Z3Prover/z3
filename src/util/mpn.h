@@ -101,7 +101,7 @@ private:
     bool div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
                mpn_digit * quot, mpn_digit * rem);
 
-    #ifdef _DEBUG
+    #ifdef Z3DEBUG
     mutable char char_buf[4096];
     bool trace_enabled;
     #endif

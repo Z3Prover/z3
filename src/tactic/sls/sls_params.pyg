@@ -1,0 +1,8 @@
+def_module_params('sls', 
+                  export=True,
+                  description='Experimental Stochastic Local Search Solver (for QFBV only).',
+                  params=(max_memory_param(),
+                          ('restarts', UINT, UINT_MAX, '(max) number of restarts'),
+                          ('plateau_limit', UINT, 10, 'pleateau limit'),
+			  ('random_seed', UINT, 0, 'random seed')
+			  ))
