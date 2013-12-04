@@ -108,7 +108,7 @@ namespace opt {
     lbool context::execute_lex() {
         lbool r = l_true;
         for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
-            r = execute(m_objectives[i], true);
+            r = execute(m_objectives[i], i + 1 < m_objectives.size());
         }
         return r;
     }    
@@ -178,6 +178,31 @@ namespace opt {
             }
         }
         m_optsmt.display_range_assignment(out);
+    }
+
+    expr_ref context::get_lower(unsigned idx) {
+        NOT_IMPLEMENTED_YET();
+        if (idx > m_objectives.size()) {
+            throw default_exception("index out of bounds"); 
+        }
+        objective const& obj = m_objectives[idx];
+        switch(obj.m_type) {
+        case O_MAXSMT: {
+            maxsmt* ms = m_maxsmts.find(obj.m_id);
+            inf_eps l = ms->get_lower();
+            break;
+        }
+        case O_MAXIMIZE:
+        case O_MINIMIZE:
+            break;
+        }
+
+        return expr_ref(0,m);
+    }
+
+    expr_ref context::get_upper(unsigned idx) {
+        NOT_IMPLEMENTED_YET();
+        return expr_ref(0, m);
     }
         
     void context::set_cancel(bool f) {

@@ -80,6 +80,10 @@ namespace opt {
         void display_range_assignment(std::ostream& out);
         static void collect_param_descrs(param_descrs & r);
         void updt_params(params_ref& p);
+
+        expr_ref get_lower(unsigned idx);
+        expr_ref get_upper(unsigned idx);
+
     private:
         void validate_feasibility(maxsmt& ms);
 
