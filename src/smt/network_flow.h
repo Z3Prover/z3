@@ -30,7 +30,7 @@ Notes:
 
 #include"inf_rational.h"
 #include"diff_logic.h"
-#include"spanning_tree_def.h"
+#include"spanning_tree.h"
 
 namespace smt {
 

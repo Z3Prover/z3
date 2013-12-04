@@ -43,16 +43,15 @@ namespace smt {
     }
 
     class spanning_tree_base { 
-    private:
-        typedef int node;
-
     public:
+        typedef int node_id;
+        typedef int edge_id;
         virtual void initialize(svector<edge_id> const & tree) = 0;
-        virtual void get_descendants(node start, svector<node> & descendants) = 0;
+        virtual void get_descendants(node_id start, svector<node_id> & descendants) = 0;
         
         virtual void update(edge_id enter_id, edge_id leave_id) = 0;
-        virtual void get_path(node start, node end, svector<edge_id> & path, svector<bool> & against) = 0;
-        virtual bool in_subtree_t2(node child) = 0;
+        virtual void get_path(node_id start, node_id end, svector<edge_id> & path, svector<bool> & against) = 0;
+        virtual bool in_subtree_t2(node_id child) = 0;
 
         virtual bool check_well_formed() = 0;
     };

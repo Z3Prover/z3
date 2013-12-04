@@ -22,6 +22,7 @@ Notes:
 
 #include"network_flow.h"
 #include"uint_set.h"
+#include"spanning_tree_def.h"
 
 namespace smt {
 
