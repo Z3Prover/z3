@@ -645,7 +645,7 @@ namespace smt {
         }
 
         // perform unit propagation
-        if (false && maxsum >= c.k() && maxsum - mininc < c.k()) { 
+        if (maxsum >= c.k() && maxsum - mininc < c.k()) { 
             literal_vector& lits = get_unhelpful_literals(c, true);
             lits.push_back(c.lit());
             for (unsigned i = 0; i < c.size(); ++i) {
