@@ -387,7 +387,7 @@ namespace smt {
         }
         if (ctx.b_internalized(arg)) {
             bv = ctx.get_bool_var(arg);
-            if (null_theory_var == ctx.get_var_theory(bv)) {
+            if (is_uninterp(arg) && null_theory_var == ctx.get_var_theory(bv)) {
                 ctx.set_var_theory(bv, get_id());
             }
             has_bv = (ctx.get_var_theory(bv) == get_id());
@@ -423,6 +423,7 @@ namespace smt {
             expr_ref tmp(m), fml(m);
             tmp = m.mk_fresh_const("pb_proxy",m.mk_bool_sort());
             fml = m.mk_iff(tmp, arg);
+            TRACE("pb", tout << "create proxy " << fml << "\n";);
             ctx.internalize(fml, false);
             SASSERT(ctx.b_internalized(tmp));
             bv = ctx.get_bool_var(tmp);
@@ -537,8 +538,9 @@ namespace smt {
                 break;
             }
         }
-        TRACE("pb", display(tout << "validate: ", c);
-              tout << "sum: " << sum << " " << maxsum << " " << ctx.get_assignment(c.lit()) << "\n";
+        TRACE("pb", display(tout << "validate: ", c, true);
+              tout << "sum: " << sum << " " << maxsum << " ";
+              tout << ctx.get_assignment(c.lit()) << "\n";
               );
 
         SASSERT(sum <= maxsum);
@@ -551,6 +553,7 @@ namespace smt {
         context& ctx = get_context();
         ptr_vector<ineq>* ineqs = 0;
         literal nlit(v, is_true);
+        TRACE("pb", tout << "assign: " << ~nlit << "\n";);
         if (m_watch.find(nlit.index(), ineqs)) {
             for (unsigned i = 0; i < ineqs->size(); ++i) {
                 if (assign_watch(v, is_true, *ineqs, i)) {
@@ -609,9 +612,14 @@ namespace smt {
 
         context& ctx = get_context();
         numeral maxsum = numeral::zero();
+        numeral mininc = numeral::zero();
         for (unsigned i = 0; i < c.size(); ++i) {
-            if (ctx.get_assignment(c.lit(i)) != l_false) {
+            lbool asgn = ctx.get_assignment(c.lit(i));
+            if (asgn != l_false) {
                 maxsum += c.coeff(i);
+            }
+            if (asgn == l_undef && (mininc.is_zero() || mininc > c.coeff(i))) {
+                mininc = c.coeff(i);
             }
         }
 
@@ -634,6 +642,17 @@ namespace smt {
             }
             SASSERT(c.max_sum() >= c.k());
             m_assign_ineqs_trail.push_back(&c);
+        }
+
+        // perform unit propagation
+        if (false && maxsum >= c.k() && maxsum - mininc < c.k()) { 
+            literal_vector& lits = get_unhelpful_literals(c, true);
+            lits.push_back(c.lit());
+            for (unsigned i = 0; i < c.size(); ++i) {
+                if (ctx.get_assignment(c.lit(i)) == l_undef) {
+                    add_assign(c, lits, c.lit(i));
+                }                
+            }
         }
     }
 
@@ -709,7 +728,7 @@ namespace smt {
         }
 
         TRACE("pb", 
-              tout << "assign: " << literal(v) << " <- " << is_true << "\n";
+              tout << "assign: " << literal(v,!is_true) << "\n";
               display(tout, c); );
 
 
@@ -966,11 +985,21 @@ namespace smt {
     std::ostream& theory_pb::display(std::ostream& out, ineq& c, bool values) const {
         ast_manager& m = get_manager();
         context& ctx = get_context();
-        out << c.lit() << " ";
+        out << c.lit();
         if (c.lit() != null_literal) {
+            if (values) {
+                out << "@(" << ctx.get_assignment(c.lit());
+                if (ctx.get_assignment(c.lit()) != l_undef) {
+                    out << ":" << ctx.get_assign_level(c.lit());
+                }
+                out << ")";
+            }
             expr_ref tmp(m);
             ctx.literal2expr(c.lit(), tmp);
-            out << tmp << "\n";
+            out << " " << tmp << "\n";
+        }
+        else {
+            out << " ";
         }
         for (unsigned i = 0; i < c.size(); ++i) {
             literal l(c.lit(i));
@@ -1141,7 +1170,7 @@ namespace smt {
         }
 
         SASSERT(ctx.get_assignment(c.lit()) == l_true);
-        if (ctx.get_assign_level(c.lit().var()) > ctx.get_base_level()) {
+        if (ctx.get_assign_level(c.lit()) > ctx.get_base_level()) {
             m_ineq_literals.push_back(c.lit());
         }
     }
