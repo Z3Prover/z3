@@ -147,14 +147,24 @@ extern "C" {
     
     // get lower value or current approximation
     Z3_ast Z3_API Z3_optimize_get_lower(Z3_context c, Z3_optimize o, unsigned idx) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        Z3_TRY;
+        LOG_Z3_optimize_get_lower(c, o, idx);
+        RESET_ERROR_CODE();
+        expr_ref e = to_optimize_ref(o).get_lower(idx);
+        mk_c(c)->save_ast_trail(e);
+        RETURN_Z3(of_expr(e));
+        Z3_CATCH_RETURN(0);
     }
 
     // get upper or current approximation
     Z3_ast Z3_API Z3_optimize_get_upper(Z3_context c, Z3_optimize o, unsigned idx) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        Z3_TRY;
+        LOG_Z3_optimize_get_upper(c, o, idx);
+        RESET_ERROR_CODE();
+        expr_ref e = to_optimize_ref(o).get_upper(idx);
+        mk_c(c)->save_ast_trail(e);
+        RETURN_Z3(of_expr(e));
+        Z3_CATCH_RETURN(0);
     }
 
 #if 0

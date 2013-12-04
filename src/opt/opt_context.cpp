@@ -21,6 +21,7 @@ Notes:
 #include "ast_pp.h"
 #include "opt_solver.h"
 #include "opt_params.hpp"
+#include "arith_decl_plugin.h"
 
 namespace opt {
 
@@ -52,8 +53,10 @@ namespace opt {
     }
 
     void context::add_objective(app* t, bool is_max) {
-        app_ref tr(m);
-        m_objectives.push_back(objective(is_max, tr));
+        app_ref tr(t, m);
+        unsigned index = m_optsmt.get_num_objectives();
+        m_optsmt.add(t, is_max);
+        m_objectives.push_back(objective(is_max, tr, index));
     }
 
     lbool context::optimize() {
@@ -79,27 +82,26 @@ namespace opt {
         }
     }
 
-    lbool context::execute_min_max(app* obj, bool committed, bool is_max) {
-        // HACK: reuse m_optsmt but add only a single objective each round
-        m_optsmt.add(obj, is_max);
+    lbool context::execute_min_max(unsigned index, bool committed, bool is_max) {
+        // HACK: reuse m_optsmt without regard for box reuse and not considering
+        // use-case of lex.
         lbool result = m_optsmt(get_solver());
-        if (committed) m_optsmt.commit_assignment(0);
+        if (committed) m_optsmt.commit_assignment(index);
         return result;
     }
 
 
     lbool context::execute_maxsat(symbol const& id, bool committed) {
-        maxsmt* ms;
-        VERIFY(m_maxsmts.find(id, ms));
-        lbool result = (*ms)(get_solver());
-        if (committed) ms->commit_assignment();
+        maxsmt& ms = *m_maxsmts.find(id);
+        lbool result = ms(get_solver());
+        if (committed) ms.commit_assignment();
         return result;
     }
 
     lbool context::execute(objective const& obj, bool committed) {
         switch(obj.m_type) {
-        case O_MAXIMIZE: return execute_min_max(obj.m_term, committed, true);
-        case O_MINIMIZE: return execute_min_max(obj.m_term, committed, false);
+        case O_MAXIMIZE: return execute_min_max(obj.m_index, committed, true);
+        case O_MINIMIZE: return execute_min_max(obj.m_index, committed, false);
         case O_MAXSMT: return execute_maxsat(obj.m_id, committed);
         default: UNREACHABLE(); return l_undef;
         }
@@ -181,28 +183,59 @@ namespace opt {
     }
 
     expr_ref context::get_lower(unsigned idx) {
-        NOT_IMPLEMENTED_YET();
         if (idx > m_objectives.size()) {
             throw default_exception("index out of bounds"); 
         }
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
-        case O_MAXSMT: {
-            maxsmt* ms = m_maxsmts.find(obj.m_id);
-            inf_eps l = ms->get_lower();
-            break;
-        }
-        case O_MAXIMIZE:
+        case O_MAXSMT: 
+            return to_expr(m_maxsmts.find(obj.m_id)->get_lower());
         case O_MINIMIZE:
-            break;
+        case O_MAXIMIZE: 
+            return to_expr(m_optsmt.get_lower(obj.m_index));
+        default:
+            UNREACHABLE();
+            return expr_ref(m);
         }
-
-        return expr_ref(0,m);
     }
 
     expr_ref context::get_upper(unsigned idx) {
-        NOT_IMPLEMENTED_YET();
-        return expr_ref(0, m);
+        if (idx > m_objectives.size()) {
+            throw default_exception("index out of bounds"); 
+        }
+        objective const& obj = m_objectives[idx];
+        switch(obj.m_type) {
+        case O_MAXSMT: 
+            return to_expr(m_maxsmts.find(obj.m_id)->get_upper());
+        case O_MINIMIZE:
+        case O_MAXIMIZE: 
+            return to_expr(m_optsmt.get_upper(obj.m_index));
+        default:
+            UNREACHABLE();
+            return expr_ref(m);
+        }
+    }
+
+    expr_ref context::to_expr(inf_eps const& n) {
+        rational inf = n.get_infinity();
+        rational r   = n.get_rational();
+        rational eps = n.get_infinitesimal();
+        expr_ref_vector args(m);
+        arith_util a(m);
+        if (!inf.is_zero()) {
+            args.push_back(a.mk_mul(a.mk_numeral(inf, inf.is_int()), m.mk_const(symbol("oo"), a.mk_int())));
+        }
+        if (!r.is_zero()) {
+            args.push_back(a.mk_numeral(r, r.is_int()));
+        }
+        if (!eps.is_zero()) {
+            args.push_back(a.mk_mul(a.mk_numeral(eps, eps.is_int()), m.mk_const(symbol("epsilon"), a.mk_int())));
+        }
+        switch(args.size()) {
+        case 0: return expr_ref(a.mk_numeral(rational(0), true), m);
+        case 1: return expr_ref(args[0].get(), m);
+        default: return expr_ref(a.mk_add(args.size(), args.c_ptr()), m);
+        }
     }
         
     void context::set_cancel(bool f) {

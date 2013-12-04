@@ -45,15 +45,18 @@ namespace opt {
             objective_t m_type;
             app_ref     m_term; // for maximize, minimize
             symbol      m_id;   // for maxsmt
-            objective(bool is_max, app_ref& t):
+            unsigned    m_index;
+            objective(bool is_max, app_ref& t, unsigned idx):
                 m_type(is_max?O_MAXIMIZE:O_MINIMIZE),
                 m_term(t),
-                m_id()
+                m_id(),
+                m_index(idx)
             {}
             objective(ast_manager& m, symbol id):
                 m_type(O_MAXSMT),
                 m_term(m),
-                m_id(id)
+                m_id(id),
+                m_index(0)
             {}
         };
         ast_manager&        m;
@@ -88,11 +91,12 @@ namespace opt {
         void validate_feasibility(maxsmt& ms);
 
         lbool execute(objective const& obj, bool committed);
-        lbool execute_min_max(app* obj, bool committed, bool is_max);
+        lbool execute_min_max(unsigned index, bool committed, bool is_max);
         lbool execute_maxsat(symbol const& s, bool committed);
         lbool execute_lex();
         lbool execute_box();
         lbool execute_pareto();
+        expr_ref to_expr(inf_eps const& n);
 
         void push();
         void pop(unsigned sz);
