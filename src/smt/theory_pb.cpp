@@ -616,7 +616,7 @@ namespace smt {
         }
 
         TRACE("pb", 
-              tout << "assign: " << c.lit() << " <- " << is_true << "\n";
+              tout << "assign: " << c.lit() << "\n";
               display(tout, c); );
 
         if (maxsum < c.k()) {
@@ -1243,6 +1243,10 @@ namespace smt {
                 TRACE("pb", tout << "binary: " << js.get_literal() << "\n";);
                 break;
             case b_justification::AXIOM:
+                if (ctx.get_assign_level(v) > ctx.get_base_level()) {
+                    m_ineq_literals.push_back(conseq);
+                }
+                TRACE("pb", tout << "axiom " << conseq << "\n";);
                 break;
             case b_justification::JUSTIFICATION: {
                 justification& j = *js.get_justification(); 
@@ -1267,7 +1271,11 @@ namespace smt {
             unset_mark(m_lemma.lit(i));
         }
 
-        TRACE("pb", display(tout << "lemma: ", m_lemma););
+        TRACE("pb", 
+              for (unsigned i = 0; i < m_ineq_literals.size(); ++i) {
+                  tout << m_ineq_literals[i] << " ";
+              }
+              display(tout << "=> ", m_lemma););
 
         hoist_maximal_values();
 
