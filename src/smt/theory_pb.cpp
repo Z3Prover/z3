@@ -1251,6 +1251,7 @@ namespace smt {
                 justification* cjs = cls.get_justification();
                 if (cjs) {
                     IF_VERBOSE(0, verbose_stream() << "skipping justification for clause over: " << conseq << "\n";);
+                    m_ineq_literals.push_back(conseq);
                     break;
                 }
                 unsigned num_lits = cls.get_num_literals();
@@ -1282,6 +1283,7 @@ namespace smt {
                 // only process pb justifications.
                 if (j.get_from_theory() != get_id()) {
                     IF_VERBOSE(0, verbose_stream() << "skipping justification for " << conseq << "\n";);
+                    m_ineq_literals.push_back(conseq);
                     break;
                 }
                 pb_justification& pbj = dynamic_cast<pb_justification&>(j);
