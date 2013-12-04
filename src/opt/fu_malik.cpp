@@ -205,12 +205,13 @@ namespace opt {
                 if (!found) {
                     continue;
                 }
-                expr_ref block_var(m);
+                expr_ref block_var(m), tmp(m);
                 block_var = m.mk_fresh_const("block_var", m.mk_bool_sort());
                 m_aux[i] = m.mk_fresh_const("aux", m.mk_bool_sort());
                 m_soft[i] = m.mk_or(m_soft[i].get(), block_var);
                 block_vars.push_back(block_var);
-                s().assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
+                tmp = m.mk_or(m_soft[i].get(), m_aux[i].get());
+                s().assert_expr(tmp);
             }
             SASSERT (!block_vars.empty());
             assert_at_most_one(block_vars);
@@ -252,7 +253,9 @@ namespace opt {
             for (unsigned i = 0; i < num_assertions; ++i) {
                 g.assert_expr(current_solver.get_assertion(i));
             }            
-            probe *p = mk_is_qfbv_probe();
+#if 0
+            // TBD: this leaks references somehow
+            probe_ref p = mk_is_qfbv_probe();
             bool all_bv = (*p)(g).is_true();
             if (all_bv) {                
                 smt::context & ctx = opt_s.get_context();                
@@ -266,6 +269,7 @@ namespace opt {
                 m_use_new_bv_solver = true;
                 IF_VERBOSE(1, verbose_stream() << "Force to use the new BV solver." << std::endl;);
             }
+#endif
         }
 
         // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
@@ -274,9 +278,11 @@ namespace opt {
             lbool is_sat = s().check_sat(0,0);
             if (!m_soft.empty() && is_sat == l_true) {
                 solver::scoped_push _sp(s());
+                expr_ref tmp(m);
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
-                    s().assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
+                    tmp = m.mk_or(m_soft[i].get(), m_aux[i].get());
+                    s().assert_expr(tmp);
                 }
                 
                 lbool is_sat = l_true;                
