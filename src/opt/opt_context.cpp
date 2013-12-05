@@ -66,24 +66,34 @@ namespace opt {
             s.assert_expr(m_hard_constraints[i].get());
         }
 
-        if (m_objectives.size() == 1) {
+        lbool is_sat = s.check_sat_core(0,0);
+        if (is_sat != l_true) {
+            m_model = 0;
+            return is_sat;
+        }
+        s.get_model(m_model);
+        switch (m_objectives.size()) {
+        case 0:
+            return is_sat;
+        case 1:
             return execute(m_objectives[0], false);
+        default: {
+            symbol pri = m_params.get_sym("priority", symbol("lex"));
+            if (pri == symbol("pareto")) {
+                return execute_pareto();
+            }
+            else if (pri == symbol("box")) {
+                return execute_box();
+            }
+            else {
+                return execute_lex();
+            }
         }
-
-        symbol pri = m_params.get_sym("priority", symbol("lex"));
-        if (pri == symbol("pareto")) {
-            return execute_pareto();
-        }
-        else if (pri == symbol("box")) {
-            return execute_box();
-        }
-        else {
-            return execute_lex();
         }
     }
 
     void context::get_model(model_ref& mdl) {
-        get_solver().get_model(mdl);
+        mdl = m_model;
     }
 
     lbool context::execute_min_max(unsigned index, bool committed, bool is_max) {

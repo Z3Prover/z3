@@ -66,6 +66,7 @@ namespace opt {
         optsmt              m_optsmt;        
         map_t               m_maxsmts;
         vector<objective>   m_objectives;
+        model_ref           m_model;
     public:
         context(ast_manager& m);
         ~context();
