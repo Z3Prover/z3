@@ -25,15 +25,8 @@ Notes:
 
 namespace smt {
     template<typename TV>
-    inline std::string pp_vector(std::string const & label, TV v, bool has_header = false) {
+    inline std::string pp_vector(std::string const & label, TV v) {
         std::ostringstream oss;
-        if (has_header) {
-            oss << "Index ";
-            for (unsigned i = 0; i < v.size(); ++i) {
-                oss << i << " ";
-            }
-            oss << std::endl;
-        }
         oss << label << " ";
         for (unsigned i = 0; i < v.size(); ++i) {
             oss << v[i] << " ";

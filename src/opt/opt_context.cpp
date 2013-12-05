@@ -82,6 +82,10 @@ namespace opt {
         }
     }
 
+    void context::get_model(model_ref& mdl) {
+        get_solver().get_model(mdl);
+    }
+
     lbool context::execute_min_max(unsigned index, bool committed, bool is_max) {
         // HACK: reuse m_optsmt without regard for box reuse and not considering
         // use-case of lex.

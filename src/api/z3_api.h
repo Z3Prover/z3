@@ -6022,6 +6022,17 @@ END_MLAPI_EXCLUDE
 
 
     /**
+       \brief Retrieve the model for the last #Z3_optimize_check
+
+       The error handler is invoked if a model is not available because 
+       the commands above were not invoked for the given optimization 
+       solver, or if the result was \c Z3_L_FALSE.
+       
+       def_API('Z3_optimize_get_model', MODEL, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_model Z3_API Z3_optimize_get_model(Z3_context c, Z3_optimize o);
+
+    /**
        \brief Set parameters on optimization context.       
 
        \param c - context

@@ -50,7 +50,7 @@ namespace smt {
         }
 
         TRACE("network_flow", {
-            tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Threads", m_thread); 
+            tout << pp_vector("Predecessors", m_pred) << pp_vector("Threads", m_thread); 
             tout << pp_vector("Depths", m_depth) << pp_vector("Tree", m_tree);
         });
     }
@@ -204,7 +204,7 @@ namespace smt {
         SASSERT(in_subtree_t2(v));
 
         TRACE("network_flow", {
-            tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Threads", m_thread); 
+            tout << pp_vector("Predecessors", m_pred) << pp_vector("Threads", m_thread); 
             tout << pp_vector("Depths", m_depth) << pp_vector("Tree", m_tree);
             });
     }

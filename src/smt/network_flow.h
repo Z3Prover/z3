@@ -77,9 +77,9 @@ namespace smt {
         protected:
             graph & m_graph;
             svector<edge_state> & m_states;
-            vector<numeral> & m_potentials;
-            edge_id & m_enter_id;
-
+            vector<numeral> &     m_potentials;
+            edge_id &             m_enter_id;
+            bool edge_in_tree(edge_id id) const { return m_states[id] == BASIS; }
         public: 
             pivot_rule_impl(graph & g, vector<numeral> & potentials, 
                             svector<edge_state> & states, edge_id & enter_id) 
@@ -88,46 +88,21 @@ namespace smt {
                   m_states(states),
                   m_enter_id(enter_id) {
             }
+            virtual ~pivot_rule_impl() {}
             virtual bool choose_entering_edge() = 0;
+            virtual pivot_rule rule() const = 0;
         };
         
         class first_eligible_pivot : public pivot_rule_impl {
-        private:
             edge_id m_next_edge;
-
         public:
             first_eligible_pivot(graph & g, vector<numeral> & potentials, 
                                  svector<edge_state> & states, edge_id & enter_id) : 
                 pivot_rule_impl(g, potentials, states, enter_id),
                 m_next_edge(0) {
             }
-
-            bool choose_entering_edge() {
-                TRACE("network_flow", tout << "choose_entering_edge...\n";);        
-                int num_edges = m_graph.get_num_edges();
-                for (int i = m_next_edge; i < m_next_edge + num_edges; ++i) {
-                    edge_id id = (i >= num_edges) ? (i - num_edges) : i;
-                    node src = m_graph.get_source(id);
-                    node tgt = m_graph.get_target(id);
-                    if (m_states[id] != BASIS) {
-                        numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
-                        if (cost.is_pos()) {
-                            m_enter_id = id;
-                            TRACE("network_flow", {
-                                tout << "Found entering edge " << id << " between node ";
-                                tout << src << " and node " << tgt << " with reduced cost = " << cost << "...\n";
-                            });
-                            m_next_edge = m_enter_id;
-                            if (m_next_edge >= num_edges) {
-                                m_next_edge -= num_edges;
-                            }
-                            return true;
-                        }
-                    }
-                }
-                TRACE("network_flow", tout << "Found no entering edge...\n";);
-                return false;
-            };
+            virtual bool choose_entering_edge(); 
+            virtual pivot_rule rule() const { return FIRST_ELIGIBLE; }
         };
 
         class best_eligible_pivot : public pivot_rule_impl {
@@ -136,33 +111,8 @@ namespace smt {
                                  svector<edge_state> & states, edge_id & enter_id) : 
                 pivot_rule_impl(g, potentials, states, enter_id) {
             }
-
-            bool choose_entering_edge() {
-                TRACE("network_flow", tout << "choose_entering_edge...\n";);        
-                unsigned num_edges = m_graph.get_num_edges();
-                numeral max = numeral::zero();
-                for (unsigned i = 0; i < num_edges; ++i) {
-                    node src = m_graph.get_source(i);
-                    node tgt = m_graph.get_target(i);
-                    if (m_states[i] != BASIS) {
-                        numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(i);
-                        if (cost > max) {
-                            max = cost;
-                            m_enter_id = i;
-                        }
-                    }
-                }
-                if (max.is_pos()) {
-                    TRACE("network_flow", {
-                        tout << "Found entering edge " << m_enter_id << " between node ";
-                        tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
-                        tout << " with reduced cost = " << max << "...\n";
-                    });
-                    return true;
-                }
-                TRACE("network_flow", tout << "Found no entering edge...\n";);
-                return false;
-            };
+            virtual pivot_rule rule() const { return BEST_ELIGIBLE; }
+            virtual bool choose_entering_edge();
         };
 
         class candidate_list_pivot : public pivot_rule_impl {
@@ -186,94 +136,22 @@ namespace smt {
                 m_candidates(m_num_candidates) {
             }
 
-            bool choose_entering_edge() {
-                if (m_current_length == 0 || m_minor_step == MINOR_STEP_LIMIT) {
-                    // Build the candidate list
-                    unsigned num_edges = m_graph.get_num_edges();
-                    numeral max = numeral::zero();
-                    m_current_length = 0;
-                    for (unsigned i = m_next_edge; i < m_next_edge + num_edges; ++i) {
-                        edge_id id = (i >= num_edges) ? i - num_edges : i;
-                        node src = m_graph.get_source(id);
-                        node tgt = m_graph.get_target(id);
-                        if (m_states[id] != BASIS) {
-                            numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
-                            if (cost.is_pos()) {
-                                m_candidates[m_current_length] = id;
-                                ++m_current_length;
-                                if (cost > max) {
-                                    max = cost;
-                                    m_enter_id = id;
-                                }
-                            }
-                            if (m_current_length >= m_num_candidates) break;
-                        }
-                    }
-                    m_next_edge = m_enter_id;
-                    m_minor_step = 1;
-                    if (max.is_pos()) {
-                        TRACE("network_flow", {
-                            tout << "Found entering edge " << m_enter_id << " between node ";
-                            tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
-                            tout << " with reduced cost = " << max << "...\n";
-                        });
-                        return true;
-                    }
-                    TRACE("network_flow", tout << "Found no entering edge...\n";);
-                    return false;
-                }
+            virtual pivot_rule rule() const { return CANDIDATE_LIST; }
 
-                ++m_minor_step;
-                numeral max = numeral::zero();
-                for (unsigned i = 0; i < m_current_length; ++i) {
-                    edge_id id = m_candidates[i];
-                    node src = m_graph.get_source(id);
-                    node tgt = m_graph.get_target(id);
-                    if (m_states[id] != BASIS) {
-                        numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
-                        if (cost > max) {
-                            max = cost;
-                            m_enter_id = id;
-                        }
-                        // Remove stale candidates
-                        if (!cost.is_pos()) {
-                            --m_current_length;
-                            m_candidates[i] = m_candidates[m_current_length];
-                            --i;
-                        }
-                    }
-                }
-                if (max.is_pos()) {
-                    TRACE("network_flow", {
-                        tout << "Found entering edge " << m_enter_id << " between node ";
-                        tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
-                        tout << " with reduced cost = " << max << "...\n";
-                    });
-                    return true;
-                }
-                TRACE("network_flow", tout << "Found no entering edge...\n";);
-                return false;
-            };
+            virtual bool choose_entering_edge();
         };
         
-        graph m_graph;
-        spanning_tree_base * m_tree;
-
-        // Denote supply/demand b_i on node i
-        vector<fin_numeral> m_balances;
-
-        // Duals of flows which are convenient to compute dual solutions
-        vector<numeral> m_potentials;
-
-        // Basic feasible flows
-        vector<numeral> m_flows;
-        
-        svector<edge_state> m_states;
-
-        unsigned m_step;
-
-        edge_id m_enter_id, m_leave_id;
-        optional<numeral> m_delta;
+        graph                m_graph;
+        scoped_ptr<spanning_tree_base> m_tree;
+        scoped_ptr<pivot_rule_impl>    m_pivot;
+        vector<fin_numeral>  m_balances;     // Denote supply/demand b_i on node i
+        vector<numeral>      m_potentials;   // Duals of flows which are convenient to compute dual solutions        
+        vector<numeral>      m_flows;        // Basic feasible flows
+        svector<edge_state>  m_states;
+        unsigned             m_step;
+        edge_id              m_enter_id;
+        edge_id              m_leave_id;
+        optional<numeral>    m_delta;
 
         // Initialize the network with a feasible spanning tree
         void initialize();
@@ -289,6 +167,8 @@ namespace smt {
         bool choose_leaving_edge();
 
         void update_spanning_tree();
+
+        numeral get_cost() const;
 
         bool edge_in_tree(edge_id id) const;
 

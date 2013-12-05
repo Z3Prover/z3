@@ -75,6 +75,8 @@ namespace opt {
 
         lbool optimize();
 
+        void get_model(model_ref& m);
+
         void set_cancel(bool f);
         void reset_cancel() { set_cancel(false); }
         void cancel() { set_cancel(true); }

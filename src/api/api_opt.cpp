@@ -20,6 +20,7 @@ Revision History:
 #include"api_log_macros.h"
 #include"api_context.h"
 #include"api_util.h"
+#include"api_model.h"
 #include"opt_context.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
@@ -120,6 +121,23 @@ extern "C" {
         }
         return of_lbool(r);
         Z3_CATCH_RETURN(Z3_L_UNDEF);
+    }
+
+    Z3_model Z3_API Z3_optimize_get_model(Z3_context c, Z3_optimize o) {
+        Z3_TRY;
+        LOG_Z3_optimize_get_model(c, o);
+        RESET_ERROR_CODE();
+        model_ref _m;
+        to_optimize_ref(o).get_model(_m);
+        if (!_m) {
+            SET_ERROR_CODE(Z3_INVALID_USAGE);
+            RETURN_Z3(0);
+        }
+        Z3_model_ref * m_ref = alloc(Z3_model_ref); 
+        m_ref->m_model = _m;
+        mk_c(c)->save_object(m_ref);
+        RETURN_Z3(of_model(m_ref));
+        Z3_CATCH_RETURN(0);
     }
 
     void Z3_API Z3_optimize_set_params(Z3_context c, Z3_optimize o, Z3_params p) {

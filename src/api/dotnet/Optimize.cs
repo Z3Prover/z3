@@ -108,6 +108,26 @@ namespace Microsoft.Z3
                 default: return Status.UNKNOWN;
             }         
         }
+
+        /// <summary>
+        /// The model of the last <c>Check</c>.
+        /// </summary>
+        /// <remarks>
+        /// The result is <c>null</c> if <c>Check</c> was not invoked before,
+        /// if its results was not <c>SATISFIABLE</c>, or if model production is not enabled.
+        /// </remarks>
+        public Model Model
+        {
+            get
+            {
+                IntPtr x = Native.Z3_optimize_get_model(Context.nCtx, NativeObject);
+                if (x == IntPtr.Zero)
+                    return null;
+                else
+                    return new Model(Context, x);
+            }
+        }
+
 	
 	public void Maximize(ArithExpr e) {
 	    Native.Z3_optimize_maximize(Context.nCtx, NativeObject, e.NativeObject);
