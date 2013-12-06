@@ -36,6 +36,7 @@ namespace opt {
 
     class context {
         typedef map<symbol, maxsmt*, symbol_hash_proc, symbol_eq_proc> map_t;
+        typedef map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> map_id;
         enum objective_t {
             O_MAXIMIZE,
             O_MINIMIZE,
@@ -65,13 +66,14 @@ namespace opt {
         params_ref          m_params;
         optsmt              m_optsmt;        
         map_t               m_maxsmts;
+        map_id              m_indices;
         vector<objective>   m_objectives;
         model_ref           m_model;
     public:
         context(ast_manager& m);
         ~context();
-        void add_soft_constraint(expr* f, rational const& w, symbol const& id);
-        void add_objective(app* t, bool is_max);
+        unsigned add_soft_constraint(expr* f, rational const& w, symbol const& id);
+        unsigned add_objective(app* t, bool is_max);
         void add_hard_constraint(expr* f) { m_hard_constraints.push_back(f);  }
 
         lbool optimize();

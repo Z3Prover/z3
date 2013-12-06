@@ -5987,9 +5987,9 @@ END_MLAPI_EXCLUDE
        \param weight - a positive weight, penalty for violating soft constraint
        \param id - optional identifier to group soft constraints
 
-       def_API('Z3_optimize_assert_soft', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(AST), _in(STRING), _in(SYMBOL)))
+       def_API('Z3_optimize_assert_soft', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST), _in(STRING), _in(SYMBOL)))
     */
-    void Z3_API Z3_optimize_assert_soft(Z3_context c, Z3_optimize o, Z3_ast a, Z3_string weight, Z3_symbol id);
+    unsigned Z3_API Z3_optimize_assert_soft(Z3_context c, Z3_optimize o, Z3_ast a, Z3_string weight, Z3_symbol id);
 
 
     /**
@@ -5997,9 +5997,9 @@ END_MLAPI_EXCLUDE
        \param c - context
        \param o - optimization context
        \param a - arithmetical term       
-       def_API('Z3_optimize_maximize', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
+       def_API('Z3_optimize_maximize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
-    void Z3_API Z3_optimize_maximize(Z3_context, Z3_optimize o, Z3_ast t);
+    unsigned Z3_API Z3_optimize_maximize(Z3_context, Z3_optimize o, Z3_ast t);
 
     /**
        \brief Add a minimiztion constraint.
@@ -6007,9 +6007,9 @@ END_MLAPI_EXCLUDE
        \param o - optimization context
        \param a - arithmetical term   
     
-       def_API('Z3_optimize_minimize', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
+       def_API('Z3_optimize_minimize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
-    void Z3_API Z3_optimize_minimize(Z3_context, Z3_optimize o, Z3_ast t);
+    unsigned Z3_API Z3_optimize_minimize(Z3_context, Z3_optimize o, Z3_ast t);
 
     /**
        \brief Check consistency and produce optimal values.

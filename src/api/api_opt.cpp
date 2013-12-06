@@ -72,32 +72,32 @@ extern "C" {
         Z3_CATCH;
     }
 
-    void Z3_API Z3_optimize_assert_soft(Z3_context c, Z3_optimize o, Z3_ast a, Z3_string weight, Z3_symbol id) {
+    unsigned Z3_API Z3_optimize_assert_soft(Z3_context c, Z3_optimize o, Z3_ast a, Z3_string weight, Z3_symbol id) {
         Z3_TRY;
         LOG_Z3_optimize_assert_soft(c, o, a, weight, id);
         RESET_ERROR_CODE();
-        CHECK_FORMULA(a,);        
+        CHECK_FORMULA(a,0);        
         rational w("weight");
-        to_optimize_ref(o).add_soft_constraint(to_expr(a), w, to_symbol(id));
-        Z3_CATCH;
+        return to_optimize_ref(o).add_soft_constraint(to_expr(a), w, to_symbol(id));
+        Z3_CATCH_RETURN(0);
     }
 
-    void Z3_API Z3_optimize_maximize(Z3_context c, Z3_optimize o, Z3_ast t) {
+    unsigned Z3_API Z3_optimize_maximize(Z3_context c, Z3_optimize o, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_optimize_maximize(c, o, t);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(t,);        
-        to_optimize_ref(o).add_objective(to_app(t), true);
-        Z3_CATCH;
+        CHECK_VALID_AST(t,0);        
+        return to_optimize_ref(o).add_objective(to_app(t), true);
+        Z3_CATCH_RETURN(0);
     }
 
-    void Z3_API Z3_optimize_minimize(Z3_context c, Z3_optimize o, Z3_ast t) {
+    unsigned Z3_API Z3_optimize_minimize(Z3_context c, Z3_optimize o, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_optimize_minimize(c, o, t);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(t,);        
-        to_optimize_ref(o).add_objective(to_app(t), false);
-        Z3_CATCH;
+        CHECK_VALID_AST(t,0);        
+        return to_optimize_ref(o).add_objective(to_app(t), false);
+        Z3_CATCH_RETURN(0);
     }
 
     Z3_lbool Z3_API Z3_optimize_check(Z3_context c, Z3_optimize o) {

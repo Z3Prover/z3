@@ -42,21 +42,25 @@ namespace opt {
         }
     }
 
-    void context::add_soft_constraint(expr* f, rational const& w, symbol const& id) { 
+    unsigned context::add_soft_constraint(expr* f, rational const& w, symbol const& id) { 
         maxsmt* ms;
         if (!m_maxsmts.find(id, ms)) {
             ms = alloc(maxsmt, m);
             m_maxsmts.insert(id, ms);
             m_objectives.push_back(objective(m, id));
+            m_indices.insert(id, m_objectives.size() - 1);
         }
-        ms->add(f, w);
+        ms->add(f, w);        
+        SASSERT(m_indices.contains(id));        
+        return m_indices[id];
     }
 
-    void context::add_objective(app* t, bool is_max) {
+    unsigned context::add_objective(app* t, bool is_max) {
         app_ref tr(t, m);
         unsigned index = m_optsmt.get_num_objectives();
         m_optsmt.add(t, is_max);
         m_objectives.push_back(objective(is_max, tr, index));
+        return index;
     }
 
     lbool context::optimize() {
