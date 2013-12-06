@@ -301,7 +301,9 @@ namespace opt {
         free_func_visitor(ast_manager& m): m(m) {}
         void operator()(var * n)        { }
         void operator()(app * n)        { 
-            m_funcs.insert(n->get_decl()); 
+            if (n->get_family_id() == null_family_id) {
+                m_funcs.insert(n->get_decl()); 
+            }
             sort* s = m.get_sort(n);
             if (s->get_family_id() == null_family_id) {
                 m_sorts.insert(s);
@@ -397,6 +399,7 @@ namespace opt {
                 break;
             }
         }        
+        out << "(optimize)\n"; 
         return out.str();
     }
 
