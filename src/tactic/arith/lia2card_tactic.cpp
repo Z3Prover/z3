@@ -25,232 +25,198 @@ Notes:
 #include"arith_decl_plugin.h"
 
 class lia2card_tactic : public tactic {
-
-    struct imp {        
-        typedef obj_hashtable<expr> expr_set;
-        ast_manager &                    m;
-        arith_util                       a;
-        pb_util                          m_pb;
-        mutable ptr_vector<expr>         m_todo;
-        expr_set                         m_01s;
-
-        
-        imp(ast_manager & _m, params_ref const & p):
-            m(_m),
-            a(m),
-            m_pb(m) {
-        }
-        
-        void set_cancel(bool f) {
-        }
-        
-        void updt_params(params_ref const & p) {
-        }
-        
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
-            SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
-            m_01s.reset();
-            
-            tactic_report report("cardinality-intro", *g);
-            
-            bound_manager bounds(m);
-            bounds(*g);
-
-            bound_manager::iterator bit = bounds.begin(), bend = bounds.end();
-            for (; bit != bend; ++bit) {
-                expr* x = *bit;
-                bool s1, s2;
-                rational lo, hi;
-                if (a.is_int(x) && 
-                    bounds.has_lower(x, lo, s1) && !s1 && lo.is_zero() &&
-                    bounds.has_upper(x, hi, s2) && !s2 && hi.is_one()) {
-                    m_01s.insert(x);
-                    TRACE("pb", tout << "add bound " << mk_pp(x, m) << "\n";);
-                }
-            }
-
-            expr_safe_replace sub(m);
-            extract_pb_substitution(g, sub);
-
-            expr_ref   new_curr(m);
-            proof_ref  new_pr(m);
-
-            for (unsigned i = 0; i < g->size(); i++) {
-                expr * curr = g->form(i);
-                sub(curr, new_curr);                
-                g->update(i, new_curr, new_pr, g->dep(i));
-            }
-            g->inc_depth();
-            result.push_back(g.get());
-            TRACE("pb", g->display(tout););
-            SASSERT(g->is_well_sorted());
-
-            // TBD: convert models for 0-1 variables.
-            // TBD: support proof conversion (or not..)
-        }
-
-        void extract_pb_substitution(goal_ref const& g, expr_safe_replace& sub) {
-            ast_mark mark;
-            for (unsigned i = 0; i < g->size(); i++) {
-                extract_pb_substitution(mark, g->form(i), sub);
-            }
-        }
-
-        void extract_pb_substitution(ast_mark& mark, expr* fml, expr_safe_replace& sub) {
-            expr_ref tmp(m);
-            m_todo.reset();
-            m_todo.push_back(fml);
-            while (!m_todo.empty()) {
-                expr* e = m_todo.back();
-                m_todo.pop_back();
-                if (mark.is_marked(e) || !is_app(e)) {
-                    continue;
-                }
-                mark.mark(e, true);
-                if (get_pb_relation(sub, e, tmp)) {
-                    sub.insert(e, tmp);
-                    continue;
-                }
-                app* ap = to_app(e);
-                m_todo.append(ap->get_num_args(), ap->get_args());
-            }
-        }
-
-
-        bool is_01var(expr* x) const {
-            return m_01s.contains(x);
-        }
-
-        expr_ref mk_01(expr* x) {
-            expr* r = m.mk_eq(x, a.mk_numeral(rational(1), m.get_sort(x)));
-            return expr_ref(r, m);
-        }        
-
-        bool get_pb_relation(expr_safe_replace& sub, expr* fml, expr_ref& result) {
-            expr* x, *y;
-            expr_ref_vector args(m);
-            vector<rational> coeffs;
-            rational coeff;
-            if ((a.is_le(fml, x, y) || a.is_ge(fml, y, x)) &&
-                get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
-                get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
-                result = m_pb.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff);
-                return true;
-            }
-            else if ((a.is_lt(fml, y, x) || a.is_gt(fml, x, y)) &&
-                     get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
-                     get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
-                result = m.mk_not(m_pb.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
-                return true;
-            }
-            else if (m.is_eq(fml, x, y) &&
-                     get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
-                     get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
-                result = m.mk_and(m_pb.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff), 
-                                  m_pb.mk_ge(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
-                return true;
-            }                
-            return false;
-        }
-
-        bool get_pb_sum(expr* x, rational const& mul, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
-            expr *y, *z, *u;
-            rational r, q;
-            app* f = to_app(x);
-            bool ok = true;
-            if (a.is_add(x)) {
-                for (unsigned i = 0; ok && i < f->get_num_args(); ++i) {
-                    ok = get_pb_sum(f->get_arg(i), mul, args, coeffs, coeff);
-                }
-            }
-            else if (a.is_sub(x, y, z)) {
-                ok = get_pb_sum(y, mul, args, coeffs, coeff);
-                ok = ok && get_pb_sum(z, -mul, args, coeffs, coeff);
-            }
-            else if (a.is_uminus(x, y)) {
-                ok = get_pb_sum(y, -mul, args, coeffs, coeff);
-            }
-            else if (a.is_mul(x, y, z) && a.is_numeral(y, r)) {
-                ok = get_pb_sum(z, r*mul, args, coeffs, coeff);
-            }
-            else if (a.is_mul(x, z, y) && a.is_numeral(y, r)) {
-                ok = get_pb_sum(z, r*mul, args, coeffs, coeff);
-            }
-            else if (m.is_ite(x, y, z, u) && a.is_numeral(z, r) && a.is_numeral(u, q)) {
-                args.push_back(y);
-                coeffs.push_back(r*mul);
-                args.push_back(m.mk_not(y));
-                coeffs.push_back(q*mul);
-            }
-            else if (is_01var(x)) {
-                args.push_back(mk_01(x));
-                coeffs.push_back(mul);
-            }
-            else if (a.is_numeral(x, r)) {
-                coeff += mul*r;
-            }
-            else {
-                ok = false;
-            }
-            return ok;
-        }
-    };
-    
-    imp *      m_imp;
-    params_ref m_params;
 public:
-    lia2card_tactic(ast_manager & m, params_ref const & p):
-        m_params(p) {
-        m_imp = alloc(imp, m, p);
+    typedef obj_hashtable<expr> expr_set;
+    ast_manager &                    m;
+    arith_util                       a;
+    params_ref                       m_params;
+    pb_util                          m_pb;
+    mutable ptr_vector<expr>         m_todo;
+    expr_set                         m_01s;
+
+    
+    lia2card_tactic(ast_manager & _m, params_ref const & p):
+        m(_m),
+        a(m),
+        m_pb(m) {
     }
 
+    virtual ~lia2card_tactic() {
+    }
+        
+    void set_cancel(bool f) {
+    }
+        
+    void updt_params(params_ref const & p) {
+        m_params = p;
+    }
+    
+    virtual void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result, 
+                    model_converter_ref & mc, 
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) {
+        SASSERT(g->is_well_sorted());
+        mc = 0; pc = 0; core = 0;
+        m_01s.reset();
+        
+        tactic_report report("cardinality-intro", *g);
+        
+        bound_manager bounds(m);
+        bounds(*g);
+        
+        bound_manager::iterator bit = bounds.begin(), bend = bounds.end();
+        for (; bit != bend; ++bit) {
+            expr* x = *bit;
+            bool s1, s2;
+            rational lo, hi;
+            if (a.is_int(x) && 
+                bounds.has_lower(x, lo, s1) && !s1 && lo.is_zero() &&
+                bounds.has_upper(x, hi, s2) && !s2 && hi.is_one()) {
+                m_01s.insert(x);
+                TRACE("pb", tout << "add bound " << mk_pp(x, m) << "\n";);
+            }
+        }
+        
+        expr_safe_replace sub(m);
+        extract_pb_substitution(g, sub);
+        
+        expr_ref   new_curr(m);
+        proof_ref  new_pr(m);
+        
+        for (unsigned i = 0; i < g->size(); i++) {
+            expr * curr = g->form(i);
+            sub(curr, new_curr);                
+            g->update(i, new_curr, new_pr, g->dep(i));
+        }
+        g->inc_depth();
+        result.push_back(g.get());
+        TRACE("pb", g->display(tout););
+        SASSERT(g->is_well_sorted());
+        
+        // TBD: convert models for 0-1 variables.
+        // TBD: support proof conversion (or not..)
+    }
+
+    void extract_pb_substitution(goal_ref const& g, expr_safe_replace& sub) {
+        ast_mark mark;
+        for (unsigned i = 0; i < g->size(); i++) {
+            extract_pb_substitution(mark, g->form(i), sub);
+        }
+    }
+    
+    void extract_pb_substitution(ast_mark& mark, expr* fml, expr_safe_replace& sub) {
+        expr_ref tmp(m);
+        m_todo.reset();
+        m_todo.push_back(fml);
+        while (!m_todo.empty()) {
+            expr* e = m_todo.back();
+            m_todo.pop_back();
+            if (mark.is_marked(e) || !is_app(e)) {
+                continue;
+            }
+            mark.mark(e, true);
+            if (get_pb_relation(sub, e, tmp)) {
+                sub.insert(e, tmp);
+                continue;
+            }
+            app* ap = to_app(e);
+            m_todo.append(ap->get_num_args(), ap->get_args());
+        }
+    }
+
+
+    bool is_01var(expr* x) const {
+        return m_01s.contains(x);
+    }
+    
+    expr_ref mk_01(expr* x) {
+        expr* r = m.mk_eq(x, a.mk_numeral(rational(1), m.get_sort(x)));
+        return expr_ref(r, m);
+    }        
+    
+    bool get_pb_relation(expr_safe_replace& sub, expr* fml, expr_ref& result) {
+        expr* x, *y;
+        expr_ref_vector args(m);
+        vector<rational> coeffs;
+        rational coeff;
+        if ((a.is_le(fml, x, y) || a.is_ge(fml, y, x)) &&
+            get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
+            get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
+            result = m_pb.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff);
+            return true;
+        }
+        else if ((a.is_lt(fml, y, x) || a.is_gt(fml, x, y)) &&
+                 get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
+                 get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
+            result = m.mk_not(m_pb.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
+            return true;
+        }
+        else if (m.is_eq(fml, x, y) &&
+                 get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
+                 get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
+            result = m.mk_and(m_pb.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff), 
+                              m_pb.mk_ge(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
+            return true;
+        }                
+        return false;
+    }
+    
+    bool get_pb_sum(expr* x, rational const& mul, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
+        expr *y, *z, *u;
+        rational r, q;
+        app* f = to_app(x);
+        bool ok = true;
+        if (a.is_add(x)) {
+            for (unsigned i = 0; ok && i < f->get_num_args(); ++i) {
+                ok = get_pb_sum(f->get_arg(i), mul, args, coeffs, coeff);
+            }
+        }
+        else if (a.is_sub(x, y, z)) {
+            ok = get_pb_sum(y, mul, args, coeffs, coeff);
+            ok = ok && get_pb_sum(z, -mul, args, coeffs, coeff);
+        }
+        else if (a.is_uminus(x, y)) {
+            ok = get_pb_sum(y, -mul, args, coeffs, coeff);
+        }
+        else if (a.is_mul(x, y, z) && a.is_numeral(y, r)) {
+            ok = get_pb_sum(z, r*mul, args, coeffs, coeff);
+        }                
+        else if (a.is_mul(x, z, y) && a.is_numeral(y, r)) {
+            ok = get_pb_sum(z, r*mul, args, coeffs, coeff);
+        }
+        else if (m.is_ite(x, y, z, u) && a.is_numeral(z, r) && a.is_numeral(u, q)) {
+            args.push_back(y);
+            coeffs.push_back(r*mul);
+            args.push_back(m.mk_not(y));
+            coeffs.push_back(q*mul);
+        }
+        else if (is_01var(x)) {
+            args.push_back(mk_01(x));
+            coeffs.push_back(mul);
+        }
+        else if (a.is_numeral(x, r)) {
+            coeff += mul*r;
+        }
+        else {
+            ok = false;
+        }
+        return ok;
+    }
+    
     virtual tactic * translate(ast_manager & m) {
         return alloc(lia2card_tactic, m, m_params);
     }
         
-    virtual ~lia2card_tactic() {
-        dealloc(m_imp);
-    }
-
-    virtual void updt_params(params_ref const & p) {
-        m_params = p;
-        m_imp->updt_params(p);
-    }
-
     virtual void collect_param_descrs(param_descrs & r) {
     }
-    
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
-    }
-    
+        
     virtual void cleanup() {
-        ast_manager & m = m_imp->m;
-        imp * d = m_imp;
         #pragma omp critical (tactic_cancel)
         {
-            m_imp = 0;
+            m_01s.reset();
+            m_todo.reset();
         }
-        dealloc(d);
-        d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            m_imp = d;
-        }
-    }
-
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
     }
 };
 
@@ -258,240 +224,6 @@ tactic * mk_lia2card_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(lia2card_tactic, m, p));
 }
 
-
-#if 0
-        void extract_substitution(expr_safe_replace& sub) {
-            expr_set::iterator it = m_01s.begin(), end = m_01s.end();
-            for (; it != end; ++it) {
-                extract_substitution(sub, *it);
-            }
-        }
-
-        void extract_substitution(expr_safe_replace& sub, expr* x) {
-            ptr_vector<expr> const& use_list = m_uses.find(x);
-            for (unsigned i = 0; i < use_list.size(); ++i) {
-                expr* u = use_list[i];
-                convert_01(sub, u);
-            }
-        }
-
-        expr_ref mk_le(expr* x, rational const& bound) {
-            if (bound.is_pos()) {
-                return expr_ref(m.mk_true(), m);
-            }
-            else if (bound.is_zero()) {
-                return expr_ref(m.mk_not(mk_01(x)), m);
-            }
-            else {
-                return expr_ref(m.mk_false(), m);
-            }
-        }
-
-        expr_ref mk_ge(expr* x, rational const& bound) {
-            if (bound.is_one()) {
-                return expr_ref(mk_01(x), m);
-            }
-            else if (bound.is_pos()) {
-                return expr_ref(m.mk_false(), m);
-            }
-            else {
-                return expr_ref(m.mk_true(), m);
-            }
-        }
-
-        void convert_01(expr_safe_replace& sub, expr* fml) {
-            rational n;
-            unsigned k;
-            expr_ref_vector args(m);
-            expr_ref result(m);
-            expr* x, *y;
-            if (a.is_le(fml, x, y) || a.is_ge(fml, y, x)) {
-                if (is_01var(x) && a.is_numeral(y, n)) {
-                    sub.insert(fml, mk_le(x, n));
-                }
-                else if (is_01var(y) && a.is_numeral(x, n)) {
-                    sub.insert(fml, mk_ge(y, n));
-                }
-                else if (is_01_add(x, args) && is_unsigned(y, k)) { // x <= k
-                    sub.insert(fml, m_pb.mk_at_most_k(args.size(), args.c_ptr(), k));
-                }                
-                else if (is_01_add(y, args) && is_unsigned(x, k)) { // k <= y <=> not (y <= k-1)
-                    if (k == 0) 
-                        sub.insert(fml, m.mk_true());
-                    else 
-                        sub.insert(fml, m.mk_not(m_pb.mk_at_most_k(args.size(), args.c_ptr(), k-1)));
-                }
-                else {
-                    UNREACHABLE();
-                }
-            }
-            else if (a.is_lt(fml, x, y) || a.is_gt(fml, y, x)) {
-                if (is_01var(x) && a.is_numeral(y, n)) {
-                    sub.insert(fml, mk_le(x, n-rational(1)));
-                }
-                else if (is_01var(y) && a.is_numeral(x, n)) {                    
-                    sub.insert(fml, mk_ge(y, n+rational(1)));
-                }
-                else if (is_01_add(x, args) && is_unsigned(y, k)) { // x < k
-                    if (k == 0) 
-                        sub.insert(fml, m.mk_false());                
-                    else
-                        sub.insert(fml, m_pb.mk_at_most_k(args.size(), args.c_ptr(), k-1));
-                }                    
-                else if (is_01_add(y, args) && is_unsigned(x, k)) { // k < y <=> not (y <= k)
-                    sub.insert(fml, m.mk_not(m_pb.mk_at_most_k(args.size(), args.c_ptr(), k)));
-                }
-                else {
-                    UNREACHABLE();
-                }
-            }
-            else if (m.is_eq(fml, x, y)) {
-                if (!is_01var(x)) {
-                    std::swap(x, y);
-                }
-                if (is_01var(x) && a.is_numeral(y, n)) {
-                    if (n.is_one()) {
-                        sub.insert(fml, mk_01(x));
-                    }
-                    else if (n.is_zero()) {
-                        sub.insert(fml, m.mk_not(mk_01(x)));
-                    }
-                    else {
-                        sub.insert(fml, m.mk_false());
-                    }
-                }
-                else {
-                    UNREACHABLE();
-                }
-            }
-            else if (is_01_sum(fml)) {
-                SASSERT(m_uses.contains(fml));
-                ptr_vector<expr> const& u = m_uses.find(fml);
-                for (unsigned i = 0; i < u.size(); ++i) {
-                    convert_01(sub, u[i]);
-                }
-            }
-            else {
-                UNREACHABLE();
-            }
-        }
-
-        bool is_01_add(expr* x, expr_ref_vector& args) {
-            if (a.is_add(x)) {
-                app* ap = to_app(x);                    
-                for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                    if (!is_01var(ap->get_arg(i))) {
-                        return false;
-                    }
-                    args.push_back(mk_01(ap->get_arg(i)));
-                }
-                return true;
-            }
-            else {
-                return false;
-            }
-        }            
-
-        bool validate_uses(ptr_vector<expr> const& use_list) {
-            for (unsigned i = 0; i < use_list.size(); ++i) {
-                if (!validate_use(use_list[i])) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        bool validate_use(expr* fml) {
-            expr* x, *y;
-            if (a.is_le(fml, x, y) ||
-                a.is_ge(fml, x, y) ||
-                a.is_lt(fml, x, y) ||
-                a.is_gt(fml, x, y) ||
-                m.is_eq(fml, x, y)) {
-                if (a.is_numeral(x)) {
-                    std::swap(x,y);
-                }
-                if ((is_one(y) || a.is_zero(y)) && is_01var(x)) 
-                    return true;
-                if (a.is_numeral(y) && is_01_sum(x) && !m.is_eq(fml)) {
-                    return true;
-                }
-            }
-            if (is_01_sum(fml)) {
-                SASSERT(m_uses.contains(fml));
-                ptr_vector<expr> const& u = m_uses.find(fml);
-                for (unsigned i = 0; i < u.size(); ++i) {
-                    if (!validate_use(u[i])) {
-                        return false;
-                    }
-                }
-                return true;
-            }
-            TRACE("pb", tout << "Use not validated: " << mk_pp(fml, m) << "\n";);
-
-            return false;
-        }
-
-        bool is_01_sum(expr* x) const {
-            if (a.is_add(x)) {
-                app* ap = to_app(x);
-                for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                    if (!is_01var(ap->get_arg(i))) {
-                        return false;
-                    }
-                }
-                return true;
-            }
-            return false;
-        }
-
-
-        void collect_uses(ast_mark& mark, expr* f) {
-            m_todo.reset();
-            m_todo.push_back(f);
-            while (!m_todo.empty()) {
-                f = m_todo.back();
-                m_todo.pop_back();
-                if (mark.is_marked(f)) {
-                    continue;
-                }
-                mark.mark(f, true);
-                if (is_var(f)) {
-                    continue;
-                }
-                if (is_quantifier(f)) {
-                    m_todo.push_back(to_quantifier(f)->get_expr());
-                    continue;
-                }
-                app* a = to_app(f);
-                for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                    expr* arg = a->get_arg(i);
-                    if (!m_uses.contains(arg)) {
-                        m_uses.insert(arg, ptr_vector<expr>());
-                    }
-                    m_uses.find(arg).push_back(a);
-                    m_todo.push_back(arg);
-                }
-            }
-        }
-
-        bool is_unsigned(expr* x, unsigned& k) {
-            rational r;
-            if (a.is_numeral(x, r) && r.is_unsigned()) {
-                k = r.get_unsigned();
-                SASSERT(rational(k) == r);
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-
-        bool is_one(expr* x) {
-            rational r;
-            return a.is_numeral(x, r) && r.is_one();
-        }
-
-    };
-
-#endif
+void convert_objectives() {
+    
+}
