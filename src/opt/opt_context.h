@@ -35,6 +35,7 @@ namespace opt {
     class opt_solver;
 
     class context {
+        struct free_func_visitor;
         typedef map<symbol, maxsmt*, symbol_hash_proc, symbol_eq_proc> map_t;
         typedef map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> map_id;
         enum objective_t {
@@ -91,6 +92,8 @@ namespace opt {
 
         expr_ref get_lower(unsigned idx);
         expr_ref get_upper(unsigned idx);
+
+        std::string to_string() const;
 
     private:
         void validate_feasibility(maxsmt& ms);

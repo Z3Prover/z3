@@ -62,6 +62,10 @@ namespace opt {
             m_weights.push_back(w);
         }
 
+        unsigned size() const { return m_soft_constraints.size(); }
+        expr* operator[](unsigned idx) const { return m_soft_constraints[idx]; }
+        rational weight(unsigned idx) const { return m_weights[idx]; }
+
         void commit_assignment();
         inf_eps get_value() const;
         inf_eps get_lower() const;

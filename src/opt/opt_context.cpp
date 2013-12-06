@@ -22,6 +22,7 @@ Notes:
 #include "opt_solver.h"
 #include "opt_params.hpp"
 #include "arith_decl_plugin.h"
+#include "for_each_expr.h"
 
 namespace opt {
 
@@ -287,6 +288,116 @@ namespace opt {
         for (; it != end; ++it) {
             it->m_value->updt_params(m_params);
         }
+    }
+
+    typedef obj_hashtable<func_decl> func_decl_set;
+
+    struct context::free_func_visitor {
+        ast_manager& m;
+        func_decl_set m_funcs;
+        obj_hashtable<sort> m_sorts;
+        expr_mark m_visited;
+    public:
+        free_func_visitor(ast_manager& m): m(m) {}
+        void operator()(var * n)        { }
+        void operator()(app * n)        { 
+            m_funcs.insert(n->get_decl()); 
+            sort* s = m.get_sort(n);
+            if (s->get_family_id() == null_family_id) {
+                m_sorts.insert(s);
+            }
+        }
+        void operator()(quantifier * n) { }
+        func_decl_set& funcs() { return m_funcs; }
+        obj_hashtable<sort>& sorts() { return m_sorts; }
+
+        void collect(expr* e) {
+            for_each_expr(*this, m_visited, e);
+        }
+    };
+
+    std::string context::to_string() const {
+        smt2_pp_environment_dbg env(m);
+        free_func_visitor visitor(m);
+        std::ostringstream out;
+#define PP(_e_) ast_smt2_pp(out, _e_, env);
+        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
+            visitor.collect(m_hard_constraints[i]);
+        }
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            switch(obj.m_type) {
+            case O_MAXIMIZE: 
+            case O_MINIMIZE:
+                visitor.collect(obj.m_term);
+                break;
+            case O_MAXSMT: {
+                maxsmt& ms = *m_maxsmts.find(obj.m_id);
+                for (unsigned j = 0; j < ms.size(); ++j) {
+                    visitor.collect(ms[j]);
+                }
+                break;
+            }
+            default: 
+                UNREACHABLE();
+                break;
+            }
+        }
+
+        obj_hashtable<sort>::iterator sit = visitor.sorts().begin();
+        obj_hashtable<sort>::iterator send = visitor.sorts().end();
+        for (; sit != send; ++sit) {
+            PP(*sit);
+        }
+        func_decl_set::iterator it  = visitor.funcs().begin();
+        func_decl_set::iterator end = visitor.funcs().end();
+        for (; it != end; ++it) {
+            PP(*it);
+            out << "\n";
+        }
+        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
+            out << "(assert ";
+            PP(m_hard_constraints[i]);
+            out << ")\n";
+        }
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            switch(obj.m_type) {
+            case O_MAXIMIZE: 
+                out << "(maximize ";
+                PP(obj.m_term);
+                out << ")\n";
+                break;
+            case O_MINIMIZE:
+                out << "(minimize ";
+                PP(obj.m_term);
+                out << ")\n";
+                break;
+            case O_MAXSMT: {
+                maxsmt& ms = *m_maxsmts.find(obj.m_id);
+                for (unsigned j = 0; j < ms.size(); ++j) {
+                    out << "(assert-soft ";
+                    PP(ms[j]);
+                    rational w = ms.weight(j);
+                    if (w.is_int()) {
+                        out << " :weight " << ms.weight(j);
+                    }
+                    else {
+                        out << " :dweight " << ms.weight(j);
+                    }
+                    if (obj.m_id != symbol::null) {
+                        out << " :id " << obj.m_id;
+                    }
+                    out << ")\n";
+                }
+                break;
+            }
+            default: 
+                UNREACHABLE();
+                break;
+            }
+        }        
+        return out.str();
     }
 
 }

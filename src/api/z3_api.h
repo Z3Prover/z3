@@ -6075,6 +6075,26 @@ END_MLAPI_EXCLUDE
     */
     Z3_ast Z3_API Z3_optimize_get_upper(Z3_context c, Z3_optimize o, unsigned idx);
 
+    /**
+       \brief Print the current context as a string.
+       \param c - context.
+       \param o - optimization context.
+
+       def_API('Z3_optimize_to_string', STRING, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_string Z3_API Z3_optimize_to_string(
+        __in Z3_context c, 
+        __in Z3_optimize o);
+
+
+    /**
+       \brief Return a string containing a description of parameters accepted by optimize.
+
+       def_API('Z3_optimize_get_help', STRING, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_string Z3_API Z3_optimize_get_help(__in Z3_context c, __in Z3_optimize t);
+
+
 
 #endif
 

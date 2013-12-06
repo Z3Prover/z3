@@ -31,7 +31,6 @@ namespace Microsoft.Z3
     {
         HashSet<uint> indices;
 
-#if false
         /// <summary>
         /// A string that describes all available optimize solver parameters.
         /// </summary>
@@ -43,7 +42,6 @@ namespace Microsoft.Z3
                 return Native.Z3_optimize_get_help(Context.nCtx, NativeObject);
             }
         }
-#endif
 
         /// <summary>
         /// Sets the optimize solver parameters.
@@ -157,7 +155,7 @@ namespace Microsoft.Z3
             }
         }
         	
-	    public uint MkMaximize(ArithExpr e) 
+        public uint MkMaximize(ArithExpr e) 
         {
 	        uint index = Native.Z3_optimize_maximize(Context.nCtx, NativeObject, e.NativeObject);
             indices.Add(index);
@@ -166,21 +164,26 @@ namespace Microsoft.Z3
 
         public uint MkMinimize(ArithExpr e)
         {
-	        uint index = Native.Z3_optimize_minimize(Context.nCtx, NativeObject, e.NativeObject);
+	    uint index = Native.Z3_optimize_minimize(Context.nCtx, NativeObject, e.NativeObject);
             indices.Add(index);
             return index;
-	    }
+        }
 
-	    public ArithExpr GetLower(uint index) 
+        public ArithExpr GetLower(uint index) 
         {
             Contract.Requires(indices.Contains(index));
-	        return new ArithExpr(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
+	    return new ArithExpr(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
         }
 
         public ArithExpr GetUpper(uint index)
         {
             Contract.Requires(indices.Contains(index));
 	        return new ArithExpr(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
+        }
+
+	public override string ToString() 
+        {
+            return Native.Z3_optimize_to_string(Context.nCtx, NativeObject);
         }
 
         #region Internal

@@ -185,6 +185,28 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    Z3_string Z3_API Z3_optimize_to_string(Z3_context c, Z3_optimize o) {
+        Z3_TRY;
+        LOG_Z3_optimize_to_string(c, o);
+        RESET_ERROR_CODE();
+        return mk_c(c)->mk_external_string(to_optimize_ref(o).to_string());
+        Z3_CATCH_RETURN("");
+    }
+
+    Z3_string Z3_API Z3_optimize_get_help(Z3_context c, Z3_optimize d) {
+        Z3_TRY;
+        LOG_Z3_optimize_get_help(c, d);
+        RESET_ERROR_CODE();
+        std::ostringstream buffer;
+        param_descrs descrs;
+        to_optimize_ref(d).collect_param_descrs(descrs);
+        descrs.display(buffer);
+        return mk_c(c)->mk_external_string(buffer.str());
+        Z3_CATCH_RETURN("");
+    }
+
+
+
 #if 0
 
     /**
