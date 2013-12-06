@@ -165,8 +165,7 @@ namespace smt {
         arith_eq_adapter               m_arith_eq_adapter;
         theory_diff_logic_statistics   m_stats;
         dl_graph<GExt>                 m_graph;
-        theory_var                     m_zero_int; // cache the variable representing the zero variable.
-        theory_var                     m_zero_real; // cache the variable representing the zero variable.
+        theory_var                     m_zero; // cache the variable representing the zero variable.
         int_vector                     m_scc_id;                  // Cheap equality propagation
         eq_prop_info_set               m_eq_prop_info_set;        // set of existing equality prop infos
         ptr_vector<eq_prop_info>       m_eq_prop_infos;
@@ -217,8 +216,7 @@ namespace smt {
             m_params(params),
             m_util(m),
             m_arith_eq_adapter(*this, params, m_util),
-            m_zero_int(null_theory_var),
-            m_zero_real(null_theory_var),
+            m_zero(null_theory_var),
             m_asserted_qhead(0),
             m_num_core_conflicts(0),
             m_num_propagation_calls(0),
@@ -358,9 +356,9 @@ namespace smt {
 
         void get_implied_bound_antecedents(edge_id bridge_edge, edge_id subsumed_edge, conflict_resolution & cr);
 
-        theory_var get_zero(sort* s) const { return m_util.is_int(s)?m_zero_int:m_zero_real; }
+        theory_var get_zero(sort* s) const { return m_zero; }
 
-        theory_var get_zero(expr* e) const { return get_zero(get_manager().get_sort(e)); }
+        theory_var get_zero(expr* e) const { return m_zero; }
 
         void inc_conflicts();
 

@@ -71,12 +71,7 @@ void theory_diff_logic<Ext>::init(context * ctx) {
     zero = m_util.mk_numeral(rational(0), true);
     e = ctx->mk_enode(zero, false, false, true);
     SASSERT(!is_attached_to_var(e));
-    m_zero_int = mk_var(e);
-
-    zero = m_util.mk_numeral(rational(0), false);
-    e = ctx->mk_enode(zero, false, false, true);
-    SASSERT(!is_attached_to_var(e));
-    m_zero_real = mk_var(e);
+    m_zero = mk_var(e);
 }
 
 
@@ -356,7 +351,7 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
 
     TRACE("arith_final", display(tout); );
     // either will already be zero (as we don't do mixed constraints).
-    m_graph.set_to_zero(m_zero_int, m_zero_real);
+    m_graph.set_to_zero(m_zero);
     SASSERT(is_consistent());
     if (m_non_diff_logic_exprs) {
         return FC_GIVEUP; 
@@ -766,8 +761,7 @@ void theory_diff_logic<Ext>::reset_eh() {
         dealloc(m_atoms[i]);
     }
     m_graph            .reset();
-    m_zero_int          = null_theory_var;
-    m_zero_real         = null_theory_var;
+    m_zero              = null_theory_var;
     m_atoms            .reset();
     m_asserted_atoms   .reset();
     m_stats            .reset();
@@ -1022,10 +1016,9 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
         sum += balance;
     }    
     // HACK: assume that v0 is always value 0
-    if (balances[0].is_zero()) {
-        balances[0] = -sum;
-    }
+    balances[0] = -sum;
 
+    TRACE("arith", display(tout););
     network_flow<GExt> net_flow(m_graph, balances);
     min_flow_result result = net_flow.min_cost();
     SASSERT(result != UNBOUNDED);

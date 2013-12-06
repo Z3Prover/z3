@@ -144,9 +144,11 @@ namespace smt {
         graph                m_graph;
         scoped_ptr<spanning_tree_base> m_tree;
         scoped_ptr<pivot_rule_impl>    m_pivot;
-        vector<fin_numeral>  m_balances;     // Denote supply/demand b_i on node i
-        vector<numeral>      m_potentials;   // Duals of flows which are convenient to compute dual solutions        
-        vector<numeral>      m_flows;        // Basic feasible flows
+        vector<fin_numeral>  m_balances;     // nodes + 1 |-> [b -1b] Denote supply/demand b_i on node i
+        vector<numeral>      m_potentials;   // nodes + 1 |-> initial: +/- 1  
+                                             // Duals of flows which are convenient to compute dual solutions 
+                                             // become solutions to Dual simplex.
+        vector<numeral>      m_flows;        // edges + nodes |-> assignemnt Basic feasible flows
         svector<edge_state>  m_states;
         unsigned             m_step;
         edge_id              m_enter_id;
@@ -176,9 +178,10 @@ namespace smt {
         bool check_well_formed();
         bool check_optimal();
 
-        void display(std::ofstream & os);
+        void display_primal(std::ofstream & os);
         void display_dual(std::ofstream & os);
         void display_spanning_tree(std::ofstream & os);
+        void display_system(std::ofstream & os);
 
     public:
 

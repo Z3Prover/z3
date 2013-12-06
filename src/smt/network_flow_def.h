@@ -28,7 +28,7 @@ namespace smt {
 
     template<typename Ext>    
     bool network_flow<Ext>::first_eligible_pivot::choose_entering_edge() {
-        TRACE("network_flow", tout << "choose_entering_edge...\n";);        
+        numeral cost = numeral::zero();
         int num_edges = m_graph.get_num_edges();
         for (int i = m_next_edge; i < m_next_edge + num_edges; ++i) {
             edge_id id = i % num_edges;
@@ -37,65 +37,51 @@ namespace smt {
             }
             node src = m_graph.get_source(id);
             node tgt = m_graph.get_target(id);
-            numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
+            cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
             if (cost.is_pos()) {
                 m_next_edge = m_enter_id = id;
-                TRACE("network_flow", 
-                      tout << "Found entering edge " << id << " between node ";
-                      tout << src << " and node " << tgt << " with reduced cost = " << cost << "...\n";);
                 return true;
             }
         }
-        TRACE("network_flow", tout << "Found no entering edge...\n";);
         return false;
     };
 
     template<typename Ext>    
     bool network_flow<Ext>::best_eligible_pivot::choose_entering_edge() {
-        TRACE("network_flow", tout << "choose_entering_edge...\n";);        
         unsigned num_edges = m_graph.get_num_edges();
-        numeral max = numeral::zero();
+        numeral cost = numeral::zero();
         for (unsigned i = 0; i < num_edges; ++i) {
             node src = m_graph.get_source(i);
             node tgt = m_graph.get_target(i);
             if (!edge_in_tree(i)) {
-                numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(i);
-                if (cost > max) {
-                    max = cost;
+                numeral new_cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(i);
+                if (new_cost > cost) {
+                    cost = new_cost;
                     m_enter_id = i;
                 }
             }
         }
-        if (max.is_pos()) {
-            TRACE("network_flow", {
-                    tout << "Found entering edge " << m_enter_id << " between node ";
-                    tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
-                    tout << " with reduced cost = " << max << "...\n";
-                });
-            return true;
-        }
-        TRACE("network_flow", tout << "Found no entering edge...\n";);
-        return false;
+        return cost.is_pos();
     };
 
     template<typename Ext>    
     bool network_flow<Ext>::candidate_list_pivot::choose_entering_edge() {
+        numeral cost = numeral::zero();
         if (m_current_length == 0 || m_minor_step == MINOR_STEP_LIMIT) {
             // Build the candidate list
             unsigned num_edges = m_graph.get_num_edges();
-            numeral max = numeral::zero();
             m_current_length = 0;
             for (unsigned i = m_next_edge; i < m_next_edge + num_edges; ++i) {
                 edge_id id = (i >= num_edges) ? i - num_edges : i;
                 node src = m_graph.get_source(id);
                 node tgt = m_graph.get_target(id);
                 if (!edge_in_tree(id)) {
-                    numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
-                    if (cost.is_pos()) {
+                    numeral new_cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
+                    if (new_cost.is_pos()) {
                         m_candidates[m_current_length] = id;
                         ++m_current_length;
-                        if (cost > max) {
-                            max = cost;
+                        if (new_cost > cost) {
+                            cost = new_cost;
                             m_enter_id = id;
                         }
                     }
@@ -104,48 +90,29 @@ namespace smt {
             }
             m_next_edge = m_enter_id;
             m_minor_step = 1;
-            if (max.is_pos()) {
-                TRACE("network_flow", {
-                        tout << "Found entering edge " << m_enter_id << " between node ";
-                        tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
-                        tout << " with reduced cost = " << max << "...\n";
-                    });
-                return true;
-            }
-            TRACE("network_flow", tout << "Found no entering edge...\n";);
-            return false;
+            return cost.is_pos();
         }
         
         ++m_minor_step;
-        numeral max = numeral::zero();
         for (unsigned i = 0; i < m_current_length; ++i) {
             edge_id id = m_candidates[i];
             node src = m_graph.get_source(id);
             node tgt = m_graph.get_target(id);
             if (!edge_in_tree(id)) {
-                numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
-                if (cost > max) {
-                    max = cost;
+                numeral new_cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
+                if (new_cost > cost) {
+                    cost = new_cost;
                     m_enter_id = id;
                 }
                 // Remove stale candidates
-                if (!cost.is_pos()) {
+                if (!new_cost.is_pos()) {
                     --m_current_length;
                     m_candidates[i] = m_candidates[m_current_length];
                     --i;
                 }
             }
         }
-        if (max.is_pos()) {
-            TRACE("network_flow", {
-                    tout << "Found entering edge " << m_enter_id << " between node ";
-                    tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
-                    tout << " with reduced cost = " << max << "...\n";
-                });
-            return true;
-        }
-        TRACE("network_flow", tout << "Found no entering edge...\n";);
-        return false;
+        return cost.is_pos();
     };
 
     template<typename Ext>
@@ -167,7 +134,7 @@ namespace smt {
             tout << "Difference logic optimization:" << std::endl;
             display_dual(tout);
             tout << "Minimum cost flow:" << std::endl;
-            display(tout);
+            display_primal(tout);
             };);
 
         m_step = 0;
@@ -219,7 +186,8 @@ namespace smt {
               tout << pp_vector("Flows", m_flows);
               tout << "Cost: " << get_cost() << "\n";
               tout << "Spanning tree:\n";               
-              display_spanning_tree(tout););
+              display_spanning_tree(tout);
+              display_primal(tout););
         SASSERT(check_well_formed());
     }
 
@@ -252,7 +220,6 @@ namespace smt {
 
     template<typename Ext>
     void network_flow<Ext>::update_flows() {
-        TRACE("network_flow", tout << "update_flows...\n";);
         m_flows[m_enter_id] += *m_delta;
         node src = m_graph.get_source(m_enter_id);
         node tgt = m_graph.get_target(m_enter_id); 
@@ -269,7 +236,6 @@ namespace smt {
     
     template<typename Ext>
     bool network_flow<Ext>::choose_leaving_edge() {        
-        TRACE("network_flow", tout << "choose_leaving_edge...\n";);
         node src = m_graph.get_source(m_enter_id);
         node tgt = m_graph.get_target(m_enter_id); 
         m_delta.set_invalid();
@@ -286,14 +252,7 @@ namespace smt {
             }
         }
         m_leave_id = leave_id;
-        
-        TRACE("network_flow", 
-              tout << "Leaving edge " << m_leave_id;
-              tout << " between node " << m_graph.get_source(m_leave_id);
-              tout << " and node " << m_graph.get_target(m_leave_id) ;
-              if (m_delta) tout << " with delta = " << *m_delta;
-              tout << "\n";);            
-
+       
         return m_delta;
     }
 
@@ -329,6 +288,19 @@ namespace smt {
         while (choose_entering_edge(pr)) { 
             bool bounded = choose_leaving_edge();
             if (!bounded) return UNBOUNDED;
+            //TRACE("network_flow",
+                  {
+                      vector<edge>const& es = m_graph.get_all_edges();
+                      edge const& e_in = es[m_enter_id];
+                      edge const& e_out = es[m_leave_id];
+                      node src_in = e_in.get_source(), tgt_in = e_in.get_target();
+                      node src_out = e_out.get_source(), tgt_out = e_out.get_target();
+                      numeral c1 = m_potentials[src_in] - m_potentials[tgt_in] - m_graph.get_weight(m_enter_id);
+                      numeral c2 = m_potentials[src_out] - m_potentials[tgt_out] - m_graph.get_weight(m_leave_id);
+                      tout << "new base: y_" << src_in  << "_" << tgt_in  << " cost: " << c1 << " delta: " << *m_delta << "\n";
+                      tout << "old base: y_" << src_out << "_" << tgt_out << " cost: " << c2 << "\n";                  
+                  }
+              //    );
             update_flows();
             if (m_enter_id != m_leave_id) {
                 SASSERT(edge_in_tree(m_leave_id));
@@ -340,10 +312,18 @@ namespace smt {
                 TRACE("network_flow", 
                       tout << "Spanning tree:\n"; 
                       display_spanning_tree(tout);
-                      tout << "Cost: " << get_cost() << "\n";);
+                      tout << "Cost: " << get_cost() << "\n";
+                      display_primal(tout);
+                      );
                 SASSERT(check_well_formed());
             }
         }
+        TRACE("network_flow", 
+              tout << "Spanning tree:\n"; 
+              display_spanning_tree(tout);
+              tout << "Cost: " << get_cost() << "\n";
+              display_primal(tout);
+              );
         if (is_infeasible()) return INFEASIBLE;
         TRACE("network_flow", tout << "Found optimal solution.\n";);
         SASSERT(check_optimal());
@@ -352,14 +332,13 @@ namespace smt {
 
     template<typename Ext>
     bool network_flow<Ext>::is_infeasible() {
-#if 0
         // Flows of artificial arcs should be zero
         unsigned num_nodes = m_graph.get_num_nodes();
         unsigned num_edges = m_graph.get_num_edges();
+        SASSERT(m_flows.size() == num_edges);
         for (unsigned i = 1; i < num_nodes; ++i) {
             if (m_flows[num_edges - i].is_pos()) return true;
         }
-#endif
         return false;
     }
 
@@ -445,7 +424,7 @@ namespace smt {
     // display methods
 
     template<typename Ext>
-    void network_flow<Ext>::display(std::ofstream & os) {
+    void network_flow<Ext>::display_primal(std::ofstream & os) {
         vector<edge> const & es = m_graph.get_all_edges();
         for (unsigned i = 0; i < m_graph.get_num_edges(); ++i) {
             edge const & e = es[i];
@@ -486,6 +465,12 @@ namespace smt {
         };
         os << "))" << std::endl;
         os << "(optimize)" << std::endl;
+        if (!m_flows.empty()) {
+            for (unsigned i = 0; i < m_graph.get_num_edges(); ++i) {
+                edge const & e = es[i];
+                os << "; y_" << e.get_source() << "_" << e.get_target() << " = " << m_flows[i] << "\n";
+            }
+        }
     }
 
 
