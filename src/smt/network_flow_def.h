@@ -288,19 +288,21 @@ namespace smt {
         while (choose_entering_edge(pr)) { 
             bool bounded = choose_leaving_edge();
             if (!bounded) return UNBOUNDED;
-            //TRACE("network_flow",
+            vector<edge>const& es = m_graph.get_all_edges();
+            TRACE("network_flow",
                   {
-                      vector<edge>const& es = m_graph.get_all_edges();
                       edge const& e_in = es[m_enter_id];
                       edge const& e_out = es[m_leave_id];
-                      node src_in = e_in.get_source(), tgt_in = e_in.get_target();
-                      node src_out = e_out.get_source(), tgt_out = e_out.get_target();
+                      node src_in = e_in.get_source();
+                      node tgt_in = e_in.get_target();
+                      node src_out = e_out.get_source();
+                      node tgt_out = e_out.get_target();
                       numeral c1 = m_potentials[src_in] - m_potentials[tgt_in] - m_graph.get_weight(m_enter_id);
                       numeral c2 = m_potentials[src_out] - m_potentials[tgt_out] - m_graph.get_weight(m_leave_id);
                       tout << "new base: y_" << src_in  << "_" << tgt_in  << " cost: " << c1 << " delta: " << *m_delta << "\n";
                       tout << "old base: y_" << src_out << "_" << tgt_out << " cost: " << c2 << "\n";                  
                   }
-              //    );
+                  );
             update_flows();
             if (m_enter_id != m_leave_id) {
                 SASSERT(edge_in_tree(m_leave_id));
