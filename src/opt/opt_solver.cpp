@@ -190,15 +190,33 @@ namespace opt {
         return m_objective_values;
     }
 
-    expr_ref opt_solver::block_upper_bound(unsigned var, inf_eps const& val) {
+    expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& val) {
         smt::theory_opt& opt = get_optimizer();
-        SASSERT(typeid(smt::theory_inf_arith) == typeid(opt));
-        smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
         smt::theory_var v = m_objective_vars[var];
-        return expr_ref(th.block_upper_bound(v, val), m);
+
+        if (typeid(smt::theory_inf_arith) == typeid(opt)) {
+            smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
+            return expr_ref(th.mk_ge(v, val), m);
+        }
+
+        if (typeid(smt::theory_mi_arith) == typeid(opt)) {
+            smt::theory_mi_arith& th = dynamic_cast<smt::theory_mi_arith&>(opt); 
+            SASSERT(val.get_infinity().is_zero());
+            return expr_ref(th.mk_ge(v, val.get_numeral()), m);
+        }
+
+        if (typeid(smt::theory_i_arith) == typeid(opt)) {
+            SASSERT(val.get_infinity().is_zero());
+            SASSERT(val.get_infinitesimal().is_zero());
+            smt::theory_i_arith& th = dynamic_cast<smt::theory_i_arith&>(opt); 
+            return expr_ref(th.mk_ge(v, val.get_rational()), m);
+        }
+
+        // difference logic?
+        return expr_ref(m.mk_true(), m);
     }
  
-    expr_ref opt_solver::block_lower_bound(unsigned var, inf_eps const& val) {
+    expr_ref opt_solver::mk_gt(unsigned var, inf_eps const& val) {
         if (val.get_infinity().is_pos()) {
             return expr_ref(m.mk_false(), m);
         }
@@ -207,7 +225,7 @@ namespace opt {
         }
         else {
             inf_rational n = val.get_numeral();            
-            return expr_ref(get_optimizer().block_lower_bound(m_objective_vars[var], n), m);
+            return expr_ref(get_optimizer().mk_gt(m_objective_vars[var], n), m);
         }
     }
 

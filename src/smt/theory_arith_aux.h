@@ -1044,7 +1044,7 @@ namespace smt {
        \brief: assert val < v
     */
     template<typename Ext>
-    expr* theory_arith<Ext>::block_lower_bound(theory_var v, inf_rational const& val) {
+    expr* theory_arith<Ext>::mk_gt(theory_var v, inf_rational const& val) {
         ast_manager& m = get_manager();
         expr* obj = get_enode(v)->get_owner();
         expr_ref e(m);
@@ -1062,7 +1062,7 @@ namespace smt {
       \brief assert val <= v
     */
     template<typename Ext>
-    expr* theory_arith<Ext>::block_upper_bound(theory_var v, inf_numeral const& val) {
+    expr* theory_arith<Ext>::mk_ge(theory_var v, inf_numeral const& val) {
         ast_manager& m = get_manager();
         context& ctx = get_context();
         std::ostringstream strm;

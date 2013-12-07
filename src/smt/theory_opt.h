@@ -28,9 +28,10 @@ namespace smt {
     class theory_opt {
     public:
         typedef inf_eps_rational<inf_rational> inf_eps;
-        virtual inf_eps_rational<inf_rational> maximize(theory_var v) { UNREACHABLE(); return inf_eps::infinity(); }
+        virtual inf_eps maximize(theory_var v) { UNREACHABLE(); return inf_eps::infinity(); }
         virtual theory_var add_objective(app* term) { UNREACHABLE(); return null_theory_var; }
-        virtual expr* block_lower_bound(theory_var v, inf_rational const& val) { return 0; }
+        virtual expr* mk_gt(theory_var v, inf_rational const& val) { UNREACHABLE(); return 0; }
+        virtual expr* mk_ge(theory_var v, inf_eps const& val) { UNREACHABLE(); return 0; }
     };
 }
 

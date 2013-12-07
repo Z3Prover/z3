@@ -1146,7 +1146,7 @@ expr* theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational const& 
 }
 
 template<typename Ext>
-expr* theory_diff_logic<Ext>::block_lower_bound(theory_var v, inf_rational const& val) {
+expr* theory_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
     expr * o = block_objective(v, val);
     context & ctx = get_context();
     model_ref mdl;

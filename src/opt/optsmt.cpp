@@ -121,7 +121,7 @@ namespace opt {
         
         for (unsigned i = 0; i < m_lower.size(); ++i) {
             inf_eps const& v = m_lower[i];
-            disj.push_back(s->block_lower_bound(i, v));
+            disj.push_back(s->mk_gt(i, v));
         }
         constraint = m.mk_or(disj.size(), disj.c_ptr());
         s->assert_expr(constraint);
@@ -149,7 +149,7 @@ namespace opt {
                 smt::theory_var v = m_vars[i]; 
                 mid.push_back((m_upper[i]+m_lower[i])/rational(2));
                 //mid.push_back(m_upper[i]);
-                bound = th.block_upper_bound(v, mid[i]);
+                bound = th.mk_ge(v, mid[i]);
                 bounds.push_back(bound);
             }
             else {
@@ -273,7 +273,7 @@ namespace opt {
         m_upper[i] = mid;
         TRACE("opt", tout << "set lower bound of "; display_objective(tout, i) << " to: " << mid << "\n";
               tout << get_lower(i) << ":" << get_upper(i) << "\n";);
-        s->assert_expr(s->block_upper_bound(i, mid));
+        s->assert_expr(s->mk_ge(i, mid));
     }
 
     std::ostream& optsmt::display_objective(std::ostream& out, unsigned i) const {
