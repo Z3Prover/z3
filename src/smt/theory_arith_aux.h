@@ -927,7 +927,7 @@ namespace smt {
     */
     template<typename Ext>
     theory_var theory_arith<Ext>::pick_var_to_leave(theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain) {
-        TRACE("maximize", tout << "selecting variable to replace v" << x_j << ", inc: " << inc << "\n";);
+        TRACE("opt", tout << "selecting variable to replace v" << x_j << ", inc: " << inc << "\n";);
         theory_var x_i  = null_theory_var;
         inf_numeral curr_gain; 
         column & c      = m_columns[x_j];
@@ -951,7 +951,7 @@ namespace smt {
                             x_i  = s;
                             a_ij = coeff;
                             gain = curr_gain;
-                            TRACE("maximize", 
+                            TRACE("opt", 
                                   tout << "x_i: v" << x_i << ", gain: " << gain << "\n";
                                   tout << "value(s): (" << get_value(s) << " - " << b->get_value() << ")/" << coeff << "\n";
                                   display_row(tout, r, true);
@@ -959,10 +959,10 @@ namespace smt {
                         }
                     }
                 }
-                TRACE("maximize", tout << "x_i: v" << x_i << ", gain: " << gain << "\n";);
+                TRACE("opt", tout << "x_i: v" << x_i << ", gain: " << gain << "\n";);
             }
         }
-        TRACE("maximize", tout << "x_i v" << x_i << "\n";);
+        TRACE("opt", tout << "x_i v" << x_i << "\n";);
         return x_i;
     }
 
@@ -1017,11 +1017,15 @@ namespace smt {
         if (get_theory_vars(term, vars)) {
             m_objective_theory_vars.insert(v, vars);
         }
+        TRACE("opt", tout << mk_pp(term, get_manager()) << " |-> v" << v << "\n";);
+        TRACE("opt", tout << "data-size: " << m_data.size() << "\n";);
+        SASSERT(!is_quasi_base(v));
         return v;
     }
 
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v) {
+        TRACE("opt", tout << "data-size: " << m_data.size() << "\n";);
         bool r = max_min(v, true); 
         if (r || at_upper(v)) {
             if (m_objective_theory_vars.contains(v)) {
@@ -1250,7 +1254,7 @@ namespace smt {
             x_j = null_theory_var;
             x_i = null_theory_var;
             gain.reset();
-            TRACE("maximize", tout << "i: " << i << ", max: " << max << "\n"; display_row(tout, r, true); tout << "state:\n"; display(tout); i++;);
+            TRACE("opt", tout << "i: " << i << ", max: " << max << "\n"; display_row(tout, r, true); tout << "state:\n"; display(tout); i++;);
             typename vector<row_entry>::const_iterator it  = r.begin_entries();
             typename vector<row_entry>::const_iterator end = r.end_entries();
             for (; it != end; ++it) {  
@@ -1288,10 +1292,10 @@ namespace smt {
                     }
                 }
             }
-            TRACE("maximize", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << gain << "\n";);
+            TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << gain << "\n";);
 
             if (x_j == null_theory_var) {
-                TRACE("maximize", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);
+                TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);
                 SASSERT(valid_row_assignment());
                 SASSERT(satisfy_bounds());
                 return true;
@@ -1301,14 +1305,14 @@ namespace smt {
                 // can increase/decrease x_j as much as we want.
                 if (inc && upper(x_j)) {
                     update_value(x_j, upper_bound(x_j) - get_value(x_j));
-                    TRACE("maximize", tout << "moved v" << x_j << " to upper bound\n";);
+                    TRACE("opt", tout << "moved v" << x_j << " to upper bound\n";);
                     SASSERT(valid_row_assignment());
                     SASSERT(satisfy_bounds());
                     continue;
                 }
                 if (!inc && lower(x_j)) {
                     update_value(x_j, lower_bound(x_j) - get_value(x_j));
-                    TRACE("maximize", tout << "moved v" << x_j << " to lower bound\n";);
+                    TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
                     SASSERT(valid_row_assignment());
                     SASSERT(satisfy_bounds());
                     continue;
@@ -1320,18 +1324,18 @@ namespace smt {
                 // can increase/decrease x_j up to upper/lower bound.
                 if (inc) {
                     update_value(x_j, upper_bound(x_j) - get_value(x_j));
-                    TRACE("maximize", tout << "moved v" << x_j << " to upper bound\n";);
+                    TRACE("opt", tout << "moved v" << x_j << " to upper bound\n";);
                 }
                 else {
                     update_value(x_j, lower_bound(x_j) - get_value(x_j));
-                    TRACE("maximize", tout << "moved v" << x_j << " to lower bound\n";);
+                    TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
                 }
                 SASSERT(valid_row_assignment());
                 SASSERT(satisfy_bounds());
                 continue;
             }
 
-            TRACE("maximize", tout << "max: " << max << ", x_i: v" << x_i << ", x_j: v" << x_j << ", a_ij: " << a_ij << ", coeff: " << coeff << "\n";
+            TRACE("opt", tout << "max: " << max << ", x_i: v" << x_i << ", x_j: v" << x_j << ", a_ij: " << a_ij << ", coeff: " << coeff << "\n";
                   if (upper(x_i)) tout << "upper x_i: " << upper_bound(x_i) << " ";
                   if (lower(x_i)) tout << "lower x_i: " << lower_bound(x_i) << " ";
                   tout << "value x_i: " << get_value(x_i) << "\n";
@@ -1379,7 +1383,7 @@ namespace smt {
             SASSERT(!delta.is_neg());
         }
 
-        TRACE("maximize", tout << "Original delta: " << delta << "\n";);
+        TRACE("opt", tout << "Original delta: " << delta << "\n";);
 
         delta_abs = abs(delta);
         //
@@ -1415,7 +1419,7 @@ namespace smt {
             delta = delta_abs;
         }
 
-        TRACE("maximize", tout << "Safe delta: " << delta << "\n";);
+        TRACE("opt", tout << "Safe delta: " << delta << "\n";);
 
         update_value(x_i, delta);
     }
@@ -1441,7 +1445,7 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::max_min(theory_var v, bool max) {
-        TRACE("maximize", tout << (max ? "maximizing" : "minimizing") << " v" << v << "...\n";);
+        TRACE("opt", tout << (max ? "maximizing" : "minimizing") << " v" << v << "...\n";);
         SASSERT(valid_row_assignment());
         SASSERT(satisfy_bounds());
         SASSERT(!is_quasi_base(v));
@@ -1461,7 +1465,7 @@ namespace smt {
             }            
         }
         if (max_min(m_tmp_row, max)) {
-            TRACE("maximize", tout << "v" << v << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
+            TRACE("opt", tout << "v" << v << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););
             
             mk_bound_from_row(v, get_value(v), max ? B_UPPER : B_LOWER, m_tmp_row);
@@ -1489,7 +1493,7 @@ namespace smt {
         if (succ) {
             // process new bounds
             bool r = propagate_core();
-            TRACE("maximize", tout << "after max/min round:\n"; display(tout););
+            TRACE("opt", tout << "after max/min round:\n"; display(tout););
             return r;
         }
         return true;

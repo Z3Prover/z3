@@ -59,11 +59,18 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         }
         vector<parameter> params;
         for (unsigned i = 0; i < num_parameters; ++i) {
-            if (parameters[i].is_int()) {
-                params.push_back(parameter(rational(parameters[i].get_int())));
+            parameter const& p = parameters[i];
+            if (p.is_int()) {
+                params.push_back(p);
             }
-            else if (parameters[i].is_rational()) {
-                params.push_back(parameter(parameters[i].get_rational()));
+            else if (p.is_rational()) {
+                // HACK: ast pretty printer does not work with rationals.
+                if (p.get_rational().is_int32()) {
+                    params.push_back(parameter(p.get_rational().get_int32()));
+                }
+                else {
+                    params.push_back(p);
+                }
             }
             else {
                 m.raise_exception("function 'pble' expects arity+1 integer parameters");
@@ -148,11 +155,11 @@ bool pb_util::is_at_least_k(app *a, rational& k) const {
 rational pb_util::get_k(app *a) const {
     parameter const& p = a->get_decl()->get_parameter(0);
     if (is_at_most_k(a) || is_at_least_k(a)) {
-        return rational(p.get_int());
+        return to_rational(p);
     }
     else {
         SASSERT(is_le(a) || is_ge(a));
-        return p.get_rational();
+        return to_rational(p);
     }
 }
 
@@ -191,7 +198,13 @@ rational pb_util::get_coeff(app* a, unsigned index) {
     }
     SASSERT(is_le(a) || is_ge(a));
     SASSERT(1 + index < a->get_decl()->get_num_parameters());
-    return a->get_decl()->get_parameter(index + 1).get_rational();
+    return to_rational(a->get_decl()->get_parameter(index + 1));
 }
 
-
+rational pb_util::to_rational(parameter const& p) const {
+    if (p.is_int()) {
+        return rational(p.get_int());
+    }
+    SASSERT(p.is_rational());
+    return p.get_rational();
+}

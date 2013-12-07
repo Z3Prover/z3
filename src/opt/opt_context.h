@@ -43,20 +43,27 @@ namespace opt {
             O_MINIMIZE,
             O_MAXSMT
         };
+
         struct objective {
             objective_t m_type;
-            app_ref     m_term; // for maximize, minimize
-            symbol      m_id;   // for maxsmt
-            unsigned    m_index;
+            app_ref     m_term;          // for maximize, minimize term
+            expr_ref_vector   m_terms;   // for maxsmt
+            vector<rational>  m_weights; // for maxsmt
+            symbol      m_id;            // for maxsmt
+            unsigned    m_index;         // for maximize/minimize index
+
             objective(bool is_max, app_ref& t, unsigned idx):
                 m_type(is_max?O_MAXIMIZE:O_MINIMIZE),
                 m_term(t),
+                m_terms(t.get_manager()),
                 m_id(),
                 m_index(idx)
             {}
+
             objective(ast_manager& m, symbol id):
                 m_type(O_MAXSMT),
                 m_term(m),
+                m_terms(m),
                 m_id(id),
                 m_index(0)
             {}
@@ -70,6 +77,7 @@ namespace opt {
         map_id              m_indices;
         vector<objective>   m_objectives;
         model_ref           m_model;
+        obj_map<func_decl, unsigned> m_objective_fns;
     public:
         context(ast_manager& m);
         ~context();
@@ -106,8 +114,20 @@ namespace opt {
         lbool execute_pareto();
         expr_ref to_expr(inf_eps const& n);
 
-        void push();
-        void pop(unsigned sz);
+        void normalize();
+        void internalize();
+        bool is_maximize(expr* fml, app_ref& term, unsigned& index);
+        bool is_minimize(expr* fml, app_ref& term, unsigned& index);
+        bool is_maxsat(expr* fml, expr_ref_vector& terms, 
+                       vector<rational>& weights, symbol& id, unsigned& index);
+        expr* mk_maximize(unsigned index, app* t);
+        expr* mk_minimize(unsigned index, app* t);
+        expr* mk_maxsat(unsigned index, unsigned num_fmls, expr* const* fmls);
+        expr* mk_objective_fn(unsigned index, objective_t ty, unsigned sz, expr*const* args);
+        void to_fmls(expr_ref_vector& fmls);
+        void from_fmls(expr_ref_vector const& fmls);
+        void simplify_fmls(expr_ref_vector& fmls);
+
         opt_solver& get_solver();
 
     };

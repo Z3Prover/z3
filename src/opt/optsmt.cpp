@@ -208,12 +208,11 @@ namespace opt {
 
         // First check_sat call to initialize theories
         lbool is_sat = s->check_sat(0, 0);
+        solver::scoped_push _push(*s);
         if (is_sat == l_true && !m_objs.empty()) {
             for (unsigned i = 0; i < m_objs.size(); ++i) {
                 m_vars.push_back(s->add_objective(m_objs[i].get()));
             }            
-
-            solver::scoped_push _push(*s);
 
             if (m_engine == symbol("basic")) {
                 is_sat = basic_opt();

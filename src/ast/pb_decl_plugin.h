@@ -92,6 +92,8 @@ public:
     bool is_ge(app* a) const;
     bool is_ge(app* a, rational& k) const;
     rational get_coeff(app* a, unsigned index); 
+private:
+    rational to_rational(parameter const& p) const;
 };
 
 

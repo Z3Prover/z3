@@ -143,23 +143,43 @@ public:
         if ((a.is_le(fml, x, y) || a.is_ge(fml, y, x)) &&
             get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
             get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
-            result = m_pb.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff);
+            result = mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff);
             return true;
         }
         else if ((a.is_lt(fml, y, x) || a.is_gt(fml, x, y)) &&
                  get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
                  get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
-            result = m.mk_not(m_pb.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
+            result = m.mk_not(mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
             return true;
         }
         else if (m.is_eq(fml, x, y) &&
                  get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
                  get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
-            result = m.mk_and(m_pb.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff), 
-                              m_pb.mk_ge(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
+            result = m.mk_and(mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff), 
+                              mk_ge(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
             return true;
         }                
         return false;
+    }
+
+    expr* mk_le(unsigned sz, rational const* weights, expr* const* args, rational const& w) {
+        if (sz == 1 && weights[0].is_one() && w >= rational::one()) {
+            return m.mk_true();
+        }
+        if (sz == 1 && weights[0].is_one() && w.is_zero()) {
+            return m.mk_not(args[0]);
+        }
+        return m_pb.mk_le(sz, weights, args, w);
+    }
+    
+    expr* mk_ge(unsigned sz, rational const* weights, expr* const* args, rational const& w) {
+        if (sz == 1 && weights[0].is_one() && w.is_one()) {
+            return args[0];
+        }
+        if (sz == 1 && weights[0].is_one() && w.is_zero()) {
+            return m.mk_not(args[0]);
+        }
+        return m_pb.mk_ge(sz, weights, args, w);
     }
     
     bool get_pb_sum(expr* x, rational const& mul, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
@@ -179,31 +199,53 @@ public:
         else if (a.is_uminus(x, y)) {
             ok = get_pb_sum(y, -mul, args, coeffs, coeff);
         }
-        else if (a.is_mul(x, y, z) && a.is_numeral(y, r)) {
+        else if (a.is_mul(x, y, z) && is_numeral(y, r)) {
             ok = get_pb_sum(z, r*mul, args, coeffs, coeff);
         }                
-        else if (a.is_mul(x, z, y) && a.is_numeral(y, r)) {
+        else if (a.is_mul(x, z, y) && is_numeral(y, r)) {
             ok = get_pb_sum(z, r*mul, args, coeffs, coeff);
         }
-        else if (m.is_ite(x, y, z, u) && a.is_numeral(z, r) && a.is_numeral(u, q)) {
-            args.push_back(y);
-            coeffs.push_back(r*mul);
-            args.push_back(m.mk_not(y));
-            coeffs.push_back(q*mul);
+        else if (m.is_ite(x, y, z, u) && is_numeral(z, r) && is_numeral(u, q)) {
+            insert_arg(r*mul, y, args, coeffs, coeff);
+            // q*(1-y) = -q*y + q
+            coeff += q*mul;
+            insert_arg(-q*mul, y, args, coeffs, coeff);
         }
         else if (is_01var(x)) {
-            args.push_back(mk_01(x));
-            coeffs.push_back(mul);
+            insert_arg(mul, mk_01(x), args, coeffs, coeff);
         }
-        else if (a.is_numeral(x, r)) {
+        else if (is_numeral(x, r)) {
             coeff += mul*r;
         }
         else {
+            TRACE("pb", tout << "Can't handle " << mk_pp(x, m) << "\n";);
             ok = false;
         }
         return ok;
     }
+
+    bool is_numeral(expr* e, rational& r) {
+        if (a.is_uminus(e, e) && is_numeral(e, r)) {
+            r.neg();
+            return true;
+        }
+        return a.is_numeral(e, r);
+    }
     
+    void insert_arg(rational const& p, expr* x, 
+                    expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
+        if (p.is_neg()) {
+            // p*x = -p*(1-x) + p
+            args.push_back(m.mk_not(x));
+            coeffs.push_back(-p);
+            coeff += p;
+        }
+        else if (p.is_pos()) {
+            args.push_back(x);
+            coeffs.push_back(p);
+        }
+    }
+
     virtual tactic * translate(ast_manager & m) {
         return alloc(lia2card_tactic, m, m_params);
     }
@@ -224,6 +266,9 @@ tactic * mk_lia2card_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(lia2card_tactic, m, p));
 }
 
-void convert_objectives() {
-    
+bool get_pb_sum(expr* term, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
+    params_ref p;
+    ast_manager& m = args.get_manager();
+    lia2card_tactic tac(m, p);
+    return tac.get_pb_sum(term, rational::one(), args, coeffs, coeff);
 }

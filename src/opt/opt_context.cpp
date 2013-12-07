@@ -23,6 +23,11 @@ Notes:
 #include "opt_params.hpp"
 #include "arith_decl_plugin.h"
 #include "for_each_expr.h"
+#include "goal.h"
+#include "tactic.h"
+#include "lia2card_tactic.h"
+#include "elim01_tactic.h"
+#include "tactical.h"
 
 namespace opt {
 
@@ -51,21 +56,24 @@ namespace opt {
             m_objectives.push_back(objective(m, id));
             m_indices.insert(id, m_objectives.size() - 1);
         }
-        ms->add(f, w);        
         SASSERT(m_indices.contains(id));        
-        return m_indices[id];
+        unsigned idx = m_indices[id];
+        m_objectives[idx].m_terms.push_back(f);
+        m_objectives[idx].m_weights.push_back(w);
+        return idx;
     }
 
     unsigned context::add_objective(app* t, bool is_max) {
         app_ref tr(t, m);
-        unsigned index = m_optsmt.get_num_objectives();
-        m_optsmt.add(t, is_max);
+        unsigned index = m_objectives.size();
         m_objectives.push_back(objective(is_max, tr, index));
         return index;
     }
 
     lbool context::optimize() {
-        opt_solver& s = get_solver();
+        opt_solver& s = get_solver();        
+        normalize();
+        internalize();
         solver::scoped_push _sp(s);
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
             s.assert_expr(m_hard_constraints[i].get());
@@ -137,9 +145,9 @@ namespace opt {
     lbool context::execute_box() {
         lbool r = l_true;
         for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
-            push();
+            get_solver().push();
             r = execute(m_objectives[i], false);
-            pop(1);
+            get_solver().pop(1);
         }
         return r;
     }
@@ -153,12 +161,180 @@ namespace opt {
         return *m_solver.get(); 
     }
 
-    void context::push() {
-        get_solver().push();
+    void context::normalize() {
+        expr_ref_vector fmls(m);
+        to_fmls(fmls);
+        simplify_fmls(fmls);
+        from_fmls(fmls);
     }
 
-    void context::pop(unsigned sz) {
-        get_solver().pop(sz);
+    void context::simplify_fmls(expr_ref_vector& fmls) {
+        goal_ref g(alloc(goal, m, true, false));
+        for (unsigned i = 0; i < fmls.size(); ++i) {
+            g->assert_expr(fmls[i].get());
+        }
+        tactic_ref tac1 = mk_elim01_tactic(m);
+        tactic_ref tac2 = mk_lia2card_tactic(m);
+        tactic_ref tac  = and_then(tac1.get(), tac2.get());
+        model_converter_ref mc;  // TBD: expose model converter upwards and apply to returned model.
+        proof_converter_ref pc;
+        expr_dependency_ref core(m);
+        goal_ref_buffer result;
+        (*tac)(g, result, mc, pc, core);   // TBD: have this an attribute so we can cancel.
+        SASSERT(result.size() == 1);
+        goal* r = result[0];
+        fmls.reset();
+        for (unsigned i = 0; i < r->size(); ++i) {
+            fmls.push_back(r->form(i));
+        }        
+    }
+
+    bool context::is_maximize(expr* fml, app_ref& term, unsigned& index) {
+        if (is_app(fml) && m_objective_fns.find(to_app(fml)->get_decl(), index) && 
+            m_objectives[index].m_type == O_MAXIMIZE) {
+            term = to_app(to_app(fml)->get_arg(0));
+            return true;
+        }
+        return false;
+    }
+
+    bool context::is_minimize(expr* fml, app_ref& term, unsigned& index) {
+        if (is_app(fml) && m_objective_fns.find(to_app(fml)->get_decl(), index) && 
+            m_objectives[index].m_type == O_MINIMIZE) {
+            term = to_app(to_app(fml)->get_arg(0));
+            return true;
+        }
+        return false;
+    }
+
+    bool context::is_maxsat(expr* fml, expr_ref_vector& terms, 
+                            vector<rational>& weights, symbol& id, unsigned& index) {
+        if (!is_app(fml)) return false;
+        app* a = to_app(fml);
+        if (m_objective_fns.find(a->get_decl(), index) && m_objectives[index].m_type == O_MAXSMT) {
+            terms.append(a->get_num_args(), a->get_args());
+            weights.append(m_objectives[index].m_weights);
+            id = m_objectives[index].m_id;
+            return true;
+        }
+        app_ref term(m);
+        if (is_minimize(fml, term, index)) {
+            TRACE("opt", tout << "try to convert minimization" << mk_pp(term, m) << "\n";);
+            rational coeff(0);
+            return get_pb_sum(term, terms, weights, coeff);
+        }
+        return false;
+    }
+
+    expr* context::mk_objective_fn(unsigned index, objective_t ty, unsigned sz, expr*const* args) {
+        ptr_vector<sort> domain;
+        for (unsigned i = 0; i < sz; ++i) {
+            domain.push_back(m.get_sort(args[i]));
+        }
+        char const* name = "";
+        switch(ty) {
+        case O_MAXIMIZE: name = "maximize"; break;
+        case O_MINIMIZE: name = "minimize"; break;
+        case O_MAXSMT: name = "maxsat"; break;
+        default: break;
+        }
+        func_decl* f = m.mk_fresh_func_decl(name,"", domain.size(), domain.c_ptr(), m.mk_bool_sort());
+        m_objective_fns.insert(f, index);
+        return m.mk_app(f, sz, args);
+    }
+
+    expr* context::mk_maximize(unsigned index, app* t) {
+        expr* t_ = t;
+        return mk_objective_fn(index, O_MAXIMIZE, 1, &t_);
+    }
+
+    expr* context::mk_minimize(unsigned index, app* t) {
+        expr* t_ = t;
+        return mk_objective_fn(index, O_MINIMIZE, 1, &t_);
+    }
+
+    expr* context::mk_maxsat(unsigned index, unsigned num_fmls, expr* const* fmls) {
+        return mk_objective_fn(index, O_MAXSMT, num_fmls, fmls);
+    }
+
+
+    void context::from_fmls(expr_ref_vector const& fmls) {
+        m_hard_constraints.reset();
+        for (unsigned i = 0; i < fmls.size(); ++i) {
+            expr* fml = fmls[i];
+            app_ref tr(m);
+            expr_ref_vector terms(m);
+            vector<rational> weights;
+            unsigned index;
+            symbol id;
+            if (is_maxsat(fml, terms, weights, id, index)) {
+                objective& obj = m_objectives[index];
+                if (obj.m_type != O_MAXSMT) {
+                    // change from maximize/minimize.
+                    obj.m_id = id;
+                    obj.m_type = O_MAXSMT;
+                    obj.m_weights.append(weights);
+                    SASSERT(!m_maxsmts.contains(id));
+                    maxsmt* ms = alloc(maxsmt, m);
+                    m_maxsmts.insert(id, ms);
+                    m_indices.insert(id, index);
+                }
+                SASSERT(obj.m_id == id);
+                obj.m_terms.reset();
+                obj.m_terms.append(terms);
+            }
+            else if (is_maximize(fml, tr, index)) {
+                m_objectives[index].m_term = tr;
+            }
+            else if (is_minimize(fml, tr, index)) {
+                m_objectives[index].m_term = tr;
+            }
+            else {
+                m_hard_constraints.push_back(fml);
+            }
+        }
+    }
+
+    void context::to_fmls(expr_ref_vector& fmls) {
+        m_objective_fns.reset();
+        fmls.append(m_hard_constraints);
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            switch(obj.m_type) {
+            case O_MINIMIZE:
+                fmls.push_back(mk_minimize(i, obj.m_term));
+                break;
+            case O_MAXIMIZE:
+                fmls.push_back(mk_maximize(i, obj.m_term));
+                break;
+            case O_MAXSMT: 
+                fmls.push_back(mk_maxsat(i, obj.m_terms.size(), obj.m_terms.c_ptr()));
+                break;
+            }
+        }
+    }
+
+    void context::internalize() {
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective & obj = m_objectives[i];
+            switch(obj.m_type) {
+            case O_MINIMIZE:
+                obj.m_index = m_optsmt.get_num_objectives();
+                m_optsmt.add(obj.m_term, false);
+                break;
+            case O_MAXIMIZE:
+                obj.m_index = m_optsmt.get_num_objectives();
+                m_optsmt.add(obj.m_term, true);
+                break;
+            case O_MAXSMT: {
+                maxsmt& ms = *m_maxsmts.find(obj.m_id);
+                for (unsigned j = 0; j < obj.m_terms.size(); ++j) {
+                    ms.add(obj.m_terms[j].get(), obj.m_weights[j]);        
+                }
+                break;
+            }
+            }
+        }
     }
 
     void context::display_assignment(std::ostream& out) {
@@ -333,13 +509,11 @@ namespace opt {
             case O_MINIMIZE:
                 visitor.collect(obj.m_term);
                 break;
-            case O_MAXSMT: {
-                maxsmt& ms = *m_maxsmts.find(obj.m_id);
-                for (unsigned j = 0; j < ms.size(); ++j) {
-                    visitor.collect(ms[j]);
+            case O_MAXSMT: 
+                for (unsigned j = 0; j < obj.m_terms.size(); ++j) {
+                    visitor.collect(obj.m_terms[j]);
                 }
                 break;
-            }
             default: 
                 UNREACHABLE();
                 break;
@@ -375,17 +549,16 @@ namespace opt {
                 PP(obj.m_term);
                 out << ")\n";
                 break;
-            case O_MAXSMT: {
-                maxsmt& ms = *m_maxsmts.find(obj.m_id);
-                for (unsigned j = 0; j < ms.size(); ++j) {
+            case O_MAXSMT: 
+                for (unsigned j = 0; j < obj.m_terms.size(); ++j) {
                     out << "(assert-soft ";
-                    PP(ms[j]);
-                    rational w = ms.weight(j);
+                    PP(obj.m_terms[j]);
+                    rational w = obj.m_weights[j];
                     if (w.is_int()) {
-                        out << " :weight " << ms.weight(j);
+                        out << " :weight " << w;
                     }
                     else {
-                        out << " :dweight " << ms.weight(j);
+                        out << " :dweight " << w;
                     }
                     if (obj.m_id != symbol::null) {
                         out << " :id " << obj.m_id;
@@ -393,7 +566,6 @@ namespace opt {
                     out << ")\n";
                 }
                 break;
-            }
             default: 
                 UNREACHABLE();
                 break;
