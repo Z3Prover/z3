@@ -221,7 +221,18 @@ namespace opt {
         if (is_minimize(fml, term, index)) {
             TRACE("opt", tout << "try to convert minimization" << mk_pp(term, m) << "\n";);
             rational coeff(0);
-            return get_pb_sum(term, terms, weights, coeff);
+            // minimize 2*x + 3*y 
+            // <=>
+            // (assret-soft (not x) 2)
+            // (assert-soft (not y) 3)
+            //
+            if (get_pb_sum(term, terms, weights, coeff) && coeff.is_zero()) {
+                // TBD: and weights are positive?
+                for (unsigned i = 0; i < terms.size(); ++i) {
+                    terms[i] = m.mk_not(terms[i].get());
+                }
+                return true;
+            }
         }
         return false;
     }
