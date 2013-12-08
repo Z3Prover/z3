@@ -85,6 +85,7 @@ namespace opt {
             return is_sat;
         }
         s.get_model(m_model);
+        update_lower();
         switch (m_objectives.size()) {
         case 0:
             return is_sat;
@@ -223,11 +224,15 @@ namespace opt {
             rational coeff(0);
             // minimize 2*x + 3*y 
             // <=>
-            // (assret-soft (not x) 2)
+            // (assert-soft (not x) 2)
             // (assert-soft (not y) 3)
             //
             if (get_pb_sum(term, terms, weights, coeff) && coeff.is_zero()) {
-                // TBD: and weights are positive?
+                for (unsigned i = 0; i < weights.size(); ++i) {
+                    if (!weights[i].is_pos()) {
+                        return false;
+                    }
+                }
                 for (unsigned i = 0; i < terms.size(); ++i) {
                     terms[i] = m.mk_not(terms[i].get());
                 }
@@ -348,6 +353,40 @@ namespace opt {
         }
     }
 
+    void context::update_lower() {
+        arith_util a(m);
+        expr_ref val(m);
+        rational r(0);
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            switch(obj.m_type) {
+            case O_MINIMIZE:
+            case O_MAXIMIZE:
+                if (m_model->eval(obj.m_term, val) && a.is_numeral(val, r)) {
+                    m_optsmt.update_lower(obj.m_index, r);
+                }
+                break;
+            case O_MAXSMT: {
+                bool ok = true;
+                for (unsigned j = 0; ok && j < obj.m_terms.size(); ++j) {
+                    if (m_model->eval(obj.m_terms[j], val)) {
+                        if (!m.is_true(val)) {
+                            r += obj.m_weights[j];
+                        }
+                    }
+                    else {
+                        ok = false;
+                    }
+                }
+                if (ok) {
+                    m_maxsmts.find(obj.m_id)->update_lower(r);
+                }
+                break;
+            }
+            }
+        }
+    }
+
     void context::display_assignment(std::ostream& out) {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
@@ -459,6 +498,10 @@ namespace opt {
         if (m_solver) {
             m_solver->collect_statistics(stats);
         }
+        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+        for (; it != end; ++it) {
+            it->m_value->collect_statistics(stats);
+        }        
     }
 
     void context::collect_param_descrs(param_descrs & r) {

@@ -79,7 +79,6 @@ namespace opt {
         expr_ref mk_ge(unsigned obj_index, inf_eps const& val);
 
         static opt_solver& to_opt(solver& s);
-        void set_interim_stats(statistics & st);
         bool dump_benchmarks();
 
         class toggle_objective {

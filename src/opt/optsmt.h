@@ -56,6 +56,8 @@ namespace opt {
         inf_eps get_value(unsigned index) const;
         inf_eps get_lower(unsigned index) const;
         inf_eps get_upper(unsigned index) const;
+
+        void update_lower(unsigned idx, rational const& r);
         
     private:
         

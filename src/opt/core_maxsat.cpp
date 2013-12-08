@@ -147,5 +147,9 @@ namespace opt {
     void core_maxsat::set_cancel(bool f) {
         
     }
+    void core_maxsat::collect_statistics(statistics& st) const {
+        // nothing specific
+    }
+
     
 };

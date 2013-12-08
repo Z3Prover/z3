@@ -55,14 +55,8 @@ namespace opt {
         m_context.collect_param_descrs(r);
     }
     
-    void opt_solver::collect_statistics(statistics & st) const {
-        // HACK: display fu_malik statistics
-        if (m_stats.size() > 0) {
-            st.copy(m_stats);
-        }
-        else {
-            m_context.collect_statistics(st);
-        }
+    void opt_solver::collect_statistics(statistics & st) const {        
+        m_context.collect_statistics(st);
     }
     
     void opt_solver::assert_expr(expr * t) {
@@ -241,9 +235,6 @@ namespace opt {
         return dynamic_cast<opt_solver&>(s);
     }
 
-    void opt_solver::set_interim_stats(statistics & st) {
-        m_stats.copy(st);
-    }
     
     void opt_solver::to_smt2_benchmark(std::ofstream & buffer, char const * name, char const * logic, 
                                        char const * status, char const * attributes) {        

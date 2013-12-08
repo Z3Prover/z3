@@ -79,21 +79,29 @@ namespace opt {
         if (m_msolver) {
             return inf_eps(m_msolver->get_value());
         }
-        return inf_eps();
+        return inf_eps(m_upper);
     }
 
     inf_eps maxsmt::get_lower() const {
+        rational r = m_lower;
         if (m_msolver) {
-            return inf_eps(m_msolver->get_lower());
+            rational q = m_msolver->get_lower();
+            if (r < q) r = q;
         }
-        return inf_eps();
+        return inf_eps(r);
     }
 
     inf_eps maxsmt::get_upper() const {
+        rational r = m_upper;
         if (m_msolver) {
-            return inf_eps(m_msolver->get_upper());
+            rational q = m_msolver->get_upper();
+            if (r > q) r = q;
         }
-        return inf_eps(rational(m_soft_constraints.size()));
+        return inf_eps(r);
+    }
+
+    void maxsmt::update_lower(rational const& r) {
+        if (m_lower > r)  m_lower = r;
     }
 
     void maxsmt::commit_assignment() {
@@ -128,6 +136,12 @@ namespace opt {
     void maxsmt::updt_params(params_ref& p) {
         opt_params _p(p);
         m_maxsat_engine = _p.maxsat_engine();        
+    }
+
+    void maxsmt::collect_statistics(statistics& st) const {
+        if (m_msolver) {
+            m_msolver->collect_statistics(st);
+        }
     }
 
 

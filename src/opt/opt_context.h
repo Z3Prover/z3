@@ -128,6 +128,8 @@ namespace opt {
         void from_fmls(expr_ref_vector const& fmls);
         void simplify_fmls(expr_ref_vector& fmls);
 
+        void update_lower();
+
         opt_solver& get_solver();
 
     };

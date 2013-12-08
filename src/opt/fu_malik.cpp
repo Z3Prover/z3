@@ -93,6 +93,12 @@ namespace opt {
             }
         }
 
+        void collect_statistics(statistics& st) const {
+            if (m_s != &m_original_solver) {
+                m_s->collect_statistics(st);
+            }
+        }
+
         void set_union(expr_set const& set1, expr_set const& set2, expr_set & set) const {
             set.reset();
             expr_set::iterator it = set1.begin(), end = set1.end();
@@ -307,11 +313,6 @@ namespace opt {
                     }
                 }
             }
-            statistics st;
-            s().collect_statistics(st);
-            SASSERT(st.size() > 0);            
-            opt_solver & opt_s = opt_solver::to_opt(m_original_solver);
-            opt_s.set_interim_stats(st);
             // We are done and soft_constraints has 
             // been updated with the max-sat assignment.            
             return is_sat;            
@@ -343,6 +344,9 @@ namespace opt {
     }
     void fu_malik::set_cancel(bool f) {
         // no-op
+    }
+    void fu_malik::collect_statistics(statistics& st) const {
+        m_imp->collect_statistics(st);
     }
 
 

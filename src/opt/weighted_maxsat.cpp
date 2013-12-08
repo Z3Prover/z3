@@ -370,7 +370,9 @@ namespace opt {
     void wmaxsmt::set_cancel(bool f) {
         // no-op
     }
-
+    void wmaxsmt::collect_statistics(statistics& st) const {
+        // no-op
+    }
 
 
     

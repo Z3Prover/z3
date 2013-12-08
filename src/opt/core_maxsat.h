@@ -40,6 +40,7 @@ namespace opt {
         virtual rational get_value() const;
         virtual expr_ref_vector get_assignment() const;
         virtual void set_cancel(bool f);
+        virtual void collect_statistics(statistics& st) const;
 
     private:
         void set2vector(expr_set const& set, ptr_vector<expr>& es) const;

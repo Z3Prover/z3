@@ -105,6 +105,13 @@ namespace opt {
         return l_true;        
     }
 
+    void optsmt::update_lower(unsigned idx, rational const& r) {
+        inf_eps v(r);
+        if (m_lower[idx] < v) {
+            m_lower[idx] = v;
+        }
+    }
+
     void optsmt::update_lower() {
         model_ref md;
         s->get_model(md);
@@ -202,30 +209,26 @@ namespace opt {
        Returns an optimal assignment to objective functions.
     */
     lbool optsmt::operator()(opt_solver& solver) {
+        if (m_objs.empty()) {
+            return l_true;
+        }
+        lbool is_sat = l_true;
         s = &solver;
-        s->reset_objectives();
+        solver.reset_objectives();
         m_vars.reset();
 
         // First check_sat call to initialize theories
-        lbool is_sat = s->check_sat(0, 0);
-        solver::scoped_push _push(*s);
-        if (is_sat == l_true && !m_objs.empty()) {
-            for (unsigned i = 0; i < m_objs.size(); ++i) {
-                m_vars.push_back(s->add_objective(m_objs[i].get()));
-            }            
+        solver::scoped_push _push(solver);
 
-            if (m_engine == symbol("basic")) {
-                is_sat = basic_opt();
-            }
-            else if (m_engine == symbol("farkas")) {
-                is_sat = farkas_opt();
-            }
-            else {
-                // TODO: implement symba engine
-                // report error on bad configuration.
-                NOT_IMPLEMENTED_YET();
-                UNREACHABLE();
-            }
+        for (unsigned i = 0; i < m_objs.size(); ++i) {
+            m_vars.push_back(solver.add_objective(m_objs[i].get()));
+        }            
+
+        if (m_engine == symbol("farkas")) {
+            is_sat = farkas_opt();
+        }
+        else {
+            is_sat = basic_opt();
         }
 
         IF_VERBOSE(1, verbose_stream() << "is-sat: " << is_sat << std::endl;
