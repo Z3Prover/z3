@@ -32,6 +32,7 @@ namespace opt {
         m_msolver = 0;
         m_s = &s;
         if (m_soft_constraints.empty()) {
+            TRACE("opt", tout << "no constraints\n";);
             m_msolver = 0;
             is_sat = s.check_sat(0, 0);
             m_answer.reset();
@@ -75,29 +76,29 @@ namespace opt {
         return m_answer;
     } 
 
-    inf_eps maxsmt::get_value() const {
+    rational maxsmt::get_value() const {
         if (m_msolver) {
-            return inf_eps(m_msolver->get_value());
+            return m_msolver->get_value();
         }
-        return inf_eps(m_upper);
+        return m_upper;
     }
 
-    inf_eps maxsmt::get_lower() const {
+    rational maxsmt::get_lower() const {
         rational r = m_lower;
         if (m_msolver) {
             rational q = m_msolver->get_lower();
             if (r < q) r = q;
         }
-        return inf_eps(r);
+        return r;
     }
 
-    inf_eps maxsmt::get_upper() const {
+    rational maxsmt::get_upper() const {
         rational r = m_upper;
         if (m_msolver) {
             rational q = m_msolver->get_upper();
             if (r > q) r = q;
         }
-        return inf_eps(r);
+        return r;
     }
 
     void maxsmt::update_lower(rational const& r) {

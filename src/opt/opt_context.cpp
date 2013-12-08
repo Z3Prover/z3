@@ -209,8 +209,10 @@ namespace opt {
     }
 
     bool context::is_maxsat(expr* fml, expr_ref_vector& terms, 
-                            vector<rational>& weights, symbol& id, unsigned& index) {
+                            vector<rational>& weights, rational& offset, 
+                            bool& neg, symbol& id, unsigned& index) {
         if (!is_app(fml)) return false;
+        neg = false;
         app* a = to_app(fml);
         if (m_objective_fns.find(a->get_decl(), index) && m_objectives[index].m_type == O_MAXSMT) {
             terms.append(a->get_num_args(), a->get_args());
@@ -219,25 +221,46 @@ namespace opt {
             return true;
         }
         app_ref term(m);
-        if (is_minimize(fml, term, index)) {
+        offset = rational::zero();
+        if (is_minimize(fml, term, index) &&
+            get_pb_sum(term, terms, weights, offset)) {
             TRACE("opt", tout << "try to convert minimization" << mk_pp(term, m) << "\n";);
-            rational coeff(0);
             // minimize 2*x + 3*y 
             // <=>
             // (assert-soft (not x) 2)
             // (assert-soft (not y) 3)
             //
-            if (get_pb_sum(term, terms, weights, coeff) && coeff.is_zero()) {
-                for (unsigned i = 0; i < weights.size(); ++i) {
-                    if (!weights[i].is_pos()) {
-                        return false;
-                    }
+            for (unsigned i = 0; i < weights.size(); ++i) {
+                if (weights[i].is_neg()) {
+                    offset += weights[i];
+                    weights[i].neg();
                 }
-                for (unsigned i = 0; i < terms.size(); ++i) {
+                else {
                     terms[i] = m.mk_not(terms[i].get());
                 }
-                return true;
             }
+            return true;
+        }
+        if (is_maximize(fml, term, index) &&
+            get_pb_sum(term, terms, weights, offset)) {
+            TRACE("opt", tout << "try to convert maximization" << mk_pp(term, m) << "\n";);
+            // maximize 2*x + 3*y - z 
+            // <=>
+            // (assert-soft x 2)
+            // (assert-soft y 3)
+            // (assert-soft (not z) 1)
+            // offset := 6
+            // maximize = offset - penalty
+            // 
+            for (unsigned i = 0; i < weights.size(); ++i) {
+                if (weights[i].is_neg()) {
+                    weights[i].neg();
+                    terms[i] = m.mk_not(terms[i].get());
+                }
+                offset += weights[i];
+            }
+            neg = true;
+            return true;
         }
         return false;
     }
@@ -281,9 +304,11 @@ namespace opt {
             app_ref tr(m);
             expr_ref_vector terms(m);
             vector<rational> weights;
+            rational offset;
             unsigned index;
             symbol id;
-            if (is_maxsat(fml, terms, weights, id, index)) {
+            bool neg;
+            if (is_maxsat(fml, terms, weights, offset, neg, id, index)) {
                 objective& obj = m_objectives[index];
                 if (obj.m_type != O_MAXSMT) {
                     // change from maximize/minimize.
@@ -298,6 +323,9 @@ namespace opt {
                 SASSERT(obj.m_id == id);
                 obj.m_terms.reset();
                 obj.m_terms.append(terms);
+                obj.m_offset = offset;
+                obj.m_neg = neg;
+                TRACE("opt", tout << "maxsat: " << id << " offset:" << offset << "\n";);
             }
             else if (is_maximize(fml, tr, index)) {
                 m_objectives[index].m_term = tr;
@@ -390,42 +418,34 @@ namespace opt {
     void context::display_assignment(std::ostream& out) {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
-            switch(obj.m_type) {
-            case O_MAXSMT: {
-                symbol s = obj.m_id;
-                if (s != symbol::null) {
-                    out << s << " : ";
-                }
-                maxsmt* ms = m_maxsmts.find(s);
-                out << ms->get_value() << "\n";
-                break;
-            }
-            default:
-                break;
-            }
+            display_objective(out, obj);
+            out << get_upper(i) << "\n";
         }
-        m_optsmt.display_assignment(out);
     }
 
     void context::display_range_assignment(std::ostream& out) {
-        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {            
             objective const& obj = m_objectives[i];
-            switch(obj.m_type) {
-            case O_MAXSMT: {
-                symbol s = obj.m_id;
-                if (s != symbol::null) {
-                    out << s << " : ";
-                }
-                maxsmt* ms = m_maxsmts.find(s);
-                out << "[" << ms->get_lower() << ":" << ms->get_upper() << "]\n";
-                break;
-            }
-            default:
-                break;
-            }
+            display_objective(out, obj);
+            out << " [" << get_lower(i) << ":" << get_upper(i) << "]\n";
         }
-        m_optsmt.display_range_assignment(out);
     }
+
+    void context::display_objective(std::ostream& out, objective const& obj) const {
+        switch(obj.m_type) {
+        case O_MAXSMT: {
+            symbol s = obj.m_id;
+            if (s != symbol::null) {
+                out << s << " : ";
+            }
+            break;
+        }
+        default:
+            out << obj.m_term << " ";
+            break;
+        }
+    }
+
 
     expr_ref context::get_lower(unsigned idx) {
         if (idx > m_objectives.size()) {
@@ -433,8 +453,12 @@ namespace opt {
         }
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
-        case O_MAXSMT: 
-            return to_expr(m_maxsmts.find(obj.m_id)->get_lower());
+        case O_MAXSMT: {
+            rational r = m_maxsmts.find(obj.m_id)->get_lower();
+            if (obj.m_neg) r.neg();
+            r += obj.m_offset;
+            return to_expr(inf_eps(r));
+        }
         case O_MINIMIZE:
         case O_MAXIMIZE: 
             return to_expr(m_optsmt.get_lower(obj.m_index));
@@ -450,8 +474,12 @@ namespace opt {
         }
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
-        case O_MAXSMT: 
-            return to_expr(m_maxsmts.find(obj.m_id)->get_upper());
+        case O_MAXSMT: {
+            rational r = m_maxsmts.find(obj.m_id)->get_upper();
+            if (obj.m_neg) r.neg();
+            r += obj.m_offset;
+            return to_expr(inf_eps(r));
+        }
         case O_MINIMIZE:
         case O_MAXIMIZE: 
             return to_expr(m_optsmt.get_upper(obj.m_index));

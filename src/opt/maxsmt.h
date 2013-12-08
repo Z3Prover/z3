@@ -74,9 +74,9 @@ namespace opt {
         rational weight(unsigned idx) const { return m_weights[idx]; }
 
         void commit_assignment();
-        inf_eps get_value() const;
-        inf_eps get_lower() const;
-        inf_eps get_upper() const;
+        rational get_value() const;
+        rational get_lower() const;
+        rational get_upper() const;
         void update_lower(rational const& r);
 
 

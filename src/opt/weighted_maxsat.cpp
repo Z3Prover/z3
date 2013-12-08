@@ -218,12 +218,15 @@ namespace smt {
             if (m_min_cost_atom) {
                 lits.push_back(~literal(m_min_cost_bv));
             }
-            IF_VERBOSE(2, verbose_stream() << "block: " << m_costs.size() << " " << lits.size() << " " << m_min_cost << "\n";);
-            IF_VERBOSE(2, for (unsigned i = 0; i < lits.size(); ++i) {
-                    verbose_stream() << lits[i] << " ";
-                }
-                verbose_stream() << "\n";
-                );
+            IF_VERBOSE(2,
+                       verbose_stream() << "block: ";
+                       for (unsigned i = 0; i < lits.size(); ++i) {
+                           expr_ref tmp(m);
+                           ctx.literal2expr(lits[i], tmp);
+                           verbose_stream() << tmp << " ";
+                       }
+                       verbose_stream() << "\n";
+                       );
 
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
             if (is_final && m_cost < m_min_cost) {
@@ -312,6 +315,7 @@ namespace opt {
         */
         
         lbool operator()() {
+            TRACE("opt", tout << "weighted maxsat\n";);
             smt::theory_weighted_maxsat& wth = ensure_theory();
             lbool result;
             {
@@ -319,11 +323,7 @@ namespace opt {
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     wth.assert_weighted(m_soft[i].get(), m_weights[i]);
                 }
-#if 1
                 result = s.check_sat_core(0,0);
-#else
-                result = iterative_weighted_maxsat(s, *wth);
-#endif
                 
                 wth.get_assignment(m_assignment);
                 if (!m_assignment.empty() && result == l_false) {
@@ -331,6 +331,7 @@ namespace opt {
                 }
             }
             m_upper = wth.get_min_cost();
+            TRACE("opt", tout << "min cost: " << m_upper << "\n";);
             wth.reset();
             return result;            
         }        

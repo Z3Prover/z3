@@ -49,6 +49,8 @@ namespace opt {
             app_ref     m_term;          // for maximize, minimize term
             expr_ref_vector   m_terms;   // for maxsmt
             vector<rational>  m_weights; // for maxsmt
+            rational          m_offset;  // for maxsmt
+            bool              m_neg;     // negate
             symbol      m_id;            // for maxsmt
             unsigned    m_index;         // for maximize/minimize index
 
@@ -56,6 +58,8 @@ namespace opt {
                 m_type(is_max?O_MAXIMIZE:O_MINIMIZE),
                 m_term(t),
                 m_terms(t.get_manager()),
+                m_offset(0),
+                m_neg(false),
                 m_id(),
                 m_index(idx)
             {}
@@ -64,6 +68,8 @@ namespace opt {
                 m_type(O_MAXSMT),
                 m_term(m),
                 m_terms(m),
+                m_offset(0),
+                m_neg(false),
                 m_id(id),
                 m_index(0)
             {}
@@ -119,7 +125,8 @@ namespace opt {
         bool is_maximize(expr* fml, app_ref& term, unsigned& index);
         bool is_minimize(expr* fml, app_ref& term, unsigned& index);
         bool is_maxsat(expr* fml, expr_ref_vector& terms, 
-                       vector<rational>& weights, symbol& id, unsigned& index);
+                       vector<rational>& weights, rational& offset, bool& neg, 
+                       symbol& id, unsigned& index);
         expr* mk_maximize(unsigned index, app* t);
         expr* mk_minimize(unsigned index, app* t);
         expr* mk_maxsat(unsigned index, unsigned num_fmls, expr* const* fmls);
@@ -131,6 +138,8 @@ namespace opt {
         void update_lower();
 
         opt_solver& get_solver();
+
+        void display_objective(std::ostream& out, objective const& obj) const;
 
     };
 
