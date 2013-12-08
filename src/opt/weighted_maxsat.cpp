@@ -87,6 +87,12 @@ namespace smt {
                 SASSERT(v == m_var2bool.size());
                 m_var2bool.push_back(bv);
                 SASSERT(ctx.bool_var2enode(bv));
+
+                lbool asgn = ctx.get_assignment(bv);
+                if (asgn == l_true) {
+                    assign_eh(bv, true);
+                }
+
             }
             if (m_min_cost_atom) {
                 app* var = m_min_cost_atom;
