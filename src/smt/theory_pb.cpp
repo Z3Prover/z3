@@ -1211,7 +1211,8 @@ namespace smt {
    
         while (m_num_marks > 0) {
 
-            //m_lemma.normalize();
+            m_lemma.normalize();
+            TRACE("pb", display(tout, m_lemma, true););
             SASSERT(m_lemma.well_formed());         
 
             //
