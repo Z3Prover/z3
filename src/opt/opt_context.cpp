@@ -239,6 +239,7 @@ namespace opt {
                     terms[i] = m.mk_not(terms[i].get());
                 }
             }
+            id = symbol(index);
             return true;
         }
         if (is_maximize(fml, term, index) &&
@@ -260,6 +261,7 @@ namespace opt {
                 offset += weights[i];
             }
             neg = true;
+            id = symbol(index);
             return true;
         }
         return false;

@@ -1121,6 +1121,7 @@ namespace smt {
             }
             else {                
                 if (lvl == m_conflict_lvl) {
+                    TRACE("pb", tout << "add mark: " << l << " " << coeff << "\n";);
                     ++m_num_marks;
                 }
                 set_mark(v, m_lemma.size());
@@ -1285,7 +1286,8 @@ namespace smt {
                 justification& j = *js.get_justification(); 
                 // only process pb justifications.
                 if (j.get_from_theory() != get_id()) {
-                    IF_VERBOSE(0, verbose_stream() << "skipping justification for " << conseq << "\n";);
+                    IF_VERBOSE(0, verbose_stream() << "skipping justification for theory " << conseq << "\n";);
+                    IF_VERBOSE(0, verbose_stream() << j.get_from_theory() << "\n";);
                     m_ineq_literals.push_back(conseq);
                     break;
                 }
