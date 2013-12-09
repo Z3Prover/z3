@@ -1211,7 +1211,7 @@ namespace smt {
    
         while (m_num_marks > 0) {
 
-            m_lemma.normalize();
+            //m_lemma.normalize();
             SASSERT(m_lemma.well_formed());         
 
             //
@@ -1222,7 +1222,11 @@ namespace smt {
                 v = conseq.var();
                 --idx;
             }
-            while (!is_marked(v));
+            while (!is_marked(v) && idx > 0);
+            if (idx == 0) {
+                IF_VERBOSE(1, verbose_stream() << "BUG?!\n";);
+                return false;
+            }
 
             unsigned conseq_index = m_conseq_index[v];
             numeral conseq_coeff = m_lemma.coeff(conseq_index);
@@ -1254,7 +1258,7 @@ namespace smt {
                 clause& cls = *js.get_clause();
                 justification* cjs = cls.get_justification();
                 if (cjs) {
-                    IF_VERBOSE(0, verbose_stream() << "skipping justification for clause over: " << conseq << "\n";);
+                    IF_VERBOSE(1, verbose_stream() << "skipping justification for clause over: " << conseq << "\n";);
                     m_ineq_literals.push_back(conseq);
                     break;
                 }
@@ -1286,8 +1290,8 @@ namespace smt {
                 justification& j = *js.get_justification(); 
                 // only process pb justifications.
                 if (j.get_from_theory() != get_id()) {
-                    IF_VERBOSE(0, verbose_stream() << "skipping justification for theory " << conseq << "\n";);
-                    IF_VERBOSE(0, verbose_stream() << j.get_from_theory() << "\n";);
+                    IF_VERBOSE(1, verbose_stream() << "skipping justification for " << conseq 
+                               << " from theory "  << j.get_from_theory() << "\n";);
                     m_ineq_literals.push_back(conseq);
                     break;
                 }
