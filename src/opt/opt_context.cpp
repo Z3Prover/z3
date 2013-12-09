@@ -419,7 +419,7 @@ namespace opt {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             display_objective(out, obj);
-            out << get_upper(i) << "\n";
+            out << "|-> " << get_upper(i) << "\n";
         }
     }
 
@@ -427,7 +427,7 @@ namespace opt {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {            
             objective const& obj = m_objectives[i];
             display_objective(out, obj);
-            out << " [" << get_lower(i) << ":" << get_upper(i) << "]\n";
+            out << " |-> [" << get_lower(i) << ":" << get_upper(i) << "]\n";
         }
     }
 
@@ -496,13 +496,25 @@ namespace opt {
         expr_ref_vector args(m);
         arith_util a(m);
         if (!inf.is_zero()) {
-            args.push_back(a.mk_mul(a.mk_numeral(inf, inf.is_int()), m.mk_const(symbol("oo"), a.mk_int())));
+            expr* oo = m.mk_const(symbol("oo"), a.mk_int());
+            if (inf.is_one()) {
+                args.push_back(oo);
+            }
+            else {
+                args.push_back(a.mk_mul(a.mk_numeral(inf, inf.is_int()), oo));
+            }
         }
         if (!r.is_zero()) {
             args.push_back(a.mk_numeral(r, r.is_int()));
         }
         if (!eps.is_zero()) {
-            args.push_back(a.mk_mul(a.mk_numeral(eps, eps.is_int()), m.mk_const(symbol("epsilon"), a.mk_int())));
+            expr* ep = m.mk_const(symbol("epsilon"), a.mk_int());
+            if (eps.is_one()) {
+                args.push_back(ep);
+            }
+            else {
+                args.push_back(a.mk_mul(a.mk_numeral(eps, eps.is_int()), ep));
+            }
         }
         switch(args.size()) {
         case 0: return expr_ref(a.mk_numeral(rational(0), true), m);

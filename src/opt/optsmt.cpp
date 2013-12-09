@@ -79,6 +79,12 @@ namespace opt {
         if (m_cancel || is_sat == l_undef) {
             return l_undef;
         }
+
+        // set the solution tight.
+        for (unsigned i = 0; i < m_lower.size(); ++i) {
+            m_upper[i] = m_lower[i];
+        }
+        
         return l_true;        
     }
 
@@ -102,6 +108,12 @@ namespace opt {
         if (m_cancel || is_sat == l_undef) {
             return l_undef;
         }
+
+        // set the solution tight.
+        for (unsigned i = 0; i < m_lower.size(); ++i) {
+            m_upper[i] = m_lower[i];
+        }
+
         return l_true;        
     }
 
