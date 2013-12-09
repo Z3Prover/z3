@@ -653,6 +653,7 @@ namespace smt {
             lits.push_back(c.lit());
             for (unsigned i = 0; i < c.size(); ++i) {
                 if (ctx.get_assignment(c.lit(i)) == l_undef) {
+                    SASSERT(validate_assign(c, lits, c.lit(i)));
                     add_assign(c, lits, c.lit(i));
                 }                
             }
@@ -701,12 +702,12 @@ namespace smt {
         else {
             del_watch(watch, watch_index, c, w);
             removed = true;
-            if (c.max_sum() - coeff < k + c.max_coeff()) {
+            if (c.max_sum() < k + c.max_coeff()) {
                 
                 //
                 // opportunities for unit propagation for unassigned 
                 // literals whose coefficients satisfy
-                // c.max_sum() - coeff < k
+                // c.max_sum() < k
                 //
                 // L: 3*x1 + 2*x2 + x4 >= 3, but x1 <- 0
                 // Create clauses x1 or ~L or x2 
@@ -717,6 +718,7 @@ namespace smt {
                 lits.push_back(c.lit());
                 for (unsigned i = 0; i < c.size(); ++i) {
                     if (c.max_sum() - c.coeff(i) < k && ctx.get_assignment(c.lit(i)) == l_undef) {
+                        SASSERT(validate_assign(c, lits, c.lit(i)));
                         add_assign(c, lits, c.lit(i));                            
                     }
                 }
@@ -985,7 +987,7 @@ namespace smt {
         }
     }
 
-    std::ostream& theory_pb::display(std::ostream& out, ineq& c, bool values) const {
+    std::ostream& theory_pb::display(std::ostream& out, ineq const& c, bool values) const {
         ast_manager& m = get_manager();
         context& ctx = get_context();
         out << c.lit();
@@ -1058,6 +1060,7 @@ namespace smt {
               tout << "=> " << l << "\n";
               display(tout, c, true););
 
+
         ctx.assign(l, ctx.mk_justification(
                        pb_justification(
                            c, get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), l)));
@@ -1082,6 +1085,31 @@ namespace smt {
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
         IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), lits.size(), lits.c_ptr());
                    verbose_stream() << "\n";);
+    }
+
+    bool theory_pb::validate_assign(ineq const& c, literal_vector const& lits, literal l) const {
+        uint_set nlits;
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            nlits.insert((~lits[i]).index());
+        }
+        nlits.insert(l.index());
+        numeral sum = numeral::zero();
+        for (unsigned i = 0; i < c.size(); ++i) {
+            literal lit = c.lit(i);
+            if (!nlits.contains(lit.index())) {
+                sum += c.coeff(i);
+            }
+        }
+        if (sum >= c.k()) {
+            IF_VERBOSE(0, 
+                       display(verbose_stream(), c, true);
+                       for (unsigned i = 0; i < lits.size(); ++i) {
+                           verbose_stream() << lits[i] << " ";
+                       }
+                       verbose_stream() << " => " << l << "\n";);
+        }
+        SASSERT(sum < c.k());
+        return true;
     }
 
     void theory_pb::set_mark(bool_var v, unsigned idx) {
@@ -1211,7 +1239,11 @@ namespace smt {
    
         while (m_num_marks > 0) {
 
-            //m_lemma.normalize();
+            lbool is_sat = m_lemma.normalize();
+            if (is_sat != l_undef) {
+                IF_VERBOSE(0, display(verbose_stream() << "created non-tautology lemma: ", m_lemma, true););
+                return false;
+            }
             SASSERT(m_lemma.well_formed());         
 
             //

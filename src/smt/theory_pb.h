@@ -116,7 +116,7 @@ namespace smt {
         bool assign_watch(bool_var v, bool is_true, watch_list& watch, unsigned index);
         void assign_ineq(ineq& c, bool is_true);
 
-        std::ostream& display(std::ostream& out, ineq& c, bool values = false) const;
+        std::ostream& display(std::ostream& out, ineq const& c, bool values = false) const;
         virtual void display(std::ostream& out) const;
 
         void add_clause(ineq& c, literal_vector const& lits);
@@ -157,6 +157,7 @@ namespace smt {
 
         void validate_final_check();
         void validate_final_check(ineq& c);
+        bool validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
     public:
         theory_pb(ast_manager& m);
         
