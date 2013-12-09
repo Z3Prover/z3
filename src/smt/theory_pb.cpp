@@ -528,6 +528,9 @@ namespace smt {
         if (ctx.get_assignment(c.lit()) == l_undef) {
             return;
         }
+        if (!ctx.is_relevant(c.lit())) {
+            return;
+        }
         numeral sum = numeral::zero(), maxsum = numeral::zero();
         for (unsigned i = 0; i < c.size(); ++i) {
             switch(ctx.get_assignment(c.lit(i))) {
