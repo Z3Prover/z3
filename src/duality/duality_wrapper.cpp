@@ -34,8 +34,12 @@ namespace Duality {
     p.set_bool("proof", true); // this is currently useless
     p.set_bool("model", true); 
     p.set_bool("unsat_core", true); 
+    p.set_bool("mbqi",true);
+    p.set_str("mbqi.id","itp"); // use mbqi for quantifiers in interpolants
+    p.set_uint("mbqi.max_iterations",1); // use mbqi for quantifiers in interpolants
     scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
     m_solver = (*sf)(m(), p, true, true, true, ::symbol::null);
+    m_solver->updt_params(p); // why do we have to do this?
     canceled = false;
   }
 

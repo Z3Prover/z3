@@ -125,6 +125,32 @@ namespace Duality {
     }
   }
 
+  int Z3User::CountOperatorsRec(hash_set<ast> &memo, const Term &t){
+    if(memo.find(t) != memo.end())
+      return 0;
+    memo.insert(t);
+    if(t.is_app()){
+      decl_kind k = t.decl().get_decl_kind();
+      if(k == And || k == Or){
+	int count = 1;
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++)
+	  count += CountOperatorsRec(memo,t.arg(i));
+	return count;
+      }
+      return 0;
+    }
+    if(t.is_quantifier())
+      return CountOperatorsRec(memo,t.body())+1;
+    return 0;
+  }
+
+  int Z3User::CountOperators(const Term &t){
+    hash_set<ast> memo;
+    return CountOperatorsRec(memo,t);
+  }
+
+
   Z3User::Term Z3User::conjoin(const std::vector<Term> &args){
     return ctx.make(And,args);
   }
@@ -329,7 +355,15 @@ namespace Duality {
 	res = f(args.size(),&args[0]);
       }
     else if (t.is_quantifier())
-      res = CloneQuantifier(t,SubstRec(memo, t.body()));
+      {
+	std::vector<expr> pats;
+	t.get_patterns(pats);
+	for(unsigned i = 0; i < pats.size(); i++)
+	  pats[i] = SubstRec(memo,pats[i]);
+	Term body = SubstRec(memo,t.body());
+	res = clone_quantifier(t, body, pats);
+      }
+    // res = CloneQuantifier(t,SubstRec(memo, t.body()));
     else res = t;
     return res;
   }
@@ -552,7 +586,7 @@ namespace Duality {
   void RPFP::ConstrainEdgeLocalized(Edge *e, const Term &tl)
   {
     e->constraints.push_back(tl);
-    stack.back().constraints.push_back(e);
+    stack.back().constraints.push_back(std::pair<Edge *,Term>(e,tl));
     slvr.add(tl);
   }
 
@@ -1142,7 +1176,8 @@ namespace Duality {
 	  }
 	}
 	/* Unreachable! */
-	std::cerr << "error in RPFP::ImplicantRed";
+	// TODO: need to indicate this failure to caller
+	// std::cerr << "error in RPFP::ImplicantRed";
 	goto done;
       }
       else if(k == Not) {
@@ -1159,6 +1194,31 @@ namespace Duality {
     }
   done:
     done[truth].insert(f);
+  }
+
+  void RPFP::ImplicantFullRed(hash_map<ast,int> &memo, const Term &f, std::vector<Term> &lits,
+			      hash_set<ast> &done, hash_set<ast> &dont_cares){
+    if(done.find(f) != done.end())
+      return; /* already processed */
+    if(f.is_app()){
+      int nargs = f.num_args();
+      decl_kind k = f.decl().get_decl_kind();
+      if(k == Implies || k == Iff || k == And || k == Or || k == Not){
+	for(int i = 0; i < nargs; i++)
+	  ImplicantFullRed(memo,f.arg(i),lits,done,dont_cares);
+	goto done;
+      }
+    }
+    {
+      if(dont_cares.find(f) == dont_cares.end()){
+	int b = SubtermTruth(memo,f);
+	if(b != 0 && b != 1) goto done;
+	expr bv = (b==1) ? f : !f;
+	lits.push_back(bv);
+      }
+    }
+  done:
+    done.insert(f);
   }
 
   RPFP::Term RPFP::ResolveIte(hash_map<ast,int> &memo, const Term &t, std::vector<Term> &lits,
@@ -1219,6 +1279,16 @@ namespace Duality {
 #ifdef Z3OPS
     delete stt; stt = 0;
 #endif
+    /* return conjunction of literals */
+    return conjoin(lits);
+  }
+
+  RPFP::Term RPFP::UnderapproxFullFormula(const Term &f, hash_set<ast> &dont_cares){
+    /* first compute truth values of subterms */
+    hash_map<ast,int> memo;
+    hash_set<ast> done;
+    std::vector<Term> lits;
+    ImplicantFullRed(memo,f,lits,done,dont_cares);
     /* return conjunction of literals */
     return conjoin(lits);
   }
@@ -1759,6 +1829,17 @@ namespace Duality {
     ConstrainEdgeLocalized(edge,eu);
   }
 
+  void RPFP::FixCurrentStateFull(Edge *edge){
+    hash_set<ast> dont_cares;
+    resolve_ite_memo.clear();
+    timer_start("UnderapproxFormula");
+    Term dual = edge->dual.null() ? ctx.bool_val(true) : edge->dual;
+    for(unsigned i = 0; i < edge->constraints.size(); i++)
+      dual = dual && edge->constraints[i];
+    Term eu = UnderapproxFullFormula(dual,dont_cares);
+    timer_stop("UnderapproxFormula");
+    ConstrainEdgeLocalized(edge,eu);
+  }
 
 
   RPFP::Term RPFP::ModelValueAsConstraint(const Term &t){
@@ -1803,6 +1884,7 @@ namespace Duality {
     res = CreateRelation(p->Annotation.IndParams,funder);
   }
 
+#if 0
   void RPFP::GreedyReduce(solver &s, std::vector<expr> &conjuncts){
     // verify
     s.push();
@@ -1829,6 +1911,36 @@ namespace Duality {
       }
     }
   }
+#endif
+
+  void RPFP::GreedyReduce(solver &s, std::vector<expr> &conjuncts){
+    std::vector<expr> lits(conjuncts.size());
+    for(unsigned i = 0; i < lits.size(); i++){
+      func_decl pred = ctx.fresh_func_decl("@alit", ctx.bool_sort());
+      lits[i] = pred();
+      s.add(ctx.make(Implies,lits[i],conjuncts[i]));
+    }
+    
+    // verify
+    check_result res = s.check(lits.size(),&lits[0]);
+    if(res != unsat)
+      throw "should be unsat";
+    
+    for(unsigned i = 0; i < conjuncts.size(); ){
+      std::swap(conjuncts[i],conjuncts.back());
+      std::swap(lits[i],lits.back());
+      check_result res = s.check(lits.size()-1,&lits[0]);
+      if(res != unsat){
+	std::swap(conjuncts[i],conjuncts.back());
+	std::swap(lits[i],lits.back());
+	i++;
+      }
+      else {
+	conjuncts.pop_back();
+	lits.pop_back();
+      }
+    }
+  }
 
   void RPFP::NegateLits(std::vector<expr> &lits){
     for(unsigned i = 0; i < lits.size(); i++){
@@ -1848,20 +1960,56 @@ namespace Duality {
     return ctx.make(Or,lits);
   }
 
-  void RPFP::Generalize(Node *node){
-    std::vector<expr> conjuncts;
-    expr fmla = GetAnnotation(node);
-    CollectConjuncts(fmla,conjuncts,false);
-    // try to remove conjuncts one at a tme
-    aux_solver.push();
-    Edge *edge = node->Outgoing;
+    // set up edge constraint in aux solver
+  void RPFP::AddEdgeToSolver(Edge *edge){
     if(!edge->dual.null())
       aux_solver.add(edge->dual);
     for(unsigned i = 0; i < edge->constraints.size(); i++){
       expr tl = edge->constraints[i];
       aux_solver.add(tl);
     }
-    GreedyReduce(aux_solver,conjuncts);
+  }
+
+  void RPFP::InterpolateByCases(Node *root, Node *node){
+    aux_solver.push();
+    AddEdgeToSolver(node->Outgoing);
+    node->Annotation.SetEmpty();
+    hash_set<ast> *core = new hash_set<ast>;
+    core->insert(node->Outgoing->dual);
+    while(1){
+      aux_solver.push();
+      aux_solver.add(!GetAnnotation(node));
+      if(aux_solver.check() == unsat){
+	aux_solver.pop(1);
+	break;
+      }
+      dualModel = aux_solver.get_model();
+      aux_solver.pop(1);
+      Push();
+      FixCurrentStateFull(node->Outgoing);
+      ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node));
+      check_result foo = Check(root);
+      if(foo != unsat)
+	throw "should be unsat";
+      AddToProofCore(*core);
+      Transformer old_annot = node->Annotation;
+      SolveSingleNode(root,node);
+      Pop(1);
+      node->Annotation.UnionWith(old_annot);
+    }
+    if(proof_core)
+      delete proof_core; // shouldn't happen
+    proof_core = core;
+    aux_solver.pop(1);
+  }
+
+  void RPFP::Generalize(Node *root, Node *node){
+    aux_solver.push();
+    AddEdgeToSolver(node->Outgoing);
+    expr fmla = GetAnnotation(node);
+    std::vector<expr> conjuncts;
+    CollectConjuncts(fmla,conjuncts,false);
+    GreedyReduce(aux_solver,conjuncts);     // try to remove conjuncts one at a tme
     aux_solver.pop(1);
     NegateLits(conjuncts);
     SetAnnotation(node,SimplifyOr(conjuncts));
@@ -1887,12 +2035,26 @@ namespace Duality {
 	  (*it)->dual = expr(ctx,NULL);
 	for(std::list<Node *>::iterator it = back.nodes.begin(), en = back.nodes.end(); it != en; ++it)
 	  (*it)->dual = expr(ctx,NULL);
-	for(std::list<Edge *>::iterator it = back.constraints.begin(), en = back.constraints.end(); it != en; ++it)
-	  (*it)->constraints.pop_back();
+	for(std::list<std::pair<Edge *,Term> >::iterator it = back.constraints.begin(), en = back.constraints.end(); it != en; ++it)
+	  (*it).first->constraints.pop_back();
 	stack.pop_back();
       }
   }
   
+  /** Erase the proof by performing a Pop, Push and re-assertion of
+      all the popped constraints */
+
+  void RPFP::PopPush(){
+    slvr.pop(1);
+    slvr.push();
+    stack_entry &back = stack.back();
+    for(std::list<Edge *>::iterator it = back.edges.begin(), en = back.edges.end(); it != en; ++it)
+      slvr.add((*it)->dual);
+    for(std::list<Node *>::iterator it = back.nodes.begin(), en = back.nodes.end(); it != en; ++it)
+      slvr.add((*it)->dual);
+    for(std::list<std::pair<Edge *,Term> >::iterator it = back.constraints.begin(), en = back.constraints.end(); it != en; ++it)
+      slvr.add((*it).second);
+  }
   
   
   
@@ -2325,13 +2487,17 @@ namespace Duality {
     
   }
 
+  void RPFP::AddToProofCore(hash_set<ast> &core){
+    std::vector<expr> assumps;
+    slvr.get_proof().get_assumptions(assumps);
+    for(unsigned i = 0; i < assumps.size(); i++)
+      core.insert(assumps[i]);
+  }
+  
   void RPFP::ComputeProofCore(){
     if(!proof_core){
-      std::vector<expr> assumps;
-      slvr.get_proof().get_assumptions(assumps);
       proof_core = new hash_set<ast>;
-      for(unsigned i = 0; i < assumps.size(); i++)
-	proof_core->insert(assumps[i]);
+      AddToProofCore(*proof_core);
     }
   }
 

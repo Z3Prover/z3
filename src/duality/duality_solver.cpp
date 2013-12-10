@@ -1754,12 +1754,14 @@ namespace Duality {
 	      for(unsigned i = 0; i < expansions.size(); i++){
 		Node *node = expansions[i];
 		tree->SolveSingleNode(top,node);
-		tree->Generalize(node);
+		if(expansions.size() == 1 && NodeTooComplicated(node))
+		  SimplifyNode(node);
+		tree->Generalize(top,node);
 		if(RecordUpdate(node))
 		  update_count++;
 	      }
 	      if(update_count == 0)
-		std::cout << "backtracked without learning\n";
+		reporter->Message("backtracked without learning");
 	    }
 	    tree->ComputeProofCore(); // need to compute the proof core before popping solver
 	    while(1) {
@@ -1816,6 +1818,16 @@ namespace Duality {
 	}
       }
       
+      bool NodeTooComplicated(Node *node){
+	return tree->CountOperators(node->Annotation.Formula) > 5;
+      }
+
+      void SimplifyNode(Node *node){
+	// have to destroy the old proof to get a new interpolant
+	tree->PopPush();
+	tree->InterpolateByCases(top,node);
+      }
+
       bool LevelUsedInProof(unsigned level){
 	std::vector<Node *> &expansions = stack[level].expansions;
 	for(unsigned i = 0; i < expansions.size(); i++)

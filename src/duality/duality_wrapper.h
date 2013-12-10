@@ -413,6 +413,7 @@ namespace Duality {
 
         expr operator()(unsigned n, expr const * args) const;
         expr operator()(const std::vector<expr> &args) const;
+        expr operator()() const;
         expr operator()(expr const & a) const;
         expr operator()(int a) const;
         expr operator()(expr const & a1, expr const & a2) const;
@@ -1183,6 +1184,9 @@ namespace Duality {
 
     inline expr func_decl::operator()(const std::vector<expr> &args) const {
       return operator()(args.size(),&args[0]);
+    }
+    inline expr func_decl::operator()() const {
+      return operator()(0,0);
     }
     inline expr func_decl::operator()(expr const & a) const {
       return operator()(1,&a);

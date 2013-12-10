@@ -692,13 +692,14 @@ class iz3mgr  {
 
  protected:
   ast_manager &m_manager;
+  int occurs_in(ast var, ast e);
 
  private:
   ast mki(family_id fid, decl_kind sk, int n, raw_ast **args);
   ast make(opr op, int n, raw_ast **args);
   ast make(symb sym, int n, raw_ast **args);
   int occurs_in1(stl_ext::hash_map<ast,bool> &occurs_in_memo, ast var, ast e);
-  int occurs_in(ast var, ast e);
+  bool solve_arith(const ast &v, const ast &x, const ast &y, ast &res);
   ast cont_eq(stl_ext::hash_set<ast> &cont_eq_memo, bool truth, ast v, ast e);
   ast subst(stl_ext::hash_map<ast,ast> &subst_memo, ast var, ast t, ast e);
 

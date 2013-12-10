@@ -190,7 +190,7 @@ iz3mgr::ast iz3mgr::make_quant(opr op, const std::vector<ast> &bvs, ast &body){
 			     op == Forall, 
 			     names.size(), &types[0], &names[0], abs_body.get(),            
 			     0, 
-			     symbol(),
+			     symbol("itp"),
 			     symbol(),
 			     0, 0,
 			     0, 0
@@ -761,6 +761,19 @@ int iz3mgr::occurs_in(ast var, ast e){
 }
 
 
+bool iz3mgr::solve_arith(const ast &v, const ast &x, const ast &y, ast &res){
+  if(op(x) == Plus){
+    int n = num_args(x);
+    for(int i = 0; i < n; i++){
+      if(arg(x,i) == v){
+	res = z3_simplify(make(Sub, y, make(Sub, x, v)));
+	return true;
+      }
+    }
+  }
+  return false;
+}
+
 // find a controlling equality for a given variable v in a term
 // a controlling equality is of the form v = t, which, being
 // false would force the formula to have the specifid truth value
@@ -774,6 +787,9 @@ iz3mgr::ast iz3mgr::cont_eq(stl_ext::hash_set<ast> &cont_eq_memo, bool truth, as
   if(!truth && op(e) == Equal){
     if(arg(e,0) == v) return(arg(e,1));
     if(arg(e,1) == v) return(arg(e,0));
+    ast res;
+    if(solve_arith(v,arg(e,0),arg(e,1),res)) return res;
+    if(solve_arith(v,arg(e,1),arg(e,0),res)) return res;
   }
   if((!truth && op(e) == And) || (truth && op(e) == Or)){
     int nargs = num_args(e);
@@ -836,6 +852,14 @@ iz3mgr::ast iz3mgr::subst(stl_ext::hash_map<ast,ast> &subst_memo,ast e){
   // 2) bound variable must be equal to some term -> substitute
 
 iz3mgr::ast iz3mgr::apply_quant(opr quantifier, ast var, ast e){
+  if((quantifier == Forall && op(e) == And)
+     || (quantifier == Exists && op(e) == Or)){
+    int n = num_args(e);
+    std::vector<ast> args(n);
+    for(int i = 0; i < n; i++)
+      args[i] = apply_quant(quantifier,var,arg(e,i));
+    return make(op(e),args);
+  }
   if(!occurs_in(var,e))return e;
   hash_set<ast> cont_eq_memo; 
   ast cterm = cont_eq(cont_eq_memo, quantifier == Forall, var, e);

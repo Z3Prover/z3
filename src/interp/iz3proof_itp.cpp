@@ -135,10 +135,12 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
   /* If p is a proof of Q and c is a normalization chain, then normal(p,c)
      is a proof of Q(c) (that is, Q with all substitutions in c performed). */
-
+  
   symb normal;
 
-  
+  /** Stand-ins for quantifiers */
+
+  symb sforall, sexists;
 
 
   ast get_placeholder(ast t){
@@ -231,6 +233,10 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast neg_pivot_lit = mk_not(atom);
     if(op(pivot) != Not)
       std::swap(premise1,premise2);
+    if(op(pivot) == Equal && op(arg(pivot,0)) == Select && op(arg(pivot,1)) == Select){
+      neg_pivot_lit = mk_not(neg_pivot_lit);
+      std::swap(premise1,premise2);
+    }      
     return resolve_arith_rec1(memo, neg_pivot_lit, premise1, premise2);
   }
   
@@ -355,7 +361,13 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	break;
       }
       default:
-	res = itp2;
+	{
+	  symb s = sym(itp2);
+	  if(s == sforall || s == sexists)
+	    res = make(s,arg(itp2,0),resolve_arith_rec2(memo, pivot1, conj1, arg(itp2,1)));
+	  else
+	    res = itp2;
+	}
       }
     }
     return res;
@@ -385,7 +397,13 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	break;
       }
       default:
-	res = itp1;
+	{
+	  symb s = sym(itp1);
+	  if(s == sforall || s == sexists)
+	    res = make(s,arg(itp1,0),resolve_arith_rec1(memo, neg_pivot_lit, arg(itp1,1), itp2));
+	  else
+	    res = itp1;
+	}
       }
     }
     return res;
@@ -1897,6 +1915,20 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return itp;
   }
 
+  ast capture_localization(ast e){
+    // #define CAPTURE_LOCALIZATION
+#ifdef CAPTURE_LOCALIZATION
+    for(int i = localization_vars.size() - 1; i >= 0; i--){
+      LocVar &lv = localization_vars[i];
+      if(occurs_in(lv.var,e)){
+	symb q = (pv->in_range(lv.frame,rng)) ? sexists : sforall; 
+	e = make(q,make(Equal,lv.var,lv.term),e); // use Equal because it is polymorphic
+      }
+    }
+#endif
+    return e;
+  }
+
   /** Make an axiom node. The conclusion must be an instance of an axiom. */
   virtual node make_axiom(const std::vector<ast> &conclusion, prover::range frng){
     int nargs = conclusion.size();
@@ -1920,7 +1952,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     
     for(unsigned i = 0; i < eqs.size(); i++)
       itp = make_mp(eqs[i],itp,pfs[i]);
-    return itp;
+    return capture_localization(itp);
   }
 
   virtual node make_axiom(const std::vector<ast> &conclusion){
@@ -2405,12 +2437,89 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return new_var;
   }
 
+  ast delete_quant(hash_map<ast,ast> &memo, const ast &v, const ast &e){
+    std::pair<ast,ast> foo(e,ast());
+    std::pair<hash_map<ast,ast>::iterator,bool> bar = memo.insert(foo);
+    ast &res = bar.first->second;
+    if(bar.second){
+      opr o = op(e);
+      switch(o){
+      case Or:
+      case And:
+      case Implies: {
+	unsigned nargs = num_args(e);
+	std::vector<ast> args; args.resize(nargs);
+	for(unsigned i = 0; i < nargs; i++)
+	  args[i] = delete_quant(memo, v, arg(e,i));
+	res = make(o,args);
+	break;
+      }
+      case Uninterpreted: {
+	symb s = sym(e);
+	ast w = arg(arg(e,0),0);
+	if(s == sforall || s == sexists){
+	  res = delete_quant(memo,v,arg(e,1));
+	  if(w != v)
+	    res = make(s,w,res);
+	  break;
+	}
+      }
+      default:
+	res = e;
+      }
+    }
+    return res;
+  }
+
+  ast insert_quants(hash_map<ast,ast> &memo, const ast &e){
+    std::pair<ast,ast> foo(e,ast());
+    std::pair<hash_map<ast,ast>::iterator,bool> bar = memo.insert(foo);
+    ast &res = bar.first->second;
+    if(bar.second){
+      opr o = op(e);
+      switch(o){
+      case Or:
+      case And:
+      case Implies: {
+	unsigned nargs = num_args(e);
+	std::vector<ast> args; args.resize(nargs);
+	for(unsigned i = 0; i < nargs; i++)
+	  args[i] = insert_quants(memo, arg(e,i));
+	res = make(o,args);
+	break;
+      }
+      case Uninterpreted: {
+	symb s = sym(e);
+	if(s == sforall || s == sexists){
+	  opr q = (s == sforall) ? Forall : Exists;
+	  ast v = arg(arg(e,0),0);
+	  hash_map<ast,ast> dmemo;
+	  ast body = delete_quant(dmemo,v,arg(e,1));
+	  body = insert_quants(memo,body);
+	  res = apply_quant(q,v,body);
+	  break;
+	}
+      }
+      default:
+	res = e;
+      }
+    }
+    return res;
+  }
+
   ast add_quants(ast e){
+#ifdef CAPTURE_LOCALIZATION
+    if(!localization_vars.empty()){
+      hash_map<ast,ast> memo;
+      e = insert_quants(memo,e);
+    }
+#else
     for(int i = localization_vars.size() - 1; i >= 0; i--){
       LocVar &lv = localization_vars[i];
       opr quantifier = (pv->in_range(lv.frame,rng)) ? Exists : Forall; 
       e = apply_quant(quantifier,lv.var,e);
     }
+#endif
     return e;
   }
 
@@ -2446,7 +2555,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast npP = make_mp(make(Iff,nPloc,nP),npPloc,neqpf);
     ast nrP = make_resolution(nP,conj2,npP);
     ast res = make_resolution(Ploc,rP,nrP);
-    return res;
+    return capture_localization(res);
   }
 
   ast get_contra_coeff(const ast &f){
@@ -2538,6 +2647,10 @@ public:
     m().inc_ref(normal_chain);
     normal = function("@normal",2,boolbooldom,bool_type());
     m().inc_ref(normal);
+    sforall = function("@sforall",2,boolbooldom,bool_type());
+    m().inc_ref(sforall);
+    sexists = function("@sexists",2,boolbooldom,bool_type());
+    m().inc_ref(sexists);
   }
 
   ~iz3proof_itp_impl(){

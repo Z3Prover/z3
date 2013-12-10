@@ -79,9 +79,12 @@ namespace Duality {
 
       int CumulativeDecisions();
 
+      int CountOperators(const Term &t);
+
   private:
 
       void SummarizeRec(hash_set<ast> &memo, std::vector<expr> &lits, int &ops, const Term &t);
+      int CountOperatorsRec(hash_set<ast> &memo, const Term &t);
 
 };
 
@@ -280,7 +283,7 @@ namespace Duality {
       public:
 	std::list<Edge *> edges;
 	std::list<Node *> nodes;
-	std::list<Edge *> constraints;
+	std::list<std::pair<Edge *,Term> > constraints;
       };
       
       
@@ -556,6 +559,7 @@ namespace Duality {
 	  edge to their values in the current assignment. */
       void FixCurrentState(Edge *root);
     
+      void FixCurrentStateFull(Edge *edge);
 
       /** Declare a constant in the background theory. */
 
@@ -653,7 +657,11 @@ namespace Duality {
       Term ComputeUnderapprox(Node *root, int persist);
 
       /** Try to strengthen the annotation of a node by removing disjuncts. */
-      void Generalize(Node *node);
+      void Generalize(Node *root, Node *node);
+
+
+      /** Compute disjunctive interpolant for node by case splitting */
+      void InterpolateByCases(Node *root, Node *node);
 
       /** Push a scope. Assertions made after Push can be undone by Pop. */
       
@@ -687,6 +695,10 @@ namespace Duality {
       
       void Pop(int num_scopes);
       
+      /** Erase the proof by performing a Pop, Push and re-assertion of
+	  all the popped constraints */
+      void PopPush();
+
       /** Return true if the given edge is used in the proof of unsat.
 	  Can be called only after Solve or Check returns an unsat result. */
       
@@ -861,6 +873,11 @@ namespace Duality {
 
       Term UnderapproxFormula(const Term &f, hash_set<ast> &dont_cares);
 
+      void ImplicantFullRed(hash_map<ast,int> &memo, const Term &f, std::vector<Term> &lits,
+			    hash_set<ast> &done, hash_set<ast> &dont_cares);
+
+      Term UnderapproxFullFormula(const Term &f, hash_set<ast> &dont_cares);
+
       Term ToRuleRec(Edge *e,  hash_map<ast,Term> &memo, const Term &t, std::vector<expr> &quants);
 
       hash_map<ast,Term> resolve_ite_memo;
@@ -896,6 +913,11 @@ namespace Duality {
       expr SimplifyOr(std::vector<expr> &lits);
 
       void SetAnnotation(Node *root, const expr &t);
+
+      void AddEdgeToSolver(Edge *edge);
+
+      void AddToProofCore(hash_set<ast> &core);
+
     };
     
     /** RPFP solver base class. */
