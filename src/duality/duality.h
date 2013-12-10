@@ -171,6 +171,9 @@ namespace Duality {
            /** Assert a background axiom. */
            virtual void assert_axiom(const expr &axiom) = 0;
 
+	   /** Get the background axioms. */
+	   virtual const std::vector<expr> &get_axioms() = 0;
+
            /** Return a string describing performance. */
            virtual std::string profile() = 0;
 
@@ -182,7 +185,11 @@ namespace Duality {
 	   /** Cancel, throw Canceled object if possible. */
 	   virtual void cancel(){ }
 
-           LogicSolver(context &c) : aux_solver(c){}
+	   /* Note: aux solver uses extensional array theory, since it
+	      needs to be able to produce counter-models for
+	      interpolants the have array equalities in them.
+	   */
+           LogicSolver(context &c) : aux_solver(c,true){}
 
 	   virtual ~LogicSolver(){}
       };
@@ -207,6 +214,10 @@ namespace Duality {
         void assert_axiom(const expr &axiom){
             islvr->AssertInterpolationAxiom(axiom);
         }
+
+	const std::vector<expr> &get_axioms() {
+	  return islvr->GetInterpolationAxioms();
+	}
 
         std::string profile(){
            return islvr->profile();

@@ -29,7 +29,7 @@ Revision History:
 
 namespace Duality {
 
-  solver::solver(Duality::context& c) : object(c), the_model(c) {
+  solver::solver(Duality::context& c, bool extensional) : object(c), the_model(c) {
     params_ref p;
     p.set_bool("proof", true); // this is currently useless
     p.set_bool("model", true); 
@@ -37,6 +37,8 @@ namespace Duality {
     p.set_bool("mbqi",true);
     p.set_str("mbqi.id","itp"); // use mbqi for quantifiers in interpolants
     p.set_uint("mbqi.max_iterations",1); // use mbqi for quantifiers in interpolants
+    if(true || extensional)
+      p.set_bool("array.extensional",true);
     scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
     m_solver = (*sf)(m(), p, true, true, true, ::symbol::null);
     m_solver->updt_params(p); // why do we have to do this?

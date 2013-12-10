@@ -807,7 +807,7 @@ namespace Duality {
         model the_model;
 	bool canceled;
     public:
-        solver(context & c);
+        solver(context & c, bool extensional = false);
         solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; canceled = false;}
         solver(solver const & s):object(s), the_model(s.the_model) { m_solver = s.m_solver; canceled = false;}
         ~solver() {
@@ -1326,6 +1326,7 @@ namespace Duality {
       void SetWeakInterpolants(bool weak);
       void SetPrintToFile(const std::string &file_name);
       
+      const std::vector<expr> &GetInterpolationAxioms() {return theory;}
       const char *profile();
       
     private:

@@ -1923,8 +1923,14 @@ namespace Duality {
     
     // verify
     check_result res = s.check(lits.size(),&lits[0]);
-    if(res != unsat)
-      throw "should be unsat";
+    if(res != unsat){
+      // add the axioms in the off chance they are useful
+      const std::vector<expr> &theory = ls->get_axioms();
+      for(unsigned i = 0; i < theory.size(); i++)
+	s.add(theory[i]);
+      if(s.check(lits.size(),&lits[0]) != unsat)
+	throw "should be unsat";
+    }
     
     for(unsigned i = 0; i < conjuncts.size(); ){
       std::swap(conjuncts[i],conjuncts.back());
@@ -1987,13 +1993,21 @@ namespace Duality {
       aux_solver.pop(1);
       Push();
       FixCurrentStateFull(node->Outgoing);
-      ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node));
+      // ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node));
       check_result foo = Check(root);
       if(foo != unsat)
 	throw "should be unsat";
       AddToProofCore(*core);
       Transformer old_annot = node->Annotation;
       SolveSingleNode(root,node);
+      if(node->Annotation.IsEmpty()){
+	std::cout << "bad in InterpolateByCase -- core:\n";
+	std::vector<expr> assumps;
+	slvr.get_proof().get_assumptions(assumps);
+	for(unsigned i = 0; i < assumps.size(); i++)
+	  assumps[i].show();
+	throw "ack!";
+      }
       Pop(1);
       node->Annotation.UnionWith(old_annot);
     }
