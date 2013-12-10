@@ -48,6 +48,7 @@ namespace opt {
         expr_ref_vector m_aux;
         expr_ref_vector m_assignment;
         unsigned        m_upper_size;
+        model_ref       m_model;
 
         ref<solver>     m_s;
         solver &        m_original_solver;
@@ -300,13 +301,12 @@ namespace opt {
                 
                 if (is_sat == l_true) {
                     // Get a list of satisfying m_soft
-                    model_ref model;
-                    s().get_model(model);
+                    s().get_model(m_model);
 
                     m_assignment.reset();                    
                     for (unsigned i = 0; i < m_orig_soft.size(); ++i) {
                         expr_ref val(m);
-                        VERIFY(model->eval(m_orig_soft[i].get(), val));
+                        VERIFY(m_model->eval(m_orig_soft[i].get(), val));
                         if (m.is_true(val)) {
                             m_assignment.push_back(m_orig_soft[i].get());
                         }
@@ -316,6 +316,10 @@ namespace opt {
             // We are done and soft_constraints has 
             // been updated with the max-sat assignment.            
             return is_sat;            
+        }
+
+        void get_model(model_ref& mdl) {
+            mdl = m_model.get();
         }
 
     };
@@ -348,6 +352,10 @@ namespace opt {
     void fu_malik::collect_statistics(statistics& st) const {
         m_imp->collect_statistics(st);
     }
+    void fu_malik::get_model(model_ref& m) {
+        m_imp->get_model(m);
+    }
+
 
 
 

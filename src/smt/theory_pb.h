@@ -48,11 +48,11 @@ namespace smt {
             numeral         m_k;        // invariants: m_k > 0, coeffs[i] > 0
             
             // Watch the first few positions until the sum satisfies:
-            // sum coeffs[i] >= m_lower + max_coeff
+            // sum coeffs[i] >= m_lower + max_watch
             
-            numeral         m_max_coeff;    // maximal coefficient.
+            numeral         m_max_watch;    // maximal coefficient.
             unsigned        m_watch_sz;     // number of literals being watched.
-            numeral         m_max_sum;      // maximal sum of watch literals.
+            numeral         m_watch_sum;      // maximal sum of watch literals.
             unsigned        m_num_propagations;
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
@@ -69,9 +69,9 @@ namespace smt {
 
             unsigned size() const { return m_args.size(); }
 
-            numeral const& max_sum() const { return m_max_sum; }
-            numeral const& max_coeff() const { return m_max_coeff; }
-            void set_max_coeff(numeral const& n) { m_max_coeff = n; }
+            numeral const& watch_sum() const { return m_watch_sum; }
+            numeral const& max_watch() const { return m_max_watch; }
+            void set_max_watch(numeral const& n) { m_max_watch = n; }
             
             unsigned watch_size() const { return m_watch_sz; }
 
@@ -118,6 +118,7 @@ namespace smt {
 
         std::ostream& display(std::ostream& out, ineq const& c, bool values = false) const;
         virtual void display(std::ostream& out) const;
+        void display_resolved_lemma(std::ostream& out) const;
 
         void add_clause(ineq& c, literal_vector const& lits);
         void add_assign(ineq& c, literal_vector const& lits, literal l);
@@ -152,12 +153,14 @@ namespace smt {
         bool resolve_conflict(ineq& c);
         void process_antecedent(literal l, numeral coeff);
         void process_ineq(ineq& c, literal conseq, numeral coeff);
+        void remove_from_lemma(ineq& c, unsigned idx);
 
         void hoist_maximal_values();
 
         void validate_final_check();
         void validate_final_check(ineq& c);
-        bool validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
+        void validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
+        void validate_watch(ineq const& c) const;
     public:
         theory_pb(ast_manager& m);
         

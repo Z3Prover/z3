@@ -121,6 +121,7 @@ namespace opt {
         inf_eps v(r);
         if (m_lower[idx] < v) {
             m_lower[idx] = v;
+            s->get_model(m_model);
         }
     }
 
@@ -259,6 +260,10 @@ namespace opt {
 
     inf_eps optsmt::get_upper(unsigned i) const {
         return m_is_max[i]?m_upper[i]:-m_lower[i];
+    }
+
+    void optsmt::get_model(model_ref& mdl) {
+        mdl = m_model.get();
     }
 
     // force lower_bound(i) <= objective_value(i)    

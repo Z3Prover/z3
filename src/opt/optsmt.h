@@ -37,6 +37,7 @@ namespace opt {
         svector<bool>    m_is_max;
         svector<smt::theory_var> m_vars;
         symbol           m_engine;
+        model_ref        m_model;
     public:
         optsmt(ast_manager& m): m(m), s(0), m_cancel(false), m_objs(m) {}
 
@@ -56,6 +57,7 @@ namespace opt {
         inf_eps get_value(unsigned index) const;
         inf_eps get_lower(unsigned index) const;
         inf_eps get_upper(unsigned index) const;
+        void    get_model(model_ref& mdl);
 
         void update_lower(unsigned idx, rational const& r);
         

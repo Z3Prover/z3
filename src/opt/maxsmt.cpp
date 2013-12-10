@@ -52,6 +52,9 @@ namespace opt {
         if (m_msolver) {
             is_sat = (*m_msolver)();
             m_answer.append(m_msolver->get_assignment());
+            if (is_sat == l_true) {
+                m_msolver->get_model(m_model);
+            }
         }
 
         // Infrastructure for displaying and storing solution is TBD.
@@ -103,6 +106,10 @@ namespace opt {
 
     void maxsmt::update_lower(rational const& r) {
         if (m_lower > r)  m_lower = r;
+    }
+
+    void maxsmt::get_model(model_ref& mdl) {
+        mdl = m_model.get();
     }
 
     void maxsmt::commit_assignment() {

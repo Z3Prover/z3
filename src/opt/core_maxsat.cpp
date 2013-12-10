@@ -50,13 +50,13 @@ namespace opt {
             case l_undef: 
                 return l_undef;
             case l_true: {
-                model_ref model;
+                model_ref mdl;
                 expr_ref_vector ans(m);
-                s.get_model(model);
+                s.get_model(mdl);
                 
                 for (unsigned i = 0; i < aux.size(); ++i) {
                     expr_ref val(m);
-                    VERIFY(model->eval(m_soft[i].get(), val));
+                    VERIFY(mdl->eval(m_soft[i].get(), val));
                     if (m.is_true(val)) {
                         ans.push_back(m_soft[i].get());
                     }
@@ -69,6 +69,7 @@ namespace opt {
                 if (ans.size() > m_answer.size()) {
                     m_answer.reset();
                     m_answer.append(ans);
+                    m_model = mdl.get();
                 }
                 if (m_answer.size() == m_upper) {
                     return l_true;
@@ -149,6 +150,9 @@ namespace opt {
     }
     void core_maxsat::collect_statistics(statistics& st) const {
         // nothing specific
+    }
+    void core_maxsat::get_model(model_ref& mdl) {
+        mdl = m_model.get();
     }
 
     

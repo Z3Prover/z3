@@ -348,13 +348,24 @@ namespace smt {
         context & ctx   = get_context();
         simplifier & s  = ctx.get_simplifier();
         expr_ref s_ante(m), s_conseq(m);
+        expr* s_conseq_n, * s_ante_n;
+        bool negated;
         proof_ref pr(m);
+
         s(ante, s_ante, pr);
+        negated = m.is_not(s_ante, s_ante_n);
+        if (negated) s_ante = s_ante_n;
         ctx.internalize(s_ante, false);
         literal l_ante = ctx.get_literal(s_ante);
+        if (negated) l_ante.neg();
+
         s(conseq, s_conseq, pr);
+        negated = m.is_not(s_conseq, s_conseq_n);
+        if (negated) s_conseq = s_conseq_n;
         ctx.internalize(s_conseq, false);
         literal l_conseq = ctx.get_literal(s_conseq);
+        if (negated) l_conseq.neg();
+
         literal lits[2] = {l_ante, l_conseq};
         ctx.mk_th_axiom(get_id(), 2, lits);
         if (ctx.relevancy()) {

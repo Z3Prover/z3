@@ -29,6 +29,7 @@ Notes:
 #include "opt_solver.h"
 #include "optsmt.h"
 #include "maxsmt.h"
+#include "model_converter.h"
 
 namespace opt {
 
@@ -83,6 +84,7 @@ namespace opt {
         map_id              m_indices;
         vector<objective>   m_objectives;
         model_ref           m_model;
+        model_converter_ref m_model_converter;
         obj_map<func_decl, unsigned> m_objective_fns;
     public:
         context(ast_manager& m);

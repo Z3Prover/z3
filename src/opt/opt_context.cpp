@@ -108,12 +108,16 @@ namespace opt {
 
     void context::get_model(model_ref& mdl) {
         mdl = m_model;
+        if (m_model_converter) {
+            (*m_model_converter)(mdl, 0);
+        }
     }
 
     lbool context::execute_min_max(unsigned index, bool committed, bool is_max) {
         // HACK: reuse m_optsmt without regard for box reuse and not considering
         // use-case of lex.
         lbool result = m_optsmt(get_solver());
+        if (result == l_true) m_optsmt.get_model(m_model);
         if (committed) m_optsmt.commit_assignment(index);
         return result;
     }
@@ -122,6 +126,7 @@ namespace opt {
     lbool context::execute_maxsat(symbol const& id, bool committed) {
         maxsmt& ms = *m_maxsmts.find(id);
         lbool result = ms(get_solver());
+        if (result == l_true) ms.get_model(m_model);
         if (committed) ms.commit_assignment();
         return result;
     }
@@ -177,11 +182,10 @@ namespace opt {
         tactic_ref tac1 = mk_elim01_tactic(m);
         tactic_ref tac2 = mk_lia2card_tactic(m);
         tactic_ref tac  = and_then(tac1.get(), tac2.get());
-        model_converter_ref mc;  // TBD: expose model converter upwards and apply to returned model.
         proof_converter_ref pc;
         expr_dependency_ref core(m);
         goal_ref_buffer result;
-        (*tac)(g, result, mc, pc, core);   // TBD: have this an attribute so we can cancel.
+        (*tac)(g, result, m_model_converter, pc, core);  // TBD: have this an attribute so we can cancel.
         SASSERT(result.size() == 1);
         goal* r = result[0];
         fmls.reset();
