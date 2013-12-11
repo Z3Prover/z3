@@ -291,8 +291,10 @@ namespace opt {
         m_lower[i] = mid;
         m_upper[i] = mid;
         TRACE("opt", tout << "set lower bound of "; display_objective(tout, i) << " to: " << mid << "\n";
-              tout << get_lower(i) << ":" << get_upper(i) << "\n";);
-        m_s->assert_expr(m_s->mk_ge(i, mid));
+              tout << get_lower(i) << ":" << get_upper(i) << "\n";);    
+        // Only assert bounds for bounded objectives
+        if (mid.get_infinity().is_zero())
+            m_s->assert_expr(m_s->mk_ge(i, mid));
     }
 
     std::ostream& optsmt::display_objective(std::ostream& out, unsigned i) const {
