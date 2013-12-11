@@ -29,8 +29,6 @@ namespace Microsoft.Z3
     [ContractVerification(true)]
     public class Optimize : Z3Object
     {
-        HashSet<uint> indices;
-
         /// <summary>
         /// A string that describes all available optimize solver parameters.
         /// </summary>
@@ -62,27 +60,6 @@ namespace Microsoft.Z3
         public ParamDescrs ParameterDescriptions
         {
             get { return new ParamDescrs(Context, Native.Z3_optimize_get_param_descrs(Context.nCtx, NativeObject)); }
-        }
-
-        /// <summary>
-        /// Get the number of objectives.
-        /// </summary>
-        public uint ObjectiveCount
-        {
-            get { return (uint)indices.Count; }
-        }
-
-        /// <summary>
-        /// Get all indices of objectives.
-        /// </summary>
-        public uint[] Objectives
-        {
-            get 
-            {
-                var objectives = new uint[indices.Count];
-                indices.CopyTo(objectives, 0);
-                return objectives;
-            }
         }
 
         /// <summary>
@@ -118,9 +95,7 @@ namespace Microsoft.Z3
         {
             Context.CheckContextMatch(constraint);
 	        Symbol s = Context.MkSymbol(group);            
-	        uint index = Native.Z3_optimize_assert_soft(Context.nCtx, NativeObject, constraint.NativeObject, weight.ToString(), s.NativeObject);
-            indices.Add(index);
-            return index;
+	        return Native.Z3_optimize_assert_soft(Context.nCtx, NativeObject, constraint.NativeObject, weight.ToString(), s.NativeObject);            
         }
 	
 	    public Status Check() {
@@ -157,31 +132,25 @@ namespace Microsoft.Z3
         	
         public uint MkMaximize(ArithExpr e) 
         {
-	        uint index = Native.Z3_optimize_maximize(Context.nCtx, NativeObject, e.NativeObject);
-            indices.Add(index);
-            return index;
+	        return Native.Z3_optimize_maximize(Context.nCtx, NativeObject, e.NativeObject);
 	    }
 
         public uint MkMinimize(ArithExpr e)
         {
-	    uint index = Native.Z3_optimize_minimize(Context.nCtx, NativeObject, e.NativeObject);
-            indices.Add(index);
-            return index;
+	        return Native.Z3_optimize_minimize(Context.nCtx, NativeObject, e.NativeObject);
         }
 
         public ArithExpr GetLower(uint index) 
         {
-            Contract.Requires(indices.Contains(index));
-	    return new ArithExpr(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
+            return new ArithExpr(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
         }
 
         public ArithExpr GetUpper(uint index)
         {
-            Contract.Requires(indices.Contains(index));
-	        return new ArithExpr(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
+            return new ArithExpr(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
         }
 
-	public override string ToString() 
+	    public override string ToString() 
         {
             return Native.Z3_optimize_to_string(Context.nCtx, NativeObject);
         }
@@ -191,13 +160,11 @@ namespace Microsoft.Z3
             : base(ctx, obj)
         {
             Contract.Requires(ctx != null);
-            indices = new HashSet<uint>();
         }
         internal Optimize(Context ctx)
             : base(ctx, Native.Z3_mk_optimize(ctx.nCtx))
         {
             Contract.Requires(ctx != null);
-            indices = new HashSet<uint>();
         }
 
         internal class DecRefQueue : IDecRefQueue
