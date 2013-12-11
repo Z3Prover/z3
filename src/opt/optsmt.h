@@ -29,7 +29,7 @@ namespace opt {
 
     class optsmt {
         ast_manager&     m;
-        opt_solver*      s;
+        opt_solver*      m_s;
         volatile bool    m_cancel;
         vector<inf_eps>  m_lower;
         vector<inf_eps>  m_upper;
@@ -39,9 +39,9 @@ namespace opt {
         symbol           m_engine;
         model_ref        m_model;
     public:
-        optsmt(ast_manager& m): m(m), s(0), m_cancel(false), m_objs(m) {}
+        optsmt(ast_manager& m): m(m), m_s(0), m_cancel(false), m_objs(m) {}
 
-        lbool operator()(opt_solver& s);
+        lbool operator()(opt_solver& solver);
 
         void add(app* t, bool is_max);
 

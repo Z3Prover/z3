@@ -66,11 +66,11 @@ namespace opt {
         Enumerate locally optimal assignments until fixedpoint.
     */
     lbool optsmt::basic_opt() {
-        opt_solver::toggle_objective _t(*s, true);          
+        opt_solver::toggle_objective _t(*m_s, true);          
         lbool is_sat = l_true;
 
         while (is_sat == l_true && !m_cancel) {
-            is_sat = s->check_sat(0, 0); 
+            is_sat = m_s->check_sat(0, 0); 
             if (is_sat == l_true) {
                 update_lower();
             }
@@ -92,13 +92,13 @@ namespace opt {
         Enumerate locally optimal assignments until fixedpoint.
     */
     lbool optsmt::farkas_opt() {
-        smt::theory_opt& opt = s->get_optimizer();
+        smt::theory_opt& opt = m_s->get_optimizer();
 
         if (typeid(smt::theory_inf_arith) != typeid(opt)) {
             return l_undef;
         }
 
-        opt_solver::toggle_objective _t(*s, true);
+        opt_solver::toggle_objective _t(*m_s, true);
         lbool is_sat= l_true;
 
         while (is_sat == l_true && !m_cancel) {
@@ -121,14 +121,14 @@ namespace opt {
         inf_eps v(r);
         if (m_lower[idx] < v) {
             m_lower[idx] = v;
-            s->get_model(m_model);
+            if (m_s) m_s->get_model(m_model);
         }
     }
 
     void optsmt::update_lower() {
         model_ref md;
-        s->get_model(md);
-        set_max(m_lower, s->get_objective_values());
+        m_s->get_model(md);
+        set_max(m_lower, m_s->get_objective_values());
         IF_VERBOSE(1, 
                    for (unsigned i = 0; i < m_lower.size(); ++i) {
                        verbose_stream() << m_lower[i] << " ";
@@ -141,21 +141,21 @@ namespace opt {
         
         for (unsigned i = 0; i < m_lower.size(); ++i) {
             inf_eps const& v = m_lower[i];
-            disj.push_back(s->mk_gt(i, v));
+            disj.push_back(m_s->mk_gt(i, v));
         }
         constraint = m.mk_or(disj.size(), disj.c_ptr());
-        s->assert_expr(constraint);
+        m_s->assert_expr(constraint);
     }
 
     lbool optsmt::update_upper() {
-        smt::theory_opt& opt = s->get_optimizer();
+        smt::theory_opt& opt = m_s->get_optimizer();
         SASSERT(typeid(smt::theory_inf_arith) == typeid(opt));
         smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
 
         expr_ref bound(m);
         expr_ref_vector bounds(m);
 
-        solver::scoped_push _push(*s);
+        solver::scoped_push _push(*m_s);
 
         //
         // NB: we have to create all bound expressions before calling check_sat
@@ -181,7 +181,7 @@ namespace opt {
         for (unsigned i = 0; i < m_lower.size() && !m_cancel; ++i) {
             if (m_lower[i] <= mid[i] && mid[i] <= m_upper[i] && m_lower[i] < m_upper[i]) {
                 th.enable_record_conflict(bounds[i].get());
-                lbool is_sat = s->check_sat(1, bounds.c_ptr() + i);
+                lbool is_sat = m_s->check_sat(1, bounds.c_ptr() + i);
                 switch(is_sat) {
                 case l_true:
                     IF_VERBOSE(2, verbose_stream() << "Setting lower bound for v" << m_vars[i] << " to " << m_upper[i] << "\n";);
@@ -226,7 +226,7 @@ namespace opt {
             return l_true;
         }
         lbool is_sat = l_true;
-        s = &solver;
+        m_s = &solver;
         solver.reset_objectives();
         m_vars.reset();
 
@@ -292,7 +292,7 @@ namespace opt {
         m_upper[i] = mid;
         TRACE("opt", tout << "set lower bound of "; display_objective(tout, i) << " to: " << mid << "\n";
               tout << get_lower(i) << ":" << get_upper(i) << "\n";);
-        s->assert_expr(s->mk_ge(i, mid));
+        m_s->assert_expr(m_s->mk_ge(i, mid));
     }
 
     std::ostream& optsmt::display_objective(std::ostream& out, unsigned i) const {
