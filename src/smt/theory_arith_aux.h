@@ -1067,16 +1067,19 @@ namespace smt {
     */
     template<typename Ext>
     expr* theory_arith<Ext>::mk_ge(theory_var v, inf_numeral const& val) {
+        SASSERT(m_objective_theory_vars.contains(v));
         ast_manager& m = get_manager();
         context& ctx = get_context();
         std::ostringstream strm;
         strm << val << " <= v" << v;
         expr* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
-        if (!ctx.b_internalized(b)) {
+        // NB: For some reason, v has been internalized however it has no entry in m_unassigned_atoms
+        SASSERT(m_unassigned_atoms.size() == m_var_occs.size());
+        if (!ctx.b_internalized(b) && ((unsigned)v < m_unassigned_atoms.size())) {
             bool_var bv = ctx.mk_bool_var(b);
             ctx.set_var_theory(bv, get_id());
             // ctx.set_enode_flag(bv, true);
-            atom* a = alloc(atom, bv, v, val, A_LOWER);
+            atom* a = alloc(atom, bv, v, val, A_LOWER);   
             m_unassigned_atoms[v]++;
             m_var_occs[v].push_back(a);
             m_atoms.push_back(a);
