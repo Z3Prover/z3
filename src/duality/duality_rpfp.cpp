@@ -1993,7 +1993,7 @@ namespace Duality {
       aux_solver.pop(1);
       Push();
       FixCurrentStateFull(node->Outgoing);
-      // ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node));
+       ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node));
       check_result foo = Check(root);
       if(foo != unsat)
 	throw "should be unsat";

@@ -1460,6 +1460,21 @@ public:
 	}
       }
 
+      /* this is the symmetry rule for ~=, that is, takes x ~= y and yields y ~= x.
+      the proof idiom uses commutativity, monotonicity and mp, but we replace it here
+      with symmtrey and resolution, that is, we prove y = x |- x = y, then resolve
+      with the proof of ~(x=y) to get ~y=x. */
+      if(dk == PR_MODUS_PONENS && pr(prem(proof,1)) == PR_MONOTONICITY && pr(prem(prem(proof,1),0)) == PR_COMMUTATIVITY && num_prems(prem(proof,1)) == 1){
+	Iproof::node ante = translate_main(prem(proof,0),false);
+	ast eq0 = arg(conc(prem(prem(proof,1),0)),0);
+	ast eq1 = arg(conc(prem(prem(proof,1),0)),1);
+	Iproof::node eq1hy = iproof->make_hypothesis(eq1);
+	Iproof::node eq0pf = iproof->make_symmetry(eq0,eq1,eq1hy);
+	std::vector<ast> clause; // just a dummy
+	res = iproof->make_resolution(eq0,clause,ante,eq0pf);
+	return res;
+      }
+
       // translate all the premises
       std::vector<Iproof::node> args(nprems);
       for(unsigned i = 0; i < nprems; i++)
