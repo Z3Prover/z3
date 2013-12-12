@@ -28,6 +28,7 @@ Notes:
 #include "lia2card_tactic.h"
 #include "elim01_tactic.h"
 #include "tactical.h"
+#include "th_rewriter.h"
 
 namespace opt {
 
@@ -64,9 +65,14 @@ namespace opt {
     }
 
     unsigned context::add_objective(app* t, bool is_max) {
-        app_ref tr(t, m);
+        expr_ref tr(t, m);
+        app_ref  ar(m);
+        th_rewriter rewrite(m);
+        rewrite(tr);
+        SASSERT(is_app(tr));
+        ar = to_app(tr);
         unsigned index = m_objectives.size();
-        m_objectives.push_back(objective(is_max, tr, index));
+        m_objectives.push_back(objective(is_max, ar, index));
         return index;
     }
 

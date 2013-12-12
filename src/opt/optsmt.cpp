@@ -230,8 +230,10 @@ namespace opt {
         solver.reset_objectives();
         m_vars.reset();
 
-        // First check_sat call to initialize theories
-        solver::scoped_push _push(solver);
+        {
+            // force base level
+            solver::scoped_push _push(solver);
+        }
 
         for (unsigned i = 0; i < m_objs.size(); ++i) {
             m_vars.push_back(solver.add_objective(m_objs[i].get()));

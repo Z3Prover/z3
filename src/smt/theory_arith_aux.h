@@ -1045,25 +1045,44 @@ namespace smt {
     }
 
     /**
-       \brief: assert val < v
+       \brief: Create an atom that enforces the inequality v > val
+       The arithmetical expression encoding the inequality suffices 
+       for the theory of aritmetic.
     */
     template<typename Ext>
     expr* theory_arith<Ext>::mk_gt(theory_var v, inf_rational const& val) {
         ast_manager& m = get_manager();
         expr* obj = get_enode(v)->get_owner();
         expr_ref e(m);
-        e = m_util.mk_numeral(val.get_rational(), m.get_sort(obj));
-
-        if (val.get_infinitesimal().is_neg()) {
+        rational r = val.get_rational();
+        if (m_util.is_int(m.get_sort(obj))) {
+            if (r.is_int()) {
+                r += rational::one();
+            }
+            else {
+                r = ceil(r);
+            }
+            e = m_util.mk_numeral(r, m.get_sort(obj));
             return m_util.mk_ge(obj, e);
         }
         else {
-            return m_util.mk_gt(obj, e);
+            // obj is over the reals.
+            e = m_util.mk_numeral(r, m.get_sort(obj));
+            
+            if (val.get_infinitesimal().is_neg()) {
+                return m_util.mk_ge(obj, e);
+            }
+            else {
+                return m_util.mk_gt(obj, e);
+            }
         }
     }
 
     /**
-      \brief assert val <= v
+      \brief create atom that enforces: val <= v
+      The atom that enforces the inequality is created directly 
+      as opposed to using arithmetical terms. 
+      This allows to handle inequalities with non-standard numbers.
     */
     template<typename Ext>
     expr* theory_arith<Ext>::mk_ge(theory_var v, inf_numeral const& val) {
@@ -1071,11 +1090,11 @@ namespace smt {
         ast_manager& m = get_manager();
         context& ctx = get_context();
         std::ostringstream strm;
+        expr_ref b(m);
         strm << val << " <= v" << v;
-        expr* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
-        // NB: For some reason, v has been internalized however it has no entry in m_unassigned_atoms
+        b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
         SASSERT(m_unassigned_atoms.size() == m_var_occs.size());
-        if (!ctx.b_internalized(b) && ((unsigned)v < m_unassigned_atoms.size())) {
+        if (!ctx.b_internalized(b)) {
             bool_var bv = ctx.mk_bool_var(b);
             ctx.set_var_theory(bv, get_id());
             // ctx.set_enode_flag(bv, true);
