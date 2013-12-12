@@ -126,15 +126,14 @@ namespace opt {
     }
 
     void optsmt::update_lower() {
-        model_ref md;
-        m_s->get_model(md);
+        m_s->get_model(m_model);
         set_max(m_lower, m_s->get_objective_values());
         IF_VERBOSE(1, 
                    for (unsigned i = 0; i < m_lower.size(); ++i) {
                        verbose_stream() << m_lower[i] << " ";
                    }
                    verbose_stream() << "\n";
-                   model_pp(verbose_stream(), *md);
+                   model_pp(verbose_stream(), *m_model);
                    );
         expr_ref_vector disj(m);
         expr_ref constraint(m);

@@ -3,9 +3,10 @@ def_module_params('opt',
                   export=True,
                   params=(('timeout', UINT, UINT_MAX, 'set timeout'),
                           ('engine', SYMBOL, 'basic', "select optimization engine: 'basic', 'farkas', 'symba'"),
-	                      ('maxsat_engine', SYMBOL, 'fu_malik', "select engine for non-weighted maxsat: 'fu_malik', 'core_maxsat'"),
+	                  ('maxsat_engine', SYMBOL, 'fu_malik', "select engine for non-weighted maxsat: 'fu_malik', 'core_maxsat'"),
                           ('priority', SYMBOL, 'lex', "select how to priortize objectives: 'lex' (lexicographic), 'pareto', or 'box'"),
                           ('dump_benchmarks', BOOL, False, 'dump benchmarks for profiling'),
+                          ('print_model', BOOL, False, 'display model for satisfiable constraints'),
                           ('debug_conflict', BOOL, False, 'debug conflict resolution'),
                           ))
 
