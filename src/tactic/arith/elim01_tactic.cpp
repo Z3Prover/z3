@@ -23,6 +23,7 @@ Notes:
 #include"expr_safe_replace.h" // NB: should use proof-producing expr_substitute in polished version.
 #include"arith_decl_plugin.h"
 #include"elim01_tactic.h"
+#include"model_smt2_pp.h"
 
 class bool2int_model_converter : public model_converter {
     ast_manager&      m;
@@ -63,15 +64,15 @@ public:
             else {
                 new_model->register_decl(f, fi);
             }
-            num = old_model->get_num_functions();
-            for (unsigned i = 0; i < num; i++) {
-                func_decl * f = old_model->get_function(i);
-                func_interp * fi = old_model->get_func_interp(f);
-                new_model->register_decl(f, fi->copy());
-            }
-            new_model->copy_usort_interps(*old_model);
-            old_model = new_model;
-        }        
+        }    
+        num = old_model->get_num_functions();
+        for (unsigned i = 0; i < num; i++) {
+            func_decl * f = old_model->get_function(i);
+            func_interp * fi = old_model->get_func_interp(f);
+            new_model->register_decl(f, fi->copy());
+        }
+        new_model->copy_usort_interps(*old_model);
+        old_model = new_model;        
     }
 
     void insert(func_decl* x_new, func_decl* x_old) {

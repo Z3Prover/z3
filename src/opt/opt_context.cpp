@@ -92,7 +92,8 @@ namespace opt {
         case 1:
             return execute(m_objectives[0], false);
         default: {
-            symbol pri = m_params.get_sym("priority", symbol("lex"));
+            opt_params optp(m_params);
+            symbol pri = optp.priority();
             if (pri == symbol("pareto")) {
                 return execute_pareto();
             }
