@@ -81,10 +81,23 @@ namespace Duality {
 
       int CountOperators(const Term &t);
 
+      Term SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val);
+
+      Term RemoveRedundancy(const Term &t);
+
+      bool IsLiteral(const expr &lit, expr &atom, expr &val);
+
+      expr Negate(const expr &f);
+
+      expr SimplifyAndOr(const std::vector<expr> &args, bool is_and);
+
   private:
 
       void SummarizeRec(hash_set<ast> &memo, std::vector<expr> &lits, int &ops, const Term &t);
       int CountOperatorsRec(hash_set<ast> &memo, const Term &t);
+      void RemoveRedundancyOp(bool pol, std::vector<expr> &args, hash_map<ast, Term> &smemo);
+      Term RemoveRedundancyRec(hash_map<ast, Term> &memo, hash_map<ast, Term> &smemo, const Term &t);
+    Term SubstAtomTriv(const expr &foo, const expr &atom, const expr &val);
 
 };
 
@@ -570,7 +583,7 @@ namespace Duality {
 	  edge to their values in the current assignment. */
       void FixCurrentState(Edge *root);
     
-      void FixCurrentStateFull(Edge *edge);
+      void FixCurrentStateFull(Edge *edge, const expr &extra);
 
       /** Declare a constant in the background theory. */
 
@@ -928,6 +941,12 @@ namespace Duality {
       void AddEdgeToSolver(Edge *edge);
 
       void AddToProofCore(hash_set<ast> &core);
+
+      void GetGroundLitsUnderQuants(hash_set<ast> *memo, const Term &f, std::vector<Term> &res, int under);
+
+      Term StrengthenFormulaByCaseSplitting(const Term &f, std::vector<expr> &case_lits);
+    
+      expr NegateLit(const expr &f);
 
     };
     

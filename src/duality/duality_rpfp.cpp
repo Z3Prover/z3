@@ -368,6 +368,136 @@ namespace Duality {
     return res;
   }
 
+  bool Z3User::IsLiteral(const expr &lit, expr &atom, expr &val){
+    if(!lit.is_app())
+      return false;
+    decl_kind k = lit.decl().get_decl_kind();
+    if(k == Not){
+      if(IsLiteral(lit.arg(0),atom,val)){
+	val = eq(val,ctx.bool_val(true)) ? ctx.bool_val(false) : ctx.bool_val(true); 
+	return true;
+      }
+      return false;
+    }
+    if(k == And || k == Or || k == Iff || k == Implies)
+      return false;
+    atom = lit;
+    val = ctx.bool_val(true);
+    return true;
+  }
+
+  expr Z3User::Negate(const expr &f){
+    if(f.is_app() && f.decl().get_decl_kind() == Not)
+      return f.arg(0);
+    else if(eq(f,ctx.bool_val(true)))
+      return ctx.bool_val(false);
+    else if(eq(f,ctx.bool_val(false)))
+      return ctx.bool_val(true);
+    return !f;
+  }
+
+  expr Z3User::SimplifyAndOr(const std::vector<expr> &args, bool is_and){
+    std::vector<expr> sargs;
+    for(unsigned i = 0; i < args.size(); i++)
+      if(!eq(args[i],ctx.bool_val(is_and))){
+	if(eq(args[i],ctx.bool_val(!is_and)))
+	  return ctx.bool_val(!is_and);
+	sargs.push_back(args[i]);
+      }
+    if(sargs.size() == 0)
+      return ctx.bool_val(is_and);
+    if(sargs.size() == 1)
+      return sargs[0];
+    return ctx.make(is_and ? And : Or,sargs);
+  }
+
+  Z3User::Term Z3User::SubstAtomTriv(const expr &foo, const expr &atom, const expr &val){
+    if(eq(foo,atom))
+      return val;
+    else if(foo.is_app() && foo.decl().get_decl_kind() == Not && eq(foo.arg(0),atom))
+      return Negate(val);
+    else
+      return foo;
+  }
+
+  Z3User::Term Z3User::SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val){
+    std::pair<ast,Term> foo(t,expr(ctx));
+    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
+    Term &res = bar.first->second;
+    if(!bar.second) return res;
+    if (t.is_app()){
+      func_decl f = t.decl();
+      decl_kind k = f.get_decl_kind();
+      
+      // TODO: recur here, but how much? We don't want to be quadractic in formula size
+      
+      if(k == And || k == Or){
+	int nargs = t.num_args();
+	std::vector<Term> args(nargs);
+	for(int i = 0; i < nargs; i++)
+	  args[i] = SubstAtom(memo,t.arg(i),atom,val);
+	res = SimplifyAndOr(args,k == And);
+	return res;
+      }
+    }
+    res = SubstAtomTriv(t,atom,val);
+    return res;
+  }
+
+  void Z3User::RemoveRedundancyOp(bool pol, std::vector<expr> &args, hash_map<ast, Term> &smemo){
+    for(unsigned i = 0; i < args.size(); i++){
+      const expr &lit = args[i];
+      expr atom, val;
+      if(IsLiteral(lit,atom,val)){
+	for(unsigned j = 0; j < args.size(); j++)
+	  if(j != i){
+	    smemo.clear();
+	    args[j] = SubstAtom(smemo,args[j],atom,pol ? val : !val);
+	  }
+      }
+    }
+  }
+  
+
+  Z3User::Term Z3User::RemoveRedundancyRec(hash_map<ast, Term> &memo, hash_map<ast, Term> &smemo, const Term &t)
+  {
+    std::pair<ast,Term> foo(t,expr(ctx));
+    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
+    Term &res = bar.first->second;
+    if(!bar.second) return res;
+    if (t.is_app())
+      {
+	func_decl f = t.decl();
+	std::vector<Term> args;
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++)
+	  args.push_back(RemoveRedundancyRec(memo, smemo, t.arg(i)));
+
+	decl_kind k = f.get_decl_kind();
+	if(k == And)
+	  RemoveRedundancyOp(true,args,smemo);
+	else if(k == Or)
+	  RemoveRedundancyOp(false,args,smemo);
+	if(k == Equal && args[0].get_id() > args[1].get_id())
+	  std::swap(args[0],args[1]);
+	
+	res = f(args.size(),&args[0]);
+      }
+    else if (t.is_quantifier())
+      {
+	Term body = RemoveRedundancyRec(memo,smemo,t.body());
+	res = clone_quantifier(t, body);
+      }
+    else res = t;
+    return res;
+  }
+
+  Z3User::Term Z3User::RemoveRedundancy(const Term &t){
+    hash_map<ast, Term> memo;
+    hash_map<ast, Term> smemo;
+    return RemoveRedundancyRec(memo,smemo,t);
+  }
+
   Z3User::Term Z3User::SubstRecHide(hash_map<ast, Term> &memo, const Term &t, int number)
   {
     std::pair<ast,Term> foo(t,expr(ctx));
@@ -1829,18 +1959,100 @@ namespace Duality {
     ConstrainEdgeLocalized(edge,eu);
   }
 
-  void RPFP::FixCurrentStateFull(Edge *edge){
+  void RPFP::FixCurrentStateFull(Edge *edge, const expr &extra){
     hash_set<ast> dont_cares;
     resolve_ite_memo.clear();
     timer_start("UnderapproxFormula");
     Term dual = edge->dual.null() ? ctx.bool_val(true) : edge->dual;
     for(unsigned i = 0; i < edge->constraints.size(); i++)
       dual = dual && edge->constraints[i];
+    // dual = dual && extra;
     Term eu = UnderapproxFullFormula(dual,dont_cares);
     timer_stop("UnderapproxFormula");
     ConstrainEdgeLocalized(edge,eu);
   }
 
+  
+  
+
+  void RPFP::GetGroundLitsUnderQuants(hash_set<ast> *memo, const Term &f, std::vector<Term> &res, int under){
+    if(memo[under].find(f) != memo[under].end())
+      return;
+    memo[under].insert(f);
+    if(f.is_app()){
+      if(!under && !f.has_quantifiers())
+	return;
+      decl_kind k = f.decl().get_decl_kind();
+      if(k == And || k == Or || k == Implies || k == Iff){
+	int num_args = f.num_args();
+	for(int i = 0; i < num_args; i++)
+	  GetGroundLitsUnderQuants(memo,f.arg(i),res,under);
+	return;
+      }
+    }
+    else if (f.is_quantifier()){
+      GetGroundLitsUnderQuants(memo,f.body(),res,1);
+      return;
+    }
+    if(under && f.is_ground())
+      res.push_back(f);
+  }
+
+  RPFP::Term RPFP::StrengthenFormulaByCaseSplitting(const Term &f, std::vector<expr> &case_lits){
+    hash_set<ast> memo[2];
+    std::vector<Term> lits;
+    GetGroundLitsUnderQuants(memo, f, lits, 0);
+    hash_set<ast> lits_hash;
+    for(unsigned i = 0; i < lits.size(); i++)
+      lits_hash.insert(lits[i]);
+    hash_map<ast,expr> subst;
+    hash_map<ast,int> stt_memo;
+    std::vector<expr> conjuncts;
+    for(unsigned i = 0; i < lits.size(); i++){
+      const expr &lit = lits[i];
+      if(lits_hash.find(NegateLit(lit)) == lits_hash.end()){
+	case_lits.push_back(lit);
+	bool tval = false;
+	expr atom = lit;
+	if(lit.is_app() && lit.decl().get_decl_kind() == Not){
+	  tval = true;
+	  atom = lit.arg(0);
+	}
+	expr etval = ctx.bool_val(tval);
+	int b = SubtermTruth(stt_memo,atom);
+	if(b == (tval ? 1 : 0))
+	  subst[atom] = etval;
+	else {
+	  if(b == 0 || b == 1){
+	    etval = ctx.bool_val(b ? true : false);
+	    subst[atom] = etval;
+	    conjuncts.push_back(b ? atom : !atom);
+	  }
+	}
+      }
+    }
+    expr g = f;
+    if(!subst.empty()){
+      g = SubstRec(subst,f);
+      if(conjuncts.size())
+	g = g && ctx.make(And,conjuncts);
+      g = g.simplify();
+    }
+#if 0
+    expr g_old = g;
+    g = RemoveRedundancy(g);
+    bool changed = !eq(g,g_old);
+    g = g.simplify();
+    if(changed) {  // a second pass can get some more simplification
+      g = RemoveRedundancy(g);
+      g = g.simplify();
+    }
+#else
+    g = RemoveRedundancy(g);
+    g = g.simplify();
+#endif
+    return g;
+  }
 
   RPFP::Term RPFP::ModelValueAsConstraint(const Term &t){
     if(t.is_array()){
@@ -1948,6 +2160,13 @@ namespace Duality {
     }
   }
 
+  expr RPFP::NegateLit(const expr &f){
+    if(f.is_app() && f.decl().get_decl_kind() == Not)
+      return f.arg(0);
+    else
+      return !f;
+  }
+
   void RPFP::NegateLits(std::vector<expr> &lits){
     for(unsigned i = 0; i < lits.size(); i++){
       expr &f = lits[i];
@@ -1984,7 +2203,8 @@ namespace Duality {
     core->insert(node->Outgoing->dual);
     while(1){
       aux_solver.push();
-      aux_solver.add(!GetAnnotation(node));
+      expr annot = !GetAnnotation(node);
+      aux_solver.add(annot);
       if(aux_solver.check() == unsat){
 	aux_solver.pop(1);
 	break;
@@ -1992,7 +2212,7 @@ namespace Duality {
       dualModel = aux_solver.get_model();
       aux_solver.pop(1);
       Push();
-      FixCurrentStateFull(node->Outgoing);
+      FixCurrentStateFull(node->Outgoing,annot);
        ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node));
       check_result foo = Check(root);
       if(foo != unsat)
@@ -2000,6 +2220,15 @@ namespace Duality {
       AddToProofCore(*core);
       Transformer old_annot = node->Annotation;
       SolveSingleNode(root,node);
+
+      {
+	expr itp = GetAnnotation(node);
+	dualModel = aux_solver.get_model();
+	std::vector<expr> case_lits;
+	itp = StrengthenFormulaByCaseSplitting(itp, case_lits);
+	SetAnnotation(node,itp);
+      }
+
       if(node->Annotation.IsEmpty()){
 	std::cout << "bad in InterpolateByCase -- core:\n";
 	std::vector<expr> assumps;
