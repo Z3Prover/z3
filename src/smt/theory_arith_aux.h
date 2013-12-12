@@ -1090,10 +1090,8 @@ namespace smt {
         ast_manager& m = get_manager();
         context& ctx = get_context();
         std::ostringstream strm;
-        expr_ref b(m);
         strm << val << " <= v" << v;
-        b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
-        SASSERT(m_unassigned_atoms.size() == m_var_occs.size());
+        expr* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
         if (!ctx.b_internalized(b)) {
             bool_var bv = ctx.mk_bool_var(b);
             ctx.set_var_theory(bv, get_id());
