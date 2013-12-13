@@ -26,6 +26,7 @@ Revision History:
 #include <algorithm>
 #include <fstream>
 #include <set>
+#include <iterator>
 
 #ifndef WIN32
 // #define Z3OPS
