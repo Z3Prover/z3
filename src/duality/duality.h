@@ -1007,3 +1007,15 @@ private:
       
     };
 }
+
+// allow to walk sets of nodes without address dependency
+
+namespace std {
+  template <>
+    class less<Duality::RPFP::Node *> {
+  public:
+    bool operator()(Duality::RPFP::Node * const &s, Duality::RPFP::Node * const &t) const {
+      return s->number < t->number; // s.raw()->get_id() < t.raw()->get_id();
+    }
+  };
+}
