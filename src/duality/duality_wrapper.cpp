@@ -513,6 +513,7 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
 	opts.set("weak","1"); 
       
       ::ast *proof = m_solver->get_proof();
+      show_assertion_ids();
       iz3interpolate(m(),proof,_assumptions,_parents,_interpolants,_theory,&opts);
       
       std::vector<expr> linearized_interpolants(_interpolants.size());
@@ -611,6 +612,14 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     for (unsigned i = 0; i < n-1; ++i)
       pp.add_assumption(m_solver->get_assertion(i));
     pp.display_smt2(std::cout, m_solver->get_assertion(n-1));
+  }
+
+  void solver::show_assertion_ids() {
+    unsigned n = m_solver->get_num_assertions();
+    std::cerr << "assertion ids: ";
+    for (unsigned i = 0; i < n-1; ++i)
+      std::cerr << " " << m_solver->get_assertion(i)->get_id();
+    std::cerr << "\n";
   }
 
   void include_ast_show(ast &a){

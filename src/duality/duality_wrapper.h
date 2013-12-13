@@ -907,6 +907,7 @@ namespace Duality {
 	unsigned get_scope_level(){return m_solver->get_scope_level();}
 
 	void show();
+	void show_assertion_ids();
 
 	proof get_proof(){
 	  return proof(ctx(),m_solver->get_proof());
