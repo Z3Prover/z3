@@ -109,36 +109,49 @@ public:
      symbols and assign each to a frame. THe assignment is heuristic.
   */
 
-  void scan_skolems_rec(hash_set<ast> &memo, const ast &proof){
-    std::pair<hash_set<ast>::iterator,bool> bar = memo.insert(proof);
-    if(!bar.second)
-      return;
+  int scan_skolems_rec(hash_map<ast,int> &memo, const ast &proof, int frame){
+    std::pair<ast,int> foo(proof,INT_MAX);
+    std::pair<AstToInt::iterator, bool> bar = memo.insert(foo);
+    int &res = bar.first->second;
+    if(!bar.second) return res;
     pfrule dk = pr(proof);
-    if(dk == PR_SKOLEMIZE){
+    if(dk == PR_ASSERTED){
+      ast ass = conc(proof);
+      res = frame_of_assertion(ass);
+    }
+    else if(dk == PR_SKOLEMIZE){
       ast quanted = arg(conc(proof),0);
       if(op(quanted) == Not)
 	quanted = arg(quanted,0);
-      range r = ast_range(quanted);
-      if(range_is_empty(r))
-	r = ast_scope(quanted);
+      // range r = ast_range(quanted);
+      // if(range_is_empty(r))
+      range r = ast_scope(quanted);
       if(range_is_empty(r))
 	throw "can't skolemize";
-      int frame = range_max(r);
+      if(frame == INT_MAX || !in_range(frame,r))
+	frame = range_max(r); // this is desperation -- may fail
       if(frame >= frames) frame = frames - 1;
       add_frame_range(frame,arg(conc(proof),1));
       r = ast_scope(arg(conc(proof),1));
     }
+    else if(dk==PR_MODUS_PONENS_OEQ){
+      frame = scan_skolems_rec(memo,prem(proof,0),frame);
+      scan_skolems_rec(memo,prem(proof,1),frame);
+    }
     else {
       unsigned nprems = num_prems(proof);
       for(unsigned i = 0; i < nprems; i++){
-	scan_skolems_rec(memo,prem(proof,i));
+	int bar = scan_skolems_rec(memo,prem(proof,i),frame);
+	if(res == INT_MAX || res == bar) res = bar;
+	else if(bar != INT_MAX) res = -1;
       }
     }
+    return res;
   }
 
   void scan_skolems(const ast &proof){
-    hash_set<ast> memo;
-    scan_skolems_rec(memo,proof);
+    hash_map<ast,int> memo;
+    scan_skolems_rec(memo,proof, INT_MAX);
   }
 
   // determine locality of a proof term

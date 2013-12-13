@@ -25,6 +25,7 @@ Revision History:
 #include "duality_profiling.h"
 #include <algorithm>
 #include <fstream>
+#include <set>
 
 #ifndef WIN32
 // #define Z3OPS
@@ -369,18 +370,20 @@ namespace Duality {
   }
 
   bool Z3User::IsLiteral(const expr &lit, expr &atom, expr &val){
-    if(!lit.is_app())
-      return false;
-    decl_kind k = lit.decl().get_decl_kind();
-    if(k == Not){
-      if(IsLiteral(lit.arg(0),atom,val)){
-	val = eq(val,ctx.bool_val(true)) ? ctx.bool_val(false) : ctx.bool_val(true); 
-	return true;
+    if(!(lit.is_quantifier() && IsClosedFormula(lit))){
+      if(!lit.is_app())
+	return false;
+      decl_kind k = lit.decl().get_decl_kind();
+      if(k == Not){
+	if(IsLiteral(lit.arg(0),atom,val)){
+	  val = eq(val,ctx.bool_val(true)) ? ctx.bool_val(false) : ctx.bool_val(true); 
+	  return true;
+	}
+	return false;
       }
-      return false;
+      if(k == And || k == Or || k == Iff || k == Implies)
+	return false;
     }
-    if(k == And || k == Or || k == Iff || k == Implies)
-      return false;
     atom = lit;
     val = ctx.bool_val(true);
     return true;
@@ -396,19 +399,78 @@ namespace Duality {
     return !f;
   }
 
-  expr Z3User::SimplifyAndOr(const std::vector<expr> &args, bool is_and){
-    std::vector<expr> sargs;
+  expr Z3User::ReduceAndOr(const std::vector<expr> &args, bool is_and, std::vector<expr> &res){
     for(unsigned i = 0; i < args.size(); i++)
       if(!eq(args[i],ctx.bool_val(is_and))){
 	if(eq(args[i],ctx.bool_val(!is_and)))
 	  return ctx.bool_val(!is_and);
-	sargs.push_back(args[i]);
+	res.push_back(args[i]);
       }
-    if(sargs.size() == 0)
+    return expr();
+  }
+
+  expr Z3User::FinishAndOr(const std::vector<expr> &args, bool is_and){
+    if(args.size() == 0)
       return ctx.bool_val(is_and);
-    if(sargs.size() == 1)
-      return sargs[0];
-    return ctx.make(is_and ? And : Or,sargs);
+    if(args.size() == 1)
+      return args[0];
+    return ctx.make(is_and ? And : Or,args);
+  }
+
+  expr Z3User::SimplifyAndOr(const std::vector<expr> &args, bool is_and){
+    std::vector<expr> sargs;
+    expr res = ReduceAndOr(args,is_and,sargs);
+    if(!res.null()) return res;
+    return FinishAndOr(sargs,is_and);
+  }
+
+  expr Z3User::PullCommonFactors(std::vector<expr> &args, bool is_and){
+    
+    // first check if there's anything to do...
+    if(args.size() < 2)
+      return FinishAndOr(args,is_and);
+    for(unsigned i = 0; i < args.size(); i++){
+      const expr &a = args[i];
+      if(!(a.is_app() && a.decl().get_decl_kind() == (is_and ? Or : And)))
+	return FinishAndOr(args,is_and);
+    }
+    std::vector<expr> common;
+    for(unsigned i = 0; i < args.size(); i++){
+      unsigned n = args[i].num_args();
+      std::vector<expr> v(n),w;
+      for(unsigned j = 0; j < n; j++)
+	v[j] = args[i].arg(j);
+      std::less<ast> comp;
+      std::sort(v.begin(),v.end(),comp);
+      if(i == 0)
+	common.swap(v);
+      else {
+	std::set_intersection(common.begin(),common.end(),v.begin(),v.end(),std::back_inserter(w),comp);
+	common.swap(w);
+      }
+    }  
+    if(common.empty())
+      return FinishAndOr(args,is_and);
+    std::set<ast> common_set(common.begin(),common.end());
+    for(unsigned i = 0; i < args.size(); i++){
+      unsigned n = args[i].num_args();
+      std::vector<expr> lits;
+      for(unsigned j = 0; j < n; j++){
+	const expr b = args[i].arg(j);
+	if(common_set.find(b) == common_set.end())
+	  lits.push_back(b);
+      }
+      args[i] = SimplifyAndOr(lits,!is_and);
+    }  
+    common.push_back(SimplifyAndOr(args,is_and));
+    return SimplifyAndOr(common,!is_and);
+  }
+
+  expr Z3User::ReallySimplifyAndOr(const std::vector<expr> &args, bool is_and){
+    std::vector<expr> sargs;
+    expr res = ReduceAndOr(args,is_and,sargs);
+    if(!res.null()) return res;
+    return PullCommonFactors(sargs,is_and);
   }
 
   Z3User::Term Z3User::SubstAtomTriv(const expr &foo, const expr &atom, const expr &val){
@@ -436,9 +498,16 @@ namespace Duality {
 	std::vector<Term> args(nargs);
 	for(int i = 0; i < nargs; i++)
 	  args[i] = SubstAtom(memo,t.arg(i),atom,val);
-	res = SimplifyAndOr(args,k == And);
+	res = ReallySimplifyAndOr(args, k==And);
 	return res;
       }
+    }
+    else if(t.is_quantifier() && atom.is_quantifier()){
+      if(eq(t,atom))
+	res = val;
+      else
+	res = clone_quantifier(t,SubstAtom(memo,t.body(),atom,val));
+      return res;
     }
     res = SubstAtomTriv(t,atom,val);
     return res;
@@ -474,14 +543,19 @@ namespace Duality {
 	  args.push_back(RemoveRedundancyRec(memo, smemo, t.arg(i)));
 
 	decl_kind k = f.get_decl_kind();
-	if(k == And)
+	if(k == And){
 	  RemoveRedundancyOp(true,args,smemo);
-	else if(k == Or)
+	  res = ReallySimplifyAndOr(args, true);
+	}
+	else if(k == Or){
 	  RemoveRedundancyOp(false,args,smemo);
-	if(k == Equal && args[0].get_id() > args[1].get_id())
-	  std::swap(args[0],args[1]);
-	
-	res = f(args.size(),&args[0]);
+	  res = ReallySimplifyAndOr(args, false);
+	}
+	else {
+	  if(k == Equal && args[0].get_id() > args[1].get_id())
+	    std::swap(args[0],args[1]);
+	  res = f(args.size(),&args[0]);
+	}
       }
     else if (t.is_quantifier())
       {
@@ -1991,7 +2065,13 @@ namespace Duality {
       }
     }
     else if (f.is_quantifier()){
-      GetGroundLitsUnderQuants(memo,f.body(),res,1);
+#if 0
+      // treat closed quantified formula as a literal 'cause we hate nested quantifiers
+      if(under && IsClosedFormula(f)) 
+	res.push_back(f);
+      else
+#endif
+	GetGroundLitsUnderQuants(memo,f.body(),res,1);
       return;
     }
     if(under && f.is_ground())
@@ -2019,14 +2099,18 @@ namespace Duality {
 	  atom = lit.arg(0);
 	}
 	expr etval = ctx.bool_val(tval);
-	int b = SubtermTruth(stt_memo,atom);
-	if(b == (tval ? 1 : 0))
-	  subst[atom] = etval;
+	if(atom.is_quantifier())
+	  subst[atom] = etval; // this is a bit desperate, since we can't eval quants
 	else {
-	  if(b == 0 || b == 1){
-	    etval = ctx.bool_val(b ? true : false);
+	  int b = SubtermTruth(stt_memo,atom);
+	  if(b == (tval ? 1 : 0))
 	    subst[atom] = etval;
-	    conjuncts.push_back(b ? atom : !atom);
+	  else {
+	    if(b == 0 || b == 1){
+	      etval = ctx.bool_val(b ? true : false);
+	      subst[atom] = etval;
+	      conjuncts.push_back(b ? atom : !atom);
+	    }
 	  }
 	}
       }
@@ -2038,7 +2122,7 @@ namespace Duality {
 	g = g && ctx.make(And,conjuncts);
       g = g.simplify();
     }
-#if 0
+#if 1
     expr g_old = g;
     g = RemoveRedundancy(g);
     bool changed = !eq(g,g_old);
@@ -2440,6 +2524,37 @@ namespace Duality {
     hash_map<int,hash_map<ast,Term> > memo;
     return SubstBoundRec(memo, subst, 0, t);
   }
+
+  int Z3User::MaxIndex(hash_map<ast,int> &memo, const Term &t)
+  {
+    std::pair<ast,int> foo(t,-1);
+    std::pair<hash_map<ast,int>::iterator, bool> bar = memo.insert(foo);
+    int &res = bar.first->second;
+    if(!bar.second) return res;
+    if (t.is_app()){
+      func_decl f = t.decl();
+      int nargs = t.num_args();
+      for(int i = 0; i < nargs; i++){
+	int m = MaxIndex(memo, t.arg(i));
+	if(m > res)
+	  res = m;
+      }
+    }
+    else if (t.is_quantifier()){
+      int bound = t.get_quantifier_num_bound();
+      res = MaxIndex(memo,t.body()) - bound;
+    }
+    else if (t.is_var()) {
+      res = t.get_index_value();
+    }
+    return res;
+  }
+
+  bool Z3User::IsClosedFormula(const Term &t){
+    hash_map<ast,int> memo;
+    return MaxIndex(memo,t) < 0;
+  }
+  
 
   /** Convert a collection of clauses to Nodes and Edges in the RPFP.
 

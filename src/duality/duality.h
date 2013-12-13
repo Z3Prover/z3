@@ -91,13 +91,23 @@ namespace Duality {
 
       expr SimplifyAndOr(const std::vector<expr> &args, bool is_and);
 
+      expr ReallySimplifyAndOr(const std::vector<expr> &args, bool is_and);
+
+      int MaxIndex(hash_map<ast,int> &memo, const Term &t);
+
+      bool IsClosedFormula(const Term &t);
+
   private:
 
       void SummarizeRec(hash_set<ast> &memo, std::vector<expr> &lits, int &ops, const Term &t);
       int CountOperatorsRec(hash_set<ast> &memo, const Term &t);
       void RemoveRedundancyOp(bool pol, std::vector<expr> &args, hash_map<ast, Term> &smemo);
       Term RemoveRedundancyRec(hash_map<ast, Term> &memo, hash_map<ast, Term> &smemo, const Term &t);
-    Term SubstAtomTriv(const expr &foo, const expr &atom, const expr &val);
+      Term SubstAtomTriv(const expr &foo, const expr &atom, const expr &val);
+      expr ReduceAndOr(const std::vector<expr> &args, bool is_and, std::vector<expr> &res);
+      expr FinishAndOr(const std::vector<expr> &args, bool is_and);
+      expr PullCommonFactors(std::vector<expr> &args, bool is_and);
+
 
 };
 
