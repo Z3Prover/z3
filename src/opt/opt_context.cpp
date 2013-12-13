@@ -28,6 +28,7 @@ Notes:
 #include "lia2card_tactic.h"
 #include "elim01_tactic.h"
 #include "tactical.h"
+#include "model_smt2_pp.h"
 
 namespace opt {
 
@@ -85,12 +86,13 @@ namespace opt {
             return is_sat;
         }
         s.get_model(m_model);
+        m_optsmt.setup(s);
         update_lower();
         switch (m_objectives.size()) {
         case 0:
             return is_sat;
         case 1:
-            return execute(m_objectives[0], false);
+            return execute(m_objectives[0], true);
         default: {
             opt_params optp(m_params);
             symbol pri = optp.priority();
@@ -111,18 +113,16 @@ namespace opt {
         mdl = m_model;
         if (m_model_converter) {
             (*m_model_converter)(mdl, 0);
+            get_solver().mc()(mdl, 0);
         }
     }
 
-    lbool context::execute_min_max(unsigned index, bool committed, bool is_max) {
-        // HACK: reuse m_optsmt without regard for box reuse and not considering
-        // use-case of lex.
-        lbool result = m_optsmt(get_solver());
+    lbool context::execute_min_max(unsigned index, bool committed) {
+        lbool result = m_optsmt.lex(index);
         if (result == l_true) m_optsmt.get_model(m_model);
         if (committed) m_optsmt.commit_assignment(index);
         return result;
     }
-
 
     lbool context::execute_maxsat(symbol const& id, bool committed) {
         maxsmt& ms = *m_maxsmts.find(id);
@@ -134,8 +134,8 @@ namespace opt {
 
     lbool context::execute(objective const& obj, bool committed) {
         switch(obj.m_type) {
-        case O_MAXIMIZE: return execute_min_max(obj.m_index, committed, true);
-        case O_MINIMIZE: return execute_min_max(obj.m_index, committed, false);
+        case O_MAXIMIZE: return execute_min_max(obj.m_index, committed);
+        case O_MINIMIZE: return execute_min_max(obj.m_index, committed);
         case O_MAXSMT: return execute_maxsat(obj.m_id, committed);
         default: UNREACHABLE(); return l_undef;
         }
@@ -145,16 +145,23 @@ namespace opt {
         lbool r = l_true;
         for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
             r = execute(m_objectives[i], i + 1 < m_objectives.size());
+            if (r == l_true && !get_lower_as_num(i).is_finite()) {
+                return r;
+            }
         }
+        DEBUG_CODE(if (r == l_true) validate_lex(););
         return r;
     }    
 
     lbool context::execute_box() {
-        lbool r = l_true;
+        lbool r = m_optsmt.box();
         for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
-            get_solver().push();
-            r = execute(m_objectives[i], false);
-            get_solver().pop(1);
+            objective const& obj = m_objectives[i];
+            if (obj.m_type == O_MAXSMT) {
+                get_solver().push();
+                r = execute(obj, false);
+                get_solver().pop(1);
+            }
         }
         return r;
     }
@@ -244,7 +251,9 @@ namespace opt {
                     terms[i] = m.mk_not(terms[i].get());
                 }
             }
-            id = symbol(index);
+            std::ostringstream out;
+            out << term;
+            id = symbol(out.str().c_str());
             return true;
         }
         if (is_maximize(fml, term, index) &&
@@ -266,7 +275,9 @@ namespace opt {
                 offset += weights[i];
             }
             neg = true;
-            id = symbol(index);
+            std::ostringstream out;
+            out << term;
+            id = symbol(out.str().c_str());
             return true;
         }
         return false;
@@ -426,17 +437,15 @@ namespace opt {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             display_objective(out, obj);
-            out << "|-> " << get_upper(i) << "\n";
+            if (get_lower_as_num(i) != get_upper_as_num(i)) {
+                out << " |-> [" << get_lower(i) << ":" << get_upper(i) << "]\n";
+            }
+            else {
+                out << "|-> " << get_lower(i) << "\n";
+            }
         }
     }
 
-    void context::display_range_assignment(std::ostream& out) {
-        for (unsigned i = 0; i < m_objectives.size(); ++i) {            
-            objective const& obj = m_objectives[i];
-            display_objective(out, obj);
-            out << " |-> [" << get_lower(i) << ":" << get_upper(i) << "]\n";
-        }
-    }
 
     void context::display_objective(std::ostream& out, objective const& obj) const {
         switch(obj.m_type) {
@@ -453,8 +462,7 @@ namespace opt {
         }
     }
 
-
-    expr_ref context::get_lower(unsigned idx) {
+    inf_eps context::get_lower_as_num(unsigned idx) {
         if (idx > m_objectives.size()) {
             throw default_exception("index out of bounds"); 
         }
@@ -464,18 +472,19 @@ namespace opt {
             rational r = m_maxsmts.find(obj.m_id)->get_lower();
             if (obj.m_neg) r.neg();
             r += obj.m_offset;
-            return to_expr(inf_eps(r));
+            return inf_eps(r);
         }
         case O_MINIMIZE:
         case O_MAXIMIZE: 
-            return to_expr(m_optsmt.get_lower(obj.m_index));
+            return m_optsmt.get_lower(obj.m_index);
         default:
             UNREACHABLE();
-            return expr_ref(m);
-        }
+            return inf_eps();
+        }        
     }
 
-    expr_ref context::get_upper(unsigned idx) {
+
+    inf_eps context::get_upper_as_num(unsigned idx) {
         if (idx > m_objectives.size()) {
             throw default_exception("index out of bounds"); 
         }
@@ -485,15 +494,23 @@ namespace opt {
             rational r = m_maxsmts.find(obj.m_id)->get_upper();
             if (obj.m_neg) r.neg();
             r += obj.m_offset;
-            return to_expr(inf_eps(r));
+            return inf_eps(r);
         }
         case O_MINIMIZE:
         case O_MAXIMIZE: 
-            return to_expr(m_optsmt.get_upper(obj.m_index));
+            return m_optsmt.get_upper(obj.m_index);
         default:
             UNREACHABLE();
-            return expr_ref(m);
+            return inf_eps();
         }
+    }
+
+    expr_ref context::get_lower(unsigned idx) {
+        return to_expr(get_lower_as_num(idx));
+    }
+
+    expr_ref context::get_upper(unsigned idx) {
+        return to_expr(get_upper_as_num(idx));
     }
 
     expr_ref context::to_expr(inf_eps const& n) {
@@ -676,4 +693,30 @@ namespace opt {
         return out.str();
     }
 
+    void context::validate_lex() {
+        arith_util a(m);
+        rational r1;
+        expr_ref val(m);
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            switch(obj.m_type) {
+            case O_MINIMIZE:
+            case O_MAXIMIZE: {
+                inf_eps n = m_optsmt.get_lower(obj.m_index);
+                if (n.get_infinity().is_zero() &&
+                    n.get_infinitesimal().is_zero() &&
+                    m_model->eval(obj.m_term, val) &&
+                    a.is_numeral(val, r1)) {
+                    rational r2 = n.get_rational();
+                    CTRACE("opt", r1 != r2, tout << obj.m_term << " evaluates to " << r1 << " but has objective " << r2 << "\n";);
+                    CTRACE("opt", r1 != r2, model_smt2_pp(tout, m, *m_model, 0););
+                    SASSERT(r1 == r2);
+                }
+                break;
+            }
+            case O_MAXSMT:
+                break;
+            }       
+        } 
+    }
 }

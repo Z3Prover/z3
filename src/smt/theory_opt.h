@@ -24,6 +24,7 @@ Notes:
 #ifndef _THEORY_OPT_H_
 #define _THEORY_OPT_H_
 
+class filter_model_converter;
 namespace smt {
     class theory_opt {
     public:
@@ -31,7 +32,7 @@ namespace smt {
         virtual inf_eps maximize(theory_var v) { UNREACHABLE(); return inf_eps::infinity(); }
         virtual theory_var add_objective(app* term) { UNREACHABLE(); return null_theory_var; }
         virtual expr* mk_gt(theory_var v, inf_rational const& val) { UNREACHABLE(); return 0; }
-        virtual expr* mk_ge(theory_var v, inf_eps const& val) { UNREACHABLE(); return 0; }
+        virtual expr* mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val) { UNREACHABLE(); return 0; }
     };
 }
 

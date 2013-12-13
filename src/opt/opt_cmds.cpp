@@ -314,7 +314,7 @@ public:
             break;
         case l_undef:
             ctx.regular_stream() << "unknown\n";
-            opt.display_range_assignment(ctx.regular_stream());
+            opt.display_assignment(ctx.regular_stream());
             break;
         }
         if (p.get_bool("print_statistics", false)) {

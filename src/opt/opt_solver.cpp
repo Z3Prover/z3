@@ -34,9 +34,9 @@ namespace opt {
         m_params(p),
         m_context(mgr, m_params),
         m(mgr),
-        m_objective_enabled(false),
         m_dump_benchmarks(false),
-        m_dump_count(0) {
+        m_dump_count(0),
+        m_fm(m) {
         m_logic = l;
         if (m_logic != symbol::null)
             m_context.set_logic(m_logic);
@@ -70,7 +70,6 @@ namespace opt {
     void opt_solver::pop_core(unsigned n) {
         m_context.pop(n);
     }
-
 
     smt::theory_opt& opt_solver::get_optimizer() {
         smt::context& ctx = m_context.get_context();                        
@@ -118,21 +117,26 @@ namespace opt {
             to_smt2_benchmark(buffer, "opt_solver", "QF_BV");
             buffer.close();
         }
-        if (r == l_true && m_objective_enabled) {
-            m_objective_values.reset();
-            smt::theory_opt& opt = get_optimizer();
-            for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
-                smt::theory_var v = m_objective_vars[i];
-                m_objective_values.push_back(opt.maximize(v));
-            }
-        }
         return r;
+    }
+
+    void opt_solver::maximize_objectives() {
+        for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
+            maximize_objective(i);
+        }
+    }
+
+    void opt_solver::maximize_objective(unsigned i) {
+        smt::theory_var v = m_objective_vars[i];
+        m_objective_values[i] = get_optimizer().maximize(v);
+        m_context.get_context().update_model();        
     }
     
     void opt_solver::get_unsat_core(ptr_vector<expr> & r) {
         unsigned sz = m_context.get_unsat_core_size();
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; i++) {
             r.push_back(m_context.get_unsat_core_expr(i));
+        }
     }
 
     void opt_solver::get_model(model_ref & m) {
@@ -177,11 +181,16 @@ namespace opt {
     
     smt::theory_var opt_solver::add_objective(app* term) {
         m_objective_vars.push_back(get_optimizer().add_objective(term));
+        m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
         return m_objective_vars.back();
     }
     
     vector<inf_eps> const& opt_solver::get_objective_values() {
         return m_objective_values;
+    }
+
+    inf_eps const& opt_solver::get_objective_value(unsigned i) {
+        return m_objective_values[i];
     }
 
     expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& val) {
@@ -190,20 +199,20 @@ namespace opt {
 
         if (typeid(smt::theory_inf_arith) == typeid(opt)) {
             smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
-            return expr_ref(th.mk_ge(v, val), m);
+            return expr_ref(th.mk_ge(m_fm, v, val), m);
         }
 
         if (typeid(smt::theory_mi_arith) == typeid(opt)) {
             smt::theory_mi_arith& th = dynamic_cast<smt::theory_mi_arith&>(opt); 
-            SASSERT(val.get_infinity().is_zero());
-            return expr_ref(th.mk_ge(v, val.get_numeral()), m);
+            SASSERT(val.is_finite());
+            return expr_ref(th.mk_ge(m_fm, v, val.get_numeral()), m);
         }
 
         if (typeid(smt::theory_i_arith) == typeid(opt)) {
-            SASSERT(val.get_infinity().is_zero());
+            SASSERT(val.is_finite());
             SASSERT(val.get_infinitesimal().is_zero());
             smt::theory_i_arith& th = dynamic_cast<smt::theory_i_arith&>(opt); 
-            return expr_ref(th.mk_ge(v, val.get_rational()), m);
+            return expr_ref(th.mk_ge(m_fm, v, val.get_rational()), m);
         }
 
         // difference logic?
@@ -251,12 +260,5 @@ namespace opt {
         pp.display_smt2(buffer, to_expr(m.mk_true()));        
     }
 
-    opt_solver::toggle_objective::toggle_objective(opt_solver& s, bool new_value): s(s), m_old_value(s.m_objective_enabled) {
-        s.m_objective_enabled = new_value;
-    }
-
-    opt_solver::toggle_objective::~toggle_objective() {
-        s.m_objective_enabled = m_old_value;
-    }
 
 }

@@ -1000,7 +1000,7 @@ namespace smt {
         virtual inf_eps_rational<inf_rational> maximize(theory_var v);
         virtual theory_var add_objective(app* term);
         virtual expr* mk_gt(theory_var v, inf_rational const& val);
-        virtual expr* mk_ge(theory_var v, inf_numeral const& val);
+        virtual expr* mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val);
         void enable_record_conflict(expr* bound);
         void record_conflict(unsigned num_lits, literal const * lits, 
                           unsigned num_eqs, enode_pair const * eqs,

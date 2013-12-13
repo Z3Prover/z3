@@ -23,6 +23,7 @@ Revision History:
 #include"theory_arith.h"
 #include"smt_farkas_util.h"
 #include"th_rewriter.h"
+#include"filter_model_converter.h"
 
 namespace smt {
 
@@ -1085,14 +1086,15 @@ namespace smt {
       This allows to handle inequalities with non-standard numbers.
     */
     template<typename Ext>
-    expr* theory_arith<Ext>::mk_ge(theory_var v, inf_numeral const& val) {
+    expr* theory_arith<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val) {
         SASSERT(m_objective_theory_vars.contains(v));
         ast_manager& m = get_manager();
         context& ctx = get_context();
         std::ostringstream strm;
-        strm << val << " <= v" << v;
-        expr* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
+        strm << val << " <= " << mk_pp(get_enode(v)->get_owner(), get_manager());
+        app* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
         if (!ctx.b_internalized(b)) {
+            fm.insert(b->get_decl());
             bool_var bv = ctx.mk_bool_var(b);
             ctx.set_var_theory(bv, get_id());
             // ctx.set_enode_flag(bv, true);

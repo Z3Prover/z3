@@ -41,7 +41,11 @@ namespace opt {
     public:
         optsmt(ast_manager& m): m(m), m_s(0), m_cancel(false), m_objs(m) {}
 
-        lbool operator()(opt_solver& solver);
+        void setup(opt_solver& solver);
+
+        lbool box();
+
+        lbool lex(unsigned obj_index);
 
         void add(app* t, bool is_max);
 
@@ -66,6 +70,8 @@ namespace opt {
         std::ostream& display_objective(std::ostream& out, unsigned i) const;
 
         lbool basic_opt();
+
+        lbool basic_lex(unsigned idx);
 
         lbool farkas_opt();
 

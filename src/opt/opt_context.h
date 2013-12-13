@@ -115,7 +115,7 @@ namespace opt {
         void validate_feasibility(maxsmt& ms);
 
         lbool execute(objective const& obj, bool committed);
-        lbool execute_min_max(unsigned index, bool committed, bool is_max);
+        lbool execute_min_max(unsigned index, bool committed);
         lbool execute_maxsat(symbol const& s, bool committed);
         lbool execute_lex();
         lbool execute_box();
@@ -139,9 +139,15 @@ namespace opt {
 
         void update_lower();
 
+        inf_eps get_lower_as_num(unsigned idx);
+        inf_eps get_upper_as_num(unsigned idx);
+
+
         opt_solver& get_solver();
 
         void display_objective(std::ostream& out, objective const& obj) const;
+
+        void validate_lex();
 
     };
 

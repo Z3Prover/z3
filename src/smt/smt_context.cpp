@@ -3937,6 +3937,11 @@ namespace smt {
         return th->get_value(n, value);
     }
 
+    void context::update_model() {
+        mk_proto_model(l_true);
+        m_model = m_proto_model->mk_model();
+    }
+
     void context::mk_proto_model(lbool r) {
         TRACE("get_model", 
               display(tout); 

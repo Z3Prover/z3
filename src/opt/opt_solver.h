@@ -30,6 +30,7 @@ Notes:
 #include"smt_params.h"
 #include"smt_types.h"
 #include"theory_opt.h"
+#include"filter_model_converter.h"
 
 namespace opt {
 
@@ -49,6 +50,7 @@ namespace opt {
         bool                m_dump_benchmarks;
         unsigned            m_dump_count;
         statistics          m_stats;
+        filter_model_converter m_fm;
     public:
         opt_solver(ast_manager & m, params_ref const & p, symbol const & l);
         virtual ~opt_solver();
@@ -73,21 +75,18 @@ namespace opt {
 
         smt::theory_var add_objective(app* term);
         void reset_objectives();
+        void maximize_objective(unsigned i);
+        void maximize_objectives();
 
         vector<inf_eps> const& get_objective_values();
+        inf_eps const & get_objective_value(unsigned obj_index);
         expr_ref mk_gt(unsigned obj_index, inf_eps const& val);
         expr_ref mk_ge(unsigned obj_index, inf_eps const& val);
 
+        model_converter& mc() { return m_fm; }
+
         static opt_solver& to_opt(solver& s);
         bool dump_benchmarks();
-
-        class toggle_objective {
-            opt_solver& s;
-            bool m_old_value;
-        public:
-            toggle_objective(opt_solver& s, bool new_value);
-            ~toggle_objective();
-        };
 
         smt::context& get_context() { return m_context.get_context(); } // used by weighted maxsat.
         

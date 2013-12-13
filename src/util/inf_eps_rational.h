@@ -143,6 +143,10 @@ class inf_eps_rational {
         return m_infty;
     }
 
+    bool is_finite() const {
+        return m_infty.is_zero();
+    }
+
     static inf_eps_rational zero() {
         return inf_eps_rational(Numeral::zero());
     }

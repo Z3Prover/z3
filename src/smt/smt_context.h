@@ -1390,6 +1390,8 @@ namespace smt {
         
         void get_model(model_ref & m) const;
 
+        void update_model();
+
         void get_proto_model(proto_model_ref & m) const;
         
         unsigned get_num_asserted_formulas() const { return m_asserted_formulas.get_num_formulas(); }
