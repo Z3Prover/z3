@@ -558,6 +558,8 @@ namespace Duality {
 
         expr simplify(params const & p) const;
 	
+        expr qe_lite() const;
+
 	friend expr clone_quantifier(const expr &, const expr &);
 
         friend expr clone_quantifier(const expr &q, const expr &b, const std::vector<expr> &patterns);

@@ -1819,7 +1819,7 @@ namespace Duality {
       }
       
       bool NodeTooComplicated(Node *node){
-	return tree->CountOperators(node->Annotation.Formula) > 5;
+	return tree->CountOperators(node->Annotation.Formula) > 3;
       }
 
       void SimplifyNode(Node *node){

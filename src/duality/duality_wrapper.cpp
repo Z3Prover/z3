@@ -26,6 +26,7 @@ Revision History:
 #include "expr_abstract.h"
 #include "stopwatch.h"
 #include "model_smt2_pp.h"
+#include "qe_lite.h"
 
 namespace Duality {
 
@@ -327,6 +328,14 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
   expr expr::simplify() const {
     params p;
     return simplify(p);
+  }
+
+  expr expr::qe_lite() const {
+    ::qe_lite qe(m());
+    expr_ref result(to_expr(raw()),m());
+    proof_ref pf(m());
+    qe(result,pf);
+    return ctx().cook(result);
   }
 
   expr clone_quantifier(const expr &q, const expr &b){

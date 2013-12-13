@@ -573,6 +573,13 @@ namespace Duality {
     return RemoveRedundancyRec(memo,smemo,t);
   }
 
+  Z3User::Term Z3User::AdjustQuantifiers(const Term &t)
+  {
+    if(t.is_quantifier() || (t.is_app() && t.has_quantifiers()))
+      return t.qe_lite();
+    return t;
+  }
+
   Z3User::Term Z3User::SubstRecHide(hash_map<ast, Term> &memo, const Term &t, int number)
   {
     std::pair<ast,Term> foo(t,expr(ctx));
@@ -2136,6 +2143,7 @@ namespace Duality {
     g = RemoveRedundancy(g);
     g = g.simplify();
 #endif
+    g = AdjustQuantifiers(g);
     return g;
   }
 

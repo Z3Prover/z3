@@ -97,7 +97,8 @@ namespace Duality {
 
       bool IsClosedFormula(const Term &t);
 
-  private:
+      Term AdjustQuantifiers(const Term &t);
+private:
 
       void SummarizeRec(hash_set<ast> &memo, std::vector<expr> &lits, int &ops, const Term &t);
       int CountOperatorsRec(hash_set<ast> &memo, const Term &t);
