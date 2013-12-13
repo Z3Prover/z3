@@ -445,7 +445,7 @@ namespace Duality {
       if(i == 0)
 	common.swap(v);
       else {
-	std::set_intersection(common.begin(),common.end(),v.begin(),v.end(),std::back_inserter(w),comp);
+	std::set_intersection(common.begin(),common.end(),v.begin(),v.end(),std::inserter(w,w.begin()),comp);
 	common.swap(w);
       }
     }  
