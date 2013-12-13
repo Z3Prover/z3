@@ -143,7 +143,7 @@ namespace Duality {
       return 0;
     }
     if(t.is_quantifier())
-      return CountOperatorsRec(memo,t.body())+1;
+      return CountOperatorsRec(memo,t.body())+2; // count 2 for a quantifier
     return 0;
   }
 
