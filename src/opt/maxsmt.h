@@ -30,8 +30,7 @@ namespace opt {
         virtual lbool operator()() = 0;
         virtual rational get_lower() const = 0;
         virtual rational get_upper() const = 0;
-        virtual rational get_value() const = 0;
-        virtual expr_ref_vector get_assignment() const = 0;
+        virtual bool get_assignment(unsigned index) const = 0;
         virtual void set_cancel(bool f) = 0;
         virtual void collect_statistics(statistics& st) const = 0;
         virtual void get_model(model_ref& mdl) = 0;
@@ -80,7 +79,7 @@ namespace opt {
         rational get_upper() const;
         void update_lower(rational const& r);
         void get_model(model_ref& mdl);
-        expr_ref_vector get_assignment() const;
+        bool get_assignment(unsigned index) const;
         void display_answer(std::ostream& out) const;        
         void collect_statistics(statistics& st) const;
 

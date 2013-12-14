@@ -38,8 +38,7 @@ namespace opt {
         virtual lbool operator()();
         virtual rational get_lower() const;
         virtual rational get_upper() const;
-        virtual rational get_value() const;
-        virtual expr_ref_vector get_assignment() const;
+        virtual bool get_assignment(unsigned idx) const;
         virtual void set_cancel(bool f);
         virtual void collect_statistics(statistics& st) const;
         virtual void get_model(model_ref& m);

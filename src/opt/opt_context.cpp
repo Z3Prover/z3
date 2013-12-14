@@ -54,6 +54,7 @@ namespace opt {
         maxsmt* ms;
         if (!m_maxsmts.find(id, ms)) {
             ms = alloc(maxsmt, m);
+            ms->updt_params(m_params);
             m_maxsmts.insert(id, ms);
             m_objectives.push_back(objective(m, id));
             m_indices.insert(id, m_objectives.size() - 1);
@@ -352,6 +353,7 @@ namespace opt {
                     obj.m_weights.append(weights);
                     SASSERT(!m_maxsmts.contains(id));
                     maxsmt* ms = alloc(maxsmt, m);
+                    ms->updt_params(m_params);
                     m_maxsmts.insert(id, ms);
                     m_indices.insert(id, index);
                 }
@@ -730,8 +732,14 @@ namespace opt {
                 }
                 break;
             }
-            case O_MAXSMT:
+            case O_MAXSMT: {
+                maxsmt& ms = *m_maxsmts.find(obj.m_id);
+                for (unsigned i = 0; i < obj.m_terms.size(); ++i) {
+                    VERIFY(m_model->eval(obj.m_terms[i], val));
+                    SASSERT(ms.get_assignment(i) == (m.mk_true() == val));
+                }
                 break;
+            }
             }       
         } 
     }

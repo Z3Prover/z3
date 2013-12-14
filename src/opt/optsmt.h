@@ -58,7 +58,6 @@ namespace opt {
 
         unsigned get_num_objectives() const { return m_objs.size(); }
         void commit_assignment(unsigned index);
-        inf_eps get_value(unsigned index) const;
         inf_eps get_lower(unsigned index) const;
         inf_eps get_upper(unsigned index) const;
         void    get_model(model_ref& mdl);

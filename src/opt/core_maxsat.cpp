@@ -21,11 +21,10 @@ Notes:
 #include "ast_pp.h"
 
 namespace opt {
-
         
     core_maxsat::core_maxsat(ast_manager& m, solver& s, expr_ref_vector& soft_constraints):
-        m(m), s(s), m_soft(soft_constraints), m_answer(m) {
-        m_upper = m_soft.size();
+        m(m), s(s), m_lower(0), m_upper(soft_constraints.size()), m_soft(soft_constraints) {
+        m_answer.resize(m_soft.size(), false);
     }
     
     core_maxsat::~core_maxsat() {}
@@ -41,7 +40,7 @@ namespace opt {
             s.assert_expr(m.mk_or(a, m_soft[i].get()));
             block_vars.insert(aux.back());
         }            
-        while (m_answer.size() < m_upper) {
+        while (m_lower < m_upper) {
             ptr_vector<expr> vars;
             set2vector(block_vars, vars);
             lbool is_sat = s.check_sat(vars.size(), vars.c_ptr());
@@ -51,31 +50,31 @@ namespace opt {
                 return l_undef;
             case l_true: {
                 model_ref mdl;
-                expr_ref_vector ans(m);
+                svector<bool> ans;
+                unsigned new_lower = 0;
                 s.get_model(mdl);
-                
                 for (unsigned i = 0; i < aux.size(); ++i) {
                     expr_ref val(m);
                     VERIFY(mdl->eval(m_soft[i].get(), val));
-                    if (m.is_true(val)) {
-                        ans.push_back(m_soft[i].get());
-                    }
+                    ans.push_back(m.is_true(val));
+                    if (ans.back()) ++new_lower;
                 }
                 TRACE("opt", tout << "sat\n";
                       for (unsigned i = 0; i < ans.size(); ++i) {
-                          tout << mk_pp(ans[i].get(), m) << "\n";
+                          tout << mk_pp(m_soft[i].get(), m) << " |-> " << ans[i] << "\n";
                       });
-                IF_VERBOSE(1, verbose_stream() << "(maxsat.core sat with lower bound: " << ans.size() << "\n";);
-                if (ans.size() > m_answer.size()) {
+                IF_VERBOSE(1, verbose_stream() << "(maxsat.core sat with lower bound: " << new_lower << "\n";);
+                if (new_lower > m_lower) {
                     m_answer.reset();
                     m_answer.append(ans);
                     m_model = mdl.get();
+                    m_lower = new_lower;
                 }
-                if (m_answer.size() == m_upper) {
+                if (m_lower == m_upper) {
                     return l_true;
                 }
-                SASSERT(m_soft.size() >= m_answer.size()+1);
-                unsigned k = m_soft.size()-m_answer.size()-1;
+                SASSERT(m_soft.size() >= new_lower+1);
+                unsigned k = m_soft.size()-new_lower-1;
                 expr_ref fml = mk_at_most(core_vars, k);
                 TRACE("opt", tout << "add: " << fml << "\n";);
                 s.assert_expr(fml);
@@ -95,7 +94,7 @@ namespace opt {
                 }
                 IF_VERBOSE(1, verbose_stream() << "(maxsat.core unsat (core size = " << core.size() << ")\n";);
                 if (core.empty()) {
-                    m_upper = m_answer.size();
+                    m_upper = m_lower;
                     return l_true;
                 }
                 else {
@@ -134,16 +133,13 @@ namespace opt {
     }
     
     rational core_maxsat::get_lower() const {
-        return rational(m_answer.size());
+        return rational(m_soft.size()-m_upper);
     }
     rational core_maxsat::get_upper() const {
-        return rational(m_upper);
+        return rational(m_soft.size()-m_lower);
     }
-    rational core_maxsat::get_value() const {
-        return get_lower();
-    }
-    expr_ref_vector core_maxsat::get_assignment() const {
-        return m_answer;
+    bool core_maxsat::get_assignment(unsigned idx) const {
+        return m_answer[idx];
     }
     void core_maxsat::set_cancel(bool f) {
         
@@ -153,6 +149,14 @@ namespace opt {
     }
     void core_maxsat::get_model(model_ref& mdl) {
         mdl = m_model.get();
+        if (!mdl) {
+            SASSERT(m_upper == 0);
+            lbool is_sat = s.check_sat(0, 0);
+            if (is_sat == l_true) {
+                s.get_model(m_model);
+            }
+            mdl = m_model;
+        }
     }
 
     

@@ -29,8 +29,9 @@ namespace opt {
         ast_manager&    m;
         solver&         s;
         expr_ref_vector m_soft;
-        expr_ref_vector m_answer;
+        svector<bool>   m_answer;
         unsigned        m_upper;
+        unsigned        m_lower;
         model_ref       m_model;
     public:
         core_maxsat(ast_manager& m, solver& s, expr_ref_vector& soft_constraints);
@@ -38,8 +39,7 @@ namespace opt {
         virtual lbool operator()();
         virtual rational get_lower() const;
         virtual rational get_upper() const;
-        virtual rational get_value() const;
-        virtual expr_ref_vector get_assignment() const;
+        virtual bool get_assignment(unsigned idx) const;
         virtual void set_cancel(bool f);
         virtual void collect_statistics(statistics& st) const;
         virtual void get_model(model_ref& mdl);

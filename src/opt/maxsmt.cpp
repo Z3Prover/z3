@@ -28,14 +28,12 @@ namespace opt {
 
     lbool maxsmt::operator()(opt_solver& s) {
         lbool is_sat;
-        m_answer.reset();
         m_msolver = 0;
         m_s = &s;
         if (m_soft_constraints.empty()) {
             TRACE("opt", tout << "no constraints\n";);
             m_msolver = 0;
             is_sat = s.check_sat(0, 0);
-            m_answer.reset();
         }
         else if (is_maxsat_problem(m_weights)) {
             if (m_maxsat_engine == symbol("core_maxsat")) {
@@ -51,7 +49,6 @@ namespace opt {
 
         if (m_msolver) {
             is_sat = (*m_msolver)();
-            m_answer.append(m_msolver->get_assignment());
             if (is_sat == l_true) {
                 m_msolver->get_model(m_model);
             }
@@ -75,16 +72,14 @@ namespace opt {
         return is_sat;
     }
 
-    expr_ref_vector maxsmt::get_assignment() const {
-        return m_answer;
-    } 
-
-    rational maxsmt::get_value() const {
+    bool maxsmt::get_assignment(unsigned idx) const {
         if (m_msolver) {
-            return m_msolver->get_value();
+            return m_msolver->get_assignment(idx);
         }
-        return m_upper;
-    }
+        else {
+            return true;
+        }
+    } 
 
     rational maxsmt::get_lower() const {
         rational r = m_lower;
@@ -114,15 +109,29 @@ namespace opt {
 
     void maxsmt::commit_assignment() {
         SASSERT(m_s);
-        for (unsigned i = 0; i < m_answer.size(); ++i) {
-            m_s->assert_expr(m_answer[i].get());
+        for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
+            expr_ref tmp(m);
+            tmp = m_soft_constraints[i].get();
+            if (get_assignment(i)) {
+                m_s->assert_expr(tmp);
+            }
+            else {
+                tmp = m.mk_not(tmp);
+                m_s->assert_expr(tmp);
+            }
         }
     }
 
     void maxsmt::display_answer(std::ostream& out) const {
-        for (unsigned i = 0; i < m_answer.size(); ++i) {
-            out << mk_pp(m_answer[i], m) << "\n";
-        } 
+        for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
+            out << mk_pp(m_soft_constraints[i], m);
+            if (get_assignment(i)) {
+                out << " |-> true\n";
+            }
+            else {
+                out << " |-> false\n";
+            }
+        }
     }
     
     void maxsmt::set_cancel(bool f) {

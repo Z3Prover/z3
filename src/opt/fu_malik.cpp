@@ -49,7 +49,7 @@ namespace opt {
         expr_ref_vector m_soft;
         expr_ref_vector m_orig_soft;
         expr_ref_vector m_aux;
-        expr_ref_vector m_assignment;
+        svector<bool>   m_assignment;
         unsigned        m_upper;
         unsigned        m_lower;
         model_ref       m_model;
@@ -63,12 +63,12 @@ namespace opt {
             m_soft(soft),
             m_orig_soft(soft),
             m_aux(m),
-            m_assignment(m),
             m_upper(0),
             m_lower(0),
             m_use_new_bv_solver(false)
         {
             m_upper = m_soft.size() + 1;
+            m_assignment.resize(m_soft.size(), false);
         }
 
         solver& s() { return *m_s; }
@@ -286,44 +286,44 @@ namespace opt {
 
         // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
         lbool operator()() {
+            lbool is_sat = l_true;                
+            if (m_soft.empty()) {
+                return is_sat;
+            }
             set_solver();
-            lbool is_sat = s().check_sat(0,0);
-            if (!m_soft.empty() && is_sat == l_true) {
-                solver::scoped_push _sp(s());
-                expr_ref tmp(m);
-                TRACE("opt",
-                      tout << "soft constraints:\n";
-                      for (unsigned i = 0; i < m_soft.size(); ++i) {
-                          tout << mk_pp(m_soft[i].get(), m) << "\n";
-                      });
-                for (unsigned i = 0; i < m_soft.size(); ++i) {
-                    m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
-                    m_opt_solver.mc().insert(to_app(m_aux.back())->get_decl());
-                    tmp = m.mk_or(m_soft[i].get(), m_aux[i].get());
-                    s().assert_expr(tmp);
+            solver::scoped_push _sp(s());
+            expr_ref tmp(m);
+
+            TRACE("opt",
+                  tout << "soft constraints:\n";
+                  for (unsigned i = 0; i < m_soft.size(); ++i) {
+                      tout << mk_pp(m_soft[i].get(), m) << "\n";
+                  });
+
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
+                m_opt_solver.mc().insert(to_app(m_aux.back())->get_decl());
+                tmp = m.mk_or(m_soft[i].get(), m_aux[i].get());
+                s().assert_expr(tmp);
+            }
+            
+            do {
+                is_sat = step();
+                --m_upper;
+            }
+            while (is_sat == l_false);
+            
+            if (is_sat == l_true) {
+                // Get a list satisfying m_soft
+                s().get_model(m_model);
+                m_lower = m_upper;
+                m_assignment.reset();                    
+                for (unsigned i = 0; i < m_orig_soft.size(); ++i) {
+                    expr_ref val(m);
+                    VERIFY(m_model->eval(m_orig_soft[i].get(), val));
+                    m_assignment.push_back(m.is_true(val));                        
                 }
-                
-                lbool is_sat = l_true;                
-                do {
-                    is_sat = step();
-                    --m_upper;
-                }
-                while (is_sat == l_false);
-                
-                if (is_sat == l_true) {
-                    // Get a list satisfying m_soft
-                    s().get_model(m_model);
-                    m_lower = m_upper;
-                    m_assignment.reset();                    
-                    for (unsigned i = 0; i < m_orig_soft.size(); ++i) {
-                        expr_ref val(m);
-                        VERIFY(m_model->eval(m_orig_soft[i].get(), val));
-                        if (m.is_true(val)) {
-                            m_assignment.push_back(m_orig_soft[i].get());
-                        }
-                    }
-                    TRACE("opt", tout << "maxsat cost: " << m_upper << "\n";);
-                }
+                TRACE("opt", tout << "maxsat cost: " << m_upper << "\n";);
             }
             // We are done and soft_constraints has 
             // been updated with the max-sat assignment.            
@@ -347,16 +347,13 @@ namespace opt {
         return (*m_imp)();
     }
     rational fu_malik::get_lower() const {
-        return rational(m_imp->m_lower);
+        return rational(m_imp->m_soft.size()-m_imp->m_upper);
     }
     rational fu_malik::get_upper() const {
-        return rational(m_imp->m_upper);
+        return rational(m_imp->m_soft.size()-m_imp->m_lower);
     }
-    rational fu_malik::get_value() const {
-        return rational(m_imp->m_assignment.size());
-    }
-    expr_ref_vector fu_malik::get_assignment() const {
-        return m_imp->m_assignment;
+    bool fu_malik::get_assignment(unsigned idx) const {
+        return m_imp->m_assignment[idx];
     }
     void fu_malik::set_cancel(bool f) {
         // no-op

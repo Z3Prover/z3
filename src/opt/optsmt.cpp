@@ -296,9 +296,6 @@ namespace opt {
         return is_sat;
     }
 
-    inf_eps optsmt::get_value(unsigned i) const {
-        return get_lower(i);
-    }
 
     inf_eps optsmt::get_lower(unsigned i) const {
         return m_is_max[i]?m_lower[i]:-m_lower[i];
@@ -325,7 +322,7 @@ namespace opt {
 
     std::ostream& optsmt::display_objective(std::ostream& out, unsigned i) const {
         bool is_max = m_is_max[i];
-        inf_eps val = get_value(i);
+        inf_eps val = get_lower(i);
         expr_ref obj(m_objs[i], m);
         if (!is_max) {
             arith_util a(m);
@@ -344,7 +341,7 @@ namespace opt {
                                           << ":" << get_upper(i) << "]" << std::endl;                
             }
             else {
-                display_objective(out, i) << " |-> " << get_value(i) << std::endl;                
+                display_objective(out, i) << " |-> " << get_lower(i) << std::endl;                
             }
         }        
     }

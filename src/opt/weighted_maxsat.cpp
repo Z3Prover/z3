@@ -46,15 +46,16 @@ namespace smt {
         /**
            \brief return the complement of variables that are currently assigned.
         */
-        void get_assignment(expr_ref_vector& result) {
+        void get_assignment(svector<bool>& result) {
             result.reset();
             std::sort(m_cost_save.begin(), m_cost_save.end());
             for (unsigned i = 0, j = 0; i < m_vars.size(); ++i) {
                 if (j < m_cost_save.size() && m_cost_save[j] == i) {
+                    result.push_back(false);
                     ++j;
                 }
                 else {
-                    result.push_back(m_fmls[i].get());
+                    result.push_back(true);
                 }
             }
         }
@@ -282,15 +283,17 @@ namespace opt {
         ast_manager&     m;
         opt_solver&      s;
         expr_ref_vector  m_soft;
-        expr_ref_vector  m_assignment;
+        svector<bool>    m_assignment;
         vector<rational> m_weights;
         rational         m_upper;
         rational         m_lower;
         model_ref        m_model;
 
         imp(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights):
-            m(m), s(s), m_soft(soft_constraints), m_assignment(m), m_weights(weights)
-        {}
+            m(m), s(s), m_soft(soft_constraints), m_weights(weights)
+        {
+            m_assignment.resize(m_soft.size(), false);
+        }
         ~imp() {}
 
         smt::theory_weighted_maxsat* get_theory() const {
@@ -333,9 +336,9 @@ namespace opt {
                     wth.assert_weighted(m_soft[i].get(), m_weights[i]);
                 }
                 result = s.check_sat_core(0,0);
-                
+                SASSERT(result != l_true);
                 wth.get_assignment(m_assignment);
-                if (!m_assignment.empty() && result == l_false) {
+                if (result == l_false) {
                     result = l_true;
                 }
             }
@@ -382,11 +385,8 @@ namespace opt {
     rational wmaxsmt::get_upper() const {
         return m_imp->get_upper();
     }
-    rational wmaxsmt::get_value() const {
-        return m_imp->get_upper();
-    }
-    expr_ref_vector wmaxsmt::get_assignment() const {
-        return m_imp->m_assignment;
+    bool wmaxsmt::get_assignment(unsigned idx) const {
+        return m_imp->m_assignment[idx];
     }
     void wmaxsmt::set_cancel(bool f) {
         // no-op
