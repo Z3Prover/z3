@@ -26,7 +26,7 @@ Notes:
 
 namespace opt {
 
-    lbool maxsmt::operator()(solver& s) {
+    lbool maxsmt::operator()(opt_solver& s) {
         lbool is_sat;
         m_answer.reset();
         m_msolver = 0;

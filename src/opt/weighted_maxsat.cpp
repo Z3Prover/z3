@@ -35,7 +35,6 @@ namespace smt {
         rational                 m_min_cost;   // current maximal cost assignment.
         u_map<theory_var>        m_bool2var;   // bool_var -> theory_var
         svector<bool_var>        m_var2bool;   // theory_var -> bool_var
-        model_ref                m_model;
     public:
         theory_weighted_maxsat(ast_manager& m):
             theory(m.mk_family_id("weighted_maxsat")),
@@ -187,7 +186,6 @@ namespace smt {
             m_bool2var.reset();
             m_var2bool.reset();
             m_min_cost_atom = 0;
-            m_model = 0;
         }
 
         virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_weighted_maxsat, new_ctx->get_manager()); }
@@ -196,9 +194,6 @@ namespace smt {
         virtual void new_eq_eh(theory_var v1, theory_var v2) { }
         virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
 
-        void get_model(model_ref& mdl) {
-            mdl = m_model.get();
-        }
 
     private:
        
@@ -244,7 +239,6 @@ namespace smt {
                 m_min_cost = weight;
                 m_cost_save.reset();
                 m_cost_save.append(m_costs);
-                ctx.get_model(m_model);
             }
             return false;
         }                
@@ -349,7 +343,6 @@ namespace opt {
             if (result == l_true) {
                 m_lower = m_upper;
             }
-            wth.get_model(m_model);
             TRACE("opt", tout << "min cost: " << m_upper << "\n";);
             wth.reset();
             return result;            
@@ -364,7 +357,10 @@ namespace opt {
         }
 
         void get_model(model_ref& mdl) {
-            mdl = m_model.get();
+            lbool is_sat = s.check_sat_core(0,0);
+            if (is_sat == l_true) {
+                s.get_model(mdl);
+            }
         }
 
     };

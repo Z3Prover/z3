@@ -43,7 +43,7 @@ namespace opt {
 
     struct fu_malik::imp {
         ast_manager& m;        
-        solver &        m_original_solver;
+        opt_solver &    m_opt_solver;
         ref<solver>     m_s;
         expr_ref_vector m_soft;
         expr_ref_vector m_orig_soft;
@@ -55,9 +55,9 @@ namespace opt {
 
         bool            m_use_new_bv_solver; 
 
-        imp(ast_manager& m, solver& s, expr_ref_vector const& soft):
+        imp(ast_manager& m, opt_solver& s, expr_ref_vector const& soft):
             m(m),
-            m_original_solver(s),
+            m_opt_solver(s),
             m_s(&s),
             m_soft(soft),
             m_orig_soft(soft),
@@ -98,7 +98,7 @@ namespace opt {
         }
 
         void collect_statistics(statistics& st) const {
-            if (m_s != &m_original_solver) {
+            if (m_s != &m_opt_solver) {
                 m_s->collect_statistics(st);
             }
         }
@@ -215,9 +215,11 @@ namespace opt {
                 if (!found) {
                     continue;
                 }
-                expr_ref block_var(m), tmp(m);
+                app_ref block_var(m), tmp(m);
                 block_var = m.mk_fresh_const("block_var", m.mk_bool_sort());
                 m_aux[i] = m.mk_fresh_const("aux", m.mk_bool_sort());
+                m_opt_solver.mc().insert(block_var->get_decl());
+                m_opt_solver.mc().insert(to_app(m_aux[i].get())->get_decl());
                 m_soft[i] = m.mk_or(m_soft[i].get(), block_var);
                 block_vars.push_back(block_var);
                 tmp = m.mk_or(m_soft[i].get(), m_aux[i].get());
@@ -253,8 +255,7 @@ namespace opt {
         }
         
         void set_solver() { 
-            opt_solver & opt_s = opt_solver::to_opt(m_original_solver);
-            if (opt_s.dump_benchmarks())
+            if (m_opt_solver.dump_benchmarks())
                 return;
 
             solver& current_solver = s();
@@ -268,11 +269,11 @@ namespace opt {
             probe_ref p = mk_is_qfbv_probe();
             bool all_bv = (*p)(g).is_true();
             if (all_bv) {                
-                smt::context & ctx = opt_s.get_context();                
+                smt::context & ctx = m_opt_solver.get_context();                
                 tactic_ref t = mk_qfbv_tactic(m, ctx.get_params());                  
                 // The new SAT solver hasn't supported unsat core yet
                 m_s = mk_tactic2solver(m, t.get());
-                SASSERT(m_s != &m_original_solver);
+                SASSERT(m_s != &m_opt_solver);
                 for (unsigned i = 0; i < num_assertions; ++i) {
                     m_s->assert_expr(current_solver.get_assertion(i));
                 }
@@ -327,7 +328,7 @@ namespace opt {
 
     };
 
-    fu_malik::fu_malik(ast_manager& m, solver& s, expr_ref_vector& soft_constraints) {
+    fu_malik::fu_malik(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints) {
         m_imp = alloc(imp, m, s, soft_constraints);
     }
     fu_malik::~fu_malik() {

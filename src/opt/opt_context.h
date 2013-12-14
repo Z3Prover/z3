@@ -86,6 +86,8 @@ namespace opt {
         model_ref           m_model;
         model_converter_ref m_model_converter;
         obj_map<func_decl, unsigned> m_objective_fns;
+        obj_map<func_decl, expr*> m_objective_orig;
+        func_decl_ref_vector m_objective_refs;
     public:
         context(ast_manager& m);
         ~context();
@@ -124,8 +126,8 @@ namespace opt {
 
         void normalize();
         void internalize();
-        bool is_maximize(expr* fml, app_ref& term, unsigned& index);
-        bool is_minimize(expr* fml, app_ref& term, unsigned& index);
+        bool is_maximize(expr* fml, app_ref& term, expr*& orig_term, unsigned& index);
+        bool is_minimize(expr* fml, app_ref& term, expr*& orig_term, unsigned& index);
         bool is_maxsat(expr* fml, expr_ref_vector& terms, 
                        vector<rational>& weights, rational& offset, bool& neg, 
                        symbol& id, unsigned& index);

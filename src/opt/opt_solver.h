@@ -83,7 +83,7 @@ namespace opt {
         expr_ref mk_gt(unsigned obj_index, inf_eps const& val);
         expr_ref mk_ge(unsigned obj_index, inf_eps const& val);
 
-        model_converter& mc() { return m_fm; }
+        filter_model_converter& mc() { return m_fm; }
 
         static opt_solver& to_opt(solver& s);
         bool dump_benchmarks();

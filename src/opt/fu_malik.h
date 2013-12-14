@@ -24,7 +24,7 @@ Notes:
 #ifndef _OPT_FU_MALIK_H_
 #define _OPT_FU_MALIK_H_
 
-#include "solver.h"
+#include "opt_solver.h"
 #include "maxsmt.h"
 
 namespace opt {
@@ -33,7 +33,7 @@ namespace opt {
         struct imp;
         imp* m_imp;
     public:
-        fu_malik(ast_manager& m, solver& s, expr_ref_vector& soft_constraints);
+        fu_malik(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints);
         virtual ~fu_malik();
         virtual lbool operator()();
         virtual rational get_lower() const;

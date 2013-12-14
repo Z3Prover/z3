@@ -19,7 +19,6 @@ Notes:
 #ifndef _OPT_MAXSMT_H_
 #define _OPT_MAXSMT_H_
 
-#include "solver.h"
 #include "opt_solver.h"
 #include "statistics.h"
 
@@ -44,7 +43,7 @@ namespace opt {
 
     class maxsmt {
         ast_manager&     m;
-        solver*          m_s;
+        opt_solver*      m_s;
         volatile bool    m_cancel;
         expr_ref_vector  m_soft_constraints;
         expr_ref_vector  m_answer;
@@ -57,7 +56,7 @@ namespace opt {
     public:
         maxsmt(ast_manager& m): m(m), m_s(0), m_cancel(false), m_soft_constraints(m), m_answer(m) {}
 
-        lbool operator()(solver& s);
+        lbool operator()(opt_solver& s);
 
         void set_cancel(bool f);
 

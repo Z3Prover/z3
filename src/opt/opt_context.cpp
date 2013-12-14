@@ -35,7 +35,8 @@ namespace opt {
     context::context(ast_manager& m):
         m(m),
         m_hard_constraints(m),
-        m_optsmt(m)
+        m_optsmt(m),
+        m_objective_refs(m)
     {
         m_params.set_bool("model", true);
         m_params.set_bool("unsat_core", true);
@@ -119,16 +120,16 @@ namespace opt {
 
     lbool context::execute_min_max(unsigned index, bool committed) {
         lbool result = m_optsmt.lex(index);
-        if (result == l_true) m_optsmt.get_model(m_model);
         if (committed) m_optsmt.commit_assignment(index);
+        if (committed && result == l_true) m_optsmt.get_model(m_model);
         return result;
     }
 
     lbool context::execute_maxsat(symbol const& id, bool committed) {
         maxsmt& ms = *m_maxsmts.find(id);
         lbool result = ms(get_solver());
-        if (result == l_true) ms.get_model(m_model);
         if (committed) ms.commit_assignment();
+        if (committed && result == l_true) ms.get_model(m_model);
         return result;
     }
 
@@ -202,19 +203,21 @@ namespace opt {
         }        
     }
 
-    bool context::is_maximize(expr* fml, app_ref& term, unsigned& index) {
+    bool context::is_maximize(expr* fml, app_ref& term, expr*& orig_term, unsigned& index) {
         if (is_app(fml) && m_objective_fns.find(to_app(fml)->get_decl(), index) && 
             m_objectives[index].m_type == O_MAXIMIZE) {
             term = to_app(to_app(fml)->get_arg(0));
+            orig_term = m_objective_orig.find(to_app(fml)->get_decl());
             return true;
         }
         return false;
     }
 
-    bool context::is_minimize(expr* fml, app_ref& term, unsigned& index) {
+    bool context::is_minimize(expr* fml, app_ref& term, expr*& orig_term, unsigned& index) {
         if (is_app(fml) && m_objective_fns.find(to_app(fml)->get_decl(), index) && 
             m_objectives[index].m_type == O_MINIMIZE) {
             term = to_app(to_app(fml)->get_arg(0));
+            orig_term = m_objective_orig.find(to_app(fml)->get_decl());
             return true;
         }
         return false;
@@ -233,8 +236,9 @@ namespace opt {
             return true;
         }
         app_ref term(m);
+        expr* orig_term;
         offset = rational::zero();
-        if (is_minimize(fml, term, index) &&
+        if (is_minimize(fml, term, orig_term, index) &&
             get_pb_sum(term, terms, weights, offset)) {
             TRACE("opt", tout << "try to convert minimization" << mk_pp(term, m) << "\n";);
             // minimize 2*x + 3*y 
@@ -252,11 +256,11 @@ namespace opt {
                 }
             }
             std::ostringstream out;
-            out << term;
+            out << mk_pp(orig_term, m);
             id = symbol(out.str().c_str());
             return true;
         }
-        if (is_maximize(fml, term, index) &&
+        if (is_maximize(fml, term, orig_term, index) &&
             get_pb_sum(term, terms, weights, offset)) {
             TRACE("opt", tout << "try to convert maximization" << mk_pp(term, m) << "\n";);
             // maximize 2*x + 3*y - z 
@@ -276,7 +280,7 @@ namespace opt {
             }
             neg = true;
             std::ostringstream out;
-            out << term;
+            out << mk_pp(orig_term, m);
             id = symbol(out.str().c_str());
             return true;
         }
@@ -297,6 +301,10 @@ namespace opt {
         }
         func_decl* f = m.mk_fresh_func_decl(name,"", domain.size(), domain.c_ptr(), m.mk_bool_sort());
         m_objective_fns.insert(f, index);
+        m_objective_refs.push_back(f);
+        if (sz > 0) {
+            m_objective_orig.insert(f, args[0]);
+        }
         return m.mk_app(f, sz, args);
     }
 
@@ -317,6 +325,7 @@ namespace opt {
 
     void context::from_fmls(expr_ref_vector const& fmls) {
         m_hard_constraints.reset();
+        expr* orig_term;
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i];
             app_ref tr(m);
@@ -345,10 +354,10 @@ namespace opt {
                 obj.m_neg = neg;
                 TRACE("opt", tout << "maxsat: " << id << " offset:" << offset << "\n";);
             }
-            else if (is_maximize(fml, tr, index)) {
+            else if (is_maximize(fml, tr, orig_term, index)) {
                 m_objectives[index].m_term = tr;
             }
-            else if (is_minimize(fml, tr, index)) {
+            else if (is_minimize(fml, tr, orig_term, index)) {
                 m_objectives[index].m_term = tr;
             }
             else {
