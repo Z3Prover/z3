@@ -3161,3 +3161,6 @@ void prexpr(expr_ref &e){
   std::cout << mk_pp(e.get(), e.get_manager()) << std::endl;
 }
 
+void ast_manager::show_id_gen(){
+  std::cout << "id_gen: " << m_expr_id_gen.show_hash() << " " << m_decl_id_gen.show_hash() << "\n";
+}

@@ -727,6 +727,7 @@ namespace Duality {
         }
         
         void show() const;
+	void show_hash() const;
 
         unsigned num_consts() const {return m_model.get()->get_num_constants();}
         unsigned num_funcs() const {return m_model.get()->get_num_functions();}
@@ -1386,7 +1387,8 @@ namespace std {
     class less<Duality::ast> {
   public:
     bool operator()(const Duality::ast &s, const Duality::ast &t) const {
-      return s.raw() < t.raw(); // s.raw()->get_id() < t.raw()->get_id();
+      // return s.raw() < t.raw();
+      return s.raw()->get_id() < t.raw()->get_id();
     }
   };
 }

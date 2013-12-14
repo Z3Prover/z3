@@ -213,6 +213,7 @@ public:
     test_secondary(cnsts,parents,interps);
     return;
 #endif
+
     profiling::timer_start("Interpolation prep");
 
     // get rid of frames not used in proof

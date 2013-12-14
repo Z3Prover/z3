@@ -513,7 +513,6 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
 	opts.set("weak","1"); 
       
       ::ast *proof = m_solver->get_proof();
-      show_assertion_ids();
       iz3interpolate(m(),proof,_assumptions,_parents,_interpolants,_theory,&opts);
       
       std::vector<expr> linearized_interpolants(_interpolants.size());
@@ -604,6 +603,14 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     std::cout << std::endl;
   }
   
+  void model::show_hash() const {
+    std::ostringstream ss;
+    model_smt2_pp(ss, m(), *m_model, 0);
+    std::hash<std::string> hasher;
+    unsigned h = hasher(ss.str());
+    std::cout << "model hash: " << h << "\n";
+  }
+
   void solver::show() {
     unsigned n = m_solver->get_num_assertions();
     if(!n)
@@ -615,11 +622,20 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
   }
 
   void solver::show_assertion_ids() {
+#if 0
     unsigned n = m_solver->get_num_assertions();
     std::cerr << "assertion ids: ";
     for (unsigned i = 0; i < n-1; ++i)
       std::cerr << " " << m_solver->get_assertion(i)->get_id();
     std::cerr << "\n";
+#else
+    unsigned n = m_solver->get_num_assertions();
+    std::cerr << "assertion ids hash: ";
+    unsigned h = 0;
+    for (unsigned i = 0; i < n-1; ++i)
+      h += m_solver->get_assertion(i)->get_id();
+    std::cerr << h << "\n";
+#endif
   }
 
   void include_ast_show(ast &a){

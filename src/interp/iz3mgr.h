@@ -140,7 +140,8 @@ namespace std {
     class less<ast_r> {
   public:
     bool operator()(const ast_r &s, const ast_r &t) const {
-      return s.raw() < t.raw(); // s.raw()->get_id() < t.raw()->get_id();
+      // return s.raw() < t.raw(); 
+      return s.raw()->get_id() < t.raw()->get_id();
     }
   };
 }
