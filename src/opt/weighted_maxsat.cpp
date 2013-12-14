@@ -291,6 +291,7 @@ namespace opt {
         expr_ref_vector  m_assignment;
         vector<rational> m_weights;
         rational         m_upper;
+        rational         m_lower;
         model_ref        m_model;
 
         imp(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights):
@@ -345,6 +346,9 @@ namespace opt {
                 }
             }
             m_upper = wth.get_min_cost();
+            if (result == l_true) {
+                m_lower = m_upper;
+            }
             wth.get_model(m_model);
             TRACE("opt", tout << "min cost: " << m_upper << "\n";);
             wth.reset();
@@ -352,7 +356,7 @@ namespace opt {
         }        
 
         rational get_lower() const {
-            return rational(0);
+            return m_lower;
         }
 
         rational get_upper() const {

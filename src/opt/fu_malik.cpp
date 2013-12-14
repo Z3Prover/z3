@@ -43,28 +43,31 @@ namespace opt {
 
     struct fu_malik::imp {
         ast_manager& m;        
+        solver &        m_original_solver;
+        ref<solver>     m_s;
         expr_ref_vector m_soft;
         expr_ref_vector m_orig_soft;
         expr_ref_vector m_aux;
         expr_ref_vector m_assignment;
-        unsigned        m_upper_size;
+        unsigned        m_upper;
+        unsigned        m_lower;
         model_ref       m_model;
 
-        ref<solver>     m_s;
-        solver &        m_original_solver;
         bool            m_use_new_bv_solver; 
 
         imp(ast_manager& m, solver& s, expr_ref_vector const& soft):
             m(m),
+            m_original_solver(s),
             m_s(&s),
             m_soft(soft),
             m_orig_soft(soft),
             m_aux(m),
             m_assignment(m),
-            m_original_solver(s),
+            m_upper(0),
+            m_lower(0),
             m_use_new_bv_solver(false)
         {
-            m_upper_size = m_soft.size() + 1;
+            m_upper = m_soft.size() + 1;
         }
 
         solver& s() { return *m_s; }
@@ -156,7 +159,7 @@ namespace opt {
         }
 
         lbool step() {
-            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat step " << m_soft.size() + 2 - m_upper_size << ")\n";);
+            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat step " << m_soft.size() + 2 - m_upper << ")\n";);
             expr_ref_vector assumptions(m), block_vars(m);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 assumptions.push_back(m.mk_not(m_aux[i].get()));
@@ -295,14 +298,14 @@ namespace opt {
                 lbool is_sat = l_true;                
                 do {
                     is_sat = step();
-                    --m_upper_size;
+                    --m_upper;
                 }
                 while (is_sat == l_false);
                 
                 if (is_sat == l_true) {
                     // Get a list of satisfying m_soft
                     s().get_model(m_model);
-
+                    m_lower = m_upper;
                     m_assignment.reset();                    
                     for (unsigned i = 0; i < m_orig_soft.size(); ++i) {
                         expr_ref val(m);
@@ -335,10 +338,10 @@ namespace opt {
         return (*m_imp)();
     }
     rational fu_malik::get_lower() const {
-        return rational(0);
+        return rational(m_imp->m_lower);
     }
     rational fu_malik::get_upper() const {
-        return rational(m_imp->m_upper_size);
+        return rational(m_imp->m_upper);
     }
     rational fu_malik::get_value() const {
         return rational(m_imp->m_assignment.size());

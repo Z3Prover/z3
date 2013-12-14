@@ -47,7 +47,7 @@ namespace opt {
 
         lbool lex(unsigned obj_index);
 
-        void add(app* t, bool is_max);
+        unsigned add(app* t, bool is_max);
 
         void set_cancel(bool f);
 

@@ -381,12 +381,10 @@ namespace opt {
             objective & obj = m_objectives[i];
             switch(obj.m_type) {
             case O_MINIMIZE:
-                obj.m_index = m_optsmt.get_num_objectives();
-                m_optsmt.add(obj.m_term, false);
+                obj.m_index = m_optsmt.add(obj.m_term, false);
                 break;
             case O_MAXIMIZE:
-                obj.m_index = m_optsmt.get_num_objectives();
-                m_optsmt.add(obj.m_term, true);
+                obj.m_index = m_optsmt.add(obj.m_term, true);
                 break;
             case O_MAXSMT: {
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);

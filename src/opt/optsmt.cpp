@@ -349,7 +349,7 @@ namespace opt {
         }        
     }
 
-    void optsmt::add(app* t, bool is_max) {
+    unsigned optsmt::add(app* t, bool is_max) {
         expr_ref t1(t, m), t2(m);
         th_rewriter rw(m);
         if (!is_max) {
@@ -362,6 +362,7 @@ namespace opt {
         m_is_max.push_back(is_max);
         m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
         m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
+        return m_objs.size()-1;
     }
 
     void optsmt::updt_params(params_ref& p) {
