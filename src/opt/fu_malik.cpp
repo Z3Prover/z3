@@ -24,6 +24,7 @@ Notes:
 #include "probe.h"
 #include "tactic.h"
 #include "smt_context.h"
+#include "ast_pp.h"
 
 /**
    \brief Fu & Malik procedure for MaxSAT. This procedure is based on 
@@ -290,8 +291,14 @@ namespace opt {
             if (!m_soft.empty() && is_sat == l_true) {
                 solver::scoped_push _sp(s());
                 expr_ref tmp(m);
+                TRACE("opt",
+                      tout << "soft constraints:\n";
+                      for (unsigned i = 0; i < m_soft.size(); ++i) {
+                          tout << mk_pp(m_soft[i].get(), m) << "\n";
+                      });
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
+                    m_opt_solver.mc().insert(to_app(m_aux.back())->get_decl());
                     tmp = m.mk_or(m_soft[i].get(), m_aux[i].get());
                     s().assert_expr(tmp);
                 }
@@ -304,7 +311,7 @@ namespace opt {
                 while (is_sat == l_false);
                 
                 if (is_sat == l_true) {
-                    // Get a list of satisfying m_soft
+                    // Get a list satisfying m_soft
                     s().get_model(m_model);
                     m_lower = m_upper;
                     m_assignment.reset();                    
@@ -315,6 +322,7 @@ namespace opt {
                             m_assignment.push_back(m_orig_soft[i].get());
                         }
                     }
+                    TRACE("opt", tout << "maxsat cost: " << m_upper << "\n";);
                 }
             }
             // We are done and soft_constraints has 

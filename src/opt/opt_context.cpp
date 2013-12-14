@@ -255,6 +255,14 @@ namespace opt {
                     terms[i] = m.mk_not(terms[i].get());
                 }
             }
+            TRACE("opt", 
+                  tout << "Convert minimization " << mk_pp(orig_term, m) << "\n";
+                  tout << "to maxsat: " << term << "\n";
+                  for (unsigned i = 0; i < weights.size(); ++i) {
+                      tout << mk_pp(terms[i].get(), m) << ": " << weights[i] << "\n";
+                  }
+                  tout << "offset: " << offset << "\n";
+                  );
             std::ostringstream out;
             out << mk_pp(orig_term, m);
             id = symbol(out.str().c_str());
@@ -448,7 +456,7 @@ namespace opt {
                 out << " |-> [" << get_lower(i) << ":" << get_upper(i) << "]\n";
             }
             else {
-                out << "|-> " << get_lower(i) << "\n";
+                out << " |-> " << get_lower(i) << "\n";
             }
         }
     }
@@ -459,12 +467,12 @@ namespace opt {
         case O_MAXSMT: {
             symbol s = obj.m_id;
             if (s != symbol::null) {
-                out << s << " : ";
+                out << s;
             }
             break;
         }
         default:
-            out << obj.m_term << " ";
+            out << obj.m_term;
             break;
         }
     }
@@ -477,6 +485,7 @@ namespace opt {
         switch(obj.m_type) {
         case O_MAXSMT: {
             rational r = m_maxsmts.find(obj.m_id)->get_lower();
+            TRACE("opt", tout << "maxsmt: " << r << " negate: " << obj.m_neg << " offset: " << obj.m_offset << "\n";);
             if (obj.m_neg) r.neg();
             r += obj.m_offset;
             return inf_eps(r);
