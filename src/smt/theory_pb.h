@@ -29,6 +29,7 @@ namespace smt {
 
         struct sort_expr;
         class  pb_justification;
+        class pb_model_value_proc;
         typedef rational numeral;
         typedef vector<std::pair<literal, numeral> > arg_t;
 
@@ -181,6 +182,7 @@ namespace smt {
         virtual void pop_scope_eh(unsigned num_scopes);
         virtual void restart_eh();
         virtual void collect_statistics(::statistics & st) const;
-        
+        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
+        virtual void init_model(model_generator & m);        
     };
 };

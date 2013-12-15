@@ -48,6 +48,7 @@ namespace smt {
         */
         void get_assignment(svector<bool>& result) {
             result.reset();
+
             std::sort(m_cost_save.begin(), m_cost_save.end());
             for (unsigned i = 0, j = 0; i < m_vars.size(); ++i) {
                 if (j < m_cost_save.size() && m_cost_save[j] == i) {
@@ -58,43 +59,58 @@ namespace smt {
                     result.push_back(true);
                 }
             }
+            TRACE("opt",
+                  tout << "cost save: ";
+                  for (unsigned i = 0; i < m_cost_save.size(); ++i) {
+                      tout << m_cost_save[i] << " ";
+                  }
+                  tout << "\nvars: ";
+                  for (unsigned i = 0; i < m_vars.size(); ++i) {
+                      tout << mk_pp(m_vars[i].get(), get_manager()) << " ";
+                  }
+                  tout << "\nassignment";
+                  for (unsigned i = 0; i < result.size(); ++i) {
+                      tout << result[i] << " ";
+                  }
+                  tout << "\n";);                  
+
         }
 
         virtual void init_search_eh() {
             context & ctx = get_context();
             ast_manager& m = get_manager();
-            m_var2bool.reset();
-            for (unsigned i = 0; i < m_vars.size(); ++i) {
+            bool initialized = !m_var2bool.empty();
+            
+            for (unsigned i = 0; !initialized && i < m_vars.size(); ++i) {
                 app* var = m_vars[i].get();  
                 bool_var bv;
-                enode* x;
-                if (!ctx.e_internalized(var)) {
-                    x = ctx.mk_enode(var, false, true, true);
-                }
-                else {
-                    x = ctx.get_enode(var);
-                }
+                theory_var v;
+                SASSERT(!ctx.e_internalized(var));
+                enode* x = ctx.mk_enode(var, false, true, true);
                 if (ctx.b_internalized(var)) {
                     bv = ctx.get_bool_var(var);
                 }
                 else {
                     bv = ctx.mk_bool_var(var);
                 }
-                ctx.set_var_theory(bv, get_id());
+                ctx.set_var_theory(bv, get_id());                    
                 ctx.set_enode_flag(bv, true);
-                theory_var v = mk_var(x);
+                v = mk_var(x);
                 ctx.attach_th_var(x, this, v);
                 m_bool2var.insert(bv, v);
                 SASSERT(v == m_var2bool.size());
                 m_var2bool.push_back(bv);
                 SASSERT(ctx.bool_var2enode(bv));
-
+            }
+            for (unsigned i = 0; i < m_vars.size(); ++i) {
+                app* var = m_vars[i].get();  
+                bool_var bv = ctx.get_bool_var(var);
                 lbool asgn = ctx.get_assignment(bv);
                 if (asgn == l_true) {
                     assign_eh(bv, true);
                 }
-
             }
+
             if (m_min_cost_atom) {
                 app* var = m_min_cost_atom;
                 if (!ctx.e_internalized(var)) {
@@ -157,10 +173,7 @@ namespace smt {
         }
 
         virtual final_check_status final_check_eh() {
-            if (block(true)) {
-                return FC_DONE;
-            }
-            return FC_CONTINUE;
+            return FC_DONE;
         }
 
         virtual bool use_diseqs() const { 
@@ -171,7 +184,7 @@ namespace smt {
             return false;
         }
 
-        void reset() {
+        void reset() {            
             reset_eh();
         }
 
@@ -195,17 +208,9 @@ namespace smt {
         virtual void new_eq_eh(theory_var v1, theory_var v2) { }
         virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
 
-
-    private:
-       
-        class compare_cost {
-            theory_weighted_maxsat& m_th;
-        public:
-            compare_cost(theory_weighted_maxsat& t):m_th(t) {}
-            bool operator() (theory_var v, theory_var w) const { 
-                return m_th.m_weights[v] > m_th.m_weights[w]; 
-            }
-        };
+        bool is_optimal() const {
+            return m_cost < m_min_cost;
+        }
 
         bool block(bool is_final) {
             if (m_vars.empty()) {
@@ -225,24 +230,46 @@ namespace smt {
             if (m_min_cost_atom) {
                 lits.push_back(~literal(m_min_cost_bv));
             }
-            IF_VERBOSE(2,
-                       verbose_stream() << "block: ";
-                       for (unsigned i = 0; i < lits.size(); ++i) {
-                           expr_ref tmp(m);
-                           ctx.literal2expr(lits[i], tmp);
-                           verbose_stream() << tmp << " ";
-                       }
-                       verbose_stream() << "\n";
-                       );
+            TRACE("opt",
+                  tout << "block" << (is_final?" final: ":": ");;
+                  for (unsigned i = 0; i < lits.size(); ++i) {
+                      expr_ref tmp(m);
+                      ctx.literal2expr(lits[i], tmp);
+                      tout << tmp << " ";
+                  }
+                  tout << "\n";
+                  if (is_final && is_optimal()) {
+                      tout << "costs: ";
+                      for (unsigned i = 0; i < m_costs.size(); ++i) {
+                          tout << mk_pp(get_enode(m_costs[i])->get_owner(), get_manager()) << " ";
+                      }
+                      tout << "\n";
+                      ctx.display(tout);
+                      
+                  }
+                  );
 
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-            if (is_final && m_cost < m_min_cost) {
+            if (is_final && is_optimal()) {
                 m_min_cost = weight;
                 m_cost_save.reset();
                 m_cost_save.append(m_costs);
             }
             return false;
         }                
+
+
+    private:
+       
+        class compare_cost {
+            theory_weighted_maxsat& m_th;
+        public:
+            compare_cost(theory_weighted_maxsat& t):m_th(t) {}
+            bool operator() (theory_var v, theory_var w) const { 
+                return m_th.m_weights[v] > m_th.m_weights[w]; 
+            }
+        };
+
 
     };
 
@@ -329,26 +356,36 @@ namespace opt {
         lbool operator()() {
             TRACE("opt", tout << "weighted maxsat\n";);
             smt::theory_weighted_maxsat& wth = ensure_theory();
-            lbool result;
+            lbool is_sat = l_true;
             {
                 solver::scoped_push _s(s);
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     wth.assert_weighted(m_soft[i].get(), m_weights[i]);
                 }
-                result = s.check_sat_core(0,0);
-                SASSERT(result != l_true);
-                wth.get_assignment(m_assignment);
-                if (result == l_false) {
-                    result = l_true;
+                while (l_true == is_sat) {
+                    is_sat = s.check_sat_core(0,0);
+                    if (is_sat == l_true) {
+                        if (wth.is_optimal()) {
+                            s.get_model(m_model);
+                        }
+                        wth.block(true);                        
+                        if (s.get_context().inconsistent()) {
+                            is_sat = l_false;
+                        }
+                    }
+                }
+                if (is_sat == l_false) {
+                    wth.get_assignment(m_assignment);
+                    is_sat = l_true;
                 }
             }
             m_upper = wth.get_min_cost();
-            if (result == l_true) {
+            if (is_sat == l_true) {
                 m_lower = m_upper;
             }
             TRACE("opt", tout << "min cost: " << m_upper << "\n";);
             wth.reset();
-            return result;            
+            return is_sat;            
         }        
 
         rational get_lower() const {
@@ -360,10 +397,7 @@ namespace opt {
         }
 
         void get_model(model_ref& mdl) {
-            lbool is_sat = s.check_sat_core(0,0);
-            if (is_sat == l_true) {
-                s.get_model(mdl);
-            }
+            mdl = m_model.get();
         }
 
     };

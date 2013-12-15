@@ -118,8 +118,8 @@ app * pb_util::mk_at_most_k(unsigned num_args, expr * const * args, unsigned k) 
     return m.mk_app(m_fid, OP_AT_MOST_K, 1, &param, num_args, args, m.mk_bool_sort());
 }
 
-bool pb_util::is_at_most_k(app *a) const {
-    return is_app_of(a, m_fid, OP_AT_MOST_K);
+bool pb_util::is_at_most_k(func_decl *a) const {
+    return is_decl_of(a, m_fid, OP_AT_MOST_K);
 }
 
 bool pb_util::is_at_most_k(app *a, rational& k) const {
@@ -138,8 +138,8 @@ app * pb_util::mk_at_least_k(unsigned num_args, expr * const * args, unsigned k)
     return m.mk_app(m_fid, OP_AT_LEAST_K, 1, &param, num_args, args, m.mk_bool_sort());
 }
 
-bool pb_util::is_at_least_k(app *a) const {
-    return is_app_of(a, m_fid, OP_AT_LEAST_K);
+bool pb_util::is_at_least_k(func_decl *a) const {
+    return is_decl_of(a, m_fid, OP_AT_LEAST_K);
 }
 
 bool pb_util::is_at_least_k(app *a, rational& k) const {
@@ -152,8 +152,8 @@ bool pb_util::is_at_least_k(app *a, rational& k) const {
     }
 }
 
-rational pb_util::get_k(app *a) const {
-    parameter const& p = a->get_decl()->get_parameter(0);
+rational pb_util::get_k(func_decl *a) const {
+    parameter const& p = a->get_parameter(0);
     if (is_at_most_k(a) || is_at_least_k(a)) {
         return to_rational(p);
     }
@@ -164,8 +164,8 @@ rational pb_util::get_k(app *a) const {
 }
 
 
-bool pb_util::is_le(app *a) const {
-    return is_app_of(a, m_fid, OP_PB_LE);
+bool pb_util::is_le(func_decl *a) const {
+    return is_decl_of(a, m_fid, OP_PB_LE);
 }
 
 bool pb_util::is_le(app* a, rational& k) const {
@@ -178,8 +178,8 @@ bool pb_util::is_le(app* a, rational& k) const {
     }
 }
 
-bool pb_util::is_ge(app *a) const {
-    return is_app_of(a, m_fid, OP_PB_GE);
+bool pb_util::is_ge(func_decl *a) const {
+    return is_decl_of(a, m_fid, OP_PB_GE);
 }
 
 bool pb_util::is_ge(app* a, rational& k) const {
@@ -192,13 +192,13 @@ bool pb_util::is_ge(app* a, rational& k) const {
     }
 }
 
-rational pb_util::get_coeff(app* a, unsigned index) {
+rational pb_util::get_coeff(func_decl* a, unsigned index) const {
     if (is_at_most_k(a) || is_at_least_k(a)) {
         return rational::one();
     }
     SASSERT(is_le(a) || is_ge(a));
-    SASSERT(1 + index < a->get_decl()->get_num_parameters());
-    return to_rational(a->get_decl()->get_parameter(index + 1));
+    SASSERT(1 + index < a->get_num_parameters());
+    return to_rational(a->get_parameter(index + 1));
 }
 
 rational pb_util::to_rational(parameter const& p) const {

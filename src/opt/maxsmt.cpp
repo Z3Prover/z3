@@ -112,25 +112,18 @@ namespace opt {
         for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
             expr_ref tmp(m);
             tmp = m_soft_constraints[i].get();
-            if (get_assignment(i)) {
-                m_s->assert_expr(tmp);
-            }
-            else {
+            if (!get_assignment(i)) {
                 tmp = m.mk_not(tmp);
-                m_s->assert_expr(tmp);
             }
+            TRACE("opt", tout << "asserting: " << tmp << "\n";);
+            m_s->assert_expr(tmp);            
         }
     }
 
     void maxsmt::display_answer(std::ostream& out) const {
         for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
-            out << mk_pp(m_soft_constraints[i], m);
-            if (get_assignment(i)) {
-                out << " |-> true\n";
-            }
-            else {
-                out << " |-> false\n";
-            }
+            out << mk_pp(m_soft_constraints[i], m)
+                << (get_assignment(i)?" |-> true\n":" |-> false\n");
         }
     }
     

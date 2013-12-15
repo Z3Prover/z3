@@ -82,16 +82,22 @@ public:
     app * mk_at_least_k(unsigned num_args, expr * const * args, unsigned k);
     app * mk_le(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
     app * mk_ge(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
-    bool is_at_most_k(app *a) const;
+    bool is_at_most_k(func_decl *a) const;
+    bool is_at_most_k(app *a) const { return is_at_most_k(a->get_decl()); }
     bool is_at_most_k(app *a, rational& k) const;
-    bool is_at_least_k(app *a) const;
+    bool is_at_least_k(func_decl *a) const;
+    bool is_at_least_k(app *a) const { return is_at_most_k(a->get_decl()); }
     bool is_at_least_k(app *a, rational& k) const;
-    rational get_k(app *a) const;
-    bool is_le(app *a) const;
+    rational get_k(func_decl *a) const;
+    rational get_k(app *a) const { return get_k(a->get_decl()); }
+    bool is_le(func_decl *a) const;
+    bool is_le(app *a) const { return is_le(a->get_decl()); }
     bool is_le(app* a, rational& k) const;
-    bool is_ge(app* a) const;
+    bool is_ge(func_decl* a) const;
+    bool is_ge(app* a) const { return is_ge(a->get_decl()); }
     bool is_ge(app* a, rational& k) const;
-    rational get_coeff(app* a, unsigned index); 
+    rational get_coeff(app* a, unsigned index) const { return get_coeff(a->get_decl(), index); }
+    rational get_coeff(func_decl* a, unsigned index) const; 
 private:
     rational to_rational(parameter const& p) const;
 };

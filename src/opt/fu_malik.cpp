@@ -322,6 +322,7 @@ namespace opt {
                 for (unsigned i = 0; i < m_orig_soft.size(); ++i) {
                     expr_ref val(m);
                     VERIFY(m_model->eval(m_orig_soft[i].get(), val));
+                    TRACE("opt", tout << val << "\n";);
                     m_assignment.push_back(m.is_true(val));                        
                 }
                 TRACE("opt", tout << "maxsat cost: " << m_upper << "\n";

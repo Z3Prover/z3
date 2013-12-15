@@ -23,6 +23,7 @@ Notes:
 #include "ast_pp.h"
 #include "sorting_network.h"
 #include "uint_set.h"
+#include "smt_model_generator.h"
 
 namespace smt {
 
@@ -1456,6 +1457,89 @@ namespace smt {
         if (c.watch_sum().is_pos())  out << "watch-sum: "    << c.watch_sum() << " ";
         if (c.m_num_propagations || c.max_watch().is_pos() || c.watch_size() || c.watch_sum().is_pos()) out << "\n";
         return out;
+    }
+
+    class theory_pb::pb_model_value_proc : public model_value_proc {
+        app*              m_app;
+        svector<model_value_dependency> m_dependencies;
+    public:
+
+        pb_model_value_proc(app* a): 
+            m_app(a) {}
+
+        void add(enode* n) { 
+            m_dependencies.push_back(model_value_dependency(n)); 
+        }
+
+        virtual void get_dependencies(buffer<model_value_dependency> & result) {
+            result.append(m_dependencies.size(), m_dependencies.c_ptr());
+        }
+
+        virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values) {
+            ast_manager& m = mg.get_manager();
+            SASSERT(values.size() == m_dependencies.size());
+            SASSERT(values.size() == m_app->get_num_args());
+            pb_util u(m);
+            rational sum(0);
+            for (unsigned i = 0; i < m_app->get_num_args(); ++i) {
+                if (!m.is_true(values[i]) && !m.is_false(values[i])) {
+                    return m_app;
+                }
+                if (m.is_true(values[i])) {
+                    sum += u.get_coeff(m_app, i);
+                }
+            }
+            rational k = u.get_k(m_app);
+            switch(m_app->get_decl_kind()) {
+            case OP_AT_MOST_K:
+                return (sum <= k)?m.mk_true():m.mk_false();
+            case OP_AT_LEAST_K:
+                return (sum >= k)?m.mk_true():m.mk_false();
+            case OP_PB_LE:
+                return (sum <= k)?m.mk_true():m.mk_false();
+            case OP_PB_GE:
+                return (sum >= k)?m.mk_true():m.mk_false();
+            default:
+                UNREACHABLE();
+                return 0;
+            }
+            return 0;
+        }
+    };
+
+    class pb_factory : public value_factory {
+    public:
+        pb_factory(ast_manager& m, family_id fid):
+            value_factory(m, fid) {}
+        
+        virtual expr * get_some_value(sort * s) {
+            return m_manager.mk_true();
+        }        
+        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+            v1 = m_manager.mk_true();
+            v2 = m_manager.mk_false();
+            return true;
+        }        
+        virtual expr * get_fresh_value(sort * s) {
+            return 0;
+        }
+        virtual void register_value(expr * n) { }
+    };
+
+    void theory_pb::init_model(model_generator & m) {
+        std::cout << "init model\n";
+        m.register_factory(alloc(pb_factory, get_manager(), get_id()));
+    }
+
+    model_value_proc * theory_pb::mk_value(enode * n, model_generator & mg) {
+        std::cout << "mk-value " << mk_pp(n->get_owner(), get_manager()) << "\n";
+        context& ctx = get_context();
+        app* a = n->get_owner();
+        pb_model_value_proc* p = alloc(pb_model_value_proc, a);
+        for (unsigned i = 0; i < a->get_num_args(); ++i) {
+            p->add(ctx.get_enode(a->get_arg(i)));
+        }
+        return p;
     }
 
     void theory_pb::display(std::ostream& out) const {

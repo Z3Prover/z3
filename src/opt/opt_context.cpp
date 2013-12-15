@@ -121,7 +121,7 @@ namespace opt {
 
     lbool context::execute_min_max(unsigned index, bool committed) {
         lbool result = m_optsmt.lex(index);
-        if (committed) m_optsmt.commit_assignment(index);
+        if (result == l_true && committed) m_optsmt.commit_assignment(index);
         if (result == l_true) m_optsmt.get_model(m_model);
         return result;
     }
@@ -129,7 +129,7 @@ namespace opt {
     lbool context::execute_maxsat(symbol const& id, bool committed) {
         maxsmt& ms = *m_maxsmts.find(id);
         lbool result = ms(get_solver());
-        if (committed) ms.commit_assignment();
+        if (result == l_true && committed) ms.commit_assignment();
         if (result == l_true) ms.get_model(m_model);
         return result;
     }
