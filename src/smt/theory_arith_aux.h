@@ -479,10 +479,11 @@ namespace smt {
     bool theory_arith<Ext>::all_coeff_int(row const & r) const {
         typename vector<row_entry>::const_iterator it  = r.begin_entries();
         typename vector<row_entry>::const_iterator end = r.end_entries();
-        for (; it != end; ++it) {                                                                                   
-            if (!it->is_dead() && !it->m_coeff.is_int())
+        for (; it != end; ++it) {                                                                       
+            if (!it->is_dead() && !it->m_coeff.is_int()) {
                 TRACE("gomory_cut", display_row(tout, r, true););
                 return false;
+            }
         }
         return true;
     }
@@ -949,6 +950,10 @@ namespace smt {
                         if (curr_gain.is_neg())
                             curr_gain.neg();
                         if (x_i == null_theory_var || (curr_gain < gain) || (gain.is_zero() && curr_gain.is_zero() && s < x_i)) {
+                            if (is_int(s) && !curr_gain.is_int()) 
+                                continue;
+                            if (is_int(x_j) && !curr_gain.is_int()) 
+                                continue;
                             x_i  = s;
                             a_ij = coeff;
                             gain = curr_gain;

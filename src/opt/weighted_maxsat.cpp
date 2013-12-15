@@ -111,7 +111,7 @@ namespace smt {
                 }
             }
 
-            if (m_min_cost_atom) {
+            if (!initialized && m_min_cost_atom) {
                 app* var = m_min_cost_atom;
                 if (!ctx.e_internalized(var)) {
                     ctx.mk_enode(var, false, true, true);
