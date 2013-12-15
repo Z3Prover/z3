@@ -1527,12 +1527,10 @@ namespace smt {
     };
 
     void theory_pb::init_model(model_generator & m) {
-        std::cout << "init model\n";
         m.register_factory(alloc(pb_factory, get_manager(), get_id()));
     }
 
     model_value_proc * theory_pb::mk_value(enode * n, model_generator & mg) {
-        std::cout << "mk-value " << mk_pp(n->get_owner(), get_manager()) << "\n";
         context& ctx = get_context();
         app* a = n->get_owner();
         pb_model_value_proc* p = alloc(pb_model_value_proc, a);
