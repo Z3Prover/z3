@@ -26,6 +26,7 @@ Notes:
 #include "ast_pp.h"
 #include "ast_smt_pp.h"
 #include "pp_params.hpp"
+#include "model_smt2_pp.h"
 
 namespace opt {
 
@@ -130,6 +131,7 @@ namespace opt {
         smt::theory_var v = m_objective_vars[i];
         m_objective_values[i] = get_optimizer().maximize(v);
         m_context.get_context().update_model();        
+        TRACE("opt", { model_ref mdl; get_model(mdl); model_smt2_pp(tout << "update model: ", m, *mdl, 0); });
     }
     
     void opt_solver::get_unsat_core(ptr_vector<expr> & r) {

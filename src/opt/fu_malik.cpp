@@ -25,6 +25,7 @@ Notes:
 #include "tactic.h"
 #include "smt_context.h"
 #include "ast_pp.h"
+#include "model_smt2_pp.h"
 
 /**
    \brief Fu & Malik procedure for MaxSAT. This procedure is based on 
@@ -323,7 +324,8 @@ namespace opt {
                     VERIFY(m_model->eval(m_orig_soft[i].get(), val));
                     m_assignment.push_back(m.is_true(val));                        
                 }
-                TRACE("opt", tout << "maxsat cost: " << m_upper << "\n";);
+                TRACE("opt", tout << "maxsat cost: " << m_upper << "\n";
+                      model_smt2_pp(tout, m, *m_model, 0););
             }
             // We are done and soft_constraints has 
             // been updated with the max-sat assignment.            
