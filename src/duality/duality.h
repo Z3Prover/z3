@@ -1008,6 +1008,29 @@ private:
     };
 }
 
+
+// Allow to hash on nodes and edges in deterministic way
+
+namespace stl_ext {
+  template <>
+    class hash<Duality::RPFP::Node *> {
+  public:
+    size_t operator()(const Duality::RPFP::Node *p) const {
+      return p->number;
+    }
+  };
+}
+
+namespace stl_ext {
+  template <>
+    class hash<Duality::RPFP::Edge *> {
+  public:
+    size_t operator()(const Duality::RPFP::Edge *p) const {
+      return p->number;
+    }
+  };
+}
+
 // allow to walk sets of nodes without address dependency
 
 namespace std {

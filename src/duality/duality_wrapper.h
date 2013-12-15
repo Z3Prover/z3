@@ -1419,7 +1419,8 @@ namespace std {
     class less<Duality::func_decl> {
   public:
     bool operator()(const Duality::func_decl &s, const Duality::func_decl &t) const {
-      return s.raw() < t.raw(); // s.raw()->get_id() < t.raw()->get_id();
+      // return s.raw() < t.raw();
+      return s.raw()->get_id() < t.raw()->get_id();
     }
   };
 }

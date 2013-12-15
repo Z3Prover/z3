@@ -40,6 +40,20 @@ Revision History:
 using namespace stl_ext;
 #endif
 
+#ifndef WIN32
+// We promise not to use this for hash_map with range destructor
+namespace stl_ext {
+  template <>
+    class hash<expr *> {
+  public:
+    size_t operator()(const expr *p) const {
+      return (size_t) p;
+    }
+  };
+}
+#endif
+
+
 // TBD: algebraic data-types declarations will not be printed.
 class free_func_visitor {
   ast_manager& m;

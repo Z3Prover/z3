@@ -146,7 +146,14 @@ class iz3base : public iz3mgr, public scopes {
     ranges(){scope_computed = false;}
   };
 
-  stl_ext::hash_map<symb,range> sym_range_hash;
+  // We only use this for sym_range_hash, which has no range destructor
+  struct symb_hash {
+    size_t operator()(const symb &s) const {
+      return (size_t) s;
+    }
+  };
+
+  stl_ext::hash_map<symb,range,symb_hash> sym_range_hash;
   stl_ext::hash_map<ast,ranges> ast_ranges_hash;
   stl_ext::hash_map<ast,ast> simplify_memo;
   stl_ext::hash_map<ast,int> frame_map;                      // map assertions to frames

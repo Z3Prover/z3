@@ -141,6 +141,7 @@ namespace std {
 
 #ifndef WIN32
 
+#if 0
 namespace stl_ext {
   template <class T>
     class hash<T *> {
@@ -150,6 +151,7 @@ namespace stl_ext {
     }
   };
 }
+#endif
 
 #endif
 

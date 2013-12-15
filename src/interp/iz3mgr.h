@@ -65,7 +65,7 @@ class ast_i {
     return _ast == other._ast;
   }
   bool lt(const ast_i &other) const {
-    return _ast < other._ast;
+    return _ast->get_id() < other._ast->get_id();
   }
   friend bool operator==(const ast_i &x, const ast_i&y){
     return x.eq(y);
@@ -76,7 +76,7 @@ class ast_i {
   friend bool operator<(const ast_i &x, const ast_i&y){
     return x.lt(y);
   }
-  size_t hash() const {return (size_t)_ast;}
+  size_t hash() const {return _ast->get_id();}
   bool null() const {return !_ast;}
 };
 

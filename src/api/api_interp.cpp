@@ -42,6 +42,20 @@ Revision History:
 using namespace stl_ext;
 #endif
 
+#ifndef WIN32
+// WARNING: don't make a hash_map with this if the range type
+// has a destructor: you'll get an address dependency!!!
+namespace stl_ext {
+  template <>
+  class hash<Z3_ast> {
+  public:
+    size_t operator()(const Z3_ast p) const {
+      return (size_t) p;
+    }
+  };
+}
+#endif
+
 typedef interpolation_options_struct *Z3_interpolation_options;
 
 extern "C" {
