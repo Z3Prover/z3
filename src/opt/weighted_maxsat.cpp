@@ -24,6 +24,7 @@ Notes:
 namespace smt {
 
     class theory_weighted_maxsat : public theory {
+        opt::opt_solver&         s;
         app_ref_vector           m_vars;       // Auxiliary variables per soft clause
         expr_ref_vector          m_fmls;       // Formulas per soft clause
         app_ref                  m_min_cost_atom; // atom tracking modified lower bound
@@ -35,9 +36,11 @@ namespace smt {
         rational                 m_min_cost;   // current maximal cost assignment.
         u_map<theory_var>        m_bool2var;   // bool_var -> theory_var
         svector<bool_var>        m_var2bool;   // theory_var -> bool_var
+
     public:
-        theory_weighted_maxsat(ast_manager& m):
+        theory_weighted_maxsat(ast_manager& m, opt::opt_solver& s):
             theory(m.mk_family_id("weighted_maxsat")),
+            s(s),
             m_vars(m),
             m_fmls(m),
             m_min_cost_atom(m)
@@ -132,6 +135,7 @@ namespace smt {
             ast_manager& m = get_manager();
             app_ref var(m), wfml(m);
             var = m.mk_fresh_const("w", m.mk_bool_sort());
+            s.mc().insert(var->get_decl());
             wfml = m.mk_or(var, fml);
             ctx.assert_expr(wfml);
             m_weights.push_back(w);
@@ -150,6 +154,7 @@ namespace smt {
             strm << "cost <= " << c;
             m_min_cost = c; 
             m_min_cost_atom = m.mk_fresh_const(strm.str().c_str(), m.mk_bool_sort());
+            s.mc().insert(m_min_cost_atom->get_decl());
             return m_min_cost_atom;
         }
 
@@ -203,7 +208,7 @@ namespace smt {
             m_min_cost_atom = 0;
         }
 
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_weighted_maxsat, new_ctx->get_manager()); }
+        virtual theory * mk_fresh(context * new_ctx) { return 0; }
         virtual bool internalize_atom(app * atom, bool gate_ctx) { return false; }
         virtual bool internalize_term(app * term) { return false; }
         virtual void new_eq_eh(theory_var v1, theory_var v2) { }
@@ -363,7 +368,7 @@ namespace opt {
                 wth->reset();
             }
             else {
-                wth = alloc(smt::theory_weighted_maxsat, m);
+                wth = alloc(smt::theory_weighted_maxsat, m, s);
                 s.get_context().register_plugin(wth);
             }
             return *wth;
