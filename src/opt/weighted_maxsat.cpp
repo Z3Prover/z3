@@ -99,6 +99,7 @@ namespace smt {
                 ctx.attach_th_var(x, this, v);
                 m_bool2var.insert(bv, v);
                 SASSERT(v == m_var2bool.size());
+                SASSERT(i == v);
                 m_var2bool.push_back(bv);
                 SASSERT(ctx.bool_var2enode(bv));
             }
@@ -157,7 +158,7 @@ namespace smt {
         }
 
         virtual void assign_eh(bool_var v, bool is_true) {
-            IF_VERBOSE(3, verbose_stream() << "Assign " << v << " " << is_true << "\n";);
+            TRACE("opt", tout << "Assign " << mk_pp(m_vars[m_bool2var[v]].get(), get_manager()) << " " << is_true << "\n";);
             if (is_true) {
                 context& ctx = get_context();
                 theory_var tv = m_bool2var[v];
@@ -167,7 +168,7 @@ namespace smt {
                 m_cost += w;
                 m_costs.push_back(tv);
                 if (m_cost > m_min_cost) {
-                    block(false);
+                    block();
                 }
             }
         }
@@ -212,9 +213,47 @@ namespace smt {
             return m_cost < m_min_cost;
         }
 
-        bool block(bool is_final) {
+        expr_ref mk_block() {
+            ast_manager& m = get_manager();
+            expr_ref_vector disj(m);
+            compare_cost compare_cost(*this);
+            svector<theory_var> costs(m_costs);
+            std::sort(costs.begin(), costs.end(), compare_cost);
+            rational weight(0);
+            for (unsigned i = 0; i < costs.size() && weight < m_min_cost; ++i) {
+                weight += m_weights[costs[i]];
+                disj.push_back(m.mk_not(m_vars[costs[i]].get()));
+            }
+            if (m_min_cost_atom) {
+                disj.push_back(m.mk_not(m_min_cost_atom));
+            }
+            if (is_optimal()) {
+                m_min_cost = weight;
+                m_cost_save.reset();
+                m_cost_save.append(m_costs);
+            }
+
+            expr_ref result(m.mk_or(disj.size(), disj.c_ptr()), m);
+
+            TRACE("opt",
+                  tout << result << "\n";
+                  if (is_optimal()) {
+                      tout << "costs: ";
+                      for (unsigned i = 0; i < m_costs.size(); ++i) {
+                          tout << mk_pp(get_enode(m_costs[i])->get_owner(), get_manager()) << " ";
+                      }
+                      tout << "\n";
+                      get_context().display(tout);                      
+                  });
+            return result;
+        }
+
+
+    private:
+
+        void block() {
             if (m_vars.empty()) {
-                return true;
+                return;
             }
             ast_manager& m = get_manager();
             context& ctx = get_context();
@@ -231,35 +270,18 @@ namespace smt {
                 lits.push_back(~literal(m_min_cost_bv));
             }
             TRACE("opt",
-                  tout << "block" << (is_final?" final: ":": ");;
+                  tout << "block: ";
                   for (unsigned i = 0; i < lits.size(); ++i) {
                       expr_ref tmp(m);
                       ctx.literal2expr(lits[i], tmp);
                       tout << tmp << " ";
                   }
                   tout << "\n";
-                  if (is_final && is_optimal()) {
-                      tout << "costs: ";
-                      for (unsigned i = 0; i < m_costs.size(); ++i) {
-                          tout << mk_pp(get_enode(m_costs[i])->get_owner(), get_manager()) << " ";
-                      }
-                      tout << "\n";
-                      ctx.display(tout);
-                      
-                  }
                   );
 
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-            if (is_final && is_optimal()) {
-                m_min_cost = weight;
-                m_cost_save.reset();
-                m_cost_save.append(m_costs);
-            }
-            return false;
         }                
 
-
-    private:
        
         class compare_cost {
             theory_weighted_maxsat& m_th;
@@ -368,10 +390,8 @@ namespace opt {
                         if (wth.is_optimal()) {
                             s.get_model(m_model);
                         }
-                        wth.block(true);                        
-                        if (s.get_context().inconsistent()) {
-                            is_sat = l_false;
-                        }
+                        expr_ref fml = wth.mk_block();
+                        s.assert_expr(fml);
                     }
                 }
                 if (is_sat == l_false) {
