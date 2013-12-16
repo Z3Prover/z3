@@ -157,6 +157,7 @@ namespace smt {
         void process_antecedent(literal l, numeral coeff);
         void process_ineq(ineq& c, literal conseq, numeral coeff);
         void remove_from_lemma(ineq& c, unsigned idx);
+        bool is_proof_justification(justification const& j) const;
 
         void hoist_maximal_values();
 

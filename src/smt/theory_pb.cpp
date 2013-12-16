@@ -1032,12 +1032,8 @@ namespace smt {
         }
         else if (lvl > ctx.get_base_level()) {
             if (is_marked(v)) {
-                numeral& lcoeff = m_lemma.m_args[m_conseq_index[v]].second;
-                lcoeff += coeff;
-                if (lcoeff.is_zero()) {
-                    IF_VERBOSE(1, display(verbose_stream() << "remove 0 consequence", m_lemma, true););
-                    remove_from_lemma(m_lemma, m_conseq_index[v]);
-                }                
+                m_lemma.m_args[m_conseq_index[v]].second += coeff;
+                SASSERT(m_lemma.m_args[m_conseq_index[v]].second.is_pos());
             }
             else {                
                 if (lvl == m_conflict_lvl) {
@@ -1135,12 +1131,12 @@ namespace smt {
             TRACE("pb_verbose", display(tout << "lemma ", m_lemma, true););
 
             lbool is_sat = m_lemma.normalize();
-            if (is_sat != l_undef) {
-                if (is_sat == l_false) {
-                    break;
-                }
-                IF_VERBOSE(0, display(verbose_stream() << "lemma already evaluated ", m_lemma, true););
-                TRACE("pb", display(tout << "lemma already evaluated ", m_lemma, true););
+            if (is_sat == l_false) {
+                break;
+            }
+            if (is_sat == l_true) {
+                IF_VERBOSE(0, verbose_stream() << "lemma already evaluated ";);
+                TRACE("pb", tout << "lemma already evaluated ";);
                 return false;
             }
             TRACE("pb", display(tout, m_lemma, true););
@@ -1189,9 +1185,9 @@ namespace smt {
             case b_justification::CLAUSE: {
                 clause& cls = *js.get_clause();
                 justification* cjs = cls.get_justification();
-                if (cjs) {
-                    IF_VERBOSE(1, verbose_stream() << "skipping justification for clause over: " << conseq << "\n";);
-                    TRACE("pb", tout << "skipping justification for clause over: " << conseq << "\n";);
+                if (cjs && !is_proof_justification(*cjs)) {
+                    TRACE("pb", tout << "skipping justification for clause over: " << conseq << " " 
+                          << typeid(*cjs).name() << "\n";);
                     m_ineq_literals.push_back(conseq);
                     break;
                 }
@@ -1221,10 +1217,10 @@ namespace smt {
                 break;
             case b_justification::JUSTIFICATION: {
                 justification& j = *js.get_justification(); 
-                // only process pb justifications.
                 if (j.get_from_theory() != get_id()) {                    
                     TRACE("pb", tout << "skipping justification for " << conseq 
-                          << " from theory "  << j.get_from_theory() << "\n";);
+                          << " from theory "  << j.get_from_theory() << " " 
+                          << typeid(j).name() << "\n";);
                     m_ineq_literals.push_back(conseq);
                 }
                 else {
@@ -1274,6 +1270,11 @@ namespace smt {
         }
         return true;    
     }
+
+    bool theory_pb::is_proof_justification(justification const& j) const {
+        return typeid(smt::justification_proof_wrapper) == typeid(j);
+    }
+
 
     void theory_pb::hoist_maximal_values() {
         for (unsigned i = 0; i < m_lemma.size(); ++i) {
