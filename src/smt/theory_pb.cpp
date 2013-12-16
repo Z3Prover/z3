@@ -1124,9 +1124,15 @@ namespace smt {
    
         while (m_num_marks > 0) {
 
+            TRACE("pb_verbose", display(tout << "lemma ", m_lemma, true););
+
             lbool is_sat = m_lemma.normalize();
             if (is_sat != l_undef) {
                 IF_VERBOSE(0, display(verbose_stream() << "lemma already evaluated ", m_lemma, true););
+                TRACE("pb", display(tout << "lemma already evaluated ", m_lemma, true););
+                for (unsigned i = 0; i < m_lemma.size(); ++i) {
+                    unset_mark(m_lemma.lit(i));
+                }
                 return false;
             }
             TRACE("pb", display(tout, m_lemma, true););
@@ -1181,6 +1187,11 @@ namespace smt {
                 if (cjs) {
                     IF_VERBOSE(1, verbose_stream() << "skipping justification for clause over: " << conseq << "\n";);
                     m_ineq_literals.push_back(conseq);
+                    m_lemma.m_k -= conseq_coeff;
+                    for (unsigned i = 0; i < m_lemma.size(); ++i) {
+                        unset_mark(m_lemma.lit(i));
+                    }
+                    return false;
                     break;
                 }
                 unsigned num_lits = cls.get_num_literals();
@@ -1210,16 +1221,22 @@ namespace smt {
             case b_justification::JUSTIFICATION: {
                 justification& j = *js.get_justification(); 
                 // only process pb justifications.
-                if (j.get_from_theory() != get_id()) {
-                    IF_VERBOSE(1, verbose_stream() << "skipping justification for " << conseq 
-                               << " from theory "  << j.get_from_theory() << "\n";);
+                if (j.get_from_theory() != get_id()) {                    
+                    TRACE("pb", tout << "skipping justification for " << conseq 
+                          << " from theory "  << j.get_from_theory() << "\n";);
                     m_ineq_literals.push_back(conseq);
-                    break;
+                    m_lemma.m_k -= conseq_coeff;
+                    for (unsigned i = 0; i < m_lemma.size(); ++i) {
+                        unset_mark(m_lemma.lit(i));
+                    }
+                    return false;
                 }
-                pb_justification& pbj = dynamic_cast<pb_justification&>(j);
-                // weaken the lemma and resolve.
-                TRACE("pb", display(tout, pbj.get_ineq(), true););
-                process_ineq(pbj.get_ineq(), conseq, conseq_coeff);
+                else {
+                    pb_justification& pbj = dynamic_cast<pb_justification&>(j);
+                    // weaken the lemma and resolve.
+                    TRACE("pb", display(tout << "resolve with inequality", pbj.get_ineq(), true););
+                    process_ineq(pbj.get_ineq(), conseq, conseq_coeff);
+                }
                 break;
             }
             default:
