@@ -1780,9 +1780,12 @@ namespace Duality {
 		  if(std::find(updated_nodes.begin(),updated_nodes.end(),cs[i]) != updated_nodes.end())
 		    throw "help!";
 		}
+	      }
+	      RemoveLeaves(leaves_to_remove); // have to do this before actually deleting the children
+	      for(unsigned i = 0; i < expansions.size(); i++){
+		Node *node = expansions[i];
 		RemoveExpansion(node);
 	      }
-	      RemoveLeaves(leaves_to_remove);
 	      stack.pop_back();
 	      if(prev_level_used || stack.size() == 1) break;
 	      RemoveUpdateNodesAtCurrentLevel(); // this level is about to be deleted -- remove its children from update list
