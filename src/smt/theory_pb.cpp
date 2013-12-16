@@ -998,6 +998,7 @@ namespace smt {
             m_conseq_index.resize(v+1, null_index);
         }
         SASSERT(!is_marked(v) || m_conseq_index[v] == idx);
+        m_marked.push_back(v);
         m_conseq_index[v] = idx;        
     }
 
@@ -1007,12 +1008,18 @@ namespace smt {
             (m_conseq_index[v] != null_index);
     }
 
-    void theory_pb::unset_mark(literal l) {
-        bool_var v = l.var();
+    void theory_pb::unset_mark(bool_var v) {
         SASSERT(v != null_bool_var);
         if (v < static_cast<bool_var>(m_conseq_index.size())) {
             m_conseq_index[v] = null_index;
         }
+    }
+
+    void theory_pb::unset_marks() {
+        for (unsigned i = 0; i < m_marked.size(); ++i) {
+            unset_mark(m_marked[i]);
+        }
+        m_marked.reset();
     }
 
     void theory_pb::process_antecedent(literal l, numeral coeff) {        
@@ -1112,6 +1119,7 @@ namespace smt {
             return false;
         }
 
+        unset_marks();
         m_num_marks = 0;
         m_lemma.reset();
         m_ineq_literals.reset();
@@ -1128,11 +1136,11 @@ namespace smt {
 
             lbool is_sat = m_lemma.normalize();
             if (is_sat != l_undef) {
+                if (is_sat == l_false) {
+                    break;
+                }
                 IF_VERBOSE(0, display(verbose_stream() << "lemma already evaluated ", m_lemma, true););
                 TRACE("pb", display(tout << "lemma already evaluated ", m_lemma, true););
-                for (unsigned i = 0; i < m_lemma.size(); ++i) {
-                    unset_mark(m_lemma.lit(i));
-                }
                 return false;
             }
             TRACE("pb", display(tout, m_lemma, true););
@@ -1157,9 +1165,6 @@ namespace smt {
                 // It is not a correctness bug but causes to miss lemmas.
                 //
                 IF_VERBOSE(1, display_resolved_lemma(verbose_stream()););
-                for (unsigned i = 0; i < m_lemma.size(); ++i) {
-                    unset_mark(m_lemma.lit(i));
-                }
                 return false;
             }
             
@@ -1186,12 +1191,8 @@ namespace smt {
                 justification* cjs = cls.get_justification();
                 if (cjs) {
                     IF_VERBOSE(1, verbose_stream() << "skipping justification for clause over: " << conseq << "\n";);
+                    TRACE("pb", tout << "skipping justification for clause over: " << conseq << "\n";);
                     m_ineq_literals.push_back(conseq);
-                    m_lemma.m_k -= conseq_coeff;
-                    for (unsigned i = 0; i < m_lemma.size(); ++i) {
-                        unset_mark(m_lemma.lit(i));
-                    }
-                    return false;
                     break;
                 }
                 unsigned num_lits = cls.get_num_literals();
@@ -1225,11 +1226,6 @@ namespace smt {
                     TRACE("pb", tout << "skipping justification for " << conseq 
                           << " from theory "  << j.get_from_theory() << "\n";);
                     m_ineq_literals.push_back(conseq);
-                    m_lemma.m_k -= conseq_coeff;
-                    for (unsigned i = 0; i < m_lemma.size(); ++i) {
-                        unset_mark(m_lemma.lit(i));
-                    }
-                    return false;
                 }
                 else {
                     pb_justification& pbj = dynamic_cast<pb_justification&>(j);
@@ -1242,11 +1238,6 @@ namespace smt {
             default:
                 UNREACHABLE();
             }            
-        }
-
-
-        for (unsigned i = 0; i < m_lemma.size(); ++i) {
-            unset_mark(m_lemma.lit(i));
         }
 
         TRACE("pb", 
@@ -1304,7 +1295,7 @@ namespace smt {
             m_conseq_index[c.lit(idx).var()] = idx;
         }
         c.m_args.pop_back();
-        unset_mark(lit);
+        unset_mark(lit.var());
         --m_num_marks;
     }
 

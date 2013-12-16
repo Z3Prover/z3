@@ -143,13 +143,15 @@ namespace smt {
         unsigned          m_conflict_lvl;
         ineq              m_lemma;
         literal_vector    m_ineq_literals;
+        svector<bool_var> m_marked;
 
         // bool_var |-> index into m_lemma
         unsigned_vector   m_conseq_index;
         static const unsigned null_index = UINT_MAX;
         bool is_marked(bool_var v) const;
         void set_mark(bool_var v, unsigned idx);
-        void unset_mark(literal l);
+        void unset_mark(bool_var v);
+        void unset_marks();
 
         bool resolve_conflict(ineq& c);
         void process_antecedent(literal l, numeral coeff);
