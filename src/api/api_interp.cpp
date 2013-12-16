@@ -319,8 +319,8 @@ static void get_file_params(const char *filename, hash_map<std::string,std::stri
       tokenize(first_line.substr(2,first_line.size()-2),tokens);
       for(unsigned i = 0; i < tokens.size(); i++){
 	std::string &tok = tokens[i];
-	int eqpos = tok.find('=');
-	if(eqpos >= 0 && eqpos < (int)tok.size()){
+	size_t eqpos = tok.find('=');
+	if(eqpos >= 0 && eqpos < tok.size()){
 	  std::string left = tok.substr(0,eqpos);
 	  std::string right = tok.substr(eqpos+1,tok.size()-eqpos-1);
 	  params[left] = right;
@@ -377,8 +377,8 @@ extern "C" {
 #else
 
 
-  static Z3_ast and_vec(Z3_context ctx,std::vector<Z3_ast> &c){
-    return (c.size() > 1) ? Z3_mk_and(ctx,c.size(),&c[0]) : c[0];
+  static Z3_ast and_vec(Z3_context ctx,svector<Z3_ast> &c){
+      return (c.size() > 1) ? Z3_mk_and(ctx,c.size(),&c[0]) : c[0];
   }
   
   static Z3_ast parents_vector_to_tree(Z3_context ctx, int num, Z3_ast *cnsts, int *parents){
@@ -395,15 +395,15 @@ extern "C" {
       }
     }
     else {
-      std::vector<std::vector<Z3_ast> > chs(num);
+      std::vector<svector<Z3_ast> > chs(num);
       for(int i = 0; i < num-1; i++){
-	std::vector<Z3_ast> &c = chs[i];
+          svector<Z3_ast> &c = chs[i];
 	c.push_back(cnsts[i]);
 	Z3_ast foo = Z3_mk_interp(ctx,and_vec(ctx,c));
 	chs[parents[i]].push_back(foo);
       }
       {
-	std::vector<Z3_ast> &c = chs[num-1];
+	svector<Z3_ast> &c = chs[num-1];
 	c.push_back(cnsts[num-1]);
 	res = and_vec(ctx,c);
       }
@@ -468,7 +468,7 @@ extern "C" {
   static std::string read_msg;
   static std::vector<Z3_ast> read_theory;
 
-  static bool iZ3_parse(Z3_context ctx, const char *filename, const char **error, std::vector<Z3_ast> &assertions){
+  static bool iZ3_parse(Z3_context ctx, const char *filename, const char **error, svector<Z3_ast> &assertions){
     read_error.clear();
     try {
       std::string foo(filename);
@@ -510,26 +510,26 @@ extern "C" {
 
     hash_map<std::string,std::string> file_params;
     get_file_params(filename,file_params);
-
-    int num_theory = 0;
+    
+    unsigned num_theory = 0;
     if(file_params.find("THEORY") != file_params.end())
       num_theory = atoi(file_params["THEORY"].c_str());
 
-    std::vector<Z3_ast> assertions;
+    svector<Z3_ast> assertions;
     if(!iZ3_parse(ctx,filename,error,assertions))
       return false;
     
-    if(num_theory > (int)assertions.size())
-      num_theory = assertions.size();
-    int num = assertions.size() - num_theory;
+    if(num_theory > assertions.size())
+        num_theory = assertions.size();
+    unsigned num = assertions.size() - num_theory;
 
     read_cnsts.resize(num);
     read_parents.resize(num);
     read_theory.resize(num_theory);
 
-    for(int j = 0; j < num_theory; j++)
+    for(unsigned j = 0; j < num_theory; j++)
       read_theory[j] = assertions[j];
-    for(int j = 0; j < num; j++)
+    for(unsigned j = 0; j < num; j++)
       read_cnsts[j] = assertions[j+num_theory];
     
     if(ret_num_theory)
@@ -543,12 +543,12 @@ extern "C" {
       return true;
     }
 
-    for(int j = 0; j < num; j++)
+    for(unsigned j = 0; j < num; j++)
       read_parents[j] = SHRT_MAX;
     
     hash_map<Z3_ast,int> pred_map;
 
-    for(int j = 0; j < num; j++){
+    for(unsigned j = 0; j < num; j++){
       Z3_ast lhs = 0, rhs = read_cnsts[j];
 
       if(Z3_get_decl_kind(ctx,Z3_get_app_decl(ctx,Z3_to_app(ctx,rhs))) == Z3_OP_IMPLIES){
@@ -602,7 +602,7 @@ extern "C" {
       }
     }
 
-    for(int j = 0; j < num-1; j++)
+    for(unsigned j = 0; j < num-1; j++)
       if(read_parents[j] == SHRT_MIN){
 	read_error << "formula " << j+1 << ": unreferenced";
 	goto fail;
