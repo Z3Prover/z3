@@ -58,7 +58,7 @@ public:
     }
   };
 
-  typedef hash_map<symb,foci2::symb,symb_hash> FuncDeclToSymbol; 
+  typedef hash_map<symb,foci2::symb> FuncDeclToSymbol; 
   FuncDeclToSymbol func_decl_to_symbol;     // maps Z3 func decls to symbols
 
   typedef hash_map<foci2::symb,symb> SymbolToFuncDecl; 

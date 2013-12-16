@@ -619,14 +619,7 @@ public:
       return 1;
   }
 
-  // We only use this for debugging purposes
-  struct symb_hash {
-    size_t operator()(const symb &s) const {
-      return (size_t) s;
-    }
-  };
-
-  void symbols_out_of_scope_rec(hash_set<ast> &memo, hash_set<symb,symb_hash> &symb_memo, int frame, const ast &t){
+  void symbols_out_of_scope_rec(hash_set<ast> &memo, hash_set<symb> &symb_memo, int frame, const ast &t){
     if(memo.find(t) != memo.end())
       return;
     memo.insert(t);
@@ -645,7 +638,7 @@ public:
 
   void symbols_out_of_scope(int frame, const ast &t){
     hash_set<ast> memo;
-    hash_set<symb,symb_hash> symb_memo;
+    hash_set<symb> symb_memo;
     symbols_out_of_scope_rec(memo,symb_memo,frame,t);
   }
 

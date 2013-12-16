@@ -606,7 +606,7 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
   void model::show_hash() const {
     std::ostringstream ss;
     model_smt2_pp(ss, m(), *m_model, 0);
-    stl_ext::hash<std::string> hasher;
+    hash_space::hash<std::string> hasher;
     unsigned h = hasher(ss.str());
     std::cout << "model hash: " << h << "\n";
   }

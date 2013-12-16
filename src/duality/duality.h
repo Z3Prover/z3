@@ -1011,7 +1011,7 @@ private:
 
 // Allow to hash on nodes and edges in deterministic way
 
-namespace stl_ext {
+namespace hash_space {
   template <>
     class hash<Duality::RPFP::Node *> {
   public:
@@ -1021,7 +1021,7 @@ namespace stl_ext {
   };
 }
 
-namespace stl_ext {
+namespace hash_space {
   template <>
     class hash<Duality::RPFP::Edge *> {
   public:
