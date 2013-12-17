@@ -36,6 +36,8 @@ namespace smt {
         rational                 m_min_cost;   // current maximal cost assignment.
         u_map<theory_var>        m_bool2var;   // bool_var -> theory_var
         svector<bool_var>        m_var2bool;   // theory_var -> bool_var
+        bool                     m_propagate;  
+        svector<bool>            m_assigned;
 
     public:
         theory_weighted_maxsat(ast_manager& m, opt::opt_solver& s):
@@ -43,7 +45,8 @@ namespace smt {
             s(s),
             m_vars(m),
             m_fmls(m),
-            m_min_cost_atom(m)
+            m_min_cost_atom(m),
+            m_propagate(false)
         {}
 
         /**
@@ -83,7 +86,8 @@ namespace smt {
             context & ctx = get_context();
             ast_manager& m = get_manager();
             bool initialized = !m_var2bool.empty();
-            
+            m_propagate = true;
+
             for (unsigned i = 0; !initialized && i < m_vars.size(); ++i) {
                 app* var = m_vars[i].get();  
                 bool_var bv;
@@ -105,14 +109,6 @@ namespace smt {
                 SASSERT(i == v);
                 m_var2bool.push_back(bv);
                 SASSERT(ctx.bool_var2enode(bv));
-            }
-            for (unsigned i = 0; i < m_vars.size(); ++i) {
-                app* var = m_vars[i].get();  
-                bool_var bv = ctx.get_bool_var(var);
-                lbool asgn = ctx.get_assignment(bv);
-                if (asgn == l_true) {
-                    assign_eh(bv, true);
-                }
             }
 
             if (!initialized && m_min_cost_atom) {
@@ -141,6 +137,7 @@ namespace smt {
             m_weights.push_back(w);
             m_vars.push_back(var);
             m_fmls.push_back(fml);
+            m_assigned.push_back(false);
             m_min_cost += w;
         }
 
@@ -167,11 +164,14 @@ namespace smt {
             if (is_true) {
                 context& ctx = get_context();
                 theory_var tv = m_bool2var[v];
+                if (m_assigned[tv]) return;
                 rational const& w = m_weights[tv];
                 ctx.push_trail(value_trail<context, rational>(m_cost));
                 ctx.push_trail(push_back_vector<context, svector<theory_var> >(m_costs));
+                ctx.push_trail(value_trail<context, bool>(m_assigned[tv]));
                 m_cost += w;
                 m_costs.push_back(tv);
+                m_assigned[tv] = true;
                 if (m_cost > m_min_cost) {
                     block();
                 }
@@ -206,6 +206,8 @@ namespace smt {
             m_bool2var.reset();
             m_var2bool.reset();
             m_min_cost_atom = 0;
+            m_propagate = false;
+            m_assigned.reset();
         }
 
         virtual theory * mk_fresh(context * new_ctx) { return 0; }
@@ -213,6 +215,24 @@ namespace smt {
         virtual bool internalize_term(app * term) { return false; }
         virtual void new_eq_eh(theory_var v1, theory_var v2) { }
         virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
+
+        virtual bool can_propagate() {
+            return m_propagate;
+        }
+
+        virtual void propagate() {
+            context& ctx = get_context();
+            for (unsigned i = 0; m_propagate && i < m_vars.size(); ++i) {
+                bool_var bv = m_var2bool[i];
+                lbool asgn = ctx.get_assignment(bv);
+                if (asgn == l_true) {
+                    assign_eh(bv, true);
+                }
+            }
+            m_propagate = false;
+        }
+        
+
 
         bool is_optimal() const {
             return m_cost < m_min_cost;
@@ -386,6 +406,7 @@ namespace opt {
             lbool is_sat = l_true;
             {
                 solver::scoped_push _s(s);
+                bool was_sat = false;
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     wth.assert_weighted(m_soft[i].get(), m_weights[i]);
                 }
@@ -397,10 +418,13 @@ namespace opt {
                         }
                         expr_ref fml = wth.mk_block();
                         s.assert_expr(fml);
+                        was_sat = true;
                     }
                 }
-                if (is_sat == l_false) {
+                if (was_sat) {
                     wth.get_assignment(m_assignment);
+                }
+                if (is_sat == l_false && was_sat) {
                     is_sat = l_true;
                 }
             }

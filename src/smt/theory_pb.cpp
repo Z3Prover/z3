@@ -983,7 +983,9 @@ namespace smt {
               tout << "\n";
               display(tout, c, true););
 
-        resolve_conflict(c);
+        if ((c.m_num_propagations & 0xF) == 0) {
+            resolve_conflict(c);
+        }
 
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
@@ -1029,6 +1031,16 @@ namespace smt {
 
         if (ctx.get_assignment(l) != l_false) {
             m_lemma.m_k -= coeff;
+            if (false && is_marked(v)) {
+                SASSERT(ctx.get_assignment(l) == l_true);
+                numeral& lcoeff = m_lemma.m_args[m_conseq_index[v]].second; 
+                lcoeff -= coeff;
+                if (!lcoeff.is_pos()) {
+                    // perhaps let lemma simplification change coefficient
+                    // when negative?
+                    remove_from_lemma(m_lemma, m_conseq_index[v]);                    
+                }
+            }
         }
         else if (lvl > ctx.get_base_level()) {
             if (is_marked(v)) {
