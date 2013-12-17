@@ -253,6 +253,7 @@ namespace smt {
                 disj.push_back(m.mk_not(m_min_cost_atom));
             }
             if (is_optimal()) {
+                IF_VERBOSE(1, verbose_stream() << "(wmaxsat with lower bound: " << weight << "\n";);
                 m_min_cost = weight;
                 m_cost_save.reset();
                 m_cost_save.append(m_costs);

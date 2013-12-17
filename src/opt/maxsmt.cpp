@@ -39,6 +39,9 @@ namespace opt {
             if (m_maxsat_engine == symbol("core_maxsat")) {
                 m_msolver = alloc(core_maxsat, m, s, m_soft_constraints);
             }
+            else if (m_maxsat_engine == symbol("weighted_maxsat")) {
+                m_msolver = alloc(wmaxsmt, m, opt_solver::to_opt(s), m_soft_constraints, m_weights);
+            }
             else {
                 m_msolver = alloc(fu_malik, m, s, m_soft_constraints);
             }
