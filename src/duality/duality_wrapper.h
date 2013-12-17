@@ -393,6 +393,7 @@ namespace Duality {
       sort array_range() const;
     };
 
+    
     class func_decl : public ast {
     public:
         func_decl() : ast() {}
@@ -412,6 +413,7 @@ namespace Duality {
 
         expr operator()(unsigned n, expr const * args) const;
         expr operator()(const std::vector<expr> &args) const;
+        expr operator()() const;
         expr operator()(expr const & a) const;
         expr operator()(int a) const;
         expr operator()(expr const & a1, expr const & a2) const;
@@ -455,6 +457,8 @@ namespace Duality {
         bool is_quantifier() const {return raw()->get_kind() == AST_QUANTIFIER;}
         bool is_var() const {return raw()->get_kind() == AST_VAR;}
 	bool is_label (bool &pos,std::vector<symbol> &names) const ;
+	bool is_ground() const {return to_app(raw())->is_ground();}
+	bool has_quantifiers() const {return to_app(raw())->has_quantifiers();}
 
         // operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
         func_decl decl() const {return func_decl(ctx(),to_app(raw())->get_decl());}
@@ -554,6 +558,8 @@ namespace Duality {
 
         expr simplify(params const & p) const;
 	
+        expr qe_lite() const;
+
 	friend expr clone_quantifier(const expr &, const expr &);
 
         friend expr clone_quantifier(const expr &q, const expr &b, const std::vector<expr> &patterns);
@@ -592,6 +598,36 @@ namespace Duality {
 
     };
     
+
+    typedef ::decl_kind pfrule;
+    
+    class proof : public ast {
+    public:
+      proof(context & c):ast(c) {}
+      proof(context & c, ::proof *s):ast(c, s) {}
+      proof(proof const & s):ast(s) {}
+      operator ::proof*() const { return to_app(raw()); }
+      proof & operator=(proof const & s) { return static_cast<proof&>(ast::operator=(s)); }
+
+      pfrule rule() const {
+	::func_decl *d = to_app(raw())->get_decl();
+	return d->get_decl_kind();
+      }
+
+      unsigned num_prems() const {
+	return to_app(raw())->get_num_args() - 1;
+      }
+      
+      expr conc() const {
+	return ctx().cook(to_app(raw())->get_arg(num_prems()));
+      }
+      
+      proof prem(unsigned i) const {
+	return proof(ctx(),to_app(to_app(raw())->get_arg(i)));
+      }
+      
+      void get_assumptions(std::vector<expr> &assumps);
+    };
 
 #if 0
 
@@ -691,6 +727,7 @@ namespace Duality {
         }
         
         void show() const;
+	void show_hash() const;
 
         unsigned num_consts() const {return m_model.get()->get_num_constants();}
         unsigned num_funcs() const {return m_model.get()->get_num_functions();}
@@ -775,7 +812,7 @@ namespace Duality {
         model the_model;
 	bool canceled;
     public:
-        solver(context & c);
+        solver(context & c, bool extensional = false);
         solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; canceled = false;}
         solver(solver const & s):object(s), the_model(s.the_model) { m_solver = s.m_solver; canceled = false;}
         ~solver() {
@@ -867,6 +904,16 @@ namespace Duality {
 	  if(m_solver)
 	    m_solver->cancel();
 	}
+
+	unsigned get_scope_level(){return m_solver->get_scope_level();}
+
+	void show();
+	void show_assertion_ids();
+
+	proof get_proof(){
+	  return proof(ctx(),m_solver->get_proof());
+	}
+
     };
 
 #if 0
@@ -1144,6 +1191,9 @@ namespace Duality {
     inline expr func_decl::operator()(const std::vector<expr> &args) const {
       return operator()(args.size(),&args[0]);
     }
+    inline expr func_decl::operator()() const {
+      return operator()(0,0);
+    }
     inline expr func_decl::operator()(expr const & a) const {
       return operator()(1,&a);
     }
@@ -1199,6 +1249,8 @@ namespace Duality {
 
       inline expr getTerm(){return term;}
 
+      inline std::vector<expr> &getTerms(){return terms;}
+
       inline std::vector<TermTree *> &getChildren(){
 	return children;
       }
@@ -1215,6 +1267,8 @@ namespace Duality {
       }
 
       inline void setTerm(expr t){term = t;}
+      
+      inline void addTerm(expr t){terms.push_back(t);}
 
       inline void setChildren(const std::vector<TermTree *> & _children){
 	children = _children;
@@ -1231,6 +1285,7 @@ namespace Duality {
 
     private:
       expr term;
+      std::vector<expr> terms;
       std::vector<TermTree *> children;
       int num;
     };
@@ -1277,6 +1332,7 @@ namespace Duality {
       void SetWeakInterpolants(bool weak);
       void SetPrintToFile(const std::string &file_name);
       
+      const std::vector<expr> &GetInterpolationAxioms() {return theory;}
       const char *profile();
       
     private:
@@ -1331,7 +1387,8 @@ namespace std {
     class less<Duality::ast> {
   public:
     bool operator()(const Duality::ast &s, const Duality::ast &t) const {
-      return s.raw() < t.raw(); // s.raw()->get_id() < t.raw()->get_id();
+      // return s.raw() < t.raw();
+      return s.raw()->get_id() < t.raw()->get_id();
     }
   };
 }
@@ -1362,7 +1419,8 @@ namespace std {
     class less<Duality::func_decl> {
   public:
     bool operator()(const Duality::func_decl &s, const Duality::func_decl &t) const {
-      return s.raw() < t.raw(); // s.raw()->get_id() < t.raw()->get_id();
+      // return s.raw() < t.raw();
+      return s.raw()->get_id() < t.raw()->get_id();
     }
   };
 }

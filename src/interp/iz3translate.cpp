@@ -109,36 +109,49 @@ public:
      symbols and assign each to a frame. THe assignment is heuristic.
   */
 
-  void scan_skolems_rec(hash_set<ast> &memo, const ast &proof){
-    std::pair<hash_set<ast>::iterator,bool> bar = memo.insert(proof);
-    if(!bar.second)
-      return;
+  int scan_skolems_rec(hash_map<ast,int> &memo, const ast &proof, int frame){
+    std::pair<ast,int> foo(proof,INT_MAX);
+    std::pair<AstToInt::iterator, bool> bar = memo.insert(foo);
+    int &res = bar.first->second;
+    if(!bar.second) return res;
     pfrule dk = pr(proof);
-    if(dk == PR_SKOLEMIZE){
+    if(dk == PR_ASSERTED){
+      ast ass = conc(proof);
+      res = frame_of_assertion(ass);
+    }
+    else if(dk == PR_SKOLEMIZE){
       ast quanted = arg(conc(proof),0);
       if(op(quanted) == Not)
 	quanted = arg(quanted,0);
-      range r = ast_range(quanted);
-      if(range_is_empty(r))
-	r = ast_scope(quanted);
+      // range r = ast_range(quanted);
+      // if(range_is_empty(r))
+      range r = ast_scope(quanted);
       if(range_is_empty(r))
 	throw "can't skolemize";
-      int frame = range_max(r);
+      if(frame == INT_MAX || !in_range(frame,r))
+	frame = range_max(r); // this is desperation -- may fail
       if(frame >= frames) frame = frames - 1;
       add_frame_range(frame,arg(conc(proof),1));
       r = ast_scope(arg(conc(proof),1));
     }
+    else if(dk==PR_MODUS_PONENS_OEQ){
+      frame = scan_skolems_rec(memo,prem(proof,0),frame);
+      scan_skolems_rec(memo,prem(proof,1),frame);
+    }
     else {
       unsigned nprems = num_prems(proof);
       for(unsigned i = 0; i < nprems; i++){
-	scan_skolems_rec(memo,prem(proof,i));
+	int bar = scan_skolems_rec(memo,prem(proof,i),frame);
+	if(res == INT_MAX || res == bar) res = bar;
+	else if(bar != INT_MAX) res = -1;
       }
     }
+    return res;
   }
 
   void scan_skolems(const ast &proof){
-    hash_set<ast> memo;
-    scan_skolems_rec(memo,proof);
+    hash_map<ast,int> memo;
+    scan_skolems_rec(memo,proof, INT_MAX);
   }
 
   // determine locality of a proof term
@@ -1364,6 +1377,18 @@ public:
     return eq2;
   }
 
+  bool get_store_array(const ast &t, ast &res){
+    if(op(t) == Store){
+      res = t;
+      return true;
+    }
+    int nargs = num_args(t);
+    for(int i = 0; i < nargs; i++)
+      if(get_store_array(arg(t,i),res))
+	return true;
+    return false;
+  }
+
   // translate a Z3 proof term into interpolating proof system
 
   Iproof::node translate_main(ast proof, bool expect_clause = true){
@@ -1446,6 +1471,21 @@ public:
 	}
 	catch(const CannotCombineEqPropagate &){
 	}
+      }
+
+      /* this is the symmetry rule for ~=, that is, takes x ~= y and yields y ~= x.
+      the proof idiom uses commutativity, monotonicity and mp, but we replace it here
+      with symmtrey and resolution, that is, we prove y = x |- x = y, then resolve
+      with the proof of ~(x=y) to get ~y=x. */
+      if(dk == PR_MODUS_PONENS && pr(prem(proof,1)) == PR_MONOTONICITY && pr(prem(prem(proof,1),0)) == PR_COMMUTATIVITY && num_prems(prem(proof,1)) == 1){
+	Iproof::node ante = translate_main(prem(proof,0),false);
+	ast eq0 = arg(conc(prem(prem(proof,1),0)),0);
+	ast eq1 = arg(conc(prem(prem(proof,1),0)),1);
+	Iproof::node eq1hy = iproof->make_hypothesis(eq1);
+	Iproof::node eq0pf = iproof->make_symmetry(eq0,eq1,eq1hy);
+	std::vector<ast> clause; // just a dummy
+	res = iproof->make_resolution(eq0,clause,ante,eq0pf);
+	return res;
       }
 
       // translate all the premises
@@ -1578,9 +1618,13 @@ public:
 	    throw unsupported();
 	  }
 	  break;
-	case ArrayTheory: // nothing fancy for this
-	  res = iproof->make_axiom(lits);
+	case ArrayTheory: {// nothing fancy for this
+	  ast store_array;
+	  if(!get_store_array(con,store_array))
+	    throw unsupported();
+	  res = iproof->make_axiom(lits,ast_scope(store_array));
 	  break;
+	}
 	default:
 	  throw unsupported();
 	}

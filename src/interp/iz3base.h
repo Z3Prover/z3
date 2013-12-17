@@ -24,6 +24,16 @@ Revision History:
 #include "iz3mgr.h"
 #include "iz3scopes.h"
 
+namespace hash_space {
+  template <>
+    class hash<func_decl *> {
+  public:
+    size_t operator()(func_decl * const &s) const {
+      return (size_t) s;
+    }
+  };
+}
+
 /* Base class for interpolators. Includes an AST manager and a scoping
    object as bases. */
  
@@ -179,8 +189,6 @@ class iz3base : public iz3mgr, public scopes {
   bool weak;
 
 };
-
-
 
 
 

@@ -51,6 +51,13 @@ public:
   typedef hash_map<foci2::ast,ast> NodeToAst;
   NodeToAst node_to_ast;                    // maps Z3 ast's to foci expressions
 
+  // We only use this for FuncDeclToSymbol, which has no range destructor
+  struct symb_hash {
+    size_t operator()(const symb &s) const {
+      return (size_t) s;
+    }
+  };
+
   typedef hash_map<symb,foci2::symb> FuncDeclToSymbol; 
   FuncDeclToSymbol func_decl_to_symbol;     // maps Z3 func decls to symbols
 

@@ -479,7 +479,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             // otherwise t2 is also a quantifier.
             return true;
         }
-        UNREACHABLE();
+        IF_VERBOSE(0, verbose_stream() << "does not match last rule: " << mk_pp(p, m) << "\n";);
         return false;
     }
     case PR_DER: {
@@ -488,13 +488,12 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             match_fact(p, fact) &&
             match_iff(fact.get(), t1, t2) &&
             match_quantifier(t1, is_forall, decls1, body1) &&
-            is_forall &&
-            match_or(body1.get(), terms1)) {
+            is_forall) {
             // TBD: check that terms are set of equalities.
             // t2 is an instance of a predicate in terms1
             return true;
-        }
-        UNREACHABLE();
+        }        
+        IF_VERBOSE(0, verbose_stream() << "does not match last rule: " << mk_pp(p, m) << "\n";);
         return false;
     }
     case PR_HYPOTHESIS: {
@@ -832,7 +831,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             }
             else {
                 IF_VERBOSE(0, verbose_stream() << "Could not establish complementarity for:\n" << 
-                           mk_pp(lit1, m) << "\n" << mk_pp(lit2, m) << "\n";);
+                           mk_pp(lit1, m) << "\n" << mk_pp(lit2, m) << "\n" << mk_pp(p, m) << "\n";);
             }
             fmls[i] = premise1;
         }

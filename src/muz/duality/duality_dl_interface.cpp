@@ -472,7 +472,7 @@ static proof_ref extract_proof(dl_interface *d, Solver::Counterexample &cex) {
   expr conc = f(args);
   
 
-  ::vector<proof *> pprems;
+  ::vector< ::proof *> pprems;
   for(unsigned i = 0; i < prems.size(); i++)
     pprems.push_back(prems[i].get());
   

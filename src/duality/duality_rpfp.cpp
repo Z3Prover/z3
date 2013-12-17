@@ -25,6 +25,8 @@ Revision History:
 #include "duality_profiling.h"
 #include <algorithm>
 #include <fstream>
+#include <set>
+#include <iterator>
 
 #ifndef WIN32
 // #define Z3OPS
@@ -89,15 +91,17 @@ namespace Duality {
     if(memo.find(t) != memo.end())
       return;
     memo.insert(t);
-    decl_kind k = t.decl().get_decl_kind();
-    if(k == And || k == Or || k == Not || k == Implies || k == Iff){
-      ops++;
-      int nargs = t.num_args();
-      for(int i = 0; i < nargs; i++)
-	SummarizeRec(memo,lits,ops,t.arg(i));
+    if(t.is_app()){
+      decl_kind k = t.decl().get_decl_kind();
+      if(k == And || k == Or || k == Not || k == Implies || k == Iff){
+	ops++;
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++)
+	  SummarizeRec(memo,lits,ops,t.arg(i));
+	return;
+      }
     }
-    else
-      lits.push_back(t);
+    lits.push_back(t);
   }
 
   int Z3User::CumulativeDecisions(){
@@ -122,6 +126,32 @@ namespace Duality {
       std::cout << lits[i];
     }
   }
+
+  int Z3User::CountOperatorsRec(hash_set<ast> &memo, const Term &t){
+    if(memo.find(t) != memo.end())
+      return 0;
+    memo.insert(t);
+    if(t.is_app()){
+      decl_kind k = t.decl().get_decl_kind();
+      if(k == And || k == Or){
+	int count = 1;
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++)
+	  count += CountOperatorsRec(memo,t.arg(i));
+	return count;
+      }
+      return 0;
+    }
+    if(t.is_quantifier())
+      return CountOperatorsRec(memo,t.body())+2; // count 2 for a quantifier
+    return 0;
+  }
+
+  int Z3User::CountOperators(const Term &t){
+    hash_set<ast> memo;
+    return CountOperatorsRec(memo,t);
+  }
+
 
   Z3User::Term Z3User::conjoin(const std::vector<Term> &args){
     return ctx.make(And,args);
@@ -182,6 +212,7 @@ namespace Duality {
 #endif
     return clone_quantifier(t,new_body);
   }
+
 
   RPFP::Term RPFP::LocalizeRec(Edge *e,  hash_map<ast,Term> &memo, const Term &t)
   {
@@ -272,16 +303,21 @@ namespace Duality {
     return implies(b, Localize(e, e->F.Formula));
   }
 
-  TermTree *RPFP::ToTermTree(Node *root)
+  TermTree *RPFP::ToTermTree(Node *root, Node *skip_descendant)
   {
+    if(skip_descendant && root == skip_descendant)
+      return new TermTree(ctx.bool_val(true));
     Edge *e = root->Outgoing;
     if(!e) return new TermTree(ctx.bool_val(true), std::vector<TermTree *>());
     std::vector<TermTree *> children(e->Children.size());
     for(unsigned i = 0; i < children.size(); i++)
-      children[i] = ToTermTree(e->Children[i]);
+      children[i] = ToTermTree(e->Children[i],skip_descendant);
     // Term top = ReducedDualEdge(e);
     Term top = e->dual.null() ? ctx.bool_val(true) : e->dual;
-    return new TermTree(top, children);
+    TermTree *res = new TermTree(top, children);
+    for(unsigned i = 0; i < e->constraints.size(); i++)
+      res->addTerm(e->constraints[i]);
+    return res;
   }
 
   TermTree *RPFP::GetGoalTree(Node *root){
@@ -321,9 +357,227 @@ namespace Duality {
 	res = f(args.size(),&args[0]);
       }
     else if (t.is_quantifier())
-      res = CloneQuantifier(t,SubstRec(memo, t.body()));
+      {
+	std::vector<expr> pats;
+	t.get_patterns(pats);
+	for(unsigned i = 0; i < pats.size(); i++)
+	  pats[i] = SubstRec(memo,pats[i]);
+	Term body = SubstRec(memo,t.body());
+	res = clone_quantifier(t, body, pats);
+      }
+    // res = CloneQuantifier(t,SubstRec(memo, t.body()));
     else res = t;
     return res;
+  }
+
+  bool Z3User::IsLiteral(const expr &lit, expr &atom, expr &val){
+    if(!(lit.is_quantifier() && IsClosedFormula(lit))){
+      if(!lit.is_app())
+	return false;
+      decl_kind k = lit.decl().get_decl_kind();
+      if(k == Not){
+	if(IsLiteral(lit.arg(0),atom,val)){
+	  val = eq(val,ctx.bool_val(true)) ? ctx.bool_val(false) : ctx.bool_val(true); 
+	  return true;
+	}
+	return false;
+      }
+      if(k == And || k == Or || k == Iff || k == Implies)
+	return false;
+    }
+    atom = lit;
+    val = ctx.bool_val(true);
+    return true;
+  }
+
+  expr Z3User::Negate(const expr &f){
+    if(f.is_app() && f.decl().get_decl_kind() == Not)
+      return f.arg(0);
+    else if(eq(f,ctx.bool_val(true)))
+      return ctx.bool_val(false);
+    else if(eq(f,ctx.bool_val(false)))
+      return ctx.bool_val(true);
+    return !f;
+  }
+
+  expr Z3User::ReduceAndOr(const std::vector<expr> &args, bool is_and, std::vector<expr> &res){
+    for(unsigned i = 0; i < args.size(); i++)
+      if(!eq(args[i],ctx.bool_val(is_and))){
+	if(eq(args[i],ctx.bool_val(!is_and)))
+	  return ctx.bool_val(!is_and);
+	res.push_back(args[i]);
+      }
+    return expr();
+  }
+
+  expr Z3User::FinishAndOr(const std::vector<expr> &args, bool is_and){
+    if(args.size() == 0)
+      return ctx.bool_val(is_and);
+    if(args.size() == 1)
+      return args[0];
+    return ctx.make(is_and ? And : Or,args);
+  }
+
+  expr Z3User::SimplifyAndOr(const std::vector<expr> &args, bool is_and){
+    std::vector<expr> sargs;
+    expr res = ReduceAndOr(args,is_and,sargs);
+    if(!res.null()) return res;
+    return FinishAndOr(sargs,is_and);
+  }
+
+  expr Z3User::PullCommonFactors(std::vector<expr> &args, bool is_and){
+    
+    // first check if there's anything to do...
+    if(args.size() < 2)
+      return FinishAndOr(args,is_and);
+    for(unsigned i = 0; i < args.size(); i++){
+      const expr &a = args[i];
+      if(!(a.is_app() && a.decl().get_decl_kind() == (is_and ? Or : And)))
+	return FinishAndOr(args,is_and);
+    }
+    std::vector<expr> common;
+    for(unsigned i = 0; i < args.size(); i++){
+      unsigned n = args[i].num_args();
+      std::vector<expr> v(n),w;
+      for(unsigned j = 0; j < n; j++)
+	v[j] = args[i].arg(j);
+      std::less<ast> comp;
+      std::sort(v.begin(),v.end(),comp);
+      if(i == 0)
+	common.swap(v);
+      else {
+	std::set_intersection(common.begin(),common.end(),v.begin(),v.end(),std::inserter(w,w.begin()),comp);
+	common.swap(w);
+      }
+    }  
+    if(common.empty())
+      return FinishAndOr(args,is_and);
+    std::set<ast> common_set(common.begin(),common.end());
+    for(unsigned i = 0; i < args.size(); i++){
+      unsigned n = args[i].num_args();
+      std::vector<expr> lits;
+      for(unsigned j = 0; j < n; j++){
+	const expr b = args[i].arg(j);
+	if(common_set.find(b) == common_set.end())
+	  lits.push_back(b);
+      }
+      args[i] = SimplifyAndOr(lits,!is_and);
+    }  
+    common.push_back(SimplifyAndOr(args,is_and));
+    return SimplifyAndOr(common,!is_and);
+  }
+
+  expr Z3User::ReallySimplifyAndOr(const std::vector<expr> &args, bool is_and){
+    std::vector<expr> sargs;
+    expr res = ReduceAndOr(args,is_and,sargs);
+    if(!res.null()) return res;
+    return PullCommonFactors(sargs,is_and);
+  }
+
+  Z3User::Term Z3User::SubstAtomTriv(const expr &foo, const expr &atom, const expr &val){
+    if(eq(foo,atom))
+      return val;
+    else if(foo.is_app() && foo.decl().get_decl_kind() == Not && eq(foo.arg(0),atom))
+      return Negate(val);
+    else
+      return foo;
+  }
+
+  Z3User::Term Z3User::SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val){
+    std::pair<ast,Term> foo(t,expr(ctx));
+    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
+    Term &res = bar.first->second;
+    if(!bar.second) return res;
+    if (t.is_app()){
+      func_decl f = t.decl();
+      decl_kind k = f.get_decl_kind();
+      
+      // TODO: recur here, but how much? We don't want to be quadractic in formula size
+      
+      if(k == And || k == Or){
+	int nargs = t.num_args();
+	std::vector<Term> args(nargs);
+	for(int i = 0; i < nargs; i++)
+	  args[i] = SubstAtom(memo,t.arg(i),atom,val);
+	res = ReallySimplifyAndOr(args, k==And);
+	return res;
+      }
+    }
+    else if(t.is_quantifier() && atom.is_quantifier()){
+      if(eq(t,atom))
+	res = val;
+      else
+	res = clone_quantifier(t,SubstAtom(memo,t.body(),atom,val));
+      return res;
+    }
+    res = SubstAtomTriv(t,atom,val);
+    return res;
+  }
+
+  void Z3User::RemoveRedundancyOp(bool pol, std::vector<expr> &args, hash_map<ast, Term> &smemo){
+    for(unsigned i = 0; i < args.size(); i++){
+      const expr &lit = args[i];
+      expr atom, val;
+      if(IsLiteral(lit,atom,val)){
+	for(unsigned j = 0; j < args.size(); j++)
+	  if(j != i){
+	    smemo.clear();
+	    args[j] = SubstAtom(smemo,args[j],atom,pol ? val : !val);
+	  }
+      }
+    }
+  }
+  
+
+  Z3User::Term Z3User::RemoveRedundancyRec(hash_map<ast, Term> &memo, hash_map<ast, Term> &smemo, const Term &t)
+  {
+    std::pair<ast,Term> foo(t,expr(ctx));
+    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
+    Term &res = bar.first->second;
+    if(!bar.second) return res;
+    if (t.is_app())
+      {
+	func_decl f = t.decl();
+	std::vector<Term> args;
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++)
+	  args.push_back(RemoveRedundancyRec(memo, smemo, t.arg(i)));
+
+	decl_kind k = f.get_decl_kind();
+	if(k == And){
+	  RemoveRedundancyOp(true,args,smemo);
+	  res = ReallySimplifyAndOr(args, true);
+	}
+	else if(k == Or){
+	  RemoveRedundancyOp(false,args,smemo);
+	  res = ReallySimplifyAndOr(args, false);
+	}
+	else {
+	  if(k == Equal && args[0].get_id() > args[1].get_id())
+	    std::swap(args[0],args[1]);
+	  res = f(args.size(),&args[0]);
+	}
+      }
+    else if (t.is_quantifier())
+      {
+	Term body = RemoveRedundancyRec(memo,smemo,t.body());
+	res = clone_quantifier(t, body);
+      }
+    else res = t;
+    return res;
+  }
+
+  Z3User::Term Z3User::RemoveRedundancy(const Term &t){
+    hash_map<ast, Term> memo;
+    hash_map<ast, Term> smemo;
+    return RemoveRedundancyRec(memo,smemo,t);
+  }
+
+  Z3User::Term Z3User::AdjustQuantifiers(const Term &t)
+  {
+    if(t.is_quantifier() || (t.is_app() && t.has_quantifiers()))
+      return t.qe_lite();
+    return t;
   }
 
   Z3User::Term Z3User::SubstRecHide(hash_map<ast, Term> &memo, const Term &t, int number)
@@ -373,6 +627,19 @@ namespace Duality {
       x = x && y;
   }
 
+  void RPFP::SetAnnotation(Node *root, const expr &t){
+    hash_map<ast, Term> memo;
+    Term b;
+    std::vector<Term> v;
+    RedVars(root, b, v);
+    memo[b] = ctx.bool_val(true);
+    for (unsigned i = 0; i < v.size(); i++)
+      memo[v[i]] = root->Annotation.IndParams[i];
+    Term annot = SubstRec(memo, t);
+    // Strengthen(ref root.Annotation.Formula, annot);
+    root->Annotation.Formula = annot;
+  }
+
   void RPFP::DecodeTree(Node *root, TermTree *interp, int persist)
   {
     std::vector<TermTree *> &ic = interp->getChildren();
@@ -382,16 +649,7 @@ namespace Duality {
 	for (unsigned i = 0; i < nc.size(); i++)
 	  DecodeTree(nc[i], ic[i], persist);
       }
-    hash_map<ast, Term> memo;
-    Term b;
-    std::vector<Term> v;
-    RedVars(root, b, v);
-    memo[b] = ctx.bool_val(true);
-    for (unsigned i = 0; i < v.size(); i++)
-      memo[v[i]] = root->Annotation.IndParams[i];
-    Term annot = SubstRec(memo, interp->getTerm());
-    // Strengthen(ref root.Annotation.Formula, annot);
-    root->Annotation.Formula = annot;
+    SetAnnotation(root,interp->getTerm());
 #if 0
     if(persist != 0)
       Z3_persist_ast(ctx,root->Annotation.Formula,persist);
@@ -509,6 +767,10 @@ namespace Duality {
     timer_stop("solver add");
   }
 
+  void RPFP::ConstrainParent(Edge *parent, Node *child){
+    ConstrainEdgeLocalized(parent,GetAnnotation(child));
+  } 
+
         
   /** For incremental solving, asserts the negation of the upper bound associated
    * with a node.
@@ -523,6 +785,24 @@ namespace Duality {
 	slvr.add(n->dual);
       }
   }
+
+  /** Assert a constraint on an edge in the SMT context. 
+   */
+
+  void RPFP::ConstrainEdge(Edge *e, const Term &t)
+  {
+    Term tl = Localize(e, t);
+    ConstrainEdgeLocalized(e,tl);
+  }
+
+  void RPFP::ConstrainEdgeLocalized(Edge *e, const Term &tl)
+  {
+    e->constraints.push_back(tl);
+    stack.back().constraints.push_back(std::pair<Edge *,Term>(e,tl));
+    slvr.add(tl);
+  }
+
+
 
   /** Declare a constant in the background theory. */
 
@@ -592,6 +872,7 @@ namespace Duality {
     TermTree *goals = NULL;
     if(ls->need_goals)
       goals = GetGoalTree(root);
+    ClearProofCore();
 
     // if (dualModel != null) dualModel.Dispose();
     // if (dualLabels != null) dualLabels.Dispose();
@@ -613,11 +894,54 @@ namespace Duality {
     return res;
   }
   
+  void RPFP::CollapseTermTreeRec(TermTree *root, TermTree *node){
+    root->addTerm(node->getTerm());
+    std::vector<Term> &cnsts = node->getTerms();
+    for(unsigned i = 0; i < cnsts.size(); i++)
+      root->addTerm(cnsts[i]);
+    std::vector<TermTree *> &chs = node->getChildren();
+    for(unsigned i = 0; i < chs.size(); i++){
+      CollapseTermTreeRec(root,chs[i]);
+    }
+  }
+
+  TermTree *RPFP::CollapseTermTree(TermTree *node){
+    std::vector<TermTree *> &chs = node->getChildren();
+    for(unsigned i = 0; i < chs.size(); i++)
+      CollapseTermTreeRec(node,chs[i]);
+    for(unsigned i = 0; i < chs.size(); i++)
+      delete chs[i];
+    chs.clear();
+    return node;
+  }
+    
+  lbool RPFP::SolveSingleNode(Node *root, Node *node)
+  {
+    timer_start("Solve");
+    TermTree *tree = CollapseTermTree(GetConstraintTree(root,node));
+    tree->getChildren().push_back(CollapseTermTree(ToTermTree(node)));
+    TermTree *interpolant = NULL;
+    ClearProofCore();
+
+    timer_start("interpolate_tree");
+    lbool res = ls->interpolate_tree(tree, interpolant, dualModel,0,true);
+    timer_stop("interpolate_tree");
+    if (res == l_false)
+      {
+	DecodeTree(node, interpolant->getChildren()[0], 0);
+	delete interpolant;
+      }
+
+    delete tree;
+    timer_stop("Solve");
+    return res;
+  }
+
   /** Get the constraint tree (but don't solve it) */
   
-  TermTree *RPFP::GetConstraintTree(Node *root)
+  TermTree *RPFP::GetConstraintTree(Node *root, Node *skip_descendant)
   {
-    return AddUpperBound(root, ToTermTree(root));
+    return AddUpperBound(root, ToTermTree(root,skip_descendant));
   }
   
   /** Dispose of the dual model (counterexample) if there is one. */
@@ -646,6 +970,7 @@ namespace Duality {
 
   check_result RPFP::Check(Node *root, std::vector<Node *> underapproxes, std::vector<Node *> *underapprox_core )
         {
+	  ClearProofCore();
 	  // if (dualModel != null) dualModel.Dispose();
 	  check_result res;
 	  if(!underapproxes.size())
@@ -682,6 +1007,7 @@ namespace Duality {
 
   check_result RPFP::CheckUpdateModel(Node *root, std::vector<expr> assumps){
     // check_result temp1 = slvr.check(); // no idea why I need to do this
+    ClearProofCore();
     check_result res = slvr.check_keep_model(assumps.size(),&assumps[0]);
     dualModel = slvr.get_model();
     return res;
@@ -1062,7 +1388,8 @@ namespace Duality {
 	  }
 	}
 	/* Unreachable! */
-	throw "error in RPFP::ImplicantRed";
+	// TODO: need to indicate this failure to caller
+	// std::cerr << "error in RPFP::ImplicantRed";
 	goto done;
       }
       else if(k == Not) {
@@ -1079,6 +1406,31 @@ namespace Duality {
     }
   done:
     done[truth].insert(f);
+  }
+
+  void RPFP::ImplicantFullRed(hash_map<ast,int> &memo, const Term &f, std::vector<Term> &lits,
+			      hash_set<ast> &done, hash_set<ast> &dont_cares){
+    if(done.find(f) != done.end())
+      return; /* already processed */
+    if(f.is_app()){
+      int nargs = f.num_args();
+      decl_kind k = f.decl().get_decl_kind();
+      if(k == Implies || k == Iff || k == And || k == Or || k == Not){
+	for(int i = 0; i < nargs; i++)
+	  ImplicantFullRed(memo,f.arg(i),lits,done,dont_cares);
+	goto done;
+      }
+    }
+    {
+      if(dont_cares.find(f) == dont_cares.end()){
+	int b = SubtermTruth(memo,f);
+	if(b != 0 && b != 1) goto done;
+	expr bv = (b==1) ? f : !f;
+	lits.push_back(bv);
+      }
+    }
+  done:
+    done.insert(f);
   }
 
   RPFP::Term RPFP::ResolveIte(hash_map<ast,int> &memo, const Term &t, std::vector<Term> &lits,
@@ -1139,6 +1491,16 @@ namespace Duality {
 #ifdef Z3OPS
     delete stt; stt = 0;
 #endif
+    /* return conjunction of literals */
+    return conjoin(lits);
+  }
+
+  RPFP::Term RPFP::UnderapproxFullFormula(const Term &f, hash_set<ast> &dont_cares){
+    /* first compute truth values of subterms */
+    hash_map<ast,int> memo;
+    hash_set<ast> done;
+    std::vector<Term> lits;
+    ImplicantFullRed(memo,f,lits,done,dont_cares);
     /* return conjunction of literals */
     return conjoin(lits);
   }
@@ -1669,6 +2031,121 @@ namespace Duality {
     return eu;
   }
 
+  void RPFP::FixCurrentState(Edge *edge){
+    hash_set<ast> dont_cares;
+    resolve_ite_memo.clear();
+    timer_start("UnderapproxFormula");
+    Term dual = edge->dual.null() ? ctx.bool_val(true) : edge->dual;
+    Term eu = UnderapproxFormula(dual,dont_cares);
+    timer_stop("UnderapproxFormula");
+    ConstrainEdgeLocalized(edge,eu);
+  }
+
+  void RPFP::FixCurrentStateFull(Edge *edge, const expr &extra){
+    hash_set<ast> dont_cares;
+    resolve_ite_memo.clear();
+    timer_start("UnderapproxFormula");
+    Term dual = edge->dual.null() ? ctx.bool_val(true) : edge->dual;
+    for(unsigned i = 0; i < edge->constraints.size(); i++)
+      dual = dual && edge->constraints[i];
+    // dual = dual && extra;
+    Term eu = UnderapproxFullFormula(dual,dont_cares);
+    timer_stop("UnderapproxFormula");
+    ConstrainEdgeLocalized(edge,eu);
+  }
+
+  
+  
+
+  void RPFP::GetGroundLitsUnderQuants(hash_set<ast> *memo, const Term &f, std::vector<Term> &res, int under){
+    if(memo[under].find(f) != memo[under].end())
+      return;
+    memo[under].insert(f);
+    if(f.is_app()){
+      if(!under && !f.has_quantifiers())
+	return;
+      decl_kind k = f.decl().get_decl_kind();
+      if(k == And || k == Or || k == Implies || k == Iff){
+	int num_args = f.num_args();
+	for(int i = 0; i < num_args; i++)
+	  GetGroundLitsUnderQuants(memo,f.arg(i),res,under);
+	return;
+      }
+    }
+    else if (f.is_quantifier()){
+#if 0
+      // treat closed quantified formula as a literal 'cause we hate nested quantifiers
+      if(under && IsClosedFormula(f)) 
+	res.push_back(f);
+      else
+#endif
+	GetGroundLitsUnderQuants(memo,f.body(),res,1);
+      return;
+    }
+    if(under && f.is_ground())
+      res.push_back(f);
+  }
+
+  RPFP::Term RPFP::StrengthenFormulaByCaseSplitting(const Term &f, std::vector<expr> &case_lits){
+    hash_set<ast> memo[2];
+    std::vector<Term> lits;
+    GetGroundLitsUnderQuants(memo, f, lits, 0);
+    hash_set<ast> lits_hash;
+    for(unsigned i = 0; i < lits.size(); i++)
+      lits_hash.insert(lits[i]);
+    hash_map<ast,expr> subst;
+    hash_map<ast,int> stt_memo;
+    std::vector<expr> conjuncts;
+    for(unsigned i = 0; i < lits.size(); i++){
+      const expr &lit = lits[i];
+      if(lits_hash.find(NegateLit(lit)) == lits_hash.end()){
+	case_lits.push_back(lit);
+	bool tval = false;
+	expr atom = lit;
+	if(lit.is_app() && lit.decl().get_decl_kind() == Not){
+	  tval = true;
+	  atom = lit.arg(0);
+	}
+	expr etval = ctx.bool_val(tval);
+	if(atom.is_quantifier())
+	  subst[atom] = etval; // this is a bit desperate, since we can't eval quants
+	else {
+	  int b = SubtermTruth(stt_memo,atom);
+	  if(b == (tval ? 1 : 0))
+	    subst[atom] = etval;
+	  else {
+	    if(b == 0 || b == 1){
+	      etval = ctx.bool_val(b ? true : false);
+	      subst[atom] = etval;
+	      conjuncts.push_back(b ? atom : !atom);
+	    }
+	  }
+	}
+      }
+    }
+    expr g = f;
+    if(!subst.empty()){
+      g = SubstRec(subst,f);
+      if(conjuncts.size())
+	g = g && ctx.make(And,conjuncts);
+      g = g.simplify();
+    }
+#if 1
+    expr g_old = g;
+    g = RemoveRedundancy(g);
+    bool changed = !eq(g,g_old);
+    g = g.simplify();
+    if(changed) {  // a second pass can get some more simplification
+      g = RemoveRedundancy(g);
+      g = g.simplify();
+    }
+#else
+    g = RemoveRedundancy(g);
+    g = g.simplify();
+#endif
+    g = AdjustQuantifiers(g);
+    return g;
+  }
 
   RPFP::Term RPFP::ModelValueAsConstraint(const Term &t){
     if(t.is_array()){
@@ -1712,6 +2189,167 @@ namespace Duality {
     res = CreateRelation(p->Annotation.IndParams,funder);
   }
 
+#if 0
+  void RPFP::GreedyReduce(solver &s, std::vector<expr> &conjuncts){
+    // verify
+    s.push();
+    expr conj = ctx.make(And,conjuncts);
+    s.add(conj);
+    check_result res = s.check();
+    if(res != unsat)
+      throw "should be unsat";
+    s.pop(1);
+	
+    for(unsigned i = 0; i < conjuncts.size(); ){
+      std::swap(conjuncts[i],conjuncts.back());
+      expr save = conjuncts.back();
+      conjuncts.pop_back();
+      s.push();
+      expr conj = ctx.make(And,conjuncts);
+      s.add(conj);
+      check_result res = s.check();
+      s.pop(1);
+      if(res != unsat){
+	conjuncts.push_back(save);
+	std::swap(conjuncts[i],conjuncts.back());
+	i++;
+      }
+    }
+  }
+#endif
+
+  void RPFP::GreedyReduce(solver &s, std::vector<expr> &conjuncts){
+    std::vector<expr> lits(conjuncts.size());
+    for(unsigned i = 0; i < lits.size(); i++){
+      func_decl pred = ctx.fresh_func_decl("@alit", ctx.bool_sort());
+      lits[i] = pred();
+      s.add(ctx.make(Implies,lits[i],conjuncts[i]));
+    }
+    
+    // verify
+    check_result res = s.check(lits.size(),&lits[0]);
+    if(res != unsat){
+      // add the axioms in the off chance they are useful
+      const std::vector<expr> &theory = ls->get_axioms();
+      for(unsigned i = 0; i < theory.size(); i++)
+	s.add(theory[i]);
+      if(s.check(lits.size(),&lits[0]) != unsat)
+	throw "should be unsat";
+    }
+    
+    for(unsigned i = 0; i < conjuncts.size(); ){
+      std::swap(conjuncts[i],conjuncts.back());
+      std::swap(lits[i],lits.back());
+      check_result res = s.check(lits.size()-1,&lits[0]);
+      if(res != unsat){
+	std::swap(conjuncts[i],conjuncts.back());
+	std::swap(lits[i],lits.back());
+	i++;
+      }
+      else {
+	conjuncts.pop_back();
+	lits.pop_back();
+      }
+    }
+  }
+
+  expr RPFP::NegateLit(const expr &f){
+    if(f.is_app() && f.decl().get_decl_kind() == Not)
+      return f.arg(0);
+    else
+      return !f;
+  }
+
+  void RPFP::NegateLits(std::vector<expr> &lits){
+    for(unsigned i = 0; i < lits.size(); i++){
+      expr &f = lits[i];
+      if(f.is_app() && f.decl().get_decl_kind() == Not)
+	f = f.arg(0);
+      else
+	f = !f;
+    }
+  }
+
+  expr RPFP::SimplifyOr(std::vector<expr> &lits){
+    if(lits.size() == 0)
+      return ctx.bool_val(false);
+    if(lits.size() == 1)
+      return lits[0];
+    return ctx.make(Or,lits);
+  }
+
+    // set up edge constraint in aux solver
+  void RPFP::AddEdgeToSolver(Edge *edge){
+    if(!edge->dual.null())
+      aux_solver.add(edge->dual);
+    for(unsigned i = 0; i < edge->constraints.size(); i++){
+      expr tl = edge->constraints[i];
+      aux_solver.add(tl);
+    }
+  }
+
+  void RPFP::InterpolateByCases(Node *root, Node *node){
+    aux_solver.push();
+    AddEdgeToSolver(node->Outgoing);
+    node->Annotation.SetEmpty();
+    hash_set<ast> *core = new hash_set<ast>;
+    core->insert(node->Outgoing->dual);
+    while(1){
+      aux_solver.push();
+      expr annot = !GetAnnotation(node);
+      aux_solver.add(annot);
+      if(aux_solver.check() == unsat){
+	aux_solver.pop(1);
+	break;
+      }
+      dualModel = aux_solver.get_model();
+      aux_solver.pop(1);
+      Push();
+      FixCurrentStateFull(node->Outgoing,annot);
+       ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node));
+      check_result foo = Check(root);
+      if(foo != unsat)
+	throw "should be unsat";
+      AddToProofCore(*core);
+      Transformer old_annot = node->Annotation;
+      SolveSingleNode(root,node);
+
+      {
+	expr itp = GetAnnotation(node);
+	dualModel = aux_solver.get_model();
+	std::vector<expr> case_lits;
+	itp = StrengthenFormulaByCaseSplitting(itp, case_lits);
+	SetAnnotation(node,itp);
+      }
+
+      if(node->Annotation.IsEmpty()){
+	std::cout << "bad in InterpolateByCase -- core:\n";
+	std::vector<expr> assumps;
+	slvr.get_proof().get_assumptions(assumps);
+	for(unsigned i = 0; i < assumps.size(); i++)
+	  assumps[i].show();
+	throw "ack!";
+      }
+      Pop(1);
+      node->Annotation.UnionWith(old_annot);
+    }
+    if(proof_core)
+      delete proof_core; // shouldn't happen
+    proof_core = core;
+    aux_solver.pop(1);
+  }
+
+  void RPFP::Generalize(Node *root, Node *node){
+    aux_solver.push();
+    AddEdgeToSolver(node->Outgoing);
+    expr fmla = GetAnnotation(node);
+    std::vector<expr> conjuncts;
+    CollectConjuncts(fmla,conjuncts,false);
+    GreedyReduce(aux_solver,conjuncts);     // try to remove conjuncts one at a tme
+    aux_solver.pop(1);
+    NegateLits(conjuncts);
+    SetAnnotation(node,SimplifyOr(conjuncts));
+  }
 
   /** Push a scope. Assertions made after Push can be undone by Pop. */
 
@@ -1733,10 +2371,26 @@ namespace Duality {
 	  (*it)->dual = expr(ctx,NULL);
 	for(std::list<Node *>::iterator it = back.nodes.begin(), en = back.nodes.end(); it != en; ++it)
 	  (*it)->dual = expr(ctx,NULL);
+	for(std::list<std::pair<Edge *,Term> >::iterator it = back.constraints.begin(), en = back.constraints.end(); it != en; ++it)
+	  (*it).first->constraints.pop_back();
 	stack.pop_back();
       }
   }
   
+  /** Erase the proof by performing a Pop, Push and re-assertion of
+      all the popped constraints */
+
+  void RPFP::PopPush(){
+    slvr.pop(1);
+    slvr.push();
+    stack_entry &back = stack.back();
+    for(std::list<Edge *>::iterator it = back.edges.begin(), en = back.edges.end(); it != en; ++it)
+      slvr.add((*it)->dual);
+    for(std::list<Node *>::iterator it = back.nodes.begin(), en = back.nodes.end(); it != en; ++it)
+      slvr.add((*it)->dual);
+    for(std::list<std::pair<Edge *,Term> >::iterator it = back.constraints.begin(), en = back.constraints.end(); it != en; ++it)
+      slvr.add((*it).second);
+  }
   
   
   
@@ -1879,6 +2533,37 @@ namespace Duality {
     hash_map<int,hash_map<ast,Term> > memo;
     return SubstBoundRec(memo, subst, 0, t);
   }
+
+  int Z3User::MaxIndex(hash_map<ast,int> &memo, const Term &t)
+  {
+    std::pair<ast,int> foo(t,-1);
+    std::pair<hash_map<ast,int>::iterator, bool> bar = memo.insert(foo);
+    int &res = bar.first->second;
+    if(!bar.second) return res;
+    if (t.is_app()){
+      func_decl f = t.decl();
+      int nargs = t.num_args();
+      for(int i = 0; i < nargs; i++){
+	int m = MaxIndex(memo, t.arg(i));
+	if(m > res)
+	  res = m;
+      }
+    }
+    else if (t.is_quantifier()){
+      int bound = t.get_quantifier_num_bound();
+      res = MaxIndex(memo,t.body()) - bound;
+    }
+    else if (t.is_var()) {
+      res = t.get_index_value();
+    }
+    return res;
+  }
+
+  bool Z3User::IsClosedFormula(const Term &t){
+    hash_map<ast,int> memo;
+    return MaxIndex(memo,t) < 0;
+  }
+  
 
   /** Convert a collection of clauses to Nodes and Edges in the RPFP.
 
@@ -2169,8 +2854,32 @@ namespace Duality {
     
   }
 
+  void RPFP::AddToProofCore(hash_set<ast> &core){
+    std::vector<expr> assumps;
+    slvr.get_proof().get_assumptions(assumps);
+    for(unsigned i = 0; i < assumps.size(); i++)
+      core.insert(assumps[i]);
+  }
+  
+  void RPFP::ComputeProofCore(){
+    if(!proof_core){
+      proof_core = new hash_set<ast>;
+      AddToProofCore(*proof_core);
+    }
+  }
+
+  bool RPFP::EdgeUsedInProof(Edge *edge){
+    ComputeProofCore();
+    if(!edge->dual.null() && proof_core->find(edge->dual) != proof_core->end())
+      return true;
+    for(unsigned i = 0; i < edge->constraints.size(); i++)
+      if(proof_core->find(edge->constraints[i]) != proof_core->end())
+	return true;
+    return false;
+  }
 
 RPFP::~RPFP(){
+    ClearProofCore();
     for(unsigned i = 0; i < nodes.size(); i++)
       delete nodes[i];
     for(unsigned i = 0; i < edges.size(); i++)

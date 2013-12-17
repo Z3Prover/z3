@@ -65,7 +65,7 @@ class ast_i {
     return _ast == other._ast;
   }
   bool lt(const ast_i &other) const {
-    return _ast < other._ast;
+    return _ast->get_id() < other._ast->get_id();
   }
   friend bool operator==(const ast_i &x, const ast_i&y){
     return x.eq(y);
@@ -76,7 +76,7 @@ class ast_i {
   friend bool operator<(const ast_i &x, const ast_i&y){
     return x.lt(y);
   }
-  size_t hash() const {return (size_t)_ast;}
+  size_t hash() const {return _ast->get_id();}
   bool null() const {return !_ast;}
 };
 
@@ -140,7 +140,8 @@ namespace std {
     class less<ast_r> {
   public:
     bool operator()(const ast_r &s, const ast_r &t) const {
-      return s.raw() < t.raw(); // s.raw()->get_id() < t.raw()->get_id();
+      // return s.raw() < t.raw(); 
+      return s.raw()->get_id() < t.raw()->get_id();
     }
   };
 }
@@ -357,6 +358,12 @@ class iz3mgr  {
     family_id fid = to_sort(t)->get_family_id(); 
     decl_kind k = to_sort(t)->get_decl_kind();
     return fid == m().get_basic_family_id() && k == BOOL_SORT;
+  }
+
+  bool is_array_type(type t){
+    family_id fid = to_sort(t)->get_family_id(); 
+    decl_kind k = to_sort(t)->get_decl_kind();
+    return fid == m_array_fid && k == ARRAY_SORT;
   }
 
   type get_range_type(symb s){
@@ -631,6 +638,9 @@ class iz3mgr  {
   
   ast subst(ast var, ast t, ast e);
 
+  // apply a substitution defined by a map
+  ast subst(stl_ext::hash_map<ast,ast> &map, ast e);
+
   // apply a quantifier to a formula, with some optimizations
   // 1) bound variable does not occur -> no quantifier
   // 2) bound variable must be equal to some term -> substitute
@@ -683,13 +693,14 @@ class iz3mgr  {
 
  protected:
   ast_manager &m_manager;
+  int occurs_in(ast var, ast e);
 
  private:
   ast mki(family_id fid, decl_kind sk, int n, raw_ast **args);
   ast make(opr op, int n, raw_ast **args);
   ast make(symb sym, int n, raw_ast **args);
   int occurs_in1(stl_ext::hash_map<ast,bool> &occurs_in_memo, ast var, ast e);
-  int occurs_in(ast var, ast e);
+  bool solve_arith(const ast &v, const ast &x, const ast &y, ast &res);
   ast cont_eq(stl_ext::hash_set<ast> &cont_eq_memo, bool truth, ast v, ast e);
   ast subst(stl_ext::hash_map<ast,ast> &subst_memo, ast var, ast t, ast e);
 

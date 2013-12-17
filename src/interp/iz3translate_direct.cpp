@@ -38,6 +38,24 @@ Revision History:
 using namespace stl_ext;
 #endif
 
+#ifndef WIN32
+
+/* This can introduce an address dependency if the range type of hash_map has
+   a destructor. Since the code in this file is not used and only here for
+   historical comparisons, we allow this non-determinism.
+ */
+namespace stl_ext {
+  template <class T>
+    class hash<T *> {
+  public:
+    size_t operator()(const T *p) const {
+      return (size_t) p;
+    }
+  };
+}
+
+#endif
+
 
 static int lemma_count = 0;
 static int nll_lemma_count = 0;
