@@ -117,7 +117,6 @@ namespace opt {
 
     void optsmt::update_lower(unsigned idx, rational const& r) {
         inf_eps v(r);
-        std::cout << "update lower: " << r << "\n";
         if (m_lower[idx] < v) {
             m_lower[idx] = v;
             if (m_s) m_s->get_model(m_model);
