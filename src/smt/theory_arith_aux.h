@@ -952,7 +952,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    theory_var theory_arith<Ext>::pick_var_to_leave(theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain) {
+        theory_var theory_arith<Ext>::pick_var_to_leave(theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain, bool& skipped_row) {
         TRACE("opt", tout << "selecting variable to replace v" << x_j << ", inc: " << inc << "\n";);
         theory_var x_i  = null_theory_var;
         inf_numeral curr_gain; 
@@ -974,10 +974,14 @@ namespace smt {
                         if (curr_gain.is_neg())
                             curr_gain.neg();
                         if (x_i == null_theory_var || (curr_gain < gain) || (gain.is_zero() && curr_gain.is_zero() && s < x_i)) {
-                            if (is_int(s) && !curr_gain.is_int()) 
+                            if (is_int(s) && !curr_gain.is_int()) {
+                                skipped_row = true;
                                 continue;
-                            if (is_int(x_j) && !curr_gain.is_int()) 
+                            }
+                            if (is_int(x_j) && !curr_gain.is_int()) {
+                                skipped_row = true;
                                 continue;
+                            }
                             x_i  = s;
                             a_ij = coeff;
                             gain = curr_gain;
@@ -1309,7 +1313,7 @@ namespace smt {
                         skipped_row = true;
                         continue;
                     }
-                    theory_var curr_x_i = pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, curr_gain);
+                    theory_var curr_x_i = pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, curr_gain, skipped_row);
                     if (curr_x_i == null_theory_var) {
                         // we can increase/decrease curr_x_j as much as we want.
                         x_i   = null_theory_var; // unbounded

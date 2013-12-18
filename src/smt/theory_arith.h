@@ -855,7 +855,7 @@ namespace smt {
         row               m_tmp_row;
 
         void add_tmp_row(row & r1, numeral const & coeff, row const & r2);
-        theory_var pick_var_to_leave(theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain);
+        theory_var pick_var_to_leave(theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain, bool& skiped_row);
         bool is_safe_to_leave(theory_var x);
         void move_to_bound(theory_var x_i, bool inc);
         template<bool invert>
