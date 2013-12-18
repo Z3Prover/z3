@@ -930,6 +930,9 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::is_safe_to_leave(theory_var x) {
         
+        if (get_context().is_shared(get_enode(x))) {
+            return false;
+        }
         column & c      = m_columns[x];
         typename svector<col_entry>::iterator it  = c.begin_entries();
         typename svector<col_entry>::iterator end = c.end_entries();
@@ -939,6 +942,7 @@ namespace smt {
             theory_var s  = r.get_base_var();
             numeral const & coeff = r[it->m_row_idx].m_coeff;    
             bool is_unsafe = (s != null_theory_var && is_int(s) && !coeff.is_int());                
+            is_unsafe = is_unsafe || (s != null_theory_var && get_context().is_shared(get_enode(s)));
             TRACE("opt", tout << "is v" << x << " safe to leave for v" << s << "? " << (is_unsafe?"no":"yes") << "\n";
                   display_row(tout, r, true););
             if (is_unsafe) return false;            

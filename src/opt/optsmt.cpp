@@ -298,11 +298,11 @@ namespace opt {
 
 
     inf_eps optsmt::get_lower(unsigned i) const {
-        return m_is_max[i]?m_lower[i]:-m_lower[i];
+        return m_is_max[i]?m_lower[i]:-m_upper[i];
     }
 
     inf_eps optsmt::get_upper(unsigned i) const {
-        return m_is_max[i]?m_upper[i]:-m_upper[i];
+        return m_is_max[i]?m_upper[i]:-m_lower[i];
     }
 
     void optsmt::get_model(model_ref& mdl) {
