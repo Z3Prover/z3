@@ -476,10 +476,10 @@ namespace smt {
         typename vector<row_entry>::const_iterator it  = r.begin_entries();
         typename vector<row_entry>::const_iterator end = r.end_entries();
         for (; it != end; ++it) {                                                                 
-            if (!it->is_dead() && !it->m_coeff.is_int()) {
+            if (!it->is_dead() && !it->m_coeff.is_int()) 
                 TRACE("gomory_cut", display_row(tout, r, true););
                 return false;
-            }
+            
         }
         return true;
     }
