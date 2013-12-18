@@ -1237,7 +1237,6 @@ namespace smt {
         m_nl_rounds              = 0;
         m_nl_gb_exhausted        = false;
         m_nl_strategy_idx        = 0;
-        m_objective_theory_vars  .reset();
         theory::reset_eh();
     }
 

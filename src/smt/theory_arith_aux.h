@@ -928,6 +928,26 @@ namespace smt {
 
     */
     template<typename Ext>
+    bool theory_arith<Ext>::is_safe_to_leave(theory_var x) {
+        
+        column & c      = m_columns[x];
+        typename svector<col_entry>::iterator it  = c.begin_entries();
+        typename svector<col_entry>::iterator end = c.end_entries();
+        for (; it != end; ++it) {
+            if (it->is_dead()) continue;
+            row const & r = m_rows[it->m_row_id];
+            theory_var s  = r.get_base_var();
+            numeral const & coeff = r[it->m_row_idx].m_coeff;    
+            bool is_unsafe = (s != null_theory_var && is_int(s) && !coeff.is_int());                
+            TRACE("opt", tout << "is v" << x << " safe to leave for v" << s << "? " << (is_unsafe?"no":"yes") << "\n";
+                  display_row(tout, r, true););
+            if (is_unsafe) return false;            
+        }
+
+        return true;
+    }
+
+    template<typename Ext>
     theory_var theory_arith<Ext>::pick_var_to_leave(theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain) {
         TRACE("opt", tout << "selecting variable to replace v" << x_j << ", inc: " << inc << "\n";);
         theory_var x_i  = null_theory_var;
@@ -986,6 +1006,9 @@ namespace smt {
                 }
             }
         }
+        else if (m_util.is_to_real(n, x) || m_util.is_to_int(n, x)) {
+            return get_theory_vars(x, vars);
+        }
         else if (m_util.is_mul(n, x, y) && m_util.is_numeral(x, r)) {
             return get_theory_vars(y, vars);
         }
@@ -1019,10 +1042,6 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::add_objective(app* term) {
         theory_var v = internalize_term_core(term);
-        uint_set vars;
-        if (get_theory_vars(term, vars)) {
-            m_objective_theory_vars.insert(v, vars);
-        }
         TRACE("opt", tout << mk_pp(term, get_manager()) << " |-> v" << v << "\n";);
         TRACE("opt", tout << "data-size: " << m_data.size() << "\n";);
         SASSERT(!is_quasi_base(v));
@@ -1032,22 +1051,12 @@ namespace smt {
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v) {
         TRACE("opt", tout << "data-size: " << m_data.size() << "\n";);
-        bool r = max_min(v, true); 
-        if (r || at_upper(v)) {
-            if (m_objective_theory_vars.contains(v)) {
-                // FIXME: put this block inside verbose code
-                uint_set & vars = m_objective_theory_vars[v];
-                uint_set::iterator it = vars.begin(), end = vars.end();
-                ast_manager& m = get_manager();
-                IF_VERBOSE(1,
-                    verbose_stream() << "Optimal assigment:" << std::endl;
-                    for (; it != end; ++it) {
-                        verbose_stream() << mk_pp(get_enode(*it)->get_owner(), m) << " |-> " << get_value(*it) << std::endl;
-                    };);
-            }
-            return inf_eps_rational<inf_rational>(get_value(v));
+        max_min_t r = max_min(v, true); 
+        if (r == UNBOUNDED) {
+            return inf_eps_rational<inf_rational>::infinity();
         }
-        return inf_eps_rational<inf_rational>::infinity();
+        return inf_eps_rational<inf_rational>(get_value(v));
+        
     }
 
     /**
@@ -1092,7 +1101,6 @@ namespace smt {
     */
     template<typename Ext>
     expr* theory_arith<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val) {
-        SASSERT(m_objective_theory_vars.contains(v));
         ast_manager& m = get_manager();
         context& ctx = get_context();
         std::ostringstream strm;
@@ -1262,9 +1270,10 @@ namespace smt {
        Return true if succeeded.
     */
     template<typename Ext>
-    bool theory_arith<Ext>::max_min(row & r, bool max) {
+    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(row & r, bool max) {
         TRACE("max_min", tout << "max_min...\n";);
         m_stats.m_max_min++;
+        bool skipped_row = false;
 
         SASSERT(valid_row_assignment());
         SASSERT(satisfy_bounds());
@@ -1292,6 +1301,10 @@ namespace smt {
                     bool curr_inc = curr_coeff.is_pos() ? max : !max; 
                     if ((curr_inc && at_upper(curr_x_j)) || (!curr_inc && at_lower(curr_x_j)))
                         continue; // variable cannot be used for max/min.
+                    if (!is_safe_to_leave(curr_x_j)) {
+                        skipped_row = true;
+                        continue;
+                    }
                     theory_var curr_x_i = pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, curr_gain);
                     if (curr_x_i == null_theory_var) {
                         // we can increase/decrease curr_x_j as much as we want.
@@ -1325,7 +1338,7 @@ namespace smt {
                 TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);
                 SASSERT(valid_row_assignment());
                 SASSERT(satisfy_bounds());
-                return true;
+                return skipped_row?BEST_EFFORT:OPTIMIZED;
             }
 
             if (x_i == null_theory_var) {
@@ -1344,7 +1357,7 @@ namespace smt {
                     SASSERT(satisfy_bounds());
                     continue;
                 }
-                return false; // unbounded.
+                return UNBOUNDED;
             }
 
             if (!is_fixed(x_j) && is_bounded(x_j) && (upper_bound(x_j) - lower_bound(x_j) <= gain)) {
@@ -1471,13 +1484,13 @@ namespace smt {
        \brief Maximize/Minimize the given variable. The bounds of v are update if procedure succeeds.
     */
     template<typename Ext>
-    bool theory_arith<Ext>::max_min(theory_var v, bool max) {
+    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(theory_var v, bool max) {
         TRACE("opt", tout << (max ? "maximizing" : "minimizing") << " v" << v << "...\n";);
         SASSERT(valid_row_assignment());
         SASSERT(satisfy_bounds());
         SASSERT(!is_quasi_base(v));
         if ((max && at_upper(v)) || (!max && at_lower(v)))
-            return false; // nothing to be done...
+            return AT_BOUND; // nothing to be done...
         m_tmp_row.reset();
         if (is_non_base(v)) {
             add_tmp_row_entry<false>(m_tmp_row, numeral(1), v);
@@ -1491,15 +1504,15 @@ namespace smt {
                     add_tmp_row_entry<true>(m_tmp_row, it->m_coeff, it->m_var);
             }            
         }
-        if (max_min(m_tmp_row, max)) {
+        max_min_t r = max_min(m_tmp_row, max);
+        if (r == OPTIMIZED) {
             TRACE("opt", tout << "v" << v << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););
             
             mk_bound_from_row(v, get_value(v), max ? B_UPPER : B_LOWER, m_tmp_row);
             
-            return true;
         }
-        return false;
+        return r;
     }
 
     /**
@@ -1512,9 +1525,9 @@ namespace smt {
         svector<theory_var>::const_iterator it  = vars.begin();
         svector<theory_var>::const_iterator end = vars.end();
         for (; it != end; ++it) {
-            if (max_min(*it, true))
+            if (max_min(*it, true) == OPTIMIZED)
                 succ = true;
-            if (max_min(*it, false))
+            if (max_min(*it, false) == OPTIMIZED)
                 succ = true;
         }
         if (succ) {
@@ -1688,9 +1701,9 @@ namespace smt {
         m_tmp_lit_set.reset();
         m_tmp_eq_set.reset();
         
-        if (max_min(m_tmp_row, true) && 
+        if ((OPTIMIZED == max_min(m_tmp_row, true)) && 
             is_zero_row(m_tmp_row, true, m_tmp_acc_lits, m_tmp_acc_eqs, m_tmp_lit_set, m_tmp_eq_set) &&
-            max_min(m_tmp_row, false) &&
+            (OPTIMIZED == max_min(m_tmp_row, false)) &&
             is_zero_row(m_tmp_row, false, m_tmp_acc_lits, m_tmp_acc_eqs, m_tmp_lit_set, m_tmp_eq_set)) {
             // v1 == v2
             TRACE("imply_eq", tout << "found new implied equality:\n";

@@ -434,7 +434,6 @@ namespace smt {
         bool                    m_eager_gcd; // true if gcd should be applied at every add_row
         unsigned                m_final_check_idx;
 
-        u_map<uint_set>        m_objective_theory_vars;
 
         // backtracking
         svector<bound_trail>    m_bound_trail;
@@ -857,11 +856,13 @@ namespace smt {
 
         void add_tmp_row(row & r1, numeral const & coeff, row const & r2);
         theory_var pick_var_to_leave(theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain);
+        bool is_safe_to_leave(theory_var x);
         void move_to_bound(theory_var x_i, bool inc);
         template<bool invert>
         void add_tmp_row_entry(row & r, numeral const & coeff, theory_var v);
-        bool max_min(theory_var v, bool max);
-        bool max_min(row & r, bool max);
+        enum max_min_t { UNBOUNDED, AT_BOUND, OPTIMIZED, BEST_EFFORT};
+        max_min_t max_min(theory_var v, bool max);
+        max_min_t max_min(row & r, bool max);
         bool max_min(svector<theory_var> const & vars);
 
         // -----------------------------------
