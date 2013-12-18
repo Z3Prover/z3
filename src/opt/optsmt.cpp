@@ -117,6 +117,7 @@ namespace opt {
 
     void optsmt::update_lower(unsigned idx, rational const& r) {
         inf_eps v(r);
+        std::cout << "update lower: " << r << "\n";
         if (m_lower[idx] < v) {
             m_lower[idx] = v;
             if (m_s) m_s->get_model(m_model);
@@ -322,7 +323,6 @@ namespace opt {
 
     std::ostream& optsmt::display_objective(std::ostream& out, unsigned i) const {
         bool is_max = m_is_max[i];
-        inf_eps val = get_lower(i);
         expr_ref obj(m_objs[i], m);
         if (!is_max) {
             arith_util a(m);

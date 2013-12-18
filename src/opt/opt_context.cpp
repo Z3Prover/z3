@@ -424,6 +424,10 @@ namespace opt {
             objective const& obj = m_objectives[i];
             switch(obj.m_type) {
             case O_MINIMIZE:
+                if (m_model->eval(obj.m_term, val) && a.is_numeral(val, r)) {
+                    m_optsmt.update_lower(obj.m_index, -r);
+                }
+                break;
             case O_MAXIMIZE:
                 if (m_model->eval(obj.m_term, val) && a.is_numeral(val, r)) {
                     m_optsmt.update_lower(obj.m_index, r);
