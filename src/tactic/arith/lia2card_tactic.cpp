@@ -211,6 +211,9 @@ public:
         else if (a.is_mul(x, z, y) && is_numeral(y, r)) {
             ok = get_pb_sum(z, r*mul, args, coeffs, coeff);
         }
+        else if (a.is_to_real(x, y)) {
+            ok = get_pb_sum(y, mul, args, coeffs, coeff);
+        }
         else if (m.is_ite(x, y, z, u) && is_numeral(z, r) && is_numeral(u, q)) {
             insert_arg(r*mul, y, args, coeffs, coeff);
             // q*(1-y) = -q*y + q
@@ -234,6 +237,9 @@ public:
         if (a.is_uminus(e, e) && is_numeral(e, r)) {
             r.neg();
             return true;
+        }
+        if (a.is_to_real(e, e)) {
+            return is_numeral(e, r);
         }
         return a.is_numeral(e, r);
     }

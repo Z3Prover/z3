@@ -92,6 +92,8 @@ namespace smt {
 
             void unique();
 
+            void prune();
+
             bool well_formed() const;
 
             app_ref to_expr(context& ctx, ast_manager& m);

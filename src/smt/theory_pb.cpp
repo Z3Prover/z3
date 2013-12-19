@@ -76,21 +76,54 @@ namespace smt {
         }
         // sort and coalesce arguments:
         std::sort(args.begin(), args.end());
-        for (unsigned i = 0; i + 1 < size(); ++i) {
-            if (lit(i) == args[i+1].first) {
-                args[i].second += coeff(i+1);
-                for (unsigned j = i+1; j + 1 < size(); ++j) {
-                    args[j] = args[j+1];
-                }
-                args.pop_back();
+        
+        unsigned i = 0, j = 1;
+        for (; j < size(); ++i) {
+            SASSERT(j > i);
+            literal l = lit(i);
+            for (; j < size() && lit(j) == lit(i); ++j) {
+                args[i].second += coeff(j);                
             }
-            if (coeff(i).is_zero()) {
-                for (unsigned j = i; j + 1 < size(); ++j) {
-                    args[j] = args[j+1];
-                }
-                args.pop_back();
+            if (j < size()) {
+                args[i+1].first = lit(j);
+                args[i+1].second = coeff(j);
+                ++j;
             }
-        }            
+        }
+        if (i + 1 < size()) {
+            args.resize(i+1);
+        }
+    }
+
+    void theory_pb::ineq::prune() {
+        numeral& k = m_k;
+        arg_t& args = m_args;
+        numeral nlt(0);
+        unsigned occ = 0;
+        for (unsigned i = 0; nlt < k && i < size(); ++i) {
+            if (coeff(i) < k) {
+                nlt += coeff(i);
+                ++occ;
+            }
+        }
+        if (0 < occ && nlt < k) {
+            IF_VERBOSE(2, verbose_stream() << "prune\n";
+                       for (unsigned i = 0; i < size(); ++i) {
+                           verbose_stream() << coeff(i) << "*" << lit(i) << " ";
+                       }
+                       verbose_stream() << " >= " << k << "\n";
+                       );
+
+            for (unsigned i = 0; i < size(); ++i) {
+                if (coeff(i) < k) {
+                    args[i] = args.back();
+                    args.pop_back();
+                    --i;
+                }
+            }
+            normalize();
+
+        }
     }
 
     lbool theory_pb::ineq::normalize() {
@@ -121,20 +154,28 @@ namespace smt {
         // detect tautologies:
         if (k <= numeral::zero()) {
             args.reset();
+            k = numeral::zero();
             return l_true;
         }
         // detect infeasible constraints:
         if (sum < k) {
             args.reset();
+            k = numeral::one();
             return l_false;
         }
 
-        // normalize to integers.
-        numeral d(denominator(k));
-        for (unsigned i = 0; i < size(); ++i) {
-            d = lcm(d, denominator(coeff(i)));
+        bool all_int = true;
+        for (unsigned i = 0; all_int && i < size(); ++i) {
+            all_int = coeff(i).is_int();
         }
-        if (!d.is_one()) {
+        
+        if (!all_int) {
+            // normalize to integers.
+            numeral d(denominator(k));
+            for (unsigned i = 0; i < size(); ++i) {
+                d = lcm(d, denominator(coeff(i)));
+            }
+            SASSERT(!d.is_one());
             k *= d;
             for (unsigned i = 0; i < size(); ++i) {
                 args[i].second *= d;
@@ -182,6 +223,13 @@ namespace smt {
             k = numeral::one();
         }
         else if (g > numeral::one()) {
+            IF_VERBOSE(2, verbose_stream() << "cut " << g << "\n";
+                       for (unsigned i = 0; i < size(); ++i) {
+                           verbose_stream() << coeff(i) << "*" << lit(i) << " ";
+                       }
+                       verbose_stream() << " >= " << k << "\n";
+                       );
+
             //
             // Example 5x + 5y + 2z + 2u >= 5
             // becomes 3x + 3y + z + u >= 3
@@ -226,6 +274,13 @@ namespace smt {
             numeral n1 = floor(n0);
             numeral n2 = ceil(k/min) - numeral::one();
             if (n1 == n2 && !n0.is_int()) {
+                IF_VERBOSE(2, verbose_stream() << "set cardinality\n";
+                           for (unsigned i = 0; i < size(); ++i) {
+                               verbose_stream() << coeff(i) << "*" << lit(i) << " ";
+                           }
+                           verbose_stream() << " >= " << k << "\n";
+                           );
+
                 for (unsigned i = 0; i < size(); ++i) {
                     args[i].second = numeral::one();
                 }
@@ -300,6 +355,8 @@ namespace smt {
         bool_var abv = ctx.mk_bool_var(atom);
         ctx.set_var_theory(abv, get_id());
 
+        IF_VERBOSE(3, verbose_stream() << mk_pp(atom, m) << "\n";);
+
         ineq* c = alloc(ineq, literal(abv));
         c->m_k = m_util.get_k(atom);
         numeral& k = c->m_k;
@@ -324,7 +381,9 @@ namespace smt {
         }
         c->unique();
         lbool is_true = c->normalize();
+        c->prune();
 
+        
         literal lit(abv);
         switch(is_true) {
         case l_false: 
@@ -339,7 +398,9 @@ namespace smt {
             break;
         }
 
-        // TBD: special cases: args.size() == 1
+        // TBD: special cases: k == 1, or args.size() == 1
+            
+        
         
         // maximal coefficient:
         numeral& max_watch = c->m_max_watch;
@@ -983,14 +1044,12 @@ namespace smt {
               tout << "\n";
               display(tout, c, true););
 
-        if ((c.m_num_propagations & 0xF) == 0) {
+        if (true || (c.m_num_propagations & 0xF) == 0) {
             resolve_conflict(c);
         }
 
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
-        IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), lits.size(), lits.c_ptr());
-                   verbose_stream() << "\n";);
     }
 
 
@@ -1031,7 +1090,7 @@ namespace smt {
 
         if (ctx.get_assignment(l) != l_false) {
             m_lemma.m_k -= coeff;
-            if (false && is_marked(v)) {
+            if (true && false && is_marked(v)) {
                 SASSERT(ctx.get_assignment(l) == l_true);
                 numeral& lcoeff = m_lemma.m_args[m_conseq_index[v]].second; 
                 lcoeff -= coeff;
@@ -1173,6 +1232,7 @@ namespace smt {
                 // It is not a correctness bug but causes to miss lemmas.
                 //
                 IF_VERBOSE(1, display_resolved_lemma(verbose_stream()););
+                TRACE("pb", display_resolved_lemma(tout););
                 return false;
             }
             
@@ -1254,11 +1314,15 @@ namespace smt {
               }
               display(tout << "=> ", m_lemma););
 
+        // 3x + 3y + z + u >= 4
+        // ~x /\ ~y => z + u >= 
+
+        IF_VERBOSE(2, display(verbose_stream() << "lemma1: ", m_lemma););
         hoist_maximal_values();
-
         lbool is_true = m_lemma.normalize();
+        m_lemma.prune();
 
-        IF_VERBOSE(2, display(verbose_stream() << "lemma: ", m_lemma););
+        IF_VERBOSE(2, display(verbose_stream() << "lemma2: ", m_lemma););
         switch(is_true) {
         case l_true:
             UNREACHABLE();
@@ -1290,7 +1354,7 @@ namespace smt {
 
     void theory_pb::hoist_maximal_values() {
         for (unsigned i = 0; i < m_lemma.size(); ++i) {
-            if (m_lemma.coeff(i) == m_lemma.k()) {
+            if (m_lemma.coeff(i) >= m_lemma.k()) {
                 m_ineq_literals.push_back(~m_lemma.lit(i));
                 std::swap(m_lemma.m_args[i], m_lemma.m_args[m_lemma.size()-1]);
                 m_lemma.m_args.pop_back();

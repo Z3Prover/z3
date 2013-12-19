@@ -253,7 +253,7 @@ namespace smt {
                 disj.push_back(m.mk_not(m_min_cost_atom));
             }
             if (is_optimal()) {
-                IF_VERBOSE(1, verbose_stream() << "(wmaxsat with lower bound: " << weight << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "(wmaxsat with lower bound: " << weight << ")\n";);
                 m_min_cost = weight;
                 m_cost_save.reset();
                 m_cost_save.append(m_costs);
@@ -363,9 +363,10 @@ namespace opt {
         rational         m_upper;
         rational         m_lower;
         model_ref        m_model;
+        volatile bool    m_cancel;
 
         imp(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights):
-            m(m), s(s), m_soft(soft_constraints), m_weights(weights)
+            m(m), s(s), m_soft(soft_constraints), m_weights(weights), m_cancel(false)
         {
             m_assignment.resize(m_soft.size(), false);
         }
@@ -413,6 +414,9 @@ namespace opt {
                 }
                 while (l_true == is_sat) {
                     is_sat = s.check_sat_core(0,0);
+                    if (m_cancel) {
+                        is_sat = l_undef;
+                    }
                     if (is_sat == l_true) {
                         if (wth.is_optimal()) {
                             s.get_model(m_model);
@@ -473,7 +477,7 @@ namespace opt {
         return m_imp->m_assignment[idx];
     }
     void wmaxsmt::set_cancel(bool f) {
-        // no-op
+        m_imp->m_cancel = f;
     }
     void wmaxsmt::collect_statistics(statistics& st) const {
         // no-op
