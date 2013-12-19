@@ -2289,6 +2289,7 @@ namespace Duality {
   }
 
   void RPFP::InterpolateByCases(Node *root, Node *node){
+    bool axioms_added = false;
     aux_solver.push();
     AddEdgeToSolver(node->Outgoing);
     node->Annotation.SetEmpty();
@@ -2320,15 +2321,24 @@ namespace Duality {
 	std::vector<expr> case_lits;
 	itp = StrengthenFormulaByCaseSplitting(itp, case_lits);
 	SetAnnotation(node,itp);
+	node->Annotation.Formula.simplify();
       }
 
       if(node->Annotation.IsEmpty()){
-	std::cout << "bad in InterpolateByCase -- core:\n";
-	std::vector<expr> assumps;
-	slvr.get_proof().get_assumptions(assumps);
-	for(unsigned i = 0; i < assumps.size(); i++)
-	  assumps[i].show();
-	throw "ack!";
+	if(!axioms_added){
+	  // add the axioms in the off chance they are useful
+	  const std::vector<expr> &theory = ls->get_axioms();
+	  for(unsigned i = 0; i < theory.size(); i++)
+	    aux_solver.add(theory[i]);
+	}
+	else {
+	  std::cout << "bad in InterpolateByCase -- core:\n";
+	  std::vector<expr> assumps;
+	  slvr.get_proof().get_assumptions(assumps);
+	  for(unsigned i = 0; i < assumps.size(); i++)
+	    assumps[i].show();
+	  throw "ack!";
+	}
       }
       Pop(1);
       node->Annotation.UnionWith(old_annot);

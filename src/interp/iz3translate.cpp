@@ -1642,6 +1642,10 @@ public:
 	res = iproof->make_axiom(lits);
 	break;
       }
+      case PR_IFF_TRUE: { // turns p into p <-> true, noop for us
+	res = args[0];
+	break;
+      }
       default:
 	assert(0 && "translate_main: unsupported proof rule");
 	throw unsupported();

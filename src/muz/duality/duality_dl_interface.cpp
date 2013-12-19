@@ -213,6 +213,9 @@ lbool dl_interface::query(::expr * query) {
   catch (Duality::solver::cancel_exception &exn){
     throw default_exception("duality canceled");
   }
+  catch (Duality::Solver::Incompleteness &exn){
+    throw default_exception("incompleteness");
+  }
   
   // profile!
 

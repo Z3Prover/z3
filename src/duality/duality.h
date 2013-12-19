@@ -1005,6 +1005,8 @@ private:
       /** Object thrown on cancellation */
       struct Canceled {};
       
+      /** Object thrown on incompleteness */
+      struct Incompleteness {};
     };
 }
 

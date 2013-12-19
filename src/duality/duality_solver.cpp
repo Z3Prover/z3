@@ -1731,6 +1731,7 @@ namespace Duality {
       virtual bool Build(){
 
 	stack.back().level = tree->slvr.get_scope_level();
+	bool was_sat = true;
 
 	while (true)
 	{
@@ -1760,8 +1761,11 @@ namespace Duality {
 		if(RecordUpdate(node))
 		  update_count++;
 	      }
-	      if(update_count == 0)
+	      if(update_count == 0){
+		if(was_sat)
+		  throw Incompleteness();
 		reporter->Message("backtracked without learning");
+	      }
 	    }
 	    tree->ComputeProofCore(); // need to compute the proof core before popping solver
 	    while(1) {
@@ -1796,8 +1800,10 @@ namespace Duality {
 	    HandleUpdatedNodes();
 	    if(stack.size() == 1)
 	      return false;
+	    was_sat = false;
 	  }
 	  else {
+	    was_sat = true;
 	    tree->Push();
 	    std::vector<Node *> &expansions = stack.back().expansions;
 	    for(unsigned i = 0; i < expansions.size(); i++){
