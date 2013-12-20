@@ -40,6 +40,7 @@ namespace opt {
         virtual void set_cancel(bool f);
         virtual void collect_statistics(statistics& st) const;
         virtual void get_model(model_ref& mdl);
+        virtual void updt_params(params_ref& p);
     };
 };
 

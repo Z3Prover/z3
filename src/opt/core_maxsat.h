@@ -43,6 +43,7 @@ namespace opt {
         virtual void set_cancel(bool f);
         virtual void collect_statistics(statistics& st) const;
         virtual void get_model(model_ref& mdl);
+        virtual void updt_params(params_ref& p);
     private:
         void set2vector(expr_set const& set, ptr_vector<expr>& es) const;
         expr_ref mk_at_most(expr_set const& set, unsigned k);

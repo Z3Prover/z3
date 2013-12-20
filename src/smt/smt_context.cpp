@@ -1334,6 +1334,7 @@ namespace smt {
         TRACE("propagate_bool_var_enode_bug", tout << "var: " << v << " #" << bool_var2expr(v)->get_id() << "\n";);
         SASSERT(v < static_cast<int>(m_b_internalized_stack.size()));
         enode * n  = bool_var2enode(v);
+        CTRACE("mk_bool_var", !n, tout << "No enode for " << v << "\n";);
         bool sign  = val == l_false;
         if (n->merge_tf())
             add_eq(n, sign ? m_false_enode : m_true_enode, eq_justification(literal(v, sign)));

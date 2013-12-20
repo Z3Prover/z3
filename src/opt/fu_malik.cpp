@@ -368,6 +368,10 @@ namespace opt {
         m_imp->get_model(m);
     }
 
+    void fu_malik::updt_params(params_ref& p) {
+        // no-op
+    }
+
 
 
 

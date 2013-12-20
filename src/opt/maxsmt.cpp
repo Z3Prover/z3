@@ -51,6 +51,7 @@ namespace opt {
         }
 
         if (m_msolver) {
+            m_msolver->updt_params(m_params);
             is_sat = (*m_msolver)();
             if (is_sat == l_true) {
                 m_msolver->get_model(m_model);
@@ -149,6 +150,10 @@ namespace opt {
     void maxsmt::updt_params(params_ref& p) {
         opt_params _p(p);
         m_maxsat_engine = _p.maxsat_engine();        
+        m_params = p;
+        if (m_msolver) {
+            m_msolver->updt_params(p);
+        }
     }
 
     void maxsmt::collect_statistics(statistics& st) const {

@@ -147,6 +147,9 @@ namespace opt {
     void core_maxsat::collect_statistics(statistics& st) const {
         // nothing specific
     }
+    void core_maxsat::updt_params(params_ref& p) {
+        // no-op
+    }
     void core_maxsat::get_model(model_ref& mdl) {
         mdl = m_model.get();
         if (!mdl) {

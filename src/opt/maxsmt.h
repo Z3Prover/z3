@@ -34,6 +34,8 @@ namespace opt {
         virtual void set_cancel(bool f) = 0;
         virtual void collect_statistics(statistics& st) const = 0;
         virtual void get_model(model_ref& mdl) = 0;
+        virtual void updt_params(params_ref& p) = 0;
+
     };
     /**
        Takes solver with hard constraints added.
@@ -52,6 +54,7 @@ namespace opt {
         scoped_ptr<maxsmt_solver> m_msolver;
         symbol           m_maxsat_engine;
         model_ref        m_model;
+        params_ref       m_params;
     public:
         maxsmt(ast_manager& m): m(m), m_s(0), m_cancel(false), m_soft_constraints(m), m_answer(m) {}
 

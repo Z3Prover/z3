@@ -328,7 +328,9 @@ namespace smt {
     theory_pb::theory_pb(ast_manager& m):
         theory(m.mk_family_id("pb")),
         m_util(m),
-        m_lemma(null_literal)
+        m_lemma(null_literal),
+        m_learn_complements(false),
+        m_conflict_frequency(0xF)
     {}
 
     theory_pb::~theory_pb() {
@@ -716,10 +718,11 @@ namespace smt {
         
         numeral k = c.k();
         numeral coeff = c.coeff(w);
-        
-        for (unsigned i = c.watch_size(); c.watch_sum() - coeff < k + c.max_watch() && i < c.size(); ++i) {
+        bool add_more = c.watch_sum() - coeff < k + c.max_watch();
+        for (unsigned i = c.watch_size(); add_more && i < c.size(); ++i) {
             if (ctx.get_assignment(c.lit(i)) != l_false) {
                 add_watch(c, i);
+                add_more = c.watch_sum() - coeff < k + c.max_watch();
             }
         }        
         
@@ -750,8 +753,9 @@ namespace smt {
                 
                 literal_vector& lits = get_unhelpful_literals(c, true);
                 lits.push_back(c.lit());
+                numeral deficit = c.watch_sum() - k;
                 for (unsigned i = 0; i < c.size(); ++i) {
-                    if (c.watch_sum() - c.coeff(i) < k && ctx.get_assignment(c.lit(i)) == l_undef) {
+                    if (ctx.get_assignment(c.lit(i)) == l_undef && deficit < c.coeff(i)) {
                         DEBUG_CODE(validate_assign(c, lits, c.lit(i)););
                         add_assign(c, lits, c.lit(i));                            
                     }
@@ -1044,12 +1048,18 @@ namespace smt {
               tout << "\n";
               display(tout, c, true););
 
-        if (true || (c.m_num_propagations & 0xF) == 0) {
+        justification* js = 0;
+
+        if (m_conflict_frequency == 0 || (0 == (c.m_num_propagations % m_conflict_frequency))) {
             resolve_conflict(c);
         }
 
-        justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+
+        //        if (true || (c.m_num_propagations & 0xF) == 0) {
+        //    resolve_conflict(c);
+        //}
+
     }
 
 
@@ -1090,7 +1100,7 @@ namespace smt {
 
         if (ctx.get_assignment(l) != l_false) {
             m_lemma.m_k -= coeff;
-            if (true && false && is_marked(v)) {
+            if (m_learn_complements && is_marked(v)) {
                 SASSERT(ctx.get_assignment(l) == l_true);
                 numeral& lcoeff = m_lemma.m_args[m_conseq_index[v]].second; 
                 lcoeff -= coeff;

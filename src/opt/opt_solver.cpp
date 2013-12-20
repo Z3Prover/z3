@@ -18,14 +18,16 @@ Notes:
     Based directly on smt_solver.
    
 --*/
-#include"reg_decl_plugins.h"
-#include"opt_solver.h"
-#include"smt_context.h"
-#include"theory_arith.h"
-#include"theory_diff_logic.h"
+#include "reg_decl_plugins.h"
+#include "opt_solver.h"
+#include "smt_context.h"
+#include "theory_arith.h"
+#include "theory_diff_logic.h"
+#include "theory_pb.h"
 #include "ast_pp.h"
 #include "ast_smt_pp.h"
 #include "pp_params.hpp"
+#include "opt_params.hpp"
 #include "model_smt2_pp.h"
 
 namespace opt {
@@ -46,10 +48,18 @@ namespace opt {
     opt_solver::~opt_solver() {
     }
 
-    void opt_solver::updt_params(params_ref const & p) {
-        m_dump_benchmarks = p.get_bool("dump_benchmarks", false);
-        m_params.updt_params(p);
-        m_context.updt_params(p);
+    void opt_solver::updt_params(params_ref & _p) {
+        opt_params p(_p);
+        m_dump_benchmarks = p.dump_benchmarks();
+        m_params.updt_params(_p);
+        m_context.updt_params(_p);
+        smt::theory_id th_id = m.get_family_id("pb");
+        smt::theory* _th = get_context().get_theory(th_id);               
+        if (_th) {
+            smt::theory_pb* th = dynamic_cast<smt::theory_pb*>(_th);
+            th->set_conflict_frequency(p.pb_conflict_freq());
+            th->set_learn_complements(p.pb_learn_comp());
+        }            
     }
 
     void opt_solver::collect_param_descrs(param_descrs & r) {

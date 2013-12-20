@@ -55,7 +55,7 @@ namespace opt {
         opt_solver(ast_manager & m, params_ref const & p, symbol const & l);
         virtual ~opt_solver();
 
-        virtual void updt_params(params_ref const & p);
+        virtual void updt_params(params_ref & p);
         virtual void collect_param_descrs(param_descrs & r);
         virtual void collect_statistics(statistics & st) const;
         virtual void assert_expr(expr * t);

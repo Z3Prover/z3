@@ -193,7 +193,14 @@ namespace opt {
         tactic_ref tac0 = mk_simplify_tactic(m);
         tactic_ref tac1 = mk_elim01_tactic(m);
         tactic_ref tac2 = mk_lia2card_tactic(m);
-        tactic_ref tac  = and_then(tac0.get(), tac1.get(), tac2.get());
+        tactic_ref tac;
+        opt_params optp(m_params);
+        if (optp.elim_01()) {
+            tac = and_then(tac0.get(), tac1.get(), tac2.get());
+        }
+        else {
+            tac = tac0;
+        }
         proof_converter_ref pc;
         expr_dependency_ref core(m);
         goal_ref_buffer result;

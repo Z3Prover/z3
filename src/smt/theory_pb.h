@@ -111,6 +111,8 @@ namespace smt {
         pb_util                  m_util;
         stats                    m_stats;
         ptr_vector<ineq>         m_to_compile;  // inequalities to compile.
+        unsigned                 m_conflict_frequency;
+        bool                     m_learn_complements;
 
         // internalize_atom:
         literal compile_arg(expr* arg);
@@ -189,5 +191,8 @@ namespace smt {
         virtual void collect_statistics(::statistics & st) const;
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
         virtual void init_model(model_generator & m);        
+
+        void set_conflict_frequency(unsigned f) { m_conflict_frequency = f; }
+        void set_learn_complements(bool l) { m_learn_complements = l; }
     };
 };
