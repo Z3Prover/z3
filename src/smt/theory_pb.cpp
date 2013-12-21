@@ -35,6 +35,7 @@ namespace smt {
             sum += coeff(i);
         }
         m_k = sum - m_k + numeral::one();
+        VERIFY(l_undef == normalize());
         SASSERT(well_formed());
     }
 
@@ -381,9 +382,11 @@ namespace smt {
         else {
             SASSERT(m_util.is_at_least_k(atom) || m_util.is_ge(atom));
         }
+        TRACE("pb", display(tout, *c););
         c->unique();
         lbool is_true = c->normalize();
         c->prune();
+        TRACE("pb", display(tout, *c););
 
         
         literal lit(abv);

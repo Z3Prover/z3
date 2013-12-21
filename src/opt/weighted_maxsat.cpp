@@ -22,6 +22,7 @@ Notes:
 #include "ast_pp.h"
 #include "opt_params.hpp"
 #include "pb_decl_plugin.h"
+#include "uint_set.h"
 
 namespace smt {
 
@@ -85,7 +86,7 @@ namespace smt {
                   for (unsigned i = 0; i < m_vars.size(); ++i) {
                       tout << mk_pp(m_vars[i].get(), get_manager()) << " ";
                   }
-                  tout << "\nassignment";
+                  tout << "\nassignment: ";
                   for (unsigned i = 0; i < result.size(); ++i) {
                       tout << result[i] << " ";
                   }
@@ -350,12 +351,17 @@ namespace opt {
         model_ref        m_model;
         symbol           m_engine;
         volatile bool    m_cancel;
+        params_ref       m_params;
+        opt_solver       m_solver;
+        scoped_ptr<imp>  m_imp;
 
-        imp(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights):
-            m(m), s(s), m_soft(soft_constraints), m_weights(weights), m_cancel(false)
+        imp(ast_manager& m, opt_solver& s, expr_ref_vector const& soft_constraints, vector<rational> const& weights):
+            m(m), s(s), m_soft(soft_constraints), m_weights(weights), m_cancel(false), 
+            m_solver(m, m_params, symbol("bound"))
         {
             m_assignment.resize(m_soft.size(), false);
         }
+
         ~imp() {}
 
         smt::theory_weighted_maxsat* get_theory() const {
@@ -397,6 +403,9 @@ namespace opt {
             }
             if (m_engine == symbol("pwmax")) {
                 return pb_solve();
+            }
+            if (m_engine == symbol("wpm2")) {
+                return wpm2_solve();
             }
             return incremental_solve();
         }
@@ -606,8 +615,7 @@ namespace opt {
                         if (!m_assignment[i]) {
                             m_upper += m_weights[i];
                         }
-                    }
-                    
+                    }                    
                     IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << ")\n";);
                     fml = u.mk_le(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper - minw);
                     s.assert_expr(fml);
@@ -618,6 +626,178 @@ namespace opt {
                 is_sat = l_true;
                 m_lower = m_upper;
             }
+            return is_sat;
+        }
+
+        lbool wpm2_solve() {
+            solver::scoped_push _s(s);
+            pb_util u(m);
+            app_ref fml(m), a(m), b(m), c(m);
+            expr_ref val(m);
+            expr_ref_vector block(m), ans(m), al(m), am(m);
+            m_lower = m_upper = rational::zero();
+            obj_map<expr, unsigned> ans_index;
+            vector<rational> amk;
+            vector<uint_set> sc;
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                rational w = m_weights[i];
+                m_upper += w;
+
+                b = m.mk_fresh_const("b", m.mk_bool_sort());
+                s.mc().insert(b->get_decl());
+                block.push_back(b);
+                expr* bb = b;
+
+                a = m.mk_fresh_const("a", m.mk_bool_sort());
+                s.mc().insert(a->get_decl());
+                ans.push_back(a);
+                ans_index.insert(a, i);
+                fml = m.mk_or(m_soft[i].get(), b, m.mk_not(a));
+                s.assert_expr(fml);
+                
+                c = m.mk_fresh_const("c", m.mk_bool_sort());
+                s.mc().insert(c->get_decl());
+                fml = m.mk_implies(c, u.mk_le(1,&w,&bb,rational(0)));
+                s.assert_expr(fml);
+
+                sc.push_back(uint_set());
+                sc.back().insert(i);                
+                am.push_back(c);
+                amk.push_back(rational(0));
+            }
+
+            while (true) {
+                expr_ref_vector asms(m);
+                ptr_vector<expr> core;
+                asms.append(ans);
+                asms.append(am);
+                lbool is_sat = s.check_sat(asms.size(), asms.c_ptr());
+                if (m_cancel && is_sat != l_false) {
+                    is_sat = l_undef;
+                }
+                if (is_sat == l_true) {
+                    s.get_model(m_model);
+                    m_upper = m_lower;
+                    for (unsigned i = 0; i < block.size(); ++i) {
+                        VERIFY(m_model->eval(block[i].get(), val));
+                        m_assignment[i] = m.is_false(val);
+                    }
+                }
+                if (is_sat != l_false) {                    
+                    return is_sat;
+                }
+                s.get_unsat_core(core);
+                if (core.empty()) {
+                    return l_false;
+                }
+                uint_set A;
+                for (unsigned i = 0; i < core.size(); ++i) {
+                    unsigned j;
+                    if (ans_index.find(core[i], j)) {
+                        A.insert(j);
+                    }
+                }
+                if (A.empty()) {
+                    return l_false;
+                }
+                uint_set B;
+                for (unsigned i = 0; i < sc.size(); ++i) {
+                    uint_set t(sc[i]);
+                    t &= A;
+                    if (!t.empty()) {
+                        B |= sc[i];
+                        m_lower -= amk[i];
+                        sc[i] = sc.back();
+                        sc.pop_back();
+                        am[i] = am.back();
+                        am.pop_back();
+                        amk[i] = amk.back();
+                        amk.pop_back();
+                        --i;
+                    }
+                }
+                vector<rational> ws;
+                expr_ref_vector  bs(m);
+                for (unsigned i = 0; i < m_soft.size(); ++i) {
+                    if (B.contains(i)) {
+                        ws.push_back(m_weights[i]);
+                        bs.push_back(block[i].get());
+                    }
+                }
+                rational k;
+                is_sat = new_bound(al, ws, bs, k);
+                if (is_sat != l_true) {
+                    return is_sat;
+                }
+                m_lower += k;
+                expr_ref B_le_k(m), B_ge_k(m);
+                B_le_k = u.mk_le(ws.size(), ws.c_ptr(), bs.c_ptr(), k);
+                B_ge_k = u.mk_ge(ws.size(), ws.c_ptr(), bs.c_ptr(), k);
+                s.assert_expr(B_ge_k);
+                al.push_back(B_ge_k);
+                IF_VERBOSE(1, verbose_stream() << "(wmaxsat.wpm2 lower bound: " << m_lower << ")\n";);
+                IF_VERBOSE(2, verbose_stream() << "New lower bound: " << B_ge_k << "\n";);
+
+                c = m.mk_fresh_const("c", m.mk_bool_sort());
+                s.mc().insert(c->get_decl());
+                fml = m.mk_implies(c, B_le_k);
+                s.assert_expr(fml);
+                sc.push_back(B);
+                am.push_back(c);
+                amk.push_back(k);
+            }            
+        }
+
+        lbool new_bound(expr_ref_vector const& al, 
+                        vector<rational> const& ws, 
+                        expr_ref_vector const& bs, 
+                        rational& k) {
+            pb_util u(m);
+            lbool is_sat = bound(al, ws, bs, k);
+            if (is_sat != l_true) return is_sat;
+#if 1
+            rational mininc(0);
+            for (unsigned i = 0; i < ws.size(); ++i) {
+                if (mininc.is_zero() || mininc > ws[i]) {
+                    mininc = ws[i];
+                }
+            }
+            k += mininc;
+#else
+            expr_ref_vector al2(m);
+            al2.append(al);
+            // w_j*b_j > k
+            rational k0 = k;
+            al2.push_back(m.mk_not(u.mk_le(ws.size(), ws.c_ptr(), bs.c_ptr(), k)));
+            is_sat = bound(al2, ws, bs, k);
+            if (is_sat == l_true) {
+                SASSERT(k > k0);
+            }
+#endif
+            return is_sat;
+        }
+
+        // 
+        // minimal k, such that  al & w_j*b_j >= k is sat
+        // minimal k, such that  al & 3*x + 4*y >= k is sat
+        // minimal k, such that al & (or (not x) w3) & (or (not y) w4)
+        //
+        lbool bound(expr_ref_vector const& al, 
+                    vector<rational> const& ws, 
+                    expr_ref_vector const& bs,
+                    rational& k) {
+            expr_ref_vector nbs(m);            
+            m_solver.push_core();
+            for (unsigned i = 0; i < al.size(); ++i) {
+                m_solver.assert_expr(al[i]);
+            }
+            for (unsigned i = 0; i < bs.size(); ++i) {
+                nbs.push_back(m.mk_not(bs[i]));
+            }            
+            m_imp = alloc(imp, m, m_solver, nbs, ws); // race condition.
+            lbool is_sat = m_imp->pb_solve();
+            k = m_imp->m_lower;
+            m_solver.pop_core(1);
             return is_sat;
         }
 
@@ -650,9 +830,14 @@ namespace opt {
     }
     void wmaxsmt::set_cancel(bool f) {
         m_imp->m_cancel = f;
+        m_imp->m_solver.set_cancel(f);
+        // TBD race
+        if (m_imp->m_imp) {
+            m_imp->m_imp->m_cancel = f;
+        }
     }
     void wmaxsmt::collect_statistics(statistics& st) const {
-        // no-op
+        m_imp->m_solver.collect_statistics(st);
     }
     void wmaxsmt::get_model(model_ref& mdl) {
         m_imp->get_model(mdl);

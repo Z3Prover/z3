@@ -199,6 +199,9 @@ namespace smt {
     bool context::bcp() {
         SASSERT(!inconsistent());
         while (m_qhead < m_assigned_literals.size()) {
+            if (m_cancel_flag) {
+                return true;
+            }
             literal l      = m_assigned_literals[m_qhead];
             SASSERT(get_assignment(l) == l_true);
             m_qhead++;
@@ -224,9 +227,6 @@ namespace smt {
                         break;
                     case l_true:
                         break;
-                    }
-                    if (m_cancel_flag) {
-                        return true;
                     }
                 }
             }
