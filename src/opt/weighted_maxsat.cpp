@@ -246,9 +246,7 @@ namespace smt {
                 }
             }
             m_propagate = false;
-        }
-        
-
+        }       
 
         bool is_optimal() const {
             return m_cost < m_min_cost;
@@ -755,7 +753,7 @@ namespace opt {
             pb_util u(m);
             lbool is_sat = bound(al, ws, bs, k);
             if (is_sat != l_true) return is_sat;
-#if 1
+#if 0
             rational mininc(0);
             for (unsigned i = 0; i < ws.size(); ++i) {
                 if (mininc.is_zero() || mininc > ws[i]) {
@@ -795,6 +793,7 @@ namespace opt {
                 nbs.push_back(m.mk_not(bs[i]));
             }            
             m_imp = alloc(imp, m, m_solver, nbs, ws); // race condition.
+            m_imp->updt_params(m_params);
             lbool is_sat = m_imp->pb_solve();
             k = m_imp->m_lower;
             m_solver.pop_core(1);
@@ -804,6 +803,10 @@ namespace opt {
         void updt_params(params_ref& p) {
             opt_params _p(p);
             m_engine = _p.wmaxsat_engine();        
+            m_solver.updt_params(p);
+            if (m_imp) {
+                m_imp->updt_params(p);
+            }
         }
 
     };

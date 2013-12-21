@@ -48,7 +48,7 @@ namespace opt {
         svector<smt::theory_var>  m_objective_vars;
         vector<inf_eps>     m_objective_values;
         bool                m_dump_benchmarks;
-        unsigned            m_dump_count;
+        static unsigned     m_dump_count;
         statistics          m_stats;
         filter_model_converter m_fm;
     public:

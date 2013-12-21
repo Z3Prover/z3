@@ -38,12 +38,13 @@ namespace opt {
         m_context(mgr, m_params),
         m(mgr),
         m_dump_benchmarks(false),
-        m_dump_count(0),
         m_fm(m) {
         m_logic = l;
         if (m_logic != symbol::null)
             m_context.set_logic(m_logic);
     }
+
+    unsigned opt_solver::m_dump_count = 0;
     
     opt_solver::~opt_solver() {
     }
@@ -119,15 +120,14 @@ namespace opt {
                 tout << mk_pp(m_context.get_formulas()[i], m_context.m()) << "\n";
             }
         });
-
-        lbool r = m_context.check(num_assumptions, assumptions);
         if (dump_benchmarks()) {
             std::stringstream file_name;
             file_name << "opt_solver" << ++m_dump_count << ".smt2";
             std::ofstream buffer(file_name.str().c_str());
-            to_smt2_benchmark(buffer, "opt_solver", "QF_BV");
+            to_smt2_benchmark(buffer, "opt_solver", "");
             buffer.close();
         }
+        lbool r = m_context.check(num_assumptions, assumptions);
         return r;
     }
 

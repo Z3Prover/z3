@@ -388,8 +388,8 @@ namespace smt {
         c->prune();
         TRACE("pb", display(tout, *c););
 
-        
         literal lit(abv);
+        
         switch(is_true) {
         case l_false: 
             lit = ~lit;
@@ -405,6 +405,17 @@ namespace smt {
 
         // TBD: special cases: k == 1, or args.size() == 1
             
+        if (c->k().is_one()) {
+            literal_vector& lits = get_lits();
+            lits.push_back(~lit);
+            for (unsigned i = 0; i < c->size(); ++i) {
+                lits.push_back(c->lit(i));
+                SASSERT(c->coeff(i).is_one());
+                ctx.mk_th_axiom(get_id(), lit, ~c->lit(i));
+            }
+            ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+            return true;
+        }
         
         
         // maximal coefficient:
