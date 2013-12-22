@@ -504,7 +504,10 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
 	  add(linear_assumptions[i][j]);
     }
     
-    check_result res = check();
+    check_result res = unsat;
+
+    if(!m_solver->get_proof())
+      res = check();
     
     if(res == unsat){
 

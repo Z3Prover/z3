@@ -1393,6 +1393,18 @@ namespace std {
   };
 }
 
+// to make Duality::ast usable in ordered collections
+namespace std {
+  template <>
+    class less<Duality::expr> {
+  public:
+    bool operator()(const Duality::expr &s, const Duality::expr &t) const {
+      // return s.raw() < t.raw();
+      return s.raw()->get_id() < t.raw()->get_id();
+    }
+  };
+}
+
 // to make Duality::func_decl hashable
 namespace hash_space {
   template <>

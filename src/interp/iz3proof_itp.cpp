@@ -2170,7 +2170,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
     for(unsigned i = 0; i < prem_cons.size(); i++){
       const ast &lit = prem_cons[i];
       if(get_term_type(lit) == LitA)
-	linear_comb(thing,coeffs[i],lit);
+	// Farkas rule seems to assume strict integer inequalities are rounded
+	linear_comb(thing,coeffs[i],lit,true /*round_off*/);
     }
     thing = simplify_ineq(thing);
     for(unsigned i = 0; i < prem_cons.size(); i++){
@@ -2195,9 +2196,9 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
   /** Set P to P + cQ, where P and Q are linear inequalities. Assumes P is 0 <= y or 0 < y. */
 
-  void linear_comb(ast &P, const ast &c, const ast &Q){
+  void linear_comb(ast &P, const ast &c, const ast &Q, bool round_off = false){
     ast Qrhs;
-    bool strict = op(P) == Lt;
+    bool qstrict = false;
     if(is_not(Q)){
       ast nQ = arg(Q,0);
       switch(op(nQ)){
@@ -2209,11 +2210,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	break;
       case Geq:
 	Qrhs = make(Sub,arg(nQ,1),arg(nQ,0));
-	strict = true;
+	qstrict = true;
 	break;
       case Leq: 
 	Qrhs = make(Sub,arg(nQ,0),arg(nQ,1));
-	strict = true;
+	qstrict = true;
 	break;
       default:
 	throw proof_error();
@@ -2229,17 +2230,20 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	break;
       case Lt:
 	Qrhs = make(Sub,arg(Q,1),arg(Q,0));
-	strict = true;
+	qstrict = true;
 	break;
       case Gt: 
 	Qrhs = make(Sub,arg(Q,0),arg(Q,1));
-	strict = true;
+	qstrict = true;
 	break;
       default:
 	throw proof_error();
       }
     }
     Qrhs = make(Times,c,Qrhs);
+    bool pstrict = op(P) == Lt, strict = pstrict || qstrict;
+    if(pstrict && qstrict && round_off)
+      Qrhs = make(Sub,Qrhs,make_int(rational(1)));
     if(strict)
       P = make(Lt,arg(P,0),make(Plus,arg(P,1),Qrhs));
     else

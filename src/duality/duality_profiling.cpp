@@ -26,6 +26,7 @@ Revision History:
 #include <stdlib.h>
 
 #include "duality_wrapper.h"
+#include "iz3profiling.h"
 
 namespace Duality {
   
@@ -103,6 +104,7 @@ namespace Duality {
       output_time(*pfs, it->second.t);
       (*pfs) << std::endl;
     }
+    profiling::print(os); // print the interpolation stats
   }
   
   void timer_start(const char *name){

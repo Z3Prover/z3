@@ -98,7 +98,7 @@ namespace Duality {
       bool IsClosedFormula(const Term &t);
 
       Term AdjustQuantifiers(const Term &t);
-private:
+protected:
 
       void SummarizeRec(hash_set<ast> &memo, std::vector<expr> &lits, int &ops, const Term &t);
       int CountOperatorsRec(hash_set<ast> &memo, const Term &t);
@@ -309,7 +309,7 @@ private:
 
       LogicSolver *ls;
         
-    private:
+    protected:
       int nodeCount;
       int edgeCount;
       
@@ -324,7 +324,7 @@ private:
       
     public:
       model dualModel;
-    private:
+    protected:
       literals dualLabels;
       std::list<stack_entry> stack;
       std::vector<Term> axioms; // only saved here for printing purposes
@@ -829,7 +829,7 @@ private:
        */
       void ComputeProofCore();
 
-    private:
+    protected:
       
       void ClearProofCore(){
 	if(proof_core)
@@ -947,6 +947,8 @@ private:
 
       expr SimplifyOr(std::vector<expr> &lits);
 
+      expr SimplifyAnd(std::vector<expr> &lits);
+
       void SetAnnotation(Node *root, const expr &t);
 
       void AddEdgeToSolver(Edge *edge);
@@ -959,9 +961,11 @@ private:
     
       expr NegateLit(const expr &f);
 
+      expr GetEdgeFormula(Edge *e, int persist, bool with_children, bool underapprox);
     };
     
-    /** RPFP solver base class. */
+
+  /** RPFP solver base class. */
 
     class Solver {
       
@@ -1043,4 +1047,55 @@ namespace std {
       return s->number < t->number; // s.raw()->get_id() < t.raw()->get_id();
     }
   };
+}
+
+namespace Duality {
+    /** Caching version of RPFP. Instead of asserting constraints, returns assumption literals */
+
+    class RPFP_caching : public RPFP {
+  public:
+
+      /** appends assumption literals for edge to lits. if with_children is true,
+	  includes that annotation of the edge's children. 
+       */ 
+      void AssertEdgeCache(Edge *e, std::vector<Term> &lits, bool with_children = false);
+      
+      /** appends assumption literals for node to lits */
+      void AssertNodeCache(Node *, std::vector<Term> lits);
+
+      /** check assumption lits, and return core */
+      check_result CheckCore(const std::vector<Term> &assumps, std::vector<Term> &core);
+      
+      /** Clone another RPFP into this one, keeping a map */
+      void Clone(RPFP *other);
+
+      /** Get the clone of a node */
+      Node *GetNodeClone(Node *other_node);
+
+      /** Get the clone of an edge */
+      Edge *GetEdgeClone(Edge *other_edge);
+
+      /** Try to strengthen the parent of an edge */
+      void GeneralizeCache(Edge *edge);
+
+      /** Try to propagate some facts from children to parents of edge.
+	  Return true if success. */
+      bool PropagateCache(Edge *edge);
+
+      /** Construct a caching RPFP using a LogicSolver */
+      RPFP_caching(LogicSolver *_ls) : RPFP(_ls) {}
+
+  protected:
+      hash_map<ast,expr> AssumptionLits;
+      hash_map<Node *, Node *> NodeCloneMap;
+      hash_map<Edge *, Edge *> EdgeCloneMap;
+      
+      void GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map = 0);
+
+      void GreedyReduceCache(std::vector<expr> &assumps, std::vector<expr> &core);
+
+      void FilterCore(std::vector<expr> &core, std::vector<expr> &full_core);
+
+    };
+
 }

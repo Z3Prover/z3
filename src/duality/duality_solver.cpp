@@ -44,7 +44,7 @@ Revision History:
 // #define TOP_DOWN
 // #define EFFORT_BOUNDED_STRAT
 #define SKIP_UNDERAPPROX_NODES
-
+#define USE_RPFP_CLONE
 
 namespace Duality {
 
@@ -115,7 +115,24 @@ namespace Duality {
       Report = false;
       StratifiedInlining = false;
       RecursionBound = -1;
+#ifdef USE_RPFP_CLONE
+      clone_ls = new RPFP::iZ3LogicSolver(ctx);
+      clone_rpfp = new RPFP_caching(clone_ls);
+      clone_rpfp->Clone(rpfp);
+#endif      
     }
+
+    ~Duality(){
+#ifdef USE_RPFP_CLONE
+      delete clone_rpfp;
+      delete clone_ls;
+#endif      
+    }
+
+#ifdef USE_RPFP_CLONE
+    RPFP::LogicSolver *clone_ls;
+    RPFP_caching *clone_rpfp;
+#endif      
 
     typedef RPFP::Node Node;
     typedef RPFP::Edge Edge;
@@ -1309,6 +1326,7 @@ namespace Duality {
       node. */
     bool SatisfyUpperBound(Node *node){
       if(node->Bound.IsFull()) return true;
+      Propagate();
       reporter->Bound(node);
       int start_decs = rpfp->CumulativeDecisions();
       DerivationTree *dtp = new DerivationTreeSlow(this,unwinding,reporter,heuristic,FullExpand);
@@ -1412,6 +1430,70 @@ namespace Duality {
       }
     }
 
+    // Propagate conjuncts up the unwinding
+    void Propagate(){
+      reporter->Message("beginning propagation");
+      timer_start("Propagate");
+      std::vector<Node *> sorted_nodes = unwinding->nodes;
+      std::sort(sorted_nodes.begin(),sorted_nodes.end(),std::less<Node *>()); // sorts by sequence number
+      hash_map<Node *,std::set<expr> > facts;
+      for(unsigned i = 0; i < sorted_nodes.size(); i++){
+	Node *node = sorted_nodes[i];
+	std::set<expr> &node_facts = facts[node->map];
+	if(!(node->Outgoing && indset->Contains(node)))
+	  continue;
+	std::vector<expr> conj_vec;
+	unwinding->CollectConjuncts(node->Annotation.Formula,conj_vec);
+	std::set<expr> conjs;
+	std::copy(conj_vec.begin(),conj_vec.end(),std::inserter(conjs,conjs.begin()));
+	if(!node_facts.empty()){
+	  RPFP *checker = new RPFP(rpfp->ls);
+	  slvr.push();
+	  Node *root = checker->CloneNode(node);
+	  Edge *edge = node->Outgoing;
+	  // checker->AssertNode(root);
+	  std::vector<Node *> cs;
+	  for(unsigned j = 0; j < edge->Children.size(); j++){
+	    Node *oc = edge->Children[j];
+	    Node *nc = checker->CloneNode(oc);
+	    nc->Annotation = oc->Annotation; // is this needed?
+	    cs.push_back(nc);
+	  }
+	  Edge *checker_edge = checker->CreateEdge(root,edge->F,cs); 
+	  checker->AssertEdge(checker_edge, 0, true, false);
+	  std::vector<expr> propagated;
+	  for(std::set<expr> ::iterator it = node_facts.begin(), en = node_facts.end(); it != en;){
+	    const expr &fact = *it;
+	    if(conjs.find(fact) == conjs.end()){
+	      root->Bound.Formula = fact;
+	      slvr.push();
+	      checker->AssertNode(root);
+	      check_result res = checker->Check(root);
+	      slvr.pop();
+	      if(res != unsat){
+		std::set<expr> ::iterator victim = it;
+		++it;
+		node_facts.erase(victim); // if it ain't true, nix it
+		continue;
+	      }
+	      propagated.push_back(fact);
+	    }
+	    ++it;
+	  }
+	  slvr.pop();
+	  for(unsigned i = 0; i < propagated.size(); i++){
+	    root->Annotation.Formula = propagated[i];
+	    UpdateNodeToNode(node,root);
+	  }
+	  delete checker;
+	}
+	for(std::set<expr> ::iterator it = conjs.begin(), en = conjs.end(); it != en; ++it){
+	  expr foo = *it;
+	  node_facts.insert(foo);
+	}
+      }
+      timer_stop("Propagate");
+    }
 
     /** This class represents a derivation tree. */
     class DerivationTree {
@@ -1757,7 +1839,9 @@ namespace Duality {
 		tree->SolveSingleNode(top,node);
 		if(expansions.size() == 1 && NodeTooComplicated(node))
 		  SimplifyNode(node);
-		tree->Generalize(top,node);
+		else
+		  node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
+		Generalize(node);
 		if(RecordUpdate(node))
 		  update_count++;
 	      }
@@ -1791,7 +1875,14 @@ namespace Duality {
 		RemoveExpansion(node);
 	      }
 	      stack.pop_back();
-	      if(prev_level_used || stack.size() == 1) break;
+	      if(stack.size() == 1)break;
+	      if(prev_level_used){
+		Node *node = stack.back().expansions[0];
+		if(!Propagate(node)) break;
+		if(!RecordUpdate(node)) break; // shouldn't happen!
+		RemoveUpdateNodesAtCurrentLevel(); // this level is about to be deleted -- remove its children from update list
+		continue;
+	      }
 	      RemoveUpdateNodesAtCurrentLevel(); // this level is about to be deleted -- remove its children from update list
 	      std::vector<Node *> &unused_ex = stack.back().expansions;
 	      for(unsigned i = 0; i < unused_ex.size(); i++)
@@ -1833,8 +1924,10 @@ namespace Duality {
 
       void SimplifyNode(Node *node){
 	// have to destroy the old proof to get a new interpolant
+	timer_start("SimplifyNode");
 	tree->PopPush();
 	tree->InterpolateByCases(top,node);
+	timer_stop("SimplifyNode");
       }
 
       bool LevelUsedInProof(unsigned level){
@@ -1931,6 +2024,34 @@ namespace Duality {
 	  }
 	}
 	throw "can't unmap node";
+      }
+
+      void Generalize(Node *node){
+#ifndef USE_RPFP_CLONE
+	tree->Generalize(top,node);
+#else
+	RPFP_caching *clone_rpfp = duality->clone_rpfp;
+	Edge *clone_edge = clone_rpfp->GetEdgeClone(node->Outgoing->map);
+	Node *clone_node = clone_edge->Parent;
+	clone_node->Annotation = node->Annotation;
+	for(unsigned i = 0; i < clone_edge->Children.size(); i++)
+	  clone_edge->Children[i]->Annotation = node->map->Outgoing->Children[i]->Annotation;
+	clone_rpfp->GeneralizeCache(clone_edge);
+	node->Annotation = clone_node->Annotation;
+      }
+#endif
+
+      bool Propagate(Node *node){
+	RPFP_caching *clone_rpfp = duality->clone_rpfp;
+	Edge *clone_edge = clone_rpfp->GetEdgeClone(node->Outgoing->map);
+	Node *clone_node = clone_edge->Parent;
+	clone_node->Annotation = node->map->Annotation;
+	for(unsigned i = 0; i < clone_edge->Children.size(); i++)
+	  clone_edge->Children[i]->Annotation = node->map->Outgoing->Children[i]->Annotation;
+	bool res = clone_rpfp->PropagateCache(clone_edge);
+	if(res)
+	  node->Annotation = clone_node->Annotation;
+	return res;
       }
 
     };

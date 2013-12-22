@@ -519,6 +519,20 @@ namespace Duality {
       const expr &lit = args[i];
       expr atom, val;
       if(IsLiteral(lit,atom,val)){
+	if(atom.is_app() && atom.decl().get_decl_kind() == Equal)
+	  if(pol ? eq(val,ctx.bool_val(true)) : eq(val,ctx.bool_val(false))){
+	    expr lhs = atom.arg(0), rhs = atom.arg(1);
+	    if(lhs.is_numeral())
+	      std::swap(lhs,rhs);
+	    if(rhs.is_numeral() && lhs.is_app()){
+	      for(unsigned j = 0; j < args.size(); j++)
+		if(j != i){
+		  smemo.clear();
+		  smemo[lhs] = rhs;
+		  args[j] = SubstRec(smemo,args[j]);
+		}
+	    }
+	  }
 	for(unsigned j = 0; j < args.size(); j++)
 	  if(j != i){
 	    smemo.clear();
@@ -711,6 +725,39 @@ namespace Duality {
 #endif    
 
 
+  expr RPFP::GetEdgeFormula(Edge *e, int persist, bool with_children, bool underapprox)
+  {
+    if (e->dual.null()) {
+      timer_start("ReducedDualEdge");
+      e->dual = ReducedDualEdge(e);
+      timer_stop("ReducedDualEdge");
+      timer_start("getting children");
+      if(with_children)
+	for(unsigned i = 0; i < e->Children.size(); i++)
+	  e->dual = e->dual && GetAnnotation(e->Children[i]);
+      if(underapprox){
+	std::vector<expr> cus(e->Children.size());
+	for(unsigned i = 0; i < e->Children.size(); i++)
+	  cus[i] = !UnderapproxFlag(e->Children[i]) || GetUnderapprox(e->Children[i]);
+	expr cnst =  conjoin(cus);
+	e->dual = e->dual && cnst;
+      }
+      timer_stop("getting children");
+      timer_start("Persisting");
+      std::list<stack_entry>::reverse_iterator it = stack.rbegin();
+      for(int i = 0; i < persist && it != stack.rend(); i++)
+	it++;
+      if(it != stack.rend())
+	it->edges.push_back(e);
+      timer_stop("Persisting");
+      //Console.WriteLine("{0}", cnst);
+    }
+    return e->dual;
+    timer_start("solver add");
+    slvr.add(e->dual);
+    timer_stop("solver add");
+  }
+
   /** For incremental solving, asserts the constraint associated
    * with this edge in the SMT context. If this edge is removed,
    * you must pop the context accordingly. The second argument is
@@ -732,39 +779,38 @@ namespace Duality {
   {
     if(eq(e->F.Formula,ctx.bool_val(true)) && (!with_children || e->Children.empty()))
       return;
-    if (e->dual.null())
-      {
-	timer_start("ReducedDualEdge");
-	e->dual = ReducedDualEdge(e);
-	timer_stop("ReducedDualEdge");
-	timer_start("getting children");
-	if(with_children)
-	  for(unsigned i = 0; i < e->Children.size(); i++)
-	    e->dual = e->dual && GetAnnotation(e->Children[i]);
-	if(underapprox){
-	  std::vector<expr> cus(e->Children.size());
-	  for(unsigned i = 0; i < e->Children.size(); i++)
-	    cus[i] = !UnderapproxFlag(e->Children[i]) || GetUnderapprox(e->Children[i]);
-	  expr cnst =  conjoin(cus);
-	  e->dual = e->dual && cnst;
-	}
-	timer_stop("getting children");
-	timer_start("Persisting");
-	std::list<stack_entry>::reverse_iterator it = stack.rbegin();
-	for(int i = 0; i < persist && it != stack.rend(); i++)
-	  it++;
-	if(it != stack.rend())
-	  it->edges.push_back(e);
-#if 0
-	if(persist != 0)
-	  Z3_persist_ast(ctx,e->dual,persist);
-#endif
-	timer_stop("Persisting");
-	//Console.WriteLine("{0}", cnst);
-      }
+    expr fmla = GetEdgeFormula(e, persist, with_children, underapprox);
     timer_start("solver add");
     slvr.add(e->dual);
     timer_stop("solver add");
+  }
+
+  // caching verion of above
+  void RPFP_caching::AssertEdgeCache(Edge *e, std::vector<Term> &lits, bool with_children){
+    if(eq(e->F.Formula,ctx.bool_val(true)) && (!with_children || e->Children.empty()))
+      return;
+    expr fmla = GetEdgeFormula(e, 0, with_children, false);
+    GetAssumptionLits(fmla,lits);
+  }
+      
+  void RPFP_caching::GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map){
+    std::vector<expr> conjs;
+    CollectConjuncts(fmla,conjs);
+    for(unsigned i = 0; i < conjs.size(); i++){
+      const expr &conj = conjs[i];
+      std::pair<ast,Term> foo(conj,expr(ctx));
+      std::pair<hash_map<ast,Term>::iterator, bool> bar = AssumptionLits.insert(foo);
+      Term &res = bar.first->second;
+      if(bar.second){
+	func_decl pred = ctx.fresh_func_decl("@alit", ctx.bool_sort());
+	res = pred();
+	slvr.add(ctx.make(Implies,res,conj));
+	//	std::cout << res << ": " << conj << "\n";
+      }
+      if(opt_map)
+	(*opt_map)[res] = conj;
+      lits.push_back(res);
+    }
   }
 
   void RPFP::ConstrainParent(Edge *parent, Node *child){
@@ -786,6 +832,53 @@ namespace Duality {
       }
   }
 
+  // caching version of above
+  void RPFP_caching::AssertNodeCache(Node *n, std::vector<Term> lits){
+    if (n->dual.null())
+      {
+	n->dual = GetUpperBound(n);
+	stack.back().nodes.push_back(n);
+	GetAssumptionLits(n->dual,lits);
+      }
+  }
+  
+  /** Clone another RPFP into this one, keeping a map */
+  void RPFP_caching::Clone(RPFP *other){
+    for(unsigned i = 0; i < other->nodes.size(); i++)
+      NodeCloneMap[other->nodes[i]] = CloneNode(other->nodes[i]);
+    for(unsigned i = 0; i < other->edges.size(); i++){
+      Edge *edge = other->edges[i];
+      std::vector<Node *> cs;
+      for(unsigned j = 0; j < edge->Children.size(); j++)
+	// cs.push_back(NodeCloneMap[edge->Children[j]]);
+	cs.push_back(CloneNode(edge->Children[j]));
+      EdgeCloneMap[edge] = CreateEdge(NodeCloneMap[edge->Parent],edge->F,cs);
+    }
+  }
+  
+  /** Get the clone of a node */
+  RPFP::Node *RPFP_caching::GetNodeClone(Node *other_node){
+    return NodeCloneMap[other_node];
+  }
+  
+  /** Get the clone of an edge */
+  RPFP::Edge *RPFP_caching::GetEdgeClone(Edge *other_edge){
+    return EdgeCloneMap[other_edge];
+  }  
+
+  /** check assumption lits, and return core */
+  check_result RPFP_caching::CheckCore(const std::vector<Term> &assumps, std::vector<Term> &core){
+    core.resize(assumps.size());
+    unsigned core_size;
+    check_result res = slvr.check(assumps.size(),(expr *)&assumps[0],&core_size,&core[0]);
+    if(res == unsat)
+      core.resize(core_size);
+    else
+      core.clear();
+    return res;
+  }
+  
+      
   /** Assert a constraint on an edge in the SMT context. 
    */
 
@@ -970,6 +1063,7 @@ namespace Duality {
 
   check_result RPFP::Check(Node *root, std::vector<Node *> underapproxes, std::vector<Node *> *underapprox_core )
         {
+	  timer_start("Check");
 	  ClearProofCore();
 	  // if (dualModel != null) dualModel.Dispose();
 	  check_result res;
@@ -1002,6 +1096,7 @@ namespace Duality {
             // check_result temp = slvr.check();
 	  }
 	  dualModel = slvr.get_model();
+	  timer_stop("Check");
 	  return res;
         }
 
@@ -1927,10 +2022,14 @@ namespace Duality {
       for(int i = 0; i < num_args; i++)
 	CollectConjuncts(f.arg(i),lits,false);
     }
-    else if(pos)
-      lits.push_back(f);
-    else
-      lits.push_back(!f);
+    else if(pos){
+      if(!eq(f,ctx.bool_val(true)))
+	lits.push_back(f);
+    }
+    else {
+      if(!eq(f,ctx.bool_val(false)))
+	lits.push_back(!f);
+    }
   }
 
   struct TermLt {
@@ -2253,6 +2352,45 @@ namespace Duality {
     }
   }
 
+  void RPFP_caching::FilterCore(std::vector<expr> &core, std::vector<expr> &full_core){
+    hash_set<ast> core_set;
+    std::copy(full_core.begin(),full_core.end(),std::inserter(core_set,core_set.begin()));
+    std::vector<expr> new_core;
+    for(unsigned i = 0; i < core.size(); i++)
+      if(core_set.find(core[i]) != core_set.end())
+	new_core.push_back(core[i]);
+    core.swap(new_core);
+  }
+
+  void RPFP_caching::GreedyReduceCache(std::vector<expr> &assumps, std::vector<expr> &core){
+    std::vector<expr> lits = assumps, full_core; 
+    std::copy(core.begin(),core.end(),std::inserter(lits,lits.end()));
+    
+    // verify
+    check_result res = CheckCore(lits,full_core);
+    if(res != unsat)
+      throw "should be unsat";
+    FilterCore(core,full_core);
+    
+    std::vector<expr> dummy;
+    if(CheckCore(full_core,dummy) != unsat)
+      throw "should be unsat";
+
+    for(unsigned i = 0; i < core.size(); ){
+      expr temp = core[i];
+      std::swap(core[i],core.back());
+      core.pop_back();
+      lits.resize(assumps.size());
+      std::copy(core.begin(),core.end(),std::inserter(lits,lits.end()));
+      res = CheckCore(lits,full_core);
+      if(res != unsat){
+	core.push_back(temp);
+	std::swap(core[i],core.back());
+	i++;
+      }
+    }
+  }
+
   expr RPFP::NegateLit(const expr &f){
     if(f.is_app() && f.decl().get_decl_kind() == Not)
       return f.arg(0);
@@ -2276,6 +2414,14 @@ namespace Duality {
     if(lits.size() == 1)
       return lits[0];
     return ctx.make(Or,lits);
+  }
+
+  expr RPFP::SimplifyAnd(std::vector<expr> &lits){
+    if(lits.size() == 0)
+      return ctx.bool_val(true);
+    if(lits.size() == 1)
+      return lits[0];
+    return ctx.make(And,lits);
   }
 
     // set up edge constraint in aux solver
@@ -2321,7 +2467,7 @@ namespace Duality {
 	std::vector<expr> case_lits;
 	itp = StrengthenFormulaByCaseSplitting(itp, case_lits);
 	SetAnnotation(node,itp);
-	node->Annotation.Formula.simplify();
+	node->Annotation.Formula = node->Annotation.Formula.simplify();
       }
 
       if(node->Annotation.IsEmpty()){
@@ -2330,6 +2476,7 @@ namespace Duality {
 	  const std::vector<expr> &theory = ls->get_axioms();
 	  for(unsigned i = 0; i < theory.size(); i++)
 	    aux_solver.add(theory[i]);
+	  axioms_added = true;
 	}
 	else {
 	  std::cout << "bad in InterpolateByCase -- core:\n";
@@ -2350,6 +2497,7 @@ namespace Duality {
   }
 
   void RPFP::Generalize(Node *root, Node *node){
+    timer_start("Generalize");
     aux_solver.push();
     AddEdgeToSolver(node->Outgoing);
     expr fmla = GetAnnotation(node);
@@ -2359,7 +2507,102 @@ namespace Duality {
     aux_solver.pop(1);
     NegateLits(conjuncts);
     SetAnnotation(node,SimplifyOr(conjuncts));
+    timer_stop("Generalize");
   }
+
+
+  // caching version of above
+  void RPFP_caching::GeneralizeCache(Edge *edge){
+    timer_start("Generalize");
+    Node *node = edge->Parent;
+    std::vector<expr> assumps, core, conjuncts;
+    AssertEdgeCache(edge,assumps);
+    for(unsigned i = 0; i < edge->Children.size(); i++){
+      expr ass = GetAnnotation(edge->Children[i]);
+      std::vector<expr> clauses;
+      CollectConjuncts(ass.arg(1),clauses);
+      for(unsigned j = 0; j < clauses.size(); j++)
+	GetAssumptionLits(ass.arg(0) || clauses[j],assumps);
+    }
+    expr fmla = GetAnnotation(node);
+    assumps.push_back(fmla.arg(0).arg(0));
+    std::vector<expr> lits;
+    CollectConjuncts(!fmla.arg(1),lits);
+#if 0
+    for(unsigned i = 0; i < lits.size(); i++){
+      const expr &lit = lits[i];
+      if(lit.is_app() && lit.decl().get_decl_kind() == Equal){
+	lits[i] = ctx.make(Leq,lit.arg(0),lit.arg(1));
+	lits.push_back(ctx.make(Leq,lit.arg(1),lit.arg(0)));
+      }
+    }
+#endif
+    hash_map<ast,expr> lit_map;
+    for(unsigned i = 0; i < lits.size(); i++)
+      GetAssumptionLits(lits[i],core,&lit_map);
+    GreedyReduceCache(assumps,core);
+    for(unsigned i = 0; i < core.size(); i++)
+      conjuncts.push_back(lit_map[core[i]]); 
+    NegateLits(conjuncts);
+    SetAnnotation(node,SimplifyOr(conjuncts));
+    timer_stop("Generalize");
+  }
+
+  // caching version of above
+  bool RPFP_caching::PropagateCache(Edge *edge){
+    timer_start("PropagateCache");
+    bool some = false;
+    {
+      std::vector<expr> candidates, skip;
+      Node *node = edge->Parent;
+      CollectConjuncts(node->Annotation.Formula,skip);
+      for(unsigned i = 0; i < edge->Children.size(); i++){
+	Node *child = edge->Children[i];
+	if(child->map == node->map){
+	  CollectConjuncts(child->Annotation.Formula,candidates);
+	  break;
+	}
+      }
+      if(candidates.empty()) goto done;
+      hash_set<ast> skip_set;
+      std::copy(skip.begin(),skip.end(),std::inserter(skip_set,skip_set.begin()));
+      std::vector<expr> new_candidates;
+      for(unsigned i = 0; i < candidates.size(); i++)
+	if(skip_set.find(candidates[i]) == skip_set.end())
+	  new_candidates.push_back(candidates[i]);
+      candidates.swap(new_candidates);
+      if(candidates.empty()) goto done;
+      std::vector<expr> assumps, core, conjuncts;
+      AssertEdgeCache(edge,assumps);
+      for(unsigned i = 0; i < edge->Children.size(); i++){
+	expr ass = GetAnnotation(edge->Children[i]);
+	std::vector<expr> clauses;
+	CollectConjuncts(ass.arg(1),clauses);
+	for(unsigned j = 0; j < clauses.size(); j++)
+	  GetAssumptionLits(ass.arg(0) || clauses[j],assumps);
+      }
+      for(unsigned i = 0; i < candidates.size(); i++){
+	unsigned old_size = assumps.size();
+	node->Annotation.Formula = candidates[i];
+	expr fmla = GetAnnotation(node);
+	assumps.push_back(fmla.arg(0).arg(0));
+	GetAssumptionLits(!fmla.arg(1),assumps);
+	std::vector<expr> full_core; 
+	check_result res = CheckCore(assumps,full_core);
+	if(res == unsat)
+	  conjuncts.push_back(candidates[i]);
+	assumps.resize(old_size);
+      }
+      if(conjuncts.empty())
+	goto done;
+      SetAnnotation(node,SimplifyAnd(conjuncts));
+      some = true;
+    }
+  done:
+    timer_stop("PropagateCache");
+    return some;
+  }
+
 
   /** Push a scope. Assertions made after Push can be undone by Pop. */
 
