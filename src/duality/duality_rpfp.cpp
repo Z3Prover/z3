@@ -1492,7 +1492,7 @@ namespace Duality {
 	  }
 	}
 	/* Unreachable! */
-	throw "error in RPFP::GetLabelsRec";
+	// throw "error in RPFP::GetLabelsRec";
 	goto done;
       }
       else if(k == Not) {

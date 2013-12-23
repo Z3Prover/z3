@@ -1620,6 +1620,7 @@ namespace Duality {
 #ifdef USE_CACHING_RPFP
 	cache_ls->slvr->pop(1);
 	delete cache_ls;
+	tree->ls = rpfp->ls;
 #endif
 	timer_stop("Derive");
 	return res;
