@@ -473,7 +473,8 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::mk_gomory_cut(row const & r) {
-        SASSERT(!all_coeff_int(r));
+        // The following assertion is wrong. It may be violated in mixed-integer problems.
+        // SASSERT(!all_coeff_int(r));
         theory_var x_i = r.get_base_var();
         
         SASSERT(is_int(x_i));

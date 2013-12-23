@@ -24,8 +24,42 @@ Notes:
 #include "sorting_network.h"
 #include "uint_set.h"
 #include "smt_model_generator.h"
+#include "pb_rewriter_def.h"
 
 namespace smt {
+
+    class pb_lit_rewriter_util {
+    public:
+        typedef std::pair<literal, rational> arg_t;
+        typedef vector<arg_t> args_t;
+        typedef rational numeral;
+        
+        literal negate(literal l) {
+            return ~l;
+        }
+
+        void display(std::ostream& out, literal l) {
+            out << l;
+        }
+        
+        bool is_negated(literal l) const {
+            return l.sign();
+        }
+        
+        bool is_true(literal l) const {
+            return l == true_literal;
+        }
+        
+        bool is_false(literal l) const {
+            return l == false_literal;
+        }
+        
+        struct compare {
+            bool operator()(arg_t const& a, arg_t const& b) {
+                return a.first < b.first;
+            }
+        };
+    };
 
     void theory_pb::ineq::negate() {
         m_lit.neg();
@@ -52,245 +86,21 @@ namespace smt {
 
 
     void theory_pb::ineq::unique() {
-        numeral& k = m_k;
-        arg_t& args = m_args;
-        // normalize first all literals to be positive:
-        // then we can compare them more easily.
-        for (unsigned i = 0; i < size(); ++i) {
-            if (lit(i).sign()) {
-                args[i].first.neg();
-                k -= coeff(i);
-                args[i].second = -coeff(i);
-            }
-        }
-        // remove constants
-        for (unsigned i = 0; i < size(); ++i) {
-            if (lit(i) == true_literal) {
-                k += coeff(i);
-                std::swap(args[i], args[size()-1]);
-                args.pop_back();
-            }
-            else if (lit(i) == false_literal) {
-                std::swap(args[i], args[size()-1]);
-                args.pop_back();                
-            }
-        }
-        // sort and coalesce arguments:
-        std::sort(args.begin(), args.end());
-        
-        unsigned i = 0, j = 1;
-        for (; j < size(); ++i) {
-            SASSERT(j > i);
-            literal l = lit(i);
-            for (; j < size() && lit(j) == lit(i); ++j) {
-                args[i].second += coeff(j);                
-            }
-            if (j < size()) {
-                args[i+1].first = lit(j);
-                args[i+1].second = coeff(j);
-                ++j;
-            }
-        }
-        if (i + 1 < size()) {
-            args.resize(i+1);
-        }
+        pb_lit_rewriter_util pbu;
+        pb_rewriter_util<pb_lit_rewriter_util> util(pbu);
+        util.unique(m_args, m_k);        
     }
 
     void theory_pb::ineq::prune() {
-        numeral& k = m_k;
-        arg_t& args = m_args;
-        numeral nlt(0);
-        unsigned occ = 0;
-        for (unsigned i = 0; nlt < k && i < size(); ++i) {
-            if (coeff(i) < k) {
-                nlt += coeff(i);
-                ++occ;
-            }
-        }
-        if (0 < occ && nlt < k) {
-            IF_VERBOSE(2, verbose_stream() << "prune\n";
-                       for (unsigned i = 0; i < size(); ++i) {
-                           verbose_stream() << coeff(i) << "*" << lit(i) << " ";
-                       }
-                       verbose_stream() << " >= " << k << "\n";
-                       );
-
-            for (unsigned i = 0; i < size(); ++i) {
-                if (coeff(i) < k) {
-                    args[i] = args.back();
-                    args.pop_back();
-                    --i;
-                }
-            }
-            normalize();
-
-        }
+        pb_lit_rewriter_util pbu;
+        pb_rewriter_util<pb_lit_rewriter_util> util(pbu);
+        util.prune(m_args, m_k);        
     }
 
     lbool theory_pb::ineq::normalize() {
-
-        numeral& k = m_k;
-        arg_t& args = m_args;
-
-        // 
-        // Ensure all coefficients are positive:
-        //    c*l + y >= k 
-        // <=> 
-        //    c*(1-~l) + y >= k
-        // <=>
-        //    c - c*~l + y >= k
-        // <=> 
-        //    -c*~l + y >= k - c
-        // 
-        numeral sum(0);
-        for (unsigned i = 0; i < size(); ++i) {
-            numeral c = coeff(i);
-            if (c.is_neg()) {
-                args[i].second = -c;
-                args[i].first = ~lit(i);
-                k -= c;
-            }
-            sum += coeff(i);
-        }
-        // detect tautologies:
-        if (k <= numeral::zero()) {
-            args.reset();
-            k = numeral::zero();
-            return l_true;
-        }
-        // detect infeasible constraints:
-        if (sum < k) {
-            args.reset();
-            k = numeral::one();
-            return l_false;
-        }
-
-        bool all_int = true;
-        for (unsigned i = 0; all_int && i < size(); ++i) {
-            all_int = coeff(i).is_int();
-        }
-        
-        if (!all_int) {
-            // normalize to integers.
-            numeral d(denominator(k));
-            for (unsigned i = 0; i < size(); ++i) {
-                d = lcm(d, denominator(coeff(i)));
-            }
-            SASSERT(!d.is_one());
-            k *= d;
-            for (unsigned i = 0; i < size(); ++i) {
-                args[i].second *= d;
-            }            
-        }
-
-        // Ensure the largest coefficient is not larger than k:
-        sum = numeral::zero();
-        for (unsigned i = 0; i < size(); ++i) {
-            numeral c = coeff(i);
-            if (c > k) {
-                args[i].second = k;
-            }
-            sum += coeff(i);
-        }
-        SASSERT(!args.empty());
-
-        // normalize tight inequalities to unit coefficients.
-        if (sum == k) {
-            for (unsigned i = 0; i < size(); ++i) {
-                args[i].second = numeral::one();
-            }
-            k = numeral(size());
-        }
-
-        // apply cutting plane reduction:
-        numeral g(0);
-        for (unsigned i = 0; !g.is_one() && i < size(); ++i) {
-            numeral c = coeff(i);
-            if (c != k) {
-                if (g.is_zero()) {
-                    g = c;
-                }
-                else {
-                    g = gcd(g, c);
-                }
-            }
-        }
-        if (g.is_zero()) {
-            // all coefficients are equal to k.
-            for (unsigned i = 0; i < size(); ++i) {
-                SASSERT(coeff(i) == k);
-                args[i].second = numeral::one();
-            }
-            k = numeral::one();
-        }
-        else if (g > numeral::one()) {
-            IF_VERBOSE(2, verbose_stream() << "cut " << g << "\n";
-                       for (unsigned i = 0; i < size(); ++i) {
-                           verbose_stream() << coeff(i) << "*" << lit(i) << " ";
-                       }
-                       verbose_stream() << " >= " << k << "\n";
-                       );
-
-            //
-            // Example 5x + 5y + 2z + 2u >= 5
-            // becomes 3x + 3y + z + u >= 3
-            // 
-            numeral k_new = div(k, g);    
-            if (!(k % g).is_zero()) {     // k_new is the ceiling of k / g.
-                k_new++;
-            }
-            for (unsigned i = 0; i < size(); ++i) {
-                SASSERT(coeff(i).is_pos());
-                numeral c = coeff(i);
-                if (c == k) {
-                    c = k_new;
-                }
-                else {
-                    c = div(c, g);
-                }
-                args[i].second = c;
-                SASSERT(coeff(i).is_pos());
-            }
-            k = k_new;            
-        }
-        //
-        // normalize coefficients that fall within a range
-        // k/n <= ... < k/(n-1) for some n = 1,2,...
-        //
-        // e.g, k/n <= min <= max < k/(n-1)
-        //      k/min <= n, n-1 < k/max
-        // .    floor(k/max) = ceil(k/min) - 1  
-        // .    floor(k/max) < k/max
-        //
-        // example: k = 5, min = 3, max = 4: 5/3 -> 2   5/4 -> 1, n = 2
-        // replace all coefficients by 1, and k by 2.
-        //
-        if (!k.is_one()) {
-            numeral min = coeff(0), max = coeff(0);
-            for (unsigned i = 1; i < size(); ++i) {
-                if (coeff(i) < min) min = coeff(i);
-                if (coeff(i) > max) max = coeff(i);
-            }            
-            numeral n0 = k/max;
-            numeral n1 = floor(n0);
-            numeral n2 = ceil(k/min) - numeral::one();
-            if (n1 == n2 && !n0.is_int()) {
-                IF_VERBOSE(2, verbose_stream() << "set cardinality\n";
-                           for (unsigned i = 0; i < size(); ++i) {
-                               verbose_stream() << coeff(i) << "*" << lit(i) << " ";
-                           }
-                           verbose_stream() << " >= " << k << "\n";
-                           );
-
-                for (unsigned i = 0; i < size(); ++i) {
-                    args[i].second = numeral::one();
-                }
-                k = n1 + numeral::one();
-            }
-        }
-        
-        SASSERT(well_formed());
-        return l_undef;
+        pb_lit_rewriter_util pbu;
+        pb_rewriter_util<pb_lit_rewriter_util> util(pbu);
+        return util.normalize(m_args, m_k);        
     }
 
     app_ref theory_pb::ineq::to_expr(context& ctx, ast_manager& m) {
@@ -403,6 +213,7 @@ namespace smt {
             break;
         }
 
+#if 0
         // TBD: special cases: k == 1, or args.size() == 1
             
         if (c->k().is_one()) {
@@ -416,7 +227,7 @@ namespace smt {
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
             return true;
         }
-        
+#endif   
         
         // maximal coefficient:
         numeral& max_watch = c->m_max_watch;
