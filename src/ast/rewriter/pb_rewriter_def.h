@@ -68,6 +68,9 @@ void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::num
         for (; j < args.size() && args[j].first == args[i].first; ++j) {
             args[i].second += args[j].second;
         }
+        if (args[i].second.is_zero()) {
+            --i;
+        }
         if (j < args.size()) {
             args[i+1].first = args[j].first;
             args[i+1].second = args[j].second;

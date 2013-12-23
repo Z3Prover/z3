@@ -21,15 +21,20 @@ Notes:
 #include "tactical.h"
 #include "for_each_expr.h"
 #include "pb_decl_plugin.h"
+#include "th_rewriter.h"
+#include "expr_substitution.h"
+#include "ast_pp.h"
 
 class pb_preprocess_tactic : public tactic {
-    struct rec { unsigned pos, neg; rec() { pos = neg = 0; } };
+    struct rec { unsigned_vector pos, neg; rec() { } };
     typedef obj_map<expr, rec> var_map;
     ast_manager&     m;
     pb_util          pb;
     var_map          m_vars;    
-    ptr_vector<app>  m_ge;
-    ptr_vector<expr> m_other;
+    app_ref_vector   m_ge;
+    expr_ref_vector  m_other;
+    th_rewriter      m_r;
+    
 
     struct declassifier {
         obj_map<expr, rec>& m_vars;        
@@ -46,7 +51,7 @@ class pb_preprocess_tactic : public tactic {
 
 public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
-        m(m), pb(m) {}
+        m(m), pb(m), m_ge(m), m_other(m), m_r(m) {}
 
     virtual ~pb_preprocess_tactic() {}
 
@@ -64,7 +69,7 @@ public:
         mc = 0; pc = 0; core = 0;
 
         reset();
-        for (unsigned i = 0; i < g->size(); i++) {
+        for (unsigned i = 0; i < g->size(); ++i) {
             process_vars(g->form(i));
         }
 
@@ -73,31 +78,56 @@ public:
             return;
         }
 
+
         for (unsigned i = 0; i < m_ge.size(); ++i) {
-            classify_vars(m_ge[i]);
+            classify_vars(i, m_ge[i].get());
         }
 
         declassifier dcl(m_vars);
         expr_mark visited;        
         for (unsigned i = 0; !m_vars.empty() && i < m_other.size(); ++i) {
-            for_each_expr(dcl, visited, m_other[i]);
+            for_each_expr(dcl, visited, m_other[i].get());
         }
 
         if (m_vars.empty()) {
             result.push_back(g.get());       
             return;
         }
-        
+
+        g->inc_depth();        
         var_map::iterator it = next_resolvent(m_vars.begin()); 
         while (it != m_vars.end()) {
             expr * e = it->m_key;
-            it->m_value.pos;
-            it->m_value.neg;
-            
+            if (it->m_value.pos.empty()) {                
+                replace(it->m_value.neg, e, m.mk_false());
+            }
+            else if (it->m_value.neg.empty()) {
+                replace(it->m_value.pos, e, m.mk_true());
+            }
+            else if (it->m_value.pos.size() == 1) {
+                resolve(it->m_value.pos[0], it->m_value.neg, e, true);
+            }
+            else if (it->m_value.neg.size() == 1) {
+                resolve(it->m_value.neg[0], it->m_value.pos, e, false);                
+            }
+            else {
+                
+            }
+            ++it;
             it = next_resolvent(it);
+            // FIXME: some but not all indices are invalidated.
         }        
 
-        g->inc_depth();
+        g->reset();
+        for (unsigned i = 0; i < m_ge.size(); ++i) {
+            g->assert_expr(m_ge[i].get());
+        }
+
+        for (unsigned i = 0; i < m_other.size(); ++i) {
+            g->assert_expr(m_other[i].get());
+        }
+
+
         result.push_back(g.get());       
     }
 
@@ -119,10 +149,17 @@ private:
     }
 
     void process_vars(expr* e) {
-        if (pb.is_ge(e) && pure_args(to_app(e))) {
+        expr* r;
+        if (is_uninterp_const(e)) {
+            m_ge.push_back(to_app(e));
+        }
+        else if (pb.is_ge(e) && pure_args(to_app(e))) {
             m_ge.push_back(to_app(e));
         }
         else if (m.is_or(e) && pure_args(to_app(e))) {
+            m_ge.push_back(to_app(e));
+        }
+        else if (m.is_not(e, r) && is_uninterp_const(r)) {
             m_ge.push_back(to_app(e));
         }
         else {
@@ -130,30 +167,39 @@ private:
         }
     }
 
-    void classify_vars(app* e) {
+    void classify_vars(unsigned idx, app* e) {
         expr* r;
+        if (m.is_not(e, r)) {
+            insert(idx, r, false);
+            return;
+        }
+        if (is_uninterp_const(e)) {
+            insert(idx, e, true);
+            return;
+        }
         for (unsigned i = 0; i < e->get_num_args(); ++i) {
-            if (m.is_true(e) || m.is_false(e)) {
+            expr* arg = e->get_arg(i);
+            if (m.is_true(arg) || m.is_false(arg)) {
                 // no-op
             }
-            else if (m.is_not(e, r)) {
-                insert(r, false);
+            else if (m.is_not(arg, r)) {
+                insert(idx, r, false);
             }
             else {
-                insert(e, true);
+                insert(idx, arg, true);
             }
         }
     }
 
-    void insert(expr* e, bool pos) {
+    void insert(unsigned i, expr* e, bool pos) {
         if (!m_vars.contains(e)) {
             m_vars.insert(e, rec());
         }
         if (pos) {
-            m_vars.find(e).pos++;
+            m_vars.find(e).pos.push_back(i);
         }
         else {
-            m_vars.find(e).neg++;
+            m_vars.find(e).neg.push_back(i);
         }
     }
 
@@ -172,10 +218,109 @@ private:
         if (it == m_vars.end()) {
             return it;
         }
-        while (it != m_vars.end() && it->m_value.pos != 1 && it->m_value.neg != 1) {
+        while (it != m_vars.end() && it->m_value.pos.size() > 1 && it->m_value.neg.size() > 1) {
             ++it;
         }
         return it;        
+    }
+
+    rational get_coeff(unsigned num_args, expr* const* args, rational const* coeffs, expr* e) {
+        for (unsigned i = 0; i < num_args; ++i) {
+            if (args[i] == e) return coeffs[i];
+        }
+        return rational::zero();
+    }
+
+    void resolve(unsigned idx, unsigned_vector const& positions, expr* e, bool pos) {
+        app* fml = m_ge[idx].get();
+        if (m.is_true(fml)) {
+            return;
+        }
+        m_r.set_substitution(0);
+        expr_ref tmp1(m), tmp2(m), e1(m), e2(m);
+        ptr_vector<expr> args;
+        vector<rational> coeffs;        
+        rational k1, k2, c1, c2;
+        if (pos) {
+            e1 = e;
+            e2 = m.mk_not(e);
+        }
+        else {
+            e1 = m.mk_not(e);
+            e2 = e;
+        }
+        VERIFY(to_ge(fml, args, coeffs, k1));
+        c1 = get_coeff(args.size(), args.c_ptr(), coeffs.c_ptr(), e1);
+        unsigned sz = coeffs.size();
+        for (unsigned i = 0; i < positions.size(); ++i) {
+            SASSERT(positions[i] != idx); // rely on simplification
+            app* fml2 = m_ge[positions[i]].get();
+            if (m.is_true(fml2)) continue;
+            VERIFY(to_ge(fml2, args, coeffs, k2));
+            c2 = get_coeff(args.size()-sz, args.c_ptr()+sz, coeffs.c_ptr()+sz, e2);
+            std::cout << "coeffs: " << c1 << " " << c2 << "\n";
+            tmp1 = pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), k1 + k2);
+            m_r(tmp1, tmp2);
+            TRACE("pb", tout << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
+            IF_VERBOSE(1, verbose_stream() << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
+#if 0
+            m_ge[positions[i]] = tmp2;
+#endif
+            args.resize(sz);
+            coeffs.resize(sz);
+        }
+        
+        // m_ge[idx] = m.mk_true();
+    }
+
+    bool to_ge(app* e, ptr_vector<expr>& args, vector<rational>& coeffs, rational& k) {
+        expr* r;
+        if (is_uninterp_const(e)) {
+            args.push_back(e);
+            coeffs.push_back(rational::one());
+            k = rational::one();
+        }
+        else if (m.is_not(e, r) && is_uninterp_const(r)) {
+            args.push_back(e);
+            coeffs.push_back(rational::one());
+            k = rational::one();
+        }
+        else if (pb.is_ge(e)) {
+            SASSERT(pure_args(e));
+            for (unsigned i = 0; i < e->get_num_args(); ++i) {
+                args.push_back(e->get_arg(i));
+                coeffs.push_back(pb.get_coeff(e, i));
+            }
+            k = pb.get_k(e);
+        }
+        else if (m.is_or(e)) {
+            SASSERT(pure_args(e));
+            for (unsigned i = 0; i < e->get_num_args(); ++i) {
+                args.push_back(e->get_arg(i));
+                coeffs.push_back(rational::one());
+            }
+            k = rational::one();
+        }
+        else {
+            return false;
+        }
+        return true;
+    }
+
+    void replace(unsigned_vector const& positions, expr* e, expr* v) {
+        expr_substitution sub(m);
+        sub.insert(e, v);
+        expr_ref tmp(m);
+        m_r.set_substitution(&sub);
+        for (unsigned i = 0; i < positions.size(); ++i) {
+            unsigned idx = positions[i];
+            if (!m.is_true(m_ge[idx].get())) {
+                m_r(m_ge[idx].get(), tmp);
+                TRACE("pb", tout << mk_pp(m_ge[idx].get(), m) << " -> " << tmp 
+                      << " by " << mk_pp(e, m) << " |-> " << mk_pp(v, m) << "\n";);
+                m_ge[idx] = to_app(tmp);
+            }
+        }
     }
 };
 
