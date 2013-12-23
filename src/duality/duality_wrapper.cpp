@@ -44,6 +44,7 @@ namespace Duality {
     m_solver = (*sf)(m(), p, true, true, true, ::symbol::null);
     m_solver->updt_params(p); // why do we have to do this?
     canceled = false;
+    m_mode = m().proof_mode();
   }
 
 expr context::constant(const std::string &name, const sort &ty){ 

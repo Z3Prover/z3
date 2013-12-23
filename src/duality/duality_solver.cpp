@@ -37,7 +37,7 @@ Revision History:
 #define MINIMIZE_CANDIDATES
 // #define MINIMIZE_CANDIDATES_HARDER
 #define BOUNDED
-#define CHECK_CANDS_FROM_IND_SET
+// #define CHECK_CANDS_FROM_IND_SET
 #define UNDERAPPROX_NODES
 #define NEW_EXPAND
 #define EARLY_EXPAND
@@ -45,6 +45,10 @@ Revision History:
 // #define EFFORT_BOUNDED_STRAT
 #define SKIP_UNDERAPPROX_NODES
 #define USE_RPFP_CLONE
+#define KEEP_EXPANSIONS
+#define USE_CACHING_RPFP
+// #define PROPAGATE_BEFORE_CHECK
+#define USE_NEW_GEN_CANDS
 
 namespace Duality {
 
@@ -115,11 +119,19 @@ namespace Duality {
       Report = false;
       StratifiedInlining = false;
       RecursionBound = -1;
+      {
+	scoped_no_proof no_proofs_please(ctx.m());
 #ifdef USE_RPFP_CLONE
       clone_ls = new RPFP::iZ3LogicSolver(ctx);
       clone_rpfp = new RPFP_caching(clone_ls);
       clone_rpfp->Clone(rpfp);
 #endif      
+#ifdef USE_NEW_GEN_CANDS
+      gen_cands_ls = new RPFP::iZ3LogicSolver(ctx);
+      gen_cands_rpfp = new RPFP_caching(gen_cands_ls);
+      gen_cands_rpfp->Clone(rpfp);
+#endif      
+      }
     }
 
     ~Duality(){
@@ -127,12 +139,21 @@ namespace Duality {
       delete clone_rpfp;
       delete clone_ls;
 #endif      
+#ifdef USE_NEW_GEN_CANDS
+      delete gen_cands_rpfp;
+      delete gen_cands_ls;
+#endif
     }
 
 #ifdef USE_RPFP_CLONE
     RPFP::LogicSolver *clone_ls;
     RPFP_caching *clone_rpfp;
 #endif      
+#ifdef USE_NEW_GEN_CANDS
+    RPFP::LogicSolver *gen_cands_ls;
+    RPFP_caching *gen_cands_rpfp;
+#endif      
+
 
     typedef RPFP::Node Node;
     typedef RPFP::Edge Edge;
@@ -1102,7 +1123,8 @@ namespace Duality {
     void ExtractCandidateFromCex(Edge *edge, RPFP *checker, Node *root, Candidate &candidate){
       candidate.edge = edge;
       for(unsigned j = 0; j < edge->Children.size(); j++){
-	Edge *lb = root->Outgoing->Children[j]->Outgoing;
+	Node *node = root->Outgoing->Children[j];
+	Edge *lb = node->Outgoing;
 	std::vector<Node *> &insts = insts_of_node[edge->Children[j]];
 #ifndef MINIMIZE_CANDIDATES
 	for(int k = insts.size()-1; k >= 0; k--)
@@ -1112,8 +1134,8 @@ namespace Duality {
 	{
 	  Node *inst = insts[k];
 	  if(indset->Contains(inst)){
-	    if(checker->Empty(lb->Parent) || 
-	       eq(checker->Eval(lb,NodeMarker(inst)),ctx.bool_val(true))){
+	    if(checker->Empty(node) || 
+	       eq(lb ? checker->Eval(lb,NodeMarker(inst)) : checker->dualModel.eval(NodeMarker(inst)),ctx.bool_val(true))){
 	      candidate.Children.push_back(inst);
 	      goto next_child;
 	    }
@@ -1183,6 +1205,25 @@ namespace Duality {
 #endif
 
 
+    Node *CheckerForEdgeClone(Edge *edge, RPFP_caching *checker){
+      Edge *gen_cands_edge = gen_cands_rpfp->GetEdgeClone(edge);
+      Node *root = gen_cands_edge->Parent;
+      root->Outgoing = gen_cands_edge;
+      GenNodeSolutionFromIndSet(edge->Parent, root->Bound);
+#if 0
+      if(root->Bound.IsFull())
+	return = 0;
+#endif
+      checker->AssertNode(root);
+      for(unsigned j = 0; j < edge->Children.size(); j++){
+	Node *oc = edge->Children[j];
+	Node *nc = gen_cands_edge->Children[j];
+        GenNodeSolutionWithMarkers(oc,nc->Annotation,true);
+      }
+      checker->AssertEdge(gen_cands_edge,1,true);
+      return root;
+    }
+
     /** If the current proposed solution is not inductive,
 	use the induction failure to generate candidates for extension. */
     void GenCandidatesFromInductionFailure(bool full_scan = false){
@@ -1192,6 +1233,7 @@ namespace Duality {
 	Edge *edge = edges[i];
 	if(!full_scan && updated_nodes.find(edge->Parent) == updated_nodes.end())
 	  continue;
+#ifndef USE_RPFP_CLONE
 	slvr.push();
 	RPFP *checker = new RPFP(rpfp->ls);
 	Node *root = CheckerForEdge(edge,checker);
@@ -1203,6 +1245,17 @@ namespace Duality {
 	}
 	slvr.pop(1);
 	delete checker;
+#else
+	clone_rpfp->Push();
+	Node *root = CheckerForEdgeClone(edge,clone_rpfp);
+	if(clone_rpfp->Check(root) != unsat){
+	  Candidate candidate;
+	  ExtractCandidateFromCex(edge,clone_rpfp,root,candidate);
+	  reporter->InductionFailure(edge,candidate.Children);
+	  candidates.push_back(candidate);
+	}
+	clone_rpfp->Pop(1);
+#endif
       }
       updated_nodes.clear();
       timer_stop("GenCandIndFail");
@@ -1326,7 +1379,9 @@ namespace Duality {
       node. */
     bool SatisfyUpperBound(Node *node){
       if(node->Bound.IsFull()) return true;
+#ifdef PROPAGATE_BEFORE_CHECK
       Propagate();
+#endif
       reporter->Bound(node);
       int start_decs = rpfp->CumulativeDecisions();
       DerivationTree *dtp = new DerivationTreeSlow(this,unwinding,reporter,heuristic,FullExpand);
@@ -1544,7 +1599,13 @@ namespace Duality {
 	constrained = _constrained;
 	false_approx = true;
 	timer_start("Derive");
+#ifndef USE_CACHING_RPFP
 	tree = _tree ? _tree : new RPFP(rpfp->ls);
+#else
+	RPFP::LogicSolver *cache_ls = new RPFP::iZ3LogicSolver(ctx);
+	cache_ls->slvr->push();
+	tree = _tree ? _tree : new RPFP_caching(cache_ls);
+#endif
         tree->HornClauses = rpfp->HornClauses;
 	tree->Push(); // so we can clear out the solver later when finished
 	top = CreateApproximatedInstance(root);
@@ -1556,19 +1617,27 @@ namespace Duality {
 	timer_start("Pop");
 	tree->Pop(1);
 	timer_stop("Pop");
+#ifdef USE_CACHING_RPFP
+	cache_ls->slvr->pop(1);
+	delete cache_ls;
+#endif
 	timer_stop("Derive");
 	return res;
       }
 
 #define WITH_CHILDREN
 
-      Node *CreateApproximatedInstance(RPFP::Node *from){
-	Node *to = tree->CloneNode(from);
-	to->Annotation = from->Annotation;
+      void InitializeApproximatedInstance(RPFP::Node *to){
+	to->Annotation = to->map->Annotation;
 #ifndef WITH_CHILDREN
 	tree->CreateLowerBoundEdge(to);
 #endif
 	leaves.push_back(to);
+      }
+
+      Node *CreateApproximatedInstance(RPFP::Node *from){
+	Node *to = tree->CloneNode(from);
+	InitializeApproximatedInstance(to);
 	return to;
       }
 
@@ -1637,13 +1706,23 @@ namespace Duality {
 
       virtual void ExpandNode(RPFP::Node *p){
 	// tree->RemoveEdge(p->Outgoing);
-	Edge *edge = duality->GetNodeOutgoing(p->map,last_decs);
-	std::vector<RPFP::Node *> &cs = edge->Children;
-	std::vector<RPFP::Node *> children(cs.size());
-	for(unsigned i = 0; i < cs.size(); i++)
-	  children[i] = CreateApproximatedInstance(cs[i]);
-	Edge *ne = tree->CreateEdge(p, p->map->Outgoing->F, children);
-        ne->map = p->map->Outgoing->map;
+	Edge *ne = p->Outgoing;
+	if(ne) {
+	  reporter->Message("Recycling edge...");
+	  std::vector<RPFP::Node *> &cs = ne->Children;
+	  for(unsigned i = 0; i < cs.size(); i++)
+	    InitializeApproximatedInstance(cs[i]);
+	  // ne->dual = expr();
+	}
+	else {
+	  Edge *edge = duality->GetNodeOutgoing(p->map,last_decs);
+	  std::vector<RPFP::Node *> &cs = edge->Children;
+	  std::vector<RPFP::Node *> children(cs.size());
+	  for(unsigned i = 0; i < cs.size(); i++)
+	    children[i] = CreateApproximatedInstance(cs[i]);
+	  ne = tree->CreateEdge(p, p->map->Outgoing->F, children);
+	  ne->map = p->map->Outgoing->map;
+	}
 #ifndef WITH_CHILDREN
 	tree->AssertEdge(ne);  // assert the edge in the solver
 #else
@@ -1785,11 +1864,24 @@ namespace Duality {
       void RemoveExpansion(RPFP::Node *p){
 	Edge *edge = p->Outgoing;
 	Node *parent = edge->Parent; 
+#ifndef KEEP_EXPANSIONS
 	std::vector<RPFP::Node *> cs = edge->Children;
 	tree->DeleteEdge(edge);
 	for(unsigned i = 0; i < cs.size(); i++)
 	  tree->DeleteNode(cs[i]);
+#endif
 	leaves.push_back(parent);
+      }
+      
+      // remove all the descendants of tree root (but not root itself)
+      void RemoveTree(RPFP *tree, RPFP::Node *root){
+	Edge *edge = root->Outgoing;
+	std::vector<RPFP::Node *> cs = edge->Children;
+	tree->DeleteEdge(edge);
+	for(unsigned i = 0; i < cs.size(); i++){
+	  RemoveTree(tree,cs[i]);
+	  tree->DeleteNode(cs[i]);
+	}
       }
     };
 
@@ -1852,6 +1944,7 @@ namespace Duality {
 	      }
 	    }
 	    tree->ComputeProofCore(); // need to compute the proof core before popping solver
+	    bool propagated = false;
 	    while(1) {
 	      std::vector<Node *> &expansions = stack.back().expansions;
 	      bool prev_level_used = LevelUsedInProof(stack.size()-2); // need to compute this before pop
@@ -1881,16 +1974,21 @@ namespace Duality {
 		if(!Propagate(node)) break;
 		if(!RecordUpdate(node)) break; // shouldn't happen!
 		RemoveUpdateNodesAtCurrentLevel(); // this level is about to be deleted -- remove its children from update list
+		propagated = true;
 		continue;
 	      }
+	      if(propagated) break;  // propagation invalidates the proof core, so disable non-chron backtrack
 	      RemoveUpdateNodesAtCurrentLevel(); // this level is about to be deleted -- remove its children from update list
 	      std::vector<Node *> &unused_ex = stack.back().expansions;
 	      for(unsigned i = 0; i < unused_ex.size(); i++)
 		heuristic->Update(unused_ex[i]->map); // make it less likely to expand this node in future
 	    } 
 	    HandleUpdatedNodes();
-	    if(stack.size() == 1)
+	    if(stack.size() == 1){
+	      if(top->Outgoing)
+		tree->DeleteEdge(top->Outgoing); // in case we kept the tree
 	      return false;
+	    }
 	    was_sat = false;
 	  }
 	  else {

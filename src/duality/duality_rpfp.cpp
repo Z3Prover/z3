@@ -732,9 +732,6 @@ namespace Duality {
       e->dual = ReducedDualEdge(e);
       timer_stop("ReducedDualEdge");
       timer_start("getting children");
-      if(with_children)
-	for(unsigned i = 0; i < e->Children.size(); i++)
-	  e->dual = e->dual && GetAnnotation(e->Children[i]);
       if(underapprox){
 	std::vector<expr> cus(e->Children.size());
 	for(unsigned i = 0; i < e->Children.size(); i++)
@@ -753,9 +750,6 @@ namespace Duality {
       //Console.WriteLine("{0}", cnst);
     }
     return e->dual;
-    timer_start("solver add");
-    slvr.add(e->dual);
-    timer_stop("solver add");
   }
 
   /** For incremental solving, asserts the constraint associated
@@ -781,8 +775,11 @@ namespace Duality {
       return;
     expr fmla = GetEdgeFormula(e, persist, with_children, underapprox);
     timer_start("solver add");
-    slvr.add(e->dual);
+    slvr_add(e->dual);
     timer_stop("solver add");
+    if(with_children)
+      for(unsigned i = 0; i < e->Children.size(); i++)
+	ConstrainParent(e,e->Children[i]);
   }
 
   // caching verion of above
@@ -791,8 +788,97 @@ namespace Duality {
       return;
     expr fmla = GetEdgeFormula(e, 0, with_children, false);
     GetAssumptionLits(fmla,lits);
+    if(with_children)
+      for(unsigned i = 0; i < e->Children.size(); i++)
+	ConstrainParentCache(e,e->Children[i],lits);
   }
       
+  void RPFP::slvr_add(const expr &e){
+    slvr.add(e);
+  }
+
+  void RPFP_caching::slvr_add(const expr &e){
+    GetAssumptionLits(e,alit_stack);
+  }
+
+  void RPFP::slvr_pop(int i){
+    slvr.pop(i);
+  }
+
+  void RPFP::slvr_push(){
+    slvr.push();
+  }
+
+  void RPFP_caching::slvr_pop(int i){
+    for(int j = 0; j < i; j++){
+      alit_stack.resize(alit_stack_sizes.back());
+      alit_stack_sizes.pop_back();
+    }
+  }
+  
+  void RPFP_caching::slvr_push(){
+    alit_stack_sizes.push_back(alit_stack.size());
+  }
+
+  check_result RPFP::slvr_check(unsigned n, expr * const assumptions, unsigned *core_size, expr *core){
+    return slvr.check(n, assumptions, core_size, core);
+  }
+
+  check_result RPFP_caching::slvr_check(unsigned n, expr * const assumptions, unsigned *core_size, expr *core){
+    slvr_push();
+    if(n && assumptions)
+      std::copy(assumptions,assumptions+n,std::inserter(alit_stack,alit_stack.end()));
+    check_result res;
+    if(core_size && core){
+      std::vector<expr> full_core(alit_stack.size()), core1(n);
+      std::copy(assumptions,assumptions+n,core1.begin());
+      res = slvr.check(alit_stack.size(), &alit_stack[0], core_size, &full_core[0]);
+      full_core.resize(*core_size);
+      if(res == unsat){
+	FilterCore(core1,full_core);
+	*core_size = core1.size();
+	std::copy(core1.begin(),core1.end(),core);
+      }
+    }
+    else 
+      res = slvr.check(alit_stack.size(), &alit_stack[0]);
+    slvr_pop(1);
+    return res;
+  }
+
+  lbool RPFP::ls_interpolate_tree(TermTree *assumptions,
+				  TermTree *&interpolants,
+				  model &_model,
+				  TermTree *goals,
+				  bool weak){
+    return ls->interpolate_tree(assumptions, interpolants, _model, goals, weak);
+  }
+
+  lbool RPFP_caching::ls_interpolate_tree(TermTree *assumptions,
+					  TermTree *&interpolants,
+					  model &_model,
+					  TermTree *goals,
+					  bool weak){
+    GetTermTreeAssertionLiterals(assumptions);
+    return ls->interpolate_tree(assumptions, interpolants, _model, goals, weak);
+  }
+
+  void RPFP_caching::GetTermTreeAssertionLiterals(TermTree *assumptions){
+    std::vector<expr> alits;
+    hash_map<ast,expr> map;
+    GetAssumptionLits(assumptions->getTerm(),alits,&map);
+    std::vector<expr> &ts = assumptions->getTerms();
+    for(unsigned i = 0; i < ts.size(); i++)
+      GetAssumptionLits(ts[i],alits,&map);
+    assumptions->setTerm(ctx.bool_val(true));
+    ts = alits;
+    for(unsigned i = 0; i < alits.size(); i++)
+      ts.push_back(ctx.make(Implies,alits[i],map[alits[i]]));
+    for(unsigned i = 0; i < assumptions->getChildren().size(); i++)
+      GetTermTreeAssertionLiterals(assumptions->getChildren()[i]);
+    return;
+  }
+
   void RPFP_caching::GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map){
     std::vector<expr> conjs;
     CollectConjuncts(fmla,conjs);
@@ -817,6 +903,10 @@ namespace Duality {
     ConstrainEdgeLocalized(parent,GetAnnotation(child));
   } 
 
+  void RPFP_caching::ConstrainParentCache(Edge *parent, Node *child, std::vector<Term> &lits){
+    ConstrainEdgeLocalizedCache(parent,GetAnnotation(child),lits);
+  } 
+
         
   /** For incremental solving, asserts the negation of the upper bound associated
    * with a node.
@@ -828,7 +918,7 @@ namespace Duality {
       {
 	n->dual = GetUpperBound(n);
 	stack.back().nodes.push_back(n);
-	slvr.add(n->dual);
+	slvr_add(n->dual);
       }
   }
 
@@ -892,9 +982,15 @@ namespace Duality {
   {
     e->constraints.push_back(tl);
     stack.back().constraints.push_back(std::pair<Edge *,Term>(e,tl));
-    slvr.add(tl);
+    slvr_add(tl);
   }
 
+  void RPFP_caching::ConstrainEdgeLocalizedCache(Edge *e, const Term &tl, std::vector<expr> &lits)
+  {
+    e->constraints.push_back(tl);
+    stack.back().constraints.push_back(std::pair<Edge *,Term>(e,tl));
+    GetAssumptionLits(tl,lits);
+  }
 
 
   /** Declare a constant in the background theory. */
@@ -971,7 +1067,7 @@ namespace Duality {
     // if (dualLabels != null) dualLabels.Dispose();
     
     timer_start("interpolate_tree");
-    lbool res = ls->interpolate_tree(tree, interpolant, dualModel,goals,true);
+    lbool res = ls_interpolate_tree(tree, interpolant, dualModel,goals,true);
     timer_stop("interpolate_tree");
     if (res == l_false)
       {
@@ -1017,7 +1113,7 @@ namespace Duality {
     ClearProofCore();
 
     timer_start("interpolate_tree");
-    lbool res = ls->interpolate_tree(tree, interpolant, dualModel,0,true);
+    lbool res = ls_interpolate_tree(tree, interpolant, dualModel,0,true);
     timer_stop("interpolate_tree");
     if (res == l_false)
       {
@@ -1068,22 +1164,22 @@ namespace Duality {
 	  // if (dualModel != null) dualModel.Dispose();
 	  check_result res;
 	  if(!underapproxes.size())
-	    res = slvr.check();
+	    res = slvr_check();
 	  else {
 	    std::vector<expr> us(underapproxes.size());
 	    for(unsigned i = 0; i < underapproxes.size(); i++)
 	      us[i] = UnderapproxFlag(underapproxes[i]);
-            slvr.check(); // TODO: no idea why I need to do this
+            slvr_check(); // TODO: no idea why I need to do this
 	    if(underapprox_core){
 	      std::vector<expr> unsat_core(us.size());
 	      unsigned core_size = 0;
-	      res = slvr.check(us.size(),&us[0],&core_size,&unsat_core[0]);
+	      res = slvr_check(us.size(),&us[0],&core_size,&unsat_core[0]);
 	      underapprox_core->resize(core_size);
 	      for(unsigned i = 0; i < core_size; i++)
 		(*underapprox_core)[i] = UnderapproxFlagRev(unsat_core[i]);
 	    }
 	    else {
-	      res = slvr.check(us.size(),&us[0]);
+	      res = slvr_check(us.size(),&us[0]);
 	      bool dump = false;
 	      if(dump){
 		std::vector<expr> cnsts;
@@ -1093,7 +1189,7 @@ namespace Duality {
 		ls->write_interpolation_problem("temp.smt",cnsts,std::vector<expr>());
 	      }
 	    }
-            // check_result temp = slvr.check();
+            // check_result temp = slvr_check();
 	  }
 	  dualModel = slvr.get_model();
 	  timer_stop("Check");
@@ -1101,10 +1197,12 @@ namespace Duality {
         }
 
   check_result RPFP::CheckUpdateModel(Node *root, std::vector<expr> assumps){
-    // check_result temp1 = slvr.check(); // no idea why I need to do this
+    // check_result temp1 = slvr_check(); // no idea why I need to do this
     ClearProofCore();
-    check_result res = slvr.check_keep_model(assumps.size(),&assumps[0]);
-    dualModel = slvr.get_model();
+    check_result res = slvr_check(assumps.size(),&assumps[0]);
+    model mod = slvr.get_model();
+    if(!mod.null())
+      dualModel = mod;;
     return res;
   }      
 
@@ -1116,8 +1214,6 @@ namespace Duality {
     Term tl = Localize(e, t);
     return dualModel.eval(tl);
   }
-
-        
 
   /** Returns true if the given node is empty in the primal solution. For proecudure summaries,
       this means that the procedure is not called in the current counter-model. */
@@ -2609,14 +2705,14 @@ namespace Duality {
   void RPFP::Push()
   {
     stack.push_back(stack_entry());
-    slvr.push();
+    slvr_push();
   }
   
   /** Pop a scope (see Push). Note, you cannot pop axioms. */
 
   void RPFP::Pop(int num_scopes)
   {
-    slvr.pop(num_scopes);
+    slvr_pop(num_scopes);
     for (int i = 0; i < num_scopes; i++)
       {
 	stack_entry &back = stack.back();
@@ -2634,15 +2730,15 @@ namespace Duality {
       all the popped constraints */
 
   void RPFP::PopPush(){
-    slvr.pop(1);
-    slvr.push();
+    slvr_pop(1);
+    slvr_push();
     stack_entry &back = stack.back();
     for(std::list<Edge *>::iterator it = back.edges.begin(), en = back.edges.end(); it != en; ++it)
-      slvr.add((*it)->dual);
+      slvr_add((*it)->dual);
     for(std::list<Node *>::iterator it = back.nodes.begin(), en = back.nodes.end(); it != en; ++it)
-      slvr.add((*it)->dual);
+      slvr_add((*it)->dual);
     for(std::list<std::pair<Edge *,Term> >::iterator it = back.constraints.begin(), en = back.constraints.end(); it != en; ++it)
-      slvr.add((*it).second);
+      slvr_add((*it).second);
   }
   
   
@@ -3121,12 +3217,25 @@ namespace Duality {
     }
   }
 
+  bool RPFP::proof_core_contains(const expr &e){
+    return proof_core->find(e) != proof_core->end();
+  }
+
+  bool RPFP_caching::proof_core_contains(const expr &e){
+    std::vector<expr> foo;
+    GetAssumptionLits(e,foo);
+    for(unsigned i = 0; i < foo.size(); i++)
+      if(proof_core->find(foo[i]) != proof_core->end())
+	return true;
+    return false;
+  }
+
   bool RPFP::EdgeUsedInProof(Edge *edge){
     ComputeProofCore();
-    if(!edge->dual.null() && proof_core->find(edge->dual) != proof_core->end())
+    if(!edge->dual.null() && proof_core_contains(edge->dual))
       return true;
     for(unsigned i = 0; i < edge->constraints.size(); i++)
-      if(proof_core->find(edge->constraints[i]) != proof_core->end())
+      if(proof_core_contains(edge->constraints[i]))
 	return true;
     return false;
   }

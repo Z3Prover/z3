@@ -50,6 +50,7 @@ Revision History:
 #include"scoped_ctrl_c.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
+#include"scoped_proof.h"
 
 namespace Duality {
 
@@ -718,6 +719,7 @@ namespace Duality {
   	    m_model = s;
             return *this; 
         }
+	bool null() const {return !m_model;}
         
         expr eval(expr const & n, bool model_completion=true) const {
 	  ::model * _m = m_model.get();
@@ -811,6 +813,7 @@ namespace Duality {
         ::solver *m_solver;
         model the_model;
 	bool canceled;
+	proof_gen_mode m_mode;
     public:
         solver(context & c, bool extensional = false);
         solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; canceled = false;}
@@ -824,6 +827,7 @@ namespace Duality {
             m_ctx = s.m_ctx; 
             m_solver = s.m_solver;
 	    the_model = s.the_model;
+	    m_mode = s.m_mode;
             return *this; 
         }
 	struct cancel_exception {};
@@ -832,11 +836,12 @@ namespace Duality {
 	    throw(cancel_exception());
 	}
         // void set(params const & p) { Z3_solver_set_params(ctx(), m_solver, p); check_error(); }
-        void push() { m_solver->push(); }
-        void pop(unsigned n = 1) { m_solver->pop(n); }
+        void push() { scoped_proof_mode spm(m(),m_mode); m_solver->push(); }
+        void pop(unsigned n = 1) { scoped_proof_mode spm(m(),m_mode); m_solver->pop(n); }
         // void reset() { Z3_solver_reset(ctx(), m_solver); check_error(); }
-        void add(expr const & e) { m_solver->assert_expr(e); }
+        void add(expr const & e) { scoped_proof_mode spm(m(),m_mode); m_solver->assert_expr(e); }
         check_result check() { 
+	  scoped_proof_mode spm(m(),m_mode); 
 	  checkpoint();
 	  lbool r = m_solver->check_sat(0,0);
 	  model_ref m;
@@ -845,6 +850,7 @@ namespace Duality {
 	  return to_check_result(r);
 	}
         check_result check_keep_model(unsigned n, expr * const assumptions, unsigned *core_size = 0, expr *core = 0) { 
+	  scoped_proof_mode spm(m(),m_mode); 
 	  model old_model(the_model);
 	  check_result res = check(n,assumptions,core_size,core);
 	  if(the_model == 0)
@@ -852,6 +858,7 @@ namespace Duality {
 	  return res;
 	}
         check_result check(unsigned n, expr * const assumptions, unsigned *core_size = 0, expr *core = 0) {
+	  scoped_proof_mode spm(m(),m_mode); 
 	  checkpoint();
 	  std::vector< ::expr *> _assumptions(n);
 	  for (unsigned i = 0; i < n; i++) {
@@ -876,6 +883,7 @@ namespace Duality {
         }
 #if 0
         check_result check(expr_vector assumptions) { 
+	  scoped_proof_mode spm(m(),m_mode); 
             unsigned n = assumptions.size();
             z3array<Z3_ast> _assumptions(n);
             for (unsigned i = 0; i < n; i++) {
@@ -900,17 +908,19 @@ namespace Duality {
 	int get_num_decisions(); 
 
 	void cancel(){
+	  scoped_proof_mode spm(m(),m_mode); 
 	  canceled = true;
 	  if(m_solver)
 	    m_solver->cancel();
 	}
 
-	unsigned get_scope_level(){return m_solver->get_scope_level();}
+	unsigned get_scope_level(){ scoped_proof_mode spm(m(),m_mode); return m_solver->get_scope_level();}
 
 	void show();
 	void show_assertion_ids();
 
 	proof get_proof(){
+	  scoped_proof_mode spm(m(),m_mode); 
 	  return proof(ctx(),m_solver->get_proof());
 	}
 

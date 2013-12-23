@@ -350,7 +350,7 @@ protected:
 	proof_core = 0;
       }
 
-      ~RPFP();
+      virtual ~RPFP();
       
       /** Symbolic representation of a relational transformer */
       class Transformer
@@ -962,6 +962,22 @@ protected:
       expr NegateLit(const expr &f);
 
       expr GetEdgeFormula(Edge *e, int persist, bool with_children, bool underapprox);
+      
+      virtual void slvr_add(const expr &e);
+      
+      virtual void slvr_pop(int i);
+
+      virtual void slvr_push();
+      
+      virtual check_result slvr_check(unsigned n = 0, expr * const assumptions = 0, unsigned *core_size = 0, expr *core = 0);
+
+      virtual lbool ls_interpolate_tree(TermTree *assumptions,
+					TermTree *&interpolants,
+					model &_model,
+					TermTree *goals = 0,
+					bool weak = false);
+
+      virtual bool proof_core_contains(const expr &e);
     };
     
 
@@ -1085,16 +1101,43 @@ namespace Duality {
       /** Construct a caching RPFP using a LogicSolver */
       RPFP_caching(LogicSolver *_ls) : RPFP(_ls) {}
 
+      /** Constraint an edge by its child's annotation. Return
+	  assumption lits. */
+      void ConstrainParentCache(Edge *parent, Node *child, std::vector<Term> &lits);
+
+      virtual ~RPFP_caching(){}
+
   protected:
       hash_map<ast,expr> AssumptionLits;
       hash_map<Node *, Node *> NodeCloneMap;
       hash_map<Edge *, Edge *> EdgeCloneMap;
+      std::vector<expr> alit_stack;
+      std::vector<unsigned> alit_stack_sizes;
       
       void GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map = 0);
 
       void GreedyReduceCache(std::vector<expr> &assumps, std::vector<expr> &core);
 
       void FilterCore(std::vector<expr> &core, std::vector<expr> &full_core);
+      void ConstrainEdgeLocalizedCache(Edge *e, const Term &tl, std::vector<expr> &lits);
+
+      virtual void slvr_add(const expr &e);
+      
+      virtual void slvr_pop(int i);
+
+      virtual void slvr_push();
+      
+      virtual check_result slvr_check(unsigned n = 0, expr * const assumptions = 0, unsigned *core_size = 0, expr *core = 0);
+
+      virtual lbool ls_interpolate_tree(TermTree *assumptions,
+					TermTree *&interpolants,
+					model &_model,
+					TermTree *goals = 0,
+					bool weak = false);
+
+      virtual bool proof_core_contains(const expr &e);
+
+      void GetTermTreeAssertionLiterals(TermTree *assumptions);
 
     };
 

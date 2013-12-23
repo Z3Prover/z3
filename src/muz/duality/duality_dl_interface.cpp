@@ -35,7 +35,6 @@ Revision History:
 #include "model_smt2_pp.h"
 #include "model_v2_pp.h"
 #include "fixedpoint_params.hpp"
-#include "scoped_proof.h"
 
 // template class symbol_table<family_id>;
 
