@@ -31,8 +31,8 @@ class pb_preprocess_tactic : public tactic {
     ast_manager&     m;
     pb_util          pb;
     var_map          m_vars;    
-    app_ref_vector   m_ge;
-    expr_ref_vector  m_other;
+    unsigned_vector  m_ge;
+    unsigned_vector  m_other;
     th_rewriter      m_r;
     
 
@@ -51,7 +51,7 @@ class pb_preprocess_tactic : public tactic {
 
 public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
-        m(m), pb(m), m_ge(m), m_other(m), m_r(m) {}
+        m(m), pb(m), m_r(m) {}
 
     virtual ~pb_preprocess_tactic() {}
 
@@ -70,7 +70,7 @@ public:
 
         reset();
         for (unsigned i = 0; i < g->size(); ++i) {
-            process_vars(g->form(i));
+            process_vars(i, g->form(i));
         }
 
         if (m_ge.empty()) {
@@ -78,15 +78,14 @@ public:
             return;
         }
 
-
         for (unsigned i = 0; i < m_ge.size(); ++i) {
-            classify_vars(i, m_ge[i].get());
+            classify_vars(i, to_app(g->form(m_ge[i])));
         }
 
         declassifier dcl(m_vars);
         expr_mark visited;        
         for (unsigned i = 0; !m_vars.empty() && i < m_other.size(); ++i) {
-            for_each_expr(dcl, visited, m_other[i].get());
+            for_each_expr(dcl, visited, g->form(m_other[i]));
         }
 
         if (m_vars.empty()) {
@@ -95,38 +94,37 @@ public:
         }
 
         g->inc_depth();        
+        // first eliminate variables
         var_map::iterator it = next_resolvent(m_vars.begin()); 
         while (it != m_vars.end()) {
             expr * e = it->m_key;
-            if (it->m_value.pos.empty()) {                
-                replace(it->m_value.neg, e, m.mk_false());
+            rec const& r = it->m_value;
+            if (r.pos.empty()) {                
+                replace(r.neg, e, m.mk_false(), g);
             }
-            else if (it->m_value.neg.empty()) {
-                replace(it->m_value.pos, e, m.mk_true());
-            }
-            else if (it->m_value.pos.size() == 1) {
-                resolve(it->m_value.pos[0], it->m_value.neg, e, true);
-            }
-            else if (it->m_value.neg.size() == 1) {
-                resolve(it->m_value.neg[0], it->m_value.pos, e, false);                
-            }
-            else {
-                
+            else if (r.neg.empty()) {
+                replace(r.pos, e, m.mk_true(), g);
             }
             ++it;
             it = next_resolvent(it);
-            // FIXME: some but not all indices are invalidated.
         }        
-
-        g->reset();
-        for (unsigned i = 0; i < m_ge.size(); ++i) {
-            g->assert_expr(m_ge[i].get());
+        // now resolve clauses.
+        it = next_resolvent(m_vars.begin());
+        while (it != m_vars.end()) {
+            expr * e = it->m_key;
+            rec const& r = it->m_value;
+            if (r.pos.size() == 1) {
+                resolve(r.pos[0], r.neg, e, true, g);
+            }
+            else if (r.neg.size() == 1) {
+                resolve(r.neg[0], r.pos, e, false, g);                
+            }
+            ++it;
+            it = next_resolvent(it);
         }
 
-        for (unsigned i = 0; i < m_other.size(); ++i) {
-            g->assert_expr(m_other[i].get());
-        }
 
+        g->elim_true();
 
         result.push_back(g.get());       
     }
@@ -148,22 +146,23 @@ private:
         m_vars.reset();
     }
 
-    void process_vars(expr* e) {
+
+    void process_vars(unsigned i, expr* e) {
         expr* r;
         if (is_uninterp_const(e)) {
-            m_ge.push_back(to_app(e));
+            m_ge.push_back(i);
         }
         else if (pb.is_ge(e) && pure_args(to_app(e))) {
-            m_ge.push_back(to_app(e));
+            m_ge.push_back(i);
         }
         else if (m.is_or(e) && pure_args(to_app(e))) {
-            m_ge.push_back(to_app(e));
+            m_ge.push_back(i);
         }
         else if (m.is_not(e, r) && is_uninterp_const(r)) {
-            m_ge.push_back(to_app(e));
+            m_ge.push_back(i);
         }
         else {
-            m_other.push_back(e);
+            m_other.push_back(i);
         }
     }
 
@@ -231,11 +230,43 @@ private:
         return rational::zero();
     }
 
-    void resolve(unsigned idx, unsigned_vector const& positions, expr* e, bool pos) {
-        app* fml = m_ge[idx].get();
+    //
+    // one of the formulas are replaced by T after resolution
+    // so if there is a pointer into that formula, we can no
+    // longer assume variables have unique occurrences.
+    //
+    bool is_valid(unsigned_vector const& positions, goal_ref const& g) const {
+        for (unsigned i = 0; i < positions.size(); ++i) {
+            unsigned idx = positions[i];
+            if (m.is_true(g->form(idx))) return false;
+        }
+        return true;
+    }
+
+    bool is_reduction(unsigned_vector const& pos, app* fml, goal_ref const& g) {
+        unsigned sz = fml->get_num_args();
+        for (unsigned i = 0; i < pos.size(); ++i) {
+            if (!is_app(g->form(pos[i]))) return false;
+            if (to_app(g->form(pos[i]))->get_num_args() < sz) return false;
+        }
+        return true;
+    }
+
+    void resolve(unsigned idx1, unsigned_vector const& positions, expr* e, bool pos, goal_ref const& g) {
+        if (!is_app(g->form(idx1))) {
+            return;
+        }
+        app* fml = to_app(g->form(idx1));
         if (m.is_true(fml)) {
             return;
         }
+        if (!is_valid(positions, g)) {
+            return;
+        }
+        if (positions.size() > 1 && !is_reduction(positions, fml, g)) {
+            return;
+        }
+        IF_VERBOSE(1, verbose_stream() << "resolving: " << mk_pp(fml, m) << "\n";);
         m_r.set_substitution(0);
         expr_ref tmp1(m), tmp2(m), e1(m), e2(m);
         ptr_vector<expr> args;
@@ -251,26 +282,49 @@ private:
         }
         VERIFY(to_ge(fml, args, coeffs, k1));
         c1 = get_coeff(args.size(), args.c_ptr(), coeffs.c_ptr(), e1);
+        if (c1.is_zero()) {
+            return;
+        }
         unsigned sz = coeffs.size();
         for (unsigned i = 0; i < positions.size(); ++i) {
-            SASSERT(positions[i] != idx); // rely on simplification
-            app* fml2 = m_ge[positions[i]].get();
+            unsigned idx2 = positions[i];
+            if (idx2 == idx1) {
+                continue;
+            }
+            app* fml2 = to_app(g->form(idx2));
             if (m.is_true(fml2)) continue;
             VERIFY(to_ge(fml2, args, coeffs, k2));
             c2 = get_coeff(args.size()-sz, args.c_ptr()+sz, coeffs.c_ptr()+sz, e2);
-            std::cout << "coeffs: " << c1 << " " << c2 << "\n";
-            tmp1 = pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), k1 + k2);
-            m_r(tmp1, tmp2);
-            TRACE("pb", tout << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
-            IF_VERBOSE(1, verbose_stream() << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
-#if 0
-            m_ge[positions[i]] = tmp2;
-#endif
+            if (!c2.is_zero()) {
+                rational m1(1), m2(1);
+                if (c1 != c2) {
+                    rational lc = lcm(c1, c2);
+                    m1 = lc/c1;
+                    m2 = lc/c2;
+                    for (unsigned j = 0; j < sz; ++j) {
+                        coeffs[j] *= m1;
+                    }
+                    for (unsigned j = sz; j < args.size(); ++j) {
+                        coeffs[j] *= m2;
+                    }
+                }
+                tmp1 = pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), m1*k1 + m2*k2);
+                m_r(tmp1, tmp2);
+                TRACE("pb", tout << "to\n" << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
+                IF_VERBOSE(1, verbose_stream() << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
+
+                g->update(idx2, tmp2); // proof & dependencies
+
+                if (!m1.is_one()) {
+                    for (unsigned j = 0; j < sz; ++j) {
+                        coeffs[j] /= m1;
+                    }
+                }
+            }
             args.resize(sz);
             coeffs.resize(sz);
         }
-        
-        // m_ge[idx] = m.mk_true();
+        g->update(idx1, m.mk_true()); // proof & dependencies
     }
 
     bool to_ge(app* e, ptr_vector<expr>& args, vector<rational>& coeffs, rational& k) {
@@ -307,18 +361,20 @@ private:
         return true;
     }
 
-    void replace(unsigned_vector const& positions, expr* e, expr* v) {
+    void replace(unsigned_vector const& positions, expr* e, expr* v, goal_ref const& g) {
+        if (!is_valid(positions, g)) return;
         expr_substitution sub(m);
         sub.insert(e, v);
         expr_ref tmp(m);
-        m_r.set_substitution(&sub);
+        m_r.set_substitution(&sub);        
         for (unsigned i = 0; i < positions.size(); ++i) {
             unsigned idx = positions[i];
-            if (!m.is_true(m_ge[idx].get())) {
-                m_r(m_ge[idx].get(), tmp);
-                TRACE("pb", tout << mk_pp(m_ge[idx].get(), m) << " -> " << tmp 
+            expr* f = g->form(idx);
+            if (!m.is_true(f)) {
+                m_r(f, tmp);
+                TRACE("pb", tout << mk_pp(f, m) << " -> " << tmp 
                       << " by " << mk_pp(e, m) << " |-> " << mk_pp(v, m) << "\n";);
-                m_ge[idx] = to_app(tmp);
+                g->update(idx, tmp); // proof & dependencies.
             }
         }
     }

@@ -61,24 +61,33 @@ void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::num
     // sort and coalesce arguments:
     PBU::compare cmp;
     std::sort(args.begin(), args.end(), cmp);
-    
-    unsigned i = 0, j = 1;
-    for (; j < args.size(); ++i) {
-        SASSERT(j > i);
-        for (; j < args.size() && args[j].first == args[i].first; ++j) {
+
+    // coallesce
+    unsigned i, j;
+    for (i = 0, j = 1; j < args.size(); ++j) {
+        if (args[i].first == args[j].first) {
             args[i].second += args[j].second;
         }
-        if (args[i].second.is_zero()) {
-            --i;
-        }
-        if (j < args.size()) {
-            args[i+1].first = args[j].first;
-            args[i+1].second = args[j].second;
-            ++j;
+        else {
+            ++i;
+            args[i] = args[j];
         }
     }
     if (i + 1 < args.size()) {
         args.resize(i+1);
+    }
+
+    // remove 0s.
+    for (i = 0, j = 0; j < args.size(); ++j) {
+        if (!args[j].second.is_zero()) {
+            if (i != j) {
+                args[i] = args[j];
+            }
+            ++i;
+        }
+    }
+    if (i < args.size()) {
+        args.resize(i);
     }
     TRACE("pb", display(tout << "post-unique:", args, k););
 }
@@ -87,6 +96,12 @@ template<typename PBU>
 lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU::numeral& k) {
     TRACE("pb", display(tout << "pre-normalize:", args, k););
 
+    bool found = false;
+    for (unsigned i = 0; !found && i < args.size(); ++i) {
+        found = args[i].second.is_zero();
+    }
+    if (found) display(std::cout, args, k);
+    SASSERT(!found);
     // 
     // Ensure all coefficients are positive:
     //    c*l + y >= k 
@@ -223,6 +238,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
             if (args[i].second < min) min = args[i].second;
             if (args[i].second > max) max = args[i].second;
         }            
+        SASSERT(min.is_pos());
         PBU::numeral n0 = k/max;
         PBU::numeral n1 = floor(n0);
         PBU::numeral n2 = ceil(k/min) - PBU::numeral::one();
@@ -259,6 +275,7 @@ void pb_rewriter_util<PBU>::prune(typename PBU::args_t& args, typename PBU::nume
                 --i;
             }
         }
+        unique(args, k);
         normalize(args, k);
     }    
 }
