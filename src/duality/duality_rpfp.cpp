@@ -2802,7 +2802,7 @@ namespace Duality {
 
   bool Z3User::is_variable(const Term &t){
     if(!t.is_app())
-      return false;
+      return t.is_var();
     return t.decl().get_decl_kind() == Uninterpreted
       && t.num_args() == 0;
   }
@@ -2951,6 +2951,8 @@ namespace Duality {
 			    arg.decl().get_decl_kind() == Uninterpreted);
   }
 
+#define USE_QE_LITE
+
   void RPFP::FromClauses(const std::vector<Term> &unskolemized_clauses){
     hash_map<func_decl,Node *> pmap;
     func_decl fail_pred = ctx.fresh_func_decl("@Fail", ctx.bool_sort());
@@ -2958,6 +2960,7 @@ namespace Duality {
     std::vector<expr> clauses(unskolemized_clauses);
     // first, skolemize the clauses
 
+#ifndef USE_QE_LITE
     for(unsigned i = 0; i < clauses.size(); i++){
       expr &t = clauses[i];
       if (t.is_quantifier() && t.is_quantifier_forall()) {
@@ -2974,11 +2977,32 @@ namespace Duality {
 	t = SubstBound(subst,t.body());
       }
     }    
+#else
+    std::vector<hash_map<int,expr> > substs(clauses.size());
+#endif
 
     // create the nodes from the heads of the clauses
 
     for(unsigned i = 0; i < clauses.size(); i++){
       Term &clause = clauses[i];
+
+#ifdef USE_QE_LITE
+      Term &t = clause;
+      if (t.is_quantifier() && t.is_quantifier_forall()) {
+	int bound = t.get_quantifier_num_bound();
+	std::vector<sort> sorts;
+	std::vector<symbol> names;
+	for(int j = 0; j < bound; j++){
+	  sort the_sort = t.get_quantifier_bound_sort(j);
+	  symbol name = t.get_quantifier_bound_name(j);
+	  expr skolem = ctx.constant(symbol(ctx,name),sort(ctx,the_sort));
+	  substs[i][bound-1-j] = skolem;
+	}
+	clause = t.body();
+      }
+      
+#endif
+      
       if(clause.is_app() && clause.decl().get_decl_kind() == Uninterpreted)
 	clause = implies(ctx.bool_val(true),clause);
       if(!canonical_clause(clause))
@@ -3010,6 +3034,13 @@ namespace Duality {
 	  seen.insert(arg);
 	  Indparams.push_back(arg);
 	}
+#ifdef USE_QE_LITE
+	{
+	  hash_map<int,hash_map<ast,Term> > sb_memo;
+	  for(unsigned j = 0; j < Indparams.size(); j++)
+	    Indparams[j] = SubstBoundRec(sb_memo, substs[i], 0, Indparams[j]);
+	}
+#endif
         Node *node = CreateNode(R(Indparams.size(),&Indparams[0]));
 	//nodes.push_back(node);
 	pmap[R] = node;
@@ -3054,6 +3085,18 @@ namespace Duality {
       std::vector<label_struct > lbls;  // TODO: throw this away for now
       body = RemoveLabels(body,lbls);
       body = body.simplify();
+
+#ifdef USE_QE_LITE
+      std::set<int> idxs;
+      for(unsigned j = 0; j < Indparams.size(); j++)
+	if(Indparams[j].is_var())
+	  idxs.insert(Indparams[j].get_index_value());
+      body = body.qe_lite(idxs,false);
+      hash_map<int,hash_map<ast,Term> > sb_memo;
+      body = SubstBoundRec(sb_memo,substs[i],0,body);
+      for(unsigned j = 0; j < Indparams.size(); j++)
+	Indparams[j] = SubstBoundRec(sb_memo, substs[i], 0, Indparams[j]);
+#endif
 
       // Create the edge
       Transformer T = CreateTransformer(Relparams,Indparams,body);

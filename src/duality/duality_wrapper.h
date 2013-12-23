@@ -26,6 +26,7 @@ Revision History:
 #include<sstream>
 #include<vector>
 #include<list>
+#include <set>
 #include"version.h"
 #include<limits.h>
 
@@ -560,6 +561,8 @@ namespace Duality {
         expr simplify(params const & p) const;
 	
         expr qe_lite() const;
+
+	expr qe_lite(const std::set<int> &idxs, bool index_of_bound) const;
 
 	friend expr clone_quantifier(const expr &, const expr &);
 

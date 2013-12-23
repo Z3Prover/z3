@@ -339,6 +339,17 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     return ctx().cook(result);
   }
 
+  expr expr::qe_lite(const std::set<int> &idxs, bool index_of_bound) const {
+    ::qe_lite qe(m());
+    expr_ref result(to_expr(raw()),m());
+    proof_ref pf(m());
+    uint_set uis;
+    for(std::set<int>::const_iterator it=idxs.begin(), en = idxs.end(); it != en; ++it)
+      uis.insert(*it);
+    qe(uis,index_of_bound,result);
+    return ctx().cook(result);
+  }
+
   expr clone_quantifier(const expr &q, const expr &b){
     return q.ctx().cook(q.m().update_quantifier(to_quantifier(q.raw()), to_expr(b.raw())));
   }
