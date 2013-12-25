@@ -1937,6 +1937,8 @@ namespace Duality {
 		Generalize(node);
 		if(RecordUpdate(node))
 		  update_count++;
+		else
+		  heuristic->Update(node->map); // make it less likely to expand this node in future
 	      }
 	      if(update_count == 0){
 		if(was_sat)
@@ -2018,6 +2020,9 @@ namespace Duality {
       }
       
       bool NodeTooComplicated(Node *node){
+	int ops = tree->CountOperators(node->Annotation.Formula);
+	if(ops > 10) return true;
+	node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
 	return tree->CountOperators(node->Annotation.Formula) > 3;
       }
 

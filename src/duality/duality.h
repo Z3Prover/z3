@@ -1139,6 +1139,7 @@ namespace Duality {
 
       void GetTermTreeAssertionLiterals(TermTree *assumptions);
 
+      void GetTermTreeAssertionLiteralsRec(TermTree *assumptions);
     };
 
 }

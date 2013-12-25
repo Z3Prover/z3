@@ -863,7 +863,7 @@ namespace Duality {
     return ls->interpolate_tree(assumptions, interpolants, _model, goals, weak);
   }
 
-  void RPFP_caching::GetTermTreeAssertionLiterals(TermTree *assumptions){
+  void RPFP_caching::GetTermTreeAssertionLiteralsRec(TermTree *assumptions){
     std::vector<expr> alits;
     hash_map<ast,expr> map;
     GetAssumptionLits(assumptions->getTerm(),alits,&map);
@@ -878,6 +878,51 @@ namespace Duality {
       GetTermTreeAssertionLiterals(assumptions->getChildren()[i]);
     return;
   }
+
+  void RPFP_caching::GetTermTreeAssertionLiterals(TermTree *assumptions){
+    // optimize binary case
+    if(assumptions->getChildren().size() == 1
+       && assumptions->getChildren()[0]->getChildren().size() == 0){
+      hash_map<ast,expr> map;
+      TermTree *child = assumptions->getChildren()[0];
+      std::vector<expr> dummy;
+      GetAssumptionLits(child->getTerm(),dummy,&map);
+      std::vector<expr> &ts = child->getTerms();
+      for(unsigned i = 0; i < ts.size(); i++)
+	GetAssumptionLits(ts[i],dummy,&map);
+      std::vector<expr> assumps;
+      slvr.get_proof().get_assumptions(assumps);
+      if(!proof_core){ // save the proof core for later use
+	proof_core = new hash_set<ast>;
+	for(unsigned i = 0; i < assumps.size(); i++)
+	  proof_core->insert(assumps[i]);
+      }
+      std::vector<expr> *cnsts[2] = {&child->getTerms(),&assumptions->getTerms()};
+      for(unsigned i = 0; i < assumps.size(); i++){
+	expr &ass = assumps[i];
+	expr alit = (ass.is_app() && ass.decl().get_decl_kind() == Implies) ? ass.arg(0) : ass;
+	bool isA = map.find(alit) != map.end();
+	cnsts[isA ? 0 : 1]->push_back(ass);
+      }
+    }
+    else
+      GetTermTreeAssertionLiteralsRec(assumptions);
+  }
+
+  void RPFP::AddToProofCore(hash_set<ast> &core){
+    std::vector<expr> assumps;
+    slvr.get_proof().get_assumptions(assumps);
+    for(unsigned i = 0; i < assumps.size(); i++)
+      core.insert(assumps[i]);
+  }
+  
+  void RPFP::ComputeProofCore(){
+    if(!proof_core){
+      proof_core = new hash_set<ast>;
+      AddToProofCore(*proof_core);
+    }
+  }
+
 
   void RPFP_caching::GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map){
     std::vector<expr> conjs;
@@ -2616,13 +2661,19 @@ namespace Duality {
     for(unsigned i = 0; i < edge->Children.size(); i++){
       expr ass = GetAnnotation(edge->Children[i]);
       std::vector<expr> clauses;
-      CollectConjuncts(ass.arg(1),clauses);
-      for(unsigned j = 0; j < clauses.size(); j++)
-	GetAssumptionLits(ass.arg(0) || clauses[j],assumps);
+      if(!ass.is_true()){
+	CollectConjuncts(ass.arg(1),clauses);
+	for(unsigned j = 0; j < clauses.size(); j++)
+	  GetAssumptionLits(ass.arg(0) || clauses[j],assumps);
+      }
     }
     expr fmla = GetAnnotation(node);
-    assumps.push_back(fmla.arg(0).arg(0));
     std::vector<expr> lits;
+    if(fmla.is_true()){
+      timer_stop("Generalize");
+      return;
+    }
+    assumps.push_back(fmla.arg(0).arg(0));
     CollectConjuncts(!fmla.arg(1),lits);
 #if 0
     for(unsigned i = 0; i < lits.size(); i++){
@@ -3246,19 +3297,6 @@ namespace Duality {
     
   }
 
-  void RPFP::AddToProofCore(hash_set<ast> &core){
-    std::vector<expr> assumps;
-    slvr.get_proof().get_assumptions(assumps);
-    for(unsigned i = 0; i < assumps.size(); i++)
-      core.insert(assumps[i]);
-  }
-  
-  void RPFP::ComputeProofCore(){
-    if(!proof_core){
-      proof_core = new hash_set<ast>;
-      AddToProofCore(*proof_core);
-    }
-  }
 
   bool RPFP::proof_core_contains(const expr &e){
     return proof_core->find(e) != proof_core->end();

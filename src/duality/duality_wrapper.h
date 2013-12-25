@@ -451,6 +451,7 @@ namespace Duality {
         bool is_datatype() const { return get_sort().is_datatype(); }
         bool is_relation() const { return get_sort().is_relation(); }
         bool is_finite_domain() const { return get_sort().is_finite_domain(); }
+	bool is_true() const {return is_app() && decl().get_decl_kind() == True; }
 
         bool is_numeral() const {
 	  return is_app() && decl().get_decl_kind() == OtherArith && m().is_unique_value(to_expr(raw()));
