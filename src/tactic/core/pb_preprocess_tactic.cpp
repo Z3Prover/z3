@@ -150,11 +150,10 @@ public:
         proof_converter_ref & pc,
         expr_dependency_ref & core) {
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
+        pc = 0; core = 0;
 
         // TBD: bail out if cores are enabled.
         // TBD: bail out if proofs are enabled/add proofs.
-        // TBD: model construction by back-filling solutions.
 
         pb_preproc_model_converter* pp = alloc(pb_preproc_model_converter, m);
         mc = pp;
@@ -162,7 +161,6 @@ public:
         g->inc_depth();        
         result.push_back(g.get());       
         while (simplify(g, *pp));
-
     }
 
     bool simplify(goal_ref const& g, pb_preproc_model_converter& mc) {
@@ -228,7 +226,34 @@ public:
             ++it;
             it = next_resolvent(it);
         }
+
+        // now check for subsumption.
+        for (unsigned i = 0; i < m_ge.size(); ++i) {
+            
+            expr_ref_vector args1(m), args2(m);
+            vector<rational> coeffs1, coeffs2;        
+            rational k1, k2;
+            expr* fml = g->form(m_ge[i]);
+            if (!to_ge(fml, args1, coeffs1, k1)) continue;
+            if (args1.empty()) continue;
+            expr* arg = args1[0].get();
+            bool neg = m.is_not(arg, arg);
+            if (!is_uninterp_const(arg)) continue;
+            rec const& r = m_vars.find(to_app(arg));
+            unsigned_vector const& pos = neg?r.neg:r.pos;
+            for (unsigned j = 0; j < pos.size(); ++j) {
+                unsigned k = pos[j];
+                if (k == i) continue;
+                if (!to_ge(g->form(k), args2, coeffs2, k2)) continue;
+                if (subsumes(args1, coeffs1, k1, args2, coeffs2, k2)) {
+                    g->update(k, m.mk_true());
+                    m_progress = true;
+                }
+            }
+        }
+
         g->elim_true();
+
         return m_progress;
     }
 
@@ -487,7 +512,7 @@ private:
         }
         else if (m.is_or(e)) {
             app* a = to_app(e);
-            SASSERT(pure_args(e));
+            SASSERT(pure_args(a));
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
                 args.push_back(a->get_arg(i));
                 coeffs.push_back(rational::one());
@@ -518,6 +543,24 @@ private:
             }
         }
         m_r.set_substitution(0);
+    }
+
+    bool subsumes(expr_ref_vector const& args1, 
+                  vector<rational> const& coeffs1, rational const& k1, 
+                  expr_ref_vector const& args2, 
+                  vector<rational> const& coeffs2, rational const& k2) {
+        if (k2 > k1) return false;
+        for (unsigned i = 0; i < args1.size(); ++i) {
+            bool found = false;
+            for (unsigned j = 0; !found && j < args2.size(); ++j) {
+                if (args1[i] == args2[j]) {
+                    if (coeffs1[1] > coeffs2[j]) return false;
+                    found = true;
+                }
+            }
+            if (!found) return false;
+        }
+        return true;
     }
 };
 
