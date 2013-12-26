@@ -23,6 +23,11 @@ Notes:
 #include "opt_params.hpp"
 #include "pb_decl_plugin.h"
 #include "uint_set.h"
+#include "pb_preprocess_tactic.h"
+#include "simplify_tactic.h"
+#include "tactical.h"
+#include "tactic.h"
+#include "model_smt2_pp.h"
 
 namespace smt {
 
@@ -637,6 +642,53 @@ namespace opt {
             return is_sat;
         }
 
+        lbool pb_simplify_solve() {
+            pb_util u(m);
+            expr_ref fml(m), val(m);
+            expr_ref_vector nsoft(m);
+            m_lower = m_upper = rational::zero();
+            rational minw(0);
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                m_upper += m_weights[i];
+                if (m_weights[i] < minw || minw.is_zero()) {
+                    minw = m_weights[i];
+                }
+                nsoft.push_back(m.mk_not(m_soft[i].get()));
+            }
+            solver::scoped_push _s1(s);
+            lbool is_sat = l_true;
+            bool was_sat = false;
+            fml = m.mk_true();
+            while (l_true == is_sat) {
+                solver::scoped_push _s2(s);
+                s.assert_expr(fml);
+                is_sat = simplify_and_check_sat(0,0);
+                if (m_cancel) {
+                    is_sat = l_undef;
+                }
+                if (is_sat == l_true) {
+                    rational old_upper = m_upper;
+                    m_upper = rational::zero();
+                    for (unsigned i = 0; i < m_soft.size(); ++i) {
+                        VERIFY(m_model->eval(m_soft[i].get(), val));
+                        m_assignment[i] = !m.is_false(val);
+                        if (!m_assignment[i]) {
+                            m_upper += m_weights[i];
+                        }
+                    }                     
+                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << ")\n";);
+                    fml = u.mk_le(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper - minw);
+                    was_sat = true;
+                }
+            }            
+            if (is_sat == l_false && was_sat) {
+                is_sat = l_true;
+                m_lower = m_upper;
+            }
+            return is_sat;
+        }
+
+
         lbool wpm2_solve() {
             solver::scoped_push _s(s);
             pb_util u(m);
@@ -645,6 +697,7 @@ namespace opt {
             expr_ref_vector block(m), ans(m), al(m), am(m);
             m_lower = m_upper = rational::zero();
             obj_map<expr, unsigned> ans_index;
+
             vector<rational> amk;
             vector<uint_set> sc;
             for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -804,7 +857,7 @@ namespace opt {
             }            
             m_imp = alloc(imp, m, m_solver, nbs, ws); // race condition.
             m_imp->updt_params(m_params);
-            lbool is_sat = m_imp->pb_solve();
+            lbool is_sat = m_imp->pb_simplify_solve();
             k = m_imp->m_lower;
             m_solver.pop_core(1);
             return is_sat;
@@ -817,6 +870,49 @@ namespace opt {
             if (m_imp) {
                 m_imp->updt_params(p);
             }
+        }
+
+        lbool simplify_and_check_sat(unsigned n, expr* const* assumptions) {
+            lbool is_sat = l_true;
+            tactic_ref tac1 = mk_simplify_tactic(m);
+            tactic_ref tac2 = mk_pb_preprocess_tactic(m); 
+            tactic_ref tac  = and_then(tac1.get(), tac2.get());  // TBD: make attribute for cancelation.
+            proof_converter_ref pc;
+            expr_dependency_ref core(m);
+            model_converter_ref mc;
+            goal_ref_buffer result;
+            goal_ref g(alloc(goal, m, true, false));
+            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
+                g->assert_expr(s.get_assertion(i));
+            }
+            for (unsigned i = 0; i < n; ++i) {
+                NOT_IMPLEMENTED_YET();
+                // add assumption in a wrapper.
+            }
+            (*tac)(g, result, mc, pc, core);
+            if (result.empty()) {
+                is_sat = l_false;
+            }
+            else {
+                SASSERT(result.size() == 1);
+                goal* r = result[0];
+                solver::scoped_push _s(m_solver);
+                // TBD ptr_vector<expr> asms;
+                for (unsigned i = 0; i < r->size(); ++i) {
+                    // TBD collect assumptions from r
+                    m_solver.assert_expr(r->form(i));
+                }
+                is_sat = m_solver.check_sat_core(0, 0);
+                if (l_true == is_sat) {
+                    m_solver.get_model(m_model);
+                    if (mc) (*mc)(m_model, 0);
+                    IF_VERBOSE(2, 
+                               g->display(verbose_stream() << "goal:\n");
+                               r->display(verbose_stream() << "reduced:\n");
+                               model_smt2_pp(verbose_stream(), m, *m_model, 0););
+                }
+            }
+            return is_sat;
         }
 
     };

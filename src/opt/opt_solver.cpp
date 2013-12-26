@@ -124,11 +124,10 @@ namespace opt {
             std::stringstream file_name;
             file_name << "opt_solver" << ++m_dump_count << ".smt2";
             std::ofstream buffer(file_name.str().c_str());
-            to_smt2_benchmark(buffer, "opt_solver", "");
+            to_smt2_benchmark(buffer, num_assumptions, assumptions, "opt_solver", "");
             buffer.close();
         }
-        lbool r = m_context.check(num_assumptions, assumptions);
-        return r;
+        return m_context.check(num_assumptions, assumptions);
     }
 
     void opt_solver::maximize_objectives() {
@@ -257,7 +256,9 @@ namespace opt {
     }
 
     
-    void opt_solver::to_smt2_benchmark(std::ofstream & buffer, char const * name, char const * logic, 
+    void opt_solver::to_smt2_benchmark(std::ofstream & buffer, 
+                                       unsigned num_assumptions, expr * const * assumptions,
+                                       char const * name, char const * logic, 
                                        char const * status, char const * attributes) {        
         ast_smt_pp pp(m);
         pp.set_benchmark_name(name);
@@ -266,10 +267,14 @@ namespace opt {
         pp.add_attributes(attributes);
         pp_params params;
         pp.set_simplify_implies(params.simplify_implies());
-        for (unsigned i = 0; i < get_num_assertions(); ++i) {
-            pp.add_assumption(to_expr(get_assertion(i)));
+
+        for (unsigned i = 0; i < num_assumptions; ++i) {
+            pp.add_assumption(assumptions[i]);
         }
-        pp.display_smt2(buffer, to_expr(m.mk_true()));        
+        for (unsigned i = 0; i < get_num_assertions(); ++i) {
+            pp.add_assumption(get_assertion(i));
+        }
+        pp.display_smt2(buffer, m.mk_true());        
     }
 
 

@@ -168,8 +168,6 @@ namespace smt {
         bool_var abv = ctx.mk_bool_var(atom);
         ctx.set_var_theory(abv, get_id());
 
-        IF_VERBOSE(3, verbose_stream() << mk_pp(atom, m) << "\n";);
-
         ineq* c = alloc(ineq, literal(abv));
         c->m_k = m_util.get_k(atom);
         numeral& k = c->m_k;
@@ -192,21 +190,19 @@ namespace smt {
         else {
             SASSERT(m_util.is_at_least_k(atom) || m_util.is_ge(atom));
         }
-        TRACE("pb", display(tout, *c););
         c->unique();
         lbool is_true = c->normalize();
         c->prune();
-        TRACE("pb", display(tout, *c););
 
         literal lit(abv);
-        
+
+        TRACE("pb", display(tout << mk_pp(atom, m), *c); tout << " := " << lit << "\n";);        
         switch(is_true) {
         case l_false: 
             lit = ~lit;
             // fall-through
         case l_true: 
             ctx.mk_th_axiom(get_id(), 1, &lit);
-            TRACE("pb", tout << mk_pp(atom, m) << " := " << lit << "\n";);
             dealloc(c);
             return true;
         case l_undef: 
@@ -1246,14 +1242,12 @@ namespace smt {
                 sum += c.coeff(i);
             }
         }
-        if (sum >= c.k()) {
-            IF_VERBOSE(0, 
-                       display(verbose_stream(), c, true);
-                       for (unsigned i = 0; i < lits.size(); ++i) {
-                           verbose_stream() << lits[i] << " ";
-                       }
-                       verbose_stream() << " => " << l << "\n";);
-        }
+        CTRACE("pb", (sum >= c.k()),
+               display(tout << "invalid assign" , c, true);
+               for (unsigned i = 0; i < lits.size(); ++i) {
+                   tout << lits[i] << " ";
+               }
+               tout << " => " << l << "\n";);
         SASSERT(sum < c.k());
     }
 

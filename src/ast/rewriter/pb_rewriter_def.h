@@ -36,7 +36,7 @@ void pb_rewriter_util<PBU>::display(std::ostream& out, typename PBU::args_t& arg
 template<typename PBU>
 void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::numeral& k) {
     
-    TRACE("pb", display(tout << "pre-unique:", args, k););
+    TRACE("pb_verbose", display(tout << "pre-unique:", args, k););
     for (unsigned i = 0; i < args.size(); ++i) {
         if (m_util.is_negated(args[i].first)) {
             args[i].first = m_util.negate(args[i].first);
@@ -73,9 +73,7 @@ void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::num
             args[i] = args[j];
         }
     }
-    if (i + 1 < args.size()) {
-        args.resize(i+1);
-    }
+    args.resize(i+1);
 
     // remove 0s.
     for (i = 0, j = 0; j < args.size(); ++j) {
@@ -86,22 +84,22 @@ void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::num
             ++i;
         }
     }
-    if (i < args.size()) {
-        args.resize(i);
-    }
-    TRACE("pb", display(tout << "post-unique:", args, k););
+    args.resize(i);
+    TRACE("pb_verbose", display(tout << "post-unique:", args, k););
 }
 
 template<typename PBU>
 lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU::numeral& k) {
-    TRACE("pb", display(tout << "pre-normalize:", args, k););
+    TRACE("pb_verbose", display(tout << "pre-normalize:", args, k););
 
-    bool found = false;
-    for (unsigned i = 0; !found && i < args.size(); ++i) {
-        found = args[i].second.is_zero();
-    }
-    if (found) display(std::cout, args, k);
-    SASSERT(!found);
+    DEBUG_CODE(
+        bool found = false;
+        for (unsigned i = 0; !found && i < args.size(); ++i) {
+            found = args[i].second.is_zero();
+        }
+        if (found) display(verbose_stream(), args, k);
+        SASSERT(!found););
+
     // 
     // Ensure all coefficients are positive:
     //    c*l + y >= k 

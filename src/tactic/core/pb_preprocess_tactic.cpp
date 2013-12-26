@@ -16,6 +16,20 @@ Author:
 
 Notes:
 
+    Resolution for PB constraints require the implicit 
+    inequalities that each variable ranges over [0,1]
+    so not all resolvents produce smaller sets of clauses.
+
+    We here implement subsumption resolution.  
+
+    x + y >= 1
+    A~x + B~y + Cz >= k
+    ---------------------
+    Cz >= k - B    
+
+    where A <= B, x, y do not occur elsewhere.    
+
+
 --*/
 #include "pb_preprocess_tactic.h"
 #include "tactical.h"
@@ -25,29 +39,99 @@ Notes:
 #include "expr_substitution.h"
 #include "ast_pp.h"
 
+class pb_preproc_model_converter : public model_converter {
+    ast_manager& m;
+    pb_util      pb;
+    expr_ref_vector                  m_refs;
+    svector<std::pair<app*, expr*> > m_const;
+
+public:
+    pb_preproc_model_converter(ast_manager& m):m(m), pb(m), m_refs(m) {}
+
+    virtual void operator()(model_ref & mdl, unsigned goal_idx) {
+        SASSERT(goal_idx == 0);
+        for (unsigned i = 0; i < m_const.size(); ++i) {
+            mdl->register_decl(m_const[i].first->get_decl(), m_const[i].second);
+        }
+    }
+
+    void set_value(app* e, expr* v) {
+        SASSERT(e->get_num_args() == 0);  
+        SASSERT(is_uninterp_const(e));
+        m_const.push_back(std::make_pair(e, v));
+        m_refs.push_back(e);
+        m_refs.push_back(v);
+    }
+
+    void set_value(expr* e, bool p) {
+        if (m.is_not(e, e)) {
+            set_value(e, !p);
+        }
+        else {
+            SASSERT(is_app(e));
+            set_value(to_app(e), p?m.mk_true():m.mk_false());
+        }
+    }
+
+    virtual model_converter * translate(ast_translation & translator) {
+        pb_preproc_model_converter* mc = alloc(pb_preproc_model_converter, translator.to());
+        for (unsigned i = 0; i < m_const.size(); ++i) {
+            mc->set_value(translator(m_const[i].first), translator(m_const[i].second));
+        }
+        return mc;
+    }
+
+};
+
 class pb_preprocess_tactic : public tactic {
     struct rec { unsigned_vector pos, neg; rec() { } };
-    typedef obj_map<expr, rec> var_map;
+    typedef obj_map<app, rec> var_map;
     ast_manager&     m;
     pb_util          pb;
     var_map          m_vars;    
     unsigned_vector  m_ge;
     unsigned_vector  m_other;
+    bool             m_progress;
     th_rewriter      m_r;
     
 
     struct declassifier {
-        obj_map<expr, rec>& m_vars;        
-        declassifier(obj_map<expr, rec>& v): m_vars(v) {}
+        var_map& m_vars;        
+        declassifier(var_map& v): m_vars(v) {}
 
         void operator()(app* e) {
             if (m_vars.contains(e)) {
                 m_vars.remove(e);
             }
         }
-        void operator()(var* e) {}
-        void operator()(quantifier* q) {}
+        void operator()(var*) {}
+        void operator()(quantifier*) {}
     };
+
+    void display_annotation(std::ostream& out, goal_ref const& g) {
+        for (unsigned i = 0; i < m_ge.size(); ++i) {
+            out << "ge " << m_ge[i] << ": " << mk_pp(g->form(m_ge[i]), m) << "\n";
+        }
+        for (unsigned i = 0; i < m_other.size(); ++i) {
+            out << "ot " << m_other[i] << ": " << mk_pp(g->form(m_other[i]), m) << "\n";
+        }
+                
+        var_map::iterator it  = m_vars.begin();
+        var_map::iterator end = m_vars.end();
+        for (; it != end; ++it) {
+            app* e = it->m_key;
+            unsigned_vector const& pos = it->m_value.pos;
+            unsigned_vector const& neg = it->m_value.neg;
+            out << mk_pp(e, m) << ": ";
+            for (unsigned i = 0; i < pos.size(); ++i) {
+                out << "p: " << pos[i] << " ";
+            }
+            for (unsigned i = 0; i < neg.size(); ++i) {
+                out << "n: " << neg[i] << " ";
+            }
+            out << "\n";
+        }
+    }
 
 public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
@@ -68,65 +152,84 @@ public:
         SASSERT(g->is_well_sorted());
         mc = 0; pc = 0; core = 0;
 
+        // TBD: bail out if cores are enabled.
+        // TBD: bail out if proofs are enabled/add proofs.
+        // TBD: model construction by back-filling solutions.
+
+        pb_preproc_model_converter* pp = alloc(pb_preproc_model_converter, m);
+        mc = pp;
+
+        g->inc_depth();        
+        result.push_back(g.get());       
+        while (simplify(g, *pp));
+
+    }
+
+    bool simplify(goal_ref const& g, pb_preproc_model_converter& mc) {
         reset();
+        normalize(g);
+        if (g->inconsistent()) {
+            return false;
+        }
         for (unsigned i = 0; i < g->size(); ++i) {
-            process_vars(i, g->form(i));
+            process_vars(i, g);
         }
-
+        
         if (m_ge.empty()) {
-            result.push_back(g.get());       
-            return;
+            return false;
         }
-
+        
         for (unsigned i = 0; i < m_ge.size(); ++i) {
             classify_vars(i, to_app(g->form(m_ge[i])));
         }
-
+        
         declassifier dcl(m_vars);
         expr_mark visited;        
         for (unsigned i = 0; !m_vars.empty() && i < m_other.size(); ++i) {
             for_each_expr(dcl, visited, g->form(m_other[i]));
         }
-
+        
         if (m_vars.empty()) {
-            result.push_back(g.get());       
-            return;
+            return false;
         }
-
-        g->inc_depth();        
+        
+        // display_annotation(tout, g);
+        m_progress = false;
         // first eliminate variables
         var_map::iterator it = next_resolvent(m_vars.begin()); 
-        while (it != m_vars.end()) {
-            expr * e = it->m_key;
+        while (it != m_vars.end()) {            
+            app * e = it->m_key;
             rec const& r = it->m_value;
             if (r.pos.empty()) {                
                 replace(r.neg, e, m.mk_false(), g);
+                mc.set_value(e, m.mk_false());
             }
             else if (r.neg.empty()) {
                 replace(r.pos, e, m.mk_true(), g);
+                mc.set_value(e, m.mk_true());
             }
+            if (g->inconsistent()) return false;
             ++it;
             it = next_resolvent(it);
         }        
         // now resolve clauses.
         it = next_resolvent(m_vars.begin());
         while (it != m_vars.end()) {
-            expr * e = it->m_key;
+            
+            app * e = it->m_key;
             rec const& r = it->m_value;
-            if (r.pos.size() == 1) {
-                resolve(r.pos[0], r.neg, e, true, g);
+            if (r.pos.size() == 1 && !r.neg.empty()) {
+                resolve(mc, r.pos[0], r.neg, e, true, g);
             }
-            else if (r.neg.size() == 1) {
-                resolve(r.neg[0], r.pos, e, false, g);                
+            else if (r.neg.size() == 1 && !r.pos.empty()) {
+                resolve(mc, r.neg[0], r.pos, e, false, g);                
             }
+            if (g->inconsistent()) return false;
             ++it;
             it = next_resolvent(it);
         }
-
-
         g->elim_true();
-
-        result.push_back(g.get());       
+        return m_progress;
     }
 
     virtual void set_cancel(bool f) {
@@ -146,9 +249,37 @@ private:
         m_vars.reset();
     }
 
+    expr* negate(expr* e) {
+        if (m.is_not(e, e)) return e;
+        return m.mk_not(e);
+    }
 
-    void process_vars(unsigned i, expr* e) {
+    void normalize(goal_ref const& g) {
         expr* r;
+        expr_ref tmp(m);
+        for (unsigned i = 0; !g->inconsistent() && i < g->size(); ++i) {
+            expr* e = g->form(i);
+            if (m.is_not(e, r) && pb.is_ge(r)) {
+                rational k = pb.get_k(r);
+                rational sum(0);
+                expr_ref_vector args(m);
+                vector<rational> coeffs;
+                for (unsigned j = 0; j < to_app(r)->get_num_args(); ++j) {
+                    sum += pb.get_coeff(r, j);
+                    coeffs.push_back(pb.get_coeff(r, j));
+                    args.push_back(negate(to_app(r)->get_arg(j)));
+                }
+                tmp = pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), sum - k + rational::one());
+                g->update(i, tmp);
+            }
+        }
+    }
+
+
+    void process_vars(unsigned i, goal_ref const& g) {
+        expr* r, *e;
+        e = g->form(i);
+
         if (is_uninterp_const(e)) {
             m_ge.push_back(i);
         }
@@ -168,8 +299,8 @@ private:
 
     void classify_vars(unsigned idx, app* e) {
         expr* r;
-        if (m.is_not(e, r)) {
-            insert(idx, r, false);
+        if (m.is_not(e, r) && is_uninterp_const(r)) {
+            insert(idx, e, false);
             return;
         }
         if (is_uninterp_const(e)) {
@@ -182,15 +313,17 @@ private:
                 // no-op
             }
             else if (m.is_not(arg, r)) {
-                insert(idx, r, false);
+                SASSERT(is_uninterp_const(r));
+                insert(idx, to_app(r), false);
             }
             else {
-                insert(idx, arg, true);
+                SASSERT(is_uninterp_const(arg));
+                insert(idx, to_app(arg), true);
             }
         }
     }
 
-    void insert(unsigned i, expr* e, bool pos) {
+    void insert(unsigned i, app* e, bool pos) {
         if (!m_vars.contains(e)) {
             m_vars.insert(e, rec());
         }
@@ -252,82 +385,86 @@ private:
         return true;
     }
 
-    void resolve(unsigned idx1, unsigned_vector const& positions, expr* e, bool pos, goal_ref const& g) {
-        if (!is_app(g->form(idx1))) {
-            return;
-        }
-        app* fml = to_app(g->form(idx1));
-        if (m.is_true(fml)) {
-            return;
-        }
-        if (!is_valid(positions, g)) {
-            return;
-        }
-        if (positions.size() > 1 && !is_reduction(positions, fml, g)) {
-            return;
-        }
-        IF_VERBOSE(1, verbose_stream() << "resolving: " << mk_pp(fml, m) << "\n";);
-        m_r.set_substitution(0);
-        expr_ref tmp1(m), tmp2(m), e1(m), e2(m);
-        ptr_vector<expr> args;
-        vector<rational> coeffs;        
-        rational k1, k2, c1, c2;
-        if (pos) {
-            e1 = e;
-            e2 = m.mk_not(e);
-        }
-        else {
-            e1 = m.mk_not(e);
-            e2 = e;
-        }
-        VERIFY(to_ge(fml, args, coeffs, k1));
-        c1 = get_coeff(args.size(), args.c_ptr(), coeffs.c_ptr(), e1);
-        if (c1.is_zero()) {
-            return;
-        }
-        unsigned sz = coeffs.size();
-        for (unsigned i = 0; i < positions.size(); ++i) {
-            unsigned idx2 = positions[i];
-            if (idx2 == idx1) {
-                continue;
+    // Implement very special case of resolution.
+    
+    void resolve(pb_preproc_model_converter& mc, unsigned idx1, 
+                 unsigned_vector const& positions, app* e, bool pos, goal_ref const& g) {
+        if (positions.size() != 1) return;
+        unsigned idx2 = positions[0];
+        expr_ref tmp1(m), tmp2(m);
+        expr* fml1 = g->form(idx1);
+        expr* fml2 = g->form(idx2);
+        expr_ref_vector args1(m), args2(m);
+        vector<rational> coeffs1, coeffs2;        
+        rational k1, k2;
+        if (!to_ge(fml1, args1, coeffs1, k1)) return;
+        if (!k1.is_one()) return;
+        if (!to_ge(g->form(idx2), args2, coeffs2, k2)) return;
+        // check that each variable in idx1 occurs only in idx2
+        unsigned min_index = 0;
+        rational min_coeff(0);
+        unsigned_vector indices;
+        for (unsigned i = 0; i < args1.size(); ++i) {
+            expr* x = args1[i].get();
+            m.is_not(x, x);
+            if (!is_app(x)) return;
+            if (!m_vars.contains(to_app(x))) return;            
+            rec const& r = m_vars.find(to_app(x));
+            if (r.pos.size() != 1 || r.neg.size() != 1) return;
+            if (r.pos[0] != idx2 && r.neg[0] != idx2) return;
+            for (unsigned j = 0; j < args2.size(); ++j) {
+                if (is_complement(args1[i].get(), args2[j].get())) {
+                    if (i == 0) {
+                        min_coeff = coeffs2[j];
+                    }
+                    else if (min_coeff > coeffs2[j]) {
+                        min_coeff = coeffs2[j];
+                        min_index = j;
+                    }
+                    indices.push_back(j);
+                }                
             }
-            app* fml2 = to_app(g->form(idx2));
-            if (m.is_true(fml2)) continue;
-            VERIFY(to_ge(fml2, args, coeffs, k2));
-            c2 = get_coeff(args.size()-sz, args.c_ptr()+sz, coeffs.c_ptr()+sz, e2);
-            if (!c2.is_zero()) {
-                rational m1(1), m2(1);
-                if (c1 != c2) {
-                    rational lc = lcm(c1, c2);
-                    m1 = lc/c1;
-                    m2 = lc/c2;
-                    for (unsigned j = 0; j < sz; ++j) {
-                        coeffs[j] *= m1;
-                    }
-                    for (unsigned j = sz; j < args.size(); ++j) {
-                        coeffs[j] *= m2;
-                    }
-                }
-                tmp1 = pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), m1*k1 + m2*k2);
-                m_r(tmp1, tmp2);
-                TRACE("pb", tout << "to\n" << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
-                IF_VERBOSE(1, verbose_stream() << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
-
-                g->update(idx2, tmp2); // proof & dependencies
-
-                if (!m1.is_one()) {
-                    for (unsigned j = 0; j < sz; ++j) {
-                        coeffs[j] /= m1;
-                    }
-                }
-            }
-            args.resize(sz);
-            coeffs.resize(sz);
         }
+        for (unsigned i = 0; i < indices.size(); ++i) {
+            unsigned j = indices[i];
+            expr* arg = args2[j].get();
+            if (j == min_index) {
+                args2[j] = m.mk_false();
+            }
+            else {
+                args2[j] = m.mk_true();
+            }
+            mc.set_value(arg, j != min_index);
+        }
+        
+        tmp1 = pb.mk_ge(args2.size(), coeffs2.c_ptr(), args2.c_ptr(), k2);
+        IF_VERBOSE(3, verbose_stream() << " " << tmp1 << "\n";
+                   for (unsigned i = 0; i < args2.size(); ++i) {
+                       verbose_stream() << mk_pp(args2[i].get(), m) << " ";
+                   }
+                   verbose_stream() << "\n";
+                   );
+        m_r(tmp1, tmp2);
+        if (pb.is_ge(tmp2) && pb.get_k(to_app(tmp2)).is_one()) {
+            tmp2 = m.mk_or(to_app(tmp2)->get_num_args(), to_app(tmp2)->get_args());
+        }
+        IF_VERBOSE(3, 
+                   verbose_stream() << "resolve: " << mk_pp(fml1, m) << "\n" << mk_pp(fml2, m) << "\n" << tmp1 << "\n";
+                   verbose_stream() << "to\n" << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
+
         g->update(idx1, m.mk_true()); // proof & dependencies
+        g->update(idx2, tmp2);        // proof & dependencies
+        m_progress = true;
+        //IF_VERBOSE(0, if (!g->inconsistent()) display_annotation(verbose_stream(), g););
     }
 
-    bool to_ge(app* e, ptr_vector<expr>& args, vector<rational>& coeffs, rational& k) {
+    bool is_complement(expr* x, expr* y) const {
+        if (m.is_not(x,x)) return x == y;
+        if (m.is_not(y,y)) return x == y;
+        return false;
+    }
+
+    bool to_ge(expr* e, expr_ref_vector& args, vector<rational>& coeffs, rational& k) {
         expr* r;
         if (is_uninterp_const(e)) {
             args.push_back(e);
@@ -340,17 +477,19 @@ private:
             k = rational::one();
         }
         else if (pb.is_ge(e)) {
-            SASSERT(pure_args(e));
-            for (unsigned i = 0; i < e->get_num_args(); ++i) {
-                args.push_back(e->get_arg(i));
-                coeffs.push_back(pb.get_coeff(e, i));
+            app* a = to_app(e);
+            SASSERT(pure_args(a));
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                args.push_back(a->get_arg(i));
+                coeffs.push_back(pb.get_coeff(a, i));
             }
             k = pb.get_k(e);
         }
         else if (m.is_or(e)) {
+            app* a = to_app(e);
             SASSERT(pure_args(e));
-            for (unsigned i = 0; i < e->get_num_args(); ++i) {
-                args.push_back(e->get_arg(i));
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                args.push_back(a->get_arg(i));
                 coeffs.push_back(rational::one());
             }
             k = rational::one();
@@ -375,8 +514,10 @@ private:
                 TRACE("pb", tout << mk_pp(f, m) << " -> " << tmp 
                       << " by " << mk_pp(e, m) << " |-> " << mk_pp(v, m) << "\n";);
                 g->update(idx, tmp); // proof & dependencies.
+                m_progress = true;
             }
         }
+        m_r.set_substitution(0);
     }
 };
 
@@ -384,3 +525,83 @@ private:
 tactic * mk_pb_preprocess_tactic(ast_manager & m, params_ref const & p) {
     return alloc(pb_preprocess_tactic, m);
 }
+
+#if 0
+
+    struct resolve_t {
+        app*  e;
+        expr* lhs;
+        expr* rhs;
+        expr* res;
+        resolve_t(app* e, expr* lhs, expr* rhs, expr* res):
+            e(e), lhs(lhs), rhs(rhs), res(res)
+        {}        
+    };
+
+    svector<resolve_t>               m_resolve;
+
+    void satisfy(model_ref& mdl, expr* e) {
+        if (m.is_true(e)) {
+            return;
+        }
+        if (pb.is_ge(e)) {
+            rational k = pb.get_k(e);
+            rational c(0);
+            app* a = to_app(e);
+            for (unsigned i = 0; c < k && i < a->get_num_args(); ++i) {
+                expr* arg = a->get_arg(i);
+                if (is_uninterp_const(arg)) {
+                    mdl->register_decl(to_app(arg)->get_decl(), m.mk_true());
+                    std::cout << mk_pp(arg, m) << " |-> true\n";
+                    c += pb.get_coeff(a, i);
+                }
+                else if (m.is_not(arg, arg) && is_uninterp_const(arg)) {
+                    mdl->register_decl(to_app(arg)->get_decl(), m.mk_false());
+                    std::cout << mk_pp(arg, m) << " |-> false\n";
+                    c += pb.get_coeff(a, i);
+                }
+            }
+            SASSERT(c >= k);
+            return;
+        }
+        UNREACHABLE();
+    }
+
+        for (unsigned i = m_resolve.size(); i > 0; ) {
+            --i;
+            resolve_t const& r = m_resolve[i];
+            expr_ref tmp1(m), tmp2(m), tmp3(m), tmp4(m);
+            VERIFY(mdl->eval(r.rhs, tmp2));
+            satisfy(mdl, tmp2);
+
+            VERIFY(mdl->eval(r.lhs, tmp1));
+            satisfy(mdl, tmp1);
+            
+            if (m.is_false(tmp2) || m.is_false(tmp1)) {
+                VERIFY(mdl->eval(r.res, tmp3));
+                th_rewriter rw(m);
+                rw(r.res, tmp4);
+                std::cout << "L:" << mk_pp(r.lhs,m) << " " << tmp1 << "\n";
+                std::cout << "R:" << mk_pp(r.rhs,m) << " " << tmp2 << "\n";
+                std::cout << "LR:" << mk_pp(r.res,m) << "\n" << tmp4 << "\n" << tmp3 << "\n";
+                exit(0);
+            }
+            VERIFY(mdl->eval(r.e, tmp3));
+            if (r.e == tmp3) {
+                mdl->register_decl(r.e->get_decl(), m.mk_true());
+            }
+            // evaluate lhs, rhs
+            // determine how to 
+            // assign e based on residue.            
+        }
+
+    void resolve(app* e, expr* lhs, expr* rhs, expr* res) {
+        m_refs.push_back(e);
+        m_refs.push_back(lhs);
+        m_refs.push_back(rhs);
+        m_refs.push_back(res);
+        m_resolve.push_back(resolve_t(e, lhs, rhs, res));
+    }
+
+
+#endif

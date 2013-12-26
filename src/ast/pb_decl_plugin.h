@@ -89,14 +89,14 @@ public:
     bool is_at_least_k(expr *a) const { return is_app(a) && is_at_least_k(to_app(a)->get_decl()); }
     bool is_at_least_k(app *a, rational& k) const;
     rational get_k(func_decl *a) const;
-    rational get_k(app *a) const { return get_k(a->get_decl()); }
+    rational get_k(expr *a) const { return get_k(to_app(a)->get_decl()); }
     bool is_le(func_decl *a) const;
     bool is_le(expr *a) const { return is_app(a) && is_le(to_app(a)->get_decl()); }
     bool is_le(app* a, rational& k) const;
     bool is_ge(func_decl* a) const;
     bool is_ge(expr* a) const { return is_app(a) && is_ge(to_app(a)->get_decl()); }
     bool is_ge(app* a, rational& k) const;
-    rational get_coeff(app* a, unsigned index) const { return get_coeff(a->get_decl(), index); }
+    rational get_coeff(expr* a, unsigned index) const { return get_coeff(to_app(a)->get_decl(), index); }
     rational get_coeff(func_decl* a, unsigned index) const; 
 private:
     rational to_rational(parameter const& p) const;

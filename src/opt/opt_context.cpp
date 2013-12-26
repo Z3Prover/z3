@@ -116,8 +116,8 @@ namespace opt {
         mdl = m_model;
         if (m_model_converter) {
             (*m_model_converter)(mdl, 0);
-            get_solver().mc()(mdl, 0);
         }
+        get_solver().mc()(mdl, 0);
     }
 
     lbool context::execute_min_max(unsigned index, bool committed) {

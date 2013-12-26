@@ -92,7 +92,9 @@ namespace opt {
         
         smt::theory_opt& get_optimizer();
 
-        void to_smt2_benchmark(std::ofstream & buffer, char const * name = "benchmarks", 
+        void to_smt2_benchmark(std::ofstream & buffer, 
+                               unsigned num_assumptions, expr * const * assumptions,
+                               char const * name = "benchmarks", 
                                char const * logic = "", char const * status = "unknown", char const * attributes = "");
     };
 }
