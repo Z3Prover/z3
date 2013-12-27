@@ -7,6 +7,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SolverFoundation.Plugin.Z3.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Validator", "Validator\Validator.csproj", "{54835857-129F-44C9-B529-A42158647B36}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F1E99540-BA5E-46DF-9E29-6146A309CD18}"
+	ProjectSection(SolutionItems) = preProject
+		README = README
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		commercial_64|Any CPU = commercial_64|Any CPU

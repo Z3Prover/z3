@@ -14,7 +14,7 @@
     <FileAlignment>512</FileAlignment>
     <SignAssembly>false</SignAssembly>
     <AssemblyOriginatorKeyFile>
-    </AssemblyOriginatorKeyFile>    
+    </AssemblyOriginatorKeyFile>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -106,16 +106,17 @@
     <Reference Include="Microsoft.Solver.Foundation">
       <HintPath>..\Microsoft.Solver.Foundation.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.Z3">
+    <Reference Include="Microsoft.Z3, Version=4.3.2.0, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\Microsoft.Z3.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="System.Core">      
+    <Reference Include="System.Core">
     </Reference>
     <Reference Include="System.Numerics" />
-    <Reference Include="System.Xml.Linq">      
+    <Reference Include="System.Xml.Linq">
     </Reference>
-    <Reference Include="System.Data.DataSetExtensions">      
+    <Reference Include="System.Data.DataSetExtensions">
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
@@ -133,7 +134,10 @@
     <Compile Include="Z3TermDirective.cs" />
     <Compile Include="Z3TermParams.cs" />
     <Compile Include="Z3TermSolver.cs" />
-  </ItemGroup>  
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
