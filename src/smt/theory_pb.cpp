@@ -100,6 +100,9 @@ namespace smt {
             else if (n == 1) {
                 out.push_back(xs[0]);
             }
+            else if (n == 2) {
+                merge(t, 1, xs, 1, xs+1, out);
+            }
             else {
                 literal_vector out1, out2;
                 unsigned l = n/2;  // TBD
@@ -112,7 +115,30 @@ namespace smt {
             }
         }
 
-        void smerge(cmp_t t, );
+        void smerge(cmp_t t, 
+                    unsigned a, literal const* as,
+                    unsigned b, literal const* bs, 
+                    unsigned c,
+                    literal_vector& out) {
+            if (a == 1 && b == 1 && c == 1) {
+                literal y = fresh();
+                add_clause(~as[0], y);
+                add_clause(~bs[0], y);
+                out.push_back(y);
+            }
+            else if (a > c) {
+                smerge(t, a - c, as, b, bs, c, out);
+            }
+            else if (b > c) {
+                smerge(t, a, as, b - c, bs, c, out);
+            }
+            else if (a + b <= c) {
+                merge(t, a, as, b, bs, out);
+            }
+            else if (a <= c && b <= c && even(c)) {
+
+            }
+        }
     };
 #endif
     class pb_lit_rewriter_util {
