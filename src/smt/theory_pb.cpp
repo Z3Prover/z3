@@ -28,6 +28,93 @@ Notes:
 
 namespace smt {
 
+#if 0
+    // parametric sorting network
+    class psort_nw {
+        ast_manager& m;
+        context&     ctx;
+        enum cmp_t { LE, GE, EQ };
+    public:
+        psort_nw(ast_manager& m, context& c): 
+            m(m), ctx(c) {}
+        
+        void cmp_ge(literal x1, literal x2, literal y1, literal y2) {
+            add_clause(~y2, x1);
+            add_clause(~y2, x2);
+            add_clause(x1, x2, ~y1);            
+        }
+
+        void cmp_le(literal x1, literal x2, literal y1, literal y2) {
+            add_clause(~x1, y1);
+            add_clause(~x2, y1);
+            add_clause(~x1, ~x2, y2);
+        }
+
+        void cmp_eq(literal x1, literal x2, literal y1, literal y2) {
+            cmp_ge(x1, x2, y1, y2);
+            cmp_le(x1, x2, y1, y2);
+        }
+
+        void cmp(cmp_t t, literal x1, literal x2, literal y1, literal y2) {
+            switch(t) {
+            case LE: cmp_le(x1, x2, y1, y2); break;
+            case GE: cmp_ge(x1, x2, y1, y2); break;
+            case EQ: cmp_eq(x1, x2, y1, y2); break;
+            }
+        }
+
+        void merge(cmp_t t,
+                   unsigned a, literal const* as, 
+                   unsigned b, literal const* bs,                    
+                   literal_vector& out) {
+            if (a == 1 && b == 1) {
+                y1 = fresh();
+                y2 = fresh();
+                out.push_back(y1);
+                out.push_back(y2);
+                cmp(t, as[0], bs[0], y1, y2);
+            }
+            else if (a == 0) {
+                out.append(b, bs);
+            }
+            else if (even(a) && even(b) && b > 0) {
+                
+            }
+            else if (even(a) && odd(b) && (a > 1 || b > 1)) {
+
+            }
+            else if (odd(a) && odd(b) && (a > 1 || b > 1)) {
+                
+            }
+            else {
+                merge(t, b, bs, a, as, out);
+            }
+        }
+
+        
+        void sorting(cmp_t t, unsigned n, literal const* xs, 
+                     literal_vector& out) {
+            if (n == 0) {
+                // no-op
+            }
+            else if (n == 1) {
+                out.push_back(xs[0]);
+            }
+            else {
+                literal_vector out1, out2;
+                unsigned l = n/2;  // TBD
+                sorting(t, l, xs, out1);
+                sorting(t, n-l, xs+l, out2);
+                merge(t, 
+                      out1.size(), out1.c_ptr(), 
+                      out2.size(), out2.c_ptr(),
+                      out);                
+            }
+        }
+
+        void smerge(cmp_t t, );
+    };
+#endif
     class pb_lit_rewriter_util {
     public:
         typedef std::pair<literal, rational> arg_t;
