@@ -33,11 +33,15 @@ namespace smt {
     // Integrality
     //
     // -----------------------------------
+       
     
     /**
        \brief Move non base variables to one of its bounds.
        If the variable does not have bounds, it is integer, but it is not assigned to an integer value, then the 
        variable is set to an integer value.
+       In mixed integer/real problems moving a real variable to a bound could cause an integer value to 
+       have an infinitesimal. Such an assignment would disable mk_gomory_cut, and Z3 would loop.
+       
     */
     template<typename Ext>
     void theory_arith<Ext>::move_non_base_vars_to_bounds() {
@@ -413,10 +417,10 @@ namespace smt {
         for (; it != end; ++it) {
             // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
             if (!it->is_dead() && it->m_var != b && (!at_bound(it->m_var) || !get_value(it->m_var).is_rational())) {
-                TRACE("gomory_cut", tout << "row is gomory cut target:\n";
+                TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
                       display_var(tout, it->m_var);
                       tout << "at_bound:      " << at_bound(it->m_var) << "\n";
-                      tout << "infinitesimal: " << get_value(it->m_var).is_rational() << "\n";);
+                      tout << "infinitesimal: " << !get_value(it->m_var).is_rational() << "\n";);
                 return false;
             }
         }
@@ -1378,6 +1382,7 @@ namespace smt {
         m_branch_cut_counter++;
         // TODO: add giveup code
         if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
+            TRACE("opt", display(tout););
             move_non_base_vars_to_bounds();
             if (!make_feasible()) {
                 TRACE("arith_int", tout << "failed to move variables to bounds.\n";);
@@ -1389,7 +1394,9 @@ namespace smt {
                 TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
                 SASSERT(is_base(int_var));
                 row const & r = m_rows[get_var_row(int_var)];
-                mk_gomory_cut(r);
+                if (!mk_gomory_cut(r)) {
+                    // silent failure
+                }
                 return FC_CONTINUE;
             }
         }
@@ -1399,7 +1406,7 @@ namespace smt {
             }
             theory_var int_var = find_infeasible_int_base_var();
             if (int_var != null_theory_var) {
-                TRACE("arith_int", tout << "v" << int_var << " does not have and integer assignment: " << get_value(int_var) << "\n";);
+                TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
                 // apply branching 
                 branch_infeasible_int_var(int_var);
                 return FC_CONTINUE;

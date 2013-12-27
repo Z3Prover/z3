@@ -928,7 +928,7 @@ namespace smt {
 
     */
     template<typename Ext>
-    bool theory_arith<Ext>::is_safe_to_leave(theory_var x) {
+    bool theory_arith<Ext>::is_safe_to_leave(theory_var x, bool& has_int) {
         
         if (get_context().is_shared(get_enode(x))) {
             return false;
@@ -936,14 +936,16 @@ namespace smt {
         column & c      = m_columns[x];
         typename svector<col_entry>::iterator it  = c.begin_entries();
         typename svector<col_entry>::iterator end = c.end_entries();
+        has_int = false;
         for (; it != end; ++it) {
             if (it->is_dead()) continue;
             row const & r = m_rows[it->m_row_id];
             theory_var s  = r.get_base_var();
             numeral const & coeff = r[it->m_row_idx].m_coeff;    
+            if (s != null_theory_var && is_int(s)) has_int = true;
             bool is_unsafe = (s != null_theory_var && is_int(s) && !coeff.is_int());                
             is_unsafe = is_unsafe || (s != null_theory_var && get_context().is_shared(get_enode(s)));
-            TRACE("opt", tout << "is v" << x << " safe to leave for v" << s << "? " << (is_unsafe?"no":"yes") << "\n";
+            TRACE("opt", tout << "is v" << x << " safe to leave for v" << s << "? " << (is_unsafe?"no":"yes") << " " << (has_int?"int":"real") << "\n";
                   display_row(tout, r, true););
             if (is_unsafe) return false;            
         }
@@ -952,7 +954,9 @@ namespace smt {
     }
 
     template<typename Ext>
-        theory_var theory_arith<Ext>::pick_var_to_leave(theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain, bool& skipped_row) {
+        theory_var theory_arith<Ext>::pick_var_to_leave(
+            bool has_int, theory_var x_j, bool inc, 
+            numeral & a_ij, inf_numeral & gain, bool& skipped_row) {
         TRACE("opt", tout << "selecting variable to replace v" << x_j << ", inc: " << inc << "\n";);
         theory_var x_i  = null_theory_var;
         inf_numeral curr_gain; 
@@ -979,6 +983,10 @@ namespace smt {
                                 continue;
                             }
                             if (is_int(x_j) && !curr_gain.is_int()) {
+                                skipped_row = true;
+                                continue;
+                            }
+                            if (!curr_gain.is_int() && has_int) {
                                 skipped_row = true;
                                 continue;
                             }
@@ -1294,6 +1302,7 @@ namespace smt {
 #ifdef _TRACE
         unsigned i = 0;
 #endif
+        max_min_t result;
         while (true) {
             x_j = null_theory_var;
             x_i = null_theory_var;
@@ -1307,13 +1316,14 @@ namespace smt {
                     SASSERT(is_non_base(curr_x_j));
                     curr_coeff    = it->m_coeff;
                     bool curr_inc = curr_coeff.is_pos() ? max : !max; 
+                    bool has_int = false;
                     if ((curr_inc && at_upper(curr_x_j)) || (!curr_inc && at_lower(curr_x_j)))
                         continue; // variable cannot be used for max/min.
-                    if (!is_safe_to_leave(curr_x_j)) {
+                    if (!is_safe_to_leave(curr_x_j, has_int)) {
                         skipped_row = true;
                         continue;
                     }
-                    theory_var curr_x_i = pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, curr_gain, skipped_row);
+                    theory_var curr_x_i = pick_var_to_leave(has_int, curr_x_j, curr_inc, curr_a_ij, curr_gain, skipped_row);
                     if (curr_x_i == null_theory_var) {
                         TRACE("opt", tout << "unbounded\n";);
                         // we can increase/decrease curr_x_j as much as we want.
@@ -1348,7 +1358,8 @@ namespace smt {
                 TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);
                 SASSERT(valid_row_assignment());
                 SASSERT(satisfy_bounds());
-                return skipped_row?BEST_EFFORT:OPTIMIZED;
+                result = skipped_row?BEST_EFFORT:OPTIMIZED;
+                break;
             }
 
             if (x_i == null_theory_var) {
@@ -1367,7 +1378,8 @@ namespace smt {
                     SASSERT(satisfy_bounds());
                     continue;
                 }
-                return UNBOUNDED;
+                result = skipped_row?BEST_EFFORT:UNBOUNDED;
+                break;
             }
 
             if (!is_fixed(x_j) && is_bounded(x_j) && (upper_bound(x_j) - lower_bound(x_j) <= gain)) {
@@ -1413,6 +1425,8 @@ namespace smt {
             SASSERT(valid_row_assignment());
             SASSERT(satisfy_bounds());
         }
+        TRACE("opt", display(tout););
+        return result;
     }
 
     /**
