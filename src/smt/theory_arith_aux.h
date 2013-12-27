@@ -1315,6 +1315,7 @@ namespace smt {
                     }
                     theory_var curr_x_i = pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, curr_gain, skipped_row);
                     if (curr_x_i == null_theory_var) {
+                        TRACE("opt", tout << "unbounded\n";);
                         // we can increase/decrease curr_x_j as much as we want.
                         x_i   = null_theory_var; // unbounded
                         x_j   = curr_x_j;
@@ -1340,7 +1341,8 @@ namespace smt {
                     }
                 }
             }
-            TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << gain << "\n";);
+            TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << gain << "\n";
+                  tout << "skipped row: " << (skipped_row?"yes":"no") << "\n";);
 
             if (x_j == null_theory_var) {
                 TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);

@@ -129,12 +129,13 @@ extern "C" {
         RESET_ERROR_CODE();
         model_ref _m;
         to_optimize_ref(o).get_model(_m);
-        if (!_m) {
-            SET_ERROR_CODE(Z3_INVALID_USAGE);
-            RETURN_Z3(0);
-        }
         Z3_model_ref * m_ref = alloc(Z3_model_ref); 
-        m_ref->m_model = _m;
+        if (_m) {
+            m_ref->m_model = _m;
+        }
+        else {
+            m_ref->m_model = alloc(model, mk_c(c)->m());
+        }
         mk_c(c)->save_object(m_ref);
         RETURN_Z3(of_model(m_ref));
         Z3_CATCH_RETURN(0);

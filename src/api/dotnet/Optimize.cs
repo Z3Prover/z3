@@ -142,12 +142,12 @@ namespace Microsoft.Z3
 
         public ArithExpr GetLower(uint index) 
         {
-            return new ArithExpr(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
+            return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
         }
 
         public ArithExpr GetUpper(uint index)
         {
-            return new ArithExpr(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
+            return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
         }
 
 	    public override string ToString() 
