@@ -104,7 +104,7 @@ public:
     }
 
     bool is_int32() const {
-        if (is_small()) return true; 
+        if (is_small() && is_int()) return true; 
         // we don't assume that if it is small, then it is int32.
         if (!is_int64()) return false;
         int64 v = get_int64();

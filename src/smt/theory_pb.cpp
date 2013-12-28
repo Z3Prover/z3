@@ -31,12 +31,61 @@ namespace smt {
 #if 0
     // parametric sorting network
     class psort_nw {
+        enum cmp_t { LE, GE, EQ };
         ast_manager& m;
         context&     ctx;
-        enum cmp_t { LE, GE, EQ };
+        cmp_t        m_t;
+
     public:
         psort_nw(ast_manager& m, context& c): 
             m(m), ctx(c) {}
+
+        literal ge(unsigned m, unsigned n, literal const* xs) {
+            SASSERT(0 < m && m <= n);
+            literal_vector out;
+            m_t = GE;
+            card(m, n, xs, out);
+            return out[m-1]; // check            
+        }
+
+        literal le(unsigned m, unsigned n, literal const* xs) {
+            SASSERT(0 <= m && m < n);
+            literal_vector out;
+            m_t = LE;
+            card(m, n, xs, out);
+            return out[m-1]; // check
+        }
+
+        literal eq(unsigned m, unsigned n, literal const* xs) {
+            SASSERT(0 <= m && m <= n);
+            literal_vector out;
+            m_t = EQ;
+            card(m, n, xs, out);
+            return null_literal; // TBD
+        }
+
+        
+    private:
+
+        void card(unsigned m, unsigned n, literal const* xs, literal_vector& out) {
+            if (n <= m) {
+                sorting(n, xs, out);
+            }
+            if (use_dcard(n, m)) {
+                dsorting(m, n, xs, out);
+            }
+            else {
+                literal_vector out1, out2;
+                unsigned l = n/2; // TBD
+                card(m, l, xs, out1);
+                card(m, n-l, xs + l, out2);
+                smerge(m, out1.size(), out1.c_ptr(), out2.size(), out2.c_ptr(), out);
+            }
+        }
+        
+
+        bool even(unsigned n) const { return (0 == (n & 0x1)); }
+        bool odd(unsigned n) const { return !even(n); }
         
         void cmp_ge(literal x1, literal x2, literal y1, literal y2) {
             add_clause(~y2, x1);
@@ -55,16 +104,23 @@ namespace smt {
             cmp_le(x1, x2, y1, y2);
         }
 
-        void cmp(cmp_t t, literal x1, literal x2, literal y1, literal y2) {
-            switch(t) {
+        void cmp(literal x1, literal x2, literal y1, literal y2) {
+            switch(m_t) {
             case LE: cmp_le(x1, x2, y1, y2); break;
             case GE: cmp_ge(x1, x2, y1, y2); break;
             case EQ: cmp_eq(x1, x2, y1, y2); break;
             }
         }
 
-        void merge(cmp_t t,
-                   unsigned a, literal const* as, 
+        void size_merge(unsigned a, unsigned b, 
+                        unsigned& vD, unsigned& cD,
+                        unsigned& vR, unsigned& cR) {
+            vD = a + b;
+            cD = a*b + a + b;
+            
+        }
+
+        void merge(unsigned a, literal const* as, 
                    unsigned b, literal const* bs,                    
                    literal_vector& out) {
             if (a == 1 && b == 1) {
@@ -72,10 +128,16 @@ namespace smt {
                 y2 = fresh();
                 out.push_back(y1);
                 out.push_back(y2);
-                cmp(t, as[0], bs[0], y1, y2);
+                cmp(as[0], bs[0], y1, y2);
             }
             else if (a == 0) {
                 out.append(b, bs);
+            }
+            else if (b == 0) {
+                merge(b, bs, a, as,out);
+            }
+            else if (use_dsmerge(a, b, a + b)) {
+                dsmerge(a, as, b, bs, a + b, out);
             }
             else if (even(a) && even(b) && b > 0) {
                 
@@ -87,36 +149,43 @@ namespace smt {
                 
             }
             else {
-                merge(t, b, bs, a, as, out);
+                merge(b, bs, a, as, out);
             }
         }
-
         
         void sorting(cmp_t t, unsigned n, literal const* xs, 
                      literal_vector& out) {
-            if (n == 0) {
-                // no-op
-            }
-            else if (n == 1) {
-                out.push_back(xs[0]);
-            }
-            else if (n == 2) {
-                merge(t, 1, xs, 1, xs+1, out);
-            }
-            else {
-                literal_vector out1, out2;
-                unsigned l = n/2;  // TBD
-                sorting(t, l, xs, out1);
-                sorting(t, n-l, xs+l, out2);
-                merge(t, 
-                      out1.size(), out1.c_ptr(), 
-                      out2.size(), out2.c_ptr(),
-                      out);                
+            switch(n) {
+            case 0: 
+                break;
+            case 1: 
+                out.push_back(xs[0]); 
+                break;
+            case 2: 
+                merge(1, xs, 1, xs+1, out); 
+                break;
+            default:
+                if (use_dsorting(n)) {
+                    dsorting(n, n, xs, out);
+                }
+                else {
+                    literal_vector out1, out2;
+                    unsigned l = n/2;  // TBD
+                    sorting(l, xs, out1);
+                    sorting(n-l, xs+l, out2);
+                    merge(out1.size(), out1.c_ptr(), 
+                          out2.size(), out2.c_ptr(),
+                          out);                
+                }
+                break;
             }
         }
 
-        void smerge(cmp_t t, 
-                    unsigned a, literal const* as,
+        bool use_dsmerge(unsigned a, unsigned b, unsigned c) const {
+            return false;
+        }
+
+        void smerge(unsigned a, literal const* as,
                     unsigned b, literal const* bs, 
                     unsigned c,
                     literal_vector& out) {
@@ -127,20 +196,78 @@ namespace smt {
                 out.push_back(y);
             }
             else if (a > c) {
-                smerge(t, a - c, as, b, bs, c, out);
+                smerge(a - c, as, b, bs, c, out);
             }
             else if (b > c) {
-                smerge(t, a, as, b - c, bs, c, out);
+                smerge(a, as, b - c, bs, c, out);
             }
             else if (a + b <= c) {
-                merge(t, a, as, b, bs, out);
+                merge(a, as, b, bs, out);
             }
-            else if (a <= c && b <= c && even(c)) {
-
+            else if (use_dsmerge(a, b, c)) {
+                dsmerge(a, as, b, bs, c, out);
+            }
+            else if (even(c)) {
+                
+            }
+            else if (odd(c)) {
+                SASSERT(c > 1);                
             }
         }
+
+
+        void dsmerge(            
+            unsigned a, literal const* as, 
+            unsigned b, literal const* bs,                    
+            unsigned c,
+            literal_vector& out) {
+            for (unsigned i = 0; i < c; ++i) {
+                out.push_back(fresh());
+            }
+            for (unsigned i = 0; i < a; ++i) {
+                add_clause(~as[i],out[i]);
+            }
+            for (unsigned i = 0; i < b; ++i) {
+                add_clause(~bs[i],out[i]);
+            }
+            for (unsigned i = 0; i < a; ++i) {
+                for (unsigned j = 0; j < b && i + j < c; ++j) {
+                    add_clause(~as[i],~bs[j],out[i+j]);
+                }
+            }
+        }
+
+        void dsorting(unsigned m, unsigned n, literal const* xs, 
+                      literal_vector& out) {
+            SASSERT(m <= n);
+            for (unsigned i = 0; i < m; ++i) {
+                out.push_back(fresh());
+            }
+            for (unsigned k = 0; k < m; ++k) {
+                literal_vector lits;
+                lits.push_back(out[k]);
+                add_subset(k+1, 0, lits, n, xs);
+            }
+        }
+
+        void add_subset(unsigned k, unsigned offset, literal_vector& lits, 
+                        unsigned n, literal const* xs) {
+            SASSERT(k + offset < n);
+            if (k == 0) {
+                ctx.add_clause(lits.size(), lits.c_ptr());
+                return;
+            }
+            for (unsigned i = offset; i < n-offset-k; ++i) {
+                lits.push_back(xs[i]);
+                add_subset(k-1, i+1, lits, n, xs);
+                lits.pop_back();
+            }
+        }
+
     };
+
 #endif
+
     class pb_lit_rewriter_util {
     public:
         typedef std::pair<literal, rational> arg_t;
