@@ -3238,7 +3238,7 @@ namespace smt {
                 for (; it != end; ++it)
                     (*it)->restart_eh();
                 TRACE("mbqi_bug_detail", tout << "before instantiating quantifiers...\n";); 
-                m_qmanager->restart_eh();
+                m_qmanager->restart_eh();                
             }
             if (m_fparams.m_simplify_clauses)
                 simplify_clauses();

@@ -367,6 +367,15 @@ namespace opt {
 
         ~imp() {}
 
+        void re_init(expr_ref_vector const& soft, vector<rational> const& weights) {
+            m_soft.reset();
+            m_soft.append(soft);
+            m_weights.reset();
+            m_weights.append(weights);
+            m_assignment.reset();
+            m_assignment.resize(m_soft.size(), false);
+        }
+
         smt::theory_weighted_maxsat* get_theory() const {
             smt::context& ctx = s.get_context();                        
             smt::theory_id th_id = m.get_family_id("weighted_maxsat");
@@ -601,17 +610,18 @@ namespace opt {
         lbool pb_solve() {
             pb_util u(m);
             expr_ref fml(m), val(m);
+            app_ref b(m);
             expr_ref_vector nsoft(m);
             m_lower = m_upper = rational::zero();
-            rational minw(0);
+            solver::scoped_push __s(s);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 m_upper += m_weights[i];
-                if (m_weights[i] < minw || minw.is_zero()) {
-                    minw = m_weights[i];
-                }
-                nsoft.push_back(m.mk_not(m_soft[i].get()));
+                b = m.mk_fresh_const("b", m.mk_bool_sort());
+                s.mc().insert(b->get_decl());
+                fml = m.mk_or(m_soft[i].get(), b);
+                s.assert_expr(fml);
+                nsoft.push_back(b);
             }
-            solver::scoped_push __s(s);
             lbool is_sat = l_true;
             bool was_sat = false;
             while (l_true == is_sat) {
@@ -623,14 +633,14 @@ namespace opt {
                     s.get_model(m_model);
                     m_upper = rational::zero();
                     for (unsigned i = 0; i < m_soft.size(); ++i) {
-                        VERIFY(m_model->eval(m_soft[i].get(), val));
-                        m_assignment[i] = !m.is_false(val);
+                        VERIFY(m_model->eval(nsoft[i].get(), val));
+                        m_assignment[i] = !m.is_true(val);
                         if (!m_assignment[i]) {
                             m_upper += m_weights[i];
                         }
                     }                    
-                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << ")\n";);
-                    fml = u.mk_le(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper - minw);
+                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << " )\n";);
+                    fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
                     s.assert_expr(fml);
                     was_sat = true;
                 }
@@ -854,9 +864,8 @@ namespace opt {
             }
             for (unsigned i = 0; i < bs.size(); ++i) {
                 nbs.push_back(m.mk_not(bs[i]));
-            }            
-            m_imp = alloc(imp, m, m_solver, nbs, ws); // race condition.
-            m_imp->updt_params(m_params);
+            }    
+            m_imp->re_init(nbs, ws); 
             lbool is_sat = m_imp->pb_simplify_solve();
             k = m_imp->m_lower;
             m_solver.pop_core(1);
@@ -903,9 +912,9 @@ namespace opt {
                     m_solver.assert_expr(r->form(i));
                 }
                 is_sat = m_solver.check_sat_core(0, 0);
-                if (l_true == is_sat) {
+                if (l_true == is_sat && !m_cancel) {
                     m_solver.get_model(m_model);
-                    if (mc) (*mc)(m_model, 0);
+                    if (mc && m_model) (*mc)(m_model, 0);
                     IF_VERBOSE(2, 
                                g->display(verbose_stream() << "goal:\n");
                                r->display(verbose_stream() << "reduced:\n");
@@ -919,6 +928,7 @@ namespace opt {
 
     wmaxsmt::wmaxsmt(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights) {
         m_imp = alloc(imp, m, s, soft_constraints, weights);
+        m_imp->m_imp = alloc(imp, m, m_imp->m_solver, soft_constraints, weights);
     }
 
     wmaxsmt::~wmaxsmt() {
@@ -940,10 +950,8 @@ namespace opt {
     void wmaxsmt::set_cancel(bool f) {
         m_imp->m_cancel = f;
         m_imp->m_solver.set_cancel(f);
-        // TBD race
-        if (m_imp->m_imp) {
-            m_imp->m_imp->m_cancel = f;
-        }
+        m_imp->m_imp->m_cancel = f;        
+        m_imp->m_imp->m_solver.set_cancel(f);
     }
     void wmaxsmt::collect_statistics(statistics& st) const {
         m_imp->m_solver.collect_statistics(st);

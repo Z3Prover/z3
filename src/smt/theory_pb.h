@@ -38,6 +38,8 @@ namespace smt {
             unsigned m_num_propagations;
             unsigned m_num_predicates;
             unsigned m_num_compiles;
+            unsigned m_num_compiled_vars;
+            unsigned m_num_compiled_clauses;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };

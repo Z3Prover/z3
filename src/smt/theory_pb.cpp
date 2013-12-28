@@ -209,7 +209,7 @@ namespace smt {
             break;
         }
 
-#if 0
+#if 1
         // TBD: special cases: k == 1, or args.size() == 1
             
         if (c->k().is_one()) {
@@ -236,7 +236,7 @@ namespace smt {
         // pre-compile threshold for cardinality
         bool is_cardinality = true;
         for (unsigned i = 0; is_cardinality && i < args.size(); ++i) {
-            is_cardinality = (args[i].second.is_one());
+            is_cardinality = (args[i].second < rational(8));
         }
         if (is_cardinality) {
             unsigned log = 1, n = 1;
@@ -373,6 +373,8 @@ namespace smt {
         st.update("pb propagations", m_stats.m_num_propagations);
         st.update("pb predicates", m_stats.m_num_predicates);        
         st.update("pb compilations", m_stats.m_num_compiles);
+        st.update("pb compiled clauses", m_stats.m_num_compiled_clauses);
+        st.update("pb compiled vars", m_stats.m_num_compiled_vars);
     }
     
     void theory_pb::reset_eh() {
@@ -694,6 +696,7 @@ namespace smt {
                 }
                 else {
                     l = literal(ctx.mk_bool_var(t));
+                    ++th.m_stats.m_num_compiled_vars;
                 }
                 add_clause(~l, ~a,  b);
                 add_clause(~l,  a,  c);
@@ -719,6 +722,7 @@ namespace smt {
             TRACE("pb",
                   ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
             ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX, 0);
+            ++th.m_stats.m_num_compiled_clauses;
         }            
 
         void add_clause(literal l1, literal l2) {
@@ -749,7 +753,7 @@ namespace smt {
         context& ctx = get_context();
         // only cardinality constraints are compiled.
         SASSERT(c.m_compilation_threshold < UINT_MAX);
-        DEBUG_CODE(for (unsigned i = 0; i < c.size(); ++i) SASSERT(c.coeff(i).is_one()); );
+        DEBUG_CODE(for (unsigned i = 0; i < c.size(); ++i) SASSERT(c.coeff(i).is_int()); );
         unsigned k = c.k().get_unsigned();
         unsigned num_args = c.size();
 
@@ -758,9 +762,14 @@ namespace smt {
         expr_ref_vector in(m), out(m);
         expr_ref tmp(m);
         for (unsigned i = 0; i < num_args; ++i) {
+            rational n = c.coeff(i);
             ctx.literal2expr(c.lit(i), tmp);
-            in.push_back(tmp);
+            while (n.is_pos()) {
+                in.push_back(tmp);
+                n -= rational::one();
+            }
         }
+        IF_VERBOSE(1, verbose_stream() << "(compile " << k << ")\n";);
         sn(in, out);
         literal at_least_k = se.internalize(c, out[k-1].get()); // first k outputs are 1.
         TRACE("pb", tout << "at_least: " << mk_pp(out[k-1].get(), m) << "\n";);
