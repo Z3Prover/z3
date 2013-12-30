@@ -196,5 +196,7 @@ namespace smt {
 
         void set_conflict_frequency(unsigned f) { m_conflict_frequency = f; }
         void set_learn_complements(bool l) { m_learn_complements = l; }
+
+        static literal assert_ge(context& ctx, unsigned k, unsigned n, literal const* xs);
     };
 };

@@ -217,6 +217,7 @@ int main(int argc, char ** argv) {
     TST(qe_arith);
     TST(expr_substitution);
     TST(sorting_network);
+    TST(theory_pb);
 }
 
 void initialize_mam() {}
