@@ -1437,7 +1437,11 @@ namespace smt {
             if (val != l_undef  && 
                 ctx.get_assign_level(thl) == ctx.get_base_level()) {
                 if (val == l_true) {
-                    k -= n.get_unsigned();
+                    unsigned m = n.get_unsigned();
+                    if (k < m) {
+                        return;
+                    }
+                    k -= m;
                 }
                 continue;
             }

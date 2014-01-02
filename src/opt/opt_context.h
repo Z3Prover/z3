@@ -39,6 +39,7 @@ namespace opt {
         struct free_func_visitor;
         typedef map<symbol, maxsmt*, symbol_hash_proc, symbol_eq_proc> map_t;
         typedef map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> map_id;
+        typedef vector<std::pair<inf_eps, inf_eps> > bounds_t;
         enum objective_t {
             O_MAXIMIZE,
             O_MINIMIZE,
@@ -148,6 +149,8 @@ namespace opt {
         opt_solver& get_solver();
 
         void display_objective(std::ostream& out, objective const& obj) const;
+        void display_bounds(std::ostream& out, bounds_t const& b) const;
+
 
         void validate_lex();
 

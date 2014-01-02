@@ -171,9 +171,81 @@ namespace opt {
         return r;
     }
 
+
     lbool context::execute_pareto() {
-        // TODO: record a stream of results from pareto front
-        return execute_lex();
+        arith_util a(m);
+        lbool is_sat = execute_box();
+        if (is_sat != l_true) return is_sat;
+        // check if solution is bounded
+        bounds_t bound;
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            if (obj.m_type == O_MAXSMT) {
+                IF_VERBOSE(0, verbose_stream() << "Pareto optimization is not supported for MAXSMT\n";);
+                return l_undef;
+            }
+            inf_eps lo = get_lower_as_num(i);
+            inf_eps hi = get_upper_as_num(i); 
+            if (!hi.is_finite()) {
+                IF_VERBOSE(0, verbose_stream() << "Objective " << i << " has no upper bound\n";);
+                return l_undef;
+            }
+            if (!lo.is_finite()) {
+                IF_VERBOSE(0, verbose_stream() << "Objective " << i << " has no lower bound\n";);
+                return l_undef;
+            }
+            bound.push_back(std::make_pair(lo, hi));
+        }
+        vector<bounds_t> bounds;
+        bounds.push_back(bound);
+        display_bounds(verbose_stream(), bound);
+        opt_solver& s = get_solver();        
+        for (unsigned i = 0; i < bounds.size(); ++i) {
+            bounds_t b = bounds[i];
+            vector<inf_eps> mids;
+            solver::scoped_push _sp(s);
+            for (unsigned j = 0; j < b.size(); ++j) {
+                objective const& obj = m_objectives[j];
+                inf_eps mid = (b[j].second - b[j].first)/rational(2);
+                mids.push_back(mid);
+                expr_ref ge = s.mk_ge(obj.m_index, mid);            
+                s.assert_expr(ge);
+            }
+            is_sat = s.check_sat_core(0, 0);
+            switch(is_sat) {
+            case l_undef: 
+                return is_sat;
+            case l_true:
+                for (unsigned j = 0; j < b.size(); ++j) {
+                    b[j] = std::make_pair(b[j].first, mids[j]);
+                }
+                display_bounds(verbose_stream(), b);
+                bounds.push_back(b);
+                break;
+            case l_false: {
+                bounds_t b2(b);
+                for (unsigned j = 0; j < b.size(); ++j) {
+                    b2[j].second = mids[j];
+                    if (j > 0) {
+                        b2[j-1].second = b[j-1].second;
+                    }
+                    display_bounds(verbose_stream(), b2);
+                    bounds.push_back(b2);
+                }
+                break;
+            }
+            }
+        }
+        
+        return is_sat;
+    }
+
+    void context::display_bounds(std::ostream& out, bounds_t const& b) const {
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            display_objective(out, obj);
+            out << " |-> [" << b[i].first << ":" << b[i].second << "]\n";
+        }        
     }
 
     opt_solver& context::get_solver() { 
