@@ -173,33 +173,48 @@ namespace opt {
 
 
     lbool context::execute_pareto() {
+        opt_solver& s = get_solver();        
         arith_util a(m);
-        lbool is_sat = execute_box();
-        if (is_sat != l_true) return is_sat;
-        // check if solution is bounded
-        bounds_t bound;
+        expr_ref val(m);
+        rational r;
+        lbool is_sat = l_true;
+        vector<bounds_t> bounds;
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             if (obj.m_type == O_MAXSMT) {
                 IF_VERBOSE(0, verbose_stream() << "Pareto optimization is not supported for MAXSMT\n";);
                 return l_undef;
             }
-            inf_eps lo = get_lower_as_num(i);
-            inf_eps hi = get_upper_as_num(i); 
-            if (!hi.is_finite()) {
-                IF_VERBOSE(0, verbose_stream() << "Objective " << i << " has no upper bound\n";);
+            solver::scoped_push _sp(s);
+            is_sat = m_optsmt.pareto(obj.m_index);
+            if (is_sat != l_true) {
+                return is_sat;
+            }
+            if (!m_optsmt.get_upper(obj.m_index).is_finite()) {
                 return l_undef;
             }
-            if (!lo.is_finite()) {
-                IF_VERBOSE(0, verbose_stream() << "Objective " << i << " has no lower bound\n";);
-                return l_undef;
-            }
-            bound.push_back(std::make_pair(lo, hi));
+            bounds_t bound;            
+            for (unsigned j = 0; j < m_objectives.size(); ++j) {
+                objective const& obj_j = m_objectives[j];
+                inf_eps lo = m_optsmt.get_lower(obj_j.m_index);
+                inf_eps hi = m_optsmt.get_upper(obj_j.m_index);
+                bound.push_back(std::make_pair(lo, hi));
+            }            
+            bounds.push_back(bound);
         }
-        vector<bounds_t> bounds;
-        bounds.push_back(bound);
-        display_bounds(verbose_stream(), bound);
-        opt_solver& s = get_solver();        
+        for (unsigned i = 0; i < bounds.size(); ++i) {
+            for (unsigned j = 0; j < bounds.size(); ++j) {
+                objective const& obj = m_objectives[j];
+                if (obj.m_type == O_MAXIMIZE) {
+                    bounds[i][j].second = bounds[j][j].second;                
+                }
+                else {
+                    bounds[i][j].first = bounds[j][j].first;                    
+                }
+            }
+            display_bounds(verbose_stream() << "new bound\n", bounds[i]);
+        }
+
         for (unsigned i = 0; i < bounds.size(); ++i) {
             bounds_t b = bounds[i];
             vector<inf_eps> mids;
@@ -211,17 +226,26 @@ namespace opt {
                 expr_ref ge = s.mk_ge(obj.m_index, mid);            
                 s.assert_expr(ge);
             }
-            is_sat = s.check_sat_core(0, 0);
+            is_sat = execute_box();
             switch(is_sat) {
             case l_undef: 
                 return is_sat;
-            case l_true:
+            case l_true: {
+                bool at_bound = true; 
                 for (unsigned j = 0; j < b.size(); ++j) {
-                    b[j] = std::make_pair(b[j].first, mids[j]);
+                    objective const& obj = m_objectives[j];
+                    if (m_model->eval(obj.m_term, val) && a.is_numeral(val, r)) {
+                        mids[j] = inf_eps(r);
+                    }
+                    at_bound = at_bound && mids[j] == b[j].second;
+                    b[j].second = mids[j];
                 }
-                display_bounds(verbose_stream(), b);
-                bounds.push_back(b);
+                display_bounds(verbose_stream() << "new bound\n", b);
+                if (!at_bound) {
+                    bounds.push_back(b);
+                }
                 break;
+            }
             case l_false: {
                 bounds_t b2(b);
                 for (unsigned j = 0; j < b.size(); ++j) {
@@ -229,7 +253,7 @@ namespace opt {
                     if (j > 0) {
                         b2[j-1].second = b[j-1].second;
                     }
-                    display_bounds(verbose_stream(), b2);
+                    display_bounds(verbose_stream() << "new bound\n", b2);
                     bounds.push_back(b2);
                 }
                 break;

@@ -273,6 +273,55 @@ namespace opt {
         return l_true;
     }
 
+
+    lbool optsmt::pareto(unsigned obj_index) {
+        lbool is_sat = l_true;
+        expr_ref block(m);        
+        for (unsigned i = 0; i < m_lower.size(); ++i) {
+            m_lower[i] = inf_eps(rational(-1),inf_rational(0));
+            m_upper[i] = inf_eps(rational(1), inf_rational(0));
+        }
+        bool was_sat = false;
+
+        while (is_sat == l_true && !m_cancel) {
+            is_sat = m_s->check_sat(0, 0); 
+            if (is_sat != l_true) break;
+            was_sat = true;
+            m_s->maximize_objective(obj_index);
+            m_s->get_model(m_model);
+            inf_eps obj = m_s->get_objective_value(obj_index);
+            if (obj > m_lower[obj_index]) {
+                m_lower[obj_index] = obj;
+                IF_VERBOSE(1, verbose_stream() << "(optsmt lower bound: " << obj << ")\n";);
+            }
+            block = m_s->mk_gt(obj_index, obj);
+            m_s->assert_expr(block);
+        }
+        
+        if (m_cancel || is_sat == l_undef) {
+            return l_undef;
+        }
+        if (!was_sat) {
+            return l_false;
+        }
+
+        // set the solution tight.
+        // and set lower bounds on other values.
+        m_upper[obj_index] = m_lower[obj_index];    
+        expr_ref val(m);
+        rational r;
+        arith_util a(m);
+        for (unsigned i = 0; i < m_lower.size(); ++i) {
+            if (i != obj_index) {
+                VERIFY(m_model->eval(m_objs[i].get(), val) && a.is_numeral(val, r));
+                m_lower[i] = inf_eps(r);
+            }
+        }
+
+        return l_true;
+    }
+
+
     /**
        Takes solver with hard constraints added.
        Returns an optimal assignment to objective functions.
