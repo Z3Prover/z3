@@ -47,6 +47,7 @@ void smt_params::updt_params(params_ref const & p) {
     qi_params::updt_params(p);
     theory_arith_params::updt_params(p);
     theory_bv_params::updt_params(p);
+    theory_pb_params::updt_params(p);
     updt_local_params(p);
 }
 

@@ -247,6 +247,7 @@ namespace opt {
             inf_eps obj = m_s->get_objective_value(obj_index);
             if (obj > m_lower[obj_index]) {
                 m_lower[obj_index] = obj;
+                IF_VERBOSE(1, verbose_stream() << "(optsmt lower bound: " << obj << ")\n";);
                 for (unsigned i = obj_index+1; i < m_vars.size(); ++i) {
                     m_s->maximize_objective(i);
                     m_lower[i] = m_s->get_objective_value(i);

@@ -23,6 +23,7 @@ Notes:
 #include "smt_theory.h"
 #include "pb_decl_plugin.h"
 #include "smt_clause.h"
+#include "theory_pb_params.h"
 
 namespace smt {
     class theory_pb : public theory {
@@ -59,7 +60,7 @@ namespace smt {
             unsigned        m_num_propagations;
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
-            
+
             ineq(literal l) : m_lit(l) {
                 reset();
             }
@@ -102,7 +103,8 @@ namespace smt {
         };
 
         typedef ptr_vector<ineq> watch_list;
-        
+
+        theory_pb_params         m_params;        
         u_map<watch_list*>       m_watch;       // per literal.
         u_map<ineq*>             m_ineqs;       // per inequality.
         unsigned_vector          m_ineqs_trail;
@@ -115,6 +117,7 @@ namespace smt {
         ptr_vector<ineq>         m_to_compile;  // inequalities to compile.
         unsigned                 m_conflict_frequency;
         bool                     m_learn_complements;
+        bool                     m_enable_compilation;
 
         // internalize_atom:
         literal compile_arg(expr* arg);
@@ -172,7 +175,7 @@ namespace smt {
         void validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
         void validate_watch(ineq const& c) const;
     public:
-        theory_pb(ast_manager& m);
+        theory_pb(ast_manager& m, theory_pb_params& p);
         
         virtual ~theory_pb();
 
@@ -193,9 +196,6 @@ namespace smt {
         virtual void collect_statistics(::statistics & st) const;
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
         virtual void init_model(model_generator & m);        
-
-        void set_conflict_frequency(unsigned f) { m_conflict_frequency = f; }
-        void set_learn_complements(bool l) { m_learn_complements = l; }
 
         static literal assert_ge(context& ctx, unsigned k, unsigned n, literal const* xs);
     };

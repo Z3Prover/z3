@@ -826,25 +826,11 @@ namespace opt {
             pb_util u(m);
             lbool is_sat = bound(al, ws, bs, k);
             if (is_sat != l_true) return is_sat;
-#if 0
-            rational mininc(0);
-            for (unsigned i = 0; i < ws.size(); ++i) {
-                if (mininc.is_zero() || mininc > ws[i]) {
-                    mininc = ws[i];
-                }
-            }
-            k += mininc;
-#else
             expr_ref_vector al2(m);
             al2.append(al);
             // w_j*b_j > k
-            rational k0 = k;
             al2.push_back(m.mk_not(u.mk_le(ws.size(), ws.c_ptr(), bs.c_ptr(), k)));
             is_sat = bound(al2, ws, bs, k);
-            if (is_sat == l_true) {
-                SASSERT(k > k0);
-            }
-#endif
             return is_sat;
         }
 

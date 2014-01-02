@@ -55,8 +55,6 @@ namespace opt {
         unsigned        m_lower;
         model_ref       m_model;
 
-        bool            m_use_new_bv_solver; 
-
         imp(ast_manager& m, opt_solver& s, expr_ref_vector const& soft):
             m(m),
             m_opt_solver(s),
@@ -65,8 +63,7 @@ namespace opt {
             m_orig_soft(soft),
             m_aux(m),
             m_upper(0),
-            m_lower(0),
-            m_use_new_bv_solver(false)
+            m_lower(0)
         {
             m_upper = m_soft.size() + 1;
             m_assignment.resize(m_soft.size(), false);
@@ -118,48 +115,6 @@ namespace opt {
             }
         }
 
-        void quick_explain(expr_ref_vector const& assumptions, expr_ref_vector & literals, bool has_set, expr_set & core) {
-            if (has_set && s().check_sat(assumptions.size(), assumptions.c_ptr()) == l_false) {
-                core.reset();
-                return;
-            }
-            
-            SASSERT(!literals.empty());
-            if (literals.size() == 1) {
-                core.reset();
-                core.insert(literals[0].get());
-                return;
-            }
-
-            unsigned mid = literals.size()/2;
-            expr_ref_vector ls1(m), ls2(m);
-            ls1.append(mid, literals.c_ptr());
-            ls2.append(literals.size()-mid, literals.c_ptr() + mid);
-#if Z3DEBUG
-            expr_ref_vector ls(m); 
-            ls.append(ls1); 
-            ls.append(ls2); 
-            SASSERT(ls.size() == literals.size());
-            for (unsigned i = 0; i < literals.size(); ++i) {
-                SASSERT(ls[i].get() == literals[i].get());
-            }
-#endif            
-            expr_ref_vector as1(m);
-            as1.append(assumptions);
-            as1.append(ls1);
-            expr_set core2;
-            quick_explain(as1, ls2, !ls1.empty(), core2);
-
-            expr_ref_vector as2(m), cs2(m);
-            as2.append(assumptions);            
-            set2vector(core2, cs2);
-            as2.append(cs2);
-            expr_set core1;
-            quick_explain(as2, ls1, !core2.empty(), core1);
-
-            set_union(core1, core2, core);
-        }
-
         lbool step() {
             IF_VERBOSE(1, verbose_stream() << "(opt.max_sat step " << m_soft.size() + 2 - m_upper << ")\n";);
             expr_ref_vector assumptions(m), block_vars(m);
@@ -172,38 +127,7 @@ namespace opt {
             }
 
             ptr_vector<expr> core;
-            if (m_use_new_bv_solver) {
-                // Binary search for minimal unsat core
-                expr_set core_set;
-                expr_ref_vector empty(m);
-                quick_explain(empty, assumptions, true, core_set);
-                expr_set::iterator it = core_set.begin(), end = core_set.end();
-                for (; it != end; ++it) {
-                    core.push_back(*it);
-                }
-
-                //// Forward linear search for unsat core
-                //unsigned i = 0;
-                //while (s().check_sat(core.size(), core.c_ptr()) != l_false) {
-                //    IF_VERBOSE(0, verbose_stream() << "(opt.max_sat get-unsat-core round " << i << ")\n";);
-                //    core.push_back(assumptions[i].get());
-                //    ++i;
-                //}
-
-                //// Backward linear search for unsat core
-                //unsigned i = 0;
-                //core.append(assumptions.size(), assumptions.c_ptr());
-                //while (!core.empty() && s().check_sat(core.size()-1, core.c_ptr()) == l_false) {
-                //    IF_VERBOSE(0, verbose_stream() << "(opt.max_sat get-unsat-core round " << i << ")\n";);
-                //    core.pop_back();
-                //    ++i;
-                //}
-
-                IF_VERBOSE(1, verbose_stream() << "(opt.max_sat unsat-core of size " << core.size() << ")\n";);
-            }
-            else {
-                s().get_unsat_core(core);
-            }
+            s().get_unsat_core(core);
 
             SASSERT(!core.empty());
 
@@ -266,23 +190,6 @@ namespace opt {
             for (unsigned i = 0; i < num_assertions; ++i) {
                 g.assert_expr(current_solver.get_assertion(i));
             }            
-#if 0
-            // TBD: this leaks references somehow
-            probe_ref p = mk_is_qfbv_probe();
-            bool all_bv = (*p)(g).is_true();
-            if (all_bv) {                
-                smt::context & ctx = m_opt_solver.get_context();                
-                tactic_ref t = mk_qfbv_tactic(m, ctx.get_params());                  
-                // The new SAT solver hasn't supported unsat core yet
-                m_s = mk_tactic2solver(m, t.get());
-                SASSERT(m_s != &m_opt_solver);
-                for (unsigned i = 0; i < num_assertions; ++i) {
-                    m_s->assert_expr(current_solver.get_assertion(i));
-                }
-                m_use_new_bv_solver = true;
-                IF_VERBOSE(1, verbose_stream() << "Force to use the new BV solver." << std::endl;);
-            }
-#endif
         }
 
         // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
@@ -371,10 +278,51 @@ namespace opt {
     void fu_malik::updt_params(params_ref& p) {
         // no-op
     }
-
-
-
-
 };
+
+#if 0
+        void quick_explain(expr_ref_vector const& assumptions, expr_ref_vector & literals, bool has_set, expr_set & core) {
+            if (has_set && s().check_sat(assumptions.size(), assumptions.c_ptr()) == l_false) {
+                core.reset();
+                return;
+            }
+            
+            SASSERT(!literals.empty());
+            if (literals.size() == 1) {
+                core.reset();
+                core.insert(literals[0].get());
+                return;
+            }
+
+            unsigned mid = literals.size()/2;
+            expr_ref_vector ls1(m), ls2(m);
+            ls1.append(mid, literals.c_ptr());
+            ls2.append(literals.size()-mid, literals.c_ptr() + mid);
+#if Z3DEBUG
+            expr_ref_vector ls(m); 
+            ls.append(ls1); 
+            ls.append(ls2); 
+            SASSERT(ls.size() == literals.size());
+            for (unsigned i = 0; i < literals.size(); ++i) {
+                SASSERT(ls[i].get() == literals[i].get());
+            }
+#endif            
+            expr_ref_vector as1(m);
+            as1.append(assumptions);
+            as1.append(ls1);
+            expr_set core2;
+            quick_explain(as1, ls2, !ls1.empty(), core2);
+
+            expr_ref_vector as2(m), cs2(m);
+            as2.append(assumptions);            
+            set2vector(core2, cs2);
+            as2.append(cs2);
+            expr_set core1;
+            quick_explain(as2, ls1, !core2.empty(), core1);
+
+            set_union(core1, core2, core);
+        }
+
+#endif
 
 

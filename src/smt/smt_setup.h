@@ -42,7 +42,7 @@ namespace smt {
     class setup {
         context &          m_context;
         ast_manager &      m_manager;
-        smt_params & m_params;
+        smt_params &       m_params;
         symbol             m_logic;
         bool               m_already_configured;
         void setup_auto_config();

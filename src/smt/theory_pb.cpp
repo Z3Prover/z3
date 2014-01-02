@@ -816,20 +816,23 @@ namespace smt {
         return true;
     }
     
-    theory_pb::theory_pb(ast_manager& m):
+    theory_pb::theory_pb(ast_manager& m, theory_pb_params& p):
         theory(m.mk_family_id("pb")),
+        m_params(p),
         m_util(m),
-        m_lemma(null_literal),
-        m_learn_complements(false),
-        m_conflict_frequency(0xF)
-    {}
+        m_lemma(null_literal)
+    {        
+        m_learn_complements = p.m_pb_learn_complements;
+        m_conflict_frequency = p.m_pb_conflict_frequency;
+        m_enable_compilation = p.m_pb_enable_compilation;
+    }
 
     theory_pb::~theory_pb() {
         reset_eh();
     }
 
     theory * theory_pb::mk_fresh(context * new_ctx) { 
-        return alloc(theory_pb, new_ctx->get_manager()); 
+        return alloc(theory_pb, new_ctx->get_manager(), m_params); 
     }
 
     bool theory_pb::internalize_atom(app * atom, bool gate_ctx) {
@@ -910,20 +913,21 @@ namespace smt {
 
 
         // pre-compile threshold for cardinality
-        bool is_cardinality = true;
-        for (unsigned i = 0; is_cardinality && i < args.size(); ++i) {
-            is_cardinality = (args[i].second < rational(8));
+        bool enable_compile = m_enable_compilation;
+        for (unsigned i = 0; enable_compile && i < args.size(); ++i) {
+            enable_compile = (args[i].second < rational(8));
         }
-        if (is_cardinality) {
+        if (enable_compile) {
             unsigned log = 1, n = 1;
             while (n <= args.size()) {
                 ++log;
                 n *= 2;
             }
-            unsigned th = 10*args.size()*log;
+            unsigned th = args.size()*log; // 10*
             c->m_compilation_threshold = th;
+            IF_VERBOSE(2, verbose_stream() << "(smt.pb setting compilation threhshold to " << th << ")\n";);
             TRACE("pb", tout << "compilation threshold: " << th << "\n";);
-        }
+            }
         else {
             c->m_compilation_threshold = UINT_MAX;
         }
@@ -1429,6 +1433,14 @@ namespace smt {
         literal_vector in;
         for (unsigned i = 0; i < num_args; ++i) {
             rational n = c.coeff(i);
+            lbool val = ctx.get_assignment(c.lit()); 
+            if (val != l_undef  && 
+                ctx.get_assign_level(thl) == ctx.get_base_level()) {
+                if (val == l_true) {
+                    k -= n.get_unsigned();
+                }
+                continue;
+            }
             while (n.is_pos()) {
                 in.push_back(c.lit(i));
                 n -= rational::one();
@@ -1765,7 +1777,7 @@ namespace smt {
                 // same order as the assignment stack.
                 // It is not a correctness bug but causes to miss lemmas.
                 //
-                IF_VERBOSE(1, display_resolved_lemma(verbose_stream()););
+                IF_VERBOSE(2, display_resolved_lemma(verbose_stream()););
                 TRACE("pb", display_resolved_lemma(tout););
                 return false;
             }
@@ -1851,12 +1863,12 @@ namespace smt {
         // 3x + 3y + z + u >= 4
         // ~x /\ ~y => z + u >= 
 
-        IF_VERBOSE(2, display(verbose_stream() << "lemma1: ", m_lemma););
+        IF_VERBOSE(4, display(verbose_stream() << "lemma1: ", m_lemma););
         hoist_maximal_values();
         lbool is_true = m_lemma.normalize();
         m_lemma.prune();
 
-        IF_VERBOSE(2, display(verbose_stream() << "lemma2: ", m_lemma););
+        IF_VERBOSE(4, display(verbose_stream() << "lemma2: ", m_lemma););
         switch(is_true) {
         case l_true:
             UNREACHABLE();

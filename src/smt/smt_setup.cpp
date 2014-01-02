@@ -793,7 +793,7 @@ namespace smt {
 
     void setup::setup_card() {
         // m_context.register_plugin(alloc(theory_card, m_manager));
-        m_context.register_plugin(alloc(theory_pb, m_manager));
+        m_context.register_plugin(alloc(theory_pb, m_manager, m_params));
     }
 
     void setup::setup_unknown() {

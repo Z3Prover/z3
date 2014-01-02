@@ -54,13 +54,6 @@ namespace opt {
         m_dump_benchmarks = p.dump_benchmarks();
         m_params.updt_params(_p);
         m_context.updt_params(_p);
-        smt::theory_id th_id = m.get_family_id("pb");
-        smt::theory* _th = get_context().get_theory(th_id);               
-        if (_th) {
-            smt::theory_pb* th = dynamic_cast<smt::theory_pb*>(_th);
-            th->set_conflict_frequency(p.pb_conflict_freq());
-            th->set_learn_complements(p.pb_learn_comp());
-        }            
     }
 
     void opt_solver::collect_param_descrs(param_descrs & r) {
