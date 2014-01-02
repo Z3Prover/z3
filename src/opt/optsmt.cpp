@@ -340,19 +340,16 @@ namespace opt {
             is_sat = basic_opt();
         }
 
-        IF_VERBOSE(1, verbose_stream() << "is-sat: " << is_sat << std::endl;
-                   display_assignment(verbose_stream()););
-
         return is_sat;
     }
 
 
     inf_eps optsmt::get_lower(unsigned i) const {
-        return m_is_max[i]?m_lower[i]:-m_upper[i];
+        return m_lower[i];
     }
 
     inf_eps optsmt::get_upper(unsigned i) const {
-        return m_is_max[i]?m_upper[i]:-m_lower[i];
+        return m_upper[i];
     }
 
     void optsmt::get_model(model_ref& mdl) {
@@ -362,7 +359,7 @@ namespace opt {
     // force lower_bound(i) <= objective_value(i)    
     void optsmt::commit_assignment(unsigned i) {
         inf_eps lo = m_lower[i];
-        TRACE("opt", tout << "set lower bound of "; display_objective(tout, i) << " to: " << lo << "\n";
+        TRACE("opt", tout << "set lower bound of " << mk_pp(m_objs[i].get(), m) << " to: " << lo << "\n";
               tout << get_lower(i) << ":" << get_upper(i) << "\n";);    
         // Only assert bounds for bounded objectives
         if (lo.is_finite()) {
@@ -370,42 +367,12 @@ namespace opt {
         }
     }
 
-    std::ostream& optsmt::display_objective(std::ostream& out, unsigned i) const {
-        bool is_max = m_is_max[i];
-        expr_ref obj(m_objs[i], m);
-        if (!is_max) {
-            arith_util a(m);
-            th_rewriter rw(m);
-            obj = a.mk_uminus(obj);
-            rw(obj, obj);
-        }
-        return out << obj;
-    }
-
-    void optsmt::display_assignment(std::ostream& out) const {
-        unsigned sz = m_objs.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            if (get_lower(i) != get_upper(i)) {
-                display_objective(out, i) << " |-> [" << get_lower(i) 
-                                          << ":" << get_upper(i) << "]" << std::endl;                
-            }
-            else {
-                display_objective(out, i) << " |-> " << get_lower(i) << std::endl;                
-            }
-        }        
-    }
-
-    unsigned optsmt::add(app* t, bool is_max) {
+    unsigned optsmt::add(app* t) {
         expr_ref t1(t, m), t2(m);
         th_rewriter rw(m);
-        if (!is_max) {
-            arith_util a(m);
-            t1 = a.mk_uminus(t);
-        }
         rw(t1, t2);
         SASSERT(is_app(t2));
         m_objs.push_back(to_app(t2));
-        m_is_max.push_back(is_max);
         m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
         m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
         return m_objs.size()-1;

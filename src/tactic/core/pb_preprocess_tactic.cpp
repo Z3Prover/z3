@@ -152,8 +152,12 @@ public:
         SASSERT(g->is_well_sorted());
         pc = 0; core = 0;
 
-        // TBD: bail out if cores are enabled.
-        // TBD: bail out if proofs are enabled/add proofs.
+        if (g->unsat_core_enabled()) {
+            throw tactic_exception("pb-preprocess does not support cores");
+        }
+        if (g->proofs_enabled()) {
+            throw tactic_exception("pb-preprocess does not support proofs");
+        }
 
         pb_preproc_model_converter* pp = alloc(pb_preproc_model_converter, m);
         mc = pp;
@@ -166,6 +170,7 @@ public:
     bool simplify(goal_ref const& g, pb_preproc_model_converter& mc) {
         reset();
         normalize(g);
+        decompose(g);
         if (g->inconsistent()) {
             return false;
         }
@@ -300,6 +305,14 @@ private:
         }
     }
 
+    void decompose(goal_ref const& g) {
+        for (unsigned i = 0; !g->inconsistent() && i < g->size(); ++i) {
+            expr* e = g->form(i);
+            if (pb.is_ge(e) && to_app(e)->get_num_args() > 20) {
+                // TBD: decompose inequality int smaller ones.
+            }
+        }
+    }
 
     void process_vars(unsigned i, goal_ref const& g) {
         expr* r, *e;

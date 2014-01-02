@@ -205,12 +205,7 @@ namespace opt {
         for (unsigned i = 0; i < bounds.size(); ++i) {
             for (unsigned j = 0; j < bounds.size(); ++j) {
                 objective const& obj = m_objectives[j];
-                if (obj.m_type == O_MAXIMIZE) {
-                    bounds[i][j].second = bounds[j][j].second;                
-                }
-                else {
-                    bounds[i][j].first = bounds[j][j].first;                    
-                }
+                bounds[i][j].second = bounds[j][j].second;                
             }
             display_bounds(verbose_stream() << "new bound\n", bounds[i]);
         }
@@ -253,7 +248,7 @@ namespace opt {
                     if (j > 0) {
                         b2[j-1].second = b[j-1].second;
                     }
-                    display_bounds(verbose_stream() << "new bound\n", b2);
+                    display_bounds(verbose_stream() << "refined bound\n", b2);
                     bounds.push_back(b2);
                 }
                 break;
@@ -268,7 +263,12 @@ namespace opt {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             display_objective(out, obj);
-            out << " |-> [" << b[i].first << ":" << b[i].second << "]\n";
+            if (obj.m_type == O_MAXIMIZE) {
+                out << " |-> [" << b[i].first << ":" << b[i].second << "]\n";
+            }
+            else {
+                out << " |-> [" << -b[i].second << ":" << -b[i].first << "]\n";
+            }
         }        
     }
 
@@ -506,11 +506,15 @@ namespace opt {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective & obj = m_objectives[i];
             switch(obj.m_type) {
-            case O_MINIMIZE:
-                obj.m_index = m_optsmt.add(obj.m_term, false);
+            case O_MINIMIZE: {
+                app_ref tmp(m);
+                arith_util a(m);
+                tmp = a.mk_uminus(obj.m_term);
+                obj.m_index = m_optsmt.add(tmp);
                 break;
+            }
             case O_MAXIMIZE:
-                obj.m_index = m_optsmt.add(obj.m_term, true);
+                obj.m_index = m_optsmt.add(obj.m_term);
                 break;
             case O_MAXSMT: {
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);
@@ -604,6 +608,7 @@ namespace opt {
             return inf_eps(r);
         }
         case O_MINIMIZE:
+            return -m_optsmt.get_upper(obj.m_index);
         case O_MAXIMIZE: 
             return m_optsmt.get_lower(obj.m_index);
         default:
@@ -626,6 +631,7 @@ namespace opt {
             return inf_eps(r);
         }
         case O_MINIMIZE:
+            return -m_optsmt.get_lower(obj.m_index);
         case O_MAXIMIZE: 
             return m_optsmt.get_upper(obj.m_index);
         default:

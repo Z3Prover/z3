@@ -34,7 +34,6 @@ namespace opt {
         vector<inf_eps>  m_lower;
         vector<inf_eps>  m_upper;
         app_ref_vector   m_objs;
-        svector<bool>    m_is_max;
         svector<smt::theory_var> m_vars;
         symbol           m_engine;
         model_ref        m_model;
@@ -49,14 +48,11 @@ namespace opt {
 
         lbool pareto(unsigned obj_index);
 
-        unsigned add(app* t, bool is_max);
+        unsigned add(app* t);
 
         void set_cancel(bool f);
 
         void updt_params(params_ref& p);
-
-        void display_assignment(std::ostream& out) const;
-        void display_range_assignment(std::ostream& out) const;
 
         unsigned get_num_objectives() const { return m_objs.size(); }
         void commit_assignment(unsigned index);
@@ -68,8 +64,6 @@ namespace opt {
         
     private:
         
-        std::ostream& display_objective(std::ostream& out, unsigned i) const;
-
         lbool basic_opt();
 
         lbool basic_lex(unsigned idx);
