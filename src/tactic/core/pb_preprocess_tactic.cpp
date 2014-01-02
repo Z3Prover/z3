@@ -306,12 +306,15 @@ private:
     }
 
     void decompose(goal_ref const& g) {
+#if 0
+        // TBD
         for (unsigned i = 0; !g->inconsistent() && i < g->size(); ++i) {
             expr* e = g->form(i);
             if (pb.is_ge(e) && to_app(e)->get_num_args() > 20) {
                 // TBD: decompose inequality int smaller ones.
             }
         }
+#endif
     }
 
     void process_vars(unsigned i, goal_ref const& g) {
