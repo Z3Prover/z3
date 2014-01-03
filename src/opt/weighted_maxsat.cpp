@@ -410,9 +410,6 @@ namespace opt {
             if (m_engine == symbol("iwmax")) {
                 return iterative_solve();
             }
-            if (m_engine == symbol("bwmax")) {
-                return bisection_solve();
-            }
             if (m_engine == symbol("pwmax")) {
                 return pb_solve();
             }
@@ -509,7 +506,7 @@ namespace opt {
             lbool result = l_false;
             unsigned nsc = 0;
             m_upper = cost;
-            while (log_cost <= cost && result == l_false) {
+            while (result == l_false) {
                 bound = wth().set_min_cost(log_cost);
                 s.push_core();
                 ++nsc;
@@ -519,6 +516,9 @@ namespace opt {
                 result = conditional_solve(bound);
                 if (result == l_false) {
                     m_lower = log_cost;        
+                }
+                if (log_cost > cost) {
+                    break;
                 }
                 log_cost *= rational(2);
                 if (m_cancel) {
@@ -560,50 +560,6 @@ namespace opt {
             return is_sat;            
         }
 
-        lbool bisection_solve() {
-            TRACE("opt", tout << "weighted maxsat\n";);
-            scoped_ensure_theory wth(*this);
-            solver::scoped_push _s(s);
-            lbool is_sat = l_true;
-            bool was_sat = false;
-            expr_ref_vector bounds(m);
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                wth().assert_weighted(m_soft[i].get(), m_weights[i]);
-            }
-            solver::scoped_push __s(s);
-            m_lower = rational::zero();
-            m_upper = wth().get_min_cost();
-            while (m_lower < m_upper && is_sat != l_undef) {
-                rational cost = div(m_upper + m_lower, rational(2));
-                bounds.push_back(wth().set_min_cost(cost));
-                is_sat = s.check_sat_core(1,bounds.c_ptr()+bounds.size()-1);
-                if (m_cancel) {
-                    is_sat = l_undef;
-                }
-                switch(is_sat) {
-                case l_true: {
-                    if (wth().is_optimal()) {
-                        s.get_model(m_model);
-                    }
-                    expr_ref fml = wth().mk_block();
-                    s.assert_expr(fml);
-                    m_upper = wth().get_min_cost();
-                    break;
-                }
-                case l_false: {
-                    m_lower = cost;
-                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.bwmax min cost: " << m_lower << ")\n";);
-                    break;
-                }
-                case l_undef:
-                    break;
-                }
-            }
-            if (was_sat) {
-                is_sat = l_true;
-            }
-            return is_sat;
-        }
 
         // convert bounds constraint into pseudo-Boolean
 
@@ -708,6 +664,12 @@ namespace opt {
             m_lower = m_upper = rational::zero();
             obj_map<expr, unsigned> ans_index;
 
+#ifdef WPM2b
+            // change from CP'13
+            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
+                al.push_back(s.get_assertion(i));
+            }
+#endif
             vector<rational> amk;
             vector<uint_set> sc;
             for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -796,7 +758,10 @@ namespace opt {
                     }
                 }
                 rational k;
+                std::cout << "new bound";
                 is_sat = new_bound(al, ws, bs, k);
+                std::cout << " " << k << "\n";
+                std::cout.flush();
                 if (is_sat != l_true) {
                     return is_sat;
                 }
@@ -830,8 +795,7 @@ namespace opt {
             al2.append(al);
             // w_j*b_j > k
             al2.push_back(m.mk_not(u.mk_le(ws.size(), ws.c_ptr(), bs.c_ptr(), k)));
-            is_sat = bound(al2, ws, bs, k);
-            return is_sat;
+            return bound(al2, ws, bs, k);
         }
 
         // 
@@ -843,8 +807,8 @@ namespace opt {
                     vector<rational> const& ws, 
                     expr_ref_vector const& bs,
                     rational& k) {
-            expr_ref_vector nbs(m);            
-            m_solver.push_core();
+            expr_ref_vector nbs(m);
+            opt_solver::scoped_push _sc(m_solver);
             for (unsigned i = 0; i < al.size(); ++i) {
                 m_solver.assert_expr(al[i]);
             }
@@ -854,7 +818,6 @@ namespace opt {
             m_imp->re_init(nbs, ws); 
             lbool is_sat = m_imp->pb_simplify_solve();
             k = m_imp->m_lower;
-            m_solver.pop_core(1);
             return is_sat;
         }
 
@@ -952,3 +915,54 @@ namespace opt {
 
 };
 
+#if 0
+// The case m_lower = 0, m_upper = 1 is not handled correctly.
+// cost becomes 0
+
+        lbool bisection_solve() {
+            TRACE("opt", tout << "weighted maxsat\n";);
+            scoped_ensure_theory wth(*this);
+            solver::scoped_push _s(s);
+            lbool is_sat = l_true;
+            bool was_sat = false;
+            expr_ref_vector bounds(m);
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                wth().assert_weighted(m_soft[i].get(), m_weights[i]);
+            }
+            solver::scoped_push __s(s);
+            m_lower = rational::zero();
+            m_upper = wth().get_min_cost();
+            while (m_lower < m_upper && is_sat != l_undef) {
+                rational cost = div(m_upper + m_lower, rational(2));
+                
+                bounds.push_back(wth().set_min_cost(cost));
+                is_sat = s.check_sat_core(1,bounds.c_ptr()+bounds.size()-1);
+                if (m_cancel) {
+                    is_sat = l_undef;
+                }
+                switch(is_sat) {
+                case l_true: {
+                    if (wth().is_optimal()) {
+                        s.get_model(m_model);
+                    }
+                    expr_ref fml = wth().mk_block();
+                    s.assert_expr(fml);
+                    m_upper = wth().get_min_cost();
+                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.bwmax max cost: " << m_upper << ")\n";);
+                    break;
+                }
+                case l_false: {
+                    m_lower = cost;
+                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.bwmax min cost: " << m_lower << ")\n";);
+                    break;
+                }
+                case l_undef:
+                    break;
+                }
+            }
+            if (was_sat) {
+                is_sat = l_true;
+            }
+            return is_sat;
+        }
+#endif

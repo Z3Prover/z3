@@ -55,30 +55,29 @@ public:
         }
     }
 
-    void set_value(app* e, expr* v) {
-        SASSERT(e->get_num_args() == 0);  
-        SASSERT(is_uninterp_const(e));
-        m_const.push_back(std::make_pair(e, v));
-        m_refs.push_back(e);
-        m_refs.push_back(v);
-    }
-
     void set_value(expr* e, bool p) {
-        if (m.is_not(e, e)) {
-            set_value(e, !p);
+        while (m.is_not(e, e)) {
+            p = !p;
         }
-        else {
-            SASSERT(is_app(e));
-            set_value(to_app(e), p?m.mk_true():m.mk_false());
-        }
+        SASSERT(is_app(e));
+        set_value_p(to_app(e), p?m.mk_true():m.mk_false());        
     }
 
     virtual model_converter * translate(ast_translation & translator) {
         pb_preproc_model_converter* mc = alloc(pb_preproc_model_converter, translator.to());
         for (unsigned i = 0; i < m_const.size(); ++i) {
-            mc->set_value(translator(m_const[i].first), translator(m_const[i].second));
+            mc->set_value_p(translator(m_const[i].first), translator(m_const[i].second));
         }
         return mc;
+    }
+
+private:
+    void set_value_p(app* e, expr* v) {
+        SASSERT(e->get_num_args() == 0);  
+        SASSERT(is_uninterp_const(e));
+        m_const.push_back(std::make_pair(e, v));
+        m_refs.push_back(e);
+        m_refs.push_back(v);
     }
 
 };
@@ -165,12 +164,12 @@ public:
         g->inc_depth();        
         result.push_back(g.get());       
         while (simplify(g, *pp));
+        // decompose(g);
     }
 
     bool simplify(goal_ref const& g, pb_preproc_model_converter& mc) {
         reset();
         normalize(g);
-        decompose(g);
         if (g->inconsistent()) {
             return false;
         }
@@ -205,11 +204,11 @@ public:
             rec const& r = it->m_value;
             if (r.pos.empty()) {                
                 replace(r.neg, e, m.mk_false(), g);
-                mc.set_value(e, m.mk_false());
+                mc.set_value(e, false);
             }
             else if (r.neg.empty()) {
                 replace(r.pos, e, m.mk_true(), g);
-                mc.set_value(e, m.mk_true());
+                mc.set_value(e, true);
             }
             if (g->inconsistent()) return false;
             ++it;
@@ -220,6 +219,7 @@ public:
         while (it != m_vars.end()) {
             
             app * e = it->m_key;
+            SASSERT(is_uninterp_const(e));
             rec const& r = it->m_value;
             if (r.pos.size() == 1 && !r.neg.empty()) {
                 resolve(mc, r.pos[0], r.neg, e, true, g);
@@ -305,17 +305,99 @@ private:
         }
     }
 
+    unsigned log2ceil(unsigned n) {
+        unsigned p = 1;
+        while (n > 0) {
+            n /= 2;
+            ++p;
+        }
+        return p;
+    }
+
+    /**
+       \brief decompose large sums into smaller sums by intoducing
+       auxilary variables.
+    */
     void decompose(goal_ref const& g) {
-#if 0
-        // TBD
+        expr_ref fml1(m), fml2(m);
         for (unsigned i = 0; !g->inconsistent() && i < g->size(); ++i) {
             expr* e = g->form(i);
-            if (pb.is_ge(e) && to_app(e)->get_num_args() > 20) {
-                // TBD: decompose inequality int smaller ones.
+            unsigned_vector cuts;
+            if (cut(e, cuts)) {
+                app* a = to_app(e);
+                expr_ref_vector  cut_args(m);
+                vector<rational> cut_coeffs;
+                if (cuts.size() < 2) continue;
+                unsigned start = 0;
+                for (unsigned j = 0; j < cuts.size(); ++j) {
+                    unsigned end = cuts[j];
+                    fml1 = decompose_cut(a, start, end, cut_args, cut_coeffs); 
+                    g->assert_expr(fml1);
+                    start = end;
+                    TRACE("pb", tout << fml1 << "\n";);
+                }
+                fml2 = pb.mk_ge(cut_args.size(), cut_coeffs.c_ptr(), cut_args.c_ptr(), pb.get_k(e));
+                g->update(i, fml2);
+                TRACE("pb", tout << fml2 << "\n";);
             }
         }
-#endif
     }
+    bool cut(expr* e, unsigned_vector& cuts) {
+        if (!pb.is_ge(e)) return false;
+        if (to_app(e)->get_num_args() <= 20) return false;
+        unsigned n = 0, cut = 0;
+        unsigned sz = to_app(e)->get_num_args();
+        for (unsigned i = 0; i < sz; ++i) {
+            rational r = pb.get_coeff(e, i); 
+            if (!r.is_unsigned()) {
+                return false;
+            }                
+            n += r.get_unsigned();
+            if (2*log2ceil(n) < cut) {
+                cuts.push_back(i+1);
+                n = 0; 
+                cut = 0;
+            }
+            else {
+                ++cut;
+            }
+        }
+        if (!cuts.empty() && cuts.back() + 20 >= sz) {
+            cuts.pop_back();
+        }
+        cuts.push_back(sz);
+        return true;
+    }
+
+    expr_ref decompose_cut(app* e, unsigned start, unsigned end, 
+                           expr_ref_vector& cut_args,
+                           vector<rational>& cut_coeffs) {
+        unsigned n = 0, j = 1;
+        vector<rational> coeffs;
+        expr_ref_vector args(m);
+        app_ref z(m);
+        expr_ref fml1(m), fml(m);
+
+        for (unsigned i = start; i < end; ++i) {
+            rational r = pb.get_coeff(e, i); 
+            n += r.get_unsigned();
+            args.push_back(e->get_arg(i));
+            coeffs.push_back(r);
+        }
+
+        while (j <= n) {
+            z = m.mk_fresh_const("z", m.mk_bool_sort());
+            coeffs.push_back(-rational(j));
+            args.push_back(z);
+            cut_coeffs.push_back(rational(j));
+            cut_args.push_back(z);            
+            j <<= 1;
+        }
+        fml1 = pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), rational(0));
+        m_r(fml1, fml);
+        return fml;
+    }
+    
 
     void process_vars(unsigned i, goal_ref const& g) {
         expr* r, *e;
@@ -341,7 +423,7 @@ private:
     void classify_vars(unsigned idx, app* e) {
         expr* r;
         if (m.is_not(e, r) && is_uninterp_const(r)) {
-            insert(idx, e, false);
+            insert(idx, to_app(r), false);
             return;
         }
         if (is_uninterp_const(e)) {
@@ -365,6 +447,7 @@ private:
     }
 
     void insert(unsigned i, app* e, bool pos) {
+        SASSERT(is_uninterp_const(e));
         if (!m_vars.contains(e)) {
             m_vars.insert(e, rec());
         }
@@ -585,82 +668,3 @@ tactic * mk_pb_preprocess_tactic(ast_manager & m, params_ref const & p) {
     return alloc(pb_preprocess_tactic, m);
 }
 
-#if 0
-
-    struct resolve_t {
-        app*  e;
-        expr* lhs;
-        expr* rhs;
-        expr* res;
-        resolve_t(app* e, expr* lhs, expr* rhs, expr* res):
-            e(e), lhs(lhs), rhs(rhs), res(res)
-        {}        
-    };
-
-    svector<resolve_t>               m_resolve;
-
-    void satisfy(model_ref& mdl, expr* e) {
-        if (m.is_true(e)) {
-            return;
-        }
-        if (pb.is_ge(e)) {
-            rational k = pb.get_k(e);
-            rational c(0);
-            app* a = to_app(e);
-            for (unsigned i = 0; c < k && i < a->get_num_args(); ++i) {
-                expr* arg = a->get_arg(i);
-                if (is_uninterp_const(arg)) {
-                    mdl->register_decl(to_app(arg)->get_decl(), m.mk_true());
-                    std::cout << mk_pp(arg, m) << " |-> true\n";
-                    c += pb.get_coeff(a, i);
-                }
-                else if (m.is_not(arg, arg) && is_uninterp_const(arg)) {
-                    mdl->register_decl(to_app(arg)->get_decl(), m.mk_false());
-                    std::cout << mk_pp(arg, m) << " |-> false\n";
-                    c += pb.get_coeff(a, i);
-                }
-            }
-            SASSERT(c >= k);
-            return;
-        }
-        UNREACHABLE();
-    }
-
-        for (unsigned i = m_resolve.size(); i > 0; ) {
-            --i;
-            resolve_t const& r = m_resolve[i];
-            expr_ref tmp1(m), tmp2(m), tmp3(m), tmp4(m);
-            VERIFY(mdl->eval(r.rhs, tmp2));
-            satisfy(mdl, tmp2);
-
-            VERIFY(mdl->eval(r.lhs, tmp1));
-            satisfy(mdl, tmp1);
-            
-            if (m.is_false(tmp2) || m.is_false(tmp1)) {
-                VERIFY(mdl->eval(r.res, tmp3));
-                th_rewriter rw(m);
-                rw(r.res, tmp4);
-                std::cout << "L:" << mk_pp(r.lhs,m) << " " << tmp1 << "\n";
-                std::cout << "R:" << mk_pp(r.rhs,m) << " " << tmp2 << "\n";
-                std::cout << "LR:" << mk_pp(r.res,m) << "\n" << tmp4 << "\n" << tmp3 << "\n";
-                exit(0);
-            }
-            VERIFY(mdl->eval(r.e, tmp3));
-            if (r.e == tmp3) {
-                mdl->register_decl(r.e->get_decl(), m.mk_true());
-            }
-            // evaluate lhs, rhs
-            // determine how to 
-            // assign e based on residue.            
-        }
-
-    void resolve(app* e, expr* lhs, expr* rhs, expr* res) {
-        m_refs.push_back(e);
-        m_refs.push_back(lhs);
-        m_refs.push_back(rhs);
-        m_refs.push_back(res);
-        m_resolve.push_back(resolve_t(e, lhs, rhs, res));
-    }
-
-
-#endif
