@@ -1125,9 +1125,7 @@ namespace pdr {
             n->mk_instantiate(r0, r1, binding);
             proof_ref p1(m), p2(m);
             p1 = r0->get_proof();
-            if (!p1) {
-                r0->display(dctx, std::cout);
-            }
+            IF_VERBOSE(0, if (!p1) r0->display(dctx, verbose_stream()););
             SASSERT(p1);
             pfs[0] = p1;
             rls[0] = r1;

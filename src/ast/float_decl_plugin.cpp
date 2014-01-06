@@ -475,6 +475,7 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("plusInfinity",  OP_FLOAT_PLUS_INF));
     op_names.push_back(builtin_name("minusInfinity", OP_FLOAT_MINUS_INF));
     op_names.push_back(builtin_name("NaN", OP_FLOAT_NAN));
+
     op_names.push_back(builtin_name("roundNearestTiesToEven", OP_RM_NEAREST_TIES_TO_EVEN));
     op_names.push_back(builtin_name("roundNearestTiesToAway", OP_RM_NEAREST_TIES_TO_AWAY));
     op_names.push_back(builtin_name("roundTowardPositive", OP_RM_TOWARD_POSITIVE));
@@ -486,7 +487,7 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("/", OP_FLOAT_DIV)); 
     op_names.push_back(builtin_name("*", OP_FLOAT_MUL)); 
 
-    op_names.push_back(builtin_name("abs", OP_FLOAT_ABS)); 
+    op_names.push_back(builtin_name("abs", OP_FLOAT_ABS));     
     op_names.push_back(builtin_name("remainder", OP_FLOAT_REM));  
     op_names.push_back(builtin_name("fusedMA", OP_FLOAT_FUSED_MA));  
     op_names.push_back(builtin_name("squareRoot", OP_FLOAT_SQRT));  
@@ -515,6 +516,49 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
 
     if (m_bv_plugin)
         op_names.push_back(builtin_name("asIEEEBV", OP_TO_IEEE_BV));
+
+    // We also support draft version 3
+    op_names.push_back(builtin_name("fp", OP_TO_FLOAT));
+
+    op_names.push_back(builtin_name("RNE", OP_RM_NEAREST_TIES_TO_EVEN));
+    op_names.push_back(builtin_name("RNA", OP_RM_NEAREST_TIES_TO_AWAY));
+    op_names.push_back(builtin_name("RTP", OP_RM_TOWARD_POSITIVE));
+    op_names.push_back(builtin_name("RTN", OP_RM_TOWARD_NEGATIVE));
+    op_names.push_back(builtin_name("RTZ", OP_RM_TOWARD_ZERO));
+
+    op_names.push_back(builtin_name("fp.abs", OP_FLOAT_ABS));
+    op_names.push_back(builtin_name("fp.neg", OP_FLOAT_UMINUS)); 
+    op_names.push_back(builtin_name("fp.add", OP_FLOAT_ADD)); 
+    op_names.push_back(builtin_name("fp.sub", OP_FLOAT_SUB));     
+    op_names.push_back(builtin_name("fp.mul", OP_FLOAT_MUL)); 
+    op_names.push_back(builtin_name("fp.div", OP_FLOAT_DIV));
+    op_names.push_back(builtin_name("fp.fma", OP_FLOAT_FUSED_MA)); 
+    op_names.push_back(builtin_name("fp.sqrt", OP_FLOAT_SQRT)); 
+    op_names.push_back(builtin_name("fp.rem", OP_FLOAT_REM));  
+    op_names.push_back(builtin_name("fp.eq", OP_FLOAT_EQ));    
+    op_names.push_back(builtin_name("fp.leq", OP_FLOAT_LE));
+    op_names.push_back(builtin_name("fp.lt",  OP_FLOAT_LT));    
+    op_names.push_back(builtin_name("fp.geq", OP_FLOAT_GE));
+    op_names.push_back(builtin_name("fp.gt",  OP_FLOAT_GT));
+    op_names.push_back(builtin_name("fp.isNormal", OP_FLOAT_IS_NORMAL));
+    op_names.push_back(builtin_name("fp.isSubnormal", OP_FLOAT_IS_SUBNORMAL));
+    op_names.push_back(builtin_name("fp.isZero", OP_FLOAT_IS_ZERO));
+    op_names.push_back(builtin_name("fp.isInfinite", OP_FLOAT_IS_INF));
+    op_names.push_back(builtin_name("fp.isNaN", OP_FLOAT_IS_NAN));
+    op_names.push_back(builtin_name("fp.min", OP_FLOAT_MIN));
+    op_names.push_back(builtin_name("fp.max", OP_FLOAT_MAX));
+    op_names.push_back(builtin_name("fp.convert", OP_TO_FLOAT));
+
+    if (m_bv_plugin) {
+    // op_names.push_back(builtin_name("fp.fromBv", OP_TO_FLOAT));
+    // op_names.push_back(builtin_name("fp.fromUBv", OP_TO_FLOAT));
+    // op_names.push_back(builtin_name("fp.fromSBv", OP_TO_FLOAT));
+    // op_names.push_back(builtin_name("fp.toUBv", OP_TO_IEEE_BV));
+    // op_names.push_back(builtin_name("fp.toSBv", OP_TO_IEEE_BV));
+    }
+    
+    op_names.push_back(builtin_name("fp.fromReal", OP_TO_FLOAT));
+    // op_names.push_back(builtin_name("fp.toReal", ?));
 }
 
 void float_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {

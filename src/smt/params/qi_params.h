@@ -51,6 +51,7 @@ struct qi_params {
     unsigned           m_mbqi_max_iterations;
     bool               m_mbqi_trace;
     unsigned           m_mbqi_force_template;
+    const char *       m_mbqi_id;
 
     qi_params(params_ref const & p = params_ref()):
         /*
@@ -97,7 +98,9 @@ struct qi_params {
         m_mbqi_max_cexs_incr(1),
         m_mbqi_max_iterations(1000),
         m_mbqi_trace(false),
-        m_mbqi_force_template(10) {
+	m_mbqi_force_template(10),
+        m_mbqi_id(0)  
+    {
         updt_params(p);
     }
 

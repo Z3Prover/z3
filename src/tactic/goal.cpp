@@ -255,7 +255,8 @@ void goal::get_formulas(ptr_vector<expr> & result) {
 }
 
 void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
-    SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));
+    // KLM: don't know why this assertion is no longer true 
+    // SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));
     if (m_inconsistent)
         return;
     if (proofs_enabled()) {

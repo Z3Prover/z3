@@ -31,7 +31,7 @@ mpn_manager static_mpn_manager;
 const mpn_digit mpn_manager::zero = 0;
 
 mpn_manager::mpn_manager() {
-#ifdef _DEBUG
+#ifdef Z3DEBUG
     trace_enabled=true;
 #endif
 }
@@ -43,7 +43,7 @@ int mpn_manager::compare(mpn_digit const * a, size_t const lnga,
                          mpn_digit const * b, size_t const lngb) const {
     int res = 0;
 
-    #ifdef _DEBUG
+    #ifdef Z3DEBUG
     if (trace_enabled)
         STRACE("mpn", tout << "[mpn] "; );
     #endif
@@ -60,7 +60,7 @@ int mpn_manager::compare(mpn_digit const * a, size_t const lnga,
             res = -1;
     }
 
-    #ifdef _DEBUG
+    #ifdef Z3DEBUG
     if (trace_enabled)
         STRACE("mpn", tout << ((res == 1) ? " > " : (res == -1) ? " < " : " == "); );
     #endif
@@ -212,7 +212,7 @@ bool mpn_manager::div(mpn_digit const * numer, size_t const lnum,
     trace(numer, lnum, denom, lden, "%");
     trace_nl(rem, lden);
 
-#ifdef _DEBUG
+#ifdef Z3DEBUG
     mpn_sbuffer temp(lnum+1, 0);
     mul(quot, lnum-lden+1, denom, lden, temp.c_ptr());
     size_t real_size;
@@ -340,7 +340,7 @@ bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
         // Replace numer[j+n]...numer[j] with 
         // numer[j+n]...numer[j] - q * (denom[n-1]...denom[0])
         mpn_digit q_hat_small = (mpn_digit)q_hat;
-        #ifdef _DEBUG
+        #ifdef Z3DEBUG
         trace_enabled = false;
         #endif
         mul(&q_hat_small, 1, denom.c_ptr(), n, t_ms.c_ptr());
@@ -354,7 +354,7 @@ bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
             for (size_t i = 0; i < n+1; i++)
                 numer[j+i] = t_ab[i];
         }
-        #ifdef _DEBUG
+        #ifdef Z3DEBUG
         trace_enabled = true;
         #endif
         STRACE("mpn_div", tout << "q_hat=" << q_hat << " r_hat=" << r_hat;
@@ -416,7 +416,7 @@ void mpn_manager::display_raw(std::ostream & out, mpn_digit const * a, size_t co
 void mpn_manager::trace(mpn_digit const * a, size_t const lnga, 
                         mpn_digit const * b, size_t const lngb, 
                         const char * op) const {
-#ifdef _DEBUG
+#ifdef Z3DEBUG
     if (trace_enabled)
         STRACE("mpn", tout << "[mpn] " << to_string(a, lnga, char_buf, sizeof(char_buf));
                     tout << " " << op << " " << to_string(b, lngb, char_buf, sizeof(char_buf));
@@ -425,14 +425,14 @@ void mpn_manager::trace(mpn_digit const * a, size_t const lnga,
 }
 
 void mpn_manager::trace(mpn_digit const * a, size_t const lnga) const {
-#ifdef _DEBUG
+#ifdef Z3DEBUG
     if (trace_enabled)
         STRACE("mpn", tout << to_string(a, lnga, char_buf, sizeof(char_buf)); );
 #endif
 }
 
 void mpn_manager::trace_nl(mpn_digit const * a, size_t const lnga) const {
-#ifdef _DEBUG
+#ifdef Z3DEBUG
     if (trace_enabled)
         STRACE("mpn", tout << to_string(a, lnga, char_buf, sizeof(char_buf)) << std::endl; );
 #endif

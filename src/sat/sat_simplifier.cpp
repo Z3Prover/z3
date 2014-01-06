@@ -9,7 +9,7 @@ Abstract:
 
     SAT simplification procedures that use a "full" occurrence list:
     Subsumption, Blocked Clause Removal, Variable Elimination, ...
-    
+
 
 Author:
 
@@ -54,21 +54,21 @@ namespace sat {
                 m_use_list[l2.index()].erase(c);
         }
     }
-    
+
     simplifier::simplifier(solver & _s, params_ref const & p):
         s(_s),
         m_num_calls(0) {
         updt_params(p);
         reset_statistics();
     }
-    
+
     simplifier::~simplifier() {
     }
 
     inline watch_list & simplifier::get_wlist(literal l) { return s.get_wlist(l); }
 
     inline watch_list const & simplifier::get_wlist(literal l) const { return s.get_wlist(l); }
-    
+
     inline bool simplifier::is_external(bool_var v) const { return s.is_external(v); }
 
     inline bool simplifier::was_eliminated(bool_var v) const { return s.was_eliminated(v); }
@@ -78,7 +78,7 @@ namespace sat {
     lbool simplifier::value(literal l) const { return s.value(l); }
 
     inline void simplifier::checkpoint() { s.checkpoint(); }
-    
+
     void simplifier::register_clauses(clause_vector & cs) {
         std::stable_sort(cs.begin(), cs.end(), size_lt());
         clause_vector::iterator it  = cs.begin();
@@ -117,7 +117,7 @@ namespace sat {
         SASSERT(s.get_wlist(~l1).contains(watched(l2, learned)));
         s.get_wlist(~l1).erase(watched(l2, learned));
     }
-    
+
     void simplifier::init_visited() {
         m_visited.reset();
         m_visited.resize(2*s.num_vars(), false);
@@ -155,7 +155,7 @@ namespace sat {
 
         if (!learned && (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls))
             elim_blocked_clauses();
-        
+
         if (!learned)
             m_num_calls++;
 
@@ -180,6 +180,7 @@ namespace sat {
         bool vars_eliminated = m_num_elim_vars > old_num_elim_vars;
 
         if (!m_need_cleanup) {
+            TRACE("after_simplifier", tout << "skipping cleanup...\n";);
             if (vars_eliminated) {
                 // must remove learned clauses with eliminated variables
                 cleanup_clauses(s.m_learned, true, true, learned_in_use_lists);
@@ -189,6 +190,7 @@ namespace sat {
             free_memory();
             return;
         }
+        TRACE("after_simplifier", tout << "cleanning watches...\n";);
         cleanup_watches();
         cleanup_clauses(s.m_learned, true, vars_eliminated,  learned_in_use_lists);
         cleanup_clauses(s.m_clauses, false, vars_eliminated, true);
@@ -234,7 +236,7 @@ namespace sat {
                 s.del_clause(c);
                 continue;
             }
-            
+
             if (learned && vars_eliminated) {
                 unsigned sz = c.size();
                 unsigned i;
@@ -293,7 +295,7 @@ namespace sat {
             mark_visited(c[i]);
         }
     }
-        
+
     void simplifier::unmark_all(clause const & c) {
         unsigned sz = c.size();
         for (unsigned i = 0; i < sz; i++)
@@ -325,7 +327,7 @@ namespace sat {
     */
     bool simplifier::subsumes1(clause const & c1, clause const & c2, literal & l) {
         unsigned sz2 = c2.size();
-        for (unsigned i = 0; i < sz2; i++) 
+        for (unsigned i = 0; i < sz2; i++)
             mark_visited(c2[i]);
 
         bool r = true;
@@ -344,7 +346,7 @@ namespace sat {
             }
         }
 
-        for (unsigned i = 0; i < sz2; i++) 
+        for (unsigned i = 0; i < sz2; i++)
             unmark_visited(c2[i]);
         return r;
     }
@@ -353,7 +355,7 @@ namespace sat {
        \brief Return the clauses subsumed by c1 and the clauses that can be subsumed resolved using c1.
        The collections is populated using the use list of target.
     */
-    void simplifier::collect_subsumed1_core(clause const & c1, clause_vector & out, literal_vector & out_lits, 
+    void simplifier::collect_subsumed1_core(clause const & c1, clause_vector & out, literal_vector & out_lits,
                                             literal target) {
         clause_use_list const & cs = m_use_list.get(target);
         clause_use_list::iterator it = cs.mk_iterator();
@@ -362,7 +364,7 @@ namespace sat {
             CTRACE("resolution_bug", c2.was_removed(), tout << "clause has been removed:\n" << c2 << "\n";);
             SASSERT(!c2.was_removed());
             if (&c2 != &c1 &&
-                c1.size() <= c2.size() && 
+                c1.size() <= c2.size() &&
                 approx_subset(c1.approx(), c2.approx())) {
                 m_sub_counter -= c1.size() + c2.size();
                 literal l;
@@ -373,7 +375,7 @@ namespace sat {
             }
             it.next();
         }
-    } 
+    }
 
     /**
        \brief Return the clauses subsumed by c1 and the clauses that can be subsumed resolved using c1.
@@ -400,12 +402,12 @@ namespace sat {
             if (*l_it == null_literal) {
                 // c2 was subsumed
                 if (c1.is_learned() && !c2.is_learned())
-                    c1.unset_learned(); 
+                    c1.unset_learned();
                 TRACE("subsumption", tout << c1 << " subsumed " << c2 << "\n";);
                 remove_clause(c2);
                 m_num_subsumed++;
             }
-            else {
+            else if (!c2.was_removed()) {
                 // subsumption resolution
                 TRACE("subsumption_resolution", tout << c1 << " sub-ref(" << *l_it << ") " << c2 << "\n";);
                 elim_lit(c2, *l_it);
@@ -447,9 +449,9 @@ namespace sat {
     */
     bool simplifier::subsumes0(clause const & c1, clause const & c2) {
         unsigned sz2 = c2.size();
-        for (unsigned i = 0; i < sz2; i++) 
+        for (unsigned i = 0; i < sz2; i++)
             mark_visited(c2[i]);
-        
+
         bool r = true;
         unsigned sz1 = c1.size();
         for (unsigned i = 0; i < sz1; i++) {
@@ -459,12 +461,12 @@ namespace sat {
             }
         }
 
-        for (unsigned i = 0; i < sz2; i++) 
+        for (unsigned i = 0; i < sz2; i++)
             unmark_visited(c2[i]);
-        
+
         return r;
     }
-    
+
     /**
        \brief Collect the clauses subsumed by c1 (using the occurrence list of target).
     */
@@ -475,7 +477,7 @@ namespace sat {
             clause & c2 = it.curr();
             SASSERT(!c2.was_removed());
             if (&c2 != &c1 &&
-                c1.size() <= c2.size() && 
+                c1.size() <= c2.size() &&
                 approx_subset(c1.approx(), c2.approx())) {
                 m_sub_counter -= c1.size() + c2.size();
                 if (subsumes0(c1, c2)) {
@@ -485,7 +487,7 @@ namespace sat {
             it.next();
         }
     }
-    
+
     /**
        \brief Collect the clauses subsumed by c1
     */
@@ -493,8 +495,8 @@ namespace sat {
         literal l = get_min_occ_var0(c1);
         collect_subsumed0_core(c1, out, l);
     }
-    
-    
+
+
     /**
        \brief Perform backward subsumption using c1.
     */
@@ -507,16 +509,16 @@ namespace sat {
             clause & c2 = *(*it);
             // c2 was subsumed
             if (c1.is_learned() && !c2.is_learned())
-                c1.unset_learned(); 
+                c1.unset_learned();
             TRACE("subsumption", tout << c1 << " subsumed " << c2 << "\n";);
             remove_clause(c2);
             m_num_subsumed++;
         }
     }
-    
+
     /**
        \brief Eliminate false literals from c, and update occurrence lists
-       
+
        Return true if the clause is satisfied
     */
     bool simplifier::cleanup_clause(clause & c, bool in_use_list) {
@@ -666,7 +668,7 @@ namespace sat {
                         back_subsumption1(c);
                         if (w.is_learned() && !c.is_learned()) {
                             SASSERT(wlist[j] == w);
-                            TRACE("mark_not_learned_bug", 
+                            TRACE("mark_not_learned_bug",
                                   tout << "marking as not learned: " << l2 << " " << wlist[j].is_learned() << "\n";);
                             wlist[j].mark_not_learned();
                             mark_as_not_learned_core(get_wlist(~l2), l);
@@ -735,7 +737,7 @@ namespace sat {
                     continue;
                 }
                 if (it2->get_literal() == last_lit) {
-                    TRACE("subsumption", tout << "eliminating: " << ~to_literal(l_idx) 
+                    TRACE("subsumption", tout << "eliminating: " << ~to_literal(l_idx)
                           << " " << it2->get_literal() << "\n";);
                     elim++;
                 }
@@ -762,12 +764,12 @@ namespace sat {
             m_num_sub_res(s.m_num_sub_res) {
             m_watch.start();
         }
-        
+
         ~subsumption_report() {
             m_watch.stop();
-            IF_VERBOSE(SAT_VB_LVL, 
+            IF_VERBOSE(SAT_VB_LVL,
                        verbose_stream() << " (sat-subsumer :subsumed "
-                       << (m_simplifier.m_num_subsumed - m_num_subsumed) 
+                       << (m_simplifier.m_num_subsumed - m_num_subsumed)
                        << " :subsumption-resolution " << (m_simplifier.m_num_sub_res - m_num_sub_res)
                        << " :threshold " << m_simplifier.m_sub_counter
                        << mem_stat()
@@ -847,12 +849,12 @@ namespace sat {
             vector<watch_list> const & m_watches;
         public:
             literal_lt(use_list const & l, vector<watch_list> const & ws):m_use_list(l), m_watches(ws) {}
-            
+
             unsigned weight(unsigned l_idx) const {
                 return 2*m_use_list.get(~to_literal(l_idx)).size() + m_watches[l_idx].size();
             }
-         
-            bool operator()(unsigned l_idx1, unsigned l_idx2) const { 
+
+            bool operator()(unsigned l_idx1, unsigned l_idx2) const {
                 return weight(l_idx1) < weight(l_idx2);
             }
         };
@@ -861,9 +863,9 @@ namespace sat {
             heap<literal_lt> m_queue;
         public:
             queue(use_list const & l, vector<watch_list> const & ws):m_queue(128, literal_lt(l, ws)) {}
-            void insert(literal l) { 
+            void insert(literal l) {
                 unsigned idx = l.index();
-                m_queue.reserve(idx + 1); 
+                m_queue.reserve(idx + 1);
                 SASSERT(!m_queue.contains(idx));
                 m_queue.insert(idx);
             }
@@ -877,14 +879,14 @@ namespace sat {
             literal next() { SASSERT(!empty()); return to_literal(m_queue.erase_min()); }
             bool empty() const { return m_queue.empty(); }
         };
-        
+
         simplifier &      s;
         int               m_counter;
         model_converter & mc;
         queue             m_queue;
         clause_vector     m_to_remove;
 
-        blocked_clause_elim(simplifier & _s, unsigned limit, model_converter & _mc, use_list & l, 
+        blocked_clause_elim(simplifier & _s, unsigned limit, model_converter & _mc, use_list & l,
                             vector<watch_list> & wlist):
             s(_s),
             m_counter(limit),
@@ -946,7 +948,7 @@ namespace sat {
                 clause_vector::iterator it  = m_to_remove.begin();
                 clause_vector::iterator end = m_to_remove.end();
                 for (; it != end; ++it) {
-                    s.remove_clause(*(*it));                
+                    s.remove_clause(*(*it));
                 }
             }
             {
@@ -1025,12 +1027,12 @@ namespace sat {
             m_num_blocked_clauses(s.m_num_blocked_clauses) {
             m_watch.start();
         }
-        
+
         ~blocked_cls_report() {
             m_watch.stop();
-            IF_VERBOSE(SAT_VB_LVL, 
+            IF_VERBOSE(SAT_VB_LVL,
                        verbose_stream() << " (sat-blocked-clauses :elim-blocked-clauses "
-                       << (m_simplifier.m_num_blocked_clauses - m_num_blocked_clauses) 
+                       << (m_simplifier.m_num_blocked_clauses - m_num_blocked_clauses)
                        << mem_stat()
                        << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
         }
@@ -1062,8 +1064,8 @@ namespace sat {
         unsigned num_neg = m_use_list.get(neg_l).size();
         unsigned num_bin_pos = get_num_non_learned_bin(pos_l);
         unsigned num_bin_neg = get_num_non_learned_bin(neg_l);
-        unsigned cost = 2 * num_pos * num_neg + num_pos * num_bin_neg + num_neg * num_bin_pos; 
-        CTRACE("elim_vars_detail", cost == 0, tout << v << " num_pos: " << num_pos << " num_neg: " << num_neg << " num_bin_pos: " << num_bin_pos 
+        unsigned cost = 2 * num_pos * num_neg + num_pos * num_bin_neg + num_neg * num_bin_pos;
+        CTRACE("elim_vars_detail", cost == 0, tout << v << " num_pos: " << num_pos << " num_neg: " << num_neg << " num_bin_pos: " << num_bin_pos
                << " num_bin_neg: " << num_bin_neg << " cost: " << cost << "\n";);
         return cost;
     }
@@ -1071,7 +1073,7 @@ namespace sat {
     typedef std::pair<bool_var, unsigned> bool_var_and_cost;
 
     struct bool_var_and_cost_lt {
-        bool operator()(bool_var_and_cost const & p1, bool_var_and_cost const & p2) const { return p1.second < p2.second; } 
+        bool operator()(bool_var_and_cost const & p1, bool_var_and_cost const & p2) const { return p1.second < p2.second; }
     };
 
     void simplifier::order_vars_for_elim(bool_var_vector & r) {
@@ -1104,7 +1106,7 @@ namespace sat {
             r.push_back(it2->first);
         }
     }
-    
+
     /**
        \brief Collect clauses and binary clauses containing l.
     */
@@ -1116,7 +1118,7 @@ namespace sat {
             SASSERT(r.back().size() == it.curr().size());
             it.next();
         }
-        
+
         watch_list & wlist = get_wlist(~l);
         watch_list::iterator it2  = wlist.begin();
         watch_list::iterator end2 = wlist.end();
@@ -1129,7 +1131,7 @@ namespace sat {
     }
 
     /**
-       \brief Resolve clauses c1 and c2. 
+       \brief Resolve clauses c1 and c2.
        c1 must contain l.
        c2 must contain ~l.
        Store result in r.
@@ -1149,7 +1151,7 @@ namespace sat {
             m_visited[l2.index()] = true;
             r.push_back(l2);
         }
-        
+
         literal not_l = ~l;
         sz = c2.size();
         m_elim_counter -= sz;
@@ -1164,7 +1166,7 @@ namespace sat {
             if (!m_visited[l2.index()])
                 r.push_back(l2);
         }
-        
+
         sz = c1.size();
         for (unsigned i = 0; i < sz; i++) {
             literal l2 = c1[i];
@@ -1200,7 +1202,7 @@ namespace sat {
                         break;
                     }
                 }
-                CTRACE("resolve_bug", it2 == end2, 
+                CTRACE("resolve_bug", it2 == end2,
                        tout << ~l1 << " -> ";
                        display(tout, s.m_cls_allocator, wlist1); tout << "\n" << ~l2 << " -> ";
                        display(tout, s.m_cls_allocator, wlist2); tout << "\n";);
@@ -1262,7 +1264,7 @@ namespace sat {
         TRACE("resolution_bug", tout << "processing: " << v << "\n";);
         if (value(v) != l_undef)
             return false;
-        
+
         literal pos_l(v, false);
         literal neg_l(v, true);
         unsigned num_bin_pos = get_num_non_learned_bin(pos_l);
@@ -1274,12 +1276,12 @@ namespace sat {
         m_elim_counter -= num_pos + num_neg;
 
         TRACE("resolution", tout << v << " num_pos: " << num_pos << " neg_pos: " << num_neg << "\n";);
-        
+
         if (num_pos >= m_res_occ_cutoff && num_neg >= m_res_occ_cutoff)
             return false;
 
         unsigned before_lits = num_bin_pos*2 + num_bin_neg*2;
-        
+
         {
             clause_use_list::iterator it = pos_occs.mk_iterator();
             while (!it.at_end()) {
@@ -1287,7 +1289,7 @@ namespace sat {
                 it.next();
             }
         }
-        
+
         {
             clause_use_list::iterator it2 = neg_occs.mk_iterator();
             while (!it2.at_end()) {
@@ -1297,23 +1299,23 @@ namespace sat {
         }
 
         TRACE("resolution", tout << v << " num_pos: " << num_pos << " neg_pos: " << num_neg << " before_lits: " << before_lits << "\n";);
-        
+
         if (num_pos >= m_res_occ_cutoff3 && num_neg >= m_res_occ_cutoff3 && before_lits > m_res_lit_cutoff3 && s.m_clauses.size() > m_res_cls_cutoff2)
             return false;
-        if (num_pos >= m_res_occ_cutoff2 && num_neg >= m_res_occ_cutoff2 && before_lits > m_res_lit_cutoff2 && 
+        if (num_pos >= m_res_occ_cutoff2 && num_neg >= m_res_occ_cutoff2 && before_lits > m_res_lit_cutoff2 &&
             s.m_clauses.size() > m_res_cls_cutoff1 && s.m_clauses.size() <= m_res_cls_cutoff2)
             return false;
-        if (num_pos >= m_res_occ_cutoff1 && num_neg >= m_res_occ_cutoff1 && before_lits > m_res_lit_cutoff1 && 
+        if (num_pos >= m_res_occ_cutoff1 && num_neg >= m_res_occ_cutoff1 && before_lits > m_res_lit_cutoff1 &&
             s.m_clauses.size() <= m_res_cls_cutoff1)
             return false;
-        
+
         m_pos_cls.reset();
         m_neg_cls.reset();
         collect_clauses(pos_l, m_pos_cls);
         collect_clauses(neg_l, m_neg_cls);
-        
+
         m_elim_counter -= num_pos * num_neg + before_lits;
-        
+
         TRACE("resolution_detail", tout << "collecting number of after_clauses\n";);
         unsigned before_clauses = num_pos + num_neg;
         unsigned after_clauses  = 0;
@@ -1350,7 +1352,7 @@ namespace sat {
         neg_occs.reset();
 
         m_elim_counter -= num_pos * num_neg + before_lits;
-        
+
         it1  = m_pos_cls.begin();
         end1 = m_pos_cls.end();
         for (; it1 != end1; ++it1) {
@@ -1393,7 +1395,7 @@ namespace sat {
                     return true;
             }
         }
-        
+
         return true;
     }
 
@@ -1406,10 +1408,10 @@ namespace sat {
             m_num_elim_vars(s.m_num_elim_vars) {
             m_watch.start();
         }
-        
+
         ~elim_var_report() {
             m_watch.stop();
-            IF_VERBOSE(SAT_VB_LVL, 
+            IF_VERBOSE(SAT_VB_LVL,
                        verbose_stream() << " (sat-resolution :elim-bool-vars "
                        << (m_simplifier.m_num_elim_vars - m_num_elim_vars)
                        << " :threshold " << m_simplifier.m_elim_counter
@@ -1417,12 +1419,12 @@ namespace sat {
                        << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
         }
     };
-    
+
     void simplifier::elim_vars() {
         elim_var_report rpt(*this);
         bool_var_vector vars;
         order_vars_for_elim(vars);
-        
+
         bool_var_vector::iterator it  = vars.begin();
         bool_var_vector::iterator end = vars.end();
         for (; it != end; ++it) {
@@ -1463,7 +1465,7 @@ namespace sat {
     void simplifier::collect_param_descrs(param_descrs & r) {
         sat_simplifier_params::collect_param_descrs(r);
     }
-        
+
     void simplifier::collect_statistics(statistics & st) {
         st.update("subsumed", m_num_subsumed);
         st.update("subsumption resolution", m_num_sub_res);
@@ -1471,7 +1473,7 @@ namespace sat {
         st.update("elim bool vars", m_num_elim_vars);
         st.update("elim blocked clauses", m_num_blocked_clauses);
     }
-    
+
     void simplifier::reset_statistics() {
         m_num_blocked_clauses = 0;
         m_num_subsumed = 0;

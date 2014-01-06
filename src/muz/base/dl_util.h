@@ -57,7 +57,6 @@ namespace datalog {
         LAST_CACHE_MODE
     };
 
-
     struct std_string_hash_proc { 
         unsigned operator()(const std::string & s) const 
         { return string_hash(s.c_str(), static_cast<unsigned>(s.length()), 17); } 

@@ -179,6 +179,7 @@ namespace datalog {
     void context::push() {
         m_trail.push_scope();
         m_trail.push(restore_rules(m_rule_set));
+        m_trail.push(restore_vec_size_trail<context,expr_ref_vector>(m_rule_fmls));
         m_trail.push(restore_vec_size_trail<context,expr_ref_vector>(m_background));
     }
 
@@ -186,6 +187,10 @@ namespace datalog {
         if (m_trail.get_num_scopes() == 0) {
             throw default_exception("there are no backtracking points to pop to");
         }
+	if(m_engine.get()){
+	  if(get_engine() != DUALITY_ENGINE)
+	    throw default_exception("operation is not supported by engine");
+	}
         m_trail.pop_scope(1); 
     }
 
@@ -699,6 +704,10 @@ namespace datalog {
             check_existential_tail(r);
             check_positive_predicates(r);
             break;
+	case DUALITY_ENGINE:
+            check_existential_tail(r);
+            check_positive_predicates(r);
+            break;
         case CLP_ENGINE:
             check_existential_tail(r);
             check_positive_predicates(r);
@@ -920,6 +929,9 @@ namespace datalog {
         else if (e == symbol("clp")) {
             m_engine_type = CLP_ENGINE;
         }
+        else if (e == symbol("duality")) {
+            m_engine_type = DUALITY_ENGINE;
+        }
 
         if (m_engine_type == LAST_ENGINE) {
             expr_fast_mark1 mark;
@@ -945,6 +957,18 @@ namespace datalog {
     }
 
     lbool context::query(expr* query) {
+#if 0
+        // TODO: what?
+        if(get_engine() != DUALITY_ENGINE) {
+          new_query();
+	  rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
+	  rule_ref r(m_rule_manager);
+	  for (; it != end; ++it) {
+            r = *it;
+            check_rule(r);
+	  }     
+        }   
+#endif
         m_mc = mk_skip_model_converter();
         m_last_status = OK;
         m_last_answer = 0;
@@ -958,6 +982,8 @@ namespace datalog {
         case CLP_ENGINE:
             flush_add_rules();
             break;
+        case DUALITY_ENGINE:
+	    break;
         default:
             UNREACHABLE();
         }
@@ -983,6 +1009,7 @@ namespace datalog {
             if (get_engine() == DATALOG_ENGINE) {
                 m_rel = dynamic_cast<rel_context_base*>(m_engine.get());
             }
+
         }       
     }
 
@@ -1014,7 +1041,6 @@ namespace datalog {
         out << "\n---------------\n";
         out << "Original rules\n";
         display_rules(out);
-
         out << "\n---------------\n";
         out << "Transformed rules\n";
         m_transformed_rule_set.display(out);
@@ -1076,6 +1102,15 @@ namespace datalog {
         }
     }
    
+    void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names){
+        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
+	  expr_ref r = bind_variables(m_rule_fmls[i].get(), true);
+	  rules.push_back(r.get());
+	  //            rules.push_back(m_rule_fmls[i].get());
+	  names.push_back(m_rule_names[i]);
+        }
+    }
+
     void context::get_rules_as_formulas(expr_ref_vector& rules, svector<symbol>& names) {
         expr_ref fml(m);
         datalog::rule_manager& rm = get_rule_manager();

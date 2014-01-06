@@ -29,6 +29,7 @@ CXX=getenv("CXX", None)
 CC=getenv("CC", None)
 CPPFLAGS=getenv("CPPFLAGS", "")
 CXXFLAGS=getenv("CXXFLAGS", "")
+EXAMP_DEBUG_FLAG=''
 LDFLAGS=getenv("LDFLAGS", "")
 JNI_HOME=getenv("JNI_HOME", None)
 
@@ -70,6 +71,8 @@ VER_BUILD=None
 VER_REVISION=None
 PREFIX=os.path.split(os.path.split(os.path.split(PYTHON_PACKAGE_DIR)[0])[0])[0]
 GMP=False
+FOCI2=False
+FOCI2LIB=''
 VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
@@ -197,6 +200,14 @@ def test_gmp(cc):
     t.add('#include<gmp.h>\nint main() { mpz_t t; mpz_init(t); mpz_clear(t); return 0; }\n')
     t.commit()
     return exec_compiler_cmd([cc, CPPFLAGS, 'tstgmp.cpp', LDFLAGS, '-lgmp']) == 0
+
+def test_foci2(cc,foci2lib):
+    if is_verbose():
+        print("Testing FOCI2...")
+    t = TempFile('tstfoci2.cpp')
+    t.add('#include<foci2.h>\nint main() { foci2 *f = foci2::create("lia"); return 0; }\n')
+    t.commit()
+    return exec_compiler_cmd([cc, CPPFLAGS, '-Isrc/interp', 'tstfoci2.cpp', LDFLAGS, foci2lib]) == 0
 
 def test_openmp(cc):
     if is_verbose():
@@ -443,6 +454,7 @@ def display_help(exit_code):
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
+    print("  -f <path> --foci2=<path>          use foci2 library at path")
     print("")
     print("Some influential environment variables:")
     if not IS_WINDOWS:
@@ -458,18 +470,19 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
+    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:], 
-                                               'b:dsxhmcvtnp:gj', 
+                                               'b:df:sxhmcvtnp:gj', 
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof',
+                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
                                                 'githash='])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
 
     for opt, arg in options:
+        print('opt = %s, arg = %s' % (opt, arg))
         if opt in ('-b', '--build'):
             if arg == 'src':
                 raise MKException('The src directory should not be used to host the Makefile')
@@ -507,6 +520,9 @@ def parse_options():
             VS_PAR_NUM = int(arg)
         elif opt in ('-g', '--gmp'):
             GMP = True
+        elif opt in ('-f', '--foci2'):
+            FOCI2 = True
+            FOCI2LIB = arg
         elif opt in ('-j', '--java'):
             JAVA_ENABLED = True
         elif opt == '--gprof':
@@ -664,6 +680,10 @@ class Component:
         self.build_dir = path
         self.src_dir   = os.path.join(SRC_DIR, path)
         self.to_src_dir = os.path.join(REV_BUILD_DIR, self.src_dir)
+
+    def get_link_name(self):
+        return os.path.join(self.build_dir, self.name) + '$(LIB_EXT)'
+
 
     # Find fname in the include paths for the given component.
     # ownerfile is only used for creating error messages.
@@ -880,7 +900,7 @@ class ExeComponent(Component):
             out.write(obj)
         for dep in deps:
             c_dep = get_component(dep)
-            out.write(' %s$(LIB_EXT)' % os.path.join(c_dep.build_dir, c_dep.name))
+            out.write(' ' + c_dep.get_link_name())
         out.write('\n')
         out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % exefile)
         for obj in objs:
@@ -888,7 +908,8 @@ class ExeComponent(Component):
             out.write(obj)
         for dep in deps:
             c_dep = get_component(dep)
-            out.write(' %s$(LIB_EXT)' % os.path.join(c_dep.build_dir, c_dep.name))
+            out.write(' ' + c_dep.get_link_name())
+        out.write(' ' + FOCI2LIB)
         out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
 
@@ -957,6 +978,12 @@ class DLLComponent(Component):
         self.install = install
         self.static = static
 
+    def get_link_name(self):
+        if self.static:
+            return os.path.join(self.build_dir, self.name) + '$(LIB_EXT)'
+        else:
+            return self.name + '$(SO_EXT)'
+
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
         # generate rule for (SO_EXT)
@@ -979,7 +1006,7 @@ class DLLComponent(Component):
         for dep in deps:
             if not dep in self.reexports:
                 c_dep = get_component(dep)
-                out.write(' %s$(LIB_EXT)' % os.path.join(c_dep.build_dir, c_dep.name))
+                out.write(' ' + c_dep.get_link_name())
         out.write('\n')
         out.write('\t$(LINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS)' % dllfile)
         for obj in objs:
@@ -988,7 +1015,8 @@ class DLLComponent(Component):
         for dep in deps:
             if not dep in self.reexports:
                 c_dep = get_component(dep)
-                out.write(' %s$(LIB_EXT)' % os.path.join(c_dep.build_dir, c_dep.name))
+                out.write(' ' + c_dep.get_link_name())
+        out.write(' ' + FOCI2LIB)
         out.write(' $(SLINK_EXTRA_FLAGS)')
         if IS_WINDOWS:
             out.write(' /DEF:%s.def' % os.path.join(self.to_src_dir, self.name))
@@ -1230,7 +1258,7 @@ class CppExampleComponent(ExampleComponent):
             out.write(' ')
             out.write(os.path.join(self.to_ex_dir, cppfile))
         out.write('\n')
-        out.write('\t%s $(OS_DEFINES) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), exefile))
+        out.write('\t%s $(OS_DEFINES) $(EXAMP_DEBUG_FLAG) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), exefile))
         # Add include dir components
         out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
         out.write(' -I%s' % get_component(CPP_COMPONENT).to_src_dir)
@@ -1450,7 +1478,7 @@ def mk_config():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
     else:
-        global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS
+        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG
 	OS_DEFINES = ""
         ARITH = "internal"
         check_ar()
@@ -1468,6 +1496,14 @@ def mk_config():
             SLIBEXTRAFLAGS = '%s -lgmp' % SLIBEXTRAFLAGS
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
+        if FOCI2:
+            if test_foci2(CXX,FOCI2LIB):
+                LDFLAGS  = '%s %s' % (LDFLAGS,FOCI2LIB)
+                SLIBEXTRAFLAGS = '%s %s' % (SLIBEXTRAFLAGS,FOCI2LIB)
+                CPPFLAGS = '%s -D_FOCI2' % CPPFLAGS
+            else:
+                print "FAILED\n"
+                FOCI2 = False
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -c' % CXXFLAGS
@@ -1480,6 +1516,7 @@ def mk_config():
             CXXFLAGS = '%s -D_NO_OMP_' % CXXFLAGS
         if DEBUG_MODE:
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
+            EXAMP_DEBUG_FLAG = '-g'
         else:
             if GPROF:
                 CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE' % CXXFLAGS
@@ -1526,6 +1563,7 @@ def mk_config():
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
         config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
+        config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)    
         config.write('CXX_OUT_FLAG=-o \n')
         config.write('OBJ_EXT=.o\n')
         config.write('LIB_EXT=.a\n')
