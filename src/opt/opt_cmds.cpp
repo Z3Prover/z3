@@ -295,18 +295,7 @@ public:
         switch(r) {
         case l_true: {
             ctx.regular_stream() << "sat\n";
-            opt.display_assignment(ctx.regular_stream());
-            opt_params optp(p);
-            if (optp.print_model()) {
-                model_ref mdl;
-                opt.get_model(mdl);
-                if (mdl) {
-                    ctx.regular_stream() << "(model " << std::endl;
-                    model_smt2_pp(ctx.regular_stream(), ctx, *(mdl.get()), 2);
-                    // m->display(ctx.regular_stream());
-                    ctx.regular_stream() << ")" << std::endl;                    
-                }
-            }
+            display_result(ctx);
             break;
         }
         case l_false:
@@ -314,11 +303,28 @@ public:
             break;
         case l_undef:
             ctx.regular_stream() << "unknown\n";
-            opt.display_assignment(ctx.regular_stream());
+            display_result(ctx);
             break;
         }
         if (p.get_bool("print_statistics", false)) {
             display_statistics(ctx);
+        }
+    }
+
+    void display_result(cmd_context & ctx) {
+        params_ref p = ctx.params().merge_default_params(ps());
+        opt::context& opt = m_opt_ctx();
+        opt.display_assignment(ctx.regular_stream());
+        opt_params optp(p);
+        if (optp.print_model()) {
+            model_ref mdl;
+            opt.get_model(mdl);
+            if (mdl) {
+                ctx.regular_stream() << "(model " << std::endl;
+                model_smt2_pp(ctx.regular_stream(), ctx, *(mdl.get()), 2);
+                // m->display(ctx.regular_stream());
+                ctx.regular_stream() << ")" << std::endl;                    
+            }
         }
     }
 private:

@@ -53,7 +53,7 @@ namespace opt {
         if (m_msolver) {
             m_msolver->updt_params(m_params);
             is_sat = (*m_msolver)();
-            if (is_sat == l_true) {
+            if (is_sat != l_false) {
                 m_msolver->get_model(m_model);
             }
         }

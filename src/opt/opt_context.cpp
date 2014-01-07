@@ -139,10 +139,11 @@ namespace opt {
     }
 
     lbool context::execute_maxsat(symbol const& id, bool committed) {
+        model_ref tmp;
         maxsmt& ms = *m_maxsmts.find(id);
         lbool result = ms(get_solver());
         if (result == l_true && committed) ms.commit_assignment();
-        if (result == l_true) ms.get_model(m_model);
+        if (result != l_false && (ms.get_model(tmp), tmp.get())) ms.get_model(m_model);
         return result;
     }
 
