@@ -53,6 +53,15 @@ namespace opt {
 
     unsigned context::add_soft_constraint(expr* f, rational const& w, symbol const& id) { 
         maxsmt* ms;
+        if (w.is_neg()) {
+            throw default_exception("Negative weight supplied. Weight should be positive");
+        }
+        if (w.is_zero()) {
+            throw default_exception("Zero weight supplied. Weight should be positive");
+        }
+        if (!m.is_bool(f)) {
+            throw default_exception("Soft constraint should be Boolean");
+        }
         if (!m_maxsmts.find(id, ms)) {
             ms = alloc(maxsmt, m);
             ms->updt_params(m_params);
