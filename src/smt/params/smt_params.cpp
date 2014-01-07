@@ -40,6 +40,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
         m_arith_pivot_strategy = ARITH_PIVOT_GREATEST_ERROR;
     else if (_p.get_bool("arith.least_error_pivot", false))
         m_arith_pivot_strategy = ARITH_PIVOT_LEAST_ERROR;
+    theory_array_params::updt_params(_p);
 }
 
 void smt_params::updt_params(params_ref const & p) {
@@ -48,6 +49,7 @@ void smt_params::updt_params(params_ref const & p) {
     theory_arith_params::updt_params(p);
     theory_bv_params::updt_params(p);
     theory_pb_params::updt_params(p);
+    // theory_array_params::updt_params(p);
     updt_local_params(p);
 }
 

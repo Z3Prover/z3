@@ -357,6 +357,7 @@ namespace datalog {
         rule_set & get_rules() { flush_add_rules(); return m_rule_set; }
 
         void get_rules_as_formulas(expr_ref_vector& fmls, svector<symbol>& names);
+        void get_raw_rule_formulas(expr_ref_vector& fmls, svector<symbol>& names);
 
         void add_fact(app * head);
         void add_fact(func_decl * pred, const relation_fact & fact);
@@ -492,14 +493,16 @@ namespace datalog {
         /**
            \brief retrieve model from inductive invariant that shows query is unsat.
            
-           \pre engine == 'pdr' - this option is only supported for PDR mode.
+           \pre engine == 'pdr' || engine == 'duality' - this option is only supported
+           for PDR mode and Duality mode.
          */
         model_ref get_model();
 
         /**
            \brief retrieve proof from derivation of the query.
            
-           \pre engine == 'pdr' - this option is only supported for PDR mode.
+           \pre engine == 'pdr'  || engine == 'duality'- this option is only supported
+	   for PDR mode and Duality mode.
          */
         proof_ref get_proof();
 

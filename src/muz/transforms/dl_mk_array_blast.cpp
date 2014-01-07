@@ -19,6 +19,7 @@ Revision History:
 
 #include "dl_mk_array_blast.h"
 #include "qe_util.h"
+#include "scoped_proof.h"
 
 namespace datalog {
 
@@ -270,7 +271,7 @@ namespace datalog {
             }
         }
         
-        expr_ref fml2(m), body(m), head(m);
+        expr_ref fml1(m), fml2(m), body(m), head(m);
         body = m.mk_and(new_conjs.size(), new_conjs.c_ptr());
         head = r.get_head();
         sub(body);
@@ -287,9 +288,17 @@ namespace datalog {
         proof_ref p(m);
         rule_set new_rules(m_ctx);
         rm.mk_rule(fml2, p, new_rules, r.name());
+        
 
         rule_ref new_rule(rm);
         if (m_simplifier.transform_rule(new_rules.last(), new_rule)) {
+            if (r.get_proof()) {
+                scoped_proof _sc(m);
+                r.to_formula(fml1);
+                p = m.mk_rewrite(fml1, fml2);
+                p = m.mk_modus_ponens(r.get_proof(), p);
+                new_rule->set_proof(m, p);                
+            }
             rules.add_rule(new_rule.get());
             rm.mk_rule_rewrite_proof(r, *new_rule.get());
             TRACE("dl", new_rule->display(m_ctx, tout << "new rule\n"););

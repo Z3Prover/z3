@@ -527,6 +527,9 @@ namespace datalog {
 
 
     bool mk_rule_inliner::do_eager_inlining(rule * r, rule_set const& rules, rule_ref& res) {
+        if (r->has_negation()) {
+            return false;
+        }
 
         SASSERT(rules.is_closed());
         const rule_stratifier& strat = rules.get_stratifier();

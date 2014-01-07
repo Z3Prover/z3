@@ -22,6 +22,7 @@ Revision History:
 #include "tab_context.h"
 #include "rel_context.h"
 #include "pdr_dl_interface.h"
+#include "duality_dl_interface.h"
 
 namespace datalog {
     register_engine::register_engine(): m_ctx(0) {}
@@ -40,6 +41,8 @@ namespace datalog {
             return alloc(tab, *m_ctx);
         case CLP_ENGINE:
             return alloc(clp, *m_ctx);
+        case DUALITY_ENGINE:
+            return alloc(Duality::dl_interface, *m_ctx);
         case LAST_ENGINE:
             UNREACHABLE();
             return 0;

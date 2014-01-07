@@ -25,6 +25,7 @@ Revision History:
 #include "filter_model_converter.h"
 #include "dl_mk_interp_tail_simplifier.h"
 #include "fixedpoint_params.hpp"
+#include "scoped_proof.h"
 
 namespace datalog {
 
@@ -268,7 +269,8 @@ namespace datalog {
                 r->to_formula(fml);
                 if (blast(r, fml)) {
                     proof_ref pr(m);
-                    if (m_context.generate_proof_trace()) {
+                    if (r->get_proof()) {
+                        scoped_proof _sc(m);
                         pr = m.mk_asserted(fml); // loses original proof of r.
                     }
                     // TODO add logic for pc:

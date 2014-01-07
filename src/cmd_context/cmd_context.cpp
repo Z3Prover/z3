@@ -39,6 +39,7 @@ Notes:
 #include"model_evaluator.h"
 #include"for_each_expr.h"
 #include"scoped_timer.h"
+#include"interpolant_cmds.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -324,6 +325,7 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     install_basic_cmds(*this);
     install_ext_basic_cmds(*this);
     install_core_tactic_cmds(*this);
+    install_interpolant_cmds(*this);
     SASSERT(m != 0 || !has_manager());
     if (m)
         init_external_manager();
@@ -381,12 +383,34 @@ void cmd_context::set_produce_proofs(bool f) {
     m_params.m_proof = f;
 }
 
+void cmd_context::set_produce_interpolants(bool f) {
+    // can only be set before initialization
+    // FIXME currently synonym for produce_proofs
+    // also sets the default solver to be simple smt
+    SASSERT(!has_manager());
+    m_params.m_proof = f;
+    // set_solver_factory(mk_smt_solver_factory());
+}
+
+void cmd_context::set_check_interpolants(bool f) {
+    m_params.m_check_interpolants = f;
+}
+
 bool cmd_context::produce_models() const { 
     return m_params.m_model;
 }
 
 bool cmd_context::produce_proofs() const { 
     return m_params.m_proof;
+}
+
+bool cmd_context::produce_interpolants() const { 
+    // FIXME currently synonym for produce_proofs
+    return m_params.m_proof;
+}
+
+bool cmd_context::check_interpolants() const { 
+    return m_params.m_check_interpolants;
 }
 
 bool cmd_context::produce_unsat_cores() const { 
@@ -1458,11 +1482,27 @@ void cmd_context::validate_model() {
     }
 }
 
+// FIXME: really interpolants_enabled ought to be a parameter to the solver factory,
+// but this is a global change, so for now, we use an alternate solver factory
+// for interpolation
+
 void cmd_context::mk_solver() {
     bool proofs_enabled, models_enabled, unsat_core_enabled;
     params_ref p;
     m_params.get_solver_params(m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
-    m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
+    if(produce_interpolants()){
+        SASSERT(m_interpolating_solver_factory);
+        m_solver = (*m_interpolating_solver_factory)(m(), p, true /* must have proofs */, models_enabled, unsat_core_enabled, m_logic);
+    }
+    else
+        m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
+}
+
+
+
+void cmd_context::set_interpolating_solver_factory(solver_factory * f) {
+  SASSERT(!has_manager());
+  m_interpolating_solver_factory   = f;
 }
 
 void cmd_context::set_solver_factory(solver_factory * f) {

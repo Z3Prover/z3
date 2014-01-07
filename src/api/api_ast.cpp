@@ -209,6 +209,7 @@ extern "C" {
     MK_BINARY(Z3_mk_xor, mk_c(c)->get_basic_fid(), OP_XOR, SKIP);
     MK_NARY(Z3_mk_and, mk_c(c)->get_basic_fid(), OP_AND, SKIP);
     MK_NARY(Z3_mk_or, mk_c(c)->get_basic_fid(), OP_OR, SKIP);
+    MK_UNARY(Z3_mk_interp, mk_c(c)->get_basic_fid(), OP_INTERP, SKIP);
 
     Z3_ast mk_ite_core(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_ast t3) {
         expr * result = mk_c(c)->m().mk_ite(to_expr(t1), to_expr(t2), to_expr(t3));
@@ -923,6 +924,7 @@ extern "C" {
             case OP_NOT:      return Z3_OP_NOT;
             case OP_IMPLIES:  return Z3_OP_IMPLIES;
             case OP_OEQ:      return Z3_OP_OEQ;
+            case OP_INTERP:   return Z3_OP_INTERP;
 
             case PR_UNDEF:    return Z3_OP_PR_UNDEF;
             case PR_TRUE:     return Z3_OP_PR_TRUE;

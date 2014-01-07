@@ -67,6 +67,13 @@ def_module_params('fixedpoint',
                           ('print_statistics',  BOOL, False, 'print statistics'),
 			  ('use_utvpi', BOOL, True, 'PDR: Enable UTVPI strategy'),
 	                  ('tab_selection', SYMBOL, 'weight', 'selection method for tabular strategy: weight (default), first, var-use'),
+	                  ('full_expand', BOOL, False, 'DUALITY: Fully expand derivation trees'),
+	                  ('no_conj', BOOL, False, 'DUALITY: No forced covering (conjectures)'),
+	                  ('feasible_edges', BOOL, True, 'DUALITY: Don\'t expand definitley infeasible edges'),
+	                  ('use_underapprox', BOOL, False, 'DUALITY: Use underapproximations'),
+			  ('stratified_inlining', BOOL, False, 'DUALITY: Use stratified inlining'),
+			  ('recursion_bound', UINT, UINT_MAX, 'DUALITY: Recursion bound for stratified inlining'),
+			  ('profile', BOOL, False, 'DUALITY: profile run time'),
                           ('dump_aig', SYMBOL, '', 'Dump clauses in AIG text format (AAG) to the given file name'),
                           ))
 

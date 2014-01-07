@@ -322,6 +322,7 @@ namespace smt {
 
         for (; it != end; ++it) {
             quantifier * q = *it;
+	    if(!m_qm->mbqi_enabled(q)) continue;
             if (m_context->is_relevant(q) && m_context->get_assignment(q) == l_true) {
                 if (m_params.m_mbqi_trace && q->get_qid() != symbol::null) {
                     verbose_stream() << "(smt.mbqi :checking " << q->get_qid() << ")\n";

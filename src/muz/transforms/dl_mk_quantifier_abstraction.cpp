@@ -341,7 +341,6 @@ namespace datalog {
             }
             head = mk_head(source, *result, r.get_head(), cnt);
             fml = m.mk_implies(m.mk_and(tail.size(), tail.c_ptr()), head);
-            rule_ref_vector added_rules(rm);
             proof_ref pr(m);
             rm.mk_rule(fml, pr, *result);
             TRACE("dl", result->last()->display(m_ctx, tout););

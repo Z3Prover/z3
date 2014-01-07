@@ -189,14 +189,14 @@ class sls_tactic : public tactic {
         bool what_if(goal_ref const & g, func_decl * fd, const unsigned & fd_inx, const mpz & temp, 
                         double & best_score, unsigned & best_const, mpz & best_value) {
         
-            #ifdef _DEBUG
+            #ifdef Z3DEBUG
             mpz old_value;
             m_mpz_manager.set(old_value, m_tracker.get_value(fd));
             #endif
 
             double r = incremental_score(g, fd, temp);
         
-            #ifdef _DEBUG
+            #ifdef Z3DEBUG
             TRACE("sls_whatif", tout << "WHAT IF " << fd->get_name() << " WERE " << m_mpz_manager.to_string(temp) << 
                                         " --> " << r << std::endl; );
         

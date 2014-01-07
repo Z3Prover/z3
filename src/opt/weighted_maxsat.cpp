@@ -416,6 +416,9 @@ namespace opt {
             if (m_engine == symbol("wpm2")) {
                 return wpm2_solve();
             }
+            if (m_engine == symbol("wpm2b")) {
+                return wpm2b_solve();
+            }
             return incremental_solve();
         }
 
@@ -664,12 +667,6 @@ namespace opt {
             m_lower = m_upper = rational::zero();
             obj_map<expr, unsigned> ans_index;
 
-#ifdef WPM2b
-            // change from CP'13
-            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
-                al.push_back(s.get_assertion(i));
-            }
-#endif
             vector<rational> amk;
             vector<uint_set> sc;
             for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -758,10 +755,7 @@ namespace opt {
                     }
                 }
                 rational k;
-                std::cout << "new bound";
                 is_sat = new_bound(al, ws, bs, k);
-                std::cout << " " << k << "\n";
-                std::cout.flush();
                 if (is_sat != l_true) {
                     return is_sat;
                 }
@@ -783,6 +777,177 @@ namespace opt {
                 amk.push_back(k);
             }            
         }
+        
+        // Version from CP'13        
+        lbool wpm2b_solve() {
+            solver::scoped_push _s(s);
+            pb_util u(m);
+            app_ref fml(m), a(m), b(m), c(m);
+            expr_ref val(m);
+            expr_ref_vector block(m), ans(m), am(m), soft(m);
+            m_lower = m_upper = rational::zero();
+            obj_map<expr, unsigned> ans_index;
+
+            vector<rational> amk;
+            vector<uint_set> sc;    // vector of indices used in at last constraints
+            expr_ref_vector  al(m); // vector of at least constraints.
+            rational wmax;
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                rational w = m_weights[i];
+                m_upper += w;
+                if (wmax < w) wmax = w;
+                b = m.mk_fresh_const("b", m.mk_bool_sort());
+                expr* bb = b;
+                s.mc().insert(b->get_decl());
+                a = m.mk_fresh_const("a", m.mk_bool_sort());
+                s.mc().insert(a->get_decl());
+                ans.push_back(a);
+                ans_index.insert(a, i);
+                soft.push_back(0); // assert soft constraints lazily.
+                
+                c = m.mk_fresh_const("c", m.mk_bool_sort());
+                s.mc().insert(c->get_decl());
+                fml = m.mk_implies(c, u.mk_le(1,&w,&bb,rational(0)));
+                s.assert_expr(fml);
+
+                sc.push_back(uint_set());
+                sc.back().insert(i);                
+                am.push_back(c);
+
+                al.push_back(u.mk_ge(1,&w,&bb,rational(0)));
+                s.assert_expr(al.back());
+
+                amk.push_back(rational(0));
+            }
+            ++wmax;
+
+            while (true) {
+                enable_soft(soft, block, ans, wmax);
+                expr_ref_vector asms(m);
+                asms.append(ans);
+                asms.append(am);
+                lbool is_sat = s.check_sat(asms.size(), asms.c_ptr());
+                if (m_cancel && is_sat != l_false) {
+                    is_sat = l_undef;
+                }
+                if (is_sat == l_undef) {
+                    return l_undef;
+                }
+                if (is_sat == l_true && wmax.is_zero()) {
+                    s.get_model(m_model);
+                    m_upper = m_lower;
+                    for (unsigned i = 0; i < block.size(); ++i) {
+                        VERIFY(m_model->eval(block[i].get(), val));
+                        m_assignment[i] = m.is_false(val);
+                    }
+                    return l_true;
+                }
+                if (is_sat == l_true) {
+                    rational W(0);
+                    for (unsigned i = 0; i < m_weights.size(); ++i) {
+                        if (m_weights[i] < wmax) W += m_weights[i];
+                    }
+                    harden(am, W);
+                    wmax = decrease(wmax);
+                    continue;
+                }
+                SASSERT(is_sat == l_false);
+                ptr_vector<expr> core;
+                s.get_unsat_core(core);
+                if (core.empty()) {
+                    return l_false;
+                }
+                uint_set A;
+                for (unsigned i = 0; i < core.size(); ++i) {
+                    unsigned j;
+                    if (ans_index.find(core[i], j) && soft[j].get()) {
+                        A.insert(j);
+                    }
+                }
+                if (A.empty()) {
+                    return l_false;
+                }
+                uint_set B;
+                for (unsigned i = 0; i < sc.size(); ++i) {
+                    uint_set t(sc[i]);
+                    t &= A;
+                    if (!t.empty()) {
+                        B |= sc[i];
+                        m_lower -= amk[i];
+                        sc[i] = sc.back();
+                        sc.pop_back();
+                        am[i] = am.back();
+                        am.pop_back();
+                        amk[i] = amk.back();
+                        amk.pop_back();
+                        --i;
+                    }
+                }
+                vector<rational> ws;
+                expr_ref_vector  bs(m);
+                for (unsigned i = 0; i < m_soft.size(); ++i) {
+                    if (B.contains(i)) {
+                        ws.push_back(m_weights[i]);
+                        bs.push_back(block[i].get());
+                    }
+                }
+                rational k;
+
+                expr_ref_vector al2(al);
+                for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
+                    al2.push_back(s.get_assertion(i));
+                }
+                is_sat = new_bound(al2, ws, bs, k);
+                if (is_sat != l_true) {
+                    return is_sat;
+                }
+                m_lower += k;
+                expr_ref B_le_k(m), B_ge_k(m);
+                B_le_k = u.mk_le(ws.size(), ws.c_ptr(), bs.c_ptr(), k);
+                B_ge_k = u.mk_ge(ws.size(), ws.c_ptr(), bs.c_ptr(), k);
+                s.assert_expr(B_ge_k);
+                al.push_back(B_ge_k);
+                IF_VERBOSE(1, verbose_stream() << "(wmaxsat.wpm2 lower bound: " << m_lower << ")\n";);
+                IF_VERBOSE(2, verbose_stream() << "New lower bound: " << B_ge_k << "\n";);
+
+                c = m.mk_fresh_const("c", m.mk_bool_sort());
+                s.mc().insert(c->get_decl());
+                fml = m.mk_implies(c, B_le_k);
+                s.assert_expr(fml);
+                sc.push_back(B);
+                am.push_back(c);
+                amk.push_back(k);
+            }            
+        }
+
+        void harden(expr_ref_vector& am, rational const& W) {
+            // TBD 
+        }
+        
+        rational decrease(rational const& wmax) {
+            rational wmin(0);
+            for (unsigned i = 0; i < m_weights.size(); ++i) {
+                rational w = m_weights[i];
+                if (w < wmax && wmin < w) wmin = w;
+            }
+            return wmin;
+        }
+   
+
+        // enable soft constraints that have reached wmax.
+        void enable_soft(expr_ref_vector& soft, 
+                         expr_ref_vector const& block, 
+                         expr_ref_vector const& ans, 
+                         rational wmax) {
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                rational w = m_weights[i];
+                if (w >= wmax && !soft[i].get()) {
+                    soft[i] = m.mk_or(m_soft[i].get(), block[i], m.mk_not(ans[i]));
+                    s.assert_expr(soft[i].get());
+                }           
+            }     
+        }
+
 
         lbool new_bound(expr_ref_vector const& al, 
                         vector<rational> const& ws, 
