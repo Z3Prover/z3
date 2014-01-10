@@ -36,12 +36,11 @@ namespace Duality {
   struct Z3User {
 
       context &ctx;
-      solver &slvr;
 
       typedef func_decl FuncDecl;
       typedef expr Term;
 
-      Z3User(context &_ctx, solver &_slvr) : ctx(_ctx), slvr(_slvr){}
+      Z3User(context &_ctx) : ctx(_ctx){}
   
       const char *string_of_int(int n);
       
@@ -52,6 +51,8 @@ namespace Duality {
       Term CloneQuantifier(const Term &t, const Term &new_body);
 
       Term SubstRec(hash_map<ast, Term> &memo, const Term &t);
+
+      Term SubstRec(hash_map<ast, Term> &memo, hash_map<func_decl, func_decl> &map, const Term &t);
 
       void Strengthen(Term &x, const Term &y);
 
@@ -77,13 +78,13 @@ namespace Duality {
 
       void Summarize(const Term &t);
 
-      int CumulativeDecisions();
-
       int CountOperators(const Term &t);
 
       Term SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val);
 
       Term RemoveRedundancy(const Term &t);
+
+      Term IneqToEq(const Term &t);
 
       bool IsLiteral(const expr &lit, expr &atom, expr &val);
 
@@ -98,6 +99,9 @@ namespace Duality {
       bool IsClosedFormula(const Term &t);
 
       Term AdjustQuantifiers(const Term &t);
+
+      FuncDecl RenumberPred(const FuncDecl &f, int n);
+
 protected:
 
       void SummarizeRec(hash_set<ast> &memo, std::vector<expr> &lits, int &ops, const Term &t);
@@ -108,6 +112,7 @@ protected:
       expr ReduceAndOr(const std::vector<expr> &args, bool is_and, std::vector<expr> &res);
       expr FinishAndOr(const std::vector<expr> &args, bool is_and);
       expr PullCommonFactors(std::vector<expr> &args, bool is_and);
+      Term IneqToEqRec(hash_map<ast, Term> &memo, const Term &t);
 
 
 };
@@ -256,9 +261,9 @@ protected:
         }
 #endif
 
-      iZ3LogicSolver(context &c) : LogicSolver(c) {
+      iZ3LogicSolver(context &c, bool models = true) : LogicSolver(c) {
           ctx = ictx = &c;
-          slvr = islvr = new interpolating_solver(*ictx);
+          slvr = islvr = new interpolating_solver(*ictx, models);
           need_goals = false;
           islvr->SetWeakInterpolants(true);
         }
@@ -308,7 +313,7 @@ protected:
       }
 
       LogicSolver *ls;
-        
+
     protected:
       int nodeCount;
       int edgeCount;
@@ -340,7 +345,7 @@ protected:
 	  inherit the axioms. 
       */
 
-    RPFP(LogicSolver *_ls) : Z3User(*(_ls->ctx), *(_ls->slvr)), dualModel(*(_ls->ctx)), aux_solver(_ls->aux_solver)
+    RPFP(LogicSolver *_ls) : Z3User(*(_ls->ctx)), dualModel(*(_ls->ctx)), aux_solver(_ls->aux_solver)
       {
         ls = _ls;
 	nodeCount = 0;
@@ -574,7 +579,7 @@ protected:
        * you must pop the context accordingly. The second argument is
        * the number of pushes we are inside. */
       
-      void AssertEdge(Edge *e, int persist = 0, bool with_children = false, bool underapprox = false);
+      virtual void AssertEdge(Edge *e, int persist = 0, bool with_children = false, bool underapprox = false);
 
       /* Constrain an edge by the annotation of one of its children. */
 
@@ -808,8 +813,30 @@ protected:
        /** Edges of the graph. */
        std::vector<Edge *> edges;
 
+       /** Fuse a vector of transformers. If the total number of inputs of the transformers
+	   is N, then the result is an N-ary transfomer whose output is the union of
+	   the outputs of the given transformers. The is, suppose we have a vetor of transfoermers
+	   {T_i(r_i1,...,r_iN(i) : i=1..M}. The the result is a transformer 
+	       
+	       F(r_11,...,r_iN(1),...,r_M1,...,r_MN(M)) = 
+	           T_1(r_11,...,r_iN(1)) U ... U T_M(r_M1,...,r_MN(M))
+       */
+
+      Transformer Fuse(const std::vector<Transformer *> &trs);
+
+      /** Fuse edges so that each node is the output of at most one edge. This
+	  transformation is solution-preserving, but changes the numbering of edges in
+	  counterexamples.
+      */
+      void FuseEdges();
+
+      void RemoveDeadNodes();
+
       Term SubstParams(const std::vector<Term> &from,
 		       const std::vector<Term> &to, const Term &t);
+
+      Term SubstParamsNoCapture(const std::vector<Term> &from,
+				const std::vector<Term> &to, const Term &t);
 
       Term Localize(Edge *e, const Term &t);
 
@@ -828,6 +855,12 @@ protected:
 	  the solver before calling EdgeUsedInProof.
        */
       void ComputeProofCore();
+
+      int CumulativeDecisions();
+
+      solver &slvr(){
+	return *ls->slvr;
+      }
 
     protected:
       
@@ -962,7 +995,37 @@ protected:
       expr NegateLit(const expr &f);
 
       expr GetEdgeFormula(Edge *e, int persist, bool with_children, bool underapprox);
+
+      bool IsVar(const expr &t);
+
+      void GetVarsRec(hash_set<ast> &memo, const expr &cnst, std::vector<expr> &vars);
+
+      expr UnhoistPullRec(hash_map<ast,expr> & memo, const expr &w, hash_map<ast,expr> & init_defs, hash_map<ast,expr> & const_params, hash_map<ast,expr> &const_params_inv, std::vector<expr> &new_params);
+
+      void AddParamsToTransformer(Transformer &trans, const std::vector<expr> &params);
+ 
+      expr AddParamsToApp(const expr &app, const func_decl &new_decl, const std::vector<expr> &params);
+
+      expr GetRelRec(hash_set<ast> &memo, const expr &t, const func_decl &rel);
+
+      expr GetRel(Edge *edge, int child_idx);
+
+      void GetDefs(const expr &cnst, hash_map<ast,expr> &defs);
+
+      void GetDefsRec(const expr &cnst, hash_map<ast,expr> &defs);
+
+      void AddParamsToNode(Node *node, const std::vector<expr> &params);
+
+      void UnhoistLoop(Edge *loop_edge, Edge *init_edge);
+
+      void Unhoist();
       
+      Term ElimIteRec(hash_map<ast,expr> &memo, const Term &t, std::vector<expr> &cnsts);
+
+      Term ElimIte(const Term &t);
+
+      void MarkLiveNodes(hash_map<Node *,std::vector<Edge *> > &outgoing, hash_set<Node *> &live_nodes, Node *node);
+
       virtual void slvr_add(const expr &e);
       
       virtual void slvr_pop(int i);
@@ -978,6 +1041,7 @@ protected:
 					bool weak = false);
 
       virtual bool proof_core_contains(const expr &e);
+
     };
     
 
@@ -1065,6 +1129,9 @@ namespace std {
   };
 }
 
+// #define LIMIT_STACK_WEIGHT 5
+
+
 namespace Duality {
     /** Caching version of RPFP. Instead of asserting constraints, returns assumption literals */
 
@@ -1105,6 +1172,10 @@ namespace Duality {
 	  assumption lits. */
       void ConstrainParentCache(Edge *parent, Node *child, std::vector<Term> &lits);
 
+#ifdef LIMIT_STACK_WEIGHT
+      virtual void AssertEdge(Edge *e, int persist = 0, bool with_children = false, bool underapprox = false);
+#endif
+
       virtual ~RPFP_caching(){}
 
   protected:
@@ -1113,7 +1184,31 @@ namespace Duality {
       hash_map<Edge *, Edge *> EdgeCloneMap;
       std::vector<expr> alit_stack;
       std::vector<unsigned> alit_stack_sizes;
+      hash_map<Edge *, uptr<LogicSolver> > edge_solvers;
       
+#ifdef LIMIT_STACK_WEIGHT
+      struct weight_counter {
+	int val;
+	weight_counter(){val = 0;}
+	void swap(weight_counter &other){
+	  std::swap(val,other.val);
+	}
+      };
+      
+      struct big_stack_entry {
+	weight_counter weight_added;
+	std::vector<expr> new_alits;
+	std::vector<expr> alit_stack;
+	std::vector<unsigned> alit_stack_sizes;
+      };
+
+      std::vector<expr> new_alits;
+      weight_counter weight_added;
+      std::vector<big_stack_entry> big_stack;
+#endif
+
+
+
       void GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map = 0);
 
       void GreedyReduceCache(std::vector<expr> &assumps, std::vector<expr> &core);
@@ -1140,6 +1235,23 @@ namespace Duality {
       void GetTermTreeAssertionLiterals(TermTree *assumptions);
 
       void GetTermTreeAssertionLiteralsRec(TermTree *assumptions);
+
+      LogicSolver *SolverForEdge(Edge *edge, bool models);
+
+  public:
+      struct scoped_solver_for_edge {
+	LogicSolver *orig_ls;
+	RPFP_caching *rpfp;
+	scoped_solver_for_edge(RPFP_caching *_rpfp, Edge *edge, bool models = false){
+	  rpfp = _rpfp;
+	  orig_ls = rpfp->ls;
+	  rpfp->ls = rpfp->SolverForEdge(edge,models);
+	}
+	~scoped_solver_for_edge(){
+	  rpfp->ls = orig_ls;
+	}
+      };
+
     };
 
 }

@@ -640,9 +640,9 @@ void iz3mgr::get_assign_bounds_rule_coeffs(const ast &proof, std::vector<rationa
 
   /** Set P to P + cQ, where P and Q are linear inequalities. Assumes P is 0 <= y or 0 < y. */
 
-void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q){
+void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q, bool round_off){
   ast Qrhs;
-  bool strict = op(P) == Lt;
+  bool qstrict = false;
   if(is_not(Q)){
     ast nQ = arg(Q,0);
     switch(op(nQ)){
@@ -654,11 +654,11 @@ void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q){
       break;
     case Geq:
       Qrhs = make(Sub,arg(nQ,1),arg(nQ,0));
-      strict = true;
+      qstrict = true;
       break;
     case Leq: 
       Qrhs = make(Sub,arg(nQ,0),arg(nQ,1));
-      strict = true;
+      qstrict = true;
       break;
     default:
       throw "not an inequality";
@@ -674,28 +674,31 @@ void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q){
       break;
     case Lt:
       Qrhs = make(Sub,arg(Q,1),arg(Q,0));
-      strict = true;
+      qstrict = true;
       break;
     case Gt: 
       Qrhs = make(Sub,arg(Q,0),arg(Q,1));
-      strict = true;
+      qstrict = true;
       break;
     default:
       throw "not an inequality";
     }
   }
   Qrhs = make(Times,c,Qrhs);
+  bool pstrict = op(P) == Lt, strict = pstrict || qstrict;
+  if(pstrict && qstrict && round_off)
+    Qrhs = make(Sub,Qrhs,make_int(rational(1)));
   if(strict)
     P = make(Lt,arg(P,0),make(Plus,arg(P,1),Qrhs));
   else
     P = make(Leq,arg(P,0),make(Plus,arg(P,1),Qrhs));
 }
 
-iz3mgr::ast iz3mgr::sum_inequalities(const std::vector<ast> &coeffs, const std::vector<ast> &ineqs){
+iz3mgr::ast iz3mgr::sum_inequalities(const std::vector<ast> &coeffs, const std::vector<ast> &ineqs, bool round_off){
   ast zero = make_int("0");
   ast thing = make(Leq,zero,zero);
   for(unsigned i = 0; i < ineqs.size(); i++){
-    linear_comb(thing,coeffs[i],ineqs[i]);
+    linear_comb(thing,coeffs[i],ineqs[i], round_off);
   }
   thing = simplify_ineq(thing);
   return thing;

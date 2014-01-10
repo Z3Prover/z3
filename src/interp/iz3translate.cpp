@@ -1079,7 +1079,7 @@ public:
       my_cons.push_back(mk_not(arg(con,i)));
       my_coeffs.push_back(farkas_coeffs[i]);
     }
-    ast farkas_con = normalize_inequality(sum_inequalities(my_coeffs,my_cons));
+    ast farkas_con = normalize_inequality(sum_inequalities(my_coeffs,my_cons,true /* round_off */));
     my_cons.push_back(mk_not(farkas_con));
     my_coeffs.push_back(make_int("1"));
     std::vector<Iproof::node> my_hyps;
@@ -1103,7 +1103,7 @@ public:
       my_cons.push_back(conc(prem(proof,i-1)));
       my_coeffs.push_back(farkas_coeffs[i]);
     }
-    ast farkas_con = normalize_inequality(sum_inequalities(my_coeffs,my_cons));
+    ast farkas_con = normalize_inequality(sum_inequalities(my_coeffs,my_cons,true /* round_off */));
     std::vector<Iproof::node> my_hyps;
     for(int i = 1; i < nargs; i++)
       my_hyps.push_back(prems[i-1]);

@@ -45,8 +45,8 @@ Revision History:
 // #define EFFORT_BOUNDED_STRAT
 #define SKIP_UNDERAPPROX_NODES
 #define USE_RPFP_CLONE
-#define KEEP_EXPANSIONS
-#define USE_CACHING_RPFP
+// #define KEEP_EXPANSIONS
+// #define USE_CACHING_RPFP
 // #define PROPAGATE_BEFORE_CHECK
 #define USE_NEW_GEN_CANDS
 
@@ -105,7 +105,7 @@ namespace Duality {
   public:
     Duality(RPFP *_rpfp)
       : ctx(_rpfp->ctx),
-	slvr(_rpfp->slvr),
+	slvr(_rpfp->slvr()),
         nodes(_rpfp->nodes),
         edges(_rpfp->edges)
     {
@@ -122,7 +122,7 @@ namespace Duality {
       {
 	scoped_no_proof no_proofs_please(ctx.m());
 #ifdef USE_RPFP_CLONE
-      clone_ls = new RPFP::iZ3LogicSolver(ctx);
+	clone_ls = new RPFP::iZ3LogicSolver(ctx, false); // no models needed for this one
       clone_rpfp = new RPFP_caching(clone_ls);
       clone_rpfp->Clone(rpfp);
 #endif      
@@ -842,8 +842,10 @@ namespace Duality {
 	Node *child = chs[i];
 	if(TopoSort[child] < TopoSort[node->map]){
 	  Node *leaf = LeafMap[child];
-	  if(!indset->Contains(leaf))
+	  if(!indset->Contains(leaf)){
+	    node->Outgoing->F.Formula = ctx.bool_val(false); // make this a proper leaf, else bogus cex
 	    return node->Outgoing;
+	  }
 	}
       }
 
@@ -1206,7 +1208,7 @@ namespace Duality {
 
 
     Node *CheckerForEdgeClone(Edge *edge, RPFP_caching *checker){
-      Edge *gen_cands_edge = gen_cands_rpfp->GetEdgeClone(edge);
+      Edge *gen_cands_edge = checker->GetEdgeClone(edge);
       Node *root = gen_cands_edge->Parent;
       root->Outgoing = gen_cands_edge;
       GenNodeSolutionFromIndSet(edge->Parent, root->Bound);
@@ -1233,7 +1235,7 @@ namespace Duality {
 	Edge *edge = edges[i];
 	if(!full_scan && updated_nodes.find(edge->Parent) == updated_nodes.end())
 	  continue;
-#ifndef USE_RPFP_CLONE
+#ifndef USE_NEW_GEN_CANDS
 	slvr.push();
 	RPFP *checker = new RPFP(rpfp->ls);
 	Node *root = CheckerForEdge(edge,checker);
@@ -1246,15 +1248,16 @@ namespace Duality {
 	slvr.pop(1);
 	delete checker;
 #else
-	clone_rpfp->Push();
-	Node *root = CheckerForEdgeClone(edge,clone_rpfp);
-	if(clone_rpfp->Check(root) != unsat){
+	RPFP_caching::scoped_solver_for_edge(gen_cands_rpfp,edge,true /* models */);
+	gen_cands_rpfp->Push();
+	Node *root = CheckerForEdgeClone(edge,gen_cands_rpfp);
+	if(gen_cands_rpfp->Check(root) != unsat){
 	  Candidate candidate;
-	  ExtractCandidateFromCex(edge,clone_rpfp,root,candidate);
+	  ExtractCandidateFromCex(edge,gen_cands_rpfp,root,candidate);
 	  reporter->InductionFailure(edge,candidate.Children);
 	  candidates.push_back(candidate);
 	}
-	clone_rpfp->Pop(1);
+	gen_cands_rpfp->Pop(1);
 #endif
       }
       updated_nodes.clear();
@@ -1555,7 +1558,7 @@ namespace Duality {
     public:
 
       DerivationTree(Duality *_duality, RPFP *rpfp, Reporter *_reporter, Heuristic *_heuristic, bool _full_expand) 
-	: slvr(rpfp->slvr),
+	: slvr(rpfp->slvr()),
 	  ctx(rpfp->ctx)
       {
 	duality = _duality;
@@ -1709,7 +1712,7 @@ namespace Duality {
 	// tree->RemoveEdge(p->Outgoing);
 	Edge *ne = p->Outgoing;
 	if(ne) {
-	  reporter->Message("Recycling edge...");
+	  // reporter->Message("Recycling edge...");
 	  std::vector<RPFP::Node *> &cs = ne->Children;
 	  for(unsigned i = 0; i < cs.size(); i++)
 	    InitializeApproximatedInstance(cs[i]);
@@ -1905,14 +1908,14 @@ namespace Duality {
 
       virtual bool Build(){
 
-	stack.back().level = tree->slvr.get_scope_level();
+	stack.back().level = tree->slvr().get_scope_level();
 	bool was_sat = true;
 
 	while (true)
 	{
 	  lbool res;
 
-	  unsigned slvr_level = tree->slvr.get_scope_level();
+	  unsigned slvr_level = tree->slvr().get_scope_level();
 	  if(slvr_level != stack.back().level)
 	    throw "stacks out of sync!";
 
@@ -2002,11 +2005,11 @@ namespace Duality {
 	      tree->FixCurrentState(expansions[i]->Outgoing);
 	    }
 #if 0
-	    if(tree->slvr.check() == unsat)
+	    if(tree->slvr().check() == unsat)
 	      throw "help!";
 #endif
 	    stack.push_back(stack_entry());
-	    stack.back().level = tree->slvr.get_scope_level();
+	    stack.back().level = tree->slvr().get_scope_level();
 	    if(ExpandSomeNodes(false,1)){
 	      continue;
 	    }
@@ -2135,6 +2138,7 @@ namespace Duality {
 	tree->Generalize(top,node);
 #else
 	RPFP_caching *clone_rpfp = duality->clone_rpfp;
+	if(!node->Outgoing->map) return;
 	Edge *clone_edge = clone_rpfp->GetEdgeClone(node->Outgoing->map);
 	Node *clone_node = clone_edge->Parent;
 	clone_node->Annotation = node->Annotation;
@@ -2142,10 +2146,11 @@ namespace Duality {
 	  clone_edge->Children[i]->Annotation = node->map->Outgoing->Children[i]->Annotation;
 	clone_rpfp->GeneralizeCache(clone_edge);
 	node->Annotation = clone_node->Annotation;
-      }
 #endif
+      }
 
       bool Propagate(Node *node){
+#ifdef USE_RPFP_CLONE
 	RPFP_caching *clone_rpfp = duality->clone_rpfp;
 	Edge *clone_edge = clone_rpfp->GetEdgeClone(node->Outgoing->map);
 	Node *clone_node = clone_edge->Parent;
@@ -2156,6 +2161,9 @@ namespace Duality {
 	if(res)
 	  node->Annotation = clone_node->Annotation;
 	return res;
+#else
+	return false;
+#endif
       }
 
     };
@@ -2178,6 +2186,11 @@ namespace Duality {
       cover_map cm;
       Duality *parent;
       bool some_updates;
+
+#define NO_CONJ_ON_SIMPLE_LOOPS
+#ifdef NO_CONJ_ON_SIMPLE_LOOPS
+      hash_set<Node *> simple_loops;
+#endif
 
       Node *&covered_by(Node *node){
 	return cm[node].covered_by;
@@ -2213,6 +2226,24 @@ namespace Duality {
       Covering(Duality *_parent){
 	parent = _parent;
 	some_updates = false;
+
+#ifdef NO_CONJ_ON_SIMPLE_LOOPS
+	hash_map<Node *,std::vector<Edge *> > outgoing;
+	for(unsigned i = 0; i < parent->rpfp->edges.size(); i++)
+	  outgoing[parent->rpfp->edges[i]->Parent].push_back(parent->rpfp->edges[i]);
+	for(unsigned i = 0; i < parent->rpfp->nodes.size(); i++){
+	  Node * node = parent->rpfp->nodes[i];
+	  std::vector<Edge *> &outs = outgoing[node];
+	  if(outs.size() == 2){
+	    for(int j = 0; j < 2; j++){
+	      Edge *loop_edge = outs[j];
+	      if(loop_edge->Children.size() == 1 && loop_edge->Children[0] == loop_edge->Parent)
+		simple_loops.insert(node);
+	    }
+	  }
+	}
+#endif	
+
       }
       
       bool IsCoveredRec(hash_set<Node *> &memo, Node *node){
@@ -2375,6 +2406,11 @@ namespace Duality {
       }
 
       bool CouldCover(Node *covered, Node *covering){
+#ifdef NO_CONJ_ON_SIMPLE_LOOPS
+	// Forsimple loops, we rely on propagation, not covering
+	if(simple_loops.find(covered->map) != simple_loops.end())
+	  return false;
+#endif
 #ifdef UNDERAPPROX_NODES
 	// if(parent->underapprox_map.find(covering) != parent->underapprox_map.end())
 	// return parent->underapprox_map[covering] == covered;

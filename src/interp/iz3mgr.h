@@ -606,9 +606,9 @@ class iz3mgr  {
     return d;
   }
   
-  void linear_comb(ast &P, const ast &c, const ast &Q);
+  void linear_comb(ast &P, const ast &c, const ast &Q, bool round_off = false);
 
-  ast sum_inequalities(const std::vector<ast> &coeffs, const std::vector<ast> &ineqs);
+  ast sum_inequalities(const std::vector<ast> &coeffs, const std::vector<ast> &ineqs, bool round_off = false);
 
   ast simplify_ineq(const ast &ineq){
     ast res = make(op(ineq),arg(ineq,0),z3_simplify(arg(ineq,1)));

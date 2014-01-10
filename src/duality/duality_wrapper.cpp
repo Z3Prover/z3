@@ -30,10 +30,11 @@ Revision History:
 
 namespace Duality {
 
-  solver::solver(Duality::context& c, bool extensional) : object(c), the_model(c) {
+  solver::solver(Duality::context& c, bool extensional, bool models) : object(c), the_model(c) {
     params_ref p;
     p.set_bool("proof", true); // this is currently useless
-    p.set_bool("model", true); 
+    if(models)
+      p.set_bool("model", true); 
     p.set_bool("unsat_core", true); 
     p.set_bool("mbqi",true);
     p.set_str("mbqi.id","itp"); // use mbqi for quantifiers in interpolants
@@ -373,6 +374,18 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
       pats[i] = expr(ctx(),it[i]);
   }
 
+
+  unsigned func_decl::arity() const {
+    return (to_func_decl(raw())->get_arity());
+  }
+
+  sort func_decl::domain(unsigned i) const {
+    return sort(ctx(),(to_func_decl(raw())->get_domain(i)));
+  }
+
+  sort func_decl::range() const {
+    return sort(ctx(),(to_func_decl(raw())->get_range()));
+  }
 
   func_decl context::fresh_func_decl(char const * prefix, const std::vector<sort> &domain, sort const & range){
     std::vector < ::sort * > _domain(domain.size());

@@ -104,7 +104,7 @@ namespace Duality {
     lits.push_back(t);
   }
 
-  int Z3User::CumulativeDecisions(){
+  int RPFP::CumulativeDecisions(){
 #if 0
     std::string stats = Z3_statistics_to_string(ctx);
     int pos = stats.find("decisions:");
@@ -113,7 +113,7 @@ namespace Duality {
     std::string val = stats.substr(pos,end-pos);
     return atoi(val.c_str());
 #endif
-    return slvr.get_num_decisions();
+    return slvr().get_num_decisions();
   }
 
 
@@ -370,6 +370,38 @@ namespace Duality {
     return res;
   }
 
+  Z3User::Term Z3User::SubstRec(hash_map<ast, Term> &memo, hash_map<func_decl, func_decl> &map, const Term &t)
+  {
+    std::pair<ast,Term> foo(t,expr(ctx));
+    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
+    Term &res = bar.first->second;
+    if(!bar.second) return res;
+    if (t.is_app())
+      {
+	func_decl f = t.decl();
+	std::vector<Term> args;
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++)
+	  args.push_back(SubstRec(memo, map, t.arg(i)));
+	hash_map<func_decl,func_decl>::iterator it = map.find(f);
+	if(it != map.end())
+	  f = it->second;
+	res = f(args.size(),&args[0]);
+      }
+    else if (t.is_quantifier())
+      {
+	std::vector<expr> pats;
+	t.get_patterns(pats);
+	for(unsigned i = 0; i < pats.size(); i++)
+	  pats[i] = SubstRec(memo, map, pats[i]);
+	Term body = SubstRec(memo, map, t.body());
+	res = clone_quantifier(t, body, pats);
+      }
+    // res = CloneQuantifier(t,SubstRec(memo, t.body()));
+    else res = t;
+    return res;
+  }
+
   bool Z3User::IsLiteral(const expr &lit, expr &atom, expr &val){
     if(!(lit.is_quantifier() && IsClosedFormula(lit))){
       if(!lit.is_app())
@@ -594,6 +626,50 @@ namespace Duality {
     return t;
   }
 
+  Z3User::Term Z3User::IneqToEqRec(hash_map<ast, Term> &memo, const Term &t)
+  {
+    std::pair<ast,Term> foo(t,expr(ctx));
+    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
+    Term &res = bar.first->second;
+    if(!bar.second) return res;
+    if (t.is_app())
+      {
+	func_decl f = t.decl();
+	std::vector<Term> args;
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++)
+	  args.push_back(IneqToEqRec(memo, t.arg(i)));
+
+	decl_kind k = f.get_decl_kind();
+	if(k == And){
+	  for(int i = 0; i < nargs-1; i++){
+	    if((args[i].is_app() && args[i].decl().get_decl_kind() == Geq && 
+		args[i+1].is_app() && args[i+1].decl().get_decl_kind() == Leq)
+	       ||
+	       (args[i].is_app() && args[i].decl().get_decl_kind() == Leq && 
+		args[i+1].is_app() && args[i+1].decl().get_decl_kind() == Geq))
+	      if(eq(args[i].arg(0),args[i+1].arg(0)) && eq(args[i].arg(1),args[i+1].arg(1))){
+		args[i] = ctx.make(Equal,args[i].arg(0),args[i].arg(1));
+		args[i+1] = ctx.bool_val(true);
+	      }
+	  }
+	}
+	res = f(args.size(),&args[0]);
+      }
+    else if (t.is_quantifier())
+      {
+	Term body = IneqToEqRec(memo,t.body());
+	res = clone_quantifier(t, body);
+      }
+    else res = t;
+    return res;
+  }
+
+  Z3User::Term Z3User::IneqToEq(const Term &t){
+    hash_map<ast, Term> memo;
+    return IneqToEqRec(memo,t);
+  }
+
   Z3User::Term Z3User::SubstRecHide(hash_map<ast, Term> &memo, const Term &t, int number)
   {
     std::pair<ast,Term> foo(t,expr(ctx));
@@ -630,6 +706,51 @@ namespace Duality {
 	some_diff = true;
       }
     return some_diff ? SubstRec(memo,t) : t;
+  }
+
+  RPFP::Term RPFP::SubstParamsNoCapture(const std::vector<Term> &from,
+			                const std::vector<Term> &to, const Term &t){
+    hash_map<ast, Term> memo;
+    bool some_diff = false;
+    for(unsigned i = 0; i < from.size(); i++)
+      if(i < to.size() && !eq(from[i],to[i])){
+	memo[from[i]] = to[i];
+	// if the new param is not being mapped to anything else, we need to rename it to prevent capture
+	// note, if the new param *is* mapped later in the list, it will override this substitution
+	const expr &w = to[i];
+	if(memo.find(w) == memo.end()){
+	  std::string old_name = w.decl().name().str();
+          func_decl fresh = ctx.fresh_func_decl(old_name.c_str(), w.get_sort());
+          expr y = fresh();
+	  memo[w] = y;
+	}
+	some_diff = true;
+      }
+    return some_diff ? SubstRec(memo,t) : t;
+  }
+
+  
+
+  RPFP::Transformer RPFP::Fuse(const std::vector<Transformer *> &trs){
+    assert(!trs.empty());
+    const std::vector<expr> &params = trs[0]->IndParams;
+    std::vector<expr> fmlas(trs.size()); 
+    fmlas[0] = trs[0]->Formula;
+    for(unsigned i = 1; i < trs.size(); i++)
+      fmlas[i] = SubstParamsNoCapture(trs[i]->IndParams,params,trs[i]->Formula);
+    std::vector<func_decl> rel_params = trs[0]->RelParams;
+    for(unsigned i = 1; i < trs.size(); i++){
+      const std::vector<func_decl> &params2 = trs[i]->RelParams;
+      hash_map<func_decl,func_decl> map;
+      for(unsigned j = 0; j < params2.size(); j++){
+	func_decl rel = RenumberPred(params2[j],rel_params.size());
+	rel_params.push_back(rel);
+	map[params2[j]] = rel;
+      }
+      hash_map<ast,expr> memo;
+      fmlas[i] = SubstRec(memo,map,fmlas[i]);
+    }
+    return Transformer(rel_params,params,ctx.make(Or,fmlas),trs[0]->owner);
   }
 
 
@@ -782,6 +903,25 @@ namespace Duality {
 	ConstrainParent(e,e->Children[i]);
   }
 
+
+#ifdef LIMIT_STACK_WEIGHT
+  void RPFP_caching::AssertEdge(Edge *e, int persist, bool with_children, bool underapprox)
+  {
+    unsigned old_new_alits = new_alits.size();
+    if(eq(e->F.Formula,ctx.bool_val(true)) && (!with_children || e->Children.empty()))
+      return;
+    expr fmla = GetEdgeFormula(e, persist, with_children, underapprox);
+    timer_start("solver add");
+    slvr_add(e->dual);
+    timer_stop("solver add");
+    if(old_new_alits < new_alits.size())
+      weight_added.val++;
+    if(with_children)
+      for(unsigned i = 0; i < e->Children.size(); i++)
+	ConstrainParent(e,e->Children[i]);
+  }
+#endif
+
   // caching verion of above
   void RPFP_caching::AssertEdgeCache(Edge *e, std::vector<Term> &lits, bool with_children){
     if(eq(e->F.Formula,ctx.bool_val(true)) && (!with_children || e->Children.empty()))
@@ -794,7 +934,7 @@ namespace Duality {
   }
       
   void RPFP::slvr_add(const expr &e){
-    slvr.add(e);
+    slvr().add(e);
   }
 
   void RPFP_caching::slvr_add(const expr &e){
@@ -802,37 +942,70 @@ namespace Duality {
   }
 
   void RPFP::slvr_pop(int i){
-    slvr.pop(i);
+    slvr().pop(i);
   }
 
   void RPFP::slvr_push(){
-    slvr.push();
+    slvr().push();
   }
 
   void RPFP_caching::slvr_pop(int i){
     for(int j = 0; j < i; j++){
+#ifdef LIMIT_STACK_WEIGHT
+      if(alit_stack_sizes.empty()){
+	if(big_stack.empty())
+	  throw "stack underflow";
+	for(unsigned k = 0; k < new_alits.size(); k++){
+	  if(AssumptionLits.find(new_alits[k]) == AssumptionLits.end())
+	    throw "foo!";
+	  AssumptionLits.erase(new_alits[k]);
+	}
+	big_stack_entry &bsb = big_stack.back();
+	bsb.alit_stack_sizes.swap(alit_stack_sizes);
+	bsb.alit_stack.swap(alit_stack);
+	bsb.new_alits.swap(new_alits);
+	bsb.weight_added.swap(weight_added);
+	big_stack.pop_back();
+	slvr().pop(1);
+	continue;
+      }
+#endif
       alit_stack.resize(alit_stack_sizes.back());
       alit_stack_sizes.pop_back();
     }
   }
   
   void RPFP_caching::slvr_push(){
+#ifdef LIMIT_STACK_WEIGHT
+    if(weight_added.val > LIMIT_STACK_WEIGHT){
+      big_stack.resize(big_stack.size()+1);
+      big_stack_entry &bsb = big_stack.back();
+      bsb.alit_stack_sizes.swap(alit_stack_sizes);
+      bsb.alit_stack.swap(alit_stack);
+      bsb.new_alits.swap(new_alits);
+      bsb.weight_added.swap(weight_added);
+      slvr().push();
+      for(unsigned i = 0; i < bsb.alit_stack.size(); i++)
+	slvr().add(bsb.alit_stack[i]);
+      return;
+    }
+#endif
     alit_stack_sizes.push_back(alit_stack.size());
   }
 
   check_result RPFP::slvr_check(unsigned n, expr * const assumptions, unsigned *core_size, expr *core){
-    return slvr.check(n, assumptions, core_size, core);
+    return slvr().check(n, assumptions, core_size, core);
   }
 
   check_result RPFP_caching::slvr_check(unsigned n, expr * const assumptions, unsigned *core_size, expr *core){
-    slvr_push();
+    unsigned oldsiz = alit_stack.size();
     if(n && assumptions)
       std::copy(assumptions,assumptions+n,std::inserter(alit_stack,alit_stack.end()));
     check_result res;
     if(core_size && core){
       std::vector<expr> full_core(alit_stack.size()), core1(n);
       std::copy(assumptions,assumptions+n,core1.begin());
-      res = slvr.check(alit_stack.size(), &alit_stack[0], core_size, &full_core[0]);
+      res = slvr().check(alit_stack.size(), &alit_stack[0], core_size, &full_core[0]);
       full_core.resize(*core_size);
       if(res == unsat){
 	FilterCore(core1,full_core);
@@ -841,8 +1014,8 @@ namespace Duality {
       }
     }
     else 
-      res = slvr.check(alit_stack.size(), &alit_stack[0]);
-    slvr_pop(1);
+      res = slvr().check(alit_stack.size(), &alit_stack[0]);
+    alit_stack.resize(oldsiz);
     return res;
   }
 
@@ -891,7 +1064,7 @@ namespace Duality {
       for(unsigned i = 0; i < ts.size(); i++)
 	GetAssumptionLits(ts[i],dummy,&map);
       std::vector<expr> assumps;
-      slvr.get_proof().get_assumptions(assumps);
+      slvr().get_proof().get_assumptions(assumps);
       if(!proof_core){ // save the proof core for later use
 	proof_core = new hash_set<ast>;
 	for(unsigned i = 0; i < assumps.size(); i++)
@@ -911,7 +1084,7 @@ namespace Duality {
 
   void RPFP::AddToProofCore(hash_set<ast> &core){
     std::vector<expr> assumps;
-    slvr.get_proof().get_assumptions(assumps);
+    slvr().get_proof().get_assumptions(assumps);
     for(unsigned i = 0; i < assumps.size(); i++)
       core.insert(assumps[i]);
   }
@@ -935,7 +1108,10 @@ namespace Duality {
       if(bar.second){
 	func_decl pred = ctx.fresh_func_decl("@alit", ctx.bool_sort());
 	res = pred();
-	slvr.add(ctx.make(Implies,res,conj));
+#ifdef LIMIT_STACK_WEIGHT
+	new_alits.push_back(conj);
+#endif
+	slvr().add(ctx.make(Implies,res,conj));
 	//	std::cout << res << ": " << conj << "\n";
       }
       if(opt_map)
@@ -979,15 +1155,18 @@ namespace Duality {
   
   /** Clone another RPFP into this one, keeping a map */
   void RPFP_caching::Clone(RPFP *other){
+#if 0
     for(unsigned i = 0; i < other->nodes.size(); i++)
       NodeCloneMap[other->nodes[i]] = CloneNode(other->nodes[i]);
+#endif
     for(unsigned i = 0; i < other->edges.size(); i++){
       Edge *edge = other->edges[i];
+      Node *parent = CloneNode(edge->Parent);
       std::vector<Node *> cs;
       for(unsigned j = 0; j < edge->Children.size(); j++)
 	// cs.push_back(NodeCloneMap[edge->Children[j]]);
 	cs.push_back(CloneNode(edge->Children[j]));
-      EdgeCloneMap[edge] = CreateEdge(NodeCloneMap[edge->Parent],edge->F,cs);
+      EdgeCloneMap[edge] = CreateEdge(parent,edge->F,cs);
     }
   }
   
@@ -1005,7 +1184,7 @@ namespace Duality {
   check_result RPFP_caching::CheckCore(const std::vector<Term> &assumps, std::vector<Term> &core){
     core.resize(assumps.size());
     unsigned core_size;
-    check_result res = slvr.check(assumps.size(),(expr *)&assumps[0],&core_size,&core[0]);
+    check_result res = slvr().check(assumps.size(),(expr *)&assumps[0],&core_size,&core[0]);
     if(res == unsat)
       core.resize(core_size);
     else
@@ -1063,7 +1242,7 @@ namespace Duality {
 
   void RPFP::RemoveAxiom(const Term &t)
   {
-    slvr.RemoveInterpolationAxiom(t);
+    slvr().RemoveInterpolationAxiom(t);
   }
 #endif
   
@@ -1236,7 +1415,7 @@ namespace Duality {
 	    }
             // check_result temp = slvr_check();
 	  }
-	  dualModel = slvr.get_model();
+	  dualModel = slvr().get_model();
 	  timer_stop("Check");
 	  return res;
         }
@@ -1245,7 +1424,7 @@ namespace Duality {
     // check_result temp1 = slvr_check(); // no idea why I need to do this
     ClearProofCore();
     check_result res = slvr_check(assumps.size(),&assumps[0]);
-    model mod = slvr.get_model();
+    model mod = slvr().get_model();
     if(!mod.null())
       dualModel = mod;;
     return res;
@@ -1703,6 +1882,57 @@ namespace Duality {
       }
     else res = t;
     resolve_ite_memo[t] = res;
+    return res;
+  }
+
+  RPFP::Term RPFP::ElimIteRec(hash_map<ast,expr> &memo, const Term &t, std::vector<expr> &cnsts){ 
+    std::pair<ast,Term> foo(t,expr(ctx));
+    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
+    Term &res = bar.first->second;
+    if(bar.second){
+      if(t.is_app()){
+	int nargs = t.num_args();
+	std::vector<expr> args;
+	if(t.decl().get_decl_kind() == Equal){
+	  expr lhs = t.arg(0);
+	  expr rhs = t.arg(1);
+	  if(rhs.decl().get_decl_kind() == Ite){
+	    expr rhs_args[3];
+	    lhs = ElimIteRec(memo,lhs,cnsts);
+	    for(int i = 0; i < 3; i++)
+	      rhs_args[i] = ElimIteRec(memo,rhs.arg(i),cnsts);
+	    res = (rhs_args[0] && (lhs == rhs_args[1])) || ((!rhs_args[0]) && (lhs == rhs_args[2]));
+	    goto done;
+	  }
+	}
+	if(t.decl().get_decl_kind() == Ite){
+	  func_decl sym = ctx.fresh_func_decl("@ite", t.get_sort());
+	  res = sym();
+	  cnsts.push_back(ElimIteRec(memo,ctx.make(Equal,res,t),cnsts));
+	}
+	else {
+	  for(int i = 0; i < nargs; i++)
+	    args.push_back(ElimIteRec(memo,t.arg(i),cnsts));
+	  res = t.decl()(args.size(),&args[0]);
+	}
+      }
+      else if(t.is_quantifier())
+ 	res = clone_quantifier(t,ElimIteRec(memo,t.body(),cnsts));
+      else
+	res = t;
+    }
+  done:
+    return res;
+  }
+
+  RPFP::Term RPFP::ElimIte(const Term &t){ 
+    hash_map<ast,expr> memo;
+    std::vector<expr> cnsts;
+    expr res = ElimIteRec(memo,t,cnsts);
+    if(!cnsts.empty()){
+      cnsts.push_back(res);
+      res = ctx.make(And,cnsts);
+    }
     return res;
   }
 
@@ -2622,7 +2852,7 @@ namespace Duality {
 	else {
 	  std::cout << "bad in InterpolateByCase -- core:\n";
 	  std::vector<expr> assumps;
-	  slvr.get_proof().get_assumptions(assumps);
+	  slvr().get_proof().get_assumptions(assumps);
 	  for(unsigned i = 0; i < assumps.size(); i++)
 	    assumps[i].show();
 	  throw "ack!";
@@ -2651,10 +2881,20 @@ namespace Duality {
     timer_stop("Generalize");
   }
 
+  RPFP::LogicSolver *RPFP_caching::SolverForEdge(Edge *edge, bool models){
+    uptr<LogicSolver> &p = edge_solvers[edge];
+    if(!p.get()){
+      scoped_no_proof no_proofs_please(ctx.m()); // no proofs
+      p.set(new iZ3LogicSolver(ctx,models)); // no models
+    }
+    return p.get();
+  }
+
 
   // caching version of above
   void RPFP_caching::GeneralizeCache(Edge *edge){
     timer_start("Generalize");
+    scoped_solver_for_edge ssfe(this,edge);
     Node *node = edge->Parent;
     std::vector<expr> assumps, core, conjuncts;
     AssertEdgeCache(edge,assumps);
@@ -2698,6 +2938,7 @@ namespace Duality {
   // caching version of above
   bool RPFP_caching::PropagateCache(Edge *edge){
     timer_start("PropagateCache");
+    scoped_solver_for_edge ssfe(this,edge);
     bool some = false;
     {
       std::vector<expr> candidates, skip;
@@ -2723,6 +2964,8 @@ namespace Duality {
       AssertEdgeCache(edge,assumps);
       for(unsigned i = 0; i < edge->Children.size(); i++){
 	expr ass = GetAnnotation(edge->Children[i]);
+	if(eq(ass,ctx.bool_val(true)))
+	  continue;
 	std::vector<expr> clauses;
 	CollectConjuncts(ass.arg(1),clauses);
 	for(unsigned j = 0; j < clauses.size(); j++)
@@ -2805,6 +3048,17 @@ namespace Duality {
             for(int i = 0; i < nargs; i++)
               sorts.push_back(t.arg(i).get_sort());
             return ctx.function(name.c_str(), nargs, &sorts[0], t.get_sort());
+        }
+
+  Z3User::FuncDecl Z3User::RenumberPred(const FuncDecl &f, int n)
+        {
+	  std::string name = f.name().str();
+	  name = name.substr(0,name.rfind('_')) + "_" + string_of_int(n);
+	  int arity = f.arity();
+	  std::vector<sort> domain;
+	  for(int i = 0; i < arity; i++)
+	    domain.push_back(f.domain(i));
+	  return ctx.function(name.c_str(), arity, &domain[0], f.range());
         }
 
   // Scan the clause body for occurrences of the predicate unknowns
@@ -3135,6 +3389,7 @@ namespace Duality {
       Term labeled = body;
       std::vector<label_struct > lbls;  // TODO: throw this away for now
       body = RemoveLabels(body,lbls);
+      // body = IneqToEq(body); // UFO converts x=y to (x<=y & x >= y). Undo this.
       body = body.simplify();
 
 #ifdef USE_QE_LITE
@@ -3155,9 +3410,325 @@ namespace Duality {
       edge->labeled = labeled;; // remember for label extraction
       // edges.push_back(edge);
     }
+
+    // undo hoisting of expressions out of loops
+    RemoveDeadNodes();
+    Unhoist();
+    // FuseEdges();
   }
 
 
+  // The following mess is used to undo hoisting of expressions outside loops by compilers
+  
+  expr RPFP::UnhoistPullRec(hash_map<ast,expr> & memo, const expr &w, hash_map<ast,expr> & init_defs, hash_map<ast,expr> & const_params, hash_map<ast,expr> &const_params_inv, std::vector<expr> &new_params){
+    if(memo.find(w) != memo.end())
+      return memo[w];
+    expr res;
+    if(init_defs.find(w) != init_defs.end()){
+      expr d = init_defs[w];
+      std::vector<expr> vars;
+      hash_set<ast> get_vars_memo;
+      GetVarsRec(get_vars_memo,d,vars);
+      hash_map<ast,expr> map;
+      for(unsigned j = 0; j < vars.size(); j++){
+	expr x = vars[j];
+	map[x] = UnhoistPullRec(memo,x,init_defs,const_params,const_params_inv,new_params);
+      }
+      expr defn = SubstRec(map,d);
+      res = defn;
+    }
+    else if(const_params_inv.find(w) == const_params_inv.end()){
+      std::string old_name = w.decl().name().str();
+      func_decl fresh = ctx.fresh_func_decl(old_name.c_str(), w.get_sort());
+      expr y = fresh();
+      const_params[y] = w;
+      const_params_inv[w] = y;
+      new_params.push_back(y);
+      res = y;
+    }
+    else
+      res = const_params_inv[w];
+    memo[w] = res;
+    return res;
+  }
+
+  void RPFP::AddParamsToTransformer(Transformer &trans, const std::vector<expr> &params){
+    std::copy(params.begin(),params.end(),std::inserter(trans.IndParams,trans.IndParams.end()));
+  }
+
+  expr RPFP::AddParamsToApp(const expr &app, const func_decl &new_decl, const std::vector<expr> &params){
+    int n = app.num_args();
+    std::vector<expr> args(n);
+    for (int i = 0; i < n; i++)
+      args[i] = app.arg(i);
+    std::copy(params.begin(),params.end(),std::inserter(args,args.end()));
+    return new_decl(args);
+  }
+
+  expr RPFP::GetRelRec(hash_set<ast> &memo, const expr &t, const func_decl &rel){
+    if(memo.find(t) != memo.end())
+      return expr();
+    memo.insert(t);
+    if (t.is_app())
+      {
+	func_decl f = t.decl();
+	if(f == rel)
+	  return t;
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++){
+	  expr res = GetRelRec(memo,t.arg(i),rel);
+  if(!res.null())
+	    return res;
+	}
+      }
+    else if (t.is_quantifier())
+      return GetRelRec(memo,t.body(),rel);
+    return expr();
+  }
+
+  expr RPFP::GetRel(Edge *edge, int child_idx){
+    func_decl &rel = edge->F.RelParams[child_idx];
+    hash_set<ast> memo;
+    return GetRelRec(memo,edge->F.Formula,rel);
+  }
+
+  void RPFP::GetDefsRec(const expr &cnst, hash_map<ast,expr> &defs){
+    if(cnst.is_app()){
+      switch(cnst.decl().get_decl_kind()){
+      case And: {
+	int n = cnst.num_args();
+	for(int i = 0; i < n; i++)
+	  GetDefsRec(cnst.arg(i),defs);
+	break;
+      }
+      case Equal: {
+	expr lhs = cnst.arg(0);
+	expr rhs = cnst.arg(1);
+	if(IsVar(lhs))
+	  defs[lhs] = rhs;
+	break;
+      }
+      default:
+	break;
+      }
+    }
+  }
+  
+  void RPFP::GetDefs(const expr &cnst, hash_map<ast,expr> &defs){
+    // GetDefsRec(IneqToEq(cnst),defs);
+    GetDefsRec(cnst,defs);
+  }
+
+  bool RPFP::IsVar(const expr &t){
+    return t.is_app() && t.num_args() == 0 && t.decl().get_decl_kind() == Uninterpreted;
+  }
+
+  void RPFP::GetVarsRec(hash_set<ast> &memo, const expr &t, std::vector<expr> &vars){
+    if(memo.find(t) != memo.end())
+      return;
+    memo.insert(t);
+    if (t.is_app())
+      {
+	if(IsVar(t)){
+	  vars.push_back(t);
+	  return;
+	}
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++){
+	  GetVarsRec(memo,t.arg(i),vars);
+	}
+      }
+    else if (t.is_quantifier())
+      GetVarsRec(memo,t.body(),vars);
+  }
+
+  void RPFP::AddParamsToNode(Node *node, const std::vector<expr> &params){
+    int arity = node->Annotation.IndParams.size();
+    std::vector<sort> domain;
+    for(int i = 0; i < arity; i++)
+      domain.push_back(node->Annotation.IndParams[i].get_sort());
+    for(unsigned i = 0; i < params.size(); i++)
+      domain.push_back(params[i].get_sort());
+    std::string old_name = node->Name.name().str();
+    func_decl fresh = ctx.fresh_func_decl(old_name.c_str(), domain, ctx.bool_sort());
+    node->Name = fresh;
+    AddParamsToTransformer(node->Annotation,params);
+    AddParamsToTransformer(node->Bound,params);
+    AddParamsToTransformer(node->Underapprox,params);
+  }
+
+  void RPFP::UnhoistLoop(Edge *loop_edge, Edge *init_edge){
+    loop_edge->F.Formula = IneqToEq(loop_edge->F.Formula);
+    init_edge->F.Formula = IneqToEq(init_edge->F.Formula);
+    expr pre = GetRel(loop_edge,0);
+    if(pre.null())
+      return; // this means the loop got simplified away
+    int nparams = loop_edge->F.IndParams.size();
+    hash_map<ast,expr> const_params, const_params_inv;
+    std::vector<expr> work_list;
+    // find the parameters that are constant in the loop
+    for(int i = 0; i < nparams; i++){
+      if(eq(pre.arg(i),loop_edge->F.IndParams[i])){
+	const_params[pre.arg(i)] = init_edge->F.IndParams[i];
+	const_params_inv[init_edge->F.IndParams[i]] = pre.arg(i);
+	work_list.push_back(pre.arg(i));
+      }
+    }
+    // get the definitions in the initialization
+    hash_map<ast,expr> defs,memo,subst;
+    GetDefs(init_edge->F.Formula,defs);
+    // try to pull them inside the loop
+    std::vector<expr> new_params;
+    for(unsigned i = 0; i < work_list.size(); i++){
+      expr v = work_list[i];
+      expr w = const_params[v];
+      expr def = UnhoistPullRec(memo,w,defs,const_params,const_params_inv,new_params);
+      if(!eq(def,v))
+	subst[v] = def;
+    }
+    // do the substitutions
+    if(subst.empty())
+      return;
+    subst[pre] = pre; // don't substitute inside the precondition itself
+    loop_edge->F.Formula = SubstRec(subst,loop_edge->F.Formula);
+    loop_edge->F.Formula = ElimIte(loop_edge->F.Formula);
+    init_edge->F.Formula = ElimIte(init_edge->F.Formula);
+    // add the new parameters
+    if(new_params.empty())
+      return;
+    Node *parent = loop_edge->Parent;
+    AddParamsToNode(parent,new_params);
+    AddParamsToTransformer(loop_edge->F,new_params);
+    AddParamsToTransformer(init_edge->F,new_params);
+    std::vector<Edge *> &incoming = parent->Incoming;
+    for(unsigned i = 0; i < incoming.size(); i++){
+      Edge *in_edge = incoming[i];
+      std::vector<Node *> &chs = in_edge->Children;
+      for(unsigned j = 0; j < chs.size(); j++)
+	if(chs[j] == parent){
+	  expr lit = GetRel(in_edge,j);
+	  expr new_lit = AddParamsToApp(lit,parent->Name,new_params);
+	  func_decl fd = SuffixFuncDecl(new_lit,j);
+	  int nargs = new_lit.num_args();
+	  std::vector<Term> args;
+	  for(int k = 0; k < nargs; k++)
+	    args.push_back(new_lit.arg(k));
+	  new_lit = fd(nargs,&args[0]);
+	  in_edge->F.RelParams[j] = fd;
+	  hash_map<ast,expr> map;
+	  map[lit] = new_lit;
+	  in_edge->F.Formula = SubstRec(map,in_edge->F.Formula);
+	}
+    }
+  }
+
+  void RPFP::Unhoist(){
+    hash_map<Node *,std::vector<Edge *> > outgoing;
+    for(unsigned i = 0; i < edges.size(); i++)
+      outgoing[edges[i]->Parent].push_back(edges[i]);
+    for(unsigned i = 0; i < nodes.size(); i++){
+      Node *node = nodes[i];
+      std::vector<Edge *> &outs = outgoing[node];
+      // if we're not a simple loop with one entry, give up
+      if(outs.size() == 2){
+	for(int j = 0; j < 2; j++){
+	  Edge *loop_edge = outs[j];
+	  Edge *init_edge = outs[1-j];
+	  if(loop_edge->Children.size() == 1 && loop_edge->Children[0] == loop_edge->Parent){
+	    UnhoistLoop(loop_edge,init_edge);
+	    break;
+	  }
+	}
+      }
+    }
+  }
+
+  void RPFP::FuseEdges(){
+    hash_map<Node *,std::vector<Edge *> > outgoing;
+    for(unsigned i = 0; i < edges.size(); i++){
+      outgoing[edges[i]->Parent].push_back(edges[i]);
+    }
+    hash_set<Edge *> edges_to_delete;
+    for(unsigned i = 0; i < nodes.size(); i++){
+      Node *node = nodes[i];
+      std::vector<Edge *> &outs = outgoing[node];
+      if(outs.size() > 1 && outs.size() <= 16){
+	std::vector<Transformer *> trs(outs.size());
+	for(unsigned j = 0; j < outs.size(); j++)
+	  trs[j] = &outs[j]->F;
+	Transformer tr = Fuse(trs);
+	std::vector<Node *> chs;
+	for(unsigned j = 0; j < outs.size(); j++)
+	  for(unsigned k = 0; k < outs[j]->Children.size(); k++)
+	    chs.push_back(outs[j]->Children[k]);
+	Edge *fedge = CreateEdge(node,tr,chs);
+	for(unsigned j = 0; j < outs.size(); j++)
+	  edges_to_delete.insert(outs[j]);
+      }
+    }
+    std::vector<Edge *> new_edges;
+    hash_set<Node *> all_nodes;
+    for(unsigned j = 0; j < edges.size(); j++){
+      if(edges_to_delete.find(edges[j]) == edges_to_delete.end()){
+#if 0
+	if(all_nodes.find(edges[j]->Parent) != all_nodes.end())
+	  throw "help!";
+	all_nodes.insert(edges[j]->Parent);
+#endif
+	new_edges.push_back(edges[j]);
+      }
+      else
+	delete edges[j];
+    }
+    edges.swap(new_edges);
+  }
+
+  void RPFP::MarkLiveNodes(hash_map<Node *,std::vector<Edge *> > &outgoing, hash_set<Node *> &live_nodes, Node *node){
+    if(live_nodes.find(node) != live_nodes.end())
+      return;
+    live_nodes.insert(node);
+    std::vector<Edge *> &outs = outgoing[node];
+    for(unsigned i = 0; i < outs.size(); i++)
+      for(unsigned j = 0; j < outs[i]->Children.size(); j++)
+	MarkLiveNodes(outgoing, live_nodes,outs[i]->Children[j]);
+  }
+
+  void RPFP::RemoveDeadNodes(){
+    hash_map<Node *,std::vector<Edge *> > outgoing;
+    for(unsigned i = 0; i < edges.size(); i++)
+      outgoing[edges[i]->Parent].push_back(edges[i]);
+    hash_set<Node *> live_nodes;
+    for(unsigned i = 0; i < nodes.size(); i++)
+      if(!nodes[i]->Bound.IsFull())
+	MarkLiveNodes(outgoing,live_nodes,nodes[i]);
+    std::vector<Edge *> new_edges;
+    for(unsigned j = 0; j < edges.size(); j++){
+      if(live_nodes.find(edges[j]->Parent) != live_nodes.end())
+	new_edges.push_back(edges[j]);
+      else {
+	Edge *edge = edges[j];
+	for(unsigned int i = 0; i < edge->Children.size(); i++){
+	  std::vector<Edge *> &ic = edge->Children[i]->Incoming;
+	  for(std::vector<Edge *>::iterator it = ic.begin(), en = ic.end(); it != en; ++it){
+	    if(*it == edge){
+	      ic.erase(it);
+	      break;
+	    }
+	  }
+	}
+	delete edge;
+      }
+    }
+    edges.swap(new_edges);
+    std::vector<Node *> new_nodes;
+    for(unsigned j = 0; j < nodes.size(); j++){
+      if(live_nodes.find(nodes[j]) != live_nodes.end())
+	new_nodes.push_back(nodes[j]);
+      else
+	delete nodes[j];
+    }
+    nodes.swap(new_nodes);
+  }
 
   void RPFP::WriteSolution(std::ostream &s){
     for(unsigned i = 0; i < nodes.size(); i++){

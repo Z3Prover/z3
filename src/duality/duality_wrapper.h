@@ -819,7 +819,7 @@ namespace Duality {
 	bool canceled;
 	proof_gen_mode m_mode;
     public:
-        solver(context & c, bool extensional = false);
+        solver(context & c, bool extensional = false, bool models = true);
         solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; canceled = false;}
         solver(solver const & s):object(s), the_model(s.the_model) { m_solver = s.m_solver; canceled = false;}
         ~solver() {
@@ -1308,8 +1308,8 @@ namespace Duality {
 
     class interpolating_solver : public solver {
     public:
-    interpolating_solver(context &ctx)
-      : solver(ctx)
+    interpolating_solver(context &ctx, bool models = true)
+      : solver(ctx, true, models)
       {
 	weak_mode = false;
       }
@@ -1373,6 +1373,21 @@ namespace Duality {
     typedef double clock_t;
     clock_t current_time();
     inline void output_time(std::ostream &os, clock_t time){os << time;}
+
+    template <class X> class uptr {
+    public:
+      X *ptr;
+      uptr(){ptr = 0;}
+      void set(X *_ptr){
+	if(ptr) delete ptr;
+	ptr = _ptr;
+      }
+      X *get(){ return ptr;}
+      ~uptr(){
+	if(ptr) delete ptr;
+      }
+    };
+
 };
 
 // to make Duality::ast hashable
