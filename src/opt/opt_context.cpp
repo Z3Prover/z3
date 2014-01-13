@@ -27,6 +27,7 @@ Notes:
 #include "tactic.h"
 #include "lia2card_tactic.h"
 #include "elim01_tactic.h"
+#include "solve_eqs_tactic.h"
 #include "simplify_tactic.h"
 #include "tactical.h"
 #include "model_smt2_pp.h"
@@ -299,15 +300,15 @@ namespace opt {
             g->assert_expr(fmls[i].get());
         }
         tactic_ref tac0 = mk_simplify_tactic(m);
-        tactic_ref tac1 = mk_elim01_tactic(m);
-        tactic_ref tac2 = mk_lia2card_tactic(m);
+        tactic_ref tac2 = mk_elim01_tactic(m);
+        tactic_ref tac3 = mk_lia2card_tactic(m);
         tactic_ref tac;
         opt_params optp(m_params);
         if (optp.elim_01()) {
-            tac = and_then(tac0.get(), tac1.get(), tac2.get());
+            tac = and_then(tac0.get(), tac2.get(), tac3.get());
         }
         else {
-            tac = tac0;
+            tac = tac0.get();
         }
         proof_converter_ref pc;
         expr_dependency_ref core(m);

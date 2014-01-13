@@ -102,19 +102,21 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         break;
     case OP_AT_LEAST_K:
     case OP_PB_GE:
+    case OP_PB_EQ:
         break;
     default:
         UNREACHABLE();
         return BR_FAILED;
     }    
 
+    bool is_eq = f->get_decl_kind() == OP_PB_EQ;
     
     pb_ast_rewriter_util pbu(m);
     pb_rewriter_util<pb_ast_rewriter_util> util(pbu);
 
-    util.unique(vec, k);
-    lbool is_sat = util.normalize(vec, k);
-    util.prune(vec, k);
+    util.unique(vec, k, is_eq);
+    lbool is_sat = util.normalize(vec, k, is_eq);
+    util.prune(vec, k, is_eq);
     switch (is_sat) {
     case l_true:
         result = m.mk_true();
@@ -129,7 +131,12 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
             m_args.push_back(vec[i].first);
             m_coeffs.push_back(vec[i].second);
         }
-        result = m_util.mk_ge(vec.size(), m_coeffs.c_ptr(), m_args.c_ptr(), k);
+        if (is_eq) {
+            result = m_util.mk_eq(vec.size(), m_coeffs.c_ptr(), m_args.c_ptr(), k);
+        }
+        else {
+            result = m_util.mk_ge(vec.size(), m_coeffs.c_ptr(), m_args.c_ptr(), k);
+        }
         break;
     }
     TRACE("pb",

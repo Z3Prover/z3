@@ -155,8 +155,7 @@ public:
         else if (m.is_eq(fml, x, y) &&
                  get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
                  get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
-            result = m.mk_and(mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff), 
-                              mk_ge(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
+            result = mk_eq(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff); 
             return true;
         }                
         return false;
@@ -173,6 +172,14 @@ public:
             return m.mk_not(args[0]);
         }
         return m_pb.mk_le(sz, weights, args, w);
+    }
+
+    expr* mk_eq(unsigned sz, rational const* weights, expr* const* args, rational const& w) {
+#if 1
+        return m.mk_and(mk_ge(sz, weights, args, w), mk_le(sz, weights, args, w));
+#else
+        return m_pb.mk_eq(sz, weights, args, w);
+#endif
     }
     
     expr* mk_ge(unsigned sz, rational const* weights, expr* const* args, rational const& w) {

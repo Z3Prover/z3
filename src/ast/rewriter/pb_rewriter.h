@@ -28,12 +28,12 @@ Notes:
 template<typename PBU>
 class pb_rewriter_util {    
     PBU& m_util;
-    void display(std::ostream& out, typename PBU::args_t& args, typename PBU::numeral& k);
+    void display(std::ostream& out, typename PBU::args_t& args, typename PBU::numeral& k, bool is_eq);
 public:
     pb_rewriter_util(PBU& u) : m_util(u) {}
-    void unique(typename PBU::args_t& args, typename PBU::numeral& k);
-    lbool normalize(typename PBU::args_t& args, typename PBU::numeral& k);
-    void prune(typename PBU::args_t& args, typename PBU::numeral& k);
+    void unique(typename PBU::args_t& args, typename PBU::numeral& k, bool is_eq);
+    lbool normalize(typename PBU::args_t& args, typename PBU::numeral& k, bool is_eq);
+    void prune(typename PBU::args_t& args, typename PBU::numeral& k, bool is_eq);
 };
 
 /**

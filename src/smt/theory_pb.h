@@ -29,8 +29,12 @@ namespace smt {
     class theory_pb : public theory {
 
         struct sort_expr;
+        struct psort_expr;
         class  pb_justification;
-        class pb_model_value_proc;
+        class  pb_model_value_proc;
+        class  unwatch_ge;
+        class  rewatch_vars;
+        class  negate_ineq;
         typedef rational numeral;
         typedef vector<std::pair<literal, numeral> > arg_t;
 
@@ -48,20 +52,24 @@ namespace smt {
 
         struct ineq {
             literal         m_lit;      // literal repesenting predicate
+            bool            m_is_eq;    // is this an = or >=.
             arg_t           m_args;     // encode args[0]*coeffs[0]+...+args[n-1]*coeffs[n-1] >= m_k;
             numeral         m_k;        // invariants: m_k > 0, coeffs[i] > 0
             
             // Watch the first few positions until the sum satisfies:
-            // sum coeffs[i] >= m_lower + max_watch
-            
+            // sum coeffs[i] >= m_lower + max_watch            
             numeral         m_max_watch;    // maximal coefficient.
             unsigned        m_watch_sz;     // number of literals being watched.
-            numeral         m_watch_sum;      // maximal sum of watch literals.
+            numeral         m_watch_sum;    // maximal sum of watch literals.
+            // Watch infrastructure for = and unassigned >=:
+            unsigned        m_nfixed;       // number of variables that are fixed.
+            numeral         m_max_sum;      // maximal possible sum.
+            numeral         m_min_sum;      // minimal possible sum.
             unsigned        m_num_propagations;
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
 
-            ineq(literal l) : m_lit(l) {
+            ineq(literal l, bool is_eq) : m_lit(l), m_is_eq(is_eq) {
                 reset();
             }
 
@@ -75,9 +83,15 @@ namespace smt {
 
             numeral const& watch_sum() const { return m_watch_sum; }
             numeral const& max_watch() const { return m_max_watch; }
-            void set_max_watch(numeral const& n) { m_max_watch = n; }
-            
+            void set_max_watch(numeral const& n) { m_max_watch = n; }            
             unsigned watch_size() const { return m_watch_sz; }
+
+            // variable watch infrastructure
+            numeral min_sum() const { return m_min_sum; }
+            numeral max_sum() const { return m_max_sum; }
+            unsigned nfixed() const { return m_nfixed; }
+            bool vwatch_initialized() const { return !max_sum().is_zero(); }
+            void vwatch_reset() { m_min_sum.reset(); m_max_sum.reset(); m_nfixed = 0; }
 
             unsigned find_lit(bool_var v, unsigned begin, unsigned end) {
                 while (lit(begin).var() != v) {
@@ -100,17 +114,19 @@ namespace smt {
             bool well_formed() const;
 
             app_ref to_expr(context& ctx, ast_manager& m);
+
+            bool is_eq() const { return m_is_eq; }
+            bool is_ge() const { return !m_is_eq; }
         };
 
         typedef ptr_vector<ineq> watch_list;
 
         theory_pb_params         m_params;        
-        u_map<watch_list*>       m_watch;       // per literal.
+        u_map<watch_list*>       m_lwatch;      // per literal.
+        u_map<watch_list*>       m_vwatch;      // per variable.
         u_map<ineq*>             m_ineqs;       // per inequality.
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
-        ptr_vector<ineq>         m_assign_ineqs_trail;
-        unsigned_vector          m_assign_ineqs_lim;
         literal_vector           m_literals;    // temporary vector
         pb_util                  m_util;
         stats                    m_stats;
@@ -118,13 +134,24 @@ namespace smt {
         unsigned                 m_conflict_frequency;
         bool                     m_learn_complements;
         bool                     m_enable_compilation;
+        rational                 m_max_compiled_coeff;
 
         // internalize_atom:
         literal compile_arg(expr* arg);
         void add_watch(ineq& c, unsigned index);
         void del_watch(watch_list& watch, unsigned index, ineq& c, unsigned ineq_index);
-        bool assign_watch(bool_var v, bool is_true, watch_list& watch, unsigned index);
+        void init_watch_literal(ineq& c);
+        void init_watch_var(ineq& c);
+        void clear_watch(ineq& c);
+        void watch_literal(literal lit, ineq* c);
+        void watch_var(bool_var v, ineq* c);
+        void unwatch_literal(literal w, ineq* c);
+        void unwatch_var(bool_var v, ineq* c);
+        void remove(ptr_vector<ineq>& ineqs, ineq* c);
+        bool assign_watch_ge(bool_var v, bool is_true, watch_list& watch, unsigned index);
+        void assign_watch(bool_var v, bool is_true, ineq& c);
         void assign_ineq(ineq& c, bool is_true);
+        void assign_eq(ineq& c, bool is_true);
 
         std::ostream& display(std::ostream& out, ineq const& c, bool values = false) const;
         virtual void display(std::ostream& out) const;
@@ -134,6 +161,7 @@ namespace smt {
         void add_assign(ineq& c, literal_vector const& lits, literal l);
         literal_vector& get_lits();
 
+        literal_vector& get_all_literals(ineq& c, bool negate);
         literal_vector& get_helpful_literals(ineq& c, bool negate);
         literal_vector& get_unhelpful_literals(ineq& c, bool negate);
 

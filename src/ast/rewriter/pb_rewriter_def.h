@@ -23,20 +23,20 @@ Notes:
 
 
 template<typename PBU>
-void pb_rewriter_util<PBU>::display(std::ostream& out, typename PBU::args_t& args, typename PBU::numeral& k) {
+void pb_rewriter_util<PBU>::display(std::ostream& out, typename PBU::args_t& args, typename PBU::numeral& k, bool is_eq) {
     for (unsigned i = 0; i < args.size(); ++i) {
         out << args[i].second << " * ";
         m_util.display(out, args[i].first);
         out << " ";
         if (i+1 < args.size()) out << "+ ";
     }
-    out << " >= " << k << "\n";
+    out << (is_eq?" = ":" >= ") << k << "\n";
 }
 
 template<typename PBU>
-void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::numeral& k) {
+void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::numeral& k, bool is_eq) {
     
-    TRACE("pb_verbose", display(tout << "pre-unique:", args, k););
+    TRACE("pb_verbose", display(tout << "pre-unique:", args, k, is_eq););
     for (unsigned i = 0; i < args.size(); ++i) {
         if (m_util.is_negated(args[i].first)) {
             args[i].first = m_util.negate(args[i].first);
@@ -85,19 +85,19 @@ void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::num
         }
     }
     args.resize(i);
-    TRACE("pb_verbose", display(tout << "post-unique:", args, k););
+    TRACE("pb_verbose", display(tout << "post-unique:", args, k, is_eq););
 }
 
 template<typename PBU>
-lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU::numeral& k) {
-    TRACE("pb_verbose", display(tout << "pre-normalize:", args, k););
+lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU::numeral& k, bool is_eq) {
+    TRACE("pb_verbose", display(tout << "pre-normalize:", args, k, is_eq););
 
     DEBUG_CODE(
         bool found = false;
         for (unsigned i = 0; !found && i < args.size(); ++i) {
             found = args[i].second.is_zero();
         }
-        if (found) display(verbose_stream(), args, k);
+        if (found) display(verbose_stream(), args, k, is_eq);
         SASSERT(!found););
 
     // 
@@ -121,16 +121,28 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
         sum += args[i].second;
     }
     // detect tautologies:
-    if (k <= PBU::numeral::zero()) {
+    if (!is_eq && k <= PBU::numeral::zero()) {
         args.reset();
         k = PBU::numeral::zero();
         return l_true;
     }
+    if (is_eq && k.is_zero() && args.empty()) {
+        return l_true;
+    }
+
     // detect infeasible constraints:
     if (sum < k) {
         args.reset();
         k = PBU::numeral::one();
         return l_false;
+    }
+
+    if (is_eq && k == sum) {
+        for (unsigned i = 0; i < args.size(); ++i) {
+            args[i].second = PBU::numeral::one();
+        }
+        k = PBU::numeral::one();
+        return l_undef;
     }
     
     bool all_int = true;
@@ -149,6 +161,11 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
         for (unsigned i = 0; i < args.size(); ++i) {
             args[i].second *= d;
         }            
+    }
+
+    if (is_eq) {
+        TRACE("pb_verbose", display(tout << "post-normalize:", args, k, is_eq););
+        return l_undef;
     }
     
     // Ensure the largest coefficient is not larger than k:
@@ -193,7 +210,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
     }
     else if (g > PBU::numeral::one()) {
         IF_VERBOSE(3, verbose_stream() << "cut " << g << "\n";
-                   display(verbose_stream(), args, k);
+                   display(verbose_stream(), args, k, is_eq);
                    );
         
         //
@@ -241,7 +258,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
         PBU::numeral n1 = floor(n0);
         PBU::numeral n2 = ceil(k/min) - PBU::numeral::one();
         if (n1 == n2 && !n0.is_int()) {
-            IF_VERBOSE(3, display(verbose_stream() << "set cardinality\n", args, k););
+            IF_VERBOSE(3, display(verbose_stream() << "set cardinality\n", args, k, is_eq););
             
             for (unsigned i = 0; i < args.size(); ++i) {
                 args[i].second = PBU::numeral::one();
@@ -249,13 +266,15 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
             k = n1 + PBU::numeral::one();
         }
     }
+    TRACE("pb_verbose", display(tout << "post-normalize:", args, k, is_eq););
     return l_undef;
 }
 
-
 template<typename PBU>
-void pb_rewriter_util<PBU>::prune(typename PBU::args_t& args, typename PBU::numeral& k) {
-
+void pb_rewriter_util<PBU>::prune(typename PBU::args_t& args, typename PBU::numeral& k, bool is_eq) {
+    if (is_eq) {
+        return;
+    }
     PBU::numeral nlt(0);
     unsigned occ = 0;
     for (unsigned i = 0; nlt < k && i < args.size(); ++i) {
@@ -264,8 +283,7 @@ void pb_rewriter_util<PBU>::prune(typename PBU::args_t& args, typename PBU::nume
             ++occ;
         }
     }
-    if (0 < occ && nlt < k) {
-        
+    if (0 < occ && nlt < k) {        
         for (unsigned i = 0; i < args.size(); ++i) {
             if (args[i].second < k) {
                 args[i] = args.back();
@@ -273,8 +291,8 @@ void pb_rewriter_util<PBU>::prune(typename PBU::args_t& args, typename PBU::nume
                 --i;
             }
         }
-        unique(args, k);
-        normalize(args, k);
+        unique(args, k, is_eq);
+        normalize(args, k, is_eq);
     }    
 }
 
