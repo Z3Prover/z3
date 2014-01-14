@@ -205,6 +205,7 @@ namespace smt {
         }
 
         virtual final_check_status final_check_eh() {
+            if (m_normalize) normalize();
             return FC_DONE;
         }
 
@@ -356,6 +357,7 @@ namespace smt {
                 m_den = lcm(m_den, denominator(m_rweights[i]));
             }
             m_den = lcm(m_den, denominator(m_rmin_cost));
+            SASSERT(!m_den.is_zero());
             m_zweights.reset();
             for (unsigned i = 0; i < m_rweights.size(); ++i) {
                 rational r = m_rweights[i]*m_den;
