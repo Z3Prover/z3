@@ -39,7 +39,7 @@ public:
     numeral const & get() const { return m_num; }
     numeral & get() { return m_num; }
     
-    _scoped_numeral & operator=(_scoped_numeral & n) {
+    _scoped_numeral & operator=(_scoped_numeral const & n) {
         if (this == &n)
             return *this;
         m().set(m_num, n.m_num);

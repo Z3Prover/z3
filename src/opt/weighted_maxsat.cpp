@@ -184,6 +184,31 @@ namespace smt {
             return !m_cost_save.empty();
         }
 
+        // scoped_mpz leaks.
+
+        class numeral_trail : public trail<context> {
+            typedef scoped_mpz T;
+            T & m_value;
+            T*  m_old_value;
+
+            // numeral_trail(numeral_trail const& nt);
+            
+        public:
+            numeral_trail(T & value):
+                m_value(value),
+                m_old_value(alloc(T, value)) {
+            }
+            
+            virtual ~numeral_trail() {
+            }
+            
+            virtual void undo(context & ctx) {
+                m_value = *m_old_value;
+                dealloc(m_old_value);
+                m_old_value = 0;
+            }
+        };
+
         virtual void assign_eh(bool_var v, bool is_true) {
             TRACE("opt", tout << "Assign " << mk_pp(m_vars[m_bool2var[v]].get(), get_manager()) << " " << is_true << "\n";);
             if (is_true) {
@@ -192,7 +217,7 @@ namespace smt {
                 theory_var tv = m_bool2var[v];
                 if (m_assigned[tv]) return;
                 mpz const& w = m_zweights[tv];
-                ctx.push_trail(value_trail<context, scoped_mpz>(m_zcost));
+                ctx.push_trail(numeral_trail(m_zcost));
                 ctx.push_trail(push_back_vector<context, svector<theory_var> >(m_costs));
                 ctx.push_trail(value_trail<context, bool>(m_assigned[tv]));
                 m_zcost += w;
