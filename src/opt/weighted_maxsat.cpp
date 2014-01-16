@@ -47,6 +47,7 @@ namespace smt {
         bool_var                 m_min_cost_bv; // max cost Boolean variable
         vector<rational>         m_rweights;    // weights of theory variables.
         scoped_mpz_vector        m_zweights;
+        scoped_mpz_vector        m_old_values;
         svector<theory_var>      m_costs;       // set of asserted theory variables
         svector<theory_var>      m_cost_save;   // set of asserted theory variables
         rational                 m_rcost;       // current sum of asserted costs
@@ -70,6 +71,7 @@ namespace smt {
             m_min_cost_atom(m),
             m_min_cost_atoms(m),
             m_zweights(m_mpz),
+            m_old_values(m_mpz),
             m_zcost(m_mpz),
             m_zmin_cost(m_mpz),
             m_propagate(false),
@@ -189,23 +191,23 @@ namespace smt {
         class numeral_trail : public trail<context> {
             typedef scoped_mpz T;
             T & m_value;
-            T*  m_old_value;
+            scoped_mpz_vector&  m_old_values;
 
             // numeral_trail(numeral_trail const& nt);
             
         public:
-            numeral_trail(T & value):
+            numeral_trail(T & value, scoped_mpz_vector& old):
                 m_value(value),
-                m_old_value(alloc(T, value)) {
+                m_old_values(old) {
+                old.push_back(value);
             }
             
             virtual ~numeral_trail() {
             }
             
             virtual void undo(context & ctx) {
-                m_value = *m_old_value;
-                dealloc(m_old_value);
-                m_old_value = 0;
+                m_value = m_old_values.back();
+                m_old_values.pop_back();
             }
         };
 
@@ -217,7 +219,7 @@ namespace smt {
                 theory_var tv = m_bool2var[v];
                 if (m_assigned[tv]) return;
                 mpz const& w = m_zweights[tv];
-                ctx.push_trail(numeral_trail(m_zcost));
+                ctx.push_trail(numeral_trail(m_zcost, m_old_values));
                 ctx.push_trail(push_back_vector<context, svector<theory_var> >(m_costs));
                 ctx.push_trail(value_trail<context, bool>(m_assigned[tv]));
                 m_zcost += w;
