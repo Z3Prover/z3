@@ -998,7 +998,7 @@ void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, 
 template<typename Ext>
 inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
 
-#ifdef 0
+#if 0
     // disabled until fixed.
     
     objective_term const& objective = m_objectives[v];
