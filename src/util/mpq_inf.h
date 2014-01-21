@@ -26,12 +26,12 @@ typedef std::pair<mpq, mpq> mpq_inf;
 
 template<bool SYNCH = true>
 class mpq_inf_manager {
-    mpq_manager<SYNCH> & m;
+    mpq_manager<SYNCH>   m;
     double               m_inf;
 public:
     typedef mpq_inf numeral;
 
-    mpq_inf_manager(mpq_manager<SYNCH> & _m, double inf = 0.0001):m(_m) {
+    mpq_inf_manager(double inf = 0.0001) {
         set_inf(inf);
     }
 
@@ -83,6 +83,14 @@ public:
     }
 
     bool is_int(mpq_inf const & a) const { return m.is_int(a.first) && m.is_zero(a.second); }
+
+    bool is_pos(mpq_inf const & a) const { 
+        return m.is_pos(a.first) || (m.is_zero(a.first) && m.is_pos(a.second)); 
+    }
+
+    bool is_neg(mpq_inf const & a) const { 
+        return m.is_neg(a.first) || (m.is_zero(a.first) && m.is_neg(a.second)); 
+    }
     
     bool is_rational(mpq_inf const & a) const { return m.is_zero(a.second); }
 
@@ -104,15 +112,15 @@ public:
         return m.is_zero(a.first) && m.is_zero(a.second);
     }
 
-    bool eq(mpq_inf const & a, mpq_inf const & b) const {
+    bool eq(mpq_inf const & a, mpq_inf const & b) {
         return m.eq(a.first, b.first) && m.eq(a.second, b.second);
     }
 
-    bool eq(mpq_inf const & a, mpq const & b) const {
+    bool eq(mpq_inf const & a, mpq const & b) {
         return m.eq(a.first, b) && m.is_zero(a.second);
     }
         
-    bool eq(mpq_inf const & a, mpq const & b, inf_kind k) const {
+    bool eq(mpq_inf const & a, mpq const & b, inf_kind k) {
         if (!m.eq(a.first, b))
             return false;
         switch (k) {
@@ -124,15 +132,15 @@ public:
         return false;
     }
     
-    bool lt(mpq_inf const & a, mpq_inf const & b) const {
+    bool lt(mpq_inf const & a, mpq_inf const & b) {
         return m.lt(a.first, b.first) || (m.lt(a.second, b.second) && m.eq(a.first, b.first));
     }
 
-    bool lt(mpq_inf const & a, mpq const & b) const {
+    bool lt(mpq_inf const & a, mpq const & b) {
         return m.lt(a.first, b) || (m.is_neg(a.second) && m.eq(a.first, b));
     }
 
-    bool lt(mpq_inf const & a, mpq const & b, inf_kind k) const {
+    bool lt(mpq_inf const & a, mpq const & b, inf_kind k) {
         if (m.lt(a.first, b))
             return true;
         if (m.eq(a.first, b)) {
@@ -146,13 +154,13 @@ public:
         return false;
     }
 
-    bool gt(mpq_inf const & a, mpq_inf const & b) const { return lt(b, a); }
+    bool gt(mpq_inf const & a, mpq_inf const & b) { return lt(b, a); }
     
-    bool gt(mpq_inf const & a, mpq const & b) const {
+    bool gt(mpq_inf const & a, mpq const & b) {
         return m.gt(a.first, b) || (m.is_pos(a.second) && m.eq(a.first, b));
     }
 
-    bool gt(mpq_inf const & a, mpq const & b, inf_kind k) const {
+    bool gt(mpq_inf const & a, mpq const & b, inf_kind k) {
         if (m.gt(a.first, b))
             return true;
         if (m.eq(a.first, b)) {
@@ -166,17 +174,17 @@ public:
         return false;
     }
 
-    bool le(mpq_inf const & a, mpq_inf const & b) const { return !gt(a, b); }
+    bool le(mpq_inf const & a, mpq_inf const & b) { return !gt(a, b); }
 
-    bool le(mpq_inf const & a, mpq const & b) const { return !gt(a, b); }
+    bool le(mpq_inf const & a, mpq const & b) { return !gt(a, b); }
 
-    bool le(mpq_inf const & a, mpq const & b, inf_kind k) const { return !gt(a, b, k); }
+    bool le(mpq_inf const & a, mpq const & b, inf_kind k) { return !gt(a, b, k); }
 
-    bool ge(mpq_inf const & a, mpq_inf const & b) const { return !lt(a, b); }
+    bool ge(mpq_inf const & a, mpq_inf const & b) { return !lt(a, b); }
 
-    bool ge(mpq_inf const & a, mpq const & b) const { return !lt(a, b); }
+    bool ge(mpq_inf const & a, mpq const & b) { return !lt(a, b); }
 
-    bool ge(mpq_inf const & a, mpq const & b, inf_kind k) const { return !lt(a, b, k); }
+    bool ge(mpq_inf const & a, mpq const & b, inf_kind k) { return !lt(a, b, k); }
 
     void add(mpq_inf const & a, mpq_inf const & b, mpq_inf & c) {
         m.add(a.first, b.first, c.first);
@@ -206,6 +214,16 @@ public:
     void mul(mpq_inf const & a, mpz const & b, mpq_inf & c) {
         m.mul(b, a.first, c.first);
         m.mul(b, a.second, c.second);
+    }
+
+    void div(mpq_inf const & a, mpq const & b, mpq_inf & c) {
+        m.div(a.first, b, c.first);
+        m.div(a.second, b, c.second);
+    }
+
+    void div(mpq_inf const & a, mpz const & b, mpq_inf & c) {
+        m.div(a.first, b,  c.first);
+        m.div(a.second, b, c.second);
     }
 
     void inc(mpq_inf & a) {
@@ -246,7 +264,7 @@ public:
         }
     }
 
-    std::string to_string(mpq_inf const & a) const;
+    std::string to_string(mpq_inf const & a);
 };
 
 typedef mpq_inf_manager<true>  synch_mpq_inf_manager;
