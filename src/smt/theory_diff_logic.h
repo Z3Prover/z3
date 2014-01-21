@@ -38,7 +38,6 @@ Revision History:
 #include"numeral_factory.h"
 #include"smt_clause.h"
 #include"theory_opt.h"
-#include"network_flow.h"
 
 // The DL theory can represent term such as n + k, where n is an enode and k is a numeral.
 namespace smt {

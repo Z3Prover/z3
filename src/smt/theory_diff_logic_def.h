@@ -28,7 +28,6 @@ Revision History:
 #include"ast_pp.h"
 #include"warning.h"
 #include"smt_model_generator.h"
-#include"network_flow_def.h"
 #include"model_implicant.h"
 
 using namespace smt;
@@ -998,6 +997,10 @@ void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, 
 
 template<typename Ext>
 inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
+
+#ifdef 0
+    // disabled until fixed.
+    
     objective_term const& objective = m_objectives[v];
 
     IF_VERBOSE(1,
@@ -1058,6 +1061,10 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
         IF_VERBOSE(1, verbose_stream() << "Unbounded objective" << std::endl;);
         return inf_eps_rational<inf_rational>::infinity();
     }
+
+#endif
+    return inf_eps_rational<inf_rational>::infinity();
+
 }
 
 template<typename Ext>

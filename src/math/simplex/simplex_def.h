@@ -213,7 +213,6 @@ namespace simplex {
             em.div(delta2, si.m_base_coeff, delta2);
             delta2.neg();
             update_value_core(s, delta2);
-            // TBD m.add(si.m_base_coeff, delta2, si.m_base_coeff); 
         }            
     }    
 
