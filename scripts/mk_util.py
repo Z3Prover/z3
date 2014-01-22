@@ -639,14 +639,8 @@ def is_CXX_gpp():
     return is_compiler(CXX, 'g++')
 
 def is_clang_in_gpp_form(cc):
-    outf = open('clang_version', 'rw')
-    subprocess.call([cc, '--version'], stdout=outf, stderr=outf)
-    outf.seek(0)
-    version_string = outf.read()
-    contains_clang = version_string.find('clang') != -1
-    outf.close()
-    os.remove('clang_version')
-    return contains_clang
+    version_string = subprocess.check_output([cc, '--version'])
+    return version_string.find('clang') != -1
 
 def is_CXX_clangpp():
     if is_compiler(CXX, 'g++'):
