@@ -423,13 +423,14 @@ namespace opt {
         rational         m_lower;
         model_ref        m_model;
         symbol           m_engine;
+        bool             m_print_all_models;
         volatile bool    m_cancel;
         params_ref       m_params;
         opt_solver       m_solver;
         scoped_ptr<imp>  m_imp;
 
         imp(ast_manager& m, opt_solver& s, expr_ref_vector const& soft_constraints, vector<rational> const& weights):
-            m(m), s(s), m_soft(soft_constraints), m_weights(weights), m_cancel(false), 
+            m(m), s(s), m_soft(soft_constraints), m_weights(weights), m_print_all_models(false), m_cancel(false), 
             m_solver(m, m_params, symbol("bound"))
         {
             m_assignment.resize(m_soft.size(), false);
@@ -533,7 +534,8 @@ namespace opt {
                 }
                 if (is_sat == l_true) {
                     if (wth().is_optimal()) {
-                        s.get_model(m_model);
+                        m_upper = wth().get_min_cost();
+                        updt_model(s);
                     }
                     expr_ref fml = wth().mk_block();
                     s.assert_expr(fml);
@@ -776,8 +778,8 @@ namespace opt {
                     is_sat = l_undef;
                 }
                 if (is_sat == l_true) {
-                    s.get_model(m_model);
                     m_upper = m_lower;
+                    updt_model(s);
                     for (unsigned i = 0; i < block.size(); ++i) {
                         VERIFY(m_model->eval(block[i].get(), val));
                         m_assignment[i] = m.is_false(val);
@@ -904,8 +906,8 @@ namespace opt {
                     return l_undef;
                 }
                 if (is_sat == l_true && wmax.is_zero()) {
-                    s.get_model(m_model);
                     m_upper = m_lower;
+                    updt_model(s);
                     for (unsigned i = 0; i < block.size(); ++i) {
                         VERIFY(m_model->eval(block[i].get(), val));
                         m_assignment[i] = m.is_false(val);
@@ -1059,9 +1061,20 @@ namespace opt {
         void updt_params(params_ref& p) {
             opt_params _p(p);
             m_engine = _p.wmaxsat_engine();        
+            m_print_all_models = _p.print_all_models();
             m_solver.updt_params(p);
             if (m_imp) {
                 m_imp->updt_params(p);
+            }
+        }
+
+        void updt_model(solver& s) {
+            s.get_model(m_model);
+            if (m_print_all_models) {
+                std::cout << "[" << m_lower << ":" << m_upper << "]\n";
+                std::cout << "(model " << std::endl;
+                model_smt2_pp(std::cout, m, *(m_model.get()), 2);
+                std::cout << ")" << std::endl;                 
             }
         }
 
@@ -1097,7 +1110,7 @@ namespace opt {
                 }
                 is_sat = m_solver.check_sat_core(0, 0);
                 if (l_true == is_sat && !m_cancel) {
-                    m_solver.get_model(m_model);
+                    updt_model(m_solver);
                     if (mc && m_model) (*mc)(m_model, 0);
                     IF_VERBOSE(2, 
                                g->display(verbose_stream() << "goal:\n");
@@ -1178,7 +1191,7 @@ namespace opt {
                 switch(is_sat) {
                 case l_true: {
                     if (wth().is_optimal()) {
-                        s.get_model(m_model);
+                        updt_model(s);
                     }
                     expr_ref fml = wth().mk_block();
                     s.assert_expr(fml);

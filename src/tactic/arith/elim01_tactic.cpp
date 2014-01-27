@@ -127,7 +127,7 @@ public:
     elim01_tactic(ast_manager & _m, params_ref const & p):
         m(_m),
         a(m),
-        m_max_hi_default(8),
+        m_max_hi_default(1),
         m_max_hi(rational(m_max_hi_default)) {
     }
 
