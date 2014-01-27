@@ -133,6 +133,12 @@ public:
         return a.m().is_nonpos(a);
     }
 
+    friend _scoped_numeral abs(_scoped_numeral const& a) {
+        _scoped_numeral res(a);
+        a.m().abs(res);
+        return res;
+    }
+
     void neg() {
         m().neg(m_num);
     }

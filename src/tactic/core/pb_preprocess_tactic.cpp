@@ -244,6 +244,7 @@ public:
             expr* arg = args1[0].get();
             bool neg = m.is_not(arg, arg);
             if (!is_uninterp_const(arg)) continue;
+            if (!m_vars.contains(to_app(arg))) continue;
             rec const& r = m_vars.find(to_app(arg));
             unsigned_vector const& pos = neg?r.neg:r.pos;
             for (unsigned j = 0; j < pos.size(); ++j) {
@@ -251,7 +252,8 @@ public:
                 if (k == i) continue;
                 if (!to_ge(g->form(k), args2, coeffs2, k2)) continue;
                 if (subsumes(args1, coeffs1, k1, args2, coeffs2, k2)) {
-                    g->update(k, m.mk_true());
+                    IF_VERBOSE(3, verbose_stream() << "replace " << mk_pp(g->form(k), m) << "\n";);
+                    g->update(k, m.mk_true());                    
                     m_progress = true;
                 }
             }
@@ -518,6 +520,7 @@ private:
         expr_ref tmp1(m), tmp2(m);
         expr* fml1 = g->form(idx1);
         expr* fml2 = g->form(idx2);
+        TRACE("pb", tout << mk_pp(fml1, m) << " " << mk_pp(fml2, m) << "\n";);
         expr_ref_vector args1(m), args2(m);
         vector<rational> coeffs1, coeffs2;        
         rational k1, k2;
@@ -533,6 +536,7 @@ private:
             m.is_not(x, x);
             if (!is_app(x)) return;
             if (!m_vars.contains(to_app(x))) return;            
+            TRACE("pb", tout << mk_pp(x, m) << "\n";);
             rec const& r = m_vars.find(to_app(x));
             if (r.pos.size() != 1 || r.neg.size() != 1) return;
             if (r.pos[0] != idx2 && r.neg[0] != idx2) return;
@@ -632,13 +636,17 @@ private:
         m_r.set_substitution(&sub);        
         for (unsigned i = 0; i < positions.size(); ++i) {
             unsigned idx = positions[i];
-            expr* f = g->form(idx);
+            expr_ref f(m);
+            f = g->form(idx);
             if (!m.is_true(f)) {
                 m_r(f, tmp);
-                TRACE("pb", tout << mk_pp(f, m) << " -> " << tmp 
-                      << " by " << mk_pp(e, m) << " |-> " << mk_pp(v, m) << "\n";);
-                g->update(idx, tmp); // proof & dependencies.
-                m_progress = true;
+                if (tmp != f) {
+                    TRACE("pb", tout << mk_pp(f, m) << " -> " << tmp 
+                          << " by " << mk_pp(e, m) << " |-> " << mk_pp(v, m) << "\n";);
+                    IF_VERBOSE(3, verbose_stream() << "replace " << mk_pp(f, m) << " -> " << tmp << "\n";);
+                    g->update(idx, tmp); // proof & dependencies.
+                    m_progress = true;
+                }
             }
         }
         m_r.set_substitution(0);
@@ -653,7 +661,7 @@ private:
             bool found = false;
             for (unsigned j = 0; !found && j < args2.size(); ++j) {
                 if (args1[i] == args2[j]) {
-                    if (coeffs1[1] > coeffs2[j]) return false;
+                    if (coeffs1[i] > coeffs2[j]) return false;
                     found = true;
                 }
             }

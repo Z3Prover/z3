@@ -15,6 +15,7 @@ def init_project_def():
     add_lib('sat', ['util'])
     add_lib('nlsat', ['polynomial', 'sat'])
     add_lib('hilbert', ['util'], 'math/hilbert')
+    add_lib('simplex', ['util'], 'math/simplex')
     add_lib('interval', ['util'], 'math/interval')
     add_lib('realclosure', ['interval'], 'math/realclosure')
     add_lib('subpaving', ['interval'], 'math/subpaving')
@@ -75,7 +76,7 @@ def init_project_def():
     add_lib('api', ['portfolio', 'user_plugin', 'smtparser', 'realclosure','interp','opt'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
     add_exe('shell', ['api', 'sat', 'extra_cmds','opt'], exe_name='z3')
-    add_exe('test', ['api', 'fuzzing'], exe_name='test-z3', install=False)
+    add_exe('test', ['api', 'fuzzing', 'simplex'], exe_name='test-z3', install=False)
     add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', 
             reexports=['api'], 
             dll_name='libz3', 

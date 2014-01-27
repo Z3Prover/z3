@@ -1359,8 +1359,8 @@ namespace smt {
                 SASSERT(valid_row_assignment());
                 SASSERT(satisfy_bounds());
                 result = skipped_row?BEST_EFFORT:OPTIMIZED;
-                break;
-            }
+                break; 
+           }
 
             if (x_i == null_theory_var) {
                 // can increase/decrease x_j as much as we want.
