@@ -36,6 +36,7 @@ Notes:
 #include "mpq_inf.h"
 #include "heap.h"
 #include "lbool.h"
+#include "uint_set.h"
 
 namespace simplex {
 
@@ -84,7 +85,7 @@ namespace simplex {
         };
 
         static const var_t null_var = UINT_MAX;
-        matrix                      M;
+        mutable matrix              M;
         unsigned                    m_max_iterations;
         volatile bool               m_cancel;
         var_heap                    m_to_patch;
@@ -93,14 +94,17 @@ namespace simplex {
         vector<var_info>            m_vars;
         svector<var_t>              m_row2base;
         bool                        m_bland;
+        unsigned                    m_blands_rule_threshold;
         random_gen                  m_random;
+        uint_set                    m_left_basis;
 
     public:
         simplex():
             m_max_iterations(UINT_MAX),
             m_cancel(false),
             m_to_patch(1024),
-            m_bland(false) {}
+            m_bland(false),
+            m_blands_rule_threshold(1000) {}
 
         typedef typename matrix::row row;
         typedef typename matrix::row_iterator row_iterator;
@@ -117,7 +121,7 @@ namespace simplex {
         void  set_cancel(bool f) { m_cancel = f; }
         void  set_max_iterations(unsigned m) { m_max_iterations = m; }
         lbool make_feasible();
-        lbool optimize(var_t var);
+        lbool minimize(var_t var);
         eps_numeral const& get_value(var_t v);
         void display(std::ostream& out) const;
 
@@ -128,17 +132,26 @@ namespace simplex {
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
         var_t select_error_var(bool least);
         // row get_infeasible_row() { }
-        void check_blands_rule(var_t v) { }
+        void check_blands_rule(var_t v, unsigned& num_repeated);
         bool make_var_feasible(var_t x_i);
         void update_and_pivot(var_t x_i, var_t x_j, numeral const& a_ij, eps_numeral const& new_value);
         void update_value(var_t v, eps_numeral const& delta);
         void update_value_core(var_t v, eps_numeral const& delta);
+        void pivot(var_t x_i, var_t x_j, numeral const& a_ij);
+        void move_to_bound(var_t x, bool to_lower);
         var_t select_pivot(var_t x_i, bool is_below, scoped_numeral& out_a_ij);
-        var_t select_blands_pivot(var_t x_i, bool is_below, scoped_numeral& out_a_ij);
-        template<bool is_below>
-        var_t select_pivot_core(var_t x_i, scoped_numeral& out_a_ij);
+        var_t select_pivot_blands(var_t x_i, bool is_below, scoped_numeral& out_a_ij);
+        var_t select_pivot_core(var_t x_i, bool is_below, scoped_numeral& out_a_ij);
         int get_num_non_free_dep_vars(var_t x_j, int best_so_far);
 
+        var_t pick_var_to_leave(var_t x_j, bool inc, scoped_eps_numeral& gain, scoped_numeral& new_a_ij);
+
+
+        void  select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, bool& inc);
+
+
+        bool at_lower(var_t v) const;
+        bool at_upper(var_t v) const;
         bool below_lower(var_t v) const;
         bool above_upper(var_t v) const;
         bool above_lower(var_t v) const;
@@ -150,6 +163,7 @@ namespace simplex {
         bool is_base(var_t x) const { return m_vars[x].m_is_base; }
 
         bool well_formed() const;
+        bool is_feasible() const;
     };
 
 };

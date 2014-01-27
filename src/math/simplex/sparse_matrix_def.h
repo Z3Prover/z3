@@ -448,7 +448,7 @@ namespace simplex {
     */    
     template<typename Ext>
     void sparse_matrix<Ext>::del(row r) {
-        _row& rw = r.id();
+        _row& rw = m_rows[r.id()];
         for (unsigned i = 0; i < rw.m_entries.size(); ++i) {
             _row_entry& e = rw.m_entries[i];
             if (!e.is_dead()) {
@@ -561,12 +561,12 @@ namespace simplex {
        \brief display method
     */    
     template<typename Ext>
-    void sparse_matrix<Ext>::display(std::ostream& out) const {
+    void sparse_matrix<Ext>::display(std::ostream& out) {
         for (unsigned i = 0; i < m_rows.size(); ++i) {
             if (m_rows[i].size() == 0) continue;
             row_iterator it = row_begin(row(i)), end = row_end(row(i)); 
             for (; it != end; ++it) {
-                m.display(out, it->m_coeff)
+                m.display(out, it->m_coeff);
                 out << "*v" << it->m_var << " ";
             }
             out << "\n";

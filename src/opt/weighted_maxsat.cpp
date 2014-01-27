@@ -867,6 +867,7 @@ namespace opt {
                 m_upper += w;
                 if (wmax < w) wmax = w;
                 b = m.mk_fresh_const("b", m.mk_bool_sort());
+                block.push_back(b);
                 expr* bb = b;
                 s.mc().insert(b->get_decl());
                 a = m.mk_fresh_const("a", m.mk_bool_sort());

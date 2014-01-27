@@ -239,6 +239,12 @@ public:
         m.neg(a.second);
     }
 
+    void abs(mpq_inf & a) {
+        if (is_neg(a)) {
+            neg(a);
+        }
+    }
+
     void ceil(mpq_inf const & a, mpq & b) {
         if (m.is_int(a.first)) {
             // special cases for  k - delta*epsilon where k is an integer
