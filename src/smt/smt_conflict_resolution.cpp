@@ -759,7 +759,8 @@ namespace smt {
         app * fact     = to_app(m_manager.get_fact(pr));
         app * n1_owner = n1->get_owner();
         app * n2_owner = n2->get_owner();
-        if (fact->get_num_args() != 2 || (fact->get_arg(0) != n2_owner && fact->get_arg(1) != n2_owner)) {
+        bool is_eq = m_manager.is_eq(fact) || m_manager.is_iff(fact);
+        if (!is_eq || (fact->get_arg(0) != n2_owner && fact->get_arg(1) != n2_owner)) {
             CTRACE("norm_eq_proof_bug", !m_ctx.is_true(n2) && !m_ctx.is_false(n2),
                    tout << "n1: #" << n1->get_owner_id() << ", n2: #" << n2->get_owner_id() << "\n";
                    if (fact->get_num_args() == 2) {

@@ -139,6 +139,11 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FLOAT_IS_SIGN_MINUS: m_conv.mk_is_sign_minus(f, num, args, result); return BR_DONE;
             case OP_TO_FLOAT: m_conv.mk_to_float(f, num, args, result); return BR_DONE;
             case OP_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_FP: m_conv.mk_fp(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_TO_FP_UNSIGNED: m_conv.mk_to_fp_unsigned(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_TO_UBV: m_conv.mk_to_ubv(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
             default:
                 TRACE("fpa2bv", tout << "unsupported operator: " << f->get_name() << "\n";
                       for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);

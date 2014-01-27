@@ -72,6 +72,12 @@ enum float_op_kind {
 
     OP_TO_FLOAT,
     OP_TO_IEEE_BV,
+
+    OP_FLOAT_FP,
+    OP_FLOAT_TO_FP_UNSIGNED,
+    OP_FLOAT_TO_UBV,
+    OP_FLOAT_TO_SBV,
+    OP_FLOAT_TO_REAL,
     
     LAST_FLOAT_OP
 };
@@ -125,7 +131,17 @@ class float_decl_plugin : public decl_plugin {
                             unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                               unsigned arity, sort * const * domain, sort * range);
-
+    func_decl * mk_from3bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                           unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_to_fp_unsigned(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                  unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_to_ubv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_to_sbv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_to_real(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                              unsigned arity, sort * const * domain, sort * range);
+    
     virtual void set_manager(ast_manager * m, family_id id);
     unsigned mk_id(mpf const & v);
     void recycled_id(unsigned id);
