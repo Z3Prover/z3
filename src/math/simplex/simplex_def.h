@@ -29,9 +29,13 @@ namespace simplex {
             for (unsigned i = 0; !found && i < num_vars; ++i) found = vars[i] == base;
             SASSERT(found);
             );
+        scoped_numeral base_coeff(m);
         row r = M.mk_row();
         for (unsigned i = 0; i < num_vars; ++i) {
             M.add(r, coeffs[i], vars[i]);
+            if (vars[i] == base) {
+                m.set(base_coeff, coeffs[i]);
+            }
         }
         while (m_row2base.size() <= r.id()) {
             m_row2base.push_back(null_var);
@@ -39,6 +43,7 @@ namespace simplex {
         m_row2base[r.id()] = base;
         m_vars[base].m_base2row = r.id();
         m_vars[base].m_is_base = true;
+        m.set(m_vars[base].m_base_coeff, base_coeff); 
         return r;
     }
 
@@ -54,7 +59,8 @@ namespace simplex {
         var_info& vi = m_vars[var];
         em.set(vi.m_lower, b);
         vi.m_lower_valid = true;
-        if (em.lt(vi.m_value, b)) {
+        SASSERT(!vi.m_upper_valid || em.le(b, vi.m_upper));
+        if (!vi.m_is_base && em.lt(vi.m_value, b)) {
             scoped_eps_numeral delta(em);
             em.sub(b, vi.m_value, delta);
             update_value(var, delta);
@@ -66,7 +72,8 @@ namespace simplex {
         var_info& vi = m_vars[var];
         em.set(vi.m_upper, b);
         vi.m_upper_valid = true;
-        if (em.gt(vi.m_value, b)) {
+        SASSERT(!vi.m_lower_valid || em.le(vi.m_lower, b));
+        if (!vi.m_is_base && em.gt(vi.m_value, b)) {
             scoped_eps_numeral delta(em);
             em.sub(b, vi.m_value, delta);
             update_value(var, delta);
@@ -102,13 +109,13 @@ namespace simplex {
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             var_info const& vi = m_vars[i];
             out << "v" << i << " ";
-            if (vi.m_is_base) out << "b:" << vi.m_base2row << " ";
             out << em.to_string(vi.m_value);
             out << " [";
             if (vi.m_lower_valid) out << em.to_string(vi.m_lower); else out << "-oo";
             out << ":";
             if (vi.m_upper_valid) out << em.to_string(vi.m_upper); else out << "oo";
             out << "]";
+            if (vi.m_is_base) out << " b:" << vi.m_base2row;
             out << "\n";
         }
     }
@@ -176,8 +183,9 @@ namespace simplex {
         var_info& x_iI = m_vars[x_i];
         var_info& x_jI = m_vars[x_j];
         unsigned r_i = x_iI.m_base2row;
-        x_jI.m_base2row = r_i;
         m_row2base[r_i] = x_j;
+        x_jI.m_base2row = r_i;
+        m.set(x_jI.m_base_coeff, a_ij);
         x_jI.m_is_base = true;
         x_iI.m_is_base = false;
         if (outside_bounds(x_j)) {
