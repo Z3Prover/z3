@@ -182,6 +182,8 @@ public:
     mpf_exp_t mk_max_exp(unsigned ebits);
     mpf_exp_t mk_min_exp(unsigned ebits);
 
+    mpf_exp_t unbias_exp(unsigned ebits, mpf_exp_t biased_exponent);
+
     /**
        \brief Return the biggest k s.t. 2^k <= a.
        

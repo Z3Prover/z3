@@ -122,7 +122,13 @@ public:
     void mk_is_subnormal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void mk_to_float(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
+    void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+
+    void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     obj_map<func_decl, expr*> const & const2bv() const { return m_const2bv; }
     obj_map<func_decl, expr*> const & rm_const2bv() const { return m_rm_const2bv; }

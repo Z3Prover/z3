@@ -19,6 +19,8 @@ Revision History:
 
 #include <assert.h>
 
+#include <algorithm>
+
 #include "iz3scopes.h"
 
 

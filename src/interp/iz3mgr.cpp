@@ -172,7 +172,7 @@ iz3mgr::ast iz3mgr::make_quant(opr op, const std::vector<ast> &bvs, ast &body){
 
 
   std::vector<symbol> names;
-  std::vector<sort *> types;
+  std::vector<class sort *> types;
   std::vector<expr *>  bound_asts;
   unsigned num_bound = bvs.size();
 
@@ -485,7 +485,7 @@ void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<ast>& coeffs){
   get_farkas_coeffs(proof,rats);
   coeffs.resize(rats.size());
   for(unsigned i = 0; i < rats.size(); i++){
-    sort *is = m().mk_sort(m_arith_fid, INT_SORT);
+    class sort *is = m().mk_sort(m_arith_fid, INT_SORT);
     ast coeff = cook(m_arith_util.mk_numeral(rats[i],is));
     coeffs[i] = coeff;
   }

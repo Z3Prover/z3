@@ -17,6 +17,7 @@ Revision History:
 --*/
 #include<iostream>
 #include<sstream>
+#include<vector>
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"

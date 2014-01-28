@@ -58,20 +58,20 @@ namespace stl_ext {
 class free_func_visitor {
   ast_manager& m;
   func_decl_set m_funcs;
-  obj_hashtable<sort> m_sorts;
+  obj_hashtable<class sort> m_sorts;
 public:        
   free_func_visitor(ast_manager& m): m(m) {}
   void operator()(var * n)        { }
   void operator()(app * n)        { 
     m_funcs.insert(n->get_decl()); 
-    sort* s = m.get_sort(n);
+    class sort* s = m.get_sort(n);
     if (s->get_family_id() == null_family_id) {
       m_sorts.insert(s);
     }
   }
   void operator()(quantifier * n) { }
   func_decl_set& funcs() { return m_funcs; }
-  obj_hashtable<sort>& sorts() { return m_sorts; }
+  obj_hashtable<class sort>& sorts() { return m_sorts; }
 };
 
 class iz3pp_helper : public iz3mgr {
@@ -146,8 +146,8 @@ void iz3pp(ast_manager &m,
   func_decl_set &funcs = visitor.funcs();
   func_decl_set::iterator it  = funcs.begin(), end = funcs.end();
   
-  obj_hashtable<sort>& sorts = visitor.sorts();
-  obj_hashtable<sort>::iterator sit = sorts.begin(), send = sorts.end();
+  obj_hashtable<class sort>& sorts = visitor.sorts();
+  obj_hashtable<class sort>::iterator sit = sorts.begin(), send = sorts.end();
   
 
   
