@@ -66,7 +66,7 @@ Revision History:
 namespace stl_ext {
   template <>
     class hash<std::string> {
-    stl_ext::hash<char *> H;
+    stl_ext::hash<const char *> H;
   public:
     size_t operator()(const std::string &s) const {
       return H(s.c_str());

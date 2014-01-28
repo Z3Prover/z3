@@ -22,6 +22,7 @@ Revision History:
 
 
 #include <assert.h>
+#include <vector>
 #include "iz3hash.h"
 
 #include"well_sorted.h"
