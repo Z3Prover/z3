@@ -3661,7 +3661,7 @@ namespace Duality {
 	for(unsigned j = 0; j < outs.size(); j++)
 	  for(unsigned k = 0; k < outs[j]->Children.size(); k++)
 	    chs.push_back(outs[j]->Children[k]);
-	Edge *fedge = CreateEdge(node,tr,chs);
+	CreateEdge(node,tr,chs);
 	for(unsigned j = 0; j < outs.size(); j++)
 	  edges_to_delete.insert(outs[j]);
       }

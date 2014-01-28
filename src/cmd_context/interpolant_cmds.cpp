@@ -139,10 +139,11 @@ static void get_interpolant(cmd_context & ctx, expr * t, params_ref &m_params) {
   get_interpolant_and_maybe_check(ctx,t,m_params,false);
 }
 
+#if 0
 static void get_and_check_interpolant(cmd_context & ctx, params_ref &m_params, expr * t) {
   get_interpolant_and_maybe_check(ctx,t,m_params,true);
 }
-
+#endif
 
 static void compute_interpolant_and_maybe_check(cmd_context & ctx, expr * t, params_ref &m_params, bool check){
     

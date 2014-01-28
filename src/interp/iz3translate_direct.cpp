@@ -58,7 +58,9 @@ namespace stl_ext {
 
 
 static int lemma_count = 0;
+#if 0
 static int nll_lemma_count = 0;
+#endif
 #define SHOW_LEMMA_COUNT -1
 
 // One half of a resolution. We need this to distinguish
