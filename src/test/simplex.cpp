@@ -78,9 +78,6 @@ void add_row(Simplex& S, vector<R> const& _v, R const& _b, bool is_eq = false) {
     mpq_inf one(mpq(1),mpq(0));
     mpq_inf zero(mpq(0),mpq(0));
     SASSERT(vars.size() == coeffs.size());
-    std::cout << coeffs.size() << " " << nv << "\n";
-    for (unsigned i = 0; i < vars.size(); ++i) std::cout << vars[i] << " ";
-    std::cout << "\n";
     S.set_lower(nv, zero);
     if (is_eq) S.set_upper(nv, zero);
     S.set_lower(nv+1, one);
@@ -119,6 +116,16 @@ static void test3() {
     feas(S);
 }
 
+static void test4() {
+    Simplex S;
+    add_row(S, vec(1, 0), R(1));
+    add_row(S, vec(0, -1), R(-1));
+    add_row(S, vec(1, 1), R(1), true);
+    feas(S);
+}
+
+
+
 void tst_simplex() {
     Simplex S;
 
@@ -153,4 +160,5 @@ void tst_simplex() {
     test1();
     test2();
     test3();
+    test4();
 }

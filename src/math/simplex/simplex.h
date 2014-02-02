@@ -97,6 +97,7 @@ namespace simplex {
         unsigned                    m_blands_rule_threshold;
         random_gen                  m_random;
         uint_set                    m_left_basis;
+        unsigned                    m_infeasible_var;
 
     public:
         simplex():
@@ -112,6 +113,7 @@ namespace simplex {
 
         void  ensure_var(var_t v);
         row   add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
+        row   get_infeasible_row();
         void  del_row(row const& r);
         void  set_lower(var_t var, eps_numeral const& b);
         void  set_upper(var_t var, eps_numeral const& b);

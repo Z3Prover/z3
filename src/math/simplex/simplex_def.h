@@ -24,11 +24,6 @@ namespace simplex {
     template<typename Ext>
     typename simplex<Ext>::row 
     simplex<Ext>::add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
-        DEBUG_CODE(
-            bool found = false;
-            for (unsigned i = 0; !found && i < num_vars; ++i) found = vars[i] == base;
-            SASSERT(found);
-            );
         scoped_numeral base_coeff(m);
         scoped_eps_numeral value(em), tmp(em);
         row r = M.mk_row();
@@ -49,7 +44,7 @@ namespace simplex {
         em.neg(value);
         em.div(value, base_coeff, value);
         SASSERT(!m.is_zero(base_coeff));
-        SASSERT(!m_vars[base].m_is_base);
+        SASSERT(!is_base(base));
         while (m_row2base.size() <= r.id()) {
             m_row2base.push_back(null_var);
         }
@@ -61,6 +56,14 @@ namespace simplex {
         add_patch(base);
         SASSERT(well_formed_row(r));
         return r;
+    }
+
+    template<typename Ext>
+    typename simplex<Ext>::row 
+    simplex<Ext>::get_infeasible_row() {
+        SASSERT(is_base(m_infeasible_var));
+        unsigned row_id = m_vars[m_infeasible_var].m_base2row;
+        return row(row_id);
     }
 
     template<typename Ext>
@@ -140,10 +143,10 @@ namespace simplex {
             if (vi.m_upper_valid) out << em.to_string(vi.m_upper); else out << "oo";
             out << "] ";
             if (vi.m_is_base) out << "b:" << vi.m_base2row << " ";
-            col_iterator it = M.col_begin(i), end = M.col_end(i);
-            for (; it != end; ++it) {
-                out << "r" << it.get_row().id() << " ";
-            }
+            //col_iterator it = M.col_begin(i), end = M.col_end(i);
+            //for (; it != end; ++it) {
+            //    out << "r" << it.get_row().id() << " ";
+            //}
             out << "\n";
         }
     }
@@ -159,6 +162,7 @@ namespace simplex {
     template<typename Ext>
     lbool simplex<Ext>::make_feasible() {
         m_left_basis.reset();
+        m_infeasible_var = null_var;
         unsigned num_iterations = 0;
         unsigned num_repeated = 0;
         var_t v = null_var;
@@ -169,6 +173,7 @@ namespace simplex {
             }
             check_blands_rule(v, num_repeated);
             if (!make_var_feasible(v)) {
+                m_infeasible_var = v;
                 return l_false;
             }
             ++num_iterations;
@@ -529,6 +534,7 @@ namespace simplex {
 
             pivot(x_i, x_j, a_ij);
             move_to_bound(x_i, inc == m.is_pos(a_ij));            
+            SASSERT(well_formed_row(row(m_vars[x_j].m_base2row)));
         }
         return l_true;
     }
