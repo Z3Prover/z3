@@ -134,31 +134,18 @@ namespace simplex {
        \brief Fill the map var -> pos/idx
     */
     template<typename Ext>
-    inline void sparse_matrix<Ext>::_row::save_var_pos(svector<int> & result_map) const {
+    inline void sparse_matrix<Ext>::_row::save_var_pos(svector<int> & result_map, unsigned_vector& idxs) const {
         typename vector<_row_entry>::const_iterator it  = m_entries.begin();
         typename vector<_row_entry>::const_iterator end = m_entries.end();
         unsigned idx = 0;
         for (; it != end; ++it, ++idx) {
             if (!it->is_dead()) {
                 result_map[it->m_var] = idx;
+                idxs.push_back(it->m_var);
             }
         }
     }
 
-    /**
-       \brief Reset the map var -> pos/idx. That is for all variables v in the row, set result[v] = -1
-       This method can be viewed as the "inverse" of save_var_pos.
-    */
-    template<typename Ext>
-    inline void sparse_matrix<Ext>::_row::reset_var_pos(svector<int> & result_map) const {
-        typename vector<_row_entry>::const_iterator it  = m_entries.begin();
-        typename vector<_row_entry>::const_iterator end = m_entries.end();
-        for (; it != end; ++it) {
-            if (!it->is_dead()) {
-                result_map[it->m_var] = -1;
-            }
-        }
-    }
 
     template<typename Ext>
     int sparse_matrix<Ext>::_row::get_idx_of(var_t v) const {
@@ -316,7 +303,7 @@ namespace simplex {
     }
 
     template<typename Ext>
-    void sparse_matrix<Ext>::add(row dst, numeral const& n, var_t v) {
+    void sparse_matrix<Ext>::add_var(row dst, numeral const& n, var_t v) {
         _row& r   = m_rows[dst.id()];
         column& c = m_columns[v];
         unsigned r_idx;
@@ -339,7 +326,7 @@ namespace simplex {
         _row & r1 = m_rows[row1.id()];
         _row & r2 = m_rows[row2.id()];
         
-        r1.save_var_pos(m_var_pos);
+        r1.save_var_pos(m_var_pos, m_var_pos_idx);
 
         // 
         // loop over variables in row2,
@@ -376,7 +363,6 @@ namespace simplex {
                 }                                                       \
             }                                                           \
         }                                                               \
-        
         ((void) 0)
 
         if (m.is_one(n)) {
@@ -394,7 +380,11 @@ namespace simplex {
                     m.add(r_entry.m_coeff, tmp, r_entry.m_coeff));
         }
         
-        r1.reset_var_pos(m_var_pos);
+        // reset m_var_pos:
+        for (unsigned i = 0; i < m_var_pos_idx.size(); ++i) {
+            m_var_pos[m_var_pos_idx[i]] = -1;
+        }
+        m_var_pos_idx.reset();
         r1.compress_if_needed(m, m_columns);
     }
     

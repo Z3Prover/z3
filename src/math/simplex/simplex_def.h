@@ -30,13 +30,26 @@ namespace simplex {
             SASSERT(found);
             );
         scoped_numeral base_coeff(m);
+        scoped_eps_numeral value(em), tmp(em);
         row r = M.mk_row();
         for (unsigned i = 0; i < num_vars; ++i) {
-            M.add(r, coeffs[i], vars[i]);
-            if (vars[i] == base) {
-                m.set(base_coeff, coeffs[i]);
+            if (!m.is_zero(coeffs[i])) {
+                var_t v = vars[i];
+                M.add_var(r, coeffs[i], v);
+                if (v == base) {
+                    m.set(base_coeff, coeffs[i]);
+                }
+                else {
+                    SASSERT(!is_base(v));
+                    em.mul(m_vars[v].m_value, coeffs[i], tmp);
+                    em.add(value, tmp, value);
+                }
             }
         }
+        em.neg(value);
+        em.div(value, base_coeff, value);
+        SASSERT(!m.is_zero(base_coeff));
+        SASSERT(!m_vars[base].m_is_base);
         while (m_row2base.size() <= r.id()) {
             m_row2base.push_back(null_var);
         }
@@ -44,7 +57,18 @@ namespace simplex {
         m_vars[base].m_base2row = r.id();
         m_vars[base].m_is_base = true;
         m.set(m_vars[base].m_base_coeff, base_coeff); 
+        em.set(m_vars[base].m_value, value);
+        add_patch(base);
+        SASSERT(well_formed_row(r));
         return r;
+    }
+
+    template<typename Ext>
+    void simplex<Ext>::add_patch(var_t v) {
+        SASSERT(is_base(v));
+        if (outside_bounds(v)) {
+            m_to_patch.insert(v);
+        }
     }
 
     template<typename Ext>
@@ -114,8 +138,12 @@ namespace simplex {
             if (vi.m_lower_valid) out << em.to_string(vi.m_lower); else out << "-oo";
             out << ":";
             if (vi.m_upper_valid) out << em.to_string(vi.m_upper); else out << "oo";
-            out << "]";
-            if (vi.m_is_base) out << " b:" << vi.m_base2row;
+            out << "] ";
+            if (vi.m_is_base) out << "b:" << vi.m_base2row << " ";
+            col_iterator it = M.col_begin(i), end = M.col_end(i);
+            for (; it != end; ++it) {
+                out << "r" << it.get_row().id() << " ";
+            }
             out << "\n";
         }
     }
@@ -134,6 +162,7 @@ namespace simplex {
         unsigned num_iterations = 0;
         unsigned num_repeated = 0;
         var_t v = null_var;
+        SASSERT(well_formed());
         while ((v = select_var_to_fix()) != null_var) {
             if (m_cancel || num_iterations > m_max_iterations) {
                 return l_undef;
@@ -143,8 +172,8 @@ namespace simplex {
                 return l_false;
             }
             ++num_iterations;
-            SASSERT(well_formed());
         }
+        SASSERT(well_formed());
         return l_true;
     }
 
@@ -188,18 +217,18 @@ namespace simplex {
         m.set(x_jI.m_base_coeff, a_ij);
         x_jI.m_is_base = true;
         x_iI.m_is_base = false;
-        if (outside_bounds(x_j)) {
-            m_to_patch.insert(x_j);
-        }
+        add_patch(x_j);
+        SASSERT(well_formed_row(row(r_i)));
+
         col_iterator it = M.col_begin(x_j), end = M.col_end(x_j);
         scoped_numeral a_kj(m), g(m);
         for (; it != end; ++it) {
             row r_k = it.get_row();
-            if (r_k != r_i) {
+            if (r_k.id() != r_i) {
                 a_kj = it.get_row_entry().m_coeff;
                 a_kj.neg();
                 M.mul(r_k, a_ij);
-                M.add(r_k, a_kj, r_i);
+                M.add(r_k, a_kj, row(r_i));
                 var_t s = m_row2base[r_k.id()];
                 numeral& coeff = m_vars[s].m_base_coeff;
                 m.mul(coeff, a_ij, coeff);
@@ -207,6 +236,7 @@ namespace simplex {
                 if (!m.is_one(g)) {
                     m.div(coeff, g, coeff);
                 }
+                SASSERT(well_formed_row(row(r_k)));
             }
         }
     }
@@ -240,8 +270,8 @@ namespace simplex {
     void simplex<Ext>::update_value_core(var_t v, eps_numeral const& delta) {
         eps_numeral& val = m_vars[v].m_value;
         em.add(val, delta, val);
-        if (is_base(v) && outside_bounds(v)) {
-            m_to_patch.insert(v);
+        if (is_base(v)) {
+            add_patch(v);
         }
     }
 
@@ -705,18 +735,7 @@ namespace simplex {
             var_t s = m_row2base[i];
             if (s == null_var) continue;
             SASSERT(i == m_vars[s].m_base2row); 
-            //
-            // TBD: extract coefficient of base variable and compare
-            // with m_vars[s].m_base_coeff;
-            //
-            // check that sum of assignments add up to 0 for every row.
-            row_iterator it = M.row_begin(row(i)), end = M.row_end(row(i));
-            scoped_eps_numeral sum(em), tmp(em);
-            for (; it != end; ++it) {
-                em.mul(m_vars[it->m_var].m_value, it->m_coeff, tmp);
-                sum += tmp;
-            }
-            SASSERT(em.is_zero(sum));
+            SASSERT(well_formed_row(row(i)));            
         }
         return true;
     }
@@ -726,6 +745,25 @@ namespace simplex {
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             if (below_lower(i) || above_upper(i)) return false;            
         }
+        return true;
+    }
+
+    template<typename Ext>
+    bool simplex<Ext>::well_formed_row(row const& r) const {
+
+        //
+        // TBD: extract coefficient of base variable and compare
+        // with m_vars[s].m_base_coeff;
+        //
+        // check that sum of assignments add up to 0 for every row.
+        row_iterator it = M.row_begin(r), end = M.row_end(r);
+        scoped_eps_numeral sum(em), tmp(em);
+        for (; it != end; ++it) {
+            em.mul(m_vars[it->m_var].m_value, it->m_coeff, tmp);
+            sum += tmp;
+        }
+        SASSERT(em.is_zero(sum));
+
         return true;
     }
 

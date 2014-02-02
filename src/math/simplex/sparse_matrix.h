@@ -92,8 +92,7 @@ namespace simplex {
             void del_row_entry(unsigned idx);
             void compress(manager& m, vector<column> & cols); 
             void compress_if_needed(manager& m, vector<column> & cols);
-            void save_var_pos(svector<int> & result_map) const;
-            void reset_var_pos(svector<int> & result_map) const;
+            void save_var_pos(svector<int> & result_map, unsigned_vector& idxs) const;
             bool is_coeff_of(var_t v, numeral const & expected) const;
             int get_idx_of(var_t v) const;
         };
@@ -125,6 +124,7 @@ namespace simplex {
         svector<unsigned>       m_dead_rows;        // rows to recycle
         vector<column>          m_columns;          // per var
         svector<int>            m_var_pos;          // temporary map from variables to positions in row
+        unsigned_vector         m_var_pos_idx;      // indices in m_var_pos
 
         bool well_formed_row(unsigned row_id) const;
         bool well_formed_column(unsigned column_id) const;
@@ -138,7 +138,7 @@ namespace simplex {
         class row {
             unsigned m_id;            
         public:
-            row(unsigned r):m_id(r) {}
+            explicit row(unsigned r):m_id(r) {}
             row():m_id(UINT_MAX) {}
             bool operator!=(row const& other) const {
                 return m_id != other.m_id;
@@ -149,7 +149,7 @@ namespace simplex {
         void ensure_var(var_t v);
         
         row mk_row();
-        void add(row r, numeral const& n, var_t var);
+        void add_var(row r, numeral const& n, var_t var);
         void add(row r, numeral const& n, row src);
         void mul(row r, numeral const& n);
         void neg(row r);
