@@ -677,8 +677,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
   
   ast rotate_sum_rec(const ast &pl, const ast &pf, ast &Bproves, ast &ineq){
-    if(pf == pl)
+    if(pf == pl){
+      if(sym(ineq) == normal)
+	return my_implies(Bproves,ineq);
       return my_implies(Bproves,simplify_ineq(ineq));
+    }
     if(op(pf) == Uninterpreted && sym(pf) == sum){
       if(arg(pf,2) == pl){
 	ast Aproves = mk_true();
@@ -829,6 +832,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast equa = sep_cond(args[0],cond);
     if(is_equivrel_chain(equa))
       return my_implies(cond,reverse_chain(equa));
+    if(is_negation_chain(equa))
+      return commute_negation_chain(equa);
     throw cannot_simplify();
   }
 
@@ -1441,6 +1446,50 @@ class iz3proof_itp_impl : public iz3proof_itp {
     if(is_true(rest))
       return op(rewrite_rhs(last)) == Not;
     return is_negation_chain(rest);
+  }
+
+  ast commute_negation_chain(const ast &chain){
+    if(is_true(chain))
+      return chain;
+    ast last = chain_last(chain);
+    ast rest = chain_rest(chain);
+    if(is_true(rest)){
+      ast old = rewrite_rhs(last);
+      if(!(op(old) == Not))
+	throw "bad negative equality chain";
+      ast equ = arg(old,0);
+      if(!is_equivrel(equ))
+	throw "bad negative equality chain";
+      last = rewrite_update_rhs(last,top_pos,make(Not,make(op(equ),arg(equ,1),arg(equ,0))),make(True));
+      return chain_cons(rest,last);
+    }
+    ast pos = rewrite_pos(last);
+    if(pos == top_pos)
+      throw "bad negative equality chain";
+    int idx = pos_arg(pos);
+    if(idx != 0)
+      throw "bad negative equality chain";
+    pos = arg(pos,1);
+    if(pos == top_pos){
+      ast lhs = rewrite_lhs(last);
+      ast rhs = rewrite_rhs(last);
+      if(op(lhs) != Equal || op(rhs) != Equal)
+	throw "bad negative equality chain";
+      last = make_rewrite(rewrite_side(last),rewrite_pos(last),rewrite_cond(last),
+			  make(Iff,make(Equal,arg(lhs,1),arg(lhs,0)),make(Equal,arg(rhs,1),arg(rhs,0))));
+    }
+    else {
+      idx = pos_arg(pos);
+      if(idx == 0)
+	idx = 1;
+      else if(idx == 1)
+	idx = 0;
+      else
+	throw "bad negative equality chain";
+      pos = pos_add(0,pos_add(idx,arg(pos,1)));
+      last = make_rewrite(rewrite_side(last),pos,rewrite_cond(last),rewrite_equ(last));
+    }
+    return chain_cons(commute_negation_chain(rest),last);
   }
 
   // split a rewrite chain into head and tail at last top-level rewrite
@@ -2240,10 +2289,19 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	throw proof_error();
       }
     }
-    Qrhs = make(Times,c,Qrhs);
+#if 0
     bool pstrict = op(P) == Lt, strict = pstrict || qstrict;
     if(pstrict && qstrict && round_off)
       Qrhs = make(Sub,Qrhs,make_int(rational(1)));
+#else
+    bool pstrict = op(P) == Lt;
+    if(qstrict && round_off && (pstrict || !(c == make_int(rational(1))))){
+      Qrhs = make(Sub,Qrhs,make_int(rational(1)));
+      qstrict = false;
+    }
+    Qrhs = make(Times,c,Qrhs);
+    bool strict = pstrict || qstrict;
+#endif
     if(strict)
       P = make(Lt,arg(P,0),make(Plus,arg(P,1),Qrhs));
     else
@@ -2427,7 +2485,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
       return e; // this term occurs in range, so it's O.K.
 
     if(is_array_type(get_type(e)))
-      throw "help!";
+      std::cerr << "WARNING: array quantifier\n";
 
     // choose a frame for the constraint that is close to range
     int frame = pv->range_near(pv->ast_scope(e),rng);

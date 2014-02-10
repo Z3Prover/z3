@@ -44,11 +44,16 @@ Revision History:
 // #define TOP_DOWN
 // #define EFFORT_BOUNDED_STRAT
 #define SKIP_UNDERAPPROX_NODES
-#define USE_RPFP_CLONE
 // #define KEEP_EXPANSIONS
 // #define USE_CACHING_RPFP
 // #define PROPAGATE_BEFORE_CHECK
+
+#define USE_RPFP_CLONE
 #define USE_NEW_GEN_CANDS
+
+//#define NO_PROPAGATE
+//#define NO_GENERALIZE
+//#define NO_DECISIONS
 
 namespace Duality {
 
@@ -1933,11 +1938,15 @@ namespace Duality {
 	      for(unsigned i = 0; i < expansions.size(); i++){
 		Node *node = expansions[i];
 		tree->SolveSingleNode(top,node);
+#ifdef NO_GENERALIZE
+		node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
+#else
 		if(expansions.size() == 1 && NodeTooComplicated(node))
 		  SimplifyNode(node);
 		else
 		  node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
 		Generalize(node);
+#endif
 		if(RecordUpdate(node))
 		  update_count++;
 		else
@@ -1977,7 +1986,9 @@ namespace Duality {
 	      if(stack.size() == 1)break;
 	      if(prev_level_used){
 		Node *node = stack.back().expansions[0];
+#ifndef NO_PROPAGATE
 		if(!Propagate(node)) break;
+#endif
 		if(!RecordUpdate(node)) break; // shouldn't happen!
 		RemoveUpdateNodesAtCurrentLevel(); // this level is about to be deleted -- remove its children from update list
 		propagated = true;
@@ -2001,9 +2012,11 @@ namespace Duality {
 	    was_sat = true;
 	    tree->Push();
 	    std::vector<Node *> &expansions = stack.back().expansions;
+#ifndef NO_DECISIONS
 	    for(unsigned i = 0; i < expansions.size(); i++){
 	      tree->FixCurrentState(expansions[i]->Outgoing);
 	    }
+#endif
 #if 0
 	    if(tree->slvr().check() == unsat)
 	      throw "help!";

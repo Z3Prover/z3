@@ -684,10 +684,13 @@ void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q, bool round_off){
       throw "not an inequality";
     }
   }
-  Qrhs = make(Times,c,Qrhs);
-  bool pstrict = op(P) == Lt, strict = pstrict || qstrict;
-  if(pstrict && qstrict && round_off)
+  bool pstrict = op(P) == Lt;
+  if(qstrict && round_off && (pstrict || !(c == make_int(rational(1))))){
     Qrhs = make(Sub,Qrhs,make_int(rational(1)));
+    qstrict = false;
+  }
+  Qrhs = make(Times,c,Qrhs);
+  bool strict = pstrict || qstrict;
   if(strict)
     P = make(Lt,arg(P,0),make(Plus,arg(P,1),Qrhs));
   else
