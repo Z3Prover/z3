@@ -263,6 +263,7 @@ class iz3mgr  {
     default:;    
     }
     assert(0);
+    return 0;
   }
 
   ast arg(const ast &t, int i){

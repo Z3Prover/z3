@@ -19,6 +19,12 @@ Revision History:
 
 --*/
 
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#endif
+
 #include "duality.h"
 #include "duality_profiling.h"
 
@@ -26,6 +32,7 @@ Revision History:
 #include <set>
 #include <map>
 #include <list>
+#include <iterator>
 
 // TODO: make these official options or get rid of them
 

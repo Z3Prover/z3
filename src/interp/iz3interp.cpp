@@ -18,6 +18,14 @@ Revision History:
 --*/
 
 /* Copyright 2011 Microsoft Research. */
+
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#pragma warning(disable:4101)
+#endif
+
 #include <assert.h>
 #include <algorithm>
 #include <stdio.h>

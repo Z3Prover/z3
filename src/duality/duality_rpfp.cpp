@@ -21,12 +21,20 @@ Revision History:
 
 
 
-#include "duality.h"
-#include "duality_profiling.h"
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#endif
+
 #include <algorithm>
 #include <fstream>
 #include <set>
 #include <iterator>
+
+
+#include "duality.h"
+#include "duality_profiling.h"
 
 #ifndef WIN32
 // #define Z3OPS

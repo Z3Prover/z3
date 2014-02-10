@@ -38,6 +38,12 @@ Revision History:
 
 // template class symbol_table<family_id>;
 
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#pragma warning(disable:4101)
+#endif
 
 #include "duality.h"
 #include "duality_profiling.h"

@@ -1466,6 +1466,5 @@ namespace std {
   };
 }
 
-
 #endif
 

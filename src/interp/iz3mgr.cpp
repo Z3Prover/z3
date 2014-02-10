@@ -18,6 +18,15 @@ Revision History:
 --*/
 
 
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#pragma warning(disable:4101)
+#pragma warning(disable:4805)
+#pragma warning(disable:4800)
+#endif
+
 #include "iz3mgr.h"
 
 #include <stdio.h>
