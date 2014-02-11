@@ -638,7 +638,13 @@ def is_compiler(given, expected):
 def is_CXX_gpp():
     return is_compiler(CXX, 'g++')
 
+def is_clang_in_gpp_form(cc):
+    version_string = subprocess.check_output([cc, '--version'])
+    return version_string.find('clang') != -1
+
 def is_CXX_clangpp():
+    if is_compiler(CXX, 'g++'):
+        return is_clang_in_gpp_form(CXX)
     return is_compiler(CXX, 'clang++')
 
 def get_cpp_files(path):

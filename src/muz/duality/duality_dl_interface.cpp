@@ -35,10 +35,15 @@ Revision History:
 #include "model_smt2_pp.h"
 #include "model_v2_pp.h"
 #include "fixedpoint_params.hpp"
-#include "scoped_proof.h"
 
 // template class symbol_table<family_id>;
 
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#pragma warning(disable:4101)
+#endif
 
 #include "duality.h"
 #include "duality_profiling.h"
@@ -212,6 +217,9 @@ lbool dl_interface::query(::expr * query) {
   }
   catch (Duality::solver::cancel_exception &exn){
     throw default_exception("duality canceled");
+  }
+  catch (Duality::Solver::Incompleteness &exn){
+    throw default_exception("incompleteness");
   }
   
   // profile!

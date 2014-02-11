@@ -1850,6 +1850,7 @@ func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort 
 
 void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * const * args) const {
     ast_manager& m = const_cast<ast_manager&>(*this);
+
     if (decl->is_associative()) {
         sort * expected = decl->get_domain(0);
         for (unsigned i = 0; i < num_args; i++) {
@@ -1894,7 +1895,18 @@ void ast_manager::check_sorts_core(ast const * n) const {
     if  (n->get_kind() != AST_APP) 
         return; // nothing else to check...
     app const * a = to_app(n);
-    check_sort(a->get_decl(), a->get_num_args(), a->get_args());
+    func_decl* d = a->get_decl();
+    check_sort(d, a->get_num_args(), a->get_args());
+    if (a->get_num_args() == 2 &&
+        !d->is_flat_associative() && 
+        d->is_right_associative()) {
+        check_sorts_core(a->get_arg(1));
+    }
+    if (a->get_num_args() == 2 &&
+        !d->is_flat_associative() && 
+        d->is_left_associative()) {
+        check_sorts_core(a->get_arg(0));
+    }
 }
 
 bool ast_manager::check_sorts(ast const * n) const {

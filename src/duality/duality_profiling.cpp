@@ -25,7 +25,14 @@ Revision History:
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#endif
+
 #include "duality_wrapper.h"
+#include "iz3profiling.h"
 
 namespace Duality {
   
@@ -103,6 +110,7 @@ namespace Duality {
       output_time(*pfs, it->second.t);
       (*pfs) << std::endl;
     }
+    profiling::print(os); // print the interpolation stats
   }
   
   void timer_start(const char *name){

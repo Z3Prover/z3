@@ -73,6 +73,12 @@ public:
     br_status mk_is_sign_minus(expr * arg1, expr_ref & result);
 
     br_status mk_to_ieee_bv(expr * arg1, expr_ref & result);
+
+    br_status mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
+    br_status mk_to_fp_unsigned(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_to_ubv(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_to_sbv(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_to_real(expr * arg1, expr_ref & result);
 };
 
 #endif

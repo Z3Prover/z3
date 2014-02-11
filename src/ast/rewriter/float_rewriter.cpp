@@ -64,6 +64,11 @@ br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_FLOAT_IS_SUBNORMAL: SASSERT(num_args == 1); st = mk_is_subnormal(args[0], result); break;
     case OP_FLOAT_IS_SIGN_MINUS: SASSERT(num_args == 1); st = mk_is_sign_minus(args[0], result); break;
     case OP_TO_IEEE_BV:      SASSERT(num_args == 1); st = mk_to_ieee_bv(args[0], result); break;
+    case OP_FLOAT_FP:        SASSERT(num_args == 3); st = mk_fp(args[0], args[1], args[2], result); break;
+    case OP_FLOAT_TO_FP_UNSIGNED: SASSERT(num_args == 2); st = mk_to_fp_unsigned(args[0], args[1], result); break;
+    case OP_FLOAT_TO_UBV:    SASSERT(num_args == 2); st = mk_to_ubv(args[0], args[1], result); break;
+    case OP_FLOAT_TO_SBV:    SASSERT(num_args == 2); st = mk_to_sbv(args[0], args[1], result); break;
+    case OP_FLOAT_TO_REAL:   SASSERT(num_args == 1); st = mk_to_real(args[0], result); break;
     }
     return st;
 }
@@ -502,5 +507,44 @@ br_status float_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result
 }
 
 br_status float_rewriter::mk_to_ieee_bv(expr * arg1, expr_ref & result) {
+    return BR_FAILED;
+}
+
+br_status float_rewriter::mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {    
+    bv_util bu(m());
+    rational r1, r2, r3;
+    unsigned bvs1, bvs2, bvs3;
+
+    if (bu.is_numeral(arg1, r1, bvs1) && bu.is_numeral(arg2, r2, bvs2) && bu.is_numeral(arg3, r3, bvs3)) {        
+        SASSERT(m_util.fm().mpz_manager().is_one(r2.to_mpq().denominator()));
+        SASSERT(m_util.fm().mpz_manager().is_one(r3.to_mpq().denominator()));
+        SASSERT(m_util.fm().mpz_manager().is_int64(r3.to_mpq().numerator()));
+        scoped_mpf v(m_util.fm());
+        mpf_exp_t biased_exp = m_util.fm().mpz_manager().get_int64(r2.to_mpq().numerator());
+        m_util.fm().set(v, bvs2, bvs3 + 1,
+                        r1.is_one(),
+                        r3.to_mpq().numerator(),
+                        m_util.fm().unbias_exp(bvs2, biased_exp));
+        TRACE("fp_rewriter", tout << "v = " << m_util.fm().to_string(v) << std::endl;);
+        result = m_util.mk_value(v);
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
+br_status float_rewriter::mk_to_fp_unsigned(expr * arg1, expr * arg2, expr_ref & result) {
+    return BR_FAILED;
+}
+
+br_status float_rewriter::mk_to_ubv(expr * arg1, expr * arg2, expr_ref & result) {
+    return BR_FAILED;
+}
+
+br_status float_rewriter::mk_to_sbv(expr * arg1, expr * arg2, expr_ref & result) {
+    return BR_FAILED;
+}
+
+br_status float_rewriter::mk_to_real(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
