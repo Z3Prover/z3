@@ -49,7 +49,7 @@ def init_project_def():
     add_lib('smt_params', ['ast', 'simplifier', 'pattern', 'bit_blaster'], 'smt/params')
     add_lib('proto_model', ['model', 'simplifier', 'smt_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
-                    'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
+                    'substitution', 'grobner', 'euclid', 'simplex', 'proof_checker', 'pattern', 'parser_util'])
     add_lib('user_plugin', ['smt'], 'smt/user_plugin')
     add_lib('bv_tactics', ['tactic', 'bit_blaster'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')

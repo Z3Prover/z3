@@ -24,4 +24,5 @@ void theory_pb_params::updt_params(params_ref const & _p) {
     m_pb_conflict_frequency = p.pb_conflict_frequency();
     m_pb_learn_complements = p.pb_learn_complements();
     m_pb_enable_compilation = p.pb_enable_compilation();
+    m_pb_enable_simplex = p.pb_enable_simplex();
 }

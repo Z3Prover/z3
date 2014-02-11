@@ -24,6 +24,7 @@ Notes:
 #include "pb_decl_plugin.h"
 #include "smt_clause.h"
 #include "theory_pb_params.h"
+#include "simplex.h"
 
 namespace smt {
     class theory_pb : public theory {
@@ -37,6 +38,8 @@ namespace smt {
         class  negate_ineq;
         typedef rational numeral;
         typedef vector<std::pair<literal, numeral> > arg_t;
+        typedef simplex::simplex<simplex::mpz_ext> simplex;
+        typedef simplex::row row;
 
         struct stats {
             unsigned m_num_conflicts;
@@ -68,6 +71,8 @@ namespace smt {
             unsigned        m_num_propagations;
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
+
+            ineq(): m_lit(null_literal), m_is_eq(false) {}
 
             ineq(literal l, bool is_eq) : m_lit(l), m_is_eq(is_eq) {
                 reset();
@@ -111,12 +116,46 @@ namespace smt {
 
             void prune();
 
+            void remove_negations();
+
             bool well_formed() const;
 
             app_ref to_expr(context& ctx, ast_manager& m);
 
             bool is_eq() const { return m_is_eq; }
             bool is_ge() const { return !m_is_eq; }
+
+            unsigned get_hash() const;
+            bool operator==(ineq const& other) const;
+
+            struct hash {
+                unsigned operator()(ineq const& i) const { return i.get_hash(); }
+            };
+            struct eq {
+                bool operator()(ineq const& a, ineq const& b) const { 
+                    return a == b;
+                }
+            };
+            struct child_hash {
+                unsigned operator()(arg_t const& args, unsigned idx) const {
+                    return args[idx].first.hash() ^ args[idx].second.hash();
+                }
+            };
+            struct kind_hash {
+                unsigned operator()(arg_t const& args) const {
+                    return args.size();
+                }
+            };
+        };
+
+        struct row_info {
+            unsigned     m_slack;   // slack variable in simplex tableau
+            numeral      m_bound;   // bound
+            ineq         m_rep;     // representative
+            row          m_row;
+            row_info(theory_var slack, numeral const& b, ineq const& r, row const& ro):
+                m_slack(slack), m_bound(b), m_rep(r), m_row(ro) {}
+            row_info(): m_slack(0) {}
         };
 
         typedef ptr_vector<ineq> watch_list;
@@ -125,6 +164,9 @@ namespace smt {
         u_map<watch_list*>       m_lwatch;      // per literal.
         u_map<watch_list*>       m_vwatch;      // per variable.
         u_map<ineq*>             m_ineqs;       // per inequality.
+        map<ineq, bool_var, ineq::hash, ineq::eq>      m_ineq_rep;       // Simplex: representative inequality
+        u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable.
+        simplex                  m_simplex;        // Simplex
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
         literal_vector           m_literals;    // temporary vector
@@ -134,6 +176,7 @@ namespace smt {
         unsigned                 m_conflict_frequency;
         bool                     m_learn_complements;
         bool                     m_enable_compilation;
+        bool                     m_enable_simplex;
         rational                 m_max_compiled_coeff;
 
         // internalize_atom:

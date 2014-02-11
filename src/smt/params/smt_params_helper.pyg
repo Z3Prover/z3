@@ -46,6 +46,7 @@ def_module_params(module_name='smt',
                           ('pb.conflict_frequency', UINT, 0, 'conflict frequency for Pseudo-Boolean theory'),
                           ('pb.learn_complements', BOOL, True, 'learn complement literals for Pseudo-Boolean theory'),
                           ('pb.enable_compilation', BOOL, True, 'enable compilation into sorting circuits for Pseudo-Boolean'),
+                          ('pb.enable_simplex', BOOL, False, 'enable simplex to check rational feasibility'),
                           ('array.weak', BOOL, False, 'weak array theory'),
                           ('array.extensional', BOOL, True, 'extensional array theory')
                           ))

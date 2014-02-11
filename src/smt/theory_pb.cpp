@@ -61,6 +61,20 @@ namespace smt {
         };
     };
 
+    unsigned theory_pb::ineq::get_hash() const {
+        return get_composite_hash<arg_t, ineq::kind_hash, ineq::child_hash>(m_args, m_args.size());
+    }
+
+    bool theory_pb::ineq::operator==(ineq const& other) const {
+        if (size() != other.size()) return false;
+        for (unsigned i = 0; i < size(); ++i) {
+            if (lit(i) != other.lit(i)) return false;
+            if (coeff(i) != other.coeff(i)) return false;
+        }
+        return true;
+    }
+
+
     void theory_pb::ineq::negate() {
         SASSERT(!m_is_eq);
         m_lit.neg();
@@ -99,6 +113,16 @@ namespace smt {
         pb_lit_rewriter_util pbu;
         pb_rewriter_util<pb_lit_rewriter_util> util(pbu);
         util.prune(m_args, m_k, m_is_eq);        
+    }
+
+    void theory_pb::ineq::remove_negations() {
+        for (unsigned i = 0; i < size(); ++i) {
+            if (lit(i).sign()) {
+                m_args[i].first.neg();
+                m_args[i].second.neg();
+                m_k += coeff(i);
+            }
+        }
     }
 
     lbool theory_pb::ineq::normalize() {
@@ -152,9 +176,10 @@ namespace smt {
         m_lemma(null_literal, false),
         m_max_compiled_coeff(rational(8))
     {        
-        m_learn_complements = p.m_pb_learn_complements;
+        m_learn_complements  = p.m_pb_learn_complements;
         m_conflict_frequency = p.m_pb_conflict_frequency;
         m_enable_compilation = p.m_pb_enable_compilation;
+        m_enable_simplex     = p.m_pb_enable_simplex;
     }
 
     theory_pb::~theory_pb() {
@@ -272,6 +297,47 @@ namespace smt {
         init_watch_var(*c);
         m_ineqs.insert(abv, c);
         m_ineqs_trail.push_back(abv);
+
+        if (m_enable_simplex) {
+            //
+            // TBD: using abv as slack identity doesn't quite 
+            // work if psuedo-Booleans are used 
+            // in a nested way. So assume 
+            //
+
+            //
+            // TBD: track and delete rows.
+            // 
+            ineq rep(*c);
+            rep.remove_negations();  // normalize representative
+            numeral k = rep.k();
+            theory_var slack;
+            bool_var abv2;
+            row r;
+            if (m_ineq_rep.find(rep, abv2)) {
+                slack = abv2; 
+                r = m_ineq_row_info.find(abv2).m_row;
+                TRACE("pb", tout << "Found: " << abv << " |-> " << slack << " " << m_ineq_row_info.find(abv2).m_bound << " vs. " << k << "\n";);
+            }
+            else {
+                m_ineq_rep.insert(rep, abv);
+                svector<unsigned> vars;
+                unsynch_mpz_manager mgr;
+                scoped_mpz_vector coeffs(mgr);
+                for (unsigned i = 0; i < rep.size(); ++i) {
+                    unsigned v = rep.lit(i).var();
+                    std::cout << v << "\n";
+                    m_simplex.ensure_var(v);
+                    vars.push_back(v);
+                    coeffs.push_back(rep.coeff(i).to_mpq().numerator());
+                }
+                slack = abv;
+                m_simplex.ensure_var(abv);
+                r = m_simplex.add_row(vars.size(), slack, vars.c_ptr(), coeffs.c_ptr());
+                TRACE("pb", tout << "New row: " << abv << " " << k << "\n";);
+            }
+            m_ineq_row_info.insert(abv, row_info(slack, k, rep, r));
+        }
 
         TRACE("pb", display(tout, *c););
 
