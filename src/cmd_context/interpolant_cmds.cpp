@@ -114,7 +114,7 @@ static void get_interpolant_and_maybe_check(cmd_context & ctx, expr * t, params_
 
   ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
   ptr_vector<expr>::const_iterator end = ctx.end_assertions();
-  ptr_vector<ast> cnsts(end - it);
+  ptr_vector<ast> cnsts((unsigned)(end - it));
   for (int i = 0; it != end; ++it, ++i)
   cnsts[i] = *it;
     
@@ -139,10 +139,11 @@ static void get_interpolant(cmd_context & ctx, expr * t, params_ref &m_params) {
   get_interpolant_and_maybe_check(ctx,t,m_params,false);
 }
 
+#if 0
 static void get_and_check_interpolant(cmd_context & ctx, params_ref &m_params, expr * t) {
   get_interpolant_and_maybe_check(ctx,t,m_params,true);
 }
-
+#endif
 
 static void compute_interpolant_and_maybe_check(cmd_context & ctx, expr * t, params_ref &m_params, bool check){
     

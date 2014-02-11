@@ -20,6 +20,14 @@ Revision History:
 --*/
 
 
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#pragma warning(disable:4101)
+#pragma warning(disable:4390)
+#endif
+
 #include "iz3translate.h"
 #include "iz3proof.h"
 #include "iz3profiling.h"
@@ -58,7 +66,9 @@ namespace stl_ext {
 
 
 static int lemma_count = 0;
+#if 0
 static int nll_lemma_count = 0;
+#endif
 #define SHOW_LEMMA_COUNT -1
 
 // One half of a resolution. We need this to distinguish

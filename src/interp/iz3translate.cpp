@@ -17,6 +17,13 @@ Revision History:
 
 --*/
 
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#pragma warning(disable:4101)
+#endif
+
 #include "iz3translate.h"
 #include "iz3proof.h"
 #include "iz3profiling.h"
@@ -1079,7 +1086,7 @@ public:
       my_cons.push_back(mk_not(arg(con,i)));
       my_coeffs.push_back(farkas_coeffs[i]);
     }
-    ast farkas_con = normalize_inequality(sum_inequalities(my_coeffs,my_cons));
+    ast farkas_con = normalize_inequality(sum_inequalities(my_coeffs,my_cons,true /* round_off */));
     my_cons.push_back(mk_not(farkas_con));
     my_coeffs.push_back(make_int("1"));
     std::vector<Iproof::node> my_hyps;
@@ -1103,7 +1110,7 @@ public:
       my_cons.push_back(conc(prem(proof,i-1)));
       my_coeffs.push_back(farkas_coeffs[i]);
     }
-    ast farkas_con = normalize_inequality(sum_inequalities(my_coeffs,my_cons));
+    ast farkas_con = normalize_inequality(sum_inequalities(my_coeffs,my_cons,true /* round_off */));
     std::vector<Iproof::node> my_hyps;
     for(int i = 1; i < nargs; i++)
       my_hyps.push_back(prems[i-1]);
@@ -1640,6 +1647,10 @@ public:
       }
       case PR_DEF_AXIOM: { // this should only happen for formulas resulting from quantifier instantiation
 	res = iproof->make_axiom(lits);
+	break;
+      }
+      case PR_IFF_TRUE: { // turns p into p <-> true, noop for us
+	res = args[0];
 	break;
       }
       default:

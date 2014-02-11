@@ -18,6 +18,13 @@ Revision History:
 
 --*/
 
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#pragma warning(disable:4101)
+#endif
+
 #include "duality_wrapper.h"
 #include <iostream>
 #include "smt_solver.h"
@@ -30,10 +37,11 @@ Revision History:
 
 namespace Duality {
 
-  solver::solver(Duality::context& c, bool extensional) : object(c), the_model(c) {
+  solver::solver(Duality::context& c, bool extensional, bool models) : object(c), the_model(c) {
     params_ref p;
     p.set_bool("proof", true); // this is currently useless
-    p.set_bool("model", true); 
+    if(models)
+      p.set_bool("model", true); 
     p.set_bool("unsat_core", true); 
     p.set_bool("mbqi",true);
     p.set_str("mbqi.id","itp"); // use mbqi for quantifiers in interpolants
@@ -44,6 +52,7 @@ namespace Duality {
     m_solver = (*sf)(m(), p, true, true, true, ::symbol::null);
     m_solver->updt_params(p); // why do we have to do this?
     canceled = false;
+    m_mode = m().proof_mode();
   }
 
 expr context::constant(const std::string &name, const sort &ty){ 
@@ -338,6 +347,17 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     return ctx().cook(result);
   }
 
+  expr expr::qe_lite(const std::set<int> &idxs, bool index_of_bound) const {
+    ::qe_lite qe(m());
+    expr_ref result(to_expr(raw()),m());
+    proof_ref pf(m());
+    uint_set uis;
+    for(std::set<int>::const_iterator it=idxs.begin(), en = idxs.end(); it != en; ++it)
+      uis.insert(*it);
+    qe(uis,index_of_bound,result);
+    return ctx().cook(result);
+  }
+
   expr clone_quantifier(const expr &q, const expr &b){
     return q.ctx().cook(q.m().update_quantifier(to_quantifier(q.raw()), to_expr(b.raw())));
   }
@@ -361,6 +381,18 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
       pats[i] = expr(ctx(),it[i]);
   }
 
+
+  unsigned func_decl::arity() const {
+    return (to_func_decl(raw())->get_arity());
+  }
+
+  sort func_decl::domain(unsigned i) const {
+    return sort(ctx(),(to_func_decl(raw())->get_domain(i)));
+  }
+
+  sort func_decl::range() const {
+    return sort(ctx(),(to_func_decl(raw())->get_range()));
+  }
 
   func_decl context::fresh_func_decl(char const * prefix, const std::vector<sort> &domain, sort const & range){
     std::vector < ::sort * > _domain(domain.size());
@@ -504,7 +536,10 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
 	  add(linear_assumptions[i][j]);
     }
     
-    check_result res = check();
+    check_result res = unsat;
+
+    if(!m_solver->get_proof())
+      res = check();
     
     if(res == unsat){
 

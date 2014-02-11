@@ -97,6 +97,7 @@ namespace simplex {
         unsigned                    m_blands_rule_threshold;
         random_gen                  m_random;
         uint_set                    m_left_basis;
+        unsigned                    m_infeasible_var;
 
     public:
         simplex():
@@ -111,7 +112,8 @@ namespace simplex {
         typedef typename matrix::col_iterator col_iterator;
 
         void  ensure_var(var_t v);
-        row   add_row(unsigned num_vars, var_t base, var_t const* vars, numeral const* coeffs);
+        row   add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
+        row   get_infeasible_row();
         void  del_row(row const& r);
         void  set_lower(var_t var, eps_numeral const& b);
         void  set_upper(var_t var, eps_numeral const& b);
@@ -124,6 +126,9 @@ namespace simplex {
         lbool minimize(var_t var);
         eps_numeral const& get_value(var_t v);
         void display(std::ostream& out) const;
+
+        unsigned get_num_vars() const { return m_vars.size(); }
+
 
     private:
 
@@ -159,10 +164,11 @@ namespace simplex {
         bool outside_bounds(var_t v) const { return below_lower(v) || above_upper(v); }
         bool is_free(var_t v) const { return !m_vars[v].m_lower_valid && !m_vars[v].m_upper_valid; }
         bool is_non_free(var_t v) const { return !is_free(v); }
-        unsigned get_num_vars() const { return m_vars.size(); }
         bool is_base(var_t x) const { return m_vars[x].m_is_base; }
+        void add_patch(var_t v);
 
         bool well_formed() const;
+        bool well_formed_row(row const& r) const;
         bool is_feasible() const;
     };
 
