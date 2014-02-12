@@ -745,6 +745,26 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return res;
   }
 
+  ast unmixed_eq2ineq(const ast &lhs, const ast &rhs, opr comp_op, const ast &equa, ast &cond){
+    ast ineqs= chain_ineqs(comp_op,LitA,equa,lhs,rhs); // chain must be from lhs to rhs
+    cond = my_and(cond,chain_conditions(LitA,equa)); 
+    ast Bconds = z3_simplify(chain_conditions(LitB,equa)); 
+    if(is_true(Bconds) && op(ineqs) != And)
+      return my_implies(cond,ineqs);
+    throw cannot_simplify();
+  }
+
+  ast add_mixed_eq2ineq(const ast &lhs, const ast &rhs, const ast &equa, const ast &itp){
+    if(is_true(equa))
+      return itp;
+     std::vector<ast> args(3);
+     args[0] = itp;
+     args[1] = make_int("1");
+     ast ineq = make(Leq,make_int(rational(0)),make_int(rational(0)));
+     args[2] = make_normal(ineq,cons_normal(fix_normal(lhs,rhs,equa),mk_true()));
+     return simplify_sum(args);
+  }
+
   ast simplify_rotate_eq2leq(const ast &pl, const ast &neg_equality, const ast &pf){
     if(pl == arg(pf,1)){
       ast cond = mk_true();
@@ -752,16 +772,17 @@ class iz3proof_itp_impl : public iz3proof_itp {
       if(is_equivrel_chain(equa)){
 	ast lhs,rhs; eq_from_ineq(arg(neg_equality,0),lhs,rhs); // get inequality we need to prove
 	LitType lhst = get_term_type(lhs), rhst = get_term_type(rhs);
-	if(lhst != LitMixed && rhst != LitMixed){
-	  ast ineqs= chain_ineqs(op(arg(neg_equality,0)),LitA,equa,lhs,rhs); // chain must be from lhs to rhs
-	  cond = my_and(cond,chain_conditions(LitA,equa)); 
-	  ast Bconds = z3_simplify(chain_conditions(LitB,equa)); 
-	  if(is_true(Bconds) && op(ineqs) != And)
-	    return my_implies(cond,ineqs);
-	}
+	if(lhst != LitMixed && rhst != LitMixed)
+	  return unmixed_eq2ineq(lhs, rhs, op(arg(neg_equality,0)), equa, cond);
 	else {
-	  ast itp = make(Leq,make_int(rational(0)),make_int(rational(0)));
-	  return make_normal(itp,cons_normal(fix_normal(lhs,rhs,equa),mk_true()));
+	  ast left, left_term, middle, right_term, right;
+	  left = get_left_movers(equa,lhs,middle,left_term);
+	  middle = get_right_movers(middle,rhs,right,right_term);
+	  ast itp = unmixed_eq2ineq(left_term, right_term, op(arg(neg_equality,0)), middle, cond);
+	  // itp = my_implies(cond,itp);
+	  itp = add_mixed_eq2ineq(lhs, left_term, left, itp);
+	  itp = add_mixed_eq2ineq(right_term, rhs, right, itp);
+	  return itp;
 	}
       }
     }
@@ -907,7 +928,9 @@ class iz3proof_itp_impl : public iz3proof_itp {
     get_subterm_normals(ineq1,ineq2,tail,nc,top_pos,memo, Aproves, Bproves);
     ast itp;
     if(is_rewrite_side(LitA,head)){
-      itp = ineq1;
+      itp = make(Leq,make_int("0"),make_int("0"));
+      linear_comb(itp,make_int("1"),ineq1); // make sure it is normal form
+      //itp = ineq1;
       ast mc = z3_simplify(chain_side_proves(LitB,pref));
       Bproves = my_and(Bproves,mc);
     }
@@ -1507,6 +1530,43 @@ class iz3proof_itp_impl : public iz3proof_itp {
     tail = chain_cons(tail,last);
     return head;
   }
+
+  // split a rewrite chain into head and tail at last non-mixed term
+  ast get_right_movers(const ast &chain, const ast &rhs, ast &tail, ast &mid){
+    if(is_true(chain) || get_term_type(rhs) != LitMixed){
+      mid = rhs;
+      tail = mk_true();
+      return chain;
+    }
+    ast last = chain_last(chain);
+    ast rest = chain_rest(chain);
+    ast mm = subst_in_pos(rhs,rewrite_pos(last),rewrite_lhs(last));
+    ast res = get_right_movers(rest,mm,tail,mid);
+    tail = chain_cons(tail,last);
+    return chain;
+  }
+  
+  // split a rewrite chain into head and tail at first non-mixed term
+  ast get_left_movers(const ast &chain, const ast &lhs, ast &tail, ast &mid){
+    if(is_true(chain)){
+      mid = lhs;
+      return ast();
+    }
+    ast last = chain_last(chain);
+    ast rest = chain_rest(chain);
+    ast res = get_left_movers(rest,lhs,tail,mid);
+    if(res.null()){
+      mid = subst_in_pos(mid,rewrite_pos(last),rewrite_rhs(last));
+      if(get_term_type(mid) != LitMixed){
+	tail = mk_true();
+	return chain;
+      }
+      return ast();
+    }      
+    tail = chain_cons(tail,last);
+    return res;
+  }
+
 
   struct cannot_split {};
 
@@ -2320,8 +2380,14 @@ class iz3proof_itp_impl : public iz3proof_itp {
       itp =  mk_true();
       break;
     default: { // mixed equality
-      if(get_term_type(x) == LitMixed || get_term_type(y) == LitMixed)
-	std::cerr << "WARNING: mixed term in leq2eq\n"; 
+      if(get_term_type(x) == LitMixed || get_term_type(y) == LitMixed){
+	// std::cerr << "WARNING: mixed term in leq2eq\n"; 
+	std::vector<ast> lits;
+	lits.push_back(con);
+	lits.push_back(make(Not,xleqy));
+	lits.push_back(make(Not,yleqx));
+	return make_axiom(lits);
+      }
       std::vector<ast> conjs; conjs.resize(3);
       conjs[0] = mk_not(con);
       conjs[1] = xleqy;
@@ -2456,7 +2522,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	    frng = srng; // this term will be localized
 	}
 	else if(o == Plus || o == Times){ // don't want bound variables inside arith ops
-	  frng = erng; // this term will be localized
+	  // std::cout << "WARNING: non-local arithmetic\n";
+	  //	  frng = erng; // this term will be localized
 	}
 	std::vector<ast> largs(nargs);
 	std::vector<ast> eqs;
