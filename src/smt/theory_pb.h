@@ -43,6 +43,7 @@ namespace smt {
         typedef vector<std::pair<literal, numeral> > arg_t;
         typedef simplex::simplex<simplex::mpz_ext> simplex;
         typedef simplex::row row;
+        typedef simplex::row_iterator row_iterator;
 
         struct stats {
             unsigned m_num_conflicts;

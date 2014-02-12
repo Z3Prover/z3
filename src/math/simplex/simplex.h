@@ -129,6 +129,8 @@ namespace simplex {
 
         unsigned get_num_vars() const { return m_vars.size(); }
 
+        row_iterator row_begin(row const& r) { return M.row_begin(r); }
+        row_iterator row_end(row const& r) { return M.row_end(r); }
 
     private:
 
@@ -136,7 +138,6 @@ namespace simplex {
         pivot_strategy_t pivot_strategy();
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
         var_t select_error_var(bool least);
-        // row get_infeasible_row() { }
         void check_blands_rule(var_t v, unsigned& num_repeated);
         bool make_var_feasible(var_t x_i);
         void update_and_pivot(var_t x_i, var_t x_j, numeral const& a_ij, eps_numeral const& new_value);

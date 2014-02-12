@@ -594,6 +594,8 @@ namespace smt {
                     m_simplex.set_upper(v, zero);
                 }
                 ctx.push_trail(undo_bound(*this, v, is_true));
+                lbool is_sat = m_simplex.make_feasible();
+                std::cout << is_sat << "\n";
             }
 
             for (unsigned i = 0; i < ineqs->size(); ++i) {
@@ -628,8 +630,15 @@ namespace smt {
                 }
                 ctx.push_trail(reset_bound(*this, slack, is_true));
 
-                // m_simplex.feasible();
-                // 
+                lbool is_sat = m_simplex.make_feasible();
+                if (l_false == is_sat) {
+                    row r = m_simplex.get_infeasible_row();
+                    row_iterator it = m_simplex.row_begin(r), end = m_simplex.row_end(r);
+                    for (; it != end; ++it) {
+                        it->m_var;
+                        it->m_coeff;
+                    }
+                }
             }
             if (c->is_ge()) {
                 assign_ineq(*c, is_true);
