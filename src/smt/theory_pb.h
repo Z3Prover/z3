@@ -36,6 +36,9 @@ namespace smt {
         class  unwatch_ge;
         class  rewatch_vars;
         class  negate_ineq;
+        class  remove_var;
+        class  reset_bound;
+        class  undo_bound;
         typedef rational numeral;
         typedef vector<std::pair<literal, numeral> > arg_t;
         typedef simplex::simplex<simplex::mpz_ext> simplex;
@@ -159,14 +162,16 @@ namespace smt {
         };
 
         typedef ptr_vector<ineq> watch_list;
+        typedef map<ineq, bool_var, ineq::hash, ineq::eq> ineq_map;
 
         theory_pb_params         m_params;        
         u_map<watch_list*>       m_lwatch;      // per literal.
         u_map<watch_list*>       m_vwatch;      // per variable.
         u_map<ineq*>             m_ineqs;       // per inequality.
-        map<ineq, bool_var, ineq::hash, ineq::eq>      m_ineq_rep;       // Simplex: representative inequality
-        u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable.
-        simplex                  m_simplex;        // Simplex
+        ineq_map                 m_ineq_rep;       // Simplex: representative inequality
+        u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable
+        uint_set                 m_vars;           // Simplex: 0-1 variables.
+        simplex                  m_simplex;        // Simplex: tableau
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
         literal_vector           m_literals;    // temporary vector

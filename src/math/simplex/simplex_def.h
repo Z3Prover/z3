@@ -41,10 +41,10 @@ namespace simplex {
                 }
             }
         }
-        em.neg(value);
-        em.div(value, base_coeff, value);
         SASSERT(!m.is_zero(base_coeff));
         SASSERT(!is_base(base));
+        em.neg(value);
+        em.div(value, base_coeff, value);
         while (m_row2base.size() <= r.id()) {
             m_row2base.push_back(null_var);
         }

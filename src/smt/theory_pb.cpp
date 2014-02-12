@@ -190,6 +190,37 @@ namespace smt {
         return alloc(theory_pb, new_ctx->get_manager(), m_params); 
     }
 
+    class theory_pb::remove_var : public trail<context> {
+        theory_pb& pb;
+        unsigned   v;
+    public:
+        remove_var(theory_pb& pb, unsigned v): pb(pb), v(v) {}
+        virtual void undo(context& ctx) {
+            pb.m_vars.remove(v);
+            pb.m_simplex.unset_lower(v);
+            pb.m_simplex.unset_upper(v);
+        }        
+    };
+
+    class reset_bound : public trail<context> {
+        theory_pb& pb;
+        unsigned   v;
+        bool       is_lower;
+    public:
+        reset_bound(theory_pb& pb, unsigned v, bool is_lower):pb(pb), v(v), is_lower(is_lower) {}
+        virtual void undo(context& ctx) {
+        }
+    };
+
+    class undo_bound : public trail<context> {
+        theory_pb& pb;
+        unsigned   v;
+        bool       is_lower;
+    public:
+        undo_bound(theory_pb& pb, unsigned v, bool is_lower):pb(pb), v(v), is_lower(is_lower) {}
+        virtual void undo(context& ctx) {
+        }
+    };
 
     bool theory_pb::internalize_atom(app * atom, bool gate_ctx) {
         SASSERT(m_util.is_at_most_k(atom) || m_util.is_le(atom) || 
@@ -243,7 +274,7 @@ namespace smt {
 
         literal lit(abv);
 
-        TRACE("pb", display(tout << mk_pp(atom, m), *c); tout << " := " << lit << "\n";);        
+        TRACE("pb", display(tout, *c); tout << " := " << lit << "\n";);        
         switch(is_true) {
         case l_false: 
             lit = ~lit;
@@ -317,7 +348,10 @@ namespace smt {
             if (m_ineq_rep.find(rep, abv2)) {
                 slack = abv2; 
                 r = m_ineq_row_info.find(abv2).m_row;
-                TRACE("pb", tout << "Found: " << abv << " |-> " << slack << " " << m_ineq_row_info.find(abv2).m_bound << " vs. " << k << "\n";);
+                TRACE("pb", 
+                      tout << "Old row: " << abv << " |-> " << slack << " ";
+                      tout << m_ineq_row_info.find(abv2).m_bound << " vs. " << k << "\n";
+                      display(tout, rep););
             }
             else {
                 m_ineq_rep.insert(rep, abv);
@@ -326,15 +360,23 @@ namespace smt {
                 scoped_mpz_vector coeffs(mgr);
                 for (unsigned i = 0; i < rep.size(); ++i) {
                     unsigned v = rep.lit(i).var();
-                    std::cout << v << "\n";
                     m_simplex.ensure_var(v);
                     vars.push_back(v);
+                    if (!m_vars.contains(v)) {
+                        mpq_inf zero(mpq(0),mpq(0)), one(mpq(1),mpq(0));
+                        m_simplex.set_lower(v, zero);
+                        m_simplex.set_upper(v, one);
+                        m_vars.insert(v);
+                        ctx.push_trail(remove_var(*this, v));                        
+                    }
                     coeffs.push_back(rep.coeff(i).to_mpq().numerator());
                 }
                 slack = abv;
-                m_simplex.ensure_var(abv);
-                r = m_simplex.add_row(vars.size(), slack, vars.c_ptr(), coeffs.c_ptr());
-                TRACE("pb", tout << "New row: " << abv << " " << k << "\n";);
+                m_simplex.ensure_var(slack);
+                vars.push_back(slack);
+                coeffs.push_back(mpz(-1));
+                r = m_simplex.add_row(slack, vars.size(), vars.c_ptr(), coeffs.c_ptr());
+                TRACE("pb", tout << "New row: " << abv << " " << k << "\n"; display(tout, rep););
             }
             m_ineq_row_info.insert(abv, row_info(slack, k, rep, r));
         }
@@ -549,6 +591,18 @@ namespace smt {
             }
             else {
                 assign_eq(*c, is_true);
+            }
+            if (m_enable_simplex) {
+                row_info const& info = m_ineq_row_info.find(v);
+                if (is_true) {
+                    // m_simplex.set_lower(info.m_slack, info.m_coeff);
+                    // ctx.push_trail(reset_lower(info.m_slack));
+                }
+                else {
+                    // m_simplex.set_upper(info.m_slack, info.m_coeff - 1);
+                    // ctx.push_trail(reset_upper(info.m_slack));
+                }
+                // m_simplex.feasiable();
             }
         }
     }
@@ -1184,6 +1238,16 @@ namespace smt {
             clear_watch(*c);
             m_ineqs.remove(v);
             m_ineqs_trail.pop_back();
+            if (m_enable_simplex) {
+                row_info r_info;
+                VERIFY(m_ineq_row_info.find(v, r_info));
+                m_simplex.del_row(r_info.m_row);
+                m_ineq_row_info.erase(v);
+                bool_var v2 = m_ineq_rep.find(r_info.m_rep);
+                if (v == v2) {
+                    m_ineq_rep.erase(r_info.m_rep);
+                }
+            }
             dealloc(c);
         }
         m_ineqs_lim.resize(new_lim);
