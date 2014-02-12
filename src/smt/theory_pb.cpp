@@ -202,23 +202,41 @@ namespace smt {
         }        
     };
 
-    class reset_bound : public trail<context> {
+    class theory_pb::reset_bound : public trail<context> {
         theory_pb& pb;
         unsigned   v;
         bool       is_lower;
     public:
-        reset_bound(theory_pb& pb, unsigned v, bool is_lower):pb(pb), v(v), is_lower(is_lower) {}
+        reset_bound(theory_pb& pb, unsigned v, bool is_lower):
+            pb(pb), v(v), is_lower(is_lower) {}
+
         virtual void undo(context& ctx) {
+            if (is_lower) {
+                pb.m_simplex.unset_lower(v);
+            }
+            else {
+                pb.m_simplex.unset_upper(v);
+            }
         }
     };
 
-    class undo_bound : public trail<context> {
+    class theory_pb::undo_bound : public trail<context> {
         theory_pb& pb;
         unsigned   v;
         bool       is_lower;
     public:
-        undo_bound(theory_pb& pb, unsigned v, bool is_lower):pb(pb), v(v), is_lower(is_lower) {}
+        undo_bound(theory_pb& pb, unsigned v, bool is_lower):
+            pb(pb), v(v), is_lower(is_lower) {}
+
         virtual void undo(context& ctx) {
+            if (is_lower) {
+                mpq_inf zero(mpq(0),mpq(0));
+                pb.m_simplex.set_lower(v, zero);
+            }
+            else {
+                mpq_inf one(mpq(1),mpq(0));
+                pb.m_simplex.set_upper(v, one);
+            }
         }
     };
 
@@ -336,9 +354,6 @@ namespace smt {
             // in a nested way. So assume 
             //
 
-            //
-            // TBD: track and delete rows.
-            // 
             ineq rep(*c);
             rep.remove_negations();  // normalize representative
             numeral k = rep.k();
@@ -569,6 +584,18 @@ namespace smt {
         literal nlit(v, is_true);
         TRACE("pb", tout << "assign: " << ~nlit << "\n";);
         if (m_lwatch.find(nlit.index(), ineqs)) {
+            if (m_enable_simplex) {
+                if (is_true) {
+                    mpq_inf one(mpq(1),mpq(0));
+                    m_simplex.set_lower(v, one);
+                }
+                else {
+                    mpq_inf zero(mpq(0),mpq(0));
+                    m_simplex.set_upper(v, zero);
+                }
+                ctx.push_trail(undo_bound(*this, v, is_true));
+            }
+
             for (unsigned i = 0; i < ineqs->size(); ++i) {
                 ineq* c = (*ineqs)[i]; 
                 SASSERT(c->is_ge());
@@ -586,23 +613,29 @@ namespace smt {
         }
         ineq* c = 0;
         if (m_ineqs.find(v, c)) {
+            if (m_enable_simplex) {
+                row_info const& info = m_ineq_row_info.find(v);
+                unsynch_mpq_inf_manager mgr;
+                _scoped_numeral<unsynch_mpq_inf_manager> coeff(mgr);
+                coeff = std::make_pair(info.m_bound.to_mpq(), mpq(0));
+                unsigned slack = info.m_slack;
+                if (is_true) {
+                    m_simplex.set_lower(slack, coeff);
+                }
+                else {
+                    mgr.sub(coeff, std::make_pair(mpq(1),mpq(0)), coeff);
+                    m_simplex.set_upper(slack, coeff);
+                }
+                ctx.push_trail(reset_bound(*this, slack, is_true));
+
+                // m_simplex.feasible();
+                // 
+            }
             if (c->is_ge()) {
                 assign_ineq(*c, is_true);
             }
             else {
                 assign_eq(*c, is_true);
-            }
-            if (m_enable_simplex) {
-                row_info const& info = m_ineq_row_info.find(v);
-                if (is_true) {
-                    // m_simplex.set_lower(info.m_slack, info.m_coeff);
-                    // ctx.push_trail(reset_lower(info.m_slack));
-                }
-                else {
-                    // m_simplex.set_upper(info.m_slack, info.m_coeff - 1);
-                    // ctx.push_trail(reset_upper(info.m_slack));
-                }
-                // m_simplex.feasiable();
             }
         }
     }
