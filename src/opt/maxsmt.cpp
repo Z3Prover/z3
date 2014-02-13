@@ -30,6 +30,7 @@ namespace opt {
         lbool is_sat;
         m_msolver = 0;
         m_s = &s;
+        IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
         if (m_soft_constraints.empty()) {
             TRACE("opt", tout << "no constraints\n";);
             m_msolver = 0;

@@ -118,7 +118,7 @@ namespace opt {
     void optsmt::update_lower(unsigned idx, rational const& r) {
         inf_eps v(r);
         if (m_lower[idx] < v) {
-            m_lower[idx] = v;
+            m_lower[idx] = v;            
             if (m_s) m_s->get_model(m_model);
         }
     }
@@ -229,6 +229,7 @@ namespace opt {
     }
 
     lbool optsmt::lex(unsigned obj_index) {
+        IF_VERBOSE(1, verbose_stream() << "(optsmt:lex)\n";);
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());
         return basic_lex(obj_index);
@@ -237,6 +238,7 @@ namespace opt {
     lbool optsmt::basic_lex(unsigned obj_index) {
         lbool is_sat = l_true;
         expr_ref block(m);        
+
 
         while (is_sat == l_true && !m_cancel) {
             is_sat = m_s->check_sat(0, 0); 

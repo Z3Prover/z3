@@ -173,6 +173,8 @@ namespace smt {
         u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable
         uint_set                 m_vars;           // Simplex: 0-1 variables.
         simplex                  m_simplex;        // Simplex: tableau
+        unsigned_vector          m_explain_lower;  // Simplex: explanations for lower bounds
+        unsigned_vector          m_explain_upper;  // Simplex: explanations for upper bounds
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
         literal_vector           m_literals;    // temporary vector

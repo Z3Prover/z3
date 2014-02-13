@@ -161,6 +161,7 @@ namespace simplex {
 
     template<typename Ext>
     lbool simplex<Ext>::make_feasible() {
+        TRACE("simplex", tout << "\n";);
         m_left_basis.reset();
         m_infeasible_var = null_var;
         unsigned num_iterations = 0;
@@ -168,6 +169,7 @@ namespace simplex {
         var_t v = null_var;
         SASSERT(well_formed());
         while ((v = select_var_to_fix()) != null_var) {
+            TRACE("simplex", tout << "v" << v << "\n";);
             if (m_cancel || num_iterations > m_max_iterations) {
                 return l_undef;
             }

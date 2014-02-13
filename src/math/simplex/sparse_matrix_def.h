@@ -200,7 +200,7 @@ namespace simplex {
     */
     template<typename Ext>
     inline void sparse_matrix<Ext>::column::compress_if_needed(vector<_row> & rows) {
-        if (size() * 2 < num_entries()) {
+        if (size() * 2 < num_entries() && m_refs == 0) {
             compress(rows);
         }
     }

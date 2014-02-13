@@ -29,6 +29,9 @@ Notes:
 #include "elim01_tactic.h"
 #include "solve_eqs_tactic.h"
 #include "simplify_tactic.h"
+#include "propagate_values_tactic.h"
+#include "solve_eqs_tactic.h"
+#include "elim_uncnstr_tactic.h"
 #include "tactical.h"
 #include "model_smt2_pp.h"
 
@@ -93,11 +96,13 @@ namespace opt {
             s.assert_expr(m_hard_constraints[i].get());
         }
 
+        IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
         lbool is_sat = s.check_sat_core(0,0);
         if (is_sat != l_true) {
             m_model = 0;
             return is_sat;
         }
+        IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n";);
         s.get_model(m_model);
         m_optsmt.setup(s);
         update_lower();
@@ -299,7 +304,12 @@ namespace opt {
         for (unsigned i = 0; i < fmls.size(); ++i) {
             g->assert_expr(fmls[i].get());
         }
-        tactic_ref tac0 = mk_simplify_tactic(m);
+        tactic_ref tac0 = 
+            and_then(mk_simplify_tactic(m), 
+                     mk_propagate_values_tactic(m),
+                     mk_solve_eqs_tactic(m),
+                     mk_elim_uncnstr_tactic(m),
+                     mk_simplify_tactic(m));   
         tactic_ref tac2 = mk_elim01_tactic(m);
         tactic_ref tac3 = mk_lia2card_tactic(m);
         tactic_ref tac;
@@ -317,6 +327,7 @@ namespace opt {
         SASSERT(result.size() == 1);
         goal* r = result[0];
         fmls.reset();
+        expr_ref tmp(m);
         for (unsigned i = 0; i < r->size(); ++i) {
             fmls.push_back(r->form(i));
         }        

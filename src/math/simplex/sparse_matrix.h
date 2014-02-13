@@ -106,8 +106,9 @@ namespace simplex {
             svector<col_entry> m_entries;
             unsigned           m_size; 
             int                m_first_free_idx;
+            mutable unsigned   m_refs;
             
-            column():m_size(0), m_first_free_idx(-1) {}
+            column():m_size(0), m_first_free_idx(-1), m_refs(0) {}
             unsigned size() const { return m_size; }
             unsigned num_entries() const { return m_entries.size(); }
             void reset();
@@ -160,9 +161,9 @@ namespace simplex {
         class row_iterator {
             friend sparse_matrix;
             unsigned   m_curr;
-            _row & m_row;
+            _row &     m_row;
             void move_to_used() {
-                while (m_curr < m_row.m_entries.size() && 
+                while (m_curr < m_row.num_entries() && 
                        m_row.m_entries[m_curr].is_dead()) {
                     ++m_curr;
                 }
@@ -173,7 +174,7 @@ namespace simplex {
                     move_to_used();
                 }
                 else {
-                    m_curr = m_row.m_entries.size();
+                    m_curr = m_row.num_entries();
                 }
             }            
         public:
@@ -192,25 +193,32 @@ namespace simplex {
 
         class col_iterator {
             friend sparse_matrix;
-            unsigned m_curr;
-            column const&  m_col;
+            unsigned             m_curr;
+            column const&        m_col;
             vector<_row> const&  m_rows;
             void move_to_used() {
-                while (m_curr < m_col.m_entries.size() && m_col.m_entries[m_curr].is_dead()) {
+                while (m_curr < m_col.num_entries() && m_col.m_entries[m_curr].is_dead()) {
                     ++m_curr;
                 }
             }
             col_iterator(column const& c, vector<_row> const& r, bool begin): 
                 m_curr(0), m_col(c), m_rows(r) {
+                ++m_col.m_refs;
                 if (begin) {
                     move_to_used();
                 }
                 else {
-                    m_curr = m_col.m_entries.size();
+                    m_curr = m_col.num_entries();
                 }
             }
         public:
-            row get_row() { return row(m_col.m_entries[m_curr].m_row_id); }
+            ~col_iterator() {
+                --m_col.m_refs;
+            }
+
+            row get_row() { 
+                return row(m_col.m_entries[m_curr].m_row_id); 
+            }
             row_entry const& get_row_entry() {
                 col_entry const& c = m_col.m_entries[m_curr];
                 int row_id = c.m_row_id;
