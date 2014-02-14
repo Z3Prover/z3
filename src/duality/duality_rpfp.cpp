@@ -2703,10 +2703,12 @@ namespace Duality {
       const std::vector<expr> &theory = ls->get_axioms();
       for(unsigned i = 0; i < theory.size(); i++)
 	s.add(theory[i]);
-      if(s.check(lits.size(),&lits[0]) != unsat)
-	throw "should be unsat";
+      for(int k = 0; k < 100; k++) // keep trying, maybe MBQI will do something!
+	if(s.check(lits.size(),&lits[0]) == unsat)
+	  goto is_unsat;
+      throw "should be unsat";
     }
-    
+  is_unsat:
     for(unsigned i = 0; i < conjuncts.size(); ){
       std::swap(conjuncts[i],conjuncts.back());
       std::swap(lits[i],lits.back());

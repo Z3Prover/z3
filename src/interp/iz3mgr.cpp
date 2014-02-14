@@ -240,6 +240,9 @@ iz3mgr::ast iz3mgr::clone(const ast &t, const std::vector<ast> &_args){
 
 
 void iz3mgr::show(ast t){
+  if(t.null()){
+    std::cout  << "(null)" << std::endl;
+  }
   params_ref p;
   p.set_bool("flat_assoc",false);
   std::cout  << mk_pp(t.raw(), m(), p) << std::endl;
@@ -875,3 +878,14 @@ iz3mgr::ast iz3mgr::apply_quant(opr quantifier, ast var, ast e){
   std::vector<ast> bvs; bvs.push_back(var);
   return make_quant(quantifier,bvs,e);
 }
+
+#if 0
+void iz3mgr::get_bound_substitutes(stl_ext::hash_map<ast,bool> &memo, const ast &e, const ast &var, std::vector<ast> &substs){
+  std::pair<ast,bool> foo(e,false);
+  std::pair<hash_map<ast,bool>::iterator,bool> bar = memo.insert(foo);
+  if(bar.second){
+    if(op(e) == 
+  }
+ 
+}
+#endif
