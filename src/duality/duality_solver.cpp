@@ -127,13 +127,11 @@ namespace Duality {
       {
 	scoped_no_proof no_proofs_please(ctx.m());
 #ifdef USE_RPFP_CLONE
-	clone_ls = new RPFP::iZ3LogicSolver(ctx, false); // no models needed for this one
-      clone_rpfp = new RPFP_caching(clone_ls);
+      clone_rpfp = new RPFP_caching(rpfp->ls);
       clone_rpfp->Clone(rpfp);
 #endif      
 #ifdef USE_NEW_GEN_CANDS
-      gen_cands_ls = new RPFP::iZ3LogicSolver(ctx);
-      gen_cands_rpfp = new RPFP_caching(gen_cands_ls);
+      gen_cands_rpfp = new RPFP_caching(rpfp->ls);
       gen_cands_rpfp->Clone(rpfp);
 #endif      
       }
@@ -142,20 +140,16 @@ namespace Duality {
     ~Duality(){
 #ifdef USE_RPFP_CLONE
       delete clone_rpfp;
-      delete clone_ls;
 #endif      
 #ifdef USE_NEW_GEN_CANDS
       delete gen_cands_rpfp;
-      delete gen_cands_ls;
 #endif
     }
 
 #ifdef USE_RPFP_CLONE
-    RPFP::LogicSolver *clone_ls;
     RPFP_caching *clone_rpfp;
 #endif      
 #ifdef USE_NEW_GEN_CANDS
-    RPFP::LogicSolver *gen_cands_ls;
     RPFP_caching *gen_cands_rpfp;
 #endif      
 

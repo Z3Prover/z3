@@ -181,6 +181,7 @@ public:
       get_Z3_lits(con, lits);
       iproof->make_axiom(lits);
     }
+#ifdef LOCALIZATION_KLUDGE
     else if(dk == PR_MODUS_PONENS && pr(prem(proof,0)) == PR_QUANT_INST
 	    && get_locality_rec(prem(proof,1)) == INT_MAX){
       std::vector<ast> lits;
@@ -188,6 +189,7 @@ public:
       get_Z3_lits(con, lits);
       iproof->make_axiom(lits);
     }
+#endif
     else {
       unsigned nprems = num_prems(proof);
       for(unsigned i = 0; i < nprems; i++){
