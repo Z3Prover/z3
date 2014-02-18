@@ -584,8 +584,8 @@ public:
         run_update(cur_depth);
     }
 
-     void randomize_local(goal_ref const & g) {
-        ptr_vector<func_decl> & unsat_constants = m_tracker.get_unsat_constants(g);
+     void randomize_local(goal_ref const & g, unsigned int flip) {
+        ptr_vector<func_decl> & unsat_constants = m_tracker.get_unsat_constants(g, flip);
 
         // Randomize _all_ candidates:
 

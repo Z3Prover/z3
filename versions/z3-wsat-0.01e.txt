@@ -1,0 +1,11 @@
+Basic WalkSAT version.
+Variables are chosen among candidates in only ONE top level assertion with MAXIMAL top_score.
+No restarts.
+
+#define _CNF_ 0
+#define _BFS_ 3
+#define _FOCUS_ 1
+#define _RESTARTS_ 0
+#define _TIMELIMIT_ 300
+#define _SCORE_AND_AVG_ 0
+#define _SCORE_OR_MUL_ 0

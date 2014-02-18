@@ -1,0 +1,12 @@
+Basic WalkSAT version.
+Variables are chosen among candidates in only ONE top level assertion.
+AND is scored by average; OR is scored by inverse multiplication.
+No restarts.
+
+#define _CNF_ 0
+#define _BFS_ 1
+#define _FOCUS_ 1
+#define _RESTARTS_ 0
+#define _TIMELIMIT_ 300
+#define _SCORE_AND_AVG_ 1
+#define _SCORE_OR_MUL_ 1

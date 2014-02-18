@@ -28,8 +28,8 @@ class sls_tracker {
     random_gen            m_rng;
     unsigned              m_random_bits;
     unsigned              m_random_bits_cnt;
-    mpz                   m_zero, m_one, m_two;    
-    
+    mpz                   m_zero, m_one, m_two;   
+	    
     struct value_score { 
         value_score() : m(0), value(unsynch_mpz_manager::mk_z(0)), score(0.0), distance(0) { };
         ~value_score() { if (m) m->del(value); }
@@ -249,12 +249,46 @@ public:
         }
     }
 
-    void initialize(goal_ref const & g) {
+	void initialize_recursive(init_proc proc, expr_mark visited, expr * e) {
+		if (m_manager.is_and(e) || m_manager.is_or(e)) {
+			app * a = to_app(e);
+			expr * const * args = a->get_args();
+			unsigned int sz = a->get_num_args();
+			for (unsigned int i = 0; i < sz; i++) {
+		        expr * q = args[i];
+				initialize_recursive(proc, visited, q);
+			}
+		}
+		for_each_expr(proc, visited, e);
+ 	}
+
+	void initialize_recursive(expr * e) {
+		if (m_manager.is_and(e) || m_manager.is_or(e)) {
+			app * a = to_app(e);
+			expr * const * args = a->get_args();
+			unsigned int sz = a->get_num_args();
+			for (unsigned int i = 0; i < sz; i++) {
+		        expr * q = args[i];
+				initialize_recursive(q);
+			}
+		}
+		ptr_vector<func_decl> t;
+        m_constants_occ.insert_if_not_there(e, t);
+        find_func_decls_proc ffd_proc(m_manager, m_constants_occ.find(e));
+        expr_fast_mark1 visited;
+        quick_for_each_expr(ffd_proc, visited, e);
+ 	}
+
+	void initialize(goal_ref const & g) {
         init_proc proc(m_manager, *this);
         expr_mark visited;
         unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) {
-            expr * e = g->form(i);                
+            expr * e = g->form(i);
+			// Andreas: Maybe not fully correct.
+#if _FOCUS_ == 2
+			initialize_recursive(proc, visited, e);
+#endif
             for_each_expr(proc, visited, e);
         }
 
@@ -262,6 +296,10 @@ public:
 
         for (unsigned i = 0; i < sz; i++) {
             expr * e = g->form(i);
+			// Andreas: Maybe not fully correct.
+#if _FOCUS_ == 2
+			initialize_recursive(e);
+#endif
             ptr_vector<func_decl> t;
             m_constants_occ.insert_if_not_there(e, t);
             find_func_decls_proc ffd_proc(m_manager, m_constants_occ.find(e));
@@ -382,8 +420,6 @@ public:
         TRACE("sls", tout << "Randomized model:" << std::endl; show_model(tout); );
     }              
 
-#define _SCORE_AND_MIN
-
     double score_bool(expr * n, bool negated = false) {
         TRACE("sls_score", tout << ((negated)?"NEG ":"") << "BOOL: " << mk_ismt2_pp(n, m_manager) << std::endl; );
 
@@ -400,30 +436,41 @@ public:
             SASSERT(!negated);
             app * a = to_app(n);
             expr * const * args = a->get_args();
-            #ifdef _SCORE_AND_MIN
-            double min = 1.0;
+			// Andreas: Seems to have no effect. Probably it does not even occur.
+#if _SCORE_AND_AVG_
+            double sum = 0.0;
+            for (unsigned i = 0; i < a->get_num_args(); i++)
+                sum += get_score(args[i]);
+            res = sum / (double) a->get_num_args();
+#else
+			double min = 1.0;
             for (unsigned i = 0; i < a->get_num_args(); i++) {
                 double cur = get_score(args[i]);
                 if (cur < min) min = cur;
             }
             res = min;
-            #else 
-            double sum = 0.0;
-            for (unsigned i = 0; i < a->get_num_args(); i++)
-                sum += get_score(args[i]);
-            res = sum / (double) a->get_num_args();
-            #endif
+#endif
         }
         else if (m_manager.is_or(n)) {
             SASSERT(!negated);
             app * a = to_app(n);
             expr * const * args = a->get_args();
-            double max = 0.0;
+			// Andreas: Seems to have no effect. Probably it is still too similar to the original version.
+#if _SCORE_OR_MUL_
+			double inv = 1.0;
+            for (unsigned i = 0; i < a->get_num_args(); i++) {
+                double cur = get_score(args[i]);
+                inv *= (1.0 - get_score(args[i]));
+            }
+            res = 1.0 - inv;
+#else
+			double max = 0.0;
             for (unsigned i = 0; i < a->get_num_args(); i++) {
                 double cur = get_score(args[i]);
                 if (cur > max) max = cur;
             }
             res = max;
+#endif
         }
         else if (m_manager.is_ite(n)) {
             SASSERT(!negated);
@@ -468,7 +515,7 @@ public:
                     }
                     m_mpz_manager.machine_div(diff, m_two, diff);
                 }
-                res = 1.0 - (hamming_distance / (double) bv_sz);                    
+                res = 1.0 - (hamming_distance / (double) bv_sz);
                 #else                    
                 rational r(diff);
                 r /= m_powers(bv_sz);
@@ -503,7 +550,7 @@ public:
                     double dbl = n.get_double();
                     // In extreme cases, n is 0.9999 but to_double returns something > 1.0
                     res = (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
-                    m_mpz_manager.del(diff);
+					m_mpz_manager.del(diff);
                 }
             }
             else {
@@ -564,7 +611,7 @@ public:
                 TRACE("sls_score", tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
                                         m_mpz_manager.to_string(y) << " ; SZ = " << bv_sz << std::endl; );
             }
-            m_mpz_manager.del(x);
+			m_mpz_manager.del(x);
             m_mpz_manager.del(y);                
         }
         else if (m_manager.is_not(n)) {                
@@ -597,6 +644,20 @@ public:
             NOT_IMPLEMENTED_YET();
 
         SASSERT(res >= 0.0 && res <= 1.0);
+
+#if _WEIGHT_DIST_
+		app * a = to_app(n);
+		family_id afid = a->get_family_id();
+		if (afid == m_bv_util.get_family_id())
+#endif
+#if _WEIGHT_DIST_ == 1
+		if (res < 1.0) res *= _WEIGHT_DIST_FACTOR_;
+#elif _WEIGHT_DIST_ == 2
+		res *= res;
+#elif _WEIGHT_DIST_ == 3
+		if (res < 1.0) res = 0.0;
+#endif
+
 
         TRACE("sls_score", tout << "SCORE = " << res << std::endl; );
         return res;
@@ -647,7 +708,111 @@ public:
             NOT_IMPLEMENTED_YET();
     }    
 
-    ptr_vector<func_decl> & get_unsat_constants(goal_ref const & g) {
+	ptr_vector<func_decl> & get_unsat_constants_gsat(goal_ref const & g, unsigned sz) {
+        for (unsigned i = 0; i < sz; i++) {
+            expr * q = g->form(i);
+            if (m_mpz_manager.eq(get_value(q), m_one))
+                continue;
+            ptr_vector<func_decl> const & this_decls = m_constants_occ.find(q);
+            unsigned sz2 = this_decls.size();
+            for (unsigned j = 0; j < sz2; j++) {
+                func_decl * fd = this_decls[j];
+                if (!m_temp_constants.contains(fd))
+                    m_temp_constants.push_back(fd);
+            }
+        }
+        return m_temp_constants;
+	}
+
+	expr * get_unsat_assertion(goal_ref const & g, unsigned sz, unsigned int pos) {
+			for (unsigned i = pos; i < sz; i++) {
+                expr * q = g->form(i);
+                if (m_mpz_manager.neq(get_value(q), m_one))
+		            return q;
+			}
+			for (unsigned i = 0; i < pos; i++) {
+                expr * q = g->form(i);
+                if (m_mpz_manager.neq(get_value(q), m_one))
+		            return q;
+            }
+			return 0;
+	}
+
+	ptr_vector<func_decl> & get_unsat_constants_walksat(goal_ref const & g, unsigned sz, unsigned int pos) {
+			expr * q = get_unsat_assertion(g, sz, pos);
+            // Andreas: I should probably fix this. If this is the case then the formula is SAT anyway but this is not checked in the first iteration.
+			if (!q)
+				return m_temp_constants;
+
+			ptr_vector<func_decl> const & this_decls = m_constants_occ.find(q);
+            unsigned sz2 = this_decls.size();
+            for (unsigned j = 0; j < sz2; j++) {
+                func_decl * fd = this_decls[j];
+                if (!m_temp_constants.contains(fd))
+                    m_temp_constants.push_back(fd);
+            }
+	        return m_temp_constants;
+	}
+
+	ptr_vector<func_decl> & go_deeper(expr * e) {
+			if (m_manager.is_bool(e)) {
+				if (m_manager.is_and(e)) {
+					app * a = to_app(e);
+					expr * const * args = a->get_args();
+				    // Andreas: might be used for guided branching
+					//for (unsigned i = 0; i < a->get_num_args(); i++) {
+						//double cur = get_score(args[i]);
+					//}
+					// Andreas: A random number is better here since reusing flip will cause patterns.
+					unsigned int sz = a->get_num_args();
+					unsigned int pos = get_random_uint(16) % sz;
+					for (unsigned int i = pos; i < sz; i++) {
+		                expr * q = args[i];
+		                if (m_mpz_manager.neq(get_value(q), m_one))
+				            return go_deeper(q);
+					}
+					for (unsigned int i = 0; i < pos; i++) {
+						expr * q = args[i];
+		                if (m_mpz_manager.neq(get_value(q), m_one))
+				            return go_deeper(q);
+		            }
+		        }
+				else if (m_manager.is_or(e)) {
+					app * a = to_app(e);
+					expr * const * args = a->get_args();
+					unsigned int sz = a->get_num_args();
+					unsigned int pos = get_random_uint(16) % sz;
+					for (unsigned int i = pos; i < sz; i++) {
+		                expr * q = args[i];
+		                if (m_mpz_manager.neq(get_value(q), m_one))
+				            return go_deeper(q);
+					}
+					for (unsigned int i = 0; i < pos; i++) {
+						expr * q = args[i];
+		                if (m_mpz_manager.neq(get_value(q), m_one))
+				            return go_deeper(q);
+		            }
+		        }
+			}
+			ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
+            unsigned sz2 = this_decls.size();
+            for (unsigned j = 0; j < sz2; j++) {
+                func_decl * fd = this_decls[j];
+                if (!m_temp_constants.contains(fd))
+                    m_temp_constants.push_back(fd);
+            }
+	        return m_temp_constants;
+	}
+
+	ptr_vector<func_decl> & get_unsat_constants_crsat(goal_ref const & g, unsigned sz, unsigned int pos) {
+		expr * q = get_unsat_assertion(g, sz, pos);
+        if (!q)
+			return m_temp_constants;
+
+		return go_deeper(q);
+	}
+
+    ptr_vector<func_decl> & get_unsat_constants(goal_ref const & g, unsigned int flip) {
         unsigned sz = g->size();
 
         if (sz == 1) {
@@ -655,19 +820,41 @@ public:
         }
         else {
             m_temp_constants.reset();
-            for (unsigned i = 0; i < sz; i++) {
-                expr * q = g->form(i);
-                if (m_mpz_manager.eq(get_value(q), m_one))
-                    continue;
-                ptr_vector<func_decl> const & this_decls = m_constants_occ.find(q);
-                unsigned sz2 = this_decls.size();
-                for (unsigned j = 0; j < sz2; j++) {
-                    func_decl * fd = this_decls[j];
-                    if (!m_temp_constants.contains(fd))
-                        m_temp_constants.push_back(fd);
-                }
+#if _FOCUS_ == 1
+#if _BFS_ == 3
+			unsigned int pos = 0;
+			double max = get_score(g->form(0));
+            unsigned sz = g->size();
+            for (unsigned i = 1; i < sz; i++) {
+				expr * e = g->form(i);
+                double q = get_score(e);
+				if (q > max && m_mpz_manager.neq(get_value(e), m_one) ) { max = q; pos = i; }
             }
-            return m_temp_constants;
+#elif _BFS_ == 2
+			unsigned int pos = 0;
+			double min = get_score(g->form(0));
+            unsigned sz = g->size();
+            for (unsigned i = 1; i < sz; i++) {
+				expr * e = g->form(i);
+                double q = get_score(e);
+				if (q < min && m_mpz_manager.neq(get_value(e), m_one) ) { min = q; pos = i; }
+            }
+#elif _BFS_ == 1
+			unsigned int pos = flip % m_constants.size();
+#else
+			unsigned int pos = get_random_uint(16) % m_constants.size();
+#endif
+			return get_unsat_constants_walksat(g, sz, pos);
+#elif _FOCUS_ == 2
+#if _BFS_
+			unsigned int pos = flip % m_constants.size();
+#else
+			unsigned int pos = get_random_uint(16) % m_constants.size();
+#endif
+			return get_unsat_constants_crsat(g, sz, pos);
+#else
+			return get_unsat_constants_gsat(g, sz);
+#endif
         }
     }
 };
