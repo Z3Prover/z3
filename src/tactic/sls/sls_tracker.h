@@ -20,14 +20,6 @@ Notes:
 #ifndef _SLS_TRACKER_H_
 #define _SLS_TRACKER_H_
 
-#include"for_each_expr.h"
-#include"ast_smt2_pp.h"
-#include"bv_decl_plugin.h"
-#include"model.h"
-
-#include"sls_params.hpp"
-#include"sls_powers.h"
-
 class sls_tracker {
     ast_manager         & m_manager;
     unsynch_mpz_manager & m_mpz_manager;
@@ -36,26 +28,21 @@ class sls_tracker {
     random_gen            m_rng;
     unsigned              m_random_bits;
     unsigned              m_random_bits_cnt;
-    mpz                   m_zero, m_one, m_two;
-        
+    mpz                   m_zero, m_one, m_two;   
+	    
     struct value_score { 
-        value_score() : m(0), value(unsynch_mpz_manager::mk_z(0)), score(0.0), distance(0), touched(1), score_prune(0.0), has_pos_occ(0), has_neg_occ(0) { };
+        value_score() : m(0), value(unsynch_mpz_manager::mk_z(0)), score(0.0), distance(0) { };
         ~value_score() { if (m) m->del(value); }
         unsynch_mpz_manager * m;
         mpz value;
         double score;
-        double score_prune;
-        unsigned has_pos_occ;
-        unsigned has_neg_occ;
         unsigned distance; // max distance from any root
-        unsigned touched;
         value_score & operator=(const value_score & other) {
             SASSERT(m == 0 || m == other.m);
             if (m) m->set(value, 0); else m = other.m;
             m->set(value, other.value);
             score = other.score;
             distance = other.distance;
-            touched = other.touched;
             return *this;
         }
     };
@@ -67,29 +54,12 @@ private:
     typedef obj_map<expr, value_score> scores_type;    
     typedef obj_map<expr, ptr_vector<expr> > uplinks_type;    
     typedef obj_map<expr, ptr_vector<func_decl> > occ_type;
-    obj_hashtable<expr>	  m_top_expr;
     scores_type           m_scores;
     uplinks_type          m_uplinks;
     entry_point_type      m_entry_points;
     ptr_vector<func_decl> m_constants;
     ptr_vector<func_decl> m_temp_constants;
     occ_type              m_constants_occ;
-    unsigned              m_last_pos;
-    unsigned              m_walksat;
-    unsigned              m_ucb;
-    double                m_ucb_constant;
-    unsigned              m_ucb_init;
-    double                m_ucb_forget;
-    double                m_ucb_noise;
-    unsigned              m_touched;
-    double                m_scale_unsat;
-    unsigned              m_paws_init;
-    obj_map<expr, unsigned>	m_where_false;
-    expr**					m_list_false;
-    unsigned              m_track_unsat;
-    obj_map<expr, unsigned> m_weights;
-    double				  m_top_sum;
-    obj_hashtable<expr>   m_temp_seen;
 
 public:    
     sls_tracker(ast_manager & m, bv_util & bvu, unsynch_mpz_manager & mm, powers & p) :
@@ -107,59 +77,6 @@ public:
         m_mpz_manager.del(m_zero);
         m_mpz_manager.del(m_one);
         m_mpz_manager.del(m_two);            
-    }
-
-    void updt_params(params_ref const & _p) {
-        sls_params p(_p);
-        m_walksat = p.walksat();
-        m_ucb = p.walksat_ucb();
-        m_ucb_constant = p.walksat_ucb_constant();
-        m_ucb_init = p.walksat_ucb_init();
-        m_ucb_forget = p.walksat_ucb_forget();
-        m_ucb_noise = p.walksat_ucb_noise();
-        m_scale_unsat = p.scale_unsat();
-        m_paws_init = p.paws_init();
-        // Andreas: track_unsat is currently disabled because I cannot guarantee that it is not buggy.
-        // If you want to use it, you will also need to change comments in the assertion selection.
-        m_track_unsat = 0;//p.track_unsat();
-    }
-
-    /* Andreas: Tried to give some measure for the formula size by the following two methods but both are not used currently.
-    unsigned get_formula_size() {
-        return m_scores.size();
-    }
-
-    double get_avg_bw(goal_ref const & g) {
-        double sum = 0.0;
-        unsigned count = 0;
-
-        for (unsigned i = 0; i < g->size(); i++)
-        {
-            m_temp_constants.reset();
-            ptr_vector<func_decl> const & this_decls = m_constants_occ.find(g->form(i));
-            unsigned sz = this_decls.size();
-            for (unsigned i = 0; i < sz; i++) {
-                func_decl * fd = this_decls[i];
-                m_temp_constants.push_back(fd);
-                sort * srt = fd->get_range();
-                sum += (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);         
-                count++;
-            }
-        }
-
-        return sum / count;   
-    }*/
-
-    inline void adapt_top_sum(expr * e, double add, double sub) {
-        m_top_sum += m_weights.find(e) * (add - sub);
-    }
-
-    inline void set_top_sum(double new_score) {
-        m_top_sum = new_score;
-    }
-
-    inline double get_top_sum() {
-        return m_top_sum;
     }
 
     inline void set_value(expr * n, const mpz & r) {
@@ -206,26 +123,6 @@ public:
         return get_score(ep);
     }
 
-    inline void set_score_prune(expr * n, double score) {
-        SASSERT(m_scores.contains(n));
-        m_scores.find(n).score_prune = score;
-    }
-
-    inline double & get_score_prune(expr * n) {
-        SASSERT(m_scores.contains(n));
-        return m_scores.find(n).score_prune;
-    }
-
-    inline unsigned has_pos_occ(expr * n) {
-        SASSERT(m_scores.contains(n));
-        return m_scores.find(n).has_pos_occ;
-    }
-
-    inline unsigned has_neg_occ(expr * n) {
-        SASSERT(m_scores.contains(n));
-        return m_scores.find(n).has_neg_occ;
-    }
-
     inline unsigned get_distance(expr * n) {
         SASSERT(m_scores.contains(n));
         return m_scores.find(n).distance;
@@ -249,30 +146,9 @@ public:
         return m_uplinks.contains(n);
     }
 
-    inline bool is_top_expr(expr * n) {
-        return m_top_expr.contains(n);
-    }
-
     inline ptr_vector<expr> & get_uplinks(expr * n) {
         SASSERT(m_uplinks.contains(n));
         return m_uplinks.find(n);
-    }
-
-    inline void ucb_forget(ptr_vector<expr> & as) {
-        if (m_ucb_forget < 1.0)
-        {
-            expr * e;
-            unsigned touched_old, touched_new;
-
-            for (unsigned i = 0; i < as.size(); i++)
-            {
-                e = as[i];
-                touched_old = m_scores.find(e).touched;
-                touched_new = (unsigned)((touched_old - 1) * m_ucb_forget + 1);
-                m_scores.find(e).touched = touched_new;
-                m_touched += touched_new - touched_old;
-            }
-        }
     }
 
     void initialize(app * n) {
@@ -350,12 +226,12 @@ public:
         }
     };
 
-    void calculate_expr_distances(ptr_vector<expr> const & as) {
+    void calculate_expr_distances(goal_ref const & g) {
         // precondition: m_scores is set up.
-        unsigned sz = as.size();
+        unsigned sz = g->size();
         ptr_vector<app> stack;
         for (unsigned i = 0; i < sz; i++)
-            stack.push_back(to_app(as[i]));
+            stack.push_back(to_app(g->form(i)));
         while (!stack.empty()) {
             app * cur = stack.back();
             stack.pop_back();
@@ -373,53 +249,57 @@ public:
         }
     }
 
-    /* Andreas: Used this at some point to have values for the non-top-level expressions.
-                However, it did not give better performance but even cause some additional m/o - is not used currently.
-    void initialize_recursive(init_proc proc, expr_mark visited, expr * e) {
-        if (m_manager.is_and(e) || m_manager.is_or(e)) {
-            app * a = to_app(e);
-            expr * const * args = a->get_args();
-            unsigned int sz = a->get_num_args();
-            for (unsigned int i = 0; i < sz; i++) {
-                expr * q = args[i];
-                initialize_recursive(proc, visited, q);
-            }
-        }
-        for_each_expr(proc, visited, e);
-    }
+	void initialize_recursive(init_proc proc, expr_mark visited, expr * e) {
+		if (m_manager.is_and(e) || m_manager.is_or(e)) {
+			app * a = to_app(e);
+			expr * const * args = a->get_args();
+			unsigned int sz = a->get_num_args();
+			for (unsigned int i = 0; i < sz; i++) {
+		        expr * q = args[i];
+				initialize_recursive(proc, visited, q);
+			}
+		}
+		for_each_expr(proc, visited, e);
+ 	}
 
-    void initialize_recursive(expr * e) {
-        if (m_manager.is_and(e) || m_manager.is_or(e)) {
-            app * a = to_app(e);
-            expr * const * args = a->get_args();
-            unsigned int sz = a->get_num_args();
-            for (unsigned int i = 0; i < sz; i++) {
-                expr * q = args[i];
-                initialize_recursive(q);
-            }
-        }
-        ptr_vector<func_decl> t;
+	void initialize_recursive(expr * e) {
+		if (m_manager.is_and(e) || m_manager.is_or(e)) {
+			app * a = to_app(e);
+			expr * const * args = a->get_args();
+			unsigned int sz = a->get_num_args();
+			for (unsigned int i = 0; i < sz; i++) {
+		        expr * q = args[i];
+				initialize_recursive(q);
+			}
+		}
+		ptr_vector<func_decl> t;
         m_constants_occ.insert_if_not_there(e, t);
         find_func_decls_proc ffd_proc(m_manager, m_constants_occ.find(e));
         expr_fast_mark1 visited;
         quick_for_each_expr(ffd_proc, visited, e);
-    }*/
+ 	}
 
-    void initialize(ptr_vector<expr> const & as) {
+	void initialize(goal_ref const & g) {
         init_proc proc(m_manager, *this);
         expr_mark visited;
-        unsigned sz = as.size();
+        unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) {
-            expr * e = as[i];
-            if (!m_top_expr.contains(e))
-                m_top_expr.insert(e);
+            expr * e = g->form(i);
+			// Andreas: Maybe not fully correct.
+#if _FOCUS_ == 2
+			initialize_recursive(proc, visited, e);
+#endif
             for_each_expr(proc, visited, e);
         }
 
         visited.reset();
 
         for (unsigned i = 0; i < sz; i++) {
-            expr * e = as[i];
+            expr * e = g->form(i);
+			// Andreas: Maybe not fully correct.
+#if _FOCUS_ == 2
+			initialize_recursive(e);
+#endif
             ptr_vector<func_decl> t;
             m_constants_occ.insert_if_not_there(e, t);
             find_func_decls_proc ffd_proc(m_manager, m_constants_occ.find(e));
@@ -427,82 +307,9 @@ public:
             quick_for_each_expr(ffd_proc, visited, e);
         }
 
-        calculate_expr_distances(as);
+        calculate_expr_distances(g);
 
         TRACE("sls", tout << "Initial model:" << std::endl; show_model(tout); );
-
-        if (m_track_unsat)
-        {
-            m_list_false = new expr*[sz];
-            for (unsigned i = 0; i < sz; i++)
-            {
-        	    if (m_mpz_manager.eq(get_value(as[i]), m_zero))
-                    break_assertion(as[i]);
-            }
-        }
-
-        m_temp_seen.reset();
-        for (unsigned i = 0; i < sz; i++)
-        {
-            expr * e = as[i];
-
-            // initialize weights
-            if (!m_weights.contains(e))
-        		m_weights.insert(e, m_paws_init);
-
-            // positive/negative occurences used for early pruning
-            setup_occs(as[i]);
-        }
-
-        // initialize ucb total touched value (individual ones are always initialized to 1)
-        m_touched = m_ucb_init ? as.size() : 1;
-    }
-
-    void increase_weight(expr * e)
-    {
-        m_weights.find(e)++;
-    }
-
-    void decrease_weight(expr * e)
-    {
-        unsigned old_weight = m_weights.find(e);
-        m_weights.find(e) = old_weight > m_paws_init ? old_weight - 1 : m_paws_init;
-    }
-
-    unsigned get_weight(expr * e)
-    {
-        return m_weights.find(e);
-    }
-
-    void make_assertion(expr * e)
-    {
-        if (m_track_unsat)
-        {
-            if (m_where_false.contains(e))
-            {
-                unsigned pos = m_where_false.find(e);
-                m_where_false.erase(e);
-                if (pos != m_where_false.size())
-                {
-                    expr * q = m_list_false[m_where_false.size()];
-                    m_list_false[pos] = q;
-                    m_where_false.find(q) = pos;
-                }
-            }
-        }
-    }
-
-    void break_assertion(expr * e)
-    {
-        if (m_track_unsat)
-        {
-            if (!m_where_false.contains(e))
-            {
-                unsigned pos = m_where_false.size();
-                m_list_false[pos] = e;
-                m_where_false.insert(e, pos);
-            }
-        }
     }
 
     void show_model(std::ostream & out) {
@@ -599,7 +406,7 @@ public:
             NOT_IMPLEMENTED_YET(); // This only works for bit-vectors for now.
     }    
 
-    void randomize(ptr_vector<expr> const & as) {
+    void randomize() {
         TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
@@ -612,55 +419,6 @@ public:
 
         TRACE("sls", tout << "Randomized model:" << std::endl; show_model(tout); );
     }              
-
-    void reset(ptr_vector<expr> const & as) {
-        TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
-
-        for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
-            mpz temp = m_zero;
-            set_value(it->m_value, temp);
-            m_mpz_manager.del(temp);
-        }
-    }              
-
-    void setup_occs(expr * n, bool negated = false) {
-        if (m_manager.is_bool(n))
-        {
-            if (m_manager.is_and(n) || m_manager.is_or(n))
-            {
-                SASSERT(!negated);
-                app * a = to_app(n);
-                expr * const * args = a->get_args();
-                for (unsigned i = 0; i < a->get_num_args(); i++)
-                {
-                    expr * child = args[i];
-                    if (!m_temp_seen.contains(child))
-                    {
-                        setup_occs(child, false);
-                        m_temp_seen.insert(child);
-                    }
-                }
-            }
-            else if (m_manager.is_not(n))
-            {
-                SASSERT(!negated);
-                app * a = to_app(n);
-                SASSERT(a->get_num_args() == 1);
-                expr * child = a->get_arg(0);
-                SASSERT(!m_manager.is_and(child) && !m_manager.is_or(child));
-                setup_occs(child, true);
-            }
-            else
-            {
-                if (negated)
-                    m_scores.find(n).has_neg_occ = 1;
-                else
-                    m_scores.find(n).has_pos_occ = 1;
-            }
-        }
-        else
-            NOT_IMPLEMENTED_YET();
-    }
 
     double score_bool(expr * n, bool negated = false) {
         TRACE("sls_score", tout << ((negated)?"NEG ":"") << "BOOL: " << mk_ismt2_pp(n, m_manager) << std::endl; );
@@ -678,28 +436,41 @@ public:
             SASSERT(!negated);
             app * a = to_app(n);
             expr * const * args = a->get_args();
-            /* Andreas: Seems to have no effect. But maybe you want to try it again at some point.
+			// Andreas: Seems to have no effect. Probably it does not even occur.
+#if _SCORE_AND_AVG_
             double sum = 0.0;
             for (unsigned i = 0; i < a->get_num_args(); i++)
                 sum += get_score(args[i]);
-            res = sum / (double) a->get_num_args(); */
-            double min = 1.0;
+            res = sum / (double) a->get_num_args();
+#else
+			double min = 1.0;
             for (unsigned i = 0; i < a->get_num_args(); i++) {
                 double cur = get_score(args[i]);
                 if (cur < min) min = cur;
             }
             res = min;
+#endif
         }
         else if (m_manager.is_or(n)) {
             SASSERT(!negated);
             app * a = to_app(n);
             expr * const * args = a->get_args();
-            double max = 0.0;
+			// Andreas: Seems to have no effect. Probably it is still too similar to the original version.
+#if _SCORE_OR_MUL_
+			double inv = 1.0;
+            for (unsigned i = 0; i < a->get_num_args(); i++) {
+                double cur = get_score(args[i]);
+                inv *= (1.0 - get_score(args[i]));
+            }
+            res = 1.0 - inv;
+#else
+			double max = 0.0;
             for (unsigned i = 0; i < a->get_num_args(); i++) {
                 double cur = get_score(args[i]);
                 if (cur > max) max = cur;
             }
             res = max;
+#endif
         }
         else if (m_manager.is_ite(n)) {
             SASSERT(!negated);
@@ -717,7 +488,7 @@ public:
             expr * arg1 = a->get_arg(1);
             const mpz & v0 = get_value(arg0);
             const mpz & v1 = get_value(arg1);
-            
+
             if (negated) {                    
                 res = (m_mpz_manager.eq(v0, v1)) ? 0.0 : 1.0;
                 TRACE("sls_score", tout << "V0 = " << m_mpz_manager.to_string(v0) << " ; V1 = " << 
@@ -733,14 +504,24 @@ public:
                 m_mpz_manager.bitwise_xor(v0, v1, diff);
                 unsigned hamming_distance = 0;
                 unsigned bv_sz = m_bv_util.get_bv_size(arg0);
-                // unweighted hamming distance
+                #if 1 // unweighted hamming distance
                 while (!m_mpz_manager.is_zero(diff)) {
+                    //m_mpz_manager.set(diff_m1, diff);
+                    //m_mpz_manager.dec(diff_m1);
+                    //m_mpz_manager.bitwise_and(diff, diff_m1, diff);
+                    //hamming_distance++;
                     if (!m_mpz_manager.is_even(diff)) {
                         hamming_distance++;
                     }
                     m_mpz_manager.machine_div(diff, m_two, diff);
                 }
                 res = 1.0 - (hamming_distance / (double) bv_sz);
+                #else                    
+                rational r(diff);
+                r /= m_powers(bv_sz);
+                double dbl = r.get_double();
+                res = (dbl < 0.0) ? 1.0 : (dbl > 1.0) ? 0.0 : 1.0 - dbl;
+                #endif
                 TRACE("sls_score", tout << "V0 = " << m_mpz_manager.to_string(v0) << " ; V1 = " << 
                                         m_mpz_manager.to_string(v1) << " ; HD = " << hamming_distance << 
                                         " ; SZ = " << bv_sz << std::endl; );                    
@@ -755,7 +536,7 @@ public:
             SASSERT(a->get_num_args() == 2);
             const mpz & x = get_value(a->get_arg(0));
             const mpz & y = get_value(a->get_arg(1));
-            int bv_sz = m_bv_util.get_bv_size(a->get_decl()->get_domain()[0]);
+            unsigned bv_sz = m_bv_util.get_bv_size(a->get_decl()->get_domain()[0]);
 
             if (negated) {
                 if (m_mpz_manager.gt(x, y))
@@ -769,7 +550,7 @@ public:
                     double dbl = n.get_double();
                     // In extreme cases, n is 0.9999 but to_double returns something > 1.0
                     res = (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
-                    m_mpz_manager.del(diff);
+					m_mpz_manager.del(diff);
                 }
             }
             else {
@@ -781,7 +562,7 @@ public:
                     rational n(diff);
                     n /= rational(m_powers(bv_sz));
                     double dbl = n.get_double();
-                    res = (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
+                    res = (dbl > 1.0) ? 1.0 : (dbl < 0.0) ? 0.0 : dbl;
                     m_mpz_manager.del(diff);
                 }
             }
@@ -801,7 +582,7 @@ public:
 
             if (negated) {
                 if (x > y)
-                    res = 1.0; 
+                    res = 1.0;
                 else {
                     mpz diff;
                     m_mpz_manager.sub(y, x, diff);
@@ -817,21 +598,20 @@ public:
             }
             else {
                 if (x <= y)
-                    res = 1.0; 
+                    res = 1.0;
                 else {
                     mpz diff;
                     m_mpz_manager.sub(x, y, diff);
-                    SASSERT(!m_mpz_manager.is_neg(diff));
                     rational n(diff);
                     n /= p;
                     double dbl = n.get_double();
-                    res = (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
+                    res = (dbl > 1.0) ? 1.0 : (dbl < 0.0) ? 0.0 : dbl;
                     m_mpz_manager.del(diff);
                 }
                 TRACE("sls_score", tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
                                         m_mpz_manager.to_string(y) << " ; SZ = " << bv_sz << std::endl; );
             }
-            m_mpz_manager.del(x);
+			m_mpz_manager.del(x);
             m_mpz_manager.del(y);                
         }
         else if (m_manager.is_not(n)) {                
@@ -839,9 +619,7 @@ public:
             app * a = to_app(n);
             SASSERT(a->get_num_args() == 1);
             expr * child = a->get_arg(0);
-            // Precondition: Assertion set is in NNF.
-            // Also: careful about the unsat assertion scaling further down.
-            if (m_manager.is_and(child) || m_manager.is_or(child)) 
+            if (m_manager.is_and(child) || m_manager.is_or(child)) // Precondition: Assertion set is in NNF.
                 NOT_IMPLEMENTED_YET();
             res = score_bool(child, true);
         }
@@ -867,16 +645,24 @@ public:
 
         SASSERT(res >= 0.0 && res <= 1.0);
 
-        app * a = to_app(n);
-        family_id afid = a->get_family_id();
+#if _WEIGHT_DIST_
+		app * a = to_app(n);
+		family_id afid = a->get_family_id();
+		if (afid == m_bv_util.get_family_id())
+#endif
+#if _WEIGHT_DIST_ == 1
+		if (res < 1.0) res *= _WEIGHT_DIST_FACTOR_;
+#elif _WEIGHT_DIST_ == 2
+		res *= res;
+#elif _WEIGHT_DIST_ == 3
+		if (res < 1.0) res = 0.0;
+#endif
 
-        if (afid == m_bv_util.get_family_id())
-            if (res < 1.0) res *= m_scale_unsat;
 
         TRACE("sls_score", tout << "SCORE = " << res << std::endl; );
         return res;
     }
-    
+
     double score_bv(expr * n) {
         return 0.0; // a bv-expr is always scored as 0.0; we won't use those scores.
     }
@@ -922,28 +708,9 @@ public:
             NOT_IMPLEMENTED_YET();
     }    
 
-    ptr_vector<func_decl> & get_constants(expr * e) {
-        ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
-        unsigned sz = this_decls.size();
+	ptr_vector<func_decl> & get_unsat_constants_gsat(goal_ref const & g, unsigned sz) {
         for (unsigned i = 0; i < sz; i++) {
-            func_decl * fd = this_decls[i];
-            if (!m_temp_constants.contains(fd))
-                m_temp_constants.push_back(fd);
-        }
-        return m_temp_constants;
-    }
-
-    ptr_vector<func_decl> & get_unsat_constants_gsat(ptr_vector<expr> const & as) {
-        unsigned sz = as.size();
-        if (sz == 1) {
-            if (m_mpz_manager.neq(get_value(as[0]), m_one))
-                return get_constants();
-        }
-
-        m_temp_constants.reset();
-
-        for (unsigned i = 0; i < sz; i++) {
-            expr * q = as[i];
+            expr * q = g->form(i);
             if (m_mpz_manager.eq(get_value(q), m_one))
                 continue;
             ptr_vector<func_decl> const & this_decls = m_constants_occ.find(q);
@@ -955,109 +722,140 @@ public:
             }
         }
         return m_temp_constants;
-    }
+	}
 
-    ptr_vector<func_decl> & get_unsat_constants_walksat(expr * e) {
-            if (!e || m_temp_constants.size())
-                return m_temp_constants;
-            ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
-            unsigned sz = this_decls.size();
-            for (unsigned j = 0; j < sz; j++) {
+	expr * get_unsat_assertion(goal_ref const & g, unsigned sz, unsigned int pos) {
+			for (unsigned i = pos; i < sz; i++) {
+                expr * q = g->form(i);
+                if (m_mpz_manager.neq(get_value(q), m_one))
+		            return q;
+			}
+			for (unsigned i = 0; i < pos; i++) {
+                expr * q = g->form(i);
+                if (m_mpz_manager.neq(get_value(q), m_one))
+		            return q;
+            }
+			return 0;
+	}
+
+	ptr_vector<func_decl> & get_unsat_constants_walksat(goal_ref const & g, unsigned sz, unsigned int pos) {
+			expr * q = get_unsat_assertion(g, sz, pos);
+            // Andreas: I should probably fix this. If this is the case then the formula is SAT anyway but this is not checked in the first iteration.
+			if (!q)
+				return m_temp_constants;
+
+			ptr_vector<func_decl> const & this_decls = m_constants_occ.find(q);
+            unsigned sz2 = this_decls.size();
+            for (unsigned j = 0; j < sz2; j++) {
                 func_decl * fd = this_decls[j];
                 if (!m_temp_constants.contains(fd))
                     m_temp_constants.push_back(fd);
             }
-            return m_temp_constants;
-    }
+	        return m_temp_constants;
+	}
 
-    ptr_vector<func_decl> & get_unsat_constants(ptr_vector<expr> const & as) {
-        if (m_walksat)
-        {
-            expr * e = get_unsat_assertion(as);
-
-            if (!e)
-            {
-                m_temp_constants.reset();
-                return m_temp_constants;
+	ptr_vector<func_decl> & go_deeper(expr * e) {
+			if (m_manager.is_bool(e)) {
+				if (m_manager.is_and(e)) {
+					app * a = to_app(e);
+					expr * const * args = a->get_args();
+				    // Andreas: might be used for guided branching
+					//for (unsigned i = 0; i < a->get_num_args(); i++) {
+						//double cur = get_score(args[i]);
+					//}
+					// Andreas: A random number is better here since reusing flip will cause patterns.
+					unsigned int sz = a->get_num_args();
+					unsigned int pos = get_random_uint(16) % sz;
+					for (unsigned int i = pos; i < sz; i++) {
+		                expr * q = args[i];
+		                if (m_mpz_manager.neq(get_value(q), m_one))
+				            return go_deeper(q);
+					}
+					for (unsigned int i = 0; i < pos; i++) {
+						expr * q = args[i];
+		                if (m_mpz_manager.neq(get_value(q), m_one))
+				            return go_deeper(q);
+		            }
+		        }
+				else if (m_manager.is_or(e)) {
+					app * a = to_app(e);
+					expr * const * args = a->get_args();
+					unsigned int sz = a->get_num_args();
+					unsigned int pos = get_random_uint(16) % sz;
+					for (unsigned int i = pos; i < sz; i++) {
+		                expr * q = args[i];
+		                if (m_mpz_manager.neq(get_value(q), m_one))
+				            return go_deeper(q);
+					}
+					for (unsigned int i = 0; i < pos; i++) {
+						expr * q = args[i];
+		                if (m_mpz_manager.neq(get_value(q), m_one))
+				            return go_deeper(q);
+		            }
+		        }
+			}
+			ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
+            unsigned sz2 = this_decls.size();
+            for (unsigned j = 0; j < sz2; j++) {
+                func_decl * fd = this_decls[j];
+                if (!m_temp_constants.contains(fd))
+                    m_temp_constants.push_back(fd);
             }
+	        return m_temp_constants;
+	}
 
-            return get_unsat_constants_walksat(e);
-        }
-        else
-            return get_unsat_constants_gsat(as);
-    }
-    
-    expr * get_unsat_assertion(ptr_vector<expr> const & as) {
-        unsigned sz = as.size();
+	ptr_vector<func_decl> & get_unsat_constants_crsat(goal_ref const & g, unsigned sz, unsigned int pos) {
+		expr * q = get_unsat_assertion(g, sz, pos);
+        if (!q)
+			return m_temp_constants;
+
+		return go_deeper(q);
+	}
+
+    ptr_vector<func_decl> & get_unsat_constants(goal_ref const & g, unsigned int flip) {
+        unsigned sz = g->size();
+
         if (sz == 1) {
-            if (m_mpz_manager.neq(get_value(as[0]), m_one))
-                return as[0];
-            else
-                return 0;
+            return get_constants();
         }
-        m_temp_constants.reset();
-
-        unsigned pos = -1;
-        if (m_ucb)
-        {
-            value_score vscore;
-            double max = -1.0;
-            // Andreas: Commented things here might be used for track_unsat data structures as done in SLS for SAT. But seems to have no benefit.
-            /* for (unsigned i = 0; i < m_where_false.size(); i++) {
-                expr * e = m_list_false[i]; */
-            for (unsigned i = 0; i < sz; i++) {
-                expr * e = as[i];
-                if (m_mpz_manager.neq(get_value(e), m_one))
-                {
-                    vscore = m_scores.find(e);
-                    // Andreas: Select the assertion with the greatest ucb score. Potentially add some noise.
-                    // double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched);
-                    double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched) + m_ucb_noise * get_random_uint(8); 
-                    if (q > max) { max = q; pos = i; }
-                }
+        else {
+            m_temp_constants.reset();
+#if _FOCUS_ == 1
+#if _BFS_ == 3
+			unsigned int pos = 0;
+			double max = get_score(g->form(0));
+            unsigned sz = g->size();
+            for (unsigned i = 1; i < sz; i++) {
+				expr * e = g->form(i);
+                double q = get_score(e);
+				if (q > max && m_mpz_manager.neq(get_value(e), m_one) ) { max = q; pos = i; }
             }
-            if (pos == static_cast<unsigned>(-1))
-                return 0;
-
-            m_touched++;
-            m_scores.find(as[pos]).touched++;
-            // Andreas: Also part of track_unsat data structures. Additionally disable the previous line!
-            /* m_last_pos = pos;
-            m_scores.find(m_list_false[pos]).touched++;
-            return m_list_false[pos]; */
+#elif _BFS_ == 2
+			unsigned int pos = 0;
+			double min = get_score(g->form(0));
+            unsigned sz = g->size();
+            for (unsigned i = 1; i < sz; i++) {
+				expr * e = g->form(i);
+                double q = get_score(e);
+				if (q < min && m_mpz_manager.neq(get_value(e), m_one) ) { min = q; pos = i; }
+            }
+#elif _BFS_ == 1
+			unsigned int pos = flip % m_constants.size();
+#else
+			unsigned int pos = get_random_uint(16) % m_constants.size();
+#endif
+			return get_unsat_constants_walksat(g, sz, pos);
+#elif _FOCUS_ == 2
+#if _BFS_
+			unsigned int pos = flip % m_constants.size();
+#else
+			unsigned int pos = get_random_uint(16) % m_constants.size();
+#endif
+			return get_unsat_constants_crsat(g, sz, pos);
+#else
+			return get_unsat_constants_gsat(g, sz);
+#endif
         }
-        else
-        {
-            // Andreas: The track_unsat data structures for random assertion selection.
-            /* sz = m_where_false.size();
-            if (sz == 0)
-                return 0;
-            return m_list_false[get_random_uint(16) % sz]; */
-
-            unsigned cnt_unsat = 0;
-            for (unsigned i = 0; i < sz; i++)
-                if (m_mpz_manager.neq(get_value(as[i]), m_one) && (get_random_uint(16) % ++cnt_unsat == 0)) pos = i;	
-            if (pos == static_cast<unsigned>(-1))
-                return 0;
-        }
-        
-        m_last_pos = pos;
-        return as[pos];
-    }
-
-    expr * get_new_unsat_assertion(ptr_vector<expr> const & as) {
-        unsigned sz = as.size();
-        if (sz == 1)
-            return 0;
-        m_temp_constants.reset();
-        
-        unsigned cnt_unsat = 0, pos = -1;
-        for (unsigned i = 0; i < sz; i++)
-            if ((i != m_last_pos) && m_mpz_manager.neq(get_value(as[i]), m_one) && (get_random_uint(16) % ++cnt_unsat == 0)) pos = i;	
-
-        if (pos == static_cast<unsigned>(-1))
-            return 0;
-        return as[pos];
     }
 };
 

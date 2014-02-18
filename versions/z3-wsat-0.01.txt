@@ -10,5 +10,3 @@ No restarts.
 #define _TIMELIMIT_ 300
 #define _SCORE_AND_AVG_ 0
 #define _SCORE_OR_MUL_ 0
-
-BUGGY VERSION! Uses wrong value for modulo operation in assertion selection.
