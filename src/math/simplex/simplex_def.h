@@ -13,6 +13,10 @@ Author:
 
 Notes:
 
+    Sign of base variables can vary.
+    Sign could possibly be normalized to positive.
+    Otherwise, sign could be accounted in pivoting.
+
 --*/
 
 #ifndef _SIMPLEX_DEF_H_
@@ -41,7 +45,16 @@ namespace simplex {
                 }
             }
         }
-        SASSERT(!m.is_zero(base_coeff));
+#if 0
+        if (m.is_pos(base_coeff)) {
+            scoped_numeral minus_one(m);
+            m.set(minus_one, -1);
+            M.mul(r, minus_one);
+            m.neg(base_coeff);
+            em.neg(value);
+        }
+        SASSERT(m.is_neg(base_coeff));
+#endif
         SASSERT(!is_base(base));
         em.neg(value);
         em.div(value, base_coeff, value);
@@ -167,14 +180,16 @@ namespace simplex {
         unsigned num_iterations = 0;
         unsigned num_repeated = 0;
         var_t v = null_var;
+        m_bland = false;
         SASSERT(well_formed());
         while ((v = select_var_to_fix()) != null_var) {
-            TRACE("simplex", tout << "v" << v << "\n";);
+            TRACE("simplex", display(tout << "v" << v << "\n"););
             if (m_cancel || num_iterations > m_max_iterations) {
                 return l_undef;
             }
             check_blands_rule(v, num_repeated);
             if (!make_var_feasible(v)) {
+                m_to_patch.insert(v);
                 m_infeasible_var = v;
                 return l_false;
             }
@@ -764,11 +779,16 @@ namespace simplex {
         // with m_vars[s].m_base_coeff;
         //
         // check that sum of assignments add up to 0 for every row.
+        var_t s = m_row2base[r.id()];
+        SASSERT(m_vars[s].m_base2row == r.id());
+        SASSERT(m_vars[s].m_is_base);
+        // SASSERT(m.is_neg(m_vars[s].m_base_coeff));
         row_iterator it = M.row_begin(r), end = M.row_end(r);
         scoped_eps_numeral sum(em), tmp(em);
         for (; it != end; ++it) {
             em.mul(m_vars[it->m_var].m_value, it->m_coeff, tmp);
             sum += tmp;
+            SASSERT(s != it->m_var || m.eq(m_vars[e].m_base_coeff, it->m_coeff));
         }
         SASSERT(em.is_zero(sum));
 
