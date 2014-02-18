@@ -35,6 +35,17 @@ Notes:
 #include"sls_tactic.h"
 #include"nnf_tactic.h"
 
+#define _CNF_ 0
+#define _BFS_ 1
+#define _FOCUS_ 1
+#define _RESTARTS_ 0
+#define _TIMELIMIT_ 30
+#define _SCORE_AND_AVG_ 0
+#define _SCORE_OR_MUL_ 0
+#define _VNS_ 0
+#define _WEIGHT_DIST_ 3
+#define _WEIGHT_DIST_FACTOR_ 0.1
+
 #include"sls_params.hpp"
 #include"sls_evaluator.h"
 #include"sls_tracker.h"
@@ -257,7 +268,7 @@ class sls_tactic : public tactic {
             // inversion doesn't make sense, let's do a flip instead.
             if (mt == MV_INV) mt = MV_FLIP;
 
-            ptr_vector<func_decl> & unsat_constants = m_tracker.get_unsat_constants(g);                
+			ptr_vector<func_decl> & unsat_constants = m_tracker.get_unsat_constants(g, m_stats.m_moves);                
             unsigned ucc = unsat_constants.size(); 
             unsigned rc = (m_tracker.get_random_uint((ucc < 16) ? 4 : (ucc < 256) ? 8 : (ucc < 4096) ? 12 : (ucc < 65536) ? 16 : 32)) % ucc;
             func_decl * fd = unsat_constants[rc];
@@ -302,6 +313,82 @@ class sls_tactic : public tactic {
 
             m_mpz_manager.del(new_value);
         }
+
+        double find_best_move_vns(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score, 
+                              unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move) {
+            mpz old_value, temp;
+            unsigned bv_sz, max_bv_sz = 0;
+            double new_score = score;
+
+            for (unsigned i = 0; i < to_evaluate.size() && new_score < 1.0 ; i++) {
+                func_decl * fd = to_evaluate[i];
+                sort * srt = fd->get_range();
+                bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
+				if (max_bv_sz < bv_sz) max_bv_sz = bv_sz;
+                m_mpz_manager.set(old_value, m_tracker.get_value(fd));
+
+                if (m_bv_util.is_bv_sort(srt) && bv_sz > 1) {
+                    if (!m_mpz_manager.is_even(old_value)) { 
+                        // for odd values, try +1
+                        mk_inc(bv_sz, old_value, temp);
+                        if (what_if(g, fd, i, temp, new_score, best_const, best_value))
+                            move = MV_INC;
+                    }
+                    else { 
+                        // for even values, try -1
+                        mk_dec(bv_sz, old_value, temp);
+                        if (what_if(g, fd, i, temp, new_score, best_const, best_value))
+                            move = MV_DEC;
+                    }
+
+                    // try inverting
+                    mk_inv(bv_sz, old_value, temp);
+                    if (what_if(g, fd, i, temp, new_score, best_const, best_value))
+                        move = MV_INV;
+
+					// try to flip lsb
+					mk_flip(srt, old_value, 0, temp);                
+	                if (what_if(g, fd, i, temp, new_score, best_const, best_value)) {
+	                    new_bit = 0;
+	                    move = MV_FLIP;
+					}
+                }
+
+                // reset to what it was before
+                double check = incremental_score(g, fd, old_value);
+                SASSERT(check == score);
+            }
+
+#if _VNS_ == 1
+			for (unsigned j = 1; j < max_bv_sz && new_score <= score; j++)
+#else
+			if (new_score <= score)
+			for (unsigned j = 1; j < max_bv_sz && new_score < 1.0; j++)
+#endif
+            for (unsigned i = 0; i < to_evaluate.size() && new_score < 1.0 ; i++) {
+                func_decl * fd = to_evaluate[i];
+                sort * srt = fd->get_range();
+                bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
+                m_mpz_manager.set(old_value, m_tracker.get_value(fd));
+
+                // What would happen if we flipped bit #j ?                
+				if (j < bv_sz)
+				{
+					mk_flip(srt, old_value, j, temp);                
+
+	                if (what_if(g, fd, i, temp, new_score, best_const, best_value)) {
+	                    new_bit = j;
+	                    move = MV_FLIP;
+	                }
+				}
+                // reset to what it was before
+                double check = incremental_score(g, fd, old_value);
+                SASSERT(check == score);
+            }
+			m_mpz_manager.del(old_value);
+            m_mpz_manager.del(temp);
+            return new_score;
+        }        
 
         double find_best_move(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score, 
                               unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move) {
@@ -372,22 +459,29 @@ class sls_tactic : public tactic {
         
             unsigned plateau_cnt = 0;
 
-            while (plateau_cnt < m_plateau_limit) {                
-
+			// Andreas: Why do we only allow so few plateaus?
+#if _RESTARTS_
+			while (plateau_cnt < m_plateau_limit && m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {                
+#else
+			while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {                
+#endif
                 do {
                     checkpoint();
             
                     old_score = score;
                     new_const = (unsigned)-1;
                         
-                    ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants(g);
+					ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants(g, m_stats.m_moves);
 
                     TRACE("sls_constants", tout << "Evaluating these constants: " << std::endl;
                                             for (unsigned i = 0 ; i < to_evaluate.size(); i++)
                                                 tout << to_evaluate[i]->get_name() << std::endl; );
 
+#if _VNS_
+                    score = find_best_move_vns(g, to_evaluate, score, new_const, new_value, new_bit, move);
+#else
                     score = find_best_move(g, to_evaluate, score, new_const, new_value, new_bit, move);
-
+#endif
                     if (new_const == static_cast<unsigned>(-1)) {
                         TRACE("sls", tout << "Local maximum reached; unsatisfied constraints: " << std::endl; 
                                         for (unsigned i = 0; i < g->size(); i++) {
@@ -400,9 +494,11 @@ class sls_tactic : public tactic {
                                         for (unsigned i = 0; i < g->size(); i++)
                                             tout << mk_ismt2_pp(g->form(i), m_manager) << " ---> " << 
                                             m_tracker.get_score(g->form(i)) << std::endl; );
+						// Andreas: If new_const == -1, shouldn't score = old_score anyway?
                         score = old_score;
                     }
                     else {
+						// Andreas: Why does randomizing not count as a move? (Now it does.)
                         m_stats.m_moves++;
                         func_decl * fd = to_evaluate[new_const];
 
@@ -441,6 +537,7 @@ class sls_tactic : public tactic {
 
                     if (score >= 1.0) {
                         // score could theoretically be imprecise.
+						// Andreas: Can it only be imprecise in one direction?
                         bool all_true = true;
                         for (unsigned i = 0; i < g->size() && all_true; i++)
                             if (!m_mpz_manager.is_one(m_tracker.get_value(g->form(i))))
@@ -451,19 +548,30 @@ class sls_tactic : public tactic {
                         } else
                             TRACE("sls", tout << "Imprecise 1.0 score" << std::endl;);
                     }
+					/*
+					if (m_stats.m_moves % 100 == 0)
+					{
+						verbose_stream() << "(" << std::fixed << std::setprecision(10) << score << ")" << std::endl;
+						verbose_stream() << "(" << std::fixed << std::setprecision(2) << (m_stats.m_moves / m_stats.m_stopwatch.get_current_seconds()) << ")" << std::endl;
+					}*/
                 }
                 while (score > old_score && res == l_undef);                
-
-                if (score != old_score)
+				
+				// Andreas: Why do you check for old_score? This should always be equal due to the loop invariant.
+                if (score != old_score) {
+					report_tactic_progress("This should not happen I guess.", plateau_cnt);
                     plateau_cnt = 0;
-                else {
+				} else {
+					m_stats.m_moves++;
                     plateau_cnt++;
-                    if (plateau_cnt < m_plateau_limit) {
+					//report_tactic_progress("Plateau.", plateau_cnt);
+					// Andreas: Right now, a useless assignment is created in case of a restart. But we don't want to use restarts anyway.
+                    //if (plateau_cnt < m_plateau_limit) {
                         TRACE("sls", tout << "In a plateau (" << plateau_cnt << "/" << m_plateau_limit << "); randomizing locally." << std::endl; );
-                        m_evaluator.randomize_local(g);
+						m_evaluator.randomize_local(g, m_stats.m_moves);
                         //mk_random_move(g);
                         score = top_score(g);
-                    }
+                    //}
                 }
             }
 
@@ -484,7 +592,8 @@ class sls_tactic : public tactic {
         
             do {
                 checkpoint();
-                if ((m_stats.m_restarts % 100) == 0)                        
+				// Andreas: I think restarts are too impotant to ignore 99% of them are happening...
+                //if ((m_stats.m_restarts % 100) == 0)                        
                     report_tactic_progress("Searching... restarts left:", m_max_restarts - m_stats.m_restarts);
                 
                 res = search(g);
@@ -492,9 +601,12 @@ class sls_tactic : public tactic {
                 if (res == l_undef)
                     m_tracker.randomize();
             }
-            while (res != l_true && m_stats.m_restarts++ < m_max_restarts);
+			while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_ && res != l_true && m_stats.m_restarts++ < m_max_restarts);
         
-            if (res == l_true) {                
+			verbose_stream() << "(restarts: " << m_stats.m_restarts << " flips: " << m_stats.m_moves << " time: " << std::fixed << std::setprecision(2) << m_stats.m_stopwatch.get_current_seconds() << " fps: " << (m_stats.m_moves / m_stats.m_stopwatch.get_current_seconds()) << ")" << std::endl;
+
+            if (res == l_true) {    
+				report_tactic_progress("Number of flips:", m_stats.m_moves);
                 if (m_produce_models) {
                     model_ref mdl = m_tracker.get_model();
                     mc = model2model_converter(mdl.get());
@@ -633,7 +745,13 @@ tactic * mk_preamble(ast_manager & m, params_ref const & p) {
                              using_params(mk_simplify_tactic(m), simp2_p)),
                         using_params(mk_simplify_tactic(m), hoist_p),
                         mk_max_bv_sharing_tactic(m),
+#if _CNF_
+						// Andreas: We will probably never use this. CNF sucks.
+                        mk_cnf_tactic(m, p));
+#else
+						// Andreas: How does a NNF actually look like? Can it contain ITE operators?
                         mk_nnf_tactic(m, p));
+#endif
 }
 
 tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p) {
