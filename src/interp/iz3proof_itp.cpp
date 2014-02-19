@@ -2146,8 +2146,14 @@ class iz3proof_itp_impl : public iz3proof_itp {
   /** Make a Reflexivity node. This rule produces |- x = x */
   
   virtual node make_reflexivity(ast con){
-    throw proof_error();
-}
+    if(get_term_type(con) == LitA)
+      return mk_false();
+    if(get_term_type(con) == LitB)
+      return mk_true();
+    ast itp = make(And,make(contra,no_proof,mk_false()),
+		   make(contra,mk_true(),mk_not(con)));
+    return itp;
+  }
   
   /** Make a Symmetry node. This takes a derivation of |- x = y and
       produces | y = x. Ditto for ~(x=y) */
