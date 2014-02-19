@@ -1184,7 +1184,13 @@ namespace Duality {
       hash_map<Edge *, Edge *> EdgeCloneMap;
       std::vector<expr> alit_stack;
       std::vector<unsigned> alit_stack_sizes;
-      hash_map<Edge *, uptr<LogicSolver> > edge_solvers;
+
+      // to let us use one solver per edge
+      struct edge_solver {
+	hash_map<ast,expr> AssumptionLits;
+	uptr<solver> slvr;
+      };
+      hash_map<Edge *, edge_solver > edge_solvers;
       
 #ifdef LIMIT_STACK_WEIGHT
       struct weight_counter {
@@ -1236,19 +1242,23 @@ namespace Duality {
 
       void GetTermTreeAssertionLiteralsRec(TermTree *assumptions);
 
-      LogicSolver *SolverForEdge(Edge *edge, bool models);
+      edge_solver &SolverForEdge(Edge *edge, bool models, bool axioms);
 
   public:
       struct scoped_solver_for_edge {
-	LogicSolver *orig_ls;
+	solver *orig_slvr;
 	RPFP_caching *rpfp;
-	scoped_solver_for_edge(RPFP_caching *_rpfp, Edge *edge, bool models = false){
+	edge_solver *es;
+	scoped_solver_for_edge(RPFP_caching *_rpfp, Edge *edge, bool models = false, bool axioms = false){
 	  rpfp = _rpfp;
-	  orig_ls = rpfp->ls;
-	  rpfp->ls = rpfp->SolverForEdge(edge,models);
+	  orig_slvr = rpfp->ls->slvr;
+	  es = &(rpfp->SolverForEdge(edge,models,axioms)); 
+	  rpfp->ls->slvr = es->slvr.get();
+	  rpfp->AssumptionLits.swap(es->AssumptionLits);
 	}
 	~scoped_solver_for_edge(){
-	  rpfp->ls = orig_ls;
+	  rpfp->ls->slvr = orig_slvr;
+	  rpfp->AssumptionLits.swap(es->AssumptionLits);
 	}
       };
 
