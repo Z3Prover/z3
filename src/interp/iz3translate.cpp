@@ -1547,12 +1547,20 @@ public:
       if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or)
 	std::cout << "foo!\n";
 
+#if 0
       if(1 && dk == PR_TRANSITIVITY && pr(prem(proof,1)) == PR_COMMUTATIVITY){
 	Iproof::node clause = translate_main(prem(proof,0),true);
 	res = make(commute,clause,conc(prem(proof,0))); // HACK -- we depend on Iproof::node being same as ast.
 	return res;
       }
       
+      if(1 && dk == PR_TRANSITIVITY && pr(prem(proof,0)) == PR_COMMUTATIVITY){
+	Iproof::node clause = translate_main(prem(proof,1),true);
+	res = make(commute,clause,conc(prem(proof,1))); // HACK -- we depend on Iproof::node being same as ast.
+	return res;
+      }
+#endif
+
       if(dk == PR_TRANSITIVITY && is_eq_propagate(prem(proof,1))){
 	try {
 	  res = CombineEqPropagate(proof);
@@ -1734,6 +1742,12 @@ public:
       }
       case PR_IFF_TRUE: { // turns p into p <-> true, noop for us
 	res = args[0];
+	break;
+      }
+      case PR_COMMUTATIVITY: {
+	ast comm_equiv = make(op(con),arg(con,0),arg(con,0));
+	ast pf = iproof->make_reflexivity(comm_equiv);
+	res = make(commute,pf,comm_equiv);
 	break;
       }
       default:
