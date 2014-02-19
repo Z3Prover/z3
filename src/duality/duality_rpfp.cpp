@@ -2895,12 +2895,18 @@ namespace Duality {
     timer_stop("Generalize");
   }
 
-  RPFP_caching::edge_solver &RPFP_caching::SolverForEdge(Edge *edge, bool models){
+  RPFP_caching::edge_solver &RPFP_caching::SolverForEdge(Edge *edge, bool models, bool axioms){
     edge_solver &es = edge_solvers[edge];
     uptr<solver> &p = es.slvr;
     if(!p.get()){
       scoped_no_proof no_proofs_please(ctx.m()); // no proofs
       p.set(new solver(ctx,true,models)); // no models
+      if(axioms){
+	RPFP::LogicSolver *ls = edge->owner->ls;
+	const std::vector<expr> &axs = ls->get_axioms();
+	for(unsigned i = 0; i < axs.size(); i++)
+	  p.get()->add(axs[i]);
+      }
     }
     return es;
   }

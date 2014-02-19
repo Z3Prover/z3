@@ -1247,7 +1247,7 @@ namespace Duality {
 	slvr.pop(1);
 	delete checker;
 #else
-	RPFP_caching::scoped_solver_for_edge(gen_cands_rpfp,edge,true /* models */);
+	RPFP_caching::scoped_solver_for_edge ssfe(gen_cands_rpfp,edge,true /* models */, true /*axioms*/);
 	gen_cands_rpfp->Push();
 	Node *root = CheckerForEdgeClone(edge,gen_cands_rpfp);
 	if(gen_cands_rpfp->Check(root) != unsat){
@@ -2004,7 +2004,7 @@ namespace Duality {
 	  }
 	  else {
 	    was_sat = true;
-	    tree->Push();
+	    tree->Push();
 	    std::vector<Node *> &expansions = stack.back().expansions;
 #ifndef NO_DECISIONS
 	    for(unsigned i = 0; i < expansions.size(); i++){

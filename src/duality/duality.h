@@ -1242,17 +1242,17 @@ namespace Duality {
 
       void GetTermTreeAssertionLiteralsRec(TermTree *assumptions);
 
-      edge_solver &SolverForEdge(Edge *edge, bool models);
+      edge_solver &SolverForEdge(Edge *edge, bool models, bool axioms);
 
   public:
       struct scoped_solver_for_edge {
 	solver *orig_slvr;
 	RPFP_caching *rpfp;
 	edge_solver *es;
-	scoped_solver_for_edge(RPFP_caching *_rpfp, Edge *edge, bool models = false){
+	scoped_solver_for_edge(RPFP_caching *_rpfp, Edge *edge, bool models = false, bool axioms = false){
 	  rpfp = _rpfp;
 	  orig_slvr = rpfp->ls->slvr;
-	  es = &(rpfp->SolverForEdge(edge,models)); 
+	  es = &(rpfp->SolverForEdge(edge,models,axioms)); 
 	  rpfp->ls->slvr = es->slvr.get();
 	  rpfp->AssumptionLits.swap(es->AssumptionLits);
 	}
