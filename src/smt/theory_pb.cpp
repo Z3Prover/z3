@@ -360,6 +360,7 @@ namespace smt {
             theory_var slack;
             bool_var abv2;
             row r;
+            TRACE("pb", display(tout << abv <<"\n", rep););
             if (m_ineq_rep.find(rep, abv2)) {
                 slack = abv2; 
                 r = m_ineq_row_info.find(abv2).m_row;
@@ -1286,10 +1287,10 @@ namespace smt {
             if (m_enable_simplex) {
                 row_info r_info;
                 VERIFY(m_ineq_row_info.find(v, r_info));
-                m_simplex.del_row(r_info.m_row);
                 m_ineq_row_info.erase(v);
                 bool_var v2 = m_ineq_rep.find(r_info.m_rep);
                 if (v == v2) {
+                    m_simplex.del_row(r_info.m_row);
                     m_ineq_rep.erase(r_info.m_rep);
                 }
             }

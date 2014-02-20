@@ -98,6 +98,7 @@ namespace simplex {
         random_gen                  m_random;
         uint_set                    m_left_basis;
         unsigned                    m_infeasible_var;
+        unsigned_vector             m_base_vars;
 
     public:
         simplex():
