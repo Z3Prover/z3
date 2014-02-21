@@ -1402,7 +1402,7 @@ namespace hash_space {
 }
 
 // to make Duality::ast hashable in windows
-#ifdef WIN32 
+#ifdef _WINDOWS 
 template <> inline
 size_t stdext::hash_value<Duality::ast >(const Duality::ast& s)
 {	
@@ -1446,7 +1446,7 @@ namespace hash_space {
 }
 
 // to make Duality::func_decl hashable in windows
-#ifdef WIN32 
+#ifdef _WINDOWS 
 template <> inline
 size_t stdext::hash_value<Duality::func_decl >(const Duality::func_decl& s)
 {	

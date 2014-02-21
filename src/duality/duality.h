@@ -25,7 +25,7 @@ Revision History:
 #include <map>
 
 // make hash_map and hash_set available
-#ifndef WIN32
+#ifndef _WINDOWS
 using namespace stl_ext;
 #endif
 
@@ -782,7 +782,7 @@ protected:
       };
 
       
-#ifdef WIN32
+#ifdef _WINDOWS
        __declspec(dllexport)
 #endif
        void FromClauses(const std::vector<Term> &clauses);

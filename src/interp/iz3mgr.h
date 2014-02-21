@@ -127,7 +127,7 @@ namespace hash_space {
 }
 
 // to make ast_r hashable in windows
-#ifdef WIN32 
+#ifdef _WINDOWS 
 template <> inline
 size_t stdext::hash_value<ast_r >(const ast_r& s)
 {	
