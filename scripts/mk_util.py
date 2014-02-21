@@ -1198,9 +1198,9 @@ class JavaDLLComponent(Component):
                 deps += '%s ' % os.path.join(self.to_src_dir, 'enumerations', jfile)
             out.write(deps)
             out.write('\n')
-            if IS_WINDOWS:
-                JAVAC = '"%s"' % JAVAC
-                JAR = '"%s"' % JAR
+            #if IS_WINDOWS:
+            JAVAC = '"%s"' % JAVAC
+            JAR = '"%s"' % JAR
             t = ('\t%s %s.java -d %s\n' % (JAVAC, os.path.join(self.to_src_dir, 'enumerations', '*'), os.path.join('api', 'java', 'classes')))
             out.write(t)
             t = ('\t%s -cp %s %s.java -d %s\n' % (JAVAC, 
