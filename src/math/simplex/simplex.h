@@ -115,9 +115,19 @@ namespace simplex {
         void  ensure_var(var_t v);
         row   add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
         row   get_infeasible_row();
+        var_t get_base_var(row const& r) const { return m_row2base[r.id()]; }
+        numeral const& get_base_coeff(row const& r) const { return m_vars[m_row2base[r.id()]].m_base_coeff; }
         void  del_row(row const& r);
         void  set_lower(var_t var, eps_numeral const& b);
         void  set_upper(var_t var, eps_numeral const& b);
+        void  get_lower(var_t var, scoped_eps_numeral& b) const { b = m_vars[var].m_lower; }
+        void  get_upper(var_t var, scoped_eps_numeral& b) const { b = m_vars[var].m_upper; }
+        bool  above_lower(var_t var, eps_numeral const& b) const;
+        bool  below_upper(var_t var, eps_numeral const& b) const;
+        bool  below_lower(var_t v) const;
+        bool  above_upper(var_t v) const;
+        bool  lower_valid(var_t var) const { return m_vars[var].m_lower_valid; }
+        bool  upper_valid(var_t var) const { return m_vars[var].m_upper_valid; }
         void  unset_lower(var_t var);
         void  unset_upper(var_t var); 
         void  set_value(var_t var, eps_numeral const& b);        
@@ -127,6 +137,7 @@ namespace simplex {
         lbool minimize(var_t var);
         eps_numeral const& get_value(var_t v);
         void display(std::ostream& out) const;
+        void display_row(std::ostream& out, row const& r, bool values = true);
 
         unsigned get_num_vars() const { return m_vars.size(); }
 
@@ -159,8 +170,6 @@ namespace simplex {
 
         bool at_lower(var_t v) const;
         bool at_upper(var_t v) const;
-        bool below_lower(var_t v) const;
-        bool above_upper(var_t v) const;
         bool above_lower(var_t v) const;
         bool below_upper(var_t v) const;
         bool outside_bounds(var_t v) const { return below_lower(v) || above_upper(v); }

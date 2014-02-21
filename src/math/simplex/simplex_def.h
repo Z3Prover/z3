@@ -47,10 +47,12 @@ namespace simplex {
             m.set(b, m_vars[v].m_base_coeff);
             m.lcm(a, b, c);
             TRACE("simplex",
-                  m.display(tout << "a: ", a);
-                  m.display(tout << "b v" << v << " : ", b);
-                  m.display(tout << "c: ", c);
+                  m.display(tout << " a: ", a);
+                  m.display(tout << " b v" << v << " : ", b);
+                  m.display(tout << " c: ", c);
                   tout << "\n";
+                  M.display_row(tout, r);
+                  M.display_row(tout, row(m_vars[v].m_base2row));
                   if (m.is_zero(b)) {
                       display(tout);
                   });
@@ -58,11 +60,11 @@ namespace simplex {
             m.abs(c);
             m.div(c, a, b);
             m.div(c, m_vars[v].m_base_coeff, a);
-            m.set(mul, a);
-            m.abs(mul);            
+            m.mul(mul, b, mul);
             M.mul(r, b);
             m.neg(a);
             M.add(r, a, row(m_vars[v].m_base2row));
+            TRACE("simplex", M.display_row(tout, r););
         }
 
         scoped_numeral base_coeff(m);
@@ -137,6 +139,18 @@ namespace simplex {
     }
 
     template<typename Ext>
+    bool simplex<Ext>::above_lower(var_t var, eps_numeral const& b) const {
+        var_info const& vi = m_vars[var];        
+        return !vi.m_lower_valid || em.gt(b, vi.m_lower);
+    }
+
+    template<typename Ext>
+    bool simplex<Ext>::below_upper(var_t var, eps_numeral const& b) const {
+        var_info const& vi = m_vars[var];        
+        return !vi.m_upper_valid || em.lt(b, vi.m_upper);
+    }
+
+    template<typename Ext>
     void simplex<Ext>::set_lower(var_t var, eps_numeral const& b) {
         var_info& vi = m_vars[var];
         em.set(vi.m_lower, b);
@@ -205,6 +219,26 @@ namespace simplex {
             out << "\n";
         }
     }
+
+    template<typename Ext>
+    void simplex<Ext>::display_row(std::ostream& out, row const& r, bool values) {
+        row_iterator it = M.row_begin(r), end = M.row_end(r);        
+        for (; it != end; ++it) {
+            m.display(out, it->m_coeff);
+            out << "*v" << it->m_var << " ";
+            if (values) {
+                var_info const& vi = m_vars[it->m_var];
+                out << em.to_string(vi.m_value);
+                out << " [";
+                if (vi.m_lower_valid) out << em.to_string(vi.m_lower); else out << "-oo";
+                out << ":";
+                if (vi.m_upper_valid) out << em.to_string(vi.m_upper); else out << "oo";
+                out << "] ";
+            }
+        }
+        out << "\n";
+    }
+
 
     template<typename Ext>
     void simplex<Ext>::ensure_var(var_t v) {
@@ -343,6 +377,8 @@ namespace simplex {
         var_info const& vi = m_vars[v];
         return vi.m_lower_valid && em.lt(vi.m_value, vi.m_lower);
     }
+
+
 
     template<typename Ext>
     bool simplex<Ext>::above_upper(var_t v) const {

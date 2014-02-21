@@ -202,43 +202,139 @@ namespace smt {
         }        
     };
 
-    class theory_pb::reset_bound : public trail<context> {
-        theory_pb& pb;
-        unsigned   v;
-        bool       is_lower;
-    public:
-        reset_bound(theory_pb& pb, unsigned v, bool is_lower):
-            pb(pb), v(v), is_lower(is_lower) {}
-
-        virtual void undo(context& ctx) {
-            if (is_lower) {
-                pb.m_simplex.unset_lower(v);
-            }
-            else {
-                pb.m_simplex.unset_upper(v);
-            }
-        }
-    };
-
     class theory_pb::undo_bound : public trail<context> {
-        theory_pb& pb;
-        unsigned   v;
-        bool       is_lower;
+        theory_pb&         pb;
+        unsigned           m_v;
+        bool               m_is_lower;
+        scoped_eps_numeral m_last_bound;
+        bool               m_last_bound_valid;
+        literal            m_last_explain;
+        
     public:
-        undo_bound(theory_pb& pb, unsigned v, bool is_lower):
-            pb(pb), v(v), is_lower(is_lower) {}
+        undo_bound(theory_pb& pb, unsigned v, 
+                   bool is_lower, 
+                   scoped_eps_numeral& last_bound, 
+                   bool last_bound_valid, 
+                   literal last_explain):
+            pb(pb), 
+            m_v(v), 
+            m_is_lower(is_lower), 
+            m_last_bound(last_bound), 
+            m_last_bound_valid(last_bound_valid),
+            m_last_explain(last_explain) {}
 
         virtual void undo(context& ctx) {
-            if (is_lower) {
-                mpq_inf zero(mpq(0),mpq(0));
-                pb.m_simplex.set_lower(v, zero);
+            //std::cout << "undo bound: " << m_v << " " << m_last_explain;
+            //std::cout << (m_is_lower?" lower ":" upper ") << pb.m_mpq_inf_mgr.to_string(m_last_bound) << "\n";
+            if (m_is_lower) {
+                if (m_last_bound_valid) {
+                    pb.m_simplex.set_lower(m_v, m_last_bound);
+                }
+                else {
+                    pb.m_simplex.unset_lower(m_v);
+                }
+                pb.set_explain(pb.m_explain_lower, m_v, m_last_explain);
             }
             else {
-                mpq_inf one(mpq(1),mpq(0));
-                pb.m_simplex.set_upper(v, one);
+                if (m_last_bound_valid) {
+                    pb.m_simplex.set_upper(m_v, m_last_bound);
+                }
+                else {
+                    pb.m_simplex.unset_upper(m_v);
+                }
+                pb.set_explain(pb.m_explain_upper, m_v, m_last_explain);
+            }
+            m_last_bound.reset();
+        }
+    };
+
+    literal theory_pb::set_explain(literal_vector& explains, unsigned var, literal expl) {
+        if (var >= explains.size()) {
+            explains.resize(var+1, null_literal);
+        }
+        literal last_explain = explains[var];
+        explains[var] = expl;
+        return last_explain;
+    }
+
+    void theory_pb::update_bound(bool_var v, literal explain, bool is_lower, mpq_inf const& bound) {
+        // std::cout << v << " " << explain << (is_lower?" lower ":" upper ") << m_mpq_inf_mgr.to_string(bound) << "\n";
+        if (is_lower) {
+            if (m_simplex.above_lower(v, bound)) {
+                scoped_eps_numeral last_bound(m_mpq_inf_mgr);
+                bool last_bound_valid = m_simplex.lower_valid(v);
+                if (last_bound_valid) {
+                    m_simplex.get_lower(v, last_bound);
+                }
+                m_simplex.set_lower(v, bound);
+                literal last_explain = set_explain(m_explain_lower, v, explain);
+                get_context().push_trail(undo_bound(*this, v, true, last_bound, last_bound_valid, last_explain));
+            }
+        }
+        else {
+            if (m_simplex.below_upper(v, bound)) {
+                scoped_eps_numeral last_bound(m_mpq_inf_mgr);
+                bool last_bound_valid = m_simplex.upper_valid(v);
+                if (last_bound_valid) {
+                    m_simplex.get_upper(v, last_bound);
+                }
+                m_simplex.set_upper(v, bound);
+                literal last_explain = set_explain(m_explain_upper, v, explain);
+                get_context().push_trail(undo_bound(*this, v, false, last_bound, last_bound_valid, last_explain));
             }
         }
     };
+
+    bool theory_pb::check_feasible() {
+        lbool is_sat = m_simplex.make_feasible();
+        if (l_false != is_sat) {
+            return true;
+        }
+
+        row r = m_simplex.get_infeasible_row();
+        // m_simplex.display_row(std::cout, r, true);
+        mpz const& coeff = m_simplex.get_base_coeff(r);
+        bool_var base_var = m_simplex.get_base_var(r);
+        SASSERT(m_simplex.below_lower(base_var) || m_simplex.above_upper(base_var));
+        bool cant_increase = m_simplex.below_lower(base_var)?m_mpz_mgr.is_pos(coeff):m_mpz_mgr.is_neg(coeff);
+
+        literal_vector explains;
+        row_iterator it = m_simplex.row_begin(r), end = m_simplex.row_end(r);        
+        for (; it != end; ++it) {
+            bool_var v = it->m_var;
+            if (v == base_var) {
+                if (m_simplex.below_lower(base_var)) {
+                    explains.push_back(m_explain_lower.get(v, null_literal));
+                }
+                else {
+                    explains.push_back(m_explain_upper.get(v, null_literal));
+                }
+            }
+            else if (cant_increase == m_mpz_mgr.is_pos(it->m_coeff)) {
+                explains.push_back(m_explain_lower.get(v, null_literal));
+            }
+            else {
+                explains.push_back(m_explain_upper.get(v, null_literal));
+            }
+        }
+        
+        // m_simplex.display(std::cout);
+        literal_vector lits;
+        for (unsigned i = 0; i < explains.size(); ++i) {
+            literal lit(explains[i]);
+            if (lit != null_literal) {
+                //std::cout << lit << " ";
+                lits.push_back(~lit);
+            }
+        }
+        //std::cout << "\n";
+
+        m_stats.m_num_conflicts++;
+        justification* js = 0;
+        get_context().mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+
+        return false;
+    }
 
     bool theory_pb::internalize_atom(app * atom, bool gate_ctx) {
         SASSERT(m_util.is_at_most_k(atom) || m_util.is_le(atom) || 
@@ -372,16 +468,29 @@ namespace smt {
             else {
                 m_ineq_rep.insert(rep, abv);
                 svector<unsigned> vars;
-                unsynch_mpz_manager mgr;
-                scoped_mpz_vector coeffs(mgr);
+                scoped_mpz_vector coeffs(m_mpz_mgr);
                 for (unsigned i = 0; i < rep.size(); ++i) {
                     unsigned v = rep.lit(i).var();
                     m_simplex.ensure_var(v);
                     vars.push_back(v);
                     if (!m_vars.contains(v)) {
                         mpq_inf zero(mpq(0),mpq(0)), one(mpq(1),mpq(0));
-                        m_simplex.set_lower(v, zero);
-                        m_simplex.set_upper(v, one);
+                        switch(ctx.get_assignment(rep.lit(i))) {
+                        case l_true:
+                            std::cout << "true\n";
+                            update_bound(v, literal(v), true, one);
+                            m_simplex.set_upper(v, one);
+                            break;
+                        case l_false:
+                            std::cout << "false\n";
+                            update_bound(v, literal(v), false, zero);
+                            m_simplex.set_upper(v, zero);
+                            break;
+                        default:
+                            m_simplex.set_lower(v, zero);
+                            m_simplex.set_upper(v, one);
+                            break;
+                        }
                         m_vars.insert(v);
                         ctx.push_trail(remove_var(*this, v));                        
                     }
@@ -588,16 +697,15 @@ namespace smt {
             if (m_enable_simplex) {
                 if (is_true) {
                     mpq_inf one(mpq(1),mpq(0));
-                    m_simplex.set_lower(v, one);
+                    update_bound(v, ~nlit, true, one);
                 }
                 else {
                     mpq_inf zero(mpq(0),mpq(0));
-                    m_simplex.set_upper(v, zero);
+                    update_bound(v, ~nlit, false, zero);
                 }
-                ctx.push_trail(undo_bound(*this, v, is_true));
-                lbool is_sat = m_simplex.make_feasible();
-                if (is_sat == l_false) {
-                    std::cout << "unsat\n";
+
+                if (!check_feasible()) {
+                    return;
                 }
             }
 
@@ -620,28 +728,19 @@ namespace smt {
         if (m_ineqs.find(v, c)) {
             if (m_enable_simplex) {
                 row_info const& info = m_ineq_row_info.find(v);
-                unsynch_mpq_inf_manager mgr;
-                _scoped_numeral<unsynch_mpq_inf_manager> coeff(mgr);
+                scoped_eps_numeral coeff(m_mpq_inf_mgr);
                 coeff = std::make_pair(info.m_bound.to_mpq(), mpq(0));
                 unsigned slack = info.m_slack;
                 if (is_true) {
-                    m_simplex.set_lower(slack, coeff);
+                    update_bound(slack, literal(v), true, coeff);
                 }
                 else {
-                    mgr.sub(coeff, std::make_pair(mpq(1),mpq(0)), coeff);
-                    m_simplex.set_upper(slack, coeff);
+                    m_mpq_inf_mgr.sub(coeff, std::make_pair(mpq(1),mpq(0)), coeff);
+                    update_bound(slack, ~literal(v), false, coeff);
                 }
-                ctx.push_trail(reset_bound(*this, slack, is_true));
 
-                lbool is_sat = m_simplex.make_feasible();
-                if (l_false == is_sat) {
-                    std::cout << "unsat inequality\n";                
-                    row r = m_simplex.get_infeasible_row();
-                    row_iterator it = m_simplex.row_begin(r), end = m_simplex.row_end(r);
-                    for (; it != end; ++it) {
-                        it->m_var;
-                        it->m_coeff;
-                    }
+                if (!check_feasible()) {
+                    return;
                 }
             }
             if (c->is_ge()) {
@@ -1335,9 +1434,11 @@ namespace smt {
         c.m_watch_sum = numeral::zero();
         c.m_watch_sz = 0;
         c.m_max_watch = numeral::zero();
-        for (unsigned i = 0; c.watch_sum() < c.k() + c.max_watch() && i < c.size(); ++i) {
+        bool watch_more = c.watch_sum() < c.k() + c.max_watch();
+        for (unsigned i = 0; watch_more && i < c.size(); ++i) {
             if (ctx.get_assignment(c.lit(i)) != l_false) {
                 add_watch(c, i);
+                watch_more = c.watch_sum() < c.k() + c.max_watch();
             }       
         }        
         ctx.push_trail(unwatch_ge(*this, c));

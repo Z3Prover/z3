@@ -554,13 +554,18 @@ namespace simplex {
     void sparse_matrix<Ext>::display(std::ostream& out) {
         for (unsigned i = 0; i < m_rows.size(); ++i) {
             if (m_rows[i].size() == 0) continue;
-            row_iterator it = row_begin(row(i)), end = row_end(row(i)); 
-            for (; it != end; ++it) {
-                m.display(out, it->m_coeff);
-                out << "*v" << it->m_var << " ";
-            }
-            out << "\n";
+            display_row(out, row(i));
         }
+    }
+
+    template<typename Ext>
+    void sparse_matrix<Ext>::display_row(std::ostream& out, row const& r) {
+        row_iterator it = row_begin(r), end = row_end(r); 
+        for (; it != end; ++it) {
+            m.display(out, it->m_coeff);
+            out << "*v" << it->m_var << " ";
+        }
+        out << "\n";
     }
 
     

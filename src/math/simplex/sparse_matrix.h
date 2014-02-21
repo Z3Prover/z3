@@ -235,6 +235,7 @@ namespace simplex {
         col_iterator col_end(int v) const { return col_iterator(m_columns[v], m_rows, false); }
 
         void display(std::ostream& out);
+        void display_row(std::ostream& out, row const& r);
         bool well_formed() const;
 
 

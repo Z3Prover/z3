@@ -37,13 +37,14 @@ namespace smt {
         class  rewatch_vars;
         class  negate_ineq;
         class  remove_var;
-        class  reset_bound;
         class  undo_bound;
         typedef rational numeral;
         typedef vector<std::pair<literal, numeral> > arg_t;
         typedef simplex::simplex<simplex::mpz_ext> simplex;
         typedef simplex::row row;
         typedef simplex::row_iterator row_iterator;
+        typedef unsynch_mpq_inf_manager eps_manager;
+        typedef _scoped_numeral<eps_manager> scoped_eps_numeral;
 
         struct stats {
             unsigned m_num_conflicts;
@@ -96,8 +97,8 @@ namespace smt {
             unsigned watch_size() const { return m_watch_sz; }
 
             // variable watch infrastructure
-            numeral min_sum() const { return m_min_sum; }
-            numeral max_sum() const { return m_max_sum; }
+            numeral const& min_sum() const { return m_min_sum; }
+            numeral const& max_sum() const { return m_max_sum; }
             unsigned nfixed() const { return m_nfixed; }
             bool vwatch_initialized() const { return !max_sum().is_zero(); }
             void vwatch_reset() { m_min_sum.reset(); m_max_sum.reset(); m_nfixed = 0; }
@@ -173,8 +174,10 @@ namespace smt {
         u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable
         uint_set                 m_vars;           // Simplex: 0-1 variables.
         simplex                  m_simplex;        // Simplex: tableau
-        unsigned_vector          m_explain_lower;  // Simplex: explanations for lower bounds
-        unsigned_vector          m_explain_upper;  // Simplex: explanations for upper bounds
+        literal_vector           m_explain_lower;  // Simplex: explanations for lower bounds
+        literal_vector           m_explain_upper;  // Simplex: explanations for upper bounds
+        unsynch_mpq_inf_manager  m_mpq_inf_mgr;    // Simplex: manage inf_mpq numerals
+        unsynch_mpz_manager      m_mpz_mgr;        // Simplex: manager mpz numerals
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
         literal_vector           m_literals;    // temporary vector
@@ -203,6 +206,11 @@ namespace smt {
         void assign_watch(bool_var v, bool is_true, ineq& c);
         void assign_ineq(ineq& c, bool is_true);
         void assign_eq(ineq& c, bool is_true);
+
+        // simplex:
+        literal set_explain(literal_vector& explains, unsigned var, literal expl);
+        void update_bound(bool_var v, literal explain, bool is_lower, mpq_inf const& bound);
+        bool check_feasible();
 
         std::ostream& display(std::ostream& out, ineq const& c, bool values = false) const;
         virtual void display(std::ostream& out) const;
