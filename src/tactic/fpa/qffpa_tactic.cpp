@@ -52,6 +52,8 @@ struct is_non_qffpa_predicate {
         sort * s = get_sort(n);
         if (!m.is_bool(s) && !(u.is_float(s) || u.is_rm(s)))
             throw found();
+        if (is_uninterp(n))
+            throw found();
         family_id fid = s->get_family_id();
         if (fid == m.get_basic_family_id())
             return;
@@ -77,6 +79,8 @@ struct is_non_qffpabv_predicate {
     void operator()(app * n) {
         sort * s = get_sort(n);
         if (!m.is_bool(s) && !(fu.is_float(s) || fu.is_rm(s) || bu.is_bv_sort(s)))
+            throw found();
+        if (is_uninterp(n))
             throw found();
         family_id fid = s->get_family_id();
         if (fid == m.get_basic_family_id())
