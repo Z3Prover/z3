@@ -680,7 +680,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast dummy1, dummy2;
     sum_cond_ineq(in1,coeff2,in2,dummy1,dummy2);
     n1 = merge_normal_chains(n1,n2, Aproves, Bproves);
-    ineq = make_normal(in1,n1);
+    ineq = is_true(n1) ? in1 : make_normal(in1,n1);
   }
 
   bool is_ineq(const ast &ineq){
@@ -760,6 +760,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
 
   ast round_ineq(const ast &ineq){
+    if(sym(ineq) == normal)
+      return make_normal(round_ineq(arg(ineq,0)),arg(ineq,1));
     if(!is_ineq(ineq))
       throw cannot_simplify();
     ast res = simplify_ineq(ineq);
@@ -1689,7 +1691,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast diff;
       if(comp_op == Leq) diff = make(Sub,rhs,mid);
       else diff = make(Sub,mid,rhs);
-      ast foo = z3_simplify(make(Leq,make_int("0"),diff));
+      ast foo = make(Leq,make_int("0"),z3_simplify(diff));
       if(is_true(cond))
 	cond = foo;
       else {
