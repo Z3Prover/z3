@@ -283,7 +283,7 @@ struct is_non_qfbv_predicate {
         if (!m.is_bool(n) && !u.is_bv(n))
             throw found();
         family_id fid = n->get_family_id();
-        if (fid == m.get_basic_family_id())
+        if (fid == m.get_basic_family_id()) 
             return; 
         if (fid == u.get_family_id())
             return;

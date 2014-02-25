@@ -32,6 +32,7 @@ Notes:
 #define MEMLIMIT 300
 
 tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
+
     params_ref main_p;
     main_p.set_bool("elim_and", true);
     main_p.set_bool("push_ite_bv", true);

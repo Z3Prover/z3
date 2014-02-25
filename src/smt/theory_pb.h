@@ -29,7 +29,6 @@ Notes:
 namespace smt {
     class theory_pb : public theory {
 
-        struct sort_expr;
         struct psort_expr;
         class  pb_justification;
         class  pb_model_value_proc;
@@ -39,12 +38,59 @@ namespace smt {
         class  remove_var;
         class  undo_bound;
         typedef rational numeral;
-        typedef vector<std::pair<literal, numeral> > arg_t;
         typedef simplex::simplex<simplex::mpz_ext> simplex;
         typedef simplex::row row;
         typedef simplex::row_iterator row_iterator;
         typedef unsynch_mpq_inf_manager eps_manager;
         typedef _scoped_numeral<eps_manager> scoped_eps_numeral;
+
+        struct arg_t : public vector<std::pair<literal, numeral> > {
+            numeral         m_k;        // invariants: m_k > 0, coeffs[i] > 0
+
+            unsigned get_hash() const;
+            bool operator==(arg_t const& other) const;
+
+            numeral const& k() const { return m_k; }
+
+            struct hash {
+                unsigned operator()(arg_t const& i) const { return i.get_hash(); }
+            };
+            struct eq {
+                bool operator()(arg_t const& a, arg_t const& b) const { 
+                    return a == b;
+                }
+            };
+            struct child_hash {
+                unsigned operator()(arg_t const& args, unsigned idx) const {
+                    return args[idx].first.hash() ^ args[idx].second.hash();
+                }
+            };
+            struct kind_hash {
+                unsigned operator()(arg_t const& args) const {
+                    return args.size();
+                }
+            };   
+
+            void remove_negations();         
+
+            void negate();
+
+            lbool normalize(bool is_eq);
+
+            void  prune(bool is_eq);
+            
+            literal lit(unsigned i) const { 
+                return (*this)[i].first; 
+            }
+
+            numeral const & coeff(unsigned i) const { return (*this)[i].second; }
+
+            std::ostream& display(context& ctx, std::ostream& out, bool values = false) const;
+
+            app_ref to_expr(bool is_eq, context& ctx, ast_manager& m);
+
+            bool well_formed() const;
+        };
 
         struct stats {
             unsigned m_num_conflicts;
@@ -61,9 +107,7 @@ namespace smt {
         struct ineq {
             literal         m_lit;      // literal repesenting predicate
             bool            m_is_eq;    // is this an = or >=.
-            arg_t           m_args;     // encode args[0]*coeffs[0]+...+args[n-1]*coeffs[n-1] >= m_k;
-            numeral         m_k;        // invariants: m_k > 0, coeffs[i] > 0
-            
+            arg_t           m_args[2];  // encode args[0]*coeffs[0]+...+args[n-1]*coeffs[n-1] >= k();
             // Watch the first few positions until the sum satisfies:
             // sum coeffs[i] >= m_lower + max_watch            
             numeral         m_max_watch;    // maximal coefficient.
@@ -77,19 +121,20 @@ namespace smt {
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
 
-            ineq(): m_lit(null_literal), m_is_eq(false) {}
-
             ineq(literal l, bool is_eq) : m_lit(l), m_is_eq(is_eq) {
                 reset();
             }
 
+            arg_t const& args() const { return m_args[m_lit.sign()]; }
+            arg_t& args() { return m_args[m_lit.sign()]; }
+
             literal lit() const { return m_lit; }
-            numeral const & k() const { return m_k; }
+            numeral const & k() const { return args().m_k; }
 
-            literal lit(unsigned i) const { return m_args[i].first; }
-            numeral const & coeff(unsigned i) const { return m_args[i].second; }
+            literal lit(unsigned i) const { return args()[i].first; }
+            numeral const & coeff(unsigned i) const { return args()[i].second; }
 
-            unsigned size() const { return m_args.size(); }
+            unsigned size() const { return args().size(); }
 
             numeral const& watch_sum() const { return m_watch_sum; }
             numeral const& max_watch() const { return m_max_watch; }
@@ -121,56 +166,33 @@ namespace smt {
 
             void prune();
 
-            void remove_negations();
-
-            bool well_formed() const;
+            void post_prune();
 
             app_ref to_expr(context& ctx, ast_manager& m);
 
             bool is_eq() const { return m_is_eq; }
             bool is_ge() const { return !m_is_eq; }
 
-            unsigned get_hash() const;
-            bool operator==(ineq const& other) const;
-
-            struct hash {
-                unsigned operator()(ineq const& i) const { return i.get_hash(); }
-            };
-            struct eq {
-                bool operator()(ineq const& a, ineq const& b) const { 
-                    return a == b;
-                }
-            };
-            struct child_hash {
-                unsigned operator()(arg_t const& args, unsigned idx) const {
-                    return args[idx].first.hash() ^ args[idx].second.hash();
-                }
-            };
-            struct kind_hash {
-                unsigned operator()(arg_t const& args) const {
-                    return args.size();
-                }
-            };
         };
 
         struct row_info {
             unsigned     m_slack;   // slack variable in simplex tableau
             numeral      m_bound;   // bound
-            ineq         m_rep;     // representative
+            arg_t        m_rep;     // representative
             row          m_row;
-            row_info(theory_var slack, numeral const& b, ineq const& r, row const& ro):
+            row_info(theory_var slack, numeral const& b, arg_t const& r, row const& ro):
                 m_slack(slack), m_bound(b), m_rep(r), m_row(ro) {}
             row_info(): m_slack(0) {}
         };
 
         typedef ptr_vector<ineq> watch_list;
-        typedef map<ineq, bool_var, ineq::hash, ineq::eq> ineq_map;
+        typedef map<arg_t, bool_var, arg_t::hash, arg_t::eq> arg_map;
 
         theory_pb_params         m_params;        
         u_map<watch_list*>       m_lwatch;      // per literal.
         u_map<watch_list*>       m_vwatch;      // per variable.
         u_map<ineq*>             m_ineqs;       // per inequality.
-        ineq_map                 m_ineq_rep;       // Simplex: representative inequality
+        arg_map                  m_ineq_rep;       // Simplex: representative inequality
         u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable
         uint_set                 m_vars;           // Simplex: 0-1 variables.
         simplex                  m_simplex;        // Simplex: tableau
@@ -209,10 +231,11 @@ namespace smt {
 
         // simplex:
         literal set_explain(literal_vector& explains, unsigned var, literal expl);
-        void update_bound(bool_var v, literal explain, bool is_lower, mpq_inf const& bound);
+        bool update_bound(bool_var v, literal explain, bool is_lower, mpq_inf const& bound);
         bool check_feasible();
 
         std::ostream& display(std::ostream& out, ineq const& c, bool values = false) const;
+        std::ostream& display(std::ostream& out, arg_t const& c, bool values = false) const;
         virtual void display(std::ostream& out) const;
         void display_resolved_lemma(std::ostream& out) const;
 
@@ -237,7 +260,7 @@ namespace smt {
         // 
         unsigned          m_num_marks;
         unsigned          m_conflict_lvl;
-        ineq              m_lemma;
+        arg_t             m_lemma;
         literal_vector    m_ineq_literals;
         svector<bool_var> m_marked;
 
@@ -252,7 +275,7 @@ namespace smt {
         bool resolve_conflict(ineq& c);
         void process_antecedent(literal l, numeral coeff);
         void process_ineq(ineq& c, literal conseq, numeral coeff);
-        void remove_from_lemma(ineq& c, unsigned idx);
+        void remove_from_lemma(unsigned idx);
         bool is_proof_justification(justification const& j) const;
 
         void hoist_maximal_values();
