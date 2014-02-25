@@ -57,6 +57,8 @@ struct is_non_qffpa_predicate {
             return;
         if (fid == u.get_family_id())
             return;
+        if (is_uninterp_const(n))
+            return;
 
         throw found();
     }
@@ -82,6 +84,8 @@ struct is_non_qffpabv_predicate {
         if (fid == m.get_basic_family_id())
             return;
         if (fid == fu.get_family_id() || fid == bu.get_family_id())
+            return;
+        if (is_uninterp_const(n))
             return;
 
         throw found();
