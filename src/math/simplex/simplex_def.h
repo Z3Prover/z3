@@ -250,6 +250,7 @@ namespace simplex {
 
     template<typename Ext>
     lbool simplex<Ext>::make_feasible() {
+        ++m_stats.m_num_checks;
         m_left_basis.reset();
         m_infeasible_var = null_var;
         unsigned num_iterations = 0;
@@ -266,6 +267,7 @@ namespace simplex {
             if (!make_var_feasible(v)) {
                 m_to_patch.insert(v);
                 m_infeasible_var = v;
+                ++m_stats.m_num_infeasible;
                 return l_false;
             }
             ++num_iterations;
@@ -873,6 +875,8 @@ namespace simplex {
     void simplex<Ext>::collect_statistics(::statistics & st) const {
         M.collect_statistics(st);
         st.update("simplex num pivots", m_stats.m_num_pivots);
+        st.update("simplex num infeasible", m_stats.m_num_infeasible);
+        st.update("simplex num checks", m_stats.m_num_checks);
     }
         
 

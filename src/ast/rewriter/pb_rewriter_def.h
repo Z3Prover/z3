@@ -247,7 +247,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
     // example: k = 5, min = 3, max = 4: 5/3 -> 2   5/4 -> 1, n = 2
     // replace all coefficients by 1, and k by 2.
     //
-    if (false && !k.is_one()) {
+    if (!k.is_one()) {
         PBU::numeral min = args[0].second, max = args[0].second;
         for (unsigned i = 1; i < args.size(); ++i) {
             if (args[i].second < min) min = args[i].second;

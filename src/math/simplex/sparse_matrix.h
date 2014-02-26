@@ -44,7 +44,7 @@ namespace simplex {
             unsigned m_add_rows;
             stats() { reset(); }
             void reset() {
-                memset(this, sizeof(*this), 0);
+                memset(this, 0, sizeof(*this));
             }
         };
 

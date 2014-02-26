@@ -59,9 +59,11 @@ namespace simplex {
 
         struct stats {
             unsigned m_num_pivots;
+            unsigned m_num_infeasible;
+            unsigned m_num_checks;
             stats() { reset(); }
             void reset() {
-                memset(this, sizeof(*this), 0);
+                memset(this, 0, sizeof(*this));
             }
         };
 

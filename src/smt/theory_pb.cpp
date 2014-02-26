@@ -546,12 +546,10 @@ namespace smt {
                         mpq_inf zero(mpq(0),mpq(0)), one(mpq(1),mpq(0));
                         switch(ctx.get_assignment(rep.lit(i))) {
                         case l_true:
-                            std::cout << "true\n";
                             VERIFY(update_bound(v, literal(v), true, one));
                             m_simplex.set_lower(v, one);
                             break;
                         case l_false:
-                            std::cout << "false\n";
                             VERIFY(update_bound(v, ~literal(v), false, zero));
                             m_simplex.set_upper(v, zero);
                             break;
