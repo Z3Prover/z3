@@ -306,6 +306,7 @@ namespace simplex {
     
     template<typename Ext>
     void simplex<Ext>::pivot(var_t x_i, var_t x_j, numeral const& a_ij) {
+        ++m_stats.m_num_pivots;
         var_info& x_iI = m_vars[x_i];
         var_info& x_jI = m_vars[x_j];
         unsigned r_i = x_iI.m_base2row;
@@ -867,6 +868,13 @@ namespace simplex {
 
         return true;
     }
+
+    template<typename Ext>
+    void simplex<Ext>::collect_statistics(::statistics & st) const {
+        M.collect_statistics(st);
+        st.update("simplex num pivots", m_stats.m_num_pivots);
+    }
+        
 
 };
 

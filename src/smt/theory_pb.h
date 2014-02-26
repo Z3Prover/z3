@@ -142,14 +142,14 @@ namespace smt {
 
             unsigned size() const { return args().size(); }
 
-            class mpz const& watch_sum() const { return m_watch_sum; }
-            class mpz const& max_watch() const { return m_max_watch.get(); }
+            scoped_mpz const& watch_sum() const { return m_watch_sum; }
+            scoped_mpz const& max_watch() const { return m_max_watch; }
             void set_max_watch(mpz const& n) { m_max_watch = n; }
             unsigned watch_size() const { return m_watch_sz; }
 
             // variable watch infrastructure
-            class mpz const& min_sum() const { return m_min_sum; }
-            class mpz const& max_sum() const { return m_max_sum; }
+            scoped_mpz const& min_sum() const { return m_min_sum; }
+            scoped_mpz const& max_sum() const { return m_max_sum; }
             unsigned nfixed() const { return m_nfixed; }
             bool vwatch_initialized() const { return !m_mpz.is_zero(max_sum()); }
             void vwatch_reset() { m_min_sum.reset(); m_max_sum.reset(); m_nfixed = 0; }
@@ -205,7 +205,7 @@ namespace smt {
         literal_vector           m_explain_lower;  // Simplex: explanations for lower bounds
         literal_vector           m_explain_upper;  // Simplex: explanations for upper bounds
         unsynch_mpq_inf_manager  m_mpq_inf_mgr;    // Simplex: manage inf_mpq numerals
-        unsynch_mpz_manager      m_mpz_mgr;        // Simplex: manager mpz numerals
+        mutable unsynch_mpz_manager      m_mpz_mgr;        // Simplex: manager mpz numerals
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
         literal_vector           m_literals;    // temporary vector

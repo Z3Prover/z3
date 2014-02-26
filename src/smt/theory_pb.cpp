@@ -723,6 +723,7 @@ namespace smt {
         st.update("pb compilations", m_stats.m_num_compiles);
         st.update("pb compiled clauses", m_stats.m_num_compiled_clauses);
         st.update("pb compiled vars", m_stats.m_num_compiled_vars);
+        m_simplex.collect_statistics(st);
     }
     
     void theory_pb::reset_eh() {
@@ -979,10 +980,10 @@ namespace smt {
         literal l = c.lit();
         lbool asgn = ctx.get_assignment(l);
 
-        if (c.max_sum() < c.k() && asgn == l_false) {
+        if (c.max_sum() < c.mpz_k() && asgn == l_false) {
             return;
         }
-        if (c.is_ge() && c.min_sum() >= c.k() && asgn == l_true) {
+        if (c.is_ge() && c.min_sum() >= c.mpz_k() && asgn == l_true) {
             return;
         }
         for (i = 0; i < c.size(); ++i) {
@@ -1003,11 +1004,11 @@ namespace smt {
             c.m_min_sum += c.ncoeff(i);            
         }
         DEBUG_CODE(
-            numeral sum(0);
-            numeral maxs(0);
+            scoped_mpz sum(m_mpz_mgr);
+            scoped_mpz maxs(m_mpz_mgr);
             for (unsigned i = 0; i < c.size(); ++i) {
-                if (ctx.get_assignment(c.lit(i)) == l_true)  sum  += c.coeff(i);
-                if (ctx.get_assignment(c.lit(i)) != l_false) maxs += c.coeff(i);
+                if (ctx.get_assignment(c.lit(i)) == l_true)  sum  += c.ncoeff(i);
+                if (ctx.get_assignment(c.lit(i)) != l_false) maxs += c.ncoeff(i);
             }
             CTRACE("pb", (maxs > c.max_sum()), display(tout, c, true););
             SASSERT(c.min_sum() <= sum);
@@ -1015,32 +1016,32 @@ namespace smt {
             SASSERT(maxs <= c.max_sum());
             );
         SASSERT(c.min_sum() <= c.max_sum());
-        SASSERT(!c.min_sum().is_neg());
+        SASSERT(!m_mpz_mgr.is_neg(c.min_sum()));
         ctx.push_trail(value_trail<context, unsigned>(c.m_nfixed));
         ++c.m_nfixed;
         SASSERT(c.nfixed() <= c.size());
-        if (c.is_ge() && c.min_sum() >= c.k() && asgn != l_true) {
+        if (c.is_ge() && c.min_sum() >= c.mpz_k() && asgn != l_true) {
             TRACE("pb", display(tout << "Set " << l << "\n", c, true););
             add_assign(c, get_helpful_literals(c, false), l);
         }        
-        else if (c.max_sum() < c.k() && asgn != l_false) {
+        else if (c.max_sum() < c.mpz_k() && asgn != l_false) {
             TRACE("pb", display(tout << "Set " << ~l << "\n", c, true););
             add_assign(c, get_unhelpful_literals(c, true), ~l);
         }
-        else if (c.is_eq() && c.nfixed() == c.size() && c.min_sum() == c.k() && asgn != l_true) {
+        else if (c.is_eq() && c.nfixed() == c.size() && c.min_sum() == c.mpz_k() && asgn != l_true) {
             TRACE("pb", display(tout << "Set " << l << "\n", c, true););
             add_assign(c, get_all_literals(c, false), l);     
         }
-        else if (c.is_eq() && c.nfixed() == c.size() && c.min_sum() != c.k() && asgn != l_false) {
+        else if (c.is_eq() && c.nfixed() == c.size() && c.min_sum() != c.mpz_k() && asgn != l_false) {
             TRACE("pb", display(tout << "Set " << ~l << "\n", c, true););
             add_assign(c, get_all_literals(c, false), ~l);     
         }
 #if 0
-        else if (c.is_eq() && c.min_sum() > c.k() && asgn != l_false) {
+        else if (c.is_eq() && c.min_sum() > c.mpz_k() && asgn != l_false) {
             TRACE("pb", display(tout << "Set " << ~l << "\n", c, true););
             add_assign(c, get_all_literals(c, false), ~l);
         }
-        else if (c.is_eq() && asgn == l_true && c.min_sum() == c.k() && c.max_sum() > c.k()) {
+        else if (c.is_eq() && asgn == l_true && c.min_sum() == c.mpz_k() && c.max_sum() > c.mpz_k()) {
             literal_vector& lits = get_all_literals(c, false);
             lits.push_back(c.lit());
             for (unsigned i = 0; i < c.size(); ++i) {
@@ -1076,17 +1077,19 @@ namespace smt {
         // Adjust set of watched literals.
         //
         
-        numeral k = c.k();
-        numeral coeff = c.coeff(w);
-        bool add_more = c.watch_sum() - coeff < k + c.max_watch();
+        scoped_mpz k_coeff(m_mpz_mgr), k(m_mpz_mgr);
+        k = c.mpz_k();
+        k_coeff = k;
+        k_coeff += c.ncoeff(w);
+        bool add_more = c.watch_sum() < k_coeff + c.max_watch();
         for (unsigned i = c.watch_size(); add_more && i < c.size(); ++i) {
             if (ctx.get_assignment(c.lit(i)) != l_false) {
                 add_watch(c, i);
-                add_more = c.watch_sum() - coeff < k + c.max_watch();
+                add_more = c.watch_sum() < k_coeff + c.max_watch();
             }
         }        
         
-        if (c.watch_sum() - coeff < k) {
+        if (c.watch_sum() < k_coeff) {
             //
             // L: 3*x1 + 2*x2 + x4 >= 3, but x1 <- 0, x2 <- 0
             // create clause x1 or x2 or ~L
@@ -1113,9 +1116,10 @@ namespace smt {
 
                 literal_vector& lits = get_unhelpful_literals(c, true);
                 lits.push_back(c.lit());
-                numeral deficit = c.watch_sum() - k;
+                scoped_mpz deficit(m_mpz_mgr);
+                deficit = c.watch_sum() - k;
                 for (unsigned i = 0; i < c.size(); ++i) {
-                    if (ctx.get_assignment(c.lit(i)) == l_undef && deficit < c.coeff(i)) {
+                    if (ctx.get_assignment(c.lit(i)) == l_undef && deficit < c.ncoeff(i)) {
                         DEBUG_CODE(validate_assign(c, lits, c.lit(i)););
                         add_assign(c, lits, c.lit(i));                  
                         // break;
@@ -1770,16 +1774,15 @@ namespace smt {
 
     void theory_pb::validate_watch(ineq const& c) const {
         context& ctx = get_context();
-        numeral sum = numeral::zero();
-        numeral max = numeral::zero();
+        scoped_mpz sum(m_mpz_mgr), max(m_mpz_mgr);
         for (unsigned i = 0; i < c.watch_size(); ++i) {
-            sum += c.coeff(i);
-            if (c.coeff(i) > max) {
-                max = c.coeff(i);
+            sum += c.ncoeff(i);
+            if (max < c.ncoeff(i)) {
+                max = c.ncoeff(i);
             }
         }
         SASSERT(c.watch_sum() == sum);
-        SASSERT(sum >= c.k());
+        SASSERT(sum >= c.mpz_k());
         SASSERT(max == c.max_watch());
     }
 

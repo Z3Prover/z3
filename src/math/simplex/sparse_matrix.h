@@ -20,6 +20,7 @@ Notes:
 #define _SPARSE_MATRIX_H_
 
 #include "mpq_inf.h"
+#include "statistics.h"
 
 namespace simplex {
 
@@ -39,6 +40,14 @@ namespace simplex {
 
     private:
         
+        struct stats {
+            unsigned m_add_rows;
+            stats() { reset(); }
+            void reset() {
+                memset(this, sizeof(*this), 0);
+            }
+        };
+
         static const int dead_id = -1;
 
         /**
@@ -126,6 +135,7 @@ namespace simplex {
         vector<column>          m_columns;          // per var
         svector<int>            m_var_pos;          // temporary map from variables to positions in row
         unsigned_vector         m_var_pos_idx;      // indices in m_var_pos
+        stats                   m_stats;
 
         bool well_formed_row(unsigned row_id) const;
         bool well_formed_column(unsigned column_id) const;
@@ -238,6 +248,7 @@ namespace simplex {
         void display_row(std::ostream& out, row const& r);
         bool well_formed() const;
 
+        void collect_statistics(::statistics & st) const;
 
     };
 

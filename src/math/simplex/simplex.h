@@ -50,15 +50,20 @@ namespace simplex {
         typedef typename Ext::eps_manager eps_manager;
         typedef typename Ext::scoped_numeral scoped_numeral;
         typedef _scoped_numeral<eps_manager> scoped_eps_numeral;
-
         typedef typename _scoped_numeral_vector<eps_manager> scoped_eps_numeral_vector;
-
         typedef sparse_matrix<Ext> matrix;
-
         struct var_lt {
             bool operator()(var_t v1, var_t v2) const { return v1 < v2; }
         };
         typedef heap<var_lt> var_heap;
+
+        struct stats {
+            unsigned m_num_pivots;
+            stats() { reset(); }
+            void reset() {
+                memset(this, sizeof(*this), 0);
+            }
+        };
 
         enum pivot_strategy_t {
             S_BLAND,
@@ -99,6 +104,7 @@ namespace simplex {
         uint_set                    m_left_basis;
         unsigned                    m_infeasible_var;
         unsigned_vector             m_base_vars;
+        stats                       m_stats;
 
     public:
         simplex():
@@ -143,6 +149,8 @@ namespace simplex {
 
         row_iterator row_begin(row const& r) { return M.row_begin(r); }
         row_iterator row_end(row const& r) { return M.row_end(r); }
+
+        void collect_statistics(::statistics & st) const;
 
     private:
 

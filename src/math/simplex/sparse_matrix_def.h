@@ -322,7 +322,7 @@ namespace simplex {
     */
     template<typename Ext>
     void sparse_matrix<Ext>::add(row row1, numeral const& n, row row2) {
-        //        m_stats.m_add_rows++;
+        m_stats.m_add_rows++;
         _row & r1 = m_rows[row1.id()];
         _row & r2 = m_rows[row2.id()];
         
@@ -546,6 +546,15 @@ namespace simplex {
         SASSERT(dead.empty());
         return true;
     }
+
+    /**
+       \brief statistics
+    */    
+    template<typename Ext>
+    void sparse_matrix<Ext>::collect_statistics(::statistics & st) const {
+        st.update("simplex add rows", m_stats.m_add_rows);
+    }
+
 
     /**
        \brief display method
