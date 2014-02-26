@@ -97,6 +97,10 @@ public:
         return a.m().eq(a, b);
     }
 
+    friend bool operator!=(_scoped_numeral const & a, numeral const & b) {
+        return !a.m().eq(a, b);
+    }
+
     friend bool operator<(_scoped_numeral const & a, numeral const & b) {
         return a.m().lt(a, b);
     }
@@ -111,6 +115,26 @@ public:
 
     friend bool operator>=(_scoped_numeral const & a, numeral const & b) {
         return a.m().ge(a, b);
+    }
+
+    bool is_zero() const {
+        return m().is_zero(*this);
+    }
+
+    bool is_pos() const {
+        return m().is_pos(*this);
+    }
+
+    bool is_neg() const {
+        return m().is_neg(*this);
+    }
+
+    bool is_nonpos() const {
+        return m().is_nonpos(*this);
+    }
+
+    bool is_nonneg() const {
+        return m().is_nonneg(*this);
     }
 
     friend bool is_zero(_scoped_numeral const & a) {

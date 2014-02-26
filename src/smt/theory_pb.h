@@ -105,23 +105,27 @@ namespace smt {
 
 
         struct ineq {
+            unsynch_mpz_manager& m_mpz;    // mpz manager.
             literal         m_lit;      // literal repesenting predicate
             bool            m_is_eq;    // is this an = or >=.
             arg_t           m_args[2];  // encode args[0]*coeffs[0]+...+args[n-1]*coeffs[n-1] >= k();
             // Watch the first few positions until the sum satisfies:
             // sum coeffs[i] >= m_lower + max_watch            
-            numeral         m_max_watch;    // maximal coefficient.
+            scoped_mpz      m_max_watch;    // maximal coefficient.
             unsigned        m_watch_sz;     // number of literals being watched.
-            numeral         m_watch_sum;    // maximal sum of watch literals.
+            scoped_mpz      m_watch_sum;    // maximal sum of watch literals.
             // Watch infrastructure for = and unassigned >=:
             unsigned        m_nfixed;       // number of variables that are fixed.
-            numeral         m_max_sum;      // maximal possible sum.
-            numeral         m_min_sum;      // minimal possible sum.
+            scoped_mpz      m_max_sum;      // maximal possible sum.
+            scoped_mpz      m_min_sum;      // minimal possible sum.
             unsigned        m_num_propagations;
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
 
-            ineq(literal l, bool is_eq) : m_lit(l), m_is_eq(is_eq) {
+            ineq(unsynch_mpz_manager& m, literal l, bool is_eq) : 
+                m_mpz(m), m_lit(l), m_is_eq(is_eq), 
+                m_max_watch(m), m_watch_sum(m), 
+                m_max_sum(m), m_min_sum(m) {
                 reset();
             }
 
@@ -130,22 +134,24 @@ namespace smt {
 
             literal lit() const { return m_lit; }
             numeral const & k() const { return args().m_k; }
+            mpz const & mpz_k() const { return k().to_mpq().numerator(); }
 
             literal lit(unsigned i) const { return args()[i].first; }
             numeral const & coeff(unsigned i) const { return args()[i].second; }
+            class mpz const& ncoeff(unsigned i) const { return coeff(i).to_mpq().numerator(); }
 
             unsigned size() const { return args().size(); }
 
-            numeral const& watch_sum() const { return m_watch_sum; }
-            numeral const& max_watch() const { return m_max_watch; }
-            void set_max_watch(numeral const& n) { m_max_watch = n; }            
+            class mpz const& watch_sum() const { return m_watch_sum; }
+            class mpz const& max_watch() const { return m_max_watch.get(); }
+            void set_max_watch(mpz const& n) { m_max_watch = n; }
             unsigned watch_size() const { return m_watch_sz; }
 
             // variable watch infrastructure
-            numeral const& min_sum() const { return m_min_sum; }
-            numeral const& max_sum() const { return m_max_sum; }
+            class mpz const& min_sum() const { return m_min_sum; }
+            class mpz const& max_sum() const { return m_max_sum; }
             unsigned nfixed() const { return m_nfixed; }
-            bool vwatch_initialized() const { return !max_sum().is_zero(); }
+            bool vwatch_initialized() const { return !m_mpz.is_zero(max_sum()); }
             void vwatch_reset() { m_min_sum.reset(); m_max_sum.reset(); m_nfixed = 0; }
 
             unsigned find_lit(bool_var v, unsigned begin, unsigned end) {
