@@ -18,6 +18,15 @@ Revision History:
 --*/
 
 
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#pragma warning(disable:4101)
+#pragma warning(disable:4805)
+#pragma warning(disable:4800)
+#endif
+
 #include "iz3mgr.h"
 
 #include <stdio.h>
@@ -172,7 +181,7 @@ iz3mgr::ast iz3mgr::make_quant(opr op, const std::vector<ast> &bvs, ast &body){
 
 
   std::vector<symbol> names;
-  std::vector<sort *> types;
+  std::vector<class sort *> types;
   std::vector<expr *>  bound_asts;
   unsigned num_bound = bvs.size();
 
@@ -190,7 +199,7 @@ iz3mgr::ast iz3mgr::make_quant(opr op, const std::vector<ast> &bvs, ast &body){
 			     op == Forall, 
 			     names.size(), &types[0], &names[0], abs_body.get(),            
 			     0, 
-			     symbol(),
+			     symbol("itp"),
 			     symbol(),
 			     0, 0,
 			     0, 0
@@ -240,6 +249,9 @@ iz3mgr::ast iz3mgr::clone(const ast &t, const std::vector<ast> &_args){
 
 
 void iz3mgr::show(ast t){
+  if(t.null()){
+    std::cout  << "(null)" << std::endl;
+  }
   params_ref p;
   p.set_bool("flat_assoc",false);
   std::cout  << mk_pp(t.raw(), m(), p) << std::endl;
@@ -485,7 +497,7 @@ void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<ast>& coeffs){
   get_farkas_coeffs(proof,rats);
   coeffs.resize(rats.size());
   for(unsigned i = 0; i < rats.size(); i++){
-    sort *is = m().mk_sort(m_arith_fid, INT_SORT);
+    class sort *is = m().mk_sort(m_arith_fid, INT_SORT);
     ast coeff = cook(m_arith_util.mk_numeral(rats[i],is));
     coeffs[i] = coeff;
   }
@@ -640,9 +652,9 @@ void iz3mgr::get_assign_bounds_rule_coeffs(const ast &proof, std::vector<rationa
 
   /** Set P to P + cQ, where P and Q are linear inequalities. Assumes P is 0 <= y or 0 < y. */
 
-void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q){
+void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q, bool round_off){
   ast Qrhs;
-  bool strict = op(P) == Lt;
+  bool qstrict = false;
   if(is_not(Q)){
     ast nQ = arg(Q,0);
     switch(op(nQ)){
@@ -654,11 +666,11 @@ void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q){
       break;
     case Geq:
       Qrhs = make(Sub,arg(nQ,1),arg(nQ,0));
-      strict = true;
+      qstrict = true;
       break;
     case Leq: 
       Qrhs = make(Sub,arg(nQ,0),arg(nQ,1));
-      strict = true;
+      qstrict = true;
       break;
     default:
       throw "not an inequality";
@@ -674,28 +686,34 @@ void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q){
       break;
     case Lt:
       Qrhs = make(Sub,arg(Q,1),arg(Q,0));
-      strict = true;
+      qstrict = true;
       break;
     case Gt: 
       Qrhs = make(Sub,arg(Q,0),arg(Q,1));
-      strict = true;
+      qstrict = true;
       break;
     default:
       throw "not an inequality";
     }
   }
+  bool pstrict = op(P) == Lt;
+  if(qstrict && round_off && (pstrict || !(c == make_int(rational(1))))){
+    Qrhs = make(Sub,Qrhs,make_int(rational(1)));
+    qstrict = false;
+  }
   Qrhs = make(Times,c,Qrhs);
+  bool strict = pstrict || qstrict;
   if(strict)
     P = make(Lt,arg(P,0),make(Plus,arg(P,1),Qrhs));
   else
     P = make(Leq,arg(P,0),make(Plus,arg(P,1),Qrhs));
 }
 
-iz3mgr::ast iz3mgr::sum_inequalities(const std::vector<ast> &coeffs, const std::vector<ast> &ineqs){
+iz3mgr::ast iz3mgr::sum_inequalities(const std::vector<ast> &coeffs, const std::vector<ast> &ineqs, bool round_off){
   ast zero = make_int("0");
   ast thing = make(Leq,zero,zero);
   for(unsigned i = 0; i < ineqs.size(); i++){
-    linear_comb(thing,coeffs[i],ineqs[i]);
+    linear_comb(thing,coeffs[i],ineqs[i], round_off);
   }
   thing = simplify_ineq(thing);
   return thing;
@@ -761,6 +779,19 @@ int iz3mgr::occurs_in(ast var, ast e){
 }
 
 
+bool iz3mgr::solve_arith(const ast &v, const ast &x, const ast &y, ast &res){
+  if(op(x) == Plus){
+    int n = num_args(x);
+    for(int i = 0; i < n; i++){
+      if(arg(x,i) == v){
+	res = z3_simplify(make(Sub, y, make(Sub, x, v)));
+	return true;
+      }
+    }
+  }
+  return false;
+}
+
 // find a controlling equality for a given variable v in a term
 // a controlling equality is of the form v = t, which, being
 // false would force the formula to have the specifid truth value
@@ -774,6 +805,9 @@ iz3mgr::ast iz3mgr::cont_eq(stl_ext::hash_set<ast> &cont_eq_memo, bool truth, as
   if(!truth && op(e) == Equal){
     if(arg(e,0) == v) return(arg(e,1));
     if(arg(e,1) == v) return(arg(e,0));
+    ast res;
+    if(solve_arith(v,arg(e,0),arg(e,1),res)) return res;
+    if(solve_arith(v,arg(e,1),arg(e,0),res)) return res;
   }
   if((!truth && op(e) == And) || (truth && op(e) == Or)){
     int nargs = num_args(e);
@@ -815,11 +849,35 @@ iz3mgr::ast iz3mgr::subst(ast var, ast t, ast e){
   return subst(memo,var,t,e);
 }
 
+iz3mgr::ast iz3mgr::subst(stl_ext::hash_map<ast,ast> &subst_memo,ast e){
+  std::pair<ast,ast> foo(e,ast());
+  std::pair<hash_map<ast,ast>::iterator,bool> bar = subst_memo.insert(foo);
+  ast &res = bar.first->second;
+  if(bar.second){
+    int nargs = num_args(e);
+    std::vector<ast> args(nargs);
+    for(int i = 0; i < nargs; i++)
+      args[i] = subst(subst_memo,arg(e,i));
+    opr f = op(e);
+    if(f == Equal && args[0] == args[1]) res = mk_true();
+    else res = clone(e,args);
+  }
+  return res;
+}
+
   // apply a quantifier to a formula, with some optimizations
   // 1) bound variable does not occur -> no quantifier
   // 2) bound variable must be equal to some term -> substitute
 
 iz3mgr::ast iz3mgr::apply_quant(opr quantifier, ast var, ast e){
+  if((quantifier == Forall && op(e) == And)
+     || (quantifier == Exists && op(e) == Or)){
+    int n = num_args(e);
+    std::vector<ast> args(n);
+    for(int i = 0; i < n; i++)
+      args[i] = apply_quant(quantifier,var,arg(e,i));
+    return make(op(e),args);
+  }
   if(!occurs_in(var,e))return e;
   hash_set<ast> cont_eq_memo; 
   ast cterm = cont_eq(cont_eq_memo, quantifier == Forall, var, e);
@@ -829,3 +887,14 @@ iz3mgr::ast iz3mgr::apply_quant(opr quantifier, ast var, ast e){
   std::vector<ast> bvs; bvs.push_back(var);
   return make_quant(quantifier,bvs,e);
 }
+
+#if 0
+void iz3mgr::get_bound_substitutes(stl_ext::hash_map<ast,bool> &memo, const ast &e, const ast &var, std::vector<ast> &substs){
+  std::pair<ast,bool> foo(e,false);
+  std::pair<hash_map<ast,bool>::iterator,bool> bar = memo.insert(foo);
+  if(bar.second){
+    if(op(e) == 
+  }
+ 
+}
+#endif

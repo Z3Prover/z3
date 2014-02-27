@@ -26,6 +26,7 @@ Revision History:
 #include<sstream>
 #include<vector>
 #include<list>
+#include <set>
 #include"version.h"
 #include<limits.h>
 
@@ -50,6 +51,7 @@ Revision History:
 #include"scoped_ctrl_c.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
+#include"scoped_proof.h"
 
 namespace Duality {
 
@@ -393,6 +395,7 @@ namespace Duality {
       sort array_range() const;
     };
 
+    
     class func_decl : public ast {
     public:
         func_decl() : ast() {}
@@ -412,6 +415,7 @@ namespace Duality {
 
         expr operator()(unsigned n, expr const * args) const;
         expr operator()(const std::vector<expr> &args) const;
+        expr operator()() const;
         expr operator()(expr const & a) const;
         expr operator()(int a) const;
         expr operator()(expr const & a1, expr const & a2) const;
@@ -447,6 +451,7 @@ namespace Duality {
         bool is_datatype() const { return get_sort().is_datatype(); }
         bool is_relation() const { return get_sort().is_relation(); }
         bool is_finite_domain() const { return get_sort().is_finite_domain(); }
+	bool is_true() const {return is_app() && decl().get_decl_kind() == True; }
 
         bool is_numeral() const {
 	  return is_app() && decl().get_decl_kind() == OtherArith && m().is_unique_value(to_expr(raw()));
@@ -455,6 +460,8 @@ namespace Duality {
         bool is_quantifier() const {return raw()->get_kind() == AST_QUANTIFIER;}
         bool is_var() const {return raw()->get_kind() == AST_VAR;}
 	bool is_label (bool &pos,std::vector<symbol> &names) const ;
+	bool is_ground() const {return to_app(raw())->is_ground();}
+	bool has_quantifiers() const {return to_app(raw())->has_quantifiers();}
 
         // operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
         func_decl decl() const {return func_decl(ctx(),to_app(raw())->get_decl());}
@@ -554,6 +561,10 @@ namespace Duality {
 
         expr simplify(params const & p) const;
 	
+        expr qe_lite() const;
+
+	expr qe_lite(const std::set<int> &idxs, bool index_of_bound) const;
+
 	friend expr clone_quantifier(const expr &, const expr &);
 
         friend expr clone_quantifier(const expr &q, const expr &b, const std::vector<expr> &patterns);
@@ -592,6 +603,36 @@ namespace Duality {
 
     };
     
+
+    typedef ::decl_kind pfrule;
+    
+    class proof : public ast {
+    public:
+      proof(context & c):ast(c) {}
+      proof(context & c, ::proof *s):ast(c, s) {}
+      proof(proof const & s):ast(s) {}
+      operator ::proof*() const { return to_app(raw()); }
+      proof & operator=(proof const & s) { return static_cast<proof&>(ast::operator=(s)); }
+
+      pfrule rule() const {
+	::func_decl *d = to_app(raw())->get_decl();
+	return d->get_decl_kind();
+      }
+
+      unsigned num_prems() const {
+	return to_app(raw())->get_num_args() - 1;
+      }
+      
+      expr conc() const {
+	return ctx().cook(to_app(raw())->get_arg(num_prems()));
+      }
+      
+      proof prem(unsigned i) const {
+	return proof(ctx(),to_app(to_app(raw())->get_arg(i)));
+      }
+      
+      void get_assumptions(std::vector<expr> &assumps);
+    };
 
 #if 0
 
@@ -682,6 +723,7 @@ namespace Duality {
   	    m_model = s;
             return *this; 
         }
+	bool null() const {return !m_model;}
         
         expr eval(expr const & n, bool model_completion=true) const {
 	  ::model * _m = m_model.get();
@@ -691,6 +733,7 @@ namespace Duality {
         }
         
         void show() const;
+	void show_hash() const;
 
         unsigned num_consts() const {return m_model.get()->get_num_constants();}
         unsigned num_funcs() const {return m_model.get()->get_num_functions();}
@@ -774,8 +817,9 @@ namespace Duality {
         ::solver *m_solver;
         model the_model;
 	bool canceled;
+	proof_gen_mode m_mode;
     public:
-        solver(context & c);
+        solver(context & c, bool extensional = false, bool models = true);
         solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; canceled = false;}
         solver(solver const & s):object(s), the_model(s.the_model) { m_solver = s.m_solver; canceled = false;}
         ~solver() {
@@ -787,6 +831,7 @@ namespace Duality {
             m_ctx = s.m_ctx; 
             m_solver = s.m_solver;
 	    the_model = s.the_model;
+	    m_mode = s.m_mode;
             return *this; 
         }
 	struct cancel_exception {};
@@ -795,11 +840,12 @@ namespace Duality {
 	    throw(cancel_exception());
 	}
         // void set(params const & p) { Z3_solver_set_params(ctx(), m_solver, p); check_error(); }
-        void push() { m_solver->push(); }
-        void pop(unsigned n = 1) { m_solver->pop(n); }
+        void push() { scoped_proof_mode spm(m(),m_mode); m_solver->push(); }
+        void pop(unsigned n = 1) { scoped_proof_mode spm(m(),m_mode); m_solver->pop(n); }
         // void reset() { Z3_solver_reset(ctx(), m_solver); check_error(); }
-        void add(expr const & e) { m_solver->assert_expr(e); }
+        void add(expr const & e) { scoped_proof_mode spm(m(),m_mode); m_solver->assert_expr(e); }
         check_result check() { 
+	  scoped_proof_mode spm(m(),m_mode); 
 	  checkpoint();
 	  lbool r = m_solver->check_sat(0,0);
 	  model_ref m;
@@ -808,6 +854,7 @@ namespace Duality {
 	  return to_check_result(r);
 	}
         check_result check_keep_model(unsigned n, expr * const assumptions, unsigned *core_size = 0, expr *core = 0) { 
+	  scoped_proof_mode spm(m(),m_mode); 
 	  model old_model(the_model);
 	  check_result res = check(n,assumptions,core_size,core);
 	  if(the_model == 0)
@@ -815,6 +862,7 @@ namespace Duality {
 	  return res;
 	}
         check_result check(unsigned n, expr * const assumptions, unsigned *core_size = 0, expr *core = 0) {
+	  scoped_proof_mode spm(m(),m_mode); 
 	  checkpoint();
 	  std::vector< ::expr *> _assumptions(n);
 	  for (unsigned i = 0; i < n; i++) {
@@ -839,6 +887,7 @@ namespace Duality {
         }
 #if 0
         check_result check(expr_vector assumptions) { 
+	  scoped_proof_mode spm(m(),m_mode); 
             unsigned n = assumptions.size();
             z3array<Z3_ast> _assumptions(n);
             for (unsigned i = 0; i < n; i++) {
@@ -863,10 +912,22 @@ namespace Duality {
 	int get_num_decisions(); 
 
 	void cancel(){
+	  scoped_proof_mode spm(m(),m_mode); 
 	  canceled = true;
 	  if(m_solver)
 	    m_solver->cancel();
 	}
+
+	unsigned get_scope_level(){ scoped_proof_mode spm(m(),m_mode); return m_solver->get_scope_level();}
+
+	void show();
+	void show_assertion_ids();
+
+	proof get_proof(){
+	  scoped_proof_mode spm(m(),m_mode); 
+	  return proof(ctx(),m_solver->get_proof());
+	}
+
     };
 
 #if 0
@@ -1144,6 +1205,9 @@ namespace Duality {
     inline expr func_decl::operator()(const std::vector<expr> &args) const {
       return operator()(args.size(),&args[0]);
     }
+    inline expr func_decl::operator()() const {
+      return operator()(0,0);
+    }
     inline expr func_decl::operator()(expr const & a) const {
       return operator()(1,&a);
     }
@@ -1199,6 +1263,8 @@ namespace Duality {
 
       inline expr getTerm(){return term;}
 
+      inline std::vector<expr> &getTerms(){return terms;}
+
       inline std::vector<TermTree *> &getChildren(){
 	return children;
       }
@@ -1215,6 +1281,8 @@ namespace Duality {
       }
 
       inline void setTerm(expr t){term = t;}
+      
+      inline void addTerm(expr t){terms.push_back(t);}
 
       inline void setChildren(const std::vector<TermTree *> & _children){
 	children = _children;
@@ -1231,6 +1299,7 @@ namespace Duality {
 
     private:
       expr term;
+      std::vector<expr> terms;
       std::vector<TermTree *> children;
       int num;
     };
@@ -1239,8 +1308,8 @@ namespace Duality {
 
     class interpolating_solver : public solver {
     public:
-    interpolating_solver(context &ctx)
-      : solver(ctx)
+    interpolating_solver(context &ctx, bool models = true)
+      : solver(ctx, true, models)
       {
 	weak_mode = false;
       }
@@ -1277,6 +1346,7 @@ namespace Duality {
       void SetWeakInterpolants(bool weak);
       void SetPrintToFile(const std::string &file_name);
       
+      const std::vector<expr> &GetInterpolationAxioms() {return theory;}
       const char *profile();
       
     private:
@@ -1303,6 +1373,21 @@ namespace Duality {
     typedef double clock_t;
     clock_t current_time();
     inline void output_time(std::ostream &os, clock_t time){os << time;}
+
+    template <class X> class uptr {
+    public:
+      X *ptr;
+      uptr(){ptr = 0;}
+      void set(X *_ptr){
+	if(ptr) delete ptr;
+	ptr = _ptr;
+      }
+      X *get(){ return ptr;}
+      ~uptr(){
+	if(ptr) delete ptr;
+      }
+    };
+
 };
 
 // to make Duality::ast hashable
@@ -1317,7 +1402,7 @@ namespace hash_space {
 }
 
 // to make Duality::ast hashable in windows
-#ifdef WIN32 
+#ifdef _WINDOWS 
 template <> inline
 size_t stdext::hash_value<Duality::ast >(const Duality::ast& s)
 {	
@@ -1331,7 +1416,20 @@ namespace std {
     class less<Duality::ast> {
   public:
     bool operator()(const Duality::ast &s, const Duality::ast &t) const {
-      return s.raw() < t.raw(); // s.raw()->get_id() < t.raw()->get_id();
+      // return s.raw() < t.raw();
+      return s.raw()->get_id() < t.raw()->get_id();
+    }
+  };
+}
+
+// to make Duality::ast usable in ordered collections
+namespace std {
+  template <>
+    class less<Duality::expr> {
+  public:
+    bool operator()(const Duality::expr &s, const Duality::expr &t) const {
+      // return s.raw() < t.raw();
+      return s.raw()->get_id() < t.raw()->get_id();
     }
   };
 }
@@ -1348,7 +1446,7 @@ namespace hash_space {
 }
 
 // to make Duality::func_decl hashable in windows
-#ifdef WIN32 
+#ifdef _WINDOWS 
 template <> inline
 size_t stdext::hash_value<Duality::func_decl >(const Duality::func_decl& s)
 {	
@@ -1362,11 +1460,11 @@ namespace std {
     class less<Duality::func_decl> {
   public:
     bool operator()(const Duality::func_decl &s, const Duality::func_decl &t) const {
-      return s.raw() < t.raw(); // s.raw()->get_id() < t.raw()->get_id();
+      // return s.raw() < t.raw();
+      return s.raw()->get_id() < t.raw()->get_id();
     }
   };
 }
-
 
 #endif
 

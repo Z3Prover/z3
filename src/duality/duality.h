@@ -25,7 +25,7 @@ Revision History:
 #include <map>
 
 // make hash_map and hash_set available
-#ifndef WIN32
+#ifndef _WINDOWS
 using namespace stl_ext;
 #endif
 
@@ -36,12 +36,11 @@ namespace Duality {
   struct Z3User {
 
       context &ctx;
-      solver &slvr;
 
       typedef func_decl FuncDecl;
       typedef expr Term;
 
-      Z3User(context &_ctx, solver &_slvr) : ctx(_ctx), slvr(_slvr){}
+      Z3User(context &_ctx) : ctx(_ctx){}
   
       const char *string_of_int(int n);
       
@@ -52,6 +51,8 @@ namespace Duality {
       Term CloneQuantifier(const Term &t, const Term &new_body);
 
       Term SubstRec(hash_map<ast, Term> &memo, const Term &t);
+
+      Term SubstRec(hash_map<ast, Term> &memo, hash_map<func_decl, func_decl> &map, const Term &t);
 
       void Strengthen(Term &x, const Term &y);
 
@@ -77,11 +78,42 @@ namespace Duality {
 
       void Summarize(const Term &t);
 
-      int CumulativeDecisions();
+      int CountOperators(const Term &t);
 
-  private:
+      Term SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val);
+
+      Term RemoveRedundancy(const Term &t);
+
+      Term IneqToEq(const Term &t);
+
+      bool IsLiteral(const expr &lit, expr &atom, expr &val);
+
+      expr Negate(const expr &f);
+
+      expr SimplifyAndOr(const std::vector<expr> &args, bool is_and);
+
+      expr ReallySimplifyAndOr(const std::vector<expr> &args, bool is_and);
+
+      int MaxIndex(hash_map<ast,int> &memo, const Term &t);
+
+      bool IsClosedFormula(const Term &t);
+
+      Term AdjustQuantifiers(const Term &t);
+
+      FuncDecl RenumberPred(const FuncDecl &f, int n);
+
+protected:
 
       void SummarizeRec(hash_set<ast> &memo, std::vector<expr> &lits, int &ops, const Term &t);
+      int CountOperatorsRec(hash_set<ast> &memo, const Term &t);
+      void RemoveRedundancyOp(bool pol, std::vector<expr> &args, hash_map<ast, Term> &smemo);
+      Term RemoveRedundancyRec(hash_map<ast, Term> &memo, hash_map<ast, Term> &smemo, const Term &t);
+      Term SubstAtomTriv(const expr &foo, const expr &atom, const expr &val);
+      expr ReduceAndOr(const std::vector<expr> &args, bool is_and, std::vector<expr> &res);
+      expr FinishAndOr(const std::vector<expr> &args, bool is_and);
+      expr PullCommonFactors(std::vector<expr> &args, bool is_and);
+      Term IneqToEqRec(hash_map<ast, Term> &memo, const Term &t);
+
 
 };
 
@@ -142,6 +174,7 @@ namespace Duality {
            context *ctx;   /** Z3 context for formulas */
            solver *slvr;   /** Z3 solver */
            bool need_goals; /** Can the solver use the goal tree to optimize interpolants? */
+	   solver aux_solver; /** For temporary use -- don't leave assertions here. */
 
            /** Tree interpolation. This method assumes the formulas in TermTree
                "assumptions" are currently asserted in the solver. The return
@@ -167,6 +200,9 @@ namespace Duality {
            /** Assert a background axiom. */
            virtual void assert_axiom(const expr &axiom) = 0;
 
+	   /** Get the background axioms. */
+	   virtual const std::vector<expr> &get_axioms() = 0;
+
            /** Return a string describing performance. */
            virtual std::string profile() = 0;
 
@@ -177,6 +213,12 @@ namespace Duality {
 
 	   /** Cancel, throw Canceled object if possible. */
 	   virtual void cancel(){ }
+
+	   /* Note: aux solver uses extensional array theory, since it
+	      needs to be able to produce counter-models for
+	      interpolants the have array equalities in them.
+	   */
+           LogicSolver(context &c) : aux_solver(c,true){}
 
 	   virtual ~LogicSolver(){}
       };
@@ -202,6 +244,10 @@ namespace Duality {
             islvr->AssertInterpolationAxiom(axiom);
         }
 
+	const std::vector<expr> &get_axioms() {
+	  return islvr->GetInterpolationAxioms();
+	}
+
         std::string profile(){
            return islvr->profile();
         }
@@ -215,9 +261,9 @@ namespace Duality {
         }
 #endif
 
-        iZ3LogicSolver(context &c){
+      iZ3LogicSolver(context &c, bool models = true) : LogicSolver(c) {
           ctx = ictx = &c;
-          slvr = islvr = new interpolating_solver(*ictx);
+          slvr = islvr = new interpolating_solver(*ictx, models);
           need_goals = false;
           islvr->SetWeakInterpolants(true);
         }
@@ -267,8 +313,8 @@ namespace Duality {
       }
 
       LogicSolver *ls;
-        
-    private:
+
+    protected:
       int nodeCount;
       int edgeCount;
       
@@ -277,16 +323,19 @@ namespace Duality {
       public:
 	std::list<Edge *> edges;
 	std::list<Node *> nodes;
+	std::list<std::pair<Edge *,Term> > constraints;
       };
       
       
     public:
       model dualModel;
-    private:
+    protected:
       literals dualLabels;
       std::list<stack_entry> stack;
       std::vector<Term> axioms; // only saved here for printing purposes
-
+      solver &aux_solver;
+      hash_set<ast> *proof_core;
+      
     public:
 
       /** Construct an RPFP graph with a given interpolating prover context. It is allowed to
@@ -296,16 +345,17 @@ namespace Duality {
 	  inherit the axioms. 
       */
 
-    RPFP(LogicSolver *_ls) : Z3User(*(_ls->ctx), *(_ls->slvr)), dualModel(*(_ls->ctx))
+    RPFP(LogicSolver *_ls) : Z3User(*(_ls->ctx)), dualModel(*(_ls->ctx)), aux_solver(_ls->aux_solver)
       {
         ls = _ls;
 	nodeCount = 0;
 	edgeCount = 0;
 	stack.push_back(stack_entry());
         HornClauses = false;
+	proof_core = 0;
       }
 
-      ~RPFP();
+      virtual ~RPFP();
       
       /** Symbolic representation of a relational transformer */
       class Transformer
@@ -351,10 +401,10 @@ namespace Duality {
 	bool SubsetEq(const Transformer &other){
 	  Term t = owner->SubstParams(other.IndParams,IndParams,other.Formula);
 	  expr test = Formula && !t;
-	  owner->slvr.push();
-	  owner->slvr.add(test);
-	  check_result res = owner->slvr.check();
-	  owner->slvr.pop(1);
+	  owner->aux_solver.push();
+	  owner->aux_solver.add(test);
+	  check_result res = owner->aux_solver.check();
+	  owner->aux_solver.pop(1);
 	  return res == unsat;
 	}
 
@@ -444,6 +494,19 @@ namespace Duality {
 	return n;
       }
       
+      /** Delete a node. You can only do this if not connected to any edges.*/
+      void DeleteNode(Node *node){
+	if(node->Outgoing || !node->Incoming.empty())
+	  throw "cannot delete RPFP node";
+	for(std::vector<Node *>::iterator it = nodes.end(), en = nodes.begin(); it != en;){
+	  if(*(--it) == node){
+	    nodes.erase(it);
+	    break;
+	  }
+	}
+	delete node;
+      }
+
       /** This class represents a hyper-edge in the RPFP graph */
       
       class Edge
@@ -460,6 +523,7 @@ namespace Duality {
 	hash_map<ast,Term> varMap;
 	Edge *map;
 	Term labeled;
+	std::vector<Term> constraints;
 	
       Edge(Node *_Parent, const Transformer &_F, const std::vector<Node *> &_Children, RPFP *_owner, int _number)
 	: F(_F), Parent(_Parent), Children(_Children), dual(expr(_owner->ctx)) {
@@ -480,6 +544,29 @@ namespace Duality {
 	return e;
       }
       
+      
+      /** Delete a hyper-edge and unlink it from any nodes. */
+      void DeleteEdge(Edge *edge){
+	if(edge->Parent)
+	  edge->Parent->Outgoing = 0;
+	for(unsigned int i = 0; i < edge->Children.size(); i++){
+	  std::vector<Edge *> &ic = edge->Children[i]->Incoming;
+	  for(std::vector<Edge *>::iterator it = ic.begin(), en = ic.end(); it != en; ++it){
+	    if(*it == edge){
+	      ic.erase(it);
+	      break;
+	    }
+	  }
+	}
+	for(std::vector<Edge *>::iterator it = edges.end(), en = edges.begin(); it != en;){
+	  if(*(--it) == edge){
+	    edges.erase(it);
+	    break;
+	  }
+	}
+	delete edge;
+      }
+      
       /** Create an edge that lower-bounds its parent. */
       Edge *CreateLowerBoundEdge(Node *_Parent)
       {
@@ -492,14 +579,27 @@ namespace Duality {
        * you must pop the context accordingly. The second argument is
        * the number of pushes we are inside. */
       
-      void AssertEdge(Edge *e, int persist = 0, bool with_children = false, bool underapprox = false);
+      virtual void AssertEdge(Edge *e, int persist = 0, bool with_children = false, bool underapprox = false);
 
-        
+      /* Constrain an edge by the annotation of one of its children. */
+
+      void ConstrainParent(Edge *parent, Node *child);
+
       /** For incremental solving, asserts the negation of the upper bound associated
        * with a node.
        * */
       
       void AssertNode(Node *n);
+
+      /** Assert a constraint on an edge in the SMT context. 
+       */
+      void ConstrainEdge(Edge *e, const Term &t);
+      
+      /** Fix the truth values of atomic propositions in the given
+	  edge to their values in the current assignment. */
+      void FixCurrentState(Edge *root);
+    
+      void FixCurrentStateFull(Edge *edge, const expr &extra);
 
       /** Declare a constant in the background theory. */
 
@@ -554,9 +654,13 @@ namespace Duality {
 
       lbool Solve(Node *root, int persist);
       
+      /** Same as Solve, but annotates only a single node. */
+
+      lbool SolveSingleNode(Node *root, Node *node);
+
       /** Get the constraint tree (but don't solve it) */
       
-      TermTree *GetConstraintTree(Node *root);
+      TermTree *GetConstraintTree(Node *root, Node *skip_descendant = 0);
   
       /** Dispose of the dual model (counterexample) if there is one. */
       
@@ -592,6 +696,13 @@ namespace Duality {
 
       Term ComputeUnderapprox(Node *root, int persist);
 
+      /** Try to strengthen the annotation of a node by removing disjuncts. */
+      void Generalize(Node *root, Node *node);
+
+
+      /** Compute disjunctive interpolant for node by case splitting */
+      void InterpolateByCases(Node *root, Node *node);
+
       /** Push a scope. Assertions made after Push can be undone by Pop. */
       
       void Push();
@@ -623,6 +734,16 @@ namespace Duality {
       /** Pop a scope (see Push). Note, you cannot pop axioms. */
       
       void Pop(int num_scopes);
+      
+      /** Erase the proof by performing a Pop, Push and re-assertion of
+	  all the popped constraints */
+      void PopPush();
+
+      /** Return true if the given edge is used in the proof of unsat.
+	  Can be called only after Solve or Check returns an unsat result. */
+      
+      bool EdgeUsedInProof(Edge *edge);
+
 
       /** Convert a collection of clauses to Nodes and Edges in the RPFP.
 	  
@@ -661,7 +782,7 @@ namespace Duality {
       };
 
       
-#ifdef WIN32
+#ifdef _WINDOWS
        __declspec(dllexport)
 #endif
        void FromClauses(const std::vector<Term> &clauses);
@@ -692,8 +813,30 @@ namespace Duality {
        /** Edges of the graph. */
        std::vector<Edge *> edges;
 
+       /** Fuse a vector of transformers. If the total number of inputs of the transformers
+	   is N, then the result is an N-ary transfomer whose output is the union of
+	   the outputs of the given transformers. The is, suppose we have a vetor of transfoermers
+	   {T_i(r_i1,...,r_iN(i) : i=1..M}. The the result is a transformer 
+	       
+	       F(r_11,...,r_iN(1),...,r_M1,...,r_MN(M)) = 
+	           T_1(r_11,...,r_iN(1)) U ... U T_M(r_M1,...,r_MN(M))
+       */
+
+      Transformer Fuse(const std::vector<Transformer *> &trs);
+
+      /** Fuse edges so that each node is the output of at most one edge. This
+	  transformation is solution-preserving, but changes the numbering of edges in
+	  counterexamples.
+      */
+      void FuseEdges();
+
+      void RemoveDeadNodes();
+
       Term SubstParams(const std::vector<Term> &from,
 		       const std::vector<Term> &to, const Term &t);
+
+      Term SubstParamsNoCapture(const std::vector<Term> &from,
+				const std::vector<Term> &to, const Term &t);
 
       Term Localize(Edge *e, const Term &t);
 
@@ -707,8 +850,25 @@ namespace Duality {
 
       //      int GetLabelsRec(hash_map<ast,int> *memo, const Term &f, std::vector<symbol> &labels, bool labpos);
 
-    private:
+      /** Compute and save the proof core for future calls to
+	  EdgeUsedInProof.  You only need to call this if you will pop
+	  the solver before calling EdgeUsedInProof.
+       */
+      void ComputeProofCore();
+
+      int CumulativeDecisions();
+
+      solver &slvr(){
+	return *ls->slvr;
+      }
+
+    protected:
       
+      void ClearProofCore(){
+	if(proof_core)
+	  delete proof_core;
+	proof_core = 0;
+      }
 
       Term SuffixVariable(const Term &t, int n);
       
@@ -724,9 +884,13 @@ namespace Duality {
 
       Term ReducedDualEdge(Edge *e);
 
-      TermTree *ToTermTree(Node *root);
+      TermTree *ToTermTree(Node *root, Node *skip_descendant = 0);
 
       TermTree *ToGoalTree(Node *root);
+
+      void CollapseTermTreeRec(TermTree *root, TermTree *node);
+
+      TermTree *CollapseTermTree(TermTree *node);
 
       void DecodeTree(Node *root, TermTree *interp, int persist);
 
@@ -777,6 +941,11 @@ namespace Duality {
 
       Term UnderapproxFormula(const Term &f, hash_set<ast> &dont_cares);
 
+      void ImplicantFullRed(hash_map<ast,int> &memo, const Term &f, std::vector<Term> &lits,
+			    hash_set<ast> &done, hash_set<ast> &dont_cares);
+
+      Term UnderapproxFullFormula(const Term &f, hash_set<ast> &dont_cares);
+
       Term ToRuleRec(Edge *e,  hash_map<ast,Term> &memo, const Term &t, std::vector<expr> &quants);
 
       hash_map<ast,Term> resolve_ite_memo;
@@ -803,10 +972,80 @@ namespace Duality {
 
       Term SubstBound(hash_map<int,Term> &subst, const Term &t);
 
+      void ConstrainEdgeLocalized(Edge *e, const Term &t);
+
+      void GreedyReduce(solver &s, std::vector<expr> &conjuncts);
+      
+      void NegateLits(std::vector<expr> &lits);
+
+      expr SimplifyOr(std::vector<expr> &lits);
+
+      expr SimplifyAnd(std::vector<expr> &lits);
+
+      void SetAnnotation(Node *root, const expr &t);
+
+      void AddEdgeToSolver(Edge *edge);
+
+      void AddToProofCore(hash_set<ast> &core);
+
+      void GetGroundLitsUnderQuants(hash_set<ast> *memo, const Term &f, std::vector<Term> &res, int under);
+
+      Term StrengthenFormulaByCaseSplitting(const Term &f, std::vector<expr> &case_lits);
+    
+      expr NegateLit(const expr &f);
+
+      expr GetEdgeFormula(Edge *e, int persist, bool with_children, bool underapprox);
+
+      bool IsVar(const expr &t);
+
+      void GetVarsRec(hash_set<ast> &memo, const expr &cnst, std::vector<expr> &vars);
+
+      expr UnhoistPullRec(hash_map<ast,expr> & memo, const expr &w, hash_map<ast,expr> & init_defs, hash_map<ast,expr> & const_params, hash_map<ast,expr> &const_params_inv, std::vector<expr> &new_params);
+
+      void AddParamsToTransformer(Transformer &trans, const std::vector<expr> &params);
+ 
+      expr AddParamsToApp(const expr &app, const func_decl &new_decl, const std::vector<expr> &params);
+
+      expr GetRelRec(hash_set<ast> &memo, const expr &t, const func_decl &rel);
+
+      expr GetRel(Edge *edge, int child_idx);
+
+      void GetDefs(const expr &cnst, hash_map<ast,expr> &defs);
+
+      void GetDefsRec(const expr &cnst, hash_map<ast,expr> &defs);
+
+      void AddParamsToNode(Node *node, const std::vector<expr> &params);
+
+      void UnhoistLoop(Edge *loop_edge, Edge *init_edge);
+
+      void Unhoist();
+      
+      Term ElimIteRec(hash_map<ast,expr> &memo, const Term &t, std::vector<expr> &cnsts);
+
+      Term ElimIte(const Term &t);
+
+      void MarkLiveNodes(hash_map<Node *,std::vector<Edge *> > &outgoing, hash_set<Node *> &live_nodes, Node *node);
+
+      virtual void slvr_add(const expr &e);
+      
+      virtual void slvr_pop(int i);
+
+      virtual void slvr_push();
+      
+      virtual check_result slvr_check(unsigned n = 0, expr * const assumptions = 0, unsigned *core_size = 0, expr *core = 0);
+
+      virtual lbool ls_interpolate_tree(TermTree *assumptions,
+					TermTree *&interpolants,
+					model &_model,
+					TermTree *goals = 0,
+					bool weak = false);
+
+      virtual bool proof_core_contains(const expr &e);
 
     };
     
-    /** RPFP solver base class. */
+
+  /** RPFP solver base class. */
 
     class Solver {
       
@@ -850,5 +1089,179 @@ namespace Duality {
       /** Object thrown on cancellation */
       struct Canceled {};
       
+      /** Object thrown on incompleteness */
+      struct Incompleteness {};
     };
+}
+
+
+// Allow to hash on nodes and edges in deterministic way
+
+namespace hash_space {
+  template <>
+    class hash<Duality::RPFP::Node *> {
+  public:
+    size_t operator()(const Duality::RPFP::Node *p) const {
+      return p->number;
+    }
+  };
+}
+
+namespace hash_space {
+  template <>
+    class hash<Duality::RPFP::Edge *> {
+  public:
+    size_t operator()(const Duality::RPFP::Edge *p) const {
+      return p->number;
+    }
+  };
+}
+
+// allow to walk sets of nodes without address dependency
+
+namespace std {
+  template <>
+    class less<Duality::RPFP::Node *> {
+  public:
+    bool operator()(Duality::RPFP::Node * const &s, Duality::RPFP::Node * const &t) const {
+      return s->number < t->number; // s.raw()->get_id() < t.raw()->get_id();
+    }
+  };
+}
+
+// #define LIMIT_STACK_WEIGHT 5
+
+
+namespace Duality {
+    /** Caching version of RPFP. Instead of asserting constraints, returns assumption literals */
+
+    class RPFP_caching : public RPFP {
+  public:
+
+      /** appends assumption literals for edge to lits. if with_children is true,
+	  includes that annotation of the edge's children. 
+       */ 
+      void AssertEdgeCache(Edge *e, std::vector<Term> &lits, bool with_children = false);
+      
+      /** appends assumption literals for node to lits */
+      void AssertNodeCache(Node *, std::vector<Term> lits);
+
+      /** check assumption lits, and return core */
+      check_result CheckCore(const std::vector<Term> &assumps, std::vector<Term> &core);
+      
+      /** Clone another RPFP into this one, keeping a map */
+      void Clone(RPFP *other);
+
+      /** Get the clone of a node */
+      Node *GetNodeClone(Node *other_node);
+
+      /** Get the clone of an edge */
+      Edge *GetEdgeClone(Edge *other_edge);
+
+      /** Try to strengthen the parent of an edge */
+      void GeneralizeCache(Edge *edge);
+
+      /** Try to propagate some facts from children to parents of edge.
+	  Return true if success. */
+      bool PropagateCache(Edge *edge);
+
+      /** Construct a caching RPFP using a LogicSolver */
+      RPFP_caching(LogicSolver *_ls) : RPFP(_ls) {}
+
+      /** Constraint an edge by its child's annotation. Return
+	  assumption lits. */
+      void ConstrainParentCache(Edge *parent, Node *child, std::vector<Term> &lits);
+
+#ifdef LIMIT_STACK_WEIGHT
+      virtual void AssertEdge(Edge *e, int persist = 0, bool with_children = false, bool underapprox = false);
+#endif
+
+      virtual ~RPFP_caching(){}
+
+  protected:
+      hash_map<ast,expr> AssumptionLits;
+      hash_map<Node *, Node *> NodeCloneMap;
+      hash_map<Edge *, Edge *> EdgeCloneMap;
+      std::vector<expr> alit_stack;
+      std::vector<unsigned> alit_stack_sizes;
+
+      // to let us use one solver per edge
+      struct edge_solver {
+	hash_map<ast,expr> AssumptionLits;
+	uptr<solver> slvr;
+      };
+      hash_map<Edge *, edge_solver > edge_solvers;
+      
+#ifdef LIMIT_STACK_WEIGHT
+      struct weight_counter {
+	int val;
+	weight_counter(){val = 0;}
+	void swap(weight_counter &other){
+	  std::swap(val,other.val);
+	}
+      };
+      
+      struct big_stack_entry {
+	weight_counter weight_added;
+	std::vector<expr> new_alits;
+	std::vector<expr> alit_stack;
+	std::vector<unsigned> alit_stack_sizes;
+      };
+
+      std::vector<expr> new_alits;
+      weight_counter weight_added;
+      std::vector<big_stack_entry> big_stack;
+#endif
+
+
+
+      void GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map = 0);
+
+      void GreedyReduceCache(std::vector<expr> &assumps, std::vector<expr> &core);
+
+      void FilterCore(std::vector<expr> &core, std::vector<expr> &full_core);
+      void ConstrainEdgeLocalizedCache(Edge *e, const Term &tl, std::vector<expr> &lits);
+
+      virtual void slvr_add(const expr &e);
+      
+      virtual void slvr_pop(int i);
+
+      virtual void slvr_push();
+      
+      virtual check_result slvr_check(unsigned n = 0, expr * const assumptions = 0, unsigned *core_size = 0, expr *core = 0);
+
+      virtual lbool ls_interpolate_tree(TermTree *assumptions,
+					TermTree *&interpolants,
+					model &_model,
+					TermTree *goals = 0,
+					bool weak = false);
+
+      virtual bool proof_core_contains(const expr &e);
+
+      void GetTermTreeAssertionLiterals(TermTree *assumptions);
+
+      void GetTermTreeAssertionLiteralsRec(TermTree *assumptions);
+
+      edge_solver &SolverForEdge(Edge *edge, bool models, bool axioms);
+
+  public:
+      struct scoped_solver_for_edge {
+	solver *orig_slvr;
+	RPFP_caching *rpfp;
+	edge_solver *es;
+	scoped_solver_for_edge(RPFP_caching *_rpfp, Edge *edge, bool models = false, bool axioms = false){
+	  rpfp = _rpfp;
+	  orig_slvr = rpfp->ls->slvr;
+	  es = &(rpfp->SolverForEdge(edge,models,axioms)); 
+	  rpfp->ls->slvr = es->slvr.get();
+	  rpfp->AssumptionLits.swap(es->AssumptionLits);
+	}
+	~scoped_solver_for_edge(){
+	  rpfp->ls->slvr = orig_slvr;
+	  rpfp->AssumptionLits.swap(es->AssumptionLits);
+	}
+      };
+
+    };
+
 }

@@ -18,6 +18,13 @@ Revision History:
 
 --*/
 
+#ifdef WIN32
+#pragma warning(disable:4996)
+#pragma warning(disable:4800)
+#pragma warning(disable:4267)
+#pragma warning(disable:4101)
+#endif
+
 #include "duality_wrapper.h"
 #include <iostream>
 #include "smt_solver.h"
@@ -26,17 +33,26 @@ Revision History:
 #include "expr_abstract.h"
 #include "stopwatch.h"
 #include "model_smt2_pp.h"
+#include "qe_lite.h"
 
 namespace Duality {
 
-  solver::solver(Duality::context& c) : object(c), the_model(c) {
+  solver::solver(Duality::context& c, bool extensional, bool models) : object(c), the_model(c) {
     params_ref p;
     p.set_bool("proof", true); // this is currently useless
-    p.set_bool("model", true); 
+    if(models)
+      p.set_bool("model", true); 
     p.set_bool("unsat_core", true); 
+    p.set_bool("mbqi",true);
+    p.set_str("mbqi.id","itp"); // use mbqi for quantifiers in interpolants
+    p.set_uint("mbqi.max_iterations",1); // use mbqi for quantifiers in interpolants
+    if(true || extensional)
+      p.set_bool("array.extensional",true);
     scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
     m_solver = (*sf)(m(), p, true, true, true, ::symbol::null);
+    m_solver->updt_params(p); // why do we have to do this?
     canceled = false;
+    m_mode = m().proof_mode();
   }
 
 expr context::constant(const std::string &name, const sort &ty){ 
@@ -323,6 +339,25 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     return simplify(p);
   }
 
+  expr expr::qe_lite() const {
+    ::qe_lite qe(m());
+    expr_ref result(to_expr(raw()),m());
+    proof_ref pf(m());
+    qe(result,pf);
+    return ctx().cook(result);
+  }
+
+  expr expr::qe_lite(const std::set<int> &idxs, bool index_of_bound) const {
+    ::qe_lite qe(m());
+    expr_ref result(to_expr(raw()),m());
+    proof_ref pf(m());
+    uint_set uis;
+    for(std::set<int>::const_iterator it=idxs.begin(), en = idxs.end(); it != en; ++it)
+      uis.insert(*it);
+    qe(uis,index_of_bound,result);
+    return ctx().cook(result);
+  }
+
   expr clone_quantifier(const expr &q, const expr &b){
     return q.ctx().cook(q.m().update_quantifier(to_quantifier(q.raw()), to_expr(b.raw())));
   }
@@ -346,6 +381,18 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
       pats[i] = expr(ctx(),it[i]);
   }
 
+
+  unsigned func_decl::arity() const {
+    return (to_func_decl(raw())->get_arity());
+  }
+
+  sort func_decl::domain(unsigned i) const {
+    return sort(ctx(),(to_func_decl(raw())->get_domain(i)));
+  }
+
+  sort func_decl::range() const {
+    return sort(ctx(),(to_func_decl(raw())->get_range()));
+  }
 
   func_decl context::fresh_func_decl(char const * prefix, const std::vector<sort> &domain, sort const & range){
     std::vector < ::sort * > _domain(domain.size());
@@ -425,15 +472,18 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
   
   static int linearize_assumptions(int num,
 				   TermTree *assumptions,
-				   std::vector<expr> &linear_assumptions, 
+				   std::vector<std::vector <expr> > &linear_assumptions, 
 				   std::vector<int> &parents){
     for(unsigned i = 0; i < assumptions->getChildren().size(); i++)
       num = linearize_assumptions(num, assumptions->getChildren()[i], linear_assumptions, parents);
-    linear_assumptions[num] = assumptions->getTerm();
+    // linear_assumptions[num].push_back(assumptions->getTerm());
     for(unsigned i = 0; i < assumptions->getChildren().size(); i++)
       parents[assumptions->getChildren()[i]->getNumber()] = num;
     parents[num] = SHRT_MAX; // in case we have no parent
-    linear_assumptions[num] = assumptions->getTerm();
+    linear_assumptions[num].push_back(assumptions->getTerm());
+    std::vector<expr> &ts = assumptions->getTerms();
+    for(unsigned i = 0; i < ts.size(); i++)
+      linear_assumptions[num].push_back(ts[i]);
     return num + 1;
   }
 
@@ -462,14 +512,15 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
   
   {
     int size = assumptions->number(0);
-    std::vector<expr> linear_assumptions(size);
+    std::vector<std::vector<expr> > linear_assumptions(size);
     std::vector<int> parents(size);
     linearize_assumptions(0,assumptions,linear_assumptions,parents);
 
     ptr_vector< ::ast> _interpolants(size-1);
-    ptr_vector< ::ast>_assumptions(size);
+    vector<ptr_vector< ::ast> >_assumptions(size);
     for(int i = 0; i < size; i++)
-      _assumptions[i] = linear_assumptions[i];
+      for(unsigned j = 0; j < linear_assumptions[i].size(); j++)
+	_assumptions[i].push_back(linear_assumptions[i][j]);
     ::vector<int> _parents; _parents.resize(parents.size());
     for(unsigned i = 0; i < parents.size(); i++)
       _parents[i] = parents[i];
@@ -477,14 +528,18 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     for(unsigned i = 0; i < theory.size(); i++)
       _theory[i] = theory[i];
     
-    push();
     
     if(!incremental){
+      push();
       for(unsigned i = 0; i < linear_assumptions.size(); i++)
-	add(linear_assumptions[i]);
+	for(unsigned j = 0; j < linear_assumptions[i].size(); j++)
+	  add(linear_assumptions[i][j]);
     }
     
-    check_result res = check();
+    check_result res = unsat;
+
+    if(!m_solver->get_proof())
+      res = check();
     
     if(res == unsat){
 
@@ -517,7 +572,8 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     }
 #endif
     
-    pop();
+    if(!incremental)
+      pop();
 
     return (res == unsat) ? l_false : ((res == sat) ? l_true : l_undef);
 
@@ -549,6 +605,29 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     return "";
   }
 
+  
+  static void get_assumptions_rec(stl_ext::hash_set<ast> &memo, const proof &pf, std::vector<expr> &assumps){
+    if(memo.find(pf) != memo.end())return;
+    memo.insert(pf);
+    pfrule dk = pf.rule();
+    if(dk == PR_ASSERTED){
+      expr con = pf.conc();
+      assumps.push_back(con);
+    }
+    else {
+      unsigned nprems = pf.num_prems();
+      for(unsigned i = 0; i < nprems; i++){
+	proof arg = pf.prem(i);
+	get_assumptions_rec(memo,arg,assumps);
+      }
+    }
+  }
+
+  void proof::get_assumptions(std::vector<expr> &assumps){
+    stl_ext::hash_set<ast> memo;
+    get_assumptions_rec(memo,*this,assumps);
+  }
+
 
   void ast::show() const{
     std::cout << mk_pp(raw(), m()) << std::endl;
@@ -559,6 +638,40 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     std::cout << std::endl;
   }
   
+  void model::show_hash() const {
+    std::ostringstream ss;
+    model_smt2_pp(ss, m(), *m_model, 0);
+    hash_space::hash<std::string> hasher;
+    unsigned h = hasher(ss.str());
+    std::cout << "model hash: " << h << "\n";
+  }
+
+  void solver::show() {
+    unsigned n = m_solver->get_num_assertions();
+    if(!n)
+      return;
+    ast_smt_pp pp(m());
+    for (unsigned i = 0; i < n-1; ++i)
+      pp.add_assumption(m_solver->get_assertion(i));
+    pp.display_smt2(std::cout, m_solver->get_assertion(n-1));
+  }
+
+  void solver::show_assertion_ids() {
+#if 0
+    unsigned n = m_solver->get_num_assertions();
+    std::cerr << "assertion ids: ";
+    for (unsigned i = 0; i < n-1; ++i)
+      std::cerr << " " << m_solver->get_assertion(i)->get_id();
+    std::cerr << "\n";
+#else
+    unsigned n = m_solver->get_num_assertions();
+    std::cerr << "assertion ids hash: ";
+    unsigned h = 0;
+    for (unsigned i = 0; i < n-1; ++i)
+      h += m_solver->get_assertion(i)->get_id();
+    std::cerr << h << "\n";
+#endif
+  }
 
   void include_ast_show(ast &a){
     a.show();

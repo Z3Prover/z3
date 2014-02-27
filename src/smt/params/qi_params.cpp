@@ -27,6 +27,7 @@ void qi_params::updt_params(params_ref const & _p) {
     m_mbqi_max_iterations = p.mbqi_max_iterations();
     m_mbqi_trace = p.mbqi_trace();
     m_mbqi_force_template = p.mbqi_force_template();
+    m_mbqi_id = p.mbqi_id();
     m_qi_profile = p.qi_profile();
     m_qi_profile_freq = p.qi_profile_freq();
     m_qi_max_instances = p.qi_max_instances();

@@ -213,6 +213,9 @@ func_decl * float_decl_plugin::mk_float_const_decl(decl_kind k, unsigned num_par
     if (num_parameters == 1 && parameters[0].is_ast() && is_sort(parameters[0].get_ast()) && is_float_sort(to_sort(parameters[0].get_ast()))) {
         s = to_sort(parameters[0].get_ast());
     }
+    else if (num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int()) {
+        s = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
+    }
     else if (range != 0 && is_float_sort(range)) {
         s = range;
     }
@@ -376,7 +379,19 @@ func_decl * float_decl_plugin::mk_to_float(decl_kind k, unsigned num_parameters,
         sort * fp = mk_float_sort(domain[2]->get_parameter(0).get_int(), domain[1]->get_parameter(0).get_int()+1);
         symbol name("asFloat");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
-    }    
+    }
+    else if (m_bv_plugin && arity == 1 && is_sort_of(domain[0], m_bv_fid, BV_SORT)) {
+        if (num_parameters != 2)
+            m_manager->raise_exception("invalid number of parameters to to_fp");
+        if (!parameters[0].is_int() || !parameters[1].is_int())
+            m_manager->raise_exception("invalid parameter type to to_fp");
+        int ebits = parameters[0].get_int();
+        int sbits = parameters[1].get_int();
+        
+        sort * fp = mk_float_sort(ebits, sbits);
+        symbol name("asFloat");
+        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
     else {
         // .. Otherwise we only know how to convert rationals/reals. 
         if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int())) 
@@ -410,6 +425,53 @@ func_decl * float_decl_plugin::mk_to_ieee_bv(decl_kind k, unsigned num_parameter
     sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
     symbol name("asIEEEBV");
     return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));        
+}
+
+func_decl * float_decl_plugin::mk_from3bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                          unsigned arity, sort * const * domain, sort * range) {
+    if (!m_bv_plugin)
+        m_manager->raise_exception("fp unsupported; use a logic with BV support");
+    if (arity != 3)
+        m_manager->raise_exception("invalid number of arguments to fp");    
+    if (!is_sort_of(domain[0], m_bv_fid, BV_SORT) ||
+        !is_sort_of(domain[1], m_bv_fid, BV_SORT) ||
+        !is_sort_of(domain[2], m_bv_fid, BV_SORT))
+        m_manager->raise_exception("sort mismtach");
+        
+    sort * fp = mk_float_sort(domain[1]->get_parameter(0).get_int(), domain[2]->get_parameter(0).get_int() + 1);
+    symbol name("fp");
+    return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k));
+}
+
+func_decl * float_decl_plugin::mk_to_fp_unsigned(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                                 unsigned arity, sort * const * domain, sort * range) {
+    if (!m_bv_plugin)
+        m_manager->raise_exception("to_fp_unsigned unsupported; use a logic with BV support");
+    if (arity != 2)
+        m_manager->raise_exception("invalid number of arguments to to_fp_unsigned");
+    if (is_rm_sort(domain[0]))
+        m_manager->raise_exception("sort mismtach");
+    if (!is_sort_of(domain[1], m_bv_fid, BV_SORT))
+        m_manager->raise_exception("sort mismtach");
+
+    sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
+    symbol name("to_fp_unsigned");
+    return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k));
+}
+
+func_decl * float_decl_plugin::mk_to_ubv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+    unsigned arity, sort * const * domain, sort * range) {
+    NOT_IMPLEMENTED_YET();
+}
+
+func_decl * float_decl_plugin::mk_to_sbv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+    unsigned arity, sort * const * domain, sort * range) {
+    NOT_IMPLEMENTED_YET();
+}
+
+func_decl * float_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, parameter const * parameters,
+    unsigned arity, sort * const * domain, sort * range) {
+    NOT_IMPLEMENTED_YET();
 }
 
 func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -465,6 +527,16 @@ func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return mk_fused_ma(k, num_parameters, parameters, arity, domain, range);
     case OP_TO_IEEE_BV:
         return mk_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_FP:
+        return mk_from3bv(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_TO_FP_UNSIGNED:
+        return mk_to_fp_unsigned(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_TO_UBV:
+        return mk_to_ubv(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_TO_SBV:
+        return mk_to_sbv(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_TO_REAL:
+        return mk_to_real(k, num_parameters, parameters, arity, domain, range);
     default:
         m_manager->raise_exception("unsupported floating point operator");
         return 0;
@@ -517,8 +589,9 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     if (m_bv_plugin)
         op_names.push_back(builtin_name("asIEEEBV", OP_TO_IEEE_BV));
 
-    // We also support draft version 3
-    op_names.push_back(builtin_name("fp", OP_TO_FLOAT));
+    // These are the operators from the final draft of the SMT FloatingPoints standard
+    op_names.push_back(builtin_name("+oo", OP_FLOAT_PLUS_INF));
+    op_names.push_back(builtin_name("-oo", OP_FLOAT_MINUS_INF));
 
     op_names.push_back(builtin_name("RNE", OP_RM_NEAREST_TIES_TO_EVEN));
     op_names.push_back(builtin_name("RNA", OP_RM_NEAREST_TIES_TO_AWAY));
@@ -547,23 +620,24 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("fp.isNaN", OP_FLOAT_IS_NAN));
     op_names.push_back(builtin_name("fp.min", OP_FLOAT_MIN));
     op_names.push_back(builtin_name("fp.max", OP_FLOAT_MAX));
-    op_names.push_back(builtin_name("fp.convert", OP_TO_FLOAT));
+    op_names.push_back(builtin_name("to_fp", OP_TO_FLOAT));
 
     if (m_bv_plugin) {
-    // op_names.push_back(builtin_name("fp.fromBv", OP_TO_FLOAT));
-    // op_names.push_back(builtin_name("fp.fromUBv", OP_TO_FLOAT));
-    // op_names.push_back(builtin_name("fp.fromSBv", OP_TO_FLOAT));
-    // op_names.push_back(builtin_name("fp.toUBv", OP_TO_IEEE_BV));
-    // op_names.push_back(builtin_name("fp.toSBv", OP_TO_IEEE_BV));
+        op_names.push_back(builtin_name("fp", OP_FLOAT_FP));
+        op_names.push_back(builtin_name("to_fp_unsigned", OP_FLOAT_TO_FP_UNSIGNED));
+        op_names.push_back(builtin_name("fp.to_ubv", OP_FLOAT_TO_UBV));
+        op_names.push_back(builtin_name("fp.to_sbv", OP_FLOAT_TO_SBV));
     }
-    
-    op_names.push_back(builtin_name("fp.fromReal", OP_TO_FLOAT));
+        
     // op_names.push_back(builtin_name("fp.toReal", ?));
 }
 
 void float_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
     sort_names.push_back(builtin_name("FP", FLOAT_SORT));
     sort_names.push_back(builtin_name("RoundingMode", ROUNDING_MODE_SORT));
+
+    // In the SMT FPA final draft, FP is called FloatingPoint
+    sort_names.push_back(builtin_name("FloatingPoint", FLOAT_SORT));
 }
 
 expr * float_decl_plugin::get_some_value(sort * s) {

@@ -638,7 +638,13 @@ def is_compiler(given, expected):
 def is_CXX_gpp():
     return is_compiler(CXX, 'g++')
 
+def is_clang_in_gpp_form(cc):
+    version_string = subprocess.check_output([cc, '--version'])
+    return str(version_string).find('clang') != -1
+
 def is_CXX_clangpp():
+    if is_compiler(CXX, 'g++'):
+        return is_clang_in_gpp_form(CXX)
     return is_compiler(CXX, 'clang++')
 
 def get_cpp_files(path):
@@ -1192,9 +1198,9 @@ class JavaDLLComponent(Component):
                 deps += '%s ' % os.path.join(self.to_src_dir, 'enumerations', jfile)
             out.write(deps)
             out.write('\n')
-            if IS_WINDOWS:
-                JAVAC = '"%s"' % JAVAC
-                JAR = '"%s"' % JAR
+            #if IS_WINDOWS:
+            JAVAC = '"%s"' % JAVAC
+            JAR = '"%s"' % JAR
             t = ('\t%s %s.java -d %s\n' % (JAVAC, os.path.join(self.to_src_dir, 'enumerations', '*'), os.path.join('api', 'java', 'classes')))
             out.write(t)
             t = ('\t%s -cp %s %s.java -d %s\n' % (JAVAC, 
@@ -1431,7 +1437,7 @@ def mk_config():
             'SO_EXT=.dll\n'
             'SLINK=cl\n'
             'SLINK_OUT_FLAG=/Fe\n'
-	    'OS_DEFINES=/D _WINDOWS\n')
+            'OS_DEFINES=/D _WINDOWS\n')
         extra_opt = ''
         if GIT_HASH:
             extra_opt = '%s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
@@ -1479,7 +1485,7 @@ def mk_config():
                 print('Java Compiler:  %s' % JAVAC)
     else:
         global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG
-	OS_DEFINES = ""
+        OS_DEFINES = ""
         ARITH = "internal"
         check_ar()
         CXX = find_cxx_compiler()
@@ -1502,7 +1508,7 @@ def mk_config():
                 SLIBEXTRAFLAGS = '%s %s' % (SLIBEXTRAFLAGS,FOCI2LIB)
                 CPPFLAGS = '%s -D_FOCI2' % CPPFLAGS
             else:
-                print "FAILED\n"
+                print("FAILED\n")
                 FOCI2 = False
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
@@ -1530,21 +1536,21 @@ def mk_config():
             SLIBFLAGS = '-dynamiclib'
         elif sysname == 'Linux':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
-	    OS_DEFINES     = '-D_LINUX'
+            OS_DEFINES     = '-D_LINUX'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'FreeBSD':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_FREEBSD_' % CXXFLAGS
-	    OS_DEFINES     = '-D_FREEBSD_'
+            OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname[:6] ==  'CYGWIN':
             CXXFLAGS    = '%s -D_CYGWIN -fno-strict-aliasing' % CXXFLAGS
-	    OS_DEFINES     = '-D_CYGWIN'
+            OS_DEFINES     = '-D_CYGWIN'
             SO_EXT      = '.dll'
             SLIBFLAGS   = '-shared'
         else:
@@ -1580,7 +1586,7 @@ def mk_config():
         config.write('SLINK_FLAGS=%s\n' % SLIBFLAGS)
         config.write('SLINK_EXTRA_FLAGS=%s\n' % SLIBEXTRAFLAGS)
         config.write('SLINK_OUT_FLAG=-o \n')
-	config.write('OS_DEFINES=%s\n' % OS_DEFINES)
+        config.write('OS_DEFINES=%s\n' % OS_DEFINES)
         if is_verbose():
             print('Host platform:  %s' % sysname)
             print('C++ Compiler:   %s' % CXX)

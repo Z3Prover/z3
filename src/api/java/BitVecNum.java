@@ -35,7 +35,7 @@ public class BitVecNum extends BitVecExpr
     {
         Native.LongPtr res = new Native.LongPtr();
         if (Native.getNumeralInt64(getContext().nCtx(), getNativeObject(), res) ^ true)
-            throw new Z3Exception("Numeral is not an int64");
+            throw new Z3Exception("Numeral is not a long");
         return res.value;
     }
 

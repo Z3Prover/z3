@@ -70,6 +70,9 @@ class iz3proof_itp : public iz3mgr {
   /** Make an axiom node. The conclusion must be an instance of an axiom. */
   virtual node make_axiom(const std::vector<ast> &conclusion) = 0;
 
+  /** Make an axiom node. The conclusion must be an instance of an axiom. Localize axiom instance to range*/
+  virtual node make_axiom(const std::vector<ast> &conclusion, prover::range) = 0;
+
   /** Make a Contra node. This rule takes a derivation of the form
      Gamma |- False and produces |- \/~Gamma. */
 

@@ -1400,6 +1400,10 @@ mpf_exp_t mpf_manager::mk_max_exp(unsigned ebits) {
     return m_mpz_manager.get_int64(m_powers2.m1(ebits-1, false));
 }
 
+mpf_exp_t mpf_manager::unbias_exp(unsigned ebits, mpf_exp_t biased_exponent) {
+    return biased_exponent - m_mpz_manager.get_int64(m_powers2.m1(ebits - 1, false));
+}
+
 void mpf_manager::mk_nzero(unsigned ebits, unsigned sbits, mpf & o) {
     o.sbits = sbits;
     o.ebits = ebits;

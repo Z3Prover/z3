@@ -42,7 +42,7 @@ Revision History:
 #include <ext/hash_map>
 #include <ext/hash_set>
 #else
-#ifdef WIN32
+#ifdef _WINDOWS
 #define stl_ext stdext
 #define hash_space std
 #include <hash_map>
@@ -61,12 +61,12 @@ Revision History:
 
 // stupid STL doesn't include hash function for class string
 
-#ifndef WIN32 
+#ifndef _WINDOWS 
 
 namespace stl_ext {
   template <>
     class hash<std::string> {
-    stl_ext::hash<char *> H;
+    stl_ext::hash<const char *> H;
   public:
     size_t operator()(const std::string &s) const {
       return H(s.c_str());
@@ -86,7 +86,7 @@ namespace hash_space {
   };
 }
 
-#ifdef WIN32 
+#ifdef _WINDOWS 
 template <> inline
 size_t stdext::hash_value<std::pair<int,int> >(const std::pair<int,int>& p)
 {	// hash _Keyval to size_t value one-to-one
@@ -112,7 +112,7 @@ size_t stdext::hash_value<std::pair<T *, T *> >(const std::pair<T *, T *>& p)
 }
 #endif
 
-#ifdef WIN32
+#ifdef _WINDOWS
 
 namespace std {
     template <>
@@ -139,8 +139,9 @@ namespace std {
 #endif
 
 
-#ifndef WIN32
+#ifndef _WINDOWS
 
+#if 0
 namespace stl_ext {
   template <class T>
     class hash<T *> {
@@ -150,10 +151,11 @@ namespace stl_ext {
     }
   };
 }
+#endif
 
 #endif
 
-#ifdef WIN32
+#ifdef _WINDOWS
 
 
 

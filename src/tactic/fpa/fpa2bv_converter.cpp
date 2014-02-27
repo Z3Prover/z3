@@ -1368,12 +1368,12 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     not_e_sgn = m_bv_util.mk_bv_not(e_sgn);
     not_f_sgn = m_bv_util.mk_bv_not(f_sgn);
     not_sign_bv = m_bv_util.mk_bv_not(sign_bv);
-    res_sgn_c1 = m.mk_app(bvfid, OP_BAND, not_e_sgn, e_sgn, sign_bv);
+    res_sgn_c1 = m.mk_app(bvfid, OP_BAND, not_e_sgn, f_sgn, sign_bv);
     res_sgn_c2 = m.mk_app(bvfid, OP_BAND, e_sgn, not_f_sgn, not_sign_bv);
     res_sgn_c3 = m.mk_app(bvfid, OP_BAND, e_sgn, f_sgn);
     expr * res_sgn_or_args[3] = { res_sgn_c1, res_sgn_c2, res_sgn_c3 };   
     res_sgn = m_bv_util.mk_bv_or(3, res_sgn_or_args);
-    
+
     sticky_raw = m_bv_util.mk_extract(sbits-5, 0, sig_abs);
     sticky = m_bv_util.mk_zero_extend(sbits+3, m.mk_app(bvfid, OP_BREDOR, sticky_raw.get()));
     dbg_decouple("fpa2bv_fma_add_sum_sticky", sticky);
@@ -1836,6 +1836,21 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         // Just keep it here, as there will be something else that uses it.
         mk_triple(args[0], args[1], args[2], result);
     }
+    else if (num == 1 && m_bv_util.is_bv(args[0])) {
+        sort * s = f->get_range();
+        unsigned to_sbits = m_util.get_sbits(s);
+        unsigned to_ebits = m_util.get_ebits(s);
+
+        expr * bv = args[0];
+        int sz = m_bv_util.get_bv_size(bv);
+        SASSERT((unsigned)sz == to_sbits + to_ebits);
+
+        m_bv_util.mk_extract(sz - 1, sz - 1, bv);
+        mk_triple(m_bv_util.mk_extract(sz - 1, sz - 1, bv),
+                  m_bv_util.mk_extract(sz - to_ebits - 2, 0, bv),
+                  m_bv_util.mk_extract(sz - 2, sz - to_ebits - 1, bv),
+                  result);
+    }
     else if (num == 2 && is_app(args[1]) && m_util.is_float(m.get_sort(args[1]))) {        
         // We also support float to float conversion
         sort * s = f->get_range();
@@ -2041,6 +2056,27 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
     expr * sgn, * s, * e;
     split(args[0], sgn, s, e);    
     result = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s);
+}
+
+void fpa2bv_converter::mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 3);
+    mk_triple(args[0], args[2], args[1], result);
+}
+
+void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    NOT_IMPLEMENTED_YET();
+}
+
+void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    NOT_IMPLEMENTED_YET();
+}
+
+void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    NOT_IMPLEMENTED_YET();
+}
+
+void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    NOT_IMPLEMENTED_YET();
 }
 
 void fpa2bv_converter::split(expr * e, expr * & sgn, expr * & sig, expr * & exp) const {

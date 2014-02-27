@@ -523,7 +523,7 @@ def mk_java():
     java_native.write('  public static class LongPtr { public long value; }\n')
     java_native.write('  public static class StringPtr { public String value; }\n')
     java_native.write('  public static native void setInternalErrorHandler(long ctx);\n\n')
-    if IS_WINDOWS:
+    if IS_WINDOWS or os.uname()[0]=="CYGWIN":
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name)
     else:
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name[3:]) # We need 3: to extract the prexi 'lib' form the dll_name
@@ -588,6 +588,9 @@ def mk_java():
     java_wrapper = open(java_wrapperf, 'w')
     pkg_str = get_component('java').package_name.replace('.', '_')
     java_wrapper.write('// Automatically generated file\n')
+    java_wrapper.write('#ifdef _CYGWIN\n')
+    java_wrapper.write('typedef long long __int64;\n')
+    java_wrapper.write('#endif\n')
     java_wrapper.write('#include<jni.h>\n')
     java_wrapper.write('#include<stdlib.h>\n')
     java_wrapper.write('#include"z3.h"\n')

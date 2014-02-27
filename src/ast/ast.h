@@ -1418,6 +1418,8 @@ protected:
 public:
     typedef expr_dependency_array_manager::ref expr_dependency_array;
 
+    void show_id_gen();
+
 protected:
     small_object_allocator    m_alloc;
     family_manager            m_family_manager;

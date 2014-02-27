@@ -586,7 +586,7 @@ class FuncDeclRef(AstRef):
         return Z3_func_decl_to_ast(self.ctx_ref(), self.ast)
 
     def as_func_decl(self):
-	return self.ast
+        return self.ast
 
     def name(self):
         """Return the name of the function declaration `self`.
