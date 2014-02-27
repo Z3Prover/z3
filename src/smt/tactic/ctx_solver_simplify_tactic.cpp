@@ -211,11 +211,7 @@ protected:
                     //
                                         
                     found.push_back(arg);
-                    if (path_r.first == self_pos) {
-                        TRACE("ctx_solver_simplify_tactic", tout << "cached " << mk_pp(arg, m) << " |-> " << mk_pp(path_r.second, m) << "\n";);
-                        args.push_back(path_r.second);
-                    }
-                    else if (m.is_bool(arg)) {
+                    if (m.is_bool(arg)) {
                         res = local_simplify(a, n, id, i);
                         TRACE("ctx_solver_simplify_tactic", 
                               tout << "Already cached: " << path_r.first << " " << mk_pp(arg, m) << " |-> " << mk_pp(res, m) << "\n";);
