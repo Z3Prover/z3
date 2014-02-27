@@ -244,7 +244,10 @@ namespace simplex {
     void simplex<Ext>::ensure_var(var_t v) {
         while (v >= m_vars.size()) {
             M.ensure_var(m_vars.size());
-            m_vars.push_back(var_info());
+            m_vars.push_back(var_info());            
+        }
+        if (m_to_patch.get_bounds() <= v) {
+            m_to_patch.set_bounds(2*v+1);
         }
     }
 

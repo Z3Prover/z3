@@ -476,7 +476,7 @@ namespace smt {
                 ctx.mk_th_axiom(get_id(), lit, ~c->lit(i));
             }
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-            return true;
+            // return true;
         }
         
         // maximal coefficient:
@@ -490,7 +490,7 @@ namespace smt {
         }
 
         // pre-compile threshold for cardinality
-        bool enable_compile = m_enable_compilation && c->is_ge();
+        bool enable_compile = m_enable_compilation && c->is_ge() && !c->k().is_one();
         for (unsigned i = 0; enable_compile && i < args.size(); ++i) {
             enable_compile = (args[i].second <= m_max_compiled_coeff);
         }
@@ -504,7 +504,7 @@ namespace smt {
             c->m_compilation_threshold = th;
             IF_VERBOSE(2, verbose_stream() << "(smt.pb setting compilation threhshold to " << th << ")\n";);
             TRACE("pb", tout << "compilation threshold: " << th << "\n";);
-            }
+        }
         else {
             c->m_compilation_threshold = UINT_MAX;
         }

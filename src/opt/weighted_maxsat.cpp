@@ -518,6 +518,7 @@ namespace opt {
         };
 
         lbool incremental_solve() {
+            IF_VERBOSE(3, verbose_stream() << "(incremental solve)\n";);
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
             solver::scoped_push _s(s);
@@ -541,6 +542,7 @@ namespace opt {
                     s.assert_expr(fml);
                     was_sat = true;
                 }
+                IF_VERBOSE(3, verbose_stream() << "(incremental bound)\n";);
             }
             if (was_sat) {
                 wth().get_assignment(m_assignment);
@@ -605,6 +607,7 @@ namespace opt {
         }
 
         lbool conditional_solve(expr* cond) {
+            IF_VERBOSE(3, verbose_stream() << "(conditional solve)\n";);
             smt::theory_weighted_maxsat& wth = *get_theory();
             bool was_sat = false;
             lbool is_sat = l_true;
@@ -1169,6 +1172,7 @@ namespace opt {
 // cost becomes 0
 
         lbool bisection_solve() {
+            IF_VERBOSE(3, verbose_stream() << "(bisection solve)\n";);
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
             solver::scoped_push _s(s);

@@ -29,6 +29,7 @@ Notes:
 #include "pp_params.hpp"
 #include "opt_params.hpp"
 #include "model_smt2_pp.h"
+#include "stopwatch.h"
 
 namespace opt {
 
@@ -113,14 +114,23 @@ namespace opt {
                 tout << mk_pp(m_context.get_formulas()[i], m_context.m()) << "\n";
             }
         });
+        stopwatch w;
         if (dump_benchmarks()) {
+            w.start();
             std::stringstream file_name;
             file_name << "opt_solver" << ++m_dump_count << ".smt2";
             std::ofstream buffer(file_name.str().c_str());
             to_smt2_benchmark(buffer, num_assumptions, assumptions, "opt_solver", "");
             buffer.close();
+            IF_VERBOSE(1, verbose_stream() << "(created benchmark: " << file_name.str() << "...";
+                       verbose_stream().flush(););
         }
-        return m_context.check(num_assumptions, assumptions);
+        lbool r = m_context.check(num_assumptions, assumptions);
+        if (dump_benchmarks()) {
+            w.stop();
+            IF_VERBOSE(1, verbose_stream() << ".. " << r << " " << std::fixed << w.get_seconds() << ")\n";);
+        }
+        return r;
     }
 
     void opt_solver::maximize_objectives() {

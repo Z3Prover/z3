@@ -129,7 +129,7 @@ namespace simplex {
             void del_col_entry(unsigned idx);
         };
 
-        manager                 m;
+        manager&                m;
         vector<_row>            m_rows;
         svector<unsigned>       m_dead_rows;        // rows to recycle
         vector<column>          m_columns;          // per var
@@ -143,7 +143,7 @@ namespace simplex {
 
     public:
 
-        sparse_matrix() {}
+        sparse_matrix(manager& m): m(m) {}
         ~sparse_matrix();
         
         class row {

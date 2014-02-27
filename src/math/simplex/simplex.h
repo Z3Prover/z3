@@ -92,12 +92,12 @@ namespace simplex {
         };
 
         static const var_t null_var = UINT_MAX;
+        mutable manager             m;
+        mutable eps_manager         em;
         mutable matrix              M;
         unsigned                    m_max_iterations;
         volatile bool               m_cancel;
         var_heap                    m_to_patch;
-        mutable manager             m;
-        mutable eps_manager         em;
         vector<var_info>            m_vars;
         svector<var_t>              m_row2base;
         bool                        m_bland;
@@ -110,6 +110,7 @@ namespace simplex {
 
     public:
         simplex():
+            M(m),
             m_max_iterations(UINT_MAX),
             m_cancel(false),
             m_to_patch(1024),
