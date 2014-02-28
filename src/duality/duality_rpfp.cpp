@@ -523,6 +523,25 @@ namespace Duality {
       return foo;
   }
 
+  Z3User::Term Z3User::CloneQuantAndSimp(const expr &t, const expr &body){
+    if(t.is_quantifier_forall() && body.is_app() && body.decl().get_decl_kind() == And){
+      int nargs = body.num_args();
+      std::vector<expr> args(nargs);
+      for(int i = 0; i < nargs; i++)
+	args[i] = CloneQuantAndSimp(t, body.arg(i));
+      return ctx.make(And,args);
+    }
+    if(!t.is_quantifier_forall() && body.is_app() && body.decl().get_decl_kind() == Or){
+      int nargs = body.num_args();
+      std::vector<expr> args(nargs);
+      for(int i = 0; i < nargs; i++)
+	args[i] = CloneQuantAndSimp(t, body.arg(i));
+      return ctx.make(Or,args);
+    }
+    return clone_quantifier(t,body);
+  }
+
+
   Z3User::Term Z3User::SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val){
     std::pair<ast,Term> foo(t,expr(ctx));
     std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);

@@ -82,6 +82,8 @@ namespace Duality {
 
       Term SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val);
 
+      Term CloneQuantAndSimp(const expr &t, const expr &body);
+
       Term RemoveRedundancy(const Term &t);
 
       Term IneqToEq(const Term &t);

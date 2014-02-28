@@ -1916,6 +1916,7 @@ namespace Duality {
 
 	stack.back().level = tree->slvr().get_scope_level();
 	bool was_sat = true;
+	int update_failures = 0;
 
 	while (true)
 	{
@@ -1954,10 +1955,14 @@ namespace Duality {
 		  heuristic->Update(node->map); // make it less likely to expand this node in future
 	      }
 	      if(update_count == 0){
-		if(was_sat)
-		  throw Incompleteness();
+		if(was_sat){
+		  update_failures++;
+		  if(update_failures > 10)
+		    throw Incompleteness();
+		}
 		reporter->Message("backtracked without learning");
 	      }
+	      else update_failures = 0;
 	    }
 	    tree->ComputeProofCore(); // need to compute the proof core before popping solver
 	    bool propagated = false;
