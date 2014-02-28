@@ -2635,6 +2635,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
     }
 
     hash_map<ast,ast>::iterator it = localization_map.find(e);
+
+    if(it != localization_map.end() && is_bool_type(get_type(e)) 
+       && !pv->ranges_intersect(pv->ast_scope(it->second),rng))
+      it = localization_map.end();  // prevent quantifiers over booleans
+
     if(it != localization_map.end()){
       pf = localization_pf_map[e];
       e = it->second;
