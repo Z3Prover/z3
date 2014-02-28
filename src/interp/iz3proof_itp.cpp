@@ -26,9 +26,7 @@ Revision History:
 
 #include "iz3proof_itp.h"
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 // #define INVARIANT_CHECKING
 

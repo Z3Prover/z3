@@ -38,9 +38,7 @@ Revision History:
 #include "params.h"
 
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 
 std::ostream &operator <<(std::ostream &s, const iz3mgr::ast &a){

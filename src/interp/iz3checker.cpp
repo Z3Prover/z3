@@ -36,9 +36,7 @@ Revision History:
 #include <iterator>
 
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 struct iz3checker : iz3base {
   

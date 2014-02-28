@@ -39,9 +39,7 @@ Revision History:
 #include <set>
 
 //using std::vector;
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 
 

@@ -1955,7 +1955,7 @@ namespace Duality {
 	      }
 	      if(update_count == 0){
 		if(was_sat)
-		  throw Incompleteness();
+		  throw "Help!";
 		reporter->Message("backtracked without learning");
 	      }
 	    }

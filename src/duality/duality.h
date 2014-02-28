@@ -25,9 +25,7 @@ Revision History:
 #include <map>
 
 // make hash_map and hash_set available
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 namespace Duality {
 

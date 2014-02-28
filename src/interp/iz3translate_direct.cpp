@@ -42,11 +42,7 @@ Revision History:
 #include <set>
 
 //using std::vector;
-#ifndef WIN32
 using namespace stl_ext;
-#endif
-
-#ifndef WIN32
 
 /* This can introduce an address dependency if the range type of hash_map has
    a destructor. Since the code in this file is not used and only here for
@@ -61,9 +57,6 @@ namespace stl_ext {
     }
   };
 }
-
-#endif
-
 
 static int lemma_count = 0;
 #if 0
@@ -96,38 +89,12 @@ namespace hash_space {
   };
 }
 
-#ifdef WIN32
-
-template <> inline
-size_t stdext::hash_value<Z3_resolvent >(const Z3_resolvent& p)
-{	
-  std::hash<Z3_resolvent> h;
-  return h(p);
-}
-
-
-namespace std {
-  template <>
-  class less<Z3_resolvent > {
-  public:
-   bool operator()(const Z3_resolvent &x, const Z3_resolvent &y) const {
-     size_t ixproof = (size_t) x.proof.raw();
-     size_t iyproof = (size_t) y.proof.raw();
-     if(ixproof < iyproof) return true;
-     if(ixproof > iyproof) return false;
-     return x.pivot < y.pivot;
-   }
-  };
-}
-
-#else
 
 bool operator==(const Z3_resolvent &x, const Z3_resolvent &y) {
   return x.proof == y.proof && x.pivot == y.pivot;
 }
 
 
-#endif
 
 typedef std::vector<Z3_resolvent *> ResolventAppSet;
 
@@ -151,36 +118,6 @@ namespace hash_space {
   };
 }
 
-#ifdef WIN32
-
-template <> inline
-size_t stdext::hash_value<non_local_lits >(const non_local_lits& p)
-{	
-  std::hash<non_local_lits> h;
-  return h(p);
-}
-
-namespace std {
-  template <>
-  class less<non_local_lits > {
-  public:
-   bool operator()(const non_local_lits &x, const non_local_lits &y) const {
-     ResolventAppSet::const_iterator itx = x.proofs.begin();
-     ResolventAppSet::const_iterator ity = y.proofs.begin();
-     while(true){
-       if(ity == y.proofs.end()) return false;
-       if(itx == x.proofs.end()) return true;
-       size_t xi = (size_t) *itx;
-       size_t yi = (size_t) *ity;
-       if(xi < yi) return true;
-       if(xi > yi) return false;
-       ++itx; ++ity;
-     }
-   }
-  };
-}
-
-#else
 
 bool operator==(const non_local_lits &x, const non_local_lits &y) {
      ResolventAppSet::const_iterator itx = x.proofs.begin();
@@ -193,8 +130,6 @@ bool operator==(const non_local_lits &x, const non_local_lits &y) {
      }
 }
 
-
-#endif
 
 /* This translator goes directly from Z3 proofs to interpolatable
    proofs without an intermediate representation as an iz3proof. */

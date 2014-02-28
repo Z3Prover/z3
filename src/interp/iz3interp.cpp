@@ -43,9 +43,7 @@ Revision History:
 
 
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 
 

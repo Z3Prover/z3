@@ -445,6 +445,9 @@ namespace hash_space {
     : public hashtable<Element,Element,HashFun,identity<Element>,EqFun> {
 
   public:
+
+  typedef Element value_type;
+
   hash_set()
   : hashtable<Element,Element,HashFun,identity<Element>,EqFun>(7) {}
   };
