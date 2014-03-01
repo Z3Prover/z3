@@ -29,6 +29,9 @@ Revision History:
 #include"warning.h"
 #include"smt_model_generator.h"
 #include"model_implicant.h"
+#include"simplex.h"
+#include"simplex_def.h"
+
 
 using namespace smt;
 
@@ -998,9 +1001,7 @@ void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, 
 template<typename Ext>
 inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
 
-#if 0
-    // disabled until fixed.
-    
+    simplex::simplex<simplex::mpq_ext> S;
     objective_term const& objective = m_objectives[v];
 
     IF_VERBOSE(1,
@@ -1008,6 +1009,11 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
             verbose_stream() << "Coefficient " << objective[i].second << " of theory_var " << objective[i].first << "\n";
         }
         verbose_stream() << "Free coefficient " << m_objective_consts[v] << "\n";);
+
+    
+#if 0
+    // disabled until fixed.
+    
 
     // Objective coefficients now become balances
     vector<fin_numeral> balances(m_graph.get_num_nodes());
