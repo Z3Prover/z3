@@ -141,6 +141,7 @@ lbool dl_interface::query(::expr * query) {
 
   // make a new problem and solver
   _d = alloc(duality_data,m_ctx.get_manager());
+  _d->ctx.set("mbqi",m_ctx.get_params().mbqi());
   _d->ls = alloc(RPFP::iZ3LogicSolver,_d->ctx);
   _d->rpfp = alloc(RPFP,_d->ls);
 

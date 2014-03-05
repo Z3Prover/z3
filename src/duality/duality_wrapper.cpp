@@ -43,7 +43,8 @@ namespace Duality {
     if(models)
       p.set_bool("model", true); 
     p.set_bool("unsat_core", true); 
-    p.set_bool("mbqi",true);
+    bool mbqi = c.get_config().get().get_bool("mbqi",true);
+    p.set_bool("mbqi",mbqi); // just to test
     p.set_str("mbqi.id","itp"); // use mbqi for quantifiers in interpolants
     p.set_uint("mbqi.max_iterations",1); // use mbqi for quantifiers in interpolants
     if(true || extensional)

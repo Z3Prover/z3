@@ -2847,7 +2847,12 @@ namespace Duality {
   }
 
   void RPFP::InterpolateByCases(Node *root, Node *node){
+    timer_start("InterpolateByCases");
     bool axioms_added = false;
+    hash_set<ast> axioms_needed;
+    const std::vector<expr> &theory = ls->get_axioms();
+    for(unsigned i = 0; i < theory.size(); i++)
+      axioms_needed.insert(theory[i]);
     aux_solver.push();
     AddEdgeToSolver(node->Outgoing);
     node->Annotation.SetEmpty();
@@ -2869,7 +2874,17 @@ namespace Duality {
       check_result foo = Check(root);
       if(foo != unsat)
 	throw "should be unsat";
-      AddToProofCore(*core);
+
+      std::vector<expr> assumps, axioms_to_add;
+      slvr().get_proof().get_assumptions(assumps);
+      for(unsigned i = 0; i < assumps.size(); i++){
+	(*core).insert(assumps[i]);
+	if(axioms_needed.find(assumps[i]) != axioms_needed.end()){
+	  axioms_to_add.push_back(assumps[i]);
+	  axioms_needed.erase(assumps[i]);
+	}
+      }
+      // AddToProofCore(*core);
       Transformer old_annot = node->Annotation;
       SolveSingleNode(root,node);
 
@@ -2882,6 +2897,9 @@ namespace Duality {
 	node->Annotation.Formula = node->Annotation.Formula.simplify();
       }
 
+      for(unsigned i = 0; i < axioms_to_add.size(); i++)
+	aux_solver.add(axioms_to_add[i]);
+      
       if(node->Annotation.IsEmpty()){
 	if(!axioms_added){
 	  // add the axioms in the off chance they are useful
@@ -2906,6 +2924,7 @@ namespace Duality {
       delete proof_core; // shouldn't happen
     proof_core = core;
     aux_solver.pop(1);
+    timer_stop("InterpolateByCases");
   }
 
   void RPFP::Generalize(Node *root, Node *node){

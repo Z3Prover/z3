@@ -182,6 +182,7 @@ namespace Duality {
       void set(char const * param, char const * value) { m_config.set(param,value); }
       void set(char const * param, bool value) { m_config.set(param,value); }
       void set(char const * param, int value) { m_config.set(param,value); }
+      config &get_config() {return m_config;}
 
       symbol str_symbol(char const * s);
       symbol int_symbol(int n);
