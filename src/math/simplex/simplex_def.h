@@ -636,9 +636,11 @@ namespace simplex {
             // 
 
             pivot(x_i, x_j, a_ij);
-            move_to_bound(x_i, inc != m.is_pos(a_ij));            
+            TRACE("simplex", display(tout << "after pivot\n"););
+            move_to_bound(x_i, !inc);
             SASSERT(well_formed_row(row(m_vars[x_j].m_base2row)));
             TRACE("simplex", display(tout););
+            SASSERT(is_feasible());
         }
         return l_true;
     }
@@ -685,7 +687,8 @@ namespace simplex {
                 em.sub(*bound, vs.m_value, delta2);
                 em.mul(delta2, base_coeff, delta2);
                 em.div(delta2, coeff, delta2);
-                abs(delta2);
+                em.abs(delta2);
+                TRACE("simplex", tout << "Delta for v" << s << " " << delta2 << "\n";);
                 if (delta2 < delta) {
                     delta = delta2;
                 }
@@ -697,6 +700,15 @@ namespace simplex {
         update_value(x, delta);        
     }
 
+    /**
+       \brief 
+       Arguments:
+       v   - base variable of row(v) to optimize
+       x_i - base variable of row(x_i) to become non-base
+       x_j - variable in row(v) to make a base variable
+       a_ij - coefficient to x_j in row(x_i)
+       inc  - whether to increment x_j (true if coefficient in row(v) is negative).
+     */
     template<typename Ext>
     void simplex<Ext>::select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, bool& inc) {
         row r(m_vars[v].m_base2row);
@@ -758,7 +770,7 @@ namespace simplex {
             numeral const& a_ij = it.get_row_entry().m_coeff;
             numeral const& a_ii = vi.m_base_coeff;
             bool inc_s = (m.is_pos(a_ii) != m.is_pos(a_ij)) ? inc : !inc;
-            TRACE("simplex", tout << "v" << x_j << " incs: " << inc_s 
+            TRACE("simplex", tout << "v" << x_j << " base v" << s << " incs: " << inc_s 
                   << " upper valid:" << vi.m_upper_valid 
                   << " lower valid:" << vi.m_lower_valid << "\n";
                   display_row(tout, r););
@@ -775,13 +787,13 @@ namespace simplex {
             if (is_neg(curr_gain)) {
                 curr_gain.neg();
             }
-            if (x_i == null_var || (gain < curr_gain) || 
+            if (x_i == null_var || (curr_gain < gain) || 
                 (is_zero(gain) && is_zero(curr_gain) && s < x_i)) {
                 x_i = s;
                 gain = curr_gain;
                 new_a_ij = a_ij;
                 TRACE("simplex", tout << "x_j v" << x_j << " x_i v" << x_i << " gain: ";
-                      tout << em.to_string(curr_gain) << "\n";);
+                      tout << curr_gain << "\n";);
             }
         }
         return x_i;

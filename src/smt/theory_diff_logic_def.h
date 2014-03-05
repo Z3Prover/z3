@@ -1000,8 +1000,9 @@ void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, 
 
 template<typename Ext>
 inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
-
-    simplex::simplex<simplex::mpq_ext> S;
+    
+    typedef simplex::simplex<simplex::mpq_ext> Simplex;
+    Simplex S;
     objective_term const& objective = m_objectives[v];
 
     IF_VERBOSE(1,
@@ -1059,7 +1060,7 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
     }
     coeffs.push_back(mpq(1));
     vars.push_back(w);
-    S.add_row(w, vars.size(), vars.c_ptr(), coeffs.c_ptr());
+    Simplex::row row = S.add_row(w, vars.size(), vars.c_ptr(), coeffs.c_ptr());
 
     TRACE("opt", S.display(tout); display(tout););
     
@@ -1076,6 +1077,16 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
         simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
         inf_rational r(-rational(val.first), -rational(val.second));
         TRACE("opt", tout << r << " " << "\n"; );
+        Simplex::row_iterator it = S.row_begin(row), end = S.row_end(row);
+        S.display_row(std::cout, row, true);
+        for (; it != end; ++it) {
+            unsigned v = it->m_var;
+            if (num_nodes <= v && v < num_nodes + num_edges) {
+                unsigned edge_id = v - num_nodes;
+                literal lit = m_graph.get_explanation(edge_id);
+                std::cout << lit << "\n";
+            }
+        }
         return inf_eps_rational<inf_rational>(rational(0), r);
     }
     default:
@@ -1089,7 +1100,7 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
     objective_term objective;
     theory_var result = m_objectives.size();
     rational q(1), r(0);
-    vector<numeral> vr;
+    expr_ref_vector vr(get_manager());
     if (internalize_objective(term, q, r, objective)) {
         m_objectives.push_back(objective);
         m_objective_consts.push_back(r);
@@ -1102,7 +1113,7 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
 }
 
 template<typename Ext>
-expr* theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational const& val) {
+expr_ref theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational const& val) {
     ast_manager& m = get_manager();
     objective_term const& t = m_objectives[v];
     expr_ref e(m), f(m), f2(m);
@@ -1123,55 +1134,26 @@ expr* theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational const& 
         f = m_util.mk_sub(f, f2);
     }
     else {
-        expr_ref_vector disj(m);
-        vector<numeral> const & ns = m_objective_assignments[v];
-        inf_rational val;
-        rational r, s;
-        rational r0 = ns[0].get_rational().to_rational();
-        rational s0 = ns[0].get_infinitesimal().to_rational();
-        app * x;
-        app * x0 = get_enode(t[0].first)->get_owner();
-        // Assert improved bounds for x_i - x_0
-        for (unsigned i = 1; i < t.size(); ++i) {
-            r = ns[i].get_rational().to_rational();
-            s = ns[i].get_infinitesimal().to_rational(); 
-            val = inf_rational(r - r0, s - s0);
-            x = get_enode(t[i].first)->get_owner();
-            f = m_util.mk_sub(x, x0);
-            e = m_util.mk_numeral(val.get_rational(), m.get_sort(f));
-            if (t[i].second.is_neg() && val.get_infinitesimal().is_pos()) {
-                disj.push_back(m_util.mk_le(f, e));
-            }
-            else if (t[i].second.is_neg()) {
-                disj.push_back(m_util.mk_lt(f, e));
-            }
-            else if (t[i].second.is_pos() && val.get_infinitesimal().is_neg()) {
-                disj.push_back(m_util.mk_ge(f, e));
-            }
-            else if (t[i].second.is_pos()) {
-                disj.push_back(m_util.mk_gt(f, e));
-            }
-            else {
-                UNREACHABLE();
-            }
-        }
-        return m.mk_or(disj.size(), disj.c_ptr());
+        // 
+        f = m.mk_true();
+        return f;
     }
 
     inf_rational new_val = val - inf_rational(m_objective_consts[v]);
     e = m_util.mk_numeral(new_val.get_rational(), m.get_sort(f));
     
     if (new_val.get_infinitesimal().is_neg()) {
-        return m_util.mk_ge(f, e);
+        f = m_util.mk_ge(f, e);
     }
     else {
-        return m_util.mk_gt(f, e);
+        f = m_util.mk_gt(f, e);
     }
+    return f;
 }
 
 template<typename Ext>
 expr* theory_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
-    expr * o = block_objective(v, val);
+    expr_ref o = block_objective(v, val);
     context & ctx = get_context();
     model_ref mdl;
     ctx.get_model(mdl);

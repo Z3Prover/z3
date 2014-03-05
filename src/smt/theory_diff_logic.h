@@ -190,7 +190,7 @@ namespace smt {
         typedef vector <std::pair<theory_var, rational> > objective_term;
         vector<objective_term>         m_objectives;
         vector<rational>               m_objective_consts;
-        vector<vector<numeral> >       m_objective_assignments;
+        vector<expr_ref_vector>        m_objective_assignments;
 
         // Set a conflict due to a negative cycle.
         void set_neg_cycle_conflict();
@@ -317,7 +317,7 @@ namespace smt {
 
     private:     
 
-        virtual expr* block_objective(theory_var v, inf_rational const& val);
+        expr_ref block_objective(theory_var v, inf_rational const& val);
 
         virtual void new_eq_eh(theory_var v1, theory_var v2, justification& j);
 

@@ -271,6 +271,11 @@ public:
     }
 
     std::string to_string(mpq_inf const & a);
+
+    void display(std::ostream & out, mpq_inf const & a) {
+        out << to_string(a);
+    }
+
 };
 
 typedef mpq_inf_manager<true>  synch_mpq_inf_manager;
