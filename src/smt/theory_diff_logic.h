@@ -158,12 +158,13 @@ namespace smt {
             unsigned      m_asserted_atoms_lim;
             unsigned      m_asserted_qhead_old;
         };
+        typedef dl_graph<GExt> Graph;
 
         smt_params &                   m_params;
         arith_util                     m_util;
         arith_eq_adapter               m_arith_eq_adapter;
         theory_diff_logic_statistics   m_stats;
-        dl_graph<GExt>                 m_graph;
+        Graph                          m_graph;
         theory_var                     m_zero; // cache the variable representing the zero variable.
         int_vector                     m_scc_id;                  // Cheap equality propagation
         eq_prop_info_set               m_eq_prop_info_set;        // set of existing equality prop infos
@@ -356,9 +357,7 @@ namespace smt {
 
         void get_implied_bound_antecedents(edge_id bridge_edge, edge_id subsumed_edge, conflict_resolution & cr);
 
-        theory_var get_zero(sort* s) const { return m_zero; }
-
-        theory_var get_zero(expr* e) const { return m_zero; }
+        theory_var get_zero() const { return m_zero; }
 
         void inc_conflicts();
 

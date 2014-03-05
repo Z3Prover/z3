@@ -208,7 +208,7 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
     }
     else {
         target = mk_var(lhs);
-        source = get_zero(lhs);
+        source = get_zero();
     }
     if (is_ge) {
         std::swap(target, source);
@@ -698,7 +698,7 @@ theory_var theory_diff_logic<Ext>::mk_num(app* n, rational const& r) {
     enode* e = 0;
     context& ctx = get_context();
     if (r.is_zero()) {
-        v = get_zero(n);
+        v = get_zero();
     }
     else if (ctx.e_internalized(n)) {
         e = ctx.get_enode(n);
@@ -706,7 +706,7 @@ theory_var theory_diff_logic<Ext>::mk_num(app* n, rational const& r) {
         SASSERT(v != null_theory_var);
     }
     else {
-        theory_var zero = get_zero(n);
+        theory_var zero = get_zero();
         e = ctx.mk_enode(n, false, false, true);
         v = mk_var(e);
         // internalizer is marking enodes as interpreted whenever the associated ast is a value and a constant.
@@ -1006,71 +1006,82 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
 
     IF_VERBOSE(1,
         for (unsigned i = 0; i < objective.size(); ++i) {
-            verbose_stream() << "Coefficient " << objective[i].second << " of theory_var " << objective[i].first << "\n";
+            verbose_stream() << "Coefficient " << objective[i].second 
+                             << " of theory_var " << objective[i].first << "\n";
         }
         verbose_stream() << "Free coefficient " << m_objective_consts[v] << "\n";);
 
-    
-#if 0
-    // disabled until fixed.
-    
-
-    // Objective coefficients now become balances
-    vector<fin_numeral> balances(m_graph.get_num_nodes());
-    balances.fill(fin_numeral::zero());
-    fin_numeral sum = fin_numeral::zero();
-    for (unsigned i = 0; i < objective.size(); ++i) {
-        fin_numeral balance(objective[i].second);
-        balances[objective[i].first] = balance;
-        sum += balance;
-    }    
-    // HACK: assume that v0 is always value 0
-    balances[0] = -sum;
-
-    TRACE("arith", display(tout););
-    network_flow<GExt> net_flow(m_graph, balances);
-    min_flow_result result = net_flow.min_cost();
-    SASSERT(result != UNBOUNDED);
-    if (result == OPTIMAL) {
-        numeral objective_value = net_flow.get_optimal_solution(m_objective_assignments[v], true) + numeral(m_objective_consts[v]);
-        IF_VERBOSE(1, verbose_stream() << "Optimal value of objective " << v << ": " << objective_value << std::endl;);
-        
-        DEBUG_CODE(
-        numeral initial_value = numeral(m_objective_consts[v]);
-        for (unsigned i = 0; i < objective.size(); ++i) {
-            initial_value += fin_numeral(objective[i].second) * m_graph.get_assignment(objective[i].first);
-        }
-        IF_VERBOSE(1, verbose_stream() << "Initial value of objective " << v << ": " << initial_value << std::endl;);
-        // FIXME: Network Simplex lose precisions when handling infinitesimals
-        SASSERT(objective_value >= initial_value.get_rational()););
-        vector<numeral> & current_assigments = m_objective_assignments[v];        
-        SASSERT(!current_assigments.empty());
-        // Normalize optimal assignments so that v0 is fixed to 0
-        for (unsigned i = 1; i < current_assigments.size(); ++i) {
-            current_assigments[i] -= current_assigments[0];
-        }
-
-        ast_manager& m = get_manager();
-        IF_VERBOSE(1,
-            verbose_stream() << "Optimal assigment:" << std::endl;
-            for (unsigned i = 0; i < objective.size(); ++i) {
-                theory_var v = objective[i].first;
-                verbose_stream() << mk_pp(get_enode(v)->get_owner(), m) << " |-> " << current_assigments[v] << std::endl;
-            });
-        rational r = objective_value.get_rational().to_rational();
-        rational i = objective_value.get_infinitesimal().to_rational();    
-        return inf_eps_rational<inf_rational>(inf_rational(r, i));
-    } 
-    else {
-        // Dual problem is infeasible, primal problem is unbounded
-        SASSERT(result == INFEASIBLE);
-        IF_VERBOSE(1, verbose_stream() << "Unbounded objective" << std::endl;);
-        return inf_eps_rational<inf_rational>::infinity();
+    unsigned num_nodes = m_graph.get_num_nodes();
+    unsigned num_edges = m_graph.get_num_edges();
+    vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();
+    S.ensure_var(num_nodes + num_edges + m_objectives.size());
+    for (unsigned i = 0; i < num_nodes; ++i) {
+        numeral const& a = m_graph.get_assignment(i);
+        rational fin = a.get_rational().to_rational();
+        rational inf = a.get_infinitesimal().to_rational();
+        mpq_inf q(fin.to_mpq(), inf.to_mpq());
+        S.set_value(i, q);
     }
+    S.set_lower(get_zero(), mpq_inf(mpq(0), mpq(0)));
+    S.set_upper(get_zero(), mpq_inf(mpq(0), mpq(0)));
+    svector<unsigned> vars;
+    unsynch_mpq_manager mgr;
+    scoped_mpq_vector coeffs(mgr);
+    coeffs.push_back(mpq(1));
+    coeffs.push_back(mpq(-1));
+    coeffs.push_back(mpq(-1));
+    vars.resize(3);
+    for (unsigned i = 0; i < es.size(); ++i) {
+        dl_edge<GExt> const& e = es[i];
+        if (e.is_enabled()) {
+            unsigned base_var = num_nodes + i;
+            vars[0] = e.get_target();
+            vars[1] = e.get_source();
+            vars[2] = base_var;
+            S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());
+            // t - s <= w
+            // t - s - b = 0, b >= w
+            numeral const& w = e.get_weight();
+            rational fin = w.get_rational().to_rational();
+            rational inf = w.get_infinitesimal().to_rational();
+            mpq_inf q(fin.to_mpq(),inf.to_mpq());
+            S.set_upper(base_var, q);
+        }
+    }
+    unsigned w = num_nodes + num_edges + v;
 
-#endif
-    return inf_eps_rational<inf_rational>::infinity();
+    // add objective function as row.
+    coeffs.reset();
+    vars.reset();
+    for (unsigned i = 0; i < objective.size(); ++i) {
+        coeffs.push_back(objective[i].second.to_mpq());
+        vars.push_back(objective[i].first);
+    }
+    coeffs.push_back(mpq(1));
+    vars.push_back(w);
+    S.add_row(w, vars.size(), vars.c_ptr(), coeffs.c_ptr());
 
+    TRACE("opt", S.display(tout); display(tout););
+    
+    // optimize    
+    lbool is_sat = S.make_feasible();
+    if (is_sat == l_undef) {
+        return inf_eps_rational<inf_rational>::infinity();        
+    }
+    TRACE("opt", S.display(tout); );
+    SASSERT(is_sat != l_false);
+    lbool is_fin = S.minimize(w);
+    switch (is_fin) {
+    case l_true: {
+        simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
+        inf_rational r(-rational(val.first), -rational(val.second));
+        TRACE("opt", tout << r << " " << "\n"; );
+        return inf_eps_rational<inf_rational>(rational(0), r);
+    }
+    default:
+        TRACE("opt", tout << "unbounded\n"; );        
+        return inf_eps_rational<inf_rational>::infinity();        
+    }
 }
 
 template<typename Ext>

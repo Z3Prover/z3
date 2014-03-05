@@ -608,6 +608,7 @@ namespace simplex {
                 // optimal
                 return l_true;
             }
+            TRACE("simplex", tout << "x_i: v" << x_i << " x_j: v" << x_j << "\n";);
             var_info& vj = m_vars[x_j];
             if (x_i == null_var) {
                 if (inc && vj.m_upper_valid) {
@@ -635,8 +636,9 @@ namespace simplex {
             // 
 
             pivot(x_i, x_j, a_ij);
-            move_to_bound(x_i, inc == m.is_pos(a_ij));            
+            move_to_bound(x_i, inc != m.is_pos(a_ij));            
             SASSERT(well_formed_row(row(m_vars[x_j].m_base2row)));
+            TRACE("simplex", display(tout););
         }
         return l_true;
     }
@@ -651,22 +653,37 @@ namespace simplex {
         else {
             em.sub(vi.m_upper, vi.m_value, delta);
         }
+        TRACE("simplex", tout << "move " << (to_lower?"to_lower":"to_upper") 
+              << " v" << x << " " << em.to_string(delta) << "\n";);
         col_iterator it = M.col_begin(x), end = M.col_end(x);
         for (; it != end && is_pos(delta); ++it) {
+            //
+            // base_coeff*s + coeff*x + R = 0
+            // 
+            // to_lower    coeff > 0    base_coeff > 0     bound(s)
+            // ------------------------------------------------------
+            // T           T            T                  !to_lower
+            // T           T            F                   to_lower
+            // T           F            T                   to_lower
+            // T           F            F                  !to_lower
+            //
             var_t s = m_row2base[it.get_row().id()];
             var_info& vs = m_vars[s];
             numeral const& coeff = it.get_row_entry().m_coeff;
+            numeral const& base_coeff = vs.m_base_coeff;
             SASSERT(!m.is_zero(coeff));
-            bool inc_s = (m.is_pos(coeff) == to_lower);
+            bool base_to_lower = (m.is_pos(coeff) != m.is_pos(base_coeff)) == to_lower;
             eps_numeral const* bound = 0;
-            if (inc_s && vs.m_upper_valid) {
+            if (!base_to_lower && vs.m_upper_valid) {
                 bound = &vs.m_upper;
             }
-            else if (!inc_s && vs.m_lower_valid) {
+            else if (base_to_lower && vs.m_lower_valid) {
                 bound = &vs.m_lower;
             }
             if (bound) {
+                // |delta2*coeff| = |(bound-value)*base_coeff|
                 em.sub(*bound, vs.m_value, delta2);
+                em.mul(delta2, base_coeff, delta2);
                 em.div(delta2, coeff, delta2);
                 abs(delta2);
                 if (delta2 < delta) {
@@ -694,8 +711,11 @@ namespace simplex {
         for (; it != end; ++it) {
             var_t x = it->m_var;          
             if (x == v) continue; 
-            bool is_pos = m.is_pos(it->m_coeff);
+            bool is_pos = m.is_pos(it->m_coeff) == m.is_pos(m_vars[v].m_base_coeff);
             if ((is_pos && at_upper(x)) || (!is_pos && at_lower(x))) {
+                TRACE("simplex", tout << "v" << x << " pos: " << is_pos 
+                      << " at upper: " << at_upper(x) 
+                      << " at lower: " << at_lower(x) << "\n";);
                 continue; // variable cannot be used for improving bounds.
                 // TBD check?
             }
@@ -737,7 +757,11 @@ namespace simplex {
             var_info& vi = m_vars[s];
             numeral const& a_ij = it.get_row_entry().m_coeff;
             numeral const& a_ii = vi.m_base_coeff;
-            bool inc_s = m.is_neg(a_ij) ? inc : !inc;
+            bool inc_s = (m.is_pos(a_ii) != m.is_pos(a_ij)) ? inc : !inc;
+            TRACE("simplex", tout << "v" << x_j << " incs: " << inc_s 
+                  << " upper valid:" << vi.m_upper_valid 
+                  << " lower valid:" << vi.m_lower_valid << "\n";
+                  display_row(tout, r););
             if ((inc_s && !vi.m_upper_valid) || (!inc_s && !vi.m_lower_valid)) {
                 continue;
             }            
@@ -751,14 +775,15 @@ namespace simplex {
             if (is_neg(curr_gain)) {
                 curr_gain.neg();
             }
-            if (x_i == null_var || (curr_gain < gain) || 
+            if (x_i == null_var || (gain < curr_gain) || 
                 (is_zero(gain) && is_zero(curr_gain) && s < x_i)) {
                 x_i = s;
                 gain = curr_gain;
                 new_a_ij = a_ij;
+                TRACE("simplex", tout << "x_j v" << x_j << " x_i v" << x_i << " gain: ";
+                      tout << em.to_string(curr_gain) << "\n";);
             }
         }
-        TRACE("simplex", tout << "x_i v" << x_i << "\n";);
         return x_i;
     }
 
