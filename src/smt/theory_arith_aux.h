@@ -1065,13 +1065,17 @@ namespace smt {
     }
 
     template<typename Ext>
-    inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v) {
+    inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker) {
         TRACE("opt", tout << "data-size: " << m_data.size() << "\n";);
         max_min_t r = max_min(v, true); 
         if (r == UNBOUNDED) {
+            blocker = get_manager().mk_false();
             return inf_eps_rational<inf_rational>::infinity();
         }
-        return inf_eps_rational<inf_rational>(get_value(v));
+        else {
+            blocker = mk_gt(v);
+            return inf_eps_rational<inf_rational>(get_value(v));
+        }
         
     }
 
@@ -1081,8 +1085,9 @@ namespace smt {
        for the theory of aritmetic.
     */
     template<typename Ext>
-    expr* theory_arith<Ext>::mk_gt(theory_var v, inf_rational const& val) {
+    expr_ref theory_arith<Ext>::mk_gt(theory_var v) {
         ast_manager& m = get_manager();
+        inf_numeral const& val = get_value(v);
         expr* obj = get_enode(v)->get_owner();
         expr_ref e(m);
         rational r = val.get_rational();
@@ -1094,19 +1099,20 @@ namespace smt {
                 r = ceil(r);
             }
             e = m_util.mk_numeral(r, m.get_sort(obj));
-            return m_util.mk_ge(obj, e);
+            e = m_util.mk_ge(obj, e);
         }
         else {
             // obj is over the reals.
             e = m_util.mk_numeral(r, m.get_sort(obj));
             
             if (val.get_infinitesimal().is_neg()) {
-                return m_util.mk_ge(obj, e);
+                e = m_util.mk_ge(obj, e);
             }
             else {
-                return m_util.mk_gt(obj, e);
+                e = m_util.mk_gt(obj, e);
             }
         }
+        return e;
     }
 
     /**

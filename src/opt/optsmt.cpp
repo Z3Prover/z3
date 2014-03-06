@@ -124,7 +124,8 @@ namespace opt {
     }
 
     void optsmt::update_lower() {
-        m_s->maximize_objectives();
+        expr_ref_vector disj(m);
+        m_s->maximize_objectives(disj);
         m_s->get_model(m_model);
         set_max(m_lower, m_s->get_objective_values());
         IF_VERBOSE(1, 
@@ -134,13 +135,7 @@ namespace opt {
                    verbose_stream() << "\n";
                    model_pp(verbose_stream(), *m_model);
                    );
-        expr_ref_vector disj(m);
-        expr_ref constraint(m);
-        
-        for (unsigned i = 0; i < m_lower.size(); ++i) {
-            inf_eps const& v = m_lower[i];
-            disj.push_back(m_s->mk_gt(i, v));
-        }
+        expr_ref constraint(m);        
         constraint = m.mk_or(disj.size(), disj.c_ptr());
         m_s->assert_expr(constraint);
     }
@@ -237,25 +232,23 @@ namespace opt {
 
     lbool optsmt::basic_lex(unsigned obj_index) {
         lbool is_sat = l_true;
-        expr_ref block(m);        
-
+        expr_ref block(m), tmp(m);
 
         while (is_sat == l_true && !m_cancel) {
             is_sat = m_s->check_sat(0, 0); 
             if (is_sat != l_true) break;
             
-            m_s->maximize_objective(obj_index);
+            m_s->maximize_objective(obj_index, block);
             m_s->get_model(m_model);
             inf_eps obj = m_s->get_objective_value(obj_index);
             if (obj > m_lower[obj_index]) {
                 m_lower[obj_index] = obj;
                 IF_VERBOSE(1, verbose_stream() << "(optsmt lower bound: " << obj << ")\n";);
                 for (unsigned i = obj_index+1; i < m_vars.size(); ++i) {
-                    m_s->maximize_objective(i);
+                    m_s->maximize_objective(i, tmp);
                     m_lower[i] = m_s->get_objective_value(i);
                 }
             }
-            block = m_s->mk_gt(obj_index, obj);
             m_s->assert_expr(block);
             
             // TBD: only works for simplex 
@@ -289,14 +282,13 @@ namespace opt {
             is_sat = m_s->check_sat(0, 0); 
             if (is_sat != l_true) break;
             was_sat = true;
-            m_s->maximize_objective(obj_index);
+            m_s->maximize_objective(obj_index, block);
             m_s->get_model(m_model);
             inf_eps obj = m_s->get_objective_value(obj_index);
             if (obj > m_lower[obj_index]) {
                 m_lower[obj_index] = obj;
                 IF_VERBOSE(1, verbose_stream() << "(optsmt lower bound: " << obj << ")\n";);
             }
-            block = m_s->mk_gt(obj_index, obj);
             m_s->assert_expr(block);
         }
         
@@ -347,10 +339,12 @@ namespace opt {
 
 
     inf_eps optsmt::get_lower(unsigned i) const {
+        if (i >= m_lower.size()) return inf_eps();
         return m_lower[i];
     }
 
     inf_eps optsmt::get_upper(unsigned i) const {
+        if (i >= m_upper.size()) return inf_eps();
         return m_upper[i];
     }
 

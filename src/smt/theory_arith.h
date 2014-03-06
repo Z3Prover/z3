@@ -998,9 +998,8 @@ namespace smt {
         // Optimization
         //
         // -----------------------------------
-        virtual inf_eps_rational<inf_rational> maximize(theory_var v);
+        virtual inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker);
         virtual theory_var add_objective(app* term);
-        virtual expr* mk_gt(theory_var v, inf_rational const& val);
         virtual expr* mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val);
         void enable_record_conflict(expr* bound);
         void record_conflict(unsigned num_lits, literal const * lits, 
@@ -1008,6 +1007,8 @@ namespace smt {
                           unsigned num_params, parameter* params);
         inf_eps_rational<inf_rational> conflict_minimize();
     private:
+        virtual expr_ref mk_gt(theory_var v);
+
         bool_var m_bound_watch;
         inf_eps_rational<inf_rational> m_upper_bound;
         bool get_theory_vars(expr * n, uint_set & vars);

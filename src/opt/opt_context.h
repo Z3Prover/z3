@@ -30,6 +30,7 @@ Notes:
 #include "optsmt.h"
 #include "maxsmt.h"
 #include "model_converter.h"
+#include "tactic.h"
 
 namespace opt {
 
@@ -89,6 +90,7 @@ namespace opt {
         obj_map<func_decl, unsigned> m_objective_fns;
         obj_map<func_decl, expr*> m_objective_orig;
         func_decl_ref_vector m_objective_refs;
+        tactic_ref          m_simplify;
     public:
         context(ast_manager& m);
         ~context();

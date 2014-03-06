@@ -133,15 +133,17 @@ namespace opt {
         return r;
     }
 
-    void opt_solver::maximize_objectives() {
+    void opt_solver::maximize_objectives(expr_ref_vector& blockers) {
+        expr_ref blocker(m);
         for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
-            maximize_objective(i);
+            maximize_objective(i, blocker);
+            blockers.push_back(blocker);
         }
     }
 
-    void opt_solver::maximize_objective(unsigned i) {
+    void opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
         smt::theory_var v = m_objective_vars[i];
-        m_objective_values[i] = get_optimizer().maximize(v);
+        m_objective_values[i] = get_optimizer().maximize(v, blocker);
         m_context.get_context().update_model();        
         TRACE("opt", { model_ref mdl; get_model(mdl); model_smt2_pp(tout << "update model: ", m, *mdl, 0); });
     }
@@ -231,20 +233,7 @@ namespace opt {
 
         // difference logic?
         return expr_ref(m.mk_true(), m);
-    }
- 
-    expr_ref opt_solver::mk_gt(unsigned var, inf_eps const& val) {
-        if (val.get_infinity().is_pos()) {
-            return expr_ref(m.mk_false(), m);
-        }
-        else if (val.get_infinity().is_neg()) {
-            return expr_ref(m.mk_true(), m);
-        }
-        else {
-            inf_rational n = val.get_numeral();            
-            return expr_ref(get_optimizer().mk_gt(m_objective_vars[var], n), m);
-        }
-    }
+    } 
 
     void opt_solver::reset_objectives() {
         m_objective_vars.reset();

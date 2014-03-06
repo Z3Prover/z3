@@ -999,10 +999,11 @@ void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, 
 }
 
 template<typename Ext>
-inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
+inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker) {
     
     typedef simplex::simplex<simplex::mpq_ext> Simplex;
     Simplex S;
+    ast_manager& m = get_manager();
     objective_term const& objective = m_objectives[v];
 
     IF_VERBOSE(1,
@@ -1067,30 +1068,37 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
     // optimize    
     lbool is_sat = S.make_feasible();
     if (is_sat == l_undef) {
+        blocker = m.mk_false();
         return inf_eps_rational<inf_rational>::infinity();        
     }
-    TRACE("opt", S.display(tout); );
+    TRACE("opt", S.display(tout); );    
     SASSERT(is_sat != l_false);
     lbool is_fin = S.minimize(w);
     switch (is_fin) {
     case l_true: {
         simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
         inf_rational r(-rational(val.first), -rational(val.second));
-        TRACE("opt", tout << r << " " << "\n"; );
+        TRACE("opt", tout << r << " " << "\n"; 
+              S.display_row(tout, row, true););
         Simplex::row_iterator it = S.row_begin(row), end = S.row_end(row);
-        S.display_row(std::cout, row, true);
+        expr_ref_vector& core = m_objective_assignments[v];
+        expr_ref tmp(m);
+        core.reset();
         for (; it != end; ++it) {
             unsigned v = it->m_var;
             if (num_nodes <= v && v < num_nodes + num_edges) {
                 unsigned edge_id = v - num_nodes;
                 literal lit = m_graph.get_explanation(edge_id);
-                std::cout << lit << "\n";
+                get_context().literal2expr(lit, tmp);
+                core.push_back(tmp);
             }
         }
+        blocker = mk_gt(v, r);
         return inf_eps_rational<inf_rational>(rational(0), r);
     }
     default:
         TRACE("opt", tout << "unbounded\n"; );        
+        blocker = m.mk_false();
         return inf_eps_rational<inf_rational>::infinity();        
     }
 }
@@ -1135,7 +1143,9 @@ expr_ref theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational cons
     }
     else {
         // 
-        f = m.mk_true();
+        expr_ref_vector const& core = m_objective_assignments[v];
+        f = m.mk_not(m.mk_and(core.size(), core.c_ptr()));
+        TRACE("arith", tout << "block: " << f << "\n";);
         return f;
     }
 
@@ -1152,8 +1162,10 @@ expr_ref theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational cons
 }
 
 template<typename Ext>
-expr* theory_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
+expr_ref theory_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
     expr_ref o = block_objective(v, val);
+    return o;
+#if 0
     context & ctx = get_context();
     model_ref mdl;
     ctx.get_model(mdl);
@@ -1162,6 +1174,7 @@ expr* theory_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
     model_implicant impl_extractor(m);
     expr_ref_vector implicants = impl_extractor.minimize_literals(formulas, mdl);
     return m.mk_and(o, m.mk_not(m.mk_and(implicants.size(), implicants.c_ptr())));
+#endif
 }
 
 template<typename Ext>

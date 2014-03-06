@@ -312,18 +312,17 @@ namespace opt {
                      mk_simplify_tactic(m));   
         tactic_ref tac2 = mk_elim01_tactic(m);
         tactic_ref tac3 = mk_lia2card_tactic(m);
-        tactic_ref tac;
         opt_params optp(m_params);
         if (optp.elim_01()) {
-            tac = and_then(tac0.get(), tac2.get(), tac3.get());
+            m_simplify = and_then(tac0.get(), tac2.get(), tac3.get());
         }
         else {
-            tac = tac0.get();
+            m_simplify = tac0.get();
         }
         proof_converter_ref pc;
         expr_dependency_ref core(m);
         goal_ref_buffer result;
-        (*tac)(g, result, m_model_converter, pc, core);  // TBD: have this an attribute so we can cancel.
+        (*m_simplify)(g, result, m_model_converter, pc, core); 
         SASSERT(result.size() == 1);
         goal* r = result[0];
         fmls.reset();
@@ -708,6 +707,9 @@ namespace opt {
         if (m_solver) {
             m_solver->set_cancel(f);
         }
+        if (m_simplify) {
+            m_simplify->set_cancel(f);
+        }
         m_optsmt.set_cancel(f);
         map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
         for (; it != end; ++it) {
@@ -718,6 +720,9 @@ namespace opt {
     void context::collect_statistics(statistics& stats) const {
         if (m_solver) {
             m_solver->collect_statistics(stats);
+        }
+        if (m_simplify) {
+            m_simplify->collect_statistics(stats);
         }
         map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
         for (; it != end; ++it) {

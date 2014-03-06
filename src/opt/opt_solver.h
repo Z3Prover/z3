@@ -75,12 +75,11 @@ namespace opt {
 
         smt::theory_var add_objective(app* term);
         void reset_objectives();
-        void maximize_objective(unsigned i);
-        void maximize_objectives();
+        void maximize_objective(unsigned i, expr_ref& blocker);
+        void maximize_objectives(expr_ref_vector& blockers);
 
         vector<inf_eps> const& get_objective_values();
         inf_eps const & get_objective_value(unsigned obj_index);
-        expr_ref mk_gt(unsigned obj_index, inf_eps const& val);
         expr_ref mk_ge(unsigned obj_index, inf_eps const& val);
 
         filter_model_converter& mc() { return m_fm; }
