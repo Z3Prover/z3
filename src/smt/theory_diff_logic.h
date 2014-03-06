@@ -170,6 +170,9 @@ namespace smt {
         eq_prop_info_set               m_eq_prop_info_set;        // set of existing equality prop infos
         ptr_vector<eq_prop_info>       m_eq_prop_infos;
 
+        app_ref_vector                 m_terms;
+        svector<bool>                  m_signs;
+
         ptr_vector<atom>               m_atoms;
         ptr_vector<atom>               m_asserted_atoms;   // set of asserted atoms
         unsigned                       m_asserted_qhead;   
@@ -217,6 +220,7 @@ namespace smt {
             m_util(m),
             m_arith_eq_adapter(*this, params, m_util),
             m_zero(null_theory_var),
+            m_terms(m),
             m_asserted_qhead(0),
             m_num_core_conflicts(0),
             m_num_propagation_calls(0),
@@ -322,6 +326,10 @@ namespace smt {
         virtual void new_eq_eh(theory_var v1, theory_var v2, justification& j);
 
         virtual void new_diseq_eh(theory_var v1, theory_var v2, justification& j);
+
+        bool decompose_linear(app_ref_vector& args, svector<bool>& signs);
+
+        bool is_sign(expr* n, bool& sign);
 
         bool is_negative(app* n, app*& m);
 

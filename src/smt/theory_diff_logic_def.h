@@ -177,7 +177,6 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
     bool is_ge = m_util.is_ge(n);
     bool_var bv;
     rational kr;
-    app * x, *y, *z;
     theory_var source, target; // target - source <= k
     app * lhs = to_app(n->get_arg(0));
     app * rhs = to_app(n->get_arg(1));
@@ -191,25 +190,26 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
     }
     numeral k(kr);
 
-    bool is_add = m_util.is_add(lhs) && lhs->get_num_args() == 2;
-
-    if (is_add) {
-        x = to_app(lhs->get_arg(0));
-        y = to_app(lhs->get_arg(1));
+    m_terms.reset();
+    m_signs.reset();
+    m_terms.push_back(lhs);
+    m_signs.push_back(true);
+    if (!decompose_linear(m_terms, m_signs)) {
+        found_non_diff_logic_expr(n);        
+        return false;
     }
-
-    if (is_add && is_negative(x, z)) {  
-        target = mk_var(y);
-        source = mk_var(z);
-    }
-    else if (is_add && is_negative(y, z)) {
-        target = mk_var(x);
-        source = mk_var(z);
+    if (m_terms.size() == 2 && m_signs[0] != m_signs[1]) {
+        target = mk_var(m_terms[0].get());
+        source = mk_var(m_terms[1].get());
+        if (!m_signs[0]) {
+            std::swap(target, source);
+        }
     }
     else {
         target = mk_var(lhs);
         source = get_zero();
     }
+
     if (is_ge) {
         std::swap(target, source);
         k.neg();
@@ -378,6 +378,70 @@ void theory_diff_logic<Ext>::del_atoms(unsigned old_size) {
 }
 
 
+template<typename Ext>
+bool theory_diff_logic<Ext>::decompose_linear(app_ref_vector& terms, svector<bool>& signs) {
+    for (unsigned i = 0; i < terms.size(); ++i) {
+        app* n = terms[i].get();
+        if (m_util.is_add(n)) {
+            expr* arg = n->get_arg(0);
+            if (!is_app(arg)) return false;
+            terms[i] = to_app(arg);
+            for (unsigned j = 1; j < n->get_num_args(); ++j) {
+                arg = n->get_arg(j);
+                if (!is_app(arg)) return false;
+                terms.push_back(to_app(arg));
+                signs.push_back(signs[i]);
+            }
+            --i;
+            continue;
+        }
+        expr* x, *y;
+        bool sign;
+        if (m_util.is_mul(n, x, y)) {
+            if (is_sign(x, sign) && is_app(y)) {
+                terms[i] = to_app(y);
+                signs[i] = (signs[i] == sign);
+                --i;
+            }
+            else if (is_sign(y, sign) && is_app(x)) {
+                terms[i] = to_app(x);
+                signs[i] = (signs[i] == sign);
+                --i;
+            }
+            continue;
+        }
+        if (m_util.is_uminus(n, x) && is_app(x)) {
+            terms[i] = to_app(x);
+            signs[i] = !signs[i];
+            --i;
+            continue;
+        }
+    }
+    return true;
+}
+
+template<typename Ext>
+bool theory_diff_logic<Ext>::is_sign(expr* n, bool& sign) {
+    rational r;
+    expr* x;
+    if (m_util.is_numeral(n, r)) {
+        if (r.is_one()) {
+            sign = true;
+            return true;
+        }
+        if (r.is_minus_one()) {
+            sign = false;
+            return true;
+        }
+    }
+    else if (m_util.is_uminus(n, x)) {
+        if (is_sign(x, sign)) {
+            sign = !sign;
+            return true;
+        }
+    }
+    return false;
+}
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::is_negative(app* n, app*& m) { 

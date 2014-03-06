@@ -120,6 +120,7 @@ namespace smt {
         if (!m_non_diff_logic_exprs) {
             TRACE("non_diff_logic", tout << "found non diff logic expression:\n" << mk_pp(n, get_manager()) << "\n";);
             get_context().push_trail(value_trail<context, bool>(m_non_diff_logic_exprs));
+        IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, get_manager()) << ")\n";); 
             m_non_diff_logic_exprs = true;
         }
     }
@@ -587,6 +588,11 @@ namespace smt {
             context & ctx = get_context();
             region & r    = ctx.get_region();
             ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), r, antecedents.size(), antecedents.c_ptr())));
+
+            if (dump_lemmas()) {
+                ctx.display_lemma_as_smt_problem(antecedents.size(), antecedents.c_ptr(), false_literal, "");
+            }
+
             return;
         }
         

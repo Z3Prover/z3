@@ -229,6 +229,8 @@ namespace smt {
         virtual void flush_eh();
         virtual void reset_eh();
         
+        bool dump_lemmas() const { return m_params.m_arith_dump_lemmas; }
+
         virtual bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const;
 
         virtual void display(std::ostream & out) const;
