@@ -131,6 +131,7 @@ namespace Duality {
       Report = false;
       StratifiedInlining = false;
       RecursionBound = -1;
+      BatchExpand = false;
       {
 	scoped_no_proof no_proofs_please(ctx.m());
 #ifdef USE_RPFP_CLONE
@@ -365,6 +366,7 @@ namespace Duality {
     bool Report;         // spew on stdout
     bool StratifiedInlining; // Do stratified inlining as preprocessing step
     int RecursionBound;  // Recursion bound for bounded verification
+    bool BatchExpand;
     
     bool SetBoolOption(bool &opt, const std::string &value){
       if(value == "0") {
@@ -402,6 +404,9 @@ namespace Duality {
       }
       if(option == "stratified_inlining"){
         return SetBoolOption(StratifiedInlining,value);
+      }
+      if(option == "batch_expand"){
+        return SetBoolOption(BatchExpand,value);
       }
       if(option == "recursion_bound"){
         return SetIntOption(RecursionBound,value);
@@ -2016,7 +2021,7 @@ namespace Duality {
 	  }
 	  else {
 	    was_sat = true;
-	    tree->Push();
+	    tree->Push();
 	    std::vector<Node *> &expansions = stack.back().expansions;
 #ifndef NO_DECISIONS
 	    for(unsigned i = 0; i < expansions.size(); i++){
@@ -2027,11 +2032,16 @@ namespace Duality {
 	    if(tree->slvr().check() == unsat)
 	      throw "help!";
 #endif
-	    stack.push_back(stack_entry());
-	    stack.back().level = tree->slvr().get_scope_level();
-	    if(ExpandSomeNodes(false,1)){
-	      continue;
+	    int expand_max = 1;
+	    if(0&&duality->BatchExpand){
+	      int thing = stack.size() * 0.1;
+	      expand_max = std::max(1,thing);
+	      if(expand_max > 1)
+		std::cout << "foo!\n";
 	    }
+
+	    if(ExpandSomeNodes(false,expand_max))
+	      continue;
 	    while(stack.size() > 1){
 	      tree->Pop(1);	
 	      stack.pop_back();
@@ -2090,6 +2100,8 @@ namespace Duality {
       std::list<Node *> updated_nodes;
 
       virtual void ExpandNode(RPFP::Node *p){
+	stack.push_back(stack_entry());
+	stack.back().level = tree->slvr().get_scope_level();
 	stack.back().expansions.push_back(p);
 	DerivationTree::ExpandNode(p);
 	std::vector<Node *> &new_nodes = p->Outgoing->Children;

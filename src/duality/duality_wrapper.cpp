@@ -37,7 +37,7 @@ Revision History:
 
 namespace Duality {
 
-  solver::solver(Duality::context& c, bool extensional, bool models) : object(c), the_model(c) {
+  solver::solver(Duality::context& c, bool _extensional, bool models) : object(c), the_model(c) {
     params_ref p;
     p.set_bool("proof", true); // this is currently useless
     if(models)
@@ -47,7 +47,8 @@ namespace Duality {
     p.set_bool("mbqi",mbqi); // just to test
     p.set_str("mbqi.id","itp"); // use mbqi for quantifiers in interpolants
     p.set_uint("mbqi.max_iterations",1); // use mbqi for quantifiers in interpolants
-    if(true || extensional)
+    extensional = mbqi && (true || _extensional);
+    if(extensional)
       p.set_bool("array.extensional",true);
     scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
     m_solver = (*sf)(m(), p, true, true, true, ::symbol::null);
@@ -656,6 +657,18 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
       pp.add_assumption(m_solver->get_assertion(i));
     pp.display_smt2(std::cout, m_solver->get_assertion(n-1));
   }
+
+  void solver::print(const char *filename) {
+    std::ofstream f(filename);
+    unsigned n = m_solver->get_num_assertions();
+    if(!n)
+      return;
+    ast_smt_pp pp(m());
+    for (unsigned i = 0; i < n-1; ++i)
+      pp.add_assumption(m_solver->get_assertion(i));
+    pp.display_smt2(f, m_solver->get_assertion(n-1));
+  }
+
 
   void solver::show_assertion_ids() {
 #if 0

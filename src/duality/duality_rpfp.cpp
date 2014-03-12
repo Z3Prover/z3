@@ -410,6 +410,33 @@ namespace Duality {
     return res;
   }
 
+  Z3User::Term Z3User::ExtractStores(hash_map<ast, Term> &memo, const Term &t, std::vector<expr> &cnstrs, hash_map<ast,expr> &renaming)
+  {
+    std::pair<ast,Term> foo(t,expr(ctx));
+    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
+    Term &res = bar.first->second;
+    if(!bar.second) return res;
+    if (t.is_app()) {
+      func_decl f = t.decl();
+      std::vector<Term> args;
+      int nargs = t.num_args();
+      for(int i = 0; i < nargs; i++)
+	args.push_back(ExtractStores(memo, t.arg(i),cnstrs,renaming));
+      res = f(args.size(),&args[0]);
+      if(f.get_decl_kind() == Store){
+	func_decl fresh = ctx.fresh_func_decl("@arr", res.get_sort());
+	expr y = fresh();
+	expr equ = ctx.make(Equal,y,res);
+	cnstrs.push_back(equ);
+	renaming[y] = res;
+	res = y;
+      }
+    }
+    else res = t;
+    return res;
+  }
+
+
   bool Z3User::IsLiteral(const expr &lit, expr &atom, expr &val){
     if(!(lit.is_quantifier() && IsClosedFormula(lit))){
       if(!lit.is_app())
@@ -1851,7 +1878,7 @@ namespace Duality {
   }
 
   void RPFP::ImplicantFullRed(hash_map<ast,int> &memo, const Term &f, std::vector<Term> &lits,
-			      hash_set<ast> &done, hash_set<ast> &dont_cares){
+			      hash_set<ast> &done, hash_set<ast> &dont_cares, bool extensional){
     if(done.find(f) != done.end())
       return; /* already processed */
     if(f.is_app()){
@@ -1859,7 +1886,7 @@ namespace Duality {
       decl_kind k = f.decl().get_decl_kind();
       if(k == Implies || k == Iff || k == And || k == Or || k == Not){
 	for(int i = 0; i < nargs; i++)
-	  ImplicantFullRed(memo,f.arg(i),lits,done,dont_cares);
+	  ImplicantFullRed(memo,f.arg(i),lits,done,dont_cares, extensional);
 	goto done;
       }
     }
@@ -1867,6 +1894,15 @@ namespace Duality {
       if(dont_cares.find(f) == dont_cares.end()){
 	int b = SubtermTruth(memo,f);
 	if(b != 0 && b != 1) goto done;
+	if(f.is_app() && f.decl().get_decl_kind() == Equal && f.arg(0).is_array()){
+	  if(b == 1 && !extensional){
+	    expr x = dualModel.eval(f.arg(0)); expr y = dualModel.eval(f.arg(1));
+	    if(!eq(x,y))
+	      b = 0;
+	  }
+	  if(b == 0)
+	    goto done;
+	}
 	expr bv = (b==1) ? f : !f;
 	lits.push_back(bv);
       }
@@ -1988,12 +2024,16 @@ namespace Duality {
     return conjoin(lits);
   }
 
-  RPFP::Term RPFP::UnderapproxFullFormula(const Term &f, hash_set<ast> &dont_cares){
+  RPFP::Term RPFP::UnderapproxFullFormula(const Term &f, bool extensional){
+    hash_set<ast> dont_cares;
+    resolve_ite_memo.clear();
+    timer_start("UnderapproxFormula");
     /* first compute truth values of subterms */
     hash_map<ast,int> memo;
     hash_set<ast> done;
     std::vector<Term> lits;
-    ImplicantFullRed(memo,f,lits,done,dont_cares);
+    ImplicantFullRed(memo,f,lits,done,dont_cares, extensional);
+    timer_stop("UnderapproxFormula");
     /* return conjunction of literals */
     return conjoin(lits);
   }
@@ -2538,22 +2578,6 @@ namespace Duality {
     ConstrainEdgeLocalized(edge,eu);
   }
 
-  void RPFP::FixCurrentStateFull(Edge *edge, const expr &extra){
-    hash_set<ast> dont_cares;
-    resolve_ite_memo.clear();
-    timer_start("UnderapproxFormula");
-    Term dual = edge->dual.null() ? ctx.bool_val(true) : edge->dual;
-    for(unsigned i = 0; i < edge->constraints.size(); i++)
-      dual = dual && edge->constraints[i];
-    // dual = dual && extra;
-    Term eu = UnderapproxFullFormula(dual,dont_cares);
-    timer_stop("UnderapproxFormula");
-    ConstrainEdgeLocalized(edge,eu);
-  }
-
-  
-  
-
   void RPFP::GetGroundLitsUnderQuants(hash_set<ast> *memo, const Term &f, std::vector<Term> &res, int under){
     if(memo[under].find(f) != memo[under].end())
       return;
@@ -2836,7 +2860,91 @@ namespace Duality {
     return ctx.make(And,lits);
   }
 
-    // set up edge constraint in aux solver
+
+  /* This is a wrapper for a solver that is intended to compute
+     implicants from models. It works around a problem in Z3 with
+     models in the non-extensional array theory. It does this by
+     naming all of the store terms in a formula. That is, (store ...)
+     is replaced by "name" with an added constraint name = (store
+     ...). This allows us to determine from the model whether an array
+     equality is true or false (it is false if the two sides are
+     mapped to different function symbols, even if they have the same
+     contents).
+   */
+
+  struct implicant_solver {
+    RPFP *owner;
+    solver &aux_solver;
+    std::vector<expr> assumps, namings;
+    std::vector<int> assump_stack, naming_stack;
+    hash_map<ast,expr> renaming, renaming_memo;
+    
+    void add(const expr &e){
+      expr t = e;
+      if(!aux_solver.extensional_array_theory()){
+	unsigned i = namings.size();
+	t = owner->ExtractStores(renaming_memo,t,namings,renaming);
+	for(; i < namings.size(); i++)
+	  aux_solver.add(namings[i]);
+      }
+      assumps.push_back(t);
+      aux_solver.add(t);
+    }
+
+    void push() {
+      assump_stack.push_back(assumps.size());
+      naming_stack.push_back(namings.size());
+      aux_solver.push();
+    }
+
+    // When we pop the solver, we have to re-add any namings that were lost
+
+    void pop(int n) {
+      aux_solver.pop(n);
+      int new_assumps = assump_stack[assump_stack.size()-n];
+      int new_namings = naming_stack[naming_stack.size()-n];
+      for(unsigned i = new_namings; i < namings.size(); i++)
+	aux_solver.add(namings[i]);
+      assumps.resize(new_assumps);
+      namings.resize(new_namings);
+      assump_stack.resize(assump_stack.size()-1);
+      naming_stack.resize(naming_stack.size()-1);
+    }
+
+    check_result check() {
+      return aux_solver.check();
+    }
+
+    model get_model() {
+      return aux_solver.get_model();
+    }
+    
+    expr get_implicant() {
+      owner->dualModel = aux_solver.get_model();
+      expr dual = owner->ctx.make(And,assumps);
+      bool ext = aux_solver.extensional_array_theory();
+      expr eu = owner->UnderapproxFullFormula(dual,ext);
+      // if we renamed store terms, we have to undo
+      if(!ext)
+	eu = owner->SubstRec(renaming,eu);
+      return eu;
+    }
+    
+    implicant_solver(RPFP *_owner, solver &_aux_solver) 
+      : owner(_owner), aux_solver(_aux_solver)
+      {}
+  };
+
+  // set up edge constraint in aux solver
+  void RPFP::AddEdgeToSolver(implicant_solver &aux_solver, Edge *edge){
+    if(!edge->dual.null())
+      aux_solver.add(edge->dual);
+    for(unsigned i = 0; i < edge->constraints.size(); i++){
+      expr tl = edge->constraints[i];
+      aux_solver.add(tl);
+    }
+  }
+
   void RPFP::AddEdgeToSolver(Edge *edge){
     if(!edge->dual.null())
       aux_solver.add(edge->dual);
@@ -2853,28 +2961,29 @@ namespace Duality {
     const std::vector<expr> &theory = ls->get_axioms();
     for(unsigned i = 0; i < theory.size(); i++)
       axioms_needed.insert(theory[i]);
-    aux_solver.push();
-    AddEdgeToSolver(node->Outgoing);
+    implicant_solver is(this,aux_solver);
+    is.push();
+    AddEdgeToSolver(is,node->Outgoing);
     node->Annotation.SetEmpty();
     hash_set<ast> *core = new hash_set<ast>;
     core->insert(node->Outgoing->dual);
     while(1){
-      aux_solver.push();
+      is.push();
       expr annot = !GetAnnotation(node);
-      aux_solver.add(annot);
-      if(aux_solver.check() == unsat){
-	aux_solver.pop(1);
+      is.add(annot);
+      if(is.check() == unsat){
+	is.pop(1);
 	break;
       }
-      dualModel = aux_solver.get_model();
-      aux_solver.pop(1);
+      is.pop(1);
       Push();
-      FixCurrentStateFull(node->Outgoing,annot);
-       ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node));
+      ConstrainEdgeLocalized(node->Outgoing,is.get_implicant());
+      ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node)); //TODO: need this?
       check_result foo = Check(root);
-      if(foo != unsat)
+      if(foo != unsat){
+	slvr().print("should_be_unsat.smt2");
 	throw "should be unsat";
-
+      }
       std::vector<expr> assumps, axioms_to_add;
       slvr().get_proof().get_assumptions(assumps);
       for(unsigned i = 0; i < assumps.size(); i++){
@@ -2890,7 +2999,7 @@ namespace Duality {
 
       {
 	expr itp = GetAnnotation(node);
-	dualModel = aux_solver.get_model();
+	dualModel = is.get_model(); // TODO: what does this mean?
 	std::vector<expr> case_lits;
 	itp = StrengthenFormulaByCaseSplitting(itp, case_lits);
 	SetAnnotation(node,itp);
@@ -2898,14 +3007,14 @@ namespace Duality {
       }
 
       for(unsigned i = 0; i < axioms_to_add.size(); i++)
-	aux_solver.add(axioms_to_add[i]);
+	is.add(axioms_to_add[i]);
       
       if(node->Annotation.IsEmpty()){
 	if(!axioms_added){
 	  // add the axioms in the off chance they are useful
 	  const std::vector<expr> &theory = ls->get_axioms();
 	  for(unsigned i = 0; i < theory.size(); i++)
-	    aux_solver.add(theory[i]);
+	    is.add(theory[i]);
 	  axioms_added = true;
 	}
 	else {
@@ -2923,7 +3032,7 @@ namespace Duality {
     if(proof_core)
       delete proof_core; // shouldn't happen
     proof_core = core;
-    aux_solver.pop(1);
+    is.pop(1);
     timer_stop("InterpolateByCases");
   }
 

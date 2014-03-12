@@ -819,6 +819,7 @@ namespace Duality {
         model the_model;
 	bool canceled;
 	proof_gen_mode m_mode;
+	bool extensional;
     public:
         solver(context & c, bool extensional = false, bool models = true);
         solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; canceled = false;}
@@ -922,6 +923,7 @@ namespace Duality {
 	unsigned get_scope_level(){ scoped_proof_mode spm(m(),m_mode); return m_solver->get_scope_level();}
 
 	void show();
+	void print(const char *filename);
 	void show_assertion_ids();
 
 	proof get_proof(){
@@ -929,6 +931,7 @@ namespace Duality {
 	  return proof(ctx(),m_solver->get_proof());
 	}
 
+	bool extensional_array_theory() {return extensional;}
     };
 
 #if 0

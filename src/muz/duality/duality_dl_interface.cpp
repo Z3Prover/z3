@@ -205,6 +205,7 @@ lbool dl_interface::query(::expr * query) {
   rs->SetOption("feasible_edges",m_ctx.get_params().feasible_edges() ? "1" : "0");
   rs->SetOption("use_underapprox",m_ctx.get_params().use_underapprox() ? "1" : "0");
   rs->SetOption("stratified_inlining",m_ctx.get_params().stratified_inlining() ? "1" : "0");
+  rs->SetOption("batch_expand",m_ctx.get_params().batch_expand() ? "1" : "0");
   unsigned rb = m_ctx.get_params().recursion_bound();
   if(rb != UINT_MAX){
     std::ostringstream os; os << rb;

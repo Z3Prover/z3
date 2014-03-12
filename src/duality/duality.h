@@ -31,6 +31,8 @@ using namespace stl_ext;
 
 namespace Duality {
 
+  class implicant_solver;
+
   /* Generic operations on Z3 formulas */
 
   struct Z3User {
@@ -103,6 +105,9 @@ namespace Duality {
       Term AdjustQuantifiers(const Term &t);
 
       FuncDecl RenumberPred(const FuncDecl &f, int n);
+
+    Term ExtractStores(hash_map<ast, Term> &memo, const Term &t, std::vector<expr> &cnstrs, hash_map<ast,expr> &renaming);
+
 
 protected:
 
@@ -602,6 +607,8 @@ protected:
       void FixCurrentState(Edge *root);
     
       void FixCurrentStateFull(Edge *edge, const expr &extra);
+      
+      void FixCurrentStateFull(Edge *edge, const std::vector<expr> &assumps, const hash_map<ast,expr> &renaming);
 
       /** Declare a constant in the background theory. */
 
@@ -944,10 +951,12 @@ protected:
       Term UnderapproxFormula(const Term &f, hash_set<ast> &dont_cares);
 
       void ImplicantFullRed(hash_map<ast,int> &memo, const Term &f, std::vector<Term> &lits,
-			    hash_set<ast> &done, hash_set<ast> &dont_cares);
+			    hash_set<ast> &done, hash_set<ast> &dont_cares, bool extensional = true);
 
-      Term UnderapproxFullFormula(const Term &f, hash_set<ast> &dont_cares);
+    public:
+      Term UnderapproxFullFormula(const Term &f, bool extensional = true);
 
+    protected:
       Term ToRuleRec(Edge *e,  hash_map<ast,Term> &memo, const Term &t, std::vector<expr> &quants);
 
       hash_map<ast,Term> resolve_ite_memo;
@@ -987,6 +996,8 @@ protected:
       void SetAnnotation(Node *root, const expr &t);
 
       void AddEdgeToSolver(Edge *edge);
+
+      void AddEdgeToSolver(implicant_solver &aux_solver, Edge *edge);
 
       void AddToProofCore(hash_set<ast> &core);
 

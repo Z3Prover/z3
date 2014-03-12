@@ -75,6 +75,7 @@ def_module_params('fixedpoint',
 			  ('recursion_bound', UINT, UINT_MAX, 'DUALITY: Recursion bound for stratified inlining'),
 			  ('profile', BOOL, False, 'DUALITY: profile run time'),
 			  ('mbqi', BOOL, True, 'DUALITY: use model-based quantifier instantion'),
+			  ('batch_expand', BOOL, False, 'DUALITY: use batch expansion'),
                           ('dump_aig', SYMBOL, '', 'Dump clauses in AIG text format (AAG) to the given file name'),
                           ))
 
