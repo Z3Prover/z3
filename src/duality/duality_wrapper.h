@@ -244,6 +244,9 @@ namespace Duality {
 
       sort_kind get_sort_kind(const sort &s);
 
+      expr translate(const expr &e);
+      func_decl translate(const func_decl &);
+
       void print_expr(std::ostream &s, const ast &e);
 
       fixedpoint mk_fixedpoint();
@@ -1372,6 +1375,20 @@ namespace Duality {
     inline ::expr *context::uncook(const expr &a) {
       m().inc_ref(a.raw());
       return to_expr(a.raw());
+    }
+
+    inline expr context::translate(const expr &e) {
+      ::expr *f = to_expr(e.raw());
+      if(&e.ctx().m() != &m()) // same ast manager -> no translation
+	throw "ast manager mismatch";
+      return cook(f);
+    }
+
+    inline func_decl context::translate(const func_decl &e) {
+      ::func_decl *f = to_func_decl(e.raw());
+      if(&e.ctx().m() != &m()) // same ast manager -> no translation
+	throw "ast manager mismatch";
+      return func_decl(*this,f);
     }
 
     typedef double clock_t;

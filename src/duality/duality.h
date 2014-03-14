@@ -204,6 +204,9 @@ protected:
 	   /** Is this a background constant? */
 	   virtual bool is_constant(const func_decl &f) = 0;
 
+	   /** Get the constants in the background vocabulary */
+	   virtual hash_set<func_decl> &get_constants() = 0;
+
            /** Assert a background axiom. */
            virtual void assert_axiom(const expr &axiom) = 0;
 
@@ -295,6 +298,11 @@ protected:
 	/** Is this a background constant? */
 	virtual bool is_constant(const func_decl &f){
 	  return bckg.find(f) != bckg.end();
+	}
+
+	/** Get the constants in the background vocabulary */
+	virtual hash_set<func_decl> &get_constants(){
+	  return bckg;
 	}
 
         ~iZ3LogicSolver(){
@@ -1064,13 +1072,40 @@ protected:
       
     public:
       
-      struct Counterexample {
+      class Counterexample {
+      private:
 	RPFP *tree;
 	RPFP::Node *root;
+      public:
 	Counterexample(){
 	  tree = 0;
 	  root = 0;
 	}
+	Counterexample(RPFP *_tree, RPFP::Node *_root){
+	  tree = _tree;
+	  root = _root;
+	}
+	~Counterexample(){
+	  if(tree) delete tree;
+	}
+	void swap(Counterexample &other){
+	  std::swap(tree,other.tree);
+	  std::swap(root,other.root);
+	}
+	void set(RPFP *_tree, RPFP::Node *_root){
+	  if(tree) delete tree;
+	  tree = _tree;
+	  root = _root;
+	}
+	void clear(){
+	  if(tree) delete tree;
+	  tree = 0;
+	}
+	RPFP *get_tree() const {return tree;}
+	RPFP::Node *get_root() const {return root;}
+      private:
+	Counterexample &operator=(const Counterexample &);
+	Counterexample(const Counterexample &);
       };
       
       /** Solve the problem. You can optionally give an old
@@ -1080,7 +1115,7 @@ protected:
       
       virtual bool Solve() = 0;
       
-      virtual Counterexample GetCounterexample() = 0;
+      virtual Counterexample &GetCounterexample() = 0;
       
       virtual bool SetOption(const std::string &option, const std::string &value) = 0;
       
@@ -1088,7 +1123,7 @@ protected:
 	  is chiefly useful for abstraction refinement, when we want to
 	  solve a series of similar problems. */
 
-      virtual void LearnFrom(Counterexample &old_cex) = 0;
+      virtual void LearnFrom(Solver *old_solver) = 0;
 
       virtual ~Solver(){}
 

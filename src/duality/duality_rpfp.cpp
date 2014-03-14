@@ -3334,7 +3334,7 @@ namespace Duality {
 	func_decl f = t.decl();
 	std::vector<Term> args;
 	int nargs = t.num_args();
-	if(nargs == 0)
+	if(nargs == 0 && f.get_decl_kind() == Uninterpreted)
 	  ls->declare_constant(f);  // keep track of background constants
 	for(int i = 0; i < nargs; i++)
 	  args.push_back(SubstBoundRec(memo, subst, level, t.arg(i)));
