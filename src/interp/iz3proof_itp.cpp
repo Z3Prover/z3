@@ -367,11 +367,17 @@ class iz3proof_itp_impl : public iz3proof_itp {
       }
       default:
 	{
-	  symb s = sym(itp2);
-	  if(s == sforall || s == sexists)
-	    res = make(s,arg(itp2,0),resolve_arith_rec2(memo, pivot1, conj1, arg(itp2,1)));
-	  else
+	  opr o = op(itp2);
+	  if(o == Uninterpreted){
+	    symb s = sym(itp2);
+	    if(s == sforall || s == sexists)
+	      res = make(s,arg(itp2,0),resolve_arith_rec2(memo, pivot1, conj1, arg(itp2,1)));
+	    else
+	      res = itp2;
+	  }
+	  else {
 	    res = itp2;
+	  }
 	}
       }
     }
@@ -403,11 +409,17 @@ class iz3proof_itp_impl : public iz3proof_itp {
       }
       default:
 	{
-	  symb s = sym(itp1);
-	  if(s == sforall || s == sexists)
-	    res = make(s,arg(itp1,0),resolve_arith_rec1(memo, neg_pivot_lit, arg(itp1,1), itp2));
-	  else
+	  opr o = op(itp1);
+	  if(o == Uninterpreted){
+	    symb s = sym(itp1);
+	    if(s == sforall || s == sexists)
+	      res = make(s,arg(itp1,0),resolve_arith_rec1(memo, neg_pivot_lit, arg(itp1,1), itp2));
+	    else
+	      res = itp1;
+	  }
+	  else {
 	    res = itp1;
+	  }
 	}
       }
     }
@@ -462,18 +474,20 @@ class iz3proof_itp_impl : public iz3proof_itp {
     std::pair<hash_map<ast,ast>::iterator,bool> bar = subst_memo.insert(foo);
     ast &res = bar.first->second;
     if(bar.second){
-      symb g = sym(e);
-      if(g == rotate_sum){
-	if(var == get_placeholder(arg(e,0))){
-	  res = e;
+      if(op(e) == Uninterpreted){
+	symb g = sym(e);
+	if(g == rotate_sum){
+	  if(var == get_placeholder(arg(e,0))){
+	    res = e;
+	  }
+	  else 
+	    res = make(rotate_sum,arg(e,0),subst_term_and_simp_rec(var,t,arg(e,1)));
+	  return res;
 	}
-	else 
-	  res = make(rotate_sum,arg(e,0),subst_term_and_simp_rec(var,t,arg(e,1)));
-	return res;
-      }
-      if(g == concat){
-	res = e;
-	return res;
+	if(g == concat){
+	  res = e;
+	  return res;
+	}
       }
       int nargs = num_args(e);
       std::vector<ast> args(nargs);
@@ -792,6 +806,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
      return simplify_sum(args);
   }
 
+
   ast simplify_rotate_eq2leq(const ast &pl, const ast &neg_equality, const ast &pf){
     if(pl == arg(pf,1)){
       ast cond = mk_true();
@@ -1034,6 +1049,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast mc = z3_simplify(chain_side_proves(LitA,pref));
       Aproves = my_and(Aproves,mc);
     }
+    if(is_true(nc))
+      return itp;
     return make_normal(itp,nc);
   }
 
@@ -2616,6 +2633,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
     }
 
     hash_map<ast,ast>::iterator it = localization_map.find(e);
+
+    if(it != localization_map.end() && is_bool_type(get_type(e)) 
+       && !pv->ranges_intersect(pv->ast_scope(it->second),rng))
+      it = localization_map.end();  // prevent quantifiers over booleans
+
     if(it != localization_map.end()){
       pf = localization_pf_map[e];
       e = it->second;

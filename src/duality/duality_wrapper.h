@@ -182,6 +182,7 @@ namespace Duality {
       void set(char const * param, char const * value) { m_config.set(param,value); }
       void set(char const * param, bool value) { m_config.set(param,value); }
       void set(char const * param, int value) { m_config.set(param,value); }
+      config &get_config() {return m_config;}
 
       symbol str_symbol(char const * s);
       symbol int_symbol(int n);
@@ -242,6 +243,9 @@ namespace Duality {
       decl_kind get_decl_kind(const func_decl &t);
 
       sort_kind get_sort_kind(const sort &s);
+
+      expr translate(const expr &e);
+      func_decl translate(const func_decl &);
 
       void print_expr(std::ostream &s, const ast &e);
 
@@ -818,6 +822,7 @@ namespace Duality {
         model the_model;
 	bool canceled;
 	proof_gen_mode m_mode;
+	bool extensional;
     public:
         solver(context & c, bool extensional = false, bool models = true);
         solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; canceled = false;}
@@ -921,6 +926,7 @@ namespace Duality {
 	unsigned get_scope_level(){ scoped_proof_mode spm(m(),m_mode); return m_solver->get_scope_level();}
 
 	void show();
+	void print(const char *filename);
 	void show_assertion_ids();
 
 	proof get_proof(){
@@ -928,6 +934,7 @@ namespace Duality {
 	  return proof(ctx(),m_solver->get_proof());
 	}
 
+	bool extensional_array_theory() {return extensional;}
     };
 
 #if 0
@@ -1368,6 +1375,20 @@ namespace Duality {
     inline ::expr *context::uncook(const expr &a) {
       m().inc_ref(a.raw());
       return to_expr(a.raw());
+    }
+
+    inline expr context::translate(const expr &e) {
+      ::expr *f = to_expr(e.raw());
+      if(&e.ctx().m() != &m()) // same ast manager -> no translation
+	throw "ast manager mismatch";
+      return cook(f);
+    }
+
+    inline func_decl context::translate(const func_decl &e) {
+      ::func_decl *f = to_func_decl(e.raw());
+      if(&e.ctx().m() != &m()) // same ast manager -> no translation
+	throw "ast manager mismatch";
+      return func_decl(*this,f);
     }
 
     typedef double clock_t;
