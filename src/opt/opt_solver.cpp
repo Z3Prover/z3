@@ -23,6 +23,7 @@ Notes:
 #include "smt_context.h"
 #include "theory_arith.h"
 #include "theory_diff_logic.h"
+#include "theory_dense_diff_logic.h"
 #include "theory_pb.h"
 #include "ast_pp.h"
 #include "ast_smt_pp.h"
@@ -96,6 +97,18 @@ namespace opt {
         }
         else if (typeid(smt::theory_idl&) == typeid(*arith_theory)) {   
             return dynamic_cast<smt::theory_idl&>(*arith_theory); 
+        }
+        else if (typeid(smt::theory_dense_mi&) == typeid(*arith_theory)) {   
+            return dynamic_cast<smt::theory_dense_mi&>(*arith_theory); 
+        }
+        else if (typeid(smt::theory_dense_i&) == typeid(*arith_theory)) {   
+            return dynamic_cast<smt::theory_dense_i&>(*arith_theory); 
+        }
+        else if (typeid(smt::theory_dense_smi&) == typeid(*arith_theory)) {   
+            return dynamic_cast<smt::theory_dense_smi&>(*arith_theory); 
+        }
+        else if (typeid(smt::theory_dense_si&) == typeid(*arith_theory)) {   
+            return dynamic_cast<smt::theory_dense_si&>(*arith_theory); 
         }
         else {
             UNREACHABLE();

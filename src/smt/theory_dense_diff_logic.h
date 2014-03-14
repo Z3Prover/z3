@@ -25,6 +25,8 @@ TODO: eager equality propagation
 #include"theory_arith_params.h"
 #include"arith_decl_plugin.h"
 #include"arith_eq_adapter.h"
+#include"theory_opt.h"
+
 
 namespace smt {
 
@@ -41,7 +43,7 @@ namespace smt {
     };
     
     template<typename Ext>
-    class theory_dense_diff_logic : public theory, private Ext {
+    class theory_dense_diff_logic : public theory, public theory_opt, private Ext {
     public:
         theory_dense_diff_logic_statistics      m_stats;
 
@@ -127,6 +129,12 @@ namespace smt {
         svector<scope>        m_scopes;
         bool                  m_non_diff_logic_exprs;
 
+        // For optimization purpose
+        typedef vector <std::pair<theory_var, rational> > objective_term;
+        vector<objective_term>         m_objectives;
+        vector<rational>               m_objective_consts;
+        vector<expr_ref_vector>        m_objective_assignments;
+
         struct f_target {
             theory_var m_target;
             numeral    m_new_distance;
@@ -189,6 +197,7 @@ namespace smt {
         void del_atoms(unsigned old_size);
         void del_vars(unsigned old_num_vars);
         void init_model();
+        bool internalize_objective(expr * n, rational const& m, rational& r, objective_term & objective);
 #ifdef Z3DEBUG
         bool check_vector_sizes() const;
         bool check_matrix() const;
@@ -250,6 +259,17 @@ namespace smt {
 
         virtual void init_model(model_generator & m);
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
+
+        // -----------------------------------
+        //
+        // Optimization
+        //
+        // -----------------------------------
+
+        virtual inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker);
+        virtual theory_var add_objective(app* term);
+        virtual expr_ref mk_gt(theory_var v, inf_rational const& val);
+        virtual expr* mk_ge(theory_var v, inf_rational const& val) { return 0; }
 
         // -----------------------------------
         //
