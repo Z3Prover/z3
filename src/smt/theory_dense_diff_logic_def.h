@@ -826,6 +826,7 @@ namespace smt {
         return alloc(expr_wrapper_proc, m_factory->mk_value(num, is_int(v)));
     }
 
+    // TBD: code is common to both sparse and dense difference logic solvers.
     template<typename Ext>
     bool theory_dense_diff_logic<Ext>::internalize_objective(expr * n, rational const& m, rational& q, objective_term & objective) {
 
@@ -855,8 +856,20 @@ namespace smt {
             return false;
         }
         else {
-            enode * e    = get_context().mk_enode(to_app(n), false, false, true);
-            theory_var v = mk_var(e);
+            context& ctx = get_context();
+            enode * e = 0;
+            theory_var v = 0;
+            if (ctx.e_internalized(n)) {
+                e = ctx.get_enode(to_app(n));                
+            }
+            else {
+                e = ctx.mk_enode(to_app(n), false, false, true);
+            }            
+            v = e->get_th_var(get_id());
+            if (v == null_theory_var) {
+                v = mk_var(e);                
+            }
+
             objective.push_back(std::make_pair(v, m));
         }
         return true;
@@ -864,7 +877,6 @@ namespace smt {
 
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_dense_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker) {
-        return inf_eps();
         typedef simplex::simplex<simplex::mpq_ext> Simplex;
         Simplex S;
         ast_manager& m = get_manager();
@@ -872,10 +884,10 @@ namespace smt {
         
         IF_VERBOSE(1,
                    for (unsigned i = 0; i < objective.size(); ++i) {
-                       verbose_stream() << "Coefficient " << objective[i].second 
-                                        << " of theory_var " << objective[i].first << "\n";
+                       verbose_stream() << objective[i].second 
+                                        << " * v" << objective[i].first << " ";
                    }
-                   verbose_stream() << "Free coefficient " << m_objective_consts[v] << "\n";);
+                   verbose_stream() << " + " << m_objective_consts[v] << "\n";);
 
         unsigned num_nodes = get_num_vars();
         unsigned num_edges = m_edges.size();
@@ -964,7 +976,15 @@ namespace smt {
                     core.push_back(tmp);
                 }
             }
+            for (unsigned i = 0; i < num_nodes; ++i) {
+                mpq_inf const& val = S.get_value(i);
+                rational q(val.first), eps(val.second);
+                numeral  a(q);
+                m_assignment[i] = a;
+                // TBD: if epsilon is != 0, then adjust a by some small fraction.
+            }
             blocker = mk_gt(v, r);
+            IF_VERBOSE(10, verbose_stream() << blocker << "\n";);
             return inf_eps(rational(0), r);
         }
         default:
