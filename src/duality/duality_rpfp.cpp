@@ -2954,6 +2954,8 @@ namespace Duality {
     }
   }
 
+  static int by_case_counter = 0;
+
   void RPFP::InterpolateByCases(Node *root, Node *node){
     timer_start("InterpolateByCases");
     bool axioms_added = false;
@@ -2968,6 +2970,7 @@ namespace Duality {
     hash_set<ast> *core = new hash_set<ast>;
     core->insert(node->Outgoing->dual);
     while(1){
+      by_case_counter++;
       is.push();
       expr annot = !GetAnnotation(node);
       is.add(annot);
@@ -3009,6 +3012,23 @@ namespace Duality {
       for(unsigned i = 0; i < axioms_to_add.size(); i++)
 	is.add(axioms_to_add[i]);
       
+#define TEST_BAD
+#ifdef TEST_BAD
+      {
+	static int bad_count = 0, num_bads = 1;
+	if(bad_count >= num_bads){
+	  bad_count = 0;
+	  num_bads = num_bads * 2;
+	  Pop(1);
+	  is.pop(1);
+	  delete core;
+	  timer_stop("InterpolateByCases");
+	  throw Bad();
+	}
+	bad_count++;
+      }
+#endif
+
       if(node->Annotation.IsEmpty()){
 	if(!axioms_added){
 	  // add the axioms in the off chance they are useful
@@ -3018,12 +3038,48 @@ namespace Duality {
 	  axioms_added = true;
 	}
 	else {
+#ifdef KILL_ON_BAD_INTERPOLANT	  
 	  std::cout << "bad in InterpolateByCase -- core:\n";
+#if 0
 	  std::vector<expr> assumps;
 	  slvr().get_proof().get_assumptions(assumps);
 	  for(unsigned i = 0; i < assumps.size(); i++)
 	    assumps[i].show();
+#endif
+	  std::cout << "checking for inconsistency\n";
+	  std::cout << "model:\n";
+	  is.get_model().show();	  
+	  expr impl = is.get_implicant();
+	  std::vector<expr> conjuncts;
+	  CollectConjuncts(impl,conjuncts,true);
+	  std::cout << "impl:\n";
+	  for(unsigned i = 0; i < conjuncts.size(); i++)
+	    conjuncts[i].show();
+	  std::cout << "annot:\n";
+	  annot.show();
+	  is.add(annot);
+	  for(unsigned i = 0; i < conjuncts.size(); i++)
+	    is.add(conjuncts[i]);
+	  if(is.check() == unsat){
+	    std::cout << "inconsistent!\n";
+	    std::vector<expr> is_assumps;
+	    is.aux_solver.get_proof().get_assumptions(is_assumps);
+	    std::cout << "core:\n";
+	    for(unsigned i = 0; i < is_assumps.size(); i++)
+	      is_assumps[i].show();
+	  }
+	  else {
+	    std::cout << "consistent!\n";
+	    is.aux_solver.print("should_be_inconsistent.smt2");
+	  }
+	  std::cout << "by_case_counter = " << by_case_counter << "\n";
 	  throw "ack!";
+#endif
+	  Pop(1);
+	  is.pop(1);
+	  delete core;
+	  timer_stop("InterpolateByCases");
+	  throw Bad();
 	}
       }
       Pop(1);

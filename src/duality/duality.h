@@ -746,6 +746,10 @@ protected:
       struct bad_format {
       };
 
+      // thrown on internal error
+      struct Bad {
+      };
+      
       /** Pop a scope (see Push). Note, you cannot pop axioms. */
       
       void Pop(int num_scopes);

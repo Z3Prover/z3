@@ -2078,7 +2078,24 @@ namespace Duality {
 	stack.push_back(stack_entry());
       }
 
+      struct DoRestart {};
+
       virtual bool Build(){
+	while (true) {
+	  try {
+	    return BuildMain();
+	  }
+	  catch (const DoRestart &) {
+	    // clear the statck and try again
+	    updated_nodes.clear();
+	    while(stack.size() > 1)
+	      PopLevel();
+	    reporter->Message("restarted");
+	  }
+	}
+      }
+
+      bool BuildMain(){
 
 	stack.back().level = tree->slvr().get_scope_level();
 	bool was_sat = true;
@@ -2110,11 +2127,17 @@ namespace Duality {
 #ifdef NO_GENERALIZE
 		node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
 #else
-		if(expansions.size() == 1 && NodeTooComplicated(node))
-		  SimplifyNode(node);
-		else
-		  node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
-		Generalize(node);
+		try {
+		  if(expansions.size() == 1 && NodeTooComplicated(node))
+		    SimplifyNode(node);
+		  else
+		    node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
+		  Generalize(node);
+		}
+		catch(const RPFP::Bad &){
+		  // bad interpolants can get us here
+		  throw DoRestart();
+		}
 #endif
 		if(RecordUpdate(node))
 		  update_count++;
@@ -2134,28 +2157,8 @@ namespace Duality {
 	    tree->ComputeProofCore(); // need to compute the proof core before popping solver
 	    bool propagated = false;
 	    while(1) {
-	      std::vector<Node *> &expansions = stack.back().expansions;
 	      bool prev_level_used = LevelUsedInProof(stack.size()-2); // need to compute this before pop
-	      tree->Pop(1);	
-	      hash_set<Node *> leaves_to_remove;
-	      for(unsigned i = 0; i < expansions.size(); i++){
-		Node *node = expansions[i];
-		//	      if(node != top)
-		//		tree->ConstrainParent(node->Incoming[0],node);
-		std::vector<Node *> &cs = node->Outgoing->Children;
-		for(unsigned i = 0; i < cs.size(); i++){
-		  leaves_to_remove.insert(cs[i]);
-		  UnmapNode(cs[i]);
-		  if(std::find(updated_nodes.begin(),updated_nodes.end(),cs[i]) != updated_nodes.end())
-		    throw "help!";
-		}
-	      }
-	      RemoveLeaves(leaves_to_remove); // have to do this before actually deleting the children
-	      for(unsigned i = 0; i < expansions.size(); i++){
-		Node *node = expansions[i];
-		RemoveExpansion(node);
-	      }
-	      stack.pop_back();
+	      PopLevel();
 	      if(stack.size() == 1)break;
 	      if(prev_level_used){
 		Node *node = stack.back().expansions[0];
@@ -2213,6 +2216,30 @@ namespace Duality {
 	}
       }
       
+      void PopLevel(){
+	std::vector<Node *> &expansions = stack.back().expansions;
+	tree->Pop(1);	
+	hash_set<Node *> leaves_to_remove;
+	for(unsigned i = 0; i < expansions.size(); i++){
+	  Node *node = expansions[i];
+	  //	      if(node != top)
+	  //		tree->ConstrainParent(node->Incoming[0],node);
+	  std::vector<Node *> &cs = node->Outgoing->Children;
+	  for(unsigned i = 0; i < cs.size(); i++){
+	    leaves_to_remove.insert(cs[i]);
+	    UnmapNode(cs[i]);
+	    if(std::find(updated_nodes.begin(),updated_nodes.end(),cs[i]) != updated_nodes.end())
+	      throw "help!";
+	  }
+	}
+	RemoveLeaves(leaves_to_remove); // have to do this before actually deleting the children
+	for(unsigned i = 0; i < expansions.size(); i++){
+	  Node *node = expansions[i];
+	  RemoveExpansion(node);
+	}
+	stack.pop_back();
+      }
+	
       bool NodeTooComplicated(Node *node){
 	int ops = tree->CountOperators(node->Annotation.Formula);
 	if(ops > 10) return true;
@@ -2224,7 +2251,13 @@ namespace Duality {
 	// have to destroy the old proof to get a new interpolant
 	timer_start("SimplifyNode");
 	tree->PopPush();
-	tree->InterpolateByCases(top,node);
+	try {
+	  tree->InterpolateByCases(top,node);
+	}
+	catch(const RPFP::Bad&){
+	  timer_stop("SimplifyNode");
+	  throw RPFP::Bad();
+	}
 	timer_stop("SimplifyNode");
       }
 
