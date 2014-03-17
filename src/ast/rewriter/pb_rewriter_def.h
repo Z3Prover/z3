@@ -141,7 +141,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
         for (unsigned i = 0; i < args.size(); ++i) {
             args[i].second = PBU::numeral::one();
         }
-        k = PBU::numeral::one();
+        k = PBU::numeral(args.size());
         return l_undef;
     }
     

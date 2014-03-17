@@ -266,7 +266,6 @@ namespace smt {
             m_min_cost_atoms.reset();
             m_propagate = false;
             m_assigned.reset();
-            m_stats.reset();
         }
 
         virtual theory * mk_fresh(context * new_ctx) { return 0; }
@@ -300,6 +299,7 @@ namespace smt {
         }
 
         expr_ref mk_block() {
+            ++m_stats.m_num_blocks;
             ast_manager& m = get_manager();
             expr_ref_vector disj(m);
             compare_cost compare_cost(*this);
@@ -445,6 +445,8 @@ namespace opt {
             m_weights.append(weights);
             m_assignment.reset();
             m_assignment.resize(m_soft.size(), false);
+            m_lower.reset();
+            m_upper.reset();
         }
 
         smt::theory_weighted_maxsat* get_theory() const {
@@ -686,18 +688,28 @@ namespace opt {
             return is_sat;
         }
 
+        expr* mk_not(expr* e) {
+            if (m.is_not(e, e)) {
+                return e;
+            }
+            else {
+                return m.mk_not(e);
+            }
+        }
+
         lbool pb_simplify_solve() {
+            TRACE("opt", s.display(tout); tout << "\n";
+                  for (unsigned i = 0; i < m_soft.size(); ++i) {
+                      tout << mk_pp(m_soft[i].get(), m) << " " << m_weights[i] << "\n";
+                  }
+                  );
             pb_util u(m);
             expr_ref fml(m), val(m);
             expr_ref_vector nsoft(m);
             m_lower = m_upper = rational::zero();
-            rational minw(0);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 m_upper += m_weights[i];
-                if (m_weights[i] < minw || minw.is_zero()) {
-                    minw = m_weights[i];
-                }
-                nsoft.push_back(m.mk_not(m_soft[i].get()));
+                nsoft.push_back(mk_not(m_soft[i].get()));
             }
             solver::scoped_push _s1(s);
             lbool is_sat = l_true;
@@ -711,17 +723,18 @@ namespace opt {
                     is_sat = l_undef;
                 }
                 if (is_sat == l_true) {
-                    rational old_upper = m_upper;
                     m_upper = rational::zero();
                     for (unsigned i = 0; i < m_soft.size(); ++i) {
                         VERIFY(m_model->eval(m_soft[i].get(), val));
-                        m_assignment[i] = !m.is_false(val);
+                        TRACE("opt", tout << "eval " << mk_pp(m_soft[i].get(), m) << " " << val << "\n";);
+                        m_assignment[i] = m.is_true(val);
                         if (!m_assignment[i]) {
                             m_upper += m_weights[i];
                         }
                     }                     
-                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << ")\n";);
-                    fml = u.mk_le(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper - minw);
+                    TRACE("opt", tout << "new upper: " << m_upper << "\n";);
+                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb solve with upper bound: " << m_upper << ")\n";);
+                    fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
                     was_sat = true;
                 }
             }            
@@ -729,6 +742,7 @@ namespace opt {
                 is_sat = l_true;
                 m_lower = m_upper;
             }
+            TRACE("opt", tout << "lower: " << m_lower << "\n";);
             return is_sat;
         }
 
@@ -777,6 +791,20 @@ namespace opt {
                 asms.append(ans);
                 asms.append(am);
                 lbool is_sat = s.check_sat(asms.size(), asms.c_ptr());
+                TRACE("opt", 
+                      tout << "\nassumptions: ";
+                      for (unsigned i = 0; i < asms.size(); ++i) {
+                          tout << mk_pp(asms[i].get(), m) << " ";
+                      }
+                      tout << "\n" << is_sat << "\n";
+                      tout << "upper: " << m_upper << "\n";
+                      tout << "lower: " << m_lower << "\n";
+                      if (is_sat == l_true) {
+                          model_ref mdl;
+                          s.get_model(mdl);
+                          model_smt2_pp(tout, m, *(mdl.get()), 0);
+                      });
+
                 if (m_cancel && is_sat != l_false) {
                     is_sat = l_undef;
                 }
@@ -784,17 +812,24 @@ namespace opt {
                     m_upper = m_lower;
                     updt_model(s);
                     for (unsigned i = 0; i < block.size(); ++i) {
-                        VERIFY(m_model->eval(block[i].get(), val));
-                        m_assignment[i] = m.is_false(val);
+                        VERIFY(m_model->eval(m_soft[i].get(), val));
+                        TRACE("opt", tout << mk_pp(block[i].get(), m) << " " << val << "\n";);
+                        m_assignment[i] = m.is_true(val);
                     }
                 }
-                if (is_sat != l_false) {                    
+                if (is_sat != l_false) {
                     return is_sat;
                 }
                 s.get_unsat_core(core);
                 if (core.empty()) {
                     return l_false;
                 }
+                TRACE("opt",
+                      tout << "core: ";
+                      for (unsigned i = 0; i < core.size(); ++i) {
+                          tout << mk_pp(core[i],m) << " ";
+                      }
+                      tout << "\n";);
                 uint_set A;
                 for (unsigned i = 0; i < core.size(); ++i) {
                     unsigned j;
@@ -834,6 +869,7 @@ namespace opt {
                 if (is_sat != l_true) {
                     return is_sat;
                 }
+                TRACE("opt", tout << "new bound: " << k << " lower: " << m_lower << "\n";);
                 m_lower += k;
                 expr_ref B_le_k(m), B_ge_k(m);
                 B_le_k = u.mk_le(ws.size(), ws.c_ptr(), bs.c_ptr(), k);
@@ -1031,7 +1067,9 @@ namespace opt {
                         rational& k) {
             pb_util u(m);
             lbool is_sat = bound(al, ws, bs, k);
-            if (is_sat != l_true) return is_sat;
+            if (is_sat != l_true || !k.is_zero()) {
+                return is_sat;
+            }
             expr_ref_vector al2(m);
             al2.append(al);
             // w_j*b_j > k
@@ -1054,8 +1092,14 @@ namespace opt {
                 m_solver.assert_expr(al[i]);
             }
             for (unsigned i = 0; i < bs.size(); ++i) {
-                nbs.push_back(m.mk_not(bs[i]));
+                nbs.push_back(mk_not(bs[i]));
             }    
+            TRACE("opt", 
+                  m_solver.display(tout);
+                  tout << "\n";
+                  for (unsigned i = 0; i < bs.size(); ++i) {
+                      tout << mk_pp(bs[i], m) << " " << ws[i] << "\n";
+                  });
             m_imp->re_init(nbs, ws); 
             lbool is_sat = m_imp->pb_simplify_solve();
             k = m_imp->m_lower;
@@ -1105,7 +1149,7 @@ namespace opt {
             }
             else {
                 SASSERT(result.size() == 1);
-                goal* r = result[0];
+                goal_ref r = result[0];
                 solver::scoped_push _s(m_solver);
                 // TBD ptr_vector<expr> asms;
                 for (unsigned i = 0; i < r->size(); ++i) {

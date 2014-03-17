@@ -33,12 +33,13 @@ public:
     pb_util                          m_pb;
     mutable ptr_vector<expr>         m_todo;
     expr_set                         m_01s;
-
+    bool                             m_compile_equality;
     
     lia2card_tactic(ast_manager & _m, params_ref const & p):
         m(_m),
         a(m),
-        m_pb(m) {
+        m_pb(m),
+        m_compile_equality(false) {
     }
 
     virtual ~lia2card_tactic() {
@@ -49,6 +50,7 @@ public:
         
     void updt_params(params_ref const & p) {
         m_params = p;
+        m_compile_equality = p.get_bool("compile_equality", false);
     }
     
     virtual void operator()(goal_ref const & g, 
@@ -64,6 +66,7 @@ public:
         
         bound_manager bounds(m);
         bounds(*g);
+
         
         bound_manager::iterator bit = bounds.begin(), bend = bounds.end();
         for (; bit != bend; ++bit) {
@@ -175,11 +178,12 @@ public:
     }
 
     expr* mk_eq(unsigned sz, rational const* weights, expr* const* args, rational const& w) {
-#if 1
-        return m.mk_and(mk_ge(sz, weights, args, w), mk_le(sz, weights, args, w));
-#else
-        return m_pb.mk_eq(sz, weights, args, w);
-#endif
+        if (m_compile_equality) {
+            return m_pb.mk_eq(sz, weights, args, w);
+        }
+        else {
+            return m.mk_and(mk_ge(sz, weights, args, w), mk_le(sz, weights, args, w));
+        }
     }
     
     expr* mk_ge(unsigned sz, rational const* weights, expr* const* args, rational const& w) {
@@ -270,6 +274,8 @@ public:
     }
         
     virtual void collect_param_descrs(param_descrs & r) {
+        r.insert("compile_equality", CPK_BOOL, 
+                 "(default:false) compile equalities into pseudo-Boolean equality");
     }
         
     virtual void cleanup() {

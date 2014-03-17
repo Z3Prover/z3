@@ -388,16 +388,13 @@ namespace smt {
             }
         }
         
-        // m_simplex.display(std::cout);
         literal_vector lits;
         for (unsigned i = 0; i < explains.size(); ++i) {
             literal lit(explains[i]);
             if (lit != null_literal) {
-                //std::cout << lit << " ";
                 lits.push_back(~lit);
             }
         }
-        //std::cout << "\n";
 
         m_stats.m_num_conflicts++;
         justification* js = 0;
@@ -799,8 +796,11 @@ namespace smt {
                 unsigned slack = info.m_slack;
                 if (is_true) {
                     update_bound(slack, literal(v), true, coeff);
+                    if (c->is_eq()) {
+                        update_bound(slack, literal(v), false, coeff);
+                    }
                 }
-                else {
+                else if (c->is_ge()) {
                     m_mpq_inf_mgr.sub(coeff, std::make_pair(mpq(1),mpq(0)), coeff);
                     update_bound(slack, ~literal(v), false, coeff);
                 }
@@ -1678,8 +1678,12 @@ namespace smt {
                 if (!conseq.sign() && j->get_from_theory() == get_id()) {                    
                     pbj = dynamic_cast<pb_justification*>(j);
                 }
-                if (pbj && pbj->get_ineq().is_ge()) {
+                if (pbj && pbj->get_ineq().is_eq()) {
                     // only resolve >= that are positive consequences.
+                    pbj = 0;
+                }
+                if (pbj && pbj->get_ineq().lit() == conseq) {
+                    // can't resolve against literal representing inequality.
                     pbj = 0;
                 }
                 if (pbj) {
