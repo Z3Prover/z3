@@ -20,6 +20,7 @@ Notes:
 #include "pb_rewriter.h"
 #include "pb_rewriter_def.h"
 #include "ast_pp.h"
+#include "ast_smt_pp.h"
 
 
 class pb_ast_rewriter_util {
@@ -72,6 +73,126 @@ public:
     };
 };
 
+expr_ref pb_rewriter::translate_pb2lia(obj_map<expr,expr*>& vars, expr* fml) {
+    pb_util util(m());
+    arith_util a(m());
+    expr_ref result(m()), tmp(m());
+    expr_ref_vector es(m());
+    expr*const* args = to_app(fml)->get_args();
+    unsigned sz = to_app(fml)->get_num_args();
+    for (unsigned i = 0; i < sz; ++i) {
+        expr* e = args[i];
+        if (m().is_not(e, e)) {
+            es.push_back(a.mk_sub(a.mk_numeral(rational(1),true),vars.find(e)));
+        }
+        else {
+            es.push_back(vars.find(e));
+        }
+    }
+
+    if (util.is_at_most_k(fml) || util.is_at_least_k(fml)) {
+        if (es.empty()) {
+            tmp = a.mk_numeral(rational(0), true);
+        }
+        else {
+            tmp = a.mk_add(es.size(), es.c_ptr());
+        }
+        if (util.is_at_most_k(fml)) {
+            result = a.mk_le(tmp, a.mk_numeral(util.get_k(fml), false));
+        }
+        else {
+            result = a.mk_ge(tmp, a.mk_numeral(util.get_k(fml), false));
+        }
+    }
+    else if (util.is_le(fml) || util.is_ge(fml) || util.is_eq(fml)) {
+        for (unsigned i = 0; i < sz; ++i) {
+            es[i] = a.mk_mul(a.mk_numeral(util.get_coeff(fml, i),false), es[i].get());
+        }
+        if (es.empty()) {
+            tmp = a.mk_numeral(rational(0), true);
+        }
+        else {
+            tmp = a.mk_add(es.size(), es.c_ptr());
+        }
+        if (util.is_le(fml)) {
+            result = a.mk_le(tmp, a.mk_numeral(util.get_k(fml), false));
+        }
+        else if (util.is_ge(fml)) {
+            result = a.mk_ge(tmp, a.mk_numeral(util.get_k(fml), false));
+        }
+        else {
+            result = m().mk_eq(tmp, a.mk_numeral(util.get_k(fml), false));
+        }
+    }
+    else {
+        result = fml;
+    }
+    return result;
+}
+
+expr_ref pb_rewriter::mk_validate_rewrite(app_ref& e1, app_ref& e2) {
+    ast_manager& m = e1.get_manager();
+    arith_util a(m);
+    symbol name;
+    obj_map<expr,expr*> vars;
+    expr_ref_vector trail(m), fmls(m);    
+    unsigned sz = to_app(e1)->get_num_args();
+    expr*const*args = to_app(e1)->get_args();
+    for (unsigned i = 0; i < sz; ++i) {
+        expr* e = args[i];
+        if (m.is_true(e)) {
+            if (!vars.contains(e)) {
+                trail.push_back(a.mk_numeral(rational(1), true));
+                vars.insert(e, trail.back());            
+            }
+            continue;
+        }
+        if (m.is_false(e)) {
+            if (!vars.contains(e)) {
+                trail.push_back(a.mk_numeral(rational(0), true));
+                vars.insert(e, trail.back());            
+            }
+            continue;
+        }
+
+        std::ostringstream strm;
+        strm << "x" << i;
+        name = symbol(strm.str().c_str());
+        trail.push_back(m.mk_const(name, a.mk_int()));
+        expr* x = trail.back();
+        m.is_not(e,e);
+        vars.insert(e, x);
+        fmls.push_back(a.mk_le(a.mk_numeral(rational(0), true), x));
+        fmls.push_back(a.mk_le(x, a.mk_numeral(rational(1), true)));
+    }
+    expr_ref tmp(m);
+    expr_ref fml1 = translate_pb2lia(vars, e1);
+    expr_ref fml2 = translate_pb2lia(vars, e2);    
+    tmp = m.mk_not(m.mk_eq(fml1, fml2));
+    fmls.push_back(tmp);
+    tmp = m.mk_and(fmls.size(), fmls.c_ptr());
+    return tmp;
+}
+
+static unsigned s_lemma = 0;
+
+void pb_rewriter::validate_rewrite(func_decl* f, unsigned sz, expr*const* args, expr_ref& fml) {
+    ast_manager& m = fml.get_manager();
+    app_ref tmp1(m), tmp2(m);
+    tmp1 = m.mk_app(f, sz, args);
+    tmp2 = to_app(fml);
+    expr_ref tmp = mk_validate_rewrite(tmp1, tmp2);
+    dump_pb_rewrite(tmp);
+}
+
+void pb_rewriter::dump_pb_rewrite(expr* fml) {
+    std::ostringstream strm;
+    strm << "pb_rewrite_" << (s_lemma++) << ".smt2";
+    std::ofstream out(strm.str().c_str());    
+    ast_smt_pp pp(m());
+    pp.display_smt2(out, fml);    
+    out.close();
+}
 
 br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     ast_manager& m = result.get_manager();
@@ -143,7 +264,10 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
           expr_ref tmp(m);
           tmp = m.mk_app(f, num_args, args);
           tout << tmp << "\n";
-          tout << result << "\n";);
+          tout << result << "\n";
+          );
+    TRACE("pb_validate",
+          validate_rewrite(f, num_args, args, result););
           
     return BR_DONE;
 }

@@ -444,12 +444,18 @@ namespace smt {
             SASSERT(m_util.is_at_least_k(atom) || m_util.is_ge(atom) || m_util.is_eq(atom));
         }
         TRACE("pb", display(tout, *c););        
+        //app_ref fml1(m), fml2(m);
+        //fml1 = c->to_expr(ctx, m);
         c->unique();
         lbool is_true = c->normalize();
         c->prune();
         c->post_prune();
+        //fml2 = c->to_expr(ctx, m);
+        //expr_ref validate_pb = pb_rewriter(m).mk_validate_rewrite(fml1, fml2);
+        //pb_rewriter(m).dump_pb_rewrite(validate_pb);
 
         literal lit(abv);
+
 
         TRACE("pb", display(tout, *c); tout << " := " << lit << "\n";);        
         switch(is_true) {

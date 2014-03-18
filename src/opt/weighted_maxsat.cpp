@@ -716,6 +716,7 @@ namespace opt {
             bool was_sat = false;
             fml = m.mk_true();
             while (l_true == is_sat) {
+                TRACE("opt", s.display(tout<<"looping\n"););
                 solver::scoped_push _s2(s);
                 s.assert_expr(fml);
                 is_sat = simplify_and_check_sat(0,0);
@@ -841,11 +842,14 @@ namespace opt {
                     return l_false;
                 }
                 uint_set B;
+                rational k(0);
+                rational old_lower(m_lower);
                 for (unsigned i = 0; i < sc.size(); ++i) {
                     uint_set t(sc[i]);
                     t &= A;
                     if (!t.empty()) {
                         B |= sc[i];
+                        k += amk[i];
                         m_lower -= amk[i];
                         sc[i] = sc.back();
                         sc.pop_back();
@@ -864,13 +868,14 @@ namespace opt {
                         bs.push_back(block[i].get());
                     }
                 }
-                rational k;
+                TRACE("opt", tout << "at most bound: " << k << "\n";);
                 is_sat = new_bound(al, ws, bs, k);
                 if (is_sat != l_true) {
                     return is_sat;
                 }
-                TRACE("opt", tout << "new bound: " << k << " lower: " << m_lower << "\n";);
                 m_lower += k;
+                SASSERT(m_lower > old_lower);
+                TRACE("opt", tout << "new bound: " << m_lower << "\n";);
                 expr_ref B_le_k(m), B_ge_k(m);
                 B_le_k = u.mk_le(ws.size(), ws.c_ptr(), bs.c_ptr(), k);
                 B_ge_k = u.mk_ge(ws.size(), ws.c_ptr(), bs.c_ptr(), k);
@@ -980,12 +985,14 @@ namespace opt {
                     return l_false;
                 }
                 uint_set B;
+                rational k;
                 for (unsigned i = 0; i < sc.size(); ++i) {
                     uint_set t(sc[i]);
                     t &= A;
                     if (!t.empty()) {
                         B |= sc[i];
                         m_lower -= amk[i];
+                        k += amk[i];
                         sc[i] = sc.back();
                         sc.pop_back();
                         am[i] = am.back();
@@ -1003,7 +1010,6 @@ namespace opt {
                         bs.push_back(block[i].get());
                     }
                 }
-                rational k;
 
                 expr_ref_vector al2(al);
                 for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
@@ -1058,22 +1064,17 @@ namespace opt {
                     s.assert_expr(soft[i].get());
                 }           
             }     
-        }
-
+        }                               
 
         lbool new_bound(expr_ref_vector const& al, 
                         vector<rational> const& ws, 
                         expr_ref_vector const& bs, 
                         rational& k) {
             pb_util u(m);
-            lbool is_sat = bound(al, ws, bs, k);
-            if (is_sat != l_true || !k.is_zero()) {
-                return is_sat;
-            }
             expr_ref_vector al2(m);
             al2.append(al);
             // w_j*b_j > k
-            al2.push_back(m.mk_not(u.mk_le(ws.size(), ws.c_ptr(), bs.c_ptr(), k)));
+            al2.push_back(m.mk_not(u.mk_le(ws.size(), ws.c_ptr(), bs.c_ptr(), k)));            
             return bound(al2, ws, bs, k);
         }
 
@@ -1102,6 +1103,7 @@ namespace opt {
                   });
             m_imp->re_init(nbs, ws); 
             lbool is_sat = m_imp->pb_simplify_solve();
+            SASSERT(m_imp->m_lower > k);
             k = m_imp->m_lower;
             return is_sat;
         }
@@ -1129,8 +1131,8 @@ namespace opt {
         lbool simplify_and_check_sat(unsigned n, expr* const* assumptions) {
             lbool is_sat = l_true;
             tactic_ref tac1 = mk_simplify_tactic(m);
-            tactic_ref tac2 = mk_pb_preprocess_tactic(m); 
-            tactic_ref tac  = and_then(tac1.get(), tac2.get());  // TBD: make attribute for cancelation.
+            // tactic_ref tac2 = mk_pb_preprocess_tactic(m); 
+            tactic_ref tac  = tac1; // and_then(tac1.get(), tac2.get());  // TBD: make attribute for cancelation.
             proof_converter_ref pc;
             expr_dependency_ref core(m);
             model_converter_ref mc;

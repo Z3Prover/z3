@@ -43,6 +43,8 @@ class pb_rewriter {
     pb_util       m_util;
     vector<rational> m_coeffs;
     ptr_vector<expr> m_args;
+
+    void validate_rewrite(func_decl* f, unsigned sz, expr*const* args, expr_ref& fml);
 public:    
     pb_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m) {
@@ -55,6 +57,9 @@ public:
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
 
+    expr_ref translate_pb2lia(obj_map<expr,expr*>& vars, expr* fml);
+    expr_ref mk_validate_rewrite(app_ref& e1, app_ref& e2);
+    void dump_pb_rewrite(expr* fml);
 };
 
 #endif
