@@ -209,9 +209,6 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
         k = PBU::numeral::one();
     }
     else if (g > PBU::numeral::one()) {
-        IF_VERBOSE(3, verbose_stream() << "cut " << g << "\n";
-                   display(verbose_stream(), args, k, is_eq);
-                   );
         
         //
         // Example 5x + 5y + 2z + 2u >= 5

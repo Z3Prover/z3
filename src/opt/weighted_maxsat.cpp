@@ -539,6 +539,10 @@ namespace opt {
                     if (wth().is_optimal()) {
                         m_upper = wth().get_min_cost();
                         updt_model(s);
+                        s.display(std::cout);
+                        model_ref mdl;
+                        s.get_model(mdl);
+                        model_smt2_pp(std::cout, m, *(mdl.get()), 0);
                     }
                     expr_ref fml = wth().mk_block();
                     s.assert_expr(fml);
