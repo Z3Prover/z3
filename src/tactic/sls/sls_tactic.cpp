@@ -34,6 +34,8 @@ Notes:
 #include"propagate_values_tactic.h"
 #include"sls_tactic.h"
 #include"nnf_tactic.h"
+#include"luby.h"
+#include "ctx_simplify_tactic.h"
 
 // which unsatisfied assertion is selected? only works with _FOCUS_ > 0
 // 0 = random, 1 = #moves, 2 = assertion with min score, 3 = assertion with max score
@@ -43,9 +45,23 @@ Notes:
 // 0 = all terms (GSAT), 1 = only one top level assertion (WSAT), 2 = only one bottom level atom
 #define _FOCUS_ 1
 
+// probability of choosing the same assertion again in the next step
+#define _PERC_STICKY_ 0
+
+// do we use dirty unit propagation to get rid of nested top level assertions?
+#define _DIRTY_UP_ 0
+
 // do we use restarts?
-// 0 = no, otherwise the value defines the maximum number of moves
-#define _RESTARTS_ 0
+// 0 = no, 1 = use #moves, 2 = use #plateaus, 3 = use time
+#define _RESTARTS_ 3
+// limit of moves/plateaus/seconds until first restart occurs
+#define _RESTART_LIMIT_ 10
+// 0 = initialize with all zero, 1 initialize with random value
+#define _RESTART_INIT_ 0
+// 0 = even intervals, 1 = pseudo luby, 2 = real luby, 3 = armin, 4 = rapid
+#define _RESTART_SCHEME_ 1
+// base value c for armin restart scheme using c^inner - only applies for _RESTART_SCHEME_ 3
+#define _RESTART_CONST_ARMIN_ 3.0
 
 // timelimit
 #define _TIMELIMIT_ 3600
@@ -66,38 +82,58 @@ Notes:
 // 2 = yes, by squaring it
 // 3 = yes, by setting it to zero
 // 4 = by progessively increasing weight (_TIMELIMIT_ needs to be set appropriately!)
-#define _WEIGHT_DIST_ 0
+#define _WEIGHT_DIST_ 1
 
 // the factor used for _WEIGHT_DIST_ = 1
 #define _WEIGHT_DIST_FACTOR_ 0.25
+
+// shall we toggle the weight after each restart?
+#define _WEIGHT_TOGGLE_ 0
 
 // do we use intensification steps in local minima? if so, how many?
 #define _INTENSIFICATION_ 0
 #define _INTENSIFICATION_TRIES_ 0
 
+// what is the percentage of random moves in plateaus (instead of full randomization)?
+#define _PERC_PLATEAU_MOVES_ 0
+
+// shall we repick clause when randomizing in a plateau or use the current one?
+#define _REPICK_ 1
+
 // do we use some UCT-like scheme for assertion-selection? overrides _BFS_
-#define _UCT_ 0
+#define _UCT_ 1
 
 // how much diversification is used in the UCT-scheme?
-#define _UCT_CONSTANT_ 0.01
+#define _UCT_CONSTANT_ 10.0
 
 // is uct clause selection probabilistic similar to variable selection in sparrow?
+// 0 = no, 1 = yes, use uct-value, 2 = yes, use score-value (_UCT_CONSTANT_ = 0.0) with squared score
 #define _PROBABILISTIC_UCT_ 0
+
+// additive constants for probabilistic uct > 0
+#define _UCT_EPS_ 0.0001
+
+// shall we reset _UCT_ touched values after restart?
+#define _UCT_RESET_ 0
+
+// how shall we initialize the _UCT_ total touched counter?
+// 0 = initialize with one, 1 = initialize with number of assertions
+#define _UCT_INIT_ 1
 
 // shall we use addition/subtraction?
 #define _USE_ADDSUB_ 1
 
 // shall we try multilication and division by 2?
-#define _USE_MUL2DIV2_ 1
+#define _USE_MUL2DIV2_ 0
 
 // shall we try multiplication by 3?
-#define _USE_MUL3_ 1
+#define _USE_MUL3_ 0
 
 // shall we try unary minus (= inverting and incrementing)
-#define _USE_UNARY_MINUS_ 1
+#define _USE_UNARY_MINUS_ 0
 
 // is random selection for assertions uniform? only works with _BFS_ = _UCT_ = 0
-#define _UNIFORM_RANDOM_ 1
+#define _UNIFORM_RANDOM_ 0
 
 // should we use unsat-structures as done in SLS 4 SAT instead for random or bfs selection?
 #define _REAL_RS_ 0
@@ -124,13 +160,21 @@ Notes:
 #define _CACHE_TOP_SCORE_ 1
 
 
-#if ((_UCT_ > 0) + _UNIFORM_RANDOM_ + _REAL_RS_ + _REAL_PBFS_ > 1) || _BFS_ && (_UCT_ ||_UNIFORM_RANDOM_ ||_REAL_RS_ ||_REAL_PBFS_)
+#if ((_BFS_ > 0) + (_UCT_ > 0) + _UNIFORM_RANDOM_ + _REAL_RS_ + _REAL_PBFS_ > 1)
     InvalidConfiguration;
 #endif
 #if (_PROBABILISTIC_UCT_ && !_UCT_)
     InvalidConfiguration;
 #endif
-
+#if (_PERM_RSTEP_ && !_TYPE_RSTEP_)
+    InvalidConfiguration;
+#endif
+#if (_PERC_CHANGE_ == 50)
+    InvalidConfiguration;
+#endif
+#if (_PERC_STICKY_ && !_FOCUS_)
+    InvalidConfiguration;
+#endif
 
 #include"sls_params.hpp"
 #include"sls_evaluator.h"
@@ -180,6 +224,7 @@ class sls_tactic : public tactic {
         sls_tracker     m_tracker;
         sls_evaluator   m_evaluator;
 
+        unsigned		m_restart_limit;
         unsigned        m_max_restarts;
         unsigned        m_plateau_limit;
 
@@ -207,6 +252,41 @@ class sls_tactic : public tactic {
             m_mpz_manager.del(m_one);
             m_mpz_manager.del(m_two);
         }        
+
+        double get_restart_armin(unsigned cnt_restarts)
+        {
+            unsigned outer_id = (unsigned)(0.5 + sqrt(0.25 + 2 * cnt_restarts));
+            unsigned inner_id = cnt_restarts - (outer_id - 1) * outer_id / 2;
+            //printf("armin: %f\n", pow(1.1, inner_id + 1));
+            return pow(_RESTART_CONST_ARMIN_, inner_id + 1);
+        }
+
+        inline unsigned check_restart(unsigned curr_value)
+        {
+            if (curr_value > m_restart_limit)
+            {
+#if _RESTART_SCHEME_ == 4
+                m_restart_limit += (m_stats.m_restarts & (m_stats.m_restarts + 1)) ? _RESTART_LIMIT_ : (_RESTART_LIMIT_ * m_stats.m_restarts + 1);
+#elif _RESTART_SCHEME_ == 3
+                m_restart_limit += (unsigned)get_restart_armin(m_stats.m_restarts + 1) * _RESTART_LIMIT_;
+#elif _RESTART_SCHEME_ == 2
+                m_restart_limit += get_luby(m_stats.m_restarts + 1) * _RESTART_LIMIT_;
+#elif _RESTART_SCHEME_ == 1
+                if (m_stats.m_restarts & 1)
+                    m_restart_limit += _RESTART_LIMIT_;
+                else
+                    m_restart_limit += (2 << (m_stats.m_restarts >> 1)) * _RESTART_LIMIT_;
+#else
+                    m_restart_limit += _RESTART_LIMIT_;
+#endif
+#if _WEIGHT_TOGGLE_
+                    printf("Setting weight: %f\n", _WEIGHT_DIST_FACTOR_ * (((m_stats.m_restarts & 2) == 0) + 1));
+                m_tracker.set_weight_dist_factor(_WEIGHT_DIST_FACTOR_ * (((m_stats.m_restarts & 2) == 0) + 1));
+#endif
+                return 0;
+            }
+            return 1;
+        }
 
         ast_manager & m() const { return m_manager; }
 
@@ -435,12 +515,10 @@ class sls_tactic : public tactic {
                 NOT_IMPLEMENTED_YET();
         }
 
-        void mk_random_move(goal_ref const & g) {
+        void mk_random_move(ptr_vector<func_decl> & unsat_constants)
+        {
             unsigned rnd_mv = 0;
-            if (m_stats.m_moves > 10000)
-                rnd_mv = 0;
 
-            ptr_vector<func_decl> & unsat_constants = m_tracker.get_unsat_constants(g, m_stats.m_moves);                
             unsigned ucc = unsat_constants.size(); 
             unsigned rc = (m_tracker.get_random_uint((ucc < 16) ? 4 : (ucc < 256) ? 8 : (ucc < 4096) ? 12 : (ucc < 65536) ? 16 : 32)) % ucc;
             func_decl * fd = unsat_constants[rc];
@@ -501,6 +579,10 @@ class sls_tactic : public tactic {
 
             m_evaluator.update(fd, new_value);            
             m_mpz_manager.del(new_value);
+        }
+
+        void mk_random_move(goal_ref const & g) {
+            mk_random_move(m_tracker.get_unsat_constants(g, m_stats.m_moves));                
         }
 
         // will use VNS to ignore some possible moves and increase the flips per second
@@ -857,7 +939,7 @@ class sls_tactic : public tactic {
                 m_stats.m_flips++;
 
                 global_score = incremental_score(g, fd, new_value);
-                 local_score = m_tracker.get_score(q);
+                local_score = m_tracker.get_score(q);
 
                 SASSERT(new_score == i * local_score / _INTENSIFICATION_TRIES_ + (_INTENSIFICATION_TRIES_ - i) * global_score / _INTENSIFICATION_TRIES_);
 
@@ -875,6 +957,130 @@ class sls_tactic : public tactic {
             unsigned new_const = (unsigned)-1, new_bit = 0;        
             mpz new_value;
             move_type move;
+            unsigned plateau_cnt = 0;
+
+            score = rescore(g);
+            unsigned sz = g->size();
+#if _PERC_STICKY_
+            expr * e = m_tracker.get_unsat_assertion(g, m_stats.m_moves);    
+#endif
+
+#if _RESTARTS_ == 1
+            while (check_restart(m_stats.m_moves) && m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {                
+#elif _RESTARTS_ == 2
+            while (check_restart(plateau_cnt) && m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {                
+#elif _RESTARTS_ == 3
+            while (check_restart((unsigned)m_stats.m_stopwatch.get_current_seconds()) && m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {                
+#else
+            while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {                
+#endif
+                checkpoint();
+                m_stats.m_moves++;
+
+#if _REAL_RS_ || _REAL_PBFS_
+                //m_tracker.debug_real(g, m_stats.m_moves);
+#endif
+
+#if _FOCUS_
+#if _PERC_STICKY_
+                if (m_tracker.get_random_uint(16) % 100 >= _PERC_STICKY_ || m_mpz_manager.eq(m_tracker.get_value(e), m_one))
+                e = m_tracker.get_unsat_assertion(g, m_stats.m_moves);    
+#else
+                expr * e = m_tracker.get_unsat_assertion(g, m_stats.m_moves);    
+#endif
+                if (!e)
+                {
+                    res = l_true;
+                    goto bailout;
+                }
+                ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants_walksat(e);
+#else
+                ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants_gsat(g, sz);
+                if (!to_evaluate.size())
+                {
+                    res = l_true;
+                    goto bailout;
+                }
+#endif
+
+#if _TYPE_RSTEP_
+                if (m_tracker.get_random_uint(16) % 1000 < _PERM_RSTEP_)
+                {
+#if _TYPE_RSTEP_ == 1
+                    m_evaluator.randomize_local(to_evaluate);
+#elif _TYPE_RSTEP_ == 2
+                    mk_random_move(to_evaluate);
+#endif
+#if _CACHE_TOP_SCORE_
+                    score = m_tracker.get_top_sum() / g->size();
+#else
+                    score = top_score(g);
+#endif
+                }
+                continue;
+#endif
+
+#if _WEIGHT_DIST_ == 4
+                m_tracker.set_weight_dist_factor(m_stats.m_stopwatch.get_current_seconds() / _TIMELIMIT_);
+#endif       
+                old_score = score;
+                new_const = (unsigned)-1;
+
+#if _VNS_
+                score = find_best_move_vns(g, to_evaluate, score, new_const, new_value, new_bit, move);
+#else
+                score = find_best_move(g, to_evaluate, score, new_const, new_value, new_bit, move);
+#endif
+
+                if (new_const == static_cast<unsigned>(-1)) {
+                    score = old_score;
+                    plateau_cnt++;
+#if _INTENSIFICATION_
+                    handle_plateau(g, score);
+                    //handle_plateau(g);
+                    //e = m_tracker.get_unsat_assertion(g, m_stats.m_moves);    
+                    //to_evaluate = m_tracker.get_unsat_constants_walksat(e);
+#else
+#if _PERC_PLATEAU_MOVES_
+                    if (m_tracker.get_random_uint(8) % 100 < _PERC_PLATEAU_MOVES_)
+                        mk_random_move(to_evaluate);
+                    else
+#endif
+#if _REPICK_
+                    m_evaluator.randomize_local(g, m_stats.m_moves);
+#else
+                    m_evaluator.randomize_local(to_evaluate);
+#endif
+#endif
+
+#if _CACHE_TOP_SCORE_
+                    score = m_tracker.get_top_sum() / g->size();
+#else
+                    score = top_score(g);
+#endif
+                } else {
+                    func_decl * fd = to_evaluate[new_const];              
+#if _REAL_RS_ || _REAL_PBFS_
+                    score = serious_score(g, fd, new_value);
+#else
+                    score = incremental_score(g, fd, new_value);    
+#endif
+                }
+            }
+
+            bailout:
+            m_mpz_manager.del(new_value);
+
+            return res;
+        }    
+
+        // main search loop
+        lbool search_old(goal_ref const & g) {        
+            lbool res = l_undef;
+            double score = 0.0, old_score = 0.0;
+            unsigned new_const = (unsigned)-1, new_bit = 0;        
+            mpz new_value;
+            move_type move;
             
             score = rescore(g);
             TRACE("sls", tout << "Starting search, initial score   = " << std::setprecision(32) << score << std::endl;
@@ -887,12 +1093,12 @@ class sls_tactic : public tactic {
 
             // Andreas: Why do we only allow so few plateaus?
 #if _RESTARTS_
-            while (plateau_cnt < m_plateau_limit && m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {                
+            while (m_stats.m_stopwatch.get_current_seconds() < 200 * (m_stats.m_restarts + 1) * 0.2) {
+            //while (plateau_cnt < m_plateau_limit && m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {                
 #else
             while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_ && (_RESTARTS_ == 0 || m_stats.m_moves < _RESTARTS_)) {                
 #endif
                 do {
-                    if (m_stats.m_moves == 5590)
                     checkpoint();
 
 #if _WEIGHT_DIST_ == 4
@@ -1072,7 +1278,11 @@ class sls_tactic : public tactic {
 
             verbose_stream() << "_BFS_ " << _BFS_ << std::endl;
             verbose_stream() << "_FOCUS_ " << _FOCUS_ << std::endl;
+            verbose_stream() << "_PERC_STICKY_ " << _PERC_STICKY_ << std::endl;
             verbose_stream() << "_RESTARTS_ " << _RESTARTS_ << std::endl;
+            verbose_stream() << "_RESTART_LIMIT_ " << _RESTART_LIMIT_ << std::endl;
+            verbose_stream() << "_RESTART_INIT_ " << _RESTART_INIT_ << std::endl;
+            verbose_stream() << "_RESTART_SCHEME_ " << _RESTART_SCHEME_ << std::endl;
             verbose_stream() << "_TIMELIMIT_ " << _TIMELIMIT_ << std::endl;
             verbose_stream() << "_SCORE_AND_AVG_ " << _SCORE_AND_AVG_ << std::endl;
             verbose_stream() << "_SCORE_OR_MUL_ " << _SCORE_OR_MUL_ << std::endl;
@@ -1081,9 +1291,14 @@ class sls_tactic : public tactic {
             verbose_stream() << "_WEIGHT_DIST_FACTOR_ " << std::fixed << std::setprecision(2) << _WEIGHT_DIST_FACTOR_ << std::endl;
             verbose_stream() << "_INTENSIFICATION_ " << _INTENSIFICATION_ << std::endl;
             verbose_stream() << "_INTENSIFICATION_TRIES_ " << _INTENSIFICATION_TRIES_ << std::endl;
+            verbose_stream() << "_PERC_PLATEAU_MOVES_ " << _PERC_PLATEAU_MOVES_ << std::endl;
+            verbose_stream() << "_REPICK_ " << _REPICK_ << std::endl;
             verbose_stream() << "_UCT_ " << _UCT_ << std::endl;
             verbose_stream() << "_UCT_CONSTANT_ " << std::fixed << std::setprecision(2) << _UCT_CONSTANT_ << std::endl;
+            verbose_stream() << "_UCT_RESET_ " << _UCT_RESET_ << std::endl;
+            verbose_stream() << "_UCT_INIT_ " << _UCT_INIT_ << std::endl;
             verbose_stream() << "_PROBABILISTIC_UCT_ " << _PROBABILISTIC_UCT_ << std::endl;
+            verbose_stream() << "_UCT_EPS_ " << std::fixed << std::setprecision(4) << _UCT_EPS_ << std::endl;
             verbose_stream() << "_USE_ADDSUB_ " << _USE_ADDSUB_ << std::endl;
             verbose_stream() << "_USE_MUL2DIV2_ " << _USE_MUL2DIV2_ << std::endl;
             verbose_stream() << "_USE_MUL3_ " << _USE_MUL3_ << std::endl;
@@ -1099,21 +1314,30 @@ class sls_tactic : public tactic {
             verbose_stream() << "_CACHE_TOP_SCORE_ " << _CACHE_TOP_SCORE_ << std::endl;
             
 #if _WEIGHT_DIST_ == 4
-                    m_tracker.set_weight_dist_factor(m_stats.m_stopwatch.get_current_seconds() / _TIMELIMIT_);
+            m_tracker.set_weight_dist_factor(m_stats.m_stopwatch.get_current_seconds() / _TIMELIMIT_);
+#endif
+#if _WEIGHT_TOGGLE_
+            m_tracker.set_weight_dist_factor(_WEIGHT_DIST_FACTOR_);
 #endif
             m_tracker.initialize(g);
             lbool res = l_undef;
         
+            m_restart_limit = _RESTART_LIMIT_;
+
             do {
                 checkpoint();
-                // Andreas: I think restarts are too impotant to ignore 99% of them are happening...
-                //if ((m_stats.m_restarts % 100) == 0)                        
-                    report_tactic_progress("Searching... restarts left:", m_max_restarts - m_stats.m_restarts);
-                
+
+                report_tactic_progress("Searching... restarts left:", m_max_restarts - m_stats.m_restarts);
                 res = search(g);
 
                 if (res == l_undef)
-                    m_tracker.randomize();
+                {
+#if _RESTART_INIT_
+                    m_tracker.randomize(g);
+#else
+                    m_tracker.reset(g);
+#endif
+                }
             }
             while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_ && res != l_true && m_stats.m_restarts++ < m_max_restarts);
         
@@ -1121,6 +1345,13 @@ class sls_tactic : public tactic {
 
             if (res == l_true) {    
                 report_tactic_progress("Number of flips:", m_stats.m_moves);
+                for (unsigned i = 0; i < g->size(); i++)
+                    if (!m_mpz_manager.is_one(m_tracker.get_value(g->form(i))))
+                    {
+                        verbose_stream() << "Terminated before all assertions were SAT!" << std::endl;
+                        NOT_IMPLEMENTED_YET(); 
+                    }
+
                 if (m_produce_models) {
                     model_ref mdl = m_tracker.get_model();
                     mc = model2model_converter(mdl.get());
@@ -1183,12 +1414,17 @@ public:
     }
 
     virtual void cleanup() {        
-        imp * d = alloc(imp, m, m_params, m_stats);
+        imp * d = m_imp;
         #pragma omp critical (tactic_cancel)
         {
-            std::swap(d, m_imp);
+            d = m_imp;
         }
         dealloc(d);
+        d = alloc(imp, m, m_params, m_stats);
+        #pragma omp critical (tactic_cancel) 
+        {
+            m_imp = d;
+        }
     }
     
     virtual void collect_statistics(statistics & st) const {
@@ -1246,6 +1482,9 @@ tactic * mk_preamble(ast_manager & m, params_ref const & p) {
     // conservative gaussian elimination. 
     gaussian_p.set_uint("gaussian_max_occs", 2); 
 
+    params_ref ctx_p;
+    ctx_p.set_uint("max_depth", 32);
+    ctx_p.set_uint("max_steps", 5000000);
     return and_then(and_then(mk_simplify_tactic(m),                             
                              mk_propagate_values_tactic(m),
                              using_params(mk_solve_eqs_tactic(m), gaussian_p),
@@ -1254,6 +1493,10 @@ tactic * mk_preamble(ast_manager & m, params_ref const & p) {
                              using_params(mk_simplify_tactic(m), simp2_p)),
                         using_params(mk_simplify_tactic(m), hoist_p),
                         mk_max_bv_sharing_tactic(m),
+                        // Andreas: It would be cool to get rid of shared top level assertions but which simplification is doing this?
+                        //mk_ctx_simplify_tactic(m, ctx_p),
+                        // Andreas: This one at least eliminates top level duplicates ...
+                        mk_simplify_tactic(m),
                         // Andreas: How does a NNF actually look like? Can it contain ITE operators?
                         mk_nnf_tactic(m, p));
 }
