@@ -20,6 +20,9 @@ Notes:
 #ifndef _SLS_EVALUATOR_H_
 #define _SLS_EVALUATOR_H_
 
+#include"model_evaluator.h"
+
+#include"sls_compilation_settings.h"
 #include"sls_powers.h"
 #include"sls_tracker.h"
 
