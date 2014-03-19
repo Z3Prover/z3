@@ -20,6 +20,12 @@ Notes:
 #ifndef _SLS_TRACKER_H_
 #define _SLS_TRACKER_H_
 
+#include"goal.h"
+#include"model.h"
+
+#include"sls_compilation_settings.h"
+#include"sls_powers.h"
+
 class sls_tracker {
     ast_manager         & m_manager;
     unsynch_mpz_manager & m_mpz_manager;
@@ -1186,7 +1192,7 @@ public:
 //                expr * e = m_list_false[i];
                 vscore = m_scores.find(e);
 #if _UCT_ == 1
-                double q = vscore.score + _UCT_CONSTANT_ * sqrt(log(m_touched)/vscore.touched); 
+                double q = vscore.score + _UCT_CONSTANT_ * sqrt(log((double)m_touched)/vscore.touched); 
 #elif _UCT_ == 2
                 double q = vscore.score + (_UCT_CONSTANT_ * (flip - vscore.touched)) / sz; 
 #endif
@@ -1334,7 +1340,7 @@ public:
 //                expr * e = m_list_false[i];
                 vscore = m_scores.find(e);
 #if _UCT_ == 1
-            double q = vscore.score + _UCT_CONSTANT_ * sqrt(log(m_touched)/vscore.touched); 
+                double q = vscore.score + _UCT_CONSTANT_ * sqrt(log((double)m_touched) / vscore.touched);
 #elif _UCT_ == 2
             double q = vscore.score + (_UCT_CONSTANT_ * (flip - vscore.touched)) / sz; 
 #endif
