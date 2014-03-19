@@ -78,7 +78,11 @@ public:
             case OP_AND: {
                 m_mpz_manager.set(result, m_one);
                 for (unsigned i = 0; i < n_args; i++)
+#if _DIRTY_UP_
+                    if (m_mpz_manager.neq(m_tracker.get_value(args[i]), result) && !m_tracker.is_top_expr(args[i]))  {
+#else
                     if (m_mpz_manager.neq(m_tracker.get_value(args[i]), result))  {
+#endif
                         m_mpz_manager.set(result, m_zero);
                         break;
                     }
@@ -86,7 +90,11 @@ public:
             }
             case OP_OR: {
                 for (unsigned i = 0; i < n_args; i++)
+#if _DIRTY_UP_
+                    if (m_mpz_manager.neq(m_tracker.get_value(args[i]), result) || m_tracker.is_top_expr(args[i]))  {
+#else
                     if (m_mpz_manager.neq(m_tracker.get_value(args[i]), result)) {
+#endif
                         m_mpz_manager.set(result, m_one);
                         break;
                     }
@@ -94,9 +102,16 @@ public:
             }
             case OP_NOT: {
                 SASSERT(n_args == 1);
+#if _DIRTY_UP_
+                if (m_tracker.is_top_expr(args[0]))
+                    m_mpz_manager.set(result, m_zero);
+                else
+                    m_mpz_manager.set(result, (m_mpz_manager.is_zero(m_tracker.get_value(args[0]))) ? m_one : m_zero);
+#else
                 const mpz & child = m_tracker.get_value(args[0]);
                 SASSERT(m_mpz_manager.is_one(child) || m_mpz_manager.is_zero(child));                
-                m_mpz_manager.set(result, (m_mpz_manager.is_zero(child)) ? m_one : m_zero);                
+                m_mpz_manager.set(result, (m_mpz_manager.is_zero(child)) ? m_one : m_zero);
+#endif
                 break;
             }
             case OP_EQ: {
@@ -528,7 +543,7 @@ public:
         mpz new_value;
 
 #if _EARLY_PRUNE_ || _CACHE_TOP_SCORE_
-		double new_score;
+        double new_score;
 #endif
 
         SASSERT(cur_depth < m_traversal_stack.size());
@@ -542,31 +557,34 @@ public:
                 m_tracker.set_value(cur, new_value);
 
 #if _REAL_RS_ || _REAL_PBFS_
-				if (!m_tracker.has_uplinks(cur))
-				{
-					if (m_mpz_manager.eq(new_value,m_one))
-						m_tracker.make_assertion(cur);
-					else
-						m_tracker.break_assertion(cur);
-				}
+                //if (!m_tracker.has_uplinks(cur))
+                if (m_tracker.is_top_expr(cur))
+                {
+                    if (m_mpz_manager.eq(new_value,m_one))
+                        m_tracker.make_assertion(cur);
+                    else
+                        m_tracker.break_assertion(cur);
+                }
 #endif
 
 #if _EARLY_PRUNE_
-				new_score = m_tracker.score(cur);
+                new_score = m_tracker.score(cur);
 #if _CACHE_TOP_SCORE_
-				if (!m_tracker.has_uplinks(cur))
-					m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                //if (!m_tracker.has_uplinks(cur))
+                if (m_tracker.is_top_expr(cur))
+                    m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
 #endif
-				m_tracker.set_score(cur, new_score);
-				m_tracker.set_score_prune(cur, new_score);
+                m_tracker.set_score(cur, new_score);
+                m_tracker.set_score_prune(cur, new_score);
 #else
 #if _CACHE_TOP_SCORE_
-				new_score = m_tracker.score(cur);
-				if (!m_tracker.has_uplinks(cur))
-					m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
-				m_tracker.set_score(cur, new_score);
+                new_score = m_tracker.score(cur);
+                //if (!m_tracker.has_uplinks(cur))
+                if (m_tracker.is_top_expr(cur))
+                    m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                m_tracker.set_score(cur, new_score);
 #else
-				m_tracker.set_score(cur, m_tracker.score(cur));
+                m_tracker.set_score(cur, m_tracker.score(cur));
 #endif
 #endif			
                 if (m_tracker.has_uplinks(cur)) {
@@ -596,7 +614,7 @@ public:
         mpz new_value;
 
 #if _EARLY_PRUNE_ || _CACHE_TOP_SCORE_
-		double new_score;
+        double new_score;
 #endif
 
         SASSERT(cur_depth < m_traversal_stack.size());
@@ -609,21 +627,23 @@ public:
                 (*this)(to_app(cur), new_value);
                 m_tracker.set_value(cur, new_value);
 #if _EARLY_PRUNE_
-				new_score = m_tracker.score(cur);
+                new_score = m_tracker.score(cur);
 #if _CACHE_TOP_SCORE_
-				if (!m_tracker.has_uplinks(cur))
-					m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                //if (!m_tracker.has_uplinks(cur))
+                if (m_tracker.is_top_expr(cur))
+                    m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
 #endif
-				m_tracker.set_score(cur, new_score);
-				m_tracker.set_score_prune(cur, new_score);
+                m_tracker.set_score(cur, new_score);
+                m_tracker.set_score_prune(cur, new_score);
 #else
 #if _CACHE_TOP_SCORE_
-				new_score = m_tracker.score(cur);
-				if (!m_tracker.has_uplinks(cur))
-					m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
-				m_tracker.set_score(cur, new_score);
+                new_score = m_tracker.score(cur);
+                //if (!m_tracker.has_uplinks(cur))
+                if (m_tracker.is_top_expr(cur))
+                    m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                m_tracker.set_score(cur, new_score);
 #else
-				m_tracker.set_score(cur, m_tracker.score(cur));
+                m_tracker.set_score(cur, m_tracker.score(cur));
 #endif
 #endif			
                 if (m_tracker.has_uplinks(cur)) {
@@ -661,7 +681,7 @@ public:
             if (cur_depth > max_depth) max_depth = cur_depth;
         }
 #if _REAL_RS_ || _REAL_PBFS_
-		run_serious_update(max_depth);
+        run_serious_update(max_depth);
 #else
         run_update(max_depth);
 #endif
@@ -693,27 +713,28 @@ public:
     unsigned run_update_bool_prune(unsigned cur_depth) {
         expr_fast_mark1 visited;
 
-		double prune_score, new_score;
-		unsigned pot_benefits = 0;
- 		SASSERT(cur_depth < m_traversal_stack_bool.size());
+        double prune_score, new_score;
+        unsigned pot_benefits = 0;
+        SASSERT(cur_depth < m_traversal_stack_bool.size());
  
         ptr_vector<expr> & cur_depth_exprs = m_traversal_stack_bool[cur_depth];
 
         for (unsigned i = 0; i < cur_depth_exprs.size(); i++) {
             expr * cur = cur_depth_exprs[i];
 
-			new_score = m_tracker.score(cur); 
+            new_score = m_tracker.score(cur); 
 #if _CACHE_TOP_SCORE_
-			if (!m_tracker.has_uplinks(cur))
-				m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+            //if (!m_tracker.has_uplinks(cur))
+            if (m_tracker.is_top_expr(cur))
+                m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
 #endif
-			prune_score = m_tracker.get_score_prune(cur);
+            prune_score = m_tracker.get_score_prune(cur);
             m_tracker.set_score(cur, new_score);
 
-			if ((new_score > prune_score) && (m_tracker.has_pos_occ(cur)))
-				pot_benefits = 1;
-			if ((new_score <= prune_score) && (m_tracker.has_neg_occ(cur)))
-				pot_benefits = 1;
+            if ((new_score > prune_score) && (m_tracker.has_pos_occ(cur)))
+                pot_benefits = 1;
+            if ((new_score <= prune_score) && (m_tracker.has_neg_occ(cur)))
+                pot_benefits = 1;
 
             if (m_tracker.has_uplinks(cur)) {
                 ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
@@ -722,54 +743,55 @@ public:
                     unsigned next_d = m_tracker.get_distance(next);
                     SASSERT(next_d < cur_depth);
                     if (!visited.is_marked(next)) {
-						m_traversal_stack_bool[next_d].push_back(next);
+                        m_traversal_stack_bool[next_d].push_back(next);
                         visited.mark(next);
                     }
                 }
             }
-			else
-			{
-			}
-		}
+            else
+            {
+            }
+        }
 
-		cur_depth_exprs.reset();
+        cur_depth_exprs.reset();
         cur_depth--;
  
-		while (cur_depth != static_cast<unsigned>(-1)) {
-			ptr_vector<expr> & cur_depth_exprs = m_traversal_stack_bool[cur_depth];
-			if (pot_benefits)
-			{
-				unsigned cur_size = cur_depth_exprs.size();
-				for (unsigned i = 0; i < cur_size; i++) {
-					expr * cur = cur_depth_exprs[i];
+        while (cur_depth != static_cast<unsigned>(-1)) {
+            ptr_vector<expr> & cur_depth_exprs = m_traversal_stack_bool[cur_depth];
+            if (pot_benefits)
+            {
+                unsigned cur_size = cur_depth_exprs.size();
+                for (unsigned i = 0; i < cur_size; i++) {
+                    expr * cur = cur_depth_exprs[i];
 
 #if _CACHE_TOP_SCORE_
-					new_score = m_tracker.score(cur); 
-					if (!m_tracker.has_uplinks(cur))
-						m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
-					m_tracker.set_score(cur, new_score);
+                    new_score = m_tracker.score(cur); 
+                    //if (!m_tracker.has_uplinks(cur))
+                    if (m_tracker.is_top_expr(cur))
+                        m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                    m_tracker.set_score(cur, new_score);
 #else
-					m_tracker.set_score(cur, m_tracker.score(cur));
+                    m_tracker.set_score(cur, m_tracker.score(cur));
 #endif
-					if (m_tracker.has_uplinks(cur)) {
-						ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
-						for (unsigned j = 0; j < ups.size(); j++) {
-							expr * next = ups[j];
-							unsigned next_d = m_tracker.get_distance(next);
-							SASSERT(next_d < cur_depth);
-							if (!visited.is_marked(next)) {
-								m_traversal_stack_bool[next_d].push_back(next);
-								visited.mark(next);
-							}
-						}
-					}
-				}
-			}
-			cur_depth_exprs.reset();
-			cur_depth--;
-		}
+                    if (m_tracker.has_uplinks(cur)) {
+                        ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
+                        for (unsigned j = 0; j < ups.size(); j++) {
+                            expr * next = ups[j];
+                            unsigned next_d = m_tracker.get_distance(next);
+                            SASSERT(next_d < cur_depth);
+                            if (!visited.is_marked(next)) {
+                                m_traversal_stack_bool[next_d].push_back(next);
+                                visited.mark(next);
+                            }
+                        }
+                    }
+                }
+            }
+            cur_depth_exprs.reset();
+            cur_depth--;
+        }
 
-		return pot_benefits;
+        return pot_benefits;
     }
 
     void run_update_prune(unsigned max_depth) {
@@ -777,7 +799,7 @@ public:
         expr_fast_mark1 visited;
         mpz new_value;
 
-		unsigned cur_depth = max_depth;
+        unsigned cur_depth = max_depth;
         SASSERT(cur_depth < m_traversal_stack.size());
         while (cur_depth != static_cast<unsigned>(-1)) {
             ptr_vector<expr> & cur_depth_exprs = m_traversal_stack[cur_depth];
@@ -787,7 +809,7 @@ public:
 
                 (*this)(to_app(cur), new_value);
                 m_tracker.set_value(cur, new_value);
-				// should always have uplinks ...
+                // should always have uplinks ...
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
                     for (unsigned j = 0; j < ups.size(); j++) {
@@ -795,10 +817,10 @@ public:
                         unsigned next_d = m_tracker.get_distance(next);
                         SASSERT(next_d < cur_depth);
                         if (!visited.is_marked(next)) {
-							if (m_manager.is_bool(next))
-								m_traversal_stack_bool[max_depth].push_back(next);
-							else
-								m_traversal_stack[next_d].push_back(next);
+                            if (m_manager.is_bool(next))
+                                m_traversal_stack_bool[max_depth].push_back(next);
+                            else
+                                m_traversal_stack[next_d].push_back(next);
                             visited.mark(next);
                         }
                     }
@@ -817,60 +839,23 @@ public:
         expr * ep = m_tracker.get_entry_point(fd);
         unsigned cur_depth = m_tracker.get_distance(ep);
 
-		if (m_traversal_stack_bool.size() <= cur_depth)
+        if (m_traversal_stack_bool.size() <= cur_depth)
             m_traversal_stack_bool.resize(cur_depth+1);
-		if (m_traversal_stack.size() <= cur_depth) 
-				m_traversal_stack.resize(cur_depth+1);
+        if (m_traversal_stack.size() <= cur_depth) 
+                m_traversal_stack.resize(cur_depth+1);
 
-		if (m_manager.is_bool(ep))
-	        m_traversal_stack_bool[cur_depth].push_back(ep);
-		else
-		{
-	        m_traversal_stack[cur_depth].push_back(ep);
-			run_update_prune(cur_depth);
-		}
-		return run_update_bool_prune(cur_depth);
+        if (m_manager.is_bool(ep))
+            m_traversal_stack_bool[cur_depth].push_back(ep);
+        else
+        {
+            m_traversal_stack[cur_depth].push_back(ep);
+            run_update_prune(cur_depth);
+        }
+        return run_update_bool_prune(cur_depth);
     }
 #endif
 
-	void randomize_local(expr * e, unsigned int flip) {
-        ptr_vector<func_decl> & unsat_constants = m_tracker.get_constants(e);
-
-        // Randomize _one_ candidate:
-        unsigned r = m_tracker.get_random_uint(16) % unsat_constants.size();
-        func_decl * fd = unsat_constants[r];
-#if _PERC_CHANGE_
-        sort * srt = fd->get_range();
-		mpz temp;
-
-		if (m_manager.is_bool(srt))
-            m_mpz_manager.set(temp, (m_mpz_manager.is_zero(m_tracker.get_value(fd))) ? m_one : m_zero);
-		else
-        {
-			mpz temp2, mask;
-			unsigned bv_sz = m_bv_util.get_bv_size(srt);
-			m_mpz_manager.set(temp, m_tracker.get_value(fd));
-
-			for (unsigned bit = 0; bit < bv_sz; bit++)
-				if (m_tracker.get_random_uint(16) % 100 < _PERC_CHANGE_)
-	            {
-	                m_mpz_manager.set(mask, m_powers(bit));
-					m_mpz_manager.bitwise_xor(temp, mask, temp2);
-	                m_mpz_manager.set(temp, temp2);
-		        }
-			m_mpz_manager.del(mask);
-			m_mpz_manager.del(temp2);
-		}
-#else
-		mpz temp = m_tracker.get_random(fd->get_range());
-#endif
-		update(fd, temp);
-        m_mpz_manager.del(temp);
-    } 
-
-     void randomize_local(goal_ref const & g, unsigned int flip) {
-        ptr_vector<func_decl> & unsat_constants = m_tracker.get_unsat_constants(g, flip);
-
+    void randomize_local(ptr_vector<func_decl> & unsat_constants) {
         // Randomize _all_ candidates:
 
         //// bool did_something = false;
@@ -889,34 +874,34 @@ public:
         func_decl * fd = unsat_constants[r];
 #if _PERC_CHANGE_
         sort * srt = fd->get_range();
-		mpz temp;
+        mpz temp;
 
-		if (m_manager.is_bool(srt))
+        if (m_manager.is_bool(srt))
             m_mpz_manager.set(temp, (m_mpz_manager.is_zero(m_tracker.get_value(fd))) ? m_one : m_zero);
-		else
+        else
         {
-			mpz temp2, mask;
-			unsigned bv_sz = m_bv_util.get_bv_size(srt);
-			m_mpz_manager.set(temp, m_tracker.get_value(fd));
+            mpz temp2, mask;
+            unsigned bv_sz = m_bv_util.get_bv_size(srt);
+            m_mpz_manager.set(temp, m_tracker.get_value(fd));
 
-			for (unsigned bit = 0; bit < bv_sz; bit++)
-				if (m_tracker.get_random_uint(16) % 100 < _PERC_CHANGE_)
-	            {
-	                m_mpz_manager.set(mask, m_powers(bit));
-					m_mpz_manager.bitwise_xor(temp, mask, temp2);
-	                m_mpz_manager.set(temp, temp2);
-		        }
-			m_mpz_manager.del(mask);
-			m_mpz_manager.del(temp2);
-		}
+            for (unsigned bit = 0; bit < bv_sz; bit++)
+                if (m_tracker.get_random_uint(16) % 100 < _PERC_CHANGE_)
+                {
+                    m_mpz_manager.set(mask, m_powers(bit));
+                    m_mpz_manager.bitwise_xor(temp, mask, temp2);
+                    m_mpz_manager.set(temp, temp2);
+                }
+            m_mpz_manager.del(mask);
+            m_mpz_manager.del(temp2);
+        }
 #else
-		mpz temp = m_tracker.get_random(fd->get_range());
+        mpz temp = m_tracker.get_random(fd->get_range());
 #endif
 
 #if _REAL_RS_ || _REAL_PBFS_
-		serious_update(fd, temp);
+        serious_update(fd, temp);
 #else
-		update(fd, temp);
+        update(fd, temp);
 #endif
         m_mpz_manager.del(temp);
 
@@ -927,6 +912,15 @@ public:
                         tout << "Randomization candidate: " << unsat_constants[r]->get_name() << std::endl;
                         tout << "Locally randomized model: " << std::endl; 
                         m_tracker.show_model(tout); );
+
+    }
+
+    void randomize_local(expr * e) {
+        randomize_local(m_tracker.get_constants(e));
+    } 
+
+     void randomize_local(goal_ref const & g, unsigned int flip) {
+        randomize_local(m_tracker.get_unsat_constants(g, flip));
     } 
 };
 
