@@ -54,7 +54,6 @@ namespace opt {
         unsigned        m_upper;
         unsigned        m_lower;
         model_ref       m_model;
-        unsigned        m_num_steps;
 
         imp(ast_manager& m, opt_solver& s, expr_ref_vector const& soft):
             m(m),
@@ -64,8 +63,7 @@ namespace opt {
             m_orig_soft(soft),
             m_aux(m),
             m_upper(0),
-            m_lower(0),
-            m_num_steps(0)
+            m_lower(0) 
         {
             m_upper = m_soft.size() + 1;
             m_assignment.resize(m_soft.size(), false);
