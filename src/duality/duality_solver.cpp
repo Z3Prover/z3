@@ -1729,6 +1729,8 @@ namespace Duality {
     class DerivationTree {
     public:
 
+      virtual ~DerivationTree(){}
+
       DerivationTree(Duality *_duality, RPFP *rpfp, Reporter *_reporter, Heuristic *_heuristic, bool _full_expand) 
 	: slvr(rpfp->slvr()),
 	  ctx(rpfp->ctx)
@@ -2207,6 +2209,7 @@ namespace Duality {
 
 	    if(ExpandSomeNodes(false,expand_max))
 	      continue;
+	    tree->Pop(1);
 	    while(stack.size() > 1){
 	      tree->Pop(1);	
 	      stack.pop_back();
