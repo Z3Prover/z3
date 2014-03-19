@@ -61,19 +61,25 @@ namespace smt {
         vector<clause>   m_soft;         // soft constraints
         vector<rational> m_weights;      // weights of soft constraints
         rational         m_penalty;      // current penalty of soft constraints
+        rational         m_best_penalty;
         vector<unsigned_vector>  m_hard_occ, m_soft_occ;  // variable occurrence
         svector<bool>    m_assignment;   // current assignment.
+        svector<bool>    m_best_assignment;
         obj_map<func_decl, unsigned> m_decl2var; // map declarations to Boolean variables.
         ptr_vector<func_decl> m_var2decl;        // reverse map
-        uint_set         m_hard_false;      // list of hard clauses that are false.
-        uint_set         m_soft_false;      // list of soft clauses that are false.
-        unsigned         m_max_flips;
+        uint_set         m_hard_false;           // list of hard clauses that are false.
+        uint_set         m_soft_false;           // list of soft clauses that are false.
+        unsigned         m_max_flips;            // maximal number of flips
+        unsigned         m_non_greedy_perc;      // percent of moves to do non-greedy style
+        random_gen       m_rng;
+
         imp(ast_manager& m):
             m(m),
             pb(m),
             m_cancel(false)
         {
             m_max_flips = 100;
+            m_non_greedy_perc = 30;
         }
 
         ~imp() {
@@ -97,10 +103,16 @@ namespace smt {
             }
         }
 
-        void set_value(func_decl* f, bool b) {
-            literal lit = mk_literal(f);
-            SASSERT(!lit.sign());
-            m_assignment[lit.var()] = b;                
+        void set_model(model const& mdl) {
+            unsigned sz = mdl.get_num_constants();
+            for (unsigned i = 0; i < sz; ++i) {
+                func_decl* f = mdl.get_constant(i);
+                if (m.is_bool(f->get_range())) {
+                    literal lit = mk_literal(f);
+                    SASSERT(!lit.sign());
+                    m_assignment[lit.var()] = m.is_true(mdl.get_const_interp(f));
+                }
+            }
         }
 
         lbool operator()() {
@@ -110,8 +122,14 @@ namespace smt {
                 if (m_cancel) {
                     return l_undef;
                 }
+                IF_VERBOSE(3, verbose_stream() 
+                           << "(pb.sls violated: " << m_hard_false.num_elems()
+                           << " penalty: " << m_penalty << ")\n";);
+                if (m_best_penalty.is_zero()) {
+                    return l_true;
+                }
             }
-            return l_undef;
+            return m_best_assignment.empty()?l_false:l_true;
         }
 
         bool get_value(literal l) {
@@ -120,11 +138,16 @@ namespace smt {
         void set_cancel(bool f) {
             m_cancel = f;
         }
+        void get_model(model_ref& mdl) {
+            mdl = alloc(model, m);
+            for (unsigned i = 0; i < m_var2decl.size(); ++i) {
+                mdl->register_decl(m_var2decl[i], m_best_assignment[i]?m.mk_true():m.mk_false());
+            }
+        }
+
         void collect_statistics(statistics& st) const {
         }
-        void get_model(model_ref& mdl) {
-            NOT_IMPLEMENTED_YET();
-        }
+
         void updt_params(params_ref& p) {
         }
 
@@ -155,22 +178,31 @@ namespace smt {
         }
         
         void init() {
+            m_best_assignment.reset();
+            m_best_penalty.reset();
+            m_hard_false.reset();
+            m_hard_occ.reset();
+            m_soft_false.reset();
+            m_soft_occ.reset();
+            m_penalty.reset();
+
             // initialize the occurs vectors.
             init_occ(m_clauses, m_hard_occ);
             init_occ(m_soft, m_soft_occ);
+
             // add clauses that are false.
             for (unsigned i = 0; i < m_clauses.size(); ++i) {
                 if (!eval(m_clauses[i])) {
                     m_hard_false.insert(i);
                 }
             }
-            m_penalty.reset();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 if (!eval(m_soft[i])) {
                     m_soft_false.insert(i);
                     m_penalty += m_weights[i];
                 }
             }
+            m_best_penalty = m_penalty;
         }
         
         void flip() {
@@ -200,8 +232,12 @@ namespace smt {
                 }
                 VERIFY(-break_count == flip(~lit));
             }            
-            // just do a greedy move:
-            flip(cls.m_lits[min_bc_index]);
+            if (m_rng(100) <= m_non_greedy_perc) {
+                flip(cls.m_lits[m_rng(cls.m_lits.size())]);
+            }
+            else {
+                flip(cls.m_lits[min_bc_index]);
+            }
         }
         
         void flip_soft() {
@@ -216,19 +252,30 @@ namespace smt {
                 break_count = flip(lit);
                 SASSERT(break_count >= 0);
                 if (break_count == 0 && penalty > m_penalty) {
-                    // TODO: save into best so far if this qualifies.
+                    if (m_best_penalty > m_penalty) {
+                        IF_VERBOSE(1, verbose_stream() << "(pb.sls improved bound " 
+                                   << m_penalty << ")\n";);
+                        m_best_assignment.reset();
+                        m_best_assignment.append(m_assignment);
+                        m_best_penalty = m_penalty;
+                    }
                     return;
                 }
                 if ((break_count < min_bc) ||
                     (break_count == min_bc && m_penalty < min_penalty)) {
                     min_bc = break_count;
                     min_bc_index = i;
-                    min_penality = m_penalty;
+                    min_penalty = m_penalty;
                 }
                 VERIFY(-break_count == flip(~lit));
             }            
-            // just do a greedy move:
-            flip(cls.m_lits[min_bc_index]);
+            if (m_rng(100) <= m_non_greedy_perc) {
+                flip(cls.m_lits[m_rng(cls.m_lits.size())]);
+            }
+            else {
+                // just do a greedy move:
+                flip(cls.m_lits[min_bc_index]);
+            }
         }
 
         //
@@ -310,13 +357,14 @@ namespace smt {
         literal mk_literal(func_decl* f) {
             SASSERT(f->get_family_id() == null_family_id);
             unsigned var;
-            if (!m_expr2var.find(f, var)) {
+            if (!m_decl2var.find(f, var)) {
                 var = m_hard_occ.size();
-                SASSERT(m_expr2var.size() == var);
+                SASSERT(m_var2decl.size() == var);
+                SASSERT(m_soft_occ.size() == var);
                 m_hard_occ.push_back(unsigned_vector());
                 m_soft_occ.push_back(unsigned_vector());
                 m_assignment.push_back(false);
-                m_expr2var.insert(f, var);
+                m_decl2var.insert(f, var);
                 m_var2decl.push_back(f);
             }
             return literal(var);            
@@ -412,8 +460,8 @@ namespace smt {
     void pb_sls::add(expr* f, rational const& w) {
         m_imp->add(f, w);
     }
-    void pb_sls::set_value(func_decl* f, bool b) {
-        m_imp->set_value(f, b);
+    void pb_sls::set_model(model const& mdl) {
+        m_imp->set_model(mdl);
     }
     lbool pb_sls::operator()() {
         return (*m_imp)();

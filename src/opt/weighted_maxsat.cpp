@@ -28,6 +28,7 @@ Notes:
 #include "tactical.h"
 #include "tactic.h"
 #include "model_smt2_pp.h"
+#include "pb_sls.h"
 
 namespace smt {
 
@@ -521,6 +522,10 @@ namespace opt {
 
         lbool incremental_solve() {
             IF_VERBOSE(3, verbose_stream() << "(incremental solve)\n";);
+            smt::pb_sls sls(m);
+            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
+                sls.add(s.get_assertion(i));
+            }
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
             solver::scoped_push _s(s);
@@ -528,6 +533,7 @@ namespace opt {
             bool was_sat = false;
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 wth().assert_weighted(m_soft[i].get(), m_weights[i]);
+                sls.add(m_soft[i].get(), m_weights[i]);
             }
             solver::scoped_push __s(s);
             while (l_true == is_sat) {
@@ -543,6 +549,11 @@ namespace opt {
                         model_ref mdl;
                         s.get_model(mdl);
                         model_smt2_pp(std::cout, m, *(mdl.get()), 0);
+
+                        sls.set_model(*(mdl.get()));
+                        lbool found = sls();
+                        std::cout << found << "\n";
+                        
                     }
                     expr_ref fml = wth().mk_block();
                     s.assert_expr(fml);

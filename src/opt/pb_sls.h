@@ -35,7 +35,7 @@ namespace smt {
         ~pb_sls();
         void add(expr* f);
         void add(expr* f, rational const& w);
-        void set_value(func_decl* f, bool b);
+        void set_model(model const& mdl);
         lbool operator()();
         void set_cancel(bool f);
         void collect_statistics(statistics& st) const;
