@@ -54,6 +54,7 @@ namespace opt {
         unsigned        m_upper;
         unsigned        m_lower;
         model_ref       m_model;
+        unsigned        m_num_steps;
 
         imp(ast_manager& m, opt_solver& s, expr_ref_vector const& soft):
             m(m),
@@ -63,7 +64,8 @@ namespace opt {
             m_orig_soft(soft),
             m_aux(m),
             m_upper(0),
-            m_lower(0)
+            m_lower(0),
+            m_num_steps(0)
         {
             m_upper = m_soft.size() + 1;
             m_assignment.resize(m_soft.size(), false);
@@ -100,6 +102,7 @@ namespace opt {
             if (m_s != &m_opt_solver) {
                 m_s->collect_statistics(st);
             }
+            st.update("opt-fm-num-steps", m_soft.size() + 2 - m_upper);
         }
 
         void set_union(expr_set const& set1, expr_set const& set2, expr_set & set) const {

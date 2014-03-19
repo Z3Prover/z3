@@ -20,6 +20,7 @@ Notes:
 #include "smt_literal.h"
 #include "ast_pp.h"
 #include "uint_set.h"
+#include "th_rewriter.h"
 
 namespace smt {
     struct pb_sls::imp {
@@ -56,8 +57,11 @@ namespace smt {
         ast_manager&     m;
         pb_util          pb;
         unsynch_mpz_manager mgr;
+        th_rewriter      m_rewrite;
         volatile bool    m_cancel;
         vector<clause>   m_clauses;      // clauses to be satisfied        
+        expr_ref_vector  m_orig_clauses; // for debugging
+        model_ref        m_orig_model;   // for debugging
         vector<clause>   m_soft;         // soft constraints
         vector<rational> m_weights;      // weights of soft constraints
         rational         m_penalty;      // current penalty of soft constraints
@@ -70,66 +74,88 @@ namespace smt {
         uint_set         m_hard_false;           // list of hard clauses that are false.
         uint_set         m_soft_false;           // list of soft clauses that are false.
         unsigned         m_max_flips;            // maximal number of flips
-        unsigned         m_non_greedy_perc;      // percent of moves to do non-greedy style
+        unsigned         m_non_greedy_percent;   // percent of moves to do non-greedy style
         random_gen       m_rng;
 
         imp(ast_manager& m):
             m(m),
             pb(m),
-            m_cancel(false)
+            m_rewrite(m),
+            m_cancel(false),
+            m_orig_clauses(m)
         {
-            m_max_flips = 100;
-            m_non_greedy_perc = 30;
+            init_max_flips();
+            m_non_greedy_percent = 30;
+            m_decl2var.insert(m.mk_true()->get_decl(), 0);
+            m_var2decl.push_back(m.mk_true()->get_decl());
+            m_assignment.push_back(true);
+            m_hard_occ.push_back(unsigned_vector());
+            m_soft_occ.push_back(unsigned_vector());
         }
 
         ~imp() {
         }
 
-        unsigned max_flips() {
-            return m_max_flips;
+        void init_max_flips() {
+            m_max_flips = 200;
         }
 
         void add(expr* f) {
             clause cls(mgr);
             if (compile_clause(f, cls)) {
                 m_clauses.push_back(cls);
+                m_orig_clauses.push_back(f);
             }
         }
         void add(expr* f, rational const& w) {
             clause cls(mgr);
             if (compile_clause(f, cls)) {
-                m_clauses.push_back(cls);
+                m_soft.push_back(cls);
                 m_weights.push_back(w);
             }
         }
 
-        void set_model(model const& mdl) {
-            unsigned sz = mdl.get_num_constants();
+        void set_model(model_ref & mdl) {
+            m_orig_model = mdl;
+            unsigned sz = mdl->get_num_constants();
             for (unsigned i = 0; i < sz; ++i) {
-                func_decl* f = mdl.get_constant(i);
+                func_decl* f = mdl->get_constant(i);
                 if (m.is_bool(f->get_range())) {
                     literal lit = mk_literal(f);
                     SASSERT(!lit.sign());
-                    m_assignment[lit.var()] = m.is_true(mdl.get_const_interp(f));
+                    m_assignment[lit.var()] = m.is_true(mdl->get_const_interp(f));
                 }
             }
         }
 
         lbool operator()() {
             init();
-            for (unsigned i = 0; i < max_flips(); ++i) {
-                flip();
+            IF_VERBOSE(1, verbose_stream() << "(pb.sls initial penalty: " << m_best_penalty << ")\n";
+                       verbose_stream() << "(pb.sls violated: " << m_hard_false.num_elems()
+                       << " penalty: " << m_penalty << ")\n";);
+            init_max_flips();
+            while (m_max_flips > 0) {
+                --m_max_flips;
+                literal lit = flip();
                 if (m_cancel) {
                     return l_undef;
                 }
-                IF_VERBOSE(3, verbose_stream() 
+                IF_VERBOSE(1, verbose_stream() 
                            << "(pb.sls violated: " << m_hard_false.num_elems()
-                           << " penalty: " << m_penalty << ")\n";);
-                if (m_best_penalty.is_zero()) {
+                           << " penalty: " << m_penalty << " " << lit << ")\n";);
+                if (m_hard_false.num_elems() == 0 && m_best_penalty.is_zero()) {
                     return l_true;
                 }
             }
-            return m_best_assignment.empty()?l_false:l_true;
+            IF_VERBOSE(1, verbose_stream() << "(pb.sls best penalty " << m_best_penalty << ")\n";);
+            if (m_best_assignment.empty()) {
+                return l_false;
+            }
+            else {
+                m_assignment.reset();
+                m_assignment.append(m_best_assignment);
+                return l_true;
+            }
         }
 
         bool get_value(literal l) {
@@ -140,8 +166,8 @@ namespace smt {
         }
         void get_model(model_ref& mdl) {
             mdl = alloc(model, m);
-            for (unsigned i = 0; i < m_var2decl.size(); ++i) {
-                mdl->register_decl(m_var2decl[i], m_best_assignment[i]?m.mk_true():m.mk_false());
+            for (unsigned i = 1; i < m_var2decl.size(); ++i) {
+                mdl->register_decl(m_var2decl[i], m_assignment[i]?m.mk_true():m.mk_false());
             }
         }
 
@@ -149,6 +175,40 @@ namespace smt {
         }
 
         void updt_params(params_ref& p) {
+        }
+
+        bool soft_holds(unsigned index) {
+            return eval(m_soft[index]);
+        }
+
+        void display(std::ostream& out, clause const& cls) {
+            for (unsigned i = 0; i < cls.m_lits.size(); ++i) {
+                out << cls.m_weights[i] << "*" << cls.m_lits[i] << " ";
+                if (i + 1 < cls.m_lits.size()) {
+                    out << "+ ";
+                }
+            }
+            out << "(" << cls.m_value << ") ";
+            if (cls.m_eq) {
+                out << "= ";
+            }
+            else {
+                out << ">= ";
+            }
+            out << cls.m_k << "\n";
+        }
+
+        void display(std::ostream& out) {
+            for (unsigned i = 0; i < m_clauses.size(); ++i) {
+                display(out, m_clauses[i]);
+            }
+            out << "soft:\n";
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                display(out << m_weights[i] << ": ", m_soft[i]);
+            }
+            for (unsigned i = 0; i < m_assignment.size(); ++i) {
+                out << literal(i) << ": " << m_var2decl[i]->get_name() << " |-> " << (m_assignment[i]?"true":"false") << "\n";
+            }
         }
 
         bool eval(clause& cls) {
@@ -194,6 +254,9 @@ namespace smt {
             for (unsigned i = 0; i < m_clauses.size(); ++i) {
                 if (!eval(m_clauses[i])) {
                     m_hard_false.insert(i);
+                    expr_ref tmp(m);
+                    VERIFY(m_orig_model->eval(m_orig_clauses[i].get(), tmp));
+                    std::cout << "original evaluation: " << tmp << "\n";
                 }
             }
             for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -203,44 +266,62 @@ namespace smt {
                 }
             }
             m_best_penalty = m_penalty;
+            TRACE("opt", display(tout););
         }
         
-        void flip() {
+        literal flip() {
+            literal result;
             if (m_hard_false.empty()) {
-                flip_soft();
+                result = flip_soft();
             }
             else {
-                flip_hard();
+                result = flip_hard();
             }            
+            if (m_hard_false.empty() && m_best_penalty > m_penalty) {
+                IF_VERBOSE(1, verbose_stream() << "(pb.sls improved bound " << m_penalty << ")\n";);
+                m_best_assignment.reset();
+                m_best_assignment.append(m_assignment);
+                m_best_penalty = m_penalty;
+                init_max_flips();
+            }
+            if (!m_assignment[result.var()]) {
+                result.neg();
+            }
+            return result;
         }
         
-        void flip_hard() {
+        literal flip_hard() {
             SASSERT(!m_hard_false.empty());
+            literal lit;
             clause const& cls = pick_hard_clause();
+            // IF_VERBOSE(1, display(verbose_stream(), cls);); 
             int break_count;
             int min_bc = INT_MAX;
             unsigned min_bc_index = 0;
             for (unsigned i = 0; i < cls.m_lits.size(); ++i) {
-                literal lit = cls.m_lits[i];
+                lit = cls.m_lits[i];
                 break_count = flip(lit);
-                if (break_count <= 0) {
-                    return;
-                }
                 if (break_count < min_bc) {
                     min_bc = break_count;
                     min_bc_index = i;
                 }
+                else if (break_count == min_bc && m_rng(5) == 1) {
+                    min_bc_index = i;
+                }
                 VERIFY(-break_count == flip(~lit));
             }            
-            if (m_rng(100) <= m_non_greedy_perc) {
-                flip(cls.m_lits[m_rng(cls.m_lits.size())]);
+            if (m_rng(100) <= m_non_greedy_percent) {
+                lit = cls.m_lits[m_rng(cls.m_lits.size())];
             }
             else {
-                flip(cls.m_lits[min_bc_index]);
+                lit = cls.m_lits[min_bc_index];
             }
+            flip(lit);
+            return lit;
         }
         
-        void flip_soft() {
+        literal flip_soft() {
+            literal lit;
             clause const& cls = pick_soft_clause();
             int break_count;
             int min_bc = INT_MAX;
@@ -248,18 +329,11 @@ namespace smt {
             rational penalty = m_penalty;
             rational min_penalty = penalty;
             for (unsigned i = 0; i < cls.m_lits.size(); ++i) {
-                literal lit = cls.m_lits[i];
+                lit = cls.m_lits[i];
                 break_count = flip(lit);
                 SASSERT(break_count >= 0);
                 if (break_count == 0 && penalty > m_penalty) {
-                    if (m_best_penalty > m_penalty) {
-                        IF_VERBOSE(1, verbose_stream() << "(pb.sls improved bound " 
-                                   << m_penalty << ")\n";);
-                        m_best_assignment.reset();
-                        m_best_assignment.append(m_assignment);
-                        m_best_penalty = m_penalty;
-                    }
-                    return;
+                    return lit;
                 }
                 if ((break_count < min_bc) ||
                     (break_count == min_bc && m_penalty < min_penalty)) {
@@ -269,13 +343,15 @@ namespace smt {
                 }
                 VERIFY(-break_count == flip(~lit));
             }            
-            if (m_rng(100) <= m_non_greedy_perc) {
-                flip(cls.m_lits[m_rng(cls.m_lits.size())]);
+            if (m_rng(100) <= m_non_greedy_percent) {
+                lit = cls.m_lits[m_rng(cls.m_lits.size())];
             }
             else {
                 // just do a greedy move:
-                flip(cls.m_lits[min_bc_index]);
+                lit = cls.m_lits[min_bc_index];
             }
+            flip(lit);
+            return lit;
         }
 
         //
@@ -313,44 +389,47 @@ namespace smt {
             SASSERT(get_value(l));
             m_assignment[l.var()] = !m_assignment[l.var()];
             int break_count = 0;
-            {
-                unsigned_vector const& occ = m_hard_occ[l.var()];
-                for (unsigned i = 0; i < occ.size(); ++i) {
-                    unsigned j = occ[i];
-                    if (eval(m_clauses[j])) {
-                        if (m_hard_false.contains(j)) {
-                            break_count--;
-                            m_hard_false.remove(j);
-                        }
+            unsigned_vector const& occh = m_hard_occ[l.var()];
+            scoped_mpz value(mgr);
+            for (unsigned i = 0; i < occh.size(); ++i) {
+                unsigned j = occh[i];
+                value = m_clauses[j].m_value;
+                if (eval(m_clauses[j])) {
+                    if (m_hard_false.contains(j)) {
+                        break_count--;
+                        m_hard_false.remove(j);
                     }
-                    else {
-                        if (!m_hard_false.contains(j)) {
-                            break_count++;
-                            m_hard_false.insert(j);
-                        }
+                }
+                else {
+                    if (!m_hard_false.contains(j)) {
+                        break_count++;
+                        m_hard_false.insert(j);
+                    }
+                    else if (value < m_clauses[j].m_value) {
+                        break_count++;
                     }
                 }
             }
-            {
-                unsigned_vector const& occ = m_soft_occ[l.var()];
-                for (unsigned i = 0; i < occ.size(); ++i) {
-                    unsigned j = occ[i];
-                    if (eval(m_soft[j])) {
-                        if (m_soft_false.contains(j)) {
-                            m_penalty -= m_weights[j];
-                            m_soft_false.remove(j);
-                        }
+            unsigned_vector const& occs = m_soft_occ[l.var()];
+            for (unsigned i = 0; i < occs.size(); ++i) {
+                unsigned j = occs[i];
+                if (eval(m_soft[j])) {
+                    if (m_soft_false.contains(j)) {
+                        m_penalty -= m_weights[j];
+                        m_soft_false.remove(j);
                     }
-                    else {
-                        if (!m_soft_false.contains(j)) {
-                            m_penalty += m_weights[j];
-                            m_soft_false.insert(j);
-                        }
+                }
+                else {
+                    if (!m_soft_false.contains(j)) {
+                        m_penalty += m_weights[j];
+                        m_soft_false.insert(j);
                     }
-                }                
-            }
+                }
+            }                
 
             SASSERT(get_value(~l));
+            TRACE("opt", tout << "flip: " << l << " num false: " << m_hard_false.num_elems() 
+                  << " penalty: " << m_penalty << " break count: " << break_count << "\n";);
             return break_count;
         }
 
@@ -396,19 +475,28 @@ namespace smt {
         }
 
         bool compile_clause(expr* _f, clause& cls) {
-            if (!is_app(_f)) return false;
-            app* f = to_app(_f);
+            expr_ref tmp(m);
+            m_rewrite(_f, tmp);
+            if (!is_app(tmp)) return false;            
+            app* f = to_app(tmp);
             unsigned sz = f->get_num_args();
             expr* const* args = f->get_args();
             literal lit;
-            rational coeff;
+            rational coeff, k;
             if (pb.is_ge(f) || pb.is_eq(f)) {
+                k = pb.get_k(f);
+                SASSERT(k.is_int());
+                cls.m_k = k.to_mpq().numerator();
                 for (unsigned i = 0; i < sz; ++i) {
-                    coeff = pb.get_coeff(f, i);
+                    coeff = pb.get_coeff(f, i);                    
                     SASSERT(coeff.is_int());
                     lit = mk_literal(args[i]);
                     if (lit == null_literal) return false;
-                    SASSERT(lit != false_literal && lit != true_literal);
+                    if (lit == false_literal) continue;
+                    if (lit == true_literal) {
+                        cls.m_k -= coeff.to_mpq().numerator();
+                        continue;
+                    }
                     cls.m_lits.push_back(lit);
                     cls.m_weights.push_back(coeff.to_mpq().numerator());
                     if (get_value(lit)) {
@@ -416,15 +504,13 @@ namespace smt {
                     }
                 }
                 cls.m_eq = pb.is_eq(f);
-                coeff = pb.get_k(f);
-                SASSERT(coeff.is_int());
-                cls.m_k = coeff.to_mpq().numerator();
             }
             else if (m.is_or(f)) {
                 for (unsigned i = 0; i < sz; ++i) {
                     lit = mk_literal(args[i]);
                     if (lit == null_literal) return false;
-                    SASSERT(lit != false_literal && lit != true_literal);
+                    if (lit == false_literal) continue;
+                    if (lit == true_literal) return false;
                     cls.m_lits.push_back(lit);
                     cls.m_weights.push_back(mpz(1));
                     if (get_value(lit)) {
@@ -433,6 +519,9 @@ namespace smt {
                 }
                 cls.m_eq = false;
                 cls.m_k = mpz(1);
+            }
+            else if (m.is_true(f)) {
+                return false;
             }
             else {
                 lit = mk_literal(f);
@@ -460,7 +549,7 @@ namespace smt {
     void pb_sls::add(expr* f, rational const& w) {
         m_imp->add(f, w);
     }
-    void pb_sls::set_model(model const& mdl) {
+    void pb_sls::set_model(model_ref& mdl) {
         m_imp->set_model(mdl);
     }
     lbool pb_sls::operator()() {
@@ -474,6 +563,9 @@ namespace smt {
     }
     void pb_sls::get_model(model_ref& mdl) {
         m_imp->get_model(mdl);
+    }
+    bool pb_sls::soft_holds(unsigned index) {
+        return m_imp->soft_holds(index);
     }
     void pb_sls::updt_params(params_ref& p) {
         m_imp->updt_params(p);

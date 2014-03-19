@@ -496,6 +496,7 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     if (k == OP_NUM)
         return mk_num_decl(num_parameters, parameters, arity);
     if (arity == 0 && !is_const_op(k)) {
+        UNREACHABLE();
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return 0;
     }
@@ -513,6 +514,7 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     if (k == OP_NUM)
         return mk_num_decl(num_parameters, parameters, num_args);
     if (num_args == 0 && !is_const_op(k)) {
+        UNREACHABLE();
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return 0;
     }

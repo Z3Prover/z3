@@ -121,7 +121,7 @@ namespace smt {
             unsigned        m_num_propagations;
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
-
+            
             ineq(unsynch_mpz_manager& m, literal l, bool is_eq) : 
                 m_mpz(m), m_lit(l), m_is_eq(is_eq), 
                 m_max_watch(m), m_watch_sum(m), 

@@ -24,6 +24,7 @@ Notes:
 #include"arith_decl_plugin.h"
 #include"elim01_tactic.h"
 #include"model_smt2_pp.h"
+#include"th_rewriter.h"
 
 class bool2int_model_converter : public model_converter {
     ast_manager&                   m;
@@ -120,6 +121,7 @@ public:
     typedef obj_hashtable<expr> expr_set;
     ast_manager &                    m;
     arith_util                       a;
+    th_rewriter                      m_rewriter;
     params_ref                       m_params;
     unsigned                         m_max_hi_default;
     rational                         m_max_hi;
@@ -127,6 +129,7 @@ public:
     elim01_tactic(ast_manager & _m, params_ref const & p):
         m(_m),
         a(m),
+        m_rewriter(m),
         m_max_hi_default(8),
         m_max_hi(rational(m_max_hi_default)) {
     }
@@ -177,12 +180,13 @@ public:
             }
         }
                
-        expr_ref   new_curr(m);
+        expr_ref   new_curr(m), tmp_curr(m);
         proof_ref  new_pr(m);
         
         for (unsigned i = 0; i < g->size(); i++) {
             expr * curr = g->form(i);
-            sub(curr, new_curr);           
+            sub(curr, tmp_curr);           
+            m_rewriter(tmp_curr, new_curr);
             g->update(i, new_curr, new_pr, g->dep(i));
         }
         for (unsigned i = 0; i < axioms.size(); ++i) {
@@ -219,12 +223,18 @@ public:
             ites.push_back(m.mk_ite(xs.back(), a.mk_numeral(rational(1 << sh), true), zero));
             ++sh;
         }
-        if (ites.size() == 1) { 
+        switch (ites.size()) {
+        case 0:
+            sum = zero;
+            break;
+        case 1:
             sum = ites[0].get();
-        }
-        else {
+            break;
+        default:
             sum = a.mk_add(ites.size(), (expr*const*)ites.c_ptr());
+            break;
         }
+        TRACE("pb", tout << mk_pp(x, m) << " " << sum << " max: " << max_value << "\n";);
 
         sub.insert(x, sum);
         b2i->insert(x->get_decl(), xfs.size(), xfs.c_ptr());

@@ -118,7 +118,7 @@ namespace smt {
             m_propagate = true;
         }
 
-        void assert_weighted(expr* fml, rational const& w) {
+        bool_var assert_weighted(expr* fml, rational const& w) {
             context & ctx = get_context();
             ast_manager& m = get_manager();
             app_ref var(m), wfml(m);
@@ -132,7 +132,7 @@ namespace smt {
             m_assigned.push_back(false);
             m_rmin_cost += w;
             m_normalize = true;
-            register_var(var, true);
+            return register_var(var, true);
         }
 
         bool_var register_var(app* var, bool attach) {
@@ -341,6 +341,25 @@ namespace smt {
             return result;
         }
 
+        expr_ref mk_optimal_block(svector<bool_var> const& ws, rational const& weight) {
+            ast_manager& m = get_manager();
+            expr_ref_vector disj(m);
+            rational new_w = weight*m_den;
+            m_zmin_cost = new_w.to_mpq().numerator();
+            m_cost_save.reset();
+            for (unsigned i = 0; i < ws.size(); ++i) {
+                bool_var bv = ws[i];
+                theory_var v = m_bool2var[bv];
+                m_cost_save.push_back(v);
+                disj.push_back(m.mk_not(m_vars[v].get()));
+            }
+            if (m_min_cost_atom) {
+                disj.push_back(m.mk_not(m_min_cost_atom));
+            }
+            expr_ref result(m.mk_or(disj.size(), disj.c_ptr()), m);
+            return result;
+        }
+
 
     private:
 
@@ -493,6 +512,9 @@ namespace opt {
             if (m_engine == symbol("wpm2b")) {
                 return wpm2b_solve();
             }
+            if (m_engine == symbol("sls")) {
+                return sls_solve();
+            }
             return incremental_solve();
         }
 
@@ -522,10 +544,6 @@ namespace opt {
 
         lbool incremental_solve() {
             IF_VERBOSE(3, verbose_stream() << "(incremental solve)\n";);
-            smt::pb_sls sls(m);
-            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
-                sls.add(s.get_assertion(i));
-            }
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
             solver::scoped_push _s(s);
@@ -533,8 +551,9 @@ namespace opt {
             bool was_sat = false;
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 wth().assert_weighted(m_soft[i].get(), m_weights[i]);
-                sls.add(m_soft[i].get(), m_weights[i]);
             }
+            s.display(std::cout);
+
             solver::scoped_push __s(s);
             while (l_true == is_sat) {
                 is_sat = s.check_sat_core(0,0);
@@ -545,17 +564,78 @@ namespace opt {
                     if (wth().is_optimal()) {
                         m_upper = wth().get_min_cost();
                         updt_model(s);
-                        s.display(std::cout);
-                        model_ref mdl;
-                        s.get_model(mdl);
-                        model_smt2_pp(std::cout, m, *(mdl.get()), 0);
-
-                        sls.set_model(*(mdl.get()));
-                        lbool found = sls();
-                        std::cout << found << "\n";
-                        
                     }
                     expr_ref fml = wth().mk_block();
+                    s.assert_expr(fml);
+                    was_sat = true;
+                }
+                IF_VERBOSE(3, verbose_stream() << "(incremental bound)\n";);
+            }
+            if (was_sat) {
+                wth().get_assignment(m_assignment);
+            }
+            if (is_sat == l_false && was_sat) {
+                is_sat = l_true;
+            }
+            m_upper = wth().get_min_cost();
+            if (is_sat == l_true) {
+                m_lower = m_upper;
+            }
+            TRACE("opt", tout << "min cost: " << m_upper << "\n";);
+            return is_sat;
+        }
+
+        lbool sls_solve() {
+            IF_VERBOSE(3, verbose_stream() << "(incremental solve)\n";);
+            smt::pb_sls sls(m);
+            svector<smt::bool_var> ws;
+            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
+                sls.add(s.get_assertion(i));
+            }
+            TRACE("opt", tout << "weighted maxsat\n";);
+            scoped_ensure_theory wth(*this);
+            solver::scoped_push _s(s);
+            lbool is_sat = l_true;
+            bool was_sat = false;
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                ws.push_back(wth().assert_weighted(m_soft[i].get(), m_weights[i]));
+                sls.add(m_soft[i].get(), m_weights[i]);
+            }
+            s.display(std::cout);
+
+            expr_ref fml(m);
+            solver::scoped_push __s(s);
+            while (l_true == is_sat) {
+                is_sat = s.check_sat_core(0,0);
+                if (m_cancel) {
+                    is_sat = l_undef;
+                }
+                if (is_sat == l_true) {
+                    if (wth().is_optimal()) {
+                        m_upper = wth().get_min_cost();
+                        updt_model(s);
+                        sls.set_model(m_model);
+                        if (l_true == sls()) {
+                            sls.get_model(m_model);
+                            svector<smt::bool_var> wsf;
+                            rational weight(0);
+                            for (unsigned i = 0; i < ws.size(); ++i) {
+                                if (!sls.soft_holds(i)) {
+                                    wsf.push_back(ws[i]);
+                                    weight += m_weights[i];
+                                }
+                            }
+                            fml = wth().mk_optimal_block(wsf, weight);
+                            m_upper = weight;
+                            s.assert_expr(fml);
+                        }
+                        else {
+                            fml = wth().mk_block();
+                        }
+                    }
+                    else {
+                        fml = wth().mk_block();
+                    }
                     s.assert_expr(fml);
                     was_sat = true;
                 }
