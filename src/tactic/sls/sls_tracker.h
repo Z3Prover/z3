@@ -1147,11 +1147,12 @@ public:
 #if _PROBABILISTIC_UCT_
             double sum_score = 0.0;
             unsigned start_index = get_random_uint(16) % sz;
-            
+
             for (unsigned i = start_index; i < sz; i++)
             {
                 expr * e = g->form(i);
                 vscore = m_scores.find(e);
+
 #if _PROBABILISTIC_UCT_ == 2
                 double q = vscore.score * vscore.score; 
 #else

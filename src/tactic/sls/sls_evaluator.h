@@ -586,7 +586,7 @@ public:
 #else
                 m_tracker.set_score(cur, m_tracker.score(cur));
 #endif
-#endif			
+#endif            
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
                     for (unsigned j = 0; j < ups.size(); j++) {
@@ -645,7 +645,7 @@ public:
 #else
                 m_tracker.set_score(cur, m_tracker.score(cur));
 #endif
-#endif			
+#endif            
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
                     for (unsigned j = 0; j < ups.size(); j++) {

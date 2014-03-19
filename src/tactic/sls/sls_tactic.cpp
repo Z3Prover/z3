@@ -518,7 +518,6 @@ class sls_tactic : public tactic {
         void mk_random_move(ptr_vector<func_decl> & unsat_constants)
         {
             unsigned rnd_mv = 0;
-
             unsigned ucc = unsat_constants.size(); 
             unsigned rc = (m_tracker.get_random_uint((ucc < 16) ? 4 : (ucc < 256) ? 8 : (ucc < 4096) ? 12 : (ucc < 65536) ? 16 : 32)) % ucc;
             func_decl * fd = unsat_constants[rc];
