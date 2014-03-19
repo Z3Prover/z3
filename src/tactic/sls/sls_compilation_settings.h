@@ -18,6 +18,10 @@ Notes:
     This file should go away completely once we have evaluated all options.
 
 --*/
+
+#ifndef _SLS_COMPILATION_SETTINGS_H_
+#define _SLS_COMPILATION_SETTINGS_H_
+
 // which unsatisfied assertion is selected? only works with _FOCUS_ > 0
 // 0 = random, 1 = #moves, 2 = assertion with min score, 3 = assertion with max score
 #define _BFS_ 0
@@ -155,4 +159,6 @@ InvalidConfiguration;
 #endif
 #if (_PERC_STICKY_ && !_FOCUS_)
 InvalidConfiguration;
+#endif
+
 #endif
