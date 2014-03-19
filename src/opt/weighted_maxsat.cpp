@@ -552,7 +552,6 @@ namespace opt {
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 wth().assert_weighted(m_soft[i].get(), m_weights[i]);
             }
-            s.display(std::cout);
 
             solver::scoped_push __s(s);
             while (l_true == is_sat) {
@@ -601,7 +600,6 @@ namespace opt {
                 ws.push_back(wth().assert_weighted(m_soft[i].get(), m_weights[i]));
                 sls.add(m_soft[i].get(), m_weights[i]);
             }
-            s.display(std::cout);
 
             expr_ref fml(m);
             solver::scoped_push __s(s);
