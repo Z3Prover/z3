@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2014 Microsoft Corporation
+
+Module Name:
+
+    pb_sls.cpp
+
+Abstract:
+   
+    SLS for PB optimization.
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2014-03-18
+
+Notes:
+
+--*/
 #include "pb_sls.h"
 #include "smt_literal.h"
 #include "ast_pp.h"
@@ -105,6 +123,7 @@ namespace smt {
         void collect_statistics(statistics& st) const {
         }
         void get_model(model_ref& mdl) {
+            NOT_IMPLEMENTED_YET();
         }
         void updt_params(params_ref& p) {
         }
@@ -186,8 +205,36 @@ namespace smt {
         }
         
         void flip_soft() {
-            NOT_IMPLEMENTED_YET();
+            clause const& cls = pick_soft_clause();
+            int break_count;
+            int min_bc = INT_MAX;
+            unsigned min_bc_index = 0;
+            rational penalty = m_penalty;
+            rational min_penalty = penalty;
+            for (unsigned i = 0; i < cls.m_lits.size(); ++i) {
+                literal lit = cls.m_lits[i];
+                break_count = flip(lit);
+                SASSERT(break_count >= 0);
+                if (break_count == 0 && penalty > m_penalty) {
+                    // TODO: save into best so far if this qualifies.
+                    return;
+                }
+                if ((break_count < min_bc) ||
+                    (break_count == min_bc && m_penalty < min_penalty)) {
+                    min_bc = break_count;
+                    min_bc_index = i;
+                    min_penality = m_penalty;
+                }
+                VERIFY(-break_count == flip(~lit));
+            }            
+            // just do a greedy move:
+            flip(cls.m_lits[min_bc_index]);
         }
+
+        //
+        // TODO: alternate version: loop over soft clauses and see if there is a flip that 
+        // reduces the penalty while preserving the hard constraints.
+        // 
 
         // crude selection strategy.
         clause const& pick_hard_clause() {
