@@ -26,7 +26,6 @@ Notes:
 #include"elim_uncnstr_tactic.h"
 #include"nnf_tactic.h"
 #include"stopwatch.h"
-
 #include"sls_tactic.h"
 #include"sls_params.hpp"
 #include"sls_engine.h"
@@ -163,7 +162,7 @@ tactic * mk_preamble(ast_manager & m, params_ref const & p) {
                         // Andreas: It would be cool to get rid of shared top level assertions but which simplification is doing this?
                         //mk_ctx_simplify_tactic(m, ctx_p),
                         // Andreas: This one at least eliminates top level duplicates ...
-                        mk_simplify_tactic(m),
+                        //mk_simplify_tactic(m),
                         // Andreas: How does a NNF actually look like? Can it contain ITE operators?
                         mk_nnf_tactic(m, p));
 }

@@ -276,6 +276,20 @@ public:
     }
 #endif
 
+    void uct_forget(goal_ref const & g) {
+        expr * e;
+        unsigned touched_old, touched_new;
+
+        for (unsigned i = 0; i < g->size(); i++)
+        {
+            e = g->form(i);
+            touched_old = m_scores.find(e).touched;
+            touched_new = (unsigned)((touched_old - 1) * _UCT_FORGET_FACTOR_ + 1);
+            m_scores.find(e).touched = touched_new;
+            m_touched += touched_new - touched_old;
+        }
+    }
+
     void initialize(app * n) {
         // Build score table
         if (!m_scores.contains(n)) {
@@ -1196,6 +1210,8 @@ public:
                 double q = vscore.score + _UCT_CONSTANT_ * sqrt(log((double)m_touched)/vscore.touched); 
 #elif _UCT_ == 2
                 double q = vscore.score + (_UCT_CONSTANT_ * (flip - vscore.touched)) / sz; 
+#elif _UCT_ == 3
+                double q = vscore.score + _UCT_CONSTANT_ * sqrt(log(m_touched)/vscore.touched) + (get_random_uint(16) * 0.1 / (2<<16)); 
 #endif
                 if (q > max && m_mpz_manager.neq(get_value(e), m_one) ) { max = q; pos = i; }
             }
@@ -1203,7 +1219,7 @@ public:
             if (pos == static_cast<unsigned>(-1))
                 return m_temp_constants;
 
-#if _UCT_ == 1
+#if _UCT_ == 1 || _UCT_ == 3
             m_scores.find(g->form(pos)).touched++;
             m_touched++;
 #elif _UCT_ == 2
@@ -1344,6 +1360,8 @@ public:
                 double q = vscore.score + _UCT_CONSTANT_ * sqrt(log((double)m_touched) / vscore.touched);
 #elif _UCT_ == 2
             double q = vscore.score + (_UCT_CONSTANT_ * (flip - vscore.touched)) / sz; 
+#elif _UCT_ == 3
+            double q = vscore.score + _UCT_CONSTANT_ * sqrt(log(m_touched)/vscore.touched) + (get_random_uint(16) * 0.1 / (2<<16)); 
 #endif
             if (q > max && m_mpz_manager.neq(get_value(e), m_one) ) { max = q; pos = i; }
             }
@@ -1351,7 +1369,7 @@ public:
         if (pos == static_cast<unsigned>(-1))
             return 0;
 
-#if _UCT_ == 1
+#if _UCT_ == 1 || _UCT_ == 3
         m_scores.find(g->form(pos)).touched++;
         m_touched++;
 #elif _UCT_ == 2

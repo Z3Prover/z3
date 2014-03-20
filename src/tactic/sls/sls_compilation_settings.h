@@ -43,7 +43,7 @@ Notes:
 #define _RESTART_LIMIT_ 10
 // 0 = initialize with all zero, 1 initialize with random value
 #define _RESTART_INIT_ 0
-// 0 = even intervals, 1 = pseudo luby, 2 = real luby, 3 = armin, 4 = rapid
+// 0 = even intervals, 1 = pseudo luby, 2 = real luby, 3 = armin, 4 = rapid, 5 = minisat
 #define _RESTART_SCHEME_ 1
 // base value c for armin restart scheme using c^inner - only applies for _RESTART_SCHEME_ 3
 #define _RESTART_CONST_ARMIN_ 3.0
@@ -104,6 +104,10 @@ Notes:
 // how shall we initialize the _UCT_ total touched counter?
 // 0 = initialize with one, 1 = initialize with number of assertions
 #define _UCT_INIT_ 1
+
+// do we gradually reduce the touched values of _UCT_?
+#define _UCT_FORGET_ 0
+#define _UCT_FORGET_FACTOR_ 0.5
 
 // shall we use addition/subtraction?
 #define _USE_ADDSUB_ 1
