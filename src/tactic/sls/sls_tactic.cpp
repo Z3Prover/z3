@@ -49,7 +49,7 @@ Notes:
 #define _PERC_STICKY_ 0
 
 // do we use dirty unit propagation to get rid of nested top level assertions?
-#define _DIRTY_UP_ 0
+#define _DIRTY_UP_ 1
 
 // do we use restarts?
 // 0 = no, 1 = use #moves, 2 = use #plateaus, 3 = use time
@@ -58,10 +58,10 @@ Notes:
 #define _RESTART_LIMIT_ 10
 // 0 = initialize with all zero, 1 initialize with random value
 #define _RESTART_INIT_ 0
-// 0 = even intervals, 1 = pseudo luby, 2 = real luby, 3 = armin, 4 = rapid
+// 0 = even intervals, 1 = pseudo luby, 2 = real luby, 3 = armin, 4 = rapid, 5 = minisat
 #define _RESTART_SCHEME_ 1
 // base value c for armin restart scheme using c^inner - only applies for _RESTART_SCHEME_ 3
-#define _RESTART_CONST_ARMIN_ 3.0
+#define _RESTART_CONST_ARMIN_ 4.0
 
 // timelimit
 #define _TIMELIMIT_ 3600
@@ -85,7 +85,7 @@ Notes:
 #define _WEIGHT_DIST_ 1
 
 // the factor used for _WEIGHT_DIST_ = 1
-#define _WEIGHT_DIST_FACTOR_ 0.25
+#define _WEIGHT_DIST_FACTOR_ 0.5
 
 // shall we toggle the weight after each restart?
 #define _WEIGHT_TOGGLE_ 0
@@ -104,7 +104,7 @@ Notes:
 #define _UCT_ 1
 
 // how much diversification is used in the UCT-scheme?
-#define _UCT_CONSTANT_ 10.0
+#define _UCT_CONSTANT_ 20.0
 
 // is uct clause selection probabilistic similar to variable selection in sparrow?
 // 0 = no, 1 = yes, use uct-value, 2 = yes, use score-value (_UCT_CONSTANT_ = 0.0) with squared score
@@ -116,9 +116,13 @@ Notes:
 // shall we reset _UCT_ touched values after restart?
 #define _UCT_RESET_ 0
 
+// do we gradually reduce the touched values of _UCT_?
+#define _UCT_FORGET_ 0
+#define _UCT_FORGET_FACTOR_ 0.5
+
 // how shall we initialize the _UCT_ total touched counter?
 // 0 = initialize with one, 1 = initialize with number of assertions
-#define _UCT_INIT_ 1
+#define _UCT_INIT_ 0
 
 // shall we use addition/subtraction?
 #define _USE_ADDSUB_ 1
@@ -265,7 +269,9 @@ class sls_tactic : public tactic {
         {
             if (curr_value > m_restart_limit)
             {
-#if _RESTART_SCHEME_ == 4
+#if _RESTART_SCHEME_ == 5
+                m_restart_limit += (unsigned)(_RESTART_LIMIT_ * pow(_RESTART_CONST_ARMIN_, m_stats.m_restarts));
+#elif _RESTART_SCHEME_ == 4
                 m_restart_limit += (m_stats.m_restarts & (m_stats.m_restarts + 1)) ? _RESTART_LIMIT_ : (_RESTART_LIMIT_ * m_stats.m_restarts + 1);
 #elif _RESTART_SCHEME_ == 3
                 m_restart_limit += (unsigned)get_restart_armin(m_stats.m_restarts + 1) * _RESTART_LIMIT_;
@@ -976,6 +982,11 @@ class sls_tactic : public tactic {
                 checkpoint();
                 m_stats.m_moves++;
 
+#if _UCT_FORGET_
+                if (m_stats.m_moves % _UCT_FORGET_ == 0)
+                    m_tracker.uct_forget(g);
+#endif
+
 #if _REAL_RS_ || _REAL_PBFS_
                 //m_tracker.debug_real(g, m_stats.m_moves);
 #endif
@@ -1277,11 +1288,13 @@ class sls_tactic : public tactic {
 
             verbose_stream() << "_BFS_ " << _BFS_ << std::endl;
             verbose_stream() << "_FOCUS_ " << _FOCUS_ << std::endl;
+            verbose_stream() << "_DIRTY_UP_ " << _DIRTY_UP_ << std::endl;
             verbose_stream() << "_PERC_STICKY_ " << _PERC_STICKY_ << std::endl;
             verbose_stream() << "_RESTARTS_ " << _RESTARTS_ << std::endl;
             verbose_stream() << "_RESTART_LIMIT_ " << _RESTART_LIMIT_ << std::endl;
             verbose_stream() << "_RESTART_INIT_ " << _RESTART_INIT_ << std::endl;
             verbose_stream() << "_RESTART_SCHEME_ " << _RESTART_SCHEME_ << std::endl;
+            verbose_stream() << "_RESTART_CONST_ARMIN_ " << std::fixed << std::setprecision(2) << _RESTART_CONST_ARMIN_ << std::endl;
             verbose_stream() << "_TIMELIMIT_ " << _TIMELIMIT_ << std::endl;
             verbose_stream() << "_SCORE_AND_AVG_ " << _SCORE_AND_AVG_ << std::endl;
             verbose_stream() << "_SCORE_OR_MUL_ " << _SCORE_OR_MUL_ << std::endl;
@@ -1296,6 +1309,8 @@ class sls_tactic : public tactic {
             verbose_stream() << "_UCT_CONSTANT_ " << std::fixed << std::setprecision(2) << _UCT_CONSTANT_ << std::endl;
             verbose_stream() << "_UCT_RESET_ " << _UCT_RESET_ << std::endl;
             verbose_stream() << "_UCT_INIT_ " << _UCT_INIT_ << std::endl;
+            verbose_stream() << "_UCT_FORGET_ " << _UCT_FORGET_ << std::endl;
+            verbose_stream() << "_UCT_FORGET_FACTOR_ " << std::fixed << std::setprecision(2) << _UCT_FORGET_FACTOR_ << std::endl;
             verbose_stream() << "_PROBABILISTIC_UCT_ " << _PROBABILISTIC_UCT_ << std::endl;
             verbose_stream() << "_UCT_EPS_ " << std::fixed << std::setprecision(4) << _UCT_EPS_ << std::endl;
             verbose_stream() << "_USE_ADDSUB_ " << _USE_ADDSUB_ << std::endl;
@@ -1495,7 +1510,7 @@ tactic * mk_preamble(ast_manager & m, params_ref const & p) {
                         // Andreas: It would be cool to get rid of shared top level assertions but which simplification is doing this?
                         //mk_ctx_simplify_tactic(m, ctx_p),
                         // Andreas: This one at least eliminates top level duplicates ...
-                        mk_simplify_tactic(m),
+                        //mk_simplify_tactic(m),
                         // Andreas: How does a NNF actually look like? Can it contain ITE operators?
                         mk_nnf_tactic(m, p));
 }
