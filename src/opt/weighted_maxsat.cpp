@@ -768,7 +768,7 @@ namespace opt {
                             m_upper += m_weights[i];
                         }
                     }                    
-                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << " )\n";);
+                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << ")\n";);
                     fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
                     s.assert_expr(fml);
                     was_sat = true;

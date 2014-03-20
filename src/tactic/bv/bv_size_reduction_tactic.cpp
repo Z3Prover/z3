@@ -109,6 +109,18 @@ struct bv_size_reduction_tactic::imp {
         }
     }
 
+    void ensure_signed(app* lhs, numeral& n) {
+        
+    }
+
+    bool at_upper(app* lhs, numeral const& n) {
+        return false;        
+    }
+
+    bool at_lower(app* lhs, numeral const& n) {
+        return false;        
+    }
+
     void collect_bounds(goal const & g) {
         unsigned sz = g.size();
         numeral  val;
@@ -123,16 +135,35 @@ struct bv_size_reduction_tactic::imp {
             }
             
             if (m_util.is_bv_sle(f, lhs, rhs)) {
+                bv_sz = m_util.get_bv_size(lhs);
                 if (is_uninterp_const(lhs) && m_util.is_numeral(rhs, val, bv_sz)) {
                     TRACE("bv_size_reduction", tout << (negated?"not ":"") << mk_ismt2_pp(f, m) << std::endl; );
                     // v <= k
-                    if (negated) update_signed_lower(to_app(lhs), val+numeral(1));
+                    val = m_util.norm(val, bv_sz, true);
+                    if (negated) {
+                        val += numeral(1);
+                        if (m_util.norm(val, bv_sz, true) != val) {
+                            // bound is infeasible.
+                        } 
+                        else {
+                            update_signed_lower(to_app(lhs), val);
+                        }
+                    }
                     else update_signed_upper(to_app(lhs), val);
                 }
                 else if (is_uninterp_const(rhs) && m_util.is_numeral(lhs, val, bv_sz)) {
                     TRACE("bv_size_reduction", tout << (negated?"not ":"") << mk_ismt2_pp(f, m) << std::endl; );
                     // k <= v
-                    if (negated) update_signed_upper(to_app(rhs), val-numeral(1));
+                    val = m_util.norm(val, bv_sz, true);
+                    if (negated) {
+                        val -= numeral(1);
+                        if (m_util.norm(val, bv_sz, true) != val) {
+                            // bound is infeasible.
+                        } 
+                        else {
+                            update_signed_upper(to_app(lhs), val);
+                        }                        
+                    }
                     else update_signed_lower(to_app(rhs), val);
                 }
             }
