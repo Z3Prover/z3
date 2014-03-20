@@ -1368,12 +1368,12 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     not_e_sgn = m_bv_util.mk_bv_not(e_sgn);
     not_f_sgn = m_bv_util.mk_bv_not(f_sgn);
     not_sign_bv = m_bv_util.mk_bv_not(sign_bv);
-    res_sgn_c1 = m.mk_app(bvfid, OP_BAND, not_e_sgn, e_sgn, sign_bv);
+    res_sgn_c1 = m.mk_app(bvfid, OP_BAND, not_e_sgn, f_sgn, sign_bv);
     res_sgn_c2 = m.mk_app(bvfid, OP_BAND, e_sgn, not_f_sgn, not_sign_bv);
     res_sgn_c3 = m.mk_app(bvfid, OP_BAND, e_sgn, f_sgn);
     expr * res_sgn_or_args[3] = { res_sgn_c1, res_sgn_c2, res_sgn_c3 };   
     res_sgn = m_bv_util.mk_bv_or(3, res_sgn_or_args);
-    
+
     sticky_raw = m_bv_util.mk_extract(sbits-5, 0, sig_abs);
     sticky = m_bv_util.mk_zero_extend(sbits+3, m.mk_app(bvfid, OP_BREDOR, sticky_raw.get()));
     dbg_decouple("fpa2bv_fma_add_sum_sticky", sticky);

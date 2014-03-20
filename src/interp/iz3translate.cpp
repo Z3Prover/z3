@@ -188,6 +188,15 @@ public:
       get_Z3_lits(con, lits);
       iproof->make_axiom(lits);
     }
+#ifdef LOCALIZATION_KLUDGE
+    else if(dk == PR_MODUS_PONENS && pr(prem(proof,0)) == PR_QUANT_INST
+	    && get_locality_rec(prem(proof,1)) == INT_MAX){
+      std::vector<ast> lits;
+      ast con = conc(proof);
+      get_Z3_lits(con, lits);
+      iproof->make_axiom(lits);
+    }
+#endif
     else {
       unsigned nprems = num_prems(proof);
       for(unsigned i = 0; i < nprems; i++){
@@ -1271,6 +1280,84 @@ public:
     return make(Plus,args);
   }
 
+
+  ast replace_summands_with_fresh_vars(const ast &t, hash_map<ast,ast> &map){
+    if(op(t) == Plus){
+      int nargs = num_args(t);
+      std::vector<ast> args(nargs);
+      for(int i = 0; i < nargs; i++)
+	args[i] = replace_summands_with_fresh_vars(arg(t,i),map);
+      return make(Plus,args);
+    }
+    if(op(t) == Times)
+      return make(Times,arg(t,0),replace_summands_with_fresh_vars(arg(t,1),map));
+    if(map.find(t) == map.end())
+      map[t] =  mk_fresh_constant("@s",get_type(t));
+    return map[t];
+  }
+
+  ast painfully_normalize_ineq(const ast &ineq, hash_map<ast,ast> &map){
+    ast res = normalize_inequality(ineq);
+    ast lhs = arg(res,0);
+    lhs = replace_summands_with_fresh_vars(lhs,map);
+    res = make(op(res),SortSum(lhs),arg(res,1));
+    return res;
+  }
+
+  Iproof::node painfully_reconstruct_farkas(const std::vector<ast> &prems, const std::vector<Iproof::node> &pfs, const ast &con){
+    int nprems = prems.size();
+    std::vector<ast> pcons(nprems),npcons(nprems);
+    hash_map<ast,ast> pcon_to_pf, npcon_to_pcon, pain_map;
+    for(int i = 0; i < nprems; i++){
+      pcons[i] = conc(prems[i]);
+      npcons[i] = painfully_normalize_ineq(pcons[i],pain_map);
+      pcon_to_pf[npcons[i]] = pfs[i];
+      npcon_to_pcon[npcons[i]] = pcons[i];
+    }
+    // ast leq = make(Leq,arg(con,0),arg(con,1));
+    ast ncon = painfully_normalize_ineq(mk_not(con),pain_map);
+    pcons.push_back(mk_not(con));
+    npcons.push_back(ncon);
+    // ast assumps = make(And,pcons);
+    ast new_proof;
+    if(is_sat(npcons,new_proof))
+      throw "Proof error!";
+    pfrule dk = pr(new_proof);
+    int nnp = num_prems(new_proof);
+    std::vector<Iproof::node> my_prems;
+    std::vector<ast> farkas_coeffs, my_pcons;
+
+    if(dk == PR_TH_LEMMA 
+       && get_theory_lemma_theory(new_proof) == ArithTheory
+       && get_theory_lemma_kind(new_proof) == FarkasKind)
+      get_farkas_coeffs(new_proof,farkas_coeffs);
+    else if(dk == PR_UNIT_RESOLUTION && nnp == 2){
+      for(int i = 0; i < nprems; i++)
+	farkas_coeffs.push_back(make_int(rational(1)));
+    }
+    else
+      throw "cannot reconstruct farkas proof";
+
+    for(int i = 0; i < nnp; i++){
+      ast p = conc(prem(new_proof,i));
+      p = really_normalize_ineq(p);
+      if(pcon_to_pf.find(p) != pcon_to_pf.end()){
+	my_prems.push_back(pcon_to_pf[p]);
+	my_pcons.push_back(npcon_to_pcon[p]);
+      }
+      else if(p == ncon){
+	my_prems.push_back(iproof->make_hypothesis(mk_not(con)));
+	my_pcons.push_back(mk_not(con));
+      }
+      else
+	throw "cannot reconstruct farkas proof";
+    }
+    Iproof::node res = iproof->make_farkas(mk_false(),my_prems,my_pcons,farkas_coeffs);
+    return res;
+  }
+
+
+
   ast really_normalize_ineq(const ast &ineq){
     ast res = normalize_inequality(ineq);
     res = make(op(res),SortSum(arg(res,0)),arg(res,1));
@@ -1309,7 +1396,7 @@ public:
 	farkas_coeffs.push_back(make_int(rational(1)));
     }
     else
-      throw "cannot reconstruct farkas proof";
+      return painfully_reconstruct_farkas(prems,pfs,con);
 
     for(int i = 0; i < nnp; i++){
       ast p = conc(prem(new_proof,i));
@@ -1452,9 +1539,11 @@ public:
 	lits.push_back(from_ast(con));
 
       // pattern match some idioms
-      if(dk == PR_MODUS_PONENS && pr(prem(proof,0)) == PR_QUANT_INST && pr(prem(proof,1)) == PR_REWRITE ) {
-	res = iproof->make_axiom(lits);
-	return res;
+      if(dk == PR_MODUS_PONENS && pr(prem(proof,0)) == PR_QUANT_INST){
+	if(get_locality_rec(prem(proof,1)) == INT_MAX) {
+	  res = iproof->make_axiom(lits);
+	  return res;
+	}
       }
       if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or){
 	Iproof::node clause = translate_main(prem(proof,0),true);
@@ -1465,12 +1554,20 @@ public:
       if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or)
 	std::cout << "foo!\n";
 
+#if 0
       if(1 && dk == PR_TRANSITIVITY && pr(prem(proof,1)) == PR_COMMUTATIVITY){
 	Iproof::node clause = translate_main(prem(proof,0),true);
 	res = make(commute,clause,conc(prem(proof,0))); // HACK -- we depend on Iproof::node being same as ast.
 	return res;
       }
       
+      if(1 && dk == PR_TRANSITIVITY && pr(prem(proof,0)) == PR_COMMUTATIVITY){
+	Iproof::node clause = translate_main(prem(proof,1),true);
+	res = make(commute,clause,conc(prem(proof,1))); // HACK -- we depend on Iproof::node being same as ast.
+	return res;
+      }
+#endif
+
       if(dk == PR_TRANSITIVITY && is_eq_propagate(prem(proof,1))){
 	try {
 	  res = CombineEqPropagate(proof);
@@ -1627,9 +1724,10 @@ public:
 	  break;
 	case ArrayTheory: {// nothing fancy for this
 	  ast store_array;
-	  if(!get_store_array(con,store_array))
-	    throw unsupported();
-	  res = iproof->make_axiom(lits,ast_scope(store_array));
+	  if(get_store_array(con,store_array))
+	    res = iproof->make_axiom(lits,ast_scope(store_array));
+	  else
+	    res = iproof->make_axiom(lits); // for array extensionality axiom
 	  break;
 	}
 	default:
@@ -1651,6 +1749,12 @@ public:
       }
       case PR_IFF_TRUE: { // turns p into p <-> true, noop for us
 	res = args[0];
+	break;
+      }
+      case PR_COMMUTATIVITY: {
+	ast comm_equiv = make(op(con),arg(con,0),arg(con,0));
+	ast pf = iproof->make_reflexivity(comm_equiv);
+	res = make(commute,pf,comm_equiv);
 	break;
       }
       default:

@@ -51,11 +51,16 @@ Revision History:
 // #define TOP_DOWN
 // #define EFFORT_BOUNDED_STRAT
 #define SKIP_UNDERAPPROX_NODES
-#define USE_RPFP_CLONE
 // #define KEEP_EXPANSIONS
 // #define USE_CACHING_RPFP
 // #define PROPAGATE_BEFORE_CHECK
+
+#define USE_RPFP_CLONE
 #define USE_NEW_GEN_CANDS
+
+//#define NO_PROPAGATE
+//#define NO_GENERALIZE
+//#define NO_DECISIONS
 
 namespace Duality {
 
@@ -129,13 +134,11 @@ namespace Duality {
       {
 	scoped_no_proof no_proofs_please(ctx.m());
 #ifdef USE_RPFP_CLONE
-	clone_ls = new RPFP::iZ3LogicSolver(ctx, false); // no models needed for this one
-      clone_rpfp = new RPFP_caching(clone_ls);
+      clone_rpfp = new RPFP_caching(rpfp->ls);
       clone_rpfp->Clone(rpfp);
 #endif      
 #ifdef USE_NEW_GEN_CANDS
-      gen_cands_ls = new RPFP::iZ3LogicSolver(ctx);
-      gen_cands_rpfp = new RPFP_caching(gen_cands_ls);
+      gen_cands_rpfp = new RPFP_caching(rpfp->ls);
       gen_cands_rpfp->Clone(rpfp);
 #endif      
       }
@@ -144,20 +147,16 @@ namespace Duality {
     ~Duality(){
 #ifdef USE_RPFP_CLONE
       delete clone_rpfp;
-      delete clone_ls;
 #endif      
 #ifdef USE_NEW_GEN_CANDS
       delete gen_cands_rpfp;
-      delete gen_cands_ls;
 #endif
     }
 
 #ifdef USE_RPFP_CLONE
-    RPFP::LogicSolver *clone_ls;
     RPFP_caching *clone_rpfp;
 #endif      
 #ifdef USE_NEW_GEN_CANDS
-    RPFP::LogicSolver *gen_cands_ls;
     RPFP_caching *gen_cands_rpfp;
 #endif      
 
@@ -1255,7 +1254,7 @@ namespace Duality {
 	slvr.pop(1);
 	delete checker;
 #else
-	RPFP_caching::scoped_solver_for_edge(gen_cands_rpfp,edge,true /* models */);
+	RPFP_caching::scoped_solver_for_edge ssfe(gen_cands_rpfp,edge,true /* models */, true /*axioms*/);
 	gen_cands_rpfp->Push();
 	Node *root = CheckerForEdgeClone(edge,gen_cands_rpfp);
 	if(gen_cands_rpfp->Check(root) != unsat){
@@ -1940,11 +1939,15 @@ namespace Duality {
 	      for(unsigned i = 0; i < expansions.size(); i++){
 		Node *node = expansions[i];
 		tree->SolveSingleNode(top,node);
+#ifdef NO_GENERALIZE
+		node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
+#else
 		if(expansions.size() == 1 && NodeTooComplicated(node))
 		  SimplifyNode(node);
 		else
 		  node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
 		Generalize(node);
+#endif
 		if(RecordUpdate(node))
 		  update_count++;
 		else
@@ -1984,7 +1987,9 @@ namespace Duality {
 	      if(stack.size() == 1)break;
 	      if(prev_level_used){
 		Node *node = stack.back().expansions[0];
+#ifndef NO_PROPAGATE
 		if(!Propagate(node)) break;
+#endif
 		if(!RecordUpdate(node)) break; // shouldn't happen!
 		RemoveUpdateNodesAtCurrentLevel(); // this level is about to be deleted -- remove its children from update list
 		propagated = true;
@@ -2006,11 +2011,13 @@ namespace Duality {
 	  }
 	  else {
 	    was_sat = true;
-	    tree->Push();
+	    tree->Push();
 	    std::vector<Node *> &expansions = stack.back().expansions;
+#ifndef NO_DECISIONS
 	    for(unsigned i = 0; i < expansions.size(); i++){
 	      tree->FixCurrentState(expansions[i]->Outgoing);
 	    }
+#endif
 #if 0
 	    if(tree->slvr().check() == unsat)
 	      throw "help!";
