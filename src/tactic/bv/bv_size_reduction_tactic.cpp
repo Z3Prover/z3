@@ -109,18 +109,6 @@ struct bv_size_reduction_tactic::imp {
         }
     }
 
-    void ensure_signed(app* lhs, numeral& n) {
-        
-    }
-
-    bool at_upper(app* lhs, numeral const& n) {
-        return false;        
-    }
-
-    bool at_lower(app* lhs, numeral const& n) {
-        return false;        
-    }
-
     void collect_bounds(goal const & g) {
         unsigned sz = g.size();
         numeral  val;
