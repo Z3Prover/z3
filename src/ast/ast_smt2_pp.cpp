@@ -478,6 +478,25 @@ class smt2_printer {
     ast_manager & m() const { return m_manager; }
     ast_manager & fm() const { return format_ns::fm(m()); }
 
+    std::string ensure_quote(symbol const& s) {
+        std::string str;
+        if (is_smt2_quoted_symbol(s))
+            str = mk_smt2_quoted_symbol(s);
+        else
+            str = s.str();
+        return str;
+    }
+
+    symbol ensure_quote_sym(symbol const& s) {
+        if (is_smt2_quoted_symbol(s)) {
+            std::string str;
+            str = mk_smt2_quoted_symbol(s);
+            return symbol(str.c_str());
+        }
+        else
+            return s;
+    }
+
     void pp_var(var * v) {
         format * f;
         if (v->get_idx() < m_var_names.size()) {
@@ -507,11 +526,7 @@ class smt2_printer {
     }
 
     format * pp_simple_attribute(char const * attr, symbol const & s) {
-        std::string str;
-        if (is_smt2_quoted_symbol(s))
-            str = mk_smt2_quoted_symbol(s);
-        else
-            str = s.str();
+        std::string str = ensure_quote(s);
         return mk_compose(m(), mk_string(m(), attr), mk_string(m(), str.c_str()));
     }
 
@@ -779,7 +794,7 @@ class smt2_printer {
     void register_var_names(quantifier * q) {
         unsigned num_decls = q->get_num_decls();
         for (unsigned i = 0; i < num_decls; i++) {
-            symbol name = q->get_decl_name(i);
+            symbol name = ensure_quote_sym(q->get_decl_name(i));            
             if (name.is_numerical()) {
                 unsigned idx = 1;
                 name = next_name("x", idx);
@@ -1003,6 +1018,7 @@ public:
         unsigned idx = 1;
         for (unsigned i = 0; i < num; i++) {
             symbol name = next_name(var_prefix, idx);
+            name = ensure_quote_sym(name);
             var_names.push_back(name);
             m_var_names_set.insert(name);
             m_var_names.push_back(name);

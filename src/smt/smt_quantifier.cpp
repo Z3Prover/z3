@@ -441,10 +441,10 @@ namespace smt {
         virtual bool mbqi_enabled(quantifier *q) const { 
             if(!m_fparams->m_mbqi_id) return true;
             const symbol &s = q->get_qid();
-            unsigned len = strlen(m_fparams->m_mbqi_id);
+            size_t len = strlen(m_fparams->m_mbqi_id);
             if(s == symbol::null || s.is_numerical())
                 return len == 0;
-            return strncmp(s.bare_str(),m_fparams->m_mbqi_id,static_cast<unsigned>(len)) == 0;
+            return strncmp(s.bare_str(),m_fparams->m_mbqi_id,len) == 0;
 	}
 
       /* Quantifier id's must begin with the prefix specified by

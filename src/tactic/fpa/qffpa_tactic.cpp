@@ -42,7 +42,7 @@ struct is_non_qffpa_predicate {
     ast_manager & m;
     float_util    u;
 
-    is_non_qffpa_predicate(ast_manager & _m) :m(_m), u(m) {}
+    is_non_qffpa_predicate(ast_manager & _m) : m(_m), u(m) {}
 
     void operator()(var *) { throw found(); }
 
@@ -50,7 +50,7 @@ struct is_non_qffpa_predicate {
 
     void operator()(app * n) {
         sort * s = get_sort(n);
-        if (!(m.is_bool(s) || u.is_float(s) || u.is_rm(s)))
+        if (!m.is_bool(s) && !u.is_float(s) && !u.is_rm(s))
             throw found();
         family_id fid = n->get_family_id();
         if (fid == m.get_basic_family_id())
@@ -70,7 +70,7 @@ struct is_non_qffpabv_predicate {
     bv_util       bu;
     float_util    fu;
 
-    is_non_qffpabv_predicate(ast_manager & _m) :m(_m), bu(m), fu(m) {}
+    is_non_qffpabv_predicate(ast_manager & _m) : m(_m), bu(m), fu(m) {}
 
     void operator()(var *) { throw found(); }
 

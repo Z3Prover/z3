@@ -2711,10 +2711,12 @@ namespace Duality {
       const std::vector<expr> &theory = ls->get_axioms();
       for(unsigned i = 0; i < theory.size(); i++)
 	s.add(theory[i]);
-      if(s.check(lits.size(),&lits[0]) != unsat)
-	throw "should be unsat";
+      for(int k = 0; k < 100; k++) // keep trying, maybe MBQI will do something!
+	if(s.check(lits.size(),&lits[0]) == unsat)
+	  goto is_unsat;
+      throw "should be unsat";
     }
-    
+  is_unsat:
     for(unsigned i = 0; i < conjuncts.size(); ){
       std::swap(conjuncts[i],conjuncts.back());
       std::swap(lits[i],lits.back());
@@ -2747,8 +2749,20 @@ namespace Duality {
     
     // verify
     check_result res = CheckCore(lits,full_core);
-    if(res != unsat)
+    if(res != unsat){
+      // add the axioms in the off chance they are useful
+      const std::vector<expr> &theory = ls->get_axioms();
+      for(unsigned i = 0; i < theory.size(); i++)
+	GetAssumptionLits(theory[i],assumps);
+      lits = assumps; 
+      std::copy(core.begin(),core.end(),std::inserter(lits,lits.end()));
+      
+      for(int k = 0; k < 100; k++) // keep trying, maybe MBQI will do something!
+	if((res = CheckCore(lits,full_core)) == unsat)
+	  goto is_unsat;
       throw "should be unsat";
+    }
+  is_unsat:
     FilterCore(core,full_core);
     
     std::vector<expr> dummy;
@@ -2889,13 +2903,20 @@ namespace Duality {
     timer_stop("Generalize");
   }
 
-  RPFP::LogicSolver *RPFP_caching::SolverForEdge(Edge *edge, bool models){
-    uptr<LogicSolver> &p = edge_solvers[edge];
+  RPFP_caching::edge_solver &RPFP_caching::SolverForEdge(Edge *edge, bool models, bool axioms){
+    edge_solver &es = edge_solvers[edge];
+    uptr<solver> &p = es.slvr;
     if(!p.get()){
       scoped_no_proof no_proofs_please(ctx.m()); // no proofs
-      p.set(new iZ3LogicSolver(ctx,models)); // no models
+      p.set(new solver(ctx,true,models)); // no models
+      if(axioms){
+	RPFP::LogicSolver *ls = edge->owner->ls;
+	const std::vector<expr> &axs = ls->get_axioms();
+	for(unsigned i = 0; i < axs.size(); i++)
+	  p.get()->add(axs[i]);
+      }
     }
-    return p.get();
+    return es;
   }
 
 
@@ -3362,6 +3383,8 @@ namespace Duality {
       }
     }
 
+    bool some_labels = false;
+
     // create the edges
 
     for(unsigned i = 0; i < clauses.size(); i++){
@@ -3397,17 +3420,23 @@ namespace Duality {
       Term labeled = body;
       std::vector<label_struct > lbls;  // TODO: throw this away for now
       body = RemoveLabels(body,lbls);
+      if(!eq(labeled,body))
+	some_labels = true; // remember if there are labels, as we then can't do qe_lite
       // body = IneqToEq(body); // UFO converts x=y to (x<=y & x >= y). Undo this.
       body = body.simplify();
 
 #ifdef USE_QE_LITE
       std::set<int> idxs;
-      for(unsigned j = 0; j < Indparams.size(); j++)
-	if(Indparams[j].is_var())
-	  idxs.insert(Indparams[j].get_index_value());
-      body = body.qe_lite(idxs,false);
+      if(!some_labels){ // can't do qe_lite if we have to reconstruct labels
+	for(unsigned j = 0; j < Indparams.size(); j++)
+	  if(Indparams[j].is_var())
+	    idxs.insert(Indparams[j].get_index_value());
+	body = body.qe_lite(idxs,false);
+      }
       hash_map<int,hash_map<ast,Term> > sb_memo;
       body = SubstBoundRec(sb_memo,substs[i],0,body);
+      if(some_labels)
+	labeled = SubstBoundRec(sb_memo,substs[i],0,labeled);
       for(unsigned j = 0; j < Indparams.size(); j++)
 	Indparams[j] = SubstBoundRec(sb_memo, substs[i], 0, Indparams[j]);
 #endif
