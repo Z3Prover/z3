@@ -2077,6 +2077,7 @@ namespace smt2 {
 
         void parse_option_value() {
             switch (curr()) {
+            case scanner::BV_TOKEN:
             case scanner::INT_TOKEN:
             case scanner::FLOAT_TOKEN:
                 m_curr_cmd->set_next_arg(m_ctx, m_scanner.get_number());
