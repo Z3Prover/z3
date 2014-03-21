@@ -141,7 +141,8 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
         for (unsigned i = 0; i < args.size(); ++i) {
             args[i].second = PBU::numeral::one();
         }
-        k = PBU::numeral(args.size());
+        typename PBU::numeral num(args.size()); 
+        k = num;
         return l_undef;
     }
     
@@ -184,7 +185,8 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
         for (unsigned i = 0; i < args.size(); ++i) {
             args[i].second = PBU::numeral::one();
         }
-        k = PBU::numeral(args.size());
+        typename PBU::numeral num(args.size()); 
+        k = num;
     }
     
     // apply cutting plane reduction:
