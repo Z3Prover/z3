@@ -50,7 +50,7 @@ namespace simplex {
         typedef typename Ext::eps_manager eps_manager;
         typedef typename Ext::scoped_numeral scoped_numeral;
         typedef _scoped_numeral<eps_manager> scoped_eps_numeral;
-        typedef typename _scoped_numeral_vector<eps_manager> scoped_eps_numeral_vector;
+        typedef _scoped_numeral_vector<eps_manager> scoped_eps_numeral_vector;
         typedef sparse_matrix<Ext> matrix;
         struct var_lt {
             bool operator()(var_t v1, var_t v2) const { return v1 < v2; }

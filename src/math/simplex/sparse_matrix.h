@@ -63,7 +63,7 @@ namespace simplex {
             };            
             _row_entry(numeral const & c, var_t v): row_entry(c, v), m_col_idx(0) {}
             _row_entry() : row_entry(numeral(), dead_id), m_col_idx(0) {}
-            bool is_dead() const { return m_var == dead_id; }
+            bool is_dead() const { return row_entry::m_var == dead_id; }
         };
 
         /**
@@ -169,7 +169,7 @@ namespace simplex {
         void gcd_normalize(row const& r, scoped_numeral& g);
 
         class row_iterator {
-            friend sparse_matrix;
+            friend class sparse_matrix;
             unsigned   m_curr;
             _row &     m_row;
             void move_to_used() {
@@ -202,7 +202,7 @@ namespace simplex {
         unsigned column_size(var_t v) const { return m_columns[v].size(); }
 
         class col_iterator {
-            friend sparse_matrix;
+            friend class sparse_matrix;
             unsigned             m_curr;
             column const&        m_col;
             vector<_row> const&  m_rows;
