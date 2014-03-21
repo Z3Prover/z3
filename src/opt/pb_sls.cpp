@@ -19,11 +19,49 @@ Notes:
 #include "pb_sls.h"
 #include "smt_literal.h"
 #include "ast_pp.h"
-#include "uint_set.h"
 #include "th_rewriter.h"
 
 namespace smt {
     struct pb_sls::imp {
+
+        struct index_set {
+            unsigned_vector m_elems;
+            unsigned_vector m_index;
+            
+            unsigned num_elems() const { return m_elems.size(); }
+
+            void reset() { m_elems.reset(); m_index.reset(); }
+
+            bool empty() const { return m_elems.empty(); }
+
+            bool contains(unsigned idx) const {
+                return 
+                    (idx < m_index.size()) && 
+                    (m_index[idx] < m_elems.size()) && 
+                    (m_elems[m_index[idx]] == idx);
+            }
+
+            void insert(unsigned idx) {
+                m_index.reserve(idx+1);
+                if (!contains(idx)) {
+                    m_index[idx] = m_elems.size();
+                    m_elems.push_back(idx);
+                }
+            }
+
+            void remove(unsigned idx) {
+                if (!contains(idx)) return;
+                unsigned pos = m_index[idx];
+                m_elems[pos] = m_elems.back();
+                m_index[m_elems[pos]] = pos;
+                m_elems.pop_back();
+            }
+
+            unsigned choose(random_gen& rnd) const {
+                SASSERT(!empty());
+                return m_elems[rnd(num_elems())];
+            }
+        };
 
         struct clause {
             literal_vector    m_lits;
@@ -71,8 +109,8 @@ namespace smt {
         svector<bool>    m_best_assignment;
         obj_map<func_decl, unsigned> m_decl2var; // map declarations to Boolean variables.
         ptr_vector<func_decl> m_var2decl;        // reverse map
-        uint_set         m_hard_false;           // list of hard clauses that are false.
-        uint_set         m_soft_false;           // list of soft clauses that are false.
+        index_set        m_hard_false;           // list of hard clauses that are false.
+        index_set        m_soft_false;           // list of soft clauses that are false.
         unsigned         m_max_flips;            // maximal number of flips
         unsigned         m_non_greedy_percent;   // percent of moves to do non-greedy style
         random_gen       m_rng;
@@ -133,29 +171,46 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "(pb.sls initial penalty: " << m_best_penalty << ")\n";
                        verbose_stream() << "(pb.sls violated: " << m_hard_false.num_elems()
                        << " penalty: " << m_penalty << ")\n";);
-            init_max_flips();
-            while (m_max_flips > 0) {
-                --m_max_flips;
-                literal lit = flip();
-                if (m_cancel) {
-                    return l_undef;
+            svector<bool> assignment(m_assignment);
+            for (unsigned i = 0; i < 20; ++i) {
+                init_max_flips();
+                while (m_max_flips > 0) {
+                    --m_max_flips;
+                    literal lit = flip();
+                    if (m_cancel) {
+                        return l_undef;
+                    }
+                    IF_VERBOSE(1, verbose_stream() 
+                               << "(pb.sls violated: " << m_hard_false.num_elems()
+                               << " penalty: " << m_penalty << " " << lit << ")\n";);
+                    if (m_hard_false.empty() && m_best_penalty.is_zero()) {
+                        break;
+                    }
                 }
-                IF_VERBOSE(1, verbose_stream() 
-                           << "(pb.sls violated: " << m_hard_false.num_elems()
-                           << " penalty: " << m_penalty << " " << lit << ")\n";);
-                if (m_hard_false.num_elems() == 0 && m_best_penalty.is_zero()) {
-                    return l_true;
+                if (m_hard_false.empty() && m_best_penalty.is_zero()) {
+                    break;
                 }
-            }
-            IF_VERBOSE(1, verbose_stream() << "(pb.sls best penalty " << m_best_penalty << ")\n";);
-            if (m_best_assignment.empty()) {
-                return l_false;
-            }
-            else {
+                IF_VERBOSE(1, verbose_stream() << "(pb.sls best penalty " << m_best_penalty << ")\n";);
+                if (!m_best_assignment.empty()) {
+                    assignment.reset();
+                    assignment.append(m_best_assignment);
+                }
                 m_assignment.reset();
-                m_assignment.append(m_best_assignment);
-                return l_true;
+                m_assignment.append(assignment);
+                m_penalty = m_best_penalty;
+                m_best_assignment.reset();      
+                m_soft_false.reset();
+                for (unsigned i = 0; i < m_soft.size(); ++i) {
+                    if (!eval(m_soft[i])) {
+                        m_soft_false.insert(i);
+                        m_penalty += m_weights[i];
+                    }
+                }
             }
+            m_assignment.reset();
+            m_assignment.append(assignment);
+            m_penalty = m_best_penalty;
+            return l_true;
         }
 
         bool get_value(literal l) {
@@ -362,27 +417,12 @@ namespace smt {
         // crude selection strategy.
         clause const& pick_hard_clause() {
             SASSERT(!m_hard_false.empty());
-            uint_set::iterator it = m_hard_false.begin();
-            uint_set::iterator end = m_hard_false.end();
-            SASSERT(it != end);
-            return m_clauses[*it];
+            return m_clauses[m_hard_false.choose(m_rng)];
         }
 
         clause const& pick_soft_clause() {
             SASSERT(!m_soft_false.empty());
-            uint_set::iterator it = m_soft_false.begin();
-            uint_set::iterator end = m_soft_false.end();
-            SASSERT(it != end);
-            unsigned index = *it;
-            rational penalty = m_weights[index];
-            ++it;
-            for (; it != end; ++it) {
-                if (m_weights[*it] > penalty) {
-                    index = *it;
-                    penalty = m_weights[*it];
-                }
-            }
-            return m_soft[index];
+            return m_soft[m_soft_false.choose(m_rng)];
         }
 
         int flip(literal l) {

@@ -1,3 +1,5 @@
+(set-option :smt.relevancy 0)
+(set-option :smt.pb.conflict_frequency 10000)
 (declare-fun x_354 () Int)
 (declare-fun x_522 () Int)
 (declare-fun x_464 () Int)

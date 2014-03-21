@@ -448,10 +448,12 @@ namespace opt {
         params_ref       m_params;
         opt_solver       m_solver;
         scoped_ptr<imp>  m_imp;
+        smt::pb_sls      m_sls;
 
         imp(ast_manager& m, opt_solver& s, expr_ref_vector const& soft_constraints, vector<rational> const& weights):
             m(m), s(s), m_soft(soft_constraints), m_weights(weights), m_print_all_models(false), m_cancel(false), 
-            m_solver(m, m_params, symbol("bound"))
+            m_solver(m, m_params, symbol("bound")),
+            m_sls(m)
         {
             m_assignment.resize(m_soft.size(), false);
         }
@@ -585,71 +587,63 @@ namespace opt {
         }
 
         lbool sls_solve() {
-            IF_VERBOSE(3, verbose_stream() << "(incremental solve)\n";);
-            smt::pb_sls sls(m);
-            svector<smt::bool_var> ws;
+            IF_VERBOSE(1, verbose_stream() << "(sls solve)\n";);
             for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
-                sls.add(s.get_assertion(i));
+                m_sls.add(s.get_assertion(i));
             }
-            TRACE("opt", tout << "weighted maxsat\n";);
-            scoped_ensure_theory wth(*this);
-            solver::scoped_push _s(s);
+            pb_util u(m);
+            expr_ref fml(m), val(m);
+            app_ref b(m);
+            expr_ref_vector nsoft(m);
+            m_lower = m_upper = rational::zero();
+            solver::scoped_push __s(s);
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                m_upper += m_weights[i];
+                b = m.mk_fresh_const("b", m.mk_bool_sort());
+                s.mc().insert(b->get_decl());
+                fml = m.mk_or(m_soft[i].get(), b);
+                s.assert_expr(fml);
+                nsoft.push_back(b);
+                m_sls.add(m_soft[i].get(), m_weights[i]);
+            }
             lbool is_sat = l_true;
             bool was_sat = false;
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                ws.push_back(wth().assert_weighted(m_soft[i].get(), m_weights[i]));
-                sls.add(m_soft[i].get(), m_weights[i]);
-            }
-
-            expr_ref fml(m);
-            solver::scoped_push __s(s);
             while (l_true == is_sat) {
                 is_sat = s.check_sat_core(0,0);
                 if (m_cancel) {
                     is_sat = l_undef;
                 }
                 if (is_sat == l_true) {
-                    if (wth().is_optimal()) {
-                        m_upper = wth().get_min_cost();
-                        updt_model(s);
-                        sls.set_model(m_model);
-                        if (l_true == sls()) {
-                            sls.get_model(m_model);
-                            svector<smt::bool_var> wsf;
-                            rational weight(0);
-                            for (unsigned i = 0; i < ws.size(); ++i) {
-                                if (!sls.soft_holds(i)) {
-                                    wsf.push_back(ws[i]);
-                                    weight += m_weights[i];
-                                }
-                            }
-                            fml = wth().mk_optimal_block(wsf, weight);
-                            m_upper = weight;
-                            s.assert_expr(fml);
-                        }
-                        else {
-                            fml = wth().mk_block();
+                    updt_model(s);
+                    m_sls.set_model(m_model);
+                    m_upper = rational::zero();
+                    if (l_true == m_sls()) {
+                        m_sls.get_model(m_model);
+                        for (unsigned i = 0; i < m_soft.size(); ++i) {
+                            m_assignment[i] = m_sls.soft_holds(i);
                         }
                     }
                     else {
-                        fml = wth().mk_block();
+                        for (unsigned i = 0; i < m_soft.size(); ++i) {
+                            VERIFY(m_model->eval(nsoft[i].get(), val));
+                            m_assignment[i] = !m.is_true(val);
+                        }        
+                    }            
+                    for (unsigned i = 0; i < m_soft.size(); ++i) {
+                        if (!m_assignment[i]) {
+                            m_upper += m_weights[i];
+                        }
                     }
+                    IF_VERBOSE(1, verbose_stream() << "(sls.pb with upper bound: " << m_upper << ")\n";);
+                    fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
                     s.assert_expr(fml);
                     was_sat = true;
                 }
-                IF_VERBOSE(3, verbose_stream() << "(incremental bound)\n";);
-            }
-            if (was_sat) {
-                wth().get_assignment(m_assignment);
-            }
+            }            
             if (is_sat == l_false && was_sat) {
                 is_sat = l_true;
-            }
-            m_upper = wth().get_min_cost();
-            if (is_sat == l_true) {
                 m_lower = m_upper;
             }
-            TRACE("opt", tout << "min cost: " << m_upper << "\n";);
             return is_sat;
         }
 
@@ -1288,6 +1282,7 @@ namespace opt {
         return m_imp->m_assignment[idx];
     }
     void wmaxsmt::set_cancel(bool f) {
+        m_imp->m_sls.set_cancel(f);
         m_imp->m_cancel = f;
         m_imp->m_solver.set_cancel(f);
         m_imp->m_imp->m_cancel = f;        
