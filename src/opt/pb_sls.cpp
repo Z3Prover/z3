@@ -180,7 +180,7 @@ namespace smt {
                     if (m_cancel) {
                         return l_undef;
                     }
-                    IF_VERBOSE(1, verbose_stream() 
+                    IF_VERBOSE(3, verbose_stream() 
                                << "(pb.sls violated: " << m_hard_false.num_elems()
                                << " penalty: " << m_penalty << " " << lit << ")\n";);
                     if (m_hard_false.empty() && m_best_penalty.is_zero()) {
@@ -194,16 +194,23 @@ namespace smt {
                 if (!m_best_assignment.empty()) {
                     assignment.reset();
                     assignment.append(m_best_assignment);
+                    i = 0;
                 }
                 m_assignment.reset();
                 m_assignment.append(assignment);
-                m_penalty = m_best_penalty;
                 m_best_assignment.reset();      
                 m_soft_false.reset();
+                m_hard_false.reset();
+                m_penalty.reset();
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     if (!eval(m_soft[i])) {
                         m_soft_false.insert(i);
                         m_penalty += m_weights[i];
+                    }
+                }
+                for (unsigned i = 0; i < m_clauses.size(); ++i) {
+                    if (!eval(m_clauses[i])) {
+                        m_hard_false.insert(i);
                     }
                 }
             }
