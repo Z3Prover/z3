@@ -625,7 +625,7 @@ namespace smt {
             ctx.set_var_theory(bv, get_id());
             literal lit(ctx.get_bool_var(fml));
             ctx.mk_th_axiom(get_id(), 1, &lit);
-            ctx.mark_as_relevant(tmp);
+            ctx.mark_as_relevant(tmp.get());
         }
         return negate?~literal(bv):literal(bv);
     }
@@ -1146,8 +1146,8 @@ namespace smt {
     struct theory_pb::psort_expr {
         context&     ctx;
         ast_manager& m;
-        typedef literal literal;
-        typedef literal_vector literal_vector;
+        typedef smt::literal literal;
+        typedef smt::literal_vector literal_vector;
       
         psort_expr(context& c):
             ctx(c), 
@@ -1740,7 +1740,7 @@ namespace smt {
         default: {
             app_ref tmp = m_lemma.to_expr(false, ctx, get_manager());
             internalize_atom(tmp, false);
-            ctx.mark_as_relevant(tmp);
+            ctx.mark_as_relevant(tmp.get());
             literal l(ctx.get_bool_var(tmp));
             add_assign(c, m_ineq_literals, l);
             break;

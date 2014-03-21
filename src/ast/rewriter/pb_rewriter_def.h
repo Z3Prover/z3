@@ -59,7 +59,7 @@ void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::num
         }
     }
     // sort and coalesce arguments:
-    PBU::compare cmp;
+    typename PBU::compare cmp;
     std::sort(args.begin(), args.end(), cmp);
 
     // coallesce
@@ -110,9 +110,9 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
     // <=> 
     //    -c*~l + y >= k - c
     // 
-    PBU::numeral sum(0);
+    typename PBU::numeral sum(0);
     for (unsigned i = 0; i < args.size(); ++i) {
-        PBU::numeral c = args[i].second;
+        typename PBU::numeral c = args[i].second;
         if (c.is_neg()) {
             args[i].second = -c;
             args[i].first = m_util.negate(args[i].first);
@@ -152,7 +152,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
     
     if (!all_int) {
         // normalize to integers.
-        PBU::numeral d(denominator(k));
+        typename PBU::numeral d(denominator(k));
         for (unsigned i = 0; i < args.size(); ++i) {
             d = lcm(d, denominator(args[i].second));
         }
@@ -171,7 +171,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
     // Ensure the largest coefficient is not larger than k:
     sum = PBU::numeral::zero();
     for (unsigned i = 0; i < args.size(); ++i) {
-        PBU::numeral c = args[i].second;
+        typename PBU::numeral c = args[i].second;
         if (c > k) {
             args[i].second = k;
         }
@@ -188,9 +188,9 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
     }
     
     // apply cutting plane reduction:
-    PBU::numeral g(0);
+    typename PBU::numeral g(0);
     for (unsigned i = 0; !g.is_one() && i < args.size(); ++i) {
-        PBU::numeral c = args[i].second;
+        typename PBU::numeral c = args[i].second;
         if (c != k) {
             if (g.is_zero()) {
                 g = c;
@@ -214,13 +214,13 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
         // Example 5x + 5y + 2z + 2u >= 5
         // becomes 3x + 3y + z + u >= 3
         // 
-        PBU::numeral k_new = div(k, g);    
+        typename PBU::numeral k_new = div(k, g);    
         if (!(k % g).is_zero()) {     // k_new is the ceiling of k / g.
             k_new++;
         }
         for (unsigned i = 0; i < args.size(); ++i) {
             SASSERT(args[i].second.is_pos());
-            PBU::numeral c = args[i].second;
+            typename PBU::numeral c = args[i].second;
             if (c == k) {
                 c = k_new;
             }
@@ -245,15 +245,15 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
     // replace all coefficients by 1, and k by 2.
     //
     if (!k.is_one()) {
-        PBU::numeral min = args[0].second, max = args[0].second;
+        typename PBU::numeral min = args[0].second, max = args[0].second;
         for (unsigned i = 1; i < args.size(); ++i) {
             if (args[i].second < min) min = args[i].second;
             if (args[i].second > max) max = args[i].second;
         }            
         SASSERT(min.is_pos());
-        PBU::numeral n0 = k/max;
-        PBU::numeral n1 = floor(n0);
-        PBU::numeral n2 = ceil(k/min) - PBU::numeral::one();
+        typename PBU::numeral n0 = k/max;
+        typename PBU::numeral n1 = floor(n0);
+        typename PBU::numeral n2 = ceil(k/min) - PBU::numeral::one();
         if (n1 == n2 && !n0.is_int()) {
             IF_VERBOSE(3, display(verbose_stream() << "set cardinality\n", args, k, is_eq););
             
@@ -272,7 +272,7 @@ void pb_rewriter_util<PBU>::prune(typename PBU::args_t& args, typename PBU::nume
     if (is_eq) {
         return;
     }
-    PBU::numeral nlt(0);
+    typename PBU::numeral nlt(0);
     unsigned occ = 0;
     for (unsigned i = 0; nlt < k && i < args.size(); ++i) {
         if (args[i].second < k) {

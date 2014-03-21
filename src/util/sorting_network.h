@@ -40,8 +40,8 @@ Notes:
         void exchange(unsigned i, unsigned j, vect& out) {
             SASSERT(i <= j);
             if (i < j) {
-                Ext::T ei = out.get(i);
-                Ext::T ej = out.get(j);
+                typename Ext::T ei = out.get(i);
+                typename Ext::T ej = out.get(j);
                 out.set(i, m_ext.mk_ite(m_ext.mk_le(ei, ej), ei, ej));
                 out.set(j, m_ext.mk_ite(m_ext.mk_le(ej, ei), ei, ej));
             }
