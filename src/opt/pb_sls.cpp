@@ -244,8 +244,10 @@ namespace smt {
         }
 
         void display(std::ostream& out, clause const& cls) {
+            scoped_mpz w(mgr);
             for (unsigned i = 0; i < cls.m_lits.size(); ++i) {
-                out << cls.m_weights[i] << "*" << cls.m_lits[i] << " ";
+                w = cls.m_weights[i];
+                out << w << "*" << cls.m_lits[i] << " ";
                 if (i + 1 < cls.m_lits.size()) {
                     out << "+ ";
                 }
