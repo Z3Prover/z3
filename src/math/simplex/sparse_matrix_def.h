@@ -205,6 +205,7 @@ namespace simplex {
         }
     }
 
+#if 0
     /**
        \brief Special version of compress, that is used when the column contain
        only one entry located at position singleton_pos.
@@ -221,7 +222,7 @@ namespace simplex {
         m_first_free_idx = -1;
         m_entries.shrink(1);
     }
-    
+#endif
     template<typename Ext>
     const typename sparse_matrix<Ext>::col_entry * 
     sparse_matrix<Ext>::column::get_first_col_entry() const {

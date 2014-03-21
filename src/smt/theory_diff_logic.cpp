@@ -21,6 +21,7 @@ Revision History:
 
 #include"rational.h"
 #include"theory_diff_logic_def.h"
+#include"sparse_matrix_def.h"
 
 namespace smt {
 
@@ -34,5 +35,5 @@ template class theory_diff_logic<srdl_ext>;
 
 namespace simplex {
 template class simplex<mpq_ext>;
-
+template class sparse_matrix<mpq_ext>;
 };

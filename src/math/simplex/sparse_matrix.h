@@ -102,7 +102,7 @@ namespace simplex {
             void compress(manager& m, vector<column> & cols); 
             void compress_if_needed(manager& m, vector<column> & cols);
             void save_var_pos(svector<int> & result_map, unsigned_vector& idxs) const;
-            bool is_coeff_of(var_t v, numeral const & expected) const;
+            //bool is_coeff_of(var_t v, numeral const & expected) const;
             int get_idx_of(var_t v) const;
         };
         
@@ -123,7 +123,7 @@ namespace simplex {
             void reset();
             void compress(vector<_row> & rows);
             void compress_if_needed(vector<_row> & rows);
-            void compress_singleton(vector<_row> & rows, unsigned singleton_pos);
+            //void compress_singleton(vector<_row> & rows, unsigned singleton_pos);
             col_entry const * get_first_col_entry() const;
             col_entry & add_col_entry(int & pos_idx);
             void del_col_entry(unsigned idx);
