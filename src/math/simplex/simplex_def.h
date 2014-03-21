@@ -26,6 +26,9 @@ Notes:
 namespace simplex {
 
     template<typename Ext>
+    const typename simplex<Ext>::var_t simplex<Ext>::null_var = UINT_MAX; 
+
+    template<typename Ext>
     typename simplex<Ext>::row 
     simplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
         m_base_vars.reset();

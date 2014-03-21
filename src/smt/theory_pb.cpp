@@ -61,6 +61,9 @@ namespace smt {
         };
     };
 
+    const unsigned theory_pb::null_index = UINT_MAX;
+
+
     unsigned theory_pb::arg_t::get_hash() const {
         return get_composite_hash<arg_t, arg_t::kind_hash, arg_t::child_hash>(*this, size());
     }

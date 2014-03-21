@@ -28,5 +28,7 @@ template class theory_diff_logic<idl_ext>;
 template class theory_diff_logic<sidl_ext>;
 template class theory_diff_logic<rdl_ext>;
 template class theory_diff_logic<srdl_ext>;
+template class simplex::simplex<simplex::mpq_ext>;
+
 
 };

@@ -272,7 +272,7 @@ namespace smt {
 
         // bool_var |-> index into m_lemma
         unsigned_vector   m_conseq_index;
-        static const unsigned null_index = UINT_MAX;
+        static const unsigned null_index;
         bool is_marked(bool_var v) const;
         void set_mark(bool_var v, unsigned idx);
         void unset_mark(bool_var v);
