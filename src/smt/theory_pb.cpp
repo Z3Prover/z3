@@ -25,6 +25,14 @@ Notes:
 #include "uint_set.h"
 #include "smt_model_generator.h"
 #include "pb_rewriter_def.h"
+#include "sparse_matrix_def.h"
+#include "simplex_def.h"
+
+namespace simplex {
+template class simplex<mpq_ext>;
+template class sparse_matrix<mpq_ext>;
+};
+
 
 namespace smt {
 
