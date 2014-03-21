@@ -172,7 +172,7 @@ namespace smt {
                        verbose_stream() << "(pb.sls violated: " << m_hard_false.num_elems()
                        << " penalty: " << m_penalty << ")\n";);
             svector<bool> assignment(m_assignment);
-            for (unsigned i = 0; i < 20; ++i) {
+            for (unsigned round = 0; round < 40; ++round) {
                 init_max_flips();
                 while (m_max_flips > 0) {
                     --m_max_flips;
@@ -194,7 +194,7 @@ namespace smt {
                 if (!m_best_assignment.empty()) {
                     assignment.reset();
                     assignment.append(m_best_assignment);
-                    i = 0;
+                    round = 0;
                 }
                 m_assignment.reset();
                 m_assignment.append(assignment);
