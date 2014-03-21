@@ -35,7 +35,7 @@ namespace simplex {
         struct row_entry {
             numeral         m_coeff;
             var_t           m_var;
-            row_entry(numeral& c, var_t v): m_coeff(c), m_var(v) {}
+            row_entry(numeral const& c, var_t v): m_coeff(c), m_var(v) {}
         };
 
     private:
