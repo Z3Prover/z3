@@ -150,8 +150,10 @@ namespace Duality {
       }
       return 0;
     }
-    if(t.is_quantifier())
-      return CountOperatorsRec(memo,t.body())+2; // count 2 for a quantifier
+    if(t.is_quantifier()){
+      int nbv = t.get_quantifier_num_bound();
+      return CountOperatorsRec(memo,t.body()) + 2 * nbv; // count 2 for each quantifier
+    }
     return 0;
   }
 
