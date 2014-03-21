@@ -91,7 +91,7 @@ namespace simplex {
             {}
         };
 
-        static const var_t null_var = UINT_MAX;
+        static const var_t null_var;
         mutable manager             m;
         mutable eps_manager         em;
         mutable matrix              M;
