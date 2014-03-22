@@ -82,6 +82,10 @@ namespace opt {
 
     unsigned context::add_objective(app* t, bool is_max) {
         app_ref tr(t, m);
+        arith_util a(m);
+        if (!a.is_arith_expr(t)) {
+            throw default_exception("Objective must be integer or real");   
+        }
         unsigned index = m_objectives.size();
         m_objectives.push_back(objective(is_max, tr, index));
         return index;

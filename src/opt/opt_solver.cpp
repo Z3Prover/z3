@@ -261,10 +261,14 @@ namespace opt {
     }
 
     
-    void opt_solver::to_smt2_benchmark(std::ofstream & buffer, 
-                                       unsigned num_assumptions, expr * const * assumptions,
-                                       char const * name, char const * logic, 
-                                       char const * status, char const * attributes) {        
+    void opt_solver::to_smt2_benchmark(
+        std::ofstream & buffer, 
+        unsigned num_assumptions, 
+        expr * const * assumptions,
+        char const * name, 
+        char const * logic, 
+        char const * status, 
+        char const * attributes) {        
         ast_smt_pp pp(m);
         pp.set_benchmark_name(name);
         pp.set_logic(logic);
