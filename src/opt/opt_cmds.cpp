@@ -32,33 +32,22 @@ Notes:
 #include "opt_params.hpp"
 #include "model_smt2_pp.h"
 
-class opt_context {
-    cmd_context& ctx;
-    scoped_ptr<opt::context> m_opt;
-    hashtable<symbol, symbol_hash_proc, symbol_eq_proc> m_ids;    
-
-public:
-    opt_context(cmd_context& ctx): ctx(ctx) {}
-    opt::context& operator()() { 
-        if (!m_opt) {
-            m_opt = alloc(opt::context, ctx.m());
-        }
-        return *m_opt;
-    }    
-};
-
+static opt::context& get_opt(cmd_context& cmd) {
+    if (!cmd.get_opt()) {
+        cmd.set_opt(alloc(opt::context, cmd.m()));
+    }
+    return dynamic_cast<opt::context&>(*cmd.get_opt());
+}
 
 class assert_weighted_cmd : public cmd {
-    opt_context& m_opt_ctx;
     unsigned     m_idx;
     expr*        m_formula;
     rational     m_weight;
     symbol       m_id;
 
 public:
-    assert_weighted_cmd(cmd_context& ctx, opt_context& opt_ctx):
+    assert_weighted_cmd():
         cmd("assert-weighted"),
-        m_opt_ctx(opt_ctx),
         m_idx(0),
         m_formula(0),
         m_weight(0)
@@ -115,7 +104,7 @@ public:
     }
 
     virtual void execute(cmd_context & ctx) {
-        m_opt_ctx().add_soft_constraint(m_formula, m_weight, m_id);
+        get_opt(ctx).add_soft_constraint(m_formula, m_weight, m_id);
         reset(ctx);
     }
 
@@ -126,14 +115,12 @@ public:
 
 
 class assert_soft_cmd : public parametric_cmd {
-    opt_context& m_opt_ctx;
     unsigned     m_idx;
     expr*        m_formula;
 
 public:
-    assert_soft_cmd(cmd_context& ctx, opt_context& opt_ctx):
+    assert_soft_cmd():
         parametric_cmd("assert-soft"),
-        m_opt_ctx(opt_ctx),
         m_idx(0),
         m_formula(0)
     {}
@@ -188,7 +175,7 @@ public:
             weight = rational::one();
         }
         symbol id = ps().get_sym(symbol("id"), symbol::null);
-        m_opt_ctx().add_soft_constraint(m_formula, weight, id);
+        get_opt(ctx).add_soft_constraint(m_formula, weight, id);
         reset(ctx);
     }
 
@@ -199,13 +186,11 @@ public:
 
 class min_maximize_cmd : public cmd {
     bool         m_is_max;
-    opt_context& m_opt_ctx;
 
 public:
-    min_maximize_cmd(cmd_context& ctx, opt_context& opt_ctx, bool is_max):
+    min_maximize_cmd(bool is_max):
         cmd(is_max?"maximize":"minimize"),
-        m_is_max(is_max),
-        m_opt_ctx(opt_ctx)
+        m_is_max(is_max)
     {}
 
     virtual void reset(cmd_context & ctx) { }
@@ -221,7 +206,7 @@ public:
         if (!is_app(t)) {
             throw cmd_exception("malformed objective term: it cannot be a quantifier or bound variable");
         }
-        m_opt_ctx().add_objective(to_app(t), m_is_max);
+        get_opt(ctx).add_objective(to_app(t), m_is_max);
     }
 
     virtual void failure_cleanup(cmd_context & ctx) {
@@ -233,15 +218,12 @@ public:
 };
 
 class optimize_cmd : public parametric_cmd {
-    opt_context& m_opt_ctx;
 public:
-    optimize_cmd(opt_context& opt_ctx):
-        parametric_cmd("optimize"),
-        m_opt_ctx(opt_ctx)
+    optimize_cmd():
+        parametric_cmd("optimize")
     {}
 
     virtual ~optimize_cmd() {
-        dealloc(&m_opt_ctx);
     }
 
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
@@ -267,7 +249,7 @@ public:
 
     virtual void execute(cmd_context & ctx) {
         params_ref p = ctx.params().merge_default_params(ps());
-        opt::context& opt = m_opt_ctx();
+        opt::context& opt = get_opt(ctx);
         opt.updt_params(p);
         unsigned timeout = p.get_uint("timeout", UINT_MAX);
 
@@ -313,7 +295,7 @@ public:
 
     void display_result(cmd_context & ctx) {
         params_ref p = ctx.params().merge_default_params(ps());
-        opt::context& opt = m_opt_ctx();
+        opt::context& opt = get_opt(ctx);
         opt.display_assignment(ctx.regular_stream());
         opt_params optp(p);
         if (optp.print_model()) {
@@ -336,7 +318,7 @@ private:
         stats.update("time", ctx.get_seconds());
         stats.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
         stats.update("max memory", static_cast<double>(max_mem)/static_cast<double>(1024*1024));
-        m_opt_ctx().collect_statistics(stats);
+        get_opt(ctx).collect_statistics(stats);
         stats.display_smt2(ctx.regular_stream());        
     }
 };
@@ -344,117 +326,10 @@ private:
 
 
 void install_opt_cmds(cmd_context & ctx) {
-    opt_context* opt_ctx = alloc(opt_context, ctx);
-    ctx.insert(alloc(assert_weighted_cmd, ctx, *opt_ctx));
-    ctx.insert(alloc(assert_soft_cmd, ctx, *opt_ctx));
-    ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, true));
-    ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, false));
-    ctx.insert(alloc(optimize_cmd, *opt_ctx));
+    ctx.insert(alloc(assert_weighted_cmd));
+    ctx.insert(alloc(assert_soft_cmd));
+    ctx.insert(alloc(min_maximize_cmd, true));
+    ctx.insert(alloc(min_maximize_cmd, false));
+    ctx.insert(alloc(optimize_cmd));
 }
 
-#if 0
-    ctx.insert(alloc(execute_cmd, *opt_ctx));
-
-class execute_cmd : public parametric_cmd {
-protected:
-    expr * m_objective;
-    unsigned m_idx;
-    opt_context& m_opt_ctx;
-public:
-    execute_cmd(opt_context& opt_ctx):
-        parametric_cmd("optimize"),
-        m_objective(0),
-        m_idx(0),
-        m_opt_ctx(opt_ctx)
-    {}
-
-    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
-        insert_timeout(p);
-        insert_max_memory(p);
-        p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
-        opt::context::collect_param_descrs(p);
-    }
-
-    virtual char const * get_main_descr() const { return "check sat modulo objective function";}
-    virtual char const * get_usage() const { return "<objective> (<keyword> <value>)*"; }
-    virtual void prepare(cmd_context & ctx) {
-        parametric_cmd::prepare(ctx);
-        reset(ctx);
-        m_opt_ctx(); // ensure symbol table is updated.
-    }
-    virtual void failure_cleanup(cmd_context & ctx) {
-        reset(ctx);
-    }
-    virtual void reset(cmd_context& ctx) {
-        m_objective = 0;
-        m_idx = 0;
-    }
-
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
-        if (m_idx == 0) return CPK_EXPR;
-        return parametric_cmd::next_arg_kind(ctx);
-    }
-
-    virtual void set_next_arg(cmd_context & ctx, expr * arg) {
-        m_objective = arg;
-        ++m_idx;
-    }
-
-    virtual void execute(cmd_context & ctx) {
-        params_ref p = ctx.params().merge_default_params(ps());
-        opt::context& opt = m_opt_ctx();
-        opt.updt_params(p);
-        unsigned timeout = p.get_uint("timeout", UINT_MAX);
-
-        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
-        for (; it != end; ++it) {
-            opt.add_hard_constraint(*it);
-        }
-        lbool r = l_undef;
-        cancel_eh<opt::context> eh(opt);        
-        {
-            scoped_ctrl_c ctrlc(eh);
-            scoped_timer timer(timeout, &eh);
-            cmd_context::scoped_watch sw(ctx);
-            try {
-                r = opt.optimize(m_objective);
-            }
-            catch (z3_error& ex) {
-                ctx.regular_stream() << "(error: " << ex.msg() << "\")" << std::endl;
-            }
-            catch (z3_exception& ex) {
-                ctx.regular_stream() << "(error: " << ex.msg() << "\")" << std::endl;
-            }
-        }
-        switch(r) {
-        case l_true:
-            ctx.regular_stream() << "sat\n";
-            opt.display_assignment(ctx.regular_stream());
-            break;
-        case l_false:
-            ctx.regular_stream() << "unsat\n";
-            break;
-        case l_undef:
-            ctx.regular_stream() << "unknown\n";
-            opt.display_range_assignment(ctx.regular_stream());
-            break;
-        }
-        if (p.get_bool("print_statistics", false)) {
-            display_statistics(ctx);
-        }
-    }
-private:
-
-    void display_statistics(cmd_context& ctx) {
-        statistics stats;
-        unsigned long long max_mem = memory::get_max_used_memory();
-        unsigned long long mem = memory::get_allocation_size();
-        stats.update("time", ctx.get_seconds());
-        stats.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
-        stats.update("max memory", static_cast<double>(max_mem)/static_cast<double>(1024*1024));
-        m_opt_ctx().collect_statistics(stats);
-        stats.display_smt2(ctx.regular_stream());        
-    }
-};
-#endif

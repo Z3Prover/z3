@@ -32,13 +32,15 @@ Notes:
 #include "model_converter.h"
 #include "tactic.h"
 #include "arith_decl_plugin.h"
+#include "bv_decl_plugin.h"
+#include "cmd_context.h"
 
 
 namespace opt {
 
     class opt_solver;
 
-    class context {
+    class context : public opt_wrapper {
         struct free_func_visitor;
         typedef map<symbol, maxsmt*, symbol_hash_proc, symbol_eq_proc> map_t;
         typedef map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> map_id;
@@ -80,7 +82,8 @@ namespace opt {
             {}
         };
         ast_manager&        m;
-        arith_util          arith;
+        arith_util          m_arith;
+        bv_util             m_bv;
         expr_ref_vector     m_hard_constraints;
         ref<opt_solver>     m_solver;
         params_ref          m_params;
@@ -88,6 +91,9 @@ namespace opt {
         map_t               m_maxsmts;
         map_id              m_indices;
         vector<objective>   m_objectives;
+        unsigned_vector     m_objectives_lim;
+        unsigned_vector     m_objectives_term_trail;
+        unsigned_vector     m_objectives_term_trail_lim;
         model_ref           m_model;
         model_converter_ref m_model_converter;
         obj_map<func_decl, unsigned> m_objective_fns;
@@ -96,19 +102,26 @@ namespace opt {
         tactic_ref          m_simplify;
     public:
         context(ast_manager& m);
-        ~context();
+        virtual ~context();
         unsigned add_soft_constraint(expr* f, rational const& w, symbol const& id);
         unsigned add_objective(app* t, bool is_max);
         void add_hard_constraint(expr* f) { m_hard_constraints.push_back(f);  }
 
-        lbool optimize();
+        virtual void push();
+        virtual void pop(unsigned n);
+        virtual bool empty() { return m_objectives.empty(); }
+        virtual void set_cancel(bool f);
+        virtual void reset_cancel() { set_cancel(false); }
+        virtual void cancel() { set_cancel(true); }
+        virtual void set_hard_constraints(ptr_vector<expr> & hard);
+        virtual lbool optimize();
+        virtual void get_model(model_ref& m);
+        virtual void collect_statistics(statistics& stats) const;
+        virtual proof* get_proof() { return 0; }
+        virtual void get_labels(svector<symbol> & r) {}
+        virtual void get_unsat_core(ptr_vector<expr> & r) {}
+        virtual std::string reason_unknown() const { return std::string("unknown"); }
 
-        void get_model(model_ref& m);
-
-        void set_cancel(bool f);
-        void reset_cancel() { set_cancel(false); }
-        void cancel() { set_cancel(true); }
-        void collect_statistics(statistics& stats) const;
         void display_assignment(std::ostream& out);
         void display_range_assignment(std::ostream& out);
         static void collect_param_descrs(param_descrs & r);
@@ -152,6 +165,8 @@ namespace opt {
 
 
         opt_solver& get_solver();
+
+        bool is_numeral(expr* e, rational& n) const;
 
         void display_objective(std::ostream& out, objective const& obj) const;
         void display_bounds(std::ostream& out, bounds_t const& b) const;

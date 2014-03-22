@@ -61,6 +61,8 @@ namespace opt {
         void    get_model(model_ref& mdl);
 
         void update_lower(unsigned idx, rational const& r);
+
+        void reset();
         
     private:
         

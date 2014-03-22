@@ -38,7 +38,8 @@ namespace opt {
 
     context::context(ast_manager& m):
         m(m),
-        arith(m),
+        m_arith(m),
+        m_bv(m),
         m_hard_constraints(m),
         m_optsmt(m),
         m_objective_refs(m)
@@ -53,6 +54,43 @@ namespace opt {
         for (; it != end; ++it) {
             dealloc(it->m_value);
         }
+    }
+
+    void context::push() {
+        m_objectives_lim.push_back(m_objectives.size());
+        m_objectives_term_trail_lim.push_back(m_objectives_term_trail.size());
+        m_solver->push();
+    }
+
+    void context::pop(unsigned n) {
+        m_solver->pop(n);
+        while (n > 0) {
+            --n;
+            unsigned k = m_objectives_term_trail_lim.back();
+            while (m_objectives_term_trail.size() > k) {
+                unsigned idx = m_objectives_term_trail.back();
+                m_objectives[idx].m_terms.pop_back();
+                m_objectives[idx].m_weights.pop_back();
+                m_objectives_term_trail.pop_back();
+            }
+            m_objectives_term_trail_lim.pop_back();
+            k = m_objectives_lim.back();
+            while (m_objectives.size() > k) {
+                objective& obj = m_objectives.back();
+                if (obj.m_type == O_MAXSMT) {
+                    dealloc(m_maxsmts[obj.m_id]);
+                    m_maxsmts.erase(obj.m_id);
+                    m_indices.erase(obj.m_id);
+                }
+                m_objectives.pop_back();
+            }
+            m_objectives_lim.pop_back();            
+        }
+    }
+
+    void context::set_hard_constraints(ptr_vector<expr>& fmls) {
+        m_hard_constraints.reset();
+        m_hard_constraints.append(fmls.size(), fmls.c_ptr());
     }
 
     unsigned context::add_soft_constraint(expr* f, rational const& w, symbol const& id) { 
@@ -77,13 +115,14 @@ namespace opt {
         unsigned idx = m_indices[id];
         m_objectives[idx].m_terms.push_back(f);
         m_objectives[idx].m_weights.push_back(w);
+        m_objectives_term_trail.push_back(idx);
         return idx;
     }
 
     unsigned context::add_objective(app* t, bool is_max) {
         app_ref tr(t, m);
-        if (!arith.is_arith_expr(t)) {
-            throw default_exception("Objective must be integer or real");   
+        if (!m_bv.is_bv(t) && !m_arith.is_int_real(t)) {
+            throw default_exception("Objective must be bit-vector, integer or real");   
         }
         unsigned index = m_objectives.size();
         m_objectives.push_back(objective(is_max, tr, index));
@@ -92,6 +131,7 @@ namespace opt {
 
     lbool context::optimize() {
         opt_solver& s = get_solver();        
+        m_optsmt.reset();
         normalize();
         internalize();
         solver::scoped_push _sp(s);
@@ -225,7 +265,7 @@ namespace opt {
                 objective const& obj = m_objectives[j];
                 bounds[i][j].second = bounds[j][j].second;                
             }
-            display_bounds(verbose_stream() << "new bound\n", bounds[i]);
+            IF_VERBOSE(0, display_bounds(verbose_stream() << "new bound\n", bounds[i]););
         }
 
         for (unsigned i = 0; i < bounds.size(); ++i) {
@@ -247,13 +287,13 @@ namespace opt {
                 bool at_bound = true; 
                 for (unsigned j = 0; j < b.size(); ++j) {
                     objective const& obj = m_objectives[j];
-                    if (m_model->eval(obj.m_term, val) && arith.is_numeral(val, r)) {
+                    if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
                         mids[j] = inf_eps(r);
                     }
                     at_bound = at_bound && mids[j] == b[j].second;
                     b[j].second = mids[j];
                 }
-                display_bounds(verbose_stream() << "new bound\n", b);
+                IF_VERBOSE(0, display_bounds(verbose_stream() << "new bound\n", b););
                 if (!at_bound) {
                     bounds.push_back(b);
                 }
@@ -266,7 +306,7 @@ namespace opt {
                     if (j > 0) {
                         b2[j-1].second = b[j-1].second;
                     }
-                    display_bounds(verbose_stream() << "refined bound\n", b2);
+                    IF_VERBOSE(0, display_bounds(verbose_stream() << "refined bound\n", b2););
                     bounds.push_back(b2);
                 }
                 break;
@@ -292,6 +332,11 @@ namespace opt {
 
     opt_solver& context::get_solver() { 
         return *m_solver.get(); 
+    }
+
+    bool context::is_numeral(expr* e, rational & n) const {
+        unsigned sz;
+        return m_arith.is_numeral(e, n) || m_bv.is_numeral(e, n, sz);
     }
 
     void context::normalize() {
@@ -373,8 +418,9 @@ namespace opt {
         app_ref term(m);
         expr* orig_term;
         offset = rational::zero();
-        if (is_minimize(fml, term, orig_term, index) &&
-            get_pb_sum(term, terms, weights, offset)) {
+        bool is_max = is_maximize(fml, term, orig_term, index);
+        bool is_min = !is_max && is_minimize(fml, term, orig_term, index);
+        if (is_min && get_pb_sum(term, terms, weights, offset)) {
             TRACE("opt", tout << "try to convert minimization" << mk_pp(term, m) << "\n";);
             // minimize 2*x + 3*y 
             // <=>
@@ -403,8 +449,7 @@ namespace opt {
             id = symbol(out.str().c_str());
             return true;
         }
-        if (is_maximize(fml, term, orig_term, index) &&
-            get_pb_sum(term, terms, weights, offset)) {
+        if (is_max && get_pb_sum(term, terms, weights, offset)) {
             TRACE("opt", tout << "try to convert maximization" << mk_pp(term, m) << "\n";);
             // maximize 2*x + 3*y - z 
             // <=>
@@ -426,6 +471,25 @@ namespace opt {
             out << mk_pp(orig_term, m);
             id = symbol(out.str().c_str());
             return true;
+        }
+        if ((is_max || is_min) && m_bv.is_bv(term)) {
+            offset.reset();
+            unsigned bv_size = m_bv.get_bv_size(term);
+            expr_ref val(m);
+            val = m_bv.mk_numeral(is_max, 1);
+            for (unsigned i = 0; i < bv_size; ++i) {
+                rational w = power(rational(2),i);
+                weights.push_back(w);
+                terms.push_back(m.mk_eq(val, m_bv.mk_extract(i, i, term)));
+                if (is_max) {
+                    offset += w;
+                }
+            }
+            neg = is_max;
+            std::ostringstream out;
+            out << mk_pp(orig_term, m);
+            id = symbol(out.str().c_str());
+            return true;            
         }
         return false;
     }
@@ -535,7 +599,7 @@ namespace opt {
             switch(obj.m_type) {
             case O_MINIMIZE: {
                 app_ref tmp(m);
-                tmp = arith.mk_uminus(obj.m_term);
+                tmp = m_arith.mk_uminus(obj.m_term);
                 obj.m_index = m_optsmt.add(tmp);
                 break;
             }
@@ -560,12 +624,12 @@ namespace opt {
             objective const& obj = m_objectives[i];
             switch(obj.m_type) {
             case O_MINIMIZE:
-                if (m_model->eval(obj.m_term, val) && arith.is_numeral(val, r)) {
+                if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
                     m_optsmt.update_lower(obj.m_index, -r);
                 }
                 break;
             case O_MAXIMIZE:
-                if (m_model->eval(obj.m_term, val) && arith.is_numeral(val, r)) {
+                if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
                     m_optsmt.update_lower(obj.m_index, r);
                 }
                 break;
@@ -642,7 +706,6 @@ namespace opt {
         }        
     }
 
-
     inf_eps context::get_upper_as_num(unsigned idx) {
         if (idx > m_objectives.size()) {
             throw default_exception("index out of bounds"); 
@@ -679,30 +742,30 @@ namespace opt {
         rational eps = n.get_infinitesimal();
         expr_ref_vector args(m);
         if (!inf.is_zero()) {
-            expr* oo = m.mk_const(symbol("oo"), arith.mk_int());
+            expr* oo = m.mk_const(symbol("oo"), m_arith.mk_int());
             if (inf.is_one()) {
                 args.push_back(oo);
             }
             else {
-                args.push_back(arith.mk_mul(arith.mk_numeral(inf, inf.is_int()), oo));
+                args.push_back(m_arith.mk_mul(m_arith.mk_numeral(inf, inf.is_int()), oo));
             }
         }
         if (!r.is_zero()) {
-            args.push_back(arith.mk_numeral(r, r.is_int()));
+            args.push_back(m_arith.mk_numeral(r, r.is_int()));
         }
         if (!eps.is_zero()) {
-            expr* ep = m.mk_const(symbol("epsilon"), arith.mk_int());
+            expr* ep = m.mk_const(symbol("epsilon"), m_arith.mk_int());
             if (eps.is_one()) {
                 args.push_back(ep);
             }
             else {
-                args.push_back(arith.mk_mul(arith.mk_numeral(eps, eps.is_int()), ep));
+                args.push_back(m_arith.mk_mul(m_arith.mk_numeral(eps, eps.is_int()), ep));
             }
         }
         switch(args.size()) {
-        case 0: return expr_ref(arith.mk_numeral(rational(0), true), m);
+        case 0: return expr_ref(m_arith.mk_numeral(rational(0), true), m);
         case 1: return expr_ref(args[0].get(), m);
-        default: return expr_ref(arith.mk_add(args.size(), args.c_ptr()), m);
+        default: return expr_ref(m_arith.mk_add(args.size(), args.c_ptr()), m);
         }
     }
         
@@ -870,7 +933,7 @@ namespace opt {
                 if (n.get_infinity().is_zero() &&
                     n.get_infinitesimal().is_zero() &&
                     m_model->eval(obj.m_term, val) &&
-                    arith.is_numeral(val, r1)) {
+                    is_numeral(val, r1)) {
                     rational r2 = n.get_rational();
                     CTRACE("opt", r1 != r2, tout << obj.m_term << " evaluates to " << r1 << " but has objective " << r2 << "\n";);
                     CTRACE("opt", r1 != r2, model_smt2_pp(tout, m, *m_model, 0););

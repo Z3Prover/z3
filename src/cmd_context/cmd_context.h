@@ -111,6 +111,18 @@ struct builtin_decl {
     builtin_decl(family_id fid, decl_kind k, builtin_decl * n = 0):m_fid(fid), m_decl(k), m_next(n) {}
 };
 
+class opt_wrapper : public check_sat_result {
+public:
+    virtual bool empty() = 0;
+    virtual void push() = 0;
+    virtual void pop(unsigned n) = 0;
+    virtual void set_cancel(bool f) = 0;
+    virtual void reset_cancel() = 0;
+    virtual void cancel() = 0;
+    virtual lbool optimize() = 0;
+    virtual void set_hard_constraints(ptr_vector<expr> & hard) = 0;
+};
+
 class cmd_context : public progress_callback, public tactic_manager, public ast_printer_context {
 public:
     enum status {
@@ -187,8 +199,9 @@ protected:
     svector<scope>               m_scopes;
     scoped_ptr<solver_factory>   m_solver_factory;
     scoped_ptr<solver_factory>   m_interpolating_solver_factory;
-    ref<solver>                  m_solver;
+    ref<solver>                  m_solver;    
     ref<check_sat_result>        m_check_sat_result;
+    ref<opt_wrapper>             m_opt;
 
     stopwatch                    m_watch;
 
@@ -255,6 +268,8 @@ public:
     context_params  & params() { return m_params; }
     solver_factory &get_solver_factory() { return *m_solver_factory; }
     solver_factory &get_interpolating_solver_factory() { return *m_interpolating_solver_factory; }
+    opt_wrapper*  get_opt();
+    void          set_opt(opt_wrapper* o);
     void global_params_updated(); // this method should be invoked when global (and module) params are updated.
     bool set_logic(symbol const & s);
     bool has_logic() const { return m_logic != symbol::null; }

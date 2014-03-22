@@ -51,7 +51,7 @@ namespace opt {
 
 
     void optsmt::set_cancel(bool f) {
-        m_cancel = true;
+        m_cancel = f;
     }
 
     void optsmt::set_max(vector<inf_eps>& dst, vector<inf_eps> const& src) {
@@ -379,5 +379,13 @@ namespace opt {
         m_engine = _p.engine();        
     }
 
+    void optsmt::reset() {
+        m_lower.reset();
+        m_upper.reset();
+        m_objs.reset();
+        m_vars.reset();
+        m_model.reset();
+        m_s = 0;
+    }
 }
 
