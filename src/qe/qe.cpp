@@ -2435,7 +2435,7 @@ namespace qe {
     
     class simplify_solver_context : public i_solver_context {
         ast_manager&             m;
-        smt_params         m_fparams;
+        smt_params               m_fparams;
         app_ref_vector*          m_vars;
         expr_ref*                m_fml;
         ptr_vector<contains_app> m_contains;

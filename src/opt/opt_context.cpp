@@ -311,9 +311,10 @@ namespace opt {
                      mk_elim_uncnstr_tactic(m),
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
+        tactic_ref tac2, tac3;
         if (optp.elim_01()) {
-            tactic_ref tac2 = mk_elim01_tactic(m);
-            tactic_ref tac3 = mk_lia2card_tactic(m);
+            tac2 = mk_elim01_tactic(m);
+            tac3 = mk_lia2card_tactic(m);
             params_ref lia_p;
             lia_p.set_bool("compile_equality", optp.pb_compile_equality());
             tac3->updt_params(lia_p);

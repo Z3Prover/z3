@@ -28,11 +28,6 @@ Notes:
 #include "sparse_matrix_def.h"
 #include "simplex_def.h"
 
-namespace simplex {
-template class simplex<mpq_ext>;
-template class sparse_matrix<mpq_ext>;
-};
-
 
 namespace smt {
 

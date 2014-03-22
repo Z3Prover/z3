@@ -104,10 +104,10 @@ struct card2bv_rewriter_cfg : public default_rewriter_cfg {
 
 template class rewriter_tpl<card2bv_rewriter_cfg>;
 
-class pb_rewriter : public rewriter_tpl<card2bv_rewriter_cfg> {
+class card_pb_rewriter : public rewriter_tpl<card2bv_rewriter_cfg> {
     card2bv_rewriter_cfg m_cfg;
 public:
-    pb_rewriter(ast_manager & m):
+    card_pb_rewriter(ast_manager & m):
         rewriter_tpl<card2bv_rewriter_cfg>(m, false, m_cfg),
         m_cfg(m) {}
 };
@@ -116,7 +116,7 @@ class card2bv_tactic : public tactic {
     ast_manager &              m;
     params_ref                 m_params;
     th_rewriter                m_rw1;
-    pb_rewriter                m_rw2;
+    card_pb_rewriter           m_rw2;
     
 public:
 
