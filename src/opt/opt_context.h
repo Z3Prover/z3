@@ -31,6 +31,8 @@ Notes:
 #include "maxsmt.h"
 #include "model_converter.h"
 #include "tactic.h"
+#include "arith_decl_plugin.h"
+
 
 namespace opt {
 
@@ -78,6 +80,7 @@ namespace opt {
             {}
         };
         ast_manager&        m;
+        arith_util          arith;
         expr_ref_vector     m_hard_constraints;
         ref<opt_solver>     m_solver;
         params_ref          m_params;

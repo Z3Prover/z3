@@ -21,7 +21,6 @@ Notes:
 #include "ast_pp.h"
 #include "opt_solver.h"
 #include "opt_params.hpp"
-#include "arith_decl_plugin.h"
 #include "for_each_expr.h"
 #include "goal.h"
 #include "tactic.h"
@@ -39,6 +38,7 @@ namespace opt {
 
     context::context(ast_manager& m):
         m(m),
+        arith(m),
         m_hard_constraints(m),
         m_optsmt(m),
         m_objective_refs(m)
@@ -82,8 +82,7 @@ namespace opt {
 
     unsigned context::add_objective(app* t, bool is_max) {
         app_ref tr(t, m);
-        arith_util a(m);
-        if (!a.is_arith_expr(t)) {
+        if (!arith.is_arith_expr(t)) {
             throw default_exception("Objective must be integer or real");   
         }
         unsigned index = m_objectives.size();
@@ -194,7 +193,6 @@ namespace opt {
 
     lbool context::execute_pareto() {
         opt_solver& s = get_solver();        
-        arith_util a(m);
         expr_ref val(m);
         rational r;
         lbool is_sat = l_true;
@@ -249,7 +247,7 @@ namespace opt {
                 bool at_bound = true; 
                 for (unsigned j = 0; j < b.size(); ++j) {
                     objective const& obj = m_objectives[j];
-                    if (m_model->eval(obj.m_term, val) && a.is_numeral(val, r)) {
+                    if (m_model->eval(obj.m_term, val) && arith.is_numeral(val, r)) {
                         mids[j] = inf_eps(r);
                     }
                     at_bound = at_bound && mids[j] == b[j].second;
@@ -537,8 +535,7 @@ namespace opt {
             switch(obj.m_type) {
             case O_MINIMIZE: {
                 app_ref tmp(m);
-                arith_util a(m);
-                tmp = a.mk_uminus(obj.m_term);
+                tmp = arith.mk_uminus(obj.m_term);
                 obj.m_index = m_optsmt.add(tmp);
                 break;
             }
@@ -557,19 +554,18 @@ namespace opt {
     }
 
     void context::update_lower() {
-        arith_util a(m);
         expr_ref val(m);
         rational r(0);
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             switch(obj.m_type) {
             case O_MINIMIZE:
-                if (m_model->eval(obj.m_term, val) && a.is_numeral(val, r)) {
+                if (m_model->eval(obj.m_term, val) && arith.is_numeral(val, r)) {
                     m_optsmt.update_lower(obj.m_index, -r);
                 }
                 break;
             case O_MAXIMIZE:
-                if (m_model->eval(obj.m_term, val) && a.is_numeral(val, r)) {
+                if (m_model->eval(obj.m_term, val) && arith.is_numeral(val, r)) {
                     m_optsmt.update_lower(obj.m_index, r);
                 }
                 break;
@@ -682,32 +678,31 @@ namespace opt {
         rational r   = n.get_rational();
         rational eps = n.get_infinitesimal();
         expr_ref_vector args(m);
-        arith_util a(m);
         if (!inf.is_zero()) {
-            expr* oo = m.mk_const(symbol("oo"), a.mk_int());
+            expr* oo = m.mk_const(symbol("oo"), arith.mk_int());
             if (inf.is_one()) {
                 args.push_back(oo);
             }
             else {
-                args.push_back(a.mk_mul(a.mk_numeral(inf, inf.is_int()), oo));
+                args.push_back(arith.mk_mul(arith.mk_numeral(inf, inf.is_int()), oo));
             }
         }
         if (!r.is_zero()) {
-            args.push_back(a.mk_numeral(r, r.is_int()));
+            args.push_back(arith.mk_numeral(r, r.is_int()));
         }
         if (!eps.is_zero()) {
-            expr* ep = m.mk_const(symbol("epsilon"), a.mk_int());
+            expr* ep = m.mk_const(symbol("epsilon"), arith.mk_int());
             if (eps.is_one()) {
                 args.push_back(ep);
             }
             else {
-                args.push_back(a.mk_mul(a.mk_numeral(eps, eps.is_int()), ep));
+                args.push_back(arith.mk_mul(arith.mk_numeral(eps, eps.is_int()), ep));
             }
         }
         switch(args.size()) {
-        case 0: return expr_ref(a.mk_numeral(rational(0), true), m);
+        case 0: return expr_ref(arith.mk_numeral(rational(0), true), m);
         case 1: return expr_ref(args[0].get(), m);
-        default: return expr_ref(a.mk_add(args.size(), args.c_ptr()), m);
+        default: return expr_ref(arith.mk_add(args.size(), args.c_ptr()), m);
         }
     }
         
@@ -864,7 +859,6 @@ namespace opt {
     }
 
     void context::validate_lex() {
-        arith_util a(m);
         rational r1;
         expr_ref val(m);
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
@@ -876,7 +870,7 @@ namespace opt {
                 if (n.get_infinity().is_zero() &&
                     n.get_infinitesimal().is_zero() &&
                     m_model->eval(obj.m_term, val) &&
-                    a.is_numeral(val, r1)) {
+                    arith.is_numeral(val, r1)) {
                     rational r2 = n.get_rational();
                     CTRACE("opt", r1 != r2, tout << obj.m_term << " evaluates to " << r1 << " but has objective " << r2 << "\n";);
                     CTRACE("opt", r1 != r2, model_smt2_pp(tout, m, *m_model, 0););
