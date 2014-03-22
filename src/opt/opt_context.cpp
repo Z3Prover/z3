@@ -935,6 +935,9 @@ namespace opt {
                     m_model->eval(obj.m_term, val) &&
                     is_numeral(val, r1)) {
                     rational r2 = n.get_rational();
+                    if (obj.m_type == O_MINIMIZE) {
+                        r1.neg();
+                    }
                     CTRACE("opt", r1 != r2, tout << obj.m_term << " evaluates to " << r1 << " but has objective " << r2 << "\n";);
                     CTRACE("opt", r1 != r2, model_smt2_pp(tout, m, *m_model, 0););
                     SASSERT(r1 == r2);
