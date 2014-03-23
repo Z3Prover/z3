@@ -79,7 +79,9 @@ namespace smt {
             m_normalize(false)
         {}
 
-        virtual ~theory_weighted_maxsat() { }
+        virtual ~theory_weighted_maxsat() { 
+            m_old_values.reset();
+        }
 
         /**
            \brief return the complement of variables that are currently assigned.
@@ -208,7 +210,7 @@ namespace smt {
             
             virtual void undo(context & ctx) {
                 m_value = m_old_values.back();
-                m_old_values.pop_back();
+                m_old_values.shrink(m_old_values.size() - 1);
             }
         };
 
@@ -219,7 +221,8 @@ namespace smt {
                 context& ctx = get_context();
                 theory_var tv = m_bool2var[v];
                 if (m_assigned[tv]) return;
-                mpz const& w = m_zweights[tv];
+                scoped_mpz w(m_mpz);
+                w = m_zweights[tv];
                 ctx.push_trail(numeral_trail(m_zcost, m_old_values));
                 ctx.push_trail(push_back_vector<context, svector<theory_var> >(m_costs));
                 ctx.push_trail(value_trail<context, bool>(m_assigned[tv]));
