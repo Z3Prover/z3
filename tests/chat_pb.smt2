@@ -3373,8 +3373,8 @@
 (assert-soft |dn([7,Main.main],58)_scc(7)| :weight 2)
 (optimize
 ; :wmaxsat_engine wpm2
-; :wmaxsat_engine pwmax
- :wmaxsat_engine bvmax
+ :wmaxsat_engine pwmax
+; :wmaxsat_engine bvmax
  :print_statistics true
  :timeout 60000
 )

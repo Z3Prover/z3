@@ -729,7 +729,7 @@ namespace opt {
         }
 
         lbool conditional_solve(expr* cond) {
-            IF_VERBOSE(3, verbose_stream() << "(conditional solve)\n";);
+            IF_VERBOSE(1, verbose_stream() << "(wmaxsat.conditional solve)\n";);
             smt::theory_weighted_maxsat& wth = *get_theory();
             bool was_sat = false;
             lbool is_sat = l_true;
@@ -813,6 +813,7 @@ namespace opt {
         // sorting circuits.
         //
         lbool pb2sat_solve() {
+            IF_VERBOSE(1, verbose_stream() << "(wmaxsat.bv solve)\n";);
             pb_util u(m);
             expr_ref fml(m), val(m);
             app_ref b(m);
@@ -836,7 +837,10 @@ namespace opt {
             }
             lbool is_sat = l_true;
             bool was_sat = false;
+            fml = m.mk_true();
             while (l_true == is_sat) {
+                solver::scoped_push __s(*(m_sat_solver));
+                m_sat_solver->assert_expr(fml);
                 is_sat = m_sat_solver->check_sat(0,0);
                 if (m_cancel) {
                     is_sat = l_undef;
@@ -851,9 +855,8 @@ namespace opt {
                             m_upper += m_weights[i];
                         }
                     }                    
-                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << ")\n";);
+                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.bv with upper bound: " << m_upper << ")\n";);
                     fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
-                    m_sat_solver->assert_expr(fml);
                     was_sat = true;
                 }
             }            
@@ -925,6 +928,7 @@ namespace opt {
 
 
         lbool wpm2_solve() {
+            IF_VERBOSE(1, verbose_stream() << "(wmaxsat.wpm2 solve)\n";);
             solver::scoped_push _s(s);
             pb_util u(m);
             app_ref fml(m), a(m), b(m), c(m);
@@ -1072,6 +1076,7 @@ namespace opt {
         
         // Version from CP'13        
         lbool wpm2b_solve() {
+            IF_VERBOSE(1, verbose_stream() << "(wmaxsat.wpm2b solve)\n";);
             solver::scoped_push _s(s);
             pb_util u(m);
             app_ref fml(m), a(m), b(m), c(m);
