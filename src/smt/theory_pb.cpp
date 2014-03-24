@@ -1558,6 +1558,8 @@ namespace smt {
         }
     }
 
+    static unsigned s_min_l_size = UINT_MAX;
+        
     //
     // modeled after sat_solver/smt_context
     //
@@ -1731,6 +1733,12 @@ namespace smt {
         m_lemma.prune(false);
 
         IF_VERBOSE(4, display(verbose_stream() << "lemma2: ", m_lemma););
+        //unsigned l_size = m_ineq_literals.size() + ((is_true==l_false)?0:m_lemma.size());
+        //if (s_min_l_size >= l_size) {
+        //    verbose_stream() << "(pb.conflict min size: " << l_size << ")\n";
+        //    s_min_l_size = l_size;        
+        //}
+        //IF_VERBOSE(1, verbose_stream() << "(pb.conflict " << m_ineq_literals.size() << " " << m_lemma.size() << "\n";);
         switch(is_true) {
         case l_true:
             UNREACHABLE();

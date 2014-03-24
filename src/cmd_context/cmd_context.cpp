@@ -1376,6 +1376,9 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
             throw cmd_exception(ex.msg());
         }
         get_opt()->set_status(r);
+        if (r != l_false) {
+            get_opt()->display_assignment(regular_stream());
+        }
     }
     else if (m_solver) {
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
@@ -1579,6 +1582,9 @@ void cmd_context::display_statistics(bool show_total_time, double total_time) {
     }
     else if (m_solver) {
         m_solver->collect_statistics(st);
+    }
+    else if (m_opt) {
+        m_opt->collect_statistics(st);
     }
     st.display_smt2(regular_stream());
 }

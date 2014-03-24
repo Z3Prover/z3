@@ -29,6 +29,9 @@ Notes:
 #include "tactic.h"
 #include "model_smt2_pp.h"
 #include "pb_sls.h"
+#include "qfbv_tactic.h"
+#include "card2bv_tactic.h"
+#include "tactic2solver.h"
 
 namespace smt {
 
@@ -450,6 +453,7 @@ namespace opt {
         volatile bool    m_cancel;
         params_ref       m_params;
         opt_solver       m_solver;
+        ref<solver>      m_sat_solver;
         scoped_ptr<imp>  m_imp;
         smt::pb_sls      m_sls;
 
@@ -511,6 +515,9 @@ namespace opt {
             if (m_engine == symbol("pwmax")) {
                 return pb_solve();
             }
+            if (m_engine == symbol("bvmax")) {
+                return pb2sat_solve();
+            }
             if (m_engine == symbol("wpm2")) {
                 return wpm2_solve();
             }
@@ -520,7 +527,11 @@ namespace opt {
             if (m_engine == symbol("sls")) {
                 return sls_solve();
             }
-            return incremental_solve();
+            if (m_engine == symbol::null || m_engine == symbol("wmax")) {
+                return incremental_solve();
+            }
+            IF_VERBOSE(0, verbose_stream() << "(unknown engine " << m_engine << " using default 'wmax')\n";);
+            return incremental_solve();            
         }
 
         rational get_lower() const {
@@ -534,6 +545,25 @@ namespace opt {
         void get_model(model_ref& mdl) {
             mdl = m_model.get();
         }
+
+        void set_cancel(bool f) {
+            if (m_sat_solver) {
+                m_sat_solver->set_cancel(f);
+            }
+            m_sls.set_cancel(f);
+            m_cancel = f;
+            m_solver.set_cancel(f);
+            m_imp->m_cancel = f;        
+            m_imp->m_solver.set_cancel(f);
+        }
+
+        void collect_statistics(statistics& st) const {
+            m_solver.collect_statistics(st);
+            if (m_sat_solver) {
+                m_sat_solver->collect_statistics(st);
+            }
+        }
+
 
         class scoped_ensure_theory {
             smt::theory_weighted_maxsat* m_wth;
@@ -732,7 +762,6 @@ namespace opt {
 
 
         // convert bounds constraint into pseudo-Boolean
-
         lbool pb_solve() {
             pb_util u(m);
             expr_ref fml(m), val(m);
@@ -768,6 +797,63 @@ namespace opt {
                     IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << ")\n";);
                     fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
                     s.assert_expr(fml);
+                    was_sat = true;
+                }
+            }            
+            if (is_sat == l_false && was_sat) {
+                is_sat = l_true;
+                m_lower = m_upper;
+            }
+            return is_sat;
+        }
+
+        //
+        // convert bounds constraint into pseudo-Boolean, 
+        // then treat pseudo-Booleans as bit-vectors and
+        // sorting circuits.
+        //
+        lbool pb2sat_solve() {
+            pb_util u(m);
+            expr_ref fml(m), val(m);
+            app_ref b(m);
+            expr_ref_vector nsoft(m);
+            m_lower = m_upper = rational::zero();
+            tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
+            tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
+            tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
+            m_sat_solver = mk_tactic2solver(m, tac.get(), m_params);
+            unsigned sz = s.get_num_assertions();
+            for (unsigned i = 0; i < sz; ++i) {
+                m_sat_solver->assert_expr(s.get_assertion(i));
+            }
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                m_upper += m_weights[i];
+                b = m.mk_fresh_const("b", m.mk_bool_sort());
+                // TODO: s.mc().insert(b->get_decl());
+                fml = m.mk_or(m_soft[i].get(), b);
+                m_sat_solver->assert_expr(fml);
+                nsoft.push_back(b);
+            }
+            lbool is_sat = l_true;
+            bool was_sat = false;
+            while (l_true == is_sat) {
+                is_sat = m_sat_solver->check_sat(0,0);
+                if (m_cancel) {
+                    is_sat = l_undef;
+                }
+                if (is_sat == l_true) {
+                    m_sat_solver->get_model(m_model);
+                    m_upper = rational::zero();
+                    for (unsigned i = 0; i < m_soft.size(); ++i) {
+                        VERIFY(m_model->eval(nsoft[i].get(), val));
+                        m_assignment[i] = !m.is_true(val);
+                        if (!m_assignment[i]) {
+                            m_upper += m_weights[i];
+                        }
+                    }                    
+                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << ")\n";);
+                    fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
+                    m_sat_solver->assert_expr(fml);
                     was_sat = true;
                 }
             }            
@@ -1285,14 +1371,10 @@ namespace opt {
         return m_imp->m_assignment[idx];
     }
     void wmaxsmt::set_cancel(bool f) {
-        m_imp->m_sls.set_cancel(f);
-        m_imp->m_cancel = f;
-        m_imp->m_solver.set_cancel(f);
-        m_imp->m_imp->m_cancel = f;        
-        m_imp->m_imp->m_solver.set_cancel(f);
+        m_imp->set_cancel(f);
     }
     void wmaxsmt::collect_statistics(statistics& st) const {
-        m_imp->m_solver.collect_statistics(st);
+        m_imp->collect_statistics(st);
     }
     void wmaxsmt::get_model(model_ref& mdl) {
         m_imp->get_model(mdl);

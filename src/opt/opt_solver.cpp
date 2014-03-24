@@ -44,6 +44,7 @@ namespace opt {
         m_logic = l;
         if (m_logic != symbol::null)
             m_context.set_logic(m_logic);
+        m_params.m_relevancy_lvl = 0;
     }
 
     unsigned opt_solver::m_dump_count = 0;

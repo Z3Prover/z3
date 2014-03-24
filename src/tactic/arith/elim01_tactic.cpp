@@ -167,6 +167,7 @@ public:
         expr_ref_vector axioms(m);
         bounds(*g);
         
+        rational zero(0);
         bound_manager::iterator bit = bounds.begin(), bend = bounds.end();
         for (; bit != bend; ++bit) {
             if (!is_app(*bit)) continue;
@@ -174,9 +175,14 @@ public:
             bool s1, s2;
             rational lo, hi;
             if (a.is_int(x) && 
-                bounds.has_lower(x, lo, s1) && !s1 && lo.is_zero() &&
-                bounds.has_upper(x, hi, s2) && !s2 && hi <= m_max_hi) {
-                add_variable(b2i, sub, x, hi.get_unsigned(), axioms);
+                bounds.has_lower(x, lo, s1) && !s1 && zero <= lo &&
+                bounds.has_upper(x, hi, s2) && !s2 && hi <= m_max_hi && lo <= hi) {
+                add_variable(b2i, sub, x, lo.get_unsigned(), hi.get_unsigned(), axioms);
+            }
+            else if (a.is_int(x)) {
+                TRACE("pb", tout << "Not adding variable " << mk_pp(x, m) << " has lower: " 
+                      << bounds.has_lower(x, lo, s1) << " " << lo << " has upper: " 
+                      << bounds.has_upper(x, hi, s2) << " " << hi << "\n";);
             }
         }
                
@@ -209,6 +215,7 @@ public:
     void add_variable(bool2int_model_converter* b2i,
                       expr_safe_replace& sub,
                       app* x,
+                      unsigned min_value,
                       unsigned max_value,
                       expr_ref_vector& axioms) {
         std::string name = x->get_decl()->get_name().str();
@@ -241,6 +248,9 @@ public:
         // if max_value+1 is not a power of two:
         if ((max_value & (max_value + 1)) != 0) {
             axioms.push_back(a.mk_le(sum, a.mk_numeral(rational(max_value), true)));
+        }
+        if (min_value > 0) {
+            axioms.push_back(a.mk_ge(sum, a.mk_numeral(rational(min_value), true)));
         }
     }
                       

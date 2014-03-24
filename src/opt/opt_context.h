@@ -122,8 +122,7 @@ namespace opt {
         virtual void get_unsat_core(ptr_vector<expr> & r) {}
         virtual std::string reason_unknown() const { return std::string("unknown"); }
 
-        void display_assignment(std::ostream& out);
-        void display_range_assignment(std::ostream& out);
+        virtual void display_assignment(std::ostream& out);
         static void collect_param_descrs(param_descrs & r);
         void updt_params(params_ref& p);
 

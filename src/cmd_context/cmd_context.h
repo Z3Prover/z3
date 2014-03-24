@@ -121,6 +121,7 @@ public:
     virtual void cancel() = 0;
     virtual lbool optimize() = 0;
     virtual void set_hard_constraints(ptr_vector<expr> & hard) = 0;
+    virtual void display_assignment(std::ostream& out) = 0;
 };
 
 class cmd_context : public progress_callback, public tactic_manager, public ast_printer_context {
