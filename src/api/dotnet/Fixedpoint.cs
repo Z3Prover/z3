@@ -305,6 +305,9 @@ namespace Microsoft.Z3
             }
         }
 
+        /// <summary>
+        /// Fixedpoint statistics.
+        /// </summary>
         public Statistics Statistics
         {
             get

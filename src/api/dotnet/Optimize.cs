@@ -155,6 +155,9 @@ namespace Microsoft.Z3
             return Native.Z3_optimize_to_string(Context.nCtx, NativeObject);
         }
 
+        /// <summary>
+        /// Optimize statistics.
+        /// </summary>
         public Statistics Statistics
         {
             get
