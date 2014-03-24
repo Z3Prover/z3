@@ -150,11 +150,22 @@ namespace Microsoft.Z3
             return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
         }
 
-	    public override string ToString() 
+        public override string ToString() 
         {
             return Native.Z3_optimize_to_string(Context.nCtx, NativeObject);
         }
 
+        public Statistics Statistics
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<Statistics>() != null);
+
+                return new Statistics(Context, Native.Z3_optimize_get_statistics(Context.nCtx, NativeObject));
+            }
+        }
+
+x
         #region Internal
         internal Optimize(Context ctx, IntPtr obj)
             : base(ctx, obj)

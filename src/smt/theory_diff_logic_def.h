@@ -1173,7 +1173,10 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
     theory_var result = m_objectives.size();
     rational q(1), r(0);
     expr_ref_vector vr(get_manager());
-    if (internalize_objective(term, q, r, objective)) {
+    if (!is_linear(get_manager(), term)) {
+        result = null_theory_var;
+    }
+    else if (internalize_objective(term, q, r, objective)) {
         m_objectives.push_back(objective);
         m_objective_consts.push_back(r);
         m_objective_assignments.push_back(vr);

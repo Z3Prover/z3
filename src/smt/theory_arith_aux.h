@@ -1061,6 +1061,9 @@ namespace smt {
         TRACE("opt", tout << mk_pp(term, get_manager()) << " |-> v" << v << "\n";);
         TRACE("opt", tout << "data-size: " << m_data.size() << "\n";);
         SASSERT(!is_quasi_base(v));
+        if (!is_linear(get_manager(), term)) {
+            v = null_theory_var;
+        }
         return v;
     }
 

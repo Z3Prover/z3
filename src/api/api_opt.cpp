@@ -18,12 +18,14 @@ Revision History:
 #include<iostream>
 #include"z3.h"
 #include"api_log_macros.h"
+#include"api_stats.h"
 #include"api_context.h"
 #include"api_util.h"
 #include"api_model.h"
 #include"opt_context.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
+
 
 extern "C" {
 
@@ -207,33 +209,18 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-
-
-#if 0
-
-    /**
-       \brief version with assumptions.
-
-    */
-
-    void check_assumptions;
-
-    /**
-       \brief retrieve the next answer. There are three modes:
-
-       - the optimization context has been configured to produce partial results.
-         It returns with L_UNDEF and an partial result and caller can retrieve
-         the results by querying get_lower and get_upper.
-       - The full result was produced and it returned L_TRUE. 
-         Retrieve the next result that has the same objective optimal.
-       - The context was configured to compute a Pareto front.
-         Search proceeds incrementally identifying feasible boxes.
-         Every return value is a new sub-box or set of sub-boxes.
-     */
-    void Z3_optimize_get_next(Z3_context c, Z3_optimize o) {
+    Z3_stats Z3_API Z3_optimize_get_statistics(Z3_context c,Z3_optimize d) {
+        Z3_TRY;
+        LOG_Z3_optimize_get_statistics(c, d);
+        RESET_ERROR_CODE();
+        Z3_stats_ref * st = alloc(Z3_stats_ref);
+        to_optimize_ref(d).collect_statistics(st->m_stats);
+        mk_c(c)->save_object(st);
+        Z3_stats r = of_stats(st);
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(0);
     }
-    
-    // 
-#endif
+
+
 
 };

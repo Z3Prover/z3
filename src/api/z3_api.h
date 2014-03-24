@@ -6107,6 +6107,12 @@ END_MLAPI_EXCLUDE
     */
     Z3_string Z3_API Z3_optimize_get_help(__in Z3_context c, __in Z3_optimize t);
 
+    /**
+       \brief Retrieve statistics information from the last call to #Z3_optimize_check
+
+       def_API('Z3_optimize_get_statistics', STATS, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_stats Z3_API Z3_optimize_get_statistics(__in Z3_context c,__in Z3_optimize d);
 
 
 #endif

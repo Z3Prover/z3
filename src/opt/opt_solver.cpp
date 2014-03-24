@@ -210,9 +210,10 @@ namespace opt {
     }
     
     smt::theory_var opt_solver::add_objective(app* term) {
-        m_objective_vars.push_back(get_optimizer().add_objective(term));
+        smt::theory_var v = get_optimizer().add_objective(term);
+        m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
-        return m_objective_vars.back();
+        return v;
     }
     
     vector<inf_eps> const& opt_solver::get_objective_values() {

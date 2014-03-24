@@ -219,7 +219,13 @@ namespace opt {
         }
 
         for (unsigned i = 0; i < m_objs.size(); ++i) {
-            m_vars.push_back(solver.add_objective(m_objs[i].get()));
+            smt::theory_var v = solver.add_objective(m_objs[i].get());
+            if (v == smt::null_theory_var) {
+                std::ostringstream out;
+                out << "Objective function '" << mk_pp(m_objs[i].get(), m) << "' is not supported";
+                throw default_exception(out.str());
+            }
+            m_vars.push_back(v);
         }            
     }
 
