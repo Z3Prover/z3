@@ -79,7 +79,7 @@ extern "C" {
         LOG_Z3_optimize_assert_soft(c, o, a, weight, id);
         RESET_ERROR_CODE();
         CHECK_FORMULA(a,0);        
-        rational w("weight");
+        rational w(weight);
         return to_optimize_ref(o).add_soft_constraint(to_expr(a), w, to_symbol(id));
         Z3_CATCH_RETURN(0);
     }

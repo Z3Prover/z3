@@ -6321,9 +6321,22 @@ class Optimize(Z3PPObject):
         """Assert constraints as background axioms for the optimize solver. Alias for assert_expr."""
         self.assert_exprs(*args)
 
-    def add_soft(self, arg, weight = None):
-	"""Add soft constraint with optional weight."""
-	pass
+    def add_soft(self, arg, weight = "1", id = None):
+	"""Add soft constraint with optional weight and optional identifier.
+	   If no weight is supplied, then the penalty for violating the soft constraint
+	   is 1.
+	   Soft constraints are grouped by identifiers. Soft constraints that are
+	   added without identifiers are grouped by default.
+	"""
+	if _is_int(weight):
+	    weight = "%d" % weight
+	if not isinstance(weight, str):
+	    raise Z3Exception("weight should be a string or an integer")
+	if id == None:
+	    id = 0
+	id = to_symbol(id, self.ctx)
+	v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, arg.as_ast(), weight, id)
+	return OptimizeObjective(v)
 
     def maximize(self, arg):
 	"""Add objective function to maximize."""

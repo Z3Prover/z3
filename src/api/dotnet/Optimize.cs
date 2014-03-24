@@ -165,7 +165,7 @@ namespace Microsoft.Z3
             }
         }
 
-x
+
         #region Internal
         internal Optimize(Context ctx, IntPtr obj)
             : base(ctx, obj)
