@@ -550,6 +550,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	  else if(g == symm) res = simplify_symm(args);
 	  else if(g == modpon) res = simplify_modpon(args);
 	  else if(g == sum) res = simplify_sum(args);
+	  else if(g == exmid) res = simplify_exmid(args);
 #if 0
 	  else if(g == cong) res = simplify_cong(args);
 	  else if(g == modpon) res = simplify_modpon(args);
@@ -1097,6 +1098,17 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
 
 
+  ast simplify_exmid(const std::vector<ast> &args){
+    if(is_equivrel(args[0])){
+      ast Aproves = mk_true(), Bproves = mk_true();
+      ast chain = destruct_cond_ineq(args[1],Aproves,Bproves);
+      ast Q2 = destruct_cond_ineq(args[2],Aproves,Bproves);
+      ast interp = contra_chain(Q2,chain);
+      return my_and(Aproves,my_implies(Bproves,interp));
+    }
+    throw "bad exmid";
+  }
+
   bool is_equivrel(const ast &p){
     opr o = op(p);
     return o == Equal || o == Iff;
@@ -1381,6 +1393,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
     if(pos == top_pos && op(equality) == Iff && !is_true(arg(equality,0)))
       throw "bad rewrite";
 #endif
+    if(!is_equivrel(equality))
+      throw "bad rewrite";
     return make(t == LitA ? rewrite_A : rewrite_B, pos, cond, equality);
   }
 
