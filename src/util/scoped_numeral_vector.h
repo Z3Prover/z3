@@ -47,7 +47,7 @@ public:
     }
 
     void pop_back() {
-        shrink(size()-1);
+        shrink(this->size()-1);
     }
 
     void shrink(unsigned sz) {

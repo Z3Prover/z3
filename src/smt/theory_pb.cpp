@@ -18,6 +18,7 @@ Notes:
 
 --*/
 
+#include <typeinfo>
 #include "theory_pb.h"
 #include "smt_context.h"
 #include "ast_pp.h"

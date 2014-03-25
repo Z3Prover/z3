@@ -3371,10 +3371,12 @@
 (assert-soft |dn([7,Main.main],50)_scc(7)| :weight 2)
 (assert-soft |dn([7,Main.main],54)_scc(7)| :weight 2)
 (assert-soft |dn([7,Main.main],58)_scc(7)| :weight 2)
+(set-option :smt.pb.conflict_frequency 100)
+
 (optimize
 ; :wmaxsat_engine wpm2
  :wmaxsat_engine pwmax
 ; :wmaxsat_engine bvmax
  :print_statistics true
- :timeout 60000
+ :timeout 1200000
 )

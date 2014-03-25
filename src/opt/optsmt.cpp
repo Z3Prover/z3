@@ -37,7 +37,7 @@ Notes:
 
 --*/
 
-
+#include <typeinfo>
 #include "optsmt.h"
 #include "opt_solver.h"
 #include "arith_decl_plugin.h"

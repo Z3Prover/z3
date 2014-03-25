@@ -17,6 +17,7 @@ Notes:
 
 --*/
 
+#include <typeinfo>
 #include "maxsmt.h"
 #include "fu_malik.h"
 #include "core_maxsat.h"

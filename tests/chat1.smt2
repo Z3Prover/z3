@@ -3376,5 +3376,5 @@
 ; :wmaxsat_engine pwmax
  :wmaxsat_engine bvmax
  :print_statistics true
- :timeout 60000
+ :timeout 1200000
 )

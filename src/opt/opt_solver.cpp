@@ -18,6 +18,7 @@ Notes:
     Based directly on smt_solver.
    
 --*/
+#include <typeinfo>
 #include "reg_decl_plugins.h"
 #include "opt_solver.h"
 #include "smt_context.h"

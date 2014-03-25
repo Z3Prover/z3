@@ -55,7 +55,9 @@ namespace smt {
                 else if (is_numeral(a, t2)) {
                     todo.push_back(t1);
                 }
-                return false;
+                else {
+                    return false;
+                }
             }
             else {
                 return false;

@@ -16,6 +16,7 @@ Notes:
 
 --*/
 
+#include <typeinfo>
 #include "weighted_maxsat.h"
 #include "smt_theory.h"
 #include "smt_context.h"
@@ -779,7 +780,10 @@ namespace opt {
             }
             lbool is_sat = l_true;
             bool was_sat = false;
+            fml = m.mk_true();
             while (l_true == is_sat) {
+                solver::scoped_push _s(s);
+                s.assert_expr(fml);
                 is_sat = s.check_sat_core(0,0);
                 if (m_cancel) {
                     is_sat = l_undef;
@@ -796,7 +800,6 @@ namespace opt {
                     }                    
                     IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << ")\n";);
                     fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
-                    s.assert_expr(fml);
                     was_sat = true;
                 }
             }            
