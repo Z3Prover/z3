@@ -551,8 +551,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	  else if(g == modpon) res = simplify_modpon(args);
 	  else if(g == sum) res = simplify_sum(args);
 	  else if(g == exmid) res = simplify_exmid(args);
-#if 0
 	  else if(g == cong) res = simplify_cong(args);
+#if 0
 	  else if(g == modpon) res = simplify_modpon(args);
 	  else if(g == leq2eq) res = simplify_leq2eq(args);
 	  else if(g == eq2leq) res = simplify_eq2leq(args);
@@ -1107,6 +1107,20 @@ class iz3proof_itp_impl : public iz3proof_itp {
       return my_and(Aproves,my_implies(Bproves,interp));
     }
     throw "bad exmid";
+  }
+
+  ast simplify_cong(const std::vector<ast> &args){
+    ast Aproves = mk_true(), Bproves = mk_true();
+    ast chain = destruct_cond_ineq(args[0],Aproves,Bproves);
+    rational pos;
+    if(is_numeral(args[1],pos)){
+      int ipos = pos.get_unsigned();
+      chain = chain_pos_add(ipos,chain);
+      ast Q2 = destruct_cond_ineq(args[2],Aproves,Bproves);
+      ast interp = contra_chain(Q2,chain);
+      return my_and(Aproves,my_implies(Bproves,interp));
+    }
+    throw "bad cong";
   }
 
   bool is_equivrel(const ast &p){
