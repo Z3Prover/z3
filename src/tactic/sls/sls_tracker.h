@@ -20,7 +20,7 @@ Notes:
 #ifndef _SLS_TRACKER_H_
 #define _SLS_TRACKER_H_
 
-#include"goal.h"
+#include"bv_decl_plugin.h"
 #include"model.h"
 
 #include"sls_compilation_settings.h"
@@ -365,12 +365,12 @@ public:
         }
     };
 
-    void calculate_expr_distances(goal_ref const & g) {
+    void calculate_expr_distances(ptr_vector<expr> const & as) {
         // precondition: m_scores is set up.
-        unsigned sz = g->size();
+        unsigned sz = as.size();
         ptr_vector<app> stack;
         for (unsigned i = 0; i < sz; i++)
-            stack.push_back(to_app(g->form(i)));
+            stack.push_back(to_app(as[i]));
         while (!stack.empty()) {
             app * cur = stack.back();
             stack.pop_back();
@@ -418,12 +418,12 @@ public:
         quick_for_each_expr(ffd_proc, visited, e);
     }
 
-    void initialize(goal_ref const & g) {
+    void initialize(ptr_vector<expr> const & as) {
         init_proc proc(m_manager, *this);
         expr_mark visited;
-        unsigned sz = g->size();
+        unsigned sz = as.size();
         for (unsigned i = 0; i < sz; i++) {
-            expr * e = g->form(i);
+            expr * e = as[i];
             if (!m_top_expr.contains(e))
                 m_top_expr.insert(e);
             else
@@ -438,7 +438,7 @@ public:
         visited.reset();
 
         for (unsigned i = 0; i < sz; i++) {
-            expr * e = g->form(i);
+            expr * e = as[i];
             // Andreas: Maybe not fully correct.
 #if _FOCUS_ == 2 || _INTENSIFICATION_
             initialize_recursive(e);
@@ -450,7 +450,7 @@ public:
             quick_for_each_expr(ffd_proc, visited, e);
         }
 
-        calculate_expr_distances(g);
+        calculate_expr_distances(as);
 
         TRACE("sls", tout << "Initial model:" << std::endl; show_model(tout); );
 
@@ -465,11 +465,11 @@ public:
 
 #if _EARLY_PRUNE_
         for (unsigned i = 0; i < sz; i++)
-            setup_occs(g->form(i));
+            setup_occs(as[i]);
 #endif
 
 #if _UCT_
-        m_touched = _UCT_INIT_ ? g->size() : 1;
+        m_touched = _UCT_INIT_ ? as.size() : 1;
 #endif
     }
 
@@ -606,7 +606,7 @@ public:
             NOT_IMPLEMENTED_YET(); // This only works for bit-vectors for now.
     }    
 
-    void randomize(goal_ref const & g) {
+    void randomize(ptr_vector<expr> const & as) {
         TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
@@ -620,13 +620,13 @@ public:
         TRACE("sls", tout << "Randomized model:" << std::endl; show_model(tout); );
 
 #if _UCT_RESET_
-        m_touched = _UCT_INIT_ ? g->size() : 1;
-        for (unsigned i = 0; i < g->size(); i++)
-            m_scores.find(g->form(i)).touched = 1;
+        m_touched = _UCT_INIT_ ? as.size() : 1;
+        for (unsigned i = 0; i < as.size(); i++)
+            m_scores.find(as[i]).touched = 1;
 #endif
     }              
 
-    void reset(goal_ref const & g) {
+    void reset(ptr_vector<expr> const & as) {
         TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
@@ -636,9 +636,9 @@ public:
         }
 
 #if _UCT_RESET_
-        m_touched = _UCT_INIT_ ? g->size() : 1;
-        for (unsigned i = 0; i < g->size(); i++)
-            m_scores.find(g->form(i)).touched = 1;
+        m_touched = _UCT_INIT_ ? as.size() : 1;
+        for (unsigned i = 0; i < as.size(); i++)
+            m_scores.find(as[i]).touched = 1;
 #endif
     }              
 
@@ -1029,13 +1029,13 @@ public:
         return m_temp_constants;
     }
 
-    ptr_vector<func_decl> & get_unsat_constants_gsat(goal_ref const & g, unsigned sz) {
+    ptr_vector<func_decl> & get_unsat_constants_gsat(ptr_vector<expr> const & as, unsigned sz) {
         if (sz == 1)
             return get_constants();
         m_temp_constants.reset();
 
         for (unsigned i = 0; i < sz; i++) {
-            expr * q = g->form(i);
+            expr * q = as[i];
             if (m_mpz_manager.eq(get_value(q), m_one))
                 continue;
             ptr_vector<func_decl> const & this_decls = m_constants_occ.find(q);
@@ -1049,22 +1049,22 @@ public:
         return m_temp_constants;
     }
 
-    expr * get_unsat_assertion(goal_ref const & g, unsigned sz, unsigned int pos) {
+    expr * get_unsat_assertion(ptr_vector<expr> const & as, unsigned sz, unsigned int pos) {
             for (unsigned i = pos; i < sz; i++) {
-                expr * q = g->form(i);
+                expr * q = as[i];
                 if (m_mpz_manager.neq(get_value(q), m_one))
                     return q;
             }
             for (unsigned i = 0; i < pos; i++) {
-                expr * q = g->form(i);
+                expr * q = as[i];
                 if (m_mpz_manager.neq(get_value(q), m_one))
                     return q;
             }
             return 0;
     }
 
-    ptr_vector<func_decl> & get_unsat_constants_walksat(goal_ref const & g, unsigned sz, unsigned int pos) {
-            expr * q = get_unsat_assertion(g, sz, pos);
+    ptr_vector<func_decl> & get_unsat_constants_walksat(ptr_vector<expr> const & as, unsigned sz, unsigned int pos) {
+            expr * q = get_unsat_assertion(as, sz, pos);
             // Andreas: I should probably fix this. If this is the case then the formula is SAT anyway but this is not checked in the first iteration.
             if (!q)
                 return m_temp_constants;
@@ -1141,19 +1141,19 @@ public:
             return m_temp_constants;
     }
 
-    ptr_vector<func_decl> & get_unsat_constants_crsat(goal_ref const & g, unsigned sz, unsigned int pos) {
-        expr * q = get_unsat_assertion(g, sz, pos);
+    ptr_vector<func_decl> & get_unsat_constants_crsat(ptr_vector<expr> const & as, unsigned sz, unsigned int pos) {
+        expr * q = get_unsat_assertion(as, sz, pos);
         if (!q)
             return m_temp_constants;
 
         return go_deeper(q);
     }
 
-    ptr_vector<func_decl> & get_unsat_constants(goal_ref const & g, unsigned int flip) {
-        unsigned sz = g->size();
+    ptr_vector<func_decl> & get_unsat_constants(ptr_vector<expr> const & as, unsigned int flip) {
+        unsigned sz = as.size();
 
         if (sz == 1) {
-            if (m_mpz_manager.eq(get_value(g->form(0)), m_one))
+            if (m_mpz_manager.eq(get_value(as[0]), m_one))
                 return m_temp_constants;
             else
                 return get_constants();
@@ -1201,7 +1201,7 @@ public:
 #else
             double max = -1.0;
             for (unsigned i = 0; i < sz; i++) {
-                expr * e = g->form(i);
+                expr * e = as[i];
 //            for (unsigned i = 0; i < m_where_false.size(); i++) {
 //                expr * e = m_list_false[i];
                 vscore = m_scores.find(e);
@@ -1219,12 +1219,12 @@ public:
                 return m_temp_constants;
 
 #if _UCT_ == 1 || _UCT_ == 3
-            m_scores.find(g->form(pos)).touched++;
+            m_scores.find(as[pos]).touched++;
             m_touched++;
 #elif _UCT_ == 2
-            m_scores.find(g->form(pos)).touched = flip; 
+            m_scores.find(as[pos]).touched = flip; 
 #endif
-            expr * e = g->form(pos);
+            expr * e = as[pos];
 //            expr * e = m_list_false[pos];
 
 #elif _BFS_ == 3
@@ -1303,11 +1303,11 @@ public:
     }
     
 
-    expr * get_unsat_assertion(goal_ref const & g, unsigned int flip) {
-        unsigned sz = g->size();
+    expr * get_unsat_assertion(ptr_vector<expr> const & as, unsigned int flip) {
+        unsigned sz = as.size();
 
         if (sz == 1)
-            return g->form(0);
+            return as[0];
 
         m_temp_constants.reset();
 #if _FOCUS_ == 1
@@ -1351,7 +1351,7 @@ public:
 #else
         double max = -1.0;
             for (unsigned i = 0; i < sz; i++) {
-                expr * e = g->form(i);
+                expr * e = as[i];
 //            for (unsigned i = 0; i < m_where_false.size(); i++) {
 //                expr * e = m_list_false[i];
                 vscore = m_scores.find(e);
@@ -1369,13 +1369,13 @@ public:
             return 0;
 
 #if _UCT_ == 1 || _UCT_ == 3
-        m_scores.find(g->form(pos)).touched++;
+        m_scores.find(as[pos]).touched++;
         m_touched++;
 #elif _UCT_ == 2
         m_scores.find(g->form(pos)).touched = flip; 
 #endif
 //        return m_list_false[pos];
-        return g->form(pos);
+        return as[pos];
 
 #elif _BFS_ == 3
         unsigned int pos = -1;
@@ -1429,7 +1429,7 @@ public:
         unsigned int pos = get_random_uint(16) % sz;
         return get_unsat_assertion(g, sz, pos);
 #endif
-        return g->form(pos);
+        return as[pos];
 #elif _FOCUS_ == 2
 #if _BFS_
         unsigned int pos = flip % sz;

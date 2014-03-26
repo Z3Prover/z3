@@ -922,8 +922,8 @@ public:
         randomize_local(m_tracker.get_constants(e));
     } 
 
-     void randomize_local(goal_ref const & g, unsigned int flip) {
-        randomize_local(m_tracker.get_unsat_constants(g, flip));
+    void randomize_local(ptr_vector<expr> const & as, unsigned int flip) {
+        randomize_local(m_tracker.get_unsat_constants(as, flip));
     } 
 };
 
