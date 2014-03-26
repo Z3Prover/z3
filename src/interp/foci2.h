@@ -23,7 +23,7 @@ Revision History:
 #include <vector>
 #include <string>
 
-#ifdef WIN32
+#ifdef _WINDOWS
 #define FOCI2_EXPORT __declspec(dllexport)
 #else
 #define FOCI2_EXPORT __attribute__ ((visibility ("default")))

@@ -753,12 +753,7 @@ br_status arith_rewriter::mk_rem_core(expr * arg1, expr * arg2, expr_ref & resul
     }
     else if (m_util.is_numeral(arg2, v2, is_int) && is_int && !v2.is_zero()) {
         if (is_add(arg1) || is_mul(arg1)) {
-            ptr_buffer<expr> new_args;
-            unsigned num_args = to_app(arg1)->get_num_args();
-            for (unsigned i = 0; i < num_args; i++)
-                new_args.push_back(m_util.mk_rem(to_app(arg1)->get_arg(i), arg2));
-            result = m().mk_app(to_app(arg1)->get_decl(), new_args.size(), new_args.c_ptr());
-            return BR_REWRITE2;
+            return BR_FAILED;
         }
         else {
             if (v2.is_neg()) {

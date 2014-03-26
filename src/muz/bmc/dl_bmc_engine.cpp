@@ -1465,6 +1465,10 @@ namespace datalog {
         if (m_rules.get_num_rules() == 0) {
             return l_false;
         }
+        if (m_rules.get_predicate_rules(m_query_pred).empty()) {
+            return l_false;
+        }
+
 
         if (is_linear()) {
             if (m_ctx.get_engine() == QBMC_ENGINE) {

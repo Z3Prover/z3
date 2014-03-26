@@ -310,6 +310,8 @@ struct check_logic::imp {
                     return false;
                 non_numeral = arg;
             }
+            if (non_numeral == 0) 
+                return true; 
             if (is_diff_var(non_numeral))
                 return true;
             if (!m_a_util.is_add(non_numeral) && !m_a_util.is_sub(non_numeral))

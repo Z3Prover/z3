@@ -801,7 +801,7 @@ protected:
       };
 
       
-#ifdef WIN32
+#ifdef _WINDOWS
        __declspec(dllexport)
 #endif
        void FromClauses(const std::vector<Term> &clauses);

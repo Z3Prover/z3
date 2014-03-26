@@ -21,7 +21,7 @@ Revision History:
 
 
 
-#ifdef WIN32
+#ifdef _WINDOWS
 #pragma warning(disable:4996)
 #pragma warning(disable:4800)
 #pragma warning(disable:4267)
@@ -35,10 +35,6 @@ Revision History:
 
 #include "duality.h"
 #include "duality_profiling.h"
-
-#ifndef WIN32
-// #define Z3OPS
-#endif
 
 // TODO: do we need these?
 #ifdef Z3OPS

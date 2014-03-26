@@ -139,22 +139,32 @@ protected:
         SASSERT(g.is_well_sorted());        
     }
 
+    struct expr_pos {
+        unsigned m_parent;
+        unsigned m_self;
+        unsigned m_idx;
+        expr*    m_expr;
+        expr_pos(unsigned p, unsigned s, unsigned i, expr* e):
+            m_parent(p), m_self(s), m_idx(i), m_expr(e)
+        {}
+        expr_pos():
+            m_parent(0), m_self(0), m_idx(0), m_expr(0)
+        {}
+    };
+
     void reduce(expr_ref& result){
         SASSERT(m.is_bool(result));
-        ptr_vector<expr> todo;
         ptr_vector<expr> names;
-        svector<bool>    is_checked;
-        svector<unsigned> parent_ids, self_ids;
+        svector<expr_pos> todo;
         expr_ref_vector fresh_vars(m), trail(m);
         expr_ref res(m), tmp(m);
-        obj_map<expr,std::pair<unsigned, expr*> > cache;        
-        unsigned id = 1;
+        obj_map<expr, expr_pos> cache;        
+        unsigned id = 1, child_id = 0;
         expr_ref n2(m), fml(m);
-        unsigned path_id = 0, self_pos = 0;
+        unsigned parent_pos = 0, self_pos = 0, self_idx = 0;
         app * a;
         unsigned sz;
-        std::pair<unsigned,expr*> path_r;
-        ptr_vector<expr> found;
+        expr_pos path_r;
         expr_ref_vector args(m);
         expr_ref n = mk_fresh(id, m.mk_bool_sort());
         trail.push_back(n);        
@@ -163,26 +173,25 @@ protected:
         tmp = m.mk_not(m.mk_iff(fml, n));
         m_solver.assert_expr(tmp);
 
-        todo.push_back(fml);
+        todo.push_back(expr_pos(0,0,0,fml));
         names.push_back(n);
-        is_checked.push_back(false);
-        parent_ids.push_back(0);
-        self_ids.push_back(0);        
         m_solver.push();
 
         while (!todo.empty() && !m_cancel) {            
             expr_ref res(m);
             args.reset();
-            expr* e = todo.back();
-            unsigned pos = parent_ids.back();
+            expr* e    = todo.back().m_expr;
+            self_pos   = todo.back().m_self;
+            parent_pos = todo.back().m_parent;
+            self_idx   = todo.back().m_idx;
             n = names.back();
-            bool checked = is_checked.back();
             
             if (cache.contains(e)) {
                 goto done;
             }
-            if (m.is_bool(e) && !checked && simplify_bool(n, res)) {
-                TRACE("ctx_solver_simplify_tactic", tout << "simplified: " << mk_pp(e, m) << " |-> " << mk_pp(res, m) << "\n";);                
+            if (m.is_bool(e) && simplify_bool(n, res)) {
+                TRACE("ctx_solver_simplify_tactic", 
+                      tout << "simplified: " << mk_pp(e, m) << " |-> " << mk_pp(res, m) << "\n";);
                 goto done;
             }
             if (!is_app(e)) {
@@ -191,49 +200,31 @@ protected:
             }
             
             a = to_app(e);
-            if (!is_checked.back()) {
-                self_ids.back() = ++path_id;
-                is_checked.back() = true;
-            }
-            self_pos = self_ids.back();
-            sz = a->get_num_args();
-            
+            sz = a->get_num_args();            
             n2 = 0;
 
-            found.reset(); // arguments already simplified.
             for (unsigned i = 0; i < sz; ++i) {
                 expr* arg = a->get_arg(i);
-                if (cache.find(arg, path_r) && !found.contains(arg)) {
+                if (cache.find(arg, path_r)) {
                     //
                     // This is a single traversal version of the context
                     // simplifier. It simplifies only the first occurrence of 
                     // a sub-term with respect to the context.
                     //
                                         
-                    found.push_back(arg);
-                    if (path_r.first == self_pos) {
-                        TRACE("ctx_solver_simplify_tactic", tout << "cached " << mk_pp(arg, m) << " |-> " << mk_pp(path_r.second, m) << "\n";);
-                        args.push_back(path_r.second);
-                    }
-                    else if (m.is_bool(arg)) {
-                        res = local_simplify(a, n, id, i);
-                        TRACE("ctx_solver_simplify_tactic", 
-                              tout << "Already cached: " << path_r.first << " " << mk_pp(arg, m) << " |-> " << mk_pp(res, m) << "\n";);
-                        args.push_back(res);
+                    if (path_r.m_parent == self_pos && path_r.m_idx == i) {
+                        args.push_back(path_r.m_expr);
                     }
                     else {
                         args.push_back(arg);
                     }
                 }
-                else if (!n2 && !found.contains(arg)) {                
+                else if (!n2) {
                     n2 = mk_fresh(id, m.get_sort(arg));
                     trail.push_back(n2);
-                    todo.push_back(arg);
-                    parent_ids.push_back(self_pos);
-                    self_ids.push_back(0);
+                    todo.push_back(expr_pos(self_pos, child_id++, i, arg));
                     names.push_back(n2);
                     args.push_back(n2);
-                    is_checked.push_back(false);
                 }
                 else {
                     args.push_back(arg);
@@ -251,22 +242,16 @@ protected:
         
         done:
             if (res) {
-                cache.insert(e, std::make_pair(pos, res));
-            }
-            
-            TRACE("ctx_solver_simplify_tactic",
-                  tout << mk_pp(e, m) << " checked: " << checked << " cached: " << mk_pp(res?res.get():e, m) << "\n";);
+                cache.insert(e, expr_pos(parent_pos, self_pos, self_idx, res));
+            }            
             
             todo.pop_back();
-            parent_ids.pop_back();
-            self_ids.pop_back();
             names.pop_back();
-            is_checked.pop_back();
             m_solver.pop(1);
         }
         if (!m_cancel) {
             VERIFY(cache.find(fml, path_r));
-            result = path_r.second;
+            result = path_r.m_expr;
         }
     }
 
@@ -305,32 +290,6 @@ protected:
             m_fns.insert(s, fn);
         }
         return expr_ref(m.mk_app(fn, m_arith.mk_numeral(rational(id++), true)), m);
-    }
-
-
-    expr_ref local_simplify(app* a, expr* n, unsigned& id, unsigned index) {
-        SASSERT(index < a->get_num_args());
-        SASSERT(m.is_bool(a->get_arg(index)));
-        expr_ref n2(m), result(m), tmp(m);
-        n2 = mk_fresh(id, m.get_sort(a->get_arg(index)));
-        ptr_buffer<expr> args;
-        for (unsigned i = 0; i < a->get_num_args(); ++i) {
-            if (i == index) {
-                args.push_back(n2);
-            }
-            else {
-                args.push_back(a->get_arg(i));
-            }
-        }
-        m_mk_app(a->get_decl(), args.size(), args.c_ptr(), result);
-        m_solver.push();
-        tmp = m.mk_eq(result, n);
-        m_solver.assert_expr(tmp);
-        if (!simplify_bool(n2, result)) {
-            result = a->get_arg(index);
-        }
-        m_solver.pop(1);
-        return result;
     }
     
 };
