@@ -929,7 +929,66 @@ namespace opt {
             return is_sat;
         }
 
+        // ------------------------------------------------------
+        // Morgado, Heras, Marques-Silva 2013
 
+        struct wcore {
+            unsigned_vector m_R;
+            rational        m_lambda;
+            rational        m_nu;
+            rational        m_epsilon;
+        };
+
+        lbool bcd2_solve() {
+            return l_undef;
+#if 0
+            expr_ref fml(m);
+            vector<wcore> cores;
+            lbool is_sat = l_undef;
+            expr_ref_vector nsoft(m);
+            m_lower = m_upper = rational::zero();            
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                m_upper += m_weights[i];
+            }
+            solver::scoped_push _s(s);
+            while (m_lower < m_upper) {
+                solver::scoped_push _s(s);
+                
+                for (unsigned i = 0; i < cores.size(); ++i) {
+                    assert_core(cores[i]);
+                }
+                is_sat = check_sat(0, 0);
+                switch(is_sat) {
+                case l_undef: return l_undef;
+                case l_true: {
+                    
+                    break;
+                }
+                case l_false: {
+
+                    break;
+                }
+                }
+            }
+            return is_sat;
+#endif
+        }
+
+        void assert_core(wcore const& core) {
+            expr_ref fml(m);
+            vector<rational> ws;
+            ptr_vector<expr> rs;
+            for (unsigned j = 0; j < core.m_R.size(); ++j) {
+                unsigned idx = core.m_R[j];
+                ws.push_back(m_weights[idx]);
+                rs.push_back(m_soft[idx].get());   // TBD: check
+            }
+            // TBD: fml = pb.mk_le(ws.size(), ws.c_ptr(), rs.c_ptr(), core.m_nu);
+            s.assert_expr(fml);
+        }
+
+        // ------------------------------------------------------
+        // AAAI 2010
         lbool wpm2_solve() {
             IF_VERBOSE(1, verbose_stream() << "(wmaxsat.wpm2 solve)\n";);
             solver::scoped_push _s(s);
@@ -1077,6 +1136,7 @@ namespace opt {
             }            
         }
         
+        // ------------------------------------------------------
         // Version from CP'13        
         lbool wpm2b_solve() {
             IF_VERBOSE(1, verbose_stream() << "(wmaxsat.wpm2b solve)\n";);
