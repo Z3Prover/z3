@@ -324,7 +324,7 @@ namespace Duality {
       last_decisions = 0;
       CreateEdgesByChildMap();
 #ifndef TOP_DOWN
-      void CreateInitialUnwinding();
+      CreateInitialUnwinding();
 #else
       CreateLeaves();
       for(unsigned i = 0; i < leaves.size(); i++)
