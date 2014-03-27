@@ -19,7 +19,7 @@ Revision History:
 
 /* Copyright 2011 Microsoft Research. */
 
-#ifdef WIN32
+#ifdef _WINDOWS
 #pragma warning(disable:4996)
 #pragma warning(disable:4800)
 #pragma warning(disable:4267)
@@ -43,9 +43,7 @@ Revision History:
 
 
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 
 
@@ -64,7 +62,7 @@ struct frame_reducer : public iz3mgr {
     : iz3mgr(other) {}
 
   void get_proof_assumptions_rec(z3pf proof, hash_set<ast> &memo, std::vector<bool> &used_frames){
-    if(memo.count(proof))return;
+    if(memo.find(proof) != memo.end())return;
     memo.insert(proof);
     pfrule dk = pr(proof);
     if(dk == PR_ASSERTED){

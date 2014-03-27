@@ -71,6 +71,7 @@ protected:
     bv_util         m_bv_util;
     sls_tracker     m_tracker;
     sls_evaluator   m_evaluator;
+    ptr_vector<expr> m_assertions;
 
     unsigned		m_restart_limit;
     unsigned        m_max_restarts;
@@ -92,11 +93,12 @@ public:
 
     void updt_params(params_ref const & _p);
 
+    void assert_expr(expr * e) { m_assertions.push_back(e); }
+
     stats const & get_stats(void) { return m_stats; }
     void reset_statistics(void) { m_stats.reset(); }    
 
-    bool full_eval(goal_ref const & g, model & mdl);
-    
+    bool full_eval(model & mdl);
 
     void mk_add(unsigned bv_sz, const mpz & old_value, mpz & add_value, mpz & result);
     void mk_mul2(unsigned bv_sz, const mpz & old_value, mpz & result);
@@ -104,54 +106,44 @@ public:
     void mk_inc(unsigned bv_sz, const mpz & old_value, mpz & incremented);
     void mk_dec(unsigned bv_sz, const mpz & old_value, mpz & decremented);
     void mk_inv(unsigned bv_sz, const mpz & old_value, mpz & inverted);
-    void mk_flip(sort * s, const mpz & old_value, unsigned bit, mpz & flipped);    
+    void mk_flip(sort * s, const mpz & old_value, unsigned bit, mpz & flipped);            
 
-    double find_best_move(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score,
-                          unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move);
-    
-    double find_best_move_local(expr * e, ptr_vector<func_decl> & to_evaluate,
-                                unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move);
-    
-    
-    
-    bool what_if(goal_ref const & g, expr * e, func_decl * fd, const mpz & temp,
-                 double & best_score, mpz & best_value, unsigned i);
-    
-    double find_best_move_local(goal_ref const & g, expr * e, func_decl * fd, mpz & best_value, unsigned i);
-    
-
-    lbool search(goal_ref const & g);    
+    lbool search(void);    
 
     void operator()(goal_ref const & g, model_converter_ref & mc);
 
 protected:
     void checkpoint();
-    lbool search_old(goal_ref const & g);
+    lbool search_old(void);
     double get_restart_armin(unsigned cnt_restarts);    
 
-    bool what_if(goal_ref const & g, func_decl * fd, const unsigned & fd_inx, const mpz & temp,
+    bool what_if(func_decl * fd, const unsigned & fd_inx, const mpz & temp,
                  double & best_score, unsigned & best_const, mpz & best_value);
-
+    bool what_if(expr * e, func_decl * fd, const mpz & temp,
+                 double & best_score, mpz & best_value, unsigned i);
     bool what_if_local(expr * e, func_decl * fd, const unsigned & fd_inx, const mpz & temp,
                        double & best_score, unsigned & best_const, mpz & best_value);
 
-    double top_score(goal_ref const & g);
-    double rescore(goal_ref const & g);
-    double serious_score(goal_ref const & g, func_decl * fd, const mpz & new_value);
-    double incremental_score(goal_ref const & g, func_decl * fd, const mpz & new_value);
+    double top_score();
+    double rescore();
+    double serious_score(func_decl * fd, const mpz & new_value);
+    double incremental_score(func_decl * fd, const mpz & new_value);
 
 #if _EARLY_PRUNE_
-    double incremental_score_prune(goal_ref const & g, func_decl * fd, const mpz & new_value);
+    double incremental_score_prune(func_decl * fd, const mpz & new_value);
 #endif
-
-    double find_best_move_vns(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score,
-                              unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move);
-
+    double find_best_move(ptr_vector<func_decl> & to_evaluate, double score,
+                          unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move);
+    double find_best_move_local(expr * e, func_decl * fd, mpz & best_value, unsigned i);
+    double find_best_move_local(expr * e, ptr_vector<func_decl> & to_evaluate,
+                                unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move);    
+    double find_best_move_vns(ptr_vector<func_decl> & to_evaluate, double score,
+                              unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move);    
     void mk_random_move(ptr_vector<func_decl> & unsat_constants);
-    void mk_random_move(goal_ref const & g);
+    void mk_random_move();
 
-    bool handle_plateau(goal_ref const & g);
-    bool handle_plateau(goal_ref const & g, double old_score);
+    bool handle_plateau(void);
+    bool handle_plateau(double old_score);
 
     inline unsigned check_restart(unsigned curr_value);
 };

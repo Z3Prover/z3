@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#ifdef WIN32
+#ifdef _WINDOWS
 #pragma warning(disable:4996)
 #pragma warning(disable:4800)
 #pragma warning(disable:4267)
@@ -39,9 +39,7 @@ Revision History:
 #include <set>
 
 //using std::vector;
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 
 
@@ -1592,6 +1590,27 @@ public:
 	return res;
       }
 
+      /* This idiom takes ~P and Q=P, yielding ~Q. It uses a "rewrite"
+	 (Q=false) = ~Q. We eliminate the rewrite by using symmetry,
+	 congruence and modus ponens. */
+
+      if(dk == PR_MODUS_PONENS && pr(prem(proof,1)) == PR_REWRITE && pr(prem(proof,0)) == PR_TRANSITIVITY && pr(prem(prem(proof,0),1)) == PR_IFF_FALSE){
+	if(op(con) == Not && arg(con,0) == arg(conc(prem(proof,0)),0)){
+	  Iproof::node ante1 = translate_main(prem(prem(proof,0),0),false);
+	  Iproof::node ante2 = translate_main(prem(prem(prem(proof,0),1),0),false);
+	  ast ante1_con = conc(prem(prem(proof,0),0));
+	  ast eq0 = arg(ante1_con,0);
+	  ast eq1 = arg(ante1_con,1);
+	  ast symm_con = make(Iff,eq1,eq0);
+	  Iproof::node ante1s = iproof->make_symmetry(symm_con,ante1_con,ante1);
+	  ast cong_con = make(Iff,make(Not,eq1),make(Not,eq0));
+	  Iproof::node ante1sc = iproof->make_congruence(symm_con,cong_con,ante1s);
+	  res = iproof->make_mp(cong_con,ante2,ante1sc);
+	  return res;
+	}
+      }
+      
+
       // translate all the premises
       std::vector<Iproof::node> args(nprems);
       for(unsigned i = 0; i < nprems; i++)
@@ -1751,6 +1770,13 @@ public:
 	res = args[0];
 	break;
       }
+      case PR_IFF_FALSE: { // turns ~p into p <-> false, noop for us
+	if(is_local(con))
+	  res = args[0];
+	else
+	  throw unsupported();
+	break;
+      }
       case PR_COMMUTATIVITY: {
 	ast comm_equiv = make(op(con),arg(con,0),arg(con,0));
 	ast pf = iproof->make_reflexivity(comm_equiv);
@@ -1758,6 +1784,7 @@ public:
 	break;
       }
       default:
+	pfgoto(proof);
 	assert(0 && "translate_main: unsupported proof rule");
 	throw unsupported();
       }
