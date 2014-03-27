@@ -1061,13 +1061,13 @@ lbool sls_engine::search_old() {
             }
         }
     }
-#endif
 
 bailout:
     m_mpz_manager.del(new_value);
 
     return res;
 }
+#endif
 
 void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     if (g->inconsistent()) {
