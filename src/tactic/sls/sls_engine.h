@@ -114,7 +114,6 @@ public:
 
 protected:
     void checkpoint();
-    lbool search_old(void);
     double get_restart_armin(unsigned cnt_restarts);    
 
     bool what_if(func_decl * fd, const unsigned & fd_inx, const mpz & temp,
