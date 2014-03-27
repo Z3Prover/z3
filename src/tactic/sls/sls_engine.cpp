@@ -868,6 +868,7 @@ bailout:
     return res;
 }
 
+#if 0 // Old code.
 // main search loop
 lbool sls_engine::search_old() {
     lbool res = l_undef;
@@ -1060,6 +1061,7 @@ lbool sls_engine::search_old() {
             }
         }
     }
+#endif
 
 bailout:
     m_mpz_manager.del(new_value);
