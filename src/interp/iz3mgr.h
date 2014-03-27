@@ -126,14 +126,6 @@ namespace hash_space {
   };
 }
 
-// to make ast_r hashable in windows
-#ifdef _WINDOWS 
-template <> inline
-size_t stdext::hash_value<ast_r >(const ast_r& s)
-{	
-  return s.raw()->get_id();
-}
-#endif
 
 // to make ast_r usable in ordered collections
 namespace std {

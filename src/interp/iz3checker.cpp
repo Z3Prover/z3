@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#ifdef WIN32
+#ifdef _WINDOWS
 #pragma warning(disable:4996)
 #pragma warning(disable:4800)
 #pragma warning(disable:4267)
@@ -36,9 +36,7 @@ Revision History:
 #include <iterator>
 
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 struct iz3checker : iz3base {
   
