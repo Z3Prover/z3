@@ -22,6 +22,7 @@ Notes:
 #include"stopwatch.h"
 #include"lbool.h"
 #include"model_converter.h"
+#include"goal.h"
 
 #include"sls_compilation_settings.h"
 #include"sls_tracker.h"
