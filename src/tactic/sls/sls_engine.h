@@ -109,6 +109,8 @@ public:
     void mk_inv(unsigned bv_sz, const mpz & old_value, mpz & inverted);
     void mk_flip(sort * s, const mpz & old_value, unsigned bit, mpz & flipped);            
 
+    void init_tracker(void);
+
     lbool search(void);    
 
     void operator()(goal_ref const & g, model_converter_ref & mc);
