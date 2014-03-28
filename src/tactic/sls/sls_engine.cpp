@@ -1172,6 +1172,8 @@ lbool sls_engine::operator()() {
     } while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_ && res != l_true && m_stats.m_restarts++ < m_max_restarts);
 
     verbose_stream() << "(restarts: " << m_stats.m_restarts << " flips: " << m_stats.m_moves << " time: " << std::fixed << std::setprecision(2) << m_stats.m_stopwatch.get_current_seconds() << " fps: " << (m_stats.m_moves / m_stats.m_stopwatch.get_current_seconds()) << ")" << std::endl;
+    
+    return res;
 }
 
 unsigned sls_engine::check_restart(unsigned curr_value)
