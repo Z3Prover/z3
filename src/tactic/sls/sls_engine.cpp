@@ -1069,6 +1069,16 @@ bailout:
 }
 #endif
 
+void sls_engine::init_tracker() {
+#if _WEIGHT_DIST_ == 4
+    m_tracker.set_weight_dist_factor(m_stats.m_stopwatch.get_current_seconds() / _TIMELIMIT_);
+#endif
+#if _WEIGHT_TOGGLE_
+    m_tracker.set_weight_dist_factor(_WEIGHT_DIST_FACTOR_);
+#endif
+    m_tracker.initialize(m_assertions);
+}
+
 void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     if (g->inconsistent()) {
         mc = 0;
@@ -1078,8 +1088,7 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     m_produce_models = g->models_enabled();
 
     for (unsigned i = 0; i < g->size(); i++)
-        assert_expr(g->form(i));
-    
+        assert_expr(g->form(i));    
 
     verbose_stream() << "_BFS_ " << _BFS_ << std::endl;
     verbose_stream() << "_FOCUS_ " << _FOCUS_ << std::endl;
@@ -1118,13 +1127,7 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     verbose_stream() << "_EARLY_PRUNE_ " << _EARLY_PRUNE_ << std::endl;
     verbose_stream() << "_CACHE_TOP_SCORE_ " << _CACHE_TOP_SCORE_ << std::endl;
 
-#if _WEIGHT_DIST_ == 4
-    m_tracker.set_weight_dist_factor(m_stats.m_stopwatch.get_current_seconds() / _TIMELIMIT_);
-#endif
-#if _WEIGHT_TOGGLE_
-    m_tracker.set_weight_dist_factor(_WEIGHT_DIST_FACTOR_);
-#endif
-    m_tracker.initialize(m_assertions);
+    init_tracker();
     lbool res = l_undef;
 
     m_restart_limit = _RESTART_LIMIT_;
