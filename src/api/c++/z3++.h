@@ -1491,7 +1491,6 @@ namespace z3 {
         optimize(context& c):object(c) { m_opt = Z3_mk_optimize(c); Z3_optimize_inc_ref(c, m_opt); }
         ~optimize() { Z3_optimize_dec_ref(ctx(), m_opt); }
         operator Z3_optimize() const { return m_opt; }
-
         void add(expr const& e) {
             assert(e.is_bool());
             Z3_optimize_assert(ctx(), m_opt, e);
@@ -1512,31 +1511,22 @@ namespace z3 {
         handle minimize(expr const& e) {
             return handle(Z3_optimize_minimize(ctx(), m_opt, e));
         }
-
         check_result check() { Z3_lbool r = Z3_optimize_check(ctx(), m_opt); check_error(); return to_check_result(r); }
-
         model get_model() const { Z3_model m = Z3_optimize_get_model(ctx(), m_opt); check_error(); return model(ctx(), m); }
-
         void set(params const & p) { Z3_optimize_set_params(ctx(), m_opt, p); check_error(); }
-
         expr lower(handle const& h) {
             Z3_ast r = Z3_optimize_get_lower(ctx(), m_opt, h.h());
             check_error();
             return expr(ctx(), r);
         }
-
         expr upper(handle const& h) {
             Z3_ast r = Z3_optimize_get_upper(ctx(), m_opt, h.h());
             check_error();
             return expr(ctx(), r);
         }
-
-        stats statistics() const { Z3_stats r = Z3_optimize_get_statistics(ctx(), m_opt); check_error(); return stats(ctx(), r); }
-        
+        stats statistics() const { Z3_stats r = Z3_optimize_get_statistics(ctx(), m_opt); check_error(); return stats(ctx(), r); }        
         friend std::ostream & operator<<(std::ostream & out, optimize const & s) { out << Z3_optimize_to_string(s.ctx(), s.m_opt); return out; }
-
-        std::string help() const { char const * r = Z3_optimize_get_help(ctx(), m_opt); check_error();  return r; }
-        
+        std::string help() const { char const * r = Z3_optimize_get_help(ctx(), m_opt); check_error();  return r; }        
     };
 
     inline tactic fail_if(probe const & p) {
