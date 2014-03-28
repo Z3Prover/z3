@@ -52,7 +52,7 @@ namespace hash_space {
     class hash<std::string> {
   public:
     size_t operator()(const std::string &s) const {
-      return string_hash(s.c_str(), s.size(), 0);
+        return string_hash(s.c_str(), static_cast<unsigned>(s.size()), 0);
     }
   };
 
@@ -107,7 +107,7 @@ namespace hash_space {
       4294967291ul
     };
 
-  inline unsigned long next_prime(unsigned long n) {
+  inline size_t next_prime(size_t n) {
     const unsigned long* to = primes + (int)num_primes;
     for(const unsigned long* p = primes; p < to; p++)
       if(*p >= n) return *p;
