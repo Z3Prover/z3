@@ -320,6 +320,7 @@ namespace Microsoft.Z3
         /// Indicates whether the term is an implication
         /// </summary>
         public bool IsImplies { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IMPLIES; } }
+
         #endregion
 
         #region Arithmetic Terms

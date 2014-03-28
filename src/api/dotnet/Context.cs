@@ -916,6 +916,8 @@ namespace Microsoft.Z3
             CheckContextMatch(t);
             return new BoolExpr(this, Native.Z3_mk_or(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
+
+
         #endregion
 
         #region Arithmetic
