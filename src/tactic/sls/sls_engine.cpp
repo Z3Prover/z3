@@ -1125,8 +1125,31 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     verbose_stream() << "_TYPE_RSTEP_ " << _TYPE_RSTEP_ << std::endl;
     verbose_stream() << "_PERM_RSTEP_ " << _PERM_RSTEP_ << std::endl;
     verbose_stream() << "_EARLY_PRUNE_ " << _EARLY_PRUNE_ << std::endl;
-    verbose_stream() << "_CACHE_TOP_SCORE_ " << _CACHE_TOP_SCORE_ << std::endl;
+    verbose_stream() << "_CACHE_TOP_SCORE_ " << _CACHE_TOP_SCORE_ << std::endl;    
 
+    lbool res = operator()();
+
+    if (res == l_true) {
+        report_tactic_progress("Number of flips:", m_stats.m_moves);
+        for (unsigned i = 0; i < g->size(); i++)
+            if (!m_mpz_manager.is_one(m_tracker.get_value(g->form(i))))
+            {
+                verbose_stream() << "Terminated before all assertions were SAT!" << std::endl;
+                NOT_IMPLEMENTED_YET();
+            }
+
+        if (m_produce_models) {
+            model_ref mdl = m_tracker.get_model();
+            mc = model2model_converter(mdl.get());
+            TRACE("sls_model", mc->display(tout););
+        }
+        g->reset();
+    }
+    else
+        mc = 0;
+}
+
+lbool sls_engine::operator()() {
     init_tracker();
     lbool res = l_undef;
 
@@ -1149,25 +1172,6 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     } while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_ && res != l_true && m_stats.m_restarts++ < m_max_restarts);
 
     verbose_stream() << "(restarts: " << m_stats.m_restarts << " flips: " << m_stats.m_moves << " time: " << std::fixed << std::setprecision(2) << m_stats.m_stopwatch.get_current_seconds() << " fps: " << (m_stats.m_moves / m_stats.m_stopwatch.get_current_seconds()) << ")" << std::endl;
-
-    if (res == l_true) {
-        report_tactic_progress("Number of flips:", m_stats.m_moves);
-        for (unsigned i = 0; i < g->size(); i++)
-            if (!m_mpz_manager.is_one(m_tracker.get_value(g->form(i))))
-            {
-                verbose_stream() << "Terminated before all assertions were SAT!" << std::endl;
-                NOT_IMPLEMENTED_YET();
-            }
-
-        if (m_produce_models) {
-            model_ref mdl = m_tracker.get_model();
-            mc = model2model_converter(mdl.get());
-            TRACE("sls_model", mc->display(tout););
-        }
-        g->reset();
-    }
-    else
-        mc = 0;
 }
 
 unsigned sls_engine::check_restart(unsigned curr_value)
