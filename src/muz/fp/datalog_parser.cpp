@@ -431,7 +431,6 @@ protected:
     ast_manager&      m_manager;
 
     dlexer*           m_lexer;
-    ast_ref_vector    m_pinned;
     region            m_region;
     dl_decl_util &    m_decl_util;
     arith_util        m_arith;
@@ -450,7 +449,6 @@ public:
     dparser(context& ctx, ast_manager& m):
         m_context(ctx),
         m_manager(m),
-        m_pinned(m),
         m_decl_util(ctx.get_decl_util()),
         m_arith(m),
         m_num_vars(0),
@@ -486,7 +484,6 @@ protected:
     void reset() {
         m_num_vars = 0;
         m_sym_idx = 0;
-        m_pinned.reset();
         m_vars.reset();
         m_region.reset();
         m_path.clear();
@@ -741,7 +738,7 @@ protected:
     // 
     dtoken parse_infix(dtoken tok1, char const* td, app_ref& pred) {
         symbol td1(td);
-        expr* v1 = 0, *v2 = 0;
+        expr_ref v1(m_manager), v2(m_manager);
         sort* s = 0;
         dtoken tok2 = m_lexer->next_token();
         if (tok2 != TK_NEQ && tok2 != TK_GT && tok2 != TK_LT && tok2 != TK_EQ) {
@@ -755,12 +752,16 @@ protected:
         symbol td2(td);
 
         if (tok1 == TK_ID) {
-            m_vars.find(td1.bare_str(), v1);
+            expr* _v1 = 0;
+            m_vars.find(td1.bare_str(), _v1);
+            v1 = _v1;
         }
         if (tok3 == TK_ID) {
-            m_vars.find(td2.bare_str(), v2);
+            expr* _v2 = 0;
+            m_vars.find(td2.bare_str(), _v2);
+            v2 = _v2;
         }
-        if (v1 == 0 && v2 == 0) {
+        if (!v1 && !v2) {
             return unexpected(tok3, "at least one argument should be a variable");
         }
         if (v1) {
@@ -1018,10 +1019,6 @@ protected:
     }
 
     void add_rule(app* head, unsigned sz, app* const* body, const bool * is_neg) {
-        m_pinned.push_back(head);
-        for (unsigned i = 0; i < sz; ++i) {
-            m_pinned.push_back(body[i]);
-        }
         rule_manager& m = m_context.get_rule_manager();
 
         if(sz==0 && m.is_fact(head)) {
@@ -1075,7 +1072,6 @@ protected:
             unsigned idx = m_context.get_constant_number(s, name);
             res = m_decl_util.mk_numeral(idx, s);
         }
-        m_pinned.push_back(res);
         return res;
     }
     /**
@@ -1090,13 +1086,11 @@ protected:
             unsigned idx = m_context.get_constant_number(s, symbol(to_string(el).c_str()));
             res = m_decl_util.mk_numeral(idx, s);
         }
-        m_pinned.push_back(res);
         return res;
     }
     app* mk_const(uint64 el, sort* s) {
         unsigned idx = m_context.get_constant_number(s, el);
         app * res = m_decl_util.mk_numeral(idx, s);
-        m_pinned.push_back(res);
         return res;
     }
 

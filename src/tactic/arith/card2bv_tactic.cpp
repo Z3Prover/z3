@@ -19,19 +19,12 @@ Notes:
 #include"tactical.h"
 #include"cooperate.h"
 #include"rewriter_def.h"
-#include"th_rewriter.h"
 #include"ast_smt2_pp.h"
 #include"expr_substitution.h"
 #include"card2bv_tactic.h"
-#include"pb_decl_plugin.h"
 
-class card2bv_rewriter {
-    ast_manager& m;
-    arith_util   au;
-    pb_util      pb;
-    bv_util      bv;
-
-    unsigned get_num_bits(func_decl* f) {
+namespace pb {
+    unsigned card2bv_rewriter::get_num_bits(func_decl* f) {
         rational r(0);
         unsigned sz = f->get_arity();
         for (unsigned i = 0; i < sz; ++i) {
@@ -40,16 +33,15 @@ class card2bv_rewriter {
         r = r > pb.get_k(f)? r : pb.get_k(f);
         return r.get_num_bits();
     }
-
-public:
-    card2bv_rewriter(ast_manager& m):
+    
+    card2bv_rewriter::card2bv_rewriter(ast_manager& m):
         m(m),
         au(m),
         pb(m),
         bv(m)
     {}
-
-    br_status mk_app_core(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
+    
+    br_status card2bv_rewriter::mk_app_core(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
         if (f->get_family_id() == null_family_id) {
             if (sz == 1) {
                 // Expecting minimize/maximize.
@@ -84,7 +76,7 @@ public:
                 break;
             }
             b = bv.mk_numeral(pb.get_k(f), bw);
-
+            
             switch (f->get_decl_kind()) {
             case OP_AT_MOST_K:
             case OP_PB_LE:
@@ -104,8 +96,11 @@ public:
             }
             return BR_FAILED;
         }
-        else if (f->get_family_id() == au.get_family_id())
-        {
+        // NSB: review
+        // we should remove this code and rely on a layer above to deal with 
+        // whatever it accomplishes. It seems to break types.
+        // 
+        else if (f->get_family_id() == au.get_family_id()) {
             if (f->get_decl_kind() == OP_ADD) {
                 bool all_ite_01 = true;
                 unsigned bits = 0;
@@ -122,7 +117,7 @@ public:
                     else
                         return BR_FAILED;
                 }
-
+                
                 result = 0;
                 for (unsigned i = 0; i < sz; i++) {
                     rational val1, val2;
@@ -141,34 +136,15 @@ public:
         else
             return BR_FAILED;
     }
-};
 
-struct card2bv_rewriter_cfg : public default_rewriter_cfg {
-    card2bv_rewriter m_r;
-    bool rewrite_patterns() const { return false; }
-    bool flat_assoc(func_decl * f) const { return false; }
-    br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
-        return m_r.mk_app_core(f, num, args, result);
-    }
-    card2bv_rewriter_cfg(ast_manager & m):m_r(m) {}
-};
-
-template class rewriter_tpl<card2bv_rewriter_cfg>;
-
-class card_pb_rewriter : public rewriter_tpl<card2bv_rewriter_cfg> {
-    card2bv_rewriter_cfg m_cfg;
-public:
-    card_pb_rewriter(ast_manager & m):
-        rewriter_tpl<card2bv_rewriter_cfg>(m, false, m_cfg),
-        m_cfg(m) {}
+    template class rewriter_tpl<card2bv_rewriter_cfg>;
 };
 
 class card2bv_tactic : public tactic {
     ast_manager &              m;
     params_ref                 m_params;
     th_rewriter                m_rw1;
-    card_pb_rewriter           m_rw2;
+    pb::card_pb_rewriter       m_rw2;
     
 public:
 

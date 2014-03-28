@@ -33,6 +33,7 @@ Notes:
 #include "qfbv_tactic.h"
 #include "card2bv_tactic.h"
 #include "tactic2solver.h"
+#include "bvsls_opt_engine.h"
 
 namespace smt {
 
@@ -463,11 +464,14 @@ namespace opt {
         ref<solver>      m_sat_solver;
         scoped_ptr<imp>  m_imp;
         smt::pb_sls      m_sls;
+        bvsls_opt_engine m_bvsls;
+        
 
         imp(ast_manager& m, opt_solver& s, expr_ref_vector const& soft_constraints, vector<rational> const& weights):
             m(m), s(s), m_soft(soft_constraints), m_weights(weights), m_print_all_models(false), m_cancel(false), 
             m_solver(m, m_params, symbol("bound")),
-            m_sls(m)
+            m_sls(m),
+            m_bvsls(m, m_params)
         {
             m_assignment.resize(m_soft.size(), false);
         }
@@ -533,6 +537,9 @@ namespace opt {
             }
             if (m_engine == symbol("sls")) {
                 return sls_solve();
+            }
+            if (m_engine == symbol("bvsls")) {
+                return bvsls_solve();
             }
             if (m_engine == symbol::null || m_engine == symbol("wmax")) {
                 return incremental_solve();
@@ -685,6 +692,57 @@ namespace opt {
                 m_lower = m_upper;
             }
             return is_sat;
+        }
+
+        lbool bvsls_solve() {
+            IF_VERBOSE(1, verbose_stream() << "(bvsls solve)\n";);
+
+            bv_util bv(m);
+            pb::card_pb_rewriter pb_rewriter(m);
+            expr_ref tmp(m), objective(m), zero(m);
+            expr_ref_vector es(m);
+
+            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
+                pb_rewriter(s.get_assertion(i), tmp);
+                m_bvsls.assert_expr(tmp);
+            }
+            
+            m_lower = m_upper = rational::zero();
+
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                m_upper += m_weights[i];
+            }
+            rational num = numerator(m_upper);
+            rational den = denominator(m_upper);
+            rational maxval = num*den;
+            unsigned bv_size = maxval.get_num_bits();
+            zero = bv.mk_numeral(rational(0), bv_size);
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                es.push_back(m.mk_ite(m_soft[i].get(), bv.mk_numeral(den*m_weights[i], bv_size), zero));
+            }
+            if (es.empty()) {
+                objective = bv.mk_numeral(0, bv_size);
+            }
+            else {
+                objective = es[0].get();
+                for (unsigned i = 1; i < es.size(); ++i) {
+                    objective = bv.mk_bv_add(objective, es[i].get());
+                }
+            }
+            // TBD: can we set an initial model on m_bvsls?
+            bvsls_opt_engine::optimization_result res = m_bvsls.optimize(objective);
+            switch(res.is_sat) {
+            case l_true: {
+                unsigned bv_size = 0;
+                // TBD: m_bvsls.get_model(m_model);
+                VERIFY(bv.is_numeral(res.optimum, m_lower, bv_size));
+                break;
+            }
+            case l_false:
+            case l_undef:
+                break;
+            }
+            return res.is_sat;
         }
 
         /**
