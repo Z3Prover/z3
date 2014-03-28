@@ -33,6 +33,9 @@ Notes:
 #include "elim_uncnstr_tactic.h"
 #include "tactical.h"
 #include "model_smt2_pp.h"
+#include "card2bv_tactic.h"
+#include "bvsls_opt_solver.h"
+#include "nnf_tactic.h"
 
 namespace opt {
 
@@ -130,12 +133,13 @@ namespace opt {
     }
 
     lbool context::optimize() {
-        opt_solver& s = get_solver();        
-        m_optsmt.reset();
+        m_optsmt.reset();        
         normalize();
         internalize();
+        opt_solver& s = get_solver();        
         solver::scoped_push _sp(s);
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
+            TRACE("opt", tout << "Hard constraint: " << mk_ismt2_pp(m_hard_constraints[i].get(), m) << std::endl;);
             s.assert_expr(m_hard_constraints[i].get());
         }
 
@@ -359,7 +363,19 @@ namespace opt {
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
         tactic_ref tac2, tac3;
-        if (optp.elim_01()) {
+        if (optp.engine() == "bvsls") {
+            tac2 = mk_elim01_tactic(m);
+            tac3 = mk_lia2card_tactic(m);
+            params_ref lia_p;
+            lia_p.set_bool("compile_equality", optp.pb_compile_equality());
+            tac3->updt_params(lia_p);
+            m_simplify = and_then(tac0.get(), tac2.get(), tac3.get(),
+                                  mk_card2bv_tactic(m),                                  
+                                  mk_simplify_tactic(m),                                  
+                                  mk_nnf_tactic(m));
+            m_solver = alloc(bvsls_opt_solver, m, m_params);
+        }
+        else if (optp.elim_01()) {
             tac2 = mk_elim01_tactic(m);
             tac3 = mk_lia2card_tactic(m);
             params_ref lia_p;

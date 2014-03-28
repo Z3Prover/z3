@@ -71,7 +71,7 @@ def init_project_def():
     add_lib('ufbv_tactic', ['normal_forms', 'core_tactics', 'macros', 'smt_tactic', 'rewriter'], 'tactic/ufbv')
     add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig_tactic', 'fp',  'qe','sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
     add_lib('smtparser', ['portfolio'], 'parsers/smt')
-    add_lib('opt', ['smt', 'smtlogic_tactics'], 'opt')
+    add_lib('opt', ['smt', 'smtlogic_tactics', 'sls_tactic'], 'opt')
     API_files = ['z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h']
     add_lib('api', ['portfolio', 'user_plugin', 'smtparser', 'realclosure','interp','opt'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)

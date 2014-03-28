@@ -27,6 +27,7 @@ Notes:
 
 class card2bv_rewriter {
     ast_manager& m;
+    arith_util   au;
     pb_util      pb;
     bv_util      bv;
 
@@ -43,51 +44,102 @@ class card2bv_rewriter {
 public:
     card2bv_rewriter(ast_manager& m):
         m(m),
+        au(m),
         pb(m),
         bv(m)
     {}
 
     br_status mk_app_core(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
-        if (f->get_family_id() != pb.get_family_id()) {
+        if (f->get_family_id() == null_family_id) {
+            if (sz == 1) {
+                // Expecting minimize/maximize.
+                func_decl_ref fd(m);
+                fd = m.mk_func_decl(f->get_name(), m.get_sort(args[0]), f->get_range());
+                result = m.mk_app(fd.get(), args[0]);
+                return BR_DONE;
+            }
+            else
+                return BR_FAILED;
+        }
+        else if (f->get_family_id() == m.get_basic_family_id()) {
+            result = m.mk_app(f, sz, args);
+            return BR_DONE;
+        }
+        else if (f->get_family_id() == pb.get_family_id()) {
+            expr_ref zero(m), a(m), b(m);
+            expr_ref_vector es(m);
+            unsigned bw = get_num_bits(f);
+            zero = bv.mk_numeral(rational(0), bw);
+            for (unsigned i = 0; i < sz; ++i) {
+                es.push_back(m.mk_ite(args[i], bv.mk_numeral(pb.get_coeff(f, i), bw), zero));
+            }
+            switch (es.size()) {
+            case 0:  a = zero; break;
+            case 1:  a = es[0].get(); break;
+            default:
+                a = es[0].get();
+                for (unsigned i = 1; i < es.size(); ++i) {
+                    a = bv.mk_bv_add(a, es[i].get());
+                }
+                break;
+            }
+            b = bv.mk_numeral(pb.get_k(f), bw);
+
+            switch (f->get_decl_kind()) {
+            case OP_AT_MOST_K:
+            case OP_PB_LE:
+                UNREACHABLE();
+                result = bv.mk_ule(a, b);
+                return BR_DONE;
+            case OP_AT_LEAST_K:
+                UNREACHABLE();
+            case OP_PB_GE:
+                result = bv.mk_ule(b, a);
+                return BR_DONE;
+            case OP_PB_EQ:
+                result = m.mk_eq(a, b);
+                return BR_DONE;
+            default:
+                UNREACHABLE();
+            }
             return BR_FAILED;
         }
-        expr_ref zero(m), a(m), b(m);
-        expr_ref_vector es(m);
-        unsigned bw = get_num_bits(f);
-        zero = bv.mk_numeral(rational(0), bw);
-        for (unsigned i = 0; i < sz; ++i) {
-            es.push_back(m.mk_ite(args[i], bv.mk_numeral(pb.get_coeff(f, i), bw), zero));
-        }
-        switch (es.size()) {
-        case 0:  a = zero; break;
-        case 1:  a = es[0].get(); break;
-        default: 
-            a = es[0].get();
-            for (unsigned i = 1; i < es.size(); ++i) {
-                a = bv.mk_bv_add(a, es[i].get());
-            }
-            break;
-        }
-        b = bv.mk_numeral(pb.get_k(f), bw);
+        else if (f->get_family_id() == au.get_family_id())
+        {
+            if (f->get_decl_kind() == OP_ADD) {
+                bool all_ite_01 = true;
+                unsigned bits = 0;
+                for (unsigned i = 0; i < sz; i++) {
+                    rational val1, val2;
+                    if (au.is_int(args[i]) && au.is_numeral(args[i], val1)) {
+                        bits += val1.get_num_bits();
+                    }
+                    else if (m.is_ite(args[i]) &&
+                             au.is_numeral(to_app(args[i])->get_arg(1), val1) && val1.is_one() &&
+                             au.is_numeral(to_app(args[i])->get_arg(2), val2) && val2.is_zero()) {
+                        bits++;                        
+                    }
+                    else
+                        return BR_FAILED;
+                }
 
-        switch(f->get_decl_kind()) {
-        case OP_AT_MOST_K: 
-        case OP_PB_LE: 
-            UNREACHABLE();
-            result = bv.mk_ule(a, b);
-            return BR_DONE; 
-        case OP_AT_LEAST_K: 
-            UNREACHABLE();
-        case OP_PB_GE:
-            result = bv.mk_ule(b, a);
-            return BR_DONE;
-        case OP_PB_EQ: 
-            result = m.mk_eq(a, b);
-            return BR_DONE;
-        default:
-            UNREACHABLE();
+                result = 0;
+                for (unsigned i = 0; i < sz; i++) {
+                    rational val1, val2;
+                    expr * q;
+                    if (au.is_int(args[i]) && au.is_numeral(args[i], val1))
+                        q = bv.mk_numeral(val1, bits);
+                    else
+                        q = m.mk_ite(to_app(args[i])->get_arg(0), bv.mk_numeral(1, bits), bv.mk_numeral(0, bits));
+                    result = (i == 0) ? q : bv.mk_bv_add(result.get(), q);
+                }                
+                return BR_DONE;
+            }
+            else 
+                return BR_FAILED;
         }
-        return BR_FAILED;
+        else
+            return BR_FAILED;
     }
 };
 
@@ -151,7 +203,7 @@ public:
                             model_converter_ref & mc, 
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
-        TRACE("pb2bv", g->display(tout););
+        TRACE("card2bv-before", g->display(tout););
         SASSERT(g->is_well_sorted());
         fail_if_proof_generation("card2bv", g);
         mc = 0; pc = 0; core = 0; result.reset();
@@ -168,6 +220,7 @@ public:
         expr_ref new_f1(m), new_f2(m);
         for (unsigned idx = 0; idx < size; idx++) {
             m_rw1(g->form(idx), new_f1);
+            TRACE("card2bv", tout << "Rewriting " << mk_ismt2_pp(new_f1.get(), m) << std::endl;);
             m_rw2(new_f1, new_f2);
             g->update(idx, new_f2);
         }
