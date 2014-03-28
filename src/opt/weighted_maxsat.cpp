@@ -34,6 +34,7 @@ Notes:
 #include "card2bv_tactic.h"
 #include "tactic2solver.h"
 #include "bvsls_opt_engine.h"
+#include "nnf_tactic.h"
 
 namespace smt {
 
@@ -702,10 +703,22 @@ namespace opt {
             expr_ref tmp(m), objective(m), zero(m);
             expr_ref_vector es(m);
 
+            goal_ref g(alloc(goal, m, true, false));
             for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
                 pb_rewriter(s.get_assertion(i), tmp);
-                m_bvsls.assert_expr(tmp);
+                g->assert_expr(tmp);
             }
+            tactic_ref simplify = mk_nnf_tactic(m);
+            proof_converter_ref pc;
+            expr_dependency_ref core(m);
+            goal_ref_buffer result;
+            model_converter_ref model_converter;
+            (*simplify)(g, result, model_converter, pc, core); 
+            SASSERT(result.size() == 1);
+            goal* r = result[0];
+            for (unsigned i = 0; i < r->size(); ++i) {
+                m_bvsls.assert_expr(r->form(i));
+            }        
             
             m_lower = m_upper = rational::zero();
 
@@ -718,7 +731,8 @@ namespace opt {
             unsigned bv_size = maxval.get_num_bits();
             zero = bv.mk_numeral(rational(0), bv_size);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                es.push_back(m.mk_ite(m_soft[i].get(), bv.mk_numeral(den*m_weights[i], bv_size), zero));
+                pb_rewriter(m_soft[i].get(), tmp);
+                es.push_back(m.mk_ite(tmp, bv.mk_numeral(den*m_weights[i], bv_size), zero));
             }
             if (es.empty()) {
                 objective = bv.mk_numeral(0, bv_size);

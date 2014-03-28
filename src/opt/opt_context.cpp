@@ -381,7 +381,7 @@ namespace opt {
             params_ref lia_p;
             lia_p.set_bool("compile_equality", optp.pb_compile_equality());
             tac3->updt_params(lia_p);
-            m_simplify = and_then(tac0.get(), tac2.get(), tac3.get());
+            m_simplify = and_then(tac0.get(), tac2.get(), tac3.get(), mk_nnf_tactic(m));
         }
         else {
             m_simplify = tac0.get();
