@@ -20,6 +20,7 @@ Notes:
 #ifndef _SLS_TRACKER_H_
 #define _SLS_TRACKER_H_
 
+#include"for_each_expr.h"
 #include"bv_decl_plugin.h"
 #include"model.h"
 
