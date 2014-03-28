@@ -113,6 +113,7 @@ public:
 
     lbool search(void);    
 
+    lbool operator()();
     void operator()(goal_ref const & g, model_converter_ref & mc);
 
 protected:
