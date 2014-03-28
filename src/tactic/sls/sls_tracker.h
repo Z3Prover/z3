@@ -276,13 +276,13 @@ public:
     }
 #endif
 
-    void uct_forget(goal_ref const & g) {
+    void uct_forget(ptr_vector<expr> & as) {
         expr * e;
         unsigned touched_old, touched_new;
 
-        for (unsigned i = 0; i < g->size(); i++)
+        for (unsigned i = 0; i < as.size(); i++)
         {
-            e = g->form(i);
+            e = as[i];
             touched_old = m_scores.find(e).touched;
             touched_new = (unsigned)((touched_old - 1) * _UCT_FORGET_FACTOR_ + 1);
             m_scores.find(e).touched = touched_new;
