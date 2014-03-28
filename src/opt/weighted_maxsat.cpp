@@ -59,6 +59,7 @@ namespace smt {
         rational                 m_rmin_cost;   // current maximal cost assignment.
         scoped_mpz               m_zcost;       // current sum of asserted costs
         scoped_mpz               m_zmin_cost;   // current maximal cost assignment.
+        bool                     m_found_optimal; 
         u_map<theory_var>        m_bool2var;    // bool_var -> theory_var
         svector<bool_var>        m_var2bool;    // theory_var -> bool_var
         bool                     m_propagate;  
@@ -79,6 +80,7 @@ namespace smt {
             m_old_values(m_mpz),
             m_zcost(m_mpz),
             m_zmin_cost(m_mpz),
+            m_found_optimal(false),
             m_propagate(false),
             m_normalize(false)
         {}
@@ -93,14 +95,21 @@ namespace smt {
         void get_assignment(svector<bool>& result) {
             result.reset();
 
-            std::sort(m_cost_save.begin(), m_cost_save.end());
-            for (unsigned i = 0, j = 0; i < m_vars.size(); ++i) {
-                if (j < m_cost_save.size() && m_cost_save[j] == i) {
+            if (!m_found_optimal) {
+                for (unsigned i = 0; i < m_vars.size(); ++i) {
                     result.push_back(false);
-                    ++j;
                 }
-                else {
-                    result.push_back(true);
+            }
+            else {
+                std::sort(m_cost_save.begin(), m_cost_save.end());
+                for (unsigned i = 0, j = 0; i < m_vars.size(); ++i) {
+                    if (j < m_cost_save.size() && m_cost_save[j] == i) {
+                        result.push_back(false);
+                        ++j;
+                    }
+                    else {
+                        result.push_back(true);
+                    }
                 }
             }
             TRACE("opt",
@@ -189,10 +198,6 @@ namespace smt {
             return m_min_cost_atom;
         }
 
-        bool found_solution() const {
-            return !m_cost_save.empty();
-        }
-
         // scoped_mpz leaks.
 
         class numeral_trail : public trail<context> {
@@ -273,6 +278,7 @@ namespace smt {
             m_min_cost_atom = 0;
             m_min_cost_atoms.reset();
             m_propagate = false;
+            m_found_optimal = false;
             m_assigned.reset();
         }
 
@@ -303,7 +309,7 @@ namespace smt {
         }       
 
         bool is_optimal() const {
-            return m_mpz.lt(m_zcost, m_zmin_cost);
+            return !m_found_optimal || m_zcost < m_zmin_cost;
         }
 
         expr_ref mk_block() {
@@ -329,22 +335,22 @@ namespace smt {
                 rational rw = rational(q);
                 IF_VERBOSE(1, verbose_stream() << "(wmaxsat with upper bound: " << rw << ")\n";);
                 m_zmin_cost = weight;
+                m_found_optimal = true;
                 m_cost_save.reset();
                 m_cost_save.append(m_costs);
-            }
-
-            expr_ref result(m.mk_or(disj.size(), disj.c_ptr()), m);
-
-            TRACE("opt",
-                  tout << result << "\n";
-                  if (is_optimal()) {
+                TRACE("opt",
                       tout << "costs: ";
                       for (unsigned i = 0; i < m_costs.size(); ++i) {
                           tout << mk_pp(get_enode(m_costs[i])->get_owner(), get_manager()) << " ";
                       }
                       tout << "\n";
                       get_context().display(tout);                      
-                  });
+                      );
+            }
+            expr_ref result(m.mk_or(disj.size(), disj.c_ptr()), m);
+            TRACE("opt",
+                  tout << result << " weight: " << weight << "\n";
+                  tout << "cost: " << m_zcost << " min-cost: " << m_zmin_cost << "\n";);
             return result;
         }
 
