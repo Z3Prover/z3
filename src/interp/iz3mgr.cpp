@@ -18,7 +18,7 @@ Revision History:
 --*/
 
 
-#ifdef WIN32
+#ifdef _WINDOWS
 #pragma warning(disable:4996)
 #pragma warning(disable:4800)
 #pragma warning(disable:4267)
@@ -38,9 +38,7 @@ Revision History:
 #include "params.h"
 
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 
 std::ostream &operator <<(std::ostream &s, const iz3mgr::ast &a){

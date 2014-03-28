@@ -64,20 +64,22 @@ namespace Duality {
     std::vector<expr> clauses;
     std::vector<std::vector<RPFP::label_struct> > clause_labels;
     hash_map<RPFP::Edge *,int> map;  // edges to clauses
+    Solver *old_rs;
     Solver::Counterexample cex;
 
     duality_data(ast_manager &_m) : ctx(_m,config(params_ref())) {
       ls = 0;
       rpfp = 0;
       status = StatusNull;
+      old_rs = 0;
     }
     ~duality_data(){
+      if(old_rs)
+	dealloc(old_rs);
       if(rpfp)
 	dealloc(rpfp);
       if(ls)
 	dealloc(ls);
-      if(cex.tree)
-	delete cex.tree;
     }
   };
 
@@ -132,15 +134,18 @@ lbool dl_interface::query(::expr * query) {
   m_ctx.ensure_opened();
 
   // if there is old data, get the cex and dispose (later)
-  Solver::Counterexample old_cex;
   duality_data *old_data = _d;
-  if(old_data)
-    old_cex = old_data->cex;
+  Solver *old_rs = 0;
+  if(old_data){
+    old_rs = old_data->old_rs;
+    old_rs->GetCounterexample().swap(old_data->cex);
+  }
 
   scoped_proof generate_proofs_please(m_ctx.get_manager());
 
   // make a new problem and solver
   _d = alloc(duality_data,m_ctx.get_manager());
+  _d->ctx.set("mbqi",m_ctx.get_params().mbqi());
   _d->ls = alloc(RPFP::iZ3LogicSolver,_d->ctx);
   _d->rpfp = alloc(RPFP,_d->ls);
 
@@ -195,8 +200,9 @@ lbool dl_interface::query(::expr * query) {
 
   Solver *rs = Solver::Create("duality", _d->rpfp);
 
-  rs->LearnFrom(old_cex); // new solver gets hints from old cex
-
+  if(old_rs)
+    rs->LearnFrom(old_rs); // new solver gets hints from old solver
+  
   // set its options
   IF_VERBOSE(1, rs->SetOption("report","1"););
   rs->SetOption("full_expand",m_ctx.get_params().full_expand() ? "1" : "0");
@@ -204,6 +210,7 @@ lbool dl_interface::query(::expr * query) {
   rs->SetOption("feasible_edges",m_ctx.get_params().feasible_edges() ? "1" : "0");
   rs->SetOption("use_underapprox",m_ctx.get_params().use_underapprox() ? "1" : "0");
   rs->SetOption("stratified_inlining",m_ctx.get_params().stratified_inlining() ? "1" : "0");
+  rs->SetOption("batch_expand",m_ctx.get_params().batch_expand() ? "1" : "0");
   unsigned rb = m_ctx.get_params().recursion_bound();
   if(rb != UINT_MAX){
     std::ostringstream os; os << rb;
@@ -229,15 +236,14 @@ lbool dl_interface::query(::expr * query) {
 
   // save the result and counterexample if there is one
   _d->status = ans ? StatusModel : StatusRefutation;
-  _d->cex = rs->GetCounterexample();
+  _d->cex.swap(rs->GetCounterexample()); // take ownership of cex
+  _d->old_rs = rs; // save this for later hints
   
   if(old_data){
-    old_data->cex.tree = 0; // we own it now
-    dealloc(old_data);
+    dealloc(old_data); // this deallocates the old solver if there is one
   }
 
-
-  dealloc(rs);
+  // dealloc(rs); this is now owned by data
 
   // true means the RPFP problem is SAT, so the query is UNSAT
   return ans ? l_false : l_true;
@@ -265,18 +271,16 @@ void dl_interface::reset_statistics() {
 
 static hash_set<func_decl> *local_func_decls;
 
-static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexample &cex) {
+  static void print_proof(dl_interface *d, std::ostream& out, RPFP *tree, RPFP::Node *root) {
   context &ctx = d->dd()->ctx;
-  RPFP::Node &node = *cex.root;
+  RPFP::Node &node = *root;
   RPFP::Edge &edge = *node.Outgoing;
   
   // first, prove the children (that are actually used)
 
   for(unsigned i = 0; i < edge.Children.size(); i++){
-    if(!cex.tree->Empty(edge.Children[i])){
-      Solver::Counterexample foo = cex;
-      foo.root = edge.Children[i];
-      print_proof(d,out,foo);
+    if(!tree->Empty(edge.Children[i])){
+      print_proof(d,out,tree,edge.Children[i]);
     }
   }
 
@@ -285,7 +289,7 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
   out << "(step s!" << node.number;
   out << " (" << node.Name.name();
   for(unsigned i = 0; i < edge.F.IndParams.size(); i++)
-    out << " " << cex.tree->Eval(&edge,edge.F.IndParams[i]);
+    out << " " << tree->Eval(&edge,edge.F.IndParams[i]);
   out << ")\n";
 
   // print the rule number
@@ -307,8 +311,8 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
       sort the_sort = t.get_quantifier_bound_sort(j);
       symbol name = t.get_quantifier_bound_name(j);
       expr skolem = ctx.constant(symbol(ctx,name),sort(ctx,the_sort));
-      out << "    (= " << skolem << " " << cex.tree->Eval(&edge,skolem) << ")\n";
-      expr local_skolem = cex.tree->Localize(&edge,skolem);
+      out << "    (= " << skolem << " " << tree->Eval(&edge,skolem) << ")\n";
+      expr local_skolem = tree->Localize(&edge,skolem);
       (*local_func_decls).insert(local_skolem.decl());
     }
   }
@@ -316,7 +320,7 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
   
   out << "  (labels";
   std::vector<symbol> labels;
-  cex.tree->GetLabels(&edge,labels);
+  tree->GetLabels(&edge,labels);
   for(unsigned j = 0; j < labels.size(); j++){
     out << " " << labels[j];
   }
@@ -328,7 +332,7 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
   
   out << "  (ref ";
   for(unsigned i = 0; i < edge.Children.size(); i++){
-    if(!cex.tree->Empty(edge.Children[i]))
+    if(!tree->Empty(edge.Children[i]))
       out << " s!" << edge.Children[i]->number;
     else
       out << " true";
@@ -353,11 +357,11 @@ void dl_interface::display_certificate_non_const(std::ostream& out) {
     // negation of the query is the last clause -- prove it
     hash_set<func_decl> locals;
     local_func_decls = &locals;
-    print_proof(this,out,_d->cex);
+    print_proof(this,out,_d->cex.get_tree(),_d->cex.get_root());
     out << ")\n";
     out << "(model \n\"";
     ::model mod(m_ctx.get_manager());
-    model orig_model = _d->cex.tree->dualModel;
+    model orig_model = _d->cex.get_tree()->dualModel;
     for(unsigned i = 0; i < orig_model.num_consts(); i++){
       func_decl cnst = orig_model.get_const_decl(i);
       if(locals.find(cnst) == locals.end()){
@@ -428,10 +432,10 @@ model_ref dl_interface::get_model() {
   return md;
 }
   
-static proof_ref extract_proof(dl_interface *d, Solver::Counterexample &cex) {
+  static proof_ref extract_proof(dl_interface *d, RPFP *tree, RPFP::Node *root) {
   context &ctx = d->dd()->ctx;
   ast_manager &mgr = ctx.m();
-  RPFP::Node &node = *cex.root;
+  RPFP::Node &node = *root;
   RPFP::Edge &edge = *node.Outgoing;
   RPFP::Edge *orig_edge = edge.map;
   
@@ -453,21 +457,19 @@ static proof_ref extract_proof(dl_interface *d, Solver::Counterexample &cex) {
       sort the_sort = t.get_quantifier_bound_sort(j);
       symbol name = t.get_quantifier_bound_name(j);
       expr skolem = ctx.constant(symbol(ctx,name),sort(ctx,the_sort));
-      expr val = cex.tree->Eval(&edge,skolem);
+      expr val = tree->Eval(&edge,skolem);
       expr_ref thing(ctx.uncook(val),mgr);
       substs[0].push_back(thing);
-      expr local_skolem = cex.tree->Localize(&edge,skolem);
+      expr local_skolem = tree->Localize(&edge,skolem);
       (*local_func_decls).insert(local_skolem.decl());
     }
   }
 
   svector<std::pair<unsigned, unsigned> > pos;
   for(unsigned i = 0; i < edge.Children.size(); i++){
-    if(!cex.tree->Empty(edge.Children[i])){
+    if(!tree->Empty(edge.Children[i])){
       pos.push_back(std::pair<unsigned,unsigned>(i+1,0));
-      Solver::Counterexample foo = cex;
-      foo.root = edge.Children[i];
-      proof_ref prem = extract_proof(d,foo);
+      proof_ref prem = extract_proof(d,tree,edge.Children[i]);
       prems.push_back(prem);
       substs.push_back(expr_ref_vector(mgr));
     }
@@ -476,7 +478,7 @@ static proof_ref extract_proof(dl_interface *d, Solver::Counterexample &cex) {
   func_decl f = node.Name;
   std::vector<expr> args;
   for(unsigned i = 0; i < edge.F.IndParams.size(); i++)
-    args.push_back(cex.tree->Eval(&edge,edge.F.IndParams[i]));
+    args.push_back(tree->Eval(&edge,edge.F.IndParams[i]));
   expr conc = f(args);
   
 
@@ -493,7 +495,7 @@ proof_ref dl_interface::get_proof() {
   if(_d->status == StatusRefutation){
     hash_set<func_decl> locals;
     local_func_decls = &locals;
-    return extract_proof(this,_d->cex);
+    return extract_proof(this,_d->cex.get_tree(),_d->cex.get_root());
   }
   else
     return proof_ref(m_ctx.get_manager());
