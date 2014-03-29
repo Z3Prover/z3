@@ -48,8 +48,6 @@ namespace datalog {
         
         relation_plugin & get_ordinary_relation_plugin(symbol relation_name);
         
-        void reset_tables();
-
         lbool saturate(scoped_query& sq);
 
         void set_cancel(bool f);

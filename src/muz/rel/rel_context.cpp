@@ -514,27 +514,13 @@ namespace datalog {
         SASSERT(m_last_result_relation);
         return m_last_result_relation->contains_fact(f);
     }
-
-    void rel_context::reset_tables() {
-        get_rmanager().reset_saturated_marks();
-        rule_set::decl2rules::iterator it  = m_context.get_rules().begin_grouped_rules();
-        rule_set::decl2rules::iterator end = m_context.get_rules().end_grouped_rules();
-        for (; it != end; ++it) {
-            func_decl* p = it->m_key;
-            relation_base & rel = get_relation(p);
-            rel.reset();
-        }
-        for (unsigned i = 0; i < m_table_facts.size(); ++i) {
-            func_decl* pred = m_table_facts[i].first;
-            relation_fact const& fact = m_table_facts[i].second;
-            get_relation(pred).add_fact(fact);
-        }
-    }
  
     void rel_context::add_fact(func_decl* pred, relation_fact const& fact) {
         get_rmanager().reset_saturated_marks();
         get_relation(pred).add_fact(fact);
-        m_table_facts.push_back(std::make_pair(pred, fact));
+        if (m_context.get_params().dump_aig().size()) {
+            m_table_facts.push_back(std::make_pair(pred, fact));
+        }
     }
 
     void rel_context::add_fact(func_decl* pred, table_fact const& fact) {

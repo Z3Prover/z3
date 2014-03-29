@@ -46,7 +46,7 @@ namespace datalog {
         unsigned  m_lvl;
         class stopwatch* m_sw;
     public:
-        verbose_action(char const* msg, unsigned lvl = 1);
+        verbose_action(char const* msg, unsigned lvl = 11);
         ~verbose_action();
     };
 
