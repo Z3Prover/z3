@@ -50,7 +50,7 @@ namespace opt {
         bool                m_dump_benchmarks;
         static unsigned     m_dump_count;
         statistics          m_stats;
-        filter_model_converter m_fm;
+        ref<filter_model_converter> m_fm;
     public:
         opt_solver(ast_manager & m, params_ref const & p, symbol const & l);
         virtual ~opt_solver();
@@ -82,7 +82,8 @@ namespace opt {
         inf_eps const & get_objective_value(unsigned obj_index);
         expr_ref mk_ge(unsigned obj_index, inf_eps const& val);
 
-        filter_model_converter& mc() { return m_fm; }
+        filter_model_converter& mc() { return *(m_fm.get()); }
+        ref<filter_model_converter>& mc_ref() { return m_fm; }
 
         static opt_solver& to_opt(solver& s);
         bool dump_benchmarks();
