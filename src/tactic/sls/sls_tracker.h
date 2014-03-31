@@ -133,6 +133,19 @@ public:
     }
 #endif
 
+    inline obj_hashtable<expr> const & get_top_exprs() {
+        return m_top_expr;
+    }
+
+    inline bool is_sat() {
+        for (obj_hashtable<expr>::iterator it = m_top_expr.begin();
+             it != m_top_expr.end();
+             it++)
+            if (!m_mpz_manager.is_one(get_value(*it)))
+                return false;
+        return true;
+    }
+
     inline void set_value(expr * n, const mpz & r) {
         SASSERT(m_scores.contains(n));
         m_mpz_manager.set(m_scores.find(n).value, r);
@@ -522,6 +535,28 @@ public:
         }
     }
 
+    void set_model(model_ref const & mdl) {
+        for (unsigned i = 0; i < mdl->get_num_constants(); i++) {
+            func_decl * fd = mdl->get_constant(i);
+            expr * val = mdl->get_const_interp(fd);
+            if (m_entry_points.contains(fd)) {
+                if (m_manager.is_bool(val)) {
+                    set_value(fd, m_manager.is_true(val) ? m_mpz_manager.mk_z(1) : m_mpz_manager.mk_z(0));
+                }
+                else if (m_bv_util.is_numeral(val)) {
+                    rational r_val;
+                    unsigned bv_sz;
+                    m_bv_util.is_numeral(val, r_val, bv_sz);
+                    mpq q = r_val.to_mpq();
+                    SASSERT(m_mpz_manager.is_one(q.denominator()));
+                    set_value(fd, q.numerator());
+                }
+                else
+                    NOT_IMPLEMENTED_YET();
+            }
+        }
+    }
+
     model_ref get_model() {
         model_ref res = alloc(model, m_manager);
         unsigned sz = get_num_constants();
@@ -673,6 +708,9 @@ public:
                 else
                     m_scores.find(n).has_pos_occ = 1;
             }
+        }
+        else if (m_bv_util.is_bv(n)) {
+            /* CMW: I need this for optimization. Safe to ignore? */
         }
         else
             NOT_IMPLEMENTED_YET();

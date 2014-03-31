@@ -306,13 +306,13 @@ namespace opt {
             expr_dependency_ref core(m);
             goal_ref_buffer result;
             model_converter_ref model_converter;
-            (*simplify)(g, result, model_converter, pc, core); 
+            (*simplify)(g, result, model_converter, pc, core);
             SASSERT(result.size() == 1);
             goal* r = result[0];
             for (unsigned i = 0; i < r->size(); ++i) {
                 m_bvsls.assert_expr(r->form(i));
-            }        
-            
+            }
+
             m_lower = m_upper = rational::zero();
 
             for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -336,20 +336,28 @@ namespace opt {
                     objective = bv.mk_bv_add(objective, es[i].get());
                 }
             }
-            // TBD: can we set an initial model on m_bvsls?
-            bvsls_opt_engine::optimization_result res = m_bvsls.optimize(objective);
-            switch(res.is_sat) {
-            case l_true: {
-                unsigned bv_size = 0;
-                // TBD: m_bvsls.get_model(m_model);
-                VERIFY(bv.is_numeral(res.optimum, m_lower, bv_size));
-                break;
+            lbool is_sat = s.check_sat_core(0, 0);
+            if (is_sat == l_true) {
+                updt_model(s);
+                // TBD: can we set an initial model on m_bvsls?
+                // CMW: Yes, see next line.
+                bvsls_opt_engine::optimization_result res = m_bvsls.optimize(objective, m_model, true);
+                switch (res.is_sat) {
+                case l_true: {
+                    unsigned bv_size = 0;
+                    m_bvsls.get_model(m_model);
+                    VERIFY(bv.is_numeral(res.optimum, m_lower, bv_size));
+                    break;
+                }
+                case l_false:
+                case l_undef:
+                    break;
+                }
+                return res.is_sat;
             }
-            case l_false:
-            case l_undef:
-                break;
-            }
-            return res.is_sat;
+            else
+                return is_sat;
+
         }
 
         /**
