@@ -5840,5 +5840,5 @@
    (* 100 x_1604)
    (* 100 x_1001)))
 (optimize :print_statistics true
- :wmaxsat_engine sls
+ :wmaxsat_engine bvsls
  :maxsat_engine weighted_maxsat)
