@@ -86,9 +86,9 @@ expr_ref bvsls_opt_engine::maximize(expr_ref const & objective)
     unsigned obj_bv_sz = m_bv_util.get_bv_size(obj_e);        
     ptr_vector<expr> objs;
     objs.push_back(obj_e);
-    m_obj_tracker.initialize(objs);    
-    m_obj_evaluator.update_all();
+    m_obj_tracker.initialize(objs);
     m_obj_tracker.set_model(m_hard_tracker.get_model());
+    m_obj_evaluator.update_all();
 
     TRACE("sls_opt", tout << "Initial opt model:" << std::endl; m_obj_tracker.show_model(tout););
     IF_VERBOSE(1, verbose_stream() << "Maximizing... restarts left:" << (m_max_restarts - m_stats.m_restarts) << std::endl;);    
@@ -97,10 +97,10 @@ expr_ref bvsls_opt_engine::maximize(expr_ref const & objective)
     unsigned new_const = (unsigned)-1, new_bit = 0;
     ptr_vector<func_decl> consts = m_obj_tracker.get_constants();
     move_type move;
-    m_mpz_manager.set(score, m_obj_tracker.get_value(obj_e));
+    m_mpz_manager.set(score, top_score());
     m_mpz_manager.set(max_score, m_powers(obj_bv_sz)); m_mpz_manager.dec(max_score);
 
-    save_model(score);    
+    save_model(score);
 
     while (check_restart((unsigned)m_stats.m_stopwatch.get_current_seconds()) &&
            m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_ &&
@@ -129,6 +129,7 @@ expr_ref bvsls_opt_engine::maximize(expr_ref const & objective)
             TRACE("sls_opt", tout << "New best: " << m_mpz_manager.to_string(score) << std::endl;);
             func_decl * fd = consts[new_const];
             incremental_score(fd, new_value);
+            m_obj_evaluator.update(fd, new_value);
             m_mpz_manager.set(score, top_score());
         }
     }
@@ -184,7 +185,7 @@ bool bvsls_opt_engine::what_if(
     double r = incremental_score(fd, temp);
 #endif
     
-    if (r >= 1.0 && m_tracker.is_sat()) {
+    if (r >= 1.0 && m_hard_tracker.is_sat()) {
         m_obj_evaluator.update(fd, temp);
         mpz cur_best(0);
         m_mpz_manager.set(cur_best, top_score());
@@ -198,6 +199,11 @@ bool bvsls_opt_engine::what_if(
             m_mpz_manager.set(best_value, temp);
             return true;
         }
+    }
+    else
+    {
+        TRACE("sls_whatif_failed", tout << "WHAT IF " << fd->get_name() << " WERE " << m_mpz_manager.to_string(temp) <<
+              " --> unsatisfied hard constraints" << std::endl;);
     }
 
     return false;
@@ -218,13 +224,14 @@ mpz bvsls_opt_engine::find_best_move(
     mpz temp2;
 #endif
     unsigned bv_sz;
-    mpz new_score = score;
+    mpz new_score;
+    m_mpz_manager.set(new_score, score);
 
     for (unsigned i = 0; i < to_evaluate.size() && m_mpz_manager.lt(new_score, max_score); i++) {
         func_decl * fd = to_evaluate[i];
         sort * srt = fd->get_range();
         bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
-        m_mpz_manager.set(old_value, m_tracker.get_value(fd));
+        m_mpz_manager.set(old_value, m_obj_tracker.get_value(fd));
 
         // first try to flip every bit
         for (unsigned j = 0; j < bv_sz && m_mpz_manager.lt(new_score, max_score); j++) {
@@ -285,6 +292,7 @@ mpz bvsls_opt_engine::find_best_move(
 
         // reset to what it was before
         double check = incremental_score(fd, old_value);
+        m_obj_evaluator.update(fd, old_value);
     }
 
     m_mpz_manager.del(old_value);
@@ -304,21 +312,21 @@ bool bvsls_opt_engine::randomize_wrt_hard() {
     while (retry_count-- > 0)  
     {
         
-        unsigned ri = (m_tracker.get_random_uint((csz < 16) ? 4 : (csz < 256) ? 8 : (csz < 4096) ? 12 : (csz < 65536) ? 16 : 32)) % csz;
+        unsigned ri = (m_obj_tracker.get_random_uint((csz < 16) ? 4 : (csz < 256) ? 8 : (csz < 4096) ? 12 : (csz < 65536) ? 16 : 32)) % csz;
         func_decl * random_fd = consts[ri]; // Random constant
         
         mpz random_val; // random value.
-        m_mpz_manager.set(random_val, m_tracker.get_random(random_fd->get_range()));        
+        m_mpz_manager.set(random_val, m_obj_tracker.get_random(random_fd->get_range()));
         
         mpz old_value;
-        m_mpz_manager.set(old_value, m_tracker.get_value(random_fd));
+        m_mpz_manager.set(old_value, m_obj_tracker.get_value(random_fd));
         
         if (!m_mpz_manager.eq(random_val, old_value)) {
             m_evaluator.update(random_fd, random_val);
 
             if (m_hard_tracker.is_sat()) {
                 TRACE("sls_opt", tout << "Randomizing " << random_fd->get_name() << " to " <<
-                                         m_mpz_manager.to_string(random_val) << std::endl;);
+                                         m_mpz_manager.to_string(random_val) << std::endl;);                
                 m_obj_evaluator.update(random_fd, random_val);
                 return true;
             }
