@@ -605,38 +605,101 @@ namespace opt {
 
         struct wcore {
             unsigned_vector m_R;
-            rational        m_lambda;
-            rational        m_nu;
-            rational        m_epsilon;
+            rational        m_lower;
+            rational        m_mid;
+            rational        m_upper;
         };
 
         lbool bcd2_solve() {
             return l_undef;
 #if 0
-            expr_ref fml(m);
+            expr_ref fml(m), val(m);
+            app_ref r(m);
             vector<wcore> cores;
+            obj_map<expr, unsigned> ans2core;     // answer literal to core index
             lbool is_sat = l_undef;
-            expr_ref_vector nsoft(m);
+            expr_ref_vector soft(m), rs(m);
             m_lower = m_upper = rational::zero();            
+            bool first = true;
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 m_upper += m_weights[i];
+                r = m.mk_fresh_const("r", m.mk_bool_sort());
+                s.mc().insert(r->get_decl());
+                fml = m.mk_or(m_soft[i].get(), r);
+                s.assert_expr(fml);
+                rs.push_back(r);
+                asms.push_back(m.mk_not(r));
             }
+            m_upper += rational(1);
             solver::scoped_push _s(s);
             while (m_lower < m_upper) {
                 solver::scoped_push _s(s);
-                
+                if (m_cancel) {
+                    return l_undef;
+                }
                 for (unsigned i = 0; i < cores.size(); ++i) {
                     assert_core(cores[i]);
+                    // need assumptions here as well.
                 }
-                is_sat = check_sat(0, 0);
+                is_sat = check_sat(asms.size(), asms.c_ptr());
                 switch(is_sat) {
-                case l_undef: return l_undef;
+                case l_undef: 
+                    return l_undef;
                 case l_true: {
-                    
+                    updt_model(s);
+                    m_upper.reset();
+                    for (unsigned i = 0; i < cores.size(); ++i) {
+                        wcore& c_i = cores[i];
+                        unsigned_vector const& R = c_i.m_R;
+                        c_i.m_upper.reset();
+                        for (unsigned j = 0; j < R.size(); ++j) {
+                            unsigned r_j = R[j];
+                            VERIFY(m_model->eval(m_soft[r_j].get(), val));                            
+                            if (m.is_false(val)) {
+                                c_i.m_upper += m_weights[r_j];
+                            }
+                        }
+                        c_i.m_mid = div(c_i.m_lower + c_i.m_upper, rational(2));
+                        m_upper += c_i.m_upper;
+                    }                    
+                    first = false;
                     break;
                 }
                 case l_false: {
-
+                    ptr_vector<expr> core;
+                    s.get_unsat_core(core);
+                    uint_set subC;
+                    unsigned_vector soft;
+                    rational delta(0);
+                    for (unsigned i = 0; i < core.size(); ++i) {
+                        unsigned j;
+                        if (ans2core.find(core[i], j)) {
+                            subC.insert(j);
+                            rational new_delta = rational(1) + cores[j].m_upper - cores[j].m_mid; 
+                            SASSERT(new_delta.is_pos());
+                            if (delta.is_zero() || delta > new_delta) {
+                                delta = new_delta;
+                            }
+                        }
+                        else {
+                            soft.push_back(i);
+                        }
+                    }
+                    if (soft.empty() && subC.num_elems() == 1) {
+                        SASSERT(core.size() == 1);
+                        unsigned s = *subS.begin();
+                        wcore& c_s = cores[s];
+                        m_lower -= c_s.m_lower;
+                        c_s.m_lower = refine(c_s, c_s.m_mid);
+                        m_lower += c_s.m_lower;
+                    }
+                    else {
+                        wcore c_s;
+                        relax(subC, soft, c_s.m_R);
+                        for (unsigned i = 0; i < subC.size(); ++i) {
+                            
+                        }
+                    }
                     break;
                 }
                 }
@@ -654,7 +717,7 @@ namespace opt {
                 ws.push_back(m_weights[idx]);
                 rs.push_back(m_soft[idx].get());   // TBD: check
             }
-            // TBD: fml = pb.mk_le(ws.size(), ws.c_ptr(), rs.c_ptr(), core.m_nu);
+            // TBD: fml = pb.mk_le(ws.size(), ws.c_ptr(), rs.c_ptr(), core.m_mid);
             s.assert_expr(fml);
         }
 
