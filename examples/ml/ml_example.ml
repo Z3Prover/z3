@@ -196,6 +196,48 @@ let basic_tests ( ctx : context ) =
     Printf.printf "Exception caught, OK.\n" 
   )
 
+(**
+   A basic example of how to use quantifiers.
+**)
+let  quantifierExample1 ( ctx : context ) =
+  Printf.printf "QuantifierExample\n" ;
+  let is = (Integer.mk_sort ctx) in
+  let types = [ is; is; is ] in
+  let names = [ (Symbol.mk_string ctx "x_0");
+		(Symbol.mk_string ctx "x_1");
+		(Symbol.mk_string ctx "x_2") ] in
+  let vars = [ (Quantifier.mk_bound ctx 2 (List.nth types 0));
+	       (Quantifier.mk_bound ctx 2 (List.nth types 1));
+	       (Quantifier.mk_bound ctx 2 (List.nth types 2)) ] in
+  let xs = [ (Integer.mk_const ctx (List.nth names 0));
+	     (Integer.mk_const ctx (List.nth names 1));
+	     (Integer.mk_const ctx (List.nth names 2)) ] in
+  
+  let body_vars = (Boolean.mk_and ctx 
+		     [ (mk_eq ctx 
+			  (Arithmetic.mk_add ctx [ (List.nth vars 0) ; (Integer.mk_numeral_i ctx 1)]) 
+			  (Integer.mk_numeral_i ctx 2)) ;
+		       (mk_eq ctx 
+			  (Arithmetic.mk_add ctx [ (List.nth vars 1); (Integer.mk_numeral_i ctx 2)])
+			  (Arithmetic.mk_add ctx [ (List.nth vars 2); (Integer.mk_numeral_i ctx 3)])) ]) in
+  let body_const = (Boolean.mk_and ctx
+		      [ (mk_eq ctx 
+			   (Arithmetic.mk_add ctx [ (List.nth xs 0); (Integer.mk_numeral_i ctx 1)]) 
+			   (Integer.mk_numeral_i ctx 2)) ;
+			(mk_eq ctx 
+			   (Arithmetic.mk_add ctx [ (List.nth xs 1); (Integer.mk_numeral_i ctx 2)])
+			   (Arithmetic.mk_add ctx [ (List.nth xs 2); (Integer.mk_numeral_i ctx 3)])) ]) in
+  
+  let x = (Quantifier.mk_forall ctx types names body_vars (Some 1) [] [] (Some (Symbol.mk_string ctx "Q1")) (Some (Symbol.mk_string ctx "skid1"))) in
+  Printf.printf "Quantifier X: %s\n" (Quantifier.to_string x) ;
+  let y = (Quantifier.mk_forall_const ctx xs body_const (Some 1) [] [] (Some (Symbol.mk_string ctx "Q2")) (Some (Symbol.mk_string ctx "skid2"))) in
+  Printf.printf "Quantifier Y: %s\n" (Quantifier.to_string y) ;
+  if (is_true (Quantifier.expr_of_quantifier x)) then
+    raise (TestFailedException "") (* unreachable *)
+  else if (is_false (Quantifier.expr_of_quantifier x)) then
+    raise (TestFailedException "") (* unreachable *)
+  else if (is_const (Quantifier.expr_of_quantifier x)) then
+    raise (TestFailedException "") (* unreachable *)
 
 let _ = 
   try (
@@ -217,6 +259,7 @@ let _ =
 	Printf.printf "int sort: %s\n" (Sort.to_string ints);
 	Printf.printf "real sort: %s\n" (Sort.to_string rs);
 	basic_tests ctx ;
+	quantifierExample1 ctx ;
 	Printf.printf "Disposing...\n";
 	Gc.full_major ()
       );
