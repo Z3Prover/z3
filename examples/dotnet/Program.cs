@@ -93,6 +93,9 @@ namespace test_mapi
                 1,
                 new Pattern[] { p } /* patterns */);
 
+	    if (q.IsTrue)
+	       Console.WriteLine("is true.");
+
             return q;
         }
 

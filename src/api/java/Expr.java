@@ -245,7 +245,7 @@ public class Expr extends AST
 	 **/
 	public boolean isTrue() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TRUE;
+	        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TRUE;
 	}
 
 	/**
@@ -253,7 +253,7 @@ public class Expr extends AST
 	 **/
 	public boolean isFalse() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FALSE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FALSE;
 	}
 
 	/**
@@ -261,7 +261,7 @@ public class Expr extends AST
 	 **/
 	public boolean isEq() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EQ;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EQ;
 	}
 
 	/**
@@ -270,7 +270,7 @@ public class Expr extends AST
 	 **/
 	public boolean isDistinct() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_DISTINCT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_DISTINCT;
 	}
 
 	/**
@@ -278,7 +278,7 @@ public class Expr extends AST
 	 **/
 	public boolean isITE() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ITE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ITE;
 	}
 
 	/**
@@ -286,7 +286,7 @@ public class Expr extends AST
 	 **/
 	public boolean isAnd() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_AND;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_AND;
 	}
 
 	/**
@@ -294,7 +294,7 @@ public class Expr extends AST
 	 **/
 	public boolean isOr() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_OR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_OR;
 	}
 
 	/**
@@ -303,7 +303,7 @@ public class Expr extends AST
 	 **/
 	public boolean isIff() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IFF;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IFF;
 	}
 
 	/**
@@ -311,7 +311,7 @@ public class Expr extends AST
 	 **/
 	public boolean isXor() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_XOR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_XOR;
 	}
 
 	/**
@@ -319,7 +319,7 @@ public class Expr extends AST
 	 **/
 	public boolean isNot() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_NOT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_NOT;
 	}
 
 	/**
@@ -327,7 +327,7 @@ public class Expr extends AST
 	 **/
 	public boolean isImplies() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IMPLIES;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IMPLIES;
 	}
 
 	/**
@@ -356,7 +356,7 @@ public class Expr extends AST
 	 **/
 	public boolean isArithmeticNumeral() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ANUM;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ANUM;
 	}
 
 	/**
@@ -364,7 +364,7 @@ public class Expr extends AST
 	 **/
 	public boolean isLE() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LE;
 	}
 
 	/**
@@ -372,7 +372,7 @@ public class Expr extends AST
 	 **/
 	public boolean isGE() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_GE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_GE;
 	}
 
 	/**
@@ -380,7 +380,7 @@ public class Expr extends AST
 	 **/
 	public boolean isLT() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LT;
 	}
 
 	/**
@@ -388,7 +388,7 @@ public class Expr extends AST
 	 **/
 	public boolean isGT() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_GT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_GT;
 	}
 
 	/**
@@ -396,7 +396,7 @@ public class Expr extends AST
 	 **/
 	public boolean isAdd() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ADD;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ADD;
 	}
 
 	/**
@@ -404,7 +404,7 @@ public class Expr extends AST
 	 **/
 	public boolean isSub() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SUB;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SUB;
 	}
 
 	/**
@@ -412,7 +412,7 @@ public class Expr extends AST
 	 **/
 	public boolean isUMinus() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UMINUS;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UMINUS;
 	}
 
 	/**
@@ -420,7 +420,7 @@ public class Expr extends AST
 	 **/
 	public boolean isMul() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_MUL;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_MUL;
 	}
 
 	/**
@@ -428,7 +428,7 @@ public class Expr extends AST
 	 **/
 	public boolean isDiv() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_DIV;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_DIV;
 	}
 
 	/**
@@ -436,7 +436,7 @@ public class Expr extends AST
 	 **/
 	public boolean isIDiv() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IDIV;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IDIV;
 	}
 
 	/**
@@ -444,7 +444,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRemainder() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_REM;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_REM;
 	}
 
 	/**
@@ -452,7 +452,7 @@ public class Expr extends AST
 	 **/
 	public boolean isModulus() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_MOD;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_MOD;
 	}
 
 	/**
@@ -460,7 +460,7 @@ public class Expr extends AST
 	 **/
 	public boolean isIntToReal() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TO_REAL;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TO_REAL;
 	}
 
 	/**
@@ -468,7 +468,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRealToInt() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TO_INT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TO_INT;
 	}
 
 	/**
@@ -477,7 +477,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRealIsInt() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IS_INT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IS_INT;
 	}
 
 	/**
@@ -497,7 +497,7 @@ public class Expr extends AST
 	 **/
 	public boolean isStore() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_STORE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_STORE;
 	}
 
 	/**
@@ -505,7 +505,7 @@ public class Expr extends AST
 	 **/
 	public boolean isSelect() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SELECT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SELECT;
 	}
 
 	/**
@@ -515,7 +515,7 @@ public class Expr extends AST
 	 **/
 	public boolean isConstantArray() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CONST_ARRAY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CONST_ARRAY;
 	}
 
 	/**
@@ -524,7 +524,7 @@ public class Expr extends AST
 	 **/
 	public boolean isDefaultArray() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ARRAY_DEFAULT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ARRAY_DEFAULT;
 	}
 
 	/**
@@ -533,7 +533,7 @@ public class Expr extends AST
 	 **/
 	public boolean isArrayMap() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ARRAY_MAP;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ARRAY_MAP;
 	}
 
 	/**
@@ -543,7 +543,7 @@ public class Expr extends AST
 	 **/
 	public boolean isAsArray() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_AS_ARRAY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_AS_ARRAY;
 	}
 
 	/**
@@ -551,7 +551,7 @@ public class Expr extends AST
 	 **/
 	public boolean isSetUnion() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_UNION;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_UNION;
 	}
 
 	/**
@@ -559,7 +559,7 @@ public class Expr extends AST
 	 **/
 	public boolean isSetIntersect() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_INTERSECT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_INTERSECT;
 	}
 
 	/**
@@ -567,7 +567,7 @@ public class Expr extends AST
 	 **/
 	public boolean isSetDifference() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_DIFFERENCE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_DIFFERENCE;
 	}
 
 	/**
@@ -575,7 +575,7 @@ public class Expr extends AST
 	 **/
 	public boolean isSetComplement() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_COMPLEMENT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_COMPLEMENT;
 	}
 
 	/**
@@ -583,7 +583,7 @@ public class Expr extends AST
 	 **/
 	public boolean isSetSubset() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_SUBSET;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_SUBSET;
 	}
 
 	/**
@@ -601,7 +601,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVNumeral() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNUM;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNUM;
 	}
 
 	/**
@@ -609,7 +609,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVBitOne() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BIT1;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BIT1;
 	}
 
 	/**
@@ -617,7 +617,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVBitZero() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BIT0;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BIT0;
 	}
 
 	/**
@@ -625,7 +625,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVUMinus() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNEG;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNEG;
 	}
 
 	/**
@@ -633,7 +633,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVAdd() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BADD;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BADD;
 	}
 
 	/**
@@ -641,7 +641,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVSub() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSUB;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSUB;
 	}
 
 	/**
@@ -649,7 +649,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVMul() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BMUL;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BMUL;
 	}
 
 	/**
@@ -657,7 +657,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVSDiv() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSDIV;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSDIV;
 	}
 
 	/**
@@ -665,7 +665,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVUDiv() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUDIV;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUDIV;
 	}
 
 	/**
@@ -673,7 +673,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVSRem() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSREM;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSREM;
 	}
 
 	/**
@@ -681,7 +681,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVURem() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUREM;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUREM;
 	}
 
 	/**
@@ -689,7 +689,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVSMod() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSMOD;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSMOD;
 	}
 
 	/**
@@ -697,7 +697,7 @@ public class Expr extends AST
 	 **/
 	boolean IsBVSDiv0() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSDIV0;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSDIV0;
 	}
 
 	/**
@@ -705,7 +705,7 @@ public class Expr extends AST
 	 **/
 	boolean IsBVUDiv0() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUDIV0;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUDIV0;
 	}
 
 	/**
@@ -713,7 +713,7 @@ public class Expr extends AST
 	 **/
 	boolean IsBVSRem0() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSREM0;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSREM0;
 	}
 
 	/**
@@ -721,7 +721,7 @@ public class Expr extends AST
 	 **/
 	boolean IsBVURem0() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUREM0;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUREM0;
 	}
 
 	/**
@@ -729,7 +729,7 @@ public class Expr extends AST
 	 **/
 	boolean IsBVSMod0() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSMOD0;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSMOD0;
 	}
 
 	/**
@@ -737,7 +737,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVULE() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ULEQ;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ULEQ;
 	}
 
 	/**
@@ -745,7 +745,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVSLE() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SLEQ;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SLEQ;
 	}
 
 	/**
@@ -754,7 +754,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVUGE() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UGEQ;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UGEQ;
 	}
 
 	/**
@@ -762,7 +762,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVSGE() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SGEQ;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SGEQ;
 	}
 
 	/**
@@ -770,7 +770,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVULT() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ULT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ULT;
 	}
 
 	/**
@@ -778,7 +778,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVSLT() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SLT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SLT;
 	}
 
 	/**
@@ -786,7 +786,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVUGT() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UGT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UGT;
 	}
 
 	/**
@@ -794,7 +794,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVSGT() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SGT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SGT;
 	}
 
 	/**
@@ -802,7 +802,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVAND() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BAND;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BAND;
 	}
 
 	/**
@@ -810,7 +810,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVOR() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BOR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BOR;
 	}
 
 	/**
@@ -818,7 +818,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVNOT() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNOT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNOT;
 	}
 
 	/**
@@ -826,7 +826,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVXOR() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BXOR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BXOR;
 	}
 
 	/**
@@ -834,7 +834,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVNAND() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNAND;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNAND;
 	}
 
 	/**
@@ -842,7 +842,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVNOR() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNOR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNOR;
 	}
 
 	/**
@@ -850,7 +850,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVXNOR() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BXNOR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BXNOR;
 	}
 
 	/**
@@ -858,7 +858,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVConcat() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CONCAT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CONCAT;
 	}
 
 	/**
@@ -866,7 +866,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVSignExtension() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SIGN_EXT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SIGN_EXT;
 	}
 
 	/**
@@ -874,7 +874,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVZeroExtension() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ZERO_EXT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ZERO_EXT;
 	}
 
 	/**
@@ -882,7 +882,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVExtract() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXTRACT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXTRACT;
 	}
 
 	/**
@@ -890,7 +890,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVRepeat() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_REPEAT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_REPEAT;
 	}
 
 	/**
@@ -898,7 +898,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVReduceOR() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BREDOR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BREDOR;
 	}
 
 	/**
@@ -906,7 +906,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVReduceAND() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BREDAND;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BREDAND;
 	}
 
 	/**
@@ -914,7 +914,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVComp() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BCOMP;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BCOMP;
 	}
 
 	/**
@@ -922,7 +922,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVShiftLeft() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSHL;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSHL;
 	}
 
 	/**
@@ -930,7 +930,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVShiftRightLogical() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BLSHR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BLSHR;
 	}
 
 	/**
@@ -938,7 +938,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVShiftRightArithmetic() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BASHR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BASHR;
 	}
 
 	/**
@@ -946,7 +946,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVRotateLeft() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ROTATE_LEFT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ROTATE_LEFT;
 	}
 
 	/**
@@ -954,7 +954,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVRotateRight() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ROTATE_RIGHT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ROTATE_RIGHT;
 	}
 
 	/**
@@ -964,7 +964,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVRotateLeftExtended() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_LEFT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_LEFT;
 	}
 
 	/**
@@ -974,7 +974,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVRotateRightExtended() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_RIGHT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_RIGHT;
 	}
 
 	/**
@@ -985,7 +985,7 @@ public class Expr extends AST
 	 **/
 	public boolean isIntToBV() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_INT2BV;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_INT2BV;
 	}
 
 	/**
@@ -996,7 +996,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVToInt() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BV2INT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BV2INT;
 	}
 
 	/**
@@ -1006,7 +1006,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVCarry() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CARRY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CARRY;
 	}
 
 	/**
@@ -1016,7 +1016,7 @@ public class Expr extends AST
 	 **/
 	public boolean isBVXOR3() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_XOR3;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_XOR3;
 	}
 
 	/**
@@ -1026,7 +1026,7 @@ public class Expr extends AST
 	 **/
 	public boolean isLabel() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LABEL;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LABEL;
 	}
 
 	/**
@@ -1036,7 +1036,7 @@ public class Expr extends AST
 	 **/
 	public boolean isLabelLit() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LABEL_LIT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LABEL_LIT;
 	}
 
 	/**
@@ -1046,7 +1046,7 @@ public class Expr extends AST
 	 **/
 	public boolean isOEQ() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_OEQ;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_OEQ;
 	}
 
 	/**
@@ -1054,7 +1054,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofTrue() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRUE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRUE;
 	}
 
 	/**
@@ -1062,7 +1062,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofAsserted() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_ASSERTED;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_ASSERTED;
 	}
 
 	/**
@@ -1071,7 +1071,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofGoal() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_GOAL;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_GOAL;
 	}
 
 	/**
@@ -1082,7 +1082,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofModusPonens() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS;
 	}
 
 	/**
@@ -1094,7 +1094,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofReflexivity() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REFLEXIVITY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REFLEXIVITY;
 	}
 
 	/**
@@ -1105,7 +1105,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofSymmetry() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_SYMMETRY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_SYMMETRY;
 	}
 
 	/**
@@ -1116,7 +1116,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofTransitivity() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY;
 	}
 
 	/**
@@ -1134,7 +1134,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofTransitivityStar() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY_STAR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY_STAR;
 	}
 
 	/**
@@ -1146,7 +1146,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofMonotonicity() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MONOTONICITY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MONOTONICITY;
 	}
 
 	/**
@@ -1156,7 +1156,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofQuantIntro() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INTRO;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INTRO;
 	}
 
 	/**
@@ -1172,7 +1172,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofDistributivity() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DISTRIBUTIVITY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DISTRIBUTIVITY;
 	}
 
 	/**
@@ -1182,7 +1182,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofAndElimination() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_AND_ELIM;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_AND_ELIM;
 	}
 
 	/**
@@ -1192,7 +1192,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofOrElimination() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NOT_OR_ELIM;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NOT_OR_ELIM;
 	}
 
 	/**
@@ -1209,7 +1209,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofRewrite() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE;
 	}
 
 	/**
@@ -1225,7 +1225,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofRewriteStar() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR;
 	}
 
 	/**
@@ -1235,7 +1235,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofPullQuant() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT;
 	}
 
 	/**
@@ -1246,7 +1246,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofPullQuantStar() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR;
 	}
 
 	/**
@@ -1258,7 +1258,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofPushQuant() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PUSH_QUANT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PUSH_QUANT;
 	}
 
 	/**
@@ -1271,7 +1271,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofElimUnusedVars() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_ELIM_UNUSED_VARS;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_ELIM_UNUSED_VARS;
 	}
 
 	/**
@@ -1285,7 +1285,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofDER() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DER;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DER;
 	}
 
 	/**
@@ -1294,7 +1294,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofQuantInst() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INST;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INST;
 	}
 
 	/**
@@ -1303,7 +1303,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofHypothesis() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS;
 	}
 
 	/**
@@ -1316,7 +1316,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofLemma() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_LEMMA;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_LEMMA;
 	}
 
 	/**
@@ -1326,7 +1326,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofUnitResolution() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_UNIT_RESOLUTION;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_UNIT_RESOLUTION;
 	}
 
 	/**
@@ -1335,7 +1335,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofIFFTrue() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_TRUE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_TRUE;
 	}
 
 	/**
@@ -1344,7 +1344,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofIFFFalse() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_FALSE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_FALSE;
 	}
 
 	/**
@@ -1358,7 +1358,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofCommutativity() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_COMMUTATIVITY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_COMMUTATIVITY;
 	}
 
 	/**
@@ -1381,7 +1381,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofDefAxiom() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_AXIOM;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_AXIOM;
 	}
 
 	/**
@@ -1402,7 +1402,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofDefIntro() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_INTRO;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_INTRO;
 	}
 
 	/**
@@ -1412,7 +1412,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofApplyDef() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_APPLY_DEF;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_APPLY_DEF;
 	}
 
 	/**
@@ -1421,7 +1421,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofIFFOEQ() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_OEQ;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_OEQ;
 	}
 
 	/**
@@ -1446,7 +1446,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofNNFPos() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_POS;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_POS;
 	}
 
 	/**
@@ -1462,7 +1462,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofNNFNeg() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_NEG;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_NEG;
 	}
 
 	/**
@@ -1477,7 +1477,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofNNFStar() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_STAR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_STAR;
 	}
 
 	/**
@@ -1489,7 +1489,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofCNFStar() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_CNF_STAR;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_CNF_STAR;
 	}
 
 	/**
@@ -1503,7 +1503,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofSkolemize() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_SKOLEMIZE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_SKOLEMIZE;
 	}
 
 	/**
@@ -1513,7 +1513,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofModusPonensOEQ() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS_OEQ;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS_OEQ;
 	}
 
 	/**
@@ -1532,7 +1532,7 @@ public class Expr extends AST
 	 **/
 	public boolean isProofTheoryLemma() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TH_LEMMA;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TH_LEMMA;
 	}
 
 	/**
@@ -1554,7 +1554,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationStore() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_STORE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_STORE;
 	}
 
 	/**
@@ -1562,7 +1562,7 @@ public class Expr extends AST
 	 **/
 	public boolean isEmptyRelation() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_EMPTY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_EMPTY;
 	}
 
 	/**
@@ -1570,7 +1570,7 @@ public class Expr extends AST
 	 **/
 	public boolean isIsEmptyRelation() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_IS_EMPTY;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_IS_EMPTY;
 	}
 
 	/**
@@ -1578,7 +1578,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationalJoin() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_JOIN;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_JOIN;
 	}
 
 	/**
@@ -1587,7 +1587,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationUnion() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_UNION;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_UNION;
 	}
 
 	/**
@@ -1596,7 +1596,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationWiden() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_WIDEN;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_WIDEN;
 	}
 
 	/**
@@ -1606,7 +1606,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationProject() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_PROJECT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_PROJECT;
 	}
 
 	/**
@@ -1618,7 +1618,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationFilter() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_FILTER;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_FILTER;
 	}
 
 	/**
@@ -1635,7 +1635,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationNegationFilter() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_NEGATION_FILTER;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_NEGATION_FILTER;
 	}
 
 	/**
@@ -1645,7 +1645,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationRename() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_RENAME;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_RENAME;
 	}
 
 	/**
@@ -1653,7 +1653,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationComplement() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_COMPLEMENT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_COMPLEMENT;
 	}
 
 	/**
@@ -1664,7 +1664,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationSelect() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_SELECT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_SELECT;
 	}
 
 	/**
@@ -1676,7 +1676,7 @@ public class Expr extends AST
 	 **/
 	public boolean isRelationClone() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_CLONE;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_CLONE;
 	}
 
 	/**
@@ -1695,7 +1695,7 @@ public class Expr extends AST
 	 **/
 	public boolean isFiniteDomainLT() throws Z3Exception
 	{
-		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FD_LT;
+		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FD_LT;
 	}
 
 	/**
