@@ -89,9 +89,6 @@ class JavaExample
                 names, /* names of quantified variables */
                 eq, 1, new Pattern[] { p } /* patterns */, null, null, null);
 
-	if (q.isTrue())
-	    System.out.println("is true");
-
         return q;
     }
 
