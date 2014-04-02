@@ -793,7 +793,7 @@ end = struct
 			      mk_list f n
 				
   let update ( x : expr ) ( args : expr list ) =
-    if (List.length args <> (get_num_args x)) then
+    if ((AST.is_app (ast_of_expr x)) && (List.length args <> (get_num_args x))) then
       raise (Z3native.Exception "Number of arguments does not match")
     else
       expr_of_ptr (Expr.gc x) (Z3native.update_term (gnc x) (gno x) (List.length args) (expr_lton args))
