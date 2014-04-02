@@ -579,7 +579,7 @@ namespace Duality {
 	  args[i] = CloneQuantAndSimp(t, body.arg(i), is_forall);
 	return SimplifyAndOr(args, body.decl().get_decl_kind() == And);
       }
-      else if(body.decl().get_decl_kind() == is_forall ? And : Or){ // quantifier distributes
+      else if(body.decl().get_decl_kind() == (is_forall ? And : Or)){ // quantifier distributes
 	return PushQuantifier(t,body,is_forall); // may distribute partially
       }
       else if(body.decl().get_decl_kind() == Not){
