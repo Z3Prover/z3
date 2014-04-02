@@ -20,6 +20,7 @@ Notes:
 #ifndef _SLS_TRACKER_H_
 #define _SLS_TRACKER_H_
 
+#include<math.h>
 #include"for_each_expr.h"
 #include"ast_smt2_pp.h"
 #include"bv_decl_plugin.h"

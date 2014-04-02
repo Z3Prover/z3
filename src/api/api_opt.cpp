@@ -36,7 +36,7 @@ extern "C" {
     };
     inline Z3_optimize_ref * to_optimize(Z3_optimize o) { return reinterpret_cast<Z3_optimize_ref *>(o); }
     inline Z3_optimize of_optimize(Z3_optimize_ref * o) { return reinterpret_cast<Z3_optimize>(o); }
-    inline opt::context& to_optimize_ref(Z3_optimize o) { return *to_optimize(o)->m_opt; }
+    inline opt::context* to_optimize_ref(Z3_optimize o) { return to_optimize(o)->m_opt; }
 
     Z3_optimize Z3_API Z3_mk_optimize(Z3_context c) {
         Z3_TRY;
@@ -70,7 +70,7 @@ extern "C" {
         LOG_Z3_optimize_assert(c, o, a);
         RESET_ERROR_CODE();
         CHECK_FORMULA(a,);        
-        to_optimize_ref(o).add_hard_constraint(to_expr(a));
+        to_optimize_ref(o)->add_hard_constraint(to_expr(a));
         Z3_CATCH;
     }
 
@@ -80,7 +80,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_FORMULA(a,0);        
         rational w(weight);
-        return to_optimize_ref(o).add_soft_constraint(to_expr(a), w, to_symbol(id));
+        return to_optimize_ref(o)->add_soft_constraint(to_expr(a), w, to_symbol(id));
         Z3_CATCH_RETURN(0);
     }
 
@@ -89,7 +89,7 @@ extern "C" {
         LOG_Z3_optimize_maximize(c, o, t);
         RESET_ERROR_CODE();
         CHECK_VALID_AST(t,0);        
-        return to_optimize_ref(o).add_objective(to_app(t), true);
+        return to_optimize_ref(o)->add_objective(to_app(t), true);
         Z3_CATCH_RETURN(0);
     }
 
@@ -98,7 +98,7 @@ extern "C" {
         LOG_Z3_optimize_minimize(c, o, t);
         RESET_ERROR_CODE();
         CHECK_VALID_AST(t,0);        
-        return to_optimize_ref(o).add_objective(to_app(t), false);
+        return to_optimize_ref(o)->add_objective(to_app(t), false);
         Z3_CATCH_RETURN(0);
     }
 
@@ -107,19 +107,19 @@ extern "C" {
         LOG_Z3_optimize_check(c, o);
         RESET_ERROR_CODE();
         lbool r = l_undef;
-        cancel_eh<opt::context> eh(to_optimize_ref(o));
+        cancel_eh<opt::context> eh(*to_optimize_ref(o));
         unsigned timeout = 0; // to_optimize(o)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
             scoped_timer timer(timeout, &eh);
             try {
-                r = to_optimize_ref(o).optimize();
+                r = to_optimize_ref(o)->optimize();
             }
             catch (z3_exception& ex) {
                 mk_c(c)->handle_exception(ex);
                 r = l_undef;
             }
-            // to_optimize_ref(d).cleanup();
+            // to_optimize_ref(d)->cleanup();
         }
         return of_lbool(r);
         Z3_CATCH_RETURN(Z3_L_UNDEF);
@@ -130,7 +130,7 @@ extern "C" {
         LOG_Z3_optimize_get_model(c, o);
         RESET_ERROR_CODE();
         model_ref _m;
-        to_optimize_ref(o).get_model(_m);
+        to_optimize_ref(o)->get_model(_m);
         Z3_model_ref * m_ref = alloc(Z3_model_ref); 
         if (_m) {
             m_ref->m_model = _m;
@@ -148,10 +148,10 @@ extern "C" {
         LOG_Z3_optimize_set_params(c, o, p);
         RESET_ERROR_CODE();
         param_descrs descrs;
-        to_optimize_ref(o).collect_param_descrs(descrs);
+        to_optimize_ref(o)->collect_param_descrs(descrs);
         to_params(p)->m_params.validate(descrs);
         params_ref pr = to_param_ref(p);
-        to_optimize_ref(o).updt_params(pr);
+        to_optimize_ref(o)->updt_params(pr);
         Z3_CATCH;
     }
     
@@ -161,7 +161,7 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref);
         mk_c(c)->save_object(d);
-        to_optimize_ref(o).collect_param_descrs(d->m_descrs);
+        to_optimize_ref(o)->collect_param_descrs(d->m_descrs);
         Z3_param_descrs r = of_param_descrs(d);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
@@ -172,7 +172,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_get_lower(c, o, idx);
         RESET_ERROR_CODE();
-        expr_ref e = to_optimize_ref(o).get_lower(idx);
+        expr_ref e = to_optimize_ref(o)->get_lower(idx);
         mk_c(c)->save_ast_trail(e);
         RETURN_Z3(of_expr(e));
         Z3_CATCH_RETURN(0);
@@ -183,7 +183,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_get_upper(c, o, idx);
         RESET_ERROR_CODE();
-        expr_ref e = to_optimize_ref(o).get_upper(idx);
+        expr_ref e = to_optimize_ref(o)->get_upper(idx);
         mk_c(c)->save_ast_trail(e);
         RETURN_Z3(of_expr(e));
         Z3_CATCH_RETURN(0);
@@ -193,7 +193,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_to_string(c, o);
         RESET_ERROR_CODE();
-        return mk_c(c)->mk_external_string(to_optimize_ref(o).to_string());
+        return mk_c(c)->mk_external_string(to_optimize_ref(o)->to_string());
         Z3_CATCH_RETURN("");
     }
 
@@ -203,7 +203,7 @@ extern "C" {
         RESET_ERROR_CODE();
         std::ostringstream buffer;
         param_descrs descrs;
-        to_optimize_ref(d).collect_param_descrs(descrs);
+        to_optimize_ref(d)->collect_param_descrs(descrs);
         descrs.display(buffer);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
@@ -214,7 +214,7 @@ extern "C" {
         LOG_Z3_optimize_get_statistics(c, d);
         RESET_ERROR_CODE();
         Z3_stats_ref * st = alloc(Z3_stats_ref);
-        to_optimize_ref(d).collect_statistics(st->m_stats);
+        to_optimize_ref(d)->collect_statistics(st->m_stats);
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);
         RETURN_Z3(r);

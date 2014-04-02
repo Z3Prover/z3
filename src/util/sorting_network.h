@@ -380,7 +380,7 @@ Notes:
                 literal y2 = min(as[0], bs[0]);
                 out.push_back(y1);
                 out.push_back(y2);
-                cmp(as[0], bs[0], y1, y2);
+                psort_nw<psort_expr>::cmp(as[0], bs[0], y1, y2);
             }
             else if (a == 0) {
                 out.append(b, bs);
@@ -455,7 +455,7 @@ Notes:
             for (unsigned i = 0; i < sz; ++i) {
                 literal y1 = max(as[i+1],bs[i]);
                 literal y2 = min(as[i+1],bs[i]);
-                cmp(as[i+1], bs[i], y1, y2);
+                psort_nw<psort_expr>::cmp(as[i+1], bs[i], y1, y2);
                 out.push_back(y1);
                 out.push_back(y2);
             }            
