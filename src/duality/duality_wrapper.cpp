@@ -374,6 +374,12 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     return q.ctx().cook(q.m().update_quantifier(thing, is_forall, num_patterns, &_patterns[0], to_expr(b.raw())));
   }
 
+  expr clone_quantifier(decl_kind dk, const expr &q, const expr &b){
+    quantifier *thing = to_quantifier(q.raw());
+    bool is_forall = dk == Forall;
+    return q.ctx().cook(q.m().update_quantifier(thing, is_forall, to_expr(b.raw())));
+  }
+
   void expr::get_patterns(std::vector<expr> &pats) const {
     quantifier *thing = to_quantifier(raw());
     unsigned num_patterns = thing->get_num_patterns();

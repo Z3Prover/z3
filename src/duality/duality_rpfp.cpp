@@ -548,24 +548,50 @@ namespace Duality {
       return foo;
   }
 
-  Z3User::Term Z3User::CloneQuantAndSimp(const expr &t, const expr &body){
-    if(t.is_quantifier_forall() && body.is_app() && body.decl().get_decl_kind() == And){
-      int nargs = body.num_args();
-      std::vector<expr> args(nargs);
-      for(int i = 0; i < nargs; i++)
-	args[i] = CloneQuantAndSimp(t, body.arg(i));
-      return ctx.make(And,args);
+  Z3User::Term Z3User::PushQuantifier(const expr &t, const expr &body, bool is_forall){
+    if(t.get_quantifier_num_bound() == 1){
+      std::vector<expr> fmlas,free,not_free;
+      CollectConjuncts(body,fmlas, !is_forall);
+      for(unsigned i = 0; i < fmlas.size(); i++){
+	const expr &fmla = fmlas[i];
+	if(fmla.has_free(0))
+	  free.push_back(fmla);
+	else
+	  not_free.push_back(fmla);
+      }
+      decl_kind op = is_forall ? Or : And;
+      if(free.empty())
+	return SimplifyAndOr(not_free,op == And);
+      expr q = clone_quantifier(is_forall ? Forall : Exists,t, SimplifyAndOr(free, op == And));
+      if(!not_free.empty())
+	q = ctx.make(op,q,SimplifyAndOr(not_free, op == And));
+      return q;
     }
-    if(!t.is_quantifier_forall() && body.is_app() && body.decl().get_decl_kind() == Or){
-      int nargs = body.num_args();
-      std::vector<expr> args(nargs);
-      for(int i = 0; i < nargs; i++)
-	args[i] = CloneQuantAndSimp(t, body.arg(i));
-      return ctx.make(Or,args);
+    return clone_quantifier(is_forall ? Forall : Exists,t,body);
+  }
+
+  Z3User::Term Z3User::CloneQuantAndSimp(const expr &t, const expr &body, bool is_forall){
+    if(body.is_app()){
+      if(body.decl().get_decl_kind() == (is_forall ? And : Or)){ // quantifier distributes
+	int nargs = body.num_args();
+	std::vector<expr> args(nargs);
+	for(int i = 0; i < nargs; i++)
+	  args[i] = CloneQuantAndSimp(t, body.arg(i), is_forall);
+	return SimplifyAndOr(args, body.decl().get_decl_kind() == And);
+      }
+      else if(body.decl().get_decl_kind() == is_forall ? And : Or){ // quantifier distributes
+	return PushQuantifier(t,body,is_forall); // may distribute partially
+      }
+      else if(body.decl().get_decl_kind() == Not){
+	return CloneQuantAndSimp(t,body.arg(0),!is_forall);
+      }
     }
     return clone_quantifier(t,body);
   }
 
+  Z3User::Term Z3User::CloneQuantAndSimp(const expr &t, const expr &body){
+    return CloneQuantAndSimp(t,body,t.is_quantifier_forall());
+  }
 
   Z3User::Term Z3User::SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val){
     std::pair<ast,Term> foo(t,expr(ctx));
@@ -659,7 +685,7 @@ namespace Duality {
     else if (t.is_quantifier())
       {
 	Term body = RemoveRedundancyRec(memo,smemo,t.body());
-	res = clone_quantifier(t, body);
+	res = CloneQuantAndSimp(t, body);
       }
     else res = t;
     return res;

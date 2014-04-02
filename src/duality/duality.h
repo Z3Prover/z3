@@ -118,6 +118,8 @@ protected:
       expr FinishAndOr(const std::vector<expr> &args, bool is_and);
       expr PullCommonFactors(std::vector<expr> &args, bool is_and);
       Term IneqToEqRec(hash_map<ast, Term> &memo, const Term &t);
+      Term CloneQuantAndSimp(const expr &t, const expr &body, bool is_forall);
+      Term PushQuantifier(const expr &t, const expr &body, bool is_forall);
 
 
 };

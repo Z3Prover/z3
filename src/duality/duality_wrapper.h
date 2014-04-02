@@ -466,6 +466,11 @@ namespace Duality {
 	bool is_label (bool &pos,std::vector<symbol> &names) const ;
 	bool is_ground() const {return to_app(raw())->is_ground();}
 	bool has_quantifiers() const {return to_app(raw())->has_quantifiers();}
+	bool has_free(int idx) const {
+	  used_vars proc;
+	  proc.process(to_expr(raw()));
+	  return proc.contains(idx);
+	}
 
         // operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
         func_decl decl() const {return func_decl(ctx(),to_app(raw())->get_decl());}
@@ -572,6 +577,8 @@ namespace Duality {
 	friend expr clone_quantifier(const expr &, const expr &);
 
         friend expr clone_quantifier(const expr &q, const expr &b, const std::vector<expr> &patterns);
+
+	friend expr clone_quantifier(decl_kind, const expr &, const expr &);
 
         friend std::ostream & operator<<(std::ostream & out, expr const & m){
 	  m.ctx().print_expr(out,m);
