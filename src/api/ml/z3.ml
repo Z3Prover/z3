@@ -297,6 +297,7 @@ struct
       | VAR_AST -> true
       | _ -> false
 	
+  let is_app ( x : ast ) = (get_ast_kind x) == APP_AST
   let is_var ( x : ast ) = (get_ast_kind x) == VAR_AST   
   let is_quantifier ( x : ast ) = (get_ast_kind x) == QUANTIFIER_AST
   let is_sort ( x : ast ) = (get_ast_kind x) == SORT_AST
@@ -828,22 +829,22 @@ end = struct
        (Z3native.mk_bool_sort (gnc x))
        (Z3native.get_sort (gnc x) (gno x)))
     
-  let is_const ( x : expr ) = (match x with Expr(a) -> (AST.is_expr a)) &&
+  let is_const ( x : expr ) = (match x with Expr(a) -> (AST.is_app a)) &&
     (get_num_args x) == 0 &&
     (FuncDecl.get_domain_size (get_func_decl x)) == 0
    
-  let is_true ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_TRUE)
-  let is_false ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_FALSE)
-  let is_eq ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_EQ)
-  let is_distinct ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_DISTINCT)
-  let is_ite ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_ITE)
-  let is_and ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_AND)
-  let is_or ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_OR)
-  let is_iff ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_IFF)
-  let is_xor ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_XOR)
-  let is_not ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_NOT)
-  let is_implies ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_IMPLIES)
-  let is_oeq ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_OEQ)
+  let is_true ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_TRUE)
+  let is_false ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_FALSE)
+  let is_eq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_EQ)
+  let is_distinct ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_DISTINCT)
+  let is_ite ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_ITE)
+  let is_and ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_AND)
+  let is_or ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_OR)
+  let is_iff ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_IFF)
+  let is_xor ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_XOR)
+  let is_not ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_NOT)
+  let is_implies ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_IMPLIES)
+  let is_oeq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_OEQ)
 
   let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( range : sort ) =
     expr_of_ptr ctx (Z3native.mk_const (context_gno ctx) (Symbol.gno name) (Sort.gno range))
@@ -1100,6 +1101,8 @@ struct
       mk_forall_const ctx bound_constants body weight patterns nopatterns quantifier_id skolem_id
     else
       mk_exists_const ctx bound_constants body weight patterns nopatterns quantifier_id skolem_id
+
+  let to_string ( x : quantifier ) = (Expr.to_string (expr_of_quantifier x))
 end
 
 
@@ -1108,12 +1111,12 @@ struct
   let mk_sort ( ctx : context ) ( domain : sort ) ( range : sort ) =
     sort_of_ptr ctx (Z3native.mk_array_sort (context_gno ctx) (Sort.gno domain) (Sort.gno range))
 
-  let is_store ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_STORE)
-  let is_select ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SELECT)
-  let is_constant_array ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CONST_ARRAY)
-  let is_default_array ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ARRAY_DEFAULT)
-  let is_array_map ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ARRAY_MAP)
-  let is_as_array ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_AS_ARRAY)       
+  let is_store ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_STORE)
+  let is_select ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SELECT)
+  let is_constant_array ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CONST_ARRAY)
+  let is_default_array ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ARRAY_DEFAULT)
+  let is_array_map ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ARRAY_MAP)
+  let is_as_array ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_AS_ARRAY)       
   let is_array ( x : expr ) =
     (Z3native.is_app (Expr.gnc x) (Expr.gno x)) &&
       ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == ARRAY_SORT)      
@@ -1150,11 +1153,11 @@ struct
   let mk_sort  ( ctx : context ) ( ty : sort ) =
     sort_of_ptr ctx (Z3native.mk_set_sort (context_gno ctx) (Sort.gno ty))
 
-  let is_union ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_UNION)
-  let is_intersect ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_INTERSECT)
-  let is_difference ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_DIFFERENCE)
-  let is_complement ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_COMPLEMENT)
-  let is_subset ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_SUBSET)
+  let is_union ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_UNION)
+  let is_intersect ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_INTERSECT)
+  let is_difference ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_DIFFERENCE)
+  let is_complement ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_COMPLEMENT)
+  let is_subset ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_SUBSET)
 
 
   let mk_empty ( ctx : context ) ( domain : sort ) =
@@ -1203,7 +1206,7 @@ struct
     (Z3native.is_app (Expr.gnc x) (Expr.gno x)) &&
       (sort_kind_of_int (Z3native.get_sort_kind nc (Z3native.get_sort nc (Expr.gno x))) == FINITE_DOMAIN_SORT)
 
-  let is_lt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FD_LT)
+  let is_lt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FD_LT)
 
   let get_size ( x : sort ) = 
     let (r, v) = (Z3native.get_finite_domain_sort_size (Sort.gnc x) (Sort.gno x)) in
@@ -1219,19 +1222,19 @@ struct
     ((Z3native.is_app (Expr.gnc x) (Expr.gno x)) &&
 	(sort_kind_of_int (Z3native.get_sort_kind nc (Z3native.get_sort nc (Expr.gno x))) == RELATION_SORT))
 
-  let is_store ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_STORE)
-  let is_empty ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_EMPTY)
-  let is_is_empty ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_IS_EMPTY)
-  let is_join ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_JOIN)
-  let is_union ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_UNION)
-  let is_widen ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_WIDEN)
-  let is_project ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_PROJECT)
-  let is_filter ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_FILTER)
-  let is_negation_filter ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_NEGATION_FILTER)
-  let is_rename ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_RENAME)
-  let is_complement ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_COMPLEMENT)
-  let is_select ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_SELECT)
-  let is_clone ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_CLONE)
+  let is_store ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_STORE)
+  let is_empty ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_EMPTY)
+  let is_is_empty ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_IS_EMPTY)
+  let is_join ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_JOIN)
+  let is_union ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_UNION)
+  let is_widen ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_WIDEN)
+  let is_project ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_PROJECT)
+  let is_filter ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_FILTER)
+  let is_negation_filter ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_NEGATION_FILTER)
+  let is_rename ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_RENAME)
+  let is_complement ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_COMPLEMENT)
+  let is_select ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_SELECT)
+  let is_clone ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_CLONE)
 
   let get_arity ( x : sort ) = Z3native.get_relation_arity (Sort.gnc x) (Sort.gno x)
 
@@ -1534,37 +1537,37 @@ struct
     (Z3native.is_numeral_ast (Expr.gnc x) (Expr.gno x)) &&
       ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == INT_SORT)
       
-  let is_arithmetic_numeral ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ANUM)
+  let is_arithmetic_numeral ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ANUM)
 
-  let is_le ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LE)
+  let is_le ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LE)
 
-  let is_ge ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GE)
+  let is_ge ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GE)
 
-  let is_lt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LT)
+  let is_lt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LT)
 
-  let is_gt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GT)
+  let is_gt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GT)
 
-  let is_add ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ADD)
+  let is_add ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ADD)
 
-  let is_sub ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SUB)
+  let is_sub ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SUB)
 
-  let is_uminus ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UMINUS)
+  let is_uminus ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UMINUS)
 
-  let is_mul ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MUL)
+  let is_mul ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MUL)
 
-  let is_div ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_DIV)
+  let is_div ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_DIV)
 
-  let is_idiv ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IDIV)
+  let is_idiv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IDIV)
 
-  let is_remainder ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_REM)
+  let is_remainder ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_REM)
 
-  let is_modulus ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MOD)
+  let is_modulus ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MOD)
 
-  let is_inttoreal ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_REAL)
+  let is_inttoreal ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_REAL)
 
-  let is_real_to_int ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_INT)
+  let is_real_to_int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_INT)
 
-  let is_real_is_int ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IS_INT)
+  let is_real_is_int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IS_INT)
 
   let is_real ( x : expr ) =
     ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == REAL_SORT)
@@ -1616,57 +1619,57 @@ struct
     sort_of_ptr ctx (Z3native.mk_bv_sort (context_gno ctx) size)
   let is_bv ( x : expr ) =
     ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == BV_SORT)
-  let is_bv_numeral ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNUM)
-  let is_bv_bit1 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BIT1)
-  let is_bv_bit0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BIT0)
-  let is_bv_uminus ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNEG)
-  let is_bv_add ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BADD)
-  let is_bv_sub ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSUB)
-  let is_bv_mul ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BMUL)
-  let is_bv_sdiv ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSDIV)
-  let is_bv_udiv ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUDIV)
-  let is_bv_SRem ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSREM)
-  let is_bv_urem ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUREM)
-  let is_bv_smod ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSMOD)
-  let is_bv_sdiv0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSDIV0)
-  let is_bv_udiv0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUDIV0)
-  let is_bv_srem0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSREM0)
-  let is_bv_urem0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUREM0)
-  let is_bv_smod0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSMOD0)
-  let is_bv_ule ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ULEQ)
-  let is_bv_sle ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SLEQ)
-  let is_bv_uge ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UGEQ)
-  let is_bv_sge ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SGEQ)
-  let is_bv_ult ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ULT)
-  let is_bv_slt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SLT)
-  let is_bv_ugt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UGT)
-  let is_bv_sgt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SGT)
-  let is_bv_and ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BAND)
-  let is_bv_or ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BOR)
-  let is_bv_not ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNOT)
-  let is_bv_xor ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BXOR)
-  let is_bv_nand ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNAND)
-  let is_bv_nor ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNOR)
-  let is_bv_xnor ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BXNOR)
-  let is_bv_concat ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CONCAT)
-  let is_bv_signextension ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SIGN_EXT)
-  let is_bv_zeroextension ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ZERO_EXT)
-  let is_bv_extract ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXTRACT)
-  let is_bv_repeat ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_REPEAT)
-  let is_bv_reduceor ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BREDOR)
-  let is_bv_reduceand ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BREDAND)
-  let is_bv_comp ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BCOMP)
-  let is_bv_shiftleft ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSHL)
-  let is_bv_shiftrightlogical ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BLSHR)
-  let is_bv_shiftrightarithmetic ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BASHR)
-  let is_bv_rotateleft ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ROTATE_LEFT)
-  let is_bv_rotateright ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ROTATE_RIGHT)
-  let is_bv_rotateleftextended ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXT_ROTATE_LEFT)
-  let is_bv_rotaterightextended ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXT_ROTATE_RIGHT) 
-  let is_int_to_bv ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_INT2BV)
-  let is_bv_to_int ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BV2INT)
-  let is_bv_carry ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CARRY)
-  let is_bv_xor3 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_XOR3)
+  let is_bv_numeral ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNUM)
+  let is_bv_bit1 ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BIT1)
+  let is_bv_bit0 ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BIT0)
+  let is_bv_uminus ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNEG)
+  let is_bv_add ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BADD)
+  let is_bv_sub ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSUB)
+  let is_bv_mul ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BMUL)
+  let is_bv_sdiv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSDIV)
+  let is_bv_udiv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUDIV)
+  let is_bv_SRem ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSREM)
+  let is_bv_urem ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUREM)
+  let is_bv_smod ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSMOD)
+  let is_bv_sdiv0 ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSDIV0)
+  let is_bv_udiv0 ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUDIV0)
+  let is_bv_srem0 ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSREM0)
+  let is_bv_urem0 ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUREM0)
+  let is_bv_smod0 ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSMOD0)
+  let is_bv_ule ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ULEQ)
+  let is_bv_sle ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SLEQ)
+  let is_bv_uge ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UGEQ)
+  let is_bv_sge ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SGEQ)
+  let is_bv_ult ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ULT)
+  let is_bv_slt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SLT)
+  let is_bv_ugt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UGT)
+  let is_bv_sgt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SGT)
+  let is_bv_and ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BAND)
+  let is_bv_or ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BOR)
+  let is_bv_not ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNOT)
+  let is_bv_xor ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BXOR)
+  let is_bv_nand ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNAND)
+  let is_bv_nor ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNOR)
+  let is_bv_xnor ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BXNOR)
+  let is_bv_concat ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CONCAT)
+  let is_bv_signextension ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SIGN_EXT)
+  let is_bv_zeroextension ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ZERO_EXT)
+  let is_bv_extract ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXTRACT)
+  let is_bv_repeat ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_REPEAT)
+  let is_bv_reduceor ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BREDOR)
+  let is_bv_reduceand ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BREDAND)
+  let is_bv_comp ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BCOMP)
+  let is_bv_shiftleft ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSHL)
+  let is_bv_shiftrightlogical ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BLSHR)
+  let is_bv_shiftrightarithmetic ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BASHR)
+  let is_bv_rotateleft ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ROTATE_LEFT)
+  let is_bv_rotateright ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ROTATE_RIGHT)
+  let is_bv_rotateleftextended ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXT_ROTATE_LEFT)
+  let is_bv_rotaterightextended ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXT_ROTATE_RIGHT) 
+  let is_int_to_bv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_INT2BV)
+  let is_bv_to_int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BV2INT)
+  let is_bv_carry ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CARRY)
+  let is_bv_xor3 ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_XOR3)
   let get_size (x : sort ) = Z3native.get_bv_sort_size (Sort.gnc x) (Sort.gno x)
   let get_int ( x : expr ) = 
     let (r, v) = Z3native.get_numeral_int (Expr.gnc x) (Expr.gno x) in
@@ -1778,44 +1781,44 @@ end
 
 module Proof = 
 struct
-  let is_true ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRUE)
-  let is_asserted ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_ASSERTED)
-  let is_goal ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_GOAL)
-  let is_modus_ponens ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MODUS_PONENS)
-  let is_reflexivity ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REFLEXIVITY)
-  let is_symmetry ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_SYMMETRY)
-  let is_transitivity ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRANSITIVITY)
-  let is_Transitivity_star ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRANSITIVITY_STAR)
-  let is_monotonicity ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MONOTONICITY)
-  let is_quant_intro ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_QUANT_INTRO)
-  let is_distributivity ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DISTRIBUTIVITY)
-  let is_and_elimination ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_AND_ELIM)
-  let is_or_elimination ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NOT_OR_ELIM)
-  let is_rewrite ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REWRITE)
-  let is_rewrite_star ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REWRITE_STAR)
-  let is_pull_quant ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PULL_QUANT)
-  let is_pull_quant_star ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PULL_QUANT_STAR)
-  let is_push_quant ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PUSH_QUANT)
-  let is_elim_unused_vars ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_ELIM_UNUSED_VARS)
-  let is_der ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DER)
-  let is_quant_inst ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_QUANT_INST)
-  let is_hypothesis ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_HYPOTHESIS)
-  let is_lemma ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_LEMMA)
-  let is_unit_resolution ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_UNIT_RESOLUTION)
-  let is_iff_true ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_TRUE)
-  let is_iff_false ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_FALSE)
-  let is_commutativity ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_COMMUTATIVITY) (*  *)
-  let is_def_axiom ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DEF_AXIOM)
-  let is_def_intro ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DEF_INTRO)
-  let is_apply_def ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_APPLY_DEF)
-  let is_iff_oeq ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_OEQ)
-  let is_nnf_pos ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_POS)
-  let is_nnf_neg ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_NEG)
-  let is_nnf_star ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_STAR)
-  let is_cnf_star ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_CNF_STAR)
-  let is_skolemize ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_SKOLEMIZE)
-  let is_modus_ponens_oeq ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MODUS_PONENS_OEQ)
-  let is_theory_lemma ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TH_LEMMA)
+  let is_true ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRUE)
+  let is_asserted ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_ASSERTED)
+  let is_goal ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_GOAL)
+  let is_modus_ponens ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MODUS_PONENS)
+  let is_reflexivity ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REFLEXIVITY)
+  let is_symmetry ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_SYMMETRY)
+  let is_transitivity ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRANSITIVITY)
+  let is_Transitivity_star ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRANSITIVITY_STAR)
+  let is_monotonicity ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MONOTONICITY)
+  let is_quant_intro ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_QUANT_INTRO)
+  let is_distributivity ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DISTRIBUTIVITY)
+  let is_and_elimination ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_AND_ELIM)
+  let is_or_elimination ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NOT_OR_ELIM)
+  let is_rewrite ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REWRITE)
+  let is_rewrite_star ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REWRITE_STAR)
+  let is_pull_quant ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PULL_QUANT)
+  let is_pull_quant_star ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PULL_QUANT_STAR)
+  let is_push_quant ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PUSH_QUANT)
+  let is_elim_unused_vars ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_ELIM_UNUSED_VARS)
+  let is_der ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DER)
+  let is_quant_inst ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_QUANT_INST)
+  let is_hypothesis ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_HYPOTHESIS)
+  let is_lemma ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_LEMMA)
+  let is_unit_resolution ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_UNIT_RESOLUTION)
+  let is_iff_true ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_TRUE)
+  let is_iff_false ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_FALSE)
+  let is_commutativity ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_COMMUTATIVITY) (*  *)
+  let is_def_axiom ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DEF_AXIOM)
+  let is_def_intro ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DEF_INTRO)
+  let is_apply_def ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_APPLY_DEF)
+  let is_iff_oeq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_OEQ)
+  let is_nnf_pos ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_POS)
+  let is_nnf_neg ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_NEG)
+  let is_nnf_star ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_STAR)
+  let is_cnf_star ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_CNF_STAR)
+  let is_skolemize ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_SKOLEMIZE)
+  let is_modus_ponens_oeq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MODUS_PONENS_OEQ)
+  let is_theory_lemma ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TH_LEMMA)
 end
 
 
