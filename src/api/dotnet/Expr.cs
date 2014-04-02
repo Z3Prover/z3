@@ -99,7 +99,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(args, a => a != null));
 
             Context.CheckContextMatch(args);
-            if (args.Length != NumArgs)
+            if (IsApp && args.Length != NumArgs)
                 throw new Z3Exception("Number of arguments does not match");
             NativeObject = Native.Z3_update_term(Context.nCtx, NativeObject, (uint)args.Length, Expr.ArrayToNative(args));
         }

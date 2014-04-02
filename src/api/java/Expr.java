@@ -94,7 +94,7 @@ public class Expr extends AST
 	public void update(Expr[] args) throws Z3Exception
 	{
 		getContext().checkContextMatch(args);
-		if (args.length != getNumArgs())
+		if (isApp() && args.length != getNumArgs())
 			throw new Z3Exception("Number of arguments does not match");
 		setNativeObject(Native.updateTerm(getContext().nCtx(), getNativeObject(),
 				(int) args.length, Expr.arrayToNative(args)));
