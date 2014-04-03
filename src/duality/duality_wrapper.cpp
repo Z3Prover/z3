@@ -340,6 +340,12 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     params p;
     return simplify(p);
   }
+  
+  expr context::make_var(int idx, const sort &s){
+    ::sort * a = to_sort(s.raw());
+    return cook(m().mk_var(idx,a));
+  }
+
 
   expr expr::qe_lite() const {
     ::qe_lite qe(m());

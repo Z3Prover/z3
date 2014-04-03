@@ -551,7 +551,7 @@ namespace Duality {
   Z3User::Term Z3User::PushQuantifier(const expr &t, const expr &body, bool is_forall){
     if(t.get_quantifier_num_bound() == 1){
       std::vector<expr> fmlas,free,not_free;
-      CollectConjuncts(body,fmlas, !is_forall);
+      CollectJuncts(body,fmlas, is_forall ? Or : And, false);
       for(unsigned i = 0; i < fmlas.size(); i++){
 	const expr &fmla = fmlas[i];
 	if(fmla.has_free(0))
@@ -564,7 +564,7 @@ namespace Duality {
 	return SimplifyAndOr(not_free,op == And);
       expr q = clone_quantifier(is_forall ? Forall : Exists,t, SimplifyAndOr(free, op == And));
       if(!not_free.empty())
-	q = ctx.make(op,q,SimplifyAndOr(not_free, op == And));
+	q = ctx.make(op,q,DeleteBound(0,1,SimplifyAndOr(not_free, op == And)));
       return q;
     }
     return clone_quantifier(is_forall ? Forall : Exists,t,body);
@@ -579,14 +579,16 @@ namespace Duality {
 	  args[i] = CloneQuantAndSimp(t, body.arg(i), is_forall);
 	return SimplifyAndOr(args, body.decl().get_decl_kind() == And);
       }
-      else if(body.decl().get_decl_kind() == (is_forall ? And : Or)){ // quantifier distributes
+      else if(body.decl().get_decl_kind() == (is_forall ? Or : And)){ // quantifier distributes
 	return PushQuantifier(t,body,is_forall); // may distribute partially
       }
       else if(body.decl().get_decl_kind() == Not){
-	return CloneQuantAndSimp(t,body.arg(0),!is_forall);
+	return ctx.make(Not,CloneQuantAndSimp(t,body.arg(0),!is_forall));
       }
     }
-    return clone_quantifier(t,body);
+    if(t.get_quantifier_num_bound() == 1 && !body.has_free(0))
+      return DeleteBound(0,1,body); // drop the quantifier
+    return clone_quantifier(is_forall ? Forall : Exists,t,body);
   }
 
   Z3User::Term Z3User::CloneQuantAndSimp(const expr &t, const expr &body){
@@ -2494,6 +2496,20 @@ namespace Duality {
     }
   }
 
+  void Z3User::CollectJuncts(const Term &f, std::vector<Term> &lits, decl_kind op, bool negate){
+    if(f.is_app() && f.decl().get_decl_kind() == Not)
+      CollectJuncts(f.arg(0), lits, (op == And) ? Or : And, !negate);
+    else if(f.is_app() && f.decl().get_decl_kind() == op){
+      int num_args = f.num_args();
+      for(int i = 0; i < num_args; i++)
+	CollectJuncts(f.arg(i),lits,op,negate);
+    }
+    else {
+      expr junct = negate ? Negate(f) : f;
+      lits.push_back(junct);
+    }
+  }
+
   struct TermLt {
     bool operator()(const expr &x, const expr &y){
       unsigned xid = x.get_id();
@@ -3442,6 +3458,46 @@ namespace Duality {
   RPFP::Term RPFP::SubstBound(hash_map<int,Term> &subst, const Term &t){
     hash_map<int,hash_map<ast,Term> > memo;
     return SubstBoundRec(memo, subst, 0, t);
+  }
+
+  // Eliminate the deBruijn indices from level to level+num-1
+  Z3User::Term Z3User::DeleteBoundRec(hash_map<int,hash_map<ast,Term> > &memo, int level, int num, const Term &t)
+  {
+    std::pair<ast,Term> foo(t,expr(ctx));
+    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo[level].insert(foo);
+    Term &res = bar.first->second;
+    if(!bar.second) return res;
+    if (t.is_app())
+      {
+	func_decl f = t.decl();
+	std::vector<Term> args;
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++)
+	  args.push_back(DeleteBoundRec(memo, level, num, t.arg(i)));
+	res = f(args.size(),&args[0]);
+      }
+    else if (t.is_quantifier()){
+      int bound = t.get_quantifier_num_bound();
+      std::vector<expr> pats;
+      t.get_patterns(pats);
+      for(unsigned i = 0; i < pats.size(); i++)
+	pats[i] = DeleteBoundRec(memo, level + bound, num, pats[i]);
+      res = clone_quantifier(t, DeleteBoundRec(memo, level + bound, num, t.body()), pats);
+    }
+    else if (t.is_var()) {
+      int idx = t.get_index_value();
+      if(idx >= level){
+	res = ctx.make_var(idx-num,t.get_sort());
+      }
+      else res = t;
+    }
+    else res = t;
+    return res;
+  }
+  
+  Z3User::Term Z3User::DeleteBound(int level, int num, const Term &t){
+    hash_map<int,hash_map<ast,Term> > memo;
+    return DeleteBoundRec(memo, level, num, t);
   }
 
   int Z3User::MaxIndex(hash_map<ast,int> &memo, const Term &t)

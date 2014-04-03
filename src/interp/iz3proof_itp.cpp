@@ -2682,9 +2682,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
     pf = make_refl(e);  // proof that e = e
 
     prover::range erng = pv->ast_scope(e);
+#if 0
     if(!(erng.lo > erng.hi) && pv->ranges_intersect(pv->ast_scope(e),rng)){
       return e; // this term occurs in range, so it's O.K.
     }
+#endif
 
     hash_map<ast,ast>::iterator it = localization_map.find(e);
 

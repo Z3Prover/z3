@@ -238,7 +238,7 @@ namespace Duality {
 
       expr make_quant(decl_kind op, const std::vector<expr> &bvs, const expr &body);
       expr make_quant(decl_kind op, const std::vector<sort> &_sorts, const std::vector<symbol> &_names, const expr &body);
-
+      expr make_var(int idx, const sort &s);
 
       decl_kind get_decl_kind(const func_decl &t);
 
@@ -470,6 +470,11 @@ namespace Duality {
 	  used_vars proc;
 	  proc.process(to_expr(raw()));
 	  return proc.contains(idx);
+	}
+	unsigned get_max_var_idx_plus_1() const {
+	  used_vars proc;
+	  proc.process(to_expr(raw()));
+	  return proc.get_max_found_var_idx_plus_1();
 	}
 
         // operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
