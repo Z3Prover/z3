@@ -340,6 +340,12 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     params p;
     return simplify(p);
   }
+  
+  expr context::make_var(int idx, const sort &s){
+    ::sort * a = to_sort(s.raw());
+    return cook(m().mk_var(idx,a));
+  }
+
 
   expr expr::qe_lite() const {
     ::qe_lite qe(m());
@@ -372,6 +378,12 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     for(unsigned i = 0; i < num_patterns; i++)
       _patterns[i] = to_expr(patterns[i].raw());
     return q.ctx().cook(q.m().update_quantifier(thing, is_forall, num_patterns, &_patterns[0], to_expr(b.raw())));
+  }
+
+  expr clone_quantifier(decl_kind dk, const expr &q, const expr &b){
+    quantifier *thing = to_quantifier(q.raw());
+    bool is_forall = dk == Forall;
+    return q.ctx().cook(q.m().update_quantifier(thing, is_forall, to_expr(b.raw())));
   }
 
   void expr::get_patterns(std::vector<expr> &pats) const {
