@@ -561,7 +561,7 @@ namespace Duality {
       }
       decl_kind op = is_forall ? Or : And;
       if(free.empty())
-	return SimplifyAndOr(not_free,op == And);
+	return DeleteBound(0,1,SimplifyAndOr(not_free,op == And));
       expr q = clone_quantifier(is_forall ? Forall : Exists,t, SimplifyAndOr(free, op == And));
       if(!not_free.empty())
 	q = ctx.make(op,q,DeleteBound(0,1,SimplifyAndOr(not_free, op == And)));
