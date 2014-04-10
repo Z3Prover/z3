@@ -872,8 +872,19 @@ void fpa2bv_converter::mk_div(func_decl * f, unsigned num, expr * const * args, 
     sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, m_bv_util.mk_extract(extra_bits-2, 0, quotient));
     res_sig = m_bv_util.mk_concat(m_bv_util.mk_extract(extra_bits+sbits+1, extra_bits-1, quotient), sticky);
 
-    SASSERT(m_bv_util.get_bv_size(res_sig) == (sbits + 4));   
+    SASSERT(m_bv_util.get_bv_size(res_sig) == (sbits + 4));
 
+    expr_ref res_sig_lz(m);
+    mk_leading_zeros(res_sig, sbits + 4, res_sig_lz);
+    dbg_decouple("fpa2bv_div_res_sig_lz", res_sig_lz);    
+    expr_ref res_sig_shift_amount(m);
+    res_sig_shift_amount = m_bv_util.mk_bv_sub(res_sig_lz, m_bv_util.mk_numeral(1, sbits + 4));
+    dbg_decouple("fpa2bv_div_res_sig_shift_amount", res_sig_shift_amount);
+    expr_ref shift_cond(m);
+    shift_cond = m_bv_util.mk_ule(res_sig_lz, m_bv_util.mk_numeral(1, sbits + 4));
+    m_simp.mk_ite(shift_cond, res_sig, m_bv_util.mk_bv_shl(res_sig, res_sig_shift_amount), res_sig);
+    m_simp.mk_ite(shift_cond, res_exp, m_bv_util.mk_bv_sub(res_exp, m_bv_util.mk_extract(ebits+1, 0, res_sig_shift_amount)), res_exp);
+    
     round(f->get_range(), rm, res_sgn, res_sig, res_exp, v8);
 
     // And finally, we tie them together.    
