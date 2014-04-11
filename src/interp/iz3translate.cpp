@@ -1071,6 +1071,8 @@ public:
   ast AssignBounds2Farkas(const ast &proof, const ast &con){
     std::vector<ast> farkas_coeffs;
     get_assign_bounds_coeffs(proof,farkas_coeffs);
+    if(farkas_coeffs[0] != make_int(rational(1)))
+      farkas_coeffs[0] = make_int(rational(1));
     std::vector<ast> lits;
     int nargs = num_args(con);
     if(nargs != (int)(farkas_coeffs.size()))
@@ -1107,6 +1109,8 @@ public:
   ast AssignBoundsRule2Farkas(const ast &proof, const ast &con, std::vector<Iproof::node> prems){
     std::vector<ast> farkas_coeffs;
     get_assign_bounds_rule_coeffs(proof,farkas_coeffs);
+    if(farkas_coeffs[0] != make_int(rational(1)))
+      farkas_coeffs[0] = make_int(rational(1));
     std::vector<ast> lits;
     int nargs = num_prems(proof)+1;
     if(nargs != (int)(farkas_coeffs.size()))
@@ -1278,6 +1282,17 @@ public:
     return make(Plus,args);
   }
 
+  void get_sum_as_vector(const ast &t, std::vector<rational> &coeffs, std::vector<ast> &vars){
+    if(!(op(t) == Plus)){
+      coeffs.push_back(get_coeff(t));
+      vars.push_back(get_linear_var(t));
+    }
+    else {
+      int nargs = num_args(t);
+      for(int i = 0; i < nargs; i++)
+	get_sum_as_vector(arg(t,i),coeffs,vars);
+    }
+  }
 
   ast replace_summands_with_fresh_vars(const ast &t, hash_map<ast,ast> &map){
     if(op(t) == Plus){
@@ -1292,6 +1307,94 @@ public:
     if(map.find(t) == map.end())
       map[t] =  mk_fresh_constant("@s",get_type(t));
     return map[t];
+  }
+
+  rational lcd(const std::vector<rational> &rats){
+    rational res = rational(1);
+    for(unsigned i = 0; i < rats.size(); i++){
+      res = lcm(res,denominator(rats[i]));
+    }
+    return res;
+  } 
+
+  Iproof::node reconstruct_farkas_with_dual(const std::vector<ast> &prems, const std::vector<Iproof::node> &pfs, const ast &con){
+    int nprems = prems.size();
+    std::vector<ast> npcons(nprems);
+    hash_map<ast,ast> pain_map; // not needed
+    for(int i = 0; i < nprems; i++)
+      npcons[i] = painfully_normalize_ineq(conc(prems[i]),pain_map);
+    ast ncon = painfully_normalize_ineq(mk_not(con),pain_map);
+    npcons.push_back(ncon);
+
+    hash_map<ast,ast> dual_map;
+    std::vector<ast> cvec, vars_seen;
+    ast rhs = make_real(rational(0));
+    for(unsigned i = 0; i < npcons.size(); i++){
+      ast c= mk_fresh_constant("@c",real_type());
+      cvec.push_back(c);
+      ast lhs = arg(npcons[i],0);
+      std::vector<rational> coeffs;
+      std::vector<ast> vars;
+      get_sum_as_vector(lhs,coeffs,vars);
+      for(unsigned j = 0; j < coeffs.size(); j++){
+	rational coeff = coeffs[j];
+	ast var = vars[j];
+	if(dual_map.find(var) == dual_map.end()){
+	  dual_map[var] = make_real(rational(0));
+	  vars_seen.push_back(var);
+	}
+	ast foo = make(Plus,dual_map[var],make(Times,make_real(coeff),c));
+	dual_map[var] = foo;
+      }
+      rhs = make(Plus,rhs,make(Times,c,arg(npcons[i],1)));
+    }
+    std::vector<ast> cnstrs;
+    for(unsigned i = 0; i < vars_seen.size(); i++)
+      cnstrs.push_back(make(Equal,dual_map[vars_seen[i]],make_real(rational(0))));
+    cnstrs.push_back(make(Leq,rhs,make_real(rational(0))));
+    for(unsigned i = 0; i < cvec.size() - 1; i++)
+      cnstrs.push_back(make(Geq,cvec[i],make_real(rational(0))));
+    cnstrs.push_back(make(Equal,cvec.back(),make_real(rational(1))));
+    ast new_proof;
+
+    // greedily reduce the core
+    for(unsigned i = 0; i < cvec.size() - 1; i++){
+      std::vector<ast> dummy;
+      cnstrs.push_back(make(Equal,cvec[i],make_real(rational(0))));
+      if(!is_sat(cnstrs,new_proof,dummy))
+	cnstrs.pop_back();
+    }
+
+    std::vector<ast> vals = cvec;
+    if(!is_sat(cnstrs,new_proof,vals))
+      throw "Proof error!";
+    std::vector<rational> rat_farkas_coeffs;
+    for(unsigned i = 0; i < cvec.size(); i++){
+      ast bar = vals[i];
+      rational r;
+      if(is_numeral(bar,r))
+	rat_farkas_coeffs.push_back(r);
+      else
+	throw "Proof error!";
+    }
+    rational the_lcd = lcd(rat_farkas_coeffs);
+    std::vector<ast> farkas_coeffs;
+    std::vector<Iproof::node> my_prems;
+    std::vector<ast> my_pcons;
+    for(unsigned i = 0; i < prems.size(); i++){
+      ast fc = make_int(rat_farkas_coeffs[i] * the_lcd);
+      if(!(fc == make_int(rational(0)))){
+	farkas_coeffs.push_back(fc);
+	my_prems.push_back(pfs[i]);
+	my_pcons.push_back(conc(prems[i]));
+      }
+    }
+    farkas_coeffs.push_back(make_int(the_lcd));
+    my_prems.push_back(iproof->make_hypothesis(mk_not(con)));
+    my_pcons.push_back(mk_not(con));
+    
+    Iproof::node res = iproof->make_farkas(mk_false(),my_prems,my_pcons,farkas_coeffs);
+    return res;
   }
 
   ast painfully_normalize_ineq(const ast &ineq, hash_map<ast,ast> &map){
@@ -1318,7 +1421,8 @@ public:
     npcons.push_back(ncon);
     // ast assumps = make(And,pcons);
     ast new_proof;
-    if(is_sat(npcons,new_proof))
+    std::vector<ast> dummy;
+    if(is_sat(npcons,new_proof,dummy))
       throw "Proof error!";
     pfrule dk = pr(new_proof);
     int nnp = num_prems(new_proof);
@@ -1334,7 +1438,7 @@ public:
 	farkas_coeffs.push_back(make_int(rational(1)));
     }
     else
-      throw "cannot reconstruct farkas proof";
+      return reconstruct_farkas_with_dual(prems,pfs,con);
 
     for(int i = 0; i < nnp; i++){
       ast p = conc(prem(new_proof,i));
@@ -1348,7 +1452,7 @@ public:
 	my_pcons.push_back(mk_not(con));
       }
       else
-	throw "cannot reconstruct farkas proof";
+	return reconstruct_farkas_with_dual(prems,pfs,con);
     }
     Iproof::node res = iproof->make_farkas(mk_false(),my_prems,my_pcons,farkas_coeffs);
     return res;
@@ -1378,7 +1482,8 @@ public:
     npcons.push_back(ncon);
     // ast assumps = make(And,pcons);
     ast new_proof;
-    if(is_sat(npcons,new_proof))
+    std::vector<ast> dummy;
+    if(is_sat(npcons,new_proof,dummy))
       throw "Proof error!";
     pfrule dk = pr(new_proof);
     int nnp = num_prems(new_proof);
@@ -1408,7 +1513,7 @@ public:
 	my_pcons.push_back(mk_not(con));
       }
       else
-	throw "cannot reconstruct farkas proof";
+	return painfully_reconstruct_farkas(prems,pfs,con);
     }
     Iproof::node res = iproof->make_farkas(mk_false(),my_prems,my_pcons,farkas_coeffs);
     return res;
@@ -1552,6 +1657,13 @@ public:
       if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or)
 	std::cout << "foo!\n";
 
+      // no idea why this shows up
+      if(dk == PR_MODUS_PONENS_OEQ)
+	if(conc(prem(proof,0)) == con){
+	  res = translate_main(prem(proof,0),expect_clause);
+	  return res;
+	}
+      
 #if 0
       if(1 && dk == PR_TRANSITIVITY && pr(prem(proof,1)) == PR_COMMUTATIVITY){
 	Iproof::node clause = translate_main(prem(proof,0),true);

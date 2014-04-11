@@ -260,7 +260,7 @@ void iz3base::check_interp(const std::vector<ast> &itps, std::vector<ast> &theor
 #endif
 }
 
-bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof){
+bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof, std::vector<ast> &vars){
 
   params_ref p;
   p.set_bool("proof", true); // this is currently useless
@@ -276,6 +276,15 @@ bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof){
   if(res == l_false){
     ::ast *proof = s.get_proof();
     _proof = cook(proof);
+  }
+  else if(vars.size()) {
+    model_ref(_m);
+    s.get_model(_m);
+    for(unsigned i = 0; i < vars.size(); i++){
+      expr_ref r(m());
+      _m.get()->eval(to_expr(vars[i].raw()),r,true);
+      vars[i] = cook(r.get());
+    }
   }
   dealloc(m_solver);
   return res != l_false;
