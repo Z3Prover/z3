@@ -350,7 +350,9 @@ void dl_interface::display_certificate_non_const(std::ostream& out) {
   if(_d->status == StatusModel){
     ast_manager &m = m_ctx.get_manager();
     model_ref md = get_model();
+    out << "(fixedpoint \n";
     model_smt2_pp(out, m, *md.get(), 0); 
+    out << ")\n";
   }
   else if(_d->status == StatusRefutation){
     out << "(derivation\n";
