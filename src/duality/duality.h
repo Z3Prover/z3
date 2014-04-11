@@ -253,10 +253,12 @@ protected:
         }
 
         void assert_axiom(const expr &axiom){
+#if 0
 	  // HACK: large "distict" predicates can kill the legacy SMT solver -- ignore them
 	  if(axiom.is_app() && axiom.decl().get_decl_kind() == Distinct)
 	    if(axiom.num_args() > 10)
 	      return;
+#endif
             islvr->AssertInterpolationAxiom(axiom);
         }
 
