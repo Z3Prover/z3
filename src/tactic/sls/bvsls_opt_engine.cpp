@@ -100,6 +100,8 @@ expr_ref bvsls_opt_engine::maximize(expr_ref const & objective)
     m_mpz_manager.set(score, top_score());
     m_mpz_manager.set(max_score, m_powers(obj_bv_sz)); m_mpz_manager.dec(max_score);
 
+    IF_IVERBOSE(10, verbose_stream() << "Initial score: " << m_mpz_manager.to_string(score) << std::endl;);
+
     save_model(score);
 
     while (check_restart((unsigned)m_stats.m_stopwatch.get_current_seconds()) &&
@@ -126,7 +128,8 @@ expr_ref bvsls_opt_engine::maximize(expr_ref const & objective)
             m_mpz_manager.set(score, top_score());            
         }
         else {
-            TRACE("sls_opt", tout << "New best: " << m_mpz_manager.to_string(score) << std::endl;);
+            TRACE("sls_opt", tout << "New optimum: " << m_mpz_manager.to_string(score) << std::endl;);
+            IF_IVERBOSE(10, verbose_stream() << "New optimum: " << m_mpz_manager.to_string(score) << std::endl;);
             func_decl * fd = consts[new_const];
             incremental_score(fd, new_value);
             m_obj_evaluator.update(fd, new_value);

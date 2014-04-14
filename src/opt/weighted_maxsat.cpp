@@ -347,6 +347,11 @@ namespace opt {
                     unsigned bv_size = 0;
                     m_bvsls.get_model(m_model);
                     VERIFY(bv.is_numeral(res.optimum, m_lower, bv_size));
+                    for (unsigned i = 0; i < m_soft.size(); ++i) {
+                        expr_ref tmp(m);
+                        m_model->eval(m_soft[i].get(), tmp, true);
+                        m_assignment[i] = m.is_true(tmp);
+                    }
                     break;
                 }
                 case l_false:
