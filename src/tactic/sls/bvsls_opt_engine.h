@@ -27,7 +27,9 @@ class bvsls_opt_engine : public sls_engine {
     sls_evaluator   m_obj_evaluator;
     model_ref       m_best_model;
     mpz             m_best_model_score;
-    
+    unsigned        m_obj_bv_sz;
+    expr          * m_obj_e;
+
 public:
     bvsls_opt_engine(ast_manager & m, params_ref const & p);
     ~bvsls_opt_engine();
@@ -44,8 +46,8 @@ public:
     void get_model(model_ref & result) { result = m_best_model; }
 
 protected:
-    expr_ref maximize(expr_ref const & objective);
-    expr_ref minimize(expr_ref const & objective);
+    void setup_opt_tracker(expr_ref const & objective, bool _max);
+    expr_ref maximize();    
 
     bool what_if(func_decl * fd, const unsigned & fd_inx, const mpz & temp, 
                  mpz & best_score, unsigned & best_const, mpz & best_value);

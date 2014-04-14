@@ -722,12 +722,20 @@ namespace opt {
             lbool is_sat = s().check_sat(0, 0);
             if (is_sat == l_true) {
                 s().get_model(m_model);
+                params_ref p;
+                p.set_uint("restarts", 20);
+                m_bvsls.updt_params(p);
                 bvsls_opt_engine::optimization_result res = m_bvsls.optimize(objective, m_model, true);
                 switch (res.is_sat) {
                 case l_true: {
                     unsigned bv_size = 0;
                     m_bvsls.get_model(m_model);
                     VERIFY(bv.is_numeral(res.optimum, m_lower, bv_size));
+                    for (unsigned i = 0; i < m_soft.size(); ++i) {
+                        expr_ref tmp(m);
+                        m_model->eval(m_soft[i].get(), tmp, true);
+                        m_assignment[i] = m.is_true(tmp);
+                    }
                     break;
                 }
                 case l_false:
