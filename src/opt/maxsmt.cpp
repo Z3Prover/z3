@@ -27,29 +27,29 @@ Notes:
 
 namespace opt {
 
-    lbool maxsmt::operator()(opt_solver& s) {
+    lbool maxsmt::operator()(opt_solver* s) {
         lbool is_sat;
         m_msolver = 0;
-        m_s = &s;
+        m_s = s;
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
         if (m_soft_constraints.empty()) {
             TRACE("opt", tout << "no constraints\n";);
             m_msolver = 0;
-            is_sat = s.check_sat(0, 0);
+            is_sat = m_s->check_sat(0, 0);
         }
         else if (is_maxsat_problem(m_weights)) {
             if (m_maxsat_engine == symbol("core_maxsat")) {
-                m_msolver = alloc(core_maxsat, m, s, m_soft_constraints);
+                m_msolver = alloc(core_maxsat, m, *m_s, m_soft_constraints);
             }
             else if (m_maxsat_engine == symbol("weighted_maxsat")) {
-                m_msolver = alloc(wmaxsmt, m, opt_solver::to_opt(s), m_soft_constraints, m_weights);
+                m_msolver = alloc(wmaxsmt, m, m_s.get(), m_soft_constraints, m_weights);
             }
             else {
-                m_msolver = alloc(fu_malik, m, s, m_soft_constraints);
+                m_msolver = alloc(fu_malik, m, *m_s, m_soft_constraints);
             }
         }
         else {
-            m_msolver = alloc(wmaxsmt, m, opt_solver::to_opt(s), m_soft_constraints, m_weights);
+            m_msolver = alloc(wmaxsmt, m, m_s.get(), m_soft_constraints, m_weights);
         }
 
         if (m_msolver) {

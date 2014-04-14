@@ -44,7 +44,7 @@ namespace opt {
 
     class maxsmt {
         ast_manager&     m;
-        opt_solver*      m_s;
+        ref<opt_solver>  m_s;
         volatile bool    m_cancel;
         expr_ref_vector  m_soft_constraints;
         expr_ref_vector  m_answer;
@@ -58,7 +58,7 @@ namespace opt {
     public:
         maxsmt(ast_manager& m): m(m), m_s(0), m_cancel(false), m_soft_constraints(m), m_answer(m) {}
 
-        lbool operator()(opt_solver& s);
+        lbool operator()(opt_solver* s);
 
         void set_cancel(bool f);
 

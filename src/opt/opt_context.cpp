@@ -194,7 +194,7 @@ namespace opt {
     lbool context::execute_maxsat(symbol const& id, bool committed) {
         model_ref tmp;
         maxsmt& ms = *m_maxsmts.find(id);
-        lbool result = ms(get_solver());
+        lbool result = ms(m_solver.get());
         if (result == l_true && committed) ms.commit_assignment();
         if (result != l_false && (ms.get_model(tmp), tmp.get())) ms.get_model(m_model);
         return result;
@@ -381,7 +381,7 @@ namespace opt {
             params_ref lia_p;
             lia_p.set_bool("compile_equality", optp.pb_compile_equality());
             tac3->updt_params(lia_p);
-            m_simplify = and_then(tac0.get(), tac2.get(), tac3.get(), mk_nnf_tactic(m));
+            m_simplify = and_then(tac0.get(), tac2.get(), tac3.get());
         }
         else {
             m_simplify = tac0.get();

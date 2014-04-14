@@ -31,7 +31,10 @@ namespace opt {
         struct imp;
         imp* m_imp;
     public:
-        wmaxsmt(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights);
+        wmaxsmt(ast_manager& m, 
+                opt_solver*  s, 
+                expr_ref_vector& soft_constraints, 
+                vector<rational> const& weights);
         ~wmaxsmt();
         virtual lbool operator()();
         virtual rational get_lower() const;
