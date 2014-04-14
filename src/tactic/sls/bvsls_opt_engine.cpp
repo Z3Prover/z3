@@ -16,6 +16,7 @@ Author:
 Notes:
 
 --*/
+#include "sls_compilation_settings.h"
 #include "nnf.h"
 #include "bvsls_opt_engine.h"
 
@@ -41,7 +42,8 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
     TRACE("sls_opt", tout << "objective: " << (_maximize?"maximize":"minimize") << " " <<
                             mk_ismt2_pp(objective, m()) << std::endl;);
     m_hard_tracker.initialize(m_assertions);
-    m_restart_limit = _RESTART_LIMIT_;    
+    m_restart_limit = _RESTART_LIMIT_;
+    setup_opt_tracker(objective, _maximize);
 
     if (initial_model.get() != 0) {
         TRACE("sls_opt", tout << "Initial model provided: " << std::endl;
@@ -51,62 +53,88 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
                             tout << fd->get_name() << " := " << mk_ismt2_pp(val, m()) << std::endl;
                         });
         m_hard_tracker.set_model(initial_model);
-    }
-
-    optimization_result res(m_manager);
-
-    res.is_sat = m_hard_tracker.is_sat() ? l_true : l_undef;
-
-    if (!res.is_sat) {
-        do {
-            checkpoint();
-
-            IF_VERBOSE(1, verbose_stream() << "Satisfying... restarts left:" << (m_max_restarts - m_stats.m_restarts) << std::endl;);
-            res.is_sat = search();
-
-            if (res.is_sat == l_undef)
-                m_hard_tracker.randomize(m_assertions);
-        } while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_ &&
-                 res.is_sat != l_true && m_stats.m_restarts++ < m_max_restarts);
     }    
+   
+    optimization_result res(m_manager);
+    lbool is_sat = m_hard_tracker.is_sat() ? l_true : l_undef;    
 
-    if (res.is_sat)
-        res.optimum = _maximize ? maximize(objective) : minimize(objective);
+    for (m_stats.m_restarts = 0;
+         m_stats.m_restarts < m_max_restarts;
+         m_stats.m_restarts++)
+    {
+        mpz old_best;
+        m_mpz_manager.set(old_best, m_best_model_score);
+
+        if (!is_sat) {
+            do {
+                checkpoint();
+
+                IF_VERBOSE(1, verbose_stream() << "Satisfying... restarts left:" << (m_max_restarts - m_stats.m_restarts) << std::endl;);
+                is_sat = search();
+
+                if (is_sat == l_undef)
+                    m_hard_tracker.randomize(m_assertions);
+            } 
+            while (is_sat != l_true && 
+                   m_stats.m_restarts++ < m_max_restarts);
+        }
+
+        if (is_sat == l_true) {
+            IF_VERBOSE(1, verbose_stream() << "Optimizing... restarts left:" << (m_max_restarts - m_stats.m_restarts) << std::endl;);
+            res.is_sat = l_true;
+            m_obj_tracker.set_model(m_hard_tracker.get_model());
+            m_obj_evaluator.update_all();
+            expr_ref local_best = maximize();
+            if ((_maximize && m_mpz_manager.gt(m_best_model_score, old_best)) ||
+                (!_maximize && m_mpz_manager.lt(m_best_model_score, old_best))) 
+            {
+                res.optimum = local_best;
+            }
+        }
+        
+        m_hard_tracker.randomize(m_assertions);
+        m_evaluator.update_all();
+        is_sat = m_hard_tracker.is_sat() ? l_true : l_undef;
+    }    
 
     TRACE("sls_opt", tout << "sat: " << res.is_sat << "; optimum: " << mk_ismt2_pp(res.optimum, m()) << std::endl;);
 
     return res;
 }
 
-expr_ref bvsls_opt_engine::maximize(expr_ref const & objective)
+void bvsls_opt_engine::setup_opt_tracker(expr_ref const & objective, bool _max) 
+{
+    expr_ref obj(m_manager);
+    obj = objective;
+    if (!_max)
+        obj = m_bv_util.mk_bv_neg(objective);
+
+    m_obj_e = obj.get();
+    m_obj_bv_sz = m_bv_util.get_bv_size(m_obj_e);
+    ptr_vector<expr> objs;
+    objs.push_back(m_obj_e);
+    m_obj_tracker.initialize(objs);    
+}
+
+expr_ref bvsls_opt_engine::maximize()
 {
     SASSERT(m_hard_tracker.is_sat());
 
-    expr * obj_e = objective.get();
-    unsigned obj_bv_sz = m_bv_util.get_bv_size(obj_e);        
-    ptr_vector<expr> objs;
-    objs.push_back(obj_e);
-    m_obj_tracker.initialize(objs);
-    m_obj_tracker.set_model(m_hard_tracker.get_model());
-    m_obj_evaluator.update_all();
-
-    TRACE("sls_opt", tout << "Initial opt model:" << std::endl; m_obj_tracker.show_model(tout););
-    IF_VERBOSE(1, verbose_stream() << "Maximizing... restarts left:" << (m_max_restarts - m_stats.m_restarts) << std::endl;);    
+    TRACE("sls_opt", tout << "Initial opt model:" << std::endl; m_obj_tracker.show_model(tout););    
 
     mpz score, old_score, max_score, new_value;
     unsigned new_const = (unsigned)-1, new_bit = 0;
     ptr_vector<func_decl> consts = m_obj_tracker.get_constants();
     move_type move;
     m_mpz_manager.set(score, top_score());
-    m_mpz_manager.set(max_score, m_powers(obj_bv_sz)); m_mpz_manager.dec(max_score);
+    m_mpz_manager.set(max_score, m_powers(m_obj_bv_sz)); m_mpz_manager.dec(max_score);
 
-    IF_IVERBOSE(10, verbose_stream() << "Initial score: " << m_mpz_manager.to_string(score) << std::endl;);
+    IF_VERBOSE(10, verbose_stream() << "Initial score: " << m_mpz_manager.to_string(score) << std::endl;);
 
     save_model(score);
 
-    while (check_restart((unsigned)m_stats.m_stopwatch.get_current_seconds()) &&
-           m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_ &&
-           m_mpz_manager.lt(score, max_score)) {
+    while (m_mpz_manager.lt(score, max_score) && check_restart(m_stats.m_moves))
+    {
         checkpoint();
         m_stats.m_moves++;
         m_mpz_manager.set(old_score, score);
@@ -114,22 +142,24 @@ expr_ref bvsls_opt_engine::maximize(expr_ref const & objective)
         
         mpz score(0);
         m_mpz_manager.set(score,
-                          find_best_move(consts, score, new_const, new_value, new_bit, move, max_score, obj_e));        
+                          find_best_move(consts, score, new_const, new_value, new_bit, move, max_score, m_obj_e));
 
         if (new_const == static_cast<unsigned>(-1)) {
             m_mpz_manager.set(score, old_score);
             if (m_mpz_manager.gt(score, m_best_model_score))
-                save_model(score);            
+                save_model(score);
             if (!randomize_wrt_hard()) {
                 // Can't improve and can't randomize; can't do anything other than bail out.
                 TRACE("sls_opt", tout << "Got stuck; bailing out." << std::endl;);
+                IF_VERBOSE(10, verbose_stream() << "No local improvements possible." << std::endl;);
                 goto bailout;
-            }
-            m_mpz_manager.set(score, top_score());            
+            }            
+            m_mpz_manager.set(score, top_score());
         }
         else {
+            m_stats.m_moves++;
             TRACE("sls_opt", tout << "New optimum: " << m_mpz_manager.to_string(score) << std::endl;);
-            IF_IVERBOSE(10, verbose_stream() << "New optimum: " << m_mpz_manager.to_string(score) << std::endl;);
+            IF_VERBOSE(10, verbose_stream() << "New optimum: " << m_mpz_manager.to_string(score) << std::endl;);
             func_decl * fd = consts[new_const];
             incremental_score(fd, new_value);
             m_obj_evaluator.update(fd, new_value);
@@ -141,15 +171,8 @@ bailout:
     m_mpz_manager.del(new_value);
     
     expr_ref res(m_manager);
-    res = m_bv_util.mk_numeral(m_best_model_score, obj_bv_sz);
+    res = m_bv_util.mk_numeral(m_best_model_score, m_obj_bv_sz);
     return res;
-}
-
-expr_ref bvsls_opt_engine::minimize(expr_ref const & objective)
-{
-    expr_ref n_obj(m_manager);
-    n_obj = m_bv_util.mk_bv_neg(objective);
-    return maximize(n_obj);
 }
 
 void bvsls_opt_engine::save_model(mpz const & score) {

@@ -38,7 +38,7 @@ Notes:
 
 // do we use restarts?
 // 0 = no, 1 = use #moves, 2 = use #plateaus, 3 = use time
-#define _RESTARTS_ 3
+#define _RESTARTS_ 1
 // limit of moves/plateaus/seconds until first restart occurs
 #define _RESTART_LIMIT_ 10
 // 0 = initialize with all zero, 1 initialize with random value

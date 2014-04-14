@@ -339,8 +339,11 @@ namespace opt {
             lbool is_sat = s.check_sat_core(0, 0);
             if (is_sat == l_true) {
                 updt_model(s);
+                params_ref p;
+                p.set_uint("restarts", 20);
+                m_bvsls.updt_params(p);
                 // TBD: can we set an initial model on m_bvsls?
-                // CMW: Yes, see next line.
+                // CMW: Yes, see next line.                
                 bvsls_opt_engine::optimization_result res = m_bvsls.optimize(objective, m_model, true);
                 switch (res.is_sat) {
                 case l_true: {
