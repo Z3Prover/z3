@@ -72,9 +72,9 @@ namespace opt {
             m_params = p;
             s().updt_params(p);
         }       
-        void add_soft(
-            vector<rational> const& weights, 
-            expr_ref_vector const& soft) {
+        void init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
+            m_weights.reset();
+            m_soft.reset();
             m_weights.append(weights);
             m_soft.append(soft);
         }
@@ -82,20 +82,13 @@ namespace opt {
         solver& s() { return *m_s; }
         void set_converter(filter_model_converter* mc) { m_mc = mc; }
 
-        void re_init(expr_ref_vector const& soft, vector<rational> const& weights) {
-            m_soft.reset();
-            m_soft.append(soft);
-            m_weights.reset();
-            m_weights.append(weights);
-            m_assignment.reset();
-            m_assignment.resize(m_soft.size(), false);
-            init();
-        }
         void init() {
             m_lower.reset();
             m_upper.reset();
+            m_assignment.reset();
             for (unsigned i = 0; i < m_weights.size(); ++i) {
                 m_upper += m_weights[i];
+                m_assignment.push_back(false);
             }
         }
         expr* mk_not(expr* e) {
@@ -130,10 +123,10 @@ namespace opt {
             expr_ref fml(m), val(m);
             app_ref r(m);
             vector<wcore> cores;
-            obj_map<expr, unsigned> ans2core;     // answer literal to core index
+            obj_map<expr, unsigned> ans2core; // answer literal to core index
             lbool is_sat = l_undef;
             expr_ref_vector rs(m), asms(m); 
-            vector<rational> sigmas;              // sigma_j := w_j if soft clause has not been satisfied
+            vector<rational> sigmas;          // sigma_j := w_j if soft clause has not been satisfied
             bool first = true;
             init();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -144,7 +137,6 @@ namespace opt {
                 rs.push_back(r);
                 asms.push_back(m.mk_not(r));
                 sigmas.push_back(m_weights[i]);
-                m_assignment.push_back(false);
             }
             m_upper += rational(1);
             solver::scoped_push _s(s());
@@ -578,7 +570,7 @@ namespace opt {
                   for (unsigned i = 0; i < bs.size(); ++i) {
                       tout << mk_pp(bs[i], m) << " " << ws[i] << "\n";
                   });
-            maxs->re_init(nbs, ws); 
+            maxs->init_soft(ws, nbs);
             lbool is_sat = (*maxs)();
             SASSERT(maxs->get_lower() > k);
             k = maxs->get_lower();
@@ -652,6 +644,7 @@ namespace opt {
         }
 
         virtual void set_cancel(bool f) {
+            maxsmt_solver_base::set_cancel(f);
             m_sls.set_cancel(f);
         }
     };
@@ -737,6 +730,7 @@ namespace opt {
             }
         }
         virtual void set_cancel(bool f) {
+            maxsmt_solver_base::set_cancel(f);
             m_bvsls.set_cancel(f);
         }
 
@@ -1089,7 +1083,7 @@ namespace opt {
                 m_maxsmt = alloc(wmax, s.get(), m, s->get_context());
             }
             m_maxsmt->updt_params(m_params);
-            m_maxsmt->add_soft(m_weights, m_soft);
+            m_maxsmt->init_soft(m_weights, m_soft);
             m_maxsmt->set_converter(s->mc_ref().get());
             return *m_maxsmt;
         }
