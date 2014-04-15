@@ -1821,6 +1821,8 @@ def mk_install(out):
     for c in get_components():
         c.mk_install_deps(out)
         out.write(' ')
+    if is_ml_enabled():
+        out.write('ocamlfind_install')
     out.write('\n')
     out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'bin'))
     out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'include'))
