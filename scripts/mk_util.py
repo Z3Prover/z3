@@ -1415,13 +1415,14 @@ class MLComponent(Component):
             out.write('\n')
             # Generate META file and package installation commands
             self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
-            out.write('ocamlfind_install: api/ml/z3.cma api/ml/z3.cmxa\n')
-            out.write('\tocamlfind remove Z3\n')
-            out.write('\tocamlfind install Z3 api/ml/META api/ml/z3.cma api/ml/z3.cmxa api/ml/z3$(LIB_EXT) api/ml/libz3ml$(LIB_EXT) libz3$(SO_EXT)')
-            if IS_WINDOWS:
-                out.write(' libz3$(LIB_EXT)')
-            out.write('\n')
-            out.write('\n')
+            if OCAMLFIND != '':
+                out.write('ocamlfind_install: api/ml/z3.cma api/ml/z3.cmxa\n')
+                out.write('\t%s remove Z3\n' % (OCAMLFIND))
+                out.write('\t%s install Z3 api/ml/META api/ml/z3.cma api/ml/z3.cmxa api/ml/z3$(LIB_EXT) api/ml/libz3ml$(LIB_EXT) libz3$(SO_EXT)' % (OCAMLFIND))
+                if IS_WINDOWS:
+                    out.write(' libz3$(LIB_EXT)')
+                out.write('\n')
+                out.write('\n')
 
     
     def main_component(self):
