@@ -126,7 +126,7 @@ namespace opt {
             obj_map<expr, unsigned> ans2core; // answer literal to core index
             lbool is_sat = l_undef;
             expr_ref_vector rs(m), asms(m); 
-            vector<rational> sigmas;          // sigma_j := w_j if soft clause has not been satisfied
+            vector<rational> sigmas(m_weights); // sigma_j := w_j if soft clause has not been satisfied
             bool first = true;
             init();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -136,9 +136,9 @@ namespace opt {
                 s().assert_expr(fml);               // does not get asserted in model-based mode.
                 rs.push_back(r);
                 asms.push_back(m.mk_not(r));
-                sigmas.push_back(m_weights[i]);
+                SASSERT(m_weights[i].is_int());     // TBD: re-normalize weights if non-integral.
             }
-            m_upper += rational(1);
+            m_upper += rational(1);                 // TBD: assuming integral weights
             solver::scoped_push _s(s());
             while (m_lower < m_upper) {
                 solver::scoped_push __s(s());
@@ -783,8 +783,7 @@ namespace opt {
        final_check that satisfies min_cost.
        
        Takes: log (n / log(n)) iterations
-    */
-        
+    */        
     class iwmax : public maxsmt_solver_wbase {
     public:
 
