@@ -1385,6 +1385,15 @@ class MLComponent(Component):
             out.write('-cclib "-L../.. -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cma -linkall\n' % (sub_dir,sub_dir,sub_dir,sub_dir))
             out.write('ml: api/ml/z3.cmxa api/ml/z3.cma\n')
             out.write('\n')
+            # Generate META file and package installation commands
+            self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
+            out.write('ocamlfind_install: api/ml/z3.cma api/ml/z3.cmxa\n')
+            out.write('\tocamlfind remove Z3\n')
+            out.write('\tocamlfind install Z3 api/ml/META api/ml/z3.cma api/ml/z3.cmxa api/ml/z3$(LIB_EXT) api/ml/libz3ml$(LIB_EXT) libz3$(SO_EXT)')
+            if IS_WINDOWS:
+                out.write(' libz3$(LIB_EXT)')
+            out.write('\n')
+            out.write('\n')
     
     def main_component(self):
         return is_ml_enabled()
