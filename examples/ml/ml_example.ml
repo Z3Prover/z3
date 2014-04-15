@@ -168,7 +168,7 @@ let basic_tests ( ctx : context ) =
   let inum = (get_numerator rn) in
   let iden = get_denominator rn in
   Printf.printf "Numerator: %s Denominator: %s\n" (Real.to_string inum) (Real.to_string iden) ;
-  if ((Real.to_string inum) <> "42" or (Real.to_string iden) <> "43") then
+  if ((Real.to_string inum) <> "42" || (Real.to_string iden) <> "43") then
     raise (TestFailedException "")
   else 
     Printf.printf "Test passed.\n"
