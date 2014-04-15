@@ -748,7 +748,7 @@ end = struct
 	Expr(z3_native_object_of_ast_ptr ctx no)
       else
 	if (Z3native.is_numeral_ast (context_gno ctx) no) then
-	  if (sk == INT_SORT or sk == REAL_SORT or sk == BV_SORT) then
+	  if (sk == INT_SORT || sk == REAL_SORT || sk == BV_SORT) then
 	    Expr(z3_native_object_of_ast_ptr ctx no)
 	  else
 	    raise (Z3native.Exception "Unsupported numeral object")
