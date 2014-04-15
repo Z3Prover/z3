@@ -89,8 +89,14 @@ namespace opt {
             m_weights.append(weights);
             m_assignment.reset();
             m_assignment.resize(m_soft.size(), false);
+            init();
+        }
+        void init() {
             m_lower.reset();
             m_upper.reset();
+            for (unsigned i = 0; i < m_weights.size(); ++i) {
+                m_upper += m_weights[i];
+            }
         }
         expr* mk_not(expr* e) {
             if (m.is_not(e, e)) {
@@ -127,15 +133,12 @@ namespace opt {
             obj_map<expr, unsigned> ans2core;     // answer literal to core index
             lbool is_sat = l_undef;
             expr_ref_vector rs(m), asms(m); 
-            m_lower = m_upper = rational::zero(); // current upper and lower bounds           
             vector<rational> sigmas;              // sigma_j := w_j if soft clause has not been satisfied
             bool first = true;
+            init();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_upper += m_weights[i];
                 r = m.mk_fresh_const("r", m.mk_bool_sort());
-                if (m_mc) {
-                    m_mc->insert(r->get_decl());
-                }
+                m_mc->insert(r->get_decl());                
                 fml = m.mk_or(m_soft[i].get(), r); 
                 s().assert_expr(fml);               // does not get asserted in model-based mode.
                 rs.push_back(r);
@@ -307,9 +310,8 @@ namespace opt {
             pb_util u(m);
             expr_ref fml(m), val(m);
             expr_ref_vector nsoft(m);
-            m_lower = m_upper = rational::zero();
+            init();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_upper += m_weights[i];
                 nsoft.push_back(mk_not(m_soft[i].get()));
             }
             solver::scoped_push _s1(s());
@@ -320,7 +322,7 @@ namespace opt {
                 TRACE("opt", s().display(tout<<"looping\n"););
                 solver::scoped_push _s2(s());
                 s().assert_expr(fml);
-                is_sat = simplify_and_check_sat(0,0);
+                is_sat = simplify_and_check_sat();
                 if (m_cancel) {
                     is_sat = l_undef;
                 }
@@ -349,11 +351,10 @@ namespace opt {
         }
 
     private:
-        lbool simplify_and_check_sat(unsigned n, expr* const* assumptions) {
+        lbool simplify_and_check_sat() {
             lbool is_sat = l_true;
-            tactic_ref tac1 = mk_simplify_tactic(m);
-            // tactic_ref tac2 = mk_pb_preprocess_tactic(m); 
-            tactic_ref tac  = tac1; // and_then(tac1.get(), tac2.get());  // TBD: make attribute for cancelation.
+            tactic_ref tac = mk_simplify_tactic(m);
+            // TBD: make tac attribute for cancelation.
             proof_converter_ref pc;
             expr_dependency_ref core(m);
             model_converter_ref mc;
@@ -361,10 +362,6 @@ namespace opt {
             goal_ref g(alloc(goal, m, true, false));
             for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
                 g->assert_expr(s().get_assertion(i));
-            }
-            for (unsigned i = 0; i < n; ++i) {
-                NOT_IMPLEMENTED_YET();
-                // add assumption in a wrapper.
             }
             (*tac)(g, result, mc, pc, core);
             if (result.empty()) {
@@ -374,9 +371,7 @@ namespace opt {
                 SASSERT(result.size() == 1);
                 goal_ref r = result[0];
                 solver::scoped_push _s(s());
-                // TBD ptr_vector<expr> asms;
                 for (unsigned i = 0; i < r->size(); ++i) {
-                    // TBD collect assumptions from r
                     s().assert_expr(r->form(i));
                 }
                 is_sat = s().check_sat(0, 0);
@@ -410,14 +405,12 @@ namespace opt {
             app_ref fml(m), a(m), b(m), c(m);
             expr_ref val(m);
             expr_ref_vector block(m), ans(m), al(m), am(m);
-            m_lower = m_upper = rational::zero();
             obj_map<expr, unsigned> ans_index;
-
             vector<rational> amk;
             vector<uint_set> sc;
+            init();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 rational w = m_weights[i];
-                m_upper += w;
 
                 b = m.mk_fresh_const("b", m.mk_bool_sort());
                 m_mc->insert(b->get_decl());
@@ -607,10 +600,9 @@ namespace opt {
             expr_ref fml(m), val(m);
             app_ref b(m);
             expr_ref_vector nsoft(m);
-            m_lower = m_upper = rational::zero();
+            init();
             solver::scoped_push __s(s());
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_upper += m_weights[i];
                 b = m.mk_fresh_const("b", m.mk_bool_sort());
                 m_mc->insert(b->get_decl());
                 fml = m.mk_or(m_soft[i].get(), b);
@@ -696,11 +688,7 @@ namespace opt {
                 m_bvsls.assert_expr(r->form(i));
             }
 
-            m_lower = m_upper = rational::zero();
-
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_upper += m_weights[i];
-            }
+            init();
             rational num = numerator(m_upper);
             rational den = denominator(m_upper);
             rational maxval = num*den;
@@ -959,9 +947,8 @@ namespace opt {
             expr_ref fml(m), val(m);
             app_ref b(m);
             expr_ref_vector nsoft(m);
-            m_lower = m_upper = rational::zero();
+            init();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_upper += m_weights[i];
                 b = m.mk_fresh_const("b", m.mk_bool_sort());
                 m_mc->insert(b->get_decl());
                 fml = m.mk_or(m_soft[i].get(), b);
@@ -1011,10 +998,9 @@ namespace opt {
             expr_ref fml(m), val(m);
             app_ref b(m);
             expr_ref_vector nsoft(m);
-            m_lower = m_upper = rational::zero();
             solver::scoped_push __s(s());
+            init();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_upper += m_weights[i];
                 b = m.mk_fresh_const("b", m.mk_bool_sort());
                 m_mc->insert(b->get_decl());
                 fml = m.mk_or(m_soft[i].get(), b);
@@ -1189,16 +1175,14 @@ namespace opt {
             app_ref fml(m), a(m), b(m), c(m);
             expr_ref val(m);
             expr_ref_vector block(m), ans(m), am(m), soft(m);
-            m_lower = m_upper = rational::zero();
             obj_map<expr, unsigned> ans_index;
-
             vector<rational> amk;
             vector<uint_set> sc;    // vector of indices used in at last constraints
             expr_ref_vector  al(m); // vector of at least constraints.
             rational wmax;
+            init();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 rational w = m_weights[i];
-                m_upper += w;
                 if (wmax < w) wmax = w;
                 b = m.mk_fresh_const("b", m.mk_bool_sort());
                 block.push_back(b);
