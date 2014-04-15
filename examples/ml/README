@@ -1,4 +1,4 @@
-### This is work-in-progress and does not work yet.
+### This is work-in-progress.
 
 Small example using the Z3 ML bindings.
 To build the example execute
@@ -12,3 +12,13 @@ or
 LD_LIBRARY_PATH=. ./ml_example.byte
 for the byte-code version.
 
+If Z3 was installed into the ocamlfind package repository (see src/api/ml/README),
+then we can compile this example as follows:
+
+ocamlfind ocamlc -o ml_example.byte -custom -package Z3 -linkpkg -verbose
+ocamlfind ocamlopt -o ml_example -package Z3 -linkpkg -verbose
+
+Note that the resulting binaries depend on the shared z3 library, which needs to be 
+in the PATH (Windows), LD_LIBRARY_PATH (Linux) or DYLD_LIBRARY_PATH (OSX). If Z3 was 
+installed into ocamlfind, the path that should be added is 
+`ocamlfind printconf destdir`/Z3
