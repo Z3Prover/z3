@@ -1425,6 +1425,50 @@ end
 
 module Arithmetic =
 struct
+  let is_int ( x : expr ) =
+    (Z3native.is_numeral_ast (Expr.gnc x) (Expr.gno x)) &&
+      ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == INT_SORT)
+      
+  let is_arithmetic_numeral ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ANUM)
+
+  let is_le ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LE)
+
+  let is_ge ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GE)
+
+  let is_lt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LT)
+
+  let is_gt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GT)
+
+  let is_add ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ADD)
+
+  let is_sub ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SUB)
+
+  let is_uminus ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UMINUS)
+
+  let is_mul ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MUL)
+
+  let is_div ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_DIV)
+
+  let is_idiv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IDIV)
+
+  let is_remainder ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_REM)
+
+  let is_modulus ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MOD)
+
+  let is_inttoreal ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_REAL)
+
+  let is_real_to_int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_INT)
+
+  let is_real_is_int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IS_INT)
+
+  let is_real ( x : expr ) =
+    ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == REAL_SORT)
+      
+  let is_int_numeral ( x : expr ) = (Expr.is_numeral x) && (is_int x)
+
+  let is_rat_numeral ( x : expr ) = (Expr.is_numeral x) && (is_real x)
+    
+  let is_algebraic_number ( x : expr ) = Z3native.is_algebraic_number (Expr.gnc x) (Expr.gno x)
 
   module Integer =
   struct     
@@ -1434,6 +1478,12 @@ struct
     let get_int ( x : expr ) = 
       let (r, v) = Z3native.get_numeral_int (Expr.gnc x) (Expr.gno x) in
       if r then v
+      else raise (Z3native.Exception "Conversion failed.")
+
+    let get_big_int ( x : expr ) = 
+      if (is_int_numeral x) then 
+	let s = to_string(x) in
+	(Big_int.big_int_of_string s)
       else raise (Z3native.Exception "Conversion failed.")
 	
     let to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
@@ -1474,6 +1524,12 @@ struct
     let get_denominator ( x : expr ) =
       expr_of_ptr (Expr.gc x) (Z3native.get_denominator (Expr.gnc x) (Expr.gno x))
 	
+    let get_ratio ( x : expr ) = 
+      if (is_rat_numeral x)  then
+	let s = to_string(x) in
+	(Ratio.ratio_of_string s)
+      else raise (Z3native.Exception "Conversion failed.")
+
     let to_decimal_string ( x : expr ) ( precision : int ) = 
       Z3native.get_numeral_decimal_string (Expr.gnc x) (Expr.gno x) precision
 	
@@ -1517,51 +1573,6 @@ struct
       let to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)      
     end
   end
-
-  let is_int ( x : expr ) =
-    (Z3native.is_numeral_ast (Expr.gnc x) (Expr.gno x)) &&
-      ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == INT_SORT)
-      
-  let is_arithmetic_numeral ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ANUM)
-
-  let is_le ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LE)
-
-  let is_ge ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GE)
-
-  let is_lt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LT)
-
-  let is_gt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GT)
-
-  let is_add ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ADD)
-
-  let is_sub ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SUB)
-
-  let is_uminus ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UMINUS)
-
-  let is_mul ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MUL)
-
-  let is_div ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_DIV)
-
-  let is_idiv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IDIV)
-
-  let is_remainder ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_REM)
-
-  let is_modulus ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MOD)
-
-  let is_inttoreal ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_REAL)
-
-  let is_real_to_int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_INT)
-
-  let is_real_is_int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IS_INT)
-
-  let is_real ( x : expr ) =
-    ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == REAL_SORT)
-      
-  let is_int_numeral ( x : expr ) = (Expr.is_numeral x) && (is_int x)
-
-  let is_rat_num ( x : expr ) = (Expr.is_numeral x) && (is_real x)
-    
-  let is_algebraic_number ( x : expr ) = Z3native.is_algebraic_number (Expr.gnc x) (Expr.gno x)
 
   let mk_add ( ctx : context ) ( t : expr list ) =
     let f x = (Expr.gno x) in

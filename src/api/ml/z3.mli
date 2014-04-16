@@ -1149,6 +1149,9 @@ sig
     (** Retrieve the int value. *)
     val get_int : Expr.expr -> int
 
+    (** Get a big_int from an integer numeral *)
+    val get_big_int : Expr.expr -> Big_int.big_int
+
     (** Returns a string representation of the numeral. *)
     val to_string : Expr.expr -> string
 
@@ -1201,10 +1204,13 @@ sig
     val mk_sort : context -> Sort.sort
 
     (** The numerator of a rational numeral. *)
-    val get_numerator : Expr.expr-> Expr.expr
+    val get_numerator : Expr.expr -> Expr.expr
 
     (** The denominator of a rational numeral. *)
-    val get_denominator : Expr.expr-> Expr.expr
+    val get_denominator : Expr.expr -> Expr.expr
+
+    (** Get a ratio from a real numeral *)
+    val get_ratio : Expr.expr -> Ratio.ratio
 
     (** Returns a string representation in decimal notation. 
 	The result has at most as many decimal places as indicated by the int argument.*)
@@ -1323,7 +1329,7 @@ sig
   val is_int_numeral : Expr.expr -> bool
 
   (** Indicates whether the term is a real numeral. *)
-  val is_rat_num : Expr.expr -> bool
+  val is_rat_numeral : Expr.expr -> bool
 
   (** Indicates whether the term is an algebraic number *)
   val is_algebraic_number : Expr.expr -> bool
