@@ -1148,7 +1148,7 @@ def mk_ml():
     ml_dir      = get_component('ml').src_dir
     ml_nativef  = os.path.join(ml_dir, 'z3native.ml')
     ml_nativefi = os.path.join(ml_dir, 'z3native.mli')
-    ml_wrapperf = os.path.join(ml_dir, 'z3native.c')
+    ml_wrapperf = os.path.join(ml_dir, 'z3native_stubs.c')
     ml_native   = open(ml_nativef, 'w')
     ml_i        = open(ml_nativefi, 'w')
     ml_native.write('(* Automatically generated file *)\n\n')
