@@ -241,7 +241,7 @@ sig
      AST objects are reference counted and unwrapping an AST disables automatic
      reference counting, i.e., all references to the IntPtr that is returned 
      must be handled externally and through native calls (see e.g., 
-     <c>Z3native.inc_ref</c>).
+     [Z3native.inc_ref]).
      {!wrap_ast} *)
   val unwrap_ast : ast -> Z3native.ptr
 
@@ -251,7 +251,7 @@ sig
      managed objects. Note that the native ast that is passed must be a 
      native object obtained from Z3 (e.g., through {!unwrap_ast})
      and that it must have a correct reference count (see e.g., 
-      <c>Z3native.inc_ref</c>). *)
+      [Z3native.inc_ref]). *)
   val wrap_ast : context -> Z3native.z3_ast -> ast
 end
 
@@ -439,7 +439,7 @@ sig
   (** Update a mutable configuration parameter.
      
      The list of all configuration parameters can be obtained using the Z3 executable:
-     <c>z3.exe -p</c>
+     [z3.exe -p]
      Only a few configuration parameters are mutable once the context is created.
      An exception is thrown when trying to modify an immutable parameter.
      {!get_param_value} *)
@@ -479,7 +479,7 @@ sig
      {!get_simplify_help} *)
   val simplify : Expr.expr -> Params.params option -> expr
 
-  (** A string describing all available parameters to <c>Expr.Simplify</c>. *)
+  (** A string describing all available parameters to [Expr.Simplify]. *)
   val get_simplify_help : context -> string
 
   (** Retrieves parameter descriptions for simplifier. *)
@@ -498,20 +498,20 @@ sig
       The number of new arguments should coincide with the current number of arguments. *)
   val update : Expr.expr -> Expr.expr list -> expr
 
-  (** Substitute every occurrence of <c>from[i]</c> in the expression with <c>to[i]</c>, for <c>i</c> smaller than <c>num_exprs</c>.
+  (** Substitute every occurrence of [from[i]] in the expression with [to[i]], for [i] smaller than [num_exprs].
      
-     The result is the new expression. The arrays <c>from</c> and <c>to</c> must have size <c>num_exprs</c>.
-     For every <c>i</c> smaller than <c>num_exprs</c>, we must have that 
-     sort of <c>from[i]</c> must be equal to sort of <c>to[i]</c>. *)
+     The result is the new expression. The arrays [from] and [to] must have size [num_exprs].
+     For every [i] smaller than [num_exprs], we must have that 
+     sort of [from[i]] must be equal to sort of [to[i]]. *)
   val substitute : Expr.expr -> Expr.expr list -> Expr.expr list -> expr
 
-  (** Substitute every occurrence of <c>from</c> in the expression with <c>to</c>.
+  (** Substitute every occurrence of [from] in the expression with [to].
      {!substitute} *)
   val substitute_one : Expr.expr -> Expr.expr -> Expr.expr -> expr
 
   (** Substitute the free variables in the expression with the expressions in the expr array
 
-     For every <c>i</c> smaller than <c>num_exprs</c>, the variable with de-Bruijn index <c>i</c> is replaced with term <c>to[i]</c>. *)
+     For every [i] smaller than [num_exprs], the variable with de-Bruijn index [i] is replaced with term [to[i]]. *)
   val substitute_vars : Expr.expr -> Expr.expr list -> expr
 
   (** Translates (copies) the term to another context.
@@ -554,7 +554,7 @@ sig
   val mk_numeral_string : context -> string -> Sort.sort -> expr
   
   (** Create a numeral of a given sort. This function can be use to create numerals that fit in a machine integer.
-     It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.       
+     It is slightly faster than [MakeNumeral] since it is not necessary to parse a string.       
      @return A Term with the given value and sort *)
   val mk_numeral_int : context -> int -> Sort.sort -> expr
 end
@@ -580,19 +580,19 @@ sig
   (** Creates a Boolean value. *)        
   val mk_val : context -> bool -> Expr.expr
 
-  (** Mk an expression representing <c>not(a)</c>. *)    
+  (** Mk an expression representing [not(a)]. *)    
   val mk_not : context -> Expr.expr -> Expr.expr
 
-  (** Create an expression representing an if-then-else: <c>ite(t1, t2, t3)</c>. *)
+  (** Create an expression representing an if-then-else: [ite(t1, t2, t3)]. *)
   val mk_ite : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
 
-  (** Create an expression representing <c>t1 iff t2</c>. *)
+  (** Create an expression representing [t1 iff t2]. *)
   val mk_iff : context -> Expr.expr -> Expr.expr -> Expr.expr
 
-  (** Create an expression representing <c>t1 -> t2</c>. *)
+  (** Create an expression representing [t1 -> t2]. *)
   val mk_implies : context -> Expr.expr -> Expr.expr -> Expr.expr
 
-  (** Create an expression representing <c>t1 xor t2</c>. *)
+  (** Create an expression representing [t1 xor t2]. *)
   val mk_xor : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Create an expression representing the AND of args *)
@@ -604,7 +604,7 @@ sig
   (** Creates the equality between two expr's. *)
   val mk_eq : context -> Expr.expr -> Expr.expr -> Expr.expr
 
-  (** Creates a <c>distinct</c> term. *)
+  (** Creates a [distinct] term. *)
   val mk_distinct : context -> Expr.expr list -> Expr.expr
 
   (** Indicates whether the expression is the true or false expression
@@ -806,45 +806,45 @@ sig
   
   (** Array read.       
      
-     The argument <c>a</c> is the array and <c>i</c> is the index 
+     The argument [a] is the array and [i] is the index 
      of the array that gets read.      
      
-     The node <c>a</c> must have an array sort <c>[domain -> range]</c>, 
-     and <c>i</c> must have the sort <c>domain</c>.
-     The sort of the result is <c>range</c>.
+     The node [a] must have an array sort [[domain -> range]], 
+     and [i] must have the sort [domain].
+     The sort of the result is [range].
      {!Z3Array.mk_sort}
      {!mk_store} *)
   val mk_select : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Array update.       
      
-     The node <c>a</c> must have an array sort <c>[domain -> range]</c>, 
-     <c>i</c> must have sort <c>domain</c>,
-     <c>v</c> must have sort range. The sort of the result is <c>[domain -> range]</c>.
+     The node [a] must have an array sort [[domain -> range]], 
+     [i] must have sort [domain],
+     [v] must have sort range. The sort of the result is [[domain -> range]].
      The semantics of this function is given by the theory of arrays described in the SMT-LIB
      standard. See http://smtlib.org for more details.
-     The result of this function is an array that is equal to <c>a</c> 
-     (with respect to <c>select</c>)
-     on all indices except for <c>i</c>, where it maps to <c>v</c> 
-     (and the <c>select</c> of <c>a</c> with 
-     respect to <c>i</c> may be a different value).
+     The result of this function is an array that is equal to [a] 
+     (with respect to [select])
+     on all indices except for [i], where it maps to [v] 
+     (and the [select] of [a] with 
+     respect to [i] may be a different value).
      {!Z3Array.mk_sort}
      {!mk_select} *)
   val mk_store : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Create a constant array.
      
-     The resulting term is an array, such that a <c>select</c>on an arbitrary index 
-     produces the value <c>v</c>.
+     The resulting term is an array, such that a [select]on an arbitrary index 
+     produces the value [v].
      {!Z3Array.mk_sort}
      {!mk_select} *)
   val mk_const_array : context -> Sort.sort -> Expr.expr -> Expr.expr
 
   (** Maps f on the argument arrays.
      
-     Eeach element of <c>args</c> must be of an array sort <c>[domain_i -> range_i]</c>.
-     The function declaration <c>f</c> must have type <c> range_1 .. range_n -> range</c>.
-     <c>v</c> must have sort range. The sort of the result is <c>[domain_i -> range]</c>.
+     Eeach element of [args] must be of an array sort [[domain_i -> range_i]].
+     The function declaration [f] must have type [ range_1 .. range_n -> range].
+     [v] must have sort range. The sort of the result is [[domain_i -> range]].
      {!Z3Array.mk_sort}
      {!mk_select}
      {!mk_store} *)
@@ -938,8 +938,8 @@ sig
   (** Indicates whether the term is an relation store
      
      Insert a record into a relation.
-     The function takes <c>n+1</c> arguments, where the first argument is the relation and the remaining <c>n</c> elements 
-     correspond to the <c>n</c> columns of the relation. *)
+     The function takes [n+1] arguments, where the first argument is the relation and the remaining [n] elements 
+     correspond to the [n] columns of the relation. *)
   val is_store : Expr.expr -> bool
 
   (** Indicates whether the term is an empty relation *)
@@ -997,8 +997,8 @@ sig
   (** Indicates whether the term is a relational select
      
      Check if a record is an element of the relation.
-     The function takes <c>n+1</c> arguments, where the first argument is a relation,
-     and the remaining <c>n</c> arguments correspond to a record. *)
+     The function takes [n+1] arguments, where the first argument is a relation,
+     and the remaining [n] arguments correspond to a record. *)
   val is_select : Expr.expr -> bool
 
   (** Indicates whether the term is a relational clone (copy)
@@ -1161,11 +1161,11 @@ sig
     (** Creates an integer constant. *)
     val mk_const_s : context -> string -> Expr.expr
 
-    (** Create an expression representing <c>t1 mod t2</c>.
+    (** Create an expression representing [t1 mod t2].
        The arguments must have int type. *)
     val mk_mod : context -> Expr.expr -> Expr.expr -> Expr.expr
 
-    (** Create an expression representing <c>t1 rem t2</c>.
+    (** Create an expression representing [t1 rem t2].
        The arguments must have int type. *)
     val mk_rem : context -> Expr.expr -> Expr.expr -> Expr.expr
 
@@ -1181,8 +1181,8 @@ sig
        
        There is also a converse operation exposed. It follows the semantics prescribed by the SMT-LIB standard.
        
-       You can take the floor of a real by creating an auxiliary integer Term <c>k</c> and
-       and asserting <c>MakeInt2Real(k) <= t1 < MkInt2Real(k)+1</c>.
+       You can take the floor of a real by creating an auxiliary integer Term [k] and
+       and asserting [MakeInt2Real(k) <= t1 < MkInt2Real(k)+1].
        The argument must be of integer sort. *)
     val mk_int2real : context -> Expr.expr -> Expr.expr
 
@@ -1334,34 +1334,34 @@ sig
   (** Indicates whether the term is an algebraic number *)
   val is_algebraic_number : Expr.expr -> bool
 
-  (** Create an expression representing <c>t[0] + t[1] + ...</c>. *)    
+  (** Create an expression representing [t[0] + t[1] + ...]. *)    
   val mk_add : context -> Expr.expr list -> Expr.expr
 
-  (** Create an expression representing <c>t[0] * t[1] * ...</c>. *)    
+  (** Create an expression representing [t[0] * t[1] * ...]. *)    
   val mk_mul : context -> Expr.expr list -> Expr.expr
 
-  (** Create an expression representing <c>t[0] - t[1] - ...</c>. *)    
+  (** Create an expression representing [t[0] - t[1] - ...]. *)    
   val mk_sub : context -> Expr.expr list -> Expr.expr
 
-  (** Create an expression representing <c>-t</c>. *)    
+  (** Create an expression representing [-t]. *)    
   val mk_unary_minus : context -> Expr.expr -> Expr.expr
 
-  (** Create an expression representing <c>t1 / t2</c>. *)    
+  (** Create an expression representing [t1 / t2]. *)    
   val mk_div : context -> Expr.expr -> Expr.expr -> Expr.expr
 
-  (** Create an expression representing <c>t1 ^ t2</c>. *)    
+  (** Create an expression representing [t1 ^ t2]. *)    
   val mk_power : context -> Expr.expr -> Expr.expr -> Expr.expr
 
-  (** Create an expression representing <c>t1 < t2</c> *)    
+  (** Create an expression representing [t1 < t2] *)    
   val mk_lt : context -> Expr.expr -> Expr.expr -> Expr.expr
 
-  (** Create an expression representing <c>t1 <= t2</c> *)    
+  (** Create an expression representing [t1 <= t2] *)    
   val mk_le : context -> Expr.expr -> Expr.expr -> Expr.expr
 
-  (** Create an expression representing <c>t1 > t2</c> *)    
+  (** Create an expression representing [t1 > t2] *)    
   val mk_gt : context -> Expr.expr -> Expr.expr -> Expr.expr
 
-  (** Create an expression representing <c>t1 >= t2</c> *)    
+  (** Create an expression representing [t1 >= t2] *)    
   val mk_ge : context -> Expr.expr -> Expr.expr -> Expr.expr
 end
 
@@ -1610,8 +1610,8 @@ sig
   (** Unsigned division.
 
      
-     It is defined as the floor of <c>t1/t2</c> if \c t2 is
-     different from zero. If <c>t2</c> is zero, then the result
+     It is defined as the floor of [t1/t2] if \c t2 is
+     different from zero. If [t2] is zero, then the result
      is undefined.
      The arguments must have the same bit-vector sort. *)
   val mk_udiv : context -> Expr.expr -> Expr.expr -> Expr.expr
@@ -1620,33 +1620,33 @@ sig
      
      It is defined in the following way:
 
-     - The \c floor of <c>t1/t2</c> if \c t2 is different from zero, and <c>t1*t2 >= 0</c>.
+     - The \c floor of [t1/t2] if \c t2 is different from zero, and [t1*t2 >= 0].
 
-     - The \c ceiling of <c>t1/t2</c> if \c t2 is different from zero, and <c>t1*t2 < 0</c>.
+     - The \c ceiling of [t1/t2] if \c t2 is different from zero, and [t1*t2 < 0].
 
-     If <c>t2</c> is zero, then the result is undefined.
+     If [t2] is zero, then the result is undefined.
      The arguments must have the same bit-vector sort. *)
   val mk_sdiv : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Unsigned remainder.
      
-     It is defined as <c>t1 - (t1 /u t2) * t2</c>, where <c>/u</c> represents unsigned division.       
-     If <c>t2</c> is zero, then the result is undefined.
+     It is defined as [t1 - (t1 /u t2) * t2], where [/u] represents unsigned division.       
+     If [t2] is zero, then the result is undefined.
      The arguments must have the same bit-vector sort. *)
   val mk_urem : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Signed remainder.
      
-     It is defined as <c>t1 - (t1 /s t2) * t2</c>, where <c>/s</c> represents signed division.
+     It is defined as [t1 - (t1 /s t2) * t2], where [/s] represents signed division.
      The most significant bit (sign) of the result is equal to the most significant bit of \c t1.
 
-     If <c>t2</c> is zero, then the result is undefined.
+     If [t2] is zero, then the result is undefined.
      The arguments must have the same bit-vector sort. *)
   val mk_srem : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Two's complement signed remainder (sign follows divisor).
      
-     If <c>t2</c> is zero, then the result is undefined.
+     If [t2] is zero, then the result is undefined.
      The arguments must have the same bit-vector sort. *)
   val mk_smod : context -> Expr.expr -> Expr.expr -> Expr.expr
 
@@ -1694,27 +1694,27 @@ sig
          
      The arguments must have a bit-vector sort.
      @return 
-     The result is a bit-vector of size <c>n1+n2</c>, where <c>n1</c> (<c>n2</c>) 
-     is the size of <c>t1</c> (<c>t2</c>). *)
+     The result is a bit-vector of size [n1+n2], where [n1] ([n2]) 
+     is the size of [t1] ([t2]). *)
   val mk_concat : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Bit-vector extraction.
       
       Extract the bits between two limits from a bitvector of
-      size <c>m</c> to yield a new bitvector of size <c>n</c>, where 
-      <c>n = high - low + 1</c>. *)
+      size [m] to yield a new bitvector of size [n], where 
+      [n = high - low + 1]. *)
   val mk_extract : context -> int -> int -> Expr.expr -> Expr.expr
 
   (** Bit-vector sign extension.
 
      Sign-extends the given bit-vector to the (signed) equivalent bitvector of
-     size <c>m+i</c>, where \c m is the size of the given bit-vector. *)
+     size [m+i], where \c m is the size of the given bit-vector. *)
   val mk_sign_ext : context -> int -> Expr.expr -> Expr.expr
 
   (** Bit-vector zero extension.
 
      Extend the given bit-vector with zeros to the (unsigned) equivalent
-     bitvector of size <c>m+i</c>, where \c m is the size of the
+     bitvector of size [m+i], where \c m is the size of the
      given bit-vector. *)
   val mk_zero_ext : context -> int -> Expr.expr -> Expr.expr
  
@@ -1723,7 +1723,7 @@ sig
 
   (** Shift left.
 
-      It is equivalent to multiplication by <c>2^x</c> where \c x is the value of third argument.
+      It is equivalent to multiplication by [2^x] where \c x is the value of third argument.
       
       NB. The semantics of shift operations varies between environments. This 
       definition does not necessarily capture directly the semantics of the 
@@ -1732,7 +1732,7 @@ sig
 
   (** Logical shift right
      
-     It is equivalent to unsigned division by <c>2^x</c> where \c x is the value of the third argument.
+     It is equivalent to unsigned division by [2^x] where \c x is the value of the third argument.
 
      NB. The semantics of shift operations varies between environments. This 
      definition does not necessarily capture directly the semantics of the 
@@ -1773,7 +1773,7 @@ sig
   (** Create an integer from the bit-vector argument 
      
       If \c is_signed is false, then the bit-vector \c t1 is treated as unsigned. 
-      So the result is non-negative and in the range <c>[0..2^N-1]</c>, where 
+      So the result is non-negative and in the range [[0..2^N-1]], where 
       N are the number of bits in the argument.
       If \c is_signed is true, \c t1 is treated as a signed bit-vector.
       
@@ -2353,15 +2353,15 @@ sig
   end
 
   (** Retrieves the interpretation (the assignment) of a func_decl in the model. 
-      <returns>An expression if the function has an interpretation in the model, null otherwise.</returns> *)
+      @return An expression if the function has an interpretation in the model, null otherwise. *)
   val get_const_interp : model -> FuncDecl.func_decl -> Expr.expr option
 
   (** Retrieves the interpretation (the assignment) of an expression in the model. 
-      <returns>An expression if the constant has an interpretation in the model, null otherwise.</returns> *)
+      @return An expression if the constant has an interpretation in the model, null otherwise. *)
   val get_const_interp_e : model -> Expr.expr -> Expr.expr option
 
   (** Retrieves the interpretation (the assignment) of a non-constant func_decl in the model. 
-      <returns>A FunctionInterpretation if the function has an interpretation in the model, null otherwise.</returns> *)
+      @return A FunctionInterpretation if the function has an interpretation in the model, null otherwise. *)
   val get_func_interp : model -> FuncDecl.func_decl -> FuncInterp.func_interp option
 
   (** The number of constant interpretations in the model. *)
@@ -2383,11 +2383,11 @@ sig
       
       This function may fail if the argument contains quantifiers, 
       is partial (MODEL_PARTIAL enabled), or if it is not well-sorted.
-      In this case a <c>ModelEvaluationFailedException</c> is thrown.
+      In this case a [ModelEvaluationFailedException] is thrown.
   *)
   val eval : model -> Expr.expr -> bool -> Expr.expr option
 
-  (** Alias for <c>eval</c>. *)
+  (** Alias for [eval]. *)
   val evaluate : model -> Expr.expr -> bool -> Expr.expr option
 
   (** The number of uninterpreted sorts that the model has an interpretation for. *)
@@ -2408,7 +2408,7 @@ sig
   val sort_universe : model -> Sort.sort -> AST.ast list
       
   (** Conversion of models to strings. 
-      <returns>A string representation of the model.</returns> *)
+      @return A string representation of the model. *)
   val to_string : model -> string
 end
 
@@ -2416,17 +2416,17 @@ end
 
     Probes are used to inspect a goal (aka problem) and collect information that may be used to decide
     which solver and/or preprocessing step will be used.
-    The complete list of probes may be obtained using the procedures <c>Context.NumProbes</c>
-    and <c>Context.ProbeNames</c>.
-    It may also be obtained using the command <c>(help-tactics)</c> in the SMT 2.0 front-end.
+    The complete list of probes may be obtained using the procedures [Context.NumProbes]
+    and [Context.ProbeNames].
+    It may also be obtained using the command [(help-tactics)] in the SMT 2.0 front-end.
 *)
 module Probe :
 sig
   type probe 
 
   (** Execute the probe over the goal. 
-     <returns>A probe always produce a float value.
-     "Boolean" probes return 0.0 for false, and a value different from 0.0 for true.</returns> *)
+     @return A probe always produce a float value.
+     "Boolean" probes return 0.0 for false, and a value different from 0.0 for true. *)
   val apply : probe -> Goal.goal -> float
 
   (** The number of supported Probes. *)
@@ -2478,9 +2478,9 @@ end
 (** Tactics
 
     Tactics are the basic building block for creating custom solvers for specific problem domains.
-    The complete list of tactics may be obtained using <c>Context.get_num_tactics</c> 
-    and <c>Context.get_tactic_names</c>.
-    It may also be obtained using the command <c>(help-tactics)</c> in the SMT 2.0 front-end.
+    The complete list of tactics may be obtained using [Context.get_num_tactics] 
+    and [Context.get_tactic_names].
+    It may also be obtained using the command [(help-tactics)] in the SMT 2.0 front-end.
 *)
 module Tactic :
 sig
@@ -2504,8 +2504,8 @@ sig
     val get_subgoal : apply_result -> int -> Goal.goal
 
     (** Convert a model for a subgoal into a model for the original 
-	goal <c>g</c>, that the ApplyResult was obtained from. 
-	#return A model for <c>g</c> *)
+	goal [g], that the ApplyResult was obtained from. 
+	#return A model for [g] *)
     val convert_model : apply_result -> int -> Model.model -> Model.model
 
     (** A string representation of the ApplyResult. *)
@@ -2549,7 +2549,7 @@ sig
   (** Create a tactic that applies one tactic to a given goal if the probe 
       evaluates to true. 
      
-      If the probe evaluates to false, then the new tactic behaves like the <c>skip</c> tactic.  *)
+      If the probe evaluates to false, then the new tactic behaves like the [skip] tactic.  *)
   val when_ : context -> Probe.probe -> tactic -> tactic
 
   (** Create a tactic that applies a tactic to a given goal if the probe 
@@ -2577,7 +2577,7 @@ sig
   val using_params : context -> tactic -> Params.params -> tactic
 
   (** Create a tactic that applies a tactic using the given set of parameters.
-     Alias for <c>UsingParams</c>*)
+     Alias for [UsingParams]*)
   val with_ : context -> tactic -> Params.params -> tactic
 
   (** Create a tactic that applies the given tactics in parallel. *)
@@ -2718,26 +2718,26 @@ sig
      {!Proof}     *)
   val check : solver -> Expr.expr list -> status
 
-  (** The model of the last <c>Check</c>.
+  (** The model of the last [Check].
      
-     The result is <c>None</c> if <c>Check</c> was not invoked before,
-     if its results was not <c>SATISFIABLE</c>, or if model production is not enabled. *)
+     The result is [None] if [Check] was not invoked before,
+     if its results was not [SATISFIABLE], or if model production is not enabled. *)
   val get_model : solver -> Model.model option
 
-  (** The proof of the last <c>Check</c>.
+  (** The proof of the last [Check].
          
-     The result is <c>null</c> if <c>Check</c> was not invoked before,
-     if its results was not <c>UNSATISFIABLE</c>, or if proof production is disabled. *)
+     The result is [null] if [Check] was not invoked before,
+     if its results was not [UNSATISFIABLE], or if proof production is disabled. *)
   val get_proof : solver -> Expr.expr option
 
-  (** The unsat core of the last <c>Check</c>.
+  (** The unsat core of the last [Check].
      
-     The unsat core is a subset of <c>Assertions</c>
-     The result is empty if <c>Check</c> was not invoked before,
-     if its results was not <c>UNSATISFIABLE</c>, or if core production is disabled. *)
+     The unsat core is a subset of [Assertions]
+     The result is empty if [Check] was not invoked before,
+     if its results was not [UNSATISFIABLE], or if core production is disabled. *)
   val get_unsat_core : solver -> AST.ast list
 
-  (** A brief justification of why the last call to <c>Check</c> returned <c>UNKNOWN</c>. *)
+  (** A brief justification of why the last call to [Check] returned [UNKNOWN]. *)
   val get_reason_unknown : solver -> string
 
   (** Solver statistics. *)
@@ -2759,7 +2759,7 @@ sig
 
   (** Creates a solver that is implemented using the given tactic.
      
-     The solver supports the commands <c>Push</c> and <c>Pop</c>, but it
+     The solver supports the commands [Push] and [Pop], but it
      will always solve each check from scratch. *)
   val mk_solver_t : context -> Tactic.tactic -> solver
 
@@ -2811,7 +2811,7 @@ sig
 
   (** Backtrack one backtracking point.
 
-     Note that an exception is thrown if Pop is called without a corresponding <c>Push</c></remarks>
+     Note that an exception is thrown if Pop is called without a corresponding [Push]</remarks>
      {!push} *)
   val pop : fixedpoint -> unit
 
@@ -2875,28 +2875,28 @@ sig
      {!parse_smtlib_string} *)
   val parse_smtlib_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
 
-  (** The number of SMTLIB formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
+  (** The number of SMTLIB formulas parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
   val get_num_smtlib_formulas : context -> int
 
-  (** The formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
+  (** The formulas parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
   val get_smtlib_formulas : context -> Expr.expr list
 
-  (** The number of SMTLIB assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
+  (** The number of SMTLIB assumptions parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
   val get_num_smtlib_assumptions : context -> int
 
-  (** The assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
+  (** The assumptions parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
   val get_smtlib_assumptions : context -> Expr.expr list
 
-  (** The number of SMTLIB declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
+  (** The number of SMTLIB declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
   val get_num_smtlib_decls : context -> int
 
-  (** The declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
+  (** The declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
   val get_smtlib_decls : context -> FuncDecl.func_decl list
 
-  (** The number of SMTLIB sorts parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
+  (** The number of SMTLIB sorts parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
   val get_num_smtlib_sorts : context -> int
 
-  (** The sort declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
+  (** The sort declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
   val get_smtlib_sorts : context -> Sort.sort list
 
   (** Parse the given string using the SMT-LIB2 parser. 
