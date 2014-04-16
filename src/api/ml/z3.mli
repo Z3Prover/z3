@@ -1,5 +1,5 @@
 (**
-   The Z3 ML/Ocaml Interface.
+   The Z3 ML/OCaml Interface.
 
    Copyright (C) 2012 Microsoft Corporation
    @author CM Wintersteiger (cwinter) 2012-12-17
@@ -488,10 +488,6 @@ sig
   (** The function declaration of the function that is applied in this expression. *)
   val get_func_decl : Expr.expr -> FuncDecl.func_decl
 
-  (** Indicates whether the expression is the true or false expression
-     or something else (L_UNDEF). *)
-  val get_bool_value : Expr.expr -> Z3enums.lbool
-
   (** The number of arguments of the expression. *)
   val get_num_args : Expr.expr -> int
 
@@ -535,11 +531,88 @@ sig
   (** The Sort of the term. *)
   val get_sort : Expr.expr -> Sort.sort
 
-  (** Indicates whether the term has Boolean sort. *)
-  val is_bool : Expr.expr -> bool
-
   (** Indicates whether the term represents a constant. *)
   val is_const : Expr.expr -> bool
+  
+  (** Creates a new constant. *)
+  val mk_const : context -> Symbol.symbol -> Sort.sort -> expr
+  
+  (** Creates a new constant. *)
+  val mk_const_s : context -> string -> Sort.sort -> expr
+  
+  (** Creates a  constant from the func_decl. *)
+  val mk_const_f : context -> FuncDecl.func_decl -> expr
+  
+  (** Creates a fresh constant with a name prefixed with a string. *)
+  val mk_fresh_const : context -> string -> Sort.sort -> expr
+  
+  (** Create a new function application. *)
+  val mk_app : context -> FuncDecl.func_decl -> Expr.expr list -> expr
+  
+  (** Create a numeral of a given sort.         
+     @return A Term with the given value and sort *)
+  val mk_numeral_string : context -> string -> Sort.sort -> expr
+  
+  (** Create a numeral of a given sort. This function can be use to create numerals that fit in a machine integer.
+     It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.       
+     @return A Term with the given value and sort *)
+  val mk_numeral_int : context -> int -> Sort.sort -> expr
+end
+
+(** Boolean expressions; Propositional logic and equality *)
+module Boolean :
+sig
+  (** Create a Boolean sort *)
+  val mk_sort : context -> Sort.sort
+
+  (** Create a Boolean constant. *)        
+  val mk_const : context -> Symbol.symbol -> Expr.expr
+
+  (** Create a Boolean constant. *)        
+  val mk_const_s : context -> string -> Expr.expr
+
+  (** The true Term. *)    
+  val mk_true : context -> Expr.expr
+
+  (** The false Term. *)    
+  val mk_false : context -> Expr.expr
+
+  (** Creates a Boolean value. *)        
+  val mk_val : context -> bool -> Expr.expr
+
+  (** Mk an expression representing <c>not(a)</c>. *)    
+  val mk_not : context -> Expr.expr -> Expr.expr
+
+  (** Create an expression representing an if-then-else: <c>ite(t1, t2, t3)</c>. *)
+  val mk_ite : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create an expression representing <c>t1 iff t2</c>. *)
+  val mk_iff : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create an expression representing <c>t1 -> t2</c>. *)
+  val mk_implies : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create an expression representing <c>t1 xor t2</c>. *)
+  val mk_xor : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create an expression representing the AND of args *)
+  val mk_and : context -> Expr.expr list -> Expr.expr
+
+  (** Create an expression representing the OR of args *)
+  val mk_or : context -> Expr.expr list -> Expr.expr
+
+  (** Creates the equality between two expr's. *)
+  val mk_eq : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Creates a <c>distinct</c> term. *)
+  val mk_distinct : context -> Expr.expr list -> Expr.expr
+
+  (** Indicates whether the expression is the true or false expression
+      or something else (L_UNDEF). *)
+  val get_bool_value : Expr.expr -> Z3enums.lbool
+
+  (** Indicates whether the term has Boolean sort. *)
+  val is_bool : Expr.expr -> bool
 
   (** Indicates whether the term is the constant true. *)
   val is_true : Expr.expr -> bool
@@ -573,84 +646,6 @@ sig
 
   (** Indicates whether the term is an implication *)
   val is_implies : Expr.expr -> bool
- 
-  (** Indicates whether the term is a binary equivalence modulo namings. 
-     This binary predicate is used in proof terms.
-     It captures equisatisfiability and equivalence modulo renamings. *)
-  val is_oeq : Expr.expr -> bool
-  
-  (** Creates a new constant. *)
-  val mk_const : context -> Symbol.symbol -> Sort.sort -> expr
-  
-  (** Creates a new constant. *)
-  val mk_const_s : context -> string -> Sort.sort -> expr
-  
-  (** Creates a  constant from the func_decl. *)
-  val mk_const_f : context -> FuncDecl.func_decl -> expr
-  
-  (** Creates a fresh constant with a name prefixed with a string. *)
-  val mk_fresh_const : context -> string -> Sort.sort -> expr
-  
-  (** Create a new function application. *)
-  val mk_app : context -> FuncDecl.func_decl -> Expr.expr list -> expr
-  
-  (** Create a numeral of a given sort.         
-     @return A Term with the goven value and sort *)
-  val mk_numeral_string : context -> string -> Sort.sort -> expr
-  
-  (** Create a numeral of a given sort. This function can be use to create numerals that fit in a machine integer.
-     It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.       
-     @return A Term with the given value and sort *)
-  val mk_numeral_int : context -> int -> Sort.sort -> expr
-end
-
-(** Boolean expressions *)
-module Boolean :
-sig
-  (** Create a Boolean sort *)
-  val mk_sort : context -> Sort.sort
-
-  (** Create a Boolean constant. *)        
-  val mk_const : context -> Symbol.symbol -> Expr.expr
-
-  (** Create a Boolean constant. *)        
-  val mk_const_s : context -> string -> Expr.expr
-
-  (** The true Term. *)    
-  val mk_true : context -> Expr.expr
-
-  (** The false Term. *)    
-  val mk_false : context -> Expr.expr
-
-  (** Creates a Boolean value. *)        
-  val mk_val : context -> bool -> Expr.expr
-
-  (** Creates the equality between two expr's. *)
-  val mk_eq : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Creates a <c>distinct</c> term. *)
-  val mk_distinct : context -> Expr.expr list -> Expr.expr
-
-  (** Mk an expression representing <c>not(a)</c>. *)    
-  val mk_not : context -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing an if-then-else: <c>ite(t1, t2, t3)</c>. *)
-  val mk_ite : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing <c>t1 iff t2</c>. *)
-  val mk_iff : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing <c>t1 -> t2</c>. *)
-  val mk_implies : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing <c>t1 xor t2</c>. *)
-  val mk_xor : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing the AND of args *)
-  val mk_and : context -> Expr.expr list -> Expr.expr
-
-  (** Create an expression representing the OR of args *)
-  val mk_or : context -> Expr.expr list -> Expr.expr
 end
 
 (** Quantifier expressions *)
@@ -817,7 +812,7 @@ sig
      The node <c>a</c> must have an array sort <c>[domain -> range]</c>, 
      and <c>i</c> must have the sort <c>domain</c>.
      The sort of the result is <c>range</c>.
-     {!Array.mk_sort}
+     {!Z3Array.mk_sort}
      {!mk_store} *)
   val mk_select : context -> Expr.expr -> Expr.expr -> Expr.expr
 
@@ -833,7 +828,7 @@ sig
      on all indices except for <c>i</c>, where it maps to <c>v</c> 
      (and the <c>select</c> of <c>a</c> with 
      respect to <c>i</c> may be a different value).
-     {!Array.mk_sort}
+     {!Z3Array.mk_sort}
      {!mk_select} *)
   val mk_store : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
 
@@ -841,7 +836,7 @@ sig
      
      The resulting term is an array, such that a <c>select</c>on an arbitrary index 
      produces the value <c>v</c>.
-     {!Array.mk_sort}
+     {!Z3Array.mk_sort}
      {!mk_select} *)
   val mk_const_array : context -> Sort.sort -> Expr.expr -> Expr.expr
 
@@ -850,7 +845,7 @@ sig
      Eeach element of <c>args</c> must be of an array sort <c>[domain_i -> range_i]</c>.
      The function declaration <c>f</c> must have type <c> range_1 .. range_n -> range</c>.
      <c>v</c> must have sort range. The sort of the result is <c>[domain_i -> range]</c>.
-     {!Array.mk_sort}
+     {!Z3Array.mk_sort}
      {!mk_select}
      {!mk_store} *)
   val mk_map : context -> FuncDecl.func_decl -> Expr.expr list -> Expr.expr
@@ -1836,6 +1831,11 @@ sig
 
   (** Indicates whether the term is a proof for a fact (tagged as goal) asserted by the user. *)
   val is_goal : Expr.expr -> bool
+
+  (** Indicates whether the term is a binary equivalence modulo namings. 
+     This binary predicate is used in proof terms.
+     It captures equisatisfiability and equivalence modulo renamings. *)
+  val is_oeq : Expr.expr -> bool
 
   (** Indicates whether the term is proof via modus ponens
      
