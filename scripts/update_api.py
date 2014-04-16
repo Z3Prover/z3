@@ -1254,7 +1254,7 @@ def mk_ml():
                 ml_native.write(' a%d' % i)
             i = i + 1
         ml_native.write(') in\n')
-        if len(params) > 0 and param_type(params[0]) == CONTEXT:
+        if name not in Unwrapped and len(params) > 0 and param_type(params[0]) == CONTEXT:
             ml_native.write('    let err = (error_code_of_int (ML2C.n_get_error_code a0)) in \n')
             ml_native.write('      if err <> OK then\n')
             ml_native.write('        raise (Exception (ML2C.n_get_error_msg_ex a0 (int_of_error_code err)))\n')
