@@ -1,5 +1,5 @@
 (**
-   The Z3 ML/Ocaml Interface.
+   The Z3 ML/OCaml Interface.
 
    Copyright (C) 2012 Microsoft Corporation
    @author CM Wintersteiger (cwinter) 2012-12-17
@@ -698,7 +698,6 @@ sig
   val get_simplify_help : context -> string
   val get_simplify_parameter_descrs : context -> Params.ParamDescrs.param_descrs
   val get_func_decl : expr -> FuncDecl.func_decl
-  val get_bool_value : expr -> Z3enums.lbool
   val get_num_args : expr -> int
   val get_args : expr -> expr list
   val update : expr -> expr list -> expr
@@ -710,20 +709,7 @@ sig
   val is_numeral : expr -> bool
   val is_well_sorted : expr -> bool
   val get_sort : expr -> Sort.sort
-  val is_bool : expr -> bool
   val is_const : expr -> bool
-  val is_true : expr -> bool
-  val is_false : expr -> bool
-  val is_eq : expr -> bool
-  val is_distinct : expr -> bool
-  val is_ite : expr -> bool
-  val is_and : expr -> bool
-  val is_or : expr -> bool
-  val is_iff : expr -> bool
-  val is_xor : expr -> bool
-  val is_not : expr -> bool
-  val is_implies : expr -> bool
-  val is_oeq : expr -> bool
   val mk_const : context -> Symbol.symbol -> Sort.sort -> expr
   val mk_const_s : context -> string -> Sort.sort -> expr
   val mk_const_f : context -> FuncDecl.func_decl -> expr
@@ -782,9 +768,7 @@ end = struct
 
   let get_simplify_parameter_descrs ( ctx : context ) = 
     Params.ParamDescrs.param_descrs_of_ptr ctx (Z3native.simplify_get_param_descrs (context_gno ctx))
-  let get_func_decl ( x : expr ) = FuncDecl.func_decl_of_ptr (Expr.gc x) (Z3native.get_app_decl (gnc x) (gno x))
-    
-  let get_bool_value ( x : expr ) = lbool_of_int (Z3native.get_bool_value (gnc x) (gno x))
+  let get_func_decl ( x : expr ) = FuncDecl.func_decl_of_ptr (Expr.gc x) (Z3native.get_app_decl (gnc x) (gno x))    
 
   let get_num_args ( x : expr ) = Z3native.get_app_num_args (gnc x) (gno x)
     
@@ -823,29 +807,11 @@ end = struct
   let is_well_sorted ( x : expr ) = Z3native.is_well_sorted (gnc x) (gno x)
 
   let get_sort ( x : expr ) = sort_of_ptr (Expr.gc x) (Z3native.get_sort (gnc x) (gno x))
-    
-  let is_bool ( x : expr ) = (match x with Expr(a) -> (AST.is_expr a)) &&
-    (Z3native.is_eq_sort (gnc x) 
-       (Z3native.mk_bool_sort (gnc x))
-       (Z3native.get_sort (gnc x) (gno x)))
-    
+        
   let is_const ( x : expr ) = (match x with Expr(a) -> (AST.is_app a)) &&
     (get_num_args x) == 0 &&
     (FuncDecl.get_domain_size (get_func_decl x)) == 0
    
-  let is_true ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_TRUE)
-  let is_false ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_FALSE)
-  let is_eq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_EQ)
-  let is_distinct ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_DISTINCT)
-  let is_ite ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_ITE)
-  let is_and ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_AND)
-  let is_or ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_OR)
-  let is_iff ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_IFF)
-  let is_xor ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_XOR)
-  let is_not ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_NOT)
-  let is_implies ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_IMPLIES)
-  let is_oeq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_OEQ)
-
   let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( range : sort ) =
     expr_of_ptr ctx (Z3native.mk_const (context_gno ctx) (Symbol.gno name) (Sort.gno range))
       
@@ -888,12 +854,6 @@ struct
 
   let mk_val ( ctx : context ) ( value : bool ) =
     if value then mk_true ctx else mk_false ctx
-
-  let mk_eq ( ctx : context ) ( x : expr ) ( y : expr ) =
-    expr_of_ptr ctx (Z3native.mk_eq (context_gno ctx) (Expr.gno x) (Expr.gno y))
-
-  let mk_distinct ( ctx : context ) ( args : expr list ) =
-    expr_of_ptr ctx (Z3native.mk_distinct (context_gno ctx) (List.length args) (expr_lton args))
       
   let mk_not ( ctx : context ) ( a : expr ) =
     expr_of_ptr ctx (Z3native.mk_not (context_gno ctx) (gno a))
@@ -917,6 +877,31 @@ struct
   let mk_or ( ctx : context ) ( args : expr list ) =
     let f x = (Expr.gno (x)) in
     expr_of_ptr ctx (Z3native.mk_or (context_gno ctx) (List.length args) (Array.of_list(List.map f args)))
+
+  let mk_eq ( ctx : context ) ( x : expr ) ( y : expr ) =
+    expr_of_ptr ctx (Z3native.mk_eq (context_gno ctx) (Expr.gno x) (Expr.gno y))
+
+  let mk_distinct ( ctx : context ) ( args : expr list ) =
+    expr_of_ptr ctx (Z3native.mk_distinct (context_gno ctx) (List.length args) (expr_lton args))
+
+  let get_bool_value ( x : expr ) = lbool_of_int (Z3native.get_bool_value (gnc x) (gno x))
+
+  let is_bool ( x : expr ) = (match x with Expr(a) -> (AST.is_expr a)) &&
+    (Z3native.is_eq_sort (gnc x) 
+       (Z3native.mk_bool_sort (gnc x))
+       (Z3native.get_sort (gnc x) (gno x)))
+
+  let is_true ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_TRUE)
+  let is_false ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_FALSE)
+  let is_eq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_EQ)
+  let is_distinct ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_DISTINCT)
+  let is_ite ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_ITE)
+  let is_and ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_AND)
+  let is_or ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_OR)
+  let is_iff ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_IFF)
+  let is_xor ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_XOR)
+  let is_not ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_NOT)
+  let is_implies ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (get_func_decl x) == OP_IMPLIES)
 end
 
 
@@ -1784,6 +1769,7 @@ struct
   let is_true ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRUE)
   let is_asserted ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_ASSERTED)
   let is_goal ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_GOAL)
+  let is_oeq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_OEQ)
   let is_modus_ponens ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MODUS_PONENS)
   let is_reflexivity ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REFLEXIVITY)
   let is_symmetry ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_SYMMETRY)
