@@ -1375,7 +1375,7 @@ class MLComponent(Component):
                 out.write('\t%s -I %s -c %s.mli\n' % (OCAMLC,sub_dir,os.path.join(sub_dir,m)))
                 cmis = cmis + ' ' + os.path.join(sub_dir,m) + '.cmi'
             out.write('api/ml/libz3ml$(LIB_EXT): api/ml/z3native_stubs.c %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
-            out.write('\t$(CXX) $(CXXFLAGS) -I %s -I %s %s/z3native_stubs.c $(CXX_OUT_FLAG)api/ml/z3native_stubs$(OBJ_EXT)\n' % (OCAML_LIB, api_src, sub_dir))
+            out.write('\t$(CC) $(CXXFLAGS) -I %s -I %s %s/z3native_stubs.c $(CXX_OUT_FLAG)api/ml/z3native_stubs$(OBJ_EXT)\n' % (OCAML_LIB, api_src, sub_dir))
             out.write('\t$(AR) $(AR_FLAGS) $(AR_OUTFLAG)api/ml/libz3ml$(LIB_EXT) api/ml/z3native_stubs$(OBJ_EXT)\n')
             out.write('%s: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT) %s' % (os.path.join(sub_dir, 'z3.cmxa'), get_component(Z3_DLL_COMPONENT).dll_name, cmis))
             for mlfile in get_ml_files(self.src_dir):
