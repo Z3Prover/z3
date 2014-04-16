@@ -1419,6 +1419,9 @@ class MLComponent(Component):
                 out.write('ocamlfind_install: api/ml/z3.cma api/ml/z3.cmxa\n')
                 out.write('\t%s remove Z3\n' % (OCAMLFIND))
                 out.write('\t%s install Z3 api/ml/META api/ml/z3.cma api/ml/z3.cmxa api/ml/z3$(LIB_EXT) api/ml/libz3ml$(LIB_EXT) libz3$(SO_EXT)' % (OCAMLFIND))
+                for m in modules:
+                    out.write(' %s.cmi' % (os.path.join(sub_dir, m)))
+                    out.write(' %s.cmx' % (os.path.join(sub_dir, m)))
                 if IS_WINDOWS:
                     out.write(' libz3$(LIB_EXT)')
                 out.write('\n')
