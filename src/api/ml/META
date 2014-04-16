@@ -1,0 +1,7 @@
+# META file for the "z3" package:
+version = "VERSION"
+description = "Z3 Theorem Prover (OCaml API)"
+requires = "num"
+archive(byte) = "z3.cma"
+archive(native) = "z3.cmxa"
+linkopts = "-cclib -lz3"

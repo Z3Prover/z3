@@ -1534,7 +1534,7 @@ class MLExampleComponent(ExampleComponent):
             out.write('\t%s ' % OCAMLC)
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-custom -o ml_example.byte -I api/ml -cclib "-L. -lz3" z3.cma')
+            out.write('-custom -o ml_example.byte -I api/ml -cclib "-L. -lz3" nums.cma z3.cma')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
@@ -1545,7 +1545,7 @@ class MLExampleComponent(ExampleComponent):
             out.write('\t%s ' % OCAMLOPT)
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-o ml_example$(EXE_EXT) -I api/ml -cclib "-L. -lz3" z3.cmxa')
+            out.write('-o ml_example$(EXE_EXT) -I api/ml -cclib "-L. -lz3" nums.cmxa z3.cmxa')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
