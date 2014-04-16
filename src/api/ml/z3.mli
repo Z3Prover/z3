@@ -2404,7 +2404,7 @@ sig
 
   (** The finite set of distinct values that represent the interpretation of a sort. 
       {!get_sorts}
-      @returns A list of expressions, where each is an element of the universe of the sort *)
+      @return A list of expressions, where each is an element of the universe of the sort *)
   val sort_universe : model -> Sort.sort -> AST.ast list
       
   (** Conversion of models to strings. 
