@@ -426,8 +426,19 @@ namespace opt {
         neg = false;
         app* a = to_app(fml);
         if (m_objective_fns.find(a->get_decl(), index) && m_objectives[index].m_type == O_MAXSMT) {
-            terms.append(a->get_num_args(), a->get_args());
-            weights.append(m_objectives[index].m_weights);
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                expr* arg = a->get_arg(i);
+                if (m.is_true(arg)) {
+
+                }
+                else if (false && m.is_false(arg)) {
+                    offset += m_objectives[index].m_weights[i];
+                }
+                else {
+                    terms.push_back(arg);
+                    weights.push_back(m_objectives[index].m_weights[i]);
+                }
+            } 
             id = m_objectives[index].m_id;
             return true;
         }

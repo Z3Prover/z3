@@ -11,7 +11,7 @@ Abstract:
 
 Author:
 
-    Anh-Dung Phan (t-anphan) 2013-10-16
+    Nikolaj Bjorner (nbjorner) 2014-4-17
 
 Notes:
 

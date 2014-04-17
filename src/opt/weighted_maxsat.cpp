@@ -6,11 +6,12 @@ Module Name:
     weighted_maxsat.cpp
 
 Abstract:
+
     Weighted MAXSAT module
 
 Author:
 
-    Anh-Dung Phan (t-anphan) 2013-10-16
+    Nikolaj Bjorner (nbjorner) 2014-4-17
 
 Notes:
 
@@ -107,48 +108,76 @@ namespace opt {
     //
     class bcd2 : public maxsmt_solver_base {
         struct wcore {
+            expr*           m_r;
             unsigned_vector m_R;
             rational        m_lower;
             rational        m_mid;
             rational        m_upper;
         };
+        typedef obj_hashtable<expr> expr_set;
+
+        pb_util             pb;
+        expr_ref_vector     m_relax;           // index |-> expr
+        obj_map<expr, unsigned> m_relax2index; // expr |-> index
+        expr_ref_vector     m_trail;
+        expr_set            m_asm_set;
+        vector<wcore>       m_cores;
+        vector<rational>    m_sigmas;
+
+
+
+        void set2vector(expr_set const& set, expr_ref_vector & es) const {
+            es.reset();
+            expr_set::iterator it = set.begin(), end = set.end();
+            for (; it != end; ++it) {
+                es.push_back(*it);
+            }
+        }
+
+        void init() {
+            m_relax.reset();
+            m_trail.reset();
+            m_asm_set.reset();
+            m_cores.reset();
+            m_sigmas.reset();
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                m_relax.push_back(mk_fresh());
+                m_relax2index.insert(m_relax.back(), i);
+                m_sigmas.push_back(m_weights[i]);
+            }            
+        }
+
     public:
         bcd2(solver* s, ast_manager& m): 
-            maxsmt_solver_base(s, m) {}
+            maxsmt_solver_base(s, m),
+            pb(m),
+            m_relax(m),
+            m_trail(m) {}
 
         virtual ~bcd2() {}
 
 
         virtual lbool operator()() {
-            expr_ref fml(m), val(m);
-            app_ref r(m);
-            vector<wcore> cores;
-            obj_map<expr, unsigned> ans2core; // answer literal to core index
+            expr_ref fml(m), r(m);
+            init();
             lbool is_sat = l_undef;
-            expr_ref_vector rs(m), asms(m); 
-            vector<rational> sigmas(m_weights); // sigma_j := w_j if soft clause has not been satisfied
+            expr_ref_vector asms(m);
             bool first = true;
             init();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                r = m.mk_fresh_const("r", m.mk_bool_sort());
-                m_mc->insert(r->get_decl());                
-                fml = m.mk_or(m_soft[i].get(), r); 
+                fml = m.mk_implies(m_relax[i].get(), m_soft[i].get()); 
                 s().assert_expr(fml);               // does not get asserted in model-based mode.
-                rs.push_back(r);
-                asms.push_back(m.mk_not(r));
+                m_asm_set.insert(m_relax[i].get());
                 SASSERT(m_weights[i].is_int());     // TBD: re-normalize weights if non-integral.
             }
             m_upper += rational(1);                 // TBD: assuming integral weights
-            solver::scoped_push _s(s());
+            solver::scoped_push _scope1(s());
             while (m_lower < m_upper) {
-                solver::scoped_push __s(s());
+                solver::scoped_push _scope2(s());
+                assert_cores();
+                set2vector(m_asm_set, asms);                
                 if (m_cancel) {
                     return l_undef;
-                }
-                for (unsigned i = 0; i < cores.size(); ++i) {
-                    assert_core(cores[i]);
-                    NOT_IMPLEMENTED_YET();
-                    // need assumptions here as well.
                 }
                 is_sat = s().check_sat(asms.size(), asms.c_ptr());
                 switch(is_sat) {
@@ -157,78 +186,133 @@ namespace opt {
                 case l_true: {
                     s().get_model(m_model);
                     m_upper.reset();
-                    for (unsigned i = 0; i < m_soft.size(); ++i) {
-                        VERIFY(m_model->eval(m_soft[i].get(), val));                            
-                        m_assignment[i] = m.is_true(val);                            
-                    }
-                    for (unsigned i = 0; i < cores.size(); ++i) {
-                        wcore& c_i = cores[i];
-                        unsigned_vector const& R = c_i.m_R;
-                        c_i.m_upper.reset();
-                        for (unsigned j = 0; j <R.size(); ++j) {
-                            unsigned r_j = R[j];
-                            if (!m_assignment[r_j]) {
-                                c_i.m_upper += m_weights[r_j];
-                                sigmas[r_j] = m_weights[r_j];
-                            }
-                            else {
-                                sigmas[r_j].reset();
-                            }
-                        }
-                        c_i.m_mid = div(c_i.m_lower + c_i.m_upper, rational(2));
-                        m_upper += c_i.m_upper;
-                    }                    
+                    update_assignment();
+                    update_sigmas();
                     first = false;
                     break;
                 }
                 case l_false: {
-                    ptr_vector<expr> core;
+                    ptr_vector<expr> unsat_core;
                     uint_set subC, soft;
-                    rational delta(0), lower(0);
-                    wcore c_s;
-                    s().get_unsat_core(core);
-                    core2indices(core, ans2core, subC, soft);
-                    for (uint_set::iterator it = subC.begin(); it != subC.end(); ++it) {
-                        unsigned j = *it;
-                        c_s.m_R.push_back(j);
-                        lower += cores[j].m_lower;
-                        rational new_delta = rational(1) + cores[j].m_upper - cores[j].m_mid; 
-                        SASSERT(new_delta.is_pos());
-                        if (delta.is_zero() || delta > new_delta) {
-                            delta = new_delta;
-                        }
-                    }
+                    s().get_unsat_core(unsat_core);
+                    core2indices(unsat_core, subC, soft);
+                    SASSERT(unsat_core.size() == subC.num_elems() + soft.num_elems());
                     if (soft.num_elems() == 0 && subC.num_elems() == 1) {
-                        SASSERT(core.size() == 1);
                         unsigned s = *subC.begin();
-                        wcore& c_s = cores[s];
+                        wcore& c_s = m_cores[s];
                         c_s.m_lower = refine(c_s.m_R, c_s.m_mid);
                     }
                     else {
+                        wcore c_s;
+                        rational delta = min_of_delta(subC);
+                        rational lower = sum_of_lower(subC);
+                        union_Rs(subC, c_s.m_R);
+                        r = mk_fresh();
                         relax(subC, soft, c_s.m_R, delta);
                         c_s.m_lower = refine(c_s.m_R, lower + delta - rational(1));
-                        c_s.m_upper = rational(first?0:1);
-                        for (unsigned i = 0; i < c_s.m_R.size(); ++i) {
-                            c_s.m_upper += sigmas[c_s.m_R[i]];
-                        }
-                        c_s.m_mid   = div(c_s.m_lower + c_s.m_upper, rational(2));
-                        subtract(cores, subC);
-                        cores.push_back(c_s);
+                        c_s.m_upper = rational(first?1:0);
+                        c_s.m_upper += sum_of_sigmas(c_s.m_R);
+                        c_s.m_mid = div(c_s.m_lower + c_s.m_upper, rational(2));
+                        c_s.m_r = r;
+                        m_asm_set.insert(r);
+                        subtract(m_cores, subC);
+                        m_cores.push_back(c_s);
                     }
                     break;
                 }
                 }
-                m_lower = compute_lower(cores);
+                m_lower = compute_lower();
             }
             return is_sat;
         }
 
 
     private:
-        rational compute_lower(vector<wcore> const& cores) {
+
+        expr* mk_fresh() {
+            app_ref r(m);
+            r = m.mk_fresh_const("r", m.mk_bool_sort());
+            m_trail.push_back(r);
+            m_mc->insert(r->get_decl());                
+            return r;
+        }
+
+        void update_assignment() {
+            expr_ref val(m);
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                VERIFY(m_model->eval(m_soft[i].get(), val));                            
+                m_assignment[i] = m.is_true(val);                            
+            }
+        }
+
+        void update_sigmas() {
+            for (unsigned i = 0; i < m_cores.size(); ++i) {
+                wcore& c_i = m_cores[i];
+                unsigned_vector const& R = c_i.m_R;
+                c_i.m_upper.reset();
+                for (unsigned j = 0; j < R.size(); ++j) {
+                    unsigned r_j = R[j];
+                    if (!m_assignment[r_j]) {
+                        c_i.m_upper += m_weights[r_j];
+                        m_sigmas[r_j] = m_weights[r_j];
+                    }
+                    else {
+                        m_sigmas[r_j].reset();
+                    }
+                }
+                c_i.m_mid = div(c_i.m_lower + c_i.m_upper, rational(2));
+                m_upper += c_i.m_upper;
+            }
+        }
+
+        /**
+         * Minimum of two (positive) numbers. Zero is treated as +infinity.
+         */
+        rational min_z(rational const& a, rational const& b) {
+            if (a.is_zero()) return b;
+            if (b.is_zero()) return a;
+            if (a < b) return a;
+            return b;
+        }
+
+        rational min_of_delta(uint_set const& subC) {
+            rational delta(0);
+            for (uint_set::iterator it = subC.begin(); it != subC.end(); ++it) {
+                unsigned j = *it;
+                wcore const& core = m_cores[j];
+                rational new_delta = rational(1) + core.m_upper - core.m_mid; 
+                SASSERT(new_delta.is_pos());
+                delta = min_z(delta, new_delta);                
+            }
+            return delta;
+        }
+
+        rational sum_of_lower(uint_set const& subC) {
+            rational lower(0);
+            for (uint_set::iterator it = subC.begin(); it != subC.end(); ++it) {
+                lower += m_cores[*it].m_lower;
+            }
+            return lower;
+        }
+
+        rational sum_of_sigmas(unsigned_vector const& R) {
+            rational sum(0);
+            for (unsigned i = 0; i < R.size(); ++i) {
+                sum += m_sigmas[R[i]];
+            }
+            return sum;
+        }
+
+        void union_Rs(uint_set const& subC, unsigned_vector& R) {
+            for (uint_set::iterator it = subC.begin(); it != subC.end(); ++it) {
+                R.append(m_cores[*it].m_R);
+            }
+        }
+
+        rational compute_lower() {
             rational result(0);
-            for (unsigned i = 0; i < cores.size(); ++i) {
-                result += cores[i].m_lower;
+            for (unsigned i = 0; i < m_cores.size(); ++i) {
+                result += m_cores[i].m_lower;
             }
             return result;
         }
@@ -242,19 +326,21 @@ namespace opt {
                     }
                     ++j;
                 }
+                else {
+                    m_asm_set.remove(cores[i].m_r);
+                }
             }
             cores.resize(j);
         }
 
         void core2indices(
             ptr_vector<expr> const& core, 
-            obj_map<expr, unsigned> const& ans2core,
             uint_set& subC,
             uint_set& soft) 
         {
             for (unsigned i = 0; i < core.size(); ++i) {
                 unsigned j;
-                if (ans2core.find(core[i], j)) {
+                if (m_relax2index.find(core[i], j)) {
                     subC.insert(j);
                 }
                 else {
@@ -268,9 +354,18 @@ namespace opt {
         }
 
         void relax(uint_set& subC, uint_set& soft, unsigned_vector& R, rational& delta) {
-            NOT_IMPLEMENTED_YET();
+            for (uint_set::iterator it = soft.begin(); it != soft.end(); ++it) {
+                R.push_back(*it);
+                delta = min_z(delta, m_weights[*it]);
+                m_asm_set.remove(m_relax[*it].get());
+            }
         }
 
+        void assert_cores() {
+            for (unsigned i = 0; i < m_cores.size(); ++i) {
+                assert_core(m_cores[i]);
+            }
+        }
         void assert_core(wcore const& core) {
             expr_ref fml(m);
             vector<rational> ws;
@@ -280,8 +375,8 @@ namespace opt {
                 ws.push_back(m_weights[idx]);
                 rs.push_back(m_soft[idx].get());   // TBD: check
             }
-            // TBD: fml = pb.mk_le(ws.size(), ws.c_ptr(), rs.c_ptr(), core.m_mid);
-            NOT_IMPLEMENTED_YET();
+            fml = pb.mk_le(ws.size(), ws.c_ptr(), rs.c_ptr(), core.m_mid);
+            fml = m.mk_implies(core.m_r, fml);
             s().assert_expr(fml);
         }
     };
@@ -1033,7 +1128,6 @@ namespace opt {
         void updt_params(params_ref& p) {
             opt_params _p(p);
             m_engine = _p.wmaxsat_engine();        
-            std::cout << m_engine << "\n";
             m_maxsmt = 0;
         }
     };
