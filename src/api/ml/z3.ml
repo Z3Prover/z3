@@ -1482,7 +1482,7 @@ struct
 
     let get_big_int ( x : expr ) = 
       if (is_int_numeral x) then 
-	let s = to_string(x) in
+	let s = (Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)) in
 	(Big_int.big_int_of_string s)
       else raise (Z3native.Exception "Conversion failed.")
 	
@@ -1526,7 +1526,7 @@ struct
 	
     let get_ratio ( x : expr ) = 
       if (is_rat_numeral x)  then
-	let s = to_string(x) in
+	let s = (Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)) in
 	(Ratio.ratio_of_string s)
       else raise (Z3native.Exception "Conversion failed.")
 
