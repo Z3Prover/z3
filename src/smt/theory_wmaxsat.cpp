@@ -29,8 +29,6 @@ theory_wmaxsat::theory_wmaxsat(ast_manager& m, ref<filter_model_converter>& mc):
     m_mc(mc),
     m_vars(m),
     m_fmls(m),
-    m_min_cost_atom(m),
-    m_min_cost_atoms(m),
     m_zweights(m_mpz),
     m_old_values(m_mpz),
     m_zcost(m_mpz),
@@ -138,21 +136,6 @@ rational const& theory_wmaxsat::get_min_cost() {
     return m_rmin_cost; 
 }
 
-expr* theory_wmaxsat::set_min_cost(rational const& c) { 
-    m_normalize = true;
-    ast_manager& m = get_manager();
-    std::ostringstream strm;
-    strm << "cost <= " << c;
-    m_rmin_cost = c; 
-    m_min_cost_atom = m.mk_fresh_const(strm.str().c_str(), m.mk_bool_sort());
-    m_min_cost_atoms.push_back(m_min_cost_atom);
-    m_mc->insert(m_min_cost_atom->get_decl());
-            
-    m_min_cost_bv = register_var(m_min_cost_atom, false);
-    
-    return m_min_cost_atom;
-}
-
 void theory_wmaxsat::assign_eh(bool_var v, bool is_true) {
     TRACE("opt", tout << "Assign " << mk_pp(m_vars[m_bool2var[v]].get(), get_manager()) << " " << is_true << "\n";);
     if (is_true) {
@@ -194,8 +177,6 @@ void theory_wmaxsat::reset_eh() {
     m_cost_save.reset();
     m_bool2var.reset();
     m_var2bool.reset();
-    m_min_cost_atom = 0;
-    m_min_cost_atoms.reset();
     m_propagate = false;
     m_found_optimal = false;
     m_assigned.reset();
@@ -230,9 +211,6 @@ expr_ref theory_wmaxsat::mk_block() {
     for (unsigned i = 0; i < costs.size() && m_mpz.lt(weight, m_zmin_cost); ++i) {
         weight += m_zweights[costs[i]];
         disj.push_back(m.mk_not(m_vars[costs[i]].get()));
-    }
-    if (m_min_cost_atom) {
-        disj.push_back(m.mk_not(m_min_cost_atom));
     }
     if (is_optimal()) {
         unsynch_mpq_manager mgr;
@@ -272,9 +250,6 @@ expr_ref theory_wmaxsat::mk_optimal_block(svector<bool_var> const& ws, rational 
         m_cost_save.push_back(v);
         disj.push_back(m.mk_not(m_vars[v].get()));
     }
-    if (m_min_cost_atom) {
-        disj.push_back(m.mk_not(m_min_cost_atom));
-    }
     expr_ref result(m.mk_or(disj.size(), disj.c_ptr()), m);
     return result;
 }
@@ -296,9 +271,6 @@ void theory_wmaxsat::block() {
     for (unsigned i = 0; i < costs.size() && weight < m_zmin_cost; ++i) {
         weight += m_zweights[costs[i]];
         lits.push_back(~literal(m_var2bool[costs[i]]));
-    }
-    if (m_min_cost_atom) {
-        lits.push_back(~literal(m_min_cost_bv));
     }
     TRACE("opt",
           tout << "block: ";

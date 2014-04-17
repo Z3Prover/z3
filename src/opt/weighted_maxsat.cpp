@@ -778,92 +778,8 @@ namespace opt {
             }
         }
     };
-    /**
-       Iteratively increase cost until there is an assignment during
-       final_check that satisfies min_cost.
-       
-       Takes: log (n / log(n)) iterations
-    */        
-    class iwmax : public maxsmt_solver_wbase {
-    public:
 
-        iwmax(solver* s, ast_manager& m, smt::context& ctx): maxsmt_solver_wbase(s, m, ctx) {}
-        virtual ~iwmax() {}
 
-        lbool operator()() {
-            scoped_ensure_theory wth(*this);
-            solver::scoped_push _s(s());
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                wth().assert_weighted(m_soft[i].get(), m_weights[i]);
-            }
-            solver::scoped_push __s(s());
-            rational cost = wth().get_min_cost();
-            rational log_cost(1), tmp(1);
-            while (tmp < cost) {
-                ++log_cost;
-                tmp *= rational(2);
-            }
-            expr_ref_vector bounds(m);
-            expr_ref bound(m);
-            lbool result = l_false;
-            unsigned nsc = 0;
-            m_upper = cost;
-            while (result == l_false) {
-                bound = wth().set_min_cost(log_cost);
-                s().push();
-                ++nsc;
-                IF_VERBOSE(1, verbose_stream() << "(wmaxsat.iwmax min cost: " << log_cost << ")\n";);
-                TRACE("opt", tout << "cost: " << log_cost << " " << bound << "\n";);
-                bounds.push_back(bound);
-                result = conditional_solve(bound);
-                if (result == l_false) {
-                    m_lower = log_cost;        
-                }
-                if (log_cost > cost) {
-                    break;
-                }
-                log_cost *= rational(2);
-                if (m_cancel) {
-                    result = l_undef;
-                }
-            }
-            s().pop(nsc);
-            return result;
-        }
-    private:
-        lbool conditional_solve(expr* cond) {
-            IF_VERBOSE(1, verbose_stream() << "(wmaxsat.conditional solve)\n";);
-            smt::theory_wmaxsat& wth = *get_theory();
-            bool was_sat = false;
-            lbool is_sat = l_true;
-            while (l_true == is_sat) {
-                is_sat = s().check_sat(1,&cond);
-                if (m_cancel) {
-                    is_sat = l_undef;
-                }
-                if (is_sat == l_true) {
-                    if (wth.is_optimal()) {
-                        s().get_model(m_model);
-                        was_sat = true;
-                    }
-                    expr_ref fml = wth.mk_block();
-                    s().assert_expr(fml);
-                }
-            }
-            if (was_sat) {
-                wth.get_assignment(m_assignment);
-            }
-            if (is_sat == l_false && was_sat) {
-                is_sat = l_true;
-            }
-            if (is_sat == l_true) {
-                m_lower = m_upper = wth.get_min_cost();
-            }
-            TRACE("opt", tout << "min cost: " << m_upper << "\n";);
-            return is_sat;            
-        }
-
-    };
 
     class wmax : public maxsmt_solver_wbase {
     public:
@@ -914,19 +830,21 @@ namespace opt {
     };
 
     class bvmax : public maxsmt_solver_base {
-        solver* mk_sat_solver(solver* s) {
+        solver* mk_sat_solver() {
             tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
             tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
             tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
             solver* sat_solver = mk_tactic2solver(m, tac.get(), m_params);
-            unsigned sz = s->get_num_assertions();
+            unsigned sz = s().get_num_assertions();
             for (unsigned i = 0; i < sz; ++i) {
-                sat_solver->assert_expr(s->get_assertion(i));
+                sat_solver->assert_expr(s().get_assertion(i));
             }   
             return sat_solver;
         }
     public:
-        bvmax(solver* s, ast_manager& m): maxsmt_solver_base(mk_sat_solver(s), m) {}
+        bvmax(solver* s, ast_manager& m): maxsmt_solver_base(s, m) {
+            m_s = mk_sat_solver();
+        }
         virtual ~bvmax() {}
 
         //
@@ -1058,9 +976,6 @@ namespace opt {
             if (m_maxsmt) {
                 return *m_maxsmt;
             }
-            if (m_engine == symbol("iwmax")) {
-                m_maxsmt = alloc(iwmax, s.get(), m, s->get_context());
-            }
             else if (m_engine == symbol("pwmax")) {
                 m_maxsmt = alloc(pwmax, s.get(), m);
             }
@@ -1118,6 +1033,7 @@ namespace opt {
         void updt_params(params_ref& p) {
             opt_params _p(p);
             m_engine = _p.wmaxsat_engine();        
+            std::cout << m_engine << "\n";
             m_maxsmt = 0;
         }
     };
@@ -1159,6 +1075,92 @@ namespace opt {
 
 
 #if 0
+
+    /**
+       Iteratively increase cost until there is an assignment during
+       final_check that satisfies min_cost.
+       
+       Takes: log (n / log(n)) iterations
+    */        
+    class iwmax : public maxsmt_solver_wbase {
+    public:
+        
+        iwmax(solver* s, ast_manager& m, smt::context& ctx): maxsmt_solver_wbase(s, m, ctx) {}
+        virtual ~iwmax() {}
+        
+        lbool operator()() {
+            pb_util 
+            solver::scoped_push _s(s());
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                wth().assert_weighted(m_soft[i].get(), m_weights[i]);
+            }
+            solver::scoped_push __s(s());
+            rational cost = wth().get_min_cost();
+            rational log_cost(1), tmp(1);
+            while (tmp < cost) {
+                ++log_cost;
+                tmp *= rational(2);
+            }
+            expr_ref_vector bounds(m);
+            expr_ref bound(m);
+            lbool result = l_false;
+            unsigned nsc = 0;
+            m_upper = cost;
+            while (result == l_false) {
+                bound = wth().set_min_cost(log_cost);
+                s().push();
+                ++nsc;
+                IF_VERBOSE(1, verbose_stream() << "(wmaxsat.iwmax min cost: " << log_cost << ")\n";);
+                TRACE("opt", tout << "cost: " << log_cost << " " << bound << "\n";);
+                bounds.push_back(bound);
+                result = conditional_solve(wth(), bound);
+                if (result == l_false) {
+                    m_lower = log_cost;        
+                }
+                if (log_cost > cost) {
+                    break;
+                }
+                log_cost *= rational(2);
+                if (m_cancel) {
+                    result = l_undef;
+                }
+            }
+            s().pop(nsc);
+            return result;
+        }
+    private:
+        lbool conditional_solve(smt::theory_wmaxsat& wth, expr* cond) {
+            bool was_sat = false;
+            lbool is_sat = l_true;
+            while (l_true == is_sat) {
+                is_sat = s().check_sat(1,&cond);
+                if (m_cancel) {
+                    is_sat = l_undef;
+                }
+                if (is_sat == l_true) {
+                    if (wth.is_optimal()) {
+                        s().get_model(m_model);
+                        was_sat = true;
+                    }
+                    expr_ref fml = wth.mk_block();
+                    s().assert_expr(fml);
+                }
+            }
+            if (was_sat) {
+                wth.get_assignment(m_assignment);
+            }
+            if (is_sat == l_false && was_sat) {
+                is_sat = l_true;
+            }
+            if (is_sat == l_true) {
+                m_lower = m_upper = wth.get_min_cost();
+            }
+            TRACE("opt", tout << "min cost: " << m_upper << " sat: " << is_sat << "\n";);
+            return is_sat;            
+        }
+
+    };
+
         // ------------------------------------------------------
         // Version from CP'13        
         lbool wpm2b_solve() {

@@ -126,6 +126,15 @@ namespace opt {
         }
     }
 
+    void maxsmt::add(expr* f, rational const& w) {
+        TRACE("opt", tout << mk_pp(f, m) << " weight: " << w << "\n";);
+        SASSERT(m.is_bool(f));
+        SASSERT(w.is_pos());
+        m_soft_constraints.push_back(f);
+        m_weights.push_back(w);
+        m_upper += w;
+    }
+
     void maxsmt::display_answer(std::ostream& out) const {
         for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
             out << mk_pp(m_soft_constraints[i], m)

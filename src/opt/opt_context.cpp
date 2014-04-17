@@ -547,6 +547,10 @@ namespace opt {
 
 
     void context::from_fmls(expr_ref_vector const& fmls) {
+        TRACE("opt",
+              for (unsigned i = 0; i < fmls.size(); ++i) {
+                  tout << mk_pp(fmls[i], m) << "\n";
+              });
         m_hard_constraints.reset();
         expr* orig_term;
         for (unsigned i = 0; i < fmls.size(); ++i) {
@@ -607,6 +611,10 @@ namespace opt {
                 break;
             }
         }
+        TRACE("opt",
+              for (unsigned i = 0; i < fmls.size(); ++i) {
+                  tout << mk_pp(fmls[i].get(), m) << "\n";
+              });
     }
 
     void context::internalize() {
@@ -669,6 +677,11 @@ namespace opt {
             }
         }
     }
+
+    void context::display(std::ostream& out) {
+        
+    }
+
 
     void context::display_assignment(std::ostream& out) {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {

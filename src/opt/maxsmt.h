@@ -64,14 +64,7 @@ namespace opt {
 
         void updt_params(params_ref& p);
 
-        void add(expr* f, rational const& w) {
-            SASSERT(m.is_bool(f));
-            SASSERT(w.is_pos());
-            m_soft_constraints.push_back(f);
-            m_weights.push_back(w);
-            m_upper += w;
-        }
-
+        void add(expr* f, rational const& w); 
         unsigned size() const { return m_soft_constraints.size(); }
         expr* operator[](unsigned idx) const { return m_soft_constraints[idx]; }
         rational weight(unsigned idx) const { return m_weights[idx]; }

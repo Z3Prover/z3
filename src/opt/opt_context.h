@@ -123,6 +123,7 @@ namespace opt {
         virtual std::string reason_unknown() const { return std::string("unknown"); }
 
         virtual void display_assignment(std::ostream& out);
+        void display(std::ostream& out);
         static void collect_param_descrs(param_descrs & r);
         void updt_params(params_ref& p);
 

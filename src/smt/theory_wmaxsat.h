@@ -32,9 +32,6 @@ namespace smt {
         mutable unsynch_mpz_manager m_mpz;
         app_ref_vector           m_vars;        // Auxiliary variables per soft clause
         expr_ref_vector          m_fmls;        // Formulas per soft clause
-        app_ref                  m_min_cost_atom; // atom tracking modified lower bound
-        app_ref_vector           m_min_cost_atoms;
-        bool_var                 m_min_cost_bv; // max cost Boolean variable
         vector<rational>         m_rweights;    // weights of theory variables.
         scoped_mpz_vector        m_zweights;
         scoped_mpz_vector        m_old_values;
@@ -60,7 +57,6 @@ namespace smt {
         bool_var assert_weighted(expr* fml, rational const& w);
         bool_var register_var(app* var, bool attach);
         rational const& get_min_cost();
-        expr* set_min_cost(rational const& c);
         class numeral_trail : public trail<context> {
             typedef scoped_mpz T;
             T & m_value;
