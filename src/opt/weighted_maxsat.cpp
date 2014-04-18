@@ -73,7 +73,7 @@ namespace opt {
             m_params = p;
             s().updt_params(p);
         }       
-        void init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
+        virtual void init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
             m_weights.reset();
             m_soft.reset();
             m_weights.append(weights);
@@ -117,14 +117,14 @@ namespace opt {
         typedef obj_hashtable<expr> expr_set;
 
         pb_util             pb;
-        expr_ref_vector     m_relax;           // index |-> expr
+        expr_ref_vector     m_soft_aux;
         obj_map<expr, unsigned> m_relax2index; // expr |-> index
+        obj_map<expr, unsigned> m_soft2index;  // expr |-> index
         expr_ref_vector     m_trail;
         expr_set            m_asm_set;
         vector<wcore>       m_cores;
         vector<rational>    m_sigmas;
-
-
+        rational            m_den;    // least common multiplier of original denominators 
 
         void set2vector(expr_set const& set, expr_ref_vector & es) const {
             es.reset();
@@ -133,16 +133,27 @@ namespace opt {
                 es.push_back(*it);
             }
         }
+        virtual void init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
+            maxsmt_solver_base::init_soft(weights, soft);
 
-        void init() {
-            m_relax.reset();
+            // normalize weights to be integral:
+            m_den = rational::one();
+            for (unsigned i = 0; i < m_weights.size(); ++i) {
+                m_den = lcm(m_den, denominator(m_weights[i]));
+            }
+            if (!m_den.is_one()) {
+                for (unsigned i = 0; i < m_weights.size(); ++i) {
+                    m_weights[i] = m_den*m_weights[i];
+                    SASSERT(m_weights[i].is_int());
+                }                
+            }
+        }
+        void init_bcd() {
             m_trail.reset();
             m_asm_set.reset();
             m_cores.reset();
             m_sigmas.reset();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_relax.push_back(mk_fresh());
-                m_relax2index.insert(m_relax.back(), i);
                 m_sigmas.push_back(m_weights[i]);
             }            
         }
@@ -151,8 +162,9 @@ namespace opt {
         bcd2(solver* s, ast_manager& m): 
             maxsmt_solver_base(s, m),
             pb(m),
-            m_relax(m),
-            m_trail(m) {}
+            m_soft_aux(m),
+            m_trail(m) {
+        }
 
         virtual ~bcd2() {}
 
@@ -160,28 +172,34 @@ namespace opt {
         virtual lbool operator()() {
             expr_ref fml(m), r(m);
             init();
+            init_bcd();
             lbool is_sat = l_undef;
             expr_ref_vector asms(m);
             bool first = true;
-            init();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                fml = m.mk_implies(m_relax[i].get(), m_soft[i].get()); 
+                r = mk_fresh();
+                m_soft2index.insert(r, m_soft_aux.size());
+                m_soft_aux.push_back(r);
+                fml = m.mk_implies(r, m_soft[i].get()); 
                 s().assert_expr(fml);               // does not get asserted in model-based mode.
-                m_asm_set.insert(m_relax[i].get());
-                SASSERT(m_weights[i].is_int());     // TBD: re-normalize weights if non-integral.
+                m_asm_set.insert(r);
+                SASSERT(m_weights[i].is_int());     
             }
-            m_upper += rational(1);                 // TBD: assuming integral weights
+            m_upper += rational(1);                 
             solver::scoped_push _scope1(s());
             while (m_lower < m_upper) {
                 solver::scoped_push _scope2(s());
+                TRACE("opt", display(tout););
                 assert_cores();
                 set2vector(m_asm_set, asms);                
                 if (m_cancel) {
+                    normalize_bounds();
                     return l_undef;
                 }
                 is_sat = s().check_sat(asms.size(), asms.c_ptr());
                 switch(is_sat) {
                 case l_undef: 
+                    normalize_bounds();
                     return l_undef;
                 case l_true: {
                     s().get_model(m_model);
@@ -216,6 +234,7 @@ namespace opt {
                         c_s.m_r = r;
                         m_asm_set.insert(r);
                         subtract(m_cores, subC);
+                        m_relax2index.insert(r, m_cores.size());
                         m_cores.push_back(c_s);
                     }
                     break;
@@ -223,11 +242,22 @@ namespace opt {
                 }
                 m_lower = compute_lower();
             }
-            return is_sat;
+            normalize_bounds();
+            if (first) {
+                return is_sat;
+            }
+            else {
+                return l_true;
+            }
         }
 
 
     private:
+
+        void normalize_bounds() {
+            m_lower /= m_den;
+            m_upper /= m_den;
+        }
 
         expr* mk_fresh() {
             app_ref r(m);
@@ -302,13 +332,11 @@ namespace opt {
             }
             return sum;
         }
-
         void union_Rs(uint_set const& subC, unsigned_vector& R) {
             for (uint_set::iterator it = subC.begin(); it != subC.end(); ++it) {
                 R.append(m_cores[*it].m_R);
             }
         }
-
         rational compute_lower() {
             rational result(0);
             for (unsigned i = 0; i < m_cores.size(); ++i) {
@@ -316,51 +344,43 @@ namespace opt {
             }
             return result;
         }
-
         void subtract(vector<wcore>& cores, uint_set const& subC) {
             unsigned j = 0;                        
             for (unsigned i = 0; i < cores.size(); ++i) {
-                if (!subC.contains(i)) {
+                if (subC.contains(i)) {
+                    m_asm_set.remove(cores[i].m_r);
+                }
+                else {
                     if (j != i) {
                         cores[j] = cores[i];
                     }
                     ++j;
                 }
-                else {
-                    m_asm_set.remove(cores[i].m_r);
-                }
             }
             cores.resize(j);
         }
-
-        void core2indices(
-            ptr_vector<expr> const& core, 
-            uint_set& subC,
-            uint_set& soft) 
-        {
+        void core2indices(ptr_vector<expr> const& core, uint_set& subC, uint_set& soft) {
             for (unsigned i = 0; i < core.size(); ++i) {
                 unsigned j;
                 if (m_relax2index.find(core[i], j)) {
                     subC.insert(j);
                 }
                 else {
-                    soft.insert(i);
+                    VERIFY(m_soft2index.find(core[i], j));
+                    soft.insert(j);
                 }
             }
-        }
-            
+        }            
         rational refine(unsigned_vector const& idx, rational v) {
             return v + rational(1);
         }
-
         void relax(uint_set& subC, uint_set& soft, unsigned_vector& R, rational& delta) {
-            for (uint_set::iterator it = soft.begin(); it != soft.end(); ++it) {
+            for (uint_set::iterator it = soft.begin(); it != soft.end(); ++it) {                
                 R.push_back(*it);
                 delta = min_z(delta, m_weights[*it]);
-                m_asm_set.remove(m_relax[*it].get());
+                m_asm_set.remove(m_soft_aux[*it].get());
             }
         }
-
         void assert_cores() {
             for (unsigned i = 0; i < m_cores.size(); ++i) {
                 assert_core(m_cores[i]);
@@ -378,6 +398,22 @@ namespace opt {
             fml = pb.mk_le(ws.size(), ws.c_ptr(), rs.c_ptr(), core.m_mid);
             fml = m.mk_implies(core.m_r, fml);
             s().assert_expr(fml);
+        }
+        void display(std::ostream& out) {
+            out << "[" << m_lower << ":" << m_upper << "]\n";
+            s().display(out);
+            out << "\n";
+            for (unsigned i = 0; i < m_cores.size(); ++i) {
+                wcore const& c = m_cores[i];
+                out << mk_pp(c.m_r, m) << ": ";
+                for (unsigned j = 0; j < c.m_R.size(); ++j) {
+                    out << c.m_R[j] << " (" << m_sigmas[c.m_R[j]] << ") ";
+                }
+                out << "[" << c.m_lower << ":" << c.m_mid << ":" << c.m_upper << "]\n";
+            }
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                out << mk_pp(m_soft[i].get(), m) << " " << m_weights[i] << "\n";
+            }
         }
     };
 
@@ -1080,6 +1116,9 @@ namespace opt {
             else if (m_engine == symbol("wpm2")) {
                 maxsmt_solver_base* s2 = alloc(pb_simplify_solve, s.get(), m);
                 m_maxsmt = alloc(wpm2, s.get(), m, s2);
+            }
+            else if (m_engine == symbol("bcd2")) {
+                m_maxsmt = alloc(bcd2, s.get(), m);
             }
             else if (m_engine == symbol("bvsls")) {
                 m_maxsmt = alloc(bvsls, s.get(), m);

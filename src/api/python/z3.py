@@ -6333,7 +6333,7 @@ class Optimize(Z3PPObject):
 	if not isinstance(weight, str):
 	    raise Z3Exception("weight should be a string or an integer")
 	if id == None:
-	    id = 0
+	    id = ""
 	id = to_symbol(id, self.ctx)
 	v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, arg.as_ast(), weight, id)
 	return OptimizeObjective(v)

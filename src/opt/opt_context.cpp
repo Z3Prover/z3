@@ -431,7 +431,7 @@ namespace opt {
                 if (m.is_true(arg)) {
 
                 }
-                else if (false && m.is_false(arg)) {
+                else if (m.is_false(arg)) {
                     offset += m_objectives[index].m_weights[i];
                 }
                 else {
