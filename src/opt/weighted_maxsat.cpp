@@ -37,6 +37,7 @@ Notes:
 #include "tactic2solver.h"
 #include "bvsls_opt_engine.h"
 #include "nnf_tactic.h"
+#include "opt_sls_solver.h"
 
 namespace opt {
 
@@ -125,12 +126,14 @@ namespace opt {
         vector<wcore>       m_cores;
         vector<rational>    m_sigmas;
         rational            m_den;    // least common multiplier of original denominators 
+        bool                m_enable_lazy;   // enable adding soft constraints lazily (called 'mgbcd2')
+        unsigned_vector     m_lazy_soft;     // soft constraints to add lazily.
 
-        void set2vector(expr_set const& set, expr_ref_vector & es) const {
+        void set2asms(expr_set const& set, expr_ref_vector & es) const {
             es.reset();
             expr_set::iterator it = set.begin(), end = set.end();
             for (; it != end; ++it) {
-                es.push_back(*it);
+                es.push_back(m.mk_not(*it));
             }
         }
         virtual void init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
@@ -153,9 +156,18 @@ namespace opt {
             m_asm_set.reset();
             m_cores.reset();
             m_sigmas.reset();
+            m_lazy_soft.reset();
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 m_sigmas.push_back(m_weights[i]);
-            }            
+                m_soft_aux.push_back(mk_fresh());
+                if (m_enable_lazy) {
+                    m_lazy_soft.push_back(i);
+                }
+                else {
+                    enable_soft_constraint(i);
+                }
+            }
+            m_upper += rational(1);                 
         }
 
     public:
@@ -163,7 +175,8 @@ namespace opt {
             maxsmt_solver_base(s, m),
             pb(m),
             m_soft_aux(m),
-            m_trail(m) {
+            m_trail(m),
+            m_enable_lazy(false) {
         }
 
         virtual ~bcd2() {}
@@ -171,27 +184,18 @@ namespace opt {
 
         virtual lbool operator()() {
             expr_ref fml(m), r(m);
-            init();
-            init_bcd();
             lbool is_sat = l_undef;
             expr_ref_vector asms(m);
             bool first = true;
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                r = mk_fresh();
-                m_soft2index.insert(r, m_soft_aux.size());
-                m_soft_aux.push_back(r);
-                fml = m.mk_implies(r, m_soft[i].get()); 
-                s().assert_expr(fml);               // does not get asserted in model-based mode.
-                m_asm_set.insert(r);
-                SASSERT(m_weights[i].is_int());     
-            }
-            m_upper += rational(1);                 
             solver::scoped_push _scope1(s());
+            init();
+            init_bcd();
             while (m_lower < m_upper) {
+                IF_VERBOSE(1, verbose_stream() << "(wmaxsat.bcd2 [" << m_lower << ":" << m_upper << "])\n";);
                 solver::scoped_push _scope2(s());
                 TRACE("opt", display(tout););
                 assert_cores();
-                set2vector(m_asm_set, asms);                
+                set2asms(m_asm_set, asms);                
                 if (m_cancel) {
                     normalize_bounds();
                     return l_undef;
@@ -202,11 +206,12 @@ namespace opt {
                     normalize_bounds();
                     return l_undef;
                 case l_true: {
-                    s().get_model(m_model);
-                    m_upper.reset();
-                    update_assignment();
-                    update_sigmas();
+                    svector<bool> assignment;
+                    update_assignment(assignment);
                     first = false;
+                    if (check_lazy_soft(assignment)) {
+                        update_sigmas();
+                    }
                     break;
                 }
                 case l_false: {
@@ -254,6 +259,31 @@ namespace opt {
 
     private:
 
+        void enable_soft_constraint(unsigned i) {
+            expr_ref fml(m);
+            expr* r = m_soft_aux[i].get();
+            m_soft2index.insert(r, i);
+            fml = m.mk_or(r, m_soft[i].get()); 
+            s().assert_expr(fml); 
+            m_asm_set.insert(r);
+            SASSERT(m_weights[i].is_int());     
+        }
+
+        bool check_lazy_soft(svector<bool> const& assignment) {
+            bool all_satisfied = true;
+            for (unsigned i = 0; i < m_lazy_soft.size(); ++i) {
+                unsigned j = m_lazy_soft[i];
+                if (!assignment[j]) {
+                    enable_soft_constraint(j);
+                    m_lazy_soft[i] = m_lazy_soft.back();
+                    m_lazy_soft.pop_back();
+                    --i;
+                    all_satisfied = false;
+                }
+            }
+            return all_satisfied;
+        }
+
         void normalize_bounds() {
             m_lower /= m_den;
             m_upper /= m_den;
@@ -267,11 +297,24 @@ namespace opt {
             return r;
         }
 
-        void update_assignment() {
+        void update_assignment(svector<bool>& new_assignment) {
             expr_ref val(m);
+            rational new_upper(0);
+            model_ref model;            
+            new_assignment.reset();
+            s().get_model(model);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                VERIFY(m_model->eval(m_soft[i].get(), val));                            
-                m_assignment[i] = m.is_true(val);                            
+                VERIFY(model->eval(m_soft[i].get(), val));    
+                new_assignment.push_back(m.is_true(val));                            
+                if (!new_assignment[i]) {
+                    new_upper += m_weights[i];
+                }
+            }
+            if (new_upper < m_upper) {
+                m_upper = new_upper;
+                m_model = model;
+                m_assignment.reset();
+                m_assignment.append(new_assignment);
             }
         }
 
@@ -291,7 +334,6 @@ namespace opt {
                     }
                 }
                 c_i.m_mid = div(c_i.m_lower + c_i.m_upper, rational(2));
-                m_upper += c_i.m_upper;
             }
         }
 
@@ -362,11 +404,13 @@ namespace opt {
         void core2indices(ptr_vector<expr> const& core, uint_set& subC, uint_set& soft) {
             for (unsigned i = 0; i < core.size(); ++i) {
                 unsigned j;
-                if (m_relax2index.find(core[i], j)) {
+                expr* a;
+                VERIFY(m.is_not(core[i], a));
+                if (m_relax2index.find(a, j)) {
                     subC.insert(j);
                 }
                 else {
-                    VERIFY(m_soft2index.find(core[i], j));
+                    VERIFY(m_soft2index.find(a, j));
                     soft.insert(j);
                 }
             }
@@ -393,10 +437,10 @@ namespace opt {
             for (unsigned j = 0; j < core.m_R.size(); ++j) {
                 unsigned idx = core.m_R[j];
                 ws.push_back(m_weights[idx]);
-                rs.push_back(m_soft[idx].get());   // TBD: check
+                rs.push_back(m_soft_aux[idx].get());   // TBD: check
             }
             fml = pb.mk_le(ws.size(), ws.c_ptr(), rs.c_ptr(), core.m_mid);
-            fml = m.mk_implies(core.m_r, fml);
+            fml = m.mk_or(core.m_r, fml);
             s().assert_expr(fml);
         }
         void display(std::ostream& out) {
@@ -1112,6 +1156,9 @@ namespace opt {
             }
             else if (m_engine == symbol("bvmax")) {
                 m_maxsmt = alloc(bvmax, s.get(), m);
+            }
+            else if (m_engine == symbol("pb")) {
+                m_maxsmt = alloc(pb_simplify_solve, s.get(), m);
             }
             else if (m_engine == symbol("wpm2")) {
                 maxsmt_solver_base* s2 = alloc(pb_simplify_solve, s.get(), m);
