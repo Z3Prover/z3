@@ -75,7 +75,7 @@ namespace opt {
         virtual void collect_statistics(statistics& st) const { }
         virtual void get_model(model_ref& mdl) { mdl = m_model.get(); }
         virtual void updt_params(params_ref& p) {
-            m_params = p;
+            m_params.copy(p);
             s().updt_params(p);
             opt_params _p(p);
             m_enable_sat = _p.enable_sat();

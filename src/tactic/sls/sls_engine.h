@@ -27,6 +27,7 @@ Notes:
 #include"sls_compilation_settings.h"
 #include"sls_tracker.h"
 #include"sls_evaluator.h"
+#include"statistics.h"
 
 class sls_engine {
 public:
@@ -96,7 +97,8 @@ public:
 
     void assert_expr(expr * e) { m_assertions.push_back(e); }
 
-    stats const & get_stats(void) { return m_stats; }
+    // stats const & get_stats(void) { return m_stats; }
+    void collect_statistics(statistics & st) const;
     void reset_statistics(void) { m_stats.reset(); }    
 
     bool full_eval(model & mdl);

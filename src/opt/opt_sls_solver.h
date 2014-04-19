@@ -28,16 +28,17 @@ namespace opt {
     class sls_solver : public solver_na2as {
         ast_manager&     m;
         ref<solver>      m_solver;
-        bvsls_opt_engine m_sls;
+        scoped_ptr<bvsls_opt_engine> m_sls;
         pb::card_pb_rewriter m_pb2bv;
         model_ref        m_model;
         expr_ref         m_objective;        
+        params_ref       m_params;
     public:
         sls_solver(ast_manager & m, solver* s, expr* to_maximize, params_ref const& p):
             solver_na2as(m),
             m(m),
             m_solver(s),
-            m_sls(m, p),
+            m_sls(0),
             m_pb2bv(m),
             m_objective(to_maximize, m)
         {            
@@ -46,13 +47,14 @@ namespace opt {
 
         virtual void updt_params(params_ref & p) {
             m_solver->updt_params(p);
+            m_params.copy(p);
         }
         virtual void collect_param_descrs(param_descrs & r) {
             m_solver->collect_param_descrs(r);
         }
         virtual void collect_statistics(statistics & st) const {
             m_solver->collect_statistics(st);
-            // TBD: m_sls.get_stats();
+            // TBD: m_sls->get_stats();
         }
         virtual void assert_expr(expr * t) {
             m_solver->assert_expr(t);
@@ -74,7 +76,13 @@ namespace opt {
         }
         virtual void set_cancel(bool f) {
             m_solver->set_cancel(f);
-            m_sls.set_cancel(f);
+            m_pb2bv.set_cancel(f);
+            #pragma omp critical (this)
+            {
+                if (m_sls) {
+                    m_sls->set_cancel(f);
+                }
+            }
         }
         virtual void set_progress_callback(progress_callback * callback) {
             m_solver->set_progress_callback(callback);
@@ -87,7 +95,7 @@ namespace opt {
         }
         virtual void display(std::ostream & out) const {
             m_solver->display(out);
-            // m_sls.display(out);
+            // if (m_sls) m_sls->display(out);
         }
 
     protected:
@@ -97,10 +105,16 @@ namespace opt {
             lbool r = m_solver->check_sat(num_assumptions, assumptions);
             if (r == l_true) {
                 m_solver->get_model(m_model);
+                #pragma omp critical (this)
+                {
+                    m_sls = alloc(bvsls_opt_engine, m, m_params);
+                }
                 assertions2sls();
-                opt_result or = m_sls.optimize(m_objective, m_model, true);
+                opt_result or = m_sls->optimize(m_objective, m_model, true);
                 SASSERT(or.is_sat == l_true || or.is_sat == l_undef);
-                m_sls.get_model(m_model);
+                if (or.is_sat == l_true) {
+                    m_sls->get_model(m_model);
+                }
             }
             return r;
         }
@@ -127,7 +141,7 @@ namespace opt {
             SASSERT(result.size() == 1);
             goal* r = result[0];
             for (unsigned i = 0; i < r->size(); ++i) {
-                m_sls.assert_expr(r->form(i));
+                m_sls->assert_expr(r->form(i));
             }
         }
 
