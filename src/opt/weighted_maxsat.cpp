@@ -50,6 +50,7 @@ namespace opt {
     protected:
         ref<solver>      m_s;
         ast_manager&     m;
+        pb::card_pb_rewriter pb_rewriter;
         volatile bool    m_cancel;
         expr_ref_vector  m_soft;
         vector<rational> m_weights;
@@ -59,9 +60,12 @@ namespace opt {
         ref<filter_model_converter> m_mc;    // model converter to remove fresh variables
         svector<bool>    m_assignment;       // truth assignment to soft constraints
         params_ref       m_params;           // config
+        bool             m_enable_sls;       // config
+        bool             m_enable_sat;       // config
     public:
         maxsmt_solver_base(solver* s, ast_manager& m): 
-            m_s(s), m(m), m_cancel(false), m_soft(m) {}
+            m_s(s), m(m), pb_rewriter(m), m_cancel(false), m_soft(m),
+            m_enable_sls(false), m_enable_sat(false) {}
 
         virtual ~maxsmt_solver_base() {}
         virtual rational get_lower() const { return m_lower; }
@@ -73,6 +77,9 @@ namespace opt {
         virtual void updt_params(params_ref& p) {
             m_params = p;
             s().updt_params(p);
+            opt_params _p(p);
+            m_enable_sat = _p.enable_sat();
+            m_enable_sls = _p.enable_sls();
         }       
         virtual void init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
             m_weights.reset();
@@ -101,6 +108,99 @@ namespace opt {
                 return m.mk_not(e);
             }
         }
+
+        struct is_bv {
+            struct found {};
+            ast_manager& m;
+            pb_util      pb;
+            bv_util      bv;
+            is_bv(ast_manager& m): m(m), pb(m), bv(m) {}
+            void operator()(var *) { throw found(); }
+            void operator()(quantifier *) { throw found(); }
+            void operator()(app *n) {
+                family_id fid = n->get_family_id();
+                if (fid != m.get_basic_family_id() &&
+                    fid != pb.get_family_id() &&
+                    fid != bv.get_family_id() &&
+                    !is_uninterp_const(n)) {
+                    throw found();
+                }
+            }
+        };
+
+        bool probe_bv() {
+            if (!m_enable_sat) return false;
+            expr_fast_mark1 visited;
+            is_bv proc(m);
+            try {
+                unsigned sz = s().get_num_assertions();
+                for (unsigned i = 0; i < sz; i++) {
+                    quick_for_each_expr(proc, visited, s().get_assertion(i));
+                }
+                sz = m_soft.size();
+                for (unsigned i = 0; i < sz; ++i) {
+                    quick_for_each_expr(proc, visited, m_soft[i].get());
+                }
+            }
+            catch (is_bv::found) {
+                return false;
+            }
+            return true;
+        }
+
+        void enable_bvsat() {
+            if (probe_bv()) {
+                tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
+                tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
+                tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
+                solver* sat_solver = mk_tactic2solver(m, tac.get(), m_params);
+                unsigned sz = s().get_num_assertions();
+                for (unsigned i = 0; i < sz; ++i) {
+                    sat_solver->assert_expr(s().get_assertion(i));
+                }   
+                m_s = sat_solver;
+            }
+        }
+        
+        void enable_sls() {
+            if (m_enable_sls && probe_bv()) {
+                expr_ref objective = soft2bv();
+                m_params.set_uint("restarts", 20);
+                m_s = alloc(sls_solver, m, m_s.get(), objective, m_params);
+            }
+        }
+        
+        // convert soft constraints to bit-vector objective.
+        expr_ref soft2bv() {
+            rational upper(1);
+            expr_ref objective(m);
+            for (unsigned i = 0; i < m_weights.size(); ++i) {
+                upper += m_weights[i];
+            }
+            expr_ref zero(m), tmp(m);
+            bv_util bv(m);
+            expr_ref_vector es(m);
+            rational num = numerator(upper);
+            rational den = denominator(upper);
+            rational maxval = num*den;
+            unsigned bv_size = maxval.get_num_bits();
+            zero = bv.mk_numeral(rational(0), bv_size);
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                pb_rewriter(m_soft[i].get(), tmp);
+                es.push_back(m.mk_ite(tmp, bv.mk_numeral(den*m_weights[i], bv_size), zero));
+            }
+            if (es.empty()) {
+                objective = bv.mk_numeral(0, bv_size);
+            }
+            else {
+                objective = es[0].get();
+                for (unsigned i = 1; i < es.size(); ++i) {
+                    objective = bv.mk_bv_add(objective, es[i].get());
+                }
+            }
+            return objective;
+        }
+
     };
 
     // ------------------------------------------------------
@@ -187,6 +287,7 @@ namespace opt {
             lbool is_sat = l_undef;
             expr_ref_vector asms(m);
             bool first = true;
+            enable_sls();
             solver::scoped_push _scope1(s());
             init();
             init_bcd();
@@ -461,14 +562,16 @@ namespace opt {
         }
     };
 
-    class pb_simplify_solve : public maxsmt_solver_base {
+    class pbmax : public maxsmt_solver_base {
     public:
-        pb_simplify_solve(solver* s, ast_manager& m): 
+        pbmax(solver* s, ast_manager& m): 
             maxsmt_solver_base(s, m) {}
         
-        virtual ~pb_simplify_solve() {}
+        virtual ~pbmax() {}
 
         lbool operator()() {
+            enable_bvsat();
+            enable_sls();
             TRACE("opt", s().display(tout); tout << "\n";
                   for (unsigned i = 0; i < m_soft.size(); ++i) {
                       tout << mk_pp(m_soft[i].get(), m) << " " << m_weights[i] << "\n";
@@ -567,6 +670,7 @@ namespace opt {
 
         lbool operator()() {
             IF_VERBOSE(1, verbose_stream() << "(wmaxsat.wpm2 solve)\n";);
+            enable_sls();
             solver::scoped_push _s(s());
             pb_util u(m);
             app_ref fml(m), a(m), b(m), c(m);
@@ -825,88 +929,28 @@ namespace opt {
     };
 
     class bvsls : public maxsmt_solver_base {
-        bvsls_opt_engine m_bvsls;            // used for bvsls improvements of assignment
     public:
         bvsls(solver* s, ast_manager& m): 
-            maxsmt_solver_base(s, m), 
-            m_bvsls(m, m_params) {}
+            maxsmt_solver_base(s, m) {}
         virtual ~bvsls() {}
         lbool operator()() {
             IF_VERBOSE(1, verbose_stream() << "(bvsls solve)\n";);
-
-            bv_util bv(m);
-            pb::card_pb_rewriter pb_rewriter(m);
-            expr_ref tmp(m), objective(m), zero(m);
-            expr_ref_vector es(m);
-
-            goal_ref g(alloc(goal, m, true, false));
-            for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
-                pb_rewriter(s().get_assertion(i), tmp);
-                g->assert_expr(tmp);
-            }
-            tactic_ref simplify = mk_nnf_tactic(m);
-            proof_converter_ref pc;
-            expr_dependency_ref core(m);
-            goal_ref_buffer result;
-            model_converter_ref model_converter;
-            (*simplify)(g, result, model_converter, pc, core);
-            SASSERT(result.size() == 1);
-            goal* r = result[0];
-            for (unsigned i = 0; i < r->size(); ++i) {
-                m_bvsls.assert_expr(r->form(i));
-            }
-
+            enable_bvsat();
+            enable_sls();
             init();
-            rational num = numerator(m_upper);
-            rational den = denominator(m_upper);
-            rational maxval = num*den;
-            unsigned bv_size = maxval.get_num_bits();
-            zero = bv.mk_numeral(rational(0), bv_size);
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                pb_rewriter(m_soft[i].get(), tmp);
-                es.push_back(m.mk_ite(tmp, bv.mk_numeral(den*m_weights[i], bv_size), zero));
-            }
-            if (es.empty()) {
-                objective = bv.mk_numeral(0, bv_size);
-            }
-            else {
-                objective = es[0].get();
-                for (unsigned i = 1; i < es.size(); ++i) {
-                    objective = bv.mk_bv_add(objective, es[i].get());
-                }
-            }
             lbool is_sat = s().check_sat(0, 0);
             if (is_sat == l_true) {
                 s().get_model(m_model);
-                params_ref p;
-                p.set_uint("restarts", 20);
-                m_bvsls.updt_params(p);
-                bvsls_opt_engine::optimization_result res = m_bvsls.optimize(objective, m_model, true);
-                switch (res.is_sat) {
-                case l_true: {
-                    unsigned bv_size = 0;
-                    m_bvsls.get_model(m_model);
-                    VERIFY(bv.is_numeral(res.optimum, m_lower, bv_size));
-                    for (unsigned i = 0; i < m_soft.size(); ++i) {
-                        expr_ref tmp(m);
-                        m_model->eval(m_soft[i].get(), tmp, true);
-                        m_assignment[i] = m.is_true(tmp);
+                for (unsigned i = 0; i < m_soft.size(); ++i) {
+                    expr_ref tmp(m);
+                    m_model->eval(m_soft[i].get(), tmp, true);
+                    m_assignment[i] = m.is_true(tmp);
+                    if (!m_assignment[i]) {
+                        m_upper += m_weights[i];
                     }
-                    break;
                 }
-                case l_false:
-                case l_undef:
-                    break;
-                }
-                return res.is_sat;
             }
-            else {
-                return is_sat;
-            }
-        }
-        virtual void set_cancel(bool f) {
-            maxsmt_solver_base::set_cancel(f);
-            m_bvsls.set_cancel(f);
+            return is_sat;
         }
 
     };
@@ -962,7 +1006,6 @@ namespace opt {
         virtual ~wmax() {}
 
         lbool operator()() {
-            IF_VERBOSE(3, verbose_stream() << "(incremental solve)\n";);
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
             solver::scoped_push _s(s());
@@ -971,9 +1014,9 @@ namespace opt {
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 wth().assert_weighted(m_soft[i].get(), m_weights[i]);
             }
-
             solver::scoped_push __s(s());
             while (l_true == is_sat) {
+                IF_VERBOSE(1, verbose_stream() << "(wmax " << m_upper << ")\n";);
                 is_sat = s().check_sat(0,0);
                 if (m_cancel) {
                     is_sat = l_undef;
@@ -987,7 +1030,6 @@ namespace opt {
                     s().assert_expr(fml);
                     was_sat = true;
                 }
-                IF_VERBOSE(3, verbose_stream() << "(incremental bound)\n";);
             }
             if (was_sat) {
                 wth().get_assignment(m_assignment);
@@ -1004,82 +1046,13 @@ namespace opt {
         }
     };
 
-    class bvmax : public maxsmt_solver_base {
-        solver* mk_sat_solver() {
-            tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
-            tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
-            tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
-            solver* sat_solver = mk_tactic2solver(m, tac.get(), m_params);
-            unsigned sz = s().get_num_assertions();
-            for (unsigned i = 0; i < sz; ++i) {
-                sat_solver->assert_expr(s().get_assertion(i));
-            }   
-            return sat_solver;
-        }
-    public:
-        bvmax(solver* s, ast_manager& m): maxsmt_solver_base(s, m) {
-            m_s = mk_sat_solver();
-        }
-        virtual ~bvmax() {}
-
-        //
-        // convert bounds constraint into pseudo-Boolean, 
-        // then treat pseudo-Booleans as bit-vectors and
-        // sorting circuits.
-        //
-        lbool operator()() {
-            IF_VERBOSE(1, verbose_stream() << "(wmaxsat.bv solve)\n";);
-            pb_util u(m);
-            expr_ref fml(m), val(m);
-            app_ref b(m);
-            expr_ref_vector nsoft(m);
-            init();
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                b = m.mk_fresh_const("b", m.mk_bool_sort());
-                m_mc->insert(b->get_decl());
-                fml = m.mk_or(m_soft[i].get(), b);
-                s().assert_expr(fml);
-                nsoft.push_back(b);
-            }
-            lbool is_sat = l_true;
-            bool was_sat = false;
-            fml = m.mk_true();
-            while (l_true == is_sat) {
-                solver::scoped_push __s(s());
-                s().assert_expr(fml);
-                is_sat = s().check_sat(0,0);
-                if (m_cancel) {
-                    is_sat = l_undef;
-                }
-                if (is_sat == l_true) {
-                    s().get_model(m_model);
-                    m_upper = rational::zero();
-                    for (unsigned i = 0; i < m_soft.size(); ++i) {
-                        VERIFY(m_model->eval(nsoft[i].get(), val));
-                        m_assignment[i] = !m.is_true(val);
-                        if (!m_assignment[i]) {
-                            m_upper += m_weights[i];
-                        }
-                    }                    
-                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.bv with upper bound: " << m_upper << ")\n";);
-                    fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
-                    was_sat = true;
-                }
-            }            
-            if (is_sat == l_false && was_sat) {
-                is_sat = l_true;
-                m_lower = m_upper;
-            }
-            return is_sat;
-        }
-
-    };
-
     class pwmax : public maxsmt_solver_base {
     public:
         pwmax(solver* s, ast_manager& m): maxsmt_solver_base(s, m) {}
         virtual ~pwmax() {}
         lbool operator()() {
+            enable_bvsat();
+            enable_sls();
             pb_util u(m);
             expr_ref fml(m), val(m);
             app_ref b(m);
@@ -1151,17 +1124,14 @@ namespace opt {
             if (m_maxsmt) {
                 return *m_maxsmt;
             }
-            else if (m_engine == symbol("pwmax")) {
+            if (m_engine == symbol("pwmax")) {
                 m_maxsmt = alloc(pwmax, s.get(), m);
             }
-            else if (m_engine == symbol("bvmax")) {
-                m_maxsmt = alloc(bvmax, s.get(), m);
-            }
-            else if (m_engine == symbol("pb")) {
-                m_maxsmt = alloc(pb_simplify_solve, s.get(), m);
+            else if (m_engine == symbol("pbmax")) {
+                m_maxsmt = alloc(pbmax, s.get(), m);
             }
             else if (m_engine == symbol("wpm2")) {
-                maxsmt_solver_base* s2 = alloc(pb_simplify_solve, s.get(), m);
+                maxsmt_solver_base* s2 = alloc(pbmax, s.get(), m);
                 m_maxsmt = alloc(wpm2, s.get(), m, s2);
             }
             else if (m_engine == symbol("bcd2")) {
@@ -1169,6 +1139,9 @@ namespace opt {
             }
             else if (m_engine == symbol("bvsls")) {
                 m_maxsmt = alloc(bvsls, s.get(), m);
+            }
+            else if (m_engine == symbol("sls")) {
+                m_maxsmt = alloc(sls, s.get(), m);
             }
             else if (m_engine == symbol::null || m_engine == symbol("wmax")) {
                 m_maxsmt = alloc(wmax, s.get(), m, s->get_context());
@@ -1345,7 +1318,7 @@ namespace opt {
         // Version from CP'13        
         lbool wpm2b_solve() {
             IF_VERBOSE(1, verbose_stream() << "(wmaxsat.wpm2b solve)\n";);
-            solver::scoped_push _s(s);
+            solver::scoped_push _s(s());
             pb_util u(m);
             app_ref fml(m), a(m), b(m), c(m);
             expr_ref val(m);
