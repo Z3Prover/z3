@@ -55,10 +55,7 @@ namespace opt {
             // TBD: m_sls.get_stats();
         }
         virtual void assert_expr(expr * t) {
-            expr_ref tmp(m);
             m_solver->assert_expr(t);
-            m_pb2bv(t, tmp);
-            m_sls.assert_expr(tmp);
         }
         virtual void get_unsat_core(ptr_vector<expr> & r) {
             m_solver->get_unsat_core(r);
