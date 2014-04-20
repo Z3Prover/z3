@@ -35,7 +35,6 @@ Notes:
 #include "qfbv_tactic.h"
 #include "card2bv_tactic.h"
 #include "tactic2solver.h"
-#include "bvsls_opt_engine.h"
 #include "nnf_tactic.h"
 #include "opt_sls_solver.h"
 
@@ -50,7 +49,6 @@ namespace opt {
     protected:
         ref<solver>      m_s;
         ast_manager&     m;
-        pb::card_pb_rewriter pb_rewriter;
         volatile bool    m_cancel;
         expr_ref_vector  m_soft;
         vector<rational> m_weights;
@@ -64,7 +62,7 @@ namespace opt {
         bool             m_enable_sat;       // config
     public:
         maxsmt_solver_base(solver* s, ast_manager& m): 
-            m_s(s), m(m), pb_rewriter(m), m_cancel(false), m_soft(m),
+            m_s(s), m(m), m_cancel(false), m_soft(m),
             m_enable_sls(false), m_enable_sat(false) {}
 
         virtual ~maxsmt_solver_base() {}
@@ -164,42 +162,11 @@ namespace opt {
         
         void enable_sls() {
             if (m_enable_sls && probe_bv()) {
-                expr_ref objective = soft2bv();
                 m_params.set_uint("restarts", 20);
-                m_s = alloc(sls_solver, m, m_s.get(), objective, m_params);
+                m_s = alloc(sls_solver, m, m_s.get(), m_soft, m_weights, m_params);
             }
         }
         
-        // convert soft constraints to bit-vector objective.
-        expr_ref soft2bv() {
-            rational upper(1);
-            expr_ref objective(m);
-            for (unsigned i = 0; i < m_weights.size(); ++i) {
-                upper += m_weights[i];
-            }
-            expr_ref zero(m), tmp(m);
-            bv_util bv(m);
-            expr_ref_vector es(m);
-            rational num = numerator(upper);
-            rational den = denominator(upper);
-            rational maxval = num*den;
-            unsigned bv_size = maxval.get_num_bits();
-            zero = bv.mk_numeral(rational(0), bv_size);
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                pb_rewriter(m_soft[i].get(), tmp);
-                es.push_back(m.mk_ite(tmp, bv.mk_numeral(den*m_weights[i], bv_size), zero));
-            }
-            if (es.empty()) {
-                objective = bv.mk_numeral(0, bv_size);
-            }
-            else {
-                objective = es[0].get();
-                for (unsigned i = 1; i < es.size(); ++i) {
-                    objective = bv.mk_bv_add(objective, es[i].get());
-                }
-            }
-            return objective;
-        }
 
     };
 
@@ -841,83 +808,12 @@ namespace opt {
     };
 
     class sls : public maxsmt_solver_base {
-        smt::pb_sls      m_sls;              // used for sls improvement of assignment
     public:
-        sls(solver* s, ast_manager& m): maxsmt_solver_base(s, m), m_sls(m) {}
+        sls(solver* s, ast_manager& m): 
+            maxsmt_solver_base(s, m) {}
         virtual ~sls() {}
         lbool operator()() {
             IF_VERBOSE(1, verbose_stream() << "(sls solve)\n";);
-            for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
-                m_sls.add(s().get_assertion(i));
-            }
-            pb_util u(m);
-            expr_ref fml(m), val(m);
-            app_ref b(m);
-            expr_ref_vector nsoft(m);
-            init();
-            solver::scoped_push __s(s());
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                b = m.mk_fresh_const("b", m.mk_bool_sort());
-                m_mc->insert(b->get_decl());
-                fml = m.mk_or(m_soft[i].get(), b);
-                s().assert_expr(fml);
-                nsoft.push_back(b);
-                m_sls.add(m_soft[i].get(), m_weights[i]);
-            }
-            lbool is_sat = l_true;
-            bool was_sat = false;
-            while (l_true == is_sat) {
-                is_sat = s().check_sat(0,0);
-                if (m_cancel) {
-                    is_sat = l_undef;
-                }
-                if (is_sat == l_true) {
-                    s().get_model(m_model);
-                    m_sls.set_model(m_model);
-                    m_upper = rational::zero();
-                    if (l_true == m_sls()) {
-                        m_sls.get_model(m_model);
-                        for (unsigned i = 0; i < m_soft.size(); ++i) {
-                            m_assignment[i] = m_sls.soft_holds(i);
-                        }
-                    }
-                    else {
-                        for (unsigned i = 0; i < m_soft.size(); ++i) {
-                            VERIFY(m_model->eval(nsoft[i].get(), val));
-                            m_assignment[i] = !m.is_true(val);
-                        }        
-                    }            
-                    for (unsigned i = 0; i < m_soft.size(); ++i) {
-                        if (!m_assignment[i]) {
-                            m_upper += m_weights[i];
-                        }
-                    }
-                    IF_VERBOSE(1, verbose_stream() << "(sls.pb with upper bound: " << m_upper << ")\n";);
-                    fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
-                    s().assert_expr(fml);
-                    was_sat = true;
-                }
-            }            
-            if (is_sat == l_false && was_sat) {
-                is_sat = l_true;
-                m_lower = m_upper;
-            }
-            return is_sat;
-        }
-
-        virtual void set_cancel(bool f) {
-            maxsmt_solver_base::set_cancel(f);
-            m_sls.set_cancel(f);
-        }
-    };
-
-    class bvsls : public maxsmt_solver_base {
-    public:
-        bvsls(solver* s, ast_manager& m): 
-            maxsmt_solver_base(s, m) {}
-        virtual ~bvsls() {}
-        lbool operator()() {
-            IF_VERBOSE(1, verbose_stream() << "(bvsls solve)\n";);
             enable_bvsat();
             enable_sls();
             init();
@@ -1069,9 +965,7 @@ namespace opt {
             else if (m_engine == symbol("bcd2")) {
                 m_maxsmt = alloc(bcd2, s.get(), m);
             }
-            else if (m_engine == symbol("bvsls")) {
-                m_maxsmt = alloc(bvsls, s.get(), m);
-            }
+            // TBD: this is experimental one-round version of SLS
             else if (m_engine == symbol("sls")) {
                 m_maxsmt = alloc(sls, s.get(), m);
             }

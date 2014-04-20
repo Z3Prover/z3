@@ -23,6 +23,8 @@ Notes:
 #include "solver_na2as.h"
 #include "card2bv_tactic.h"
 #include "pb_sls.h"
+#include "bvsls_opt_engine.h"
+
 
 namespace opt {
     
@@ -32,19 +34,24 @@ namespace opt {
         scoped_ptr<bvsls_opt_engine> m_bvsls;
         scoped_ptr<smt::pb_sls>      m_pbsls;
         pb::card_pb_rewriter m_pb2bv;
+        vector<rational> m_weights;
+        expr_ref_vector  m_soft;
         model_ref        m_model;
-        expr_ref         m_objective;        
         params_ref       m_params;
         symbol           m_engine; 
     public:
-        sls_solver(ast_manager & m, solver* s, expr* to_maximize, params_ref const& p):
+        sls_solver(ast_manager & m, solver* s, 
+                   expr_ref_vector const& soft, 
+                   vector<rational> const& weights, 
+                   params_ref const& p):
             solver_na2as(m),
             m(m),
             m_solver(s),
             m_bvsls(0),
             m_pbsls(0),
             m_pb2bv(m),
-            m_objective(to_maximize, m)
+            m_weights(weights),
+            m_soft(soft)
         {            
         }
         virtual ~sls_solver() {}
@@ -116,7 +123,7 @@ namespace opt {
             if (r == l_true) {
                 m_solver->get_model(m_model);
                 if (m_engine == symbol("pb")) {
-
+                    pbsls_opt();
                 }
                 else {
                     bvsls_opt();
@@ -132,6 +139,37 @@ namespace opt {
         }
 
     private:
+        // convert soft constraints to bit-vector objective.
+        expr_ref soft2bv() {
+            rational upper(1);
+            expr_ref objective(m);
+            for (unsigned i = 0; i < m_weights.size(); ++i) {
+                upper += m_weights[i];
+            }
+            expr_ref zero(m), tmp(m);
+            bv_util bv(m);
+            expr_ref_vector es(m);
+            rational num = numerator(upper);
+            rational den = denominator(upper);
+            rational maxval = num*den;
+            unsigned bv_size = maxval.get_num_bits();
+            zero = bv.mk_numeral(rational(0), bv_size);
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                m_pb2bv(m_soft[i].get(), tmp);
+                es.push_back(m.mk_ite(tmp, bv.mk_numeral(den*m_weights[i], bv_size), zero));
+            }
+            if (es.empty()) {
+                objective = bv.mk_numeral(0, bv_size);
+            }
+            else {
+                objective = es[0].get();
+                for (unsigned i = 1; i < es.size(); ++i) {
+                    objective = bv.mk_bv_add(objective, es[i].get());
+                }
+            }
+            return objective;
+        }
+
         void assertions2sls() {
             expr_ref tmp(m);
             goal_ref g(alloc(goal, m, true, false));
@@ -162,13 +200,9 @@ namespace opt {
             for (unsigned i = 0; i < m_solver->get_num_assertions(); ++i) {
                 m_pbsls->add(m_solver->get_assertion(i));
             }
-#if 0
-        TBD:
-            for (unsigned i = 0; i < m_num_soft; ++i) {
-                m_pbsls->add(m_soft[i].get(), m_weights[i].get());
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                m_pbsls->add(m_soft[i].get(), m_weights[i]);
             }
-#endif
-
             lbool is_sat = (*m_pbsls.get())();
             if (is_sat == l_true) {
                 m_bvsls->get_model(m_model);
@@ -181,7 +215,8 @@ namespace opt {
                 m_bvsls = alloc(bvsls_opt_engine, m, m_params);
             }
             assertions2sls();
-            opt_result or = m_bvsls->optimize(m_objective, m_model, true);
+            expr_ref objective = soft2bv();
+            opt_result or = m_bvsls->optimize(objective, m_model, true);
             SASSERT(or.is_sat == l_true || or.is_sat == l_undef);
             if (or.is_sat == l_true) {
                 m_bvsls->get_model(m_model);
