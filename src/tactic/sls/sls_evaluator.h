@@ -575,7 +575,7 @@ public:
 #if _CACHE_TOP_SCORE_
                 //if (!m_tracker.has_uplinks(cur))
                 if (m_tracker.is_top_expr(cur))
-                    m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                    m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
 #endif
                 m_tracker.set_score(cur, new_score);
                 m_tracker.set_score_prune(cur, new_score);
@@ -584,12 +584,13 @@ public:
                 new_score = m_tracker.score(cur);
                 //if (!m_tracker.has_uplinks(cur))
                 if (m_tracker.is_top_expr(cur))
-                    m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                    m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                 m_tracker.set_score(cur, new_score);
 #else
                 m_tracker.set_score(cur, m_tracker.score(cur));
 #endif
-#endif			
+#endif            
+
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
                     for (unsigned j = 0; j < ups.size(); j++) {
@@ -634,7 +635,7 @@ public:
 #if _CACHE_TOP_SCORE_
                 //if (!m_tracker.has_uplinks(cur))
                 if (m_tracker.is_top_expr(cur))
-                    m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                    m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
 #endif
                 m_tracker.set_score(cur, new_score);
                 m_tracker.set_score_prune(cur, new_score);
@@ -643,12 +644,12 @@ public:
                 new_score = m_tracker.score(cur);
                 //if (!m_tracker.has_uplinks(cur))
                 if (m_tracker.is_top_expr(cur))
-                    m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                    m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                 m_tracker.set_score(cur, new_score);
 #else
                 m_tracker.set_score(cur, m_tracker.score(cur));
 #endif
-#endif			
+#endif            
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
                     for (unsigned j = 0; j < ups.size(); j++) {
@@ -683,7 +684,7 @@ public:
             m_traversal_stack[cur_depth].push_back(ep);
             if (cur_depth > max_depth) max_depth = cur_depth;
         }
-#if _REAL_RS_ || _REAL_PBFS_
+#if _REAL_RS_ || _REAL_PBFS_ || _PAWS_
         run_serious_update(max_depth);
 #else
         run_update(max_depth);
@@ -729,14 +730,16 @@ public:
 #if _CACHE_TOP_SCORE_
             //if (!m_tracker.has_uplinks(cur))
             if (m_tracker.is_top_expr(cur))
-                m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
 #endif
             prune_score = m_tracker.get_score_prune(cur);
             m_tracker.set_score(cur, new_score);
 
             if ((new_score > prune_score) && (m_tracker.has_pos_occ(cur)))
+            //if ((new_score >= prune_score) && (m_tracker.has_pos_occ(cur)))
                 pot_benefits = 1;
             if ((new_score <= prune_score) && (m_tracker.has_neg_occ(cur)))
+            //if ((new_score < prune_score) && (m_tracker.has_neg_occ(cur)))
                 pot_benefits = 1;
 
             if (m_tracker.has_uplinks(cur)) {
@@ -771,7 +774,7 @@ public:
                     new_score = m_tracker.score(cur); 
                     //if (!m_tracker.has_uplinks(cur))
                     if (m_tracker.is_top_expr(cur))
-                        m_tracker.adapt_top_sum(new_score, m_tracker.get_score(cur));
+                        m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                     m_tracker.set_score(cur, new_score);
 #else
                     m_tracker.set_score(cur, m_tracker.score(cur));
@@ -858,6 +861,104 @@ public:
     }
 #endif
 
+    unsigned run_update_bool_prune_new(unsigned cur_depth) {
+        expr_fast_mark1 visited;
+
+        double prune_score, new_score;
+        unsigned pot_benefits = 0;
+        SASSERT(cur_depth < m_traversal_stack_bool.size());
+ 
+        ptr_vector<expr> & cur_depth_exprs = m_traversal_stack_bool[cur_depth];
+
+        for (unsigned i = 0; i < cur_depth_exprs.size(); i++) {
+            expr * cur = cur_depth_exprs[i];
+
+            new_score = m_tracker.score(cur); 
+            //if (!m_tracker.has_uplinks(cur))
+            if (m_tracker.is_top_expr(cur))
+                m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
+            prune_score = m_tracker.get_score_prune(cur);
+            m_tracker.set_score(cur, new_score);
+
+            if ((new_score >= prune_score) && (m_tracker.has_pos_occ(cur)))
+                pot_benefits = 1;
+            if ((new_score < prune_score) && (m_tracker.has_neg_occ(cur)))
+                pot_benefits = 1;
+
+            if (m_tracker.has_uplinks(cur)) {
+                ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
+                for (unsigned j = 0; j < ups.size(); j++) {
+                    expr * next = ups[j];
+                    unsigned next_d = m_tracker.get_distance(next);
+                    SASSERT(next_d < cur_depth);
+                    if (!visited.is_marked(next)) {
+                        m_traversal_stack_bool[next_d].push_back(next);
+                        visited.mark(next);
+                    }
+                }
+            }
+            else
+            {
+            }
+        }
+
+        cur_depth_exprs.reset();
+        cur_depth--;
+ 
+        while (cur_depth != static_cast<unsigned>(-1)) {
+            ptr_vector<expr> & cur_depth_exprs = m_traversal_stack_bool[cur_depth];
+            if (pot_benefits)
+            {
+                unsigned cur_size = cur_depth_exprs.size();
+                for (unsigned i = 0; i < cur_size; i++) {
+                    expr * cur = cur_depth_exprs[i];
+
+                    new_score = m_tracker.score(cur); 
+                    //if (!m_tracker.has_uplinks(cur))
+                    if (m_tracker.is_top_expr(cur))
+                        m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
+                    m_tracker.set_score(cur, new_score);
+                    if (m_tracker.has_uplinks(cur)) {
+                        ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
+                        for (unsigned j = 0; j < ups.size(); j++) {
+                            expr * next = ups[j];
+                            unsigned next_d = m_tracker.get_distance(next);
+                            SASSERT(next_d < cur_depth);
+                            if (!visited.is_marked(next)) {
+                                m_traversal_stack_bool[next_d].push_back(next);
+                                visited.mark(next);
+                            }
+                        }
+                    }
+                }
+            }
+            cur_depth_exprs.reset();
+            cur_depth--;
+        }
+
+        return pot_benefits;
+    }
+
+    unsigned update_prune_new(func_decl * fd, const mpz & new_value) {
+        m_tracker.set_value(fd, new_value);
+        expr * ep = m_tracker.get_entry_point(fd);
+        unsigned cur_depth = m_tracker.get_distance(ep);
+
+        if (m_traversal_stack_bool.size() <= cur_depth)
+            m_traversal_stack_bool.resize(cur_depth+1);
+        if (m_traversal_stack.size() <= cur_depth) 
+                m_traversal_stack.resize(cur_depth+1);
+
+        if (m_manager.is_bool(ep))
+            m_traversal_stack_bool[cur_depth].push_back(ep);
+        else
+        {
+            m_traversal_stack[cur_depth].push_back(ep);
+            run_update_prune(cur_depth);
+        }
+        return run_update_bool_prune_new(cur_depth);
+    }
+
     void randomize_local(ptr_vector<func_decl> & unsat_constants) {
         // Randomize _all_ candidates:
 
@@ -901,7 +1002,7 @@ public:
         mpz temp = m_tracker.get_random(fd->get_range());
 #endif
 
-#if _REAL_RS_ || _REAL_PBFS_
+#if _REAL_RS_ || _REAL_PBFS_ || _PAWS_
         serious_update(fd, temp);
 #else
         update(fd, temp);
@@ -922,9 +1023,36 @@ public:
         randomize_local(m_tracker.get_constants(e));
     } 
 
-    void randomize_local(ptr_vector<expr> const & as, unsigned int flip) {
-        randomize_local(m_tracker.get_unsat_constants(as, flip));
+    void randomize_local(goal_ref const & g, unsigned int flip) {
+        randomize_local(m_tracker.get_unsat_constants(g, flip));
     } 
+
+    void randomize_local_n(goal_ref const & g, ptr_vector<func_decl> & unsat_constants) {
+        unsigned r = m_tracker.get_random_uint(16) % unsat_constants.size();
+        func_decl * fd = unsat_constants[r];
+        sort * srt = fd->get_range();
+        unsigned bv_sz = m_manager.is_bool(srt) ? 1 : m_bv_util.get_bv_size(srt); 
+        mpz max_val = m_tracker.get_random(srt);
+        update(fd, max_val);
+        double max_score = m_tracker.get_top_sum() / g->size();
+        mpz temp_val;
+        double temp_score;
+        for (unsigned i = 1; i < 2; i++)
+        //for (unsigned i = 1; i < bv_sz; i++)
+        {
+            m_mpz_manager.set(temp_val, m_tracker.get_random(srt));
+            update(fd, temp_val);
+            temp_score = m_tracker.get_top_sum() / g->size();
+            if (temp_score > max_score)
+            {
+                m_mpz_manager.set(max_val, temp_val);
+                max_score = temp_score;
+            }
+        }
+        update(fd, max_val);
+        m_mpz_manager.del(temp_val);
+        m_mpz_manager.del(max_val);
+    }
 };
 
 #endif
