@@ -20,9 +20,7 @@ Notes:
 #ifndef _SLS_TRACKER_H_
 #define _SLS_TRACKER_H_
 
-#include"for_each_expr.h"
-#include"ast_smt2_pp.h"
-#include"bv_decl_plugin.h"
+#include"goal.h"
 #include"model.h"
 
 #include"sls_compilation_settings.h"
@@ -88,12 +86,17 @@ private:
     obj_map<expr, unsigned>	m_where_false;
     expr**					m_list_false;
 #endif
+#if _PAWS_
+    obj_map<expr, unsigned> m_weights;
+    //obj_map<expr, double> m_weights;
+#endif
 #if _CACHE_TOP_SCORE_
     double				  m_top_sum;
 #endif
 #if _WEIGHT_DIST_ == 4 || _WEIGHT_TOGGLE_
     double				  m_weight_dist_factor;
 #endif
+    unsigned              m_equal_scores;
 
 public:    
     sls_tracker(ast_manager & m, bv_util & bvu, unsynch_mpz_manager & mm, powers & p) :
@@ -113,15 +116,52 @@ public:
         m_mpz_manager.del(m_two);            
     }
 
+    unsigned get_formula_size() {
+        return m_scores.size();
+    }
+
+    double get_avg_bw(goal_ref const & g) {
+        double sum = 0.0;
+        unsigned count = 0;
+
+        for (unsigned i = 0; i < g->size(); i++)
+        {
+            m_temp_constants.reset();
+            ptr_vector<func_decl> const & this_decls = m_constants_occ.find(g->form(i));
+            unsigned sz = this_decls.size();
+            for (unsigned i = 0; i < sz; i++) {
+                func_decl * fd = this_decls[i];
+                m_temp_constants.push_back(fd);
+                sort * srt = fd->get_range();
+                sum += (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);         
+                count++;
+            }
+        }
+
+        return sum / count;   
+    }
+
 #if _WEIGHT_DIST_ == 4 || _WEIGHT_TOGGLE_
     inline void set_weight_dist_factor(double val) {
         m_weight_dist_factor = val;
     }
 #endif
 
+    void reset_equal_scores() {
+        m_equal_scores = 1;
+    }
+
+    unsigned inc_equal_scores() {
+        return ++m_equal_scores;
+    }
+
 #if _CACHE_TOP_SCORE_
-    inline void adapt_top_sum(double add, double sub) {
+    inline void adapt_top_sum(expr * e, double add, double sub) {
+#if _PAWS_
+        m_top_sum += m_weights.find(e) * (add - sub);
+#else
         m_top_sum += add - sub;
+#endif
     }
 
     inline void set_top_sum(double new_score) {
@@ -278,19 +318,21 @@ public:
     }
 #endif
 
-    void uct_forget(ptr_vector<expr> & as) {
+#if _UCT_
+    void uct_forget(goal_ref const & g) {
         expr * e;
         unsigned touched_old, touched_new;
 
-        for (unsigned i = 0; i < as.size(); i++)
+        for (unsigned i = 0; i < g->size(); i++)
         {
-            e = as[i];
+            e = g->form(i);
             touched_old = m_scores.find(e).touched;
             touched_new = (unsigned)((touched_old - 1) * _UCT_FORGET_FACTOR_ + 1);
             m_scores.find(e).touched = touched_new;
             m_touched += touched_new - touched_old;
         }
     }
+#endif
 
     void initialize(app * n) {
         // Build score table
@@ -367,12 +409,12 @@ public:
         }
     };
 
-    void calculate_expr_distances(ptr_vector<expr> const & as) {
+    void calculate_expr_distances(goal_ref const & g) {
         // precondition: m_scores is set up.
-        unsigned sz = as.size();
+        unsigned sz = g->size();
         ptr_vector<app> stack;
         for (unsigned i = 0; i < sz; i++)
-            stack.push_back(to_app(as[i]));
+            stack.push_back(to_app(g->form(i)));
         while (!stack.empty()) {
             app * cur = stack.back();
             stack.pop_back();
@@ -420,12 +462,12 @@ public:
         quick_for_each_expr(ffd_proc, visited, e);
     }
 
-    void initialize(ptr_vector<expr> const & as) {
+    void initialize(goal_ref const & g) {
         init_proc proc(m_manager, *this);
         expr_mark visited;
-        unsigned sz = as.size();
+        unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) {
-            expr * e = as[i];
+            expr * e = g->form(i);
             if (!m_top_expr.contains(e))
                 m_top_expr.insert(e);
             else
@@ -440,7 +482,7 @@ public:
         visited.reset();
 
         for (unsigned i = 0; i < sz; i++) {
-            expr * e = as[i];
+            expr * e = g->form(i);
             // Andreas: Maybe not fully correct.
 #if _FOCUS_ == 2 || _INTENSIFICATION_
             initialize_recursive(e);
@@ -452,7 +494,7 @@ public:
             quick_for_each_expr(ffd_proc, visited, e);
         }
 
-        calculate_expr_distances(as);
+        calculate_expr_distances(g);
 
         TRACE("sls", tout << "Initial model:" << std::endl; show_model(tout); );
 
@@ -465,15 +507,48 @@ public:
         //}
 #endif
 
+#if _PAWS_
+        for (unsigned i = 0; i < sz; i++)
+        {
+            expr * e = g->form(i);
+        	if (!m_weights.contains(e))
+        		m_weights.insert(e, _PAWS_INIT_);
+        }
+#endif
+
 #if _EARLY_PRUNE_
         for (unsigned i = 0; i < sz; i++)
-            setup_occs(as[i]);
+            setup_occs(g->form(i));
 #endif
 
 #if _UCT_
-        m_touched = _UCT_INIT_ ? as.size() : 1;
+        m_touched = _UCT_INIT_ ? g->size() : 1;
 #endif
     }
+
+#if _PAWS_
+    void increase_weight(expr * e)
+    {
+        //printf("Increasing %d to", m_weights.find(e));
+        m_weights.find(e)++;
+        //m_weights.find(e) *= 1.1;
+        //printf(" %d\n", m_weights.find(e));
+    }
+
+    void decrease_weight(expr * e)
+    {
+        unsigned old_weight = m_weights.find(e);
+        m_weights.find(e) = old_weight > _PAWS_INIT_ ? old_weight - 1 : _PAWS_INIT_;
+        //m_weights.find(e) = old_weight > 1.1 ? old_weight / 1.1 : 1;
+        //printf("Decreasing %d to %d\n", old_weight, m_weights.find(e));
+    }
+
+    unsigned get_weight(expr * e)
+    //double get_weight(expr * e)
+    {
+        return m_weights.find(e);
+    }
+#endif
 
 #if _REAL_RS_ || _REAL_PBFS_
     void make_assertion(expr * e)
@@ -608,7 +683,7 @@ public:
             NOT_IMPLEMENTED_YET(); // This only works for bit-vectors for now.
     }    
 
-    void randomize(ptr_vector<expr> const & as) {
+    void randomize(goal_ref const & g) {
         TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
@@ -622,13 +697,13 @@ public:
         TRACE("sls", tout << "Randomized model:" << std::endl; show_model(tout); );
 
 #if _UCT_RESET_
-        m_touched = _UCT_INIT_ ? as.size() : 1;
-        for (unsigned i = 0; i < as.size(); i++)
-            m_scores.find(as[i]).touched = 1;
+        m_touched = _UCT_INIT_ ? g->size() : 1;
+        for (unsigned i = 0; i < g->size(); i++)
+            m_scores.find(g->form(i)).touched = 1;
 #endif
     }              
 
-    void reset(ptr_vector<expr> const & as) {
+    void reset(goal_ref const & g) {
         TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
@@ -638,9 +713,9 @@ public:
         }
 
 #if _UCT_RESET_
-        m_touched = _UCT_INIT_ ? as.size() : 1;
-        for (unsigned i = 0; i < as.size(); i++)
-            m_scores.find(as[i]).touched = 1;
+        m_touched = _UCT_INIT_ ? g->size() : 1;
+        for (unsigned i = 0; i < g->size(); i++)
+            m_scores.find(g->form(i)).touched = 1;
 #endif
     }              
 
@@ -765,6 +840,7 @@ public:
             const mpz & v1 = get_value(arg1);
             
             if (negated) {                    
+                //res = (m_mpz_manager.eq(v0, v1)) ? 0.5 * (m_bv_util.get_bv_size(arg0) - 1.0) / m_bv_util.get_bv_size(arg0) : 1.0;
                 res = (m_mpz_manager.eq(v0, v1)) ? 0.0 : 1.0;
                 TRACE("sls_score", tout << "V0 = " << m_mpz_manager.to_string(v0) << " ; V1 = " << 
                                         m_mpz_manager.to_string(v1) << std::endl; );
@@ -811,40 +887,209 @@ public:
             SASSERT(a->get_num_args() == 2);
             const mpz & x = get_value(a->get_arg(0));
             const mpz & y = get_value(a->get_arg(1));
-            unsigned bv_sz = m_bv_util.get_bv_size(a->get_decl()->get_domain()[0]);
+            int bv_sz = m_bv_util.get_bv_size(a->get_decl()->get_domain()[0]);
 
             if (negated) {
                 if (m_mpz_manager.gt(x, y))
+                {
+                    /*mpz diff;
+                    m_mpz_manager.sub(x, y, diff);
+                    m_mpz_manager.inc(diff);                            
+                    rational n(diff);
+                    n /= rational(m_powers(bv_sz));                            
+                    double dbl = n.get_double();
+                    // In extreme cases, n is 0.9999 but to_double returns something > 1.0
+                    m_mpz_manager.del(diff);
+                    res = 1.0 + 0.5 * dbl;*/
                     res = 1.0; 
+                }
                 else {
+                    //res = (bv_sz - 1.0) / bv_sz;
+/*                  mpz x_copy, y_copy;
+                    m_mpz_manager.set(x_copy, x);
+                    m_mpz_manager.set(y_copy, y);
+                    unsigned lower_gt = 0;
+                    unsigned curr_gt = 0;
+                    int last_pos = -1;
+                    for (int i = 0; i < bv_sz; i++)
+                    {
+                        if (m_mpz_manager.is_odd(x_copy) && m_mpz_manager.is_even(y_copy))
+                        {
+                            lower_gt = curr_gt;
+                            curr_gt = 1;
+                            last_pos = i;
+                        }
+                        else if (m_mpz_manager.is_even(x_copy) && m_mpz_manager.is_odd(y_copy))
+                        {
+                            lower_gt = curr_gt;
+                            curr_gt = 0;
+                            last_pos = i;
+                        }
+ 
+                        m_mpz_manager.machine_div(x_copy, m_two, x_copy);
+                        m_mpz_manager.machine_div(y_copy, m_two, y_copy);
+                    }
+
+                    res = (double)(bv_sz - last_pos - 1 + 2 * lower_gt) / (double)(bv_sz + 2);
+                    m_mpz_manager.del(x_copy);
+                    m_mpz_manager.del(y_copy);*/
+#if 1
                     mpz diff;
+                    m_mpz_manager.sub(y, x, diff);
+                    m_mpz_manager.inc(diff);                            
+                    rational n(diff);
+                    n /= rational(m_powers(bv_sz));                            
+                    double dbl = 1.0 - n.get_double();
+                    // In extreme cases, n is 0.9999 but to_double returns something > 1.0
+                    res = (dbl > 1.0) ? 1.0 : (dbl < 0.0) ? 0.0 : dbl;
+                    //res = (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
+                    m_mpz_manager.del(diff);
+#endif
+                }
+            }
+            else {
+                if (m_mpz_manager.le(x, y))                        
+                {
+                    /*mpz diff;
                     m_mpz_manager.sub(y, x, diff);
                     m_mpz_manager.inc(diff);                            
                     rational n(diff);
                     n /= rational(m_powers(bv_sz));                            
                     double dbl = n.get_double();
                     // In extreme cases, n is 0.9999 but to_double returns something > 1.0
-                    res = (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
                     m_mpz_manager.del(diff);
-                }
-            }
-            else {
-                if (m_mpz_manager.le(x, y))                        
+                    res = 1.0 + 0.5 * dbl;*/
                     res = 1.0; 
+                }
                 else {
+                    //res = (bv_sz - 1.0) / bv_sz;
+/*                  mpz x_copy, y_copy;
+                    m_mpz_manager.set(x_copy, x);
+                    m_mpz_manager.set(y_copy, y);
+                    unsigned lower_le = 1;
+                    unsigned curr_le = 1;
+                    int last_pos = -1;
+                    for (int i = 0; i < bv_sz; i++)
+                    {
+                        if (m_mpz_manager.is_odd(x_copy) && m_mpz_manager.is_even(y_copy))
+                        {
+                            lower_le = curr_le;
+                            curr_le = 0;
+                            last_pos = i;
+                        }
+                        else if (m_mpz_manager.is_even(x_copy) && m_mpz_manager.is_odd(y_copy))
+                        {
+                            lower_le = curr_le;
+                            curr_le = 1;
+                            last_pos = i;
+                        }
+ 
+                        m_mpz_manager.machine_div(x_copy, m_two, x_copy);
+                        m_mpz_manager.machine_div(y_copy, m_two, y_copy);
+                    }
+
+                    res = (double)(bv_sz - last_pos - 1 + 2 * lower_le) / (double)(bv_sz + 2);*/
+#if 1
                     mpz diff;
                     m_mpz_manager.sub(x, y, diff);
                     rational n(diff);
                     n /= rational(m_powers(bv_sz));
-                    double dbl = n.get_double();
+                    double dbl = 1.0 - n.get_double();
                     res = (dbl > 1.0) ? 1.0 : (dbl < 0.0) ? 0.0 : dbl;
                     m_mpz_manager.del(diff);
+#endif
                 }
             }
             TRACE("sls_score", tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
                                     m_mpz_manager.to_string(y) << " ; SZ = " << bv_sz << std::endl; );
         }
-        else if (m_bv_util.is_bv_sle(n)) { // x <= y
+/*        else if (m_bv_util.is_bv_sle(n)) { // x <= y
+            app * a = to_app(n);
+            SASSERT(a->get_num_args() == 2);
+            const mpz & x = get_value(a->get_arg(0));
+            const mpz & y = get_value(a->get_arg(1));
+            int bv_sz = m_bv_util.get_bv_size(a->get_decl()->get_domain()[0]);
+
+            mpz x_unsigned;
+            mpz y_unsigned;
+            const mpz & p = m_powers(bv_sz);
+            const mpz & p_half = m_powers(bv_sz-1);
+            if (x >= p_half) { m_mpz_manager.sub(x, p, x_unsigned); } 
+            if (y >= p_half) { m_mpz_manager.sub(y, p, y_unsigned); }                 
+
+            if (negated) {
+                if (x_unsigned > y_unsigned)
+                    res = 1.0; 
+                else {
+                    mpz x_copy, y_copy;
+                    m_mpz_manager.set(x_copy, x);
+                    m_mpz_manager.set(y_copy, y);
+                    unsigned lower_gt = 0;
+                    unsigned curr_gt = 0;
+                    int last_pos = -1;
+                    for (int i = 0; i < bv_sz; i++)
+                    {
+                        if (m_mpz_manager.is_odd(x_copy) && m_mpz_manager.is_even(y_copy))
+                        {
+                            lower_gt = curr_gt;
+                            curr_gt = 1;
+                            last_pos = i;
+                        }
+                        else if (m_mpz_manager.is_even(x_copy) && m_mpz_manager.is_odd(y_copy))
+                        {
+                            lower_gt = curr_gt;
+                            curr_gt = 0;
+                            last_pos = i;
+                        }
+ 
+                        m_mpz_manager.machine_div(x_copy, m_two, x_copy);
+                        m_mpz_manager.machine_div(y_copy, m_two, y_copy);
+                    }
+
+                    res = (double)(bv_sz - last_pos - 1 + 2 * lower_gt) / (double)(bv_sz + 2);
+                    m_mpz_manager.del(x_copy);
+                    m_mpz_manager.del(y_copy);
+                }
+            }
+            else {
+                if (x_unsigned <= y_unsigned)                        
+                    res = 1.0; 
+                else {
+                    mpz x_copy, y_copy;
+                    m_mpz_manager.set(x_copy, x);
+                    m_mpz_manager.set(y_copy, y);
+                    unsigned lower_le = 1;
+                    unsigned curr_le = 1;
+                    int last_pos = -1;
+                    for (int i = 0; i < bv_sz; i++)
+                    {
+                        if (m_mpz_manager.is_odd(x_copy) && m_mpz_manager.is_even(y_copy))
+                        {
+                            lower_le = curr_le;
+                            curr_le = 0;
+                            last_pos = i;
+                        }
+                        else if (m_mpz_manager.is_even(x_copy) && m_mpz_manager.is_odd(y_copy))
+                        {
+                            lower_le = curr_le;
+                            curr_le = 1;
+                            last_pos = i;
+                        }
+ 
+                        m_mpz_manager.machine_div(x_copy, m_two, x_copy);
+                        m_mpz_manager.machine_div(y_copy, m_two, y_copy);
+                    }
+
+                    res = (double)(bv_sz - last_pos - 1 + 2 * lower_le) / (double)(bv_sz + 2);
+                }
+            }
+            TRACE("sls_score", tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
+                                    m_mpz_manager.to_string(y) << " ; SZ = " << bv_sz << std::endl; );
+
+            m_mpz_manager.del(x_unsigned);
+            m_mpz_manager.del(y_unsigned);
+        }*/
+      else if (m_bv_util.is_bv_sle(n)) { // x <= y
             app * a = to_app(n);
             SASSERT(a->get_num_args() == 2);
             mpz x; m_mpz_manager.set(x, get_value(a->get_arg(0)));
@@ -857,31 +1102,61 @@ public:
 
             if (negated) {
                 if (x > y)
-                    res = 1.0;
+                {
+                    /*mpz diff;
+                    m_mpz_manager.sub(x, y, diff);
+                    m_mpz_manager.inc(diff);                            
+                    rational n(diff);
+                    n /= rational(m_powers(bv_sz));                            
+                    double dbl = n.get_double();
+                    // In extreme cases, n is 0.9999 but to_double returns something > 1.0
+                    m_mpz_manager.del(diff);
+                    res = 1.0 + 0.5 * dbl;*/
+                    res = 1.0; 
+                }
                 else {
+                    //res = (bv_sz - 1.0) / bv_sz;
+#if 1
                     mpz diff;
                     m_mpz_manager.sub(y, x, diff);
                     m_mpz_manager.inc(diff);
                     rational n(diff);
                     n /= p;
-                    double dbl = n.get_double();
-                    res = (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
+                    double dbl = 1.0 - n.get_double();
+                    //res = (dbl > 1.0) ? 0.0 : (dbl < 0.0) ? 1.0 : 1.0 - dbl;
+                    res = (dbl > 1.0) ? 1.0 : (dbl < 0.0) ? 0.0 : dbl;
                     m_mpz_manager.del(diff);
+#endif
                 }
                 TRACE("sls_score", tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
                                         m_mpz_manager.to_string(y) << " ; SZ = " << bv_sz << std::endl; );
             }
             else {
                 if (x <= y)
-                    res = 1.0;
+                {
+                    /*mpz diff;
+                    m_mpz_manager.sub(y, x, diff);
+                    m_mpz_manager.inc(diff);                            
+                    rational n(diff);
+                    n /= rational(m_powers(bv_sz));                            
+                    double dbl = n.get_double();
+                    // In extreme cases, n is 0.9999 but to_double returns something > 1.0
+                    m_mpz_manager.del(diff);
+                    res = 1.0 + 0.5 * dbl;*/
+                    res = 1.0; 
+                }
                 else {
+                    //res = (bv_sz - 1.0) / bv_sz;
+#if 1
                     mpz diff;
                     m_mpz_manager.sub(x, y, diff);
+                    SASSERT(!m_mpz_manager.is_neg(diff));
                     rational n(diff);
                     n /= p;
-                    double dbl = n.get_double();
+                    double dbl = 1.0 - n.get_double();
                     res = (dbl > 1.0) ? 1.0 : (dbl < 0.0) ? 0.0 : dbl;
                     m_mpz_manager.del(diff);
+#endif
                 }
                 TRACE("sls_score", tout << "x = " << m_mpz_manager.to_string(x) << " ; y = " << 
                                         m_mpz_manager.to_string(y) << " ; SZ = " << bv_sz << std::endl; );
@@ -1031,13 +1306,13 @@ public:
         return m_temp_constants;
     }
 
-    ptr_vector<func_decl> & get_unsat_constants_gsat(ptr_vector<expr> const & as, unsigned sz) {
+    ptr_vector<func_decl> & get_unsat_constants_gsat(goal_ref const & g, unsigned sz) {
         if (sz == 1)
             return get_constants();
         m_temp_constants.reset();
 
         for (unsigned i = 0; i < sz; i++) {
-            expr * q = as[i];
+            expr * q = g->form(i);
             if (m_mpz_manager.eq(get_value(q), m_one))
                 continue;
             ptr_vector<func_decl> const & this_decls = m_constants_occ.find(q);
@@ -1051,22 +1326,22 @@ public:
         return m_temp_constants;
     }
 
-    expr * get_unsat_assertion(ptr_vector<expr> const & as, unsigned sz, unsigned int pos) {
+    expr * get_unsat_assertion(goal_ref const & g, unsigned sz, unsigned int pos) {
             for (unsigned i = pos; i < sz; i++) {
-                expr * q = as[i];
+                expr * q = g->form(i);
                 if (m_mpz_manager.neq(get_value(q), m_one))
                     return q;
             }
             for (unsigned i = 0; i < pos; i++) {
-                expr * q = as[i];
+                expr * q = g->form(i);
                 if (m_mpz_manager.neq(get_value(q), m_one))
                     return q;
             }
             return 0;
     }
 
-    ptr_vector<func_decl> & get_unsat_constants_walksat(ptr_vector<expr> const & as, unsigned sz, unsigned int pos) {
-            expr * q = get_unsat_assertion(as, sz, pos);
+    ptr_vector<func_decl> & get_unsat_constants_walksat(goal_ref const & g, unsigned sz, unsigned int pos) {
+            expr * q = get_unsat_assertion(g, sz, pos);
             // Andreas: I should probably fix this. If this is the case then the formula is SAT anyway but this is not checked in the first iteration.
             if (!q)
                 return m_temp_constants;
@@ -1143,20 +1418,66 @@ public:
             return m_temp_constants;
     }
 
-    ptr_vector<func_decl> & get_unsat_constants_crsat(ptr_vector<expr> const & as, unsigned sz, unsigned int pos) {
-        expr * q = get_unsat_assertion(as, sz, pos);
+    ptr_vector<func_decl> & get_unsat_constants_crsat(goal_ref const & g, unsigned sz, unsigned int pos) {
+        expr * q = get_unsat_assertion(g, sz, pos);
         if (!q)
             return m_temp_constants;
 
         return go_deeper(q);
     }
 
-    ptr_vector<func_decl> & get_unsat_constants(ptr_vector<expr> const & as, unsigned int flip) {
-        unsigned sz = as.size();
+    void go_deeper_only(expr * e) {
+            //if (m_manager.is_bool(e)) {
+                if (m_manager.is_and(e)) {
+                    app * a = to_app(e);
+                    expr * const * args = a->get_args();
+                    unsigned int sz = a->get_num_args();
+                    unsigned cnt_unsat = 0, pos = -1;
+                    for (unsigned int i = 0; i < sz; i++) {
+                        expr * q = args[i];
+                        if (m_mpz_manager.neq(get_value(q), m_one) && (get_random_uint(16) % ++cnt_unsat == 0)) pos = i;	
+                        //if (m_mpz_manager.neq(get_value(q), m_one)) go_deeper(q);
+                    }
+                    go_deeper(args[pos]);
+                }
+                else if (m_manager.is_or(e)) {
+                    app * a = to_app(e);
+                    expr * const * args = a->get_args();
+                    unsigned int sz = a->get_num_args();
+                    for (unsigned int i = 0; i < sz; i++) {
+                        expr * q = args[i];
+                        go_deeper(q);
+                    }
+                }
+            //}
+                else
+                {
+            ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
+            unsigned sz2 = this_decls.size();
+            for (unsigned j = 0; j < sz2; j++) {
+                func_decl * fd = this_decls[j];
+                if (!m_temp_constants.contains(fd))
+                    m_temp_constants.push_back(fd);
+            }
+                }
+    }
+
+    ptr_vector<func_decl> & get_unsat_constants_only(expr * e) {
+            if (e && !m_temp_constants.size())
+                go_deeper_only(e);
+
+            return m_temp_constants;
+    }
+
+    ptr_vector<func_decl> & get_unsat_constants(goal_ref const & g, unsigned int flip) {
+        unsigned sz = g->size();
 
         if (sz == 1) {
-            if (m_mpz_manager.eq(get_value(as[0]), m_one))
+            if (m_mpz_manager.eq(get_value(g->form(0)), m_one))
+            {
+                m_temp_constants.reset();
                 return m_temp_constants;
+            }
             else
                 return get_constants();
         }
@@ -1169,11 +1490,12 @@ public:
 #if _PROBABILISTIC_UCT_
             double sum_score = 0.0;
             unsigned start_index = get_random_uint(16) % sz;
-            
+
             for (unsigned i = start_index; i < sz; i++)
             {
                 expr * e = g->form(i);
                 vscore = m_scores.find(e);
+
 #if _PROBABILISTIC_UCT_ == 2
                 double q = vscore.score * vscore.score; 
 #else
@@ -1203,7 +1525,7 @@ public:
 #else
             double max = -1.0;
             for (unsigned i = 0; i < sz; i++) {
-                expr * e = as[i];
+                expr * e = g->form(i);
 //            for (unsigned i = 0; i < m_where_false.size(); i++) {
 //                expr * e = m_list_false[i];
                 vscore = m_scores.find(e);
@@ -1221,12 +1543,12 @@ public:
                 return m_temp_constants;
 
 #if _UCT_ == 1 || _UCT_ == 3
-            m_scores.find(as[pos]).touched++;
+            m_scores.find(g->form(pos)).touched++;
             m_touched++;
 #elif _UCT_ == 2
-            m_scores.find(as[pos]).touched = flip; 
+            m_scores.find(g->form(pos)).touched = flip; 
 #endif
-            expr * e = as[pos];
+            expr * e = g->form(pos);
 //            expr * e = m_list_false[pos];
 
 #elif _BFS_ == 3
@@ -1304,12 +1626,15 @@ public:
         }
     }
     
+    expr * get_unsat_assertion(goal_ref const & g, unsigned int flip) {
+        unsigned sz = g->size();
 
-    expr * get_unsat_assertion(ptr_vector<expr> const & as, unsigned int flip) {
-        unsigned sz = as.size();
-
-        if (sz == 1)
-            return as[0];
+        if (sz == 1) {
+            if (m_mpz_manager.eq(get_value(g->form(0)), m_zero))
+                return g->form(0);
+            else
+                return 0;
+        }
 
         m_temp_constants.reset();
 #if _FOCUS_ == 1
@@ -1353,12 +1678,12 @@ public:
 #else
         double max = -1.0;
             for (unsigned i = 0; i < sz; i++) {
-                expr * e = as[i];
+                expr * e = g->form(i);
 //            for (unsigned i = 0; i < m_where_false.size(); i++) {
 //                expr * e = m_list_false[i];
                 vscore = m_scores.find(e);
 #if _UCT_ == 1
-                double q = vscore.score + _UCT_CONSTANT_ * sqrt(log((double)m_touched) / vscore.touched);
+            double q = vscore.score + _UCT_CONSTANT_ * sqrt(log((double)m_touched) / vscore.touched);
 #elif _UCT_ == 2
             double q = vscore.score + (_UCT_CONSTANT_ * (flip - vscore.touched)) / sz; 
 #elif _UCT_ == 3
@@ -1371,13 +1696,13 @@ public:
             return 0;
 
 #if _UCT_ == 1 || _UCT_ == 3
-        m_scores.find(as[pos]).touched++;
+        m_scores.find(g->form(pos)).touched++;
         m_touched++;
 #elif _UCT_ == 2
         m_scores.find(g->form(pos)).touched = flip; 
 #endif
 //        return m_list_false[pos];
-        return as[pos];
+        return g->form(pos);
 
 #elif _BFS_ == 3
         unsigned int pos = -1;
@@ -1431,7 +1756,7 @@ public:
         unsigned int pos = get_random_uint(16) % sz;
         return get_unsat_assertion(g, sz, pos);
 #endif
-        return as[pos];
+        return g->form(pos);
 #elif _FOCUS_ == 2
 #if _BFS_
         unsigned int pos = flip % sz;
@@ -1440,6 +1765,23 @@ public:
 #endif
         return get_unsat_constants_crsat(g, sz, pos);
 #endif
+    }
+
+    expr * get_new_unsat_assertion(goal_ref const & g, expr * e) {
+        unsigned sz = g->size();
+
+        if (sz == 1)
+            return 0;
+
+        m_temp_constants.reset();
+
+        unsigned cnt_unsat = 0, pos = -1;
+        for (unsigned i = 0; i < sz; i++)
+            if (m_mpz_manager.neq(get_value(g->form(i)), m_one) && (get_random_uint(16) % ++cnt_unsat == 0) && (g->form(i) != e)) pos = i;	
+
+        if (pos == static_cast<unsigned>(-1))
+            return 0;
+        return g->form(pos);
     }
 };
 
