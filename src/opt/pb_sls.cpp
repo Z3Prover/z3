@@ -233,7 +233,7 @@ namespace smt {
             }
         }
 
-        void collect_statistics(statistics& st) const {
+        void collect_statistics(::statistics& st) const {
         }
 
         void updt_params(params_ref& p) {

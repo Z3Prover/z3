@@ -562,10 +562,15 @@ namespace opt {
         }
     };
 
+    // ----------------------------------
+    // incrementally add pseudo-boolean 
+    // lower bounds.
+
     class pbmax : public maxsmt_solver_base {
+        bool m_use_aux;
     public:
-        pbmax(solver* s, ast_manager& m): 
-            maxsmt_solver_base(s, m) {}
+        pbmax(solver* s, ast_manager& m, bool use_aux): 
+            maxsmt_solver_base(s, m), m_use_aux(use_aux) {}
         
         virtual ~pbmax() {}
 
@@ -579,29 +584,41 @@ namespace opt {
                   );
             pb_util u(m);
             expr_ref fml(m), val(m);
+            app_ref b(m);
             expr_ref_vector nsoft(m);
             init();
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                nsoft.push_back(mk_not(m_soft[i].get()));
+            if (m_use_aux) {
+                s().push();
             }
-            solver::scoped_push _s1(s());
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                if (m_use_aux) {
+                    b = m.mk_fresh_const("b", m.mk_bool_sort());
+                    m_mc->insert(b->get_decl());
+                    fml = m.mk_or(m_soft[i].get(), b);
+                    s().assert_expr(fml);
+                    nsoft.push_back(b);
+                }
+                else {
+                    nsoft.push_back(mk_not(m_soft[i].get()));
+                }
+            }
             lbool is_sat = l_true;
             bool was_sat = false;
             fml = m.mk_true();
             while (l_true == is_sat) {
                 TRACE("opt", s().display(tout<<"looping\n"););
-                solver::scoped_push _s2(s());
+                solver::scoped_push _scope2(s());
                 s().assert_expr(fml);
-                is_sat = simplify_and_check_sat();
+                is_sat = s().check_sat(0,0);
                 if (m_cancel) {
                     is_sat = l_undef;
                 }
                 if (is_sat == l_true) {
-                    m_upper = rational::zero();
+                    m_upper.reset();
                     for (unsigned i = 0; i < m_soft.size(); ++i) {
-                        VERIFY(m_model->eval(m_soft[i].get(), val));
+                        VERIFY(m_model->eval(nsoft[i].get(), val));
                         TRACE("opt", tout << "eval " << mk_pp(m_soft[i].get(), m) << " " << val << "\n";);
-                        m_assignment[i] = m.is_true(val);
+                        m_assignment[i] = !m.is_true(val);
                         if (!m_assignment[i]) {
                             m_upper += m_weights[i];
                         }
@@ -616,44 +633,10 @@ namespace opt {
                 is_sat = l_true;
                 m_lower = m_upper;
             }
+            if (m_use_aux) {
+                s().pop(1);
+            }
             TRACE("opt", tout << "lower: " << m_lower << "\n";);
-            return is_sat;
-        }
-
-    private:
-        lbool simplify_and_check_sat() {
-            lbool is_sat = l_true;
-            tactic_ref tac = mk_simplify_tactic(m);
-            // TBD: make tac attribute for cancelation.
-            proof_converter_ref pc;
-            expr_dependency_ref core(m);
-            model_converter_ref mc;
-            goal_ref_buffer result;
-            goal_ref g(alloc(goal, m, true, false));
-            for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
-                g->assert_expr(s().get_assertion(i));
-            }
-            (*tac)(g, result, mc, pc, core);
-            if (result.empty()) {
-                is_sat = l_false;
-            }
-            else {
-                SASSERT(result.size() == 1);
-                goal_ref r = result[0];
-                solver::scoped_push _s(s());
-                for (unsigned i = 0; i < r->size(); ++i) {
-                    s().assert_expr(r->form(i));
-                }
-                is_sat = s().check_sat(0, 0);
-                if (l_true == is_sat && !m_cancel) {
-                    s().get_model(m_model);
-                    if (mc && m_model) (*mc)(m_model, 0);
-                    IF_VERBOSE(2, 
-                               g->display(verbose_stream() << "goal:\n");
-                               r->display(verbose_stream() << "reduced:\n");
-                               model_smt2_pp(verbose_stream(), m, *m_model, 0););
-                }
-            }
             return is_sat;
         }
     };
@@ -998,6 +981,9 @@ namespace opt {
         }
     };
 
+    // ----------------------------------------------------------
+    // weighted max-sat using a custom theory solver for max-sat.
+    // NB. it is quite similar to pseudo-Boolean propagation.
 
 
     class wmax : public maxsmt_solver_wbase {
@@ -1046,60 +1032,6 @@ namespace opt {
         }
     };
 
-    class pwmax : public maxsmt_solver_base {
-    public:
-        pwmax(solver* s, ast_manager& m): maxsmt_solver_base(s, m) {}
-        virtual ~pwmax() {}
-        lbool operator()() {
-            enable_bvsat();
-            enable_sls();
-            pb_util u(m);
-            expr_ref fml(m), val(m);
-            app_ref b(m);
-            expr_ref_vector nsoft(m);
-            solver::scoped_push __s(s());
-            init();
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                b = m.mk_fresh_const("b", m.mk_bool_sort());
-                m_mc->insert(b->get_decl());
-                fml = m.mk_or(m_soft[i].get(), b);
-                s().assert_expr(fml);
-                nsoft.push_back(b);
-            }
-            lbool is_sat = l_true;
-            bool was_sat = false;
-            fml = m.mk_true();
-            while (l_true == is_sat) {
-                solver::scoped_push _s(s());
-                s().assert_expr(fml);
-                is_sat = s().check_sat(0,0);
-                if (m_cancel) {
-                    is_sat = l_undef;
-                }
-                if (is_sat == l_true) {
-                    s().get_model(m_model);
-                    m_upper = rational::zero();
-                    for (unsigned i = 0; i < m_soft.size(); ++i) {
-                        VERIFY(m_model->eval(nsoft[i].get(), val));
-                        m_assignment[i] = !m.is_true(val);
-                        if (!m_assignment[i]) {
-                            m_upper += m_weights[i];
-                        }
-                    }                    
-                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb with upper bound: " << m_upper << ")\n";);
-                    fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
-                    was_sat = true;
-                }
-            }            
-            if (is_sat == l_false && was_sat) {
-                is_sat = l_true;
-                m_lower = m_upper;
-            }
-            return is_sat;
-        }
-
-    };
-
     struct wmaxsmt::imp {
         ast_manager&     m;
         ref<opt_solver>  s;                     // solver state that contains hard constraints
@@ -1125,13 +1057,13 @@ namespace opt {
                 return *m_maxsmt;
             }
             if (m_engine == symbol("pwmax")) {
-                m_maxsmt = alloc(pwmax, s.get(), m);
+                m_maxsmt = alloc(pbmax, s.get(), m, true);
             }
             else if (m_engine == symbol("pbmax")) {
-                m_maxsmt = alloc(pbmax, s.get(), m);
+                m_maxsmt = alloc(pbmax, s.get(), m, false);
             }
             else if (m_engine == symbol("wpm2")) {
-                maxsmt_solver_base* s2 = alloc(pbmax, s.get(), m);
+                maxsmt_solver_base* s2 = alloc(pbmax, s.get(), m, false);
                 m_maxsmt = alloc(wpm2, s.get(), m, s2);
             }
             else if (m_engine == symbol("bcd2")) {
