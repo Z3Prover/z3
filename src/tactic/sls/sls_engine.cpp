@@ -169,6 +169,14 @@ double sls_engine::incremental_score_prune(goal_ref const & g, func_decl * fd, c
 #endif
 }
 
+double sls_engine::incremental_score_prune_new(goal_ref const & g, func_decl * fd, const mpz & new_value) {
+    m_stats.m_incr_evals++;
+    if (m_evaluator.update_prune_new(fd, new_value))
+        return (m_tracker.get_top_sum() / g->size());
+    else
+        return 0.0;
+}
+
 // checks whether the score outcome of a given move is better than the previous score
 bool sls_engine::what_if(goal_ref const & g, func_decl * fd, const unsigned & fd_inx, const mpz & temp,
                 double & best_score, unsigned & best_const, mpz & best_value) {
@@ -190,8 +198,33 @@ bool sls_engine::what_if(goal_ref const & g, func_decl * fd, const unsigned & fd
     m_mpz_manager.del(old_value);
 #endif
 
-    //            if (r >= best_score) {
+    //if (r >= best_score) {
     if (r > best_score) {
+        m_tracker.reset_equal_scores();
+        best_score = r;
+        best_const = fd_inx;
+        m_mpz_manager.set(best_value, temp);
+        return true;
+    }
+    /*else if (r == best_score) {
+        if (m_tracker.get_random_uint(16) % m_tracker.inc_equal_scores() == 0)
+        {
+            best_score = r;
+            best_const = fd_inx;
+            m_mpz_manager.set(best_value, temp);
+            return true;
+        }
+    }*/
+
+    return false;
+}
+
+bool sls_engine::what_if_new(goal_ref const & g, func_decl * fd, const unsigned & fd_inx, const mpz & temp,
+                double & best_score, unsigned & best_const, mpz & best_value) {
+
+    double r = incremental_score_prune_new(g, fd, temp);
+
+    if (r >= best_score) {
         best_score = r;
         best_const = fd_inx;
         m_mpz_manager.set(best_value, temp);
@@ -426,39 +459,25 @@ double sls_engine::find_best_move_vns(goal_ref const & g, ptr_vector<func_decl> 
     return new_score;
 }
 
-// finds the move that increased score the most. returns best_const = -1, if no increasing move exists.
-double sls_engine::find_best_move(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score,
-                        unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move) {
+double sls_engine::find_best_move_lsb(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score,
+                            unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move) {
     mpz old_value, temp;
-#if _USE_MUL3_ || _USE_UNARY_MINUS_
-    mpz temp2;
-#endif
-    unsigned bv_sz;
+    unsigned bv_sz, max_bv_sz = 0;
     double new_score = score;
 
-    for (unsigned i = 0; i < to_evaluate.size() && new_score < 1.0; i++) {
+    for (unsigned i = 0; i < to_evaluate.size(); i++) {
         func_decl * fd = to_evaluate[i];
         sort * srt = fd->get_range();
         bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
+        if (max_bv_sz < bv_sz) max_bv_sz = bv_sz;
         m_mpz_manager.set(old_value, m_tracker.get_value(fd));
 
-        // first try to flip every bit
-#if _SKIP_BITS_
-        for (unsigned j = (i + m_stats.m_moves) % (_SKIP_BITS_ + 1); j < bv_sz && new_score < 1.0; j += (_SKIP_BITS_ + 1)) {
-#else
-        for (unsigned j = 0; j < bv_sz && new_score < 1.0; j++) {
-#endif
-            // What would happen if we flipped bit #i ?                
-            mk_flip(srt, old_value, j, temp);
-
-            if (what_if(g, fd, i, temp, new_score, best_const, best_value)) {
-                new_bit = j;
-                move = MV_FLIP;
-            }
-        }
-
         if (m_bv_util.is_bv_sort(srt) && bv_sz > 1) {
-#if _USE_ADDSUB_
+            // try inverting
+            mk_inv(bv_sz, old_value, temp);
+            if (what_if(g, fd, i, temp, new_score, best_const, best_value))
+                move = MV_INV;
+
             if (!m_mpz_manager.is_even(old_value)) {
                 // for odd values, try +1
                 mk_inc(bv_sz, old_value, temp);
@@ -471,9 +490,121 @@ double sls_engine::find_best_move(goal_ref const & g, ptr_vector<func_decl> & to
                 if (what_if(g, fd, i, temp, new_score, best_const, best_value))
                     move = MV_DEC;
             }
+
+            // try to flip lsb
+            mk_flip(srt, old_value, 0, temp);
+            if (what_if(g, fd, i, temp, new_score, best_const, best_value)) {
+                new_bit = 0;
+                move = MV_FLIP;
+            }
+        }
+
+        // reset to what it was before
+        double check = incremental_score(g, fd, old_value);
+        SASSERT(check == score);
+    }
+
+    for (unsigned j = 1; j < max_bv_sz; j++)
+    {
+        for (unsigned i = 0; i < to_evaluate.size(); i++) {
+            func_decl * fd = to_evaluate[i];
+            sort * srt = fd->get_range();
+            bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
+            m_mpz_manager.set(old_value, m_tracker.get_value(fd));
+
+            // What would happen if we flipped bit #j ?                
+            if (j < bv_sz)
+            {
+                mk_flip(srt, old_value, j, temp);
+
+                if (what_if(g, fd, i, temp, new_score, best_const, best_value)) {
+                    new_bit = j;
+                    move = MV_FLIP;
+                }
+            }
+            // reset to what it was before
+            double check = incremental_score(g, fd, old_value);
+            SASSERT(check == score);
+        }
+    }
+    m_mpz_manager.del(old_value);
+    m_mpz_manager.del(temp);
+    return new_score;
+}
+
+// finds the move that increased score the most. returns best_const = -1, if no increasing move exists.
+double sls_engine::find_best_move(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score,
+                        unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move) {
+    mpz old_value, temp;
+#if _USE_MUL3_ || _USE_UNARY_MINUS_
+    mpz temp2;
+#endif
+    unsigned bv_sz;
+#if _INSIST_PERC_
+    double new_score = m_tracker.get_random_uint(16) % 100 < _INSIST_PERC_ ? 0.0 : score;
+#else
+    double new_score = score;
+#endif
+
+    m_tracker.reset_equal_scores();
+
+//    for (unsigned i = 0; i < to_evaluate.size() && new_score < 1.0; i++) {
+    for (unsigned i = 0; i < to_evaluate.size(); i++) {
+//    for (unsigned i = m_tracker.get_random_uint(16) % to_evaluate.size(); i != to_evaluate.size(); i = to_evaluate.size()) {
+//    for (unsigned i = to_evaluate.size(); i-- > 0; ) {
+        func_decl * fd = to_evaluate[i];
+        sort * srt = fd->get_range();
+        bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
+        m_mpz_manager.set(old_value, m_tracker.get_value(fd));
+
+        // first try to flip every bit
+#if _SKIP_BITS_
+        for (unsigned j = (i + m_stats.m_moves) % (_SKIP_BITS_ + 1); j < bv_sz && new_score < 1.0; j += (_SKIP_BITS_ + 1)) {
+#else
+//        for (unsigned j = 0; j < bv_sz && new_score < 1.0; j++) {
+        for (unsigned j = 0; j < bv_sz; j++) {
+//        for (unsigned j = bv_sz; j-- > 0; ) {
+#endif
+            // What would happen if we flipped bit #i ?                
+            mk_flip(srt, old_value, j, temp);
+
+            //if (m_tracker.get_random_uint(1))
+            //if ((move != MV_FLIP) || (new_bit > j))
+            //{
+            //if (what_if_new(g, fd, i, temp, new_score, best_const, best_value)) {
+            //    new_bit = j;
+            //    move = MV_FLIP;
+            //}
+            //}
+            //else
+            //{
+            if (what_if(g, fd, i, temp, new_score, best_const, best_value)) {
+                new_bit = j;
+                move = MV_FLIP;
+            }
+            //}
+        }
+
+        if (m_bv_util.is_bv_sort(srt) && bv_sz > 1) {
+#if _USE_ADDSUB_
+            if (!m_mpz_manager.is_even(old_value)) {
+                // for odd values, try +1
+                mk_inc(bv_sz, old_value, temp);
+                //if (m_tracker.get_random_uint(1))
+                if (what_if(g, fd, i, temp, new_score, best_const, best_value))
+                    move = MV_INC;
+            }
+            else {
+                // for even values, try -1
+                mk_dec(bv_sz, old_value, temp);
+                //if (m_tracker.get_random_uint(1))
+                if (what_if(g, fd, i, temp, new_score, best_const, best_value))
+                    move = MV_DEC;
+            }
 #endif
             // try inverting
             mk_inv(bv_sz, old_value, temp);
+            //if (m_tracker.get_random_uint(1))
             if (what_if(g, fd, i, temp, new_score, best_const, best_value))
                 move = MV_INV;
 
@@ -514,6 +645,50 @@ double sls_engine::find_best_move(goal_ref const & g, ptr_vector<func_decl> & to
 #if _USE_MUL3_
     m_mpz_manager.del(temp2);
 #endif
+
+    if ((new_score == score) && 1)// (m_tracker.get_random_uint(1)))
+        best_const = -1;
+
+    return new_score;
+}
+
+// finds the move that increased score the most. returns best_const = -1, if no increasing move exists.
+double sls_engine::find_best_move_mc(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score,
+                        unsigned & best_const, mpz & best_value) {
+    mpz old_value, temp, temp2;
+    unsigned bv_sz;
+    double new_score = score;
+
+//    for (unsigned i = 0; i < to_evaluate.size() && new_score < 1.0; i++) {
+    for (unsigned i = 0; i < to_evaluate.size(); i++) {
+        func_decl * fd = to_evaluate[i];
+        sort * srt = fd->get_range();
+        bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
+        m_mpz_manager.set(old_value, m_tracker.get_value(fd));
+
+        if (m_bv_util.is_bv_sort(srt) && bv_sz > 2) {
+//            for (unsigned j = 0; j < bv_sz && new_score < 1.0; j++) {
+            for (unsigned j = 0; j < bv_sz; j++) {
+                mk_flip(srt, old_value, j, temp);
+                for (unsigned l = 0; l < _VNS_MC_TRIES_ && l < bv_sz / 2; l++)
+                {
+                    unsigned k = m_tracker.get_random_uint(16) % bv_sz;
+                    while (k == j)
+                        k = m_tracker.get_random_uint(16) % bv_sz;
+                    mk_flip(srt, temp, k, temp2);
+                    what_if(g, fd, i, temp2, new_score, best_const, best_value);
+                }
+            }
+        }
+
+        // reset to what it was before
+        double check = incremental_score(g, fd, old_value);
+    }
+
+    m_mpz_manager.del(old_value);
+    m_mpz_manager.del(temp);
+    m_mpz_manager.del(temp2);
+
     return new_score;
 }
 
@@ -725,6 +900,13 @@ lbool sls_engine::search(goal_ref const & g) {
 
     score = rescore(g);
     unsigned sz = g->size();
+
+    TRACE("sls", tout << "Starting search, initial score   = " << std::setprecision(32) << score << std::endl;
+    tout << "Score distribution:";
+    for (unsigned i = 0; i < g->size(); i++)
+        tout << " " << std::setprecision(3) << m_tracker.get_score(g->form(i));
+    tout << " TOP: " << score << std::endl;);
+
 #if _PERC_STICKY_
     expr * e = m_tracker.get_unsat_assertion(g, m_stats.m_moves);
 #endif
@@ -738,8 +920,17 @@ lbool sls_engine::search(goal_ref const & g) {
 #else
     while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {
 #endif
+        //if (m_stats.m_stopwatch.get_current_seconds() > 10.0)
+        //{printf("Got %f fps and size is %d with avg bw %f\n", m_stats.m_moves / m_stats.m_stopwatch.get_current_seconds(), m_tracker.get_formula_size(), m_tracker.get_avg_bw(g)); exit(0);}
+
         checkpoint();
         m_stats.m_moves++;
+
+#if _UCT_FORGET_
+        //if (m_stats.m_moves % sz == 0)
+        if (m_stats.m_moves % _UCT_FORGET_ == 0)
+            m_tracker.uct_forget(g);
+#endif
 
 #if _REAL_RS_ || _REAL_PBFS_
         //m_tracker.debug_real(g, m_stats.m_moves);
@@ -757,6 +948,7 @@ lbool sls_engine::search(goal_ref const & g) {
             res = l_true;
             goto bailout;
         }
+        //ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants_only(e);
         ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants_walksat(e);
 #else
         ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants_gsat(g, sz);
@@ -789,12 +981,68 @@ lbool sls_engine::search(goal_ref const & g) {
 #endif       
         old_score = score;
         new_const = (unsigned)-1;
+        move = MV_FLIP;
+        new_bit = 0;
 
 #if _VNS_
         score = find_best_move_vns(g, to_evaluate, score, new_const, new_value, new_bit, move);
 #else
         score = find_best_move(g, to_evaluate, score, new_const, new_value, new_bit, move);
 #endif
+
+#if _VNS_MC_ > _VNS_REPICK_
+#if _VNS_MC_
+        if (new_const == static_cast<unsigned>(-1))
+            if (m_tracker.get_random_uint(16) % 100 < _VNS_PERC_)
+                score = find_best_move_mc(g, to_evaluate, score, new_const, new_value);
+#endif
+#if _VNS_REPICK_
+        if (new_const == static_cast<unsigned>(-1))
+            if (m_tracker.get_random_uint(16) % 100 < _VNS_PERC_) {
+                expr * q = m_tracker.get_new_unsat_assertion(g, e);
+                if (q)
+                {
+                    ptr_vector<func_decl> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(e);
+                    score = find_best_move(g, to_evaluate2, score, new_const, new_value, new_bit, move);
+                }
+            }
+#endif
+#endif
+
+#if _VNS_MC_ < _VNS_REPICK_
+#if _VNS_REPICK_
+        if (new_const == static_cast<unsigned>(-1))
+            if (m_tracker.get_random_uint(16) % 100 < _VNS_PERC_) {
+                expr * q = m_tracker.get_new_unsat_assertion(g, e);
+                if (q)
+                {
+                    ptr_vector<func_decl> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(e);
+                    score = find_best_move(g, to_evaluate2, score, new_const, new_value, new_bit, move);
+                }
+            }
+#endif
+#if _VNS_MC_
+        if (new_const == static_cast<unsigned>(-1))
+            if (m_tracker.get_random_uint(16) % 100 < _VNS_PERC_)
+                score = find_best_move_mc(g, to_evaluate, score, new_const, new_value);
+#endif
+#endif
+
+#if (_VNS_MC_ == _VNS_REPICK_) && _VNS_MC_ && _VNS_REPICK_
+        if (new_const == static_cast<unsigned>(-1)) {
+            if (m_tracker.get_random_uint(16) % 100 < _VNS_PERC_)
+                score = find_best_move_mc(g, to_evaluate, score, new_const, new_value);
+            else {
+                expr * q = m_tracker.get_new_unsat_assertion(g, e);
+                if (q)
+                {
+                    ptr_vector<func_decl> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(e);
+                    score = find_best_move(g, to_evaluate2, score, new_const, new_value, new_bit, move);
+                }
+            }
+        }        
+#endif
+
 
         if (new_const == static_cast<unsigned>(-1)) {
             score = old_score;
@@ -810,10 +1058,19 @@ lbool sls_engine::search(goal_ref const & g) {
                 mk_random_move(to_evaluate);
             else
 #endif
-#if _REPICK_
+#if _REPICK_ == 1
                 m_evaluator.randomize_local(g, m_stats.m_moves);
+#elif _REPICK_ == 2
+            {
+                expr * q = m_tracker.get_new_unsat_assertion(g, e);
+                if (q)
+                    m_evaluator.randomize_local(q);
+                else
+                    m_evaluator.randomize_local(e);
+            }
 #else
-                m_evaluator.randomize_local(to_evaluate);
+                m_evaluator.randomize_local_n(g, to_evaluate);
+                //m_evaluator.randomize_local(to_evaluate);
 #endif
 #endif
 
@@ -822,10 +1079,28 @@ lbool sls_engine::search(goal_ref const & g) {
 #else
             score = top_score(g);
 #endif
+
+#if _PAWS_
+            for (unsigned i = 0; i < sz; i++)
+            {
+                expr * q = g->form(i);
+                if (m_tracker.get_random_uint(16) % 100 < _PAWS_)
+                {
+                    if (m_mpz_manager.eq(m_tracker.get_value(q),m_one))
+                        m_tracker.decrease_weight(q);
+                }
+                else
+                {
+                    if (m_mpz_manager.eq(m_tracker.get_value(q),m_zero))
+                        m_tracker.increase_weight(q);
+                }
+            }
+#endif
+
         }
         else {
             func_decl * fd = to_evaluate[new_const];
-#if _REAL_RS_ || _REAL_PBFS_
+#if _REAL_RS_ || _REAL_PBFS_ || _PAWS_
             score = serious_score(g, fd, new_value);
 #else
             score = incremental_score(g, fd, new_value);
@@ -961,7 +1236,7 @@ lbool sls_engine::search_old(goal_ref const & g) {
                 case MV_DIV2: m_stats.m_div2s++; break;
                 }
 
-#if _REAL_RS_ || _REAL_PBFS_
+#if _REAL_RS_ || _REAL_PBFS_ || _PAWS_
                 score = serious_score(g, fd, new_value);
 #else
                 score = incremental_score(g, fd, new_value);
@@ -1056,7 +1331,14 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     verbose_stream() << "_TIMELIMIT_ " << _TIMELIMIT_ << std::endl;
     verbose_stream() << "_SCORE_AND_AVG_ " << _SCORE_AND_AVG_ << std::endl;
     verbose_stream() << "_SCORE_OR_MUL_ " << _SCORE_OR_MUL_ << std::endl;
+    verbose_stream() << "_PAWS_ " << _PAWS_ << std::endl;
+    verbose_stream() << "_PAWS_INIT_ " << _PAWS_INIT_ << std::endl;
     verbose_stream() << "_VNS_ " << _VNS_ << std::endl;
+    verbose_stream() << "_VNS_MC_ " << _VNS_MC_ << std::endl;
+    verbose_stream() << "_VNS_MC_TRIES_ " << _VNS_MC_TRIES_ << std::endl;
+    verbose_stream() << "_VNS_REPICK_ " << _VNS_REPICK_ << std::endl;
+    verbose_stream() << "_VNS_PERC_ " << _VNS_PERC_ << std::endl;
+    verbose_stream() << "_INSIST_PERC_ " << _INSIST_PERC_ << std::endl;
     verbose_stream() << "_WEIGHT_DIST_ " << _WEIGHT_DIST_ << std::endl;
     verbose_stream() << "_WEIGHT_DIST_FACTOR_ " << std::fixed << std::setprecision(2) << _WEIGHT_DIST_FACTOR_ << std::endl;
     verbose_stream() << "_INTENSIFICATION_ " << _INTENSIFICATION_ << std::endl;
@@ -1067,6 +1349,8 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     verbose_stream() << "_UCT_CONSTANT_ " << std::fixed << std::setprecision(2) << _UCT_CONSTANT_ << std::endl;
     verbose_stream() << "_UCT_RESET_ " << _UCT_RESET_ << std::endl;
     verbose_stream() << "_UCT_INIT_ " << _UCT_INIT_ << std::endl;
+    verbose_stream() << "_UCT_FORGET_ " << _UCT_FORGET_ << std::endl;
+    verbose_stream() << "_UCT_FORGET_FACTOR_ " << std::fixed << std::setprecision(2) << _UCT_FORGET_FACTOR_ << std::endl;
     verbose_stream() << "_PROBABILISTIC_UCT_ " << _PROBABILISTIC_UCT_ << std::endl;
     verbose_stream() << "_UCT_EPS_ " << std::fixed << std::setprecision(4) << _UCT_EPS_ << std::endl;
     verbose_stream() << "_USE_ADDSUB_ " << _USE_ADDSUB_ << std::endl;
@@ -1136,7 +1420,9 @@ unsigned sls_engine::check_restart(unsigned curr_value)
 {
     if (curr_value > m_restart_limit)
     {
-#if _RESTART_SCHEME_ == 4
+#if _RESTART_SCHEME_ == 5
+        m_restart_limit += (unsigned)(_RESTART_LIMIT_ * pow(_RESTART_CONST_ARMIN_, m_stats.m_restarts));
+#elif _RESTART_SCHEME_ == 4
         m_restart_limit += (m_stats.m_restarts & (m_stats.m_restarts + 1)) ? _RESTART_LIMIT_ : (_RESTART_LIMIT_ * m_stats.m_restarts + 1);
 #elif _RESTART_SCHEME_ == 3
         m_restart_limit += (unsigned)get_restart_armin(m_stats.m_restarts + 1) * _RESTART_LIMIT_;
@@ -1144,9 +1430,11 @@ unsigned sls_engine::check_restart(unsigned curr_value)
         m_restart_limit += get_luby(m_stats.m_restarts + 1) * _RESTART_LIMIT_;
 #elif _RESTART_SCHEME_ == 1
         if (m_stats.m_restarts & 1)
+        //if (m_stats.m_restarts % 3 == 2)
             m_restart_limit += _RESTART_LIMIT_;
         else
             m_restart_limit += (2 << (m_stats.m_restarts >> 1)) * _RESTART_LIMIT_;
+            //m_restart_limit += (2 << (m_stats.m_restarts / 3)) * _RESTART_LIMIT_;
 #else
         m_restart_limit += _RESTART_LIMIT_;
 #endif

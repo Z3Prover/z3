@@ -161,14 +161,14 @@ tactic * mk_preamble(ast_manager & m, params_ref const & p) {
                         mk_max_bv_sharing_tactic(m),
                         // Andreas: It would be cool to get rid of shared top level assertions but which simplification is doing this?
                         //mk_ctx_simplify_tactic(m, ctx_p),
-                        // Andreas: This one at least eliminates top level duplicates ...
+                        // Andreas: This one at least eliminates top level duplicates ... but has very bad effects on performance!
                         //mk_simplify_tactic(m),
-                        // Andreas: How does a NNF actually look like? Can it contain ITE operators?
                         mk_nnf_tactic(m, p));
 }
 
 tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p) {
     tactic * t = and_then(mk_preamble(m, p), mk_sls_tactic(m));    
+//    tactic * t = and_then(mk_simplify_tactic(m), mk_nnf_tactic(m, p), mk_sls_tactic(m));    
     t->updt_params(p);
     return t;
 }

@@ -108,7 +108,13 @@ public:
 
     double find_best_move(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score,
                           unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move);
-    
+
+    double find_best_move_lsb(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score,
+                          unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move);
+
+    double find_best_move_mc(goal_ref const & g, ptr_vector<func_decl> & to_evaluate, double score,
+                          unsigned & best_const, mpz & best_value);
+
     double find_best_move_local(expr * e, ptr_vector<func_decl> & to_evaluate,
                                 unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move);
     
@@ -131,6 +137,10 @@ protected:
 
     bool what_if(goal_ref const & g, func_decl * fd, const unsigned & fd_inx, const mpz & temp,
                  double & best_score, unsigned & best_const, mpz & best_value);
+
+    bool what_if_new(goal_ref const & g, func_decl * fd, const unsigned & fd_inx, const mpz & temp,
+                 double & best_score, unsigned & best_const, mpz & best_value);
+    double incremental_score_prune_new(goal_ref const & g, func_decl * fd, const mpz & new_value);
 
     bool what_if_local(expr * e, func_decl * fd, const unsigned & fd_inx, const mpz & temp,
                        double & best_score, unsigned & best_const, mpz & best_value);

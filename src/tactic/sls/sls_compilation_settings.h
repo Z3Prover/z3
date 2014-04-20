@@ -36,17 +36,21 @@ Notes:
 // do we use dirty unit propagation to get rid of nested top level assertions?
 #define _DIRTY_UP_ 0
 
+// shall we use additive weighting scheme?
+#define _PAWS_ 5
+#define _PAWS_INIT_ 40
+
 // do we use restarts?
 // 0 = no, 1 = use #moves, 2 = use #plateaus, 3 = use time
-#define _RESTARTS_ 3
+#define _RESTARTS_ 1
 // limit of moves/plateaus/seconds until first restart occurs
-#define _RESTART_LIMIT_ 10
+#define _RESTART_LIMIT_ 100
 // 0 = initialize with all zero, 1 initialize with random value
 #define _RESTART_INIT_ 0
 // 0 = even intervals, 1 = pseudo luby, 2 = real luby, 3 = armin, 4 = rapid, 5 = minisat
 #define _RESTART_SCHEME_ 1
 // base value c for armin restart scheme using c^inner - only applies for _RESTART_SCHEME_ 3
-#define _RESTART_CONST_ARMIN_ 3.0
+#define _RESTART_CONST_ARMIN_ 2.0
 
 // timelimit
 #define _TIMELIMIT_ 3600
@@ -61,6 +65,21 @@ Notes:
 // 0 = no, 1 = only consider flipping bits if no better score can be obtained otherwise, 2 = only consider flipping bits until a better score can be obtained
 #define _VNS_ 0
 
+// shall we check 2-bit flips in plateaus using Monte Carlo?
+#define _VNS_MC_ 0
+
+// how many 2-bit flips shall we try per bit?
+#define _VNS_MC_TRIES_ 1
+
+// shall we check another assertion if no improving step was found in the first one?
+#define _VNS_REPICK_ 0
+
+// what is the probability of doing so (percentage)?
+#define _VNS_PERC_ 100
+
+// do a decreasing move with percentage ...
+#define _INSIST_PERC_ 0
+
 // do we reduce the score of unsatisfied literals?
 // 0 = no
 // 1 = yes, by multiplying it with some factor
@@ -70,7 +89,7 @@ Notes:
 #define _WEIGHT_DIST_ 1
 
 // the factor used for _WEIGHT_DIST_ = 1
-#define _WEIGHT_DIST_FACTOR_ 0.25
+#define _WEIGHT_DIST_FACTOR_ 0.5
 
 // shall we toggle the weight after each restart?
 #define _WEIGHT_TOGGLE_ 0
@@ -82,14 +101,15 @@ Notes:
 // what is the percentage of random moves in plateaus (instead of full randomization)?
 #define _PERC_PLATEAU_MOVES_ 0
 
-// shall we repick clause when randomizing in a plateau or use the current one?
+// shall we repick assertion when randomizing in a plateau or use the current one?
+// 0 = use old one, 1 = repick according to usual scheme, 2 = repick randomly and force different one
 #define _REPICK_ 1
 
 // do we use some UCT-like scheme for assertion-selection? overrides _BFS_
 #define _UCT_ 1
 
 // how much diversification is used in the UCT-scheme?
-#define _UCT_CONSTANT_ 10.0
+#define _UCT_CONSTANT_ 20.0
 
 // is uct clause selection probabilistic similar to variable selection in sparrow?
 // 0 = no, 1 = yes, use uct-value, 2 = yes, use score-value (_UCT_CONSTANT_ = 0.0) with squared score
@@ -103,11 +123,11 @@ Notes:
 
 // how shall we initialize the _UCT_ total touched counter?
 // 0 = initialize with one, 1 = initialize with number of assertions
-#define _UCT_INIT_ 1
+#define _UCT_INIT_ 0
 
 // do we gradually reduce the touched values of _UCT_?
 #define _UCT_FORGET_ 0
-#define _UCT_FORGET_FACTOR_ 0.5
+#define _UCT_FORGET_FACTOR_ 0.9
 
 // shall we use addition/subtraction?
 #define _USE_ADDSUB_ 1
