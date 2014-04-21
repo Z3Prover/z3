@@ -3374,7 +3374,7 @@
 (optimize
 ; :wmaxsat_engine wpm2
 ; :wmaxsat_engine pwmax
- :wmaxsat_engine bvmax
+; :wmaxsat_engine bvmax
  :print_statistics true
  :timeout 1200000
 )

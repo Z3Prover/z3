@@ -43,7 +43,7 @@ namespace opt {
         sls_solver(ast_manager & m, solver* s, 
                    expr_ref_vector const& soft, 
                    vector<rational> const& weights, 
-                   params_ref const& p):
+                   params_ref & p):
             solver_na2as(m),
             m(m),
             m_solver(s),
@@ -53,6 +53,7 @@ namespace opt {
             m_weights(weights),
             m_soft(soft)
         {            
+            updt_params(p);
         }
         virtual ~sls_solver() {}
 
@@ -89,6 +90,7 @@ namespace opt {
             m_solver->get_labels(r);
         }
         virtual void set_cancel(bool f) {
+            std::cout << "set cancel\n";
             m_solver->set_cancel(f);
             m_pb2bv.set_cancel(f);
             #pragma omp critical (this)
@@ -205,7 +207,7 @@ namespace opt {
             }
             lbool is_sat = (*m_pbsls.get())();
             if (is_sat == l_true) {
-                m_bvsls->get_model(m_model);
+                m_pbsls->get_model(m_model);
             }
         }
 
@@ -216,7 +218,13 @@ namespace opt {
             }
             assertions2sls();
             expr_ref objective = soft2bv();
-            opt_result or = m_bvsls->optimize(objective, m_model, true);
+            opt_result or(m);
+            try {
+                or = m_bvsls->optimize(objective, m_model, true);
+            }
+            catch (...) {
+                
+            }
             SASSERT(or.is_sat == l_true || or.is_sat == l_undef);
             if (or.is_sat == l_true) {
                 m_bvsls->get_model(m_model);

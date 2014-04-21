@@ -957,7 +957,7 @@ namespace opt {
                 break;
             }
         }        
-        out << "(optimize)\n"; 
+        out << "(check-sat)\n"; 
         return out.str();
     }
 

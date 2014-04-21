@@ -69,7 +69,7 @@ namespace opt {
         virtual rational get_lower() const { return m_lower; }
         virtual rational get_upper() const { return m_upper; }
         virtual bool get_assignment(unsigned index) const { return m_assignment[index]; }
-        virtual void set_cancel(bool f) { m_cancel = f; }
+        virtual void set_cancel(bool f) { m_cancel = f; m_s->set_cancel(f); }
         virtual void collect_statistics(statistics& st) const { }
         virtual void get_model(model_ref& mdl) { mdl = m_model.get(); }
         virtual void updt_params(params_ref& p) {
@@ -127,7 +127,6 @@ namespace opt {
         };
 
         bool probe_bv() {
-            if (!m_enable_sat) return false;
             expr_fast_mark1 visited;
             is_bv proc(m);
             try {
@@ -553,7 +552,7 @@ namespace opt {
             expr_ref fml(m), val(m);
             app_ref b(m);
             expr_ref_vector nsoft(m);
-            init();
+            init();            
             if (m_use_aux) {
                 s().push();
             }
@@ -582,6 +581,7 @@ namespace opt {
                 }
                 if (is_sat == l_true) {
                     m_upper.reset();
+                    s().get_model(m_model);
                     for (unsigned i = 0; i < m_soft.size(); ++i) {
                         VERIFY(m_model->eval(nsoft[i].get(), val));
                         TRACE("opt", tout << "eval " << mk_pp(m_soft[i].get(), m) << " " << val << "\n";);
@@ -820,6 +820,7 @@ namespace opt {
             lbool is_sat = s().check_sat(0, 0);
             if (is_sat == l_true) {
                 s().get_model(m_model);
+                m_upper.reset();
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     expr_ref tmp(m);
                     m_model->eval(m_soft[i].get(), tmp, true);

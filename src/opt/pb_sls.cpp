@@ -107,28 +107,33 @@ namespace smt {
         vector<unsigned_vector>  m_hard_occ, m_soft_occ;  // variable occurrence
         svector<bool>    m_assignment;   // current assignment.
         svector<bool>    m_best_assignment;
-        obj_map<func_decl, unsigned> m_decl2var; // map declarations to Boolean variables.
-        ptr_vector<func_decl> m_var2decl;        // reverse map
+        expr_ref_vector  m_trail;
+        obj_map<expr, unsigned> m_decl2var; // map declarations to Boolean variables.
+        ptr_vector<expr> m_var2decl;        // reverse map
         index_set        m_hard_false;           // list of hard clauses that are false.
         index_set        m_soft_false;           // list of soft clauses that are false.
         unsigned         m_max_flips;            // maximal number of flips
         unsigned         m_non_greedy_percent;   // percent of moves to do non-greedy style
         random_gen       m_rng;
+        scoped_mpz       one;
 
         imp(ast_manager& m):
             m(m),
             pb(m),
             m_rewrite(m),
             m_cancel(false),
-            m_orig_clauses(m)
+            m_orig_clauses(m),
+            m_trail(m),
+            one(mgr)
         {
             init_max_flips();
             m_non_greedy_percent = 30;
-            m_decl2var.insert(m.mk_true()->get_decl(), 0);
-            m_var2decl.push_back(m.mk_true()->get_decl());
+            m_decl2var.insert(m.mk_true(), 0);
+            m_var2decl.push_back(m.mk_true());
             m_assignment.push_back(true);
             m_hard_occ.push_back(unsigned_vector());
             m_soft_occ.push_back(unsigned_vector());
+            one = mpz(1);
         }
 
         ~imp() {
@@ -155,14 +160,10 @@ namespace smt {
 
         void set_model(model_ref & mdl) {
             m_orig_model = mdl;
-            unsigned sz = mdl->get_num_constants();
-            for (unsigned i = 0; i < sz; ++i) {
-                func_decl* f = mdl->get_constant(i);
-                if (m.is_bool(f->get_range())) {
-                    literal lit = mk_literal(f);
-                    SASSERT(!lit.sign());
-                    m_assignment[lit.var()] = m.is_true(mdl->get_const_interp(f));
-                }
+            for (unsigned i = 0; i < m_var2decl.size(); ++i) {
+                expr_ref tmp(m);
+                VERIFY(mdl->eval(m_var2decl[i], tmp));
+                m_assignment[i] = m.is_true(tmp);
             }
         }
 
@@ -229,7 +230,10 @@ namespace smt {
         void get_model(model_ref& mdl) {
             mdl = alloc(model, m);
             for (unsigned i = 1; i < m_var2decl.size(); ++i) {
-                mdl->register_decl(m_var2decl[i], m_assignment[i]?m.mk_true():m.mk_false());
+                expr* d = m_var2decl[i];
+                if (is_uninterp_const(d)) {
+                    mdl->register_decl(to_app(d)->get_decl(), m_assignment[i] ? m.mk_true() : m.mk_false());
+                }
             }
         }
 
@@ -248,6 +252,7 @@ namespace smt {
             for (unsigned i = 0; i < cls.m_lits.size(); ++i) {
                 w = cls.m_weights[i];
                 out << w << "*" << cls.m_lits[i] << " ";
+                out << "(" << mk_pp(m_var2decl[cls.m_lits[i].var()], m) << ") ";
                 if (i + 1 < cls.m_lits.size()) {
                     out << "+ ";
                 }
@@ -271,7 +276,7 @@ namespace smt {
                 display(out << m_weights[i] << ": ", m_soft[i]);
             }
             for (unsigned i = 0; i < m_assignment.size(); ++i) {
-                out << literal(i) << ": " << m_var2decl[i]->get_name() << " |-> " << (m_assignment[i]?"true":"false") << "\n";
+                out << literal(i) << ": " << mk_pp(m_var2decl[i], m) << " |-> " << (m_assignment[i]?"true":"false") << "\n";
             }
         }
 
@@ -319,8 +324,11 @@ namespace smt {
                 if (!eval(m_clauses[i])) {
                     m_hard_false.insert(i);
                     expr_ref tmp(m);
-                    VERIFY(m_orig_model->eval(m_orig_clauses[i].get(), tmp));
-                    std::cout << "original evaluation: " << tmp << "\n";
+                    VERIFY(m_orig_model->eval(m_orig_clauses[i].get(), tmp));                    
+                    IF_VERBOSE(0,                               
+                               verbose_stream() << "original evaluation: " << tmp << "\n";
+                               verbose_stream() << mk_pp(m_orig_clauses[i].get(), m) << "\n";
+                               display(verbose_stream(), m_clauses[i]););
                 }
             }
             for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -482,45 +490,131 @@ namespace smt {
             return break_count;
         }
 
-        literal mk_literal(func_decl* f) {
-            SASSERT(f->get_family_id() == null_family_id);
+        literal mk_aux_literal(expr* f) {           
             unsigned var;
+            expr_ref tmp(m);
             if (!m_decl2var.find(f, var)) {
                 var = m_hard_occ.size();
                 SASSERT(m_var2decl.size() == var);
                 SASSERT(m_soft_occ.size() == var);
                 m_hard_occ.push_back(unsigned_vector());
                 m_soft_occ.push_back(unsigned_vector());
-                m_assignment.push_back(false);
+                VERIFY(m_orig_model->eval(f, tmp));
+                m_assignment.push_back(m.is_true(tmp));
                 m_decl2var.insert(f, var);
                 m_var2decl.push_back(f);
             }
             return literal(var);            
         }
-
+        void pad(scoped_mpz_vector& vec, unsigned sz, mpz& val) {
+            for (unsigned i = 0; i < sz; ++i) {
+                vec.push_back(val);
+            }
+        }
         literal mk_literal(expr* f) {
-            literal result;
-            bool sign = false;
-            while (m.is_not(f, f)) {
-                sign = !sign;
+            if (m.is_not(f, f)) {
+                literal result = mk_literal(f);
+                if (result != null_literal) {
+                    result.neg();
+                }
+                return result;
             }
-            if (m.is_true(f)) {
-                result = true_literal;
+            if (is_uninterp_const(f)) 
+                return mk_aux_literal(to_app(f));            
+            if (m.is_true(f))
+                return true_literal;
+            if (m.is_false(f))
+                return false_literal;
+            if (m.is_and(f)) {
+                literal_vector lits;
+                app* g = to_app(f);
+                for (unsigned i = 0; i < g->get_num_args(); ++i) {
+                    lits.push_back(mk_literal(g->get_arg(i)));
+                }
+                literal result = mk_aux_literal(f);
+                for (unsigned i = 0; i < lits.size(); ++i) {
+                    clause cls(mgr);
+                    cls.m_lits.push_back(~result);
+                    cls.m_weights.push_back(one);
+                    cls.m_lits.push_back(lits[i]);
+                    cls.m_weights.push_back(one);
+                    cls.m_k = one;
+                    cls.m_eq = false;
+                    m_clauses.push_back(cls);  
+                    m_orig_clauses.push_back(f);
+                    lits[i].neg();
+                }
+                lits.push_back(result);
+                clause cls(mgr);
+                cls.m_lits.append(lits);
+                pad(cls.m_weights, lits.size(), one);
+                cls.m_k = one;
+                cls.m_eq = false;
+                m_clauses.push_back(cls); 
+                m_orig_clauses.push_back(f);
+                return result;
             }
-            else if (m.is_false(f)) {
-                result = false_literal;
+            if (m.is_or(f)) {
+                literal_vector lits;
+                app* g = to_app(f);
+                for (unsigned i = 0; i < g->get_num_args(); ++i) {
+                    lits.push_back(mk_literal(g->get_arg(i)));
+                }
+                literal result = mk_aux_literal(f);
+                for (unsigned i = 0; i < lits.size(); ++i) {
+                    clause cls(mgr);
+                    cls.m_lits.push_back(result);
+                    cls.m_weights.push_back(one);
+                    cls.m_lits.push_back(~lits[i]);
+                    cls.m_weights.push_back(one);
+                    cls.m_k = one;
+                    cls.m_eq = false;
+                    m_clauses.push_back(cls);  
+                    m_orig_clauses.push_back(f);
+                }
+                lits.push_back(~result);
+                clause cls(mgr);
+                cls.m_lits.append(lits);
+                pad(cls.m_weights, lits.size(), one);
+                cls.m_k = one;
+                cls.m_eq = false;
+                m_clauses.push_back(cls);       
+                m_orig_clauses.push_back(f);
+                return result;
             }
-            else if (is_uninterp_const(f)) {
-                result = mk_literal(to_app(f)->get_decl());
+            expr* x, *y;
+            if (m.is_eq(f, x, y) || m.is_iff(f, x, y)) {                
+                literal a = mk_literal(x);
+                literal b = mk_literal(y);
+                literal result = mk_aux_literal(f);
+                clause cls(mgr);
+                cls.m_lits.push_back(~result);
+                cls.m_lits.push_back(~a);
+                cls.m_lits.push_back(b);
+                pad(cls.m_weights, 3, one);
+                cls.m_k = one;
+                cls.m_eq = false;
+                m_clauses.push_back(cls);
+                m_orig_clauses.push_back(f); // actually, the clause that defines f
+                cls.m_lits[0] = ~result;
+                cls.m_lits[1] = a;
+                cls.m_lits[2] = ~b;
+                m_clauses.push_back(cls);
+                m_orig_clauses.push_back(f);
+                cls.m_lits[0] = result;
+                cls.m_lits[1] = a;
+                cls.m_lits[2] = b;
+                m_clauses.push_back(cls);
+                m_orig_clauses.push_back(f);
+                cls.m_lits[0] = result;
+                cls.m_lits[1] = ~a;
+                cls.m_lits[2] = ~b;
+                m_clauses.push_back(cls);
+                m_orig_clauses.push_back(f);
+                return result;
             }
-            else {
-                IF_VERBOSE(0, verbose_stream() << "not handled: " << mk_pp(f, m) << "\n";);
-                result = null_literal;
-            }
-            if (sign) {
-                result.neg();
-            }
-            return result;
+            IF_VERBOSE(0, verbose_stream() << "not handled: " << mk_pp(f, m) << "\n";);
+            return null_literal;
         }
 
         bool compile_clause(expr* _f, clause& cls) {
