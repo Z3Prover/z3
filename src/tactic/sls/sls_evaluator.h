@@ -559,8 +559,7 @@ public:
                 (*this)(to_app(cur), new_value);
                 m_tracker.set_value(cur, new_value);
 
-#if _REAL_RS_ || _REAL_PBFS_
-                //if (!m_tracker.has_uplinks(cur))
+#if _REAL_RS_
                 if (m_tracker.is_top_expr(cur))
                 {
                     if (m_mpz_manager.eq(new_value,m_one))
@@ -573,7 +572,6 @@ public:
 #if _EARLY_PRUNE_
                 new_score = m_tracker.score(cur);
 #if _CACHE_TOP_SCORE_
-                //if (!m_tracker.has_uplinks(cur))
                 if (m_tracker.is_top_expr(cur))
                     m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
 #endif
@@ -582,7 +580,6 @@ public:
 #else
 #if _CACHE_TOP_SCORE_
                 new_score = m_tracker.score(cur);
-                //if (!m_tracker.has_uplinks(cur))
                 if (m_tracker.is_top_expr(cur))
                     m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                 m_tracker.set_score(cur, new_score);
@@ -633,7 +630,6 @@ public:
 #if _EARLY_PRUNE_
                 new_score = m_tracker.score(cur);
 #if _CACHE_TOP_SCORE_
-                //if (!m_tracker.has_uplinks(cur))
                 if (m_tracker.is_top_expr(cur))
                     m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
 #endif
@@ -642,7 +638,6 @@ public:
 #else
 #if _CACHE_TOP_SCORE_
                 new_score = m_tracker.score(cur);
-                //if (!m_tracker.has_uplinks(cur))
                 if (m_tracker.is_top_expr(cur))
                     m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                 m_tracker.set_score(cur, new_score);
@@ -684,7 +679,7 @@ public:
             m_traversal_stack[cur_depth].push_back(ep);
             if (cur_depth > max_depth) max_depth = cur_depth;
         }
-#if _REAL_RS_ || _REAL_PBFS_ || _PAWS_
+#if _REAL_RS_ || _PAWS_
         run_serious_update(max_depth);
 #else
         run_update(max_depth);
@@ -728,7 +723,6 @@ public:
 
             new_score = m_tracker.score(cur); 
 #if _CACHE_TOP_SCORE_
-            //if (!m_tracker.has_uplinks(cur))
             if (m_tracker.is_top_expr(cur))
                 m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
 #endif
@@ -736,10 +730,8 @@ public:
             m_tracker.set_score(cur, new_score);
 
             if ((new_score > prune_score) && (m_tracker.has_pos_occ(cur)))
-            //if ((new_score >= prune_score) && (m_tracker.has_pos_occ(cur)))
                 pot_benefits = 1;
             if ((new_score <= prune_score) && (m_tracker.has_neg_occ(cur)))
-            //if ((new_score < prune_score) && (m_tracker.has_neg_occ(cur)))
                 pot_benefits = 1;
 
             if (m_tracker.has_uplinks(cur)) {
@@ -772,7 +764,6 @@ public:
 
 #if _CACHE_TOP_SCORE_
                     new_score = m_tracker.score(cur); 
-                    //if (!m_tracker.has_uplinks(cur))
                     if (m_tracker.is_top_expr(cur))
                         m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                     m_tracker.set_score(cur, new_score);
@@ -874,7 +865,6 @@ public:
             expr * cur = cur_depth_exprs[i];
 
             new_score = m_tracker.score(cur); 
-            //if (!m_tracker.has_uplinks(cur))
             if (m_tracker.is_top_expr(cur))
                 m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
             prune_score = m_tracker.get_score_prune(cur);
@@ -914,7 +904,6 @@ public:
                     expr * cur = cur_depth_exprs[i];
 
                     new_score = m_tracker.score(cur); 
-                    //if (!m_tracker.has_uplinks(cur))
                     if (m_tracker.is_top_expr(cur))
                         m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                     m_tracker.set_score(cur, new_score);
@@ -960,60 +949,19 @@ public:
     }
 
     void randomize_local(ptr_vector<func_decl> & unsat_constants) {
-        // Randomize _all_ candidates:
-
-        //// bool did_something = false;
-        //for (unsigned i = 0; i < unsat_constants.size(); i++) {
-        //    func_decl * fd = unsat_constants[i];
-        //    mpz temp = m_tracker.get_random(fd->get_range());
-        //    // if (m_mpz_manager.neq(temp, m_tracker.get_value(fd))) {
-        //    //     did_something = true;
-        //    // }
-        //    update(fd, temp);
-        //    m_mpz_manager.del(temp);
-        //}
-
         // Randomize _one_ candidate:
         unsigned r = m_tracker.get_random_uint(16) % unsat_constants.size();
         func_decl * fd = unsat_constants[r];
-#if _PERC_CHANGE_
-        sort * srt = fd->get_range();
-        mpz temp;
-
-        if (m_manager.is_bool(srt))
-            m_mpz_manager.set(temp, (m_mpz_manager.is_zero(m_tracker.get_value(fd))) ? m_one : m_zero);
-        else
-        {
-            mpz temp2, mask;
-            unsigned bv_sz = m_bv_util.get_bv_size(srt);
-            m_mpz_manager.set(temp, m_tracker.get_value(fd));
-
-            for (unsigned bit = 0; bit < bv_sz; bit++)
-                if (m_tracker.get_random_uint(16) % 100 < _PERC_CHANGE_)
-                {
-                    m_mpz_manager.set(mask, m_powers(bit));
-                    m_mpz_manager.bitwise_xor(temp, mask, temp2);
-                    m_mpz_manager.set(temp, temp2);
-                }
-            m_mpz_manager.del(mask);
-            m_mpz_manager.del(temp2);
-        }
-#else
         mpz temp = m_tracker.get_random(fd->get_range());
-#endif
 
-#if _REAL_RS_ || _REAL_PBFS_ || _PAWS_
+#if _REAL_RS_ || _PAWS_
         serious_update(fd, temp);
 #else
         update(fd, temp);
 #endif
         m_mpz_manager.del(temp);
 
-        TRACE("sls", /*tout << "Randomization candidates: ";
-                        for (unsigned i = 0; i < unsat_constants.size(); i++)
-                            tout << unsat_constants[i]->get_name() << ", ";
-                        tout << std::endl;*/
-                        tout << "Randomization candidate: " << unsat_constants[r]->get_name() << std::endl;
+        TRACE("sls",    tout << "Randomization candidate: " << unsat_constants[r]->get_name() << std::endl;
                         tout << "Locally randomized model: " << std::endl; 
                         m_tracker.show_model(tout); );
 
@@ -1023,36 +971,9 @@ public:
         randomize_local(m_tracker.get_constants(e));
     } 
 
-    void randomize_local(goal_ref const & g, unsigned int flip) {
-        randomize_local(m_tracker.get_unsat_constants(g, flip));
+    void randomize_local(ptr_vector<expr> const & as) {
+        randomize_local(m_tracker.get_unsat_constants(as));
     } 
-
-    void randomize_local_n(goal_ref const & g, ptr_vector<func_decl> & unsat_constants) {
-        unsigned r = m_tracker.get_random_uint(16) % unsat_constants.size();
-        func_decl * fd = unsat_constants[r];
-        sort * srt = fd->get_range();
-        unsigned bv_sz = m_manager.is_bool(srt) ? 1 : m_bv_util.get_bv_size(srt); 
-        mpz max_val = m_tracker.get_random(srt);
-        update(fd, max_val);
-        double max_score = m_tracker.get_top_sum() / g->size();
-        mpz temp_val;
-        double temp_score;
-        for (unsigned i = 1; i < 2; i++)
-        //for (unsigned i = 1; i < bv_sz; i++)
-        {
-            m_mpz_manager.set(temp_val, m_tracker.get_random(srt));
-            update(fd, temp_val);
-            temp_score = m_tracker.get_top_sum() / g->size();
-            if (temp_score > max_score)
-            {
-                m_mpz_manager.set(max_val, temp_val);
-                max_score = temp_score;
-            }
-        }
-        update(fd, max_val);
-        m_mpz_manager.del(temp_val);
-        m_mpz_manager.del(max_val);
-    }
 };
 
 #endif

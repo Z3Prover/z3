@@ -25,11 +25,11 @@ Revision History:
 #include <map>
 
 // make hash_map and hash_set available
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 namespace Duality {
+
+  class implicant_solver;
 
   /* Generic operations on Z3 formulas */
 
@@ -82,6 +82,8 @@ namespace Duality {
 
       Term SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val);
 
+      Term CloneQuantAndSimp(const expr &t, const expr &body);
+
       Term RemoveRedundancy(const Term &t);
 
       Term IneqToEq(const Term &t);
@@ -101,6 +103,9 @@ namespace Duality {
       Term AdjustQuantifiers(const Term &t);
 
       FuncDecl RenumberPred(const FuncDecl &f, int n);
+
+    Term ExtractStores(hash_map<ast, Term> &memo, const Term &t, std::vector<expr> &cnstrs, hash_map<ast,expr> &renaming);
+
 
 protected:
 
@@ -197,6 +202,9 @@ protected:
 	   /** Is this a background constant? */
 	   virtual bool is_constant(const func_decl &f) = 0;
 
+	   /** Get the constants in the background vocabulary */
+	   virtual hash_set<func_decl> &get_constants() = 0;
+
            /** Assert a background axiom. */
            virtual void assert_axiom(const expr &axiom) = 0;
 
@@ -288,6 +296,11 @@ protected:
 	/** Is this a background constant? */
 	virtual bool is_constant(const func_decl &f){
 	  return bckg.find(f) != bckg.end();
+	}
+
+	/** Get the constants in the background vocabulary */
+	virtual hash_set<func_decl> &get_constants(){
+	  return bckg;
 	}
 
         ~iZ3LogicSolver(){
@@ -600,6 +613,8 @@ protected:
       void FixCurrentState(Edge *root);
     
       void FixCurrentStateFull(Edge *edge, const expr &extra);
+      
+      void FixCurrentStateFull(Edge *edge, const std::vector<expr> &assumps, const hash_map<ast,expr> &renaming);
 
       /** Declare a constant in the background theory. */
 
@@ -731,6 +746,10 @@ protected:
       struct bad_format {
       };
 
+      // thrown on internal error
+      struct Bad {
+      };
+      
       /** Pop a scope (see Push). Note, you cannot pop axioms. */
       
       void Pop(int num_scopes);
@@ -782,7 +801,7 @@ protected:
       };
 
       
-#ifdef WIN32
+#ifdef _WINDOWS
        __declspec(dllexport)
 #endif
        void FromClauses(const std::vector<Term> &clauses);
@@ -942,10 +961,12 @@ protected:
       Term UnderapproxFormula(const Term &f, hash_set<ast> &dont_cares);
 
       void ImplicantFullRed(hash_map<ast,int> &memo, const Term &f, std::vector<Term> &lits,
-			    hash_set<ast> &done, hash_set<ast> &dont_cares);
+			    hash_set<ast> &done, hash_set<ast> &dont_cares, bool extensional = true);
 
-      Term UnderapproxFullFormula(const Term &f, hash_set<ast> &dont_cares);
+    public:
+      Term UnderapproxFullFormula(const Term &f, bool extensional = true);
 
+    protected:
       Term ToRuleRec(Edge *e,  hash_map<ast,Term> &memo, const Term &t, std::vector<expr> &quants);
 
       hash_map<ast,Term> resolve_ite_memo;
@@ -985,6 +1006,8 @@ protected:
       void SetAnnotation(Node *root, const expr &t);
 
       void AddEdgeToSolver(Edge *edge);
+
+      void AddEdgeToSolver(implicant_solver &aux_solver, Edge *edge);
 
       void AddToProofCore(hash_set<ast> &core);
 
@@ -1051,13 +1074,40 @@ protected:
       
     public:
       
-      struct Counterexample {
+      class Counterexample {
+      private:
 	RPFP *tree;
 	RPFP::Node *root;
+      public:
 	Counterexample(){
 	  tree = 0;
 	  root = 0;
 	}
+	Counterexample(RPFP *_tree, RPFP::Node *_root){
+	  tree = _tree;
+	  root = _root;
+	}
+	~Counterexample(){
+	  if(tree) delete tree;
+	}
+	void swap(Counterexample &other){
+	  std::swap(tree,other.tree);
+	  std::swap(root,other.root);
+	}
+	void set(RPFP *_tree, RPFP::Node *_root){
+	  if(tree) delete tree;
+	  tree = _tree;
+	  root = _root;
+	}
+	void clear(){
+	  if(tree) delete tree;
+	  tree = 0;
+	}
+	RPFP *get_tree() const {return tree;}
+	RPFP::Node *get_root() const {return root;}
+      private:
+	Counterexample &operator=(const Counterexample &);
+	Counterexample(const Counterexample &);
       };
       
       /** Solve the problem. You can optionally give an old
@@ -1067,7 +1117,7 @@ protected:
       
       virtual bool Solve() = 0;
       
-      virtual Counterexample GetCounterexample() = 0;
+      virtual Counterexample &GetCounterexample() = 0;
       
       virtual bool SetOption(const std::string &option, const std::string &value) = 0;
       
@@ -1075,7 +1125,7 @@ protected:
 	  is chiefly useful for abstraction refinement, when we want to
 	  solve a series of similar problems. */
 
-      virtual void LearnFrom(Counterexample &old_cex) = 0;
+      virtual void LearnFrom(Solver *old_solver) = 0;
 
       virtual ~Solver(){}
 
@@ -1184,7 +1234,13 @@ namespace Duality {
       hash_map<Edge *, Edge *> EdgeCloneMap;
       std::vector<expr> alit_stack;
       std::vector<unsigned> alit_stack_sizes;
-      hash_map<Edge *, uptr<LogicSolver> > edge_solvers;
+
+      // to let us use one solver per edge
+      struct edge_solver {
+	hash_map<ast,expr> AssumptionLits;
+	uptr<solver> slvr;
+      };
+      hash_map<Edge *, edge_solver > edge_solvers;
       
 #ifdef LIMIT_STACK_WEIGHT
       struct weight_counter {
@@ -1236,19 +1292,23 @@ namespace Duality {
 
       void GetTermTreeAssertionLiteralsRec(TermTree *assumptions);
 
-      LogicSolver *SolverForEdge(Edge *edge, bool models);
+      edge_solver &SolverForEdge(Edge *edge, bool models, bool axioms);
 
   public:
       struct scoped_solver_for_edge {
-	LogicSolver *orig_ls;
+	solver *orig_slvr;
 	RPFP_caching *rpfp;
-	scoped_solver_for_edge(RPFP_caching *_rpfp, Edge *edge, bool models = false){
+	edge_solver *es;
+	scoped_solver_for_edge(RPFP_caching *_rpfp, Edge *edge, bool models = false, bool axioms = false){
 	  rpfp = _rpfp;
-	  orig_ls = rpfp->ls;
-	  rpfp->ls = rpfp->SolverForEdge(edge,models);
+	  orig_slvr = rpfp->ls->slvr;
+	  es = &(rpfp->SolverForEdge(edge,models,axioms)); 
+	  rpfp->ls->slvr = es->slvr.get();
+	  rpfp->AssumptionLits.swap(es->AssumptionLits);
 	}
 	~scoped_solver_for_edge(){
-	  rpfp->ls = orig_ls;
+	  rpfp->ls->slvr = orig_slvr;
+	  rpfp->AssumptionLits.swap(es->AssumptionLits);
 	}
       };
 

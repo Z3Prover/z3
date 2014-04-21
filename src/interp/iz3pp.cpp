@@ -36,11 +36,8 @@ Revision History:
 #include"expr_abstract.h"
 
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
-#ifndef WIN32
 // We promise not to use this for hash_map with range destructor
 namespace stl_ext {
   template <>
@@ -51,7 +48,6 @@ namespace stl_ext {
     }
   };
 }
-#endif
 
 
 // TBD: algebraic data-types declarations will not be printed.

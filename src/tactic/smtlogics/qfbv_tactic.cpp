@@ -28,8 +28,6 @@ Notes:
 #include"bv_size_reduction_tactic.h"
 #include"aig_tactic.h"
 #include"sat_tactic.h"
-//#include"nnf_tactic.h"
-//#include"sls_tactic.h"
 
 #define MEMLIMIT 300
 

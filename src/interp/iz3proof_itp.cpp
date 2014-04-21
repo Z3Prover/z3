@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#ifdef WIN32
+#ifdef _WINDOWS
 #pragma warning(disable:4996)
 #pragma warning(disable:4800)
 #pragma warning(disable:4267)
@@ -26,9 +26,7 @@ Revision History:
 
 #include "iz3proof_itp.h"
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 // #define INVARIANT_CHECKING
 
@@ -369,11 +367,17 @@ class iz3proof_itp_impl : public iz3proof_itp {
       }
       default:
 	{
-	  symb s = sym(itp2);
-	  if(s == sforall || s == sexists)
-	    res = make(s,arg(itp2,0),resolve_arith_rec2(memo, pivot1, conj1, arg(itp2,1)));
-	  else
+	  opr o = op(itp2);
+	  if(o == Uninterpreted){
+	    symb s = sym(itp2);
+	    if(s == sforall || s == sexists)
+	      res = make(s,arg(itp2,0),resolve_arith_rec2(memo, pivot1, conj1, arg(itp2,1)));
+	    else
+	      res = itp2;
+	  }
+	  else {
 	    res = itp2;
+	  }
 	}
       }
     }
@@ -405,11 +409,17 @@ class iz3proof_itp_impl : public iz3proof_itp {
       }
       default:
 	{
-	  symb s = sym(itp1);
-	  if(s == sforall || s == sexists)
-	    res = make(s,arg(itp1,0),resolve_arith_rec1(memo, neg_pivot_lit, arg(itp1,1), itp2));
-	  else
+	  opr o = op(itp1);
+	  if(o == Uninterpreted){
+	    symb s = sym(itp1);
+	    if(s == sforall || s == sexists)
+	      res = make(s,arg(itp1,0),resolve_arith_rec1(memo, neg_pivot_lit, arg(itp1,1), itp2));
+	    else
+	      res = itp1;
+	  }
+	  else {
 	    res = itp1;
+	  }
 	}
       }
     }
@@ -464,18 +474,20 @@ class iz3proof_itp_impl : public iz3proof_itp {
     std::pair<hash_map<ast,ast>::iterator,bool> bar = subst_memo.insert(foo);
     ast &res = bar.first->second;
     if(bar.second){
-      symb g = sym(e);
-      if(g == rotate_sum){
-	if(var == get_placeholder(arg(e,0))){
-	  res = e;
+      if(op(e) == Uninterpreted){
+	symb g = sym(e);
+	if(g == rotate_sum){
+	  if(var == get_placeholder(arg(e,0))){
+	    res = e;
+	  }
+	  else 
+	    res = make(rotate_sum,arg(e,0),subst_term_and_simp_rec(var,t,arg(e,1)));
+	  return res;
 	}
-	else 
-	  res = make(rotate_sum,arg(e,0),subst_term_and_simp_rec(var,t,arg(e,1)));
-	return res;
-      }
-      if(g == concat){
-	res = e;
-	return res;
+	if(g == concat){
+	  res = e;
+	  return res;
+	}
       }
       int nargs = num_args(e);
       std::vector<ast> args(nargs);
@@ -538,8 +550,9 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	  else if(g == symm) res = simplify_symm(args);
 	  else if(g == modpon) res = simplify_modpon(args);
 	  else if(g == sum) res = simplify_sum(args);
-#if 0
+	  else if(g == exmid) res = simplify_exmid(args);
 	  else if(g == cong) res = simplify_cong(args);
+#if 0
 	  else if(g == modpon) res = simplify_modpon(args);
 	  else if(g == leq2eq) res = simplify_leq2eq(args);
 	  else if(g == eq2leq) res = simplify_eq2leq(args);
@@ -579,18 +592,36 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return is_ineq(ineq);
   }
 
+  ast destruct_cond_ineq(const ast &ineq, ast &Aproves, ast &Bproves){
+    ast res = ineq;
+    opr o = op(res);
+    if(o == And){
+      Aproves = my_and(Aproves,arg(res,0));
+      res = arg(res,1);
+      o = op(res);
+    }
+    if(o == Implies){
+      Bproves = my_and(Bproves,arg(res,0));
+      res = arg(res,1);
+    }
+    return res;
+  }
+
   ast simplify_sum(std::vector<ast> &args){
     ast Aproves = mk_true(), Bproves = mk_true();
-    ast ineq = args[0];
+    ast ineq = destruct_cond_ineq(args[0],Aproves,Bproves);
     if(!is_normal_ineq(ineq)) throw cannot_simplify();
     sum_cond_ineq(ineq,args[1],args[2],Aproves,Bproves);
     return my_and(Aproves,my_implies(Bproves,ineq));
   }
 
   ast simplify_rotate_sum(const ast &pl, const ast &pf){
-    ast cond = mk_true();
+    ast Aproves = mk_true(), Bproves = mk_true();
     ast ineq = make(Leq,make_int("0"),make_int("0"));
-    return rotate_sum_rec(pl,pf,cond,ineq);
+    ineq = rotate_sum_rec(pl,pf,Aproves,Bproves,ineq);
+    if(is_true(Aproves) && is_true(Bproves))
+      return ineq;
+    return my_and(Aproves,my_implies(Bproves,ineq));
   }
 
   bool is_rewrite_chain(const ast &chain){
@@ -623,7 +654,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
   void sum_cond_ineq(ast &ineq, const ast &coeff2, const ast &ineq2, ast &Aproves, ast &Bproves){
     opr o = op(ineq2);
-    if(o == Implies){
+    if(o == And){
+      sum_cond_ineq(ineq,coeff2,arg(ineq2,1),Aproves,Bproves);
+      Aproves = my_and(Aproves,arg(ineq2,0));
+    }
+    else if(o == Implies){
       sum_cond_ineq(ineq,coeff2,arg(ineq2,1),Aproves,Bproves);
       Bproves = my_and(Bproves,arg(ineq2,0));
     }
@@ -658,7 +693,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast dummy1, dummy2;
     sum_cond_ineq(in1,coeff2,in2,dummy1,dummy2);
     n1 = merge_normal_chains(n1,n2, Aproves, Bproves);
-    ineq = make_normal(in1,n1);
+    ineq = is_true(n1) ? in1 : make_normal(in1,n1);
   }
 
   bool is_ineq(const ast &ineq){
@@ -683,23 +718,20 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return make(op(ineq),mk_idiv(arg(ineq,0),divisor),mk_idiv(arg(ineq,1),divisor));
   }
   
-  ast rotate_sum_rec(const ast &pl, const ast &pf, ast &Bproves, ast &ineq){
-    if(pf == pl)
-      return my_implies(Bproves,simplify_ineq(ineq));
+  ast rotate_sum_rec(const ast &pl, const ast &pf, ast &Aproves, ast &Bproves, ast &ineq){
+    if(pf == pl){
+      if(sym(ineq) == normal)
+	return ineq;
+      return simplify_ineq(ineq);
+    }
     if(op(pf) == Uninterpreted && sym(pf) == sum){
       if(arg(pf,2) == pl){
-	ast Aproves = mk_true();
 	sum_cond_ineq(ineq,make_int("1"),arg(pf,0),Aproves,Bproves);
-	if(!is_true(Aproves))
-	  throw "help!";
 	ineq = idiv_ineq(ineq,arg(pf,1));
-	return my_implies(Bproves,ineq);
+	return ineq;
       }
-      ast Aproves = mk_true();
       sum_cond_ineq(ineq,arg(pf,1),arg(pf,2),Aproves,Bproves);
-      if(!is_true(Aproves))
-	throw "help!";
-      return rotate_sum_rec(pl,arg(pf,0),Bproves,ineq);
+      return rotate_sum_rec(pl,arg(pf,0),Aproves,Bproves,ineq);
     }
     throw cannot_simplify();
   }
@@ -710,29 +742,31 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast x = arg(equality,0);
       ast y = arg(equality,1);
       ast Aproves1 = mk_true(), Bproves1 = mk_true();
-      ast xleqy = round_ineq(ineq_from_chain(arg(pf,1),Aproves1,Bproves1));
-      ast yleqx = round_ineq(ineq_from_chain(arg(pf,2),Aproves1,Bproves1));
+      ast pf1 = destruct_cond_ineq(arg(pf,1), Aproves1, Bproves1);
+      ast pf2 = destruct_cond_ineq(arg(pf,2), Aproves1, Bproves1);
+      ast xleqy = round_ineq(ineq_from_chain(pf1,Aproves1,Bproves1));
+      ast yleqx = round_ineq(ineq_from_chain(pf2,Aproves1,Bproves1));
       ast ineq1 = make(Leq,make_int("0"),make_int("0"));
       sum_cond_ineq(ineq1,make_int("-1"),xleqy,Aproves1,Bproves1);
       sum_cond_ineq(ineq1,make_int("-1"),yleqx,Aproves1,Bproves1);
-      Bproves1 = my_and(Bproves1,z3_simplify(ineq1));
+      ast Acond  = my_implies(Aproves1,my_and(Bproves1,z3_simplify(ineq1)));
       ast Aproves2 = mk_true(), Bproves2 = mk_true();
       ast ineq2 = make(Leq,make_int("0"),make_int("0"));
       sum_cond_ineq(ineq2,make_int("1"),xleqy,Aproves2,Bproves2);
       sum_cond_ineq(ineq2,make_int("1"),yleqx,Aproves2,Bproves2);
-      Bproves2 = z3_simplify(ineq2);
-      if(!is_true(Aproves1) || !is_true(Aproves2))
-	throw "help!";
+      ast Bcond = my_implies(Bproves1,my_and(Aproves1,z3_simplify(ineq2)));
+      //      if(!is_true(Aproves1) || !is_true(Bproves1))
+      //	std::cout << "foo!\n";;
       if(get_term_type(x) == LitA){
 	ast iter = z3_simplify(make(Plus,x,get_ineq_rhs(xleqy)));
-	ast rewrite1 = make_rewrite(LitA,top_pos,Bproves1,make(Equal,x,iter));
-	ast rewrite2 = make_rewrite(LitB,top_pos,Bproves2,make(Equal,iter,y));
+	ast rewrite1 = make_rewrite(LitA,top_pos,Acond,make(Equal,x,iter));
+	ast rewrite2 = make_rewrite(LitB,top_pos,Bcond,make(Equal,iter,y));
 	return chain_cons(chain_cons(mk_true(),rewrite1),rewrite2);
       }
       if(get_term_type(y) == LitA){
 	ast iter = z3_simplify(make(Plus,y,get_ineq_rhs(yleqx)));
-	ast rewrite2 = make_rewrite(LitA,top_pos,Bproves1,make(Equal,iter,y));
-	ast rewrite1 = make_rewrite(LitB,top_pos,Bproves2,make(Equal,x,iter));
+	ast rewrite2 = make_rewrite(LitA,top_pos,Acond,make(Equal,iter,y));
+	ast rewrite1 = make_rewrite(LitB,top_pos,Bcond,make(Equal,x,iter));
 	return chain_cons(chain_cons(mk_true(),rewrite1),rewrite2);
       }
       throw cannot_simplify();
@@ -741,6 +775,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
 
   ast round_ineq(const ast &ineq){
+    if(sym(ineq) == normal)
+      return make_normal(round_ineq(arg(ineq,0)),arg(ineq,1));
     if(!is_ineq(ineq))
       throw cannot_simplify();
     ast res = simplify_ineq(ineq);
@@ -749,6 +785,29 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return res;
   }
 
+  ast unmixed_eq2ineq(const ast &lhs, const ast &rhs, opr comp_op, const ast &equa, ast &cond){
+    ast ineqs= chain_ineqs(comp_op,LitA,equa,lhs,rhs); // chain must be from lhs to rhs
+    cond = my_and(cond,chain_conditions(LitA,equa)); 
+    ast Bconds = z3_simplify(chain_conditions(LitB,equa)); 
+    if(is_true(Bconds) && op(ineqs) != And)
+      return my_implies(cond,ineqs);
+    if(op(ineqs) != And)
+      return my_and(Bconds,my_implies(cond,ineqs));
+    throw "help!";
+  }
+
+  ast add_mixed_eq2ineq(const ast &lhs, const ast &rhs, const ast &equa, const ast &itp){
+    if(is_true(equa))
+      return itp;
+     std::vector<ast> args(3);
+     args[0] = itp;
+     args[1] = make_int("1");
+     ast ineq = make(Leq,make_int(rational(0)),make_int(rational(0)));
+     args[2] = make_normal(ineq,cons_normal(fix_normal(lhs,rhs,equa),mk_true()));
+     return simplify_sum(args);
+  }
+
+
   ast simplify_rotate_eq2leq(const ast &pl, const ast &neg_equality, const ast &pf){
     if(pl == arg(pf,1)){
       ast cond = mk_true();
@@ -756,20 +815,21 @@ class iz3proof_itp_impl : public iz3proof_itp {
       if(is_equivrel_chain(equa)){
 	ast lhs,rhs; eq_from_ineq(arg(neg_equality,0),lhs,rhs); // get inequality we need to prove
 	LitType lhst = get_term_type(lhs), rhst = get_term_type(rhs);
-	if(lhst != LitMixed && rhst != LitMixed){
-	  ast ineqs= chain_ineqs(op(arg(neg_equality,0)),LitA,equa,lhs,rhs); // chain must be from lhs to rhs
-	  cond = my_and(cond,chain_conditions(LitA,equa)); 
-	  ast Bconds = z3_simplify(chain_conditions(LitB,equa)); 
-	  if(is_true(Bconds) && op(ineqs) != And)
-	    return my_implies(cond,ineqs);
-	}
+	if(lhst != LitMixed && rhst != LitMixed)
+	  return unmixed_eq2ineq(lhs, rhs, op(arg(neg_equality,0)), equa, cond);
 	else {
-	  ast itp = make(Leq,make_int(rational(0)),make_int(rational(0)));
-	  return make_normal(itp,cons_normal(fix_normal(lhs,rhs,equa),mk_true()));
+	  ast left, left_term, middle, right_term, right;
+	  left = get_left_movers(equa,lhs,middle,left_term);
+	  middle = get_right_movers(middle,rhs,right,right_term);
+	  ast itp = unmixed_eq2ineq(left_term, right_term, op(arg(neg_equality,0)), middle, cond);
+	  // itp = my_implies(cond,itp);
+	  itp = add_mixed_eq2ineq(lhs, left_term, left, itp);
+	  itp = add_mixed_eq2ineq(right_term, rhs, right, itp);
+	  return itp;
 	}
       }
     }
-    throw cannot_simplify();
+    throw "help!";
   }
 
   void reverse_modpon(std::vector<ast> &args){
@@ -836,6 +896,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast equa = sep_cond(args[0],cond);
     if(is_equivrel_chain(equa))
       return my_implies(cond,reverse_chain(equa));
+    if(is_negation_chain(equa))
+      return commute_negation_chain(equa);
     throw cannot_simplify();
   }
 
@@ -876,6 +938,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return chain;
   }
 
+  struct subterm_normals_failed {};
+
   void get_subterm_normals(const ast &ineq1, const ast &ineq2, const ast &chain, ast &normals,
 			   const ast &pos, hash_set<ast> &memo, ast &Aproves, ast &Bproves){
     opr o1 = op(ineq1);
@@ -889,14 +953,77 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	get_subterm_normals(arg(ineq1,i), arg(ineq2,i), chain, normals, new_pos, memo, Aproves, Bproves);
       }
     }
-    else if(get_term_type(ineq2) == LitMixed && memo.find(ineq2) == memo.end()){
-      memo.insert(ineq2);
-      ast sub_chain = extract_rewrites(chain,pos);
-      if(is_true(sub_chain))
-	throw "bad inequality rewriting";
-      ast new_normal = make_normal_step(ineq2,ineq1,reverse_chain(sub_chain));
-      normals = merge_normal_chains(normals,cons_normal(new_normal,mk_true()), Aproves, Bproves);
+    else if(get_term_type(ineq2) == LitMixed){
+      if(memo.find(ineq2) == memo.end()){
+	memo.insert(ineq2);
+	ast sub_chain = extract_rewrites(chain,pos);
+	if(is_true(sub_chain))
+	  throw "bad inequality rewriting";
+	ast new_normal = make_normal_step(ineq2,ineq1,reverse_chain(sub_chain));
+	normals = merge_normal_chains(normals,cons_normal(new_normal,mk_true()), Aproves, Bproves);
+      }
     } 
+    else if(!(ineq1 == ineq2))
+      throw subterm_normals_failed();
+  }
+
+  ast rewrites_to_normals(const ast &ineq1, const ast &chain, ast &normals, ast &Aproves, ast &Bproves, ast &Aineqs){
+    if(is_true(chain))
+      return ineq1;
+    ast last = chain_last(chain);
+    ast rest = chain_rest(chain);
+    ast new_ineq1 = rewrites_to_normals(ineq1, rest, normals, Aproves, Bproves, Aineqs);
+    ast p1 = rewrite_pos(last);
+    ast term1;
+    ast coeff = arith_rewrite_coeff(new_ineq1,p1,term1);
+    ast res = subst_in_pos(new_ineq1,rewrite_pos(last),rewrite_rhs(last));
+    ast rpos;
+    pos_diff(p1,rewrite_pos(last),rpos);
+    ast term2 = subst_in_pos(term1,rpos,rewrite_rhs(last));
+    if(get_term_type(term1) != LitMixed && get_term_type(term2) != LitMixed){
+      if(is_rewrite_side(LitA,last))
+	linear_comb(Aineqs,coeff,make(Leq,make_int(rational(0)),make(Sub,term2,term1)));
+    }
+    else {
+      ast pf = extract_rewrites(make(concat,mk_true(),rest),p1);
+      ast new_normal = fix_normal(term1,term2,pf);
+      normals = merge_normal_chains(normals,cons_normal(new_normal,mk_true()), Aproves, Bproves);
+    }
+    return res;
+  }
+
+  ast arith_rewrite_coeff(const ast &ineq, ast &p1, ast &term){
+    ast coeff = make_int(rational(1));
+    if(p1 == top_pos){
+      term = ineq;
+      return coeff;
+    }
+    int argpos = pos_arg(p1);
+    opr o = op(ineq);
+    switch(o){
+    case Leq: 
+    case Lt: 
+      coeff = argpos ? make_int(rational(1)) : make_int(rational(-1));
+      break;
+    case Geq: 
+    case Gt: 
+      coeff = argpos ? make_int(rational(-1)) : make_int(rational(1));
+      break;
+    case Not:
+    case Plus:
+      break;
+    case Times:
+      coeff = arg(ineq,0);
+      break;
+    default:
+      p1 = top_pos;
+      term = ineq;
+      return coeff;
+    }
+    p1 = arg(p1,1);
+    ast res = arith_rewrite_coeff(arg(ineq,argpos),p1,term);
+    p1 = pos_add(argpos,p1);
+    return coeff == make_int(rational(1)) ? res : make(Times,coeff,res);
   }
 
   ast rewrite_chain_to_normal_ineq(const ast &chain, ast &Aproves, ast &Bproves){
@@ -906,18 +1033,25 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast ineq2 = apply_rewrite_chain(ineq1,tail);
     ast nc = mk_true();
     hash_set<ast> memo;
-    get_subterm_normals(ineq1,ineq2,tail,nc,top_pos,memo, Aproves, Bproves);
-    ast itp;
+    ast itp = make(Leq,make_int(rational(0)),make_int(rational(0)));
+    ast Aproves_save = Aproves, Bproves_save = Bproves; try {
+      get_subterm_normals(ineq1,ineq2,tail,nc,top_pos,memo, Aproves, Bproves);
+    }
+    catch (const subterm_normals_failed &){ Aproves = Aproves_save; Bproves = Bproves_save; nc = mk_true();
+      rewrites_to_normals(ineq1, tail, nc, Aproves, Bproves, itp);
+    }
     if(is_rewrite_side(LitA,head)){
-      itp = ineq1;
+      linear_comb(itp,make_int("1"),ineq1); // make sure it is normal form
+      //itp = ineq1;
       ast mc = z3_simplify(chain_side_proves(LitB,pref));
       Bproves = my_and(Bproves,mc);
     }
     else {
-      itp = make(Leq,make_int(rational(0)),make_int(rational(0)));
       ast mc = z3_simplify(chain_side_proves(LitA,pref));
       Aproves = my_and(Aproves,mc);
     }
+    if(is_true(nc))
+      return itp;
     return make_normal(itp,nc);
   }
 
@@ -951,7 +1085,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
   ast simplify_modpon(const std::vector<ast> &args){
     ast Aproves = mk_true(), Bproves = mk_true();
     ast chain = simplify_modpon_fwd(args,Bproves);
-    ast Q2 = sep_cond(args[2],Bproves);
+    ast Q2 = destruct_cond_ineq(args[2],Aproves,Bproves);
     ast interp;
     if(is_normal_ineq(Q2)){ // inequalities are special
       ast nQ2 = rewrite_chain_to_normal_ineq(chain,Aproves,Bproves);
@@ -963,6 +1097,31 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return my_and(Aproves,my_implies(Bproves,interp));
   }
 
+
+  ast simplify_exmid(const std::vector<ast> &args){
+    if(is_equivrel(args[0])){
+      ast Aproves = mk_true(), Bproves = mk_true();
+      ast chain = destruct_cond_ineq(args[1],Aproves,Bproves);
+      ast Q2 = destruct_cond_ineq(args[2],Aproves,Bproves);
+      ast interp = contra_chain(Q2,chain);
+      return my_and(Aproves,my_implies(Bproves,interp));
+    }
+    throw "bad exmid";
+  }
+
+  ast simplify_cong(const std::vector<ast> &args){
+    ast Aproves = mk_true(), Bproves = mk_true();
+    ast chain = destruct_cond_ineq(args[0],Aproves,Bproves);
+    rational pos;
+    if(is_numeral(args[1],pos)){
+      int ipos = pos.get_unsigned();
+      chain = chain_pos_add(ipos,chain);
+      ast Q2 = destruct_cond_ineq(args[2],Aproves,Bproves);
+      ast interp = contra_chain(Q2,chain);
+      return my_and(Aproves,my_implies(Bproves,interp));
+    }
+    throw "bad cong";
+  }
 
   bool is_equivrel(const ast &p){
     opr o = op(p);
@@ -1248,6 +1407,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
     if(pos == top_pos && op(equality) == Iff && !is_true(arg(equality,0)))
       throw "bad rewrite";
 #endif
+    if(!is_equivrel(equality))
+      throw "bad rewrite";
     return make(t == LitA ? rewrite_A : rewrite_B, pos, cond, equality);
   }
 
@@ -1450,6 +1611,50 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return is_negation_chain(rest);
   }
 
+  ast commute_negation_chain(const ast &chain){
+    if(is_true(chain))
+      return chain;
+    ast last = chain_last(chain);
+    ast rest = chain_rest(chain);
+    if(is_true(rest)){
+      ast old = rewrite_rhs(last);
+      if(!(op(old) == Not))
+	throw "bad negative equality chain";
+      ast equ = arg(old,0);
+      if(!is_equivrel(equ))
+	throw "bad negative equality chain";
+      last = rewrite_update_rhs(last,top_pos,make(Not,make(op(equ),arg(equ,1),arg(equ,0))),make(True));
+      return chain_cons(rest,last);
+    }
+    ast pos = rewrite_pos(last);
+    if(pos == top_pos)
+      throw "bad negative equality chain";
+    int idx = pos_arg(pos);
+    if(idx != 0)
+      throw "bad negative equality chain";
+    pos = arg(pos,1);
+    if(pos == top_pos){
+      ast lhs = rewrite_lhs(last);
+      ast rhs = rewrite_rhs(last);
+      if(op(lhs) != Equal || op(rhs) != Equal)
+	throw "bad negative equality chain";
+      last = make_rewrite(rewrite_side(last),rewrite_pos(last),rewrite_cond(last),
+			  make(Iff,make(Equal,arg(lhs,1),arg(lhs,0)),make(Equal,arg(rhs,1),arg(rhs,0))));
+    }
+    else {
+      idx = pos_arg(pos);
+      if(idx == 0)
+	idx = 1;
+      else if(idx == 1)
+	idx = 0;
+      else
+	throw "bad negative equality chain";
+      pos = pos_add(0,pos_add(idx,arg(pos,1)));
+      last = make_rewrite(rewrite_side(last),pos,rewrite_cond(last),rewrite_equ(last));
+    }
+    return chain_cons(commute_negation_chain(rest),last);
+  }
+
   // split a rewrite chain into head and tail at last top-level rewrite
   ast get_head_chain(const ast &chain, ast &tail, bool is_not = true){
     ast last = chain_last(chain);
@@ -1465,6 +1670,47 @@ class iz3proof_itp_impl : public iz3proof_itp {
     tail = chain_cons(tail,last);
     return head;
   }
+
+  // split a rewrite chain into head and tail at last non-mixed term
+  ast get_right_movers(const ast &chain, const ast &rhs, ast &tail, ast &mid){
+    if(is_true(chain) || get_term_type(rhs) != LitMixed){
+      mid = rhs;
+      tail = mk_true();
+      return chain;
+    }
+    ast last = chain_last(chain);
+    ast rest = chain_rest(chain);
+    ast mm = subst_in_pos(rhs,rewrite_pos(last),rewrite_lhs(last));
+    ast res = get_right_movers(rest,mm,tail,mid);
+    tail = chain_cons(tail,last);
+    return res;
+  }
+  
+  // split a rewrite chain into head and tail at first non-mixed term
+  ast get_left_movers(const ast &chain, const ast &lhs, ast &tail, ast &mid){
+    if(is_true(chain)){
+      mid = lhs; 
+      if(get_term_type(lhs) != LitMixed){
+	tail = mk_true();
+	return chain;
+      }
+      return ast();
+    }
+    ast last = chain_last(chain);
+    ast rest = chain_rest(chain);
+    ast res = get_left_movers(rest,lhs,tail,mid);
+    if(res.null()){
+      mid = subst_in_pos(mid,rewrite_pos(last),rewrite_rhs(last));
+      if(get_term_type(mid) != LitMixed){
+	tail = mk_true();
+	return chain;
+      }
+      return ast();
+    }      
+    tail = chain_cons(tail,last);
+    return res;
+  }
+
 
   struct cannot_split {};
 
@@ -1558,7 +1804,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast diff;
       if(comp_op == Leq) diff = make(Sub,rhs,mid);
       else diff = make(Sub,mid,rhs);
-      ast foo = z3_simplify(make(Leq,make_int("0"),diff));
+      ast foo = make(Leq,make_int("0"),z3_simplify(diff));
       if(is_true(cond))
 	cond = foo;
       else {
@@ -1668,11 +1914,13 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
 
   ast fix_normal(const ast &lhs, const ast &rhs, const ast &proof){
+    LitType lhst = get_term_type(lhs);
     LitType rhst = get_term_type(rhs);
-    if(rhst != LitMixed || ast_id(lhs) < ast_id(rhs))
+    if(lhst == LitMixed && (rhst != LitMixed || ast_id(lhs) < ast_id(rhs)))
       return make_normal_step(lhs,rhs,proof);
-    else
+    if(rhst == LitMixed && (lhst != LitMixed || ast_id(rhs) < ast_id(lhs)))
       return make_normal_step(rhs,lhs,reverse_chain(proof));
+    throw "help!";
   }
 
   ast chain_side_proves(LitType side, const ast &chain){
@@ -1692,8 +1940,10 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast lhs2 = normal_lhs(f2);
     int id1 = ast_id(lhs1);
     int id2 = ast_id(lhs2);
-    if(id1 < id2) return cons_normal(f1,merge_normal_chains_rec(normal_rest(chain1),chain2,trans,Aproves,Bproves));
-    if(id2 < id1) return cons_normal(f2,merge_normal_chains_rec(chain1,normal_rest(chain2),trans,Aproves,Bproves));
+    if(id1 < id2)
+      return cons_normal(f1,merge_normal_chains_rec(normal_rest(chain1),chain2,trans,Aproves,Bproves));
+    if(id2 < id1)
+      return cons_normal(f2,merge_normal_chains_rec(chain1,normal_rest(chain2),trans,Aproves,Bproves));
     ast rhs1 = normal_rhs(f1);
     ast rhs2 = normal_rhs(f2);
     LitType t1 = get_term_type(rhs1);
@@ -1719,9 +1969,13 @@ class iz3proof_itp_impl : public iz3proof_itp {
       Aproves = my_and(Aproves,mcB);
       ast rep = apply_rewrite_chain(rhs1,Aproof);
       new_proof = concat_rewrite_chain(pf1,Aproof);
-      new_normal = make_normal_step(rhs1,rep,new_proof);
+      new_normal = make_normal_step(lhs1,rep,new_proof);
+      ast A_normal = make_normal_step(rhs1,rep,Aproof);
+      ast res = cons_normal(new_normal,merge_normal_chains_rec(normal_rest(chain1),normal_rest(chain2),trans,Aproves,Bproves));
+      res = merge_normal_chains_rec(res,cons_normal(A_normal,make(True)),trans,Aproves,Bproves);
+      return res;
     }
-    else if(t1 == LitA && t2 == LitB)
+    else if(t1 == LitB && t2 == LitA)
       return merge_normal_chains_rec(chain2,chain1,trans,Aproves,Bproves);
     else if(t1 == LitA) {
       ast new_proof = concat_rewrite_chain(reverse_chain(pf1),pf2);
@@ -1743,17 +1997,20 @@ class iz3proof_itp_impl : public iz3proof_itp {
       return chain;
     ast f = normal_first(chain);
     ast r = normal_rest(chain);
+    r = trans_normal_chain(r,trans);
     ast rhs = normal_rhs(f);
     hash_map<ast,ast>::iterator it = trans.find(rhs);
     ast new_normal;
-    if(it != trans.end()){
+    if(it != trans.end() && get_term_type(normal_lhs(f)) == LitMixed){
       const ast &f2 = it->second;
       ast pf = concat_rewrite_chain(normal_proof(f),normal_proof(f2));
       new_normal = make_normal_step(normal_lhs(f),normal_rhs(f2),pf);
     }
     else
       new_normal = f;
-    return cons_normal(new_normal,trans_normal_chain(r,trans));
+    if(get_term_type(normal_lhs(f)) == LitMixed)
+      trans[normal_lhs(f)] = new_normal;
+    return cons_normal(new_normal,r);
   }
 
   ast merge_normal_chains(const ast &chain1, const ast &chain2, ast &Aproves, ast &Bproves){
@@ -2011,8 +2268,14 @@ class iz3proof_itp_impl : public iz3proof_itp {
   /** Make a Reflexivity node. This rule produces |- x = x */
   
   virtual node make_reflexivity(ast con){
-    throw proof_error();
-}
+    if(get_term_type(con) == LitA)
+      return mk_false();
+    if(get_term_type(con) == LitB)
+      return mk_true();
+    ast itp = make(And,make(contra,no_proof,mk_false()),
+		   make(contra,mk_true(),mk_not(con)));
+    return itp;
+  }
   
   /** Make a Symmetry node. This takes a derivation of |- x = y and
       produces | y = x. Ditto for ~(x=y) */
@@ -2247,10 +2510,19 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	throw proof_error();
       }
     }
-    Qrhs = make(Times,c,Qrhs);
+#if 0
     bool pstrict = op(P) == Lt, strict = pstrict || qstrict;
     if(pstrict && qstrict && round_off)
       Qrhs = make(Sub,Qrhs,make_int(rational(1)));
+#else
+    bool pstrict = op(P) == Lt;
+    if(qstrict && round_off && (pstrict || !(c == make_int(rational(1))))){
+      Qrhs = make(Sub,Qrhs,make_int(rational(1)));
+      qstrict = false;
+    }
+    Qrhs = make(Times,c,Qrhs);
+    bool strict = pstrict || qstrict;
+#endif
     if(strict)
       P = make(Lt,arg(P,0),make(Plus,arg(P,1),Qrhs));
     else
@@ -2269,8 +2541,14 @@ class iz3proof_itp_impl : public iz3proof_itp {
       itp =  mk_true();
       break;
     default: { // mixed equality
-      if(get_term_type(x) == LitMixed || get_term_type(y) == LitMixed)
-	std::cerr << "WARNING: mixed term in leq2eq\n"; 
+      if(get_term_type(x) == LitMixed || get_term_type(y) == LitMixed){
+	// std::cerr << "WARNING: mixed term in leq2eq\n"; 
+	std::vector<ast> lits;
+	lits.push_back(con);
+	lits.push_back(make(Not,xleqy));
+	lits.push_back(make(Not,yleqx));
+	return make_axiom(lits);
+      }
       std::vector<ast> conjs; conjs.resize(3);
       conjs[0] = mk_not(con);
       conjs[1] = xleqy;
@@ -2383,6 +2661,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
     }
 
     hash_map<ast,ast>::iterator it = localization_map.find(e);
+
+    if(it != localization_map.end() && is_bool_type(get_type(e)) 
+       && !pv->ranges_intersect(pv->ast_scope(it->second),rng))
+      it = localization_map.end();  // prevent quantifiers over booleans
+
     if(it != localization_map.end()){
       pf = localization_pf_map[e];
       e = it->second;
@@ -2405,7 +2688,15 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	    frng = srng; // this term will be localized
 	}
 	else if(o == Plus || o == Times){ // don't want bound variables inside arith ops
-	  frng = erng; // this term will be localized
+	  // std::cout << "WARNING: non-local arithmetic\n";
+	  //	  frng = erng; // this term will be localized
+	}
+	else if(o == Select){ // treat the array term like a function symbol
+	  prover::range srng = pv->ast_scope(arg(e,0)); 
+	  if(!(srng.lo > srng.hi) &&  pv->ranges_intersect(srng,rng)) // localize to desired range if possible
+	    frng = pv->range_glb(srng,rng);
+	  else
+	    frng = srng; // this term will be localized
 	}
 	std::vector<ast> largs(nargs);
 	std::vector<ast> eqs;
@@ -2434,7 +2725,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
       return e; // this term occurs in range, so it's O.K.
 
     if(is_array_type(get_type(e)))
-      throw "help!";
+      std::cerr << "WARNING: array quantifier\n";
 
     // choose a frame for the constraint that is close to range
     int frame = pv->range_near(pv->ast_scope(e),rng);
