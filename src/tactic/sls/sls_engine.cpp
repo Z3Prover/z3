@@ -44,6 +44,7 @@ sls_engine::sls_engine(ast_manager & m, params_ref const & p) :
     m_evaluator(m, m_bv_util, m_tracker, m_mpz_manager, m_powers)
 {
     updt_params(p);
+    m_tracker.updt_params(p);
 }
 
 sls_engine::~sls_engine() {
@@ -52,19 +53,21 @@ sls_engine::~sls_engine() {
     m_mpz_manager.del(m_two);
 }
 
-double sls_engine::get_restart_armin(unsigned cnt_restarts)
-{
-    unsigned outer_id = (unsigned)(0.5 + sqrt(0.25 + 2 * cnt_restarts));
-    unsigned inner_id = cnt_restarts - (outer_id - 1) * outer_id / 2;
-    return pow((double) _RESTART_CONST_ARMIN_, (int) inner_id + 1);
-}    
-
 void sls_engine::updt_params(params_ref const & _p) {
     sls_params p(_p);
     m_produce_models = _p.get_bool("model", false);
-    m_max_restarts = p.restarts();
+    m_max_restarts = p.max_restarts();
     m_tracker.set_random_seed(p.random_seed());
-    m_plateau_limit = p.plateau_limit();
+    m_walksat = p.walksat();
+    m_walksat_repick = p.walksat_repick();
+    m_paws_sp = p.paws_sp();
+    m_wp = p.wp();
+    m_vns_mc = p.vns_mc();
+    m_vns_repick = p.vns_repick();
+
+    m_restart_base = p.restart_base();
+    m_restart_next = m_restart_base;
+    m_restart_init = p.restart_init();
 }
 
 void sls_engine::checkpoint() {
@@ -105,9 +108,7 @@ double sls_engine::top_score() {
         tout << " " << m_tracker.get_score(m_assertions[i]);
     tout << " AVG: " << top_sum / (double)sz << std::endl;);
 
-#if _CACHE_TOP_SCORE_
     m_tracker.set_top_sum(top_sum);
-#endif
 
     return top_sum / (double)sz;
 }
@@ -121,37 +122,21 @@ double sls_engine::rescore() {
 double sls_engine::serious_score(func_decl * fd, const mpz & new_value) {
     m_evaluator.serious_update(fd, new_value);
     m_stats.m_incr_evals++;
-#if _CACHE_TOP_SCORE_
     return (m_tracker.get_top_sum() / m_assertions.size());
-#else
-    return top_score();
-#endif
 }
 
 double sls_engine::incremental_score(func_decl * fd, const mpz & new_value) {
     m_evaluator.update(fd, new_value);
     m_stats.m_incr_evals++;
-#if _CACHE_TOP_SCORE_
     return (m_tracker.get_top_sum() / m_assertions.size());
-#else
-    return top_score();
-#endif
 }
 
 double sls_engine::incremental_score_prune(func_decl * fd, const mpz & new_value) {
-#if _EARLY_PRUNE_
     m_stats.m_incr_evals++;
     if (m_evaluator.update_prune(fd, new_value))
-#if _CACHE_TOP_SCORE_
         return (m_tracker.get_top_sum() / m_assertions.size());
-#else
-        return top_score();
-#endif
     else
         return 0.0;
-#else
-    NOT_IMPLEMENTED_YET();
-#endif
 }
 
 // checks whether the score outcome of a given move is better than the previous score
@@ -261,7 +246,7 @@ void sls_engine::mk_random_move(ptr_vector<func_decl> & unsat_constants)
         // inversion doesn't make sense, let's do a flip instead.
         if (mt == MV_INV) mt = MV_FLIP;
 #else
-        mt = MV_FLIP;
+        move_type mt = MV_FLIP;
 #endif
         unsigned bit = 0;
 
@@ -300,7 +285,7 @@ void sls_engine::mk_random_move(ptr_vector<func_decl> & unsat_constants)
         tout << "Locally randomized model: " << std::endl; m_tracker.show_model(tout););
     }
 
-    m_evaluator.update(fd, new_value);
+    m_evaluator.serious_update(fd, new_value);
     m_mpz_manager.del(new_value);
 }
 
@@ -385,7 +370,7 @@ double sls_engine::find_best_move_mc(ptr_vector<func_decl> & to_evaluate, double
         if (m_bv_util.is_bv_sort(srt) && bv_sz > 2) {
             for (unsigned j = 0; j < bv_sz; j++) {
                 mk_flip(srt, old_value, j, temp);
-                for (unsigned l = 0; l < _VNS_MC_TRIES_ && l < bv_sz / 2; l++)
+                for (unsigned l = 0; l < m_vns_mc && l < bv_sz / 2; l++)
                 {
                     unsigned k = m_tracker.get_random_uint(16) % bv_sz;
                     while (k == j)
@@ -411,144 +396,85 @@ double sls_engine::find_best_move_mc(ptr_vector<func_decl> & to_evaluate, double
 lbool sls_engine::search() {
     lbool res = l_undef;
     double score = 0.0, old_score = 0.0;
-    unsigned new_const = (unsigned)-1, new_bit = 0;
+    unsigned new_const = (unsigned)-1, new_bit;
     mpz new_value;
     move_type move;
-    unsigned plateau_cnt = 0;
 
     score = rescore();
     unsigned sz = m_assertions.size();
 
-#if _RESTARTS_
-    while (check_restart(m_stats.m_moves) && m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {
-#else
-    while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_) {
-#endif
-
+    while (check_restart(m_stats.m_moves)) {
         checkpoint();
         m_stats.m_moves++;
-
-#if _UCT_FORGET_
-        if (m_stats.m_moves % _UCT_FORGET_ == 0)
-            m_tracker.uct_forget(g);
-#endif
+        if (m_stats.m_moves % m_restart_base == 0)
+            m_tracker.ucb_forget(m_assertions);
 
 #if _REAL_RS_
         //m_tracker.debug_real(g, m_stats.m_moves);
 #endif
-
-#if _FOCUS_
-        expr * e = m_tracker.get_unsat_assertion(m_assertions);
-
-        if (!e)
-        {
-            res = l_true;
-            goto bailout;
-        }
-        ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants_walksat(e);
-#else
-        ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants_gsat(m_assertions, sz);
+        
+        ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants(m_assertions);
         if (!to_evaluate.size())
         {
             res = l_true;
             goto bailout;
         }
-#endif
 
-        if (m_tracker.get_random_uint(16) % 1000 < _PERM_RSTEP_)
+        if (m_wp && m_tracker.get_random_uint(10) < m_wp)
         {
             mk_random_move(to_evaluate);
-#if _CACHE_TOP_SCORE_
             score = m_tracker.get_top_sum() / sz;
-#else
-            score = top_score(g);
-#endif
             continue;
         }
 
         old_score = score;
         new_const = (unsigned)-1;
-        move = MV_FLIP;
-        new_bit = 0;
 
         score = find_best_move(to_evaluate, score, new_const, new_value, new_bit, move);
 
-#if _VNS_MC_ > _VNS_REPICK_
-#if _VNS_MC_
-        if (new_const == static_cast<unsigned>(-1))
-            score = find_best_move_mc(g, to_evaluate, score, new_const, new_value);
-#endif
-#if _VNS_REPICK_
-        if (new_const == static_cast<unsigned>(-1))
+        if (m_vns_mc && (new_const == static_cast<unsigned>(-1)))
+            score = find_best_move_mc(to_evaluate, score, new_const, new_value);
+   
+        /*if (m_vns_repick && (new_const == static_cast<unsigned>(-1)))
         {
-            expr * q = m_tracker.get_new_unsat_assertion(g, e);
+            expr * q = m_tracker.get_new_unsat_assertion(m_assertions, e);
             if (q)
             {
                 ptr_vector<func_decl> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(e);
-                score = find_best_move(g, to_evaluate2, score, new_const, new_value, new_bit, move);
+                score = find_best_move(to_evaluate2, score, new_const, new_value, new_bit, move);
             }
-        }
-#endif
-#endif
-
-#if _VNS_MC_ < _VNS_REPICK_
-#if _VNS_REPICK_
-        if (new_const == static_cast<unsigned>(-1))
-        {
-            expr * q = m_tracker.get_new_unsat_assertion(g, e);
-            if (q)
-            {
-                ptr_vector<func_decl> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(e);
-                score = find_best_move(g, to_evaluate2, score, new_const, new_value, new_bit, move);
-            }
-        }
-#endif
-#if _VNS_MC_
-        if (new_const == static_cast<unsigned>(-1))
-            score = find_best_move_mc(g, to_evaluate, score, new_const, new_value);
-#endif
-#endif
+        }*/
 
         if (new_const == static_cast<unsigned>(-1)) {
             score = old_score;
-            plateau_cnt++;
-#if _REPICK_
+            if (m_walksat && m_walksat_repick)
                 m_evaluator.randomize_local(m_assertions);
-#else
+            else
                 m_evaluator.randomize_local(to_evaluate);
-#endif
 
-#if _CACHE_TOP_SCORE_
             score = m_tracker.get_top_sum() / m_assertions.size();
-#else
-            score = top_score(g);
-#endif
 
-#if _PAWS_
-            for (unsigned i = 0; i < sz; i++)
+            if (m_paws_sp < 1024)
             {
-                expr * q = m_assertions[i];
-                if (m_tracker.get_random_uint(16) % 100 < _PAWS_)
+                for (unsigned i = 0; i < sz; i++)
                 {
-                    if (m_mpz_manager.eq(m_tracker.get_value(q),m_one))
-                        m_tracker.decrease_weight(q);
-                }
-                else
-                {
-                    if (m_mpz_manager.eq(m_tracker.get_value(q),m_zero))
-                        m_tracker.increase_weight(q);
+                    expr * q = m_assertions[i];
+                    if (m_tracker.get_random_uint(10) < m_paws_sp)
+                    {
+                        if (m_mpz_manager.eq(m_tracker.get_value(q),m_one))
+                            m_tracker.decrease_weight(q);
+                    }
+                    else
+                    {
+                        if (m_mpz_manager.eq(m_tracker.get_value(q),m_zero))
+                            m_tracker.increase_weight(q);
+                    }
                 }
             }
-#endif
-
         }
         else {
             func_decl * fd = to_evaluate[new_const];
-#if _REAL_RS_ || _PAWS_
             score = serious_score(fd, new_value);
-#else
-            score = incremental_score(fd, new_value);
-#endif
         }
     }
 
@@ -569,30 +495,9 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     for (unsigned i = 0; i < g->size(); i++)
         assert_expr(g->form(i));    
 
-    verbose_stream() << "_FOCUS_ " << _FOCUS_ << std::endl;
-    verbose_stream() << "_RESTARTS_ " << _RESTARTS_ << std::endl;
-    verbose_stream() << "_RESTART_LIMIT_ " << _RESTART_LIMIT_ << std::endl;
-    verbose_stream() << "_RESTART_INIT_ " << _RESTART_INIT_ << std::endl;
-    verbose_stream() << "_RESTART_SCHEME_ " << _RESTART_SCHEME_ << std::endl;
-    verbose_stream() << "_TIMELIMIT_ " << _TIMELIMIT_ << std::endl;
-    verbose_stream() << "_PAWS_ " << _PAWS_ << std::endl;
-    verbose_stream() << "_PAWS_INIT_ " << _PAWS_INIT_ << std::endl;
-    verbose_stream() << "_VNS_MC_ " << _VNS_MC_ << std::endl;
-    verbose_stream() << "_VNS_MC_TRIES_ " << _VNS_MC_TRIES_ << std::endl;
-    verbose_stream() << "_VNS_REPICK_ " << _VNS_REPICK_ << std::endl;
-    verbose_stream() << "_WEIGHT_DIST_ " << _WEIGHT_DIST_ << std::endl;
-    verbose_stream() << "_WEIGHT_DIST_FACTOR_ " << std::fixed << std::setprecision(2) << _WEIGHT_DIST_FACTOR_ << std::endl;
-    verbose_stream() << "_REPICK_ " << _REPICK_ << std::endl;
-    verbose_stream() << "_UCT_ " << _UCT_ << std::endl;
-    verbose_stream() << "_UCT_CONSTANT_ " << std::fixed << std::setprecision(2) << _UCT_CONSTANT_ << std::endl;
-    verbose_stream() << "_UCT_INIT_ " << _UCT_INIT_ << std::endl;
-    verbose_stream() << "_UCT_FORGET_ " << _UCT_FORGET_ << std::endl;
-    verbose_stream() << "_UCT_FORGET_FACTOR_ " << std::fixed << std::setprecision(2) << _UCT_FORGET_FACTOR_ << std::endl;
     verbose_stream() << "_USE_ADDSUB_ " << _USE_ADDSUB_ << std::endl;
     verbose_stream() << "_REAL_RS_ " << _REAL_RS_ << std::endl;
-    verbose_stream() << "_PERM_RSTEP_ " << _PERM_RSTEP_ << std::endl;
     verbose_stream() << "_EARLY_PRUNE_ " << _EARLY_PRUNE_ << std::endl;
-    verbose_stream() << "_CACHE_TOP_SCORE_ " << _CACHE_TOP_SCORE_ << std::endl;    
 
     lbool res = operator()();
 
@@ -620,8 +525,6 @@ lbool sls_engine::operator()() {
     m_tracker.initialize(m_assertions);
     lbool res = l_undef;
 
-    m_restart_limit = _RESTART_LIMIT_;
-
     do {
         checkpoint();
 
@@ -630,39 +533,53 @@ lbool sls_engine::operator()() {
 
         if (res == l_undef)
         {
-#if _RESTART_INIT_
-            m_tracker.randomize();
-#else
-            m_tracker.reset(m_assertions);
-#endif
+            if (m_restart_init)
+                m_tracker.randomize(m_assertions);
+            else
+                m_tracker.reset(m_assertions);
         }
-    } while (m_stats.m_stopwatch.get_current_seconds() < _TIMELIMIT_ && res != l_true && m_stats.m_restarts++ < m_max_restarts);
+    } while (res != l_true && m_stats.m_restarts++ < m_max_restarts);
 
     verbose_stream() << "(restarts: " << m_stats.m_restarts << " flips: " << m_stats.m_moves << " time: " << std::fixed << std::setprecision(2) << m_stats.m_stopwatch.get_current_seconds() << " fps: " << (m_stats.m_moves / m_stats.m_stopwatch.get_current_seconds()) << ")" << std::endl;
     
     return res;
 }
 
-unsigned sls_engine::check_restart(unsigned curr_value)
+/* Andreas: Needed for Armin's restart scheme if we don't want to use loops.
+inline double sls_engine::get_restart_armin(unsigned cnt_restarts)
 {
-    if (curr_value > m_restart_limit)
+    unsigned outer_id = (unsigned)(0.5 + sqrt(0.25 + 2 * cnt_restarts));
+    unsigned inner_id = cnt_restarts - (outer_id - 1) * outer_id / 2;
+    return pow((double) _RESTART_CONST_ARMIN_, (int) inner_id + 1);
+}    
+*/
+
+inline unsigned sls_engine::check_restart(unsigned curr_value)
+{
+    if (curr_value > m_restart_next)
     {
+        /* Andreas: My own scheme (= 1) seems to work best. Other schemes are disabled so that we save 1 parameter.
+        I leave the other versions as comments in case you want to try it again somewhen.
 #if _RESTART_SCHEME_ == 5
-        m_restart_limit += (unsigned)(_RESTART_LIMIT_ * pow(_RESTART_CONST_ARMIN_, m_stats.m_restarts));
+        m_restart_next += (unsigned)(m_restart_base * pow(_RESTART_CONST_ARMIN_, m_stats.m_restarts));
 #elif _RESTART_SCHEME_ == 4
-        m_restart_limit += (m_stats.m_restarts & (m_stats.m_restarts + 1)) ? _RESTART_LIMIT_ : (_RESTART_LIMIT_ * m_stats.m_restarts + 1);
+        m_restart_next += (m_stats.m_restarts & (m_stats.m_restarts + 1)) ? m_restart_base : (m_restart_base * m_stats.m_restarts + 1);
 #elif _RESTART_SCHEME_ == 3
-        m_restart_limit += (unsigned)get_restart_armin(m_stats.m_restarts + 1) * _RESTART_LIMIT_;
+        m_restart_next += (unsigned)get_restart_armin(m_stats.m_restarts + 1) * m_restart_base;
 #elif _RESTART_SCHEME_ == 2
-        m_restart_limit += get_luby(m_stats.m_restarts + 1) * _RESTART_LIMIT_;
+        m_restart_next += get_luby(m_stats.m_restarts + 1) * m_restart_base;
 #elif _RESTART_SCHEME_ == 1
         if (m_stats.m_restarts & 1)
-            m_restart_limit += _RESTART_LIMIT_;
+            m_restart_next += m_restart_base;
         else
-            m_restart_limit += (2 << (m_stats.m_restarts >> 1)) * _RESTART_LIMIT_;
+            m_restart_next += (2 << (m_stats.m_restarts >> 1)) * m_restart_base;
 #else
-        m_restart_limit += _RESTART_LIMIT_;
-#endif
+        m_restart_limit += m_restart_base;
+#endif  */
+        if (m_stats.m_restarts & 1)
+            m_restart_next += m_restart_base;
+        else
+            m_restart_next += (2 << (m_stats.m_restarts >> 1)) * m_restart_base;
         return 0;
     }
     return 1;

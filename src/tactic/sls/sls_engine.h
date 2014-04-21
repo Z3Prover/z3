@@ -70,9 +70,16 @@ protected:
     sls_evaluator   m_evaluator;
     ptr_vector<expr> m_assertions;
 
-    unsigned		m_restart_limit;
     unsigned        m_max_restarts;
-    unsigned        m_plateau_limit;
+    unsigned        m_walksat;
+    unsigned        m_walksat_repick;
+    unsigned        m_wp;
+    unsigned        m_vns_mc;
+    unsigned        m_vns_repick;
+    unsigned        m_paws_sp;
+    unsigned        m_restart_base;
+    unsigned        m_restart_next;
+    unsigned        m_restart_init;
 
     ptr_vector<mpz> m_old_values;
 
@@ -110,7 +117,6 @@ public:
 
 protected:
     void checkpoint();
-    double get_restart_armin(unsigned cnt_restarts);    
 
     bool what_if(func_decl * fd, const unsigned & fd_inx, const mpz & temp,
                  double & best_score, unsigned & best_const, mpz & best_value);
@@ -129,6 +135,7 @@ protected:
 
     void mk_random_move(ptr_vector<func_decl> & unsat_constants);
 
+    //inline double get_restart_armin(unsigned cnt_restarts);    
     inline unsigned check_restart(unsigned curr_value);
 };
 
