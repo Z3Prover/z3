@@ -68,6 +68,12 @@ void sls_engine::updt_params(params_ref const & _p) {
     m_restart_base = p.restart_base();
     m_restart_next = m_restart_base;
     m_restart_init = p.restart_init();
+
+    // Andreas: Would cause trouble because repick requires an assertion being picked before which is not the case in GSAT.
+    if (m_walksat_repick && !m_walksat)
+        NOT_IMPLEMENTED_YET();
+    if (m_vns_repick && !m_walksat)
+        NOT_IMPLEMENTED_YET();
 }
 
 void sls_engine::checkpoint() {
@@ -435,19 +441,25 @@ lbool sls_engine::search() {
         if (m_vns_mc && (new_const == static_cast<unsigned>(-1)))
             score = find_best_move_mc(to_evaluate, score, new_const, new_value);
    
-        /*if (m_vns_repick && (new_const == static_cast<unsigned>(-1)))
+        if (m_vns_repick && (new_const == static_cast<unsigned>(-1)))
         {
-            expr * q = m_tracker.get_new_unsat_assertion(m_assertions, e);
+            expr * q = m_tracker.get_new_unsat_assertion(m_assertions);
             if (q)
             {
-                ptr_vector<func_decl> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(e);
+                ptr_vector<func_decl> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(q);
                 score = find_best_move(to_evaluate2, score, new_const, new_value, new_bit, move);
+
+                if (new_const != static_cast<unsigned>(-1)) {
+                    func_decl * fd = to_evaluate2[new_const];
+                    score = serious_score(fd, new_value);
+                    continue;
+                }
             }
-        }*/
+        }
 
         if (new_const == static_cast<unsigned>(-1)) {
             score = old_score;
-            if (m_walksat && m_walksat_repick)
+            if (m_walksat_repick)
                 m_evaluator.randomize_local(m_assertions);
             else
                 m_evaluator.randomize_local(to_evaluate);
