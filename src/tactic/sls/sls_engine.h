@@ -76,6 +76,7 @@ protected:
     unsigned        m_wp;
     unsigned        m_vns_mc;
     unsigned        m_vns_repick;
+    unsigned        m_paws;
     unsigned        m_paws_sp;
     unsigned        m_restart_base;
     unsigned        m_restart_next;

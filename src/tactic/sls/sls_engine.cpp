@@ -61,6 +61,7 @@ void sls_engine::updt_params(params_ref const & _p) {
     m_walksat = p.walksat();
     m_walksat_repick = p.walksat_repick();
     m_paws_sp = p.paws_sp();
+    m_paws = m_paws_sp < 1024;
     m_wp = p.wp();
     m_vns_mc = p.vns_mc();
     m_vns_repick = p.vns_repick();
@@ -173,7 +174,6 @@ bool sls_engine::what_if(
 
     // Andreas: For some reason it is important to use > here instead of >=. Probably related to prefering the LSB.
     if (r > best_score) {
-        m_tracker.reset_equal_scores();
         best_score = r;
         best_const = fd_inx;
         m_mpz_manager.set(best_value, temp);
@@ -244,16 +244,12 @@ void sls_engine::mk_random_move(ptr_vector<func_decl> & unsat_constants)
         m_mpz_manager.set(new_value, (m_mpz_manager.is_zero(m_tracker.get_value(fd))) ? m_one : m_zero);
     else
     {
-#if _USE_ADDSUB_
         if (m_mpz_manager.is_one(m_tracker.get_random_bool())) rnd_mv = 2;
         if (m_mpz_manager.is_one(m_tracker.get_random_bool())) rnd_mv++;
         move_type mt = (move_type)rnd_mv;
 
         // inversion doesn't make sense, let's do a flip instead.
         if (mt == MV_INV) mt = MV_FLIP;
-#else
-        move_type mt = MV_FLIP;
-#endif
         unsigned bit = 0;
 
         switch (mt)
@@ -308,8 +304,9 @@ double sls_engine::find_best_move(
     unsigned bv_sz;
     double new_score = score;
 
-    m_tracker.reset_equal_scores();
-
+    //unsigned offset = m_tracker.get_random_uint(16) % to_evaluate.size();
+    //for (unsigned j = 0; j < to_evaluate.size(); j++) {
+        //unsigned i = (j + offset) % to_evaluate.size();
     for (unsigned i = 0; i < to_evaluate.size(); i++) {
         func_decl * fd = to_evaluate[i];
         sort * srt = fd->get_range();
@@ -328,7 +325,6 @@ double sls_engine::find_best_move(
         }
 
         if (m_bv_util.is_bv_sort(srt) && bv_sz > 1) {
-#if _USE_ADDSUB_
             if (!m_mpz_manager.is_even(old_value)) {
                 // for odd values, try +1
                 mk_inc(bv_sz, old_value, temp);
@@ -341,7 +337,6 @@ double sls_engine::find_best_move(
                 if (what_if(fd, i, temp, new_score, best_const, best_value))
                     move = MV_DEC;
             }
-#endif
             // try inverting
             mk_inv(bv_sz, old_value, temp);
             if (what_if(fd, i, temp, new_score, best_const, best_value))
@@ -418,7 +413,7 @@ lbool sls_engine::search() {
 #if _REAL_RS_
         //m_tracker.debug_real(g, m_stats.m_moves);
 #endif
-        
+        // get candidate variables
         ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants(m_assertions);
         if (!to_evaluate.size())
         {
@@ -426,6 +421,7 @@ lbool sls_engine::search() {
             goto bailout;
         }
 
+        // random walk with probability wp / 1024
         if (m_wp && m_tracker.get_random_uint(10) < m_wp)
         {
             mk_random_move(to_evaluate);
@@ -436,14 +432,18 @@ lbool sls_engine::search() {
         old_score = score;
         new_const = (unsigned)-1;
 
+        // find best increasing move
         score = find_best_move(to_evaluate, score, new_const, new_value, new_bit, move);
 
+        // use Monte Carlo 2-bit-flip sampling if no increasing move was found previously
         if (m_vns_mc && (new_const == static_cast<unsigned>(-1)))
             score = find_best_move_mc(to_evaluate, score, new_const, new_value);
    
+        // repick assertion if no increasing move was found previously
         if (m_vns_repick && (new_const == static_cast<unsigned>(-1)))
         {
             expr * q = m_tracker.get_new_unsat_assertion(m_assertions);
+            // only apply if another unsatisfied assertion actually exists
             if (q)
             {
                 ptr_vector<func_decl> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(q);
@@ -457,6 +457,7 @@ lbool sls_engine::search() {
             }
         }
 
+        // randomize if no increasing move was found
         if (new_const == static_cast<unsigned>(-1)) {
             score = old_score;
             if (m_walksat_repick)
@@ -466,16 +467,19 @@ lbool sls_engine::search() {
 
             score = m_tracker.get_top_sum() / m_assertions.size();
 
-            if (m_paws_sp < 1024)
+            // update assertion weights if a weigthing is enabled (sp < 1024)
+            if (m_paws)
             {
                 for (unsigned i = 0; i < sz; i++)
                 {
                     expr * q = m_assertions[i];
+                    // smooth weights with probability sp / 1024
                     if (m_tracker.get_random_uint(10) < m_paws_sp)
                     {
                         if (m_mpz_manager.eq(m_tracker.get_value(q),m_one))
                             m_tracker.decrease_weight(q);
                     }
+                    // increase weights otherwise
                     else
                     {
                         if (m_mpz_manager.eq(m_tracker.get_value(q),m_zero))
@@ -484,6 +488,7 @@ lbool sls_engine::search() {
                 }
             }
         }
+        // otherwise, apply most increasing move
         else {
             func_decl * fd = to_evaluate[new_const];
             score = serious_score(fd, new_value);
@@ -507,7 +512,6 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     for (unsigned i = 0; i < g->size(); i++)
         assert_expr(g->form(i));    
 
-    verbose_stream() << "_USE_ADDSUB_ " << _USE_ADDSUB_ << std::endl;
     verbose_stream() << "_REAL_RS_ " << _REAL_RS_ << std::endl;
     verbose_stream() << "_EARLY_PRUNE_ " << _EARLY_PRUNE_ << std::endl;
 
@@ -570,7 +574,7 @@ inline unsigned sls_engine::check_restart(unsigned curr_value)
 {
     if (curr_value > m_restart_next)
     {
-        /* Andreas: My own scheme (= 1) seems to work best. Other schemes are disabled so that we save 1 parameter.
+        /* Andreas: My own scheme (= 1) seems to work best. Other schemes are disabled so that we save one parameter.
         I leave the other versions as comments in case you want to try it again somewhen.
 #if _RESTART_SCHEME_ == 5
         m_restart_next += (unsigned)(m_restart_base * pow(_RESTART_CONST_ARMIN_, m_stats.m_restarts));
