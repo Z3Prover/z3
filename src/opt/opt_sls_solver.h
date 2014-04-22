@@ -93,7 +93,7 @@ namespace opt {
             std::cout << "set cancel\n";
             m_solver->set_cancel(f);
             m_pb2bv.set_cancel(f);
-            #pragma omp critical (this)
+            #pragma omp critical (sls_solver)
             {
                 if (m_bvsls) {
                     m_bvsls->set_cancel(f);
@@ -193,7 +193,7 @@ namespace opt {
         }
 
         void pbsls_opt() {
-            #pragma omp critical (this)
+            #pragma omp critical (sls_solver)
             {
                 m_pbsls = alloc(smt::pb_sls, m);
             }
@@ -212,21 +212,22 @@ namespace opt {
         }
 
         void bvsls_opt() {
-            #pragma omp critical (this)
+            #pragma omp critical (sls_solver)
             {
                 m_bvsls = alloc(bvsls_opt_engine, m, m_params);
             }
             assertions2sls();
             expr_ref objective = soft2bv();
-            opt_result or(m);
+            opt_result res(m);
+            res.is_sat = l_undef;
             try {
-                or = m_bvsls->optimize(objective, m_model, true);
+                res = m_bvsls->optimize(objective, m_model, true);
             }
             catch (...) {
                 
             }
-            SASSERT(or.is_sat == l_true || or.is_sat == l_undef);
-            if (or.is_sat == l_true) {
+            SASSERT(res.is_sat == l_true || res.is_sat == l_undef);
+            if (res.is_sat == l_true) {
                 m_bvsls->get_model(m_model);
             }
         }
