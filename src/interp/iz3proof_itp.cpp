@@ -2655,8 +2655,13 @@ class iz3proof_itp_impl : public iz3proof_itp {
   };
 
   std::vector<LocVar> localization_vars;         // localization vars in order of creation
-  hash_map<ast,ast> localization_map;            // maps terms to their localization vars
-  hash_map<ast,ast> localization_pf_map;         // maps terms to proofs of their localizations
+
+  struct locmaps {
+    hash_map<ast,ast> localization_map;            // maps terms to their localization vars
+    hash_map<ast,ast> localization_pf_map;         // maps terms to proofs of their localizations
+  };
+  
+  hash_map<prover::range,locmaps> localization_maps_per_range;
 
   /* "localize" a term e to a given frame range, creating new symbols to
      represent non-local subterms. This returns the localized version e_l,
@@ -2678,6 +2683,12 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
 
   ast localize_term(ast e, const prover::range &rng, ast &pf){
+
+    // we need to memoize this function per range
+    locmaps &maps = localization_maps_per_range[rng];
+    hash_map<ast,ast> &localization_map = maps.localization_map;
+    hash_map<ast,ast> &localization_pf_map = maps.localization_pf_map;
+
     ast orig_e = e;
     pf = make_refl(e);  // proof that e = e
 
