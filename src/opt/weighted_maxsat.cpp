@@ -121,6 +121,7 @@ namespace opt {
                     fid != pb.get_family_id() &&
                     fid != bv.get_family_id() &&
                     !is_uninterp_const(n)) {
+                    std::cout << mk_pp(n, m) << "\n";
                     throw found();
                 }
             }
@@ -161,6 +162,7 @@ namespace opt {
         
         void enable_sls() {
             if (m_enable_sls && probe_bv()) {
+                std::cout << "SLS enabled\n";
                 m_params.set_uint("restarts", 20);
                 m_s = alloc(sls_solver, m, m_s.get(), m_soft, m_weights, m_params);
             }
@@ -188,6 +190,7 @@ namespace opt {
         obj_map<expr, unsigned> m_relax2index; // expr |-> index
         obj_map<expr, unsigned> m_soft2index;  // expr |-> index
         expr_ref_vector     m_trail;
+        expr_ref_vector     m_soft_constraints;
         expr_set            m_asm_set;
         vector<wcore>       m_cores;
         vector<rational>    m_sigmas;
@@ -242,7 +245,9 @@ namespace opt {
             pb(m),
             m_soft_aux(m),
             m_trail(m),
+            m_soft_constraints(m),
             m_enable_lazy(false) {
+            m_enable_lazy = true;
         }
 
         virtual ~bcd2() {}
@@ -259,6 +264,7 @@ namespace opt {
             init_bcd();
             while (m_lower < m_upper) {
                 IF_VERBOSE(1, verbose_stream() << "(wmaxsat.bcd2 [" << m_lower << ":" << m_upper << "])\n";);
+                assert_soft();
                 solver::scoped_push _scope2(s());
                 TRACE("opt", display(tout););
                 assert_cores();
@@ -331,9 +337,16 @@ namespace opt {
             expr* r = m_soft_aux[i].get();
             m_soft2index.insert(r, i);
             fml = m.mk_or(r, m_soft[i].get()); 
-            s().assert_expr(fml); 
+            m_soft_constraints.push_back(fml);
             m_asm_set.insert(r);
             SASSERT(m_weights[i].is_int());     
+        }
+
+        void assert_soft() {
+            for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
+                s().assert_expr(m_soft_constraints[i].get()); 
+            }
+            m_soft_constraints.reset();
         }
 
         bool check_lazy_soft(svector<bool> const& assignment) {
@@ -467,6 +480,9 @@ namespace opt {
                 }
             }
             cores.resize(j);
+            for (unsigned i = 0; i < cores.size(); ++i) {
+                m_relax2index.insert(cores[i].m_r, i);
+            }
         }
         void core2indices(ptr_vector<expr> const& core, uint_set& subC, uint_set& soft) {
             for (unsigned i = 0; i < core.size(); ++i) {
