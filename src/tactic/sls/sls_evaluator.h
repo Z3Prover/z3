@@ -37,9 +37,7 @@ class sls_evaluator {
     powers              & m_powers;
     expr_ref_buffer       m_temp_exprs;
     vector<ptr_vector<expr> > m_traversal_stack;
-#if _EARLY_PRUNE_
     vector<ptr_vector<expr> > m_traversal_stack_bool;
-#endif
 
 public:
     sls_evaluator(ast_manager & m, bv_util & bvu, sls_tracker & t, unsynch_mpz_manager & mm, powers & p) : 
@@ -753,7 +751,7 @@ public:
 
                 (*this)(to_app(cur), new_value);
                 m_tracker.set_value(cur, new_value);
-                // should always have uplinks ...
+                // Andreas: Should actually always have uplinks ...
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
                     for (unsigned j = 0; j < ups.size(); j++) {

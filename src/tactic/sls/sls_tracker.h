@@ -92,7 +92,6 @@ private:
 #endif
     obj_map<expr, unsigned> m_weights;
     double				  m_top_sum;
-    unsigned              m_equal_scores;
 
 public:    
     sls_tracker(ast_manager & m, bv_util & bvu, unsynch_mpz_manager & mm, powers & p) :
@@ -146,14 +145,6 @@ public:
         }
 
         return sum / count;   
-    }
-
-    void reset_equal_scores() {
-        m_equal_scores = 1;
-    }
-
-    unsigned inc_equal_scores() {
-        return ++m_equal_scores;
     }
 
     inline void adapt_top_sum(expr * e, double add, double sub) {
