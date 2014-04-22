@@ -119,7 +119,7 @@ let mk_list ( f : int -> 'a ) ( n : int ) =
     if (i >= n) then 
       tail
     else
-      (mk_list' f (i+1) n ((f i) :: tail))
+      (f i) :: (mk_list' f (i+1) n tail)
   in
   mk_list' f 0 n []
 
