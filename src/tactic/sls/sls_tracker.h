@@ -76,7 +76,7 @@ private:
     ptr_vector<func_decl> m_constants;
     ptr_vector<func_decl> m_temp_constants;
     occ_type              m_constants_occ;
-
+    unsigned              m_last_pos;
     unsigned              m_walksat;
     unsigned              m_ucb;
     double                m_ucb_constant;
@@ -1082,6 +1082,7 @@ public:
                 return 0;
         }
         
+        m_last_pos = pos;
         return as[pos];
 #if _REAL_RS_
         //unsigned pos = m_false_list[get_random_uint(16) % m_cnt_false];
@@ -1093,7 +1094,7 @@ public:
 #endif
     }
 
-    expr * get_new_unsat_assertion(ptr_vector<expr> const & as, expr * e) {
+    expr * get_new_unsat_assertion(ptr_vector<expr> const & as) {
         unsigned sz = as.size();
         if (sz == 1)
             return 0;
@@ -1101,7 +1102,7 @@ public:
         
         unsigned cnt_unsat = 0, pos = -1;
         for (unsigned i = 0; i < sz; i++)
-            if (m_mpz_manager.neq(get_value(as[i]), m_one) && (get_random_uint(16) % ++cnt_unsat == 0) && (as[i] != e)) pos = i;	
+            if ((i != m_last_pos) && m_mpz_manager.neq(get_value(as[i]), m_one) && (get_random_uint(16) % ++cnt_unsat == 0)) pos = i;	
 
         if (pos == static_cast<unsigned>(-1))
             return 0;
