@@ -23,7 +23,7 @@ Notes:
 #define _SLS_COMPILATION_SETTINGS_H_
 
 // shall we use addition/subtraction?
-#define _USE_ADDSUB_ 0
+#define _USE_ADDSUB_ 1
 
 // should we use unsat-structures as done in SLS 4 SAT instead for random or bfs selection?
 #define _REAL_RS_ 0
