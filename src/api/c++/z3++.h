@@ -1505,7 +1505,7 @@ namespace z3 {
             assert(e.is_bool());
             return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, weight, 0)); 
         }
-        handle maximzie(expr const& e) {
+        handle maximize(expr const& e) {
             return handle(Z3_optimize_maximize(ctx(), m_opt, e));
         }
         handle minimize(expr const& e) {

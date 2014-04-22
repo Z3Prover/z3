@@ -972,6 +972,8 @@ void substitute_example() {
     std::cout << new_f << std::endl;
 }
 
+
+
 int main() {
     try {
         demorgan(); std::cout << "\n";
