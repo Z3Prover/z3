@@ -53,10 +53,13 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
                             tout << fd->get_name() << " := " << mk_ismt2_pp(val, m()) << std::endl;
                         });
         m_hard_tracker.set_model(initial_model);
-    }    
+        m_evaluator.update_all();
+    }
    
     optimization_result res(m_manager);
     lbool is_sat = m_hard_tracker.is_sat() ? l_true : l_undef;    
+
+    TRACE("sls_opt", tout << "initial model is sat? " << is_sat << std::endl;);
 
     for (m_stats.m_restarts = 0;
          m_stats.m_restarts < m_max_restarts;
@@ -65,7 +68,7 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
         mpz old_best;
         m_mpz_manager.set(old_best, m_best_model_score);
 
-        if (!is_sat) {
+        if (is_sat != l_true) {
             do {
                 checkpoint();
 
