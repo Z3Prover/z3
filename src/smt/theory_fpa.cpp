@@ -17,14 +17,29 @@ Revision History:
 
 --*/
 #include"ast_smt2_pp.h"
+#include"smt_context.h"
 #include"theory_fpa.h"
 
 namespace smt {
 
+    theory_fpa::theory_fpa(ast_manager & m) : 
+        theory(m.mk_family_id("float")), 
+        m_converter(m), 
+        m_rw(m, m_converter, params_ref()) 
+    {
+    }
+
     bool theory_fpa::internalize_atom(app * atom, bool gate_ctx) {
-        TRACE("bv", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << "\n";);
+        TRACE("fpa", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << "\n";);
         SASSERT(atom->get_family_id() == get_family_id());
-        NOT_IMPLEMENTED_YET();
+
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+        
+        expr_ref res(m);
+        m_rw(atom, res);
+        SASSERT(res.get() != atom);
+        ctx.internalize(res, gate_ctx);
         return true;
     }
 

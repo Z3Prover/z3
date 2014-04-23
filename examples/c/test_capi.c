@@ -2595,6 +2595,42 @@ void substitute_vars_example() {
     Z3_del_context(ctx);
 }
 
+void fpa_example() {
+    Z3_config cfg;
+    Z3_context ctx;
+    Z3_sort double_sort, rm_sort;
+    Z3_symbol symbol_rm, symbol_x, symbol_y;
+    Z3_ast rm, x, y, n, c;
+
+    printf("\nFPA-example\n");
+    LOG_MSG("FPA-example");
+    
+    enable_trace("fpa");
+
+    cfg                = Z3_mk_config();
+    ctx                = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    double_sort        = Z3_mk_fpa_sort(ctx, 11, 53);
+    rm_sort            = Z3_mk_fpa_rounding_mode_sort(ctx);
+
+    symbol_rm          = Z3_mk_string_symbol(ctx, "rm");
+    rm                 = Z3_mk_const(ctx, symbol_rm, rm_sort);
+    symbol_x           = Z3_mk_string_symbol(ctx, "x");
+    symbol_y           = Z3_mk_string_symbol(ctx, "y");
+    x                  = Z3_mk_const(ctx, symbol_x, double_sort);
+    y                  = Z3_mk_const(ctx, symbol_y, double_sort);   
+    n                  = Z3_mk_double(ctx, 42.0, double_sort);
+
+    c                  = Z3_mk_eq(ctx, Z3_mk_fpa_add(ctx, rm, x, y), n);
+    
+    Z3_assert_cnstr(ctx, c);
+    if (Z3_check(ctx) != Z3_L_TRUE)
+        printf("FPA-example not satisfied!\n");
+
+    Z3_del_context(ctx);
+}
+
 
 /*@}*/
 /*@}*/

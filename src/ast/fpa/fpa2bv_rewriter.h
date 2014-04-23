@@ -64,9 +64,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     }
 
     bool max_steps_exceeded(unsigned num_steps) const { 
-        cooperate("fpa2bv");
-        if (memory::get_allocation_size() > m_max_memory)
-            throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
+        cooperate("fpa2bv");        
         return num_steps > m_max_steps;
     }
 
@@ -147,7 +145,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             default:
                 TRACE("fpa2bv", tout << "unsupported operator: " << f->get_name() << "\n";
                       for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);
-                throw tactic_exception("NYI");
+                NOT_IMPLEMENTED_YET();
             }
         }
 

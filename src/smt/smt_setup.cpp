@@ -30,6 +30,7 @@ Revision History:
 #include"theory_dummy.h"
 #include"theory_dl.h"
 #include"theory_seq_empty.h"
+#include"theory_fpa.h"
 
 namespace smt {
 
@@ -679,6 +680,15 @@ namespace smt {
         setup_mi_arith();
     }
 
+    void setup::setup_QF_FPA() {        
+        m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
+    }
+
+    void setup::setup_QF_FPABV() {
+        setup_QF_BV();
+        m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
+    }
+
     bool is_arith(static_features const & st) {
         return st.m_num_arith_ineqs > 0 || st.m_num_arith_terms > 0 || st.m_num_arith_eqs > 0;
     }
@@ -780,6 +790,10 @@ namespace smt {
         m_context.register_plugin(alloc(theory_seq_empty, m_manager));
     }
 
+    void setup::setup_fpa() {
+        m_context.register_plugin(alloc(theory_fpa, m_manager));
+    }
+
     void setup::setup_unknown() {
         setup_arith();
         setup_arrays();
@@ -787,6 +801,7 @@ namespace smt {
         setup_datatypes();
         setup_dl();
         setup_seq();
+        setup_fpa();
     }
 
     void setup::setup_unknown(static_features & st) {

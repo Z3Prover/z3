@@ -21,14 +21,16 @@ Revision History:
 
 #include"smt_theory.h"
 #include"fpa2bv_converter.h"
+#include"fpa2bv_rewriter.h"
 
 namespace smt {
     class theory_fpa : public theory {
         fpa2bv_converter m_converter;
+        fpa2bv_rewriter  m_rw;
 
         virtual final_check_status final_check_eh() { return FC_DONE; }
-        virtual bool internalize_atom(app*, bool);
-        virtual bool internalize_term(app*) { return internalize_atom(0, false); }
+        virtual bool internalize_atom(app * a, bool);
+        virtual bool internalize_term(app * a) { return internalize_atom(a, false); }
         virtual void new_eq_eh(theory_var, theory_var);
         virtual void new_diseq_eh(theory_var, theory_var);
         virtual void push_scope_eh();
@@ -36,7 +38,7 @@ namespace smt {
         virtual theory* mk_fresh(context*) { return alloc(theory_fpa, get_manager()); }
         virtual char const * get_name() const { return "fpa"; }
     public:
-        theory_fpa(ast_manager& m) : theory(m.mk_family_id("fpa")), m_converter(m) {}
+        theory_fpa(ast_manager& m);
     };
 
 };
