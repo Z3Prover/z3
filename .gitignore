@@ -55,6 +55,8 @@ src/api/api_log_macros.cpp
 src/api/dll/api_dll.def
 src/api/dotnet/Enumerations.cs
 src/api/dotnet/Native.cs
+src/api/dotnet/Properties/AssemblyInfo.cs
+src/api/dotnet/Microsoft.Z3.xml
 src/api/python/z3consts.py
 src/api/python/z3core.py
 src/ast/pattern/database.h

@@ -39,11 +39,8 @@ Revision History:
 #include"iz3pp.h"
 #include"iz3checker.h"
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
-#ifndef WIN32
 // WARNING: don't make a hash_map with this if the range type
 // has a destructor: you'll get an address dependency!!!
 namespace stl_ext {
@@ -55,7 +52,6 @@ namespace stl_ext {
     }
   };
 }
-#endif
 
 typedef interpolation_options_struct *Z3_interpolation_options;
 

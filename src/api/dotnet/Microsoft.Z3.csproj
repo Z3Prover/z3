@@ -24,8 +24,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DocumentationFile>
-    </DocumentationFile>
+    <DocumentationFile>..\Debug\Microsoft.Z3.XML</DocumentationFile>
     <CodeContractsEnableRuntimeChecking>False</CodeContractsEnableRuntimeChecking>
     <CodeContractsRuntimeOnlyPublicSurface>False</CodeContractsRuntimeOnlyPublicSurface>
     <CodeContractsRuntimeThrowOnFailure>True</CodeContractsRuntimeThrowOnFailure>
@@ -140,6 +139,7 @@
     <CodeContractsRuntimeCheckingLevel>Full</CodeContractsRuntimeCheckingLevel>
     <CodeContractsReferenceAssembly>%28none%29</CodeContractsReferenceAssembly>
     <CodeContractsAnalysisWarningLevel>0</CodeContractsAnalysisWarningLevel>
+    <DocumentationFile>..\x64\Debug\Microsoft.Z3.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>..\x64\external_64\</OutputPath>
@@ -193,7 +193,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'external|x64'">
     <OutputPath>..\x64\external\</OutputPath>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DocumentationFile>..\external\Microsoft.Z3.xml</DocumentationFile>
+    <DocumentationFile>..\x64\external\Microsoft.Z3.XML</DocumentationFile>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
@@ -220,7 +220,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_delaysign|AnyCPU'">
     <OutputPath>..\Release_delaysign\</OutputPath>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DocumentationFile>..\Release_delaysign\Microsoft.Z3.xml</DocumentationFile>
+    <DocumentationFile>..\Release_delaysign\Microsoft.Z3.XML</DocumentationFile>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -238,7 +238,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release_delaysign|x64'">
     <OutputPath>bin\x64\Release_delaysign\</OutputPath>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DocumentationFile>..\x64\external_64\Microsoft.Z3.xml</DocumentationFile>
+    <DocumentationFile>bin\x64\Release_delaysign\Microsoft.Z3.XML</DocumentationFile>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
@@ -266,11 +266,12 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRuleSetDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\\Rule Sets</CodeAnalysisRuleSetDirectories>
     <CodeAnalysisRuleDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
+    <DocumentationFile>bin\x86\Debug\Microsoft.Z3.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
     <OutputPath>bin\x86\Release\</OutputPath>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DocumentationFile>..\external\Microsoft.Z3.xml</DocumentationFile>
+    <DocumentationFile>bin\x86\Release\Microsoft.Z3.xml</DocumentationFile>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x86</PlatformTarget>
@@ -285,7 +286,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'external|x86'">
     <OutputPath>bin\x86\external\</OutputPath>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DocumentationFile>..\external\Microsoft.Z3.xml</DocumentationFile>
+    <DocumentationFile>bin\x86\external\Microsoft.Z3.XML</DocumentationFile>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x86</PlatformTarget>
@@ -303,7 +304,7 @@
     <OutputPath>bin\x86\Release_delaysign\</OutputPath>
     <DefineConstants>DELAYSIGN</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DocumentationFile>..\Release_delaysign\Microsoft.Z3.xml</DocumentationFile>
+    <DocumentationFile>bin\x86\Release_delaysign\Microsoft.Z3.XML</DocumentationFile>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x86</PlatformTarget>
