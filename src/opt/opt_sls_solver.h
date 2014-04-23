@@ -90,7 +90,6 @@ namespace opt {
             m_solver->get_labels(r);
         }
         virtual void set_cancel(bool f) {
-            std::cout << "set cancel\n";
             m_solver->set_cancel(f);
             m_pb2bv.set_cancel(f);
             #pragma omp critical (sls_solver)

@@ -301,6 +301,7 @@ namespace smt {
                 clause const& cls = clauses[i];
                 for (unsigned j = 0; j < cls.m_lits.size(); ++j) {
                     literal lit = cls.m_lits[j];
+                    if (occ.size() <= static_cast<unsigned>(lit.var())) occ.resize(lit.var() + 1);
                     occ[lit.var()].push_back(i);
                 }
             }
@@ -314,6 +315,10 @@ namespace smt {
             m_soft_false.reset();
             m_soft_occ.reset();
             m_penalty.reset();
+            for (unsigned i = 0; i <= m_var2decl.size(); ++i) {
+                m_soft_occ.push_back(unsigned_vector());
+                m_hard_occ.push_back(unsigned_vector());
+            }
 
             // initialize the occurs vectors.
             init_occ(m_clauses, m_hard_occ);
@@ -443,7 +448,6 @@ namespace smt {
         }
 
         int flip(literal l) {
-            SASSERT(get_value(l));
             m_assignment[l.var()] = !m_assignment[l.var()];
             int break_count = 0;
             unsigned_vector const& occh = m_hard_occ[l.var()];
@@ -484,7 +488,6 @@ namespace smt {
                 }
             }                
 
-            SASSERT(get_value(~l));
             TRACE("opt", tout << "flip: " << l << " num false: " << m_hard_false.num_elems() 
                   << " penalty: " << m_penalty << " break count: " << break_count << "\n";);
             return break_count;

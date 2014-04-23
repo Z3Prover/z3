@@ -162,7 +162,6 @@ namespace opt {
         
         void enable_sls() {
             if (m_enable_sls && probe_bv()) {
-                std::cout << "SLS enabled\n";
                 m_params.set_uint("restarts", 20);
                 m_s = alloc(sls_solver, m, m_s.get(), m_soft, m_weights, m_params);
             }
