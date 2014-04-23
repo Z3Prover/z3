@@ -3506,8 +3506,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create a floating point NaN numeral.
-        /// </summary>
-        /// <param name="v">A string representing the value in decimal notation.</param>
+        /// </summary>        
         /// <param name="s">floating point sort.</param>        
         public FPNum MkFPNaN(FPSort s)
         {
@@ -3517,8 +3516,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create a floating point Inf numeral.
-        /// </summary>
-        /// <param name="v">A string representing the value in decimal notation.</param>
+        /// </summary>        
         /// <param name="s">floating point sort.</param>   
         /// <param name="negative">indicates whether the result should be negative.</param>
         public FPNum MkFPInf(FPSort s, bool negative)
@@ -3625,6 +3623,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Floating-point square root
         /// </summary>        
+        /// <param name="rm">rounding mode term</param>        
         /// <param name="t">floating point term</param>        
         public FPExpr MkFPSqrt(FPRMExpr rm, FPExpr t) 
         {

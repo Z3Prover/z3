@@ -31,6 +31,7 @@ namespace Microsoft.Z3
     public class FPRMExpr : Expr
     {
         #region Internal
+        /// <summary> Constructor for FPRMExpr </summary>
         internal protected FPRMExpr(Context ctx)
             : base(ctx)
         {

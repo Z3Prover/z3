@@ -30,7 +30,8 @@ namespace Microsoft.Z3
     /// </summary>
     public class FPExpr : Expr
     {
-        #region Internal        
+        #region Internal
+        /// <summary> Constructor for FPExpr </summary>
         internal protected FPExpr(Context ctx)
             : base(ctx)
         {
