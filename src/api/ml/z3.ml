@@ -214,7 +214,7 @@ struct
   struct
     type ast_vector = z3_native_object
     
-    let ast_vector_of_ptr ( ctx : context ) ( no : Z3native.ptr ) = 
+    let create ( ctx : context ) ( no : Z3native.ptr ) = 
       let res : ast_vector = { m_ctx = ctx ;
 			       m_n_obj = null ;
 			       inc_ref = Z3native.ast_vector_inc_ref ;
@@ -222,6 +222,8 @@ struct
       (z3obj_sno res ctx no) ;
       (z3obj_create res) ;
       res
+	
+    let mk_ast_vector ( ctx : context ) = (create ctx (Z3native.mk_ast_vector (context_gno ctx)))
 	
     let get_size ( x : ast_vector ) =
       Z3native.ast_vector_size (z3obj_gnc x) (z3obj_gno x)
@@ -239,7 +241,7 @@ struct
       Z3native.ast_vector_push (z3obj_gnc x) (z3obj_gno x) (z3obj_gno a)
 	
     let translate ( x : ast_vector ) ( to_ctx : context ) =
-      ast_vector_of_ptr to_ctx (Z3native.ast_vector_translate (z3obj_gnc x) (z3obj_gno x) (context_gno to_ctx))
+      create to_ctx (Z3native.ast_vector_translate (z3obj_gnc x) (z3obj_gno x) (context_gno to_ctx))
 	
     let to_string ( x : ast_vector ) =
       Z3native.ast_vector_to_string (z3obj_gnc x) (z3obj_gno x)
@@ -248,7 +250,18 @@ struct
   module ASTMap =
   struct	
     type ast_map = z3_native_object
+	
+    let create ( ctx : context ) ( no : Z3native.ptr ) = 
+      let res : ast_map  = { m_ctx = ctx ;
+			     m_n_obj = null ;
+			     inc_ref = Z3native.ast_map_inc_ref ;
+			     dec_ref = Z3native.ast_map_dec_ref } in
+      (z3obj_sno res ctx no) ;
+      (z3obj_create res) ;
+      res	
     
+    let mk_ast_map ( ctx : context ) = (create ctx (Z3native.mk_ast_map (context_gno ctx)))
+
     let astmap_of_ptr ( ctx : context ) ( no : Z3native.ptr ) = 
       let res : ast_map = { m_ctx = ctx ;
 			    m_n_obj = null ;
@@ -277,7 +290,7 @@ struct
       Z3native.ast_map_size (z3obj_gnc x) (z3obj_gno x)
 	
     let get_keys ( x : ast_map ) =
-      let av = ASTVector.ast_vector_of_ptr (z3obj_gc x) (Z3native.ast_map_keys (z3obj_gnc x) (z3obj_gno x)) in
+      let av = ASTVector.create (z3obj_gc x) (Z3native.ast_map_keys (z3obj_gnc x) (z3obj_gno x)) in
       let f i = (ASTVector.get av i) in
       mk_list f (ASTVector.get_size av)
 
@@ -2061,7 +2074,7 @@ struct
     mk_list f n
 
   let sort_universe ( x : model ) ( s : sort ) =
-    let n_univ = AST.ASTVector.ast_vector_of_ptr (z3obj_gc x) (Z3native.model_get_sort_universe (z3obj_gnc x) (z3obj_gno x) (Sort.gno s)) in
+    let n_univ = AST.ASTVector.create (z3obj_gc x) (Z3native.model_get_sort_universe (z3obj_gnc x) (z3obj_gno x) (Sort.gno s)) in
     let n = (AST.ASTVector.get_size n_univ) in
     let f i = (AST.ASTVector.get n_univ i) in
     mk_list f n
@@ -2386,11 +2399,11 @@ struct
     Z3native.solver_assert_and_track (z3obj_gnc x) (z3obj_gno x) (Expr.gno c) (Expr.gno p)
 
   let get_num_assertions ( x : solver ) =
-    let a = AST.ASTVector.ast_vector_of_ptr (z3obj_gc x) (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
+    let a = AST.ASTVector.create (z3obj_gc x) (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
     (AST.ASTVector.get_size a)
 
   let get_assertions ( x : solver ) =
-    let a = AST.ASTVector.ast_vector_of_ptr (z3obj_gc x) (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
+    let a = AST.ASTVector.create (z3obj_gc x) (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
     let n = (AST.ASTVector.get_size a) in
     let f i = (expr_of_ptr (z3obj_gc x) (z3obj_gno (AST.ASTVector.get a i))) in
     mk_list f n
@@ -2423,7 +2436,7 @@ struct
       Some (expr_of_ptr (z3obj_gc x) q)
 	
   let get_unsat_core ( x : solver ) =
-    let cn = AST.ASTVector.ast_vector_of_ptr (z3obj_gc x) (Z3native.solver_get_unsat_core (z3obj_gnc x) (z3obj_gno x)) in 
+    let cn = AST.ASTVector.create (z3obj_gc x) (Z3native.solver_get_unsat_core (z3obj_gnc x) (z3obj_gno x)) in 
     let n = (AST.ASTVector.get_size cn) in
     let f i = (AST.ASTVector.get cn i) in
     mk_list f n
@@ -2545,13 +2558,13 @@ struct
     Z3native.fixedpoint_to_string (z3obj_gnc x) (z3obj_gno x) (List.length queries) (Array.of_list (List.map f queries))
 
   let get_rules ( x : fixedpoint ) = 
-    let v = (AST.ASTVector.ast_vector_of_ptr (z3obj_gc x) (Z3native.fixedpoint_get_rules (z3obj_gnc x) (z3obj_gno x))) in
+    let v = (AST.ASTVector.create (z3obj_gc x) (Z3native.fixedpoint_get_rules (z3obj_gnc x) (z3obj_gno x))) in
     let n = (AST.ASTVector.get_size v) in
     let f i =(expr_of_ptr (z3obj_gc x) (z3obj_gno (AST.ASTVector.get v i))) in
     mk_list f n
 
   let get_assertions ( x : fixedpoint ) = 
-    let v = (AST.ASTVector.ast_vector_of_ptr (z3obj_gc x) (Z3native.fixedpoint_get_assertions (z3obj_gnc x) (z3obj_gno x))) in
+    let v = (AST.ASTVector.create (z3obj_gc x) (Z3native.fixedpoint_get_assertions (z3obj_gnc x) (z3obj_gno x))) in
     let n = (AST.ASTVector.get_size v) in
     let f i =(expr_of_ptr (z3obj_gc x) (z3obj_gno (AST.ASTVector.get v i))) in
     mk_list f n

@@ -107,10 +107,9 @@ sig
   (** A string representation of the symbol. *)
   val to_string : symbol -> string
 
-  (** Creates a new symbol using an integer.
-     
-     Not all integers can be passed to this function.
-     The legal range of unsigned integers is 0 to 2^30-1. *)
+  (** Creates a new symbol using an integer.     
+      Not all integers can be passed to this function.
+      The legal range of unsigned integers is 0 to 2^30-1. *)
   val mk_int : context -> int -> symbol
 
   (** Creates a new symbol using a string. *)
@@ -132,12 +131,14 @@ sig
   module ASTVector :
   sig
     type ast_vector 
+
+    (** Create an empty AST vector *)
+    val mk_ast_vector : context -> ast_vector
       
     (** The size of the vector *)
     val get_size : ast_vector -> int
 
-    (** 
-	Retrieves the i-th object in the vector.
+    (** Retrieves the i-th object in the vector.
 	@return An AST *)
     val get : ast_vector -> int -> ast
 
@@ -162,7 +163,10 @@ sig
   (** Map from AST to AST *)
   module ASTMap :
   sig
-    type ast_map       
+    type ast_map
+
+    (** Create an empty mapping from AST to AST *)
+    val mk_ast_map : context -> ast_map
       
     (** Checks whether the map contains a key.
 	@return True if the key in the map, false otherwise. *)
@@ -2297,7 +2301,7 @@ sig
 
   (** Creates a new Goal.
      
-     Note that the Context must have been created with proof generation support if 
+      Note that the Context must have been created with proof generation support if 
       the fourth argument is set to true here. *)
   val mk_goal : context -> bool -> bool -> bool -> goal
 
