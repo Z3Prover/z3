@@ -717,6 +717,8 @@ sig
   val mk_app : context -> FuncDecl.func_decl -> expr list -> expr
   val mk_numeral_string : context -> string -> Sort.sort -> expr
   val mk_numeral_int : context -> int -> Sort.sort -> expr
+  val equal : expr -> expr -> bool
+  val compare : expr -> expr -> int
 end = struct  
   type expr = Expr of AST.ast
       
@@ -830,6 +832,10 @@ end = struct
 
   let mk_numeral_int ( ctx : context ) ( v : int ) ( ty : sort ) =
     expr_of_ptr ctx (Z3native.mk_int (context_gno ctx) v (Sort.gno ty))
+
+  let equal ( a : expr ) ( b : expr ) = AST.equal (ast_of_expr a) (ast_of_expr b)
+	
+  let compare a b = AST.compare (ast_of_expr a) (ast_of_expr b)
 end
 
 open FuncDecl
