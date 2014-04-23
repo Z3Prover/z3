@@ -20,6 +20,7 @@ Notes:
 #include"fpa2bv_rewriter.h"
 #include"simplify_tactic.h"
 #include"fpa2bv_tactic.h"
+#include"fpa2bv_model_converter.h"
 
 class fpa2bv_tactic : public tactic {
     struct imp {
