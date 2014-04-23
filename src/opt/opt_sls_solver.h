@@ -204,10 +204,8 @@ namespace opt {
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 m_pbsls->add(m_soft[i].get(), m_weights[i]);
             }
-            lbool is_sat = (*m_pbsls.get())();
-            if (is_sat == l_true) {
-                m_pbsls->get_model(m_model);
-            }
+            (*m_pbsls.get())();
+            m_pbsls->get_model(m_model);            
         }
 
         void bvsls_opt() {

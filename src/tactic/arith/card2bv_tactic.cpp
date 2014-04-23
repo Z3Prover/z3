@@ -137,8 +137,9 @@ namespace pb {
             return BR_FAILED;
     }
 
-    template class rewriter_tpl<card2bv_rewriter_cfg>;
 };
+
+template class rewriter_tpl<pb::card2bv_rewriter_cfg>;
 
 class card2bv_tactic : public tactic {
     ast_manager &              m;

@@ -156,6 +156,8 @@ namespace opt {
                 for (unsigned i = 0; i < sz; ++i) {
                     sat_solver->assert_expr(s().get_assertion(i));
                 }   
+                unsigned lvl = m_s->get_scope_level();
+                while (lvl > 0) { sat_solver->push(); --lvl; }
                 m_s = sat_solver;
             }
         }
@@ -163,7 +165,9 @@ namespace opt {
         void enable_sls() {
             if (m_enable_sls && probe_bv()) {
                 m_params.set_uint("restarts", 20);
+                unsigned lvl = m_s->get_scope_level();
                 m_s = alloc(sls_solver, m, m_s.get(), m_soft, m_weights, m_params);
+                while (lvl > 0) { m_s->push(); --lvl; }
             }
         }
         
@@ -247,6 +251,7 @@ namespace opt {
             m_soft_constraints(m),
             m_enable_lazy(false) {
             m_enable_lazy = true;
+            enable_sls();
         }
 
         virtual ~bcd2() {}
@@ -257,7 +262,6 @@ namespace opt {
             lbool is_sat = l_undef;
             expr_ref_vector asms(m);
             bool first = true;
-            enable_sls();
             solver::scoped_push _scope1(s());
             init();
             init_bcd();
@@ -551,13 +555,14 @@ namespace opt {
         bool m_use_aux;
     public:
         pbmax(solver* s, ast_manager& m, bool use_aux): 
-            maxsmt_solver_base(s, m), m_use_aux(use_aux) {}
+            maxsmt_solver_base(s, m), m_use_aux(use_aux) {
+            enable_bvsat();
+            enable_sls();
+        }
         
         virtual ~pbmax() {}
 
         lbool operator()() {
-            enable_bvsat();
-            enable_sls();
             TRACE("opt", s().display(tout); tout << "\n";
                   for (unsigned i = 0; i < m_soft.size(); ++i) {
                       tout << mk_pp(m_soft[i].get(), m) << " " << m_weights[i] << "\n";
@@ -628,14 +633,15 @@ namespace opt {
     class wpm2 : public maxsmt_solver_base {
         scoped_ptr<maxsmt_solver_base> maxs;
     public:
-        wpm2(solver* s, ast_manager& m, maxsmt_solver_base* maxs): 
-            maxsmt_solver_base(s, m), maxs(maxs) {}
+        wpm2(solver* s, ast_manager& m, maxsmt_solver_base* _maxs): 
+            maxsmt_solver_base(s, m), maxs(_maxs) {
+            enable_sls();
+        }
 
         virtual ~wpm2() {}
 
         lbool operator()() {
             IF_VERBOSE(1, verbose_stream() << "(wmaxsat.wpm2 solve)\n";);
-            enable_sls();
             solver::scoped_push _s(s());
             pb_util u(m);
             app_ref fml(m), a(m), b(m), c(m);
@@ -778,6 +784,12 @@ namespace opt {
                 amk.push_back(k);
             }            
         }
+
+        virtual void set_cancel(bool f) { 
+            maxsmt_solver_base::set_cancel(f); 
+            maxs->set_cancel(f); 
+        }
+
     private:
         lbool new_bound(expr_ref_vector const& al, 
                         vector<rational> const& ws, 
@@ -825,12 +837,13 @@ namespace opt {
     class sls : public maxsmt_solver_base {
     public:
         sls(solver* s, ast_manager& m): 
-            maxsmt_solver_base(s, m) {}
+            maxsmt_solver_base(s, m) {
+            enable_bvsat();
+            enable_sls();
+        }
         virtual ~sls() {}
         lbool operator()() {
             IF_VERBOSE(1, verbose_stream() << "(sls solve)\n";);
-            enable_bvsat();
-            enable_sls();
             init();
             lbool is_sat = s().check_sat(0, 0);
             if (is_sat == l_true) {
