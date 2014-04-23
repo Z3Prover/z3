@@ -39,6 +39,15 @@ public:
         lbool is_sat;
         expr_ref optimum;
         optimization_result(ast_manager & m) : is_sat(l_undef), optimum(m) {}
+        optimization_result& operator=(optimization_result const& other) {
+            is_sat = other.is_sat;
+            optimum = other.optimum;
+            return *this;
+        }
+        optimization_result(optimization_result const& other):
+            is_sat(other.is_sat),
+            optimum(other.optimum) {
+        }
     };
 
     optimization_result optimize(expr_ref const & objective, model_ref initial_model = model_ref(), bool maximize=true);

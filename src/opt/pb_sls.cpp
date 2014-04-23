@@ -586,7 +586,7 @@ namespace smt {
                 return result;
             }
             expr* x, *y;
-            if (m.is_eq(f, x, y) || m.is_iff(f, x, y)) {                
+            if ((m.is_eq(f, x, y) && m.is_bool(x)) || m.is_iff(f, x, y)) {                
                 literal a = mk_literal(x);
                 literal b = mk_literal(y);
                 literal result = mk_aux_literal(f);
@@ -615,9 +615,9 @@ namespace smt {
                 m_clauses.push_back(cls);
                 m_orig_clauses.push_back(f);
                 return result;
-            }
+            }            
             IF_VERBOSE(0, verbose_stream() << "not handled: " << mk_pp(f, m) << "\n";);
-            return null_literal;
+            return mk_aux_literal(f);
         }
 
         bool compile_clause(expr* _f, clause& cls) {
