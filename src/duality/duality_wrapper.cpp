@@ -18,7 +18,7 @@ Revision History:
 
 --*/
 
-#ifdef WIN32
+#ifdef _WINDOWS
 #pragma warning(disable:4996)
 #pragma warning(disable:4800)
 #pragma warning(disable:4267)
@@ -37,16 +37,18 @@ Revision History:
 
 namespace Duality {
 
-  solver::solver(Duality::context& c, bool extensional, bool models) : object(c), the_model(c) {
+  solver::solver(Duality::context& c, bool _extensional, bool models) : object(c), the_model(c) {
     params_ref p;
     p.set_bool("proof", true); // this is currently useless
     if(models)
       p.set_bool("model", true); 
     p.set_bool("unsat_core", true); 
-    p.set_bool("mbqi",true);
+    bool mbqi = c.get_config().get().get_bool("mbqi",true);
+    p.set_bool("mbqi",mbqi); // just to test
     p.set_str("mbqi.id","itp"); // use mbqi for quantifiers in interpolants
     p.set_uint("mbqi.max_iterations",1); // use mbqi for quantifiers in interpolants
-    if(true || extensional)
+    extensional = mbqi && (true || _extensional);
+    if(extensional)
       p.set_bool("array.extensional",true);
     scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
     m_solver = (*sf)(m(), p, true, true, true, ::symbol::null);
@@ -338,6 +340,12 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     params p;
     return simplify(p);
   }
+  
+  expr context::make_var(int idx, const sort &s){
+    ::sort * a = to_sort(s.raw());
+    return cook(m().mk_var(idx,a));
+  }
+
 
   expr expr::qe_lite() const {
     ::qe_lite qe(m());
@@ -370,6 +378,12 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     for(unsigned i = 0; i < num_patterns; i++)
       _patterns[i] = to_expr(patterns[i].raw());
     return q.ctx().cook(q.m().update_quantifier(thing, is_forall, num_patterns, &_patterns[0], to_expr(b.raw())));
+  }
+
+  expr clone_quantifier(decl_kind dk, const expr &q, const expr &b){
+    quantifier *thing = to_quantifier(q.raw());
+    bool is_forall = dk == Forall;
+    return q.ctx().cook(q.m().update_quantifier(thing, is_forall, to_expr(b.raw())));
   }
 
   void expr::get_patterns(std::vector<expr> &pats) const {
@@ -655,6 +669,18 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
       pp.add_assumption(m_solver->get_assertion(i));
     pp.display_smt2(std::cout, m_solver->get_assertion(n-1));
   }
+
+  void solver::print(const char *filename) {
+    std::ofstream f(filename);
+    unsigned n = m_solver->get_num_assertions();
+    if(!n)
+      return;
+    ast_smt_pp pp(m());
+    for (unsigned i = 0; i < n-1; ++i)
+      pp.add_assumption(m_solver->get_assertion(i));
+    pp.display_smt2(f, m_solver->get_assertion(n-1));
+  }
+
 
   void solver::show_assertion_ids() {
 #if 0

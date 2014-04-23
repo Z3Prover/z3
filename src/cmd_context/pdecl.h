@@ -169,6 +169,7 @@ public:
 class paccessor_decl : public pdecl {
     friend class pdecl_manager;
     friend class pconstructor_decl;
+    friend class pdatatype_decl;
     symbol   m_name;
     ptype    m_type;
     paccessor_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n, ptype const & r);
@@ -222,6 +223,7 @@ public:
     sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s);
     virtual void display(std::ostream & out) const;
     bool has_missing_refs(symbol & missing) const;
+    bool has_duplicate_accessors(symbol & repeated) const;
 };
 
 /**

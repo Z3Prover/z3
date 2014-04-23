@@ -87,7 +87,7 @@ void display_usage() {
     std::cout << "\nResources:\n";
     // timeout and memout are now available on Linux and OSX too.
     std::cout << "  -T:timeout  set the timeout (in seconds).\n";
-    std::cout << "  -t:timeout  set the soft timeout (in seconds). It only kills the current query.\n";
+    std::cout << "  -t:timeout  set the soft timeout (in milli seconds). It only kills the current query.\n";
     std::cout << "  -memory:Megabytes  set a limit for virtual memory consumption.\n";
     // 
     std::cout << "\nOutput:\n";

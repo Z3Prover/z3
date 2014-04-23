@@ -850,6 +850,13 @@ namespace smt2 {
             for (unsigned i = 0; i < sz; i++) {
                 pdatatype_decl * d = new_dt_decls[i];
                 SASSERT(d != 0);
+                symbol duplicated;
+                if (d->has_duplicate_accessors(duplicated)) {
+                    std::string err_msg = "invalid datatype declaration, repeated accessor identifier '";
+                    err_msg += duplicated.str();
+                    err_msg += "'";
+                    throw parser_exception(err_msg, line, pos);
+                }
                 m_ctx.insert(d);
                 if (d->get_num_params() == 0) {
                     // if datatype is not parametric... then force instantiation to register accessor, recognizers and constructors...
@@ -2070,6 +2077,7 @@ namespace smt2 {
 
         void parse_option_value() {
             switch (curr()) {
+            case scanner::BV_TOKEN:
             case scanner::INT_TOKEN:
             case scanner::FLOAT_TOKEN:
                 m_curr_cmd->set_next_arg(m_ctx, m_scanner.get_number());

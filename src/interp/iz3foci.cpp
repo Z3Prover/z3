@@ -25,9 +25,7 @@ Revision History:
 #include "foci2.h"
 #include "iz3foci.h"
 
-#ifndef WIN32
 using namespace stl_ext;
-#endif
 
 class iz3foci_impl : public iz3secondary {
 

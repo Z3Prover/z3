@@ -22,7 +22,6 @@ Revision History:
 #include"theory_arith.h"
 #include"theory_dense_diff_logic.h"
 #include"theory_diff_logic.h"
-#include"theory_horn_ineq.h"
 #include"theory_utvpi.h"
 #include"theory_array.h"
 #include"theory_array_full.h"
@@ -724,12 +723,6 @@ namespace smt {
                 else
                     m_context.register_plugin(alloc(smt::theory_dense_mi, m_manager, m_params));
             }
-            break;
-        case AS_HORN:
-            if (m_params.m_arith_int_only)
-                m_context.register_plugin(alloc(smt::theory_ihi, m_manager));
-            else
-                m_context.register_plugin(alloc(smt::theory_rhi, m_manager));          
             break;
         case AS_UTVPI:
             if (m_params.m_arith_int_only)

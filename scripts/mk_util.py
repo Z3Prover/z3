@@ -54,6 +54,7 @@ CPP_COMPONENT='cpp'
 IS_WINDOWS=False
 IS_LINUX=False
 IS_OSX=False
+IS_FREEBSD=False
 VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
@@ -97,6 +98,9 @@ def is_windows():
 
 def is_linux():
     return IS_LINUX
+
+def is_freebsd():
+    return IS_FREEBSD
 
 def is_osx():
     return IS_OSX
@@ -426,6 +430,8 @@ elif os.name == 'posix':
         IS_OSX=True
     elif os.uname()[0] == 'Linux':
         IS_LINUX=True
+    elif os.uname()[0] == 'FreeBSD':
+        IS_FREEBSD=True
 
 def display_help(exit_code):
     print("mk_make.py: Z3 Makefile generator\n")
@@ -639,7 +645,7 @@ def is_CXX_gpp():
     return is_compiler(CXX, 'g++')
 
 def is_clang_in_gpp_form(cc):
-    version_string = subprocess.check_output([cc, '--version'])
+    version_string = check_output([cc, '--version'])
     return str(version_string).find('clang') != -1
 
 def is_CXX_clangpp():
@@ -1181,6 +1187,8 @@ class JavaDLLComponent(Component):
                 t = t.replace('PLATFORM', 'darwin')
             elif IS_LINUX:
                 t = t.replace('PLATFORM', 'linux')
+            elif IS_FREEBSD:
+                t = t.replace('PLATFORM', 'freebsd')
             else:
                 t = t.replace('PLATFORM', 'win32')
             out.write(t)
