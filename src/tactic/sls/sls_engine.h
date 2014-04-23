@@ -81,8 +81,7 @@ protected:
     unsigned        m_restart_base;
     unsigned        m_restart_next;
     unsigned        m_restart_init;
-
-    ptr_vector<mpz> m_old_values;
+    unsigned        m_early_prune;
 
     typedef enum { MV_FLIP = 0, MV_INC, MV_DEC, MV_INV } move_type;
 
