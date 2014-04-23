@@ -44,11 +44,9 @@ class sls_tracker {
         unsynch_mpz_manager * m;
         mpz value;
         double score;
-#if _EARLY_PRUNE_
         double score_prune;
         unsigned has_pos_occ;
         unsigned has_neg_occ;
-#endif
         unsigned distance; // max distance from any root
         unsigned touched;
         value_score & operator=(const value_score & other) {
@@ -122,6 +120,7 @@ public:
         m_paws_init = p.paws_init();
     }
 
+    /* Andreas: Tried to give some measure for the formula size by the following two methods but both are not used currently.
     unsigned get_formula_size() {
         return m_scores.size();
     }
@@ -145,7 +144,7 @@ public:
         }
 
         return sum / count;   
-    }
+    }*/
 
     inline void adapt_top_sum(expr * e, double add, double sub) {
         m_top_sum += m_weights.find(e) * (add - sub);
@@ -417,6 +416,8 @@ public:
         }
     }
 
+    /* Andreas: Used this at some point to have values for the non-top-level expressions.
+                However, it did not give better performance but even cause some additional m/o - is not used currently.
     void initialize_recursive(init_proc proc, expr_mark visited, expr * e) {
         if (m_manager.is_and(e) || m_manager.is_or(e)) {
             app * a = to_app(e);
@@ -445,7 +446,7 @@ public:
         find_func_decls_proc ffd_proc(m_manager, m_constants_occ.find(e));
         expr_fast_mark1 visited;
         quick_for_each_expr(ffd_proc, visited, e);
-    }
+    }*/
 
     void initialize(ptr_vector<expr> const & as) {
         init_proc proc(m_manager, *this);
@@ -455,8 +456,6 @@ public:
             expr * e = as[i];
             if (!m_top_expr.contains(e))
                 m_top_expr.insert(e);
-            else
-                printf("this is already in ...\n");
             for_each_expr(proc, visited, e);
         }
 
@@ -464,7 +463,6 @@ public:
 
         for (unsigned i = 0; i < sz; i++) {
             expr * e = as[i];
-            // Andreas: Maybe not fully correct.
             ptr_vector<func_decl> t;
             m_constants_occ.insert_if_not_there(e, t);
             find_func_decls_proc ffd_proc(m_manager, m_constants_occ.find(e));
@@ -488,15 +486,16 @@ public:
         for (unsigned i = 0; i < sz; i++)
         {
             expr * e = as[i];
-        	if (!m_weights.contains(e))
+
+            // initialize weights
+            if (!m_weights.contains(e))
         		m_weights.insert(e, m_paws_init);
+
+            // positive/negative occurences used for early pruning
+            setup_occs(as[i]);
         }
 
-#if _EARLY_PRUNE_
-        for (unsigned i = 0; i < sz; i++)
-            setup_occs(as[i]);
-#endif
-
+        // initialize ucb total touched value (individual ones are always initialized to 1)
         m_touched = m_ucb_init ? as.size() : 1;
     }
 
@@ -738,7 +737,6 @@ public:
             SASSERT(!negated);
             app * a = to_app(n);
             expr * const * args = a->get_args();
-            // Andreas: Seems to have no effect. Probably it is still too similar to the original version.
             double max = 0.0;
             for (unsigned i = 0; i < a->get_num_args(); i++) {
                 double cur = get_score(args[i]);
@@ -764,7 +762,6 @@ public:
             const mpz & v1 = get_value(arg1);
             
             if (negated) {                    
-                //res = (m_mpz_manager.eq(v0, v1)) ? 0.5 * (m_bv_util.get_bv_size(arg0) - 1.0) / m_bv_util.get_bv_size(arg0) : 1.0;
                 res = (m_mpz_manager.eq(v0, v1)) ? 0.0 : 1.0;
                 TRACE("sls_score", tout << "V0 = " << m_mpz_manager.to_string(v0) << " ; V1 = " << 
                                         m_mpz_manager.to_string(v1) << std::endl; );
@@ -1051,10 +1048,8 @@ public:
 //            for (unsigned i = 0; i < m_where_false.size(); i++) {
 //                expr * e = m_list_false[i];
                 vscore = m_scores.find(e);
-                double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched);
-#if _UCT_ == 3
-            double q = vscore.score + _UCT_CONSTANT_ * sqrt(log(m_touched)/vscore.touched) + (get_random_uint(16) * 0.1 / (2<<16)); 
-#endif
+                //double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched);
+                double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched) + (get_random_uint(8) * 0.0000002); 
                 if (q > max && m_mpz_manager.neq(get_value(e), m_one) ) { max = q; pos = i; }
             }
             if (pos == static_cast<unsigned>(-1))

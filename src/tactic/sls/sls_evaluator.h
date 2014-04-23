@@ -554,9 +554,7 @@ public:
                 if (m_tracker.is_top_expr(cur))
                     m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                 m_tracker.set_score(cur, new_score);
-#if _EARLY_PRUNE_
                 m_tracker.set_score_prune(cur, new_score);
-#endif            
 
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
@@ -599,9 +597,6 @@ public:
                 if (m_tracker.is_top_expr(cur))
                     m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                 m_tracker.set_score(cur, new_score);
-#if _EARLY_PRUNE_
-                m_tracker.set_score_prune(cur, new_score);
-#endif            
                 if (m_tracker.has_uplinks(cur)) {
                     ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
                     for (unsigned j = 0; j < ups.size(); j++) {

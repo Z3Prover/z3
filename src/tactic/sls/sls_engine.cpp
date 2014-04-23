@@ -70,6 +70,8 @@ void sls_engine::updt_params(params_ref const & _p) {
     m_restart_next = m_restart_base;
     m_restart_init = p.restart_init();
 
+    m_early_prune = p.early_prune();
+
     // Andreas: Would cause trouble because repick requires an assertion being picked before which is not the case in GSAT.
     if (m_walksat_repick && !m_walksat)
         NOT_IMPLEMENTED_YET();
@@ -117,7 +119,7 @@ double sls_engine::top_score() {
 
     m_tracker.set_top_sum(top_sum);
 
-    return top_sum / (double)sz;
+    return top_sum;
 }
 
 double sls_engine::rescore() {
@@ -129,21 +131,21 @@ double sls_engine::rescore() {
 double sls_engine::serious_score(func_decl * fd, const mpz & new_value) {
     m_evaluator.serious_update(fd, new_value);
     m_stats.m_incr_evals++;
-    return (m_tracker.get_top_sum() / m_assertions.size());
+    return m_tracker.get_top_sum();
 }
 
 double sls_engine::incremental_score(func_decl * fd, const mpz & new_value) {
     m_evaluator.update(fd, new_value);
     m_stats.m_incr_evals++;
-    return (m_tracker.get_top_sum() / m_assertions.size());
+    return m_tracker.get_top_sum();
 }
 
 double sls_engine::incremental_score_prune(func_decl * fd, const mpz & new_value) {
     m_stats.m_incr_evals++;
     if (m_evaluator.update_prune(fd, new_value))
-        return (m_tracker.get_top_sum() / m_assertions.size());
+        return m_tracker.get_top_sum();
     else
-        return 0.0;
+        return -DBL_MAX;
 }
 
 // checks whether the score outcome of a given move is better than the previous score
@@ -160,11 +162,11 @@ bool sls_engine::what_if(
     m_mpz_manager.set(old_value, m_tracker.get_value(fd));
 #endif
 
-#if _EARLY_PRUNE_
-    double r = incremental_score_prune(fd, temp);
-#else
-    double r = incremental_score(fd, temp);
-#endif   
+    double r;
+    if (m_early_prune)
+        r = incremental_score_prune(fd, temp);
+    else
+        r = incremental_score(fd, temp);
 #ifdef Z3DEBUG
     TRACE("sls_whatif", tout << "WHAT IF " << fd->get_name() << " WERE " << m_mpz_manager.to_string(temp) <<
             " --> " << r << std::endl;);
@@ -342,11 +344,8 @@ double sls_engine::find_best_move(
             if (what_if(fd, i, temp, new_score, best_const, best_value))
                 move = MV_INV;
         }
-
         // reset to what it was before
-        double check = incremental_score(fd, old_value);
-        // Andreas: does not hold anymore now that we use top level score caching
-        //SASSERT(check == score);
+        incremental_score(fd, old_value);
     }
 
     m_mpz_manager.del(old_value);
@@ -381,9 +380,8 @@ double sls_engine::find_best_move_mc(ptr_vector<func_decl> & to_evaluate, double
                 }
             }
         }
-
         // reset to what it was before
-        double check = incremental_score(fd, old_value);
+        incremental_score(fd, old_value);
     }
 
     m_mpz_manager.del(old_value);
@@ -408,7 +406,10 @@ lbool sls_engine::search() {
         checkpoint();
         m_stats.m_moves++;
         if (m_stats.m_moves % m_restart_base == 0)
+        {
             m_tracker.ucb_forget(m_assertions);
+            //score = rescore();
+        }
 
 #if _REAL_RS_
         //m_tracker.debug_real(g, m_stats.m_moves);
@@ -425,7 +426,7 @@ lbool sls_engine::search() {
         if (m_wp && m_tracker.get_random_uint(10) < m_wp)
         {
             mk_random_move(to_evaluate);
-            score = m_tracker.get_top_sum() / sz;
+            score = m_tracker.get_top_sum();
             continue;
         }
 
@@ -465,7 +466,7 @@ lbool sls_engine::search() {
             else
                 m_evaluator.randomize_local(to_evaluate);
 
-            score = m_tracker.get_top_sum() / m_assertions.size();
+            score = m_tracker.get_top_sum();
 
             // update assertion weights if a weigthing is enabled (sp < 1024)
             if (m_paws)
@@ -513,7 +514,6 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
         assert_expr(g->form(i));    
 
     verbose_stream() << "_REAL_RS_ " << _REAL_RS_ << std::endl;
-    verbose_stream() << "_EARLY_PRUNE_ " << _EARLY_PRUNE_ << std::endl;
 
     lbool res = operator()();
 

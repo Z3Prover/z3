@@ -22,10 +22,7 @@ Notes:
 #ifndef _SLS_COMPILATION_SETTINGS_H_
 #define _SLS_COMPILATION_SETTINGS_H_
 
-// should we use unsat-structures as done in SLS 4 SAT instead for random or bfs selection?
+// should we use unsat-structures as done in SLS 4 SAT?
 #define _REAL_RS_ 0
-
-// shall we use early pruning for incremental update?
-#define _EARLY_PRUNE_ 1
 
 #endif
