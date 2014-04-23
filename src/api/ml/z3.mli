@@ -554,9 +554,17 @@ sig
   val mk_numeral_string : context -> string -> Sort.sort -> expr
   
   (** Create a numeral of a given sort. This function can be use to create numerals that fit in a machine integer.
-     It is slightly faster than [MakeNumeral] since it is not necessary to parse a string.       
-     @return A Term with the given value and sort *)
+      It is slightly faster than [MakeNumeral] since it is not necessary to parse a string.       
+      @return A Term with the given value and sort *)
   val mk_numeral_int : context -> int -> Sort.sort -> expr
+    
+  (** Comparison operator.
+      @return True if the two expr's are equal; false otherwise. *)
+  val equal : expr -> expr -> bool
+
+  (** Object Comparison.
+      @return Negative if the first expr should be sorted before the second, positive if after, else zero. *)
+  val compare : expr -> expr -> int
 end
 
 (** Boolean expressions; Propositional logic and equality *)
