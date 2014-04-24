@@ -100,6 +100,7 @@ namespace Duality {
   };
 
    Reporter *CreateStdoutReporter(RPFP *rpfp);
+  Reporter *CreateConjectureFileReporter(RPFP *rpfp, const std::string &fname);
   
   /** Object we throw in case of catastrophe. */
 
@@ -125,6 +126,7 @@ namespace Duality {
     {
       rpfp = _rpfp;
       reporter = 0;
+      conj_reporter = 0;
       heuristic = 0;
       unwinding = 0;
       FullExpand = false;
@@ -274,6 +276,7 @@ namespace Duality {
 
     RPFP *rpfp;                          // the input RPFP 
     Reporter *reporter;                  // object for logging
+    Reporter *conj_reporter;             // object for logging conjectures
     Heuristic *heuristic;                // expansion heuristic
     context &ctx;                        // Z3 context
     solver &slvr;                        // Z3 solver
@@ -297,6 +300,7 @@ namespace Duality {
     int last_decisions;
     hash_set<Node *> overapproxes;
     std::vector<Proposer *> proposers;
+    std::string ConjectureFile;
 
 #ifdef BOUNDED
     struct Counter {
@@ -310,6 +314,7 @@ namespace Duality {
     /** Solve the problem. */
     virtual bool Solve(){
       reporter = Report ? CreateStdoutReporter(rpfp) : new Reporter(rpfp);
+      conj_reporter = ConjectureFile.empty() ? 0 : CreateConjectureFileReporter(rpfp,ConjectureFile); 
 #ifndef LOCALIZE_CONJECTURES
       heuristic = !cex.get_tree() ? new Heuristic(rpfp) : new ReplayHeuristic(rpfp,cex);
 #else
@@ -340,6 +345,8 @@ namespace Duality {
       delete heuristic;
       // delete unwinding; // keep the unwinding for future mining of predicates
       delete reporter;
+      if(conj_reporter)
+	delete conj_reporter;
       for(unsigned i = 0; i < proposers.size(); i++)
 	delete proposers[i];
       return res;
@@ -448,6 +455,9 @@ namespace Duality {
       }
       if(option == "recursion_bound"){
         return SetIntOption(RecursionBound,value);
+      }
+      if(option == "conjecture_file"){
+	ConjectureFile = value;
       }
       return false;
     }
@@ -1462,6 +1472,8 @@ namespace Duality {
     bool Update(Node *node, const RPFP::Transformer &fact, bool eager=false){
       if(!node->Annotation.SubsetEq(fact)){
 	reporter->Update(node,fact,eager);
+	if(conj_reporter)
+	  conj_reporter->Update(node,fact,eager);
 	indset->Update(node,fact);
 	updated_nodes.insert(node->map);
 	node->Annotation.IntersectWith(fact);
@@ -3043,6 +3055,10 @@ namespace Duality {
     };
   };
 
+  void stop(int event){
+    if(event == 1932)
+      std::cout << "foo!\n";
+  }
 
   class StreamReporter : public Reporter {
     std::ostream &s;
@@ -3052,6 +3068,7 @@ namespace Duality {
     int event;
     int depth;
     void ev(){
+      stop(event);
       s << "[" << event++ << "]" ;
     }
     virtual void Extend(RPFP::Node *node){
@@ -3129,4 +3146,28 @@ namespace Duality {
   Reporter *CreateStdoutReporter(RPFP *rpfp){
     return new StreamReporter(rpfp, std::cout);
   }
+
+  class ConjectureFileReporter : public Reporter {
+    std::ofstream s;
+  public:
+    ConjectureFileReporter(RPFP *_rpfp, const std::string &fname)
+      : Reporter(_rpfp), s(fname.c_str()) {}
+    virtual void Update(RPFP::Node *node, const RPFP::Transformer &update, bool eager){
+      s << "(define-fun " << node->Name.name() << " (";
+      for(unsigned i = 0; i < update.IndParams.size(); i++){
+	if(i != 0)
+	  s << " ";
+	s << "(" << update.IndParams[i] << " " << update.IndParams[i].get_sort() << ")";
+      }
+      s << ") Bool \n";
+      s << update.Formula << ")\n";
+      s << std::endl;
+    }
+  };
+
+  Reporter *CreateConjectureFileReporter(RPFP *rpfp, const std::string &fname){
+    return new ConjectureFileReporter(rpfp, fname);
+  }
+
 }
+
