@@ -24,7 +24,6 @@ Notes:
 #include"model_converter.h"
 #include"goal.h"
 
-#include"sls_compilation_settings.h"
 #include"sls_tracker.h"
 #include"sls_evaluator.h"
 #include"statistics.h"

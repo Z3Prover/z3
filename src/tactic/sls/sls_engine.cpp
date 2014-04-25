@@ -27,7 +27,6 @@ Notes:
 #include"cooperate.h"
 #include"luby.h"
 
-#include"sls_compilation_settings.h"
 #include"sls_params.hpp"
 #include"sls_engine.h"
 
