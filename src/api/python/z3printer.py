@@ -386,7 +386,7 @@ def seq3(args, lp='(', rp=')'):
     else:
         return group(indent(len(lp), compose(to_format(lp), seq(args), to_format(rp))))
 
-class StopPPException:
+class StopPPException(Exception):
     def __str__(self):
         return 'pp-interrupted'
 

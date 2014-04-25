@@ -117,6 +117,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_sort int_s = Z3_mk_int_sort(c);
         if (is_signed) {
             Z3_ast r = Z3_mk_bv2int(c, n, false);
+            Z3_inc_ref(c, r);
             Z3_sort s = Z3_get_sort(c, n);
             unsigned sz = Z3_get_bv_sort_size(c, s);
             rational max_bound = power(rational(2), sz);
@@ -135,6 +136,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
             Z3_dec_ref(c, pred);
             Z3_dec_ref(c, sub);
             Z3_dec_ref(c, zero);
+            Z3_dec_ref(c, r);
             RETURN_Z3(res);
         }
         else {
