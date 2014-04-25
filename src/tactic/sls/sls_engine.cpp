@@ -595,7 +595,7 @@ lbool sls_engine::operator()() {
 }
 
 /* Andreas: Needed for Armin's restart scheme if we don't want to use loops.
-inline double sls_engine::get_restart_armin(unsigned cnt_restarts)
+double sls_engine::get_restart_armin(unsigned cnt_restarts)
 {
     unsigned outer_id = (unsigned)(0.5 + sqrt(0.25 + 2 * cnt_restarts));
     unsigned inner_id = cnt_restarts - (outer_id - 1) * outer_id / 2;
@@ -603,7 +603,7 @@ inline double sls_engine::get_restart_armin(unsigned cnt_restarts)
 }    
 */
 
-inline unsigned sls_engine::check_restart(unsigned curr_value)
+unsigned sls_engine::check_restart(unsigned curr_value)
 {
     if (curr_value > m_restart_next)
     {
