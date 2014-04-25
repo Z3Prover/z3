@@ -71,6 +71,8 @@ void sls_engine::updt_params(params_ref const & _p) {
     m_restart_init = p.restart_init();
 
     m_early_prune = p.early_prune();
+    m_random_offset = p.random_offset();
+    m_rescore = p.rescore();
 
     // Andreas: Would cause trouble because repick requires an assertion being picked before which is not the case in GSAT.
     if (m_walksat_repick && !m_walksat)
@@ -174,6 +176,9 @@ bool sls_engine::what_if(
     m_mpz_manager.del(old_value);
 #endif
 
+    // Andreas: Had this idea on my last day. Maybe we could add a noise here similar to the one that worked so well for ucb assertion selection.
+    // r += 0.0001 * m_tracker.get_random_uint(8);
+
     // Andreas: For some reason it is important to use > here instead of >=. Probably related to prefering the LSB.
     if (r > best_score) {
         best_score = r;
@@ -248,9 +253,15 @@ void sls_engine::mk_random_move(ptr_vector<func_decl> & unsat_constants)
     {
         if (m_mpz_manager.is_one(m_tracker.get_random_bool())) rnd_mv = 2;
         if (m_mpz_manager.is_one(m_tracker.get_random_bool())) rnd_mv++;
+
+        // Andreas: The other option would be to scale the probability for flips according to the bit-width.
+        /* unsigned bv_sz2 = m_bv_util.get_bv_size(srt);
+        rnd_mv = m_tracker.get_random_uint(16) % (bv_sz2 + 3);
+        if (rnd_mv > 3) rnd_mv = 0; */
+
         move_type mt = (move_type)rnd_mv;
 
-        // inversion doesn't make sense, let's do a flip instead.
+        // Andreas: Christoph claimed inversion doesn't make sense, let's do a flip instead. Is this really true?
         if (mt == MV_INV) mt = MV_FLIP;
         unsigned bit = 0;
 
@@ -306,10 +317,13 @@ double sls_engine::find_best_move(
     unsigned bv_sz;
     double new_score = score;
 
-    //unsigned offset = m_tracker.get_random_uint(16) % to_evaluate.size();
-    //for (unsigned j = 0; j < to_evaluate.size(); j++) {
-        //unsigned i = (j + offset) % to_evaluate.size();
-    for (unsigned i = 0; i < to_evaluate.size(); i++) {
+    // Andreas: Introducting a bit of randomization by using a random offset and a random direction to go through the candidate list.
+    unsigned sz = to_evaluate.size();
+    unsigned offset = (m_random_offset) ? m_tracker.get_random_uint(16) % sz : 0;
+    for (unsigned j = 0; j < sz; j++) {
+        unsigned i = j + offset;
+        if (i >= sz) i -= sz;
+    //for (unsigned i = 0; i < to_evaluate.size(); i++) {
         func_decl * fd = to_evaluate[i];
         sort * srt = fd->get_range();
         bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
@@ -361,7 +375,13 @@ double sls_engine::find_best_move_mc(ptr_vector<func_decl> & to_evaluate, double
     unsigned bv_sz;
     double new_score = score;
 
-    for (unsigned i = 0; i < to_evaluate.size(); i++) {
+    // Andreas: Introducting a bit of randomization by using a random offset and a random direction to go through the candidate list.
+    unsigned sz = to_evaluate.size();
+    unsigned offset = (m_random_offset) ? m_tracker.get_random_uint(16) % sz : 0;
+    for (unsigned j = 0; j < sz; j++) {
+        unsigned i = j + offset;
+        if (i >= sz) i -= sz;
+    //for (unsigned i = 0; i < to_evaluate.size(); i++) {
         func_decl * fd = to_evaluate[i];
         sort * srt = fd->get_range();
         bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
@@ -405,15 +425,16 @@ lbool sls_engine::search() {
     while (check_restart(m_stats.m_moves)) {
         checkpoint();
         m_stats.m_moves++;
+
+        // Andreas: Every base restart interval ...
         if (m_stats.m_moves % m_restart_base == 0)
         {
+            // ... potentially smooth the touched counters ...
             m_tracker.ucb_forget(m_assertions);
-            //score = rescore();
+            // ... or normalize the top-level score.
+            if (m_rescore) score = rescore();
         }
 
-#if _REAL_RS_
-        //m_tracker.debug_real(g, m_stats.m_moves);
-#endif
         // get candidate variables
         ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants(m_assertions);
         if (!to_evaluate.size())
@@ -512,8 +533,6 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
 
     for (unsigned i = 0; i < g->size(); i++)
         assert_expr(g->form(i));    
-
-    verbose_stream() << "_REAL_RS_ " << _REAL_RS_ << std::endl;
 
     lbool res = operator()();
 

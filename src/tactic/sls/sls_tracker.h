@@ -80,14 +80,13 @@ private:
     double                m_ucb_constant;
     unsigned              m_ucb_init;
     double                m_ucb_forget;
+    double                m_ucb_noise;
     unsigned              m_touched;
     double                m_scale_unsat;
     unsigned              m_paws_init;
-#if _REAL_RS_
-    ptr_vector<expr>	  m_unsat_expr;
     obj_map<expr, unsigned>	m_where_false;
     expr**					m_list_false;
-#endif
+    unsigned              m_track_unsat;
     obj_map<expr, unsigned> m_weights;
     double				  m_top_sum;
 
@@ -116,8 +115,12 @@ public:
         m_ucb_constant = p.walksat_ucb_constant();
         m_ucb_init = p.walksat_ucb_init();
         m_ucb_forget = p.walksat_ucb_forget();
+        m_ucb_noise = p.walksat_ucb_noise();
         m_scale_unsat = p.scale_unsat();
         m_paws_init = p.paws_init();
+        // Andreas: track_unsat is currently disabled because I cannot guarantee that it is not buggy.
+        // If you want to use it, you will also need to change comments in the assertion selection.
+        m_track_unsat = 0;//p.track_unsat();
     }
 
     /* Andreas: Tried to give some measure for the formula size by the following two methods but both are not used currently.
@@ -253,53 +256,6 @@ public:
         SASSERT(m_uplinks.contains(n));
         return m_uplinks.find(n);
     }
-
-#if _REAL_RS_
-    void debug_real(goal_ref const & g, unsigned flip)
-    {
-        unsigned count = 0;
-        for (unsigned i = 0; i < g->size(); i++)
-        {
-            expr * e = g->form(i);
-            if (m_mpz_manager.eq(get_value(e),m_one) && m_where_false.contains(e))
-            {
-                printf("iteration %d: ", flip);
-                printf("form %d is sat but in unsat list at position %d of %d\n", i, m_where_false.find(e), m_where_false.size());
-                exit(4);
-            }
-
-            if (m_mpz_manager.eq(get_value(e),m_zero) && !m_where_false.contains(e))
-            {
-                printf("iteration %d: ", flip);
-                printf("form %d is unsat but not in unsat list\n", i);
-                exit(4);
-            }
-
-            if (m_mpz_manager.eq(get_value(e),m_zero) && m_where_false.contains(e))
-            {
-                unsigned pos = m_where_false.find(e);
-                expr * q = m_list_false[pos];
-                if (q != e)
-                {
-                    printf("iteration %d: ", flip);
-                    printf("form %d is supposed to be at pos %d in unsat list but something else was there\n", i, pos);
-                    exit(4);
-                }
-            }
-
-            if (m_mpz_manager.eq(get_value(e),m_zero))
-                count++;
-        }
-
-        // should be true now that duplicate assertions are removed
-        if (count != m_where_false.size())
-        {
-                printf("iteration %d: ", flip);
-                printf("%d are unsat but list is of size %d\n", count, m_where_false.size());
-                exit(4);
-        }
-    }
-#endif
 
     inline void ucb_forget(ptr_vector<expr> & as) {
         if (m_ucb_forget < 1.0)
@@ -474,14 +430,15 @@ public:
 
         TRACE("sls", tout << "Initial model:" << std::endl; show_model(tout); );
 
-#if _REAL_RS_
-        m_list_false = new expr*[sz];
-        //for (unsigned i = 0; i < sz; i++)
-        //{
-        //	if (m_mpz_manager.eq(get_value(g->form(i)),m_zero))
-        //		break_assertion(g->form(i));
-        //}
-#endif
+        if (m_track_unsat)
+        {
+            m_list_false = new expr*[sz];
+            for (unsigned i = 0; i < sz; i++)
+            {
+        	    if (m_mpz_manager.eq(get_value(as[i]), m_zero))
+                    break_assertion(as[i]);
+            }
+        }
 
         for (unsigned i = 0; i < sz; i++)
         {
@@ -515,44 +472,36 @@ public:
         return m_weights.find(e);
     }
 
-#if _REAL_RS_
     void make_assertion(expr * e)
     {
-        if (m_where_false.contains(e))
+        if (m_track_unsat)
         {
-            unsigned pos = m_where_false.find(e);
-            m_where_false.erase(e);
-            if (pos != m_where_false.size())
+            if (m_where_false.contains(e))
             {
-                expr * q = m_list_false[m_where_false.size()];
-                m_list_false[pos] = q;
-                m_where_false.find(q) = pos;
-                //printf("Moving %d from %d to %d\n", q, m_where_false.size(), pos);
+                unsigned pos = m_where_false.find(e);
+                m_where_false.erase(e);
+                if (pos != m_where_false.size())
+                {
+                    expr * q = m_list_false[m_where_false.size()];
+                    m_list_false[pos] = q;
+                    m_where_false.find(q) = pos;
+                }
             }
-            //else
-                //printf("Erasing %d from %d to %d\n", e, pos);
-//			m_list_false[m_where_false.size()] = 0;
-//			printf("Going in %d\n", m_where_false.size());
         }
-        //if (m_unsat_expr.contains(e))
-            //m_unsat_expr.erase(e);
     }
 
     void break_assertion(expr * e)
     {
-        //printf("I'm broken... that's still fine.\n");
-        if (!m_where_false.contains(e))
+        if (m_track_unsat)
         {
-            //printf("This however is not so cool...\n");
-            unsigned pos = m_where_false.size();
-            m_list_false[pos] = e;
-            m_where_false.insert(e, pos);
-    //		printf("Going in %d\n", m_where_false.size());
+            if (!m_where_false.contains(e))
+            {
+                unsigned pos = m_where_false.size();
+                m_list_false[pos] = e;
+                m_where_false.insert(e, pos);
+            }
         }
-        //if (!m_unsat_expr.contains(e))
-            //m_unsat_expr.push_back(e);
     }
-#endif
 
     void show_model(std::ostream & out) {
         unsigned sz = get_num_constants();
@@ -1043,24 +992,38 @@ public:
         {
             value_score vscore;
             double max = -1.0;
+            // Andreas: Commented things here might be used for track_unsat data structures as done in SLS for SAT. But seems to have no benefit.
+            /* for (unsigned i = 0; i < m_where_false.size(); i++) {
+                expr * e = m_list_false[i]; */
             for (unsigned i = 0; i < sz; i++) {
                 expr * e = as[i];
-//            for (unsigned i = 0; i < m_where_false.size(); i++) {
-//                expr * e = m_list_false[i];
-                vscore = m_scores.find(e);
-                //double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched);
-                double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched) + (get_random_uint(8) * 0.0000002); 
-                if (q > max && m_mpz_manager.neq(get_value(e), m_one) ) { max = q; pos = i; }
+                if (m_mpz_manager.neq(get_value(e), m_one))
+                {
+                    vscore = m_scores.find(e);
+                    // Andreas: Select the assertion with the greatest ucb score. Potentially add some noise.
+                    // double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched);
+                    double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched) + m_ucb_noise * get_random_uint(8); 
+                    if (q > max) { max = q; pos = i; }
+                }
             }
             if (pos == static_cast<unsigned>(-1))
                 return 0;
 
-            m_scores.find(as[pos]).touched++;
             m_touched++;
-//        return m_list_false[pos];
+            m_scores.find(as[pos]).touched++;
+            // Andreas: Also part of track_unsat data structures. Additionally disable the previous line!
+            /* m_last_pos = pos;
+            m_scores.find(m_list_false[pos]).touched++;
+            return m_list_false[pos]; */
         }
         else
         {
+            // Andreas: The track_unsat data structures for random assertion selection.
+            /* sz = m_where_false.size();
+            if (sz == 0)
+                return 0;
+            return m_list_false[get_random_uint(16) % sz]; */
+
             unsigned cnt_unsat = 0;
             for (unsigned i = 0; i < sz; i++)
                 if (m_mpz_manager.neq(get_value(as[i]), m_one) && (get_random_uint(16) % ++cnt_unsat == 0)) pos = i;	
@@ -1070,14 +1033,6 @@ public:
         
         m_last_pos = pos;
         return as[pos];
-#if _REAL_RS_
-        //unsigned pos = m_false_list[get_random_uint(16) % m_cnt_false];
-        //expr * e = m_unsat_expr[get_random_uint(16) % m_unsat_expr.size()];
-        sz = m_where_false.size();
-        if (sz == 0)
-            return 0;
-        return m_list_false[get_random_uint(16) % sz];
-#endif
     }
 
     expr * get_new_unsat_assertion(ptr_vector<expr> const & as) {
