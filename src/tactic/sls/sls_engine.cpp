@@ -16,6 +16,7 @@ Author:
 Notes:
 
 --*/
+#include<float.h>
 #include<iomanip>
 
 #include"map.h"
