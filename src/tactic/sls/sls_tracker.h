@@ -831,7 +831,9 @@ public:
             app * a = to_app(n);
             SASSERT(a->get_num_args() == 1);
             expr * child = a->get_arg(0);
-            if (m_manager.is_and(child) || m_manager.is_or(child)) // Precondition: Assertion set is in NNF.
+            // Precondition: Assertion set is in NNF.
+            // Also: careful about the unsat assertion scaling further down.
+            if (m_manager.is_and(child) || m_manager.is_or(child)) 
                 NOT_IMPLEMENTED_YET();
             res = score_bool(child, true);
         }
