@@ -464,7 +464,9 @@ namespace hash_space {
 
       Value &operator[](const Key& key) {
 	std::pair<Key,Value> kvp(key,Value());
-	return this->lookup(kvp,true)->val.second;
+	return 
+	hashtable<std::pair<Key,Value>,Key,HashFun,proj1<Key,Value>,EqFun>::
+         lookup(kvp,true)->val.second;
       }
   };
 

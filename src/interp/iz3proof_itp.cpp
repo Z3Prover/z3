@@ -814,6 +814,10 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast equa = sep_cond(arg(pf,0),cond);
       if(is_equivrel_chain(equa)){
 	ast lhs,rhs; eq_from_ineq(arg(neg_equality,0),lhs,rhs); // get inequality we need to prove
+	if(!rewrites_from_to(equa,lhs,rhs)){
+	  lhs = arg(arg(neg_equality,0),0); // the equality proved is ambiguous, sadly
+	  rhs = arg(arg(neg_equality,0),1);
+	}
 	LitType lhst = get_term_type(lhs), rhst = get_term_type(rhs);
 	if(lhst != LitMixed && rhst != LitMixed)
 	  return unmixed_eq2ineq(lhs, rhs, op(arg(neg_equality,0)), equa, cond);
@@ -1671,9 +1675,20 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return head;
   }
 
-  // split a rewrite chain into head and tail at last non-mixed term
+  bool has_mixed_summands(const ast &e){
+    if(op(e) == Plus){
+      int nargs = num_args(e);
+      for(int i = 0; i < nargs; i++)
+	if(has_mixed_summands(arg(e,i)))
+	  return true;
+      return false;
+    }
+    return get_term_type(e) == LitMixed;
+  }
+  
+  // split a rewrite chain into head and tail at last sum with no mixed sumands
   ast get_right_movers(const ast &chain, const ast &rhs, ast &tail, ast &mid){
-    if(is_true(chain) || get_term_type(rhs) != LitMixed){
+    if(is_true(chain) || !has_mixed_summands(rhs)){
       mid = rhs;
       tail = mk_true();
       return chain;
@@ -1686,11 +1701,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return res;
   }
   
-  // split a rewrite chain into head and tail at first non-mixed term
+  // split a rewrite chain into head and tail at first sum with no mixed sumands
   ast get_left_movers(const ast &chain, const ast &lhs, ast &tail, ast &mid){
     if(is_true(chain)){
       mid = lhs; 
-      if(get_term_type(lhs) != LitMixed){
+      if(!has_mixed_summands(lhs)){
 	tail = mk_true();
 	return chain;
       }
@@ -1790,10 +1805,21 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
 
 
+  bool rewrites_from_to(const ast &chain, const ast &lhs, const ast &rhs){
+    if(is_true(chain))
+      return lhs == rhs;
+    ast last = chain_last(chain);
+    ast rest = chain_rest(chain);
+    ast mid = subst_in_pos(rhs,rewrite_pos(last),rewrite_lhs(last));
+    return rewrites_from_to(rest,lhs,mid);
+  }
+
+  struct bad_ineq_inference {};
+
   ast chain_ineqs(opr comp_op, LitType t, const ast &chain, const ast &lhs, const ast &rhs){
     if(is_true(chain)){
       if(lhs != rhs)
-	throw "bad ineq inference";
+	throw bad_ineq_inference();
       return make(Leq,make_int(rational(0)),make_int(rational(0)));
     }
     ast last = chain_last(chain);
@@ -2656,9 +2682,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
     pf = make_refl(e);  // proof that e = e
 
     prover::range erng = pv->ast_scope(e);
+#if 0
     if(!(erng.lo > erng.hi) && pv->ranges_intersect(pv->ast_scope(e),rng)){
       return e; // this term occurs in range, so it's O.K.
     }
+#endif
 
     hash_map<ast,ast>::iterator it = localization_map.find(e);
 

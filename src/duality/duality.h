@@ -29,7 +29,7 @@ using namespace stl_ext;
 
 namespace Duality {
 
-  struct implicant_solver;
+  class implicant_solver;
 
   /* Generic operations on Z3 formulas */
 
@@ -118,7 +118,11 @@ protected:
       expr FinishAndOr(const std::vector<expr> &args, bool is_and);
       expr PullCommonFactors(std::vector<expr> &args, bool is_and);
       Term IneqToEqRec(hash_map<ast, Term> &memo, const Term &t);
-
+      Term CloneQuantAndSimp(const expr &t, const expr &body, bool is_forall);
+      Term PushQuantifier(const expr &t, const expr &body, bool is_forall);
+      void CollectJuncts(const Term &f, std::vector<Term> &lits, decl_kind op, bool negate);
+      Term DeleteBoundRec(hash_map<int,hash_map<ast,Term> > &memo, int level, int num, const Term &t);
+      Term DeleteBound(int level, int num, const Term &t);
 
 };
 

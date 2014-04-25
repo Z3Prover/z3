@@ -132,7 +132,8 @@ namespace Microsoft.Z3
         /// <remarks>
         /// This API is an alternative to <see cref="Check"/> with assumptions for extracting unsat cores.
         /// Both APIs can be used in the same solver. The unsat core will contain a combination
-        /// of the Boolean variables provided using <see cref="AssertAndTrack"/> and the Boolean literals
+        /// of the Boolean variables provided using <see cref="AssertAndTrack(BoolExpr[],BoolExpr[])"/> 
+        /// and the Boolean literals
         /// provided using <see cref="Check"/> with assumptions.
         /// </remarks>        
         public void AssertAndTrack(BoolExpr[] constraints, BoolExpr[] ps)
@@ -156,7 +157,8 @@ namespace Microsoft.Z3
         /// <remarks>
         /// This API is an alternative to <see cref="Check"/> with assumptions for extracting unsat cores.
         /// Both APIs can be used in the same solver. The unsat core will contain a combination
-        /// of the Boolean variables provided using <see cref="AssertAndTrack"/> and the Boolean literals
+        /// of the Boolean variables provided using <see cref="AssertAndTrack(BoolExpr[],BoolExpr[])"/> 
+        /// and the Boolean literals
         /// provided using <see cref="Check"/> with assumptions.
         /// </remarks>        
         public void AssertAndTrack(BoolExpr constraint, BoolExpr p)
