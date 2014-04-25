@@ -136,8 +136,8 @@ protected:
 
     void mk_random_move(ptr_vector<func_decl> & unsat_constants);
 
-    //inline double get_restart_armin(unsigned cnt_restarts);    
-    inline unsigned check_restart(unsigned curr_value);
+    //double get_restart_armin(unsigned cnt_restarts);    
+    unsigned check_restart(unsigned curr_value);
 };
 
 #endif
