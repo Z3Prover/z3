@@ -16,7 +16,6 @@ Author:
 Notes:
 
 --*/
-#include "sls_compilation_settings.h"
 #include "nnf.h"
 #include "bvsls_opt_engine.h"
 
@@ -42,7 +41,6 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
     TRACE("sls_opt", tout << "objective: " << (_maximize?"maximize":"minimize") << " " <<
                             mk_ismt2_pp(objective, m()) << std::endl;);
     m_hard_tracker.initialize(m_assertions);
-    m_restart_limit = _RESTART_LIMIT_;
     setup_opt_tracker(objective, _maximize);
 
     if (initial_model.get() != 0) {
@@ -53,7 +51,7 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
                             tout << fd->get_name() << " := " << mk_ismt2_pp(val, m()) << std::endl;
                         });
         m_hard_tracker.set_model(initial_model);
-        m_evaluator.update_all();
+        m_evaluator.update_all();            
     }
    
     optimization_result res(m_manager);
