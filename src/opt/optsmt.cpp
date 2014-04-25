@@ -115,11 +115,15 @@ namespace opt {
         return l_true;        
     }
 
-    void optsmt::update_lower(unsigned idx, rational const& r) {
-        inf_eps v(r);
-        if (m_lower[idx] < v) {
+    void optsmt::update_lower(unsigned idx, inf_eps const& v, bool override) {
+        if (m_lower[idx] < v || override) {
             m_lower[idx] = v;            
-            if (m_s) m_s->get_model(m_model);
+        }
+    }
+
+    void optsmt::update_upper(unsigned idx, inf_eps const& v, bool override) {
+        if (m_upper[idx] > v || override) {
+            m_upper[idx] = v;            
         }
     }
 

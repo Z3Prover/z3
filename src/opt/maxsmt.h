@@ -73,7 +73,8 @@ namespace opt {
         rational get_value() const;
         rational get_lower() const;
         rational get_upper() const;
-        void update_lower(rational const& r);
+        void update_lower(rational const& r, bool override);
+        void update_upper(rational const& r, bool override);
         void get_model(model_ref& mdl);
         bool get_assignment(unsigned index) const;
         void display_answer(std::ostream& out) const;        

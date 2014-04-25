@@ -14,19 +14,13 @@ Author:
 
 Notes:
 
-    TODO:
-
-    - type check objective term and assertions. It should pass basic sanity being
-      integer, real (, bit-vector) or other supported objective function type.
-
-    - add appropriate statistics tracking to opt::context
-
 --*/
 #ifndef _OPT_CONTEXT_H_
 #define _OPT_CONTEXT_H_
 
 #include "ast.h"
 #include "opt_solver.h"
+#include "opt_pareto.h"
 #include "optsmt.h"
 #include "maxsmt.h"
 #include "model_converter.h"
@@ -86,6 +80,7 @@ namespace opt {
         bv_util             m_bv;
         expr_ref_vector     m_hard_constraints;
         ref<opt_solver>     m_solver;
+        scoped_ptr<pareto_base>          m_pareto;
         params_ref          m_params;
         optsmt              m_optsmt;        
         map_t               m_maxsmts;
@@ -158,7 +153,7 @@ namespace opt {
         void from_fmls(expr_ref_vector const& fmls);
         void simplify_fmls(expr_ref_vector& fmls);
 
-        void update_lower();
+        void update_lower(bool override);
 
         inf_eps get_lower_as_num(unsigned idx);
         inf_eps get_upper_as_num(unsigned idx);
@@ -173,6 +168,8 @@ namespace opt {
 
 
         void validate_lex();
+
+        class pareto;
 
     };
 

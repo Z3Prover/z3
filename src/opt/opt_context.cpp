@@ -152,7 +152,7 @@ namespace opt {
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n";);
         s.get_model(m_model);
         m_optsmt.setup(s);
-        update_lower();
+        update_lower(true);
         switch (m_objectives.size()) {
         case 0:
             return is_sat;
@@ -234,91 +234,147 @@ namespace opt {
         return r;
     }
 
+    class context::pareto : public pareto_callback {
+        context& ctx;
+        ast_manager& m;
+        expr_ref mk_ge(expr* t, expr* s) {
+            expr_ref result(m);
+            if (ctx.m_bv.is_bv(t)) {
+                result = ctx.m_bv.mk_ule(s, t);
+            }
+            else {
+                result = ctx.m_arith.mk_ge(t, s);
+            }
+            return result;
+        }
+    public:
+        pareto(context& ctx):ctx(ctx),m(ctx.m) {}
+
+
+        virtual void yield(model_ref& mdl) {
+            ctx.m_model = mdl;
+            ctx.update_lower(true);
+            for (unsigned i = 0; i < ctx.m_objectives.size(); ++i) {
+                objective const& obj = ctx.m_objectives[i];
+                switch(obj.m_type) {
+                case O_MINIMIZE:
+                case O_MAXIMIZE:
+                    ctx.m_optsmt.update_upper(obj.m_index, ctx.m_optsmt.get_lower(obj.m_index), true);
+                    break;
+                case O_MAXSMT: {
+                    rational r = ctx.m_maxsmts.find(obj.m_id)->get_lower();
+                    ctx.m_maxsmts.find(obj.m_id)->update_upper(r, true);
+                    break;
+                }
+                }
+            }
+
+            IF_VERBOSE(1, ctx.display_assignment(verbose_stream()););
+        }
+        virtual unsigned num_objectives() {
+            return ctx.m_objectives.size();
+        }
+        virtual expr_ref mk_le(unsigned i, model_ref& mdl) {
+            objective const& obj = ctx.m_objectives[i];
+            expr_ref val(m), result(m), term(m);
+            mk_term_val(mdl, obj, term, val);
+            switch (obj.m_type) {
+            case O_MINIMIZE:
+                result = mk_ge(term, val);
+                break;
+            case O_MAXSMT:
+                result = mk_ge(term, val);
+                break;
+            case O_MAXIMIZE:
+                result = mk_ge(val, term);
+                break;
+            }
+            return result;
+        }
+        virtual expr_ref mk_ge(unsigned i, model_ref& mdl) {
+            objective const& obj = ctx.m_objectives[i];
+            expr_ref val(m), result(m), term(m);
+            mk_term_val(mdl, obj, term, val);
+            switch (obj.m_type) {
+            case O_MINIMIZE:
+                result = mk_ge(val, term);
+                break;
+            case O_MAXSMT:
+                result = mk_ge(val, term);
+                break;
+            case O_MAXIMIZE:
+                result = mk_ge(term, val);
+                break;
+            }
+            return result;
+        }
+
+        virtual expr_ref mk_gt(unsigned i, model_ref& mdl) {
+            expr_ref result = mk_le(i, mdl);
+            result = m.mk_not(result);
+            return result;
+        }
+    private:
+        void mk_term_val(model_ref& mdl, objective const& obj, expr_ref& term, expr_ref& val) {
+            rational r;
+            switch (obj.m_type) {
+            case O_MINIMIZE:
+            case O_MAXIMIZE:
+                term = obj.m_term;
+                break;
+            case O_MAXSMT: {
+                unsigned sz = obj.m_terms.size();
+                expr_ref_vector sum(m);
+                expr_ref zero(m);
+                zero = ctx.m_arith.mk_numeral(rational(0), false);
+                for (unsigned i = 0; i < sz; ++i) {
+                    expr* t = obj.m_terms[i];
+                    rational const& w = obj.m_weights[i];
+                    sum.push_back(m.mk_ite(t, ctx.m_arith.mk_numeral(w, false), zero));                    
+                }
+                if (sum.empty()) {
+                    term = zero;
+                }
+                else {
+                    term = ctx.m_arith.mk_add(sum.size(), sum.c_ptr());
+                }                           
+                break;
+            }
+            }
+            VERIFY(mdl->eval(term, val) && ctx.is_numeral(val, r));
+        }        
+
+#if 0
+        // use PB
+        expr_ref mk_pb_cmp(objective const& obj, model_ref& mdl, bool is_ge) {
+            rational r, sum(0);
+            expr_ref val(m), result(m);
+            unsigned sz = obj.m_terms.size();
+            pb_util pb(m);
+
+            for (unsigned i = 0; i < sz; ++i) {
+                expr* t = obj.m_terms[i];
+                VERIFY(mdl->eval(t, val));
+                if (m.is_true(val)) {
+                    sum += r;
+                }
+            }
+            if (is_ge) {
+                result = pb.mk_ge(obj.m_terms.size(), obj.m_weights.c_ptr(), obj.m_terms.c_ptr(), r);
+            }
+            else {
+                result = pb.mk_le(obj.m_terms.size(), obj.m_weights.c_ptr(), obj.m_terms.c_ptr(), r);
+            }
+        }
+#endif
+    };
 
     lbool context::execute_pareto() {
-        opt_solver& s = get_solver();        
-        expr_ref val(m);
-        rational r;
-        lbool is_sat = l_true;
-        vector<bounds_t> bounds;
-        for (unsigned i = 0; i < m_objectives.size(); ++i) {
-            objective const& obj = m_objectives[i];
-            if (obj.m_type == O_MAXSMT) {
-                IF_VERBOSE(0, verbose_stream() << "Pareto optimization is not supported for MAXSMT\n";);
-                return l_undef;
-            }
-            solver::scoped_push _sp(s);
-            is_sat = m_optsmt.pareto(obj.m_index);
-            if (is_sat != l_true) {
-                return is_sat;
-            }
-            if (!m_optsmt.get_upper(obj.m_index).is_finite()) {
-                return l_undef;
-            }
-            bounds_t bound;            
-            for (unsigned j = 0; j < m_objectives.size(); ++j) {
-                objective const& obj_j = m_objectives[j];
-                inf_eps lo = m_optsmt.get_lower(obj_j.m_index);
-                inf_eps hi = m_optsmt.get_upper(obj_j.m_index);
-                bound.push_back(std::make_pair(lo, hi));
-            }            
-            bounds.push_back(bound);
-        }
-        for (unsigned i = 0; i < bounds.size(); ++i) {
-            for (unsigned j = 0; j < bounds.size(); ++j) {
-                objective const& obj = m_objectives[j];
-                bounds[i][j].second = bounds[j][j].second;                
-            }
-            IF_VERBOSE(0, display_bounds(verbose_stream() << "new bound\n", bounds[i]););
-        }
-
-        for (unsigned i = 0; i < bounds.size(); ++i) {
-            bounds_t b = bounds[i];
-            vector<inf_eps> mids;
-            solver::scoped_push _sp(s);
-            for (unsigned j = 0; j < b.size(); ++j) {
-                objective const& obj = m_objectives[j];
-                inf_eps mid = (b[j].second - b[j].first)/rational(2);
-                mids.push_back(mid);
-                expr_ref ge = s.mk_ge(obj.m_index, mid);            
-                s.assert_expr(ge);
-            }
-            is_sat = execute_box();
-            switch(is_sat) {
-            case l_undef: 
-                return is_sat;
-            case l_true: {
-                bool at_bound = true; 
-                for (unsigned j = 0; j < b.size(); ++j) {
-                    objective const& obj = m_objectives[j];
-                    if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
-                        mids[j] = inf_eps(r);
-                    }
-                    at_bound = at_bound && mids[j] == b[j].second;
-                    b[j].second = mids[j];
-                }
-                IF_VERBOSE(0, display_bounds(verbose_stream() << "new bound\n", b););
-                if (!at_bound) {
-                    bounds.push_back(b);
-                }
-                break;
-            }
-            case l_false: {
-                bounds_t b2(b);
-                for (unsigned j = 0; j < b.size(); ++j) {
-                    b2[j].second = mids[j];
-                    if (j > 0) {
-                        b2[j-1].second = b[j-1].second;
-                    }
-                    IF_VERBOSE(0, display_bounds(verbose_stream() << "refined bound\n", b2););
-                    bounds.push_back(b2);
-                }
-                break;
-            }
-            }
-        }
-        
-        return is_sat;
+        pareto cb(*this);
+        m_pareto = alloc(gia_pareto, m, cb, m_solver.get(), m_params);
+        return (*(m_pareto.get()))();
+        // NB. stack reference cb is out of scope after return.
+        // NB. fix race condition for set_cancel
     }
 
     void context::display_bounds(std::ostream& out, bounds_t const& b) const {
@@ -652,7 +708,7 @@ namespace opt {
         }
     }
 
-    void context::update_lower() {
+    void context::update_lower(bool override) {
         expr_ref val(m);
         rational r(0);
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
@@ -660,12 +716,12 @@ namespace opt {
             switch(obj.m_type) {
             case O_MINIMIZE:
                 if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
-                    m_optsmt.update_lower(obj.m_index, -r);
+                    m_optsmt.update_lower(obj.m_index, inf_eps(-r), override);
                 }
                 break;
             case O_MAXIMIZE:
                 if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
-                    m_optsmt.update_lower(obj.m_index, r);
+                    m_optsmt.update_lower(obj.m_index, inf_eps(r), override);
                 }
                 break;
             case O_MAXSMT: {
@@ -681,7 +737,7 @@ namespace opt {
                     }
                 }
                 if (ok) {
-                    m_maxsmts.find(obj.m_id)->update_lower(r);
+                    m_maxsmts.find(obj.m_id)->update_lower(r, override);
                 }
                 break;
             }
@@ -815,6 +871,9 @@ namespace opt {
         }
         if (m_simplify) {
             m_simplify->set_cancel(f);
+        }
+        if (m_pareto) {
+            m_pareto->set_cancel(f);
         }
         m_optsmt.set_cancel(f);
         map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
