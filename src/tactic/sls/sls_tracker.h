@@ -25,7 +25,6 @@ Notes:
 #include"bv_decl_plugin.h"
 #include"model.h"
 
-#include"sls_compilation_settings.h"
 #include"sls_powers.h"
 
 class sls_tracker {
