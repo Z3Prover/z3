@@ -22,7 +22,6 @@ Notes:
 
 #include"model_evaluator.h"
 
-#include"sls_compilation_settings.h"
 #include"sls_powers.h"
 #include"sls_tracker.h"
 
@@ -540,19 +539,16 @@ public:
                 (*this)(to_app(cur), new_value);
                 m_tracker.set_value(cur, new_value);
 
-#if _REAL_RS_
+                new_score = m_tracker.score(cur);
                 if (m_tracker.is_top_expr(cur))
                 {
+                    m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                     if (m_mpz_manager.eq(new_value,m_one))
                         m_tracker.make_assertion(cur);
                     else
                         m_tracker.break_assertion(cur);
                 }
-#endif
 
-                new_score = m_tracker.score(cur);
-                if (m_tracker.is_top_expr(cur))
-                    m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                 m_tracker.set_score(cur, new_score);
                 m_tracker.set_score_prune(cur, new_score);
 

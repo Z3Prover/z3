@@ -82,6 +82,8 @@ protected:
     unsigned        m_restart_next;
     unsigned        m_restart_init;
     unsigned        m_early_prune;
+    unsigned        m_random_offset;
+    unsigned        m_rescore;
 
     typedef enum { MV_FLIP = 0, MV_INC, MV_DEC, MV_INV } move_type;
 
