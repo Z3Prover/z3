@@ -19,7 +19,7 @@ def_module_params('sls',
 						('restart_base', UINT, 100, 'base restart interval given by moves per run'),
 						('restart_init', BOOL, 0, 'initialize to 0 or random value (= 1) after restart'),
 						('early_prune', BOOL, 1, 'use early pruning for score prediction'),
-						('random_offset', BOOL, 1, 'use random offset vor candidate evaluation'),
+						('random_offset', BOOL, 1, 'use random offset for candidate evaluation'),
 						('rescore', BOOL, 1, 'rescore/normalize top-level score every base restart interval'),
 						('track_unsat', BOOL, 0, 'keep a list of unsat assertions as done in SAT - currently disabled internally'),
 						('random_seed', UINT, 0, 'random seed')
