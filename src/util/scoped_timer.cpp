@@ -189,7 +189,7 @@ struct scoped_timer::imp {
         m_end_time.tv_nsec = 0;
 
         // Otherwise it's already up and waiting, and
-        // we can send a signal on m_condidion_var:
+        // we can send a signal on m_condition_var:
         pthread_mutex_lock(&m_mutex);
         pthread_cond_signal(&m_condition_var);
         pthread_mutex_unlock(&m_mutex);
