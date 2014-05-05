@@ -185,6 +185,11 @@ public:
                       << bounds.has_upper(x, hi, s2) << " " << hi << "\n";);
             }
         }
+
+        if (sub.empty()) {
+            result.push_back(g.get());
+            return;
+        }
                
         expr_ref   new_curr(m), tmp_curr(m);
         proof_ref  new_pr(m);

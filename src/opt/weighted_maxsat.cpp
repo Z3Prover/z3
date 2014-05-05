@@ -60,17 +60,24 @@ namespace opt {
         params_ref       m_params;           // config
         bool             m_enable_sls;       // config
         bool             m_enable_sat;       // config
+        bool             m_sls_enabled;
+        bool             m_sat_enabled;
     public:
         maxsmt_solver_base(solver* s, ast_manager& m): 
             m_s(s), m(m), m_cancel(false), m_soft(m),
-            m_enable_sls(false), m_enable_sat(false) {}
+            m_enable_sls(false), m_enable_sat(false),
+            m_sls_enabled(false), m_sat_enabled(false) {}
 
         virtual ~maxsmt_solver_base() {}
         virtual rational get_lower() const { return m_lower; }
         virtual rational get_upper() const { return m_upper; }
         virtual bool get_assignment(unsigned index) const { return m_assignment[index]; }
         virtual void set_cancel(bool f) { m_cancel = f; m_s->set_cancel(f); }
-        virtual void collect_statistics(statistics& st) const { }
+        virtual void collect_statistics(statistics& st) const { 
+            if (m_sls_enabled || m_sat_enabled) {
+                m_s->collect_statistics(st);
+            }
+        }
         virtual void get_model(model_ref& mdl) { mdl = m_model.get(); }
         virtual void updt_params(params_ref& p) {
             m_params.copy(p);
@@ -121,7 +128,6 @@ namespace opt {
                     fid != pb.get_family_id() &&
                     fid != bv.get_family_id() &&
                     !is_uninterp_const(n)) {
-                    std::cout << mk_pp(n, m) << "\n";
                     throw found();
                 }
             }
@@ -147,7 +153,7 @@ namespace opt {
         }
 
         void enable_bvsat() {
-            if (probe_bv()) {
+            if (m_enable_sat && !m_sat_enabled && probe_bv()) {
                 tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
                 tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
                 tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
@@ -159,15 +165,17 @@ namespace opt {
                 unsigned lvl = m_s->get_scope_level();
                 while (lvl > 0) { sat_solver->push(); --lvl; }
                 m_s = sat_solver;
+                m_sat_enabled = true;
             }
         }
         
         void enable_sls() {
-            if (m_enable_sls && probe_bv()) {
+            if (m_enable_sls && !m_sls_enabled && probe_bv()) {
                 m_params.set_uint("restarts", 20);
                 unsigned lvl = m_s->get_scope_level();
                 m_s = alloc(sls_solver, m, m_s.get(), m_soft, m_weights, m_params);
                 while (lvl > 0) { m_s->push(); --lvl; }
+                m_sls_enabled = true;
             }
         }
         
@@ -249,19 +257,18 @@ namespace opt {
             m_soft_aux(m),
             m_trail(m),
             m_soft_constraints(m),
-            m_enable_lazy(false) {
+            m_enable_lazy(true) {
             m_enable_lazy = true;
-            enable_sls();
         }
 
         virtual ~bcd2() {}
-
 
         virtual lbool operator()() {
             expr_ref fml(m), r(m);
             lbool is_sat = l_undef;
             expr_ref_vector asms(m);
             bool first = true;
+            enable_sls();
             solver::scoped_push _scope1(s());
             init();
             init_bcd();
@@ -557,13 +564,14 @@ namespace opt {
     public:
         pbmax(solver* s, ast_manager& m, bool use_aux): 
             maxsmt_solver_base(s, m), m_use_aux(use_aux) {
-            enable_bvsat();
-            enable_sls();
         }
         
         virtual ~pbmax() {}
 
         lbool operator()() {
+            enable_bvsat();
+            enable_sls();
+
             TRACE("opt", s().display(tout); tout << "\n";
                   for (unsigned i = 0; i < m_soft.size(); ++i) {
                       tout << mk_pp(m_soft[i].get(), m) << " " << m_weights[i] << "\n";
@@ -636,12 +644,12 @@ namespace opt {
     public:
         wpm2(solver* s, ast_manager& m, maxsmt_solver_base* _maxs): 
             maxsmt_solver_base(s, m), maxs(_maxs) {
-            enable_sls();
         }
 
         virtual ~wpm2() {}
 
         lbool operator()() {
+            enable_sls();
             IF_VERBOSE(1, verbose_stream() << "(wmaxsat.wpm2 solve)\n";);
             solver::scoped_push _s(s());
             pb_util u(m);
@@ -839,12 +847,12 @@ namespace opt {
     public:
         sls(solver* s, ast_manager& m): 
             maxsmt_solver_base(s, m) {
-            enable_bvsat();
-            enable_sls();
         }
         virtual ~sls() {}
         lbool operator()() {
             IF_VERBOSE(1, verbose_stream() << "(sls solve)\n";);
+            enable_bvsat();
+            enable_sls();
             init();
             lbool is_sat = s().check_sat(0, 0);
             if (is_sat == l_true) {

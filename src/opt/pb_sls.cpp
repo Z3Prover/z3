@@ -90,6 +90,8 @@ namespace smt {
         struct stats {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
+            unsigned m_num_flips;
+            unsigned m_num_improvements;
         };
         
         ast_manager&     m;
@@ -116,6 +118,7 @@ namespace smt {
         unsigned         m_non_greedy_percent;   // percent of moves to do non-greedy style
         random_gen       m_rng;
         scoped_mpz       one;
+        stats            m_stats;
 
         imp(ast_manager& m):
             m(m),
@@ -238,6 +241,8 @@ namespace smt {
         }
 
         void collect_statistics(::statistics& st) const {
+            st.update("sls.num_flips", m_stats.m_num_flips);
+            st.update("sls.num_improvements", m_stats.m_num_improvements);
         }
 
         void updt_params(params_ref& p) {
@@ -347,6 +352,7 @@ namespace smt {
         }
         
         literal flip() {
+            m_stats.m_num_flips++;
             literal result;
             if (m_hard_false.empty()) {
                 result = flip_soft();
@@ -359,6 +365,7 @@ namespace smt {
                 m_best_assignment.reset();
                 m_best_assignment.append(m_assignment);
                 m_best_penalty = m_penalty;
+                m_stats.m_num_improvements++;
                 init_max_flips();
             }
             if (!m_assignment[result.var()]) {
