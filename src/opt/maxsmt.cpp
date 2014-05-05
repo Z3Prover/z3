@@ -91,7 +91,7 @@ namespace opt {
         rational r = m_lower;
         if (m_msolver) {
             rational q = m_msolver->get_lower();
-            if (r < q) r = q;
+            if (q > r) r = q;
         }
         return r;
     }
@@ -100,7 +100,7 @@ namespace opt {
         rational r = m_upper;
         if (m_msolver) {
             rational q = m_msolver->get_upper();
-            if (r > q) r = q;
+            if (q < r) r = q;
         }
         return r;
     }

@@ -300,6 +300,7 @@ namespace opt {
                         unsigned s = *subC.begin();
                         wcore& c_s = m_cores[s];
                         c_s.m_lower = refine(c_s.m_R, c_s.m_mid);
+                        c_s.m_mid = div(c_s.m_lower + c_s.m_upper, rational(2));
                     }
                     else {
                         wcore c_s;

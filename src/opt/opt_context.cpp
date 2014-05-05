@@ -612,7 +612,6 @@ namespace opt {
         return mk_objective_fn(index, O_MAXSMT, num_fmls, fmls);
     }
 
-
     void context::from_fmls(expr_ref_vector const& fmls) {
         TRACE("opt",
               for (unsigned i = 0; i < fmls.size(); ++i) {
@@ -625,7 +624,7 @@ namespace opt {
             app_ref tr(m);
             expr_ref_vector terms(m);
             vector<rational> weights;
-            rational offset;
+            rational offset(0);
             unsigned index;
             symbol id;
             bool neg;
@@ -737,7 +736,7 @@ namespace opt {
                     }
                 }
                 if (ok) {
-                    m_maxsmts.find(obj.m_id)->update_lower(r, override);
+                    m_maxsmts.find(obj.m_id)->update_upper(r, override);
                 }
                 break;
             }
@@ -748,7 +747,6 @@ namespace opt {
     void context::display(std::ostream& out) {
         
     }
-
 
     void context::display_assignment(std::ostream& out) {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
@@ -762,7 +760,6 @@ namespace opt {
             }
         }
     }
-
 
     void context::display_objective(std::ostream& out, objective const& obj) const {
         switch(obj.m_type) {
