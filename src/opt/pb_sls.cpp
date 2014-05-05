@@ -623,6 +623,9 @@ namespace smt {
                 m_orig_clauses.push_back(f);
                 return result;
             }            
+            if (pb.is_ge(f)) {
+                
+            }
             IF_VERBOSE(0, verbose_stream() << "not handled: " << mk_pp(f, m) << "\n";);
             return mk_aux_literal(f);
         }
