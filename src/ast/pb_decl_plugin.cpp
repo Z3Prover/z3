@@ -126,6 +126,40 @@ app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * 
     return m.mk_app(m_fid, OP_PB_EQ, params.size(), params.c_ptr(), num_args, args, m.mk_bool_sort());
 }
 
+// ax + by < k
+// <=>
+// -ax - by >= -k + 1
+// <=>
+// a(1-x) + b(1-y) >= -k + a + b + 1
+app * pb_util::mk_lt(unsigned num_args, rational const * _coeffs, expr * const * _args, rational const& _k) {
+    vector<rational> coeffs;
+    rational k(_k);
+    expr_ref_vector args(m);
+    expr* f;
+    rational d(denominator(k));
+    for (unsigned i = 0; i < num_args; ++i) {
+        coeffs.push_back(_coeffs[i]);
+        d = lcm(d, denominator(coeffs[i]));
+        if (m.is_not(_args[i], f)) {
+            args.push_back(f);
+        }
+        else {
+            args.push_back(m.mk_not(f));
+        }
+    }
+    if (!d.is_one()) {
+        k *= d;
+        for (unsigned i = 0; i < num_args; ++i) {
+            coeffs[i] *= d;        
+        }
+    }
+    k.neg();
+    k += rational::one();
+    for (unsigned i = 0; i < num_args; ++i) {
+        k += coeffs[i];
+    }
+    return mk_ge(num_args, coeffs.c_ptr(), args.c_ptr(), k);
+}
 
 
 app * pb_util::mk_at_most_k(unsigned num_args, expr * const * args, unsigned k) {

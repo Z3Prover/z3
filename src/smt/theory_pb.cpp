@@ -187,8 +187,6 @@ namespace smt {
             m_args[1].append(m_args[0]);
             m_args[1].negate();
             
-            //m_args[0].display(std::cout);
-            //m_args[1].display(std::cout);
             SASSERT(m_args[0].size() == m_args[1].size());
             SASSERT(m_args[0].well_formed());
             SASSERT(m_args[1].well_formed());
@@ -284,8 +282,6 @@ namespace smt {
             m_last_explain(last_explain) {}
 
         virtual void undo(context& ctx) {
-            //std::cout << "undo bound: " << m_v << " " << m_last_explain;
-            //std::cout << (m_is_lower?" lower ":" upper ") << pb.m_mpq_inf_mgr.to_string(m_last_bound) << "\n";
             if (m_is_lower) {
                 if (m_last_bound_valid) {
                     pb.m_simplex.set_lower(m_v, m_last_bound);
@@ -318,7 +314,6 @@ namespace smt {
     }
 
     bool theory_pb::update_bound(bool_var v, literal explain, bool is_lower, mpq_inf const& bound) {
-        // std::cout << v << " " << explain << (is_lower?" lower ":" upper ") << m_mpq_inf_mgr.to_string(bound) << "\n";
         if (is_lower) {
             if (m_simplex.above_lower(v, bound)) {
                 scoped_eps_numeral last_bound(m_mpq_inf_mgr);
@@ -411,6 +406,7 @@ namespace smt {
     }
 
     bool theory_pb::internalize_atom(app * atom, bool gate_ctx) {
+        ast_manager& m = get_manager();
         SASSERT(m_util.is_at_most_k(atom) || m_util.is_le(atom) || 
                 m_util.is_ge(atom) || m_util.is_at_least_k(atom) || 
                 m_util.is_eq(atom));
@@ -423,7 +419,6 @@ namespace smt {
         SASSERT(!ctx.b_internalized(atom));
         m_stats.m_num_predicates++;
 
-        ast_manager& m = get_manager();
         unsigned num_args = atom->get_num_args();
         bool_var abv = ctx.mk_bool_var(atom);
         ctx.set_var_theory(abv, get_id());

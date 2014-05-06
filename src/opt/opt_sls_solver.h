@@ -116,6 +116,15 @@ namespace opt {
             // if (m_bvsls) m_bvsls->display(out);
         }
 
+        void opt(model_ref& mdl) {
+            if (m_engine == symbol("pb")) {
+                pbsls_opt(mdl);
+            }
+            else {
+                bvsls_opt(mdl);
+            }
+        }
+
     protected:
         typedef bvsls_opt_engine::optimization_result opt_result;
 
@@ -123,12 +132,7 @@ namespace opt {
             lbool r = m_solver->check_sat(num_assumptions, assumptions);
             if (r == l_true) {
                 m_solver->get_model(m_model);
-                if (m_engine == symbol("pb")) {
-                    pbsls_opt();
-                }
-                else {
-                    bvsls_opt();
-                }
+                opt(m_model);
             }
             return r;
         }
@@ -191,7 +195,7 @@ namespace opt {
             }
         }
 
-        void pbsls_opt() {
+        void pbsls_opt(model_ref& mdl) {
             #pragma omp critical (sls_solver)
             {
                 if (m_pbsls) {
@@ -201,7 +205,7 @@ namespace opt {
                     m_pbsls = alloc(smt::pb_sls, m);
                 }
             }
-            m_pbsls->set_model(m_model);
+            m_pbsls->set_model(mdl);
             m_pbsls->updt_params(m_params);
             for (unsigned i = 0; i < m_solver->get_num_assertions(); ++i) {
                 m_pbsls->add(m_solver->get_assertion(i));
@@ -213,7 +217,7 @@ namespace opt {
             m_pbsls->get_model(m_model);            
         }
 
-        void bvsls_opt() {
+        void bvsls_opt(model_ref& mdl) {
             #pragma omp critical (sls_solver)
             {
                 m_bvsls = alloc(bvsls_opt_engine, m, m_params);
@@ -223,7 +227,7 @@ namespace opt {
             opt_result res(m);
             res.is_sat = l_undef;
             try {
-                res = m_bvsls->optimize(objective, m_model, true);
+                res = m_bvsls->optimize(objective, mdl, true);
             }
             catch (...) {
                 

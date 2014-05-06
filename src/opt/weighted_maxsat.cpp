@@ -66,7 +66,10 @@ namespace opt {
         maxsmt_solver_base(solver* s, ast_manager& m): 
             m_s(s), m(m), m_cancel(false), m_soft(m),
             m_enable_sls(false), m_enable_sat(false),
-            m_sls_enabled(false), m_sat_enabled(false) {}
+            m_sls_enabled(false), m_sat_enabled(false) {
+            m_s->get_model(m_model);
+            SASSERT(m_model);
+        }
 
         virtual ~maxsmt_solver_base() {}
         virtual rational get_lower() const { return m_lower; }
@@ -173,9 +176,11 @@ namespace opt {
             if (m_enable_sls && !m_sls_enabled && probe_bv()) {
                 m_params.set_uint("restarts", 20);
                 unsigned lvl = m_s->get_scope_level();
-                m_s = alloc(sls_solver, m, m_s.get(), m_soft, m_weights, m_params);
+                sls_solver* sls = alloc(sls_solver, m, m_s.get(), m_soft, m_weights, m_params);
+                m_s = sls;
                 while (lvl > 0) { m_s->push(); --lvl; }
                 m_sls_enabled = true;
+                sls->opt(m_model);
             }
         }
         
@@ -598,9 +603,21 @@ namespace opt {
                 }
             }
             lbool is_sat = l_true;
-            bool was_sat = false;
-            fml = m.mk_true();
             while (l_true == is_sat) {
+                IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb solve with upper bound: " << m_upper << ")\n";);
+                m_upper.reset();
+                for (unsigned i = 0; i < m_soft.size(); ++i) {
+                    VERIFY(m_model->eval(nsoft[i].get(), val));
+                    TRACE("opt", tout << "eval " << mk_pp(m_soft[i].get(), m) << " " << val << "\n";);
+                    m_assignment[i] = !m.is_true(val);
+                    if (!m_assignment[i]) {
+                        m_upper += m_weights[i];
+                    }
+                }                     
+                TRACE("opt", tout << "new upper: " << m_upper << "\n";);
+                
+                fml = u.mk_lt(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper);
+
                 TRACE("opt", s().display(tout<<"looping\n"););
                 solver::scoped_push _scope2(s());
                 s().assert_expr(fml);
@@ -609,24 +626,10 @@ namespace opt {
                     is_sat = l_undef;
                 }
                 if (is_sat == l_true) {
-                    m_upper.reset();
                     s().get_model(m_model);
-                    for (unsigned i = 0; i < m_soft.size(); ++i) {
-                        VERIFY(m_model->eval(nsoft[i].get(), val));
-                        TRACE("opt", tout << "eval " << mk_pp(m_soft[i].get(), m) << " " << val << "\n";);
-                        m_assignment[i] = !m.is_true(val);
-                        if (!m_assignment[i]) {
-                            m_upper += m_weights[i];
-                        }
-                    }                     
-                    TRACE("opt", tout << "new upper: " << m_upper << "\n";);
-                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb solve with upper bound: " << m_upper << ")\n";);
-                    
-                    fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
-                    was_sat = true;
                 }
             }            
-            if (is_sat == l_false && was_sat) {
+            if (is_sat == l_false) {
                 is_sat = l_true;
                 m_lower = m_upper;
             }

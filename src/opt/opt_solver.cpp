@@ -43,8 +43,10 @@ namespace opt {
         m_dump_benchmarks(false),
         m_fm(alloc(filter_model_converter, m)) {
         m_logic = l;
-        if (m_logic != symbol::null)
+        if (m_logic != symbol::null) {
             m_context.set_logic(m_logic);
+        }
+        m_params.updt_params(p);
         m_params.m_relevancy_lvl = 0;
     }
 
