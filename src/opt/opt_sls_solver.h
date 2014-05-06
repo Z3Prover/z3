@@ -194,7 +194,12 @@ namespace opt {
         void pbsls_opt() {
             #pragma omp critical (sls_solver)
             {
-                m_pbsls = alloc(smt::pb_sls, m);
+                if (m_pbsls) {
+                    m_pbsls->reset();
+                }
+                else {
+                    m_pbsls = alloc(smt::pb_sls, m);
+                }
             }
             m_pbsls->set_model(m_model);
             m_pbsls->updt_params(m_params);

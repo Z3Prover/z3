@@ -621,6 +621,7 @@ namespace opt {
                     }                     
                     TRACE("opt", tout << "new upper: " << m_upper << "\n";);
                     IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb solve with upper bound: " << m_upper << ")\n";);
+                    
                     fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
                     was_sat = true;
                 }

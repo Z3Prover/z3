@@ -42,6 +42,7 @@ namespace smt {
         void collect_statistics(::statistics& st) const;
         void get_model(model_ref& mdl);
         void updt_params(params_ref& p);
+        void reset();
     };
 
 

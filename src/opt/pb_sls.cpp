@@ -130,16 +130,30 @@ namespace smt {
             one(mgr)
         {
             init_max_flips();
+        }
+
+        ~imp() {
+        }
+
+        void reset() {
+            init_max_flips();
             m_non_greedy_percent = 30;
+            m_decl2var.reset();
+            m_var2decl.reset();
+            m_assignment.reset();
+            m_hard_occ.reset();
+            m_soft_occ.reset();
+            m_clauses.reset();
+            m_orig_clauses.reset();
+            m_soft.reset();
+            m_weights.reset();
+            m_trail.reset();
             m_decl2var.insert(m.mk_true(), 0);
             m_var2decl.push_back(m.mk_true());
             m_assignment.push_back(true);
             m_hard_occ.push_back(unsigned_vector());
             m_soft_occ.push_back(unsigned_vector());
             one = mpz(1);
-        }
-
-        ~imp() {
         }
 
         void init_max_flips() {
@@ -635,11 +649,36 @@ namespace smt {
             m_rewrite(_f, tmp);
             if (!is_app(tmp)) return false;            
             app* f = to_app(tmp);
+            expr* f2;
             unsigned sz = f->get_num_args();
             expr* const* args = f->get_args();
             literal lit;
             rational coeff, k;
-            if (pb.is_ge(f) || pb.is_eq(f)) {
+            if (m.is_not(f, f2) && pb.is_ge(f2)) {
+                // ~(ax+by >= k) 
+                // <=>
+                // ax + by < k
+                // <=>
+                // -ax - by >= -k + 1
+                // <=>
+                // a(1-x) + b(1-y) >= -k + a + b + 1
+                sz = to_app(f2)->get_num_args();
+                args = to_app(f2)->get_args();
+                k = pb.get_k(f2);
+                SASSERT(k.is_int());
+                k.neg();
+                k += rational::one();
+                expr_ref_vector args(m);
+                vector<rational> coeffs;
+                for (unsigned i = 0; i < sz; ++i) {
+                    args.push_back(m.mk_not(to_app(f2)->get_arg(i)));
+                    coeffs.push_back(pb.get_coeff(f2, i));
+                    k += pb.get_coeff(f2, i);
+                }
+                tmp = pb.mk_ge(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), k);
+                return compile_clause(tmp, cls);
+            }
+            else if (pb.is_ge(f) || pb.is_eq(f)) {
                 k = pb.get_k(f);
                 SASSERT(k.is_int());
                 cls.m_k = k.to_mpq().numerator();
@@ -719,6 +758,9 @@ namespace smt {
     }
     void pb_sls::get_model(model_ref& mdl) {
         m_imp->get_model(mdl);
+    }
+    void pb_sls::reset() {
+        m_imp->reset();
     }
     bool pb_sls::soft_holds(unsigned index) {
         return m_imp->soft_holds(index);
