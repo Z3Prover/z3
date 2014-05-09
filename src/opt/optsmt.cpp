@@ -51,6 +51,7 @@ namespace opt {
 
 
     void optsmt::set_cancel(bool f) {
+        TRACE("opt", tout << "set cancel: " << f << "\n";);
         m_cancel = f;
     }
 
