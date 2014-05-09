@@ -108,7 +108,8 @@ extern "C" {
         RESET_ERROR_CODE();
         lbool r = l_undef;
         cancel_eh<opt::context> eh(*to_optimize_ref(o));
-        unsigned timeout = 0; // to_optimize(o)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned timeout = 0xFFFFFFF; 
+        // to_optimize(o)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
             scoped_timer timer(timeout, &eh);
