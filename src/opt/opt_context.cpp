@@ -710,22 +710,25 @@ namespace opt {
 
     void context::update_lower(bool override) {
         expr_ref val(m);
-        rational r(0);
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
+            rational r;
             switch(obj.m_type) {
             case O_MINIMIZE:
                 if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
+                    r += obj.m_offset;
                     m_optsmt.update_lower(obj.m_index, inf_eps(-r), override);
                 }
                 break;
             case O_MAXIMIZE:
                 if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
+                    r += obj.m_offset;
                     m_optsmt.update_lower(obj.m_index, inf_eps(r), override);
                 }
                 break;
             case O_MAXSMT: {
                 bool ok = true;
+                r = obj.m_offset;
                 for (unsigned j = 0; ok && j < obj.m_terms.size(); ++j) {
                     if (m_model->eval(obj.m_terms[j], val)) {
                         if (!m.is_true(val)) {

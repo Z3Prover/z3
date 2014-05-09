@@ -111,6 +111,7 @@ namespace opt {
                 if (!m_assignment.back()) {
                     m_upper += m_weights[i];
                 }
+                TRACE("opt", tout << "evaluate: " << val << "\n";);
             }
         }
         expr* mk_not(expr* e) {
