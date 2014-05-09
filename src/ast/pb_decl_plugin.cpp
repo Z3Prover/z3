@@ -144,7 +144,7 @@ app * pb_util::mk_lt(unsigned num_args, rational const * _coeffs, expr * const *
             args.push_back(f);
         }
         else {
-            args.push_back(m.mk_not(f));
+            args.push_back(m.mk_not(_args[i]));
         }
     }
     if (!d.is_one()) {

@@ -124,8 +124,6 @@ static void test4() {
     feas(S);
 }
 
-
-
 void tst_simplex() {
     Simplex S;
 

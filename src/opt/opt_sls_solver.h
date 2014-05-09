@@ -215,6 +215,7 @@ namespace opt {
             }
             (*m_pbsls.get())();
             m_pbsls->get_model(m_model);            
+            mdl = m_model.get();
         }
 
         void bvsls_opt(model_ref& mdl) {
@@ -235,6 +236,7 @@ namespace opt {
             SASSERT(res.is_sat == l_true || res.is_sat == l_undef);
             if (res.is_sat == l_true) {
                 m_bvsls->get_model(m_model);
+                mdl = m_model.get();
             }
         }
 

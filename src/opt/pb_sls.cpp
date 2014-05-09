@@ -129,7 +129,8 @@ namespace smt {
             m_trail(m),
             one(mgr)
         {
-            init_max_flips();
+            reset();
+            one = mpz(1);
         }
 
         ~imp() {
@@ -153,7 +154,6 @@ namespace smt {
             m_assignment.push_back(true);
             m_hard_occ.push_back(unsigned_vector());
             m_soft_occ.push_back(unsigned_vector());
-            one = mpz(1);
         }
 
         void init_max_flips() {
@@ -406,7 +406,14 @@ namespace smt {
                 else if (break_count == min_bc && m_rng(5) == 1) {
                     min_bc_index = i;
                 }
-                VERIFY(-break_count == flip(~lit));
+                int new_break_count = flip(~lit);
+                if (-break_count != new_break_count) {
+                    verbose_stream() << lit << "\n";
+                    IF_VERBOSE(0, display(verbose_stream(), cls););
+                    display(verbose_stream());
+                    exit(0);
+                }
+                // VERIFY(-break_count == flip(~lit));
             }            
             if (m_rng(100) <= m_non_greedy_percent) {
                 lit = cls.m_lits[m_rng(cls.m_lits.size())];
@@ -472,11 +479,12 @@ namespace smt {
             m_assignment[l.var()] = !m_assignment[l.var()];
             int break_count = 0;
             unsigned_vector const& occh = m_hard_occ[l.var()];
-            scoped_mpz value(mgr);
+            scoped_mpz value(mgr);            
             for (unsigned i = 0; i < occh.size(); ++i) {
                 unsigned j = occh[i];
-                value = m_clauses[j].m_value;
-                if (eval(m_clauses[j])) {
+                clause& cls = m_clauses[j];
+                value = cls.m_value;
+                if (eval(cls)) {
                     if (m_hard_false.contains(j)) {
                         break_count--;
                         m_hard_false.remove(j);
@@ -488,7 +496,6 @@ namespace smt {
                         m_hard_false.insert(j);
                     }
                     else if (value < m_clauses[j].m_value) {
-                        break_count++;
                     }
                 }
             }

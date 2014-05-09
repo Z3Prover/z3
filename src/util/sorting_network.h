@@ -187,7 +187,7 @@ Notes:
             else {
                 SASSERT(2*k <= n);
                 m_t = full?GE_FULL:GE;
-                card(k, n, xs, out);                
+                psort_nw<psort_expr>::card(k, n, xs, out);                
                 return out[k-1]; 
             }
         }
@@ -322,8 +322,8 @@ Notes:
 
         void cmp(literal x1, literal x2, literal y1, literal y2) {
             switch(m_t) {
-            case LE: cmp_le(x1, x2, y1, y2); break;
-            case GE: cmp_ge(x1, x2, y1, y2); break;
+            case LE: case LE_FULL: cmp_le(x1, x2, y1, y2); break;
+            case GE: case GE_FULL: cmp_ge(x1, x2, y1, y2); break;
             case EQ: cmp_eq(x1, x2, y1, y2); break;
             }
         }
@@ -334,7 +334,7 @@ Notes:
         void card(unsigned k, unsigned n, literal const* xs, literal_vector& out) {
             TRACE("pb", tout << "card k:" << k << " n: " << n << "\n";);
             if (n <= k) {
-                sorting(n, xs, out);
+                psort_nw<psort_expr>::sorting(n, xs, out);
             }
             else if (use_dcard(k, n)) {
                 dsorting(k, n, xs, out);
@@ -485,7 +485,7 @@ Notes:
                 out.push_back(xs[0]); 
                 break;
             case 2: 
-                merge(1, xs, 1, xs+1, out); 
+                psort_nw<psort_expr>::merge(1, xs, 1, xs+1, out); 
                 break;
             default:
                 if (use_dsorting(n)) {

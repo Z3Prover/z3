@@ -126,7 +126,7 @@ namespace simplex {
         row   get_infeasible_row();
         var_t get_base_var(row const& r) const { return m_row2base[r.id()]; }
         numeral const& get_base_coeff(row const& r) const { return m_vars[m_row2base[r.id()]].m_base_coeff; }
-        void  del_row(row const& r);
+        void  del_row(var_t base_var);
         void  set_lower(var_t var, eps_numeral const& b);
         void  set_upper(var_t var, eps_numeral const& b);
         void  get_lower(var_t var, scoped_eps_numeral& b) const { b = m_vars[var].m_lower; }
@@ -157,6 +157,7 @@ namespace simplex {
 
     private:
 
+        void  del_row(row const& r);
         var_t select_var_to_fix();
         pivot_strategy_t pivot_strategy();
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }

@@ -114,6 +114,7 @@ namespace simplex {
         em.set(m_vars[base_var].m_value, value);
         add_patch(base_var);
         SASSERT(well_formed_row(r));
+        SASSERT(well_formed());
         return r;
     }
 
@@ -135,10 +136,51 @@ namespace simplex {
 
     template<typename Ext>
     void simplex<Ext>::del_row(row const& r) {
-        TRACE("simplex", tout << r.id() << "\n";);
-        m_vars[m_row2base[r.id()]].m_is_base = false;
+        var_t var = m_row2base[r.id()];
+        m_vars[var].m_is_base = false;
+        m_vars[var].m_lower_valid = false;
+        m_vars[var].m_upper_valid = false;
         m_row2base[r.id()] = null_var;
         M.del(r);
+        SASSERT(M.col_begin(var) == M.col_end(var));
+        SASSERT(well_formed());
+    }
+
+    template<typename Ext>
+    void simplex<Ext>::del_row(var_t var) {
+        TRACE("simplex", tout << var << "\n";);
+        row r;
+        if (is_base(var)) {
+            r = row(m_vars[var].m_base2row);                                    
+        }
+        else {
+            col_iterator it = M.col_begin(var), end = M.col_end(var);
+            if (it == end) {
+                return;
+            }
+            typename matrix::row_entry const& re = it.get_row_entry();
+            r = it.get_row();
+            var_t old_base = m_row2base[r.id()];
+            scoped_eps_numeral new_value(em);
+            var_info& vi = m_vars[old_base];
+            if (below_lower(old_base)) {
+                new_value = vi.m_lower;
+            }
+            else if (above_upper(old_base)) {
+                new_value = vi.m_upper;
+            }
+            else {
+                new_value = vi.m_value;
+            }
+            // need to move var such that old_base comes in bound.
+            update_and_pivot(old_base, var, re.m_coeff, new_value);   
+            SASSERT(is_base(var));
+            SASSERT(m_vars[var].m_base2row == r.id());            
+            SASSERT(!below_lower(old_base) && !above_upper(old_base));
+        }
+        del_row(r);
+        TRACE("simplex", display(tout););
+        SASSERT(well_formed());
     }
 
     template<typename Ext>
@@ -164,6 +206,7 @@ namespace simplex {
             em.sub(b, vi.m_value, delta);
             update_value(var, delta);
         }
+        SASSERT(well_formed());
     }
 
     template<typename Ext>
@@ -177,6 +220,7 @@ namespace simplex {
             em.sub(b, vi.m_value, delta);
             update_value(var, delta);
         }
+        SASSERT(well_formed());
     }
 
     template<typename Ext>
@@ -194,6 +238,7 @@ namespace simplex {
         scoped_eps_numeral delta(em);
         em.sub(b, m_vars[var].m_value, delta);
         update_value(var, delta);
+        SASSERT(well_formed());
     }
 
     template<typename Ext>
@@ -345,6 +390,7 @@ namespace simplex {
                 SASSERT(well_formed_row(row(r_k)));
             }
         }
+        SASSERT(well_formed());
     }
 
     template<typename Ext>
@@ -883,7 +929,13 @@ namespace simplex {
             var_t s = m_row2base[i];
             if (s == null_var) continue;
             SASSERT(i == m_vars[s].m_base2row); 
-            SASSERT(well_formed_row(row(i)));            
+            VERIFY(well_formed_row(row(i)));            
+        }
+        for (unsigned i = 0; i < m_vars.size(); ++i) {
+            if (!is_base(i)) {
+                SASSERT(!above_upper(i));
+                SASSERT(!below_lower(i));
+            }
         }
         return true;
     }
@@ -909,7 +961,11 @@ namespace simplex {
             sum += tmp;
             SASSERT(s != it->m_var || m.eq(m_vars[s].m_base_coeff, it->m_coeff));
         }
-        SASSERT(em.is_zero(sum));
+        if (!em.is_zero(sum)) {
+            IF_VERBOSE(0, M.display_row(verbose_stream(), r););
+            TRACE("pb", display(tout << "non-well formed row\n"); M.display_row(tout << "row: ", r););
+            throw default_exception("non-well formed row");
+        }
 
         return true;
     }

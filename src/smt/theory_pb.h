@@ -185,9 +185,8 @@ namespace smt {
             unsigned     m_slack;   // slack variable in simplex tableau
             numeral      m_bound;   // bound
             arg_t        m_rep;     // representative
-            row          m_row;
-            row_info(theory_var slack, numeral const& b, arg_t const& r, row const& ro):
-                m_slack(slack), m_bound(b), m_rep(r), m_row(ro) {}
+            row_info(theory_var slack, numeral const& b, arg_t const& r):
+                m_slack(slack), m_bound(b), m_rep(r) {}
             row_info(): m_slack(0) {}
         };
 

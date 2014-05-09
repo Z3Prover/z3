@@ -529,11 +529,9 @@ namespace smt {
             numeral k = rep.k();
             theory_var slack;
             bool_var abv2;
-            row r;
             TRACE("pb", display(tout << abv <<"\n", rep););
             if (m_ineq_rep.find(rep, abv2)) {
                 slack = abv2; 
-                r = m_ineq_row_info.find(abv2).m_row;
                 TRACE("pb", 
                       tout << "Old row: " << abv << " |-> " << slack << " ";
                       tout << m_ineq_row_info.find(abv2).m_bound << " vs. " << k << "\n";
@@ -572,10 +570,10 @@ namespace smt {
                 m_simplex.ensure_var(slack);
                 vars.push_back(slack);
                 coeffs.push_back(mpz(-1));
-                r = m_simplex.add_row(slack, vars.size(), vars.c_ptr(), coeffs.c_ptr());
+                m_simplex.add_row(slack, vars.size(), vars.c_ptr(), coeffs.c_ptr());
                 TRACE("pb", tout << "New row: " << abv << " " << k << "\n"; display(tout, rep););
             }
-            m_ineq_row_info.insert(abv, row_info(slack, k, rep, r));
+            m_ineq_row_info.insert(abv, row_info(slack, k, rep));
         }
 
         TRACE("pb", display(tout, *c););
@@ -1310,7 +1308,7 @@ namespace smt {
                 m_ineq_row_info.erase(v);
                 bool_var v2 = m_ineq_rep.find(r_info.m_rep);
                 if (v == v2) {
-                    m_simplex.del_row(r_info.m_row);
+                    m_simplex.del_row(r_info.m_slack);
                     m_ineq_rep.erase(r_info.m_rep);
                 }
             }
@@ -1433,7 +1431,7 @@ namespace smt {
 
         justification* js = 0;
 
-        if (m_conflict_frequency == 0 || (0 == (c.m_num_propagations % m_conflict_frequency))) {
+        if (m_conflict_frequency == 0 || (m_conflict_frequency -1 == (c.m_num_propagations % m_conflict_frequency))) {
             resolve_conflict(c);
         }
 
@@ -1853,6 +1851,8 @@ namespace smt {
                 sum += c.coeff(i);
             case l_undef:
                 maxsum += c.coeff(i);
+                break;
+            case l_false:
                 break;
             }
         }

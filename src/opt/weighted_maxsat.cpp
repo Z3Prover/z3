@@ -82,6 +82,7 @@ namespace opt {
             }
         }
         virtual void get_model(model_ref& mdl) { mdl = m_model.get(); }
+        void set_model() { s().get_model(m_model); }
         virtual void updt_params(params_ref& p) {
             m_params.copy(p);
             s().updt_params(p);
@@ -104,8 +105,12 @@ namespace opt {
             m_upper.reset();
             m_assignment.reset();
             for (unsigned i = 0; i < m_weights.size(); ++i) {
-                m_upper += m_weights[i];
-                m_assignment.push_back(false);
+                expr_ref val(m);
+                VERIFY(m_model->eval(m_soft[i].get(), val));                
+                m_assignment.push_back(m.is_true(val));
+                if (!m_assignment.back()) {
+                    m_upper += m_weights[i];
+                }
             }
         }
         expr* mk_not(expr* e) {
@@ -255,6 +260,14 @@ namespace opt {
             m_upper += rational(1);                 
         }
 
+        void process_sat() {
+            svector<bool> assignment;
+            update_assignment(assignment);
+            if (check_lazy_soft(assignment)) {
+                update_sigmas();
+            }
+        }
+
     public:
         bcd2(solver* s, ast_manager& m): 
             maxsmt_solver_base(s, m),
@@ -263,7 +276,6 @@ namespace opt {
             m_trail(m),
             m_soft_constraints(m),
             m_enable_lazy(true) {
-            m_enable_lazy = true;
         }
 
         virtual ~bcd2() {}
@@ -272,11 +284,15 @@ namespace opt {
             expr_ref fml(m), r(m);
             lbool is_sat = l_undef;
             expr_ref_vector asms(m);
-            bool first = true;
             enable_sls();
             solver::scoped_push _scope1(s());
             init();
             init_bcd();
+            if (m_cancel) {
+                normalize_bounds();
+                return l_undef;
+            }
+            process_sat();
             while (m_lower < m_upper) {
                 IF_VERBOSE(1, verbose_stream() << "(wmaxsat.bcd2 [" << m_lower << ":" << m_upper << "])\n";);
                 assert_soft();
@@ -293,15 +309,9 @@ namespace opt {
                 case l_undef: 
                     normalize_bounds();
                     return l_undef;
-                case l_true: {
-                    svector<bool> assignment;
-                    update_assignment(assignment);
-                    first = false;
-                    if (check_lazy_soft(assignment)) {
-                        update_sigmas();
-                    }
-                    break;
-                }
+                case l_true: 
+                    process_sat();
+                    break;                
                 case l_false: {
                     ptr_vector<expr> unsat_core;
                     uint_set subC, soft;
@@ -322,7 +332,7 @@ namespace opt {
                         r = mk_fresh();
                         relax(subC, soft, c_s.m_R, delta);
                         c_s.m_lower = refine(c_s.m_R, lower + delta - rational(1));
-                        c_s.m_upper = rational(first?1:0);
+                        c_s.m_upper = rational::one();
                         c_s.m_upper += sum_of_sigmas(c_s.m_R);
                         c_s.m_mid = div(c_s.m_lower + c_s.m_upper, rational(2));
                         c_s.m_r = r;
@@ -337,12 +347,7 @@ namespace opt {
                 m_lower = compute_lower();
             }
             normalize_bounds();
-            if (first) {
-                return is_sat;
-            }
-            else {
-                return l_true;
-            }
+            return l_true;            
         }
 
 
@@ -533,13 +538,18 @@ namespace opt {
             expr_ref fml(m);
             vector<rational> ws;
             ptr_vector<expr> rs;
+            rational w(0);
             for (unsigned j = 0; j < core.m_R.size(); ++j) {
                 unsigned idx = core.m_R[j];
                 ws.push_back(m_weights[idx]);
-                rs.push_back(m_soft_aux[idx].get());   // TBD: check
+                w += ws.back();
+                rs.push_back(m_soft_aux[idx].get());
             }
+            w.neg();
+            w += core.m_mid;
+            ws.push_back(w);
+            rs.push_back(core.m_r);
             fml = pb.mk_le(ws.size(), ws.c_ptr(), rs.c_ptr(), core.m_mid);
-            fml = m.mk_or(core.m_r, fml);
             s().assert_expr(fml);
         }
         void display(std::ostream& out) {
@@ -604,7 +614,7 @@ namespace opt {
             }
             lbool is_sat = l_true;
             while (l_true == is_sat) {
-                IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb solve with upper bound: " << m_upper << ")\n";);
+                TRACE("opt", s().display(tout<<"looping\n"););
                 m_upper.reset();
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     VERIFY(m_model->eval(nsoft[i].get(), val));
@@ -614,11 +624,10 @@ namespace opt {
                         m_upper += m_weights[i];
                     }
                 }                     
+                IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb solve with upper bound: " << m_upper << ")\n";);
                 TRACE("opt", tout << "new upper: " << m_upper << "\n";);
                 
-                fml = u.mk_lt(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper);
-
-                TRACE("opt", s().display(tout<<"looping\n"););
+                fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
                 solver::scoped_push _scope2(s());
                 s().assert_expr(fml);
                 is_sat = s().check_sat(0,0);
@@ -840,7 +849,11 @@ namespace opt {
                       tout << mk_pp(bs[i], m) << " " << ws[i] << "\n";
                   });
             maxs->init_soft(ws, nbs);
-            lbool is_sat = (*maxs)();
+            lbool is_sat = maxs->s().check_sat(0,0);
+            if (is_sat == l_true) {
+                maxs->set_model();
+                is_sat = (*maxs)();
+            }
             SASSERT(maxs->get_lower() > k);
             k = maxs->get_lower();
             return is_sat;
