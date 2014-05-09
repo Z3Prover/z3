@@ -406,7 +406,6 @@ namespace smt {
     }
 
     bool theory_pb::internalize_atom(app * atom, bool gate_ctx) {
-        ast_manager& m = get_manager();
         SASSERT(m_util.is_at_most_k(atom) || m_util.is_le(atom) || 
                 m_util.is_ge(atom) || m_util.is_at_least_k(atom) || 
                 m_util.is_eq(atom));
@@ -707,7 +706,6 @@ namespace smt {
     }
 
     void theory_pb::remove(ptr_vector<ineq>& ineqs, ineq* c) {
-        context& ctx = get_context();
         for (unsigned j = 0; j < ineqs.size(); ++j) {
             if (ineqs[j] == c) {                        
                 std::swap(ineqs[j], ineqs[ineqs.size()-1]);
@@ -1217,7 +1215,6 @@ namespace smt {
 
     void theory_pb::compile_ineq(ineq& c) {
         ++m_stats.m_num_compiles;
-        ast_manager& m = get_manager();
         context& ctx = get_context();
         // only cardinality constraints are compiled.
         SASSERT(c.m_compilation_threshold < UINT_MAX);
@@ -1551,8 +1548,6 @@ namespace smt {
             m_ineq_literals.push_back(c.lit());
         }
     }
-
-    static unsigned s_min_l_size = UINT_MAX;
         
     //
     // modeled after sat_solver/smt_context
@@ -1789,7 +1784,6 @@ namespace smt {
     // debug methods
 
     void theory_pb::validate_watch(ineq const& c) const {
-        context& ctx = get_context();
         scoped_mpz sum(m_mpz_mgr), max(m_mpz_mgr);
         for (unsigned i = 0; i < c.watch_size(); ++i) {
             sum += c.ncoeff(i);

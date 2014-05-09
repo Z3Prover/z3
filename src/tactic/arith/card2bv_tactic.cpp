@@ -102,7 +102,6 @@ namespace pb {
         // 
         else if (f->get_family_id() == au.get_family_id()) {
             if (f->get_decl_kind() == OP_ADD) {
-                bool all_ite_01 = true;
                 unsigned bits = 0;
                 for (unsigned i = 0; i < sz; i++) {
                     rational val1, val2;

@@ -161,7 +161,7 @@ class iz3base : public iz3mgr, public scopes {
   stl_ext::hash_map<ast,ast> simplify_memo;
   stl_ext::hash_map<ast,int> frame_map;                      // map assertions to frames
 
-  int frames;                               // number of frames
+  // int frames;                               // number of frames
 
  protected:
   void add_frame_range(int frame, ast t);

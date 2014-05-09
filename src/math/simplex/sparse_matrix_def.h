@@ -325,7 +325,6 @@ namespace simplex {
     void sparse_matrix<Ext>::add(row row1, numeral const& n, row row2) {
         m_stats.m_add_rows++;
         _row & r1 = m_rows[row1.id()];
-        _row & r2 = m_rows[row2.id()];
         
         r1.save_var_pos(m_var_pos, m_var_pos_idx);
 

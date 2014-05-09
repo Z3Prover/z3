@@ -105,7 +105,6 @@ bool_var theory_wmaxsat::assert_weighted(expr* fml, rational const& w) {
 
 bool_var theory_wmaxsat::register_var(app* var, bool attach) {
     context & ctx = get_context();
-    ast_manager& m = get_manager();
     bool_var bv;
     SASSERT(!ctx.e_internalized(var));
     enode* x = ctx.mk_enode(var, false, true, true);
