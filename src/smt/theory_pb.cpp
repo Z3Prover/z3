@@ -760,7 +760,6 @@ namespace smt {
     }
 
     void theory_pb::assign_eh(bool_var v, bool is_true) {
-        context& ctx = get_context();
         ptr_vector<ineq>* ineqs = 0;
         literal nlit(v, is_true);
         TRACE("pb", tout << "assign: " << ~nlit << "\n";);
