@@ -2682,10 +2682,21 @@ class iz3proof_itp_impl : public iz3proof_itp {
       return make(Equal,x,y);
   }
 
+  bool range_is_global(const prover::range &r){
+    if(pv->range_contained(r,rng))
+      return false;
+    if(!pv->ranges_intersect(r,rng))
+      return false;
+    return true;
+  }
+
   ast localize_term(ast e, const prover::range &rng, ast &pf){
 
-    // we need to memoize this function per range
-    locmaps &maps = localization_maps_per_range[rng];
+    // we need to memoize this function separately for A, B and global
+    prover::range map_range = rng;
+    if(range_is_global(map_range))
+      map_range = pv->range_full();
+    locmaps &maps = localization_maps_per_range[map_range];
     hash_map<ast,ast> &localization_map = maps.localization_map;
     hash_map<ast,ast> &localization_pf_map = maps.localization_pf_map;
 
@@ -2775,6 +2786,21 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast bar = make_assumption(frame,foo);
     pf = make_transitivity(new_var,e,orig_e,bar,pf);
     localization_pf_map[orig_e] = pf;
+
+    // HACK: try to bias this term in the future
+    if(!pv->range_is_full(rng)){
+      prover::range rf = pv->range_full();
+      locmaps &fmaps = localization_maps_per_range[rf];
+      hash_map<ast,ast> &flocalization_map = fmaps.localization_map;
+      hash_map<ast,ast> &flocalization_pf_map = fmaps.localization_pf_map;
+      // if(flocalization_map.find(orig_e) == flocalization_map.end())
+	{
+	  flocalization_map[orig_e] = new_var;
+	  flocalization_pf_map[orig_e] = pf;
+	}
+    }
+      
+    
     return new_var;
   }
 
