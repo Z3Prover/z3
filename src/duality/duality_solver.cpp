@@ -3043,6 +3043,7 @@ namespace Duality {
     };
   };
 
+  static int stop_event = -1;
 
   class StreamReporter : public Reporter {
     std::ostream &s;
@@ -3052,6 +3053,9 @@ namespace Duality {
     int event;
     int depth;
     void ev(){
+      if(stop_event == event){
+	std::cout << "stop!";
+      }
       s << "[" << event++ << "]" ;
     }
     virtual void Extend(RPFP::Node *node){
