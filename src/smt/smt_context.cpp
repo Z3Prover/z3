@@ -2951,7 +2951,7 @@ namespace smt {
        \brief Execute some finalization code after performing the search.
     */
     void context::check_finalize(lbool r) {
-        TRACE("after_search", display(tout););
+        TRACE("after_search", display(tout << "result: " << r << "\n"););
         display_profile(verbose_stream());
     }
 
