@@ -268,6 +268,7 @@ namespace opt {
         }
         
         if (m_cancel || is_sat == l_undef) {
+            TRACE("opt", tout << "undef: " << m_cancel << " " << is_sat << "\n";);
             return l_undef;
         }
 
