@@ -145,6 +145,7 @@ namespace opt {
 
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
         lbool is_sat = s.check_sat_core(0,0);
+        TRACE("opt", tout << "initial search result: " << is_sat << "\n";);
         if (is_sat != l_true) {
             m_model = 0;
             return is_sat;
