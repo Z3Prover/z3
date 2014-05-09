@@ -64,6 +64,11 @@ class scopes {
 	  return rng.hi < rng.lo;
   }
 
+  /** is this range full? */
+  bool range_is_full(const range &rng){
+    return rng.lo == SHRT_MIN && rng.hi == SHRT_MAX;
+  }
+
   /** return an empty range */
   range range_empty(){
      range res;
