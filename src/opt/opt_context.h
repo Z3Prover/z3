@@ -75,6 +75,35 @@ namespace opt {
                 m_index(0)
             {}
         };
+
+        class scoped_state {
+            ast_manager& m;
+            arith_util   m_arith;
+            bv_util      m_bv;
+            unsigned_vector  m_hard_lim;
+            unsigned_vector  m_objectives_lim;
+            unsigned_vector  m_objectives_term_trail;
+            unsigned_vector  m_objectives_term_trail_lim;
+            map_id           m_indices;
+
+        public:
+            expr_ref_vector  m_hard;
+            vector<objective> m_objectives;
+
+            scoped_state(ast_manager& m):
+                m(m),
+                m_arith(m),
+                m_bv(m),
+                m_hard(m)
+            {}
+            void push();
+            void pop();
+            void add(expr* hard);
+            void set(ptr_vector<expr> & hard);
+            unsigned add(expr* soft, rational const& weight, symbol const& id);
+            unsigned add(app* obj, bool is_max);
+        };
+
         ast_manager&        m;
         arith_util          m_arith;
         bv_util             m_bv;
@@ -82,25 +111,23 @@ namespace opt {
         ref<opt_solver>     m_solver;
         scoped_ptr<pareto_base>          m_pareto;
         params_ref          m_params;
-        optsmt              m_optsmt;        
+        optsmt              m_optsmt; 
         map_t               m_maxsmts;
-        map_id              m_indices;
+        scoped_state        m_scoped_state;
         vector<objective>   m_objectives;
-        unsigned_vector     m_objectives_lim;
-        unsigned_vector     m_objectives_term_trail;
-        unsigned_vector     m_objectives_term_trail_lim;
         model_ref           m_model;
         model_converter_ref m_model_converter;
         obj_map<func_decl, unsigned> m_objective_fns;
-        obj_map<func_decl, expr*> m_objective_orig;
-        func_decl_ref_vector m_objective_refs;
-        tactic_ref          m_simplify;
+        obj_map<func_decl, expr*>    m_objective_orig;
+        func_decl_ref_vector         m_objective_refs;
+        tactic_ref                   m_simplify;
     public:
         context(ast_manager& m);
         virtual ~context();
         unsigned add_soft_constraint(expr* f, rational const& w, symbol const& id);
         unsigned add_objective(app* t, bool is_max);
-        void add_hard_constraint(expr* f) { m_hard_constraints.push_back(f);  }
+        void add_hard_constraint(expr* f);
+        
 
         virtual void push();
         virtual void pop(unsigned n);
@@ -138,6 +165,8 @@ namespace opt {
         lbool execute_pareto();
         expr_ref to_expr(inf_eps const& n);
 
+        void reset_maxsmts();
+        void import_scoped_state();
         void normalize();
         void internalize();
         bool is_maximize(expr* fml, app_ref& term, expr*& orig_term, unsigned& index);

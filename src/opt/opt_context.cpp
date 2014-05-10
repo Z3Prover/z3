@@ -39,65 +39,44 @@ Notes:
 
 namespace opt {
 
-    context::context(ast_manager& m):
-        m(m),
-        m_arith(m),
-        m_bv(m),
-        m_hard_constraints(m),
-        m_optsmt(m),
-        m_objective_refs(m)
-    {
-        m_params.set_bool("model", true);
-        m_params.set_bool("unsat_core", true);
-        m_solver = alloc(opt_solver, m, m_params, symbol());
+    void context::scoped_state::push() {
+        m_hard_lim.push_back(m_hard.size());
+        m_objectives_lim.push_back(m_objectives.size());        
     }
 
-    context::~context() {
-        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
+    void context::scoped_state::pop() {
+        m_hard.resize(m_hard_lim.back());
+        unsigned k = m_objectives_term_trail_lim.back();
+        while (m_objectives_term_trail.size() > k) {
+            unsigned idx = m_objectives_term_trail.back();
+            m_objectives[idx].m_terms.pop_back();
+            m_objectives[idx].m_weights.pop_back();
+            m_objectives_term_trail.pop_back();
         }
-    }
-
-    void context::push() {
-        m_objectives_lim.push_back(m_objectives.size());
-        m_objectives_term_trail_lim.push_back(m_objectives_term_trail.size());
-        m_solver->push();
-    }
-
-    void context::pop(unsigned n) {
-        m_solver->pop(n);
-        while (n > 0) {
-            --n;
-            unsigned k = m_objectives_term_trail_lim.back();
-            while (m_objectives_term_trail.size() > k) {
-                unsigned idx = m_objectives_term_trail.back();
-                m_objectives[idx].m_terms.pop_back();
-                m_objectives[idx].m_weights.pop_back();
-                m_objectives_term_trail.pop_back();
+        m_objectives_term_trail_lim.pop_back();
+        k = m_objectives_lim.back();
+        while (m_objectives.size() > k) {
+            objective& obj = m_objectives.back();
+            if (obj.m_type == O_MAXSMT) {
+                m_indices.erase(obj.m_id);
             }
-            m_objectives_term_trail_lim.pop_back();
-            k = m_objectives_lim.back();
-            while (m_objectives.size() > k) {
-                objective& obj = m_objectives.back();
-                if (obj.m_type == O_MAXSMT) {
-                    dealloc(m_maxsmts[obj.m_id]);
-                    m_maxsmts.erase(obj.m_id);
-                    m_indices.erase(obj.m_id);
-                }
-                m_objectives.pop_back();
-            }
-            m_objectives_lim.pop_back();            
+            m_objectives.pop_back();
         }
+        m_objectives_lim.pop_back();            
+        m_hard_lim.pop_back();   
     }
 
-    void context::set_hard_constraints(ptr_vector<expr>& fmls) {
-        m_hard_constraints.reset();
-        m_hard_constraints.append(fmls.size(), fmls.c_ptr());
+    
+    void context::scoped_state::add(expr* hard) {
+        m_hard.push_back(hard);
     }
 
-    unsigned context::add_soft_constraint(expr* f, rational const& w, symbol const& id) { 
-        maxsmt* ms;
+    void context::scoped_state::set(ptr_vector<expr> & hard) {
+        m_hard.reset();
+        m_hard.append(hard.size(), hard.c_ptr());
+    }
+
+    unsigned context::scoped_state::add(expr* f, rational const& w, symbol const& id) {
         if (w.is_neg()) {
             throw default_exception("Negative weight supplied. Weight should be positive");
         }
@@ -107,10 +86,7 @@ namespace opt {
         if (!m.is_bool(f)) {
             throw default_exception("Soft constraint should be Boolean");
         }
-        if (!m_maxsmts.find(id, ms)) {
-            ms = alloc(maxsmt, m);
-            ms->updt_params(m_params);
-            m_maxsmts.insert(id, ms);
+        if (!m_indices.contains(id)) {
             m_objectives.push_back(objective(m, id));
             m_indices.insert(id, m_objectives.size() - 1);
         }
@@ -122,7 +98,7 @@ namespace opt {
         return idx;
     }
 
-    unsigned context::add_objective(app* t, bool is_max) {
+    unsigned context::scoped_state::add(app* t, bool is_max) {
         app_ref tr(t, m);
         if (!m_bv.is_bv(t) && !m_arith.is_int_real(t)) {
             throw default_exception("Objective must be bit-vector, integer or real");   
@@ -132,8 +108,79 @@ namespace opt {
         return index;
     }
 
-    lbool context::optimize() {
+    context::context(ast_manager& m):
+        m(m),
+        m_arith(m),
+        m_bv(m),
+        m_hard_constraints(m),
+        m_optsmt(m),
+        m_scoped_state(m),
+        m_objective_refs(m)
+    {
+        m_params.set_bool("model", true);
+        m_params.set_bool("unsat_core", true);
+        m_solver = alloc(opt_solver, m, m_params, symbol());
+    }
+
+    context::~context() {
+        reset_maxsmts();
+    }
+
+    void context::reset_maxsmts() {
+        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+        for (; it != end; ++it) {
+            dealloc(it->m_value);
+        }
+    }
+
+    void context::push() {
+        m_scoped_state.push();
+        m_solver->push();
+    }
+
+    void context::pop(unsigned n) {
+        m_solver->pop(n);
+        for (unsigned i = 0; i < n; ++i) {
+            m_scoped_state.pop();
+        }
+    }
+
+    void context::set_hard_constraints(ptr_vector<expr>& fmls) {
+        m_scoped_state.set(fmls);
+    }
+
+    void context::add_hard_constraint(expr* f) { 
+        m_scoped_state.add(f);
+    }
+
+    unsigned context::add_soft_constraint(expr* f, rational const& w, symbol const& id) { 
+        return m_scoped_state.add(f, w, id);
+    }
+
+    unsigned context::add_objective(app* t, bool is_max) {
+        return m_scoped_state.add(t, is_max);
+    }
+
+    void context::import_scoped_state() {
         m_optsmt.reset();        
+        reset_maxsmts();
+        m_objectives.reset();
+        m_hard_constraints.reset();
+        scoped_state& s = m_scoped_state;        
+        for (unsigned i = 0; i < s.m_objectives.size(); ++i) {
+            objective& obj = s.m_objectives[i];
+            m_objectives.push_back(obj);
+            if (obj.m_type == O_MAXSMT) {
+                maxsmt* ms = alloc(maxsmt, m);
+                ms->updt_params(m_params);
+                m_maxsmts.insert(obj.m_id, ms);
+            }
+        }
+        m_hard_constraints.append(s.m_hard);
+    }
+
+    lbool context::optimize() {
+        import_scoped_state();
         normalize();
         internalize();
         opt_solver& s = get_solver();        
@@ -640,7 +687,6 @@ namespace opt {
                     maxsmt* ms = alloc(maxsmt, m);
                     ms->updt_params(m_params);
                     m_maxsmts.insert(id, ms);
-                    m_indices.insert(id, index);
                 }
                 SASSERT(obj.m_id == id);
                 obj.m_terms.reset();
