@@ -131,7 +131,7 @@ namespace opt {
 
         virtual void push();
         virtual void pop(unsigned n);
-        virtual bool empty() { return m_objectives.empty(); }
+        virtual bool empty() { return m_scoped_state.m_objectives.empty(); }
         virtual void set_cancel(bool f);
         virtual void reset_cancel() { set_cancel(false); }
         virtual void cancel() { set_cancel(true); }
