@@ -576,10 +576,9 @@ namespace opt {
     // lower bounds.
 
     class pbmax : public maxsmt_solver_base {
-        bool m_use_aux;
     public:
-        pbmax(solver* s, ast_manager& m, bool use_aux): 
-            maxsmt_solver_base(s, m), m_use_aux(use_aux) {
+        pbmax(solver* s, ast_manager& m): 
+            maxsmt_solver_base(s, m) {
         }
         
         virtual ~pbmax() {}
@@ -598,20 +597,8 @@ namespace opt {
             app_ref b(m);
             expr_ref_vector nsoft(m);
             init();            
-            if (m_use_aux) {
-                s().push();
-            }
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                if (m_use_aux) {
-                    b = m.mk_fresh_const("b", m.mk_bool_sort());
-                    m_mc->insert(b->get_decl());
-                    fml = m.mk_or(m_soft[i].get(), b);
-                    s().assert_expr(fml);
-                    nsoft.push_back(b);
-                }
-                else {
-                    nsoft.push_back(mk_not(m_soft[i].get()));
-                }
+                nsoft.push_back(mk_not(m_soft[i].get()));
             }
             lbool is_sat = l_true;
             while (l_true == is_sat) {
@@ -642,9 +629,6 @@ namespace opt {
             if (is_sat == l_false) {
                 is_sat = l_true;
                 m_lower = m_upper;
-            }
-            if (m_use_aux) {
-                s().pop(1);
             }
             TRACE("opt", tout << "lower: " << m_lower << "\n";);
             return is_sat;
@@ -1008,14 +992,11 @@ namespace opt {
             if (m_maxsmt) {
                 return *m_maxsmt;
             }
-            if (m_engine == symbol("pwmax")) {
-                m_maxsmt = alloc(pbmax, s.get(), m, true);
-            }
-            else if (m_engine == symbol("pbmax")) {
-                m_maxsmt = alloc(pbmax, s.get(), m, false);
+            if (m_engine == symbol("pbmax")) {
+                m_maxsmt = alloc(pbmax, s.get(), m);
             }
             else if (m_engine == symbol("wpm2")) {
-                maxsmt_solver_base* s2 = alloc(pbmax, s.get(), m, false);
+                maxsmt_solver_base* s2 = alloc(pbmax, s.get(), m);
                 m_maxsmt = alloc(wpm2, s.get(), m, s2);
             }
             else if (m_engine == symbol("bcd2")) {

@@ -991,11 +991,11 @@ namespace opt {
         free_func_visitor visitor(m);
         std::ostringstream out;
 #define PP(_e_) ast_smt2_pp(out, _e_, env);
-        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
-            visitor.collect(m_hard_constraints[i]);
+        for (unsigned i = 0; i < m_scoped_state.m_hard.size(); ++i) {
+            visitor.collect(m_scoped_state.m_hard[i]);
         }
-        for (unsigned i = 0; i < m_objectives.size(); ++i) {
-            objective const& obj = m_objectives[i];
+        for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
+            objective const& obj = m_scoped_state.m_objectives[i];
             switch(obj.m_type) {
             case O_MAXIMIZE: 
             case O_MINIMIZE:
@@ -1023,13 +1023,13 @@ namespace opt {
             PP(*it);
             out << "\n";
         }
-        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
+        for (unsigned i = 0; i < m_scoped_state.m_hard.size(); ++i) {
             out << "(assert ";
-            PP(m_hard_constraints[i]);
+            PP(m_scoped_state.m_hard[i]);
             out << ")\n";
         }
-        for (unsigned i = 0; i < m_objectives.size(); ++i) {
-            objective const& obj = m_objectives[i];
+        for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
+            objective const& obj = m_scoped_state.m_objectives[i];
             switch(obj.m_type) {
             case O_MAXIMIZE: 
                 out << "(maximize ";
