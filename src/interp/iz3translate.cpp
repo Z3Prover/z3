@@ -1058,38 +1058,66 @@ public:
   }
 
 
+  rational get_first_coefficient(const ast &t, ast &v){
+    if(op(t) == Plus){
+      unsigned best_id = UINT_MAX;
+      rational best_coeff(0);
+      int nargs = num_args(t);
+      for(int i = 0; i < nargs; i++)
+	if(op(arg(t,i)) != Numeral){
+	  ast lv = get_linear_var(arg(t,i));
+	  unsigned id = ast_id(lv);
+	  if(id < best_id) {
+	    v = lv;
+	    best_id = id;
+	    best_coeff = get_coeff(arg(t,i));
+	  }
+	}
+      return best_coeff;
+    }
+    else
+      if(op(t) != Numeral)
+	return(get_coeff(t));
+    return rational(0);
+  }
+
   ast divide_inequalities(const ast &x, const ast&y){
-    std::vector<rational> xcoeffs,ycoeffs;
-    get_linear_coefficients(arg(x,1),xcoeffs);
-    get_linear_coefficients(arg(y,1),ycoeffs);
-    if(xcoeffs.size() != ycoeffs.size() || xcoeffs.size() == 0)
+    ast xvar, yvar;
+    rational xcoeff = get_first_coefficient(arg(x,0),xvar);
+    rational ycoeff = get_first_coefficient(arg(y,0),yvar);
+    if(xcoeff == rational(0) || ycoeff == rational(0) || xvar != yvar)
       throw "bad assign-bounds lemma";
-    rational ratio = xcoeffs[0]/ycoeffs[0];
+    rational ratio = xcoeff/ycoeff;
+    if(denominator(ratio) != rational(1))
+      throw "bad assign-bounds lemma";
     return make_int(ratio); // better be integer!
   }
 
   ast AssignBounds2Farkas(const ast &proof, const ast &con){
     std::vector<ast> farkas_coeffs;
     get_assign_bounds_coeffs(proof,farkas_coeffs);
-    if(farkas_coeffs[0] != make_int(rational(1)))
-      farkas_coeffs[0] = make_int(rational(1));
-    std::vector<ast> lits;
     int nargs = num_args(con);
     if(nargs != (int)(farkas_coeffs.size()))
       throw "bad assign-bounds theory lemma";
 #if 0
-    for(int i = 1; i < nargs; i++)
-      lits.push_back(mk_not(arg(con,i)));
-    ast sum = sum_inequalities(farkas_coeffs,lits);
-    ast conseq = rhs_normalize_inequality(arg(con,0));
-    ast d = divide_inequalities(sum,conseq);
-    std::vector<ast> my_coeffs;
-    my_coeffs.push_back(d);
-    for(unsigned i = 0; i < farkas_coeffs.size(); i++)
-      my_coeffs.push_back(farkas_coeffs[i]);
+    if(farkas_coeffs[0] != make_int(rational(1)))
+      farkas_coeffs[0] = make_int(rational(1));
 #else
-    std::vector<ast> my_coeffs;
+    std::vector<ast> lits, lit_coeffs;
+    for(int i = 1; i < nargs; i++){
+      lits.push_back(mk_not(arg(con,i)));
+      lit_coeffs.push_back(farkas_coeffs[i]);
+    }
+    ast sum = normalize_inequality(sum_inequalities(lit_coeffs,lits));
+    ast conseq = normalize_inequality(arg(con,0));
+    ast d = divide_inequalities(sum,conseq);
+#if 0
+    if(d != farkas_coeffs[0])
+      std::cout << "wow!\n";
 #endif
+    farkas_coeffs[0] = d;
+#endif
+    std::vector<ast> my_coeffs;
     std::vector<ast> my_cons;
     for(int i = 1; i < nargs; i++){
       my_cons.push_back(mk_not(arg(con,i)));
@@ -1109,12 +1137,27 @@ public:
   ast AssignBoundsRule2Farkas(const ast &proof, const ast &con, std::vector<Iproof::node> prems){
     std::vector<ast> farkas_coeffs;
     get_assign_bounds_rule_coeffs(proof,farkas_coeffs);
-    if(farkas_coeffs[0] != make_int(rational(1)))
-      farkas_coeffs[0] = make_int(rational(1));
-    std::vector<ast> lits;
     int nargs = num_prems(proof)+1;
     if(nargs != (int)(farkas_coeffs.size()))
       throw "bad assign-bounds theory lemma";
+#if 0
+    if(farkas_coeffs[0] != make_int(rational(1)))
+      farkas_coeffs[0] = make_int(rational(1));
+#else
+    std::vector<ast> lits, lit_coeffs;
+    for(int i = 1; i < nargs; i++){
+      lits.push_back(conc(prem(proof,i-1)));
+      lit_coeffs.push_back(farkas_coeffs[i]);
+    }
+    ast sum = normalize_inequality(sum_inequalities(lit_coeffs,lits));
+    ast conseq = normalize_inequality(con);
+    ast d = divide_inequalities(sum,conseq);
+#if 0
+    if(d != farkas_coeffs[0])
+      std::cout << "wow!\n";
+#endif
+    farkas_coeffs[0] = d;
+#endif
     std::vector<ast> my_coeffs;
     std::vector<ast> my_cons;
     for(int i = 1; i < nargs; i++){
