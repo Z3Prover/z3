@@ -34,7 +34,7 @@ namespace opt {
 
     class opt_solver;
 
-    class context : public opt_wrapper {
+    class context : public opt_wrapper, public pareto_callback {
         struct free_func_visitor;
         typedef map<symbol, maxsmt*, symbol_hash_proc, symbol_eq_proc> map_t;
         typedef map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> map_id;
@@ -145,6 +145,8 @@ namespace opt {
         virtual std::string reason_unknown() const { return std::string("unknown"); }
 
         virtual void display_assignment(std::ostream& out);
+        virtual bool is_pareto() { return m_pareto.get() != 0; }
+
         void display(std::ostream& out);
         static void collect_param_descrs(param_descrs & r);
         void updt_params(params_ref& p);
@@ -154,6 +156,13 @@ namespace opt {
         expr_ref get_upper(unsigned idx);
 
         std::string to_string() const;
+
+
+        virtual unsigned num_objectives() { return m_objectives.size(); }
+        virtual expr_ref mk_gt(unsigned i, model_ref& model);
+        virtual expr_ref mk_ge(unsigned i, model_ref& model);
+        virtual expr_ref mk_le(unsigned i, model_ref& model);
+
 
     private:
         void validate_feasibility(maxsmt& ms);
@@ -199,7 +208,11 @@ namespace opt {
 
         void validate_lex();
 
-        class pareto;
+
+        // pareto
+        void yield();
+        expr_ref mk_ge(expr* t, expr* s);
+        void mk_term_val(model_ref& mdl, objective const& obj, expr_ref& term, expr_ref& val);
 
     };
 

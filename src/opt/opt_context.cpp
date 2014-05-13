@@ -180,10 +180,13 @@ namespace opt {
     }
 
     lbool context::optimize() {
+        if (m_pareto) {
+            return execute_pareto();
+        }
         import_scoped_state();
         normalize();
         internalize();
-        opt_solver& s = get_solver();        
+        opt_solver& s = get_solver();
         solver::scoped_push _sp(s);
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
             TRACE("opt", tout << "Hard constraint: " << mk_ismt2_pp(m_hard_constraints[i].get(), m) << std::endl;);
@@ -210,6 +213,7 @@ namespace opt {
             opt_params optp(m_params);
             symbol pri = optp.priority();
             if (pri == symbol("pareto")) {
+                _sp.disable_pop();
                 return execute_pareto();
             }
             else if (pri == symbol("box")) {
@@ -282,115 +286,109 @@ namespace opt {
         return r;
     }
 
-    class context::pareto : public pareto_callback {
-        context& ctx;
-        ast_manager& m;
-        expr_ref mk_ge(expr* t, expr* s) {
-            expr_ref result(m);
-            if (ctx.m_bv.is_bv(t)) {
-                result = ctx.m_bv.mk_ule(s, t);
+
+    expr_ref context::mk_le(unsigned i, model_ref& mdl) {
+        objective const& obj = m_objectives[i];
+        expr_ref val(m), result(m), term(m);
+        mk_term_val(mdl, obj, term, val);
+        switch (obj.m_type) {
+        case O_MINIMIZE:
+            result = mk_ge(term, val);
+            break;
+        case O_MAXSMT:
+            result = mk_ge(term, val);
+            break;
+        case O_MAXIMIZE:
+            result = mk_ge(val, term);
+            break;
+        }
+        return result;
+    }
+    
+    expr_ref context::mk_ge(unsigned i, model_ref& mdl) {
+        objective const& obj = m_objectives[i];
+        expr_ref val(m), result(m), term(m);
+        mk_term_val(mdl, obj, term, val);
+        switch (obj.m_type) {
+        case O_MINIMIZE:
+            result = mk_ge(val, term);
+            break;
+        case O_MAXSMT:
+            result = mk_ge(val, term);
+            break;
+        case O_MAXIMIZE:
+            result = mk_ge(term, val);
+            break;
+        }
+        return result;
+    }
+    
+    expr_ref context::mk_gt(unsigned i, model_ref& mdl) {
+        expr_ref result = mk_le(i, mdl);
+        result = m.mk_not(result);
+        return result;
+    }
+    
+    void context::mk_term_val(model_ref& mdl, objective const& obj, expr_ref& term, expr_ref& val) {
+        rational r;
+        switch (obj.m_type) {
+        case O_MINIMIZE:
+        case O_MAXIMIZE:
+            term = obj.m_term;
+            break;
+        case O_MAXSMT: {
+            unsigned sz = obj.m_terms.size();
+            expr_ref_vector sum(m);
+            expr_ref zero(m);
+            zero = m_arith.mk_numeral(rational(0), false);
+            for (unsigned i = 0; i < sz; ++i) {
+                expr* t = obj.m_terms[i];
+                rational const& w = obj.m_weights[i];
+                sum.push_back(m.mk_ite(t, m_arith.mk_numeral(w, false), zero));                    
+            }
+            if (sum.empty()) {
+                term = zero;
             }
             else {
-                result = ctx.m_arith.mk_ge(t, s);
-            }
-            return result;
+                term = m_arith.mk_add(sum.size(), sum.c_ptr());
+            }                           
+            break;
         }
-    public:
-        pareto(context& ctx):ctx(ctx),m(ctx.m) {}
+        }
+        VERIFY(mdl->eval(term, val) && is_numeral(val, r));
+    }        
 
 
-        virtual void yield(model_ref& mdl) {
-            ctx.m_model = mdl;
-            ctx.update_lower(true);
-            for (unsigned i = 0; i < ctx.m_objectives.size(); ++i) {
-                objective const& obj = ctx.m_objectives[i];
-                switch(obj.m_type) {
-                case O_MINIMIZE:
-                case O_MAXIMIZE:
-                    ctx.m_optsmt.update_upper(obj.m_index, ctx.m_optsmt.get_lower(obj.m_index), true);
-                    break;
-                case O_MAXSMT: {
-                    rational r = ctx.m_maxsmts.find(obj.m_id)->get_lower();
-                    ctx.m_maxsmts.find(obj.m_id)->update_upper(r, true);
-                    break;
-                }
-                }
-            }
+    expr_ref context::mk_ge(expr* t, expr* s) {
+        expr_ref result(m);
+        if (m_bv.is_bv(t)) {
+            result = m_bv.mk_ule(s, t);
+        }
+        else {
+            result = m_arith.mk_ge(t, s);
+        }
+        return result;
+    }
 
-            IF_VERBOSE(1, ctx.display_assignment(verbose_stream()););
-        }
-        virtual unsigned num_objectives() {
-            return ctx.m_objectives.size();
-        }
-        virtual expr_ref mk_le(unsigned i, model_ref& mdl) {
-            objective const& obj = ctx.m_objectives[i];
-            expr_ref val(m), result(m), term(m);
-            mk_term_val(mdl, obj, term, val);
-            switch (obj.m_type) {
-            case O_MINIMIZE:
-                result = mk_ge(term, val);
-                break;
-            case O_MAXSMT:
-                result = mk_ge(term, val);
-                break;
-            case O_MAXIMIZE:
-                result = mk_ge(val, term);
-                break;
-            }
-            return result;
-        }
-        virtual expr_ref mk_ge(unsigned i, model_ref& mdl) {
-            objective const& obj = ctx.m_objectives[i];
-            expr_ref val(m), result(m), term(m);
-            mk_term_val(mdl, obj, term, val);
-            switch (obj.m_type) {
-            case O_MINIMIZE:
-                result = mk_ge(val, term);
-                break;
-            case O_MAXSMT:
-                result = mk_ge(val, term);
-                break;
-            case O_MAXIMIZE:
-                result = mk_ge(term, val);
-                break;
-            }
-            return result;
-        }
-
-        virtual expr_ref mk_gt(unsigned i, model_ref& mdl) {
-            expr_ref result = mk_le(i, mdl);
-            result = m.mk_not(result);
-            return result;
-        }
-    private:
-        void mk_term_val(model_ref& mdl, objective const& obj, expr_ref& term, expr_ref& val) {
-            rational r;
-            switch (obj.m_type) {
+    void context::yield() {
+        m_pareto->get_model(m_model);
+        update_lower(true);
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            switch(obj.m_type) {
             case O_MINIMIZE:
             case O_MAXIMIZE:
-                term = obj.m_term;
+                m_optsmt.update_upper(obj.m_index, m_optsmt.get_lower(obj.m_index), true);
                 break;
             case O_MAXSMT: {
-                unsigned sz = obj.m_terms.size();
-                expr_ref_vector sum(m);
-                expr_ref zero(m);
-                zero = ctx.m_arith.mk_numeral(rational(0), false);
-                for (unsigned i = 0; i < sz; ++i) {
-                    expr* t = obj.m_terms[i];
-                    rational const& w = obj.m_weights[i];
-                    sum.push_back(m.mk_ite(t, ctx.m_arith.mk_numeral(w, false), zero));                    
-                }
-                if (sum.empty()) {
-                    term = zero;
-                }
-                else {
-                    term = ctx.m_arith.mk_add(sum.size(), sum.c_ptr());
-                }                           
+                rational r = m_maxsmts.find(obj.m_id)->get_lower();
+                m_maxsmts.find(obj.m_id)->update_upper(r, true);
                 break;
             }
             }
-            VERIFY(mdl->eval(term, val) && ctx.is_numeral(val, r));
         }        
+    }
+
 
 #if 0
         // use PB
@@ -415,13 +413,22 @@ namespace opt {
             }
         }
 #endif
-    };
 
     lbool context::execute_pareto() {
-        pareto cb(*this);
-        m_pareto = alloc(gia_pareto, m, cb, m_solver.get(), m_params);
-        return (*(m_pareto.get()))();
-        // NB. stack reference cb is out of scope after return.
+        if (!m_pareto) {
+            m_pareto = alloc(gia_pareto, m, *this, m_solver.get(), m_params);
+        }
+        lbool is_sat = (*(m_pareto.get()))();
+        if (is_sat != l_true) {
+            m_pareto = 0;
+        }
+        if (is_sat == l_true) {
+            yield();
+        }
+        else {
+            m_solver->pop(1);
+        }
+        return is_sat;
         // NB. fix race condition for set_cancel
     }
 

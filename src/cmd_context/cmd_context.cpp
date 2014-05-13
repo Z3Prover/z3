@@ -1359,6 +1359,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     lbool r;
 
     if (m_opt && !m_opt->empty()) {
+        bool was_pareto = false;
         m_check_sat_result = get_opt();
         cancel_eh<opt_wrapper> eh(*get_opt());
         scoped_ctrl_c ctrlc(eh);
@@ -1368,6 +1369,11 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         get_opt()->set_hard_constraints(cnstr);
         try {
             r = get_opt()->optimize();
+            while (r == l_true && get_opt()->is_pareto()) {
+                was_pareto = true;
+                get_opt()->display_assignment(regular_stream());
+                r = get_opt()->optimize();
+            }
         }
         catch (z3_error & ex) {
             throw ex;
@@ -1375,8 +1381,11 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         catch (z3_exception & ex) {
             throw cmd_exception(ex.msg());
         }
+        if (was_pareto && r == l_false) {
+            r = l_true;
+        }
         get_opt()->set_status(r);
-        if (r != l_false) {
+        if (r != l_false && !was_pareto) {
             get_opt()->display_assignment(regular_stream());
         }
     }

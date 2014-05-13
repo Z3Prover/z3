@@ -133,9 +133,11 @@ public:
 
     class scoped_push {
         solver& s;
+        bool    m_nopop;
     public:
-        scoped_push(solver& s):s(s) { s.push();  }
-            ~scoped_push() { s.pop(1); }
+        scoped_push(solver& s):s(s), m_nopop(false) { s.push();  }
+        ~scoped_push() { if (!m_nopop) s.pop(1); }
+        void disable_pop() { m_nopop = true; }
     };
 
 };

@@ -266,6 +266,16 @@ public:
             cmd_context::scoped_watch sw(ctx);
             try {
                 r = opt.optimize();
+                if (r == l_true && opt.is_pareto()) {
+                    while (r == l_true) {
+                        display_result(ctx);
+                        r = opt.optimize();
+                    }
+                    if (p.get_bool("print_statistics", false)) {
+                        display_statistics(ctx);
+                    }
+                    return;
+                }
             }
             catch (z3_error& ex) {
                 ctx.regular_stream() << "(error: " << ex.msg() << "\")" << std::endl;

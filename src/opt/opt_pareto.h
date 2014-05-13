@@ -27,7 +27,6 @@ namespace opt {
    
     class pareto_callback {
     public:
-        virtual void yield(model_ref& model) = 0;
         virtual unsigned num_objectives() = 0;
         virtual expr_ref mk_gt(unsigned i, model_ref& model) = 0;
         virtual expr_ref mk_ge(unsigned i, model_ref& model) = 0;
@@ -40,6 +39,7 @@ namespace opt {
         volatile bool    m_cancel;
         ref<solver>      m_solver;
         params_ref       m_params;
+        model_ref        m_model;
     public:
         pareto_base(
             ast_manager & m, 
@@ -72,11 +72,15 @@ namespace opt {
         }
         virtual lbool operator()() = 0;
 
+        virtual void get_model(model_ref& mdl) {
+            mdl = m_model;
+        }
+
     protected:
 
-        void mk_dominates(model_ref& model);
+        void mk_dominates();
 
-        void mk_not_dominated_by(model_ref& model);            
+        void mk_not_dominated_by();            
     };
     class gia_pareto : public pareto_base {
     public:
