@@ -607,7 +607,29 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return res;
   }
 
+  ast distribute_coeff(const ast &coeff, const ast &s){
+    if(sym(s) == sum){
+      if(sym(arg(s,2)) == sum)
+	return make(sum,
+		    distribute_coeff(coeff,arg(s,0)),
+		    make_int(rational(1)),
+		    distribute_coeff(make(Times,coeff,arg(s,1)), arg(s,2)));
+      else
+	return make(sum,
+		    distribute_coeff(coeff,arg(s,0)),
+		    make(Times,coeff,arg(s,1)),
+		    arg(s,2));
+    }
+    if(op(s) == Leq && arg(s,1) == make_int(rational(0)) && arg(s,2) == make_int(rational(0)))
+      return s;
+    return make(sum,make(Leq,make_int(rational(0)),make_int(rational(0))),coeff,s);
+  }
+
   ast simplify_sum(std::vector<ast> &args){
+    if(args[1] != make_int(rational(1))){
+      if(sym(args[2]) == sum)
+	return make(sum,args[0],make_int(rational(1)),distribute_coeff(args[1],args[2]));
+    }
     ast Aproves = mk_true(), Bproves = mk_true();
     ast ineq = destruct_cond_ineq(args[0],Aproves,Bproves);
     if(!is_normal_ineq(ineq)) throw cannot_simplify();
