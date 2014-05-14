@@ -51,7 +51,9 @@ namespace opt {
         expr_ref_vector m_fmls;
         atom2bool_var   m_map;
         model_ref       m_model;
+        model_converter_ref m_mc;   
         tactic_ref      m_preprocess;
+        statistics      m_stats;
     public:
         inc_sat_solver(ast_manager& m, params_ref const& p):
             m(m), m_solver(p,0), m_params(p),
@@ -68,9 +70,10 @@ namespace opt {
         virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
             SASSERT(num_assumptions == 0);
 
+            m_solver.pop(m_solver.scope_lvl());        
             goal_ref_buffer result;
-            model_converter_ref mc;   // TODO make model convertion work between checks
             proof_converter_ref pc;   
+            model_converter_ref mc;   
             expr_dependency_ref core(m);
          
             if (!m_fmls.empty()) {                  
@@ -84,8 +87,10 @@ namespace opt {
                 }
                 catch (tactic_exception &) {
                     IF_VERBOSE(0, verbose_stream() << "exception in tactic\n";);
+                    m_preprocess->collect_statistics(m_stats);
                     return l_undef;                    
                 }
+                m_mc = concat(m_mc.get(), mc.get());
                 // TODO: check that result is a singleton.
                 if (result.size() != 1) {
                     IF_VERBOSE(0, verbose_stream() << "size of result is not 1, it is: " << result.size() << "\n";);
@@ -114,13 +119,13 @@ namespace opt {
                         break;
                     }
                 }
-                TRACE("sat_tactic", model_v2_pp(tout, *md););
                 m_model = md;
-                if (mc) {
-                    (*mc)(m_model);
+                if (m_mc) {
+                    (*m_mc)(m_model);
                 }
+                // IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *(m_model.get()), 0););
             }
-            m_solver.pop(m_solver.scope_lvl());        
+            m_solver.collect_statistics(m_stats);
             return r;
         }
         virtual void set_cancel(bool f) {
@@ -157,7 +162,9 @@ namespace opt {
             m_params = p;
         }
         
-        virtual void collect_statistics(statistics & st) const {}
+        virtual void collect_statistics(statistics & st) const {
+            st.copy(m_stats);
+        }
         virtual void get_unsat_core(ptr_vector<expr> & r) {
             UNREACHABLE();
         }
