@@ -31,7 +31,7 @@ Notes:
 
 #define MEMLIMIT 300
 
-static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
+tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
     params_ref solve_eq_p;
     // conservative guassian elimination. 
@@ -53,16 +53,18 @@ static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
     return
         and_then(
-            and_then(mk_simplify_tactic(m),
-                     mk_propagate_values_tactic(m),
-                     using_params(mk_solve_eqs_tactic(m), solve_eq_p),
-                     mk_elim_uncnstr_tactic(m),
-                     if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
-                     using_params(mk_simplify_tactic(m), simp2_p)),
+            mk_simplify_tactic(m),
+            mk_propagate_values_tactic(m),
+            using_params(mk_solve_eqs_tactic(m), solve_eq_p),
+            mk_elim_uncnstr_tactic(m),
+            if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
+            using_params(mk_simplify_tactic(m), simp2_p),
+            //
             // Z3 can solve a couple of extra benchmarks by using hoist_mul
             // but the timeout in SMT-COMP is too small. 
             // Moreover, it impacted negatively some easy benchmarks.
             // We should decide later, if we keep it or not.
+            //
             using_params(mk_simplify_tactic(m), hoist_p),
             mk_max_bv_sharing_tactic(m));
 }

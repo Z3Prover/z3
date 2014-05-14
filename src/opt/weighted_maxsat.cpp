@@ -27,6 +27,7 @@ Notes:
 #include "pb_decl_plugin.h"
 #include "uint_set.h"
 #include "pb_preprocess_tactic.h"
+#include "aig_tactic.h"
 #include "simplify_tactic.h"
 #include "tactical.h"
 #include "tactic.h"
@@ -34,6 +35,7 @@ Notes:
 #include "pb_sls.h"
 #include "qfbv_tactic.h"
 #include "card2bv_tactic.h"
+#include "bit_blaster_tactic.h"
 #include "tactic2solver.h"
 #include "nnf_tactic.h"
 #include "opt_sls_solver.h"
@@ -54,13 +56,19 @@ namespace opt {
         model_converter_ref m_mc;   
         tactic_ref      m_preprocess;
         statistics      m_stats;
+        app_ref         m_soft;
     public:
-        inc_sat_solver(ast_manager& m, params_ref const& p):
+        inc_sat_solver(ast_manager& m, params_ref const& p, expr_ref_vector const& soft):
             m(m), m_solver(p,0), m_params(p),
-            m_fmls(m), m_map(m) {
+            m_fmls(m), m_map(m), m_soft(m) {
             tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
-            tactic_ref bv2sat = mk_qfbv_tactic(m, p, mk_skip_tactic(), mk_fail_tactic());
-            m_preprocess = and_then(pb2bv.get(), bv2sat.get());
+            tactic_ref preamble_st = mk_qfbv_preamble(m, m_params);
+            m_preprocess = and_then(pb2bv.get(), preamble_st.get(), mk_bit_blaster_tactic(m), mk_aig_tactic());
+            
+            ptr_vector<sort> sorts;
+            sorts.resize(soft.size(), m.mk_bool_sort());
+            func_decl_ref fn(m.mk_func_decl(symbol("Soft"), sorts.size(), sorts.c_ptr(), m.mk_bool_sort()), m);
+            m_soft = m.mk_app(fn, soft.size(), soft.c_ptr());
         }
 
         virtual ~inc_sat_solver() {}
@@ -81,12 +89,15 @@ namespace opt {
                 for (unsigned i = 0; i < m_fmls.size(); ++i) {
                     g->assert_expr(m_fmls[i].get());
                 }
+                g->assert_expr(m_soft);
+                TRACE("opt", g->display(tout););
                 m_fmls.reset();
-                try {
+                try {                   
                     (*m_preprocess)(g, result, mc, pc, core);
+                    TRACE("opt", result[0]->display(tout););
                 }
-                catch (tactic_exception &) {
-                    IF_VERBOSE(0, verbose_stream() << "exception in tactic\n";);
+                catch (tactic_exception & ex) {
+                    IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
                     m_preprocess->collect_statistics(m_stats);
                     return l_undef;                    
                 }
@@ -96,7 +107,15 @@ namespace opt {
                     IF_VERBOSE(0, verbose_stream() << "size of result is not 1, it is: " << result.size() << "\n";);
                     return l_undef;
                 }
-                m_goal2sat(*result[0], m_params, m_solver, m_map);
+                g = result[0];
+                for (unsigned i = 0; i < g->size(); ++i) {
+                    expr* f = g->form(i);
+                    if (is_app_of(f, m_soft->get_decl())) {
+                        g->update(i, m.mk_true());
+                    }
+                }
+                TRACE("opt", g->display(tout););
+                m_goal2sat(*g, m_params, m_solver, m_map);
             }
             
             lbool r = m_solver.check();
@@ -312,7 +331,7 @@ namespace opt {
                 tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
                 solver* sat_solver = mk_tactic2solver(m, tac.get(), m_params);
 #else
-                solver* sat_solver = alloc(inc_sat_solver, m, m_params);
+                solver* sat_solver = alloc(inc_sat_solver, m, m_params, m_soft);
 #endif
                 unsigned sz = s().get_num_assertions();
                 for (unsigned i = 0; i < sz; ++i) {
