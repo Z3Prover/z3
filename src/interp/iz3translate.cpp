@@ -1364,8 +1364,13 @@ public:
     int nprems = prems.size();
     std::vector<ast> npcons(nprems);
     hash_map<ast,ast> pain_map; // not needed
-    for(int i = 0; i < nprems; i++)
+    for(int i = 0; i < nprems; i++){
       npcons[i] = painfully_normalize_ineq(conc(prems[i]),pain_map);
+      if(op(npcons[i]) == Lt){
+	ast constval = z3_simplify(make(Sub,arg(npcons[i],1),make_int(rational(1))));
+	npcons[i] = make(Leq,arg(npcons[i],0),constval);
+      }
+    }
     ast ncon = painfully_normalize_ineq(mk_not(con),pain_map);
     npcons.push_back(ncon);
 
