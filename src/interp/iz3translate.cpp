@@ -1581,6 +1581,12 @@ public:
     return res;
   }
 
+  ast ArithMysteryRule(const ast &con, const std::vector<ast> &prems, const std::vector<Iproof::node> &args){
+    // Hope for the best!
+    Iproof::node guess = reconstruct_farkas(prems,args,con);
+    return guess;
+  }
+
   struct CannotCombineEqPropagate {};
 
   void CombineEqPropagateRec(const ast &proof, std::vector<ast> &prems, std::vector<Iproof::node> &args, ast &eqprem){
@@ -1890,6 +1896,14 @@ public:
 	    for(unsigned i = 0; i < nprems; i++)
 	      prems[i] = prem(proof,i);
 	    res = EqPropagate(con,prems,args);
+	    break;
+	  }
+	  case ArithMysteryKind: {
+	    // Z3 hasn't told us what kind of lemma this is -- maybe we can guess
+	    std::vector<ast> prems(nprems);
+	    for(unsigned i = 0; i < nprems; i++)
+	      prems[i] = prem(proof,i);
+	    res = ArithMysteryRule(con,prems,args);
 	    break;
 	  }
 	  default:

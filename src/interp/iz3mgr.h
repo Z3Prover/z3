@@ -387,10 +387,13 @@ class iz3mgr  {
     return UnknownTheory;
   }
 
-  enum lemma_kind {FarkasKind,Leq2EqKind,Eq2LeqKind,GCDTestKind,AssignBoundsKind,EqPropagateKind,UnknownKind};
+  enum lemma_kind {FarkasKind,Leq2EqKind,Eq2LeqKind,GCDTestKind,AssignBoundsKind,EqPropagateKind,ArithMysteryKind,UnknownKind};
 
   lemma_kind get_theory_lemma_kind(const ast &proof){
     symb s = sym(proof);
+    if(s->get_num_parameters() < 2) {
+      return ArithMysteryKind;  // Bad -- Z3 hasn't told us
+    }
     ::symbol p0;
     bool ok = s->get_parameter(1).is_symbol(p0);
     if(!ok) return UnknownKind;
