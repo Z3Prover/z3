@@ -37,9 +37,145 @@ Notes:
 #include "tactic2solver.h"
 #include "nnf_tactic.h"
 #include "opt_sls_solver.h"
+#include "sat_solver.h"
+#include "goal2sat.h"
 
 namespace opt {
 
+    // incremental SAT solver.
+    class inc_sat_solver : public solver {
+        ast_manager&    m;
+        sat::solver     m_solver;
+        goal2sat        m_goal2sat;
+        params_ref      m_params;
+        expr_ref_vector m_fmls;
+        atom2bool_var   m_map;
+        model_ref       m_model;
+        tactic_ref      m_preprocess;
+    public:
+        inc_sat_solver(ast_manager& m, params_ref const& p):
+            m(m), m_solver(p,0), m_params(p),
+            m_fmls(m), m_map(m) {
+            tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
+            tactic_ref bv2sat = mk_qfbv_tactic(m, p, mk_skip_tactic(), mk_fail_tactic());
+            m_preprocess = and_then(pb2bv.get(), bv2sat.get());
+        }
+
+        virtual ~inc_sat_solver() {}
+
+        virtual void set_progress_callback(progress_callback * callback) {
+        }
+        virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
+            SASSERT(num_assumptions == 0);
+
+            goal_ref_buffer result;
+            model_converter_ref mc;   // TODO make model convertion work between checks
+            proof_converter_ref pc;   
+            expr_dependency_ref core(m);
+         
+            if (!m_fmls.empty()) {                  
+                goal_ref g = alloc(goal, m);
+                for (unsigned i = 0; i < m_fmls.size(); ++i) {
+                    g->assert_expr(m_fmls[i].get());
+                }
+                m_fmls.reset();
+                try {
+                    (*m_preprocess)(g, result, mc, pc, core);
+                }
+                catch (tactic_exception &) {
+                    IF_VERBOSE(0, verbose_stream() << "exception in tactic\n";);
+                    return l_undef;                    
+                }
+                // TODO: check that result is a singleton.
+                if (result.size() != 1) {
+                    IF_VERBOSE(0, verbose_stream() << "size of result is not 1, it is: " << result.size() << "\n";);
+                    return l_undef;
+                }
+                m_goal2sat(*result[0], m_params, m_solver, m_map);
+            }
+            
+            lbool r = m_solver.check();
+            if (r == l_true) {
+                model_ref md = alloc(model, m);
+                sat::model const & ll_m = m_solver.get_model();
+                atom2bool_var::iterator it  = m_map.begin();
+                atom2bool_var::iterator end = m_map.end();
+                for (; it != end; ++it) {
+                    expr * n   = it->m_key;
+                    sat::bool_var v = it->m_value;
+                    switch (sat::value_at(v, ll_m)) {
+                    case l_true: 
+                        md->register_decl(to_app(n)->get_decl(), m.mk_true()); 
+                        break;
+                    case l_false:
+                        md->register_decl(to_app(n)->get_decl(), m.mk_false());
+                        break;
+                    default:
+                        break;
+                    }
+                }
+                TRACE("sat_tactic", model_v2_pp(tout, *md););
+                m_model = md;
+                if (mc) {
+                    (*mc)(m_model);
+                }
+            }
+            m_solver.pop(m_solver.scope_lvl());        
+            return r;
+        }
+        virtual void set_cancel(bool f) {
+            m_goal2sat.set_cancel(f);
+            m_solver.set_cancel(f);
+            m_preprocess->set_cancel(f);
+        }
+        virtual void push() {
+            IF_VERBOSE(0, verbose_stream() << "push ignored\n";);
+        }
+        virtual void pop(unsigned n) {
+            IF_VERBOSE(0, verbose_stream() << "pop ignored\n";);
+        }
+        virtual unsigned get_scope_level() const {
+            return 0;
+        }
+        virtual void assert_expr(expr * t, expr * a) {
+            if (a) {
+                m_fmls.push_back(m.mk_implies(a, t));
+            }
+            else {
+                m_fmls.push_back(t);
+            }
+        }
+        virtual void assert_expr(expr * t) {
+            m_fmls.push_back(t);
+        }
+        virtual void set_produce_models(bool f) {}
+        virtual void collect_param_descrs(param_descrs & r) {
+            goal2sat::collect_param_descrs(r);
+            sat::solver::collect_param_descrs(r);
+        }
+        virtual void updt_params(params_ref const & p) {
+            m_params = p;
+        }
+        
+        virtual void collect_statistics(statistics & st) const {}
+        virtual void get_unsat_core(ptr_vector<expr> & r) {
+            UNREACHABLE();
+        }
+        virtual void get_model(model_ref & m) {
+            m = m_model;
+        }
+        virtual proof * get_proof() {
+            UNREACHABLE();
+            return 0;
+        }
+        virtual std::string reason_unknown() const {
+            return "no reason given";
+        }
+        virtual void get_labels(svector<symbol> & r) {
+            UNREACHABLE();
+        }
+
+    };
 
     // ---------------------------------------------
     // base class with common utilities used
@@ -163,10 +299,14 @@ namespace opt {
 
         void enable_bvsat() {
             if (m_enable_sat && !m_sat_enabled && probe_bv()) {
+#if 1
                 tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
                 tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
                 tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
                 solver* sat_solver = mk_tactic2solver(m, tac.get(), m_params);
+#else
+                solver* sat_solver = alloc(inc_sat_solver, m, m_params);
+#endif
                 unsigned sz = s().get_num_assertions();
                 for (unsigned i = 0; i < sz; ++i) {
                     sat_solver->assert_expr(s().get_assertion(i));

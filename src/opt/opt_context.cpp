@@ -802,12 +802,12 @@ namespace opt {
     }
 
     void context::display(std::ostream& out) {
-        
+        display_assignment(out);
     }
 
     void context::display_assignment(std::ostream& out) {
-        for (unsigned i = 0; i < m_objectives.size(); ++i) {
-            objective const& obj = m_objectives[i];
+        for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
+            objective const& obj = m_scoped_state.m_objectives[i];
             display_objective(out, obj);
             if (get_lower_as_num(i) != get_upper_as_num(i)) {
                 out << " |-> [" << get_lower(i) << ":" << get_upper(i) << "]\n";
