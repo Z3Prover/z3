@@ -125,6 +125,38 @@ namespace opt {
             }
         }
 
+        static expr_ref soft2bv(expr_ref_vector const& soft, vector<rational> const& weights) {
+            ast_manager& m = soft.get_manager();
+            pb::card_pb_rewriter pb2bv(m);
+            rational upper(1);
+            expr_ref objective(m);
+            for (unsigned i = 0; i < weights.size(); ++i) {
+                upper += weights[i];
+            }
+            expr_ref zero(m), tmp(m);
+            bv_util bv(m);
+            expr_ref_vector es(m);
+            rational num = numerator(upper);
+            rational den = denominator(upper);
+            rational maxval = num*den;
+            unsigned bv_size = maxval.get_num_bits();
+            zero = bv.mk_numeral(rational(0), bv_size);
+            for (unsigned i = 0; i < soft.size(); ++i) {
+                pb2bv(soft[i], tmp);
+                es.push_back(m.mk_ite(tmp, bv.mk_numeral(den*weights[i], bv_size), zero));
+            }
+            if (es.empty()) {
+                objective = bv.mk_numeral(0, bv_size);
+            }
+            else {
+                objective = es[0].get();
+                for (unsigned i = 1; i < es.size(); ++i) {
+                    objective = bv.mk_bv_add(objective, es[i].get());
+                }
+            }
+            return objective;
+        }
+
     protected:
         typedef bvsls_opt_engine::optimization_result opt_result;
 
@@ -143,37 +175,9 @@ namespace opt {
             m_solver->pop(n);
         }
 
+
     private:
         // convert soft constraints to bit-vector objective.
-        expr_ref soft2bv() {
-            rational upper(1);
-            expr_ref objective(m);
-            for (unsigned i = 0; i < m_weights.size(); ++i) {
-                upper += m_weights[i];
-            }
-            expr_ref zero(m), tmp(m);
-            bv_util bv(m);
-            expr_ref_vector es(m);
-            rational num = numerator(upper);
-            rational den = denominator(upper);
-            rational maxval = num*den;
-            unsigned bv_size = maxval.get_num_bits();
-            zero = bv.mk_numeral(rational(0), bv_size);
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_pb2bv(m_soft[i].get(), tmp);
-                es.push_back(m.mk_ite(tmp, bv.mk_numeral(den*m_weights[i], bv_size), zero));
-            }
-            if (es.empty()) {
-                objective = bv.mk_numeral(0, bv_size);
-            }
-            else {
-                objective = es[0].get();
-                for (unsigned i = 1; i < es.size(); ++i) {
-                    objective = bv.mk_bv_add(objective, es[i].get());
-                }
-            }
-            return objective;
-        }
 
         void assertions2sls() {
             expr_ref tmp(m);
@@ -224,7 +228,7 @@ namespace opt {
                 m_bvsls = alloc(bvsls_opt_engine, m, m_params);
             }
             assertions2sls();
-            expr_ref objective = soft2bv();
+            expr_ref objective = soft2bv(m_soft, m_weights);
             opt_result res(m);
             res.is_sat = l_undef;
             try {

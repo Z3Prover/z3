@@ -26,23 +26,38 @@ Notes:
 #include "opt_params.hpp"
 #include "pb_decl_plugin.h"
 #include "uint_set.h"
-#include "pb_preprocess_tactic.h"
-#include "aig_tactic.h"
-#include "simplify_tactic.h"
 #include "tactical.h"
 #include "tactic.h"
 #include "model_smt2_pp.h"
 #include "pb_sls.h"
+#include "tactic2solver.h"
+#include "pb_preprocess_tactic.h"
+#include "aig_tactic.h"
+#include "simplify_tactic.h"
+#include "nnf_tactic.h"
+#include "propagate_values_tactic.h"
+#include "max_bv_sharing_tactic.h"
 #include "qfbv_tactic.h"
 #include "card2bv_tactic.h"
 #include "bit_blaster_tactic.h"
-#include "tactic2solver.h"
-#include "nnf_tactic.h"
+
 #include "opt_sls_solver.h"
 #include "sat_solver.h"
 #include "goal2sat.h"
 
 namespace opt {
+
+    static app_ref mk_bv_vec(ast_manager& m, sort* s) {
+        bv_util bv(m);
+        expr_ref_vector vars(m);
+        unsigned sz = bv.get_bv_size(s);
+        for (unsigned i = 0; i < sz; ++i) {
+            std::stringstream strm;
+            strm << "soft_v" << i;
+            vars.push_back(m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort()));
+        }
+        return app_ref(bv.mk_bv(vars.size(), vars.c_ptr()), m);
+    }
 
     // incremental SAT solver.
     class inc_sat_solver : public solver {
@@ -58,17 +73,29 @@ namespace opt {
         statistics      m_stats;
         app_ref         m_soft;
     public:
-        inc_sat_solver(ast_manager& m, params_ref const& p, expr_ref_vector const& soft):
+        inc_sat_solver(ast_manager& m, params_ref const& p, expr_ref_vector const& soft, vector<rational> const& weights):
             m(m), m_solver(p,0), m_params(p),
             m_fmls(m), m_map(m), m_soft(m) {
-            tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
-            tactic_ref preamble_st = mk_qfbv_preamble(m, m_params);
-            m_preprocess = and_then(pb2bv.get(), preamble_st.get(), mk_bit_blaster_tactic(m), mk_aig_tactic());
+            // m_params.set_bool("elim_vars", false);
+            m_solver.updt_params(m_params);
+            params_ref simp2_p = p;
+            simp2_p.set_bool("som", true);
+            simp2_p.set_bool("pull_cheap_ite", true);
+            simp2_p.set_bool("push_ite_bv", false);
+            simp2_p.set_bool("local_ctx", true);
+            simp2_p.set_uint("local_ctx_limit", 10000000);
+            simp2_p.set_bool("flat", true); // required by som
+            simp2_p.set_bool("hoist_mul", false); // required by som
+            m_preprocess = 
+                and_then(mk_card2bv_tactic(m, m_params),
+                         mk_simplify_tactic(m),
+                         mk_propagate_values_tactic(m),
+                         using_params(mk_simplify_tactic(m), simp2_p),
+                         mk_max_bv_sharing_tactic(m),
+                         mk_bit_blaster_tactic(m), 
+                         mk_aig_tactic());
+
             
-            ptr_vector<sort> sorts;
-            sorts.resize(soft.size(), m.mk_bool_sort());
-            func_decl_ref fn(m.mk_func_decl(symbol("Soft"), sorts.size(), sorts.c_ptr(), m.mk_bool_sort()), m);
-            m_soft = m.mk_app(fn, soft.size(), soft.c_ptr());
         }
 
         virtual ~inc_sat_solver() {}
@@ -89,7 +116,7 @@ namespace opt {
                 for (unsigned i = 0; i < m_fmls.size(); ++i) {
                     g->assert_expr(m_fmls[i].get());
                 }
-                g->assert_expr(m_soft);
+                //g->assert_expr(m_soft);
                 TRACE("opt", g->display(tout););
                 m_fmls.reset();
                 try {                   
@@ -102,18 +129,11 @@ namespace opt {
                     return l_undef;                    
                 }
                 m_mc = concat(m_mc.get(), mc.get());
-                // TODO: check that result is a singleton.
                 if (result.size() != 1) {
                     IF_VERBOSE(0, verbose_stream() << "size of result is not 1, it is: " << result.size() << "\n";);
                     return l_undef;
                 }
                 g = result[0];
-                for (unsigned i = 0; i < g->size(); ++i) {
-                    expr* f = g->form(i);
-                    if (is_app_of(f, m_soft->get_decl())) {
-                        g->update(i, m.mk_true());
-                    }
-                }
                 TRACE("opt", g->display(tout););
                 m_goal2sat(*g, m_params, m_solver, m_map);
             }
@@ -126,6 +146,7 @@ namespace opt {
                 atom2bool_var::iterator end = m_map.end();
                 for (; it != end; ++it) {
                     expr * n   = it->m_key;
+                    if (is_app(n) && to_app(n)->get_num_args() > 0) continue;
                     sat::bool_var v = it->m_value;
                     switch (sat::value_at(v, ll_m)) {
                     case l_true: 
@@ -179,6 +200,8 @@ namespace opt {
         }
         virtual void updt_params(params_ref const & p) {
             m_params = p;
+            //m_params.set_bool("elim_vars", false);
+            m_solver.updt_params(m_params);
         }
         
         virtual void collect_statistics(statistics & st) const {
@@ -325,13 +348,13 @@ namespace opt {
 
         void enable_bvsat() {
             if (m_enable_sat && !m_sat_enabled && probe_bv()) {
-#if 1
+#if 0
                 tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
                 tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
                 tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
                 solver* sat_solver = mk_tactic2solver(m, tac.get(), m_params);
 #else
-                solver* sat_solver = alloc(inc_sat_solver, m, m_params, m_soft);
+                solver* sat_solver = alloc(inc_sat_solver, m, m_params, m_soft, m_weights);
 #endif
                 unsigned sz = s().get_num_assertions();
                 for (unsigned i = 0; i < sz; ++i) {
@@ -759,6 +782,69 @@ namespace opt {
                   }
                   );
             pb_util u(m);
+            bv_util bv(m);
+            expr_ref bsoft = sls_solver::soft2bv(m_soft, m_weights);
+            app_ref var(m);
+            expr_ref fml(m), val(m), soft(m);
+            app_ref b(m);
+            sort* srt = m.get_sort(bsoft);
+            var = mk_bv_vec(m, srt);
+            fml = m.mk_eq(bsoft, var);
+            ptr_vector<sort> sorts;
+            sorts.resize(var->get_num_args(), m.mk_bool_sort());
+            func_decl_ref fn(m.mk_func_decl(symbol("Soft"), sorts.size(), sorts.c_ptr(), m.mk_bool_sort()), m);
+            soft = m.mk_app(fn, var->get_num_args(), var->get_args());
+            s().assert_expr(fml);
+            s().assert_expr(soft);
+            expr_ref_vector nsoft(m);
+            init();            
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                nsoft.push_back(mk_not(m_soft[i].get()));
+            }
+            fml = m.mk_not(bv.mk_ule(bv.mk_numeral(m_upper, m.get_sort(var)), var));
+            s().assert_expr(fml);
+
+            lbool is_sat = s().check_sat(0,0);
+            while (l_true == is_sat) {
+                TRACE("opt", s().display(tout<<"looping\n"););
+                m_model->eval(var, val);
+                unsigned bv_size;
+                if (bv.is_numeral(val, m_upper, bv_size)) {
+                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb solve with upper bound: " << m_upper << ")\n";);
+                    TRACE("opt", tout << "new upper: " << m_upper << "\n";);
+                
+                    fml = m.mk_not(bv.mk_ule(bv.mk_numeral(m_upper, m.get_sort(var)), var));
+                    // fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
+                    // solver::scoped_push _scope2(s());
+                    s().assert_expr(fml);
+                }
+                is_sat = s().check_sat(0,0);
+                if (m_cancel) {
+                    is_sat = l_undef;
+                }
+                if (is_sat == l_true) {
+                    s().get_model(m_model);
+                }
+            }            
+            if (is_sat == l_false) {
+                is_sat = l_true;
+                m_lower = m_upper;
+            }
+            TRACE("opt", tout << "lower: " << m_lower << "\n";);
+            return is_sat;
+        }
+
+#if 0
+        lbool operator()() {
+            enable_bvsat();
+            enable_sls();
+
+            TRACE("opt", s().display(tout); tout << "\n";
+                  for (unsigned i = 0; i < m_soft.size(); ++i) {
+                      tout << mk_pp(m_soft[i].get(), m) << " " << m_weights[i] << "\n";
+                  }
+                  );
+            pb_util u(m);
             expr_ref fml(m), val(m);
             app_ref b(m);
             expr_ref_vector nsoft(m);
@@ -799,6 +885,7 @@ namespace opt {
             TRACE("opt", tout << "lower: " << m_lower << "\n";);
             return is_sat;
         }
+#endif
     };
 
     // ------------------------------------------------------

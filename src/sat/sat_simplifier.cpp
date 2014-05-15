@@ -1421,6 +1421,8 @@ namespace sat {
     };
 
     void simplifier::elim_vars() {
+        if (!m_elim_vars) return;
+        
         elim_var_report rpt(*this);
         bool_var_vector vars;
         order_vars_for_elim(vars);
@@ -1460,6 +1462,7 @@ namespace sat {
         m_res_cls_cutoff2         = p.resolution_cls_cutoff2();
         m_subsumption             = p.subsumption();
         m_subsumption_limit       = p.subsumption_limit();
+        m_elim_vars               = p.elim_vars();
     }
 
     void simplifier::collect_param_descrs(param_descrs & r) {
