@@ -45,6 +45,9 @@ Notes:
 #include "sat_solver.h"
 #include "goal2sat.h"
 
+
+#define _INC_SAT 0
+
 namespace opt {
 
     static app_ref mk_bv_vec(ast_manager& m, sort* s) {
@@ -76,7 +79,7 @@ namespace opt {
         inc_sat_solver(ast_manager& m, params_ref const& p, expr_ref_vector const& soft, vector<rational> const& weights):
             m(m), m_solver(p,0), m_params(p),
             m_fmls(m), m_map(m), m_soft(m) {
-            // m_params.set_bool("elim_vars", false);
+            m_params.set_bool("elim_vars", false);
             m_solver.updt_params(m_params);
             params_ref simp2_p = p;
             simp2_p.set_bool("som", true);
@@ -116,7 +119,6 @@ namespace opt {
                 for (unsigned i = 0; i < m_fmls.size(); ++i) {
                     g->assert_expr(m_fmls[i].get());
                 }
-                //g->assert_expr(m_soft);
                 TRACE("opt", g->display(tout););
                 m_fmls.reset();
                 try {                   
@@ -146,23 +148,29 @@ namespace opt {
                 atom2bool_var::iterator end = m_map.end();
                 for (; it != end; ++it) {
                     expr * n   = it->m_key;
-                    if (is_app(n) && to_app(n)->get_num_args() > 0) continue;
+                    if (is_app(n) && to_app(n)->get_num_args() > 0) {
+                        IF_VERBOSE(0, verbose_stream() << "skip: " << mk_pp(n, m) << "\n";);
+                        continue;
+                    }
                     sat::bool_var v = it->m_value;
                     switch (sat::value_at(v, ll_m)) {
                     case l_true: 
+                        IF_VERBOSE(0, verbose_stream() << "true: " << mk_pp(n, m) << "\n";);
                         md->register_decl(to_app(n)->get_decl(), m.mk_true()); 
                         break;
                     case l_false:
+                        IF_VERBOSE(0, verbose_stream() << "false: " << mk_pp(n, m) << "\n";);
                         md->register_decl(to_app(n)->get_decl(), m.mk_false());
                         break;
                     default:
+                        IF_VERBOSE(0, verbose_stream() << "undef: " << mk_pp(n, m) << "\n";);
                         break;
                     }
                 }
                 m_model = md;
-                if (m_mc) {
-                    (*m_mc)(m_model);
-                }
+                //if (m_mc) {
+                //    (*m_mc)(m_model);
+                //}
                 // IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *(m_model.get()), 0););
             }
             m_solver.collect_statistics(m_stats);
@@ -200,7 +208,7 @@ namespace opt {
         }
         virtual void updt_params(params_ref const & p) {
             m_params = p;
-            //m_params.set_bool("elim_vars", false);
+            m_params.set_bool("elim_vars", false);
             m_solver.updt_params(m_params);
         }
         
@@ -348,13 +356,13 @@ namespace opt {
 
         void enable_bvsat() {
             if (m_enable_sat && !m_sat_enabled && probe_bv()) {
-#if 0
+#if _INC_SAT
+                solver* sat_solver = alloc(inc_sat_solver, m, m_params, m_soft, m_weights);
+#else
                 tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
                 tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
                 tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
                 solver* sat_solver = mk_tactic2solver(m, tac.get(), m_params);
-#else
-                solver* sat_solver = alloc(inc_sat_solver, m, m_params, m_soft, m_weights);
 #endif
                 unsigned sz = s().get_num_assertions();
                 for (unsigned i = 0; i < sz; ++i) {
@@ -772,6 +780,7 @@ namespace opt {
         
         virtual ~pbmax() {}
 
+#if _INC_SAT
         lbool operator()() {
             enable_bvsat();
             enable_sls();
@@ -806,18 +815,21 @@ namespace opt {
 
             lbool is_sat = s().check_sat(0,0);
             while (l_true == is_sat) {
-                TRACE("opt", s().display(tout<<"looping\n"););
+                s().get_model(m_model);
+                TRACE("opt", s().display(tout<<"looping\n");
+                      model_smt2_pp(tout, m, *(m_model.get()), 0););
+                
                 m_model->eval(var, val);
                 unsigned bv_size;
-                if (bv.is_numeral(val, m_upper, bv_size)) {
-                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb solve with upper bound: " << m_upper << ")\n";);
-                    TRACE("opt", tout << "new upper: " << m_upper << "\n";);
+                VERIFY(bv.is_numeral(val, m_upper, bv_size));
+                IF_VERBOSE(1, verbose_stream() << "(wmaxsat.pb solve with upper bound: " << m_upper << ")\n";);
+                TRACE("opt", tout << "new upper: " << m_upper << "\n";);
                 
-                    fml = m.mk_not(bv.mk_ule(bv.mk_numeral(m_upper, m.get_sort(var)), var));
-                    // fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
-                    // solver::scoped_push _scope2(s());
-                    s().assert_expr(fml);
-                }
+                fml = m.mk_not(bv.mk_ule(bv.mk_numeral(m_upper, m.get_sort(var)), var));
+                // fml = m.mk_not(u.mk_ge(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper));
+                // solver::scoped_push _scope2(s());
+                s().assert_expr(fml);
+                
                 is_sat = s().check_sat(0,0);
                 if (m_cancel) {
                     is_sat = l_undef;
@@ -834,7 +846,7 @@ namespace opt {
             return is_sat;
         }
 
-#if 0
+#else 
         lbool operator()() {
             enable_bvsat();
             enable_sls();
