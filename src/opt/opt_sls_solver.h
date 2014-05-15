@@ -22,6 +22,7 @@ Notes:
 
 #include "solver_na2as.h"
 #include "card2bv_tactic.h"
+#include "nnf_tactic.h"
 #include "pb_sls.h"
 #include "bvsls_opt_engine.h"
 
