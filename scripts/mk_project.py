@@ -42,17 +42,18 @@ def init_project_def():
     # Simplifier module will be deleted in the future.
     # It has been replaced with rewriter module.
     add_lib('simplifier', ['rewriter'], 'ast/simplifier')
+    add_lib('fpa', ['ast', 'util', 'simplifier'], 'ast/fpa')
     add_lib('macros', ['simplifier'], 'ast/macros')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'simplifier'], 'ast/pattern')
     add_lib('bit_blaster', ['rewriter', 'simplifier'], 'ast/rewriter/bit_blaster')
     add_lib('smt_params', ['ast', 'simplifier', 'pattern', 'bit_blaster'], 'smt/params')
     add_lib('proto_model', ['model', 'simplifier', 'smt_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
-                    'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
+                    'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util', 'fpa'])
     add_lib('user_plugin', ['smt'], 'smt/user_plugin')
     add_lib('bv_tactics', ['tactic', 'bit_blaster'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
-    add_lib('fpa', ['core_tactics', 'bv_tactics', 'sat_tactic'], 'tactic/fpa')
+    add_lib('fpa_tactics', ['fpa', 'core_tactics', 'bv_tactics', 'sat_tactic'], 'tactic/fpa')
     add_lib('smt_tactic', ['smt'], 'smt/tactic')
     add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
     add_lib('qe', ['smt','sat'], 'qe')
@@ -68,7 +69,7 @@ def init_project_def():
     add_lib('fp',  ['muz', 'pdr', 'clp', 'tab', 'rel', 'bmc', 'duality_intf'], 'muz/fp')
     add_lib('smtlogic_tactics', ['arith_tactics', 'bv_tactics', 'nlsat_tactic', 'smt_tactic', 'aig_tactic', 'fp', 'muz','qe'], 'tactic/smtlogics')
     add_lib('ufbv_tactic', ['normal_forms', 'core_tactics', 'macros', 'smt_tactic', 'rewriter'], 'tactic/ufbv')
-    add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig_tactic', 'fp',  'qe','sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
+    add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa_tactics', 'aig_tactic', 'fp',  'qe','sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
     add_lib('smtparser', ['portfolio'], 'parsers/smt')
 #    add_dll('foci2', ['util'], 'interp/foci2stub', 
 #            dll_name='foci2', 

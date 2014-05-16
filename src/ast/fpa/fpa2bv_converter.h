@@ -24,12 +24,9 @@ Notes:
 #include"ref_util.h"
 #include"float_decl_plugin.h"
 #include"bv_decl_plugin.h"
-#include"model_converter.h"
 #include"basic_simplifier_plugin.h"
 
 typedef enum { BV_RM_TIES_TO_AWAY=0, BV_RM_TIES_TO_EVEN=1, BV_RM_TO_NEGATIVE=2, BV_RM_TO_POSITIVE=3, BV_RM_TO_ZERO=4 } BV_RM_VAL;
-
-class fpa2bv_model_converter;
 
 struct func_decl_triple {
         func_decl_triple () { f_sgn = 0; f_sig = 0; f_exp = 0; }
@@ -172,87 +169,5 @@ protected:
         expr_ref & c_sgn, expr_ref & c_sig, expr_ref & c_exp, expr_ref & d_sgn, expr_ref & d_sig, expr_ref & d_exp,
         expr_ref & res_sgn, expr_ref & res_sig, expr_ref & res_exp);
 };
-
-
-class fpa2bv_model_converter : public model_converter {
-    ast_manager               & m;
-    obj_map<func_decl, expr*>   m_const2bv;
-    obj_map<func_decl, expr*>   m_rm_const2bv;
-    obj_map<func_decl, func_decl*>  m_uf2bvuf;        
-    obj_map<func_decl, func_decl_triple>  m_uf23bvuf;
-
-public:
-    fpa2bv_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bv,
-                                            obj_map<func_decl, expr*> const & rm_const2bv,
-                                            obj_map<func_decl, func_decl*> const & uf2bvuf,      
-                                            obj_map<func_decl, func_decl_triple> const & uf23bvuf) : 
-      m(m) {
-          // Just create a copy?
-          for (obj_map<func_decl, expr*>::iterator it = const2bv.begin();
-               it != const2bv.end();
-               it++) 
-          {
-               m_const2bv.insert(it->m_key, it->m_value);
-               m.inc_ref(it->m_key);
-               m.inc_ref(it->m_value);
-          }
-          for (obj_map<func_decl, expr*>::iterator it = rm_const2bv.begin();
-               it != rm_const2bv.end();
-               it++) 
-          {
-               m_rm_const2bv.insert(it->m_key, it->m_value);
-               m.inc_ref(it->m_key);
-               m.inc_ref(it->m_value);
-          }
-          for (obj_map<func_decl, func_decl*>::iterator it = uf2bvuf.begin();
-               it != uf2bvuf.end();
-               it++) 
-          {
-               m_uf2bvuf.insert(it->m_key, it->m_value);
-               m.inc_ref(it->m_key);
-               m.inc_ref(it->m_value);
-          }
-          for (obj_map<func_decl, func_decl_triple>::iterator it = uf23bvuf.begin();
-               it != uf23bvuf.end();
-               it++) 
-          {
-               m_uf23bvuf.insert(it->m_key, it->m_value);
-               m.inc_ref(it->m_key);               
-          }
-      }
-
-    virtual ~fpa2bv_model_converter() {
-        dec_ref_map_key_values(m, m_const2bv);
-        dec_ref_map_key_values(m, m_rm_const2bv);
-    }
-
-    virtual void operator()(model_ref & md, unsigned goal_idx) {
-        SASSERT(goal_idx == 0);
-        model * new_model = alloc(model, m);
-        obj_hashtable<func_decl> bits;
-        convert(md.get(), new_model);
-        md = new_model;
-    }
-
-    virtual void operator()(model_ref & md) {
-        operator()(md, 0);
-    }
-
-    void display(std::ostream & out);
-
-    virtual model_converter * translate(ast_translation & translator);
-
-protected:
-    fpa2bv_model_converter(ast_manager & m) : m(m) { }
-    
-    void convert(model * bv_mdl, model * float_mdl);
-};
-
-
-model_converter * mk_fpa2bv_model_converter(ast_manager & m, 
-                                            obj_map<func_decl, expr*> const & const2bv,
-                                            obj_map<func_decl, expr*> const & rm_const2bv,
-                                            obj_map<func_decl, func_decl*> const & uf2bvuf,      
-                                            obj_map<func_decl, func_decl_triple> const & uf23bvuf);
 
 #endif
