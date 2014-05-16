@@ -2201,7 +2201,7 @@ namespace Duality {
 #endif
 	    int expand_max = 1;
 	    if(0&&duality->BatchExpand){
-	      int thing = stack.size() * 0.1;
+              int thing = stack.size() / 10; // * 0.1;
 	      expand_max = std::max(1,thing);
 	      if(expand_max > 1)
 		std::cout << "foo!\n";
