@@ -133,7 +133,8 @@ bool model::eval(expr * e, expr_ref & result, bool model_completion) {
         ev(e, result);
         return true;
     }
-    catch (model_evaluator_exception &) {
+    catch (model_evaluator_exception & ex) {
+        TRACE("model_evaluator", tout << ex.msg() << "\n";);
         return false;
     }
 }
