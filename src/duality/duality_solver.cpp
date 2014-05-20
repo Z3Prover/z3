@@ -738,6 +738,13 @@ namespace Duality {
       return ctx.constant(name.c_str(),ctx.bool_sort());
     }
 
+    /** Make a boolean variable to act as a "marker" for a pair of nodes. */
+    expr NodeMarker(Node *node1, Node *node2){
+      std::string name = std::string("@m_") + string_of_int(node1->number);
+      name += std::string("_") + string_of_int(node2->number);
+      return ctx.constant(name.c_str(),ctx.bool_sort());
+    }
+
     /** Union the annotation of dst into src. If with_markers is
 	true, we conjoin the annotation formula of dst with its
 	marker. This allows us to discover which disjunct is
@@ -1146,19 +1153,19 @@ namespace Duality {
     }
   
     
-    void GenNodeSolutionWithMarkersAux(Node *node, RPFP::Transformer &annot, expr &marker_disjunction){
+    void GenNodeSolutionWithMarkersAux(Node *node, RPFP::Transformer &annot, expr &marker_disjunction, Node *other_node){
 #ifdef BOUNDED
       if(RecursionBound >= 0 && NodePastRecursionBound(node))
 	return;
 #endif
       RPFP::Transformer temp = node->Annotation;
-      expr marker = NodeMarker(node);
+      expr marker = (!other_node) ? NodeMarker(node) : NodeMarker(node, other_node);
       temp.Formula = (!marker || temp.Formula);
       annot.IntersectWith(temp);
       marker_disjunction = marker_disjunction || marker;
     }
 
-    bool GenNodeSolutionWithMarkers(Node *node, RPFP::Transformer &annot, bool expanded_only = false){
+    bool GenNodeSolutionWithMarkers(Node *node, RPFP::Transformer &annot, bool expanded_only = false, Node *other_node = 0){
       bool res = false;
       annot.SetFull();
       expr marker_disjunction = ctx.bool_val(false);
@@ -1166,7 +1173,7 @@ namespace Duality {
       for(unsigned j = 0; j < insts.size(); j++){
 	Node *node = insts[j];
 	if(indset->Contains(insts[j])){
-	  GenNodeSolutionWithMarkersAux(node, annot, marker_disjunction); res = true;
+	  GenNodeSolutionWithMarkersAux(node, annot, marker_disjunction, other_node); res = true;
 	}
       }
       annot.Formula = annot.Formula && marker_disjunction;
@@ -1263,7 +1270,7 @@ namespace Duality {
 	  Node *inst = insts[k];
 	  if(indset->Contains(inst)){
 	    if(checker->Empty(node) || 
-	       eq(lb ? checker->Eval(lb,NodeMarker(inst)) : checker->dualModel.eval(NodeMarker(inst)),ctx.bool_val(true))){
+	       eq(lb ? checker->Eval(lb,NodeMarker(inst)) : checker->dualModel.eval(NodeMarker(inst,node)),ctx.bool_val(true))){
 	      candidate.Children.push_back(inst);
 	      goto next_child;
 	    }
@@ -1346,7 +1353,7 @@ namespace Duality {
       for(unsigned j = 0; j < edge->Children.size(); j++){
 	Node *oc = edge->Children[j];
 	Node *nc = gen_cands_edge->Children[j];
-        GenNodeSolutionWithMarkers(oc,nc->Annotation,true);
+        GenNodeSolutionWithMarkers(oc,nc->Annotation,true,nc);
       }
       checker->AssertEdge(gen_cands_edge,1,true);
       return root;
