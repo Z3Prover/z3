@@ -35,6 +35,7 @@ Revision History:
 #include "model_smt2_pp.h"
 #include "model_v2_pp.h"
 #include "fixedpoint_params.hpp"
+#include "used_vars.h"
 
 // template class symbol_table<family_id>;
 
@@ -164,6 +165,20 @@ lbool dl_interface::query(::expr * query) {
     clauses.push_back(e);
   }
   
+  std::vector<sort> b_sorts;
+  std::vector<symbol> b_names;
+  used_vars uv;
+  uv.process(query);
+  unsigned nuv = uv.get_max_found_var_idx_plus_1();
+  for(int i = nuv-1; i >= 0; i--){ // var indices are backward
+    ::sort * s = uv.get(i);
+    if(!s)
+      s = _d->ctx.m().mk_bool_sort(); // missing var, whatever
+    b_sorts.push_back(sort(_d->ctx,s));
+    b_names.push_back(symbol(_d->ctx,::symbol(i))); // names?
+  }
+
+#if 0
   // turn the query into a clause
   expr q(_d->ctx,m_ctx.bind_variables(query,false));
   
@@ -177,6 +192,9 @@ lbool dl_interface::query(::expr * query) {
     }
     q = q.arg(0);
   }
+#else
+  expr q(_d->ctx,query);
+#endif
 
   expr qc = implies(q,_d->ctx.bool_val(false));
   qc = _d->ctx.make_quant(Forall,b_sorts,b_names,qc);
