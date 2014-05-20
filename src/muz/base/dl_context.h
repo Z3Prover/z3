@@ -278,6 +278,12 @@ namespace datalog {
 
         void register_variable(func_decl* var);
 
+        /*
+          Replace constants that have been registered as 
+          variables by de-Bruijn indices and corresponding
+          universal (if is_forall is true) or existential 
+          quantifier.
+         */
         expr_ref bind_variables(expr* fml, bool is_forall);
 
         /**
