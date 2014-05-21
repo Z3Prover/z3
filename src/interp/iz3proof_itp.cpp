@@ -779,6 +779,22 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast Bcond = my_implies(Bproves1,my_and(Aproves1,z3_simplify(ineq2)));
       //      if(!is_true(Aproves1) || !is_true(Bproves1))
       //	std::cout << "foo!\n";;
+      if(y == make_int(rational(0)) && op(x) == Plus && num_args(x) == 2){
+	if(get_term_type(arg(x,0)) == LitA){
+	  ast iter = z3_simplify(make(Plus,arg(x,0),get_ineq_rhs(xleqy)));
+	  ast rewrite1 = make_rewrite(LitA,pos_add(0,top_pos),Acond,make(Equal,arg(x,0),iter));
+	  iter = make(Plus,iter,arg(x,1));
+	  ast rewrite2 = make_rewrite(LitB,top_pos,Bcond,make(Equal,iter,y));
+	  return chain_cons(chain_cons(mk_true(),rewrite1),rewrite2);
+	}
+	if(get_term_type(arg(x,1)) == LitA){
+	  ast iter = z3_simplify(make(Plus,arg(x,1),get_ineq_rhs(xleqy)));
+	  ast rewrite1 = make_rewrite(LitA,pos_add(1,top_pos),Acond,make(Equal,arg(x,1),iter));
+	  iter = make(Plus,arg(x,0),iter);
+	  ast rewrite2 = make_rewrite(LitB,top_pos,Bcond,make(Equal,iter,y));
+	  return chain_cons(chain_cons(mk_true(),rewrite1),rewrite2);
+	}
+      }
       if(get_term_type(x) == LitA){
 	ast iter = z3_simplify(make(Plus,x,get_ineq_rhs(xleqy)));
 	ast rewrite1 = make_rewrite(LitA,top_pos,Acond,make(Equal,x,iter));
@@ -1036,6 +1052,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
       coeff = argpos ? make_int(rational(-1)) : make_int(rational(1));
       break;
     case Not:
+      coeff = make_int(rational(-1));
     case Plus:
       break;
     case Times:
@@ -2590,12 +2607,17 @@ class iz3proof_itp_impl : public iz3proof_itp {
       break;
     default: { // mixed equality
       if(get_term_type(x) == LitMixed || get_term_type(y) == LitMixed){
-	// std::cerr << "WARNING: mixed term in leq2eq\n"; 
-	std::vector<ast> lits;
-	lits.push_back(con);
-	lits.push_back(make(Not,xleqy));
-	lits.push_back(make(Not,yleqx));
-	return make_axiom(lits);
+	if(y == make_int(rational(0)) && op(x) == Plus && num_args(x) == 2){
+	  // std::cerr << "WARNING: untested case in leq2eq\n";
+	}
+	else {
+	  // std::cerr << "WARNING: mixed term in leq2eq\n"; 
+	  std::vector<ast> lits;
+	  lits.push_back(con);
+	  lits.push_back(make(Not,xleqy));
+	  lits.push_back(make(Not,yleqx));
+	  return make_axiom(lits);
+	}
       }
       std::vector<ast> conjs; conjs.resize(3);
       conjs[0] = mk_not(con);
