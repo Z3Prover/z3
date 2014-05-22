@@ -29,7 +29,7 @@ using namespace stl_ext;
 
 namespace Duality {
 
-  class implicant_solver;
+  struct implicant_solver;
 
   /* Generic operations on Z3 formulas */
 

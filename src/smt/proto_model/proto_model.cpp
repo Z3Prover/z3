@@ -247,6 +247,7 @@ bool proto_model::eval(expr * e, expr_ref & result, bool model_completion) {
                             new_t = mk_some_interp_for(f);
                         }
                         else {
+                            TRACE("model_eval", tout << f->get_name() << " is uninterpreted\n";);
                             is_ok = false;
                         }
                     }
@@ -294,6 +295,7 @@ bool proto_model::eval(expr * e, expr_ref & result, bool model_completion) {
                                 // f is an uninterpreted function, there is no need to use m_simplifier.mk_app
                                 new_t = m_manager.mk_app(f, num_args, args.c_ptr());
                                 trail.push_back(new_t);
+                                TRACE("model_eval", tout << f->get_name() << " is uninterpreted\n";);
                                 is_ok = false;
                             }
                         }
@@ -326,6 +328,7 @@ bool proto_model::eval(expr * e, expr_ref & result, bool model_completion) {
                 todo.pop_back();
                 break;
             case AST_QUANTIFIER: 
+                TRACE("model_eval", tout << "found quantifier\n" << mk_pp(a, m_manager) << "\n";);
                 is_ok = false; // evaluator does not handle quantifiers.
                 SASSERT(a != 0);
                 eval_cache.insert(a, a);
