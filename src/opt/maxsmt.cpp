@@ -127,7 +127,7 @@ namespace opt {
             if (!get_assignment(i)) {
                 tmp = m.mk_not(tmp);
             }
-            TRACE("opt", tout << "asserting: " << tmp << "\n";);
+            TRACE("opt", tout << "committing: " << tmp << "\n";);
             m_s->assert_expr(tmp);            
         }
     }
