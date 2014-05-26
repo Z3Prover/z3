@@ -205,7 +205,6 @@ namespace datalog {
                 for (unsigned i = 0; i < rules.size(); ++i) {
                     app* head = rules[i]->get_head();
                     expr_ref_vector conj(m);
-                    unsigned n = head->get_num_args()-1;
                     for (unsigned j = 0; j < head->get_num_args(); ++j) {
                         expr* arg = head->get_arg(j);
                         if (!is_var(arg)) {
