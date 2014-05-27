@@ -663,6 +663,7 @@ namespace opt {
                 ++m_stats.m_num_iterations;
                 IF_VERBOSE(1, verbose_stream() << 
                            "(wmaxsat.hsmax [" << m_lower << ":" << m_upper << "])\n";);
+                TRACE("opt", tout << "(wmaxsat.hsmax [" << m_lower << ":" << m_upper << "])\n";);
                 if (m_cancel) {
                     return l_undef;
                 }
@@ -675,7 +676,7 @@ namespace opt {
                     lbool is_sat = next_seed();
                     switch(is_sat) {
                     case l_true:
-                        seed2hs(hs);
+                        seed2hs(false, hs);
                         break;
                     case l_false:
                         TRACE("opt", tout << "no more seeds\n";);
@@ -725,14 +726,6 @@ namespace opt {
             TRACE("opt", print_seed(tout););
         }
 
-        void seed2assumptions() {
-            m_asms.reset();
-            for (unsigned i = 0; i < num_soft(); ++i) {
-                if (m_seed[i]) {
-                    m_asms.push_back(m_aux[i].get());
-                }
-            }
-        }
 
         void hs2seed(ptr_vector<expr> const& hs) {
             for (unsigned i = 0; i < num_soft(); ++i) {
@@ -741,16 +734,28 @@ namespace opt {
             for (unsigned i = 0; i < hs.size(); ++i) {
                 m_seed[m_aux2index.find(hs[i])] = false;
             }
+            TRACE("opt", 
+                  print_asms(tout << "hitting set: ", hs);
+                  print_seed(tout););
         }
 
-        void seed2hs(ptr_vector<expr>& hs) {
+        void seed2hs(bool pos, ptr_vector<expr>& hs) {
             hs.reset();
             for (unsigned i = 0; i < num_soft(); ++i) {
-                if (!m_seed[i]) {
+                if (pos == m_seed[i]) {
                     hs.push_back(m_aux[i].get());
                 }
             }
+            TRACE("opt", 
+                  print_asms(tout << "hitting set: ", hs);
+                  print_seed(tout););
+            
         }
+
+        void seed2assumptions() {
+            seed2hs(true, m_asms);
+        }
+
 
         //
         // Find disjoint cores for soft constraints.
@@ -821,7 +826,9 @@ namespace opt {
                     block_down();
                     return core?l_true:l_false;
                 case l_false:
+                    core = true;
                     if (!shrink()) return l_undef;
+                    block_up();
                     find_non_optimal_hitting_set(hs);
                     break;
                 }
@@ -873,6 +880,7 @@ namespace opt {
         // 
         lbool next_seed() {
             scoped_stopwatch _sw(m_stats.m_aux_sat_time);
+            TRACE("opt", tout << "\n";);
             lbool is_sat = maxs->s().check_sat(0,0);
             if (is_sat == l_true) {
                 maxs->set_model();
@@ -990,7 +998,7 @@ namespace opt {
             scoped_stopwatch _sw(m_stats.m_core_reduction_time);
             m_asms.reset();
             s().get_unsat_core(m_asms);
-            TRACE("opt", print_asms(tout););
+            TRACE("opt", print_asms(tout, m_asms););
             obj_map<expr, unsigned> asm2index;
             for (unsigned i = 0; i < m_asms.size(); ++i) {
                 asm2index.insert(m_asms[i], i);
@@ -1017,7 +1025,7 @@ namespace opt {
                         m_asms.reset();
                         ++m_stats.m_num_core_reductions_success;
                         s().get_unsat_core(m_asms);                        
-                        TRACE("opt", print_asms(tout););
+                        TRACE("opt", print_asms(tout, m_asms););
                         update_index(asm2index);
                         break;
                     case l_undef: 
@@ -1035,14 +1043,15 @@ namespace opt {
             }
         }
 
-        void print_asms(std::ostream& out) {
-            for (unsigned j = 0; j < m_asms.size(); ++j) {
-                out << mk_pp(m_asms[j], m) << " ";
+        void print_asms(std::ostream& out, ptr_vector<expr> const& asms) {
+            for (unsigned j = 0; j < asms.size(); ++j) {
+                out << mk_pp(asms[j], m) << " ";
             }
             out << "\n";
         }
 
         void print_seed(std::ostream& out) {
+            out << "seed: ";
             for (unsigned i = 0; i < num_soft(); ++i) {
                 out << (m_seed[i]?"1":"0");
             }
@@ -1573,9 +1582,10 @@ namespace opt {
                 m_maxsmt = alloc(bcd2, s.get(), m);
             }
             else if (m_engine == symbol("hsmax")) {
-                ref<solver> s0 = alloc(opt_solver, m, m_params, symbol());
-                s0->check_sat(0,0);
-                maxsmt_solver_base* s2 = alloc(pbmax, s0.get(), m);
+                ref<opt_solver> s0 = alloc(opt_solver, m, m_params, symbol());
+                s0->check_sat(0,0);                
+                maxsmt_solver_base* s2 = alloc(pbmax, s0.get(), m); // , s0->get_context();
+                s2->set_converter(s0->mc_ref().get());
                 m_maxsmt = alloc(hsmax, s.get(), m, s2);
             }
             // NB: this is experimental one-round version of SLS
