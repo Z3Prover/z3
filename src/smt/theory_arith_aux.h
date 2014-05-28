@@ -1069,7 +1069,7 @@ namespace smt {
 
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker) {
-        TRACE("opt", tout << "data-size: " << m_data.size() << "\n";);
+        TRACE("bound_bug", display_var(tout, v); display(tout););
         max_min_t r = max_min(v, true); 
         if (r == UNBOUNDED) {
             blocker = get_manager().mk_false();
@@ -1361,7 +1361,8 @@ namespace smt {
                 }
             }
             TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << gain << "\n";
-                  tout << "skipped row: " << (skipped_row?"yes":"no") << "\n";);
+                  tout << "skipped row: " << (skipped_row?"yes":"no") << "\n";
+                  display(tout););
 
             if (x_j == null_theory_var) {
                 TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);
@@ -1378,6 +1379,7 @@ namespace smt {
                     TRACE("opt", tout << "moved v" << x_j << " to upper bound\n";);
                     SASSERT(valid_row_assignment());
                     SASSERT(satisfy_bounds());
+                    SASSERT(satisfy_integrality());
                     continue;
                 }
                 if (!inc && lower(x_j)) {
@@ -1385,13 +1387,14 @@ namespace smt {
                     TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
                     SASSERT(valid_row_assignment());
                     SASSERT(satisfy_bounds());
+                    SASSERT(satisfy_integrality());
                     continue;
                 }
                 result = skipped_row?BEST_EFFORT:UNBOUNDED;
                 break;
             }
 
-            if (!is_fixed(x_j) && is_bounded(x_j) && (upper_bound(x_j) - lower_bound(x_j) <= gain)) {
+            if (!is_fixed(x_j) && is_bounded(x_j) && !skipped_row && (upper_bound(x_j) - lower_bound(x_j) <= gain)) {
                 // can increase/decrease x_j up to upper/lower bound.
                 if (inc) {
                     update_value(x_j, upper_bound(x_j) - get_value(x_j));
@@ -1403,6 +1406,7 @@ namespace smt {
                 }
                 SASSERT(valid_row_assignment());
                 SASSERT(satisfy_bounds());
+                SASSERT(satisfy_integrality());
                 continue;
             }
 
@@ -1425,7 +1429,10 @@ namespace smt {
                 move_xi_to_lower = a_ij.is_pos();
             else
                 move_xi_to_lower = a_ij.is_neg();
-            move_to_bound(x_i, move_xi_to_lower);
+            if (!move_to_bound(x_i, move_xi_to_lower)) {
+                result = BEST_EFFORT;
+                break;
+            }
 
             row & r2 = m_rows[get_var_row(x_j)];
             coeff.neg();
@@ -1433,6 +1440,7 @@ namespace smt {
             SASSERT(r.get_idx_of(x_j) == -1);
             SASSERT(valid_row_assignment());
             SASSERT(satisfy_bounds());
+            SASSERT(satisfy_integrality());
         }
         TRACE("opt", display(tout););
         return result;
@@ -1444,7 +1452,7 @@ namespace smt {
     */
 
     template<typename Ext>
-    void theory_arith<Ext>::move_to_bound(theory_var x_i, bool move_to_lower) {
+    bool theory_arith<Ext>::move_to_bound(theory_var x_i, bool move_to_lower) {
         inf_numeral delta, delta_abs;
 
         if (move_to_lower) {
@@ -1484,6 +1492,9 @@ namespace smt {
             }
         }
 
+        if (is_int(x_i)) {
+            delta_abs = floor(delta_abs);
+        }
 
         if (move_to_lower) {
             delta = -delta_abs;
@@ -1493,8 +1504,8 @@ namespace smt {
         }
 
         TRACE("opt", tout << "Safe delta: " << delta << "\n";);
-
         update_value(x_i, delta);
+        return !delta.is_zero();
     }
 
     /**

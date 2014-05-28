@@ -857,7 +857,7 @@ namespace smt {
         void add_tmp_row(row & r1, numeral const & coeff, row const & r2);
         theory_var pick_var_to_leave(bool has_int, theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain, bool& skiped_row);
         bool is_safe_to_leave(theory_var x, bool& has_int);
-        void move_to_bound(theory_var x_i, bool inc);
+        bool move_to_bound(theory_var x_i, bool inc);
         template<bool invert>
         void add_tmp_row_entry(row & r, numeral const & coeff, theory_var v);
         enum max_min_t { UNBOUNDED, AT_BOUND, OPTIMIZED, BEST_EFFORT};
@@ -1061,6 +1061,7 @@ namespace smt {
         bool valid_row_assignment() const;
         bool valid_row_assignment(row const & r) const;
         bool satisfy_bounds() const;
+        bool satisfy_integrality() const;
 #endif
     };
     

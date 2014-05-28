@@ -37,6 +37,7 @@ Notes:
 #include "opt_sls_solver.h"
 #include "cancel_eh.h"
 #include "scoped_timer.h"
+#include "optsmt.h"
 
 namespace opt {
 
@@ -611,7 +612,11 @@ namespace opt {
         };
 
         scoped_ptr<maxsmt_solver_base> maxs;
+        optsmt                  m_optsmt;     // hitting set optimizer based on simplex.
+        opt_solver              m_solver;
+        unsigned                m_objective;  // index of objective
         expr_ref_vector         m_aux;        // auxiliary (indicator) variables.
+        expr_ref_vector         m_iaux;       // auxiliary integer (indicator) variables.
         expr_ref_vector         m_naux;       // negation of auxiliary variables.
         obj_map<expr, unsigned> m_aux2index;  // expr |-> index
         unsigned_vector         m_core_activity; // number of times soft constraint is used in a core.
@@ -619,6 +624,7 @@ namespace opt {
         svector<bool>           m_aux_active; // active soft clauses.
         ptr_vector<expr>        m_asms;       // assumptions (over aux)
         pb_util                 pb;
+        arith_util              a;
         stats                   m_stats;
 
 
@@ -626,20 +632,30 @@ namespace opt {
         hsmax(solver* s, ast_manager& m, maxsmt_solver_base* maxs):
             maxsmt_solver_base(s, m), 
             maxs(maxs), 
+            m_optsmt(m),
+            m_solver(m, m_params, symbol()),
             m_aux(m), 
+            m_iaux(m),
             m_naux(m),
-            pb(m) {
+            pb(m),
+            a(m) {
         }
         virtual ~hsmax() {}
 
         virtual void set_cancel(bool f) { 
             maxsmt_solver_base::set_cancel(f); 
-            maxs->set_cancel(f); 
+            // maxs->set_cancel(f);
+            m_optsmt.set_cancel(f);
+        }
+
+        virtual void updt_params(params_ref& p) {
+            maxsmt_solver_base::updt_params(p);
+            m_solver.updt_params(p);
         }
 
         virtual void collect_statistics(statistics& st) const {
             maxsmt_solver_base::collect_statistics(st);
-            maxs->collect_statistics(st);
+            // maxs->s().collect_statistics(st);
             st.update("hsmax-num-iterations", m_stats.m_num_iterations);
             st.update("hsmax-num-core-reductions-n", m_stats.m_num_core_reductions_failure);
             st.update("hsmax-num-core-reductions-y", m_stats.m_num_core_reductions_success);
@@ -702,9 +718,12 @@ namespace opt {
 
         void init_local() {
             unsigned sz = num_soft();
+            app_ref  fml(m), obj(m);
+            expr_ref_vector sum(m);
             m_asms.reset();
             m_seed.reset();           
             m_aux.reset();
+            m_iaux.reset();
             m_naux.reset();
             m_aux_active.reset();            
             m_aux2index.reset();
@@ -712,17 +731,28 @@ namespace opt {
             for (unsigned i = 0; i < sz; ++i) {
                 bool tt = is_true(m_model, m_soft[i].get());
                 m_seed.push_back(tt);
-                m_aux. push_back(mk_fresh());
+                m_aux. push_back(mk_fresh(m.mk_bool_sort()));
+                m_iaux.push_back(mk_fresh(a.mk_int()));
+                expr* iaux = m_iaux.back();
                 m_naux.push_back(m.mk_not(m_aux.back()));
                 m_aux_active.push_back(false);
                 m_core_activity.push_back(0);
-                m_aux2index.insert(m_aux[i].get(), i);
+                m_aux2index.insert(m_aux.back(), i);
+                m_aux2index.insert(m_iaux.back(), i);
+                fml = m.mk_and(a.mk_le(a.mk_numeral(rational::zero(), true), iaux), 
+                               a.mk_le(iaux, a.mk_numeral(rational::one(), true)));
+                rational const& w = m_weights[i];
+                sum.push_back(a.mk_mul(a.mk_numeral(w, w.is_int()), iaux));
+                m_solver.assert_expr(fml);
                 if (tt) {
                     m_asms.push_back(m_aux.back());
                     ensure_active(i);
                 }
             }
-            maxs->init_soft(m_weights, m_aux);
+            obj = a.mk_add(sum.size(), sum.c_ptr());
+            m_objective = m_optsmt.add(obj);
+            m_optsmt.setup(m_solver);
+            // maxs->init_soft(m_weights, m_aux);
             TRACE("opt", print_seed(tout););
         }
 
@@ -858,18 +888,6 @@ namespace opt {
             }
         }
 
-        struct cancel_maxs {
-            hsmax& hs;
-            cancel_maxs(hsmax& hs):hs(hs) {}
-            void reset_cancel() {
-                hs.maxs->set_cancel(false);
-            }
-            void cancel() {
-                hs.maxs->set_cancel(true);
-            }
-        };
-
-
         //
         // retrieve the next seed that satisfies state of maxs.
         // state of maxs must be satisfiable before optimization is called.
@@ -881,6 +899,26 @@ namespace opt {
         lbool next_seed() {
             scoped_stopwatch _sw(m_stats.m_aux_sat_time);
             TRACE("opt", tout << "\n";);
+#if 1
+            m_solver.display(std::cout);
+            lbool is_sat = m_optsmt.lex(m_objective);
+            if (is_sat == l_true) {
+                model_ref mdl;
+                m_optsmt.get_model(mdl);
+                
+                for (unsigned i = 0; i < num_soft(); ++i) {
+                    if (is_active(i)) {
+                        m_seed[i] = is_one(mdl, m_iaux[i].get());
+                    }
+                    else {
+                        m_seed[i] = false;
+                    }
+                }
+                print_seed(std::cout);
+                TRACE("opt", print_seed(tout););
+            }
+            
+#else
             lbool is_sat = maxs->s().check_sat(0,0);
             if (is_sat == l_true) {
                 maxs->set_model();
@@ -903,6 +941,7 @@ namespace opt {
                 }
                 TRACE("opt", print_seed(tout););
             }
+#endif
             return is_sat;
         }
 
@@ -1070,6 +1109,16 @@ namespace opt {
             }
             expr_ref_vector fmls(m);
             expr_ref fml(m);
+#if 1
+            for (unsigned i = 0; i < num_soft(); ++i) {
+                if (!indices.contains(i)) {
+                    fmls.push_back(m_iaux[i].get());
+                }
+            }
+            fml = a.mk_ge(a.mk_add(fmls.size(), fmls.c_ptr()), a.mk_numeral(rational::one(), true));
+            m_solver.assert_expr(fml);
+
+#else
             for (unsigned i = 0; i < num_soft(); ++i) {
                 if (!indices.contains(i)) {
                     fmls.push_back(m_aux[i].get());
@@ -1077,8 +1126,9 @@ namespace opt {
             }
             fml = m.mk_or(fmls.size(), fmls.c_ptr());
             maxs->add_hard(fml);
+#endif
             TRACE("opt", tout << fml << "\n";);
-            set_upper();
+            // set_upper();
         }
 
         // constrain the upper bound.
@@ -1093,13 +1143,25 @@ namespace opt {
         void block_up() {
             expr_ref_vector fmls(m);
             expr_ref fml(m);
+#if 1
             for (unsigned i = 0; i < m_asms.size(); ++i) {
+                unsigned index = m_aux2index.find(m_asms[i]);
+                m_core_activity[index]++;
+                fmls.push_back(m_iaux[index].get());
+            }
+            fml = a.mk_lt(a.mk_add(fmls.size(), fmls.c_ptr()), a.mk_numeral(rational(fmls.size()), true));
+            TRACE("opt", tout << fml << "\n";);
+            m_solver.assert_expr(fml);
+#else
+            for (unsigned i = 0; i < m_asms.size(); ++i) {
+                unsigned index = m_aux2index.find(m_asms[i]);
                 fmls.push_back(m.mk_not(m_asms[i]));
-                m_core_activity[m_aux2index.find(m_asms[i])]++;
+                m_core_activity[index]++;
             }
             fml = m.mk_or(fmls.size(), fmls.c_ptr());
             TRACE("opt", tout << fml << "\n";);
             maxs->add_hard(fml);            
+#endif
         }
 
 
@@ -1113,17 +1175,26 @@ namespace opt {
             }
         }        
 
-        app_ref mk_fresh() {
+        app_ref mk_fresh(sort* s) {
             app_ref r(m);
-            r = m.mk_fresh_const("r", m.mk_bool_sort());
+            r = m.mk_fresh_const("r", s);
             m_mc->insert(r->get_decl());                
             return r;
         }
+
 
         bool is_true(model_ref& mdl, expr* e) {
             expr_ref val(m);
             VERIFY(mdl->eval(e, val));
             return m.is_true(val);
+        }
+
+        bool is_one(model_ref& mdl, expr* e) {
+            rational r;
+            expr_ref val(m);
+            VERIFY(mdl->eval(e, val));
+            std::cout << mk_pp(e, m) << " |-> " << val << "\n";
+            return a.is_numeral(val, r) && r.is_one();
         }
 
         bool is_active(unsigned i) const {
