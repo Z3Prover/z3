@@ -4128,6 +4128,7 @@ class Datatype:
         """
         if __debug__:
             _z3_assert(isinstance(name, str), "String expected")
+            _z3_assert(name != "")
         return self.declare_core(name, "is_" + name, *args)
 
     def __repr__(self):
