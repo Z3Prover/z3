@@ -899,6 +899,7 @@ def _coerce_expr_merge(s, a):
             return s
         else:
             if __debug__:
+                _z3_assert(s1.ctx == s.ctx, "context mismatch")
                 _z3_assert(False, "sort mismatch")
     else:
         return s
@@ -1459,9 +1460,18 @@ def And(*args):
     >>> And(P)
     And(p__0, p__1, p__2, p__3, p__4)
     """
-    args  = _get_args(args)
-    ctx   = _ctx_from_ast_arg_list(args)
+    last_arg = None
+    if len(args) > 0:
+        last_arg = args[len(args)-1]
+    if isinstance(last_arg, Context):
+        ctx = args[len(args)-1]
+        args = args[:len(args)-1]
+    else:
+        ctx = main_ctx()
+    args = _get_args(args)
+    ctx_args  = _ctx_from_ast_arg_list(args, ctx)
     if __debug__:
+        _z3_assert(ctx_args == None or ctx_args == ctx, "context mismatch")
         _z3_assert(ctx != None, "At least one of the arguments must be a Z3 expression or probe")
     if _has_probe(args):
         return _probe_and(args, ctx)
@@ -1480,9 +1490,18 @@ def Or(*args):
     >>> Or(P)
     Or(p__0, p__1, p__2, p__3, p__4)
     """
-    args  = _get_args(args)
-    ctx   = _ctx_from_ast_arg_list(args)
+    last_arg = None
+    if len(args) > 0:
+        last_arg = args[len(args)-1]
+    if isinstance(last_arg, Context):
+        ctx = args[len(args)-1]
+        args = args[:len(args)-1]
+    else:
+        ctx = main_ctx()
+    args = _get_args(args)
+    ctx_args  = _ctx_from_ast_arg_list(args, ctx)
     if __debug__:
+        _z3_assert(ctx_args == None or ctx_args == ctx, "context mismatch")
         _z3_assert(ctx != None, "At least one of the arguments must be a Z3 expression or probe")
     if _has_probe(args):
         return _probe_or(args, ctx)
