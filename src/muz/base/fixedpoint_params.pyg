@@ -77,6 +77,7 @@ def_module_params('fixedpoint',
 			  ('mbqi', BOOL, True, 'DUALITY: use model-based quantifier instantion'),
 			  ('batch_expand', BOOL, False, 'DUALITY: use batch expansion'),
                           ('dump_aig', SYMBOL, '', 'Dump clauses in AIG text format (AAG) to the given file name'),
+			  ('conjecture_file', STRING, '', 'DUALITY: save conjectures to file'),
                           ))
 
 

@@ -102,6 +102,7 @@ namespace smt {
                     if (th && th->build_models()) {
                         if (r->get_th_var(th->get_id()) != null_theory_var) {
                             proc = th->mk_value(r, *this);
+                            SASSERT(proc);
                         }
                         else {
                             TRACE("model_bug", tout << "creating fresh value for #" << r->get_owner_id() << "\n";);
@@ -110,6 +111,7 @@ namespace smt {
                     }
                     else {
                         proc = mk_model_value(r);
+                        SASSERT(proc);
                     }
                 }
                 SASSERT(proc);

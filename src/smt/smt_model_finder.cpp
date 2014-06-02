@@ -396,7 +396,7 @@ namespace smt {
             
             // Support for evaluating expressions in the current model.
             proto_model *             m_model;
-            obj_map<expr, expr *>     m_eval_cache;
+            obj_map<expr, expr *>     m_eval_cache[2];            
             expr_ref_vector           m_eval_cache_range;
 
             ptr_vector<node>          m_root_nodes;
@@ -409,7 +409,8 @@ namespace smt {
             }
 
             void reset_eval_cache() {
-                m_eval_cache.reset();
+                m_eval_cache[0].reset();
+                m_eval_cache[1].reset();
                 m_eval_cache_range.reset();
             }
             
@@ -468,6 +469,7 @@ namespace smt {
 
             ~auf_solver() {
                 flush_nodes();
+                reset_eval_cache();
             }
         
             void set_context(context * ctx) {
@@ -547,7 +549,7 @@ namespace smt {
                         for (obj_map<expr, unsigned>::iterator it = elems.begin(); it != elems.end(); it++) {
                             expr * n     = it->m_key;
                             expr * n_val = eval(n, true);
-                            if (!m_manager.is_value(n_val))
+                            if (!n_val || !m_manager.is_value(n_val))
                                 to_delete.push_back(n);
                         }
                         for (ptr_vector<expr>::iterator it = to_delete.begin(); it != to_delete.end(); it++) {
@@ -569,16 +571,19 @@ namespace smt {
 
             virtual expr * eval(expr * n, bool model_completion) {
                 expr * r = 0;
-                if (m_eval_cache.find(n, r)) {
+                if (m_eval_cache[model_completion].find(n, r)) {
                     return r;
                 }
                 expr_ref tmp(m_manager);
-                if (!m_model->eval(n, tmp, model_completion)) 
+                if (!m_model->eval(n, tmp, model_completion)) {
                     r = 0;
-                else
+                    TRACE("model_finder", tout << "eval\n" << mk_pp(n, m_manager) << "\n-----> null\n";);
+                }
+                else {
                     r = tmp;
-                TRACE("model_finder", tout << "eval\n" << mk_pp(n, m_manager) << "\n----->\n" << mk_pp(r, m_manager) << "\n";);
-                m_eval_cache.insert(n, r);
+                    TRACE("model_finder", tout << "eval\n" << mk_pp(n, m_manager) << "\n----->\n" << mk_pp(r, m_manager) << "\n";);
+                }
+                m_eval_cache[model_completion].insert(n, r);
                 m_eval_cache_range.push_back(r);
                 return r;
             }

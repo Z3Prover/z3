@@ -200,7 +200,22 @@ namespace datalog {
             func_decl_set::iterator it = pruned_preds.begin();
             extension_model_converter* mc0 = alloc(extension_model_converter, m);
             for (; it != end; ++it) {
-                mc0->insert(*it, m.mk_true());
+                const rule_vector& rules = source.get_predicate_rules(*it);
+                expr_ref_vector fmls(m);
+                for (unsigned i = 0; i < rules.size(); ++i) {
+                    app* head = rules[i]->get_head();
+                    expr_ref_vector conj(m);
+                    for (unsigned j = 0; j < head->get_num_args(); ++j) {
+                        expr* arg = head->get_arg(j);
+                        if (!is_var(arg)) {
+                            conj.push_back(m.mk_eq(m.mk_var(j, m.get_sort(arg)), arg));
+                        }
+                    }                    
+                    fmls.push_back(m.mk_and(conj.size(), conj.c_ptr()));
+                }
+                expr_ref fml(m);
+                fml = m.mk_or(fmls.size(), fmls.c_ptr());
+                mc0->insert(*it, fml);
             }   
             m_context.add_model_converter(mc0);
         }

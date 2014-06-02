@@ -607,7 +607,29 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return res;
   }
 
+  ast distribute_coeff(const ast &coeff, const ast &s){
+    if(sym(s) == sum){
+      if(sym(arg(s,2)) == sum)
+	return make(sum,
+		    distribute_coeff(coeff,arg(s,0)),
+		    make_int(rational(1)),
+		    distribute_coeff(make(Times,coeff,arg(s,1)), arg(s,2)));
+      else
+	return make(sum,
+		    distribute_coeff(coeff,arg(s,0)),
+		    make(Times,coeff,arg(s,1)),
+		    arg(s,2));
+    }
+    if(op(s) == Leq && arg(s,1) == make_int(rational(0)) && arg(s,2) == make_int(rational(0)))
+      return s;
+    return make(sum,make(Leq,make_int(rational(0)),make_int(rational(0))),coeff,s);
+  }
+
   ast simplify_sum(std::vector<ast> &args){
+    if(args[1] != make_int(rational(1))){
+      if(sym(args[2]) == sum)
+	return make(sum,args[0],make_int(rational(1)),distribute_coeff(args[1],args[2]));
+    }
     ast Aproves = mk_true(), Bproves = mk_true();
     ast ineq = destruct_cond_ineq(args[0],Aproves,Bproves);
     if(!is_normal_ineq(ineq)) throw cannot_simplify();
@@ -757,6 +779,22 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast Bcond = my_implies(Bproves1,my_and(Aproves1,z3_simplify(ineq2)));
       //      if(!is_true(Aproves1) || !is_true(Bproves1))
       //	std::cout << "foo!\n";;
+      if(y == make_int(rational(0)) && op(x) == Plus && num_args(x) == 2){
+	if(get_term_type(arg(x,0)) == LitA){
+	  ast iter = z3_simplify(make(Plus,arg(x,0),get_ineq_rhs(xleqy)));
+	  ast rewrite1 = make_rewrite(LitA,pos_add(0,top_pos),Acond,make(Equal,arg(x,0),iter));
+	  iter = make(Plus,iter,arg(x,1));
+	  ast rewrite2 = make_rewrite(LitB,top_pos,Bcond,make(Equal,iter,y));
+	  return chain_cons(chain_cons(mk_true(),rewrite1),rewrite2);
+	}
+	if(get_term_type(arg(x,1)) == LitA){
+	  ast iter = z3_simplify(make(Plus,arg(x,1),get_ineq_rhs(xleqy)));
+	  ast rewrite1 = make_rewrite(LitA,pos_add(1,top_pos),Acond,make(Equal,arg(x,1),iter));
+	  iter = make(Plus,arg(x,0),iter);
+	  ast rewrite2 = make_rewrite(LitB,top_pos,Bcond,make(Equal,iter,y));
+	  return chain_cons(chain_cons(mk_true(),rewrite1),rewrite2);
+	}
+      }
       if(get_term_type(x) == LitA){
 	ast iter = z3_simplify(make(Plus,x,get_ineq_rhs(xleqy)));
 	ast rewrite1 = make_rewrite(LitA,top_pos,Acond,make(Equal,x,iter));
@@ -1014,6 +1052,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
       coeff = argpos ? make_int(rational(-1)) : make_int(rational(1));
       break;
     case Not:
+      coeff = make_int(rational(-1));
     case Plus:
       break;
     case Times:
@@ -2568,12 +2607,17 @@ class iz3proof_itp_impl : public iz3proof_itp {
       break;
     default: { // mixed equality
       if(get_term_type(x) == LitMixed || get_term_type(y) == LitMixed){
-	// std::cerr << "WARNING: mixed term in leq2eq\n"; 
-	std::vector<ast> lits;
-	lits.push_back(con);
-	lits.push_back(make(Not,xleqy));
-	lits.push_back(make(Not,yleqx));
-	return make_axiom(lits);
+	if(y == make_int(rational(0)) && op(x) == Plus && num_args(x) == 2){
+	  // std::cerr << "WARNING: untested case in leq2eq\n";
+	}
+	else {
+	  // std::cerr << "WARNING: mixed term in leq2eq\n"; 
+	  std::vector<ast> lits;
+	  lits.push_back(con);
+	  lits.push_back(make(Not,xleqy));
+	  lits.push_back(make(Not,yleqx));
+	  return make_axiom(lits);
+	}
       }
       std::vector<ast> conjs; conjs.resize(3);
       conjs[0] = mk_not(con);
@@ -2655,8 +2699,13 @@ class iz3proof_itp_impl : public iz3proof_itp {
   };
 
   std::vector<LocVar> localization_vars;         // localization vars in order of creation
-  hash_map<ast,ast> localization_map;            // maps terms to their localization vars
-  hash_map<ast,ast> localization_pf_map;         // maps terms to proofs of their localizations
+
+  struct locmaps {
+    hash_map<ast,ast> localization_map;            // maps terms to their localization vars
+    hash_map<ast,ast> localization_pf_map;         // maps terms to proofs of their localizations
+  };
+  
+  hash_map<prover::range,locmaps> localization_maps_per_range;
 
   /* "localize" a term e to a given frame range, creating new symbols to
      represent non-local subterms. This returns the localized version e_l,
@@ -2677,7 +2726,24 @@ class iz3proof_itp_impl : public iz3proof_itp {
       return make(Equal,x,y);
   }
 
+  bool range_is_global(const prover::range &r){
+    if(pv->range_contained(r,rng))
+      return false;
+    if(!pv->ranges_intersect(r,rng))
+      return false;
+    return true;
+  }
+
   ast localize_term(ast e, const prover::range &rng, ast &pf){
+
+    // we need to memoize this function separately for A, B and global
+    prover::range map_range = rng;
+    if(range_is_global(map_range))
+      map_range = pv->range_full();
+    locmaps &maps = localization_maps_per_range[map_range];
+    hash_map<ast,ast> &localization_map = maps.localization_map;
+    hash_map<ast,ast> &localization_pf_map = maps.localization_pf_map;
+
     ast orig_e = e;
     pf = make_refl(e);  // proof that e = e
 
@@ -2764,6 +2830,21 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast bar = make_assumption(frame,foo);
     pf = make_transitivity(new_var,e,orig_e,bar,pf);
     localization_pf_map[orig_e] = pf;
+
+    // HACK: try to bias this term in the future
+    if(!pv->range_is_full(rng)){
+      prover::range rf = pv->range_full();
+      locmaps &fmaps = localization_maps_per_range[rf];
+      hash_map<ast,ast> &flocalization_map = fmaps.localization_map;
+      hash_map<ast,ast> &flocalization_pf_map = fmaps.localization_pf_map;
+      // if(flocalization_map.find(orig_e) == flocalization_map.end())
+	{
+	  flocalization_map[orig_e] = new_var;
+	  flocalization_pf_map[orig_e] = pf;
+	}
+    }
+      
+    
     return new_var;
   }
 

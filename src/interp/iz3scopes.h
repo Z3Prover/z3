@@ -23,6 +23,7 @@ Revision History:
 
 #include <vector>
 #include <limits.h>
+#include "iz3hash.h"
 
 class scopes {
 
@@ -61,6 +62,11 @@ class scopes {
   /** is this range empty? */
   bool range_is_empty(const range &rng){
 	  return rng.hi < rng.lo;
+  }
+
+  /** is this range full? */
+  bool range_is_full(const range &rng){
+    return rng.lo == SHRT_MIN && rng.hi == SHRT_MAX;
   }
 
   /** return an empty range */
@@ -194,4 +200,23 @@ class scopes {
 
 
 };
+
+// let us hash on ranges
+
+#ifndef FULL_TREE
+namespace hash_space {
+  template <>
+  class hash<scopes::range> {
+  public:
+    size_t operator()(const scopes::range &p) const {
+      return (size_t)p.lo + (size_t)p.hi;
+    }
+  };
+}
+
+inline bool operator==(const scopes::range &x, const scopes::range &y){
+  return x.lo == y.lo && x.hi == y.hi;
+}
+#endif
+
 #endif
