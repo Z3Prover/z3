@@ -1372,6 +1372,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
             while (r == l_true && get_opt()->is_pareto()) {
                 was_pareto = true;
                 get_opt()->display_assignment(regular_stream());
+                regular_stream() << "\n";
                 r = get_opt()->optimize();
             }
         }

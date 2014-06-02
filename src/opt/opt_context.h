@@ -192,7 +192,8 @@ namespace opt {
         void from_fmls(expr_ref_vector const& fmls);
         void simplify_fmls(expr_ref_vector& fmls);
 
-        void update_lower(bool override);
+        void update_lower(bool override) { update_bound(override, true); }
+        void update_bound(bool override, bool is_lower);
 
         inf_eps get_lower_as_num(unsigned idx);
         inf_eps get_upper_as_num(unsigned idx);

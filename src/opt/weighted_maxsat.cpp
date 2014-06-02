@@ -39,6 +39,8 @@ Notes:
 #include "scoped_timer.h"
 #include "optsmt.h"
 
+#define USE_SIMPLEX 0
+
 namespace opt {
 
     class scoped_stopwatch {
@@ -644,7 +646,7 @@ namespace opt {
 
         virtual void set_cancel(bool f) { 
             maxsmt_solver_base::set_cancel(f); 
-            // maxs->set_cancel(f);
+            maxs->set_cancel(f);
             m_optsmt.set_cancel(f);
         }
 
@@ -655,7 +657,7 @@ namespace opt {
 
         virtual void collect_statistics(statistics& st) const {
             maxsmt_solver_base::collect_statistics(st);
-            // maxs->s().collect_statistics(st);
+            maxs->s().collect_statistics(st);
             st.update("hsmax-num-iterations", m_stats.m_num_iterations);
             st.update("hsmax-num-core-reductions-n", m_stats.m_num_core_reductions_failure);
             st.update("hsmax-num-core-reductions-y", m_stats.m_num_core_reductions_success);
@@ -738,21 +740,26 @@ namespace opt {
                 m_aux_active.push_back(false);
                 m_core_activity.push_back(0);
                 m_aux2index.insert(m_aux.back(), i);
+#if USE_SIMPLEX
                 m_aux2index.insert(m_iaux.back(), i);
                 fml = m.mk_and(a.mk_le(a.mk_numeral(rational::zero(), true), iaux), 
                                a.mk_le(iaux, a.mk_numeral(rational::one(), true)));
                 rational const& w = m_weights[i];
                 sum.push_back(a.mk_mul(a.mk_numeral(w, w.is_int()), iaux));
                 m_solver.assert_expr(fml);
+#endif
                 if (tt) {
                     m_asms.push_back(m_aux.back());
                     ensure_active(i);
                 }
             }
+#if USE_SIMPLEX
             obj = a.mk_add(sum.size(), sum.c_ptr());
             m_objective = m_optsmt.add(obj);
             m_optsmt.setup(m_solver);
-            // maxs->init_soft(m_weights, m_aux);
+#else
+            maxs->init_soft(m_weights, m_aux);
+#endif
             TRACE("opt", print_seed(tout););
         }
 
@@ -878,9 +885,9 @@ namespace opt {
         //
         // produce the non-optimal hitting set by using the 10% heuristic.
         // of most active cores constraints.
+        // m_asms contains the current core.
         //
         void find_non_optimal_hitting_set(ptr_vector<expr>& hs) {
-            // m_asms contains the current core.
             std::sort(m_asms.begin(), m_asms.end(), lt_activity(*this));
             for (unsigned i = m_asms.size(); i > 9*m_asms.size()/10;) { 
                 --i;
@@ -899,7 +906,7 @@ namespace opt {
         lbool next_seed() {
             scoped_stopwatch _sw(m_stats.m_aux_sat_time);
             TRACE("opt", tout << "\n";);
-#if 1
+#if USE_SIMPLEX
             m_solver.display(std::cout);
             lbool is_sat = m_optsmt.lex(m_objective);
             if (is_sat == l_true) {
@@ -919,7 +926,27 @@ namespace opt {
             }
             
 #else
-            lbool is_sat = maxs->s().check_sat(0,0);
+
+            // min c_i*(not x_i) for x_i are soft clauses.
+            // max c_i*x_i for x_i are soft clauses
+            
+            lbool is_sat = l_true;
+            if (m_lower.is_pos()) {
+                expr_ref fml(m);
+                solver::scoped_push _scope(maxs->s());
+                fml = pb.mk_le(num_soft(), m_weights.c_ptr(), m_naux.c_ptr(), m_lower);
+                maxs->add_hard(fml);
+                //fml = pb.mk_ge(num_soft(), m_weights.c_ptr(), m_naux.c_ptr(), m_lower);
+                //maxs->add_hard(fml);
+                std::cout << fml << "\n";
+                is_sat = maxs->s().check_sat(0,0);
+                if (is_sat == l_true) {
+                    maxs->set_model();
+                    extract_seed();
+                    return l_true;
+                }
+            }
+            is_sat = maxs->s().check_sat(0,0);
             if (is_sat == l_true) {
                 maxs->set_model();
             }
@@ -927,22 +954,25 @@ namespace opt {
                 return is_sat;
             }
             is_sat = (*maxs)();            
-                    
+                                
             if (is_sat == l_true) {
-                model_ref mdl;
-                maxs->get_model(mdl);
-                for (unsigned i = 0; i < num_soft(); ++i) {
-                    if (is_active(i)) {
-                        m_seed[i] = is_true(mdl, m_aux[i].get());
-                    }
-                    else {
-                        m_seed[i] = false;
-                    }
-                }
-                TRACE("opt", print_seed(tout););
+                extract_seed();
             }
 #endif
             return is_sat;
+        }
+
+        void extract_seed() {
+            model_ref mdl;
+            maxs->get_model(mdl);
+            m_lower.reset();
+            for (unsigned i = 0; i < num_soft(); ++i) {
+                m_seed[i] = is_active(i) && is_true(mdl, m_aux[i].get());
+                if (!m_seed[i]) {
+                    m_lower += m_weights[i];
+                }
+            }
+            TRACE("opt", print_seed(tout););
         }
 
         //
@@ -1018,15 +1048,16 @@ namespace opt {
                     }
                 }
             }
-            //rational old_upper = m_upper;
-            m_upper.reset();
+            rational upper(0);
             for (unsigned i = 0; i < num_soft(); ++i) {
                 if (!m_seed[i]) {
-                    m_upper += m_weights[i];
+                    upper += m_weights[i];
                 }
-            }            
-            //SASSERT(old_upper > m_upper);
-            TRACE("opt", tout << "new upper: " << m_upper << "\n";);
+            }       
+            if (upper < m_upper) {
+                m_upper = upper;
+                TRACE("opt", tout << "new upper: " << m_upper << "\n";);
+            }
             return true;
         }
 
@@ -1109,7 +1140,7 @@ namespace opt {
             }
             expr_ref_vector fmls(m);
             expr_ref fml(m);
-#if 1
+#if USE_SIMPLEX
             for (unsigned i = 0; i < num_soft(); ++i) {
                 if (!indices.contains(i)) {
                     fmls.push_back(m_iaux[i].get());
@@ -1126,9 +1157,9 @@ namespace opt {
             }
             fml = m.mk_or(fmls.size(), fmls.c_ptr());
             maxs->add_hard(fml);
+            set_upper();
 #endif
             TRACE("opt", tout << fml << "\n";);
-            // set_upper();
         }
 
         // constrain the upper bound.
@@ -1143,7 +1174,7 @@ namespace opt {
         void block_up() {
             expr_ref_vector fmls(m);
             expr_ref fml(m);
-#if 1
+#if USE_SIMPLEX
             for (unsigned i = 0; i < m_asms.size(); ++i) {
                 unsigned index = m_aux2index.find(m_asms[i]);
                 m_core_activity[index]++;
@@ -1655,7 +1686,7 @@ namespace opt {
             else if (m_engine == symbol("hsmax")) {
                 ref<opt_solver> s0 = alloc(opt_solver, m, m_params, symbol());
                 s0->check_sat(0,0);                
-                maxsmt_solver_base* s2 = alloc(pbmax, s0.get(), m); // , s0->get_context();
+                maxsmt_solver_base* s2 = alloc(pbmax, s0.get(), m); // , s0->get_context());
                 s2->set_converter(s0->mc_ref().get());
                 m_maxsmt = alloc(hsmax, s.get(), m, s2);
             }

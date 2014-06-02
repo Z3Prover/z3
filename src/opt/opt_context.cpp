@@ -42,6 +42,7 @@ namespace opt {
     void context::scoped_state::push() {
         m_hard_lim.push_back(m_hard.size());
         m_objectives_lim.push_back(m_objectives.size());        
+        m_objectives_term_trail_lim.push_back(m_objectives_term_trail.size());
     }
 
     void context::scoped_state::pop() {
@@ -372,47 +373,9 @@ namespace opt {
 
     void context::yield() {
         m_pareto->get_model(m_model);
-        update_lower(true);
-        for (unsigned i = 0; i < m_objectives.size(); ++i) {
-            objective const& obj = m_objectives[i];
-            switch(obj.m_type) {
-            case O_MINIMIZE:
-            case O_MAXIMIZE:
-                m_optsmt.update_upper(obj.m_index, m_optsmt.get_lower(obj.m_index), true);
-                break;
-            case O_MAXSMT: {
-                rational r = m_maxsmts.find(obj.m_id)->get_lower();
-                m_maxsmts.find(obj.m_id)->update_upper(r, true);
-                break;
-            }
-            }
-        }        
+        update_bound(true, true);
+        update_bound(true, false);
     }
-
-
-#if 0
-        // use PB
-        expr_ref mk_pb_cmp(objective const& obj, model_ref& mdl, bool is_ge) {
-            rational r, sum(0);
-            expr_ref val(m), result(m);
-            unsigned sz = obj.m_terms.size();
-            pb_util pb(m);
-
-            for (unsigned i = 0; i < sz; ++i) {
-                expr* t = obj.m_terms[i];
-                VERIFY(mdl->eval(t, val));
-                if (m.is_true(val)) {
-                    sum += r;
-                }
-            }
-            if (is_ge) {
-                result = pb.mk_ge(obj.m_terms.size(), obj.m_weights.c_ptr(), obj.m_terms.c_ptr(), r);
-            }
-            else {
-                result = pb.mk_le(obj.m_terms.size(), obj.m_weights.c_ptr(), obj.m_terms.c_ptr(), r);
-            }
-        }
-#endif
 
     lbool context::execute_pareto() {
         if (!m_pareto) {
@@ -761,7 +724,7 @@ namespace opt {
         }
     }
 
-    void context::update_lower(bool override) {
+    void context::update_bound(bool override, bool is_lower) {
         expr_ref val(m);
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
@@ -770,18 +733,27 @@ namespace opt {
             case O_MINIMIZE:
                 if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
                     r += obj.m_offset;
-                    m_optsmt.update_lower(obj.m_index, inf_eps(-r), override);
+                    if (is_lower) {
+                        m_optsmt.update_lower(obj.m_index, inf_eps(-r), override);
+                    }
+                    else {
+                        m_optsmt.update_upper(obj.m_index, inf_eps(-r), override);
+                    }
                 }
                 break;
             case O_MAXIMIZE:
                 if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
                     r += obj.m_offset;
-                    m_optsmt.update_lower(obj.m_index, inf_eps(r), override);
+                    if (is_lower) {
+                        m_optsmt.update_lower(obj.m_index, inf_eps(r), override);
+                    }
+                    else {
+                        m_optsmt.update_upper(obj.m_index, inf_eps(r), override);
+                    }
                 }
                 break;
             case O_MAXSMT: {
                 bool ok = true;
-                r = obj.m_offset;
                 for (unsigned j = 0; ok && j < obj.m_terms.size(); ++j) {
                     if (m_model->eval(obj.m_terms[j], val)) {
                         if (!m.is_true(val)) {
@@ -793,7 +765,12 @@ namespace opt {
                     }
                 }
                 if (ok) {
-                    m_maxsmts.find(obj.m_id)->update_upper(r, override);
+                    if (is_lower) {
+                        m_maxsmts.find(obj.m_id)->update_upper(r, override);
+                    }
+                    else {
+                        m_maxsmts.find(obj.m_id)->update_lower(r, override);
+                    }
                 }
                 break;
             }

@@ -269,6 +269,7 @@ public:
                 if (r == l_true && opt.is_pareto()) {
                     while (r == l_true) {
                         display_result(ctx);
+                        ctx.regular_stream() << "\n";
                         r = opt.optimize();
                     }
                     if (p.get_bool("print_statistics", false)) {
@@ -314,7 +315,6 @@ public:
             if (mdl) {
                 ctx.regular_stream() << "(model " << std::endl;
                 model_smt2_pp(ctx.regular_stream(), ctx, *(mdl.get()), 2);
-                // m->display(ctx.regular_stream());
                 ctx.regular_stream() << ")" << std::endl;                    
             }
         }
