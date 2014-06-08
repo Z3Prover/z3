@@ -646,13 +646,13 @@ namespace simplex {
         scoped_eps_numeral delta(em);
         scoped_numeral a_ij(m);
         var_t x_i, x_j;
-        bool inc;
+        bool inc_x_i, inc_x_j;
 
         while (true) {
             if (m_cancel) {
                 return l_undef;
             }
-            select_pivot_primal(v, x_i, x_j, a_ij, inc);
+            select_pivot_primal(v, x_i, x_j, a_ij, inc_x_i, inc_x_j);
             if (x_j == null_var) {
                 // optimal
                 return l_true;
@@ -660,12 +660,12 @@ namespace simplex {
             TRACE("simplex", tout << "x_i: v" << x_i << " x_j: v" << x_j << "\n";);
             var_info& vj = m_vars[x_j];
             if (x_i == null_var) {
-                if (inc && vj.m_upper_valid) {
+                if (inc_x_j && vj.m_upper_valid) {
                     delta = vj.m_upper;
                     delta -= vj.m_value;
                     update_value(x_j, delta);
                 }
-                else if (!inc && vj.m_lower_valid) {
+                else if (!inc_x_j && vj.m_lower_valid) {
                     delta = vj.m_lower;
                     delta -= vj.m_value;
                     update_value(x_j, delta);
@@ -686,7 +686,7 @@ namespace simplex {
 
             pivot(x_i, x_j, a_ij);
             TRACE("simplex", display(tout << "after pivot\n"););
-            move_to_bound(x_i, !inc);
+            move_to_bound(x_i, !inc_x_i);
             SASSERT(well_formed_row(row(m_vars[x_j].m_base2row)));
             TRACE("simplex", display(tout););
             SASSERT(is_feasible());
@@ -705,7 +705,7 @@ namespace simplex {
             em.sub(vi.m_upper, vi.m_value, delta);
         }
         TRACE("simplex", tout << "move " << (to_lower?"to_lower":"to_upper") 
-              << " v" << x << " " << em.to_string(delta) << "\n";);
+              << " v" << x << " delta: " << em.to_string(delta) << "\n";);
         col_iterator it = M.col_begin(x), end = M.col_end(x);
         for (; it != end && is_pos(delta); ++it) {
             //
@@ -756,10 +756,11 @@ namespace simplex {
        x_i - base variable of row(x_i) to become non-base
        x_j - variable in row(v) to make a base variable
        a_ij - coefficient to x_j in row(x_i)
-       inc  - whether to increment x_j (true if coefficient in row(v) is negative).
+       inc  - whether to increment x_i 
      */
     template<typename Ext>
-    void simplex<Ext>::select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, bool& inc) {
+    void simplex<Ext>::select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, 
+                                           bool& inc_x_i, bool& inc_x_j) {
         row r(m_vars[v].m_base2row);
         row_iterator it = M.row_begin(r), end = M.row_end(r);
     
@@ -767,25 +768,27 @@ namespace simplex {
         scoped_numeral new_a_ij(m);
         x_i = null_var;
         x_j = null_var;
-        inc = false;
+        inc_x_i = false;
+        bool inc_y = false;
 
         for (; it != end; ++it) {
             var_t x = it->m_var;          
             if (x == v) continue; 
-            bool is_pos = m.is_pos(it->m_coeff) == m.is_pos(m_vars[v].m_base_coeff);
-            if ((is_pos && at_upper(x)) || (!is_pos && at_lower(x))) {
-                TRACE("simplex", tout << "v" << x << " pos: " << is_pos 
+            bool inc_x = m.is_pos(it->m_coeff) == m.is_pos(m_vars[v].m_base_coeff);
+            if ((inc_x && at_upper(x)) || (!inc_x && at_lower(x))) {
+                TRACE("simplex", tout << "v" << x << " pos: " << inc_x 
                       << " at upper: " << at_upper(x) 
                       << " at lower: " << at_lower(x) << "\n";);
                 continue; // variable cannot be used for improving bounds.
                 // TBD check?
-            }
-            var_t y = pick_var_to_leave(x, is_pos, new_gain, new_a_ij);
+            }            
+            var_t y = pick_var_to_leave(x, inc_x, new_gain, new_a_ij, inc_y);
             if (y == null_var) {
                 // unbounded.
                 x_i = y;
                 x_j = x;
-                inc = is_pos;
+                inc_x_i = inc_y;
+                inc_x_j = inc_x;
                 a_ij = new_a_ij;
                 break;
             }
@@ -794,20 +797,39 @@ namespace simplex {
                 ((is_zero(new_gain) && is_zero(gain) && (x_i == null_var || y < x_i)));
 
             if (better) {
+                TRACE("simplex", 
+                      em.display(tout << "gain:", gain); 
+                      em.display(tout << " new gain:", new_gain);
+                      tout << " base x_i: " << y << ", new base x_j: " << x << ", inc x_j: " << inc_x << "\n";);
+
                 x_i = y;
                 x_j = x;
-                inc = is_pos;
+                inc_x_i = inc_y;
+                inc_x_j = inc_x;
                 gain = new_gain;
                 a_ij = new_a_ij;
             }            
         }
     }
 
+    //
+    // y is a base variable.
+    // v is a base variable.
+    // v*a_v + x*a_x + E = 0
+    // y*b_y + x*b_x + F = 0
+    // inc(x)  := sign(a_v) == sign(a_x)
+    // sign_eq := sign(b_y) == sign(b_x)
+    // sign_eq => (inc(x) != inc(y))
+    // !sign_eq => (inc(x) = inc(y))
+    // -> 
+    // inc(y) := sign_eq != inc(x)
+    //
+
     template<typename Ext>
     typename simplex<Ext>::var_t 
     simplex<Ext>::pick_var_to_leave(
-        var_t x_j, bool inc, 
-        scoped_eps_numeral& gain, scoped_numeral& new_a_ij) {
+        var_t x_j, bool inc_x_j, 
+        scoped_eps_numeral& gain, scoped_numeral& new_a_ij, bool& inc_x_i) {
         var_t x_i = null_var;
         gain.reset();
         scoped_eps_numeral curr_gain(em);
@@ -818,10 +840,13 @@ namespace simplex {
             var_info& vi = m_vars[s];
             numeral const& a_ij = it.get_row_entry().m_coeff;
             numeral const& a_ii = vi.m_base_coeff;
-            bool inc_s = (m.is_pos(a_ii) != m.is_pos(a_ij)) ? inc : !inc;
-            TRACE("simplex", tout << "v" << x_j << " base v" << s << " incs: " << inc_s 
-                  << " upper valid:" << vi.m_upper_valid 
-                  << " lower valid:" << vi.m_lower_valid << "\n";
+            bool sign_eq = (m.is_pos(a_ii) == m.is_pos(a_ij));
+            bool inc_s =  sign_eq != inc_x_j;
+            TRACE("simplex", tout << "x_j: v" << x_j << ", base x_i: v" << s 
+                  << ", inc_x_i: " << inc_s 
+                  << ", inc_x_j: " << inc_x_j 
+                  << ", upper valid:" << vi.m_upper_valid 
+                  << ", lower valid:" << vi.m_lower_valid << "\n";
                   display_row(tout, r););
             if ((inc_s && !vi.m_upper_valid) || (!inc_s && !vi.m_lower_valid)) {
                 continue;
@@ -841,6 +866,7 @@ namespace simplex {
                 x_i = s;
                 gain = curr_gain;
                 new_a_ij = a_ij;
+                inc_x_i = inc_s;
                 TRACE("simplex", tout << "x_j v" << x_j << " x_i v" << x_i << " gain: ";
                       tout << curr_gain << "\n";);
             }

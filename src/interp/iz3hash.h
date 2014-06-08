@@ -29,6 +29,10 @@ Revision History:
 #ifndef IZ3_HASH_H
 #define IZ3_HASH_H
 
+#ifdef _WINDOWS
+#pragma warning(disable:4267)
+#endif
+
 #include <string>
 #include <vector>
 #include <iterator>

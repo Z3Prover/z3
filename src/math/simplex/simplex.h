@@ -174,10 +174,11 @@ namespace simplex {
         var_t select_pivot_core(var_t x_i, bool is_below, scoped_numeral& out_a_ij);
         int get_num_non_free_dep_vars(var_t x_j, int best_so_far);
 
-        var_t pick_var_to_leave(var_t x_j, bool inc, scoped_eps_numeral& gain, scoped_numeral& new_a_ij);
+        var_t pick_var_to_leave(var_t x_j, bool is_pos, 
+                                scoped_eps_numeral& gain, scoped_numeral& new_a_ij, bool& inc);
 
 
-        void  select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, bool& inc);
+        void  select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, bool& inc_x_i, bool& inc_x_j);
 
 
         bool at_lower(var_t v) const;

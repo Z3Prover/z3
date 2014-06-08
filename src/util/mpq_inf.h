@@ -248,7 +248,7 @@ public:
     void ceil(mpq_inf const & a, mpq & b) {
         if (m.is_int(a.first)) {
             // special cases for  k - delta*epsilon where k is an integer
-            if (m.is_pos(a.first))
+            if (m.is_pos(a.second))
                 m.add(a.first, mpq(1), b); // ceil(k + delta*epsilon) --> k+1
             else
                 m.set(b, a.first);
@@ -276,6 +276,7 @@ public:
         out << to_string(a);
     }
 
+    mpq_manager<SYNCH>& mpq_manager() { return m; }
 };
 
 typedef mpq_inf_manager<true>  synch_mpq_inf_manager;

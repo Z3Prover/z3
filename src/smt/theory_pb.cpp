@@ -471,7 +471,7 @@ namespace smt {
             break;
         }
             
-        if (c->k().is_one() && c->is_ge()) {
+        if (c->k().is_one() && c->is_ge() && !m_enable_simplex) {
             literal_vector& lits = get_lits();
             lits.push_back(~lit);
             for (unsigned i = 0; i < c->size(); ++i) {
@@ -480,7 +480,7 @@ namespace smt {
                 ctx.mk_th_axiom(get_id(), lit, ~c->lit(i));
             }
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-            // return true;
+            return true;
         }
         
         // maximal coefficient:

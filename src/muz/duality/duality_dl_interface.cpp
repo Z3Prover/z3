@@ -35,6 +35,7 @@ Revision History:
 #include "model_smt2_pp.h"
 #include "model_v2_pp.h"
 #include "fixedpoint_params.hpp"
+#include "used_vars.h"
 
 // template class symbol_table<family_id>;
 
@@ -164,6 +165,20 @@ lbool dl_interface::query(::expr * query) {
     clauses.push_back(e);
   }
   
+  std::vector<sort> b_sorts;
+  std::vector<symbol> b_names;
+  used_vars uv;
+  uv.process(query);
+  unsigned nuv = uv.get_max_found_var_idx_plus_1();
+  for(int i = nuv-1; i >= 0; i--){ // var indices are backward
+    ::sort * s = uv.get(i);
+    if(!s)
+      s = _d->ctx.m().mk_bool_sort(); // missing var, whatever
+    b_sorts.push_back(sort(_d->ctx,s));
+    b_names.push_back(symbol(_d->ctx,::symbol(i))); // names?
+  }
+
+#if 0
   // turn the query into a clause
   expr q(_d->ctx,m_ctx.bind_variables(query,false));
   
@@ -177,6 +192,9 @@ lbool dl_interface::query(::expr * query) {
     }
     q = q.arg(0);
   }
+#else
+  expr q(_d->ctx,query);
+#endif
 
   expr qc = implies(q,_d->ctx.bool_val(false));
   qc = _d->ctx.make_quant(Forall,b_sorts,b_names,qc);
@@ -211,6 +229,7 @@ lbool dl_interface::query(::expr * query) {
   rs->SetOption("use_underapprox",m_ctx.get_params().use_underapprox() ? "1" : "0");
   rs->SetOption("stratified_inlining",m_ctx.get_params().stratified_inlining() ? "1" : "0");
   rs->SetOption("batch_expand",m_ctx.get_params().batch_expand() ? "1" : "0");
+  rs->SetOption("conjecture_file",m_ctx.get_params().conjecture_file());
   unsigned rb = m_ctx.get_params().recursion_bound();
   if(rb != UINT_MAX){
     std::ostringstream os; os << rb;
@@ -350,7 +369,9 @@ void dl_interface::display_certificate_non_const(std::ostream& out) {
   if(_d->status == StatusModel){
     ast_manager &m = m_ctx.get_manager();
     model_ref md = get_model();
+    out << "(fixedpoint \n";
     model_smt2_pp(out, m, *md.get(), 0); 
+    out << ")\n";
   }
   else if(_d->status == StatusRefutation){
     out << "(derivation\n";
