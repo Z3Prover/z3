@@ -3533,7 +3533,7 @@ namespace Microsoft.Z3
         public FPNum MkFP(double v, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
-            return new FPNum(this, Native.Z3_mk_double(this.nCtx, v, s.NativeObject));
+            return new FPNum(this, Native.Z3_mk_fpa_double(this.nCtx, v, s.NativeObject));
         }    
 
         /// <summary>
