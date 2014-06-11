@@ -131,7 +131,7 @@ extern "C" {
 
        def_API('Z3_mk_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_double(__in Z3_context c, __in double v, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_double(__in Z3_context c, __in double v, __in Z3_sort ty);
 
     /**
         \brief Floating-point absolute value

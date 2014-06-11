@@ -121,9 +121,9 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_double(Z3_context c, double v, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_fpa_double(Z3_context c, double v, Z3_sort ty) {
         Z3_TRY;
-        LOG_Z3_mk_double(c, v, ty);
+        LOG_Z3_mk_fpa_double(c, v, ty);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         scoped_mpf tmp(ctx->float_util().fm());
