@@ -44,9 +44,12 @@ namespace smt {
         virtual char const * get_name() const { return "fpa"; }        
 
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
-
+        
+        void assign_eh(bool_var v, bool is_true);
+        virtual void relevant_eh(app * n);
     public:
         theory_fpa(ast_manager& m);
+        virtual ~theory_fpa();
 
     protected:
         void split_triple(expr * e, expr * & sgn, expr * & sig, expr * & exp) const {
@@ -56,6 +59,8 @@ namespace smt {
             sig = to_app(e)->get_arg(1);
             exp = to_app(e)->get_arg(2);
         }
+        
+        void ensure_bv_var(expr_ref const & n);
     };
 
 };
