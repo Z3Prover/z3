@@ -59,8 +59,9 @@ namespace smt {
             sig = to_app(e)->get_arg(1);
             exp = to_app(e)->get_arg(2);
         }
-        
-        void ensure_bv_var(expr_ref const & n);
+                
+        void mk_bv_eq(expr * x, expr * y);
+        expr_ref mk_eq_bv_const(expr_ref const & e);
     };
 
 };

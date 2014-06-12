@@ -37,6 +37,25 @@ namespace smt {
     {
     }
 
+    void theory_fpa::mk_bv_eq(expr * x, expr * y) {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();        
+        expr_ref eq(m);
+        eq = m.mk_eq(x, y);
+        ctx.internalize(eq, false);
+        ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(eq));
+        ctx.mark_as_relevant(eq);
+    }
+
+    expr_ref theory_fpa::mk_eq_bv_const(expr_ref const & e) {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+        expr_ref bv_const(m);
+        bv_const = m.mk_fresh_const(0, m.get_sort(e));
+        mk_bv_eq(bv_const, e);
+        return bv_const;
+    }
+
     bool theory_fpa::internalize_atom(app * atom, bool gate_ctx) {
         TRACE("t_fpa", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << "\n";);
         SASSERT(atom->get_family_id() == get_family_id());
@@ -51,53 +70,60 @@ namespace smt {
         ast_manager & m = get_manager();
         context & ctx = get_context();
         simplifier & simp = ctx.get_simplifier();        
-        
+
         unsigned num_args = term->get_num_args();
         for (unsigned i = 0; i < num_args; i++)
             ctx.internalize(term->get_arg(i), false);
+        
+        if (m_converter.is_float(m.get_sort(term))) {
+            expr_ref res(m);
+            m_rw(term, res);
+            SASSERT(is_app(res) && to_app(res)->get_num_args() == 3);
+            TRACE("t_fpa", tout << "converted: " << mk_ismt2_pp(res, get_manager()) << "\n";);
+            
+            app * a = to_app(res);
+            expr_ref sgn(m), sig(m), exp(m);
+            proof_ref pr_sgn(m), pr_sig(m), pr_exp(m);
+            simp(a->get_arg(0), sgn, pr_sgn);
+            simp(a->get_arg(1), sig, pr_sig);
+            simp(a->get_arg(2), exp, pr_exp);
 
-        expr_ref res(m);
-        m_rw(term, res);
-        SASSERT(is_app(res) && to_app(res)->get_num_args() == 3);
-        app * a = to_app(res);
-        TRACE("t_fpa", tout << "converted: " << mk_ismt2_pp(res, get_manager()) << "\n";);
+            expr_ref bv_v_sgn = mk_eq_bv_const(sgn);
+            expr_ref bv_v_sig = mk_eq_bv_const(sig);
+            expr_ref bv_v_exp = mk_eq_bv_const(exp);
 
-        expr_ref sgn(m), sig(m), exp(m);
-        proof_ref pr_sgn(m), pr_sig(m), pr_exp(m);
-        simp(a->get_arg(0), sgn, pr_sgn);
-        simp(a->get_arg(1), sig, pr_sig);
-        simp(a->get_arg(2), exp, pr_exp);        
+            expr_ref s_term(m);
+            m_converter.mk_triple(bv_v_sgn, bv_v_sig, bv_v_exp, s_term);
 
-        expr_ref bv_v_sgn(m), bv_v_sig(m), bv_v_exp(m);
-        bv_v_sgn = m.mk_fresh_const("fpa2bv", m.get_sort(sgn));
-        bv_v_sig = m.mk_fresh_const("fpa2bv", m.get_sort(sig));
-        bv_v_exp = m.mk_fresh_const("fpa2bv", m.get_sort(exp));        
-        expr_ref e1(m), e2(m), e3(m);
-        e1 = m.mk_eq(bv_v_sgn, sgn);
-        e2 = m.mk_eq(bv_v_sig, sig);
-        e3 = m.mk_eq(bv_v_exp, exp);
-        ctx.internalize(e1, false);
-        ctx.internalize(e2, false);
-        ctx.internalize(e3, false);
-        ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(e1));
-        ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(e2));
-        ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(e3));
-        ctx.mark_as_relevant(e1);
-        ctx.mark_as_relevant(e2);
-        ctx.mark_as_relevant(e3);
+            SASSERT(!m_trans_map.contains(term));
+            m_trans_map.insert(term, s_term, 0);
+        }
+        else if (m_converter.is_rm_sort(m.get_sort(term))) {
+            expr_ref res(m);
+            m_rw(term, res);
+            SASSERT(is_app(res));
+            TRACE("t_fpa", tout << "converted: " << mk_ismt2_pp(res, get_manager()) << "\n";);
+            
+            app * a = to_app(res);
+            expr_ref bv_rm(m);
+            proof_ref bv_pr(m);
+            simp(res, bv_rm, bv_pr);
 
-        expr_ref s_term(m);
-        m_converter.mk_triple(bv_v_sgn, bv_v_sig, bv_v_exp, s_term);
+            expr_ref bv_v = mk_eq_bv_const(bv_rm);
 
-        SASSERT(!m_trans_map.contains(term));
-        m_trans_map.insert(term, s_term, 0);
+            SASSERT(!m_trans_map.contains(term));
+            m_trans_map.insert(term, bv_v, 0);
+
+            
+        }
+        else
+            UNREACHABLE();
 
         enode * e = ctx.mk_enode(term, false, false, true);
-        theory_var v = mk_var(e);        
+        theory_var v = mk_var(e);
         ctx.attach_th_var(e, this, v);
         TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(term, get_manager()) << " := " << v << "\n";);
         SASSERT(e->get_th_var(get_id()) != null_theory_var);
-
         return v != null_theory_var;
     }
 
@@ -116,12 +142,7 @@ namespace smt {
             m_trans_map.insert(owner, converted, 0);
             
             if (m_converter.is_rm_sort(m.get_sort(owner))) {
-                expr_ref bv_v(m), eq(m);
-                bv_v = m.mk_fresh_const("fpa2bv", m.get_sort(converted));                
-                eq = m.mk_eq(bv_v, converted);
-                ctx.internalize(eq, false);
-                literal l = ctx.get_literal(eq);
-                ctx.mk_th_axiom(get_id(), 1, &l);
+                mk_eq_bv_const(converted);
             }
             else {
                 app * a = to_app(converted);
@@ -131,89 +152,77 @@ namespace smt {
                 simp(a->get_arg(1), sig, pr_sig);
                 simp(a->get_arg(2), exp, pr_exp);
 
-                ctx.internalize(sgn, false);
-                ctx.internalize(sig, false);
-                ctx.internalize(exp, false);
-
-                expr_ref bv_v_sgn(m), bv_v_sig(m), bv_v_exp(m);
-                bv_v_sgn = m.mk_fresh_const("fpa2bv", m.get_sort(sgn));
-                bv_v_sig = m.mk_fresh_const("fpa2bv", m.get_sort(sig));
-                bv_v_exp = m.mk_fresh_const("fpa2bv", m.get_sort(exp));
-                expr_ref e1(m), e2(m), e3(m);
-                e1 = m.mk_eq(bv_v_sgn, sgn);
-                e2 = m.mk_eq(bv_v_sig, sig);
-                e3 = m.mk_eq(bv_v_exp, exp);
-                ctx.internalize(e1, true);
-                ctx.internalize(e2, true);
-                ctx.internalize(e3, true);
-                ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(e1));
-                ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(e2));
-                ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(e3));
-                ctx.mark_as_relevant(e1);
-                ctx.mark_as_relevant(e2);
-                ctx.mark_as_relevant(e3);
+                mk_eq_bv_const(sgn);
+                mk_eq_bv_const(sig);
+                mk_eq_bv_const(exp);
             }
 
             TRACE("t_fpa", tout << "new theory var (const): " << mk_ismt2_pp(owner, get_manager()) << " := " << v << "\n";);
         }
     }
 
-    void theory_fpa::new_eq_eh(theory_var x, theory_var y) {
+    void theory_fpa::new_eq_eh(theory_var x, theory_var y) {        
         TRACE("t_fpa", tout << "new eq: " << x << " = " << y << "\n";);
         ast_manager & m = get_manager();
         context & ctx = get_context();
+        
         app * ax = get_enode(x)->get_owner();
         app * ay = get_enode(y)->get_owner();
-
-        expr * ex, * ey;
-        proof * px, * py;
+        expr * ex, *ey;
+        proof * px, *py;
         m_trans_map.get(ax, ex, px);
         m_trans_map.get(ay, ey, py);
 
-        expr * sgn_x, * sig_x, * exp_x;
-        expr * sgn_y, * sig_y, * exp_y;
-        split_triple(ex, sgn_x, sig_x, exp_x);
-        split_triple(ey, sgn_y, sig_y, exp_y);
-                
-        expr_ref e1(m), e2(m), e3(m);
-        e1 = m.mk_eq(sgn_x, sgn_y);
-        e2 = m.mk_eq(sig_x, sig_y);
-        e3 = m.mk_eq(exp_x, exp_y);
-        ctx.internalize(e1, true);
-        ctx.internalize(e2, true);
-        ctx.internalize(e3, true);
-        ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(e1));
-        ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(e2));
-        ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(e3));
-        ctx.mark_as_relevant(e1);
-        ctx.mark_as_relevant(e2);
-        ctx.mark_as_relevant(e3);
+        if (m_converter.fu().is_float(m.get_sort(get_enode(x)->get_owner()))) {            
+            expr * sgn_x, *sig_x, *exp_x;
+            expr * sgn_y, *sig_y, *exp_y;
+            split_triple(ex, sgn_x, sig_x, exp_x);
+            split_triple(ey, sgn_y, sig_y, exp_y);
+
+            mk_bv_eq(sgn_x, sgn_y);
+            mk_bv_eq(sig_x, sig_y);
+            mk_bv_eq(exp_x, exp_y);
+        }
+        else if (m_converter.fu().is_rm(m.get_sort(get_enode(x)->get_owner()))) {
+            mk_bv_eq(ex, ey);
+        }
+        else
+            UNREACHABLE();
     }
 
     void theory_fpa::new_diseq_eh(theory_var x, theory_var y) {
         TRACE("t_fpa", tout << "new eq: " << x << " = " << y << "\n";);
         ast_manager & m = get_manager();
         context & ctx = get_context();
+        
         app * ax = get_enode(x)->get_owner();
         app * ay = get_enode(y)->get_owner();
-
         expr * ex, *ey;
         proof * px, *py;
         m_trans_map.get(ax, ex, px);
         m_trans_map.get(ay, ey, py);
 
-        expr * sgn_x, *sig_x, *exp_x;
-        expr * sgn_y, *sig_y, *exp_y;
-        split_triple(ex, sgn_x, sig_x, exp_x);
-        split_triple(ex, sgn_y, sig_y, exp_y);
+        expr_ref deq(m);
 
-        expr_ref e1(m), e2(m), e3(m);
-        e1 = m.mk_not(m.mk_eq(sgn_x, sgn_y));
-        e2 = m.mk_or(e1, m.mk_not(m.mk_eq(sig_x, sig_y)));
-        e3 = m.mk_or(e2, m.mk_not(m.mk_eq(exp_x, exp_y)));
-        ctx.internalize(e3, true);
-        ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(e3));
-        ctx.mark_as_relevant(e3);
+        if (m_converter.fu().is_float(m.get_sort(get_enode(x)->get_owner()))) {
+            expr * sgn_x, *sig_x, *exp_x;
+            expr * sgn_y, *sig_y, *exp_y;
+            split_triple(ex, sgn_x, sig_x, exp_x);
+            split_triple(ex, sgn_y, sig_y, exp_y);
+            
+            deq = m.mk_or(m.mk_not(m.mk_eq(sgn_x, sgn_y)),
+                          m.mk_not(m.mk_eq(sig_x, sig_y)),
+                          m.mk_not(m.mk_eq(exp_x, exp_y)));            
+        } 
+        else if (m_converter.fu().is_rm(m.get_sort(get_enode(x)->get_owner()))) {
+            deq = m.mk_not(m.mk_eq(ex, ey));            
+        }
+        else
+            UNREACHABLE();
+
+        ctx.internalize(deq, true);
+        ctx.mk_th_axiom(get_id(), 1, &ctx.get_literal(deq));
+        ctx.mark_as_relevant(deq);
     }
 
     void theory_fpa::push_scope_eh() {
@@ -273,7 +282,7 @@ namespace smt {
                 res = alloc(expr_wrapper_proc, fp_val_e);
             }
         }
-        else {
+        else if (fu.is_float(m.get_sort(fpa_e))) {
             expr * bv_sgn, *bv_sig, *bv_exp;
             split_triple(bv_e, bv_sgn, bv_sig, bv_exp);
 
@@ -283,15 +292,15 @@ namespace smt {
 
             enode * e_sgn = ctx.get_enode(bv_sgn);
             enode * e_sig = ctx.get_enode(bv_sig);
-            enode * e_exp = ctx.get_enode(bv_exp);            
+            enode * e_exp = ctx.get_enode(bv_exp);
 
             TRACE("t_fpa", tout << "bv rep: [" << mk_ismt2_pp(e_sgn->get_owner(), m) << " "
-                                             << mk_ismt2_pp(e_sig->get_owner(), m) << " "
-                                             << mk_ismt2_pp(e_exp->get_owner(), m) << "]\n";);
+                  << mk_ismt2_pp(e_sig->get_owner(), m) << " "
+                  << mk_ismt2_pp(e_exp->get_owner(), m) << "]\n";);
 
             sort * s = m.get_sort(e_sgn->get_owner());
             family_id fid = s->get_family_id();
-            theory_bv * bv_th = (theory_bv*)ctx.get_theory(fid);                       
+            theory_bv * bv_th = (theory_bv*)ctx.get_theory(fid);
 
             SASSERT(bv_th->is_attached_to_var(e_sgn));
             SASSERT(bv_th->is_attached_to_var(e_sig));
@@ -301,8 +310,8 @@ namespace smt {
             sig_sz = bu.get_bv_size(e_sig->get_owner());
             exp_sz = bu.get_bv_size(e_exp->get_owner());
 
-            rational sgn_r(0), sig_r(0), exp_r(0);            
-            
+            rational sgn_r(0), sig_r(0), exp_r(0);
+
             if (!bv_th->get_fixed_value(e_sgn->get_owner(), sgn_r) ||
                 !bv_th->get_fixed_value(e_sig->get_owner(), sig_r) ||
                 !bv_th->get_fixed_value(e_exp->get_owner(), exp_r))  {
@@ -310,8 +319,8 @@ namespace smt {
             }
             else {
                 TRACE("t_fpa", tout << "bv model: [" << sgn_r.to_string() << " "
-                                                   << sig_r.to_string() << " "
-                                                   << exp_r.to_string() << "]\n";);
+                      << sig_r.to_string() << " "
+                      << exp_r.to_string() << "]\n";);
 
                 // un-bias exponent
                 rational exp_unbiased_r;
@@ -345,6 +354,8 @@ namespace smt {
                 res = alloc(expr_wrapper_proc, fp_val_e);
             }
         }
+        else
+            UNREACHABLE();
 
         return res;
     }
@@ -377,6 +388,6 @@ namespace smt {
             }
         }
         else
-            NOT_IMPLEMENTED_YET();
+            UNREACHABLE();
     }
 };
