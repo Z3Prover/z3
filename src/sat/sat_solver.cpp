@@ -1988,7 +1988,7 @@ namespace sat {
         m_cancel = f;
     }
 
-    void solver::collect_statistics(statistics & st) {
+    void solver::collect_statistics(statistics & st) const {
         m_stats.collect_statistics(st);
         m_cleaner.collect_statistics(st);
         m_simplifier.collect_statistics(st);

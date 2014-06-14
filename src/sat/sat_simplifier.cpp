@@ -1469,7 +1469,7 @@ namespace sat {
         sat_simplifier_params::collect_param_descrs(r);
     }
 
-    void simplifier::collect_statistics(statistics & st) {
+    void simplifier::collect_statistics(statistics & st) const {
         st.update("subsumed", m_num_subsumed);
         st.update("subsumption resolution", m_num_sub_res);
         st.update("elim literals", m_num_elim_lits);

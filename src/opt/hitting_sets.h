@@ -21,6 +21,7 @@ Notes:
 
 #include "rational.h"
 #include "statistics.h"
+#include "lbool.h"
 
 namespace opt {
 
@@ -31,11 +32,14 @@ namespace opt {
         hitting_sets();
         ~hitting_sets();
         void add_weight(rational const& w);
-        void add_set(unsigned sz, unsigned const* elems);
-        bool compute_lower();
-        bool compute_upper();
+        void add_exists_true(unsigned sz, unsigned const* elems);
+        void add_exists_false(unsigned sz, unsigned const* elems);
+        lbool compute_lower();
+        lbool compute_upper();
+        void set_upper(rational const& r);
         rational get_lower();
         rational get_upper();        
+        bool get_value(unsigned idx);
         void set_cancel(bool f);
         void collect_statistics(::statistics& st) const;
         void reset();

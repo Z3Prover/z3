@@ -259,7 +259,7 @@ namespace sat {
         m_to_assert.finalize();
     }
     
-    void probing::collect_statistics(statistics & st) {
+    void probing::collect_statistics(statistics & st) const {
         st.update("probing assigned", m_num_assigned);
     }
     

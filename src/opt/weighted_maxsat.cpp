@@ -613,11 +613,8 @@ namespace opt {
             double   m_disjoint_cores_time;
         };
 
-        scoped_ptr<maxsmt_solver_base> maxs;
-        hitting_sets                   m_hs;
+        hitting_sets            m_hs;
         expr_ref_vector         m_aux;        // auxiliary (indicator) variables.
-        expr_ref_vector         m_iaux;       // auxiliary integer (indicator) variables.
-        expr_ref_vector         m_naux;       // negation of auxiliary variables.
         obj_map<expr, unsigned> m_aux2index;  // expr |-> index
         unsigned_vector         m_core_activity; // number of times soft constraint is used in a core.
         svector<bool>           m_seed;       // clause selected in current model.
@@ -630,12 +627,9 @@ namespace opt {
 
 
     public:
-        hsmax(solver* s, ast_manager& m, maxsmt_solver_base* maxs):
+        hsmax(solver* s, ast_manager& m):
             maxsmt_solver_base(s, m), 
-            maxs(maxs), 
             m_aux(m), 
-            m_iaux(m),
-            m_naux(m),
             pb(m),
             a(m),
             m_at_lower_bound(false) {
@@ -644,7 +638,7 @@ namespace opt {
 
         virtual void set_cancel(bool f) { 
             maxsmt_solver_base::set_cancel(f); 
-            maxs->set_cancel(f);
+            m_hs.set_cancel(f);
         }
 
         virtual void updt_params(params_ref& p) {
@@ -653,7 +647,7 @@ namespace opt {
 
         virtual void collect_statistics(statistics& st) const {
             maxsmt_solver_base::collect_statistics(st);
-            maxs->s().collect_statistics(st);
+            m_hs.collect_statistics(st);
             st.update("hsmax-num-iterations", m_stats.m_num_iterations);
             st.update("hsmax-num-core-reductions-n", m_stats.m_num_core_reductions_failure);
             st.update("hsmax-num-core-reductions-y", m_stats.m_num_core_reductions_success);
@@ -694,14 +688,14 @@ namespace opt {
                         break;
                     case l_false:
                         TRACE("opt", tout << "no more seeds\n";);
-                         m_lower = m_upper;
-                         return l_true;
+                        m_lower = m_upper;
+                        return l_true;
                     case l_undef:
                         return l_undef;
                      }
                      break;
                 }
-                 case l_false:
+                case l_false:
                     TRACE("opt", tout << "no more cores\n";);
                     m_lower = m_upper;
                     return l_true;
@@ -721,8 +715,6 @@ namespace opt {
             m_asms.reset();
             m_seed.reset();           
             m_aux.reset();
-            m_iaux.reset();
-            m_naux.reset();
             m_aux_active.reset();            
             m_aux2index.reset();
             m_core_activity.reset();
@@ -730,9 +722,6 @@ namespace opt {
                 bool tt = is_true(m_model, m_soft[i].get());
                 m_seed.push_back(tt);
                 m_aux. push_back(mk_fresh(m.mk_bool_sort()));
-                m_iaux.push_back(mk_fresh(a.mk_int()));
-                expr* iaux = m_iaux.back();
-                m_naux.push_back(m.mk_not(m_aux.back()));
                 m_aux_active.push_back(false);
                 m_core_activity.push_back(0);
                 m_aux2index.insert(m_aux.back(), i);
@@ -741,7 +730,6 @@ namespace opt {
                     ensure_active(i);
                 }
             }
-            maxs->init_soft(m_weights, m_aux);
 
             for (unsigned i = 0; i < m_weights.size(); ++i) {
                 m_hs.add_weight(m_weights[i]);
@@ -901,11 +889,8 @@ namespace opt {
         }
 
         //
-        // retrieve the next seed that satisfies state of maxs.
-        // state of maxs must be satisfiable before optimization is called.
-        // 
-        // find a satisfying assignment to maxs state, that 
-        // minimizes objective function.
+        // retrieve the next seed that satisfies state of hs.
+        // state of hs must be satisfiable before optimization is called.
         // 
         lbool next_seed() {
             scoped_stopwatch _sw(m_stats.m_aux_sat_time);
@@ -914,67 +899,28 @@ namespace opt {
             // min c_i*(not x_i) for x_i are soft clauses.
             // max c_i*x_i for x_i are soft clauses
             
-            lbool is_sat = l_true;
             m_at_lower_bound = false;
-            expr_ref fml(m);
-            if (m_lower.is_pos()) {
-                solver::scoped_push _scope(maxs->s());
-                fml = pb.mk_le(num_soft(), m_weights.c_ptr(), m_naux.c_ptr(), m_lower);
-                maxs->add_hard(fml);
-                is_sat = maxs->s().check_sat(0,0);
-                if (is_sat == l_true) {
-                    maxs->set_model();
-                    extract_seed();
-                    m_at_lower_bound = true;
-                    return l_true;
-                }
-            }
-            is_sat = maxs->s().check_sat(0,0);
-            if (is_sat == l_true) {
-                maxs->set_model();
-            }
-            else {
-                m_at_lower_bound = true;
-                return is_sat;
-            }
-            is_sat = (*maxs)();
+            
+            lbool is_sat = m_hs.compute_upper();
 
             if (is_sat == l_true) {
-                extract_seed();
+                is_sat = m_hs.compute_lower();
+            }
+            if (is_sat == l_true) {
+                m_at_lower_bound = m_hs.get_upper() == m_hs.get_lower();
+                if (m_hs.get_lower() > m_lower) {
+                    m_lower = m_hs.get_lower();
+                }
+                for (unsigned i = 0; i < num_soft(); ++i) {
+                    m_seed[i] = is_active(i) && !m_hs.get_value(i);
+                }
+                TRACE("opt", print_seed(tout););
             }
             return is_sat;
         }
 
-#if 0
-            if (!m_hs.compute_upper()) {
-                return l_undef;
-            }
-            solver::scoped_push _scope(maxs->s());
-            fml = pb.mk_le(num_soft(), m_weights.c_ptr(), m_naux.c_ptr(), m_hs.get_upper());
-            IF_VERBOSE(0, verbose_stream() << "upper: " << m_hs.get_upper() << " " << m_upper << "\n";);
-            maxs->add_hard(fml);
-            TRACE("opt", tout << "checking with upper bound: " << m_hs.get_upper() << "\n";);
-            is_sat = maxs->s().check_sat(0,0);
-            std::cout << is_sat << "\n";
-            
-            // TBD: uper bound estimate does not include the negative constraints.
-#endif
-
-        void extract_seed() {
-            model_ref mdl;
-            maxs->get_model(mdl);
-            m_lower.reset();
-            for (unsigned i = 0; i < num_soft(); ++i) {
-                m_seed[i] = is_active(i) && is_true(mdl, m_aux[i].get());
-                if (!m_seed[i]) {
-                    m_lower += m_weights[i];
-                }
-            }
-            TRACE("opt", print_seed(tout););
-        }
-
         //
-        // check assignment returned by maxs with the original
+        // check assignment returned by HS with the original
         // hard constraints. 
         // If the assignment is consistent with the hard constraints
         // update the current model, otherwise, update the current lower
@@ -1008,9 +954,7 @@ namespace opt {
         // extend the current assignment to one that 
         // satisfies as many soft constraints as possible.
         // update the upper bound based on this assignment
-        // (because maxs has the constraint that the new
-        // assignment improves the previous m_upper).
-        //
+        // 
         bool grow() {
             scoped_stopwatch _sw(m_stats.m_model_expansion_time);
             for (unsigned i = 0; i < num_soft(); ++i) {
@@ -1022,7 +966,7 @@ namespace opt {
                         ensure_active(i);
                         m_asms.push_back(m_aux[i].get());
                         lbool is_sat = s().check_sat(m_asms.size(), m_asms.c_ptr());
-                        IF_VERBOSE(1, verbose_stream() 
+                        IF_VERBOSE(3, verbose_stream() 
                                    << "check: " << mk_pp(m_asms.back(), m) 
                                    << ":" << is_sat << "\n";);
                         TRACE("opt", tout 
@@ -1054,6 +998,7 @@ namespace opt {
             }       
             if (upper < m_upper) {
                 m_upper = upper;
+                m_hs.set_upper(upper);
                 TRACE("opt", tout << "new upper: " << m_upper << "\n";);
             }
             return true;
@@ -1128,50 +1073,32 @@ namespace opt {
 
         //
         // must include some literal not from asms.
-        // furthermore, update upper bound constraint in maxs
+        // (furthermore, update upper bound constraint in HS)
         //
         void block_down() {
             uint_set indices;
+            unsigned_vector c_indices;
             for (unsigned i = 0; i < m_asms.size(); ++i) {
                 unsigned index = m_aux2index.find(m_asms[i]);
                 indices.insert(index);
             }
-            expr_ref_vector fmls(m);
-            expr_ref fml(m);
             for (unsigned i = 0; i < num_soft(); ++i) {
                 if (!indices.contains(i)) {
-                    fmls.push_back(m_aux[i].get());
+                    c_indices.push_back(i);
                 }
             }
-            fml = m.mk_or(fmls.size(), fmls.c_ptr());
-            maxs->add_hard(fml);
-            set_upper();
-            TRACE("opt", tout << fml << "\n";);
-        }
-
-        // constrain the upper bound.
-        // w1*(not r1) + w2*(not r2) + ... + w_n*(not r_n) < m_upper
-        void set_upper() {
-            expr_ref fml(m);
-            fml = pb.mk_lt(num_soft(), m_weights.c_ptr(), m_naux.c_ptr(), m_upper);
-            maxs->add_hard(fml);
+            m_hs.add_exists_false(c_indices.size(), c_indices.c_ptr());
         }
 
         // should exclude some literal from core.
         void block_up() {
-            expr_ref_vector fmls(m);
-            expr_ref fml(m);
             unsigned_vector indices;
             for (unsigned i = 0; i < m_asms.size(); ++i) {
                 unsigned index = m_aux2index.find(m_asms[i]);
-                fmls.push_back(m.mk_not(m_asms[i]));
                 m_core_activity[index]++;
                 indices.push_back(index);
             }
-            fml = m.mk_or(fmls.size(), fmls.c_ptr());
-            TRACE("opt", tout << fml << "\n";);
-            m_hs.add_set(indices.size(), indices.c_ptr());
-            maxs->add_hard(fml);            
+            m_hs.add_exists_true(indices.size(), indices.c_ptr());
         }
 
 
@@ -1661,14 +1588,8 @@ namespace opt {
             else if (m_engine == symbol("bcd2")) {
                 m_maxsmt = alloc(bcd2, s.get(), m);
             }
-            else if (m_engine == symbol("hsmax")) {
-                //m_params.set_bool("pb.enable_simplex", true);
-                ref<opt_solver> s0 = alloc(opt_solver, m, m_params, symbol());
-                s0->check_sat(0,0);                
-                maxsmt_solver_base* s2 = alloc(pbmax, s0.get(), m); // , s0->get_context());
-                s2->set_converter(s0->mc_ref().get());
-                
-                m_maxsmt = alloc(hsmax, s.get(), m, s2);
+            else if (m_engine == symbol("hsmax")) {                
+                m_maxsmt = alloc(hsmax, s.get(), m);
             }
             // NB: this is experimental one-round version of SLS
             else if (m_engine == symbol("sls")) {
