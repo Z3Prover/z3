@@ -110,7 +110,8 @@ namespace opt {
 
         lbool compute_lower() {
             m_lower.reset();
-            if (L1() && L2() && L3()) {
+            // L3() disabled: mostly a waste of time.
+            if (L1() && L2()) {
                 return l_true;
             }
             else {
@@ -238,7 +239,9 @@ namespace opt {
         lbool U1() {
             scoped_select _sc(*this);
             while (true) {                
-                if (!compute_U1()) return l_undef;
+                if (!compute_U1()) {
+                    return l_undef;
+                }
                 unsigned i = 0, j = 0;
                 set_undef_to_false();
                 if (values_satisfy_Ts(i)) {
@@ -251,7 +254,7 @@ namespace opt {
                 // literal to true.
                 //
 
-                IF_VERBOSE(1, verbose_stream() << "(hs.refining exclusion set " << i << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "(hs.refining exclusion set " << i << ")\n";);
                 set const& T = m_T[i];
                 rational max_value(0);
                 j = 0;
@@ -270,7 +273,7 @@ namespace opt {
                         if (l_false != selected(S[j])) break;
                     }
                     if (j == S.size()) {                        
-                        IF_VERBOSE(1, verbose_stream() << "approximation failed, fall back to SAT\n";);
+                        IF_VERBOSE(1, verbose_stream() << "(hs.fallback-to-SAT)\n";);
                         return compute_U2();
                     }
                 }                
@@ -327,7 +330,7 @@ namespace opt {
             m_value_saved.reset();
             m_value_saved.append(m_value);
             if (m_upper > m_max_weight) {
-                IF_VERBOSE(0, verbose_stream() << "got worse upper bound\n";);
+                IF_VERBOSE(1, verbose_stream() << "(hs.bound_degradation " << m_upper << " )\n";);
             }
             return !m_cancel;
         }

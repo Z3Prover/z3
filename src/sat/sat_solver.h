@@ -339,8 +339,8 @@ namespace sat {
         // Backtracking
         //
         // -----------------------
-    public:
         void push();
+    public:
         void pop(unsigned num_scopes);
 
     protected:

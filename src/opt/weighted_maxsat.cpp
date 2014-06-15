@@ -686,8 +686,9 @@ namespace opt {
                     case l_true:
                         seed2hs(false, hs);
                         break;
-                    case l_false:
+                    case l_false:                        
                         TRACE("opt", tout << "no more seeds\n";);
+                        IF_VERBOSE(1, verbose_stream() << "(wmaxsat.maxhs.no-more-seeds)\n";);
                         m_lower = m_upper;
                         return l_true;
                     case l_undef:
@@ -696,6 +697,7 @@ namespace opt {
                      break;
                 }
                 case l_false:
+                    IF_VERBOSE(1, verbose_stream() << "(wmaxsat.maxhs.no-more-cores)\n";);
                     TRACE("opt", tout << "no more cores\n";);
                     m_lower = m_upper;
                     return l_true;
@@ -825,7 +827,7 @@ namespace opt {
         // Auxiliary Algorithm 10 for producing cores.
         // 
         lbool generate_cores(ptr_vector<expr>& hs) {
-            bool core = false;
+            bool core = !m_at_lower_bound;
             while (true) {
                 hs2seed(hs);
                 lbool is_sat = check_subset();
@@ -869,25 +871,6 @@ namespace opt {
             }
         }
 
-        lbool next_seed(ptr_vector<expr>& hs, lbool core_found) {
-            
-            if (core_found == l_false && m_at_lower_bound) {
-                return l_true;
-            }            
-            lbool is_sat = next_seed();
-            switch(is_sat) {
-            case l_true:
-                seed2hs(false, hs);
-                return m_at_lower_bound?l_true:l_false;
-            case l_false:
-                TRACE("opt", tout << "no more seeds\n";);
-                return l_true;
-            case l_undef:
-                return l_undef;
-            }
-            return l_undef;
-        }
-
         //
         // retrieve the next seed that satisfies state of hs.
         // state of hs must be satisfiable before optimization is called.
@@ -922,9 +905,6 @@ namespace opt {
         //
         // check assignment returned by HS with the original
         // hard constraints. 
-        // If the assignment is consistent with the hard constraints
-        // update the current model, otherwise, update the current lower
-        // bound.
         //
         lbool check_subset() {
             TRACE("opt", tout << "\n";);
@@ -935,19 +915,7 @@ namespace opt {
                     ensure_active(i);
                 }
             }
-            lbool is_sat = s().check_sat(m_asms.size(), m_asms.c_ptr());
-            switch (is_sat) {
-            case l_true:
-                update_model();
-                break;
-            case l_false:
-                break;
-            default:
-                break;
-            }
-            TRACE("opt", tout << is_sat << "\n";);
-
-            return is_sat;
+            return s().check_sat(m_asms.size(), m_asms.c_ptr());
         }
 
         //
@@ -957,18 +925,17 @@ namespace opt {
         // 
         bool grow() {
             scoped_stopwatch _sw(m_stats.m_model_expansion_time);
+            model_ref mdl;
+            s().get_model(mdl);
             for (unsigned i = 0; i < num_soft(); ++i) {
                 if (!m_seed[i]) {
-                    if (is_true(m_model, m_soft[i].get())) {
+                    if (is_true(mdl, m_soft[i].get())) {
                         m_seed[i] = true;                        
                     }
                     else {
                         ensure_active(i);
                         m_asms.push_back(m_aux[i].get());
                         lbool is_sat = s().check_sat(m_asms.size(), m_asms.c_ptr());
-                        IF_VERBOSE(3, verbose_stream() 
-                                   << "check: " << mk_pp(m_asms.back(), m) 
-                                   << ":" << is_sat << "\n";);
                         TRACE("opt", tout 
                               << "check: " << mk_pp(m_asms.back(), m) 
                               << ":" << is_sat << "\n";);
@@ -981,9 +948,7 @@ namespace opt {
                             break;
                         case l_true: 
                             ++m_stats.m_num_model_expansions_success;
-                            update_model();
-                            TRACE("opt", model_smt2_pp(tout << mk_pp(m_aux[i].get(), m) << "\n", 
-                                                       m, *(m_model.get()), 0););
+                            s().get_model(mdl);
                             m_seed[i] = true; 
                             break;                     
                         }
@@ -999,7 +964,12 @@ namespace opt {
             if (upper < m_upper) {
                 m_upper = upper;
                 m_hs.set_upper(upper);
-                TRACE("opt", tout << "new upper: " << m_upper << "\n";);
+                m_model = mdl;
+                m_assignment.reset();
+                m_assignment.append(m_seed);
+                TRACE("opt", 
+                      tout << "new upper: " << m_upper << "\n";
+                      model_smt2_pp(tout, m, *(mdl.get()), 0););
             }
             return true;
         }
@@ -1047,13 +1017,6 @@ namespace opt {
                 }
             }
             return true;
-        }
-
-        void update_model() {
-            s().get_model(m_model);
-            for (unsigned i = 0; i < num_soft(); ++i) {
-                m_assignment[i] = is_true(m_model, m_soft[i].get());
-            }
         }
 
         void print_asms(std::ostream& out, ptr_vector<expr> const& asms) {
