@@ -1042,8 +1042,7 @@ namespace opt {
             uint_set indices;
             unsigned_vector c_indices;
             for (unsigned i = 0; i < m_asms.size(); ++i) {
-                unsigned index = m_aux2index.find(m_asms[i]);
-                indices.insert(index);
+                indices.insert(m_aux2index.find(m_asms[i]));
             }
             for (unsigned i = 0; i < num_soft(); ++i) {
                 if (!indices.contains(i)) {
@@ -1064,7 +1063,6 @@ namespace opt {
             m_hs.add_exists_true(indices.size(), indices.c_ptr());
         }
 
-
         void update_index(obj_map<expr, unsigned>& asm2index) {
             obj_map<expr, unsigned>::iterator it = asm2index.begin(), end = asm2index.end();            
             for (; it != end; ++it) {
@@ -1082,18 +1080,10 @@ namespace opt {
             return r;
         }
 
-
         bool is_true(model_ref& mdl, expr* e) {
             expr_ref val(m);
             VERIFY(mdl->eval(e, val));
             return m.is_true(val);
-        }
-
-        bool is_one(model_ref& mdl, expr* e) {
-            rational r;
-            expr_ref val(m);
-            VERIFY(mdl->eval(e, val));
-            return a.is_numeral(val, r) && r.is_one();
         }
 
         bool is_active(unsigned i) const {
