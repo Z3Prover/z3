@@ -125,7 +125,7 @@ namespace opt {
     }
 
     lbool opt_solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
-        TRACE("opt", {
+        TRACE("opt_verbose", {
             tout << "context size: " << m_context.size() << "\n";            
             for (unsigned i = 0; i < m_context.size(); ++i) {
                 tout << mk_pp(m_context.get_formulas()[i], m_context.m()) << "\n";

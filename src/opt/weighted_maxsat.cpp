@@ -928,30 +928,36 @@ namespace opt {
             model_ref mdl;
             s().get_model(mdl);
             for (unsigned i = 0; i < num_soft(); ++i) {
-                if (!m_seed[i]) {
-                    if (is_true(mdl, m_soft[i].get())) {
-                        m_seed[i] = true;                        
-                    }
-                    else {
-                        ensure_active(i);
-                        m_asms.push_back(m_aux[i].get());
-                        lbool is_sat = s().check_sat(m_asms.size(), m_asms.c_ptr());
-                        TRACE("opt", tout 
-                              << "check: " << mk_pp(m_asms.back(), m) 
-                              << ":" << is_sat << "\n";);
-                        switch(is_sat) {
-                        case l_undef: 
-                            return false;
-                        case l_false: 
-                            ++m_stats.m_num_model_expansions_failure;
-                            m_asms.pop_back(); 
-                            break;
-                        case l_true: 
-                            ++m_stats.m_num_model_expansions_success;
-                            s().get_model(mdl);
-                            m_seed[i] = true; 
-                            break;                     
-                        }
+                ensure_active(i);    
+                m_seed[i] = false;
+            }
+            for (unsigned i = 0; i < m_asms.size(); ++i) {
+                m_seed[m_aux2index.find(m_asms[i])] = true; 
+            }
+
+            for (unsigned i = 0; i < num_soft(); ++i) {
+                if (m_seed[i]) {
+                    // already an assumption
+                }
+                else if (is_true(mdl, m_soft[i].get())) {
+                    m_seed[i] = true;                    
+                    m_asms.push_back(m_aux[i].get());
+                }
+                else {
+                    m_asms.push_back(m_aux[i].get());
+                    lbool is_sat = s().check_sat(m_asms.size(), m_asms.c_ptr());
+                    switch(is_sat) {
+                    case l_undef: 
+                        return false;
+                    case l_false: 
+                        ++m_stats.m_num_model_expansions_failure;
+                        m_asms.pop_back(); 
+                        break;
+                    case l_true: 
+                        ++m_stats.m_num_model_expansions_success;
+                        s().get_model(mdl);
+                        m_seed[i] = true; 
+                        break;                     
                     }
                 }
             }
@@ -971,6 +977,11 @@ namespace opt {
                       tout << "new upper: " << m_upper << "\n";
                       model_smt2_pp(tout, m, *(mdl.get()), 0););
             }
+            DEBUG_CODE(                
+                for (unsigned i = 0; i < num_soft(); ++i) {
+                    SASSERT(is_true(mdl, m_soft[i].get()) == m_seed[i]);
+                });
+            
             return true;
         }
 

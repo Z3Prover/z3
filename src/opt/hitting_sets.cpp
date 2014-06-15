@@ -58,7 +58,10 @@ namespace opt {
             m_cancel(false), 
             m_max_weight(0), 
             m_weights_var(0),
-            m_solver(m_params,0) {}
+            m_solver(m_params,0) {
+            m_params.set_bool("elim_vars", false);
+            m_solver.updt_params(m_params);
+        }
         ~imp() {}
 
         void add_weight(rational const& w) {
@@ -245,6 +248,9 @@ namespace opt {
                 unsigned i = 0, j = 0;
                 set_undef_to_false();
                 if (values_satisfy_Ts(i)) {
+                    if (m_upper > m_max_weight) {
+                        IF_VERBOSE(1, verbose_stream() << "(hs.bound_degradation " << m_upper << " )\n";);
+                    }
                     return l_true;
                 }
                 
@@ -282,19 +288,42 @@ namespace opt {
         }
 
         lbool compute_U2() {
-            lbool is_sat = m_solver.check();
-            if (is_sat == l_true) {                
-                sat::model const& model = m_solver.get_model();
-                m_value_saved.reset();
-                m_upper.reset();
-                for (unsigned i = 0; i < m_vars.size(); ++i) {
-                    m_value_saved.push_back(model[m_vars[i]]);
-                    if (model[m_vars[i]] == l_true) {
-                        m_upper += m_weights[i];
+            lbool is_sat = l_true;
+            while (true) {
+                is_sat = m_solver.check();
+                if (is_sat == l_true) {                
+                    sat::model const& model = m_solver.get_model();
+                    m_value_saved.reset();
+                    m_upper.reset();
+                    for (unsigned i = 0; i < m_vars.size(); ++i) {
+                        m_value_saved.push_back(model[m_vars[i]]);
+                        if (model[m_vars[i]] == l_true) {
+                            m_upper += m_weights[i];
+                        }
                     }
+                    IF_VERBOSE(1, verbose_stream() << "(hs.upper " << m_upper << ")\n";);
+                    m_solver.pop(m_solver.scope_lvl());
+
                 }
+                break;
             }
             return is_sat;
+        }
+
+        bool block_model(sat::model const& model) {
+            rational value(0);
+            svector<sat::literal> lits;
+            for (unsigned i = 0; i < m_vars.size(); ++i) {
+                if (value >= m_max_weight) {
+                    m_solver.mk_clause(lits.size(), lits.c_ptr());
+                    return true;
+                }
+                if (model[m_vars[i]] == l_true) {
+                    value += m_weights[i];
+                    lits.push_back(sat::literal(m_vars[i], true));
+                }
+            }
+            return false;
         }
 
         // compute upper bound for hitting set.
@@ -329,9 +358,6 @@ namespace opt {
             m_upper = w;
             m_value_saved.reset();
             m_value_saved.append(m_value);
-            if (m_upper > m_max_weight) {
-                IF_VERBOSE(1, verbose_stream() << "(hs.bound_degradation " << m_upper << " )\n";);
-            }
             return !m_cancel;
         }
 
