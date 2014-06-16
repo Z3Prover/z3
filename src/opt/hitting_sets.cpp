@@ -38,26 +38,37 @@ namespace opt {
         vector<rational>        m_weights;
         rational                m_max_weight;
         rational                m_denominator;
-        vector<set>             m_S;
         vector<set>             m_T;
-        svector<lbool>          m_value;
+        vector<set>             m_F;
+        svector<lbool>          m_value;        
         svector<lbool>          m_value_saved;
-        unsigned_vector         m_value_trail;
-        unsigned_vector         m_value_lim;
+        unsigned_vector         m_justification;
         vector<unsigned_vector> m_tuse_list;        
         vector<unsigned_vector> m_fuse_list;        
+        vector<unsigned_vector> m_twatch;        
+        vector<unsigned_vector> m_fwatch;
+        unsigned_vector         m_trail;  // trail of assigned literals
+        unsigned                m_qhead;  // queue head
+
+        // simplex
         unsynch_mpz_manager     m;
         Simplex                 m_simplex;
         unsigned                m_weights_var;
 
+        // sat solver
         params_ref              m_params;
         sat::solver             m_solver;
         svector<sat::bool_var>  m_vars;
 
+        static unsigned const null_clause = UINT_MAX;
+        static unsigned const axiom = UINT_MAX-1;
+
         imp():
             m_cancel(false), 
             m_max_weight(0), 
+            m_denominator(1),
             m_weights_var(0),
+            m_qhead(0),
             m_solver(m_params,0) {
             m_params.set_bool("elim_vars", false);
             m_solver.updt_params(m_params);
@@ -72,43 +83,48 @@ namespace opt {
             m_simplex.set_upper(var, mpq_inf(mpq(1),mpq(0)));
             m_weights.push_back(w);
             m_value.push_back(l_undef);
+            m_justification.push_back(null_clause);
             m_tuse_list.push_back(unsigned_vector());
             m_fuse_list.push_back(unsigned_vector());
+            m_twatch.push_back(unsigned_vector());
+            m_fwatch.push_back(unsigned_vector());
             m_max_weight += w;
             m_vars.push_back(m_solver.mk_var());
         }
 
         void add_exists_false(unsigned sz, unsigned const* S) {
-            SASSERT(sz > 0);
-            for (unsigned i = 0; i < sz; ++i) {
-                m_fuse_list[S[i]].push_back(m_T.size());
-            }
-            init_weights();
-            m_T.push_back(unsigned_vector(sz, S));        
-            add_simplex_row(false, sz, S);            
-            // Add clause to SAT solver:
-            svector<sat::literal> lits;
-            for (unsigned i = 0; i < sz; ++i) {
-                lits.push_back(sat::literal(m_vars[S[i]], true));
-            }
-            m_solver.mk_clause(lits.size(), lits.c_ptr());
+            add_exists(sz, S, true);
         }
 
         void add_exists_true(unsigned sz, unsigned const* S) {
+            add_exists(sz, S, false);
+        }
+
+        void add_exists(unsigned sz, unsigned const* S, bool sign) {
+            vector<unsigned_vector>& use_list = sign?m_fuse_list:m_tuse_list;
+            lbool val = sign?l_false:l_true;
+            vector<set>& Sets = sign?m_F:m_T;
+            vector<unsigned_vector>& watch = sign?m_fwatch:m_twatch;
             SASSERT(sz > 0);
             for (unsigned i = 0; i < sz; ++i) {
-                m_tuse_list[S[i]].push_back(m_S.size());
+                use_list[S[i]].push_back(Sets.size());
             }
             init_weights();
-            m_S.push_back(unsigned_vector(sz, S));        
-            add_simplex_row(true, sz, S);            
-                        
-            // Add clause to SAT solver
+            if (sz == 1) {
+                assign(S[0], val, axiom);
+            }
+            else {
+                watch[S[0]].push_back(Sets.size());
+                watch[S[1]].push_back(Sets.size());
+                Sets.push_back(unsigned_vector(sz, S));
+            }
+            add_simplex_row(!sign, sz, S);            
+            // Add clause to SAT solver:
             svector<sat::literal> lits;
             for (unsigned i = 0; i < sz; ++i) {
-                lits.push_back(sat::literal(m_vars[S[i]], false));
+                lits.push_back(sat::literal(m_vars[S[i]], sign));
             }
-            m_solver.mk_clause(lits.size(), lits.c_ptr());
+            m_solver.mk_clause(lits.size(), lits.c_ptr());            
         }
 
         lbool compute_lower() {
@@ -136,7 +152,7 @@ namespace opt {
         }
 
         void set_upper(rational const& r) {
-            m_max_weight = r;
+            m_max_weight = r*m_denominator;
         }
 
         bool get_value(unsigned idx) {
@@ -195,11 +211,11 @@ namespace opt {
             for (unsigned i = 0; i < m_weights.size(); ++i) {
                 out << i << ": "  << m_value_saved[i]<< " " << m_weights[i] << "\n";
             }
-            for (unsigned i = 0; i < m_S.size(); ++i) {
-                display(out << "+ ", m_S[i]);
-            }
             for (unsigned i = 0; i < m_T.size(); ++i) {
-                display(out << "- ", m_T[i]);
+                display(out << "+ ", m_T[i]);
+            }
+            for (unsigned i = 0; i < m_F.size(); ++i) {
+                display(out << "- ", m_F[i]);
             }
         }
 
@@ -213,7 +229,7 @@ namespace opt {
         struct scoped_select {
             imp& s;
             unsigned sz;
-            scoped_select(imp& s):s(s), sz(s.m_value_trail.size()) {
+            scoped_select(imp& s):s(s), sz(s.m_trail.size()) {
             }
             ~scoped_select() {
                 s.undo_select(sz);
@@ -241,13 +257,14 @@ namespace opt {
 
         lbool U1() {
             scoped_select _sc(*this);
-            while (true) {                
-                if (!compute_U1()) {
-                    return l_undef;
+            while (true) {
+                lbool is_sat = compute_U1();
+                if (is_sat != l_true) {
+                    return is_sat;
                 }
                 unsigned i = 0, j = 0;
                 set_undef_to_false();
-                if (values_satisfy_Ts(i)) {
+                if (values_satisfy_Fs(i)) {
                     if (m_upper > m_max_weight) {
                         IF_VERBOSE(1, verbose_stream() << "(hs.bound_degradation " << m_upper << " )\n";);
                     }
@@ -255,26 +272,26 @@ namespace opt {
                 }
                 
                 //
-                // pick some unsatisfied clause from m_T, 
+                // pick some unsatisfied clause from m_F, 
                 // and set the value of the most expensive 
                 // literal to true.
                 //
 
                 IF_VERBOSE(1, verbose_stream() << "(hs.refining exclusion set " << i << ")\n";);
-                set const& T = m_T[i];
+                set const& F = m_F[i];
                 rational max_value(0);
                 j = 0;
-                for (i = 0; i < T.size(); ++i) {
-                    SASSERT(m_value_saved[T[i]] == l_true);
-                    if (max_value < m_weights[T[i]]) {
-                        max_value = m_weights[T[i]];
-                        j = T[i];
+                for (i = 0; i < F.size(); ++i) {
+                    SASSERT(m_value_saved[F[i]] == l_true);
+                    if (max_value < m_weights[F[i]]) {
+                        max_value = m_weights[F[i]];
+                        j = F[i];
                     }
                 }
                 IF_VERBOSE(1, verbose_stream() << "(hs.unselect " << j << ")\n";);
-                unselect(j);
-                for (i = 0; i < m_S.size(); ++i) {
-                    set const& S = m_S[i];
+                assign(j, l_false, null_clause);
+                for (i = 0; i < m_T.size(); ++i) {
+                    set const& S = m_T[i];
                     for (j = 0; j < S.size(); ++j) {
                         if (l_false != selected(S[j])) break;
                     }
@@ -327,7 +344,7 @@ namespace opt {
         }
 
         // compute upper bound for hitting set.
-        bool compute_U1() {        
+        lbool compute_U1() {        
             rational w(0);
             scoped_select _sc(*this);
             
@@ -345,20 +362,23 @@ namespace opt {
                 indices.push_back(i);
             }        
             value_lt lt(m_weights, scores);
-            while (!m_cancel) {
+            while (true) {
+                if (m_cancel) {
+                    return l_undef;
+                }
                 std::sort(indices.begin(), indices.end(), lt);
                 unsigned idx = indices[0];
                 if (scores[idx] == 0) {
                     break;
                 }
                 update_scores(scores, idx);
-                select(idx);
+                assign(idx, l_true, null_clause);
                 w += m_weights[idx];
             }
             m_upper = w;
             m_value_saved.reset();
             m_value_saved.append(m_value);
-            return !m_cancel;
+            return l_true;
         }
 
         void init_scores(unsigned_vector & scores) {
@@ -366,12 +386,12 @@ namespace opt {
             for (unsigned i = 0; i < m_value.size(); ++i) {
                 scores.push_back(0);
             }
-            for (unsigned i = 0; i < m_S.size(); ++i) {
-                set const& S = m_S[i];
+            for (unsigned i = 0; i < m_T.size(); ++i) {
+                set const& S = m_T[i];
                 if (!has_selected(S)) {
                     for (unsigned j = 0; j < S.size(); ++j) {
                         if (selected(S[j]) != l_false) {
-                            scores[S[j]]++;
+                            ++scores[S[j]];
                         }
                     }
                 }
@@ -379,9 +399,9 @@ namespace opt {
         }
 
         void update_scores(unsigned_vector& scores, unsigned v) {
-            unsigned_vector const& v_uses = m_tuse_list[v];
-            for (unsigned i = 0; i < v_uses.size(); ++i) {
-                set const& S = m_S[v_uses[i]];
+            unsigned_vector const& uses = m_tuse_list[v];
+            for (unsigned i = 0; i < uses.size(); ++i) {
+                set const& S = m_T[uses[i]];
                 if (!has_selected(S)) {
                     for (unsigned j = 0; j < S.size(); ++j) {
                         if (selected(S[j]) != l_false) {
@@ -392,16 +412,17 @@ namespace opt {
             }
         }
 
+
         bool L1() {
             rational w(0);
             scoped_select _sc(*this);
-            for (unsigned i = 0; !m_cancel && i < m_S.size(); ++i) {
-                set const& S = m_S[i];
+            for (unsigned i = 0; !m_cancel && i < m_T.size(); ++i) {
+                set const& S = m_T[i];
                 SASSERT(!S.empty());
                 if (!has_selected(S)) {
                     w += m_weights[select_min(S)];                
                     for (unsigned j = 0; j < S.size(); ++j) {
-                        select(S[j]);
+                        assign(S[j], l_true, null_clause);
                     }
                 }
             }
@@ -415,8 +436,8 @@ namespace opt {
             rational w(0);
             scoped_select _sc(*this);
             int n = 0;
-            for (unsigned i = 0; i < m_S.size(); ++i) {
-                if (!has_selected(m_S[i])) ++n;
+            for (unsigned i = 0; i < m_T.size(); ++i) {
+                if (!has_selected(m_T[i])) ++n;
             }
             unsigned_vector scores;
             init_scores(scores);
@@ -472,7 +493,7 @@ namespace opt {
                 vars.push_back(S[i]);
                 coeffs.push_back(mpz(1));
             }
-            unsigned base_var = m_T.size() + m_S.size() + m_weights.size();
+            unsigned base_var = m_F.size() + m_T.size() + m_weights.size();
             m_simplex.ensure_var(base_var);
             vars.push_back(base_var);
             coeffs.push_back(mpz(-1));
@@ -489,10 +510,10 @@ namespace opt {
         }
 
         void undo_select(unsigned sz) {
-            for (unsigned j = sz; j < m_value_trail.size(); ++j) {
-                m_value[m_value_trail[j]] = l_undef;
+            for (unsigned j = sz; j < m_trail.size(); ++j) {
+                m_value[m_trail[j]] = l_undef;
             }
-            m_value_trail.resize(sz);
+            m_trail.resize(sz);
         }
         
         unsigned select_min(set const& S) {
@@ -508,17 +529,13 @@ namespace opt {
         lbool selected(unsigned j) const { 
             return m_value[j];
         }
+
+        void assign(unsigned j, lbool val, unsigned clause_id = null_clause) {
+            m_value[j] = val;
+            m_justification[j] = clause_id;
+            m_trail.push_back(j);
+        }
         
-        void select(unsigned j) {
-            m_value[j] = l_true;
-            m_value_trail.push_back(j);
-        }
-
-        void unselect(unsigned j) {
-            m_value[j] = l_false;
-            m_value_trail.push_back(j);
-        }
-
         bool have_selected(lbool val, vector<set> const& Sets, unsigned& i) {
             for (i = 0; i < Sets.size(); ++i) {
                 if (!has_selected(val, Sets[i])) return false;
@@ -534,20 +551,20 @@ namespace opt {
             }
         }
 
-        bool values_satisfy_Ts(unsigned& i) {
+        bool values_satisfy_Fs(unsigned& i) {
             unsigned j = 0;
-            for (i = 0; i < m_T.size(); ++i) {
-                set const& T = m_T[i];
-                for (j = 0; j < T.size(); ++j) {
-                    if (m_value_saved[T[j]] == l_false) {
+            for (i = 0; i < m_F.size(); ++i) {
+                set const& F = m_F[i];
+                for (j = 0; j < F.size(); ++j) {
+                    if (m_value_saved[F[j]] == l_false) {
                         break;
                     }
                 }
-                if (T.size() == j) {
+                if (F.size() == j) {
                     break;
                 }
             }
-            return i == m_T.size();
+            return i == m_F.size();
         }
         
         bool has_selected(set const& S) {
@@ -570,6 +587,73 @@ namespace opt {
             }
             return false;
         }
+
+        // (simple, greedy) CDCL learner for hitting sets.
+
+        lbool search() {
+            return l_undef;
+        }
+
+        lbool propagate() {
+            lbool is_sat = l_true;
+            while (m_qhead < m_trail.size() && is_sat == l_true) {
+                unsigned idx = m_trail[m_qhead];
+                ++m_qhead;
+                switch (m_value[idx]) {
+                case l_undef: 
+                    UNREACHABLE();
+                    break;
+                case l_true: 
+                    is_sat = propagate(idx, l_false, m_fwatch, m_F);
+                    break;
+                case l_false:
+                    is_sat = propagate(idx, l_true,  m_twatch, m_T);
+                    break;
+                }
+            }
+            return is_sat;
+        }
+
+        lbool propagate(unsigned idx, lbool good_val, vector<unsigned_vector>& watch, vector<set>& Fs) 
+        {
+            unsigned sz = watch[idx].size();
+            lbool bad_val = ~good_val;
+            for (unsigned i = 0; i < sz; ++i) {
+                if (m_cancel) return l_undef;
+                unsigned clause_id = watch[idx][i];
+                set& F = Fs[clause_id];
+                SASSERT(F.size() >= 2);
+                unsigned k1 = (F[0] == idx)?0:1;
+                unsigned k2 = 1 - k1;
+                SASSERT(F[k1] == idx);
+                SASSERT(m_value[F[k1]] == bad_val);
+                if (m_value[F[k2]] == good_val) {
+                    continue;
+                }
+                bool found = false;
+                for (unsigned j = 2; !found && j < F.size(); ++j) {
+                    unsigned idx2 = F[j];
+                    if (m_value[idx2] != bad_val) {
+                        found = true;
+                        std::swap(F[k1], F[j]);
+                        watch[idx][i] = watch[idx].back();
+                        watch[idx].pop_back();
+                        --i;
+                        --sz;
+                        watch[idx2].push_back(clause_id);
+                    }
+                }
+                if (!found) {
+                    if (m_value[F[k2]] == bad_val) {
+                        return l_false;
+                    }
+                    SASSERT(m_value[F[k2]] == l_undef);
+                    assign(F[k2], good_val, clause_id);
+                }
+            }
+            return l_true;
+        }
+
         
     };
     hitting_sets::hitting_sets() { m_imp = alloc(imp); }
