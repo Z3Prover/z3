@@ -32,6 +32,21 @@ namespace opt {
 
     struct hitting_sets::imp {
         typedef unsigned_vector set;
+        class justification {
+        public:
+            enum kind_t { AXIOM, DECISION, CLAUSE };
+        private:
+            kind_t   m_kind;
+            unsigned m_value;
+        public:
+            justification(kind_t k):m_kind(k), m_value(0) {}
+            justification(unsigned v):m_kind(CLAUSE), m_value(v) {}
+            unsigned clause() const { return m_value; }
+            bool is_axiom() const { return m_kind == AXIOM; }
+            bool is_decision() const { return m_kind == DECISION; }
+            bool is_clause() const { return m_kind == CLAUSE; }
+            kind_t kind() const { return m_kind; }
+        };
         volatile bool           m_cancel;
         rational                m_lower;
         rational                m_upper;
@@ -41,14 +56,31 @@ namespace opt {
         vector<set>             m_T;
         vector<set>             m_F;
         svector<lbool>          m_value;        
-        svector<lbool>          m_value_saved;
-        unsigned_vector         m_justification;
+        svector<lbool>          m_model;
         vector<unsigned_vector> m_tuse_list;        
         vector<unsigned_vector> m_fuse_list;        
+
+        // Custom CDCL solver.
+        svector<justification>  m_justification;
         vector<unsigned_vector> m_twatch;        
         vector<unsigned_vector> m_fwatch;
-        unsigned_vector         m_trail;  // trail of assigned literals
-        unsigned                m_qhead;  // queue head
+        unsigned_vector         m_level;
+        unsigned_vector         m_trail;      // trail of assigned literals
+        unsigned                m_qhead;      // queue head
+        justification           m_conflict_j; // conflict justification
+        unsigned                m_conflict_l; // conflict literal
+        bool                    m_inconsistent;
+        unsigned                m_scope_lvl;        
+        rational                m_weight;      // current weight of assignment.
+        unsigned_vector         m_indices;
+        unsigned_vector         m_scores;
+        svector<bool>           m_mark;
+        struct scope {
+            unsigned m_trail_lim;
+        };
+        vector<scope>           m_scopes;
+        unsigned_vector         m_lemma;
+        unsigned                m_conflict_lvl;
 
         // simplex
         unsynch_mpz_manager     m;
@@ -62,6 +94,7 @@ namespace opt {
 
         static unsigned const null_clause = UINT_MAX;
         static unsigned const axiom = UINT_MAX-1;
+        static unsigned const decision = UINT_MAX-2;
 
         imp():
             m_cancel(false), 
@@ -69,6 +102,8 @@ namespace opt {
             m_denominator(1),
             m_weights_var(0),
             m_qhead(0),
+            m_conflict_j(justification(justification::AXIOM)),
+            m_inconsistent(false),
             m_solver(m_params,0) {
             m_params.set_bool("elim_vars", false);
             m_solver.updt_params(m_params);
@@ -88,6 +123,10 @@ namespace opt {
             m_fuse_list.push_back(unsigned_vector());
             m_twatch.push_back(unsigned_vector());
             m_fwatch.push_back(unsigned_vector());
+            m_level.push_back(0);
+            m_indices.push_back(var);
+            m_mark.push_back(false);
+            m_scores.push_back(0);
             m_max_weight += w;
             m_vars.push_back(m_solver.mk_var());
         }
@@ -157,8 +196,8 @@ namespace opt {
 
         bool get_value(unsigned idx) {
             return 
-                idx < m_value_saved.size() && 
-                m_value_saved[idx] == l_true;
+                idx < m_model.size() && 
+                m_model[idx] == l_true;
         }
 
         void set_cancel(bool f) {
@@ -209,7 +248,7 @@ namespace opt {
 
         void display(std::ostream& out) const {
             for (unsigned i = 0; i < m_weights.size(); ++i) {
-                out << i << ": "  << m_value_saved[i]<< " " << m_weights[i] << "\n";
+                out << i << ": "  << m_model[i]<< " " << m_weights[i] << "\n";
             }
             for (unsigned i = 0; i < m_T.size(); ++i) {
                 display(out << "+ ", m_T[i]);
@@ -217,6 +256,24 @@ namespace opt {
             for (unsigned i = 0; i < m_F.size(); ++i) {
                 display(out << "- ", m_F[i]);
             }
+            out << "inconsistent: " << m_inconsistent << "\n";
+            out << "weight: " << m_weight << "\n";
+            out << "use lists:\n";
+            for (unsigned i = 0; i < m_fwatch.size(); ++i) {
+                out << i << ": ";
+                for (unsigned j = 0; j < m_twatch[i].size(); ++j) {
+                    out << "+" << m_twatch[i][j] << " ";
+                }
+                for (unsigned j = 0; j < m_fwatch[i].size(); ++j) {
+                    out << "-" << m_fwatch[i][j] << " ";
+                }
+                out << "\n";
+            }
+            out << "trail\n";
+            for (unsigned i = 0; i < m_trail.size(); ++i) {
+                out << m_trail[i] << " ";
+            }
+            out << "\n";
         }
 
         void display(std::ostream& out, set const& S) const {
@@ -232,7 +289,7 @@ namespace opt {
             scoped_select(imp& s):s(s), sz(s.m_trail.size()) {
             }
             ~scoped_select() {
-                s.undo_select(sz);
+                s.unassign(sz);
             }
         };
 
@@ -282,18 +339,18 @@ namespace opt {
                 rational max_value(0);
                 j = 0;
                 for (i = 0; i < F.size(); ++i) {
-                    SASSERT(m_value_saved[F[i]] == l_true);
+                    SASSERT(m_model[F[i]] == l_true);
                     if (max_value < m_weights[F[i]]) {
                         max_value = m_weights[F[i]];
                         j = F[i];
                     }
                 }
                 IF_VERBOSE(1, verbose_stream() << "(hs.unselect " << j << ")\n";);
-                assign(j, l_false, null_clause);
+                assign(j, l_false, decision);
                 for (i = 0; i < m_T.size(); ++i) {
                     set const& S = m_T[i];
                     for (j = 0; j < S.size(); ++j) {
-                        if (l_false != selected(S[j])) break;
+                        if (l_false != value(S[j])) break;
                     }
                     if (j == S.size()) {                        
                         IF_VERBOSE(1, verbose_stream() << "(hs.fallback-to-SAT)\n";);
@@ -310,10 +367,10 @@ namespace opt {
                 is_sat = m_solver.check();
                 if (is_sat == l_true) {                
                     sat::model const& model = m_solver.get_model();
-                    m_value_saved.reset();
+                    m_model.reset();
                     m_upper.reset();
                     for (unsigned i = 0; i < m_vars.size(); ++i) {
-                        m_value_saved.push_back(model[m_vars[i]]);
+                        m_model.push_back(model[m_vars[i]]);
                         if (model[m_vars[i]] == l_true) {
                             m_upper += m_weights[i];
                         }
@@ -350,38 +407,32 @@ namespace opt {
             
             // score each variable by the number of
             // unassigned sets they occur in.
-            unsigned_vector scores;
-            init_scores(scores);
             
             //
             // Sort indices.
             // The least literals are those where score/w is maximized.
             //
-            unsigned_vector indices;
-            for (unsigned i = 0; i < m_value.size(); ++i) {
-                indices.push_back(i);
-            }        
-            value_lt lt(m_weights, scores);
+            value_lt lt(m_weights, m_scores);
             while (true) {
-                if (m_cancel) {
+                if (canceled()) {
                     return l_undef;
                 }
-                std::sort(indices.begin(), indices.end(), lt);
-                unsigned idx = indices[0];
-                if (scores[idx] == 0) {
+                init_scores();
+                std::sort(m_indices.begin(), m_indices.end(), lt);
+                unsigned idx = m_indices[0];
+                if (m_scores[idx] == 0) {
                     break;
                 }
-                update_scores(scores, idx);
-                assign(idx, l_true, null_clause);
-                w += m_weights[idx];
+                assign(idx, l_true, decision);
             }
-            m_upper = w;
-            m_value_saved.reset();
-            m_value_saved.append(m_value);
+            m_upper = m_weight;
+            m_model.reset();
+            m_model.append(m_value);
             return l_true;
         }
 
-        void init_scores(unsigned_vector & scores) {
+        void init_scores() {
+            unsigned_vector & scores = m_scores;
             scores.reset();
             for (unsigned i = 0; i < m_value.size(); ++i) {
                 scores.push_back(0);
@@ -390,7 +441,7 @@ namespace opt {
                 set const& S = m_T[i];
                 if (!has_selected(S)) {
                     for (unsigned j = 0; j < S.size(); ++j) {
-                        if (selected(S[j]) != l_false) {
+                        if (value(S[j]) != l_false) {
                             ++scores[S[j]];
                         }
                     }
@@ -398,38 +449,23 @@ namespace opt {
             }
         }
 
-        void update_scores(unsigned_vector& scores, unsigned v) {
-            unsigned_vector const& uses = m_tuse_list[v];
-            for (unsigned i = 0; i < uses.size(); ++i) {
-                set const& S = m_T[uses[i]];
-                if (!has_selected(S)) {
-                    for (unsigned j = 0; j < S.size(); ++j) {
-                        if (selected(S[j]) != l_false) {
-                            --scores[S[j]];
-                        }
-                    }
-                }
-            }
-        }
-
-
         bool L1() {
             rational w(0);
             scoped_select _sc(*this);
-            for (unsigned i = 0; !m_cancel && i < m_T.size(); ++i) {
+            for (unsigned i = 0; !canceled() && i < m_T.size(); ++i) {
                 set const& S = m_T[i];
                 SASSERT(!S.empty());
                 if (!has_selected(S)) {
                     w += m_weights[select_min(S)];                
                     for (unsigned j = 0; j < S.size(); ++j) {
-                        assign(S[j], l_true, null_clause);
+                        assign(S[j], l_true, decision);
                     }
                 }
             }
             if (m_lower < w) {
                 m_lower = w;
             }
-            return !m_cancel;
+            return !canceled();
         }
 
         bool L2() {
@@ -439,34 +475,29 @@ namespace opt {
             for (unsigned i = 0; i < m_T.size(); ++i) {
                 if (!has_selected(m_T[i])) ++n;
             }
-            unsigned_vector scores;
-            init_scores(scores);
-            unsigned_vector indices;
-            for (unsigned i = 0; i < m_value.size(); ++i) {
-                indices.push_back(i);
-            }        
-            value_lt lt(m_weights, scores);
+            init_scores();
+            value_lt lt(m_weights, m_scores);
 
-            std::sort(indices.begin(), indices.end(), lt);
-            for(unsigned i = 0; i < indices.size() && n > 0; ++i) {
+            std::sort(m_indices.begin(), m_indices.end(), lt);
+            for(unsigned i = 0; i < m_indices.size() && n > 0; ++i) {
                 // deg(c) = score(c)
                 // wt(c) = m_weights[c]
-                unsigned idx = indices[i];
-                if (scores[idx] == 0) {
+                unsigned idx = m_indices[i];
+                if (m_scores[idx] == 0) {
                     break;
                 }
-                if (scores[idx] < static_cast<unsigned>(n) || m_weights[idx].is_one()) {
+                if (m_scores[idx] < static_cast<unsigned>(n) || m_weights[idx].is_one()) {
                     w += m_weights[idx];
                 }
                 else {
-                    w += div((rational(n)*m_weights[idx]), rational(scores[idx]));
+                    w += div((rational(n)*m_weights[idx]), rational(m_scores[idx]));
                 }
-                n -= scores[idx];
+                n -= m_scores[idx];
             }
             if (m_lower < w) {
                 m_lower = w;
             }
-            return !m_cancel;
+            return !canceled();
         }
 
         bool L3() {        
@@ -508,13 +539,6 @@ namespace opt {
             }
             m_simplex.add_row(base_var, coeffs.size(), vars.c_ptr(), coeffs.c_ptr());
         }
-
-        void undo_select(unsigned sz) {
-            for (unsigned j = sz; j < m_trail.size(); ++j) {
-                m_value[m_trail[j]] = l_undef;
-            }
-            m_trail.resize(sz);
-        }
         
         unsigned select_min(set const& S) {
             unsigned result = S[0];
@@ -525,17 +549,7 @@ namespace opt {
             }
             return result;
         }
-        
-        lbool selected(unsigned j) const { 
-            return m_value[j];
-        }
-
-        void assign(unsigned j, lbool val, unsigned clause_id = null_clause) {
-            m_value[j] = val;
-            m_justification[j] = clause_id;
-            m_trail.push_back(j);
-        }
-        
+                
         bool have_selected(lbool val, vector<set> const& Sets, unsigned& i) {
             for (i = 0; i < Sets.size(); ++i) {
                 if (!has_selected(val, Sets[i])) return false;
@@ -544,9 +558,9 @@ namespace opt {
         }
 
         void set_undef_to_false() {
-            for (unsigned i = 0; i < m_value_saved.size(); ++i) {
-                if (m_value_saved[i] == l_undef) {
-                    m_value_saved[i] = l_false;
+            for (unsigned i = 0; i < m_model.size(); ++i) {
+                if (m_model[i] == l_undef) {
+                    m_model[i] = l_false;
                 }
             }
         }
@@ -556,7 +570,7 @@ namespace opt {
             for (i = 0; i < m_F.size(); ++i) {
                 set const& F = m_F[i];
                 for (j = 0; j < F.size(); ++j) {
-                    if (m_value_saved[F[j]] == l_false) {
+                    if (m_model[F[j]] == l_false) {
                         break;
                     }
                 }
@@ -581,77 +595,290 @@ namespace opt {
 
         bool has_selected(lbool val, set const& S) {
             for (unsigned i = 0; i < S.size(); ++i) {
-                if (val == selected(S[i])) {
+                if (val == value(S[i])) {
                     return true;
                 }
             }
             return false;
         }
 
-        // (simple, greedy) CDCL learner for hitting sets.
+        // (greedy) CDCL learner for hitting sets.
 
-        lbool search() {
-            return l_undef;
+        inline unsigned scope_lvl() const { return m_scope_lvl; }
+        inline bool inconsistent() const { return m_inconsistent; }
+        inline bool canceled() const { return m_cancel; }
+        inline unsigned lvl(unsigned idx) const { return m_level[idx]; }
+        inline lbool value(unsigned idx) const { return m_value[idx]; }
+
+        inline bool is_marked(unsigned v) const { return m_mark[v] != 0; }
+        inline void mark(unsigned v) { SASSERT(!is_marked(v)); m_mark[v] = true; }
+        inline void reset_mark(unsigned v) { SASSERT(is_marked(v)); m_mark[v] = false; }
+
+        void push() {
+            SASSERT(!inconsistent());
+            ++m_scope_lvl;
+            m_scopes.push_back(scope());
+            scope& s = m_scopes.back();
+            s.m_trail_lim = m_trail.size();
         }
 
-        lbool propagate() {
-            lbool is_sat = l_true;
-            while (m_qhead < m_trail.size() && is_sat == l_true) {
+        void pop(unsigned n) {
+            if (n > 0) {
+                m_inconsistent = false;
+                m_scope_lvl = scope_lvl() - n;
+                unassign(m_scopes[scope_lvl()].m_trail_lim);
+                m_scopes.shrink(scope_lvl());
+            }        
+        }
+
+        void assign(unsigned j, lbool val, unsigned justification) {
+            if (val == l_true) {
+                m_weight += m_weights[j];
+            }
+            m_value[j] = val;
+            m_justification[j] = justification;
+            m_trail.push_back(j);
+            m_level[j] = scope_lvl();
+            TRACE("opt", tout << j << " := " << val << " scope: " << scope_lvl() << " w: " << m_weight << "\n";);
+        }
+
+        void unassign(unsigned sz) {
+            for (unsigned j = sz; j < m_trail.size(); ++j) {
+                unsigned idx = m_trail[j];                
+                if (value(idx) == l_true) {
+                    m_weight -= m_weights[idx];
+                }
+                m_value[idx] = l_undef;
+            }
+            TRACE("opt", tout << m_weight << "\n";);
+            m_trail.shrink(sz);
+        }
+
+
+        lbool search() {
+            TRACE("opt", display(tout););
+            pop(scope_lvl());
+            while (true) {
+                while (true) {
+                    propagate();
+                    if (canceled()) return l_undef;
+                    if (!inconsistent()) break;
+                    if (!resolve_conflict()) return l_false;
+                    SASSERT(!inconsistent());
+                }
+                if (!decide()) {
+                    m_model.reset();
+                    m_model.append(m_value);
+                    m_upper = m_weight;
+                    SASSERT(m_weight < m_max_weight);
+                    return l_true;
+                }
+            }
+        }
+
+        bool resolve_conflict() {
+            while (true) {
+                if (!resolve_conflict_core()) return false;
+                if (!inconsistent()) return true;
+            }
+        }
+
+        unsigned get_max_lvl(unsigned conflict_l, justification const& conflict_j) {
+            if (scope_lvl() == 0) return 0;
+            unsigned r = lvl(conflict_l);
+            if (conflict_j.is_clause()) {
+                unsigned clause = conflict_j.clause();
+                vector<unsigned_vector> const& S = (value(clause) == l_true)?m_F:m_T;
+                r = std::max(r, lvl(S[clause][0]));
+                r = std::max(r, lvl(S[clause][1]));
+            }
+            return r;
+        }
+        
+        bool resolve_conflict_core() {            
+            SASSERT(inconsistent());
+            TRACE("opt", display(tout););
+            unsigned conflict_l = m_conflict_l;
+            justification conflict_j = m_conflict_j;
+            m_conflict_lvl = get_max_lvl(conflict_l, conflict_j);
+            if (m_conflict_lvl == 0) {
+                return false;
+            }
+            unsigned idx = skip_above_conflict_level();
+            unsigned num_marks = 0;
+            m_lemma.reset();
+            m_lemma.push_back(0);
+            process_antecedent(conflict_l, num_marks);
+            do {
+                if (conflict_j.is_clause()) {
+                    lbool val = value(conflict_l);
+                    unsigned cl = conflict_j.clause();
+                    unsigned i = 0;
+                    SASSERT(val != l_undef);                    
+                    set const& T = (val == l_true)?m_T[cl]:m_F[cl];
+                    if (T[0] == conflict_l) {
+                        i = 1;
+                    }
+                    else {
+                        SASSERT(T[1] == conflict_l);
+                        process_antecedent(T[0], num_marks);
+                        i = 2;
+                    }
+                    unsigned sz = T.size();
+                    for (; i < sz; ++i) {
+                        process_antecedent(T[i], num_marks);
+                    }
+                }
+                while (true) {
+                    unsigned l = m_trail[idx];
+                    if (is_marked(l)) break;
+                    SASSERT(idx > 0);
+                    --idx;
+                }
+                conflict_l = m_trail[idx];
+                conflict_j = m_justification[conflict_l];
+                --idx;
+                --num_marks;
+                reset_mark(conflict_l);
+            }
+            while (num_marks > 0);
+            m_lemma[0] = conflict_l;
+
+            unsigned new_scope_lvl = 0;
+            for (unsigned i = 0; i < m_lemma.size(); ++i) {
+                SASSERT(l_true == value(m_lemma[i]));
+                new_scope_lvl = std::max(new_scope_lvl, lvl(m_lemma[i]));
+                reset_mark(m_lemma[i]);
+            }
+            pop(scope_lvl() - new_scope_lvl);
+            add_exists_false(m_lemma.size(), m_lemma.c_ptr());
+            return true;
+        }
+
+        void process_antecedent(unsigned antecedent, unsigned& num_marks) {
+            unsigned alvl = lvl(antecedent);
+            if (!is_marked(antecedent) && alvl > 0) {
+                mark(antecedent);
+                if (alvl <= m_conflict_lvl && value(antecedent) == l_true) {
+                    m_lemma.push_back(antecedent);
+                }
+                else {
+                    ++num_marks;
+                }
+            }
+        }
+
+        unsigned skip_above_conflict_level() {
+            unsigned idx = m_trail.size();
+            if (idx == 0) {
+                return idx;
+            }
+            idx--;
+            // skip literals from levels above the conflict level
+            while (lvl(m_trail[idx]) > m_conflict_lvl) {
+                SASSERT(idx > 0);
+                idx--;
+            }
+            return idx;
+        }
+
+        void set_conflict(unsigned idx, unsigned justification) {
+            if (!inconsistent()) {
+                m_inconsistent = true;
+                m_conflict_j = justification;
+                m_conflict_l = idx;
+            }
+        }
+
+        unsigned next_var() {
+            value_lt lt(m_weights, m_scores);
+            init_scores();
+            std::sort(m_indices.begin(), m_indices.end(), lt);
+            unsigned idx = m_indices[0];
+            if (m_scores[idx] == 0) {
+                idx = UINT_MAX;
+            }
+            return idx;            
+        }
+
+        bool decide() {
+            unsigned idx = next_var();
+            if (idx == UINT_MAX) {
+                return false;
+            }
+            else {
+                push();
+                TRACE("opt", tout << "decide " << idx << "\n";);
+                assign(idx, l_true, decision);
+                return true;
+            }
+        }
+
+        void propagate() {
+            while (m_qhead < m_trail.size() && !inconsistent() && !canceled()) {
                 unsigned idx = m_trail[m_qhead];
                 ++m_qhead;
-                switch (m_value[idx]) {
+                switch (value(idx)) {
                 case l_undef: 
                     UNREACHABLE();
                     break;
                 case l_true: 
-                    is_sat = propagate(idx, l_false, m_fwatch, m_F);
+                    propagate(idx, l_false, m_fwatch, m_F);
                     break;
                 case l_false:
-                    is_sat = propagate(idx, l_true,  m_twatch, m_T);
+                    propagate(idx, l_true,  m_twatch, m_T);
                     break;
                 }
             }
-            return is_sat;
+            prune_branch();
         }
 
-        lbool propagate(unsigned idx, lbool good_val, vector<unsigned_vector>& watch, vector<set>& Fs) 
+        void propagate(unsigned idx, lbool good_val, vector<unsigned_vector>& watch, vector<set>& Fs) 
         {
             unsigned sz = watch[idx].size();
             lbool bad_val = ~good_val;
-            for (unsigned i = 0; i < sz; ++i) {
-                if (m_cancel) return l_undef;
+            unsigned l = 0;
+            for (unsigned i = 0; i < sz && !canceled(); ++i, ++l) {
                 unsigned clause_id = watch[idx][i];
                 set& F = Fs[clause_id];
                 SASSERT(F.size() >= 2);
                 unsigned k1 = (F[0] == idx)?0:1;
                 unsigned k2 = 1 - k1;
                 SASSERT(F[k1] == idx);
-                SASSERT(m_value[F[k1]] == bad_val);
-                if (m_value[F[k2]] == good_val) {
+                SASSERT(value(F[k1]) == bad_val);
+                if (value(F[k2]) == good_val) {
+                    watch[idx][l] = watch[idx][i];
                     continue;
                 }
                 bool found = false;
                 for (unsigned j = 2; !found && j < F.size(); ++j) {
                     unsigned idx2 = F[j];
-                    if (m_value[idx2] != bad_val) {
+                    if (value(idx2) != bad_val) {
                         found = true;
                         std::swap(F[k1], F[j]);
-                        watch[idx][i] = watch[idx].back();
-                        watch[idx].pop_back();
-                        --i;
-                        --sz;
+                        --l;
                         watch[idx2].push_back(clause_id);
                     }
                 }
                 if (!found) {
-                    if (m_value[F[k2]] == bad_val) {
-                        return l_false;
+                    if (value(F[k2]) == bad_val) {
+                        set_conflict(F[k2], clause_id);
+                        return;
                     }
-                    SASSERT(m_value[F[k2]] == l_undef);
+                    SASSERT(value(F[k2]) == l_undef);
                     assign(F[k2], good_val, clause_id);
+                    watch[idx][l] = watch[idx][i];
                 }
             }
-            return l_true;
+            watch[idx].shrink(l);
+        }
+
+        void prune_branch() {
+            // TBD: make this more powerful
+            // by using L1, L2, L3 pruning criteria.
+            if (m_weight >= m_max_weight) {
+                m_inconsistent = true;
+            }
         }
 
         
