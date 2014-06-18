@@ -140,30 +140,33 @@ namespace opt {
             m_vars.push_back(m_solver.mk_var());
         }
 
-        void add_exists_false(unsigned sz, unsigned const* S) {
-            add_exists(sz, S, true);
+        unsigned add_exists_false(unsigned sz, unsigned const* S) {
+            return add_exists(sz, S, true);
         }
 
-        void add_exists_true(unsigned sz, unsigned const* S) {
-            add_exists(sz, S, false);
+        unsigned add_exists_true(unsigned sz, unsigned const* S) {
+            return add_exists(sz, S, false);
         }
 
-        void add_exists(unsigned sz, unsigned const* S, bool sign) {
+        unsigned add_exists(unsigned sz, unsigned const* S, bool sign) {
             vector<unsigned_vector>& use_list = sign?m_fuse_list:m_tuse_list;
             lbool val = sign?l_false:l_true;
+            unsigned clause_id;
             vector<set>& Sets = sign?m_F:m_T;
             vector<unsigned_vector>& watch = sign?m_fwatch:m_twatch;
             SASSERT(sz > 0);
             for (unsigned i = 0; i < sz; ++i) {
                 use_list[S[i]].push_back(Sets.size());
             }
-            init_weights();
+            init_weights();            
             if (sz == 1) {
+                clause_id = UINT_MAX;
                 assign(S[0], val, justification(justification::AXIOM));
             }
             else {
-                watch[S[0]].push_back(Sets.size());
-                watch[S[1]].push_back(Sets.size());
+                clause_id = Sets.size();
+                watch[S[0]].push_back(clause_id);
+                watch[S[1]].push_back(clause_id);
                 Sets.push_back(unsigned_vector(sz, S));
             }
             add_simplex_row(!sign, sz, S);            
@@ -173,6 +176,7 @@ namespace opt {
                 lits.push_back(sat::literal(m_vars[S[i]], sign));
             }
             m_solver.mk_clause(lits.size(), lits.c_ptr());            
+            return clause_id;
         }
 
         lbool compute_lower() {
@@ -257,18 +261,18 @@ namespace opt {
         }
 
         void display(std::ostream& out) const {
-            for (unsigned i = 0; i < m_weights.size(); ++i) {
-                out << i << ": "  << m_model[i]<< " " << m_weights[i] << "\n";
-            }
-            for (unsigned i = 0; i < m_T.size(); ++i) {
-                display(out << "+ ", m_T[i]);
-            }
-            for (unsigned i = 0; i < m_F.size(); ++i) {
-                display(out << "- ", m_F[i]);
-            }
             out << "inconsistent: " << m_inconsistent << "\n";
             out << "weight: " << m_weight << "\n";
-            out << "use lists:\n";
+            for (unsigned i = 0; i < m_weights.size(); ++i) {
+                out << i << ": "  << value(i) << " " << m_weights[i] << "\n";
+            }
+            for (unsigned i = 0; i < m_T.size(); ++i) {
+                display(out << "+" << i << ": ", m_T[i]);
+            }
+            for (unsigned i = 0; i < m_F.size(); ++i) {
+                display(out << "-" << i << ": ", m_F[i]);
+            }
+            out << "watch lists:\n";
             for (unsigned i = 0; i < m_fwatch.size(); ++i) {
                 out << i << ": ";
                 for (unsigned j = 0; j < m_twatch[i].size(); ++j) {
@@ -697,9 +701,9 @@ namespace opt {
                     SASSERT(!inconsistent());
                 }
                 if (!decide()) {
+                    SASSERT(validate_model());
                     m_model.reset();
                     m_model.append(m_value);
-                    SASSERT(validate_model());
                     m_upper = m_weight;
                     // SASSERT(m_weight < m_max_weight);
                     return l_true;
@@ -714,6 +718,9 @@ namespace opt {
                 for (unsigned j = 0; !found && j < S.size(); ++j) {
                     found = value(S[j]) == l_true;
                 }
+                CTRACE("opt", !found, 
+                       display(tout << "not found: " << i << "\n", S);
+                       display(tout););
                 SASSERT(found);
             }
             for (unsigned i = 0; i < m_F.size(); ++i) {
@@ -722,10 +729,28 @@ namespace opt {
                 for (unsigned j = 0; !found && j < S.size(); ++j) {
                     found = value(S[j]) != l_true;
                 }
-                CTRACE("opt", !found, display(tout << "not found: " << i << "\n", S););
+                CTRACE("opt", !found, 
+                       display(tout << "not found: " << i << "\n", S);
+                       display(tout););
                 SASSERT(found);
             }
 
+            return true;
+        }
+
+        bool invariant() {
+            for (unsigned i = 0; i < m_fwatch.size(); ++i) {
+                for (unsigned j = 0; j < m_fwatch[i].size(); ++j) {
+                    set const& S = m_F[m_fwatch[i][j]];
+                    SASSERT(S[0] == i || S[1] == i);
+                }
+            }
+            for (unsigned i = 0; i < m_twatch.size(); ++i) {
+                for (unsigned j = 0; j < m_twatch[i].size(); ++j) {
+                    set const& S = m_T[m_twatch[i][j]];
+                    SASSERT(S[0] == i || S[1] == i);
+                }
+            }
             return true;
         }
 
@@ -798,19 +823,23 @@ namespace opt {
             while (num_marks > 0);
             m_lemma[0] = conflict_l;
 
-            unsigned new_scope_lvl = 0;
             TRACE("opt",
                   for (unsigned i = 0; i < m_lemma.size(); ++i) {
-                      tout << m_lemma[i] << " ";
+                      tout << m_lemma[i] << " " << value(m_lemma[i]) << " ";
                   }
                   tout << "\n";);
-            for (unsigned i = 0; i < m_lemma.size(); ++i) {
+            unsigned new_scope_lvl = 0;
+            for (unsigned i = 1; i < m_lemma.size(); ++i) {
                 SASSERT(l_true == value(m_lemma[i]));
                 new_scope_lvl = std::max(new_scope_lvl, lvl(m_lemma[i]));
                 reset_mark(m_lemma[i]);
             }
             pop(scope_lvl() - new_scope_lvl);
-            add_exists_false(m_lemma.size(), m_lemma.c_ptr());
+            SASSERT(l_undef == value(conflict_l));
+            unsigned clause_id = add_exists_false(m_lemma.size(), m_lemma.c_ptr());
+            if (clause_id != UINT_MAX) {
+                assign(conflict_l, l_false, justification(clause_id, false));
+            }
             return true;
         }
 
@@ -819,7 +848,7 @@ namespace opt {
             SASSERT(alvl <= m_conflict_lvl);
             if (!is_marked(antecedent) && alvl > 0) {
                 mark(antecedent);
-                if (alvl == m_conflict_lvl) {
+                if (alvl == m_conflict_lvl || value(antecedent) == l_false) {
                     ++num_marks;
                 }
                 else {
@@ -876,6 +905,8 @@ namespace opt {
         }
 
         void propagate() {
+            TRACE("opt", display(tout););
+            SASSERT(invariant());
             while (m_qhead < m_trail.size() && !inconsistent() && !canceled()) {
                 unsigned idx = m_trail[m_qhead];
                 ++m_qhead;
@@ -896,9 +927,10 @@ namespace opt {
 
         void propagate(unsigned idx, lbool good_val, vector<unsigned_vector>& watch, vector<set>& Fs) 
         {
-            TRACE("opt", tout << idx << "\n";);
+            TRACE("opt", tout << idx << " " << value(idx) << "\n";);
             unsigned sz = watch[idx].size();
             lbool bad_val = ~good_val;
+            SASSERT(value(idx) == bad_val);
             unsigned l = 0;
             for (unsigned i = 0; i < sz && !canceled(); ++i, ++l) {
                 unsigned clause_id = watch[idx][i];
@@ -925,20 +957,32 @@ namespace opt {
                 if (!found) {
                     if (value(F[k2]) == bad_val) {
                         set_conflict(F[k2], justification(clause_id, good_val == l_true));
-                        return;
+                        for (; l <= i && i < sz; ++i, ++l) {
+                            watch[idx][l] = watch[idx][i];
+                        }
+                        break;
                     }
-                    SASSERT(value(F[k2]) == l_undef);
-                    assign(F[k2], good_val, justification(clause_id, good_val == l_true));
-                    watch[idx][l] = watch[idx][i];
+                    else {
+                        SASSERT(value(F[k2]) == l_undef);
+                        assign(F[k2], good_val, justification(clause_id, good_val == l_true));
+                        watch[idx][l] = watch[idx][i];
+                    }
                 }
             }
             watch[idx].shrink(l);
+            SASSERT(invariant());
+            TRACE("opt", tout << idx << " " << value(idx) << "\n";);
+            SASSERT(value(idx) == bad_val);
+        }
+
+        bool infeasible_lookahead() {
+            // TBD: make this more powerful
+            // by using L1, L2, L3 pruning criteria.
+            return (m_weight >= m_max_weight);
         }
 
         void prune_branch() {
-            // TBD: make this more powerful
-            // by using L1, L2, L3 pruning criteria.
-            if (m_weight >= m_max_weight) {
+            if (infeasible_lookahead()) {
                 m_inconsistent = true;
                 for (unsigned i = m_trail.size(); i > 0; ) {
                     --i;
@@ -951,6 +995,8 @@ namespace opt {
             }
         }
 
+        // TBD: derive strong inequalities and add them to Simplex.
+        // x_i1 + .. + x_ik >= k-1 for each subset k from set n:  x_1 + .. + x_n >= k 
         
     };
     hitting_sets::hitting_sets() { m_imp = alloc(imp); }
