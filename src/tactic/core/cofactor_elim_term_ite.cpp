@@ -563,7 +563,7 @@ struct cofactor_elim_term_ite::imp {
                 }
                 TRACE("cofactor", 
                       tout << "cofactor_ite step: " << step << "\n";
-                      tout << "co-factor: " << mk_ismt2_pp(c, m) << "\n";
+                      tout << "cofactor: " << mk_ismt2_pp(c, m) << "\n";
                       tout << mk_ismt2_pp(curr, m) << "\n";);
             }
         }
