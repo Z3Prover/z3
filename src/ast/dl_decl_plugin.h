@@ -48,6 +48,8 @@ namespace datalog {
         OP_RA_CLONE,
         OP_DL_CONSTANT,
         OP_DL_LT,
+        OP_DL_REP,
+        OP_DL_ABS,
         LAST_RA_OP
     };
     

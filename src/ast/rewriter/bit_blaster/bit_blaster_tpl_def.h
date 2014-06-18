@@ -828,6 +828,12 @@ void bit_blaster_tpl<Cfg>::mk_eq(unsigned sz, expr * const * a_bits, expr * cons
 
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_rotate_left(unsigned sz, expr * const * a_bits, unsigned n, expr_ref_vector & out_bits) {
+    TRACE("bit_blaster", tout << n << ": " << sz << " ";
+          for (unsigned i = 0; i < sz; ++i) {
+              tout << mk_pp(a_bits[i], m()) << " ";
+          }
+          tout << "\n";
+          );
     n = n % sz;
     for (unsigned i = sz - n; i < sz; i++) 
         out_bits.push_back(a_bits[i]);
@@ -974,7 +980,7 @@ void bit_blaster_tpl<Cfg>::mk_ashr(unsigned sz, expr * const * a_bits, expr * co
                 mk_ite(eqs.get(i - j), a_bits[sz - j - 1], out, new_out);
                 out = new_out;
             }
-            TRACE("bit_blaster_tpl<Cfg>", tout << (sz - i - 1) << " :\n" << mk_pp(out, m()) << "\n";);
+            TRACE("bit_blaster", tout << (sz - i - 1) << " :\n" << mk_pp(out, m()) << "\n";);
             out_bits.set(sz - i - 1, out);
         }
     }
@@ -1004,7 +1010,7 @@ void bit_blaster_tpl<Cfg>::mk_ext_rotate_left_right(unsigned sz, expr * const * 
             out = a_bits[i];
             for (unsigned j = 1; j < sz; j++) {
                 expr_ref new_out(m());
-                unsigned src = (Left ? (i - j) : (i + j)) % sz;
+                unsigned src = (Left ? (sz + i - j) : (i + j)) % sz;
                 mk_ite(eqs.get(j), a_bits[src], out, new_out);
                 out = new_out;
             }
