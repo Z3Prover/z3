@@ -2043,6 +2043,7 @@ public:
             // z < d
             expr* z_lt_d = m_util.m_arith.mk_le(z, m_util.m_arith.mk_numeral(d-rational(1), true));
             m_ctx.add_constraint(false, z_lt_d);
+            TRACE("qe", tout << mk_pp(z_lt_d, m) << "\n";);
 
             // result <- result & z <= d - 1
             SASSERT(!abs(d).is_one());
@@ -2056,9 +2057,11 @@ public:
             t1 = m_util.mk_sub(x, z);
             m_util.mk_divides(d, t1, new_atom);
             m_ctx.add_constraint(false, new_atom);
+            TRACE("qe", tout << mk_pp(new_atom, m) << "\n";);
             
             // (c | ax + t <-> c | az + t) for each divisor.
             mk_div_equivs(bounds, z, result);
+            TRACE("qe", tout << mk_pp(result, m) << "\n";);
             
             // update x_t to map x |-> dx + z
             x_t.set_term(z);

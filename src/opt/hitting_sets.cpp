@@ -38,14 +38,23 @@ namespace opt {
         private:
             kind_t   m_kind;
             unsigned m_value;
+            bool     m_pos;
         public:
-            justification(kind_t k):m_kind(k), m_value(0) {}
-            justification(unsigned v):m_kind(CLAUSE), m_value(v) {}
+            explicit justification(kind_t k):m_kind(k), m_value(0), m_pos(false) {}
+            explicit justification(unsigned v, bool pos):m_kind(CLAUSE), m_value(v), m_pos(pos) {}
+            explicit justification(justification const& other): m_kind(other.m_kind), m_value(other.m_value), m_pos(other.m_pos) {}
+            justification& operator=(justification const& other) {
+                m_kind = other.m_kind;
+                m_value = other.m_value;
+                m_pos = other.m_pos;
+                return *this;
+            }
             unsigned clause() const { return m_value; }
             bool is_axiom() const { return m_kind == AXIOM; }
             bool is_decision() const { return m_kind == DECISION; }
             bool is_clause() const { return m_kind == CLAUSE; }
             kind_t kind() const { return m_kind; }
+            bool pos() const { return m_pos; }
         };
         volatile bool           m_cancel;
         rational                m_lower;
@@ -92,9 +101,7 @@ namespace opt {
         sat::solver             m_solver;
         svector<sat::bool_var>  m_vars;
 
-        static unsigned const null_clause = UINT_MAX;
-        static unsigned const axiom = UINT_MAX-1;
-        static unsigned const decision = UINT_MAX-2;
+        static unsigned const null_idx = UINT_MAX;
 
         imp():
             m_cancel(false), 
@@ -102,6 +109,7 @@ namespace opt {
             m_denominator(1),
             m_weights_var(0),
             m_qhead(0),
+            m_scope_lvl(0),
             m_conflict_j(justification(justification::AXIOM)),
             m_inconsistent(false),
             m_solver(m_params,0) {
@@ -118,13 +126,14 @@ namespace opt {
             m_simplex.set_upper(var, mpq_inf(mpq(1),mpq(0)));
             m_weights.push_back(w);
             m_value.push_back(l_undef);
-            m_justification.push_back(null_clause);
+            m_justification.push_back(justification(justification::DECISION));
             m_tuse_list.push_back(unsigned_vector());
             m_fuse_list.push_back(unsigned_vector());
             m_twatch.push_back(unsigned_vector());
             m_fwatch.push_back(unsigned_vector());
             m_level.push_back(0);
             m_indices.push_back(var);
+            m_model.push_back(l_undef);
             m_mark.push_back(false);
             m_scores.push_back(0);
             m_max_weight += w;
@@ -150,7 +159,7 @@ namespace opt {
             }
             init_weights();
             if (sz == 1) {
-                assign(S[0], val, axiom);
+                assign(S[0], val, justification(justification::AXIOM));
             }
             else {
                 watch[S[0]].push_back(Sets.size());
@@ -179,7 +188,8 @@ namespace opt {
 
         lbool compute_upper() {            
             m_upper = m_max_weight;
-            return U1();
+            return search();
+            // return U1();
         }
 
         rational get_lower() {
@@ -283,6 +293,25 @@ namespace opt {
             out << "\n";
         }
 
+        void display(std::ostream& out, justification const& j) const {
+            switch(j.kind()) {
+            case justification::AXIOM: 
+                out << "axiom\n"; 
+                break;
+            case justification::DECISION: 
+                out << "decision\n"; 
+                break;
+            case justification::CLAUSE: {
+                out << "clause: ";
+                set const& S = j.pos()?m_T[j.clause()]:m_F[j.clause()];
+                for (unsigned i = 0; i < S.size(); ++i) {
+                    out << S[i] << " ";
+                }
+                out << "\n";
+            }
+            }
+        }
+
         struct scoped_select {
             imp& s;
             unsigned sz;
@@ -346,7 +375,7 @@ namespace opt {
                     }
                 }
                 IF_VERBOSE(1, verbose_stream() << "(hs.unselect " << j << ")\n";);
-                assign(j, l_false, decision);
+                assign(j, l_false, justification(justification::DECISION));
                 for (i = 0; i < m_T.size(); ++i) {
                     set const& S = m_T[i];
                     for (j = 0; j < S.size(); ++j) {
@@ -423,7 +452,7 @@ namespace opt {
                 if (m_scores[idx] == 0) {
                     break;
                 }
-                assign(idx, l_true, decision);
+                assign(idx, l_true, justification(justification::DECISION));
             }
             m_upper = m_weight;
             m_model.reset();
@@ -458,7 +487,7 @@ namespace opt {
                 if (!has_selected(S)) {
                     w += m_weights[select_min(S)];                
                     for (unsigned j = 0; j < S.size(); ++j) {
-                        assign(S[j], l_true, decision);
+                        assign(S[j], l_true, justification(justification::DECISION));
                     }
                 }
             }
@@ -631,7 +660,7 @@ namespace opt {
             }        
         }
 
-        void assign(unsigned j, lbool val, unsigned justification) {
+        void assign(unsigned j, lbool val, justification const&  justification) {
             if (val == l_true) {
                 m_weight += m_weights[j];
             }
@@ -652,6 +681,7 @@ namespace opt {
             }
             TRACE("opt", tout << m_weight << "\n";);
             m_trail.shrink(sz);
+            m_qhead = sz;
         }
 
 
@@ -669,11 +699,34 @@ namespace opt {
                 if (!decide()) {
                     m_model.reset();
                     m_model.append(m_value);
+                    SASSERT(validate_model());
                     m_upper = m_weight;
-                    SASSERT(m_weight < m_max_weight);
+                    // SASSERT(m_weight < m_max_weight);
                     return l_true;
                 }
             }
+        }
+
+        bool validate_model() {
+            for (unsigned i = 0; i < m_T.size(); ++i) {
+                set const& S = m_T[i];
+                bool found = false;
+                for (unsigned j = 0; !found && j < S.size(); ++j) {
+                    found = value(S[j]) == l_true;
+                }
+                SASSERT(found);
+            }
+            for (unsigned i = 0; i < m_F.size(); ++i) {
+                set const& S = m_F[i];
+                bool found = false;
+                for (unsigned j = 0; !found && j < S.size(); ++j) {
+                    found = value(S[j]) != l_true;
+                }
+                CTRACE("opt", !found, display(tout << "not found: " << i << "\n", S););
+                SASSERT(found);
+            }
+
+            return true;
         }
 
         bool resolve_conflict() {
@@ -688,7 +741,7 @@ namespace opt {
             unsigned r = lvl(conflict_l);
             if (conflict_j.is_clause()) {
                 unsigned clause = conflict_j.clause();
-                vector<unsigned_vector> const& S = (value(clause) == l_true)?m_F:m_T;
+                vector<unsigned_vector> const& S = conflict_j.pos()?m_T:m_F;
                 r = std::max(r, lvl(S[clause][0]));
                 r = std::max(r, lvl(S[clause][1]));
             }
@@ -699,7 +752,7 @@ namespace opt {
             SASSERT(inconsistent());
             TRACE("opt", display(tout););
             unsigned conflict_l = m_conflict_l;
-            justification conflict_j = m_conflict_j;
+            justification conflict_j(m_conflict_j);
             m_conflict_lvl = get_max_lvl(conflict_l, conflict_j);
             if (m_conflict_lvl == 0) {
                 return false;
@@ -710,12 +763,13 @@ namespace opt {
             m_lemma.push_back(0);
             process_antecedent(conflict_l, num_marks);
             do {
+                TRACE("opt", tout << "conflict literal: " << conflict_l << "\n";
+                      display(tout, conflict_j););
                 if (conflict_j.is_clause()) {
-                    lbool val = value(conflict_l);
                     unsigned cl = conflict_j.clause();
                     unsigned i = 0;
-                    SASSERT(val != l_undef);                    
-                    set const& T = (val == l_true)?m_T[cl]:m_F[cl];
+                    SASSERT(value(conflict_l) != l_undef);
+                    set const& T = conflict_j.pos()?m_T[cl]:m_F[cl]; 
                     if (T[0] == conflict_l) {
                         i = 1;
                     }
@@ -745,6 +799,11 @@ namespace opt {
             m_lemma[0] = conflict_l;
 
             unsigned new_scope_lvl = 0;
+            TRACE("opt",
+                  for (unsigned i = 0; i < m_lemma.size(); ++i) {
+                      tout << m_lemma[i] << " ";
+                  }
+                  tout << "\n";);
             for (unsigned i = 0; i < m_lemma.size(); ++i) {
                 SASSERT(l_true == value(m_lemma[i]));
                 new_scope_lvl = std::max(new_scope_lvl, lvl(m_lemma[i]));
@@ -757,13 +816,14 @@ namespace opt {
 
         void process_antecedent(unsigned antecedent, unsigned& num_marks) {
             unsigned alvl = lvl(antecedent);
+            SASSERT(alvl <= m_conflict_lvl);
             if (!is_marked(antecedent) && alvl > 0) {
                 mark(antecedent);
-                if (alvl <= m_conflict_lvl && value(antecedent) == l_true) {
-                    m_lemma.push_back(antecedent);
+                if (alvl == m_conflict_lvl) {
+                    ++num_marks;
                 }
                 else {
-                    ++num_marks;
+                    m_lemma.push_back(antecedent);
                 }
             }
         }
@@ -782,8 +842,9 @@ namespace opt {
             return idx;
         }
 
-        void set_conflict(unsigned idx, unsigned justification) {
+        void set_conflict(unsigned idx, justification const& justification) {
             if (!inconsistent()) {
+                TRACE("opt", tout << "conflict: " << idx << "\n";);
                 m_inconsistent = true;
                 m_conflict_j = justification;
                 m_conflict_l = idx;
@@ -809,7 +870,7 @@ namespace opt {
             else {
                 push();
                 TRACE("opt", tout << "decide " << idx << "\n";);
-                assign(idx, l_true, decision);
+                assign(idx, l_true, justification(justification::DECISION));
                 return true;
             }
         }
@@ -830,11 +891,12 @@ namespace opt {
                     break;
                 }
             }
-            prune_branch();
+            //prune_branch();
         }
 
         void propagate(unsigned idx, lbool good_val, vector<unsigned_vector>& watch, vector<set>& Fs) 
         {
+            TRACE("opt", tout << idx << "\n";);
             unsigned sz = watch[idx].size();
             lbool bad_val = ~good_val;
             unsigned l = 0;
@@ -862,11 +924,11 @@ namespace opt {
                 }
                 if (!found) {
                     if (value(F[k2]) == bad_val) {
-                        set_conflict(F[k2], clause_id);
+                        set_conflict(F[k2], justification(clause_id, good_val == l_true));
                         return;
                     }
                     SASSERT(value(F[k2]) == l_undef);
-                    assign(F[k2], good_val, clause_id);
+                    assign(F[k2], good_val, justification(clause_id, good_val == l_true));
                     watch[idx][l] = watch[idx][i];
                 }
             }
@@ -878,6 +940,14 @@ namespace opt {
             // by using L1, L2, L3 pruning criteria.
             if (m_weight >= m_max_weight) {
                 m_inconsistent = true;
+                for (unsigned i = m_trail.size(); i > 0; ) {
+                    --i;
+                    if (value(m_trail[i]) == l_true) {
+                        m_conflict_l = m_trail[i];
+                        m_conflict_j = m_justification[m_conflict_l];
+                        break;
+                    }
+                }
             }
         }
 
