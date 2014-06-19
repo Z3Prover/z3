@@ -810,6 +810,9 @@ class Component:
     def require_mem_initializer(self):
         return False
 
+    def mk_install_deps(self, out):
+        return
+
     def mk_install(self, out):
         return
 
@@ -852,6 +855,9 @@ class LibComponent(Component):
             out.write(obj)
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, libfile))
+
+    def mk_install_dep(self, out):
+        out.write('%s' % libfile)
 
     def mk_install(self, out):
         for include in self.includes2install:
@@ -934,6 +940,9 @@ class ExeComponent(Component):
     # All executables (to be installed) are included in the all: rule
     def main_component(self):
         return self.install
+
+    def mk_install_dep(self, out):
+        out.write('%s' % exefile)
 
     def mk_install(self, out):
         if self.install:
@@ -1075,6 +1084,11 @@ class DLLComponent(Component):
 
     def require_def_file(self):
         return IS_WINDOWS and self.export_files
+
+    def mk_install_dep(self, out):
+        out.write('%s$(SO_EXT)' % self.dll_name)
+        if self.static:
+            out.write(' %s$(LIB_EXT)' % self.dll_name)
 
     def mk_install(self, out):
         if self.install:
@@ -1611,7 +1625,11 @@ def mk_config():
                 print('Java Compiler:  %s' % JAVAC)
 
 def mk_install(out):
-    out.write('install:\n')
+    out.write('install: ')
+    for c in get_components():
+        c.mk_install_deps(out)
+        out.write(' ')
+    out.write('\n')
     out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'bin'))
     out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'include'))
     out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'lib'))
