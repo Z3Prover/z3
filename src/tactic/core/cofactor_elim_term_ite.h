@@ -31,7 +31,7 @@ public:
     virtual ~cofactor_elim_term_ite();
 
     void updt_params(params_ref const & p);
-    static void get_param_descrs(param_descrs & r);
+    void collect_param_descrs(param_descrs & r);
 
     void operator()(expr * t, expr_ref & r);
     
