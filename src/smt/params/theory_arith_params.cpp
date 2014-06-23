@@ -22,6 +22,7 @@ Revision History:
 void theory_arith_params::updt_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_arith_random_initial_value = p.arith_random_initial_value();
+    m_arith_random_seed = p.random_seed();
     m_arith_mode = static_cast<arith_solver_id>(p.arith_solver());
     m_nl_arith = p.arith_nl();
     m_nl_arith_gb = p.arith_nl_gb();
