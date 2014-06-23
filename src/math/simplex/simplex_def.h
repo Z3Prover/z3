@@ -130,6 +130,7 @@ namespace simplex {
     void simplex<Ext>::add_patch(var_t v) {
         SASSERT(is_base(v));
         if (outside_bounds(v)) {
+            TRACE("simplex", tout << "Add patch: v" << v << "\n";);
             m_to_patch.insert(v);
         }
     }
@@ -200,11 +201,17 @@ namespace simplex {
         var_info& vi = m_vars[var];
         em.set(vi.m_lower, b);
         vi.m_lower_valid = true;
+        TRACE("simplex", em.display(tout << "v" << var << " lower: ", b);
+              em.display(tout << " value: ", vi.m_value););
         SASSERT(!vi.m_upper_valid || em.le(b, vi.m_upper));
         if (!vi.m_is_base && em.lt(vi.m_value, b)) {
             scoped_eps_numeral delta(em);
             em.sub(b, vi.m_value, delta);
             update_value(var, delta);
+        }
+        else if (vi.m_is_base && em.lt(vi.m_value, b)) {
+            SASSERT(outside_bounds(var));
+            add_patch(var);
         }
         SASSERT(well_formed());
     }
@@ -219,6 +226,10 @@ namespace simplex {
             scoped_eps_numeral delta(em);
             em.sub(b, vi.m_value, delta);
             update_value(var, delta);
+        }
+        else if (vi.m_is_base && em.lt(b, vi.m_value)) {
+            SASSERT(outside_bounds(var));
+            add_patch(var);
         }
         SASSERT(well_formed());
     }
