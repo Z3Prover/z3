@@ -2591,16 +2591,17 @@ def mk_vs_proj(name, components):
 def mk_win_dist(build_path, dist_path):
     for c in get_components():
         c.mk_win_dist(build_path, dist_path)
-    # Add Z3Py to lib directory
-    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(build_path)):
+    # Add Z3Py to bin directory
+    print "Adding to %s\n" % dist_path
+    for pyc in filter(lambda f: f.endswith('.pyc') or f.endswith('.py'), os.listdir(build_path)):
         shutil.copy(os.path.join(build_path, pyc),
                     os.path.join(dist_path, 'bin', pyc))
 
 def mk_unix_dist(build_path, dist_path):
     for c in get_components():
         c.mk_unix_dist(build_path, dist_path)
-    # Add Z3Py to lib directory
-    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(build_path)):
+    # Add Z3Py to bin directory
+    for pyc in filter(lambda f: f.endswith('.pyc') or f.endswith('.py'), os.listdir(build_path)):
         shutil.copy(os.path.join(build_path, pyc),
                     os.path.join(dist_path, 'bin', pyc))
 
