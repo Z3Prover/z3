@@ -41,7 +41,7 @@ void quasi_macros::find_occurrences(expr * e) {
 
     // we remember whether we have seen an expr once, or more than once;
     // when we see it the second time, we don't have to visit it another time,
-    // as we are only intersted in finding unique function applications. 
+    // as we are only interested in finding unique function applications. 
     m_visited_once.reset();
     m_visited_more.reset();
 
@@ -61,7 +61,7 @@ void quasi_macros::find_occurrences(expr * e) {
             case AST_VAR: break;
             case AST_QUANTIFIER: m_todo.push_back(to_quantifier(cur)->get_expr()); break;
             case AST_APP:
-                if (is_uninterp(cur) && !is_ground(cur)) {
+                if (is_non_ground_uninterp(cur)) {
                     func_decl * f = to_app(cur)->get_decl();
                     m_occurrences.insert_if_not_there(f, 0);
                     occurrences_map::iterator it = m_occurrences.find_iterator(f);                    
@@ -75,6 +75,10 @@ void quasi_macros::find_occurrences(expr * e) {
         }
     }
 };
+
+bool quasi_macros::is_non_ground_uninterp(expr const * e) const {
+    return is_non_ground(e) && is_uninterp(e);
+}
 
 bool quasi_macros::is_unique(func_decl * f) const {
     return m_occurrences.find(f) == 1;
@@ -149,6 +153,7 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
     // Our definition of a quasi-macro:
     // Forall X. f[X] = T[X], where f[X] is a term starting with symbol f, f is uninterpreted, 
     // f[X] contains all universally quantified variables, and f does not occur in T[X].
+    TRACE("quasi_macros", tout << "Checking for quasi macro: " << mk_pp(e, m_manager) << std::endl;);
 
     if (is_quantifier(e) && to_quantifier(e)->is_forall()) {
         quantifier * q = to_quantifier(e);
@@ -157,23 +162,23 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
             expr * lhs = to_app(qe)->get_arg(0);
             expr * rhs = to_app(qe)->get_arg(1);
 
-            if (is_uninterp(lhs) && is_unique(to_app(lhs)->get_decl()) && 
+            if (is_non_ground_uninterp(lhs) && is_unique(to_app(lhs)->get_decl()) &&
                 !depends_on(rhs, to_app(lhs)->get_decl()) && fully_depends_on(to_app(lhs), q)) {
                 a = to_app(lhs);
                 t = rhs;                
                 return true;
-            } else if (is_uninterp(rhs) && is_unique(to_app(rhs)->get_decl()) && 
+            } else if (is_non_ground_uninterp(rhs) && is_unique(to_app(rhs)->get_decl()) &&
                 !depends_on(lhs, to_app(rhs)->get_decl()) && fully_depends_on(to_app(rhs), q)) {                
                 a = to_app(rhs);
                 t = lhs;                
                 return true;
             }            
-        } else if (m_manager.is_not(qe) && is_uninterp(to_app(qe)->get_arg(0)) &&
+        } else if (m_manager.is_not(qe) && is_non_ground_uninterp(to_app(qe)->get_arg(0)) &&
                    is_unique(to_app(to_app(qe)->get_arg(0))->get_decl())) { // this is like f(...) = false
             a = to_app(to_app(qe)->get_arg(0));
             t = m_manager.mk_false();
             return true;
-        } else if (is_uninterp(qe) && is_unique(to_app(qe)->get_decl())) { // this is like f(...) = true
+        } else if (is_non_ground_uninterp(qe) && is_unique(to_app(qe)->get_decl())) { // this is like f(...) = true
             a = to_app(qe);
             t = m_manager.mk_true();
             return true;

@@ -1,7 +1,7 @@
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
-# 
-# Auxiliary scripts for generating Makefiles 
+#
+# Auxiliary scripts for generating Makefiles
 # and Visual Studio project files.
 #
 # Author: Leonardo de Moura (leonardo)
@@ -42,7 +42,7 @@ BUILD_DIR='build'
 REV_BUILD_DIR='..'
 SRC_DIR='src'
 EXAMPLE_DIR='examples'
-# Required Components 
+# Required Components
 Z3_DLL_COMPONENT='api_dll'
 PATTERN_COMPONENT='pattern'
 UTIL_COMPONENT='util'
@@ -80,7 +80,7 @@ GPROF=False
 GIT_HASH=False
 
 def check_output(cmd):
-    return subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0].rstrip('\r\n')
+    return str(subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]).rstrip('\r\n')
 
 def git_hash():
     try:
@@ -222,7 +222,7 @@ def test_openmp(cc):
     return exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '-fopenmp']) == 0
 
 def find_jni_h(path):
-    for root, dirs, files in os.walk(path): 
+    for root, dirs, files in os.walk(path):
         for f in files:
             if f == 'jni.h':
                 return root
@@ -234,7 +234,7 @@ def check_java():
     global JAR
 
     JDK_HOME = getenv('JDK_HOME', None) # we only need to check this locally.
-    
+
     if is_verbose():
         print("Finding javac ...")
 
@@ -283,7 +283,7 @@ def check_java():
 
     oo = TempFile('output')
     eo = TempFile('errout')
-    try: 
+    try:
         subprocess.call([JAVAC, 'Hello.java', '-verbose'], stdout=oo.fname, stderr=eo.fname)
         oo.commit()
         eo.commit()
@@ -298,7 +298,7 @@ def check_java():
     if JNI_HOME != None:
         if not os.path.exists(os.path.join(JNI_HOME, 'jni.h')):
             raise MKException("Failed to detect jni.h '%s'; the environment variable JNI_HOME is probably set to the wrong path." % os.path.join(JNI_HOME))
-    else:        
+    else:
         # Search for jni.h in the library directories...
         t = open('errout', 'r')
         open_pat = re.compile("\[search path for class files: (.*)\]")
@@ -314,22 +314,22 @@ def check_java():
 
         # ... plus some heuristic ones.
         extra_dirs = []
-                    
-        # For the libraries, even the JDK usually uses a JRE that comes with it. To find the 
+
+        # For the libraries, even the JDK usually uses a JRE that comes with it. To find the
         # headers we have to go a little bit higher up.
         for dir in cdirs:
             extra_dirs.append(os.path.abspath(os.path.join(dir, '..')))
 
         if IS_OSX: # Apparently Apple knows best where to put stuff...
             extra_dirs.append('/System/Library/Frameworks/JavaVM.framework/Headers/')
-    
+
         cdirs[len(cdirs):] = extra_dirs
 
         for dir in cdirs:
             q = find_jni_h(dir)
             if q != False:
                 JNI_HOME = q
-                
+
         if JNI_HOME == None:
             raise MKException("Failed to detect jni.h. Possible solution: set JNI_HOME with the path to JDK.")
 
@@ -351,7 +351,7 @@ def find_cxx_compiler():
         if test_cxx_compiler(cxx):
             CXX = cxx
             return CXX
-    raise MKException('C++ compiler was not found. Try to set the environment variable CXX with the C++ compiler available in your system.')    
+    raise MKException('C++ compiler was not found. Try to set the environment variable CXX with the C++ compiler available in your system.')
 
 def find_c_compiler():
     global CC, C_COMPILERS
@@ -362,7 +362,7 @@ def find_c_compiler():
         if test_c_compiler(c):
             CC = c
             return CC
-    raise MKException('C compiler was not found. Try to set the environment variable CC with the C compiler available in your system.')    
+    raise MKException('C compiler was not found. Try to set the environment variable CC with the C compiler available in your system.')
 
 def set_version(major, minor, build, revision):
     global VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION
@@ -478,8 +478,8 @@ def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
     try:
-        options, remainder = getopt.gnu_getopt(sys.argv[1:], 
-                                               'b:df:sxhmcvtnp:gj', 
+        options, remainder = getopt.gnu_getopt(sys.argv[1:],
+                                               'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
                                                 'githash='])
@@ -534,7 +534,7 @@ def parse_options():
         elif opt == '--gprof':
             GPROF = True
         elif opt == '--githash':
-            GIT_HASH=arg            
+            GIT_HASH=arg
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
@@ -548,7 +548,7 @@ def extract_c_includes(fname):
     system_inc_pat  = re.compile("[ \t]*#include[ \t]*\<.*\>[ \t]*")
     # We should generate and error for any occurrence of #include that does not match the previous pattern.
     non_std_inc_pat = re.compile(".*#include.*")
-    
+
     f = open(fname, 'r')
     linenum = 1
     for line in f:
@@ -622,7 +622,7 @@ def is_java_enabled():
     return JAVA_ENABLED
 
 def is_compiler(given, expected):
-    """ 
+    """
     Return True if the 'given' compiler is the expected one.
     >>> is_compiler('g++', 'g++')
     True
@@ -741,7 +741,7 @@ class Component:
         self.add_rule_for_each_include(out, include)
         include_node = '%s.node' % os.path.join(self.build_dir, include)
         out.write('%s: ' % include_node)
-        self.add_cpp_h_deps(out, include)              
+        self.add_cpp_h_deps(out, include)
         out.write('\n')
         out.write('\t@echo done > %s\n' % include_node)
 
@@ -801,7 +801,7 @@ class Component:
     # Return true if the component needs builder to generate an install_tactics.cpp file
     def require_install_tactics(self):
         return False
-    
+
     # Return true if the component needs a def file
     def require_def_file(self):
         return False
@@ -809,6 +809,9 @@ class Component:
     # Return true if the component needs builder to generate a mem_initializer.cpp file with mem_initialize() and mem_finalize() functions.
     def require_mem_initializer(self):
         return False
+
+    def mk_install_deps(self, out):
+        return
 
     def mk_install(self, out):
         return
@@ -818,7 +821,7 @@ class Component:
 
     def is_example(self):
         return False
-    
+
     # Invoked when creating a (windows) distribution package using components at build_path, and
     # storing them at dist_path
     def mk_win_dist(self, build_path, dist_path):
@@ -853,10 +856,13 @@ class LibComponent(Component):
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, libfile))
 
+    def mk_install_dep(self, out):
+        out.write('%s' % libfile)
+
     def mk_install(self, out):
         for include in self.includes2install:
             out.write('\t@cp %s %s\n' % (os.path.join(self.to_src_dir, include), os.path.join('$(PREFIX)', 'include', include)))
-    
+
     def mk_uninstall(self, out):
         for include in self.includes2install:
             out.write('\t@rm -f %s\n' % os.path.join('$(PREFIX)', 'include', include))
@@ -865,7 +871,7 @@ class LibComponent(Component):
         mk_dir(os.path.join(dist_path, 'include'))
         for include in self.includes2install:
             shutil.copy(os.path.join(self.src_dir, include),
-                        os.path.join(dist_path, 'include', include))        
+                        os.path.join(dist_path, 'include', include))
 
     def mk_unix_dist(self, build_path, dist_path):
         self.mk_win_dist(build_path, dist_path)
@@ -935,11 +941,14 @@ class ExeComponent(Component):
     def main_component(self):
         return self.install
 
+    def mk_install_dep(self, out):
+        out.write('%s' % exefile)
+
     def mk_install(self, out):
         if self.install:
             exefile = '%s$(EXE_EXT)' % self.exe_name
             out.write('\t@cp %s %s\n' % (exefile, os.path.join('$(PREFIX)', 'bin', exefile)))
-    
+
     def mk_uninstall(self, out):
         exefile = '%s$(EXE_EXT)' % self.exe_name
         out.write('\t@rm -f %s\n' % os.path.join('$(PREFIX)', 'bin', exefile))
@@ -1063,7 +1072,7 @@ class DLLComponent(Component):
             out.write(' ')
             out.write(obj)
         out.write('\n')
-        
+
     def main_component(self):
         return self.install
 
@@ -1076,6 +1085,11 @@ class DLLComponent(Component):
     def require_def_file(self):
         return IS_WINDOWS and self.export_files
 
+    def mk_install_dep(self, out):
+        out.write('%s$(SO_EXT)' % self.dll_name)
+        if self.static:
+            out.write(' %s$(LIB_EXT)' % self.dll_name)
+
     def mk_install(self, out):
         if self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
@@ -1084,7 +1098,7 @@ class DLLComponent(Component):
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
                 out.write('\t@cp %s %s\n' % (libfile, os.path.join('$(PREFIX)', 'lib', libfile)))
-            
+
 
     def mk_uninstall(self, out):
         dllfile = '%s$(SO_EXT)' % self.dll_name
@@ -1118,7 +1132,7 @@ class DotNetDLLComponent(Component):
         if assembly_info_dir == None:
             assembly_info_dir = "."
         self.dll_name          = dll_name
-        self.assembly_info_dir = assembly_info_dir 
+        self.assembly_info_dir = assembly_info_dir
 
     def mk_makefile(self, out):
         if DOTNET_ENABLED:
@@ -1147,7 +1161,7 @@ class DotNetDLLComponent(Component):
             out.write('\n')
             out.write('%s: %s\n\n' % (self.name, dllfile))
             return
-    
+
     def main_component(self):
         return DOTNET_ENABLED
 
@@ -1180,7 +1194,7 @@ class JavaDLLComponent(Component):
 
         if is_java_enabled():
             mk_dir(os.path.join(BUILD_DIR, 'api', 'java', 'classes'))
-            dllfile = '%s$(SO_EXT)' % self.dll_name            
+            dllfile = '%s$(SO_EXT)' % self.dll_name
             out.write('libz3java$(SO_EXT): libz3$(SO_EXT) %s\n' % os.path.join(self.to_src_dir, 'Native.cpp'))
             t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/java/Native$(OBJ_EXT) -I"%s" -I"%s/PLATFORM" -I%s %s/Native.cpp\n' % (JNI_HOME, JNI_HOME, get_component('api').to_src_dir, self.to_src_dir)
             if IS_OSX:
@@ -1211,16 +1225,16 @@ class JavaDLLComponent(Component):
             JAR = '"%s"' % JAR
             t = ('\t%s %s.java -d %s\n' % (JAVAC, os.path.join(self.to_src_dir, 'enumerations', '*'), os.path.join('api', 'java', 'classes')))
             out.write(t)
-            t = ('\t%s -cp %s %s.java -d %s\n' % (JAVAC, 
-                                                  os.path.join('api', 'java', 'classes'), 
-                                                  os.path.join(self.to_src_dir, '*'), 
+            t = ('\t%s -cp %s %s.java -d %s\n' % (JAVAC,
+                                                  os.path.join('api', 'java', 'classes'),
+                                                  os.path.join(self.to_src_dir, '*'),
                                                   os.path.join('api', 'java', 'classes')))
             out.write(t)
-            out.write('\t%s cfm %s.jar %s -C %s .\n' % (JAR, self.package_name, 
-                                                         os.path.join(self.to_src_dir, 'manifest'), 
+            out.write('\t%s cfm %s.jar %s -C %s .\n' % (JAR, self.package_name,
+                                                         os.path.join(self.to_src_dir, 'manifest'),
                                                          os.path.join('api', 'java', 'classes')))
             out.write('java: %s.jar\n\n' % self.package_name)
-    
+
     def main_component(self):
         return is_java_enabled()
 
@@ -1229,7 +1243,7 @@ class JavaDLLComponent(Component):
             mk_dir(os.path.join(dist_path, 'bin'))
             shutil.copy('%s.jar' % os.path.join(build_path, self.package_name),
                         '%s.jar' % os.path.join(dist_path, 'bin', self.package_name))
-            shutil.copy(os.path.join(build_path, 'libz3java.dll'), 
+            shutil.copy(os.path.join(build_path, 'libz3java.dll'),
                         os.path.join(dist_path, 'bin', 'libz3java.dll'))
             shutil.copy(os.path.join(build_path, 'libz3java.lib'),
                         os.path.join(dist_path, 'bin', 'libz3java.lib'))
@@ -1240,7 +1254,7 @@ class JavaDLLComponent(Component):
             shutil.copy('%s.jar' % os.path.join(build_path, self.package_name),
                         '%s.jar' % os.path.join(dist_path, 'bin', self.package_name))
             so = get_so_ext()
-            shutil.copy(os.path.join(build_path, 'libz3java.%s' % so), 
+            shutil.copy(os.path.join(build_path, 'libz3java.%s' % so),
                         os.path.join(dist_path, 'bin', 'libz3java.%s' % so))
 
 class ExampleComponent(Component):
@@ -1296,7 +1310,7 @@ class CExampleComponent(CppExampleComponent):
 
     def src_files(self):
         return get_c_files(self.ex_dir)
-    
+
 class DotNetExampleComponent(ExampleComponent):
     def __init__(self, name, path):
         ExampleComponent.__init__(self, name, path)
@@ -1577,7 +1591,7 @@ def mk_config():
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
         config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
-        config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)    
+        config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)
         config.write('CXX_OUT_FLAG=-o \n')
         config.write('OBJ_EXT=.o\n')
         config.write('LIB_EXT=.a\n')
@@ -1611,7 +1625,11 @@ def mk_config():
                 print('Java Compiler:  %s' % JAVAC)
 
 def mk_install(out):
-    out.write('install:\n')
+    out.write('install: ')
+    for c in get_components():
+        c.mk_install_deps(out)
+        out.write(' ')
+    out.write('\n')
     out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'bin'))
     out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'include'))
     out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'lib'))
@@ -1632,7 +1650,7 @@ def mk_install(out):
         out.write('\t@echo Z3 shared libraries were installed at \'%s\', make sure this directory is in your %s environment variable.\n' %
                   (os.path.join(PREFIX, 'lib'), LD_LIBRARY_PATH))
         out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
-    out.write('\n')    
+    out.write('\n')
 
 def mk_uninstall(out):
     out.write('uninstall:\n')
@@ -1642,7 +1660,7 @@ def mk_uninstall(out):
     out.write('\t@rm -f %s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
     out.write('\t@rm -f %s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__', 'z3'))
     out.write('\t@echo Z3 was successfully uninstalled.\n')
-    out.write('\n')    
+    out.write('\n')
 
 # Generate the Z3 makefile
 def mk_makefile():
@@ -1697,7 +1715,7 @@ def mk_makefile():
             print('Remark: to open a Visual Studio Command Prompt, go to: "Start > All Programs > Visual Studio > Visual Studio Tools"')
         else:
             print("Type 'cd %s; make' to build Z3" % BUILD_DIR)
-        
+
 # Generate automatically generated source code
 def mk_auto_src():
     if not ONLY_MAKEFILES:
@@ -1783,10 +1801,10 @@ def def_module_params(module_name, export, params, class_name=None, description=
     # Generated accessors
     for param in params:
         if export:
-            out.write('  %s %s() const { return p.%s("%s", g, %s); }\n' % 
+            out.write('  %s %s() const { return p.%s("%s", g, %s); }\n' %
                       (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
         else:
-            out.write('  %s %s() const { return p.%s("%s", %s); }\n' % 
+            out.write('  %s %s() const { return p.%s("%s", %s); }\n' %
                       (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
     out.write('};\n')
     out.write('#endif\n')
@@ -1799,8 +1817,8 @@ def max_memory_param():
 def max_steps_param():
     return ('max_steps', UINT, UINT_MAX, 'maximum number of steps')
 
-PYG_GLOBALS = { 'UINT' : UINT, 'BOOL' : BOOL, 'DOUBLE' : DOUBLE, 'STRING' : STRING, 'SYMBOL' : SYMBOL, 
-                'UINT_MAX' : UINT_MAX, 
+PYG_GLOBALS = { 'UINT' : UINT, 'BOOL' : BOOL, 'DOUBLE' : DOUBLE, 'STRING' : STRING, 'SYMBOL' : SYMBOL,
+                'UINT_MAX' : UINT_MAX,
                 'max_memory_param' : max_memory_param,
                 'max_steps_param' : max_steps_param,
                 'def_module_params' : def_module_params }
@@ -1815,7 +1833,7 @@ def _execfile(file, globals=globals(), locals=locals()):
 # Execute python auxiliary scripts that generate extra code for Z3.
 def exec_pyg_scripts():
     global CURR_PYG
-    for root, dirs, files in os.walk('src'): 
+    for root, dirs, files in os.walk('src'):
         for f in files:
             if f.endswith('.pyg'):
                 script = os.path.join(root, f)
@@ -1831,7 +1849,7 @@ def mk_pat_db():
     fout.write('char const * g_pattern_database =\n')
     for line in fin:
         fout.write('"%s\\n"\n' % line.strip('\n'))
-    fout.write(';\n')    
+    fout.write(';\n')
     if VERBOSE:
         print("Generated '%s'" % os.path.join(c.src_dir, 'database.h'))
 
@@ -1847,7 +1865,7 @@ def update_version():
         mk_version_dot_h(major, minor, build, revision)
         mk_all_assembly_infos(major, minor, build, revision)
         mk_def_files()
-        
+
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
     c = get_component(UTIL_COMPONENT)
@@ -1870,8 +1888,8 @@ def mk_all_assembly_infos(major, minor, build, revision):
                 mk_assembly_info_version(assembly, major, minor, build, revision)
             else:
                 raise MKException("Failed to find assembly info file 'AssemblyInfo' at '%s'" % os.path.join(c.src_dir, c.assembly_info_dir))
-                    
-                
+
+
 # Generate version number in the given 'AssemblyInfo.cs' file using 'AssemblyInfo' as a template.
 def mk_assembly_info_version(assemblyinfo, major, minor, build, revision):
     ver_pat   = re.compile('[assembly: AssemblyVersion\("[\.\d]*"\) *')
@@ -1936,7 +1954,7 @@ def mk_install_tactic_cpp(cnames, path):
                     if not added_include:
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
-                    try: 
+                    try:
                         exec(line.strip('\n '), globals())
                     except:
                         raise MKException("Failed processing ADD_TACTIC command at '%s'\n%s" % (fullname, line))
@@ -1944,7 +1962,7 @@ def mk_install_tactic_cpp(cnames, path):
                     if not added_include:
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
-                    try: 
+                    try:
                         exec(line.strip('\n '), globals())
                     except:
                         raise MKException("Failed processing ADD_PROBE command at '%s'\n%s" % (fullname, line))
@@ -2128,7 +2146,7 @@ def mk_def_files():
 def cp_z3py_to_build():
     mk_dir(BUILD_DIR)
     # Erase existing .pyc files
-    for root, dirs, files in os.walk(Z3PY_SRC_DIR): 
+    for root, dirs, files in os.walk(Z3PY_SRC_DIR):
         for f in files:
             if f.endswith('.pyc'):
                 rmf(os.path.join(root, f))
@@ -2171,7 +2189,7 @@ def mk_bindings(api_files):
             mk_z3consts_java(api_files)
         _execfile(os.path.join('scripts', 'update_api.py'), g) # HACK
         cp_z3py_to_build()
-                          
+
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
     if Z3PY_SRC_DIR == None:
@@ -2208,7 +2226,7 @@ def mk_z3consts_py(api_files):
             m2 = comment_pat.match(line)
             if m1 or m2:
                 # skip blank lines and comments
-                linenum = linenum + 1 
+                linenum = linenum + 1
             elif mode == SEARCHING:
                 m = typedef_pat.match(line)
                 if m:
@@ -2249,7 +2267,7 @@ def mk_z3consts_py(api_files):
             linenum = linenum + 1
     if VERBOSE:
         print("Generated '%s'" % os.path.join(Z3PY_SRC_DIR, 'z3consts.py'))
-                
+
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
 def mk_z3consts_dotnet(api_files):
@@ -2290,7 +2308,7 @@ def mk_z3consts_dotnet(api_files):
             m2 = comment_pat.match(line)
             if m1 or m2:
                 # skip blank lines and comments
-                linenum = linenum + 1 
+                linenum = linenum + 1
             elif mode == SEARCHING:
                 m = typedef_pat.match(line)
                 if m:
@@ -2373,7 +2391,7 @@ def mk_z3consts_java(api_files):
             m2 = comment_pat.match(line)
             if m1 or m2:
                 # skip blank lines and comments
-                linenum = linenum + 1 
+                linenum = linenum + 1
             elif mode == SEARCHING:
                 m = typedef_pat.match(line)
                 if m:
@@ -2411,7 +2429,7 @@ def mk_z3consts_java(api_files):
                         for k in decls:
                             i = decls[k]
                             if first:
-                               first = False 
+                               first = False
                             else:
                                 efile.write(',\n')
                             efile.write('    %s (%s)' % (k, i))
@@ -2422,7 +2440,7 @@ def mk_z3consts_java(api_files):
                         efile.write('    }\n\n')
                         efile.write('    public static final %s fromInt(int v) {\n' % name)
                         efile.write('        for (%s k: values()) \n' % name)
-                        efile.write('            if (k.intValue == v) return k;\n') 
+                        efile.write('            if (k.intValue == v) return k;\n')
                         efile.write('        return values()[0];\n')
                         efile.write('    }\n\n')
                         efile.write('    public final int toInt() { return this.intValue; }\n')
@@ -2573,16 +2591,17 @@ def mk_vs_proj(name, components):
 def mk_win_dist(build_path, dist_path):
     for c in get_components():
         c.mk_win_dist(build_path, dist_path)
-    # Add Z3Py to lib directory
-    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(build_path)):
+    # Add Z3Py to bin directory
+    print "Adding to %s\n" % dist_path
+    for pyc in filter(lambda f: f.endswith('.pyc') or f.endswith('.py'), os.listdir(build_path)):
         shutil.copy(os.path.join(build_path, pyc),
                     os.path.join(dist_path, 'bin', pyc))
 
 def mk_unix_dist(build_path, dist_path):
     for c in get_components():
         c.mk_unix_dist(build_path, dist_path)
-    # Add Z3Py to lib directory
-    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(build_path)):
+    # Add Z3Py to bin directory
+    for pyc in filter(lambda f: f.endswith('.pyc') or f.endswith('.py'), os.listdir(build_path)):
         shutil.copy(os.path.join(build_path, pyc),
                     os.path.join(dist_path, 'bin', pyc))
 
