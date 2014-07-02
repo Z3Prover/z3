@@ -88,11 +88,12 @@ namespace datalog {
                 for (unsigned j = 0; j < arity_q; ++j) {
                     sort* s = q->get_domain(j);
                     arg = m.mk_var(j, s);
+                    expr* t = arg;
                     if (m_bv.is_bv_sort(s)) {
-                        expr* args[1] = { arg };
                         unsigned sz = m_bv.get_bv_size(s);
                         for (unsigned k = 0; k < sz; ++k) {
-                            proj = m.mk_app(m_bv.get_family_id(), OP_BIT2BOOL, 1, args);
+                            parameter p(k);
+                            proj = m.mk_app(m_bv.get_family_id(), OP_BIT2BOOL, 1, &p, 1, &t);
                             sub.insert(m.mk_var(idx++, m.mk_bool_sort()), proj); 
                         }
                     }
