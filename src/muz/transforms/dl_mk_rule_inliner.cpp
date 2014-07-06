@@ -423,6 +423,11 @@ namespace datalog {
         }
 
         TRACE("dl", tout << "inlined rules after mutual inlining:\n" << m_inlined_rules;  );
+
+        for (unsigned i = 0; i < m_inlined_rules.get_num_rules(); ++i) {
+            rule* r = m_inlined_rules.get_rule(i);
+            datalog::del_rule(m_mc, *r);
+        }
     }
 
     bool mk_rule_inliner::transform_rule(rule_set const& orig, rule * r0, rule_set& tgt) {
