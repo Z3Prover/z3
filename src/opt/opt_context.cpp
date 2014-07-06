@@ -269,6 +269,9 @@ namespace opt {
             if (r == l_true && !get_lower_as_num(i).is_finite()) {
                 return r;
             }
+            if (r == l_true && i + 1 < m_objectives.size()) {
+                update_lower(true);
+            }
         }
         DEBUG_CODE(if (r == l_true) validate_lex(););
         return r;
@@ -841,6 +844,7 @@ namespace opt {
         switch(obj.m_type) {
         case O_MAXSMT: {
             rational r = m_maxsmts.find(obj.m_id)->get_upper();
+            TRACE("opt", tout << "maxsmt: " << r << " negate: " << obj.m_neg << " offset: " << obj.m_offset << "\n";);
             if (obj.m_neg) r.neg();
             r += obj.m_offset;
             return inf_eps(r);

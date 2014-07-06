@@ -701,9 +701,9 @@ namespace opt {
                     TRACE("opt", tout << "no more cores\n";);
                     m_lower = m_upper;
                     return l_true;
-                 }
-             }
-             return l_true;
+                }
+            }
+            return l_true;
         }
 
     private:
@@ -785,7 +785,7 @@ namespace opt {
                 switch (is_sat) {
                 case l_true:
                     if (lower > m_lower) {
-                        m_lower = lower;
+                        m_lower = lower;                        
                     }
                     return true;
                 case l_false:

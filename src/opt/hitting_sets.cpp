@@ -204,7 +204,7 @@ namespace opt {
                 set_conflict(0, justification(justification::AXIOM));
             }
             else if (sz == 1) {                
-                IF_VERBOSE(1, verbose_stream() << "unit literal : " << S[0] << " " << val << "\n";);
+                IF_VERBOSE(2, verbose_stream() << "unit literal : " << S[0] << " " << val << "\n";);
                 assign(S[0], val, justification(justification::AXIOM));
             }
             else {
@@ -221,6 +221,7 @@ namespace opt {
                     inc_score(clause_id);
                 }
                 TRACE("opt", display(tout, j););
+                IF_VERBOSE(1, if (!sign) display(verbose_stream(), j););
                 if (!sign && m_enable_simplex) {
                     add_simplex_row(!sign, sz, S);
                 }
@@ -246,6 +247,7 @@ namespace opt {
             pop(scope_lvl());
 
 
+            IF_VERBOSE(1, verbose_stream() << "(hsmax.negated-size: " << fsz << ")\n";);
 #if 0
             // garbage collect agressively on exit.
             // all learned clases for negative branches are
