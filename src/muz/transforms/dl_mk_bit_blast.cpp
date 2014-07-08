@@ -71,7 +71,7 @@ namespace datalog {
                 unsigned arity_p = p->get_arity();
                 unsigned arity_q = q->get_arity();
                 SASSERT(0 < arity_p);
-                model->register_decl(p, f);
+                model->register_decl(p, f->copy());
                 func_interp* g = alloc(func_interp, m, arity_q);
 
                 if (f) {
