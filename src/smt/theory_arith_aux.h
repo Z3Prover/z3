@@ -1449,6 +1449,8 @@ namespace smt {
     /**
        Move the variable x_i maximally towards its bound as long as 
        bounds of other variables are not violated.
+       Returns false if an integer bound was truncated and no
+       progress was made.
     */
 
     template<typename Ext>
@@ -1492,7 +1494,9 @@ namespace smt {
             }
         }
 
+        bool truncated = false;
         if (is_int(x_i)) {
+            truncated = !delta_abs.is_int();
             delta_abs = floor(delta_abs);
         }
 
@@ -1505,7 +1509,7 @@ namespace smt {
 
         TRACE("opt", tout << "Safe delta: " << delta << "\n";);
         update_value(x_i, delta);
-        return !delta.is_zero();
+        return !truncated || !delta.is_zero();
     }
 
     /**

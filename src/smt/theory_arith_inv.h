@@ -204,7 +204,7 @@ namespace smt {
     bool theory_arith<Ext>::satisfy_integrality() const {
         int num = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
-            if (!(is_int(v) && get_value(v).is_int())) {
+            if (is_int(v) && !get_value(v).is_int()) {
                 TRACE("bound_bug", display_var(tout, v); display(tout););
                 return false;
             }
