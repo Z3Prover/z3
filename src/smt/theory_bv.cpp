@@ -1211,11 +1211,11 @@ namespace smt {
                 }
             }
         }
-        else if (/*m_params.m_bv_enable_int2bv2int &&*/ m_util.is_bv2int(n)) {
+        else if (m_params.m_bv_enable_int2bv2int && m_util.is_bv2int(n)) {
             ctx.mark_as_relevant(n->get_arg(0));
             assert_bv2int_axiom(n);
         }
-        else if (/*m_params.m_bv_enable_int2bv2int &&*/ m_util.is_int2bv(n)) {
+        else if (m_params.m_bv_enable_int2bv2int && m_util.is_int2bv(n)) {
             ctx.mark_as_relevant(n->get_arg(0));
             assert_int2bv_axiom(n);
         }
