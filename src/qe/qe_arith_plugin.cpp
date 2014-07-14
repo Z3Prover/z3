@@ -31,6 +31,7 @@ Revision History:
 #include "obj_pair_hashtable.h"
 #include "nlarith_util.h"
 #include "model_evaluator.h"
+#include "smt_kernel.h"
 
 namespace qe {
 
@@ -80,9 +81,9 @@ namespace qe {
         ast_manager&      m;
         i_solver_context& m_ctx;
     public:
-        arith_util                 m_arith; // initialize before m_zero_i, etc.
+        arith_util        m_arith; // initialize before m_zero_i, etc.
+        th_rewriter       simplify;
     private:
-        th_rewriter       m_rewriter;
         arith_eq_solver   m_arith_solver;
         bv_util           m_bv;
 
@@ -102,7 +103,7 @@ namespace qe {
             m(m), 
             m_ctx(ctx),
             m_arith(m),
-            m_rewriter(m),
+            simplify(m),
             m_arith_solver(m),
             m_bv(m),
             m_zero_i(m_arith.mk_numeral(numeral(0), true), m),
@@ -434,7 +435,6 @@ namespace qe {
             expr_ref tmp(e, m);
             simplify(tmp);
             m_arith_rewriter.mk_le(tmp, mk_zero(e), result);
-            TRACE("qe_verbose", tout << "mk_le " << mk_pp(result, m) << "\n";);
         }
 
         void mk_lt(expr* e, expr_ref& result) {
@@ -521,7 +521,8 @@ namespace qe {
                 expr_ref result1(m), result2(m);
                 
                 // a*s + b*t <= 0
-                expr_ref as_bt_le_0(result, m), tmp2(m), tmp3(m), tmp4(m);
+                expr_ref as_bt_le_0(result, m), tmp2(m), asz_bt_le_0(m), tmp3(m), tmp4(m);
+                expr_ref b_divides_sz(m);
                 
                 // a*s + b*t + (a-1)(b-1) <= 0
                 tmp2 = m_arith.mk_add(as_bt, slack);
@@ -560,30 +561,36 @@ namespace qe {
                     sz = m_arith.mk_uminus(sz);
                 }
                 tmp4 = mk_add(mk_mul(a1, sz), bt);
-                mk_le(tmp4, tmp3);
+                mk_le(tmp4, asz_bt_le_0);
 
-                if (to_app(tmp3)->get_arg(0) == x &&
-                    m_arith.is_zero(to_app(tmp3)->get_arg(1))) {
+                if (to_app(asz_bt_le_0)->get_arg(0) == x &&
+                    m_arith.is_zero(to_app(asz_bt_le_0)->get_arg(1))) {
                     //    exists z in [0 .. |b|-2] . |b| | (z + s) && z <= 0
                     // <=>
                     //    |b| | s 
                     mk_divides(abs_b, s, tmp2);
                 }
                 else {
-                    mk_divides(abs_b, sz, tmp2);
-                    mk_and(tmp2, tmp3, tmp4);
-                    mk_big_or(abs_b - numeral(2), x, tmp4, tmp2);                                
-                   
+                    mk_divides(abs_b, sz, b_divides_sz);
+                    mk_and(b_divides_sz, asz_bt_le_0, tmp4);
+                    mk_big_or(abs_b - numeral(2), x, tmp4, tmp2);                  
+                    TRACE("qe",
+                          tout << "b | s + z: " << mk_pp(b_divides_sz, m) << "\n";
+                          tout << "a(s+z) + bt <= 0: " << mk_pp(asz_bt_le_0, m) << "\n";
+                          );                   
                 }
                 mk_flat_and(as_bt_le_0, tmp2, result2); 
                 mk_or(result1, result2, result);
                 simplify(result);
+
+
+                //    a*s + b*t + (a-1)(b-1) <= 0 
+                // or exists z in [0 .. |b|-2] . |b| | (z + s) && a*n_sign(b)(s + z) + |b|t <= 0
             }
             
             TRACE("qe", 
                   {
-                      expr_ref_vector trail(m);
-                      tout << "is_strict: " << (is_strict?"true":"false") << "\n";
+                      tout << (is_strict?"strict":"non-strict") << "\n";
                       bound(m, a, t, false).pp(tout, x);
                       tout << "\n";
                       bound(m, b, s, false).pp(tout, x);
@@ -592,10 +599,6 @@ namespace qe {
                   });            
         }
         
-        void simplify(expr_ref& p) {
-            m_rewriter(p);
-        }
-
         struct mul_lt {
             arith_util& u;
             mul_lt(arith_qe_util& u): u(u.m_arith) {}
@@ -1052,7 +1055,6 @@ namespace qe {
         }        
 
         bool reduce_equation(expr* p, expr* fml) {
-            TRACE("qe", tout << mk_pp(p, m) << "\n";);
             numeral k;
             
             if (m_arith.is_numeral(p, k) && k.is_zero()) {
@@ -1555,9 +1557,10 @@ public:
                 
                 mk_non_resolve(bounds, true,  is_lower, result);
                 mk_non_resolve(bounds, false, is_lower, result);
+                m_util.simplify(result);
                 add_cache(x, fml, v, result, x_t.get_coeff(), x_t.get_term());
                 TRACE("qe", 
-                        tout << vl << " " << mk_pp(x, m) << "\n";
+                        tout << vl << " " << mk_pp(x, m) << " infinite case\n";
                         tout << mk_pp(fml, m) << "\n";
                         tout << mk_pp(result, m) << "\n";);
                 return;
@@ -1591,19 +1594,22 @@ public:
             SASSERT(index < bounds.size(is_strict, is_lower));
             expr_ref t(bounds.exprs(is_strict, is_lower)[index], m);
             rational a = bounds.coeffs(is_strict, is_lower)[index];
+
             
-            t = x_t.mk_term(a, t);
-            a = x_t.mk_coeff(a);
                                 
             mk_bounds(bounds, x, true,  is_eq, is_strict, is_lower, index, a, t, result);
             mk_bounds(bounds, x, false, is_eq, is_strict, is_lower, index, a, t, result);
+
+            t = x_t.mk_term(a, t);
+            a = x_t.mk_coeff(a);
             
             mk_resolve(bounds, x, x_t, true,  is_eq, is_strict, is_lower, index, a, t, result);
             mk_resolve(bounds, x, x_t, false, is_eq, is_strict, is_lower, index, a, t, result);
+            m_util.simplify(result);
             add_cache(x, fml, v, result, x_t.get_coeff(), x_t.get_term());
             TRACE("qe", 
                   {
-                      tout << vl << " " << mk_pp(x, m) << "\n";
+                      tout << vl << " " << mk_pp(bounds.atoms(is_strict, is_lower)[index],m) << "\n";
                       tout << mk_pp(fml, m) << "\n";
                       tout << mk_pp(result, m) << "\n";
                   }
@@ -2225,6 +2231,12 @@ public:
                 }
             }
             m_util.simplify(result);
+            TRACE("qe", 
+                  tout << (is_strict?"strict":"non-strict") << "\n";
+                  tout << (is_lower?"is-lower":"is-upper") << "\n";
+                  tout << "a: " << a << " " << mk_pp(t, m) << "\n";
+                  tout << "b: " << b << " " << mk_pp(s, m) << "\n";
+                  tout << mk_pp(result, m) << "\n";);
         }
 
         //
@@ -2245,10 +2257,12 @@ public:
 
 
         void mk_bounds(bounds_proc& bounds, 
-                       app* x,  bool is_strict, bool is_eq_ctx, bool is_strict_ctx, bool is_lower, unsigned index, 
+                       app* x, bool is_strict, bool is_eq_ctx, 
+                       bool is_strict_ctx, bool is_lower, unsigned index, 
                        rational const& a, expr* t,
                        expr_ref& result) 
         {
+            TRACE("qe", tout << mk_pp(t, m) << "\n";);
             SASSERT(!is_eq_ctx || !is_strict_ctx);
             unsigned sz = bounds.size(is_strict, is_lower);
             expr_ref tmp(m), eq(m);            
@@ -2258,13 +2272,14 @@ public:
 
             for (unsigned i = 0; i < sz; ++i) {
                 app* e   = bounds.atoms(is_strict, is_lower)[i];
-                expr* s  = bounds.exprs(is_strict, is_lower)[i];
+                expr_ref s(bounds.exprs(is_strict, is_lower)[i], m);
                 rational b = bounds.coeffs(is_strict, is_lower)[i]; 
                
                 if (same_strict && i == index) {                    
                     if (non_strict_real) {
                         m_util.mk_eq(a, x, t, eq);
-                        TRACE("qe", tout << "a:" << a << " x: " << mk_pp(x, m) << " t: " << mk_pp(t, m) << " eq: " << mk_pp(eq, m) << "\n";);
+                        TRACE("qe", tout << "a:" << a << " x: " << mk_pp(x, m) << "t: " << 
+                              mk_pp(t, m) << " eq: " << mk_pp(eq, m) << "\n";);
                         if (is_eq_ctx) {
                             m_ctx.add_constraint(true, eq);
                         }
@@ -2291,6 +2306,7 @@ public:
                 bool result_is_strict = 
                     (non_strict_real && is_eq_ctx && is_strict) ||
                     (same_strict && i < index);
+
 
                 mk_bound(result_is_strict, is_lower, a, t, b, s, tmp);
                 m_util.m_replace.apply_substitution(e, tmp.get(), result);
@@ -2330,14 +2346,17 @@ public:
                 s = x_t.mk_term(b, s);
                 b = x_t.mk_coeff(b);
                 m_util.mk_resolve(x, strict_resolve, a, t, b, s, tmp);
+                expr_ref save_result(result);
                 m_util.m_replace.apply_substitution(e, tmp.get(), result);
                 
                 m_ctx.add_constraint(true, mk_not(e), tmp);
 
                 TRACE("qe_verbose", 
                       tout << mk_pp(atm, m) << " ";
-                      tout << mk_pp(e, m) << " ==> ";
+                      tout << mk_pp(e, m) << " ==>\n";
                       tout << mk_pp(tmp, m) << "\n";
+                      tout << "old fml: " << mk_pp(save_result, m) << "\n";
+                      tout << "new fml: " << mk_pp(result, m) << "\n";
                       );           
             }            
         }
