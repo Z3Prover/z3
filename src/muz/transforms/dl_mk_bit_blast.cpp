@@ -26,6 +26,7 @@ Revision History:
 #include "dl_mk_interp_tail_simplifier.h"
 #include "fixedpoint_params.hpp"
 #include "scoped_proof.h"
+#include "model_v2_pp.h"
 
 namespace datalog {
 
@@ -67,10 +68,16 @@ namespace datalog {
                 func_decl* p = m_new_funcs[i].get();
                 func_decl* q = m_old_funcs[i].get();
                 func_interp* f = model->get_func_interp(p);
+                if (!f) continue;
                 expr_ref body(m);                
                 unsigned arity_p = p->get_arity();
                 unsigned arity_q = q->get_arity();
+                TRACE("dl",
+                      model_v2_pp(tout, *model);
+                      tout << mk_pp(p, m) << "\n";
+                      tout << mk_pp(q, m) << "\n";);
                 SASSERT(0 < arity_p);
+                SASSERT(f);
                 model->register_decl(p, f->copy());
                 func_interp* g = alloc(func_interp, m, arity_q);
 
