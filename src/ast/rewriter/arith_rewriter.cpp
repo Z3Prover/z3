@@ -704,7 +704,7 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
     }
 
     // propagate mod inside only if not all arguments are not already mod.
-    if (false && m_util.is_numeral(arg2, v2, is_int) && is_int && v2.is_pos() && (is_add(arg1) || is_mul(arg1))) {
+    if (m_util.is_numeral(arg2, v2, is_int) && is_int && v2.is_pos() && (is_add(arg1) || is_mul(arg1))) {
         TRACE("mod_bug", tout << "mk_mod:\n" << mk_ismt2_pp(arg1, m()) << "\n" << mk_ismt2_pp(arg2, m()) << "\n";);
         unsigned num_args = to_app(arg1)->get_num_args();
         unsigned i;
