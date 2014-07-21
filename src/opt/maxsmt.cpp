@@ -21,6 +21,7 @@ Notes:
 #include "maxsmt.h"
 #include "fu_malik.h"
 #include "core_maxsat.h"
+#include "maxres.h"
 #include "weighted_maxsat.h"
 #include "ast_pp.h"
 #include "opt_params.hpp"
@@ -44,6 +45,9 @@ namespace opt {
             }
             else if (m_maxsat_engine == symbol("weighted_maxsat")) {
                 m_msolver = alloc(wmaxsmt, m, m_s.get(), m_soft_constraints, m_weights);
+            }
+            else if (m_maxsat_engine == symbol("maxres")) {
+                m_msolver = alloc(maxres, m, *m_s, m_soft_constraints);
             }
             else {
                 m_msolver = alloc(fu_malik, m, *m_s, m_soft_constraints);

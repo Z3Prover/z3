@@ -40,11 +40,12 @@ namespace opt {
         public:
             explicit justification(kind_t k):m_kind(k), m_value(0), m_pos(false) {}
             explicit justification(unsigned v, bool pos):m_kind(CLAUSE), m_value(v), m_pos(pos) {}
-            justification(justification const& other): m_kind(other.m_kind), m_value(other.m_value), m_pos(other.m_pos) {}
+            justification(justification const& other): 
+                m_kind(other.m_kind), m_value(other.m_value), m_pos(other.m_pos) {}
             justification& operator=(justification const& other) {
-                m_kind = other.m_kind;
+                m_kind  = other.m_kind;
                 m_value = other.m_value;
-                m_pos = other.m_pos;
+                m_pos   = other.m_pos;
                 return *this;
             }
             unsigned clause() const { return m_value; }
@@ -147,6 +148,7 @@ namespace opt {
             m_cancel(false), 
             m_max_weight(0), 
             m_denominator(1),
+            m_alloc("hitting-sets"),
             m_weights_var(0),
             m_qhead(0),
             m_scope_lvl(0),
@@ -157,7 +159,14 @@ namespace opt {
             m_enable_simplex = true;
 
         }
-        ~imp() {}
+        ~imp() {
+            for (unsigned i = 0; i < m_T.size(); ++i) {
+                m_alloc.deallocate(m_T[i]->alloc_size(), m_T[i]);
+            }
+            for (unsigned i = 0; i < m_F.size(); ++i) {
+                m_alloc.deallocate(m_F[i]->alloc_size(), m_F[i]);
+            }
+        }
 
         void add_weight(rational const& w) {
             SASSERT(w.is_pos());
@@ -198,9 +207,7 @@ namespace opt {
             ptr_vector<set>& Sets = sign?m_F:m_T;
             vector<unsigned_vector>& watch = sign?m_fwatch:m_twatch;
             init_weights();            
-            if (sz == 0) {                
-                // TBD
-                IF_VERBOSE(0, verbose_stream() << "empty clause\n";);
+            if (sz == 0) { 
                 set_conflict(0, justification(justification::AXIOM));
             }
             else if (sz == 1) {                
@@ -375,7 +382,8 @@ namespace opt {
             }
             out << "trail\n";
             for (unsigned i = 0; i < m_trail.size(); ++i) {
-                out << m_trail[i] << " ";
+                unsigned idx = m_trail[i];
+                out << (m_justification[idx].is_decision()?"d":"") << idx << " ";
             }
             out << "\n";
         }
@@ -404,6 +412,14 @@ namespace opt {
                 out << "\n";
             }
             }
+        }
+
+        void display_lemma(std::ostream& out) {
+            out << "lemma: ";
+            for (unsigned i = 0; i < m_lemma.size(); ++i) {
+                out << m_lemma[i] << " ";
+            }
+            out << "\n";
         }
 
         struct scoped_push {
@@ -850,11 +866,7 @@ namespace opt {
             }
             while (num_marks > 0);
             m_lemma[0] = conflict_l;
-            TRACE("opt",
-                  for (unsigned i = 0; i < m_lemma.size(); ++i) {
-                      tout << m_lemma[i] << " ";
-                  }
-                  tout << "\n";);
+            TRACE("opt", display_lemma(tout););
             SASSERT(value(conflict_l) == l_true);
             unsigned new_scope_lvl = 0;
             for (unsigned i = 1; i < m_lemma.size(); ++i) {
@@ -1046,15 +1058,21 @@ namespace opt {
                 }                    
             }
             // undo the lower bounds.
+            TRACE("opt",
+                  tout << "prune branch: " << m_weight << " ";
+                  display_lemma(tout);
+                  display(tout);
+                  );
             justification j = add_exists_false(m_lemma.size(), m_lemma.c_ptr());
-            TRACE("opt", display(tout, j););
-            set_conflict(m_lemma[0], j);                
+            unsigned idx = m_lemma.empty()?0:m_lemma[0];
+            set_conflict(idx, j);                            
         }
 
         // TBD: derive strong inequalities and add them to Simplex.
-        // x_i1 + .. + x_ik >= k-1 for each subset k from set n:  x_1 + .. + x_n >= k 
-        
+        // x_i1 + .. + x_ik >= k-1 for each subset k from set n:  x_1 + .. + x_n >= k         
     };
+
+
     hitting_sets::hitting_sets() { m_imp = alloc(imp); }
     hitting_sets::~hitting_sets() { dealloc(m_imp); }
     void hitting_sets::add_weight(rational const& w) { m_imp->add_weight(w); }
