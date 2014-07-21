@@ -1,8 +1,13 @@
+/**
+   MaxRes (weighted) max-sat algorithm by Nina and Bacchus, AAAI 2014.
+   
+*/
+
 #include "solver.h"
 #include "maxsmt.h"
 #include "maxres.h"
 #include "ast_pp.h"
-
+#include "mus.h"
 
 using namespace opt;
 
@@ -12,14 +17,16 @@ struct maxres::imp {
     expr_ref_vector m_B;
     expr_ref_vector m_D;
     expr_ref_vector m_asms;    
+    app_ref_vector  m_clss;
     model_ref       m_model;
     expr_ref_vector m_soft_constraints;
     volatile bool   m_cancel;
     rational        m_lower;
     rational        m_upper;
+    obj_map<expr, app*> m_asm2cls;
 
     imp(ast_manager& m, solver& s, expr_ref_vector& soft_constraints):
-        m(m), s(s), m_B(m), m_D(m), m_asms(m), m_soft_constraints(soft_constraints),
+        m(m), s(s), m_B(m), m_D(m), m_asms(m), m_clss(m), m_soft_constraints(soft_constraints),
         m_cancel(false)
     {
     }
@@ -32,20 +39,25 @@ struct maxres::imp {
 
     void add_soft(expr* e) {
         TRACE("opt", tout << mk_pp(e, m) << "\n";);
+        expr_ref asum(m), fml(m);
+        app_ref cls(m);
+        cls = mk_cls(e);
+        m_clss.push_back(cls);
         if (is_literal(e)) {
             m_asms.push_back(e);
         }
         else {
-            expr_ref asum(m), fml(m);
             asum = m.mk_fresh_const("soft", m.mk_bool_sort());
-            fml = m.mk_implies(asum, e);
+            fml = m.mk_iff(asum, e);
             s.assert_expr(fml);
             m_asms.push_back(asum);
         }
+        m_asm2cls.insert(m_asms.back(), cls.get());
     }
 
     lbool operator()() {
         expr_ref fml(m);
+        ptr_vector<expr> core, new_core;
         solver::scoped_push _sc(s);
         for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
             add_soft(m_soft_constraints[i].get());
@@ -69,12 +81,37 @@ struct maxres::imp {
             case l_undef:
                 return l_undef;
             default:
-                ptr_vector<expr> core;
+                core.reset();
                 s.get_unsat_core(core);
                 TRACE("opt", display_vec(tout << "core: ", core.size(), core.c_ptr()););
+                SASSERT(!core.empty());
                 if (core.empty()) {
                     return l_false;
                 }
+#if 1
+                // minimize core:
+                mus ms(s, m);
+                for (unsigned i = 0; i < core.size(); ++i) {
+                    app* cls = 0; 
+                    VERIFY(m_asm2cls.find(core[i], cls));
+                    SASSERT(cls);
+                    SASSERT(m.is_or(cls));
+                    ms.add_soft(core[i], cls->get_num_args(), cls->get_args());
+                }
+                unsigned_vector mus_idx;
+                is_sat = ms.get_mus(mus_idx);
+                if (is_sat != l_true) {
+                    return is_sat;
+                }
+                new_core.reset();
+                for (unsigned i = 0; i < mus_idx.size(); ++i) {
+                    new_core.push_back(core[mus_idx[i]]);
+                }
+                core.reset();
+                core.append(new_core);
+                
+#endif
+                TRACE("opt", display_vec(tout << "minimized core: ", core.size(), core.c_ptr()););
                 max_resolve(core);
                 fml = m.mk_not(m.mk_and(m_B.size(), m_B.c_ptr()));
                 s.assert_expr(fml);
@@ -96,6 +133,7 @@ struct maxres::imp {
     void max_resolve(ptr_vector<expr>& core) {
         SASSERT(!core.empty());
         expr_ref fml(m), asum(m);
+        app_ref cls(m);
         m_B.reset();
         m_D.reset();
         m_D.resize(core.size());
@@ -115,17 +153,55 @@ struct maxres::imp {
             m_D[i] = m.mk_implies(b_i1, d_i1);
             expr* d_i = m_D[i].get();
             asum = m.mk_fresh_const("a", m.mk_bool_sort());
-            fml = m.mk_implies(asum, m.mk_implies(d_i, b_i));
+            cls = m.mk_implies(d_i, b_i);
+            fml = m.mk_iff(asum, cls);
             s.assert_expr(fml);
             m_asms.push_back(asum);
+            cls = mk_cls(cls);
+            m_clss.push_back(cls);
+            m_asm2cls.insert(asum, cls);
         }
+    }
+
+    app_ref mk_cls(expr* e) {
+        expr_ref_vector disj(m), todo(m);
+        expr_ref f(m);
+        app_ref result(m);
+        expr* e1, *e2;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            f = todo.back();
+            todo.pop_back();
+            if (m.is_implies(f, e1, e2)) {
+                todo.push_back(m.mk_not(e1));
+                todo.push_back(e2);
+            }
+            else if (m.is_not(f, e1) && m.is_not(e1, e2)) {
+                todo.push_back(e2);
+            }
+            else if (m.is_or(f)) {
+                todo.append(to_app(f)->get_num_args(), to_app(f)->get_args());
+            }
+            else if (m.is_not(f, e1) && m.is_and(e1)) {
+                for (unsigned i = 0; i < to_app(e1)->get_num_args(); ++i) {
+                    todo.push_back(m.mk_not(to_app(e1)->get_arg(i)));
+                }
+            }
+            else {
+                disj.push_back(f);
+            }
+        }
+        result = m.mk_or(disj.size(), disj.c_ptr());
+        return result;
     }
 
     void remove_core(ptr_vector<expr> const& core) {
         for (unsigned i = 0; i < m_asms.size(); ++i) {
             if (core.contains(m_asms[i].get())) {
                 m_asms[i] = m_asms.back();
+                m_clss[i] = m_clss.back();
                 m_asms.pop_back();
+                m_clss.pop_back();
                 --i;
             }
         }
