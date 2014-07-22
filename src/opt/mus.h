@@ -16,6 +16,10 @@ namespace opt {
         unsigned add_soft(expr* cls, unsigned sz, expr* const* args);
         
         lbool get_mus(unsigned_vector& mus);
+        
+        void reset();
+        
+        void set_cancel(bool f);
     };
 
 };

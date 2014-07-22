@@ -16,9 +16,21 @@ struct mus::imp {
     vector<smt::literal_vector> m_cls2lits;
     expr_ref_vector             m_vars;
     obj_map<expr, unsigned>     m_var2idx;
+    volatile bool               m_cancel;
 
-public:
-    imp(solver& s, ast_manager& m): s(s), m(m), m_cls2expr(m), m_vars(m) {}
+    imp(solver& s, ast_manager& m): s(s), m(m), m_cls2expr(m), m_vars(m), m_cancel(false) {}
+
+    void reset() {
+        m_cls2expr.reset();
+        m_expr2cls.reset();
+        m_cls2lits.reset();
+        m_vars.reset();
+        m_var2idx.reset();
+    }
+        
+    void set_cancel(bool f) {
+        m_cancel = f;
+    }
     
     unsigned add_var(expr* v) {
         unsigned idx = m_vars.size();
@@ -47,10 +59,16 @@ public:
         m_cls2lits.push_back(lits);
         return idx;
     }
+
+    expr* mk_not(expr* e) {
+        if (m.is_not(e, e)) {
+            return e;
+        }
+        return m.mk_not(e);
+    }
     
     lbool get_mus(unsigned_vector& mus) {
         TRACE("opt", tout << "\n";);
-        solver::scoped_push _sc(s);
         unsigned_vector core;
         for (unsigned i = 0; i < m_cls2expr.size(); ++i) {
             core.push_back(i);
@@ -61,12 +79,17 @@ public:
         ptr_vector<expr> core_exprs;
         model.resize(m_vars.size());
         while (!core.empty()) {
-            IF_VERBOSE(0, display_vec(tout << "core: ", core););
+            TRACE("opt", 
+                  display_vec(tout << "core:  ", core);
+                  display_vec(tout << "mus:   ", mus);
+                  display_vec(tout << "model: ", model);
+                  );
+            IF_VERBOSE(1, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
             unsigned cls_id = core.back();
             core.pop_back();
             expr* cls = m_cls2expr[cls_id].get();
             expr_ref not_cls(m);
-            not_cls = m.mk_not(cls);
+            not_cls = mk_not(cls);
             unsigned sz = assumptions.size();
             assumptions.push_back(not_cls);
             add_core(core, assumptions);
@@ -113,7 +136,7 @@ public:
     template<class T>
     void display_vec(std::ostream& out, T const& v) const {
         for (unsigned i = 0; i < v.size(); ++i) {
-            out << mk_pp(v[i], m) << " ";
+            out << v[i] << " ";
         }
         out << "\n";
     }
@@ -133,19 +156,18 @@ public:
     */
     void rmr(unsigned_vector& M, unsigned_vector& mus, svector<bool>& model) {
         TRACE("opt", 
-              display_vec(tout << "M:", M);
-              display_vec(tout << "mus:", mus);
-              display_vec(tout << "model:", model););
+              display_vec(tout << "core:  ", M);
+              display_vec(tout << "mus:   ", mus);
+              display_vec(tout << "model: ", model););
 
         unsigned cls_id = mus.back();
         smt::literal_vector const& cls = m_cls2lits[cls_id];
-        unsigned cls_id_new;
         for (unsigned i = 0; i < cls.size(); ++i) {
             smt::literal lit = cls[i];
             SASSERT(model[lit.var()] == lit.sign()); // literal evaluates to false.
             model[lit.var()] = !model[lit.var()];    // swap assignment
-            if (has_single_unsat(model, cls_id_new)) {
-                mus.push_back(cls_id_new);
+            if (!mus.contains(cls_id) && has_single_unsat(model, cls_id)) {
+                mus.push_back(cls_id);
                 rmr(M, mus, model);
             }
             model[lit.var()] = !model[lit.var()];    // swap assignment back            
@@ -176,13 +198,6 @@ public:
         return false;
     }
 
-    template<class T>
-    void display_vec(std::ostream& out, T const& v) {
-        for (unsigned i = 0; i < v.size(); ++i) {
-            out << v[i] << " ";
-        }
-        out << "\n";
-    }
 };
 
 mus::mus(solver& s, ast_manager& m) {
@@ -201,3 +216,10 @@ lbool mus::get_mus(unsigned_vector& mus) {
     return m_imp->get_mus(mus);
 }
 
+void mus::set_cancel(bool f) {
+    m_imp->set_cancel(f);
+}
+
+void mus::reset() {
+    m_imp->reset();
+}

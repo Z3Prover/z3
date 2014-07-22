@@ -39,16 +39,16 @@ namespace opt {
             m_msolver = 0;
             is_sat = m_s->check_sat(0, 0);
         }
+        else if (m_maxsat_engine == symbol("maxres")) {
+            m_msolver = alloc(maxres, m, *m_s, m_soft_constraints, m_weights);
+        }
         else if (is_maxsat_problem(m_weights)) {
             if (m_maxsat_engine == symbol("core_maxsat")) {
                 m_msolver = alloc(core_maxsat, m, *m_s, m_soft_constraints);
             }
             else if (m_maxsat_engine == symbol("weighted_maxsat")) {
                 m_msolver = alloc(wmaxsmt, m, m_s.get(), m_soft_constraints, m_weights);
-            }
-            else if (m_maxsat_engine == symbol("maxres")) {
-                m_msolver = alloc(maxres, m, *m_s, m_soft_constraints);
-            }
+            }            
             else {
                 m_msolver = alloc(fu_malik, m, *m_s, m_soft_constraints);
             }

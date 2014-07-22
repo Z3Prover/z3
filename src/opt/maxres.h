@@ -4,7 +4,7 @@ namespace opt {
         struct imp;
         imp* m_imp;
     public:
-        maxres(ast_manager& m, solver& s, expr_ref_vector& soft_constraints);
+        maxres(ast_manager& m, solver& s, expr_ref_vector& soft_constraints, vector<rational>const& weights);
         ~maxres();
         virtual lbool operator()();
         virtual rational get_lower() const;

@@ -12,62 +12,79 @@
 using namespace opt;
 
 struct maxres::imp {
-    ast_manager&    m;
-    solver&         s;
-    expr_ref_vector m_B;
-    expr_ref_vector m_D;
-    expr_ref_vector m_asms;    
-    app_ref_vector  m_clss;
-    model_ref       m_model;
-    expr_ref_vector m_soft_constraints;
-    volatile bool   m_cancel;
-    rational        m_lower;
-    rational        m_upper;
-    obj_map<expr, app*> m_asm2cls;
+    struct info {
+        app*     m_cls;
+        rational m_weight;
+        info(app* cls, rational const& w):
+            m_cls(cls), m_weight(w) {}
+        info(): m_cls(0) {}
+    };
+    ast_manager&     m;
+    solver&          s;
+    expr_ref_vector  m_B;
+    expr_ref_vector  m_D;
+    expr_ref_vector  m_asms;    
+    model_ref        m_model;
+    expr_ref_vector  m_soft_constraints;
+    volatile bool    m_cancel;
+    rational         m_lower;
+    rational         m_upper;
+    obj_map<expr, info> m_asm2info;
+    ptr_vector<expr> m_new_core;
+    mus              m_mus;
+    expr_ref_vector  m_trail;
 
-    imp(ast_manager& m, solver& s, expr_ref_vector& soft_constraints):
-        m(m), s(s), m_B(m), m_D(m), m_asms(m), m_clss(m), m_soft_constraints(soft_constraints),
-        m_cancel(false)
+    imp(ast_manager& m, solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights):
+        m(m), s(s), m_B(m), m_D(m), m_asms(m), m_soft_constraints(m),
+        m_cancel(false),
+        m_mus(s, m),
+        m_trail(m)
     {
+        // TBD: this introduces an assertion to solver.
+        init_soft(weights, soft_constraints);
     }
 
     bool is_literal(expr* l) {
         return 
             is_uninterp_const(l) ||
-            m.is_not(l, l) && is_uninterp_const(l);
+            (m.is_not(l, l) && is_uninterp_const(l));
     }
 
-    void add_soft(expr* e) {
+    void add_soft(expr* e, rational const& w) {
         TRACE("opt", tout << mk_pp(e, m) << "\n";);
         expr_ref asum(m), fml(m);
         app_ref cls(m);
         cls = mk_cls(e);
-        m_clss.push_back(cls);
+        m_trail.push_back(cls);
         if (is_literal(e)) {
-            m_asms.push_back(e);
+            asum = e;
         }
         else {
             asum = m.mk_fresh_const("soft", m.mk_bool_sort());
             fml = m.mk_iff(asum, e);
             s.assert_expr(fml);
-            m_asms.push_back(asum);
         }
-        m_asm2cls.insert(m_asms.back(), cls.get());
+        new_assumption(asum, cls, w);
+        m_upper += w;
+    }
+
+    void new_assumption(expr* e, app* cls, rational const& w) {
+        info inf(cls, w);
+        m_asm2info.insert(e, inf);
+        m_asms.push_back(e);
+        m_trail.push_back(e);        
     }
 
     lbool operator()() {
         expr_ref fml(m);
-        ptr_vector<expr> core, new_core;
+        ptr_vector<expr> core;
         solver::scoped_push _sc(s);
-        for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
-            add_soft(m_soft_constraints[i].get());
-        }
-        m_upper = rational(m_soft_constraints.size());
         while (true) {
             TRACE("opt", 
                   display_vec(tout, m_asms.size(), m_asms.c_ptr());
                   s.display(tout);
                   tout << "\n";
+                  display(tout);
                   );
             lbool is_sat = s.check_sat(m_asms.size(), m_asms.c_ptr());
             if (m_cancel) {
@@ -85,42 +102,77 @@ struct maxres::imp {
                 s.get_unsat_core(core);
                 TRACE("opt", display_vec(tout << "core: ", core.size(), core.c_ptr()););
                 SASSERT(!core.empty());
+                is_sat = minimize_core(core);
+                SASSERT(!core.empty());
                 if (core.empty()) {
                     return l_false;
                 }
-#if 1
-                // minimize core:
-                mus ms(s, m);
-                for (unsigned i = 0; i < core.size(); ++i) {
-                    app* cls = 0; 
-                    VERIFY(m_asm2cls.find(core[i], cls));
-                    SASSERT(cls);
-                    SASSERT(m.is_or(cls));
-                    ms.add_soft(core[i], cls->get_num_args(), cls->get_args());
-                }
-                unsigned_vector mus_idx;
-                is_sat = ms.get_mus(mus_idx);
                 if (is_sat != l_true) {
                     return is_sat;
                 }
-                new_core.reset();
-                for (unsigned i = 0; i < mus_idx.size(); ++i) {
-                    new_core.push_back(core[mus_idx[i]]);
-                }
-                core.reset();
-                core.append(new_core);
-                
-#endif
+                remove_core(core);
+                rational w = split_core(core);
                 TRACE("opt", display_vec(tout << "minimized core: ", core.size(), core.c_ptr()););
-                max_resolve(core);
+                max_resolve(core, w);
                 fml = m.mk_not(m.mk_and(m_B.size(), m_B.c_ptr()));
                 s.assert_expr(fml);
-                m_lower += rational::one();
+                m_lower += w; 
                 break;
             }
             IF_VERBOSE(1, verbose_stream() << "(opt.max_res lower: " << m_lower << ")\n";);
         }
         return l_true;
+    }
+
+    lbool minimize_core(ptr_vector<expr>& core) {
+        m_mus.reset();
+        for (unsigned i = 0; i < core.size(); ++i) {
+            app* cls = get_clause(core[i]);
+            SASSERT(cls);
+            SASSERT(m.is_or(cls));
+            m_mus.add_soft(core[i], cls->get_num_args(), cls->get_args());
+        }
+        unsigned_vector mus_idx;
+        lbool is_sat = m_mus.get_mus(mus_idx);
+        if (is_sat != l_true) {
+            return is_sat;
+        }
+        m_new_core.reset();
+        for (unsigned i = 0; i < mus_idx.size(); ++i) {
+            m_new_core.push_back(core[mus_idx[i]]);
+        }
+        core.reset();
+        core.append(m_new_core);
+        return l_true;
+    }
+
+    rational get_weight(expr* e) {
+        return m_asm2info.find(e).m_weight;
+    }
+
+    app* get_clause(expr* e) {
+        return m_asm2info.find(e).m_cls;
+    }
+
+    rational split_core(ptr_vector<expr> const& core) {
+
+        // find the minimal weight:
+        SASSERT(!core.empty());
+        rational w = get_weight(core[0]);
+        for (unsigned i = 1; i < core.size(); ++i) {
+            rational w2 = get_weight(core[i]);
+            if (w2 < w) {
+                w = w2;
+            }
+        }
+        // add fresh soft clauses for weights that are above w.
+        for (unsigned i = 0; i < core.size(); ++i) {
+            rational w2 = get_weight(core[i]);
+            if (w2 > w) {
+                new_assumption(core[i], get_clause(core[i]), w2 - w);
+            }
+        }
+        return w;
     }
 
     void display_vec(std::ostream& out, unsigned sz, expr* const* args) {
@@ -130,7 +182,14 @@ struct maxres::imp {
         out << "\n";
     }
 
-    void max_resolve(ptr_vector<expr>& core) {
+    void display(std::ostream& out) {
+        for (unsigned i = 0; i < m_asms.size(); ++i) {
+            expr* a = m_asms[i].get();
+            out << mk_pp(a, m) << " : " << get_weight(a) << "\n";
+        }
+    }
+
+    void max_resolve(ptr_vector<expr>& core, rational const& w) {
         SASSERT(!core.empty());
         expr_ref fml(m), asum(m);
         app_ref cls(m);
@@ -144,7 +203,6 @@ struct maxres::imp {
         // d_i := (!core_{i+1} or d_{i+1})    for i = 0...sz-2
         // soft (!d_i or core_i) 
         //
-        remove_core(core);
         for (unsigned i = core.size()-1; i > 0; ) {
             --i;
             expr* d_i1 = m_D[i+1].get();
@@ -155,11 +213,10 @@ struct maxres::imp {
             asum = m.mk_fresh_const("a", m.mk_bool_sort());
             cls = m.mk_implies(d_i, b_i);
             fml = m.mk_iff(asum, cls);
-            s.assert_expr(fml);
-            m_asms.push_back(asum);
             cls = mk_cls(cls);
-            m_clss.push_back(cls);
-            m_asm2cls.insert(asum, cls);
+            m_trail.push_back(cls);
+            new_assumption(asum, cls, w);
+            s.assert_expr(fml);
         }
     }
 
@@ -199,9 +256,7 @@ struct maxres::imp {
         for (unsigned i = 0; i < m_asms.size(); ++i) {
             if (core.contains(m_asms[i].get())) {
                 m_asms[i] = m_asms.back();
-                m_clss[i] = m_clss.back();
                 m_asms.pop_back();
-                m_clss.pop_back();
                 --i;
             }
         }
@@ -217,11 +272,12 @@ struct maxres::imp {
 
     bool get_assignment(unsigned index) const {
         expr_ref tmp(m);
-        m_model->eval(m_soft_constraints[index], tmp);
+        VERIFY(m_model->eval(m_soft_constraints[index], tmp));
         return m.is_true(tmp);
     }
     void set_cancel(bool f) {
         m_cancel = f;
+        m_mus.set_cancel(f);
     }
     void collect_statistics(statistics& st) const {
     }
@@ -232,10 +288,22 @@ struct maxres::imp {
         ;
     }
 
+    void init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
+        m_soft_constraints.reset();
+        m_upper.reset();
+        m_lower.reset();
+        m_asm2info.reset();
+        m_trail.reset();
+        m_soft_constraints.append(soft);
+        for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
+            add_soft(m_soft_constraints[i].get(), weights[i]);
+        }
+    }
+
 };
 
-maxres::maxres(ast_manager& m, solver& s, expr_ref_vector& soft_constraints) {
-    m_imp = alloc(imp, m, s, soft_constraints);
+maxres::maxres(ast_manager& m, solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights) {
+    m_imp = alloc(imp, m, s, soft_constraints, weights);
 }
 
 maxres::~maxres() {
