@@ -37,6 +37,68 @@ namespace opt {
         virtual void updt_params(params_ref& p) = 0;
 
     };
+
+    // ---------------------------------------------
+    // base class with common utilities used
+    // by maxsmt solvers
+    // 
+    class maxsmt_solver_base : public maxsmt_solver {
+    protected:
+        ref<solver>      m_s;
+        ast_manager&     m;
+        volatile bool    m_cancel;
+        expr_ref_vector  m_soft;
+        vector<rational> m_weights;
+        rational         m_lower;
+        rational         m_upper;
+        model_ref        m_model;
+        ref<filter_model_converter> m_mc;    // model converter to remove fresh variables
+        svector<bool>    m_assignment;       // truth assignment to soft constraints
+        params_ref       m_params;           // config
+        bool             m_enable_sls;       // config
+        bool             m_enable_sat;       // config
+        bool             m_sls_enabled;
+        bool             m_sat_enabled;
+        struct is_bv;
+
+    public:
+        maxsmt_solver_base(opt_solver* s, ast_manager& m, params_ref& p,
+                           vector<rational> const& ws, expr_ref_vector const& soft): 
+            m_s(s), m(m), m_cancel(false), m_soft(m),
+            m_enable_sls(false), m_enable_sat(false),
+            m_sls_enabled(false), m_sat_enabled(false) {
+            m_s->get_model(m_model);
+            SASSERT(m_model);
+            updt_params(p);
+            set_converter(s->mc_ref().get());
+            init_soft(ws, soft);
+        }
+
+        virtual ~maxsmt_solver_base() {}        
+        virtual rational get_lower() const { return m_lower; }
+        virtual rational get_upper() const { return m_upper; }
+        virtual bool get_assignment(unsigned index) const { return m_assignment[index]; }
+        virtual void set_cancel(bool f) { m_cancel = f; m_s->set_cancel(f); }
+        virtual void collect_statistics(statistics& st) const { 
+            if (m_sls_enabled || m_sat_enabled) {
+                m_s->collect_statistics(st);
+            }
+        }
+        virtual void get_model(model_ref& mdl) { mdl = m_model.get(); }
+        void set_model() { s().get_model(m_model); }
+        virtual void updt_params(params_ref& p);
+        virtual void init_soft(vector<rational> const& weights, expr_ref_vector const& soft);
+        void add_hard(expr* e){ s().assert_expr(e); }        
+        solver& s() { return *m_s; }
+        void set_converter(filter_model_converter* mc) { m_mc = mc; }
+        void init();
+        expr* mk_not(expr* e);
+        bool probe_bv();
+        void enable_bvsat();
+        void enable_sls();
+        app* mk_fresh_bool(char const* name);
+    };
+
     /**
        Takes solver with hard constraints added.
        Returns modified soft constraints that are maximal assignments.

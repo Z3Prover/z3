@@ -1,7 +1,21 @@
-/**
-   MaxRes (weighted) max-sat algorithm by Nina and Bacchus, AAAI 2014.
+/*++
+Copyright (c) 2014 Microsoft Corporation
+
+Module Name:
+
+    maxsres.cpp
+
+Abstract:
    
-*/
+    MaxRes (weighted) max-sat algorithm by Nina and Bacchus, AAAI 2014.
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2014-20-7
+
+Notes:
+
+--*/
 
 #include "solver.h"
 #include "maxsmt.h"
@@ -11,7 +25,8 @@
 
 using namespace opt;
 
-struct maxres::imp {
+
+class maxres : public maxsmt_solver_base {
     struct info {
         app*     m_cls;
         rational m_weight;
@@ -19,30 +34,24 @@ struct maxres::imp {
             m_cls(cls), m_weight(w) {}
         info(): m_cls(0) {}
     };
-    ast_manager&     m;
-    solver&          s;
     expr_ref_vector  m_B;
-    expr_ref_vector  m_D;
     expr_ref_vector  m_asms;    
-    model_ref        m_model;
-    expr_ref_vector  m_soft_constraints;
-    volatile bool    m_cancel;
-    rational         m_lower;
-    rational         m_upper;
     obj_map<expr, info> m_asm2info;
     ptr_vector<expr> m_new_core;
     mus              m_mus;
     expr_ref_vector  m_trail;
 
-    imp(ast_manager& m, solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights):
-        m(m), s(s), m_B(m), m_D(m), m_asms(m), m_soft_constraints(m),
-        m_cancel(false),
-        m_mus(s, m),
+public:
+    maxres(ast_manager& m, opt_solver* s, params_ref& p, 
+           vector<rational> const& ws, expr_ref_vector const& soft):
+        maxsmt_solver_base(s, m, p, ws, soft),
+        m_B(m), m_asms(m),
+        m_mus(m_s, m),
         m_trail(m)
     {
-        // TBD: this introduces an assertion to solver.
-        init_soft(weights, soft_constraints);
     }
+
+    virtual ~maxres() {}
 
     bool is_literal(expr* l) {
         return 
@@ -60,9 +69,9 @@ struct maxres::imp {
             asum = e;
         }
         else {
-            asum = m.mk_fresh_const("soft", m.mk_bool_sort());
+            asum = mk_fresh_bool("soft");
             fml = m.mk_iff(asum, e);
-            s.assert_expr(fml);
+            m_s->assert_expr(fml);
         }
         new_assumption(asum, cls, w);
         m_upper += w;
@@ -78,28 +87,35 @@ struct maxres::imp {
     lbool operator()() {
         expr_ref fml(m);
         ptr_vector<expr> core;
-        solver::scoped_push _sc(s);
+        solver::scoped_push _sc(*m_s.get());
+        init();
+        init_local();
         while (true) {
             TRACE("opt", 
                   display_vec(tout, m_asms.size(), m_asms.c_ptr());
-                  s.display(tout);
+                  m_s->display(tout);
                   tout << "\n";
                   display(tout);
                   );
-            lbool is_sat = s.check_sat(m_asms.size(), m_asms.c_ptr());
+            lbool is_sat = m_s->check_sat(m_asms.size(), m_asms.c_ptr());
             if (m_cancel) {
                 return l_undef;
             }
             switch (is_sat) {
             case l_true: 
-                s.get_model(m_model);
+                m_s->get_model(m_model);
+                for (unsigned i = 0; i < m_soft.size(); ++i) {
+                    expr_ref tmp(m);
+                    VERIFY(m_model->eval(m_soft[i].get(), tmp));
+                    m_assignment[i] = m.is_true(tmp);
+                }
                 m_upper = m_lower;
                 return l_true;
             case l_undef:
                 return l_undef;
             default:
                 core.reset();
-                s.get_unsat_core(core);
+                m_s->get_unsat_core(core);
                 TRACE("opt", display_vec(tout << "core: ", core.size(), core.c_ptr()););
                 SASSERT(!core.empty());
                 is_sat = minimize_core(core);
@@ -115,7 +131,7 @@ struct maxres::imp {
                 TRACE("opt", display_vec(tout << "minimized core: ", core.size(), core.c_ptr()););
                 max_resolve(core, w);
                 fml = m.mk_not(m.mk_and(m_B.size(), m_B.c_ptr()));
-                s.assert_expr(fml);
+                m_s->assert_expr(fml);
                 m_lower += w; 
                 break;
             }
@@ -192,31 +208,33 @@ struct maxres::imp {
     void max_resolve(ptr_vector<expr>& core, rational const& w) {
         SASSERT(!core.empty());
         expr_ref fml(m), asum(m);
-        app_ref cls(m);
+        app_ref cls(m), d(m);
         m_B.reset();
-        m_D.reset();
-        m_D.resize(core.size());
         m_B.append(core.size(), core.c_ptr());
-        m_D[core.size()-1] = m.mk_false();
+        d = m.mk_true();
         //
-        // d_{sz-1} := false
-        // d_i := (!core_{i+1} or d_{i+1})    for i = 0...sz-2
-        // soft (!d_i or core_i) 
-        //
-        for (unsigned i = core.size()-1; i > 0; ) {
-            --i;
-            expr* d_i1 = m_D[i+1].get();
-            expr* b_i = m_B[i].get();
-            expr* b_i1 = m_B[i+1].get();
-            m_D[i] = m.mk_implies(b_i1, d_i1);
-            expr* d_i = m_D[i].get();
-            asum = m.mk_fresh_const("a", m.mk_bool_sort());
-            cls = m.mk_implies(d_i, b_i);
+        // d_0 := true
+        // d_i := b_{i-1} and d_{i-1}    for i = 1...sz-1
+        // soft (b_i or !d_i) 
+        //   == (b_i or !(!b_{i-1} or d_{i-1}))
+        //   == (b_i or b_0 & b_1 & ... & b_{i-1})
+        // 
+        // Soft constraint is satisfied if previous soft constraint
+        // holds or if it is the first soft constraint to fail.
+        // 
+        // Soundness of this rule can be established using MaxRes
+        // 
+        for (unsigned i = 1; i < core.size(); ++i) {
+            expr* b_i = m_B[i-1].get();
+            expr* b_i1 = m_B[i].get();
+            d = m.mk_and(b_i, d);
+            asum = mk_fresh_bool("a");
+            cls = m.mk_or(b_i1, d);
             fml = m.mk_iff(asum, cls);
             cls = mk_cls(cls);
             m_trail.push_back(cls);
             new_assumption(asum, cls, w);
-            s.assert_expr(fml);
+            m_s->assert_expr(fml);
         }
     }
 
@@ -262,77 +280,25 @@ struct maxres::imp {
         }
     }
 
-    rational get_lower() const {
-        return m_lower;
-    }
-
-    rational get_upper() const {        
-        return m_upper;
-    }
-
-    bool get_assignment(unsigned index) const {
-        expr_ref tmp(m);
-        VERIFY(m_model->eval(m_soft_constraints[index], tmp));
-        return m.is_true(tmp);
-    }
-    void set_cancel(bool f) {
-        m_cancel = f;
+    virtual void set_cancel(bool f) {
+        maxsmt_solver_base::set_cancel(f);
         m_mus.set_cancel(f);
     }
-    void collect_statistics(statistics& st) const {
-    }
-    void get_model(model_ref& mdl) {
-        mdl = m_model;
-    }
-    void updt_params(params_ref& p) {
-        ;
-    }
 
-    void init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
-        m_soft_constraints.reset();
+    void init_local() {
         m_upper.reset();
         m_lower.reset();
         m_asm2info.reset();
         m_trail.reset();
-        m_soft_constraints.append(soft);
-        for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
-            add_soft(m_soft_constraints[i].get(), weights[i]);
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            add_soft(m_soft[i].get(), m_weights[i]);
         }
     }
 
 };
 
-maxres::maxres(ast_manager& m, solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights) {
-    m_imp = alloc(imp, m, s, soft_constraints, weights);
+opt::maxsmt_solver_base* opt::mk_maxres(ast_manager& m, opt_solver* s, params_ref& p, 
+                                        vector<rational> const& ws, expr_ref_vector const& soft) {
+    return alloc(maxres, m, s, p, ws, soft);
 }
 
-maxres::~maxres() {
-    dealloc(m_imp);
-}
-
-
-lbool maxres::operator()() {
-    return (*m_imp)();
-}
-
-rational maxres::get_lower() const {
-    return m_imp->get_lower();
-}
-rational maxres::get_upper() const {
-    return m_imp->get_upper();
-}
-bool maxres::get_assignment(unsigned index) const {
-    return m_imp->get_assignment(index);
-}
-void maxres::set_cancel(bool f) {
-    m_imp->set_cancel(f);
-}
-void maxres::collect_statistics(statistics& st) const {
-    m_imp->collect_statistics(st);
-}
-void maxres::get_model(model_ref& mdl) {
-    m_imp->get_model(mdl);
-}
-void maxres::updt_params(params_ref& p) {
-    m_imp->updt_params(p);
-}

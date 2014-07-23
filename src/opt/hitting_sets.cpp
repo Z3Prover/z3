@@ -228,7 +228,7 @@ namespace opt {
                     inc_score(clause_id);
                 }
                 TRACE("opt", display(tout, j););
-                IF_VERBOSE(1, if (!sign) display(verbose_stream(), j););
+                IF_VERBOSE(2, if (!sign) display(verbose_stream(), j););
                 if (!sign && m_enable_simplex) {
                     add_simplex_row(!sign, sz, S);
                 }

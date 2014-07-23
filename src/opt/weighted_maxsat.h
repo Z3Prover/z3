@@ -27,24 +27,25 @@ Notes:
 #include "maxsmt.h"
 
 namespace opt {
-    class wmaxsmt : public maxsmt_solver {
-        struct imp;
-        imp* m_imp;
-    public:
-        wmaxsmt(ast_manager& m, 
-                opt_solver*  s, 
-                expr_ref_vector& soft_constraints, 
-                vector<rational> const& weights);
-        ~wmaxsmt();
-        virtual lbool operator()();
-        virtual rational get_lower() const;
-        virtual rational get_upper() const;
-        virtual bool get_assignment(unsigned idx) const;
-        virtual void set_cancel(bool f);
-        virtual void collect_statistics(statistics& st) const;
-        virtual void get_model(model_ref& mdl);
-        virtual void updt_params(params_ref& p);
-    };
+
+    maxsmt_solver_base* mk_bcd2(ast_manager& m, opt_solver* s, params_ref& p, 
+                                vector<rational> const& ws, expr_ref_vector const& soft);
+
+    maxsmt_solver_base* mk_hsmax(ast_manager& m, opt_solver* s, params_ref& p, 
+                                 vector<rational> const& ws, expr_ref_vector const& soft);
+
+    maxsmt_solver_base* mk_pbmax(ast_manager& m, opt_solver* s, params_ref& p, 
+                                 vector<rational> const& ws, expr_ref_vector const& soft);
+
+    maxsmt_solver_base* mk_wpm2(ast_manager& m, opt_solver* s, params_ref& p,
+                                vector<rational> const& ws, expr_ref_vector const& soft);
+
+    maxsmt_solver_base* mk_sls(ast_manager& m, opt_solver* s, params_ref& p,
+                               vector<rational> const& ws, expr_ref_vector const& soft);
+
+    maxsmt_solver_base* mk_wmax(ast_manager& m, opt_solver* s, params_ref& p,
+                                vector<rational> const& ws, expr_ref_vector const& soft);
+    
 };
 
 #endif

@@ -1,18 +1,30 @@
+/*++
+Copyright (c) 2014 Microsoft Corporation
+
+Module Name:
+
+    maxsres.h
+
+Abstract:
+   
+    MaxRes (weighted) max-sat algorithm by Nina and Bacchus, AAAI 2014.
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2014-20-7
+
+Notes:
+
+--*/
+
+#ifndef _MAXRES_H_
+#define _MAXRES_H_
 
 namespace opt {
-    class maxres : public maxsmt_solver {
-        struct imp;
-        imp* m_imp;
-    public:
-        maxres(ast_manager& m, solver& s, expr_ref_vector& soft_constraints, vector<rational>const& weights);
-        ~maxres();
-        virtual lbool operator()();
-        virtual rational get_lower() const;
-        virtual rational get_upper() const;
-        virtual bool get_assignment(unsigned index) const;
-        virtual void set_cancel(bool f);
-        virtual void collect_statistics(statistics& st) const;
-        virtual void get_model(model_ref& mdl);
-        virtual void updt_params(params_ref& p);
-    };
+    maxsmt_solver_base* mk_maxres(ast_manager& m, opt_solver* s, params_ref& p, 
+                                  vector<rational> const& ws, expr_ref_vector const& soft);
+
+
 };
+
+#endif

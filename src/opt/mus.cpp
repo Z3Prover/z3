@@ -1,15 +1,37 @@
+/*++
+Copyright (c) 2014 Microsoft Corporation
+
+Module Name:
+
+    mus.cpp
+
+Abstract:
+   
+    Faster MUS extraction based on Belov et.al. HYB (Algorithm 3, 4)
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2014-20-7
+
+Notes:
+
+   Model rotation needs fixes to ensure that hard constraints are satisfied
+   under pertubed model. Model rotation also has o be consistent with theories.
+
+--*/
+
 #include "solver.h"
 #include "smt_literal.h"
 #include "mus.h"
 #include "ast_pp.h"
+#include "model_smt2_pp.h"
 
 using namespace opt;
 
-// Faster MUS extraction based on Belov et.al. HYB (Algorithm 3, 4)
-
+// 
 
 struct mus::imp {
-    solver&                     s;
+    ref<solver>&                m_s;
     ast_manager&                m;
     expr_ref_vector             m_cls2expr;
     obj_map<expr, unsigned>     m_expr2cls;
@@ -18,7 +40,7 @@ struct mus::imp {
     obj_map<expr, unsigned>     m_var2idx;
     volatile bool               m_cancel;
 
-    imp(solver& s, ast_manager& m): s(s), m(m), m_cls2expr(m), m_vars(m), m_cancel(false) {}
+    imp(ref<solver>& s, ast_manager& m): m_s(s), m(m), m_cls2expr(m), m_vars(m), m_cancel(false) {}
 
     void reset() {
         m_cls2expr.reset();
@@ -26,6 +48,7 @@ struct mus::imp {
         m_cls2lits.reset();
         m_vars.reset();
         m_var2idx.reset();
+        m_vars.push_back(m.mk_true());
     }
         
     void set_cancel(bool f) {
@@ -42,7 +65,7 @@ struct mus::imp {
     }
     
     unsigned add_soft(expr* cls, unsigned sz, expr* const* args) {
-        TRACE("opt", tout << sz << ": " << mk_pp(cls, m) << "\n";);
+        SASSERT(is_uninterp_const(cls) || m.is_not(cls) && is_uninterp_const(to_app(cls)->get_arg(0)));
         smt::literal_vector lits;
         expr* arg;
         for (unsigned i = 0; i < sz; ++i) {
@@ -57,6 +80,10 @@ struct mus::imp {
         m_expr2cls.insert(cls, idx);
         m_cls2expr.push_back(cls);
         m_cls2lits.push_back(lits);
+        TRACE("opt", 
+              tout << idx << ": " << mk_pp(cls, m) << "\n";
+              display_vec(tout, lits);
+              );
         return idx;
     }
 
@@ -68,7 +95,11 @@ struct mus::imp {
     }
     
     lbool get_mus(unsigned_vector& mus) {
-        TRACE("opt", tout << "\n";);
+        TRACE("opt", 
+              for (unsigned i = 0; i < m_cls2lits.size(); ++i) {
+                  display_vec(tout, m_cls2lits[i]);
+              }
+              );
         unsigned_vector core;
         for (unsigned i = 0; i < m_cls2expr.size(); ++i) {
             core.push_back(i);
@@ -79,13 +110,13 @@ struct mus::imp {
         ptr_vector<expr> core_exprs;
         model.resize(m_vars.size());
         while (!core.empty()) {
+            IF_VERBOSE(1, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
+            unsigned cls_id = core.back();
             TRACE("opt", 
                   display_vec(tout << "core:  ", core);
                   display_vec(tout << "mus:   ", mus);
                   display_vec(tout << "model: ", model);
                   );
-            IF_VERBOSE(1, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
-            unsigned cls_id = core.back();
             core.pop_back();
             expr* cls = m_cls2expr[cls_id].get();
             expr_ref not_cls(m);
@@ -93,7 +124,7 @@ struct mus::imp {
             unsigned sz = assumptions.size();
             assumptions.push_back(not_cls);
             add_core(core, assumptions);
-            lbool is_sat = s.check_sat(assumptions.size(), assumptions.c_ptr());
+            lbool is_sat = m_s->check_sat(assumptions.size(), assumptions.c_ptr());
             assumptions.resize(sz);
             switch(is_sat) {
             case l_undef: 
@@ -101,7 +132,7 @@ struct mus::imp {
             case l_true:
                 assumptions.push_back(cls);
                 mus.push_back(cls_id);
-                extract_model(s, model);
+                extract_model(model);
                 sz = core.size();
                 core.append(mus);
                 rmr(core, mus, model);
@@ -109,7 +140,7 @@ struct mus::imp {
                 break;
             default:
                 core_exprs.reset();
-                s.get_unsat_core(core_exprs);
+                m_s->get_unsat_core(core_exprs);
                 if (!core_exprs.contains(not_cls)) {
                     // core := core_exprs \ mus
                     core.reset();
@@ -141,14 +172,19 @@ struct mus::imp {
         out << "\n";
     }
 
-    void extract_model(solver& s, svector<bool>& model) {
+    void extract_model(svector<bool>& model) {
         model_ref mdl;
-        s.get_model(mdl);
+        m_s->get_model(mdl);
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             expr_ref tmp(m);
             mdl->eval(m_vars[i].get(), tmp);
             model[i] = m.is_true(tmp);
         }
+        TRACE("opt", 
+              display_vec(tout << "model: ", model);
+              model_smt2_pp(tout, m, *mdl, 0);              
+              );
+
     }
 
     /**
@@ -166,12 +202,19 @@ struct mus::imp {
             smt::literal lit = cls[i];
             SASSERT(model[lit.var()] == lit.sign()); // literal evaluates to false.
             model[lit.var()] = !model[lit.var()];    // swap assignment
-            if (!mus.contains(cls_id) && has_single_unsat(model, cls_id)) {
+            if (has_single_unsat(model, cls_id) && 
+                !mus.contains(cls_id) && 
+                model_check(model, cls_id)) {
                 mus.push_back(cls_id);
                 rmr(M, mus, model);
             }
             model[lit.var()] = !model[lit.var()];    // swap assignment back            
         }
+    }
+
+    bool model_check(svector<bool> const& model, unsigned cls_id) {
+        // model has to work for hard constraints.
+        return false;
     }
 
     bool has_single_unsat(svector<bool> const& model, unsigned& cls_id) const {
@@ -186,21 +229,24 @@ struct mus::imp {
                 }
             }
         }
+        TRACE("opt", display_vec(tout << "clause: " << cls_id << " model: ", model););
         return cls_id != UINT_MAX;
     }
 
     bool eval(svector<bool> const& model, smt::literal_vector const& cls) const {
-        for (unsigned i = 0; i < cls.size(); ++i) {
-            if (model[cls[i].var()] != cls[i].sign()) {
-                return true;
-            }
+        bool result = false;
+        for (unsigned i = 0; !result && i < cls.size(); ++i) {
+            result = (model[cls[i].var()] != cls[i].sign());
         }
-        return false;
+        TRACE("opt", display_vec(tout << "model: ", model);
+              display_vec(tout << "clause: ", cls);
+              tout << "result: " << result << "\n";);
+        return result;
     }
 
 };
 
-mus::mus(solver& s, ast_manager& m) {
+mus::mus(ref<solver>& s, ast_manager& m) {
     m_imp = alloc(imp, s, m);
 }
 
