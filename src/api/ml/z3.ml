@@ -2045,7 +2045,7 @@ struct
   let get_num_funcs ( x : model ) = Z3native.model_get_num_funcs (z3obj_gnc x) (z3obj_gno x)
     
   let get_func_decls ( x : model ) = 
-    let n = (get_num_consts x) in
+    let n = (get_num_funcs x) in
     let f i = func_decl_of_ptr (z3obj_gc x) (Z3native.model_get_func_decl (z3obj_gnc x) (z3obj_gno x) i) in
     mk_list f n
       
