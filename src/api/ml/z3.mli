@@ -1053,12 +1053,12 @@ sig
   (** Create a datatype constructor.
      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
      referring to one of the recursive datatypes that is declared. *)
-  val mk_constructor : context -> Symbol.symbol -> Symbol.symbol -> Symbol.symbol list -> Sort.sort list -> int list -> Constructor.constructor
+  val mk_constructor : context -> Symbol.symbol -> Symbol.symbol -> Symbol.symbol list -> Sort.sort option list -> int list -> Constructor.constructor
 
   (** Create a datatype constructor.
      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
      referring to one of the recursive datatypes that is declared. *)
-  val mk_constructor_s : context -> string -> Symbol.symbol -> Symbol.symbol list -> Sort.sort list -> int list -> Constructor.constructor
+  val mk_constructor_s : context -> string -> Symbol.symbol -> Symbol.symbol list -> Sort.sort option list -> int list -> Constructor.constructor
 
   (** Create a new datatype sort. *)
   val mk_sort : context -> Symbol.symbol -> Constructor.constructor list -> Sort.sort
