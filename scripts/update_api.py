@@ -1464,7 +1464,7 @@ def mk_ml():
             for p in params:
                 if param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY:
                     ml_wrapper.write('  _a%s_val = caml_alloc(_a%s, 0);\n' % (i, param_array_capacity_pos(p)))
-                    ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) { value t; %s Store_field(_a%s, _i, t); }\n' % (param_array_capacity_pos(p), ml_set_wrap(param_type(p), 't', '_a' + str(i) + '[_i]'), i))
+                    ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) { value t; %s Store_field(_a%s_val, _i, t); }\n' % (param_array_capacity_pos(p), ml_set_wrap(param_type(p), 't', '_a' + str(i) + '[_i]'), i))
                 elif is_out_param(p):
                     ml_wrapper.write('  %s\n' % ml_set_wrap(param_type(p), "_a" + str(i) + "_val", "_a"  + str(i) ))
                 i = i + 1
