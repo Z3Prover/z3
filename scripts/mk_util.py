@@ -764,7 +764,7 @@ class Component:
         out.write('\n')
         mk_dir(os.path.join(BUILD_DIR, self.build_dir))
         if VS_PAR and IS_WINDOWS:
-            cppfiles = get_cpp_files(self.src_dir)
+            cppfiles = list(get_cpp_files(self.src_dir))
             dependencies = set()
             for cppfile in cppfiles:
                 dependencies.add(os.path.join(self.to_src_dir, cppfile))
