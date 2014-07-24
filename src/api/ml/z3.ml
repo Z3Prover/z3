@@ -374,6 +374,10 @@ struct
   let sort_lton ( a : sort list ) =
     let f ( e : sort ) = match e with Sort(a) -> (AST.ptr_of_ast a) in 
     Array.of_list (List.map f a)
+
+  let sort_option_lton ( a : sort option list ) =
+    let f ( e : sort option ) = match e with None -> null | Some(Sort(a)) -> (AST.ptr_of_ast a) in 
+    Array.of_list (List.map f a)
     
   let equal : sort -> sort -> bool = fun a b ->
     (a == b) ||
@@ -1257,7 +1261,7 @@ struct
     
     let _sizes = Hashtbl.create 0
 
-    let create ( ctx : context ) ( name : Symbol.symbol ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : sort list ) ( sort_refs : int list ) =
+    let create ( ctx : context ) ( name : Symbol.symbol ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : sort option list ) ( sort_refs : int list ) =
       let n = (List.length field_names) in
       if n != (List.length sorts) then
 	raise (Z3native.Exception "Number of field names does not match number of sorts")
@@ -1269,7 +1273,7 @@ struct
 		       (Symbol.gno recognizer) 
 		       n
 		       (Symbol.symbol_lton field_names)
-		       (sort_lton sorts)
+		       (sort_option_lton sorts)
 		       (Array.of_list sort_refs)) in
 	  let no : constructor = { m_ctx = ctx ;
 				   m_n_obj = null ;
@@ -1316,11 +1320,11 @@ struct
       res       
   end
     
-  let mk_constructor ( ctx : context ) ( name : Symbol.symbol ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : sort list ) ( sort_refs : int list ) =
+  let mk_constructor ( ctx : context ) ( name : Symbol.symbol ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : sort option list ) ( sort_refs : int list ) =
     Constructor.create ctx name recognizer field_names sorts sort_refs
 
 
-  let mk_constructor_s ( ctx : context ) ( name : string ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : sort list ) ( sort_refs : int list ) =
+  let mk_constructor_s ( ctx : context ) ( name : string ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : sort option list ) ( sort_refs : int list ) =
     mk_constructor ctx (Symbol.mk_string ctx name) recognizer field_names sorts sort_refs
 
   let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( constructors : Constructor.constructor list ) =
