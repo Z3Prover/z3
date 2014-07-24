@@ -277,7 +277,7 @@ struct
     let find ( x : ast_map ) ( key : ast ) =
       ast_of_ptr (z3obj_gc x) (Z3native.ast_map_find (z3obj_gnc x) (z3obj_gno x) (z3obj_gno key))
 	
-    let insert ( x : ast_map ) ( key : ast ) ( value : ast) =
+    let insert ( x : ast_map ) ( key : ast ) ( value : ast ) =
       Z3native.ast_map_insert (z3obj_gnc x) (z3obj_gno x) (z3obj_gno key) (z3obj_gno value)
 
     let erase ( x : ast_map ) ( key : ast ) =
@@ -1259,7 +1259,13 @@ struct
   struct
     type constructor = z3_native_object
     
-    let _sizes = Hashtbl.create 0
+    module FieldNumTable = Hashtbl.Make(struct 
+	type t = AST.ast
+	let equal x y = AST.compare x y = 0
+	let hash = AST.hash
+    end)
+
+    let _field_nums = FieldNumTable.create 0
 
     let create ( ctx : context ) ( name : Symbol.symbol ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : sort option list ) ( sort_refs : int list ) =
       let n = (List.length field_names) in
@@ -1283,10 +1289,10 @@ struct
 	  (z3obj_create no) ;
 	  let f = fun o -> Z3native.del_constructor (z3obj_gnc o) (z3obj_gno o) in
 	  Gc.finalise f no ;
-	  Hashtbl.add _sizes no n ;
+	  FieldNumTable.add _field_nums no n ;
 	  no    	  
 	
-    let get_num_fields ( x : constructor ) = Hashtbl.find _sizes x
+    let get_num_fields ( x : constructor ) = FieldNumTable.find _field_nums x
 
     let get_constructor_decl ( x : constructor ) = 
       let (a, _, _) = (Z3native.query_constructor (z3obj_gnc x) (z3obj_gno x) (get_num_fields x)) in
