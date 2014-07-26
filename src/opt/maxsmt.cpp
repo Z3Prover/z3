@@ -182,8 +182,8 @@ namespace opt {
         else if (m_maxsat_engine == symbol("bcd2")) {
             m_msolver = mk_bcd2(m, s, m_params, m_weights, m_soft_constraints);
         }
-        else if (m_maxsat_engine == symbol("hsmax")) {                
-            m_msolver = mk_hsmax(m, s, m_params, m_weights, m_soft_constraints);
+        else if (m_maxsat_engine == symbol("maxhs")) {                
+            m_msolver = mk_maxhs(m, s, m_params, m_weights, m_soft_constraints);
         }
         else if (m_maxsat_engine == symbol("sls")) {                
             // NB: this is experimental one-round version of SLS

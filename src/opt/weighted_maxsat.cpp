@@ -434,7 +434,7 @@ namespace opt {
     // to the underlying optimization solver for the soft constraints.
     //
 
-    class hsmax : public maxsmt_solver_base {
+    class maxhs : public maxsmt_solver_base {
         struct stats {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
@@ -463,14 +463,14 @@ namespace opt {
 
 
     public:
-        hsmax(opt_solver* s, ast_manager& m, params_ref& p, vector<rational> const& ws, expr_ref_vector const& soft):
+        maxhs(opt_solver* s, ast_manager& m, params_ref& p, vector<rational> const& ws, expr_ref_vector const& soft):
             maxsmt_solver_base(s, m, p, ws, soft), 
             m_aux(m), 
             pb(m),
             a(m),
             m_at_lower_bound(false) {
         }
-        virtual ~hsmax() {}
+        virtual ~maxhs() {}
 
         virtual void set_cancel(bool f) { 
             maxsmt_solver_base::set_cancel(f); 
@@ -480,15 +480,15 @@ namespace opt {
         virtual void collect_statistics(statistics& st) const {
             maxsmt_solver_base::collect_statistics(st);
             m_hs.collect_statistics(st);
-            st.update("hsmax-num-iterations", m_stats.m_num_iterations);
-            st.update("hsmax-num-core-reductions-n", m_stats.m_num_core_reductions_failure);
-            st.update("hsmax-num-core-reductions-y", m_stats.m_num_core_reductions_success);
-            st.update("hsmax-num-model-expansions-n", m_stats.m_num_model_expansions_failure);
-            st.update("hsmax-num-model-expansions-y", m_stats.m_num_model_expansions_success);
-            st.update("hsmax-core-reduction-time", m_stats.m_core_reduction_time);
-            st.update("hsmax-model-expansion-time", m_stats.m_model_expansion_time);
-            st.update("hsmax-aux-sat-time", m_stats.m_aux_sat_time);
-            st.update("hsmax-disj-core-time", m_stats.m_disjoint_cores_time);
+            st.update("maxhs-num-iterations", m_stats.m_num_iterations);
+            st.update("maxhs-num-core-reductions-n", m_stats.m_num_core_reductions_failure);
+            st.update("maxhs-num-core-reductions-y", m_stats.m_num_core_reductions_success);
+            st.update("maxhs-num-model-expansions-n", m_stats.m_num_model_expansions_failure);
+            st.update("maxhs-num-model-expansions-y", m_stats.m_num_model_expansions_success);
+            st.update("maxhs-core-reduction-time", m_stats.m_core_reduction_time);
+            st.update("maxhs-model-expansion-time", m_stats.m_model_expansion_time);
+            st.update("maxhs-aux-sat-time", m_stats.m_aux_sat_time);
+            st.update("maxhs-disj-core-time", m_stats.m_disjoint_cores_time);
         }
 
         lbool operator()() {
@@ -502,8 +502,8 @@ namespace opt {
             while (m_lower < m_upper) {
                 ++m_stats.m_num_iterations;
                 IF_VERBOSE(1, verbose_stream() << 
-                           "(hsmax [" << m_lower << ":" << m_upper << "])\n";);
-                TRACE("opt", tout << "(hsmax [" << m_lower << ":" << m_upper << "])\n";);
+                           "(maxhs [" << m_lower << ":" << m_upper << "])\n";);
+                TRACE("opt", tout << "(maxhs [" << m_lower << ":" << m_upper << "])\n";);
                 if (m_cancel) {
                     return l_undef;
                 }
@@ -681,8 +681,8 @@ namespace opt {
         }
 
         struct lt_activity {
-            hsmax& hs;
-            lt_activity(hsmax& hs):hs(hs) {}
+            maxhs& hs;
+            lt_activity(maxhs& hs):hs(hs) {}
             bool operator()(expr* a, expr* b) const {
                 unsigned w1 = hs.m_core_activity[hs.m_aux2index.find(a)];
                 unsigned w2 = hs.m_core_activity[hs.m_aux2index.find(b)];
@@ -1358,13 +1358,13 @@ namespace opt {
                                      vector<rational> const& ws, expr_ref_vector const& soft) {
         return alloc(pbmax, s, m, p, ws, soft);
     }
-    maxsmt_solver_base* opt::mk_hsmax(ast_manager& m, opt_solver* s, params_ref& p, 
+    maxsmt_solver_base* opt::mk_maxhs(ast_manager& m, opt_solver* s, params_ref& p, 
                                      vector<rational> const& ws, expr_ref_vector const& soft) {
-        return alloc(hsmax, s, m, p, ws, soft);
+        return alloc(maxhs, s, m, p, ws, soft);
     }
     maxsmt_solver_base* opt::mk_sls(ast_manager& m, opt_solver* s, params_ref& p, 
                                     vector<rational> const& ws, expr_ref_vector const& soft) {
-        return alloc(hsmax, s, m, p, ws, soft);
+        return alloc(maxhs, s, m, p, ws, soft);
     }
     maxsmt_solver_base* opt::mk_wmax(ast_manager& m, opt_solver* s, params_ref& p, 
                                     vector<rational> const& ws, expr_ref_vector const& soft) {

@@ -31,7 +31,7 @@ namespace opt {
     maxsmt_solver_base* mk_bcd2(ast_manager& m, opt_solver* s, params_ref& p, 
                                 vector<rational> const& ws, expr_ref_vector const& soft);
 
-    maxsmt_solver_base* mk_hsmax(ast_manager& m, opt_solver* s, params_ref& p, 
+    maxsmt_solver_base* mk_maxhs(ast_manager& m, opt_solver* s, params_ref& p, 
                                  vector<rational> const& ws, expr_ref_vector const& soft);
 
     maxsmt_solver_base* mk_pbmax(ast_manager& m, opt_solver* s, params_ref& p, 
