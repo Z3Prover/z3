@@ -290,7 +290,7 @@ namespace datalog {
                 }
             }
             TRACE("dl_dr", 
-                  tout << r.get_decl()->get_name() << "\n";
+                  tout << mk_pp(r.get_head(), m) << " :- \n";
                   for (unsigned i = 0; i < body.size(); ++i) {
                       tout << mk_pp(body[i].get(), m) << "\n";
                   });
