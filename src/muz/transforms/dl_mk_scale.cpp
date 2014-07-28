@@ -141,7 +141,7 @@ namespace datalog {
             m_cache.reset();
             m_trail.reset();
             m_eqs.reset();
-            r.get_vars(vars);
+            r.get_vars(m, vars);
             unsigned num_vars = vars.size();
             for (unsigned j = 0; j < utsz; ++j) {
                 tail.push_back(mk_pred(num_vars, r.get_tail(j)));

@@ -199,7 +199,7 @@ namespace datalog {
         expr_ref fml(m), cnst(m);
         var_ref var(m);
         ptr_vector<sort> sorts;
-        r.get_vars(sorts);
+        r.get_vars(m, sorts);
         m_uf.reset();
         m_terms.reset();
         m_var2cnst.reset();
@@ -207,9 +207,6 @@ namespace datalog {
         fml = m.mk_and(conjs.size(), conjs.c_ptr());
 
         for (unsigned i = 0; i < sorts.size(); ++i) {
-            if (!sorts[i]) {
-                sorts[i] = m.mk_bool_sort();
-            }
             var = m.mk_var(i, sorts[i]);
             cnst = m.mk_fresh_const("C", sorts[i]);
             m_var2cnst.insert(var, cnst);

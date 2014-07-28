@@ -3951,7 +3951,7 @@ namespace smt {
               m_fingerprints.display(tout); 
               );
         failure fl = get_last_search_failure();
-        if (fl == TIMEOUT || fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS) {
+        if (fl == TIMEOUT || fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS || fl == THEORY) {
             // don't generate model.
             return;
         }
