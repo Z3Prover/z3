@@ -250,7 +250,7 @@ namespace sat {
         //
         // -----------------------
     public:
-        lbool check();
+        lbool check(unsigned num_lits = 0, literal const* lits = 0);
         model const & get_model() const { return m_model; }
         model_converter const & get_model_converter() const { return m_mc; }
 

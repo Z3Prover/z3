@@ -685,8 +685,8 @@ namespace sat {
     // Search
     //
     // -----------------------
-    lbool solver::check() {
-        IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver using the new SAT solver)\n";);
+    lbool solver::check(unsigned num_lits, literal const* lits) {
+        IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver using the efficient SAT solver)\n";);
         SASSERT(scope_lvl() == 0);
 #ifdef CLONE_BEFORE_SOLVING
         if (m_mc.empty()) {
