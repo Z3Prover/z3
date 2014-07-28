@@ -106,7 +106,7 @@ bool float_decl_plugin::is_value(expr * n, mpf & val) {
     return false;
 }
 
-bool float_decl_plugin::is_rm(expr * n, mpf_rounding_mode & val) {
+bool float_decl_plugin::is_rm_value(expr * n, mpf_rounding_mode & val) {
     if (is_app_of(n, m_family_id, OP_RM_NEAREST_TIES_TO_AWAY)) {
         val = MPF_ROUND_NEAREST_TAWAY;
         return true;
