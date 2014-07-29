@@ -216,7 +216,6 @@ expr_ref theory_wmaxsat::mk_block() {
         scoped_mpq q(mgr);
         mgr.set(q, m_zmin_cost, m_den.to_mpq().numerator());
         rational rw = rational(q);
-        IF_VERBOSE(1, verbose_stream() << "(wmaxsat with upper bound: " << rw << ")\n";);
         m_zmin_cost = weight;
         m_found_optimal = true;
         m_cost_save.reset();

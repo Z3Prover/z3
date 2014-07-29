@@ -39,8 +39,11 @@ struct mus::imp {
     expr_ref_vector             m_vars;
     obj_map<expr, unsigned>     m_var2idx;
     volatile bool               m_cancel;
+    bool                        m_rmr_enabled;
 
-    imp(ref<solver>& s, ast_manager& m): m_s(s), m(m), m_cls2expr(m), m_vars(m), m_cancel(false) {}
+    imp(ref<solver>& s, ast_manager& m): 
+        m_s(s), m(m), m_cls2expr(m), m_vars(m), m_cancel(false),
+        m_rmr_enabled(false) {}
 
     void reset() {
         m_cls2expr.reset();
@@ -133,10 +136,12 @@ struct mus::imp {
                 assumptions.push_back(cls);
                 mus.push_back(cls_id);
                 extract_model(model);
-                sz = core.size();
-                core.append(mus);
-                rmr(core, mus, model);
-                core.resize(sz);
+                if (m_rmr_enabled) {
+                    sz = core.size();
+                    core.append(mus);
+                    rmr(core, mus, model);
+                    core.resize(sz);
+                }
                 break;
             default:
                 core_exprs.reset();

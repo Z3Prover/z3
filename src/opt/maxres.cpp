@@ -135,7 +135,7 @@ public:
                 m_lower += w; 
                 break;
             }
-            IF_VERBOSE(1, verbose_stream() << "(opt.max_res lower: " << m_lower << ")\n";);
+            IF_VERBOSE(1, verbose_stream() << "(opt.max_res [" << m_lower << ":" << m_upper << "])\n";);
         }
         return l_true;
     }

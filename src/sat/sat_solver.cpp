@@ -697,7 +697,7 @@ namespace sat {
         try {
             if (inconsistent()) return l_false;
             init_search();
-            init_assumptons(num_lits, lits);
+            init_assumptions(num_lits, lits);
             propagate(false);
             if (inconsistent()) return l_false;
             cleanup();
@@ -707,6 +707,7 @@ namespace sat {
                 if (r != l_undef)
                     return r;
                 pop(scope_lvl());
+                reinit_assumptions();
                 m_conflicts_since_restart = 0;
                 m_restart_threshold       = m_config.m_restart_initial;
             }
@@ -861,9 +862,20 @@ namespace sat {
         m_assumption_set.reset();
         for (unsigned i = 0; i < num_lits; ++i) {
             literal l = lits[i];
+            SASSERT(is_external(l.var()));
             m_assumption_set.insert(l);
             m_assumptions.push_back(l);
             mk_clause(1, &l); 
+        }
+    }
+
+    void solver::reinit_assumptions() {
+        if (tracking_assumptions()) {
+            push();
+            for (unsigned i = 0; i < m_assumptions.size(); ++i) {
+                literal l = m_assumptions[i];
+                mk_clause(1, &l); 
+            }
         }
     }
 
@@ -1010,6 +1022,7 @@ namespace sat {
                    << " :time " << std::fixed << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
         IF_VERBOSE(30, display_status(verbose_stream()););
         pop(scope_lvl());
+        reinit_assumptions();
         m_conflicts_since_restart = 0;
         switch (m_config.m_restart) {
         case RS_GEOMETRIC:
@@ -1340,7 +1353,6 @@ namespace sat {
     }
 
     bool solver::resolve_conflict_core() {
-        TRACE("sat_conflict", tout << "conflict detected\n";);
 
         m_stats.m_conflict++;
         m_conflicts++;
@@ -1348,8 +1360,15 @@ namespace sat {
         m_conflicts_since_gc++;
 
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict);
-        if (m_conflict_lvl == 0)
+        if (m_conflict_lvl <= 1 && tracking_assumptions()) {
+            resolve_conflict_for_unsat_core();
             return false;
+        }
+        TRACE("sat_conflict", tout << "conflict detected\n";);
+        if (m_conflict_lvl == 0) {
+            return false;
+        }
+
         m_lemma.reset();
 
         forget_phase_of_vars(m_conflict_lvl);
@@ -1464,6 +1483,108 @@ namespace sat {
         return true;
     }
 
+    void solver::process_antecedent_for_unsat_core(literal antecedent) {
+        bool_var var     = antecedent.var();
+        unsigned var_lvl = lvl(var);
+        SASSERT(var < num_vars());
+        if (!is_marked(var)) {
+            mark(var);
+            m_unmark.push_back(var);
+            if (is_assumption(antecedent)) {
+                m_core.push_back(antecedent);
+            }
+        }        
+    }
+
+    void solver::resolve_conflict_for_unsat_core() {
+        TRACE("sat_conflict", display(tout););
+
+        if (m_conflict_lvl == 0) {
+            return;
+        }
+
+        unsigned old_size = m_unmark.size();        
+        m_core.reset();
+        int idx = skip_literals_above_conflict_level();
+
+        if (m_not_l != null_literal) {
+            TRACE("sat_conflict", tout << "not_l: " << m_not_l << "\n";);
+            process_antecedent_for_unsat_core(m_not_l);
+        }
+        
+            
+        literal consequent = m_not_l;
+        justification js   = m_conflict;
+
+        do {
+            TRACE("sat_conflict_detail", tout << "processing consequent: " << consequent << "\n";
+                  tout << "js kind: " << js.get_kind() << "\n";);
+            switch (js.get_kind()) {
+            case justification::NONE:
+                break;
+            case justification::BINARY:
+                process_antecedent_for_unsat_core(~(js.get_literal()));
+                break;
+            case justification::TERNARY:
+                process_antecedent_for_unsat_core(~(js.get_literal1()));
+                process_antecedent_for_unsat_core(~(js.get_literal2()));
+                break;
+            case justification::CLAUSE: {
+                clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
+                unsigned i   = 0;
+                if (consequent != null_literal) {
+                    SASSERT(c[0] == consequent || c[1] == consequent);
+                    if (c[0] == consequent) {
+                        i = 1;
+                    }
+                    else {
+                        process_antecedent_for_unsat_core(~c[0]);
+                        i = 2;
+                    }
+                }
+                unsigned sz  = c.size();
+                for (; i < sz; i++)
+                    process_antecedent_for_unsat_core(~c[i]);
+                break;
+            }
+            case justification::EXT_JUSTIFICATION: {
+                fill_ext_antecedents(consequent, js);
+                literal_vector::iterator it  = m_ext_antecedents.begin();
+                literal_vector::iterator end = m_ext_antecedents.end();
+                for (; it != end; ++it)
+                    process_antecedent_for_unsat_core(*it);
+                break;
+            }
+            default:
+                UNREACHABLE();
+                break;
+            }
+
+            while (idx >= 0) {
+                literal l = m_trail[idx];
+                if (is_marked(l.var()))
+                    break;
+                SASSERT(idx > 0);
+                idx--;
+            }
+
+            if (idx < 0) {
+                break;
+            }
+            consequent     = m_trail[idx];
+            if (lvl(consequent) < m_conflict_lvl) {
+                break;
+            }
+            bool_var c_var = consequent.var();
+            SASSERT(lvl(consequent) == m_conflict_lvl);
+            js             = m_justification[c_var];
+            idx--;
+        }        
+        while (idx > 0);
+        reset_unmark(old_size);
+    }
+
+
     unsigned solver::get_max_lvl(literal consequent, justification js) {
         if (!m_ext)
             return scope_lvl();
@@ -1551,6 +1672,7 @@ namespace sat {
                 m_lemma.push_back(~antecedent);
         }
     }
+
 
     /**
        \brief js is an external justification. Collect its antecedents and store at m_ext_antecedents.
@@ -1960,7 +2082,7 @@ namespace sat {
             clause_wrapper cw = m_clauses_to_reinit[i];
             bool reinit = false;
             if (cw.is_binary()) {
-o                if (propagate_bin_clause(cw[0], cw[1])) {
+                if (propagate_bin_clause(cw[0], cw[1])) {
                     if (scope_lvl() > 0) {
                         m_clauses_to_reinit[j] = cw;
                         j++;

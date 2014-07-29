@@ -46,8 +46,8 @@ class sat_tactic : public tactic {
                         expr_dependency_ref & core) {
             mc = 0; pc = 0; core = 0;
             fail_if_proof_generation("sat", g);
-            fail_if_unsat_core_generation("sat", g);
             bool produce_models = g->models_enabled();
+            bool produce_core = g->unsat_core_enabled();
             TRACE("before_sat_solver", g->display(tout););
             g->elim_redundancies();
 

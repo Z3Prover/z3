@@ -22,7 +22,13 @@ Notes:
 #include "fu_malik.h"
 #include "core_maxsat.h"
 #include "maxres.h"
-#include "weighted_maxsat.h"
+#include "dual_maxres.h"
+#include "maxhs.h"
+#include "bcd2.h"
+#include "wpm2.h"
+#include "pbmax.h"
+#include "wmax.h"
+#include "maxsls.h"
 #include "ast_pp.h"
 #include "opt_params.hpp"
 #include "pb_decl_plugin.h"
@@ -173,6 +179,9 @@ namespace opt {
         else if (m_maxsat_engine == symbol("maxres")) {            
             m_msolver = mk_maxres(m, s, m_params, m_weights, m_soft_constraints);
         }
+        else if (m_maxsat_engine == symbol("dual-maxres")) {            
+            m_msolver = mk_dual_maxres(m, s, m_params, m_weights, m_soft_constraints);
+        }
         else if (m_maxsat_engine == symbol("pbmax")) {
             m_msolver = mk_pbmax(m, s, m_params, m_weights, m_soft_constraints);
         }
@@ -196,7 +205,7 @@ namespace opt {
             m_msolver = alloc(fu_malik, m, *m_s, m_soft_constraints);
         }
         else {
-            if (m_maxsat_engine != symbol::null) {
+            if (m_maxsat_engine != symbol::null && m_maxsat_engine != symbol("wmax")) {
                 warning_msg("solver %s is not recognized, using default 'wmax'", 
                             m_maxsat_engine.str().c_str());
             }
