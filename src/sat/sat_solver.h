@@ -118,6 +118,8 @@ namespace sat {
         stopwatch               m_stopwatch;
         params_ref              m_params;
         scoped_ptr<solver>      m_clone; // for debugging purposes
+        literal_vector          m_assumptions;
+        literal_set             m_assumption_set;
 
         void del_clauses(clause * const * begin, clause * const * end);
 
@@ -267,6 +269,9 @@ namespace sat {
         bool_var next_var();
         lbool bounded_search();
         void init_search();
+        void init_assumptions(unsigned num_lits, literal const* lits);
+        bool tracking_assumptions() const;
+        bool is_assumption(literal l) const;
         void simplify_problem();
         void mk_model();
         bool check_model(model const & m) const;

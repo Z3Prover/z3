@@ -697,6 +697,7 @@ namespace sat {
         try {
             if (inconsistent()) return l_false;
             init_search();
+            init_assumptons(num_lits, lits);
             propagate(false);
             if (inconsistent()) return l_false;
             cleanup();
@@ -849,6 +850,29 @@ namespace sat {
                 }
             }
         }
+    }
+
+    void solver::init_assumptions(unsigned num_lits, literal const* lits) {
+        if (num_lits == 0) {
+            return;
+        }
+        push();
+        m_assumptions.reset();
+        m_assumption_set.reset();
+        for (unsigned i = 0; i < num_lits; ++i) {
+            literal l = lits[i];
+            m_assumption_set.insert(l);
+            m_assumptions.push_back(l);
+            mk_clause(1, &l); 
+        }
+    }
+
+    bool solver::tracking_assumptions() const {
+        return !m_assumptions.empty();
+    }
+
+    bool solver::is_assumption(literal l) const {
+        return tracking_assumptions() && m_assumption_set.contains(l);
     }
 
     void solver::init_search() {
@@ -1936,7 +1960,7 @@ namespace sat {
             clause_wrapper cw = m_clauses_to_reinit[i];
             bool reinit = false;
             if (cw.is_binary()) {
-                if (propagate_bin_clause(cw[0], cw[1])) {
+o                if (propagate_bin_clause(cw[0], cw[1])) {
                     if (scope_lvl() > 0) {
                         m_clauses_to_reinit[j] = cw;
                         j++;
