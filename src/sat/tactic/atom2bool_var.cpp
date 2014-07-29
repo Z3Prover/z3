@@ -90,8 +90,9 @@ struct collect_boolean_interface_proc {
     template<typename T>
     void operator()(T const & g) {
         unsigned sz = g.size();
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; i++) {
             process(g.form(i));
+        }
     }
     
     void operator()(unsigned sz, expr * const * fs) {

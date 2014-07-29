@@ -17,4 +17,5 @@ def_module_params('sat',
                           ('gc.small_lbd', UINT, 3, 'learned clauses with small LBD are never deleted (only used in dyn_psm)'),
                           ('gc.k', UINT, 7, 'learned clauses that are inactive for k gc rounds are permanently deleted (only used in dyn_psm)'),
                           ('minimize_lemmas', BOOL, True, 'minimize learned clauses'),
-                          ('dyn_sub_res', BOOL, True, 'dynamic subsumption resolution for minimizing learned clauses')))
+                          ('dyn_sub_res', BOOL, True, 'dynamic subsumption resolution for minimizing learned clauses'),
+                          ('dimacs.core', BOOL, False, 'extract core from DIMACS benchmarks')))

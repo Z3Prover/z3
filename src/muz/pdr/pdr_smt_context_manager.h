@@ -21,7 +21,6 @@ Revision History:
 #define _PDR_SMT_CONTEXT_MANAGER_H_
 
 #include "smt_kernel.h"
-#include "sat_solver.h"
 #include "func_decl_dependencies.h"
 #include "dl_util.h"
 

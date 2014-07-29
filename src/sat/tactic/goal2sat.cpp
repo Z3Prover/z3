@@ -360,14 +360,40 @@ struct goal2sat::imp {
         SASSERT(m_result_stack.empty());
     }
 
+    void add_assumption(expr* d, expr* literal_d) {
+        
+    }
+
 
     void operator()(goal const & g) {
         m_interface_vars.reset();
         collect_boolean_interface(g, m_interface_vars);
-        
         unsigned size = g.size();
+        expr_ref f(m), d_new(m);
+        ptr_vector<expr> deps;
         for (unsigned idx = 0; idx < size; idx++) {
-            expr * f = g.form(idx);
+            f = g.form(idx);
+            // Add assumptions.
+            if (g.dep(idx)) {
+                expr_dependency * dep = g.dep(idx);
+                deps.reset();
+                m.linearize(dep, deps);
+                for (unsigned i = 0; i < deps.size(); ++i) {
+                    expr * d = deps[i];
+                    expr * d1;
+                    SASSERT(m.is_bool(d));
+                    if (is_uninterp_const(d)) {
+                        add_assumption(d, d);
+                    }
+                    else if (m.is_not(d, d1) && is_uninterp_const(d1)) {
+                        add_assumption(d, d);
+                    }
+                    else {
+                        // create fresh variable, map back to dependency.
+                        add_assumption(d, d_new);
+                    }
+                }
+            }
             process(f);
         }
     }
