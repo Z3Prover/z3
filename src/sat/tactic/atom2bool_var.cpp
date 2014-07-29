@@ -90,8 +90,17 @@ struct collect_boolean_interface_proc {
     template<typename T>
     void operator()(T const & g) {
         unsigned sz = g.size();
+        ptr_vector<expr> deps;
         for (unsigned i = 0; i < sz; i++) {
             process(g.form(i));
+            if (g.dep(i)) {
+                deps.reset();
+                m.linearize(g.dep(i), deps);
+                for (unsigned j = 0; j < deps.size(); ++j) {
+                    quick_for_each_expr(proc, tvisited, deps[j]);
+                }
+                
+            }
         }
     }
     

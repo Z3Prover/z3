@@ -699,7 +699,11 @@ namespace sat {
             init_search();
             init_assumptions(num_lits, lits);
             propagate(false);
-            if (inconsistent()) return l_false;
+            if (inconsistent()) {
+                if (tracking_assumptions()) 
+                    resolve_conflict();
+                return l_false;
+            }
             cleanup();
             if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {
                 m_restart_threshold = m_config.m_burst_search;
@@ -867,6 +871,7 @@ namespace sat {
             m_assumptions.push_back(l);
             mk_clause(1, &l); 
         }
+        TRACE("sat", display(tout););
     }
 
     void solver::reinit_assumptions() {
@@ -1564,7 +1569,6 @@ namespace sat {
                 literal l = m_trail[idx];
                 if (is_marked(l.var()))
                     break;
-                SASSERT(idx > 0);
                 idx--;
             }
 

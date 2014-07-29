@@ -35,6 +35,7 @@ Notes:
 #include"for_each_expr.h"
 #include"model_v2_pp.h"
 #include"tactic.h"
+#include"ast_pp.h"
 
 struct goal2sat::imp {
     struct frame {
@@ -52,15 +53,19 @@ struct goal2sat::imp {
     obj_hashtable<expr>         m_interface_vars;
     sat::solver &               m_solver;
     atom2bool_var &             m_map;
+    dep2asm_map &               m_dep2asm;
     sat::bool_var               m_true;
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
     volatile bool               m_cancel;
+    expr_ref_vector             m_trail;
     
-    imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map):
+    imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm):
         m(_m),
         m_solver(s),
-        m_map(map) {
+        m_map(map),
+        m_dep2asm(dep2asm),
+        m_trail(m) {
         updt_params(p);
         m_cancel = false;
         m_true = sat::null_bool_var;
@@ -360,10 +365,23 @@ struct goal2sat::imp {
         SASSERT(m_result_stack.empty());
     }
 
-    void add_assumption(expr* d, expr* literal_d) {
-        
+    void insert_dep(expr* dep, bool sign) {
+        expr_ref new_dep(m), fml(m);
+        if (is_uninterp_const(dep)) {
+            new_dep = dep;
+        }
+        else {
+            new_dep = m.mk_fresh_const("dep", m.mk_bool_sort());
+            m_trail.push_back(new_dep);
+            m_interface_vars.insert(new_dep);
+            fml = m.mk_iff(new_dep, dep);
+            process(fml);            
+        }
+        convert_atom(new_dep, false, false);
+        sat::literal lit = m_result_stack.back();
+        m_dep2asm.insert(dep, sign?(~lit):lit);
+        m_result_stack.pop_back();
     }
-
 
     void operator()(goal const & g) {
         m_interface_vars.reset();
@@ -371,28 +389,31 @@ struct goal2sat::imp {
         unsigned size = g.size();
         expr_ref f(m), d_new(m);
         ptr_vector<expr> deps;
+        expr_ref_vector  fmls(m);
         for (unsigned idx = 0; idx < size; idx++) {
             f = g.form(idx);
+            TRACE("sat", tout << "Formula: " << mk_pp(f, m) << "\n";);
             // Add assumptions.
             if (g.dep(idx)) {
-                expr_dependency * dep = g.dep(idx);
                 deps.reset();
-                m.linearize(dep, deps);
+                fmls.reset();
+                m.linearize(g.dep(idx), deps);
+                fmls.push_back(f);
                 for (unsigned i = 0; i < deps.size(); ++i) {
                     expr * d = deps[i];
                     expr * d1;
                     SASSERT(m.is_bool(d));
-                    if (is_uninterp_const(d)) {
-                        add_assumption(d, d);
-                    }
-                    else if (m.is_not(d, d1) && is_uninterp_const(d1)) {
-                        add_assumption(d, d);
+                    if (m.is_not(d, d1)) {
+                        insert_dep(d1, true);
+                        fmls.push_back(d1);
                     }
                     else {
-                        // create fresh variable, map back to dependency.
-                        add_assumption(d, d_new);
+                        insert_dep(d, false);
+                        fmls.push_back(m.mk_not(d));
                     }
                 }
+                f = m.mk_or(fmls.size(), fmls.c_ptr());
+                TRACE("sat", tout << mk_pp(f, m) << "\n";);
             }
             process(f);
         }
@@ -465,8 +486,8 @@ struct goal2sat::scoped_set_imp {
     }
 };
 
-void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m) {
-    imp proc(g.m(), p, t, m);
+void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm) {
+    imp proc(g.m(), p, t, m, dep2asm);
     scoped_set_imp set(this, &proc);
     proc(g);
 }

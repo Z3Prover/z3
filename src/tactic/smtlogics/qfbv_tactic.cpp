@@ -105,7 +105,7 @@ tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tacti
                                   cond(mk_is_qfbv_probe(),
                                        cond(mk_is_qfbv_eq_probe(),
                                             and_then(mk_bv1_blaster_tactic(m),
-                                                     using_params(smt, solver_p)),
+                                                     using_params(sat, solver_p)),
                                             and_then(mk_bit_blaster_tactic(m),
                                                      when(mk_lt(mk_memory_probe(), mk_const_probe(MEMLIMIT)),
                                                           and_then(using_params(and_then(mk_simplify_tactic(m),
@@ -126,7 +126,7 @@ tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tacti
 
 tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
 
-    tactic * new_sat = cond(mk_or(mk_produce_proofs_probe(), mk_produce_unsat_cores_probe()),
+    tactic * new_sat = cond(mk_produce_proofs_probe(),
                             and_then(mk_simplify_tactic(m), mk_smt_tactic()),
                             mk_sat_tactic(m));
     

@@ -52,7 +52,9 @@ class sat_tactic : public tactic {
             g->elim_redundancies();
 
             atom2bool_var map(m);
-            m_goal2sat(*g, m_params, m_solver, map);
+            obj_map<expr, sat::literal> dep2asm;
+            sat::literal_vector assumptions;
+            m_goal2sat(*g, m_params, m_solver, map, dep2asm);
             TRACE("sat_solver_unknown", tout << "interpreted_atoms: " << map.interpreted_atoms() << "\n";
                   atom2bool_var::iterator it  = map.begin();
                   atom2bool_var::iterator end = map.end();
@@ -66,10 +68,21 @@ class sat_tactic : public tactic {
             CASSERT("sat_solver", m_solver.check_invariant());
             IF_VERBOSE(TACTIC_VERBOSITY_LVL, m_solver.display_status(verbose_stream()););
             TRACE("sat_dimacs", m_solver.display_dimacs(tout););
-
-            lbool r = m_solver.check();
+            dep2assumptions(dep2asm, assumptions);
+            lbool r = m_solver.check(assumptions.size(), assumptions.c_ptr());
             if (r == l_false) {
-                g->assert_expr(m.mk_false(), 0, 0);
+                expr_dependency * lcore = 0;
+                if (produce_core) {
+                    sat::literal_vector const& core = m_solver.get_core();
+                    u_map<expr*> asm2dep;
+                    mk_asm2dep(dep2asm, asm2dep);
+                    for (unsigned i = 0; i < core.size(); ++i) {
+                        sat::literal lit = core[i];
+                        expr* dep = asm2dep.find(lit.index());
+                        lcore = m.mk_join(lcore, m.mk_leaf(dep));                        
+                    }
+                }
+                g->assert_expr(m.mk_false(), 0, lcore);
             }
             else if (r == l_true && !map.interpreted_atoms()) {
                 // register model
@@ -114,6 +127,22 @@ class sat_tactic : public tactic {
             m_goal2sat.set_cancel(f);
             m_sat2goal.set_cancel(f);
             m_solver.set_cancel(f);
+        }
+
+        void dep2assumptions(obj_map<expr, sat::literal>& dep2asm, 
+                             sat::literal_vector& assumptions) {
+            obj_map<expr, sat::literal>::iterator it = dep2asm.begin(), end = dep2asm.end();
+            for (; it != end; ++it) {
+                assumptions.push_back(it->m_value);
+            }
+        }
+
+        void mk_asm2dep(obj_map<expr, sat::literal>& dep2asm,
+                        u_map<expr*>& lit2asm) {
+            obj_map<expr, sat::literal>::iterator it = dep2asm.begin(), end = dep2asm.end();
+            for (; it != end; ++it) {
+                lit2asm.insert(it->m_value.index(), it->m_key);
+            }
         }
     };
     

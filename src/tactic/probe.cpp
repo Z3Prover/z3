@@ -289,7 +289,6 @@ struct is_non_qfbv_predicate {
             return;
         if (is_uninterp_const(n))
             return;
-
         throw found();
     }
 };

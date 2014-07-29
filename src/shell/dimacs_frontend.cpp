@@ -155,7 +155,6 @@ unsigned read_dimacs(char const * file_name) {
         g_solver = &solver2;        
         sat::literal_vector assumptions;
         track_clauses(solver, solver2, assumptions, tracking_clauses);
-        solver2.display(std::cout);
         r = g_solver->check(assumptions.size(), assumptions.c_ptr());
     }
     else {

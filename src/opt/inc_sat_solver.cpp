@@ -62,6 +62,7 @@ public:
         proof_converter_ref pc;   
         model_converter_ref mc;   
         expr_dependency_ref core(m);
+        obj_map<expr, sat::literal> dep2asm;
         
         if (!m_fmls.empty()) {                  
             goal_ref g = alloc(goal, m);
@@ -86,7 +87,7 @@ public:
             }
             g = result[0];
             TRACE("opt", g->display(tout););
-            m_goal2sat(*g, m_params, m_solver, m_map);
+            m_goal2sat(*g, m_params, m_solver, m_map, dep2asm);
         }
         
         lbool r = m_solver.check();
