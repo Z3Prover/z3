@@ -219,6 +219,7 @@ int main(int argc, char ** argv) {
     TST(sorting_network);
     TST(theory_pb);
     TST(simplex);
+    TST(sat_user_scope);
     //TST_ARGV(hs);
 }
 

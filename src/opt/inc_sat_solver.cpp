@@ -57,7 +57,7 @@ public:
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
         SASSERT(num_assumptions == 0);
         
-        m_solver.pop(m_solver.scope_lvl());        
+        m_solver.pop_to_base_level();
         goal_ref_buffer result;
         proof_converter_ref pc;   
         model_converter_ref mc;   
@@ -128,13 +128,13 @@ public:
         m_preprocess->set_cancel(f);
     }
     virtual void push() {
-        IF_VERBOSE(0, verbose_stream() << "push ignored\n";);
+        m_solver.user_push();
     }
     virtual void pop(unsigned n) {
-        IF_VERBOSE(0, verbose_stream() << "pop ignored\n";);
+        m_solver.user_pop(n);
     }
     virtual unsigned get_scope_level() const {
-        return 0;
+        return m_solver.scope_lvl();
     }
     virtual void assert_expr(expr * t, expr * a) {
         if (a) {

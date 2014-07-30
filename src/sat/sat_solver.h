@@ -224,6 +224,7 @@ namespace sat {
             if (m_cancel) throw solver_exception(Z3_CANCELED_MSG);
             if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
+        typedef std::pair<literal, literal> bin_clause;
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }
         watch_list const & get_wlist(literal l) const { return m_watches[l.index()]; }
@@ -350,13 +351,21 @@ namespace sat {
         //
         // -----------------------
         void push();
-    public:
         void pop(unsigned num_scopes);
 
-    protected:
         void unassign_vars(unsigned old_sz);
         void reinit_clauses(unsigned old_sz);
 
+        literal_vector m_user_scope_literals;
+        literal_vector m_user_scope_literal_pool;
+        literal_vector m_aux_literals;
+        svector<bin_clause> m_user_bin_clauses;
+        void gc_lit(clause_vector& clauses, literal lit);
+        void gc_bin(bool learned, literal nlit);
+    public:
+        void user_push();
+        void user_pop(unsigned num_scopes);
+        void pop_to_base_level();
         // -----------------------
         //
         // Simplification
@@ -400,7 +409,6 @@ namespace sat {
         clause * const * end_clauses() const { return m_clauses.end(); }
         clause * const * begin_learned() const { return m_learned.begin(); }
         clause * const * end_learned() const { return m_learned.end(); }
-        typedef std::pair<literal, literal> bin_clause;
         void collect_bin_clauses(svector<bin_clause> & r, bool learned) const;
 
         // -----------------------

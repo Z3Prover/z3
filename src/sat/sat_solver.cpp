@@ -140,7 +140,16 @@ namespace sat {
             for (unsigned i = 0; i < num_lits; i++)
                 SASSERT(m_eliminated[lits[i].var()] == false);
         });
-        mk_clause_core(num_lits, lits, false);
+        
+        if (m_user_scope_literals.empty()) {
+            mk_clause_core(num_lits, lits, false);
+        }
+        else {
+            m_aux_literals.reset();
+            m_aux_literals.append(num_lits, lits);
+            m_aux_literals.append(m_user_scope_literals);
+            mk_clause_core(m_aux_literals.size(), m_aux_literals.c_ptr(), false);
+        }
     }
 
     void solver::mk_clause(literal l1, literal l2) {
@@ -686,6 +695,7 @@ namespace sat {
     //
     // -----------------------
     lbool solver::check(unsigned num_lits, literal const* lits) {
+        pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver using the efficient SAT solver)\n";);
         SASSERT(scope_lvl() == 0);
 #ifdef CLONE_BEFORE_SOLVING
@@ -716,7 +726,7 @@ namespace sat {
                 m_restart_threshold       = m_config.m_restart_initial;
             }
 
-            // iff3_finder(*this)();
+            // iff3_finder(*this)();            
             simplify_problem();
 
             if (inconsistent()) return l_false;
@@ -858,18 +868,27 @@ namespace sat {
     }
 
     void solver::init_assumptions(unsigned num_lits, literal const* lits) {
-        if (num_lits == 0) {
+        if (num_lits == 0 && m_user_scope_literals.empty()) {
             return;
         }
-        push();
         m_assumptions.reset();
-        m_assumption_set.reset();
+        m_assumption_set.reset();        
+        push();
+
+        TRACE("sat", display(tout););
+#define _INSERT_LIT(_l_)                     \
+        SASSERT(is_external((_l_).var()));   \
+        m_assumption_set.insert(_l_);        \
+        m_assumptions.push_back(_l_);        \
+        mk_clause_core(1, &(_l_), false);    \
+
         for (unsigned i = 0; i < num_lits; ++i) {
-            literal l = lits[i];
-            SASSERT(is_external(l.var()));
-            m_assumption_set.insert(l);
-            m_assumptions.push_back(l);
-            mk_clause(1, &l); 
+            literal lit = lits[i];
+            _INSERT_LIT(lit);
+        }
+        for (unsigned i = 0; i < m_user_scope_literals.size(); ++i) {
+            literal nlit = ~m_user_scope_literals[i];
+            _INSERT_LIT(nlit);
         }
         TRACE("sat", display(tout););
     }
@@ -879,7 +898,7 @@ namespace sat {
             push();
             for (unsigned i = 0; i < m_assumptions.size(); ++i) {
                 literal l = m_assumptions[i];
-                mk_clause(1, &l); 
+                mk_clause_core(1, &l, false); 
             }
         }
     }
@@ -911,6 +930,12 @@ namespace sat {
        \brief Apply all simplifications.
     */
     void solver::simplify_problem() {
+
+        if (tracking_assumptions()) {
+            // NB. simplification is disabled when tracking assumptions.
+            return;
+        }
+
         SASSERT(scope_lvl() == 0);
 
         m_cleaner();
@@ -2108,6 +2133,71 @@ namespace sat {
             }
         }
         m_clauses_to_reinit.shrink(j);
+    }
+
+    // 
+    // All new clauses that are added to the solver
+    // are relative to the user-scope literals.
+    // 
+
+    void solver::user_push() {
+        literal lit;
+        if (m_user_scope_literal_pool.empty()) {
+            bool_var new_v = mk_var(true, false);
+            lit = literal(new_v, false);
+        }
+        else {
+            lit = m_user_scope_literal_pool.back();
+            m_user_scope_literal_pool.pop_back();
+        }
+        m_user_scope_literals.push_back(lit);
+    }
+
+    void solver::gc_lit(clause_vector &clauses, literal lit) {
+        unsigned j = 0;
+        for (unsigned i = 0; i < clauses.size(); ++i) {
+            clause & c = *(clauses[i]);
+            if (c.contains(lit)) {
+                dettach_clause(c);
+                del_clause(c);
+            }
+            else {
+                clauses[j] = &c;
+                ++j;
+            }
+        }
+        clauses.shrink(j);
+    }
+
+    void solver::gc_bin(bool learned, literal nlit) {
+        m_user_bin_clauses.reset();
+        collect_bin_clauses(m_user_bin_clauses, learned);
+        for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
+            literal l1 = m_user_bin_clauses[i].first;
+            literal l2 = m_user_bin_clauses[i].second;
+            if (nlit == l1 || nlit == l2) {
+                dettach_bin_clause(l1, l2, learned);
+            }
+        }
+    }
+
+    void solver::user_pop(unsigned num_scopes) {
+        pop_to_base_level();
+        while (num_scopes > 0) {
+            literal lit = m_user_scope_literals.back();
+            m_user_scope_literal_pool.push_back(lit);   
+            m_user_scope_literals.pop_back();
+            gc_lit(m_learned, lit);
+            gc_lit(m_clauses, lit);
+            gc_bin(true, lit);
+            gc_bin(false, lit);
+            TRACE("sat", tout << "gc: " << lit << "\n"; display(tout););
+            --num_scopes;
+        }
+    }
+
+    void solver::pop_to_base_level() {
+        pop(scope_lvl());
     }
 
     // -----------------------
