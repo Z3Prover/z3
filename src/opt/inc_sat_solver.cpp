@@ -11,6 +11,7 @@
 #include "bit_blaster_tactic.h"
 #include "simplify_tactic.h"
 #include "goal2sat.h"
+#include "ast_pp.h"
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
@@ -78,11 +79,10 @@ public:
             for (unsigned i = 0; i < num_assumptions; ++i) {
                 g->assert_expr(assumptions[i], m.mk_leaf(assumptions[i]));
             }
-            TRACE("opt", g->display(tout););
+            TRACE("opt", g->display_with_dependencies(tout););
             m_fmls.reset();
             try {                   
                 (*m_preprocess)(g, result, mc, pc, core);
-                TRACE("opt", result[0]->display(tout););
             }
             catch (tactic_exception & ex) {
                 IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
@@ -95,7 +95,7 @@ public:
                 return l_undef;
             }
             g = result[0];
-            TRACE("opt", g->display(tout););
+            TRACE("opt", g->display_with_dependencies(tout););
             m_goal2sat(*g, m_params, m_solver, m_map, dep2asm);
         }
         
@@ -185,8 +185,24 @@ private:
             asm2dep.insert(it->m_value.index(), it->m_key);
         }
         sat::literal_vector const& core = m_solver.get_core();
+
+        TRACE("opt",
+              dep2asm_t::iterator it = dep2asm.begin();
+              dep2asm_t::iterator end = dep2asm.end();
+              for (; it != end; ++it) {
+                  tout << mk_pp(it->m_key, m) << " |-> " << it->m_value << "\n";
+              }
+              tout << "core: ";
+              for (unsigned i = 0; i < core.size(); ++i) {
+                  tout << core[i] << " ";
+              }
+              tout << "\n";
+              );              
+
         for (unsigned i = 0; i < core.size(); ++i) {
-            m_core.push_back(asm2dep.find(core[i].index()));
+            expr* e;
+            if (asm2dep.find(core[i].index(), e))
+                m_core.push_back(e);
         }
     }
 

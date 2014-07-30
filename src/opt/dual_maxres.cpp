@@ -134,7 +134,7 @@ public:
                 case l_undef:
                     break;
                 case l_false:
-                    is_sat = get_cores(soft_compl, cores);
+                    is_sat = get_cores(cores);
                     for (unsigned i = 0; is_sat == l_true && i < cores.size(); ++i) {
                         is_sat = process_unsat(cores[i]);
                     }
@@ -177,57 +177,61 @@ public:
     // TBD: when the remaining are satisfiable, then extend the
     // satisfying model to improve upper bound.
     // 
-    lbool get_cores(ptr_vector<expr>& core, vector<ptr_vector<expr> >& cores) {
-        // assume 'core' is minimal.
+    lbool get_cores(vector<ptr_vector<expr> >& cores) {
+        // assume m_s is unsat.
+        lbool is_sat = l_false;
         expr_ref_vector asms(m);
         asms.append(m_asms.size(), m_asms.c_ptr());
-        remove_soft(core, asms);
         cores.reset();
-        cores.push_back(core);        
-        ptr_vector<expr> new_core;
-        while (true) {
-            lbool is_sat = m_s->check_sat(asms.size(), asms.c_ptr());
-            switch (is_sat) {
-            case l_false:
-                new_core.reset();
-                m_s->get_unsat_core(new_core);
-                switch (minimize_core(new_core)) {
-                case l_false:
-                    return l_false;
-                case l_true:
-                    cores.push_back(new_core);
-                    remove_soft(new_core, asms);
-                    break;
-                default:
-                    return l_undef;
-                }
+        ptr_vector<expr> core;
+        while (is_sat == l_false) {
+            core.reset();
+            m_s->get_unsat_core(core);
+            is_sat = minimize_core(core);
+            if (is_sat != l_true) {
                 break;
-            case l_true:
-                TRACE("opt", 
-                      tout << "num cores: " << cores.size() << "\n";
-                      tout << "num satisfying: " << asms.size() << "\n";);
-                return l_true;
-            default:
-                return l_undef;
             }
-        }        
+            cores.push_back(core);
+            break;
+            // 
+            // TBD: multiple core refinement 
+            // produces unsound results.
+            // what is a sound variant?
+            // 
+            remove_soft(core, asms);
+            is_sat = m_s->check_sat(asms.size(), asms.c_ptr());
+            
+        }
+        TRACE("opt", 
+              tout << "num cores: " << cores.size() << "\n";
+              for (unsigned i = 0; i < cores.size(); ++i) {
+                  for (unsigned j = 0; j < cores[i].size(); ++j) {
+                      tout << mk_pp(cores[i][j], m) << " ";
+                  }
+                  tout << "\n";
+              }
+              tout << "num satisfying: " << asms.size() << "\n";);
+        
+        return is_sat;
     }
 
     lbool process_unsat(ptr_vector<expr>& core) {
         expr_ref fml(m);
-        TRACE("opt", display_vec(tout << "core: ", core.size(), core.c_ptr()););
         SASSERT(!core.empty());
         if (core.empty()) {
             return l_false;
         }
         remove_soft(core);
         rational w = split_soft(core);
-        TRACE("opt", display_vec(tout << "minimized core: ", core.size(), core.c_ptr()););
+        TRACE("opt", display_vec(tout << "core: ", core.size(), core.c_ptr());
+              for (unsigned i = 0; i < core.size(); ++i) {
+                  tout << get_weight(core[i]) << " ";
+              }
+              tout << "min-weight: " << w << "\n";);
         max_resolve(core, w);
-        m_lower += w;
+        m_lower += w;        
         IF_VERBOSE(1, verbose_stream() << 
                    "(opt.dual_max_res [" << m_lower << ":" << m_upper << "])\n";);
-
         return l_true;
     }
 
@@ -261,9 +265,7 @@ public:
                 switch (is_sat) {
                 case l_false:
                     if (num_true*2 < m_asms.size()) {
-                        soft_compl.reset();
-                        m_s->get_unsat_core(soft_compl);
-                        return minimize_core(soft_compl);        
+                        return l_false;
                     }
                     break;
                 case l_true:

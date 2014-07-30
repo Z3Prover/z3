@@ -198,7 +198,7 @@ public:
             m_rw1(g->form(idx), new_f1);
             TRACE("card2bv", tout << "Rewriting " << mk_ismt2_pp(new_f1.get(), m) << std::endl;);
             m_rw2(new_f1, new_f2);
-            g->update(idx, new_f2);
+            g->update(idx, new_f2, g->pr(idx), g->dep(idx));
         }
 
         g->inc_depth();

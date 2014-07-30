@@ -129,7 +129,7 @@ struct mus::imp {
             add_core(core, assumptions);
             lbool is_sat = m_s->check_sat(assumptions.size(), assumptions.c_ptr());
             assumptions.resize(sz);
-            switch(is_sat) {
+            switch (is_sat) {
             case l_undef: 
                 return is_sat;
             case l_true:
@@ -160,6 +160,14 @@ struct mus::imp {
                 break;
             }
         }
+        DEBUG_CODE(
+            assumptions.reset();
+            for (unsigned i = 0; i < mus.size(); ++i) {
+                assumptions.push_back(m_cls2expr[mus[i]].get());
+            }
+            lbool is_sat = m_s->check_sat(assumptions.size(), assumptions.c_ptr());
+            SASSERT(is_sat == l_false);
+                   );
         return l_true;
     }
 

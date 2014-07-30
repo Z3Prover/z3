@@ -2141,6 +2141,9 @@ namespace sat {
     // 
 
     void solver::user_push() {
+        if (m_level.size() == 0) {
+            return;
+        }
         literal lit;
         if (m_user_scope_literal_pool.empty()) {
             bool_var new_v = mk_var(true, false);
@@ -2183,7 +2186,7 @@ namespace sat {
 
     void solver::user_pop(unsigned num_scopes) {
         pop_to_base_level();
-        while (num_scopes > 0) {
+        while (num_scopes > 0 && !m_user_scope_literals.empty()) {
             literal lit = m_user_scope_literals.back();
             m_user_scope_literal_pool.push_back(lit);   
             m_user_scope_literals.pop_back();
