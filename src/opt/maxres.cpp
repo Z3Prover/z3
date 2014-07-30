@@ -90,6 +90,7 @@ public:
         solver::scoped_push _sc(*m_s.get());
         init();
         init_local();
+        enable_bvsat();
         while (true) {
             TRACE("opt", 
                   display_vec(tout, m_asms.size(), m_asms.c_ptr());

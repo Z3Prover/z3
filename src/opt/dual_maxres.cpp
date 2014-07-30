@@ -111,8 +111,11 @@ public:
         solver::scoped_push _sc(*m_s.get());
         init();
         init_local();
+        enable_bvsat();
+        enable_sls();
         lbool was_sat = l_false;
         ptr_vector<expr> soft_compl;
+        vector<ptr_vector<expr> > cores;
         while (m_lower < m_upper) {            
             TRACE("opt", 
                   display_vec(tout, m_asms.size(), m_asms.c_ptr());
@@ -131,7 +134,10 @@ public:
                 case l_undef:
                     break;
                 case l_false:
-                    is_sat = process_unsat(soft_compl);
+                    is_sat = get_cores(soft_compl, cores);
+                    for (unsigned i = 0; is_sat == l_true && i < cores.size(); ++i) {
+                        is_sat = process_unsat(cores[i]);
+                    }
                     break;
                 case l_true:
                     is_sat = process_sat(soft_compl);
@@ -166,17 +172,53 @@ public:
         return l_true;
     }
 
+    // 
+    // Retrieve a set of disjoint cores over the current assumptions.
+    // TBD: when the remaining are satisfiable, then extend the
+    // satisfying model to improve upper bound.
+    // 
+    lbool get_cores(ptr_vector<expr>& core, vector<ptr_vector<expr> >& cores) {
+        // assume 'core' is minimal.
+        expr_ref_vector asms(m);
+        asms.append(m_asms.size(), m_asms.c_ptr());
+        remove_soft(core, asms);
+        cores.reset();
+        cores.push_back(core);        
+        ptr_vector<expr> new_core;
+        while (true) {
+            lbool is_sat = m_s->check_sat(asms.size(), asms.c_ptr());
+            switch (is_sat) {
+            case l_false:
+                new_core.reset();
+                m_s->get_unsat_core(new_core);
+                switch (minimize_core(new_core)) {
+                case l_false:
+                    return l_false;
+                case l_true:
+                    cores.push_back(new_core);
+                    remove_soft(new_core, asms);
+                    break;
+                default:
+                    return l_undef;
+                }
+                break;
+            case l_true:
+                TRACE("opt", 
+                      tout << "num cores: " << cores.size() << "\n";
+                      tout << "num satisfying: " << asms.size() << "\n";);
+                return l_true;
+            default:
+                return l_undef;
+            }
+        }        
+    }
+
     lbool process_unsat(ptr_vector<expr>& core) {
         expr_ref fml(m);
         TRACE("opt", display_vec(tout << "core: ", core.size(), core.c_ptr()););
         SASSERT(!core.empty());
-        lbool is_sat = minimize_core(core);
-        SASSERT(!core.empty());
         if (core.empty()) {
             return l_false;
-        }
-        if (is_sat != l_true) {
-            return is_sat;
         }
         remove_soft(core);
         rational w = split_soft(core);
@@ -186,7 +228,7 @@ public:
         IF_VERBOSE(1, verbose_stream() << 
                    "(opt.dual_max_res [" << m_lower << ":" << m_upper << "])\n";);
 
-        return is_sat;
+        return l_true;
     }
 
     //
@@ -221,7 +263,7 @@ public:
                     if (num_true*2 < m_asms.size()) {
                         soft_compl.reset();
                         m_s->get_unsat_core(soft_compl);
-                        return l_false;
+                        return minimize_core(soft_compl);        
                     }
                     break;
                 case l_true:
@@ -394,14 +436,18 @@ public:
         m_s->assert_expr(fml);
     }
 
-    void remove_soft(ptr_vector<expr> const& soft) {
-        for (unsigned i = 0; i < m_asms.size(); ++i) {
-            if (soft.contains(m_asms[i].get())) {
-                m_asms[i] = m_asms.back();
-                m_asms.pop_back();
+    void remove_soft(ptr_vector<expr> const& soft, expr_ref_vector& asms) {
+        for (unsigned i = 0; i < asms.size(); ++i) {
+            if (soft.contains(asms[i].get())) {
+                asms[i] = asms.back();
+                asms.pop_back();
                 --i;
             }
         }
+    }
+
+    void remove_soft(ptr_vector<expr> const& soft) {
+        remove_soft(soft, m_asms);
     }
 
     virtual void set_cancel(bool f) {
