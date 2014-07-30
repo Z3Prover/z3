@@ -41,7 +41,7 @@ Notes:
 #include "uint_set.h"
 #include "opt_sls_solver.h"
 #include "pb_preprocess_tactic.h"
-
+#include "inc_sat_solver.h"
 
 
 namespace opt {
@@ -129,20 +129,29 @@ namespace opt {
         return true;
     }
 
+    void maxsmt_solver_base::enable_inc_bvsat() {
+
+    }
+
+    void maxsmt_solver_base::enable_noninc_bvsat() {
+        tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
+        tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
+        tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
+        solver* sat_solver = mk_tactic2solver(m, tac.get(), m_params);
+        unsigned sz = s().get_num_assertions();
+        for (unsigned i = 0; i < sz; ++i) {
+            sat_solver->assert_expr(s().get_assertion(i));
+        }   
+        unsigned lvl = m_s->get_scope_level();
+        while (lvl > 0) { sat_solver->push(); --lvl; }
+        m_s = sat_solver;
+        m_sat_enabled = true;
+    }
+
+
     void maxsmt_solver_base::enable_bvsat()  {
         if (m_enable_sat && !m_sat_enabled && probe_bv()) {
-            tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
-            tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
-            tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
-            solver* sat_solver = mk_tactic2solver(m, tac.get(), m_params);
-            unsigned sz = s().get_num_assertions();
-            for (unsigned i = 0; i < sz; ++i) {
-                sat_solver->assert_expr(s().get_assertion(i));
-            }   
-            unsigned lvl = m_s->get_scope_level();
-            while (lvl > 0) { sat_solver->push(); --lvl; }
-            m_s = sat_solver;
-            m_sat_enabled = true;
+            enable_noninc_bvsat();
         }
     }
 

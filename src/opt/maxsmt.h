@@ -97,6 +97,9 @@ namespace opt {
         void enable_bvsat();
         void enable_sls();
         app* mk_fresh_bool(char const* name);
+    private:
+        void enable_inc_bvsat();
+        void enable_noninc_bvsat();
     };
 
     /**

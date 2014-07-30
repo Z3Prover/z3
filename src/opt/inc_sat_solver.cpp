@@ -19,15 +19,20 @@ class inc_sat_solver : public solver {
     goal2sat        m_goal2sat;
     params_ref      m_params;
     expr_ref_vector m_fmls;
+    expr_ref_vector m_core;
     atom2bool_var   m_map;
     model_ref       m_model;
     model_converter_ref m_mc;   
     tactic_ref      m_preprocess;
     statistics      m_stats;
+    unsigned        m_num_scopes;
+
+    typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
         m(m), m_solver(p,0), m_params(p),
-        m_fmls(m), m_map(m) {
+        m_fmls(m), m_core(m), m_map(m),
+        m_num_scopes(0) {
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
         params_ref simp2_p = p;
@@ -54,20 +59,24 @@ public:
     
     virtual void set_progress_callback(progress_callback * callback) {
     }
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
-        SASSERT(num_assumptions == 0);
-        
+    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {        
         m_solver.pop_to_base_level();
         goal_ref_buffer result;
         proof_converter_ref pc;   
         model_converter_ref mc;   
         expr_dependency_ref core(m);
-        obj_map<expr, sat::literal> dep2asm;
+        dep2asm_t dep2asm;
         
-        if (!m_fmls.empty()) {                  
-            goal_ref g = alloc(goal, m);
+        if (!m_fmls.empty() || num_assumptions > 0) {                  
+            goal_ref g = alloc(goal, m, true, num_assumptions > 0); // models, maybe cores are enabled
+            SASSERT(num_assumptions == 0 || g->unsat_core_enabled());
+            SASSERT(g->models_enabled());
+            SASSERT(!g->proofs_enabled());
             for (unsigned i = 0; i < m_fmls.size(); ++i) {
                 g->assert_expr(m_fmls[i].get());
+            }
+            for (unsigned i = 0; i < num_assumptions; ++i) {
+                g->assert_expr(assumptions[i], m.mk_leaf(assumptions[i]));
             }
             TRACE("opt", g->display(tout););
             m_fmls.reset();
@@ -91,33 +100,18 @@ public:
         }
         
         lbool r = m_solver.check();
-        if (r == l_true) {
-            model_ref md = alloc(model, m);
-            sat::model const & ll_m = m_solver.get_model();
-            atom2bool_var::iterator it  = m_map.begin();
-            atom2bool_var::iterator end = m_map.end();
-            for (; it != end; ++it) {
-                expr * n   = it->m_key;
-                if (is_app(n) && to_app(n)->get_num_args() > 0) {
-                    continue;
-                }
-                sat::bool_var v = it->m_value;
-                switch (sat::value_at(v, ll_m)) {
-                case l_true: 
-                    md->register_decl(to_app(n)->get_decl(), m.mk_true()); 
-                    break;
-                case l_false:
-                    md->register_decl(to_app(n)->get_decl(), m.mk_false());
-                    break;
-                default:
-                    break;
-                }
+        switch (r) {
+        case l_true:
+            extract_model();
+            break;
+        case l_false:
+            // TBD: expr_dependency core is not accounted for.
+            if (num_assumptions > 0) {
+                extract_core(dep2asm);
             }
-            m_model = md;
-            if (m_mc) {
-                (*m_mc)(m_model);
-            }
-            // IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *(m_model.get()), 0););
+            break;
+        default:
+            break;
         }
         m_solver.collect_statistics(m_stats);
         return r;
@@ -129,12 +123,15 @@ public:
     }
     virtual void push() {
         m_solver.user_push();
+        ++m_num_scopes;
     }
     virtual void pop(unsigned n) {
+        SASSERT(n >= m_num_scopes);
         m_solver.user_pop(n);
+        m_num_scopes -= n;
     }
     virtual unsigned get_scope_level() const {
-        return m_solver.scope_lvl();
+        return m_num_scopes;
     }
     virtual void assert_expr(expr * t, expr * a) {
         if (a) {
@@ -162,7 +159,8 @@ public:
         st.copy(m_stats);
     }
     virtual void get_unsat_core(ptr_vector<expr> & r) {
-        UNREACHABLE();
+        r.reset();
+        r.append(m_core.size(), m_core.c_ptr());
     }
     virtual void get_model(model_ref & m) {
         m = m_model;
@@ -177,7 +175,50 @@ public:
     virtual void get_labels(svector<symbol> & r) {
         UNREACHABLE();
     }
-    
+
+private:
+
+    void extract_core(dep2asm_t& dep2asm) {
+        u_map<expr*> asm2dep;
+        dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
+        for (; it != end; ++it) {
+            asm2dep.insert(it->m_value.index(), it->m_key);
+        }
+        sat::literal_vector const& core = m_solver.get_core();
+        for (unsigned i = 0; i < core.size(); ++i) {
+            m_core.push_back(asm2dep.find(core[i].index()));
+        }
+    }
+
+    void extract_model() {
+        model_ref md = alloc(model, m);
+        sat::model const & ll_m = m_solver.get_model();
+        atom2bool_var::iterator it  = m_map.begin();
+        atom2bool_var::iterator end = m_map.end();
+        for (; it != end; ++it) {
+            expr * n   = it->m_key;
+            if (is_app(n) && to_app(n)->get_num_args() > 0) {
+                continue;
+            }
+            sat::bool_var v = it->m_value;
+            switch (sat::value_at(v, ll_m)) {
+            case l_true: 
+                md->register_decl(to_app(n)->get_decl(), m.mk_true()); 
+                break;
+            case l_false:
+                md->register_decl(to_app(n)->get_decl(), m.mk_false());
+                break;
+            default:
+                break;
+            }
+        }
+        m_model = md;
+        if (m_mc) {
+            (*m_mc)(m_model);
+        }
+        // IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *(m_model.get()), 0););
+
+    }
 };
 
 solver* mk_inc_sat_solver(ast_manager& m, params_ref& p) {
