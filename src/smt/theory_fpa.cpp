@@ -122,7 +122,7 @@ namespace smt {
 
         m_rw(term, t);
 
-        if (m_converter.is_rm_sort(term_sort)) {            
+        if (m_converter.is_rm(term_sort)) {            
             SASSERT(is_app(t));
             expr_ref bv_rm(m);
             proof_ref bv_pr(m);
@@ -183,7 +183,7 @@ namespace smt {
             m_rw(owner, converted);
             m_trans_map.insert(owner, converted, 0);
             
-            if (m_converter.is_rm_sort(m.get_sort(owner))) {
+            if (m_converter.is_rm(m.get_sort(owner))) {
                 mk_eq_bv_const(converted);
             }
             else {

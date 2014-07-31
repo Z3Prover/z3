@@ -221,7 +221,7 @@ public:
 
     app * mk_value(mpf const & v) { return m_plugin->mk_value(v); }
     bool is_value(expr * n) { return m_plugin->is_value(n); }
-    bool is_value(expr * n, mpf & v) { return m_plugin->is_value(n, v); }     
+    bool is_value(expr * n, mpf & v) { return m_plugin->is_value(n, v); }
     bool is_rm_value(expr * n, mpf_rounding_mode & v) { return m_plugin->is_rm_value(n, v); }
 
     app * mk_pzero(unsigned ebits, unsigned sbits);
