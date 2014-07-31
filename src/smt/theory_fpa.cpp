@@ -51,32 +51,36 @@ namespace smt {
 
     void theory_fpa::mk_bv_eq(expr * x, expr * y) {
         SASSERT(get_sort(x)->get_family_id() == m_converter.bu().get_family_id());
+        SASSERT(get_sort(y)->get_family_id() == m_converter.bu().get_family_id());
         ast_manager & m = get_manager();
         context & ctx = get_context();  
         theory_id bv_tid = ctx.get_theory(m.get_sort(x)->get_family_id())->get_id();
-        literal l = mk_eq(x, y, false);        
-        ctx.mk_th_axiom(get_id(), 1, &l);
+        literal l = mk_eq(x, y, false);
+        ctx.mk_th_axiom(bv_tid, 1, &l);
         ctx.mark_as_relevant(l);
     }
 
-    expr_ref theory_fpa::mk_eq_bv_const(expr_ref const & e) {
+    app_ref theory_fpa::mk_eq_bv_const(expr_ref const & e) {
         ast_manager & m = get_manager();
         context & ctx = get_context();
-        expr_ref bv_const(m);
-        bv_const = m.mk_fresh_const(0, m.get_sort(e));
+        app_ref bv_const(m);
+        bv_const = m.mk_fresh_const(0, m.get_sort(e));        
         mk_bv_eq(bv_const, e);
         return bv_const;
     }
 
     bool theory_fpa::internalize_atom(app * atom, bool gate_ctx) {
         TRACE("t_fpa", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << "\n";);
-        SASSERT(atom->get_family_id() == get_family_id());
+        SASSERT(atom->get_family_id() == get_family_id());        
 
         ast_manager & m = get_manager();
         context & ctx = get_context();
         simplifier & simp = ctx.get_simplifier();
         bv_util & bu = m_converter.bu();        
         expr_ref bv_atom(m);
+
+        if (ctx.b_internalized(atom))
+            return true;
 
         unsigned num_args = atom->get_num_args();
         for (unsigned i = 0; i < num_args; i++)
@@ -104,7 +108,7 @@ namespace smt {
         TRACE("t_fpa", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << "\n";);
         SASSERT(term->get_family_id() == get_family_id());
         SASSERT(!get_context().e_internalized(term));
-
+        
         ast_manager & m = get_manager();
         context & ctx = get_context();
         simplifier & simp = ctx.get_simplifier();
@@ -135,9 +139,9 @@ namespace smt {
             simp(a->get_arg(1), sig, pr_sig);
             simp(a->get_arg(2), exp, pr_exp);
 
-            expr_ref bv_v_sgn = mk_eq_bv_const(sgn);
-            expr_ref bv_v_sig = mk_eq_bv_const(sig);
-            expr_ref bv_v_exp = mk_eq_bv_const(exp);
+            app_ref bv_v_sgn = mk_eq_bv_const(sgn);
+            app_ref bv_v_sig = mk_eq_bv_const(sig);
+            app_ref bv_v_exp = mk_eq_bv_const(exp);
 
             m_converter.mk_triple(bv_v_sgn, bv_v_sig, bv_v_exp, bv_term);
         }
@@ -157,7 +161,7 @@ namespace smt {
         SASSERT(!m_trans_map.contains(term));
         m_trans_map.insert(term, bv_term, 0);
 
-        enode * e = ctx.mk_enode(term, false, false, true);        
+        enode * e = (ctx.e_internalized(term)) ? ctx.get_enode(term) : ctx.mk_enode(term, false, false, true);
         theory_var v = mk_var(e);
         ctx.attach_th_var(e, this, v);
         TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(term, get_manager()) << " := " << v << "\n";);
@@ -224,7 +228,7 @@ namespace smt {
         else if (m_converter.fu().is_rm(m.get_sort(get_enode(x)->get_owner()))) {
             mk_bv_eq(ex, ey);
         }
-        else
+        else 
             UNREACHABLE();
     }
 
@@ -253,7 +257,7 @@ namespace smt {
                           m.mk_not(m.mk_eq(exp_x, exp_y)));            
         } 
         else if (m_converter.fu().is_rm(m.get_sort(get_enode(x)->get_owner()))) {
-            deq = m.mk_not(m.mk_eq(ex, ey));            
+            deq = m.mk_not(m.mk_eq(ex, ey));
         }
         else
             UNREACHABLE();
@@ -281,7 +285,7 @@ namespace smt {
         mpf_manager & mpfm = fu.fm();
         unsynch_mpz_manager & mpzm = mpfm.mpz_manager();
         unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
-
+        
         theory_var v = n->get_th_var(get_id());
         SASSERT(v != null_theory_var);
         expr * fpa_e = get_enode(v)->get_owner();
@@ -437,9 +441,19 @@ namespace smt {
                 ctx.mark_as_relevant(bv_exp);
             }
             else if (n->get_decl()->get_decl_kind() == OP_TO_IEEE_BV) {                
-                literal l = mk_eq(n, ex, false);
-                ctx.mark_as_relevant(l);
+                //literal l = mk_eq(n, ex, false);
+                //ctx.mark_as_relevant(l);
+                //ctx.mk_th_axiom(get_id(), 1, &l);
+
+                app * ex_a = to_app(ex);
+                if (n->get_id() > ex_a->get_id())
+                    std::swap(n, ex_a);
+                expr_ref eq(m);
+                eq = m.mk_eq(n, ex_a);
+                ctx.internalize(eq, false);
+                literal l = ctx.get_literal(eq);
                 ctx.mk_th_axiom(get_id(), 1, &l);
+                ctx.mark_as_relevant(l);
             }
             else
                 NOT_IMPLEMENTED_YET();
@@ -452,5 +466,8 @@ namespace smt {
         pop_scope_eh(m_trail_stack.get_num_scopes());
         m_bool_var2atom.reset();  
         theory::reset_eh();
+    }
+
+    void theory_fpa::init_model(model_generator & m) {
     }
 };

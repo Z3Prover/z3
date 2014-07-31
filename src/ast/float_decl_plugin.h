@@ -169,7 +169,8 @@ public:
     app * mk_value(mpf const & v);
     bool is_value(expr * n) { return is_app_of(n, m_family_id, OP_FLOAT_VALUE); }
     bool is_value(expr * n, mpf & val);
-    bool is_rm(expr * n, mpf_rounding_mode & val);
+    bool is_rm_value(expr * n, mpf_rounding_mode & val);
+    bool is_rm_value(expr * n) { mpf_rounding_mode t; return is_rm_value(n, t); }
 
     mpf const & get_value(unsigned id) const { 
         SASSERT(m_value_table.contains(id));
@@ -199,7 +200,9 @@ public:
     sort * mk_float_sort(unsigned ebits, unsigned sbits);
     sort * mk_rm_sort() { return m().mk_sort(m_fid, ROUNDING_MODE_SORT); }
     bool is_float(sort * s) { return is_sort_of(s, m_fid, FLOAT_SORT); }
-    bool is_rm(sort * s) { return is_sort_of(s, m_fid, ROUNDING_MODE_SORT); }    
+    bool is_rm(sort * s) { return is_sort_of(s, m_fid, ROUNDING_MODE_SORT); }
+    bool is_float(expr * e) { return is_float(m_manager.get_sort(e)); }
+    bool is_rm(expr * e) { return is_rm(m_manager.get_sort(e)); }
     unsigned get_ebits(sort * s);
     unsigned get_sbits(sort * s);
 
@@ -217,11 +220,9 @@ public:
     app * mk_minus_inf(sort * s) { return mk_minus_inf(get_ebits(s), get_sbits(s)); }
 
     app * mk_value(mpf const & v) { return m_plugin->mk_value(v); }
-    bool is_value(expr * n) const { return m_plugin->is_value(n); }
-    bool is_numeral(expr * n) const { return is_value(n); }
-    bool is_value(expr * n, mpf & v) const { return m_plugin->is_value(n, v); }    
-    bool is_numeral(expr * n, mpf & v) const { return is_value(n, v); }    
-    bool is_rm(expr * n, mpf_rounding_mode & v) { return m_plugin->is_rm(n, v); }    
+    bool is_value(expr * n) { return m_plugin->is_value(n); }
+    bool is_value(expr * n, mpf & v) { return m_plugin->is_value(n, v); }     
+    bool is_rm_value(expr * n, mpf_rounding_mode & v) { return m_plugin->is_rm_value(n, v); }
 
     app * mk_pzero(unsigned ebits, unsigned sbits);
     app * mk_nzero(unsigned ebits, unsigned sbits);

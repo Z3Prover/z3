@@ -76,15 +76,21 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             return BR_DONE;
         }
 
-        if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_rm_sort(f->get_range())) {
+        if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_rm(f->get_range())) {
             m_conv.mk_rm_const(f, result);
             return BR_DONE;
         }
 
         if (m().is_eq(f)) {
             SASSERT(num == 2);
-            if (m_conv.is_float(args[0])) {
+            SASSERT(m().get_sort(args[0]) == m().get_sort(args[1]));
+            sort * ds = f->get_domain()[0];
+            if (m_conv.is_float(ds)) {
                 m_conv.mk_eq(args[0], args[1], result);
+                return BR_DONE;
+            }
+            else if (m_conv.is_rm(ds)) {
+                result = m().mk_eq(args[0], args[1]);
                 return BR_DONE;
             }
             return BR_FAILED;

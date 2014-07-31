@@ -28,9 +28,10 @@ fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
     m(m),
     m_simp(m),
     m_util(m),
-    m_mpf_manager(m_util.fm()),
-    m_mpz_manager(m_mpf_manager.mpz_manager()),
     m_bv_util(m),
+    m_arith_util(m),
+    m_mpf_manager(m_util.fm()),
+    m_mpz_manager(m_mpf_manager.mpz_manager()),    
     extra_assertions(m) {
     m_plugin = static_cast<float_decl_plugin*>(m.get_plugin(m.mk_family_id("float")));
 }
@@ -268,7 +269,7 @@ void fpa2bv_converter::mk_rm_const(func_decl * f, expr_ref & result) {
         result = r;
     }
     else {
-        SASSERT(is_rm_sort(f->get_range()));
+        SASSERT(is_rm(f->get_range()));
 
         result = m.mk_fresh_const(
             #ifdef Z3DEBUG
@@ -281,6 +282,10 @@ void fpa2bv_converter::mk_rm_const(func_decl * f, expr_ref & result) {
         m_rm_const2bv.insert(f, result);
         m.inc_ref(f);
         m.inc_ref(result);
+
+        expr_ref rcc(m);
+        rcc = bu().mk_ule(result, bu().mk_numeral(4, 3));
+        extra_assertions.push_back(rcc);
     }
 }
 
@@ -1847,6 +1852,55 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         // Just keep it here, as there will be something else that uses it.
         mk_triple(args[0], args[1], args[2], result);
     }
+    else if (num == 3 &&
+             m_bv_util.is_bv(args[0]) &&
+             m_arith_util.is_numeral(args[1]) &&
+             m_arith_util.is_numeral(args[2]))
+    {
+        // Three arguments, some of them are not numerals.
+        SASSERT(m_util.is_float(f->get_range()));
+        unsigned ebits = m_util.get_ebits(f->get_range());
+        unsigned sbits = m_util.get_sbits(f->get_range());
+
+        expr * rm = args[0];
+
+        rational q;
+        if (!m_arith_util.is_numeral(args[1], q))
+            NOT_IMPLEMENTED_YET();
+
+        rational e;
+        if (!m_arith_util.is_numeral(args[2], e))
+            NOT_IMPLEMENTED_YET();
+
+        SASSERT(e.is_int64());
+        SASSERT(m_mpz_manager.eq(e.to_mpq().denominator(), 1));
+
+        mpf nte, nta, tp, tn, tz;
+        m_mpf_manager.set(nte, ebits, sbits, MPF_ROUND_NEAREST_TEVEN, q.to_mpq(), e.to_mpq().numerator());
+        m_mpf_manager.set(nta, ebits, sbits, MPF_ROUND_NEAREST_TAWAY, q.to_mpq(), e.to_mpq().numerator());
+        m_mpf_manager.set(tp, ebits, sbits, MPF_ROUND_TOWARD_POSITIVE, q.to_mpq(), e.to_mpq().numerator());
+        m_mpf_manager.set(tn, ebits, sbits, MPF_ROUND_TOWARD_NEGATIVE, q.to_mpq(), e.to_mpq().numerator());
+        m_mpf_manager.set(tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, q.to_mpq(), e.to_mpq().numerator());
+
+        app_ref a_nte(m), a_nta(m), a_tp(m), a_tn(m), a_tz(m);
+        a_nte = m_plugin->mk_value(nte);
+        a_nta = m_plugin->mk_value(nta);
+        a_tp = m_plugin->mk_value(tp);
+        a_tn = m_plugin->mk_value(tn);
+        a_tz = m_plugin->mk_value(tz);
+
+        expr_ref bv_nte(m), bv_nta(m), bv_tp(m), bv_tn(m), bv_tz(m);
+        mk_value(a_nte->get_decl(), 0, 0, bv_nte);
+        mk_value(a_nta->get_decl(), 0, 0, bv_nta);
+        mk_value(a_tp->get_decl(), 0, 0, bv_tp);
+        mk_value(a_tn->get_decl(), 0, 0, bv_tn);
+        mk_value(a_tz->get_decl(), 0, 0, bv_tz);
+
+        mk_ite(m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3)), bv_tn, bv_tz, result);
+        mk_ite(m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3)), bv_tp, result, result);
+        mk_ite(m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3)), bv_nta, result, result);
+        mk_ite(m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3)), bv_nte, result, result);        
+    }
     else if (num == 1 && m_bv_util.is_bv(args[0])) {
         sort * s = f->get_range();
         unsigned to_sbits = m_util.get_sbits(s);
@@ -1862,7 +1916,9 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
                   m_bv_util.mk_extract(sz - 2, sz - to_ebits - 1, bv),
                   result);
     }
-    else if (num == 2 && is_app(args[1]) && m_util.is_float(m.get_sort(args[1]))) {        
+    else if (num == 2 && 
+             is_app(args[1]) && 
+             m_util.is_float(m.get_sort(args[1]))) {        
         // We also support float to float conversion
         sort * s = f->get_range();
         expr_ref rm(m), x(m); 
@@ -2015,23 +2071,24 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
             mk_ite(c2, v2, result, result);
             mk_ite(c1, v1, result, result);
         }
-    }
-    else {
+    }    
+    else if (num == 2 &&              
+             m_util.is_rm(args[0]),
+             m_arith_util.is_real(args[1])) {
         // .. other than that, we only support rationals for asFloat
-        SASSERT(num == 2);
         SASSERT(m_util.is_float(f->get_range()));        
         unsigned ebits = m_util.get_ebits(f->get_range());
-        unsigned sbits = m_util.get_sbits(f->get_range());          
-        
-        SASSERT(m_bv_util.is_numeral(args[0]));        
-        rational tmp_rat; unsigned sz; 
-        m_bv_util.is_numeral(to_expr(args[0]), tmp_rat, sz);        
+        unsigned sbits = m_util.get_sbits(f->get_range());
+
+        SASSERT(m_bv_util.is_numeral(args[0]));
+        rational tmp_rat; unsigned sz;
+        m_bv_util.is_numeral(to_expr(args[0]), tmp_rat, sz);
         SASSERT(tmp_rat.is_int32());
         SASSERT(sz == 3);
-        BV_RM_VAL bv_rm = (BV_RM_VAL) tmp_rat.get_unsigned();
-        
+        BV_RM_VAL bv_rm = (BV_RM_VAL)tmp_rat.get_unsigned();
+
         mpf_rounding_mode rm;
-        switch(bv_rm)
+        switch (bv_rm)
         {
         case BV_RM_TIES_TO_AWAY: rm = MPF_ROUND_NEAREST_TAWAY; break;
         case BV_RM_TIES_TO_EVEN: rm = MPF_ROUND_NEAREST_TEVEN; break;
@@ -2042,22 +2099,23 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         }
 
         SASSERT(m_util.au().is_numeral(args[1]));
-        
+
         rational q;
-        SASSERT(m_util.au().is_numeral(args[1]));
         m_util.au().is_numeral(args[1], q);
 
         mpf v;
         m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
-    
+
         expr * sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v)) ? 1 : 0, 1);
-        expr * s = m_bv_util.mk_numeral(m_util.fm().sig(v), sbits-1);
+        expr * s = m_bv_util.mk_numeral(m_util.fm().sig(v), sbits - 1);
         expr * e = m_bv_util.mk_numeral(m_util.fm().exp(v), ebits);
 
         mk_triple(sgn, s, e, result);
 
         m_util.fm().del(v);
     }
+    else
+        UNREACHABLE();
 
     SASSERT(is_well_sorted(m, result));    
 }

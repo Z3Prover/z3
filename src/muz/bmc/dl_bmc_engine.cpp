@@ -148,7 +148,7 @@ namespace datalog {
         
         void mk_qrule_vars(datalog::rule const& r, unsigned rule_id, expr_ref_vector& sub) {
             ptr_vector<sort> sorts;
-            r.get_vars(sorts);
+            r.get_vars(m, sorts);
             // populate substitution of bound variables.
             sub.reset();
             sub.resize(sorts.size());
@@ -421,7 +421,7 @@ namespace datalog {
                     ptr_vector<sort> rule_vars;
                     expr_ref_vector args(m), conjs(m);
 
-                    r.get_vars(rule_vars);
+                    r.get_vars(m, rule_vars);
                     obj_hashtable<expr> used_vars;
                     unsigned num_vars = 0;
                     for (unsigned i = 0; i < r.get_decl()->get_arity(); ++i) {
@@ -514,7 +514,7 @@ namespace datalog {
             unsigned sz = r->get_uninterpreted_tail_size();
 
             ptr_vector<sort> rule_vars;
-            r->get_vars(rule_vars);
+            r->get_vars(m, rule_vars);
             args.append(prop->get_num_args(), prop->get_args());
             expr_ref_vector sub = mk_skolem_binding(*r, rule_vars, args);
             if (sub.empty() && sz == 0) {
@@ -803,7 +803,7 @@ namespace datalog {
             func_decl* p = r.get_decl();
             ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m.get_sort(path));
             // populate substitution of bound variables.
-            r.get_vars(sorts);
+            r.get_vars(m, sorts);
             sub.reset();
             sub.resize(sorts.size());
             for (unsigned k = 0; k < r.get_decl()->get_arity(); ++k) {
@@ -1327,7 +1327,7 @@ namespace datalog {
         
         void mk_rule_vars(rule& r, unsigned level, unsigned rule_id, expr_ref_vector& sub) {
             ptr_vector<sort> sorts;
-            r.get_vars(sorts);
+            r.get_vars(m, sorts);
             // populate substitution of bound variables.
             sub.reset();
             sub.resize(sorts.size());

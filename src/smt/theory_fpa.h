@@ -51,9 +51,10 @@ namespace smt {
     protected:
         fpa2bv_converter m_converter;
         fpa2bv_rewriter  m_rw;
-        expr_map         m_trans_map;        
+        expr_map         m_trans_map;
         th_trail_stack   m_trail_stack;
         bool_var2atom    m_bool_var2atom;
+        enode_vector     m_temporaries;
 
         virtual final_check_status final_check_eh() { return FC_DONE; }
         virtual bool internalize_atom(app * atom, bool gate_ctx);
@@ -71,6 +72,7 @@ namespace smt {
         
         void assign_eh(bool_var v, bool is_true);
         virtual void relevant_eh(app * n);
+        virtual void init_model(model_generator & m);
 
     public:
         theory_fpa(ast_manager& m);
@@ -86,7 +88,7 @@ namespace smt {
         }
                 
         void mk_bv_eq(expr * x, expr * y);
-        expr_ref mk_eq_bv_const(expr_ref const & e);
+        app_ref mk_eq_bv_const(expr_ref const & e);
     };
 
 };

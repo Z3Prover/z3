@@ -43,6 +43,7 @@ void filter_model_converter::operator()(model_ref & old_model, unsigned goal_idx
         if (fs.is_marked(f))
             continue;
         func_interp * fi = old_model->get_func_interp(f);
+        SASSERT(fi);
         new_model->register_decl(f, fi->copy());
     }
     new_model->copy_usort_interps(*old_model);

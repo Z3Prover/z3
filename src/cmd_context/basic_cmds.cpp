@@ -547,6 +547,9 @@ public:
     }
 };
 
+#define STRINGIZE(x) #x
+#define STRINGIZE_VALUE_OF(x) STRINGIZE(x)
+
 class get_info_cmd : public cmd {
     symbol   m_error_behavior;
     symbol   m_name;
@@ -584,7 +587,11 @@ public:
             ctx.regular_stream() << "(:authors \"Leonardo de Moura and Nikolaj Bjorner\")" << std::endl;
         }
         else if (opt == m_version) {
-            ctx.regular_stream() << "(:version \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "\")" << std::endl;
+            ctx.regular_stream() << "(:version \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER
+#ifdef Z3GITHASH
+                << " - build hashcode " << STRINGIZE_VALUE_OF(Z3GITHASH)
+#endif
+                << "\")" << std::endl;
         }
         else if (opt == m_status) {
             ctx.regular_stream() << "(:status " << ctx.get_status() << ")" << std::endl;
