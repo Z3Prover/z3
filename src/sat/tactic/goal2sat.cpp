@@ -59,13 +59,15 @@ struct goal2sat::imp {
     unsigned long long          m_max_memory;
     volatile bool               m_cancel;
     expr_ref_vector             m_trail;
+    bool                        m_default_external;
     
-    imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm):
+    imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
         m_solver(s),
         m_map(map),
         m_dep2asm(dep2asm),
-        m_trail(m) {
+        m_trail(m),
+        m_default_external(default_external) {
         updt_params(p);
         m_cancel = false;
         m_true = sat::null_bool_var;
@@ -121,7 +123,7 @@ struct goal2sat::imp {
                 l = sat::literal(mk_true(), !sign);
             }
             else {
-                bool ext = !is_uninterp_const(t) || m_interface_vars.contains(t);
+                bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
                 sat::bool_var v = m_solver.mk_var(ext);
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
@@ -486,8 +488,8 @@ struct goal2sat::scoped_set_imp {
     }
 };
 
-void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm) {
-    imp proc(g.m(), p, t, m, dep2asm);
+void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external) {
+    imp proc(g.m(), p, t, m, dep2asm, default_external);
     scoped_set_imp set(this, &proc);
     proc(g);
 }

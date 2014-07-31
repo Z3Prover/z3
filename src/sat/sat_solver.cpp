@@ -696,7 +696,7 @@ namespace sat {
     // -----------------------
     lbool solver::check(unsigned num_lits, literal const* lits) {
         pop_to_base_level();
-        IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver using the efficient SAT solver)\n";);
+        IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(scope_lvl() == 0);
 #ifdef CLONE_BEFORE_SOLVING
         if (m_mc.empty()) {
@@ -875,7 +875,10 @@ namespace sat {
         m_assumption_set.reset();        
         push();
 
-        TRACE("sat", display(tout););
+        TRACE("sat", 
+              for (unsigned i = 0; i < num_lits; ++i) 
+                  tout << lits[i] << " ";
+              tout << "\n";);
 #define _INSERT_LIT(_l_)                     \
         SASSERT(is_external((_l_).var()));   \
         m_assumption_set.insert(_l_);        \

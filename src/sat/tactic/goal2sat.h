@@ -57,7 +57,7 @@ public:
        \warning conversion throws a tactic_exception, if it is interrupted (by set_cancel),
        an unsupported operator is found, or memory consumption limit is reached (set with param :max-memory).
     */
-    void operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm);
+    void operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external = false);
 
     void set_cancel(bool f);
 };

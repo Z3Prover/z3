@@ -27,6 +27,8 @@ class inc_sat_solver : public solver {
     tactic_ref      m_preprocess;
     statistics      m_stats;
     unsigned        m_num_scopes;
+    sat::literal_vector m_asms;
+
 
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
@@ -96,10 +98,10 @@ public:
             }
             g = result[0];
             TRACE("opt", g->display_with_dependencies(tout););
-            m_goal2sat(*g, m_params, m_solver, m_map, dep2asm);
+            m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
         }
-        
-        lbool r = m_solver.check();
+        extract_assumptions(dep2asm, m_asms);
+        lbool r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         switch (r) {
         case l_true:
             extract_model();
@@ -177,6 +179,14 @@ public:
     }
 
 private:
+
+    void extract_assumptions(dep2asm_t& dep2asm, sat::literal_vector& asms) {
+        asms.reset();
+        dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
+        for (; it != end; ++it) {
+            asms.push_back(it->m_value);
+        }
+    }
 
     void extract_core(dep2asm_t& dep2asm) {
         u_map<expr*> asm2dep;
