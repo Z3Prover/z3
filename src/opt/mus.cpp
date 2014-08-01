@@ -123,7 +123,7 @@ struct mus::imp {
             TRACE("opt", 
                   display_vec(tout << "core:  ", core);
                   display_vec(tout << "mus:   ", mus);
-                  display_vec(tout << "model: ", model);
+                  // display_vec(tout << "model: ", model);
                   );
             core.pop_back();
             expr* cls = m_cls2expr[cls_id].get();
@@ -140,8 +140,8 @@ struct mus::imp {
             case l_true:
                 assumptions.push_back(cls);
                 mus.push_back(cls_id);
-                extract_model(model);
                 if (m_rmr_enabled) {
+                    extract_model(model);
                     sz = core.size();
                     core.append(mus);
                     rmr(core, mus, model);

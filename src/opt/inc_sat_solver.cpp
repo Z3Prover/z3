@@ -43,7 +43,6 @@ class inc_sat_solver : public solver {
     model_ref       m_model;
     model_converter_ref m_mc;   
     tactic_ref      m_preprocess;
-    statistics      m_stats;
     unsigned        m_num_scopes;
     sat::literal_vector m_asms;
     goal_ref_buffer     m_subgoals;
@@ -89,7 +88,8 @@ public:
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {        
         m_solver.pop_to_base_level();
         dep2asm_t dep2asm;
-        
+
+        m_model.reset();
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_assumptions(num_assumptions, assumptions, dep2asm);
@@ -98,7 +98,6 @@ public:
         r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         switch (r) {
         case l_true:
-            extract_model();
             break;
         case l_false:
             // TBD: expr_dependency core is not accounted for.
@@ -109,7 +108,6 @@ public:
         default:
             break;
         }
-        m_solver.collect_statistics(m_stats);
         return r;
     }
     virtual void set_cancel(bool f) {
@@ -155,13 +153,17 @@ public:
     }
     
     virtual void collect_statistics(statistics & st) const {
-        st.copy(m_stats);
+        m_preprocess->collect_statistics(st);
+        m_solver.collect_statistics(st);
     }
     virtual void get_unsat_core(ptr_vector<expr> & r) {
         r.reset();
         r.append(m_core.size(), m_core.c_ptr());
     }
     virtual void get_model(model_ref & m) {
+        if (!m_model) {
+            extract_model();
+        }
         m = m_model;
     }
     virtual proof * get_proof() {
@@ -190,7 +192,6 @@ private:
         }
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
-            m_preprocess->collect_statistics(m_stats);
             return l_undef;                    
         }
         m_mc = concat(m_mc.get(), m_mc2.get());
@@ -269,6 +270,9 @@ private:
 
 
     }
+
+    // TBD: this is super-expensive because of the
+    // bit-blasting model converter.
 
     void extract_model() {
         model_ref md = alloc(model, m);

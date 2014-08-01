@@ -39,13 +39,15 @@ namespace sat {
         m_scc(*this, p),
         m_asymm_branch(*this, p),
         m_probing(*this, p),
+        m_mus(*this),
         m_inconsistent(false),
         m_num_frozen(0),
         m_activity_inc(128),
         m_case_split_queue(m_activity),
         m_qhead(0),
         m_scope_lvl(0),
-        m_params(p) {
+        m_params(p),
+        m_minimize_core(p.get_bool("minimize_core", false)) {
         m_config.updt_params(p);
     }
 
@@ -710,7 +712,6 @@ namespace sat {
             init_assumptions(num_lits, lits);
             propagate(false);
             if (inconsistent()) {
-                TRACE("sat", tout << "initialized -> inconsistent\n";);
                 if (tracking_assumptions()) 
                     resolve_conflict();
                 return l_false;
@@ -721,8 +722,7 @@ namespace sat {
                 lbool r = bounded_search();
                 if (r != l_undef)
                     return r;
-                pop(scope_lvl());
-                SASSERT(scope_lvl() == 1);
+                pop_reinit(scope_lvl());
                 m_conflicts_since_restart = 0;
                 m_restart_threshold       = m_config.m_restart_initial;
             }
@@ -900,10 +900,10 @@ namespace sat {
 
     void solver::reinit_assumptions() {
         if (tracking_assumptions() && scope_lvl() == 0) {
+            TRACE("sat", tout << m_assumptions.size() << "\n";);
             push();
             for (unsigned i = 0; !inconsistent() && i < m_assumptions.size(); ++i) {
-                literal l = m_assumptions[i];
-                assign(l, justification());
+                assign(m_assumptions[i], justification());
             }
         }
     }
@@ -937,7 +937,8 @@ namespace sat {
        \brief Apply all simplifications.
     */
     void solver::simplify_problem() {
-        pop_core(scope_lvl());
+        pop(scope_lvl());
+        m_trail.reset();
 
         SASSERT(scope_lvl() == 0);
 
@@ -1055,7 +1056,7 @@ namespace sat {
                    << " :restarts " << m_stats.m_restart << mk_stat(*this)
                    << " :time " << std::fixed << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
         IF_VERBOSE(30, display_status(verbose_stream()););
-        pop(scope_lvl());
+        pop_reinit(scope_lvl());
         m_conflicts_since_restart = 0;
         switch (m_config.m_restart) {
         case RS_GEOMETRIC:
@@ -1508,7 +1509,7 @@ namespace sat {
 
         unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
 
-        pop(m_scope_lvl - new_scope_lvl);
+        pop_reinit(m_scope_lvl - new_scope_lvl);
         TRACE("sat_conflict_detail", display(tout); tout << "assignment:\n"; display_assignment(tout););
         clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), true);
         if (lemma) {
@@ -1620,6 +1621,9 @@ namespace sat {
         }        
         while (idx > 0);
         reset_unmark(old_size);
+        if (m_minimize_core) {
+            m_mus(); //ignore return value on cancelation.
+        }
     }
 
 
@@ -2082,12 +2086,12 @@ namespace sat {
             m_ext->push();
     }
 
-    void solver::pop(unsigned num_scopes) {
-        pop_core(num_scopes);
+    void solver::pop_reinit(unsigned num_scopes) {
+        pop(num_scopes);
         reinit_assumptions();        
     }
 
-    void solver::pop_core(unsigned num_scopes) {
+    void solver::pop(unsigned num_scopes) {
         if (num_scopes == 0)
             return;
         if (m_ext)
@@ -2232,6 +2236,7 @@ namespace sat {
         m_probing.updt_params(p);
         m_scc.updt_params(p);
         m_rand.set_seed(p.get_uint("random_seed", 0));
+        m_minimize_core = p.get_bool("minimize_core", false);
     }
 
     void solver::collect_param_descrs(param_descrs & d) {

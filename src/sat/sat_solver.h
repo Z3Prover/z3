@@ -32,6 +32,7 @@ Revision History:
 #include"sat_asymm_branch.h"
 #include"sat_iff3_finder.h"
 #include"sat_probing.h"
+#include"sat_mus.h"
 #include"params.h"
 #include"statistics.h"
 #include"stopwatch.h"
@@ -79,6 +80,7 @@ namespace sat {
         scc                     m_scc;
         asymm_branch            m_asymm_branch;
         probing                 m_probing;
+        mus                     m_mus;
         bool                    m_inconsistent;
         // A conflict is usually a single justification. That is, a justification
         // for false. If m_not_l is not null_literal, then m_conflict is a
@@ -121,6 +123,7 @@ namespace sat {
         literal_vector          m_assumptions;
         literal_set             m_assumption_set;
         literal_vector          m_core;
+        bool                    m_minimize_core;
 
         void del_clauses(clause * const * begin, clause * const * end);
 
@@ -132,6 +135,7 @@ namespace sat {
         friend class asymm_branch;
         friend class probing;
         friend class iff3_finder;
+        friend class mus;
         friend struct mk_stat;
     public:
         solver(params_ref const & p, extension * ext);
@@ -352,7 +356,7 @@ namespace sat {
         // -----------------------
         void push();
         void pop(unsigned num_scopes);
-        void pop_core(unsigned num_scopes);
+        void pop_reinit(unsigned num_scopes);
 
         void unassign_vars(unsigned old_sz);
         void reinit_clauses(unsigned old_sz);
