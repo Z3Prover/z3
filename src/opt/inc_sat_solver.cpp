@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2014 Microsoft Corporation
+
+Module Name:
+
+    inc_sat_solver.cpp
+
+Abstract:
+
+    incremental solver based on SAT core.
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2014-7-30
+
+Notes:
+
+--*/
 
 #include "solver.h"
 #include "tactical.h"
@@ -28,6 +46,10 @@ class inc_sat_solver : public solver {
     statistics      m_stats;
     unsigned        m_num_scopes;
     sat::literal_vector m_asms;
+    goal_ref_buffer     m_subgoals;
+    proof_converter_ref m_pc;   
+    model_converter_ref m_mc2;   
+    expr_dependency_ref m_dep_core;
 
 
     typedef obj_map<expr, sat::literal> dep2asm_t;
@@ -35,7 +57,8 @@ public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
         m(m), m_solver(p,0), m_params(p),
         m_fmls(m), m_core(m), m_map(m),
-        m_num_scopes(0) {
+        m_num_scopes(0), 
+        m_dep_core(m) {
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
         params_ref simp2_p = p;
@@ -53,7 +76,8 @@ public:
                      using_params(mk_simplify_tactic(m), simp2_p),
                      mk_max_bv_sharing_tactic(m),
                      mk_bit_blaster_tactic(m), 
-                     mk_aig_tactic());
+                     mk_aig_tactic(),
+                     using_params(mk_simplify_tactic(m), simp2_p));
         
         
     }
@@ -64,44 +88,14 @@ public:
     }
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {        
         m_solver.pop_to_base_level();
-        goal_ref_buffer result;
-        proof_converter_ref pc;   
-        model_converter_ref mc;   
-        expr_dependency_ref core(m);
         dep2asm_t dep2asm;
         
-        if (!m_fmls.empty() || num_assumptions > 0) {                  
-            goal_ref g = alloc(goal, m, true, num_assumptions > 0); // models, maybe cores are enabled
-            SASSERT(num_assumptions == 0 || g->unsat_core_enabled());
-            SASSERT(g->models_enabled());
-            SASSERT(!g->proofs_enabled());
-            for (unsigned i = 0; i < m_fmls.size(); ++i) {
-                g->assert_expr(m_fmls[i].get());
-            }
-            for (unsigned i = 0; i < num_assumptions; ++i) {
-                g->assert_expr(assumptions[i], m.mk_leaf(assumptions[i]));
-            }
-            TRACE("opt", g->display_with_dependencies(tout););
-            m_fmls.reset();
-            try {                   
-                (*m_preprocess)(g, result, mc, pc, core);
-            }
-            catch (tactic_exception & ex) {
-                IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
-                m_preprocess->collect_statistics(m_stats);
-                return l_undef;                    
-            }
-            m_mc = concat(m_mc.get(), mc.get());
-            if (result.size() != 1) {
-                IF_VERBOSE(0, verbose_stream() << "size of result is not 1, it is: " << result.size() << "\n";);
-                return l_undef;
-            }
-            g = result[0];
-            TRACE("opt", g->display_with_dependencies(tout););
-            m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
-        }
+        lbool r = internalize_formulas();
+        if (r != l_true) return r;
+        r = internalize_assumptions(num_assumptions, assumptions, dep2asm);
         extract_assumptions(dep2asm, m_asms);
-        lbool r = m_solver.check(m_asms.size(), m_asms.c_ptr());
+        if (r != l_true) return r;
+        r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         switch (r) {
         case l_true:
             extract_model();
@@ -128,6 +122,9 @@ public:
         ++m_num_scopes;
     }
     virtual void pop(unsigned n) {
+        if (n < m_num_scopes) {   // allow inc_sat_solver to 
+            n = m_num_scopes;     // take over for another solver.
+        }
         SASSERT(n >= m_num_scopes);
         m_solver.user_pop(n);
         m_num_scopes -= n;
@@ -180,6 +177,57 @@ public:
 
 private:
 
+    lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm) {
+        m_mc2.reset();
+        m_pc.reset();
+        m_dep_core.reset();
+        m_subgoals.reset();
+        SASSERT(g->models_enabled());
+        SASSERT(!g->proofs_enabled());
+        TRACE("opt", g->display(tout););
+        try {                   
+            (*m_preprocess)(g, m_subgoals, m_mc2, m_pc, m_dep_core);
+        }
+        catch (tactic_exception & ex) {
+            IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
+            m_preprocess->collect_statistics(m_stats);
+            return l_undef;                    
+        }
+        m_mc = concat(m_mc.get(), m_mc2.get());
+        if (m_subgoals.size() != 1) {
+            IF_VERBOSE(0, verbose_stream() << "size of subgoals is not 1, it is: " << m_subgoals.size() << "\n";);
+            return l_undef;
+        }
+        g = m_subgoals[0];
+        TRACE("opt", g->display_with_dependencies(tout););
+        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
+        return l_true;
+    }
+
+    lbool internalize_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
+        if (sz == 0) {
+            return l_true;
+        }
+        goal_ref g = alloc(goal, m, true, true); // models and cores are enabled.
+        for (unsigned i = 0; i < sz; ++i) {
+            g->assert_expr(asms[i], m.mk_leaf(asms[i]));
+        }
+        return internalize_goal(g, dep2asm);
+    }
+
+    lbool internalize_formulas() {
+        if (m_fmls.empty()) {
+            return l_true;
+        }
+        dep2asm_t dep2asm;
+        goal_ref g = alloc(goal, m, true, false); // models, maybe cores are enabled
+        for (unsigned i = 0; i < m_fmls.size(); ++i) {
+            g->assert_expr(m_fmls[i].get());
+        }
+        m_fmls.reset();
+        return internalize_goal(g, dep2asm);
+    }
+
     void extract_assumptions(dep2asm_t& dep2asm, sat::literal_vector& asms) {
         asms.reset();
         dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
@@ -196,6 +244,16 @@ private:
         }
         sat::literal_vector const& core = m_solver.get_core();
 
+        m_core.reset();
+        for (unsigned i = 0; i < core.size(); ++i) {
+            expr* e;
+            if (asm2dep.find(core[i].index(), e)) {
+                if (core[i].sign()) {
+                    e = m.mk_not(e);
+                }
+                m_core.push_back(e);
+            }
+        }
         TRACE("opt",
               dep2asm_t::iterator it = dep2asm.begin();
               dep2asm_t::iterator end = dep2asm.end();
@@ -204,16 +262,12 @@ private:
               }
               tout << "core: ";
               for (unsigned i = 0; i < core.size(); ++i) {
-                  tout << core[i] << " ";
+                  tout << core[i] << ": " << mk_pp(m_core[i].get(), m) << " ";
               }
               tout << "\n";
               );              
 
-        for (unsigned i = 0; i < core.size(); ++i) {
-            expr* e;
-            if (asm2dep.find(core[i].index(), e))
-                m_core.push_back(e);
-        }
+
     }
 
     void extract_model() {

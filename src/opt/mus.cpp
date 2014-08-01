@@ -98,6 +98,7 @@ struct mus::imp {
     }
     
     lbool get_mus(unsigned_vector& mus) {
+        // SASSERT: mus does not have duplicates.
         TRACE("opt", 
               for (unsigned i = 0; i < m_cls2lits.size(); ++i) {
                   display_vec(tout, m_cls2lits[i]);
@@ -107,12 +108,16 @@ struct mus::imp {
         for (unsigned i = 0; i < m_cls2expr.size(); ++i) {
             core.push_back(i);
         }
+        if (core.size() == 1) {
+            mus.push_back(core.back());
+            return l_true;
+        }
         mus.reset();
         expr_ref_vector assumptions(m);
         svector<bool> model;
         ptr_vector<expr> core_exprs;
         model.resize(m_vars.size());
-        while (!core.empty()) {
+        while (!core.empty()) { 
             IF_VERBOSE(1, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
             unsigned cls_id = core.back();
             TRACE("opt", 
@@ -160,6 +165,7 @@ struct mus::imp {
                 break;
             }
         }
+#if 0
         DEBUG_CODE(
             assumptions.reset();
             for (unsigned i = 0; i < mus.size(); ++i) {
@@ -168,6 +174,7 @@ struct mus::imp {
             lbool is_sat = m_s->check_sat(assumptions.size(), assumptions.c_ptr());
             SASSERT(is_sat == l_false);
                    );
+#endif
         return l_true;
     }
 

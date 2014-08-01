@@ -78,6 +78,7 @@ public:
     }
 
     void new_assumption(expr* e, app* cls, rational const& w) {
+        TRACE("opt", tout << "insert: " << mk_pp(e, m) << " : " << w << "\n";);
         info inf(cls, w);
         m_asm2info.insert(e, inf);
         m_asms.push_back(e);
@@ -186,7 +187,8 @@ public:
         for (unsigned i = 0; i < core.size(); ++i) {
             rational w2 = get_weight(core[i]);
             if (w2 > w) {
-                new_assumption(core[i], get_clause(core[i]), w2 - w);
+                rational w3 = w2 - w;
+                new_assumption(core[i], get_clause(core[i]), w3);
             }
         }
         return w;
@@ -194,7 +196,7 @@ public:
 
     void display_vec(std::ostream& out, unsigned sz, expr* const* args) {
         for (unsigned i = 0; i < sz; ++i) {
-            out << mk_pp(args[i], m) << " ";
+            out << mk_pp(args[i], m) << " : " << get_weight(args[i]) << " ";
         }
         out << "\n";
     }

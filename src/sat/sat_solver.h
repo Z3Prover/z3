@@ -352,6 +352,7 @@ namespace sat {
         // -----------------------
         void push();
         void pop(unsigned num_scopes);
+        void pop_core(unsigned num_scopes);
 
         void unassign_vars(unsigned old_sz);
         void reinit_clauses(unsigned old_sz);

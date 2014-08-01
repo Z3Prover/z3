@@ -52,6 +52,27 @@ namespace sat {
         bool is_ext_justification() const { return m_val2 == EXT_JUSTIFICATION; }
         ext_justification_idx get_ext_justification_idx() const { return m_val1; }
     };
+
+    inline std::ostream & operator<<(std::ostream & out, justification const & j) {
+        switch (j.get_kind()) {
+        case justification::NONE:
+            out << "none";
+            break;
+        case justification::BINARY:
+            out << "binary " << j.get_literal();
+            break;
+        case justification::TERNARY:
+            out << "ternary " << j.get_literal1() << " " << j.get_literal2();
+            break;
+        case justification::CLAUSE:
+            out << "clause";
+            break;
+        case justification::EXT_JUSTIFICATION:
+            out << "external";
+            break;
+        }
+        return out;
+    }
 };
 
 #endif

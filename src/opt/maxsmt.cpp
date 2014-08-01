@@ -135,8 +135,6 @@ namespace opt {
         for (unsigned i = 0; i < sz; ++i) {
             sat_solver->assert_expr(s().get_assertion(i));
         }   
-        unsigned lvl = m_s->get_scope_level();
-        while (lvl > 0) { sat_solver->push(); --lvl; }
         m_s = sat_solver;
     }
 

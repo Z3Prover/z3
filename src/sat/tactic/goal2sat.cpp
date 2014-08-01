@@ -394,7 +394,6 @@ struct goal2sat::imp {
         expr_ref_vector  fmls(m);
         for (unsigned idx = 0; idx < size; idx++) {
             f = g.form(idx);
-            TRACE("sat", tout << "Formula: " << mk_pp(f, m) << "\n";);
             // Add assumptions.
             if (g.dep(idx)) {
                 deps.reset();
@@ -403,21 +402,28 @@ struct goal2sat::imp {
                 fmls.push_back(f);
                 for (unsigned i = 0; i < deps.size(); ++i) {
                     expr * d = deps[i];
-                    expr * d1;
+                    expr * d1 = d;
                     SASSERT(m.is_bool(d));
-                    if (m.is_not(d, d1)) {
-                        insert_dep(d1, true);
-                        fmls.push_back(d1);
+                    bool sign = m.is_not(d, d1);
+
+                    insert_dep(d1, sign);
+                    if (d == f) {
+                        goto skip_dep;
+                    }
+                    if (sign) {
+                        d_new = d1;
                     }
                     else {
-                        insert_dep(d, false);
-                        fmls.push_back(m.mk_not(d));
+                        d_new = m.mk_not(d);
                     }
-                }
+                    fmls.push_back(d_new);
+                }                
                 f = m.mk_or(fmls.size(), fmls.c_ptr());
-                TRACE("sat", tout << mk_pp(f, m) << "\n";);
             }
+            TRACE("sat", tout << mk_pp(f, m) << "\n";);
             process(f);
+        skip_dep:
+            ;
         }
     }
 
