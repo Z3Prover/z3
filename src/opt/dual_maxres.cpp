@@ -64,6 +64,7 @@ class dual_maxres : public maxsmt_solver_base {
     expr_ref_vector  m_B;
     expr_ref_vector  m_asms;    
     obj_map<expr, rational> m_asm2weight;
+    obj_map<expr, expr*>    m_soft2asm;
     ptr_vector<expr> m_new_core;
     mus              m_mus;
     expr_ref_vector  m_trail;
@@ -89,6 +90,11 @@ public:
     void add_soft(expr* e, rational const& w) {
         TRACE("opt", tout << mk_pp(e, m) << "\n";);
         expr_ref asum(m), fml(m);
+        expr* f;
+        if (m_soft2asm.find(e, f)) {
+            m_asm2weight.find(f) += w;
+            return;
+        }
         if (is_literal(e)) {
             asum = e;
         }
@@ -97,6 +103,7 @@ public:
             fml = m.mk_iff(asum, e);
             m_s->assert_expr(fml);
         }
+        m_soft2asm.insert(e, asum);
         new_assumption(asum, w);
         m_upper += w;
     }
@@ -461,6 +468,7 @@ public:
         m_upper.reset();
         m_lower.reset();
         m_asm2weight.reset();
+        m_soft2asm.reset();
         m_trail.reset();
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             add_soft(m_soft[i].get(), m_weights[i]);

@@ -63,6 +63,12 @@ public:
         TRACE("opt", tout << mk_pp(e, m) << "\n";);
         expr_ref asum(m), fml(m);
         app_ref cls(m);
+        info inf(0,rational(0));
+        if (m_asm2info.find(e, inf)) {
+            inf.m_weight += w;
+            m_asm2info.insert(e, inf);
+            return;
+        }
         cls = mk_cls(e);
         m_trail.push_back(cls);
         if (is_literal(e)) {
@@ -104,15 +110,21 @@ public:
                 return l_undef;
             }
             switch (is_sat) {
-            case l_true: 
+            case l_true: {
                 m_s->get_model(m_model);
+                expr_ref tmp(m);
+                DEBUG_CODE(
+                    for (unsigned i = 0; i < m_asms.size(); ++i) {
+                        VERIFY(m_model->eval(m_asms[i].get(), tmp));                        
+                        SASSERT(m.is_true(tmp));
+                    });
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
-                    expr_ref tmp(m);
                     VERIFY(m_model->eval(m_soft[i].get(), tmp));
                     m_assignment[i] = m.is_true(tmp);
                 }
                 m_upper = m_lower;
                 return l_true;
+            }
             case l_undef:
                 return l_undef;
             default:
