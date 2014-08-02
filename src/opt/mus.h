@@ -33,7 +33,7 @@ namespace opt {
            cls is equivalent to a disjunction of args.
            Assume also that cls is a literal.           
         */
-        unsigned add_soft(expr* cls, unsigned sz, expr* const* args);
+        unsigned add_soft(expr* cls);
         
         lbool get_mus(unsigned_vector& mus);
         

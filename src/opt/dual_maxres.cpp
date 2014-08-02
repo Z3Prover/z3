@@ -321,9 +321,12 @@ public:
     }
 
     lbool minimize_core(ptr_vector<expr>& core) {
+        if (m_sat_enabled) {
+            return l_true;
+        }
         m_mus.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
-            m_mus.add_soft(core[i], 1, core.c_ptr() + i);
+            m_mus.add_soft(core[i]);
         }
         unsigned_vector mus_idx;
         lbool is_sat = m_mus.get_mus(mus_idx);

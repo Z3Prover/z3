@@ -15,8 +15,6 @@ Author:
 
 Notes:
 
-   Model rotation needs fixes to ensure that hard constraints are satisfied
-   under pertubed model. Model rotation also has o be consistent with theories.
 
 --*/
 
@@ -32,26 +30,23 @@ namespace sat {
     void mus::reset() {
         m_core.reset();
         m_mus.reset();
-        m_assumptions.reset();
     }
 
-    void mus::set_core() {
+    void mus::set_core() {        
         m_core.append(m_mus);                
         s.m_core.reset();
         s.m_core.append(m_core);
     }
 
     lbool mus::operator()() {
+        flet<bool> _disable_min(s.m_config.m_minimize_core, false);
+        TRACE("sat", tout << "old core: " << s.get_core() << "\n";);
+        IF_VERBOSE(2, verbose_stream() << "(sat.mus " << s.get_core() << ")\n";);
         reset();
         literal_vector& core = m_core;
         literal_vector& mus = m_mus;
-        literal_vector& assumptions = m_assumptions;
         core.append(s.get_core());
-        SASSERT(!core.empty());
 
-        if (core.size() == 1) {
-            return l_true;
-        }
         while (!core.empty()) {
             TRACE("sat", 
                   tout << "core: " << core << "\n";
@@ -63,29 +58,38 @@ namespace sat {
             }
             literal lit = core.back();
             core.pop_back();
-            unsigned sz = assumptions.size();
-            assumptions.push_back(~lit);
-            assumptions.append(core);
-            lbool is_sat = s.check(assumptions.size(), assumptions.c_ptr());
-            assumptions.resize(sz);
+            unsigned sz = mus.size();
+            //mus.push_back(~lit); // TBD: measure
+            mus.append(core);
+            lbool is_sat = s.check(mus.size(), mus.c_ptr());
+            mus.resize(sz);
             switch (is_sat) {
             case l_undef:
                 core.push_back(lit);
                 set_core();
                 return l_undef;
             case l_true: {
-                assumptions.push_back(lit);
+                SASSERT(value_at(lit, s.get_model()) == l_false);
                 mus.push_back(lit);
-                unsigned sz = core.size();
+                if (core.empty()) {
+                    break;
+                }
+                sz = core.size();
                 core.append(mus);
                 rmr();
                 core.resize(sz);
+                IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << mus << " " << core << ")\n";);
                 break;
             }
             case l_false:
+                literal_vector const& new_core = s.get_core();
+                if (new_core.contains(~lit)) {
+                    break;
+                }
+                IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << new_core << ")\n";);
                 core.reset();
-                for (unsigned i = 0; i < s.get_core().size(); ++i) {
-                    literal lit = s.get_core()[i];
+                for (unsigned i = 0; i < new_core.size(); ++i) {
+                    literal lit = new_core[i];
                     if (!mus.contains(lit)) {
                         core.push_back(lit);
                     }
@@ -93,22 +97,23 @@ namespace sat {
                 break;
             }
         }
+        TRACE("sat", tout << "new core: " << mus << "\n";);
+        set_core();
         return l_true;
-    }
-
-    lbool mus::eval(literal l) const {
-        return value_at(l, s.get_model());
     }
 
     void mus::rmr() {
         model& model = s.m_model;
         literal lit = m_mus.back();
         literal assumption_lit;
-        SASSERT(eval(lit) == l_false); // literal is false in current model.
+        SASSERT(value_at(lit, model) == l_false); 
+        // literal is false in current model.
+        unsigned sz = m_toswap.size();
         find_swappable(lit);
-        for (unsigned i = 0; i < m_toswap.size(); ++i) {
+        unsigned sz1 = m_toswap.size();
+        for (unsigned i = sz; i < sz1; ++i) {
             lit = m_toswap[i];
-            SASSERT(eval(lit) == l_false);  
+            SASSERT(value_at(lit, model) == l_false);  
             model[lit.var()] = ~model[lit.var()];    // swap assignment
             if (has_single_unsat(assumption_lit) && !m_mus.contains(assumption_lit)) {
                 m_mus.push_back(assumption_lit);
@@ -116,6 +121,7 @@ namespace sat {
             }
             model[lit.var()] = ~model[lit.var()];    // swap assignment back            
         }
+        m_toswap.resize(sz);
     }
 
     bool mus::has_single_unsat(literal& assumption_lit) {
@@ -123,41 +129,50 @@ namespace sat {
         return false;
     }
 
+    //
+    // lit is false in model.
+    // find clauses where ~lit occurs, and all other literals
+    // are false in model.
+    // for each of the probed literals, determine if swapping the
+    // assignment falsifies a hard clause, if not, add to m_toswap.
+    // 
+
     void mus::find_swappable(literal lit) {
-        m_toswap.reset();
+        IF_VERBOSE(2, verbose_stream() << "(sat.mus swap " << lit << ")\n";);
+        unsigned sz = m_toswap.size();
+        literal lit2, lit3;
+        model const& model = s.get_model();
+        SASSERT(value_at(lit, model) == l_false);  
+        watch_list const& wlist = s.get_wlist(lit);
+        watch_list::const_iterator it  = wlist.begin();
+        watch_list::const_iterator end = wlist.end();
+        for (; it != end; ++it) {
+            switch (it->get_kind()) {
+            case watched::BINARY:
+                lit2 = it->get_literal();
+                TRACE("sat", tout << ~lit << " " << lit2 << "\n";);
+                break;
+            case watched::TERNARY:
+                lit2 = it->get_literal1();
+                lit3 = it->get_literal2();
+                TRACE("sat", tout << ~lit << " " << lit2 << " " << lit3 << "\n";);
+                break;
+            case watched::CLAUSE: {
+                clause_offset cls_off = it->get_clause_offset();
+                clause& c = *(s.m_cls_allocator.get_clause(cls_off));
+                if (c.is_learned()) {
+                    break;
+                }
+                TRACE("sat", tout << c << "\n";);
+                break;
+            }
+            case watched::EXT_CONSTRAINT:
+                TRACE("sat", tout << "external constraint - should avoid rmr\n";);
+                m_toswap.resize(sz);
+                return;
+            }
+        }
     }
 
 }
 
-#if 0
-
-
-    bool has_single_unsat(svector<bool> const& model, unsigned& cls_id) const {
-        cls_id = UINT_MAX;
-        for (unsigned i = 0; i < m_cls2lits.size(); ++i) {
-            if (!eval(model, m_cls2lits[i])) {
-                if (cls_id == UINT_MAX) {
-                    cls_id = i;
-                }
-                else {
-                    return false;
-                }
-            }
-        }
-        TRACE("opt", display_vec(tout << "clause: " << cls_id << " model: ", model););
-        return cls_id != UINT_MAX;
-    }
-
-    bool eval(svector<bool> const& model, smt::literal_vector const& cls) const {
-        bool result = false;
-        for (unsigned i = 0; !result && i < cls.size(); ++i) {
-            result = (model[cls[i].var()] != cls[i].sign());
-        }
-        TRACE("opt", display_vec(tout << "model: ", model);
-              display_vec(tout << "clause: ", cls);
-              tout << "result: " << result << "\n";);
-        return result;
-    }
-
-
-#endif

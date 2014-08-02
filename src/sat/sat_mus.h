@@ -22,7 +22,6 @@ Notes:
 namespace sat {
     class mus {
         literal_vector m_core;
-        literal_vector m_assumptions;
         literal_vector m_mus;
         literal_vector m_toswap;        
         solver& s;
@@ -31,12 +30,12 @@ namespace sat {
         ~mus();        
         lbool operator()();
     private:
+        lbool mus2();
         void rmr();
         bool has_single_unsat(literal& assumption_lit);
         void find_swappable(literal lit);
         void reset();
         void set_core();
-        lbool eval(literal l) const;
     };
 
 };

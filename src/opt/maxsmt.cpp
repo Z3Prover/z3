@@ -130,6 +130,7 @@ namespace opt {
     }
 
     void maxsmt_solver_base::enable_inc_bvsat() {
+        m_params.set_bool("minimize_core", true);
         solver* sat_solver = mk_inc_sat_solver(m, m_params);
         unsigned sz = s().get_num_assertions();
         for (unsigned i = 0; i < sz; ++i) {
@@ -138,25 +139,11 @@ namespace opt {
         m_s = sat_solver;
     }
 
-    void maxsmt_solver_base::enable_noninc_bvsat() {
-        tactic_ref pb2bv = mk_card2bv_tactic(m, m_params);
-        tactic_ref bv2sat = mk_qfbv_tactic(m, m_params);
-        tactic_ref tac = and_then(pb2bv.get(), bv2sat.get());
-        solver* sat_solver = mk_tactic2solver(m, tac.get(), m_params);
-        unsigned sz = s().get_num_assertions();
-        for (unsigned i = 0; i < sz; ++i) {
-            sat_solver->assert_expr(s().get_assertion(i));
-        }   
-        unsigned lvl = m_s->get_scope_level();
-        while (lvl > 0) { sat_solver->push(); --lvl; }
-        m_s = sat_solver;
-    }
 
 
     void maxsmt_solver_base::enable_bvsat()  {
         if (m_enable_sat && !m_sat_enabled && probe_bv()) {
             enable_inc_bvsat();
-            // enable_noninc_bvsat();
             m_sat_enabled = true;
         }
     }

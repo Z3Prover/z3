@@ -123,7 +123,6 @@ namespace sat {
         literal_vector          m_assumptions;
         literal_set             m_assumption_set;
         literal_vector          m_core;
-        bool                    m_minimize_core;
 
         void del_clauses(clause * const * begin, clause * const * end);
 

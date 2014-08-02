@@ -46,8 +46,7 @@ namespace sat {
         m_case_split_queue(m_activity),
         m_qhead(0),
         m_scope_lvl(0),
-        m_params(p),
-        m_minimize_core(p.get_bool("minimize_core", false)) {
+        m_params(p) {
         m_config.updt_params(p);
     }
 
@@ -1045,7 +1044,7 @@ namespace sat {
         }
         if (!m_mc.check_model(m))
             ok = false;
-        TRACE("sat", tout << "checl: " << ok << "\n" << m << "\n";);
+        TRACE("sat", tout << "check: " << ok << "\n" << m << "\n";);
         return ok;
     }
 
@@ -1621,7 +1620,7 @@ namespace sat {
         }        
         while (idx > 0);
         reset_unmark(old_size);
-        if (m_minimize_core) {
+        if (m_config.m_minimize_core) {
             m_mus(); //ignore return value on cancelation.
         }
     }
@@ -2236,7 +2235,6 @@ namespace sat {
         m_probing.updt_params(p);
         m_scc.updt_params(p);
         m_rand.set_seed(p.get_uint("random_seed", 0));
-        m_minimize_core = p.get_bool("minimize_core", false);
     }
 
     void solver::collect_param_descrs(param_descrs & d) {

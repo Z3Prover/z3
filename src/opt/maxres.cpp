@@ -27,16 +27,9 @@ using namespace opt;
 
 
 class maxres : public maxsmt_solver_base {
-    struct info {
-        app*     m_cls;
-        rational m_weight;
-        info(app* cls, rational const& w):
-            m_cls(cls), m_weight(w) {}
-        info(): m_cls(0) {}
-    };
     expr_ref_vector  m_B;
     expr_ref_vector  m_asms;    
-    obj_map<expr, info> m_asm2info;
+    obj_map<expr, rational> m_asm2weight;
     ptr_vector<expr> m_new_core;
     mus              m_mus;
     expr_ref_vector  m_trail;
@@ -63,14 +56,12 @@ public:
         TRACE("opt", tout << mk_pp(e, m) << "\n";);
         expr_ref asum(m), fml(m);
         app_ref cls(m);
-        info inf(0,rational(0));
-        if (m_asm2info.find(e, inf)) {
-            inf.m_weight += w;
-            m_asm2info.insert(e, inf);
+        rational weight(0);
+        if (m_asm2weight.find(e, weight)) {
+            weight += w;
+            m_asm2weight.insert(e, weight);
             return;
         }
-        cls = mk_cls(e);
-        m_trail.push_back(cls);
         if (is_literal(e)) {
             asum = e;
         }
@@ -79,21 +70,18 @@ public:
             fml = m.mk_iff(asum, e);
             m_s->assert_expr(fml);
         }
-        new_assumption(asum, cls, w);
+        new_assumption(asum, w);
         m_upper += w;
     }
 
-    void new_assumption(expr* e, app* cls, rational const& w) {
+    void new_assumption(expr* e, rational const& w) {
         TRACE("opt", tout << "insert: " << mk_pp(e, m) << " : " << w << "\n";);
-        info inf(cls, w);
-        m_asm2info.insert(e, inf);
+        m_asm2weight.insert(e, w);
         m_asms.push_back(e);
         m_trail.push_back(e);        
     }
 
     lbool operator()() {
-        expr_ref fml(m);
-        ptr_vector<expr> core;
         solver::scoped_push _sc(*m_s.get());
         init();
         init_local();
@@ -125,28 +113,13 @@ public:
                 m_upper = m_lower;
                 return l_true;
             }
+            case l_false:
+                is_sat = process_unsat();
+                if (is_sat != l_true) return is_sat;
+                break;
             case l_undef:
                 return l_undef;
             default:
-                core.reset();
-                m_s->get_unsat_core(core);
-                TRACE("opt", display_vec(tout << "core: ", core.size(), core.c_ptr()););
-                SASSERT(!core.empty());
-                is_sat = minimize_core(core);
-                SASSERT(!core.empty());
-                if (core.empty()) {
-                    return l_false;
-                }
-                if (is_sat != l_true) {
-                    return is_sat;
-                }
-                remove_core(core);
-                rational w = split_core(core);
-                TRACE("opt", display_vec(tout << "minimized core: ", core.size(), core.c_ptr()););
-                max_resolve(core, w);
-                fml = m.mk_not(m.mk_and(m_B.size(), m_B.c_ptr()));
-                m_s->assert_expr(fml);
-                m_lower += w; 
                 break;
             }
             IF_VERBOSE(1, verbose_stream() << "(opt.max_res [" << m_lower << ":" << m_upper << "])\n";);
@@ -154,13 +127,78 @@ public:
         return l_true;
     }
 
+    lbool get_cores(vector<ptr_vector<expr> >& cores) {
+        // assume m_s is unsat.
+        lbool is_sat = l_false;
+        expr_ref_vector asms(m_asms);
+        cores.reset();
+        ptr_vector<expr> core;
+        while (is_sat == l_false) {
+            core.reset();
+            m_s->get_unsat_core(core);
+            is_sat = minimize_core(core);
+            if (is_sat != l_true) {
+                break;
+            }
+            cores.push_back(core);
+            // TBD: ad hoc to avoid searching for large cores..
+            if (core.size() >= 3) {
+                break;
+            }
+            remove_soft(core, asms);
+            TRACE("opt",
+                  display_vec(tout << "core: ", core.size(), core.c_ptr());
+                  display_vec(tout << "assumptions: ", asms.size(), asms.c_ptr()););
+            is_sat = m_s->check_sat(asms.size(), asms.c_ptr());            
+        }
+        TRACE("opt", 
+              tout << "num cores: " << cores.size() << "\n";
+              for (unsigned i = 0; i < cores.size(); ++i) {
+                  for (unsigned j = 0; j < cores[i].size(); ++j) {
+                      tout << mk_pp(cores[i][j], m) << " ";
+                  }
+                  tout << "\n";
+              }
+              tout << "num satisfying: " << asms.size() << "\n";);
+        
+        return is_sat;
+    }
+
+
+    lbool process_unsat() {
+        vector<ptr_vector<expr> > cores;
+        lbool is_sat = get_cores(cores);
+        if (is_sat != l_true) {
+            return is_sat;
+        }
+        if (cores.empty()) {
+            return l_false;
+        }
+        for (unsigned i = 0; is_sat == l_true && i < cores.size(); ++i) {
+            is_sat = process_unsat(cores[i]);
+        }
+        return is_sat;
+    }
+    
+    lbool process_unsat(ptr_vector<expr>& core) {
+        expr_ref fml(m);
+        remove_core(core);
+        rational w = split_core(core);
+        TRACE("opt", display_vec(tout << "minimized core: ", core.size(), core.c_ptr()););
+        max_resolve(core, w);
+        fml = m.mk_not(m.mk_and(m_B.size(), m_B.c_ptr()));
+        m_s->assert_expr(fml);
+        m_lower += w;
+        return l_true;
+    }
+
     lbool minimize_core(ptr_vector<expr>& core) {
+        if (m_sat_enabled) {
+            return l_true;
+        }
         m_mus.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
-            app* cls = get_clause(core[i]);
-            SASSERT(cls);
-            SASSERT(m.is_or(cls));
-            m_mus.add_soft(core[i], cls->get_num_args(), cls->get_args());
+            m_mus.add_soft(core[i]);
         }
         unsigned_vector mus_idx;
         lbool is_sat = m_mus.get_mus(mus_idx);
@@ -177,11 +215,7 @@ public:
     }
 
     rational get_weight(expr* e) {
-        return m_asm2info.find(e).m_weight;
-    }
-
-    app* get_clause(expr* e) {
-        return m_asm2info.find(e).m_cls;
+        return m_asm2weight.find(e);
     }
 
     rational split_core(ptr_vector<expr> const& core) {
@@ -200,7 +234,7 @@ public:
             rational w2 = get_weight(core[i]);
             if (w2 > w) {
                 rational w3 = w2 - w;
-                new_assumption(core[i], get_clause(core[i]), w3);
+                new_assumption(core[i], w3);
             }
         }
         return w;
@@ -246,53 +280,23 @@ public:
             asum = mk_fresh_bool("a");
             cls = m.mk_or(b_i1, d);
             fml = m.mk_iff(asum, cls);
-            cls = mk_cls(cls);
-            m_trail.push_back(cls);
-            new_assumption(asum, cls, w);
+            new_assumption(asum, w);
             m_s->assert_expr(fml);
         }
     }
 
-    app_ref mk_cls(expr* e) {
-        expr_ref_vector disj(m), todo(m);
-        expr_ref f(m);
-        app_ref result(m);
-        expr* e1, *e2;
-        todo.push_back(e);
-        while (!todo.empty()) {
-            f = todo.back();
-            todo.pop_back();
-            if (m.is_implies(f, e1, e2)) {
-                todo.push_back(m.mk_not(e1));
-                todo.push_back(e2);
-            }
-            else if (m.is_not(f, e1) && m.is_not(e1, e2)) {
-                todo.push_back(e2);
-            }
-            else if (m.is_or(f)) {
-                todo.append(to_app(f)->get_num_args(), to_app(f)->get_args());
-            }
-            else if (m.is_not(f, e1) && m.is_and(e1)) {
-                for (unsigned i = 0; i < to_app(e1)->get_num_args(); ++i) {
-                    todo.push_back(m.mk_not(to_app(e1)->get_arg(i)));
-                }
-            }
-            else {
-                disj.push_back(f);
-            }
-        }
-        result = m.mk_or(disj.size(), disj.c_ptr());
-        return result;
-    }
-
-    void remove_core(ptr_vector<expr> const& core) {
-        for (unsigned i = 0; i < m_asms.size(); ++i) {
-            if (core.contains(m_asms[i].get())) {
-                m_asms[i] = m_asms.back();
-                m_asms.pop_back();
+    void remove_soft(ptr_vector<expr> const& core, expr_ref_vector& asms) {
+        for (unsigned i = 0; i < asms.size(); ++i) {
+            if (core.contains(asms[i].get())) {
+                asms[i] = asms.back();
+                asms.pop_back();
                 --i;
             }
         }
+    }
+
+    void remove_core(ptr_vector<expr> const& core) {
+        remove_soft(core, m_asms);
     }
 
     virtual void set_cancel(bool f) {
@@ -303,7 +307,6 @@ public:
     void init_local() {
         m_upper.reset();
         m_lower.reset();
-        m_asm2info.reset();
         m_trail.reset();
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             add_soft(m_soft[i].get(), m_weights[i]);

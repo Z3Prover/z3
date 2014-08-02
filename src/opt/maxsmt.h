@@ -99,7 +99,6 @@ namespace opt {
         app* mk_fresh_bool(char const* name);
     private:
         void enable_inc_bvsat();
-        void enable_noninc_bvsat();
     };
 
     /**
