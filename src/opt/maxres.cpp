@@ -257,7 +257,7 @@ public:
     void max_resolve(ptr_vector<expr>& core, rational const& w) {
         SASSERT(!core.empty());
         expr_ref fml(m), asum(m);
-        app_ref cls(m), d(m);
+        app_ref cls(m), d(m), dd(m);
         m_B.reset();
         m_B.append(core.size(), core.c_ptr());
         d = m.mk_true();
@@ -276,10 +276,20 @@ public:
         for (unsigned i = 1; i < core.size(); ++i) {
             expr* b_i = m_B[i-1].get();
             expr* b_i1 = m_B[i].get();
-            d = m.mk_and(b_i, d);
+            if (i > 2) {
+                dd = mk_fresh_bool("d");
+                fml = m.mk_implies(dd, d);
+                m_s->assert_expr(fml);
+                fml = m.mk_implies(dd, b_i);
+                m_s->assert_expr(fml);
+                d = dd;
+            }
+            else {
+                d = m.mk_and(b_i, d);
+            }
             asum = mk_fresh_bool("a");
             cls = m.mk_or(b_i1, d);
-            fml = m.mk_iff(asum, cls);
+            fml = m.mk_implies(asum, cls);
             new_assumption(asum, w);
             m_s->assert_expr(fml);
         }
