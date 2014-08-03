@@ -7,7 +7,43 @@ Module Name:
 
 Abstract:
    
-    MaxRes (weighted) max-sat algorithm by Nina and Bacchus, AAAI 2014.
+    MaxRes (weighted) max-sat algorithms:
+
+    - mus:     max-sat algorithm by Nina and Bacchus, AAAI 2014.
+    - mus-mss: based on dual refinement of bounds.
+    - mss:     based on maximal satisfying sets (only).
+
+    MaxRes is a core-guided approach to maxsat.
+    MusMssMaxRes extends the core-guided approach by
+    leveraging both cores and satisfying assignments
+    to make progress towards a maximal satisfying assignment.
+
+    Given a (minimal) unsatisfiable core for the soft
+    constraints the approach works like max-res.
+    Given a (maximal) satisfying subset of the soft constraints
+    the approach updates the upper bound if the current assignment
+    improves the current best assignmet.
+    Furthermore, take the soft constraints that are complements
+    to the current satisfying subset. 
+    E.g, if F are the hard constraints and 
+    s1,...,sn, t1,..., tm are the soft clauses and 
+    F & s1 & ... & sn is satisfiable, then the complement 
+    of of the current satisfying subset is t1, .., tm.
+    Update the hard constraint:
+         F := F & (t1 or ... or tm)
+    Replace t1, .., tm by m-1 new soft clauses:
+         t1 & t2, t3 & (t1 or t2), t4 & (t1 or t2 or t3), ..., tn & (t1 or ... t_{n-1})
+    Claim: 
+       If k of these soft clauses are satisfied, then k+1 of 
+       the previous soft clauses are satisfied.
+       If k of these soft clauses are false in the satisfying assignment 
+       for the updated F, then k of the original soft clauses are also false 
+       under the assignment.
+       In summary: any assignment to the new clauses that satsfies F has the
+       same cost.
+    Claim:
+       If there are no satisfying assignments to F, then the current best assignment
+       is the optimum.
 
 Author:
 
@@ -198,6 +234,7 @@ public:
         case s_mss:
             return mss_solver();
         }
+        return l_undef;
     }
 
     lbool get_cores(vector<ptr_vector<expr> >& cores) {
@@ -249,7 +286,7 @@ public:
         remove_core(corr_set);
         rational w = split_core(corr_set);
         TRACE("opt", display_vec(tout << " corr_set: ", corr_set.size(), corr_set.c_ptr()););
-        dual_max_resolve(corr_set, w);
+        cs_max_resolve(corr_set, w);
         return l_true;
     }
 
@@ -383,13 +420,13 @@ public:
         }
     }
 
-    // satc are the complements of a (maximal) satisfying assignment.
-    void dual_max_resolve(ptr_vector<expr>& satc, rational const& w) {
-        SASSERT(!satc.empty());
+    // cs is a correction set (a complement of a (maximal) satisfying assignment).
+    void cs_max_resolve(ptr_vector<expr>& cs, rational const& w) {
+        SASSERT(!cs.empty());
         expr_ref fml(m), asum(m);
         app_ref cls(m), d(m), dd(m);
         m_B.reset();
-        m_B.append(satc.size(), satc.c_ptr());
+        m_B.append(cs.size(), cs.c_ptr());
         d = m.mk_false();
         //
         // d_0 := false
@@ -400,7 +437,7 @@ public:
         // asm => b_i
         // asm => d_{i-1} or b_{i-1}
         // d_i => d_{i-1} or b_{i-1}
-        for (unsigned i = 1; i < satc.size(); ++i) {
+        for (unsigned i = 1; i < cs.size(); ++i) {
             expr* b_i = m_B[i-1].get();
             expr* b_i1 = m_B[i].get();
             cls = m.mk_or(b_i, d);
@@ -496,7 +533,7 @@ public:
                 m_assignment[i] = m.is_true(tmp);
             }
             IF_VERBOSE(1, verbose_stream() << 
-                       "(opt.dual_max_res [" << m_lower << ":" << m_upper << "])\n";);
+                       "(opt.mus-mss_max_res [" << m_lower << ":" << m_upper << "])\n";);
         }
         return num_true;
     }
@@ -534,5 +571,15 @@ public:
 opt::maxsmt_solver_base* opt::mk_maxres(ast_manager& m, opt_solver* s, params_ref& p, 
                                         vector<rational> const& ws, expr_ref_vector const& soft) {
     return alloc(maxres, m, s, p, ws, soft, maxres::s_mus);
+}
+
+opt::maxsmt_solver_base* opt::mk_mus_mss_maxres(ast_manager& m, opt_solver* s, params_ref& p, 
+                                        vector<rational> const& ws, expr_ref_vector const& soft) {
+    return alloc(maxres, m, s, p, ws, soft, maxres::s_mus_mss);
+}
+
+opt::maxsmt_solver_base* opt::mk_mss_maxres(ast_manager& m, opt_solver* s, params_ref& p, 
+                                        vector<rational> const& ws, expr_ref_vector const& soft) {
+    return alloc(maxres, m, s, p, ws, soft, maxres::s_mss);
 }
 

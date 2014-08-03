@@ -7,40 +7,6 @@ Module Name:
 
 Abstract:
    
-    MaxRes (weighted) max-sat algorithm 
-    based on dual refinement of bounds.
-
-    MaxRes is a core-guided approach to maxsat.
-    DualMaxRes extends the core-guided approach by
-    leveraging both cores and satisfying assignments
-    to make progress towards a maximal satisfying assignment.
-
-    Given a (minimal) unsatisfiable core for the soft
-    constraints the approach works like max-res.
-    Given a (maximal) satisfying subset of the soft constraints
-    the approach updates the upper bound if the current assignment
-    improves the current best assignmet.
-    Furthermore, take the soft constraints that are complements
-    to the current satisfying subset. 
-    E.g, if F are the hard constraints and 
-    s1,...,sn, t1,..., tm are the soft clauses and 
-    F & s1 & ... & sn is satisfiable, then the complement 
-    of of the current satisfying subset is t1, .., tm.
-    Update the hard constraint:
-         F := F & (t1 or ... or tm)
-    Replace t1, .., tm by m-1 new soft clauses:
-         t1 & t2, t3 & (t1 or t2), t4 & (t1 or t2 or t3), ..., tn & (t1 or ... t_{n-1})
-    Claim: 
-       If k of these soft clauses are satisfied, then k+1 of 
-       the previous soft clauses are satisfied.
-       If k of these soft clauses are false in the satisfying assignment 
-       for the updated F, then k of the original soft clauses are also false 
-       under the assignment.
-       In summary: any assignment to the new clauses that satsfies F has the
-       same cost.
-    Claim:
-       If there are no satisfying assignments to F, then the current best assignment
-       is the optimum.
         
 
 Author:

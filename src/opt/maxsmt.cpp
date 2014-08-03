@@ -22,7 +22,6 @@ Notes:
 #include "fu_malik.h"
 #include "core_maxsat.h"
 #include "maxres.h"
-#include "dual_maxres.h"
 #include "maxhs.h"
 #include "bcd2.h"
 #include "wpm2.h"
@@ -181,8 +180,8 @@ namespace opt {
         else if (m_maxsat_engine == symbol("maxres")) {            
             m_msolver = mk_maxres(m, s, m_params, m_weights, m_soft_constraints);
         }
-        else if (m_maxsat_engine == symbol("dual-maxres")) {            
-            m_msolver = mk_dual_maxres(m, s, m_params, m_weights, m_soft_constraints);
+        else if (m_maxsat_engine == symbol("mus-mss-maxres")) {            
+            m_msolver = mk_mus_mss_maxres(m, s, m_params, m_weights, m_soft_constraints);
         }
         else if (m_maxsat_engine == symbol("pbmax")) {
             m_msolver = mk_pbmax(m, s, m_params, m_weights, m_soft_constraints);
