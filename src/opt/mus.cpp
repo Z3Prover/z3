@@ -15,8 +15,6 @@ Author:
 
 Notes:
 
-   Model rotation needs fixes to ensure that hard constraints are satisfied
-   under pertubed model. Model rotation also has o be consistent with theories.
 
 --*/
 

@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
    
-    Faster MUS extraction based on Belov et.al. HYB (Algorithm 3, 4)
+    Basic MUS extraction
 
 Author:
 
