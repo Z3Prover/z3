@@ -138,8 +138,6 @@ namespace opt {
         m_s = sat_solver;
     }
 
-
-
     void maxsmt_solver_base::enable_bvsat()  {
         if (m_enable_sat && !m_sat_enabled && probe_bv()) {
             enable_inc_bvsat();
@@ -158,6 +156,12 @@ namespace opt {
             sls->opt(m_model);
         }
     }       
+
+    void maxsmt_solver_base::set_mus(bool f) {
+        params_ref p;
+        p.set_bool("minimize_core", f);
+        m_s->updt_params(p);
+    }
 
     app* maxsmt_solver_base::mk_fresh_bool(char const* name) {
         app* result = m.mk_fresh_const(name, m.mk_bool_sort());

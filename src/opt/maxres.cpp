@@ -58,9 +58,9 @@ Notes:
 #include "maxres.h"
 #include "ast_pp.h"
 #include "mus.h"
+#include "mss.h"
 
 using namespace opt;
-
 
 class maxres : public maxsmt_solver_base {
 public:
@@ -75,8 +75,10 @@ private:
     obj_map<expr, rational> m_asm2weight;
     ptr_vector<expr> m_new_core;
     mus              m_mus;
+    mss              m_mss;
     expr_ref_vector  m_trail;
     strategy_t       m_st;
+    rational         m_max_upper;
 
 public:
     maxres(ast_manager& m, opt_solver* s, params_ref& p, 
@@ -85,6 +87,7 @@ public:
         maxsmt_solver_base(s, m, p, ws, soft),
         m_B(m), m_asms(m),
         m_mus(m_s, m),
+        m_mss(m_s, m),
         m_trail(m),
         m_st(st)
     {
@@ -168,7 +171,6 @@ public:
             default:
                 break;
             }
-            IF_VERBOSE(1, verbose_stream() << "(opt.max_res [" << m_lower << ":" << m_upper << "])\n";);
         }
         return l_true;
     }
@@ -179,8 +181,7 @@ public:
         init_local();
         enable_bvsat();
         enable_sls();
-        lbool was_sat = l_false;
-        ptr_vector<expr> soft_compl;
+        ptr_vector<expr> mcs;
         vector<ptr_vector<expr> > cores;
         while (m_lower < m_upper) {            
             TRACE("opt", 
@@ -189,36 +190,37 @@ public:
                   tout << "\n";
                   display(tout);
                   );
-            lbool is_sat = m_s->check_sat(0, 0);
+            lbool is_sat = try_improve_bound(cores, mcs);
             if (m_cancel) {
                 return l_undef;
-            }
-            if (is_sat == l_true) {
-                was_sat = l_true;
-                is_sat = extend_model(soft_compl);
-                switch (is_sat) {
-                case l_undef:
-                    break;
-                case l_false:
-                    is_sat = process_unsat();
-                    break;
-                case l_true:
-                    is_sat = process_sat(soft_compl);
-                    break;
-                }
             }
             switch (is_sat) {
             case l_undef:
                 return l_undef;
             case l_false:
+                SASSERT(cores.empty() && mcs.empty());
                 m_lower = m_upper;
-                return was_sat;
-            case l_true: 
+                return l_true;
+            case l_true:
+                SASSERT(cores.empty() || mcs.empty());
+                SASSERT(!cores.empty() || !mcs.empty());
+                for (unsigned i = 0; is_sat == l_true && i < cores.size(); ++i) {
+                    is_sat = process_unsat(cores[i]);
+                }
+                if (is_sat == l_true && !mcs.empty()) {
+                    is_sat = process_sat(mcs);
+                }
+                if (is_sat != l_true) {
+                    return is_sat;
+                }
                 break;
             }
         }
-        return was_sat;
+        m_lower = m_lower;        
+        return l_true;
     }
+
+
 
     lbool mss_solver() {
         NOT_IMPLEMENTED_YET();
@@ -314,6 +316,7 @@ public:
         fml = m.mk_not(m.mk_and(m_B.size(), m_B.c_ptr()));
         m_s->assert_expr(fml);
         m_lower += w;
+        IF_VERBOSE(1, verbose_stream() << "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
         return l_true;
     }
 
@@ -422,6 +425,7 @@ public:
 
     // cs is a correction set (a complement of a (maximal) satisfying assignment).
     void cs_max_resolve(ptr_vector<expr>& cs, rational const& w) {
+        TRACE("opt", display_vec(tout << "correction set: ", cs.size(), cs.c_ptr()););
         SASSERT(!cs.empty());
         expr_ref fml(m), asum(m);
         app_ref cls(m), d(m), dd(m);
@@ -437,6 +441,7 @@ public:
         // asm => b_i
         // asm => d_{i-1} or b_{i-1}
         // d_i => d_{i-1} or b_{i-1}
+        //
         for (unsigned i = 1; i < cs.size(); ++i) {
             expr* b_i = m_B[i-1].get();
             expr* b_i1 = m_B[i].get();
@@ -460,82 +465,89 @@ public:
         m_s->assert_expr(fml);
     }
 
-    //
-    // The hard constraints are satisfiable.
-    // Extend the current model to satisfy as many
-    // soft constraints as possible until either
-    // hitting an unsatisfiable subset of size < 1/2*#assumptions,
-    // or producing a maximal satisfying assignment exceeding 
-    // number of soft constraints >= 1/2*#assumptions.
-    // In both cases, soft constraints that are not satisfied 
-    // is <= 1/2*#assumptions. In this way, the new modified assumptions
-    // account for at most 1/2 of the current assumptions.
-    // The core reduction algorithms also need to take into account
-    // at most 1/2 of the assumptions for minimization.
-    // 
-
-    lbool extend_model(ptr_vector<expr>& soft_compl) {
-        ptr_vector<expr> asms;
-        model_ref mdl;
-        expr_ref tmp(m);
-        m_s->get_model(mdl);
-        unsigned num_true = update_model(mdl, asms, soft_compl);
-        for (unsigned j = 0; j < m_asms.size(); ++j) {
-            expr* fml = m_asms[j].get();
-            VERIFY(mdl->eval(fml, tmp));
-            if (m.is_false(tmp)) {
-                asms.push_back(fml);
-                lbool is_sat = m_s->check_sat(asms.size(), asms.c_ptr());
-                asms.pop_back();
-                switch (is_sat) {
-                case l_false:
-                    if (num_true*2 < m_asms.size()) {
-                        return l_false;
-                    }
-                    break;
-                case l_true:
-                    m_s->get_model(mdl);
-                    num_true = update_model(mdl, asms, soft_compl);
-                    break;
-                case l_undef:
-                    return l_undef;
+    lbool try_improve_bound(vector<ptr_vector<expr> >& cores, ptr_vector<expr>& mcs) {
+        cores.reset();
+        mcs.reset();
+        ptr_vector<expr> core;
+        expr_ref_vector asms(m_asms);
+        while (true) {
+            rational upper = m_max_upper;
+            unsigned sz = 0;
+            for (unsigned i = 0; m_upper <= upper && i < asms.size(); ++i, ++sz) {
+                upper -= get_weight(asms[i].get());
+            }
+            lbool is_sat = m_s->check_sat(sz, asms.c_ptr());
+            switch (is_sat) {
+            case l_true: {
+                ptr_vector<expr> lits;
+                lits.append(asms.size(), asms.c_ptr());
+                set_mus(false);
+                is_sat = m_mss(cores, lits);
+                set_mus(true);
+                if (is_sat != l_true) {
+                    return is_sat;
                 }
+                m_mss.get_model(m_model); // last model is best way to reduce search space.
+                update_assignment();
+                if (cores.empty() || asms.size() < cores.back().size()) {
+                    cores.reset();
+                    mcs.append(asms.size(), asms.c_ptr());                    
+                }
+                return l_true;
+            }
+            case l_undef:
+                return l_undef;
+            case l_false:
+                core.reset();
+                m_s->get_unsat_core(core);
+                is_sat = minimize_core(core);
+                if (is_sat != l_true) {
+                    break;
+                }
+                if (core.empty()) {
+                    cores.reset();
+                    mcs.reset();
+                    return l_false;
+                }
+                cores.push_back(core);
+                if (core.size() >= 3) {
+                    return l_true;
+                }
+                //
+                // check arithmetic: cannot improve upper bound
+                //
+                if (m_upper <= upper) {
+                    return l_true;
+                }
+                
+                remove_soft(core, asms);
+                break;
             }
         }
-        return l_true;
+        
+        return l_undef;
     }
 
-    unsigned update_model(model_ref& mdl, ptr_vector<expr>& asms, ptr_vector<expr>& soft_compl) {
-        expr_ref tmp(m);
-        asms.reset();
-        soft_compl.reset();
-        rational weight = m_lower;
-        unsigned num_true = 0;
-        for (unsigned i = 0; i < m_asms.size(); ++i) {
-            expr* fml = m_asms[i].get();
-            VERIFY(mdl->eval(fml, tmp));
-            SASSERT(m.is_false(tmp) || m.is_true(tmp));            
-            if (m.is_false(tmp)) {
-                weight += get_weight(fml);
-                soft_compl.push_back(fml);
-            }
-            else {
-                ++num_true;
-                asms.push_back(fml);
+
+    void update_assignment() {
+        rational upper(0);
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            expr_ref tmp(m);
+            expr* n = m_soft[i].get();
+            VERIFY(m_model->eval(n, tmp));
+            CTRACE("opt", !m.is_true(tmp) && !m.is_false(tmp), 
+                   tout << mk_pp(n, m) << " |-> " << mk_pp(tmp, m) << "\n";);
+
+            m_assignment[i] = m.is_true(tmp);
+            if (!m_assignment[i]) {
+                upper += m_weights[i];
             }
         }
-        if (weight < m_upper) {
-            m_upper = weight;
-            m_model = mdl;
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                expr_ref tmp(m);
-                VERIFY(m_model->eval(m_soft[i].get(), tmp));
-                m_assignment[i] = m.is_true(tmp);
-            }
-            IF_VERBOSE(1, verbose_stream() << 
-                       "(opt.mus-mss_max_res [" << m_lower << ":" << m_upper << "])\n";);
-        }
-        return num_true;
+        SASSERT(upper <= m_upper);
+        m_upper = upper;
+        IF_VERBOSE(1, verbose_stream() << 
+                   "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
+
     }
 
     void remove_soft(ptr_vector<expr> const& core, expr_ref_vector& asms) {
@@ -564,6 +576,7 @@ public:
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             add_soft(m_soft[i].get(), m_weights[i]);
         }
+        m_max_upper = m_upper;
     }
 
 };

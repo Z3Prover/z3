@@ -94,6 +94,7 @@ namespace opt {
         void init();
         expr* mk_not(expr* e);
         bool probe_bv();
+        void set_mus(bool f);
         void enable_bvsat();
         void enable_sls();
         app* mk_fresh_bool(char const* name);

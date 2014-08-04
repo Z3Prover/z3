@@ -89,7 +89,7 @@ public:
         m_solver.pop_to_base_level();
         dep2asm_t dep2asm;
 
-        m_model.reset();
+        m_model = 0;
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_assumptions(num_assumptions, assumptions, dep2asm);
@@ -161,7 +161,7 @@ public:
         r.append(m_core.size(), m_core.c_ptr());
     }
     virtual void get_model(model_ref & m) {
-        if (!m_model) {
+        if (!m_model.get()) {
             extract_model();
         }
         m = m_model;
@@ -275,6 +275,7 @@ private:
     // bit-blasting model converter.
 
     void extract_model() {
+        TRACE("sat", tout << "retrieve model\n";);
         model_ref md = alloc(model, m);
         sat::model const & ll_m = m_solver.get_model();
         atom2bool_var::iterator it  = m_map.begin();
@@ -300,6 +301,7 @@ private:
         if (m_mc) {
             (*m_mc)(m_model);
         }
+        SASSERT(m_model);
         // IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *(m_model.get()), 0););
 
     }
