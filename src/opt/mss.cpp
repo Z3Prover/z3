@@ -19,7 +19,6 @@ Notes:
 --*/
 
 #include "solver.h"
-#include "smt_literal.h"
 #include "mss.h"
 #include "ast_pp.h"
 #include "model_smt2_pp.h"
@@ -76,7 +75,10 @@ namespace opt {
                     core_lits.insert(n);
                     VERIFY(m_model->eval(n, tmp));
                     if (m.is_true(tmp)) {
-                        m_mss.push_back(n);
+                        add_mss(n);
+                    }
+                    else {
+                        m_todo.push_back(n);
                     }
                 }
             }
@@ -91,40 +93,60 @@ namespace opt {
                 else {
                     rest_core.push_back(n);
                     core_lits.insert(n);
+                    m_todo.push_back(n);
                 }
             }
         }
         cores.push_back(rest_core);
     }
-    
-    void mss::update_set(exprs& lits) {
-        expr_ref tmp(m);
-        unsigned sz = lits.size();
+
+    void mss::add_mss(expr* n) {
+        if (!m_mss_set.contains(n)) {
+            m_mss_set.insert(n);
+            m_mss.push_back(n);
+        }
+    }
+
+    void mss::update_core(exprs& core) {
         unsigned j = 0;
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            expr* n = lits[i];
-            if (m_mcs.contains(n)) {
-                // remove from todo.
-                continue;
-            }
-            VERIFY(m_model->eval(n, tmp));
-            if (!m.is_true(tmp)) {
-                if (j != i) {
-                    lits[j] = lits[i];
+        for (unsigned i = 0; i < core.size(); ++i) {            
+            expr* n = core[i];
+            if (!m_mss_set.contains(n)) {
+                if (i != j) {
+                    core[j] = core[i];
                 }
                 ++j;
             }
+        }
+        core.resize(j);
+    }
+
+    void mss::update_mss() {
+        expr_ref tmp(m);
+        unsigned j = 0;
+        for (unsigned i = 0; i < m_todo.size(); ++i) {
+            expr* n = m_todo[i];
+            SASSERT(!m_mss_set.contains(n));
+            if (m_mcs.contains(n)) {
+                continue; // remove from cores.
+            }
+            VERIFY(m_model->eval(n, tmp));
+            if (m.is_true(tmp)) {
+                add_mss(n);
+            }
             else {
-                m_mss.push_back(n);            
+                if (j != i) {
+                    m_todo[j] = m_todo[i];
+                }
+                ++j;
             }
         }
-        lits.resize(j);
-    }
-    
+        m_todo.resize(j);
+    }       
     
     lbool mss::operator()(vector<exprs> const& _cores, exprs& literals) {
         m_mss.reset();
-        m_mcs.reset();
+        m_todo.reset();
         m_s->get_model(m_model);
         SASSERT(m_model);
         vector<exprs> cores(_cores);
@@ -141,8 +163,8 @@ namespace opt {
             bool has_mcs = false;
             bool is_last = i + 1 < cores.size();
             SASSERT(check_invariant());
-            update_set(cores[i]);
-            is_sat = process_core(1, cores[i], has_mcs, is_last);
+            update_core(cores[i]); // remove members of mss
+            is_sat = process_core(1, cores[i], has_mcs, is_last); 
         }    
         if (is_sat == l_true) {
             SASSERT(check_invariant());
@@ -151,6 +173,8 @@ namespace opt {
             literals.append(m_mss);
             SASSERT(check_result());
         }
+        m_mcs.reset();
+        m_mss_set.reset();
         return is_sat;
     }
 
@@ -160,7 +184,6 @@ namespace opt {
     // pick literals in core that are not yet in mss.
     //    
     lbool mss::process_core(unsigned sz, exprs& core, bool& has_mcs, bool is_last) {
-        TRACE("opt", tout << "process: " << sz << " out of " << core.size() << " literals\n";);
         SASSERT(sz > 0);
         if (core.empty()) {
             return l_true;
@@ -168,13 +191,15 @@ namespace opt {
         if (m_cancel) {
             return l_undef;
         }
-        if (sz == 1 && is_last && !has_mcs) {
+        if (sz == 1 && core.size() == 1 && is_last && !has_mcs) {
             // there has to be at least one false 
-            // literal in the core. 
+            // literal in the core.
+            TRACE("opt", tout << "mcs: " << mk_pp(core[0], m) << "\n";);
             m_mcs.insert(core[0]);
             return l_true;
         }
         sz = std::min(sz, core.size());
+        TRACE("opt", display_vec(tout << "process (total " << core.size() << ") :", sz, core.c_ptr()););
         unsigned sz_save = m_mss.size();
         m_mss.append(sz, core.c_ptr());
         lbool is_sat = m_s->check_sat(m_mss.size(), m_mss.c_ptr());
@@ -182,7 +207,13 @@ namespace opt {
         switch (is_sat) {
         case l_true:
             m_s->get_model(m_model);
-            update_set(core);
+            update_mss();
+            // sz entries from core should now be in mss.
+            DEBUG_CODE(
+                for (unsigned i = 0; i < sz; ++i) {
+                    SASSERT(m_mss_set.contains(core[i]));
+                });
+            update_core(core);
             return process_core(2*sz, core, has_mcs, is_last);
         case l_false:
             if (sz == 1) {
@@ -199,6 +230,7 @@ namespace opt {
                 if (is_sat != l_true) {
                     return is_sat;
                 }
+                update_core(core);
             }
             return process_core(1, core, has_mcs, is_last);
         case l_undef:
@@ -241,7 +273,6 @@ namespace opt {
             CTRACE("opt", !m.is_true(tmp), tout << mk_pp(n, m) << " |-> " << mk_pp(tmp, m) << "\n";);
             SASSERT(!m.is_false(tmp));
         }
-
         return true;
     }
 }

@@ -28,6 +28,8 @@ namespace opt {
         typedef obj_hashtable<expr>  expr_set;
         exprs         m_mss;
         expr_set      m_mcs;
+        expr_set      m_mss_set;
+        exprs         m_todo;
         model_ref     m_model;
     public:
         mss(ref<solver>& s, ast_manager& m);
@@ -42,9 +44,9 @@ namespace opt {
     private:
         void  initialize(vector<exprs>& cores, exprs& literals);
         bool  check_result();
-        void  update_model();
-        void  update_set(exprs& lits);
-        lbool process_core(exprs const& _core);
+        void  add_mss(expr* n);
+        void  update_mss();
+        void  update_core(exprs& core);
         lbool process_core(unsigned sz, exprs& core, bool& has_mcs, bool is_last);
         void display(std::ostream& out) const;
         void display_vec(std::ostream& out, unsigned sz, expr* const* args) const;
