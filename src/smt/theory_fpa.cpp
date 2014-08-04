@@ -60,15 +60,6 @@ namespace smt {
         ctx.mark_as_relevant(l);
     }
 
-    app_ref theory_fpa::mk_eq_bv_const(expr_ref const & e) {
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
-        app_ref bv_const(m);
-        bv_const = m.mk_fresh_const(0, m.get_sort(e));        
-        mk_bv_eq(bv_const, e);
-        return bv_const;
-    }
-
     bool theory_fpa::internalize_atom(app * atom, bool gate_ctx) {
         TRACE("t_fpa", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << "\n";);
         SASSERT(atom->get_family_id() == get_family_id());        
@@ -128,7 +119,7 @@ namespace smt {
             proof_ref bv_pr(m);
             simp(t, bv_rm, bv_pr);
 
-            bv_term = mk_eq_bv_const(bv_rm);
+            bv_term = bv_rm;
         }
         else if (m_converter.is_float(term_sort)) {
             SASSERT(is_app(t) && to_app(t)->get_num_args() == 3);            
@@ -139,19 +130,13 @@ namespace smt {
             simp(a->get_arg(1), sig, pr_sig);
             simp(a->get_arg(2), exp, pr_exp);
 
-            app_ref bv_v_sgn = mk_eq_bv_const(sgn);
-            app_ref bv_v_sig = mk_eq_bv_const(sig);
-            app_ref bv_v_exp = mk_eq_bv_const(exp);
-
-            m_converter.mk_triple(bv_v_sgn, bv_v_sig, bv_v_exp, bv_term);
+            m_converter.mk_triple(sgn, sig, exp, bv_term);
         }
         else if (term->get_decl_kind() == OP_TO_IEEE_BV) {
             SASSERT(is_app(t));
             expr_ref bv_e(m);
             proof_ref bv_pr(m);
-            simp(t, bv_e, bv_pr);
-
-            bv_term = mk_eq_bv_const(bv_e);
+            simp(t, bv_term, bv_pr);
         }
         else
             NOT_IMPLEMENTED_YET();
@@ -159,11 +144,12 @@ namespace smt {
         TRACE("t_fpa", tout << "converted: " << mk_ismt2_pp(bv_term, get_manager()) << "\n";);
 
         SASSERT(!m_trans_map.contains(term));
-        m_trans_map.insert(term, bv_term, 0);
+        m_trans_map.insert(term, bv_term, 0);        
 
         enode * e = (ctx.e_internalized(term)) ? ctx.get_enode(term) : ctx.mk_enode(term, false, false, true);
         theory_var v = mk_var(e);
         ctx.attach_th_var(e, this, v);
+        m_tvars.push_back(v);
         TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(term, get_manager()) << " := " << v << "\n";);
         SASSERT(e->get_th_var(get_id()) != null_theory_var);
         return v != null_theory_var;
@@ -180,23 +166,14 @@ namespace smt {
 
             theory_var v = mk_var(n);            
             ctx.attach_th_var(n, this, v);
+            m_tvars.push_back(v);
             m_rw(owner, converted);
             m_trans_map.insert(owner, converted, 0);
             
-            if (m_converter.is_rm(m.get_sort(owner))) {
-                mk_eq_bv_const(converted);
-            }
-            else {
-                app * a = to_app(converted);
-                expr_ref sgn(m), sig(m), exp(m);
-                proof_ref pr_sgn(m), pr_sig(m), pr_exp(m);
-                simp(a->get_arg(0), sgn, pr_sgn);
-                simp(a->get_arg(1), sig, pr_sig);
-                simp(a->get_arg(2), exp, pr_exp);
-
-                mk_eq_bv_const(sgn);
-                mk_eq_bv_const(sig);
-                mk_eq_bv_const(exp);
+            sort * owner_sort = m.get_sort(owner);
+            if (m_converter.is_rm(owner_sort)) {
+                bv_util & bu = m_converter.bu();
+                bu.mk_ule(converted, bu.mk_numeral(4, bu.get_bv_size(converted)));
             }
 
             TRACE("t_fpa", tout << "new theory var (const): " << mk_ismt2_pp(owner, get_manager()) << " := " << v << "\n";);
@@ -215,7 +192,7 @@ namespace smt {
         m_trans_map.get(ax, ex, px);
         m_trans_map.get(ay, ey, py);
 
-        if (m_converter.fu().is_float(m.get_sort(get_enode(x)->get_owner()))) {            
+        if (m_converter.fu().is_float(get_enode(x)->get_owner())) {
             expr * sgn_x, *sig_x, *exp_x;
             expr * sgn_y, *sig_y, *exp_y;
             split_triple(ex, sgn_x, sig_x, exp_x);
@@ -225,7 +202,7 @@ namespace smt {
             mk_bv_eq(sig_x, sig_y);
             mk_bv_eq(exp_x, exp_y);
         }
-        else if (m_converter.fu().is_rm(m.get_sort(get_enode(x)->get_owner()))) {
+        else if (m_converter.fu().is_rm(get_enode(x)->get_owner())) {
             mk_bv_eq(ex, ey);
         }
         else 
@@ -273,7 +250,13 @@ namespace smt {
     }
 
     void theory_fpa::pop_scope_eh(unsigned num_scopes) {
+        TRACE("bv", tout << num_scopes << "\n";);
         m_trail_stack.pop_scope(num_scopes);
+        unsigned num_old_vars = get_old_num_vars(num_scopes);
+        for (unsigned i = num_old_vars; i < get_num_vars(); i++) {
+            m_trans_map.erase(get_enode(m_tvars[i])->get_owner());
+        }
+        m_tvars.shrink(num_old_vars);
         theory::pop_scope_eh(num_scopes);
     }
 
@@ -405,6 +388,7 @@ namespace smt {
     void theory_fpa::assign_eh(bool_var v, bool is_true) {
         TRACE("t_fpa", tout << "assign_eh for: " << v << " (" << is_true << ")\n";);
         /* CMW: okay to ignore? */
+        theory::assign_eh(v, is_true);
     }
 
     void theory_fpa::relevant_eh(app * n) {
@@ -441,14 +425,10 @@ namespace smt {
                 ctx.mark_as_relevant(bv_exp);
             }
             else if (n->get_decl()->get_decl_kind() == OP_TO_IEEE_BV) {                
-                //literal l = mk_eq(n, ex, false);
-                //ctx.mark_as_relevant(l);
-                //ctx.mk_th_axiom(get_id(), 1, &l);
-
+                expr_ref eq(m);
                 app * ex_a = to_app(ex);
                 if (n->get_id() > ex_a->get_id())
-                    std::swap(n, ex_a);
-                expr_ref eq(m);
+                    std::swap(n, ex_a);                
                 eq = m.mk_eq(n, ex_a);
                 ctx.internalize(eq, false);
                 literal l = ctx.get_literal(eq);
@@ -464,7 +444,11 @@ namespace smt {
 
     void theory_fpa::reset_eh() {
         pop_scope_eh(m_trail_stack.get_num_scopes());
-        m_bool_var2atom.reset();  
+        m_rw.reset();        
+        m_trans_map.reset();
+        m_bool_var2atom.reset();
+        m_temporaries.reset();
+        m_tvars.reset();
         theory::reset_eh();
     }
 

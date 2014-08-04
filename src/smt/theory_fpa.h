@@ -55,6 +55,7 @@ namespace smt {
         th_trail_stack   m_trail_stack;
         bool_var2atom    m_bool_var2atom;
         enode_vector     m_temporaries;
+        int_vector       m_tvars;
 
         virtual final_check_status final_check_eh() { return FC_DONE; }
         virtual bool internalize_atom(app * atom, bool gate_ctx);
@@ -88,7 +89,6 @@ namespace smt {
         }
                 
         void mk_bv_eq(expr * x, expr * y);
-        app_ref mk_eq_bv_const(expr_ref const & e);
     };
 
 };

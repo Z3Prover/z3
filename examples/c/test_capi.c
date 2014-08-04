@@ -2599,11 +2599,11 @@ void fpa_example() {
     Z3_config cfg;
     Z3_context ctx;
     Z3_sort double_sort, rm_sort;
-    Z3_symbol symbol_rm, symbol_x, symbol_y;
-    Z3_ast rm, x, y, n, c;
-
-    printf("\nFPA-example\n");
-    LOG_MSG("FPA-example");
+    Z3_symbol symbol_rm, symbol_x, symbol_y, symbol_q;
+    Z3_ast rm, x, y, n, q, c1, c2, c3, c4, c5, c6;
+        
+    printf("\nfpa_example\n");
+    LOG_MSG("fpa_example");
 
     cfg = Z3_mk_config();
     ctx = Z3_mk_context(cfg);
@@ -2620,16 +2620,32 @@ void fpa_example() {
     y = Z3_mk_const(ctx, symbol_y, double_sort);
     n = Z3_mk_fpa_double(ctx, 42.0, double_sort);
 
-    Z3_symbol q_s = Z3_mk_string_symbol(ctx, "q");
-    Z3_ast q = Z3_mk_const(ctx, q_s, double_sort);
-    c = Z3_mk_eq(ctx, q, Z3_mk_fpa_add(ctx, rm, x, y));
+    symbol_q = Z3_mk_string_symbol(ctx, "q");
+    q = Z3_mk_const(ctx, symbol_q, double_sort);
+    c1 = Z3_mk_eq(ctx, q, Z3_mk_fpa_add(ctx, rm, x, y));
 
-    Z3_ast args[2] = { c, Z3_mk_eq(ctx, q, n) };
-    c = Z3_mk_and(ctx, 2, (Z3_ast*)&args);
+    Z3_ast args[2] = { c1, Z3_mk_eq(ctx, q, n) };
+    c2 = Z3_mk_and(ctx, 2, (Z3_ast*)&args);
 
-    printf("c = %s\n", Z3_ast_to_string(ctx, c));
+    Z3_ast args2[2] = { c2, Z3_mk_not(ctx, Z3_mk_eq(ctx, rm, Z3_mk_fpa_round_nearest_ties_to_away(ctx))) };
+    c3 = Z3_mk_and(ctx, 2, (Z3_ast*)&args2);
 
-    Z3_assert_cnstr(ctx, c);
+    Z3_ast and_args[3] = { 
+        Z3_mk_not(ctx, Z3_mk_fpa_is_zero(ctx, y)),
+        Z3_mk_not(ctx, Z3_mk_fpa_is_nan(ctx, y)),
+        Z3_mk_not(ctx, Z3_mk_fpa_is_inf(ctx, y)) };
+    Z3_ast args3[2] = { c3, Z3_mk_and(ctx, 3, and_args) };
+    c4 = Z3_mk_and(ctx, 2, (Z3_ast*)&args3);
+    
+
+    Z3_assert_cnstr(ctx, c4);
+    Z3_push(ctx);
+
+    // c5 := (IEEEBV(x) == 7.0).
+    c5 = Z3_mk_eq(ctx, Z3_mk_fpa_to_ieee_bv(ctx, x),
+                  Z3_mk_numeral(ctx, "4619567317775286272", Z3_mk_bv_sort(ctx, 64)));
+
+    Z3_assert_cnstr(ctx, c5);
 
     Z3_model m = 0;
     Z3_lbool result = Z3_check_and_get_model(ctx, &m);
@@ -2639,18 +2655,43 @@ void fpa_example() {
         break;
     case Z3_L_UNDEF:
         printf("unknown\n");
+        printf("potential model:\n%s\n", Z3_model_to_string(ctx, m));
+        break;
+    case Z3_L_TRUE:        
+        printf("sat\n%s\n", Z3_model_to_string(ctx, m));
+        Z3_del_model(ctx, m);        
+        break;
+    }    
+
+    Z3_pop(ctx, 1);    
+
+    // c6 := (IEEEBV(x) == 28.0).
+    c6 = Z3_mk_eq(ctx, Z3_mk_fpa_to_ieee_bv(ctx, x),
+                  Z3_mk_numeral(ctx, "4628574517030027264", Z3_mk_bv_sort(ctx, 64)));
+
+    Z3_assert_cnstr(ctx, c6);
+    Z3_push(ctx);
+
+    m = 0;
+    result = Z3_check_and_get_model(ctx, &m);
+    switch (result) {
+    case Z3_L_FALSE:
+        printf("unsat\n");
+        break;
+    case Z3_L_UNDEF:
+        printf("unknown\n");
+        printf("potential model:\n%s\n", Z3_model_to_string(ctx, m));
         break;
     case Z3_L_TRUE:
-        printf("sat\n%s\n", Z3_model_to_string(ctx, m));        
+        printf("sat\n%s\n", Z3_model_to_string(ctx, m));
+        Z3_del_model(ctx, m);
         break;
     }
 
-    if (m)
-        Z3_del_model(ctx, m);
+    Z3_pop(ctx, 1);
 
     Z3_del_context(ctx);
 }
-
 
 /*@}*/
 /*@}*/

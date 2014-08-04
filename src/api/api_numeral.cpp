@@ -193,7 +193,7 @@ extern "C" {
             // floats are separated from all others to avoid huge rationals.
             float_util & fu = mk_c(c)->float_util();
             scoped_mpf tmp(fu.fm());
-            if (mk_c(c)->float_util().is_numeral(to_expr(a), tmp)) {
+            if (mk_c(c)->float_util().is_value(to_expr(a), tmp)) {
                 return mk_c(c)->mk_external_string(fu.fm().to_string(tmp));
             }
             else {
