@@ -136,12 +136,13 @@ void fpa2bv_converter::mk_const(func_decl * f, expr_ref & result) {
         unsigned sbits = m_util.get_sbits(srt);
         
         expr_ref sgn(m), s(m), e(m);
-        sort_ref s_sgn(m), s_sig(m), s_exp(m);
-        s_sgn =  m_bv_util.mk_sort(1);
-        s_sig = m_bv_util.mk_sort(sbits-1);
-        s_exp = m_bv_util.mk_sort(ebits);
 
 #ifdef Z3DEBUG
+        sort_ref s_sgn(m), s_sig(m), s_exp(m);
+        s_sgn = m_bv_util.mk_sort(1);
+        s_sig = m_bv_util.mk_sort(sbits - 1);
+        s_exp = m_bv_util.mk_sort(ebits);
+
         std::string p("fpa2bv");
         std::string name = f->get_name().str();
         
@@ -149,9 +150,17 @@ void fpa2bv_converter::mk_const(func_decl * f, expr_ref & result) {
         s = m.mk_fresh_const((p + "_sig_" + name).c_str(), s_sig);
         e = m.mk_fresh_const((p + "_exp_" + name).c_str(), s_exp);
 #else
-        sgn = m.mk_fresh_const(0, s_sgn);
-        s = m.mk_fresh_const(0, s_sig);
-        e = m.mk_fresh_const(0, s_exp);
+        expr_ref bv(m);
+        unsigned bv_sz = 1 + ebits + (sbits - 1);
+        bv = m.mk_fresh_const(0, m_bv_util.mk_sort(bv_sz));
+
+        sgn = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv);
+        e = m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv);
+        s = m_bv_util.mk_extract(sbits - 2, 0, bv);
+
+        SASSERT(m_bv_util.get_bv_size(sgn) == 1);
+        SASSERT(m_bv_util.get_bv_size(s) == sbits-1);
+        SASSERT(m_bv_util.get_bv_size(e) == ebits);
 #endif
         
         mk_triple(sgn, s, e, result);
