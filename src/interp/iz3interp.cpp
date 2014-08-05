@@ -347,8 +347,10 @@ public:
     // get the interps for the tree positions
     std::vector<ast> _interps = interps;
     interps.resize(pos_map.size());
-    for(unsigned i = 0; i < pos_map.size(); i++)
-      interps[i] = i < _interps.size() ? _interps[i] : mk_false();
+    for(unsigned i = 0; i < pos_map.size(); i++){
+      unsigned j = pos_map[i];
+      interps[i] = j < _interps.size() ? _interps[j] : mk_false();
+    }
   }
 
   bool has_interp(hash_map<ast,bool> &memo, const ast &t){
