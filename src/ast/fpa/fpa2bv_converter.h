@@ -45,9 +45,10 @@ class fpa2bv_converter {
     ast_manager              & m;
     basic_simplifier_plugin    m_simp;
     float_util                 m_util;
+    bv_util                    m_bv_util;
+    arith_util                 m_arith_util;
     mpf_manager              & m_mpf_manager;
-    unsynch_mpz_manager      & m_mpz_manager;
-    bv_util                    m_bv_util;    
+    unsynch_mpz_manager      & m_mpz_manager;    
     float_decl_plugin        * m_plugin;
 
     obj_map<func_decl, expr*>  m_const2bv;
@@ -64,8 +65,9 @@ public:
 
     bool is_float(sort * s) { return m_util.is_float(s); }
     bool is_float(expr * e) { return is_app(e) && m_util.is_float(to_app(e)->get_decl()->get_range()); }
+    bool is_rm(expr * e) { return m_util.is_rm(e); }
+    bool is_rm(sort * s) { return m_util.is_rm(s); }
     bool is_float_family(func_decl * f) { return f->get_family_id() == m_util.get_family_id(); }
-    bool is_rm_sort(sort * s) { return m_util.is_rm(s); }
 
     void mk_triple(expr * sign, expr * significand, expr * exponent, expr_ref & result) {
         SASSERT(m_bv_util.is_bv(sign) && m_bv_util.get_bv_size(sign) == 1);

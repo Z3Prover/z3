@@ -162,7 +162,7 @@ namespace smt {
             m.register_factory(alloc(dl_factory, m_util, m.get_model()));
         }
         
-        virtual smt::model_value_proc * mk_value(smt::enode * n) {
+        virtual smt::model_value_proc * mk_value(smt::enode * n, smt::model_generator&) {
             return alloc(dl_value_proc, *this, n);
         }
 
@@ -201,9 +201,8 @@ namespace smt {
             if(!m_reps.find(s, r) || !m_vals.find(s,v)) {
                 SASSERT(!m_reps.contains(s));
                 sort* bv = b().mk_sort(64);
-                // TBD: filter these from model.
-                r = m().mk_fresh_func_decl("rep",1, &s,bv);
-                v = m().mk_fresh_func_decl("val",1, &bv,s);
+                r = m().mk_func_decl(m_util.get_family_id(), datalog::OP_DL_REP, 0, 0, 1, &s, bv);
+                v = m().mk_func_decl(m_util.get_family_id(), datalog::OP_DL_ABS, 0, 0, 1, &bv, s);
                 m_reps.insert(s, r);
                 m_vals.insert(s, v);
                 add_trail(r);

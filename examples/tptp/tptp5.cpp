@@ -1630,10 +1630,8 @@ public:
                 unsigned parent_id = Z3_get_ast_id(ctx, p.arg(0));
                 std::set<unsigned> const& hyps = m_proof_hypotheses.find(parent_id)->second;
                 print_hypotheses(out, hyps);
-                out << ").\n";
+                out << "))).\n";
                 break;                
-                display_inference(out, "lemma", "thm", p);
-                break;           
             }     
             case Z3_OP_PR_UNIT_RESOLUTION:                                 
                 display_inference(out, "unit_resolution", "thm", p);

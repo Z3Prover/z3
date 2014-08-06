@@ -82,7 +82,7 @@ br_status float_rewriter::mk_to_float(func_decl * f, unsigned num_args, expr * c
 
     if (num_args == 2) {
         mpf_rounding_mode rm;
-        if (!m_util.is_rm(args[0], rm))
+        if (!m_util.is_rm_value(args[0], rm))
             return BR_FAILED;
         
         rational q;
@@ -109,12 +109,12 @@ br_status float_rewriter::mk_to_float(func_decl * f, unsigned num_args, expr * c
             return BR_FAILED;
     }
     else if (num_args == 3 && 
-             m_util.is_rm(m().get_sort(args[0])) && 
+             m_util.is_rm(args[0]) && 
              m_util.au().is_real(args[1]) &&
              m_util.au().is_int(args[2])) {
 
         mpf_rounding_mode rm;
-        if (!m_util.is_rm(args[0], rm))
+        if (!m_util.is_rm_value(args[0], rm))
             return BR_FAILED;
 
         rational q;
@@ -129,8 +129,7 @@ br_status float_rewriter::mk_to_float(func_decl * f, unsigned num_args, expr * c
         mpf v;
 	    m_util.fm().set(v, ebits, sbits, rm, q.to_mpq(), e.to_mpq().numerator());
         result = m_util.mk_value(v);
-        m_util.fm().del(v);        
-        // TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
+        m_util.fm().del(v);
         return BR_DONE;
     }
     else {
@@ -140,7 +139,7 @@ br_status float_rewriter::mk_to_float(func_decl * f, unsigned num_args, expr * c
 
 br_status float_rewriter::mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {    
     mpf_rounding_mode rm;
-    if (m_util.is_rm(arg1, rm)) {
+    if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm()), v3(m_util.fm());
         if (m_util.is_value(arg2, v2) && m_util.is_value(arg3, v3)) {
             scoped_mpf t(m_util.fm());
@@ -161,7 +160,7 @@ br_status float_rewriter::mk_sub(expr * arg1, expr * arg2, expr * arg3, expr_ref
 
 br_status float_rewriter::mk_mul(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {    
     mpf_rounding_mode rm;
-    if (m_util.is_rm(arg1, rm)) {
+    if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm()), v3(m_util.fm());
         if (m_util.is_value(arg2, v2) && m_util.is_value(arg3, v3)) {
             scoped_mpf t(m_util.fm());
@@ -176,7 +175,7 @@ br_status float_rewriter::mk_mul(expr * arg1, expr * arg2, expr * arg3, expr_ref
 
 br_status float_rewriter::mk_div(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
     mpf_rounding_mode rm;
-    if (m_util.is_rm(arg1, rm)) {
+    if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm()), v3(m_util.fm());
         if (m_util.is_value(arg2, v2) && m_util.is_value(arg3, v3)) {
             scoped_mpf t(m_util.fm());
@@ -287,7 +286,7 @@ br_status float_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
 
 br_status float_rewriter::mk_fused_ma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result) {
     mpf_rounding_mode rm;
-    if (m_util.is_rm(arg1, rm)) {
+    if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm()), v3(m_util.fm()), v4(m_util.fm());
         if (m_util.is_value(arg2, v2) && m_util.is_value(arg3, v3) && m_util.is_value(arg4, v4)) {
             scoped_mpf t(m_util.fm());
@@ -302,7 +301,7 @@ br_status float_rewriter::mk_fused_ma(expr * arg1, expr * arg2, expr * arg3, exp
 
 br_status float_rewriter::mk_sqrt(expr * arg1, expr * arg2, expr_ref & result) {
     mpf_rounding_mode rm;
-    if (m_util.is_rm(arg1, rm)) {
+    if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm());
         if (m_util.is_value(arg2, v2)) {
             scoped_mpf t(m_util.fm());
@@ -317,7 +316,7 @@ br_status float_rewriter::mk_sqrt(expr * arg1, expr * arg2, expr_ref & result) {
 
 br_status float_rewriter::mk_round(expr * arg1, expr * arg2, expr_ref & result) {
     mpf_rounding_mode rm;
-    if (m_util.is_rm(arg1, rm)) {
+    if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm());
         if (m_util.is_value(arg2, v2)) {
             scoped_mpf t(m_util.fm());

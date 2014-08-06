@@ -191,8 +191,10 @@ expr * datatype_factory::get_fresh_value(sort * s) {
     // Approach 2)
     // For recursive datatypes.
     // search for constructor...
+    unsigned num_iterations = 0;
     if (m_util.is_recursive(s)) {
         while(true) {
+            ++num_iterations;
             TRACE("datatype_factory", tout << mk_pp(get_last_fresh_value(s), m_manager) << "\n";);
             ptr_vector<func_decl> const * constructors = m_util.get_datatype_constructors(s);
             ptr_vector<func_decl>::const_iterator it   = constructors->begin();
@@ -212,7 +214,13 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                           << found_sibling << "\n";);
                     if (!found_sibling && m_util.is_datatype(s_arg) && m_util.are_siblings(s, s_arg)) {
                         found_sibling = true;
-                        expr * maybe_new_arg = get_almost_fresh_value(s_arg);
+                        expr * maybe_new_arg = 0;
+                        if (num_iterations <= 1) {
+                            maybe_new_arg = get_almost_fresh_value(s_arg);
+                        }
+                        else {
+                            maybe_new_arg = get_fresh_value(s_arg);
+                        }
                         if (!maybe_new_arg) {
                             TRACE("datatype_factory", 
                                   tout << "no argument found for " << mk_pp(s_arg, m_manager) << "\n";);
@@ -231,6 +239,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                 if (found_sibling) {
                     expr_ref new_value(m_manager);
                     new_value = m_manager.mk_app(constructor, args.size(), args.c_ptr());
+                    TRACE("datatype_factory", tout << "potential new value: " << mk_pp(new_value, m_manager) << "\n";);
                     m_last_fresh_value.insert(s, new_value);
                     if (!set->contains(new_value)) {
                         register_value(new_value);

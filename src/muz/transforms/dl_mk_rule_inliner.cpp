@@ -143,11 +143,8 @@ namespace datalog {
         expr_ref_vector result(m);
         ptr_vector<sort> sorts;
         expr_ref v(m), w(m);
-        r.get_vars(sorts);
+        r.get_vars(m, sorts);
         for (unsigned i = 0; i < sorts.size(); ++i) {
-            if (!sorts[i]) {
-                sorts[i] = m.mk_bool_sort();
-            }
             v = m.mk_var(i, sorts[i]);
             m_subst.apply(2, m_deltas, expr_offset(v, is_tgt?0:1), w);
             result.push_back(w);            
@@ -423,6 +420,11 @@ namespace datalog {
         }
 
         TRACE("dl", tout << "inlined rules after mutual inlining:\n" << m_inlined_rules;  );
+
+        for (unsigned i = 0; i < m_inlined_rules.get_num_rules(); ++i) {
+            rule* r = m_inlined_rules.get_rule(i);
+            datalog::del_rule(m_mc, *r);
+        }
     }
 
     bool mk_rule_inliner::transform_rule(rule_set const& orig, rule * r0, rule_set& tgt) {

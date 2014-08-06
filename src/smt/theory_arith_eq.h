@@ -193,7 +193,7 @@ namespace smt {
             return true;
         }
 
-        if (!r.get_base_var() == x && x > y) {
+        if (r.get_base_var() != x && x > y) {
             std::swap(x, y);
             k.neg();
         }
