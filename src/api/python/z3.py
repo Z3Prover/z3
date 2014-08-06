@@ -7253,3 +7253,18 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
     return _to_expr_ref(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
    
+def Interp(a):
+     ctx = main_ctx()
+     s = BoolSort(ctx)
+     a = s.cast(a)
+     return BoolRef(Z3_mk_interp(ctx.ref(), a.as_ast()), ctx)
+
+def tree_interpolant(f,p=None,ctx=None):
+    ctx = _get_ctx(ctx)
+    ptr = (ctypes.POINTER(AstVectorObj) * 1)()
+    if p == None:
+        p = ParamsRef(ctx)
+    res = Z3_compute_interpolant(ctx.ref(),f.as_ast(),p.params,ptr[0])
+    if res == Z3_L_FALSE:
+        return AstVector(ptr[0],ctx)
+    raise NoInterpolant()
