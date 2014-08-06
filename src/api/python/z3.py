@@ -7306,6 +7306,14 @@ def tree_interpolant(pat,p=None,ctx=None):
     >>> y = Int('y')
     >>> print tree_interpolant(And(Interp(x < 0), Interp(y > 2), x == y))
     [Not(x >= 0), Not(y <= 2)]
+
+    >>> g = And(Interp(x<0),x<2)
+    >>> try:
+    ...     print tree_interpolant(g).sexpr()
+    ... except ModelRef as m:
+    ...     print m.sexpr()
+    (define-fun x () Int
+      (- 1))
     """
     f = pat
     ctx = _get_ctx(_ctx_from_ast_arg_list([f], ctx))
@@ -7364,14 +7372,6 @@ def sequence_interpolant(v,p=None,ctx=None):
     >>> y = Int('y')
     >>> print sequence_interpolant([x < 0, y == x , y > 2])
     [Not(x >= 0), Not(y >= 0)]
-
-    >>> g = And(Interp(x<0),x<2)
-    >>> try:
-    ...     print tree_interpolant(g).sexpr()
-    ... except ModelRef as m:
-    ...     print m.sexpr()
-    (define-fun x () Int
-      (- 1))
     """
     f = v[0]
     for i in range(1,len(v)):
