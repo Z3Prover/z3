@@ -38,6 +38,7 @@ Revision History:
 #include"iz3hash.h"
 #include"iz3pp.h"
 #include"iz3checker.h"
+#include"scoped_proof.h"
 
 using namespace stl_ext;
 
@@ -290,6 +291,85 @@ extern "C" {
     opts->map[name] = value;
   }
 
+  Z3_ast_vector Z3_API Z3_get_interpolant(__in Z3_context c, __in Z3_ast pf, __in Z3_ast pat, __in Z3_params p){
+    Z3_TRY;
+    LOG_Z3_get_interpolant(c, pf, pat, p);
+    RESET_ERROR_CODE();
+
+    Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+    mk_c(c)->save_object(v);
+
+    ast *_pf = to_ast(pf);
+    ast *_pat = to_ast(pat);
+    
+    ptr_vector<ast> interp;
+    ptr_vector<ast> cnsts; // to throw away
+    
+    ast_manager &_m = mk_c(c)->m();
+
+    iz3interpolate(_m,
+		   _pf,
+		   cnsts,
+		   _pat,
+		   interp,
+		   (interpolation_options_struct *) 0 // ignore params for now
+		   );
+    
+    // copy result back
+    for(unsigned i = 0; i < interp.size(); i++){
+      v->m_ast_vector.push_back(interp[i]);
+      _m.dec_ref(interp[i]);
+    }
+    RETURN_Z3(of_ast_vector(v));
+    Z3_CATCH_RETURN(0);
+  }
+
+  Z3_lbool Z3_API Z3_compute_interpolant(__in Z3_context c, __in Z3_ast pat, __in Z3_params p, __out Z3_ast_vector *out_interp){
+    Z3_TRY;
+    LOG_Z3_compute_interpolant(c, pat, p, out_interp);
+    RESET_ERROR_CODE();
+
+
+    params_ref &_p = to_params(p)->m_params;
+    scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
+    scoped_ptr<solver> m_solver((*sf)(mk_c(c)->m(), _p, true, true, true, ::symbol::null));
+    m_solver.get()->updt_params(_p); // why do we have to do this?
+    scoped_proof_mode spm(mk_c(c)->m(),PGM_FINE);
+
+    ast *_pat = to_ast(pat);
+    
+    ptr_vector<ast> interp;
+    ptr_vector<ast> cnsts; // to throw away
+    
+    ast_manager &_m = mk_c(c)->m();
+
+    model_ref m;
+    lbool _status = iz3interpolate(_m,
+				   *(m_solver.get()),
+				   _pat,
+				   cnsts,
+				   interp,
+				   m,
+				   0 // ignore params for now
+				   );
+    
+    Z3_lbool status = of_lbool(_status);
+    
+    Z3_ast_vector_ref *v = 0;
+    if(_status == l_false){
+      // copy result back
+      v = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+      mk_c(c)->save_object(v);
+      for(unsigned i = 0; i < interp.size(); i++){
+	v->m_ast_vector.push_back(interp[i]);
+	_m.dec_ref(interp[i]);
+      }
+    }
+    *out_interp = of_ast_vector(v);
+    
+    return status;
+    Z3_CATCH_RETURN(Z3_L_UNDEF);
+  }
 
 
 };

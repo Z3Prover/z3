@@ -41,6 +41,7 @@ Revision History:
 #include "iz3hash.h"
 #include "iz3interp.h"
 
+#include"scoped_proof.h"
 
 
 using namespace stl_ext;
@@ -502,6 +503,8 @@ lbool iz3interpolate(ast_manager &_m_manager,
     cnsts[i] = itp.uncook(_cnsts[i]);
   return res;
 }
+
+
 
 void interpolation_options_struct::apply(iz3base &b){
   for(stl_ext::hash_map<std::string,std::string>::iterator it = map.begin(), en = map.end();
