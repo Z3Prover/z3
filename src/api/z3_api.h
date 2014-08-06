@@ -7790,13 +7790,16 @@ END_MLAPI_EXCLUDE
      
      \param c logical context.
      \param pat an interpolation pattern
-     \param p parameters
+     \param p parameters for solver creation
      \param status returns the status of the sat check
+     \param model returns model if satisfiable
+
+     Return value: status of SAT check
      
-     def_API('Z3_compute_interpolant', INT, (_in(CONTEXT), _in(AST), _in(PARAMS), _out(AST_VECTOR)))
+     def_API('Z3_compute_interpolant', INT, (_in(CONTEXT), _in(AST), _in(PARAMS), _out(AST_VECTOR), _out(MODEL)))
   */
   
-  Z3_lbool Z3_API Z3_compute_interpolant(__in Z3_context c, __in Z3_ast pat, __in Z3_params p, __out Z3_ast_vector *interp);
+  Z3_lbool Z3_API Z3_compute_interpolant(__in Z3_context c, __in Z3_ast pat, __in Z3_params p, __out Z3_ast_vector *interp, __out Z3_model *model);
 
 
 /** Constant reprepresenting a root of a formula tree for tree interpolation */

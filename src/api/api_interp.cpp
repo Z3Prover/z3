@@ -324,17 +324,20 @@ extern "C" {
     Z3_CATCH_RETURN(0);
   }
 
-  Z3_lbool Z3_API Z3_compute_interpolant(__in Z3_context c, __in Z3_ast pat, __in Z3_params p, __out Z3_ast_vector *out_interp){
+  Z3_lbool Z3_API Z3_compute_interpolant(__in Z3_context c, __in Z3_ast pat, __in Z3_params p, __out Z3_ast_vector *out_interp, __out Z3_model *model){
     Z3_TRY;
-    LOG_Z3_compute_interpolant(c, pat, p, out_interp);
+    LOG_Z3_compute_interpolant(c, pat, p, out_interp, model);
     RESET_ERROR_CODE();
 
 
-    params_ref &_p = to_params(p)->m_params;
+    // params_ref &_p = to_params(p)->m_params;
+    params_ref _p;
+    _p.set_bool("proof", true); // this is currently useless
+
+    scoped_proof_mode spm(mk_c(c)->m(),PGM_FINE);
     scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
     scoped_ptr<solver> m_solver((*sf)(mk_c(c)->m(), _p, true, true, true, ::symbol::null));
     m_solver.get()->updt_params(_p); // why do we have to do this?
-    scoped_proof_mode spm(mk_c(c)->m(),PGM_FINE);
 
     ast *_pat = to_ast(pat);
     
@@ -356,6 +359,8 @@ extern "C" {
     Z3_lbool status = of_lbool(_status);
     
     Z3_ast_vector_ref *v = 0;
+    *model = 0;
+
     if(_status == l_false){
       // copy result back
       v = alloc(Z3_ast_vector_ref, mk_c(c)->m());
@@ -365,6 +370,15 @@ extern "C" {
 	_m.dec_ref(interp[i]);
       }
     }
+    else {
+      model_ref _m;
+      m_solver.get()->get_model(_m);
+      Z3_model_ref *crap = alloc(Z3_model_ref);
+      crap->m_model = _m.get();
+      mk_c(c)->save_object(crap);
+      *model = of_model(crap);
+    }
+
     *out_interp = of_ast_vector(v);
     
     return status;
