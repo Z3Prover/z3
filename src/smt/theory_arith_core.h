@@ -2780,13 +2780,14 @@ namespace smt {
     */
     template<typename Ext>
     void theory_arith<Ext>::refine_epsilon() {
-        typedef map<rational, theory_var, obj_hash<rational>, default_eq<rational> > rational2var;
         while (true) {
             rational2var mapping;
             theory_var num = get_num_vars();
             bool refine = false;
             for (theory_var v = 0; v < num; v++) {
                 if (is_int(v))
+                    continue;
+                if (!get_context().is_shared(get_enode(v)))
                     continue;
                 inf_numeral const & val = get_value(v);
                 rational value = val.get_rational().to_rational() + m_epsilon.to_rational() * val.get_infinitesimal().to_rational();
