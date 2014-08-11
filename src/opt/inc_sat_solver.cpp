@@ -38,6 +38,8 @@ class inc_sat_solver : public solver {
     goal2sat        m_goal2sat;
     params_ref      m_params;
     expr_ref_vector m_fmls;
+    expr_ref_vector m_current_fmls;
+    unsigned_vector m_fmls_lim;
     expr_ref_vector m_core;
     atom2bool_var   m_map;
     model_ref       m_model;
@@ -55,7 +57,7 @@ class inc_sat_solver : public solver {
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
         m(m), m_solver(p,0), m_params(p),
-        m_fmls(m), m_core(m), m_map(m),
+        m_fmls(m), m_current_fmls(m), m_core(m), m_map(m),
         m_num_scopes(0), 
         m_dep_core(m) {
         m_params.set_bool("elim_vars", false);
@@ -119,28 +121,35 @@ public:
     virtual void push() {
         m_solver.user_push();
         ++m_num_scopes;
+        m_fmls_lim.push_back(m_current_fmls.size());
     }
     virtual void pop(unsigned n) {
         if (n < m_num_scopes) {   // allow inc_sat_solver to 
             n = m_num_scopes;     // take over for another solver.
         }
         SASSERT(n >= m_num_scopes);
-        m_solver.user_pop(n);
+        m_solver.user_pop(n);        
         m_num_scopes -= n;
+        while (n > 0) {
+            m_current_fmls.resize(m_fmls_lim.back());
+            m_fmls_lim.pop_back();
+            --n;
+        }
     }
     virtual unsigned get_scope_level() const {
         return m_num_scopes;
     }
     virtual void assert_expr(expr * t, expr * a) {
         if (a) {
-            m_fmls.push_back(m.mk_implies(a, t));
+            assert_expr(m.mk_implies(a, t));
         }
         else {
-            m_fmls.push_back(t);
+            assert_expr(t);
         }
     }
     virtual void assert_expr(expr * t) {
         m_fmls.push_back(t);
+        m_current_fmls.push_back(t);
     }
     virtual void set_produce_models(bool f) {}
     virtual void collect_param_descrs(param_descrs & r) {
@@ -177,6 +186,15 @@ public:
     virtual void get_labels(svector<symbol> & r) {
         UNREACHABLE();
     }
+
+    virtual unsigned get_num_assertions() const {
+        return m_fmls.size();
+    }
+
+    virtual expr * get_assertion(unsigned idx) const {
+        return m_fmls[idx];
+    }
+
 
 private:
 
