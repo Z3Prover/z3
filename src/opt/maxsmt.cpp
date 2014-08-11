@@ -134,6 +134,7 @@ namespace opt {
         unsigned sz = s().get_num_assertions();
         for (unsigned i = 0; i < sz; ++i) {
             sat_solver->assert_expr(s().get_assertion(i));
+            m_assertions.push_back(s().get_assertion(i));
         }   
         m_s = sat_solver;
     }
@@ -232,14 +233,22 @@ namespace opt {
                    });
 
         DEBUG_CODE(if (is_sat == l_true) {
-                m_s->push();
-                commit_assignment();
-                VERIFY(l_true == m_s->check_sat(0,0));
-                m_s->pop(1);
-                // TBD: check that all extensions are unsat too
+                       verify_assignment();
+                   });
 
-            });
+        // TBD: check that all extensions are unsat too
+        
         return is_sat;
+    }
+
+    void maxsmt::verify_assignment() {
+        m_s->push();
+        commit_assignment();
+        if (l_true != m_s->check_sat(0,0)) {
+            IF_VERBOSE(0, verbose_stream() << "could not verify assignment\n";);
+            UNREACHABLE();
+        }
+        m_s->pop(1);
     }
 
     bool maxsmt::get_assignment(unsigned idx) const {

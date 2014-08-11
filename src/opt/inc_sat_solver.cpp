@@ -93,11 +93,12 @@ public:
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_assumptions(num_assumptions, assumptions, dep2asm);
-        extract_assumptions(dep2asm, m_asms);
         if (r != l_true) return r;
+        extract_assumptions(dep2asm, m_asms);
         r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         switch (r) {
         case l_true:
+            check_assumptions(dep2asm);
             break;
         case l_false:
             // TBD: expr_dependency core is not accounted for.
@@ -271,6 +272,23 @@ private:
 
     }
 
+    void check_assumptions(dep2asm_t& dep2asm) {
+        sat::model const & ll_m = m_solver.get_model();
+        dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
+        for (; it != end; ++it) {
+            sat::literal lit = it->m_value;
+            lbool polarity = lit.sign()?l_false:l_true;
+            lbool value = sat::value_at(lit.var(), ll_m); 
+            if (value != polarity) {
+                std::cout << mk_pp(it->m_key, m) << " evaluates to " << value << "\n";
+                std::cout << m_asms << "\n";
+                m_solver.display_assignment(std::cout);
+                // m_solver.display(std::cout);
+                throw default_exception("bad state");
+            }
+        }
+    }
+
     // TBD: this is super-expensive because of the
     // bit-blasting model converter.
 
@@ -286,6 +304,7 @@ private:
                 continue;
             }
             sat::bool_var v = it->m_value;
+            // std::cout << mk_pp(n, m) << " -> " << sat::value_at(v, ll_m) << "\n";
             switch (sat::value_at(v, ll_m)) {
             case l_true: 
                 md->register_decl(to_app(n)->get_decl(), m.mk_true()); 

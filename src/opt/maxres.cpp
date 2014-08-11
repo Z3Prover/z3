@@ -59,6 +59,8 @@ Notes:
 #include "ast_pp.h"
 #include "mus.h"
 #include "mss.h"
+#include "inc_sat_solver.h"
+
 
 using namespace opt;
 
@@ -117,7 +119,7 @@ public:
         else {
             asum = mk_fresh_bool("soft");
             fml = m.mk_iff(asum, e);
-            m_s->assert_expr(fml);
+            s().assert_expr(fml);
         }
         new_assumption(asum, w);
         m_upper += w;
@@ -138,17 +140,17 @@ public:
         while (true) {
             TRACE("opt", 
                   display_vec(tout, m_asms.size(), m_asms.c_ptr());
-                  m_s->display(tout);
+                  s().display(tout);
                   tout << "\n";
                   display(tout);
                   );
-            lbool is_sat = m_s->check_sat(m_asms.size(), m_asms.c_ptr());
+            lbool is_sat = s().check_sat(m_asms.size(), m_asms.c_ptr());
             if (m_cancel) {
                 return l_undef;
             }
             switch (is_sat) {
             case l_true: {
-                m_s->get_model(m_model);
+                s().get_model(m_model);
                 expr_ref tmp(m);
                 DEBUG_CODE(
                     for (unsigned i = 0; i < m_asms.size(); ++i) {
@@ -157,6 +159,7 @@ public:
                     });
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     VERIFY(m_model->eval(m_soft[i].get(), tmp));
+                    std::cout << mk_pp(m_soft[i].get(), m) << " -> " << tmp << "\n";
                     m_assignment[i] = m.is_true(tmp);
                 }
                 m_upper = m_lower;
@@ -186,7 +189,7 @@ public:
         while (m_lower < m_upper) {            
             TRACE("opt", 
                   display_vec(tout, m_asms.size(), m_asms.c_ptr());
-                  m_s->display(tout);
+                  s().display(tout);
                   tout << "\n";
                   display(tout);
                   );
@@ -203,11 +206,10 @@ public:
                 return l_true;
             case l_true:
                 SASSERT(cores.empty() || mcs.empty());
-                SASSERT(!cores.empty() || !mcs.empty());
                 for (unsigned i = 0; is_sat == l_true && i < cores.size(); ++i) {
                     is_sat = process_unsat(cores[i]);
                 }
-                if (is_sat == l_true && !mcs.empty()) {
+                if (is_sat == l_true && cores.empty()) {
                     is_sat = process_sat(mcs);
                 }
                 if (is_sat != l_true) {
@@ -216,7 +218,7 @@ public:
                 break;
             }
         }
-        m_lower = m_lower;        
+        m_lower = m_upper;
         return l_true;
     }
 
@@ -247,7 +249,7 @@ public:
         ptr_vector<expr> core;
         while (is_sat == l_false) {
             core.reset();
-            m_s->get_unsat_core(core);
+            s().get_unsat_core(core);
             is_sat = minimize_core(core);
             if (is_sat != l_true) {
                 break;
@@ -261,7 +263,7 @@ public:
             TRACE("opt",
                   display_vec(tout << "core: ", core.size(), core.c_ptr());
                   display_vec(tout << "assumptions: ", asms.size(), asms.c_ptr()););
-            is_sat = m_s->check_sat(asms.size(), asms.c_ptr());            
+            is_sat = s().check_sat(asms.size(), asms.c_ptr());            
         }
         TRACE("opt", 
               tout << "num cores: " << cores.size() << "\n";
@@ -280,9 +282,8 @@ public:
     lbool process_sat(ptr_vector<expr>& corr_set) {
         expr_ref fml(m), tmp(m);
         TRACE("opt", display_vec(tout << "corr_set: ", corr_set.size(), corr_set.c_ptr()););
-        SASSERT(!corr_set.empty()); // we should somehow stop if all soft are satisfied.
         if (corr_set.empty()) {
-            return l_false;
+            return l_true;
         }
         
         remove_core(corr_set);
@@ -314,7 +315,7 @@ public:
         TRACE("opt", display_vec(tout << "minimized core: ", core.size(), core.c_ptr()););
         max_resolve(core, w);
         fml = m.mk_not(m.mk_and(m_B.size(), m_B.c_ptr()));
-        m_s->assert_expr(fml);
+        s().assert_expr(fml);
         m_lower += w;
         IF_VERBOSE(1, verbose_stream() << "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
         return l_true;
@@ -407,9 +408,9 @@ public:
             if (i > 2) {
                 dd = mk_fresh_bool("d");
                 fml = m.mk_implies(dd, d);
-                m_s->assert_expr(fml);
+                s().assert_expr(fml);
                 fml = m.mk_implies(dd, b_i);
-                m_s->assert_expr(fml);
+                s().assert_expr(fml);
                 d = dd;
             }
             else {
@@ -419,7 +420,7 @@ public:
             cls = m.mk_or(b_i1, d);
             fml = m.mk_implies(asum, cls);
             new_assumption(asum, w);
-            m_s->assert_expr(fml);
+            s().assert_expr(fml);
         }
     }
 
@@ -449,20 +450,20 @@ public:
             if (i > 2) {
                 d = mk_fresh_bool("d");
                 fml = m.mk_implies(d, cls);
-                m_s->assert_expr(fml);
+                s().assert_expr(fml);
             }
             else {
                 d = cls;
             }
             asum = mk_fresh_bool("a");
             fml = m.mk_implies(asum, b_i1);
-            m_s->assert_expr(fml);
+            s().assert_expr(fml);
             fml = m.mk_implies(asum, cls);
-            m_s->assert_expr(fml);
+            s().assert_expr(fml);
             new_assumption(asum, w);
         }
         fml = m.mk_or(m_B.size(), m_B.c_ptr());
-        m_s->assert_expr(fml);
+        s().assert_expr(fml);
     }
 
     lbool try_improve_bound(vector<ptr_vector<expr> >& cores, ptr_vector<expr>& mcs) {
@@ -473,25 +474,29 @@ public:
         while (true) {
             rational upper = m_max_upper;
             unsigned sz = 0;
-            for (unsigned i = 0; m_upper <= upper && i < asms.size(); ++i, ++sz) {
+            for (unsigned i = 0; m_upper <= rational(2)*upper && i < asms.size(); ++i, ++sz) {
                 upper -= get_weight(asms[i].get());
             }
-            lbool is_sat = m_s->check_sat(sz, asms.c_ptr());
+            lbool is_sat = s().check_sat(sz, asms.c_ptr());
             switch (is_sat) {
             case l_true: {
-                ptr_vector<expr> lits;
-                lits.append(asms.size(), asms.c_ptr());
+                s().get_model(m_model); // last model is best way to reduce search space.
+                update_assignment();
+                ptr_vector<expr> mss;
+                mss.append(asms.size(), asms.c_ptr());
                 set_mus(false);
-                is_sat = m_mss(cores, lits);
+                is_sat = m_mss(cores, mss, mcs);
                 set_mus(true);
                 if (is_sat != l_true) {
                     return is_sat;
                 }
                 m_mss.get_model(m_model); // last model is best way to reduce search space.
                 update_assignment();
-                if (cores.empty() || asms.size() < cores.back().size()) {
+                if (!cores.empty() && mcs.size() > cores.back().size()) {
+                    mcs.reset();
+                }
+                else {
                     cores.reset();
-                    mcs.append(asms.size(), asms.c_ptr());                    
                 }
                 return l_true;
             }
@@ -499,7 +504,7 @@ public:
                 return l_undef;
             case l_false:
                 core.reset();
-                m_s->get_unsat_core(core);
+                s().get_unsat_core(core);
                 is_sat = minimize_core(core);
                 if (is_sat != l_true) {
                     break;
@@ -531,23 +536,29 @@ public:
 
     void update_assignment() {
         rational upper(0);
+        expr_ref tmp(m);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            expr_ref tmp(m);
             expr* n = m_soft[i].get();
             VERIFY(m_model->eval(n, tmp));
-            CTRACE("opt", !m.is_true(tmp) && !m.is_false(tmp), 
-                   tout << mk_pp(n, m) << " |-> " << mk_pp(tmp, m) << "\n";);
-
-            m_assignment[i] = m.is_true(tmp);
-            if (!m_assignment[i]) {
+            if (!m.is_true(tmp)) {
                 upper += m_weights[i];
             }
+            CTRACE("opt", !m.is_true(tmp) && !m.is_false(tmp), 
+                   tout << mk_pp(n, m) << " |-> " << mk_pp(tmp, m) << "\n";);
         }
-        SASSERT(upper <= m_upper);
+        if (upper >= m_upper) {
+            return;
+        }
+
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            expr* n = m_soft[i].get();
+            VERIFY(m_model->eval(n, tmp));
+            m_assignment[i] = m.is_true(tmp);
+        }
         m_upper = upper;
+        // verify_assignment();
         IF_VERBOSE(1, verbose_stream() << 
                    "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
-
     }
 
     void remove_soft(ptr_vector<expr> const& core, expr_ref_vector& asms) {
@@ -577,6 +588,26 @@ public:
             add_soft(m_soft[i].get(), m_weights[i]);
         }
         m_max_upper = m_upper;
+    }
+
+    void verify_assignment() {
+        IF_VERBOSE(0, verbose_stream() << "verify assignment\n";);        
+        ref<solver> sat_solver = mk_inc_sat_solver(m, m_params);        
+        for (unsigned i = 0; i < m_assertions.size(); ++i) {
+            sat_solver->assert_expr(m_assertions[i].get());
+        }
+        expr_ref n(m);
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            n = m_soft[i].get();
+            if (!m_assignment[i]) {
+                n = m.mk_not(n);
+            }
+            sat_solver->assert_expr(n);
+        }
+        lbool is_sat = sat_solver->check_sat(0, 0);
+        if (is_sat == l_false) {
+            IF_VERBOSE(0, verbose_stream() << "assignment is infeasible\n";);
+        }
     }
 
 };

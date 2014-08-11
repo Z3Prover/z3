@@ -917,6 +917,9 @@ namespace sat {
 
         void process(literal l) {
             TRACE("blocked_clause", tout << "processing: " << l << "\n";);
+            if (s.is_external(l.var()) || s.was_eliminated(l.var())) {
+                return;
+            }
             model_converter::entry * new_entry = 0;
             {
                 m_to_remove.reset();

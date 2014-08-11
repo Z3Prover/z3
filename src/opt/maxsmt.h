@@ -48,6 +48,7 @@ namespace opt {
         ast_manager&     m;
         volatile bool    m_cancel;
         expr_ref_vector  m_soft;
+        expr_ref_vector  m_assertions;
         vector<rational> m_weights;
         rational         m_lower;
         rational         m_upper;
@@ -65,6 +66,7 @@ namespace opt {
         maxsmt_solver_base(opt_solver* s, ast_manager& m, params_ref& p,
                            vector<rational> const& ws, expr_ref_vector const& soft): 
             m_s(s), m(m), m_cancel(false), m_soft(m),
+            m_assertions(m),
             m_enable_sls(false), m_enable_sat(false),
             m_sls_enabled(false), m_sat_enabled(false) {
             m_s->get_model(m_model);
@@ -148,6 +150,8 @@ namespace opt {
     private:
 
         bool is_maxsat_problem(vector<rational> const& ws) const;        
+        
+        void verify_assignment();
 
     };
 

@@ -328,6 +328,7 @@ namespace sat {
         unsigned get_max_lvl(literal consequent, justification js);
         void process_antecedent(literal antecedent, unsigned & num_marks);
         void process_antecedent_for_unsat_core(literal antecedent);
+        void process_consequent_for_unsat_core(literal consequent, justification const& js);
         void fill_ext_antecedents(literal consequent, justification js);
         unsigned skip_literals_above_conflict_level();
         void forget_phase_of_vars(unsigned from_lvl);
@@ -425,11 +426,12 @@ namespace sat {
         void display(std::ostream & out) const;
         void display_watches(std::ostream & out) const;
         void display_dimacs(std::ostream & out) const;
+        void display_assignment(std::ostream & out) const;
+        void display_justification(std::ostream & out, justification const& j) const;
 
     protected:
         void display_binary(std::ostream & out) const;
         void display_units(std::ostream & out) const;
-        void display_assignment(std::ostream & out) const;
         unsigned num_clauses() const;
         bool is_unit(clause const & c) const;
         bool is_empty(clause const & c) const;

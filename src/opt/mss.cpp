@@ -144,7 +144,7 @@ namespace opt {
         m_todo.resize(j);
     }       
     
-    lbool mss::operator()(vector<exprs> const& _cores, exprs& literals) {
+    lbool mss::operator()(vector<exprs> const& _cores, exprs& literals, exprs& mcs) {
         m_mss.reset();
         m_todo.reset();
         m_s->get_model(m_model);
@@ -171,6 +171,11 @@ namespace opt {
             TRACE("opt", display(tout););
             literals.reset();
             literals.append(m_mss);
+            mcs.reset();
+            expr_set::iterator it = m_mcs.begin(), end = m_mcs.end();
+            for (; it != end; ++it) {
+                mcs.push_back(*it);
+            }
             SASSERT(check_result());
         }
         m_mcs.reset();
@@ -203,12 +208,12 @@ namespace opt {
         unsigned sz_save = m_mss.size();
         m_mss.append(sz, core.c_ptr());
         lbool is_sat = m_s->check_sat(m_mss.size(), m_mss.c_ptr());
+        IF_VERBOSE(1, display_vec(verbose_stream(), sz, core.c_ptr()););
         m_mss.resize(sz_save);
         switch (is_sat) {
         case l_true:
             m_s->get_model(m_model);
-            update_mss();
-            // sz entries from core should now be in mss.
+            update_mss();           
             DEBUG_CODE(
                 for (unsigned i = 0; i < sz; ++i) {
                     SASSERT(m_mss_set.contains(core[i]));
