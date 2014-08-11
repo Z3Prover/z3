@@ -59,7 +59,7 @@ namespace sat {
             literal lit = core.back();
             core.pop_back();
             unsigned sz = mus.size();
-            //mus.push_back(~lit); // TBD: measure
+            mus.push_back(~lit); // TBD: measure
             mus.append(core);
             lbool is_sat = s.check(mus.size(), mus.c_ptr());
             mus.resize(sz);
@@ -78,7 +78,6 @@ namespace sat {
                 core.append(mus);
                 rmr();
                 core.resize(sz);
-                IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << mus << " " << core << ")\n";);
                 break;
             }
             case l_false:
@@ -86,7 +85,6 @@ namespace sat {
                 if (new_core.contains(~lit)) {
                     break;
                 }
-                IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << new_core << ")\n";);
                 core.reset();
                 for (unsigned i = 0; i < new_core.size(); ++i) {
                     literal lit = new_core[i];
@@ -99,10 +97,13 @@ namespace sat {
         }
         TRACE("sat", tout << "new core: " << mus << "\n";);
         set_core();
+        IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << core << ")\n";);
         return l_true;
     }
 
     void mus::rmr() {
+        return;
+#if 0
         model& model = s.m_model;
         literal lit = m_mus.back();
         literal assumption_lit;
@@ -122,6 +123,7 @@ namespace sat {
             model[lit.var()] = ~model[lit.var()];    // swap assignment back            
         }
         m_toswap.resize(sz);
+#endif
     }
 
     bool mus::has_single_unsat(literal& assumption_lit) {
@@ -138,7 +140,7 @@ namespace sat {
     // 
 
     void mus::find_swappable(literal lit) {
-        IF_VERBOSE(2, verbose_stream() << "(sat.mus swap " << lit << ")\n";);
+        IF_VERBOSE(3, verbose_stream() << "(sat.mus swap " << lit << ")\n";);
         unsigned sz = m_toswap.size();
         literal lit2, lit3;
         model const& model = s.get_model();
