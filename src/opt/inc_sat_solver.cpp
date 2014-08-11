@@ -280,10 +280,10 @@ private:
             lbool polarity = lit.sign()?l_false:l_true;
             lbool value = sat::value_at(lit.var(), ll_m); 
             if (value != polarity) {
-                std::cout << mk_pp(it->m_key, m) << " evaluates to " << value << "\n";
-                std::cout << m_asms << "\n";
-                m_solver.display_assignment(std::cout);
-                // m_solver.display(std::cout);
+                IF_VERBOSE(0, verbose_stream() << mk_pp(it->m_key, m) << " evaluates to " << value << "\n";
+                           verbose_stream() << m_asms << "\n";
+                           m_solver.display_assignment(verbose_stream());
+                           m_solver.display(verbose_stream()););
                 throw default_exception("bad state");
             }
         }
@@ -304,7 +304,6 @@ private:
                 continue;
             }
             sat::bool_var v = it->m_value;
-            // std::cout << mk_pp(n, m) << " -> " << sat::value_at(v, ll_m) << "\n";
             switch (sat::value_at(v, ll_m)) {
             case l_true: 
                 md->register_decl(to_app(n)->get_decl(), m.mk_true()); 
