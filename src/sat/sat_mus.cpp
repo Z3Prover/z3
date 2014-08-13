@@ -100,11 +100,7 @@ namespace sat {
         }
         TRACE("sat", tout << "new core: " << mus << "\n";);
         set_core();
-<<<<<<< HEAD
         IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << core << ")\n";);
-=======
-        IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << m_core << ")\n";);
->>>>>>> 180b0d4ec915c84b770bb609fae4e462118cde50
         return l_true;
     }
 
