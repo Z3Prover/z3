@@ -137,6 +137,7 @@ namespace sat {
         friend class iff3_finder;
         friend class mus;
         friend class sls;
+        friend class wsls;
         friend struct mk_stat;
     public:
         solver(params_ref const & p, extension * ext);

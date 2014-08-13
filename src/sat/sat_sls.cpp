@@ -65,7 +65,7 @@ namespace sat {
     lbool sls::operator()(unsigned sz, literal const* tabu, bool reuse_model) {
         init(sz, tabu, reuse_model);
         unsigned i;
-        for (i = 0; !m_false.empty() && i < m_max_tries; ++i) {
+        for (i = 0; !m_false.empty() && !m_cancel && i < m_max_tries; ++i) {
             flip();
         }
         IF_VERBOSE(2, verbose_stream() << "tries " << i << "\n";);
@@ -263,6 +263,234 @@ namespace sat {
             m_num_true[cl]--;
             if (m_num_true[cl] == 0) m_false.insert(cl);
         }        
+    }
+
+    void sls::check_invariant() {
+
+    }
+
+    wsls::wsls(solver& s):
+        sls(s)
+    {
+        m_smoothing_probability = 1; // 1/1000
+    }
+
+    wsls::~wsls() {}
+
+    void wsls::set_soft(unsigned sz, double const* weights, literal const* lits) {
+        m_soft.reset();
+        m_weights.reset();
+        m_soft.append(sz, lits);
+        m_weights.append(sz, weights);
+    }
+        
+    void wsls::opt(unsigned sz, literal const* tabu, bool reuse_model) {
+        init(sz, tabu, reuse_model);
+
+        //
+        // Initialize m_clause_weights, m_hscore, m_sscore.
+        //
+        m_best_value = m_false.empty()?evaluate_model():-1.0;        
+        m_clause_weights.reset();
+        m_hscore.reset();
+        m_sscore.reset();
+        m_H.reset();
+        m_S.reset();
+        m_clause_weights.resize(m_clauses.size(), 1);
+        m_sscore.resize(s.num_vars(), 0.0);
+        m_hscore.resize(s.num_vars(), 0);
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            literal lit = m_soft[i];
+            m_sscore[lit.var()] = m_weights[i];
+            if (value_at(lit, m_model) == l_true) {
+                m_sscore[lit.var()] = -m_sscore[lit.var()];
+            }
+        }
+        for (unsigned i = 0; i < s.num_vars(); ++i) {
+            m_hscore[i] = compute_hscore(i);
+            refresh_scores(i);
+        }
+        unsigned i = 0;
+        for (; !m_cancel && i < m_max_tries; ++i) {
+            wflip();
+        }
+        IF_VERBOSE(2, verbose_stream() << "tries " << i << "\n";);
+    }
+
+    void wsls::wflip() {
+        literal lit;
+        if (pick_wflip(lit)) {
+            wflip(lit);
+        }
+    }
+
+    bool wsls::pick_wflip(literal & lit) {
+        if (m_false.empty()) {
+            double val = evaluate_model();
+            if (val < m_best_value || m_best_value < 0.0) {
+                m_best_model.reset();
+                m_best_model.append(m_model);
+            }
+        }
+        unsigned idx;
+        if (!m_H.empty()) {
+            idx = m_H.choose(m_rand);
+            lit = literal(idx, false);
+            if (value_at(lit, m_model) == l_true) lit.neg();            
+        }
+        else if (!m_S.empty()) {
+            double score = 0.0;
+            m_min_vars.reset();
+            for (unsigned i = 0; i < m_S.num_elems(); ++i) {
+                unsigned v = m_S[i];
+                SASSERT(m_sscore[v] > 0.0);
+                if (m_sscore[v] > score) {
+                    m_min_vars.reset();
+                    m_min_vars.push_back(literal(v, false));
+                    score = m_sscore[v];
+                }
+                else if (m_sscore[v] == score) {
+                    m_min_vars.push_back(literal(v, false));
+                }
+            }
+            idx = m_min_vars[m_rand(m_min_vars.size())].var(); // pick with largest sscore.
+        }
+        else {
+            update_hard_weights();
+            if (!m_false.empty()) {
+                unsigned cls_idx = m_false.choose(m_rand);
+            }
+            else {
+                lit = m_soft[m_rand(m_soft.size())];
+            }
+        }
+        return !m_tabu[lit.var()];
+    }
+
+    void wsls::wflip(literal lit) {
+        flip(lit);
+        unsigned v = lit.var();
+        m_hscore[v] = compute_hscore(v);
+        m_sscore[v] = -m_sscore[v];
+        refresh_scores(v);
+    }
+
+    void wsls::update_hard_weights() {
+        unsigned csz = m_clauses.size();
+        if (m_smoothing_probability >= m_rand(1000)) {
+            for (unsigned i = 0; i < csz; ++i) {
+                if (m_clause_weights[i] > 1 && !m_false.contains(i)) {
+                    --m_clause_weights[i];
+                    if (m_num_true[i] == 1) {
+                        clause const& c = *m_clauses[i];
+                        unsigned sz = c.size();
+                        for (unsigned j = 0; j < sz; ++j) {
+                            if (value_at(c[j], m_model) == l_true) {
+                                ++m_hscore[c[j].var()];
+                                refresh_scores(c[j].var());
+                                break;
+                            }
+                        }                        
+                    }
+                }
+            }
+        }
+        else {
+            for (unsigned i = 0; i < csz; ++i) {
+                if (m_false.contains(i)) {
+                    ++m_clause_weights[i];
+                    clause const& c = *m_clauses[i];
+                    unsigned sz = c.size();
+                    for (unsigned j = 0; j < sz; ++j) {
+                        ++m_hscore[c[j].var()];
+                        refresh_scores(c[j].var());
+                    }
+                }
+            }
+        }
+
+        DEBUG_CODE(check_invariant(););
+    }
+
+    double wsls::evaluate_model() {
+        SASSERT(m_false.empty());
+        double result = 0.0;
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            literal lit = m_soft[i];
+            if (value_at(lit, m_model) != l_true) {
+                result += m_weights[i];
+            }
+        }
+        return result;
+    }
+
+    int wsls::compute_hscore(unsigned v) {
+        literal lit(v, false);
+        if (value_at(lit, m_model) == l_false) {
+            lit.neg();
+        }
+        SASSERT(value_at(lit, m_model) == l_true);
+        int hs = 0;
+        unsigned_vector const& use1 = get_use(~lit);
+        unsigned sz = use1.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned cl = use1[i]; 
+            if (m_num_true[cl] == 0) {
+                SASSERT(m_false.contains(cl));
+                hs += m_clause_weights[cl];
+            } 
+            else {
+                SASSERT(!m_false.contains(cl));
+            }
+        }
+        unsigned_vector const& use2 = get_use(lit);
+        sz = use2.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned cl = use2[i]; 
+            if (m_num_true[cl] == 1) {
+                SASSERT(!m_false.contains(cl));
+                hs -= m_clause_weights[cl];
+            }
+        }
+        return hs;
+    }
+
+    void wsls::refresh_scores(unsigned v) {
+        if (m_hscore[v] > 0) {
+            m_H.insert(v);
+        }
+        else {
+            m_H.remove(v);
+        }
+        if (m_sscore[v] > 0) {
+            if (m_hscore[v] == 0) {
+                m_S.insert(v);
+            }
+            else {
+                m_S.remove(v);
+            }
+        }
+        else if (m_sscore[v] < 0) {
+            m_S.remove(v);
+        }
+    }
+
+    void wsls::check_invariant() {
+        sls::check_invariant();
+        // The hscore is the reward for flipping the truth value of variable v.
+        // hscore(v) = Sum weight(c) for num_true(c) = 0 and v in c
+        //           - Sum weight(c) for num_true(c) = 1 and (v in c, M(v) or !v in c and !M(v)) 
+        for (unsigned v = 0; v < s.num_vars(); ++v) {
+            int hs = compute_hscore(v);
+            SASSERT(m_hscore[v] == hs);
+        }
+
+        // The score(v) is the reward on soft clauses for flipping v.
+        for (unsigned j = 0; j < m_soft.size(); ++j) {
+            unsigned v = m_soft[j].var();
+            double ss = value_at(m_soft[j], m_model)?(-m_weights[j]):m_weights[j];
+            SASSERT(m_sscore[v] == ss);
+        }
     }
 
 };
