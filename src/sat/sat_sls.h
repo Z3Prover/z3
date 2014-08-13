@@ -41,18 +41,30 @@ namespace sat {
         solver& s;
         random_gen m_rand;
         unsigned   m_max_tries;
-        unsigned   m_max_flips;
-        index_set  m_false;
-        use_list   m_use_list;
-        vector<clause> m_clauses;
+        unsigned   m_prob_choose_min_var;      // number between 0 and 99.
+        ptr_vector<clause const>    m_clauses; // vector of all clauses.
+        index_set        m_false;              // clauses currently false
+        vector<unsigned_vector>  m_use_list;   // use lists for literals
+        unsigned_vector  m_num_true;           // per clause, count of # true literals
+        svector<literal> m_min_vars;           // literals with smallest break count
+        model            m_model;              // current model
+        clause_allocator m_alloc;              // clause allocator
+        clause_vector    m_bin_clauses;        // binary clauses
+        svector<bool>    m_tabu;               // variables that cannot be swapped
     public:
         sls(solver& s);
         ~sls();        
-        lbool operator()();
+        lbool operator()(unsigned sz, literal const* tabu);
     private:
         bool local_search();
-        bool_var pick_flip();
-        void flip(bool_var v);
+        void init(unsigned sz, literal const* tabu);
+        void init_model(unsigned sz, literal const* tabu);
+        void init_use();
+        void init_clauses();
+        bool pick_flip(literal& lit);
+        void flip();
+        unsigned get_break_count(literal lit, unsigned min_break);
+        unsigned_vector const& get_use(literal lit);        
     };
 
 };
