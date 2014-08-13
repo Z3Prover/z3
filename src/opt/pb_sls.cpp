@@ -20,48 +20,10 @@ Notes:
 #include "smt_literal.h"
 #include "ast_pp.h"
 #include "th_rewriter.h"
+#include "sat_sls.h"
 
 namespace smt {
     struct pb_sls::imp {
-
-        struct index_set {
-            unsigned_vector m_elems;
-            unsigned_vector m_index;
-            
-            unsigned num_elems() const { return m_elems.size(); }
-
-            void reset() { m_elems.reset(); m_index.reset(); }
-
-            bool empty() const { return m_elems.empty(); }
-
-            bool contains(unsigned idx) const {
-                return 
-                    (idx < m_index.size()) && 
-                    (m_index[idx] < m_elems.size()) && 
-                    (m_elems[m_index[idx]] == idx);
-            }
-
-            void insert(unsigned idx) {
-                m_index.reserve(idx+1);
-                if (!contains(idx)) {
-                    m_index[idx] = m_elems.size();
-                    m_elems.push_back(idx);
-                }
-            }
-
-            void remove(unsigned idx) {
-                if (!contains(idx)) return;
-                unsigned pos = m_index[idx];
-                m_elems[pos] = m_elems.back();
-                m_index[m_elems[pos]] = pos;
-                m_elems.pop_back();
-            }
-
-            unsigned choose(random_gen& rnd) const {
-                SASSERT(!empty());
-                return m_elems[rnd(num_elems())];
-            }
-        };
 
         struct clause {
             literal_vector    m_lits;
@@ -112,8 +74,8 @@ namespace smt {
         expr_ref_vector  m_trail;
         obj_map<expr, unsigned> m_decl2var; // map declarations to Boolean variables.
         ptr_vector<expr> m_var2decl;        // reverse map
-        index_set        m_hard_false;           // list of hard clauses that are false.
-        index_set        m_soft_false;           // list of soft clauses that are false.
+        sat::index_set        m_hard_false;           // list of hard clauses that are false.
+        sat::index_set        m_soft_false;           // list of soft clauses that are false.
         unsigned         m_max_flips;            // maximal number of flips
         unsigned         m_non_greedy_percent;   // percent of moves to do non-greedy style
         random_gen       m_rng;

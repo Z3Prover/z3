@@ -22,6 +22,7 @@ Notes:
 #include"ast_smt2_pp.h"
 #include"expr_substitution.h"
 #include"card2bv_tactic.h"
+#include"pb_rewriter.h"
 
 namespace pb {
     unsigned card2bv_rewriter::get_num_bits(func_decl* f) {
@@ -58,43 +59,8 @@ namespace pb {
             return BR_DONE;
         }
         else if (f->get_family_id() == pb.get_family_id()) {
-            expr_ref zero(m), a(m), b(m);
-            expr_ref_vector es(m);
-            unsigned bw = get_num_bits(f);
-            zero = bv.mk_numeral(rational(0), bw);
-            for (unsigned i = 0; i < sz; ++i) {
-                es.push_back(m.mk_ite(args[i], bv.mk_numeral(pb.get_coeff(f, i), bw), zero));
-            }
-            switch (es.size()) {
-            case 0:  a = zero; break;
-            case 1:  a = es[0].get(); break;
-            default:
-                a = es[0].get();
-                for (unsigned i = 1; i < es.size(); ++i) {
-                    a = bv.mk_bv_add(a, es[i].get());
-                }
-                break;
-            }
-            b = bv.mk_numeral(pb.get_k(f), bw);
-            
-            switch (f->get_decl_kind()) {
-            case OP_AT_MOST_K:
-            case OP_PB_LE:
-                UNREACHABLE();
-                result = bv.mk_ule(a, b);
-                return BR_DONE;
-            case OP_AT_LEAST_K:
-                UNREACHABLE();
-            case OP_PB_GE:
-                result = bv.mk_ule(b, a);
-                return BR_DONE;
-            case OP_PB_EQ:
-                result = m.mk_eq(a, b);
-                return BR_DONE;
-            default:
-                UNREACHABLE();
-            }
-            return BR_FAILED;
+            // return mk_shannon(f, sz, args, result);
+            return mk_bv(f, sz, args, result);
         }
         // NSB: review
         // we should remove this code and rely on a layer above to deal with 
@@ -136,6 +102,62 @@ namespace pb {
             return BR_FAILED;
     }
 
+
+    br_status card2bv_rewriter::mk_bv(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
+        expr_ref zero(m), a(m), b(m);
+        expr_ref_vector es(m);
+        unsigned bw = get_num_bits(f);
+        zero = bv.mk_numeral(rational(0), bw);
+        for (unsigned i = 0; i < sz; ++i) {
+            es.push_back(m.mk_ite(args[i], bv.mk_numeral(pb.get_coeff(f, i), bw), zero));
+        }
+        switch (es.size()) {
+        case 0:  a = zero; break;
+        case 1:  a = es[0].get(); break;
+        default:
+            a = es[0].get();
+            for (unsigned i = 1; i < es.size(); ++i) {
+                a = bv.mk_bv_add(a, es[i].get());
+            }
+            break;
+        }
+        b = bv.mk_numeral(pb.get_k(f), bw);
+        
+        switch (f->get_decl_kind()) {
+        case OP_AT_MOST_K:
+        case OP_PB_LE:
+            UNREACHABLE();
+            result = bv.mk_ule(a, b);
+            break;
+        case OP_AT_LEAST_K:
+            UNREACHABLE();
+        case OP_PB_GE:
+            result = bv.mk_ule(b, a);
+            break;
+        case OP_PB_EQ:
+            result = m.mk_eq(a, b);
+            break;
+        default:
+            UNREACHABLE();
+        }
+        return BR_DONE;
+    }
+
+    br_status card2bv_rewriter::mk_shannon(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
+        pb_rewriter rw(m);
+        if (sz == 0) {
+            rw.mk_app_core(f, sz, args, result);
+            return BR_DONE;
+        }
+        expr_ref r1(m), r2(m);
+        ptr_vector<expr> new_args(sz, args);
+        new_args[0] = m.mk_true();
+        rw.mk_app_core(f, sz, new_args.c_ptr(), r1);
+        new_args[0] = m.mk_false();
+        rw.mk_app_core(f, sz, new_args.c_ptr(), r2);
+        result = m.mk_ite(args[0], r1, r2);
+        return BR_REWRITE_FULL;        
+    }
 };
 
 template class rewriter_tpl<pb::card2bv_rewriter_cfg>;

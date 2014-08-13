@@ -36,6 +36,7 @@ namespace sat {
         m_core.append(m_mus);                
         s.m_core.reset();
         s.m_core.append(m_core);
+        m_model.reset();
     }
 
     lbool mus::operator()() {
@@ -46,11 +47,12 @@ namespace sat {
         literal_vector& core = m_core;
         literal_vector& mus = m_mus;
         core.append(s.get_core());
+        
 
         while (!core.empty()) {
             TRACE("sat", 
                   tout << "core: " << core << "\n";
-                  tout << "mus:  " << mus << "\n";);
+                  tout << "mus:  " << mus  << "\n";);
 
             if (s.m_cancel) {
                 set_core();
@@ -76,7 +78,8 @@ namespace sat {
                 }
                 sz = core.size();
                 core.append(mus);
-                rmr();
+                measure_mr();
+                // rmr();
                 core.resize(sz);
                 break;
             }
@@ -97,10 +100,31 @@ namespace sat {
         }
         TRACE("sat", tout << "new core: " << mus << "\n";);
         set_core();
+<<<<<<< HEAD
         IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << core << ")\n";);
+=======
+        IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << m_core << ")\n";);
+>>>>>>> 180b0d4ec915c84b770bb609fae4e462118cde50
         return l_true;
     }
 
+    void mus::measure_mr() {
+        model const& m2 = s.get_model();
+        if (!m_model.empty()) {
+            unsigned n = 0;
+            for (unsigned i = 0; i < m_model.size(); ++i) {
+                if (m2[i] != m_model[i]) ++n;
+            }
+            std::cout << "model diff: " << n << " out of " << m_model.size() << "\n";
+        }
+        m_model.reset();
+        m_model.append(m2);        
+    }
+
+    // 
+    // TBD: eager model rotation allows rotating the same clause 
+    // several times with respect to different models.
+    // 
     void mus::rmr() {
         return;
 #if 0
@@ -148,16 +172,33 @@ namespace sat {
         watch_list const& wlist = s.get_wlist(lit);
         watch_list::const_iterator it  = wlist.begin();
         watch_list::const_iterator end = wlist.end();
-        for (; it != end; ++it) {
+        unsigned num_cand = 0;
+        for (; it != end && num_cand <= 1; ++it) {
             switch (it->get_kind()) {
             case watched::BINARY:
+                if (it->is_learned()) {
+                    break;
+                }
                 lit2 = it->get_literal();
+                if (value_at(lit2, model) == l_true) {
+                    break;
+                }
+                IF_VERBOSE(1, verbose_stream() << "(" << ~lit << " " << lit2 << ") ";);
                 TRACE("sat", tout << ~lit << " " << lit2 << "\n";);
+                ++num_cand;
                 break;
             case watched::TERNARY:
                 lit2 = it->get_literal1();
                 lit3 = it->get_literal2();
-                TRACE("sat", tout << ~lit << " " << lit2 << " " << lit3 << "\n";);
+                if (value_at(lit2, model) == l_true) {
+                    break;
+                }
+                if (value_at(lit3, model) == l_true) {
+                    break;
+                }
+
+                IF_VERBOSE(1, verbose_stream() << "(" << ~lit << " " << lit2 << " " << lit3 << ") ";);
+                ++num_cand;
                 break;
             case watched::CLAUSE: {
                 clause_offset cls_off = it->get_clause_offset();
@@ -165,15 +206,23 @@ namespace sat {
                 if (c.is_learned()) {
                     break;
                 }
+                ++num_cand;
+                IF_VERBOSE(1, verbose_stream() << c << " ";);
                 TRACE("sat", tout << c << "\n";);
                 break;
             }
             case watched::EXT_CONSTRAINT:
                 TRACE("sat", tout << "external constraint - should avoid rmr\n";);
-                m_toswap.resize(sz);
                 return;
             }
         }
+        if (num_cand > 1) {
+            m_toswap.resize(sz);
+        }
+        else {
+            IF_VERBOSE(1, verbose_stream() << "wlist size: " << num_cand << " " << m_core.size() << "\n";);
+        }
+
     }
 
 }
