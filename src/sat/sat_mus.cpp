@@ -20,6 +20,7 @@ Notes:
 
 #include "sat_solver.h"
 #include "sat_mus.h"
+#include "sat_sls.h"
 
 namespace sat {
 
@@ -76,11 +77,11 @@ namespace sat {
                 if (core.empty()) {
                     break;
                 }
-                sz = core.size();
-                core.append(mus);
-                measure_mr();
+                // sz = core.size();
+                // measure_mr();
+                // core.append(mus);
                 // rmr();
-                core.resize(sz);
+                // core.resize(sz);
                 break;
             }
             case l_false:
@@ -114,7 +115,26 @@ namespace sat {
             std::cout << "model diff: " << n << " out of " << m_model.size() << "\n";
         }
         m_model.reset();
-        m_model.append(m2);        
+        m_model.append(m2); 
+
+        sls sls(s);
+        literal_vector tabu;
+        tabu.append(m_mus);
+        tabu.append(m_core);
+        for (unsigned i = m_mus.size(); i < tabu.size(); ++i) {
+            tabu[i] = ~tabu[i];
+            lbool is_sat = sls(tabu.size(), tabu.c_ptr()); 
+            tabu[i] = ~tabu[i];
+            switch (is_sat) {
+            case l_true:
+                //m_mus.push_back(tabu[i]);
+                //m_core.erase(tabu[i]);
+                std::cout << "in core " << tabu[i] << "\n";
+                break;
+            default:
+                break;
+            }
+        }
     }
 
     // 

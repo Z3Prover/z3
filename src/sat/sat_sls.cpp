@@ -64,12 +64,12 @@ namespace sat {
     lbool sls::operator()(unsigned sz, literal const* tabu) {
         init(sz, tabu);
         
-        for (unsigned i = 0; i < m_max_tries; ++i) {
+        for (unsigned i = 0; !m_false.empty() && i < m_max_tries; ++i) {
             flip();
-            if (m_false.empty()) {
-                SASSERT(s.check_model(m_model));
-                return l_true;
-            }
+        }
+        if (m_false.empty()) {
+            SASSERT(s.check_model(m_model));
+            return l_true;
         }
         return l_undef;
     }
@@ -84,6 +84,7 @@ namespace sat {
         for (unsigned i = 0; i < m_bin_clauses.size(); ++i) {
             m_alloc.del_clause(m_bin_clauses[i]);
         }
+        m_bin_clauses.reset();
         m_clauses.reset();
         clause * const * it = s.begin_clauses();
         clause * const * end = s.end_clauses();
@@ -108,6 +109,7 @@ namespace sat {
         m_tabu.resize(s.num_vars(), false);
         for (unsigned i = 0; i < sz; ++i) {
             m_model[tabu[i].var()] = tabu[i].sign()?l_false:l_true;
+            SASSERT(value_at(tabu[i], m_model) == l_true);
         }
 
         sz = m_clauses.size();
@@ -116,8 +118,18 @@ namespace sat {
             unsigned n = 0;
             unsigned csz = c.size();
             for (unsigned j = 0; j < csz; ++j) {
-                if (value_at(c[j], m_model) == l_true) {
+                lbool val = value_at(c[j], m_model);
+                switch (val) {
+                case l_true:
                     ++n;
+                    break;
+                case l_undef:
+                    ++n;
+                    m_model[c[j].var()] = c[j].sign()?l_false:l_true;
+                    SASSERT(value_at(c[j], m_model) == l_true);
+                    break;
+                default:
+                    break;                
                 }
             }
             m_num_true.push_back(n);
@@ -196,7 +208,7 @@ namespace sat {
         literal lit;
         if (!pick_flip(lit)) return;
         SASSERT(value_at(lit, m_model) == l_false);
-        m_model[lit.var()] = lit.sign()?l_true:l_false;
+        m_model[lit.var()] = lit.sign()?l_false:l_true;
         SASSERT(value_at(lit, m_model) == l_true);
         unsigned_vector const& use1 = get_use(lit);
         unsigned sz = use1.size();

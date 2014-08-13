@@ -38,7 +38,7 @@ namespace sat {
     };
 
     class sls {
-        solver& s;
+        solver&    s;
         random_gen m_rand;
         unsigned   m_max_tries;
         unsigned   m_prob_choose_min_var;      // number between 0 and 99.
