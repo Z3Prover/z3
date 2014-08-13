@@ -23,8 +23,6 @@ namespace sat {
     class mus {
         literal_vector m_core;
         literal_vector m_mus;
-        literal_vector m_toswap;        
-        model m_model;
 
         solver& s;
     public:
@@ -33,10 +31,7 @@ namespace sat {
         lbool operator()();
     private:
         lbool mus2();
-        void rmr();
-        void measure_mr();
-        bool has_single_unsat(literal& assumption_lit);
-        void find_swappable(literal lit);
+        void mr();
         void reset();
         void set_core();
     };

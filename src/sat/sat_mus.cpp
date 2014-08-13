@@ -37,7 +37,6 @@ namespace sat {
         m_core.append(m_mus);                
         s.m_core.reset();
         s.m_core.append(m_core);
-        m_model.reset();
     }
 
     lbool mus::operator()() {
@@ -47,8 +46,7 @@ namespace sat {
         reset();
         literal_vector& core = m_core;
         literal_vector& mus = m_mus;
-        core.append(s.get_core());
-        
+        core.append(s.get_core());        
 
         while (!core.empty()) {
             TRACE("sat", 
@@ -74,14 +72,9 @@ namespace sat {
             case l_true: {
                 SASSERT(value_at(lit, s.get_model()) == l_false);
                 mus.push_back(lit);
-                if (core.empty()) {
-                    break;
+                if (!core.empty()) {
+                    // mr(); // TBD: measure
                 }
-                // sz = core.size();
-                // measure_mr();
-                // core.append(mus);
-                // rmr();
-                // core.resize(sz);
                 break;
             }
             case l_false:
@@ -105,141 +98,27 @@ namespace sat {
         return l_true;
     }
 
-    void mus::measure_mr() {
-        model const& m2 = s.get_model();
-        if (!m_model.empty()) {
-            unsigned n = 0;
-            for (unsigned i = 0; i < m_model.size(); ++i) {
-                if (m2[i] != m_model[i]) ++n;
-            }
-            std::cout << "model diff: " << n << " out of " << m_model.size() << "\n";
-        }
-        m_model.reset();
-        m_model.append(m2); 
-
+    void mus::mr() {
         sls sls(s);
         literal_vector tabu;
         tabu.append(m_mus);
         tabu.append(m_core);
+        bool reuse_model = false;
         for (unsigned i = m_mus.size(); i < tabu.size(); ++i) {
             tabu[i] = ~tabu[i];
-            lbool is_sat = sls(tabu.size(), tabu.c_ptr()); 
+            lbool is_sat = sls(tabu.size(), tabu.c_ptr(), reuse_model); 
             tabu[i] = ~tabu[i];
-            switch (is_sat) {
-            case l_true:
-                //m_mus.push_back(tabu[i]);
-                //m_core.erase(tabu[i]);
-                std::cout << "in core " << tabu[i] << "\n";
-                break;
-            default:
-                break;
+            if (is_sat == l_true) {
+                m_mus.push_back(tabu[i]);
+                m_core.erase(tabu[i]);
+                IF_VERBOSE(2, verbose_stream() << "in core " << tabu[i] << "\n";);
+                reuse_model = true;
+            }
+            else {
+                IF_VERBOSE(2, verbose_stream() << "NOT in core " << tabu[i] << "\n";);
+                reuse_model = false;
             }
         }
     }
-
-    // 
-    // TBD: eager model rotation allows rotating the same clause 
-    // several times with respect to different models.
-    // 
-    void mus::rmr() {
-        return;
-#if 0
-        model& model = s.m_model;
-        literal lit = m_mus.back();
-        literal assumption_lit;
-        SASSERT(value_at(lit, model) == l_false); 
-        // literal is false in current model.
-        unsigned sz = m_toswap.size();
-        find_swappable(lit);
-        unsigned sz1 = m_toswap.size();
-        for (unsigned i = sz; i < sz1; ++i) {
-            lit = m_toswap[i];
-            SASSERT(value_at(lit, model) == l_false);  
-            model[lit.var()] = ~model[lit.var()];    // swap assignment
-            if (has_single_unsat(assumption_lit) && !m_mus.contains(assumption_lit)) {
-                m_mus.push_back(assumption_lit);
-                rmr();
-            }
-            model[lit.var()] = ~model[lit.var()];    // swap assignment back            
-        }
-        m_toswap.resize(sz);
-#endif
-    }
-
-    bool mus::has_single_unsat(literal& assumption_lit) {
-        model const& model = s.get_model();
-        return false;
-    }
-
-    //
-    // lit is false in model.
-    // find clauses where ~lit occurs, and all other literals
-    // are false in model.
-    // for each of the probed literals, determine if swapping the
-    // assignment falsifies a hard clause, if not, add to m_toswap.
-    // 
-
-    void mus::find_swappable(literal lit) {
-        IF_VERBOSE(3, verbose_stream() << "(sat.mus swap " << lit << ")\n";);
-        unsigned sz = m_toswap.size();
-        literal lit2, lit3;
-        model const& model = s.get_model();
-        SASSERT(value_at(lit, model) == l_false);  
-        watch_list const& wlist = s.get_wlist(lit);
-        watch_list::const_iterator it  = wlist.begin();
-        watch_list::const_iterator end = wlist.end();
-        unsigned num_cand = 0;
-        for (; it != end && num_cand <= 1; ++it) {
-            switch (it->get_kind()) {
-            case watched::BINARY:
-                if (it->is_learned()) {
-                    break;
-                }
-                lit2 = it->get_literal();
-                if (value_at(lit2, model) == l_true) {
-                    break;
-                }
-                IF_VERBOSE(1, verbose_stream() << "(" << ~lit << " " << lit2 << ") ";);
-                TRACE("sat", tout << ~lit << " " << lit2 << "\n";);
-                ++num_cand;
-                break;
-            case watched::TERNARY:
-                lit2 = it->get_literal1();
-                lit3 = it->get_literal2();
-                if (value_at(lit2, model) == l_true) {
-                    break;
-                }
-                if (value_at(lit3, model) == l_true) {
-                    break;
-                }
-
-                IF_VERBOSE(1, verbose_stream() << "(" << ~lit << " " << lit2 << " " << lit3 << ") ";);
-                ++num_cand;
-                break;
-            case watched::CLAUSE: {
-                clause_offset cls_off = it->get_clause_offset();
-                clause& c = *(s.m_cls_allocator.get_clause(cls_off));
-                if (c.is_learned()) {
-                    break;
-                }
-                ++num_cand;
-                IF_VERBOSE(1, verbose_stream() << c << " ";);
-                TRACE("sat", tout << c << "\n";);
-                break;
-            }
-            case watched::EXT_CONSTRAINT:
-                TRACE("sat", tout << "external constraint - should avoid rmr\n";);
-                return;
-            }
-        }
-        if (num_cand > 1) {
-            m_toswap.resize(sz);
-        }
-        else {
-            IF_VERBOSE(1, verbose_stream() << "wlist size: " << num_cand << " " << m_core.size() << "\n";);
-        }
-
-    }
-
 }
 

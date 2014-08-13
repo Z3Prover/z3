@@ -58,6 +58,7 @@ namespace sat {
         unsigned m_del_clause;
         unsigned m_minimized_lits;
         unsigned m_dyn_sub_res;
+        unsigned m_non_learned_generation;
         stats() { reset(); }
         void reset();
         void collect_statistics(statistics & st) const;
@@ -173,7 +174,7 @@ namespace sat {
         void mk_clause(literal l1, literal l2, literal l3);
 
     protected:
-        void del_clause(clause & c) { m_cls_allocator.del_clause(&c); m_stats.m_del_clause++; }
+        void del_clause(clause & c);
         clause * mk_clause_core(unsigned num_lits, literal * lits, bool learned);
         void mk_bin_clause(literal l1, literal l2, bool learned);
         bool propagate_bin_clause(literal l1, literal l2);

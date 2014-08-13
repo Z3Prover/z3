@@ -53,6 +53,7 @@ namespace sat {
     sls::sls(solver& s): s(s) {
         m_max_tries = 10000;
         m_prob_choose_min_var = 43;
+        m_clause_generation = 0;
     }
 
     sls::~sls() {
@@ -61,12 +62,13 @@ namespace sat {
         }
     }
 
-    lbool sls::operator()(unsigned sz, literal const* tabu) {
-        init(sz, tabu);
-        
-        for (unsigned i = 0; !m_false.empty() && i < m_max_tries; ++i) {
+    lbool sls::operator()(unsigned sz, literal const* tabu, bool reuse_model) {
+        init(sz, tabu, reuse_model);
+        unsigned i;
+        for (i = 0; !m_false.empty() && i < m_max_tries; ++i) {
             flip();
         }
+        IF_VERBOSE(2, verbose_stream() << "tries " << i << "\n";);
         if (m_false.empty()) {
             SASSERT(s.check_model(m_model));
             return l_true;
@@ -74,10 +76,18 @@ namespace sat {
         return l_undef;
     }
 
-    void sls::init(unsigned sz, literal const* tabu) {
-        init_clauses();
-        init_model(sz, tabu);
-        init_use();            
+    void sls::init(unsigned sz, literal const* tabu, bool reuse_model) {
+        bool same_generation = (m_clause_generation == s.m_stats.m_non_learned_generation);
+        if (!same_generation) {
+            init_clauses();
+            init_use();          
+            IF_VERBOSE(0, verbose_stream() << s.m_stats.m_non_learned_generation << " " << m_clause_generation << "\n";);  
+        }
+        if (!reuse_model) {
+            init_model();
+        }
+        init_tabu(sz, tabu);
+        m_clause_generation = s.m_stats.m_non_learned_generation;
     }
 
     void sls::init_clauses() {
@@ -97,22 +107,17 @@ namespace sat {
         for (unsigned i = 0; i < bincs.size(); ++i) {
             lits[0] = bincs[i].first;
             lits[1] = bincs[i].second;
-            m_clauses.push_back(m_alloc.mk_clause(2, lits, false));
+            clause* cl = m_alloc.mk_clause(2, lits, false);
+            m_clauses.push_back(cl);
+            m_bin_clauses.push_back(cl);
         }
     }
 
-    void sls::init_model(unsigned sz, literal const* tabu) {
+    void sls::init_model() {
         m_num_true.reset();
         m_model.reset();
         m_model.append(s.get_model());
-        m_tabu.reset();
-        m_tabu.resize(s.num_vars(), false);
-        for (unsigned i = 0; i < sz; ++i) {
-            m_model[tabu[i].var()] = tabu[i].sign()?l_false:l_true;
-            SASSERT(value_at(tabu[i], m_model) == l_true);
-        }
-
-        sz = m_clauses.size();
+        unsigned sz = m_clauses.size();
         for (unsigned i = 0; i < sz; ++i) {
             clause const& c = *m_clauses[i];
             unsigned n = 0;
@@ -136,7 +141,32 @@ namespace sat {
             if (n == 0) {
                 m_false.insert(i);
             }
-        }        
+        } 
+    }
+
+    void sls::init_tabu(unsigned sz, literal const* tabu) {        
+        // our main use is where m_model satisfies all the hard constraints.
+        // SASSERT(s.check_model(m_model));
+        // SASSERT(m_false.empty());
+        // ASSERT: m_num_true is correct count.       
+        m_tabu.reset();
+        m_tabu.resize(s.num_vars(), false);
+        for (unsigned i = 0; i < sz; ++i) {
+            literal lit = tabu[i];
+            if (s.m_level[lit.var()] == 0) continue;
+            if (value_at(lit, m_model) == l_false) {
+                flip(lit);                
+            }
+            m_tabu[lit.var()] = true;
+        }
+        for (unsigned i = 0; i < s.m_trail.size(); ++i) {
+            literal lit = s.m_trail[i];
+            if (s.m_level[lit.var()] > 0) break;
+            if (value_at(lit, m_model) != l_true) {
+                flip(lit);
+            }           
+            m_tabu[lit.var()] = true;
+        }    
     }
 
     void sls::init_use() {
@@ -191,7 +221,7 @@ namespace sat {
                 m_min_vars.push_back(lit);
             }
         }
-        if (min_break == 0 || (m_min_vars.empty() && m_rand(100) >= m_prob_choose_min_var)) {
+        if (min_break == 0 || (!m_min_vars.empty() && m_rand(100) >= m_prob_choose_min_var)) {
             lit = m_min_vars[m_rand(m_min_vars.size())];
             return true;
         }
@@ -206,8 +236,15 @@ namespace sat {
 
     void sls::flip() {
         literal lit;
-        if (!pick_flip(lit)) return;
+        if (pick_flip(lit)) {
+            flip(lit);
+        }
+    }
+
+    void sls::flip(literal lit) {
+        // IF_VERBOSE(0, verbose_stream() << lit << " ";);
         SASSERT(value_at(lit, m_model) == l_false);
+        SASSERT(!m_tabu[lit.var()]);
         m_model[lit.var()] = lit.sign()?l_false:l_true;
         SASSERT(value_at(lit, m_model) == l_true);
         unsigned_vector const& use1 = get_use(lit);

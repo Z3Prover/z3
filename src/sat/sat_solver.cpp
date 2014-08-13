@@ -61,6 +61,7 @@ namespace sat {
         for (clause * const * it = begin; it != end; ++it) {
             m_cls_allocator.del_clause(*it);
         }
+        ++m_stats.m_non_learned_generation;
     }
 
     void solver::copy(solver const & src) {
@@ -165,6 +166,12 @@ namespace sat {
         mk_clause(3, ls);
     }
 
+    void solver::del_clause(clause& c) {
+        m_cls_allocator.del_clause(&c); 
+        m_stats.m_del_clause++; 
+        if (!c.is_learned()) m_stats.m_non_learned_generation++;
+    }
+
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, bool learned) {
         TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << "\n";);
         if (!learned) {
@@ -173,7 +180,8 @@ namespace sat {
             if (!keep) {
                 return 0; // clause is equivalent to true.
             }
-        }
+            ++m_stats.m_non_learned_generation;
+        }        
 
         switch (num_lits) {
         case 0:
@@ -2690,6 +2698,7 @@ namespace sat {
         m_del_clause = 0;
         m_minimized_lits = 0;
         m_dyn_sub_res = 0;
+        m_non_learned_generation = 0;
     }
 
     void mk_stat::display(std::ostream & out) const {

@@ -42,6 +42,7 @@ namespace sat {
         random_gen m_rand;
         unsigned   m_max_tries;
         unsigned   m_prob_choose_min_var;      // number between 0 and 99.
+        unsigned   m_clause_generation;
         ptr_vector<clause const>    m_clauses; // vector of all clauses.
         index_set        m_false;              // clauses currently false
         vector<unsigned_vector>  m_use_list;   // use lists for literals
@@ -54,15 +55,17 @@ namespace sat {
     public:
         sls(solver& s);
         ~sls();        
-        lbool operator()(unsigned sz, literal const* tabu);
+        lbool operator()(unsigned sz, literal const* tabu, bool reuse_model);
     private:
         bool local_search();
-        void init(unsigned sz, literal const* tabu);
-        void init_model(unsigned sz, literal const* tabu);
+        void init(unsigned sz, literal const* tabu, bool reuse_model);
+        void init_tabu(unsigned sz, literal const* tabu);
+        void init_model();
         void init_use();
         void init_clauses();
         bool pick_flip(literal& lit);
         void flip();
+        void flip(literal lit);
         unsigned get_break_count(literal lit, unsigned min_break);
         unsigned_vector const& get_use(literal lit);        
     };
