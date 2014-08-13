@@ -48,6 +48,8 @@ namespace sat {
         m_scope_lvl(0),
         m_params(p) {
         m_config.updt_params(p);
+        m_conflicts_since_gc      = 0;
+        m_next_simplify           = 0;
     }
 
     solver::~solver() {
@@ -924,10 +926,8 @@ namespace sat {
         m_conflicts_since_restart = 0;
         m_restart_threshold       = m_config.m_restart_initial;
         m_luby_idx                = 1;
-        m_conflicts_since_gc      = 0;
         m_gc_threshold            = m_config.m_gc_initial;
         m_min_d_tk                = 1.0;
-        m_next_simplify           = 0;
         m_stopwatch.reset();
         m_stopwatch.start();
         m_core.reset();
@@ -1667,6 +1667,10 @@ namespace sat {
         }        
         reset_unmark(old_size);
         if (m_config.m_minimize_core) {
+            // TBD: 
+            // apply optional clause minimization by detecting subsumed literals.
+            // initial experiment suggests it has no effect.
+
             m_mus(); // ignore return value on cancelation.
         }
     }

@@ -101,7 +101,7 @@ static void track_clauses(sat::solver const& src,
     sat::clause * const * end = src.end_clauses();
     svector<sat::solver::bin_clause> bin_clauses;
     src.collect_bin_clauses(bin_clauses, false);
-    tracking_clauses.reserve(2*src.num_vars() + (end - it) + bin_clauses.size());
+    tracking_clauses.reserve(2*src.num_vars() + static_cast<unsigned>(end - it) + bin_clauses.size());
 
     for (sat::bool_var v = 1; v < src.num_vars(); ++v) {
         if (src.value(v) != l_undef) {
@@ -114,7 +114,7 @@ static void track_clauses(sat::solver const& src,
     for (; it != end; ++it) {
         lits.reset();
         sat::clause& cls = *(*it);
-        lits.append(cls.end()-cls.begin(), cls.begin());
+        lits.append(static_cast<unsigned>(cls.end()-cls.begin()), cls.begin());
         track_clause(dst, lits, assumptions, tracking_clauses);
     }
     for (unsigned i = 0; i < bin_clauses.size(); ++i) {
