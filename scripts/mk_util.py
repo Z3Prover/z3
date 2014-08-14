@@ -1402,7 +1402,12 @@ class MLComponent(Component):
             out.write('\t%s ' % (OCAMLOPT))
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-cclib "-L../.. -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cmxa -linkall\n' % (sub_dir,sub_dir,sub_dir,sub_dir))
+            out.write('-cclib "-L %s -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cmxa -linkall\n' % (sub_dir, sub_dir,sub_dir,sub_dir,sub_dir))
+            out.write('%s: %s\n' % (os.path.join(sub_dir, 'z3.cmxs'), os.path.join(sub_dir, 'z3.cmxa')))
+            out.write('\t%s ' % (OCAMLOPT))
+            if DEBUG_MODE:
+                out.write('-g ')
+            out.write('-cclib "-L %s -lz3ml" -shared -o %s %s -linkall\n' % (sub_dir, os.path.join(sub_dir, 'z3.cmxs'), os.path.join(sub_dir, 'z3.cmxa')))
             out.write('%s: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT) %s' % (os.path.join(sub_dir, 'z3.cma'), get_component(Z3_DLL_COMPONENT).dll_name, cmis))
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(sub_dir, mlfile))
@@ -1410,15 +1415,15 @@ class MLComponent(Component):
             out.write('\t%s ' % (OCAMLC))
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-cclib "-L../.. -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cma -linkall\n' % (sub_dir,sub_dir,sub_dir,sub_dir))
-            out.write('ml: api/ml/z3.cmxa api/ml/z3.cma\n')
+            out.write('-cclib "-L %s -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cma -linkall\n' % (sub_dir, sub_dir,sub_dir,sub_dir,sub_dir))
+            out.write('ml: %s %s %s\n' % (os.path.join(sub_dir, 'z3.cmxa'), os.path.join(sub_dir, 'z3.cmxs'), os.path.join(sub_dir, 'z3.cma')))
             out.write('\n')
             # Generate META file and package installation commands
             self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
             if OCAMLFIND != '':
-                out.write('ocamlfind_install: api/ml/z3.cma api/ml/z3.cmxa\n')
+                out.write('ocamlfind_install: api/ml/z3.cma api/ml/z3.cmxa api/ml/z3.cmxs\n')
                 out.write('\t%s remove Z3\n' % (OCAMLFIND))
-                out.write('\t%s install Z3 api/ml/META api/ml/z3.cma api/ml/z3.cmxa api/ml/z3$(LIB_EXT) api/ml/libz3ml$(LIB_EXT) libz3$(SO_EXT)' % (OCAMLFIND))
+                out.write('\t%s install Z3 api/ml/META api/ml/z3.cma api/ml/z3.cmxa api/ml/z3.cmxs api/ml/z3$(LIB_EXT) api/ml/libz3ml$(LIB_EXT) libz3$(SO_EXT)' % (OCAMLFIND))
                 for m in modules:
                     out.write(' %s.cmi' % (os.path.join(sub_dir, m)))
                     out.write(' %s.cmx' % (os.path.join(sub_dir, m)))
