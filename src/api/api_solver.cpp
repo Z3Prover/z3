@@ -40,6 +40,7 @@ extern "C" {
         params_ref p = s->m_params;
         mk_c(c)->params().get_solver_params(mk_c(c)->m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
         s->m_solver = (*(s->m_solver_factory))(mk_c(c)->m(), p, proofs_enabled, models_enabled, unsat_core_enabled, s->m_logic);
+        s->m_solver->updt_params(p);
     }
 
     static void init_solver(Z3_context c, Z3_solver s) {
