@@ -896,6 +896,9 @@ namespace sat {
               for (unsigned i = 0; i < num_lits; ++i) 
                   tout << lits[i] << " ";
               tout << "\n";
+              if (!m_user_scope_literals.empty()) {
+                  tout << "user literals: " << m_user_scope_literals << "\n";
+              }
               m_mc.display(tout);
               );
 #define _INSERT_LIT(_l_)                     \
@@ -2237,6 +2240,7 @@ namespace sat {
             lit = m_user_scope_literal_pool.back();
             m_user_scope_literal_pool.pop_back();
         }
+        TRACE("sat", tout << "user_push: " << lit << "\n";);
         m_user_scope_literals.push_back(lit);
     }
 

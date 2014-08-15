@@ -134,7 +134,6 @@ public:
     }
 
     lbool mus_solver() {
-        solver::scoped_push _sc(m_s);
         init();
         init_local();
         while (true) {
@@ -178,10 +177,9 @@ public:
     }
 
     lbool mus_mss_solver() {
-        solver::scoped_push _sc(s());
         init();
         init_local();
-        enable_sls(m_asms);
+        //enable_sls(m_asms);
         ptr_vector<expr> mcs;
         vector<ptr_vector<expr> > cores;
         while (m_lower < m_upper) {            
@@ -222,7 +220,6 @@ public:
 
     lbool mss_solver() {
         NOT_IMPLEMENTED_YET();
-        solver::scoped_push _sc(s());
         init();
         init_local();
         ptr_vector<expr> mcs;

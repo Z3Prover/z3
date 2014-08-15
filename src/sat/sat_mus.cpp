@@ -48,6 +48,13 @@ namespace sat {
         literal_vector& core = m_core;
         literal_vector& mus = m_mus;
         core.append(s.get_core());        
+        for (unsigned i = 0; i < core.size(); ++i) {
+            s.m_user_scope_literals.contains(core[i]);
+            mus.push_back(core[i]);
+            core[i] = core.back();
+            core.pop_back();
+            --i;
+        }
 
         while (!core.empty()) {
             TRACE("sat", 
@@ -61,9 +68,10 @@ namespace sat {
             literal lit = core.back();
             core.pop_back();
             unsigned sz = mus.size();
-            mus.push_back(~lit); // TBD: measure
+            // mus.push_back(~lit); // TBD: measure
             mus.append(core);
             lbool is_sat = s.check(mus.size(), mus.c_ptr());
+            TRACE("sat", tout << "mus: " << mus << "\n";);
             mus.resize(sz);
             switch (is_sat) {
             case l_undef:
@@ -83,6 +91,7 @@ namespace sat {
                 if (new_core.contains(~lit)) {
                     break;
                 }
+                TRACE("sat", tout << "new core: " << new_core << "\n";);
                 core.reset();
                 for (unsigned i = 0; i < new_core.size(); ++i) {
                     literal lit = new_core[i];
