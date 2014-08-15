@@ -60,6 +60,8 @@ namespace sat {
         virtual ~sls();        
         lbool operator()(unsigned sz, literal const* tabu, bool reuse_model);
         void set_cancel(bool f) { m_cancel = f; }
+        void set_max_tries(unsigned mx) { m_max_tries = mx; }
+        virtual void display(std::ostream& out) const;
     protected:
         void init(unsigned sz, literal const* tabu, bool reuse_model);
         void init_tabu(unsigned sz, literal const* tabu);
@@ -69,6 +71,7 @@ namespace sat {
         unsigned_vector const& get_use(literal lit);        
         void flip(literal lit);
         virtual void check_invariant();
+        void check_use_list();
     private:
         bool pick_flip(literal& lit);
         void flip();
@@ -91,9 +94,11 @@ namespace sat {
     public:
         wsls(solver& s);
         virtual ~wsls();        
-        void set_soft(unsigned sz, double const* weights, literal const* lits);        
+        void set_soft(unsigned sz, literal const* lits, double const* weights);        
+        bool has_soft() const { return !m_soft.empty(); }
         void opt(unsigned sz, literal const* tabu, bool reuse_model);
         model const& get_model() { return m_best_model; }
+        virtual void display(std::ostream& out) const;
     private:        
         void wflip();
         void wflip(literal lit);

@@ -33,6 +33,7 @@ Revision History:
 #include"sat_iff3_finder.h"
 #include"sat_probing.h"
 #include"sat_mus.h"
+#include"sat_sls.h"
 #include"params.h"
 #include"statistics.h"
 #include"stopwatch.h"
@@ -82,6 +83,7 @@ namespace sat {
         asymm_branch            m_asymm_branch;
         probing                 m_probing;
         mus                     m_mus;
+        wsls                    m_wsls;
         bool                    m_inconsistent;
         // A conflict is usually a single justification. That is, a justification
         // for false. If m_not_l is not null_literal, then m_conflict is a
@@ -224,13 +226,14 @@ namespace sat {
         void assign_core(literal l, justification jst);
         void set_conflict(justification c, literal not_l);
         void set_conflict(justification c) { set_conflict(c, null_literal); }
-        lbool status(clause const & c) const;
+        lbool status(clause const & c) const;        
         clause_offset get_offset(clause const & c) const { return m_cls_allocator.get_offset(&c); }
         void checkpoint() {
             if (m_cancel) throw solver_exception(Z3_CANCELED_MSG);
             if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
         typedef std::pair<literal, literal> bin_clause;
+        void initialize_soft(unsigned sz, literal const* lits, double const* weights);
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }
         watch_list const & get_wlist(literal l) const { return m_watches[l.index()]; }

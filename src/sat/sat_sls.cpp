@@ -50,8 +50,8 @@ namespace sat {
         return m_elems[rnd(num_elems())];
     }
 
-    sls::sls(solver& s): s(s) {
-        m_max_tries = 10000;
+    sls::sls(solver& s): s(s), m_cancel(false) {
+        m_max_tries = 1000000;
         m_prob_choose_min_var = 43;
         m_clause_generation = 0;
     }
@@ -180,6 +180,7 @@ namespace sat {
                 m_use_list[c[j].index()].push_back(i);
             }
         }
+        DEBUG_CODE(check_use_list(););
     }
 
     unsigned_vector const& sls::get_use(literal lit) {
@@ -242,7 +243,7 @@ namespace sat {
     }
 
     void sls::flip(literal lit) {
-        // IF_VERBOSE(0, verbose_stream() << lit << " ";);
+        //IF_VERBOSE(0, verbose_stream() << lit << " ";);
         SASSERT(value_at(lit, m_model) == l_false);
         SASSERT(!m_tabu[lit.var()]);
         m_model[lit.var()] = lit.sign()?l_false:l_true;
@@ -266,8 +267,69 @@ namespace sat {
     }
 
     void sls::check_invariant() {
-
+        for (unsigned i = 0; i < m_clauses.size(); ++i) {
+            clause const& c = *m_clauses[i];
+            bool is_sat = c.satisfied_by(m_model);
+            SASSERT(is_sat != m_false.contains(i));
+            SASSERT(is_sat == m_num_true[i] > 0);
+        }        
     }
+
+    void sls::check_use_list() {
+
+        for (unsigned i = 0; i < m_clauses.size(); ++i) {
+            clause const& c = *m_clauses[i];
+            for (unsigned j = 0; j < c.size(); ++j) {
+                unsigned idx = c[j].index();
+                SASSERT(m_use_list[idx].contains(i));
+            }
+        }
+
+        for (unsigned i = 0; i < m_use_list.size(); ++i) {
+            literal lit = to_literal(i);
+            for (unsigned j = 0; j < m_use_list[i].size(); ++j) {
+                clause const& c = *m_clauses[m_use_list[i][j]];
+                bool found = false;
+                for (unsigned k = 0; !found && k < c.size(); ++k) {
+                    found = c[k] == lit;
+                }
+                SASSERT(found);
+            }
+        }
+    }
+
+    void sls::display(std::ostream& out) const {
+        out << "Model\n";
+        for (bool_var v = 0; v < m_model.size(); ++v) {
+            out << v << ": " << m_model[v] << "\n";
+        }
+        out << "Clauses\n";
+        unsigned sz = m_false.num_elems();
+        for (unsigned i = 0; i < sz; ++i) {
+            out << *m_clauses[m_false[i]] << "\n";
+        }
+        for (unsigned i = 0; i < m_clauses.size(); ++i) {
+            if (m_false.contains(i)) continue;
+            clause const& c = *m_clauses[i];
+            out << c << " " << m_num_true[i] << "\n";
+        }
+        bool has_tabu = false;
+        for (unsigned i = 0; !has_tabu && i < m_tabu.size(); ++i) {
+            has_tabu = m_tabu[i];
+        }
+        if (has_tabu) {
+            out << "Tabu: ";
+            for (unsigned i = 0; i < m_tabu.size(); ++i) {
+                if (m_tabu[i]) {
+                    literal lit(i, false);
+                    if (value_at(lit, m_model) == l_false) lit.neg();
+                    out << lit << " ";
+                }
+            }
+            out << "\n";
+        }
+    }
+
 
     wsls::wsls(solver& s):
         sls(s)
@@ -277,7 +339,7 @@ namespace sat {
 
     wsls::~wsls() {}
 
-    void wsls::set_soft(unsigned sz, double const* weights, literal const* lits) {
+    void wsls::set_soft(unsigned sz, literal const* lits, double const* weights) {
         m_soft.reset();
         m_weights.reset();
         m_soft.append(sz, lits);
@@ -291,14 +353,17 @@ namespace sat {
         // Initialize m_clause_weights, m_hscore, m_sscore.
         //
         m_best_value = m_false.empty()?evaluate_model():-1.0;        
+        m_best_model.reset();
         m_clause_weights.reset();
         m_hscore.reset();
         m_sscore.reset();
         m_H.reset();
         m_S.reset();
+        m_best_model.append(s.get_model());
         m_clause_weights.resize(m_clauses.size(), 1);
         m_sscore.resize(s.num_vars(), 0.0);
         m_hscore.resize(s.num_vars(), 0);
+        unsigned num_violated = 0;
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             literal lit = m_soft[i];
             m_sscore[lit.var()] = m_weights[i];
@@ -310,16 +375,19 @@ namespace sat {
             m_hscore[i] = compute_hscore(i);
             refresh_scores(i);
         }
+        DEBUG_CODE(check_invariant(););
         unsigned i = 0;
-        for (; !m_cancel && i < m_max_tries; ++i) {
+        for (; !m_cancel && m_best_value > 0 && i < m_max_tries; ++i) {
             wflip();
         }
-        IF_VERBOSE(2, verbose_stream() << "tries " << i << "\n";);
+        TRACE("sat", display(tout););
+        IF_VERBOSE(0, verbose_stream() << "tries " << i << "\n";);
     }
 
     void wsls::wflip() {
         literal lit;
         if (pick_wflip(lit)) {
+            // IF_VERBOSE(0, verbose_stream() << lit << " ";);
             wflip(lit);
         }
     }
@@ -328,8 +396,10 @@ namespace sat {
         if (m_false.empty()) {
             double val = evaluate_model();
             if (val < m_best_value || m_best_value < 0.0) {
+                m_best_value = val;
                 m_best_model.reset();
                 m_best_model.append(m_model);
+                IF_VERBOSE(0, verbose_stream() << "new value:" << val << "\n";);
             }
         }
         unsigned idx;
@@ -337,6 +407,8 @@ namespace sat {
             idx = m_H.choose(m_rand);
             lit = literal(idx, false);
             if (value_at(lit, m_model) == l_true) lit.neg();            
+            SASSERT(value_at(lit, m_model) == l_false); 
+            TRACE("sat", tout << "flip H(" << m_H.num_elems() << ") " << lit << "\n";);
         }
         else if (!m_S.empty()) {
             double score = 0.0;
@@ -353,16 +425,38 @@ namespace sat {
                     m_min_vars.push_back(literal(v, false));
                 }
             }
-            idx = m_min_vars[m_rand(m_min_vars.size())].var(); // pick with largest sscore.
+            lit = m_min_vars[m_rand(m_min_vars.size())]; // pick with largest sscore.
+            SASSERT(value_at(lit, m_model) == l_false);
+            TRACE("sat", tout << "flip S(" << m_min_vars.size() << "," << score << ") " << lit << "\n";);
         }
         else {
             update_hard_weights();
             if (!m_false.empty()) {
                 unsigned cls_idx = m_false.choose(m_rand);
+                clause const& c = *m_clauses[cls_idx]; 
+                lit = c[m_rand(c.size())];
+                TRACE("sat", tout << "flip hard(" << m_false.num_elems() << "," << c.size() << ") " << lit << "\n";);
             }
             else {
-                lit = m_soft[m_rand(m_soft.size())];
+                m_min_vars.reset();
+                for (unsigned i = 0; i < m_soft.size(); ++i) {
+                    lit = m_soft[i];
+                    if (value_at(lit, m_model) == l_false) {
+                        m_min_vars.push_back(lit);
+                    }
+                }
+                if (m_min_vars.empty()) {
+                    SASSERT(m_best_value == 0.0);
+                    UNREACHABLE(); // we should have exited the main loop before.
+                    return false; 
+                }
+                else {
+                    lit = m_min_vars[m_rand(m_min_vars.size())];
+                }
+                TRACE("sat", tout << "flip soft(" << m_min_vars.size() << ") " << lit << "\n";);
+
             }
+            SASSERT(value_at(lit, m_model) == l_false);
         }
         return !m_tabu[lit.var()];
     }
@@ -408,7 +502,6 @@ namespace sat {
                 }
             }
         }
-
         DEBUG_CODE(check_invariant(););
     }
 
@@ -488,9 +581,29 @@ namespace sat {
         // The score(v) is the reward on soft clauses for flipping v.
         for (unsigned j = 0; j < m_soft.size(); ++j) {
             unsigned v = m_soft[j].var();
-            double ss = value_at(m_soft[j], m_model)?(-m_weights[j]):m_weights[j];
+            double ss = (l_true == value_at(m_soft[j], m_model))?(-m_weights[j]):m_weights[j];
             SASSERT(m_sscore[v] == ss);
         }
+
+        // m_H are values such that m_hscore >= 0.
+        for (bool_var v = 0; v < m_hscore.size(); ++v) {
+            SASSERT(m_hscore[v] > 0 == m_H.contains(v));
+        }
+        
+        // m_S are values such that hscore = 0, sscore > 0
+        for (bool_var v = 0; v < m_sscore.size(); ++v) {
+            SASSERT((m_hscore[v] == 0 && m_sscore[v] > 0) == m_S.contains(v));
+        }
+    }
+
+    void wsls::display(std::ostream& out) const {
+        sls::display(out);
+        out << "Best model\n";
+        for (bool_var v = 0; v < m_best_model.size(); ++v) {
+            out << v << ": " << m_best_model[v] << " h: " << m_hscore[v];
+            if (m_sscore[v] != 0.0) out << " s: " << m_sscore[v];
+            out << "\n";
+        }        
     }
 
 };

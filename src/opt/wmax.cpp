@@ -23,15 +23,15 @@ Notes:
 #include "smt_theory.h"
 #include "smt_context.h"
 #include "theory_wmaxsat.h"
-
+#include "opt_context.h"
 
 namespace opt {
     class maxsmt_solver_wbase : public maxsmt_solver_base {
         smt::context& ctx;
     public:
-        maxsmt_solver_wbase(opt_solver* s, ast_manager& m, smt::context& ctx, params_ref& p, 
+        maxsmt_solver_wbase(context& c,
                             vector<rational> const& ws, expr_ref_vector const& soft): 
-            maxsmt_solver_base(s, m, p, ws, soft), ctx(ctx) {}
+            maxsmt_solver_base(c, ws, soft), ctx(c.smt_context()) {}
         ~maxsmt_solver_wbase() {}
 
         class scoped_ensure_theory {
@@ -52,7 +52,7 @@ namespace opt {
                 wth->reset();
             }
             else {
-                wth = alloc(smt::theory_wmaxsat, m, m_mc);
+                wth = alloc(smt::theory_wmaxsat, m, m_c.fm());
                 ctx.register_plugin(wth);
             }
             return wth;
@@ -76,9 +76,9 @@ namespace opt {
 
     class wmax : public maxsmt_solver_wbase {
     public:
-        wmax(opt_solver* s, ast_manager& m, smt::context& ctx, params_ref& p, 
+        wmax(context& c,
              vector<rational> const& ws, expr_ref_vector const& soft): 
-            maxsmt_solver_wbase(s, m, ctx, p, ws, soft) {}
+            maxsmt_solver_wbase(c, ws, soft) {}
         virtual ~wmax() {}
 
         lbool operator()() {
@@ -122,9 +122,9 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* opt::mk_wmax(ast_manager& m, opt_solver* s, params_ref& p, 
-                                    vector<rational> const& ws, expr_ref_vector const& soft) {
-        return alloc(wmax, s, m, s->get_context(), p, ws, soft);
+    maxsmt_solver_base* opt::mk_wmax(context& c, 
+                                     vector<rational> const& ws, expr_ref_vector const& soft) {
+        return alloc(wmax, c, ws, soft);
     }
 
 }

@@ -29,13 +29,13 @@ using namespace opt;
 // 
 
 struct mus::imp {
-    ref<solver>&                m_s;
-    ast_manager&                m;
-    expr_ref_vector             m_cls2expr;
-    obj_map<expr, unsigned>     m_expr2cls;
-    volatile bool               m_cancel;
+    solver&                  m_s;
+    ast_manager&             m;
+    expr_ref_vector          m_cls2expr;
+    obj_map<expr, unsigned>  m_expr2cls;
+    volatile bool            m_cancel;
 
-    imp(ref<solver>& s, ast_manager& m): 
+    imp(solver& s, ast_manager& m): 
         m_s(s), m(m), m_cls2expr(m),  m_cancel(false)
     {}
 
@@ -92,7 +92,7 @@ struct mus::imp {
             unsigned sz = assumptions.size();
             assumptions.push_back(not_cls);
             add_core(core, assumptions);
-            lbool is_sat = m_s->check_sat(assumptions.size(), assumptions.c_ptr());
+            lbool is_sat = m_s.check_sat(assumptions.size(), assumptions.c_ptr());
             assumptions.resize(sz);
             switch (is_sat) {
             case l_undef: 
@@ -103,7 +103,7 @@ struct mus::imp {
                 break;
             default:
                 core_exprs.reset();
-                m_s->get_unsat_core(core_exprs);
+                m_s.get_unsat_core(core_exprs);
                 if (!core_exprs.contains(not_cls)) {
                     // core := core_exprs \ mus
                     core.reset();
@@ -124,7 +124,7 @@ struct mus::imp {
             for (unsigned i = 0; i < mus.size(); ++i) {
                 assumptions.push_back(m_cls2expr[mus[i]].get());
             }
-            lbool is_sat = m_s->check_sat(assumptions.size(), assumptions.c_ptr());
+            lbool is_sat = m_s.check_sat(assumptions.size(), assumptions.c_ptr());
             SASSERT(is_sat == l_false);
                    );
 #endif
@@ -147,7 +147,7 @@ struct mus::imp {
 
 };
 
-mus::mus(ref<solver>& s, ast_manager& m) {
+mus::mus(solver& s, ast_manager& m) {
     m_imp = alloc(imp, s, m);
 }
 

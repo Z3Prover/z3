@@ -24,4 +24,6 @@ Notes:
 
 solver* mk_inc_sat_solver(ast_manager& m, params_ref& p);
 
+void set_soft_inc_sat(solver* s, unsigned sz, expr*const* soft, rational const* weights);
+
 #endif

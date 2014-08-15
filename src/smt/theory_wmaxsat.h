@@ -28,7 +28,7 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };        
-        ref<filter_model_converter>         m_mc;
+        filter_model_converter&     m_mc;
         mutable unsynch_mpz_manager m_mpz;
         app_ref_vector           m_vars;        // Auxiliary variables per soft clause
         expr_ref_vector          m_fmls;        // Formulas per soft clause
@@ -50,7 +50,7 @@ namespace smt {
         svector<bool>            m_assigned;
         stats                    m_stats;
     public:
-        theory_wmaxsat(ast_manager& m, ref<filter_model_converter>& mc);
+        theory_wmaxsat(ast_manager& m, filter_model_converter& mc);
         virtual ~theory_wmaxsat();
         void get_assignment(svector<bool>& result);
         virtual void init_search_eh();

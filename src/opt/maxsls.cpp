@@ -26,16 +26,14 @@ namespace opt {
 
     class sls : public maxsmt_solver_base {
     public:
-        sls(opt_solver* s, ast_manager& m, params_ref& p, 
-            vector<rational> const& ws, expr_ref_vector const& soft): 
-            maxsmt_solver_base(s, m, p, ws, soft) {
+        sls(context& c, vector<rational> const& ws, expr_ref_vector const& soft): 
+            maxsmt_solver_base(c, ws, soft) {
         }
         virtual ~sls() {}
         lbool operator()() {
             IF_VERBOSE(1, verbose_stream() << "(opt.sls)\n";);
-            enable_bvsat();
-            enable_sls();
             init();
+            enable_sls(m_soft);
             lbool is_sat = s().check_sat(0, 0);
             if (is_sat == l_true) {
                 s().get_model(m_model);
@@ -54,9 +52,9 @@ namespace opt {
 
     };
 
-    maxsmt_solver_base* opt::mk_sls(ast_manager& m, opt_solver* s, params_ref& p, 
+    maxsmt_solver_base* opt::mk_sls(context& c,
                                     vector<rational> const& ws, expr_ref_vector const& soft) {
-        return alloc(sls, s, m, p, ws, soft);
+        return alloc(sls, c, ws, soft);
     }
 
 

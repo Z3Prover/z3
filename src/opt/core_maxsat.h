@@ -34,7 +34,7 @@ namespace opt {
         unsigned        m_lower;
         model_ref       m_model;
     public:
-        core_maxsat(ast_manager& m, solver& s, expr_ref_vector& soft_constraints);
+        core_maxsat(context& c, expr_ref_vector& soft_constraints);
         virtual ~core_maxsat();
         virtual lbool operator()();
         virtual rational get_lower() const;

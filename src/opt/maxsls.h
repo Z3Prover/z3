@@ -27,7 +27,7 @@ Notes:
 namespace opt {
 
 
-    maxsmt_solver_base* mk_sls(ast_manager& m, opt_solver* s, params_ref& p,
+    maxsmt_solver_base* mk_sls(context& c,
                                vector<rational> const& ws, expr_ref_vector const& soft);
 
     

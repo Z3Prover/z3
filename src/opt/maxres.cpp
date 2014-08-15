@@ -60,6 +60,7 @@ Notes:
 #include "mus.h"
 #include "mss.h"
 #include "inc_sat_solver.h"
+#include "opt_context.h"
 
 
 using namespace opt;
@@ -83,10 +84,10 @@ private:
     rational         m_max_upper;
 
 public:
-    maxres(ast_manager& m, opt_solver* s, params_ref& p, 
+    maxres(context& c,
            vector<rational> const& ws, expr_ref_vector const& soft, 
            strategy_t st):
-        maxsmt_solver_base(s, m, p, ws, soft),
+        maxsmt_solver_base(c, ws, soft),
         m_B(m), m_asms(m),
         m_mus(m_s, m),
         m_mss(m_s, m),
@@ -133,10 +134,9 @@ public:
     }
 
     lbool mus_solver() {
-        solver::scoped_push _sc(*m_s.get());
+        solver::scoped_push _sc(m_s);
         init();
         init_local();
-        enable_bvsat();
         while (true) {
             TRACE("opt", 
                   display_vec(tout, m_asms.size(), m_asms.c_ptr());
@@ -159,7 +159,6 @@ public:
                     });
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     VERIFY(m_model->eval(m_soft[i].get(), tmp));
-                    std::cout << mk_pp(m_soft[i].get(), m) << " -> " << tmp << "\n";
                     m_assignment[i] = m.is_true(tmp);
                 }
                 m_upper = m_lower;
@@ -179,11 +178,10 @@ public:
     }
 
     lbool mus_mss_solver() {
-        solver::scoped_push _sc(*m_s.get());
+        solver::scoped_push _sc(s());
         init();
         init_local();
-        enable_bvsat();
-        enable_sls();
+        enable_sls(m_asms);
         ptr_vector<expr> mcs;
         vector<ptr_vector<expr> > cores;
         while (m_lower < m_upper) {            
@@ -222,11 +220,32 @@ public:
         return l_true;
     }
 
-
-
     lbool mss_solver() {
         NOT_IMPLEMENTED_YET();
-        return l_undef;
+        solver::scoped_push _sc(s());
+        init();
+        init_local();
+        ptr_vector<expr> mcs;
+        while (m_lower < m_upper) {            
+            lbool is_sat = s().check_sat(0, 0); 
+            // is_sat = get_mcs(mcs);
+            switch (is_sat) {
+            case l_undef:
+                return l_undef;
+            case l_false:
+                m_lower = m_upper;
+                break;
+            case l_true:
+                // 
+                is_sat = process_sat(mcs);
+                if (is_sat != l_true) {
+                    return is_sat;
+                }
+                break;
+            }
+        }
+        m_lower = m_upper;
+        return l_true;
     }
 
     lbool operator()() {
@@ -322,7 +341,7 @@ public:
     }
 
     lbool minimize_core(ptr_vector<expr>& core) {
-        if (m_sat_enabled) {
+        if (m_c.sat_enabled()) {
             return l_true;
         }
         m_mus.reset();
@@ -592,9 +611,9 @@ public:
 
     void verify_assignment() {
         IF_VERBOSE(0, verbose_stream() << "verify assignment\n";);        
-        ref<solver> sat_solver = mk_inc_sat_solver(m, m_params);        
-        for (unsigned i = 0; i < m_assertions.size(); ++i) {
-            sat_solver->assert_expr(m_assertions[i].get());
+        ref<solver> sat_solver = mk_inc_sat_solver(m, m_params);
+        for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
+            sat_solver->assert_expr(s().get_assertion(i));
         }
         expr_ref n(m);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -612,18 +631,18 @@ public:
 
 };
 
-opt::maxsmt_solver_base* opt::mk_maxres(ast_manager& m, opt_solver* s, params_ref& p, 
+opt::maxsmt_solver_base* opt::mk_maxres(context& c,
                                         vector<rational> const& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, m, s, p, ws, soft, maxres::s_mus);
+    return alloc(maxres, c, ws, soft, maxres::s_mus);
 }
 
-opt::maxsmt_solver_base* opt::mk_mus_mss_maxres(ast_manager& m, opt_solver* s, params_ref& p, 
+opt::maxsmt_solver_base* opt::mk_mus_mss_maxres(context& c,
                                         vector<rational> const& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, m, s, p, ws, soft, maxres::s_mus_mss);
+    return alloc(maxres, c, ws, soft, maxres::s_mus_mss);
 }
 
-opt::maxsmt_solver_base* opt::mk_mss_maxres(ast_manager& m, opt_solver* s, params_ref& p, 
+opt::maxsmt_solver_base* opt::mk_mss_maxres(context& c,
                                         vector<rational> const& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, m, s, p, ws, soft, maxres::s_mss);
+    return alloc(maxres, c, ws, soft, maxres::s_mss);
 }
 

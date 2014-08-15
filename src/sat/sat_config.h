@@ -69,6 +69,7 @@ namespace sat {
         bool               m_minimize_lemmas;
         bool               m_dyn_sub_res;
         bool               m_minimize_core;
+        bool               m_optimize_model;
 
 
         symbol             m_always_true;

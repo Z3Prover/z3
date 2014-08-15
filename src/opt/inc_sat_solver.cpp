@@ -40,18 +40,19 @@ class inc_sat_solver : public solver {
     expr_ref_vector m_fmls;
     expr_ref_vector m_current_fmls;
     unsigned_vector m_fmls_lim;
-    expr_ref_vector m_core;
-    atom2bool_var   m_map;
-    model_ref       m_model;
+    expr_ref_vector     m_core;
+    atom2bool_var       m_map;
+    model_ref           m_model;
     model_converter_ref m_mc;   
-    tactic_ref      m_preprocess;
-    unsigned        m_num_scopes;
+    tactic_ref          m_preprocess;
+    unsigned            m_num_scopes;
     sat::literal_vector m_asms;
     goal_ref_buffer     m_subgoals;
     proof_converter_ref m_pc;   
     model_converter_ref m_mc2;   
     expr_dependency_ref m_dep_core;
-
+    expr_ref_vector     m_soft;
+    vector<rational>    m_weights;
 
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
@@ -59,7 +60,8 @@ public:
         m(m), m_solver(p,0), m_params(p),
         m_fmls(m), m_current_fmls(m), m_core(m), m_map(m),
         m_num_scopes(0), 
-        m_dep_core(m) {
+        m_dep_core(m),
+        m_soft(m) {
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
         params_ref simp2_p = p;
@@ -78,29 +80,32 @@ public:
                      mk_max_bv_sharing_tactic(m),
                      mk_bit_blaster_tactic(m), 
                      mk_aig_tactic(),
-                     using_params(mk_simplify_tactic(m), simp2_p));
-        
-        
+                     using_params(mk_simplify_tactic(m), simp2_p));               
     }
     
     virtual ~inc_sat_solver() {}
     
-    virtual void set_progress_callback(progress_callback * callback) {
-    }
+    virtual void set_progress_callback(progress_callback * callback) {}
+
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {        
         m_solver.pop_to_base_level();
         dep2asm_t dep2asm;
-
         m_model = 0;
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_assumptions(num_assumptions, assumptions, dep2asm);
         if (r != l_true) return r;
         extract_assumptions(dep2asm, m_asms);
+
+        r = initialize_soft_constraints();
+        if (r != l_true) return r;
+
         r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         switch (r) {
         case l_true:
-            check_assumptions(dep2asm);
+            if (num_assumptions > 0) {
+                check_assumptions(dep2asm);
+            }
             break;
         case l_false:
             // TBD: expr_dependency core is not accounted for.
@@ -160,8 +165,7 @@ public:
         m_params = p;
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
-    }
-    
+    }    
     virtual void collect_statistics(statistics & st) const {
         m_preprocess->collect_statistics(st);
         m_solver.collect_statistics(st);
@@ -186,17 +190,56 @@ public:
     virtual void get_labels(svector<symbol> & r) {
         UNREACHABLE();
     }
-
     virtual unsigned get_num_assertions() const {
         return m_fmls.size();
     }
-
     virtual expr * get_assertion(unsigned idx) const {
         return m_fmls[idx];
     }
-
+    void set_soft(unsigned sz, expr*const* soft, rational const* weights) {
+        m_soft.reset();
+        m_weights.reset();
+        m_soft.append(sz, soft);
+        m_weights.append(sz, weights);
+    }
 
 private:
+
+    lbool initialize_soft_constraints() {
+        dep2asm_t dep2asm;
+        if (m_soft.empty()) {
+            return l_true;
+        }
+        expr_ref_vector soft(m_soft);
+        for (unsigned i = 0; i < soft.size(); ++i) {
+            expr* e = soft[i].get(), *e1;
+            if (is_uninterp_const(e) || (m.is_not(e, e1) && is_uninterp_const(e1))) {
+                continue;
+            }
+            expr_ref asum(m), fml(m);
+            asum = m.mk_fresh_const("soft", m.mk_bool_sort());
+            fml = m.mk_iff(asum, e);
+            m_fmls.push_back(fml);
+            soft[i] = asum;
+        }
+        m_soft.reset();
+        lbool r = internalize_formulas();
+        if (r != l_true) return r;
+        r = internalize_assumptions(soft.size(), soft.c_ptr(), dep2asm);
+        sat::literal_vector lits;
+        svector<double> weights;
+
+        if (r == l_true) {
+            for (unsigned i = 0; i < soft.size(); ++i) {
+                weights.push_back(m_weights[i].get_double());
+                lits.push_back(dep2asm.find(soft[i].get()));
+            }
+            m_solver.initialize_soft(lits.size(), lits.c_ptr(), weights.c_ptr());
+            m_params.set_bool("optimize_model", true);
+            m_solver.updt_params(m_params);
+        }
+        return r;
+    }
 
     lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm) {
         m_mc2.reset();
@@ -295,10 +338,8 @@ private:
         dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
         for (; it != end; ++it) {
             sat::literal lit = it->m_value;
-            lbool polarity = lit.sign()?l_false:l_true;
-            lbool value = sat::value_at(lit.var(), ll_m); 
-            if (value != polarity) {
-                IF_VERBOSE(0, verbose_stream() << mk_pp(it->m_key, m) << " evaluates to " << value << "\n";
+            if (sat::value_at(lit, ll_m) != l_true) {
+                IF_VERBOSE(0, verbose_stream() << mk_pp(it->m_key, m) << " does not evaluate to true\n";
                            verbose_stream() << m_asms << "\n";
                            m_solver.display_assignment(verbose_stream());
                            m_solver.display(verbose_stream()););
@@ -343,6 +384,12 @@ private:
     }
 };
 
+
 solver* mk_inc_sat_solver(ast_manager& m, params_ref& p) {
     return alloc(inc_sat_solver, m, p);
+}
+
+void set_soft_inc_sat(solver* _s, unsigned sz, expr*const* soft, rational const* weights) {
+    inc_sat_solver* s = dynamic_cast<inc_sat_solver*>(_s);
+    s->set_soft(sz, soft, weights);
 }

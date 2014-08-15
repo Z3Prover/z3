@@ -23,7 +23,7 @@ Notes:
 #include "maxsmt.h"
 
 namespace opt {
-    maxsmt_solver_base* mk_maxhs(ast_manager& m, opt_solver* s, params_ref& p, 
+    maxsmt_solver_base* mk_maxhs(context& c,
                                  vector<rational> const& ws, expr_ref_vector const& soft);
 }
 #endif

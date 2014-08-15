@@ -26,21 +26,21 @@ Notes:
 namespace opt {
 
 
-    mss::mss(ref<solver>& s, ast_manager& m): m_s(s), m(m), m_cancel(false) {
+    mss::mss(solver& s, ast_manager& m): m_s(s), m(m), m_cancel(false) {
     }
     
     mss::~mss() {
     }    
 
     bool mss::check_result() {
-        lbool is_sat = m_s->check_sat(m_mss.size(), m_mss.c_ptr());
+        lbool is_sat = m_s.check_sat(m_mss.size(), m_mss.c_ptr());
         if (is_sat == l_undef) return true;
         SASSERT(is_sat == l_true);
         if (is_sat == l_false) return false;
         expr_set::iterator it = m_mcs.begin(), end = m_mcs.end();
         for (; it != end; ++it) {
             m_mss.push_back(*it);
-            is_sat = m_s->check_sat(m_mss.size(), m_mss.c_ptr());
+            is_sat = m_s.check_sat(m_mss.size(), m_mss.c_ptr());
             m_mss.pop_back();
             if (is_sat == l_undef) return true;
             SASSERT(is_sat == l_false);
@@ -147,7 +147,7 @@ namespace opt {
     lbool mss::operator()(vector<exprs> const& _cores, exprs& literals, exprs& mcs) {
         m_mss.reset();
         m_todo.reset();
-        m_s->get_model(m_model);
+        m_s.get_model(m_model);
         SASSERT(m_model);
         vector<exprs> cores(_cores);
         TRACE("opt", 
@@ -207,12 +207,12 @@ namespace opt {
         TRACE("opt", display_vec(tout << "process (total " << core.size() << ") :", sz, core.c_ptr()););
         unsigned sz_save = m_mss.size();
         m_mss.append(sz, core.c_ptr());
-        lbool is_sat = m_s->check_sat(m_mss.size(), m_mss.c_ptr());
-        IF_VERBOSE(1, display_vec(verbose_stream(), sz, core.c_ptr()););
+        lbool is_sat = m_s.check_sat(m_mss.size(), m_mss.c_ptr());
+        IF_VERBOSE(2, display_vec(verbose_stream() << "mss: ", m_mss.size(), m_mss.c_ptr()););
         m_mss.resize(sz_save);
         switch (is_sat) {
         case l_true:
-            m_s->get_model(m_model);
+            m_s.get_model(m_model);
             update_mss();           
             DEBUG_CODE(
                 for (unsigned i = 0; i < sz; ++i) {

@@ -34,8 +34,10 @@ Notes:
 #include "tactical.h"
 #include "model_smt2_pp.h"
 #include "card2bv_tactic.h"
-#include "bvsls_opt_solver.h"
 #include "nnf_tactic.h"
+#include "inc_sat_solver.h"
+#include "bv_decl_plugin.h"
+#include "pb_decl_plugin.h"
 
 namespace opt {
 
@@ -114,13 +116,18 @@ namespace opt {
         m_arith(m),
         m_bv(m),
         m_hard_constraints(m),
+        m_solver(0),
         m_optsmt(m),
         m_scoped_state(m),
-        m_objective_refs(m)
+        m_fm(m),
+        m_objective_refs(m),
+        m_enable_sat(false),
+        m_enable_sls(false)
     {
-        m_params.set_bool("model", true);
-        m_params.set_bool("unsat_core", true);
-        m_solver = alloc(opt_solver, m, m_params, symbol());
+        params_ref p;
+        p.set_bool("model", true);
+        p.set_bool("unsat_core", true);
+        updt_params(p);
     }
 
     context::~context() {
@@ -172,9 +179,7 @@ namespace opt {
             objective& obj = s.m_objectives[i];
             m_objectives.push_back(obj);
             if (obj.m_type == O_MAXSMT) {
-                maxsmt* ms = alloc(maxsmt, m);
-                ms->updt_params(m_params);
-                m_maxsmts.insert(obj.m_id, ms);
+                add_maxsmt(obj.m_id);
             }
         }
         m_hard_constraints.append(s.m_hard);
@@ -184,18 +189,19 @@ namespace opt {
         if (m_pareto) {
             return execute_pareto();
         }
-        import_scoped_state();
+        init_solver(); 
+        import_scoped_state(); 
         normalize();
         internalize();
-        opt_solver& s = get_solver();
-        solver::scoped_push _sp(s);
+        update_solver();
+        solver& s = get_solver();
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
             TRACE("opt", tout << "Hard constraint: " << mk_ismt2_pp(m_hard_constraints[i].get(), m) << std::endl;);
             s.assert_expr(m_hard_constraints[i].get());
         }
 
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
-        lbool is_sat = s.check_sat_core(0,0);
+        lbool is_sat = s.check_sat(0,0);
         TRACE("opt", tout << "initial search result: " << is_sat << "\n";);
         if (is_sat != l_true) {
             m_model = 0;
@@ -203,7 +209,7 @@ namespace opt {
         }
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n";);
         s.get_model(m_model);
-        m_optsmt.setup(s);
+        m_optsmt.setup(*m_opt_solver.get());
         update_lower(true);
         switch (m_objectives.size()) {
         case 0:
@@ -214,7 +220,6 @@ namespace opt {
             opt_params optp(m_params);
             symbol pri = optp.priority();
             if (pri == symbol("pareto")) {
-                _sp.disable_pop();
                 return execute_pareto();
             }
             else if (pri == symbol("box")) {
@@ -233,7 +238,7 @@ namespace opt {
             if (m_model_converter) {
                 (*m_model_converter)(mdl, 0);
             }
-            get_solver().mc()(mdl, 0);
+            m_fm(mdl, 0);
         }
     }
 
@@ -243,7 +248,7 @@ namespace opt {
         if (result == l_true) m_optsmt.get_model(m_model);
         return result;
     }
-
+    
     lbool context::execute_maxsat(symbol const& id, bool committed) {
         model_ref tmp;
         maxsmt& ms = *m_maxsmts.find(id);
@@ -265,7 +270,10 @@ namespace opt {
     lbool context::execute_lex() {
         lbool r = l_true;
         for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
+            bool is_last = i + 1 == m_objectives.size();
+            if (!is_last) get_solver().push();            
             r = execute(m_objectives[i], i + 1 < m_objectives.size());
+            if (!is_last) get_solver().pop(1);
             if (r == l_true && !get_lower_as_num(i).is_finite()) {
                 return r;
             }
@@ -282,9 +290,8 @@ namespace opt {
         for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             if (obj.m_type == O_MAXSMT) {
-                get_solver().push();
+                solver::scoped_push _sp(get_solver());
                 r = execute(obj, false);
-                get_solver().pop(1);
             }
         }
         return r;
@@ -381,12 +388,13 @@ namespace opt {
     }
 
     lbool context::execute_pareto() {
+        
         if (!m_pareto) {
-            m_pareto = alloc(gia_pareto, m, *this, m_solver.get(), m_params);
+            set_pareto(alloc(gia_pareto, m, *this, m_solver.get(), m_params));
         }
         lbool is_sat = (*(m_pareto.get()))();
         if (is_sat != l_true) {
-            m_pareto = 0;
+            set_pareto(0);
         }
         if (is_sat == l_true) {
             yield();
@@ -395,7 +403,6 @@ namespace opt {
             m_solver->pop(1);
         }
         return is_sat;
-        // NB. fix race condition for set_cancel
     }
 
     void context::display_bounds(std::ostream& out, bounds_t const& b) const {
@@ -411,8 +418,96 @@ namespace opt {
         }        
     }
 
-    opt_solver& context::get_solver() { 
+    solver& context::get_solver() { 
         return *m_solver.get(); 
+    }
+
+    void context::init_solver() {
+        #pragma omp critical (opt_context)
+        {
+            m_opt_solver = alloc(opt_solver, m, m_params, m_fm, symbol());
+            m_solver = m_opt_solver.get();
+        }
+    }
+
+    void context::update_solver() {
+        if (!m_enable_sat || !probe_bv()) {
+            return;
+        }
+        if (m_maxsat_engine != symbol("maxres") &&
+            m_maxsat_engine != symbol("mus-mss-maxres") &&
+            m_maxsat_engine != symbol("bcd2") &&
+            m_maxsat_engine != symbol("sls")) {
+            return;
+        }
+        m_params.set_bool("minimize_core", true);
+        m_sat_solver = mk_inc_sat_solver(m, m_params);
+        unsigned sz = get_solver().get_num_assertions();
+        for (unsigned i = 0; i < sz; ++i) {
+            m_sat_solver->assert_expr(get_solver().get_assertion(i));
+        }   
+        #pragma omp critical (opt_context)
+        {
+            m_solver = m_sat_solver.get();
+        }
+    }
+
+    void context::enable_sls(expr_ref_vector const& soft, vector<rational> const& weights) {
+        SASSERT(soft.size() == weights.size());
+        if (m_enable_sls && m_sat_solver.get()) {
+            set_soft_inc_sat(m_sat_solver.get(), soft.size(), soft.c_ptr(), weights.c_ptr());
+        }
+    }
+
+    struct context::is_bv {
+        struct found {};
+        ast_manager& m;
+        pb_util      pb;
+        bv_util      bv;
+        is_bv(ast_manager& m): m(m), pb(m), bv(m) {}
+        void operator()(var *) { throw found(); }
+        void operator()(quantifier *) { throw found(); }
+        void operator()(app *n) {
+            family_id fid = n->get_family_id();
+            if (fid != m.get_basic_family_id() &&
+                fid != pb.get_family_id() &&
+                fid != bv.get_family_id() &&
+                !is_uninterp_const(n)) {
+                throw found();
+            }
+        }        
+    };
+
+    bool context::probe_bv() {
+        expr_fast_mark1 visited;
+        is_bv proc(m);
+        try {
+            for (unsigned i = 0; i < m_objectives.size(); ++i) {
+                objective & obj = m_objectives[i];
+                if (obj.m_type != O_MAXSMT) return false;
+                maxsmt& ms = *m_maxsmts.find(obj.m_id);
+                for (unsigned j = 0; j < ms.size(); ++j) {
+                    quick_for_each_expr(proc, visited, ms[j]);
+                }
+            }
+            unsigned sz = get_solver().get_num_assertions();
+            for (unsigned i = 0; i < sz; i++) {
+                quick_for_each_expr(proc, visited, get_solver().get_assertion(i));
+            }
+        }
+        catch (is_bv::found) {
+            return false;
+        }
+        return true;
+    }
+
+    void context::add_maxsmt(symbol const& id) {
+        maxsmt* ms = alloc(maxsmt, *this);
+        ms->updt_params(m_params);
+        #pragma omp critical (opt_context)
+        {
+            m_maxsmts.insert(id, ms);
+        }
     }
 
     bool context::is_numeral(expr* e, rational & n) const {
@@ -440,28 +535,16 @@ namespace opt {
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
         tactic_ref tac2, tac3;
-        if (optp.engine() == "bvsls") {
+        if (optp.elim_01()) {
             tac2 = mk_elim01_tactic(m);
             tac3 = mk_lia2card_tactic(m);
             params_ref lia_p;
             lia_p.set_bool("compile_equality", optp.pb_compile_equality());
             tac3->updt_params(lia_p);
-            m_simplify = and_then(tac0.get(), tac2.get(), tac3.get(),
-                                  mk_card2bv_tactic(m),                                  
-                                  mk_simplify_tactic(m),                                  
-                                  mk_nnf_tactic(m));
-            m_solver = alloc(bvsls_opt_solver, m, m_params);
-        }
-        else if (optp.elim_01()) {
-            tac2 = mk_elim01_tactic(m);
-            tac3 = mk_lia2card_tactic(m);
-            params_ref lia_p;
-            lia_p.set_bool("compile_equality", optp.pb_compile_equality());
-            tac3->updt_params(lia_p);
-            m_simplify = and_then(tac0.get(), tac2.get(), tac3.get());
+            set_simplify(and_then(tac0.get(), tac2.get(), tac3.get()));
         }
         else {
-            m_simplify = tac0.get();
+            set_simplify(tac0.get());
         }
         proof_converter_ref pc;
         expr_dependency_ref core(m);
@@ -657,9 +740,7 @@ namespace opt {
                     obj.m_type = O_MAXSMT;
                     obj.m_weights.append(weights);
                     SASSERT(!m_maxsmts.contains(id));
-                    maxsmt* ms = alloc(maxsmt, m);
-                    ms->updt_params(m_params);
-                    m_maxsmts.insert(id, ms);
+                    add_maxsmt(id);
                 }
                 SASSERT(obj.m_id == id);
                 obj.m_terms.reset();
@@ -899,22 +980,39 @@ namespace opt {
         default: return expr_ref(m_arith.mk_add(args.size(), args.c_ptr()), m);
         }
     }
-        
+       
+    void context::set_simplify(tactic* tac) {
+        #pragma omp critical (opt_context)
+        {
+            m_simplify = tac;
+        }
+    }
+
+    void context::set_pareto(pareto_base* p) {
+        #pragma omp critical (opt_context)
+        {
+            m_pareto = p;
+        }
+    }
+
     void context::set_cancel(bool f) {
-        if (m_solver) {
-            m_solver->set_cancel(f);
-        }
-        if (m_simplify) {
-            m_simplify->set_cancel(f);
-        }
-        if (m_pareto) {
-            m_pareto->set_cancel(f);
+        #pragma omp critical (opt_context)
+        {
+            if (m_solver) {
+                m_solver->set_cancel(f);
+            }
+            if (m_pareto) {
+                m_pareto->set_cancel(f);
+            }
+            if (m_simplify) {
+                m_simplify->set_cancel(f);
+            }
+            map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+            for (; it != end; ++it) {
+                it->m_value->set_cancel(f);
+            }            
         }
         m_optsmt.set_cancel(f);
-        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
-        for (; it != end; ++it) {
-            it->m_value->set_cancel(f);
-        }
     }
 
     void context::collect_statistics(statistics& stats) const {
@@ -944,6 +1042,10 @@ namespace opt {
         for (; it != end; ++it) {
             it->m_value->updt_params(m_params);
         }
+        opt_params _p(p);
+        m_enable_sat = _p.enable_sat();
+        m_enable_sls = _p.enable_sls();
+        m_maxsat_engine = _p.maxsat_engine();
     }
 
     typedef obj_hashtable<func_decl> func_decl_set;

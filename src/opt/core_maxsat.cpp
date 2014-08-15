@@ -19,11 +19,13 @@ Notes:
 #include "core_maxsat.h"
 #include "pb_decl_plugin.h"
 #include "ast_pp.h"
+#include "opt_context.h"
 
 namespace opt {
         
-    core_maxsat::core_maxsat(ast_manager& m, solver& s, expr_ref_vector& soft_constraints):
-        m(m), s(s), m_lower(0), m_upper(soft_constraints.size()), m_soft(soft_constraints) {
+    core_maxsat::core_maxsat(context& c, expr_ref_vector& soft_constraints):
+        m(c.get_manager()), s(c.get_solver()), 
+        m_lower(0), m_upper(soft_constraints.size()), m_soft(soft_constraints) {
         m_answer.resize(m_soft.size(), false);
     }
     

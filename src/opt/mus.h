@@ -24,7 +24,7 @@ namespace opt {
         struct imp;
         imp * m_imp;
     public:
-        mus(ref<solver>& s, ast_manager& m);
+        mus(solver& s, ast_manager& m);
         ~mus();
         /**
            Add soft constraint.

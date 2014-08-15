@@ -24,12 +24,10 @@ Notes:
 #include "maxres.h"
 #include "maxhs.h"
 #include "bcd2.h"
-#include "wpm2.h"
 #include "pbmax.h"
 #include "wmax.h"
 #include "maxsls.h"
 #include "ast_pp.h"
-#include "opt_params.hpp"
 #include "pb_decl_plugin.h"
 #include "pb_sls.h"
 #include "tactical.h"
@@ -38,19 +36,27 @@ Notes:
 #include "qfbv_tactic.h"
 #include "card2bv_tactic.h"
 #include "uint_set.h"
-#include "opt_sls_solver.h"
 #include "pb_preprocess_tactic.h"
-#include "inc_sat_solver.h"
+#include "opt_context.h"
 
 
 namespace opt {
 
+    maxsmt_solver_base::maxsmt_solver_base(
+        context& c, vector<rational> const& ws, expr_ref_vector const& soft):
+        m_s(c.get_solver()), 
+        m(c.get_manager()), 
+        m_c(c),
+        m_cancel(false), m_soft(m),
+        m_assertions(m) {
+        m_s.get_model(m_model);
+        SASSERT(m_model);
+        updt_params(c.params());
+        init_soft(ws, soft);
+    }
+    
     void maxsmt_solver_base::updt_params(params_ref& p) {
         m_params.copy(p);
-        s().updt_params(p);
-        opt_params _p(p);
-        m_enable_sat = _p.enable_sat();
-        m_enable_sls = _p.enable_sls();
     }       
 
     void maxsmt_solver_base::init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
@@ -90,132 +96,68 @@ namespace opt {
         }
     }
 
-    struct maxsmt_solver_base::is_bv {
-        struct found {};
-        ast_manager& m;
-        pb_util      pb;
-        bv_util      bv;
-        is_bv(ast_manager& m): m(m), pb(m), bv(m) {}
-        void operator()(var *) { throw found(); }
-        void operator()(quantifier *) { throw found(); }
-        void operator()(app *n) {
-            family_id fid = n->get_family_id();
-            if (fid != m.get_basic_family_id() &&
-                fid != pb.get_family_id() &&
-                fid != bv.get_family_id() &&
-                !is_uninterp_const(n)) {
-                throw found();
-            }
-        }        
-    };
-
-    bool maxsmt_solver_base::probe_bv() {
-        expr_fast_mark1 visited;
-        is_bv proc(m);
-        try {
-            unsigned sz = s().get_num_assertions();
-            for (unsigned i = 0; i < sz; i++) {
-                quick_for_each_expr(proc, visited, s().get_assertion(i));
-            }
-            sz = m_soft.size();
-            for (unsigned i = 0; i < sz; ++i) {
-                quick_for_each_expr(proc, visited, m_soft[i].get());
-            }
-        }
-        catch (is_bv::found) {
-            return false;
-        }
-        return true;
-    }
-
-    void maxsmt_solver_base::enable_inc_bvsat() {
-        m_params.set_bool("minimize_core", true);
-        solver* sat_solver = mk_inc_sat_solver(m, m_params);
-        unsigned sz = s().get_num_assertions();
-        for (unsigned i = 0; i < sz; ++i) {
-            sat_solver->assert_expr(s().get_assertion(i));
-            m_assertions.push_back(s().get_assertion(i));
-        }   
-        m_s = sat_solver;
-    }
-
-    void maxsmt_solver_base::enable_bvsat()  {
-        if (m_enable_sat && !m_sat_enabled && probe_bv()) {
-            enable_inc_bvsat();
-            m_sat_enabled = true;
-        }
-    }
-
-    void maxsmt_solver_base::enable_sls() {
-        if (m_enable_sls && !m_sls_enabled && probe_bv()) {
-            m_params.set_uint("restarts", 20);
-            unsigned lvl = m_s->get_scope_level();
-            sls_solver* sls = alloc(sls_solver, m, m_s.get(), m_soft, m_weights, m_params);
-            m_s = sls;
-            while (lvl > 0) { m_s->push(); --lvl; }
-            m_sls_enabled = true;
-            sls->opt(m_model);
-        }
-    }       
-
     void maxsmt_solver_base::set_mus(bool f) {
         params_ref p;
         p.set_bool("minimize_core", f);
-        m_s->updt_params(p);
+        m_s.updt_params(p);
+    }
+
+    void maxsmt_solver_base::enable_sls(expr_ref_vector const& soft) {
+        m_c.enable_sls(soft, m_weights);
     }
 
     app* maxsmt_solver_base::mk_fresh_bool(char const* name) {
         app* result = m.mk_fresh_const(name, m.mk_bool_sort());
-        m_mc->insert(result->get_decl());
+        m_c.fm().insert(result->get_decl());
         return result;
     }
 
+    maxsmt::maxsmt(context& c):
+        m_s(c.get_solver()), m(c.get_manager()), m_c(c), m_cancel(false), 
+        m_soft_constraints(m), m_answer(m) {}
 
-    lbool maxsmt::operator()(opt_solver* s) {
+    lbool maxsmt::operator()(solver* s) {
         lbool is_sat;
         m_msolver = 0;
-        m_s = s;
+        symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
         TRACE("opt", tout << "maxsmt\n";);
         if (m_soft_constraints.empty()) {
             TRACE("opt", tout << "no constraints\n";);
             m_msolver = 0;
-            is_sat = m_s->check_sat(0, 0);
+            is_sat = m_s.check_sat(0, 0);
         }
-        else if (m_maxsat_engine == symbol("maxres")) {            
-            m_msolver = mk_maxres(m, s, m_params, m_weights, m_soft_constraints);
+        else if (maxsat_engine == symbol("maxres")) {            
+            m_msolver = mk_maxres(m_c, m_weights, m_soft_constraints);
         }
-        else if (m_maxsat_engine == symbol("mus-mss-maxres")) {            
-            m_msolver = mk_mus_mss_maxres(m, s, m_params, m_weights, m_soft_constraints);
+        else if (maxsat_engine == symbol("mus-mss-maxres")) {            
+            m_msolver = mk_mus_mss_maxres(m_c, m_weights, m_soft_constraints);
         }
-        else if (m_maxsat_engine == symbol("pbmax")) {
-            m_msolver = mk_pbmax(m, s, m_params, m_weights, m_soft_constraints);
+        else if (maxsat_engine == symbol("pbmax")) {
+            m_msolver = mk_pbmax(m_c, m_weights, m_soft_constraints);
         }
-        else if (m_maxsat_engine == symbol("wpm2")) {
-            m_msolver = mk_wpm2(m, s, m_params, m_weights, m_soft_constraints);
+        else if (maxsat_engine == symbol("bcd2")) {
+            m_msolver = mk_bcd2(m_c, m_weights, m_soft_constraints);
         }
-        else if (m_maxsat_engine == symbol("bcd2")) {
-            m_msolver = mk_bcd2(m, s, m_params, m_weights, m_soft_constraints);
+        else if (maxsat_engine == symbol("maxhs")) {                
+            m_msolver = mk_maxhs(m_c, m_weights, m_soft_constraints);
         }
-        else if (m_maxsat_engine == symbol("maxhs")) {                
-            m_msolver = mk_maxhs(m, s, m_params, m_weights, m_soft_constraints);
-        }
-        else if (m_maxsat_engine == symbol("sls")) {                
+        else if (maxsat_engine == symbol("sls")) {                
             // NB: this is experimental one-round version of SLS
-            m_msolver = mk_sls(m, s, m_params, m_weights, m_soft_constraints);
+            m_msolver = mk_sls(m_c, m_weights, m_soft_constraints);
         }        
-        else if (is_maxsat_problem(m_weights) && m_maxsat_engine == symbol("core_maxsat")) {
-            m_msolver = alloc(core_maxsat, m, *m_s, m_soft_constraints);
+        else if (is_maxsat_problem(m_weights) && maxsat_engine == symbol("core_maxsat")) {
+            m_msolver = alloc(core_maxsat, m_c, m_soft_constraints);
         }
-        else if (is_maxsat_problem(m_weights) && m_maxsat_engine == symbol("fu_malik")) {
-            m_msolver = alloc(fu_malik, m, *m_s, m_soft_constraints);
+        else if (is_maxsat_problem(m_weights) && maxsat_engine == symbol("fu_malik")) {
+            m_msolver = alloc(fu_malik, m_c, m_soft_constraints);
         }
         else {
-            if (m_maxsat_engine != symbol::null && m_maxsat_engine != symbol("wmax")) {
+            if (maxsat_engine != symbol::null && maxsat_engine != symbol("wmax")) {
                 warning_msg("solver %s is not recognized, using default 'wmax'", 
-                            m_maxsat_engine.str().c_str());
+                            maxsat_engine.str().c_str());
             }
-            m_msolver = mk_wmax(m, m_s.get(), m_params, m_weights, m_soft_constraints);
+            m_msolver = mk_wmax(m_c, m_weights, m_soft_constraints);
         }
 
         if (m_msolver) {
@@ -242,13 +184,12 @@ namespace opt {
     }
 
     void maxsmt::verify_assignment() {
-        m_s->push();
+        solver::scoped_push _sp(m_s);
         commit_assignment();
-        if (l_true != m_s->check_sat(0,0)) {
+        if (l_true != m_s.check_sat(0,0)) {
             IF_VERBOSE(0, verbose_stream() << "could not verify assignment\n";);
             UNREACHABLE();
         }
-        m_s->pop(1);
     }
 
     bool maxsmt::get_assignment(unsigned idx) const {
@@ -292,7 +233,6 @@ namespace opt {
     }
 
     void maxsmt::commit_assignment() {
-        SASSERT(m_s);
         for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
             expr_ref tmp(m);
             tmp = m_soft_constraints[i].get();
@@ -300,7 +240,7 @@ namespace opt {
                 tmp = m.mk_not(tmp);
             }
             TRACE("opt", tout << "committing: " << tmp << "\n";);
-            m_s->assert_expr(tmp);            
+            m_s.assert_expr(tmp);            
         }
     }
 
@@ -337,9 +277,7 @@ namespace opt {
     }
 
     void maxsmt::updt_params(params_ref& p) {
-        opt_params _p(p);
-        m_maxsat_engine = _p.maxsat_engine();        
-        m_params = p;
+        m_params.append(p);
         if (m_msolver) {
             m_msolver->updt_params(p);
         }

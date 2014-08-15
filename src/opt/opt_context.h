@@ -108,7 +108,9 @@ namespace opt {
         arith_util          m_arith;
         bv_util             m_bv;
         expr_ref_vector     m_hard_constraints;
-        ref<opt_solver>     m_solver;
+        ref<opt_solver>     m_opt_solver;
+        ref<solver>         m_solver;
+        ref<solver>         m_sat_solver;
         scoped_ptr<pareto_base>          m_pareto;
         params_ref          m_params;
         optsmt              m_optsmt; 
@@ -116,11 +118,15 @@ namespace opt {
         scoped_state        m_scoped_state;
         vector<objective>   m_objectives;
         model_ref           m_model;
-        model_converter_ref m_model_converter;
+        model_converter_ref          m_model_converter;
+        filter_model_converter       m_fm;
         obj_map<func_decl, unsigned> m_objective_fns;
         obj_map<func_decl, expr*>    m_objective_orig;
         func_decl_ref_vector         m_objective_refs;
         tactic_ref                   m_simplify;
+        bool                         m_enable_sat;
+        bool                         m_enable_sls;
+        symbol                       m_maxsat_engine;
     public:
         context(ast_manager& m);
         virtual ~context();
@@ -163,6 +169,15 @@ namespace opt {
         virtual expr_ref mk_ge(unsigned i, model_ref& model);
         virtual expr_ref mk_le(unsigned i, model_ref& model);
 
+        smt::context& smt_context() { return m_opt_solver->get_context(); }
+        filter_model_converter& fm() { return m_fm; }
+        bool sat_enabled() const { return 0 != m_sat_solver.get(); }
+        solver& get_solver();
+        ast_manager& get_manager() { return this->m; }
+        params_ref& params() { return m_params; }
+        void enable_sls(expr_ref_vector const& soft, vector<rational> const& weights);
+        symbol const& maxsat_engine() const { return m_maxsat_engine; }
+
 
     private:
         void validate_feasibility(maxsmt& ms);
@@ -199,7 +214,14 @@ namespace opt {
         inf_eps get_upper_as_num(unsigned idx);
 
 
-        opt_solver& get_solver();
+        struct is_bv;
+        bool probe_bv();
+
+        void    init_solver();
+        void    update_solver();
+        void    add_maxsmt(symbol const& id);
+        void    set_simplify(tactic *simplify);
+        void    set_pareto(pareto_base* p);        
 
         bool is_numeral(expr* e, rational& n) const;
 

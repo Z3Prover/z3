@@ -23,9 +23,9 @@ Notes:
 #include "goal.h"
 #include "probe.h"
 #include "tactic.h"
-#include "smt_context.h"
 #include "ast_pp.h"
 #include "model_smt2_pp.h"
+#include "opt_context.h"
 
 /**
    \brief Fu & Malik procedure for MaxSAT. This procedure is based on 
@@ -44,9 +44,9 @@ Notes:
 namespace opt {
 
     struct fu_malik::imp {
-        ast_manager& m;        
-        opt_solver &    m_opt_solver;
-        ref<solver>     m_s;
+        ast_manager&    m;        
+        solver&         m_s;
+        filter_model_converter& m_fm;
         expr_ref_vector m_soft;
         expr_ref_vector m_orig_soft;
         expr_ref_vector m_aux;
@@ -55,10 +55,10 @@ namespace opt {
         unsigned        m_lower;
         model_ref       m_model;
 
-        imp(ast_manager& m, opt_solver& s, expr_ref_vector const& soft):
-            m(m),
-            m_opt_solver(s),
-            m_s(&s),
+        imp(context& c, expr_ref_vector const& soft):
+            m(c.get_manager()),
+            m_s(c.get_solver()),
+            m_fm(c.fm()),
             m_soft(soft),
             m_orig_soft(soft),
             m_aux(m),
@@ -69,7 +69,7 @@ namespace opt {
             m_assignment.resize(m_soft.size(), false);
         }
 
-        solver& s() { return *m_s; }
+        solver& s() { return m_s; }
 
         /**
            \brief One step of the Fu&Malik algorithm.
@@ -96,10 +96,8 @@ namespace opt {
             }
         }
 
+
         void collect_statistics(statistics& st) const {
-            if (m_s != &m_opt_solver) {
-                m_s->collect_statistics(st);
-            }
             st.update("opt-fm-num-steps", m_soft.size() + 2 - m_upper);
         }
 
@@ -145,8 +143,8 @@ namespace opt {
                 app_ref block_var(m), tmp(m);
                 block_var = m.mk_fresh_const("block_var", m.mk_bool_sort());
                 m_aux[i] = m.mk_fresh_const("aux", m.mk_bool_sort());
-                m_opt_solver.mc().insert(block_var->get_decl());
-                m_opt_solver.mc().insert(to_app(m_aux[i].get())->get_decl());
+                m_fm.insert(block_var->get_decl());
+                m_fm.insert(to_app(m_aux[i].get())->get_decl());
                 m_soft[i] = m.mk_or(m_soft[i].get(), block_var);
                 block_vars.push_back(block_var);
                 tmp = m.mk_or(m_soft[i].get(), m_aux[i].get());
@@ -181,17 +179,6 @@ namespace opt {
             }
         }
         
-        void set_solver() { 
-            if (m_opt_solver.dump_benchmarks())
-                return;
-
-            solver& current_solver = s();
-            goal g(m, true, false);
-            unsigned num_assertions = current_solver.get_num_assertions();
-            for (unsigned i = 0; i < num_assertions; ++i) {
-                g.assert_expr(current_solver.get_assertion(i));
-            }            
-        }
 
         // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
         lbool operator()() {
@@ -199,7 +186,6 @@ namespace opt {
             if (m_soft.empty()) {
                 return is_sat;
             }
-            set_solver();
             solver::scoped_push _sp(s());
             expr_ref tmp(m);
 
@@ -211,7 +197,7 @@ namespace opt {
 
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
-                m_opt_solver.mc().insert(to_app(m_aux.back())->get_decl());
+                m_fm.insert(to_app(m_aux.back())->get_decl());
                 tmp = m.mk_or(m_soft[i].get(), m_aux[i].get());
                 s().assert_expr(tmp);
             }
@@ -247,8 +233,8 @@ namespace opt {
 
     };
 
-    fu_malik::fu_malik(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints) {
-        m_imp = alloc(imp, m, s, soft_constraints);
+    fu_malik::fu_malik(context& c, expr_ref_vector& soft_constraints) {
+        m_imp = alloc(imp, c, soft_constraints);
     }
     fu_malik::~fu_malik() {
         dealloc(m_imp);
@@ -280,50 +266,4 @@ namespace opt {
         // no-op
     }
 };
-
-#if 0
-        void quick_explain(expr_ref_vector const& assumptions, expr_ref_vector & literals, bool has_set, expr_set & core) {
-            if (has_set && s().check_sat(assumptions.size(), assumptions.c_ptr()) == l_false) {
-                core.reset();
-                return;
-            }
-            
-            SASSERT(!literals.empty());
-            if (literals.size() == 1) {
-                core.reset();
-                core.insert(literals[0].get());
-                return;
-            }
-
-            unsigned mid = literals.size()/2;
-            expr_ref_vector ls1(m), ls2(m);
-            ls1.append(mid, literals.c_ptr());
-            ls2.append(literals.size()-mid, literals.c_ptr() + mid);
-#if Z3DEBUG
-            expr_ref_vector ls(m); 
-            ls.append(ls1); 
-            ls.append(ls2); 
-            SASSERT(ls.size() == literals.size());
-            for (unsigned i = 0; i < literals.size(); ++i) {
-                SASSERT(ls[i].get() == literals[i].get());
-            }
-#endif            
-            expr_ref_vector as1(m);
-            as1.append(assumptions);
-            as1.append(ls1);
-            expr_set core2;
-            quick_explain(as1, ls2, !ls1.empty(), core2);
-
-            expr_ref_vector as2(m), cs2(m);
-            as2.append(assumptions);            
-            set2vector(core2, cs2);
-            as2.append(cs2);
-            expr_set core1;
-            quick_explain(as2, ls1, !core2.empty(), core1);
-
-            set_union(core1, core2, core);
-        }
-
-#endif
-
 

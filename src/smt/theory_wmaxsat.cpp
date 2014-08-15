@@ -24,7 +24,7 @@ Notes:
 
 namespace smt {
 
-theory_wmaxsat::theory_wmaxsat(ast_manager& m, ref<filter_model_converter>& mc):
+theory_wmaxsat::theory_wmaxsat(ast_manager& m, filter_model_converter& mc):
     theory(m.mk_family_id("weighted_maxsat")),
     m_mc(mc),
     m_vars(m),
@@ -91,7 +91,7 @@ bool_var theory_wmaxsat::assert_weighted(expr* fml, rational const& w) {
     ast_manager& m = get_manager();
     app_ref var(m), wfml(m);
     var = m.mk_fresh_const("w", m.mk_bool_sort());
-    m_mc->insert(var->get_decl());
+    m_mc.insert(var->get_decl());
     wfml = m.mk_or(var, fml);
     ctx.assert_expr(wfml);
     m_rweights.push_back(w);

@@ -105,6 +105,7 @@ namespace sat {
         }
         m_minimize_lemmas = p.minimize_lemmas();
         m_minimize_core   = p.minimize_core();
+        m_optimize_model  = p.optimize_model();
         m_dyn_sub_res     = p.dyn_sub_res();
     }
 

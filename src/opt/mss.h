@@ -21,7 +21,7 @@ Notes:
 
 namespace opt {
     class mss {
-        ref<solver>&  m_s;
+        solver&       m_s;
         ast_manager&  m;
         volatile bool m_cancel;
         typedef ptr_vector<expr> exprs;
@@ -32,7 +32,7 @@ namespace opt {
         exprs         m_todo;
         model_ref     m_model;
     public:
-        mss(ref<solver>& s, ast_manager& m);
+        mss(solver& s, ast_manager& m);
         ~mss();
         
         lbool operator()(vector<exprs> const& cores, exprs& literals, exprs& mcs);

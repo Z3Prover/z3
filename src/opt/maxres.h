@@ -23,15 +23,15 @@ Notes:
 namespace opt {
 
     maxsmt_solver_base* mk_maxres(
-        ast_manager& m, opt_solver* s, params_ref& p, 
+        context& c,
         vector<rational> const& ws, expr_ref_vector const& soft);
 
     maxsmt_solver_base* mk_mus_mss_maxres(
-        ast_manager& m, opt_solver* s, params_ref& p, 
+        context& c,
         vector<rational> const& ws, expr_ref_vector const& soft);
 
     maxsmt_solver_base* mk_mss_maxres(
-        ast_manager& m, opt_solver* s, params_ref& p, 
+        context& c,
         vector<rational> const& ws, expr_ref_vector const& soft);
 
 };

@@ -41,6 +41,7 @@ namespace sat {
 
     lbool mus::operator()() {
         flet<bool> _disable_min(s.m_config.m_minimize_core, false);
+        flet<bool> _disable_opt(s.m_config.m_optimize_model, false);
         TRACE("sat", tout << "old core: " << s.get_core() << "\n";);
         IF_VERBOSE(2, verbose_stream() << "(sat.mus " << s.get_core() << ")\n";);
         reset();

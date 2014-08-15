@@ -99,9 +99,9 @@ namespace opt {
         }
 
     public:
-        bcd2(opt_solver* s, ast_manager& m, params_ref& p, 
+        bcd2(context& c,
              vector<rational> const& ws, expr_ref_vector const& soft): 
-            maxsmt_solver_base(s, m, p, ws, soft),
+            maxsmt_solver_base(c, ws, soft),
             pb(m),
             m_soft_aux(m),
             m_trail(m),
@@ -116,7 +116,6 @@ namespace opt {
             expr_ref fml(m), r(m);
             lbool is_sat = l_undef;
             expr_ref_vector asms(m);
-            enable_sls();
             solver::scoped_push _scope1(s());
             init();
             init_bcd();
@@ -400,9 +399,9 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* opt::mk_bcd2(ast_manager& m, opt_solver* s, params_ref& p, 
+    maxsmt_solver_base* opt::mk_bcd2(context& c,
                                      vector<rational> const& ws, expr_ref_vector const& soft) {
-        return alloc(bcd2, s, m, p, ws, soft);
+        return alloc(bcd2, c, ws, soft);
     }
 
 }

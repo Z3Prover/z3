@@ -35,13 +35,14 @@ Notes:
 
 namespace opt {
 
-    opt_solver::opt_solver(ast_manager & mgr, params_ref const & p, symbol const & l):
+    opt_solver::opt_solver(ast_manager & mgr, params_ref const & p, 
+                           filter_model_converter& fm, symbol const & l):
         solver_na2as(mgr),
         m_params(p),
         m_context(mgr, m_params),
         m(mgr),
         m_dump_benchmarks(false),
-        m_fm(alloc(filter_model_converter, m)) {
+        m_fm(fm) {
         m_logic = l;
         if (m_logic != symbol::null) {
             m_context.set_logic(m_logic);
@@ -233,20 +234,20 @@ namespace opt {
 
         if (typeid(smt::theory_inf_arith) == typeid(opt)) {
             smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
-            return expr_ref(th.mk_ge(mc(), v, val), m);
+            return expr_ref(th.mk_ge(m_fm, v, val), m);
         }
 
         if (typeid(smt::theory_mi_arith) == typeid(opt)) {
             smt::theory_mi_arith& th = dynamic_cast<smt::theory_mi_arith&>(opt); 
             SASSERT(val.is_finite());
-            return expr_ref(th.mk_ge(mc(), v, val.get_numeral()), m);
+            return expr_ref(th.mk_ge(m_fm, v, val.get_numeral()), m);
         }
 
         if (typeid(smt::theory_i_arith) == typeid(opt)) {
             SASSERT(val.is_finite());
             SASSERT(val.get_infinitesimal().is_zero());
             smt::theory_i_arith& th = dynamic_cast<smt::theory_i_arith&>(opt); 
-            return expr_ref(th.mk_ge(mc(), v, val.get_rational()), m);
+            return expr_ref(th.mk_ge(m_fm, v, val.get_rational()), m);
         }
 
         // difference logic?

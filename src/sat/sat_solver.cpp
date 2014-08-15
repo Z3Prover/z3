@@ -40,6 +40,7 @@ namespace sat {
         m_asymm_branch(*this, p),
         m_probing(*this, p),
         m_mus(*this),
+        m_wsls(*this),
         m_inconsistent(false),
         m_num_frozen(0),
         m_activity_inc(128),
@@ -528,6 +529,10 @@ namespace sat {
         return found_undef ? l_undef : l_false;
     }
 
+    void solver::initialize_soft(unsigned sz, literal const* lits, double const* weights) {
+        m_wsls.set_soft(sz, lits, weights);
+    }
+
     // -----------------------
     //
     // Propagation
@@ -1003,6 +1008,11 @@ namespace sat {
                 m_model[v] = value(v);
         }
         TRACE("sat_mc_bug", m_mc.display(tout););
+        if (m_config.m_optimize_model) {
+            m_wsls.opt(0, 0, false);
+            m_model.reset();
+            m_model.append(m_wsls.get_model());
+        }
         m_mc(m_model);
         TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
 
@@ -2305,6 +2315,7 @@ namespace sat {
 
     void solver::set_cancel(bool f) {
         m_cancel = f;
+        m_wsls.set_cancel(f);
     }
 
     void solver::collect_statistics(statistics & st) const {

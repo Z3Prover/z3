@@ -33,7 +33,7 @@ namespace opt {
         struct imp;
         imp* m_imp;
     public:
-        fu_malik(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints);
+        fu_malik(context& c, expr_ref_vector& soft_constraints);
         virtual ~fu_malik();
         virtual lbool operator()();
         virtual rational get_lower() const;

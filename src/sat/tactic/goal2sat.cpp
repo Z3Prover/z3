@@ -36,6 +36,7 @@ Notes:
 #include"model_v2_pp.h"
 #include"tactic.h"
 #include"ast_pp.h"
+#include<strstream>
 
 struct goal2sat::imp {
     struct frame {
@@ -78,8 +79,9 @@ struct goal2sat::imp {
         m_max_memory      = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
     }
 
-    void throw_op_not_handled() {
-        throw tactic_exception("operator not supported, apply simplifier before invoking translator");
+    void throw_op_not_handled(std::string const& s) {
+        std::string s0 = "operator " + s + " not supported, apply simplifier before invoking translator";
+        throw tactic_exception(s0.c_str());
     }
     
     void mk_clause(sat::literal l) {
@@ -183,9 +185,12 @@ struct goal2sat::imp {
         case OP_AND:
         case OP_XOR:
         case OP_IMPLIES:
-        case OP_DISTINCT:
+        case OP_DISTINCT: {
             TRACE("goal2sat_not_handled", tout << mk_ismt2_pp(t, m) << "\n";);
-            throw_op_not_handled();
+            std::ostringstream strm;
+            strm << mk_ismt2_pp(t, m);
+            throw_op_not_handled(strm.str());
+        }
         default:
             convert_atom(t, root, sign);
             return true;

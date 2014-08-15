@@ -31,16 +31,14 @@ namespace opt {
 
     class pbmax : public maxsmt_solver_base {
     public:
-        pbmax(opt_solver* s, ast_manager& m, params_ref& p, 
+        pbmax(context& c,
               vector<rational> const& ws, expr_ref_vector const& soft): 
-            maxsmt_solver_base(s, m, p, ws, soft) {
+            maxsmt_solver_base(c, ws, soft) {
         }
         
         virtual ~pbmax() {}
 
         lbool operator()() {
-            enable_bvsat();
-            enable_sls();
 
             TRACE("opt", s().display(tout); tout << "\n";
                   for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -90,9 +88,9 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* opt::mk_pbmax(ast_manager& m, opt_solver* s, params_ref& p, 
+    maxsmt_solver_base* opt::mk_pbmax(context & c,
                                      vector<rational> const& ws, expr_ref_vector const& soft) {
-        return alloc(pbmax, s, m, p, ws, soft);
+        return alloc(pbmax, c, ws, soft);
     }
 
 }

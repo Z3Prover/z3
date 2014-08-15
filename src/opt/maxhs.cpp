@@ -23,6 +23,7 @@ Notes:
 #include "model_smt2_pp.h"
 #include "uint_set.h"
 #include "maxhs.h"
+#include "opt_context.h"
 
 namespace opt {
 
@@ -74,8 +75,8 @@ namespace opt {
 
 
     public:
-        maxhs(opt_solver* s, ast_manager& m, params_ref& p, vector<rational> const& ws, expr_ref_vector const& soft):
-            maxsmt_solver_base(s, m, p, ws, soft), 
+        maxhs(context& c, vector<rational> const& ws, expr_ref_vector const& soft):
+            maxsmt_solver_base(c, ws, soft), 
             m_aux(m), 
             m_at_lower_bound(false) {
         }
@@ -528,7 +529,7 @@ namespace opt {
         app_ref mk_fresh(sort* s) {
             app_ref r(m);
             r = m.mk_fresh_const("r", s);
-            m_mc->insert(r->get_decl());                
+            m_c.fm().insert(r->get_decl());                
             return r;
         }
 
@@ -553,9 +554,9 @@ namespace opt {
         
     };
 
-    maxsmt_solver_base* opt::mk_maxhs(ast_manager& m, opt_solver* s, params_ref& p, 
+    maxsmt_solver_base* opt::mk_maxhs(context& c,
                                      vector<rational> const& ws, expr_ref_vector const& soft) {
-        return alloc(maxhs, s, m, p, ws, soft);
+        return alloc(maxhs, c, ws, soft);
     }
 
 }

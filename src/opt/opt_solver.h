@@ -42,6 +42,7 @@ namespace opt {
         smt_params          m_params;
         smt::kernel         m_context;
         ast_manager&        m;
+        filter_model_converter& m_fm;
         progress_callback * m_callback;
         symbol              m_logic;
         bool                m_objective_enabled;
@@ -50,9 +51,8 @@ namespace opt {
         bool                m_dump_benchmarks;
         static unsigned     m_dump_count;
         statistics          m_stats;
-        ref<filter_model_converter> m_fm;
     public:
-        opt_solver(ast_manager & m, params_ref const & p, symbol const & l);
+        opt_solver(ast_manager & m, params_ref const & p, filter_model_converter& fm, symbol const & l);
         virtual ~opt_solver();
 
         virtual void updt_params(params_ref & p);
@@ -81,9 +81,6 @@ namespace opt {
         vector<inf_eps> const& get_objective_values();
         inf_eps const & get_objective_value(unsigned obj_index);
         expr_ref mk_ge(unsigned obj_index, inf_eps const& val);
-
-        filter_model_converter& mc() { return *(m_fm.get()); }
-        ref<filter_model_converter>& mc_ref() { return m_fm; }
 
         static opt_solver& to_opt(solver& s);
         bool dump_benchmarks();
