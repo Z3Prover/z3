@@ -219,26 +219,49 @@ public:
     }
 
     lbool mss_solver() {
-        NOT_IMPLEMENTED_YET();
         init();
         init_local();
+        enable_sls(m_asms);
+        set_mus(false);
         ptr_vector<expr> mcs;
         while (m_lower < m_upper) {            
-            lbool is_sat = s().check_sat(0, 0); 
-            // is_sat = get_mcs(mcs);
+            IF_VERBOSE(1, verbose_stream() << "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
+
+            lbool is_sat = s().check_sat(0, 0);
+            if (is_sat == l_true) {
+                vector<ptr_vector<expr> > cores;
+                ptr_vector<expr> mss;       
+                model_ref mdl;
+                expr_ref tmp(m);
+                mcs.reset();
+                s().get_model(mdl);
+                update_assignment(mdl.get());
+                for (unsigned i = 0; i < m_asms.size(); ++i) {
+                    VERIFY(mdl->eval(m_asms[i].get(), tmp));
+                    if (m.is_true(tmp)) {
+                        mss.push_back(m_asms[i].get());
+                    }
+                }
+                is_sat = m_mss(cores, mss, mcs);
+                std::cout << mcs.size() << " " << is_sat << "\n";
+            }
             switch (is_sat) {
             case l_undef:
                 return l_undef;
             case l_false:
                 m_lower = m_upper;
                 break;
-            case l_true:
-                // 
+            case l_true: {
+                
                 is_sat = process_sat(mcs);
                 if (is_sat != l_true) {
                     return is_sat;
                 }
+                model_ref mdl;
+                m_mss.get_model(mdl);
+                update_assignment(mdl.get());
                 break;
+            }
             }
         }
         m_lower = m_upper;
@@ -496,8 +519,9 @@ public:
             lbool is_sat = s().check_sat(sz, asms.c_ptr());
             switch (is_sat) {
             case l_true: {
-                s().get_model(m_model); // last model is best way to reduce search space.
-                update_assignment();
+                model_ref mdl;
+                s().get_model(mdl); // last model is best way to reduce search space.
+                update_assignment(mdl.get());
                 ptr_vector<expr> mss;
                 mss.append(asms.size(), asms.c_ptr());
                 set_mus(false);
@@ -506,8 +530,8 @@ public:
                 if (is_sat != l_true) {
                     return is_sat;
                 }
-                m_mss.get_model(m_model); // last model is best way to reduce search space.
-                update_assignment();
+                m_mss.get_model(mdl); // last model is best way to reduce search space.
+                update_assignment(mdl.get());
                 if (!cores.empty() && mcs.size() > cores.back().size()) {
                     mcs.reset();
                 }
@@ -550,12 +574,12 @@ public:
     }
 
 
-    void update_assignment() {
+    void update_assignment(model* mdl) {
         rational upper(0);
         expr_ref tmp(m);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             expr* n = m_soft[i].get();
-            VERIFY(m_model->eval(n, tmp));
+            VERIFY(mdl->eval(n, tmp));
             if (!m.is_true(tmp)) {
                 upper += m_weights[i];
             }
@@ -565,6 +589,7 @@ public:
         if (upper >= m_upper) {
             return;
         }
+        m_model = mdl;
 
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             expr* n = m_soft[i].get();

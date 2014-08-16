@@ -28,15 +28,7 @@ Notes:
 #include "wmax.h"
 #include "maxsls.h"
 #include "ast_pp.h"
-#include "pb_decl_plugin.h"
-#include "pb_sls.h"
-#include "tactical.h"
-#include "tactic.h"
-#include "tactic2solver.h"
-#include "qfbv_tactic.h"
-#include "card2bv_tactic.h"
 #include "uint_set.h"
-#include "pb_preprocess_tactic.h"
 #include "opt_context.h"
 
 
@@ -132,6 +124,9 @@ namespace opt {
         }
         else if (maxsat_engine == symbol("mus-mss-maxres")) {            
             m_msolver = mk_mus_mss_maxres(m_c, m_weights, m_soft_constraints);
+        }
+        else if (maxsat_engine == symbol("mss-maxres")) {            
+            m_msolver = mk_mss_maxres(m_c, m_weights, m_soft_constraints);
         }
         else if (maxsat_engine == symbol("pbmax")) {
             m_msolver = mk_pbmax(m_c, m_weights, m_soft_constraints);

@@ -51,7 +51,6 @@ namespace sat {
     }
 
     sls::sls(solver& s): s(s), m_cancel(false) {
-        m_max_tries = 1000000;
         m_prob_choose_min_var = 43;
         m_clause_generation = 0;
     }
@@ -88,6 +87,9 @@ namespace sat {
         }
         init_tabu(sz, tabu);
         m_clause_generation = s.m_stats.m_non_learned_generation;
+
+        m_max_tries = 10*(s.num_vars() + m_clauses.size());
+
     }
 
     void sls::init_clauses() {
@@ -363,7 +365,6 @@ namespace sat {
         m_clause_weights.resize(m_clauses.size(), 1);
         m_sscore.resize(s.num_vars(), 0.0);
         m_hscore.resize(s.num_vars(), 0);
-        m_marked.resize(s.num_vars(), false);
         unsigned num_violated = 0;
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             literal lit = m_soft[i];
@@ -372,7 +373,7 @@ namespace sat {
                 m_sscore[lit.var()] = -m_sscore[lit.var()];
             }
         }
-        for (unsigned i = 0; i < s.num_vars(); ++i) {
+        for (bool_var i = 0; i < s.num_vars(); ++i) {
             m_hscore[i] = compute_hscore(i);
             refresh_scores(i);
         }
@@ -380,6 +381,16 @@ namespace sat {
         unsigned i = 0;
         for (; !m_cancel && m_best_value > 0 && i < m_max_tries; ++i) {
             wflip();
+            if (m_false.empty()) {
+                double val = evaluate_model();
+                if (val < m_best_value || m_best_value < 0.0) {
+                    m_best_value = val;
+                    m_best_model.reset();
+                    m_best_model.append(m_model);
+                    IF_VERBOSE(0, verbose_stream() << "new value: " << val << " @ " << i << "\n";);
+                    m_max_tries *= 2;
+                }
+            }
         }
         TRACE("sat", display(tout););
         IF_VERBOSE(0, verbose_stream() << "tries " << i << "\n";);
@@ -394,15 +405,6 @@ namespace sat {
     }
 
     bool wsls::pick_wflip(literal & lit) {
-        if (m_false.empty()) {
-            double val = evaluate_model();
-            if (val < m_best_value || m_best_value < 0.0) {
-                m_best_value = val;
-                m_best_model.reset();
-                m_best_model.append(m_model);
-                IF_VERBOSE(0, verbose_stream() << "new value:" << val << "\n";);
-            }
-        }
         unsigned idx;
         if (!m_H.empty()) {
             idx = m_H.choose(m_rand);
@@ -468,7 +470,7 @@ namespace sat {
         m_sscore[v] = -m_sscore[v];
         m_hscore[v] = compute_hscore(v);
         refresh_scores(v);
-        recompute_hscores(v);
+        recompute_hscores(lit);
     }
 
     void wsls::update_hard_weights() {
@@ -550,53 +552,71 @@ namespace sat {
         return hs;
     }
 
-    void wsls::recompute_hscores(bool_var v) {
-        literal lit(v, false);
-        if (value_at(lit, m_model) == l_false) {
-            lit.neg();
-        }
-        m_marked[v] = true;
-        unsigned_vector const& use1 = get_use(~lit);
+    void wsls::recompute_hscores(literal lit) {
+        SASSERT(value_at(lit, m_model) == l_true);
+        bool_var v = lit.var();
+        TRACE("sat", tout << v << " := " << m_hscore[v] << "\n";);
+        unsigned_vector const& use1 = get_use(lit);
         unsigned sz = use1.size();
-        unsigned csz;
         for (unsigned i = 0; i < sz; ++i) {
-            unsigned cl = use1[i]; 
-            if (m_num_true[cl] > 2) continue;
-            clause const& c = *m_clauses[cl];
-            csz = c.size();
-            for (unsigned j = 0; j < csz; ++j) {
-                add_refresh(c[j].var());
+            unsigned cl = use1[i];
+            TRACE("sat", tout << *m_clauses[cl] << " " << m_num_true[cl] << "\n";);
+            SASSERT(m_num_true[cl] > 0);
+            if (m_num_true[cl] == 1) {     
+                // num_true 0 -> 1
+                // other literals don't have upside any more.
+                // subtract one from all other literals
+                adjust_all_values(lit, cl, -static_cast<int>(m_clause_weights[cl]));
+            }
+            else if (m_num_true[cl] == 2) {
+                // num_true 1 -> 2, previous critical literal is no longer critical
+                adjust_pivot_value(lit, cl, +m_clause_weights[cl]);
             }
         }
-        unsigned_vector const& use2 = get_use(lit);
+        unsigned_vector const& use2 = get_use(~lit);
         sz = use2.size();
         for (unsigned i = 0; i < sz; ++i) {
             unsigned cl = use2[i]; 
-            if (m_num_true[cl] > 2) continue;
-            clause const& c = *m_clauses[cl];
-            csz = c.size();
-            for (unsigned j = 0; j < csz; ++j) {
-                add_refresh(c[j].var());
+            TRACE("sat", tout << *m_clauses[cl] << " " << m_num_true[cl] << "\n";);
+            if (m_num_true[cl] == 0) {
+                // num_true 1 -> 0
+                // all variables became critical.
+                adjust_all_values(~lit, cl, +m_clause_weights[cl]);
             }
-        }
-        m_marked[v] = false;
-        for (unsigned i = 0; i < m_to_refresh.size(); ++i) {
-            v = m_to_refresh[i];
-            int hs = compute_hscore(v);
-            if (hs != m_hscore[v]) {
-                TRACE("sat_verbose", tout << "refresh: " << v << " from " << m_hscore[v] << " to " << hs << "\n";);
-                m_hscore[v] = hs;
-                refresh_scores(v);
+            else if (m_num_true[cl] == 1) {
+                adjust_pivot_value(~lit, cl, -static_cast<int>(m_clause_weights[cl]));
             }
-            m_marked[v] = false;
+            // else n+1 -> n >= 2
         }
-        m_to_refresh.reset();
     }
 
-    void wsls::add_refresh(bool_var v) {
-        if (!m_marked[v]) {
-            m_to_refresh.push_back(v);
-            m_marked[v] = true;
+    void wsls::adjust_all_values(literal lit, unsigned cl, int delta) {
+        clause const& c = *m_clauses[cl];
+        unsigned sz = c.size();
+        TRACE("sat", tout << lit << " " << c << " delta: " << delta << " nt: " << m_num_true[cl] << "\n";);
+        for (unsigned i = 0; i < sz; ++i) {
+            literal lit2 = c[i];
+            if (lit2 != lit) {
+                TRACE("sat", tout << lit2.var() << " := " << m_hscore[lit2.var()] << "\n";);
+                m_hscore[lit2.var()] += delta;
+                TRACE("sat", tout << lit2.var() << " := " << m_hscore[lit2.var()] << "\n";);
+                refresh_scores(lit2.var());
+            }
+        }
+    }
+
+    void wsls::adjust_pivot_value(literal lit, unsigned cl, int delta) {
+        clause const& c = *m_clauses[cl];
+        unsigned csz = c.size();
+        for (unsigned j = 0; j < csz; ++j) {
+            literal lit2 = c[j];
+            if (lit2 != lit && value_at(lit2, m_model) == l_true) {
+                TRACE("sat", tout << lit2.var() << " := " << m_hscore[lit2.var()] << "\n";);
+                m_hscore[lit2.var()] += delta;
+                TRACE("sat", tout << lit2.var() << " := " << m_hscore[lit2.var()] << "\n";);
+                refresh_scores(lit2.var());
+                break;
+            }
         }
     }
 
