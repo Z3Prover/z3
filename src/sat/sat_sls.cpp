@@ -363,6 +363,7 @@ namespace sat {
         m_clause_weights.resize(m_clauses.size(), 1);
         m_sscore.resize(s.num_vars(), 0.0);
         m_hscore.resize(s.num_vars(), 0);
+        m_marked.resize(s.num_vars(), false);
         unsigned num_violated = 0;
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             literal lit = m_soft[i];
@@ -453,7 +454,7 @@ namespace sat {
                 else {
                     lit = m_min_vars[m_rand(m_min_vars.size())];
                 }
-                TRACE("sat", tout << "flip soft(" << m_min_vars.size() << ") " << lit << "\n";);
+                TRACE("sat", tout << "flip soft(" << m_min_vars.size() << ", " << m_sscore[lit.var()] << ") " << lit << "\n";);
 
             }
             SASSERT(value_at(lit, m_model) == l_false);
@@ -464,9 +465,10 @@ namespace sat {
     void wsls::wflip(literal lit) {
         flip(lit);
         unsigned v = lit.var();
-        m_hscore[v] = compute_hscore(v);
         m_sscore[v] = -m_sscore[v];
+        m_hscore[v] = compute_hscore(v);
         refresh_scores(v);
+        recompute_hscores(v);
     }
 
     void wsls::update_hard_weights() {
@@ -517,7 +519,7 @@ namespace sat {
         return result;
     }
 
-    int wsls::compute_hscore(unsigned v) {
+    int wsls::compute_hscore(bool_var v) {
         literal lit(v, false);
         if (value_at(lit, m_model) == l_false) {
             lit.neg();
@@ -548,15 +550,65 @@ namespace sat {
         return hs;
     }
 
-    void wsls::refresh_scores(unsigned v) {
-        if (m_hscore[v] > 0) {
+    void wsls::recompute_hscores(bool_var v) {
+        literal lit(v, false);
+        if (value_at(lit, m_model) == l_false) {
+            lit.neg();
+        }
+        m_marked[v] = true;
+        unsigned_vector const& use1 = get_use(~lit);
+        unsigned sz = use1.size();
+        unsigned csz;
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned cl = use1[i]; 
+            if (m_num_true[cl] > 2) continue;
+            clause const& c = *m_clauses[cl];
+            csz = c.size();
+            for (unsigned j = 0; j < csz; ++j) {
+                add_refresh(c[j].var());
+            }
+        }
+        unsigned_vector const& use2 = get_use(lit);
+        sz = use2.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned cl = use2[i]; 
+            if (m_num_true[cl] > 2) continue;
+            clause const& c = *m_clauses[cl];
+            csz = c.size();
+            for (unsigned j = 0; j < csz; ++j) {
+                add_refresh(c[j].var());
+            }
+        }
+        m_marked[v] = false;
+        for (unsigned i = 0; i < m_to_refresh.size(); ++i) {
+            v = m_to_refresh[i];
+            int hs = compute_hscore(v);
+            if (hs != m_hscore[v]) {
+                TRACE("sat_verbose", tout << "refresh: " << v << " from " << m_hscore[v] << " to " << hs << "\n";);
+                m_hscore[v] = hs;
+                refresh_scores(v);
+            }
+            m_marked[v] = false;
+        }
+        m_to_refresh.reset();
+    }
+
+    void wsls::add_refresh(bool_var v) {
+        if (!m_marked[v]) {
+            m_to_refresh.push_back(v);
+            m_marked[v] = true;
+        }
+    }
+
+    void wsls::refresh_scores(bool_var v) {
+        if (m_hscore[v] > 0 && !m_tabu[v] && m_sscore[v] == 0) {
             m_H.insert(v);
         }
         else {
             m_H.remove(v);
         }
         if (m_sscore[v] > 0) {
-            if (m_hscore[v] == 0) {
+            if (m_hscore[v] == 0 && !m_tabu[v]) {
                 m_S.insert(v);
             }
             else {
@@ -575,6 +627,7 @@ namespace sat {
         //           - Sum weight(c) for num_true(c) = 1 and (v in c, M(v) or !v in c and !M(v)) 
         for (unsigned v = 0; v < s.num_vars(); ++v) {
             int hs = compute_hscore(v);
+            CTRACE("sat", hs != m_hscore[v], display(tout << v << " - computed: " << hs << " - assigned: " << m_hscore[v] << "\n"););
             SASSERT(m_hscore[v] == hs);
         }
 
@@ -585,14 +638,14 @@ namespace sat {
             SASSERT(m_sscore[v] == ss);
         }
 
-        // m_H are values such that m_hscore >= 0.
+        // m_H are values such that m_hscore > 0 and sscore = 0.
         for (bool_var v = 0; v < m_hscore.size(); ++v) {
-            SASSERT(m_hscore[v] > 0 == m_H.contains(v));
+            SASSERT((m_hscore[v] > 0 && !m_tabu[v] && m_sscore[v] == 0) == m_H.contains(v));
         }
         
         // m_S are values such that hscore = 0, sscore > 0
         for (bool_var v = 0; v < m_sscore.size(); ++v) {
-            SASSERT((m_hscore[v] == 0 && m_sscore[v] > 0) == m_S.contains(v));
+            SASSERT((m_hscore[v] == 0 && m_sscore[v] > 0 && !m_tabu[v]) == m_S.contains(v));
         }
     }
 

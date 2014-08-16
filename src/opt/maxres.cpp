@@ -179,7 +179,7 @@ public:
     lbool mus_mss_solver() {
         init();
         init_local();
-        //enable_sls(m_asms);
+        enable_sls(m_asms);
         ptr_vector<expr> mcs;
         vector<ptr_vector<expr> > cores;
         while (m_lower < m_upper) {            

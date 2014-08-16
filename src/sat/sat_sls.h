@@ -91,6 +91,8 @@ namespace sat {
         model           m_best_model;
         index_set       m_H, m_S;
         unsigned        m_smoothing_probability;
+        svector<bool>   m_marked;
+        unsigned_vector m_to_refresh;
     public:
         wsls(solver& s);
         virtual ~wsls();        
@@ -106,8 +108,10 @@ namespace sat {
         bool pick_wflip(literal & lit);
         double evaluate_model();
         virtual void check_invariant();
-        void refresh_scores(unsigned v);
-        int compute_hscore(unsigned v);
+        void refresh_scores(bool_var v);
+        int compute_hscore(bool_var v);
+        void recompute_hscores(bool_var v);
+        void add_refresh(bool_var v);
     };
 
 };

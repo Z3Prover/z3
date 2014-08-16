@@ -23,12 +23,14 @@ namespace sat {
     class mus {
         literal_vector m_core;
         literal_vector m_mus;
+        bool           m_is_active;
 
         solver& s;
     public:
         mus(solver& s);
         ~mus();        
         lbool operator()();
+        bool is_active() const { return m_is_active; }
     private:
         lbool mus2();
         void mr();

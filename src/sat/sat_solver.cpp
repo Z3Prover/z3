@@ -692,6 +692,7 @@ namespace sat {
             }
             wlist.set_end(it2);
         }
+        SASSERT(m_qhead == m_trail.size());
         SASSERT(!m_inconsistent);
         return true;
     }
@@ -952,10 +953,15 @@ namespace sat {
 
     /**
        \brief Apply all simplifications.
+
     */
     void solver::simplify_problem() {
-        pop(scope_lvl());
-        m_trail.reset();
+
+        // Disable simplification during MUS computation.        
+        // if (m_mus.is_active()) return;
+        TRACE("sat", tout << "simplify\n";);
+
+        pop(scope_lvl());        
 
         SASSERT(scope_lvl() == 0);
 
@@ -990,6 +996,9 @@ namespace sat {
             m_ext->clauses_modifed();
             m_ext->simplify();
         }
+
+        TRACE("sat", display(tout << "consistent: " << (!inconsistent()) << "\n"););
+
         reinit_assumptions();
     }
 
@@ -2144,7 +2153,7 @@ namespace sat {
     // -----------------------
     void solver::push() {
         SASSERT(!inconsistent());
-        TRACE("sat", tout << "q:" << m_qhead << " trail: " << m_trail.size() << "\n";);
+        TRACE("sat_verbose", tout << "q:" << m_qhead << " trail: " << m_trail.size() << "\n";);
         SASSERT(m_qhead == m_trail.size());
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
