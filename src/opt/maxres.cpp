@@ -224,35 +224,26 @@ public:
         enable_sls(m_asms);
         set_mus(false);
         ptr_vector<expr> mcs;
-        while (m_lower < m_upper) {            
+        lbool is_sat = l_true;
+        while (m_lower < m_upper && is_sat == l_true) {            
             IF_VERBOSE(1, verbose_stream() << "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
+            vector<ptr_vector<expr> > cores;
+            ptr_vector<expr> mss;       
+            model_ref mdl;
+            expr_ref tmp(m);
+            mcs.reset();
+            s().get_model(mdl);
+            update_assignment(mdl.get());
+            mss.append(m_asms.size(), m_asms.c_ptr());
+            is_sat = m_mss(cores, mss, mcs);
 
-            lbool is_sat = s().check_sat(0, 0);
-            if (is_sat == l_true) {
-                vector<ptr_vector<expr> > cores;
-                ptr_vector<expr> mss;       
-                model_ref mdl;
-                expr_ref tmp(m);
-                mcs.reset();
-                s().get_model(mdl);
-                update_assignment(mdl.get());
-                for (unsigned i = 0; i < m_asms.size(); ++i) {
-                    VERIFY(mdl->eval(m_asms[i].get(), tmp));
-                    if (m.is_true(tmp)) {
-                        mss.push_back(m_asms[i].get());
-                    }
-                }
-                is_sat = m_mss(cores, mss, mcs);
-                std::cout << mcs.size() << " " << is_sat << "\n";
-            }
             switch (is_sat) {
             case l_undef:
                 return l_undef;
             case l_false:
                 m_lower = m_upper;
-                break;
-            case l_true: {
-                
+                return l_true;
+            case l_true: {                
                 is_sat = process_sat(mcs);
                 if (is_sat != l_true) {
                     return is_sat;
@@ -262,6 +253,12 @@ public:
                 update_assignment(mdl.get());
                 break;
             }
+            }
+            if (m_cancel) {
+                return l_undef;
+            }
+            if (m_lower < m_upper) {
+                is_sat = s().check_sat(0, 0);
             }
         }
         m_lower = m_upper;

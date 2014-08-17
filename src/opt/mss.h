@@ -29,6 +29,7 @@ namespace opt {
         exprs         m_mss;
         expr_set      m_mcs;
         expr_set      m_mss_set;
+        vector<exprs> m_cores;
         exprs         m_todo;
         model_ref     m_model;
     public:
@@ -42,7 +43,7 @@ namespace opt {
         void get_model(model_ref& mdl) { mdl = m_model; }
 
     private:
-        void  initialize(vector<exprs>& cores, exprs& literals);
+        void  initialize(exprs& literals);
         bool  check_result();
         void  add_mss(expr* n);
         void  update_mss();

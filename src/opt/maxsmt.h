@@ -75,7 +75,6 @@ namespace opt {
         void set_model() { s().get_model(m_model); }
         virtual void updt_params(params_ref& p);
         virtual void init_soft(vector<rational> const& weights, expr_ref_vector const& soft);
-        void add_hard(expr* e){ s().assert_expr(e); }        
         solver& s() { return m_s; }
         void init();
         expr* mk_not(expr* e);

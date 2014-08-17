@@ -49,7 +49,7 @@ namespace opt {
         return true;
     }
 
-    void mss::initialize(vector<exprs>& cores, exprs& literals) {
+    void mss::initialize(exprs& literals) {
         expr* n;
         expr_set lits, core_lits;
         for (unsigned i = 0; i < literals.size(); ++i) {
@@ -67,8 +67,8 @@ namespace opt {
         // did not occur in previous cores and did not evaluate to true
         // in the current model.
         //
-        for (unsigned i = 0; i < cores.size(); ++i) {
-            exprs const& core = cores[i];
+        for (unsigned i = 0; i < m_cores.size(); ++i) {
+            exprs const& core = m_cores[i];
             for (unsigned j = 0; j < core.size(); ++j) {
                 expr* n = core[j];
                 if (!core_lits.contains(n)) {
@@ -97,7 +97,7 @@ namespace opt {
                 }
             }
         }
-        cores.push_back(rest_core);
+        m_cores.push_back(rest_core);
     }
 
     void mss::add_mss(expr* n) {
@@ -148,23 +148,20 @@ namespace opt {
         m_mss.reset();
         m_todo.reset();
         m_s.get_model(m_model);
+        m_cores.reset();
         SASSERT(m_model);
-        vector<exprs> cores(_cores);
+        m_cores.append(_cores);
+        initialize(literals);
         TRACE("opt", 
-              for (unsigned i = 0; i < cores.size(); ++i) {
-                  display_vec(tout << "core: ", cores[i].size(), cores[i].c_ptr());
-              }
               display_vec(tout << "lits: ", literals.size(), literals.c_ptr());
-              );
-        initialize(cores, literals);
-        TRACE("opt", display(tout););
+              display(tout););
         lbool is_sat = l_true;
-        for (unsigned i = 0; is_sat == l_true && i < cores.size(); ++i) {
+        for (unsigned i = 0; is_sat == l_true && i < m_cores.size(); ++i) {
             bool has_mcs = false;
-            bool is_last = i + 1 < cores.size();
+            bool is_last = i + 1 < m_cores.size();
             SASSERT(check_invariant());
-            update_core(cores[i]); // remove members of mss
-            is_sat = process_core(1, cores[i], has_mcs, is_last); 
+            update_core(m_cores[i]); // remove members of mss
+            is_sat = process_core(1, m_cores[i], has_mcs, is_last); 
         }    
         if (is_sat == l_true) {
             SASSERT(check_invariant());
@@ -180,6 +177,7 @@ namespace opt {
         }
         m_mcs.reset();
         m_mss_set.reset();
+        IF_VERBOSE(2, display_vec(verbose_stream() << "mcs: ", mcs.size(), mcs.c_ptr()););
         return is_sat;
     }
 
@@ -208,7 +206,7 @@ namespace opt {
         unsigned sz_save = m_mss.size();
         m_mss.append(sz, core.c_ptr());
         lbool is_sat = m_s.check_sat(m_mss.size(), m_mss.c_ptr());
-        IF_VERBOSE(2, display_vec(verbose_stream() << "mss: ", m_mss.size(), m_mss.c_ptr()););
+        IF_VERBOSE(3, display_vec(verbose_stream() << "mss: ", m_mss.size(), m_mss.c_ptr()););
         m_mss.resize(sz_save);
         switch (is_sat) {
         case l_true:
@@ -253,6 +251,9 @@ namespace opt {
     }
 
     void mss::display(std::ostream& out) const {
+        for (unsigned i = 0; i < m_cores.size(); ++i) {
+            display_vec(out << "core: ", m_cores[i].size(), m_cores[i].c_ptr());
+        }
         expr_set::iterator it = m_mcs.begin(), end = m_mcs.end();
         out << "mcs:\n";
         for (; it != end; ++it) {
@@ -261,7 +262,7 @@ namespace opt {
         out << "\n";
         out << "mss:\n";
         for (unsigned i = 0; i < m_mss.size(); ++i) {
-            out << mk_pp(m_mss[i], m) << "\n";
+           out << mk_pp(m_mss[i], m) << "\n";
         }
         out << "\n";
         if (m_model) {

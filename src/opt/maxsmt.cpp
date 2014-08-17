@@ -179,6 +179,9 @@ namespace opt {
     }
 
     void maxsmt::verify_assignment() {
+        // TBD: have to use a different solver 
+        // because we don't push local scope any longer.
+        return;
         solver::scoped_push _sp(m_s);
         commit_assignment();
         if (l_true != m_s.check_sat(0,0)) {

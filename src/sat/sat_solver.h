@@ -82,8 +82,8 @@ namespace sat {
         scc                     m_scc;
         asymm_branch            m_asymm_branch;
         probing                 m_probing;
-        mus                     m_mus;
-        wsls                    m_wsls;
+        mus                     m_mus;           // MUS for minimal core extraction
+        wsls                    m_wsls;          // SLS facility for MaxSAT use
         bool                    m_inconsistent;
         // A conflict is usually a single justification. That is, a justification
         // for false. If m_not_l is not null_literal, then m_conflict is a
@@ -123,9 +123,9 @@ namespace sat {
         stopwatch               m_stopwatch;
         params_ref              m_params;
         scoped_ptr<solver>      m_clone; // for debugging purposes
-        literal_vector          m_assumptions;
-        literal_set             m_assumption_set;
-        literal_vector          m_core;
+        literal_vector          m_assumptions;      // additional assumptions during check
+        literal_set             m_assumption_set;   // set of enabled assumptions
+        literal_vector          m_core;             // unsat core
 
         void del_clauses(clause * const * begin, clause * const * end);
 
@@ -230,6 +230,9 @@ namespace sat {
         clause_offset get_offset(clause const & c) const { return m_cls_allocator.get_offset(&c); }
         void checkpoint() {
             if (m_cancel) throw solver_exception(Z3_CANCELED_MSG);
+            ++m_num_checkpoints;
+            if (m_num_checkpoints < 10) return;
+            m_num_checkpoints = 0;
             if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
         typedef std::pair<literal, literal> bin_clause;
@@ -275,6 +278,7 @@ namespace sat {
         unsigned m_luby_idx;
         unsigned m_conflicts_since_gc;
         unsigned m_gc_threshold;
+        unsigned m_num_checkpoints;
         double   m_min_d_tk;
         unsigned m_next_simplify;
         bool decide();

@@ -69,6 +69,7 @@ class bit_blaster_tactic : public tactic {
             expr_ref   new_curr(m());
             proof_ref  new_pr(m());
             unsigned size = g->size();
+            bool change = false;
             for (unsigned idx = 0; idx < size; idx++) {
                 if (g->inconsistent())
                     break;
@@ -79,10 +80,13 @@ class bit_blaster_tactic : public tactic {
                     proof * pr = g->pr(idx);
                     new_pr     = m().mk_modus_ponens(pr, new_pr);
                 }
-                g->update(idx, new_curr, new_pr, g->dep(idx));
+                if (curr != new_curr) {
+                    change = true;
+                    g->update(idx, new_curr, new_pr, g->dep(idx));
+                }
             }
             
-            if (g->models_enabled())  
+            if (change && g->models_enabled())  
                 mc = mk_bit_blaster_model_converter(m(), m_rewriter.const2bits());
             else
                 mc = 0;

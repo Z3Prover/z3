@@ -84,15 +84,12 @@ namespace opt {
         lbool operator()() {
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
-            solver::scoped_push _s(s());
             lbool is_sat = l_true;
             bool was_sat = false;
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 wth().assert_weighted(m_soft[i].get(), m_weights[i]);
             }
-            solver::scoped_push __s(s());
             while (l_true == is_sat) {
-                IF_VERBOSE(1, verbose_stream() << "(opt.wmax [" << m_lower << ":" << m_upper << "])\n";);
                 is_sat = s().check_sat(0,0);
                 if (m_cancel) {
                     is_sat = l_undef;
@@ -106,6 +103,7 @@ namespace opt {
                     s().assert_expr(fml);
                     was_sat = true;
                 }
+                IF_VERBOSE(1, verbose_stream() << "(opt.wmax [" << m_lower << ":" << m_upper << "])\n";);
             }
             if (was_sat) {
                 wth().get_assignment(m_assignment);

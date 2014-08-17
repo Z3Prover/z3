@@ -51,6 +51,7 @@ namespace sat {
         m_config.updt_params(p);
         m_conflicts_since_gc      = 0;
         m_next_simplify           = 0;
+        m_num_checkpoints         = 0;
     }
 
     solver::~solver() {
