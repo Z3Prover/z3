@@ -272,34 +272,34 @@ namespace datalog {
 
 
     bool context::generate_proof_trace() const { return m_params->generate_proof_trace(); }
-    bool context::output_profile() const { return m_params->output_profile(); }
-    bool context::output_tuples() const { return m_params->output_tuples(); }
-    bool context::use_map_names() const { return m_params->use_map_names(); }
-    bool context::fix_unbound_vars() const { return m_params->fix_unbound_vars(); }
-    symbol context::default_table() const { return m_params->default_table(); }
-    symbol context::default_relation() const { return m_params->default_relation(); } // external_relation_plugin::get_name()); 
-    symbol context::default_table_checker() const { return m_params->default_table_checker(); }
-    bool context::default_table_checked() const { return m_params->default_table_checked(); }
-    bool context::dbg_fpr_nonempty_relation_signature() const { return m_params->dbg_fpr_nonempty_relation_signature(); }
-    unsigned context::dl_profile_milliseconds_threshold() const { return m_params->profile_timeout_milliseconds(); }
-    bool context::all_or_nothing_deltas() const { return m_params->all_or_nothing_deltas(); }
-    bool context::compile_with_widening() const { return m_params->compile_with_widening(); }
-    bool context::unbound_compressor() const { return m_params->unbound_compressor(); }
-    bool context::similarity_compressor() const { return m_params->similarity_compressor(); }
-    unsigned context::similarity_compressor_threshold() const { return m_params->similarity_compressor_threshold(); }
+    bool context::output_profile() const { return m_params->datalog_output_profile(); }
+    bool context::output_tuples() const { return m_params->datalog_print_tuples(); }
+    bool context::use_map_names() const { return m_params->datalog_use_map_names(); }
+    bool context::fix_unbound_vars() const { return m_params->xform_fix_unbound_vars(); }
+    symbol context::default_table() const { return m_params->datalog_default_table(); }
+    symbol context::default_relation() const { return m_params->datalog_default_relation(); } // external_relation_plugin::get_name()); 
+    symbol context::default_table_checker() const { return m_params->datalog_default_table_checker(); }
+    bool context::default_table_checked() const { return m_params->datalog_default_table_checked(); }
+    bool context::dbg_fpr_nonempty_relation_signature() const { return m_params->datalog_dbg_fpr_nonempty_relation_signature(); }
+    unsigned context::dl_profile_milliseconds_threshold() const { return m_params->datalog_profile_timeout_milliseconds(); }
+    bool context::all_or_nothing_deltas() const { return m_params->datalog_all_or_nothing_deltas(); }
+    bool context::compile_with_widening() const { return m_params->datalog_compile_with_widening(); }
+    bool context::unbound_compressor() const { return m_params->datalog_unbound_compressor(); }
+    bool context::similarity_compressor() const { return m_params->datalog_similarity_compressor(); }
+    unsigned context::similarity_compressor_threshold() const { return m_params->datalog_similarity_compressor_threshold(); }
     unsigned context::soft_timeout() const { return m_fparams.m_soft_timeout; }
-    unsigned context::initial_restart_timeout() const { return m_params->initial_restart_timeout(); } 
-    bool context::generate_explanations() const { return m_params->generate_explanations(); }
-    bool context::explanations_on_relation_level() const { return m_params->explanations_on_relation_level(); }
-    bool context::magic_sets_for_queries() const { return m_params->magic_sets_for_queries();  }
-    bool context::eager_emptiness_checking() const { return m_params->eager_emptiness_checking(); }
+    unsigned context::initial_restart_timeout() const { return m_params->datalog_initial_restart_timeout(); } 
+    bool context::generate_explanations() const { return m_params->datalog_generate_explanations(); }
+    bool context::explanations_on_relation_level() const { return m_params->datalog_explanations_on_relation_level(); }
+    bool context::magic_sets_for_queries() const { return m_params->datalog_magic_sets_for_queries();  }
+    bool context::eager_emptiness_checking() const { return m_params->datalog_eager_emptiness_checking(); }
 
-    bool context::bit_blast() const { return m_params->bit_blast(); }
-    bool context::karr() const { return m_params->karr(); }
-    bool context::scale() const { return m_params->scale(); }
-    bool context::magic() const { return m_params->magic(); }
-    bool context::quantify_arrays() const { return m_params->quantify_arrays(); }
-    bool context::instantiate_quantifiers() const { return m_params->instantiate_quantifiers(); }
+    bool context::bit_blast() const { return m_params->xform_bit_blast(); }
+    bool context::karr() const { return m_params->xform_karr(); }
+    bool context::scale() const { return m_params->xform_scale(); }
+    bool context::magic() const { return m_params->xform_magic(); }
+    bool context::quantify_arrays() const { return m_params->xform_quantify_arrays(); }
+    bool context::instantiate_quantifiers() const { return m_params->xform_instantiate_quantifiers(); }
 
 
     void context::register_finite_sort(sort * s, sort_kind k) {
@@ -1153,7 +1153,7 @@ namespace datalog {
         expr_ref fml(m);
         expr_ref_vector rules(m);
         svector<symbol> names;
-        bool use_fixedpoint_extensions = m_params->print_with_fixedpoint_extensions();
+        bool use_fixedpoint_extensions = m_params->print_fixedpoint_extensions();
         bool print_low_level = m_params->print_low_level_smt2();
         bool do_declare_vars = m_params->print_with_variable_declarations();
 

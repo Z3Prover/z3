@@ -1442,7 +1442,7 @@ namespace datalog {
         expr_ref bg_assertion = m_ctx.get_background_assertion();        
         apply_default_transformation(m_ctx);
         
-        if (m_ctx.get_params().slice()) {
+        if (m_ctx.get_params().xform_slice()) {
             datalog::rule_transformer transformer(m_ctx);
             datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
             transformer.register_plugin(slice);

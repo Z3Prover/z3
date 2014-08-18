@@ -150,8 +150,8 @@ namespace datalog {
             }
             TRACE("dl", m_context.display(tout););
 
-            if (m_context.get_params().dump_aig().size()) {
-                const char *filename = static_cast<const char*>(m_context.get_params().dump_aig().c_ptr());
+            if (m_context.get_params().print_aig().size()) {
+                const char *filename = static_cast<const char*>(m_context.get_params().print_aig().c_ptr());
                 aig_exporter aig(m_context.get_rules(), get_context(), &m_table_facts);
                 std::ofstream strm(filename, std::ios_base::binary);
                 aig(strm);
@@ -284,7 +284,7 @@ namespace datalog {
         transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context));
         transf.register_plugin(alloc(mk_separate_negated_tails, m_context));
 
-        if (m_context.get_params().bit_blast()) {
+        if (m_context.get_params().xform_bit_blast()) {
             transf.register_plugin(alloc(mk_bit_blast, m_context, 22000));
             transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context, 21000));
         }
@@ -518,7 +518,7 @@ namespace datalog {
     void rel_context::add_fact(func_decl* pred, relation_fact const& fact) {
         get_rmanager().reset_saturated_marks();
         get_relation(pred).add_fact(fact);
-        if (m_context.get_params().dump_aig().size()) {
+        if (m_context.get_params().print_aig().size()) {
             m_table_facts.push_back(std::make_pair(pred, fact));
         }
     }

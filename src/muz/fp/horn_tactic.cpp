@@ -316,7 +316,7 @@ class horn_tactic : public tactic {
             m_ctx.get_rules(); // flush adding rules.
             apply_default_transformation(m_ctx);
             
-            if (m_ctx.get_params().slice()) {
+            if (m_ctx.get_params().xform_slice()) {
                 datalog::rule_transformer transformer(m_ctx);
                 datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
                 transformer.register_plugin(slice);

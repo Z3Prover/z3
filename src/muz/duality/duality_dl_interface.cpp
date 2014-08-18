@@ -146,7 +146,7 @@ lbool dl_interface::query(::expr * query) {
 
   // make a new problem and solver
   _d = alloc(duality_data,m_ctx.get_manager());
-  _d->ctx.set("mbqi",m_ctx.get_params().mbqi());
+  _d->ctx.set("mbqi",m_ctx.get_params().duality_mbqi());
   _d->ls = alloc(RPFP::iZ3LogicSolver,_d->ctx);
   _d->rpfp = alloc(RPFP,_d->ls);
 
@@ -223,14 +223,14 @@ lbool dl_interface::query(::expr * query) {
   
   // set its options
   IF_VERBOSE(1, rs->SetOption("report","1"););
-  rs->SetOption("full_expand",m_ctx.get_params().full_expand() ? "1" : "0");
-  rs->SetOption("no_conj",m_ctx.get_params().no_conj() ? "1" : "0");
-  rs->SetOption("feasible_edges",m_ctx.get_params().feasible_edges() ? "1" : "0");
-  rs->SetOption("use_underapprox",m_ctx.get_params().use_underapprox() ? "1" : "0");
-  rs->SetOption("stratified_inlining",m_ctx.get_params().stratified_inlining() ? "1" : "0");
-  rs->SetOption("batch_expand",m_ctx.get_params().batch_expand() ? "1" : "0");
-  rs->SetOption("conjecture_file",m_ctx.get_params().conjecture_file());
-  unsigned rb = m_ctx.get_params().recursion_bound();
+  rs->SetOption("full_expand",m_ctx.get_params().duality_full_expand() ? "1" : "0");
+  rs->SetOption("no_conj",m_ctx.get_params().duality_no_conj() ? "1" : "0");
+  rs->SetOption("feasible_edges",m_ctx.get_params().duality_feasible_edges() ? "1" : "0");
+  rs->SetOption("use_underapprox",m_ctx.get_params().duality_use_underapprox() ? "1" : "0");
+  rs->SetOption("stratified_inlining",m_ctx.get_params().duality_stratified_inlining() ? "1" : "0");
+  rs->SetOption("batch_expand",m_ctx.get_params().duality_batch_expand() ? "1" : "0");
+  rs->SetOption("conjecture_file",m_ctx.get_params().duality_conjecture_file());
+  unsigned rb = m_ctx.get_params().duality_recursion_bound();
   if(rb != UINT_MAX){
     std::ostringstream os; os << rb;
     rs->SetOption("recursion_bound", os.str());
@@ -250,7 +250,7 @@ lbool dl_interface::query(::expr * query) {
   
   // profile!
 
-  if(m_ctx.get_params().profile())
+  if(m_ctx.get_params().duality_profile())
     print_profile(std::cout);
 
   // save the result and counterexample if there is one

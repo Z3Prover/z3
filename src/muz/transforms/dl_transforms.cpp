@@ -44,12 +44,12 @@ namespace datalog {
         transf.register_plugin(alloc(datalog::mk_coi_filter, ctx));
         transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, ctx));
 
-        if (ctx.get_params().quantify_arrays()) {
+        if (ctx.get_params().xform_quantify_arrays()) {
             transf.register_plugin(alloc(datalog::mk_quantifier_abstraction, ctx, 38000));
         }
         transf.register_plugin(alloc(datalog::mk_quantifier_instantiation, ctx, 37000));
         transf.register_plugin(alloc(datalog::mk_scale, ctx, 36030));
-        if (ctx.get_params().magic()) {
+        if (ctx.get_params().xform_magic()) {
             transf.register_plugin(alloc(datalog::mk_magic_symbolic, ctx, 36020));
         }
         transf.register_plugin(alloc(datalog::mk_karr_invariants, ctx, 36010));
