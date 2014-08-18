@@ -3646,7 +3646,7 @@ namespace Microsoft.Z3
         internal Fixedpoint.DecRefQueue Fixedpoint_DRQ { get { Contract.Ensures(Contract.Result<Fixedpoint.DecRefQueue>() != null); return m_Fixedpoint_DRQ; } }
 
 
-        internal int refCount = 0;
+        internal long refCount = 0;
 
         /// <summary>
         /// Finalizer.
