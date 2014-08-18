@@ -94,8 +94,8 @@ namespace opt {
         m_s.updt_params(p);
     }
 
-    void maxsmt_solver_base::enable_sls(expr_ref_vector const& soft) {
-        m_c.enable_sls(soft, m_weights);
+    void maxsmt_solver_base::enable_sls(expr_ref_vector const& soft, vector<rational> const& ws) {
+        m_c.enable_sls(soft, ws);
     }
 
     app* maxsmt_solver_base::mk_fresh_bool(char const* name) {

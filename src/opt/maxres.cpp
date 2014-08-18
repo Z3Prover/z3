@@ -179,7 +179,7 @@ public:
     lbool mus_mss_solver() {
         init();
         init_local();
-        enable_sls(m_asms);
+        sls();
         ptr_vector<expr> mcs;
         vector<ptr_vector<expr> > cores;
         while (m_lower < m_upper) {            
@@ -221,7 +221,7 @@ public:
     lbool mss_solver() {
         init();
         init_local();
-        enable_sls(m_asms);
+        sls();
         set_mus(false);
         ptr_vector<expr> mcs;
         lbool is_sat = l_true;
@@ -381,6 +381,14 @@ public:
 
     rational get_weight(expr* e) {
         return m_asm2weight.find(e);
+    }
+
+    void sls() {
+        vector<rational> ws;
+        for (unsigned i = 0; i < m_asms.size(); ++i) {
+            ws.push_back(get_weight(m_asms[i].get()));
+        }
+        enable_sls(m_asms, ws);
     }
 
     rational split_core(ptr_vector<expr> const& core) {

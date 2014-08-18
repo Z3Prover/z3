@@ -33,7 +33,7 @@ namespace opt {
         lbool operator()() {
             IF_VERBOSE(1, verbose_stream() << "(opt.sls)\n";);
             init();
-            enable_sls(m_soft);
+            enable_sls(m_soft, m_weights);
             lbool is_sat = s().check_sat(0, 0);
             if (is_sat == l_true) {
                 s().get_model(m_model);

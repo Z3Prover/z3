@@ -81,7 +81,7 @@ namespace opt {
         void set_mus(bool f);
         app* mk_fresh_bool(char const* name);
     protected:
-        void enable_sls(expr_ref_vector const& soft);
+        void enable_sls(expr_ref_vector const& soft, vector<rational> const& ws);
     };
 
     /**
