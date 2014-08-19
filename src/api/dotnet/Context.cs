@@ -3523,7 +3523,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// The list of all configuration parameters can be obtained using the Z3 executable:
-        /// <c>z3.exe -ini?</c>
+        /// <c>z3.exe -p</c>
         /// Only a few configuration parameters are mutable once the context is created.
         /// An exception is thrown when trying to modify an immutable parameter.
         /// </remarks>
@@ -3646,7 +3646,7 @@ namespace Microsoft.Z3
         internal Fixedpoint.DecRefQueue Fixedpoint_DRQ { get { Contract.Ensures(Contract.Result<Fixedpoint.DecRefQueue>() != null); return m_Fixedpoint_DRQ; } }
 
 
-        internal uint refCount = 0;
+        internal long refCount = 0;
 
         /// <summary>
         /// Finalizer.

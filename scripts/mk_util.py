@@ -1151,7 +1151,11 @@ class DotNetDLLComponent(Component):
                 out.write(' ')
                 out.write(cs_file)
             out.write('\n')
-            out.write('  csc /noconfig /unsafe+ /nowarn:1701,1702 /nostdlib+ /errorreport:prompt /warn:4 /define:DEBUG;TRACE /reference:mscorlib.dll /reference:System.Core.dll /reference:System.dll /reference:System.Numerics.dll /debug+ /debug:full /filealign:512 /optimize- /linkresource:%s.dll /out:%s.dll /target:library' % (get_component(Z3_DLL_COMPONENT).dll_name, self.dll_name))
+            out.write('  csc /noconfig /unsafe+ /nowarn:1701,1702 /nostdlib+ /errorreport:prompt /warn:4 /reference:mscorlib.dll /reference:System.Core.dll /reference:System.dll /reference:System.Numerics.dll /filealign:512 /linkresource:%s.dll /out:%s.dll /target:library /doc:%s.xml' % (get_component(Z3_DLL_COMPONENT).dll_name, self.dll_name, self.dll_name))
+            if DEBUG_MODE:
+                out.write(' /define:DEBUG;TRACE /debug+ /debug:full /optimize-')
+            else:
+                out.write(' /optimize+')
             if VS_X64:
                 out.write(' /platform:x64')
             else:
@@ -1174,6 +1178,13 @@ class DotNetDLLComponent(Component):
             mk_dir(os.path.join(dist_path, 'bin'))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
                         '%s.dll' % os.path.join(dist_path, 'bin', self.dll_name))
+            shutil.copy('%s.xml' % os.path.join(build_path, self.dll_name),
+                        '%s.xml' % os.path.join(dist_path, 'bin', self.dll_name))
+            if DEBUG_MODE:
+                shutil.copy('%s.pdb' % os.path.join(build_path, self.dll_name),
+                            '%s.pdb' % os.path.join(dist_path, 'bin', self.dll_name))
+
+
 
     def mk_unix_dist(self, build_path, dist_path):
         # Do nothing

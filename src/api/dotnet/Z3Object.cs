@@ -19,6 +19,7 @@ Notes:
 
 using System;
 using System.Diagnostics.Contracts;
+using System.Threading;
 
 namespace Microsoft.Z3
 {
@@ -50,8 +51,7 @@ namespace Microsoft.Z3
 
             if (m_ctx != null)
             {
-                m_ctx.refCount--;
-                if (m_ctx.refCount == 0)
+                if (Interlocked.Decrement(ref m_ctx.refCount) == 0)
                     GC.ReRegisterForFinalize(m_ctx);
                 m_ctx = null;
             }
@@ -77,7 +77,7 @@ namespace Microsoft.Z3
         {
             Contract.Requires(ctx != null);
 
-            ctx.refCount++;
+            Interlocked.Increment(ref ctx.refCount);
             m_ctx = ctx;
         }
 
@@ -85,7 +85,7 @@ namespace Microsoft.Z3
         {
             Contract.Requires(ctx != null);
 
-            ctx.refCount++;
+            Interlocked.Increment(ref ctx.refCount);
             m_ctx = ctx;
             IncRef(obj);
             m_n_obj = obj;
