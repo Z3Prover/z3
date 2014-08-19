@@ -768,6 +768,29 @@ namespace Duality {
       annot.Simplify();
     }    
 
+    bool recursionBounded;
+
+    /** See if the solution might be bounded. */
+    void TestRecursionBounded(){
+      recursionBounded = false;
+      if(RecursionBound == -1)
+	return;
+      for(unsigned i = 0; i < nodes.size(); i++){
+	Node *node = nodes[i];
+	std::vector<Node *> &insts = insts_of_node[node];
+	for(unsigned j = 0; j < insts.size(); j++)
+	  if(indset->Contains(insts[j]))
+	    if(NodePastRecursionBound(insts[j])){
+	      recursionBounded = true;
+	      return;
+	    }
+      }
+    }    
+
+    bool IsResultRecursionBounded(){
+      return recursionBounded;
+    }
+
     /** Generate a proposed solution of the input RPFP from
 	the unwinding, by unioning the instances of each node. */
     void GenSolutionFromIndSet(bool with_markers = false){
@@ -1026,6 +1049,7 @@ namespace Duality {
 	timer_stop("ProduceCandidatesForExtension");
 	if(candidates.empty()){
 	  GenSolutionFromIndSet();
+	  TestRecursionBounded();
 	  return true;
 	}
 	Candidate cand = candidates.front();
