@@ -31,8 +31,7 @@ namespace opt {
 
     class pbmax : public maxsmt_solver_base {
     public:
-        pbmax(context& c,
-              vector<rational> const& ws, expr_ref_vector const& soft): 
+        pbmax(context& c, weights_t& ws, expr_ref_vector const& soft): 
             maxsmt_solver_base(c, ws, soft) {
         }
         
@@ -88,8 +87,8 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* opt::mk_pbmax(context & c,
-                                     vector<rational> const& ws, expr_ref_vector const& soft) {
+    maxsmt_solver_base* opt::mk_pbmax(
+        context & c, weights_t& ws, expr_ref_vector const& soft) {
         return alloc(pbmax, c, ws, soft);
     }
 

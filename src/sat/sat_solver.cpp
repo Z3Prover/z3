@@ -727,11 +727,7 @@ namespace sat {
             if (inconsistent()) return l_false;
             init_assumptions(num_lits, lits);
             propagate(false);
-            if (inconsistent()) {
-                if (tracking_assumptions()) 
-                    resolve_conflict();
-                return l_false;
-            }
+            if (check_inconsistent()) return l_false;
             cleanup();
             if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {
                 m_restart_threshold = m_config.m_burst_search;
@@ -745,8 +741,8 @@ namespace sat {
 
             // iff3_finder(*this)();            
             simplify_problem();
+            if (check_inconsistent()) return l_false;
 
-            if (inconsistent()) return l_false;
             m_next_simplify = m_config.m_restart_initial * m_config.m_simplify_mult1;
 
             if (m_config.m_max_conflicts == 0) {
@@ -769,6 +765,7 @@ namespace sat {
                 restart();
                 if (m_conflicts >= m_next_simplify) {
                     simplify_problem();
+                    if (check_inconsistent()) return l_false;
                     m_next_simplify = static_cast<unsigned>(m_conflicts * m_config.m_simplify_mult2);
                     if (m_next_simplify > m_conflicts + m_config.m_simplify_max)
                         m_next_simplify = m_conflicts + m_config.m_simplify_max;
@@ -883,6 +880,17 @@ namespace sat {
                     return l_true;
                 }
             }
+        }
+    }
+
+    bool solver::check_inconsistent() {
+        if (inconsistent()) {
+            if (tracking_assumptions()) 
+                resolve_conflict();
+            return true;
+        }
+        else {
+            return false;
         }
     }
 
@@ -1575,32 +1583,37 @@ namespace sat {
         bool_var var     = antecedent.var();
         unsigned var_lvl = lvl(var);
         SASSERT(var < num_vars());
+        TRACE("sat", tout << antecedent << " " << (is_marked(var)?"+":"-") << "\n";);
         if (!is_marked(var)) {
             mark(var);
             m_unmark.push_back(var);
             if (is_assumption(antecedent)) {
                 m_core.push_back(antecedent);
             }
-        }        
+        }
     }
 
     void solver::process_consequent_for_unsat_core(literal consequent, justification const& js) {
-        TRACE("sat", tout << "processing consequent: " << consequent << "\n";
+        TRACE("sat", tout << "processing consequent: ";
+              if (consequent == null_literal) tout << "null\n";
+              else tout << consequent << "\n";
               display_justification(tout << "js kind: ", js);
               tout << "\n";);
         switch (js.get_kind()) {
         case justification::NONE:
             break;
         case justification::BINARY:
+            SASSERT(consequent != null_literal);
             process_antecedent_for_unsat_core(~(js.get_literal()));
             break;
         case justification::TERNARY:
+            SASSERT(consequent != null_literal);
             process_antecedent_for_unsat_core(~(js.get_literal1()));
             process_antecedent_for_unsat_core(~(js.get_literal2()));
             break;
         case justification::CLAUSE: {
             clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
-            unsigned i   = 0;
+            unsigned i = 0;
             if (consequent != null_literal) {
                 SASSERT(c[0] == consequent || c[1] == consequent);
                 if (c[0] == consequent) {
@@ -1611,7 +1624,7 @@ namespace sat {
                     i = 2;
                 }
             }
-            unsigned sz  = c.size();
+            unsigned sz = c.size();
             for (; i < sz; i++)
                 process_antecedent_for_unsat_core(~c[i]);
             break;
@@ -1652,6 +1665,11 @@ namespace sat {
         if (m_conflict_lvl == 0) {
             return;
         }
+        SASSERT(m_unmark.empty());
+        DEBUG_CODE({
+                for (unsigned i = 0; i < m_trail.size(); ++i) {
+                    SASSERT(!is_marked(m_trail[i].var()));
+                }});
 
         unsigned old_size = m_unmark.size();        
         int idx = skip_literals_above_conflict_level();
@@ -1674,9 +1692,9 @@ namespace sat {
         literal consequent = m_not_l;
         justification js   = m_conflict;
 
+
         while (true) {
             process_consequent_for_unsat_core(consequent, js);
-            idx--;
             while (idx >= 0) {
                 literal l = m_trail[idx];
                 if (is_marked(l.var()))
@@ -1695,6 +1713,7 @@ namespace sat {
             bool_var c_var = consequent.var();
             SASSERT(lvl(consequent) == m_conflict_lvl);
             js             = m_justification[c_var];
+            idx--;
         }        
         reset_unmark(old_size);
         if (m_config.m_minimize_core) {
@@ -1983,7 +2002,8 @@ namespace sat {
        assigned at level 0.
     */
     void solver::minimize_lemma() {
-        m_unmark.reset();
+        SASSERT(m_unmark.empty());
+        //m_unmark.reset();
         updt_lemma_lvl_set();
 
         unsigned sz   = m_lemma.size();

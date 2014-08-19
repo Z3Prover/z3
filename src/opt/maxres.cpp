@@ -85,7 +85,7 @@ private:
 
 public:
     maxres(context& c,
-           vector<rational> const& ws, expr_ref_vector const& soft, 
+           weights_t& ws, expr_ref_vector const& soft, 
            strategy_t st):
         maxsmt_solver_base(c, ws, soft),
         m_B(m), m_asms(m),
@@ -658,18 +658,18 @@ public:
 
 };
 
-opt::maxsmt_solver_base* opt::mk_maxres(context& c,
-                                        vector<rational> const& ws, expr_ref_vector const& soft) {
+opt::maxsmt_solver_base* opt::mk_maxres(
+    context& c, weights_t& ws, expr_ref_vector const& soft) {
     return alloc(maxres, c, ws, soft, maxres::s_mus);
 }
 
-opt::maxsmt_solver_base* opt::mk_mus_mss_maxres(context& c,
-                                        vector<rational> const& ws, expr_ref_vector const& soft) {
+opt::maxsmt_solver_base* opt::mk_mus_mss_maxres(
+    context& c, weights_t& ws, expr_ref_vector const& soft) {
     return alloc(maxres, c, ws, soft, maxres::s_mus_mss);
 }
 
-opt::maxsmt_solver_base* opt::mk_mss_maxres(context& c,
-                                        vector<rational> const& ws, expr_ref_vector const& soft) {
+opt::maxsmt_solver_base* opt::mk_mss_maxres(
+    context& c, weights_t& ws, expr_ref_vector const& soft) {
     return alloc(maxres, c, ws, soft, maxres::s_mss);
 }
 

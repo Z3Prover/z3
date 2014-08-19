@@ -34,6 +34,7 @@ namespace opt {
 
     class opt_solver;
 
+
     class context : public opt_wrapper, public pareto_callback {
         struct free_func_visitor;
         typedef map<symbol, maxsmt*, symbol_hash_proc, symbol_eq_proc> map_t;
@@ -175,7 +176,7 @@ namespace opt {
         solver& get_solver();
         ast_manager& get_manager() { return this->m; }
         params_ref& params() { return m_params; }
-        void enable_sls(expr_ref_vector const& soft, vector<rational> const& weights);
+        void enable_sls(expr_ref_vector const& soft, weights_t& weights);
         symbol const& maxsat_engine() const { return m_maxsat_engine; }
 
 

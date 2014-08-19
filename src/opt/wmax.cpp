@@ -84,11 +84,13 @@ namespace opt {
         lbool operator()() {
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
+            solver::scoped_push _s1(s());
             lbool is_sat = l_true;
             bool was_sat = false;
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 wth().assert_weighted(m_soft[i].get(), m_weights[i]);
             }
+            solver::scoped_push _s2(s());
             while (l_true == is_sat) {
                 is_sat = s().check_sat(0,0);
                 if (m_cancel) {

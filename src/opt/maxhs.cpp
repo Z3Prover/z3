@@ -75,7 +75,7 @@ namespace opt {
 
 
     public:
-        maxhs(context& c, vector<rational> const& ws, expr_ref_vector const& soft):
+        maxhs(context& c, weights_t& ws, expr_ref_vector const& soft):
             maxsmt_solver_base(c, ws, soft), 
             m_aux(m), 
             m_at_lower_bound(false) {
@@ -554,8 +554,8 @@ namespace opt {
         
     };
 
-    maxsmt_solver_base* opt::mk_maxhs(context& c,
-                                     vector<rational> const& ws, expr_ref_vector const& soft) {
+    maxsmt_solver_base* opt::mk_maxhs(
+        context& c, weights_t& ws, expr_ref_vector const& soft) {
         return alloc(maxhs, c, ws, soft);
     }
 

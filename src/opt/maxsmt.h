@@ -27,6 +27,8 @@ Notes:
 
 namespace opt {
 
+    typedef vector<rational> const weights_t;
+
     class context;
 
     class maxsmt_solver {
@@ -63,7 +65,7 @@ namespace opt {
         params_ref       m_params;           // config
 
     public:
-        maxsmt_solver_base(context& c, vector<rational> const& ws, expr_ref_vector const& soft); 
+        maxsmt_solver_base(context& c, weights_t& ws, expr_ref_vector const& soft); 
 
         virtual ~maxsmt_solver_base() {}        
         virtual rational get_lower() const { return m_lower; }
@@ -74,14 +76,14 @@ namespace opt {
         virtual void get_model(model_ref& mdl) { mdl = m_model.get(); }
         void set_model() { s().get_model(m_model); }
         virtual void updt_params(params_ref& p);
-        virtual void init_soft(vector<rational> const& weights, expr_ref_vector const& soft);
+        virtual void init_soft(weights_t& weights, expr_ref_vector const& soft);
         solver& s() { return m_s; }
         void init();
         expr* mk_not(expr* e);
         void set_mus(bool f);
         app* mk_fresh_bool(char const* name);
     protected:
-        void enable_sls(expr_ref_vector const& soft, vector<rational> const& ws);
+        void enable_sls(expr_ref_vector const& soft, weights_t& ws);
     };
 
     /**
@@ -122,7 +124,7 @@ namespace opt {
         void display_answer(std::ostream& out) const;        
         void collect_statistics(statistics& st) const;
     private:
-        bool is_maxsat_problem(vector<rational> const& ws) const;        
+        bool is_maxsat_problem(weights_t& ws) const;        
         void verify_assignment();
     };
 

@@ -26,7 +26,7 @@ namespace opt {
 
     class sls : public maxsmt_solver_base {
     public:
-        sls(context& c, vector<rational> const& ws, expr_ref_vector const& soft): 
+        sls(context& c, weights_t& ws, expr_ref_vector const& soft): 
             maxsmt_solver_base(c, ws, soft) {
         }
         virtual ~sls() {}
@@ -52,8 +52,8 @@ namespace opt {
 
     };
 
-    maxsmt_solver_base* opt::mk_sls(context& c,
-                                    vector<rational> const& ws, expr_ref_vector const& soft) {
+    maxsmt_solver_base* opt::mk_sls(
+        context& c, weights_t& ws, expr_ref_vector const& soft) {
         return alloc(sls, c, ws, soft);
     }
 

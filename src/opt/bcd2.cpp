@@ -57,7 +57,7 @@ namespace opt {
                 es.push_back(m.mk_not(*it));
             }
         }
-        void bcd2_init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
+        void bcd2_init_soft(weights_t& weights, expr_ref_vector const& soft) {
 
             // normalize weights to be integral:
             m_den = rational::one();
@@ -100,7 +100,7 @@ namespace opt {
 
     public:
         bcd2(context& c,
-             vector<rational> const& ws, expr_ref_vector const& soft): 
+             weights_t& ws, expr_ref_vector const& soft): 
             maxsmt_solver_base(c, ws, soft),
             pb(m),
             m_soft_aux(m),
@@ -116,7 +116,6 @@ namespace opt {
             expr_ref fml(m), r(m);
             lbool is_sat = l_undef;
             expr_ref_vector asms(m);
-            solver::scoped_push _scope1(s());
             init();
             init_bcd();
             if (m_cancel) {
@@ -399,8 +398,8 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* opt::mk_bcd2(context& c,
-                                     vector<rational> const& ws, expr_ref_vector const& soft) {
+    maxsmt_solver_base* opt::mk_bcd2(
+        context& c, weights_t& ws, expr_ref_vector const& soft) {
         return alloc(bcd2, c, ws, soft);
     }
 

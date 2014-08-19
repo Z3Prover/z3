@@ -23,8 +23,7 @@ Notes:
 #include "maxsmt.h"
 
 namespace opt {
-    maxsmt_solver_base* mk_pbmax(context& c,
-                               vector<rational> const& ws, expr_ref_vector const& soft);
+    maxsmt_solver_base* mk_pbmax(context& c, weights_t& ws, expr_ref_vector const& soft);
 
 }
 #endif

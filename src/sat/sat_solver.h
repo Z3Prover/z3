@@ -247,6 +247,8 @@ namespace sat {
         bool is_marked_lit(literal l) const { return m_lit_mark[l.index()] != 0; }
         void mark_lit(literal l) { SASSERT(!is_marked_lit(l)); m_lit_mark[l.index()] = true; }
         void unmark_lit(literal l) { SASSERT(is_marked_lit(l)); m_lit_mark[l.index()] = false; }
+        bool check_inconsistent();
+
 
         // -----------------------
         //
