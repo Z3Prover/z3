@@ -1402,7 +1402,7 @@ class MLComponent(Component):
             out.write('\t%s ' % (OCAMLOPT))
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-cclib -lz3ml -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cmxa -linkall\n' % (sub_dir,sub_dir,sub_dir,sub_dir))
+            out.write('-cclib "-Lapi/ml -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cmxa -linkall\n' % (sub_dir,sub_dir,sub_dir,sub_dir))
             out.write('%s: %s\n' % (os.path.join(sub_dir, 'z3.cmxs'), os.path.join(sub_dir, 'z3.cmxa')))
             out.write('\t%s ' % (OCAMLOPT))
             if DEBUG_MODE:
@@ -1415,7 +1415,7 @@ class MLComponent(Component):
             out.write('\t%s ' % (OCAMLC))
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-cclib -lz3ml -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cma -linkall\n' % (sub_dir,sub_dir,sub_dir,sub_dir))
+            out.write('-cclib "-Lapi/ml -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cma -linkall\n' % (sub_dir,sub_dir,sub_dir,sub_dir))
             out.write('ml: %s %s %s\n' % (os.path.join(sub_dir, 'z3.cmxa'), os.path.join(sub_dir, 'z3.cmxs'), os.path.join(sub_dir, 'z3.cma')))
             out.write('\n')
             # Generate META file and package installation commands
