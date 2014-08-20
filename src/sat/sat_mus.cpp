@@ -50,14 +50,16 @@ namespace sat {
         literal_vector& mus = m_mus;
         core.append(s.get_core());        
         for (unsigned i = 0; i < core.size(); ++i) {
-            s.m_user_scope_literals.contains(core[i]);
-            mus.push_back(core[i]);
-            core[i] = core.back();
-            core.pop_back();
-            --i;
+            if (s.m_user_scope_literals.contains(core[i])) {
+                mus.push_back(core[i]);
+                core[i] = core.back();
+                core.pop_back();
+                --i;
+            }
         }
 
         while (!core.empty()) {
+            IF_VERBOSE(2, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
             TRACE("sat", 
                   tout << "core: " << core << "\n";
                   tout << "mus:  " << mus  << "\n";);
