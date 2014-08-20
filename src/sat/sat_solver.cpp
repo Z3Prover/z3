@@ -169,9 +169,9 @@ namespace sat {
     }
 
     void solver::del_clause(clause& c) {
+        if (!c.is_learned()) m_stats.m_non_learned_generation++;
         m_cls_allocator.del_clause(&c); 
         m_stats.m_del_clause++; 
-        if (!c.is_learned()) m_stats.m_non_learned_generation++;
     }
 
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, bool learned) {
