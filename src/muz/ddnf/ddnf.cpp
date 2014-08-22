@@ -180,76 +180,33 @@ namespace datalog {
         return true;
     }
 
-    class dot {
-        tbv         m_pos;
-        vector<tbv> m_negs;
-    public:
-        dot() {}
-        dot(tbv const& pos): m_pos(pos) {}
-        dot(tbv const& pos, vector<tbv> const& negs):
-            m_pos(pos), m_negs(negs) {
-            DEBUG_CODE(
-                for (unsigned i = 0; i < negs.size(); ++i) {
-                    SASSERT(pos.size() == negs[i].size());
-                }
-                );
-        }
-
-        tbv const& pos() const { return m_pos; }
-        tbv neg(unsigned i) const { return m_negs[i]; }
-        unsigned size() const { return m_negs.size(); }
-        unsigned num_bits() const { return m_pos.size(); }
-
-        bool operator==(dot const& other) const {
-            if (m_pos != other.m_pos) return false;
-            if (m_negs.size() != other.m_negs.size()) return false;
-            for (unsigned i = 0; i < m_negs.size(); ++i) {
-                if (m_negs[i] != other.m_negs[i]) return false;
-            }
-            return true;
-        }
-
-        void display(std::ostream& out) {
-            out << "<";
-            m_pos.display(out);
-            out << "\\";
-            for (unsigned i = 0; i < m_negs.size(); ++i) {
-                m_negs[i].display(out);
-                if (i + 1 < m_negs.size()) out << " u ";
-            }
-            out << ">";
-        }
-
-        struct eq {
-            bool operator()(dot const& d1, dot const& d2) const {
-                return d1 == d2;
-            }
-        };
-
-        struct hash {
-            unsigned operator()(dot const& d) const {
-                unsigned h = d.pos().get_hash();
-                for (unsigned i = 0; i < d.size(); ++i) {
-                    h ^= d.neg(i).get_hash();
-                }
-                return h;
-            }
-        };
-
-    };
-
     class ddnf_mgr;
     class ddnf_node;
     typedef ref_vector<ddnf_node, ddnf_mgr> ddnf_node_vector;
 
     class ddnf_node {
+    public:
+
+        struct eq {
+            bool operator()(ddnf_node* n1, ddnf_node* n2) const {
+                return n1->get_tbv() == n2->get_tbv();
+            }
+        };
+
+        struct hash {
+            unsigned operator()(ddnf_node* n) const {
+                return n->get_tbv().get_hash();
+            }
+        };
+
+        typedef ptr_hashtable<ddnf_node, ddnf_node::hash, ddnf_node::eq> ddnf_nodes;
+    private:
         tbv                   m_tbv;
         ddnf_node_vector      m_children;
-        vector<dot>           m_pos;
-        vector<dot>           m_neg;
         unsigned              m_refs;
         unsigned              m_id;
-        
+        ddnf_nodes            m_descendants;
+
         friend class ddnf_mgr;
 
     public:
@@ -274,17 +231,7 @@ namespace datalog {
             }
         }
 
-        struct eq {
-            bool operator()(ddnf_node* n1, ddnf_node* n2) const {
-                return n1->get_tbv() == n2->get_tbv();
-            }
-        };
-
-        struct hash {
-            unsigned operator()(ddnf_node* n) const {
-                return n->get_tbv().get_hash();
-            }
-        };
+        ddnf_nodes& descendants() { return m_descendants; }
 
         unsigned get_id() const { return m_id; }
         
@@ -293,18 +240,12 @@ namespace datalog {
         ddnf_node* operator[](unsigned index) { return m_children[index].get(); }
 
         tbv const& get_tbv() const { return m_tbv; }
-        vector<dot> const& pos() const { return m_pos; }
-        vector<dot> const& neg() const { return m_neg; }
 
         void add_child(ddnf_node* n);
         
         void remove_child(ddnf_node* n);
         
         bool contains_child(ddnf_node* n) const;
-
-        ddnf_node* add_pos(dot const& d) { m_pos.push_back(d); return this; }
-
-        ddnf_node* add_neg(dot const& d) { m_neg.push_back(d); return this; }
 
         void display(std::ostream& out) const {
             out << "node[" << get_id() << ": ";
@@ -316,16 +257,14 @@ namespace datalog {
         }
     };
 
-    typedef ptr_hashtable<ddnf_node, ddnf_node::hash, ddnf_node::eq> ddnf_nodes;
-    typedef map<dot, ddnf_nodes*, dot::hash, dot::eq> dot2nodes;
+    typedef ddnf_node::ddnf_nodes ddnf_nodes;
+
 
     class ddnf_mgr {        
         unsigned               m_num_bits;
         ddnf_node*             m_root;
         ddnf_node_vector       m_noderefs;
         ddnf_nodes             m_nodes;
-        ptr_vector<ddnf_nodes> m_tables;
-        dot2nodes              m_dots;
         bool                   m_internalized;
     public:
         ddnf_mgr(unsigned n): m_num_bits(n), m_noderefs(*this), m_internalized(false) {
@@ -336,7 +275,6 @@ namespace datalog {
 
         ~ddnf_mgr() {
             m_noderefs.reset();
-            std::for_each(m_tables.begin(), m_tables.end(), delete_proc<ddnf_nodes>());
         }
 
         void inc_ref(ddnf_node* n) {
@@ -347,31 +285,25 @@ namespace datalog {
             n->dec_ref();
         }
 
-        void insert(dot const& d) {            
-            SASSERT(d.num_bits() == m_num_bits);
+        ddnf_node* insert(tbv const& t) {
+            SASSERT(t.size() == m_num_bits);
             SASSERT(!m_internalized);
-            if (m_dots.contains(d)) return;
-            ddnf_nodes* ns = alloc(ddnf_nodes);
-            m_tables.push_back(ns);
-            m_dots.insert(d, ns);
-            insert_tbv(d.pos())->add_pos(d);
-            for (unsigned i = 0; i < d.size(); ++i) {
-                insert_tbv(d.neg(i))->add_neg(d);
+            vector<tbv> new_tbvs;
+            new_tbvs.push_back(t);
+            for (unsigned i = 0; i < new_tbvs.size(); ++i) {
+                tbv const& nt = new_tbvs[i];
+                if (contains(nt)) continue;
+                ddnf_node* n = alloc(ddnf_node, *this, nt, m_noderefs.size());
+                m_noderefs.push_back(n);
+                m_nodes.insert(n);
+                insert(*m_root, n, new_tbvs);
             }
-        }
-
-        void insert(tbv const& t) {
-            insert(dot(t));
-        }
-
-        ddnf_nodes const& lookup(dot const& d)  {
-            internalize();
-            return *m_dots.find(d);
+            return find(t);
         }
 
         ddnf_nodes const& lookup(tbv const& t)  {
             internalize();
-            return *m_dots.find(dot(t));
+            return find(t)->descendants();
         }
 
         void display(std::ostream& out) const {
@@ -383,7 +315,6 @@ namespace datalog {
 
     private:
 
-
         ddnf_node* find(tbv const& t) {
             ddnf_node dummy(*this, t, 0);
             return *(m_nodes.find(&dummy));
@@ -393,21 +324,6 @@ namespace datalog {
             ddnf_node dummy(*this, t, 0);
             return m_nodes.contains(&dummy);
         }    
-
-        ddnf_node* insert_tbv(tbv const& t) {
-            vector<tbv> new_tbvs;
-            new_tbvs.push_back(t);
-            for (unsigned i = 0; i < new_tbvs.size(); ++i) {
-                tbv const& nt = new_tbvs[i];
-                if (contains(nt))  continue;
-                ddnf_node* n = alloc(ddnf_node, *this, nt, m_noderefs.size());
-                m_noderefs.push_back(n);
-                m_nodes.insert(n);
-                insert(*m_root, n, new_tbvs);
-            }
-            return find(t);
-        }
-
 
         void insert(ddnf_node& root, ddnf_node* new_n, vector<tbv>& new_intersections) {
             tbv const& new_tbv = new_n->get_tbv();
@@ -435,11 +351,9 @@ namespace datalog {
                 if (child.get_tbv().is_subset(new_tbv)) {
                     subset_children.push_back(&child);
                 }
-                // this means there is a non-full intersection
-                else {
-                    if (intersect(child.get_tbv(), new_tbv, intr)) {
-                        new_intersections.push_back(intr);
-                    }
+                else if (intersect(child.get_tbv(), new_tbv, intr)) {
+                    // this means there is a non-full intersection
+                    new_intersections.push_back(intr);
                 }
             }
             for (unsigned i = 0; i < subset_children.size(); ++i) {
@@ -451,44 +365,47 @@ namespace datalog {
 
 
         void internalize() {
-            // create map: dot |-> ddnf_node set
-            if (!m_internalized) {                
-                vector<dot> dots1, dots2;
-                add_pos(*m_root, dots1);
-                del_neg(*m_root, dots2);    
-                m_internalized = true;
+            // populate maps (should be bit-sets) of decendants.
+            if (m_internalized) {                
+                return;
             }
-        }
-        
-        void add_pos(ddnf_node& n, vector<dot>& active) {
-            for (unsigned i = 0; i < n.pos().size(); ++i) {                
-                active.push_back(n.pos()[i]);
-                // TBD: Garvit; prove (or disprove): there are no repetitions.
-                // the argument may be that the sub-expressions are
-                // traversed in DFS order, and that repeated dots
-                // cannot occur below each-other.
+            ptr_vector<ddnf_node> todo;
+            todo.push_back(m_root);
+            svector<bool> done(m_noderefs.size(), false);
+            while (!todo.empty()) {
+                ddnf_node& n = *todo.back();
+                if (done[n.get_id()]) {
+                    todo.pop_back();
+                    continue;
+                }
+                unsigned sz = n.num_children();
+                bool all_done = true;
+                for (unsigned i = 0; i < sz; ++i) {
+                    ddnf_node* child = n[i];
+                    if (!done[child->get_id()]) {
+                        all_done = false;
+                        todo.push_back(child);
+                    }
+                }
+                if (all_done) {
+                    n.descendants().insert(&n);
+                    for (unsigned i = 0; i < sz; ++i) {
+                        ddnf_node* child = n[i];
+                        add_table(n.descendants(), child->descendants());
+                    }
+                    done[n.get_id()] = true;
+                    todo.pop_back();
+                }                
             }
-            for (unsigned i = 0; i < active.size(); ++i) {
-                m_dots.find(active[i])->insert(&n);
-            }
-            for (unsigned i = 0; i < n.num_children(); ++i) {
-                vector<dot> active1(active);
-                add_pos(*n[i], active1);
-            }            
+            m_internalized = true;            
         }
 
-        void del_neg(ddnf_node& n, vector<dot>& active) {
-            for (unsigned i = 0; i < n.neg().size(); ++i) {                
-                active.push_back(n.neg()[i]);
+        void add_table(ddnf_nodes& dst, ddnf_nodes const& src) {
+            ddnf_nodes::iterator it = src.begin(), end = src.end();
+            for (; it != end; ++it) {
+                dst.insert(*it);
             }
-            for (unsigned i = 0; i < active.size(); ++i) {
-                m_dots.find(active[i])->remove(&n);
-            }
-            for (unsigned i = 0; i < n.num_children(); ++i) {
-                vector<dot> active1(active);
-                del_neg(*n[i], active1);
-            }          
-        } 
+        }
         
     };
 
@@ -518,22 +435,18 @@ namespace datalog {
             }
         }
         
-        void insert(dot const& d) {
-            unsigned n = d.num_bits();
+        void insert(tbv const& t) {
+            unsigned n = t.size();
             ddnf_mgr* m = 0;
             if (!m_mgrs.find(n, m)) {
                 m = alloc(ddnf_mgr, n);
                 m_mgrs.insert(n, m);
             }
-            m->insert(d);
-        }
-
-        void insert(tbv const& t) {
-            insert(dot(t));
+            m->insert(t);
         }
         
-        ddnf_nodes const& lookup(dot const& d) const {
-            return m_mgrs.find(d.num_bits())->lookup(d);
+        ddnf_node::ddnf_nodes const& lookup(tbv const& t) const {
+            return m_mgrs.find(t.size())->lookup(t);
         }
 
         void display(std::ostream& out) const {
@@ -542,8 +455,8 @@ namespace datalog {
                 it->m_value->display(out);
             }
         }
-
     };
+
 
 
     class ddnf::imp {
@@ -577,7 +490,10 @@ namespace datalog {
 
         lbool query(expr* query) {
             m_ctx.ensure_opened();
-            if (!process_rules()) {
+            if (!pre_process_rules()) {
+                return l_undef;
+            }
+            if (!compile_rules()) {
                 return l_undef;
             }
             IF_VERBOSE(0, verbose_stream() << "rules are OK\n";);
@@ -622,7 +538,20 @@ namespace datalog {
             return l_undef;
         }
 
-        bool process_rules()  {
+        bool compile_rules() {
+            rule_set const& rules = m_ctx.get_rules();
+            datalog::rule_set::iterator it  = rules.begin();
+            datalog::rule_set::iterator end = rules.end();
+            unsigned idx = 0;
+            for (; it != end; ++idx, ++it) {
+                if (!compile_rule(**it, idx)) {
+                    return false;
+                }
+            }
+            return true;            
+        }
+
+        bool pre_process_rules()  {
             m_visited1.reset();
             m_todo.reset();
             m_cache.reset();
@@ -630,14 +559,14 @@ namespace datalog {
             datalog::rule_set::iterator it  = rules.begin();
             datalog::rule_set::iterator end = rules.end();
             for (; it != end; ++it) {
-                if (!process_rule(**it)) {
+                if (!pre_process_rule(**it)) {
                     return false;
                 }
             }
             return true;
         }
 
-        bool process_rule(rule const& r) {
+        bool pre_process_rule(rule const& r) {
             // all predicates are monadic.
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned sz = r.get_tail_size();
@@ -730,41 +659,44 @@ namespace datalog {
             return true;
         }
 
-        void compile(expr* phi) {
+        bool compile_rule(rule& r, unsigned idx) {
+            return true;
+
+            //
             // TBD: 
-
-            // for each v 
-            // associate a set of ddnf nodes that they can
-            // take.
-            // - for each v, find the number of nodes associated with
-            //   bit-width of v.
-            // - associate bit-vector for such nodes (the ids are consecutive).
-            // - compile formula into cross-product of such ranges.
-            // - disjunction requires special casing (which is not typical case)
-            // - negation over a tbv is the complemment of the set associated with
-            //   the tbv.
-            
-
-            // extract(hi, lo, v) == k
-            // |->
-            // tbv (set of nodes associated with tbv)            
-
-            // compile(not (phi))
-            // |-> complement of ddnf nodes associated with phi
-            
-            // compile (phi1 & phi2)
-            // |-> intersection of ddnf nodes associated with phi1, phi2
-            
-            // compile (phi | phi2)
-            // |-> union
-            
-            // v1 == v2
-            // no-op !!!
-
-            // extract(hi1, lo1, v) == extract(h2, lo2, v)
-            // |-> TBD
-
+            // 1: H(x) :- P(x), phi(x).
+            // 2: H(x) :- P(y), phi(x), psi(y).
+            // 3: H(x) :- P(y), R(z), phi(x), psi(y), rho(z).
+            // 4: general case ...
             // 
+            // 1. compile phi(x) into a filter set.
+            //    map each element in the filter set into P |-> E |-> rule
+            // 2. compile psi(y) into filter set P |-> E |-> rule
+            // 3. compile P |-> E |-> (rule,1), 2. R |-> E |-> rule (map for second position).
+            // 
+            // E |-> rule is trie for elements of tuple E into set of rules as a bit-vector.
+            // 
+
+            // work list
+
+            if (is_forwarding_rule(r)) {
+                return true;
+            }
+            // r.display(m_ctx, std::cout);
+            return true;
+        }
+
+        bool is_forwarding_rule(rule const& r) {
+            unsigned utsz = r.get_uninterpreted_tail_size();
+            unsigned sz = r.get_tail_size();
+            if (utsz != 1) return false;
+            app* h = r.get_head();
+            app* p = r.get_tail(0);
+            if (h->get_num_args() != p->get_num_args()) return false;
+            for (unsigned i = 0; i < h->get_num_args(); ++i) {
+                if (h->get_arg(i) != p->get_arg(i)) return false;
+            }
+            return true;
         }
 
     };
@@ -799,3 +731,154 @@ namespace datalog {
     }
 
 };
+
+#if 0
+
+        void add_pos(ddnf_node& n, vector<dot>& active) {
+            for (unsigned i = 0; i < n.pos().size(); ++i) {                
+                active.push_back(n.pos()[i]);
+                // TBD: Garvit; prove (or disprove): there are no repetitions.
+                // the argument may be that the sub-expressions are
+                // traversed in DFS order, and that repeated dots
+                // cannot occur below each-other.
+            }
+            for (unsigned i = 0; i < active.size(); ++i) {
+                m_dots.find(active[i])->insert(&n);
+            }
+            for (unsigned i = 0; i < n.num_children(); ++i) {
+                vector<dot> active1(active);
+                add_pos(*n[i], active1);
+            }            
+        }
+
+        void del_neg(ddnf_node& n, vector<dot>& active) {
+            for (unsigned i = 0; i < n.neg().size(); ++i) {                
+                active.push_back(n.neg()[i]);
+            }
+            for (unsigned i = 0; i < active.size(); ++i) {
+                m_dots.find(active[i])->remove(&n);
+            }
+            for (unsigned i = 0; i < n.num_children(); ++i) {
+                vector<dot> active1(active);
+                del_neg(*n[i], active1);
+            }          
+        } 
+
+    class trie {
+    public:
+        class node {
+
+        };
+
+        class leaf : public trie_node {
+            bit_vector m_set;
+        public:
+            leaf(unsigned n): m_set(n) {
+                m_set.resize(n, false);
+            }
+            bit_vector& set() { return m_set; }            
+        };
+
+        class node : public trie_node {
+            u_map<node*> m_map;
+        public:
+            u_map<node*> map() { return m_map; }
+        };
+           
+        // insert 
+        //   bv1 x bv2 x bv3 -> set bit-i of n-bits
+        // such that every value in (bv1,bv2,bv3) maps to an element where bit-i is set.
+        // for each j1 in bv1:
+        // if j1 is in root of trie, then insert recursively with bv2, bv3
+        // else insert recursively into empty node, each bit in bv1 point 
+        // to returned node.
+    private:
+        trie_node* insert(unsigned nbv, bit_vector const* bvs, unsigned i, trie_node* n) {
+            if (nbv == 0) {
+                SASSERT(!n);
+                return mk_leaf(i);
+            }
+            bit_vector const& bv = bvs[0];
+            if (!n) {
+                n = insert(nbv-1, bvs+1, i, n);
+                node* nd = mk_node();
+                for (unsigned j = 0; j < bv.size(); ++j) {
+                    if (bv.get(j)) {
+                        nd->map().insert(j, n);
+                    }
+                }
+                return nd;
+            }
+            
+        }
+    };
+#endif
+
+#if 0
+    class dot {
+        tbv         m_pos;
+        vector<tbv> m_negs;
+    public:
+        dot() {}
+        dot(tbv const& pos): m_pos(pos) {}
+        dot(tbv const& pos, vector<tbv> const& negs):
+            m_pos(pos), m_negs(negs) {
+            DEBUG_CODE(
+                for (unsigned i = 0; i < negs.size(); ++i) {
+                    SASSERT(pos.size() == negs[i].size());
+                }
+                );
+        }
+
+        tbv const& pos() const { return m_pos; }
+        tbv neg(unsigned i) const { return m_negs[i]; }
+        unsigned size() const { return m_negs.size(); }
+        unsigned num_bits() const { return m_pos.size(); }
+
+        bool operator==(dot const& other) const {
+            if (m_pos != other.m_pos) return false;
+            if (m_negs.size() != other.m_negs.size()) return false;
+            for (unsigned i = 0; i < m_negs.size(); ++i) {
+                if (m_negs[i] != other.m_negs[i]) return false;
+            }
+            return true;
+        }
+
+        void display(std::ostream& out) {
+            out << "<";
+            m_pos.display(out);
+            out << "\\";
+            for (unsigned i = 0; i < m_negs.size(); ++i) {
+                m_negs[i].display(out);
+                if (i + 1 < m_negs.size()) out << " u ";
+            }
+            out << ">";
+        }
+
+        struct eq {
+            bool operator()(dot const& d1, dot const& d2) const {
+                return d1 == d2;
+            }
+        };
+
+        struct hash {
+            unsigned operator()(dot const& d) const {
+                unsigned h = d.pos().get_hash();
+                for (unsigned i = 0; i < d.size(); ++i) {
+                    h ^= d.neg(i).get_hash();
+                }
+                return h;
+            }
+        };
+
+    };
+
+        vector<dot>           m_pos;
+        vector<dot>           m_neg;
+        vector<dot> const& pos() const { return m_pos; }
+        vector<dot> const& neg() const { return m_neg; }
+        ddnf_node* add_pos(dot const& d) { m_pos.push_back(d); return this; }
+        ddnf_node* add_neg(dot const& d) { m_neg.push_back(d); return this; }
+
+
+#endif
