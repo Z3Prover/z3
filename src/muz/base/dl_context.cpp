@@ -712,6 +712,8 @@ namespace datalog {
             check_existential_tail(r);
             check_positive_predicates(r);
             break;
+        case DDNF_ENGINE:
+            break;
         case LAST_ENGINE:
         default:
             UNREACHABLE();
@@ -932,6 +934,9 @@ namespace datalog {
         else if (e == symbol("duality")) {
             m_engine_type = DUALITY_ENGINE;
         }
+        else if (e == symbol("ddnf")) {
+            m_engine_type = DDNF_ENGINE;
+        }
 
         if (m_engine_type == LAST_ENGINE) {
             expr_fast_mark1 mark;
@@ -980,6 +985,7 @@ namespace datalog {
         case QBMC_ENGINE:
         case TAB_ENGINE:
         case CLP_ENGINE:
+        case DDNF_ENGINE:
             flush_add_rules();
             break;
         case DUALITY_ENGINE:

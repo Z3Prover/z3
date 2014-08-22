@@ -902,6 +902,11 @@ namespace sat {
         m_assumption_set.reset();        
         push();
 
+        propagate(false);
+        if (inconsistent()) {
+            return;
+        }
+
         TRACE("sat", 
               for (unsigned i = 0; i < num_lits; ++i) 
                   tout << lits[i] << " ";
@@ -916,14 +921,16 @@ namespace sat {
         m_assumption_set.insert(_l_);        \
         m_assumptions.push_back(_l_);        \
         assign(_l_, justification());        \
+//        propagate(false);                     \
+
+        for (unsigned i = 0; !inconsistent() && i < m_user_scope_literals.size(); ++i) {
+            literal nlit = ~m_user_scope_literals[i];
+            _INSERT_LIT(nlit);
+        }
 
         for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
             literal lit = lits[i];
             _INSERT_LIT(lit);
-        }
-        for (unsigned i = 0; !inconsistent() && i < m_user_scope_literals.size(); ++i) {
-            literal nlit = ~m_user_scope_literals[i];
-            _INSERT_LIT(nlit);
         }
     }
 

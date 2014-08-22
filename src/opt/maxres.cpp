@@ -82,6 +82,7 @@ private:
     expr_ref_vector  m_trail;
     strategy_t       m_st;
     rational         m_max_upper;
+    bool             m_hill_climb;
 
 public:
     maxres(context& c,
@@ -92,7 +93,8 @@ public:
         m_mus(m_s, m),
         m_mss(m_s, m),
         m_trail(m),
-        m_st(st)
+        m_st(st),
+        m_hill_climb(true)
     {
     }
 
@@ -299,7 +301,21 @@ public:
             TRACE("opt",
                   display_vec(tout << "core: ", core.size(), core.c_ptr());
                   display_vec(tout << "assumptions: ", asms.size(), asms.c_ptr()););
-            is_sat = s().check_sat(asms.size(), asms.c_ptr());            
+
+            if (m_hill_climb) {
+                /**
+                   Give preference to cores that have large minmal values.
+                */
+                sort_assumptions(asms);            
+                unsigned index = 0;
+                while (index < asms.size() && is_sat != l_false) {
+                    index = next_index(asms, index);
+                    is_sat = s().check_sat(index, asms.c_ptr());
+                }            
+            }
+            else {
+                is_sat = s().check_sat(asms.size(), asms.c_ptr());            
+            }
         }
         TRACE("opt", 
               tout << "num cores: " << cores.size() << "\n";
@@ -314,6 +330,36 @@ public:
         return is_sat;
     }
 
+
+    struct compare_asm {
+        maxres& mr;
+        compare_asm(maxres& mr):mr(mr) {}
+        bool operator()(expr* a, expr* b) const {
+            return mr.get_weight(a) > mr.get_weight(b);
+        }
+    };
+
+    void sort_assumptions(expr_ref_vector& _asms) {
+        compare_asm comp(*this);
+        ptr_vector<expr> asms(_asms.size(), _asms.c_ptr());
+        expr_ref_vector trail(_asms);
+        std::sort(asms.begin(), asms.end(), comp);
+        _asms.reset();
+        _asms.append(asms.size(), asms.c_ptr());
+        DEBUG_CODE(
+            for (unsigned i = 0; i + 1 < asms.size(); ++i) {
+                SASSERT(get_weight(asms[i]) >= get_weight(asms[i+1]));
+            });
+    }
+
+    unsigned next_index(expr_ref_vector const& asms, unsigned index) {
+        if (index < asms.size()) {
+            rational w = get_weight(asms[index]);
+            ++index;
+            for (; index < asms.size() && w == get_weight(asms[index]); ++index);
+        }
+        return index;
+    }
 
     lbool process_sat(ptr_vector<expr>& corr_set) {
         expr_ref fml(m), tmp(m);
@@ -379,7 +425,7 @@ public:
         return l_true;
     }
 
-    rational get_weight(expr* e) {
+    rational get_weight(expr* e) const {
         return m_asm2weight.find(e);
     }
 

@@ -200,6 +200,9 @@ public:
     bit_vector & operator&=(bit_vector const & source);
     
     void display(std::ostream & out) const;
+
+    bool contains(const bit_vector & other) const;
+
 };
 
 inline std::ostream & operator<<(std::ostream & out, bit_vector const & b) {

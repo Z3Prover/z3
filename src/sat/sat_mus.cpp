@@ -71,7 +71,7 @@ namespace sat {
             literal lit = core.back();
             core.pop_back();
             unsigned sz = mus.size();
-            // mus.push_back(~lit); // TBD: measure
+            mus.push_back(~lit); // TBD: measure
             mus.append(core);
             lbool is_sat = s.check(mus.size(), mus.c_ptr());
             TRACE("sat", tout << "mus: " << mus << "\n";);
@@ -102,6 +102,7 @@ namespace sat {
                         core.push_back(lit);
                     }
                 }
+                IF_VERBOSE(2, verbose_stream() << "reduced core: " << core.size() << "\n";);
                 break;
             }
         }

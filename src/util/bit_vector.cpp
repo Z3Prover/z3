@@ -208,6 +208,22 @@ void bit_vector::display(std::ostream & out) const {
 #endif
 }
 
+bool bit_vector::contains(bit_vector const& other) const {
+    unsigned n = num_words();
+    if (n == 0)
+        return true;
+    
+    for (unsigned i = 0; i < n - 1; ++i) {
+        if ((m_data[i] & other.m_data[i]) != other.m_data[i])
+            return false;
+    }
+    unsigned bit_rest = m_num_bits % 32;
+    unsigned mask = (1U << bit_rest) - 1;
+    if (mask == 0) mask = UINT_MAX;
+    unsigned other_data = other.m_data[n-1] & mask;
+    return (m_data[n-1] & other_data) == other_data;
+}
+
 void fr_bit_vector::reset() {
     unsigned sz = size();
     unsigned_vector::const_iterator it  = m_one_idxs.begin();
