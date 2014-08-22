@@ -125,6 +125,8 @@ public:
     unsigned get_word(unsigned word_idx) const {
         return m_data[word_idx];
     }
+
+    unsigned get_hash() const;
     
     bool get(unsigned bit_idx) const {
         SASSERT(bit_idx < size());

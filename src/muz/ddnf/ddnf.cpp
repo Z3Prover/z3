@@ -93,14 +93,16 @@ namespace datalog {
             return bit_vector::operator==(other);
         }
 
+        unsigned get_hash() const {
+            return bit_vector::get_hash();
+        }
+
         void resize(unsigned n, unsigned val) {
             while (size() < n) {
                 bit_vector::push_back((val & 2) != 0);
                 bit_vector::push_back((val & 1) != 0);
             }
         }
-
-        bool empty() const { return false; } // TBD
 
         bool is_subset(tbv const& other) const {
             SASSERT(size() == other.size());
@@ -134,6 +136,8 @@ namespace datalog {
                 }
             }
         }
+        
+        friend bool intersect(tbv const& a, tbv const& b, tbv& result);
 
     private:
         void set(unsigned index, unsigned value) {
@@ -146,15 +150,28 @@ namespace datalog {
             index *= 2;
             return (bit_vector::get(index) << 1) | (unsigned)bit_vector::get(index+1);
         }
-
     };
+
+    bool intersect(tbv const& a, tbv const& b, tbv& result) {
+        result = a;
+        result &= b;
+        for (unsigned i = 0; i < result.size(); ++i) {
+            if (result.get(i) == BIT_z) return false;
+        }
+        return true;
+    }
 
     class dot {
         tbv         m_pos;
         vector<tbv> m_negs;
     public:
+        dot() {}
         dot(tbv const& pos, vector<tbv> const& negs):
             m_pos(pos), m_negs(negs) {}
+
+        tbv const& pos() const { return m_pos; }
+        tbv neg(unsigned i) const { return m_negs[i]; }
+        unsigned size() const { return m_negs.size(); }
 
         bool operator==(dot const& other) const {
             if (m_pos != other.m_pos) return false;
@@ -164,6 +181,7 @@ namespace datalog {
             }
             return true;
         }
+
         void display(std::ostream& out) {
             out << "<";
             m_pos.display(out);
@@ -174,6 +192,28 @@ namespace datalog {
             }
             out << ">";
         }
+
+        struct eq {
+            bool operator()(dot const& d1, dot const& d2) const {
+                if (d1.pos() != d2.pos()) return false;
+                if (d1.size() != d2.size()) return false;
+                for (unsigned i = 0; i < d1.size(); ++i) {
+                    if (d1.neg(i) != d2.neg(i)) return false;
+                }
+                return true;
+            }
+        };
+
+        struct hash {
+            unsigned operator()(dot const& d) const {
+                unsigned h = d.pos().get_hash();
+                for (unsigned i = 0; i < d.size(); ++i) {
+                    h ^= d.neg(i).get_hash();
+                }
+                return h;
+            }
+        };
+
     };
 
     class ddnf_mgr;
@@ -186,28 +226,53 @@ namespace datalog {
         vector<dot>           m_pos;
         vector<dot>           m_neg;
         unsigned              m_refs;
+        unsigned              m_id;
         
+        friend class ddnf_mgr;
+
     public:
-        ddnf_node(ddnf_mgr& m, tbv const& tbv):
+        ddnf_node(ddnf_mgr& m, tbv const& tbv, unsigned id):
             m_tbv(tbv),
             m_children(m),
-            m_refs(0) {                        
+            m_refs(0),
+            m_id(id) {                        
         }
+
+        ~ddnf_node() {}
 
         unsigned inc_ref() {
             return ++m_refs;
         }
 
-        unsigned dec_ref() {
+        void dec_ref() {
             SASSERT(m_refs > 0);
-            return --m_refs;
+            --m_refs;
+            if (m_refs == 0) {
+                dealloc(this);
+            }
         }
+
+        struct eq {
+            bool operator()(ddnf_node* n1, ddnf_node* n2) const {
+                return n1->get_tbv() == n2->get_tbv();
+            }
+        };
+
+        struct hash {
+            unsigned operator()(ddnf_node* n) const {
+                return n->get_tbv().get_hash();
+            }
+        };
+
+        unsigned get_id() const { return m_id; }
         
         unsigned num_children() const { return m_children.size(); }
 
         ddnf_node* operator[](unsigned index) { return m_children[index].get(); }
 
         tbv const& get_tbv() const { return m_tbv; }
+        vector<dot> const& pos() const { return m_pos; }
+        vector<dot> const& neg() const { return m_neg; }
 
         void add_child(ddnf_node* n);
         
@@ -215,17 +280,40 @@ namespace datalog {
         
         bool contains_child(ddnf_node* n) const;
 
+        ddnf_node* add_pos(dot const& d) { m_pos.push_back(d); return this; }
+
+        ddnf_node* add_neg(dot const& d) { m_neg.push_back(d); return this; }
+
+        void display(std::ostream& out) const {
+            out << "node[";
+            m_tbv.display(out);
+            for (unsigned i = 0; i < m_children.size(); ++i) {
+                out << " " << m_children[i]->get_id();
+            }
+            out << "]";
+        }
     };
 
-    class ddnf_mgr {
+    typedef ptr_hashtable<ddnf_node, ddnf_node::hash, ddnf_node::eq> ddnf_nodes;
+
+    class ddnf_mgr {        
         unsigned              m_num_bits;
         ddnf_node*            m_root;
-        ddnf_node_vector      m_nodes;
-        vector<dot>           m_dots;
+        ddnf_node_vector       m_noderefs;
+        ddnf_nodes             m_nodes;
+        ptr_vector<ddnf_nodes> m_tables;
+        map<dot, ddnf_nodes*, dot::hash, dot::eq> m_dots;
+        bool m_internalized;
     public:
-        ddnf_mgr(unsigned n): m_num_bits(n), m_nodes(*this) {
-            m_root = alloc(ddnf_node, *this, tbv(n, BIT_x));
-            m_nodes.push_back(m_root);
+        ddnf_mgr(unsigned n): m_num_bits(n), m_noderefs(*this), m_internalized(false) {
+            m_root = alloc(ddnf_node, *this, tbv(n, BIT_x), m_nodes.size());
+            m_noderefs.push_back(m_root);
+            m_nodes.insert(m_root);
+        }
+
+        ~ddnf_mgr() {
+            m_noderefs.reset();
+            std::for_each(m_tables.begin(), m_tables.end(), delete_proc<ddnf_nodes>());
         }
 
         void inc_ref(ddnf_node* n) {
@@ -233,38 +321,84 @@ namespace datalog {
         }
 
         void dec_ref(ddnf_node* n) {
-            unsigned count = n->dec_ref();
-            NOT_IMPLEMENTED_YET();
+            n->dec_ref();
+        }
+
+        void insert(dot const& d) {
+            SASSERT(!m_internalized);
+            if (m_dots.contains(d)) return;
+            ddnf_nodes* ns = alloc(ddnf_nodes);
+            m_tables.push_back(ns);
+            m_dots.insert(d, ns);
+            insert(d.pos())->add_pos(d);
+            for (unsigned i = 0; i < d.size(); ++i) {
+                insert(d.neg(i))->add_neg(d);
+            }
+        }
+
+        void display(std::ostream& out) const {
+            for (unsigned i = 0; i < m_noderefs.size(); ++i) {
+                m_noderefs[i]->display(out);
+                out << "\n";
+            }
         }
 
     private:
-        void insert_new(ddnf_node& root, ddnf_node* new_n, 
-                        ptr_vector<tbv>& new_intersections) {
-            SASSERT(root.get_tbv().is_superset(new_n->get_tbv()));
-//            if (root == *new_n) return;
+
+        ddnf_node* insert(tbv const& t) {
+            vector<tbv> new_tbvs;
+            new_tbvs.push_back(t);
+            for (unsigned i = 0; i < new_tbvs.size(); ++i) {
+                tbv const& nt = new_tbvs[i];
+                if (contains(nt))  continue;
+                ddnf_node* n = alloc(ddnf_node, *this, nt, m_noderefs.size());
+                m_noderefs.push_back(n);
+                m_nodes.insert(n);
+                insert(*m_root, n, new_tbvs);
+            }
+            return find(t);
+        }
+
+        ddnf_node* find(tbv const& t) {
+            ddnf_node dummy(*this, t, 0);
+            return *(m_nodes.find(&dummy));
+        }
+    
+        bool contains(tbv const& t) {
+            ddnf_node dummy(*this, t, 0);
+            return m_nodes.contains(&dummy);
+        }    
+
+        void insert(ddnf_node& root, ddnf_node* new_n, vector<tbv>& new_intersections) {
+            tbv const& new_tbv = new_n->get_tbv();
+            
+            SASSERT(new_tbv.is_subset(root.get_tbv()));
+            if (&root == new_n) return;
             bool inserted = false;
             for (unsigned i = 0; i < root.num_children(); ++i) {
                 ddnf_node& child = *(root[i]);
-                if (child.get_tbv().is_superset(new_n->get_tbv())) {
+                if (child.get_tbv().is_superset(new_tbv)) {
                     inserted = true;
-                    insert_new(child, new_n, new_intersections);
+                    insert(child, new_n, new_intersections);
                 }
             }
-            if (inserted) return;
+            if (inserted) {
+                return;
+            }
             ddnf_node_vector subset_children(*this);
+            tbv intr;
             for (unsigned i = 0; i < root.num_children(); ++i) {
                 ddnf_node& child = *(root[i]);
                 // cannot be superset
+                SASSERT(!child.get_tbv().is_superset(new_tbv));
                 // checking for subset
-                if (child.get_tbv().is_subset(new_n->get_tbv())) {
+                if (child.get_tbv().is_subset(new_tbv)) {
                     subset_children.push_back(&child);
                 }
                 // this means there is a non-full intersection
                 else {
-                    tbv intr;
-                    // TBD intersect(child.get_tbv(), new_n->get_tbv(), intr);
-                    if (!intr.empty()) {
-                        // TBD new_intersections.push_back(intr);
+                    if (intersect(child.get_tbv(), new_tbv, intr)) {
+                        new_intersections.push_back(intr);
                     }
                 }
             }
@@ -275,125 +409,49 @@ namespace datalog {
             root.add_child(new_n);           
         }
 
-
-#if 0
-
-        DDNFNode InsertTBV(TernaryBitVector aTbv)
-        {
-            foreach (DDNFNode node in allNodes)
-            {
-                if (node.tbv.IsEqualset(aTbv))
-                {
-                    return node;
-                }
-            }
-            DDNFNode newNode = new DDNFNode(aTbv);
-            this.allNodes.Add(newNode);
-            List<TernaryBitVector> newIntersections = new List<TernaryBitVector>();
-            InsertNewNode(this.root, newNode, newIntersections);
-
-            // add the TBVs corresponding to new intersections
-            foreach (TernaryBitVector newIntr in newIntersections)
-            {
-                // this assert guarantees termination since you can only
-                // insert smaller tbvs recursively
-                Debug.Assert(!newIntr.IsSupset(aTbv));
-
-                InsertTBV(newIntr);
-            }
-
-            return newNode;
-        }
-
-        public void InsertDot(DOT aDot)
-        {
-            this.allDots.Add(aDot);
-            DDNFNode posNode = InsertTBV(aDot.pos);
-            List<DDNFNode> negNodes = new List<DDNFNode>();
-            foreach (TernaryBitVector neg in aDot.negs)
-            {
-                negNodes.Add(InsertTBV(neg));
-            }
-
-            posNode.posDots.Add(aDot);
-            foreach (DDNFNode negNode in negNodes)
-            {
-                negNode.negDots.Add(aDot);
+        void internalize() {
+            // create map: dot |-> ddnf_node set
+            if (!m_internalized) {                
+                vector<dot> dots1, dots2;
+                add_pos(*m_root, dots1);
+                del_neg(*m_root, dots2);    
+                m_internalized = true;
             }
         }
 
-        // remove all negNodes for each dot in dot2Nodes
-        void RemoveNegNodesForAllDots(DDNFNode aNode, HashSet<DOT> activeDots,
-            ref Dictionary<DOT, HashSet<DDNFNode>> dot2Nodes)
-        {
-            foreach (DOT negDot in aNode.negDots)
-            {
-                activeDots.Add(negDot);
-            }
-
-            foreach (DOT activeDot in activeDots)
-            {
-                dot2Nodes[activeDot].Remove(aNode);
-            }
-
-            foreach (DDNFNode child in aNode.children)
-
-            {
-                RemoveNegNodesForAllDots(child, new HashSet<DOT>(activeDots), ref dot2Nodes);
-            }
+        ddnf_nodes const& lookup(dot const& d) const {
+            return *m_dots.find(d);
         }
 
-        // add all posNodes for each dot in dot2Nodes
-        void AddPosNodesForAllDots(DDNFNode aNode, HashSet<DOT> activeDots,
-            ref Dictionary<DOT, HashSet<DDNFNode>> dot2Nodes)
-        {
-            foreach (DOT posDot in aNode.posDots)
-            {
-                activeDots.Add(posDot);
+        void add_pos(ddnf_node& n, vector<dot>& active) {
+            for (unsigned i = 0; i < n.pos().size(); ++i) {                
+                active.push_back(n.pos()[i]);
+                // TBD: Garvit; prove (or disprove): there are no repetitions.
+                // the argument may be that the sub-expressions are
+                // traversed in DFS order, and that repeated dots
+                // cannot occur below each-other.
             }
-
-            foreach (DOT activeDot in activeDots)
-            {
-                dot2Nodes[activeDot].Add(aNode);
+            for (unsigned i = 0; i < active.size(); ++i) {
+                m_dots.find(active[i])->insert(&n);
             }
-
-            foreach (DDNFNode child in aNode.children)
-            {
-                AddPosNodesForAllDots(child, new HashSet<DOT>(activeDots), ref dot2Nodes);
-            }
+            for (unsigned i = 0; i < n.num_children(); ++i) {
+                vector<dot> active1(active);
+                add_pos(*n[i], active1);
+            }            
         }
 
-        public Dictionary<DOT, HashSet<DDNFNode>> NodesForAllDots()
-        {
-            Dictionary<DOT, HashSet<DDNFNode>> dot2Nodes = 
-                new Dictionary<DOT, HashSet<DDNFNode>>();
-
-            foreach (DOT dot in allDots)
-            {
-                dot2Nodes[dot] = new HashSet<DDNFNode>();
+        void del_neg(ddnf_node& n, vector<dot>& active) {
+            for (unsigned i = 0; i < n.neg().size(); ++i) {                
+                active.push_back(n.neg()[i]);
             }
-            AddPosNodesForAllDots(this.root, new HashSet<DOT>(), ref dot2Nodes);
-            RemoveNegNodesForAllDots(this.root, new HashSet<DOT>(), ref dot2Nodes);
-
-            return dot2Nodes;
-
-        }
-        public string PrintNodes()
-        {
-            StringBuilder retVal = new StringBuilder();
-            retVal.Append("<DDNF: ");
-            foreach (DDNFNode node in allNodes)
-            {
-                retVal.Append("\n").Append(node.ToString());
+            for (unsigned i = 0; i < active.size(); ++i) {
+                m_dots.find(active[i])->remove(&n);
             }
-            return retVal.Append(">").ToString();
-        }
-    }
-
-
-}
-
-#endif
+            for (unsigned i = 0; i < n.num_children(); ++i) {
+                vector<dot> active1(active);
+                del_neg(*n[i], active1);
+            }          
+        } 
         
     };
 

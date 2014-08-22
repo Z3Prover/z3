@@ -224,6 +224,10 @@ bool bit_vector::contains(bit_vector const& other) const {
     return (m_data[n-1] & other_data) == other_data;
 }
 
+unsigned bit_vector::get_hash() const {
+    return string_hash(reinterpret_cast<char const* const>(m_data), size()/8,  0);
+}
+
 void fr_bit_vector::reset() {
     unsigned sz = size();
     unsigned_vector::const_iterator it  = m_one_idxs.begin();
