@@ -21,19 +21,9 @@ Revision History:
 --*/
 
 #include "ddnf.h"
-#include "trail.h"
 #include "dl_rule_set.h"
 #include "dl_context.h"
-#include "dl_mk_rule_inliner.h"
-#include "smt_kernel.h"
-#include "qe_lite.h"
-#include "bool_rewriter.h"
-#include "th_rewriter.h"
-#include "datatype_decl_plugin.h"
-#include "for_each_expr.h"
-#include "matcher.h"
 #include "scoped_proof.h"
-#include "fixedpoint_params.hpp"
 
 
 namespace datalog {
@@ -167,11 +157,18 @@ namespace datalog {
     public:
         dot() {}
         dot(tbv const& pos, vector<tbv> const& negs):
-            m_pos(pos), m_negs(negs) {}
+            m_pos(pos), m_negs(negs) {
+            DEBUG_CODE(
+                for (unsigned i = 0; i < negs.size(); ++i) {
+                    SASSERT(pos.size() == negs[i].size());
+                }
+                );
+        }
 
         tbv const& pos() const { return m_pos; }
         tbv neg(unsigned i) const { return m_negs[i]; }
         unsigned size() const { return m_negs.size(); }
+        unsigned num_bits() const { return m_pos.size(); }
 
         bool operator==(dot const& other) const {
             if (m_pos != other.m_pos) return false;
@@ -195,12 +192,7 @@ namespace datalog {
 
         struct eq {
             bool operator()(dot const& d1, dot const& d2) const {
-                if (d1.pos() != d2.pos()) return false;
-                if (d1.size() != d2.size()) return false;
-                for (unsigned i = 0; i < d1.size(); ++i) {
-                    if (d1.neg(i) != d2.neg(i)) return false;
-                }
-                return true;
+                return d1 == d2;
             }
         };
 
@@ -295,15 +287,16 @@ namespace datalog {
     };
 
     typedef ptr_hashtable<ddnf_node, ddnf_node::hash, ddnf_node::eq> ddnf_nodes;
+    typedef map<dot, ddnf_nodes*, dot::hash, dot::eq> dot2nodes;
 
     class ddnf_mgr {        
-        unsigned              m_num_bits;
-        ddnf_node*            m_root;
+        unsigned               m_num_bits;
+        ddnf_node*             m_root;
         ddnf_node_vector       m_noderefs;
         ddnf_nodes             m_nodes;
         ptr_vector<ddnf_nodes> m_tables;
-        map<dot, ddnf_nodes*, dot::hash, dot::eq> m_dots;
-        bool m_internalized;
+        dot2nodes              m_dots;
+        bool                   m_internalized;
     public:
         ddnf_mgr(unsigned n): m_num_bits(n), m_noderefs(*this), m_internalized(false) {
             m_root = alloc(ddnf_node, *this, tbv(n, BIT_x), m_nodes.size());
@@ -325,6 +318,7 @@ namespace datalog {
         }
 
         void insert(dot const& d) {
+            SASSERT(d.size() == m_num_bits);
             SASSERT(!m_internalized);
             if (m_dots.contains(d)) return;
             ddnf_nodes* ns = alloc(ddnf_nodes);
@@ -334,6 +328,11 @@ namespace datalog {
             for (unsigned i = 0; i < d.size(); ++i) {
                 insert(d.neg(i))->add_neg(d);
             }
+        }
+
+        ddnf_nodes const& lookup(dot const& d)  {
+            internalize();
+            return *m_dots.find(d);
         }
 
         void display(std::ostream& out) const {
@@ -409,6 +408,7 @@ namespace datalog {
             root.add_child(new_n);           
         }
 
+
         void internalize() {
             // create map: dot |-> ddnf_node set
             if (!m_internalized) {                
@@ -418,11 +418,7 @@ namespace datalog {
                 m_internalized = true;
             }
         }
-
-        ddnf_nodes const& lookup(dot const& d) const {
-            return *m_dots.find(d);
-        }
-
+        
         void add_pos(ddnf_node& n, vector<dot>& active) {
             for (unsigned i = 0; i < n.pos().size(); ++i) {                
                 active.push_back(n.pos()[i]);
@@ -455,19 +451,54 @@ namespace datalog {
         
     };
 
-void ddnf_node::add_child(ddnf_node* n) {
-    SASSERT(!m_tbv.is_subset(n->m_tbv));
-    m_children.push_back(n);
-}
+    void ddnf_node::add_child(ddnf_node* n) {
+        SASSERT(!m_tbv.is_subset(n->m_tbv));
+        m_children.push_back(n);
+    }
+    
+    void ddnf_node::remove_child(ddnf_node* n) {
+        m_children.erase(n);
+    }
+    
+    bool ddnf_node::contains_child(ddnf_node* n) const {
+        return m_children.contains(n);
+    }        
 
-void ddnf_node::remove_child(ddnf_node* n) {
-    m_children.erase(n);
-}
 
-bool ddnf_node::contains_child(ddnf_node* n) const {
-    return m_children.contains(n);
-}        
+    class ddnfs {
+        u_map<ddnf_mgr*> m_mgrs;
+    public:
+        ddnfs() {}
 
+        ~ddnfs() {
+            u_map<ddnf_mgr*>::iterator it = m_mgrs.begin(), end = m_mgrs.end();
+            for (; it != end; ++it) {
+                dealloc(it->m_value);
+            }
+        }
+        
+        void insert(dot const& d) {
+            unsigned n = d.num_bits();
+            ddnf_mgr* m = 0;
+            if (!m_mgrs.find(n, m)) {
+                m = alloc(ddnf_mgr, n);
+                m_mgrs.insert(n, m);
+            }
+            m->insert(d);
+        }
+        
+        ddnf_nodes const& lookup(dot const& d) const {
+            return m_mgrs.find(d.num_bits())->lookup(d);
+        }
+
+        void display(std::ostream& out) const {
+            u_map<ddnf_mgr*>::iterator it = m_mgrs.begin(), end = m_mgrs.end();
+            for (; it != end; ++it) {
+                it->m_value->display(out);
+            }
+        }
+
+    };
 
 
     class ddnf::imp {
@@ -482,6 +513,7 @@ bool ddnf_node::contains_child(ddnf_node* n) const {
         volatile bool          m_cancel;
         ptr_vector<expr>       m_todo;
         ast_mark               m_visited1, m_visited2;
+        ddnfs                  m_ddnfs;
         stats                  m_stats;
 
     public:
@@ -528,6 +560,7 @@ bool ddnf_node::contains_child(ddnf_node* n) const {
             UNREACHABLE();
             return expr_ref(m.mk_true(), m);
         }
+
     private:
     
         proof_ref get_proof() const {
@@ -642,6 +675,14 @@ bool ddnf_node::contains_child(ddnf_node* n) const {
                 }
             }
             return true;
+        }
+
+        void compile(expr* e) {
+            // TBD: 
+            // compiles monadic predicates into dots.
+            // saves the mapping from expr |-> dot
+            // such that atomic sub-formula can be expressed 
+            // as a set of ddnf_nodes
         }
 
     };
