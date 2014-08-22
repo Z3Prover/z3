@@ -25,7 +25,7 @@ Revision History:
 #include "dl_context.h"
 #include "scoped_proof.h"
 #include "bv_decl_plugin.h"
-
+#include "dl_decl_plugin.h"
 
 namespace datalog {
 
@@ -301,6 +301,10 @@ namespace datalog {
             return find(t);
         }
 
+        unsigned size() const { 
+            return m_noderefs.size(); 
+        }
+
         ddnf_nodes const& lookup(tbv const& t)  {
             internalize();
             return find(t)->descendants();
@@ -436,16 +440,19 @@ namespace datalog {
         }
         
         void insert(tbv const& t) {
-            unsigned n = t.size();
-            ddnf_mgr* m = 0;
-            if (!m_mgrs.find(n, m)) {
-                m = alloc(ddnf_mgr, n);
-                m_mgrs.insert(n, m);
-            }
-            m->insert(t);
+            get(t.size()).insert(t);
         }
         
-        ddnf_node::ddnf_nodes const& lookup(tbv const& t) const {
+        ddnf_mgr& get(unsigned sz) {
+            ddnf_mgr* result = 0;
+            if (!m_mgrs.find(sz, result)) {
+                result = insert(sz);
+                m_mgrs.insert(sz, result);
+            }
+            return *result;
+        }
+
+        ddnf_nodes const& lookup(tbv const& t) const {
             return m_mgrs.find(t.size())->lookup(t);
         }
 
@@ -455,9 +462,18 @@ namespace datalog {
                 it->m_value->display(out);
             }
         }
+
+    private:
+
+        ddnf_mgr* insert(unsigned n) {
+            ddnf_mgr* m = 0;
+            if (!m_mgrs.find(n, m)) {
+                m = alloc(ddnf_mgr, n);
+                m_mgrs.insert(n, m);
+            }
+            return m;
+        }
     };
-
-
 
     class ddnf::imp {
         struct stats {
@@ -469,12 +485,16 @@ namespace datalog {
         ast_manager&           m;
         rule_manager&          rm;
         bv_util                bv;
+        dl_decl_util           dl;
         volatile bool          m_cancel;
         ptr_vector<expr>       m_todo;
         ast_mark               m_visited1, m_visited2;
         ddnfs                  m_ddnfs;
         stats                  m_stats;
-        obj_map<expr, tbv>     m_cache;
+        obj_map<expr, tbv>     m_expr2tbv;
+        obj_map<expr, expr*>   m_cache;
+        expr_ref_vector        m_trail;
+        context                m_inner_ctx;
 
     public:
         imp(context& ctx):
@@ -482,27 +502,37 @@ namespace datalog {
             m(ctx.get_manager()),
             rm(ctx.get_rule_manager()),
             bv(m),
-            m_cancel(false)
+            dl(m),
+            m_cancel(false),
+            m_trail(m),
+            m_inner_ctx(m, m_ctx.get_register_engine(), m_ctx.get_fparams())
         {
+            params_ref params;
+            params.set_sym("engine", symbol("datalog"));
+            m_inner_ctx.updt_params(params);
         }
 
         ~imp() {}        
 
         lbool query(expr* query) {
             m_ctx.ensure_opened();
+            rule_set new_rules(m_ctx);
             if (!pre_process_rules()) {
                 return l_undef;
             }
-            if (!compile_rules()) {
+            if (!compile_rules1(new_rules)) {
                 return l_undef;
             }
+            return execute_rules(new_rules);
+
             IF_VERBOSE(0, verbose_stream() << "rules are OK\n";);
-            IF_VERBOSE(0, m_ddnfs.display(verbose_stream()););
+            IF_VERBOSE(2, m_ddnfs.display(verbose_stream()););
             return run();
         }
     
         void cancel() {
             m_cancel = true;
+            m_inner_ctx.cancel();
         }
         
         void cleanup() {
@@ -538,23 +568,12 @@ namespace datalog {
             return l_undef;
         }
 
-        bool compile_rules() {
-            rule_set const& rules = m_ctx.get_rules();
-            datalog::rule_set::iterator it  = rules.begin();
-            datalog::rule_set::iterator end = rules.end();
-            unsigned idx = 0;
-            for (; it != end; ++idx, ++it) {
-                if (!compile_rule(**it, idx)) {
-                    return false;
-                }
-            }
-            return true;            
-        }
 
         bool pre_process_rules()  {
             m_visited1.reset();
             m_todo.reset();
             m_cache.reset();
+            m_expr2tbv.reset();
             rule_set const& rules = m_ctx.get_rules();
             datalog::rule_set::iterator it  = rules.begin();
             datalog::rule_set::iterator end = rules.end();
@@ -634,7 +653,6 @@ namespace datalog {
                     return process_eq(e, to_var(e3), hi, lo, e1);
                 }
                 if (is_var(e1) && is_var(e2)) {
-                    std::cout << mk_pp(e, m) << "\n";
                     return true;
                 }                
             }
@@ -654,36 +672,209 @@ namespace datalog {
             // v[hi:lo] = val
             tbv tbv(val.get_uint64(), sz_v, hi, lo);            
             m_ddnfs.insert(tbv);
-            m_cache.insert(e, tbv);
-            std::cout << mk_pp(v, m) << " " << lo << " " << hi << " " << v << " " << tbv << "\n";
+            m_expr2tbv.insert(e, tbv);
+            // std::cout << mk_pp(v, m) << " " << lo << " " << hi << " " << v << " " << tbv << "\n";
             return true;
         }
 
-        bool compile_rule(rule& r, unsigned idx) {
-            return true;
-
-            //
-            // TBD: 
-            // 1: H(x) :- P(x), phi(x).
-            // 2: H(x) :- P(y), phi(x), psi(y).
-            // 3: H(x) :- P(y), R(z), phi(x), psi(y), rho(z).
-            // 4: general case ...
-            // 
-            // 1. compile phi(x) into a filter set.
-            //    map each element in the filter set into P |-> E |-> rule
-            // 2. compile psi(y) into filter set P |-> E |-> rule
-            // 3. compile P |-> E |-> (rule,1), 2. R |-> E |-> rule (map for second position).
-            // 
-            // E |-> rule is trie for elements of tuple E into set of rules as a bit-vector.
-            // 
-
-            // work list
-
-            if (is_forwarding_rule(r)) {
-                return true;
+        lbool execute_rules(rule_set& rules) {
+            ptr_vector<func_decl> heads;
+            m_inner_ctx.reset();
+            rel_context_base& rcx = *m_inner_ctx.get_rel_context();
+            func_decl_set const& predicates = m_ctx.get_predicates();
+            for (func_decl_set::iterator fit = predicates.begin(); fit != predicates.end(); ++fit) {
+                m_inner_ctx.register_predicate(*fit, false);
             }
-            // r.display(m_ctx, std::cout);
+            m_inner_ctx.ensure_opened();
+            m_inner_ctx.replace_rules(rules);
+            m_inner_ctx.close();
+            rule_set::decl2rules::iterator dit  = rules.begin_grouped_rules();
+            rule_set::decl2rules::iterator dend = rules.end_grouped_rules();
+            for (; dit != dend; ++dit) {
+                heads.push_back(dit->m_key);
+                std::cout << mk_pp(dit->m_key, m) << "\n";
+            }
+            return m_inner_ctx.rel_query(heads.size(), heads.c_ptr());
+        }
+
+        bool compile_rules1(rule_set& new_rules) {
+            rule_set const& rules = m_ctx.get_rules();
+            datalog::rule_set::iterator it  = rules.begin();
+            datalog::rule_set::iterator end = rules.end();
+            unsigned idx = 0;
+            for (; it != end; ++idx, ++it) {
+                if (!compile_rule1(**it, new_rules)) {
+                    return false;
+                }
+            }
+            return true;            
+        }
+
+        bool compile_rule1(rule& r, rule_set& new_rules) {
+            app_ref head(m), pred(m);
+            app_ref_vector body(m);
+            expr_ref tmp(m);
+            compile_predicate(r.get_head(), head);
+            unsigned utsz = r.get_uninterpreted_tail_size();
+            unsigned sz = r.get_tail_size();
+            for (unsigned i = 0; i < utsz; ++i) {
+                compile_predicate(r.get_tail(i), pred);
+                body.push_back(pred);
+            }
+            for (unsigned i = utsz; i < sz; ++i) {
+                compile_expr(r.get_tail(i), tmp);
+                body.push_back(to_app(tmp));
+            }
+            rule* r_new = rm.mk(head, body.size(), body.c_ptr(), 0, r.name(), true);
+            new_rules.add_rule(r_new);
+            IF_VERBOSE(2, r_new->display(m_ctx, verbose_stream()););
             return true;
+        }
+
+        void compile_predicate(app* p, app_ref& result) {
+            sort_ref_vector domain(m);
+            func_decl* d = p->get_decl();
+            SASSERT(d->get_family_id() == null_family_id);
+            for (unsigned i = 0; i < p->get_num_args(); ++i) {
+                domain.push_back(compile_sort(m.get_sort(p->get_arg(i))));
+            }
+            func_decl_ref fn(m);
+            fn = m.mk_func_decl(d->get_name(), domain.size(), domain.c_ptr(), m.mk_bool_sort());
+            m_ctx.register_predicate(fn, false);
+            expr_ref_vector args(m);
+            expr_ref tmp(m);
+            for (unsigned i = 0; i < p->get_num_args(); ++i) {
+                compile_expr(p->get_arg(i), tmp);
+                args.push_back(tmp);
+            }
+            result = m.mk_app(fn, args.size(), args.c_ptr());
+        }
+
+        void insert_cache(expr* e, expr* r) {
+            m_trail.push_back(r);
+            m_cache.insert(e, r);
+        }
+
+        void compile_var(var* v, var_ref& result) {
+            expr* r;
+            if (m_cache.find(v, r)) {
+                result = to_var(r);
+            }
+            else {
+                result = m.mk_var(v->get_id(), compile_sort(v->get_sort()));
+                insert_cache(v, result);
+            }
+        }
+
+        sort* compile_sort(sort* s) {
+            if (m.is_bool(s)) {
+                return s;
+            }
+            if (bv.is_bv_sort(s)) {
+                unsigned sz = bv.get_bv_size(s);
+                ddnf_mgr const& mgr = m_ddnfs.get(sz);
+                unsigned num_elems = mgr.size();
+                std::ostringstream strm;
+                strm << "S" << num_elems;
+                symbol name(strm.str().c_str());
+                return dl.mk_sort(name, num_elems);
+            }
+            UNREACHABLE();
+            return 0;
+        }
+
+        void compile_expr(expr* e, expr_ref& result) {
+            expr* r = 0;
+            if (m_cache.find(e, r)) {
+                result = r;
+                return;
+            }
+
+            if (is_ground(e)) {
+                result = e;
+                m_cache.insert(e, result);
+                return;
+            }
+
+            if (is_var(e)) {
+                var_ref w(m);
+                compile_var(to_var(e), w);
+                result = w;
+                return;
+            }
+            
+            if (m.is_and(e) ||
+                m.is_or(e)  ||
+                m.is_iff(e) ||
+                m.is_not(e) ||
+                m.is_implies(e)) {
+                app* a = to_app(e);
+                expr_ref tmp(m);
+                expr_ref_vector args(m);
+                for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                    compile_expr(a->get_arg(i), tmp);
+                    args.push_back(tmp);
+                } 
+                result = m.mk_app(a->get_decl(), args.size(), args.c_ptr());
+                insert_cache(e, result);
+                return;
+            }
+            
+            expr* e1, *e2, *e3;
+            unsigned lo, hi; 
+            if (m.is_eq(e, e1, e2) && bv.is_bv(e1)) {
+                if (is_var(e1) && is_ground(e2)) {
+                    compile_eq(e, result, to_var(e1), bv.get_bv_size(e1)-1, 0, e2); 
+                }
+                else if (is_var(e2) && is_ground(e1)) {
+                    compile_eq(e, result, to_var(e2), bv.get_bv_size(e2)-1, 0, e1); 
+                }
+                else if (bv.is_extract(e1, lo, hi, e3) && is_var(e3) && is_ground(e2)) {
+                    compile_eq(e, result, to_var(e3), hi, lo, e2);
+                }
+                else if (bv.is_extract(e2, lo, hi, e3) && is_var(e3) && is_ground(e1)) {
+                    compile_eq(e, result, to_var(e3), hi, lo, e1);
+                }
+                else if (is_var(e1) && is_var(e2)) {
+                    var_ref v1(m), v2(m);
+                    compile_var(to_var(e1), v1);
+                    compile_var(to_var(e2), v2);
+                    result = m.mk_eq(v1, v2);
+                }                
+                else {
+                    UNREACHABLE();
+                }
+                insert_cache(e, result);
+                return;
+            }         
+            std::cout << mk_pp(e, m) << "\n";
+            UNREACHABLE();
+        }
+
+        void compile_eq(expr* e, expr_ref& result, var* v, unsigned hi, unsigned lo, expr* c) {
+            tbv t;
+            VERIFY(m_expr2tbv.find(e, t));            
+            var_ref w(m);
+            compile_var(v, w);
+            ddnf_nodes const& ns = m_ddnfs.lookup(t);
+            ddnf_nodes::iterator it = ns.begin(), end = ns.end();
+            expr_ref_vector eqs(m);
+            sort* s = m.get_sort(w);
+            for (; it != end; ++it) {
+                eqs.push_back(m.mk_eq(w, dl.mk_numeral((*it)->get_id(), s)));
+            }
+            switch (eqs.size()) {
+            case 0:
+                UNREACHABLE();
+                result = m.mk_false();
+                break;
+            case 1:
+                result = eqs[0].get();
+                break;
+            default:
+                result = m.mk_or(eqs.size(), eqs.c_ptr());
+                break;
+            }
         }
 
         bool is_forwarding_rule(rule const& r) {
@@ -732,7 +923,28 @@ namespace datalog {
 
 };
 
+
+
+
+
 #if 0
+
+            //
+            // TBD: 
+            // 1: H(x) :- P(x), phi(x).
+            // 2: H(x) :- P(y), phi(x), psi(y).
+            // 3: H(x) :- P(y), R(z), phi(x), psi(y), rho(z).
+            // 4: general case ...
+            // 
+            // 1. compile phi(x) into a filter set.
+            //    map each element in the filter set into P |-> E |-> rule
+            // 2. compile psi(y) into filter set P |-> E |-> rule
+            // 3. compile P |-> E |-> (rule,1), 2. R |-> E |-> rule (map for second position).
+            // 
+            // E |-> rule is trie for elements of tuple E into set of rules as a bit-vector.
+            // 
+
+-------------------------------
 
         void add_pos(ddnf_node& n, vector<dot>& active) {
             for (unsigned i = 0; i < n.pos().size(); ++i) {                
