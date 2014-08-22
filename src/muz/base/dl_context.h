@@ -53,6 +53,7 @@ namespace datalog {
         MEMOUT,
         INPUT_ERROR,
         APPROX,
+	BOUNDED,
         CANCELED
     };
 
@@ -304,6 +305,8 @@ namespace datalog {
            \brief Retrieve predicates
         */
         func_decl_set const& get_predicates() const { return m_preds; }
+	ast_ref_vector const &get_pinned() const {return m_pinned; }
+
         bool is_predicate(func_decl* pred) const { return m_preds.contains(pred); }
         bool is_predicate(expr * e) const { return is_app(e) && is_predicate(to_app(e)->get_decl()); }
 
