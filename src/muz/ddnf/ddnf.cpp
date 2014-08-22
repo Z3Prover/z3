@@ -876,20 +876,6 @@ namespace datalog {
                 break;
             }
         }
-
-        bool is_forwarding_rule(rule const& r) {
-            unsigned utsz = r.get_uninterpreted_tail_size();
-            unsigned sz = r.get_tail_size();
-            if (utsz != 1) return false;
-            app* h = r.get_head();
-            app* p = r.get_tail(0);
-            if (h->get_num_args() != p->get_num_args()) return false;
-            for (unsigned i = 0; i < h->get_num_args(); ++i) {
-                if (h->get_arg(i) != p->get_arg(i)) return false;
-            }
-            return true;
-        }
-
     };
 
     ddnf::ddnf(context& ctx):
@@ -920,78 +906,4 @@ namespace datalog {
     expr_ref ddnf::get_answer() {
         return m_imp->get_answer();
     }
-
 };
-
-
-
-
-
-#if 0
-
-            //
-            // TBD: 
-            // 1: H(x) :- P(x), phi(x).
-            // 2: H(x) :- P(y), phi(x), psi(y).
-            // 3: H(x) :- P(y), R(z), phi(x), psi(y), rho(z).
-            // 4: general case ...
-            // 
-            // 1. compile phi(x) into a filter set.
-            //    map each element in the filter set into P |-> E |-> rule
-            // 2. compile psi(y) into filter set P |-> E |-> rule
-            // 3. compile P |-> E |-> (rule,1), 2. R |-> E |-> rule (map for second position).
-            // 
-            // E |-> rule is trie for elements of tuple E into set of rules as a bit-vector.
-            // 
-
--------------------------------
-    class trie {
-    public:
-        class node {
-
-        };
-
-        class leaf : public trie_node {
-            bit_vector m_set;
-        public:
-            leaf(unsigned n): m_set(n) {
-                m_set.resize(n, false);
-            }
-            bit_vector& set() { return m_set; }            
-        };
-
-        class node : public trie_node {
-            u_map<node*> m_map;
-        public:
-            u_map<node*> map() { return m_map; }
-        };
-           
-        // insert 
-        //   bv1 x bv2 x bv3 -> set bit-i of n-bits
-        // such that every value in (bv1,bv2,bv3) maps to an element where bit-i is set.
-        // for each j1 in bv1:
-        // if j1 is in root of trie, then insert recursively with bv2, bv3
-        // else insert recursively into empty node, each bit in bv1 point 
-        // to returned node.
-    private:
-        trie_node* insert(unsigned nbv, bit_vector const* bvs, unsigned i, trie_node* n) {
-            if (nbv == 0) {
-                SASSERT(!n);
-                return mk_leaf(i);
-            }
-            bit_vector const& bv = bvs[0];
-            if (!n) {
-                n = insert(nbv-1, bvs+1, i, n);
-                node* nd = mk_node();
-                for (unsigned j = 0; j < bv.size(); ++j) {
-                    if (bv.get(j)) {
-                        nd->map().insert(j, n);
-                    }
-                }
-                return nd;
-            }
-            
-        }
-    };
-#endif
-
