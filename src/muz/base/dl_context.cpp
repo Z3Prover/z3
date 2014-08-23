@@ -1117,7 +1117,7 @@ namespace datalog {
         }
     }
 
-    void context::get_rules_as_formulas(expr_ref_vector& rules, svector<symbol>& names) {
+    void context::get_rules_as_formulas(expr_ref_vector& rules, expr_ref_vector& queries, svector<symbol>& names) {
         expr_ref fml(m);
         datalog::rule_manager& rm = get_rule_manager();
         
@@ -1136,9 +1136,30 @@ namespace datalog {
         }
         rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
         for (; it != end; ++it) {
-            (*it)->to_formula(fml);
-            rules.push_back(fml);
-            names.push_back((*it)->name());
+            rule* r = *it;
+            r->to_formula(fml);
+            func_decl* h = r->get_decl();
+            if (m_rule_set.is_output_predicate(h)) {
+                expr* body = fml;
+                expr* e2;
+                if (is_quantifier(body)) {
+                    quantifier* q = to_quantifier(body);
+                    expr* e = q->get_expr();
+                    VERIFY(m.is_implies(e, body, e2));
+                    fml = m.mk_quantifier(false, q->get_num_decls(),
+                                          q->get_decl_sorts(), q->get_decl_names(),
+                                          body);
+                }
+                else {
+                    VERIFY(m.is_implies(body, body, e2));
+                    fml = body;
+                }
+                queries.push_back(fml);
+            }
+            else {
+                rules.push_back(fml);
+                names.push_back(r->name());
+            }
         }
         for (unsigned i = m_rule_fmls_head; i < m_rule_fmls.size(); ++i) {
             rules.push_back(m_rule_fmls[i].get());
@@ -1146,10 +1167,7 @@ namespace datalog {
         }
     }
  
-    void context::display_smt2(
-        unsigned num_queries, 
-        expr* const* queries, 
-        std::ostream& out) {
+    void context::display_smt2(unsigned num_queries, expr* const* qs, std::ostream& out) {
         ast_manager& m = get_manager();
         free_func_visitor visitor(m);
         expr_mark visited;
@@ -1157,7 +1175,7 @@ namespace datalog {
         unsigned num_axioms = m_background.size();
         expr* const* axioms = m_background.c_ptr();
         expr_ref fml(m);
-        expr_ref_vector rules(m);
+        expr_ref_vector rules(m), queries(m);
         svector<symbol> names;
         bool use_fixedpoint_extensions = m_params->print_fixedpoint_extensions();
         bool print_low_level = m_params->print_low_level_smt2();
@@ -1165,13 +1183,14 @@ namespace datalog {
 
 #define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env);
 
-        get_rules_as_formulas(rules, names);
+        get_rules_as_formulas(rules, queries, names);
+        queries.append(num_queries, qs);
 
         smt2_pp_environment_dbg env(m);
         mk_fresh_name fresh_names;
         collect_free_funcs(num_axioms,  axioms,  visited, visitor, fresh_names);
         collect_free_funcs(rules.size(), rules.c_ptr(),   visited, visitor, fresh_names);
-        collect_free_funcs(num_queries, queries, visited, visitor, fresh_names);
+        collect_free_funcs(queries.size(), queries.c_ptr(), visited, visitor, fresh_names);
         func_decl_set funcs;
         func_decl_set::iterator it  = visitor.funcs().begin();
         func_decl_set::iterator end = visitor.funcs().end();
@@ -1257,22 +1276,22 @@ namespace datalog {
             out << ")\n";
         }
         if (use_fixedpoint_extensions) {
-            for (unsigned i = 0; i < num_queries; ++i) {
+            for (unsigned i = 0; i < queries.size(); ++i) {
                 out << "(query ";
-                PP(queries[i]);                
+                PP(queries[i].get());                
                 out << ")\n";
             }
         }
         else {
-            for (unsigned i = 0; i < num_queries; ++i) {
-                if (num_queries > 1) out << "(push)\n";
+            for (unsigned i = 0; i < queries.size(); ++i) {
+                if (queries.size() > 1) out << "(push)\n";
                 out << "(assert ";
                 expr_ref q(m);
-                q = m.mk_not(queries[i]);
+                q = m.mk_not(queries[i].get());
                 PP(q);
                 out << ")\n";
                 out << "(check-sat)\n";
-                if (num_queries > 1) out << "(pop)\n";
+                if (queries.size() > 1) out << "(pop)\n";
             }
         }
     }

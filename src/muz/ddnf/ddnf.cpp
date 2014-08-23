@@ -25,7 +25,6 @@ Revision History:
 #include "dl_context.h"
 #include "scoped_proof.h"
 #include "bv_decl_plugin.h"
-//#include "dl_decl_plugin.h"
 
 namespace datalog {
 
@@ -485,7 +484,6 @@ namespace datalog {
         ast_manager&           m;
         rule_manager&          rm;
         bv_util                bv;
-        // dl_decl_util           dl;
         volatile bool          m_cancel;
         ptr_vector<expr>       m_todo;
         ast_mark               m_visited1, m_visited2;
@@ -502,7 +500,6 @@ namespace datalog {
             m(ctx.get_manager()),
             rm(ctx.get_rule_manager()),
             bv(m),
-            // dl(m),
             m_cancel(false),
             m_trail(m),
             m_inner_ctx(m, m_ctx.get_register_engine(), m_ctx.get_fparams())
@@ -688,25 +685,7 @@ namespace datalog {
 
         void dump_rules(rule_set& rules) {
             init_ctx(rules);
-            func_decl* q = rules.get_output_predicate();
-            rule_vector const& qs = rules.get_predicate_rules(q);
-            SASSERT(qs.size() == 1);
-            app* qa = qs[0]->get_head();
-            expr_ref query(m);
-            ptr_vector<sort> sorts;
-            vector<symbol> names;
-            get_free_vars(qa, sorts);
-            // TBD: get the real names from the original query.
-            for (unsigned i = 0; i < sorts.size(); ++i) {
-                if (!sorts[i]) sorts[i] = m.mk_bool_sort();
-                std::ostringstream strm;
-                strm << "q" << i;
-                names.push_back(symbol(strm.str().c_str()));                
-            }
-            sorts.reverse();
-            query = m.mk_quantifier(false, sorts.size(), sorts.c_ptr(), names.c_ptr(), qa);
-            expr* qe = query;
-            m_inner_ctx.display_smt2(1, &qe, std::cout);
+            m_inner_ctx.display_smt2(0, 0, std::cout);
         }
 
         lbool execute_rules(rule_set& rules) {
@@ -806,12 +785,6 @@ namespace datalog {
                     ++nb;                    
                 }
                 return bv.mk_sort(nb);
-#if 0
-                std::ostringstream strm;
-                strm << "S" << num_elems;
-                symbol name(strm.str().c_str());
-                return dl.mk_sort(name, num_elems);
-#endif
             }
             UNREACHABLE();
             return 0;

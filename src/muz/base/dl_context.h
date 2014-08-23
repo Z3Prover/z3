@@ -362,7 +362,7 @@ namespace datalog {
 
         rule_set & get_rules() { flush_add_rules(); return m_rule_set; }
 
-        void get_rules_as_formulas(expr_ref_vector& fmls, svector<symbol>& names);
+        void get_rules_as_formulas(expr_ref_vector& fmls, expr_ref_vector& qs, svector<symbol>& names);
         void get_raw_rule_formulas(expr_ref_vector& fmls, svector<symbol>& names);
 
         void add_fact(app * head);
@@ -463,7 +463,7 @@ namespace datalog {
 
         void display(std::ostream & out) const;
 
-        void display_smt2(unsigned num_queries, expr* const* queries, std::ostream& out);
+        void display_smt2(unsigned num_queries, expr* const* qs, std::ostream& out);
 
         void display_profile(std::ostream& out) const;
 
