@@ -25,7 +25,7 @@ Revision History:
 #include "dl_context.h"
 #include "scoped_proof.h"
 #include "bv_decl_plugin.h"
-#include "dl_decl_plugin.h"
+//#include "dl_decl_plugin.h"
 
 namespace datalog {
 
@@ -485,7 +485,7 @@ namespace datalog {
         ast_manager&           m;
         rule_manager&          rm;
         bv_util                bv;
-        dl_decl_util           dl;
+        // dl_decl_util           dl;
         volatile bool          m_cancel;
         ptr_vector<expr>       m_todo;
         ast_mark               m_visited1, m_visited2;
@@ -502,7 +502,7 @@ namespace datalog {
             m(ctx.get_manager()),
             rm(ctx.get_rule_manager()),
             bv(m),
-            dl(m),
+            // dl(m),
             m_cancel(false),
             m_trail(m),
             m_inner_ctx(m, m_ctx.get_register_engine(), m_ctx.get_fparams())
@@ -516,6 +516,8 @@ namespace datalog {
 
         lbool query(expr* query) {
             m_ctx.ensure_opened();
+            rm.mk_query(query, m_ctx.get_rules());
+            
             rule_set new_rules(m_ctx);
             if (!pre_process_rules()) {
                 return l_undef;
@@ -523,11 +525,12 @@ namespace datalog {
             if (!compile_rules1(new_rules)) {
                 return l_undef;
             }
-            return execute_rules(new_rules);
-
-            IF_VERBOSE(0, verbose_stream() << "rules are OK\n";);
             IF_VERBOSE(2, m_ddnfs.display(verbose_stream()););
-            return run();
+
+            dump_rules(new_rules);
+            return l_undef;
+
+            // return execute_rules(new_rules);
         }
     
         void cancel() {
@@ -564,11 +567,6 @@ namespace datalog {
             return pr;
         }
    
-        lbool run() {
-            return l_undef;
-        }
-
-
         bool pre_process_rules()  {
             m_visited1.reset();
             m_todo.reset();
@@ -677,10 +675,8 @@ namespace datalog {
             return true;
         }
 
-        lbool execute_rules(rule_set& rules) {
-            ptr_vector<func_decl> heads;
+        void init_ctx(rule_set& rules) {
             m_inner_ctx.reset();
-            rel_context_base& rcx = *m_inner_ctx.get_rel_context();
             func_decl_set const& predicates = m_ctx.get_predicates();
             for (func_decl_set::iterator fit = predicates.begin(); fit != predicates.end(); ++fit) {
                 m_inner_ctx.register_predicate(*fit, false);
@@ -688,11 +684,39 @@ namespace datalog {
             m_inner_ctx.ensure_opened();
             m_inner_ctx.replace_rules(rules);
             m_inner_ctx.close();
+        }
+
+        void dump_rules(rule_set& rules) {
+            init_ctx(rules);
+            func_decl* q = rules.get_output_predicate();
+            rule_vector const& qs = rules.get_predicate_rules(q);
+            SASSERT(qs.size() == 1);
+            app* qa = qs[0]->get_head();
+            expr_ref query(m);
+            ptr_vector<sort> sorts;
+            vector<symbol> names;
+            get_free_vars(qa, sorts);
+            // TBD: get the real names from the original query.
+            for (unsigned i = 0; i < sorts.size(); ++i) {
+                if (!sorts[i]) sorts[i] = m.mk_bool_sort();
+                std::ostringstream strm;
+                strm << "q" << i;
+                names.push_back(symbol(strm.str().c_str()));                
+            }
+            sorts.reverse();
+            query = m.mk_quantifier(false, sorts.size(), sorts.c_ptr(), names.c_ptr(), qa);
+            expr* qe = query;
+            m_inner_ctx.display_smt2(1, &qe, std::cout);
+        }
+
+        lbool execute_rules(rule_set& rules) {
+            init_ctx(rules);
+
+            ptr_vector<func_decl> heads;
             rule_set::decl2rules::iterator dit  = rules.begin_grouped_rules();
             rule_set::decl2rules::iterator dend = rules.end_grouped_rules();
             for (; dit != dend; ++dit) {
                 heads.push_back(dit->m_key);
-                std::cout << mk_pp(dit->m_key, m) << "\n";
             }
             return m_inner_ctx.rel_query(heads.size(), heads.c_ptr());
         }
@@ -728,6 +752,9 @@ namespace datalog {
             rule* r_new = rm.mk(head, body.size(), body.c_ptr(), 0, r.name(), true);
             new_rules.add_rule(r_new);
             IF_VERBOSE(2, r_new->display(m_ctx, verbose_stream()););
+            if (m_ctx.get_rules().is_output_predicate(r.get_decl())) {
+                new_rules.set_output_predicate(r_new->get_decl());
+            }
             return true;
         }
 
@@ -774,10 +801,17 @@ namespace datalog {
                 unsigned sz = bv.get_bv_size(s);
                 ddnf_mgr const& mgr = m_ddnfs.get(sz);
                 unsigned num_elems = mgr.size();
+                unsigned nb = 1;
+                while ((1UL << nb) <= num_elems) {
+                    ++nb;                    
+                }
+                return bv.mk_sort(nb);
+#if 0
                 std::ostringstream strm;
                 strm << "S" << num_elems;
                 symbol name(strm.str().c_str());
                 return dl.mk_sort(name, num_elems);
+#endif
             }
             UNREACHABLE();
             return 0;
@@ -861,7 +895,7 @@ namespace datalog {
             expr_ref_vector eqs(m);
             sort* s = m.get_sort(w);
             for (; it != end; ++it) {
-                eqs.push_back(m.mk_eq(w, dl.mk_numeral((*it)->get_id(), s)));
+                eqs.push_back(m.mk_eq(w, bv.mk_numeral(rational((*it)->get_id()), s)));
             }
             switch (eqs.size()) {
             case 0:
