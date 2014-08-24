@@ -37,6 +37,8 @@ namespace pb {
         unsigned get_num_bits(func_decl* f);
         br_status mk_bv(func_decl * f, unsigned sz, expr * const* args, expr_ref & result);
         br_status mk_shannon(func_decl * f, unsigned sz, expr * const* args, expr_ref & result);
+        expr* negate(expr* e);
+        expr* mk_ite(expr* c, expr* hi, expr* lo);
     public:
         card2bv_rewriter(ast_manager& m);
         br_status mk_app_core(func_decl * f, unsigned sz, expr * const* args, expr_ref & result);

@@ -59,8 +59,13 @@ namespace pb {
             return BR_DONE;
         }
         else if (f->get_family_id() == pb.get_family_id()) {
-            // return mk_shannon(f, sz, args, result);
-            return mk_bv(f, sz, args, result);
+            br_status st = mk_shannon(f, sz, args, result);
+            if (st == BR_FAILED) {
+                return mk_bv(f, sz, args, result);
+            }
+            else {
+                return st;
+            }
         }
         // NSB: review
         // we should remove this code and rely on a layer above to deal with 
@@ -143,20 +148,182 @@ namespace pb {
         return BR_DONE;
     }
 
-    br_status card2bv_rewriter::mk_shannon(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
-        pb_rewriter rw(m);
-        if (sz == 0) {
-            rw.mk_app_core(f, sz, args, result);
-            return BR_DONE;
+    struct argc_t {
+        expr*    m_arg;
+        rational m_coeff;
+        argc_t():m_arg(0), m_coeff(0) {}
+        argc_t(expr* arg, rational const& r): m_arg(arg), m_coeff(r) {}
+    };
+    struct argc_gt {
+        bool operator()(argc_t const& a, argc_t const& b) const {
+            return a.m_coeff > b.m_coeff;
         }
-        expr_ref r1(m), r2(m);
-        ptr_vector<expr> new_args(sz, args);
-        new_args[0] = m.mk_true();
-        rw.mk_app_core(f, sz, new_args.c_ptr(), r1);
-        new_args[0] = m.mk_false();
-        rw.mk_app_core(f, sz, new_args.c_ptr(), r2);
-        result = m.mk_ite(args[0], r1, r2);
-        return BR_REWRITE_FULL;        
+    };
+    struct argc_entry {
+        unsigned m_index;
+        rational m_k;
+        expr*    m_value;
+        argc_entry(unsigned i, rational const& k): m_index(i), m_k(k), m_value(0) {}
+        argc_entry():m_index(0), m_k(0), m_value(0) {}
+
+        struct eq {
+            bool operator()(argc_entry const& a, argc_entry const& b) const {
+                return a.m_index == b.m_index && a.m_k == b.m_k;
+            }
+        };
+        struct hash {
+            unsigned operator()(argc_entry const& a) const {
+                return a.m_index ^ a.m_k.hash();
+            }
+        };
+    };
+    typedef hashtable<argc_entry, argc_entry::hash, argc_entry::eq> argc_cache;
+    
+    br_status card2bv_rewriter::mk_shannon(
+        func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
+
+        return BR_FAILED;
+
+        // disabled for now.
+        unsigned max_clauses = sz*10;
+        vector<argc_t> argcs;
+        for (unsigned i = 0; i < sz; ++i) {
+            argcs.push_back(argc_t(args[i], pb.get_coeff(f, i)));
+        }
+        std::sort(argcs.begin(), argcs.end(), argc_gt());
+        DEBUG_CODE(
+            for (unsigned i = 0; i + 1 < sz; ++i) {
+                SASSERT(argcs[i].m_coeff >= argcs[i+1].m_coeff);
+            }
+            );
+        argc_cache cache;
+        expr_ref_vector trail(m);
+        vector<rational> todo_k;
+        unsigned_vector  todo_i;
+        todo_k.push_back(pb.get_k(f));
+        todo_i.push_back(0);
+        decl_kind kind = f->get_decl_kind();
+        argc_entry entry1;
+        while (!todo_i.empty()) {
+
+            if (cache.size() > max_clauses) {
+                return BR_FAILED;
+            }
+            unsigned i = todo_i.back();
+            rational k = todo_k.back();
+            argc_entry entry(i, k);
+            if (cache.contains(entry)) {
+                todo_i.pop_back();
+                todo_k.pop_back();
+                continue;
+            }
+            SASSERT(i < sz);
+            SASSERT(!k.is_neg());
+            rational const& coeff = argcs[i].m_coeff;
+            expr* arg = argcs[i].m_arg;
+            if (i + 1 == sz) {
+                switch(kind) {
+                case OP_AT_MOST_K:
+                case OP_PB_LE:
+                    if (coeff <= k) {
+                        entry.m_value = m.mk_true();
+                    }
+                    else {
+                        entry.m_value = negate(arg);
+                        trail.push_back(entry.m_value);
+                    }
+                    break;
+                case OP_AT_LEAST_K:
+                case OP_PB_GE:
+                    if (coeff < k) {
+                        entry.m_value = m.mk_false();
+                    }
+                    else if (coeff.is_zero()) {
+                        entry.m_value = m.mk_true();
+                    }
+                    else {
+                        entry.m_value = arg;
+                    }
+                    break;
+                case OP_PB_EQ:
+                    if (coeff == k) {
+                        entry.m_value = arg;
+                    }
+                    else if (k.is_zero()) {
+                        entry.m_value = negate(arg);
+                        trail.push_back(entry.m_value);
+                    }
+                    else {
+                        entry.m_value = m.mk_false();
+                    }
+                    break;
+                }
+                todo_i.pop_back();
+                todo_k.pop_back();
+                cache.insert(entry);
+                continue;
+            }
+            entry.m_index++;        
+            expr* lo = 0, *hi = 0;
+            if (cache.find(entry, entry1)) {
+                lo = entry1.m_value;                
+            }
+            else {
+                todo_i.push_back(i+1);
+                todo_k.push_back(k);
+            }
+            entry.m_k -= coeff;
+            if (kind != OP_PB_EQ && entry.m_k.is_neg()) {
+                switch (kind) {
+                case OP_AT_MOST_K:
+                case OP_PB_LE:
+                    hi = m.mk_false();
+                    break;
+                case OP_AT_LEAST_K:
+                case OP_PB_GE:
+                    hi = m.mk_true();
+                    break;
+                default:
+                    UNREACHABLE();
+                }
+            }
+            else if (cache.find(entry, entry1)) {
+                hi = entry1.m_value;
+            }
+            else {
+                todo_i.push_back(i+1);
+                todo_k.push_back(entry.m_k);
+            }
+            if (hi && lo) {
+                todo_i.pop_back();
+                todo_k.pop_back();
+                entry.m_index = i;
+                entry.m_k = k;
+                entry.m_value = mk_ite(arg, hi, lo);
+                trail.push_back(entry.m_value);
+                cache.insert(entry);
+            }
+        }        
+        argc_entry entry(0, pb.get_k(f));
+        VERIFY(cache.find(entry, entry));
+        result = entry.m_value;
+        return BR_DONE;
+    }
+
+    expr* card2bv_rewriter::negate(expr* e) {
+        if (m.is_not(e, e)) return e;
+        return m.mk_not(e);
+    }
+
+    expr* card2bv_rewriter::mk_ite(expr* c, expr* hi, expr* lo) {
+        if (hi == lo) return hi;
+        if (m.is_true(hi) && m.is_false(lo)) return c;
+        if (m.is_false(hi) && m.is_true(lo)) return negate(c);
+        if (m.is_true(hi)) return m.mk_or(c, lo);
+        if (m.is_false(lo)) return m.mk_and(c, hi);
+        if (m.is_false(hi)) return m.mk_and(negate(c), lo);
+        if (m.is_true(lo)) return m.mk_implies(c, hi);
+        return m.mk_ite(c, hi, lo);
     }
 };
 
