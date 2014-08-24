@@ -58,6 +58,19 @@ Notes:
 #include"for_each_expr.h"
 
 class hnf::imp {
+
+    class contains_predicate_proc {
+        imp const& m;
+    public:
+        struct found {};
+        contains_predicate_proc(imp const& m): m(m) {}
+        void operator()(var * n) {}
+        void operator()(quantifier * n) {}
+        void operator()(app* n) {
+            if (m.is_predicate(n)) throw found();
+        }
+    };
+
     ast_manager&          m;
     bool                  m_produce_proofs;
     volatile bool         m_cancel;
@@ -73,6 +86,7 @@ class hnf::imp {
     func_decl_ref_vector  m_fresh_predicates;
     expr_ref_vector       m_body;
     proof_ref_vector      m_defs;
+    contains_predicate_proc m_proc;
 
 
 public:
@@ -87,7 +101,8 @@ public:
         m_qh(m),
         m_fresh_predicates(m),
         m_body(m),
-        m_defs(m) {
+        m_defs(m),
+        m_proc(*this) {
     }
 
     void operator()(expr * n, 
@@ -166,22 +181,9 @@ private:
         return m.is_bool(f->get_range()) && f->get_family_id() == null_family_id;
     }
 
-    class contains_predicate_proc {
-        imp const& m;
-    public:
-        struct found {};
-        contains_predicate_proc(imp const& m): m(m) {}
-        void operator()(var * n) {}
-        void operator()(quantifier * n) {}
-        void operator()(app* n) {
-            if (m.is_predicate(n)) throw found();
-        }
-    };
-
-    bool contains_predicate(expr* fml) const {
-        contains_predicate_proc proc(*this);
+    bool contains_predicate(expr* fml)  {
         try {
-            quick_for_each_expr(proc, fml);
+            quick_for_each_expr(m_proc, fml);
         }
         catch (contains_predicate_proc::found) {
             return true;
