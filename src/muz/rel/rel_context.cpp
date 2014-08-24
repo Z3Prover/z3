@@ -31,6 +31,7 @@ Revision History:
 #include"dl_interval_relation.h"
 #include"karr_relation.h"
 #include"dl_finite_product_relation.h"
+#include"product_set.h"
 #include"dl_lazy_table.h"
 #include"dl_sparse_table.h"
 #include"dl_table.h"
@@ -112,6 +113,7 @@ namespace datalog {
         rm.register_plugin(alloc(bound_relation_plugin, rm));
         rm.register_plugin(alloc(interval_relation_plugin, rm));
         rm.register_plugin(alloc(karr_relation_plugin, rm));
+        rm.register_plugin(alloc(product_set_plugin, rm));
     }
 
     rel_context::~rel_context() {

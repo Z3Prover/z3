@@ -513,13 +513,13 @@ namespace datalog {
 
         lbool query(expr* query) {
             m_ctx.ensure_opened();
-            rm.mk_query(query, m_ctx.get_rules());
-            
+            rule_set& old_rules = m_ctx.get_rules();
+            rm.mk_query(query, old_rules);
             rule_set new_rules(m_ctx);
-            if (!pre_process_rules()) {
+            if (!pre_process_rules(old_rules)) {
                 return l_undef;
             }
-            if (!compile_rules1(new_rules)) {
+            if (!compile_rules1(old_rules, new_rules)) {
                 return l_undef;
             }
             IF_VERBOSE(2, m_ddnfs.display(verbose_stream()););
@@ -564,12 +564,11 @@ namespace datalog {
             return pr;
         }
    
-        bool pre_process_rules()  {
+        bool pre_process_rules(rule_set const& rules)  {
             m_visited1.reset();
             m_todo.reset();
             m_cache.reset();
             m_expr2tbv.reset();
-            rule_set const& rules = m_ctx.get_rules();
             datalog::rule_set::iterator it  = rules.begin();
             datalog::rule_set::iterator end = rules.end();
             for (; it != end; ++it) {
@@ -700,20 +699,19 @@ namespace datalog {
             return m_inner_ctx.rel_query(heads.size(), heads.c_ptr());
         }
 
-        bool compile_rules1(rule_set& new_rules) {
-            rule_set const& rules = m_ctx.get_rules();
+        bool compile_rules1(rule_set const& rules, rule_set& new_rules) {
             datalog::rule_set::iterator it  = rules.begin();
             datalog::rule_set::iterator end = rules.end();
             unsigned idx = 0;
             for (; it != end; ++idx, ++it) {
-                if (!compile_rule1(**it, new_rules)) {
+                if (!compile_rule1(**it, rules, new_rules)) {
                     return false;
                 }
             }
             return true;            
         }
 
-        bool compile_rule1(rule& r, rule_set& new_rules) {
+        bool compile_rule1(rule& r, rule_set const& old_rules, rule_set& new_rules) {
             app_ref head(m), pred(m);
             app_ref_vector body(m);
             expr_ref tmp(m);
@@ -728,10 +726,10 @@ namespace datalog {
                 compile_expr(r.get_tail(i), tmp);
                 body.push_back(to_app(tmp));
             }
-            rule* r_new = rm.mk(head, body.size(), body.c_ptr(), 0, r.name(), true);
+            rule* r_new = rm.mk(head, body.size(), body.c_ptr(), 0, r.name(), false);
             new_rules.add_rule(r_new);
             IF_VERBOSE(2, r_new->display(m_ctx, verbose_stream()););
-            if (m_ctx.get_rules().is_output_predicate(r.get_decl())) {
+            if (old_rules.is_output_predicate(r.get_decl())) {
                 new_rules.set_output_predicate(r_new->get_decl());
             }
             return true;
@@ -767,7 +765,8 @@ namespace datalog {
                 result = to_var(r);
             }
             else {
-                result = m.mk_var(v->get_id(), compile_sort(v->get_sort()));
+                unsigned idx = v->get_idx();
+                result = m.mk_var(idx, compile_sort(v->get_sort()));
                 insert_cache(v, result);
             }
         }

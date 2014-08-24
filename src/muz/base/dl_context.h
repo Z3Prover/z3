@@ -171,6 +171,7 @@ namespace datalog {
         smt_params &       m_fparams;
         params_ref         m_params_ref;
         fixedpoint_params*  m_params;
+        bool               m_generate_proof_trace;
         dl_decl_util       m_decl_util;
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
@@ -416,7 +417,7 @@ namespace datalog {
         /**
           \brief Check if rule is well-formed according to engine.
         */
-        void check_rule(rule_ref& r);
+        void check_rule(rule& r);
 
         /**
            \brief Return true if facts to \c pred can be added using the \c add_table_fact() function.
@@ -562,10 +563,10 @@ namespace datalog {
 
         void ensure_engine();
 
-        void check_quantifier_free(rule_ref& r);        
-        void check_uninterpreted_free(rule_ref& r);
-        void check_existential_tail(rule_ref& r);
-        void check_positive_predicates(rule_ref& r);
+        void check_quantifier_free(rule& r);        
+        void check_uninterpreted_free(rule& r);
+        void check_existential_tail(rule& r);
+        void check_positive_predicates(rule& r);
 
         // auxilary functions for SMT2 pretty-printer.
         void declare_vars(expr_ref_vector& rules, mk_fresh_name& mk_fresh, std::ostream& out);

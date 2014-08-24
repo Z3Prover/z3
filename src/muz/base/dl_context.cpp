@@ -233,6 +233,7 @@ namespace datalog {
         m_engine_type(LAST_ENGINE),
         m_cancel(false) {
         re.set_context(this);
+        m_generate_proof_trace = m_params->generate_proof_trace();
     }
 
     context::~context() {
@@ -271,7 +272,7 @@ namespace datalog {
     }
 
 
-    bool context::generate_proof_trace() const { return m_params->generate_proof_trace(); }
+    bool context::generate_proof_trace() const { return m_generate_proof_trace; }
     bool context::output_profile() const { return m_params->datalog_output_profile(); }
     bool context::output_tuples() const { return m_params->datalog_print_tuples(); }
     bool context::use_map_names() const { return m_params->datalog_use_map_names(); }
@@ -489,10 +490,8 @@ namespace datalog {
             ++m_rule_fmls_head;
         }
         rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-        rule_ref r(m_rule_manager);
         for (; it != end; ++it) {
-            r = *it;
-            check_rule(r);
+            check_rule(*(*it));
         }
     }
 
@@ -579,35 +578,35 @@ namespace datalog {
         m_engine->add_cover(level, pred, property);
     }
 
-    void context::check_uninterpreted_free(rule_ref& r) {
+    void context::check_uninterpreted_free(rule& r) {
         func_decl* f = 0;
-        if (r->has_uninterpreted_non_predicates(m, f)) {
+        if (r.has_uninterpreted_non_predicates(m, f)) {
             std::stringstream stm;
             stm << "Uninterpreted '" 
                 << f->get_name() 
                 << "' in ";
-            r->display(*this, stm);
+            r.display(*this, stm);
             throw default_exception(stm.str());
         }
     }
 
-    void context::check_quantifier_free(rule_ref& r) {
-        if (r->has_quantifiers()) {
+    void context::check_quantifier_free(rule& r) {
+        if (r.has_quantifiers()) {
             std::stringstream stm;
             stm << "cannot process quantifiers in rule ";
-            r->display(*this, stm);
+            r.display(*this, stm);
             throw default_exception(stm.str());
         }
     }
 
 
-    void context::check_existential_tail(rule_ref& r) {
-        unsigned ut_size = r->get_uninterpreted_tail_size();
-        unsigned t_size  = r->get_tail_size();   
+    void context::check_existential_tail(rule& r) {
+        unsigned ut_size = r.get_uninterpreted_tail_size();
+        unsigned t_size  = r.get_tail_size();   
         
-        TRACE("dl", r->display_smt2(get_manager(), tout); tout << "\n";);
+        TRACE("dl", r.display_smt2(get_manager(), tout); tout << "\n";);
         for (unsigned i = ut_size; i < t_size; ++i) {
-            app* t = r->get_tail(i);
+            app* t = r.get_tail(i);
             TRACE("dl", tout << "checking: " << mk_ismt2_pp(t, get_manager()) << "\n";);
             if (m_check_pred(t)) {
                 std::ostringstream out;
@@ -617,14 +616,14 @@ namespace datalog {
         }
     }
 
-    void context::check_positive_predicates(rule_ref& r) {
+    void context::check_positive_predicates(rule& r) {
         ast_mark visited;
         ptr_vector<expr> todo, tocheck;
-        unsigned ut_size = r->get_uninterpreted_tail_size();
-        unsigned t_size  = r->get_tail_size();   
+        unsigned ut_size = r.get_uninterpreted_tail_size();
+        unsigned t_size  = r.get_tail_size();   
         for (unsigned i = 0; i < ut_size; ++i) {
-            if (r->is_neg_tail(i)) {
-                tocheck.push_back(r->get_tail(i));
+            if (r.is_neg_tail(i)) {
+                tocheck.push_back(r.get_tail(i));
             }
         }
         ast_manager& m = get_manager();
@@ -632,7 +631,7 @@ namespace datalog {
         check_pred check_pred(contains_p, get_manager());
 
         for (unsigned i = ut_size; i < t_size; ++i) {
-            todo.push_back(r->get_tail(i));
+            todo.push_back(r.get_tail(i));
         }
         while (!todo.empty()) {
             expr* e = todo.back(), *e1, *e2;
@@ -670,14 +669,14 @@ namespace datalog {
             if (check_pred(e)) {
                 std::ostringstream out;
                 out << "recursive predicate " << mk_ismt2_pp(e, get_manager()) << " occurs nested in body";
-                r->display(*this, out << "\n");
+                r.display(*this, out << "\n");
                 throw default_exception(out.str());
 
             }
         }
     }
 
-    void context::check_rule(rule_ref& r) {
+    void context::check_rule(rule& r) {
         switch(get_engine()) {
         case DATALOG_ENGINE:
             check_quantifier_free(r);
@@ -719,8 +718,8 @@ namespace datalog {
             UNREACHABLE();
             break;
         }
-        if (generate_proof_trace() && !r->get_proof()) {
-            m_rule_manager.mk_rule_asserted_proof(*r.get());
+        if (generate_proof_trace() && !r.get_proof()) {
+            m_rule_manager.mk_rule_asserted_proof(r);
         }
     }
 
@@ -847,6 +846,7 @@ namespace datalog {
     void context::updt_params(params_ref const& p) {
         m_params_ref.copy(p);
         if (m_engine.get()) m_engine->updt_params();
+        m_generate_proof_trace = m_params->generate_proof_trace();
     }
 
     expr_ref context::get_background_assertion() {
@@ -908,6 +908,9 @@ namespace datalog {
     };
 
     void context::configure_engine() {
+        if (m_engine_type != LAST_ENGINE) {
+            return;
+        }
         symbol e = m_params->engine();
         
         if (e == symbol("datalog")) {
@@ -969,8 +972,7 @@ namespace datalog {
 	  rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
 	  rule_ref r(m_rule_manager);
 	  for (; it != end; ++it) {
-            r = *it;
-            check_rule(r);
+            check_rule(*(*it));
 	  }     
         }   
 #endif

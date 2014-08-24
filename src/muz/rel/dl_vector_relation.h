@@ -42,8 +42,6 @@ namespace datalog {
         union_find_default_ctx m_ctx;
         union_find<>*      m_eqs;
 
-        friend class vector_relation_plugin;
-
     public:
         vector_relation(relation_plugin& p, relation_signature const& s, bool is_empty, T const& t = T()):
             relation_base(p, s),
@@ -107,9 +105,10 @@ namespace datalog {
                     display_index(i, (*m_elems)[i], out);
                 }
                 else {
-                    out << i << " = " << find(i) << "\n";
+                    out << i << " = " << find(i) << " ";
                 }
             }
+            out << "\n";
         }
 
 
