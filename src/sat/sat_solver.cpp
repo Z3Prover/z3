@@ -50,6 +50,7 @@ namespace sat {
         m_params(p) {
         m_config.updt_params(p);
         m_conflicts_since_gc      = 0;
+        m_conflicts               = 0;
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
     }
@@ -742,8 +743,7 @@ namespace sat {
             // iff3_finder(*this)();            
             simplify_problem();
             if (check_inconsistent()) return l_false;
-
-            m_next_simplify = m_config.m_restart_initial * m_config.m_simplify_mult1;
+            
 
             if (m_config.m_max_conflicts == 0) {
                 IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"abort: max-conflicts = 0\"\n";);
@@ -763,13 +763,8 @@ namespace sat {
                 }
 
                 restart();
-                if (m_conflicts >= m_next_simplify) {
-                    simplify_problem();
-                    if (check_inconsistent()) return l_false;
-                    m_next_simplify = static_cast<unsigned>(m_conflicts * m_config.m_simplify_mult2);
-                    if (m_next_simplify > m_conflicts + m_config.m_simplify_max)
-                        m_next_simplify = m_conflicts + m_config.m_simplify_max;
-                }
+                simplify_problem();
+                if (check_inconsistent()) return l_false;                
                 gc();
             }
         }
@@ -955,7 +950,6 @@ namespace sat {
     void solver::init_search() {
         m_phase_counter           = 0;
         m_phase_cache_on          = false;
-        m_conflicts               = 0;
         m_conflicts_since_restart = 0;
         m_restart_threshold       = m_config.m_restart_initial;
         m_luby_idx                = 1;
@@ -972,6 +966,9 @@ namespace sat {
 
     */
     void solver::simplify_problem() {
+        if (m_conflicts < m_next_simplify) {
+            return;
+        }
 
         // Disable simplification during MUS computation.        
         // if (m_mus.is_active()) return;
@@ -1016,6 +1013,15 @@ namespace sat {
         TRACE("sat", display(tout << "consistent: " << (!inconsistent()) << "\n"););
 
         reinit_assumptions();
+
+        if (m_next_simplify == 0) {
+            m_next_simplify = m_config.m_restart_initial * m_config.m_simplify_mult1;
+        }
+        else {
+            m_next_simplify = static_cast<unsigned>(m_conflicts * m_config.m_simplify_mult2);
+            if (m_next_simplify > m_conflicts + m_config.m_simplify_max)
+                m_next_simplify = m_conflicts + m_config.m_simplify_max;
+        }
     }
 
     void solver::sort_watch_lits() {
