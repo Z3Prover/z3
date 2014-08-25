@@ -24,6 +24,6 @@ Notes:
 
 namespace opt {
     maxsmt_solver_base* mk_maxhs(context& c,
-                                 vector<rational> const& ws, expr_ref_vector const& soft);
+                                 weights_t& ws, expr_ref_vector const& soft);
 }
 #endif
