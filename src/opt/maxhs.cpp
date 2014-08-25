@@ -554,7 +554,7 @@ namespace opt {
         
     };
 
-    maxsmt_solver_base* opt::mk_maxhs(
+    maxsmt_solver_base* mk_maxhs(
         context& c, weights_t& ws, expr_ref_vector const& soft) {
         return alloc(maxhs, c, ws, soft);
     }
