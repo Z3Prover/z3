@@ -276,7 +276,7 @@ public:
         out << to_string(a);
     }
 
-    mpq_manager<SYNCH>& mpq_manager() { return m; }
+    mpq_manager<SYNCH>& get_mpq_manager() { return m; }
 };
 
 typedef mpq_inf_manager<true>  synch_mpq_inf_manager;

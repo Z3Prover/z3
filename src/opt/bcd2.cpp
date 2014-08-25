@@ -398,7 +398,7 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* opt::mk_bcd2(
+    maxsmt_solver_base* mk_bcd2(
         context& c, weights_t& ws, expr_ref_vector const& soft) {
         return alloc(bcd2, c, ws, soft);
     }

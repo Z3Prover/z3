@@ -541,7 +541,7 @@ namespace opt {
             VERIFY(l_true == m_simplex.minimize(m_weights_var));
             mpq_inf const& val = m_simplex.get_value(m_weights_var);
             unsynch_mpq_inf_manager mg;
-            unsynch_mpq_manager& mq = mg.mpq_manager();
+            unsynch_mpq_manager& mq = mg.get_mpq_manager();
             scoped_mpq c(mq);
             mg.ceil(val, c);
             rational w(c);
