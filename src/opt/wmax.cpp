@@ -122,8 +122,8 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* opt::mk_wmax(context& c, 
-                                     vector<rational> const& ws, expr_ref_vector const& soft) {
+    maxsmt_solver_base* mk_wmax(context& c, 
+                                vector<rational> const& ws, expr_ref_vector const& soft) {
         return alloc(wmax, c, ws, soft);
     }
 
