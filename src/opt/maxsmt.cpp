@@ -98,6 +98,10 @@ namespace opt {
         m_c.enable_sls(soft, ws);
     }
 
+    void maxsmt_solver_base::set_enable_sls(bool f) {
+        m_c.set_enable_sls(f);
+    }
+
     app* maxsmt_solver_base::mk_fresh_bool(char const* name) {
         app* result = m.mk_fresh_const(name, m.mk_bool_sort());
         m_c.fm().insert(result->get_decl());

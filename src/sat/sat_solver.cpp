@@ -969,6 +969,7 @@ namespace sat {
         if (m_conflicts < m_next_simplify) {
             return;
         }
+        IF_VERBOSE(2, verbose_stream() << "(sat.simplify)\n";);
 
         // Disable simplification during MUS computation.        
         // if (m_mus.is_active()) return;
