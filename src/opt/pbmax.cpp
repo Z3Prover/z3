@@ -87,7 +87,7 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* opt::mk_pbmax(
+    maxsmt_solver_base* mk_pbmax(
         context & c, weights_t& ws, expr_ref_vector const& soft) {
         return alloc(pbmax, c, ws, soft);
     }
