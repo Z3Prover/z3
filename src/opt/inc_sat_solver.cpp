@@ -228,11 +228,25 @@ private:
         r = internalize_assumptions(soft.size(), soft.c_ptr(), dep2asm);
         sat::literal_vector lits;
         svector<double> weights;
+        sat::literal lit;
 
         if (r == l_true) {
             for (unsigned i = 0; i < soft.size(); ++i) {
                 weights.push_back(m_weights[i].get_double());
-                lits.push_back(dep2asm.find(soft[i].get()));
+                expr* s = soft[i].get();
+                bool is_neg = m.is_not(s, s);
+                if (!dep2asm.find(s, lit)) {
+                    std::cout << "not found: " << mk_pp(s, m) << "\n";
+                    dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
+                    for (; it != end; ++it) {
+                        std::cout << mk_pp(it->m_key, m) << " " << it->m_value << "\n";
+                    }
+                    UNREACHABLE();
+                }
+                if (is_neg) {
+                    lit.neg();
+                }                        
+                lits.push_back(lit);
             }
             m_solver.initialize_soft(lits.size(), lits.c_ptr(), weights.c_ptr());
             m_params.set_bool("optimize_model", true);

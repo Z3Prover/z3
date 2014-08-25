@@ -84,6 +84,8 @@ namespace opt {
         app* mk_fresh_bool(char const* name);
     protected:
         void enable_sls(expr_ref_vector const& soft, weights_t& ws);
+        void set_enable_sls(bool f);
+
     };
 
     /**

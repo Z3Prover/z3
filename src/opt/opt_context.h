@@ -177,6 +177,7 @@ namespace opt {
         ast_manager& get_manager() { return this->m; }
         params_ref& params() { return m_params; }
         void enable_sls(expr_ref_vector const& soft, weights_t& weights);
+        void set_enable_sls(bool f) { m_enable_sls = f; }
         symbol const& maxsat_engine() const { return m_maxsat_engine; }
 
 

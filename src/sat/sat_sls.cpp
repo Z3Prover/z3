@@ -387,8 +387,10 @@ namespace sat {
                     m_best_value = val;
                     m_best_model.reset();
                     m_best_model.append(m_model);
-                    IF_VERBOSE(0, verbose_stream() << "new value: " << val << " @ " << i << "\n";);
-                    m_max_tries *= 2;
+                    IF_VERBOSE(1, verbose_stream() << "new value: " << val << " @ " << i << "\n";);
+                    if (i*2 > m_max_tries) {
+                        m_max_tries *= 2;
+                    }
                 }
             }
         }
