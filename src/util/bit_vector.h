@@ -200,6 +200,8 @@ public:
     bit_vector & operator|=(bit_vector const & source);
 
     bit_vector & operator&=(bit_vector const & source);
+
+    bit_vector & neg();
     
     void display(std::ostream & out) const;
 

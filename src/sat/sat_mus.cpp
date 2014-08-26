@@ -71,18 +71,19 @@ namespace sat {
             literal lit = core.back();
             core.pop_back();
             unsigned sz = mus.size();
-            // mus.push_back(~lit); // TBD: measure
             mus.append(core);
+            mus.push_back(~lit); // TBD: measure
             lbool is_sat = s.check(mus.size(), mus.c_ptr());
             TRACE("sat", tout << "mus: " << mus << "\n";);
-            mus.resize(sz);
             switch (is_sat) {
             case l_undef:
+                mus.resize(sz);
                 core.push_back(lit);
                 set_core();
                 return l_undef;
             case l_true: {
                 SASSERT(value_at(lit, s.get_model()) == l_false);
+                mus.resize(sz);
                 mus.push_back(lit);
                 if (!core.empty()) {
                     // mr(); // TBD: measure
@@ -92,8 +93,18 @@ namespace sat {
             case l_false:
                 literal_vector const& new_core = s.get_core();
                 if (new_core.contains(~lit)) {
+                    mus.resize(sz);
                     break;
+#if 0
+                    mus.pop_back();
+                    is_sat = s.check(mus.size(), mus.c_ptr());
+                    SASSERT(is_sat != l_true);
+                    if (is_sat != l_false) {
+                        return l_undef;
+                    }
+#endif 
                 }
+                mus.resize(sz);
                 TRACE("sat", tout << "new core: " << new_core << "\n";);
                 core.reset();
                 for (unsigned i = 0; i < new_core.size(); ++i) {
@@ -102,7 +113,6 @@ namespace sat {
                         core.push_back(lit);
                     }
                 }
-                IF_VERBOSE(2, verbose_stream() << "reduced core: " << core.size() << "\n";);
                 break;
             }
         }

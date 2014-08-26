@@ -228,6 +228,14 @@ unsigned bit_vector::get_hash() const {
     return string_hash(reinterpret_cast<char const* const>(m_data), size()/8,  0);
 }
 
+bit_vector& bit_vector::neg() {
+    unsigned n = num_words();
+    for (unsigned i = 0; i < n; ++i) {
+        m_data[i] = ~m_data[i];
+    }
+    return *this;
+}
+
 void fr_bit_vector::reset() {
     unsigned sz = size();
     unsigned_vector::const_iterator it  = m_one_idxs.begin();

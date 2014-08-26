@@ -43,6 +43,7 @@ namespace datalog {
         class default_relation_select_equal_and_project_fn;
         class default_relation_intersection_filter_fn;
         class default_relation_filter_interpreted_and_project_fn;
+        class default_relation_apply_sequential_fn;
 
         class auxiliary_table_transformer_fn;
         class auxiliary_table_filter_fn;
@@ -352,8 +353,12 @@ namespace datalog {
 
         relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
 
+
         relation_transformer_fn * mk_filter_interpreted_and_project_fn(const relation_base & t, app * condition,
             unsigned removed_col_cnt, const unsigned * removed_cols);
+
+        relation_mutator_fn * mk_apply_sequential_fn(unsigned n, relation_mutator_fn* * mutators);
+
 
         /**
             \brief Operations that returns all rows of \c t for which is column \c col equal to \c value

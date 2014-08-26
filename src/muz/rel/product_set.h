@@ -40,7 +40,11 @@ namespace datalog {
         typedef bit_vector T;
         unsigned m_refs;
     public:
-        product_set(product_set_plugin& p, relation_signature const& s, bool is_empty, T const& t = T());
+        enum initial_t {
+            EMPTY_t,
+            FULL_t
+        };
+        product_set(product_set_plugin& p, relation_signature const& s, initial_t init, T const& t = T());
        
         virtual ~product_set() {}
         unsigned get_hash() const;
@@ -146,10 +150,13 @@ namespace datalog {
         class project_fn;
         class union_fn;
         class rename_fn;
-        class filter_equal_fn;
+        class filter_mask_fn;
         class filter_identical_fn;
         class filter_interpreted_fn;
         class filter_by_negation_fn;        
+        class filter_by_union_fn;
+        ast_manager& m;
+        bv_util bv;
 
     public:        
         product_set_plugin(relation_manager& rm);
@@ -180,6 +187,29 @@ namespace datalog {
         static product_set_relation* get(relation_base* r);
         static product_set_relation const & get(relation_base const& r);   
         product_set* insert(product_set* s, product_set_relation* r);
+
+        enum decomp_t {
+            AND_d,    // conjunction
+            OR_d,     // disjunction 
+            EQ_d,     // value = col
+            NE_d,     // value != col
+            F_d,      // false
+            T_d,      // true
+            SET_d,    // disjunction value_i = col
+            UNHANDLED_d            
+        };
+
+        decomp_t decompose(expr* condition, expr_ref_vector& args, unsigned& col);
+
+        bool is_value_ne(expr* condition, relation_element& value, unsigned& col);
+        bool is_value_eq(expr* condition, relation_element& value, unsigned& col);
+        bool is_setof(expr* condition, expr_ref_vector& values, unsigned& col);
+        expr* mk_not(expr* e) { return m.is_not(e,e)?e:m.mk_not(e); }
+        void mk_union(product_set_relation& dst, product_set_relation const& src, product_set_relation* delta);
+        void extract_mask(unsigned sz, expr* const* values, bit_vector& mask);
+        bool mk_filter_interpreted(
+            const relation_base & t, expr_ref_vector const& args,
+            ptr_vector<relation_mutator_fn>& mutators);
     };
 
 };

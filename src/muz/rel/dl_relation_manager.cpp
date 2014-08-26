@@ -668,6 +668,27 @@ namespace datalog {
         return res;
     }
 
+    class relation_manager::default_relation_apply_sequential_fn : public relation_mutator_fn {
+        ptr_vector<relation_mutator_fn> m_mutators;
+    public:
+        default_relation_apply_sequential_fn(unsigned n, relation_mutator_fn ** mutators):
+            m_mutators(n, mutators) {            
+        }
+        virtual ~default_relation_apply_sequential_fn() {
+            std::for_each(m_mutators.begin(), m_mutators.end(), delete_proc<relation_mutator_fn>());
+        }
+        
+        virtual void operator()(relation_base& t) {
+            for (unsigned i = 0; i < m_mutators.size(); ++i) {
+                if (t.empty()) return;
+                (*(m_mutators[i]))(t);
+            }
+        }
+    };
+
+    relation_mutator_fn * relation_manager::mk_apply_sequential_fn(unsigned n, relation_mutator_fn ** mutators) {
+        return alloc(default_relation_apply_sequential_fn, n, mutators);
+    }
 
     class relation_manager::default_relation_join_project_fn : public relation_join_fn {
         scoped_ptr<relation_join_fn> m_join;
