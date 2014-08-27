@@ -71,9 +71,11 @@ namespace datalog {
         virtual bool contains_fact(const relation_fact & f) const;
         virtual relation_base * clone() const;
         virtual relation_base * complement(func_decl*) const;
+        virtual void reset();
         virtual void to_formula(expr_ref& fml) const;
 
         bool mk_intersect(unsigned idx, T const& t);
+        void complement();
 
     private:
         virtual void display_index(unsigned i, const T&, std::ostream& out) const;
@@ -132,6 +134,7 @@ namespace datalog {
     public:
         product_set_relation(product_set_plugin& p, relation_signature const& s);
         virtual ~product_set_relation();
+        virtual void reset();
         virtual void add_fact(const relation_fact & f);
         virtual bool contains_fact(const relation_fact & f) const;
         virtual product_set_relation * clone() const;

@@ -89,8 +89,7 @@ namespace datalog {
     void relation_base::reset() {
         ast_manager & m = get_plugin().get_ast_manager();
         app_ref bottom_ref(m.mk_false(), m);
-        scoped_ptr<relation_mutator_fn> reset_fn = 
-            get_manager().mk_filter_interpreted_fn(static_cast<relation_base &>(*this), bottom_ref);
+        scoped_ptr<relation_mutator_fn> reset_fn = get_manager().mk_filter_interpreted_fn(*this, bottom_ref);
         if(!reset_fn) {
             NOT_IMPLEMENTED_YET();
         }

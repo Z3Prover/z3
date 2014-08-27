@@ -52,27 +52,40 @@ namespace datalog {
         }
         return true;            
     }
-
     bool product_set::contains(product_set const& p) const {
         for (unsigned i = 0; i < get_signature().size(); ++i) {
             if ((*this)[i].contains(p[i])) return false;
         }
         return true;            
     }
-
+    void product_set::reset() {        
+        for (unsigned i = 0; i < get_signature().size(); ++i) {
+            (*this)[i].fill0();
+        }        
+    }
     void product_set::add_fact(const relation_fact & f) {
         UNREACHABLE();
     }
     bool product_set::contains_fact(const relation_fact & f) const {
+        UNREACHABLE();
         return false;
     }
     relation_base * product_set::clone() const {
-        UNREACHABLE();
-        return 0;
+        product_set* result = alloc(product_set, dynamic_cast<product_set_plugin&>(get_plugin()), get_signature(), EMPTY_t);
+        result->copy(*this);
+        return result;
     }
     relation_base * product_set::complement(func_decl*) const {
-        UNREACHABLE();
-        return 0;
+        product_set* result = alloc(product_set, dynamic_cast<product_set_plugin&>(get_plugin()), get_signature(), EMPTY_t);
+        result->copy(*this);
+        result->complement();
+        return result;
+    }
+
+    void product_set::complement() {
+        for (unsigned i = 0; i < get_signature().size(); ++i) {
+            (*this)[i].neg();
+        }        
     }
     void product_set::to_formula(expr_ref& fml) const {
         ast_manager& m = fml.get_manager();
@@ -133,10 +146,7 @@ namespace datalog {
     }
 
     product_set_relation::~product_set_relation() {
-        product_sets::iterator it = m_elems.begin(), end = m_elems.end();
-        for (; it != end; ++it) {
-            (*it)->dec_ref();
-        }
+        reset();
     }
 
     class product_set_plugin::filter_interpreted_fn : public relation_mutator_fn {
@@ -150,7 +160,8 @@ namespace datalog {
         virtual void operator()(relation_base & _r) {
             ast_manager& m = m_condition.get_manager();
             if (m.is_false(m_condition)) {
-                _r.reset();
+                product_set_relation & r = get(_r);
+                r.reset();
                 return;
             }
             if (m.is_true(m_condition)) {
@@ -172,7 +183,6 @@ namespace datalog {
         for (unsigned i = 0; i < f.size(); ++i) {
             VERIFY(bv.is_numeral(f[i], v, bv_size));
             SASSERT(v.is_unsigned());
-            (*s)[i] = bit_vector(get_plugin().set_size(m.get_sort(f[i])));
             (*s)[i].set(v.get_unsigned(), true);
         }
         // s->display(std::cout << "fact");
@@ -194,11 +204,18 @@ namespace datalog {
         product_set_relation* r = alloc(product_set_relation, get_plugin(), get_signature());
         product_sets::iterator it = m_elems.begin(), end = m_elems.end();
         for (; it != end; ++it) {
-            // TBD: have to copy because other operations are destructive.
-            (*it)->inc_ref();
-            r->m_elems.insert(*it);
+            product_set* ps = dynamic_cast<product_set*>((*it)->clone());
+            ps->inc_ref();
+            r->m_elems.insert(ps);
         }
         return r;
+    }
+    void product_set_relation::reset() {
+        product_sets::iterator it = m_elems.begin(), end = m_elems.end();
+        for (; it != end; ++it) {
+            (*it)->dec_ref();
+        }
+        m_elems.reset();
     }
     product_set_relation * product_set_relation::complement(func_decl*) const {
         std::cout << "complement\n";
@@ -264,9 +281,11 @@ namespace datalog {
     product_set* product_set_plugin::insert(product_set* s, product_set_relation* r) {
         if (s->empty()) {
             s->reset();
+            s->complement();
         }
         else if (r->m_elems.contains(s)) {
             s->reset();
+            s->complement();
         }
         else {
             s->inc_ref();
@@ -309,6 +328,7 @@ namespace datalog {
                 }
             }
             dealloc(s);
+            std::cout << "join " << result->m_elems.size() << "\n";
             return result;
         }
     };
@@ -397,6 +417,7 @@ namespace datalog {
             product_set_relation const& src = get(_src);
             product_set_relation* d = get(_delta);
             r.get_plugin().mk_union(r, src, d);
+            std::cout << "union: " << r.m_elems.size() << "\n";
         }
     };
     void product_set_plugin::mk_union(
@@ -540,8 +561,7 @@ namespace datalog {
         }
     };
 
-    product_set_plugin::decomp_t product_set_plugin::decompose(
-        expr* condition, expr_ref_vector& args, unsigned& col) {
+    product_set_plugin::decomp_t product_set_plugin::decompose(expr* condition, expr_ref_vector& args, unsigned& col) {
         args.reset();
         expr* e1, *e2;
         app* value;
@@ -575,6 +595,7 @@ namespace datalog {
             return AND_d;
         }
         if (is_setof(condition, args, col)) {
+            SASSERT(!args.empty());
             return SET_d;
         }
         if (m.is_or(condition)) {
@@ -636,7 +657,6 @@ namespace datalog {
         unsigned col;
         ptr_vector<relation_mutator_fn> mutators;
         expr_ref_vector args(m);
-        std::cout << mk_pp(condition, m) << "\n";
         bit_vector mask;
         switch (decompose(condition, args, col)) {
         case NE_d:
@@ -713,6 +733,9 @@ namespace datalog {
                     values.push_back(value);
                 }
             }
+            else {
+                return false;
+            }
         }
         return true;
     }
@@ -722,9 +745,7 @@ namespace datalog {
         rational val;
         unsigned bv_size;
         if (!m.is_eq(e, e1, e2)) return false;
-        if (!is_var(e1)) {
-            std::swap(e1, e2);
-        }
+        if (!is_var(e1)) std::swap(e1, e2);
         if (!is_var(e1)) return false;
         if (!bv.is_numeral(e2, val, bv_size)) return false;
         if (!val.is_unsigned()) return false;
