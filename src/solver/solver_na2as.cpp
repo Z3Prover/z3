@@ -82,7 +82,7 @@ void solver_na2as::pop(unsigned n) {
 }
 
 void solver_na2as::restore_assumptions(unsigned old_sz) {
-    SASSERT(old_sz == 0);
+  //    SASSERT(old_sz == 0);
     for (unsigned i = old_sz; i < m_assumptions.size(); i++) {
         m_manager.dec_ref(m_assumptions[i]);
     }
