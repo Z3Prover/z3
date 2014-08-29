@@ -41,7 +41,7 @@ namespace opt {
         m_c(c),
         m_cancel(false), m_soft(m),
         m_assertions(m) {
-        m_s.get_model(m_model);
+        c.get_base_model(m_model);
         SASSERT(m_model);
         updt_params(c.params());
         init_soft(ws, soft);

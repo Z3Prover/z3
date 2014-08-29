@@ -179,14 +179,15 @@ namespace opt {
         void enable_sls(expr_ref_vector const& soft, weights_t& weights);
         void set_enable_sls(bool f) { m_enable_sls = f; }
         symbol const& maxsat_engine() const { return m_maxsat_engine; }
+        void get_base_model(model_ref& m);
 
 
     private:
         void validate_feasibility(maxsmt& ms);
 
-        lbool execute(objective const& obj, bool committed);
-        lbool execute_min_max(unsigned index, bool committed);
-        lbool execute_maxsat(symbol const& s, bool committed);
+        lbool execute(objective const& obj, bool committed, bool scoped);
+        lbool execute_min_max(unsigned index, bool committed, bool scoped);
+        lbool execute_maxsat(symbol const& s, bool committed, bool scoped);
         lbool execute_lex();
         lbool execute_box();
         lbool execute_pareto();

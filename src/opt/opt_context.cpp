@@ -215,7 +215,7 @@ namespace opt {
         case 0:
             return is_sat;
         case 1:
-            return execute(m_objectives[0], true);
+            return execute(m_objectives[0], true, false);
         default: {
             opt_params optp(m_params);
             symbol pri = optp.priority();
@@ -232,6 +232,10 @@ namespace opt {
         }
     }
 
+    void context::get_base_model(model_ref& mdl) {
+        mdl = m_model;
+    }
+
     void context::get_model(model_ref& mdl) {
         mdl = m_model;
         if (mdl) {
@@ -242,27 +246,31 @@ namespace opt {
         }
     }
 
-    lbool context::execute_min_max(unsigned index, bool committed) {
+    lbool context::execute_min_max(unsigned index, bool committed, bool scoped) {
+        if (scoped) get_solver().push();            
         lbool result = m_optsmt.lex(index);
-        if (result == l_true && committed) m_optsmt.commit_assignment(index);
         if (result == l_true) m_optsmt.get_model(m_model);
+        if (scoped) get_solver().pop(1);        
+        if (result == l_true && committed) m_optsmt.commit_assignment(index);
         return result;
     }
     
-    lbool context::execute_maxsat(symbol const& id, bool committed) {
+    lbool context::execute_maxsat(symbol const& id, bool committed, bool scoped) {
         model_ref tmp;
         maxsmt& ms = *m_maxsmts.find(id);
+        if (scoped) get_solver().push();            
         lbool result = ms(m_solver.get());
-        if (result == l_true && committed) ms.commit_assignment();
         if (result != l_false && (ms.get_model(tmp), tmp.get())) ms.get_model(m_model);
+        if (scoped) get_solver().pop(1);
+        if (result == l_true && committed) ms.commit_assignment();
         return result;
     }
 
-    lbool context::execute(objective const& obj, bool committed) {
+    lbool context::execute(objective const& obj, bool committed, bool scoped) {
         switch(obj.m_type) {
-        case O_MAXIMIZE: return execute_min_max(obj.m_index, committed);
-        case O_MINIMIZE: return execute_min_max(obj.m_index, committed);
-        case O_MAXSMT: return execute_maxsat(obj.m_id, committed);
+        case O_MAXIMIZE: return execute_min_max(obj.m_index, committed, scoped);
+        case O_MINIMIZE: return execute_min_max(obj.m_index, committed, scoped);
+        case O_MAXSMT: return execute_maxsat(obj.m_id, committed, scoped);
         default: UNREACHABLE(); return l_undef;
         }
     }
@@ -271,9 +279,7 @@ namespace opt {
         lbool r = l_true;
         for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
             bool is_last = i + 1 == m_objectives.size();
-            if (!is_last) get_solver().push();            
-            r = execute(m_objectives[i], i + 1 < m_objectives.size());
-            if (!is_last) get_solver().pop(1);
+            r = execute(m_objectives[i], i + 1 < m_objectives.size(), !is_last);
             if (r == l_true && !get_lower_as_num(i).is_finite()) {
                 return r;
             }
@@ -291,7 +297,7 @@ namespace opt {
             objective const& obj = m_objectives[i];
             if (obj.m_type == O_MAXSMT) {
                 solver::scoped_push _sp(get_solver());
-                r = execute(obj, false);
+                r = execute(obj, false, false);
             }
         }
         return r;
@@ -398,9 +404,6 @@ namespace opt {
         }
         if (is_sat == l_true) {
             yield();
-        }
-        else {
-            m_solver->pop(1);
         }
         return is_sat;
     }

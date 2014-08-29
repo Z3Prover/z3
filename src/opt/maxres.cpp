@@ -84,6 +84,7 @@ private:
     strategy_t       m_st;
     rational         m_max_upper;
     bool             m_hill_climb;
+    bool             m_all_cores;
 
 public:
     maxres(context& c,
@@ -95,7 +96,8 @@ public:
         m_mss(m_s, m),
         m_trail(m),
         m_st(st),
-        m_hill_climb(true)
+        m_hill_climb(true),
+        m_all_cores(false)
     {
     }
 
@@ -151,21 +153,9 @@ public:
                 return l_undef;
             }
             switch (is_sat) {
-            case l_true: {
-                s().get_model(m_model);
-                expr_ref tmp(m);
-                DEBUG_CODE(
-                    for (unsigned i = 0; i < m_asms.size(); ++i) {
-                        VERIFY(m_model->eval(m_asms[i].get(), tmp));                        
-                        SASSERT(m.is_true(tmp));
-                    });
-                for (unsigned i = 0; i < m_soft.size(); ++i) {
-                    VERIFY(m_model->eval(m_soft[i].get(), tmp));
-                    m_assignment[i] = m.is_true(tmp);
-                }
-                m_upper = m_lower;
+            case l_true: 
+                found_optimum();
                 return l_true;
-            }
             case l_false:
                 is_sat = process_unsat();
                 if (is_sat != l_true) return is_sat;
@@ -294,22 +284,67 @@ public:
         init();
         init_local();
         sls();
+        m_all_cores = true;
         NOT_IMPLEMENTED_YET();
-        ptr_vector<expr> mcs;
         vector<ptr_vector<expr> > cores;
         return l_undef;
-#if 0
-        while (m_lower < m_upper) {            
+        lbool is_sat = l_true;
+        while (m_lower < m_upper && is_sat == l_true) {            
             TRACE("opt", 
                   display_vec(tout, m_asms.size(), m_asms.c_ptr());
                   s().display(tout);
                   tout << "\n";
                   display(tout);
                   );
+            lbool is_sat = s().check_sat(m_asms.size(), m_asms.c_ptr());
+            if (m_cancel) {
+                return l_undef;
+            }
+            switch (is_sat) {
+            case l_true: 
+                found_optimum();
+                return l_true;
+            case l_false:
+                is_sat = process_unsat(cores);
+                break;
+            default:
+                break;
+            }
+            if (is_sat == l_undef) {
+                return l_undef;
+            }
+            if (cores.empty()) {
+                SASSERT(is_sat == l_false);
+                break;
+            }
+            SASSERT(is_sat == l_true);
+            // there is some best model, 
+            // extend it to a maximal assignment
+            // extracting the mss and mcs.
+            set_mus(false);
+            ptr_vector<expr> mss, mcs;
+            is_sat = m_mss(cores, mss, mcs);
+            set_mus(true);
+            if (is_sat != l_true) return is_sat;
+            // 
         }
         m_lower = m_upper;
         return l_true;
-#endif
+    }
+
+    void found_optimum() {
+        s().get_model(m_model);
+        expr_ref tmp(m);
+        DEBUG_CODE(
+            for (unsigned i = 0; i < m_asms.size(); ++i) {
+                VERIFY(m_model->eval(m_asms[i].get(), tmp));                        
+                SASSERT(m.is_true(tmp));
+            });
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            VERIFY(m_model->eval(m_soft[i].get(), tmp));
+            m_assignment[i] = m.is_true(tmp);
+        }
+        m_upper = m_lower;
     }
 
 
@@ -341,8 +376,7 @@ public:
                 break;
             }
             cores.push_back(core);
-            // TBD: ad hoc to avoid searching for large cores..
-            if (core.size() >= 3) {
+            if (!m_all_cores && core.size() >= 3) {
                 break;
             }
             remove_soft(core, asms);
@@ -409,7 +443,7 @@ public:
         return index;
     }
 
-    lbool process_sat(ptr_vector<expr>& corr_set) {
+    lbool process_sat(ptr_vector<expr> const& corr_set) {
         expr_ref fml(m), tmp(m);
         TRACE("opt", display_vec(tout << "corr_set: ", corr_set.size(), corr_set.c_ptr()););
         if (corr_set.empty()) {
@@ -425,6 +459,10 @@ public:
 
     lbool process_unsat() {
         vector<ptr_vector<expr> > cores;
+        return process_unsat(cores);
+    }
+
+    lbool process_unsat(vector<ptr_vector<expr> >& cores) {
         lbool is_sat = get_cores(cores);
         if (is_sat != l_true) {
             return is_sat;
@@ -438,7 +476,7 @@ public:
         return is_sat;
     }
     
-    lbool process_unsat(ptr_vector<expr>& core) {
+    lbool process_unsat(ptr_vector<expr> const& core) {
         expr_ref fml(m);
         remove_core(core);
         rational w = split_core(core);
@@ -452,7 +490,7 @@ public:
     }
 
     lbool minimize_core(ptr_vector<expr>& core) {
-        if (m_c.sat_enabled()) {
+        if (m_c.sat_enabled() || core.empty()) {
             return l_true;
         }
         m_mus.reset();
@@ -521,7 +559,7 @@ public:
         }
     }
 
-    void max_resolve(ptr_vector<expr>& core, rational const& w) {
+    void max_resolve(ptr_vector<expr> const& core, rational const& w) {
         SASSERT(!core.empty());
         expr_ref fml(m), asum(m);
         app_ref cls(m), d(m), dd(m);
@@ -563,7 +601,7 @@ public:
     }
 
     // cs is a correction set (a complement of a (maximal) satisfying assignment).
-    void cs_max_resolve(ptr_vector<expr>& cs, rational const& w) {
+    void cs_max_resolve(ptr_vector<expr> const& cs, rational const& w) {
         TRACE("opt", display_vec(tout << "correction set: ", cs.size(), cs.c_ptr()););
         SASSERT(!cs.empty());
         expr_ref fml(m), asum(m);
