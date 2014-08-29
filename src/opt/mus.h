@@ -40,6 +40,16 @@ namespace opt {
         void reset();
         
         void set_cancel(bool f);
+
+        /**
+           Instrument MUS extraction to also provide the minimal
+           penalty model, if any is found.
+           The minimal penalty model has the least weight for the 
+           supplied soft constraints.
+         */
+        void set_soft(unsigned sz, expr* const* soft, rational const* weights);
+        rational get_best_model(model_ref& mdl);
+        
     };
 
 };
