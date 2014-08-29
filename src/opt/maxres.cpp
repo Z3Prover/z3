@@ -61,6 +61,7 @@ Notes:
 #include "mss.h"
 #include "inc_sat_solver.h"
 #include "opt_context.h"
+#include "pb_decl_plugin.h"
 
 
 using namespace opt;
@@ -85,6 +86,7 @@ private:
     rational         m_max_upper;
     bool             m_hill_climb;
     bool             m_all_cores;
+    bool             m_add_upper_bound_block;
 
 public:
     maxres(context& c,
@@ -97,7 +99,8 @@ public:
         m_trail(m),
         m_st(st),
         m_hill_climb(true),
-        m_all_cores(false)
+        m_all_cores(false),
+        m_add_upper_bound_block(false)
     {
     }
 
@@ -281,13 +284,12 @@ public:
        
     */
     lbool mus_mss2_solver() {
+        m_all_cores = true;
+        m_add_upper_bound_block = true;
         init();
         init_local();
         sls();
-        m_all_cores = true;
-        NOT_IMPLEMENTED_YET();
         vector<ptr_vector<expr> > cores;
-        return l_undef;
         lbool is_sat = l_true;
         while (m_lower < m_upper && is_sat == l_true) {            
             TRACE("opt", 
@@ -318,15 +320,21 @@ public:
                 break;
             }
             SASSERT(is_sat == l_true);
-            // there is some best model, 
+
+            // TBD: there is some best model, 
+            // retrieve it from the get_cores calls.
             // extend it to a maximal assignment
             // extracting the mss and mcs.
+
             set_mus(false);
             ptr_vector<expr> mss, mcs;
             is_sat = m_mss(cores, mss, mcs);
             set_mus(true);
             if (is_sat != l_true) return is_sat;
-            // 
+            model_ref mdl;
+            m_mss.get_model(mdl); // last model is best way to reduce search space.
+            update_assignment(mdl.get());
+            is_sat = process_sat(mcs);            
         }
         m_lower = m_upper;
         return l_true;
@@ -446,14 +454,9 @@ public:
     lbool process_sat(ptr_vector<expr> const& corr_set) {
         expr_ref fml(m), tmp(m);
         TRACE("opt", display_vec(tout << "corr_set: ", corr_set.size(), corr_set.c_ptr()););
-        if (corr_set.empty()) {
-            return l_true;
-        }
-        
         remove_core(corr_set);
         rational w = split_core(corr_set);
-        TRACE("opt", display_vec(tout << " corr_set: ", corr_set.size(), corr_set.c_ptr()););
-        cs_max_resolve(corr_set, w);
+        cs_max_resolve(corr_set, w);        
         return l_true;
     }
 
@@ -479,6 +482,7 @@ public:
     lbool process_unsat(ptr_vector<expr> const& core) {
         expr_ref fml(m);
         remove_core(core);
+        SASSERT(!core.empty());
         rational w = split_core(core);
         TRACE("opt", display_vec(tout << "minimized core: ", core.size(), core.c_ptr()););
         max_resolve(core, w);
@@ -524,9 +528,8 @@ public:
     }
 
     rational split_core(ptr_vector<expr> const& core) {
-
+        if (core.empty()) return rational(0);
         // find the minimal weight:
-        SASSERT(!core.empty());
         rational w = get_weight(core[0]);
         for (unsigned i = 1; i < core.size(); ++i) {
             rational w2 = get_weight(core[i]);
@@ -602,8 +605,8 @@ public:
 
     // cs is a correction set (a complement of a (maximal) satisfying assignment).
     void cs_max_resolve(ptr_vector<expr> const& cs, rational const& w) {
+        if (cs.empty()) return;
         TRACE("opt", display_vec(tout << "correction set: ", cs.size(), cs.c_ptr()););
-        SASSERT(!cs.empty());
         expr_ref fml(m), asum(m);
         app_ref cls(m), d(m), dd(m);
         m_B.reset();
@@ -737,6 +740,17 @@ public:
         // verify_assignment();
         IF_VERBOSE(1, verbose_stream() << 
                    "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
+
+        if (m_add_upper_bound_block) {
+            pb_util u(m);
+            expr_ref_vector nsoft(m);
+            expr_ref fml(m);
+            for (unsigned i = 0; i < m_soft.size(); ++i) {
+                nsoft.push_back(m.mk_not(m_soft[i].get()));
+            }            
+            fml = u.mk_lt(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper);
+            s().assert_expr(fml);
+        }
     }
 
     void remove_soft(ptr_vector<expr> const& core, expr_ref_vector& asms) {

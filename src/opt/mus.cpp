@@ -22,7 +22,6 @@ Notes:
 #include "smt_literal.h"
 #include "mus.h"
 #include "ast_pp.h"
-#include "model_smt2_pp.h"
 
 using namespace opt;
 
@@ -34,9 +33,13 @@ struct mus::imp {
     expr_ref_vector          m_cls2expr;
     obj_map<expr, unsigned>  m_expr2cls;
     volatile bool            m_cancel;
+    model_ref                m_model;
+    expr_ref_vector          m_soft;
+    vector<rational>         m_weights;
+    rational                 m_weight;
 
     imp(solver& s, ast_manager& m): 
-        m_s(s), m(m), m_cls2expr(m),  m_cancel(false)
+        m_s(s), m(m), m_cls2expr(m),  m_cancel(false), m_soft(m)
     {}
 
     void reset() {
@@ -100,6 +103,7 @@ struct mus::imp {
             case l_true:
                 assumptions.push_back(cls);
                 mus.push_back(cls_id);
+                update_model();
                 break;
             default:
                 core_exprs.reset();
@@ -145,6 +149,40 @@ struct mus::imp {
         out << "\n";
     }
 
+    void set_soft(unsigned sz, expr* const* soft, rational const* weights) {
+        m_model.reset();
+        m_weight.reset();
+        m_soft.append(sz, soft);
+        m_weights.append(sz, weights);
+        for (unsigned i = 0; i < sz; ++i) {
+            m_weight += weights[i];
+        }
+    }
+
+    void update_model() {
+        if (m_soft.empty()) return;
+        model_ref mdl;
+        expr_ref tmp(m);
+        m_s.get_model(mdl);
+        rational w;
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            mdl->eval(m_soft[i].get(), tmp);
+            if (!m.is_true(tmp)) {
+                w += m_weights[i];
+            }
+        }
+        if (w < m_weight || !m_model.get()) {
+            m_model = mdl;
+            m_weight = w;
+        }
+    }
+
+    rational get_best_model(model_ref& mdl) {
+        mdl = m_model;
+        return m_weight;
+    }
+
+
 };
 
 mus::mus(solver& s, ast_manager& m) {
@@ -169,4 +207,12 @@ void mus::set_cancel(bool f) {
 
 void mus::reset() {
     m_imp->reset();
+}
+
+void mus::set_soft(unsigned sz, expr* const* soft, rational const* weights) {
+    m_imp->set_soft(sz, soft, weights);
+}
+
+rational mus::get_best_model(model_ref& mdl) {
+    return m_imp->get_best_model(mdl);
 }
