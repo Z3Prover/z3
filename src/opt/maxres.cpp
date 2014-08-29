@@ -272,18 +272,23 @@ public:
        Plan:
        - Get maximal set of disjoint cores.
        - Update the lower bound using the cores.
-       - As a side-effect find a satisfying assignment that
-         has maximal weight.
+       - As a side-effect find a satisfying assignment that has maximal weight.
          (during core minimization several queries are bound to be SAT,
          those can be used to boot-strap the MCS search).
-       - Use the best satisfying assignment to find an MCS of least weight.
+       - Use the best satisfying assignment from the MUS search to find an MCS of least weight.
        - Update the upper bound using the MCS.
        - Update the soft constraints using first the cores.
        - Then update the resulting soft constraints using the evaluation of the MCS/MSS 
        - Add a cardinality constraint to force new satisfying assignments to improve 
          the new upper bound.
        - In every iteration, the lower bound is improved using the cores.
-       - In every iteration, the upper bound is improved using the MCS
+       - In every iteration, the upper bound is improved using the MCS.
+       - Optionally: add a cardinality constraint to prune the upper bound.
+       
+       What are the corner cases:
+       - suppose that cost of cores adds up to current upper bound.
+         -> it means that each core is a unit (?)
+       
     */
     lbool mus_mss2_solver() {
         init();
