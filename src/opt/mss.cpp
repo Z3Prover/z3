@@ -144,10 +144,10 @@ namespace opt {
         m_todo.resize(j);
     }       
     
-    lbool mss::operator()(vector<exprs> const& _cores, exprs& literals, exprs& mcs) {
+    lbool mss::operator()(model* initial_model, vector<exprs> const& _cores, exprs& literals, exprs& mcs) {
         m_mss.reset();
         m_todo.reset();
-        m_s.get_model(m_model);
+        m_model = initial_model;
         m_cores.reset();
         SASSERT(m_model);
         m_cores.append(_cores);

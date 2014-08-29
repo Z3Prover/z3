@@ -36,7 +36,7 @@ namespace opt {
         mss(solver& s, ast_manager& m);
         ~mss();
         
-        lbool operator()(vector<exprs> const& cores, exprs& literals, exprs& mcs);
+        lbool operator()(model* initial_model, vector<exprs> const& cores, exprs& literals, exprs& mcs);
                 
         void set_cancel(bool f) { m_cancel = f; }
 
