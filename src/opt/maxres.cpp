@@ -78,7 +78,7 @@ private:
     expr_ref_vector  m_B;
     expr_ref_vector  m_asms;    
     obj_map<expr, rational> m_asm2weight;
-    obj_map<expr, lbool>    m_asm2value;
+    obj_map<expr, bool>     m_asm2value;
     ptr_vector<expr> m_new_core;
     mus              m_mus;
     mss              m_mss;
@@ -284,8 +284,8 @@ public:
        
     */
     lbool mus_mss2_solver() {
-        m_all_cores = true;
-        //m_add_upper_bound_block = true;
+        // m_all_cores = true;
+        // m_add_upper_bound_block = true;
         bool maximize_assignment = false;
         init();
         init_local();
@@ -333,10 +333,11 @@ public:
             // Extend the current model to a (maximal)
             // assignment extracting the ss and cs.
             // ss - satisfying subset
-            // cs - correction set (complement of it).
+            // cs - correction set (complement of ss).
             //
             if (maximize_assignment) {
                 exprs ss, cs;
+                // TBD: current model has to evaluate all auxiliary predicates.
                 is_sat = get_mss(cores, ss, cs);
                 if (is_sat != l_true) return is_sat;
                 update_mss_model();
@@ -364,15 +365,13 @@ public:
 
     void found_optimum() {
         s().get_model(m_model);
-        expr_ref tmp(m);
+        m_asm2value.reset();
         DEBUG_CODE(
             for (unsigned i = 0; i < m_asms.size(); ++i) {
-                VERIFY(m_model->eval(m_asms[i].get(), tmp));                        
-                SASSERT(m.is_true(tmp));
+                SASSERT(is_true(m_asms[i].get()));
             });
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            VERIFY(m_model->eval(m_soft[i].get(), tmp));
-            m_assignment[i] = m.is_true(tmp);
+            m_assignment[i] = is_true(m_soft[i].get());
         }
         m_upper = m_lower;
     }
@@ -445,10 +444,8 @@ public:
     void get_current_correction_set(exprs& cs) {
         TRACE("opt", display_vec(tout << "old correction set: ", cs.size(), cs.c_ptr()););
         cs.reset();
-        expr_ref tmp(m);
         for (unsigned i = 0; i < m_asms.size(); ++i) {
-            VERIFY(m_model->eval(m_asms[i].get(), tmp));
-            if (!m.is_true(tmp)) {
+            if (!is_true(m_asms[i].get())) {
                 cs.push_back(m_asms[i].get());
             }
         }
@@ -653,12 +650,17 @@ public:
                 s().assert_expr(fml);
                 fml = m.mk_implies(dd, b_i);
                 s().assert_expr(fml);
+                m_asm2value.insert(dd, is_true(d) && is_true(b_i));
                 d = dd;
             }
             else {
-                d = m.mk_and(b_i, d);
+                dd = m.mk_and(b_i, d);
+                m_asm2value.insert(dd, is_true(d) && is_true(b_i));
+                m_trail.push_back(dd);
+                d = dd;
             }
             asum = mk_fresh_bool("a");
+            m_asm2value.insert(asum, is_true(b_i1) || is_true(d));
             cls = m.mk_or(b_i1, d);
             fml = m.mk_implies(asum, cls);
             new_assumption(asum, w);
@@ -792,11 +794,10 @@ public:
             return;
         }
         m_model = mdl;
+        m_asm2value.reset();
 
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            expr* n = m_soft[i].get();
-            VERIFY(m_model->eval(n, tmp));
-            m_assignment[i] = m.is_true(tmp);
+            m_assignment[i] = is_true(m_soft[i].get());
         }
         m_upper = upper;
         // verify_assignment();
@@ -813,6 +814,16 @@ public:
             fml = u.mk_lt(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper);
             s().assert_expr(fml);
         }
+    }
+
+    bool is_true(expr* e) {
+        bool truth_value;
+        if (m_asm2value.find(e, truth_value)) {
+            return truth_value;
+        }
+        expr_ref tmp(m);
+        VERIFY(m_model->eval(e, tmp));
+        return m.is_true(tmp);
     }
 
     void remove_soft(exprs const& core, expr_ref_vector& asms) {

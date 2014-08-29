@@ -35,7 +35,7 @@ namespace opt {
     bool mss::check_result() {
         lbool is_sat = m_s.check_sat(m_mss.size(), m_mss.c_ptr());
         if (is_sat == l_undef) return true;
-        SASSERT(is_sat == l_true);
+        SASSERT(m_mss.empty() || is_sat == l_true);
         if (is_sat == l_false) return false;
         expr_set::iterator it = m_mcs.begin(), end = m_mcs.end();
         for (; it != end; ++it) {
