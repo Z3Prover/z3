@@ -122,9 +122,8 @@ namespace datalog {
             UNREACHABLE();
             return t; 
         }
-
-
     };
+
 
     typedef ptr_hashtable<product_set, product_set::hash, product_set::eq> product_sets;
 
@@ -214,6 +213,72 @@ namespace datalog {
             const relation_base & t, expr_ref_vector const& args,
             ptr_vector<relation_mutator_fn>& mutators);
     };
+
+    class product_set_factory;
+
+
+    class product_set2 {
+        friend class product_set_factory;
+        unsigned char m_data[0];
+    public:
+        enum initial_t {
+            EMPTY_t,
+            FULL_t
+        };
+        product_set2(product_set_factory& fac, initial_t init);
+        ~product_set2();
+        unsigned get_hash(product_set_factory& fac) const;
+        bool equals(product_set_factory& fac, product_set2 const& other) const;
+        void add_fact(product_set_factory& fac, const relation_fact & f);
+        bool contains_fact(product_set_factory& fac, const relation_fact & f) const;
+        relation_base * clone(product_set_factory& fac) const;
+        void reset(product_set_factory& fac);
+        void mk_join(product_set_factory& fac, product_set2 const& r1, product_set2 const& r2, 
+                     unsigned num_cols, unsigned const* cols1, unsigned const* cols2);
+        void mk_project(product_set_factory& fac, 
+                        product_set2 const& r, unsigned col_cnt, unsigned const* removed_cols);
+        void mk_rename(product_set_factory& fac, 
+                       product_set2 const& r, unsigned col_cnt, unsigned const* cycle);
+        void mk_union(product_set_factory& fac, 
+                      product_set2 const& src, product_set2* delta, bool is_widen);
+        unsigned find(product_set_factory& fac, unsigned i);
+        void merge(product_set_factory& fac, unsigned i, unsigned j);
+        void display(product_set_factory& fac, std::ostream& out) const;        
+    };
+
+
+    class product_set_factory {
+        friend class product_set_factory;
+        unsigned char m_data[0];
+    public:
+        enum initial_t {
+            EMPTY_t,
+            FULL_t
+        };
+        product_set_factory(product_set_plugin& p, relation_signature const& sig);
+        ~product_set_factory();
+        product_set2* create();
+        void          retire(product_set2*);
+
+        unsigned get_hash(product_set2& ps) const;
+        bool equals(product_set2 const& p1, product_set2 const& p2);
+        void add_fact(product_set2& p, const relation_fact & f);
+        bool contains_fact(product_set2& p, const relation_fact & f) const;
+        relation_base * clone(product_set2& p) const;
+        void reset(product_set2& p);
+        void mk_join(product_set2& p, product_set2 const& r1, product_set2 const& r2, 
+                     unsigned num_cols, unsigned const* cols1, unsigned const* cols2);
+        void mk_project(product_set2& p, 
+                        product_set2 const& r, unsigned col_cnt, unsigned const* removed_cols);
+        void mk_rename(product_set2& p, 
+                       product_set2 const& r, unsigned col_cnt, unsigned const* cycle);
+        void mk_union(product_set2& p, 
+                      product_set2 const& src, product_set2* delta, bool is_widen);
+        unsigned find(product_set2& p, unsigned i);
+        void merge(product_set2& p, unsigned i, unsigned j);
+        void display(product_set2& p, std::ostream& out) const;        
+    };
+
 
 };
 

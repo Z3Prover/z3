@@ -70,6 +70,7 @@ public:
     enum strategy_t {
         s_mus,
         s_mus_mss,
+        s_mus_mss2,
         s_mss
     };
 private:
@@ -267,12 +268,54 @@ public:
         return l_true;
     }
 
+    /**
+       Plan:
+       - Get maximal set of disjoint cores.
+       - Update the lower bound using the cores.
+       - As a side-effect find a satisfying assignment that
+         has maximal weight.
+         (during core minimization several queries are bound to be SAT,
+         those can be used to boot-strap the MCS search).
+       - Use the best satisfying assignment to find an MCS of least weight.
+       - Update the upper bound using the MCS.
+       - Update the soft constraints using first the cores.
+       - Then update the resulting soft constraints using the evaluation of the MCS/MSS 
+       - Add a cardinality constraint to force new satisfying assignments to improve 
+         the new upper bound.
+       - In every iteration, the lower bound is improved using the cores.
+       - In every iteration, the upper bound is improved using the MCS
+    */
+    lbool mus_mss2_solver() {
+        init();
+        init_local();
+        sls();
+        NOT_IMPLEMENTED_YET();
+        ptr_vector<expr> mcs;
+        vector<ptr_vector<expr> > cores;
+        return l_undef;
+#if 0
+        while (m_lower < m_upper) {            
+            TRACE("opt", 
+                  display_vec(tout, m_asms.size(), m_asms.c_ptr());
+                  s().display(tout);
+                  tout << "\n";
+                  display(tout);
+                  );
+        }
+        m_lower = m_upper;
+        return l_true;
+#endif
+    }
+
+
     lbool operator()() {
         switch(m_st) {
         case s_mus:
             return mus_solver();
         case s_mus_mss:
             return mus_mss_solver();
+        case s_mus_mss2:
+            return mus_mss2_solver();
         case s_mss:
             return mss_solver();
         }
