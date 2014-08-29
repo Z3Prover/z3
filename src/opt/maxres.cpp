@@ -78,6 +78,7 @@ private:
     expr_ref_vector  m_B;
     expr_ref_vector  m_asms;    
     obj_map<expr, rational> m_asm2weight;
+    obj_map<expr, lbool>    m_asm2value;
     ptr_vector<expr> m_new_core;
     mus              m_mus;
     mss              m_mss;
@@ -285,6 +286,7 @@ public:
     lbool mus_mss2_solver() {
         m_all_cores = true;
         //m_add_upper_bound_block = true;
+        bool maximize_assignment = false;
         init();
         init_local();
         sls();
@@ -333,19 +335,24 @@ public:
             // ss - satisfying subset
             // cs - correction set (complement of it).
             //
-            exprs ss, cs;
-            is_sat = get_mss(cores, ss, cs);
-            if (is_sat != l_true) return is_sat;
-            update_mss_model();
+            if (maximize_assignment) {
+                exprs ss, cs;
+                is_sat = get_mss(cores, ss, cs);
+                if (is_sat != l_true) return is_sat;
+                update_mss_model();
+            }
             //
             // block the hard constraints corresponding to the cores.
-            // block the soft constraints corresponding to the cs.
-            // The original cs is not disjoint from the cores, 
-            // after the cores are blocked, the soft constraints 
-            // are changed.
+            // block the soft constraints corresponding to the cs
+            // obtained from the current best model.
+            // 
+            // TBD: model must be updated with definitions for the 
+            // fresh variables.
             // 
             is_sat = process_unsat(cores);
             if (is_sat != l_true) return is_sat;
+
+            exprs cs;
             get_current_correction_set(cs);
             is_sat = process_sat(cs);                        
             if (is_sat != l_true) return is_sat;
