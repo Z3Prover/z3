@@ -46,7 +46,7 @@ namespace datalog {
         };
         product_set(product_set_plugin& p, relation_signature const& s, initial_t init, T const& t = T());
        
-        virtual ~product_set() {}
+        virtual ~product_set();
         unsigned get_hash() const;
         bool operator==(product_set const& p) const;
         bool contains(product_set const& p) const;

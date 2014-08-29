@@ -24,19 +24,38 @@ Revision History:
 
 namespace datalog {
 
+    static unsigned s_ps_num_bits = 0;
+    static unsigned s_num_ps = 0;
+
     product_set::product_set(
         product_set_plugin& p, relation_signature const& s, 
         initial_t init, T const& t):
         vector_relation(p, s, false, t), m_refs(0) {
+        unsigned delta = 0;
         for (unsigned i = 0; i < s.size(); ++i) {
             unsigned sz = p.set_size(s[i]);
             (*this)[i].resize(sz);
             if (init == FULL_t) {
                 (*this)[i].neg();
             }
+            delta += sz;
+        }
+        s_ps_num_bits += delta;
+        s_num_ps ++;
+        if ((s_num_ps % 1000) == 0) {
+            std::cout << s_num_ps << " " << s_ps_num_bits << " " << delta << "\n";
         }
     }
 
+    product_set::~product_set() {
+        relation_signature const& s = get_signature();
+        product_set_plugin& p = dynamic_cast<product_set_plugin&>(get_plugin());
+        for (unsigned i = 0; i < s.size(); ++i) {
+            unsigned sz = p.set_size(s[i]);
+            s_ps_num_bits -= sz;
+        }        
+        --s_num_ps;
+    }
 
     unsigned product_set::get_hash() const {
         unsigned hash = 0;
