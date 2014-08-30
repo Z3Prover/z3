@@ -171,7 +171,6 @@ void theory_wmaxsat::reset_local() {
     m_vars.reset();
     m_fmls.reset();
     m_rweights.reset();
-    m_costs.reset();
     m_rmin_cost.reset();
     m_rcost.reset();
     m_zweights.reset();

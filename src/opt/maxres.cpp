@@ -503,7 +503,8 @@ public:
         TRACE("opt", display_vec(tout << "corr_set: ", corr_set.size(), corr_set.c_ptr()););
         remove_core(corr_set);
         rational w = split_core(corr_set);
-        cs_max_resolve(corr_set, w);        
+        cs_max_resolve(corr_set, w);       
+        IF_VERBOSE(2, verbose_stream() << "(opt.maxres.correction-set " << corr_set.size() << ")\n";);
     }
 
     lbool process_unsat() {

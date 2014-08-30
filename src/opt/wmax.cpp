@@ -40,7 +40,6 @@ namespace opt {
         lbool operator()() {
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
-            solver::scoped_push _s1(s());
             lbool is_sat = l_true;
             bool was_sat = false;
             for (unsigned i = 0; i < m_soft.size(); ++i) {
