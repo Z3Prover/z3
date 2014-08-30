@@ -1157,6 +1157,11 @@ namespace opt {
                 break;
             }
         }        
+        
+        param_descrs descrs;
+        collect_param_descrs(descrs);
+        m_params.display_smt2(out, "opt", descrs);
+        
         out << "(check-sat)\n"; 
         return out.str();
     }

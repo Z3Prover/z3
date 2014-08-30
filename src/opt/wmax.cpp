@@ -26,59 +26,15 @@ Notes:
 #include "opt_context.h"
 
 namespace opt {
-    class maxsmt_solver_wbase : public maxsmt_solver_base {
-        smt::context& ctx;
-    public:
-        maxsmt_solver_wbase(context& c,
-                            vector<rational> const& ws, expr_ref_vector const& soft): 
-            maxsmt_solver_base(c, ws, soft), ctx(c.smt_context()) {}
-        ~maxsmt_solver_wbase() {}
-
-        class scoped_ensure_theory {
-            smt::theory_wmaxsat* m_wth;
-        public:
-            scoped_ensure_theory(maxsmt_solver_wbase& s) {
-                m_wth = s.ensure_theory();
-            }
-            ~scoped_ensure_theory() {
-                m_wth->reset();
-            }
-            smt::theory_wmaxsat& operator()() { return *m_wth; }
-        };
-        
-        smt::theory_wmaxsat* ensure_theory() {
-            smt::theory_wmaxsat* wth = get_theory();
-            if (wth) {
-                wth->reset();
-            }
-            else {
-                wth = alloc(smt::theory_wmaxsat, m, m_c.fm());
-                ctx.register_plugin(wth);
-            }
-            return wth;
-        }
-        smt::theory_wmaxsat* get_theory() const {
-            smt::theory_id th_id = m.get_family_id("weighted_maxsat");
-            smt::theory* th = ctx.get_theory(th_id);               
-            if (th) {
-                return dynamic_cast<smt::theory_wmaxsat*>(th);
-            }
-            else {
-                return 0;
-            }
-        }
-    };
-
     // ----------------------------------------------------------
     // weighted max-sat using a custom theory solver for max-sat.
     // NB. it is quite similar to pseudo-Boolean propagation.
 
 
-    class wmax : public maxsmt_solver_wbase {
+    class wmax : public maxsmt_solver_base {
     public:
-        wmax(context& c,
-             vector<rational> const& ws, expr_ref_vector const& soft): 
-            maxsmt_solver_wbase(c, ws, soft) {}
+        wmax(context& c, weights_t& ws, expr_ref_vector const& soft): 
+            maxsmt_solver_base(c, ws, soft) {}
         virtual ~wmax() {}
 
         lbool operator()() {
@@ -90,7 +46,6 @@ namespace opt {
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 wth().assert_weighted(m_soft[i].get(), m_weights[i]);
             }
-            solver::scoped_push _s2(s());
             while (l_true == is_sat) {
                 is_sat = s().check_sat(0,0);
                 if (m_cancel) {
@@ -122,8 +77,7 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* mk_wmax(context& c, 
-                                vector<rational> const& ws, expr_ref_vector const& soft) {
+    maxsmt_solver_base* mk_wmax(context& c, weights_t& ws, expr_ref_vector const& soft) {
         return alloc(wmax, c, ws, soft);
     }
 

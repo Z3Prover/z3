@@ -30,6 +30,7 @@ Notes:
 #include "ast_pp.h"
 #include "uint_set.h"
 #include "opt_context.h"
+#include "theory_wmaxsat.h"
 
 
 namespace opt {
@@ -108,6 +109,40 @@ namespace opt {
         return result;
     }
 
+    smt::theory_wmaxsat* maxsmt_solver_base::get_wmax_theory() const {
+        smt::theory_id th_id = m.get_family_id("weighted_maxsat");
+        smt::theory* th = m_c.smt_context().get_theory(th_id);               
+        if (th) {
+            return dynamic_cast<smt::theory_wmaxsat*>(th);
+        }
+        else {
+            return 0;
+        }
+    }
+
+    smt::theory_wmaxsat* maxsmt_solver_base::ensure_wmax_theory() {
+        smt::theory_wmaxsat* wth = get_wmax_theory();
+        if (wth) {
+            wth->reset_local();
+        }
+        else {
+            wth = alloc(smt::theory_wmaxsat, m, m_c.fm());
+            m_c.smt_context().register_plugin(wth);
+        }
+        return wth;
+    }
+
+    maxsmt_solver_base::scoped_ensure_theory::scoped_ensure_theory(maxsmt_solver_base& s) {
+        m_wth = s.ensure_wmax_theory();
+    }
+    maxsmt_solver_base::scoped_ensure_theory::~scoped_ensure_theory() {
+        //m_wth->reset();
+    }
+    smt::theory_wmaxsat& maxsmt_solver_base::scoped_ensure_theory::operator()() { return *m_wth; }
+    
+
+
+
     maxsmt::maxsmt(context& c):
         m_s(c.get_solver()), m(c.get_manager()), m_c(c), m_cancel(false), 
         m_soft_constraints(m), m_answer(m) {}
@@ -160,6 +195,7 @@ namespace opt {
         }
 
         if (m_msolver) {
+            m_msolver->updt_params(m_params);
             is_sat = (*m_msolver)();
             if (is_sat != l_false) {
                 m_msolver->get_model(m_model);

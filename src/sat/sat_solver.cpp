@@ -1736,6 +1736,8 @@ namespace sat {
             // initial experiment suggests it has no effect.
 
             m_mus(); // ignore return value on cancelation.
+            m_model.reset();
+            m_model.append(m_mus.get_model());
         }
     }
 

@@ -31,6 +31,7 @@ namespace sat {
     void mus::reset() {
         m_core.reset();
         m_mus.reset();
+        m_model.reset();
     }
 
     void mus::set_core() {        
@@ -87,6 +88,9 @@ namespace sat {
                 mus.push_back(lit);
                 if (!core.empty()) {
                     // mr(); // TBD: measure
+                }
+                if (m_model.empty()) {
+                    m_model.append(s.m_model);
                 }
                 break;
             }

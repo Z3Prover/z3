@@ -62,6 +62,7 @@ Notes:
 #include "inc_sat_solver.h"
 #include "opt_context.h"
 #include "pb_decl_plugin.h"
+#include "opt_params.hpp"
 
 
 using namespace opt;
@@ -85,9 +86,14 @@ private:
     expr_ref_vector  m_trail;
     strategy_t       m_st;
     rational         m_max_upper;
-    bool             m_hill_climb;
-    bool             m_all_cores;
-    bool             m_add_upper_bound_block;
+    bool             m_hill_climb;             // prefer large weight soft clauses for cores
+    bool             m_add_upper_bound_block;  // restrict upper bound with constraint
+    unsigned         m_max_num_cores;          // max number of cores per round.
+    unsigned         m_max_core_size;          // max core size per round.
+    bool             m_maximize_assignment;    // maximize assignment to find MCS
+    unsigned         m_max_correction_set_size;// maximal set of correction set that is tolerated.
+    bool             m_wmax;                   // Block upper bound using wmax
+                                               // this option is disabled if SAT core is used.
 
     typedef ptr_vector<expr> exprs;
 
@@ -102,8 +108,11 @@ public:
         m_trail(m),
         m_st(st),
         m_hill_climb(true),
-        m_all_cores(false),
-        m_add_upper_bound_block(false)
+        m_add_upper_bound_block(false),
+        m_max_num_cores(UINT_MAX),
+        m_max_core_size(3),
+        m_maximize_assignment(false),
+        m_max_correction_set_size(3)
     {
     }
 
@@ -201,14 +210,11 @@ public:
                 return l_true;
             case l_true:
                 SASSERT(cores.empty() || mcs.empty());
-                for (unsigned i = 0; is_sat == l_true && i < cores.size(); ++i) {
-                    is_sat = process_unsat(cores[i]);
+                for (unsigned i = 0; i < cores.size(); ++i) {
+                    process_unsat(cores[i]);
                 }
-                if (is_sat == l_true && cores.empty()) {
-                    is_sat = process_sat(mcs);
-                }
-                if (is_sat != l_true) {
-                    return is_sat;
+                if (cores.empty()) {
+                    process_sat(mcs);
                 }
                 break;
             }
@@ -233,8 +239,8 @@ public:
             mcs.reset();
             s().get_model(mdl);
             update_assignment(mdl.get());
-            is_sat = get_mss(cores, mss, mcs);
-
+            is_sat = get_mss(mdl.get(), cores, mss, mcs);
+            
             switch (is_sat) {
             case l_undef:
                 return l_undef;
@@ -242,11 +248,8 @@ public:
                 m_lower = m_upper;
                 return l_true;
             case l_true: {                
-                is_sat = process_sat(mcs);
-                if (is_sat != l_true) {
-                    return is_sat;
-                }
-                update_mss_model();
+                process_sat(mcs);
+                get_mss_model();
                 break;
             }
             }
@@ -281,12 +284,15 @@ public:
        What are the corner cases:
        - suppose that cost of cores adds up to current upper bound.
          -> it means that each core is a unit (?)
+
+       TBD:
+       - Block upper bound using wmax or pb constraint, or in case of
+         unweighted constraints using incremental tricks.
+       - Throttle when correction set gets added based on its size.
+         Suppose correction set is huge. Do we really need it?
        
     */
     lbool mus_mss2_solver() {
-        // m_all_cores = true;
-        // m_add_upper_bound_block = true;
-        bool maximize_assignment = false;
         init();
         init_local();
         sls();
@@ -321,42 +327,46 @@ public:
             SASSERT((is_sat == l_true) == !cores.empty());
             if (cores.empty()) {
                 break;
-            }
+            }           
 
             //
-            // There is a best model, 
-            // retrieve it from the previous 
-            // core calls.
+            // There is a best model, retrieve 
+            // it from the previous core calls.
             //
-            update_mus_model();
+            model_ref mdl;
+            get_mus_model(mdl);
+
             // 
             // Extend the current model to a (maximal)
             // assignment extracting the ss and cs.
             // ss - satisfying subset
             // cs - correction set (complement of ss).
             //
-            if (maximize_assignment) {
+            if (m_maximize_assignment && mdl.get()) {
                 exprs ss, cs;
-                // TBD: current model has to evaluate all auxiliary predicates.
-                is_sat = get_mss(cores, ss, cs);
+                is_sat = get_mss(mdl.get(), cores, ss, cs);
                 if (is_sat != l_true) return is_sat;
-                update_mss_model();
+                get_mss_model();
             }
             //
             // block the hard constraints corresponding to the cores.
             // block the soft constraints corresponding to the cs
             // obtained from the current best model.
             // 
-            // TBD: model must be updated with definitions for the 
-            // fresh variables.
-            // 
-            is_sat = process_unsat(cores);
-            if (is_sat != l_true) return is_sat;
+
+            //
+            // TBD: throttle blocking on correction sets if they are too big.
+            // likewise, if the cores are too big, don't block the cores.
+            //
+
+            process_unsat(cores);
 
             exprs cs;
             get_current_correction_set(cs);
-            is_sat = process_sat(cs);                        
-            if (is_sat != l_true) return is_sat;
+            unsigned max_core = max_core_size(cores);
+            if (cs.size() <= std::max(max_core, m_max_correction_set_size)) {
+                process_sat(cs);                        
+            }
         }
         
         m_lower = m_upper;
@@ -404,8 +414,15 @@ public:
             if (is_sat != l_true) {
                 break;
             }
+            if (core.empty()) {
+                cores.reset();
+                return l_false;
+            }
             cores.push_back(core);
-            if (!m_all_cores && core.size() >= 3) {
+            if (core.size() >= m_max_core_size) {
+                break;
+            }
+            if (cores.size() >= m_max_num_cores) {
                 break;
             }
             remove_soft(core, asms);
@@ -442,7 +459,6 @@ public:
     }
 
     void get_current_correction_set(exprs& cs) {
-        TRACE("opt", display_vec(tout << "old correction set: ", cs.size(), cs.c_ptr()););
         cs.reset();
         for (unsigned i = 0; i < m_asms.size(); ++i) {
             if (!is_true(m_asms[i].get())) {
@@ -482,13 +498,12 @@ public:
         return index;
     }
 
-    lbool process_sat(exprs const& corr_set) {
+    void process_sat(exprs const& corr_set) {
         expr_ref fml(m), tmp(m);
         TRACE("opt", display_vec(tout << "corr_set: ", corr_set.size(), corr_set.c_ptr()););
         remove_core(corr_set);
         rational w = split_core(corr_set);
         cs_max_resolve(corr_set, w);        
-        return l_true;
     }
 
     lbool process_unsat() {
@@ -501,19 +516,26 @@ public:
             return l_false;
         }
         else {
-            return process_unsat(cores);
+            process_unsat(cores);
+            return l_true;
         }
     }
 
-    lbool process_unsat(vector<exprs>& cores) {
-        lbool is_sat = l_true;
-        for (unsigned i = 0; is_sat == l_true && i < cores.size(); ++i) {
-            is_sat = process_unsat(cores[i]);
+    unsigned max_core_size(vector<exprs> const& cores) {
+        unsigned result = 0;
+        for (unsigned i = 0; i < cores.size(); ++i) {
+            result = std::max(cores[i].size(), result);
         }
-        return is_sat;
+        return result;
+    }
+
+    void process_unsat(vector<exprs> const& cores) {
+        for (unsigned i = 0; i < cores.size(); ++i) {
+            process_unsat(cores[i]);
+        }
     }
     
-    lbool process_unsat(exprs const& core) {
+    void process_unsat(exprs const& core) {
         expr_ref fml(m);
         remove_core(core);
         SASSERT(!core.empty());
@@ -524,31 +546,35 @@ public:
         s().assert_expr(fml);
         m_lower += w;
         IF_VERBOSE(1, verbose_stream() << "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
-        return l_true;
     }
 
-    void update_mus_model() {
-        if (!m_c.sat_enabled()) {
-            model_ref mdl;
-            rational w = m_mus.get_best_model(mdl);
-            if (mdl.get() && w < m_upper) {
-                update_assignment(mdl.get());
-            }
+    void get_mus_model(model_ref& mdl) {
+        rational w(0);
+        if (m_c.sat_enabled()) {
+            // SAT solver core extracts some model 
+            // during unsat core computation.
+            s().get_model(mdl);            
+        }
+        else {
+            w = m_mus.get_best_model(mdl);
+        }
+        if (mdl.get() && w < m_upper) {
+            update_assignment(mdl.get());
         }
     }
 
-    void update_mss_model() {
+    void get_mss_model() {
         model_ref mdl;
         m_mss.get_model(mdl); // last model is best way to reduce search space.
         update_assignment(mdl.get());
     }
 
-    lbool get_mss(vector<exprs> const& cores, exprs& literals, exprs& mcs) {
+    lbool get_mss(model* mdl, vector<exprs> const& cores, exprs& literals, exprs& mcs) {
         literals.reset();
         mcs.reset();
         literals.append(m_asms.size(), m_asms.c_ptr());
         set_mus(false);
-        lbool is_sat = m_mss(m_model.get(), cores, literals, mcs);
+        lbool is_sat = m_mss(mdl, cores, literals, mcs);
         set_mus(true);
         return is_sat;
     }
@@ -735,7 +761,7 @@ public:
                 if (is_sat != l_true) {
                     return is_sat;
                 }
-                update_mss_model();
+                get_mss_model();
                 if (!cores.empty() && mcs.size() > cores.back().size()) {
                     mcs.reset();
                 }
@@ -804,16 +830,19 @@ public:
         IF_VERBOSE(1, verbose_stream() << 
                    "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
 
-        if (m_add_upper_bound_block) {
-            pb_util u(m);
-            expr_ref_vector nsoft(m);
-            expr_ref fml(m);
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                nsoft.push_back(m.mk_not(m_soft[i].get()));
-            }            
-            fml = u.mk_lt(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper);
-            s().assert_expr(fml);
-        }
+        add_upper_bound_block();
+    }
+
+    void add_upper_bound_block() {
+        if (!m_add_upper_bound_block) return;
+        pb_util u(m);
+        expr_ref_vector nsoft(m);
+        expr_ref fml(m);
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            nsoft.push_back(m.mk_not(m_soft[i].get()));
+        }            
+        fml = u.mk_lt(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper);
+        s().assert_expr(fml);        
     }
 
     bool is_true(expr* e) {
@@ -845,6 +874,19 @@ public:
         m_mus.set_cancel(f);
     }
 
+    virtual void updt_params(params_ref& p) {
+        maxsmt_solver_base::updt_params(p);
+        opt_params _p(p);
+
+        m_hill_climb = _p.maxres_hill_climb();
+        m_add_upper_bound_block = _p.maxres_add_upper_bound_block();
+        m_max_num_cores = _p.maxres_max_num_cores();
+        m_max_core_size = _p.maxres_max_core_size();
+        m_maximize_assignment = _p.maxres_maximize_assignment();
+        m_max_correction_set_size = _p.maxres_max_correction_set_size();
+        m_wmax = _p.maxres_wmax();
+    }
+
     void init_local() {
         m_upper.reset();
         m_lower.reset();
@@ -853,6 +895,7 @@ public:
             add_soft(m_soft[i].get(), m_weights[i]);
         }
         m_max_upper = m_upper;
+        add_upper_bound_block();
     }
 
     void verify_assignment() {

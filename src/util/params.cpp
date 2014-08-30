@@ -347,11 +347,11 @@ public:
         out << "(params";
         svector<params::entry>::const_iterator it  = m_entries.begin();  
         svector<params::entry>::const_iterator end = m_entries.end();
-        for (; it != end; ++it) {                                
-            out << " " << it->first;
+        for (; it != end; ++it) {
+            out << " " << it->first;            
             switch (it->second.m_kind) {
             case CPK_BOOL:
-                out << " " << it->second.m_bool_value;
+                out << " " << (it->second.m_bool_value?"true":"false");
                 break;
             case CPK_UINT:
                 out << " " <<it->second.m_uint_value;
@@ -374,6 +374,41 @@ public:
             }
         }
         out << ")";
+    }
+
+    void display_smt2(std::ostream & out, char const* module, param_descrs& descrs) const {
+        svector<params::entry>::const_iterator it  = m_entries.begin();  
+        svector<params::entry>::const_iterator end = m_entries.end();
+        for (; it != end; ++it) {
+            if (!descrs.contains(it->first)) continue;
+            out << "(set-option :";
+            out << module << ".";        
+            out << it->first;
+            switch (it->second.m_kind) {
+            case CPK_BOOL:
+                out << " " << (it->second.m_bool_value?"true":"false");
+                break;
+            case CPK_UINT:
+                out << " " <<it->second.m_uint_value;
+                break;
+            case CPK_DOUBLE:
+                out << " " << it->second.m_double_value;
+                break;
+            case CPK_NUMERAL:
+                out << " " << *(it->second.m_rat_value);
+                break;
+            case CPK_SYMBOL:
+                out << " " << symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);
+                break;
+            case CPK_STRING:
+                out << " " << it->second.m_str_value;
+                break;
+            default:
+                UNREACHABLE();
+                break;
+            }
+            out << ")\n";
+        }
     }
 
     void display(std::ostream & out, symbol const & k) const {
@@ -423,9 +458,16 @@ params_ref::params_ref(params_ref const & p):
 void params_ref::display(std::ostream & out) const {
     if (m_params)
         m_params->display(out);
-    else
+    else 
         out << "(params)";
 }
+
+void params_ref::display_smt2(std::ostream& out, char const* module, param_descrs& descrs) const {
+    if (m_params)
+        m_params->display_smt2(out, module, descrs);
+
+}
+
 
 void params_ref::display(std::ostream & out, char const * k) const {
     display(out, symbol(k));

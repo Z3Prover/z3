@@ -24,6 +24,9 @@ Notes:
 #include"solver.h"
 #include"filter_model_converter.h"
 #include"statistics.h"
+#include"smt_context.h"
+#include"smt_theory.h"
+#include"theory_wmaxsat.h"
 
 namespace opt {
 
@@ -82,6 +85,18 @@ namespace opt {
         expr* mk_not(expr* e);
         void set_mus(bool f);
         app* mk_fresh_bool(char const* name);
+
+        class smt::theory_wmaxsat* get_wmax_theory() const;
+        smt::theory_wmaxsat* ensure_wmax_theory();
+        class scoped_ensure_theory {
+            smt::theory_wmaxsat* m_wth;
+        public:
+            scoped_ensure_theory(maxsmt_solver_base& s);
+            ~scoped_ensure_theory();
+            smt::theory_wmaxsat& operator()();
+        };
+        
+
     protected:
         void enable_sls(expr_ref_vector const& soft, weights_t& ws);
         void set_enable_sls(bool f);

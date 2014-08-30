@@ -17,6 +17,9 @@ Notes:
 
 --*/
 
+#ifndef _THEORY_WMAXSAT_H_
+#define _THEORY_WMAXSAT_H_
+
 #include "smt_theory.h"
 #include "smt_clause.h"
 #include "filter_model_converter.h"
@@ -84,9 +87,7 @@ namespace smt {
         virtual bool build_models() const { 
             return false;
         }
-        void reset() {            
-            reset_eh();
-        }
+        void reset_local();
         virtual void reset_eh();
         virtual theory * mk_fresh(context * new_ctx) { return 0; }
         virtual bool internalize_atom(app * atom, bool gate_ctx) { return false; }
@@ -123,3 +124,5 @@ namespace smt {
 
     };
 };
+
+#endif

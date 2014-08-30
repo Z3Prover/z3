@@ -24,6 +24,8 @@ namespace sat {
         literal_vector m_core;
         literal_vector m_mus;
         bool           m_is_active;
+        model          m_model;       // model obtained during minimal unsat core
+
 
         solver& s;
     public:
@@ -31,6 +33,7 @@ namespace sat {
         ~mus();        
         lbool operator()();
         bool is_active() const { return m_is_active; }
+        model const& get_model() const { return m_model; }
     private:
         lbool mus2();
         void mr();

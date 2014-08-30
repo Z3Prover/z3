@@ -164,6 +164,10 @@ final_check_status theory_wmaxsat::final_check_eh() {
 
 void theory_wmaxsat::reset_eh() {
     theory::reset_eh();
+    reset_local();
+}
+
+void theory_wmaxsat::reset_local() {
     m_vars.reset();
     m_fmls.reset();
     m_rweights.reset();
