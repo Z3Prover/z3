@@ -818,6 +818,79 @@ namespace smt {
         atoms & occs = m_var_occs[v];
         typename atoms::iterator it  = occs.begin();
         typename atoms::iterator end = occs.end();
+        parameter coeffs[3] = { parameter(symbol("farkas")), parameter(rational(1)), parameter(rational(1)) };
+
+        optional<inf_numeral> lo_inf, lo_sup, hi_inf, hi_sup;
+        literal lit1, lit2, lit3, lit4;
+        for (; it != end; ++it) {
+            atom * a2 = *it;
+            literal l2(a2->get_bool_var());
+            inf_numeral const & k2 = a2->get_k();
+            atom_kind kind2    = a2->get_atom_kind();
+            SASSERT(k1 != k2 || kind1 != kind2);
+            if (kind2 == A_LOWER) {
+                if (k2 < k1) {
+                    if (!lo_inf || k2 > *lo_inf) {
+                        lo_inf = k2;
+                        lit1 = l2;
+                    }
+                }
+                else if (!lo_sup || k2 < *lo_sup) {
+                    lo_sup = k2;
+                    lit2 = l2;
+                }
+            }
+            else {
+                if (k2 < k1) {
+                    if (!hi_inf || k2 > *hi_inf) {
+                        hi_inf = k2;
+                        lit3 = l2;
+                    }
+                }
+                else if (!hi_sup || k2 < *hi_sup) {
+                    hi_sup = k2;
+                    lit4 = l2;
+                }
+            }
+        }        
+        if (kind1 == A_LOWER) {
+            if (lo_inf) {
+                // k1 > lo_inf, k1 <= x => lo_inf <= x
+                mk_clause(~l1, lit1, 3, coeffs);
+            }
+            if (lo_sup) {
+                // k1 < lo_sup, lo_sup <= x => k1 <= x
+                mk_clause(l1, ~lit2, 3, coeffs); 
+            }
+            if (hi_inf) {
+                // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
+                mk_clause(~l1, ~lit3, 3, coeffs);
+            }
+            if (hi_sup) {
+                // k1 < hi_sup, k1 <= x or x <= hi_sup
+                mk_clause(l1, lit4, 3, coeffs);
+            }
+        }
+        else {
+            if (lo_inf) {
+                // k1 > lo_inf, ~(k1 >= x) => lo_inf <= x
+                mk_clause(l1, lit1, 3, coeffs);
+            }
+            if (lo_sup) {
+                // k1 < lo_sup, lo_sup <= x => ~(x <= k1)
+                mk_clause(~l1, ~lit2, 3, coeffs); 
+            }
+            if (hi_inf) {
+                // k1 > hi_inf, x <= hi_inf => x <= k1
+                mk_clause(l1, ~lit3, 3, coeffs);
+            }
+            if (hi_sup) {
+                // k1 < hi_sup, ~(x <= k1) or x <= hi_sup
+                mk_clause(~l1, lit4, 3, coeffs);
+            }
+        }
+        return;
+
         for (; it != end; ++it) {
             atom * a2 = *it;
             literal l2(a2->get_bool_var());
@@ -825,7 +898,6 @@ namespace smt {
             atom_kind kind2    = a2->get_atom_kind();
             SASSERT(k1 != k2 || kind1 != kind2);
             SASSERT(a2->get_var() == v);
-            parameter coeffs[3] = { parameter(symbol("farkas")), parameter(rational(1)), parameter(rational(1)) };
             if (kind1 == A_LOWER) {
                 if (kind2 == A_LOWER) {
                     // x >= k1, x >= k2 
