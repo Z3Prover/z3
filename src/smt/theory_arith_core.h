@@ -821,51 +821,50 @@ namespace smt {
         typename atoms::iterator end = occs.end();
         parameter coeffs[3] = { parameter(symbol("farkas")), parameter(rational(1)), parameter(rational(1)) };
 
-        typename atoms::iterator lo_inf = occs.end(), lo_sup = occs.end();
-        typename atoms::iterator hi_inf = occs.end(), hi_sup = occs.end();
+        typename atoms::iterator lo_inf = end, lo_sup = end;
+        typename atoms::iterator hi_inf = end, hi_sup = end;
         literal lit1, lit2, lit3, lit4;
         for (; it != end; ++it) {
-            atom * a2 = *it;
-            literal l2(a2->get_bool_var());
+            atom * a2 = *it;            
             inf_numeral const & k2 = a2->get_k();
             atom_kind kind2    = a2->get_atom_kind();
             SASSERT(k1 != k2 || kind1 != kind2);
             if (kind2 == A_LOWER) {
                 if (k2 < k1) {
-                    if (lit1 == null_literal || k2 > (*lo_inf)->get_k()) {
+                    if (lo_inf == end || k2 > (*lo_inf)->get_k()) {
                         lo_inf = it;
-                        lit1 = l2;
+                        lit1 = literal(a2->get_bool_var());
                     }
                 }
-                else if (lit2 == null_literal || k2 < (*lo_sup)->get_k()) {
+                else if (lo_sup == end || k2 < (*lo_sup)->get_k()) {
                     lo_sup = it;
-                    lit2 = l2;
+                    lit2 = literal(a2->get_bool_var());
                 }
             }
             else {
                 if (k2 < k1) {
-                    if (lit3 == null_literal || k2 > (*hi_inf)->get_k()) {
+                    if (hi_inf == end || k2 > (*hi_inf)->get_k()) {
                         hi_inf = it;
-                        lit3 = l2;
+                        lit3 = literal(a2->get_bool_var());
                     }
                 }
-                else if (lit4 == null_literal || k2 < (*hi_sup)->get_k()) {
+                else if (hi_sup == end || k2 < (*hi_sup)->get_k()) {
                     hi_sup = it;
-                    lit4 = l2;
+                    lit4 = literal(a2->get_bool_var());
                 }
             }
         }        
 
         if (kind1 == A_LOWER) {
-            if (lo_inf != occs.end()) {
+            if (lo_inf != end) {
                 // k1 >= lo_inf, k1 <= x => lo_inf <= x
                 mk_clause(~l1, lit1, 3, coeffs);
             }
-            if (lo_sup != occs.end()) {
+            if (lo_sup != end) {
                 // k1 <= lo_sup, lo_sup <= x => k1 <= x
                 mk_clause(l1, ~lit2, 3, coeffs); 
             }
-            if (hi_inf != occs.end()) {
+            if (hi_inf != end) {
                 // k1 == hi_inf, k1 <= x or x <= hi_inf
                 if (k1 == (*hi_inf)->get_k()) {
                     mk_clause(l1, lit3, 3, coeffs);
@@ -879,17 +878,17 @@ namespace smt {
                     }
                 }
             }
-            if (hi_sup != occs.end()) {
+            if (hi_sup != end) {
                 // k1 <= hi_sup, k1 <= x or x <= hi_sup
                 mk_clause(l1, lit4, 3, coeffs);
             }
         }
         else {
-            if (lo_inf != occs.end()) {
+            if (lo_inf != end) {
                 // k1 >= lo_inf, k1 >= x or lo_inf <= x
                 mk_clause(l1, lit1, 3, coeffs);
             }
-            if (lo_sup != occs.end()) {
+            if (lo_sup != end) {
                 if (k1 == (*lo_sup)->get_k()) {
                     mk_clause(l1, lit2, 3, coeffs); 
                 }
@@ -903,11 +902,11 @@ namespace smt {
 
                 }
             }
-            if (hi_inf != occs.end()) {
+            if (hi_inf != end) {
                 // k1 >= hi_inf, x <= hi_inf => x <= k1
                 mk_clause(l1, ~lit3, 3, coeffs);
             }
-            if (hi_sup != occs.end()) {
+            if (hi_sup != end) {
                 // k1 <= hi_sup , x <= k1 =>  x <= hi_sup
                 mk_clause(~l1, lit4, 3, coeffs);
             }
