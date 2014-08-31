@@ -855,37 +855,48 @@ namespace smt {
         }        
         if (kind1 == A_LOWER) {
             if (lo_inf) {
-                // k1 > lo_inf, k1 <= x => lo_inf <= x
+                // k1 >= lo_inf, k1 <= x => lo_inf <= x
                 mk_clause(~l1, lit1, 3, coeffs);
             }
             if (lo_sup) {
-                // k1 < lo_sup, lo_sup <= x => k1 <= x
+                // k1 <= lo_sup, lo_sup <= x => k1 <= x
                 mk_clause(l1, ~lit2, 3, coeffs); 
             }
             if (hi_inf) {
-                // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
-                mk_clause(~l1, ~lit3, 3, coeffs);
+                // k1 == hi_inf, k1 <= x or x <= hi_inf
+                if (k1 == *hi_inf) {
+                    mk_clause(l1, lit3, 3, coeffs);
+                }
+                else {
+                    // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
+                    mk_clause(~l1, ~lit3, 3, coeffs);
+                }
             }
             if (hi_sup) {
-                // k1 < hi_sup, k1 <= x or x <= hi_sup
+                // k1 <= hi_sup, k1 <= x or x <= hi_sup
                 mk_clause(l1, lit4, 3, coeffs);
             }
         }
         else {
             if (lo_inf) {
-                // k1 > lo_inf, ~(k1 >= x) => lo_inf <= x
+                // k1 >= lo_inf, k1 >= x or lo_inf <= x
                 mk_clause(l1, lit1, 3, coeffs);
             }
             if (lo_sup) {
-                // k1 < lo_sup, lo_sup <= x => ~(x <= k1)
-                mk_clause(~l1, ~lit2, 3, coeffs); 
+                if (k1 == *lo_sup) {
+                    mk_clause(l1, lit2, 3, coeffs); 
+                }
+                else {
+                    // k1 < lo_sup, lo_sup <= x => ~(x <= k1)
+                    mk_clause(~l1, ~lit2, 3, coeffs); 
+                }
             }
             if (hi_inf) {
-                // k1 > hi_inf, x <= hi_inf => x <= k1
+                // k1 >= hi_inf, x <= hi_inf => x <= k1
                 mk_clause(l1, ~lit3, 3, coeffs);
             }
             if (hi_sup) {
-                // k1 < hi_sup, ~(x <= k1) or x <= hi_sup
+                // k1 <= hi_sup , x <= k1 =>  x <= hi_sup
                 mk_clause(~l1, lit4, 3, coeffs);
             }
         }
