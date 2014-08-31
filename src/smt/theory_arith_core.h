@@ -814,13 +814,15 @@ namespace smt {
         literal   l1(a1->get_bool_var()); 
         inf_numeral const & k1(a1->get_k());
         atom_kind kind1 = a1->get_atom_kind();
+        bool v_is_int = is_int(v);
         TRACE("mk_bound_axioms", tout << "making bound axioms for v" << v << " " << kind1 << " " << k1 << "\n";);
         atoms & occs = m_var_occs[v];
         typename atoms::iterator it  = occs.begin();
         typename atoms::iterator end = occs.end();
         parameter coeffs[3] = { parameter(symbol("farkas")), parameter(rational(1)), parameter(rational(1)) };
 
-        optional<inf_numeral> lo_inf, lo_sup, hi_inf, hi_sup;
+        typename atoms::iterator lo_inf = occs.end(), lo_sup = occs.end();
+        typename atoms::iterator hi_inf = occs.end(), hi_sup = occs.end();
         literal lit1, lit2, lit3, lit4;
         for (; it != end; ++it) {
             atom * a2 = *it;
@@ -830,72 +832,82 @@ namespace smt {
             SASSERT(k1 != k2 || kind1 != kind2);
             if (kind2 == A_LOWER) {
                 if (k2 < k1) {
-                    if (!lo_inf || k2 > *lo_inf) {
-                        lo_inf = k2;
+                    if (lit1 == null_literal || k2 > (*lo_inf)->get_k()) {
+                        lo_inf = it;
                         lit1 = l2;
                     }
                 }
-                else if (!lo_sup || k2 < *lo_sup) {
-                    lo_sup = k2;
+                else if (lit2 == null_literal || k2 < (*lo_sup)->get_k()) {
+                    lo_sup = it;
                     lit2 = l2;
                 }
             }
             else {
                 if (k2 < k1) {
-                    if (!hi_inf || k2 > *hi_inf) {
-                        hi_inf = k2;
+                    if (lit3 == null_literal || k2 > (*hi_inf)->get_k()) {
+                        hi_inf = it;
                         lit3 = l2;
                     }
                 }
-                else if (!hi_sup || k2 < *hi_sup) {
-                    hi_sup = k2;
+                else if (lit4 == null_literal || k2 < (*hi_sup)->get_k()) {
+                    hi_sup = it;
                     lit4 = l2;
                 }
             }
         }        
+
         if (kind1 == A_LOWER) {
-            if (lo_inf) {
+            if (lo_inf != occs.end()) {
                 // k1 >= lo_inf, k1 <= x => lo_inf <= x
                 mk_clause(~l1, lit1, 3, coeffs);
             }
-            if (lo_sup) {
+            if (lo_sup != occs.end()) {
                 // k1 <= lo_sup, lo_sup <= x => k1 <= x
                 mk_clause(l1, ~lit2, 3, coeffs); 
             }
-            if (hi_inf) {
+            if (hi_inf != occs.end()) {
                 // k1 == hi_inf, k1 <= x or x <= hi_inf
-                if (k1 == *hi_inf) {
+                if (k1 == (*hi_inf)->get_k()) {
                     mk_clause(l1, lit3, 3, coeffs);
                 }
                 else {
                     // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
                     mk_clause(~l1, ~lit3, 3, coeffs);
+                    if (v_is_int && k1 == (*hi_inf)->get_k() + inf_numeral(1)) {
+                        // k1 <= x or x <= k1-1
+                        mk_clause(l1, lit3, 3, coeffs);
+                    }
                 }
             }
-            if (hi_sup) {
+            if (hi_sup != occs.end()) {
                 // k1 <= hi_sup, k1 <= x or x <= hi_sup
                 mk_clause(l1, lit4, 3, coeffs);
             }
         }
         else {
-            if (lo_inf) {
+            if (lo_inf != occs.end()) {
                 // k1 >= lo_inf, k1 >= x or lo_inf <= x
                 mk_clause(l1, lit1, 3, coeffs);
             }
-            if (lo_sup) {
-                if (k1 == *lo_sup) {
+            if (lo_sup != occs.end()) {
+                if (k1 == (*lo_sup)->get_k()) {
                     mk_clause(l1, lit2, 3, coeffs); 
                 }
                 else {
                     // k1 < lo_sup, lo_sup <= x => ~(x <= k1)
                     mk_clause(~l1, ~lit2, 3, coeffs); 
+                    if (v_is_int && k1 == (*lo_sup)->get_k() - inf_numeral(1)) {
+                        // x <= k1 or k1+l <= x
+                        mk_clause(l1, lit2, 3, coeffs);
+                    }
+
                 }
             }
-            if (hi_inf) {
+            if (hi_inf != occs.end()) {
                 // k1 >= hi_inf, x <= hi_inf => x <= k1
                 mk_clause(l1, ~lit3, 3, coeffs);
             }
-            if (hi_sup) {
+            if (hi_sup != occs.end()) {
                 // k1 <= hi_sup , x <= k1 =>  x <= hi_sup
                 mk_clause(~l1, lit4, 3, coeffs);
             }
