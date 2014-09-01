@@ -573,6 +573,18 @@ namespace smt {
         void mk_clause(literal l1, literal l2, unsigned num_params, parameter * params);
         void mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params);
         void mk_bound_axioms(atom * a);
+        void mk_bound_axiom(atom* a1, atom* a2);
+        ptr_vector<atom> m_new_atoms;
+        void flush_bound_axioms();
+        typename atoms::iterator next_sup(atom* a1, atom_kind kind, 
+                                          typename atoms::iterator it, 
+                                          typename atoms::iterator end);
+        typename atoms::iterator next_inf(atom* a1, atom_kind kind, 
+                                          typename atoms::iterator it, 
+                                          typename atoms::iterator end);
+        struct compare_atoms {
+            bool operator()(atom* a1, atom* a2) const { return a1->get_k() < a2->get_k(); }
+        };
         virtual bool default_internalizer() const { return false; }
         virtual bool internalize_atom(app * n, bool gate_ctx);
         virtual bool internalize_term(app * term);

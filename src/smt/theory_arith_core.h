@@ -810,142 +810,203 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_bound_axioms(atom * a1) {
+        if (!get_context().is_searching()) {
+            //
+            // NB. We make an assumption that user push calls propagation 
+            // before internal scopes are pushed. This flushes all newly 
+            // asserted atoms into the right context.
+            //
+            m_new_atoms.push_back(a1);
+            return;
+        }
         theory_var v = a1->get_var();
-        literal   l1(a1->get_bool_var()); 
         inf_numeral const & k1(a1->get_k());
         atom_kind kind1 = a1->get_atom_kind();
-        bool v_is_int = is_int(v);
         TRACE("mk_bound_axioms", tout << "making bound axioms for v" << v << " " << kind1 << " " << k1 << "\n";);
         atoms & occs = m_var_occs[v];
         typename atoms::iterator it  = occs.begin();
         typename atoms::iterator end = occs.end();
-        parameter coeffs[3] = { parameter(symbol("farkas")), parameter(rational(1)), parameter(rational(1)) };
 
         typename atoms::iterator lo_inf = end, lo_sup = end;
         typename atoms::iterator hi_inf = end, hi_sup = end;
-        literal lit1, lit2, lit3, lit4;
         for (; it != end; ++it) {
             atom * a2 = *it;            
-            inf_numeral const & k2 = a2->get_k();
-            atom_kind kind2    = a2->get_atom_kind();
+            inf_numeral const & k2(a2->get_k());
+            atom_kind kind2 = a2->get_atom_kind();
             SASSERT(k1 != k2 || kind1 != kind2);
             if (kind2 == A_LOWER) {
                 if (k2 < k1) {
                     if (lo_inf == end || k2 > (*lo_inf)->get_k()) {
                         lo_inf = it;
-                        lit1 = literal(a2->get_bool_var());
                     }
                 }
                 else if (lo_sup == end || k2 < (*lo_sup)->get_k()) {
                     lo_sup = it;
-                    lit2 = literal(a2->get_bool_var());
                 }
             }
-            else {
-                if (k2 < k1) {
-                    if (hi_inf == end || k2 > (*hi_inf)->get_k()) {
-                        hi_inf = it;
-                        lit3 = literal(a2->get_bool_var());
-                    }
+            else if (k2 < k1) {
+                if (hi_inf == end || k2 > (*hi_inf)->get_k()) {
+                    hi_inf = it;
                 }
-                else if (hi_sup == end || k2 < (*hi_sup)->get_k()) {
-                    hi_sup = it;
-                    lit4 = literal(a2->get_bool_var());
-                }
+            }
+            else if (hi_sup == end || k2 < (*hi_sup)->get_k()) {
+                hi_sup = it;
             }
         }        
+        if (lo_inf != end) mk_bound_axiom(a1, *lo_inf);
+        if (lo_sup != end) mk_bound_axiom(a1, *lo_sup);
+        if (hi_inf != end) mk_bound_axiom(a1, *hi_inf);
+        if (hi_sup != end) mk_bound_axiom(a1, *hi_sup);
+    }
+
+    template<typename Ext>
+    void theory_arith<Ext>::mk_bound_axiom(atom* a1, atom* a2) {
+        theory_var v = a1->get_var();
+        literal   l1(a1->get_bool_var()); 
+        literal   l2(a2->get_bool_var()); 
+        inf_numeral const & k1(a1->get_k());
+        inf_numeral const & k2(a2->get_k());
+        atom_kind kind1 = a1->get_atom_kind();
+        atom_kind kind2 = a2->get_atom_kind();
+        bool v_is_int = is_int(v);
+        SASSERT(v === a2->get_var());
+        SASSERT(k1 != k2 || kind1 != kind2);
+        parameter coeffs[3] = { parameter(symbol("farkas")), 
+                                parameter(rational(1)), parameter(rational(1)) };
 
         if (kind1 == A_LOWER) {
-            if (lo_inf != end) {
-                // k1 >= lo_inf, k1 <= x => lo_inf <= x
-                mk_clause(~l1, lit1, 3, coeffs);
-            }
-            if (lo_sup != end) {
-                // k1 <= lo_sup, lo_sup <= x => k1 <= x
-                mk_clause(l1, ~lit2, 3, coeffs); 
-            }
-            if (hi_inf != end) {
-                // k1 == hi_inf, k1 <= x or x <= hi_inf
-                if (k1 == (*hi_inf)->get_k()) {
-                    mk_clause(l1, lit3, 3, coeffs);
+            if (kind2 == A_LOWER) {
+                if (k2 <= k1) {
+                    mk_clause(~l1, l2, 3, coeffs);
                 }
                 else {
-                    // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
-                    mk_clause(~l1, ~lit3, 3, coeffs);
-                    if (v_is_int && k1 == (*hi_inf)->get_k() + inf_numeral(1)) {
-                        // k1 <= x or x <= k1-1
-                        mk_clause(l1, lit3, 3, coeffs);
-                    }
+                    mk_clause(l1, ~l2, 3, coeffs);
                 }
             }
-            if (hi_sup != end) {
-                // k1 <= hi_sup, k1 <= x or x <= hi_sup
-                mk_clause(l1, lit4, 3, coeffs);
+            else if (k1 <= k2) {
+                // k1 <= k2, k1 <= x or x <= k2
+                mk_clause(l1, l2, 3, coeffs);
+            }
+            else {
+                // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
+                mk_clause(~l1, ~l2, 3, coeffs);
+                if (v_is_int && k1 == k2 + inf_numeral(1)) {
+                    // k1 <= x or x <= k1-1
+                    mk_clause(l1, l2, 3, coeffs);
+                }
+            }
+        }
+        else if (kind2 == A_LOWER) {
+            if (k1 >= k2) {
+                // k1 >= lo_inf, k1 >= x or lo_inf <= x
+                mk_clause(l1, l2, 3, coeffs);
+            }
+            else {
+                // k1 < k2, k2 <= x => ~(x <= k1)
+                mk_clause(~l1, ~l2, 3, coeffs); 
+                if (v_is_int && k1 == k2 - inf_numeral(1)) {
+                    // x <= k1 or k1+l <= x
+                    mk_clause(l1, l2, 3, coeffs);
+                }
+
             }
         }
         else {
-            if (lo_inf != end) {
-                // k1 >= lo_inf, k1 >= x or lo_inf <= x
-                mk_clause(l1, lit1, 3, coeffs);
-            }
-            if (lo_sup != end) {
-                if (k1 == (*lo_sup)->get_k()) {
-                    mk_clause(l1, lit2, 3, coeffs); 
-                }
-                else {
-                    // k1 < lo_sup, lo_sup <= x => ~(x <= k1)
-                    mk_clause(~l1, ~lit2, 3, coeffs); 
-                    if (v_is_int && k1 == (*lo_sup)->get_k() - inf_numeral(1)) {
-                        // x <= k1 or k1+l <= x
-                        mk_clause(l1, lit2, 3, coeffs);
-                    }
-
-                }
-            }
-            if (hi_inf != end) {
-                // k1 >= hi_inf, x <= hi_inf => x <= k1
-                mk_clause(l1, ~lit3, 3, coeffs);
-            }
-            if (hi_sup != end) {
-                // k1 <= hi_sup , x <= k1 =>  x <= hi_sup
-                mk_clause(~l1, lit4, 3, coeffs);
-            }
-        }
-        return;
-
-        for (; it != end; ++it) {
-            atom * a2 = *it;
-            literal l2(a2->get_bool_var());
-            inf_numeral const & k2 = a2->get_k();
-            atom_kind kind2    = a2->get_atom_kind();
-            SASSERT(k1 != k2 || kind1 != kind2);
-            SASSERT(a2->get_var() == v);
-            if (kind1 == A_LOWER) {
-                if (kind2 == A_LOWER) {
-                    // x >= k1, x >= k2 
-                    if (k1 >= k2) mk_clause(~l1, l2, 3, coeffs);
-                    else mk_clause(~l2, l1, 3, coeffs);
-                }
-                else {
-                    // x >= k1, x <= k2      
-                    if (k1 > k2) mk_clause(~l1, ~l2, 3, coeffs);
-                    else mk_clause(l1, l2, 3, coeffs);
-                }
+            // kind1 == A_UPPER, kind2 == A_UPPER
+            if (k1 >= k2) {
+                // k1 >= k2, x <= k2 => x <= k1
+                mk_clause(l1, ~l2, 3, coeffs);
             }
             else {
-                if (kind2 == A_LOWER) {
-                    // x <= k1, x >= k2
-                    if (k1 < k2) mk_clause(~l1, ~l2, 3, coeffs);
-                    else mk_clause(l1, l2, 3, coeffs);
-                }
-                else {
-                    // x <= k1, x <= k2
-                    if (k1 < k2) mk_clause(~l1, l2, 3, coeffs);
-                    else mk_clause(~l2, l1, 3, coeffs);
+                // k1 <= hi_sup , x <= k1 =>  x <= hi_sup
+                mk_clause(~l1, l2, 3, coeffs);
+            }
+        }        
+    }
+
+    template<typename Ext>
+    void theory_arith<Ext>::flush_bound_axioms() {
+        while (!m_new_atoms.empty()) {
+            ptr_vector<atom> atoms;            
+            atoms.push_back(m_new_atoms.back());
+            m_new_atoms.pop_back();
+            theory_var v = atoms.back()->get_var();
+            for (unsigned i = 0; i < m_new_atoms.size(); ++i) {
+                if (m_new_atoms[i]->get_var() == v) {
+                    atoms.push_back(m_new_atoms[i]);
+                    m_new_atoms[i] = m_new_atoms.back();
+                    m_new_atoms.pop_back();
+                    --i;
                 }
             }
+            ptr_vector<atom> occs(m_var_occs[v]);
+
+            std::sort(atoms.begin(), atoms.end(), compare_atoms());
+            std::sort(occs.begin(), occs.end(), compare_atoms());
+
+            typename atoms::iterator begin = occs.begin();
+            typename atoms::iterator end = occs.end();
+            typename atoms::iterator lo_inf = begin, lo_sup = begin;
+            typename atoms::iterator hi_inf = begin, hi_sup = begin;
+
+            for (unsigned i = 0; i < atoms.size(); ++i) {
+                atom* a1 = atoms[i];
+                lo_inf = next_inf(a1, A_LOWER, lo_inf, end);
+                hi_inf = next_inf(a1, A_UPPER, hi_inf, end);
+                lo_sup = next_sup(a1, A_LOWER, lo_sup, end);
+                hi_sup = next_sup(a1, A_UPPER, hi_sup, end);
+                if (lo_inf != end) mk_bound_axiom(a1, *lo_inf);
+                if (lo_sup != end) mk_bound_axiom(a1, *lo_sup);
+                if (hi_inf != end) mk_bound_axiom(a1, *hi_inf);
+                if (hi_sup != end) mk_bound_axiom(a1, *hi_sup);
+            }                            
         }
     }
+
+    template<typename Ext>
+    typename theory_arith<Ext>::atoms::iterator 
+    theory_arith<Ext>::next_inf(
+        atom* a1, 
+        atom_kind kind, 
+        typename atoms::iterator it, 
+        typename atoms::iterator end) {
+        inf_numeral const & k1(a1->get_k());
+        typename atoms::iterator result = end;
+        for (; it != end; ++it) {
+            atom * a2 = *it;            
+            if (a1 == a2) continue;
+            if (a2->get_atom_kind() != kind) continue;
+            inf_numeral const & k2(a2->get_k());
+            if (k2 <= k1) {
+                result = it;
+            }
+            else {
+                break;
+            }
+        }
+        return result;
+    }
+
+    template<typename Ext>
+    typename theory_arith<Ext>::atoms::iterator 
+    theory_arith<Ext>::next_sup(
+        atom* a1, 
+        atom_kind kind, 
+        typename atoms::iterator it, 
+        typename atoms::iterator end) {
+        inf_numeral const & k1(a1->get_k());
+        for (; it != end; ++it) {
+            atom * a2 = *it;            
+            if (a1 == a2) continue;
+            if (a2->get_atom_kind() != kind) continue;
+            inf_numeral const & k2(a2->get_k());
+            if (k2 > k1) {
+                return it;
+            }
+        }
+        return end;
+    }
+
 
     template<typename Ext>
     bool theory_arith<Ext>::internalize_atom(app * n, bool gate_ctx) {
@@ -1248,6 +1309,7 @@ namespace smt {
         CASSERT("arith", wf_columns());
         CASSERT("arith", valid_row_assignment());
         
+        flush_bound_axioms();
         propagate_linear_monomials();
         while (m_asserted_qhead < m_asserted_bounds.size()) {
             bound * b = m_asserted_bounds[m_asserted_qhead];
