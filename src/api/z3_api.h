@@ -6007,7 +6007,7 @@ END_MLAPI_EXCLUDE
 
 
     /**
-       \brief Add a maximiztion constraint.
+       \brief Add a maximization constraint.
        \param c - context
        \param o - optimization context
        \param a - arithmetical term       
@@ -6016,7 +6016,7 @@ END_MLAPI_EXCLUDE
     unsigned Z3_API Z3_optimize_maximize(Z3_context, Z3_optimize o, Z3_ast t);
 
     /**
-       \brief Add a minimiztion constraint.
+       \brief Add a minimization constraint.
        \param c - context
        \param o - optimization context
        \param a - arithmetical term   
@@ -6024,6 +6024,30 @@ END_MLAPI_EXCLUDE
        def_API('Z3_optimize_minimize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
     unsigned Z3_API Z3_optimize_minimize(Z3_context, Z3_optimize o, Z3_ast t);
+
+
+    /**
+       \brief Create a backtracking point.
+       
+       The optimize solver contains a set of rules, added facts and assertions.
+       The set of rules, facts and assertions are restored upon calling #Z3_optimize_pop.
+
+       \sa Z3_optimize_pop
+
+       def_API('Z3_optimize_push', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    void Z3_API Z3_optimize_push(Z3_context c,Z3_optimize d);
+
+    /**
+       \brief Backtrack one level.
+       
+       \sa Z3_optimize_push
+
+       \pre The number of calls to pop cannot exceed calls to push.
+
+       def_API('Z3_optimize_pop', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    void Z3_API Z3_optimize_pop(Z3_context c,Z3_optimize d);
 
     /**
        \brief Check consistency and produce optimal values.

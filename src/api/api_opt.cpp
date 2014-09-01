@@ -102,6 +102,23 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    void Z3_API Z3_optimize_push(Z3_context c,Z3_optimize d) {
+        Z3_TRY;
+        LOG_Z3_optimize_push(c, d);
+        RESET_ERROR_CODE();
+        to_optimize_ptr(d)->push();
+        Z3_CATCH;
+    }
+
+    void Z3_API Z3_optimize_pop(Z3_context c,Z3_optimize d) {
+        Z3_TRY;
+        LOG_Z3_optimize_pop(c, d);
+        RESET_ERROR_CODE();
+        to_optimize_ptr(d)->pop(1);
+        Z3_CATCH;
+    }
+
+
     Z3_lbool Z3_API Z3_optimize_check(Z3_context c, Z3_optimize o) {
         Z3_TRY;
         LOG_Z3_optimize_check(c, o);

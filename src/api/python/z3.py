@@ -6382,6 +6382,14 @@ class Optimize(Z3PPObject):
 	"""Add objective function to minimize."""
 	return OptimizeObjective(Z3_optimize_minimize(self.ctx.ref(), self.optimize, arg.as_ast()))
 
+    def push(self):
+        """create a backtracking point for added rules, facts and assertions"""
+        Z3_optimize_push(self.ctx.ref(), self.optimize)
+
+    def pop(self):
+        """restore to previously created backtracking point"""
+        Z3_optimize_pop(self.ctx.ref(), self.optimize)
+
     def check(self):
 	"""Check satisfiability while optimizing objective functions."""
 	return CheckSatResult(Z3_optimize_check(self.ctx.ref(), self.optimize))

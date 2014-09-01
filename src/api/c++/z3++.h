@@ -1511,6 +1511,12 @@ namespace z3 {
         handle minimize(expr const& e) {
             return handle(Z3_optimize_minimize(ctx(), m_opt, e));
         }
+        void push() {
+            Z3_optimize_push(ctx(), m_opt);
+        }
+        void pop() {
+            Z3_optimize_pop(ctx(), m_opt);
+        }
         check_result check() { Z3_lbool r = Z3_optimize_check(ctx(), m_opt); check_error(); return to_check_result(r); }
         model get_model() const { Z3_model m = Z3_optimize_get_model(ctx(), m_opt); check_error(); return model(ctx(), m); }
         void set(params const & p) { Z3_optimize_set_params(ctx(), m_opt, p); check_error(); }

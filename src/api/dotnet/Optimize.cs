@@ -112,6 +112,26 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Creates a backtracking point.
+        /// </summary>
+        /// <seealso cref="Pop"/>
+        public void Push()
+        {
+            Native.Z3_optimize_push(Context.nCtx, NativeObject);
+        }
+
+        /// <summary>
+        /// Backtrack one backtracking point.
+        /// </summary>
+        /// <remarks>Note that an exception is thrown if Pop is called without a corresponding <c>Push</c></remarks>
+        /// <seealso cref="Push"/>
+        public void Pop()
+        {
+            Native.Z3_optimize_pop(Context.nCtx, NativeObject);
+        }
+
+
+        /// <summary>
         /// The model of the last <c>Check</c>.
         /// </summary>
         /// <remarks>
