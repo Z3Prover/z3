@@ -869,7 +869,7 @@ namespace smt {
         atom_kind kind1 = a1->get_atom_kind();
         atom_kind kind2 = a2->get_atom_kind();
         bool v_is_int = is_int(v);
-        SASSERT(v === a2->get_var());
+        SASSERT(v == a2->get_var());
         SASSERT(k1 != k2 || kind1 != kind2);
         parameter coeffs[3] = { parameter(symbol("farkas")), 
                                 parameter(rational(1)), parameter(rational(1)) };

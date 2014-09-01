@@ -136,6 +136,7 @@ namespace opt {
         m_wth = s.ensure_wmax_theory();
     }
     maxsmt_solver_base::scoped_ensure_theory::~scoped_ensure_theory() {
+        //m_wth->reset_local();
     }
     smt::theory_wmaxsat& maxsmt_solver_base::scoped_ensure_theory::operator()() { return *m_wth; }
     

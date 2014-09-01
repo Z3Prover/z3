@@ -143,11 +143,9 @@ namespace opt {
 
     void context::push() {
         m_scoped_state.push();
-        m_solver->push();
     }
 
     void context::pop(unsigned n) {
-        m_solver->pop(n);
         for (unsigned i = 0; i < n; ++i) {
             m_scoped_state.pop();
         }
