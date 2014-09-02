@@ -3090,6 +3090,7 @@ namespace smt {
         SASSERT(m_to_patch.empty());
         m_to_check.reset();
         m_in_to_check.reset();
+        m_new_atoms.reset();
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
         CASSERT("arith", valid_row_assignment());

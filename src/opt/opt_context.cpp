@@ -139,6 +139,7 @@ namespace opt {
         for (; it != end; ++it) {
             dealloc(it->m_value);
         }
+        m_maxsmts.reset();
     }
 
     void context::push() {
@@ -149,21 +150,29 @@ namespace opt {
         for (unsigned i = 0; i < n; ++i) {
             m_scoped_state.pop();
         }
+        m_model.reset();
+        reset_maxsmts();
+        m_optsmt.reset();        
+        m_hard_constraints.reset();
     }
 
     void context::set_hard_constraints(ptr_vector<expr>& fmls) {
         m_scoped_state.set(fmls);
+        m_model.reset();
     }
 
     void context::add_hard_constraint(expr* f) { 
         m_scoped_state.add(f);
+        m_model.reset();
     }
 
     unsigned context::add_soft_constraint(expr* f, rational const& w, symbol const& id) { 
+        m_model.reset();
         return m_scoped_state.add(f, w, id);
     }
 
     unsigned context::add_objective(app* t, bool is_max) {
+        m_model.reset();
         return m_scoped_state.add(t, is_max);
     }
 
