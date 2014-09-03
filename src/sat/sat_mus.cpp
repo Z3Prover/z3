@@ -32,6 +32,7 @@ namespace sat {
         m_core.reset();
         m_mus.reset();
         m_model.reset();
+        m_best_value = 0;
     }
 
     void mus::set_core() {        
@@ -96,8 +97,15 @@ namespace sat {
                 if (!core.empty()) {
                     // mr(); // TBD: measure
                 }
+                double new_value = s.m_wsls.evaluate_model(s.m_model);
                 if (m_model.empty()) {
                     m_model.append(s.m_model);
+                    m_best_value = new_value;
+                }
+                else if (m_best_value > new_value) {
+                    m_model.reset();
+                    m_model.append(s.m_model);
+                    m_best_value = new_value;
                 }
                 break;
             }

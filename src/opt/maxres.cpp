@@ -72,14 +72,12 @@ public:
     enum strategy_t {
         s_mus,
         s_mus_mss,
-        s_mus_mss2,
         s_mss
     };
 private:
     expr_ref_vector  m_B;
     expr_ref_vector  m_asms;    
     obj_map<expr, rational> m_asm2weight;
-    obj_map<expr, bool>     m_asm2value;
     ptr_vector<expr> m_new_core;
     mus              m_mus;
     mss              m_mss;
@@ -186,44 +184,6 @@ public:
         return l_true;
     }
 
-    lbool mus_mss_solver() {
-        init();
-        init_local();
-        sls();
-        exprs mcs;
-        vector<exprs> cores;
-        while (m_lower < m_upper) {            
-            TRACE("opt", 
-                  display_vec(tout, m_asms.size(), m_asms.c_ptr());
-                  s().display(tout);
-                  tout << "\n";
-                  display(tout);
-                  );
-            lbool is_sat = try_improve_bound(cores, mcs);
-            if (m_cancel) {
-                return l_undef;
-            }
-            switch (is_sat) {
-            case l_undef:
-                return l_undef;
-            case l_false:
-                SASSERT(cores.empty() && mcs.empty());
-                m_lower = m_upper;
-                return l_true;
-            case l_true:
-                SASSERT(cores.empty() || mcs.empty());
-                for (unsigned i = 0; i < cores.size(); ++i) {
-                    process_unsat(cores[i]);
-                }
-                if (cores.empty()) {
-                    process_sat(mcs);
-                }
-                break;
-            }
-        }
-        m_lower = m_upper;
-        return l_true;
-    }
 
     lbool mss_solver() {
         init();
@@ -234,6 +194,9 @@ public:
         lbool is_sat = l_true;
         while (m_lower < m_upper && is_sat == l_true) {            
             IF_VERBOSE(1, verbose_stream() << "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
+            if (m_cancel) {
+                return l_undef;
+            }
             vector<exprs> cores;
             exprs mss;       
             model_ref mdl;
@@ -241,6 +204,12 @@ public:
             mcs.reset();
             s().get_model(mdl);
             update_assignment(mdl.get());
+
+            exprs cs;
+            get_current_correction_set(mdl.get(), cs);
+            process_sat(cs);
+
+#if 0
             is_sat = get_mss(mdl.get(), cores, mss, mcs);
             
             switch (is_sat) {
@@ -249,15 +218,12 @@ public:
             case l_false:
                 m_lower = m_upper;
                 return l_true;
-            case l_true: {                
+            case l_true:                 
                 process_sat(mcs);
                 get_mss_model();
-                break;
+                break;            
             }
-            }
-            if (m_cancel) {
-                return l_undef;
-            }
+#endif
             if (m_lower < m_upper) {
                 is_sat = s().check_sat(0, 0);
             }
@@ -294,7 +260,7 @@ public:
          Suppose correction set is huge. Do we really need it?
        
     */
-    lbool mus_mss2_solver() {
+    lbool mus_mss_solver() {
         init();
         init_local();
         sls();
@@ -356,14 +322,8 @@ public:
             // obtained from the current best model.
             // 
 
-            //
-            // TBD: throttle blocking on correction sets if they are too big.
-            // likewise, if the cores are too big, don't block the cores.
-            //
-
-
             exprs cs;
-            get_current_correction_set(cs);
+            get_current_correction_set(mdl.get(), cs);
             unsigned max_core = max_core_size(cores);
             if (!cs.empty() && cs.size() < max_core) {
                 process_sat(cs);                        
@@ -379,7 +339,6 @@ public:
 
     void found_optimum() {
         s().get_model(m_model);
-        m_asm2value.reset();
         DEBUG_CODE(
             for (unsigned i = 0; i < m_asms.size(); ++i) {
                 SASSERT(is_true(m_asms[i].get()));
@@ -397,8 +356,6 @@ public:
             return mus_solver();
         case s_mus_mss:
             return mus_mss_solver();
-        case s_mus_mss2:
-            return mus_mss2_solver();
         case s_mss:
             return mss_solver();
         }
@@ -462,14 +419,14 @@ public:
         return is_sat;
     }
 
-    void get_current_correction_set(exprs& cs) {
+    void get_current_correction_set(model* mdl, exprs& cs) {
         cs.reset();
+        if (!mdl) return;
         for (unsigned i = 0; i < m_asms.size(); ++i) {
-            if (!is_true(m_asms[i].get())) {
+            if (!is_true(mdl, m_asms[i].get())) {
                 cs.push_back(m_asms[i].get());
             }
         }
-        IF_VERBOSE(2, verbose_stream() << "(opt.maxres correction set size: " << cs.size() << ")\n";);
         TRACE("opt", display_vec(tout << "new correction set: ", cs.size(), cs.c_ptr()););
     }
 
@@ -554,7 +511,7 @@ public:
         IF_VERBOSE(1, verbose_stream() << "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
     }
 
-    void get_mus_model(model_ref& mdl) {
+    bool get_mus_model(model_ref& mdl) {
         rational w(0);
         if (m_c.sat_enabled()) {
             // SAT solver core extracts some model 
@@ -567,6 +524,7 @@ public:
         if (mdl.get() && w < m_upper) {
             update_assignment(mdl.get());
         }
+        return 0 != mdl.get();
     }
 
     void get_mss_model() {
@@ -682,17 +640,13 @@ public:
                 s().assert_expr(fml);
                 fml = m.mk_implies(dd, b_i);
                 s().assert_expr(fml);
-                m_asm2value.insert(dd, is_true(d) && is_true(b_i));
                 d = dd;
             }
             else {
-                dd = m.mk_and(b_i, d);
-                m_asm2value.insert(dd, is_true(d) && is_true(b_i));
-                m_trail.push_back(dd);
-                d = dd;
+                d = m.mk_and(b_i, d);
+                m_trail.push_back(d);
             }
             asum = mk_fresh_bool("a");
-            m_asm2value.insert(asum, is_true(b_i1) || is_true(d));
             cls = m.mk_or(b_i1, d);
             fml = m.mk_implies(asum, cls);
             new_assumption(asum, w);
@@ -809,7 +763,6 @@ public:
         return l_undef;
     }
 
-
     void update_assignment(model* mdl) {
         rational upper(0);
         expr_ref tmp(m);
@@ -826,7 +779,6 @@ public:
             return;
         }
         m_model = mdl;
-        m_asm2value.reset();
 
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i].get());
@@ -851,14 +803,14 @@ public:
         s().assert_expr(fml);        
     }
 
-    bool is_true(expr* e) {
-        bool truth_value;
-        if (m_asm2value.find(e, truth_value)) {
-            return truth_value;
-        }
+    bool is_true(model* mdl, expr* e) {
         expr_ref tmp(m);
-        VERIFY(m_model->eval(e, tmp));
+        VERIFY(mdl->eval(e, tmp));
         return m.is_true(tmp);
+    }
+
+    bool is_true(expr* e) {
+        return is_true(m_model.get(), e);
     }
 
     void remove_soft(exprs const& core, expr_ref_vector& asms) {
@@ -933,7 +885,7 @@ opt::maxsmt_solver_base* opt::mk_maxres(
 
 opt::maxsmt_solver_base* opt::mk_mus_mss_maxres(
     context& c, weights_t& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, c, ws, soft, maxres::s_mus_mss2);
+    return alloc(maxres, c, ws, soft, maxres::s_mus_mss);
 }
 
 opt::maxsmt_solver_base* opt::mk_mss_maxres(

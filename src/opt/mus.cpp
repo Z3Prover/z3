@@ -70,6 +70,7 @@ struct mus::imp {
     
     lbool get_mus(unsigned_vector& mus) {
         // SASSERT: mus does not have duplicates.
+        m_model.reset();
         unsigned_vector core;
         for (unsigned i = 0; i < m_cls2expr.size(); ++i) {
             core.push_back(i);

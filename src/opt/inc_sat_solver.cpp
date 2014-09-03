@@ -37,6 +37,7 @@ class inc_sat_solver : public solver {
     sat::solver     m_solver;
     goal2sat        m_goal2sat;
     params_ref      m_params;
+    bool            m_optimize_model; // parameter
     expr_ref_vector m_fmls;
     expr_ref_vector m_current_fmls;
     unsigned_vector m_fmls_lim;
@@ -54,10 +55,12 @@ class inc_sat_solver : public solver {
     expr_ref_vector     m_soft;
     vector<rational>    m_weights;
 
+
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
-        m(m), m_solver(p,0), m_params(p),
+        m(m), m_solver(p,0), 
+        m_params(p), m_optimize_model(false), 
         m_fmls(m), m_current_fmls(m), m_core(m), m_map(m),
         m_num_scopes(0), 
         m_dep_core(m),
@@ -165,6 +168,7 @@ public:
         m_params = p;
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
+        m_optimize_model = m_params.get_bool("optimize_model", false);
     }    
     virtual void collect_statistics(statistics & st) const {
         m_preprocess->collect_statistics(st);
@@ -226,32 +230,26 @@ private:
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_assumptions(soft.size(), soft.c_ptr(), dep2asm);
+        if (r != l_true) return r;
         sat::literal_vector lits;
         svector<double> weights;
         sat::literal lit;
-
-        if (r == l_true) {
-            for (unsigned i = 0; i < soft.size(); ++i) {
-                weights.push_back(m_weights[i].get_double());
-                expr* s = soft[i].get();
-                bool is_neg = m.is_not(s, s);
-                if (!dep2asm.find(s, lit)) {
-                    std::cout << "not found: " << mk_pp(s, m) << "\n";
-                    dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
-                    for (; it != end; ++it) {
-                        std::cout << mk_pp(it->m_key, m) << " " << it->m_value << "\n";
-                    }
-                    UNREACHABLE();
-                }
-                if (is_neg) {
-                    lit.neg();
-                }                        
-                lits.push_back(lit);
+        for (unsigned i = 0; i < soft.size(); ++i) {
+            weights.push_back(m_weights[i].get_double());
+            expr* s = soft[i].get();
+            if (!dep2asm.find(s, lit)) {
+                IF_VERBOSE(0, 
+                           verbose_stream() << "not found: " << mk_pp(s, m) << "\n";
+                           dep2asm_t::iterator it = dep2asm.begin();
+                           dep2asm_t::iterator end = dep2asm.end();
+                           for (; it != end; ++it) {
+                               verbose_stream() << mk_pp(it->m_key, m) << " " << it->m_value << "\n";
+                           }
+                           UNREACHABLE(););
             }
-            m_solver.initialize_soft(lits.size(), lits.c_ptr(), weights.c_ptr());
-            m_params.set_bool("optimize_model", true);
-            m_solver.updt_params(m_params);
+            lits.push_back(lit);
         }
+        m_solver.initialize_soft(lits.size(), lits.c_ptr(), weights.c_ptr());
         return r;
     }
 
@@ -324,12 +322,8 @@ private:
         m_core.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
             expr* e;
-            if (asm2dep.find(core[i].index(), e)) {
-                if (core[i].sign()) {
-                    e = m.mk_not(e);
-                }
-                m_core.push_back(e);
-            }
+            VERIFY (asm2dep.find(core[i].index(), e));
+            m_core.push_back(e);
         }
         TRACE("opt",
               dep2asm_t::iterator it = dep2asm.begin();

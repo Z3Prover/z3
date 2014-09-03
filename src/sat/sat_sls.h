@@ -99,12 +99,12 @@ namespace sat {
         void opt(unsigned sz, literal const* tabu, bool reuse_model);
         model const& get_model() { return m_best_model; }
         virtual void display(std::ostream& out) const;
+        double evaluate_model(model& mdl);
     private:        
         void wflip();
         void wflip(literal lit);
         void update_hard_weights();
         bool pick_wflip(literal & lit);
-        double evaluate_model();
         virtual void check_invariant();
         void refresh_scores(bool_var v);
         int compute_hscore(bool_var v);

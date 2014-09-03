@@ -25,6 +25,7 @@ namespace sat {
         literal_vector m_mus;
         bool           m_is_active;
         model          m_model;       // model obtained during minimal unsat core
+        double         m_best_value;
 
 
         solver& s;

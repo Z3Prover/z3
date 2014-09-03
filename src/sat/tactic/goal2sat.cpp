@@ -372,7 +372,9 @@ struct goal2sat::imp {
         SASSERT(m_result_stack.empty());
     }
 
-    void insert_dep(expr* dep, bool sign) {
+    void insert_dep(expr* dep0, expr* dep, bool sign) {
+        SASSERT(sign || dep0 == dep); // !sign || (not dep0) == dep.
+        SASSERT(!sign || m.is_not(dep0));
         expr_ref new_dep(m), fml(m);
         if (is_uninterp_const(dep)) {
             new_dep = dep;
@@ -386,7 +388,7 @@ struct goal2sat::imp {
         }
         convert_atom(new_dep, false, false);
         sat::literal lit = m_result_stack.back();
-        m_dep2asm.insert(dep, sign?(~lit):lit);
+        m_dep2asm.insert(dep0, sign?~lit:lit);
         m_result_stack.pop_back();
     }
 
@@ -411,7 +413,7 @@ struct goal2sat::imp {
                     SASSERT(m.is_bool(d));
                     bool sign = m.is_not(d, d1);
 
-                    insert_dep(d1, sign);
+                    insert_dep(d, d1, sign);
                     if (d == f) {
                         goto skip_dep;
                     }

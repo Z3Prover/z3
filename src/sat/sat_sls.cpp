@@ -354,7 +354,7 @@ namespace sat {
         //
         // Initialize m_clause_weights, m_hscore, m_sscore.
         //
-        m_best_value = m_false.empty()?evaluate_model():-1.0;        
+        m_best_value = m_false.empty()?evaluate_model(m_model):-1.0;        
         m_best_model.reset();
         m_clause_weights.reset();
         m_hscore.reset();
@@ -382,7 +382,7 @@ namespace sat {
         for (; !m_cancel && m_best_value > 0 && i < m_max_tries; ++i) {
             wflip();
             if (m_false.empty()) {
-                double val = evaluate_model();
+                double val = evaluate_model(m_model);
                 if (val < m_best_value || m_best_value < 0.0) {
                     m_best_value = val;
                     m_best_model.reset();
@@ -511,12 +511,12 @@ namespace sat {
         DEBUG_CODE(check_invariant(););
     }
 
-    double wsls::evaluate_model() {
+    double wsls::evaluate_model(model& mdl) {
         SASSERT(m_false.empty());
         double result = 0.0;
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             literal lit = m_soft[i];
-            if (value_at(lit, m_model) != l_true) {
+            if (value_at(lit, mdl) != l_true) {
                 result += m_weights[i];
             }
         }

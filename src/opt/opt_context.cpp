@@ -465,8 +465,12 @@ namespace opt {
 
     void context::enable_sls(expr_ref_vector const& soft, vector<rational> const& weights) {
         SASSERT(soft.size() == weights.size());
-        if (m_enable_sls && m_sat_solver.get()) {
+        if (m_sat_solver.get()) {
             set_soft_inc_sat(m_sat_solver.get(), soft.size(), soft.c_ptr(), weights.c_ptr());
+        }
+        if (m_enable_sls && m_sat_solver.get()) {
+            m_params.set_bool("optimize_model", true);
+            m_sat_solver->updt_params(m_params);
         }
     }
 
