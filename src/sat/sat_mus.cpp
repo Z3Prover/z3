@@ -41,7 +41,9 @@ namespace sat {
     }
 
     lbool mus::operator()() {
+        bool minimize_partial = s.m_config.m_minimize_core_partial;
         flet<bool> _disable_min(s.m_config.m_minimize_core, false);
+        flet<bool> _disable_min_partial(s.m_config.m_minimize_core_partial, false);
         flet<bool> _disable_opt(s.m_config.m_optimize_model, false);
         flet<bool> _is_active(m_is_active, true);
         TRACE("sat", tout << "old core: " << s.get_core() << "\n";);
@@ -58,7 +60,7 @@ namespace sat {
                 --i;
             }
         }
-
+        unsigned delta_time  = 0;
         while (!core.empty()) {
             IF_VERBOSE(2, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
             TRACE("sat", 
@@ -69,6 +71,11 @@ namespace sat {
                 set_core();
                 return l_undef;
             }
+            if (minimize_partial && delta_time > 4) {
+                break;
+            }
+            unsigned num_literals = core.size() + mus.size();
+
             literal lit = core.back();
             core.pop_back();
             unsigned sz = mus.size();
@@ -99,14 +106,6 @@ namespace sat {
                 if (new_core.contains(~lit)) {
                     mus.resize(sz);
                     break;
-#if 0
-                    mus.pop_back();
-                    is_sat = s.check(mus.size(), mus.c_ptr());
-                    SASSERT(is_sat != l_true);
-                    if (is_sat != l_false) {
-                        return l_undef;
-                    }
-#endif 
                 }
                 mus.resize(sz);
                 TRACE("sat", tout << "new core: " << new_core << "\n";);
@@ -118,6 +117,14 @@ namespace sat {
                     }
                 }
                 break;
+            }
+
+            unsigned new_num_literals = core.size() + mus.size();
+            if (new_num_literals == num_literals) {
+                delta_time++;
+            }
+            else {
+                delta_time = 0;
             }
         }
         TRACE("sat", tout << "new core: " << mus << "\n";);

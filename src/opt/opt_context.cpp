@@ -451,7 +451,7 @@ namespace opt {
             m_maxsat_engine != symbol("sls")) {
             return;
         }
-        m_params.set_bool("minimize_core", true);
+        m_params.set_bool("minimize_core_partial", true);
         m_sat_solver = mk_inc_sat_solver(m, m_params);
         unsigned sz = get_solver().get_num_assertions();
         for (unsigned i = 0; i < sz; ++i) {

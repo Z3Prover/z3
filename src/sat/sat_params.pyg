@@ -19,5 +19,6 @@ def_module_params('sat',
                           ('minimize_lemmas', BOOL, True, 'minimize learned clauses'),
                           ('dyn_sub_res', BOOL, True, 'dynamic subsumption resolution for minimizing learned clauses'),
                           ('minimize_core', BOOL, False, 'minimize computed core'),
+                          ('minimize_core_partial', BOOL, False, 'apply partial (cheap) core minimization'),
                           ('optimize_model', BOOL, False, 'enable optimization of soft constraints'),
                           ('dimacs.core', BOOL, False, 'extract core from DIMACS benchmarks')))

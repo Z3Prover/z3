@@ -938,7 +938,7 @@ namespace smt {
                     m_new_atoms.pop_back();
                     --i;
                 }
-            }
+            }            
             ptr_vector<atom> occs(m_var_occs[v]);
 
             std::sort(atoms.begin(), atoms.end(), compare_atoms());

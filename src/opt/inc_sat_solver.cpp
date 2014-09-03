@@ -367,8 +367,12 @@ private:
 
     void extract_model() {
         TRACE("sat", tout << "retrieve model\n";);
-        model_ref md = alloc(model, m);
         sat::model const & ll_m = m_solver.get_model();
+        if (ll_m.empty()) {
+            m_model = 0;
+            return;
+        }
+        model_ref md = alloc(model, m);
         atom2bool_var::iterator it  = m_map.begin();
         atom2bool_var::iterator end = m_map.end();
         for (; it != end; ++it) {

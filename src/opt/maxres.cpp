@@ -156,7 +156,7 @@ public:
     lbool mus_solver() {
         init();
         init_local();
-        while (true) {
+        while (m_lower < m_upper) {
             TRACE("opt", 
                   display_vec(tout, m_asms.size(), m_asms.c_ptr());
                   s().display(tout);
@@ -167,6 +167,7 @@ public:
             if (m_cancel) {
                 return l_undef;
             }
+            model_ref mdl;
             switch (is_sat) {
             case l_true: 
                 found_optimum();
@@ -174,6 +175,7 @@ public:
             case l_false:
                 is_sat = process_unsat();
                 if (is_sat != l_true) return is_sat;
+                get_mus_model(mdl);
                 break;
             case l_undef:
                 return l_undef;
@@ -359,13 +361,15 @@ public:
             // likewise, if the cores are too big, don't block the cores.
             //
 
-            process_unsat(cores);
 
             exprs cs;
             get_current_correction_set(cs);
             unsigned max_core = max_core_size(cores);
-            if (cs.size() <= std::max(max_core, m_max_correction_set_size)) {
+            if (!cs.empty() && cs.size() < max_core) {
                 process_sat(cs);                        
+            }
+            else {
+                process_unsat(cores);                
             }
         }
         
@@ -465,6 +469,7 @@ public:
                 cs.push_back(m_asms[i].get());
             }
         }
+        IF_VERBOSE(2, verbose_stream() << "(opt.maxres correction set size: " << cs.size() << ")\n";);
         TRACE("opt", display_vec(tout << "new correction set: ", cs.size(), cs.c_ptr()););
     }
 
@@ -554,7 +559,7 @@ public:
         if (m_c.sat_enabled()) {
             // SAT solver core extracts some model 
             // during unsat core computation.
-            s().get_model(mdl);            
+            s().get_model(mdl);
         }
         else {
             w = m_mus.get_best_model(mdl);

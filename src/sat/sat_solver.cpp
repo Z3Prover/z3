@@ -1730,7 +1730,7 @@ namespace sat {
             idx--;
         }        
         reset_unmark(old_size);
-        if (m_config.m_minimize_core) {
+        if (m_config.m_minimize_core || m_config.m_minimize_core_partial) {
             // TBD: 
             // apply optional clause minimization by detecting subsumed literals.
             // initial experiment suggests it has no effect.
