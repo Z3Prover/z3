@@ -60,6 +60,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
+        mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
         Z3_CATCH_RETURN(0);
     }
@@ -263,6 +264,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_NON_NULL(f, 0);
         expr * e = to_func_interp_ref(f)->get_else();
+        mk_c(c)->save_ast_trail(e);
         RETURN_Z3(of_expr(e));
         Z3_CATCH_RETURN(0);
     }
@@ -301,6 +303,7 @@ extern "C" {
         LOG_Z3_func_entry_get_value(c, e);
         RESET_ERROR_CODE();
         expr * v = to_func_entry_ref(e)->get_result();
+        mk_c(c)->save_ast_trail(v);
         RETURN_Z3(of_expr(v));
         Z3_CATCH_RETURN(0);
     }
