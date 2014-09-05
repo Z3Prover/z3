@@ -218,8 +218,14 @@ public:
     }
 
     virtual void set_cancel(bool f) {
-        m_solver1->set_cancel(f);
-        m_solver2->set_cancel(f);
+        if (f) {
+            m_solver1->cancel();
+            m_solver2->cancel();
+        }
+        else {
+            m_solver1->reset_cancel();
+            m_solver2->reset_cancel();
+        }
     }
     
     virtual void set_progress_callback(progress_callback * callback) {

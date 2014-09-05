@@ -173,8 +173,12 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
 }
 
 void tactic2solver::set_cancel(bool f) {
-    if (m_tactic.get())
-        m_tactic->set_cancel(f);
+    if (m_tactic.get()) {
+        if (f) 
+            m_tactic->cancel();
+        else
+            m_tactic->reset_cancel();
+    }
 }
 
 void tactic2solver::collect_statistics(statistics & st) const {
