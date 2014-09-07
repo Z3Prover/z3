@@ -51,8 +51,9 @@ namespace opt {
         bool                m_dump_benchmarks;
         static unsigned     m_dump_count;
         statistics          m_stats;
+        bool                m_first;
     public:
-        opt_solver(ast_manager & m, params_ref const & p, filter_model_converter& fm, symbol const & l);
+        opt_solver(ast_manager & m, params_ref const & p, filter_model_converter& fm);
         virtual ~opt_solver();
 
         virtual void updt_params(params_ref & p);
@@ -61,7 +62,7 @@ namespace opt {
         virtual void assert_expr(expr * t);
         virtual void push_core();
         virtual void pop_core(unsigned n);
-        virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);
+        virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);        
         virtual void get_unsat_core(ptr_vector<expr> & r);
         virtual void get_model(model_ref & m);
         virtual proof * get_proof();
@@ -72,6 +73,7 @@ namespace opt {
         virtual unsigned get_num_assertions() const;
         virtual expr * get_assertion(unsigned idx) const;
         virtual void display(std::ostream & out) const;
+        void set_logic(symbol const& logic);
 
         smt::theory_var add_objective(app* term);
         void reset_objectives();

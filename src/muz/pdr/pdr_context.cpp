@@ -49,6 +49,7 @@ Notes:
 #include "scoped_proof.h"
 #include "blast_term_ite_tactic.h"
 #include "model_implicant.h"
+#include "expr_safe_replace.h"
 
 namespace pdr {
 
@@ -1073,10 +1074,7 @@ namespace pdr {
             predicates.pop_back();
             for (unsigned i = rule->get_uninterpreted_tail_size(); i < rule->get_tail_size(); ++i) {
                 subst.apply(2, deltas, expr_offset(rule->get_tail(i), 1), tmp);
-                dctx.get_rewriter()(tmp);
-                if (!m.is_true(tmp)) {
-                    constraints.push_back(tmp);
-                }
+                constraints.push_back(tmp);                
             }
             for (unsigned i = 0; i < constraints.size(); ++i) {
                 max_var = std::max(vc.get_max_var(constraints[i].get()), max_var);
@@ -1099,7 +1097,27 @@ namespace pdr {
 
             children.append(n->children());
         }            
-        return pm.mk_and(constraints);
+        expr_safe_replace repl(m);
+        for (unsigned i = 0; i < constraints.size(); ++i) {
+            expr* e = constraints[i].get(), *e1, *e2;
+            if (m.is_eq(e, e1, e2) && is_var(e1) && is_ground(e2)) {
+                repl.insert(e1, e2);
+            }
+            else if (m.is_eq(e, e1, e2) && is_var(e2) && is_ground(e1)) {
+                repl.insert(e2, e1);
+            }
+        }
+        expr_ref_vector result(m);
+        for (unsigned i = 0; i < constraints.size(); ++i) {
+            expr_ref tmp(m);
+            tmp = constraints[i].get();
+            repl(tmp);
+            dctx.get_rewriter()(tmp);
+            if (!m.is_true(tmp)) {
+                result.push_back(tmp);
+            }
+        }        
+        return pm.mk_and(result);
     }
 
     proof_ref model_search::get_proof_trace(context const& ctx) {
@@ -1232,6 +1250,7 @@ namespace pdr {
             remove_node(*m_root, false);
             dealloc(m_root);
             m_root = 0;
+            m_cache.reset();
         }
     }
 

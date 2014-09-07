@@ -235,7 +235,6 @@ namespace opt {
     }
 
     lbool optsmt::lex(unsigned obj_index) {
-        IF_VERBOSE(1, verbose_stream() << "(optsmt:lex)\n";);
         TRACE("opt", tout << "optsmt:lex\n";);
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());

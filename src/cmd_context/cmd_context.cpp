@@ -362,6 +362,7 @@ void cmd_context::set_opt(opt_wrapper* opt) {
     for (unsigned i = 0; i < m_scopes.size(); ++i) {
         m_opt->push();
     }
+    m_opt->set_logic(m_logic);
 }
 
 void cmd_context::global_params_updated() {

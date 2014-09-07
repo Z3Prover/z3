@@ -36,17 +36,14 @@ Notes:
 namespace opt {
 
     opt_solver::opt_solver(ast_manager & mgr, params_ref const & p, 
-                           filter_model_converter& fm, symbol const & l):
+                           filter_model_converter& fm):
         solver_na2as(mgr),
         m_params(p),
         m_context(mgr, m_params),
         m(mgr),
         m_dump_benchmarks(false),
-        m_fm(fm) {
-        m_logic = l;
-        if (m_logic != symbol::null) {
-            m_context.set_logic(m_logic);
-        }
+        m_fm(fm),
+        m_first(true) {
         m_params.updt_params(p);
         m_params.m_relevancy_lvl = 0;
     }
@@ -81,6 +78,10 @@ namespace opt {
     
     void opt_solver::pop_core(unsigned n) {
         m_context.pop(n);
+    }
+
+    void opt_solver::set_logic(symbol const& logic) {
+        m_context.set_logic(logic);
     }
 
     smt::theory_opt& opt_solver::get_optimizer() {
@@ -143,7 +144,14 @@ namespace opt {
             IF_VERBOSE(1, verbose_stream() << "(created benchmark: " << file_name.str() << "...";
                        verbose_stream().flush(););
         }
-        lbool r = m_context.check(num_assumptions, assumptions);
+        lbool r;
+        if (m_first && num_assumptions == 0 && m_context.get_scope_level() == 0) {
+            r = m_context.setup_and_check();
+        }
+        else {
+            r = m_context.check(num_assumptions, assumptions);
+        }
+        m_first = false;
         if (dump_benchmarks()) {
             w.stop();
             IF_VERBOSE(1, verbose_stream() << ".. " << r << " " << std::fixed << w.get_seconds() << ")\n";);

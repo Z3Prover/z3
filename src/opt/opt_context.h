@@ -128,6 +128,7 @@ namespace opt {
         bool                         m_enable_sat;
         bool                         m_enable_sls;
         symbol                       m_maxsat_engine;
+        symbol                       m_logic;
     public:
         context(ast_manager& m);
         virtual ~context();
@@ -153,6 +154,7 @@ namespace opt {
 
         virtual void display_assignment(std::ostream& out);
         virtual bool is_pareto() { return m_pareto.get() != 0; }
+        virtual void set_logic(symbol const& s) { m_logic = s; }
 
         void display(std::ostream& out);
         static void collect_param_descrs(param_descrs & r);

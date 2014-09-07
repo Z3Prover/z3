@@ -81,8 +81,10 @@ template<typename Ext>
 bool theory_diff_logic<Ext>::internalize_term(app * term) {
     bool result = null_theory_var != mk_term(term);
     CTRACE("arith", !result, tout << "Did not internalize " << mk_pp(term, get_manager()) << "\n";);
-    TRACE("non_diff_logic", tout << "Terms may not be internalized\n";);
-    found_non_diff_logic_expr(term);
+    if (!result) {
+        TRACE("non_diff_logic", tout << "Terms may not be internalized\n";);
+        found_non_diff_logic_expr(term);
+    }
     return result;
 }
 
@@ -273,6 +275,8 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
 template<typename Ext>
 void theory_diff_logic<Ext>::internalize_eq_eh(app * atom, bool_var v) {
     context & ctx  = get_context();
+    ast_manager& m = get_manager();
+    TRACE("arith", tout << mk_pp(atom, m) << "\n";);
     app * lhs      = to_app(atom->get_arg(0));
     app * rhs      = to_app(atom->get_arg(1));
     app * s;
@@ -1070,13 +1074,13 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v, ex
     ast_manager& m = get_manager();
     objective_term const& objective = m_objectives[v];
 
-    IF_VERBOSE(1,
-        for (unsigned i = 0; i < objective.size(); ++i) {
-            verbose_stream() << "Coefficient " << objective[i].second 
-                             << " of theory_var " << objective[i].first << "\n";
-        }
-        verbose_stream() << "Free coefficient " << m_objective_consts[v] << "\n";);
-
+    TRACE("arith",
+          for (unsigned i = 0; i < objective.size(); ++i) {
+              tout << "Coefficient " << objective[i].second 
+                   << " of theory_var " << objective[i].first << "\n";
+          }
+          tout << "Free coefficient " << m_objective_consts[v] << "\n";
+          );
     unsigned num_nodes = m_graph.get_num_nodes();
     unsigned num_edges = m_graph.get_num_edges();
     vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();

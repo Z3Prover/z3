@@ -301,7 +301,7 @@ namespace smt {
     }
 
     void setup::setup_QF_IDL() {
-        TRACE("setup", tout << "setup_QF_IDL(st)\n";);
+        TRACE("setup", tout << "setup_QF_IDL()\n";);
         m_params.m_relevancy_lvl       = 0;
         m_params.m_arith_expand_eqs    = true;
         m_params.m_arith_reflect       = false;
@@ -351,15 +351,14 @@ namespace smt {
         else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
             TRACE("setup", tout << "using dense diff logic...\n";);
             m_params.m_phase_selection = PS_CACHING_CONSERVATIVE;
-#if 0
-            m_context.register_plugin(alloc(smt::theory_idl, m_manager, m_params));
-#else
             if (st.m_arith_k_sum < rational(INT_MAX / 8))
                 m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
             else
                 m_context.register_plugin(alloc(smt::theory_dense_i, m_manager, m_params));
-#endif
 
+        }
+        else if (!m_params.m_arith_auto_config_simplex && !is_dense(st)) {
+            m_context.register_plugin(alloc(smt::theory_idl, m_manager, m_params));            
         }
         else {
             // if (st.m_arith_k_sum < rational(INT_MAX / 8)) {
@@ -379,6 +378,7 @@ namespace smt {
         m_params.m_arith_reflect    = false;
         m_params.m_nnf_cnf          = false;
         m_params.m_arith_eq_bounds  = true;
+        m_params.m_arith_expand_eqs = true;
         m_params.m_phase_selection  = PS_ALWAYS_FALSE;
         m_params.m_restart_strategy = RS_GEOMETRIC;
         m_params.m_restart_factor   = 1.5;

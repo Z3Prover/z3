@@ -284,6 +284,7 @@ namespace opt {
     
     lbool context::execute_lex() {
         lbool r = l_true;
+        IF_VERBOSE(1, verbose_stream() << "(optsmt:lex)\n";);
         for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
             bool is_last = i + 1 == m_objectives.size();
             r = execute(m_objectives[i], i + 1 < m_objectives.size(), !is_last);
@@ -435,7 +436,8 @@ namespace opt {
     void context::init_solver() {
         #pragma omp critical (opt_context)
         {
-            m_opt_solver = alloc(opt_solver, m, m_params, m_fm, symbol());
+            m_opt_solver = alloc(opt_solver, m, m_params, m_fm);
+            m_opt_solver->set_logic(m_logic);
             m_solver = m_opt_solver.get();
         }
     }
