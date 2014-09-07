@@ -311,6 +311,16 @@ namespace simplex {
     }
 
     template<typename Ext>
+    void simplex<Ext>::reset() {
+        M.reset();
+        m_to_patch.reset();
+        m_vars.reset();
+        m_row2base.reset();
+        m_left_basis.reset();
+        m_base_vars.reset();
+    }
+
+    template<typename Ext>
     lbool simplex<Ext>::make_feasible() {
         ++m_stats.m_num_checks;
         m_left_basis.reset();

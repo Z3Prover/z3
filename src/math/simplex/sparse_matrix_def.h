@@ -281,6 +281,16 @@ namespace simplex {
     }
 
     template<typename Ext>
+    void sparse_matrix<Ext>::reset() {
+        m_rows.reset();
+        m_dead_rows.reset();
+        m_columns.reset();
+        m_var_pos.reset();
+        m_var_pos_idx.reset();
+
+    }
+
+    template<typename Ext>
     void sparse_matrix<Ext>::ensure_var(var_t v) {
         while (m_columns.size() <= v) {
             m_columns.push_back(column());

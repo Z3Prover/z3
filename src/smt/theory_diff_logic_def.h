@@ -29,8 +29,6 @@ Revision History:
 #include"warning.h"
 #include"smt_model_generator.h"
 #include"model_implicant.h"
-#include"simplex.h"
-#include"simplex_def.h"
 
 
 using namespace smt;
@@ -343,7 +341,13 @@ void theory_diff_logic<Ext>::pop_scope_eh(unsigned num_scopes) {
     m_asserted_atoms.shrink(s.m_asserted_atoms_lim);
     m_asserted_qhead = s.m_asserted_qhead_old;
     m_scopes.shrink(new_lvl);
+    unsigned num_edges = m_graph.get_num_edges();
     m_graph.pop(num_scopes);
+    if (num_edges != m_graph.get_num_edges() && m_num_simplex_edges > 0) {
+        m_S.reset();
+        m_num_simplex_edges = 0;
+        m_objective_rows.reset();
+    }
     theory::pop_scope_eh(num_scopes);
 }
 
@@ -1067,11 +1071,119 @@ void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, 
 }
 
 template<typename Ext>
+unsigned theory_diff_logic<Ext>::node2simplex(unsigned v) {
+    //return v;
+    return m_objectives.size() + 2*v + 1;
+}
+template<typename Ext>
+unsigned theory_diff_logic<Ext>::edge2simplex(unsigned e) {
+    //return m_graph.get_num_nodes() + e;
+    return m_objectives.size() + 2*e;
+}
+template<typename Ext>
+unsigned theory_diff_logic<Ext>::obj2simplex(unsigned e) {
+    //return m_graph.get_num_nodes() + m_graph.get_num_edges() + e;
+    return e;
+}
+
+template<typename Ext>
+unsigned theory_diff_logic<Ext>::num_simplex_vars() {
+    //return m_graph.get_num_nodes() + m_graph.get_num_edges() + m_objectives.size();
+    return m_objectives.size() + std::max(2*m_graph.get_num_edges(),2*m_graph.get_num_nodes()+1);
+}
+
+template<typename Ext>
+bool theory_diff_logic<Ext>::is_simplex_edge(unsigned e) {
+#if 0
+    return 
+        m_graph.get_num_nodes() <= e &&
+        e < m_graph.get_num_nodes() + m_graph.get_num_edges();
+#else
+    if (e < m_objectives.size()) return false;
+    e -= m_objectives.size();
+    return (0 == (e & 0x1));
+#endif
+}
+
+template<typename Ext> 
+unsigned theory_diff_logic<Ext>::simplex2edge(unsigned e) {
+    SASSERT(is_simplex_edge(e));
+    //return e - m_graph.get_num_nodes();
+    return (e - m_objectives.size())/2;
+}
+
+template<typename Ext> 
+void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
+    unsigned num_nodes = m_graph.get_num_nodes();
+    vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();
+    S.ensure_var(num_simplex_vars());
+    for (unsigned i = 0; i < num_nodes; ++i) {
+        numeral const& a = m_graph.get_assignment(i);
+        rational fin = a.get_rational().to_rational();
+        rational inf = a.get_infinitesimal().to_rational();
+        mpq_inf q(fin.to_mpq(), inf.to_mpq());
+        S.set_value(node2simplex(i), q);
+    }
+    S.set_lower(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
+    S.set_upper(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
+    svector<unsigned> vars;
+    unsynch_mpq_manager mgr;
+    scoped_mpq_vector coeffs(mgr);
+    coeffs.push_back(mpq(1));
+    coeffs.push_back(mpq(-1));
+    coeffs.push_back(mpq(-1));
+    vars.resize(3);
+    for (unsigned i = m_num_simplex_edges; i < es.size(); ++i) {
+        //    t - s <= w 
+        // =>
+        //    t - s - b = 0, b >= w
+        dl_edge<GExt> const& e = es[i];
+        unsigned base_var = edge2simplex(i);
+        vars[0] = node2simplex(e.get_target());
+        vars[1] = node2simplex(e.get_source());
+        vars[2] = base_var;
+        S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());        
+    }
+    m_num_simplex_edges = es.size();
+    for (unsigned i = 0; i < es.size(); ++i) {
+        dl_edge<GExt> const& e = es[i];
+        unsigned base_var = edge2simplex(i);
+        if (e.is_enabled()) {
+            numeral const& w = e.get_weight();
+            rational fin = w.get_rational().to_rational();
+            rational inf = w.get_infinitesimal().to_rational();
+            mpq_inf q(fin.to_mpq(),inf.to_mpq());
+            S.set_upper(base_var, q);
+        }
+        else {
+            S.unset_upper(base_var);
+        }
+    }
+    for (unsigned v = m_objective_rows.size(); v < m_objectives.size(); ++v) {
+        unsigned w = obj2simplex(v);
+        objective_term const& objective = m_objectives[v];
+
+        // add objective function as row.
+        coeffs.reset();
+        vars.reset();
+        for (unsigned i = 0; i < objective.size(); ++i) {
+            coeffs.push_back(objective[i].second.to_mpq());
+            vars.push_back(node2simplex(objective[i].first));
+        }
+        coeffs.push_back(mpq(1));
+        vars.push_back(w);
+        Simplex::row row = S.add_row(w, vars.size(), vars.c_ptr(), coeffs.c_ptr());
+        m_objective_rows.push_back(row);
+    }
+}
+
+template<typename Ext>
 inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker) {
     
-    typedef simplex::simplex<simplex::mpq_ext> Simplex;
-    Simplex S;
+    Simplex& S = m_S;
     ast_manager& m = get_manager();
+
+    update_simplex(S);
     objective_term const& objective = m_objectives[v];
 
     TRACE("arith",
@@ -1081,55 +1193,6 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v, ex
           }
           tout << "Free coefficient " << m_objective_consts[v] << "\n";
           );
-    unsigned num_nodes = m_graph.get_num_nodes();
-    unsigned num_edges = m_graph.get_num_edges();
-    vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();
-    S.ensure_var(num_nodes + num_edges + m_objectives.size());
-    for (unsigned i = 0; i < num_nodes; ++i) {
-        numeral const& a = m_graph.get_assignment(i);
-        rational fin = a.get_rational().to_rational();
-        rational inf = a.get_infinitesimal().to_rational();
-        mpq_inf q(fin.to_mpq(), inf.to_mpq());
-        S.set_value(i, q);
-    }
-    S.set_lower(get_zero(), mpq_inf(mpq(0), mpq(0)));
-    S.set_upper(get_zero(), mpq_inf(mpq(0), mpq(0)));
-    svector<unsigned> vars;
-    unsynch_mpq_manager mgr;
-    scoped_mpq_vector coeffs(mgr);
-    coeffs.push_back(mpq(1));
-    coeffs.push_back(mpq(-1));
-    coeffs.push_back(mpq(-1));
-    vars.resize(3);
-    for (unsigned i = 0; i < es.size(); ++i) {
-        dl_edge<GExt> const& e = es[i];
-        if (e.is_enabled()) {
-            unsigned base_var = num_nodes + i;
-            vars[0] = e.get_target();
-            vars[1] = e.get_source();
-            vars[2] = base_var;
-            S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());
-            // t - s <= w
-            // t - s - b = 0, b >= w
-            numeral const& w = e.get_weight();
-            rational fin = w.get_rational().to_rational();
-            rational inf = w.get_infinitesimal().to_rational();
-            mpq_inf q(fin.to_mpq(),inf.to_mpq());
-            S.set_upper(base_var, q);
-        }
-    }
-    unsigned w = num_nodes + num_edges + v;
-
-    // add objective function as row.
-    coeffs.reset();
-    vars.reset();
-    for (unsigned i = 0; i < objective.size(); ++i) {
-        coeffs.push_back(objective[i].second.to_mpq());
-        vars.push_back(objective[i].first);
-    }
-    coeffs.push_back(mpq(1));
-    vars.push_back(w);
-    Simplex::row row = S.add_row(w, vars.size(), vars.c_ptr(), coeffs.c_ptr());
 
     TRACE("opt", S.display(tout); display(tout););
     
@@ -1141,11 +1204,13 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v, ex
     }
     TRACE("opt", S.display(tout); );    
     SASSERT(is_sat != l_false);
+    unsigned w = obj2simplex(v);
     lbool is_fin = S.minimize(w);
     switch (is_fin) {
     case l_true: {
         simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
         inf_rational r(-rational(val.first), -rational(val.second));
+        Simplex::row row = m_objective_rows[v];
         TRACE("opt", tout << r << " " << "\n"; 
               S.display_row(tout, row, true););
         Simplex::row_iterator it = S.row_begin(row), end = S.row_end(row);
@@ -1154,8 +1219,8 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v, ex
         core.reset();
         for (; it != end; ++it) {
             unsigned v = it->m_var;
-            if (num_nodes <= v && v < num_nodes + num_edges) {
-                unsigned edge_id = v - num_nodes;
+            if (is_simplex_edge(v)) {
+                unsigned edge_id = simplex2edge(v);
                 literal lit = m_graph.get_explanation(edge_id);
                 get_context().literal2expr(lit, tmp);
                 core.push_back(tmp);

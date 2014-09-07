@@ -145,6 +145,7 @@ namespace simplex {
 
         sparse_matrix(manager& m): m(m) {}
         ~sparse_matrix();
+        void reset();
         
         class row {
             unsigned m_id;            

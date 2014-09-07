@@ -38,6 +38,8 @@ Revision History:
 #include"numeral_factory.h"
 #include"smt_clause.h"
 #include"theory_opt.h"
+#include"simplex.h"
+#include"simplex_def.h"
 
 // The DL theory can represent term such as n + k, where n is an enode and k is a numeral.
 namespace smt {
@@ -62,6 +64,7 @@ namespace smt {
     class theory_diff_logic : public theory, public theory_opt, private Ext {
         
         typedef typename Ext::numeral numeral;
+        typedef simplex::simplex<simplex::mpq_ext> Simplex;
 
         class atom {
             bool_var  m_bvar;
@@ -194,6 +197,9 @@ namespace smt {
         vector<objective_term>         m_objectives;
         vector<rational>               m_objective_consts;
         vector<expr_ref_vector>        m_objective_assignments;
+        vector<Simplex::row>           m_objective_rows;
+        Simplex                        m_S;
+        unsigned                       m_num_simplex_edges;
 
         // Set a conflict due to a negative cycle.
         void set_neg_cycle_conflict();
@@ -228,7 +234,8 @@ namespace smt {
             m_is_lia(true),
             m_non_diff_logic_exprs(false),
             m_factory(0),
-            m_nc_functor(*this) {
+            m_nc_functor(*this),
+            m_num_simplex_edges(0) {
         }            
 
         virtual ~theory_diff_logic() {
@@ -369,6 +376,15 @@ namespace smt {
 
         void inc_conflicts();
 
+        // Optimization:
+        // convert variables, edges and objectives to simplex.
+        unsigned node2simplex(unsigned v);
+        unsigned edge2simplex(unsigned e);
+        unsigned obj2simplex(unsigned v);
+        unsigned num_simplex_vars();
+        bool is_simplex_edge(unsigned e);
+        unsigned simplex2edge(unsigned e);
+        void update_simplex(Simplex& S);
     };
 
     struct idl_ext {
