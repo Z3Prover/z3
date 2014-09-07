@@ -1221,6 +1221,7 @@ namespace pdr {
             remove_node(*m_root, false);
             dealloc(m_root);
             m_root = 0;
+            m_cache.reset();
         }
     }
 
