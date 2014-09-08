@@ -59,6 +59,14 @@ namespace pb {
             return BR_DONE;
         }
         else if (f->get_family_id() == pb.get_family_id()) {
+            if (is_or(f)) {
+                result = m.mk_or(sz, args);
+                return BR_DONE;
+            }
+            if (is_and(f)) {
+                result = m.mk_and(sz, args);
+                return BR_DONE;
+            }
             br_status st = mk_shannon(f, sz, args, result);
             if (st == BR_FAILED) {
                 return mk_bv(f, sz, args, result);
@@ -95,7 +103,7 @@ namespace pb {
                     if (au.is_int(args[i]) && au.is_numeral(args[i], val1))
                         q = bv.mk_numeral(val1, bits);
                     else
-                        q = m.mk_ite(to_app(args[i])->get_arg(0), bv.mk_numeral(1, bits), bv.mk_numeral(0, bits));
+                        q = mk_ite(to_app(args[i])->get_arg(0), bv.mk_numeral(1, bits), bv.mk_numeral(0, bits));
                     result = (i == 0) ? q : bv.mk_bv_add(result.get(), q);
                 }                
                 return BR_DONE;
@@ -107,14 +115,33 @@ namespace pb {
             return BR_FAILED;
     }
 
+    bool card2bv_rewriter::is_or(func_decl* f) {
+        switch (f->get_decl_kind()) {
+        case OP_AT_MOST_K:
+        case OP_PB_LE:
+            return false;
+        case OP_AT_LEAST_K:
+        case OP_PB_GE: 
+            return pb.get_k(f).is_one();
+        case OP_PB_EQ:
+            return false;
+        default:
+            UNREACHABLE();
+            return false;
+        }
+    }
+
+    bool card2bv_rewriter::is_and(func_decl* f) {
+        return false;
+    }
 
     br_status card2bv_rewriter::mk_bv(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
         expr_ref zero(m), a(m), b(m);
         expr_ref_vector es(m);
-        unsigned bw = get_num_bits(f);
+        unsigned bw = get_num_bits(f);        
         zero = bv.mk_numeral(rational(0), bw);
         for (unsigned i = 0; i < sz; ++i) {
-            es.push_back(m.mk_ite(args[i], bv.mk_numeral(pb.get_coeff(f, i), bw), zero));
+            es.push_back(mk_ite(args[i], bv.mk_numeral(pb.get_coeff(f, i), bw), zero));
         }
         switch (es.size()) {
         case 0:  a = zero; break;
@@ -182,9 +209,6 @@ namespace pb {
     br_status card2bv_rewriter::mk_shannon(
         func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
 
-        return BR_FAILED;
-
-        // disabled for now.
         unsigned max_clauses = sz*10;
         vector<argc_t> argcs;
         for (unsigned i = 0; i < sz; ++i) {
@@ -316,6 +340,9 @@ namespace pb {
     }
 
     expr* card2bv_rewriter::mk_ite(expr* c, expr* hi, expr* lo) {
+        while (m.is_not(c, c)) {
+            std::swap(hi, lo);
+        }
         if (hi == lo) return hi;
         if (m.is_true(hi) && m.is_false(lo)) return c;
         if (m.is_false(hi) && m.is_true(lo)) return negate(c);

@@ -39,6 +39,9 @@ namespace pb {
         br_status mk_shannon(func_decl * f, unsigned sz, expr * const* args, expr_ref & result);
         expr* negate(expr* e);
         expr* mk_ite(expr* c, expr* hi, expr* lo);
+        bool is_or(func_decl* f);
+        bool is_and(func_decl* f);
+
     public:
         card2bv_rewriter(ast_manager& m);
         br_status mk_app_core(func_decl * f, unsigned sz, expr * const* args, expr_ref & result);
