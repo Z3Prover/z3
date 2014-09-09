@@ -44,9 +44,7 @@ namespace opt {
 
         lbool box();
 
-        lbool lex(unsigned obj_index);
-
-        lbool pareto(unsigned obj_index);
+        lbool lex(unsigned obj_index, bool is_maximize);
 
         unsigned add(app* t);
 
@@ -69,7 +67,7 @@ namespace opt {
         
         lbool basic_opt();
 
-        lbool basic_lex(unsigned idx);
+        lbool basic_lex(unsigned idx, bool is_maximize);
 
         lbool farkas_opt();
 

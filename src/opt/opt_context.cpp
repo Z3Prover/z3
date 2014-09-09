@@ -255,9 +255,9 @@ namespace opt {
         }
     }
 
-    lbool context::execute_min_max(unsigned index, bool committed, bool scoped) {
+    lbool context::execute_min_max(unsigned index, bool committed, bool scoped, bool is_max) {
         if (scoped) get_solver().push();            
-        lbool result = m_optsmt.lex(index);
+        lbool result = m_optsmt.lex(index, is_max);
         if (result == l_true) m_optsmt.get_model(m_model);
         if (scoped) get_solver().pop(1);        
         if (result == l_true && committed) m_optsmt.commit_assignment(index);
@@ -277,8 +277,8 @@ namespace opt {
 
     lbool context::execute(objective const& obj, bool committed, bool scoped) {
         switch(obj.m_type) {
-        case O_MAXIMIZE: return execute_min_max(obj.m_index, committed, scoped);
-        case O_MINIMIZE: return execute_min_max(obj.m_index, committed, scoped);
+        case O_MAXIMIZE: return execute_min_max(obj.m_index, committed, scoped, true);
+        case O_MINIMIZE: return execute_min_max(obj.m_index, committed, scoped, false);
         case O_MAXSMT: return execute_maxsat(obj.m_id, committed, scoped);
         default: UNREACHABLE(); return l_undef;
         }

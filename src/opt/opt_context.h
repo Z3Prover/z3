@@ -189,7 +189,7 @@ namespace opt {
         void validate_feasibility(maxsmt& ms);
 
         lbool execute(objective const& obj, bool committed, bool scoped);
-        lbool execute_min_max(unsigned index, bool committed, bool scoped);
+        lbool execute_min_max(unsigned index, bool committed, bool scoped, bool is_max);
         lbool execute_maxsat(symbol const& s, bool committed, bool scoped);
         lbool execute_lex();
         lbool execute_box();

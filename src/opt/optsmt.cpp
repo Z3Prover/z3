@@ -15,7 +15,6 @@ Author:
 
 Notes:
 
-
     Suppose we obtain solution t1 = k1, ..., tn = kn-epsilon
     Assert:
       t1 > k1 \/ t2 > k2 \/ ... \/ tn >= kn
@@ -24,15 +23,7 @@ Notes:
     Claim: we don't necessarily have to freeze assignments of 
     t_i when optimizing assignment for t_j
     because the state will always satisfy the disjunction.
-    If one of the k_i is unbounded, then omit a disjunction for it.
-    Claim: the end result (when the constraints are no longer feasible) 
-    is Pareto optimal, but convergence will probably not be as fast
-    as when fixing one parameter at a time.
-    E.g., a different approach is first to find a global maximal for one
-    variable. Then add a method to "freeze" that variable at the extremum if it is finite.
-    To do this, add lower and upper bounds for that variable using infinitesimals.
-    If the variable is unbounded, then this is of course not sufficient by itself.
-        
+    If one of the k_i is unbounded, then omit a disjunction for it.        
     
 
 --*/
@@ -234,14 +225,14 @@ namespace opt {
         }            
     }
 
-    lbool optsmt::lex(unsigned obj_index) {
+    lbool optsmt::lex(unsigned obj_index, bool is_maximize) {
         TRACE("opt", tout << "optsmt:lex\n";);
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());
-        return basic_lex(obj_index);
+        return basic_lex(obj_index, is_maximize);
     }
 
-    lbool optsmt::basic_lex(unsigned obj_index) {
+    lbool optsmt::basic_lex(unsigned obj_index, bool is_maximize) {
         lbool is_sat = l_true;
         expr_ref block(m), tmp(m);
 
@@ -253,8 +244,13 @@ namespace opt {
             m_s->get_model(m_model);
             inf_eps obj = m_s->get_objective_value(obj_index);
             if (obj > m_lower[obj_index]) {
-                m_lower[obj_index] = obj;
-                IF_VERBOSE(1, verbose_stream() << "(optsmt lower bound: " << obj << ")\n";);
+                m_lower[obj_index] = obj;                
+                IF_VERBOSE(1, 
+                           if (is_maximize) 
+                               verbose_stream() << "(optsmt lower bound: " << obj << ")\n";
+                           else
+                               verbose_stream() << "(optsmt upper bound: " << (-obj) << ")\n";
+                           );
                 for (unsigned i = obj_index+1; i < m_vars.size(); ++i) {
                     m_s->maximize_objective(i, tmp);
                     m_lower[i] = m_s->get_objective_value(i);
@@ -277,53 +273,6 @@ namespace opt {
         for (unsigned i = obj_index+1; i < m_lower.size(); ++i) {
             m_lower[i] = inf_eps(rational(-1), inf_rational(0));
         }
-        return l_true;
-    }
-
-
-    lbool optsmt::pareto(unsigned obj_index) {
-        lbool is_sat = l_true;
-        expr_ref block(m);        
-        for (unsigned i = 0; i < m_lower.size(); ++i) {
-            m_lower[i] = inf_eps(rational(-1),inf_rational(0));
-            m_upper[i] = inf_eps(rational(1), inf_rational(0));
-        }
-        bool was_sat = false;
-
-        while (is_sat == l_true && !m_cancel) {
-            is_sat = m_s->check_sat(0, 0); 
-            if (is_sat != l_true) break;
-            was_sat = true;
-            m_s->maximize_objective(obj_index, block);
-            m_s->get_model(m_model);
-            inf_eps obj = m_s->get_objective_value(obj_index);
-            if (obj > m_lower[obj_index]) {
-                m_lower[obj_index] = obj;
-                IF_VERBOSE(1, verbose_stream() << "(optsmt lower bound: " << obj << ")\n";);
-            }
-            m_s->assert_expr(block);
-        }
-        
-        if (m_cancel || is_sat == l_undef) {
-            return l_undef;
-        }
-        if (!was_sat) {
-            return l_false;
-        }
-
-        // set the solution tight.
-        // and set lower bounds on other values.
-        m_upper[obj_index] = m_lower[obj_index];    
-        expr_ref val(m);
-        rational r;
-        arith_util a(m);
-        for (unsigned i = 0; i < m_lower.size(); ++i) {
-            if (i != obj_index) {
-                VERIFY(m_model->eval(m_objs[i].get(), val) && a.is_numeral(val, r));
-                m_lower[i] = inf_eps(r);
-            }
-        }
-
         return l_true;
     }
 
