@@ -155,8 +155,9 @@ lbool dl_interface::query(::expr * query) {
 
   expr_ref_vector rules(m_ctx.get_manager());
   svector< ::symbol> names;  
+  vector<unsigned> bounds;
   // m_ctx.get_rules_as_formulas(rules, names);
-   m_ctx.get_raw_rule_formulas(rules, names);
+  m_ctx.get_raw_rule_formulas(rules, names, bounds);
 
   // get all the rules as clauses
   std::vector<expr> &clauses = _d->clauses;
@@ -200,6 +201,7 @@ lbool dl_interface::query(::expr * query) {
   expr qc = implies(q,_d->ctx.bool_val(false));
   qc = _d->ctx.make_quant(Forall,b_sorts,b_names,qc);
   clauses.push_back(qc);
+  bounds.push_back(UINT_MAX);
   
   // get the background axioms
   unsigned num_asserts = m_ctx.get_num_assertions();
@@ -243,13 +245,21 @@ lbool dl_interface::query(::expr * query) {
 	  expr c = implies(_d->ctx.bool_val(false),f(args));
 	  c = _d->ctx.make_quant(Forall,args,c);
 	  clauses.push_back(c);
+	  bounds.push_back(UINT_MAX);
 	}
       }
     }
   }
+  unsigned rb = m_ctx.get_params().recursion_bound();
+  std::vector<unsigned> std_bounds;
+  for(unsigned i = 0; i < bounds.size(); i++){
+    unsigned b = bounds[i];
+    if (b == UINT_MAX) b = rb;
+    std_bounds.push_back(b);
+  }
 
   // creates 1-1 map between clauses and rpfp edges
-  _d->rpfp->FromClauses(clauses);
+  _d->rpfp->FromClauses(clauses,&std_bounds);
 
   // populate the edge-to-clause map
   for(unsigned i = 0; i < _d->rpfp->edges.size(); ++i)
@@ -271,11 +281,12 @@ lbool dl_interface::query(::expr * query) {
   rs->SetOption("stratified_inlining",m_ctx.get_params().stratified_inlining() ? "1" : "0");
   rs->SetOption("batch_expand",m_ctx.get_params().batch_expand() ? "1" : "0");
   rs->SetOption("conjecture_file",m_ctx.get_params().conjecture_file());
-  unsigned rb = m_ctx.get_params().recursion_bound();
+#if 0
   if(rb != UINT_MAX){
     std::ostringstream os; os << rb;
     rs->SetOption("recursion_bound", os.str());
   }
+#endif
 
   // Solve!
   bool ans;

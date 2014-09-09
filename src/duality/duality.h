@@ -488,9 +488,10 @@ protected:
 	std::vector<Edge *> Incoming;
 	Term dual;
 	Node *map;
+	unsigned recursion_bound;
 	
       Node(const FuncDecl &_Name, const Transformer &_Annotation, const Transformer &_Bound, const Transformer &_Underapprox, const Term &_dual, RPFP *_owner, int _number)
-	: Name(_Name), Annotation(_Annotation), Bound(_Bound), Underapprox(_Underapprox), dual(_dual) {owner = _owner; number = _number; Outgoing = 0;}
+	: Name(_Name), Annotation(_Annotation), Bound(_Bound), Underapprox(_Underapprox), dual(_dual) {owner = _owner; number = _number; Outgoing = 0; recursion_bound = UINT_MAX;}
       };
       
       /** Create a node in the graph. The input is a term R(v_1...v_n)
@@ -829,7 +830,7 @@ protected:
 #ifdef _WINDOWS
        __declspec(dllexport)
 #endif
-       void FromClauses(const std::vector<Term> &clauses);
+       void FromClauses(const std::vector<Term> &clauses, const std::vector<unsigned> *bounds = 0);
 
        void FromFixpointContext(fixedpoint fp, std::vector<Term> &queries);
 

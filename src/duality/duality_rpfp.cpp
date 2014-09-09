@@ -3570,7 +3570,7 @@ namespace Duality {
 
 #define USE_QE_LITE
 
-  void RPFP::FromClauses(const std::vector<Term> &unskolemized_clauses){
+  void RPFP::FromClauses(const std::vector<Term> &unskolemized_clauses, const std::vector<unsigned> *bounds){
     hash_map<func_decl,Node *> pmap;
     func_decl fail_pred = ctx.fresh_func_decl("@Fail", ctx.bool_sort());
     
@@ -3663,6 +3663,7 @@ namespace Duality {
 	pmap[R] = node;
         if (is_query)
           node->Bound = CreateRelation(std::vector<Term>(), ctx.bool_val(false));
+	node->recursion_bound = bounds ? 0 : UINT_MAX;
       }
     }
 
@@ -3728,6 +3729,8 @@ namespace Duality {
       Transformer T = CreateTransformer(Relparams,Indparams,body);
       Edge *edge = CreateEdge(Parent,T,Children);
       edge->labeled = labeled;; // remember for label extraction
+      if(bounds)
+	Parent->recursion_bound = std::max(Parent->recursion_bound,(*bounds)[i]);
       // edges.push_back(edge);
     }
 

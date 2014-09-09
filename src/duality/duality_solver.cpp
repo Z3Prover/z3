@@ -33,6 +33,7 @@ Revision History:
 #include <map>
 #include <list>
 #include <iterator>
+#include <sstream>
 
 // TODO: make these official options or get rid of them
 
@@ -304,7 +305,7 @@ namespace Duality {
 
 #ifdef BOUNDED
     struct Counter {
-      int val;
+      unsigned val;
       Counter(){val = 0;}
     };
     typedef std::map<Node *,Counter> NodeToCounter;
@@ -321,6 +322,10 @@ namespace Duality {
       heuristic = !cex.get_tree() ? (Heuristic *)(new LocalHeuristic(rpfp))
 	: (Heuristic *)(new ReplayHeuristic(rpfp,cex));
 #endif
+      // determine if we are recursion bounded
+      for(unsigned i = 0; i < rpfp->nodes.size(); i++)
+	if(rpfp->nodes[i]->recursion_bound < UINT_MAX)
+	  RecursionBound = 0;
       cex.clear(); // in case we didn't use it for heuristic
       if(unwinding) delete unwinding;
       unwinding = new RPFP(rpfp->ls);
@@ -461,7 +466,7 @@ namespace Duality {
       }
       return false;
     }
-    
+
     /** Create an instance of a node in the unwinding. Set its
 	annotation to true, and mark it unexpanded. */
     Node* CreateNodeInstance(Node *node, int number = 0){
@@ -780,10 +785,8 @@ namespace Duality {
 	std::vector<Node *> &insts = insts_of_node[node];
 	for(unsigned j = 0; j < insts.size(); j++)
 	  if(indset->Contains(insts[j]))
-	    if(NodePastRecursionBound(insts[j])){
+	    if(NodePastRecursionBound(insts[j],true))
 	      recursionBounded = true;
-	      return;
-	    }
       }
     }    
 
@@ -801,12 +804,18 @@ namespace Duality {
     }
 
 #ifdef BOUNDED
-    bool NodePastRecursionBound(Node *node){
+    bool NodePastRecursionBound(Node *node, bool report = false){
       if(RecursionBound < 0) return false;
       NodeToCounter &backs = back_edges[node];
       for(NodeToCounter::iterator it = backs.begin(), en = backs.end(); it != en; ++it){
-	if(it->second.val > RecursionBound)
+	if(it->second.val > it->first->recursion_bound){
+	  if(report){
+	    std::ostringstream os;
+	    os << "cut off " << it->first->Name.name() << " at depth " << it->second.val;
+	    reporter->Message(os.str());
+	  }
 	  return true;
+	}
       }
       return false;
     }
