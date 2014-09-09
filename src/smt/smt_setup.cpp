@@ -411,6 +411,15 @@ namespace smt {
                 return;
             }
         }
+#if 0
+        switch (m_params.m_arith_mode) {
+        case AS_DIFF_LOGIC:
+        case AS_DENSE_DIFF_LOGIC:
+        case AS_UTVPI:
+            setup_arith();
+            return;
+        }
+#endif
         m_params.m_arith_eq_bounds  = true;
         m_params.m_phase_selection  = PS_ALWAYS_FALSE;
         m_params.m_restart_strategy = RS_GEOMETRIC;
@@ -420,7 +429,7 @@ namespace smt {
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         }
         // else if (st.m_arith_k_sum < rational(INT_MAX / 8))
-        //    m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
+        //   m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
         else
             m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
     }
@@ -703,6 +712,7 @@ namespace smt {
             m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("arith"), "no arithmetic"));
             break;
         case AS_DIFF_LOGIC:
+            m_params.m_arith_expand_eqs  = true;
             if (m_params.m_arith_fixnum) {
                 if (m_params.m_arith_int_only)
                     m_context.register_plugin(alloc(smt::theory_fidl, m_manager, m_params));
@@ -717,6 +727,7 @@ namespace smt {
             }
             break;
         case AS_DENSE_DIFF_LOGIC:
+            m_params.m_arith_expand_eqs  = true;
             if (m_params.m_arith_fixnum) {
                 if (m_params.m_arith_int_only)
                     m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
@@ -731,6 +742,7 @@ namespace smt {
             }
             break;
         case AS_UTVPI:
+            m_params.m_arith_expand_eqs  = true;
             if (m_params.m_arith_int_only)
                 m_context.register_plugin(alloc(smt::theory_iutvpi, m_manager));
             else

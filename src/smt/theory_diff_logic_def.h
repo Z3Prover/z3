@@ -722,6 +722,7 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
     app* a, *offset;
     theory_var source, target;
     enode* e;
+    context& ctx = get_context();
 
     TRACE("arith", tout << mk_pp(n, get_manager()) << "\n";);
 
@@ -732,6 +733,13 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
     else if (is_offset(n, a, offset, r)) {
         // n = a + k
         source = mk_var(a);
+        for (unsigned i = 0; i < n->get_num_args(); ++i) {
+            expr* arg = n->get_arg(i);
+            std::cout << "internalize: " << mk_pp(arg, get_manager()) << " " << ctx.e_internalized(arg) << "\n";
+            if (!ctx.e_internalized(arg)) {
+                ctx.internalize(arg, false);
+            }
+        }
         e = get_context().mk_enode(n, false, false, true);
         target = mk_var(e);
         numeral k(r);
@@ -779,6 +787,7 @@ theory_var theory_diff_logic<Ext>::mk_num(app* n, rational const& r) {
     }
     else {
         theory_var zero = get_zero();
+        SASSERT(n->get_num_args() == 0);
         e = ctx.mk_enode(n, false, false, true);
         v = mk_var(e);
         // internalizer is marking enodes as interpreted whenever the associated ast is a value and a constant.

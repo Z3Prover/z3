@@ -578,10 +578,15 @@ namespace smt {
         void flush_bound_axioms();
         typename atoms::iterator next_sup(atom* a1, atom_kind kind, 
                                           typename atoms::iterator it, 
-                                          typename atoms::iterator end);
+                                          typename atoms::iterator end,
+                                          bool& found_compatible);
         typename atoms::iterator next_inf(atom* a1, atom_kind kind, 
                                           typename atoms::iterator it, 
-                                          typename atoms::iterator end);
+                                          typename atoms::iterator end,
+                                          bool& found_compatible);
+        typename atoms::iterator first(atom_kind kind, 
+                                       typename atoms::iterator it, 
+                                       typename atoms::iterator end);
         struct compare_atoms {
             bool operator()(atom* a1, atom* a2) const { return a1->get_k() < a2->get_k(); }
         };

@@ -127,6 +127,7 @@ namespace opt {
         tactic_ref                   m_simplify;
         bool                         m_enable_sat;
         bool                         m_enable_sls;
+        bool                         m_pp_neat;
         symbol                       m_maxsat_engine;
         symbol                       m_logic;
     public:

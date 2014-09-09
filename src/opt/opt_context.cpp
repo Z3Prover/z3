@@ -38,6 +38,7 @@ Notes:
 #include "inc_sat_solver.h"
 #include "bv_decl_plugin.h"
 #include "pb_decl_plugin.h"
+#include "ast_smt_pp.h"
 
 namespace opt {
 
@@ -122,7 +123,8 @@ namespace opt {
         m_fm(m),
         m_objective_refs(m),
         m_enable_sat(false),
-        m_enable_sls(false)
+        m_enable_sls(false),
+        m_pp_neat(false)
     {
         params_ref p;
         p.set_bool("model", true);
@@ -1063,6 +1065,7 @@ namespace opt {
         m_enable_sat = _p.enable_sat();
         m_enable_sls = _p.enable_sls();
         m_maxsat_engine = _p.maxsat_engine();
+        m_pp_neat = _p.pp_neat();
     }
 
     typedef obj_hashtable<func_decl> func_decl_set;
@@ -1095,9 +1098,11 @@ namespace opt {
 
     std::string context::to_string() const {
         smt2_pp_environment_dbg env(m);
+        ast_smt_pp ll_smt2_pp(m);
         free_func_visitor visitor(m);
         std::ostringstream out;
 #define PP(_e_) ast_smt2_pp(out, _e_, env);
+#define PPE(_e_) if (m_pp_neat) ast_smt2_pp(out, _e_, env); else ll_smt2_pp.display_expr_smt2(out, _e_);
         for (unsigned i = 0; i < m_scoped_state.m_hard.size(); ++i) {
             visitor.collect(m_scoped_state.m_hard[i]);
         }
@@ -1132,7 +1137,7 @@ namespace opt {
         }
         for (unsigned i = 0; i < m_scoped_state.m_hard.size(); ++i) {
             out << "(assert ";
-            PP(m_scoped_state.m_hard[i]);
+            PPE(m_scoped_state.m_hard[i]);
             out << ")\n";
         }
         for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {

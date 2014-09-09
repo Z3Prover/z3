@@ -814,7 +814,7 @@ namespace smt {
     */
     bool_var context::mk_bool_var(expr * n) {
         SASSERT(!b_internalized(n));
-        SASSERT(!m_manager.is_not(n));
+        //SASSERT(!m_manager.is_not(n));
         unsigned id = n->get_id();
         bool_var v  = m_b_internalized_stack.size();
 #ifndef _EXTERNAL_RELEASE 

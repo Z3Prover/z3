@@ -810,6 +810,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_bound_axioms(atom * a1) {
+        theory_var v = a1->get_var();
+        atoms & occs = m_var_occs[v];
         if (!get_context().is_searching()) {
             //
             // NB. We make an assumption that user push calls propagation 
@@ -819,11 +821,9 @@ namespace smt {
             m_new_atoms.push_back(a1);
             return;
         }
-        theory_var v = a1->get_var();
         inf_numeral const & k1(a1->get_k());
         atom_kind kind1 = a1->get_atom_kind();
         TRACE("mk_bound_axioms", tout << "making bound axioms for v" << v << " " << kind1 << " " << k1 << "\n";);
-        atoms & occs = m_var_occs[v];
         typename atoms::iterator it  = occs.begin();
         typename atoms::iterator end = occs.end();
 
@@ -873,6 +873,9 @@ namespace smt {
         SASSERT(k1 != k2 || kind1 != kind2);
         parameter coeffs[3] = { parameter(symbol("farkas")), 
                                 parameter(rational(1)), parameter(rational(1)) };
+
+        //std::cout << "v" << v << " " << ((kind1==A_LOWER)?"<= ":">= ") << k1 << "\t    ";
+        //std::cout << "v" << v << " " << ((kind2==A_LOWER)?"<= ":">= ") << k2 << "\n";
 
         if (kind1 == A_LOWER) {
             if (kind2 == A_LOWER) {
@@ -944,23 +947,55 @@ namespace smt {
             std::sort(atoms.begin(), atoms.end(), compare_atoms());
             std::sort(occs.begin(), occs.end(), compare_atoms());
 
-            typename atoms::iterator begin = occs.begin();
+            typename atoms::iterator begin1 = occs.begin();
+            typename atoms::iterator begin2 = occs.begin();
             typename atoms::iterator end = occs.end();
-            typename atoms::iterator lo_inf = begin, lo_sup = begin;
-            typename atoms::iterator hi_inf = begin, hi_sup = begin;
+            begin1 = first(A_LOWER, begin1, end);
+            begin2 = first(A_UPPER, begin2, end);
 
+            typename atoms::iterator lo_inf = begin1, lo_sup = begin1;
+            typename atoms::iterator hi_inf = begin2, hi_sup = begin2;
+            typename atoms::iterator lo_inf1 = begin1, lo_sup1 = begin1;
+            typename atoms::iterator hi_inf1 = begin2, hi_sup1 = begin2;
+            bool flo_inf, fhi_inf, flo_sup, fhi_sup;
+            //std::cout << atoms.size() << "\n";
+            ptr_addr_hashtable<typename atom> visited;
             for (unsigned i = 0; i < atoms.size(); ++i) {
                 atom* a1 = atoms[i];
-                lo_inf = next_inf(a1, A_LOWER, lo_inf, end);
-                hi_inf = next_inf(a1, A_UPPER, hi_inf, end);
-                lo_sup = next_sup(a1, A_LOWER, lo_sup, end);
-                hi_sup = next_sup(a1, A_UPPER, hi_sup, end);
-                if (lo_inf != end) mk_bound_axiom(a1, *lo_inf);
-                if (lo_sup != end) mk_bound_axiom(a1, *lo_sup);
-                if (hi_inf != end) mk_bound_axiom(a1, *hi_inf);
-                if (hi_sup != end) mk_bound_axiom(a1, *hi_sup);
+                lo_inf1 = next_inf(a1, A_LOWER, lo_inf, end, flo_inf);
+                hi_inf1 = next_inf(a1, A_UPPER, hi_inf, end, fhi_inf);
+                lo_sup1 = next_sup(a1, A_LOWER, lo_sup, end, flo_sup);
+                hi_sup1 = next_sup(a1, A_UPPER, hi_sup, end, fhi_sup);
+                //std::cout << "v" << a1->get_var() << ((a1->get_atom_kind()==A_LOWER)?" <= ":" >= ") << a1->get_k() << "\n";
+                //std::cout << (lo_inf1 != end) << " " << (lo_sup1 != end) << " " << (hi_inf1 != end) << " " << (hi_sup1 != end) << "\n";
+                if (lo_inf1 != end) lo_inf = lo_inf1; 
+                if (lo_sup1 != end) lo_sup = lo_sup1; 
+                if (hi_inf1 != end) hi_inf = hi_inf1; 
+                if (hi_sup1 != end) hi_sup = hi_sup1; 
+                if (!flo_inf) lo_inf = end;
+                if (!fhi_inf) hi_inf = end;
+                if (!flo_sup) lo_sup = end;
+                if (!fhi_sup) hi_sup = end;
+                visited.insert(a1);
+                if (lo_inf1 != end && lo_inf != end && !visited.contains(*lo_inf)) mk_bound_axiom(a1, *lo_inf);
+                if (lo_sup1 != end && lo_sup != end && !visited.contains(*lo_sup)) mk_bound_axiom(a1, *lo_sup);
+                if (hi_inf1 != end && hi_inf != end && !visited.contains(*hi_inf)) mk_bound_axiom(a1, *hi_inf);
+                if (hi_sup1 != end && hi_sup != end && !visited.contains(*hi_sup)) mk_bound_axiom(a1, *hi_sup);
             }                            
         }
+    }
+
+    template<typename Ext>
+    typename theory_arith<Ext>::atoms::iterator 
+    theory_arith<Ext>::first(
+        atom_kind kind, 
+        typename atoms::iterator it, 
+        typename atoms::iterator end) {
+        for (; it != end; ++it) {
+            atom* a = *it;
+            if (a->get_atom_kind() == kind) return it;
+        }
+        return end;
     }
 
     template<typename Ext>
@@ -969,14 +1004,17 @@ namespace smt {
         atom* a1, 
         atom_kind kind, 
         typename atoms::iterator it, 
-        typename atoms::iterator end) {
+        typename atoms::iterator end,
+        bool& found_compatible) {
         inf_numeral const & k1(a1->get_k());
         typename atoms::iterator result = end;
+        found_compatible = false;
         for (; it != end; ++it) {
             atom * a2 = *it;            
             if (a1 == a2) continue;
             if (a2->get_atom_kind() != kind) continue;
             inf_numeral const & k2(a2->get_k());
+            found_compatible = true;
             if (k2 <= k1) {
                 result = it;
             }
@@ -993,14 +1031,17 @@ namespace smt {
         atom* a1, 
         atom_kind kind, 
         typename atoms::iterator it, 
-        typename atoms::iterator end) {
+        typename atoms::iterator end,
+        bool& found_compatible) {
         inf_numeral const & k1(a1->get_k());
+        found_compatible = false;
         for (; it != end; ++it) {
             atom * a2 = *it;            
             if (a1 == a2) continue;
             if (a2->get_atom_kind() != kind) continue;
             inf_numeral const & k2(a2->get_k());
-            if (k2 > k1) {
+            found_compatible = true;
+            if (k1 < k2) {
                 return it;
             }
         }
