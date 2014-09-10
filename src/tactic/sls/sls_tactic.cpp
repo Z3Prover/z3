@@ -79,10 +79,10 @@ public:
     }
 
     virtual void cleanup() {        
-        imp * d = alloc(imp, m, m_params, m_stats);
+        sls_engine * d = alloc(sls_engine, m, m_params);
         #pragma omp critical (tactic_cancel)
         {
-            std::swap(d, m_imp);
+            std::swap(d, m_engine);
         }
         dealloc(d);
     }
