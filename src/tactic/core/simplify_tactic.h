@@ -43,9 +43,11 @@ public:
     virtual void cleanup();
 
     unsigned get_num_steps() const;
-    virtual void set_cancel(bool f);
 
     virtual tactic * translate(ast_manager & m) { return alloc(simplify_tactic, m, m_params); }
+protected:
+    virtual void set_cancel(bool f);
+
 };
 
 tactic * mk_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());

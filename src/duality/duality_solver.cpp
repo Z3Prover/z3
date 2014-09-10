@@ -100,6 +100,7 @@ namespace Duality {
   };
 
    Reporter *CreateStdoutReporter(RPFP *rpfp);
+  Reporter *CreateConjectureFileReporter(RPFP *rpfp, const std::string &fname);
   
   /** Object we throw in case of catastrophe. */
 
@@ -125,6 +126,7 @@ namespace Duality {
     {
       rpfp = _rpfp;
       reporter = 0;
+      conj_reporter = 0;
       heuristic = 0;
       unwinding = 0;
       FullExpand = false;
@@ -274,6 +276,7 @@ namespace Duality {
 
     RPFP *rpfp;                          // the input RPFP 
     Reporter *reporter;                  // object for logging
+    Reporter *conj_reporter;             // object for logging conjectures
     Heuristic *heuristic;                // expansion heuristic
     context &ctx;                        // Z3 context
     solver &slvr;                        // Z3 solver
@@ -297,6 +300,7 @@ namespace Duality {
     int last_decisions;
     hash_set<Node *> overapproxes;
     std::vector<Proposer *> proposers;
+    std::string ConjectureFile;
 
 #ifdef BOUNDED
     struct Counter {
@@ -310,6 +314,7 @@ namespace Duality {
     /** Solve the problem. */
     virtual bool Solve(){
       reporter = Report ? CreateStdoutReporter(rpfp) : new Reporter(rpfp);
+      conj_reporter = ConjectureFile.empty() ? 0 : CreateConjectureFileReporter(rpfp,ConjectureFile); 
 #ifndef LOCALIZE_CONJECTURES
       heuristic = !cex.get_tree() ? new Heuristic(rpfp) : new ReplayHeuristic(rpfp,cex);
 #else
@@ -340,6 +345,8 @@ namespace Duality {
       delete heuristic;
       // delete unwinding; // keep the unwinding for future mining of predicates
       delete reporter;
+      if(conj_reporter)
+	delete conj_reporter;
       for(unsigned i = 0; i < proposers.size(); i++)
 	delete proposers[i];
       return res;
@@ -448,6 +455,9 @@ namespace Duality {
       }
       if(option == "recursion_bound"){
         return SetIntOption(RecursionBound,value);
+      }
+      if(option == "conjecture_file"){
+	ConjectureFile = value;
       }
       return false;
     }
@@ -728,6 +738,13 @@ namespace Duality {
       return ctx.constant(name.c_str(),ctx.bool_sort());
     }
 
+    /** Make a boolean variable to act as a "marker" for a pair of nodes. */
+    expr NodeMarker(Node *node1, Node *node2){
+      std::string name = std::string("@m_") + string_of_int(node1->number);
+      name += std::string("_") + string_of_int(node2->number);
+      return ctx.constant(name.c_str(),ctx.bool_sort());
+    }
+
     /** Union the annotation of dst into src. If with_markers is
 	true, we conjoin the annotation formula of dst with its
 	marker. This allows us to discover which disjunct is
@@ -750,6 +767,29 @@ namespace Duality {
 	  UnionAnnotations(annot,insts[j],with_markers);
       annot.Simplify();
     }    
+
+    bool recursionBounded;
+
+    /** See if the solution might be bounded. */
+    void TestRecursionBounded(){
+      recursionBounded = false;
+      if(RecursionBound == -1)
+	return;
+      for(unsigned i = 0; i < nodes.size(); i++){
+	Node *node = nodes[i];
+	std::vector<Node *> &insts = insts_of_node[node];
+	for(unsigned j = 0; j < insts.size(); j++)
+	  if(indset->Contains(insts[j]))
+	    if(NodePastRecursionBound(insts[j])){
+	      recursionBounded = true;
+	      return;
+	    }
+      }
+    }    
+
+    bool IsResultRecursionBounded(){
+      return recursionBounded;
+    }
 
     /** Generate a proposed solution of the input RPFP from
 	the unwinding, by unioning the instances of each node. */
@@ -1009,6 +1049,7 @@ namespace Duality {
 	timer_stop("ProduceCandidatesForExtension");
 	if(candidates.empty()){
 	  GenSolutionFromIndSet();
+	  TestRecursionBounded();
 	  return true;
 	}
 	Candidate cand = candidates.front();
@@ -1136,19 +1177,19 @@ namespace Duality {
     }
   
     
-    void GenNodeSolutionWithMarkersAux(Node *node, RPFP::Transformer &annot, expr &marker_disjunction){
+    void GenNodeSolutionWithMarkersAux(Node *node, RPFP::Transformer &annot, expr &marker_disjunction, Node *other_node){
 #ifdef BOUNDED
       if(RecursionBound >= 0 && NodePastRecursionBound(node))
 	return;
 #endif
       RPFP::Transformer temp = node->Annotation;
-      expr marker = NodeMarker(node);
+      expr marker = (!other_node) ? NodeMarker(node) : NodeMarker(node, other_node);
       temp.Formula = (!marker || temp.Formula);
       annot.IntersectWith(temp);
       marker_disjunction = marker_disjunction || marker;
     }
 
-    bool GenNodeSolutionWithMarkers(Node *node, RPFP::Transformer &annot, bool expanded_only = false){
+    bool GenNodeSolutionWithMarkers(Node *node, RPFP::Transformer &annot, bool expanded_only = false, Node *other_node = 0){
       bool res = false;
       annot.SetFull();
       expr marker_disjunction = ctx.bool_val(false);
@@ -1156,7 +1197,7 @@ namespace Duality {
       for(unsigned j = 0; j < insts.size(); j++){
 	Node *node = insts[j];
 	if(indset->Contains(insts[j])){
-	  GenNodeSolutionWithMarkersAux(node, annot, marker_disjunction); res = true;
+	  GenNodeSolutionWithMarkersAux(node, annot, marker_disjunction, other_node); res = true;
 	}
       }
       annot.Formula = annot.Formula && marker_disjunction;
@@ -1253,7 +1294,7 @@ namespace Duality {
 	  Node *inst = insts[k];
 	  if(indset->Contains(inst)){
 	    if(checker->Empty(node) || 
-	       eq(lb ? checker->Eval(lb,NodeMarker(inst)) : checker->dualModel.eval(NodeMarker(inst)),ctx.bool_val(true))){
+	       eq(lb ? checker->Eval(lb,NodeMarker(inst)) : checker->dualModel.eval(NodeMarker(inst,node)),ctx.bool_val(true))){
 	      candidate.Children.push_back(inst);
 	      goto next_child;
 	    }
@@ -1336,7 +1377,7 @@ namespace Duality {
       for(unsigned j = 0; j < edge->Children.size(); j++){
 	Node *oc = edge->Children[j];
 	Node *nc = gen_cands_edge->Children[j];
-        GenNodeSolutionWithMarkers(oc,nc->Annotation,true);
+        GenNodeSolutionWithMarkers(oc,nc->Annotation,true,nc);
       }
       checker->AssertEdge(gen_cands_edge,1,true);
       return root;
@@ -1462,6 +1503,8 @@ namespace Duality {
     bool Update(Node *node, const RPFP::Transformer &fact, bool eager=false){
       if(!node->Annotation.SubsetEq(fact)){
 	reporter->Update(node,fact,eager);
+	if(conj_reporter)
+	  conj_reporter->Update(node,fact,eager);
 	indset->Update(node,fact);
 	updated_nodes.insert(node->map);
 	node->Annotation.IntersectWith(fact);
@@ -2201,7 +2244,7 @@ namespace Duality {
 #endif
 	    int expand_max = 1;
 	    if(0&&duality->BatchExpand){
-	      int thing = stack.size() * 0.1;
+              int thing = stack.size() / 10; // * 0.1;
 	      expand_max = std::max(1,thing);
 	      if(expand_max > 1)
 		std::cout << "foo!\n";
@@ -3043,6 +3086,7 @@ namespace Duality {
     };
   };
 
+  static int stop_event = -1;
 
   class StreamReporter : public Reporter {
     std::ostream &s;
@@ -3052,6 +3096,9 @@ namespace Duality {
     int event;
     int depth;
     void ev(){
+      if(stop_event == event){
+	std::cout << "stop!\n";
+      }
       s << "[" << event++ << "]" ;
     }
     virtual void Extend(RPFP::Node *node){
@@ -3129,4 +3176,28 @@ namespace Duality {
   Reporter *CreateStdoutReporter(RPFP *rpfp){
     return new StreamReporter(rpfp, std::cout);
   }
+
+  class ConjectureFileReporter : public Reporter {
+    std::ofstream s;
+  public:
+    ConjectureFileReporter(RPFP *_rpfp, const std::string &fname)
+      : Reporter(_rpfp), s(fname.c_str()) {}
+    virtual void Update(RPFP::Node *node, const RPFP::Transformer &update, bool eager){
+      s << "(define-fun " << node->Name.name() << " (";
+      for(unsigned i = 0; i < update.IndParams.size(); i++){
+	if(i != 0)
+	  s << " ";
+	s << "(" << update.IndParams[i] << " " << update.IndParams[i].get_sort() << ")";
+      }
+      s << ") Bool \n";
+      s << update.Formula << ")\n";
+      s << std::endl;
+    }
+  };
+
+  Reporter *CreateConjectureFileReporter(RPFP *rpfp, const std::string &fname){
+    return new ConjectureFileReporter(rpfp, fname);
+  }
+
 }
+

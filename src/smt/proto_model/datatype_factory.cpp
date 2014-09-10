@@ -20,6 +20,7 @@ Revision History:
 #include"proto_model.h"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
+#include"expr_functors.h"
 
 datatype_factory::datatype_factory(ast_manager & m, proto_model & md):
     struct_factory(m, m.mk_family_id("datatype"), md),
@@ -47,8 +48,10 @@ expr * datatype_factory::get_some_value(sort * s) {
 */
 expr * datatype_factory::get_last_fresh_value(sort * s) {
     expr * val = 0;
-    if (m_last_fresh_value.find(s, val))
+    if (m_last_fresh_value.find(s, val)) {
+        TRACE("datatype_factory", tout << "cached fresh value: " << mk_pp(val, m_manager) << "\n";);
         return val;
+    }
     value_set * set = get_value_set(s);
     if (set->empty())
         val = get_some_value(s);
@@ -57,6 +60,17 @@ expr * datatype_factory::get_last_fresh_value(sort * s) {
     if (m_util.is_recursive(s))
         m_last_fresh_value.insert(s, val);
     return val;
+}
+
+bool datatype_factory::is_subterm_of_last_value(app* e) {
+    expr* last;
+    if (!m_last_fresh_value.find(m_manager.get_sort(e), last)) {
+        return false;
+    }
+    contains_app contains(m_manager, e);
+    bool result = contains(last);
+    TRACE("datatype_factory", tout << mk_pp(e, m_manager) << " in " << mk_pp(last, m_manager) << " " << result << "\n";);
+    return result;
 }
 
 /**
@@ -105,11 +119,18 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
             }
         }
         if (recursive || found_fresh_arg) {
-            expr * new_value = m_manager.mk_app(constructor, args.size(), args.c_ptr());
+            app * new_value = m_manager.mk_app(constructor, args.size(), args.c_ptr());
             SASSERT(!found_fresh_arg || !set->contains(new_value));
             register_value(new_value);
-            if (m_util.is_recursive(s))
-                m_last_fresh_value.insert(s, new_value);
+            if (m_util.is_recursive(s)) {
+                if (is_subterm_of_last_value(new_value)) {
+                    new_value = static_cast<app*>(m_last_fresh_value.find(s));
+                }
+                else {
+                    m_last_fresh_value.insert(s, new_value);
+                }
+            }
+            TRACE("datatype_factory", tout << "almost fresh: " << mk_pp(new_value, m_manager) << "\n";);
             return new_value;
         }
     }
@@ -170,8 +191,10 @@ expr * datatype_factory::get_fresh_value(sort * s) {
     // Approach 2)
     // For recursive datatypes.
     // search for constructor...
+    unsigned num_iterations = 0;
     if (m_util.is_recursive(s)) {
         while(true) {
+            ++num_iterations;
             TRACE("datatype_factory", tout << mk_pp(get_last_fresh_value(s), m_manager) << "\n";);
             ptr_vector<func_decl> const * constructors = m_util.get_datatype_constructors(s);
             ptr_vector<func_decl>::const_iterator it   = constructors->begin();
@@ -181,12 +204,26 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                 expr_ref_vector args(m_manager);
                 bool found_sibling   = false;
                 unsigned num         = constructor->get_arity();
+                TRACE("datatype_factory", tout << "checking constructor: " << constructor->get_name() << "\n";);
                 for (unsigned i = 0; i < num; i++) {
                     sort * s_arg        = constructor->get_domain(i);
+                    TRACE("datatype_factory", tout << mk_pp(s, m_manager) << " " 
+                          << mk_pp(s_arg, m_manager) << " are_siblings " 
+                          << m_util.are_siblings(s, s_arg) << "  is_datatype " 
+                          << m_util.is_datatype(s_arg) << " found_sibling " 
+                          << found_sibling << "\n";);
                     if (!found_sibling && m_util.is_datatype(s_arg) && m_util.are_siblings(s, s_arg)) {
                         found_sibling = true;
-                        expr * maybe_new_arg = get_almost_fresh_value(s_arg);
+                        expr * maybe_new_arg = 0;
+                        if (num_iterations <= 1) {
+                            maybe_new_arg = get_almost_fresh_value(s_arg);
+                        }
+                        else {
+                            maybe_new_arg = get_fresh_value(s_arg);
+                        }
                         if (!maybe_new_arg) {
+                            TRACE("datatype_factory", 
+                                  tout << "no argument found for " << mk_pp(s_arg, m_manager) << "\n";);
                             maybe_new_arg = m_model.get_some_value(s_arg);
                             found_sibling = false;
                         }
@@ -202,6 +239,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                 if (found_sibling) {
                     expr_ref new_value(m_manager);
                     new_value = m_manager.mk_app(constructor, args.size(), args.c_ptr());
+                    TRACE("datatype_factory", tout << "potential new value: " << mk_pp(new_value, m_manager) << "\n";);
                     m_last_fresh_value.insert(s, new_value);
                     if (!set->contains(new_value)) {
                         register_value(new_value);

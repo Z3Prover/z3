@@ -599,7 +599,23 @@ namespace datalog {
                         return 0;
                 }
                 result = mk_compare(OP_DL_LT, m_lt_sym, domain);
-                break;                
+                break;   
+
+            case OP_DL_REP: {
+                if (!check_domain(0, 0, num_parameters) ||
+                    !check_domain(1, 1, arity)) return 0;
+                func_decl_info info(m_family_id, k, 0, 0);
+                result = m_manager->mk_func_decl(symbol("rep"), 1, domain, range, info);
+                break;
+            }
+                
+            case OP_DL_ABS: {
+                if (!check_domain(0, 0, num_parameters) ||
+                    !check_domain(1, 1, arity)) return 0;
+                func_decl_info info(m_family_id, k, 0, 0);
+                result = m_manager->mk_func_decl(symbol("abs"), 1, domain, range, info);
+                break;
+            }
 
             default:
                 m_manager->raise_exception("operator not recognized");

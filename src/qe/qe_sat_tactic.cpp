@@ -226,7 +226,7 @@ namespace qe {
             return alloc(sat_tactic, m);
         }
 
-        ~sat_tactic() {
+        virtual ~sat_tactic() {
             for (unsigned i = 0; i < m_solvers.size(); ++i) {
                 dealloc(m_solvers[i]);
             }

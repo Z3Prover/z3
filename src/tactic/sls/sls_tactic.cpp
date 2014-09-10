@@ -79,17 +79,12 @@ public:
     }
 
     virtual void cleanup() {        
-        sls_engine * d = m_engine;
+        imp * d = alloc(imp, m, m_params, m_stats);
         #pragma omp critical (tactic_cancel)
         {
-            d = m_engine;
+            std::swap(d, m_imp);
         }
         dealloc(d);
-        d = alloc(sls_engine, m, m_params);
-        #pragma omp critical (tactic_cancel) 
-        {
-            m_engine = d;
-        }
     }
     
     virtual void collect_statistics(statistics & st) const {

@@ -1198,6 +1198,7 @@ namespace smt {
     void theory_bv::relevant_eh(app * n) {
         ast_manager & m = get_manager();
         context & ctx   = get_context();
+        TRACE("bv", tout << "relevant: " << mk_pp(n, m) << "\n";);
         if (m.is_bool(n)) {
             bool_var v = ctx.get_bool_var(n);
             atom * a   = get_bv2a(v);

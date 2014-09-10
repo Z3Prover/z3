@@ -569,8 +569,8 @@ class smt_printer {
             m_out << ")";
         }
         
-        if (m_is_smt2 && q->get_num_patterns() > 0) {
-            m_out << "(!";
+        if (m_is_smt2 && (q->get_num_patterns() > 0 || q->get_qid() != symbol::null)) {
+            m_out << "(! ";
         }
         {
             smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, false, m_is_smt2, m_simplify_implies, m_indent, m_num_var_names, m_var_names);        
@@ -609,7 +609,11 @@ class smt_printer {
                 m_out << "}";
             }
         }
-        if (m_is_smt2 && q->get_num_patterns() > 0) {
+
+        if (q->get_qid() != symbol::null)
+            m_out << " :qid " << q->get_qid();
+
+        if (m_is_smt2 && (q->get_num_patterns() > 0 || q->get_qid() != symbol::null)) {
             m_out << ")";
         }
         m_out << ")";

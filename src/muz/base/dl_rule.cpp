@@ -978,13 +978,14 @@ namespace datalog {
         }        
     }
 
-    void rule::get_vars(ptr_vector<sort>& sorts) const {
+    void rule::get_vars(ast_manager& m, ptr_vector<sort>& sorts) const {
         sorts.reset();
         used_vars used;
         get_used_vars(used);
         unsigned sz = used.get_max_found_var_idx_plus_1();
         for (unsigned i = 0; i < sz; ++i) {
-            sorts.push_back(used.get(i));
+            sort* s = used.get(i);
+            sorts.push_back(s?s:m.mk_bool_sort());
         }
     }
 

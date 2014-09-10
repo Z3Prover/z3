@@ -29,7 +29,7 @@ using namespace stl_ext;
 
 namespace Duality {
 
-  class implicant_solver;
+  struct implicant_solver;
 
   /* Generic operations on Z3 formulas */
 
@@ -253,6 +253,27 @@ protected:
         }
 
         void assert_axiom(const expr &axiom){
+#if 1
+	  // HACK: large "distict" predicates can kill the legacy SMT solver.
+	  // encode them with a UIF
+	  if(axiom.is_app() && axiom.decl().get_decl_kind() == Distinct)
+	    if(axiom.num_args() > 10){
+	      sort s = axiom.arg(0).get_sort();
+	      std::vector<sort> sv;
+	      sv.push_back(s);
+	      int nargs = axiom.num_args();
+	      std::vector<expr> args(nargs);
+	      func_decl f = ctx->fresh_func_decl("@distinct",sv,ctx->int_sort());
+	      for(int i = 0; i < nargs; i++){
+		expr a = axiom.arg(i);
+		expr new_cnstr = f(a) == ctx->int_val(i);
+		args[i] = new_cnstr;
+	      }
+	      expr cnstr = ctx->make(And,args);
+	      islvr->AssertInterpolationAxiom(cnstr);
+	      return;
+	    }
+#endif
             islvr->AssertInterpolationAxiom(axiom);
         }
 
@@ -1130,6 +1151,13 @@ protected:
 	  solve a series of similar problems. */
 
       virtual void LearnFrom(Solver *old_solver) = 0;
+
+      /** Return true if the solution be incorrect due to recursion bounding.
+	  That is, the returned "solution" might contain all derivable facts up to the
+	  given recursion bound, but not be actually a fixed point.
+       */
+
+      virtual bool IsResultRecursionBounded() = 0;
 
       virtual ~Solver(){}
 

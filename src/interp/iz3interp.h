@@ -76,6 +76,7 @@ void iz3interpolate(ast_manager &_m_manager,
 		    ptr_vector<ast> &interps,
 		    interpolation_options_struct * options);
 
+
 /* Compute an interpolant from an ast representing an interpolation
    problem, if unsat, else return a model (if enabled). Uses the
    given solver to produce the proof/model. Also returns a vector
@@ -89,5 +90,6 @@ lbool iz3interpolate(ast_manager &_m_manager,
 		     ptr_vector<ast> &interps,
 		     model_ref &m,
 		     interpolation_options_struct * options);
+
 
 #endif

@@ -52,8 +52,7 @@ public:
 
     virtual ~cofactor_term_ite_tactic() {}
     virtual void updt_params(params_ref const & p) { m_params = p; m_elim_ite.updt_params(p); }
-    static  void get_param_descrs(param_descrs & r) { cofactor_elim_term_ite::get_param_descrs(r); }
-    virtual void collect_param_descrs(param_descrs & r) { get_param_descrs(r); }
+    virtual void collect_param_descrs(param_descrs & r) { m_elim_ite.collect_param_descrs(r); }
     
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 

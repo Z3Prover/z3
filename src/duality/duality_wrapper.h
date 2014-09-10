@@ -397,6 +397,11 @@ namespace Duality {
       
       sort array_domain() const;
       sort array_range() const;
+
+      friend std::ostream & operator<<(std::ostream & out, sort const & m){
+	m.ctx().print_expr(out,m);
+	return out;
+      }
     };
 
     

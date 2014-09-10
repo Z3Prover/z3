@@ -62,7 +62,7 @@ namespace datalog {
         rule_ref r(const_cast<rule*>(&rl), rm);
         ptr_vector<sort> sorts;
         expr_ref_vector revsub(m), conjs(m);
-        rl.get_vars(sorts);
+        rl.get_vars(m, sorts);
         revsub.resize(sorts.size());  
         svector<bool> valid(sorts.size(), true);
         for (unsigned i = 0; i < sub.size(); ++i) {
@@ -117,8 +117,8 @@ namespace datalog {
         rule_ref res(rm);
         bool_rewriter bwr(m);
         svector<bool> is_neg;
-        tgt->get_vars(sorts1);
-        src.get_vars(sorts2);
+        tgt->get_vars(m, sorts1);
+        src.get_vars(m, sorts2);
 
         mk_pred(head, src.get_head(), tgt->get_head()); 
         for (unsigned i = 0; i < src.get_uninterpreted_tail_size(); ++i) {

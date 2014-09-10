@@ -47,6 +47,7 @@ Notes:
 #include "dl_boogie_proof.h"
 #include "qe_util.h"
 #include "scoped_proof.h"
+#include "expr_safe_replace.h"
 
 namespace pdr {
 
@@ -736,6 +737,11 @@ namespace pdr {
         m_closed = true; 
     }
 
+    void model_node::reopen() {
+        SASSERT(m_closed);
+        m_closed = false;
+    }
+
     static bool is_ini(datalog::rule const& r) {
         return r.get_uninterpreted_tail_size() == 0;
     }
@@ -745,6 +751,7 @@ namespace pdr {
             return const_cast<datalog::rule*>(m_rule);
         }
         // only initial states are not set by the PDR search.
+        SASSERT(m_model.get());
         datalog::rule const& rl1 = pt().find_rule(*m_model);
         if (is_ini(rl1)) {
             set_rule(&rl1);
@@ -864,9 +871,10 @@ namespace pdr {
     }
 
     void model_search::add_leaf(model_node& n) {
-        unsigned& count = cache(n).insert_if_not_there2(n.state(), 0)->get_data().m_value;
-        ++count;
-        if (count == 1 || is_repeated(n)) {
+        model_nodes ns;
+        model_nodes& nodes = cache(n).insert_if_not_there2(n.state(), ns)->get_data().m_value;
+        nodes.push_back(&n);
+        if (nodes.size() == 1 || is_repeated(n)) {
             set_leaf(n);
         }
         else {
@@ -875,7 +883,7 @@ namespace pdr {
     }
 
     void model_search::set_leaf(model_node& n) {
-        erase_children(n);
+        erase_children(n, true);
         SASSERT(n.is_open());      
         enqueue_leaf(n);
     }
@@ -897,7 +905,7 @@ namespace pdr {
         set_leaf(*root);
     }
 
-    obj_map<expr, unsigned>& model_search::cache(model_node const& n) {
+    obj_map<expr, ptr_vector<model_node> >& model_search::cache(model_node const& n) {
         unsigned l = n.orig_level();
         if (l >= m_cache.size()) {
             m_cache.resize(l + 1);
@@ -905,7 +913,7 @@ namespace pdr {
         return m_cache[l];
     }
 
-    void model_search::erase_children(model_node& n) {
+    void model_search::erase_children(model_node& n, bool backtrack) {
         ptr_vector<model_node> todo, nodes;
         todo.append(n.children());
         erase_leaf(n);
@@ -916,13 +924,20 @@ namespace pdr {
             nodes.push_back(m);
             todo.append(m->children());
             erase_leaf(*m);
-            remove_node(*m);
+            remove_node(*m, backtrack);
         }
         std::for_each(nodes.begin(), nodes.end(), delete_proc<model_node>());
     }
 
-    void model_search::remove_node(model_node& n) {
-        if (0 == --cache(n).find(n.state())) {
+    void model_search::remove_node(model_node& n, bool backtrack) {
+        model_nodes& nodes = cache(n).find(n.state());
+        nodes.erase(&n);
+        if (nodes.size() > 0 && n.is_open() && backtrack) {
+            for (unsigned i = 0; i < nodes.size(); ++i) {
+                nodes[i]->reopen();
+            }
+        }
+        if (nodes.empty()) {            
             cache(n).remove(n.state());
         }
     }
@@ -1048,10 +1063,7 @@ namespace pdr {
             predicates.pop_back();
             for (unsigned i = rule->get_uninterpreted_tail_size(); i < rule->get_tail_size(); ++i) {
                 subst.apply(2, deltas, expr_offset(rule->get_tail(i), 1), tmp);
-                dctx.get_rewriter()(tmp);
-                if (!m.is_true(tmp)) {
-                    constraints.push_back(tmp);
-                }
+                constraints.push_back(tmp);                
             }
             for (unsigned i = 0; i < constraints.size(); ++i) {
                 max_var = std::max(vc.get_max_var(constraints[i].get()), max_var);
@@ -1074,7 +1086,28 @@ namespace pdr {
 
             children.append(n->children());
         }            
-        return pm.mk_and(constraints);
+
+        expr_safe_replace repl(m);
+        for (unsigned i = 0; i < constraints.size(); ++i) {
+            expr* e = constraints[i].get(), *e1, *e2;
+            if (m.is_eq(e, e1, e2) && is_var(e1) && is_ground(e2)) {
+                repl.insert(e1, e2);
+            }
+            else if (m.is_eq(e, e1, e2) && is_var(e2) && is_ground(e1)) {
+                repl.insert(e2, e1);
+            }
+        }
+        expr_ref_vector result(m);
+        for (unsigned i = 0; i < constraints.size(); ++i) {
+            expr_ref tmp(m);
+            tmp = constraints[i].get();
+            repl(tmp);
+            dctx.get_rewriter()(tmp);
+            if (!m.is_true(tmp)) {
+                result.push_back(tmp);
+            }
+        }        
+        return pm.mk_and(result);
     }
 
     proof_ref model_search::get_proof_trace(context const& ctx) {
@@ -1203,10 +1236,11 @@ namespace pdr {
 
     void model_search::reset() {
         if (m_root) {
-            erase_children(*m_root);
-            remove_node(*m_root);
+            erase_children(*m_root, false);
+            remove_node(*m_root, false);
             dealloc(m_root);
             m_root = 0;
+            m_cache.reset();
         }
     }
 
@@ -1240,7 +1274,7 @@ namespace pdr {
           m_pm(m_fparams, params.max_num_contexts(), m),
           m_query_pred(m),
           m_query(0),
-          m_search(m_params.bfs_model_search()),
+          m_search(m_params.bfs_model_search(), m),
           m_last_result(l_undef),
           m_inductive_lvl(0),
           m_expanded_lvl(0),

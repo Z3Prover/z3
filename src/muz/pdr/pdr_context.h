@@ -231,6 +231,7 @@ namespace pdr {
         }
 
         void set_closed();     
+        void reopen();
         void set_pre_closed() { m_closed = true; }
         void reset() { m_children.reset(); }
 
@@ -243,19 +244,21 @@ namespace pdr {
     };
 
     class model_search {
+        typedef ptr_vector<model_node> model_nodes;
+        ast_manager&       m;
         bool               m_bfs;
         model_node*        m_root;
         std::deque<model_node*> m_leaves;
-        vector<obj_map<expr, unsigned> > m_cache;
+        vector<obj_map<expr, model_nodes > > m_cache;
         
-        obj_map<expr, unsigned>& cache(model_node const& n);
-        void erase_children(model_node& n);
+        obj_map<expr, model_nodes>& cache(model_node const& n);
+        void erase_children(model_node& n, bool backtrack);
         void erase_leaf(model_node& n);
-        void remove_node(model_node& n);
+        void remove_node(model_node& n, bool backtrack);
         void enqueue_leaf(model_node& n); // add leaf to priority queue.
         void update_models();
     public:
-        model_search(bool bfs): m_bfs(bfs), m_root(0) {}
+        model_search(bool bfs, ast_manager& m): m(m), m_bfs(bfs), m_root(0) {}
         ~model_search();
 
         void reset();
