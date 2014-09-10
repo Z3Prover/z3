@@ -2522,7 +2522,11 @@ def mk_vs_proj(name, components):
     f.write('    <ClCompile>\n')
     f.write('      <Optimization>Disabled</Optimization>\n')
     f.write('      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_TRACE;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
-    f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
+    if VS_PAR:
+        f.write('      <MinimalRebuild>false</MinimalRebuild>\n')
+        f.write('      <MultiProcessorCompilation>true</MultiProcessorCompilation>\n')
+    else:
+        f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
     f.write('      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>\n')
     f.write('      <WarningLevel>Level3</WarningLevel>\n')
     f.write('      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>\n')
@@ -2556,7 +2560,11 @@ def mk_vs_proj(name, components):
     f.write('    <ClCompile>\n')
     f.write('      <Optimization>Disabled</Optimization>\n')
     f.write('      <PreprocessorDefinitions>WIN32;_NDEBUG;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
-    f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
+    if VS_PAR:
+        f.write('      <MinimalRebuild>false</MinimalRebuild>\n')
+        f.write('      <MultiProcessorCompilation>true</MultiProcessorCompilation>\n')
+    else:
+        f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
     f.write('      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>\n')
     f.write('      <WarningLevel>Level3</WarningLevel>\n')
     f.write('      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>\n')

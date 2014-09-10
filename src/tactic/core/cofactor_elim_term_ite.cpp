@@ -683,12 +683,7 @@ cofactor_elim_term_ite::cofactor_elim_term_ite(ast_manager & m, params_ref const
 }
 
 cofactor_elim_term_ite::~cofactor_elim_term_ite() {
-    imp * d = m_imp;
-    #pragma omp critical (cofactor_elim_term_ite)
-    {
-        m_imp = 0;
-    }
-    dealloc(d);
+    dealloc(m_imp);
 }
 
 void cofactor_elim_term_ite::updt_params(params_ref const & p) {
@@ -704,19 +699,17 @@ void cofactor_elim_term_ite::operator()(expr * t, expr_ref & r) {
 }
     
 void cofactor_elim_term_ite::set_cancel(bool f) {
-    #pragma omp critical (cofactor_elim_term_ite)
-    {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
+    if (m_imp)
+        m_imp->set_cancel(f);
 }
 
 void cofactor_elim_term_ite::cleanup() {
-    ast_manager & m = m_imp->m;
-    #pragma omp critical (cofactor_elim_term_ite) 
+    ast_manager & m = m_imp->m;    
+    imp * d = alloc(imp, m, m_params);
+    #pragma omp critical (tactic_cancel)
     {
-        dealloc(m_imp);
-        m_imp = alloc(imp, m, m_params);
+        std::swap(d, m_imp);
     }
+    dealloc(d);
 }
 

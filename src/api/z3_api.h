@@ -1375,6 +1375,16 @@ extern "C" {
        although some parameters can be changed using #Z3_update_param_value.
        All main interaction with Z3 happens in the context of a \c Z3_context.
 
+       In contrast to #Z3_mk_context_rc, the life time of Z3_ast objects
+       are determined by the scope level of #Z3_push and #Z3_pop.
+       In other words, a Z3_ast object remains valid until there is a 
+       call to Z3_pop that takes the current scope below the level where 
+       the object was created.
+
+       Note that all other reference counted objects, including Z3_model,
+       Z3_solver, Z3_func_interp have to be managed by the caller. 
+       Their reference counts are not handled by the context.       
+
        \conly \sa Z3_del_context
 
        \conly \deprecated Use #Z3_mk_context_rc

@@ -392,17 +392,11 @@ void bv_size_reduction_tactic::set_cancel(bool f) {
 }
  
 void bv_size_reduction_tactic::cleanup() {
-    ast_manager & m = m_imp->m;
-    imp * d = m_imp;
+    imp * d = alloc(imp, m_imp->m);
     #pragma omp critical (tactic_cancel)
     {
-        m_imp = 0;
+        std::swap(d, m_imp);
     }
     dealloc(d);
-    d = alloc(imp, m);
-    #pragma omp critical (tactic_cancel)
-    {
-        m_imp = d;
-    }
 }
 

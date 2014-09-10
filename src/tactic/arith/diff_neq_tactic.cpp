@@ -398,20 +398,13 @@ public:
     }
     
     virtual void cleanup() {
-        unsigned num_conflicts = m_imp->m_num_conflicts;
-        ast_manager & m = m_imp->m;
-        imp * d = m_imp;
+        imp * d = alloc(imp, m_imp->m, m_params);
+        d->m_num_conflicts = m_imp->m_num_conflicts;
         #pragma omp critical (tactic_cancel)
         {
-            d = m_imp;
+            std::swap(d, m_imp);
         }
         dealloc(d);
-        d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel) 
-        {
-            m_imp = d;
-        }
-        m_imp->m_num_conflicts = num_conflicts;
     }
 
 protected:
