@@ -39,8 +39,55 @@ namespace pb {
         m(m),
         au(m),
         pb(m),
-        bv(m)
+        bv(m),
+        m_sort(*this),
+        m_lemmas(m),
+        m_trail(m)
     {}
+
+    void card2bv_rewriter::mk_assert(func_decl * f, unsigned sz, expr * const* args, expr_ref & result, expr_ref_vector& lemmas) {
+        m_lemmas.reset();
+        SASSERT(f->get_family_id() == pb.get_family_id());
+        if (is_or(f)) {
+            result = m.mk_or(sz, args);
+        }
+        else if (is_and(f)) {
+            result = m.mk_and(sz, args);
+        }
+        else if (pb.is_eq(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
+            result = m_sort.eq(pb.get_k(f).get_unsigned(), sz, args);
+        }
+        else if (pb.is_le(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
+            result = m_sort.le(false, pb.get_k(f).get_unsigned(), sz, args);
+        }
+        else if (pb.is_ge(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
+            result = m_sort.ge(false, pb.get_k(f).get_unsigned(), sz, args);
+        }
+        else {
+            br_status st = mk_shannon(f, sz, args, result);
+            if (st == BR_FAILED) {
+                mk_bv(f, sz, args, result);
+            }
+        }
+        lemmas.append(m_lemmas);
+    }
+    
+    std::ostream& card2bv_rewriter::pp(std::ostream& out, literal lit) {
+        return out << mk_ismt2_pp(lit, m);
+    }
+
+    card2bv_rewriter::literal card2bv_rewriter::trail(literal l) {
+        m_trail.push_back(l);
+        return l;
+    }
+    card2bv_rewriter::literal card2bv_rewriter::fresh() {
+        return trail(m.mk_fresh_const("sn", m.mk_bool_sort()));
+    }
+
+    void card2bv_rewriter::mk_clause(unsigned n, literal const* lits) {
+        m_lemmas.push_back(m.mk_or_reduced(n, lits));
+    }
+
     
     br_status card2bv_rewriter::mk_app_core(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
         if (f->get_family_id() == null_family_id) {
@@ -69,7 +116,8 @@ namespace pb {
             }
             br_status st = mk_shannon(f, sz, args, result);
             if (st == BR_FAILED) {
-                return mk_bv(f, sz, args, result);
+                mk_bv(f, sz, args, result);
+                return BR_DONE;
             }
             else {
                 return st;
@@ -135,7 +183,7 @@ namespace pb {
         return false;
     }
 
-    br_status card2bv_rewriter::mk_bv(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
+    void card2bv_rewriter::mk_bv(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
         expr_ref zero(m), a(m), b(m);
         expr_ref_vector es(m);
         unsigned bw = get_num_bits(f);        
@@ -172,7 +220,6 @@ namespace pb {
         default:
             UNREACHABLE();
         }
-        return BR_DONE;
     }
 
     struct argc_t {
@@ -352,9 +399,29 @@ namespace pb {
         if (m.is_true(lo)) return m.mk_implies(c, hi);
         return m.mk_ite(c, hi, lo);
     }
+
+    void card_pb_rewriter::rewrite(expr* e, expr_ref& result) {
+        if (pb.is_eq(e)) {
+            app* a = to_app(e);
+            ast_manager& m = m_lemmas.get_manager();
+            unsigned sz = a->get_num_args();
+            expr_ref_vector args(m);
+            expr_ref tmp(m);
+            for (unsigned i = 0; i < sz; ++i) {
+                (*this)(a->get_arg(i), tmp);
+                args.push_back(tmp);
+            }
+            m_cfg.m_r.mk_assert(a->get_decl(), sz, args.c_ptr(), result, m_lemmas);
+        }
+        else {
+            (*this)(e, result);    
+        }
+    }
+
 };
 
 template class rewriter_tpl<pb::card2bv_rewriter_cfg>;
+
 
 class card2bv_tactic : public tactic {
     ast_manager &              m;
@@ -402,6 +469,7 @@ public:
         tactic_report report("card2bv", *g);
         m_rw1.reset(); 
         m_rw2.reset(); 
+        m_rw2.lemmas().reset();
         
         if (g->inconsistent()) {
             result.push_back(g.get());
@@ -413,8 +481,11 @@ public:
         for (unsigned idx = 0; idx < size; idx++) {
             m_rw1(g->form(idx), new_f1);
             TRACE("card2bv", tout << "Rewriting " << mk_ismt2_pp(new_f1.get(), m) << std::endl;);
-            m_rw2(new_f1, new_f2);
+            m_rw2.rewrite(new_f1, new_f2);
             g->update(idx, new_f2, g->pr(idx), g->dep(idx));
+        }
+        for (unsigned i = 0; i < m_rw2.lemmas().size(); ++i) {
+            g->assert_expr(m_rw2.lemmas()[i].get());
         }
 
         g->inc_depth();

@@ -1,9 +1,13 @@
-
-#include "sorting_network.h"
+#include "trace.h"
 #include "vector.h"
 #include "ast.h"
 #include "ast_pp.h"
 #include "reg_decl_plugins.h"
+#include "sorting_network.h"
+#include "smt_kernel.h"
+#include "model_smt2_pp.h"
+#include "smt_params.h"
+
 
 
 struct ast_ext {
@@ -26,6 +30,8 @@ struct ast_ext {
     }        
 };
 
+
+
 struct unsigned_ext {
     unsigned_ext() {}
     typedef unsigned T;
@@ -40,6 +46,7 @@ struct unsigned_ext {
         return 0;
     }
 };
+
 
 static void is_sorted(svector<unsigned> const& v) {
     for (unsigned i = 0; i + 1 < v.size(); ++i) {
@@ -134,9 +141,97 @@ void test_sorting3() {
     }
 }
 
+
+struct ast_ext2 {
+    ast_manager& m;
+    expr_ref_vector m_clauses;
+    expr_ref_vector m_trail;
+    ast_ext2(ast_manager& m):m(m), m_clauses(m), m_trail(m) {}
+    typedef expr* literal;
+    typedef ptr_vector<expr> literal_vector;
+
+    expr* trail(expr* e) {
+        m_trail.push_back(e);
+        return e;
+    }
+
+    literal mk_false() { return m.mk_false(); }
+    literal mk_true() { return m.mk_true(); }
+    literal mk_max(literal a, literal b) { 
+        return trail(m.mk_or(a, b)); 
+    }
+    literal mk_min(literal a, literal b) { return trail(m.mk_and(a, b)); }
+    literal mk_not(literal a) { if (m.is_not(a,a)) return a; 
+        return trail(m.mk_not(a)); 
+    }
+    std::ostream& pp(std::ostream& out, literal lit) {
+        return out << mk_pp(lit, m);
+    }
+    literal fresh() { 
+        return trail(m.mk_fresh_const("x", m.mk_bool_sort()));
+    }
+    void mk_clause(unsigned n, literal const* lits) {
+        m_clauses.push_back(m.mk_or_reduced(n, lits));
+    }
+};
+
+
+void test_sorting5(unsigned n, unsigned k) {
+    std::cout << "n: " << n << " k: " << k << "\n";
+    SASSERT(k < n);
+    ast_manager m;
+    reg_decl_plugins(m);
+    ast_ext2 ext(m);
+    expr_ref_vector in(m), out(m);
+    for (unsigned i = 0; i < n; ++i) {
+        in.push_back(m.mk_fresh_const("a",m.mk_bool_sort()));
+    }
+    smt_params fp;
+    smt::kernel solver(m, fp);
+    psort_nw<ast_ext2> sn(ext);
+    expr_ref result(m);
+    result = sn.eq(k, in.size(), in.c_ptr());
+    solver.assert_expr(result);
+    for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
+        solver.assert_expr(ext.m_clauses[i].get());
+    }
+    lbool res = solver.check();
+    SASSERT(res == l_true);
+    std::cout << res << "\n";
+
+    solver.push();
+    for (unsigned i = 0; i < k; ++i) {
+        solver.assert_expr(in[i].get());        
+    }
+    res = solver.check();
+    SASSERT(res == l_true);
+    solver.assert_expr(in[k].get());
+    res = solver.check();
+    if (res == l_true) {
+        TRACE("pb",
+              unsigned sz = solver.size();
+              for (unsigned i = 0; i < sz; ++i) {
+                  tout << mk_pp(solver.get_formulas()[i], m) << "\n";
+              });
+        model_ref model;
+        solver.get_model(model);
+        model_smt2_pp(std::cout, m, *model, 0);
+        TRACE("pb", model_smt2_pp(tout, m, *model, 0););
+    }
+    SASSERT(res == l_false);
+    solver.pop(1);
+
+}
+
 void tst_sorting_network() {
     test_sorting1();
     test_sorting2();
     test_sorting3();
     test_sorting4();
+    test_sorting5(7,6);
+    for (unsigned n = 3; n < 10; n += 2) {
+        for (unsigned k = 1; k < n; ++k) {
+            test_sorting5(n, k);
+        }
+    }
 }

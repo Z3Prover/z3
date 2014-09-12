@@ -271,3 +271,12 @@ rational pb_util::to_rational(parameter const& p) const {
     SASSERT(p.is_rational());
     return p.get_rational();
 }
+
+bool pb_util::has_unit_coefficients(func_decl* f) const {
+    if (is_at_most_k(f) || is_at_least_k(f)) return true;
+    unsigned sz = f->get_arity();
+    for (unsigned i = 0; i < sz; ++i) {
+        if (!get_coeff(f, i).is_one()) return false;
+    }
+    return true;
+}

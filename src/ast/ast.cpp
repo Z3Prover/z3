@@ -2058,6 +2058,22 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
     return r;
 }
 
+expr* ast_manager::mk_or_reduced(unsigned n, expr* const* args) {
+    switch (n) {
+    case 0: return mk_false();
+    case 1: return args[0];
+    default: return mk_or(n, args);
+    }
+}
+
+expr* ast_manager::mk_and_reduced(unsigned n, expr* const* args) {
+    switch (n) {
+    case 0: return mk_true();
+    case 1: return args[0];
+    default: return mk_and(n, args);
+    }
+}
+
 func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const & suffix, unsigned arity, 
                                             sort * const * domain, sort * range) {
     func_decl_info info(null_family_id, null_decl_kind);

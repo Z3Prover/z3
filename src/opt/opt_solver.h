@@ -36,6 +36,33 @@ namespace opt {
 
     typedef inf_eps_rational<inf_rational> inf_eps;
 
+    // Adjust bound bound |-> (m_negate?-1:1)*(m_offset + bound)
+    class bound_adjustment {
+        rational m_offset;
+        bool     m_negate;
+    public:
+        bound_adjustment(rational const& offset, bool neg):
+            m_offset(offset),
+            m_negate(neg)
+        {}
+        bound_adjustment(): m_offset(0), m_negate(false) {}
+        void set_offset(rational const& o) { m_offset = o; }
+        void set_negate(bool neg) { m_negate = neg; }
+        rational const& get_offset() const { return m_offset; }
+        bool get_negate() { return m_negate; }
+        inf_eps add_neg(rational const& r) const {
+            rational result = r + m_offset;
+            if (m_negate) result.neg();
+            return inf_eps(result);
+        }
+        inf_eps neg_add(rational const& r) const {
+            rational result = r;
+            if (m_negate) result.neg();
+            result += m_offset;
+            return inf_eps(result);
+        }
+    };
+
 
     class opt_solver : public solver_na2as {
     private:

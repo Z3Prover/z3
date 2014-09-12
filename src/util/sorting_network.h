@@ -144,7 +144,7 @@ Notes:
             }
         };
 
-        static vc min(vc const& v1, vc const& v2) {
+        static vc mk_min(vc const& v1, vc const& v2) {
             return (v1.to_int() < v2.to_int())?v1:v2;
         }
 
@@ -205,7 +205,7 @@ Notes:
                 SASSERT(2*k <= n);
                 m_t = full?LE_FULL:LE;
                 card(k + 1, n, xs, out);
-                return ~out[k]; 
+                return ctx.mk_not(out[k]); 
             }
         }
 
@@ -219,11 +219,11 @@ Notes:
                 return eq(k, n, in.c_ptr());
             }
             else {
-                SASSERT(2*k < n);
+                SASSERT(2*k <= n);
                 m_t = EQ;
                 card(k+1, n, xs, out);
                 SASSERT(out.size() >= k+1);
-                return out[k-1]; // & ~out[m] TBD
+                return ctx.mk_min(out[k-1], ctx.mk_not(out[k]));
             }
         }
 
@@ -253,10 +253,10 @@ Notes:
             }
             k = N - k;
             for (unsigned i = 0; i < N; ++i) {
-                in.push_back(~xs[i]);
+                in.push_back(ctx.mk_not(xs[i]));
             }
             TRACE("pb", 
-                  pp(tout << N << ": ", in);
+                  pp(tout << N << ": ", in);                  
                   tout << " ~ " << k << "\n";);
             return true;
         }
@@ -269,16 +269,16 @@ Notes:
         unsigned power2(unsigned n) const { SASSERT(n < 10); return 1 << n; }
 
 
-        literal max(literal a, literal b) {
+        literal mk_max(literal a, literal b) {
             if (a == b) return a;
             m_stats.m_num_compiled_vars++;
-            return ctx.max(a, b);
+            return ctx.mk_max(a, b);
         }
 
-        literal min(literal a, literal b) {
+        literal mk_min(literal a, literal b) {
             if (a == b) return a;
             m_stats.m_num_compiled_vars++;
-            return ctx.min(a, b);
+            return ctx.mk_min(a, b);
         }
 
         literal fresh() {
@@ -299,20 +299,20 @@ Notes:
             ctx.mk_clause(n, tmp.c_ptr());
         }
 
-        // y1 <= max(x1,x2)
-        // y2 <= min(x1,x2)
+        // y1 <= mk_max(x1,x2)
+        // y2 <= mk_min(x1,x2)
         void cmp_ge(literal x1, literal x2, literal y1, literal y2) {
-            add_clause(~y2, x1);
-            add_clause(~y2, x2);
-            add_clause(~y1, x1, x2);            
+            add_clause(ctx.mk_not(y2), x1);
+            add_clause(ctx.mk_not(y2), x2);
+            add_clause(ctx.mk_not(y1), x1, x2);            
         }
 
-        // max(x1,x2) <= y1
-        // min(x1,x2) <= y2
+        // mk_max(x1,x2) <= y1
+        // mk_min(x1,x2) <= y2
         void cmp_le(literal x1, literal x2, literal y1, literal y2) {
-            add_clause(~x1, y1);
-            add_clause(~x2, y1);
-            add_clause(~x1, ~x2, y2);
+            add_clause(ctx.mk_not(x1), y1);
+            add_clause(ctx.mk_not(x2), y1);
+            add_clause(ctx.mk_not(x1), ctx.mk_not(x2), y2);
         }
 
         void cmp_eq(literal x1, literal x2, literal y1, literal y2) {
@@ -376,8 +376,8 @@ Notes:
                    literal_vector& out) {
             TRACE("pb", tout << "merge a: " << a << " b: " << b << "\n";);
             if (a == 1 && b == 1) {
-                literal y1 = max(as[0], bs[0]);
-                literal y2 = min(as[0], bs[0]);
+                literal y1 = mk_max(as[0], bs[0]);
+                literal y2 = mk_min(as[0], bs[0]);
                 out.push_back(y1);
                 out.push_back(y2);
                 psort_nw<psort_expr>::cmp(as[0], bs[0], y1, y2);
@@ -453,8 +453,8 @@ Notes:
             out.push_back(as[0]);
             unsigned sz = std::min(as.size()-1, bs.size());
             for (unsigned i = 0; i < sz; ++i) {
-                literal y1 = max(as[i+1],bs[i]);
-                literal y2 = min(as[i+1],bs[i]);
+                literal y1 = mk_max(as[i+1],bs[i]);
+                literal y2 = mk_min(as[i+1],bs[i]);
                 psort_nw<psort_expr>::cmp(as[i+1], bs[i], y1, y2);
                 out.push_back(y1);
                 out.push_back(y2);
@@ -539,16 +539,16 @@ Notes:
                     literal_vector& out) {
             TRACE("pb", tout << "smerge: c:" << c << " a:" << a << " b:" << b << "\n";);
             if (a == 1 && b == 1 && c == 1) {
-                literal y = max(as[0], bs[0]);
+                literal y = mk_max(as[0], bs[0]);
                 if (m_t != GE) {
-                    // x1 <= max(x1,x2)
-                    // x2 <= max(x1,x2)
-                    add_clause(~as[0], y);
-                    add_clause(~bs[0], y);
+                    // x1 <= mk_max(x1,x2)
+                    // x2 <= mk_max(x1,x2)
+                    add_clause(ctx.mk_not(as[0]), y);
+                    add_clause(ctx.mk_not(bs[0]), y);
                 }
                 if (m_t != LE) {
-                    // max(x1,x2) <= x1, x2
-                    add_clause(~y, as[0], bs[0]);
+                    // mk_max(x1,x2) <= x1, x2
+                    add_clause(ctx.mk_not(y), as[0], bs[0]);
                 }
                 out.push_back(y);
             }
@@ -597,13 +597,13 @@ Notes:
                     literal z2 = out2.back();
                     out1.pop_back();
                     out2.pop_back();
-                    y = max(z1, z2);
+                    y = mk_max(z1, z2);
                     if (m_t != GE) {
-                        add_clause(~z1, y);
-                        add_clause(~z2, y);
+                        add_clause(ctx.mk_not(z1), y);
+                        add_clause(ctx.mk_not(z2), y);
                     }
                     if (m_t != LE) {
-                        add_clause(~y, z1, z2);
+                        add_clause(ctx.mk_not(y), z1, z2);
                     }
                 }
                 interleave(out1, out2, out);                 
@@ -664,31 +664,28 @@ Notes:
             }
             if (m_t != GE) {
                 for (unsigned i = 0; i < a; ++i) {
-                    add_clause(~as[i], out[i]);
+                    add_clause(ctx.mk_not(as[i]), out[i]);
                 }
                 for (unsigned i = 0; i < b; ++i) {
-                    add_clause(~bs[i], out[i]);
+                    add_clause(ctx.mk_not(bs[i]), out[i]);
                 }
                 for (unsigned i = 1; i <= a; ++i) {
                     for (unsigned j = 1; j <= b && i + j <= c; ++j) {
-                        add_clause(~as[i-1],~bs[j-1],out[i+j-1]);
+                        add_clause(ctx.mk_not(as[i-1]),ctx.mk_not(bs[j-1]),out[i+j-1]);
                     }
                 }
             }
             if (m_t != LE) {
-                for (unsigned k = 1; k <= c; ++k) {
-                    literal_vector ls;
-                    ls.push_back(~out[k-1]);
-                    if (k <= a) {
-                        ls.push_back(as[k-1]);
-                    }
-                    if (k <= b) {
-                        ls.push_back(bs[k-1]);
-                    }
-                    for (unsigned i = 1; i <= std::min(a,k-1); ++i) {
-                        if (k + 1 - i <= b) {
-                            ls.push_back(as[i-1]);
-                            ls.push_back(bs[k-i]);
+                literal_vector ls;
+                for (unsigned k = 0; k < c; ++k) {
+                    ls.reset();
+                    ls.push_back(ctx.mk_not(out[k]));
+                    for (unsigned i = 0; i < std::min(a,k + 1); ++i) {
+                        unsigned j = k - i;
+                        SASSERT(i + j == k);
+                        if (j < b) {
+                            ls.push_back(as[i]);
+                            ls.push_back(bs[j]);
                             add_clause(ls.size(), ls.c_ptr());
                             ls.pop_back();
                             ls.pop_back();
@@ -726,7 +723,7 @@ Notes:
             }
             if (m_t != LE) {                
                 for (unsigned k = 1; k <= m; ++k) {
-                    lits.push_back(~out[k-1]);
+                    lits.push_back(ctx.mk_not(out[k-1]));
                     add_subset(false, n-k+1, 0, lits, n, xs);
                     lits.pop_back();
                 }
@@ -754,7 +751,7 @@ Notes:
                 return;
             }
             for (unsigned i = offset; i < n - k + 1; ++i) {
-                lits.push_back(polarity?~xs[i]:xs[i]);
+                lits.push_back(polarity?ctx.mk_not(xs[i]):xs[i]);
                 add_subset(polarity, k-1, i+1, lits, n, xs);
                 lits.pop_back();
             }

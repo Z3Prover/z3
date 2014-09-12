@@ -1156,7 +1156,7 @@ namespace smt {
             return literal(ctx.mk_bool_var(y));
         }
         
-        literal max(literal a, literal b) {
+        literal mk_max(literal a, literal b) {
             if (a == b) return a;
             expr_ref t1(m), t2(m), t3(m);
             ctx.literal2expr(a, t1);
@@ -1166,7 +1166,7 @@ namespace smt {
             return literal(v);
         }
 
-        literal min(literal a, literal b) {
+        literal mk_min(literal a, literal b) {
             if (a == b) return a;
             expr_ref t1(m), t2(m), t3(m);
             ctx.literal2expr(a, t1);
@@ -1175,6 +1175,8 @@ namespace smt {
             bool_var v = ctx.b_internalized(t3)?ctx.get_bool_var(t3):ctx.mk_bool_var(t3);
             return literal(v);
         }
+
+        literal mk_not(literal a) { return ~a; }
 
         void mk_clause(unsigned n, literal const* ls) {
             literal_vector tmp(n, ls);

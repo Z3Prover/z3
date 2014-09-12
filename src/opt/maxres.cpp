@@ -397,8 +397,12 @@ public:
                 */
                 sort_assumptions(asms);            
                 unsigned index = 0;
+                unsigned last_index = 0;
                 while (index < asms.size() && is_sat != l_false) {
-                    index = next_index(asms, index);
+                    while (asms.size() > 10*(index - last_index) && index < asms.size()) {
+                        index = next_index(asms, index);
+                    }
+                    last_index = index;
                     is_sat = s().check_sat(index, asms.c_ptr());
                 }            
             }

@@ -103,6 +103,9 @@ public:
     bool is_ge(expr* a, rational& k) const;
     rational get_coeff(expr* a, unsigned index) const { return get_coeff(to_app(a)->get_decl(), index); }
     rational get_coeff(func_decl* a, unsigned index) const; 
+    bool has_unit_coefficients(func_decl* f) const;
+    bool has_unit_coefficients(expr* f) const { return is_app(f) && has_unit_coefficients(to_app(f)->get_decl()); }
+
 
     bool is_eq(func_decl* f) const;
     bool is_eq(expr* e) const { return is_app(e) && is_eq(to_app(e)->get_decl()); }

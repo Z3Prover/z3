@@ -556,7 +556,7 @@ static void test_A_5_5_3() {
         for (unsigned k = 1; k <= 5; ++k) {
             for (unsigned l = 1; l <= 5; ++l) {
                 for (unsigned j = 1; j <= 3; ++j) {
-                    bool one = ((j*k <= i) && (((i - j) % 3) == 0); // fixme
+                    bool one = ((j*k <= i) && (((i - j) % 3) == 0)); // fixme
                     v.push_back(rational(one));
                 }
             }
