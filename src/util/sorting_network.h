@@ -680,6 +680,12 @@ Notes:
                 for (unsigned k = 0; k < c; ++k) {
                     ls.reset();
                     ls.push_back(ctx.mk_not(out[k]));
+                    if (a <= k) {
+                        add_clause(ctx.mk_not(out[k]), bs[k-a]);
+                    }
+                    if (b <= k) {
+                        add_clause(ctx.mk_not(out[k]), as[k-b]);
+                    }
                     for (unsigned i = 0; i < std::min(a,k + 1); ++i) {
                         unsigned j = k - i;
                         SASSERT(i + j == k);
