@@ -176,8 +176,7 @@ struct ast_ext2 {
 };
 
 
-void test_sorting5(unsigned n, unsigned k) {
-    std::cout << "n: " << n << " k: " << k << "\n";
+static void test_sorting_eq(unsigned n, unsigned k) {
     SASSERT(k < n);
     ast_manager m;
     reg_decl_plugins(m);
@@ -190,6 +189,10 @@ void test_sorting5(unsigned n, unsigned k) {
     smt::kernel solver(m, fp);
     psort_nw<ast_ext2> sn(ext);
     expr_ref result(m);
+
+    // equality:
+    std::cout << "eq " << k << "\n";
+    solver.push();
     result = sn.eq(k, in.size(), in.c_ptr());
     solver.assert_expr(result);
     for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
@@ -197,7 +200,6 @@ void test_sorting5(unsigned n, unsigned k) {
     }
     lbool res = solver.check();
     SASSERT(res == l_true);
-    std::cout << res << "\n";
 
     solver.push();
     for (unsigned i = 0; i < k; ++i) {
@@ -220,7 +222,107 @@ void test_sorting5(unsigned n, unsigned k) {
     }
     SASSERT(res == l_false);
     solver.pop(1);
+    ext.m_clauses.reset();
+}
 
+static void test_sorting_le(unsigned n, unsigned k) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    ast_ext2 ext(m);
+    expr_ref_vector in(m), out(m);
+    for (unsigned i = 0; i < n; ++i) {
+        in.push_back(m.mk_fresh_const("a",m.mk_bool_sort()));
+    }
+    smt_params fp;
+    smt::kernel solver(m, fp);
+    psort_nw<ast_ext2> sn(ext);
+    expr_ref result(m);
+    // k <= B
+    std::cout << "le " << k << "\n";
+    solver.push();
+    result = sn.le(false, k, in.size(), in.c_ptr());
+    solver.assert_expr(result);
+    for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
+        solver.assert_expr(ext.m_clauses[i].get());
+    }
+    lbool res = solver.check();
+    SASSERT(res == l_true);
+
+    for (unsigned i = 0; i < n - k; ++i) {
+        solver.assert_expr(m.mk_not(in[i].get()));        
+    }
+    res = solver.check();
+    SASSERT(res == l_true);
+    solver.assert_expr(m.mk_not(in[n - k].get()));
+    res = solver.check();
+    if (res == l_true) {
+        TRACE("pb",
+              unsigned sz = solver.size();
+              for (unsigned i = 0; i < sz; ++i) {
+                  tout << mk_pp(solver.get_formulas()[i], m) << "\n";
+              });
+        model_ref model;
+        solver.get_model(model);
+        model_smt2_pp(std::cout, m, *model, 0);
+        TRACE("pb", model_smt2_pp(tout, m, *model, 0););
+    }
+    SASSERT(res == l_false);
+    solver.pop(1);
+    ext.m_clauses.reset();
+}
+
+
+void test_sorting_ge(unsigned n, unsigned k) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    ast_ext2 ext(m);
+    expr_ref_vector in(m), out(m);
+    for (unsigned i = 0; i < n; ++i) {
+        in.push_back(m.mk_fresh_const("a",m.mk_bool_sort()));
+    }
+    smt_params fp;
+    smt::kernel solver(m, fp);
+    psort_nw<ast_ext2> sn(ext);
+    expr_ref result(m);
+    // k >= B
+    std::cout << "ge " << k << "\n";
+    solver.push();
+    result = sn.ge(false, k, in.size(), in.c_ptr());
+    solver.assert_expr(result);
+    for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
+        solver.assert_expr(ext.m_clauses[i].get());
+    }
+    lbool res = solver.check();
+    SASSERT(res == l_true);
+
+    solver.push();
+    for (unsigned i = 0; i < n - k; ++i) {
+        solver.assert_expr(m.mk_not(in[i].get()));        
+    }
+    res = solver.check();
+    SASSERT(res == l_true);
+    solver.assert_expr(m.mk_not(in[n - k].get()));
+    res = solver.check();
+    if (res == l_true) {
+        TRACE("pb",
+              unsigned sz = solver.size();
+              for (unsigned i = 0; i < sz; ++i) {
+                  tout << mk_pp(solver.get_formulas()[i], m) << "\n";
+              });
+        model_ref model;
+        solver.get_model(model);
+        model_smt2_pp(std::cout, m, *model, 0);
+        TRACE("pb", model_smt2_pp(tout, m, *model, 0););
+    }
+    SASSERT(res == l_false);
+    solver.pop(1);
+}
+
+void test_sorting5(unsigned n, unsigned k) {
+    std::cout << "n: " << n << " k: " << k << "\n";
+    test_sorting_le(n, k);
+    test_sorting_eq(n, k);
+    test_sorting_ge(n, k);
 }
 
 void tst_sorting_network() {
@@ -228,8 +330,8 @@ void tst_sorting_network() {
     test_sorting2();
     test_sorting3();
     test_sorting4();
-    test_sorting5(7,6);
-    for (unsigned n = 3; n < 10; n += 2) {
+    test_sorting5(11,4);
+    for (unsigned n = 3; n < 20; n += 2) {
         for (unsigned k = 1; k < n; ++k) {
             test_sorting5(n, k);
         }
