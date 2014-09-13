@@ -361,6 +361,7 @@ namespace api {
                 }
             }
         }
+        SASSERT(num_scopes <= get_smt_kernel().get_scope_level());
         get_smt_kernel().pop(num_scopes);
     }
 
