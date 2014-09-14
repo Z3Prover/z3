@@ -124,7 +124,7 @@ namespace opt {
             }
             process_sat();
             while (m_lower < m_upper) {
-                IF_VERBOSE(1, verbose_stream() << "(opt.bcd2 [" << m_lower << ":" << m_upper << "])\n";);
+                trace_bounds("bcd2");
                 assert_soft();
                 solver::scoped_push _scope2(s());
                 TRACE("opt", display(tout););

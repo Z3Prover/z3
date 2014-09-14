@@ -20,11 +20,9 @@ Notes:
 #include <typeinfo>
 #include "maxsmt.h"
 #include "fu_malik.h"
-#include "core_maxsat.h"
 #include "maxres.h"
 #include "maxhs.h"
 #include "bcd2.h"
-#include "pbmax.h"
 #include "wmax.h"
 #include "maxsls.h"
 #include "ast_pp.h"
@@ -140,6 +138,13 @@ namespace opt {
     }
     smt::theory_wmaxsat& maxsmt_solver_base::scoped_ensure_theory::operator()() { return *m_wth; }
     
+    void maxsmt_solver_base::trace_bounds(char const * solver) {
+        IF_VERBOSE(1, 
+                   rational l = m_adjust_value(m_lower);
+                   rational u = m_adjust_value(m_upper);
+                   if (l > u) std::swap(l, u);
+                   verbose_stream() << "(opt." << solver << " [" << l << ":" << u << "])\n";);        
+    }
 
 
 
@@ -167,9 +172,6 @@ namespace opt {
         else if (maxsat_engine == symbol("mss-maxres")) {            
             m_msolver = mk_mss_maxres(m_c, m_weights, m_soft_constraints);
         }
-        else if (maxsat_engine == symbol("pbmax")) {
-            m_msolver = mk_pbmax(m_c, m_weights, m_soft_constraints);
-        }
         else if (maxsat_engine == symbol("bcd2")) {
             m_msolver = mk_bcd2(m_c, m_weights, m_soft_constraints);
         }
@@ -180,9 +182,6 @@ namespace opt {
             // NB: this is experimental one-round version of SLS
             m_msolver = mk_sls(m_c, m_weights, m_soft_constraints);
         }        
-        else if (is_maxsat_problem(m_weights) && maxsat_engine == symbol("core_maxsat")) {
-            m_msolver = alloc(core_maxsat, m_c, m_soft_constraints);
-        }
         else if (is_maxsat_problem(m_weights) && maxsat_engine == symbol("fu_malik")) {
             m_msolver = alloc(fu_malik, m_c, m_soft_constraints);
         }
@@ -196,6 +195,7 @@ namespace opt {
 
         if (m_msolver) {
             m_msolver->updt_params(m_params);
+            m_msolver->set_adjust_value(m_adjust_value);
             is_sat = (*m_msolver)();
             if (is_sat != l_false) {
                 m_msolver->get_model(m_model);
@@ -245,7 +245,7 @@ namespace opt {
             rational q = m_msolver->get_lower();
             if (q > r) r = q;
         }
-        return r;
+        return m_adjust_value(r);
     }
 
     rational maxsmt::get_upper() const {
@@ -254,17 +254,16 @@ namespace opt {
             rational q = m_msolver->get_upper();
             if (q < r) r = q;
         }
-        return r;
+        return m_adjust_value(r);
     }
 
-    void maxsmt::update_lower(rational const& r, bool override) {
-        if (m_lower > r || override)  m_lower = r;
+    void maxsmt::update_lower(rational const& r) {
+        if (m_lower > r) m_lower = r;
     }
 
-    void maxsmt::update_upper(rational const& r, bool override) {
-        if (m_upper < r || override)  m_upper = r;
-    }
-    
+    void maxsmt::update_upper(rational const& r) {
+        if (m_upper < r) m_upper = r;
+    }    
 
     void maxsmt::get_model(model_ref& mdl) {
         mdl = m_model.get();

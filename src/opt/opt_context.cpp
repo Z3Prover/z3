@@ -218,7 +218,7 @@ namespace opt {
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n";);
         s.get_model(m_model);
         m_optsmt.setup(*m_opt_solver.get());
-        update_lower(true);
+        update_lower();
         switch (m_objectives.size()) {
         case 0:
             return is_sat;
@@ -293,7 +293,7 @@ namespace opt {
                 return r;
             }
             if (r == l_true && i + 1 < m_objectives.size()) {
-                update_lower(true);
+                update_lower();
             }
         }
         DEBUG_CODE(if (r == l_true) validate_lex(););
@@ -398,8 +398,8 @@ namespace opt {
 
     void context::yield() {
         m_pareto->get_model(m_model);
-        update_bound(true, true);
-        update_bound(true, false);
+        update_bound(true);
+        update_bound(false);
     }
 
     lbool context::execute_pareto() {
@@ -763,8 +763,9 @@ namespace opt {
                 SASSERT(obj.m_id == id);
                 obj.m_terms.reset();
                 obj.m_terms.append(terms);
-                obj.m_adjust_bound.set_offset(offset);
-                obj.m_adjust_bound.set_negate(neg);
+                obj.m_adjust_value.set_offset(offset);
+                obj.m_adjust_value.set_negate(neg);
+                m_maxsmts.find(id)->set_adjust_value(obj.m_adjust_value);
                 TRACE("opt", tout << "maxsat: " << id << " offset:" << offset << "\n";);
             }
             else if (is_maximize(fml, tr, orig_term, index)) {
@@ -772,6 +773,7 @@ namespace opt {
             }
             else if (is_minimize(fml, tr, orig_term, index)) {
                 m_objectives[index].m_term = tr;
+                m_objectives[index].m_adjust_value.set_negate(true);
             }
             else {
                 m_hard_constraints.push_back(fml);
@@ -826,15 +828,16 @@ namespace opt {
         }
     }
 
-    void context::update_bound(bool override, bool is_lower) {
+    void context::update_bound(bool is_lower) {
         expr_ref val(m);
+        bool override = true;
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             rational r;
             switch(obj.m_type) {
             case O_MINIMIZE:
                 if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
-                    inf_eps val = obj.m_adjust_bound.neg_add(r);
+                    inf_eps val = inf_eps(obj.m_adjust_value(r));
                     if (is_lower) {
                         m_optsmt.update_lower(obj.m_index, val, override);
                     }
@@ -845,7 +848,7 @@ namespace opt {
                 break;
             case O_MAXIMIZE:
                 if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
-                    inf_eps val = obj.m_adjust_bound.neg_add(r);
+                    inf_eps val = inf_eps(obj.m_adjust_value(r));
                     if (is_lower) {
                         m_optsmt.update_lower(obj.m_index, val, override);
                     }
@@ -868,10 +871,10 @@ namespace opt {
                 }
                 if (ok) {
                     if (is_lower) {
-                        m_maxsmts.find(obj.m_id)->update_upper(r, override);
+                        m_maxsmts.find(obj.m_id)->update_upper(r);
                     }
                     else {
-                        m_maxsmts.find(obj.m_id)->update_lower(r, override);
+                        m_maxsmts.find(obj.m_id)->update_lower(r);
                     }
                 }
                 break;
@@ -918,14 +921,12 @@ namespace opt {
         }
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
-        case O_MAXSMT: {
-            rational r = m_maxsmts.find(obj.m_id)->get_lower();
-            return obj.m_adjust_bound.neg_add(r);
-        }
+        case O_MAXSMT: 
+            return inf_eps(m_maxsmts.find(obj.m_id)->get_lower());
         case O_MINIMIZE:
-            return -m_optsmt.get_upper(obj.m_index);
+            return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
         case O_MAXIMIZE: 
-            return m_optsmt.get_lower(obj.m_index);
+            return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
         default:
             UNREACHABLE();
             return inf_eps();
@@ -939,12 +940,11 @@ namespace opt {
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
         case O_MAXSMT: 
-            return obj.m_adjust_bound.neg_add(m_maxsmts.find(obj.m_id)->get_upper());
-            // TBD: adjust bound
+            return inf_eps(m_maxsmts.find(obj.m_id)->get_upper());
         case O_MINIMIZE:
-            return -m_optsmt.get_lower(obj.m_index);
+            return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
         case O_MAXIMIZE: 
-            return m_optsmt.get_upper(obj.m_index);
+            return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
         default:
             UNREACHABLE();
             return inf_eps();

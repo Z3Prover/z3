@@ -59,7 +59,7 @@ namespace opt {
                     s().assert_expr(fml);
                     was_sat = true;
                 }
-                IF_VERBOSE(1, verbose_stream() << "(opt.wmax [" << m_lower << ":" << m_upper << "])\n";);
+                trace_bounds("wmax");
             }
             if (was_sat) {
                 wth().get_assignment(m_assignment);

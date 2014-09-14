@@ -193,7 +193,7 @@ public:
         exprs mcs;
         lbool is_sat = l_true;
         while (m_lower < m_upper && is_sat == l_true) {            
-            IF_VERBOSE(1, verbose_stream() << "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
+            trace_bounds("maxres");
             if (m_cancel) {
                 return l_undef;
             }
@@ -512,7 +512,7 @@ public:
         fml = m.mk_not(m.mk_and(m_B.size(), m_B.c_ptr()));
         s().assert_expr(fml);
         m_lower += w;
-        IF_VERBOSE(1, verbose_stream() << "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
+        trace_bounds("maxres");
     }
 
     bool get_mus_model(model_ref& mdl) {
@@ -789,8 +789,7 @@ public:
         }
         m_upper = upper;
         // verify_assignment();
-        IF_VERBOSE(1, verbose_stream() << 
-                   "(opt.maxres [" << m_lower << ":" << m_upper << "])\n";);
+        trace_bounds("maxres");
 
         add_upper_bound_block();
     }

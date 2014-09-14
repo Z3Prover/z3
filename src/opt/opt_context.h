@@ -51,7 +51,7 @@ namespace opt {
             app_ref     m_term;          // for maximize, minimize term
             expr_ref_vector   m_terms;   // for maxsmt
             vector<rational>  m_weights; // for maxsmt
-            bound_adjustment  m_adjust_bound;
+            adjust_value  m_adjust_value;
             symbol      m_id;            // for maxsmt
             unsigned    m_index;         // for maximize/minimize index
 
@@ -63,7 +63,7 @@ namespace opt {
                 m_index(idx)
             {
                 if (!is_max) {
-                    m_adjust_bound.set_negate(true);
+                    m_adjust_value.set_negate(true);
                 }
             }
 
@@ -212,8 +212,8 @@ namespace opt {
         void from_fmls(expr_ref_vector const& fmls);
         void simplify_fmls(expr_ref_vector& fmls);
 
-        void update_lower(bool override) { update_bound(override, true); }
-        void update_bound(bool override, bool is_lower);
+        void update_lower() { update_bound(true); }
+        void update_bound(bool is_lower);
 
         inf_eps get_lower_as_num(unsigned idx);
         inf_eps get_upper_as_num(unsigned idx);

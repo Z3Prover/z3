@@ -111,8 +111,7 @@ namespace opt {
             seed2assumptions();
             while (m_lower < m_upper) {
                 ++m_stats.m_num_iterations;
-                IF_VERBOSE(1, verbose_stream() << 
-                           "(opt.maxhs [" << m_lower << ":" << m_upper << "])\n";);
+                trace_bounds("maxhs");
                 TRACE("opt", tout << "(maxhs [" << m_lower << ":" << m_upper << "])\n";);
                 if (m_cancel) {
                     return l_undef;
