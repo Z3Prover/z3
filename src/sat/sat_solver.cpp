@@ -948,6 +948,7 @@ namespace sat {
     }
 
     void solver::init_search() {
+        m_model_is_current        = false;
         m_phase_counter           = 0;
         m_phase_cache_on          = false;
         m_conflicts_since_restart = 0;
@@ -1036,6 +1037,7 @@ namespace sat {
 
     void solver::mk_model() {
         m_model.reset();
+        m_model_is_current = true;
         unsigned num = num_vars();
         m_model.resize(num, l_undef);
         for (bool_var v = 0; v < num; v++) {
@@ -1738,6 +1740,7 @@ namespace sat {
             m_mus(); // ignore return value on cancelation.
             m_model.reset();
             m_model.append(m_mus.get_model());            
+            m_model_is_current = true;
         }
     }
 

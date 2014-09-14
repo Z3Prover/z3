@@ -71,9 +71,9 @@ namespace opt {
         }
         
         TRACE("opt", 
-              tout << m_upper << ": ";
+              tout << "upper: " << m_upper << " assignments: ";
               for (unsigned i = 0; i < m_weights.size(); ++i) {
-                  tout << (m_assignment[i]?"1":"0");
+                  tout << (m_assignment[i]?"T":"F");
               }
               tout << "\n";);
     }

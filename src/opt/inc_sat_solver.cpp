@@ -356,16 +356,13 @@ private:
         }
     }
 
-    // TBD: this is super-expensive because of the
-    // bit-blasting model converter.
-
     void extract_model() {
         TRACE("sat", tout << "retrieve model\n";);
-        sat::model const & ll_m = m_solver.get_model();
-        if (ll_m.empty()) {
+        if (!m_solver.model_is_current()) {
             m_model = 0;
             return;
         }
+        sat::model const & ll_m = m_solver.get_model();
         model_ref md = alloc(model, m);
         atom2bool_var::iterator it  = m_map.begin();
         atom2bool_var::iterator end = m_map.end();

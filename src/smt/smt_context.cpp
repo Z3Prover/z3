@@ -2852,7 +2852,7 @@ namespace smt {
 
     void context::init_assumptions(unsigned num_assumptions, expr * const * assumptions) {
         reset_assumptions();
-        m_bool_var2assumption.reset();
+        m_literal2assumption.reset();
         m_unsat_core.reset();
         if (num_assumptions > 0) {
             // We must give a chance to the theories to propagate before we create a new scope...
@@ -2868,7 +2868,7 @@ namespace smt {
                 proof * pr = m_manager.mk_asserted(curr_assumption);
                 internalize_assertion(curr_assumption, pr, 0);
                 literal l = get_literal(curr_assumption);
-                m_bool_var2assumption.insert(l.var(), curr_assumption);
+                m_literal2assumption.insert(l.index(), curr_assumption);
                 // mark_as_relevant(l); <<< not needed
                 // internalize_assertion marked l as relevant.
                 SASSERT(is_relevant(l));
@@ -2877,7 +2877,7 @@ namespace smt {
                     assign(l, mk_justification(justification_proof_wrapper(*this, pr)));
                 else
                     assign(l, b_justification::mk_axiom());
-                m_assumptions.push_back(l.var());
+                m_assumptions.push_back(l);
                 get_bdata(l.var()).m_assumption = true;
             }
         }
@@ -2887,10 +2887,10 @@ namespace smt {
     }
 
     void context::reset_assumptions() {
-        bool_var_vector::iterator it  = m_assumptions.begin();
-        bool_var_vector::iterator end = m_assumptions.end();
+        literal_vector::iterator it  = m_assumptions.begin();
+        literal_vector::iterator end = m_assumptions.end();
         for (; it != end; ++it)
-            get_bdata(*it).m_assumption = false;
+            get_bdata(it->var()).m_assumption = false;
         m_assumptions.reset();
     }
 
@@ -2907,10 +2907,8 @@ namespace smt {
             literal l = *it;
             TRACE("unsat_core_bug", tout << "answer literal: " << l << "\n";);
             SASSERT(get_bdata(l.var()).m_assumption);
-            SASSERT(m_bool_var2assumption.contains(l.var()));
-            expr * a = 0;
-            m_bool_var2assumption.find(l.var(), a);
-            SASSERT(a);
+            SASSERT(m_literal2assumption.contains(l.index()));
+            expr * a = m_literal2assumption[l.index()];
             if (!already_found_assumptions.contains(a)) {
                 already_found_assumptions.insert(a);
                 m_unsat_core.push_back(a);

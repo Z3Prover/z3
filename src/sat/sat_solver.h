@@ -76,8 +76,9 @@ namespace sat {
         random_gen              m_rand;
         clause_allocator        m_cls_allocator;
         cleaner                 m_cleaner;
-        model                   m_model;
+        model                   m_model;        
         model_converter         m_mc;
+        bool                    m_model_is_current;
         simplifier              m_simplifier;
         scc                     m_scc;
         asymm_branch            m_asymm_branch;
@@ -270,6 +271,7 @@ namespace sat {
     public:
         lbool check(unsigned num_lits = 0, literal const* lits = 0);
         model const & get_model() const { return m_model; }
+        bool model_is_current() const { return m_model_is_current; }
         literal_vector const& get_core() const { return m_core; }
         model_converter const & get_model_converter() const { return m_mc; }
 

@@ -130,6 +130,7 @@ public:
         if (m_asm2weight.find(e, weight)) {
             weight += w;
             m_asm2weight.insert(e, weight);
+            m_upper += w;
             return;
         }
         if (is_literal(e)) {
@@ -154,6 +155,7 @@ public:
     lbool mus_solver() {
         init();
         init_local();
+        trace_bounds("maxres");
         while (m_lower < m_upper) {
             TRACE("opt", 
                   display_vec(tout, m_asms.size(), m_asms.c_ptr());
@@ -776,6 +778,7 @@ public:
             if (!m.is_true(tmp)) {
                 upper += m_weights[i];
             }
+            TRACE("opt", tout << mk_pp(n, m) << " |-> " << mk_pp(tmp, m) << "\n";);
             CTRACE("opt", !m.is_true(tmp) && !m.is_false(tmp), 
                    tout << mk_pp(n, m) << " |-> " << mk_pp(tmp, m) << "\n";);
         }

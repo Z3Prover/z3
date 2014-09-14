@@ -830,6 +830,7 @@ namespace opt {
 
     void context::update_bound(bool is_lower) {
         expr_ref val(m);
+        if (!m_model.get()) return;
         bool override = true;
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
