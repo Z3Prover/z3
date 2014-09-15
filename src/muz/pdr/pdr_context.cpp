@@ -97,8 +97,9 @@ namespace pdr {
 
     std::ostream& pred_transformer::display(std::ostream& out) const {
         if (!rules().empty()) out << "rules\n";
+        datalog::rule_manager& rm = ctx.get_context().get_rule_manager();
         for (unsigned i = 0; i < rules().size(); ++i) {
-            rules()[i]->display_smt2(m, out) << "\n";
+            rm.display_smt2(*rules()[i], out) << "\n";
         }        
         out << "transition\n" << mk_pp(transition(), m) << "\n";
         return out;
@@ -149,12 +150,13 @@ namespace pdr {
     }
 
     datalog::rule const& pred_transformer::find_rule(model_core const& model) const {
+        datalog::rule_manager& rm = ctx.get_context().get_rule_manager();
         obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
         TRACE("pdr_verbose",
               for (; it != end; ++it) {
                   expr* pred = it->m_key;
                   tout << mk_pp(pred, m) << ":\n";
-                  if (it->m_value) it->m_value->display_smt2(m, tout) << "\n";                  
+                  if (it->m_value) rm.display_smt2(*it->m_value, tout) << "\n";                  
               }
         );
         
@@ -639,14 +641,14 @@ namespace pdr {
 
     // create constants for free variables in tail.
     void pred_transformer::ground_free_vars(expr* e, app_ref_vector& vars, ptr_vector<app>& aux_vars) {
-        ptr_vector<sort> sorts;
-        get_free_vars(e, sorts);
-        while (vars.size() < sorts.size()) {
+        expr_free_vars fv;
+        fv(e);
+        while (vars.size() < fv.size()) {
             vars.push_back(0);
         }
-        for (unsigned i = 0; i < sorts.size(); ++i) {
-            if (sorts[i] && !vars[i].get()) {
-                vars[i] = m.mk_fresh_const("aux", sorts[i]);
+        for (unsigned i = 0; i < fv.size(); ++i) {
+            if (fv[i] && !vars[i].get()) {
+                vars[i] = m.mk_fresh_const("aux", fv[i]);
                 aux_vars.push_back(vars[i].get());
             }
         }
@@ -1226,7 +1228,7 @@ namespace pdr {
                 }
 
                 expr_ref fml_concl(m);
-                reduced_rule->to_formula(fml_concl);                    
+                rm.to_formula(*reduced_rule.get(), fml_concl);                    
                 p1 = m.mk_hyper_resolve(pfs.size(), pfs.c_ptr(), fml_concl, positions, substs);
 
             }
@@ -1558,6 +1560,7 @@ namespace pdr {
         ex.to_model(model);
         decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
         var_subst vs(m, false);   
+        expr_free_vars fv;
         for (; it != end; ++it) {
             ptr_vector<datalog::rule> const& rules = it->m_value->rules();
             for (unsigned i = 0; i < rules.size(); ++i) {
@@ -1575,18 +1578,15 @@ namespace pdr {
                     fmls.push_back(r.get_tail(j));
                 }
                 tmp = m.mk_and(fmls.size(), fmls.c_ptr()); 
-                ptr_vector<sort> sorts;
                 svector<symbol> names;
-                get_free_vars(tmp, sorts);
-                for (unsigned i = 0; i < sorts.size(); ++i) {
-                    if (!sorts[i]) {
-                        sorts[i] = m.mk_bool_sort();
-                    }
+                fv(tmp);
+                fv.set_default_sort(m.mk_bool_sort());
+                for (unsigned i = 0; i < fv.size(); ++i) {
                     names.push_back(symbol(i));
                 }
-                sorts.reverse();
-                if (!sorts.empty()) {
-                    tmp = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), tmp);
+                fv.reverse();
+                if (!fv.empty()) {
+                    tmp = m.mk_exists(fv.size(), fv.c_ptr(), names.c_ptr(), tmp);
                 }
                 smt::kernel solver(m, get_fparams());
                 solver.assert_expr(tmp);

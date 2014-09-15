@@ -179,7 +179,7 @@ namespace datalog {
             if (m_context.generate_proof_trace()) {
                 expr_ref_vector s1 = m_unifier.get_rule_subst(tgt, true);
                 expr_ref_vector s2 = m_unifier.get_rule_subst(src, false);
-                datalog::resolve_rule(tgt, src, tail_index, s1, s2, *res.get());
+                datalog::resolve_rule(m_rm, tgt, src, tail_index, s1, s2, *res.get());
             }
             return true;        
         }

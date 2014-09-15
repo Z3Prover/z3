@@ -87,6 +87,7 @@ namespace smt {
         typedef typename Ext::numeral     numeral;
         typedef typename Ext::inf_numeral inf_numeral;
         typedef vector<numeral> numeral_vector; 
+        typedef map<rational, theory_var, obj_hash<rational>, default_eq<rational> > rational2var;
 
         static const int    dead_row_id = -1;
     protected:

@@ -334,7 +334,7 @@ class horn_tactic : public tactic {
             datalog::rule_set::iterator it = rules.begin(), end = rules.end();
             for (; it != end; ++it) {
                 datalog::rule* r = *it;
-                r->to_formula(fml);
+                m_ctx.get_rule_manager().to_formula(*r, fml);
                 (*rep)(fml);
                 g->assert_expr(fml);
             }

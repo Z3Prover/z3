@@ -30,6 +30,7 @@ Revision History:
 #include"rewriter.h"
 #include"hnf.h"
 #include"qe_lite.h"
+#include"var_subst.h"
 
 namespace datalog {
 
@@ -64,10 +65,8 @@ namespace datalog {
         context&             m_ctx;
         rule_counter         m_counter;
         used_vars            m_used;
-        ptr_vector<sort>     m_vars;
         var_idx_set          m_var_idx;
-        ptr_vector<expr>     m_todo;
-        ast_mark             m_mark;
+        expr_free_vars       m_free_vars;
         app_ref_vector       m_body;
         app_ref              m_head;
         expr_ref_vector      m_args;
@@ -143,7 +142,7 @@ namespace datalog {
 
         void accumulate_vars(expr* pred);
 
-        ptr_vector<sort>& get_var_sorts() { return m_vars; }
+        // ptr_vector<sort>& get_var_sorts() { return m_vars; }
 
         var_idx_set&      get_var_idx() { return m_var_idx; }
 
@@ -213,10 +212,13 @@ namespace datalog {
         */
         bool is_fact(app * head) const;
 
-
         static bool is_forall(ast_manager& m, expr* e, quantifier*& q);
 
         rule_counter& get_counter() { return m_counter; }
+
+        void to_formula(rule const& r, expr_ref& result);
+
+        std::ostream& display_smt2(rule const& r, std::ostream & out);
 
     };
 
@@ -306,11 +308,7 @@ namespace datalog {
 
         void get_vars(ast_manager& m, ptr_vector<sort>& sorts) const;
 
-        void to_formula(expr_ref& result) const;
-
         void display(context & ctx, std::ostream & out) const;
-
-        std::ostream& display_smt2(ast_manager& m, std::ostream & out) const;
 
         symbol const& name() const { return m_name; }
 

@@ -184,7 +184,7 @@ namespace datalog {
         TRACE("dl", tout << "Adding unbound column " << mk_pp(pred, m_context.get_manager()) << "\n";);
             IF_VERBOSE(3, { 
                     expr_ref e(m_context.get_manager()); 
-                    compiled_rule->to_formula(e); 
+                    m_context.get_rule_manager().to_formula(*compiled_rule, e); 
                     verbose_stream() << "Compiling unsafe rule column " << col_idx << "\n" 
                                      << mk_ismt2_pp(e, m_context.get_manager()) << "\n"; 
                 });
@@ -641,14 +641,14 @@ namespace datalog {
         if (!tail.empty()) {
             app_ref filter_cond(tail.size() == 1 ? to_app(tail.back()) : m.mk_and(tail.size(), tail.c_ptr()), m);
             ptr_vector<sort> filter_vars;
-            get_free_vars(filter_cond, filter_vars);
+            m_free_vars(filter_cond);
 
             // create binding
             expr_ref_vector binding(m);
-            binding.resize(filter_vars.size()+1);
+            binding.resize(m_free_vars.size()+1);
             
-            for (unsigned v = 0; v < filter_vars.size(); ++v) {
-                if (!filter_vars[v])
+            for (unsigned v = 0; v < m_free_vars.size(); ++v) {
+                if (!m_free_vars[v])
                     continue;
 
                 int2ints::entry * entry = var_indexes.find_core(v);
@@ -657,7 +657,7 @@ namespace datalog {
                     src_col = entry->get_data().m_value.back();
                 } else {
                     // we have an unbound variable, so we add an unbound column for it
-                    relation_sort unbound_sort = filter_vars[v];
+                    relation_sort unbound_sort = m_free_vars[v];
 
                     reg_idx new_reg;
                     bool new_dealloc;
@@ -674,19 +674,18 @@ namespace datalog {
                     entry->get_data().m_value.push_back(src_col);
                 }
                 relation_sort var_sort = m_reg_signatures[filtered_res][src_col];
-                binding[filter_vars.size()-v] = m.mk_var(src_col, var_sort);
+                binding[m_free_vars.size()-v] = m.mk_var(src_col, var_sort);
             }
 
             // check if there are any columns to remove
             unsigned_vector remove_columns;
             {
                 unsigned_vector var_idx_to_remove;
-                ptr_vector<sort> vars;
-                get_free_vars(r->get_head(), vars);
+                m_free_vars(r->get_head());
                 for (int2ints::iterator I = var_indexes.begin(), E = var_indexes.end();
                     I != E; ++I) {
                     unsigned var_idx = I->m_key;
-                    if (!vars.get(var_idx, 0)) {
+                    if (!m_free_vars.contains(var_idx)) {
                         unsigned_vector & cols = I->m_value;
                         for (unsigned i = 0; i < cols.size(); ++i) {
                             remove_columns.push_back(cols[i]);
@@ -745,10 +744,9 @@ namespace datalog {
         unsigned ft_len=r->get_tail_size(); //full tail
         for(unsigned tail_index=ut_len; tail_index<ft_len; tail_index++) {
             app * t = r->get_tail(tail_index);
-            ptr_vector<sort> t_vars;
-            ::get_free_vars(t, t_vars);
+            m_free_vars(t);
             
-            if(t_vars.empty()) {
+            if (m_free_vars.empty()) {
                 expr_ref simplified(m);
                 m_context.get_rewriter()(t, simplified);
                 if(m.is_true(simplified)) {
@@ -761,23 +759,22 @@ namespace datalog {
             }
 
             //determine binding size
-            while (!t_vars.back()) {
-                t_vars.pop_back();
-            }
-            unsigned max_var = t_vars.size();
+            
+            unsigned max_var = m_free_vars.size();
+            while (max_var > 0 && !m_free_vars[max_var-1]) --max_var;
 
             //create binding
             expr_ref_vector binding(m);
-            binding.resize(max_var+1);
+            binding.resize(max_var);
             
-            for(unsigned v = 0; v < t_vars.size(); ++v) {
-                if (!t_vars[v]) {
+            for(unsigned v = 0; v < max_var; ++v) {
+                if (!m_free_vars[v]) {
                     continue;
                 }
                 int2ints::entry * e = var_indexes.find_core(v);
                 if(!e) {
                     //we have an unbound variable, so we add an unbound column for it
-                    relation_sort unbound_sort = t_vars[v];
+                    relation_sort unbound_sort = m_free_vars[v];
 
                     reg_idx new_reg;
                     TRACE("dl", tout << mk_pp(head_pred, m_context.get_manager()) << "\n";);

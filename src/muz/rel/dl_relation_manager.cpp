@@ -1405,7 +1405,7 @@ namespace datalog {
         dl_decl_util & m_decl_util;
         th_rewriter & m_simp;
         app_ref m_condition;
-        ptr_vector<sort> m_var_sorts;
+        expr_free_vars m_free_vars;
         expr_ref_vector m_args;
     public:
         default_table_filter_interpreted_fn(context & ctx, unsigned col_cnt,  app* condition) 
@@ -1415,8 +1415,7 @@ namespace datalog {
                   m_simp(ctx.get_rewriter()),
                   m_condition(condition, ctx.get_manager()),
                   m_args(ctx.get_manager()) {
-            m_var_sorts.resize(col_cnt);
-            get_free_vars(m_condition, m_var_sorts);
+            m_free_vars(m_condition);
         }
 
         virtual bool should_remove(const table_fact & f) const {
@@ -1426,14 +1425,13 @@ namespace datalog {
             //arguments need to be in reverse order for the substitution
             unsigned col_cnt = f.size();
             for(int i=col_cnt-1;i>=0;i--) {
-                sort * var_sort = m_var_sorts[i];
-                if(!var_sort) {
+                if(!m_free_vars.contains(i)) {
                     args.push_back(0);
                     continue; //this variable does not occur in the condition;
                 }
 
                 table_element el = f[i];
-                args.push_back(m_decl_util.mk_numeral(el, var_sort));
+                args.push_back(m_decl_util.mk_numeral(el, m_free_vars[i]));
             }
 
             expr_ref ground(m_ast_manager);

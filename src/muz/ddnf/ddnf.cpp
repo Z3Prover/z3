@@ -516,13 +516,15 @@ namespace datalog {
             rule_set& old_rules = m_ctx.get_rules();
             rm.mk_query(query, old_rules);
             rule_set new_rules(m_ctx);
+            IF_VERBOSE(10, verbose_stream() << "(ddnf.preprocess)\n";);
             if (!pre_process_rules(old_rules)) {
                 return l_undef;
             }
+            IF_VERBOSE(10, verbose_stream() << "(ddnf.compile)\n";);
             if (!compile_rules1(old_rules, new_rules)) {
                 return l_undef;
             }
-            IF_VERBOSE(2, m_ddnfs.display(verbose_stream()););
+            IF_VERBOSE(15, m_ddnfs.display(verbose_stream()););
 
             dump_rules(new_rules);
             return l_undef;
@@ -728,7 +730,7 @@ namespace datalog {
             }
             rule* r_new = rm.mk(head, body.size(), body.c_ptr(), 0, r.name(), false);
             new_rules.add_rule(r_new);
-            IF_VERBOSE(2, r_new->display(m_ctx, verbose_stream()););
+            IF_VERBOSE(20, r_new->display(m_ctx, verbose_stream()););
             if (old_rules.is_output_predicate(r.get_decl())) {
                 new_rules.set_output_predicate(r_new->get_decl());
             }

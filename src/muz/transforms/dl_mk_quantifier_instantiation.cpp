@@ -238,7 +238,7 @@ namespace datalog {
             proof* p1 = r.get_proof();
             for (unsigned i = 0; i < added_rules.get_num_rules(); ++i) {
                 rule* r2 = added_rules.get_rule(i);
-                r2->to_formula(fml);
+                rm.to_formula(*r2, fml);
                 pr = m.mk_modus_ponens(m.mk_def_axiom(m.mk_implies(m.get_fact(p1), fml)), p1);
                 r2->set_proof(m, pr);
             }

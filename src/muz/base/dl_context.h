@@ -191,6 +191,7 @@ namespace datalog {
         pred2syms          m_argument_var_names;
         rule_set           m_rule_set;
         rule_set           m_transformed_rule_set;
+        expr_free_vars     m_free_vars;
         unsigned           m_rule_fmls_head;
         expr_ref_vector    m_rule_fmls;
         svector<symbol>    m_rule_names;

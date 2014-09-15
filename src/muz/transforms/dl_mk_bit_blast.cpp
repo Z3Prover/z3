@@ -225,7 +225,6 @@ namespace datalog {
         mk_interp_tail_simplifier m_simplifier;
         bit_blaster_rewriter m_blaster;
         expand_mkbv          m_rewriter;
-        
 
         bool blast(rule *r, expr_ref& fml) {
             proof_ref pr(m);
@@ -235,7 +234,7 @@ namespace datalog {
             if (!m_simplifier.transform_rule(r, r2)) {
                 r2 = r;
             }
-            r2->to_formula(fml1);
+            m_context.get_rule_manager().to_formula(*r2.get(), fml1);
             m_blaster(fml1, fml2, pr);
             m_rewriter(fml2, fml3);
             TRACE("dl", tout << mk_pp(fml, m) << " -> " << mk_pp(fml2, m) << " -> " << mk_pp(fml3, m) << "\n";);
@@ -274,7 +273,7 @@ namespace datalog {
             m_rewriter.m_cfg.set_dst(result);
             for (unsigned i = 0; !m_context.canceled() && i < sz; ++i) {
                 rule * r = source.get_rule(i);
-                r->to_formula(fml);
+                rm.to_formula(*r, fml);
                 if (blast(r, fml)) {
                     proof_ref pr(m);
                     if (r->get_proof()) {

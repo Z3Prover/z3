@@ -334,21 +334,13 @@ namespace datalog {
         else {
             m_names.reset();
             m_abstractor(0, vars.size(), reinterpret_cast<expr*const*>(vars.c_ptr()), fml, result);
-            rm.collect_vars(result);
-            ptr_vector<sort>& sorts = rm.get_var_sorts();
-            if (sorts.empty()) {
+            m_free_vars(result);
+            if (m_free_vars.empty()) {
                 result = fml;
             }
             else {
-                for (unsigned i = 0; i < sorts.size(); ++i) {
-                    if (!sorts[i]) {
-                        if (i < vars.size()) { 
-                            sorts[i] = vars[i]->get_decl()->get_range();
-                        }
-                        else {
-                            sorts[i] = m.mk_bool_sort();
-                        }
-                    }
+                m_free_vars.set_default_sort(m.mk_bool_sort());
+                for (unsigned i = 0; i < m_free_vars.size(); ++i) {
                     if (i < vars.size()) {
                         m_names.push_back(vars[i]->get_decl()->get_name());
                     }
@@ -357,8 +349,8 @@ namespace datalog {
                     }
                 }
                 quantifier_ref q(m);
-                sorts.reverse();
-                q = m.mk_quantifier(is_forall, sorts.size(), sorts.c_ptr(), m_names.c_ptr(), result); 
+                m_free_vars.reverse();
+                q = m.mk_quantifier(is_forall, m_free_vars.size(), m_free_vars.c_ptr(), m_names.c_ptr(), result); 
                 m_elim_unused_vars(q, result);
             }
         }
@@ -604,7 +596,7 @@ namespace datalog {
         unsigned ut_size = r.get_uninterpreted_tail_size();
         unsigned t_size  = r.get_tail_size();   
         
-        TRACE("dl", r.display_smt2(get_manager(), tout); tout << "\n";);
+        TRACE("dl", get_rule_manager().display_smt2(r, tout); tout << "\n";);
         for (unsigned i = ut_size; i < t_size; ++i) {
             app* t = r.get_tail(i);
             TRACE("dl", tout << "checking: " << mk_ismt2_pp(t, get_manager()) << "\n";);
@@ -1121,13 +1113,13 @@ namespace datalog {
 
     void context::get_rules_as_formulas(expr_ref_vector& rules, expr_ref_vector& queries, svector<symbol>& names) {
         expr_ref fml(m);
-        datalog::rule_manager& rm = get_rule_manager();
+        rule_manager& rm = get_rule_manager();
         
         // ensure that rules are all using bound variables.
         for (unsigned i = m_rule_fmls_head; i < m_rule_fmls.size(); ++i) {
             ptr_vector<sort> sorts;
-            get_free_vars(m_rule_fmls[i].get(), sorts);
-            if (!sorts.empty()) {
+            m_free_vars(m_rule_fmls[i].get());
+            if (!m_free_vars.empty()) {
                 rm.mk_rule(m_rule_fmls[i].get(), 0, m_rule_set, m_rule_names[i]);
                 m_rule_fmls[i] = m_rule_fmls.back();
                 m_rule_names[i] = m_rule_names.back();
@@ -1139,7 +1131,7 @@ namespace datalog {
         rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
         for (; it != end; ++it) {
             rule* r = *it;
-            r->to_formula(fml);
+            rm.to_formula(*r, fml);
             func_decl* h = r->get_decl();
             if (m_rule_set.is_output_predicate(h)) {
                 expr* body = fml;

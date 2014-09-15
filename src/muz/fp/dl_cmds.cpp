@@ -226,6 +226,7 @@ public:
         bool query_exn = false;
         lbool status = l_undef;
         {
+            IF_VERBOSE(10, verbose_stream() << "(query)\n";);
             scoped_ctrl_c ctrlc(eh);
             scoped_timer timer(timeout, &eh);
             cmd_context::scoped_watch sw(ctx);

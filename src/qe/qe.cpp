@@ -2271,17 +2271,14 @@ namespace qe {
 
 
     void expr_quant_elim::instantiate_expr(expr_ref_vector& bound, expr_ref& fml) {
-        ptr_vector<sort> sorts;
-        get_free_vars(fml, sorts);
-        if (!sorts.empty()) {
+        expr_free_vars fv;
+        fv(fml);
+        fv.set_default_sort(m.mk_bool_sort());
+        if (!fv.empty()) {
             expr_ref tmp(m);
-            for (unsigned i = sorts.size(); i > 0;) {
+            for (unsigned i = fv.size(); i > 0;) {
                 --i;
-                sort* s = sorts[i];
-                if (!s) {
-                    s = m.mk_bool_sort();
-                }
-                bound.push_back(m.mk_fresh_const("bound", s));
+                bound.push_back(m.mk_fresh_const("bound", fv[i]));
             }
             var_subst subst(m);
             subst(fml, bound.size(), bound.c_ptr(), tmp);

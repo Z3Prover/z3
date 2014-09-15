@@ -87,6 +87,7 @@ class hnf::imp {
     expr_ref_vector       m_body;
     proof_ref_vector      m_defs;
     contains_predicate_proc m_proc;
+    expr_free_vars        m_free_vars;
 
 
 public:
@@ -350,13 +351,13 @@ private:
     }
 
     app_ref mk_fresh_head(expr* e) {
-        ptr_vector<sort> sorts0, sorts1;
-        get_free_vars(e, sorts0);
+        ptr_vector<sort> sorts1;
+        m_free_vars(e);
         expr_ref_vector args(m);
-        for (unsigned i = 0; i < sorts0.size(); ++i) {
-            if (sorts0[i]) {
-                args.push_back(m.mk_var(i, sorts0[i]));
-                sorts1.push_back(sorts0[i]);
+        for (unsigned i = 0; i < m_free_vars.size(); ++i) {
+            if (m_free_vars[i]) {
+                args.push_back(m.mk_var(i, m_free_vars[i]));
+                sorts1.push_back(m_free_vars[i]);
             }
         }
         func_decl_ref f(m);
