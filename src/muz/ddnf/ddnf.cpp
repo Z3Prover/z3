@@ -735,10 +735,11 @@ namespace datalog {
 
         void compile_eq(expr* e, expr_ref& result, var* v, unsigned hi, unsigned lo, expr* c) {
             tbv* t;
+            // TBD: hi, lo are ignored.
             VERIFY(m_expr2tbv.find(e, t));            
             var_ref w(m);
             compile_var(v, w);
-            unsigned num_bits = bv.get_bv_size(e);
+            unsigned num_bits = bv.get_bv_size(c);
             ddnf_nodes const& ns = m_ddnfs.lookup(num_bits, *t);
             ddnf_nodes::iterator it = ns.begin(), end = ns.end();
             expr_ref_vector eqs(m);
