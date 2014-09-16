@@ -25,159 +25,9 @@ Revision History:
 #include "dl_context.h"
 #include "scoped_proof.h"
 #include "bv_decl_plugin.h"
+#include "tbv.h"
 
 namespace datalog {
-
-#define BIT_0 ((0<<1)|1)
-#define BIT_1 ((1<<1)|0)
-#define BIT_x ((1<<1)|1)
-#define BIT_z 0
-
-    class tbv : private bit_vector {
-    public:
-        tbv(): bit_vector() {}
-        tbv(unsigned n): bit_vector(2*n) {}
-        tbv(tbv const& other): bit_vector(other) {}
-        tbv(unsigned n, unsigned val): bit_vector() {
-            SASSERT(val <= 3);
-            resize(n, val);
-        }
-        tbv(uint64 val, unsigned n) : bit_vector(2*n) {
-            resize(n, BIT_x);
-            for (unsigned bit = n; bit > 0;) {
-                --bit;
-                if (val & (1ULL << bit)) {                        
-                    set(bit, BIT_1);
-                } else {
-                    set(bit, BIT_0);
-                }
-            }
-        }
-
-        tbv(uint64 v, unsigned sz, unsigned hi, unsigned lo) : bit_vector(2*sz) {
-            resize(sz, BIT_x);
-            SASSERT(64 >= sz && sz > hi && hi >= lo);
-            for (unsigned i = 0; i < hi - lo + 1; ++i) {
-                set(lo + i, (v & (1ULL << i))?BIT_1:BIT_0);
-            }
-        }
-
-        tbv(rational const& v, unsigned n) : bit_vector(2*n) {
-            if (v.is_uint64() && n <= 64) {
-                tbv tmp(v.get_uint64(), n);
-                *this = tmp;
-                return;
-            }
-
-            resize(n, BIT_x);
-            for (unsigned bit = n; bit > 0; ) {
-                --bit;
-                if (bitwise_and(v, rational::power_of_two(bit)).is_zero()) {
-                    set(bit, BIT_0);
-                } else {
-                    set(bit, BIT_1);
-                }
-            }            
-        }
-
-        tbv& operator=(tbv const& other) { 
-            bit_vector::operator=(other);
-            return *this;
-        }
-
-        bool operator!=(tbv const& other) const { 
-            return bit_vector::operator!=(other);
-        }
-
-        bool operator==(tbv const& other) const { 
-            return bit_vector::operator==(other);
-        }
-
-        unsigned get_hash() const {
-            return bit_vector::get_hash();
-        }
-
-        void resize(unsigned n, unsigned val) {
-            while (size() < n) {
-                bit_vector::push_back((val & 2) != 0);
-                bit_vector::push_back((val & 1) != 0);
-            }
-        }
-
-        bool is_subset(tbv const& other) const {
-            SASSERT(size() == other.size());
-            return other.contains(*this);
-        }
-
-        bool is_superset(tbv const& other) const {
-            SASSERT(size() == other.size());
-            return contains(other);
-        }
-
-        unsigned size() const { return bit_vector::size()/2; }
-
-        void display(std::ostream& out) const {
-            for (unsigned i = 0; i < size(); ++i) {
-                switch (get(i)) {
-                case BIT_0:
-                    out << '0';
-                    break;
-                case BIT_1:
-                    out << '1';
-                    break;
-                case BIT_x:
-                    out << 'x';
-                    break;
-                case BIT_z:
-                    out << 'z';
-                    break;
-                default:
-                    UNREACHABLE();
-                }
-            }
-        }
-
-        struct eq {
-            bool operator()(tbv const& d1, tbv const& d2) const {
-                return d1 == d2;
-            }
-        };
-
-        struct hash {
-            unsigned operator()(tbv const& d) const {
-                return d.get_hash();
-            }
-        };
-
-        
-        friend bool intersect(tbv const& a, tbv const& b, tbv& result);
-
-    private:
-        void set(unsigned index, unsigned value) {
-            SASSERT(value <= 3);
-            bit_vector::set(2*index,   (value & 2) != 0);
-            bit_vector::set(2*index+1, (value & 1) != 0);
-        }
-
-        unsigned get(unsigned index) const {
-            index *= 2;
-            return (bit_vector::get(index) << 1) | (unsigned)bit_vector::get(index+1);
-        }
-    };
-
-    std::ostream& operator<<(std::ostream& out, tbv const& t) {
-        t.display(out);
-        return out;
-    }
-
-    bool intersect(tbv const& a, tbv const& b, tbv& result) {
-        result = a;
-        result &= b;
-        for (unsigned i = 0; i < result.size(); ++i) {
-            if (result.get(i) == BIT_z) return false;
-        }
-        return true;
-    }
 
     class ddnf_mgr;
     class ddnf_node;
@@ -187,33 +37,46 @@ namespace datalog {
     public:
 
         struct eq {
+            tbv_manager& m;
+            eq(tbv_manager& m):m(m) {}
             bool operator()(ddnf_node* n1, ddnf_node* n2) const {
-                return n1->get_tbv() == n2->get_tbv();
+                return m.equals(n1->get_tbv(), n2->get_tbv());
             }
         };
 
         struct hash {
+            tbv_manager& m;
+            hash(tbv_manager& m):m(m) {}
             unsigned operator()(ddnf_node* n) const {
-                return n->get_tbv().get_hash();
+                return m.hash(n->get_tbv());
             }
         };
 
         typedef ptr_hashtable<ddnf_node, ddnf_node::hash, ddnf_node::eq> ddnf_nodes;
     private:
-        tbv                   m_tbv;
+        ddnf_mgr&             m;
+        tbv_manager&          tbvm;
+        tbv const&            m_tbv;
         ddnf_node_vector      m_children;
         unsigned              m_refs;
         unsigned              m_id;
+        ddnf_node::hash       m_hash;
+        ddnf_node::eq         m_eq;
         ddnf_nodes            m_descendants;
 
         friend class ddnf_mgr;
 
     public:
-        ddnf_node(ddnf_mgr& m, tbv const& tbv, unsigned id):
+        ddnf_node(ddnf_mgr& m, tbv_manager& tbvm, tbv const& tbv, unsigned id):
+            m(m),
+            tbvm(tbvm),
             m_tbv(tbv),
             m_children(m),
             m_refs(0),
-            m_id(id) {                        
+            m_id(id),
+            m_hash(tbvm),
+            m_eq(tbvm),
+            m_descendants(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_hash, m_eq) {
         }
 
         ~ddnf_node() {}
@@ -248,7 +111,7 @@ namespace datalog {
 
         void display(std::ostream& out) const {
             out << "node[" << get_id() << ": ";
-            m_tbv.display(out);
+            tbvm.display(out, m_tbv);
             for (unsigned i = 0; i < m_children.size(); ++i) {
                 out << " " << m_children[i]->get_id();
             }
@@ -263,17 +126,24 @@ namespace datalog {
         unsigned               m_num_bits;
         ddnf_node*             m_root;
         ddnf_node_vector       m_noderefs;
-        ddnf_nodes             m_nodes;
         bool                   m_internalized;
+        tbv_manager            m_tbv;
+        ddnf_node::hash        m_hash;
+        ddnf_node::eq          m_eq;
+        ddnf_nodes             m_nodes;
     public:
-        ddnf_mgr(unsigned n): m_num_bits(n), m_noderefs(*this), m_internalized(false) {
-            m_root = alloc(ddnf_node, *this, tbv(n, BIT_x), m_nodes.size());
+        ddnf_mgr(unsigned n): m_num_bits(n), m_noderefs(*this), m_internalized(false), m_tbv(n),
+                              m_hash(m_tbv), m_eq(m_tbv),
+                              m_nodes(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_hash, m_eq) {
+            tbv* bX = m_tbv.allocateX();
+            m_root = alloc(ddnf_node, *this, m_tbv, *bX, m_nodes.size());
             m_noderefs.push_back(m_root);
             m_nodes.insert(m_root);
         }
 
         ~ddnf_mgr() {
             m_noderefs.reset();
+            m_tbv.reset();
         }
 
         void inc_ref(ddnf_node* n) {
@@ -285,20 +155,24 @@ namespace datalog {
         }
 
         ddnf_node* insert(tbv const& t) {
-            SASSERT(t.size() == m_num_bits);
             SASSERT(!m_internalized);
-            vector<tbv> new_tbvs;
-            new_tbvs.push_back(t);
+            ptr_vector<tbv const> new_tbvs;
+            new_tbvs.push_back(&t);
             for (unsigned i = 0; i < new_tbvs.size(); ++i) {
-                tbv const& nt = new_tbvs[i];
+                tbv const& nt = *new_tbvs[i];
                 if (contains(nt)) continue;
-                ddnf_node* n = alloc(ddnf_node, *this, nt, m_noderefs.size());
+                ddnf_node* n = alloc(ddnf_node, *this, m_tbv, nt, m_noderefs.size());
                 m_noderefs.push_back(n);
                 m_nodes.insert(n);
                 insert(*m_root, n, new_tbvs);
             }
             return find(t);
         }
+
+        tbv* allocate(uint64 v, unsigned hi, unsigned lo) {
+            return m_tbv.allocate(v, hi, lo);
+        }
+
 
         unsigned size() const { 
             return m_noderefs.size(); 
@@ -319,24 +193,24 @@ namespace datalog {
     private:
 
         ddnf_node* find(tbv const& t) {
-            ddnf_node dummy(*this, t, 0);
+            ddnf_node dummy(*this, m_tbv, t, 0);
             return *(m_nodes.find(&dummy));
         }
     
         bool contains(tbv const& t) {
-            ddnf_node dummy(*this, t, 0);
+            ddnf_node dummy(*this, m_tbv, t, 0);
             return m_nodes.contains(&dummy);
         }    
 
-        void insert(ddnf_node& root, ddnf_node* new_n, vector<tbv>& new_intersections) {
+        void insert(ddnf_node& root, ddnf_node* new_n, ptr_vector<tbv const>& new_intersections) {
             tbv const& new_tbv = new_n->get_tbv();
             
-            SASSERT(new_tbv.is_subset(root.get_tbv()));
+            SASSERT(m_tbv.contains(root.get_tbv(), new_tbv));
             if (&root == new_n) return;
             bool inserted = false;
             for (unsigned i = 0; i < root.num_children(); ++i) {
                 ddnf_node& child = *(root[i]);
-                if (child.get_tbv().is_superset(new_tbv)) {
+                if (m_tbv.contains(child.get_tbv(), new_tbv)) {
                     inserted = true;
                     insert(child, new_n, new_intersections);
                 }
@@ -345,20 +219,22 @@ namespace datalog {
                 return;
             }
             ddnf_node_vector subset_children(*this);
-            tbv intr;
+            tbv* intr = m_tbv.allocate();
             for (unsigned i = 0; i < root.num_children(); ++i) {
                 ddnf_node& child = *(root[i]);
                 // cannot be superset
-                SASSERT(!child.get_tbv().is_superset(new_tbv));
+                SASSERT(!m_tbv.contains(child.get_tbv(),new_tbv));
                 // checking for subset
-                if (child.get_tbv().is_subset(new_tbv)) {
+                if (m_tbv.contains(new_tbv, child.get_tbv())) {
                     subset_children.push_back(&child);
                 }
-                else if (intersect(child.get_tbv(), new_tbv, intr)) {
+                else if (m_tbv.intersect(child.get_tbv(), new_tbv, *intr)) {
                     // this means there is a non-full intersection
                     new_intersections.push_back(intr);
+                    intr = m_tbv.allocate();
                 }
             }
+            m_tbv.deallocate(intr);
             for (unsigned i = 0; i < subset_children.size(); ++i) {
                 root.remove_child(subset_children[i].get());
                 new_n->add_child(subset_children[i].get());
@@ -413,7 +289,7 @@ namespace datalog {
     };
 
     void ddnf_node::add_child(ddnf_node* n) {
-        SASSERT(!m_tbv.is_subset(n->m_tbv));
+        //SASSERT(!m_tbv.is_subset(n->m_tbv));
         m_children.push_back(n);
     }
     
@@ -438,21 +314,19 @@ namespace datalog {
             }
         }
         
-        void insert(tbv const& t) {
-            get(t.size()).insert(t);
+        tbv* allocate(unsigned num_bits, uint64 v, unsigned hi, unsigned lo) {
+            return get(num_bits).allocate(v, hi, lo);
+        }
+        void insert(unsigned num_bits, tbv const& t) {
+            get(num_bits).insert(t);
         }
         
-        ddnf_mgr& get(unsigned sz) {
-            ddnf_mgr* result = 0;
-            if (!m_mgrs.find(sz, result)) {
-                result = insert(sz);
-                m_mgrs.insert(sz, result);
-            }
-            return *result;
+        ddnf_mgr& get(unsigned num_bits) {
+            return *insert(num_bits);
         }
 
-        ddnf_nodes const& lookup(tbv const& t) const {
-            return m_mgrs.find(t.size())->lookup(t);
+        ddnf_nodes const& lookup(unsigned n, tbv const& t) const {
+            return m_mgrs.find(n)->lookup(t);
         }
 
         void display(std::ostream& out) const {
@@ -489,7 +363,7 @@ namespace datalog {
         ast_mark               m_visited1, m_visited2;
         ddnfs                  m_ddnfs;
         stats                  m_stats;
-        obj_map<expr, tbv>     m_expr2tbv;
+        obj_map<expr, tbv*>    m_expr2tbv;
         obj_map<expr, expr*>   m_cache;
         expr_ref_vector        m_trail;
         context                m_inner_ctx;
@@ -666,9 +540,9 @@ namespace datalog {
                 return false;
             }
             // v[hi:lo] = val
-            tbv tbv(val.get_uint64(), sz_v, hi, lo);            
-            m_ddnfs.insert(tbv);
-            m_expr2tbv.insert(e, tbv);
+            tbv* tv = m_ddnfs.allocate(sz_v, val.get_uint64(), hi, lo);
+            m_ddnfs.insert(sz_v, *tv);
+            m_expr2tbv.insert(e, tv);
             // std::cout << mk_pp(v, m) << " " << lo << " " << hi << " " << v << " " << tbv << "\n";
             return true;
         }
@@ -860,11 +734,11 @@ namespace datalog {
         }
 
         void compile_eq(expr* e, expr_ref& result, var* v, unsigned hi, unsigned lo, expr* c) {
-            tbv t;
+            tbv* t;
             VERIFY(m_expr2tbv.find(e, t));            
             var_ref w(m);
             compile_var(v, w);
-            ddnf_nodes const& ns = m_ddnfs.lookup(t);
+            ddnf_nodes const& ns = m_ddnfs.lookup(0xFFFFF, *t);
             ddnf_nodes::iterator it = ns.begin(), end = ns.end();
             expr_ref_vector eqs(m);
             sort* s = m.get_sort(w);

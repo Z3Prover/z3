@@ -41,6 +41,7 @@ class fixed_bit_vector_manager {
 public:
     fixed_bit_vector_manager(unsigned num_bits);
 
+    void reset() { m_alloc.reset(); }
     fixed_bit_vector* allocate();
     fixed_bit_vector* allocate1();
     fixed_bit_vector* allocate0();

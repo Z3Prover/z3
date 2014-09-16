@@ -20,6 +20,9 @@ Revision History:
 
 #include "tbv.h"
 
+void tbv_manager::reset() {
+    m.reset();
+}
 tbv* tbv_manager::allocate() {
     return reinterpret_cast<tbv*>(m.allocate());
 }
@@ -53,6 +56,16 @@ tbv* tbv_manager::allocate(uint64 val) {
     }
     return v;
 }
+
+tbv* tbv_manager::allocate(uint64 val, unsigned hi, unsigned lo) {
+    tbv* v = allocateX();
+    SASSERT(64 >= m.num_bits() && m.num_bits() > hi && hi >= lo);
+    for (unsigned i = 0; i < hi - lo + 1; ++i) {
+        v->set(lo + i, (val & (1ULL << i))?BIT_1:BIT_0);
+    }
+    return v;
+}
+
 tbv* tbv_manager::allocate(rational const& r) {
     if (r.is_uint64()) {
         return allocate(r.get_uint64());

@@ -34,6 +34,7 @@ class tbv_manager {
     fixed_bit_vector_manager m;
 public:
     tbv_manager(unsigned n): m(2*n) {}
+    void reset();
     tbv* allocate();
     tbv* allocate1();
     tbv* allocate0();
@@ -41,6 +42,8 @@ public:
     tbv* allocate(tbv const& bv);
     tbv* allocate(uint64 n);
     tbv* allocate(rational const& r);
+    tbv* allocate(uint64 n, unsigned hi, unsigned lo);
+
     void deallocate(tbv* bv);
         
     void copy(tbv& dst, tbv const& src) const;
