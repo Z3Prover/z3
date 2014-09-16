@@ -26,12 +26,13 @@ Revision History:
 
 class tbv;
 
+#define BIT_0 0x1
+#define BIT_1 0x2
+#define BIT_x 0x3
+#define BIT_z 0x0
+
 class tbv_manager {
     friend class tbv;
-    static const unsigned BIT_0 = 0x1;
-    static const unsigned BIT_1 = 0x2;
-    static const unsigned BIT_x = 0x3;
-    static const unsigned BIT_z = 0x0;
     fixed_bit_vector_manager m;
 public:
     tbv_manager(unsigned n): m(2*n) {}
@@ -44,6 +45,7 @@ public:
     tbv* allocate(uint64 n);
     tbv* allocate(rational const& r);
     tbv* allocate(uint64 n, unsigned hi, unsigned lo);
+    tbv* allocate(tbv const& bv, unsigned const* permutation);
 
     void deallocate(tbv* bv);
         
@@ -68,11 +70,6 @@ class tbv: private fixed_bit_vector {
     friend class tbv_manager;
 
 public:
-
-    static const unsigned BIT_0 = tbv_manager::BIT_0;
-    static const unsigned BIT_1 = tbv_manager::BIT_1;
-    static const unsigned BIT_x = tbv_manager::BIT_x;
-    static const unsigned BIT_z = tbv_manager::BIT_z;
 
     struct eq {
         tbv_manager& m;

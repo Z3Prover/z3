@@ -24,6 +24,8 @@ Revision History:
 #define _DOC_H_
 
 #include "tbv.h"
+#include "union_find.h"
+
 
 class doc;
 template<typename M, typename T> class union_bvec;
@@ -42,6 +44,7 @@ public:
     doc* allocate(uint64 n);
     doc* allocate(rational const& r);
     doc* allocate(uint64 n, unsigned hi, unsigned lo);
+    doc* allocate(doc, unsigned const* permutation);
     void deallocate(doc* src);        
     void copy(doc& dst, doc const& src) const;
     doc& reset(doc& src) const { return fill0(src); }
@@ -62,6 +65,15 @@ public:
 template<typename M, typename T>
 class union_bvec { 
     ptr_vector<T> m_elems; // TBD: reuse allocator of M
+
+    enum fix_bit_result_t {
+        e_row_removed, // = 1
+        e_duplicate_row, // = 2
+        e_fixed
+    };
+
+    typedef union_find<> subset_ints;
+
 public:
     unsigned size() const { return m_elems.size(); }
     T& operator[](unsigned idx) const { return *m_elems[idx]; }
@@ -81,7 +93,7 @@ public:
         }
         m_elems.reset(); 
     }    
-    void insert(M& m, T* t) {
+    bool insert(M& m, T* t) {
         unsigned sz = size(), j = 0;
         bool found = false;
         for (unsigned i = 0; i < sz; ++i, ++j) {
@@ -103,6 +115,7 @@ public:
         else {
             m_elems.push_back(t);
         }
+        return !found;
     }
     bool intersect(M& m, T& t) {
         unsigned sz = size();
@@ -143,6 +156,97 @@ public:
             m.complement(*m_elems[i], negated.m_elems);
             result.intersect(m, negated);
             negated.reset(m);
+        }
+    }
+    void fix_eq_bits(unsigned idx1, tbv* BV, unsigned idx2, unsigned length,
+                     subset_ints& equalities, const bit_vector& discard_cols) {
+        for (unsigned i = 0; i < length; ++i) {
+            unsigned k = 0;
+            for (unsigned j = 0; j < size(); ++j, ++k) {
+
+#if 0
+                T *eqBV = BV ? const_cast<T*>(BV) : &*I;
+                bool discard_col = discard_cols.get(idx1+i) || (!BV && discard_cols.get(idx2+i));
+                
+                switch (fix_single_bit(*I, idx1+i, eqBV, idx2+i, equalities, discard_col)) {
+                case 1:
+                    // remove row
+                    I = m_bitvectors.erase(I);
+                    break;
+                    
+                case 2: {
+                    // don't care column equality. try subtraction first.
+                    union_ternary_bitvector diff(I->size()), result(I->size());
+                    T BV(I->size(), true);
+                    BV.set(idx1+i, BIT_0);
+                    BV.set(idx2+i, BIT_1);
+                    diff.add_new_fact(BV);
+                    
+                    BV.set(idx1+i, BIT_1);
+                    BV.set(idx2+i, BIT_0);
+                    diff.add_new_fact(BV);
+                    
+                    I->subtract(diff, result);
+                    *I = *result.begin();
+                    ++I;
+                    break;
+                }
+
+                default:
+                    if (I->is_empty()) {
+                        I = m_bitvectors.erase(I);
+                    } else {
+                        // bits fixed
+                        ++I;
+                    }
+                }
+#endif
+            }
+        }
+    }
+
+private:
+
+    fix_bit_result_t fix_single_bit(tbv& bv, unsigned idx, unsigned value, const subset_ints& equalities) {
+        unsigned root = equalities.find(idx);
+        idx = root;
+        do {
+            unsigned bitval = bv.get(idx);
+            if (bitval == tbv::BIT_x) {
+                bv.set(idx, value);
+            } 
+            else if (bitval != value) {
+                return e_row_removed;
+            }
+            idx = equalities.next(idx);
+        } 
+        while (idx != root);
+        return e_fixed;
+    }
+
+    fix_bit_result_t fix_single_bit(tbv & BV1, unsigned idx1, tbv & BV2, unsigned idx2,
+                                  subset_ints& equalities, bool discard_col) {
+        unsigned A = BV1.get(idx1);
+        unsigned B = BV2.get(idx2);
+        
+        if (A == tbv::BIT_x) {
+            if (B == tbv::BIT_x) {
+                // Both are don't cares.
+                if (!discard_col)
+                    return e_duplicate_row;
+                equalities.merge(idx1, idx2);
+                return e_fixed;
+            } else {
+                // only A is don't care.
+                return fix_single_bit(BV1, idx1, B, equalities);
+            }
+        } else if (B == tbv::BIT_x) {
+            // Only B is don't care.
+            return fix_single_bit(BV2, idx2, A, equalities);
+        } else if (A == B) {
+            return e_fixed;
+        } else {
+            return e_row_removed;
         }
     }
 

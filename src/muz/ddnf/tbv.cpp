@@ -59,9 +59,16 @@ tbv* tbv_manager::allocate(uint64 val) {
 
 tbv* tbv_manager::allocate(uint64 val, unsigned hi, unsigned lo) {
     tbv* v = allocateX();
-    SASSERT(64 >= m.num_bits() && m.num_bits() > hi && hi >= lo);
+    SASSERT(64 >= num_tbits() && num_tbits() > hi && hi >= lo);
     v->set(val, hi, lo);
     return v;
+}
+tbv* tbv_manager::allocate(tbv const& bv, unsigned const* permutation) {
+    tbv* r = allocate();
+    for (unsigned i = 0; i < num_tbits(); ++i) {
+        r->set(permutation[i], bv.get(i));
+    }
+    return r;
 }
 void tbv::set(uint64 val, unsigned hi, unsigned lo) {
     for (unsigned i = 0; i < hi - lo + 1; ++i) {

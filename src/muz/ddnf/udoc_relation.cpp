@@ -108,6 +108,10 @@ namespace datalog {
         return dynamic_cast<udoc_relation const&>(r);        
     }
 
+    doc_manager& udoc_plugin::dm(relation_signature const& sig) {
+        return dm(udoc_relation::num_signature_bits(bv, sig));
+    }
+
     doc_manager& udoc_plugin::dm(unsigned n) {
         doc_manager* r;
         if (!m_dms.find(n, r)) {
@@ -116,17 +120,20 @@ namespace datalog {
         }
         return *r;
     }
-    bool udoc_plugin::can_handle_signature(const relation_signature & s) {
-        NOT_IMPLEMENTED_YET();
-        return false;
+    bool udoc_plugin::can_handle_signature(const relation_signature & sig) {
+        for (unsigned i = 0; i < sig.size(); ++i) {
+            if (!bv.is_bv_sort(sig[i]))
+                return false;
+        }
+        return true;
     }
-    relation_base * udoc_plugin::mk_empty(const relation_signature & s) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+    relation_base * udoc_plugin::mk_empty(const relation_signature & sig) {
+        return alloc(udoc_relation, *this, sig);
     }
     relation_base * udoc_plugin::mk_full(func_decl* p, const relation_signature & s) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        udoc_relation* r = get(mk_empty(s));
+        r->get_udoc().push_back(dm(s).allocateX());
+        return r;
     }
     class udoc_plugin::join_fn : public convenient_relation_join_fn {
         doc_manager& dm;
@@ -158,10 +165,10 @@ namespace datalog {
                 unsigned v1 = pos[idx1];
                 unsigned v2 = pos[idx2];
 
-                if (v1 == tbv::BIT_x) {
-                    if (v2 != tbv::BIT_x)
+                if (v1 == BIT_x) {
+                    if (v2 != BIT_x)
                         pos.set(idx1, v2);
-                } else if (v2 == tbv::BIT_x) {
+                } else if (v2 == BIT_x) {
                     pos.set(idx2, v1);
                 } else if (v1 != v2) {
                     dm.deallocate(d);
@@ -176,16 +183,16 @@ namespace datalog {
                 unsigned v1 = pos[idx1];
                 unsigned v2 = pos[idx2];
                 
-                if (v1 == tbv::BIT_x && v2 == tbv::BIT_x) {
+                if (v1 == BIT_x && v2 == BIT_x) {
                     // add to subtracted TBVs: 1xx0 and 0xx1
                     tbv* r = dm.tbv().allocate(pos);
-                    r->set(idx1, tbv::BIT_0);
-                    r->set(idx2, tbv::BIT_1);
+                    r->set(idx1, BIT_0);
+                    r->set(idx2, BIT_1);
                     neg.push_back(r);
                     
                     r = dm.tbv().allocate(pos);
-                    r->set(idx1, tbv::BIT_1);
-                    r->set(idx2, tbv::BIT_0);
+                    r->set(idx1, BIT_1);
+                    r->set(idx2, BIT_0);
                     neg.push_back(r);
                 }
             }
@@ -237,29 +244,119 @@ namespace datalog {
         NOT_IMPLEMENTED_YET();
         return 0;
     }
+
+    class udoc_plugin::rename_fn : public convenient_relation_rename_fn {
+        unsigned_vector m_permutation;
+    public:
+        rename_fn(const relation_signature & orig_sig, unsigned cycle_len, const unsigned * cycle) 
+            : convenient_relation_rename_fn(orig_sig, cycle_len, cycle) {
+            NOT_IMPLEMENTED_YET();
+            // compute permuation.
+        }
+
+        virtual relation_base * operator()(const relation_base & _r) {
+            udoc_relation const& r = get(_r);
+            udoc_plugin& p = r.get_plugin();            
+            relation_signature const& sig = get_result_signature();
+            udoc_relation* result = alloc(udoc_relation, p, sig);
+            udoc const& src = r.get_udoc();
+            udoc& dst = result->get_udoc();
+            doc_manager& dm = r.get_dm();
+            for (unsigned i = 0; i < src.size(); ++i) {
+                dst.push_back(dm.allocate(src[i], m_permutation.c_ptr()));
+            }
+            return result;
+        }
+    };
     relation_transformer_fn * udoc_plugin::mk_rename_fn(
-        const relation_base & t, unsigned permutation_cycle_len, 
-        const unsigned * permutation_cycle) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        const relation_base & r, 
+        unsigned cycle_len, const unsigned * permutation_cycle) {
+        if (check_kind(r)) {
+            return alloc(rename_fn, r.get_signature(), cycle_len, permutation_cycle);
+        }
+        else {
+            return 0;
+        }
+    }
+    class udoc_plugin::union_fn : public relation_union_fn {
+    public:
+        union_fn() {}
+
+        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+
+            TRACE("dl", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
+
+            udoc_relation& r = get(_r);
+            udoc_relation const& src = get(_src);
+            udoc_relation* d = get(_delta);
+            udoc* d1 = 0;
+            if (d) d1 = &d->get_udoc();
+            r.get_plugin().mk_union(r.get_dm(), r.get_udoc(), src.get_udoc(), d1);
+        }
+    };
+    void udoc_plugin::mk_union(doc_manager& dm, udoc& dst, udoc const& src, udoc* delta) {
+        for (unsigned i = 0; i < src.size(); ++i) {
+            doc* d = dm.allocate(src[i]);
+            if (dst.insert(dm, d)) {
+                if (delta) {
+                    delta->insert(dm, dm.allocate(src[i]));
+                }
+            } 
+        }
     }
     relation_union_fn * udoc_plugin::mk_union_fn(
         const relation_base & tgt, const relation_base & src, 
         const relation_base * delta) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        if (!check_kind(tgt) || !check_kind(src) || (delta && !check_kind(*delta))) {
+            return 0;
+        }
+        return alloc(union_fn);
     }
     relation_union_fn * udoc_plugin::mk_widen_fn(
         const relation_base & tgt, const relation_base & src, 
         const relation_base * delta) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        return mk_union_fn(tgt, src, delta);
     }
+
+    class udoc_plugin::filter_identical_fn : public relation_mutator_fn {
+        unsigned_vector        m_cols;
+        unsigned               m_size;
+        bit_vector             m_empty_bv;
+        union_find_default_ctx union_ctx;
+        union_find<>           m_equalities;
+    public:
+        filter_identical_fn(const relation_base & _r, unsigned col_cnt, const unsigned *identical_cols)
+            : m_cols(col_cnt), m_equalities(union_ctx) {
+            udoc_relation const& r = get(_r);
+            doc_manager& dm = r.get_dm();
+            unsigned num_bits = dm.num_tbits();
+            m_size = r.column_num_bits(identical_cols[0]);
+            m_empty_bv.resize(r.get_num_bits(), false);
+            
+            for (unsigned i = 0; i < col_cnt; ++i) {
+                m_cols[i] = r.column_idx(identical_cols[i]);
+            }
+            
+            for (unsigned i = 0, e = m_empty_bv.size(); i < e; ++i) {
+                m_equalities.mk_var();
+            }
+        }
+        
+        virtual void operator()(relation_base & _r) {
+            udoc_relation& r = get(_r);
+            udoc& d = r.get_udoc();
+            for (unsigned i = 1; i < m_cols.size(); ++i) {
+                d.fix_eq_bits(m_cols[0], 0, m_cols[i], m_size, m_equalities, m_empty_bv);
+            }
+            TRACE("dl", tout << "final size: " << r.get_size_estimate_rows() << '\n';);
+        }
+    };
     relation_mutator_fn * udoc_plugin::mk_filter_identical_fn(
         const relation_base & t, unsigned col_cnt, 
         const unsigned * identical_cols) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        if (!check_kind(t))
+            return 0;
+        return alloc(filter_identical_fn, t, col_cnt, identical_cols);
     }
     relation_mutator_fn * udoc_plugin::mk_filter_equal_fn(
         const relation_base & t, const relation_element & value, unsigned col) {

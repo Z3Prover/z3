@@ -30,7 +30,7 @@ namespace datalog {
     class udoc_relation;
     
     class udoc_relation : public relation_base {
-        friend class udoc_relation;
+        friend class udoc_plugin;
         doc_manager&    dm;
         udoc            m_elems;
         unsigned_vector m_column_info;
@@ -53,6 +53,7 @@ namespace datalog {
         doc_manager& get_dm() const { return dm; }
         udoc const& get_udoc() const { return m_elems; }
         udoc& get_udoc() { return m_elems; }
+        unsigned get_num_records() const { return m_elems.size(); }
         unsigned get_num_bits() const { return m_column_info.back(); }
         unsigned get_num_cols() const { return m_column_info.size()-1; }
         unsigned column_idx(unsigned col) const { return m_column_info[col]; }
@@ -79,7 +80,7 @@ namespace datalog {
         static udoc_relation& get(relation_base& r);
         static udoc_relation* get(relation_base* r);
         static udoc_relation const & get(relation_base const& r);   
-
+        void mk_union(doc_manager& dm, udoc& dst, udoc const& src, udoc* delta);
     public:
         udoc_plugin(relation_manager& rm);
         ~udoc_plugin();

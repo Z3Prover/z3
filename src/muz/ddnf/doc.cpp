@@ -47,6 +47,9 @@ doc* doc_manager::allocate(rational const& r) {
 doc* doc_manager::allocate(uint64 n, unsigned hi, unsigned lo) {
     return 0;
 }
+doc* doc_manager::allocate(doc, unsigned const* permutation) {
+    return 0;
+}
 void doc_manager::deallocate(doc* src) {
 }
 void doc_manager::copy(doc& dst, doc const& src) const {
