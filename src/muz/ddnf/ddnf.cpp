@@ -738,7 +738,8 @@ namespace datalog {
             VERIFY(m_expr2tbv.find(e, t));            
             var_ref w(m);
             compile_var(v, w);
-            ddnf_nodes const& ns = m_ddnfs.lookup(0xFFFFF, *t);
+            unsigned num_bits = bv.get_bv_size(e);
+            ddnf_nodes const& ns = m_ddnfs.lookup(num_bits, *t);
             ddnf_nodes::iterator it = ns.begin(), end = ns.end();
             expr_ref_vector eqs(m);
             sort* s = m.get_sort(w);
