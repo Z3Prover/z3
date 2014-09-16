@@ -6960,7 +6960,7 @@ def substitute(t, *m):
     if isinstance(m, tuple):
         m1 = _get_args(m)
         if isinstance(m1, list):
-            m = _get_args(m1)
+            m = m1
     if __debug__:
         _z3_assert(is_expr(t), "Z3 expression expected")
         _z3_assert(all([isinstance(p, tuple) and is_expr(p[0]) and is_expr(p[1]) and p[0].sort().eq(p[1].sort()) for p in m]), "Z3 invalid substitution, expression pairs expected.")
