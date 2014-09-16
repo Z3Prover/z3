@@ -52,7 +52,7 @@ public:
     tbv& fill0(tbv& bv) const;
     tbv& fill1(tbv& bv) const;
     tbv& fillX(tbv& bv) const;
-    tbv& set_and(tbv& dst, tbv const& src) const;
+    bool set_and(tbv& dst,  tbv const& src) const;
     tbv& set_or(tbv& dst,  tbv const& src) const;
     tbv& set_neg(tbv& dst) const;
     bool equals(tbv const& a, tbv const& b) const;

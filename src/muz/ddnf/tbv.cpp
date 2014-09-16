@@ -101,13 +101,17 @@ tbv& tbv_manager::fillX(tbv& bv) const {
     m.fill1(bv); 
     return bv; 
 }
-tbv& tbv_manager::set_and(tbv& dst, tbv const& src) const {
-    m.set_and(dst, src); 
-    return dst;
-}
+
 tbv& tbv_manager::set_or(tbv& dst,  tbv const& src) const {
     m.set_or(dst, src); 
     return dst;
+}
+bool tbv_manager::set_and(tbv& dst,  tbv const& src) const {
+    m.set_and(dst, src); 
+    for (unsigned i = 0; i < num_tbits(); ++i) {
+        if (dst.get(i) == BIT_z) return false;
+    }
+    return true;
 }
 tbv& tbv_manager::set_neg(tbv& dst) const {
     m.set_neg(dst); 
@@ -124,11 +128,7 @@ bool tbv_manager::contains(tbv const& a, tbv const& b) const {
 }
 bool tbv_manager::intersect(tbv const& a, tbv const& b, tbv& result) {
     copy(result, a);
-    set_and(result, b);
-    for (unsigned i = 0; i < num_tbits(); ++i) {
-        if (result.get(i) == BIT_z) return false;
-    }
-    return true;
+    return set_and(result, b);
 }
 
 std::ostream& tbv_manager::display(std::ostream& out, tbv const& b) const {
