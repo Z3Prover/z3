@@ -52,7 +52,7 @@ fixed_bit_vector* fixed_bit_vector_manager::allocate1() {
     return result;
 }
 
-fixed_bit_vector* fixed_bit_vector_manager::allocate(fixed_bit_vector& bv) {
+fixed_bit_vector* fixed_bit_vector_manager::allocate(fixed_bit_vector const& bv) {
     fixed_bit_vector* result = allocate();
     copy(*result, bv);
     return result;

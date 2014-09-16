@@ -33,7 +33,6 @@ class fixed_bit_vector_manager {
     unsigned               m_num_bytes;
     unsigned               m_num_words;
     unsigned               m_mask;
-    unsigned num_bytes() const { return m_num_bytes; }
 
     static unsigned num_words(unsigned num_bits) { 
         return (num_bits + 31) / 32;
@@ -45,11 +44,12 @@ public:
     fixed_bit_vector* allocate();
     fixed_bit_vector* allocate1();
     fixed_bit_vector* allocate0();
-    fixed_bit_vector* allocate(fixed_bit_vector& bv);
+    fixed_bit_vector* allocate(fixed_bit_vector const& bv);
     void deallocate(fixed_bit_vector* bv);
 
     void copy(fixed_bit_vector& dst, fixed_bit_vector const& src) const;
     unsigned num_words() const { return m_num_words; }
+    unsigned num_bytes() const { return m_num_bytes; }
     unsigned num_bits() const { return m_num_bits; }
     fixed_bit_vector& reset(fixed_bit_vector& bv) const { return fill0(bv); }
     fixed_bit_vector& fill0(fixed_bit_vector& bv) const;
@@ -66,6 +66,7 @@ public:
 
 class fixed_bit_vector {
     friend class fixed_bit_vector_manager;
+    friend class tbv_manager;
     unsigned    m_data[1];
 
     static unsigned get_pos_mask(unsigned bit_idx) {
