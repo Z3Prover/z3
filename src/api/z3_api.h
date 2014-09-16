@@ -7069,7 +7069,7 @@ END_MLAPI_EXCLUDE
        \mlonly then a valid model is returned.  Otherwise, it is unsafe to use the returned model.\endmlonly
        \conly The caller is responsible for deleting the model using the function #Z3_del_model.
        
-       \conly \remark In constrast with the rest of the Z3 API, the reference counter of the
+       \conly \remark In contrast with the rest of the Z3 API, the reference counter of the
        \conly model is incremented. This is to guarantee backward compatibility. In previous
        \conly versions, models did not support reference counting.
        
@@ -7182,6 +7182,11 @@ END_MLAPI_EXCLUDE
        \brief Delete a model object.
        
        \sa Z3_check_and_get_model
+
+       \conly \remark The Z3_check_and_get_model automatically increments a reference count on the model.
+       \conly The expected usage is that models created by that method are deleted using Z3_del_model.
+       \conly This is for backwards compatibility and in contrast to the rest of the API where
+       \conly callers are responsible for managing reference counts.
     
        \deprecated Subsumed by Z3_solver API
        
