@@ -140,6 +140,7 @@ int main(int argc, char ** argv) {
     TST(ast);
     TST(optional);
     TST(bit_vector);
+    TST(fixed_bit_vector);
     TST(string_buffer);
     TST(map);
     TST(diff_logic);
