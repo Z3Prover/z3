@@ -136,9 +136,8 @@ namespace smt {
         if (cex == 0)
             return false; // no model available.
         unsigned num_decls = q->get_num_decls();
-        unsigned   num_sks = sks.size();
         // Remark: sks were created for the flat version of q.
-        SASSERT(num_sks >= num_decls); 
+        SASSERT(sks.size() >= num_decls);
         expr_ref_buffer bindings(m_manager);
         bindings.resize(num_decls);
         unsigned max_generation = 0;
