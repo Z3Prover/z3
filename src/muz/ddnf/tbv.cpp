@@ -60,11 +60,33 @@ tbv* tbv_manager::allocate(uint64 val) {
 tbv* tbv_manager::allocate(uint64 val, unsigned hi, unsigned lo) {
     tbv* v = allocateX();
     SASSERT(64 >= m.num_bits() && m.num_bits() > hi && hi >= lo);
-    for (unsigned i = 0; i < hi - lo + 1; ++i) {
-        v->set(lo + i, (val & (1ULL << i))?BIT_1:BIT_0);
-    }
+    v->set(val, hi, lo);
     return v;
 }
+void tbv::set(uint64 val, unsigned hi, unsigned lo) {
+    for (unsigned i = 0; i < hi - lo + 1; ++i) {
+        set(lo + i, (val & (1ULL << i))?BIT_1:BIT_0);
+    }
+}
+void tbv::set(rational const& r, unsigned hi, unsigned lo) {
+    if (r.is_uint64()) {
+        set(r.get_uint64(), hi, lo);
+        return;
+    }
+    for (unsigned i = 0; i < hi - lo + 1; ++i) {
+        if (bitwise_and(r, rational::power_of_two(i)).is_zero())
+            set(lo + i, BIT_0);
+        else
+            set(lo + i, BIT_1);
+    }
+}
+
+void tbv::set(tbv const& other, unsigned hi, unsigned lo) {
+    for (unsigned i = 0; i < hi - lo + 1; ++i) {
+        set(lo + i, other.get(i));
+    }
+}
+
 
 tbv* tbv_manager::allocate(rational const& r) {
     if (r.is_uint64()) {
@@ -113,10 +135,28 @@ bool tbv_manager::set_and(tbv& dst,  tbv const& src) const {
     }
     return true;
 }
-tbv& tbv_manager::set_neg(tbv& dst) const {
-    m.set_neg(dst); 
-    return dst;
+
+void tbv_manager::complement(tbv const& src, ptr_vector<tbv>& result) {
+    tbv* r;
+    unsigned n = num_tbits();
+    for (unsigned i = 0; i < n; ++i) {
+        switch (src.get(i)) {
+        case BIT_0:
+            r = allocate(src);
+            r->set(i, BIT_1);
+            result.push_back(r);
+            break;
+        case BIT_1:
+            r = allocate(src);
+            r->set(i, BIT_0);
+            result.push_back(r);
+            break;
+        default:
+            break;
+        }
+    }
 }
+
 bool tbv_manager::equals(tbv const& a, tbv const& b) const {
     return m.equals(a, b);
 }

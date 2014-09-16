@@ -123,6 +123,8 @@ class substitution_tree {
     template<st_visit_mode Mode>
     void visit(expr * e, st_visitor & st, unsigned in_offset, unsigned st_offset, unsigned reg_offset);
 
+    void clear_stack();
+
 public:
     substitution_tree(ast_manager & m);
     ~substitution_tree();

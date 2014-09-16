@@ -11,6 +11,7 @@ Abstract:
 
 Author:
 
+    Nuno Lopes (a-nlopes) 2013-03-01
     Nikolaj Bjorner (nbjorner) 2014-09-15
 
 Revision History:
@@ -21,8 +22,6 @@ Revision History:
 
 #ifndef _DOC_H_
 #define _DOC_H_
-
-#if 0
 
 #include "tbv.h"
 
@@ -50,27 +49,38 @@ public:
     doc& fill1(doc& src) const;
     doc& fillX(doc& src) const;
     bool set_and(doc& dst, doc const& src) const;
-    //  doc& set_or(doc& dst,  doc const& src) const;
-    void neg(doc const& src, union_bvec<doc_mananger, doc>& result) const;
+    void complement(doc const& src, ptr_vector<doc>& result);
+    void subtract(doc const& A, doc const& B, ptr_vector<doc>& result);
     bool equals(doc const& a, doc const& b) const;
     unsigned hash(doc const& src) const;
     bool contains(doc const& a, doc const& b) const;
     std::ostream& display(std::ostream& out, doc const& b) const;
+    unsigned num_tbits() const { return m.num_tbits(); }
 };
 
 // union of tbv*, union of doc*
 template<typename M, typename T>
-class union_bvec {
+class union_bvec { 
     ptr_vector<T> m_elems; // TBD: reuse allocator of M
 public:
     unsigned size() const { return m_elems.size(); }
     T& operator[](unsigned idx) const { return *m_elems[idx]; }
+    bool empty() const { return m_elems.empty(); }    
+    bool contains(M& m, T& t) const {
+        for (unsigned i = 0; i < m_elems.size(); ++i) {
+            if (m.contains(*m_elems[i], t)) return true;
+        }
+        return false;
+    }
+    void push_back(T* t) {
+        m_elems.push_back(t);
+    }
     void reset(M& m) {
         for (unsigned i = 0; i < m_elems.size(); ++i) {
             m.deallocate(m_elems[i]);
         }
         m_elems.reset(); 
-    }
+    }    
     void insert(M& m, T* t) {
         unsigned sz = size(), j = 0;
         bool found = false;
@@ -102,13 +112,13 @@ public:
         }
         return true;
     }
-    void insert(M& m, union_set const& other) {
+    void insert(M& m, union_bvec const& other) {
         for (unsigned i = 0; i < other.size(); ++i) {
             insert(m, other[i]);
         }
     }
-    void intersect(M& m, union_set const& other, union_set& result) {
-        result.reset(m);
+    void intersect(M& m, union_bvec const& other) {
+        union_bvec result;
         unsigned sz1 = size();
         unsigned sz2 = other.size();
         T* inter = m.allocate();
@@ -121,29 +131,30 @@ public:
             }
         }
         m.deallocate(inter);
+        std::swap(result, *this);
+        result.reset();
     }
-    void neg(M& m, union_set& result) {     
-        union_set negated;
+    void complement(M& m, union_bvec& result) {     
+        union_bvec negated;
         result.reset(m);
         result.push_back(m.allocateX());
         unsigned sz = size();
-        for (unsigned i = 0; !result.empty() && i < sz; ++i) {
-            // m.set_neg(*m_elems[i]);
-            // result.intersect(m, negated);
+        for (unsigned i = 0; !empty() && i < sz; ++i) {
+            m.complement(*m_elems[i], negated.m_elems);
+            result.intersect(m, negated);
+            negated.reset(m);
         }
     }
 
-    void subtract(M& m, union_set const& other, union_set& result) {
-        result.reset(m);
-        
-    }
 };
+
+typedef union_bvec<tbv_manager, tbv> utbv;
 
 class doc {
     // pos \ (neg_0 \/ ... \/ neg_n)
     friend class doc_manager;
     tbv*                         m_pos;
-    union_bvec<tbv_manager, tbv> m_neg;
+    utbv                         m_neg;
 public:
 
     struct eq {
@@ -161,55 +172,31 @@ public:
             return m.hash(d);
         }
     };
+
+    tbv& pos() { return *m_pos; }
+    utbv& neg() { return m_neg; }
+    tbv const& pos() const { return *m_pos; }
+    utbv const& neg() const { return m_neg; }
         
 };
 
-#endif
+typedef union_bvec<doc_manager, doc> udoc;
+
+class doc_ref {
+    doc_manager& dm;
+    doc* d;
+public:
+    doc_ref(doc_manager& dm):dm(dm),d(0) {}
+    doc_ref(doc_manager& dm, doc* d):dm(dm),d(d) {}
+    ~doc_ref() {
+        if (d) dm.deallocate(d);
+    }
+    doc_ref& operator=(doc* d2) {
+        if (d) dm.deallocate(d);
+        d = d2;
+    }
+    doc& operator*() { return *d; }
+};
 
 #endif /* _DOC_H_ */
 
-#if 0
-
-    class utbv {
-        friend class ternary_bitvector;
-
-        ternary_bitvector m_pos;
-        union_ternary_bitvector<ternary_bitvector> m_neg;
-
-    public:
-        utbv() : m_pos(), m_neg(0) {}
-        utbv(unsigned size) : m_pos(size), m_neg(size) {}
-        utbv(unsigned size, bool full);
-        utbv(const rational& n, unsigned num_bits);
-        explicit utbv(const ternary_bitvector & tbv);
-
-        bool contains(const utbv & other) const;
-        bool contains(const ternary_bitvector & other) const;
-        bool contains(unsigned offset, const utbv& other,
-                      unsigned other_offset, unsigned length) const;
-        bool is_empty() const;
-
-        utbv band(const utbv& other) const;
-        void neg(union_ternary_bitvector<utbv>& result) const;
-
-        static bool has_subtract() { return true; }
-        void subtract(const union_ternary_bitvector<utbv>& other,
-            union_ternary_bitvector<utbv>& result) const;
-
-
-        unsigned get(unsigned idx);
-        void set(unsigned idx, unsigned val);
-
-        void swap(utbv & other);
-        void reset();
-
-
-        void display(std::ostream & out) const;
-
-    private:
-        void add_negated(const ternary_bitvector& neg);
-        void add_negated(const union_ternary_bitvector<ternary_bitvector>& neg);
-        bool fold_neg();
-    };
-
-#endif

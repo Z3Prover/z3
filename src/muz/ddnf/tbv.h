@@ -27,6 +27,7 @@ Revision History:
 class tbv;
 
 class tbv_manager {
+    friend class tbv;
     static const unsigned BIT_0 = 0x1;
     static const unsigned BIT_1 = 0x2;
     static const unsigned BIT_x = 0x3;
@@ -54,7 +55,7 @@ public:
     tbv& fillX(tbv& bv) const;
     bool set_and(tbv& dst,  tbv const& src) const;
     tbv& set_or(tbv& dst,  tbv const& src) const;
-    tbv& set_neg(tbv& dst) const;
+    void complement(tbv const& src, ptr_vector<tbv>& result);
     bool equals(tbv const& a, tbv const& b) const;
     unsigned hash(tbv const& src) const;
     bool contains(tbv const& a, tbv const& b) const;
@@ -65,7 +66,13 @@ public:
 class tbv: private fixed_bit_vector {
     friend class fixed_bit_vector_manager;
     friend class tbv_manager;
+
 public:
+
+    static const unsigned BIT_0 = tbv_manager::BIT_0;
+    static const unsigned BIT_1 = tbv_manager::BIT_1;
+    static const unsigned BIT_x = tbv_manager::BIT_x;
+    static const unsigned BIT_z = tbv_manager::BIT_z;
 
     struct eq {
         tbv_manager& m;
@@ -83,12 +90,18 @@ public:
         }
     };
         
-private:
+    void set(uint64 n, unsigned hi, unsigned lo);
+    void set(rational const& r, unsigned hi, unsigned lo);
+    void set(tbv const& other, unsigned hi, unsigned lo);
+
+    unsigned operator[](unsigned idx) { return get(idx); }
     void set(unsigned index, unsigned value) {
         SASSERT(value <= 3);
         fixed_bit_vector::set(2*index,   (value & 2) != 0);
         fixed_bit_vector::set(2*index+1, (value & 1) != 0);
     }
+
+private:
 
     unsigned get(unsigned index) const {
         index *= 2;
