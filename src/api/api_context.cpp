@@ -343,22 +343,18 @@ namespace api {
     
     void context::push() {
         get_smt_kernel().push();
-        if (!m_user_ref_count) {
-            m_ast_lim.push_back(m_ast_trail.size());
-            m_replay_stack.push_back(0);
-        }
+        m_ast_lim.push_back(m_ast_trail.size());
+        m_replay_stack.push_back(0);        
     }
     
     void context::pop(unsigned num_scopes) {
         for (unsigned i = 0; i < num_scopes; ++i) {
-            if (!m_user_ref_count) {
-                unsigned sz = m_ast_lim.back();
-                m_ast_lim.pop_back();
-                dealloc(m_replay_stack.back());
-                m_replay_stack.pop_back();
-                while (m_ast_trail.size() > sz) {
-                    m_ast_trail.pop_back();
-                }
+            unsigned sz = m_ast_lim.back();
+            m_ast_lim.pop_back();
+            dealloc(m_replay_stack.back());
+            m_replay_stack.pop_back();
+            while (m_ast_trail.size() > sz) {
+                m_ast_trail.pop_back();
             }
         }
         SASSERT(num_scopes <= get_smt_kernel().get_scope_level());

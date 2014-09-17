@@ -1104,10 +1104,10 @@ namespace datalog {
    
     void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names){
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
-	  expr_ref r = bind_variables(m_rule_fmls[i].get(), true);
-	  rules.push_back(r.get());
-	  //            rules.push_back(m_rule_fmls[i].get());
-	  names.push_back(m_rule_names[i]);
+            expr_ref r = bind_variables(m_rule_fmls[i].get(), true);
+            rules.push_back(r.get());
+            //            rules.push_back(m_rule_fmls[i].get());
+            names.push_back(m_rule_names[i]);
         }
     }
 
