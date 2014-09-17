@@ -2066,13 +2066,6 @@ expr* ast_manager::mk_or_reduced(unsigned n, expr* const* args) {
     }
 }
 
-expr* ast_manager::mk_and_reduced(unsigned n, expr* const* args) {
-    switch (n) {
-    case 0: return mk_true();
-    case 1: return args[0];
-    default: return mk_and(n, args);
-    }
-}
 
 func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const & suffix, unsigned arity, 
                                             sort * const * domain, sort * range) {

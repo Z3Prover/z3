@@ -73,6 +73,9 @@ void doc_manager::subtract(doc const& A, doc const& B, ptr_vector<doc>& result) 
 bool doc_manager::equals(doc const& a, doc const& b) const {
     return false;
 }
+bool doc_manager::is_full(doc const& src) const {
+    return false;
+}
 unsigned doc_manager::hash(doc const& src) const {
     return 0;
 }

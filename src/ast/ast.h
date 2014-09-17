@@ -2005,7 +2005,6 @@ public:
     app * mk_false() { return m_false; }
     app * mk_interp(expr * arg) { return mk_app(m_basic_family_id, OP_INTERP, arg); }
     expr * mk_or_reduced(unsigned num_args, expr * const * args);
-    expr * mk_and_reduced(unsigned num_args, expr * const * args);
 
 
     func_decl* mk_and_decl() { 

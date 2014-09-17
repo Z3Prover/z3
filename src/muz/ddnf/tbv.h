@@ -118,8 +118,10 @@ public:
     tbv_ref& operator=(tbv* d2) {
         if (d) mgr.deallocate(d);
         d = d2;
+        return *this;
     }
     tbv& operator*() { return *d; }
+    tbv* get() { return d; }
 };
 
 

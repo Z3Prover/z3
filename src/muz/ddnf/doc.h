@@ -51,7 +51,9 @@ public:
     doc& fill0(doc& src) const;
     doc& fill1(doc& src) const;
     doc& fillX(doc& src) const;
+    bool is_full(doc const& src) const;
     bool set_and(doc& dst, doc const& src) const;
+    bool intersect(doc const& A, doc const& B, doc& result) const;
     void complement(doc const& src, ptr_vector<doc>& result);
     void subtract(doc const& A, doc const& B, ptr_vector<doc>& result);
     bool equals(doc const& a, doc const& b) const;
@@ -60,6 +62,8 @@ public:
     std::ostream& display(std::ostream& out, doc const& b) const;
     unsigned num_tbits() const { return m.num_tbits(); }
 };
+
+typedef union_find<> subset_ints;
 
 // union of tbv*, union of doc*
 template<typename M, typename T>
@@ -72,12 +76,12 @@ class union_bvec {
         e_fixed
     };
 
-    typedef union_find<> subset_ints;
 
 public:
     unsigned size() const { return m_elems.size(); }
     T& operator[](unsigned idx) const { return *m_elems[idx]; }
     bool empty() const { return m_elems.empty(); }    
+    bool is_full(M& m) const { return size() == 1 && m.is_full(*m_elems[0]); }
     bool contains(M& m, T& t) const {
         for (unsigned i = 0; i < m_elems.size(); ++i) {
             if (m.contains(*m_elems[i], t)) return true;
@@ -143,7 +147,7 @@ public:
         T* inter = m.allocate();
         for (unsigned i = 0; i < sz1; ++i) {
             for (unsigned j = 0; j < sz2; ++j) {
-                if (m.intesect(*m_elems[i], other[j], *inter)) {
+                if (m.intersect(*m_elems[i], other[j], *inter)) {
                     result.push_back(inter);
                     inter = m.allocate();
                 }
@@ -151,7 +155,7 @@ public:
         }
         m.deallocate(inter);
         std::swap(result, *this);
-        result.reset();
+        result.reset(m);
     }
     void complement(M& m, union_bvec& result) {     
         union_bvec negated;
