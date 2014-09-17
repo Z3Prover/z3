@@ -91,7 +91,7 @@ public:
     void set(rational const& r, unsigned hi, unsigned lo);
     void set(tbv const& other, unsigned hi, unsigned lo);
 
-    unsigned operator[](unsigned idx) { return get(idx); }
+    unsigned operator[](unsigned idx) const { return get(idx); }
     void set(unsigned index, unsigned value) {
         SASSERT(value <= 3);
         fixed_bit_vector::set(2*index,   (value & 2) != 0);

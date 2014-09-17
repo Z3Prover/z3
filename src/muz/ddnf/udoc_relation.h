@@ -34,8 +34,9 @@ namespace datalog {
         doc_manager&    dm;
         udoc            m_elems;
         unsigned_vector m_column_info;
-        static unsigned num_signature_bits(bv_util& bv, relation_signature const& sig);
         doc* fact2doc(relation_fact const& f) const;        
+        expr_ref to_formula(tbv const& t) const;
+        expr_ref to_formula(doc const& d) const;
     public:
         udoc_relation(udoc_plugin& p, relation_signature const& s);
         virtual ~udoc_relation();
@@ -63,10 +64,10 @@ namespace datalog {
         void extract_guard(expr* condition, expr_ref& guard, expr_ref& rest) const;
         bool is_guard(expr* g) const;
         bool is_guard(unsigned n, expr* const *g) const;
-        void compile_guard(expr* g, udoc& d) const;
+        void compile_guard(expr* g, udoc& result, bit_vector const& discard_cols) const;
         void apply_guard(expr* g, udoc& result, bit_vector const& discard_cols) const;
         void apply_guard(expr* g, udoc& result, subset_ints& equalities, bit_vector const& discard_cols) const;
-        void apply_eq(expr* g, udoc& result, var* v, unsigned hi, unsigned lo, expr* c) const;
+        bool apply_eq(expr* g, udoc& result, var* v, unsigned hi, unsigned lo, expr* c) const;
     };
 
     class udoc_plugin : public relation_plugin {
@@ -84,6 +85,7 @@ namespace datalog {
         class negation_filter_fn;
         ast_manager& m;
         bv_util      bv;
+        dl_decl_util dl;
         u_map<doc_manager*> m_dms;
         doc_manager& dm(unsigned sz);
         doc_manager& dm(relation_signature const& sig);
@@ -91,6 +93,12 @@ namespace datalog {
         static udoc_relation* get(relation_base* r);
         static udoc_relation const & get(relation_base const& r);   
         void mk_union(doc_manager& dm, udoc& dst, udoc const& src, udoc* delta);
+        bool is_numeral(expr* e, rational& r, unsigned& num_bits);
+        unsigned num_sort_bits(expr* e) const { return num_sort_bits(get_ast_manager().get_sort(e)); }
+        unsigned num_sort_bits(sort* s) const;
+        bool     is_finite_sort(sort* s) const;
+        unsigned num_signature_bits(relation_signature const& sig);
+        expr* mk_numeral(rational const& r, sort* s);
     public:
         udoc_plugin(relation_manager& rm);
         ~udoc_plugin();

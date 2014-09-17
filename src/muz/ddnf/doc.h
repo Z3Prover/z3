@@ -88,6 +88,14 @@ public:
         }
         return false;
     }
+    std::ostream& display(M& m, std::ostream& out) const {
+        for (unsigned i = 0; i < size(); ++i) {
+            m.display(out, *m_elems[i]);
+            if (i + 1 < size()) out << ", ";
+        }
+        return out << "\n";
+    }
+
     void push_back(T* t) {
         m_elems.push_back(t);
     }
@@ -174,7 +182,7 @@ public:
         std::swap(m_elems, result.m_elems);
         result.reset(m);
     }
-    void complement(M& m, union_bvec& result) {     
+    void complement(M& m, union_bvec& result) const {     
         union_bvec negated;
         result.reset(m);
         result.push_back(m.allocateX());
@@ -328,6 +336,7 @@ public:
         d = d2;
     }
     doc& operator*() { return *d; }
+    doc* operator->() { return d; }
 };
 
 #endif /* _DOC_H_ */
