@@ -358,14 +358,178 @@ namespace datalog {
             return 0;
         return alloc(filter_identical_fn, t, col_cnt, identical_cols);
     }
+    class udoc_plugin::filter_equal_fn : public relation_mutator_fn {
+        doc_manager& dm;
+        doc*         m_filter;
+    public:
+        filter_equal_fn(udoc_plugin& p, const udoc_relation & t, const relation_element val, unsigned col):
+            dm(p.dm(t.get_signature())) {
+            rational r;
+            unsigned num_bits;
+            VERIFY(p.bv.is_numeral(val, r, num_bits));
+            m_filter = dm.allocateX();
+            unsigned lo = t.column_idx(col);
+            unsigned hi = t.column_idx(col+1);
+            SASSERT(num_bits == hi - lo);
+            m_filter->pos().set(r, hi-1, lo);
+        }
+        virtual ~filter_equal_fn() {
+            dm.deallocate(m_filter);
+        }        
+        virtual void operator()(relation_base & tb) {
+            udoc_relation & t = get(tb);
+            t.get_udoc().intersect(dm, *m_filter);
+        }
+    };
     relation_mutator_fn * udoc_plugin::mk_filter_equal_fn(
         const relation_base & t, const relation_element & value, unsigned col) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        if (!check_kind(t))
+            return 0;
+        return alloc(filter_equal_fn, *this, get(t), value, col);
     }
+#if 0
+        static bool cond_is_guard(const expr *e, const table_information& t) {
+            switch (e->get_kind()) {
+            case AST_APP: {
+                const app *app = to_app(e);
+                switch (app->get_decl_kind()) {
+                case OP_AND:
+                case OP_OR:
+                case OP_NOT:
+                    for (unsigned i = 0; i < app->get_num_args(); ++i) {
+                        if (!cond_is_guard(app->get_arg(i), t))
+                            return false;
+                    }
+                    return true;
+
+                case OP_EQ: {
+                    const expr *a = app->get_arg(0), *b = app->get_arg(1);
+
+                    // column equality is not succinctly representable with TBVs
+                    if (is_var(a) && is_var(b))
+                        return false;
+
+                    // (= var (concat var foo))
+                    if (t.get_bv_util().is_concat(b))
+                        return false;
+
+                    return true;}
+
+                case OP_FALSE:
+                case OP_TRUE:
+                    return true;
+
+                default:
+                    return false;
+                }
+                break;}
+
+            case AST_VAR:
+                return true;
+
+            default:
+                break;
+            }
+            return false;
+        }
+
+        static void split_cond_guard(app *cond, expr_ref& guard, expr_ref& leftover, const table_information& t) {
+            expr_ref_vector guards(guard.m());
+            expr_ref_vector leftovers(leftover.m());
+
+            if (is_app(cond) && to_app(cond)->get_decl_kind() == OP_AND) {
+                app *a = to_app(cond);
+                for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                    expr *arg = a->get_arg(i);
+                    if (cond_is_guard(arg, t)) {
+                        guards.push_back(arg);
+                    } else {
+                        leftovers.push_back(arg);
+                    }
+                }
+            } else if (cond_is_guard(cond, t)) {
+                guard = cond;
+                return;
+            } else {
+                leftover = cond;
+                return;
+            }
+
+            if (guards.size() > 1) {
+                guard = guard.m().mk_and(guards.size(), guards.c_ptr());
+            } else if (guards.size() == 1) {
+                guard = guards.get(0);
+            }
+
+            if (leftovers.size() > 1) {
+                leftover = leftover.m().mk_and(leftovers.size(), leftovers.c_ptr());
+            } else if (leftovers.size() == 1) {
+                leftover = leftovers.get(0);
+            }
+        }
+#endif
+    class udoc_plugin::filter_interpreted_fn : public relation_mutator_fn {
+        expr_ref m_condition;
+        //typename T::bitset_t m_filter;
+        //bit_vector m_empty_bv;
+    public:
+        filter_interpreted_fn(const udoc_relation & t, ast_manager& m, app *condition) :
+            m_condition(m) {
+            NOT_IMPLEMENTED_YET();
+            //m_filter(t.get_num_bits(), true);
+            //m_empty_bv.resize(t.get_num_bits(), false);
+            
+            //expr_ref guard(m);
+            //split_cond_guard(condition, guard, m_condition, t);
+            //if (guard)
+            //    m_filter.filter(guard, m_empty_bv, t);
+        }
+        
+        virtual void operator()(relation_base & tb) {
+            udoc_relation & t = get(tb);
+            // first apply guard and then run the interpreter on the leftover
+            //t.m_bitsets = m_filter.band(t.m_bitsets);
+            //if (m_condition)
+            //    t.m_bitsets.filter(m_condition, m_empty_bv, t);
+            TRACE("dl", tout << "final size: " << t.get_size_estimate_rows() << '\n';);
+        }
+    };
+
+
+
     relation_mutator_fn * udoc_plugin::mk_filter_interpreted_fn(const relation_base & t, app * condition) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        if (!check_kind(t))
+            return 0;
+        TRACE("dl", tout << mk_pp(condition, get_ast_manager()) << '\n';);
+        return alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition);
     }
+
+    class udoc_plugin::negation_filter_fn : public relation_intersection_filter_fn {
+        const unsigned_vector m_t_cols;
+        const unsigned_vector m_neg_cols;
+    public:
+        negation_filter_fn(const udoc_relation & r, const udoc_relation & neg, unsigned joined_col_cnt,
+                           const unsigned *t_cols, const unsigned *neg_cols)
+            : m_t_cols(joined_col_cnt, t_cols), m_neg_cols(joined_col_cnt, neg_cols) {
+            SASSERT(joined_col_cnt > 0);
+        }
+        
+        virtual void operator()(relation_base& tb, const relation_base& negb) {
+            udoc_relation& t = get(tb);
+            udoc_relation const& neg = get(negb);
+            NOT_IMPLEMENTED_YET();
+            // t.m_bitsets.filter_negate(t, neg.m_bitsets, neg, m_t_cols, m_neg_cols);
+        }
+    };
+
+    relation_intersection_filter_fn * udoc_plugin::mk_filter_by_negation_fn(
+        const relation_base& t,
+        const relation_base& neg, unsigned joined_col_cnt, const unsigned *t_cols,
+        const unsigned *negated_cols) {
+        if (!check_kind(t) || !check_kind(neg))
+            return 0;
+        return alloc(negation_filter_fn, get(t), get(neg), joined_col_cnt, t_cols, negated_cols);
+    }
+
 
 }

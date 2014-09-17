@@ -49,6 +49,7 @@ namespace datalog {
         virtual bool empty() const { return m_elems.empty(); }
         virtual void display(std::ostream& out) const;
         virtual bool is_precise() const { return true; }
+        virtual unsigned get_size_estimate_rows() const { return m_elems.size(); }
 
         doc_manager& get_dm() const { return dm; }
         udoc const& get_udoc() const { return m_elems; }
@@ -67,11 +68,13 @@ namespace datalog {
         class project_fn;
         class union_fn;
         class rename_fn;
-        class filter_mask_fn;
+        class filter_equal_fn;
         class filter_identical_fn;
         class filter_interpreted_fn;
         class filter_by_negation_fn;        
         class filter_by_union_fn;
+        class filter_proj_fn;
+        class negation_filter_fn;
         ast_manager& m;
         bv_util      bv;
         u_map<doc_manager*> m_dms;
@@ -103,6 +106,14 @@ namespace datalog {
         virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
             unsigned col);
         virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
+        virtual relation_intersection_filter_fn * udoc_plugin::mk_filter_by_negation_fn(
+            const relation_base& t,
+            const relation_base& neg, unsigned joined_col_cnt, const unsigned *t_cols,
+            const unsigned *negated_cols);
+        virtual relation_transformer_fn * mk_filter_interpreted_and_project_fn(
+            const relation_base & t, app * condition,
+            unsigned removed_col_cnt, const unsigned * removed_cols);
+
         // project join select
     };
 };

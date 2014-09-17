@@ -117,13 +117,19 @@ public:
         }
         return !found;
     }
-    bool intersect(M& m, T& t) {
+    void intersect(M& m, T& t) {
         unsigned sz = size();
-        for (unsigned i = 0; i < sz; ++i) {
-            if (!m.set_and(m_elems[i], t)) 
-                return false;
+        unsigned j = 0;
+        for (unsigned i = 0; i < sz; ++i, ++j) {
+            if (!m.set_and(*m_elems[i], t)) {
+                m.deallocate(m_elems[i]);
+                --j;
+            }
+            else if (i != j) {
+                m_elems[i] = m_elems[j];
+            }
         }
-        return true;
+        if (j != sz) m_elems.resize(j);
     }
     void insert(M& m, union_bvec const& other) {
         for (unsigned i = 0; i < other.size(); ++i) {
@@ -163,6 +169,7 @@ public:
         for (unsigned i = 0; i < length; ++i) {
             unsigned k = 0;
             for (unsigned j = 0; j < size(); ++j, ++k) {
+                NOT_IMPLEMENTED_YET();
 
 #if 0
                 T *eqBV = BV ? const_cast<T*>(BV) : &*I;

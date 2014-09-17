@@ -106,5 +106,21 @@ private:
     }
 };
 
+class tbv_ref {
+    tbv_manager& mgr;
+    tbv* d;
+public:
+    tbv_ref(tbv_manager& mgr):mgr(mgr),d(0) {}
+    tbv_ref(tbv_manager& mgr, tbv* d):mgr(mgr),d(d) {}
+    ~tbv_ref() {
+        if (d) mgr.deallocate(d);
+    }
+    tbv_ref& operator=(tbv* d2) {
+        if (d) mgr.deallocate(d);
+        d = d2;
+    }
+    tbv& operator*() { return *d; }
+};
+
 
 #endif /* _TBV_H_ */
