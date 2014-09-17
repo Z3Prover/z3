@@ -590,7 +590,7 @@ namespace datalog {
         }
 
         // enforce interpreted tail predicates
-        unsigned ut_len=r->get_uninterpreted_tail_size();
+        unsigned ut_len = r->get_uninterpreted_tail_size();
         unsigned ft_len = r->get_tail_size(); // full tail
         ptr_vector<expr> tail;
         for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
