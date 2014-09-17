@@ -66,6 +66,7 @@ namespace datalog {
         void compile_guard(expr* g, udoc& d) const;
         void apply_guard(expr* g, udoc& result, bit_vector const& discard_cols);
         void apply_guard(expr* g, udoc& result, subset_ints& equalities, bit_vector const& discard_cols);
+        void apply_eq(expr* g, udoc& result, var* v, unsigned hi, unsigned lo, expr* c);
     };
 
     class udoc_plugin : public relation_plugin {

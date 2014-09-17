@@ -2058,13 +2058,6 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
     return r;
 }
 
-expr* ast_manager::mk_or_reduced(unsigned n, expr* const* args) {
-    switch (n) {
-    case 0: return mk_false();
-    case 1: return args[0];
-    default: return mk_or(n, args);
-    }
-}
 
 
 func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const & suffix, unsigned arity, 

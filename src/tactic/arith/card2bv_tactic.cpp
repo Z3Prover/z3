@@ -23,6 +23,7 @@ Notes:
 #include"expr_substitution.h"
 #include"card2bv_tactic.h"
 #include"pb_rewriter.h"
+#include"ast_util.h"
 
 namespace pb {
     unsigned card2bv_rewriter::get_num_bits(func_decl* f) {
@@ -85,7 +86,7 @@ namespace pb {
     }
 
     void card2bv_rewriter::mk_clause(unsigned n, literal const* lits) {
-        m_lemmas.push_back(m.mk_or_reduced(n, lits));
+        m_lemmas.push_back(mk_or(m, n, lits));
     }
 
     

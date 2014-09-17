@@ -444,9 +444,10 @@ namespace datalog {
         apply_guard(g, result, equalities, discard_cols);
     }
     void udoc_relation::apply_guard(
-        expr* g, udoc& result, subset_ints& equalities, 
-        bit_vector const& discard_cols) {
+        expr* g, udoc& result, 
+        subset_ints& equalities, bit_vector const& discard_cols) {
         ast_manager& m = get_plugin().get_ast_manager();
+        bv_util& bv = get_plugin().bv;
         expr* e1, *e2;
         if (result.empty()) {
         }
@@ -459,23 +460,17 @@ namespace datalog {
             udoc sub;
             sub.push_back(dm.allocateX());
             apply_guard(e1, sub, equalities, discard_cols);
-            // TBD: result.subtract(dm, sub);
+            result.subtract(dm, sub);
         }
         else if (m.is_or(g)) {
             udoc sub;
             sub.push_back(dm.allocateX());
             for (unsigned i = 0; !sub.empty() && i < to_app(g)->get_num_args(); ++i) {
                 expr_ref arg(m);
-                arg = to_app(g)->get_arg(i);
-                if (m.is_not(arg, e1)) {
-                    arg = e1;
-                }
-                else {
-                    arg = m.mk_not(arg);
-                }
+                arg = mk_not(m, to_app(g)->get_arg(i));
                 apply_guard(arg, result, equalities, discard_cols);
             }
-            // TBD: result.subtract(dm, sub);
+            result.subtract(dm, sub);
         }
         else if (m.is_true(g)) {
         }
@@ -491,37 +486,36 @@ namespace datalog {
             bit1 = dm1.tbv().allocate1();
             result.fix_eq_bits(idx, bit1.get(), 0, 1, equalities, discard_cols);
         }
-        else if (m.is_eq(g, e1, e2)) {
-#if 0
-            const var *v;
-            unsigned vidx = 0;
-            unsigned length;
-            
-            unsigned low, high;
-            expr *e2;
-            if (is_var(e1)) {
-                v = to_var(e1);
-                length = column_num_bits(v->get_idx());
-            } else if (bv.is_extract(e1, low, high, e11)) {
-                vidx = bv.get_bv_size(e11) - high - 1;
-                length = high - low + 1;
-                SASSERT(is_var(e11));
-                v = to_var(e11);
-            } else {
-                NOT_IMPLEMENTED_YET();
+        else if (m.is_eq(g, e1, e2) && bv.is_bv(e1)) {
+            unsigned hi, lo;
+            expr* e3;
+            // TBD: equalities and discard_cols?
+            if (is_var(e1) && is_ground(e2)) {
+                apply_eq(g, result, to_var(e1), bv.get_bv_size(e1)-1, 0, e2); 
             }
-            vidx += t.column_idx(v->get_idx());
-            
-            unsigned final_idx = fix_eq_bits(vidx, e2, 0, length, t, equalities, discard_cols);
-            SASSERT(final_idx == vidx + length);
-            (void)final_idx;
-#endif
+            else if (is_var(e2) && is_ground(e1)) {
+                apply_eq(g, result, to_var(e2), bv.get_bv_size(e2)-1, 0, e1); 
+            }
+            else if (bv.is_extract(e1, lo, hi, e3) && is_var(e3) && is_ground(e2)) {
+                apply_eq(g, result, to_var(e3), hi, lo, e2);
+            }
+            else if (bv.is_extract(e2, lo, hi, e3) && is_var(e3) && is_ground(e1)) {
+                apply_eq(g, result, to_var(e3), hi, lo, e1);
+            }
+            else if (is_var(e1) && is_var(e2)) {
+                var* v1 = to_var(e1);
+                var* v2 = to_var(e2);
+                // TBD
+            }   
+            else {
+                goto failure_case;
+            }            
         }
         else {
-            // std::ostringstream strm;
-            // strm << "Guard expression is not handled" << mk_pp(g, m);
-            // throw default_exception(strm.str()); 
-            throw 0; 
+        failure_case:
+            std::ostringstream strm;
+            strm << "Guard expression is not handled" << mk_pp(g, m);
+            throw default_exception(strm.str()); 
         }
     }
 
@@ -593,77 +587,5 @@ namespace datalog {
             return 0;
         return alloc(negation_filter_fn, get(t), get(neg), joined_col_cnt, t_cols, negated_cols);
     }
-
-#if 0
-        /// make bits of table [idx,idx+max_length]  equal to e sliced starting at idx2
-        unsigned fix_eq_bits(unsigned idx, expr *e, unsigned idx2, unsigned max_length,
-                             const table_information& t, subset_ints& equalities,
-                             const bit_vector & discard_cols) {
-            const bv_util& bvu = t.get_bv_util();
-            const dl_decl_util& dutil = t.get_decl_util();
-
-            rational n;
-            unsigned bv_size;
-            if (bvu.is_numeral(e, n, bv_size)) {
-                SASSERT(idx2 < bv_size);
-                max_length = std::min(max_length, bv_size - idx2);
-                T num(n, max_length);
-                fix_eq_bits(idx, &num, idx2, max_length, equalities, discard_cols);
-                return idx + max_length;
-            }
-
-            uint64 num;
-            if (dutil.is_numeral(e, num)) {
-                T num_bv(rational(num,rational::ui64()), max_length);
-                fix_eq_bits(idx, &num_bv, idx2, max_length, equalities, discard_cols);
-                return idx + max_length;
-            }
-
-            if (bvu.is_concat(e)) {
-                const app *a = to_app(e);
-
-                // skip the first elements of the concat if e.g. we have a top level extract
-                unsigned i = 0;
-                for (; i < a->get_num_args(); ++i) {
-                    unsigned arg_size = bvu.get_bv_size(a->get_arg(i));
-                    if (idx2 < arg_size)
-                        break;
-                    idx2 -= arg_size;
-                }
-
-                SASSERT(i < a->get_num_args());
-                for (; max_length > 0 && i < a->get_num_args(); ++i) {
-                    unsigned idx0 = idx;
-                    idx = fix_eq_bits(idx, a->get_arg(i), idx2, max_length, t, equalities, discard_cols);
-                    idx2 = 0;
-                    SASSERT((idx - idx0) <= max_length);
-                    max_length = max_length - (idx - idx0);
-                }
-                return idx;
-            }
-
-            unsigned low, high;
-            expr *e2;
-            if (bvu.is_extract(e, low, high, e2)) {
-                SASSERT(low <= high);
-                unsigned size = bvu.get_bv_size(e2);
-                unsigned offset = size - (high+1) + idx2;
-                SASSERT(idx2 < (high-low+1));
-                max_length = std::min(max_length, high - low + 1 - idx2);
-                return fix_eq_bits(idx, e2, offset, max_length, t, equalities, discard_cols);
-            }
-
-            if (e->get_kind() == AST_VAR) {
-                unsigned idx_var = idx2 + t.column_idx(to_var(e)->get_idx());
-                SASSERT(idx2 < t.column_num_bits(to_var(e)->get_idx()));
-                max_length = std::min(max_length, t.column_num_bits(to_var(e)->get_idx()) - idx2);
-                fix_eq_bits(idx, 0, idx_var, max_length, equalities, discard_cols);
-                return idx + max_length;
-            }
-
-            NOT_IMPLEMENTED_YET();
-            return 0;
-        }
-#endif
 
 }

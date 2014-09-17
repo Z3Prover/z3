@@ -157,6 +157,23 @@ public:
         std::swap(result, *this);
         result.reset(m);
     }
+    void subtract(M& m, union_bvec const& other) {
+        unsigned sz = other.size();
+        for (unsigned i = 0; !empty() && i < sz; ++i) {
+            subtract(m, other[i]);
+        }
+        // TBD compress?
+    }
+    void subtract(M& m, T& t) {
+        unsigned sz = size();
+        bool found = false;
+        union_bvec result;
+        for (unsigned i = 0; i < sz; ++i) {
+            m.subtract(*m_elems[i], t, result.m_elems);
+        }
+        std::swap(m_elems, result.m_elems);
+        result.reset(m);
+    }
     void complement(M& m, union_bvec& result) {     
         union_bvec negated;
         result.reset(m);
