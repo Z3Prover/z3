@@ -163,7 +163,7 @@ public:
                   tout << "\n";
                   display(tout);
                   );
-            lbool is_sat = s().check_sat(m_asms.size(), m_asms.c_ptr());
+            lbool is_sat = check_sat_hill_climb(m_asms);
             if (m_cancel) {
                 return l_undef;
             }
@@ -276,7 +276,7 @@ public:
                   tout << "\n";
                   display(tout);
                   );
-            lbool is_sat = s().check_sat(m_asms.size(), m_asms.c_ptr());
+            lbool is_sat = check_sat_hill_climb(m_asms);
             if (m_cancel) {
                 return l_undef;
             }
@@ -339,6 +339,32 @@ public:
         return l_true;
     }
 
+    lbool check_sat_hill_climb(expr_ref_vector& asms1) {
+        expr_ref_vector asms(asms1);
+        lbool is_sat = l_true;
+        if (m_hill_climb) {
+            /**
+               Give preference to cores that have large minmal values.
+            */
+            sort_assumptions(asms);            
+            unsigned index = 0;
+            unsigned last_index = 0;
+            while (index < asms.size() && is_sat == l_true) {
+                while (asms.size() > 20*(index - last_index) && index < asms.size()) {
+                    index = next_index(asms, index);
+                    //std::cout << "weight: " << get_weight(asms[index-1].get()) << "\n";
+                    //break;
+                }
+                last_index = index;
+                is_sat = s().check_sat(index, asms.c_ptr());
+            }            
+        }
+        else {
+            is_sat = s().check_sat(asms.size(), asms.c_ptr());            
+        }
+        return is_sat;
+    }
+
     void found_optimum() {
         s().get_model(m_model);
         DEBUG_CODE(
@@ -392,25 +418,7 @@ public:
             TRACE("opt",
                   display_vec(tout << "core: ", core.size(), core.c_ptr());
                   display_vec(tout << "assumptions: ", asms.size(), asms.c_ptr()););
-
-            if (m_hill_climb) {
-                /**
-                   Give preference to cores that have large minmal values.
-                */
-                sort_assumptions(asms);            
-                unsigned index = 0;
-                unsigned last_index = 0;
-                while (index < asms.size() && is_sat != l_false) {
-                    while (asms.size() > 10*(index - last_index) && index < asms.size()) {
-                        index = next_index(asms, index);
-                    }
-                    last_index = index;
-                    is_sat = s().check_sat(index, asms.c_ptr());
-                }            
-            }
-            else {
-                is_sat = s().check_sat(asms.size(), asms.c_ptr());            
-            }
+            is_sat = check_sat_hill_climb(asms);
         }
         TRACE("opt", 
               tout << "num cores: " << cores.size() << "\n";

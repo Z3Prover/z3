@@ -64,9 +64,9 @@ namespace datalog {
         bool is_guard(expr* g) const;
         bool is_guard(unsigned n, expr* const *g) const;
         void compile_guard(expr* g, udoc& d) const;
-        void apply_guard(expr* g, udoc& result, bit_vector const& discard_cols);
-        void apply_guard(expr* g, udoc& result, subset_ints& equalities, bit_vector const& discard_cols);
-        void apply_eq(expr* g, udoc& result, var* v, unsigned hi, unsigned lo, expr* c);
+        void apply_guard(expr* g, udoc& result, bit_vector const& discard_cols) const;
+        void apply_guard(expr* g, udoc& result, subset_ints& equalities, bit_vector const& discard_cols) const;
+        void apply_eq(expr* g, udoc& result, var* v, unsigned hi, unsigned lo, expr* c) const;
     };
 
     class udoc_plugin : public relation_plugin {
@@ -120,8 +120,6 @@ namespace datalog {
         virtual relation_transformer_fn * mk_filter_interpreted_and_project_fn(
             const relation_base & t, app * condition,
             unsigned removed_col_cnt, const unsigned * removed_cols);
-
-        // project join select
     };
 };
        

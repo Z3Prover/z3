@@ -333,12 +333,10 @@ namespace datalog {
             doc_manager& dm = r.get_dm();
             unsigned num_bits = dm.num_tbits();
             m_size = r.column_num_bits(identical_cols[0]);
-            m_empty_bv.resize(r.get_num_bits(), false);
-            
+            m_empty_bv.resize(r.get_num_bits(), false);            
             for (unsigned i = 0; i < col_cnt; ++i) {
                 m_cols[i] = r.column_idx(identical_cols[i]);
-            }
-            
+            }            
             for (unsigned i = 0, e = m_empty_bv.size(); i < e; ++i) {
                 m_equalities.mk_var();
             }
@@ -354,11 +352,8 @@ namespace datalog {
         }
     };
     relation_mutator_fn * udoc_plugin::mk_filter_identical_fn(
-        const relation_base & t, unsigned col_cnt, 
-        const unsigned * identical_cols) {
-        if (!check_kind(t))
-            return 0;
-        return alloc(filter_identical_fn, t, col_cnt, identical_cols);
+        const relation_base & t, unsigned col_cnt, const unsigned * identical_cols) {
+        return check_kind(t)?alloc(filter_identical_fn, t, col_cnt, identical_cols):0;
     }
     class udoc_plugin::filter_equal_fn : public relation_mutator_fn {
         doc_manager& dm;
@@ -434,7 +429,7 @@ namespace datalog {
     void udoc_relation::compile_guard(expr* g, udoc& d) const {
         NOT_IMPLEMENTED_YET();
     }
-    void udoc_relation::apply_guard(expr* g, udoc& result, bit_vector const& discard_cols) {
+    void udoc_relation::apply_guard(expr* g, udoc& result, bit_vector const& discard_cols) const {
         // datastructure to store equalities with columns that will be projected out
         union_find_default_ctx union_ctx;
         subset_ints equalities(union_ctx);
@@ -443,9 +438,13 @@ namespace datalog {
         }        
         apply_guard(g, result, equalities, discard_cols);
     }
+    void udoc_relation::apply_eq(expr* g, udoc& result, var* v, unsigned hi, unsigned lo, expr* c) const {
+        NOT_IMPLEMENTED_YET();
+    }
+
     void udoc_relation::apply_guard(
         expr* g, udoc& result, 
-        subset_ints& equalities, bit_vector const& discard_cols) {
+        subset_ints& equalities, bit_vector const& discard_cols) const {
         ast_manager& m = get_plugin().get_ast_manager();
         bv_util& bv = get_plugin().bv;
         expr* e1, *e2;
@@ -489,6 +488,7 @@ namespace datalog {
         else if (m.is_eq(g, e1, e2) && bv.is_bv(e1)) {
             unsigned hi, lo;
             expr* e3;
+            NOT_IMPLEMENTED_YET();
             // TBD: equalities and discard_cols?
             if (is_var(e1) && is_ground(e2)) {
                 apply_eq(g, result, to_var(e1), bv.get_bv_size(e1)-1, 0, e2); 
@@ -506,6 +506,7 @@ namespace datalog {
                 var* v1 = to_var(e1);
                 var* v2 = to_var(e2);
                 // TBD
+                NOT_IMPLEMENTED_YET();
             }   
             else {
                 goto failure_case;
@@ -551,14 +552,8 @@ namespace datalog {
             TRACE("dl", tout << "final size: " << t.get_size_estimate_rows() << '\n';);
         }
     };
-
-
-
     relation_mutator_fn * udoc_plugin::mk_filter_interpreted_fn(const relation_base & t, app * condition) {
-        if (!check_kind(t))
-            return 0;
-        TRACE("dl", tout << mk_pp(condition, get_ast_manager()) << '\n';);
-        return alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition);
+        return check_kind(t)?alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition):0;
     }
 
     class udoc_plugin::negation_filter_fn : public relation_intersection_filter_fn {
@@ -587,5 +582,56 @@ namespace datalog {
             return 0;
         return alloc(negation_filter_fn, get(t), get(neg), joined_col_cnt, t_cols, negated_cols);
     }
+
+    class udoc_plugin::filter_proj_fn : public convenient_relation_project_fn {
+        doc_manager& dm;
+        expr_ref     m_condition;
+        udoc         m_udoc;
+        bit_vector   m_col_list; // map: col idx -> bool (whether the column is to be removed)
+    public:
+        filter_proj_fn(const udoc_relation & t, ast_manager& m, app *condition,
+                       unsigned col_cnt, const unsigned * removed_cols) :
+            convenient_relation_project_fn(t.get_signature(), col_cnt, removed_cols),
+            dm(t.get_dm()),
+            m_condition(m) {
+            t.expand_column_vector(m_removed_cols);
+            m_col_list.resize(t.get_num_bits(), false);
+            for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
+                m_col_list.set(m_removed_cols[i]);
+            }
+            m_removed_cols.push_back(UINT_MAX);
+            expr_ref guard(m), rest(m);
+            t.extract_guard(condition, guard, m_condition);            
+            t.compile_guard(guard, m_udoc);
+            if (m.is_true(m_condition)) {
+                m_condition = 0;
+            }
+        }
+        
+        virtual ~filter_proj_fn() {
+            m_udoc.reset(dm);
+        }
+        virtual relation_base* operator()(const relation_base & tb) {
+            udoc_relation const & t = get(tb);
+            udoc const& u1 = t.get_udoc();
+            udoc  u2;
+            // copy u1 -> u2;
+            NOT_IMPLEMENTED_YET();
+            u2.intersect(dm, m_udoc);
+            if (m_condition && !u2.empty()) {
+                t.apply_guard(m_condition, u2, m_col_list);
+            }
+            udoc_relation* res = get(t.get_plugin().mk_empty(get_result_signature()));
+            NOT_IMPLEMENTED_YET();
+            // u2.project(m_removed_cols, res->get_dm(), res->get_udoc());
+            return res;
+        }
+    };
+    relation_transformer_fn * udoc_plugin::mk_filter_interpreted_and_project_fn(
+        const relation_base & t, app * condition,
+        unsigned removed_col_cnt, const unsigned * removed_cols) {
+        return check_kind(t)?alloc(filter_proj_fn, get(t), get_ast_manager(), condition, removed_col_cnt, removed_cols):0;
+    }
+
 
 }
