@@ -7344,7 +7344,7 @@ def binary_interpolant(a,b,p=None,ctx=None):
 
     >>> x = Int('x')
     >>> print binary_interpolant(x<0,x>2)
-    x <= 2
+    Not(x >= 0)
     """
     f = And(Interp(a),b)
     return tree_interpolant(f,p,ctx)[0]
