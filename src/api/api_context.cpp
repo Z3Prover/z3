@@ -128,6 +128,7 @@ namespace api {
             for (unsigned i = 0; i < m_replay_stack.size(); ++i) {
                 dealloc(m_replay_stack[i]);
             }
+            m_ast_trail.reset();
         }
         reset_parser();
         dealloc(m_solver);
@@ -360,6 +361,7 @@ namespace api {
                 }
             }
         }
+        SASSERT(num_scopes <= get_smt_kernel().get_scope_level());
         get_smt_kernel().pop(num_scopes);
     }
 

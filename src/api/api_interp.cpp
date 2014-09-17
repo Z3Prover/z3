@@ -411,7 +411,7 @@ static void get_file_params(const char *filename, hash_map<std::string,std::stri
       for(unsigned i = 0; i < tokens.size(); i++){
 	std::string &tok = tokens[i];
 	size_t eqpos = tok.find('=');
-	if(eqpos >= 0 && eqpos < tok.size()){
+	if(eqpos != std::string::npos){
 	  std::string left = tok.substr(0,eqpos);
 	  std::string right = tok.substr(eqpos+1,tok.size()-eqpos-1);
 	  params[left] = right;
