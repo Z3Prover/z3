@@ -47,7 +47,7 @@ namespace datalog {
         virtual udoc_relation * complement(func_decl*) const;
         virtual void to_formula(expr_ref& fml) const;
         udoc_plugin& get_plugin() const; 
-        virtual bool empty() const { return m_elems.empty(); }
+        virtual bool empty() const { return m_elems.is_empty(); }
         virtual void display(std::ostream& out) const;
         virtual bool is_precise() const { return true; }
         virtual unsigned get_size_estimate_rows() const { return m_elems.size(); }

@@ -80,7 +80,7 @@ class union_bvec {
 public:
     unsigned size() const { return m_elems.size(); }
     T& operator[](unsigned idx) const { return *m_elems[idx]; }
-    bool empty() const { return m_elems.empty(); }    
+    bool is_empty() const { return m_elems.empty(); }    
     bool is_full(M& m) const { return size() == 1 && m.is_full(*m_elems[0]); }
     bool contains(M& m, T& t) const {
         for (unsigned i = 0; i < m_elems.size(); ++i) {
@@ -167,7 +167,7 @@ public:
     }
     void subtract(M& m, union_bvec const& other) {
         unsigned sz = other.size();
-        for (unsigned i = 0; !empty() && i < sz; ++i) {
+        for (unsigned i = 0; !is_empty() && i < sz; ++i) {
             subtract(m, other[i]);
         }
         // TBD compress?
@@ -187,7 +187,7 @@ public:
         result.reset(m);
         result.push_back(m.allocateX());
         unsigned sz = size();
-        for (unsigned i = 0; !empty() && i < sz; ++i) {
+        for (unsigned i = 0; !is_empty() && i < sz; ++i) {
             m.complement(*m_elems[i], negated.m_elems);
             result.intersect(m, negated);
             negated.reset(m);

@@ -373,7 +373,7 @@ namespace datalog {
                 for (unsigned k = 0; k < len; ++k) {
                     m_permutation[k + lo1] = k + lo2;
                 }
-                SASSERT(column_num_bits(col1) == column_num_bits(col2));
+                SASSERT(t.column_num_bits(col1) == t.column_num_bits(col2));
             }
         }
 
@@ -513,15 +513,19 @@ namespace datalog {
         return true;
     }
     bool udoc_relation::is_guard(expr* g) const {
-        ast_manager& m = get_plugin().get_ast_manager();
-        expr* e1, *e2;
+        udoc_plugin& p = get_plugin();
+        ast_manager& m = p.get_ast_manager();
+        bv_util& bv = p.bv;
+        expr* e1, *e2, *e3;
+        unsigned hi, lo;
         if (m.is_and(g) || m.is_or(g) || m.is_not(g) || m.is_true(g) || m.is_false(g)) {
             return is_guard(to_app(g)->get_num_args(), to_app(g)->get_args());
         }
-        if (m.is_eq(g, e1, e2)) {
-            if (is_var(e1) && is_var(e2)) return false;
-            NOT_IMPLEMENTED_YET();
-            // TBD
+        if (m.is_eq(g, e1, e2) && bv.is_bv(e1)) {
+            if (is_var(e1) && is_ground(e2)) return true;
+            if (is_var(e2) && is_ground(e1)) return true;
+            if (bv.is_extract(e1, lo, hi, e3) && is_var(e3) && is_ground(e2)) return true;
+            if (bv.is_extract(e2, lo, hi, e3) && is_var(e3) && is_ground(e1)) return true;
         }
         if (is_var(g)) {
             return true;
@@ -580,19 +584,22 @@ namespace datalog {
     }
 
     void udoc_relation::apply_guard(
-        expr* g, udoc& result, 
-        subset_ints& equalities, bit_vector const& discard_cols) const {
+        expr* g, udoc& result, subset_ints& equalities, bit_vector const& discard_cols) const {
         ast_manager& m = get_plugin().get_ast_manager();
         bv_util& bv = get_plugin().bv;
         expr* e1, *e2;
-        if (result.empty()) {
+        if (result.is_empty()) {
         }
         else if (m.is_and(g)) {
-            for (unsigned i = 0; !result.empty() && i < to_app(g)->get_num_args(); ++i) {
+            for (unsigned i = 0; !result.is_empty() && i < to_app(g)->get_num_args(); ++i) {
                 apply_guard(to_app(g)->get_arg(i), result, equalities, discard_cols);
             }
         }
         else if (m.is_not(g, e1)) {
+            // REVIEW: (not (= x y)) should not cause 
+            // the equivalence class to collapse.
+            // It seems the current organization with fix_eq_bits
+            // will merge the equivalence class as a side-effect.
             udoc sub;
             sub.push_back(dm.allocateX());
             apply_guard(e1, sub, equalities, discard_cols);
@@ -601,7 +608,7 @@ namespace datalog {
         else if (m.is_or(g)) {
             udoc sub;
             sub.push_back(dm.allocateX());
-            for (unsigned i = 0; !sub.empty() && i < to_app(g)->get_num_args(); ++i) {
+            for (unsigned i = 0; !sub.is_empty() && i < to_app(g)->get_num_args(); ++i) {
                 expr_ref arg(m);
                 arg = mk_not(m, to_app(g)->get_arg(i));
                 apply_guard(arg, result, equalities, discard_cols);
@@ -638,10 +645,12 @@ namespace datalog {
                      apply_eq(g, result, to_var(e3), hi, lo, e1)) {
             }
             else if (is_var(e1) && is_var(e2)) {
-                NOT_IMPLEMENTED_YET();
-                // TBD: equalities and discard_cols?                
                 var* v1 = to_var(e1);
                 var* v2 = to_var(e2);
+                unsigned idx1 = column_idx(v1->get_idx());
+                unsigned idx2 = column_idx(v2->get_idx());
+                unsigned length = column_num_bits(v1->get_idx());
+                result.fix_eq_bits(idx1, 0, idx2, length, equalities, discard_cols);
             }   
             else {
                 goto failure_case;
@@ -681,7 +690,7 @@ namespace datalog {
             udoc_relation & t = get(tb);
             udoc& u = t.get_udoc();
             u.intersect(dm, m_udoc);
-            if (m_condition && !u.empty()) {
+            if (m_condition && !u.is_empty()) {
                 t.apply_guard(m_condition, u, m_empty_bv);
             }
             TRACE("dl", tout << "final size: " << t.get_size_estimate_rows() << '\n';);
@@ -703,9 +712,43 @@ namespace datalog {
         
         virtual void operator()(relation_base& tb, const relation_base& negb) {
             udoc_relation& t = get(tb);
-            udoc_relation const& neg = get(negb);
+            udoc_relation const& negt = get(negb);
+            udoc & dst = t.get_udoc();
+            udoc const & neg = negt.get_udoc();
+            doc_manager& dm = t.get_dm();
+            udoc result;
+            for (unsigned i = 0; i < dst.size(); ++i) {
+                bool done_i = false;
+                for (unsigned j = 0; !done_i && j < neg.size(); ++j) {
+                    bool done_j = false;
+                    for (unsigned c = 0; !done_i && !done_j && c < m_t_cols.size(); ++c) {
+                        unsigned t_col = m_t_cols[c];
+                        unsigned n_col = m_neg_cols[c];
+                        SASSERT(t.column_num_bits(t_col) == negt.column_num_bits(n_col));
+                        NOT_IMPLEMENTED_YET();
+                        //if (!neg[j].contains(negt.column_idx(n_col), dst[i], t.column_idx(t_col), t.column_num_bits(t_col))) {
+                        //    done_j = true;
+                        //}
+                    }
+                    if (done_j) {
+                        result.push_back(&dst[i]);
+                    }
+                    else {
+                        dm.deallocate(&dst[i]);
+                        done_i = true;
+                    }
+                }
+            }
+            std::swap(dst, result);
+            if (dst.is_empty()) {
+                return;
+            }
+
+            // slow case
+            udoc renamed_neg;
             NOT_IMPLEMENTED_YET();
-            // t.m_bitsets.filter_negate(t, neg.m_bitsets, neg, m_t_cols, m_neg_cols);
+            // neg.rename(m_neg_cols, negt, m_t_cols, t, renamed_neg);
+            dst.subtract(t.get_dm(), renamed_neg);
         }
     };
 
@@ -753,7 +796,7 @@ namespace datalog {
             // copy u1 -> u2;
             NOT_IMPLEMENTED_YET();
             u2.intersect(dm, m_udoc);
-            if (m_condition && !u2.empty()) {
+            if (m_condition && !u2.is_empty()) {
                 t.apply_guard(m_condition, u2, m_col_list);
             }
             udoc_relation* res = get(t.get_plugin().mk_empty(get_result_signature()));
