@@ -159,6 +159,7 @@ doc* doc_manager::project(unsigned n, bool const* to_delete, doc const& src) {
         // build doc from p.
         return 0;
     }
+    NOT_IMPLEMENTED_YET();
     ptr_vector<tbv> todo;
 #if 0
     // tbv & ~tbv1 & ~tbv2 & ..
@@ -285,8 +286,10 @@ doc* doc_manager::project(unsigned n, bool const* to_delete, doc const& src) {
 }
 
 void doc_manager::complement(doc const& src, ptr_vector<doc>& result) {
+    NOT_IMPLEMENTED_YET();
 }
 void doc_manager::subtract(doc const& A, doc const& B, ptr_vector<doc>& result) {
+    NOT_IMPLEMENTED_YET();
 }
 bool doc_manager::equals(doc const& a, doc const& b) const {
     if (!m.equals(a.pos(), b.pos())) return false;
