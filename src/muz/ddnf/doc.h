@@ -34,7 +34,7 @@ class doc_manager {
     tbv_manager m;
 public:
     doc_manager(unsigned n): m(n) {}
-    tbv_manager& tbv() { return m; }
+    tbv_manager& tbvm() { return m; }
     void reset();
     doc* allocate();
     doc* allocate1();
@@ -53,6 +53,7 @@ public:
     doc& fillX(doc& src) const;
     bool is_full(doc const& src) const;
     bool set_and(doc& dst, doc const& src) const;
+    bool fold_neg(doc& dst);
     bool intersect(doc const& A, doc const& B, doc& result) const;
     void complement(doc const& src, ptr_vector<doc>& result);
     void subtract(doc const& A, doc const& B, ptr_vector<doc>& result);
@@ -61,6 +62,9 @@ public:
     bool contains(doc const& a, doc const& b) const;
     std::ostream& display(std::ostream& out, doc const& b) const;
     unsigned num_tbits() const { return m.num_tbits(); }
+    doc* project(unsigned n, bool const* to_delete, doc const& src);
+private:
+    unsigned diff_by_012(tbv const& pos, tbv const& neg, unsigned& index);
 };
 
 typedef union_find<> subset_ints;
@@ -98,6 +102,11 @@ public:
 
     void push_back(T* t) {
         m_elems.push_back(t);
+    }
+    void erase(M& m, unsigned idx) {
+        T* t = m_elems[idx];
+        m_elems.erase(t);
+        m.deallocate(t);
     }
     void reset(M& m) {
         for (unsigned i = 0; i < m_elems.size(); ++i) {
@@ -191,6 +200,12 @@ public:
             m.complement(*m_elems[i], negated.m_elems);
             result.intersect(m, negated);
             negated.reset(m);
+        }
+    }
+    void copy(M& m, union_bvec const& other) {
+        reset(m);
+        for (unsigned i = 0; i < other.size(); ++i) {
+            push_back(m.allocate(other[i]));
         }
     }
     void fix_eq_bits(unsigned idx1, tbv* BV, unsigned idx2, unsigned length,

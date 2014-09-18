@@ -26,10 +26,16 @@ Revision History:
 
 class tbv;
 
-#define BIT_0 0x1
-#define BIT_1 0x2
-#define BIT_x 0x3
-#define BIT_z 0x0
+enum tbit {
+    BIT_z = 0x0,
+    BIT_0 = 0x1,
+    BIT_1 = 0x2,
+    BIT_x = 0x3
+};
+
+inline tbit neg(tbit t) {
+    return (tbit)(t ^ 0x3);
+}
 
 class tbv_manager {
     friend class tbv;
@@ -63,6 +69,7 @@ public:
     bool contains(tbv const& a, tbv const& b) const;
     bool intersect(tbv const& a, tbv const& b, tbv& result);
     std::ostream& display(std::ostream& out, tbv const& b) const;
+    tbv* project(unsigned n, bool const* to_delete, tbv const& src);
 };
 
 class tbv: private fixed_bit_vector {
@@ -91,12 +98,13 @@ public:
     void set(rational const& r, unsigned hi, unsigned lo);
     void set(tbv const& other, unsigned hi, unsigned lo);
 
-    unsigned operator[](unsigned idx) const { return get(idx); }
-    void set(unsigned index, unsigned value) {
+    tbit operator[](unsigned idx) const { return (tbit)get(idx); }
+    void set(unsigned index, tbit value) {
         SASSERT(value <= 3);
         fixed_bit_vector::set(2*index,   (value & 2) != 0);
         fixed_bit_vector::set(2*index+1, (value & 1) != 0);
     }
+
 
 private:
 

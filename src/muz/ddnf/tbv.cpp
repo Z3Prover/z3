@@ -66,10 +66,23 @@ tbv* tbv_manager::allocate(uint64 val, unsigned hi, unsigned lo) {
 tbv* tbv_manager::allocate(tbv const& bv, unsigned const* permutation) {
     tbv* r = allocate();
     for (unsigned i = 0; i < num_tbits(); ++i) {
-        r->set(permutation[i], bv.get(i));
+        r->set(permutation[i], bv[i]);
     }
     return r;
 }
+tbv* tbv_manager::project(unsigned n, bool const* to_delete, tbv const& src) {
+    tbv* r = allocate();
+    unsigned i, j;
+    for (i = 0, j = 0; i < n; ++i) {
+        if (!to_delete[i]) {
+            r->set(j, src[i]);
+            ++j;
+        }
+    }
+    SASSERT(num_tbits() == j);
+    return r;
+}
+
 void tbv::set(uint64 val, unsigned hi, unsigned lo) {
     for (unsigned i = 0; i < hi - lo + 1; ++i) {
         set(lo + i, (val & (1ULL << i))?BIT_1:BIT_0);
@@ -90,7 +103,7 @@ void tbv::set(rational const& r, unsigned hi, unsigned lo) {
 
 void tbv::set(tbv const& other, unsigned hi, unsigned lo) {
     for (unsigned i = 0; i < hi - lo + 1; ++i) {
-        set(lo + i, other.get(i));
+        set(lo + i, other[i]);
     }
 }
 

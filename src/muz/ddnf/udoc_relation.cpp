@@ -271,8 +271,8 @@ namespace datalog {
             for (unsigned i = 0; i < m_cols1.size(); ++i) {
                 unsigned idx1 = m_cols1[i];
                 unsigned idx2 = mid + m_cols2[i];
-                unsigned v1 = pos[idx1];
-                unsigned v2 = pos[idx2];
+                tbit v1 = pos[idx1];
+                tbit v2 = pos[idx2];
 
                 if (v1 == BIT_x) {
                     if (v2 != BIT_x)
@@ -294,12 +294,12 @@ namespace datalog {
                 
                 if (v1 == BIT_x && v2 == BIT_x) {
                     // add to subtracted TBVs: 1xx0 and 0xx1
-                    tbv* r = dm.tbv().allocate(pos);
+                    tbv* r = dm.tbvm().allocate(pos);
                     r->set(idx1, BIT_0);
                     r->set(idx2, BIT_1);
                     neg.push_back(r);
                     
-                    r = dm.tbv().allocate(pos);
+                    r = dm.tbvm().allocate(pos);
                     r->set(idx1, BIT_1);
                     r->set(idx2, BIT_0);
                     neg.push_back(r);
@@ -308,13 +308,13 @@ namespace datalog {
 
             // handle subtracted TBVs:  1010 -> 1010xxx
             for (unsigned i = 0; i < d1.neg().size(); ++i) {
-                tbv* t = dm.tbv().allocate();
+                tbv* t = dm.tbvm().allocate();
                 t->set(d1.neg()[i], mid-1, 0);
                 t->set(d2.pos(), hi - 1, mid);
                 neg.push_back(t);
             }
             for (unsigned i = 0; i < d2.neg().size(); ++i) {
-                tbv* t = dm.tbv().allocate();
+                tbv* t = dm.tbvm().allocate();
                 t->set(d1.pos(), mid-1, 0);
                 t->set(d2.neg()[i], hi - 1, mid);
                 neg.push_back(t);
@@ -625,8 +625,8 @@ namespace datalog {
             unsigned v = to_var(g)->get_idx();
             unsigned idx = column_idx(v);
             doc_manager& dm1 = get_plugin().dm(1);
-            tbv_ref bit1(dm1.tbv());
-            bit1 = dm1.tbv().allocate1();
+            tbv_ref bit1(dm1.tbvm());
+            bit1 = dm1.tbvm().allocate1();
             result.fix_eq_bits(idx, bit1.get(), 0, 1, equalities, discard_cols);
         }
         else if (m.is_eq(g, e1, e2) && bv.is_bv(e1)) {
@@ -792,9 +792,9 @@ namespace datalog {
         virtual relation_base* operator()(const relation_base & tb) {
             udoc_relation const & t = get(tb);
             udoc const& u1 = t.get_udoc();
+            doc_manager& dm = t.get_dm();
             udoc  u2;
-            // copy u1 -> u2;
-            NOT_IMPLEMENTED_YET();
+            u2.copy(dm, u1);
             u2.intersect(dm, m_udoc);
             if (m_condition && !u2.is_empty()) {
                 t.apply_guard(m_condition, u2, m_col_list);
