@@ -455,7 +455,7 @@ def display_help(exit_code):
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
     if IS_WINDOWS:
         print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
-    print("  -j, --java                    generate Java bindinds.")
+    print("  -j, --java                    generate Java bindings.")
     print("  --staticlib                   build Z3 static library.")
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
@@ -587,7 +587,7 @@ def set_z3py_dir(p):
         raise MKException("Python bindings directory '%s' does not exist" % full)
     Z3PY_SRC_DIR = full
     if VERBOSE:
-        print("Python bindinds directory was detected.")
+        print("Python bindings directory was detected.")
 
 _UNIQ_ID = 0
 
