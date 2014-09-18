@@ -32,8 +32,10 @@ template<typename M, typename T> class union_bvec;
 
 class doc_manager {
     tbv_manager m;
+    tbv*        m_full;
 public:
-    doc_manager(unsigned n): m(n) {}
+    doc_manager(unsigned num_bits);
+    ~doc_manager();
     tbv_manager& tbvm() { return m; }
     void reset();
     doc* allocate();

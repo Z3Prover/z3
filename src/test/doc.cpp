@@ -73,15 +73,41 @@ static void tst_doc1(unsigned n) {
 
 class test_doc_project {
     random_gen m_ran;
+    int        m_num_vars;
 
-    void test_clauses(unsigned num_vars, unsigned num_clauses) {
+    unsigned choose_var() {
+        return m_ran(m_num_vars) + 1;
+    }
+    tbit choose_tbit() {
+        switch(m_ran(3)) {
+        case 0: return BIT_0;
+        case 1: return BIT_1;
+        default : return BIT_x;
+        }
+    }
+    void mk_clause(svector<int>& clause, tbv& t) {
+        for (int i = 0; i < m_num_vars; ++i) {
+            tbit b = choose_tbit();
+            t.set(i, b);            
+            switch (b) {
+            case BIT_0: clause.push_back(-i-1); break;
+            case BIT_1: clause.push_back(i+1); break;
+            default: break;
+            }
+        }
+    }
+
+    void test_clauses(unsigned num_clauses) {
+        
         //
     }
 
 public:    
-    void operator()(unsigned num_vars, unsigned min_clauses, unsigned max_clauses) {        
+    test_doc_project(unsigned num_vars): m_num_vars(num_vars) {}
+
+    void operator()(unsigned min_clauses, unsigned max_clauses) {        
         for (unsigned i = min_clauses; i < max_clauses; ++i) {
-            test_clauses(num_vars, i);
+            test_clauses(i);
         }    
     }
 };

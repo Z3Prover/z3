@@ -21,6 +21,15 @@ Revision History:
 --*/
 
 #include "doc.h"
+
+doc_manager::doc_manager(unsigned n): m(n) {
+    m_full = m.allocateX();
+}
+
+doc_manager::~doc_manager() {
+    m.deallocate(m_full);
+}
+
 void doc_manager::reset() {
     // m.reset(); - not until docs are in small object allocator.
 }
@@ -60,6 +69,9 @@ doc* doc_manager::allocate(doc const& src, unsigned const* permutation) {
     return r;
 }
 void doc_manager::deallocate(doc* src) {
+    if (!src) return;
+    m.deallocate(&src->pos());
+    src->neg().reset(m);
     dealloc(src);
 }
 void doc_manager::copy(doc& dst, doc const& src)  {
@@ -277,18 +289,47 @@ void doc_manager::complement(doc const& src, ptr_vector<doc>& result) {
 void doc_manager::subtract(doc const& A, doc const& B, ptr_vector<doc>& result) {
 }
 bool doc_manager::equals(doc const& a, doc const& b) const {
-    return false;
+    if (!m.equals(a.pos(), b.pos())) return false;
+    if (a.neg().size() != b.neg().size()) return false;
+    for (unsigned i = 0; i < a.neg().size(); ++i) {
+        if (!m.equals(a.neg()[i], b.neg()[i])) return false;
+    }
+    return true;
 }
 bool doc_manager::is_full(doc const& src) const {
-    return false;
+    return src.neg().is_empty() && m.equals(src.pos(), *m_full);
 }
 unsigned doc_manager::hash(doc const& src) const {
-    return 0;
+    unsigned r = 0;
+    for (unsigned i = 0; i < src.neg().size(); ++i) {
+        r = 2*r + m.hash(src.neg()[i]);
+    }
+    return r + m.hash(src.pos());
 }
+// approximation
+// A \ (A1 u A2) contains B \ (B1 u B2)
+// if
+// A contains B
+// B1 contains A1 or A2
 bool doc_manager::contains(doc const& a, doc const& b) const {
-    return false;
+    if (!m.contains(a.pos(), b.pos())) return false;
+    for (unsigned i = 0; i < b.neg().size(); ++i) {
+        bool found = false;
+        for (unsigned j = 0; !found && j < a.neg().size(); ++j) {
+            found = m.contains(b.neg()[i],a.neg()[j]);
+        }
+        if (!found) return false;
+    }
+    return true;
 }
 std::ostream& doc_manager::display(std::ostream& out, doc const& b) const {
-    return out;
+    m.display(out, b.pos());
+    if (b.neg().is_empty()) return out;
+    out << " \\ {";
+    for (unsigned i = 0; i < b.neg().size(); ++i) {
+        m.display(out, b.neg()[i]);
+        if (i + 1 < b.neg().size()) out << ", ";
+    }    
+    return out << "}";
 }
 
