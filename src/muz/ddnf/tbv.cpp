@@ -19,12 +19,17 @@ Revision History:
 --*/
 
 #include "tbv.h"
+#include "hashtable.h"
+
+static ptr_addr_hashtable<tbv> allocated_tbvs;
 
 void tbv_manager::reset() {
     m.reset();
 }
 tbv* tbv_manager::allocate() {
-    return reinterpret_cast<tbv*>(m.allocate());
+    tbv* r = reinterpret_cast<tbv*>(m.allocate());
+    allocated_tbvs.insert(r);
+    return r;
 }
 tbv* tbv_manager::allocate1() {
     tbv* v = allocate();
@@ -42,7 +47,9 @@ tbv* tbv_manager::allocateX() {
     return v;
 }
 tbv* tbv_manager::allocate(tbv const& bv) {
-    return reinterpret_cast<tbv*>(m.allocate(bv));
+    tbv* r = allocate();
+    copy(*r, bv);
+    return r;
 }
 tbv* tbv_manager::allocate(uint64 val) {
     tbv* v = allocate0();
@@ -124,6 +131,11 @@ tbv* tbv_manager::allocate(rational const& r) {
     return v;
 }
 void tbv_manager::deallocate(tbv* bv) {
+    if (!allocated_tbvs.contains(bv)) {
+        std::cout << "double deallocate: " << bv << "\n";
+        UNREACHABLE();
+    }
+    allocated_tbvs.erase(bv);
     m.deallocate(bv);
 }    
 void tbv_manager::copy(tbv& dst, tbv const& src) const {

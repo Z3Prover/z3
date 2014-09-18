@@ -74,17 +74,25 @@ static void tst_doc1(unsigned n) {
     m.display(std::cout, *d1) << "\n";
 
 
-#if 0
     svector<bool> to_delete(n, false);
     to_delete[1] = true;
     to_delete[3] = true;
     doc_manager m1(n-2);
-    doc_ref d1_1(m1, m1.project(n, to_delete.c_ptr(), *d0));
+    doc_ref d1_1(m1, m.project(m1, n, to_delete.c_ptr(), *d1));
     doc_ref d1_2(m1, m1.allocate1());
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";
     SASSERT(m1.equals(*d1_1,*d1_2));
-#endif
+    m.set(*d1,2,BIT_x);
+    m.set(*d1,4,BIT_x);
+    d1_1 = m.project(m1, n, to_delete.c_ptr(), *d1);
+    m.display(std::cout, *d1) << " -> ";
+    m1.display(std::cout, *d1_1) << "\n";
+    d1->neg().push_back(m.tbvm().allocate1());
+    SASSERT(m.well_formed(*d1));
+    d1_1 = m.project(m1, n, to_delete.c_ptr(), *d1);
+    m.display(std::cout, *d1) << " -> ";
+    m1.display(std::cout, *d1_1) << "\n";    
 }
 
 
@@ -120,6 +128,13 @@ class test_doc_project {
         result = mk_or(m, clause.size(), clause.c_ptr());
     }
 
+    void project(doc const& d, doc_manager& m2, bool const* to_delete) {
+        doc_ref result(m2);
+        dm.display(std::cout, d) << " -> ";
+        result = dm.project(m2, m_vars.size(), to_delete, d);
+        m2.display(std::cout, *result) << "\n";
+    } 
+
     void test_clauses(unsigned num_clauses) {
         doc_ref d(dm, dm.allocateX());
         expr_ref_vector fmls(m);
@@ -132,8 +147,15 @@ class test_doc_project {
             fmls.push_back(clause);
         }
         fml = mk_and(m, fmls.size(), fmls.c_ptr());
-        dm.display(std::cout, *d) << "\n";
-        std::cout << fml << "\n";
+        svector<bool> to_delete(m_vars.size(), false);
+        unsigned num_bits = 1;
+        for (unsigned i = 1; i < to_delete.size(); ++i) {
+            to_delete[i] = (m_ran(2) == 0);
+            if (!to_delete[i]) ++num_bits;
+        }
+        doc_manager m2(num_bits);
+        project(*d, m2, to_delete.c_ptr());
+        // std::cout << fml << "\n";
         //
     }
 

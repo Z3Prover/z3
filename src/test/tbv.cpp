@@ -24,6 +24,16 @@ static void tst1(unsigned num_bits) {
     VERIFY(m.intersect(*bX,*b0,*bN));
     SASSERT(m.equals(*b0, *bN));
     VERIFY(!m.intersect(*b0,*b1,*bN));
+    m.fill1(*b1);
+    svector<bool> to_delete(num_bits, false);
+    tbv_manager m2(num_bits-2);
+    to_delete[1] = true;
+    to_delete[3] = true;
+    (*b1).set(2, BIT_0);
+    (*b1).set(4, BIT_x);
+    tbv_ref b2(m2, m2.project(num_bits, to_delete.c_ptr(), *b1));
+    m.display(std::cout, *b1) << " -> ";
+    m2.display(std::cout, *b2) << "\n";
     m.deallocate(b0);
     m.deallocate(b1);
     m.deallocate(bX);

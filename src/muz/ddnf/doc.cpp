@@ -52,6 +52,9 @@ doc* doc_manager::allocate(doc const& src) {
     }
     return r;
 }
+doc* doc_manager::allocate(tbv* t) {
+    return alloc(doc, t);
+}
 doc* doc_manager::allocate(tbv const& src) {
     return allocate(m.allocate(src));
 }
@@ -317,6 +320,8 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, 
     for (unsigned i = 0; i < n; ++i) {
         if (to_delete[i] && (*bits)[i] == BIT_z) {
             new_todo.reset();
+            pos.reset();
+            neg.reset();
             for (unsigned j = 0; j < todo.size(); ++j) {
                 tbv& t = *todo[j];
                 switch(t[i]) {
