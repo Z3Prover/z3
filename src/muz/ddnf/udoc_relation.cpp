@@ -461,14 +461,18 @@ namespace datalog {
             for (unsigned i = 0, e = m_empty_bv.size(); i < e; ++i) {
                 m_equalities.mk_var();
             }
+            for (unsigned i = 1; i < col_cnt; ++i) {
+                for (unsigned j = 0; j < m_size; ++j) {
+                    m_equalities.merge(m_cols[0]+j ,m_cols[i]+j);
+                }
+            }
         }
         
         virtual void operator()(relation_base & _r) {
             udoc_relation& r = get(_r);
             udoc& d = r.get_udoc();
-            for (unsigned i = 1; i < m_cols.size(); ++i) {
-                d.fix_eq_bits(m_cols[0], 0, m_cols[i], m_size, m_equalities, m_empty_bv);
-            }
+            doc_manager& dm = r.get_dm();
+            d.merge(dm, m_cols[0], m_size, m_equalities, m_empty_bv);
             TRACE("dl", tout << "final size: " << r.get_size_estimate_rows() << '\n';);
         }
     };
@@ -624,10 +628,10 @@ namespace datalog {
             SASSERT(m.is_bool(g));
             unsigned v = to_var(g)->get_idx();
             unsigned idx = column_idx(v);
-            doc_manager& dm1 = get_plugin().dm(1);
-            tbv_ref bit1(dm1.tbvm());
-            bit1 = dm1.tbvm().allocate1();
-            result.fix_eq_bits(idx, bit1.get(), 0, 1, equalities, discard_cols);
+            doc_ref d(dm);
+            d = dm.allocateX();
+            dm.set(*d, idx, BIT_1);
+            result.intersect(dm, *d);
         }
         else if (m.is_eq(g, e1, e2) && bv.is_bv(e1)) {
             unsigned hi, lo;
@@ -650,7 +654,7 @@ namespace datalog {
                 unsigned idx1 = column_idx(v1->get_idx());
                 unsigned idx2 = column_idx(v2->get_idx());
                 unsigned length = column_num_bits(v1->get_idx());
-                result.fix_eq_bits(idx1, 0, idx2, length, equalities, discard_cols);
+                result.merge(dm, idx1, idx2, length, discard_cols);
             }   
             else {
                 goto failure_case;

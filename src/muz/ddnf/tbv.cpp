@@ -150,8 +150,12 @@ tbv& tbv_manager::set_or(tbv& dst,  tbv const& src) const {
 }
 bool tbv_manager::set_and(tbv& dst,  tbv const& src) const {
     m.set_and(dst, src); 
+    return is_well_formed(dst);
+}
+
+bool tbv_manager::is_well_formed(tbv const& dst) const {
     for (unsigned i = 0; i < num_tbits(); ++i) {
-        if (dst.get(i) == BIT_z) return false;
+        if (dst[i] == BIT_z) return false;
     }
     return true;
 }

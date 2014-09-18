@@ -105,11 +105,31 @@ doc& doc_manager::fillX(doc& src) {
 bool doc_manager::set_and(doc& dst, doc const& src)  {
     // (A \ B) & (C \ D) = (A & C) \ (B u D)
     if (!m.set_and(dst.pos(), src.pos())) return false;
+    for (unsigned i = 0; i < dst.neg().size(); ++i) {
+        if (!m.set_and(dst.neg()[i], dst.pos())) {
+            dst.neg().erase(m, i);
+            --i;
+        }
+    }
+    tbv_ref t(m);
     for (unsigned i = 0; i < src.neg().size(); ++i) {
-        dst.neg().insert(m, m.allocate(src.neg()[i]));
+        t = m.allocate(src.neg()[i]);
+        if (m.set_and(*t, dst.pos())) {
+            dst.neg().insert(m, t.detach());
+        }
     }
     return (src.neg().is_empty() || fold_neg(dst));
 }
+
+bool doc_manager::well_formed(doc const& d) const {
+    if (!m.is_well_formed(d.pos())) return false;
+    for (unsigned i = 0; i < d.neg().size(); ++i) {
+        if (!m.is_well_formed(d.neg()[i])) return false;
+        if (!m.contains(d.pos(), d.neg()[i])) return false;
+    }
+    return true;
+}
+
 bool doc_manager::fold_neg(doc& dst) {
  start_over:
     for (unsigned i = 0; i < dst.neg().size(); ++i) {
@@ -153,6 +173,85 @@ unsigned doc_manager::diff_by_012(tbv const& pos, tbv const& neg, unsigned& inde
     }
     return count;
 }
+
+void doc_manager::set(doc& d, unsigned idx, tbit value) {
+    d.pos().set(idx, value);
+    for (unsigned i = 0; i < d.neg().size(); ++i) {
+        d.neg()[i].set(idx, value);
+    }
+}
+
+//
+// merge range from [lo:lo+length-1] with each index in equivalence class.
+// under assumption of equalities and columns that are discarded.
+//
+bool doc_manager::merge(doc& d, unsigned lo, unsigned length, subset_ints& equalities, bit_vector const& discard_cols) {
+    for (unsigned i = 0; i < length; ++i) {
+        unsigned idx = lo + i;
+        if (!merge(d, lo + i, equalities, discard_cols)) return false;
+    }
+    return true;
+}
+bool doc_manager::merge(doc& d, unsigned idx, subset_ints& equalities, bit_vector const& discard_cols) {
+    unsigned root = equalities.find(idx);
+    idx = root;
+    unsigned num_x = 0;
+    unsigned root1;
+    tbit value = BIT_x;
+    do {
+        switch (d[idx]) {
+        case BIT_0:
+            if (value == BIT_1) return false;
+            value = BIT_0;
+            break;
+        case BIT_1:
+            if (value == BIT_0) return false;
+            value = BIT_1;
+            break;
+        case BIT_x:
+            if (!discard_cols.get(idx)) {
+                ++num_x;
+                root1 = idx;
+            }
+            break;
+        default:
+            break;
+        }
+        idx = equalities.next(idx);
+    }
+    while (idx != root);
+
+    if (num_x == 0) {
+        // nothing to do.
+    }
+    else if (value != BIT_x) {
+        do {
+            if (d[idx] == BIT_x) {
+                set(d, idx, value);
+            }
+            idx = equalities.next(idx);
+        }
+        while (idx != root);
+    }
+    else {
+        do {
+            if (!discard_cols.get(idx) && idx != root1) {
+                tbv* t = tbvm().allocate(d.pos());
+                t->set(idx, BIT_0);
+                t->set(root1, BIT_1);
+                d.neg().insert(tbvm(), t);
+                t = tbvm().allocate(d.pos());
+                t->set(idx, BIT_1);
+                t->set(root1, BIT_0);
+                d.neg().insert(tbvm(), t);                
+            }
+            idx = equalities.next(idx);
+        }
+        while (idx != root);
+    }
+    return true;
+}
+
 doc* doc_manager::project(unsigned n, bool const* to_delete, doc const& src) {
     tbv* p = tbvm().project(n, to_delete, src.pos());
     if (src.neg().is_empty()) {
