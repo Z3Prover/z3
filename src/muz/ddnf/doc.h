@@ -44,6 +44,8 @@ public:
     doc* allocate0();
     doc* allocateX();
     doc* allocate(doc const& src);
+    doc* allocate(tbv const& src);
+    doc* allocate(tbv * src);
     doc* allocate(uint64 n);
     doc* allocate(rational const& r);
     doc* allocate(uint64 n, unsigned hi, unsigned lo);
@@ -65,13 +67,14 @@ public:
     bool contains(doc const& a, doc const& b) const;
     std::ostream& display(std::ostream& out, doc const& b) const;
     unsigned num_tbits() const { return m.num_tbits(); }
-    doc* project(unsigned n, bool const* to_delete, doc const& src);
+    doc* project(doc_manager& dstm, unsigned n, bool const* to_delete, doc const& src);
     bool well_formed(doc const& d) const;
     bool merge(doc& d, unsigned lo, unsigned length, subset_ints& equalities, bit_vector const& discard_cols);
     void set(doc& d, unsigned idx, tbit value);
 private:
     unsigned diff_by_012(tbv const& pos, tbv const& neg, unsigned& index);
     bool merge(doc& d, unsigned idx, subset_ints& equalities, bit_vector const& discard_cols);
+    bool can_project_neg(tbv const& pos, unsigned n, bool const* to_delete, tbv const& neg);
 };
 
 
@@ -293,6 +296,7 @@ public:
     }
     doc& operator*() { return *d; }
     doc* operator->() { return d; }
+    doc* detach() { doc* r = d; d = 0; return r; }
 };
 
 #endif /* _DOC_H_ */
