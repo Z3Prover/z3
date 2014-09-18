@@ -134,7 +134,20 @@ class test_doc_project {
         fml = mk_and(m, fmls.size(), fmls.c_ptr());
         dm.display(std::cout, *d) << "\n";
         std::cout << fml << "\n";
-        //
+        for (unsigned i = 0; i < m_vars.size(); ++i) {
+            //test_project(i, fml, *d);
+        }
+    }
+
+    void test_project(unsigned i, expr* fml, doc& d) {
+        svector<bool> to_delete(m_vars.size(), false);
+        to_delete[i] = true;
+        doc_manager dm1(m_vars.size()-1);
+        doc_ref d1(dm1, dm1.project(m_vars.size(), to_delete.c_ptr(), d));
+        expr_ref fml1(m);
+        // fml1 = m.mk_exists();
+        // extrac formula fml2 from d1,
+        // check that fml1 is equivalent to fml2
     }
 
 public:    
