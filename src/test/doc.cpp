@@ -13,6 +13,11 @@ static void tst_doc1(unsigned n) {
     doc_ref dXc(m, m.allocate(*dX));
     doc_ref d10(m, m.allocate(10));
     doc_ref d20(m, m.allocate(rational(20)));
+    m.display(std::cout, *d1) << "\n";
+    m.display(std::cout, *d0) << "\n";
+    m.display(std::cout, *dX) << "\n";
+    m.display(std::cout, *d10) << "\n";
+    m.display(std::cout, *d20) << "\n";
     unsigned hi = 3, lo = 1;
     SASSERT(hi <= n);
     doc_ref d111X(m, m.allocate(0xFF, hi, lo));
@@ -39,8 +44,11 @@ static void tst_doc1(unsigned n) {
     VERIFY(m.fold_neg(*dX));
     ptr_vector<doc> result;
     //    VERIFY(!m.intersect(*d1,*d0, result));    
-    m.subtract(*d1,*d0, result);
+    //    m.subtract(*d1,*d0, result);
     SASSERT(result.empty());
+    dX = m.allocateX();
+    m.display(std::cout, *d0) << "\n";
+    m.display(std::cout, *dX) << "\n";
     SASSERT(m.contains(*dX,*d1));
     SASSERT(m.contains(*dX,*d0));
     SASSERT(!m.contains(*d0,*d1));
@@ -53,7 +61,7 @@ static void tst_doc1(unsigned n) {
     m.display(std::cout, *d1) << "\n";
 
 
-    svector<bool> to_delete(n);
+    svector<bool> to_delete(n, false);
     to_delete[1] = true;
     to_delete[3] = true;
     doc_manager m1(n-2);

@@ -130,13 +130,13 @@ void tbv_manager::copy(tbv& dst, tbv const& src) const {
     m.copy(dst, src);
 }    
 tbv& tbv_manager::fill0(tbv& bv) const { 
-    // 01010101 = 1 + 4 + 16 + 64
-    memset(bv.m_data, 1 + 4 + 16 + 64, m.num_bytes());
-    return bv; 
-}
-tbv& tbv_manager::fill1(tbv& bv) const { 
     // 10101010 = 2 + 8 + 32 + 128
     memset(bv.m_data, 2 + 8 + 32 + 128, m.num_bytes());
+    return bv; 
+}
+tbv& tbv_manager::fill1(tbv& bv) const {  
+    // 01010101 = 1 + 4 + 16 + 64
+    memset(bv.m_data, 1 + 4 + 16 + 64, m.num_bytes());
     return bv; 
 }
 tbv& tbv_manager::fillX(tbv& bv) const { 
