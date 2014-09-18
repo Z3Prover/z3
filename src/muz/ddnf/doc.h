@@ -44,15 +44,15 @@ public:
     doc* allocate(uint64 n);
     doc* allocate(rational const& r);
     doc* allocate(uint64 n, unsigned hi, unsigned lo);
-    doc* allocate(doc, unsigned const* permutation);
+    doc* allocate(doc const& src, unsigned const* permutation);
     void deallocate(doc* src);        
-    void copy(doc& dst, doc const& src) const;
-    doc& reset(doc& src) const { return fill0(src); }
-    doc& fill0(doc& src) const;
-    doc& fill1(doc& src) const;
-    doc& fillX(doc& src) const;
+    void copy(doc& dst, doc const& src);
+    doc& reset(doc& src) { return fill0(src); }
+    doc& fill0(doc& src);
+    doc& fill1(doc& src);
+    doc& fillX(doc& src);
     bool is_full(doc const& src) const;
-    bool set_and(doc& dst, doc const& src) const;
+    bool set_and(doc& dst, doc const& src);
     bool fold_neg(doc& dst);
     bool intersect(doc const& A, doc const& B, doc& result) const;
     void complement(doc const& src, ptr_vector<doc>& result);
@@ -328,6 +328,7 @@ public:
         }
     };
 
+    doc(tbv* t): m_pos(t) {}
     tbv& pos() { return *m_pos; }
     utbv& neg() { return m_neg; }
     tbv const& pos() const { return *m_pos; }
@@ -349,6 +350,7 @@ public:
     doc_ref& operator=(doc* d2) {
         if (d) dm.deallocate(d);
         d = d2;
+        return *this;
     }
     doc& operator*() { return *d; }
     doc* operator->() { return d; }

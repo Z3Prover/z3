@@ -142,6 +142,7 @@ int main(int argc, char ** argv) {
     TST(bit_vector);
     TST(fixed_bit_vector);
     TST(tbv);
+    TST(doc);
     TST(string_buffer);
     TST(map);
     TST(diff_logic);

@@ -22,49 +22,81 @@ Revision History:
 
 #include "doc.h"
 void doc_manager::reset() {
+    // m.reset(); - not until docs are in small object allocator.
 }
 doc* doc_manager::allocate() {
-    return 0;
+    return alloc(doc, m.allocate());
 }
 doc* doc_manager::allocate1() {
-    return 0;
+    return alloc(doc, m.allocate1());
 }
 doc* doc_manager::allocate0() {
-    return 0;                                                
+    return alloc(doc, m.allocate0());
 }
 doc* doc_manager::allocateX() {
-    return 0;
+    return alloc(doc, m.allocateX());
 }
 doc* doc_manager::allocate(doc const& src) {
-    return 0;
+    doc* r = alloc(doc, m.allocate(src.pos()));
+    for (unsigned i = 0; i < src.neg().size(); ++i) {
+        r->neg().push_back(m.allocate(src.neg()[i]));
+    }
+    return r;
 }
 doc* doc_manager::allocate(uint64 n) {
-    return 0;
+    return alloc(doc, m.allocate(n));
 }
 doc* doc_manager::allocate(rational const& r) {
-    return 0;
+    return alloc(doc, m.allocate(r));
 }
 doc* doc_manager::allocate(uint64 n, unsigned hi, unsigned lo) {
-    return 0;
+    return alloc(doc, m.allocate(n, hi, lo));
 }
-doc* doc_manager::allocate(doc, unsigned const* permutation) {
-    return 0;
+doc* doc_manager::allocate(doc const& src, unsigned const* permutation) {
+    doc* r = alloc(doc, m.allocate(src.pos(), permutation));
+    for (unsigned i = 0; i < src.neg().size(); ++i) {
+        r->neg().push_back(m.allocate(src.neg()[i], permutation));
+    }
+    return r;
 }
 void doc_manager::deallocate(doc* src) {
+    dealloc(src);
 }
-void doc_manager::copy(doc& dst, doc const& src) const {
+void doc_manager::copy(doc& dst, doc const& src)  {
+    m.copy(dst.pos(), src.pos());
+    unsigned n = std::min(src.neg().size(), dst.neg().size());
+    for (unsigned i = 0; i < n; ++i) {
+        m.copy(dst.neg()[i], src.neg()[i]);
+    }
+    for (unsigned i = n; i < dst.neg().size(); ++i) {
+        dst.neg().erase(m, dst.neg().size()-1);
+    }
+    for (unsigned i = n; i < src.neg().size(); ++i) {
+        dst.neg().push_back(m.allocate(src.neg()[i]));
+    }
 }
-doc& doc_manager::fill0(doc& src) const {
+doc& doc_manager::fill0(doc& src) {
+    src.neg().reset(m);
+    m.fill0(src.pos());
     return src;
 }
-doc& doc_manager::fill1(doc& src) const {
+doc& doc_manager::fill1(doc& src) {
+    src.neg().reset(m);
+    m.fill1(src.pos());
     return src;
 }
-doc& doc_manager::fillX(doc& src) const {
+doc& doc_manager::fillX(doc& src) {
+    src.neg().reset(m);
+    m.fillX(src.pos());
     return src;
 }
-bool doc_manager::set_and(doc& dst, doc const& src) const {
-    return false;
+bool doc_manager::set_and(doc& dst, doc const& src)  {
+    // (A \ B) & (C \ D) = (A & C) \ (B u D)
+    if (!m.set_and(dst.pos(), src.pos())) return false;
+    for (unsigned i = 0; i < src.neg().size(); ++i) {
+        dst.neg().insert(m, m.allocate(src.neg()[i]));
+    }
+    return (src.neg().is_empty() || fold_neg(dst));
 }
 bool doc_manager::fold_neg(doc& dst) {
  start_over:

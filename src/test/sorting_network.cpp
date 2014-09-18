@@ -7,6 +7,7 @@
 #include "smt_kernel.h"
 #include "model_smt2_pp.h"
 #include "smt_params.h"
+#include "ast_util.h"
 
 
 
@@ -171,7 +172,7 @@ struct ast_ext2 {
         return trail(m.mk_fresh_const("x", m.mk_bool_sort()));
     }
     void mk_clause(unsigned n, literal const* lits) {
-        m_clauses.push_back(m.mk_or_reduced(n, lits));
+        m_clauses.push_back(mk_or(m, n, lits));
     }
 };
 
