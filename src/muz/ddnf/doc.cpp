@@ -334,6 +334,7 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, 
                 (*t1).set(i, BIT_x);
                 for (unsigned k = 0; k < neg.size(); ++k) {
                     if (tbvm().set_and(*t1, *neg[k])) {
+                        (*t1).set(i, BIT_x);
                         new_todo.push_back(t1.detach());
                         t1 = tbvm().allocate(*pos[j]);
                         (*t1).set(i, BIT_x);
