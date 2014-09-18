@@ -1,4 +1,15 @@
 #include "doc.h"
+#include "trace.h"
+#include "vector.h"
+#include "ast.h"
+#include "ast_pp.h"
+#include "reg_decl_plugins.h"
+#include "sorting_network.h"
+#include "smt_kernel.h"
+#include "model_smt2_pp.h"
+#include "smt_params.h"
+#include "ast_util.h"
+
 
 static void tst_doc1(unsigned n) {
     doc_manager m(n);
@@ -18,9 +29,11 @@ static void tst_doc1(unsigned n) {
     m.display(std::cout, *dX) << "\n";
     m.display(std::cout, *d10) << "\n";
     m.display(std::cout, *d20) << "\n";
-    unsigned hi = 3, lo = 1;
-    SASSERT(hi <= n);
-    doc_ref d111X(m, m.allocate(0xFF, hi, lo));
+    if (n < 64) {
+        unsigned hi = 3, lo = 1;
+        SASSERT(hi <= n);
+        doc_ref d111X(m, m.allocate(0xFF, hi, lo));
+    }
     m.copy(*d, *d10);
     SASSERT(m.equals(*d, *d10));
     m.reset(*d);
@@ -61,6 +74,7 @@ static void tst_doc1(unsigned n) {
     m.display(std::cout, *d1) << "\n";
 
 
+#if 0
     svector<bool> to_delete(n, false);
     to_delete[1] = true;
     to_delete[3] = true;
@@ -70,7 +84,7 @@ static void tst_doc1(unsigned n) {
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";
     SASSERT(m1.equals(*d1_1,*d1_2));
-    
+#endif
 }
 
 
@@ -80,42 +94,60 @@ static void tst_doc1(unsigned n) {
 // check that result is the same as QE over those clauses.
 
 class test_doc_project {
-    random_gen m_ran;
-    int        m_num_vars;
+    random_gen      m_ran;
+    ast_manager     m;
+    doc_manager     dm;
+    expr_ref_vector m_vars;
 
-    unsigned choose_var() {
-        return m_ran(m_num_vars) + 1;
-    }
     tbit choose_tbit() {
-        switch(m_ran(3)) {
+        switch (m_ran(3)) {
         case 0: return BIT_0;
         case 1: return BIT_1;
         default : return BIT_x;
         }
     }
-    void mk_clause(svector<int>& clause, tbv& t) {
-        for (int i = 0; i < m_num_vars; ++i) {
+    void mk_clause(expr_ref& result, tbv& t) {
+        expr_ref_vector clause(m);
+        for (unsigned i = 0; i < m_vars.size(); ++i) {
             tbit b = choose_tbit();
             t.set(i, b);            
             switch (b) {
-            case BIT_0: clause.push_back(-i-1); break;
-            case BIT_1: clause.push_back(i+1); break;
+            case BIT_0: clause.push_back(m.mk_not(m_vars[i].get())); break;
+            case BIT_1: clause.push_back(m_vars[i].get()); break;
             default: break;
             }
         }
+        result = mk_or(m, clause.size(), clause.c_ptr());
     }
 
     void test_clauses(unsigned num_clauses) {
-        
+        doc_ref d(dm, dm.allocateX());
+        expr_ref_vector fmls(m);
+        expr_ref fml(m);
+        for (unsigned i = 0; i < num_clauses; ++i) {
+            expr_ref clause(m);
+            tbv* t = dm.tbvm().allocate();
+            mk_clause(clause, *t);
+            d->neg().push_back(t);
+            fmls.push_back(clause);
+        }
+        fml = mk_and(m, fmls.size(), fmls.c_ptr());
+        dm.display(std::cout, *d) << "\n";
+        std::cout << fml << "\n";
         //
     }
 
 public:    
-    test_doc_project(unsigned num_vars): m_num_vars(num_vars) {}
+    test_doc_project(unsigned num_vars): dm(num_vars), m_vars(m) {
+        reg_decl_plugins(m);
+        for (unsigned i = 0; i < num_vars; ++i) {
+            m_vars.push_back(m.mk_fresh_const("b", m.mk_bool_sort()));
+        }
+    }
 
-    void operator()(unsigned min_clauses, unsigned max_clauses) {        
-        for (unsigned i = min_clauses; i < max_clauses; ++i) {
-            test_clauses(i);
+    void operator()(unsigned num_rounds, unsigned num_clauses) {        
+        for (unsigned i = 0; i < num_rounds; ++i) {
+            test_clauses(num_clauses);
         }    
     }
 };
@@ -124,4 +156,7 @@ void tst_doc() {
     tst_doc1(5);
     tst_doc1(10);
     tst_doc1(70);
+
+    test_doc_project tp(4);    
+    tp(5,7);
 }
