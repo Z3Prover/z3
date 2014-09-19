@@ -325,6 +325,7 @@ namespace datalog {
         virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
             udoc_relation const& r1 = get(_r1);
             udoc_relation const& r2 = get(_r2);
+            TRACE("dl", r1.display(tout << "r1:\n"); r2.display(tout  << "r2:\n"););
             udoc_plugin& p = r1.get_plugin();            
             relation_signature const& sig = get_result_signature();
             udoc_relation * result = alloc(udoc_relation, p, sig);
@@ -336,6 +337,7 @@ namespace datalog {
                     join(d1[i], d2[j], r);
                 }
             }
+            TRACE("dl", result->display(tout << "result:\n"););
             return result;
         }
     };
@@ -361,6 +363,7 @@ namespace datalog {
         }
 
         virtual relation_base * operator()(const relation_base & tb) {
+            TRACE("dl", tb.display(tout << "src:\n"););
             udoc_relation const& t = get(tb);
             udoc_plugin& p = t.get_plugin();
             udoc_relation* r = udoc_plugin::get(p.mk_empty(get_result_signature()));
@@ -373,7 +376,7 @@ namespace datalog {
                 d2 = dm1.project(dm2, m_to_delete.size(), m_to_delete.c_ptr(), ud1[i]);
                 ud2.push_back(d2.detach());
             }
-            TRACE("dl_hassel", tout << "final size: " << r->get_size_estimate_rows() << '\n';);
+            TRACE("dl", tout << "final size: " << r->get_size_estimate_rows() << '\n';);
             return r;
         }
     };
@@ -412,6 +415,7 @@ namespace datalog {
 
         virtual relation_base * operator()(const relation_base & _r) {
             udoc_relation const& r = get(_r);
+            TRACE("dl", r.display(tout << "r:\n"););
             udoc_plugin& p = r.get_plugin();            
             relation_signature const& sig = get_result_signature();
             udoc_relation* result = alloc(udoc_relation, p, sig);
@@ -421,6 +425,7 @@ namespace datalog {
             for (unsigned i = 0; i < src.size(); ++i) {
                 dst.push_back(dm.allocate(src[i], m_permutation.c_ptr()));
             }
+            TRACE("dl", result->display(tout << "result:\n"););
             return result;
         }
     };
@@ -439,15 +444,14 @@ namespace datalog {
         union_fn() {}
 
         virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
-
             TRACE("dl", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
-
             udoc_relation& r = get(_r);
             udoc_relation const& src = get(_src);
             udoc_relation* d = get(_delta);
             udoc* d1 = 0;
             if (d) d1 = &d->get_udoc();
             r.get_plugin().mk_union(r.get_dm(), r.get_udoc(), src.get_udoc(), d1);
+            TRACE("dl", _r.display(tout << "dst':\n"););
         }
     };
     void udoc_plugin::mk_union(doc_manager& dm, udoc& dst, udoc const& src, udoc* delta) {
@@ -717,6 +721,9 @@ namespace datalog {
             if (m.is_true(m_condition)) {
                 m_condition = 0;
             }
+            TRACE("dl", 
+                  tout << "condition: " << mk_pp(condition, m) << "\n";
+                  tout << m_condition << "\n"; m_udoc.display(dm, tout) << "\n";);
         }
 
         virtual ~filter_interpreted_fn() {
@@ -749,9 +756,9 @@ namespace datalog {
         
         virtual void operator()(relation_base& tb, const relation_base& negb) {
             udoc_relation& t = get(tb);
-            udoc_relation const& negt = get(negb);
+            udoc_relation const& n = get(negb);
             udoc & dst = t.get_udoc();
-            udoc const & neg = negt.get_udoc();
+            udoc const & neg = n.get_udoc();
             doc_manager& dm = t.get_dm();
             udoc result;
             for (unsigned i = 0; i < dst.size(); ++i) {
@@ -761,11 +768,16 @@ namespace datalog {
                     for (unsigned c = 0; !done_i && !done_j && c < m_t_cols.size(); ++c) {
                         unsigned t_col = m_t_cols[c];
                         unsigned n_col = m_neg_cols[c];
-                        SASSERT(t.column_num_bits(t_col) == negt.column_num_bits(n_col));
-                        NOT_IMPLEMENTED_YET();
-                        //if (!neg[j].contains(negt.column_idx(n_col), dst[i], t.column_idx(t_col), t.column_num_bits(t_col))) {
-                        //    done_j = true;
-                        //}
+                        unsigned num_bits = t.column_num_bits(t_col);
+                        SASSERT(num_bits == n.column_num_bits(n_col));
+                        unsigned t_idx = t.column_idx(t_col);
+                        unsigned n_idx = n.column_idx(n_col);
+                        for (unsigned k = 0; !done_j && k < num_bits; ++k) {
+                            tbit n_bit = neg[j][n_idx + k];
+                            tbit d_bit = dst[i][t_idx + k];
+                            // neg does not contain dst.
+                            done_j = (n_bit != BIT_x && n_bit != d_bit);
+                        }
                     }
                     if (done_j) {
                         result.push_back(&dst[i]);
@@ -783,9 +795,28 @@ namespace datalog {
 
             // slow case
             udoc renamed_neg;
-            NOT_IMPLEMENTED_YET();
-            // neg.rename(m_neg_cols, negt, m_t_cols, t, renamed_neg);
+            for (unsigned i = 0; i < neg.size(); ++i) {
+                doc_ref newD(dm, dm.allocateX());
+                for (unsigned j = 0; j < m_neg_cols.size(); ++j) {
+                    copy_column(*newD, neg[i], m_t_cols[j], m_neg_cols[j], t, n);
+                }
+                renamed_neg.push_back(newD.detach());
+            }
             dst.subtract(t.get_dm(), renamed_neg);
+        }
+        void copy_column(
+            doc& dst, doc const& src,
+            unsigned col_dst, unsigned col_src, 
+            udoc_relation const& dstt,
+            udoc_relation const& srct) {
+            doc_manager& dm = dstt.get_dm();
+            unsigned idx_dst = dstt.column_idx(col_dst);
+            unsigned idx_src = srct.column_idx(col_src);
+            unsigned num_bits = dstt.column_num_bits(col_dst);
+            SASSERT(num_bits == srct.column_num_bits(col_src));
+            for (unsigned i = 0; i < num_bits; ++i) {
+                dm.set(dst, idx_dst+i, src[idx_src+i]);
+            }            
         }
     };
 
