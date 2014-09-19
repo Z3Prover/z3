@@ -224,7 +224,7 @@ class test_doc_cls {
 
     void test_merge(unsigned num_clauses) {
         doc_ref d(dm, dm.allocateX());
-        expr_ref_vector fmls(m);
+        expr_ref_vector fmls(m), eqs(m);
         th_rewriter rw(m);
         unsigned N = m_vars.size();
         expr_ref fml1(m), fml2(m), fml3(m), tmp1(m), tmp2(m), fml(m);
@@ -251,15 +251,26 @@ class test_doc_cls {
         for (unsigned i = 0; i < N; ++i) {
             if (to_merge[i] && i != lo) {
                 equalities.merge(i, lo);
+                eqs.push_back(m.mk_eq(m_vars[i].get(), m_vars[lo].get()));
             }
         }
-        fml1 = to_formula(*d, dm, to_delete.c_ptr());
+        eqs.push_back(to_formula(*d, dm, to_delete.c_ptr()));
+        fml1 = mk_and(m, eqs.size(), eqs.c_ptr());
         if (dm.merge(*d, lo, 1, equalities, discard_cols)) {
             fml2 = to_formula(*d, dm, to_delete.c_ptr());
-            std::cout << fml1 << "\n";
-            std::cout << fml2 << "\n";
         }
-        // ...
+        else {
+            fml2 = m.mk_false();
+        }
+        rw(fml1);
+        rw(fml2);
+        smt_params fp;
+        smt::kernel solver(m, fp);
+        TRACE("doc", tout << "manual project:\n" << fml1 << "\nautomatic project: \n" << fml2 << "\n";);
+        fml = m.mk_not(m.mk_eq(fml1, fml2));
+        solver.assert_expr(fml);
+        lbool res = solver.check();
+        SASSERT(res == l_false);
     }
 
 public:    

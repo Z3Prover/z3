@@ -146,7 +146,7 @@ namespace datalog {
     }
 
     void udoc_relation::display(std::ostream& out) const {
-        m_elems.display(dm, out << "{") << "}";
+        m_elems.display(dm, out);
     }
 
     // -------------
@@ -448,9 +448,11 @@ namespace datalog {
             udoc_relation& r = get(_r);
             udoc_relation const& src = get(_src);
             udoc_relation* d = get(_delta);
+            doc_manager& dm = r.get_dm();
             udoc* d1 = 0;
             if (d) d1 = &d->get_udoc();
-            r.get_plugin().mk_union(r.get_dm(), r.get_udoc(), src.get_udoc(), d1);
+            if (d1) d1->reset(dm);
+            r.get_plugin().mk_union(dm, r.get_udoc(), src.get_udoc(), d1);
             TRACE("dl", _r.display(tout << "dst':\n"););
         }
     };

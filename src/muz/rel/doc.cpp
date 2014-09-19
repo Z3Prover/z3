@@ -193,7 +193,6 @@ void doc_manager::set(doc& d, unsigned idx, tbit value) {
 bool doc_manager::merge(
     doc& d, unsigned lo, unsigned length, 
     subset_ints& equalities, bit_vector const& discard_cols) {
-    std::cout << "merge\n";
     for (unsigned i = 0; i < length; ++i) {
         unsigned idx = lo + i;
         if (!merge(d, lo + i, equalities, discard_cols)) return false;
@@ -245,12 +244,10 @@ bool doc_manager::merge(doc& d, unsigned idx, subset_ints& equalities, bit_vecto
         do {
             if (!discard_cols.get(idx) && idx != root1) {
                 tbv* t = tbvm().allocate(d.pos());
-                std::cout << "insert " << t << "\n";
                 t->set(idx, BIT_0);
                 t->set(root1, BIT_1);
                 d.neg().insert(tbvm(), t);
                 t = tbvm().allocate(d.pos());
-                std::cout << "insert " << t << "\n";
                 t->set(idx, BIT_1);
                 t->set(root1, BIT_0);
                 d.neg().insert(tbvm(), t);                
@@ -260,6 +257,11 @@ bool doc_manager::merge(doc& d, unsigned idx, subset_ints& equalities, bit_vecto
         while (idx != root);
     }
     return true;
+}
+
+bool doc_manager::intersect(doc const& A, doc const& B, doc& result) {
+    copy(result, A);
+    return set_and(result, B);
 }
 
 //
@@ -454,11 +456,8 @@ bool doc_manager::contains(doc const& a, doc const& b) const {
 std::ostream& doc_manager::display(std::ostream& out, doc const& b) const {
     m.display(out, b.pos());
     if (b.neg().is_empty()) return out;
-    out << " \\ {";
-    for (unsigned i = 0; i < b.neg().size(); ++i) {
-        m.display(out, b.neg()[i]);
-        if (i + 1 < b.neg().size()) out << ", ";
-    }    
-    return out << "}";
+    out << " \\ ";
+    b.neg().display(m, out);
+    return out;
 }
 

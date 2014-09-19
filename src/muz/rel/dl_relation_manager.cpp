@@ -206,6 +206,7 @@ namespace datalog {
     }
 
     void relation_manager::register_relation_plugin_impl(relation_plugin * plugin) {
+        TRACE("dl", tout << "register: " << plugin->get_name() << "\n";);
         m_relation_plugins.push_back(plugin);
         plugin->initialize(get_next_relation_fid(*plugin));
         if (plugin->get_name() == get_context().default_relation()) {

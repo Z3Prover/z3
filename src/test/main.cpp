@@ -143,6 +143,7 @@ int main(int argc, char ** argv) {
     TST(fixed_bit_vector);
     TST(tbv);
     TST(doc);
+    TST(udoc_relation);
     TST(string_buffer);
     TST(map);
     TST(diff_logic);

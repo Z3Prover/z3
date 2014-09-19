@@ -59,7 +59,7 @@ public:
     bool is_full(doc const& src) const;
     bool set_and(doc& dst, doc const& src);
     bool fold_neg(doc& dst);
-    bool intersect(doc const& A, doc const& B, doc& result) const;
+    bool intersect(doc const& A, doc const& B, doc& result);
     void complement(doc const& src, ptr_vector<doc>& result);
     void subtract(doc const& A, doc const& B, ptr_vector<doc>& result);
     bool equals(doc const& a, doc const& b) const;
@@ -101,12 +101,13 @@ public:
         }
         return false;
     }
-    std::ostream& display(M& m, std::ostream& out) const {
+    std::ostream& display(M const& m, std::ostream& out) const {
+        out << "{";
         for (unsigned i = 0; i < size(); ++i) {
             m.display(out, *m_elems[i]);
             if (i + 1 < size()) out << ", ";
         }
-        return out << "\n";
+        return out << "}";
     }
 
     void push_back(T* t) {
