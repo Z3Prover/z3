@@ -19,12 +19,26 @@ Revision History:
 --*/
 
 #include "tbv.h"
+#include "hashtable.h"
+
+
+tbv_manager::~tbv_manager() {    
+#if 0
+    ptr_vector<tbv>::iterator it = allocated_tbvs.begin(), end = allocated_tbvs.end();
+    for (; it != end; ++it) {
+        std::cout << "dangling: " << (*it) << "\n";
+    }
+#endif
+}
 
 void tbv_manager::reset() {
     m.reset();
 }
 tbv* tbv_manager::allocate() {
-    return reinterpret_cast<tbv*>(m.allocate());
+    tbv* r = reinterpret_cast<tbv*>(m.allocate());
+    //std::cout << allocated_tbvs.size() << " " << r << "\n";
+    //allocated_tbvs.insert(r);
+    return r;
 }
 tbv* tbv_manager::allocate1() {
     tbv* v = allocate();
@@ -42,7 +56,9 @@ tbv* tbv_manager::allocateX() {
     return v;
 }
 tbv* tbv_manager::allocate(tbv const& bv) {
-    return reinterpret_cast<tbv*>(m.allocate(bv));
+    tbv* r = allocate();
+    copy(*r, bv);
+    return r;
 }
 tbv* tbv_manager::allocate(uint64 val) {
     tbv* v = allocate0();
@@ -124,6 +140,13 @@ tbv* tbv_manager::allocate(rational const& r) {
     return v;
 }
 void tbv_manager::deallocate(tbv* bv) {
+#if 0
+    if (!allocated_tbvs.contains(bv)) {
+        std::cout << "double deallocate: " << bv << "\n";
+        UNREACHABLE();
+    }
+    allocated_tbvs.erase(bv);
+#endif
     m.deallocate(bv);
 }    
 void tbv_manager::copy(tbv& dst, tbv const& src) const {
@@ -150,8 +173,12 @@ tbv& tbv_manager::set_or(tbv& dst,  tbv const& src) const {
 }
 bool tbv_manager::set_and(tbv& dst,  tbv const& src) const {
     m.set_and(dst, src); 
+    return is_well_formed(dst);
+}
+
+bool tbv_manager::is_well_formed(tbv const& dst) const {
     for (unsigned i = 0; i < num_tbits(); ++i) {
-        if (dst.get(i) == BIT_z) return false;
+        if (dst[i] == BIT_z) return false;
     }
     return true;
 }

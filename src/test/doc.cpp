@@ -9,14 +9,13 @@
 #include "model_smt2_pp.h"
 #include "smt_params.h"
 #include "ast_util.h"
+#include "expr_safe_replace.h"
+#include "th_rewriter.h"
 
 
 static void tst_doc1(unsigned n) {
     doc_manager m(n);
     
-    m.allocate();
-    m.reset();
-
     doc_ref d(m, m.allocate());
     doc_ref d1(m, m.allocate1());
     doc_ref d0(m, m.allocate0());
@@ -74,17 +73,25 @@ static void tst_doc1(unsigned n) {
     m.display(std::cout, *d1) << "\n";
 
 
-#if 0
     svector<bool> to_delete(n, false);
     to_delete[1] = true;
     to_delete[3] = true;
     doc_manager m1(n-2);
-    doc_ref d1_1(m1, m1.project(n, to_delete.c_ptr(), *d0));
+    doc_ref d1_1(m1, m.project(m1, n, to_delete.c_ptr(), *d1));
     doc_ref d1_2(m1, m1.allocate1());
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";
     SASSERT(m1.equals(*d1_1,*d1_2));
-#endif
+    m.set(*d1,2,BIT_x);
+    m.set(*d1,4,BIT_x);
+    d1_1 = m.project(m1, n, to_delete.c_ptr(), *d1);
+    m.display(std::cout, *d1) << " -> ";
+    m1.display(std::cout, *d1_1) << "\n";
+    d1->neg().push_back(m.tbvm().allocate1());
+    SASSERT(m.well_formed(*d1));
+    d1_1 = m.project(m1, n, to_delete.c_ptr(), *d1);
+    m.display(std::cout, *d1) << " -> ";
+    m1.display(std::cout, *d1_1) << "\n";    
 }
 
 
@@ -106,48 +113,113 @@ class test_doc_project {
         default : return BIT_x;
         }
     }
-    void mk_clause(expr_ref& result, tbv& t) {
-        expr_ref_vector clause(m);
+    expr_ref mk_conj(tbv& t) {
+        expr_ref result(m);
+        expr_ref_vector conjs(m);
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             tbit b = choose_tbit();
             t.set(i, b);            
             switch (b) {
-            case BIT_0: clause.push_back(m.mk_not(m_vars[i].get())); break;
-            case BIT_1: clause.push_back(m_vars[i].get()); break;
+            case BIT_1: conjs.push_back(m_vars[i].get()); break;
+            case BIT_0: conjs.push_back(m.mk_not(m_vars[i].get())); break;
             default: break;
             }
         }
-        result = mk_or(m, clause.size(), clause.c_ptr());
+        result = mk_and(m, conjs.size(), conjs.c_ptr());
+        return result;
     }
+
+    expr_ref to_formula(tbv const& t, doc_manager& m2, bool const* to_delete) {
+        expr_ref result(m);
+        expr_ref_vector conjs(m);
+        unsigned n = m2.num_tbits();
+        tbv_manager& tm = m2.tbvm();
+        for (unsigned i = 0, j = 0; i < m_vars.size(); ++i) {
+            if (!to_delete[i]) {
+                switch (t[j]) {
+                case BIT_x:
+                    break;
+                case BIT_1:
+                    conjs.push_back(m_vars[i].get());
+                    break;
+                case BIT_0:
+                    conjs.push_back(m.mk_not(m_vars[i].get()));
+                    break;
+                default:
+                    UNREACHABLE();
+                    break;
+                }
+                ++j;
+            }
+        }
+        result = mk_and(m, conjs.size(), conjs.c_ptr());
+        return result;
+    }
+
+    expr_ref to_formula(doc const& d, doc_manager& m2, bool const* to_delete) {
+        expr_ref result(m);
+        expr_ref_vector conjs(m);
+        conjs.push_back(to_formula(d.pos(), m2, to_delete));
+        for (unsigned i = 0; i < d.neg().size(); ++i) {
+            conjs.push_back(m.mk_not(to_formula(d.neg()[i], m2, to_delete)));
+        }
+        result = mk_and(m, conjs.size(), conjs.c_ptr());
+        return result;
+    }
+
+    void project(doc const& d, doc_manager& m2, bool const* to_delete, doc_ref& result) {
+        result = dm.project(m2, m_vars.size(), to_delete, d);
+        TRACE("doc",
+              for (unsigned i = 0; i < m_vars.size(); ++i) {
+                  tout << (to_delete[i]?"0":"1");
+              }
+              tout << " ";
+              dm.display(tout, d) << " -> ";
+              m2.display(tout, *result) << "\n";
+              );        
+    } 
 
     void test_clauses(unsigned num_clauses) {
         doc_ref d(dm, dm.allocateX());
         expr_ref_vector fmls(m);
-        expr_ref fml(m);
+        th_rewriter rw(m);
+        expr_ref fml1(m), fml2(m), fml3(m), tmp1(m), tmp2(m), fml(m);
         for (unsigned i = 0; i < num_clauses; ++i) {
-            expr_ref clause(m);
             tbv* t = dm.tbvm().allocate();
-            mk_clause(clause, *t);
+            fmls.push_back(m.mk_not(mk_conj(*t)));
             d->neg().push_back(t);
-            fmls.push_back(clause);
         }
-        fml = mk_and(m, fmls.size(), fmls.c_ptr());
-        dm.display(std::cout, *d) << "\n";
-        std::cout << fml << "\n";
-        for (unsigned i = 0; i < m_vars.size(); ++i) {
-            //test_project(i, fml, *d);
-        }
-    }
-
-    void test_project(unsigned i, expr* fml, doc& d) {
+        fml1 = mk_and(m, fmls.size(), fmls.c_ptr());
         svector<bool> to_delete(m_vars.size(), false);
-        to_delete[i] = true;
-        doc_manager dm1(m_vars.size()-1);
-        doc_ref d1(dm1, dm1.project(m_vars.size(), to_delete.c_ptr(), d));
-        expr_ref fml1(m);
-        // fml1 = m.mk_exists();
-        // extrac formula fml2 from d1,
-        // check that fml1 is equivalent to fml2
+        unsigned num_bits = 1;
+        for (unsigned i = 1; i < to_delete.size(); ++i) {
+            to_delete[i] = (m_ran(2) == 0);
+            if (!to_delete[i]) ++num_bits;
+        }
+        doc_manager m2(num_bits);
+        doc_ref result(m2);
+        project(*d, m2, to_delete.c_ptr(), result);
+        fml2 = to_formula(*result, m2, to_delete.c_ptr());
+        rw(fml2);
+        
+        for (unsigned i = 0; i < m_vars.size(); ++i) {
+            if (to_delete[i]) {
+                expr_safe_replace rep1(m), rep2(m);
+                rep1.insert(m_vars[i].get(), m.mk_true());
+                rep1(fml1, tmp1);
+                rep2.insert(m_vars[i].get(), m.mk_false());
+                rep2(fml1, tmp2);
+                fml1 = m.mk_or(tmp1, tmp2);
+            }
+        }
+        rw(fml1);
+        smt_params fp;
+        smt::kernel solver(m, fp);
+        TRACE("doc", tout << "manual project:\n" << fml1 << "\nautomatic project: \n" << fml2 << "\n";);
+        fml = m.mk_not(m.mk_eq(fml1, fml2));
+        solver.assert_expr(fml);
+        lbool res = solver.check();
+        SASSERT(res == l_false);
     }
 
 public:    
@@ -171,5 +243,5 @@ void tst_doc() {
     tst_doc1(70);
 
     test_doc_project tp(4);    
-    tp(5,7);
+    tp(200,7);
 }

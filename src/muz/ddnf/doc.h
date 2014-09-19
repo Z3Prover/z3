@@ -29,20 +29,23 @@ Revision History:
 
 class doc;
 template<typename M, typename T> class union_bvec;
+typedef union_find<> subset_ints;
 
 class doc_manager {
     tbv_manager m;
     tbv*        m_full;
+    small_object_allocator m_alloc;
 public:
     doc_manager(unsigned num_bits);
     ~doc_manager();
     tbv_manager& tbvm() { return m; }
-    void reset();
     doc* allocate();
     doc* allocate1();
     doc* allocate0();
     doc* allocateX();
     doc* allocate(doc const& src);
+    doc* allocate(tbv const& src);
+    doc* allocate(tbv * src);
     doc* allocate(uint64 n);
     doc* allocate(rational const& r);
     doc* allocate(uint64 n, unsigned hi, unsigned lo);
@@ -64,12 +67,16 @@ public:
     bool contains(doc const& a, doc const& b) const;
     std::ostream& display(std::ostream& out, doc const& b) const;
     unsigned num_tbits() const { return m.num_tbits(); }
-    doc* project(unsigned n, bool const* to_delete, doc const& src);
+    doc* project(doc_manager& dstm, unsigned n, bool const* to_delete, doc const& src);
+    bool well_formed(doc const& d) const;
+    bool merge(doc& d, unsigned lo, unsigned length, subset_ints& equalities, bit_vector const& discard_cols);
+    void set(doc& d, unsigned idx, tbit value);
 private:
     unsigned diff_by_012(tbv const& pos, tbv const& neg, unsigned& index);
+    bool merge(doc& d, unsigned idx, subset_ints& equalities, bit_vector const& discard_cols);
+    bool can_project_neg(tbv const& pos, unsigned n, bool const* to_delete, tbv const& neg);
 };
 
-typedef union_find<> subset_ints;
 
 // union of tbv*, union of doc*
 template<typename M, typename T>
@@ -210,98 +217,31 @@ public:
             push_back(m.allocate(other[i]));
         }
     }
-    void fix_eq_bits(unsigned idx1, tbv* BV, unsigned idx2, unsigned length,
-                     subset_ints& equalities, const bit_vector& discard_cols) {
-        for (unsigned i = 0; i < length; ++i) {
-            unsigned k = 0;
-            for (unsigned j = 0; j < size(); ++j, ++k) {
-                NOT_IMPLEMENTED_YET();
 
-#if 0
-                T *eqBV = BV ? const_cast<T*>(BV) : &*I;
-                bool discard_col = discard_cols.get(idx1+i) || (!BV && discard_cols.get(idx2+i));
-                
-                switch (fix_single_bit(*I, idx1+i, eqBV, idx2+i, equalities, discard_col)) {
-                case 1:
-                    // remove row
-                    I = m_bitvectors.erase(I);
-                    break;
-                    
-                case 2: {
-                    // don't care column equality. try subtraction first.
-                    union_ternary_bitvector diff(I->size()), result(I->size());
-                    T BV(I->size(), true);
-                    BV.set(idx1+i, BIT_0);
-                    BV.set(idx2+i, BIT_1);
-                    diff.add_new_fact(BV);
-                    
-                    BV.set(idx1+i, BIT_1);
-                    BV.set(idx2+i, BIT_0);
-                    diff.add_new_fact(BV);
-                    
-                    I->subtract(diff, result);
-                    *I = *result.begin();
-                    ++I;
-                    break;
-                }
-
-                default:
-                    if (I->is_empty()) {
-                        I = m_bitvectors.erase(I);
-                    } else {
-                        // bits fixed
-                        ++I;
-                    }
-                }
-#endif
+    void merge(M& m, unsigned lo, unsigned length, subset_ints & equalities, bit_vector const& discard_cols) {
+        for (unsigned i = 0; i < size(); ++i) {
+            if (!m.merge(*m_elems[i], lo, length, equalities, discard_cols)) {
+                erase(m, i);
+                --i;
             }
         }
     }
+
+    void merge(M& m, unsigned lo1, unsigned lo2, unsigned length, bit_vector const& discard_cols) {
+        union_find_default_ctx union_ctx;
+        subset_ints equalities(union_ctx);
+        for (unsigned i = 0; i < discard_cols.size(); ++i) {
+            equalities.mk_var();
+        }
+        for (unsigned j = 0; j < length; ++j) {
+            equalities.merge(lo1 + j, lo2 + j);
+        }
+        merge(m, lo1, length, equalities, discard_cols);
+    }
+
 
 private:
 
-    fix_bit_result_t fix_single_bit(tbv& bv, unsigned idx, unsigned value, const subset_ints& equalities) {
-        unsigned root = equalities.find(idx);
-        idx = root;
-        do {
-            unsigned bitval = bv.get(idx);
-            if (bitval == tbv::BIT_x) {
-                bv.set(idx, value);
-            } 
-            else if (bitval != value) {
-                return e_row_removed;
-            }
-            idx = equalities.next(idx);
-        } 
-        while (idx != root);
-        return e_fixed;
-    }
-
-    fix_bit_result_t fix_single_bit(tbv & BV1, unsigned idx1, tbv & BV2, unsigned idx2,
-                                  subset_ints& equalities, bool discard_col) {
-        unsigned A = BV1.get(idx1);
-        unsigned B = BV2.get(idx2);
-        
-        if (A == tbv::BIT_x) {
-            if (B == tbv::BIT_x) {
-                // Both are don't cares.
-                if (!discard_col)
-                    return e_duplicate_row;
-                equalities.merge(idx1, idx2);
-                return e_fixed;
-            } else {
-                // only A is don't care.
-                return fix_single_bit(BV1, idx1, B, equalities);
-            }
-        } else if (B == tbv::BIT_x) {
-            // Only B is don't care.
-            return fix_single_bit(BV2, idx2, A, equalities);
-        } else if (A == B) {
-            return e_fixed;
-        } else {
-            return e_row_removed;
-        }
-    }
 
 };
 
@@ -335,7 +275,7 @@ public:
     utbv& neg() { return m_neg; }
     tbv const& pos() const { return *m_pos; }
     utbv const& neg() const { return m_neg; }
-        
+    tbit operator[](unsigned idx) const { return pos()[idx]; }        
 };
 
 typedef union_bvec<doc_manager, doc> udoc;
@@ -356,6 +296,7 @@ public:
     }
     doc& operator*() { return *d; }
     doc* operator->() { return d; }
+    doc* detach() { doc* r = d; d = 0; return r; }
 };
 
 #endif /* _DOC_H_ */

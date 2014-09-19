@@ -40,8 +40,10 @@ inline tbit neg(tbit t) {
 class tbv_manager {
     friend class tbv;
     fixed_bit_vector_manager m;
+    //    ptr_vector<tbv> allocated_tbvs;
 public:
     tbv_manager(unsigned n): m(2*n) {}
+    ~tbv_manager();
     void reset();
     tbv* allocate();
     tbv* allocate1();
@@ -70,6 +72,7 @@ public:
     bool intersect(tbv const& a, tbv const& b, tbv& result);
     std::ostream& display(std::ostream& out, tbv const& b) const;
     tbv* project(unsigned n, bool const* to_delete, tbv const& src);
+    bool is_well_formed(tbv const& b) const; // - does not contain BIT_z;
 };
 
 class tbv: private fixed_bit_vector {
@@ -130,6 +133,7 @@ public:
     }
     tbv& operator*() { return *d; }
     tbv* get() { return d; }
+    tbv* detach() { tbv* result = d; d = 0; return result; }
 };
 
 
