@@ -100,7 +100,7 @@ static void tst_doc1(unsigned n) {
 // project 0, 1, 2, 3 variables
 // check that result is the same as QE over those clauses.
 
-class test_doc_project {
+class test_doc_cls {
     random_gen      m_ran;
     ast_manager     m;
     doc_manager     dm;
@@ -179,7 +179,7 @@ class test_doc_project {
               );        
     } 
 
-    void test_clauses(unsigned num_clauses) {
+    void test_project(unsigned num_clauses) {
         doc_ref d(dm, dm.allocateX());
         expr_ref_vector fmls(m);
         th_rewriter rw(m);
@@ -222,26 +222,74 @@ class test_doc_project {
         SASSERT(res == l_false);
     }
 
+    void test_merge(unsigned num_clauses) {
+        doc_ref d(dm, dm.allocateX());
+        expr_ref_vector fmls(m);
+        th_rewriter rw(m);
+        unsigned N = m_vars.size();
+        expr_ref fml1(m), fml2(m), fml3(m), tmp1(m), tmp2(m), fml(m);
+        for (unsigned i = 0; i < num_clauses; ++i) {
+            tbv* t = dm.tbvm().allocate();
+            fmls.push_back(m.mk_not(mk_conj(*t)));
+            d->neg().push_back(t);
+        }
+        fml1 = mk_and(m, fmls.size(), fmls.c_ptr());
+        svector<bool> to_merge(N, false), to_delete(N, false);
+        bit_vector discard_cols;
+        discard_cols.resize(N, false);
+        unsigned num_bits = 1;
+        union_find_default_ctx union_ctx;
+        subset_ints equalities(union_ctx);
+        unsigned lo = N;
+        equalities.mk_var();
+        for (unsigned i = 1; i < N; ++i) {
+            to_merge[i] = (m_ran(2) == 0);
+            if (!to_merge[i]) ++num_bits; else lo = i;
+            equalities.mk_var();
+        }
+        if (lo == N) return;
+        for (unsigned i = 0; i < N; ++i) {
+            if (to_merge[i] && i != lo) {
+                equalities.merge(i, lo);
+            }
+        }
+        fml1 = to_formula(*d, dm, to_delete.c_ptr());
+        if (dm.merge(*d, lo, 1, equalities, discard_cols)) {
+            fml2 = to_formula(*d, dm, to_delete.c_ptr());
+            std::cout << fml1 << "\n";
+            std::cout << fml2 << "\n";
+        }
+        // ...
+    }
+
 public:    
-    test_doc_project(unsigned num_vars): dm(num_vars), m_vars(m) {
+    test_doc_cls(unsigned num_vars): dm(num_vars), m_vars(m) {
         reg_decl_plugins(m);
         for (unsigned i = 0; i < num_vars; ++i) {
             m_vars.push_back(m.mk_fresh_const("b", m.mk_bool_sort()));
         }
     }
 
-    void operator()(unsigned num_rounds, unsigned num_clauses) {        
+    void test_project(unsigned num_rounds, unsigned num_clauses) {        
         for (unsigned i = 0; i < num_rounds; ++i) {
-            test_clauses(num_clauses);
+            test_project(num_clauses);
+        }    
+    }
+
+    void test_merge(unsigned num_rounds, unsigned num_clauses) {
+        for (unsigned i = 0; i < num_rounds; ++i) {
+            test_merge(num_clauses);
         }    
     }
 };
+
 
 void tst_doc() {
     tst_doc1(5);
     tst_doc1(10);
     tst_doc1(70);
 
-    test_doc_project tp(4);    
-    tp(200,7);
+    test_doc_cls tp(4);    
+    tp.test_merge(200,7);
+    tp.test_project(200,7);
 }

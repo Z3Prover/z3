@@ -190,7 +190,10 @@ void doc_manager::set(doc& d, unsigned idx, tbit value) {
 // merge range from [lo:lo+length-1] with each index in equivalence class.
 // under assumption of equalities and columns that are discarded.
 //
-bool doc_manager::merge(doc& d, unsigned lo, unsigned length, subset_ints& equalities, bit_vector const& discard_cols) {
+bool doc_manager::merge(
+    doc& d, unsigned lo, unsigned length, 
+    subset_ints& equalities, bit_vector const& discard_cols) {
+    std::cout << "merge\n";
     for (unsigned i = 0; i < length; ++i) {
         unsigned idx = lo + i;
         if (!merge(d, lo + i, equalities, discard_cols)) return false;
@@ -242,10 +245,12 @@ bool doc_manager::merge(doc& d, unsigned idx, subset_ints& equalities, bit_vecto
         do {
             if (!discard_cols.get(idx) && idx != root1) {
                 tbv* t = tbvm().allocate(d.pos());
+                std::cout << "insert " << t << "\n";
                 t->set(idx, BIT_0);
                 t->set(root1, BIT_1);
                 d.neg().insert(tbvm(), t);
                 t = tbvm().allocate(d.pos());
+                std::cout << "insert " << t << "\n";
                 t->set(idx, BIT_1);
                 t->set(root1, BIT_0);
                 d.neg().insert(tbvm(), t);                
@@ -314,7 +319,8 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, 
     if (todo.empty()) {
         return r;
     }
-    ptr_vector<tbv> pos, neg, new_todo;
+    ptr_vector<tbv> new_todo;
+    utbv pos, neg;
     tbv_ref t1(tbvm()), t2(tbvm());
     for (unsigned i = 0; i < n; ++i) {
         if (to_delete[i] && (*bits)[i] != BIT_x) {
@@ -323,50 +329,49 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, 
                       tbvm().display(tout, *todo[j]) << " ";
                   }
                   tout << "\n";);
-            new_todo.reset();
-            pos.reset();
-            neg.reset();
-            for (unsigned j = 0; j < todo.size(); ++j) {
-                tbv& t = *todo[j];
-                switch(t[i]) {
-                case BIT_x: new_todo.push_back(&t); break;
-                case BIT_0: neg.push_back(&t); break;
-                case BIT_1: pos.push_back(&t); break;
+            SASSERT(pos.is_empty());
+            SASSERT(neg.is_empty());
+            SASSERT(new_todo.empty());
+            while (!todo.empty()) {
+                tbv* t = todo.back();
+                todo.pop_back();
+                switch((*t)[i]) {
+                case BIT_x: new_todo.push_back(t); break;
+                case BIT_0: neg.push_back(t); break;
+                case BIT_1: pos.push_back(t); break;
                 default: UNREACHABLE(); break;                    
                 }
             }
-            if (pos.empty() || neg.empty()) {
+            if (pos.is_empty() || neg.is_empty()) {
                 std::swap(new_todo, todo);
+                pos.reset(tbvm());
+                neg.reset(tbvm());
                 continue;
             }
             TRACE("doc",
                   tout << "pos: ";
                   for (unsigned i = 0; i < pos.size(); ++i) {
-                      tbvm().display(tout, *pos[i]) << " ";
+                      tbvm().display(tout, pos[i]) << " ";
                   }
                   tout << "\nneg: ";
                   for (unsigned i = 0; i < neg.size(); ++i) {
-                      tbvm().display(tout, *neg[i]) << " ";
+                      tbvm().display(tout, neg[i]) << " ";
                   }
                   tout << "\n";
                   );
                   
             for (unsigned j = 0; j < pos.size(); ++j) {
                 for (unsigned k = 0; k < neg.size(); ++k) {
-                    t1 = tbvm().allocate(*pos[j]);
+                    t1 = tbvm().allocate(pos[j]);
                     (*t1).set(i, BIT_x);
-                    if (tbvm().set_and(*t1, *neg[k])) {
+                    if (tbvm().set_and(*t1, neg[k])) {
                         (*t1).set(i, BIT_x);
                         new_todo.push_back(t1.detach());
                     }
                 }                
             }
-            for (unsigned i = 0; i < pos.size(); ++i) {
-                tbvm().deallocate(pos[i]);
-            }
-            for (unsigned i = 0; i < neg.size(); ++i) {
-                tbvm().deallocate(neg[i]);
-            }
+            pos.reset(tbvm());
+            neg.reset(tbvm());
             std::swap(todo, new_todo);
         }
     }

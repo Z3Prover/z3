@@ -22,8 +22,11 @@ Revision History:
 #include "hashtable.h"
 
 
+//#define _DEBUG_MEM 1
+#define _DEBUG_MEM 0
+
 tbv_manager::~tbv_manager() {    
-#if 0
+#if _DEBUG_MEM
     ptr_vector<tbv>::iterator it = allocated_tbvs.begin(), end = allocated_tbvs.end();
     for (; it != end; ++it) {
         std::cout << "dangling: " << (*it) << "\n";
@@ -36,8 +39,10 @@ void tbv_manager::reset() {
 }
 tbv* tbv_manager::allocate() {
     tbv* r = reinterpret_cast<tbv*>(m.allocate());
-    //std::cout << allocated_tbvs.size() << " " << r << "\n";
-    //allocated_tbvs.insert(r);
+#if _DEBUG_MEM
+    std::cout << allocated_tbvs.size() << " " << r << "\n";
+    allocated_tbvs.insert(r);
+#endif
     return r;
 }
 tbv* tbv_manager::allocate1() {
@@ -140,11 +145,12 @@ tbv* tbv_manager::allocate(rational const& r) {
     return v;
 }
 void tbv_manager::deallocate(tbv* bv) {
-#if 0
+#if _DEBUG_MEM
     if (!allocated_tbvs.contains(bv)) {
         std::cout << "double deallocate: " << bv << "\n";
         UNREACHABLE();
     }
+    std::cout << "deallocate: " << bv << "\n";
     allocated_tbvs.erase(bv);
 #endif
     m.deallocate(bv);

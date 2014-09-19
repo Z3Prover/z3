@@ -40,7 +40,7 @@ inline tbit neg(tbit t) {
 class tbv_manager {
     friend class tbv;
     fixed_bit_vector_manager m;
-    //    ptr_vector<tbv> allocated_tbvs;
+    ptr_vector<tbv> allocated_tbvs;
 public:
     tbv_manager(unsigned n): m(2*n) {}
     ~tbv_manager();

@@ -131,12 +131,14 @@ public:
                 m.deallocate(m_elems[i]);
                 --j;
             }
-            else if (m.contains(*m_elems[i], *t)) {
-                found = true;
-            }
-            else if (i != j) {                
-                m_elems[j] = m_elems[i];
-            }                
+            else {
+                if (m.contains(*m_elems[i], *t)) {
+                    found = true;
+                }
+                if (i != j) {                
+                    m_elems[j] = m_elems[i];
+                }       
+            }         
         }
         if (j != sz) m_elems.resize(j);
         if (found) {
