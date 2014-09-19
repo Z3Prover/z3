@@ -347,11 +347,44 @@ namespace datalog {
         }
         return alloc(join_fn, *this, get(t1), get(t2), col_cnt, cols1, cols2);
     }
+    class udoc_plugin::project_fn : public convenient_relation_project_fn {
+        svector<bool> m_to_delete;
+    public:
+        project_fn(udoc_relation const & t, unsigned removed_col_cnt, const unsigned * removed_cols) 
+            : convenient_relation_project_fn(t.get_signature(), removed_col_cnt, removed_cols) {
+            t.expand_column_vector(m_removed_cols);
+            unsigned n = t.get_dm().num_tbits();
+            m_to_delete.resize(n, false);
+            for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
+                m_to_delete[m_removed_cols[i]] = true;
+            }
+        }
+
+        virtual relation_base * operator()(const relation_base & tb) {
+            udoc_relation const& t = get(tb);
+            udoc_plugin& p = t.get_plugin();
+            udoc_relation* r = udoc_plugin::get(p.mk_empty(get_result_signature()));
+            doc_manager& dm1 = t.get_dm();
+            doc_manager& dm2 = r->get_dm();
+            doc_ref d2(dm2);
+            udoc const& ud1 = t.get_udoc();
+            udoc& ud2 = r->get_udoc();
+            for (unsigned i = 0; i < ud1.size(); ++i) {
+                d2 = dm1.project(dm2, m_to_delete.size(), m_to_delete.c_ptr(), ud1[i]);
+                ud2.push_back(d2.detach());
+            }
+            TRACE("dl_hassel", tout << "final size: " << r->get_size_estimate_rows() << '\n';);
+            return r;
+        }
+    };
+    
+
     relation_transformer_fn * udoc_plugin::mk_project_fn(
         const relation_base & t, unsigned col_cnt, 
         const unsigned * removed_cols) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        if (!check_kind(t))
+            return 0;
+        return alloc(project_fn, get(t), col_cnt, removed_cols);
     }
 
     class udoc_plugin::rename_fn : public convenient_relation_rename_fn {
@@ -770,6 +803,7 @@ namespace datalog {
         expr_ref     m_condition;
         udoc         m_udoc;
         bit_vector   m_col_list; // map: col idx -> bool (whether the column is to be removed)
+        svector<bool> m_to_delete; // same
     public:
         filter_proj_fn(const udoc_relation & t, ast_manager& m, app *condition,
                        unsigned col_cnt, const unsigned * removed_cols) :
@@ -779,9 +813,12 @@ namespace datalog {
             t.expand_column_vector(m_removed_cols);
             m_col_list.resize(t.get_num_bits(), false);
             for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
-                m_col_list.set(m_removed_cols[i]);
+                m_col_list.set(m_removed_cols[i], true);
             }
-            m_removed_cols.push_back(UINT_MAX);
+            m_to_delete.resize(m_removed_cols.size(), false);
+            for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
+                m_to_delete[m_removed_cols[i]] = true;
+            }
             expr_ref guard(m), rest(m);
             t.extract_guard(condition, guard, m_condition);            
             t.compile_guard(guard, m_udoc, m_col_list);
@@ -803,10 +840,14 @@ namespace datalog {
             if (m_condition && !u2.is_empty()) {
                 t.apply_guard(m_condition, u2, m_col_list);
             }
-            udoc_relation* res = get(t.get_plugin().mk_empty(get_result_signature()));
-            NOT_IMPLEMENTED_YET();
-            // u2.project(m_removed_cols, res->get_dm(), res->get_udoc());
-            return res;
+            udoc_relation* r = get(t.get_plugin().mk_empty(get_result_signature()));
+            doc_manager& dm2 = r->get_dm();
+            for (unsigned i = 0; i < u2.size(); ++i) {
+                doc* d = dm.project(dm2, m_to_delete.size(), m_to_delete.c_ptr(), u2[i]);
+                r->get_udoc().insert(dm2, d);
+            }
+            u2.reset(dm);
+            return r;
         }
     };
     relation_transformer_fn * udoc_plugin::mk_filter_interpreted_and_project_fn(
