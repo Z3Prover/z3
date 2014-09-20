@@ -167,6 +167,16 @@ class test_doc_cls {
         return result;
     }
 
+    expr_ref to_formula(udoc const& ud, doc_manager& m2, bool const* to_delete) {
+        expr_ref result(m);
+        expr_ref_vector disjs(m);
+        for (unsigned i = 0; i < ud.size(); ++i) {
+            disjs.push_back(to_formula(ud[i], m2, to_delete));
+        }
+        result = mk_or(m, disjs.size(), disjs.c_ptr());
+        return result;
+    }
+
     void project(doc const& d, doc_manager& m2, bool const* to_delete, doc_ref& result) {
         result = dm.project(m2, m_vars.size(), to_delete, d);
         TRACE("doc",
@@ -264,14 +274,19 @@ class test_doc_cls {
         }
         rw(fml1);
         rw(fml2);
+        check_equiv(fml1, fml2);
+    }
+
+    void check_equiv(expr* fml1, expr* fml2) {
         smt_params fp;
         smt::kernel solver(m, fp);
-        TRACE("doc", tout << "manual project:\n" << fml1 << "\nautomatic project: \n" << fml2 << "\n";);
+        expr_ref fml(m);
         fml = m.mk_not(m.mk_eq(fml1, fml2));
         solver.assert_expr(fml);
         lbool res = solver.check();
         SASSERT(res == l_false);
     }
+
 
 public:    
     test_doc_cls(unsigned num_vars): dm(num_vars), m_vars(m) {
@@ -292,15 +307,61 @@ public:
             test_merge(num_clauses);
         }    
     }
+
+    void test_subtract() {
+        doc_ref d1(dm);
+        doc_ref d2(dm);
+        doc_ref d3(dm);
+        udoc ds1, ds2;
+        d1 = dm.allocateX();
+        d2 = dm.allocateX();
+        d3 = dm.allocateX();
+        dm.set(*d1, 0, BIT_1);
+        dm.set(*d1, 1, BIT_0);
+        dm.set(*d2, 0, BIT_0);
+        dm.set(*d2, 1, BIT_1);
+        //ds1.push_back(d1.detach());
+        ds1.push_back(d2.detach());
+        // ds1 = {10x, 01x}
+        d1 = dm.allocateX();
+        tbv_ref t1(dm.tbvm());
+        tbv_ref t2(dm.tbvm());
+        t1 = dm.tbvm().allocateX();
+        t2 = dm.tbvm().allocateX();
+        t1->set(0, BIT_1);
+        t1->set(2, BIT_0);
+        t2->set(0, BIT_0);
+        t2->set(2, BIT_1);
+        d1->neg().push_back(t1.detach());
+        d1->neg().push_back(t2.detach());
+        ds2.push_back(d1.detach());
+        ds1.display(dm, std::cout) << "\n";
+        ds2.display(dm, std::cout) << "\n";
+        svector<bool> to_delete(m_vars.size(), false);
+        expr_ref fml1 = to_formula(ds1, dm, to_delete.c_ptr());
+        expr_ref fml2 = to_formula(ds2, dm, to_delete.c_ptr());
+        ds1.subtract(dm, ds2);
+        ds1.display(dm, std::cout) << "\n";
+        expr_ref fml3 = to_formula(ds1, dm, to_delete.c_ptr());
+        fml1 = m.mk_and(fml1, m.mk_not(fml2));
+        check_equiv(fml1, fml3);       
+        ds1.reset(dm);
+        ds2.reset(dm);
+        //sub:{xxx \ {1x0, 0x1}}
+        //result:{100}
+    }
+
 };
 
 
 void tst_doc() {
+
+    test_doc_cls tp(4);    
+    tp.test_subtract();
+    tp.test_merge(200,7);
+    tp.test_project(200,7);
+
     tst_doc1(5);
     tst_doc1(10);
     tst_doc1(70);
-
-    test_doc_cls tp(4);    
-    tp.test_merge(200,7);
-    tp.test_project(200,7);
 }

@@ -22,16 +22,20 @@ Revision History:
 #include "hashtable.h"
 
 
-//#define _DEBUG_MEM 1
-#define _DEBUG_MEM 0
+static bool s_debug_alloc = false;
+
+void tbv_manager::debug_alloc() {
+    s_debug_alloc = true;
+}
 
 tbv_manager::~tbv_manager() {    
-#if _DEBUG_MEM
-    ptr_vector<tbv>::iterator it = allocated_tbvs.begin(), end = allocated_tbvs.end();
-    for (; it != end; ++it) {
-        std::cout << "dangling: " << (*it) << "\n";
-    }
-#endif
+    DEBUG_CODE(
+        ptr_vector<tbv>::iterator it = allocated_tbvs.begin();
+        ptr_vector<tbv>::iterator end = allocated_tbvs.end();
+        for (; it != end; ++it) {
+            std::cout << "dangling: " << (*it) << "\n";
+            TRACE("doc", tout << "dangling: " << (*it) << "\n";);
+        });
 }
 
 void tbv_manager::reset() {
@@ -39,10 +43,12 @@ void tbv_manager::reset() {
 }
 tbv* tbv_manager::allocate() {
     tbv* r = reinterpret_cast<tbv*>(m.allocate());
-#if _DEBUG_MEM
-    std::cout << allocated_tbvs.size() << " " << r << "\n";
-    allocated_tbvs.insert(r);
-#endif
+    DEBUG_CODE(
+        if (s_debug_alloc) {
+            TRACE("doc", tout << allocated_tbvs.size() << " " << r << "\n";);
+        }
+        allocated_tbvs.insert(r);
+        );
     return r;
 }
 tbv* tbv_manager::allocate1() {
@@ -145,14 +151,15 @@ tbv* tbv_manager::allocate(rational const& r) {
     return v;
 }
 void tbv_manager::deallocate(tbv* bv) {
-#if _DEBUG_MEM
-    if (!allocated_tbvs.contains(bv)) {
-        std::cout << "double deallocate: " << bv << "\n";
-        UNREACHABLE();
-    }
-    std::cout << "deallocate: " << bv << "\n";
-    allocated_tbvs.erase(bv);
-#endif
+    DEBUG_CODE(
+        if (!allocated_tbvs.contains(bv)) {
+            std::cout << "double deallocate: " << bv << "\n";
+            UNREACHABLE();
+        }
+        if (s_debug_alloc) {
+            TRACE("doc", tout << "deallocate: " << bv << "\n";);
+        }
+        allocated_tbvs.erase(bv););
     m.deallocate(bv);
 }    
 void tbv_manager::copy(tbv& dst, tbv const& src) const {

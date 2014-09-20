@@ -87,6 +87,43 @@ public:
         relation_base* t;
         udoc_relation* t1, *t2, *t3;
         expr_ref fml(m);
+
+        // filter_by_negation
+
+        /*
+            The filter_by_negation postcondition:
+            filter_by_negation(tgt, neg, columns in tgt: c1,...,cN, 
+                                         corresponding columns in neg: d1,...,dN):
+            tgt_1:={x: x\in tgt_0 && ! \exists y: ( y \in neg & pi_c1(x)= pi_d1(y) & ... & pi_cN(x)= pi_dN(y) ) }
+        */
+        {
+            relation_signature sig4;
+            sig4.push_back(bv.mk_sort(1));
+            sig4.push_back(bv.mk_sort(1));
+            sig4.push_back(bv.mk_sort(1));
+            t1 = mk_empty(sig4);
+            t2 = mk_empty(sig4);
+            unsigned_vector cols1, cols2;
+            unsigned num_bits = t1->get_dm().num_tbits();
+
+            cols1.push_back(0);
+            cols2.push_back(1);
+            for (unsigned i = 0; i < 100; ++i) {
+                set_random(*t1, 2*num_bits/3);
+                set_random(*t2, 2*num_bits/3);
+                apply_filter_neg(*t1,*t2, cols1, cols2);
+            }
+            cols1.push_back(1);
+            cols2.push_back(2);
+            for (unsigned i = 0; i < 100; ++i) {
+                set_random(*t1, 2*num_bits/3);
+                set_random(*t2, 2*num_bits/3);
+                apply_filter_neg(*t1,*t2, cols1, cols2);
+            }
+            t1->deallocate();
+            t2->deallocate();
+        }
+
         // empty
         {
             std::cout << "empty\n";
@@ -228,6 +265,22 @@ public:
             t1->display(std::cout); std::cout << "\n";
             t1->deallocate();
         }
+        
+        // tbv_manager::debug_alloc();
+        {
+            relation_signature sig3;
+            sig3.push_back(m.mk_bool_sort());
+            sig3.push_back(m.mk_bool_sort());
+            sig3.push_back(m.mk_bool_sort());
+            var_ref v0(m.mk_var(0, m.mk_bool_sort()),m);
+            var_ref v1(m.mk_var(1, m.mk_bool_sort()),m);
+            var_ref v2(m.mk_var(2, m.mk_bool_sort()),m);
+            app_ref cond1(m);
+            t1 = mk_full(sig3);
+            cond1 = m.mk_eq(v0,v1);
+            apply_filter(*t1, cond1);
+            t1->deallocate();
+        }
 
         {
             relation_signature sig3;
@@ -238,8 +291,8 @@ public:
             var_ref v1(m.mk_var(1, m.mk_bool_sort()),m);
             var_ref v2(m.mk_var(2, m.mk_bool_sort()),m);
             app_ref cond1(m);
-            cond1 = m.mk_or(m.mk_eq(v0,v1),m.mk_eq(v0,v2));
             t1 = mk_full(sig3);
+            cond1 = m.mk_or(m.mk_eq(v0,v1),m.mk_eq(v0,v2));
             apply_filter(*t1, cond1);
             t1->deallocate();
         }
@@ -259,79 +312,212 @@ public:
             t1->deallocate();
         }
 
+
+        app_ref_vector conds(m);
+        app_ref cond1(m);
+        var_ref v0(m.mk_var(0, bv.mk_sort(3)),m);
+        var_ref v1(m.mk_var(1, bv.mk_sort(6)),m);
+        var_ref v2(m.mk_var(2, bv.mk_sort(3)),m);
+        var_ref v3(m.mk_var(3, bv.mk_sort(3)),m);
+        var_ref v4(m.mk_var(4, bv.mk_sort(3)),m);
+        conds.push_back(m.mk_true());
+        conds.push_back(m.mk_false());
+        conds.push_back(m.mk_eq(v0, v2));
+        conds.push_back(m.mk_not(m.mk_eq(v0, v2)));
+        conds.push_back(m.mk_eq(v0, bv.mk_numeral(rational(2), 3)));
+        cond1 = m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2));
+        conds.push_back(cond1);
+        conds.push_back(m.mk_or(cond1,m.mk_eq(v3,v4)));
+        conds.push_back(m.mk_or(cond1,m.mk_eq(ex(2,1,v3),ex(1,0,v4))));
+        conds.push_back(m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v0,v4)));
+        conds.push_back(m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v3,v4)));
+        conds.push_back(m.mk_or(m.mk_eq(ex(2,1,v0),ex(1,0,v2)),m.mk_eq(v3,v4)));
+        conds.push_back(m.mk_or(m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2)), 
+                                m.mk_eq(v3,v4)));
+        conds.push_back(m.mk_or(m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2)), 
+                                m.mk_eq(v3,bv.mk_numeral(rational(3),3))));
+        conds.push_back(m.mk_or(m.mk_eq(v0,bv.mk_numeral(rational(5),3)), 
+                                m.mk_eq(v3,bv.mk_numeral(rational(5),3))));
+        conds.push_back(m.mk_or(m.mk_eq(v0,bv.mk_numeral(rational(7),3)), 
+                                m.mk_eq(v3,bv.mk_numeral(rational(7),3))));
+        conds.push_back(m.mk_not(m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v3,v4))));
+
+
         // filter_interpreted
         {
             std::cout << "filter interpreted\n";
             t1 = mk_full(sig2);
-            var_ref v0(m.mk_var(0, bv.mk_sort(3)),m);
-            var_ref v1(m.mk_var(1, bv.mk_sort(6)),m);
-            var_ref v2(m.mk_var(2, bv.mk_sort(3)),m);
-            var_ref v3(m.mk_var(3, bv.mk_sort(3)),m);
-            var_ref v4(m.mk_var(4, bv.mk_sort(3)),m);
-            app_ref cond1(m), cond2(m), cond3(m), cond4(m);
-            app_ref cond5(m), cond6(m), cond7(m), cond8(m);
-            cond1 = m.mk_true();
-            cond2 = m.mk_false();
-            cond3 = m.mk_eq(v0, v2);
-            cond4 = m.mk_not(m.mk_eq(v0, v2));
-            cond5 = m.mk_eq(v0, bv.mk_numeral(rational(2), 3));
 
-            apply_filter(*t1, cond1);
-            apply_filter(*t1, cond2);
-            apply_filter(*t1, cond3);
-            apply_filter(*t1, cond4);
-            apply_filter(*t1, cond5);
-
-            cond1 = m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2));
-            apply_filter(*t1, cond1);
-
-            cond2 = m.mk_or(cond1,m.mk_eq(v3,v4));
-            apply_filter(*t1, cond2);
-
-            cond2 = m.mk_or(cond1,m.mk_eq(ex(2,1,v3),ex(1,0,v4)));
-            apply_filter(*t1, cond2);
-
-            cond1 = m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v0,v4));
-            apply_filter(*t1, cond1);
-
-            cond1 = m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v3,v4));
-            apply_filter(*t1, cond1);
-
-            cond1 = m.mk_or(m.mk_eq(ex(2,1,v0),ex(1,0,v2)),m.mk_eq(v3,v4));
-            apply_filter(*t1, cond1);
-
-            cond1 = m.mk_or(m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2)), 
-                            m.mk_eq(v3,v4));
-            apply_filter(*t1, cond1);
-
-            cond1 = m.mk_or(m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2)), 
-                            m.mk_eq(v3,bv.mk_numeral(rational(3),5)));
-            apply_filter(*t1, cond1);
-
-            cond1 = m.mk_or(m.mk_eq(v0,bv.mk_numeral(rational(5),3)), 
-                            m.mk_eq(v3,bv.mk_numeral(rational(5),3)));
-            apply_filter(*t1, cond1);
-
-            cond1 = m.mk_or(m.mk_eq(v0,bv.mk_numeral(rational(7),3)), 
-                            m.mk_eq(v3,bv.mk_numeral(rational(7),3)));
-            apply_filter(*t1, cond1);
-
-            cond1 = m.mk_not(m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v3,v4)));
-            apply_filter(*t1, cond1);
-
+            for (unsigned i = 0; i < conds.size(); ++i) {
+                apply_filter(*t1, conds[i].get());
+            }
             
             t1->deallocate();
 
         }
-        // filter_by_negation
 
         // filter_interpreted_project
+        {
+            unsigned_vector remove;
+            remove.push_back(0);
+            remove.push_back(2);
+            t1 = mk_full(sig2);
+            for (unsigned i = 0; i < conds.size(); ++i) {
+                apply_filter_project(*t1, remove, conds[i].get());
+            }
+            remove[1] = 1;
+            for (unsigned i = 0; i < conds.size(); ++i) {
+                apply_filter_project(*t1, remove, conds[i].get());
+            }
+            t1->deallocate();
+        }
+
+
+    }
+
+    void set_random(udoc_relation& r, unsigned num_vals) {
+        unsigned num_bits = r.get_dm().num_tbits();
+        udoc_relation* full = mk_full(r.get_signature());
+        rel_union union_fn = p.mk_union_fn(r, r, 0);
+        (*union_fn)(r, *full);
+        doc_manager& dm = r.get_dm();
+        SASSERT(r.get_udoc().size() == 1);
+        doc& d0 = r.get_udoc()[0];
+        SASSERT(dm.is_full(d0));            
+        for (unsigned i = 0; i < num_vals; ++i) {
+            unsigned idx = m_rand(num_bits);
+            unsigned val = m_rand(2);
+            tbit b = (val == 0)?BIT_0:BIT_1;
+            dm.set(d0, idx, b);
+        }
+    }
+
+    void apply_filter_neg(udoc_relation& t1, udoc_relation& t2, 
+                          unsigned_vector const& cols1, unsigned_vector const& cols2) {
+
+        relation_signature const& sig = t1.get_signature();
+        scoped_ptr<datalog::relation_intersection_filter_fn> negf;
+        negf = p.mk_filter_by_negation_fn(t1, t2, cols1.size(), cols1.c_ptr(), cols2.c_ptr());
+        expr_ref fml1(m), fml2(m), fml3(m);
+        t1.to_formula(fml1);
+        t2.to_formula(fml2);
+        (*negf)(t1, t2);
+        t1.to_formula(fml3);
+        std::cout << fml1 << "\n";
+        std::cout << fml2 << "\n";
+        std::cout << fml3 << "\n";
+        expr_ref_vector eqs(m);
+        expr_ref_vector sub(m);
+        for (unsigned i = 0; i < sig.size(); ++i) {
+            sub.push_back(m.mk_var(i+sig.size(),sig[i]));
+        }
+        var_subst subst(m, false);
+        subst(fml2, sub.size(), sub.c_ptr(), fml2);
+        eqs.push_back(fml2);
+        for (unsigned i = 0; i < cols1.size(); ++i) {
+            var_ref v1(m), v2(m);
+            unsigned c1 = cols1[i];
+            unsigned c2 = cols2[i];
+            v1 = m.mk_var(c1, sig[c1]);
+            v2 = m.mk_var(sig.size() + c2, sig[c2]);
+            eqs.push_back(m.mk_eq(v1,v2));
+        }
+        fml2 = mk_and(m, eqs.size(), eqs.c_ptr());
+        for (unsigned i = 0; i < sub.size(); ++i) {
+            project_var(sig.size() + i, m.get_sort(sub[i].get()), fml2);
+        }
+        fml1 = m.mk_and(fml1, fml2);
+        
+        expr_ref_vector vars(m);
+        for (unsigned i = 0; i < sig.size(); ++i) {
+            std::stringstream strm;
+            strm << "x" << i;
+            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
+        }
+
+        subst(fml1, vars.size(), vars.c_ptr(), fml1);
+        subst(fml3, vars.size(), vars.c_ptr(), fml3);
+
+        check_equiv(fml1, fml3);
+        /*
+          
+        tgt_1:={ x: x\in tgt_0 && ! \exists y: 
+                    ( y \in neg & pi_c1(x)= pi_d1(y) & ... & pi_cN(x)= pi_dN(y) ) }
+        */
     }
 
     expr_ref ex(unsigned hi, unsigned lo, expr* e) {
         expr_ref result(m);
         result = bv.mk_extract(hi, lo, e);
         return result;
+    }
+
+    void apply_filter_project(udoc_relation& t, unsigned_vector const& rm, app* cond) {
+        scoped_ptr<datalog::relation_transformer_fn> rt;
+        rt = p.mk_filter_interpreted_and_project_fn(t, cond, rm.size(), rm.c_ptr());
+        udoc_relation* full = mk_full(t.get_signature());
+        rel_union union_fn = p.mk_union_fn(t, *full, 0);
+        (*union_fn)(t, *full, 0);
+        datalog::relation_base* result = (*rt)(t);
+        
+        for (unsigned i = 0; i < rm.size(); ++i) {
+            std::cout << rm[i] << " ";
+        }
+        std::cout << mk_pp(cond, m) << "\n";
+        t.display(std::cout);
+        result->display(std::cout);
+        result->deallocate();
+        full->deallocate();
+    }
+
+    void verify_filter_project(udoc_relation const& r, unsigned_vector const& rm, app* cond) {
+        expr_ref fml(m), cfml(m);
+        r.to_formula(fml);
+        cfml = cond;
+        relation_signature const& sig = r.get_signature();
+        expr_ref_vector vars(m);
+        for (unsigned i = 0, j = 0, k = 0; i < sig.size(); ++i) {
+            if (j < rm.size() && rm[j] == i) {
+                project_var(i, sig[i], cfml);
+                ++j;
+            }
+            else {
+                vars.push_back(m.mk_var(k, sig[i]));
+                ++k;
+            }            
+        }
+        
+
+        check_equiv(fml, cfml);
+    }
+
+    void check_equiv(expr* fml1, expr* fml2) {
+        TRACE("doc", tout << mk_pp(fml1, m) << "\n";
+              tout << mk_pp(fml2, m) << "\n";);
+        smt_params fp;
+        smt::kernel solver(m, fp);
+        expr_ref tmp(m);
+        tmp = m.mk_not(m.mk_eq(fml1, fml2));
+        solver.assert_expr(tmp);
+        lbool res = solver.check();
+        SASSERT(res == l_false);
+    }
+
+    void project_var(unsigned i, sort* s, expr_ref& fml) {
+        var_ref v(m);
+        v = m.mk_var(i, s);
+        unsigned num_bits = bv.get_bv_size(s);
+        unsigned p = 1 << num_bits;
+        expr_ref_vector disj(m);
+        expr_ref tmp(m);
+        for (unsigned i = 0; i < p; ++i) {
+            expr_safe_replace repl(m);
+            repl.insert(v, bv.mk_numeral(rational(i), s));
+            tmp = fml;
+            repl(tmp);
+            disj.push_back(tmp);
+        }
+        fml = mk_or(m, disj.size(), disj.c_ptr());
     }
 
     void apply_filter(udoc_relation& t, app* cond) {

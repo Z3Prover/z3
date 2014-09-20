@@ -73,6 +73,8 @@ public:
     std::ostream& display(std::ostream& out, tbv const& b) const;
     tbv* project(unsigned n, bool const* to_delete, tbv const& src);
     bool is_well_formed(tbv const& b) const; // - does not contain BIT_z;
+
+    static void debug_alloc();
 };
 
 class tbv: private fixed_bit_vector {
@@ -132,6 +134,7 @@ public:
         return *this;
     }
     tbv& operator*() { return *d; }
+    tbv* operator->() { return d; }
     tbv* get() { return d; }
     tbv* detach() { tbv* result = d; d = 0; return result; }
 };

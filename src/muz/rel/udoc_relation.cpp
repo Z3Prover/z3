@@ -667,6 +667,7 @@ namespace datalog {
             TRACE("doc", sub.display(dm, tout << "sub:") << "\n";);
             result.subtract(dm, sub);
             result.simplify(dm);
+            sub.reset(dm);
             TRACE("doc", result.display(dm, tout << "result:") << "\n";);
 
         }
@@ -678,7 +679,11 @@ namespace datalog {
                 arg = mk_not(m, to_app(g)->get_arg(i));
                 apply_guard(arg, sub, equalities, discard_cols);
             }
+            TRACE("doc", result.display(dm, tout << "result0:") << "\n";);
             result.subtract(dm, sub);
+            TRACE("doc", 
+                  sub.display(dm, tout << "sub:") << "\n";
+                  result.display(dm, tout << "result:") << "\n";);
             sub.reset(dm);
         }
         else if (m.is_true(g)) {
@@ -897,7 +902,7 @@ namespace datalog {
             for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
                 m_col_list.set(m_removed_cols[i], true);
             }
-            m_to_delete.resize(m_removed_cols.size(), false);
+            m_to_delete.resize(t.get_num_bits(), false);
             for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
                 m_to_delete[m_removed_cols[i]] = true;
             }

@@ -415,8 +415,8 @@ void doc_manager::subtract(doc const& A, doc const& B, ptr_vector<doc>& result) 
         r2 = allocate(B.neg()[i]);
         if (set_and(*r, *r2)) {
             result.push_back(r.detach());
-            r = allocate(A);
         }
+        r = allocate(A);
     }
 }
 bool doc_manager::equals(doc const& a, doc const& b) const {
