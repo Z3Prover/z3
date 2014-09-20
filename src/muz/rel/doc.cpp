@@ -441,12 +441,13 @@ unsigned doc_manager::hash(doc const& src) const {
 // A \ (A1 u A2) contains B \ (B1 u B2)
 // if
 // A contains B
-// B1 contains A1 or A2
+// B1 contains A1 or B2 contains A1
+// B1 contains A2 or B2 contains A2
 bool doc_manager::contains(doc const& a, doc const& b) const {
     if (!m.contains(a.pos(), b.pos())) return false;
-    for (unsigned i = 0; i < b.neg().size(); ++i) {
+    for (unsigned i = 0; i < a.neg().size(); ++i) {
         bool found = false;
-        for (unsigned j = 0; !found && j < a.neg().size(); ++j) {
+        for (unsigned j = 0; !found && j < b.neg().size(); ++j) {
             found = m.contains(b.neg()[i],a.neg()[j]);
         }
         if (!found) return false;

@@ -213,7 +213,7 @@ public:
             id.push_back(0);
             id.push_back(2);
             id.push_back(4);
-            datalog::relation_mutator_fn* filter_id = p.mk_filter_identical_fn(*t1, id.size(), id.c_ptr());
+            rel_mut filter_id = p.mk_filter_identical_fn(*t1, id.size(), id.c_ptr());
             relation_fact f1(m);
             f1.push_back(bv.mk_numeral(rational(1),3));
             f1.push_back(bv.mk_numeral(rational(1),6));
@@ -227,14 +227,42 @@ public:
             (*filter_id)(*t1);
             t1->display(std::cout); std::cout << "\n";
             t1->deallocate();
-            dealloc(filter_id);
+        }
+
+        {
+            relation_signature sig3;
+            sig3.push_back(m.mk_bool_sort());
+            sig3.push_back(m.mk_bool_sort());
+            sig3.push_back(m.mk_bool_sort());
+            var_ref v0(m.mk_var(0, m.mk_bool_sort()),m);
+            var_ref v1(m.mk_var(1, m.mk_bool_sort()),m);
+            var_ref v2(m.mk_var(2, m.mk_bool_sort()),m);
+            app_ref cond1(m);
+            cond1 = m.mk_or(m.mk_eq(v0,v1),m.mk_eq(v0,v2));
+            t1 = mk_full(sig3);
+            apply_filter(*t1, cond1);
+            t1->deallocate();
+        }
+
+        {
+            relation_signature sig3;
+            sig3.push_back(bv.mk_sort(1));
+            sig3.push_back(bv.mk_sort(1));
+            sig3.push_back(bv.mk_sort(1));
+            var_ref v0(m.mk_var(0, bv.mk_sort(1)),m);
+            var_ref v1(m.mk_var(1, bv.mk_sort(1)),m);
+            var_ref v2(m.mk_var(2, bv.mk_sort(1)),m);
+            app_ref cond1(m);
+            cond1 = m.mk_or(m.mk_eq(v0,v1),m.mk_eq(v0,v2));
+            t1 = mk_full(sig3);
+            apply_filter(*t1, cond1);
+            t1->deallocate();
         }
 
         // filter_interpreted
         {
             std::cout << "filter interpreted\n";
             t1 = mk_full(sig2);
-            t2 = mk_full(sig2);
             var_ref v0(m.mk_var(0, bv.mk_sort(3)),m);
             var_ref v1(m.mk_var(1, bv.mk_sort(6)),m);
             var_ref v2(m.mk_var(2, bv.mk_sort(3)),m);
@@ -248,36 +276,112 @@ public:
             cond4 = m.mk_not(m.mk_eq(v0, v2));
             cond5 = m.mk_eq(v0, bv.mk_numeral(rational(2), 3));
 
-            rel_union union_fn = p.mk_union_fn(*t1, *t2, 0);
-            rel_mut fint1 = p.mk_filter_interpreted_fn(*t1, cond1);
-            rel_mut fint2 = p.mk_filter_interpreted_fn(*t1, cond2);
-            rel_mut fint3 = p.mk_filter_interpreted_fn(*t1, cond3);
-            rel_mut fint4 = p.mk_filter_interpreted_fn(*t1, cond4);
-            rel_mut fint5 = p.mk_filter_interpreted_fn(*t1, cond5);
-            (*fint1)(*t1);
-            t1->display(std::cout << "filter: " << cond1 << " "); std::cout << "\n";
-            (*fint2)(*t1);
-            t1->display(std::cout << "filter: " << cond2 << " "); std::cout << "\n";
-            (*union_fn)(*t1, *t2); 
-            (*fint3)(*t1);
-            t1->display(std::cout << "filter: " << cond3 << " "); std::cout << "\n";
-            (*fint4)(*t1);
-            t1->display(std::cout << "filter: " << cond4 << " "); std::cout << "\n";
-            (*union_fn)(*t1, *t2); 
-            (*fint5)(*t1);
-            t1->display(std::cout << "filter: " << cond5 << " "); std::cout << "\n";                        
+            apply_filter(*t1, cond1);
+            apply_filter(*t1, cond2);
+            apply_filter(*t1, cond3);
+            apply_filter(*t1, cond4);
+            apply_filter(*t1, cond5);
+
+            cond1 = m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2));
+            apply_filter(*t1, cond1);
+
+            cond2 = m.mk_or(cond1,m.mk_eq(v3,v4));
+            apply_filter(*t1, cond2);
+
+            cond2 = m.mk_or(cond1,m.mk_eq(ex(2,1,v3),ex(1,0,v4)));
+            apply_filter(*t1, cond2);
+
+            cond1 = m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v0,v4));
+            apply_filter(*t1, cond1);
+
+            cond1 = m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v3,v4));
+            apply_filter(*t1, cond1);
+
+            cond1 = m.mk_or(m.mk_eq(ex(2,1,v0),ex(1,0,v2)),m.mk_eq(v3,v4));
+            apply_filter(*t1, cond1);
+
+            cond1 = m.mk_or(m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2)), 
+                            m.mk_eq(v3,v4));
+            apply_filter(*t1, cond1);
+
+            cond1 = m.mk_or(m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2)), 
+                            m.mk_eq(v3,bv.mk_numeral(rational(3),5)));
+            apply_filter(*t1, cond1);
+
+            cond1 = m.mk_or(m.mk_eq(v0,bv.mk_numeral(rational(5),3)), 
+                            m.mk_eq(v3,bv.mk_numeral(rational(5),3)));
+            apply_filter(*t1, cond1);
+
+            cond1 = m.mk_or(m.mk_eq(v0,bv.mk_numeral(rational(7),3)), 
+                            m.mk_eq(v3,bv.mk_numeral(rational(7),3)));
+            apply_filter(*t1, cond1);
+
+            cond1 = m.mk_not(m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v3,v4)));
+            apply_filter(*t1, cond1);
+
+            
             t1->deallocate();
-            t2->deallocate();
 
         }
         // filter_by_negation
 
         // filter_interpreted_project
     }
+
+    expr_ref ex(unsigned hi, unsigned lo, expr* e) {
+        expr_ref result(m);
+        result = bv.mk_extract(hi, lo, e);
+        return result;
+    }
+
+    void apply_filter(udoc_relation& t, app* cond) {
+        udoc_relation* full = mk_full(t.get_signature());
+        rel_union union_fn = p.mk_union_fn(t, *full, 0);
+        (*union_fn)(t, *full, 0);
+        rel_mut fint = p.mk_filter_interpreted_fn(t, cond);
+        (*fint)(t);
+        t.display(std::cout << "filter: " << mk_pp(cond, m) << " "); std::cout << "\n";
+        verify_filter(t, cond);
+        full->deallocate();
+    }
+
+    void verify_filter(udoc_relation& r, expr* fml2) {
+        expr_ref fml1(m), tmp(m);
+        r.to_formula(fml1);
+        tmp = m.mk_not(m.mk_eq(fml1, fml2));
+        relation_signature const& sig = r.get_signature();
+        expr_ref_vector vars(m);
+        var_subst sub(m, false);
+        for (unsigned i = 0; i < sig.size(); ++i) {
+            std::stringstream strm;
+            strm << "x" << i;
+            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
+        }
+
+        sub(tmp, vars.size(), vars.c_ptr(), tmp);
+        
+        smt_params fp;
+        smt::kernel solver(m, fp);
+        TRACE("doc", 
+              tout << "Original formula:\n";
+              tout << mk_pp(fml2, m) << "\n";
+              tout << "Filtered formula: \n";
+              tout << mk_pp(fml1,m) << "\n";
+              tout << tmp << "\n";
+              );
+        solver.assert_expr(tmp);
+        lbool res = solver.check();
+        SASSERT(res == l_false);
+    }
 };
 
 void tst_udoc_relation() {
     udoc_tester tester;
 
-    tester.test1();
+    try {
+        tester.test1();
+    }
+    catch (z3_exception& ex) {
+        std::cout << ex.msg() << "\n";
+    }
 }
