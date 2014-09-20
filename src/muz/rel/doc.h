@@ -69,11 +69,11 @@ public:
     unsigned num_tbits() const { return m.num_tbits(); }
     doc* project(doc_manager& dstm, unsigned n, bool const* to_delete, doc const& src);
     bool well_formed(doc const& d) const;
-    bool merge(doc& d, unsigned lo, unsigned length, subset_ints& equalities, bit_vector const& discard_cols);
+    bool merge(doc& d, unsigned lo, unsigned length, subset_ints const& equalities, bit_vector const& discard_cols);
     void set(doc& d, unsigned idx, tbit value);
 private:
     unsigned diff_by_012(tbv const& pos, tbv const& neg, unsigned& index);
-    bool merge(doc& d, unsigned idx, subset_ints& equalities, bit_vector const& discard_cols);
+    bool merge(doc& d, unsigned idx, subset_ints const& equalities, bit_vector const& discard_cols);
     bool can_project_neg(tbv const& pos, unsigned n, bool const* to_delete, tbv const& neg);
 };
 
@@ -233,7 +233,7 @@ public:
         std::swap(*this, result);
     }
 
-    void merge(M& m, unsigned lo, unsigned length, subset_ints & equalities, bit_vector const& discard_cols) {
+    void merge(M& m, unsigned lo, unsigned length, subset_ints const& equalities, bit_vector const& discard_cols) {
         for (unsigned i = 0; i < size(); ++i) {
             if (!m.merge(*m_elems[i], lo, length, equalities, discard_cols)) {
                 erase(m, i);
@@ -254,9 +254,12 @@ public:
         merge(m, lo1, length, equalities, discard_cols);
     }
 
-
-private:
-
+    void merge(M& m, unsigned_vector const& roots, subset_ints const& equalities, 
+               bit_vector const& discard_cols) {
+        for (unsigned i = 0; i < roots.size(); ++i) {
+            merge(m, roots[i], equalities, discard_cols);
+        }
+    }
 
 };
 

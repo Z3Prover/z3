@@ -116,6 +116,7 @@ namespace datalog {
                     break;
                 case BIT_x:
                     if (!is_x) {
+                        SASSERT(p.bv.is_bv_sort(get_signature()[i]));
                         conjs.push_back(m.mk_eq(p.bv.mk_extract(j-1-lo,lo1-lo,v),
                                                 p.bv.mk_numeral(r,j-lo1)));
                     }
@@ -185,6 +186,23 @@ namespace datalog {
         }
         return *r;
     }
+    bool udoc_relation::is_var_range(expr* e, unsigned& hi, unsigned& lo, unsigned& v) const {
+        udoc_plugin& p = get_plugin();
+        if (is_var(e)) {
+            v = to_var(e)->get_idx();
+            hi = p.num_sort_bits(e)-1;
+            lo = 0;
+            return true;
+        }
+        expr* e2;
+        if (p.bv.is_extract(e, lo, hi, e2) && is_var(e2)) {
+            v = to_var(e2)->get_idx();
+            SASSERT(lo <= hi);
+            return true;
+        }
+        return false;
+    }
+
     expr* udoc_plugin::mk_numeral(rational const& r, sort* s) {
         if (bv.is_bv_sort(s)) {
             return bv.mk_numeral(r, s);
@@ -576,16 +594,14 @@ namespace datalog {
         udoc_plugin& p = get_plugin();
         ast_manager& m = p.get_ast_manager();
         bv_util& bv = p.bv;
-        expr* e1, *e2, *e3;
-        unsigned hi, lo;
+        expr* e1, *e2;
+        unsigned hi, lo, v;
         if (m.is_and(g) || m.is_or(g) || m.is_not(g) || m.is_true(g) || m.is_false(g)) {
             return is_guard(to_app(g)->get_num_args(), to_app(g)->get_args());
         }
         if (m.is_eq(g, e1, e2) && bv.is_bv(e1)) {
-            if (is_var(e1) && is_ground(e2)) return true;
-            if (is_var(e2) && is_ground(e1)) return true;
-            if (bv.is_extract(e1, lo, hi, e3) && is_var(e3) && is_ground(e2)) return true;
-            if (bv.is_extract(e2, lo, hi, e3) && is_var(e3) && is_ground(e1)) return true;
+            if (is_var_range(e1, hi, lo, v) && is_ground(e2)) return true;
+            if (is_var_range(e2, hi, lo, v) && is_ground(e1)) return true;
         }
         if (is_var(g)) {
             return true;
@@ -611,6 +627,37 @@ namespace datalog {
         guard = mk_and(m, guards.size(), guards.c_ptr());
         rest  = mk_and(m, rests.size(),  rests.c_ptr());        
     }
+    void udoc_relation::extract_equalities(expr* g, expr_ref& rest, subset_ints& equalities,
+                                           unsigned_vector& roots) const {
+        rest.reset();
+        ast_manager& m = get_plugin().get_ast_manager();
+        expr_ref_vector conds(m);
+        conds.push_back(g);
+        qe::flatten_and(conds);
+        expr* e1, *e2;
+        unsigned v1, v2, lo1, lo2, hi1, hi2;
+        for (unsigned i = 0; i < conds.size(); ++i) {
+            expr* g = conds[i].get();
+            if (m.is_eq(g, e1, e2) && 
+                is_var_range(e1, hi1, lo1, v1) &&
+                is_var_range(e2, hi2, lo2, v2)) {
+                unsigned col1 = column_idx(v1);
+                lo1 += col1;
+                hi1 += col1;
+                unsigned col2 = column_idx(v2);
+                lo2 += col2;
+                hi2 += col2;
+                for (unsigned j = 0; j <= hi1-lo1; ++j) {
+                    roots.push_back(lo1 + j);
+                    equalities.merge(lo1 + j, lo2 + j);
+                }
+                conds[i] = conds.back();
+                conds.pop_back();
+                --i;
+            }
+        }
+        rest = mk_and(m, conds.size(), conds.c_ptr());
+    }
     void udoc_relation::compile_guard(expr* g, udoc& d, bit_vector const& discard_cols) const {
         d.reset(dm);
         d.push_back(dm.allocateX()); 
@@ -625,12 +672,11 @@ namespace datalog {
         }        
         apply_guard(g, result, equalities, discard_cols);
     }
-    bool udoc_relation::apply_eq(expr* g, udoc& result, var* v, unsigned hi, unsigned lo, expr* c) const {
+    bool udoc_relation::apply_eq(expr* g, udoc& result, unsigned v, unsigned hi, unsigned lo, expr* c) const {
         udoc_plugin& p = get_plugin();
         unsigned num_bits;
         rational r;
-        unsigned idx = v->get_idx();
-        unsigned col = column_idx(idx);
+        unsigned col = column_idx(v);
         lo += col;
         hi += col;
         if (p.is_numeral(c, r, num_bits)) {
@@ -644,7 +690,7 @@ namespace datalog {
     }
 
     void udoc_relation::apply_guard(
-        expr* g, udoc& result, subset_ints& equalities, bit_vector const& discard_cols) const {
+        expr* g, udoc& result, subset_ints const& equalities, bit_vector const& discard_cols) const {
         ast_manager& m = get_plugin().get_ast_manager();
         bv_util& bv = get_plugin().bv;
         expr* e1, *e2;
@@ -660,16 +706,16 @@ namespace datalog {
             // the equivalence class to collapse.
             // It seems the current organization with fix_eq_bits
             // will merge the equivalence class as a side-effect.
-            TRACE("doc", result.display(dm, tout << "result0:") << "\n";); 
             udoc sub;
             sub.push_back(dm.allocateX());
             apply_guard(e1, sub, equalities, discard_cols);
-            TRACE("doc", sub.display(dm, tout << "sub:") << "\n";);
+            TRACE("doc", 
+                  result.display(dm, tout << "result0:") << "\n";
+                  sub.display(dm, tout << "sub:") << "\n";);
             result.subtract(dm, sub);
             result.simplify(dm);
             sub.reset(dm);
             TRACE("doc", result.display(dm, tout << "result:") << "\n";);
-
         }
         else if (m.is_or(g)) {
             udoc sub;
@@ -717,36 +763,20 @@ namespace datalog {
             diff2.reset(dm);
         }
         else if (m.is_eq(g, e1, e2) && bv.is_bv(e1)) {
-            unsigned hi, lo, lo1, lo2, hi1, hi2;
-            expr* e3, *e4;
-            if (is_var(e1) && is_ground(e2) && 
-                apply_eq(g, result, to_var(e1), bv.get_bv_size(e1)-1, 0, e2)) {
+            unsigned hi, lo, lo1, lo2, hi1, hi2, v, v1, v2;
+            if (is_var_range(e1, hi, lo, v) && is_ground(e2) &&
+                apply_eq(g, result, v, hi, lo, e2)) {
             }
-            else if (is_var(e2) && is_ground(e1) &&
-                     apply_eq(g, result, to_var(e2), bv.get_bv_size(e2)-1, 0, e1)) {
+            else if (is_var_range(e2, hi, lo, v) && is_ground(e1) &&
+                     apply_eq(g, result, v, hi, lo, e1)) {
             }
-            else if (bv.is_extract(e1, lo, hi, e3) && is_var(e3) && is_ground(e2) &&
-                     apply_eq(g, result, to_var(e3), hi, lo, e2)) {
-            }
-            else if (bv.is_extract(e2, lo, hi, e3) && is_var(e3) && is_ground(e1) &&
-                     apply_eq(g, result, to_var(e3), hi, lo, e1)) {
-            }
-            else if (is_var(e1) && is_var(e2)) {
-                var* v1 = to_var(e1);
-                var* v2 = to_var(e2);
-                unsigned idx1 = column_idx(v1->get_idx());
-                unsigned idx2 = column_idx(v2->get_idx());
-                unsigned length = column_num_bits(v1->get_idx());
+            else if (is_var_range(e1, hi1, lo1, v1) && 
+                     is_var_range(e2, hi2, lo2, v2)) {
+                unsigned idx1 = lo1 + column_idx(v1);
+                unsigned idx2 = lo2 + column_idx(v2);
+                unsigned length = hi1-lo1+1;
                 result.merge(dm, idx1, idx2, length, discard_cols);
             }   
-            else if (bv.is_extract(e1, lo1, hi1, e3) && is_var(e3) &&
-                     bv.is_extract(e2, lo2, hi2, e4) && is_var(e4)) {
-                var* v1 = to_var(e3);
-                var* v2 = to_var(e4);
-                unsigned idx1 = lo1 + column_idx(v1->get_idx());
-                unsigned idx2 = lo2 + column_idx(v2->get_idx());
-                result.merge(dm, idx1, idx2, hi1-lo1+1, discard_cols);
-            }
             else {
                 goto failure_case;
             }            
@@ -760,16 +790,24 @@ namespace datalog {
     }
 
     class udoc_plugin::filter_interpreted_fn : public relation_mutator_fn {
+        union_find_default_ctx union_ctx;
         doc_manager& dm;
         expr_ref     m_condition;
         udoc         m_udoc;
         bit_vector   m_empty_bv;
+        subset_ints  m_equalities;
+
     public:
         filter_interpreted_fn(const udoc_relation & t, ast_manager& m, app *condition) :
             dm(t.get_dm()),
-            m_condition(m) {
-            m_empty_bv.resize(t.get_num_bits(), false);
-            expr_ref guard(m), rest(m);
+            m_condition(m),
+            m_equalities(union_ctx) {
+            unsigned num_bits = t.get_num_bits();
+            m_empty_bv.resize(num_bits, false);
+            expr_ref guard(m);
+            for (unsigned i = 0; i < num_bits; ++i) {
+                m_equalities.mk_var();
+            }        
             t.extract_guard(condition, guard, m_condition);            
             t.compile_guard(guard, m_udoc, m_empty_bv);
             if (m.is_true(m_condition)) {
@@ -790,7 +828,7 @@ namespace datalog {
             udoc& u = t.get_udoc();
             u.intersect(dm, m_udoc);
             if (m_condition && !u.is_empty()) {
-                t.apply_guard(m_condition, u, m_empty_bv);
+                t.apply_guard(m_condition, u, m_equalities, m_empty_bv);
             }
             u.simplify(dm);
             TRACE("doc", tout << "final size: " << t.get_size_estimate_rows() << '\n';);
@@ -821,7 +859,7 @@ namespace datalog {
                 bool done_i = false;
                 for (unsigned j = 0; !done_i && j < neg.size(); ++j) {
                     bool done_j = false;
-                    for (unsigned c = 0; !done_i && !done_j && c < m_t_cols.size(); ++c) {
+                    for (unsigned c = 0; !done_j && c < m_t_cols.size(); ++c) {
                         unsigned t_col = m_t_cols[c];
                         unsigned n_col = m_neg_cols[c];
                         unsigned num_bits = t.column_num_bits(t_col);
@@ -837,11 +875,11 @@ namespace datalog {
                     }
                     if (done_j) {
                         result.push_back(&dst[i]);
-                    }
-                    else {
-                        dm.deallocate(&dst[i]);
                         done_i = true;
                     }
+                }
+                if (!done_i) {
+                    dm.deallocate(&dst[i]);
                 }
             }
             std::swap(dst, result);
@@ -859,6 +897,7 @@ namespace datalog {
                 renamed_neg.push_back(newD.detach());
             }
             dst.subtract(t.get_dm(), renamed_neg);
+            renamed_neg.reset(t.get_dm());
         }
         void copy_column(
             doc& dst, doc const& src,
@@ -886,19 +925,28 @@ namespace datalog {
     }
 
     class udoc_plugin::filter_proj_fn : public convenient_relation_project_fn {
+        union_find_default_ctx union_ctx;
         doc_manager& dm;
         expr_ref     m_condition;
         udoc         m_udoc;
         bit_vector   m_col_list; // map: col idx -> bool (whether the column is to be removed)
         svector<bool> m_to_delete; // same
+        subset_ints  m_equalities;
+        unsigned_vector m_roots;
+
     public:
         filter_proj_fn(const udoc_relation & t, ast_manager& m, app *condition,
                        unsigned col_cnt, const unsigned * removed_cols) :
             convenient_relation_project_fn(t.get_signature(), col_cnt, removed_cols),
             dm(t.get_dm()),
-            m_condition(m) {
+            m_condition(m),
+            m_equalities(union_ctx) {
             t.expand_column_vector(m_removed_cols);
-            m_col_list.resize(t.get_num_bits(), false);
+            unsigned num_bits = t.get_num_bits();
+            m_col_list.resize(num_bits, false);
+            for (unsigned i = 0; i < num_bits; ++i) {
+                m_equalities.mk_var();
+            }        
             for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
                 m_col_list.set(m_removed_cols[i], true);
             }
@@ -906,8 +954,9 @@ namespace datalog {
             for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
                 m_to_delete[m_removed_cols[i]] = true;
             }
-            expr_ref guard(m), rest(m);
-            t.extract_guard(condition, guard, m_condition);            
+            expr_ref guard(m), non_eq_cond(m);
+            t.extract_equalities(condition, non_eq_cond, m_equalities, m_roots);
+            t.extract_guard(non_eq_cond, guard, m_condition);            
             t.compile_guard(guard, m_udoc, m_col_list);
             if (m.is_true(m_condition)) {
                 m_condition = 0;
@@ -924,8 +973,9 @@ namespace datalog {
             udoc  u2;
             u2.copy(dm, u1);
             u2.intersect(dm, m_udoc);
+            u2.merge(dm, m_roots, m_equalities, m_col_list); 
             if (m_condition && !u2.is_empty()) {
-                t.apply_guard(m_condition, u2, m_col_list);
+                t.apply_guard(m_condition, u2, m_equalities, m_col_list);
             }
             udoc_relation* r = get(t.get_plugin().mk_empty(get_result_signature()));
             doc_manager& dm2 = r->get_dm();

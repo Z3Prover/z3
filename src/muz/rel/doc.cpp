@@ -192,14 +192,15 @@ void doc_manager::set(doc& d, unsigned idx, tbit value) {
 //
 bool doc_manager::merge(
     doc& d, unsigned lo, unsigned length, 
-    subset_ints& equalities, bit_vector const& discard_cols) {
+    subset_ints const& equalities, bit_vector const& discard_cols) {
     for (unsigned i = 0; i < length; ++i) {
         unsigned idx = lo + i;
         if (!merge(d, lo + i, equalities, discard_cols)) return false;
     }
     return true;
 }
-bool doc_manager::merge(doc& d, unsigned idx, subset_ints& equalities, bit_vector const& discard_cols) {
+bool doc_manager::merge(doc& d, unsigned idx, subset_ints const& equalities, 
+                        bit_vector const& discard_cols) {
     unsigned root = equalities.find(idx);
     idx = root;
     unsigned num_x = 0;

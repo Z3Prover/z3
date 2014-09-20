@@ -88,41 +88,7 @@ public:
         udoc_relation* t1, *t2, *t3;
         expr_ref fml(m);
 
-        // filter_by_negation
-
-        /*
-            The filter_by_negation postcondition:
-            filter_by_negation(tgt, neg, columns in tgt: c1,...,cN, 
-                                         corresponding columns in neg: d1,...,dN):
-            tgt_1:={x: x\in tgt_0 && ! \exists y: ( y \in neg & pi_c1(x)= pi_d1(y) & ... & pi_cN(x)= pi_dN(y) ) }
-        */
-        {
-            relation_signature sig4;
-            sig4.push_back(bv.mk_sort(1));
-            sig4.push_back(bv.mk_sort(1));
-            sig4.push_back(bv.mk_sort(1));
-            t1 = mk_empty(sig4);
-            t2 = mk_empty(sig4);
-            unsigned_vector cols1, cols2;
-            unsigned num_bits = t1->get_dm().num_tbits();
-
-            cols1.push_back(0);
-            cols2.push_back(1);
-            for (unsigned i = 0; i < 100; ++i) {
-                set_random(*t1, 2*num_bits/3);
-                set_random(*t2, 2*num_bits/3);
-                apply_filter_neg(*t1,*t2, cols1, cols2);
-            }
-            cols1.push_back(1);
-            cols2.push_back(2);
-            for (unsigned i = 0; i < 100; ++i) {
-                set_random(*t1, 2*num_bits/3);
-                set_random(*t2, 2*num_bits/3);
-                apply_filter_neg(*t1,*t2, cols1, cols2);
-            }
-            t1->deallocate();
-            t2->deallocate();
-        }
+        test_filter_neg();
 
         // empty
         {
@@ -328,6 +294,7 @@ public:
         cond1 = m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2));
         conds.push_back(cond1);
         conds.push_back(m.mk_or(cond1,m.mk_eq(v3,v4)));
+        conds.push_back(m.mk_eq(ex(2,1,v3),ex(1,0,v4)));
         conds.push_back(m.mk_or(cond1,m.mk_eq(ex(2,1,v3),ex(1,0,v4))));
         conds.push_back(m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v0,v4)));
         conds.push_back(m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v3,v4)));
@@ -375,6 +342,43 @@ public:
 
     }
 
+    /*
+      The filter_by_negation postcondition:
+      filter_by_negation(tgt, neg, columns in tgt: c1,...,cN, 
+      corresponding columns in neg: d1,...,dN):
+      tgt_1:={x: x\in tgt_0 && ! \exists y: ( y \in neg & pi_c1(x)= pi_d1(y) & ... & pi_cN(x)= pi_dN(y) ) }
+    */
+
+    void test_filter_neg() {
+        // filter_by_negation
+
+        relation_signature sig4;
+        sig4.push_back(bv.mk_sort(1));
+        sig4.push_back(bv.mk_sort(1));
+        sig4.push_back(bv.mk_sort(1));
+        udoc_relation* t1 = mk_empty(sig4);
+        udoc_relation* t2 = mk_empty(sig4);
+        unsigned_vector cols1, cols2;
+        unsigned num_bits = t1->get_dm().num_tbits();
+        
+        cols1.push_back(0);
+        cols2.push_back(1);
+        for (unsigned i = 0; i < 100; ++i) {
+            set_random(*t1, 2*num_bits/3);
+            set_random(*t2, 2*num_bits/3);
+            apply_filter_neg(*t1,*t2, cols1, cols2);
+        }
+        cols1.push_back(1);
+        cols2.push_back(2);
+        for (unsigned i = 0; i < 200; ++i) {
+            set_random(*t1, 2*num_bits/3);
+            set_random(*t2, 2*num_bits/3);
+            apply_filter_neg(*t1,*t2, cols1, cols2);
+        }
+        t1->deallocate();
+        t2->deallocate();
+    }
+
     void set_random(udoc_relation& r, unsigned num_vals) {
         unsigned num_bits = r.get_dm().num_tbits();
         udoc_relation* full = mk_full(r.get_signature());
@@ -390,6 +394,7 @@ public:
             tbit b = (val == 0)?BIT_0:BIT_1;
             dm.set(d0, idx, b);
         }
+        full->deallocate();
     }
 
     void apply_filter_neg(udoc_relation& t1, udoc_relation& t2, 
@@ -401,7 +406,14 @@ public:
         expr_ref fml1(m), fml2(m), fml3(m);
         t1.to_formula(fml1);
         t2.to_formula(fml2);
+        for (unsigned i = 0; i < cols1.size(); ++i) {
+            std::cout << cols1[i] << " = " << cols2[i] << " ";
+        }
+        std::cout << "\n";
+        t1.display(std::cout); std::cout << "\n";
+        t2.display(std::cout); std::cout << "\n";
         (*negf)(t1, t2);
+        t1.display(std::cout); std::cout << "\n";
         t1.to_formula(fml3);
         std::cout << fml1 << "\n";
         std::cout << fml2 << "\n";
@@ -426,7 +438,7 @@ public:
         for (unsigned i = 0; i < sub.size(); ++i) {
             project_var(sig.size() + i, m.get_sort(sub[i].get()), fml2);
         }
-        fml1 = m.mk_and(fml1, fml2);
+        fml1 = m.mk_and(fml1, m.mk_not(fml2));
         
         expr_ref_vector vars(m);
         for (unsigned i = 0; i < sig.size(); ++i) {
