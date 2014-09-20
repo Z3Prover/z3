@@ -739,6 +739,7 @@ namespace datalog {
             if (m_condition && !u.is_empty()) {
                 t.apply_guard(m_condition, u, m_empty_bv);
             }
+            u.simplify(dm);
             TRACE("dl", tout << "final size: " << t.get_size_estimate_rows() << '\n';);
         }
     };

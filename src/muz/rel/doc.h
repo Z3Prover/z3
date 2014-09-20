@@ -220,6 +220,18 @@ public:
             push_back(m.allocate(other[i]));
         }
     }
+    void simplify(M& m) {
+        union_bvec result;
+        for (unsigned i = 0; i < size(); ++i) {
+            if (m.fold_neg(*m_elems[i])) {
+                result.insert(m, m_elems[i]);
+            }
+            else {
+                m.deallocate(m_elems[i]);
+            }
+        }
+        std::swap(*this, result);
+    }
 
     void merge(M& m, unsigned lo, unsigned length, subset_ints & equalities, bit_vector const& discard_cols) {
         for (unsigned i = 0; i < size(); ++i) {
