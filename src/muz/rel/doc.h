@@ -111,12 +111,16 @@ public:
     }
 
     void push_back(T* t) {
+        SASSERT(t);
         m_elems.push_back(t);
     }
     void erase(M& m, unsigned idx) {
-        T* t = m_elems[idx];
-        m_elems.erase(t);
-        m.deallocate(t);
+        m.deallocate(m_elems[idx]);
+        unsigned sz = m_elems.size();
+        for (unsigned i = idx+1; i < sz; ++i) {
+            m_elems[i-1] = m_elems[i];
+        }
+        m_elems.resize(sz-1);
     }
     void reset(M& m) {
         for (unsigned i = 0; i < m_elems.size(); ++i) {
@@ -125,21 +129,20 @@ public:
         m_elems.reset(); 
     }    
     bool insert(M& m, T* t) {
+        SASSERT(t);
         unsigned sz = size(), j = 0;
         bool found = false;
         for (unsigned i = 0; i < sz; ++i, ++j) {
+            if (m.contains(*m_elems[i], *t)) {
+                found = true;
+            }
             if (!found && m.contains(*t, *m_elems[i])) {
                 m.deallocate(m_elems[i]);
                 --j;
             }
-            else {
-                if (m.contains(*m_elems[i], *t)) {
-                    found = true;
-                }
-                if (i != j) {                
-                    m_elems[j] = m_elems[i];
-                }       
-            }         
+            else if (i != j) {                
+                m_elems[j] = m_elems[i];
+            } 
         }
         if (j != sz) m_elems.resize(j);
         if (found) {
@@ -150,7 +153,7 @@ public:
         }
         return !found;
     }
-    void intersect(M& m, T& t) {
+    void intersect(M& m, T const& t) {
         unsigned sz = size();
         unsigned j = 0;
         for (unsigned i = 0; i < sz; ++i, ++j) {
@@ -159,7 +162,7 @@ public:
                 --j;
             }
             else if (i != j) {
-                m_elems[i] = m_elems[j];
+                m_elems[j] = m_elems[i];
             }
         }
         if (j != sz) m_elems.resize(j);
@@ -233,13 +236,26 @@ public:
         std::swap(*this, result);
     }
 
-    void merge(M& m, unsigned lo, unsigned length, subset_ints const& equalities, bit_vector const& discard_cols) {
+    bool well_formed(M& m) const {
         for (unsigned i = 0; i < size(); ++i) {
+            if (!m.well_formed(*m_elems[i])) return false;
+        }
+        return true;
+    }
+
+    void merge(M& m, unsigned lo, unsigned length, subset_ints const& equalities, bit_vector const& discard_cols) {
+        unsigned j = 0;
+        unsigned sz = size();
+        for (unsigned i = 0; i < sz; ++i, ++j) {
             if (!m.merge(*m_elems[i], lo, length, equalities, discard_cols)) {
-                erase(m, i);
-                --i;
+                --j;
+                m.deallocate(m_elems[i]);
+            }
+            else if (i != j) {
+                m_elems[j] = m_elems[i];
             }
         }
+        if (j != sz) m_elems.resize(j);
     }
 
     void merge(M& m, unsigned lo1, unsigned lo2, unsigned length, bit_vector const& discard_cols) {

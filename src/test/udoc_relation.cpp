@@ -88,7 +88,9 @@ public:
         udoc_relation* t1, *t2, *t3;
         expr_ref fml(m);
 
+        test_rename();
         test_filter_neg();
+
 
         // empty
         {
@@ -165,26 +167,6 @@ public:
             t->deallocate();
 
             dealloc(proj_fn);
-            t1->deallocate();
-        }
-
-        // rename
-        {
-            t1 = mk_empty(sig);
-            unsigned_vector cycle;
-            cycle.push_back(0);
-            cycle.push_back(2);
-            datalog::relation_transformer_fn* rename = p.mk_rename_fn(*t1, cycle.size(), cycle.c_ptr());
-
-            t1->add_fact(fact1);
-            t1->add_fact(fact2);
-            t1->add_fact(fact3);
-            t = (*rename)(*t1);
-            t1->display(std::cout); std::cout << "\n";
-            t->display(std::cout); std::cout << "\n";
-            t->deallocate();
-            
-            dealloc(rename);
             t1->deallocate();
         }
 
@@ -340,6 +322,98 @@ public:
         }
 
 
+    }
+
+    void test_rename() {
+        udoc_relation* t1;
+        // rename
+        datalog::relation_signature sig;
+        sig.push_back(bv.mk_sort(12));
+        sig.push_back(bv.mk_sort(6));
+        sig.push_back(bv.mk_sort(2));
+        datalog::relation_fact fact1(m);
+        fact1.push_back(bv.mk_numeral(rational(1), 12));
+        fact1.push_back(bv.mk_numeral(rational(6), 6));
+        fact1.push_back(bv.mk_numeral(rational(3), 2));
+        t1 = mk_empty(sig);
+        t1->add_fact(fact1);
+        unsigned_vector cycle;
+        cycle.push_back(0);
+        cycle.push_back(2);
+        check_permutation(t1, cycle);
+
+        sig.reset();
+        sig.push_back(bv.mk_sort(2));
+        sig.push_back(bv.mk_sort(6));
+        sig.push_back(bv.mk_sort(12));
+        fact1.reset();
+        fact1.push_back(bv.mk_numeral(rational(3), 2));
+        fact1.push_back(bv.mk_numeral(rational(6), 6));
+        fact1.push_back(bv.mk_numeral(rational(1), 12));
+        t1 = mk_empty(sig);
+        t1->add_fact(fact1);
+        cycle.reset();
+        cycle.push_back(0);
+        cycle.push_back(2);
+        check_permutation(t1, cycle);
+
+        t1 = mk_empty(sig);
+        t1->add_fact(fact1);
+        cycle.reset();
+        cycle.push_back(0);
+        cycle.push_back(1);
+        cycle.push_back(2);
+        check_permutation(t1, cycle);
+    }
+
+    void check_permutation(relation_base* t1, unsigned_vector const& cycle) {
+        scoped_ptr<datalog::relation_transformer_fn> rename;
+        rename = p.mk_rename_fn(*t1, cycle.size(), cycle.c_ptr());        
+        relation_base* t = (*rename)(*t1);
+        verify_permutation(*t1,*t, cycle);
+        t1->display(std::cout); std::cout << "\n";
+        t->display(std::cout); std::cout << "\n";
+        t->deallocate();            
+        t1->deallocate();
+    }
+
+    void verify_permutation(relation_base const& src, relation_base const& dst, 
+                            unsigned_vector const& cycle) {
+        unsigned_vector perm;
+        relation_signature const& sig1 = src.get_signature();
+        relation_signature const& sig2 = dst.get_signature();
+        for (unsigned i = 0; i < sig1.size(); ++i) {
+            perm.push_back(i);
+        }
+        for (unsigned i = 0; i < cycle.size(); ++i) {
+            unsigned j = (i + 1)%cycle.size();
+            unsigned col1 = cycle[i];
+            unsigned col2 = cycle[j];
+            perm[col2] = col1;
+        }
+        for (unsigned i = 0; i < perm.size(); ++i) {
+            SASSERT(sig2[perm[i]] == sig1[i]);
+        }
+        expr_ref_vector sub(m);
+        for (unsigned i = 0; i < perm.size(); ++i) {
+            sub.push_back(m.mk_var(perm[i], sig1[i]));
+        }
+        var_subst subst(m, false);
+        expr_ref fml1(m), fml2(m);
+        src.to_formula(fml1);
+        dst.to_formula(fml2);
+        subst(fml1, sub.size(), sub.c_ptr(), fml1);
+        expr_ref_vector vars(m);
+        for (unsigned i = 0; i < sig2.size(); ++i) {
+            std::stringstream strm;
+            strm << "x" << i;
+            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig2[i]));            
+        }
+
+        subst(fml1, vars.size(), vars.c_ptr(), fml1);
+        subst(fml2, vars.size(), vars.c_ptr(), fml2);
+        
+        check_equiv(fml1, fml2);
     }
 
     /*
@@ -499,7 +573,6 @@ public:
             }            
         }
         
-
         check_equiv(fml, cfml);
     }
 

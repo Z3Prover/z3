@@ -25,46 +25,6 @@ Revision History:
 #include"debug.h"
 #include"small_object_allocator.h"
 
-class fixed_bit_vector;
-class fixed_bit_vector_manager {
-    friend class fixed_bit_vector;
-    small_object_allocator m_alloc;
-    unsigned               m_num_bits;
-    unsigned               m_num_bytes;
-    unsigned               m_num_words;
-    unsigned               m_mask;
-
-    static unsigned num_words(unsigned num_bits) { 
-        return (num_bits + 31) / 32;
-    }    
-
-public:
-    fixed_bit_vector_manager(unsigned num_bits);
-
-    void reset() { m_alloc.reset(); }
-    fixed_bit_vector* allocate();
-    fixed_bit_vector* allocate1();
-    fixed_bit_vector* allocate0();
-    fixed_bit_vector* allocate(fixed_bit_vector const& bv);
-    void deallocate(fixed_bit_vector* bv);
-
-    void copy(fixed_bit_vector& dst, fixed_bit_vector const& src) const;
-    unsigned num_words() const { return m_num_words; }
-    unsigned num_bytes() const { return m_num_bytes; }
-    unsigned num_bits() const { return m_num_bits; }
-    fixed_bit_vector& reset(fixed_bit_vector& bv) const { return fill0(bv); }
-    fixed_bit_vector& fill0(fixed_bit_vector& bv) const;
-    fixed_bit_vector& fill1(fixed_bit_vector& bv) const;
-    fixed_bit_vector& set_and(fixed_bit_vector& dst, fixed_bit_vector const& src) const;
-    fixed_bit_vector& set_or(fixed_bit_vector& dst,  fixed_bit_vector const& src) const;
-    fixed_bit_vector& set_neg(fixed_bit_vector& dst) const;
-    unsigned last_word(fixed_bit_vector const& bv) const;
-    bool equals(fixed_bit_vector const& a, fixed_bit_vector const& b) const;
-    unsigned hash(fixed_bit_vector const& src) const;
-    bool contains(fixed_bit_vector const& a, fixed_bit_vector const& b) const;
-    std::ostream& display(std::ostream& out, fixed_bit_vector const& b) const;    
-};
-
 class fixed_bit_vector {
     friend class fixed_bit_vector_manager;
     friend class tbv_manager;
@@ -113,6 +73,47 @@ public:
     }
 
 };
+
+class fixed_bit_vector_manager {
+    friend class fixed_bit_vector;
+    small_object_allocator m_alloc;
+    unsigned               m_num_bits;
+    unsigned               m_num_bytes;
+    unsigned               m_num_words;
+    unsigned               m_mask;
+    fixed_bit_vector       m_0;
+
+    static unsigned num_words(unsigned num_bits) { 
+        return (num_bits + 31) / 32;
+    }    
+
+public:
+    fixed_bit_vector_manager(unsigned num_bits);
+
+    void reset() { m_alloc.reset(); }
+    fixed_bit_vector* allocate();
+    fixed_bit_vector* allocate1();
+    fixed_bit_vector* allocate0();
+    fixed_bit_vector* allocate(fixed_bit_vector const& bv);
+    void deallocate(fixed_bit_vector* bv);
+
+    void copy(fixed_bit_vector& dst, fixed_bit_vector const& src) const;
+    unsigned num_words() const { return m_num_words; }
+    unsigned num_bytes() const { return m_num_bytes; }
+    unsigned num_bits() const { return m_num_bits; }
+    fixed_bit_vector& reset(fixed_bit_vector& bv) const { return fill0(bv); }
+    fixed_bit_vector& fill0(fixed_bit_vector& bv) const;
+    fixed_bit_vector& fill1(fixed_bit_vector& bv) const;
+    fixed_bit_vector& set_and(fixed_bit_vector& dst, fixed_bit_vector const& src) const;
+    fixed_bit_vector& set_or(fixed_bit_vector& dst,  fixed_bit_vector const& src) const;
+    fixed_bit_vector& set_neg(fixed_bit_vector& dst) const;
+    unsigned last_word(fixed_bit_vector const& bv) const;
+    bool equals(fixed_bit_vector const& a, fixed_bit_vector const& b) const;
+    unsigned hash(fixed_bit_vector const& src) const;
+    bool contains(fixed_bit_vector const& a, fixed_bit_vector const& b) const;
+    std::ostream& display(std::ostream& out, fixed_bit_vector const& b) const;    
+};
+
 
 
 

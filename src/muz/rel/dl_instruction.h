@@ -222,6 +222,8 @@ namespace datalog {
            Each line must be prepended by \c indentation and ended by a newline character.
         */
         virtual void display_body_impl(rel_context const & ctx, std::ostream & out, std::string indentation) const {}
+        void log_verbose(execution_context& ctx);
+
     public:
         typedef execution_context::reg_type reg_type;
         typedef execution_context::reg_idx reg_idx;

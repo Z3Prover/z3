@@ -40,7 +40,22 @@ static void tst1(unsigned num_bits) {
     m.deallocate(bN);
 }
 
+static void tst0() {
+    tbv_manager m(0);
+    
+    tbv_ref t1(m), t2(m), t3(m);
+    t1 = m.allocate1();
+    t2 = m.allocate0();
+    t3 = m.allocateX();
+    m.display(std::cout, *t1) << "\n";
+    m.display(std::cout, *t2) << "\n";
+    m.display(std::cout, *t3) << "\n";
+    SASSERT(m.equals(*t1, *t2));
+    SASSERT(m.equals(*t1, *t3));
+}
+
 void tst_tbv() {
+    tst0();
     tst1(31);
     tst1(11);
     tst1(15);

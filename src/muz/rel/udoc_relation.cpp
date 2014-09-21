@@ -373,6 +373,7 @@ namespace datalog {
                 }
             }
             TRACE("doc", result->display(tout << "result:\n"););
+            SASSERT(r.well_formed(result->get_dm()));
             return result;
         }
     };
@@ -412,6 +413,7 @@ namespace datalog {
                 ud2.push_back(d2.detach());
             }
             TRACE("doc", tout << "final size: " << r->get_size_estimate_rows() << '\n';);
+            SASSERT(ud2.well_formed(dm2));
             return r;
         }
     };
@@ -431,20 +433,60 @@ namespace datalog {
         rename_fn(udoc_relation const& t, unsigned cycle_len, const unsigned * cycle) 
             : convenient_relation_rename_fn(t.get_signature(), cycle_len, cycle) {
             udoc_plugin& p = t.get_plugin();
+            ast_manager& m = p.get_ast_manager();
+            relation_signature const& sig1 = t.get_signature();
+            relation_signature const& sig2 = get_result_signature();
+            unsigned_vector permutation0, column_info;
             for (unsigned i = 0; i < t.get_num_bits(); ++i) {
                 m_permutation.push_back(i);
             }
-            unsigned len = t.column_num_bits(cycle[0]);
+            for (unsigned i = 0; i < sig1.size(); ++i) {
+                permutation0.push_back(i);
+            }
             for (unsigned i = 0; i < cycle_len; ++i) {
                 unsigned j = (i + 1)%cycle_len;
                 unsigned col1 = cycle[i];
                 unsigned col2 = cycle[j];
-                unsigned lo1 = t.column_idx(col1);
-                unsigned lo2 = t.column_idx(col2);
+                permutation0[col2] = col1;
+            }
+            unsigned column = 0;
+            for (unsigned i = 0; i < sig2.size(); ++i) {
+                column_info.push_back(column);
+                column += p.num_sort_bits(sig2[i]);
+            }
+            column_info.push_back(column);
+            SASSERT(column == t.get_num_bits());
+
+            TRACE("doc",
+                  sig1.output(m, tout << "sig1: "); tout << "\n";
+                  sig2.output(m, tout << "sig2: "); tout << "\n";
+                  tout << "permute: ";
+                  for (unsigned i = 0; i < permutation0.size(); ++i) {
+                      tout << permutation0[i] << " ";
+                  }
+                  tout << "\n";
+                  tout << "cycle: ";
+                  for (unsigned i = 0; i < cycle_len; ++i) {
+                      tout << cycle[i] << " ";
+                  }
+                  tout << "\n";
+                  );
+                  
+
+            // 0 -> 2
+            // [3:2:1] -> [1:2:3]
+            // [3,4,5,1,2,0]
+
+            for (unsigned i = 0; i < sig1.size(); ++i) {
+                unsigned len  = t.column_num_bits(i);
+                unsigned lo1  = t.column_idx(i);
+                unsigned col2 = permutation0[i];
+                unsigned lo2  = column_info[col2];
+                SASSERT(lo2 + len <= t.get_num_bits());
+                SASSERT(lo1 + len <= t.get_num_bits());
                 for (unsigned k = 0; k < len; ++k) {
                     m_permutation[k + lo1] = k + lo2;
                 }
-                SASSERT(t.column_num_bits(col1) == t.column_num_bits(col2));
             }
         }
 
@@ -457,10 +499,12 @@ namespace datalog {
             udoc const& src = r.get_udoc();
             udoc& dst = result->get_udoc();
             doc_manager& dm = r.get_dm();
+            SASSERT(&result->get_dm() == &dm);
             for (unsigned i = 0; i < src.size(); ++i) {
                 dst.push_back(dm.allocate(src[i], m_permutation.c_ptr()));
             }
             TRACE("doc", result->display(tout << "result:\n"););
+            SASSERT(dst.well_formed(dm));
             return result;
         }
     };
@@ -488,6 +532,8 @@ namespace datalog {
             if (d) d1 = &d->get_udoc();
             if (d1) d1->reset(dm);
             r.get_plugin().mk_union(dm, r.get_udoc(), src.get_udoc(), d1);
+            SASSERT(r.get_udoc().well_formed(dm));
+            SASSERT(!d1 || d1->well_formed(dm));
             TRACE("doc", _r.display(tout << "dst':\n"); );
         }
     };
@@ -547,6 +593,7 @@ namespace datalog {
             udoc& d = r.get_udoc();
             doc_manager& dm = r.get_dm();
             d.merge(dm, m_cols[0], m_size, m_equalities, m_empty_bv);
+            SASSERT(d.well_formed(dm));
             TRACE("doc", tout << "final size: " << r.get_size_estimate_rows() << '\n';);
         }
     };
@@ -575,6 +622,7 @@ namespace datalog {
         virtual void operator()(relation_base & tb) {
             udoc_relation & t = get(tb);
             t.get_udoc().intersect(dm, *m_filter);
+            SASSERT(t.get_udoc().well_formed(t.get_dm()));
         }
     };
     relation_mutator_fn * udoc_plugin::mk_filter_equal_fn(
@@ -826,11 +874,15 @@ namespace datalog {
         virtual void operator()(relation_base & tb) {
             udoc_relation & t = get(tb);
             udoc& u = t.get_udoc();
+            SASSERT(u.well_formed(dm));
             u.intersect(dm, m_udoc);
+            SASSERT(u.well_formed(dm));
             if (m_condition && !u.is_empty()) {
                 t.apply_guard(m_condition, u, m_equalities, m_empty_bv);
+                SASSERT(u.well_formed(dm));
             }
             u.simplify(dm);
+            SASSERT(u.well_formed(dm));
             TRACE("doc", tout << "final size: " << t.get_size_estimate_rows() << '\n';);
         }
     };
@@ -896,7 +948,12 @@ namespace datalog {
                 }
                 renamed_neg.push_back(newD.detach());
             }
-            dst.subtract(t.get_dm(), renamed_neg);
+            TRACE("doc", dst.display(dm, tout) << "\n";
+                  renamed_neg.display(dm, tout) << "\n";
+                  );
+            dst.subtract(dm, renamed_neg);
+            TRACE("doc", dst.display(dm, tout) << "\n";);
+            SASSERT(dst.well_formed(dm));
             renamed_neg.reset(t.get_dm());
         }
         void copy_column(
@@ -971,17 +1028,23 @@ namespace datalog {
             udoc const& u1 = t.get_udoc();
             doc_manager& dm = t.get_dm();
             udoc  u2;
+            SASSERT(u1.well_formed(dm));
             u2.copy(dm, u1);
+            SASSERT(u2.well_formed(dm));
             u2.intersect(dm, m_udoc);
-            u2.merge(dm, m_roots, m_equalities, m_col_list); 
+            SASSERT(u2.well_formed(dm));
+            u2.merge(dm, m_roots, m_equalities, m_col_list);
+            SASSERT(u2.well_formed(dm)); 
             if (m_condition && !u2.is_empty()) {
                 t.apply_guard(m_condition, u2, m_equalities, m_col_list);
+                SASSERT(u2.well_formed(dm));
             }
             udoc_relation* r = get(t.get_plugin().mk_empty(get_result_signature()));
             doc_manager& dm2 = r->get_dm();
             for (unsigned i = 0; i < u2.size(); ++i) {
                 doc* d = dm.project(dm2, m_to_delete.size(), m_to_delete.c_ptr(), u2[i]);
                 r->get_udoc().insert(dm2, d);
+                SASSERT(r->get_udoc().well_formed(dm2));
             }
             u2.reset(dm);
             return r;

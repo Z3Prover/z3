@@ -92,7 +92,8 @@ tbv* tbv_manager::allocate(uint64 val, unsigned hi, unsigned lo) {
 }
 tbv* tbv_manager::allocate(tbv const& bv, unsigned const* permutation) {
     tbv* r = allocate();
-    for (unsigned i = 0; i < num_tbits(); ++i) {
+    unsigned sz = num_tbits();
+    for (unsigned i = 0; i < sz; ++i) {
         r->set(permutation[i], bv[i]);
     }
     return r;

@@ -37,6 +37,7 @@ fixed_bit_vector_manager::fixed_bit_vector_manager(unsigned num_bits):
 
 
 fixed_bit_vector* fixed_bit_vector_manager::allocate() {
+    if (m_num_bytes == 0) return &m_0;
     return static_cast<fixed_bit_vector*>(m_alloc.allocate(m_num_bytes));
 }
 
@@ -59,7 +60,7 @@ fixed_bit_vector* fixed_bit_vector_manager::allocate(fixed_bit_vector const& bv)
 }
 
 void fixed_bit_vector_manager::deallocate(fixed_bit_vector* bv) {
-    m_alloc.deallocate(m_num_bytes, bv);
+    if (m_num_bytes > 0) m_alloc.deallocate(m_num_bytes, bv);
 }
 
 

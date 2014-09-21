@@ -154,6 +154,10 @@ namespace datalog {
         display_body_impl(ctx, out, indentation);
     }
 
+    void instruction::log_verbose(execution_context& ctx) {
+        IF_VERBOSE(2, display(ctx.get_rel_context(), verbose_stream()););
+    }
+
     class instr_io : public instruction {
         bool m_store;
         func_decl_ref m_pred;
@@ -162,6 +166,7 @@ namespace datalog {
         instr_io(bool store, func_decl_ref pred, reg_idx reg)
             : m_store(store), m_pred(pred), m_reg(reg) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             if (m_store) {
                 if (ctx.reg(m_reg)) {
                     ctx.get_rel_context().store_relation(m_pred, ctx.release_reg(m_reg));
@@ -237,6 +242,7 @@ namespace datalog {
         instr_clone_move(bool clone, reg_idx src, reg_idx tgt)
             : m_clone(clone), m_src(src), m_tgt(tgt) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             ctx.make_empty(m_tgt);
             if (m_clone) {
                 ctx.set_reg(m_tgt, ctx.reg(m_src) ? ctx.reg(m_src)->clone() : 0);
@@ -296,6 +302,7 @@ namespace datalog {
             dealloc(m_body);
         }
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             TRACE("dl", tout << "loop entered\n";);
             unsigned count = 0;
             while (!control_is_empty(ctx)) {
@@ -339,6 +346,7 @@ namespace datalog {
             : m_rel1(rel1), m_rel2(rel2), m_cols1(col_cnt, cols1), 
             m_cols2(col_cnt, cols2), m_res(result) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             ctx.make_empty(m_res);
             if (!ctx.reg(m_rel1) || !ctx.reg(m_rel2)) {
                 return true;
@@ -400,6 +408,7 @@ namespace datalog {
         instr_filter_equal(ast_manager & m, reg_idx reg, const relation_element & value, unsigned col)
             : m_reg(reg), m_value(value, m), m_col(col) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             if (!ctx.reg(m_reg)) {
                 return true;
             }
@@ -447,6 +456,7 @@ namespace datalog {
         instr_filter_identical(reg_idx reg, unsigned col_cnt, const unsigned * identical_cols)
             : m_reg(reg), m_cols(col_cnt, identical_cols) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             if (!ctx.reg(m_reg)) {
                 return true;
             }
@@ -493,6 +503,7 @@ namespace datalog {
             if (!ctx.reg(m_reg)) {
                 return true;
             }
+            log_verbose(ctx);            
 
             relation_mutator_fn * fn;
             relation_base & r = *ctx.reg(m_reg);
@@ -543,6 +554,7 @@ namespace datalog {
               m_res(result) {}
 
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             if (!ctx.reg(m_src)) {
                 ctx.make_empty(m_res);
                 return true;
@@ -601,6 +613,7 @@ namespace datalog {
         instr_union(reg_idx src, reg_idx tgt, reg_idx delta, bool widen)
             : m_src(src), m_tgt(tgt), m_delta(delta), m_widen(widen) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             TRACE("dl", tout << "union " << m_src << " into " << m_tgt 
                   << " " << ctx.reg(m_src) << " " << ctx.reg(m_tgt) << "\n";);
             if (!ctx.reg(m_src)) {
@@ -713,6 +726,7 @@ namespace datalog {
             reg_idx tgt) : m_projection(projection), m_src(src), 
             m_cols(col_cnt, cols), m_tgt(tgt) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             ctx.make_empty(m_tgt);
             if (!ctx.reg(m_src)) {
                 return true;
@@ -778,6 +792,7 @@ namespace datalog {
             m_cols2(joined_col_cnt, cols2), m_removed_cols(removed_col_cnt, removed_cols), m_res(result) {
         }
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             ctx.make_empty(m_res);
             if (!ctx.reg(m_rel1) || !ctx.reg(m_rel2)) {
                 return true;
@@ -839,6 +854,7 @@ namespace datalog {
         }
 
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             if (!ctx.reg(m_src)) {
                 ctx.make_empty(m_result);
                 return true;
@@ -893,6 +909,7 @@ namespace datalog {
             const unsigned * cols2)
             : m_tgt(tgt), m_neg_rel(neg_rel), m_cols1(col_cnt, cols1), m_cols2(col_cnt, cols2) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             if (!ctx.reg(m_tgt) || !ctx.reg(m_neg_rel)) {
                 return true;
             }
@@ -948,6 +965,7 @@ namespace datalog {
             m_fact.push_back(val);
         }
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             ctx.make_empty(m_tgt);
             relation_base * rel = ctx.get_rel_context().get_rmanager().mk_empty_relation(m_sig, m_pred);
             rel->add_fact(m_fact);
@@ -980,6 +998,7 @@ namespace datalog {
     public:
         instr_mk_total(const relation_signature & sig, func_decl* p, reg_idx tgt) : m_sig(sig), m_pred(p), m_tgt(tgt) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             ctx.make_empty(m_tgt);
             ctx.set_reg(m_tgt, ctx.get_rel_context().get_rmanager().mk_full_relation(m_sig, m_pred));
             return true;
@@ -1006,6 +1025,7 @@ namespace datalog {
         instr_mark_saturated(ast_manager & m, func_decl * pred) 
             : m_pred(pred, m) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             ctx.get_rel_context().get_rmanager().mark_saturated(m_pred);
             return true;
         }
@@ -1027,6 +1047,7 @@ namespace datalog {
         instr_assert_signature(const relation_signature & s, reg_idx tgt) 
             : m_sig(s), m_tgt(tgt) {}
         virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);            
             if (ctx.reg(m_tgt)) {
                 SASSERT(ctx.reg(m_tgt)->get_signature()==m_sig);
             }

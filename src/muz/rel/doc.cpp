@@ -50,6 +50,7 @@ doc* doc_manager::allocate(doc const& src) {
     return r;
 }
 doc* doc_manager::allocate(tbv* t) {
+    SASSERT(t);
     void* mm = m_alloc.allocate(sizeof(doc));
     return new (mm) doc(t);
 }
@@ -85,9 +86,7 @@ void doc_manager::copy(doc& dst, doc const& src)  {
     for (unsigned i = 0; i < n; ++i) {
         m.copy(dst.neg()[i], src.neg()[i]);
     }
-    for (unsigned i = n; i < dst.neg().size(); ++i) {
-        dst.neg().erase(m, dst.neg().size()-1);
-    }
+    dst.neg().reset(m);
     for (unsigned i = n; i < src.neg().size(); ++i) {
         dst.neg().push_back(m.allocate(src.neg()[i]));
     }
@@ -110,12 +109,7 @@ doc& doc_manager::fillX(doc& src) {
 bool doc_manager::set_and(doc& dst, doc const& src)  {
     // (A \ B) & (C \ D) = (A & C) \ (B u D)
     if (!m.set_and(dst.pos(), src.pos())) return false;
-    for (unsigned i = 0; i < dst.neg().size(); ++i) {
-        if (!m.set_and(dst.neg()[i], dst.pos())) {
-            dst.neg().erase(m, i);
-            --i;
-        }
-    }
+    dst.neg().intersect(m, src.pos());
     tbv_ref t(m);
     for (unsigned i = 0; i < src.neg().size(); ++i) {
         t = m.allocate(src.neg()[i]);
@@ -279,6 +273,7 @@ bool doc_manager::intersect(doc const& A, doc const& B, doc& result) {
 doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, doc const& src) {
     tbv_manager& dstt = dstm.m;
     doc* r = dstm.allocate(dstt.project(n, to_delete, src.pos()));
+    SASSERT(r);
 
     if (src.neg().is_empty()) {
         return r;
@@ -405,12 +400,20 @@ void doc_manager::complement(doc const& src, ptr_vector<doc>& result) {
         result.push_back(allocate(src.neg()[i]));
     }
 }
+// (A \ {A1}) \ (B \ {B1})
+// (A & !A1 & & !B) |  (A & B1 & !A1)
+// A \ {A1 u B} u (A & B1) \ {A1}
 void doc_manager::subtract(doc const& A, doc const& B, ptr_vector<doc>& result) {
     doc_ref r(*this), r2(*this);
+    tbv_ref t(m);
     r = allocate(A);
-    if (r->neg().insert(m, m.allocate(B.pos()))) {
+    t = m.allocate(B.pos());
+    if (m.set_and(*t, A.pos()) && r->neg().insert(m, t.detach())) {
         result.push_back(r.detach());
         r = allocate(A);
+    }
+    else {
+        result.push_back(allocate(A));
     }
     for (unsigned i = 0; i < B.neg().size(); ++i) {
         r2 = allocate(B.neg()[i]);
