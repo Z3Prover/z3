@@ -24,6 +24,9 @@ Revision History:
 #include<iostream>
 #include<climits>
 #include<limits>
+#ifdef _MSC_VER
+#include<intrin.h>
+#endif
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
