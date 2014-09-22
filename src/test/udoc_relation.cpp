@@ -16,6 +16,7 @@
 #include "rel_context.h"
 #include "bv_decl_plugin.h"
 
+
 class udoc_tester {
     typedef datalog::relation_base relation_base;
     typedef datalog::udoc_relation udoc_relation;
@@ -40,6 +41,56 @@ class udoc_tester {
     datalog::context          m_ctx;
     datalog::rel_context      rc;
     udoc_plugin&              p;
+
+
+    tbit choose_tbit() {
+        switch (m_rand(3)) {
+        case 0: return BIT_0;
+        case 1: return BIT_1;
+        default : return BIT_x;
+        }
+    }
+
+    tbv* mk_rand_tbv(doc_manager& dm) {
+        tbv* result = dm.tbvm().allocate();
+        for (unsigned i = 0; i < dm.num_tbits(); ++i) {
+            (*result).set(i, choose_tbit());
+        }
+        return result;
+    }
+
+    tbv* mk_rand_tbv(doc_manager& dm, tbv const& pos) {
+        tbv* result = dm.tbvm().allocate();
+        for (unsigned i = 0; i < dm.num_tbits(); ++i) {
+            if (pos[i] == BIT_x) {
+                (*result).set(i, choose_tbit());
+            }
+            else {
+                (*result).set(i, pos[i]);
+            }
+        }
+        return result;
+    }
+    
+    doc* mk_rand_doc(doc_manager& dm, unsigned num_diff) {
+        tbv_ref t(dm.tbvm());
+        t = mk_rand_tbv(dm);
+        doc* result = dm.allocate(*t);
+        SASSERT(dm.tbvm().equals(*t, result->pos()));
+        for (unsigned i = 0; i < num_diff; ++i) {
+            result->neg().push_back(mk_rand_tbv(dm, result->pos()));            
+        }        
+        SASSERT(dm.well_formed(*result));
+        return result;
+    }
+
+    void mk_rand_udoc(doc_manager& dm, unsigned num_elems, unsigned num_diff, udoc& result) {
+        result.reset(dm);
+        for (unsigned i = 0; i < num_elems; ++i) {
+            result.push_back(mk_rand_doc(dm, num_diff));
+        }
+    }
+
 public:
     udoc_tester(): m_init(m), bv(m), m_vars(m), m_ctx(m, m_reg, m_smt_params), rc(m_ctx),
                    p(dynamic_cast<udoc_plugin&>(*rc.get_rmanager().get_relation_plugin(symbol("doc"))))
@@ -87,6 +138,8 @@ public:
         relation_base* t;
         udoc_relation* t1, *t2, *t3;
         expr_ref fml(m);
+
+        test_join(1000);
 
         test_rename();
         test_filter_neg();
@@ -365,6 +418,83 @@ public:
         cycle.push_back(2);
         check_permutation(t1, cycle);
     }
+
+    void test_join(unsigned num_rounds) {
+        for (unsigned i = 0; i < num_rounds; ++i) {
+            test_join();
+        }
+    }
+
+    void test_join() {
+        relation_signature sig;
+        sig.push_back(bv.mk_sort(2));
+        sig.push_back(bv.mk_sort(3));
+        udoc_relation* t1, *t2;
+        relation_base* t;
+
+        t1 = mk_rand(sig);
+        t2 = mk_rand(sig);
+
+        unsigned_vector jc1, jc2;
+        jc1.push_back(0);
+        jc2.push_back(0);
+        scoped_ptr<datalog::relation_join_fn> join_fn;
+
+        join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
+        t = (*join_fn)(*t1, *t2);
+
+        verify_join(*t1, *t2, *t, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
+        t1->display(std::cout);
+        t2->display(std::cout);
+        t->display(std::cout);
+        std::cout << "\n";
+        t1->deallocate();
+        t2->deallocate();        
+        t->deallocate();
+    }
+
+    udoc_relation* mk_rand(relation_signature const& sig) {
+        udoc_relation* t = mk_empty(sig);
+        mk_rand_udoc(t->get_dm(), 3, 3, t->get_udoc());
+        return t;
+    }
+
+    void verify_join(relation_base const& t1, relation_base& t2, relation_base& t,
+                     unsigned sz, unsigned const* cols1, unsigned const* cols2) {
+        relation_signature const& sig1 = t1.get_signature();
+        relation_signature const& sig2 = t2.get_signature();
+        relation_signature const& sig  = t.get_signature();
+        expr_ref fml1(m), fml2(m), fml3(m);
+        var_ref var1(m), var2(m);
+        t1.to_formula(fml1);
+        t2.to_formula(fml2);
+        t.to_formula(fml3);
+        var_subst sub(m, false);
+        expr_ref_vector vars(m);
+        for (unsigned i = 0; i < sig2.size(); ++i) {
+            vars.push_back(m.mk_var(i + sig1.size(), sig2[i]));
+        }
+        sub(fml2, vars.size(), vars.c_ptr(), fml2);
+        fml1 = m.mk_and(fml1, fml2);
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned v1 = cols1[i];
+            unsigned v2 = cols2[i];
+            var1 = m.mk_var(v1, sig1[v1]);
+            var2 = m.mk_var(v2 + sig1.size(), sig2[v2]);
+            fml1 = m.mk_and(m.mk_eq(var1, var2), fml1);
+        }
+        vars.reset();
+        for (unsigned i = 0; i < sig.size(); ++i) {
+            std::stringstream strm;
+            strm << "x" << i;
+            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
+        }
+        sub(fml1, vars.size(), vars.c_ptr(), fml1);
+        sub(fml3, vars.size(), vars.c_ptr(), fml3);
+        check_equiv(fml1, fml3);
+    }
+    
+    
 
     void check_permutation(relation_base* t1, unsigned_vector const& cycle) {
         scoped_ptr<datalog::relation_transformer_fn> rename;

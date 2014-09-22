@@ -304,13 +304,16 @@ namespace datalog {
         }
 
         void join(doc const& d1, doc const& d2, udoc& result) {
-            doc* d = dm.allocateX();
+            doc_ref d(dm);
+            tbv_ref t(dm.tbvm());
+            d = dm.allocateX();
             tbv& pos = d->pos();
             utbv& neg = d->neg();
             unsigned mid = dm1.num_tbits();
             unsigned hi  = dm.num_tbits();
             pos.set(d1.pos(), mid-1, 0);
             pos.set(d2.pos(), hi-1, mid);
+            SASSERT(dm.well_formed(*d));
             // first fix bits
             for (unsigned i = 0; i < m_cols1.size(); ++i) {
                 unsigned idx1 = m_cols1[i];
@@ -321,13 +324,15 @@ namespace datalog {
                 if (v1 == BIT_x) {
                     if (v2 != BIT_x)
                         pos.set(idx1, v2);
-                } else if (v2 == BIT_x) {
+                } 
+                else if (v2 == BIT_x) {
                     pos.set(idx2, v1);
-                } else if (v1 != v2) {
-                    dm.deallocate(d);
+                } 
+                else if (v1 != v2) {
                     // columns don't match
                     return;
                 }
+                SASSERT(dm.well_formed(*d));
             }
             // fix equality of don't care columns
             for (unsigned i = 0; i < m_cols1.size(); ++i) {
@@ -338,32 +343,39 @@ namespace datalog {
                 
                 if (v1 == BIT_x && v2 == BIT_x) {
                     // add to subtracted TBVs: 1xx0 and 0xx1
-                    tbv* r = dm.tbvm().allocate(pos);
-                    r->set(idx1, BIT_0);
-                    r->set(idx2, BIT_1);
-                    neg.push_back(r);
-                    
-                    r = dm.tbvm().allocate(pos);
-                    r->set(idx1, BIT_1);
-                    r->set(idx2, BIT_0);
-                    neg.push_back(r);
+                    t = dm.tbvm().allocate(pos);
+                    t->set(idx1, BIT_0);
+                    t->set(idx2, BIT_1);
+                    neg.push_back(t.detach());                    
+                    t = dm.tbvm().allocate(pos);
+                    t->set(idx1, BIT_1);
+                    t->set(idx2, BIT_0);
+                    neg.push_back(t.detach());
                 }
+                SASSERT(dm.well_formed(*d));
             }
 
             // handle subtracted TBVs:  1010 -> 1010xxx
             for (unsigned i = 0; i < d1.neg().size(); ++i) {
-                tbv* t = dm.tbvm().allocate();
-                t->set(d1.neg()[i], mid-1, 0);
-                t->set(d2.pos(), hi - 1, mid);
-                neg.push_back(t);
+                t = dm.tbvm().allocate();
+                t->set(d1.neg()[i], mid - 1, 0);
+                t->set(d2.pos(),    hi -  1, mid);
+                if (dm.tbvm().set_and(*t, pos)) {
+                    neg.push_back(t.detach());
+                }
+                SASSERT(dm.well_formed(*d));
             }
             for (unsigned i = 0; i < d2.neg().size(); ++i) {
-                tbv* t = dm.tbvm().allocate();
-                t->set(d1.pos(), mid-1, 0);
+                t = dm.tbvm().allocate();
+                t->set(d1.pos(),    mid- 1, 0);
                 t->set(d2.neg()[i], hi - 1, mid);
-                neg.push_back(t);
+                if (dm.tbvm().set_and(*t, pos)) {
+                    neg.push_back(t.detach());
+                }
+                SASSERT(dm.well_formed(*d));
             }            
-            result.insert(dm, d);
+            SASSERT(dm.well_formed(*d));
+            result.insert(dm, d.detach());
         }
 
         virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
