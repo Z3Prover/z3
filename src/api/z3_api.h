@@ -6620,6 +6620,13 @@ END_MLAPI_EXCLUDE
     /**
        \brief Create a new (incremental) solver.
 
+       The function #Z3_solver_get_model retrieves a model if the
+       assertions is satisfiable (i.e., the result is \c
+       Z3_L_TRUE) and model construction is enabled.
+       The function #Z3_solver_get_model can also be used even
+       if the result is \c Z3_L_UNDEF, but the returned model
+       is not guaranteed to satisfy quantified assertions.
+
        def_API('Z3_mk_simple_solver', SOLVER, (_in(CONTEXT),))
     */
     Z3_solver Z3_API Z3_mk_simple_solver(__in Z3_context c);
@@ -6757,8 +6764,11 @@ END_MLAPI_EXCLUDE
        \brief Check whether the assertions in a given solver are consistent or not.
 
        The function #Z3_solver_get_model retrieves a model if the
-       assertions are not unsatisfiable (i.e., the result is not \c
-       Z3_L_FALSE) and model construction is enabled.
+       assertions is satisfiable (i.e., the result is \c
+       Z3_L_TRUE) and model construction is enabled.
+       Note that if the call returns Z3_L_UNDEF, Z3 does not
+       ensure that calls to #Z3_solver_get_model succeed and any models
+       produced in this case are not guaranteed to satisfy the assertions.
 
        The function #Z3_solver_get_proof retrieves a proof if proof
        generation was enabled when the context was created, and the 
