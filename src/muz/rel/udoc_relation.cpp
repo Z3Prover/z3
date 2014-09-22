@@ -867,12 +867,10 @@ namespace datalog {
             }        
             t.extract_guard(condition, guard, m_condition);            
             t.compile_guard(guard, m_udoc, m_empty_bv);
-            if (m.is_true(m_condition)) {
-                m_condition = 0;
-            }
+
             TRACE("doc", 
-                  tout << "condition: " << mk_pp(condition, m) << "\n";
-                  if (m_condition) tout << m_condition << "\n"; 
+                  tout << "original condition: " << mk_pp(condition, m) << "\n";
+                  tout << "remaining condition: " << m_condition << "\n"; 
                   m_udoc.display(dm, tout) << "\n";);
         }
 
@@ -883,11 +881,11 @@ namespace datalog {
         virtual void operator()(relation_base & tb) {
             udoc_relation & t = get(tb);
             udoc& u = t.get_udoc();
+            ast_manager& m = m_condition.get_manager();
             SASSERT(u.well_formed(dm));
             u.intersect(dm, m_udoc);
             SASSERT(u.well_formed(dm));
-            if (m_condition && !u.is_empty()) {
-                std::cout << "Apply: " << m_condition << "\n";
+            if (!m.is_true(m_condition) && !u.is_empty()) {
                 t.apply_guard(m_condition, u, m_equalities, m_empty_bv);
                 SASSERT(u.well_formed(dm));
             }
@@ -1025,9 +1023,6 @@ namespace datalog {
             t.extract_equalities(condition, non_eq_cond, m_equalities, m_roots);
             t.extract_guard(non_eq_cond, guard, m_condition);            
             t.compile_guard(guard, m_udoc, m_col_list);
-            if (m.is_true(m_condition)) {
-                m_condition = 0;
-            }
         }
         
         virtual ~filter_proj_fn() {
@@ -1037,6 +1032,7 @@ namespace datalog {
             udoc_relation const & t = get(tb);
             udoc const& u1 = t.get_udoc();
             doc_manager& dm = t.get_dm();
+            ast_manager& m = m_condition.get_manager();
             udoc  u2;
             SASSERT(u1.well_formed(dm));
             u2.copy(dm, u1);
@@ -1045,7 +1041,7 @@ namespace datalog {
             SASSERT(u2.well_formed(dm));
             u2.merge(dm, m_roots, m_equalities, m_col_list);
             SASSERT(u2.well_formed(dm)); 
-            if (m_condition && !u2.is_empty()) {
+            if (!m.is_true(m_condition) && !u2.is_empty()) {
                 t.apply_guard(m_condition, u2, m_equalities, m_col_list);
                 SASSERT(u2.well_formed(dm));
             }
