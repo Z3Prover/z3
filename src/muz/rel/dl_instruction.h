@@ -66,14 +66,6 @@ namespace datalog {
         reg_annotations     m_reg_annotation;
         stopwatch *         m_stopwatch;
         unsigned            m_timelimit_ms; //zero means no limit
-        /**
-           \brief If true, after every operation that may result in an empty relation, a check
-           for emptiness will be performed, and if a relation is empty, it will be deleted
-           and replaced by zero. This allows us to avoid performing operations that would have
-           no effect due to relation emptiness, but if the check for emptiness is expensive, its
-           cost may overcome the gains.
-         */
-        bool                m_eager_emptiness_checking;
     public:
         execution_context(context & context);
         ~execution_context();
@@ -86,7 +78,26 @@ namespace datalog {
         void reset_timelimit();
         bool should_terminate();
 
-        bool eager_emptiness_checking() const { return m_eager_emptiness_checking; }
+        struct stats {
+            unsigned m_join;
+            unsigned m_project;
+            unsigned m_filter;
+            unsigned m_total;
+            unsigned m_unary_singleton;
+            unsigned m_filter_by_negation;
+            unsigned m_select_equal_project;
+            unsigned m_join_project;
+            unsigned m_project_rename;
+            unsigned m_union;
+            unsigned m_filter_interp_project;
+            unsigned m_filter_id;
+            unsigned m_filter_eq;
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
+        stats m_stats;
+
+        void collect_statistics(statistics& st) const;
 
         /**
            \brief Return reference to \c i -th register that contains pointer to a relation.

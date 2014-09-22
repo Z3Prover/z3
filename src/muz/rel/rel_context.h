@@ -52,6 +52,8 @@ namespace datalog {
 
         void set_cancel(bool f);
 
+        void setup_default_relation();
+
     public:
         rel_context(context& ctx);
 
@@ -77,6 +79,7 @@ namespace datalog {
         
         virtual void inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred);
 
+        virtual void collect_statistics(statistics& st) const;
 
         virtual void cancel() { set_cancel(true); }
         virtual void cleanup() { set_cancel(false);}

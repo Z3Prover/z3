@@ -108,6 +108,7 @@ public:
     fixed_bit_vector& set_or(fixed_bit_vector& dst,  fixed_bit_vector const& src) const;
     fixed_bit_vector& set_neg(fixed_bit_vector& dst) const;
     unsigned last_word(fixed_bit_vector const& bv) const;
+    unsigned get_mask() const { return m_mask; }
     bool equals(fixed_bit_vector const& a, fixed_bit_vector const& b) const;
     unsigned hash(fixed_bit_vector const& src) const;
     bool contains(fixed_bit_vector const& a, fixed_bit_vector const& b) const;

@@ -233,7 +233,7 @@ namespace datalog {
         m_engine_type(LAST_ENGINE),
         m_cancel(false) {
         re.set_context(this);
-        m_generate_proof_trace = m_params->generate_proof_trace();
+        updt_params(pa);
     }
 
     context::~context() {
@@ -285,7 +285,8 @@ namespace datalog {
     unsigned context::dl_profile_milliseconds_threshold() const { return m_params->datalog_profile_timeout_milliseconds(); }
     bool context::all_or_nothing_deltas() const { return m_params->datalog_all_or_nothing_deltas(); }
     bool context::compile_with_widening() const { return m_params->datalog_compile_with_widening(); }
-    bool context::unbound_compressor() const { return m_params->datalog_unbound_compressor(); }
+    bool context::unbound_compressor() const { return m_unbound_compressor; }
+    void context::set_unbound_compressor(bool f) { m_unbound_compressor = f; }
     bool context::similarity_compressor() const { return m_params->datalog_similarity_compressor(); }
     unsigned context::similarity_compressor_threshold() const { return m_params->datalog_similarity_compressor_threshold(); }
     unsigned context::soft_timeout() const { return m_fparams.m_soft_timeout; }
@@ -293,8 +294,7 @@ namespace datalog {
     bool context::generate_explanations() const { return m_params->datalog_generate_explanations(); }
     bool context::explanations_on_relation_level() const { return m_params->datalog_explanations_on_relation_level(); }
     bool context::magic_sets_for_queries() const { return m_params->datalog_magic_sets_for_queries();  }
-    bool context::eager_emptiness_checking() const { return m_params->datalog_eager_emptiness_checking(); }
-
+    
     bool context::bit_blast() const { return m_params->xform_bit_blast(); }
     bool context::karr() const { return m_params->xform_karr(); }
     bool context::scale() const { return m_params->xform_scale(); }
@@ -839,6 +839,7 @@ namespace datalog {
         m_params_ref.copy(p);
         if (m_engine.get()) m_engine->updt_params();
         m_generate_proof_trace = m_params->generate_proof_trace();
+        m_unbound_compressor = m_params->datalog_unbound_compressor(); 
     }
 
     expr_ref context::get_background_assertion() {

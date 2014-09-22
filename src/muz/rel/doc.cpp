@@ -434,6 +434,34 @@ bool doc_manager::equals(doc const& a, doc const& b) const {
 bool doc_manager::is_full(doc const& src) const {
     return src.neg().is_empty() && m.equals(src.pos(), *m_full);
 }
+bool doc_manager::is_empty(doc const& src)  {
+    if (src.neg().size() == 0) return false;
+    if (src.neg().size() == 1) {
+        return m.equals(src.pos(), src.neg()[0]);
+    }
+    tbv_ref pos(m, m.allocate(src.pos()));
+    for (unsigned i = 0; i < src.neg().size(); ++i) {
+        bool found = false;
+        for (unsigned j = 0; !found && j < num_tbits(); ++j) {
+            tbit b1 = (*pos)[j];
+            tbit b2 = src.neg()[i][j];
+            found = (b1 != BIT_x && b2 != BIT_x && b1 != b2);
+        }
+        for (unsigned j = 0; !found && j < num_tbits(); ++j) {
+            tbit b1 = (*pos)[j];
+            tbit b2 = src.neg()[i][j];
+            found = (b1 == BIT_x && b2 != BIT_x);
+            if (found) {
+                pos->set(j, neg(b2));
+            }
+        }
+        if (!found) {
+            return false; // TBD make complete SAT check.
+        }
+    }
+    return true;
+}
+
 unsigned doc_manager::hash(doc const& src) const {
     unsigned r = 0;
     for (unsigned i = 0; i < src.neg().size(); ++i) {

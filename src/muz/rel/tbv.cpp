@@ -191,8 +191,17 @@ bool tbv_manager::set_and(tbv& dst,  tbv const& src) const {
 }
 
 bool tbv_manager::is_well_formed(tbv const& dst) const {
-    for (unsigned i = 0; i < num_tbits(); ++i) {
-        if (dst[i] == BIT_z) return false;
+    unsigned nw = m.num_words();
+    unsigned w;
+    for (unsigned i = 0; i + 1 < nw; ++i) {
+        w = dst.get_word(i);
+        w = w | (w << 1) | 0x55555555;
+        if (w != 0xFFFFFFFF) return false;
+    }
+    if (nw > 0) {        
+        w = m.last_word(dst);
+        w = w | (w << 1) | 0x55555555 | ~m.get_mask();
+        if (w != 0xFFFFFFFF) return false;
     }
     return true;
 }

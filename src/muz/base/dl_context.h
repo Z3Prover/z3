@@ -172,6 +172,7 @@ namespace datalog {
         params_ref         m_params_ref;
         fixedpoint_params*  m_params;
         bool               m_generate_proof_trace;
+        bool               m_unbound_compressor;
         dl_decl_util       m_decl_util;
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
@@ -256,6 +257,7 @@ namespace datalog {
         bool all_or_nothing_deltas() const;
         bool compile_with_widening() const;
         bool unbound_compressor() const;
+        void set_unbound_compressor(bool f);
         bool similarity_compressor() const;
         unsigned similarity_compressor_threshold() const;
         unsigned soft_timeout() const;
@@ -263,7 +265,6 @@ namespace datalog {
         bool generate_explanations() const;
         bool explanations_on_relation_level() const;
         bool magic_sets_for_queries() const;
-        bool eager_emptiness_checking() const;
         bool bit_blast() const;
         bool karr() const;
         bool scale() const;

@@ -37,8 +37,7 @@ namespace datalog {
     execution_context::execution_context(context & context) 
         : m_context(context),
         m_stopwatch(0),
-        m_timelimit_ms(0),
-        m_eager_emptiness_checking(context.eager_emptiness_checking()) {}
+        m_timelimit_ms(0) {}
 
     execution_context::~execution_context() {
         reset();
@@ -122,6 +121,22 @@ namespace datalog {
              m_timelimit_ms < static_cast<unsigned>(1000*m_stopwatch->get_current_seconds()));
     }
 
+    void execution_context::collect_statistics(statistics& st) const {
+        st.update("dl.joins",   m_stats.m_join);
+        st.update("dl.project", m_stats.m_project);
+        st.update("dl.filter",  m_stats.m_filter);
+        st.update("dl.total", m_stats.m_total);
+        st.update("dl.unary_singleton", m_stats.m_unary_singleton);
+        st.update("dl.filter_by_negation", m_stats.m_filter_by_negation);
+        st.update("dl.select_equal_project", m_stats.m_select_equal_project);
+        st.update("dl.join_project", m_stats.m_join_project);
+        st.update("dl.project_rename", m_stats.m_project_rename);
+        st.update("dl.union", m_stats.m_union);
+        st.update("dl.filter_interpreted_project", m_stats.m_filter_interp_project);
+        st.update("dl.filter_id", m_stats.m_filter_id);
+        st.update("dl.filter_eq", m_stats.m_filter_eq);
+    }
+
 
     // -----------------------------------
     //
@@ -182,7 +197,7 @@ namespace datalog {
             }
             else {
                 relation_base& rel = ctx.get_rel_context().get_relation(m_pred);
-                if ((!ctx.eager_emptiness_checking() || !rel.empty())) {
+                if (!rel.fast_empty()) {
                     ctx.set_reg(m_reg, rel.clone());
                 }
                 else {
@@ -348,6 +363,7 @@ namespace datalog {
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
             ctx.make_empty(m_res);
+            ++ctx.m_stats.m_join;
             if (!ctx.reg(m_rel1) || !ctx.reg(m_rel2)) {
                 return true;
             }
@@ -375,7 +391,7 @@ namespace datalog {
                 ctx.reg(m_res)->get_signature().output(ctx.get_rel_context().get_manager(), tout);
                 tout<<":"<<ctx.reg(m_res)->get_size_estimate_rows()<<"\n";);
 
-            if (ctx.eager_emptiness_checking() && ctx.reg(m_res)->empty()) {
+            if (ctx.reg(m_res)->fast_empty()) {
                 ctx.make_empty(m_res);
             }
             return true;
@@ -409,6 +425,7 @@ namespace datalog {
             : m_reg(reg), m_value(value, m), m_col(col) {}
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
+            ++ctx.m_stats.m_filter_eq;
             if (!ctx.reg(m_reg)) {
                 return true;
             }
@@ -426,7 +443,7 @@ namespace datalog {
             }
             (*fn)(r);
 
-            if (ctx.eager_emptiness_checking() && r.empty()) {
+            if (r.fast_empty()) {
                 ctx.make_empty(m_reg);
             }
             return true;
@@ -457,6 +474,7 @@ namespace datalog {
             : m_reg(reg), m_cols(col_cnt, identical_cols) {}
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
+            ++ctx.m_stats.m_filter_id;
             if (!ctx.reg(m_reg)) {
                 return true;
             }
@@ -474,7 +492,7 @@ namespace datalog {
             }
             (*fn)(r);
 
-            if (ctx.eager_emptiness_checking() && r.empty()) {
+            if (r.fast_empty()) {
                 ctx.make_empty(m_reg);
             }
             return true;
@@ -504,6 +522,7 @@ namespace datalog {
                 return true;
             }
             log_verbose(ctx);            
+            ++ctx.m_stats.m_filter;
 
             relation_mutator_fn * fn;
             relation_base & r = *ctx.reg(m_reg);
@@ -519,7 +538,7 @@ namespace datalog {
             }
             (*fn)(r);
 
-            if (ctx.eager_emptiness_checking() && r.empty()) {
+            if (r.fast_empty()) {
                 ctx.make_empty(m_reg);
             }            
             TRACE("dl_verbose", r.display(tout <<"post-filter-interpreted:\n"););
@@ -559,6 +578,7 @@ namespace datalog {
                 ctx.make_empty(m_res);
                 return true;
             }
+            ++ctx.m_stats.m_filter_interp_project;
 
             relation_transformer_fn * fn;
             relation_base & reg = *ctx.reg(m_src);
@@ -575,7 +595,7 @@ namespace datalog {
 
             ctx.set_reg(m_res, (*fn)(reg));
 
-            if (ctx.eager_emptiness_checking() && ctx.reg(m_res)->empty()) {
+            if (ctx.reg(m_res)->fast_empty()) {
                 ctx.make_empty(m_res);
             }
             TRACE("dl_verbose", reg.display(tout << "post-filter-interpreted-and-project:\n"););
@@ -613,12 +633,13 @@ namespace datalog {
         instr_union(reg_idx src, reg_idx tgt, reg_idx delta, bool widen)
             : m_src(src), m_tgt(tgt), m_delta(delta), m_widen(widen) {}
         virtual bool perform(execution_context & ctx) {
-            log_verbose(ctx);            
             TRACE("dl", tout << "union " << m_src << " into " << m_tgt 
                   << " " << ctx.reg(m_src) << " " << ctx.reg(m_tgt) << "\n";);
             if (!ctx.reg(m_src)) {
                 return true;
             }
+            log_verbose(ctx);            
+            ++ctx.m_stats.m_union;
             relation_base & r_src = *ctx.reg(m_src);
             if (!ctx.reg(m_tgt)) {
                 relation_base * new_tgt = r_src.get_plugin().mk_empty(r_src);
@@ -682,7 +703,7 @@ namespace datalog {
                     r_delta->display(tout <<"delta:");
                 });
 
-            if (ctx.eager_emptiness_checking() && r_delta && r_delta->empty()) {
+            if (r_delta && r_delta->fast_empty()) {
                 ctx.make_empty(m_delta);
             }
 
@@ -726,11 +747,12 @@ namespace datalog {
             reg_idx tgt) : m_projection(projection), m_src(src), 
             m_cols(col_cnt, cols), m_tgt(tgt) {}
         virtual bool perform(execution_context & ctx) {
-            log_verbose(ctx);            
             ctx.make_empty(m_tgt);
             if (!ctx.reg(m_src)) {
                 return true;
             }
+            log_verbose(ctx);            
+            ++ctx.m_stats.m_project_rename;
 
             relation_transformer_fn * fn;
             relation_base & r_src = *ctx.reg(m_src);
@@ -797,6 +819,7 @@ namespace datalog {
             if (!ctx.reg(m_rel1) || !ctx.reg(m_rel2)) {
                 return true;
             }
+            ++ctx.m_stats.m_join_project;
             relation_join_fn * fn;
             const relation_base & r1 = *ctx.reg(m_rel1);
             const relation_base & r2 = *ctx.reg(m_rel2);
@@ -811,7 +834,7 @@ namespace datalog {
             TRACE("dl", tout<<r1.get_size_estimate_rows()<<" x "<<r2.get_size_estimate_rows()<<" jp->\n";);
             ctx.set_reg(m_res, (*fn)(r1, r2));
             TRACE("dl",  tout<<ctx.reg(m_res)->get_size_estimate_rows()<<"\n";);
-            if (ctx.eager_emptiness_checking() && ctx.reg(m_res)->empty()) {
+            if (ctx.reg(m_res)->fast_empty()) {
                 ctx.make_empty(m_res);
             }
             return true;
@@ -855,6 +878,7 @@ namespace datalog {
 
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
+            ++ctx.m_stats.m_select_equal_project;
             if (!ctx.reg(m_src)) {
                 ctx.make_empty(m_result);
                 return true;
@@ -873,7 +897,7 @@ namespace datalog {
             }
             ctx.set_reg(m_result, (*fn)(r));
 
-            if (ctx.eager_emptiness_checking() && ctx.reg(m_result)->empty()) {
+            if (ctx.reg(m_result)->fast_empty()) {
                 ctx.make_empty(m_result);
             }
             return true;
@@ -913,6 +937,8 @@ namespace datalog {
             if (!ctx.reg(m_tgt) || !ctx.reg(m_neg_rel)) {
                 return true;
             }
+            ++ctx.m_stats.m_filter_by_negation;
+
             relation_intersection_filter_fn * fn;
             relation_base & r1 = *ctx.reg(m_tgt);
             const relation_base & r2 = *ctx.reg(m_neg_rel);
@@ -928,7 +954,7 @@ namespace datalog {
             }
             (*fn)(r1, r2);
 
-            if (ctx.eager_emptiness_checking() && r1.empty()) {
+            if (r1.fast_empty()) {
                 ctx.make_empty(m_tgt);
             }
             return true;
@@ -966,6 +992,7 @@ namespace datalog {
         }
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
+            ++ctx.m_stats.m_unary_singleton;
             ctx.make_empty(m_tgt);
             relation_base * rel = ctx.get_rel_context().get_rmanager().mk_empty_relation(m_sig, m_pred);
             rel->add_fact(m_fact);
@@ -999,6 +1026,7 @@ namespace datalog {
         instr_mk_total(const relation_signature & sig, func_decl* p, reg_idx tgt) : m_sig(sig), m_pred(p), m_tgt(tgt) {}
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
+            ++ctx.m_stats.m_total;
             ctx.make_empty(m_tgt);
             ctx.set_reg(m_tgt, ctx.get_rel_context().get_rmanager().mk_full_relation(m_sig, m_pred));
             return true;

@@ -57,6 +57,16 @@ namespace datalog {
         doc* d = fact2doc(f);
         m_elems.insert(dm, d);
     }
+    void udoc_relation::add_new_fact(const relation_fact & f) {
+        m_elems.push_back(fact2doc(f));
+    }
+    bool udoc_relation::empty() const {
+        // TBD: make this a complete check
+        for (unsigned i = 0; i < m_elems.size(); ++i) {
+            if (!dm.is_empty(m_elems[i])) return false;
+        }
+        return true;
+    }
     bool udoc_relation::contains_fact(const relation_fact & f) const {
         doc_ref d(dm, fact2doc(f));
         return m_elems.contains(dm, *d);
@@ -240,9 +250,8 @@ namespace datalog {
         unsigned num_bits = 0;
         if (bv.is_bv_sort(s))
             return bv.get_bv_size(s);
-        if (m.is_bool(s)) {
+        if (m.is_bool(s)) 
             return 1;
-        }
         uint64 sz;
         if (dl.try_get_size(s, sz)) {
             while (sz > 0) ++num_bits, sz /= 2;

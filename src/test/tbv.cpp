@@ -38,6 +38,7 @@ static void tst1(unsigned num_bits) {
     m.deallocate(b1);
     m.deallocate(bX);
     m.deallocate(bN);
+
 }
 
 static void tst0() {
@@ -54,11 +55,30 @@ static void tst0() {
     SASSERT(m.equals(*t1, *t3));
 }
 
+static void tst2(unsigned num_bits) {
+    tbv_manager m(num_bits);
+    tbv_ref t(m), t2(m);
+    for (unsigned i = 0; i < 55; ++i) {
+        t = m.allocate(i);
+        SASSERT(m.is_well_formed(*t));
+        t2 = m.allocate(i+1);
+        VERIFY(!m.set_and(*t2, *t));
+        SASSERT(!m.is_well_formed(*t2));
+    }
+}
+
 void tst_tbv() {
     tst0();
+    
     tst1(31);
     tst1(11);
     tst1(15);
     tst1(16);
     tst1(17);
+
+    tst2(31);
+    tst2(11);
+    tst2(15);
+    tst2(16);
+    tst2(17);
 }

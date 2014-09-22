@@ -33,9 +33,6 @@ def_module_params('fixedpoint',
                            "updated relation was modified or not"),
                           ('datalog.compile_with_widening', BOOL, False, 
                            "widening will be used to compile recursive rules"),
-                          ('datalog.eager_emptiness_checking', BOOL, True, 
-                           "emptiness of affected relations will be checked after each instruction, " +
-                           "so that we may ommit unnecessary instructions"),
                           ('datalog.default_table_checked', BOOL, False, "if true, the detault " +
                            'table will be default_table inside a wrapper that checks that its results ' +
                            'are the same as of default_table_checker table'),

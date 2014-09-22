@@ -32,7 +32,7 @@ namespace datalog {
     class udoc_relation : public relation_base {
         friend class udoc_plugin;
         doc_manager&    dm;
-        udoc            m_elems;
+        mutable udoc    m_elems;
         unsigned_vector m_column_info;
         doc* fact2doc(relation_fact const& f) const;        
         expr_ref to_formula(tbv const& t) const;
@@ -42,12 +42,14 @@ namespace datalog {
         virtual ~udoc_relation();
         virtual void reset();
         virtual void add_fact(const relation_fact & f);
+        virtual void add_new_fact(const relation_fact & f);
         virtual bool contains_fact(const relation_fact & f) const;
         virtual udoc_relation * clone() const;
         virtual udoc_relation * complement(func_decl*) const;
         virtual void to_formula(expr_ref& fml) const;
         udoc_plugin& get_plugin() const; 
-        virtual bool empty() const { return m_elems.is_empty(); }
+        virtual bool fast_empty() const { return m_elems.is_empty(); }
+        virtual bool empty() const; 
         virtual void display(std::ostream& out) const;
         virtual bool is_precise() const { return true; }
         virtual unsigned get_size_estimate_rows() const { return m_elems.size(); }

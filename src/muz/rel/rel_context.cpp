@@ -222,6 +222,7 @@ namespace datalog {
     }
  
     lbool rel_context::query(unsigned num_rels, func_decl * const* rels) {
+        setup_default_relation();
         get_rmanager().reset_saturated_marks();
         scoped_query _scoped_query(m_context);
         for (unsigned i = 0; i < num_rels; ++i) {
@@ -307,6 +308,7 @@ namespace datalog {
     }
 
     lbool rel_context::query(expr* query) {
+        setup_default_relation();
         get_rmanager().reset_saturated_marks();
         scoped_query _scoped_query(m_context);
         rule_manager& rm = m_context.get_rule_manager();
@@ -495,6 +497,12 @@ namespace datalog {
         get_rmanager().set_cancel(f);        
     }
 
+    void rel_context::setup_default_relation() {
+        if (m_context.default_relation() == symbol("doc")) {
+            m_context.set_unbound_compressor(false);
+        }
+    }
+
     relation_plugin & rel_context::get_ordinary_relation_plugin(symbol relation_name) {
         relation_plugin * plugin = get_rmanager().get_relation_plugin(relation_name);
         if (!plugin) {
@@ -551,6 +559,10 @@ namespace datalog {
 
     void rel_context::store_relation(func_decl * pred, relation_base * rel) {
         get_rmanager().store_relation(pred, rel);
+    }
+
+    void rel_context::collect_statistics(statistics& st) const {
+        m_ectx.collect_statistics(st);
     }
 
     void rel_context::inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred) {

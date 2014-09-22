@@ -538,7 +538,7 @@ namespace datalog {
         for(; it!=end; ++it) {
             func_decl * pred = *it;
             relation_base * rel = try_get_relation(pred);
-            if(!rel) {
+            if (!rel) {
                 out << "Tuples in " << pred->get_name() << ": \n";
                 continue;
             }

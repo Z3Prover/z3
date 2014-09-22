@@ -644,7 +644,8 @@ namespace datalog {
               tout << " num unifiers: " << m_unifiers.size();
               tout << " num positions: " << m_positions.find(e).size() << "\n";
               output_predicate(m_context, to_app(e), tout); tout << "\n";);
-        return true;
+        // stop visitor when we have more than 1 unifier, since that's all we want.
+        return m_unifiers.size() <= 1;
     }
 
     void mk_rule_inliner::visitor::reset(unsigned sz) {

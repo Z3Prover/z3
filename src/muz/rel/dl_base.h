@@ -465,6 +465,14 @@ namespace datalog {
             relation_manager & get_manager() const { return get_plugin().get_manager(); }
 
             virtual bool empty() const = 0;
+            /**
+               \brief fast emptiness check. This may be partial.
+               The requirement is that if fast_empty returns true 
+               then the table or relation is in fact empty.
+               It is allowed to return false even if the relation is non-empty.
+            */
+            virtual bool fast_empty() const { return empty(); }
+
             virtual void add_fact(const fact & f) = 0;
             /**
                \brief Like \c add_fact, only here the caller guarantees that the fact is not present in
