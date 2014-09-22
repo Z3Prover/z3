@@ -382,6 +382,7 @@ namespace datalog {
                 }
             }
             TRACE("doc", result->display(tout << "result:\n"););
+            IF_VERBOSE(3, result->display(verbose_stream() << "join result:\n"););
             SASSERT(r.well_formed(result->get_dm()));
             return result;
         }
@@ -544,6 +545,7 @@ namespace datalog {
             SASSERT(r.get_udoc().well_formed(dm));
             SASSERT(!d1 || d1->well_formed(dm));
             TRACE("doc", _r.display(tout << "dst':\n"); );
+            IF_VERBOSE(3, _r.display(verbose_stream() << "union result:\n"););
         }
     };
     void udoc_plugin::mk_union(doc_manager& dm, udoc& dst, udoc const& src, udoc* delta) {
@@ -1045,6 +1047,7 @@ namespace datalog {
                 SASSERT(r->get_udoc().well_formed(dm2));
             }
             u2.reset(dm);
+            IF_VERBOSE(3, r->display(verbose_stream() << "filter result:\n"););
             return r;
         }
     };

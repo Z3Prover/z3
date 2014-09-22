@@ -175,20 +175,17 @@ public:
         }
     }
     void intersect(M& m, union_bvec const& other) {
-        union_bvec result;
-        unsigned sz1 = size();
-        unsigned sz2 = other.size();
-        T* inter = m.allocate();
-        for (unsigned i = 0; i < sz1; ++i) {
-            for (unsigned j = 0; j < sz2; ++j) {
-                if (m.intersect(*m_elems[i], other[j], *inter)) {
-                    result.push_back(inter);
-                    inter = m.allocate();
-                }
+        unsigned sz = other.size();        
+        union_bvec tmp, result;
+        for (unsigned i = 0; i < sz; ++i) {
+            tmp.copy(m, *this);
+            tmp.intersect(m, other[i]);
+            for (unsigned j = 0; j < tmp.size(); ++j) {
+                result.push_back(tmp.m_elems[j]);
             }
+            tmp.m_elems.reset();
         }
-        m.deallocate(inter);
-        std::swap(result, *this);
+        std::swap(*this, result);
         result.reset(m);
     }
     void subtract(M& m, union_bvec const& other) {

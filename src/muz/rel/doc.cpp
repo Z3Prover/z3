@@ -109,7 +109,7 @@ doc& doc_manager::fillX(doc& src) {
 bool doc_manager::set_and(doc& dst, doc const& src)  {
     // (A \ B) & (C \ D) = (A & C) \ (B u D)
     if (!m.set_and(dst.pos(), src.pos())) return false;
-    dst.neg().intersect(m, src.pos());
+    dst.neg().intersect(m, dst.pos());
     tbv_ref t(m);
     for (unsigned i = 0; i < src.neg().size(); ++i) {
         t = m.allocate(src.neg()[i]);
@@ -117,6 +117,7 @@ bool doc_manager::set_and(doc& dst, doc const& src)  {
             dst.neg().insert(m, t.detach());
         }
     }
+    SASSERT(well_formed(dst));
     return (src.neg().is_empty() || fold_neg(dst));
 }
 bool doc_manager::set_and(doc& dst, tbv const& src)  {
@@ -150,11 +151,12 @@ bool doc_manager::fold_neg(doc& dst) {
             }
             else { // count == 1:
                 dst.pos().set(index, neg(dst.neg()[i][index]));
-                dst.neg().erase(tbvm(), i);
+                dst.neg().intersect(tbvm(), dst.pos());
                 goto start_over;
             }
         }
     }
+    SASSERT(well_formed(dst));
     return true;
 }
 

@@ -113,6 +113,47 @@ class test_doc_cls {
         default : return BIT_x;
         }
     }
+
+    tbv* mk_rand_tbv() {
+        tbv* result = dm.tbvm().allocate();
+        for (unsigned i = 0; i < dm.num_tbits(); ++i) {
+            (*result).set(i, choose_tbit());
+        }
+        return result;
+    }
+
+    tbv* mk_rand_tbv(tbv const& pos) {
+        tbv* result = dm.tbvm().allocate();
+        for (unsigned i = 0; i < dm.num_tbits(); ++i) {
+            if (pos[i] == BIT_x) {
+                (*result).set(i, choose_tbit());
+            }
+            else {
+                (*result).set(i, pos[i]);
+            }
+        }
+        return result;
+    }
+    
+    doc* mk_rand_doc(unsigned num_diff) {
+        tbv_ref t(dm.tbvm());
+        t = mk_rand_tbv();
+        doc* result = dm.allocate(*t);
+        SASSERT(dm.tbvm().equals(*t, result->pos()));
+        for (unsigned i = 0; i < num_diff; ++i) {
+            result->neg().push_back(mk_rand_tbv(result->pos()));            
+        }        
+        SASSERT(dm.well_formed(*result));
+        return result;
+    }
+
+    void mk_rand_udoc(unsigned num_elems, unsigned num_diff, udoc& result) {
+        result.reset(dm);
+        for (unsigned i = 0; i < num_elems; ++i) {
+            result.push_back(mk_rand_doc(num_diff));
+        }
+    }
+
     expr_ref mk_conj(tbv& t) {
         expr_ref result(m);
         expr_ref_vector conjs(m);
@@ -284,6 +325,12 @@ class test_doc_cls {
         fml = m.mk_not(m.mk_eq(fml1, fml2));
         solver.assert_expr(fml);
         lbool res = solver.check();
+        if (res != l_false) {
+            TRACE("doc",
+                  tout << mk_pp(fml1, m) << "\n";
+                  tout << mk_pp(fml2, m) << "\n";
+                  );
+        }
         SASSERT(res == l_false);
     }
 
@@ -349,6 +396,43 @@ public:
         ds2.reset(dm);
         //sub:{xxx \ {1x0, 0x1}}
         //result:{100}
+
+        for (unsigned i = 0; i < 1000; ++i) {
+            udoc d1, d2;
+            mk_rand_udoc(3, 3, d1);
+            mk_rand_udoc(3, 3, d2);
+            fml1 = to_formula(d1, dm, to_delete.c_ptr());
+            fml2 = to_formula(d2, dm, to_delete.c_ptr());
+            d1.subtract(dm, d2);
+            fml3 = to_formula(d1, dm, to_delete.c_ptr());
+            fml1 = m.mk_and(fml1, m.mk_not(fml2));
+            check_equiv(fml1, fml3);
+            d1.reset(dm);
+            d2.reset(dm);
+        }
+    }
+
+    void test_intersect() {
+        expr_ref fml1(m), fml2(m), fml3(m);
+        svector<bool> to_delete(m_vars.size(), false);
+        for (unsigned i = 0; i < 10000; ++i) {
+            udoc d1, d2;
+            mk_rand_udoc(3, 3, d1);
+            mk_rand_udoc(3, 3, d2);
+            fml1 = to_formula(d1, dm, to_delete.c_ptr());
+            fml2 = to_formula(d2, dm, to_delete.c_ptr());
+            TRACE("doc", 
+                  d1.display(dm, tout) << "\n";
+                  d2.display(dm, tout) << "\n";);
+            d1.intersect(dm, d2);
+            TRACE("doc", d1.display(dm, tout) << "\n";);
+            SASSERT(d1.well_formed(dm));
+            fml3 = to_formula(d1, dm, to_delete.c_ptr());
+            fml1 = m.mk_and(fml1, fml2);
+            check_equiv(fml1, fml3);
+            d1.reset(dm);
+            d2.reset(dm);
+        }
     }
 
 };
@@ -356,7 +440,8 @@ public:
 
 void tst_doc() {
 
-    test_doc_cls tp(4);    
+    test_doc_cls tp(4);
+    tp.test_intersect();
     tp.test_subtract();
     tp.test_merge(200,7);
     tp.test_project(200,7);
