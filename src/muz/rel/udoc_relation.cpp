@@ -887,6 +887,7 @@ namespace datalog {
             u.intersect(dm, m_udoc);
             SASSERT(u.well_formed(dm));
             if (m_condition && !u.is_empty()) {
+                std::cout << "Apply: " << m_condition << "\n";
                 t.apply_guard(m_condition, u, m_equalities, m_empty_bv);
                 SASSERT(u.well_formed(dm));
             }

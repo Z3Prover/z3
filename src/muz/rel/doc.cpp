@@ -480,7 +480,7 @@ bool doc_manager::contains(doc const& a, doc const& b) const {
     for (unsigned i = 0; i < a.neg().size(); ++i) {
         bool found = false;
         for (unsigned j = 0; !found && j < b.neg().size(); ++j) {
-            found = m.contains(b.neg()[i],a.neg()[j]);
+            found = m.contains(b.neg()[j],a.neg()[i]);
         }
         if (!found) return false;
     }
