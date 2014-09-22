@@ -119,6 +119,12 @@ bool doc_manager::set_and(doc& dst, doc const& src)  {
     }
     return (src.neg().is_empty() || fold_neg(dst));
 }
+bool doc_manager::set_and(doc& dst, tbv const& src)  {
+    // (A \ B) & C  = (A & C) \ B
+    if (!m.set_and(dst.pos(), src)) return false;
+    dst.neg().intersect(m, src);
+    return true;
+}
 
 bool doc_manager::well_formed(doc const& d) const {
     if (!m.is_well_formed(d.pos())) return false;
@@ -404,23 +410,21 @@ void doc_manager::complement(doc const& src, ptr_vector<doc>& result) {
 // (A & !A1 & & !B) |  (A & B1 & !A1)
 // A \ {A1 u B} u (A & B1) \ {A1}
 void doc_manager::subtract(doc const& A, doc const& B, ptr_vector<doc>& result) {
-    doc_ref r(*this), r2(*this);
+    doc_ref r(*this);
     tbv_ref t(m);
     r = allocate(A);
     t = m.allocate(B.pos());
     if (m.set_and(*t, A.pos()) && r->neg().insert(m, t.detach())) {
         result.push_back(r.detach());
-        r = allocate(A);
     }
     else {
         result.push_back(allocate(A));
     }
     for (unsigned i = 0; i < B.neg().size(); ++i) {
-        r2 = allocate(B.neg()[i]);
-        if (set_and(*r, *r2)) {
+        r = allocate(A);
+        if (set_and(*r, B.neg()[i])) {
             result.push_back(r.detach());
         }
-        r = allocate(A);
     }
 }
 bool doc_manager::equals(doc const& a, doc const& b) const {

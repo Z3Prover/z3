@@ -59,6 +59,7 @@ public:
     bool is_full(doc const& src) const;
     bool is_empty(doc const& src);
     bool set_and(doc& dst, doc const& src);
+    bool set_and(doc& dst, tbv const& src);
     bool fold_neg(doc& dst);
     bool intersect(doc const& A, doc const& B, doc& result);
     void complement(doc const& src, ptr_vector<doc>& result);

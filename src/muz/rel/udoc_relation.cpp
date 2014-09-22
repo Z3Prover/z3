@@ -753,16 +753,17 @@ namespace datalog {
         expr* e1, *e2;
         if (result.is_empty()) {
         }
+        else if (m.is_true(g)) {
+        }
+        else if (m.is_false(g)) {
+            result.reset(dm);
+        }
         else if (m.is_and(g)) {
             for (unsigned i = 0; !result.is_empty() && i < to_app(g)->get_num_args(); ++i) {
                 apply_guard(to_app(g)->get_arg(i), result, equalities, discard_cols);
             }
         }
         else if (m.is_not(g, e1)) {
-            // REVIEW: (not (= x y)) should not cause 
-            // the equivalence class to collapse.
-            // It seems the current organization with fix_eq_bits
-            // will merge the equivalence class as a side-effect.
             udoc sub;
             sub.push_back(dm.allocateX());
             apply_guard(e1, sub, equalities, discard_cols);
@@ -788,11 +789,6 @@ namespace datalog {
                   sub.display(dm, tout << "sub:") << "\n";
                   result.display(dm, tout << "result:") << "\n";);
             sub.reset(dm);
-        }
-        else if (m.is_true(g)) {
-        }
-        else if (m.is_false(g)) {
-            result.reset(dm);
         }
         else if (is_var(g)) {
             SASSERT(m.is_bool(g));
@@ -885,10 +881,8 @@ namespace datalog {
             SASSERT(u.well_formed(dm));
             u.intersect(dm, m_udoc);
             SASSERT(u.well_formed(dm));
-            if (!m.is_true(m_condition) && !u.is_empty()) {
-                t.apply_guard(m_condition, u, m_equalities, m_empty_bv);
-                SASSERT(u.well_formed(dm));
-            }
+            t.apply_guard(m_condition, u, m_equalities, m_empty_bv);
+            SASSERT(u.well_formed(dm));            
             u.simplify(dm);
             SASSERT(u.well_formed(dm));
             TRACE("doc", tout << "final size: " << t.get_size_estimate_rows() << '\n';);
@@ -1041,10 +1035,8 @@ namespace datalog {
             SASSERT(u2.well_formed(dm));
             u2.merge(dm, m_roots, m_equalities, m_col_list);
             SASSERT(u2.well_formed(dm)); 
-            if (!m.is_true(m_condition) && !u2.is_empty()) {
-                t.apply_guard(m_condition, u2, m_equalities, m_col_list);
-                SASSERT(u2.well_formed(dm));
-            }
+            t.apply_guard(m_condition, u2, m_equalities, m_col_list);
+            SASSERT(u2.well_formed(dm));            
             udoc_relation* r = get(t.get_plugin().mk_empty(get_result_signature()));
             doc_manager& dm2 = r->get_dm();
             for (unsigned i = 0; i < u2.size(); ++i) {
