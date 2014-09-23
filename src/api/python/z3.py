@@ -7342,8 +7342,8 @@ def binary_interpolant(a,b,p=None,ctx=None):
     If parameters p are supplied, these are used in creating the
     solver that determines satisfiability.
 
-    >>> x = Int('x')
-    >>> print binary_interpolant(x<0,x>2)
+    x = Int('x')
+    print binary_interpolant(x<0,x>2)
     Not(x >= 0)
     """
     f = And(Interp(a),b)
