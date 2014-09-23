@@ -82,12 +82,8 @@ void doc_manager::deallocate(doc* src) {
 }
 void doc_manager::copy(doc& dst, doc const& src)  {
     m.copy(dst.pos(), src.pos());
-    unsigned n = std::min(src.neg().size(), dst.neg().size());
-    for (unsigned i = 0; i < n; ++i) {
-        m.copy(dst.neg()[i], src.neg()[i]);
-    }
     dst.neg().reset(m);
-    for (unsigned i = n; i < src.neg().size(); ++i) {
+    for (unsigned i = 0; i < src.neg().size(); ++i) {
         dst.neg().push_back(m.allocate(src.neg()[i]));
     }
 }
@@ -109,16 +105,17 @@ doc& doc_manager::fillX(doc& src) {
 bool doc_manager::set_and(doc& dst, doc const& src)  {
     // (A \ B) & (C \ D) = (A & C) \ (B u D)
     if (!m.set_and(dst.pos(), src.pos())) return false;
-    dst.neg().intersect(m, dst.pos());
+    dst.neg().intersect(m, dst.pos());    
     tbv_ref t(m);
     for (unsigned i = 0; i < src.neg().size(); ++i) {
         t = m.allocate(src.neg()[i]);
         if (m.set_and(*t, dst.pos())) {
+            if (m.equals(*t, dst.pos())) return false;
             dst.neg().insert(m, t.detach());
         }
     }
     SASSERT(well_formed(dst));
-    return (src.neg().is_empty() || fold_neg(dst));
+    return fold_neg(dst);
 }
 bool doc_manager::set_and(doc& dst, tbv const& src)  {
     // (A \ B) & C  = (A & C) \ B
@@ -279,33 +276,13 @@ bool doc_manager::intersect(doc const& A, doc const& B, doc& result) {
 //
 
 doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, doc const& src) {
-    tbv_manager& dstt = dstm.m;
-    doc* r = dstm.allocate(dstt.project(n, to_delete, src.pos()));
+    tbv_manager& dstt = dstm.m;    
+    tbv_ref t(dstt);
+    t = dstt.project(n, to_delete, src.pos());
+    doc* r = dstm.allocate(t.detach());
     SASSERT(r);
 
     if (src.neg().is_empty()) {
-        return r;
-    }
-    if (src.neg().size() == 1) {
-        r->neg().push_back(dstt.project(n, to_delete, src.neg()[0]));
-        return r;
-    }
-    
-    //
-    // All negations can be projected if they are sign compatible.
-    //
-    tbv_ref bits(tbvm(), tbvm().allocateX());
-    for (unsigned i = 0; i < src.neg().size(); ++i) {        
-        tbvm().set_and(*bits, src.neg()[i]);
-    }
-    bool can_project_const = true;
-    for (unsigned i = 0; can_project_const && i < n; ++i) {
-        can_project_const = !to_delete[i] || (*bits)[i] == BIT_x;
-    }
-    if (can_project_const) {
-        for (unsigned i = 0; i < src.neg().size(); ++i) {        
-            r->neg().push_back(dstt.project(n, to_delete, src.neg()[i]));
-        }
         return r;
     }
 
@@ -313,46 +290,46 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, 
     // A negation can be projected directly if it does not constrain
     // deleted variables.
     // 
-    ptr_vector<tbv> todo;
+    tbv_vector todo, new_todo;
     for (unsigned i = 0; i < src.neg().size(); ++i) {        
-        if (can_project_neg(src.pos(), n, to_delete, src.neg()[i])) {
-            r->neg().push_back(dstt.project(n, to_delete, src.neg()[i]));
-        }
-        else {
-            todo.push_back(tbvm().allocate(src.neg()[i]));
-        }
+        todo.push_back(tbvm().allocate(src.neg()[i]));
     }
-    if (todo.empty()) {
-        return r;
-    }
-    ptr_vector<tbv> new_todo;
-    utbv pos, neg;
-    tbv_ref t1(tbvm()), t2(tbvm());
-    for (unsigned i = 0; i < n; ++i) {
-        if (to_delete[i] && (*bits)[i] != BIT_x) {
-            TRACE("doc", tout << "delete " << i << " ";
-                  for (unsigned j = 0; j < todo.size(); ++j) {
-                      tbvm().display(tout, *todo[j]) << " ";
-                  }
-                  tout << "\n";);
-            SASSERT(pos.is_empty());
-            SASSERT(neg.is_empty());
-            SASSERT(new_todo.empty());
-            while (!todo.empty()) {
-                tbv* t = todo.back();
-                todo.pop_back();
-                switch((*t)[i]) {
-                case BIT_x: new_todo.push_back(t); break;
-                case BIT_0: neg.push_back(t); break;
-                case BIT_1: pos.push_back(t); break;
-                default: UNREACHABLE(); break;                    
+    unsigned idx;
+    bool done = false;
+    while (!todo.empty() && !done) {
+        switch(pick_resolvent(src.pos(), todo, to_delete, idx)) {
+        case project_is_empty: 
+            t = dstt.allocate(r->pos());
+            r->neg().push_back(t.detach());
+            done = true;
+            break;
+        case project_monolithic:
+            done = true;
+            break;
+        case project_neg:
+        case project_pos:
+            for (unsigned i = 0; i < todo.size(); ++i) {
+                tbv& tx = *todo[i];
+                if (tx[idx] == BIT_x) {
+                    new_todo.push_back(&tx);
+                }
+                else {
+                    m.deallocate(&tx);
                 }
             }
-            if (pos.is_empty() || neg.is_empty()) {
-                std::swap(new_todo, todo);
-                pos.reset(tbvm());
-                neg.reset(tbvm());
-                continue;
+            std::swap(new_todo, todo);
+            new_todo.reset();
+            break;        
+        case project_resolve: {
+            utbv pos, neg;
+            for (unsigned i = 0; i < todo.size(); ++i) {
+                tbv& tx = *todo[i];
+                switch(tx[idx]) {
+                case BIT_x: new_todo.push_back(&tx); break;
+                case BIT_0: neg.push_back(&tx); break;
+                case BIT_1: pos.push_back(&tx); break;
+                default: UNREACHABLE(); break;                    
+                }
             }
             TRACE("doc",
                   tout << "pos: ";
@@ -365,38 +342,120 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, 
                   }
                   tout << "\n";
                   );
-                  
+            SASSERT(pos.size() > 0 && neg.size() > 0);
+            tbv_ref t1(m);
             for (unsigned j = 0; j < pos.size(); ++j) {
                 for (unsigned k = 0; k < neg.size(); ++k) {
-                    t1 = tbvm().allocate(pos[j]);
-                    (*t1).set(i, BIT_x);
+                    t1 = m.allocate(pos[j]);
+                    (*t1).set(idx, BIT_x);
                     if (tbvm().set_and(*t1, neg[k])) {
-                        (*t1).set(i, BIT_x);
+                        (*t1).set(idx, BIT_x);
                         new_todo.push_back(t1.detach());
                     }
-                }                
-            }
-            pos.reset(tbvm());
-            neg.reset(tbvm());
+                }       
+            }         
+            pos.reset(m);
+            neg.reset(m);
             std::swap(todo, new_todo);
+            new_todo.reset();
+            break;
+        }
+        case project_done: {
+            for (unsigned i = 0; i < todo.size(); ++i) {
+                t = dstt.project(n, to_delete, *todo[i]);
+                if (dstt.equals(r->pos(), *t)) {
+                    r->neg().reset(dstt);
+                    r->neg().push_back(t.detach());
+                    break;
+                }
+                if (r->neg().size() > 0 && dstt.equals(r->neg()[0], *t)) {
+                    continue;
+                }
+                r->neg().push_back(t.detach());
+            }
+            done = true;
+            break;
+        }
         }
     }
     for (unsigned i = 0; i < todo.size(); ++i) {
-        r->neg().push_back(dstt.project(n, to_delete, *todo[i]));
-        tbvm().deallocate(todo[i]);
+        m.deallocate(todo[i]);
     }
     return r;
 }
 
+#if 0
 bool doc_manager::can_project_neg(tbv const& pos, unsigned n, bool const* to_delete, tbv const& neg) {
     for (unsigned i = 0; i < n; ++i) {
         if (to_delete[i] && BIT_x != neg[i] && BIT_x == pos[i]) return false;
     }
     return true;
 }
+#endif
+
+doc_manager::project_action_t 
+doc_manager::pick_resolvent(
+    tbv const& pos, tbv_vector const& neg, bool const* to_delete, unsigned& idx) {
+    if (neg.empty()) return project_done;
+    for (unsigned j = 0; j < neg.size(); ++j) {
+        if (m.equals(pos, *neg[j])) return project_is_empty;   
+    } 
+
+    unsigned best_pos = UINT_MAX;
+    unsigned best_neg = UINT_MAX;
+    unsigned best_idx = UINT_MAX;
+    for (unsigned i = 0; i < num_tbits(); ++i) {
+        if (!to_delete[i]) continue;
+        if (pos[i] != BIT_x) continue;
+        unsigned num_pos = 0, num_neg = 0;
+        tbit b1 = (*neg[0])[i];
+        if (b1 == BIT_0) num_neg++; 
+        if (b1 == BIT_1) num_pos++;
+        bool monolithic = true;
+        for (unsigned j = 1; j < neg.size(); ++j) {
+            tbit b2 = (*neg[j])[i];
+            if (b1 != b2) {
+                monolithic = false;
+            }
+            if (b2 == BIT_0) num_neg++; 
+            if (b2 == BIT_1) num_pos++;
+        }
+        if (monolithic && b1 != BIT_x) {
+            idx = i;
+            return project_monolithic;
+        }
+        if (monolithic && b1 == BIT_x) {
+            continue;
+        }
+        SASSERT(!monolithic);
+        if (num_pos == 0) {
+            SASSERT(num_neg > 0);
+            idx = i;
+            return project_neg;
+        }
+        if (num_neg == 0) {
+            SASSERT(num_pos > 0);
+            idx = i;
+            return project_pos;
+        }
+        if ((best_pos >= num_pos && best_neg >= num_neg) ||
+            num_neg == 1 || num_pos == 1) {
+            best_pos = num_pos;
+            best_neg = num_neg;
+            best_idx = i;
+        }
+    }
+    if (best_idx != UINT_MAX) {
+        idx = best_idx;
+        return project_resolve;
+    }
+    else {
+        return project_done;
+    }
+}
     
 
-void doc_manager::complement(doc const& src, ptr_vector<doc>& result) {
+void doc_manager::complement(doc const& src, doc_vector& result) {
     result.reset();
     if (is_full(src)) {
         return;
@@ -411,7 +470,7 @@ void doc_manager::complement(doc const& src, ptr_vector<doc>& result) {
 // (A \ {A1}) \ (B \ {B1})
 // (A & !A1 & & !B) |  (A & B1 & !A1)
 // A \ {A1 u B} u (A & B1) \ {A1}
-void doc_manager::subtract(doc const& A, doc const& B, ptr_vector<doc>& result) {
+void doc_manager::subtract(doc const& A, doc const& B, doc_vector& result) {
     doc_ref r(*this);
     tbv_ref t(m);
     r = allocate(A);

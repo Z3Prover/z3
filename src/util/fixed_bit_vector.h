@@ -72,6 +72,9 @@ public:
         get_bit_word(bit_idx) ^= (-_val ^ get_bit_word(bit_idx)) & get_pos_mask(bit_idx);
     }
 
+    // assign bits this[lo:hi] := other[0:hi-lo+1]
+    void set(fixed_bit_vector const& other, unsigned hi, unsigned lo);
+
 };
 
 class fixed_bit_vector_manager {

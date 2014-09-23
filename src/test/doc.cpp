@@ -170,49 +170,47 @@ class test_doc_cls {
         return result;
     }
 
-    expr_ref to_formula(tbv const& t, doc_manager& m2, bool const* to_delete) {
+    expr_ref to_formula(tbv const& t, doc_manager& m2) {
         expr_ref result(m);
         expr_ref_vector conjs(m);
         unsigned n = m2.num_tbits();
         tbv_manager& tm = m2.tbvm();
-        for (unsigned i = 0, j = 0; i < m_vars.size(); ++i) {
-            if (!to_delete[i]) {
-                switch (t[j]) {
-                case BIT_x:
-                    break;
-                case BIT_1:
-                    conjs.push_back(m_vars[i].get());
-                    break;
-                case BIT_0:
-                    conjs.push_back(m.mk_not(m_vars[i].get()));
-                    break;
-                default:
-                    UNREACHABLE();
-                    break;
-                }
-                ++j;
+        SASSERT(n <= m_vars.size());
+        for (unsigned i = 0; i < n; ++i) {
+            switch (t[i]) {
+            case BIT_x:
+                break;
+            case BIT_1:
+                conjs.push_back(m_vars[i].get());
+                break;
+            case BIT_0:
+                conjs.push_back(m.mk_not(m_vars[i].get()));
+                break;
+            default:
+                UNREACHABLE();
+                break;
             }
         }
         result = mk_and(m, conjs.size(), conjs.c_ptr());
         return result;
     }
 
-    expr_ref to_formula(doc const& d, doc_manager& m2, bool const* to_delete) {
+    expr_ref to_formula(doc const& d, doc_manager& m2) {
         expr_ref result(m);
         expr_ref_vector conjs(m);
-        conjs.push_back(to_formula(d.pos(), m2, to_delete));
+        conjs.push_back(to_formula(d.pos(), m2));
         for (unsigned i = 0; i < d.neg().size(); ++i) {
-            conjs.push_back(m.mk_not(to_formula(d.neg()[i], m2, to_delete)));
+            conjs.push_back(m.mk_not(to_formula(d.neg()[i], m2)));
         }
         result = mk_and(m, conjs.size(), conjs.c_ptr());
         return result;
     }
 
-    expr_ref to_formula(udoc const& ud, doc_manager& m2, bool const* to_delete) {
+    expr_ref to_formula(udoc const& ud, doc_manager& m2) {
         expr_ref result(m);
         expr_ref_vector disjs(m);
         for (unsigned i = 0; i < ud.size(); ++i) {
-            disjs.push_back(to_formula(ud[i], m2, to_delete));
+            disjs.push_back(to_formula(ud[i], m2));
         }
         result = mk_or(m, disjs.size(), disjs.c_ptr());
         return result;
@@ -230,17 +228,12 @@ class test_doc_cls {
               );        
     } 
 
+
     void test_project(unsigned num_clauses) {
-        doc_ref d(dm, dm.allocateX());
-        expr_ref_vector fmls(m);
-        th_rewriter rw(m);
+        doc_ref d(dm);
+        d = mk_rand_doc(3);
         expr_ref fml1(m), fml2(m), fml3(m), tmp1(m), tmp2(m), fml(m);
-        for (unsigned i = 0; i < num_clauses; ++i) {
-            tbv* t = dm.tbvm().allocate();
-            fmls.push_back(m.mk_not(mk_conj(*t)));
-            d->neg().push_back(t);
-        }
-        fml1 = mk_and(m, fmls.size(), fmls.c_ptr());
+        fml1 = to_formula(*d, dm);
         svector<bool> to_delete(m_vars.size(), false);
         unsigned num_bits = 1;
         for (unsigned i = 1; i < to_delete.size(); ++i) {
@@ -250,33 +243,43 @@ class test_doc_cls {
         doc_manager m2(num_bits);
         doc_ref result(m2);
         project(*d, m2, to_delete.c_ptr(), result);
-        fml2 = to_formula(*result, m2, to_delete.c_ptr());
-        rw(fml2);
-        
+        TRACE("doc",              
+              dm.display(tout, *d) << "\n";
+              m2.display(tout, *result) << "\n";);
+        fml2 = to_formula(*result, m2);
+        project_expand(fml1, to_delete.c_ptr());
+        project_rename(fml2, to_delete.c_ptr());
+        check_equiv(fml1, fml2);
+    }
+
+    void project_expand(expr_ref& fml, bool const* to_delete) {
+        expr_ref tmp1(m), tmp2(m);
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             if (to_delete[i]) {
                 expr_safe_replace rep1(m), rep2(m);
                 rep1.insert(m_vars[i].get(), m.mk_true());
-                rep1(fml1, tmp1);
+                rep1(fml, tmp1);
                 rep2.insert(m_vars[i].get(), m.mk_false());
-                rep2(fml1, tmp2);
-                fml1 = m.mk_or(tmp1, tmp2);
+                rep2(fml, tmp2);
+                fml = m.mk_or(tmp1, tmp2);
             }
         }
-        rw(fml1);
-        smt_params fp;
-        smt::kernel solver(m, fp);
-        TRACE("doc", tout << "manual project:\n" << fml1 << "\nautomatic project: \n" << fml2 << "\n";);
-        fml = m.mk_not(m.mk_eq(fml1, fml2));
-        solver.assert_expr(fml);
-        lbool res = solver.check();
-        SASSERT(res == l_false);
+    }
+
+    void project_rename(expr_ref& fml, bool const* to_delete) {
+        expr_safe_replace rep(m);
+        for (unsigned i = 0, j = 0; i < m_vars.size(); ++i) {
+            if (!to_delete[i]) {
+                rep.insert(m_vars[j].get(), m_vars[i].get());
+                ++j;
+            }
+        }
+        rep(fml);
     }
 
     void test_merge(unsigned num_clauses) {
         doc_ref d(dm, dm.allocateX());
         expr_ref_vector fmls(m), eqs(m);
-        th_rewriter rw(m);
         unsigned N = m_vars.size();
         expr_ref fml1(m), fml2(m), fml3(m), tmp1(m), tmp2(m), fml(m);
         for (unsigned i = 0; i < num_clauses; ++i) {
@@ -305,20 +308,21 @@ class test_doc_cls {
                 eqs.push_back(m.mk_eq(m_vars[i].get(), m_vars[lo].get()));
             }
         }
-        eqs.push_back(to_formula(*d, dm, to_delete.c_ptr()));
+        eqs.push_back(to_formula(*d, dm));
         fml1 = mk_and(m, eqs.size(), eqs.c_ptr());
         if (dm.merge(*d, lo, 1, equalities, discard_cols)) {
-            fml2 = to_formula(*d, dm, to_delete.c_ptr());
+            fml2 = to_formula(*d, dm);
         }
         else {
             fml2 = m.mk_false();
         }
-        rw(fml1);
-        rw(fml2);
         check_equiv(fml1, fml2);
     }
 
-    void check_equiv(expr* fml1, expr* fml2) {
+    void check_equiv(expr_ref& fml1, expr_ref& fml2) {
+        th_rewriter rw(m);
+        rw(fml1);
+        rw(fml2);
         smt_params fp;
         smt::kernel solver(m, fp);
         expr_ref fml(m);
@@ -355,6 +359,29 @@ public:
         }    
     }
 
+    void test_project1() {
+        expr_ref fml1(m), fml2(m);
+        doc_ref d(dm, dm.allocateX());
+        tbv_ref t(dm.tbvm(), dm.tbvm().allocateX());
+        t->set(0, BIT_0);
+        d->neg().push_back(t.detach());
+        unsigned num_bits = dm.num_tbits();
+        svector<bool> to_delete(num_bits, false);
+        fml1 = to_formula(*d, dm);
+        to_delete[0] = true;
+        doc_manager m2(num_bits-1);
+        doc_ref result(m2);
+        project(*d, m2, to_delete.c_ptr(), result);
+        dm.display(std::cout, *d) << "\n";
+        m2.display(std::cout, *result) << "\n";
+        fml2 = to_formula(*result, m2);
+        project_rename(fml2, to_delete.c_ptr());
+        project_expand(fml1, to_delete.c_ptr());
+        std::cout << fml1 << " " << fml2 << "\n";
+        check_equiv(fml1, fml2);
+    }
+
+
     void test_subtract() {
         doc_ref d1(dm);
         doc_ref d2(dm);
@@ -384,12 +411,11 @@ public:
         ds2.push_back(d1.detach());
         ds1.display(dm, std::cout) << "\n";
         ds2.display(dm, std::cout) << "\n";
-        svector<bool> to_delete(m_vars.size(), false);
-        expr_ref fml1 = to_formula(ds1, dm, to_delete.c_ptr());
-        expr_ref fml2 = to_formula(ds2, dm, to_delete.c_ptr());
+        expr_ref fml1 = to_formula(ds1, dm);
+        expr_ref fml2 = to_formula(ds2, dm);
         ds1.subtract(dm, ds2);
         ds1.display(dm, std::cout) << "\n";
-        expr_ref fml3 = to_formula(ds1, dm, to_delete.c_ptr());
+        expr_ref fml3 = to_formula(ds1, dm);
         fml1 = m.mk_and(fml1, m.mk_not(fml2));
         check_equiv(fml1, fml3);       
         ds1.reset(dm);
@@ -401,10 +427,10 @@ public:
             udoc d1, d2;
             mk_rand_udoc(3, 3, d1);
             mk_rand_udoc(3, 3, d2);
-            fml1 = to_formula(d1, dm, to_delete.c_ptr());
-            fml2 = to_formula(d2, dm, to_delete.c_ptr());
+            fml1 = to_formula(d1, dm);
+            fml2 = to_formula(d2, dm);
             d1.subtract(dm, d2);
-            fml3 = to_formula(d1, dm, to_delete.c_ptr());
+            fml3 = to_formula(d1, dm);
             fml1 = m.mk_and(fml1, m.mk_not(fml2));
             check_equiv(fml1, fml3);
             d1.reset(dm);
@@ -414,20 +440,19 @@ public:
 
     void test_intersect() {
         expr_ref fml1(m), fml2(m), fml3(m);
-        svector<bool> to_delete(m_vars.size(), false);
         for (unsigned i = 0; i < 10000; ++i) {
             udoc d1, d2;
             mk_rand_udoc(3, 3, d1);
             mk_rand_udoc(3, 3, d2);
-            fml1 = to_formula(d1, dm, to_delete.c_ptr());
-            fml2 = to_formula(d2, dm, to_delete.c_ptr());
+            fml1 = to_formula(d1, dm);
+            fml2 = to_formula(d2, dm);
             TRACE("doc", 
                   d1.display(dm, tout) << "\n";
                   d2.display(dm, tout) << "\n";);
             d1.intersect(dm, d2);
             TRACE("doc", d1.display(dm, tout) << "\n";);
             SASSERT(d1.well_formed(dm));
-            fml3 = to_formula(d1, dm, to_delete.c_ptr());
+            fml3 = to_formula(d1, dm);
             fml1 = m.mk_and(fml1, fml2);
             check_equiv(fml1, fml3);
             d1.reset(dm);
@@ -441,10 +466,12 @@ public:
 void tst_doc() {
 
     test_doc_cls tp(4);
+    tp.test_project1();
+    tp.test_project(200,7);
+
     tp.test_intersect();
     tp.test_subtract();
     tp.test_merge(200,7);
-    tp.test_project(200,7);
 
     tst_doc1(5);
     tst_doc1(10);

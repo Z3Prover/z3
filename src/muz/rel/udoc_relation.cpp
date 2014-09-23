@@ -743,7 +743,7 @@ namespace datalog {
         }        
         apply_guard(g, result, equalities, discard_cols);
     }
-    bool udoc_relation::apply_eq(expr* g, udoc& result, unsigned v, unsigned hi, unsigned lo, expr* c) const {
+    bool udoc_relation::apply_eq(expr* g, doc_ref& d, unsigned v, unsigned hi, unsigned lo, expr* c) const {
         udoc_plugin& p = get_plugin();
         unsigned num_bits;
         rational r;
@@ -751,9 +751,8 @@ namespace datalog {
         lo += col;
         hi += col;
         if (p.is_numeral(c, r, num_bits)) {
-            doc_ref d(dm, dm.allocateX());
+            d = dm.allocateX();
             d->pos().set(r, hi, lo);
-            result.intersect(dm, *d);
             return true;
         }
         // other cases?
@@ -764,7 +763,9 @@ namespace datalog {
         expr* g, udoc& result, subset_ints const& equalities, bit_vector const& discard_cols) const {
         ast_manager& m = get_plugin().get_ast_manager();
         bv_util& bv = get_plugin().bv;
-        expr* e1, *e2;
+        expr *e0, *e1, *e2;
+        unsigned hi, lo, lo1, lo2, hi1, hi2, v, v1, v2;
+        doc_ref d(get_dm());
         if (result.is_empty()) {
         }
         else if (m.is_true(g)) {
@@ -776,6 +777,18 @@ namespace datalog {
             for (unsigned i = 0; !result.is_empty() && i < to_app(g)->get_num_args(); ++i) {
                 apply_guard(to_app(g)->get_arg(i), result, equalities, discard_cols);
             }
+        }
+        else if (m.is_not(g, e0) &&
+                 m.is_eq(e0, e1, e2) && bv.is_bv(e1) &&
+                 is_var_range(e1, hi, lo, v) && is_ground(e2) &&
+                 apply_eq(g, d, v, hi, lo, e2)) {
+            result.subtract(dm, *d);
+        }
+        else if (m.is_not(g, e0) &&
+                 m.is_eq(e0, e2, e1) && bv.is_bv(e1) &&
+                 is_var_range(e1, hi, lo, v) && is_ground(e2) &&
+                 apply_eq(g, d, v, hi, lo, e2)) {
+            result.subtract(dm, *d);
         }
         else if (m.is_not(g, e1)) {
             udoc sub;
@@ -830,12 +843,13 @@ namespace datalog {
             diff2.reset(dm);
         }
         else if (m.is_eq(g, e1, e2) && bv.is_bv(e1)) {
-            unsigned hi, lo, lo1, lo2, hi1, hi2, v, v1, v2;
             if (is_var_range(e1, hi, lo, v) && is_ground(e2) &&
-                apply_eq(g, result, v, hi, lo, e2)) {
+                apply_eq(g, d, v, hi, lo, e2)) {
+                result.intersect(dm, *d);
             }
             else if (is_var_range(e2, hi, lo, v) && is_ground(e1) &&
-                     apply_eq(g, result, v, hi, lo, e1)) {
+                     apply_eq(g, d, v, hi, lo, e1)) {
+                result.intersect(dm, *d);
             }
             else if (is_var_range(e1, hi1, lo1, v1) && 
                      is_var_range(e2, hi2, lo2, v2)) {

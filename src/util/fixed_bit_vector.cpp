@@ -24,6 +24,22 @@ Revision History:
 #include"trace.h"
 #include"hash.h"
 
+void fixed_bit_vector::set(fixed_bit_vector const& other, unsigned hi, unsigned lo) {
+    if ((lo % 32) == 0) {
+        unsigned sz32 = (hi+1)/32;
+        unsigned lo32 = lo/32;
+        for (unsigned i = 0; i < sz32; ++i) {
+            m_data[lo32 + i] = other.m_data[i];
+        }
+        for (unsigned i = sz32*32; i < hi - lo + 1; ++i) {
+            set(lo + i, other.get(i));
+        }
+        return;
+    }
+    for (unsigned i = 0; i < hi - lo + 1; ++i) {
+        set(lo + i, other.get(i));
+    }
+}
 
 fixed_bit_vector_manager::fixed_bit_vector_manager(unsigned num_bits):
     m_alloc("fixed_bit_vector") {

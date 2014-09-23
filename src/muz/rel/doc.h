@@ -25,16 +25,30 @@ Revision History:
 
 #include "tbv.h"
 #include "union_find.h"
+#include "buffer.h"
 
 
 class doc;
 template<typename M, typename T> class union_bvec;
 typedef union_find<> subset_ints;
+typedef union_bvec<tbv_manager, tbv> utbv;
+typedef buffer<tbv*,false,8> tbv_vector;
+typedef buffer<doc*,false,8> doc_vector;
 
 class doc_manager {
     tbv_manager m;
     tbv*        m_full;
     small_object_allocator m_alloc;
+    enum project_action_t {
+        project_is_empty,
+        project_done,
+        project_monolithic,
+        project_neg,
+        project_pos,
+        project_resolve        
+    };
+    project_action_t pick_resolvent(
+        tbv const& pos, tbv_vector const& neg, bool const* to_delete, unsigned& idx);
 public:
     doc_manager(unsigned num_bits);
     ~doc_manager();
@@ -62,8 +76,8 @@ public:
     bool set_and(doc& dst, tbv const& src);
     bool fold_neg(doc& dst);
     bool intersect(doc const& A, doc const& B, doc& result);
-    void complement(doc const& src, ptr_vector<doc>& result);
-    void subtract(doc const& A, doc const& B, ptr_vector<doc>& result);
+    void complement(doc const& src, doc_vector& result);
+    void subtract(doc const& A, doc const& B, doc_vector& result);
     bool equals(doc const& a, doc const& b) const;
     unsigned hash(doc const& src) const;
     bool contains(doc const& a, doc const& b) const;
@@ -83,7 +97,7 @@ private:
 // union of tbv*, union of doc*
 template<typename M, typename T>
 class union_bvec { 
-    ptr_vector<T> m_elems; // TBD: reuse allocator of M
+    buffer<T*, false, 8> m_elems; // TBD: reuse allocator of M
 
     enum fix_bit_result_t {
         e_row_removed, // = 1
@@ -278,7 +292,6 @@ public:
 
 };
 
-typedef union_bvec<tbv_manager, tbv> utbv;
 
 class doc {
     // pos \ (neg_0 \/ ... \/ neg_n)

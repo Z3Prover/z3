@@ -130,9 +130,7 @@ void tbv::set(rational const& r, unsigned hi, unsigned lo) {
 }
 
 void tbv::set(tbv const& other, unsigned hi, unsigned lo) {
-    for (unsigned i = 0; i < hi - lo + 1; ++i) {
-        set(lo + i, other[i]);
-    }
+    fixed_bit_vector::set(other, 2*hi+1, 2*lo);
 }
 
 
