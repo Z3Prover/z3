@@ -70,7 +70,8 @@ namespace datalog {
         void extract_equalities(expr* g, expr_ref& rest, subset_ints& equalities, unsigned_vector& roots) const;
         void apply_guard(expr* g, udoc& result, bit_vector const& discard_cols) const;
         void apply_guard(expr* g, udoc& result, subset_ints const& equalities, bit_vector const& discard_cols) const;
-        bool apply_eq(expr* g, doc_ref& d, unsigned v, unsigned hi, unsigned lo, expr* c) const;
+        bool apply_ground_eq(doc_ref& d, unsigned v, unsigned hi, unsigned lo, expr* c) const;
+        bool apply_bv_eq(expr* e1, expr* e2, bit_vector const& discard_cols, udoc& result) const;
         bool is_var_range(expr* e, unsigned& hi, unsigned& lo, unsigned& v) const;
     };
 

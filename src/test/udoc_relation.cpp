@@ -54,7 +54,7 @@ class udoc_tester {
     tbv* mk_rand_tbv(doc_manager& dm) {
         tbv* result = dm.tbvm().allocate();
         for (unsigned i = 0; i < dm.num_tbits(); ++i) {
-            (*result).set(i, choose_tbit());
+            dm.tbvm().set(*result, i, choose_tbit());
         }
         return result;
     }
@@ -63,10 +63,10 @@ class udoc_tester {
         tbv* result = dm.tbvm().allocate();
         for (unsigned i = 0; i < dm.num_tbits(); ++i) {
             if (pos[i] == BIT_x) {
-                (*result).set(i, choose_tbit());
+                dm.tbvm().set(*result, i, choose_tbit());
             }
             else {
-                (*result).set(i, pos[i]);
+                dm.tbvm().set(*result, i, pos[i]);
             }
         }
         return result;

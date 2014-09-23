@@ -147,7 +147,7 @@ bool doc_manager::fold_neg(doc& dst) {
                 --i;
             }
             else { // count == 1:
-                dst.pos().set(index, neg(dst.neg()[i][index]));
+                m.set(dst.pos(), index, neg(dst.neg()[i][index]));
                 dst.neg().intersect(tbvm(), dst.pos());
                 goto start_over;
             }
@@ -179,9 +179,9 @@ unsigned doc_manager::diff_by_012(tbv const& pos, tbv const& neg, unsigned& inde
 }
 
 void doc_manager::set(doc& d, unsigned idx, tbit value) {
-    d.pos().set(idx, value);
+    m.set(d.pos(), idx, value);
     for (unsigned i = 0; i < d.neg().size(); ++i) {
-        d.neg()[i].set(idx, value);
+        m.set(d.neg()[i], idx, value);
     }
 }
 
@@ -243,13 +243,13 @@ bool doc_manager::merge(doc& d, unsigned idx, subset_ints const& equalities,
     else {
         do {
             if (!discard_cols.get(idx) && idx != root1) {
-                tbv* t = tbvm().allocate(d.pos());
-                t->set(idx, BIT_0);
-                t->set(root1, BIT_1);
+                tbv* t = m.allocate(d.pos());
+                m.set(*t, idx, BIT_0);
+                m.set(*t, root1, BIT_1);
                 d.neg().insert(tbvm(), t);
-                t = tbvm().allocate(d.pos());
-                t->set(idx, BIT_1);
-                t->set(root1, BIT_0);
+                t = m.allocate(d.pos());
+                m.set(*t, idx, BIT_1);
+                m.set(*t, root1, BIT_0);
                 d.neg().insert(tbvm(), t);                
             }
             idx = equalities.next(idx);
@@ -347,9 +347,9 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, 
             for (unsigned j = 0; j < pos.size(); ++j) {
                 for (unsigned k = 0; k < neg.size(); ++k) {
                     t1 = m.allocate(pos[j]);
-                    (*t1).set(idx, BIT_x);
+                    m.set(*t1, idx, BIT_x);
                     if (tbvm().set_and(*t1, neg[k])) {
-                        (*t1).set(idx, BIT_x);
+                        m.set(*t1, idx, BIT_x);
                         new_todo.push_back(t1.detach());
                     }
                 }       
@@ -517,7 +517,7 @@ bool doc_manager::is_empty(doc const& src)  {
             tbit b2 = src.neg()[i][j];
             found = (b1 == BIT_x && b2 != BIT_x);
             if (found) {
-                pos->set(j, neg(b2));
+                m.set(*pos, j, neg(b2));
             }
         }
         if (!found) {

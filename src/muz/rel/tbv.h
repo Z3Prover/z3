@@ -73,6 +73,11 @@ public:
     std::ostream& display(std::ostream& out, tbv const& b) const;
     tbv* project(unsigned n, bool const* to_delete, tbv const& src);
     bool is_well_formed(tbv const& b) const; // - does not contain BIT_z;
+    void set(tbv& dst, uint64 n, unsigned hi, unsigned lo);
+    void set(tbv& dst, rational const& r, unsigned hi, unsigned lo);
+    void set(tbv& dst, tbv const& other, unsigned hi, unsigned lo);
+    void set(tbv& dst, unsigned index, tbit value);
+
 
     static void debug_alloc();
 };
@@ -99,19 +104,12 @@ public:
         }
     };
         
-    void set(uint64 n, unsigned hi, unsigned lo);
-    void set(rational const& r, unsigned hi, unsigned lo);
-    void set(tbv const& other, unsigned hi, unsigned lo);
 
     tbit operator[](unsigned idx) const { return (tbit)get(idx); }
-    void set(unsigned index, tbit value) {
-        SASSERT(value <= 3);
-        fixed_bit_vector::set(2*index,   (value & 2) != 0);
-        fixed_bit_vector::set(2*index+1, (value & 1) != 0);
-    }
 
 
 private:
+
 
     unsigned get(unsigned index) const {
         index *= 2;

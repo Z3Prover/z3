@@ -76,9 +76,9 @@ tbv* tbv_manager::allocate(uint64 val) {
     for (unsigned bit = num_tbits(); bit > 0;) {
         --bit;
         if (val & (1ULL << bit)) {                        
-            v->set(bit, BIT_1);
+            set(*v, bit, BIT_1);
         } else {
-            v->set(bit, BIT_0);
+            set(*v, bit, BIT_0);
         }
     }
     return v;
@@ -87,14 +87,14 @@ tbv* tbv_manager::allocate(uint64 val) {
 tbv* tbv_manager::allocate(uint64 val, unsigned hi, unsigned lo) {
     tbv* v = allocateX();
     SASSERT(64 >= num_tbits() && num_tbits() > hi && hi >= lo);
-    v->set(val, hi, lo);
+    set(*v, val, hi, lo);
     return v;
 }
 tbv* tbv_manager::allocate(tbv const& bv, unsigned const* permutation) {
     tbv* r = allocate();
     unsigned sz = num_tbits();
     for (unsigned i = 0; i < sz; ++i) {
-        r->set(permutation[i], bv[i]);
+        set(*r, permutation[i], bv[i]);
     }
     return r;
 }
@@ -103,7 +103,7 @@ tbv* tbv_manager::project(unsigned n, bool const* to_delete, tbv const& src) {
     unsigned i, j;
     for (i = 0, j = 0; i < n; ++i) {
         if (!to_delete[i]) {
-            r->set(j, src[i]);
+            set(*r, j, src[i]);
             ++j;
         }
     }
@@ -111,26 +111,35 @@ tbv* tbv_manager::project(unsigned n, bool const* to_delete, tbv const& src) {
     return r;
 }
 
-void tbv::set(uint64 val, unsigned hi, unsigned lo) {
+void tbv_manager::set(tbv& dst, unsigned index, tbit value) {
+    SASSERT(index < num_tbits());
+    m.set(dst, 2*index,   (value & 2) != 0);
+    m.set(dst, 2*index+1, (value & 1) != 0);    
+}
+
+
+void tbv_manager::set(tbv& dst, uint64 val, unsigned hi, unsigned lo) {
+    SASSERT(lo <= hi && hi < num_tbits());
     for (unsigned i = 0; i < hi - lo + 1; ++i) {
-        set(lo + i, (val & (1ULL << i))?BIT_1:BIT_0);
+        set(dst, lo + i, (val & (1ULL << i))?BIT_1:BIT_0);
     }
 }
-void tbv::set(rational const& r, unsigned hi, unsigned lo) {
+void tbv_manager::set(tbv& dst, rational const& r, unsigned hi, unsigned lo) {
+    SASSERT(lo <= hi && hi < num_tbits());
     if (r.is_uint64()) {
-        set(r.get_uint64(), hi, lo);
+        set(dst, r.get_uint64(), hi, lo);
         return;
     }
     for (unsigned i = 0; i < hi - lo + 1; ++i) {
         if (bitwise_and(r, rational::power_of_two(i)).is_zero())
-            set(lo + i, BIT_0);
+            set(dst, lo + i, BIT_0);
         else
-            set(lo + i, BIT_1);
+            set(dst, lo + i, BIT_1);
     }
 }
 
-void tbv::set(tbv const& other, unsigned hi, unsigned lo) {
-    fixed_bit_vector::set(other, 2*hi+1, 2*lo);
+void tbv_manager::set(tbv& dst, tbv const& other, unsigned hi, unsigned lo) {
+    dst.set(other, 2*hi+1, 2*lo);
 }
 
 
@@ -142,9 +151,9 @@ tbv* tbv_manager::allocate(rational const& r) {
     for (unsigned bit = num_tbits(); bit > 0; ) {
         --bit;
         if (bitwise_and(r, rational::power_of_two(bit)).is_zero()) {
-            v->set(bit, BIT_0);
+            set(*v, bit, BIT_0);
         } else {
-            v->set(bit, BIT_1);
+            set(*v, bit, BIT_1);
         }
     }            
     return v;
@@ -211,12 +220,12 @@ void tbv_manager::complement(tbv const& src, ptr_vector<tbv>& result) {
         switch (src.get(i)) {
         case BIT_0:
             r = allocate(src);
-            r->set(i, BIT_1);
+            set(*r, i, BIT_1);
             result.push_back(r);
             break;
         case BIT_1:
             r = allocate(src);
-            r->set(i, BIT_0);
+            set(*r, i, BIT_0);
             result.push_back(r);
             break;
         default:

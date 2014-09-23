@@ -117,7 +117,7 @@ class test_doc_cls {
     tbv* mk_rand_tbv() {
         tbv* result = dm.tbvm().allocate();
         for (unsigned i = 0; i < dm.num_tbits(); ++i) {
-            (*result).set(i, choose_tbit());
+            dm.tbvm().set(*result, i, choose_tbit());
         }
         return result;
     }
@@ -126,10 +126,10 @@ class test_doc_cls {
         tbv* result = dm.tbvm().allocate();
         for (unsigned i = 0; i < dm.num_tbits(); ++i) {
             if (pos[i] == BIT_x) {
-                (*result).set(i, choose_tbit());
+                dm.tbvm().set(*result, i, choose_tbit());
             }
             else {
-                (*result).set(i, pos[i]);
+                dm.tbvm().set(*result, i, pos[i]);
             }
         }
         return result;
@@ -159,7 +159,7 @@ class test_doc_cls {
         expr_ref_vector conjs(m);
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             tbit b = choose_tbit();
-            t.set(i, b);            
+            dm.tbvm().set(t, i, b);            
             switch (b) {
             case BIT_1: conjs.push_back(m_vars[i].get()); break;
             case BIT_0: conjs.push_back(m.mk_not(m_vars[i].get())); break;
@@ -363,7 +363,7 @@ public:
         expr_ref fml1(m), fml2(m);
         doc_ref d(dm, dm.allocateX());
         tbv_ref t(dm.tbvm(), dm.tbvm().allocateX());
-        t->set(0, BIT_0);
+        dm.tbvm().set(*t, 0, BIT_0);
         d->neg().push_back(t.detach());
         unsigned num_bits = dm.num_tbits();
         svector<bool> to_delete(num_bits, false);
@@ -402,10 +402,10 @@ public:
         tbv_ref t2(dm.tbvm());
         t1 = dm.tbvm().allocateX();
         t2 = dm.tbvm().allocateX();
-        t1->set(0, BIT_1);
-        t1->set(2, BIT_0);
-        t2->set(0, BIT_0);
-        t2->set(2, BIT_1);
+        dm.tbvm().set(*t1, 0, BIT_1);
+        dm.tbvm().set(*t1, 2, BIT_0);
+        dm.tbvm().set(*t2, 0, BIT_0);
+        dm.tbvm().set(*t2, 2, BIT_1);
         d1->neg().push_back(t1.detach());
         d1->neg().push_back(t2.detach());
         ds2.push_back(d1.detach());

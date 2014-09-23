@@ -49,7 +49,7 @@ namespace datalog {
             SASSERT(bv_size == column_num_bits(i));
             unsigned lo = column_idx(i);
             unsigned hi = column_idx(i + 1);
-            d->pos().set(val, hi, lo);
+            dm.tbvm().set(d->pos(),val, hi-1, lo);
         }
         return d;
     }
@@ -311,8 +311,8 @@ namespace datalog {
             utbv& neg = d->neg();
             unsigned mid = dm1.num_tbits();
             unsigned hi  = dm.num_tbits();
-            pos.set(d1.pos(), mid-1, 0);
-            pos.set(d2.pos(), hi-1, mid);
+            dm.tbvm().set(pos,d1.pos(), mid-1, 0);
+            dm.tbvm().set(pos,d2.pos(), hi-1, mid);
             SASSERT(dm.well_formed(*d));
             // first fix bits
             for (unsigned i = 0; i < m_cols1.size(); ++i) {
@@ -323,10 +323,10 @@ namespace datalog {
 
                 if (v1 == BIT_x) {
                     if (v2 != BIT_x)
-                        pos.set(idx1, v2);
+                        dm.tbvm().set(pos, idx1, v2);
                 } 
                 else if (v2 == BIT_x) {
-                    pos.set(idx2, v1);
+                    dm.tbvm().set(pos, idx2, v1);
                 } 
                 else if (v1 != v2) {
                     // columns don't match
@@ -344,12 +344,12 @@ namespace datalog {
                 if (v1 == BIT_x && v2 == BIT_x) {
                     // add to subtracted TBVs: 1xx0 and 0xx1
                     t = dm.tbvm().allocate(pos);
-                    t->set(idx1, BIT_0);
-                    t->set(idx2, BIT_1);
+                    dm.tbvm().set(*t, idx1, BIT_0);
+                    dm.tbvm().set(*t, idx2, BIT_1);
                     neg.push_back(t.detach());                    
                     t = dm.tbvm().allocate(pos);
-                    t->set(idx1, BIT_1);
-                    t->set(idx2, BIT_0);
+                    dm.tbvm().set(*t, idx1, BIT_1);
+                    dm.tbvm().set(*t, idx2, BIT_0);
                     neg.push_back(t.detach());
                 }
                 SASSERT(dm.well_formed(*d));
@@ -358,8 +358,8 @@ namespace datalog {
             // handle subtracted TBVs:  1010 -> 1010xxx
             for (unsigned i = 0; i < d1.neg().size(); ++i) {
                 t = dm.tbvm().allocate();
-                t->set(d1.neg()[i], mid - 1, 0);
-                t->set(d2.pos(),    hi -  1, mid);
+                dm.tbvm().set(*t, d1.neg()[i], mid - 1, 0);
+                dm.tbvm().set(*t, d2.pos(),    hi -  1, mid);
                 if (dm.tbvm().set_and(*t, pos)) {
                     neg.push_back(t.detach());
                 }
@@ -367,8 +367,8 @@ namespace datalog {
             }
             for (unsigned i = 0; i < d2.neg().size(); ++i) {
                 t = dm.tbvm().allocate();
-                t->set(d1.pos(),    mid- 1, 0);
-                t->set(d2.neg()[i], hi - 1, mid);
+                dm.tbvm().set(*t, d1.pos(),    mid- 1, 0);
+                dm.tbvm().set(*t, d2.neg()[i], hi - 1, mid);
                 if (dm.tbvm().set_and(*t, pos)) {
                     neg.push_back(t.detach());
                 }
@@ -637,7 +637,7 @@ namespace datalog {
             unsigned lo = t.column_idx(col);
             unsigned hi = t.column_idx(col+1);
             SASSERT(num_bits == hi - lo);
-            m_filter->pos().set(r, hi-1, lo);
+            dm.tbvm().set(m_filter->pos(), r, hi-1, lo);
         }
         virtual ~filter_equal_fn() {
             dm.deallocate(m_filter);
@@ -743,7 +743,7 @@ namespace datalog {
         }        
         apply_guard(g, result, equalities, discard_cols);
     }
-    bool udoc_relation::apply_eq(expr* g, doc_ref& d, unsigned v, unsigned hi, unsigned lo, expr* c) const {
+    bool udoc_relation::apply_ground_eq(doc_ref& d, unsigned v, unsigned hi, unsigned lo, expr* c) const {
         udoc_plugin& p = get_plugin();
         unsigned num_bits;
         rational r;
@@ -752,10 +752,56 @@ namespace datalog {
         hi += col;
         if (p.is_numeral(c, r, num_bits)) {
             d = dm.allocateX();
-            d->pos().set(r, hi, lo);
+            dm.tbvm().set(d->pos(), r, hi, lo);
             return true;
         }
         // other cases?
+        return false;
+    }
+
+    bool udoc_relation::apply_bv_eq(
+        expr* e1, expr* e2, bit_vector const& discard_cols, udoc& result) const {
+        udoc_plugin& p = get_plugin();
+        ast_manager& m  = p.get_ast_manager();
+        bv_util& bv = p.bv;
+        th_rewriter rw(m);
+        doc_ref d(get_dm());
+        unsigned hi, lo, lo1, lo2, hi1, hi2, v, v1, v2;
+        if (bv.is_concat(e2)) {
+            std::swap(e1, e2);
+        }
+        if (bv.is_concat(e1)) {
+            expr_ref e3(m);
+            app* a1 = to_app(e1);
+            hi = p.num_sort_bits(e1)-1;
+            unsigned n = a1->get_num_args();
+            for (unsigned i = 0; i < n; ++i) {
+                expr* e = a1->get_arg(i);
+                unsigned sz = p.num_sort_bits(e);
+                e3 = bv.mk_extract(hi, hi-sz+1, e2);
+                rw(e3);
+                if (!apply_bv_eq(e, e3, discard_cols, result)) return false;
+                hi -= sz;
+            }
+            return true;
+        }
+        if (is_ground(e1)) {
+            std::swap(e1, e2);
+        }
+        if (is_var_range(e1, hi, lo, v) && is_ground(e2) &&
+            apply_ground_eq(d, v, hi, lo, e2)) {
+            result.intersect(dm, *d);
+            return true;
+        }
+        if (is_var_range(e1, hi1, lo1, v1) && 
+            is_var_range(e2, hi2, lo2, v2)) {
+            unsigned idx1 = lo1 + column_idx(v1);
+            unsigned idx2 = lo2 + column_idx(v2);
+            unsigned length = hi1-lo1+1;
+            result.merge(dm, idx1, idx2, length, discard_cols);
+            return true;
+        }   
+
         return false;
     }
 
@@ -764,7 +810,7 @@ namespace datalog {
         ast_manager& m = get_plugin().get_ast_manager();
         bv_util& bv = get_plugin().bv;
         expr *e0, *e1, *e2;
-        unsigned hi, lo, lo1, lo2, hi1, hi2, v, v1, v2;
+        unsigned hi, lo, v;
         doc_ref d(get_dm());
         if (result.is_empty()) {
         }
@@ -781,13 +827,13 @@ namespace datalog {
         else if (m.is_not(g, e0) &&
                  m.is_eq(e0, e1, e2) && bv.is_bv(e1) &&
                  is_var_range(e1, hi, lo, v) && is_ground(e2) &&
-                 apply_eq(g, d, v, hi, lo, e2)) {
+                 apply_ground_eq(d, v, hi, lo, e2)) {
             result.subtract(dm, *d);
         }
         else if (m.is_not(g, e0) &&
                  m.is_eq(e0, e2, e1) && bv.is_bv(e1) &&
                  is_var_range(e1, hi, lo, v) && is_ground(e2) &&
-                 apply_eq(g, d, v, hi, lo, e2)) {
+                 apply_ground_eq(d, v, hi, lo, e2)) {
             result.subtract(dm, *d);
         }
         else if (m.is_not(g, e1)) {
@@ -843,21 +889,9 @@ namespace datalog {
             diff2.reset(dm);
         }
         else if (m.is_eq(g, e1, e2) && bv.is_bv(e1)) {
-            if (is_var_range(e1, hi, lo, v) && is_ground(e2) &&
-                apply_eq(g, d, v, hi, lo, e2)) {
-                result.intersect(dm, *d);
+            if (apply_bv_eq(e1, e2, discard_cols, result)) {
+                // done
             }
-            else if (is_var_range(e2, hi, lo, v) && is_ground(e1) &&
-                     apply_eq(g, d, v, hi, lo, e1)) {
-                result.intersect(dm, *d);
-            }
-            else if (is_var_range(e1, hi1, lo1, v1) && 
-                     is_var_range(e2, hi2, lo2, v2)) {
-                unsigned idx1 = lo1 + column_idx(v1);
-                unsigned idx2 = lo2 + column_idx(v2);
-                unsigned length = hi1-lo1+1;
-                result.merge(dm, idx1, idx2, length, discard_cols);
-            }   
             else {
                 goto failure_case;
             }            

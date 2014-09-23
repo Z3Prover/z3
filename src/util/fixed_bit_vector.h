@@ -59,6 +59,7 @@ public:
         return (get_bit_word(bit_idx) & get_pos_mask(bit_idx)) != 0;
     }
     
+private:
     void set(unsigned bit_idx) {
         get_bit_word(bit_idx) |= get_pos_mask(bit_idx);
     }
@@ -116,6 +117,26 @@ public:
     unsigned hash(fixed_bit_vector const& src) const;
     bool contains(fixed_bit_vector const& a, fixed_bit_vector const& b) const;
     std::ostream& display(std::ostream& out, fixed_bit_vector const& b) const;    
+    void set(fixed_bit_vector& dst, unsigned bit_idx) {
+        SASSERT(bit_idx < num_bits());
+        dst.set(bit_idx);
+    }
+    void unset(fixed_bit_vector& dst, unsigned bit_idx) {
+        SASSERT(bit_idx < num_bits());
+        dst.unset(bit_idx);
+    }
+    
+    void set(fixed_bit_vector& dst, unsigned bit_idx, bool val) {
+        SASSERT(bit_idx < num_bits());
+        dst.set(bit_idx, val);
+    }
+
+    // assign bits this[lo:hi] := other[0:hi-lo+1]
+    void set(fixed_bit_vector& dst, fixed_bit_vector const& other, unsigned hi, unsigned lo) {
+        SASSERT(lo <= hi && hi < num_bits());
+        dst.set(other, hi, lo);
+    }
+
 };
 
 
