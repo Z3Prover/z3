@@ -291,7 +291,7 @@ public:
     void merge(M& m, unsigned_vector const& roots, subset_ints const& equalities, 
                bit_vector const& discard_cols) {
         for (unsigned i = 0; i < roots.size(); ++i) {
-            merge(m, roots[i], equalities, discard_cols);
+            merge(m, roots[i], 1, equalities, discard_cols);
         }
     }
 

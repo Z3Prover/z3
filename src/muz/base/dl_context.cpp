@@ -574,7 +574,7 @@ namespace datalog {
 
     void context::check_uninterpreted_free(rule& r) {
         func_decl* f = 0;
-        if (r.has_uninterpreted_non_predicates(m, f)) {
+        if (get_rule_manager().has_uninterpreted_non_predicates(r, f)) {
             std::stringstream stm;
             stm << "Uninterpreted '" 
                 << f->get_name() 
@@ -585,7 +585,7 @@ namespace datalog {
     }
 
     void context::check_quantifier_free(rule& r) {
-        if (r.has_quantifiers()) {
+        if (get_rule_manager().has_quantifiers(r)) {
             std::stringstream stm;
             stm << "cannot process quantifiers in rule ";
             r.display(*this, stm);

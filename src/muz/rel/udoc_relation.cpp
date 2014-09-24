@@ -63,6 +63,7 @@ namespace datalog {
         m_elems.push_back(fact2doc(f));
     }
     bool udoc_relation::empty() const {
+        if (get_signature().empty()) return false;
         // TBD: make this a complete check
         for (unsigned i = 0; i < m_elems.size(); ++i) {
             if (!dm.is_empty(m_elems[i])) return false;
@@ -719,29 +720,60 @@ namespace datalog {
         conds.push_back(g);
         qe::flatten_and(conds);
         expr* e1, *e2;
-        unsigned v1, v2, lo1, lo2, hi1, hi2;
         for (unsigned i = 0; i < conds.size(); ++i) {
             expr* g = conds[i].get();
-            if (m.is_eq(g, e1, e2) && 
-                is_var_range(e1, hi1, lo1, v1) &&
-                is_var_range(e2, hi2, lo2, v2)) {
-                unsigned col1 = column_idx(v1);
-                lo1 += col1;
-                hi1 += col1;
-                unsigned col2 = column_idx(v2);
-                lo2 += col2;
-                hi2 += col2;
-                for (unsigned j = 0; j <= hi1-lo1; ++j) {
-                    roots.push_back(lo1 + j);
-                    equalities.merge(lo1 + j, lo2 + j);
-                }
+            if (m.is_eq(g, e1, e2)) {
+                extract_equalities(e1, e2, conds, equalities, roots);
                 conds[i] = conds.back();
                 conds.pop_back();
-                --i;
             }
         }
         rest = mk_and(m, conds.size(), conds.c_ptr());
     }
+
+    void udoc_relation::extract_equalities(
+        expr* e1, expr* e2, expr_ref_vector& conds, 
+        subset_ints& equalities, unsigned_vector& roots) const {        
+        udoc_plugin& p = get_plugin();
+        ast_manager& m  = p.get_ast_manager();
+        bv_util& bv = p.bv;
+        th_rewriter rw(m);
+        unsigned hi, lo1, lo2, hi1, hi2, v1, v2;
+        if (bv.is_concat(e2)) {
+            std::swap(e1, e2);
+        }
+        if (bv.is_concat(e1)) {
+            expr_ref e3(m);
+            app* a1 = to_app(e1);
+            hi = p.num_sort_bits(e1)-1;
+            unsigned n = a1->get_num_args();
+            for (unsigned i = 0; i < n; ++i) {
+                expr* e = a1->get_arg(i);
+                unsigned sz = p.num_sort_bits(e);
+                e3 = bv.mk_extract(hi, hi-sz+1, e2);
+                rw(e3);
+                extract_equalities(e, e3, conds, equalities, roots);
+                hi -= sz;
+            }
+            return;
+        }
+        if (is_var_range(e1, hi1, lo1, v1) && 
+            is_var_range(e2, hi2, lo2, v2)) {
+            unsigned col1 = column_idx(v1);
+            lo1 += col1;
+            hi1 += col1;
+            unsigned col2 = column_idx(v2);
+            lo2 += col2;
+            hi2 += col2;
+            for (unsigned j = 0; j <= hi1-lo1; ++j) {
+                roots.push_back(lo1 + j);
+                equalities.merge(lo1 + j, lo2 + j);
+            }
+            return;
+        }   
+        conds.push_back(m.mk_eq(e1, e2));
+    }
+
     void udoc_relation::compile_guard(expr* g, udoc& d, bit_vector const& discard_cols) const {
         d.reset(dm);
         d.push_back(dm.allocateX()); 
@@ -771,6 +803,9 @@ namespace datalog {
         // other cases?
         return false;
     }
+
+
+
 
     bool udoc_relation::apply_bv_eq(
         expr* e1, expr* e2, bit_vector const& discard_cols, udoc& result) const {
@@ -1067,6 +1102,7 @@ namespace datalog {
         expr_ref     m_original_condition;
         expr_ref     m_reduced_condition;
         udoc         m_udoc;
+        udoc         m_udoc2;
         bit_vector   m_col_list; // map: col idx -> bool (whether the column is to be removed)
         svector<bool> m_to_delete; // same
         subset_ints  m_equalities;
@@ -1107,22 +1143,19 @@ namespace datalog {
             udoc const& u1 = t.get_udoc();
             doc_manager& dm = t.get_dm();
             ast_manager& m = m_reduced_condition.get_manager();
-            udoc  u2;
-            u2.copy(dm, u1);
-            u2.intersect(dm, m_udoc);
-            u2.merge(dm, m_roots, m_equalities, m_col_list);
-            t.apply_guard(m_reduced_condition, u2, m_equalities, m_col_list);
-            SASSERT(u2.well_formed(dm));  
+            m_udoc2.copy(dm, u1);
+            m_udoc2.intersect(dm, m_udoc);
+            t.apply_guard(m_reduced_condition, m_udoc2, m_equalities, m_col_list);
+            m_udoc2.merge(dm, m_roots, m_equalities, m_col_list);
+            SASSERT(m_udoc2.well_formed(dm));  
             udoc_relation* r = get(t.get_plugin().mk_empty(get_result_signature()));
             doc_manager& dm2 = r->get_dm();
-            // std::cout << "Size of union: " << u2.size() << "\n";
-            for (unsigned i = 0; i < u2.size(); ++i) {
-                doc* d = dm.project(dm2, m_to_delete.size(), m_to_delete.c_ptr(), u2[i]);
-                dm.verify_project(m, dm2, m_to_delete.c_ptr(), u2[i], *d);
+            for (unsigned i = 0; i < m_udoc2.size(); ++i) {
+                doc* d = dm.project(dm2, m_to_delete.size(), m_to_delete.c_ptr(), m_udoc2[i]);
                 r->get_udoc().insert(dm2, d);
                 SASSERT(r->get_udoc().well_formed(dm2));
             }
-            u2.reset(dm);
+            m_udoc2.reset(dm);
             IF_VERBOSE(3, r->display(verbose_stream() << "filter project result:\n"););
             return r;
         }

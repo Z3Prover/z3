@@ -1500,7 +1500,7 @@ namespace datalog {
             if (m_rules.get_rule(i)->get_uninterpreted_tail_size() > 1) {
                 return false;
             }
-            if (m_rules.get_rule(i)->has_quantifiers()) {
+            if (m_rules.get_rule_manager().has_quantifiers(*m_rules.get_rule(i))) {
                 return false;
             }
         }

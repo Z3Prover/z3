@@ -88,6 +88,7 @@ class hnf::imp {
     proof_ref_vector      m_defs;
     contains_predicate_proc m_proc;
     expr_free_vars        m_free_vars;
+    ast_fast_mark1        m_mark1;
 
 
 public:
@@ -106,10 +107,37 @@ public:
         m_proc(*this) {
     }
 
+    bool is_horn(expr* n) {
+        expr* n1, *n2;
+        while (is_forall(n)) n = to_quantifier(n)->get_expr();
+        if (m.is_implies(n, n1, n2) && is_predicate(n2)) {
+            app* a1 = to_app(n1);
+            if (m.is_and(a1)) {
+                for (unsigned i = 0; i < a1->get_num_args(); ++i) {
+                    if (!is_predicate(a1->get_arg(i)) && 
+                        contains_predicate(a1->get_arg(i))) {                    
+                        return false;
+                    }
+                }
+            }
+            else if (!is_predicate(a1) && contains_predicate(a1)) {
+                return false;
+            }
+            return true;
+        }    
+        
+        return false;
+    }
+
     void operator()(expr * n, 
                     proof* p,
                     expr_ref_vector& result, 
                     proof_ref_vector& ps) {
+        if (is_horn(n)) {
+            result.push_back(n);
+            ps.push_back(p);
+            return;
+        }
         expr_ref fml(m);
         proof_ref pr(m);
         m_todo.reset();
@@ -184,9 +212,11 @@ private:
 
     bool contains_predicate(expr* fml)  {
         try {
-            quick_for_each_expr(m_proc, fml);
+            quick_for_each_expr(m_proc, m_mark1, fml);
+            m_mark1.reset();
         }
         catch (contains_predicate_proc::found) {
+            m_mark1.reset();
             return true;
         }
         return false;

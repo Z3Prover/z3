@@ -149,7 +149,7 @@ namespace datalog {
     }
 
     bool check_relation_plugin::can_handle_signature(const relation_signature & sig) {
-        return m_base->can_handle_signature(sig);
+        return m_base && m_base->can_handle_signature(sig);
     }
     relation_base * check_relation_plugin::mk_empty(const relation_signature & sig) {
         relation_base* r = m_base->mk_empty(sig);

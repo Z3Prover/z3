@@ -56,7 +56,8 @@ namespace datalog {
           m_hnf(m),
           m_qe(m),
           m_cfg(m),
-          m_rwr(m, false, m_cfg) {}
+          m_rwr(m, false, m_cfg),
+          m_ufproc(m) {}
 
     void rule_manager::inc_ref(rule * r) {
         if (r) {
@@ -911,83 +912,40 @@ namespace datalog {
         return false;
     }
 
-    struct uninterpreted_function_finder_proc {
-        ast_manager& m;
-        datatype_util m_dt;
-        bool m_found;
-        func_decl* m_func;
-        uninterpreted_function_finder_proc(ast_manager& m): 
-            m(m), m_dt(m), m_found(false), m_func(0) {}
-        void operator()(var * n) { }
-        void operator()(quantifier * n) { }
-        void operator()(app * n) {
-            if (is_uninterp(n)) {
-                m_found = true;
-                m_func = n->get_decl();
-            }
-            else if (m_dt.is_accessor(n)) {
-                sort* s = m.get_sort(n->get_arg(0));
-                SASSERT(m_dt.is_datatype(s));
-                if (m_dt.get_datatype_constructors(s)->size() > 1) {
-                    m_found = true;
-                    m_func = n->get_decl();
-                }
-            }
-        }
-
-        bool found(func_decl*& f) const { f = m_func; return m_found; }
-    };
 
     //
     // non-predicates may appear only in the interpreted tail, it is therefore 
     // sufficient only to check the tail.
     //
-    bool rule::has_uninterpreted_non_predicates(ast_manager& m, func_decl*& f) const {
-        unsigned sz = get_tail_size();
-        uninterpreted_function_finder_proc proc(m);
-        expr_mark visited;
-        for (unsigned i = get_uninterpreted_tail_size(); i < sz && !proc.found(f); ++i) {
-            for_each_expr(proc, visited, get_tail(i));
+    bool rule_manager::has_uninterpreted_non_predicates(rule const& r, func_decl*& f) const {
+        unsigned sz = r.get_tail_size();
+        m_ufproc.reset();
+        m_visited.reset();
+        for (unsigned i = r.get_uninterpreted_tail_size(); i < sz && !m_ufproc.found(f); ++i) {
+            for_each_expr_core<uninterpreted_function_finder_proc,expr_sparse_mark, true, false>(m_ufproc, m_visited, r.get_tail(i));
         }
-        return proc.found(f);
+        return m_ufproc.found(f);
     }
 
-
-    struct quantifier_finder_proc {
-        bool m_exist;
-        bool m_univ;
-        quantifier_finder_proc() : m_exist(false), m_univ(false) {}
-        void operator()(var * n) { }
-        void operator()(quantifier * n) {
-            if (n->is_forall()) {
-                m_univ = true;
-            }
-            else {
-                SASSERT(n->is_exists());
-                m_exist = true;
-            }
-        }
-        void operator()(app * n) { }
-    };
 
     //
     // Quantifiers may appear only in the interpreted tail, it is therefore 
     // sufficient only to check the interpreted tail.
     //
-    void rule::has_quantifiers(bool& existential, bool& universal) const {
-        unsigned sz = get_tail_size();
-        quantifier_finder_proc proc;
-        expr_mark visited;
-        for (unsigned i = get_uninterpreted_tail_size(); i < sz; ++i) {
-            for_each_expr(proc, visited, get_tail(i));
+    void rule_manager::has_quantifiers(rule const& r, bool& existential, bool& universal) const {
+        unsigned sz = r.get_tail_size();
+        m_qproc.reset();
+        m_visited.reset();
+        for (unsigned i = r.get_uninterpreted_tail_size(); i < sz; ++i) {
+            for_each_expr_core<quantifier_finder_proc,expr_sparse_mark, true, false>(m_qproc, m_visited, r.get_tail(i));
         }
-        existential = proc.m_exist;
-        universal = proc.m_univ;
+        existential = m_qproc.m_exist;
+        universal = m_qproc.m_univ;
     }
 
-    bool rule::has_quantifiers() const {
+    bool rule_manager::has_quantifiers(rule const& r) const {
         bool exist, univ;
-        has_quantifiers(exist, univ);
+        has_quantifiers(r, exist, univ);
         return exist || univ;
     }
 

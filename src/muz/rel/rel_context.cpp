@@ -578,7 +578,9 @@ namespace datalog {
     }
 
     void rel_context::updt_params() {
-        if (m_context.check_relation() != symbol::null) {
+        if (m_context.check_relation() != symbol::null &&
+            m_context.check_relation() != symbol("null")) {
+            std::cout << m_context.check_relation() << "\n";
             symbol cr("check_relation");
             m_context.set_default_relation(cr);
             relation_plugin* p = get_rmanager().get_relation_plugin(cr);

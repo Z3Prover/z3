@@ -813,9 +813,10 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_slice::operator()(rule_set const & src) {        
+    rule_set * mk_slice::operator()(rule_set const & src) { 
+        rule_manager& rm = m_ctx.get_rule_manager();       
         for (unsigned i = 0; i < src.get_num_rules(); ++i) {
-            if (src.get_rule(i)->has_quantifiers()) {
+            if (rm.has_quantifiers(*src.get_rule(i))) {
                 return 0;
             }
         }

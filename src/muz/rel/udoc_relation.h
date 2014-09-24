@@ -48,7 +48,7 @@ namespace datalog {
         virtual udoc_relation * complement(func_decl*) const;
         virtual void to_formula(expr_ref& fml) const;
         udoc_plugin& get_plugin() const; 
-        virtual bool fast_empty() const { return m_elems.is_empty(); }
+        virtual bool fast_empty() const { return !get_signature().empty() && m_elems.is_empty(); }
         virtual bool empty() const; 
         virtual void display(std::ostream& out) const;
         virtual bool is_precise() const { return true; }
@@ -68,6 +68,9 @@ namespace datalog {
         bool is_guard(unsigned n, expr* const *g) const;
         void compile_guard(expr* g, udoc& result, bit_vector const& discard_cols) const;
         void extract_equalities(expr* g, expr_ref& rest, subset_ints& equalities, unsigned_vector& roots) const;
+        void extract_equalities(
+            expr* e1, expr* e2, expr_ref_vector& conds, 
+            subset_ints& equalities, unsigned_vector& roots) const;
         void apply_guard(expr* g, udoc& result, bit_vector const& discard_cols) const;
         void apply_guard(expr* g, udoc& result, subset_ints const& equalities, bit_vector const& discard_cols) const;
         bool apply_ground_eq(doc_ref& d, unsigned v, unsigned hi, unsigned lo, expr* c) const;

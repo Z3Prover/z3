@@ -252,9 +252,10 @@ namespace datalog {
         }
         bool has_quantifiers = false;
         unsigned sz = source.get_num_rules();
+        rule_manager& rm = m_ctx.get_rule_manager();
         for (unsigned i = 0; !has_quantifiers && i < sz; ++i) {
             rule& r = *source.get_rule(i);
-            has_quantifiers = has_quantifiers || r.has_quantifiers();   
+            has_quantifiers = has_quantifiers || rm.has_quantifiers(r);   
             if (r.has_negation()) {
                 return 0;
             }
