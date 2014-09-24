@@ -23,6 +23,7 @@ Revision History:
 
 #include "fixed_bit_vector.h"
 #include "rational.h"
+#include "ast.h"
 
 class tbv;
 
@@ -80,6 +81,8 @@ public:
 
 
     static void debug_alloc();
+    expr_ref to_formula(ast_manager& m, tbv const& src);
+    expr_ref mk_var(ast_manager& m, unsigned i);
 };
 
 class tbv: private fixed_bit_vector {

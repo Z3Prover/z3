@@ -41,6 +41,7 @@ namespace datalog {
         fact_vector        m_table_facts;
         execution_context  m_ectx;
         instruction_block  m_code;
+        double             m_sw;
 
         class scoped_query;
 

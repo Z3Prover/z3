@@ -21,6 +21,7 @@ Revision History:
 
 
 #include"rel_context.h"
+#include"stopwatch.h"
 #include"dl_context.h"
 #include"dl_compiler.h"
 #include"dl_instruction.h"
@@ -97,7 +98,8 @@ namespace datalog {
           m_rmanager(ctx),
           m_answer(m), 
           m_last_result_relation(0),
-          m_ectx(ctx) {
+          m_ectx(ctx),
+          m_sw(0) {
 
         // register plugins for builtin tables
 
@@ -162,6 +164,9 @@ namespace datalog {
                 exit(0);
             }
 
+            ::stopwatch sw;
+            sw.start();
+
             compiler::compile(m_context, m_context.get_rules(), m_code, termination_code);
 
             TRACE("dl", m_code.display(*this, tout); );
@@ -180,6 +185,9 @@ namespace datalog {
             VERIFY( termination_code.perform(m_ectx) || m_context.canceled());
 
             m_code.process_all_costs();
+            sw.stop();
+            m_sw += sw.get_seconds();
+
 
             IF_VERBOSE(10, m_ectx.report_big_relations(1000, verbose_stream()););
 
@@ -562,6 +570,8 @@ namespace datalog {
     }
 
     void rel_context::collect_statistics(statistics& st) const {
+        st.update("saturation time", m_sw);
+        m_code.collect_statistics(st);
         m_ectx.collect_statistics(st);
     }
 

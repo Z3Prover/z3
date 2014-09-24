@@ -20,6 +20,7 @@ Revision History:
 
 #include "tbv.h"
 #include "hashtable.h"
+#include "ast_util.h"
 
 
 static bool s_debug_alloc = false;
@@ -268,4 +269,27 @@ std::ostream& tbv_manager::display(std::ostream& out, tbv const& b) const {
         }
     }
     return out;
+}
+
+expr_ref tbv_manager::to_formula(ast_manager& m, tbv const& src) {
+    expr_ref result(m);
+    expr_ref_vector conj(m);
+    for (unsigned i = 0; i < num_tbits(); ++i) {
+        switch (src[i]) {
+        case BIT_0:
+            conj.push_back(m.mk_not(m.mk_const(symbol(i), m.mk_bool_sort())));
+            break;
+        case BIT_1:
+            conj.push_back(m.mk_const(symbol(i), m.mk_bool_sort()));
+            break;
+        default:
+            break;
+        }
+    }
+    result = mk_and(m, conj.size(), conj.c_ptr());
+    return result;
+}
+
+expr_ref tbv_manager::mk_var(ast_manager& m, unsigned i) {
+    return expr_ref(m.mk_const(symbol(i), m.mk_bool_sort()), m);
 }

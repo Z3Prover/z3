@@ -232,7 +232,7 @@ namespace datalog {
 
            Each line must be prepended by \c indentation and ended by a newline character.
         */
-        virtual void display_body_impl(rel_context const & ctx, std::ostream & out, std::string indentation) const {}
+        virtual void display_body_impl(rel_context_base const & ctx, std::ostream & out, std::string indentation) const {}
         void log_verbose(execution_context& ctx);
 
     public:
@@ -301,6 +301,8 @@ namespace datalog {
 
         static instruction * mk_assert_signature(const relation_signature & s, reg_idx tgt);
 
+        void collect_statistics(statistics& st) const;
+
     };
 
 
@@ -327,7 +329,7 @@ namespace datalog {
 
         void push_back(instruction * i) { 
             m_data.push_back(i);
-            if(m_observer) {
+            if (m_observer) {
                 m_observer->notify(i);
             }
         }
@@ -335,6 +337,8 @@ namespace datalog {
             SASSERT(o==0 || m_observer==0);
             m_observer = o;
         }
+
+        void collect_statistics(statistics& st) const;
 
         /**
            \brief Perform instructions in the block. If the run was interrupted before completion,
@@ -353,6 +357,8 @@ namespace datalog {
             display_indented(ctx, out, "");
         }
         void display_indented(rel_context_base const & ctx, std::ostream & out, std::string indentation) const;
+
+        unsigned num_instructions() const { return m_data.size(); }
     };
 
 

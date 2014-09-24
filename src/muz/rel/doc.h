@@ -87,10 +87,15 @@ public:
     bool well_formed(doc const& d) const;
     bool merge(doc& d, unsigned lo, unsigned length, subset_ints const& equalities, bit_vector const& discard_cols);
     void set(doc& d, unsigned idx, tbit value);
+
+    void verify_project(ast_manager& m, doc_manager& dstm, bool const* to_delete, doc const& src, doc const& dst);
 private:
     unsigned diff_by_012(tbv const& pos, tbv const& neg, unsigned& index);
     bool merge(doc& d, unsigned idx, subset_ints const& equalities, bit_vector const& discard_cols);
-    bool can_project_neg(tbv const& pos, unsigned n, bool const* to_delete, tbv const& neg);
+    void project_rename(expr_ref& fml, bool const* to_delete);
+    void project_expand(expr_ref& fml, bool const* to_delete);
+    expr_ref to_formula(ast_manager& m, doc const& src);
+    void check_equiv(ast_manager& m, expr* fml1, expr* fml2);
 };
 
 
@@ -185,7 +190,7 @@ public:
     }
     void insert(M& m, union_bvec const& other) {
         for (unsigned i = 0; i < other.size(); ++i) {
-            insert(m, other[i]);
+            insert(m, &other[i]);
         }
     }
     void intersect(M& m, union_bvec const& other) {

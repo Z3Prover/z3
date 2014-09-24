@@ -443,7 +443,7 @@ public:
         join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
         t = (*join_fn)(*t1, *t2);
 
-        verify_join(*t1, *t2, *t, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
+        p.verify_join(*t1, *t2, *t, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
         t1->display(std::cout);
         t2->display(std::cout);
         t->display(std::cout);
@@ -458,43 +458,6 @@ public:
         mk_rand_udoc(t->get_dm(), 3, 3, t->get_udoc());
         return t;
     }
-
-    void verify_join(relation_base const& t1, relation_base& t2, relation_base& t,
-                     unsigned sz, unsigned const* cols1, unsigned const* cols2) {
-        relation_signature const& sig1 = t1.get_signature();
-        relation_signature const& sig2 = t2.get_signature();
-        relation_signature const& sig  = t.get_signature();
-        expr_ref fml1(m), fml2(m), fml3(m);
-        var_ref var1(m), var2(m);
-        t1.to_formula(fml1);
-        t2.to_formula(fml2);
-        t.to_formula(fml3);
-        var_subst sub(m, false);
-        expr_ref_vector vars(m);
-        for (unsigned i = 0; i < sig2.size(); ++i) {
-            vars.push_back(m.mk_var(i + sig1.size(), sig2[i]));
-        }
-        sub(fml2, vars.size(), vars.c_ptr(), fml2);
-        fml1 = m.mk_and(fml1, fml2);
-        for (unsigned i = 0; i < sz; ++i) {
-            unsigned v1 = cols1[i];
-            unsigned v2 = cols2[i];
-            var1 = m.mk_var(v1, sig1[v1]);
-            var2 = m.mk_var(v2 + sig1.size(), sig2[v2]);
-            fml1 = m.mk_and(m.mk_eq(var1, var2), fml1);
-        }
-        vars.reset();
-        for (unsigned i = 0; i < sig.size(); ++i) {
-            std::stringstream strm;
-            strm << "x" << i;
-            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
-        }
-        sub(fml1, vars.size(), vars.c_ptr(), fml1);
-        sub(fml3, vars.size(), vars.c_ptr(), fml3);
-        check_equiv(fml1, fml3);
-    }
-    
-    
 
     void check_permutation(relation_base* t1, unsigned_vector const& cycle) {
         scoped_ptr<datalog::relation_transformer_fn> rename;
@@ -739,41 +702,16 @@ public:
         udoc_relation* full = mk_full(t.get_signature());
         rel_union union_fn = p.mk_union_fn(t, *full, 0);
         (*union_fn)(t, *full, 0);
+        expr_ref fml0(m);
+        t.to_formula(fml0);
         rel_mut fint = p.mk_filter_interpreted_fn(t, cond);
         (*fint)(t);
         t.display(std::cout << "filter: " << mk_pp(cond, m) << " "); std::cout << "\n";
-        verify_filter(t, cond);
+        t.get_plugin().verify_filter(fml0, t, cond);
         full->deallocate();
     }
 
-    void verify_filter(udoc_relation& r, expr* fml2) {
-        expr_ref fml1(m), tmp(m);
-        r.to_formula(fml1);
-        tmp = m.mk_not(m.mk_eq(fml1, fml2));
-        relation_signature const& sig = r.get_signature();
-        expr_ref_vector vars(m);
-        var_subst sub(m, false);
-        for (unsigned i = 0; i < sig.size(); ++i) {
-            std::stringstream strm;
-            strm << "x" << i;
-            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
-        }
 
-        sub(tmp, vars.size(), vars.c_ptr(), tmp);
-        
-        smt_params fp;
-        smt::kernel solver(m, fp);
-        TRACE("doc", 
-              tout << "Original formula:\n";
-              tout << mk_pp(fml2, m) << "\n";
-              tout << "Filtered formula: \n";
-              tout << mk_pp(fml1,m) << "\n";
-              tout << tmp << "\n";
-              );
-        solver.assert_expr(tmp);
-        lbool res = solver.check();
-        SASSERT(res == l_false);
-    }
 };
 
 void tst_udoc_relation() {

@@ -133,6 +133,15 @@ namespace datalog {
         virtual relation_transformer_fn * mk_filter_interpreted_and_project_fn(
             const relation_base & t, app * condition,
             unsigned removed_col_cnt, const unsigned * removed_cols);
+
+        void verify_join(relation_base const& t1, relation_base const& t2, relation_base const& t,
+                         unsigned sz, unsigned const* cols1, unsigned const* cols2);
+
+        void verify_filter(expr* fml0, relation_base const& t, expr* cond);
+
+        void verify_union(expr* fml0, relation_base const& src, relation_base const& dst, relation_base const* delta);
+
+        void check_equiv(expr* f1, expr* f2);
     };
 };
        

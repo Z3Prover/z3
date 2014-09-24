@@ -21,6 +21,10 @@ Revision History:
 --*/
 
 #include "doc.h"
+#include "smt_kernel.h"
+#include "expr_safe_replace.h"
+#include "smt_params.h"
+#include "ast_util.h"
 
 doc_manager::doc_manager(unsigned n): m(n), m_alloc("doc") {
     m_full = m.allocateX();
@@ -384,15 +388,6 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, 
     return r;
 }
 
-#if 0
-bool doc_manager::can_project_neg(tbv const& pos, unsigned n, bool const* to_delete, tbv const& neg) {
-    for (unsigned i = 0; i < n; ++i) {
-        if (to_delete[i] && BIT_x != neg[i] && BIT_x == pos[i]) return false;
-    }
-    return true;
-}
-#endif
-
 doc_manager::project_action_t 
 doc_manager::pick_resolvent(
     tbv const& pos, tbv_vector const& neg, bool const* to_delete, unsigned& idx) {
@@ -453,7 +448,8 @@ doc_manager::pick_resolvent(
         return project_done;
     }
 }
-    
+
+
 
 void doc_manager::complement(doc const& src, doc_vector& result) {
     result.reset();
@@ -504,6 +500,9 @@ bool doc_manager::is_empty(doc const& src)  {
     if (src.neg().size() == 1) {
         return m.equals(src.pos(), src.neg()[0]);
     }
+    return false;
+#if 0
+    // buggy:
     tbv_ref pos(m, m.allocate(src.pos()));
     for (unsigned i = 0; i < src.neg().size(); ++i) {
         bool found = false;
@@ -525,6 +524,7 @@ bool doc_manager::is_empty(doc const& src)  {
         }
     }
     return true;
+#endif
 }
 
 unsigned doc_manager::hash(doc const& src) const {
@@ -559,3 +559,72 @@ std::ostream& doc_manager::display(std::ostream& out, doc const& b) const {
     return out;
 }
 
+
+void doc_manager::verify_project(ast_manager& m, doc_manager& dstm, bool const* to_delete, doc const& src, doc const& dst) {
+    expr_ref fml1 = to_formula(m, src);
+    expr_ref fml2 = dstm.to_formula(m, dst);
+    project_rename(fml2, to_delete);
+    project_expand(fml1, to_delete);   
+    check_equiv(m, fml1, fml2);
+}
+
+void doc_manager::check_equiv(ast_manager& m, expr* fml1, expr* fml2) {
+    smt_params fp;
+    smt::kernel solver(m, fp);
+    expr_ref fml(m);
+    fml = m.mk_not(m.mk_eq(fml1, fml2));
+    solver.assert_expr(fml);
+    lbool res = solver.check();
+    if (res != l_false) {        
+        TRACE("doc",
+              tout << mk_pp(fml1, m) << "\n";
+              tout << mk_pp(fml2, m) << "\n";
+              );
+        UNREACHABLE();
+        throw 0;
+    }
+    SASSERT(res == l_false);
+}
+
+expr_ref doc_manager::to_formula(ast_manager& m, doc const& src) {
+    expr_ref result(m);
+    expr_ref_vector conj(m);
+    conj.push_back(tbvm().to_formula(m, src.pos()));
+    for (unsigned i = 0; i < src.neg().size(); ++i) {
+        conj.push_back(m.mk_not(tbvm().to_formula(m, src.neg()[i])));
+    }
+    result = mk_and(m, conj.size(), conj.c_ptr());
+    return result;
+}
+    
+void doc_manager::project_expand(expr_ref& fml, bool const* to_delete) {
+    ast_manager& m = fml.get_manager();
+    expr_ref tmp1(m), tmp2(m);
+    for (unsigned i = 0; i < num_tbits(); ++i) {
+        if (to_delete[i]) {
+            expr_safe_replace rep1(m), rep2(m);
+            rep1.insert(tbvm().mk_var(m, i), m.mk_true());
+            rep1(fml, tmp1);
+            rep2.insert(tbvm().mk_var(m, i), m.mk_false());
+            rep2(fml, tmp2);
+            if (tmp1 == tmp2) {
+                fml = tmp1;
+            }
+            else {
+                fml = m.mk_or(tmp1, tmp2);
+            }
+        }
+    }
+}
+
+void doc_manager::project_rename(expr_ref& fml, bool const* to_delete) {
+    ast_manager& m = fml.get_manager();
+    expr_safe_replace rep(m);
+    for (unsigned i = 0, j = 0; i < num_tbits(); ++i) {
+        if (!to_delete[i]) {
+            rep.insert(tbvm().mk_var(m, j), tbvm().mk_var(m, i));
+            ++j;
+        }
+    }
+    rep(fml);
+}

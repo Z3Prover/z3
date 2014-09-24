@@ -69,6 +69,7 @@ public:
 #undef ARRAYSIZE
 #define ARRAYSIZE ARRAYSIZE_TEMP
 #undef max
+#undef min
 
 
 #elif defined(__APPLE__) && defined (__MACH__) // Mac OS X

@@ -156,6 +156,14 @@ namespace datalog {
         process_costs();
     }
 
+    void instruction::collect_statistics(statistics& st) const {
+        costs c;
+        get_total_cost(c);
+        st.update("instruction", c.instructions);
+        st.update("instruction-time", c.milliseconds);
+    }
+
+
     void instruction::display_indented(rel_context_base const & _ctx, std::ostream & out, std::string indentation) const {
         out << indentation;
         rel_context const& ctx = dynamic_cast<const rel_context&>(_ctx);
@@ -257,7 +265,7 @@ namespace datalog {
         instr_clone_move(bool clone, reg_idx src, reg_idx tgt)
             : m_clone(clone), m_src(src), m_tgt(tgt) {}
         virtual bool perform(execution_context & ctx) {
-            log_verbose(ctx);            
+            if (ctx.reg(m_src)) log_verbose(ctx);            
             ctx.make_empty(m_tgt);
             if (m_clone) {
                 ctx.set_reg(m_tgt, ctx.reg(m_src) ? ctx.reg(m_src)->clone() : 0);
@@ -1142,6 +1150,15 @@ namespace datalog {
         instr_seq_type::iterator end = m_data.end();
         for(; it!=end; ++it) {
             (*it)->process_all_costs();
+        }
+    }
+
+
+    void instruction_block::collect_statistics(statistics& st) const {
+        instr_seq_type::const_iterator it = m_data.begin();
+        instr_seq_type::const_iterator end = m_data.end();
+        for(; it!=end; ++it) {
+            (*it)->collect_statistics(st);
         }
     }
 
