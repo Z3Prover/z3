@@ -278,7 +278,9 @@ namespace datalog {
     bool context::use_map_names() const { return m_params->datalog_use_map_names(); }
     bool context::fix_unbound_vars() const { return m_params->xform_fix_unbound_vars(); }
     symbol context::default_table() const { return m_params->datalog_default_table(); }
-    symbol context::default_relation() const { return m_params->datalog_default_relation(); } // external_relation_plugin::get_name()); 
+    symbol context::default_relation() const { return m_default_relation; }
+    void context::set_default_relation(symbol const& s) { m_default_relation = s; }
+    symbol context::check_relation() const { return m_params->datalog_check_relation(); }
     symbol context::default_table_checker() const { return m_params->datalog_default_table_checker(); }
     bool context::default_table_checked() const { return m_params->datalog_default_table_checked(); }
     bool context::dbg_fpr_nonempty_relation_signature() const { return m_params->datalog_dbg_fpr_nonempty_relation_signature(); }
@@ -840,6 +842,7 @@ namespace datalog {
         if (m_engine.get()) m_engine->updt_params();
         m_generate_proof_trace = m_params->generate_proof_trace();
         m_unbound_compressor = m_params->datalog_unbound_compressor(); 
+        m_default_relation = m_params->datalog_default_relation(); 
     }
 
     expr_ref context::get_background_assertion() {
@@ -1005,6 +1008,7 @@ namespace datalog {
     void context::ensure_engine() {
         if (!m_engine.get()) {
             m_engine = m_register_engine.mk_engine(get_engine());
+            m_engine->updt_params();
 
             // break abstraction.
             if (get_engine() == DATALOG_ENGINE) {

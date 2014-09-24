@@ -248,6 +248,7 @@ namespace datalog {
         class plugin_object {
             friend class relation_manager;
             friend class check_table_plugin;
+            friend class check_relation_plugin;
 
             family_id m_kind;
             symbol    m_name;

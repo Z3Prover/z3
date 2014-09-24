@@ -84,6 +84,7 @@ namespace datalog {
 
         virtual void cancel() { set_cancel(true); }
         virtual void cleanup() { set_cancel(false);}
+        virtual void updt_params();
 
         /**
            \brief Restrict the set of used predicates to \c res.

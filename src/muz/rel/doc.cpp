@@ -25,6 +25,7 @@ Revision History:
 #include "expr_safe_replace.h"
 #include "smt_params.h"
 #include "ast_util.h"
+#include "ast_pp.h"
 
 doc_manager::doc_manager(unsigned n): m(n), m_alloc("doc") {
     m_full = m.allocateX();

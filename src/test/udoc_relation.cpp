@@ -15,6 +15,7 @@
 #include "dl_register_engine.h"
 #include "rel_context.h"
 #include "bv_decl_plugin.h"
+#include "check_relation.h"
 
 
 class udoc_tester {
@@ -41,6 +42,7 @@ class udoc_tester {
     datalog::context          m_ctx;
     datalog::rel_context      rc;
     udoc_plugin&              p;
+    datalog::check_relation_plugin&           cr;
 
 
     tbit choose_tbit() {
@@ -92,9 +94,12 @@ class udoc_tester {
     }
 
 public:
-    udoc_tester(): m_init(m), bv(m), m_vars(m), m_ctx(m, m_reg, m_smt_params), rc(m_ctx),
-                   p(dynamic_cast<udoc_plugin&>(*rc.get_rmanager().get_relation_plugin(symbol("doc"))))
-    {        
+    udoc_tester(): 
+        m_init(m), bv(m), m_vars(m), m_ctx(m, m_reg, m_smt_params), rc(m_ctx),
+        p(dynamic_cast<udoc_plugin&>(*rc.get_rmanager().get_relation_plugin(symbol("doc")))),
+        cr(dynamic_cast<datalog::check_relation_plugin&>(*rc.get_rmanager().get_relation_plugin(symbol("check_relation"))))
+    {   
+        cr.set_plugin(&p);
     }
 
     udoc_relation* mk_empty(relation_signature const& sig) {
@@ -443,7 +448,7 @@ public:
         join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
         t = (*join_fn)(*t1, *t2);
 
-        p.verify_join(*t1, *t2, *t, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
+        cr.verify_join(*t1, *t2, *t, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
         t1->display(std::cout);
         t2->display(std::cout);
         t->display(std::cout);
@@ -707,7 +712,7 @@ public:
         rel_mut fint = p.mk_filter_interpreted_fn(t, cond);
         (*fint)(t);
         t.display(std::cout << "filter: " << mk_pp(cond, m) << " "); std::cout << "\n";
-        t.get_plugin().verify_filter(fml0, t, cond);
+        cr.verify_filter(fml0, t, cond);
         full->deallocate();
     }
 

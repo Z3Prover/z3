@@ -262,7 +262,7 @@ class test_doc_cls {
                 rep2.insert(m_vars[i].get(), m.mk_false());
                 rep2(fml, tmp2);
                 if (tmp1 == tmp2) {
-                    fml1 = tmp1;
+                    fml = tmp1;
                 }
                 else {
                     fml = m.mk_or(tmp1, tmp2);

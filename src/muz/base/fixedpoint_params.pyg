@@ -37,6 +37,8 @@ def_module_params('fixedpoint',
                            'table will be default_table inside a wrapper that checks that its results ' +
                            'are the same as of default_table_checker table'),
                           ('datalog.default_table_checker', SYMBOL, 'null', "see default_table_checked"),
+                          ('datalog.check_relation',SYMBOL,'null', "name of default relation to check. " +
+                           "operations on the default relation will be verified using SMT solving"),
                           ('datalog.initial_restart_timeout', UINT, 0, 
                            "length of saturation run before the first restart (in ms), " + 
                            "zero means no restarts"),

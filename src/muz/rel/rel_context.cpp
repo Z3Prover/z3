@@ -34,6 +34,7 @@ Revision History:
 #include"dl_finite_product_relation.h"
 #include"product_set.h"
 #include"udoc_relation.h"
+#include"check_relation.h"
 #include"dl_lazy_table.h"
 #include"dl_sparse_table.h"
 #include"dl_table.h"
@@ -118,6 +119,7 @@ namespace datalog {
         rm.register_plugin(alloc(karr_relation_plugin, rm));
         rm.register_plugin(alloc(product_set_plugin, rm));
         rm.register_plugin(alloc(udoc_plugin, rm));
+        rm.register_plugin(alloc(check_relation_plugin, rm));
     }
 
     rel_context::~rel_context() {
@@ -573,6 +575,24 @@ namespace datalog {
         st.update("saturation time", m_sw);
         m_code.collect_statistics(st);
         m_ectx.collect_statistics(st);
+    }
+
+    void rel_context::updt_params() {
+        if (m_context.check_relation() != symbol::null) {
+            symbol cr("check_relation");
+            m_context.set_default_relation(cr);
+            relation_plugin* p = get_rmanager().get_relation_plugin(cr);
+            SASSERT(p);
+            check_relation_plugin* p1 = dynamic_cast<check_relation_plugin*>(p);
+            relation_plugin* p2 = get_rmanager().get_relation_plugin(m_context.check_relation());
+            SASSERT(p2);
+            SASSERT(p1 != p2);
+            p1->set_plugin(p2);
+            get_rmanager().set_favourite_plugin(p1);
+            if (m_context.check_relation() == symbol("doc")) {
+                m_context.set_unbound_compressor(false);
+            }
+        }
     }
 
     void rel_context::inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred) {

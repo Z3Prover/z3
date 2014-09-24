@@ -759,9 +759,9 @@ namespace datalog {
             if (!ctx.reg(m_src)) {
                 return true;
             }
+
             log_verbose(ctx);            
             ++ctx.m_stats.m_project_rename;
-
             relation_transformer_fn * fn;
             relation_base & r_src = *ctx.reg(m_src);
             if (!find_fn(r_src, fn)) {
@@ -885,13 +885,12 @@ namespace datalog {
         }
 
         virtual bool perform(execution_context & ctx) {
-            log_verbose(ctx);            
-            ++ctx.m_stats.m_select_equal_project;
             if (!ctx.reg(m_src)) {
                 ctx.make_empty(m_result);
                 return true;
             }
-
+            log_verbose(ctx);            
+            ++ctx.m_stats.m_select_equal_project;
             relation_transformer_fn * fn;
             relation_base & r = *ctx.reg(m_src);
             if (!find_fn(r, fn)) {

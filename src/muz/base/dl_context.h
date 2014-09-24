@@ -173,6 +173,7 @@ namespace datalog {
         fixedpoint_params*  m_params;
         bool               m_generate_proof_trace;
         bool               m_unbound_compressor;
+        symbol             m_default_relation;
         dl_decl_util       m_decl_util;
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
@@ -250,7 +251,9 @@ namespace datalog {
         bool fix_unbound_vars() const;
         symbol default_table() const;
         symbol default_relation() const;
-        symbol default_table_checker() const;
+        void set_default_relation(symbol const& s);
+        symbol default_table_checker() const;        
+        symbol check_relation() const;
         bool default_table_checked() const;
         bool dbg_fpr_nonempty_relation_signature() const;
         unsigned dl_profile_milliseconds_threshold() const;

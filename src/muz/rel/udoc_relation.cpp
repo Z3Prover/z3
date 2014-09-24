@@ -402,7 +402,6 @@ namespace datalog {
             TRACE("doc", result->display(tout << "result:\n"););
             IF_VERBOSE(3, result->display(verbose_stream() << "join result:\n"););
             SASSERT(r.well_formed(result->get_dm()));
-            DEBUG_CODE(p.verify_join(r1, r2, *result, m_orig_cols1.size(), m_orig_cols1.c_ptr(), m_orig_cols2.c_ptr()););
             return result;
         }
     };
@@ -572,7 +571,6 @@ namespace datalog {
             TRACE("doc", _r.display(tout << "dst':\n"); );
             IF_VERBOSE(3, r.display(verbose_stream() << "union: "););
             IF_VERBOSE(3, if (d) d->display(verbose_stream() << "delta: "););
-            DEBUG_CODE(r.get_plugin().verify_union(fml0, src, r, d););
         }
     };
     void udoc_plugin::mk_union(doc_manager& dm, udoc& dst, udoc const& src, udoc* delta) {
@@ -957,8 +955,6 @@ namespace datalog {
             udoc_relation & t = get(tb);
             udoc& u = t.get_udoc();
             ast_manager& m = m_reduced_condition.get_manager();
-            expr_ref fml0(m);
-            DEBUG_CODE(t.to_formula(fml0););
             SASSERT(u.well_formed(dm));
             u.intersect(dm, m_udoc);
             SASSERT(u.well_formed(dm));
@@ -968,7 +964,6 @@ namespace datalog {
             SASSERT(u.well_formed(dm));
             TRACE("doc", tout << "final size: " << t.get_size_estimate_rows() << '\n';);
             IF_VERBOSE(3, t.display(verbose_stream()););
-            DEBUG_CODE(t.get_plugin().verify_filter(fml0, t, m_original_condition););
         }
     };
     relation_mutator_fn * udoc_plugin::mk_filter_interpreted_fn(const relation_base & t, app * condition) {
@@ -1118,13 +1113,6 @@ namespace datalog {
             u2.merge(dm, m_roots, m_equalities, m_col_list);
             t.apply_guard(m_reduced_condition, u2, m_equalities, m_col_list);
             SASSERT(u2.well_formed(dm));  
-            DEBUG_CODE(
-                expr_ref fml0(m);            
-                udoc_relation* r_test = get(t.get_plugin().mk_empty(t.get_signature()));
-                r_test->get_udoc().insert(dm, u2);
-                t.to_formula(fml0);
-                t.get_plugin().verify_filter(fml0, *r_test, m_original_condition);
-                r_test->deallocate(););
             udoc_relation* r = get(t.get_plugin().mk_empty(get_result_signature()));
             doc_manager& dm2 = r->get_dm();
             // std::cout << "Size of union: " << u2.size() << "\n";
@@ -1145,113 +1133,7 @@ namespace datalog {
         return check_kind(t)?alloc(filter_proj_fn, get(t), get_ast_manager(), condition, removed_col_cnt, removed_cols):0;
     }
 
-    // TBD: move this to relation validation module like table_checker.
-    void udoc_plugin::verify_join(relation_base const& t1, relation_base const& t2, relation_base const& t,
-                                  unsigned sz, unsigned const* cols1, unsigned const* cols2) {
-        ast_manager& m = get_ast_manager();
-        expr_ref fml1(m), fml2(m), fml3(m);
-        
-        relation_signature const& sig1 = t1.get_signature();
-        relation_signature const& sig2 = t2.get_signature();
-        relation_signature const& sig  = t.get_signature();
-        var_ref var1(m), var2(m);
-        t1.to_formula(fml1);
-        t2.to_formula(fml2);
-        t.to_formula(fml3);
-        var_subst sub(m, false);
-        expr_ref_vector vars(m);
-        for (unsigned i = 0; i < sig2.size(); ++i) {
-            vars.push_back(m.mk_var(i + sig1.size(), sig2[i]));
-        }
-        sub(fml2, vars.size(), vars.c_ptr(), fml2);
-        fml1 = m.mk_and(fml1, fml2);
-        for (unsigned i = 0; i < sz; ++i) {
-            unsigned v1 = cols1[i];
-            unsigned v2 = cols2[i];
-            var1 = m.mk_var(v1, sig1[v1]);
-            var2 = m.mk_var(v2 + sig1.size(), sig2[v2]);
-            fml1 = m.mk_and(m.mk_eq(var1, var2), fml1);
-        }
-        vars.reset();
-        for (unsigned i = 0; i < sig.size(); ++i) {
-            std::stringstream strm;
-            strm << "x" << i;
-            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
-        }
-        sub(fml1, vars.size(), vars.c_ptr(), fml1);
-        sub(fml3, vars.size(), vars.c_ptr(), fml3);
-        check_equiv(fml1, fml3);
-    }
 
-    void udoc_plugin::verify_filter(expr* fml0, relation_base const& t, expr* cond) {
-        expr_ref fml1(m), fml2(m);
-        fml1 = m.mk_and(fml0, cond);
-        t.to_formula(fml2);
-        
-        relation_signature const& sig = t.get_signature();
-        expr_ref_vector vars(m);
-        var_subst sub(m, false);
-        for (unsigned i = 0; i < sig.size(); ++i) {
-            std::stringstream strm;
-            strm << "x" << i;
-            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
-        }
-        sub(fml1, vars.size(), vars.c_ptr(), fml1);
-        sub(fml2, vars.size(), vars.c_ptr(), fml2);
-        check_equiv(fml1, fml2);
-    }
-
-    void udoc_plugin::check_equiv(expr* fml1, expr* fml2) {
-        TRACE("doc", tout << mk_pp(fml1, m) << "\n";
-              tout << mk_pp(fml2, m) << "\n";);
-        smt_params fp;
-        smt::kernel solver(m, fp);
-        expr_ref tmp(m);
-        tmp = m.mk_not(m.mk_eq(fml1, fml2));
-        solver.assert_expr(tmp);
-        lbool res = solver.check();
-        IF_VERBOSE(3, verbose_stream() << "result of verification: " << res << "\n";);
-        if (res != l_false) {
-            throw 0;
-        }
-        SASSERT(res == l_false);            
-    }
-
-    void udoc_plugin::verify_union(expr* fml0, relation_base const& src, relation_base const& dst, relation_base const* delta) {
-        expr_ref fml1(m), fml2(m), fml3(m);
-        src.to_formula(fml1);
-        dst.to_formula(fml2);
-        fml1 = m.mk_or(fml1, fml0);
-        relation_signature const& sig = dst.get_signature();
-        expr_ref_vector vars(m);
-        var_subst sub(m, false);
-        for (unsigned i = 0; i < sig.size(); ++i) {
-            std::stringstream strm;
-            strm << "x" << i;
-            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
-        }
-        sub(fml1, vars.size(), vars.c_ptr(), fml1);
-        sub(fml2, vars.size(), vars.c_ptr(), fml2);
-
-        check_equiv(fml1, fml2);
-
-        if (delta) {
-            delta->to_formula(fml3);
-            // dst >= delta >= dst \ fml0
-            // dst \ fml0 == delta & dst & \ fml0
-            // dst & delta = delta
-            expr_ref fml4(m), fml5(m);
-            fml4 = m.mk_and(fml2, m.mk_not(fml0));
-            fml5 = m.mk_and(fml3, fml4);
-            sub(fml4, vars.size(), vars.c_ptr(), fml4);
-            sub(fml5, vars.size(), vars.c_ptr(), fml5);
-            check_equiv(fml4, fml5);
-            fml4 = m.mk_and(fml3, fml2);
-            sub(fml3, vars.size(), vars.c_ptr(), fml3);
-            sub(fml4, vars.size(), vars.c_ptr(), fml4);
-            check_equiv(fml3, fml4);
-        }
-    }
 
 
 }

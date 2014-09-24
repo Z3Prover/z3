@@ -176,6 +176,7 @@ namespace datalog {
         table_plugin * get_table_plugin(symbol const& s);
         relation_plugin * get_relation_plugin(symbol const& s);
         relation_plugin & get_relation_plugin(family_id kind);
+        void              set_favourite_plugin(relation_plugin* p) { m_favourite_relation_plugin = p; }
         table_relation_plugin & get_table_relation_plugin(table_plugin & tp);
         bool try_get_finite_product_relation_plugin(const relation_plugin & inner, 
             finite_product_relation_plugin * & res);
