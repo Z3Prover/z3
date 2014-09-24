@@ -157,6 +157,7 @@ namespace datalog {
                 break;
             }
             TRACE("dl", m_context.display(tout););
+            //IF_VERBOSE(3, m_context.display_smt2(0,0,verbose_stream()););
 
             if (m_context.get_params().print_aig().size()) {
                 const char *filename = static_cast<const char*>(m_context.get_params().print_aig().c_ptr());
@@ -580,7 +581,6 @@ namespace datalog {
     void rel_context::updt_params() {
         if (m_context.check_relation() != symbol::null &&
             m_context.check_relation() != symbol("null")) {
-            std::cout << m_context.check_relation() << "\n";
             symbol cr("check_relation");
             m_context.set_default_relation(cr);
             relation_plugin* p = get_rmanager().get_relation_plugin(cr);

@@ -17,8 +17,8 @@ namespace datalog {
     check_relation::~check_relation() {
         m_relation->deallocate();
     }
-    void check_relation::check_equiv(expr* f1, expr* f2) const { 
-        get_plugin().check_equiv(f1, f2); 
+    void check_relation::check_equiv(char const* objective, expr* f1, expr* f2) const { 
+        get_plugin().check_equiv(objective, f1, f2); 
     }
     void check_relation::consistent_formula() {
         expr_ref fml(m);
@@ -53,7 +53,7 @@ namespace datalog {
         m_relation->add_fact(f);
         m_relation->to_formula(fml1);
         m_fml = m.mk_or(m_fml, mk_eq(f));        
-        check_equiv(ground(m_fml), ground(fml1));
+        check_equiv("add_fact", ground(m_fml), ground(fml1));
         m_fml = fml1;
     }
     void check_relation::add_new_fact(const relation_fact & f) {
@@ -61,20 +61,20 @@ namespace datalog {
         m_relation->add_new_fact(f);
         m_relation->to_formula(fml1);
         m_fml = m.mk_or(m_fml, mk_eq(f));
-        check_equiv(ground(m_fml), ground(fml1));
+        check_equiv("add_fact", ground(m_fml), ground(fml1));
         m_fml = fml1;
     }
     bool check_relation::empty() const {
         bool result = m_relation->empty();
         if (result && !m.is_false(m_fml)) {
-            check_equiv(m.mk_false(), ground(m_fml));
+            check_equiv("empty", m.mk_false(), ground(m_fml));
         }
         return result;
     }
     bool check_relation::fast_empty() const {
         bool result = m_relation->fast_empty();
         if (result && !m.is_false(m_fml)) {
-            check_equiv(m.mk_false(), ground(m_fml));
+            check_equiv("fast_empty", m.mk_false(), ground(m_fml));
         }
         return result;
     }
@@ -89,10 +89,10 @@ namespace datalog {
         fml1 = mk_eq(f);
         fml2 = m.mk_and(m_fml, fml1);
         if (result) {
-            check_equiv(ground(fml1), ground(fml2));            
+            check_equiv("contains fact", ground(fml1), ground(fml2));            
         }
         else if (!m.is_false(m_fml)) {
-            check_equiv(ground(fml2), m.mk_false());            
+            check_equiv("contains fact", ground(fml2), m.mk_false());            
         }
         return result;
     }
@@ -102,7 +102,7 @@ namespace datalog {
         result->m_relation = m_relation->clone();
         result->m_relation->to_formula(result->m_fml);
         if (m_fml != result->m_fml) {
-            check_equiv(ground(m_fml), ground(result->m_fml));
+            check_equiv("clone", ground(m_fml), ground(result->m_fml));
         }
         return result;
     }
@@ -113,7 +113,7 @@ namespace datalog {
         result->m_relation->to_formula(result->m_fml);
         expr_ref fml(m);
         fml = m.mk_not(m_fml);
-        check_equiv(ground(fml), ground(result->m_fml));
+        check_equiv("complement", ground(fml), ground(result->m_fml));
         return result;
     }
     void check_relation::to_formula(expr_ref& fml) const {
@@ -153,11 +153,19 @@ namespace datalog {
     }
     relation_base * check_relation_plugin::mk_empty(const relation_signature & sig) {
         relation_base* r = m_base->mk_empty(sig);
-        return alloc(check_relation, *this, sig, r);
+        check_relation* result = alloc(check_relation, *this, sig, r);
+        if (result->m_fml != m.mk_false()) {
+            check_equiv("mk_empty", result->ground(result->m_fml), m.mk_false());
+        }
+        return result;
     }
     relation_base * check_relation_plugin::mk_full(func_decl* p, const relation_signature & s) {
         relation_base* r = m_base->mk_full(p, s);
-        return alloc(check_relation, *this, s, r);
+        check_relation* result = alloc(check_relation, *this, s, r);
+        if (result->m_fml != m.mk_true()) {
+            check_equiv("mk_full", result->ground(result->m_fml), m.mk_true());
+        }
+        return result;
     }
 
     class check_relation_plugin::join_fn : public convenient_relation_join_fn {
@@ -239,7 +247,7 @@ namespace datalog {
         sub(f2, vars2.size(), vars2.c_ptr(), fml2);
         bound.reverse();        
         fml1 = m.mk_exists(bound.size(), bound.c_ptr(), names.c_ptr(), fml1);
-        check_equiv(fml1, fml2);
+        check_equiv("project", fml1, fml2);
     }
 
     void check_relation_plugin::verify_permutation(
@@ -277,7 +285,7 @@ namespace datalog {
         subst(fml1, vars.size(), vars.c_ptr(), fml1);
         subst(fml2, vars.size(), vars.c_ptr(), fml2);
         
-        check_equiv(fml1, fml2);
+        check_equiv("permutation", fml1, fml2);
     }
 
     void check_relation_plugin::verify_join(relation_base const& t1, relation_base const& t2, relation_base const& t,
@@ -314,7 +322,7 @@ namespace datalog {
         }
         sub(fml1, vars.size(), vars.c_ptr(), fml1);
         sub(fml3, vars.size(), vars.c_ptr(), fml3);
-        check_equiv(fml1, fml3);
+        check_equiv("join", fml1, fml3);
     }
 
     void check_relation_plugin::verify_filter(expr* fml0, relation_base const& t, expr* cond) {
@@ -332,10 +340,10 @@ namespace datalog {
         }
         sub(fml1, vars.size(), vars.c_ptr(), fml1);
         sub(fml2, vars.size(), vars.c_ptr(), fml2);
-        check_equiv(fml1, fml2);
+        check_equiv("filter", fml1, fml2);
     }
 
-    void check_relation_plugin::check_equiv(expr* fml1, expr* fml2) {
+    void check_relation_plugin::check_equiv(char const* objective, expr* fml1, expr* fml2) {
         TRACE("doc", tout << mk_pp(fml1, m) << "\n";
               tout << mk_pp(fml2, m) << "\n";);
         smt_params fp;
@@ -345,7 +353,7 @@ namespace datalog {
         solver.assert_expr(tmp);
         lbool res = solver.check();
         if (res == l_false) {
-            IF_VERBOSE(3, verbose_stream() << "verified\n";);
+            IF_VERBOSE(3, verbose_stream() << objective << " verified\n";);
         }
         else {
             IF_VERBOSE(3, verbose_stream() << "NOT verified " << res << "\n";
@@ -371,23 +379,24 @@ namespace datalog {
         sub(fml1, vars.size(), vars.c_ptr(), fml1);
         sub(fml2, vars.size(), vars.c_ptr(), fml2);
 
-        check_equiv(fml1, fml2);
+        check_equiv("union", fml1, fml2);
 
         if (delta) {
             delta->to_formula(fml3);
-            // dst >= delta >= dst \ fml0
+            IF_VERBOSE(3, verbose_stream() << "verify delta\n";
+                       verbose_stream() << fml3 << "\n";);
+            // delta >= dst \ fml0
             // dst \ fml0 == delta & dst & \ fml0
-            // dst & delta = delta
             expr_ref fml4(m), fml5(m);
             fml4 = m.mk_and(fml2, m.mk_not(fml0));
             fml5 = m.mk_and(fml3, fml4);
             sub(fml4, vars.size(), vars.c_ptr(), fml4);
             sub(fml5, vars.size(), vars.c_ptr(), fml5);
-            check_equiv(fml4, fml5);
-            fml4 = m.mk_and(fml3, fml2);
-            sub(fml3, vars.size(), vars.c_ptr(), fml3);
-            sub(fml4, vars.size(), vars.c_ptr(), fml4);
-            check_equiv(fml3, fml4);
+            check_equiv("union delta low", fml4, fml5);
+            //fml4 = m.mk_and(fml3, fml2);
+            //sub(fml3, vars.size(), vars.c_ptr(), fml3);
+            //sub(fml4, vars.size(), vars.c_ptr(), fml4);
+            //check_equiv("union delta high", fml3, fml4);
         }
     }
 
@@ -560,7 +569,7 @@ namespace datalog {
             expr_ref fml = t.m_fml;
             t.rb().to_formula(t.m_fml);
             fml = p.m.mk_and(fml, p.m.mk_eq(p.m.mk_var(m_col, t.get_signature()[m_col]), m_val));
-            p.check_equiv(t.ground(fml), t.ground(t.m_fml));
+            p.check_equiv("filter_equal", t.ground(fml), t.ground(t.m_fml));
         }
     };
     relation_mutator_fn * check_relation_plugin::mk_filter_equal_fn(
@@ -586,11 +595,11 @@ namespace datalog {
         }
         
         virtual void operator()(relation_base& tb, const relation_base& negb) {
+            IF_VERBOSE(0, verbose_stream() << "TBD: verify filter_negation\n";);
             check_relation& t = get(tb);
             check_relation const& n = get(negb);
             check_relation_plugin& p = t.get_plugin();
             (*m_filter)(t.rb(), n.rb());
-            IF_VERBOSE(0, verbose_stream() << "TBD: verify filter_negation\n";);
             t.rb().to_formula(t.m_fml);
         }
     };

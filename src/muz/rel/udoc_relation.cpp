@@ -561,11 +561,9 @@ namespace datalog {
             udoc_relation* d = get(_delta);
             doc_manager& dm = r.get_dm();
             ast_manager& m = r.get_plugin().get_ast_manager();
-            expr_ref fml0(m);
-            DEBUG_CODE(r.to_formula(fml0););
             udoc* d1 = 0;
             if (d) d1 = &d->get_udoc();
-            if (d1) d1->reset(dm);
+            IF_VERBOSE(3, r.display(verbose_stream() << "orig:  "););
             r.get_plugin().mk_union(dm, r.get_udoc(), src.get_udoc(), d1);
             SASSERT(r.get_udoc().well_formed(dm));
             SASSERT(!d1 || d1->well_formed(dm));
@@ -1051,6 +1049,7 @@ namespace datalog {
             }
             std::swap(dst, result);
             if (dst.is_empty()) {
+                IF_VERBOSE(3, tb.display(verbose_stream()););
                 return;
             }
 
@@ -1070,6 +1069,7 @@ namespace datalog {
             TRACE("doc", dst.display(dm, tout) << "\n";);
             SASSERT(dst.well_formed(dm));
             renamed_neg.reset(t.get_dm());
+            IF_VERBOSE(3, tb.display(verbose_stream()););
         }
         void copy_column(
             doc& dst, doc const& src,

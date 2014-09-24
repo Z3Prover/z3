@@ -34,7 +34,7 @@ namespace datalog {
         ast_manager&    m;
         relation_base*  m_relation;
         expr_ref        m_fml;
-        void check_equiv(expr* f1, expr* f2) const;
+        void check_equiv(char const* objective, expr* f1, expr* f2) const;
         expr_ref mk_eq(relation_fact const& f) const;
     public:
         check_relation(check_relation_plugin& p, relation_signature const& s, relation_base* r);
@@ -137,7 +137,7 @@ namespace datalog {
 
 
 
-        void check_equiv(expr* f1, expr* f2);
+        void check_equiv(char const* objective, expr* f1, expr* f2);
 
         
     };
