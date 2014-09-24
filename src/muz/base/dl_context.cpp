@@ -210,14 +210,12 @@ namespace datalog {
         m_rewriter(m),
         m_var_subst(m),
         m_rule_manager(*this),
-        m_elim_unused_vars(m),
-        m_abstractor(m),
         m_contains_p(*this),
         m_check_pred(m_contains_p, m),
         m_transf(*this),
         m_trail(*this),
         m_pinned(m),
-        m_vars(m),
+        m_bind_variables(m),
         m_rule_set(*this),
         m_transformed_rule_set(*this),
         m_rule_fmls_head(0),
@@ -323,40 +321,11 @@ namespace datalog {
     }
 
     void context::register_variable(func_decl* var) {
-        m_vars.push_back(m.mk_const(var));
+        m_bind_variables.add_var(m.mk_const(var));
     }
 
     expr_ref context::bind_variables(expr* fml, bool is_forall) {
-        expr_ref result(m);
-        app_ref_vector const & vars = m_vars;
-        rule_manager& rm = get_rule_manager();
-        if (vars.empty()) {
-            result = fml;
-        }
-        else {
-            m_names.reset();
-            m_abstractor(0, vars.size(), reinterpret_cast<expr*const*>(vars.c_ptr()), fml, result);
-            m_free_vars(result);
-            if (m_free_vars.empty()) {
-                result = fml;
-            }
-            else {
-                m_free_vars.set_default_sort(m.mk_bool_sort());
-                for (unsigned i = 0; i < m_free_vars.size(); ++i) {
-                    if (i < vars.size()) {
-                        m_names.push_back(vars[i]->get_decl()->get_name());
-                    }
-                    else {
-                        m_names.push_back(symbol(i));
-                    }
-                }
-                quantifier_ref q(m);
-                m_free_vars.reverse();
-                q = m.mk_quantifier(is_forall, m_free_vars.size(), m_free_vars.c_ptr(), m_names.c_ptr(), result); 
-                m_elim_unused_vars(q, result);
-            }
-        }
-        return result;
+        return m_bind_variables(fml, is_forall);
     }
 
     void context::register_predicate(func_decl * decl, bool named) {

@@ -39,9 +39,9 @@ Revision History:
 #include"model2expr.h"
 #include"smt_params.h"
 #include"dl_rule_transformer.h"
-#include"expr_abstract.h"
 #include"expr_functors.h"
 #include"dl_engine_base.h"
+#include"bind_variables.h"
 
 struct fixedpoint_params;
 
@@ -178,15 +178,12 @@ namespace datalog {
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
         rule_manager       m_rule_manager;
-        unused_vars_eliminator m_elim_unused_vars;
-        expr_abstractor        m_abstractor;
         contains_pred      m_contains_p;
         check_pred         m_check_pred;
         rule_transformer   m_transf;
         trail_stack<context> m_trail;
         ast_ref_vector     m_pinned;
-        app_ref_vector     m_vars;
-        svector<symbol>    m_names;
+        bind_variables     m_bind_variables;
         sort_domain_map    m_sorts;
         func_decl_set      m_preds;
         sym2decl           m_preds_by_name;
