@@ -370,7 +370,7 @@ namespace datalog {
     }
 
     void rule_manager::bind_variables(expr* fml, bool is_forall, expr_ref& result) {
-        result = m_ctx.bind_variables(fml, is_forall);
+        result = m_ctx.bind_vars(fml, is_forall);
     }
 
     void rule_manager::flatten_body(app_ref_vector& body) {

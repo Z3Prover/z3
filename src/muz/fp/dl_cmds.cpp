@@ -103,7 +103,7 @@ struct dl_context {
     void add_rule(expr * rule, symbol const& name) {
         init();
         if (m_collected_cmds) {
-            expr_ref rl = m_context->bind_variables(rule, true);
+            expr_ref rl = m_context->bind_vars(rule, true);
             m_collected_cmds->m_rules.push_back(rl);
             m_collected_cmds->m_names.push_back(name);
             m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_rules));
@@ -116,7 +116,7 @@ struct dl_context {
 
     bool collect_query(expr* q) {
         if (m_collected_cmds) {
-            expr_ref qr = m_context->bind_variables(q, false);
+            expr_ref qr = m_context->bind_vars(q, false);
             m_collected_cmds->m_queries.push_back(qr);
             m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_queries));
             return true;

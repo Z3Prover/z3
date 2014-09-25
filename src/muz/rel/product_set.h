@@ -248,7 +248,6 @@ namespace datalog {
 
 
     class product_set_factory {
-        friend class product_set_factory;
         unsigned char m_data[0];
     public:
         enum initial_t {

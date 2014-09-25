@@ -324,7 +324,7 @@ namespace datalog {
         m_bind_variables.add_var(m.mk_const(var));
     }
 
-    expr_ref context::bind_variables(expr* fml, bool is_forall) {
+    expr_ref context::bind_vars(expr* fml, bool is_forall) {
         return m_bind_variables(fml, is_forall);
     }
 
@@ -1078,7 +1078,7 @@ namespace datalog {
    
     void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names){
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
-	  expr_ref r = bind_variables(m_rule_fmls[i].get(), true);
+	  expr_ref r = bind_vars(m_rule_fmls[i].get(), true);
 	  rules.push_back(r.get());
 	  //            rules.push_back(m_rule_fmls[i].get());
 	  names.push_back(m_rule_names[i]);

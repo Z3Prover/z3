@@ -287,7 +287,7 @@ namespace datalog {
           universal (if is_forall is true) or existential 
           quantifier.
          */
-        expr_ref bind_variables(expr* fml, bool is_forall);
+        expr_ref bind_vars(expr* fml, bool is_forall);
 
         /**
            Register datalog relation.
