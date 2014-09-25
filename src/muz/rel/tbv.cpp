@@ -244,13 +244,31 @@ unsigned tbv_manager::hash(tbv const& src) const {
 bool tbv_manager::contains(tbv const& a, tbv const& b) const {
     return m.contains(a, b);
 }
+
+bool tbv_manager::contains(unsigned offset_a, tbv const& a,
+                           tbv_manager const& dm_b, unsigned offset_b, tbv const& b,
+                           unsigned length) const {
+    if (this == &dm_b && length == num_tbits()) {
+        SASSERT(offset_a == 0);
+        SASSERT(offset_b == 0);
+        return m.contains(a, b);
+    }
+    for (unsigned i = 0; i < length; ++i) {
+        tbit bit_a = a[offset_a + i];
+        if (bit_a == BIT_x) continue;
+        if (bit_a != b[offset_b + i]) return false;
+    }
+    return true;
+}
+
 bool tbv_manager::intersect(tbv const& a, tbv const& b, tbv& result) {
     copy(result, a);
     return set_and(result, b);
 }
 
-std::ostream& tbv_manager::display(std::ostream& out, tbv const& b) const {
-    for (unsigned i = 0; i < num_tbits(); ++i) {
+std::ostream& tbv_manager::display(std::ostream& out, tbv const& b, unsigned hi, unsigned lo) const {
+    SASSERT(lo <= hi && hi < num_tbits());
+    for (unsigned i = lo; i <= hi; ++i) {
         switch (b.get(i)) {
         case BIT_0:
             out << '0';
@@ -269,6 +287,11 @@ std::ostream& tbv_manager::display(std::ostream& out, tbv const& b) const {
         }
     }
     return out;
+}
+
+std::ostream& tbv_manager::display(std::ostream& out, tbv const& b) const {
+    if (num_tbits() == 0) return out << "[]";
+    return display(out, b, num_tbits()-1, 0);
 }
 
 expr_ref tbv_manager::to_formula(ast_manager& m, tbv const& src) {

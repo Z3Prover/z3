@@ -53,6 +53,7 @@ public:
     doc_manager(unsigned num_bits);
     ~doc_manager();
     tbv_manager& tbvm() { return m; }
+    tbv_manager const& tbvm() const { return m; }
     doc* allocate();
     doc* allocate1();
     doc* allocate0();
@@ -81,7 +82,11 @@ public:
     bool equals(doc const& a, doc const& b) const;
     unsigned hash(doc const& src) const;
     bool contains(doc const& a, doc const& b) const;
+    bool contains(unsigned offset_a, doc const& a,
+                  doc_manager const& dm_b, unsigned offset_b, doc const& b,
+                  unsigned length) const;
     std::ostream& display(std::ostream& out, doc const& b) const;
+    std::ostream& display(std::ostream& out, doc const& b, unsigned hi, unsigned lo) const;
     unsigned num_tbits() const { return m.num_tbits(); }
     doc* project(doc_manager& dstm, unsigned n, bool const* to_delete, doc const& src);
     bool well_formed(doc const& d) const;
@@ -123,10 +128,16 @@ public:
         return false;
     }
     std::ostream& display(M const& m, std::ostream& out) const {
+        if (m.num_tbits() == 0) return out << "[]";
+        return display(m, out, m.num_tbits()-1, 0);
+    }
+    std::ostream& display(M const& m, std::ostream& out, unsigned hi, unsigned lo) const {
         out << "{";
+        if (size() + m.num_tbits() > 10) out << "\n   ";
         for (unsigned i = 0; i < size(); ++i) {
-            m.display(out, *m_elems[i]);
+            m.display(out, *m_elems[i], hi, lo);
             if (i + 1 < size()) out << ", ";
+            if (i + 1 < size() && m.num_tbits() > 10) out << "\n   ";
         }
         return out << "}";
     }

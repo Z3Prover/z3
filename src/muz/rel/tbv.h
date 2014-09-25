@@ -70,8 +70,12 @@ public:
     bool equals(tbv const& a, tbv const& b) const;
     unsigned hash(tbv const& src) const;
     bool contains(tbv const& a, tbv const& b) const;
+    bool contains(unsigned offset_a, tbv const& a,
+                  tbv_manager const& dm_b, unsigned offset_b, tbv const& b,
+                  unsigned length) const;
     bool intersect(tbv const& a, tbv const& b, tbv& result);
     std::ostream& display(std::ostream& out, tbv const& b) const;
+    std::ostream& display(std::ostream& out, tbv const& b, unsigned hi, unsigned lo) const;
     tbv* project(unsigned n, bool const* to_delete, tbv const& src);
     bool is_well_formed(tbv const& b) const; // - does not contain BIT_z;
     void set(tbv& dst, uint64 n, unsigned hi, unsigned lo);

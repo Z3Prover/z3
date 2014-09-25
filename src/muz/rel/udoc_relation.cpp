@@ -1003,9 +1003,18 @@ namespace datalog {
         return check_kind(t)?alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition):0;
     }
 
+    //
+    // Notes:
+    // 1. this code could use some cleanup and simplification.
+    // 2. It is also not very efficient in the copy routines. 
+    //    They fall back to copying each bit instead of a chunk.
+    // 3. Argument about correctness is needed as comments.
+    // 4. Unit/stress test cases are needed.
+    // 
     class udoc_plugin::negation_filter_fn : public relation_intersection_filter_fn {
         const unsigned_vector m_t_cols;
         const unsigned_vector m_neg_cols;
+
     public:
         negation_filter_fn(const udoc_relation & r, const udoc_relation & neg, unsigned joined_col_cnt,
                            const unsigned *t_cols, const unsigned *neg_cols)
@@ -1018,72 +1027,103 @@ namespace datalog {
             udoc_relation const& n = get(negb);
             udoc & dst = t.get_udoc();
             udoc const & neg = n.get_udoc();
-            doc_manager& dm = t.get_dm();
+            doc_manager& dmt = t.get_dm();
+            doc_manager& dmn = n.get_dm();
+            IF_VERBOSE(3, t.display(verbose_stream() << "dst:"););
+            IF_VERBOSE(3, n.display(verbose_stream() << "neg:"););
+
             udoc result;
             for (unsigned i = 0; i < dst.size(); ++i) {
-                bool done_i = false;
-                for (unsigned j = 0; !done_i && j < neg.size(); ++j) {
-                    bool done_j = false;
-                    for (unsigned c = 0; !done_j && c < m_t_cols.size(); ++c) {
+                for (unsigned j = 0; j < neg.size(); ++j) {
+                    for (unsigned c = 0; c < m_t_cols.size(); ++c) {
                         unsigned t_col = m_t_cols[c];
                         unsigned n_col = m_neg_cols[c];
                         unsigned num_bits = t.column_num_bits(t_col);
                         SASSERT(num_bits == n.column_num_bits(n_col));
                         unsigned t_idx = t.column_idx(t_col);
                         unsigned n_idx = n.column_idx(n_col);
-                        for (unsigned k = 0; !done_j && k < num_bits; ++k) {
-                            tbit n_bit = neg[j][n_idx + k];
-                            tbit d_bit = dst[i][t_idx + k];
-                            // neg does not contain dst.
-                            done_j = (n_bit != BIT_x && n_bit != d_bit);
+                        bool cont = dmn.contains(n_idx, neg[j], dmt, t_idx, dst[i], num_bits);
+                        IF_VERBOSE(
+                            3, 
+                            dmt.display(verbose_stream() << "dst:", dst[i], t_idx+num_bits-1,t_idx) << "\n";
+                            dmn.display(verbose_stream() << "neg:", neg[j], n_idx+num_bits-1,n_idx) << "\n";
+                            verbose_stream() << "contains: " << (cont?"true":"false") << "\n";);
+                        if (!cont) {
+                            goto next_neg_disj;
                         }
                     }
-                    if (done_j) {
-                        result.push_back(&dst[i]);
-                        done_i = true;
-                    }
+                    dmt.deallocate(&dst[i]);
+                    goto next_disj;
+                next_neg_disj:;
                 }
-                if (!done_i) {
-                    dm.deallocate(&dst[i]);
-                }
+                result.push_back(&dst[i]);
+            next_disj:;
             }
             std::swap(dst, result);
             if (dst.is_empty()) {
-                IF_VERBOSE(3, tb.display(verbose_stream()););
+                IF_VERBOSE(3, tb.display(verbose_stream() << "fast empty"););
                 return;
             }
 
             // slow case
             udoc renamed_neg;
             for (unsigned i = 0; i < neg.size(); ++i) {
-                doc_ref newD(dm, dm.allocateX());
-                for (unsigned j = 0; j < m_neg_cols.size(); ++j) {
-                    copy_column(*newD, neg[i], m_t_cols[j], m_neg_cols[j], t, n);
+                doc& neg_i = neg[i];
+                doc_ref newD(dmt, dmt.allocateX());
+                copy_columns(newD->pos(), neg_i.pos(), t, n);
+                bool is_empty = false;
+                for (unsigned j = 0; !is_empty && j < neg_i.neg().size(); ++j) {
+                    tbv_ref newT(dmt.tbvm(), dmt.tbvm().allocateX());
+                    copy_columns(*newT, neg_i.neg()[j], t, n);
+                    if (dmt.tbvm().equals(newD->pos(), *newT)) {
+                        is_empty = true;
+                    }
+                    else {
+                        newD->neg().push_back(newT.detach());
+                    }
                 }
-                renamed_neg.push_back(newD.detach());
+                if (!is_empty) {
+                    IF_VERBOSE(3, 
+                               dmn.display(verbose_stream() << "copy neg: ", neg_i) << "\n";
+                               dmt.display(verbose_stream() << "to dst: ", *newD) << "\n";);
+                    renamed_neg.push_back(newD.detach());
+                }
             }
-            TRACE("doc", dst.display(dm, tout) << "\n";
-                  renamed_neg.display(dm, tout) << "\n";
+            TRACE("doc", dst.display(dmt, tout) << "\n";
+                  renamed_neg.display(dmt, tout) << "\n";
                   );
-            dst.subtract(dm, renamed_neg);
-            TRACE("doc", dst.display(dm, tout) << "\n";);
-            SASSERT(dst.well_formed(dm));
-            renamed_neg.reset(t.get_dm());
-            IF_VERBOSE(3, tb.display(verbose_stream()););
+            dst.subtract(dmt, renamed_neg);
+            // TBD: double check semantics
+            TRACE("doc", dst.display(dmt, tout) << "\n";);
+            SASSERT(dst.well_formed(dmt));
+            renamed_neg.reset(dmt);
+            IF_VERBOSE(3, tb.display(verbose_stream() << "slow case:"););
+        }
+        void copy_columns(
+            tbv& dst, tbv const& src, 
+            udoc_relation const& dstt,
+            udoc_relation const& srct)
+        {
+            unsigned num_cols = m_t_cols.size();
+            for (unsigned i = 0; i < num_cols; ++i) {
+                copy_column(dst, src, m_t_cols[i], m_neg_cols[i], dstt, srct);
+            }
         }
         void copy_column(
-            doc& dst, doc const& src,
+            tbv& dst, tbv const& src,
             unsigned col_dst, unsigned col_src, 
             udoc_relation const& dstt,
             udoc_relation const& srct) {
-            doc_manager& dm = dstt.get_dm();
+            tbv_manager& dm = dstt.get_dm().tbvm();
             unsigned idx_dst = dstt.column_idx(col_dst);
             unsigned idx_src = srct.column_idx(col_src);
-            unsigned num_bits = dstt.column_num_bits(col_dst);
+            unsigned num_tbits = dstt.column_num_bits(col_dst);
             SASSERT(num_bits == srct.column_num_bits(col_src));
-            for (unsigned i = 0; i < num_bits; ++i) {
-                dm.set(dst, idx_dst+i, src[idx_src+i]);
-            }            
+            IF_VERBOSE(3, verbose_stream() << "copy column " << idx_src
+                       << " to " << idx_dst << " " << num_tbits << "\n";);
+            for (unsigned i = 0; i < num_tbits; ++i) {
+                dm.set(dst, idx_dst + i, src[idx_src + i]);
+            }                        
         }
     };
 

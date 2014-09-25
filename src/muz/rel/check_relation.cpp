@@ -3,6 +3,7 @@
 #include "qe_util.h"
 #include "ast_util.h"
 #include "smt_kernel.h"
+#include <typeinfo>
 
 
 namespace datalog {
@@ -343,6 +344,12 @@ namespace datalog {
         check_equiv("filter", fml1, fml2);
     }
 
+    void check_relation_plugin::check_contains(char const* objective, expr* fml1, expr* fml2) {
+        expr_ref fml0(m);
+        fml0 = m.mk_and(fml1, fml2);
+        check_equiv(objective, fml0, fml2);
+    }
+
     void check_relation_plugin::check_equiv(char const* objective, expr* fml1, expr* fml2) {
         TRACE("doc", tout << mk_pp(fml1, m) << "\n";
               tout << mk_pp(fml2, m) << "\n";);
@@ -358,16 +365,20 @@ namespace datalog {
         else {
             IF_VERBOSE(3, verbose_stream() << "NOT verified " << res << "\n";
                        verbose_stream() << mk_pp(fml1, m) << "\n";
-                       verbose_stream() << mk_pp(fml2, m) << "\n";);
+                       verbose_stream() << mk_pp(fml2, m) << "\n";
+                       verbose_stream().flush();
+                       );
             throw 0;
         }
     }
 
-    void check_relation_plugin::verify_union(expr* fml0, relation_base const& src, relation_base const& dst, relation_base const* delta) {
-        expr_ref fml1(m), fml2(m), fml3(m);
+    void check_relation_plugin::verify_union(expr* dst0, relation_base const& src, 
+                                             relation_base const& dst, 
+                                             expr* delta0, relation_base const* delta) {
+        expr_ref fml1(m), fml2(m);
         src.to_formula(fml1);
         dst.to_formula(fml2);
-        fml1 = m.mk_or(fml1, fml0);
+        fml1 = m.mk_or(fml1, dst0);
         relation_signature const& sig = dst.get_signature();
         expr_ref_vector vars(m);
         var_subst sub(m, false);
@@ -382,21 +393,30 @@ namespace datalog {
         check_equiv("union", fml1, fml2);
 
         if (delta) {
-            delta->to_formula(fml3);
-            IF_VERBOSE(3, verbose_stream() << "verify delta\n";
-                       verbose_stream() << fml3 << "\n";);
-            // delta >= dst \ fml0
-            // dst \ fml0 == delta & dst & \ fml0
+            expr_ref d0(m), d(m);
+            delta->to_formula(d);
+            IF_VERBOSE(3, verbose_stream() << "verify delta " << d << "\n";);
+            // delta >= dst \ dst0
+            // dst \ dst0 == delta & dst & \ dst0
             expr_ref fml4(m), fml5(m);
-            fml4 = m.mk_and(fml2, m.mk_not(fml0));
-            fml5 = m.mk_and(fml3, fml4);
+            fml4 = m.mk_and(fml2, m.mk_not(dst0));
+            sub(fml4, vars.size(), vars.c_ptr(), fml4);
+            sub(d, vars.size(), vars.c_ptr(), d);
+            check_contains("union_delta low", d, fml4);
+            //
+            // delta >= delta0 
+            //
+            sub(delta0, vars.size(), vars.c_ptr(), d0);
+            check_contains("union delta0", d, d0);
+
+            //
+            // dst u delta0 = delta u dst0
+            //
+            fml4 = m.mk_or(fml2, delta0);
+            fml5 = m.mk_or(d, dst0);
             sub(fml4, vars.size(), vars.c_ptr(), fml4);
             sub(fml5, vars.size(), vars.c_ptr(), fml5);
-            check_equiv("union delta low", fml4, fml5);
-            //fml4 = m.mk_and(fml3, fml2);
-            //sub(fml3, vars.size(), vars.c_ptr(), fml3);
-            //sub(fml4, vars.size(), vars.c_ptr(), fml4);
-            //check_equiv("union delta high", fml3, fml4);
+            check_equiv("union no overflow", fml4, fml5);
         }
     }
 
@@ -411,8 +431,10 @@ namespace datalog {
             check_relation const& src = get(_src);
             check_relation* d = get(_delta);
             expr_ref fml0 = r.m_fml;
+            expr_ref delta0(r.m_fml.get_manager());
+            if (d) d->to_formula(delta0);
             (*m_union)(r.rb(), src.rb(), d?(&d->rb()):0);
-            r.get_plugin().verify_union(fml0, src.rb(), r.rb(), d?(&d->rb()):0);
+            r.get_plugin().verify_union(fml0, src.rb(), r.rb(), delta0, d?(&d->rb()):0);
             r.rb().to_formula(r.m_fml);
             if (d) d->rb().to_formula(d->m_fml);
         }
@@ -595,12 +617,15 @@ namespace datalog {
         }
         
         virtual void operator()(relation_base& tb, const relation_base& negb) {
-            IF_VERBOSE(0, verbose_stream() << "TBD: verify filter_negation\n";);
             check_relation& t = get(tb);
             check_relation const& n = get(negb);
             check_relation_plugin& p = t.get_plugin();
+            ast_manager& m = p.get_ast_manager();
+            expr_ref dst0(m);
+            t.to_formula(dst0);
             (*m_filter)(t.rb(), n.rb());
             t.rb().to_formula(t.m_fml);
+            p.verify_filter_by_negation(dst0, t, n, m_t_cols, m_neg_cols);
         }
     };
 
@@ -608,10 +633,57 @@ namespace datalog {
         const relation_base& t,
         const relation_base& neg, unsigned joined_col_cnt, const unsigned *t_cols,
         const unsigned *negated_cols) {
-        relation_intersection_filter_fn* f = mk_filter_by_negation_fn(get(t).rb(), get(neg).rb(), joined_col_cnt, t_cols, negated_cols);
+        relation_intersection_filter_fn* f = m_base->mk_filter_by_negation_fn(get(t).rb(), get(neg).rb(), joined_col_cnt, t_cols, negated_cols);
         return f?alloc(negation_filter_fn, f, joined_col_cnt, t_cols, negated_cols):0;
     }
 
+    /*
+      The filter_by_negation postcondition:
+      filter_by_negation(tgt, neg, columns in tgt: c1,...,cN, 
+      corresponding columns in neg: d1,...,dN):
+      tgt_1:={x: x\in tgt_0 && ! \exists y: ( y \in neg & pi_c1(x)= pi_d1(y) & ... & pi_cN(x)= pi_dN(y) ) }
+    */
+
+    void check_relation_plugin::verify_filter_by_negation(
+        expr* dst0, 
+        check_relation const& dst,
+        check_relation const& neg,
+        unsigned_vector const& cols1,
+        unsigned_vector const& cols2) {
+        relation_signature const& sig1 = dst.get_signature();
+        relation_signature const& sig2 = neg.get_signature();
+        expr_ref dstf(m), negf(m);
+        std::cout << mk_pp(dst0, m) << "\n";
+        expr_ref_vector eqs(m);
+        dst.to_formula(dstf);
+        std::cout << mk_pp(dstf, m) << "\n";
+        dst.to_formula(negf);        
+        std::cout << mk_pp(negf, m) << "\n";
+        eqs.push_back(negf);
+        for (unsigned i = 0; i < cols1.size(); ++i) {
+            var_ref v1(m), v2(m);
+            unsigned c1 = cols1[i];
+            unsigned c2 = cols2[i];
+            SASSERT(sig1[c1] == sig2[c2]);
+            v1 = m.mk_var(sig2.size() + c1, sig1[c1]);
+            v2 = m.mk_var(c2, sig2[c2]);
+            eqs.push_back(m.mk_eq(v1, v2));
+        }
+        negf = mk_and(m, eqs.size(), eqs.c_ptr());
+        ptr_vector<sort> rev_sig2(sig2.size(), sig2.c_ptr());
+        rev_sig2.reverse();
+        svector<symbol> names;
+        for (unsigned i = 0; i < sig2.size(); ++i) {
+            names.push_back(symbol(i));
+        }
+        negf = m.mk_exists(rev_sig2.size(), rev_sig2.c_ptr(), names.c_ptr(), negf);
+        negf = m.mk_and(dst0, m.mk_not(negf));
+        negf = dst.ground(negf);
+        dstf = dst.ground(dstf);
+        std::cout << negf << "\n";
+        std::cout << dstf << "\n";
+        check_equiv("filter by negation", dstf, negf);
+    }
 
     class check_relation_plugin::filter_proj_fn : public convenient_relation_project_fn {
         app_ref     m_cond;

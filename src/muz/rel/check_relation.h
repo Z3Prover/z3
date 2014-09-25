@@ -115,7 +115,7 @@ namespace datalog {
         void verify_filter(expr* fml0, relation_base const& t, expr* cond);
 
         void verify_union(expr* fml0, relation_base const& src, relation_base const& dst, 
-                          relation_base const* delta);
+                          expr* delta0, relation_base const* delta);
 
         void verify_permutation(
             relation_base const& src, relation_base const& dst, 
@@ -135,11 +135,16 @@ namespace datalog {
             relation_base const& src, relation_base const& dst, 
             app* cond, unsigned_vector const& removed_cols);
 
-
-
         void check_equiv(char const* objective, expr* f1, expr* f2);
 
-        
+        void check_contains(char const* objective, expr* f1, expr* f2);
+
+        void verify_filter_by_negation(
+            expr* dst0, 
+            check_relation  const& dst,
+            check_relation  const& neg,
+            unsigned_vector const& dst_eq,
+            unsigned_vector const& neg_eq);
     };
 };
        
