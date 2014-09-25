@@ -1118,7 +1118,7 @@ namespace datalog {
             unsigned idx_dst = dstt.column_idx(col_dst);
             unsigned idx_src = srct.column_idx(col_src);
             unsigned num_tbits = dstt.column_num_bits(col_dst);
-            SASSERT(num_bits == srct.column_num_bits(col_src));
+            SASSERT(num_tbits == srct.column_num_bits(col_src));
             IF_VERBOSE(3, verbose_stream() << "copy column " << idx_src
                        << " to " << idx_dst << " " << num_tbits << "\n";);
             for (unsigned i = 0; i < num_tbits; ++i) {
