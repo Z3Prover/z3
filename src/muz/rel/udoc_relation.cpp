@@ -63,7 +63,7 @@ namespace datalog {
         m_elems.push_back(fact2doc(f));
     }
     bool udoc_relation::empty() const {
-        if (get_signature().empty()) return false;
+        if (m_elems.is_empty()) return true;
         // TBD: make this a complete check
         for (unsigned i = 0; i < m_elems.size(); ++i) {
             if (!dm.is_empty(m_elems[i])) return false;

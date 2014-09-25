@@ -959,7 +959,7 @@ namespace smt {
             typename atoms::iterator hi_inf1 = begin2, hi_sup1 = begin2;
             bool flo_inf, fhi_inf, flo_sup, fhi_sup;
    //         std::cout << atoms.size() << "\n";
-            ptr_addr_hashtable<typename atom> visited;
+            ptr_addr_hashtable<atom> visited;
             for (unsigned i = 0; i < atoms.size(); ++i) {
                 atom* a1 = atoms[i];
                 lo_inf1 = next_inf(a1, A_LOWER, lo_inf, end, flo_inf);
