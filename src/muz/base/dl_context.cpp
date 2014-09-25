@@ -639,6 +639,56 @@ namespace datalog {
         }
     }
 
+#if 0
+    void context::check_rules(rule_set& r) {
+        switch(get_engine()) {
+        case DATALOG_ENGINE:
+            collect_properties(r);
+            check_quantifier_free(r);
+            check_uninterpreted_free(r);
+            check_existential_tail(r); 
+            break;
+        case PDR_ENGINE:
+            check_existential_tail(r);
+            check_positive_predicates(r);
+            check_uninterpreted_free(r);
+            break;
+        case QPDR_ENGINE:
+            check_positive_predicates(r);
+            check_uninterpreted_free(r);
+            break;
+        case BMC_ENGINE:
+            check_positive_predicates(r);
+            break;            
+        case QBMC_ENGINE:
+            check_existential_tail(r);
+            check_positive_predicates(r);
+            break;         
+        case TAB_ENGINE:
+            check_existential_tail(r);
+            check_positive_predicates(r);
+            break;
+	case DUALITY_ENGINE:
+            check_existential_tail(r);
+            check_positive_predicates(r);
+            break;
+        case CLP_ENGINE:
+            check_existential_tail(r);
+            check_positive_predicates(r);
+            break;
+        case DDNF_ENGINE:
+            break;
+        case LAST_ENGINE:
+        default:
+            UNREACHABLE();
+            break;
+        }
+        if (generate_proof_trace() && !r.get_proof()) {
+            m_rule_manager.mk_rule_asserted_proof(r);
+        }
+    }
+#endif
+
     void context::check_rule(rule& r) {
         switch(get_engine()) {
         case DATALOG_ENGINE:
