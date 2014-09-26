@@ -143,8 +143,11 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
     ctx.updt_params(params);
     {
         wpa_parser* p = wpa_parser::create(ctx, m);
-        TRUSTME( p->parse_directory(problem_dir) );
+        bool = ok = p->parse_directory(problem_dir);
         dealloc(p);
+        if (!ok) {
+            std::cout << "Could not parse: " << problem_dir << "\n";
+        }
     }
 
     const unsigned attempts = 10;

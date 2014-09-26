@@ -211,7 +211,7 @@ namespace datalog {
         m_var_subst(m),
         m_rule_manager(*this),
         m_contains_p(*this),
-        m_check_pred(m_contains_p, m),
+        m_rule_properties(m, m_rule_manager, *this, m_contains_p),
         m_transf(*this),
         m_trail(*this),
         m_pinned(m),
@@ -452,10 +452,7 @@ namespace datalog {
             rm.mk_rule(fml, p, m_rule_set, m_rule_names[m_rule_fmls_head]);
             ++m_rule_fmls_head;
         }
-        rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-        for (; it != end; ++it) {
-            check_rule(*(*it));
-        }
+        check_rules(m_rule_set);
     }
 
     //
@@ -541,140 +538,49 @@ namespace datalog {
         m_engine->add_cover(level, pred, property);
     }
 
-    void context::check_uninterpreted_free(rule& r) {
-        func_decl* f = 0;
-        if (get_rule_manager().has_uninterpreted_non_predicates(r, f)) {
-            std::stringstream stm;
-            stm << "Uninterpreted '" 
-                << f->get_name() 
-                << "' in ";
-            r.display(*this, stm);
-            throw default_exception(stm.str());
-        }
-    }
-
-    void context::check_quantifier_free(rule& r) {
-        if (get_rule_manager().has_quantifiers(r)) {
-            std::stringstream stm;
-            stm << "cannot process quantifiers in rule ";
-            r.display(*this, stm);
-            throw default_exception(stm.str());
-        }
-    }
-
-
-    void context::check_existential_tail(rule& r) {
-        unsigned ut_size = r.get_uninterpreted_tail_size();
-        unsigned t_size  = r.get_tail_size();   
-        
-        TRACE("dl", get_rule_manager().display_smt2(r, tout); tout << "\n";);
-        for (unsigned i = ut_size; i < t_size; ++i) {
-            app* t = r.get_tail(i);
-            TRACE("dl", tout << "checking: " << mk_ismt2_pp(t, get_manager()) << "\n";);
-            if (m_check_pred(t)) {
-                std::ostringstream out;
-                out << "interpreted body " << mk_ismt2_pp(t, get_manager()) << " contains recursive predicate";
-                throw default_exception(out.str());
-            }
-        }
-    }
-
-    void context::check_positive_predicates(rule& r) {
-        ast_mark visited;
-        ptr_vector<expr> todo, tocheck;
-        unsigned ut_size = r.get_uninterpreted_tail_size();
-        unsigned t_size  = r.get_tail_size();   
-        for (unsigned i = 0; i < ut_size; ++i) {
-            if (r.is_neg_tail(i)) {
-                tocheck.push_back(r.get_tail(i));
-            }
-        }
-        ast_manager& m = get_manager();
-        contains_pred contains_p(*this);
-        check_pred check_pred(contains_p, get_manager());
-
-        for (unsigned i = ut_size; i < t_size; ++i) {
-            todo.push_back(r.get_tail(i));
-        }
-        while (!todo.empty()) {
-            expr* e = todo.back(), *e1, *e2;
-            todo.pop_back();
-            if (visited.is_marked(e)) {
-                continue;
-            }
-            visited.mark(e, true);
-            if (is_predicate(e)) {
-            }
-            else if (m.is_and(e) || m.is_or(e)) {
-                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            }
-            else if (m.is_implies(e, e1, e2)) {
-                tocheck.push_back(e1);
-                todo.push_back(e2);
-            }
-            else if (is_quantifier(e)) {
-                todo.push_back(to_quantifier(e)->get_expr());
-            }
-            else if ((m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) && 
-                     m.is_true(e1)) {
-                todo.push_back(e2);
-            }
-            else if ((m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) &&
-                     m.is_true(e2)) {
-                todo.push_back(e1);
-            }
-            else {
-                tocheck.push_back(e);
-            }
-        }
-        for (unsigned i = 0; i < tocheck.size(); ++i) {
-            expr* e = tocheck[i];
-            if (check_pred(e)) {
-                std::ostringstream out;
-                out << "recursive predicate " << mk_ismt2_pp(e, get_manager()) << " occurs nested in body";
-                r.display(*this, out << "\n");
-                throw default_exception(out.str());
-
-            }
-        }
-    }
-
-#if 0
     void context::check_rules(rule_set& r) {
+        m_rule_properties.set_generate_proof(generate_proof_trace());
         switch(get_engine()) {
-        case DATALOG_ENGINE:
-            collect_properties(r);
-            check_quantifier_free(r);
-            check_uninterpreted_free(r);
-            check_existential_tail(r); 
+        case DATALOG_ENGINE:            
+            m_rule_properties.collect(r);
+            m_rule_properties.check_quantifier_free();
+            m_rule_properties.check_uninterpreted_free();
+            m_rule_properties.check_nested_free(); 
             break;
         case PDR_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
-            check_uninterpreted_free(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_existential_tail();
+            m_rule_properties.check_for_negated_predicates();
+            m_rule_properties.check_uninterpreted_free();
             break;
         case QPDR_ENGINE:
-            check_positive_predicates(r);
-            check_uninterpreted_free(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_for_negated_predicates();
+            m_rule_properties.check_uninterpreted_free();
             break;
         case BMC_ENGINE:
-            check_positive_predicates(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_for_negated_predicates();
             break;            
         case QBMC_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_existential_tail();
+            m_rule_properties.check_for_negated_predicates();
             break;         
         case TAB_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_existential_tail();
+            m_rule_properties.check_for_negated_predicates();
             break;
 	case DUALITY_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_existential_tail();
+            m_rule_properties.check_for_negated_predicates();
             break;
         case CLP_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_existential_tail();
+            m_rule_properties.check_for_negated_predicates();
             break;
         case DDNF_ENGINE:
             break;
@@ -682,57 +588,6 @@ namespace datalog {
         default:
             UNREACHABLE();
             break;
-        }
-        if (generate_proof_trace() && !r.get_proof()) {
-            m_rule_manager.mk_rule_asserted_proof(r);
-        }
-    }
-#endif
-
-    void context::check_rule(rule& r) {
-        switch(get_engine()) {
-        case DATALOG_ENGINE:
-            check_quantifier_free(r);
-            check_uninterpreted_free(r);
-            check_existential_tail(r); 
-            break;
-        case PDR_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
-            check_uninterpreted_free(r);
-            break;
-        case QPDR_ENGINE:
-            check_positive_predicates(r);
-            check_uninterpreted_free(r);
-            break;
-        case BMC_ENGINE:
-            check_positive_predicates(r);
-            break;            
-        case QBMC_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
-            break;         
-        case TAB_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
-            break;
-	case DUALITY_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
-            break;
-        case CLP_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
-            break;
-        case DDNF_ENGINE:
-            break;
-        case LAST_ENGINE:
-        default:
-            UNREACHABLE();
-            break;
-        }
-        if (generate_proof_trace() && !r.get_proof()) {
-            m_rule_manager.mk_rule_asserted_proof(r);
         }
     }
 
@@ -984,11 +839,7 @@ namespace datalog {
         // TODO: what?
         if(get_engine() != DUALITY_ENGINE) {
           new_query();
-	  rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-	  rule_ref r(m_rule_manager);
-	  for (; it != end; ++it) {
-            check_rule(*(*it));
-	  }     
+          check_rules(m_rule_set);	       
         }   
 #endif
         m_mc = mk_skip_model_converter();

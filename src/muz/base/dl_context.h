@@ -42,6 +42,7 @@ Revision History:
 #include"expr_functors.h"
 #include"dl_engine_base.h"
 #include"bind_variables.h"
+#include"rule_properties.h"
 
 struct fixedpoint_params;
 
@@ -141,6 +142,17 @@ namespace datalog {
             SK_UINT64,
             SK_SYMBOL
         };
+        class contains_pred : public i_expr_pred {
+            context const& ctx;
+        public:
+            contains_pred(context& ctx): ctx(ctx) {}
+            virtual ~contains_pred() {}
+            
+            virtual bool operator()(expr* e) {
+                return ctx.is_predicate(e);
+            }
+        };
+
 
     private:
         class sort_domain;
@@ -153,17 +165,6 @@ namespace datalog {
         typedef map<symbol, func_decl*, symbol_hash_proc, symbol_eq_proc> sym2decl;
         typedef obj_map<const func_decl, svector<symbol> > pred2syms;
         typedef obj_map<const sort, sort_domain*> sort_domain_map;
-
-        class contains_pred : public i_expr_pred {
-            context const& ctx;
-        public:
-            contains_pred(context& ctx): ctx(ctx) {}
-            virtual ~contains_pred() {}
-            
-            virtual bool operator()(expr* e) {
-                return ctx.is_predicate(e);
-            }
-        };
 
 
         ast_manager &      m;
@@ -179,7 +180,7 @@ namespace datalog {
         var_subst          m_var_subst;
         rule_manager       m_rule_manager;
         contains_pred      m_contains_p;
-        check_pred         m_check_pred;
+        rule_properties    m_rule_properties;
         rule_transformer   m_transf;
         trail_stack<context> m_trail;
         ast_ref_vector     m_pinned;
@@ -419,7 +420,7 @@ namespace datalog {
         /**
           \brief Check if rule is well-formed according to engine.
         */
-        void check_rule(rule& r);
+        void check_rules(rule_set& r);
 
         /**
            \brief Return true if facts to \c pred can be added using the \c add_table_fact() function.
@@ -564,11 +565,6 @@ namespace datalog {
         void flush_add_rules();
 
         void ensure_engine();
-
-        void check_quantifier_free(rule& r);        
-        void check_uninterpreted_free(rule& r);
-        void check_existential_tail(rule& r);
-        void check_positive_predicates(rule& r);
 
         // auxilary functions for SMT2 pretty-printer.
         void declare_vars(expr_ref_vector& rules, mk_fresh_name& mk_fresh, std::ostream& out);
