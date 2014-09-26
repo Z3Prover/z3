@@ -7117,7 +7117,7 @@ def substitute(t, *m):
     if isinstance(m, tuple):
         m1 = _get_args(m)
         if isinstance(m1, list):
-            m = _get_args(m1)
+            m = m1
     if __debug__:
         _z3_assert(is_expr(t), "Z3 expression expected")
         _z3_assert(all([isinstance(p, tuple) and is_expr(p[0]) and is_expr(p[1]) and p[0].sort().eq(p[1].sort()) for p in m]), "Z3 invalid substitution, expression pairs expected.")
@@ -7410,3 +7410,128 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
     return _to_expr_ref(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
    
+def Interp(a,ctx=None):
+    """Create an interpolation operator.
+    
+    The argument is an interpolation pattern (see tree_interpolant). 
+
+    >>> x = Int('x')
+    >>> print Interp(x>0)
+    interp(x > 0)
+    """
+    ctx = _get_ctx(_ctx_from_ast_arg_list([a], ctx))
+    s = BoolSort(ctx)
+    a = s.cast(a)
+    return BoolRef(Z3_mk_interp(ctx.ref(), a.as_ast()), ctx)
+
+def tree_interpolant(pat,p=None,ctx=None):
+    """Compute interpolant for a tree of formulas.
+
+    The input is an interpolation pattern over a set of formulas C.
+    The pattern pat is a formula combining the formulas in C using
+    logical conjunction and the "interp" operator (see Interp). This
+    interp operator is logically the identity operator. It marks the
+    sub-formulas of the pattern for which interpolants should be
+    computed. The interpolant is a map sigma from marked subformulas
+    to formulas, such that, for each marked subformula phi of pat
+    (where phi sigma is phi with sigma(psi) substituted for each
+    subformula psi of phi such that psi in dom(sigma)):
+
+      1) phi sigma implies sigma(phi), and
+
+      2) sigma(phi) is in the common uninterpreted vocabulary between
+      the formulas of C occurring in phi and those not occurring in
+      phi
+
+      and moreover pat sigma implies false. In the simplest case
+      an interpolant for the pattern "(and (interp A) B)" maps A
+      to an interpolant for A /\ B. 
+
+      The return value is a vector of formulas representing sigma. This
+      vector contains sigma(phi) for each marked subformula of pat, in
+      pre-order traversal. This means that subformulas of phi occur before phi
+      in the vector. Also, subformulas that occur multiply in pat will
+      occur multiply in the result vector.
+
+    If pat is satisfiable, raises an object of class ModelRef
+    that represents a model of pat.
+
+    If parameters p are supplied, these are used in creating the
+    solver that determines satisfiability.
+
+    >>> x = Int('x')
+    >>> y = Int('y')
+    >>> print tree_interpolant(And(Interp(x < 0), Interp(y > 2), x == y))
+    [Not(x >= 0), Not(y <= 2)]
+
+    >>> g = And(Interp(x<0),x<2)
+    >>> try:
+    ...     print tree_interpolant(g).sexpr()
+    ... except ModelRef as m:
+    ...     print m.sexpr()
+    (define-fun x () Int
+      (- 1))
+    """
+    f = pat
+    ctx = _get_ctx(_ctx_from_ast_arg_list([f], ctx))
+    ptr = (AstVectorObj * 1)()
+    mptr = (Model * 1)()
+    if p == None:
+        p = ParamsRef(ctx)
+    res = Z3_compute_interpolant(ctx.ref(),f.as_ast(),p.params,ptr,mptr)
+    if res == Z3_L_FALSE:
+        return AstVector(ptr[0],ctx)
+    raise ModelRef(mptr[0], ctx)
+
+def binary_interpolant(a,b,p=None,ctx=None):
+    """Compute an interpolant for a binary conjunction.
+
+    If a & b is unsatisfiable, returns an interpolant for a & b.
+    This is a formula phi such that
+
+    1) a implies phi
+    2) b implies not phi
+    3) All the uninterpreted symbols of phi occur in both a and b.
+
+    If a & b is satisfiable, raises an object of class ModelRef
+    that represents a model of a &b.
+
+    If parameters p are supplied, these are used in creating the
+    solver that determines satisfiability.
+
+    x = Int('x')
+    print binary_interpolant(x<0,x>2)
+    Not(x >= 0)
+    """
+    f = And(Interp(a),b)
+    return tree_interpolant(f,p,ctx)[0]
+
+def sequence_interpolant(v,p=None,ctx=None):
+    """Compute interpolant for a sequence of formulas.
+
+    If len(v) == N, and if the conjunction of the formulas in v is
+    unsatisfiable, the interpolant is a sequence of formulas w
+    such that len(w) = N-1 and v[0] implies w[0] and for i in 0..N-1:
+
+    1) w[i] & v[i+1] implies w[i+1] (or false if i+1 = N)
+    2) All uninterpreted symbols in w[i] occur in both v[0]..v[i]
+    and v[i+1]..v[n]
+    
+    Requires len(v) >= 1. 
+
+    If a & b is satisfiable, raises an object of class ModelRef
+    that represents a model of a & b.
+
+    If parameters p are supplied, these are used in creating the
+    solver that determines satisfiability.
+
+    >>> x = Int('x')
+    >>> y = Int('y')
+    >>> print sequence_interpolant([x < 0, y == x , y > 2])
+    [Not(x >= 0), Not(y >= 0)]
+    """
+    f = v[0]
+    for i in range(1,len(v)):
+        f = And(Interp(f),v[i])
+    return tree_interpolant(f,p,ctx)
+

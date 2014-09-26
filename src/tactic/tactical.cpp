@@ -102,11 +102,8 @@ protected:
        \brief Reset cancel flag of t if this was not canceled.
     */
     void parent_reset_cancel(tactic & t) {
-        #pragma omp critical (tactic_cancel)
-        {
-            if (!m_cancel) {
-                t.set_cancel(false);
-            }
+        if (!m_cancel) {
+            t.reset_cancel();
         }
     }
 
@@ -393,11 +390,8 @@ protected:
        \brief Reset cancel flag of st if this was not canceled.
     */
     void parent_reset_cancel(tactic & t) {
-        #pragma omp critical (tactic_cancel)
-        {
-            if (!m_cancel) {
-                t.set_cancel(false);
-            }
+        if (!m_cancel) {
+            t.reset_cancel();
         }
     }
 
@@ -988,7 +982,7 @@ protected:
     virtual void set_cancel(bool f) { 
         m_cancel = f;
         if (m_t) 
-            m_t->set_cancel(f); 
+            m_t->set_cancel(f);
     }
 
     template<typename T>

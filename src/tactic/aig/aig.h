@@ -73,8 +73,6 @@ public:
     void display(std::ostream & out, aig_ref const & r) const;
     void display_smt2(std::ostream & out, aig_ref const & r) const;
     unsigned get_num_aigs() const;
-    void cancel() { set_cancel(true); }
-    void reset_cancel() { set_cancel(false); }
     void set_cancel(bool f);
 };
 

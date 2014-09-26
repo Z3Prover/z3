@@ -1011,13 +1011,13 @@ namespace opt {
         #pragma omp critical (opt_context)
         {
             if (m_solver) {
-                m_solver->set_cancel(f);
+                if (f) m_solver->cancel(); else m_solver->reset_cancel();
             }
             if (m_pareto) {
                 m_pareto->set_cancel(f);
             }
             if (m_simplify) {
-                m_simplify->set_cancel(f);
+                if (f) m_simplify->cancel(); else m_solver->reset_cancel();
             }
             map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
             for (; it != end; ++it) {

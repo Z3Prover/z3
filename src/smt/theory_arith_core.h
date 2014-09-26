@@ -874,9 +874,6 @@ namespace smt {
         parameter coeffs[3] = { parameter(symbol("farkas")), 
                                 parameter(rational(1)), parameter(rational(1)) };
 
-        //std::cout << "v" << v << " " << ((kind1==A_LOWER)?"<= ":">= ") << k1 << "\t    ";
-        //std::cout << "v" << v << " " << ((kind2==A_LOWER)?"<= ":">= ") << k2 << "\n";
-
         if (kind1 == A_LOWER) {
             if (kind2 == A_LOWER) {
                 if (k2 <= k1) {
@@ -958,7 +955,6 @@ namespace smt {
             typename atoms::iterator lo_inf1 = begin1, lo_sup1 = begin1;
             typename atoms::iterator hi_inf1 = begin2, hi_sup1 = begin2;
             bool flo_inf, fhi_inf, flo_sup, fhi_sup;
-   //         std::cout << atoms.size() << "\n";
             ptr_addr_hashtable<atom> visited;
             for (unsigned i = 0; i < atoms.size(); ++i) {
                 atom* a1 = atoms[i];
@@ -966,8 +962,6 @@ namespace smt {
                 hi_inf1 = next_inf(a1, A_UPPER, hi_inf, end, fhi_inf);
                 lo_sup1 = next_sup(a1, A_LOWER, lo_sup, end, flo_sup);
                 hi_sup1 = next_sup(a1, A_UPPER, hi_sup, end, fhi_sup);
-//                std::cout << "v" << a1->get_var() << ((a1->get_atom_kind()==A_LOWER)?" <= ":" >= ") << a1->get_k() << "\n";
- //               std::cout << (lo_inf1 != end) << " " << (lo_sup1 != end) << " " << (hi_inf1 != end) << " " << (hi_sup1 != end) << "\n";
                 if (lo_inf1 != end) lo_inf = lo_inf1; 
                 if (lo_sup1 != end) lo_sup = lo_sup1; 
                 if (hi_inf1 != end) hi_inf = hi_inf1; 

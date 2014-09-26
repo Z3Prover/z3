@@ -78,7 +78,7 @@ namespace opt {
         virtual rational get_lower() const { return m_lower; }
         virtual rational get_upper() const { return m_upper; }
         virtual bool get_assignment(unsigned index) const { return m_assignment[index]; }
-        virtual void set_cancel(bool f) { m_cancel = f; s().set_cancel(f); }
+        virtual void set_cancel(bool f) { m_cancel = f; if (f) s().cancel(); else s().reset_cancel(); }
         virtual void collect_statistics(statistics& st) const { }
         virtual void get_model(model_ref& mdl) { mdl = m_model.get(); }
         void set_model() { s().get_model(m_model); }

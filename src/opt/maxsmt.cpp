@@ -299,6 +299,7 @@ namespace opt {
     
     void maxsmt::set_cancel(bool f) {
         m_cancel = f;
+        
         if (m_msolver) {
             m_msolver->set_cancel(f);
         }

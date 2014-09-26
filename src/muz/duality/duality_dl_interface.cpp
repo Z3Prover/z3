@@ -36,6 +36,7 @@ Revision History:
 #include "model_v2_pp.h"
 #include "fixedpoint_params.hpp"
 #include "used_vars.h"
+#include "func_decl_dependencies.h"
 
 // template class symbol_table<family_id>;
 
@@ -207,6 +208,46 @@ lbool dl_interface::query(::expr * query) {
     _d->rpfp->AssertAxiom(e);
   }
   
+  // make sure each predicate is the head of at least one clause
+  func_decl_set heads;
+  for(unsigned i = 0; i < clauses.size(); i++){
+    expr cl = clauses[i];
+
+    while(true){
+      if(cl.is_app()){
+	decl_kind k = cl.decl().get_decl_kind();
+	if(k == Implies)
+	  cl = cl.arg(1);
+	else {
+	  heads.insert(cl.decl());
+	  break;
+	}
+      }
+      else if(cl.is_quantifier())
+	cl = cl.body();
+      else break;
+    }
+  }
+  ast_ref_vector const &pinned = m_ctx.get_pinned();
+  for(unsigned i = 0; i < pinned.size(); i++){
+    ::ast *fa = pinned[i];
+    if(is_func_decl(fa)){
+      ::func_decl *fd = to_func_decl(fa);
+      if(m_ctx.is_predicate(fd)) {
+	func_decl f(_d->ctx,fd);
+	if(!heads.contains(fd)){
+	  int arity = f.arity();
+	  std::vector<expr> args;
+	  for(int j = 0; j < arity; j++)
+	    args.push_back(_d->ctx.fresh_func_decl("X",f.domain(j))());
+	  expr c = implies(_d->ctx.bool_val(false),f(args));
+	  c = _d->ctx.make_quant(Forall,args,c);
+	  clauses.push_back(c);
+	}
+      }
+    }
+  }
+
   // creates 1-1 map between clauses and rpfp edges
   _d->rpfp->FromClauses(clauses);
 
@@ -265,7 +306,19 @@ lbool dl_interface::query(::expr * query) {
   // dealloc(rs); this is now owned by data
 
   // true means the RPFP problem is SAT, so the query is UNSAT
-  return ans ? l_false : l_true;
+  // but we return undef if the UNSAT result is bounded
+  if(ans){
+    if(rs->IsResultRecursionBounded()){
+#if 0
+      m_ctx.set_status(datalog::BOUNDED);
+      return l_undef;
+#else
+      return l_false;
+#endif
+    }
+    return l_false;
+  }
+  return l_true;
 }
 
 expr_ref dl_interface::get_cover_delta(int level, ::func_decl* pred_orig) {

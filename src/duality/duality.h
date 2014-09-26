@@ -1152,6 +1152,13 @@ protected:
 
       virtual void LearnFrom(Solver *old_solver) = 0;
 
+      /** Return true if the solution be incorrect due to recursion bounding.
+	  That is, the returned "solution" might contain all derivable facts up to the
+	  given recursion bound, but not be actually a fixed point.
+       */
+
+      virtual bool IsResultRecursionBounded() = 0;
+
       virtual ~Solver(){}
 
       static Solver *Create(const std::string &solver_class, RPFP *rpfp);

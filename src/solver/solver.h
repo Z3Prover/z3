@@ -99,7 +99,6 @@ public:
     */
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) = 0;
 
-    virtual void set_cancel(bool f) {}
     /**
        \brief Interrupt this solver.
     */
@@ -130,7 +129,6 @@ public:
        \brief Display the content of this solver.
     */
     virtual void display(std::ostream & out) const;
-
     class scoped_push {
         solver& s;
         bool    m_nopop;
@@ -139,6 +137,8 @@ public:
         ~scoped_push() { if (!m_nopop) s.pop(1); }
         void disable_pop() { m_nopop = true; }
     };
+protected:
+    virtual void set_cancel(bool f) = 0;
 
 };
 
