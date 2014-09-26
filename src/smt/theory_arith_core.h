@@ -1274,8 +1274,10 @@ namespace smt {
             }
         }
         while (m_final_check_idx != old_idx);
-        if (result == FC_DONE && m_found_unsupported_op)
+        if (result == FC_DONE && m_found_unsupported_op) {
+            TRACE("arith", tout << "Found unsupported operation\n";);
             result = FC_GIVEUP;
+        }
         return result;
     }
 
