@@ -58,7 +58,9 @@ Notes:
      return tgt \ join_project(tgt, neg, c1, .., cN, d1, .. , dN)
      We have most of the facilities required for a join project operation.
      For example, the filter_project function uses both equalities and deleted columns.
-     
+   - Lipstick service:
+     - filter_proj_fn uses both a bit_vector and a svector<bool> for representing removed bits. 
+       This is due to underlying routines using different types for the same purpose. 
 --*/
 #include "udoc_relation.h"
 #include "dl_relation_manager.h"
@@ -1218,17 +1220,15 @@ namespace datalog {
             m_original_condition(condition, m),
             m_reduced_condition(m),
             m_equalities(union_ctx) {
-            t.expand_column_vector(m_removed_cols);
             unsigned num_bits = t.get_num_bits();
-            m_col_list.resize(num_bits, false);
+            t.expand_column_vector(m_removed_cols);
+            m_col_list.resize(num_bits,  false);
+            m_to_delete.resize(num_bits, false);
             for (unsigned i = 0; i < num_bits; ++i) {
                 m_equalities.mk_var();
             }        
             for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
                 m_col_list.set(m_removed_cols[i], true);
-            }
-            m_to_delete.resize(t.get_num_bits(), false);
-            for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
                 m_to_delete[m_removed_cols[i]] = true;
             }
             expr_ref guard(m), non_eq_cond(condition, m);
