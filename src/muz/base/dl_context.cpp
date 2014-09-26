@@ -278,6 +278,7 @@ namespace datalog {
     symbol context::default_table() const { return m_params->datalog_default_table(); }
     symbol context::default_relation() const { return m_default_relation; }
     void context::set_default_relation(symbol const& s) { m_default_relation = s; }
+    symbol context::print_aig() const { return m_params->print_aig(); }
     symbol context::check_relation() const { return m_params->datalog_check_relation(); }
     symbol context::default_table_checker() const { return m_params->datalog_default_table_checker(); }
     bool context::default_table_checked() const { return m_params->datalog_default_table_checked(); }
@@ -294,8 +295,9 @@ namespace datalog {
     bool context::generate_explanations() const { return m_params->datalog_generate_explanations(); }
     bool context::explanations_on_relation_level() const { return m_params->datalog_explanations_on_relation_level(); }
     bool context::magic_sets_for_queries() const { return m_params->datalog_magic_sets_for_queries();  }
-    
-    bool context::bit_blast() const { return m_params->xform_bit_blast(); }
+    symbol context::tab_selection() const { return m_params->tab_selection(); }
+    bool context::xform_slice() const { return m_params->xform_slice(); }
+    bool context::xform_bit_blast() const { return m_params->xform_bit_blast(); }    
     bool context::karr() const { return m_params->xform_karr(); }
     bool context::scale() const { return m_params->xform_scale(); }
     bool context::magic() const { return m_params->xform_magic(); }

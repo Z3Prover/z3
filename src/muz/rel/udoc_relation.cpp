@@ -1,3 +1,65 @@
+/*++
+Copyright (c) 2014 Microsoft Corporation
+
+Module Name:
+
+    udoc_relation.cpp
+
+Abstract:
+
+    Relation based on union of DOCs.
+
+Author:
+
+    Nuno Lopes (a-nlopes) 2013-03-01
+    Nikolaj Bjorner (nbjorner) 2014-09-15
+
+Revision History:
+
+    Revised version of dl_hassel_diff facilities.
+
+Notes:
+
+    Current pending items:
+    - Fix the incomplete non-emptiness check in doc.cpp
+      It can fall back to a sat_solver call in the worst case.
+      The sat_solver.h interface gives a way to add clauses to a sat solver
+      and check for satisfiability. It can be used from scratch each time.
+    - Profile and fix bottlnecks:
+      - Potential bottleneck in projection exercised in some benchmarks.
+        Projection is asymptotically very expensive. We are here interested in 
+        handling common/cheap cases efficiently.
+      - Simplification of udoc and utbv (from negated tails) after operations such as join and union.
+      - The current simplification is between cheap and expensive. Some low-cost simplification 
+        based on sorting + coallescing and detecting empty docs could be used.
+      - There are several places where code copies a sequence of bits from one vector to another.
+        Any such places in udoc_relation should be shifted down to 'doc_manager'. Loops in 'doc_manager' 
+        should be shifted down to 'tbv_manager' and loops there should be moved to 'fixed_bitvector_manager'.
+        Finally, more efficient and general implementations of non-aligned copies are useful where such
+        bottlnecks show up on the radar.
+   - Fix filter_by_negated.
+     Current implementation seems incorrect. The fast path seems right, but the slow path does not.
+     Recall the semantics:
+      filter_by_negation(tgt, neg, columns in tgt: c1,...,cN, 
+         corresponding columns in neg: d1,...,dN):
+         tgt := {x: x\in tgt_0 && ! \exists y: ( y \in neg & pi_c1(x)= pi_d1(y) & ... & pi_cN(x)= pi_dN(y) ) }
+     We are given tgt, and neg as two udocs. 
+     The fast pass removes doc's t from tgt where we can establish 
+     that for every x in t there is a n in neg and a y in n, 
+     such that projections(x) = projections(y).
+     This is claimed to be the case if projections(n) contains projections(t).
+   
+     The slow pass uses the projection to create a doc n' from each n that has the same signature as tgt.
+     It then subtracts each n'. The way n' is created is by copying bits from n.
+     This seems wrong, for example if the projection contains overlapping regions.
+     Here is a possible corrected version:
+     define join_project(tgt, neg, c1, .., cN, d1, .. , dN) as
+           exists y : y \in neg & x in tgt & pi_c1(x)= pi_d1(y) & ... & pi_cN(x)= pi_dN(y) )
+     return tgt \ join_project(tgt, neg, c1, .., cN, d1, .. , dN)
+     We have most of the facilities required for a join project operation.
+     For example, the filter_project function uses both equalities and deleted columns.
+     
+--*/
 #include "udoc_relation.h"
 #include "dl_relation_manager.h"
 #include "qe_util.h"

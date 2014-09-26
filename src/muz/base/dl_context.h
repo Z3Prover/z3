@@ -172,9 +172,9 @@ namespace datalog {
         smt_params &       m_fparams;
         params_ref         m_params_ref;
         fixedpoint_params*  m_params;
-        bool               m_generate_proof_trace;
-        bool               m_unbound_compressor;
-        symbol             m_default_relation;
+        bool               m_generate_proof_trace;      // cached configuration parameter
+        bool               m_unbound_compressor;        // cached configuration parameter
+        symbol             m_default_relation;          // cached configuration parameter
         dl_decl_util       m_decl_util;
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
@@ -260,18 +260,21 @@ namespace datalog {
         bool unbound_compressor() const;
         void set_unbound_compressor(bool f);
         bool similarity_compressor() const;
+        symbol print_aig() const;
+        symbol tab_selection() const;
         unsigned similarity_compressor_threshold() const;
         unsigned soft_timeout() const;
         unsigned initial_restart_timeout() const;
         bool generate_explanations() const;
         bool explanations_on_relation_level() const;
         bool magic_sets_for_queries() const;
-        bool bit_blast() const;
         bool karr() const;
         bool scale() const;
         bool magic() const;
         bool quantify_arrays() const;
         bool instantiate_quantifiers() const;
+        bool xform_bit_blast() const;        
+        bool xform_slice() const;
 
         void register_finite_sort(sort * s, sort_kind k);
 

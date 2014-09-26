@@ -765,7 +765,7 @@ namespace tb {
             m_weight_multiply(1.0),
             m_update_frequency(20),
             m_next_update(20) {
-            set_strategy(ctx.get_params().tab_selection());
+            set_strategy(ctx.tab_selection());
         }
 
         void init(rules const& rs) {
