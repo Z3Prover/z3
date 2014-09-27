@@ -318,6 +318,18 @@ private:
             asm2dep.insert(it->m_value.index(), it->m_key);
         }
         sat::literal_vector const& core = m_solver.get_core();
+        TRACE("opt",
+              dep2asm_t::iterator it = dep2asm.begin();
+              dep2asm_t::iterator end = dep2asm.end();
+              for (; it != end; ++it) {
+                  tout << mk_pp(it->m_key, m) << " |-> " << sat::literal(it->m_value) << "\n";
+              }
+              tout << "core: ";
+              for (unsigned i = 0; i < core.size(); ++i) {
+                  tout << core[i] << " ";
+              }
+              tout << "\n";
+              );              
 
         m_core.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
@@ -325,18 +337,6 @@ private:
             VERIFY (asm2dep.find(core[i].index(), e));
             m_core.push_back(e);
         }
-        TRACE("opt",
-              dep2asm_t::iterator it = dep2asm.begin();
-              dep2asm_t::iterator end = dep2asm.end();
-              for (; it != end; ++it) {
-                  tout << mk_pp(it->m_key, m) << " |-> " << it->m_value << "\n";
-              }
-              tout << "core: ";
-              for (unsigned i = 0; i < core.size(); ++i) {
-                  tout << core[i] << ": " << mk_pp(m_core[i].get(), m) << " ";
-              }
-              tout << "\n";
-              );              
 
 
     }
