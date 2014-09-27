@@ -1036,18 +1036,13 @@ public:
     
     virtual void cleanup() {
         unsigned num_elim_apps = get_num_elim_apps();
-        ast_manager & m = m_imp->m_manager;
-        imp * d = m_imp;
+        ast_manager & m = m_imp->m_manager;        
+        imp * d = alloc(imp, m, m_params);
         #pragma omp critical (tactic_cancel)
         {
-            m_imp = 0;
+            std::swap(d, m_imp);
         }
         dealloc(d);
-        d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            m_imp = d;
-        }
         m_imp->m_num_elim_apps = num_elim_apps;
     }
 

@@ -64,7 +64,10 @@ namespace opt {
             m_solver->collect_statistics(st);
         }
         virtual void set_cancel(bool f) {
-            m_solver->set_cancel(f);
+            if (f) 
+                m_solver->cancel();
+            else 
+                m_solver->reset_cancel();
             m_cancel = f;
         }
         virtual void display(std::ostream & out) const {

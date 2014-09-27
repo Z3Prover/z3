@@ -898,20 +898,14 @@ public:
     }
     
     virtual void cleanup() {
-        unsigned num_aux_vars = m_imp->m_num_aux_vars;
         ast_manager & m = m_imp->m;
-        imp * d = m_imp;
+        imp * d = alloc(imp, m, m_params);
+        d->m_num_aux_vars = m_imp->m_num_aux_vars;
         #pragma omp critical (tactic_cancel)
         {
-            m_imp = 0;
+            std::swap(d, m_imp);
         }
         dealloc(d);
-        d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            m_imp = d;
-        }
-        m_imp->m_num_aux_vars = num_aux_vars;
     }
 
     virtual void set_cancel(bool f) {

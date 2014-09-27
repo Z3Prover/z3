@@ -251,7 +251,6 @@ namespace pdr {
         model_node*        m_root;
         std::deque<model_node*> m_leaves;
         vector<obj_map<expr, model_nodes > > m_cache;
-
         obj_map<expr, model_nodes>& cache(model_node const& n);
         void erase_children(model_node& n, bool backtrack);
         void erase_leaf(model_node& n);

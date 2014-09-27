@@ -58,8 +58,12 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
     ctx_q.updt_params(params);
     {
         parser* p = parser::create(ctx_q,m);
-        TRUSTME( p->parse_file(problem_file) );
+        bool ok = p->parse_file(problem_file);
         dealloc(p);
+        if (!ok) {
+            std::cout << "Could not parse: " << problem_file << "\n";
+            return;
+        }
     }
     relation_manager & rel_mgr_q = ctx_b.get_rel_context()->get_rmanager();
 
@@ -143,8 +147,12 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
     ctx.updt_params(params);
     {
         wpa_parser* p = wpa_parser::create(ctx, m);
-        TRUSTME( p->parse_directory(problem_dir) );
+        bool ok = p->parse_directory(problem_dir);
         dealloc(p);
+        if (!ok) {
+            std::cout << "Could not parse: " << problem_dir << "\n";
+            return;
+        }
     }
 
     const unsigned attempts = 10;
@@ -213,8 +221,12 @@ void tst_dl_query() {
     ctx_base.updt_params(params);
     {
         parser* p = parser::create(ctx_base,m);
-        TRUSTME( p->parse_file(problem_file) );
+        bool ok = p->parse_file(problem_file);
         dealloc(p);
+        if (!ok) {
+            std::cout << "Could not parse: " << problem_file << "\n";
+            return;
+        }
     }
     ctx_base.get_rel_context()->saturate();
 

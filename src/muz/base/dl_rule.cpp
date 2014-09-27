@@ -252,17 +252,16 @@ namespace datalog {
 
     unsigned rule_manager::extract_horn(expr* fml, app_ref_vector& body, app_ref& head) {
         expr* e1, *e2;
-        unsigned index = m_counter.get_next_var(fml);
         if (::is_forall(fml)) {
-            index += to_quantifier(fml)->get_num_decls();
             fml = to_quantifier(fml)->get_expr();
         }
+        unsigned index = m_counter.get_next_var(fml);
         if (m.is_implies(fml, e1, e2)) {
-            expr_ref_vector es(m);
+            m_args.reset();
             head = ensure_app(e2);
-            qe::flatten_and(e1, es);
-            for (unsigned i = 0; i < es.size(); ++i) {
-                body.push_back(ensure_app(es[i].get()));
+            qe::flatten_and(e1, m_args);
+            for (unsigned i = 0; i < m_args.size(); ++i) {
+                body.push_back(ensure_app(m_args[i].get()));
             }
         } 
         else {
@@ -370,7 +369,7 @@ namespace datalog {
     }
 
     void rule_manager::bind_variables(expr* fml, bool is_forall, expr_ref& result) {
-        result = m_ctx.bind_variables(fml, is_forall);
+        result = m_ctx.bind_vars(fml, is_forall);
     }
 
     void rule_manager::flatten_body(app_ref_vector& body) {

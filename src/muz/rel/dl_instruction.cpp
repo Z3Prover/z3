@@ -346,7 +346,7 @@ namespace datalog {
             print_container(m_controls, out);
         }
         virtual void display_body_impl(rel_context_base const & ctx, std::ostream & out, std::string indentation) const {
-            // m_body->display_indented(ctx, out, indentation+"    ");
+            m_body->display_indented(ctx, out, indentation+"    ");
         }
     };
 

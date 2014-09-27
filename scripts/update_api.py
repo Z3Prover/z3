@@ -420,7 +420,7 @@ def mk_dotnet():
 
 
 NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc' ]
-Unwrapped = [ 'Z3_del_context' ]
+Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
 
 def mk_dotnet_wrappers():
     global Type2Str

@@ -42,6 +42,7 @@ Revision History:
 #include"expr_functors.h"
 #include"dl_engine_base.h"
 #include"bind_variables.h"
+#include"rule_properties.h"
 
 struct fixedpoint_params;
 
@@ -53,6 +54,7 @@ namespace datalog {
         MEMOUT,
         INPUT_ERROR,
         APPROX,
+	BOUNDED,
         CANCELED
     };
 
@@ -141,6 +143,17 @@ namespace datalog {
             SK_UINT64,
             SK_SYMBOL
         };
+        class contains_pred : public i_expr_pred {
+            context const& ctx;
+        public:
+            contains_pred(context& ctx): ctx(ctx) {}
+            virtual ~contains_pred() {}
+            
+            virtual bool operator()(expr* e) {
+                return ctx.is_predicate(e);
+            }
+        };
+
 
     private:
         class sort_domain;
@@ -154,32 +167,21 @@ namespace datalog {
         typedef obj_map<const func_decl, svector<symbol> > pred2syms;
         typedef obj_map<const sort, sort_domain*> sort_domain_map;
 
-        class contains_pred : public i_expr_pred {
-            context const& ctx;
-        public:
-            contains_pred(context& ctx): ctx(ctx) {}
-            virtual ~contains_pred() {}
-            
-            virtual bool operator()(expr* e) {
-                return ctx.is_predicate(e);
-            }
-        };
-
 
         ast_manager &      m;
         register_engine_base& m_register_engine;
         smt_params &       m_fparams;
         params_ref         m_params_ref;
         fixedpoint_params*  m_params;
-        bool               m_generate_proof_trace;
-        bool               m_unbound_compressor;
-        symbol             m_default_relation;
+        bool               m_generate_proof_trace;      // cached configuration parameter
+        bool               m_unbound_compressor;        // cached configuration parameter
+        symbol             m_default_relation;          // cached configuration parameter
         dl_decl_util       m_decl_util;
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
         rule_manager       m_rule_manager;
         contains_pred      m_contains_p;
-        check_pred         m_check_pred;
+        rule_properties    m_rule_properties;
         rule_transformer   m_transf;
         trail_stack<context> m_trail;
         ast_ref_vector     m_pinned;
@@ -259,18 +261,21 @@ namespace datalog {
         bool unbound_compressor() const;
         void set_unbound_compressor(bool f);
         bool similarity_compressor() const;
+        symbol print_aig() const;
+        symbol tab_selection() const;
         unsigned similarity_compressor_threshold() const;
         unsigned soft_timeout() const;
         unsigned initial_restart_timeout() const;
         bool generate_explanations() const;
         bool explanations_on_relation_level() const;
         bool magic_sets_for_queries() const;
-        bool bit_blast() const;
         bool karr() const;
         bool scale() const;
         bool magic() const;
         bool quantify_arrays() const;
         bool instantiate_quantifiers() const;
+        bool xform_bit_blast() const;        
+        bool xform_slice() const;
 
         void register_finite_sort(sort * s, sort_kind k);
 
@@ -287,7 +292,7 @@ namespace datalog {
           universal (if is_forall is true) or existential 
           quantifier.
          */
-        expr_ref bind_variables(expr* fml, bool is_forall);
+        expr_ref bind_vars(expr* fml, bool is_forall);
 
         /**
            Register datalog relation.
@@ -307,6 +312,8 @@ namespace datalog {
            \brief Retrieve predicates
         */
         func_decl_set const& get_predicates() const { return m_preds; }
+	ast_ref_vector const &get_pinned() const {return m_pinned; }
+
         bool is_predicate(func_decl* pred) const { return m_preds.contains(pred); }
         bool is_predicate(expr * e) const { return is_app(e) && is_predicate(to_app(e)->get_decl()); }
 
@@ -419,7 +426,7 @@ namespace datalog {
         /**
           \brief Check if rule is well-formed according to engine.
         */
-        void check_rule(rule& r);
+        void check_rules(rule_set& r);
 
         /**
            \brief Return true if facts to \c pred can be added using the \c add_table_fact() function.
@@ -564,11 +571,6 @@ namespace datalog {
         void flush_add_rules();
 
         void ensure_engine();
-
-        void check_quantifier_free(rule& r);        
-        void check_uninterpreted_free(rule& r);
-        void check_existential_tail(rule& r);
-        void check_positive_predicates(rule& r);
 
         // auxilary functions for SMT2 pretty-printer.
         void declare_vars(expr_ref_vector& rules, mk_fresh_name& mk_fresh, std::ostream& out);

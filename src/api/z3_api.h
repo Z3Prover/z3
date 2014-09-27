@@ -1392,6 +1392,16 @@ extern "C" {
        although some parameters can be changed using #Z3_update_param_value.
        All main interaction with Z3 happens in the context of a \c Z3_context.
 
+       In contrast to #Z3_mk_context_rc, the life time of Z3_ast objects
+       are determined by the scope level of #Z3_push and #Z3_pop.
+       In other words, a Z3_ast object remains valid until there is a 
+       call to Z3_pop that takes the current scope below the level where 
+       the object was created.
+
+       Note that all other reference counted objects, including Z3_model,
+       Z3_solver, Z3_func_interp have to be managed by the caller. 
+       Their reference counts are not handled by the context.       
+
        \conly \sa Z3_del_context
 
        \conly \deprecated Use #Z3_mk_context_rc
@@ -6841,6 +6851,13 @@ END_MLAPI_EXCLUDE
     /**
        \brief Create a new (incremental) solver.
 
+       The function #Z3_solver_get_model retrieves a model if the
+       assertions is satisfiable (i.e., the result is \c
+       Z3_L_TRUE) and model construction is enabled.
+       The function #Z3_solver_get_model can also be used even
+       if the result is \c Z3_L_UNDEF, but the returned model
+       is not guaranteed to satisfy quantified assertions.
+
        def_API('Z3_mk_simple_solver', SOLVER, (_in(CONTEXT),))
     */
     Z3_solver Z3_API Z3_mk_simple_solver(__in Z3_context c);
@@ -6978,8 +6995,11 @@ END_MLAPI_EXCLUDE
        \brief Check whether the assertions in a given solver are consistent or not.
 
        The function #Z3_solver_get_model retrieves a model if the
-       assertions are not unsatisfiable (i.e., the result is not \c
-       Z3_L_FALSE) and model construction is enabled.
+       assertions is satisfiable (i.e., the result is \c
+       Z3_L_TRUE) and model construction is enabled.
+       Note that if the call returns Z3_L_UNDEF, Z3 does not
+       ensure that calls to #Z3_solver_get_model succeed and any models
+       produced in this case are not guaranteed to satisfy the assertions.
 
        The function #Z3_solver_get_proof retrieves a proof if proof
        generation was enabled when the context was created, and the 
@@ -7290,7 +7310,7 @@ END_MLAPI_EXCLUDE
        \mlonly then a valid model is returned.  Otherwise, it is unsafe to use the returned model.\endmlonly
        \conly The caller is responsible for deleting the model using the function #Z3_del_model.
        
-       \conly \remark In constrast with the rest of the Z3 API, the reference counter of the
+       \conly \remark In contrast with the rest of the Z3 API, the reference counter of the
        \conly model is incremented. This is to guarantee backward compatibility. In previous
        \conly versions, models did not support reference counting.
        
@@ -7403,6 +7423,11 @@ END_MLAPI_EXCLUDE
        \brief Delete a model object.
        
        \sa Z3_check_and_get_model
+
+       \conly \remark The Z3_check_and_get_model automatically increments a reference count on the model.
+       \conly The expected usage is that models created by that method are deleted using Z3_del_model.
+       \conly This is for backwards compatibility and in contrast to the rest of the API where
+       \conly callers are responsible for managing reference counts.
     
        \deprecated Subsumed by Z3_solver API
        
@@ -7929,6 +7954,108 @@ END_MLAPI_EXCLUDE
     */
 
   Z3_context Z3_API Z3_mk_interpolation_context(__in Z3_config cfg);
+
+  /** Compute an interpolant from a refutation. This takes a proof of
+      "false" from a set of formulas C, and an interpolation
+      pattern. The pattern pat is a formula combining the formulas in C
+      using logical conjunction and the "interp" operator (see
+      #Z3_mk_interp). This interp operator is logically the identity
+      operator. It marks the sub-formulas of the pattern for which interpolants should
+      be computed. The interpolant is a map sigma from marked subformulas to
+      formulas, such that, for each marked subformula phi of pat (where phi sigma
+      is phi with sigma(psi) substituted for each subformula psi of phi such that
+      psi in dom(sigma)):
+
+      1) phi sigma implies sigma(phi), and
+
+      2) sigma(phi) is in the common uninterpreted vocabulary between
+      the formulas of C occurring in phi and those not occurring in
+      phi
+
+      and moreover pat sigma implies false. In the simplest case
+      an interpolant for the pattern "(and (interp A) B)" maps A
+      to an interpolant for A /\ B. 
+
+      The return value is a vector of formulas representing sigma. The
+      vector contains sigma(phi) for each marked subformula of pat, in
+      pre-order traversal. This means that subformulas of phi occur before phi
+      in the vector. Also, subformulas that occur multiply in pat will
+      occur multiply in the result vector.
+
+      In particular, calling Z3_get_interpolant on a pattern of the
+      form (interp ... (interp (and (interp A_1) A_2)) ... A_N) will
+      result in a sequence interpolant for A_1, A_2,... A_N. 
+
+      Neglecting interp markers, the pattern must be a conjunction of
+      formulas in C, the set of premises of the proof. Otherwise an
+      error is flagged.
+
+      Any premises of the proof not present in the pattern are
+      treated as "background theory". Predicate and function symbols
+      occurring in the background theory are treated as interpreted and
+      thus always allowed in the interpolant.
+
+      Interpolant may not necessarily be computable from all
+      proofs. To be sure an interpolant can be computed, the proof
+      must be generated by an SMT solver for which interpoaltion is
+      supported, and the premises must be expressed using only
+      theories and operators for which interpolation is supported.
+
+      Currently, the only SMT solver that is supported is the legacy
+      SMT solver. Such a solver is available as the default solver in
+      #Z3_context objects produced by #Z3_mk_interpolation_context.
+      Currently, the theories supported are equality with
+      uninterpreted functions, linear integer arithmetic, and the
+      theory of arrays (in SMT-LIB terms, this is AUFLIA).
+      Quantifiers are allowed. Use of any other operators (including
+      "labels") may result in failure to compute an interpolant from a
+      proof.
+
+      Parameters:
+
+      \param c logical context.
+      \param pf a refutation from premises (assertions) C
+      \param pat an interpolation pattern over C
+      \param p parameters
+
+       def_API('Z3_get_interpolant', AST_VECTOR, (_in(CONTEXT), _in(AST), _in(AST), _in(PARAMS)))
+    */
+
+  Z3_ast_vector Z3_API Z3_get_interpolant(__in Z3_context c, __in Z3_ast pf, __in Z3_ast pat, __in Z3_params p);
+
+  /* Compute an interpolant for an unsatisfiable conjunction of formulas.
+
+     This takes as an argument an interpolation pattern as in
+     #Z3_get_interpolant. This is a conjunction, some subformulas of
+     which are marked with the "interp" operator (see #Z3_mk_interp).
+     
+     The conjunction is first checked for unsatisfiability. The result
+     of this check is returned in the out parameter "status". If the result
+     is unsat, an interpolant is computed from the refutation as in #Z3_get_interpolant
+     and returned as a vector of formulas. Otherwise the return value is
+     an empty formula. 
+
+     See #Z3_get_interpolant for a discussion of supported theories.
+
+     The advantage of this function over #Z3_get_interpolant is that
+     it is not necessary to create a suitable SMT solver and generate
+     a proof. The disadvantage is that it is not possible to use the
+     solver incrementally.
+
+     Parameters:
+     
+     \param c logical context.
+     \param pat an interpolation pattern
+     \param p parameters for solver creation
+     \param status returns the status of the sat check
+     \param model returns model if satisfiable
+
+     Return value: status of SAT check
+     
+     def_API('Z3_compute_interpolant', INT, (_in(CONTEXT), _in(AST), _in(PARAMS), _out(AST_VECTOR), _out(MODEL)))
+  */
+  
+  Z3_lbool Z3_API Z3_compute_interpolant(__in Z3_context c, __in Z3_ast pat, __in Z3_params p, __out Z3_ast_vector *interp, __out Z3_model *model);
 
 
 /** Constant reprepresenting a root of a formula tree for tree interpolation */

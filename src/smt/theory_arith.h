@@ -413,6 +413,7 @@ namespace smt {
         atoms                   m_atoms;            // set of theory atoms
         ptr_vector<bound>       m_asserted_bounds;  // set of asserted bounds
         unsigned                m_asserted_qhead;   
+        ptr_vector<atom>        m_new_atoms;        // new bound atoms that have yet to be internalized.
         svector<theory_var>     m_nl_monomials;     // non linear monomials
         svector<theory_var>     m_nl_propagated;    // non linear monomials that became linear
         v_dependency_manager    m_dep_manager;      // for tracking bounds during non-linear reasoning
@@ -575,7 +576,6 @@ namespace smt {
         void mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params);
         void mk_bound_axioms(atom * a);
         void mk_bound_axiom(atom* a1, atom* a2);
-        ptr_vector<atom> m_new_atoms;
         void flush_bound_axioms();
         typename atoms::iterator next_sup(atom* a1, atom_kind kind, 
                                           typename atoms::iterator it, 

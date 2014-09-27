@@ -124,7 +124,7 @@ public:
     virtual void set_cancel(bool f) {
         m_goal2sat.set_cancel(f);
         m_solver.set_cancel(f);
-        m_preprocess->set_cancel(f);
+        if (f) m_preprocess->cancel(); else m_preprocess->reset_cancel();
     }
     virtual void push() {
         m_solver.user_push();

@@ -262,7 +262,7 @@ namespace datalog {
         
         rule_set * operator()(rule_set const & source) {
             // TODO pc
-            if (!m_context.bit_blast()) {
+            if (!m_context.xform_bit_blast()) {
                 return 0;
             }
             rule_manager& rm = m_context.get_rule_manager();

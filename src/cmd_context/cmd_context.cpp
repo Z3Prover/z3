@@ -347,8 +347,14 @@ cmd_context::~cmd_context() {
 }
 
 void cmd_context::set_cancel(bool f) {
-    if (m_solver)
-        m_solver->set_cancel(f);
+    if (m_solver) {
+        if (f) {
+            m_solver->cancel(); 
+        }
+        else {
+            m_solver->reset_cancel();
+        }
+    }
     if (has_manager())
         m().set_cancel(f);
 }

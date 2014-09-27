@@ -165,6 +165,14 @@ public:
         SASSERT(e);
         return e->get_data().m_value;
     }
+
+    value const & operator[](key * k) const {
+        return find(k);
+    }
+
+    value & operator[](key * k) {
+        return find(k);
+    }
     
     iterator find_iterator(Key * k) const { 
         return m_table.find(key_data(k));
