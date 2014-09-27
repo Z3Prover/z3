@@ -63,7 +63,7 @@ Notes:
 #include "opt_context.h"
 #include "pb_decl_plugin.h"
 #include "opt_params.hpp"
-
+#include "ast_util.h"
 
 using namespace opt;
 
@@ -101,8 +101,8 @@ public:
            strategy_t st):
         maxsmt_solver_base(c, ws, soft),
         m_B(m), m_asms(m),
-        m_mus(m_s, m),
-        m_mss(m_s, m),
+        m_mus(c.get_solver(), m),
+        m_mss(c.get_solver(), m),
         m_trail(m),
         m_st(st),
         m_hill_climb(true),
@@ -519,7 +519,7 @@ public:
         rational w = split_core(core);
         TRACE("opt", display_vec(tout << "minimized core: ", core.size(), core.c_ptr()););
         max_resolve(core, w);
-        fml = m.mk_not(m.mk_and(m_B.size(), m_B.c_ptr()));
+        fml = mk_not(m, mk_and(m, m_B.size(), m_B.c_ptr()));
         s().assert_expr(fml);
         m_lower += w;
         trace_bounds("maxres");
@@ -811,7 +811,7 @@ public:
         expr_ref_vector nsoft(m);
         expr_ref fml(m);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            nsoft.push_back(m.mk_not(m_soft[i].get()));
+            nsoft.push_back(mk_not(m, m_soft[i].get()));
         }            
         fml = u.mk_lt(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper);
         s().assert_expr(fml);        
@@ -880,7 +880,7 @@ public:
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             n = m_soft[i].get();
             if (!m_assignment[i]) {
-                n = m.mk_not(n);
+                n = mk_not(m, n);
             }
             sat_solver->assert_expr(n);
         }

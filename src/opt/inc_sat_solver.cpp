@@ -39,8 +39,9 @@ class inc_sat_solver : public solver {
     params_ref      m_params;
     bool            m_optimize_model; // parameter
     expr_ref_vector m_fmls;
-    expr_ref_vector m_current_fmls;
     unsigned_vector m_fmls_lim;
+    unsigned_vector m_fmls_head_lim;
+    unsigned            m_fmls_head;
     expr_ref_vector     m_core;
     atom2bool_var       m_map;
     model_ref           m_model;
@@ -61,7 +62,10 @@ public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
         m(m), m_solver(p,0), 
         m_params(p), m_optimize_model(false), 
-        m_fmls(m), m_current_fmls(m), m_core(m), m_map(m),
+        m_fmls(m), 
+        m_fmls_head(0),
+        m_core(m), 
+        m_map(m),
         m_num_scopes(0), 
         m_dep_core(m),
         m_soft(m) {
@@ -127,9 +131,11 @@ public:
         if (f) m_preprocess->cancel(); else m_preprocess->reset_cancel();
     }
     virtual void push() {
+        internalize_formulas();
         m_solver.user_push();
         ++m_num_scopes;
-        m_fmls_lim.push_back(m_current_fmls.size());
+        m_fmls_lim.push_back(m_fmls.size());
+        m_fmls_head_lim.push_back(m_fmls_head);
     }
     virtual void pop(unsigned n) {
         if (n < m_num_scopes) {   // allow inc_sat_solver to 
@@ -139,8 +145,10 @@ public:
         m_solver.user_pop(n);        
         m_num_scopes -= n;
         while (n > 0) {
-            m_current_fmls.resize(m_fmls_lim.back());
+            m_fmls_head = m_fmls_head_lim.back();
+            m_fmls.resize(m_fmls_lim.back());
             m_fmls_lim.pop_back();
+            m_fmls_head_lim.pop_back();
             --n;
         }
     }
@@ -156,8 +164,8 @@ public:
         }
     }
     virtual void assert_expr(expr * t) {
+        TRACE("opt", tout << mk_pp(t, m) << "\n";);
         m_fmls.push_back(t);
-        m_current_fmls.push_back(t);
     }
     virtual void set_produce_models(bool f) {}
     virtual void collect_param_descrs(param_descrs & r) {
@@ -291,15 +299,14 @@ private:
     }
 
     lbool internalize_formulas() {
-        if (m_fmls.empty()) {
+        if (m_fmls_head == m_fmls.size()) {
             return l_true;
         }
         dep2asm_t dep2asm;
         goal_ref g = alloc(goal, m, true, false); // models, maybe cores are enabled
-        for (unsigned i = 0; i < m_fmls.size(); ++i) {
-            g->assert_expr(m_fmls[i].get());
+        for (; m_fmls_head < m_fmls.size(); ++m_fmls_head) {
+            g->assert_expr(m_fmls[m_fmls_head].get());
         }
-        m_fmls.reset();
         return internalize_goal(g, dep2asm);
     }
 

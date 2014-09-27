@@ -2266,7 +2266,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a pseudo-Boolean <= constraint.
+        /// Create a pseudo-Boolean less-or-equal constraint.
         /// </summary>
         public BoolExpr MkPBLe(int[] coeffs, BoolExpr[] args, int k) 
         {

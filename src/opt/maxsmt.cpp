@@ -29,13 +29,13 @@ Notes:
 #include "uint_set.h"
 #include "opt_context.h"
 #include "theory_wmaxsat.h"
+#include "ast_util.h"
 
 
 namespace opt {
 
     maxsmt_solver_base::maxsmt_solver_base(
         context& c, vector<rational> const& ws, expr_ref_vector const& soft):
-        m_s(c.get_solver()), 
         m(c.get_manager()), 
         m_c(c),
         m_cancel(false), m_soft(m),
@@ -49,6 +49,10 @@ namespace opt {
     void maxsmt_solver_base::updt_params(params_ref& p) {
         m_params.copy(p);
     }       
+
+    solver& maxsmt_solver_base::s() {
+        return m_c.get_solver(); 
+    }
 
     void maxsmt_solver_base::init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
         m_weights.reset();
@@ -78,19 +82,10 @@ namespace opt {
               tout << "\n";);
     }
 
-    expr* maxsmt_solver_base::mk_not(expr* e) {
-        if (m.is_not(e, e)) {
-            return e;
-        }
-        else {
-            return m.mk_not(e);
-        }
-    }
-
     void maxsmt_solver_base::set_mus(bool f) {
         params_ref p;
         p.set_bool("minimize_core", f);
-        m_s.updt_params(p);
+        s().updt_params(p);
     }
 
     void maxsmt_solver_base::enable_sls(expr_ref_vector const& soft, vector<rational> const& ws) {
@@ -149,10 +144,10 @@ namespace opt {
 
 
     maxsmt::maxsmt(context& c):
-        m_s(c.get_solver()), m(c.get_manager()), m_c(c), m_cancel(false), 
+        m(c.get_manager()), m_c(c), m_cancel(false), 
         m_soft_constraints(m), m_answer(m) {}
 
-    lbool maxsmt::operator()(solver* s) {
+    lbool maxsmt::operator()() {
         lbool is_sat;
         m_msolver = 0;
         symbol const& maxsat_engine = m_c.maxsat_engine();
@@ -161,7 +156,7 @@ namespace opt {
         if (m_soft_constraints.empty()) {
             TRACE("opt", tout << "no constraints\n";);
             m_msolver = 0;
-            is_sat = m_s.check_sat(0, 0);
+            is_sat = s().check_sat(0, 0);
         }
         else if (maxsat_engine == symbol("maxres")) {            
             m_msolver = mk_maxres(m_c, m_weights, m_soft_constraints);
@@ -222,9 +217,9 @@ namespace opt {
         // TBD: have to use a different solver 
         // because we don't push local scope any longer.
         return;
-        solver::scoped_push _sp(m_s);
+        solver::scoped_push _sp(s());
         commit_assignment();
-        if (l_true != m_s.check_sat(0,0)) {
+        if (l_true != s().check_sat(0,0)) {
             IF_VERBOSE(0, verbose_stream() << "could not verify assignment\n";);
             UNREACHABLE();
         }
@@ -274,10 +269,10 @@ namespace opt {
             expr_ref tmp(m);
             tmp = m_soft_constraints[i].get();
             if (!get_assignment(i)) {
-                tmp = m.mk_not(tmp);
+                tmp = mk_not(m, tmp);
             }
             TRACE("opt", tout << "committing: " << tmp << "\n";);
-            m_s.assert_expr(tmp);            
+            s().assert_expr(tmp);            
         }
     }
 
@@ -325,6 +320,10 @@ namespace opt {
         if (m_msolver) {
             m_msolver->collect_statistics(st);
         }
+    }
+
+    solver& maxsmt::s() {
+        return m_c.get_solver(); 
     }
 
 

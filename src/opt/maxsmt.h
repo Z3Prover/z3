@@ -58,7 +58,6 @@ namespace opt {
     // 
     class maxsmt_solver_base : public maxsmt_solver {
     protected:
-        solver&          m_s;
         ast_manager&     m;
         context&         m_c;
         volatile bool    m_cancel;
@@ -84,9 +83,8 @@ namespace opt {
         void set_model() { s().get_model(m_model); }
         virtual void updt_params(params_ref& p);
         virtual void init_soft(weights_t& weights, expr_ref_vector const& soft);
-        solver& s() { return m_s; }
+        solver& s();
         void init();
-        expr* mk_not(expr* e);
         void set_mus(bool f);
         app* mk_fresh_bool(char const* name);
 
@@ -115,7 +113,6 @@ namespace opt {
 
     class maxsmt {
         ast_manager&              m;
-        solver&                   m_s;
         context&                  m_c;
         scoped_ptr<maxsmt_solver> m_msolver;
         volatile bool    m_cancel;
@@ -129,7 +126,7 @@ namespace opt {
         params_ref       m_params;
     public:
         maxsmt(context& c);
-        lbool operator()(solver* s);
+        lbool operator()();
         void set_cancel(bool f);
         void updt_params(params_ref& p);
         void add(expr* f, rational const& w); 
@@ -150,6 +147,7 @@ namespace opt {
     private:
         bool is_maxsat_problem(weights_t& ws) const;        
         void verify_assignment();
+        solver& s();
     };
 
 };

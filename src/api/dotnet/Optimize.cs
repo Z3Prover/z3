@@ -97,8 +97,16 @@ namespace Microsoft.Z3
 	        Symbol s = Context.MkSymbol(group);            
 	        return Native.Z3_optimize_assert_soft(Context.nCtx, NativeObject, constraint.NativeObject, weight.ToString(), s.NativeObject);            
         }
+
 	
-	    public Status Check() {
+	///
+	/// <summary>
+	/// Check satisfiability of asserted constraints.
+	/// Produce a model that (when the objectives are bounded and 
+	/// don't use strict inequalities) meets the objectives.
+	/// </summary>
+	///
+        public Status Check() {
 	        Z3_lbool r = (Z3_lbool)Native.Z3_optimize_check(Context.nCtx, NativeObject);
             switch (r)
             {
@@ -149,27 +157,47 @@ namespace Microsoft.Z3
                     return new Model(Context, x);
             }
         }
-        	
+
+        /// <summary>
+        /// Declare an arithmetical maximization objective.
+	/// Return a handle to the objective. The handle is used as
+	/// an argument to GetLower and GetUpper.
+        /// </summary>        	
         public uint MkMaximize(ArithExpr e) 
         {
 	        return Native.Z3_optimize_maximize(Context.nCtx, NativeObject, e.NativeObject);
 	    }
 
+        /// <summary>
+        /// Declare an arithmetical minimization objective. 
+	/// Similar to MkMaximize.
+        /// </summary>        	
         public uint MkMinimize(ArithExpr e)
         {
 	        return Native.Z3_optimize_minimize(Context.nCtx, NativeObject, e.NativeObject);
         }
 
+        /// <summary>
+        /// Retrieve a lower bound for the objective handle.
+        /// </summary>        	
         public ArithExpr GetLower(uint index) 
         {
             return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
         }
 
+
+        /// <summary>
+        /// Retrieve an upper bound for the objective handle.
+        /// </summary>        	
         public ArithExpr GetUpper(uint index)
         {
             return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
         }
 
+
+        /// <summary>
+        /// Print the context to a string (SMT-LIB parseable benchmark).
+        /// </summary>        	
         public override string ToString() 
         {
             return Native.Z3_optimize_to_string(Context.nCtx, NativeObject);

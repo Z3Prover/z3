@@ -316,6 +316,7 @@ namespace Microsoft.Z3
             }
         }
 
+	/// <summary>
         /// Parse an SMT-LIB2 file with fixedpoint rules. 
         /// Add the rules to the current fixedpoint context. 
         /// Return the set of queries in the file.

@@ -22,6 +22,7 @@ Notes:
 #include "smt_literal.h"
 #include "mus.h"
 #include "ast_pp.h"
+#include "ast_util.h"
 
 using namespace opt;
 
@@ -60,13 +61,6 @@ struct mus::imp {
         TRACE("opt", tout << idx << ": " << mk_pp(cls, m) << "\n";);
         return idx;
     }
-
-    expr* mk_not(expr* e) {
-        if (m.is_not(e, e)) {
-            return e;
-        }
-        return m.mk_not(e);
-    }
     
     lbool get_mus(unsigned_vector& mus) {
         // SASSERT: mus does not have duplicates.
@@ -92,7 +86,7 @@ struct mus::imp {
             core.pop_back();
             expr* cls = m_cls2expr[cls_id].get();
             expr_ref not_cls(m);
-            not_cls = mk_not(cls);
+            not_cls = mk_not(m, cls);
             unsigned sz = assumptions.size();
             assumptions.push_back(not_cls);
             add_core(core, assumptions);

@@ -267,7 +267,7 @@ namespace opt {
         model_ref tmp;
         maxsmt& ms = *m_maxsmts.find(id);
         if (scoped) get_solver().push();            
-        lbool result = ms(m_solver.get());
+        lbool result = ms();
         if (result != l_false && (ms.get_model(tmp), tmp.get())) ms.get_model(m_model);
         if (scoped) get_solver().pop(1);
         if (result == l_true && committed) ms.commit_assignment();
