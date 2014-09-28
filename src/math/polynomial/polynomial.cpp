@@ -4117,7 +4117,6 @@ namespace polynomial {
             polynomial_ref H(m_wrapper), C(m_wrapper);
             polynomial_ref lc_H(m_wrapper);
             unsigned min_deg_q = UINT_MAX;
-            var next_x         = vars[idx+1];
             unsigned counter   = 0;
 
             for (;; counter++) {
@@ -4137,7 +4136,7 @@ namespace polynomial {
                 var q_var      = max_var(q);
                 unsigned deg_q = q_var == null_var ? 0 : degree(q, q_var);
                 TRACE("mgcd_detail", tout << "counter: " << counter << "\nidx: " << idx << "\nq: " << q << "\ndeg_q: " << deg_q << "\nmin_deg_q: " << 
-                      min_deg_q << "\nnext_x: x" << next_x << "\nmax_var(q): " << q_var << "\n";);
+                      min_deg_q << "\nnext_x: x" << vars[idx+1] << "\nmax_var(q): " << q_var << "\n";);
                 if (deg_q < min_deg_q) {
                     TRACE("mgcd_detail", tout << "reseting...\n";);                    
                     counter   = 0;
@@ -5113,10 +5112,9 @@ namespace polynomial {
                 monomial const * m_r = R.m(max_R);
                 numeral const & a_r  = R.a(max_R);
                 monomial * m_r_q = 0;
-                bool q_div_r = div(m_r, m_q, m_r_q);
+                VERIFY(div(m_r, m_q, m_r_q));
                 TRACE("polynomial", tout << "m_r: "; m_r->display(tout); tout << "\nm_q: "; m_q->display(tout); tout << "\n";
                       if (m_r_q) { tout << "m_r_q: "; m_r_q->display(tout); tout << "\n"; });
-                SASSERT(q_div_r);
                 m_r_q_ref = m_r_q;
                 m_manager.div(a_r, a_q, a_r_q);
                 C.add(a_r_q, m_r_q);       // C <- C + (a_r/a_q)*(m_r/m_q)

@@ -43,8 +43,7 @@ mpff_manager::mpff_manager(unsigned prec, unsigned initial_capacity) {
     for (unsigned i = 0; i < MPFF_NUM_BUFFERS; i++)
         m_buffers[i].resize(2 * prec, 0);
     // Reserve space for zero
-    unsigned zero_sig_idx = m_id_gen.mk();
-    SASSERT(zero_sig_idx == 0);
+    VERIFY(m_id_gen.mk() == 0);
     set(m_one, 1);
 }
 
