@@ -20,6 +20,7 @@ Revision History:
 #define _UNION_FIND_H_
 
 #include "trail.h"
+#include "trace.h"
 
 class union_find_default_ctx {
 public:
@@ -98,6 +99,7 @@ public:
 
     unsigned get_num_vars() const { return m_find.size(); }
 
+
     unsigned find(unsigned v) const {
         while (true) {
             unsigned new_v = m_find[v];
@@ -108,6 +110,8 @@ public:
     }
 
     unsigned next(unsigned v) const { return m_next[v]; }
+
+    unsigned size(unsigned v) const { return m_size[find(v)]; }
 
     bool is_root(unsigned v) const { return m_find[v] == v; }
 
@@ -131,7 +135,7 @@ public:
     void display(std::ostream & out) const {
         unsigned num = get_num_vars(); 
         for (unsigned v = 0; v < num; v++) {
-            out << "v" << v << " --> v" << m_find[v] << "\n";
+            out << "v" << v << " --> v" << m_find[v] << " (" << size(v) << ")\n";
         }
     }
 

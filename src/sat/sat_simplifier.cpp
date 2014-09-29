@@ -21,6 +21,7 @@ Revision History:
 #include"sat_simplifier.h"
 #include"sat_simplifier_params.hpp"
 #include"sat_solver.h"
+#include"sat_bceq.h"
 #include"stopwatch.h"
 #include"trace.h"
 
@@ -155,6 +156,14 @@ namespace sat {
 
         if (!learned && (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls))
             elim_blocked_clauses();
+
+#if 0
+        // experiment is disabled.
+        if (!learned) { // && m_equality_inference
+            bceq bc(s);
+            bc();
+        }
+#endif
 
         if (!learned)
             m_num_calls++;
