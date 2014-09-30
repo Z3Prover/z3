@@ -428,6 +428,8 @@ namespace sat {
 
 
     void bceq::operator()() {
+        if (!m_solver.m_config.m_bcd) return;
+        flet<bool> _disable_bcd(m_solver.m_config.m_bcd, false);
         use_list     ul;        
         solver       s(m_solver.m_params, 0);
         m_use_list = &ul;
