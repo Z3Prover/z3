@@ -375,7 +375,7 @@ namespace datalog {
             for (; it != end; ++it) {
                 func_decl* pred = *it;
                 relation_base & rel = get_relation(pred);
-                if (!rel.empty()) {
+                if (!rel.fast_empty()) {
                     non_empty = true;
                     break;
                 }
@@ -449,7 +449,7 @@ namespace datalog {
 
     bool rel_context::is_empty_relation(func_decl* pred) const {
         relation_base* rb = try_get_relation(pred);
-        return !rb || rb->empty();
+        return !rb || rb->fast_empty();
     }
 
     relation_manager & rel_context::get_rmanager() { return m_rmanager; }

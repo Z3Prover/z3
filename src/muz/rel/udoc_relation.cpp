@@ -21,10 +21,6 @@ Revision History:
 Notes:
 
     Current pending items:
-    - Fix the incomplete non-emptiness check in doc.cpp
-      It can fall back to a sat_solver call in the worst case.
-      The sat_solver.h interface gives a way to add clauses to a sat solver
-      and check for satisfiability. It can be used from scratch each time.
     - Profile and fix bottlnecks:
       - Potential bottleneck in projection exercised in some benchmarks.
         Projection is asymptotically very expensive. We are here interested in 
@@ -127,12 +123,7 @@ namespace datalog {
         m_elems.push_back(fact2doc(f));
     }
     bool udoc_relation::empty() const {
-        if (m_elems.is_empty()) return true;
-        // TBD: make this a complete check
-        for (unsigned i = 0; i < m_elems.size(); ++i) {
-            if (!dm.is_empty(m_elems[i])) return false;
-        }
-        return true;
+        return m_elems.is_empty_complete(get_plugin().m, dm);
     }
     bool udoc_relation::contains_fact(const relation_fact & f) const {
         doc_ref d(dm, fact2doc(f));

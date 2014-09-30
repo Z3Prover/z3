@@ -83,7 +83,6 @@ void doc_manager::deallocate(doc* src) {
     m.deallocate(&src->pos());
     src->neg().reset(m);
     m_alloc.deallocate(sizeof(doc), src);
-    //    dealloc(src);
 }
 void doc_manager::copy(doc& dst, doc const& src)  {
     m.copy(dst.pos(), src.pos());
@@ -118,7 +117,6 @@ bool doc_manager::set_and(doc& dst, doc const& src)  {
             dst.neg().insert(m, t.detach());
         }
     }
-    SASSERT(well_formed(dst));
     return fold_neg(dst);
 }
 bool doc_manager::set_and(doc& dst, tbv const& src)  {
@@ -498,33 +496,19 @@ bool doc_manager::equals(doc const& a, doc const& b) const {
 bool doc_manager::is_full(doc const& src) const {
     return src.neg().is_empty() && m.equals(src.pos(), *m_full);
 }
-bool doc_manager::is_empty(doc const& src)  {
+bool doc_manager::is_empty_complete(ast_manager& m, doc const& src)  {
     if (src.neg().size() == 0) return false;
-    return false;
-#if 0
-    // buggy:
-    tbv_ref pos(m, m.allocate(src.pos()));
-    for (unsigned i = 0; i < src.neg().size(); ++i) {
-        bool found = false;
-        for (unsigned j = 0; !found && j < num_tbits(); ++j) {
-            tbit b1 = (*pos)[j];
-            tbit b2 = src.neg()[i][j];
-            found = (b1 != BIT_x && b2 != BIT_x && b1 != b2);
-        }
-        for (unsigned j = 0; !found && j < num_tbits(); ++j) {
-            tbit b1 = (*pos)[j];
-            tbit b2 = src.neg()[i][j];
-            found = (b1 == BIT_x && b2 != BIT_x);
-            if (found) {
-                m.set(*pos, j, neg(b2));
-            }
-        }
-        if (!found) {
-            return false; // TBD make complete SAT check.
-        }
+
+    smt_params fp;
+    smt::kernel s(m, fp);
+    expr_ref fml = to_formula(m, src);
+    s.assert_expr(fml);
+    lbool res = s.check();
+    if (res == l_true) {
+        return false;
     }
+    SASSERT(res == l_false);
     return true;
-#endif
 }
 
 unsigned doc_manager::hash(doc const& src) const {

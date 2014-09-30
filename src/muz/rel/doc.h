@@ -72,7 +72,7 @@ public:
     doc& fill1(doc& src);
     doc& fillX(doc& src);
     bool is_full(doc const& src) const;
-    bool is_empty(doc const& src);
+    bool is_empty_complete(ast_manager& m, doc const& src);
     bool set_and(doc& dst, doc const& src);
     bool set_and(doc& dst, tbv const& src);
     bool fold_neg(doc& dst);
@@ -119,10 +119,17 @@ class union_bvec {
 public:
     unsigned size() const { return m_elems.size(); }
     T& operator[](unsigned idx) const { return *m_elems[idx]; }
-    bool is_empty() const { return m_elems.empty(); }    
+    bool is_empty() const { return m_elems.empty(); }
+    bool is_empty_complete(ast_manager& m, doc_manager& dm) const {
+        for (unsigned i = 0; i < size(); ++i) {
+            if (!dm.is_empty_complete(m, *m_elems[i]))
+                return false;
+        }
+        return true;
+    }
     bool is_full(M& m) const { return size() == 1 && m.is_full(*m_elems[0]); }
     bool contains(M& m, T& t) const {
-        for (unsigned i = 0; i < m_elems.size(); ++i) {
+        for (unsigned i = 0; i < size(); ++i) {
             if (m.contains(*m_elems[i], t)) return true;
         }
         return false;
