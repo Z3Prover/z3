@@ -20,6 +20,7 @@ Revision History:
 #include"sat_integrity_checker.h"
 #include"luby.h"
 #include"trace.h"
+#include"sat_bceq.h"
 
 // define to update glue during propagation
 #define UPDATE_GLUE
@@ -959,6 +960,7 @@ namespace sat {
         m_stopwatch.start();
         m_core.reset();
         TRACE("sat", display(tout););
+
     }
 
     /**

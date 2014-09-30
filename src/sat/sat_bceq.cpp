@@ -64,6 +64,11 @@ namespace sat {
             m_bin_clauses.push_back(cls);
             register_clause(cls);
         }
+        TRACE("sat",
+              for (unsigned i = 0; i < m_clauses.size(); ++i) {
+                  clause const* cls = m_clauses[i];
+                  if (cls) tout << *cls << "\n";
+              });
     }
 
     void bceq::pure_decompose() {
@@ -109,7 +114,7 @@ namespace sat {
             m_L_blits.resize(sz1+delta1,  lit);
             m_R_blits.resize(sz2+delta2, ~lit);
         }
-        std::cout << lit << " " << "pos: " << delta1 << " " << "neg: " << delta2 << "\n";
+        TRACE("bceq", tout << lit << " " << "pos: " << delta1 << " " << "neg: " << delta2 << "\n";);
     }
     
     void bceq::pure_decompose(clause_use_list& uses, svector<clause*>& clauses) {
@@ -134,24 +139,88 @@ namespace sat {
         for (unsigned i = 0; i < m_L.size(); ++i) {
             ul.insert(*m_L[i]);
         }
+#define MOVE_R_TO_L                             \
+
+        // cheap pass: add clauses from R in order
+        // such that they are blocked with respect to
+        // predecessors.
+        m_removed.reset();
         for (unsigned i = 0; i < m_R.size(); ++i) {
             literal lit = find_blocked(*m_R[i]);
             if (lit != null_literal) {
-                m_L.push_back(m_R[i]);
-                m_L_blits.push_back(lit);
-                ul.insert(*m_R[i]);
+                m_L.push_back(m_R[i]);                  
+                m_L_blits.push_back(lit);               
+                ul.insert(*m_R[i]);                     
+                m_R[i] = m_R.back();                    
+                m_R_blits[i] = m_R_blits.back();        
+                m_R.pop_back();                         
+                m_R_blits.pop_back();                   
+                --i;                                    
+            }
+        }
+        // expensive pass: add clauses from R as long
+        // as BCE produces the empty set of clauses.
+        for (unsigned i = 0; i < m_R.size(); ++i) {
+            if (bce(*m_R[i])) {
                 m_R[i] = m_R.back();
                 m_R_blits[i] = m_R_blits.back();
                 m_R.pop_back();
                 m_R_blits.pop_back();
                 --i;
             }
-        }
+        }        
         m_use_list = save;
     }
 
+    bool bceq::bce(clause& cls) {
+        svector<bool> live_clauses;
+        use_list ul;
+        use_list* save = m_use_list;
+        m_use_list = &ul;
+        ul.init(m_solver.num_vars());
+        for (unsigned i = 0; i < m_L.size(); ++i) {
+            ul.insert(*m_L[i]);
+        }
+        ul.insert(cls);
+        svector<clause*> clauses(m_L), new_clauses;
+        literal_vector blits(m_L_blits), new_blits;
+        clauses.push_back(&cls);
+        blits.push_back(null_literal);
+        bool removed = false;
+        m_removed.reset();
+        do {
+            removed = false;
+            for (unsigned i = 0; i < clauses.size(); ++i) {
+                clause& cls = *clauses[i];
+                literal lit = find_blocked(cls);
+                if (lit != null_literal) {
+                    m_removed.setx(cls.id(), true, false);
+                    new_clauses.push_back(&cls);
+                    new_blits.push_back(lit);
+                    removed = true;
+                    clauses[i] = clauses.back();
+                    blits[i] = blits.back();
+                    clauses.pop_back();
+                    blits.pop_back();                    
+                    --i;
+                }
+            }
+        }
+        while (removed);
+        if (clauses.empty()) {
+            m_L.reset();
+            m_L_blits.reset();
+            new_clauses.reverse();
+            new_blits.reverse();
+            m_L.append(new_clauses);
+            m_L_blits.append(new_blits);
+        }
+        std::cout << "Number left after BCE: " << clauses.size() << "\n";
+        return clauses.empty();
+    }
+
     literal bceq::find_blocked(clause const& cls) {
-        std::cout << "find blocker for: " << cls << "\n";
+        TRACE("bceq", tout << cls << "\n";);
 
         unsigned sz = cls.size();
         for (unsigned i = 0; i < sz; ++i) {
@@ -161,7 +230,7 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i) {
             literal lit = cls[i];
             if (is_blocked(lit)) {
-                std::cout << "is blocked " << lit << " : " << cls << "\n";
+                TRACE("bceq", tout << "is blocked " << lit << " : " << cls << "\n";);
                 result = lit;
                 break;
             }
@@ -178,12 +247,12 @@ namespace sat {
         while (!it.at_end()) {
             clause const& cls = it.curr();
             unsigned sz = cls.size();
-            bool is_axiom = false;
+            bool is_axiom = m_removed.get(cls.id(), false);
             for (unsigned i = 0; !is_axiom && i < sz; ++i) {
                 is_axiom = m_marked[cls[i].index()] && cls[i] != ~lit;
             }
 
-            std::cout << "resolvent " << lit << " : " << cls << " " << (is_axiom?"axiom":"non-axiom") << "\n";            
+            TRACE("bceq", tout << "resolvent " << lit << " : " << cls << " " << (is_axiom?"axiom":"non-axiom") << "\n";);
             if (!is_axiom) {
                 return false;
             }
@@ -231,8 +300,6 @@ namespace sat {
             clause const& cls = *m_rstack[i];
             literal block_lit = m_bstack[i];
             uint64 b = eval_clause(cls);
-            // std::cout << "Eval: " << block_lit << " " << std::hex << " ";
-            // std::cout << m_rbits[block_lit.var()] << " " << b << std::dec << "\n";
             // v = 0, b = 0 -> v := 1
             // v = 0, b = 1 -> v := 0
             // v = 1, b = 0 -> v := 0
@@ -278,7 +345,7 @@ namespace sat {
                 table.insert(val, i);
             }
         }
-        union_find.display(std::cout);
+        TRACE("sat", union_find.display(tout););
 
         //
         // Preliminary version:
@@ -305,7 +372,7 @@ namespace sat {
     }
 
     void bceq::check_equality(unsigned v1, unsigned v2) {
-        std::cout << "check: " << v1 << " = " << v2 << "\n";
+        TRACE("sat", tout << "check: " << v1 << " = " << v2 << "\n";);
         uint64 val1 = m_rbits[v1];
         uint64 val2 = m_rbits[v2];
         literal l1 = literal(v1, false);
@@ -315,7 +382,7 @@ namespace sat {
             l2.neg();
         }
         if (is_equiv(l1, l2)) {
-            std::cout << "Already equivalent: " << l1 << " " << l2 << "\n";
+            TRACE("sat", tout << "Already equivalent: " << l1 << " " << l2 << "\n";);
             return;
         }
 
@@ -329,10 +396,10 @@ namespace sat {
             is_sat = m_s->check(2, lits);
         }
         if (is_sat == l_false) {
-            std::cout << "Found equivalent: " << l1 << " " << l2 << "\n";
+            TRACE("sat", tout << "Found equivalent: " << l1 << " " << l2 << "\n";);
         }
         else {
-            std::cout << "Not equivalent\n";
+            TRACE("sat", tout << "Not equivalent: " << l1 << " " << l2 << "\n";);
         }
     }
 
@@ -344,7 +411,7 @@ namespace sat {
             found = w.is_binary_clause() && w.get_literal() == ~l2;
         }
         if (!found) return false;
-        found = true;
+        found = false;
         watch_list const& w2 = m_solver.get_wlist(~l1);
         for (unsigned i = 0; !found && i < w2.size(); ++i) {
             watched const& w = w2[i];            
@@ -369,7 +436,20 @@ namespace sat {
         init();
         pure_decompose();
         post_decompose();
-        std::cout << m_L.size() << " vs "  << m_R.size() << "\n";
+        std::cout << "Decomposed set " << m_L.size() << "\n";
+
+        TRACE("sat",
+              tout << "Decomposed set " << m_L.size() << "\n";
+              for (unsigned i = 0; i < m_L.size(); ++i) {
+                  clause const* cls = m_L[i];
+                  if (cls) tout << *cls << "\n";
+              }
+              tout << "remainder " << m_R.size() << "\n";
+              for (unsigned i = 0; i < m_R.size(); ++i) {
+                  clause const* cls = m_R[i];
+                  if (cls) tout << *cls << "\n";
+              }
+              );
         sat_sweep();
         extract_partition();
         cleanup();

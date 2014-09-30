@@ -45,6 +45,7 @@ namespace sat {
         svector<clause*>  m_rstack; // stack of blocked clauses
         literal_vector    m_bstack; // stack of blocking literals
         svector<bool>     m_marked;
+        svector<bool>     m_removed; // set of clauses removed (not considered in clause set during BCE)
         union_find_default_ctx m_union_find_ctx;
 
         void init();
@@ -55,6 +56,7 @@ namespace sat {
         void pure_decompose(clause_use_list& uses, svector<clause*>& clauses);
         void post_decompose();
         literal find_blocked(clause const& cls);
+        bool bce(clause& cls);
         bool is_blocked(literal lit) const;
         void init_rbits();
         void init_reconstruction_stack();

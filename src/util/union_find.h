@@ -132,6 +132,18 @@ public:
         CASSERT("union_find", check_invariant());
     }
 
+    // dissolve equivalence class of v
+    // this method cannot be used with backtracking.
+    void dissolve(unsigned v) {
+        do {
+            w = next(v);                        
+            m_size[v] = 1;
+            m_find[v] = v;
+            m_next[v] = v;            
+        }
+        while (w != v);
+    }
+
     void display(std::ostream & out) const {
         unsigned num = get_num_vars(); 
         for (unsigned v = 0; v < num; v++) {

@@ -157,7 +157,7 @@ namespace sat {
         if (!learned && (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls))
             elim_blocked_clauses();
 
-#if 0
+#if 1
         // experiment is disabled.
         if (!learned) { // && m_equality_inference
             bceq bc(s);
