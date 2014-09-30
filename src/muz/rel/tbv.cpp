@@ -268,7 +268,7 @@ bool tbv_manager::intersect(tbv const& a, tbv const& b, tbv& result) {
 
 std::ostream& tbv_manager::display(std::ostream& out, tbv const& b, unsigned hi, unsigned lo) const {
     SASSERT(lo <= hi && hi < num_tbits());
-    for (unsigned i = lo; i <= hi; ++i) {
+    for (unsigned i = hi+1; i-- > lo; ) {
         switch (b.get(i)) {
         case BIT_0:
             out << '0';
