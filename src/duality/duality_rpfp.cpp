@@ -2816,6 +2816,62 @@ namespace Duality {
     }
   }
 
+  void foobar(){
+  }
+
+  void RPFP::GreedyReduceNodes(std::vector<Node *> &nodes){
+    std::vector<expr> lits;
+    for(unsigned i = 0; i < nodes.size(); i++){
+      Term b; std::vector<Term> v;
+      RedVars(nodes[i], b, v);
+      lits.push_back(!b);
+      expr bv = dualModel.eval(b);
+      if(eq(bv,ctx.bool_val(true))){
+	check_result  res = slvr_check(lits.size(),&lits[0]);
+	if(res == unsat)
+	  lits.pop_back();
+	else
+	  foobar();
+      }
+    }
+  }
+
+  check_result RPFP::CheckWithConstrainedNodes(std::vector<Node *> &posnodes,std::vector<Node *> &negnodes){
+    timer_start("Check");
+    std::vector<expr> lits;
+    for(unsigned i = 0; i < posnodes.size(); i++){
+      Term b; std::vector<Term> v;
+      RedVars(posnodes[i], b, v);
+      lits.push_back(b);
+    }
+    for(unsigned i = 0; i < negnodes.size(); i++){
+      Term b; std::vector<Term> v;
+      RedVars(negnodes[i], b, v);
+      lits.push_back(!b);
+    }
+    check_result res = slvr_check(lits.size(),&lits[0]);
+    if(res == unsat && posnodes.size()){
+      lits.resize(posnodes.size());
+      res = slvr_check(lits.size(),&lits[0]);
+    }
+    dualModel = slvr().get_model();
+#if 0
+    if(!dualModel.null()){
+      std::cout << "posnodes called:\n";
+      for(unsigned i = 0; i < posnodes.size(); i++)
+	if(!Empty(posnodes[i]))
+	  std::cout << posnodes[i]->Name.name() << "\n";
+      std::cout << "negnodes called:\n";
+      for(unsigned i = 0; i < negnodes.size(); i++)
+	if(!Empty(negnodes[i]))
+	  std::cout << negnodes[i]->Name.name() << "\n";
+    }
+#endif
+    timer_stop("Check");
+    return res;
+  }
+
+
   void RPFP_caching::FilterCore(std::vector<expr> &core, std::vector<expr> &full_core){
     hash_set<ast> core_set;
     std::copy(full_core.begin(),full_core.end(),std::inserter(core_set,core_set.begin()));
@@ -3326,6 +3382,17 @@ namespace Duality {
         {
 	  std::string name = f.name().str();
 	  name = name.substr(0,name.rfind('_')) + "_" + string_of_int(n);
+	  int arity = f.arity();
+	  std::vector<sort> domain;
+	  for(int i = 0; i < arity; i++)
+	    domain.push_back(f.domain(i));
+	  return ctx.function(name.c_str(), arity, &domain[0], f.range());
+        }
+
+  Z3User::FuncDecl Z3User::NumberPred(const FuncDecl &f, int n)
+        {
+	  std::string name = f.name().str();
+	  name = name + "_" + string_of_int(n);
 	  int arity = f.arity();
 	  std::vector<sort> domain;
 	  for(int i = 0; i < arity; i++)

@@ -281,6 +281,7 @@ lbool dl_interface::query(::expr * query) {
   rs->SetOption("stratified_inlining",m_ctx.get_params().stratified_inlining() ? "1" : "0");
   rs->SetOption("batch_expand",m_ctx.get_params().batch_expand() ? "1" : "0");
   rs->SetOption("conjecture_file",m_ctx.get_params().conjecture_file());
+  rs->SetOption("enable_restarts",m_ctx.get_params().enable_restarts() ? "1" : "0");
 #if 0
   if(rb != UINT_MAX){
     std::ostringstream os; os << rb;

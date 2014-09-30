@@ -104,6 +104,8 @@ namespace Duality {
 
       FuncDecl RenumberPred(const FuncDecl &f, int n);
 
+      FuncDecl NumberPred(const FuncDecl &f, int n);
+
     Term ExtractStores(hash_map<ast, Term> &memo, const Term &t, std::vector<expr> &cnstrs, hash_map<ast,expr> &renaming);
 
 
@@ -902,6 +904,10 @@ protected:
       void ComputeProofCore();
 
       int CumulativeDecisions();
+
+      void GreedyReduceNodes(std::vector<Node *> &nodes);
+
+      check_result CheckWithConstrainedNodes(std::vector<Node *> &posnodes,std::vector<Node *> &negnodes);
 
       solver &slvr(){
 	return *ls->slvr;
