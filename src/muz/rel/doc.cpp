@@ -110,12 +110,11 @@ doc& doc_manager::fillX(doc& src) {
 bool doc_manager::set_and(doc& dst, doc const& src)  {
     // (A \ B) & (C \ D) = (A & C) \ (B u D)
     if (!m.set_and(dst.pos(), src.pos())) return false;
-    dst.neg().intersect(m, dst.pos());    
+    dst.neg().intersect(m, dst.pos());
     tbv_ref t(m);
     for (unsigned i = 0; i < src.neg().size(); ++i) {
         t = m.allocate(src.neg()[i]);
         if (m.set_and(*t, dst.pos())) {
-            if (m.equals(*t, dst.pos())) return false;
             dst.neg().insert(m, t.detach());
         }
     }
@@ -123,10 +122,10 @@ bool doc_manager::set_and(doc& dst, doc const& src)  {
     return fold_neg(dst);
 }
 bool doc_manager::set_and(doc& dst, tbv const& src)  {
-    // (A \ B) & C  = (A & C) \ B
+    // (A \ B) & C  = (A & C) \ (B & C)
     if (!m.set_and(dst.pos(), src)) return false;
     dst.neg().intersect(m, src);
-    return true;
+    return fold_neg(dst);
 }
 
 bool doc_manager::well_formed(doc const& d) const {
@@ -141,6 +140,9 @@ bool doc_manager::well_formed(doc const& d) const {
 bool doc_manager::fold_neg(doc& dst) {
  start_over:
     for (unsigned i = 0; i < dst.neg().size(); ++i) {
+        if (m.contains(dst.neg()[i], dst.pos()))
+            return false;
+
         unsigned index;
         unsigned count = diff_by_012(dst.pos(), dst.neg()[i], index);
         if (count != 2) {
@@ -498,9 +500,6 @@ bool doc_manager::is_full(doc const& src) const {
 }
 bool doc_manager::is_empty(doc const& src)  {
     if (src.neg().size() == 0) return false;
-    if (src.neg().size() == 1) {
-        return m.equals(src.pos(), src.neg()[0]);
-    }
     return false;
 #if 0
     // buggy:
