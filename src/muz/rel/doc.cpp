@@ -472,15 +472,15 @@ void doc_manager::subtract(doc const& A, doc const& B, doc_vector& result) {
     tbv_ref t(m);
     r = allocate(A);
     t = m.allocate(B.pos());
-    if (m.set_and(*t, A.pos()) && r->neg().insert(m, t.detach())) {
-        result.push_back(r.detach());
+    if (m.set_and(*t, A.pos())) {
+        r->neg().insert(m, t.detach());
     }
-    else {
-        result.push_back(allocate(A));
-    }
+    result.push_back(r.detach());
+
     for (unsigned i = 0; i < B.neg().size(); ++i) {
         r = allocate(A);
         if (set_and(*r, B.neg()[i])) {
+            r->neg().intersect(m, r->pos());
             result.push_back(r.detach());
         }
     }
