@@ -99,11 +99,11 @@ tbv* tbv_manager::allocate(tbv const& bv, unsigned const* permutation) {
     }
     return r;
 }
-tbv* tbv_manager::project(unsigned n, bool const* to_delete, tbv const& src) {
+tbv* tbv_manager::project(unsigned n, bit_vector const& to_delete, tbv const& src) {
     tbv* r = allocate();
     unsigned i, j;
     for (i = 0, j = 0; i < n; ++i) {
-        if (!to_delete[i]) {
+        if (!to_delete.get(i)) {
             set(*r, j, src[i]);
             ++j;
         }

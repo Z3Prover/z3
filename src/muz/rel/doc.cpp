@@ -280,7 +280,7 @@ bool doc_manager::intersect(doc const& A, doc const& B, doc& result) {
 //   indices where BIT_0 is set are positive.
 //
 
-doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, doc const& src) {
+doc* doc_manager::project(doc_manager& dstm, unsigned n, bit_vector const& to_delete, doc const& src) {
     tbv_manager& dstt = dstm.m;    
     tbv_ref t(dstt);
     t = dstt.project(n, to_delete, src.pos());
@@ -391,7 +391,7 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, 
 
 doc_manager::project_action_t 
 doc_manager::pick_resolvent(
-    tbv const& pos, tbv_vector const& neg, bool const* to_delete, unsigned& idx) {
+    tbv const& pos, tbv_vector const& neg, bit_vector const& to_delete, unsigned& idx) {
     if (neg.empty()) return project_done;
     for (unsigned j = 0; j < neg.size(); ++j) {
         if (m.equals(pos, *neg[j])) return project_is_empty;   
@@ -401,7 +401,7 @@ doc_manager::pick_resolvent(
     unsigned best_neg = UINT_MAX;
     unsigned best_idx = UINT_MAX;
     for (unsigned i = 0; i < num_tbits(); ++i) {
-        if (!to_delete[i]) continue;
+        if (!to_delete.get(i)) continue;
         if (pos[i] != BIT_x) continue;
         unsigned num_pos = 0, num_neg = 0;
         tbit b1 = (*neg[0])[i];
@@ -480,7 +480,6 @@ void doc_manager::subtract(doc const& A, doc const& B, doc_vector& result) {
     for (unsigned i = 0; i < B.neg().size(); ++i) {
         r = allocate(A);
         if (set_and(*r, B.neg()[i])) {
-            r->neg().intersect(m, r->pos());
             result.push_back(r.detach());
         }
     }
@@ -566,7 +565,7 @@ std::ostream& doc_manager::display(std::ostream& out, doc const& b, unsigned hi,
 }
 
 
-void doc_manager::verify_project(ast_manager& m, doc_manager& dstm, bool const* to_delete, doc const& src, doc const& dst) {
+void doc_manager::verify_project(ast_manager& m, doc_manager& dstm, bit_vector const& to_delete, doc const& src, doc const& dst) {
     expr_ref fml1 = to_formula(m, src);
     expr_ref fml2 = dstm.to_formula(m, dst);
     project_rename(fml2, to_delete);
@@ -603,11 +602,11 @@ expr_ref doc_manager::to_formula(ast_manager& m, doc const& src) {
     return result;
 }
     
-void doc_manager::project_expand(expr_ref& fml, bool const* to_delete) {
+void doc_manager::project_expand(expr_ref& fml, bit_vector const& to_delete) {
     ast_manager& m = fml.get_manager();
     expr_ref tmp1(m), tmp2(m);
     for (unsigned i = 0; i < num_tbits(); ++i) {
-        if (to_delete[i]) {
+        if (to_delete.get(i)) {
             expr_safe_replace rep1(m), rep2(m);
             rep1.insert(tbvm().mk_var(m, i), m.mk_true());
             rep1(fml, tmp1);
@@ -623,11 +622,11 @@ void doc_manager::project_expand(expr_ref& fml, bool const* to_delete) {
     }
 }
 
-void doc_manager::project_rename(expr_ref& fml, bool const* to_delete) {
+void doc_manager::project_rename(expr_ref& fml, bit_vector const& to_delete) {
     ast_manager& m = fml.get_manager();
     expr_safe_replace rep(m);
     for (unsigned i = 0, j = 0; i < num_tbits(); ++i) {
-        if (!to_delete[i]) {
+        if (!to_delete.get(i)) {
             rep.insert(tbvm().mk_var(m, j), tbvm().mk_var(m, i));
             ++j;
         }

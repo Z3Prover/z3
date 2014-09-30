@@ -54,9 +54,6 @@ Notes:
      return tgt \ join_project(tgt, neg, c1, .., cN, d1, .. , dN)
      We have most of the facilities required for a join project operation.
      For example, the filter_project function uses both equalities and deleted columns.
-   - Lipstick service:
-     - filter_proj_fn uses both a bit_vector and a svector<bool> for representing removed bits. 
-       This is due to underlying routines using different types for the same purpose. 
 --*/
 #include "udoc_relation.h"
 #include "dl_relation_manager.h"
@@ -473,7 +470,7 @@ namespace datalog {
     }
 
     class udoc_plugin::project_fn : public convenient_relation_project_fn {
-        svector<bool> m_to_delete;
+        bit_vector m_to_delete;
     public:
         project_fn(udoc_relation const & t, unsigned removed_col_cnt, const unsigned * removed_cols) 
             : convenient_relation_project_fn(t.get_signature(), removed_col_cnt, removed_cols) {
@@ -481,7 +478,7 @@ namespace datalog {
             unsigned n = t.get_dm().num_tbits();
             m_to_delete.resize(n, false);
             for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
-                m_to_delete[m_removed_cols[i]] = true;
+                m_to_delete.set(m_removed_cols[i], true);
             }
         }
 
@@ -496,7 +493,7 @@ namespace datalog {
             udoc const& ud1 = t.get_udoc();
             udoc& ud2 = r->get_udoc();
             for (unsigned i = 0; i < ud1.size(); ++i) {
-                d2 = dm1.project(dm2, m_to_delete.size(), m_to_delete.c_ptr(), ud1[i]);
+                d2 = dm1.project(dm2, m_to_delete.size(), m_to_delete, ud1[i]);
                 ud2.push_back(d2.detach());
             }
             TRACE("doc", tout << "final size: " << r->get_size_estimate_rows() << '\n';);
@@ -1198,8 +1195,7 @@ namespace datalog {
         expr_ref     m_reduced_condition;
         udoc         m_udoc;
         udoc         m_udoc2;
-        bit_vector   m_col_list; // map: col idx -> bool (whether the column is to be removed)
-        svector<bool> m_to_delete; // same
+        bit_vector   m_to_delete; // map: col idx -> bool (whether the column is to be removed)
         subset_ints  m_equalities;
         unsigned_vector m_roots;
 
@@ -1213,19 +1209,17 @@ namespace datalog {
             m_equalities(union_ctx) {
             unsigned num_bits = t.get_num_bits();
             t.expand_column_vector(m_removed_cols);
-            m_col_list.resize(num_bits,  false);
             m_to_delete.resize(num_bits, false);
             for (unsigned i = 0; i < num_bits; ++i) {
                 m_equalities.mk_var();
             }        
             for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
-                m_col_list.set(m_removed_cols[i], true);
-                m_to_delete[m_removed_cols[i]] = true;
+                m_to_delete.set(m_removed_cols[i], true);
             }
             expr_ref guard(m), non_eq_cond(condition, m);
             t.extract_equalities(condition, non_eq_cond, m_equalities, m_roots);
             t.extract_guard(non_eq_cond, guard, m_reduced_condition);            
-            t.compile_guard(guard, m_udoc, m_col_list);
+            t.compile_guard(guard, m_udoc, m_to_delete);
         }
         
         virtual ~filter_proj_fn() {
@@ -1238,13 +1232,13 @@ namespace datalog {
             ast_manager& m = m_reduced_condition.get_manager();
             m_udoc2.copy(dm, u1);
             m_udoc2.intersect(dm, m_udoc);
-            t.apply_guard(m_reduced_condition, m_udoc2, m_equalities, m_col_list);
-            m_udoc2.merge(dm, m_roots, m_equalities, m_col_list);
+            t.apply_guard(m_reduced_condition, m_udoc2, m_equalities, m_to_delete);
+            m_udoc2.merge(dm, m_roots, m_equalities, m_to_delete);
             SASSERT(m_udoc2.well_formed(dm));  
             udoc_relation* r = get(t.get_plugin().mk_empty(get_result_signature()));
             doc_manager& dm2 = r->get_dm();
             for (unsigned i = 0; i < m_udoc2.size(); ++i) {
-                doc* d = dm.project(dm2, m_to_delete.size(), m_to_delete.c_ptr(), m_udoc2[i]);
+                doc* d = dm.project(dm2, m_to_delete.size(), m_to_delete, m_udoc2[i]);
                 r->get_udoc().insert(dm2, d);
                 SASSERT(r->get_udoc().well_formed(dm2));
             }
