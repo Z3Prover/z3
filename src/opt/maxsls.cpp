@@ -41,7 +41,7 @@ namespace opt {
                 m_upper.reset();
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     expr_ref tmp(m);
-                    m_model->eval(m_soft[i].get(), tmp, true);
+                    m_model->eval(m_soft[i], tmp, true);
                     m_assignment[i] = m.is_true(tmp);
                     if (!m_assignment[i]) {
                         m_upper += m_weights[i];

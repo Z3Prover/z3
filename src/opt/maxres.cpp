@@ -84,6 +84,7 @@ private:
     expr_ref_vector  m_trail;
     strategy_t       m_st;
     rational         m_max_upper;
+    bool             m_found_feasible_optimum;
     bool             m_hill_climb;             // prefer large weight soft clauses for cores
     bool             m_add_upper_bound_block;  // restrict upper bound with constraint
     unsigned         m_max_num_cores;          // max number of cores per round.
@@ -105,6 +106,7 @@ public:
         m_mss(c.get_solver(), m),
         m_trail(m),
         m_st(st),
+        m_found_feasible_optimum(false),
         m_hill_climb(true),
         m_add_upper_bound_block(false),
         m_max_num_cores(UINT_MAX),
@@ -121,6 +123,8 @@ public:
             is_uninterp_const(l) ||
             (m.is_not(l, l) && is_uninterp_const(l));
     }
+
+    
 
     void add_soft(expr* e, rational const& w) {
         TRACE("opt", tout << mk_pp(e, m) << "\n";);
@@ -372,13 +376,14 @@ public:
                 SASSERT(is_true(m_asms[i].get()));
             });
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            m_assignment[i] = is_true(m_soft[i].get());
+            m_assignment[i] = is_true(m_soft[i]);
         }
         m_upper = m_lower;
+        m_found_feasible_optimum = true;
     }
 
 
-    lbool operator()() {
+    virtual lbool operator()() {
         switch(m_st) {
         case s_mus:
             return mus_solver();
@@ -781,7 +786,7 @@ public:
         rational upper(0);
         expr_ref tmp(m);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            expr* n = m_soft[i].get();
+            expr* n = m_soft[i];
             VERIFY(mdl->eval(n, tmp));
             if (!m.is_true(tmp)) {
                 upper += m_weights[i];
@@ -796,7 +801,7 @@ public:
         m_model = mdl;
 
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            m_assignment[i] = is_true(m_soft[i].get());
+            m_assignment[i] = is_true(m_soft[i]);
         }
         m_upper = upper;
         // verify_assignment();
@@ -811,7 +816,7 @@ public:
         expr_ref_vector nsoft(m);
         expr_ref fml(m);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            nsoft.push_back(mk_not(m, m_soft[i].get()));
+            nsoft.push_back(mk_not(m, m_soft[i]));
         }            
         fml = u.mk_lt(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper);
         s().assert_expr(fml);        
@@ -864,10 +869,23 @@ public:
         m_lower.reset();
         m_trail.reset();
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            add_soft(m_soft[i].get(), m_weights[i]);
+            add_soft(m_soft[i], m_weights[i]);
         }
         m_max_upper = m_upper;
+        m_found_feasible_optimum = false;
         add_upper_bound_block();
+    }
+
+    virtual void commit_assignment() {
+        if (m_found_feasible_optimum) {
+            TRACE("opt", tout << "Committing feasible solution\n";);
+            for (unsigned i = 0; i < m_asms.size(); ++i) {
+                s().assert_expr(m_asms[i].get());
+            }
+        }
+        else {
+            maxsmt_solver_base::commit_assignment();
+        }
     }
 
     void verify_assignment() {
@@ -878,7 +896,7 @@ public:
         }
         expr_ref n(m);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            n = m_soft[i].get();
+            n = m_soft[i];
             if (!m_assignment[i]) {
                 n = mk_not(m, n);
             }

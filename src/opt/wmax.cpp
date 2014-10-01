@@ -43,7 +43,7 @@ namespace opt {
             lbool is_sat = l_true;
             bool was_sat = false;
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                wth().assert_weighted(m_soft[i].get(), m_weights[i]);
+                wth().assert_weighted(m_soft[i], m_weights[i]);
             }
             while (l_true == is_sat) {
                 is_sat = s().check_sat(0,0);

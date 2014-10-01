@@ -29,21 +29,8 @@ Notes:
 
 namespace opt {
 
-    class fu_malik : public maxsmt_solver {
-        struct imp;
-        imp* m_imp;
-    public:
-        fu_malik(context& c, expr_ref_vector& soft_constraints);
-        virtual ~fu_malik();
-        virtual lbool operator()();
-        virtual rational get_lower() const;
-        virtual rational get_upper() const;
-        virtual bool get_assignment(unsigned idx) const;
-        virtual void set_cancel(bool f);
-        virtual void collect_statistics(statistics& st) const;
-        virtual void get_model(model_ref& m);
-        virtual void updt_params(params_ref& p);
-    };
+    maxsmt_solver_base* mk_fu_malik(context& c, weights_t & ws, expr_ref_vector const& soft);
+
     
 };
 

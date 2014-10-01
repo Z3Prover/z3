@@ -30,6 +30,7 @@ Notes:
 #include "opt_context.h"
 #include "theory_wmaxsat.h"
 #include "ast_util.h"
+#include "pb_decl_plugin.h"
 
 
 namespace opt {
@@ -38,12 +39,13 @@ namespace opt {
         context& c, vector<rational> const& ws, expr_ref_vector const& soft):
         m(c.get_manager()), 
         m_c(c),
-        m_cancel(false), m_soft(m),
+        m_cancel(false), 
+        m_soft(soft),
+        m_weights(ws),
         m_assertions(m) {
         c.get_base_model(m_model);
         SASSERT(m_model);
         updt_params(c.params());
-        init_soft(ws, soft);
     }
     
     void maxsmt_solver_base::updt_params(params_ref& p) {
@@ -54,11 +56,17 @@ namespace opt {
         return m_c.get_solver(); 
     }
 
-    void maxsmt_solver_base::init_soft(vector<rational> const& weights, expr_ref_vector const& soft) {
-        m_weights.reset();
-        m_soft.reset();
-        m_weights.append(weights);
-        m_soft.append(soft);
+    void maxsmt_solver_base::commit_assignment() {
+        expr_ref tmp(m);
+        rational k(0);
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            if (get_assignment(i)) {
+                k += m_weights[i];
+            }
+        }       
+        pb_util pb(m);
+        tmp = pb.mk_ge(m_weights.size(), m_weights.c_ptr(), m_soft.c_ptr(), k);
+        s().assert_expr(tmp);
     }
 
     void maxsmt_solver_base::init() {
@@ -67,7 +75,7 @@ namespace opt {
         m_assignment.reset();
         for (unsigned i = 0; i < m_weights.size(); ++i) {
             expr_ref val(m);
-            VERIFY(m_model->eval(m_soft[i].get(), val));                
+            VERIFY(m_model->eval(m_soft[i], val));                
             m_assignment.push_back(m.is_true(val));
             if (!m_assignment.back()) {
                 m_upper += m_weights[i];
@@ -178,7 +186,7 @@ namespace opt {
             m_msolver = mk_sls(m_c, m_weights, m_soft_constraints);
         }        
         else if (is_maxsat_problem(m_weights) && maxsat_engine == symbol("fu_malik")) {
-            m_msolver = alloc(fu_malik, m_c, m_soft_constraints);
+            m_msolver = mk_fu_malik(m_c, m_weights, m_soft_constraints);
         }
         else {
             if (maxsat_engine != symbol::null && maxsat_engine != symbol("wmax")) {
@@ -217,12 +225,6 @@ namespace opt {
         // TBD: have to use a different solver 
         // because we don't push local scope any longer.
         return;
-        solver::scoped_push _sp(s());
-        commit_assignment();
-        if (l_true != s().check_sat(0,0)) {
-            IF_VERBOSE(0, verbose_stream() << "could not verify assignment\n";);
-            UNREACHABLE();
-        }
     }
 
     bool maxsmt::get_assignment(unsigned idx) const {
@@ -265,14 +267,8 @@ namespace opt {
     }
 
     void maxsmt::commit_assignment() {
-        for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
-            expr_ref tmp(m);
-            tmp = m_soft_constraints[i].get();
-            if (!get_assignment(i)) {
-                tmp = mk_not(m, tmp);
-            }
-            TRACE("opt", tout << "committing: " << tmp << "\n";);
-            s().assert_expr(tmp);            
+        if (m_msolver) {
+            m_msolver->commit_assignment();
         }
     }
 

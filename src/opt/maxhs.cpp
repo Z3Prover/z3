@@ -162,7 +162,7 @@ namespace opt {
             m_aux2index.reset();
             m_core_activity.reset();
             for (unsigned i = 0; i < sz; ++i) {
-                bool tt = is_true(m_model, m_soft[i].get());
+                bool tt = is_true(m_model, m_soft[i]);
                 m_seed.push_back(tt);
                 m_aux. push_back(mk_fresh(m.mk_bool_sort()));
                 m_aux_active.push_back(false);
@@ -380,7 +380,7 @@ namespace opt {
                 if (m_seed[i]) {
                     // already an assumption
                 }
-                else if (is_true(mdl, m_soft[i].get())) {
+                else if (is_true(mdl, m_soft[i])) {
                     m_seed[i] = true;                    
                     m_asms.push_back(m_aux[i].get());
                 }
@@ -420,7 +420,7 @@ namespace opt {
             }
             DEBUG_CODE(                
                 for (unsigned i = 0; i < num_soft(); ++i) {
-                    SASSERT(is_true(mdl, m_soft[i].get()) == m_seed[i]);
+                    SASSERT(is_true(mdl, m_soft[i]) == m_seed[i]);
                 });
             
             return true;
@@ -545,7 +545,7 @@ namespace opt {
         void ensure_active(unsigned i) {
             if (!is_active(i)) {
                 expr_ref fml(m);
-                fml = m.mk_implies(m_aux[i].get(), m_soft[i].get());
+                fml = m.mk_implies(m_aux[i].get(), m_soft[i]);
                 s().assert_expr(fml);
                 m_aux_active[i] = true;
             }

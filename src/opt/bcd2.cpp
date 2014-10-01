@@ -187,7 +187,7 @@ namespace opt {
             expr_ref fml(m);
             expr* r = m_soft_aux[i].get();
             m_soft2index.insert(r, i);
-            fml = m.mk_or(r, m_soft[i].get()); 
+            fml = m.mk_or(r, m_soft[i]); 
             m_soft_constraints.push_back(fml);
             m_asm_set.insert(r);
             SASSERT(m_weights[i].is_int());     
@@ -233,7 +233,7 @@ namespace opt {
             new_assignment.reset();
             s().get_model(model);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                VERIFY(model->eval(m_soft[i].get(), val));    
+                VERIFY(model->eval(m_soft[i], val));    
                 new_assignment.push_back(m.is_true(val));                            
                 if (!new_assignment[i]) {
                     new_upper += m_weights[i];
@@ -393,7 +393,7 @@ namespace opt {
                 out << "[" << c.m_lower << ":" << c.m_mid << ":" << c.m_upper << "]\n";
             }
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                out << mk_pp(m_soft[i].get(), m) << " " << m_weights[i] << "\n";
+                out << mk_pp(m_soft[i], m) << " " << m_weights[i] << "\n";
             }
         }
     };

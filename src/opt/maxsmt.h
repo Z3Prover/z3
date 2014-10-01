@@ -61,9 +61,9 @@ namespace opt {
         ast_manager&     m;
         context&         m_c;
         volatile bool    m_cancel;
-        expr_ref_vector  m_soft;
-        expr_ref_vector  m_assertions;
+        const expr_ref_vector  m_soft;
         vector<rational> m_weights;
+        expr_ref_vector  m_assertions;
         rational         m_lower;
         rational         m_upper;
         model_ref        m_model;
@@ -80,9 +80,9 @@ namespace opt {
         virtual void set_cancel(bool f) { m_cancel = f; if (f) s().cancel(); else s().reset_cancel(); }
         virtual void collect_statistics(statistics& st) const { }
         virtual void get_model(model_ref& mdl) { mdl = m_model.get(); }
+        virtual void commit_assignment();
         void set_model() { s().get_model(m_model); }
         virtual void updt_params(params_ref& p);
-        virtual void init_soft(weights_t& weights, expr_ref_vector const& soft);
         solver& s();
         void init();
         void set_mus(bool f);
@@ -114,7 +114,7 @@ namespace opt {
     class maxsmt {
         ast_manager&              m;
         context&                  m_c;
-        scoped_ptr<maxsmt_solver> m_msolver;
+        scoped_ptr<maxsmt_solver_base> m_msolver;
         volatile bool    m_cancel;
         expr_ref_vector  m_soft_constraints;
         expr_ref_vector  m_answer;

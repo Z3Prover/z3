@@ -1204,10 +1204,7 @@ namespace opt {
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);
                 for (unsigned i = 0; i < obj.m_terms.size(); ++i) {
                     VERIFY(m_model->eval(obj.m_terms[i], val));
-                    CTRACE("opt",ms.get_assignment(i) != (m.mk_true() == val), 
-                           tout << mk_pp(obj.m_terms[i], m) << " evaluates to " << val << "\n";
-                           model_smt2_pp(tout, m, *m_model, 0););
-                    SASSERT(ms.get_assignment(i) == (m.mk_true() == val));
+                    // TBD: check that optimal was not changed.
                 }
                 break;
             }

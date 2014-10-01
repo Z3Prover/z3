@@ -43,33 +43,23 @@ Notes:
 */
 namespace opt {
 
-    struct fu_malik::imp {
-        ast_manager&    m;        
-        solver&         m_s;
+    class fu_malik : public maxsmt_solver_base {
         filter_model_converter& m_fm;
-        expr_ref_vector m_soft;
-        expr_ref_vector m_orig_soft;
+        expr_ref_vector m_aux_soft;
         expr_ref_vector m_aux;
-        svector<bool>   m_assignment;
-        unsigned        m_upper;
-        unsigned        m_lower;
         model_ref       m_model;
 
-        imp(context& c, expr_ref_vector const& soft):
-            m(c.get_manager()),
-            m_s(c.get_solver()),
+    public:
+        fu_malik(context& c, weights_t& ws, expr_ref_vector const& soft):
+            maxsmt_solver_base(c, ws, soft),
             m_fm(c.fm()),
-            m_soft(soft),
-            m_orig_soft(soft),
-            m_aux(m),
-            m_upper(0),
-            m_lower(0) 
+            m_aux_soft(soft),
+            m_aux(m) 
         {
-            m_upper = m_soft.size() + 1;
-            m_assignment.resize(m_soft.size(), false);
+            m_upper = rational(m_aux_soft.size() + 1);
+            m_lower.reset();
+            m_assignment.resize(m_aux_soft.size(), false);
         }
-
-        solver& s() { return m_s; }
 
         /**
            \brief One step of the Fu&Malik algorithm.
@@ -96,9 +86,8 @@ namespace opt {
             }
         }
 
-
         void collect_statistics(statistics& st) const {
-            st.update("opt-fm-num-steps", m_soft.size() + 2 - m_upper);
+            st.update("opt-fm-num-steps", m_aux_soft.size() + 2 - m_upper.get_unsigned());
         }
 
         void set_union(expr_set const& set1, expr_set const& set2, expr_set & set) const {
@@ -115,9 +104,9 @@ namespace opt {
         }
 
         lbool step() {
-            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat step " << m_soft.size() + 2 - m_upper << ")\n";);
+            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat step " << m_aux_soft.size() + 2 - m_upper.get_unsigned() << ")\n";);
             expr_ref_vector assumptions(m), block_vars(m);
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
+            for (unsigned i = 0; i < m_aux_soft.size(); ++i) {
                 assumptions.push_back(m.mk_not(m_aux[i].get()));
             }
             lbool is_sat = s().check_sat(assumptions.size(), assumptions.c_ptr());
@@ -131,7 +120,7 @@ namespace opt {
             SASSERT(!core.empty());
 
             // Update soft-constraints and aux_vars
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
+            for (unsigned i = 0; i < m_aux_soft.size(); ++i) {
                 
                 bool found = false;
                 for (unsigned j = 0; !found && j < core.size(); ++j) {
@@ -145,14 +134,14 @@ namespace opt {
                 m_aux[i] = m.mk_fresh_const("aux", m.mk_bool_sort());
                 m_fm.insert(block_var->get_decl());
                 m_fm.insert(to_app(m_aux[i].get())->get_decl());
-                m_soft[i] = m.mk_or(m_soft[i].get(), block_var);
+                m_aux_soft[i] = m.mk_or(m_aux_soft[i].get(), block_var);
                 block_vars.push_back(block_var);
-                tmp = m.mk_or(m_soft[i].get(), m_aux[i].get());
+                tmp = m.mk_or(m_aux_soft[i].get(), m_aux[i].get());
                 s().assert_expr(tmp);
             }
             SASSERT (!block_vars.empty());
             assert_at_most_one(block_vars);
-            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat # of non-blocked soft constraints: " << m_soft.size() - block_vars.size() << ")\n";);
+            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat # of non-blocked soft constraints: " << m_aux_soft.size() - block_vars.size() << ")\n";);
             return l_false;
         }
 
@@ -181,9 +170,9 @@ namespace opt {
         
 
         // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
-        lbool operator()() {
+        virtual lbool operator()() {
             lbool is_sat = l_true;                
-            if (m_soft.empty()) {
+            if (m_aux_soft.empty()) {
                 return is_sat;
             }
             solver::scoped_push _sp(s());
@@ -191,14 +180,14 @@ namespace opt {
 
             TRACE("opt",
                   tout << "soft constraints:\n";
-                  for (unsigned i = 0; i < m_soft.size(); ++i) {
-                      tout << mk_pp(m_soft[i].get(), m) << "\n";
+                  for (unsigned i = 0; i < m_aux_soft.size(); ++i) {
+                      tout << mk_pp(m_aux_soft[i].get(), m) << "\n";
                   });
 
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
+            for (unsigned i = 0; i < m_aux_soft.size(); ++i) {
                 m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
                 m_fm.insert(to_app(m_aux.back())->get_decl());
-                tmp = m.mk_or(m_soft[i].get(), m_aux[i].get());
+                tmp = m.mk_or(m_aux_soft[i].get(), m_aux[i].get());
                 s().assert_expr(tmp);
             }
             
@@ -209,13 +198,13 @@ namespace opt {
             while (is_sat == l_false);
             
             if (is_sat == l_true) {
-                // Get a list satisfying m_soft
+                // Get a list satisfying m_aux_soft
                 s().get_model(m_model);
                 m_lower = m_upper;
                 m_assignment.reset();                    
-                for (unsigned i = 0; i < m_orig_soft.size(); ++i) {
+                for (unsigned i = 0; i < m_soft.size(); ++i) {
                     expr_ref val(m);
-                    VERIFY(m_model->eval(m_orig_soft[i].get(), val));
+                    VERIFY(m_model->eval(m_soft[i], val));
                     TRACE("opt", tout << val << "\n";);
                     m_assignment.push_back(m.is_true(val));                        
                 }
@@ -227,43 +216,22 @@ namespace opt {
             return is_sat;            
         }
 
-        void get_model(model_ref& mdl) {
+        virtual void get_model(model_ref& mdl) {
             mdl = m_model.get();
         }
 
+        virtual rational get_lower() const {
+            return rational(m_aux_soft.size())-m_upper;
+        }
+
+        virtual rational get_upper() const {
+            return rational(m_aux_soft.size())-m_lower;
+        }
     };
 
-    fu_malik::fu_malik(context& c, expr_ref_vector& soft_constraints) {
-        m_imp = alloc(imp, c, soft_constraints);
-    }
-    fu_malik::~fu_malik() {
-        dealloc(m_imp);
-    }
-    
-    lbool fu_malik::operator()() {
-        return (*m_imp)();
-    }
-    rational fu_malik::get_lower() const {
-        return rational(m_imp->m_soft.size()-m_imp->m_upper);
-    }
-    rational fu_malik::get_upper() const {
-        return rational(m_imp->m_soft.size()-m_imp->m_lower);
-    }
-    bool fu_malik::get_assignment(unsigned idx) const {
-        return m_imp->m_assignment[idx];
-    }
-    void fu_malik::set_cancel(bool f) {
-        // no-op
-    }
-    void fu_malik::collect_statistics(statistics& st) const {
-        m_imp->collect_statistics(st);
-    }
-    void fu_malik::get_model(model_ref& m) {
-        m_imp->get_model(m);
+    maxsmt_solver_base* mk_fu_malik(context& c, weights_t & ws, expr_ref_vector const& soft) {
+        return alloc(fu_malik, c, ws, soft);
     }
 
-    void fu_malik::updt_params(params_ref& p) {
-        // no-op
-    }
 };
 
