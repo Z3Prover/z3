@@ -25,13 +25,14 @@ static void tst1(unsigned num_bits) {
     SASSERT(m.equals(*b0, *bN));
     VERIFY(!m.intersect(*b0,*b1,*bN));
     m.fill1(*b1);
-    svector<bool> to_delete(num_bits, false);
+    bit_vector to_delete;
+    to_delete.reserve(num_bits, false);
     tbv_manager m2(num_bits-2);
-    to_delete[1] = true;
-    to_delete[3] = true;
+    to_delete.set(1);
+    to_delete.set(3);
     m.set(*b1, 2, BIT_0);
     m.set(*b1, 4, BIT_x);
-    tbv_ref b2(m2, m2.project(num_bits, to_delete.c_ptr(), *b1));
+    tbv_ref b2(m2, m2.project(num_bits, to_delete, *b1));
     m.display(std::cout, *b1) << " -> ";
     m2.display(std::cout, *b2) << "\n";
     m.deallocate(b0);
