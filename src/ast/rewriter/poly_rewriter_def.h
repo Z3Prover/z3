@@ -34,6 +34,8 @@ void poly_rewriter<Config>::updt_params(params_ref const & _p) {
     m_hoist_mul = p.hoist_mul();
     m_hoist_cmul = p.hoist_cmul();
     m_som_blowup = p.som_blowup();
+    if (!m_flat) m_som = false;
+    if (m_som) m_hoist_mul = false;
 }
 
 template<typename Config>
