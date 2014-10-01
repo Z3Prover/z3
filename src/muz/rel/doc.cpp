@@ -475,7 +475,8 @@ void doc_manager::subtract(doc const& A, doc const& B, doc_vector& result) {
     if (m.set_and(*t, A.pos())) {
         r->neg().insert(m, t.detach());
     }
-    result.push_back(r.detach());
+    if (fold_neg(*r))
+        result.push_back(r.detach());
 
     for (unsigned i = 0; i < B.neg().size(); ++i) {
         r = allocate(A);
