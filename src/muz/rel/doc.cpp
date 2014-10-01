@@ -536,16 +536,15 @@ bool doc_manager::contains(doc const& a, doc const& b) const {
     return true;
 }
 
-bool doc_manager::contains(
-    unsigned offset_a, doc const& a,
-    doc_manager const& dm_b,
-    unsigned offset_b, doc const& b,
-    unsigned length) const {
-    if (!m.contains(offset_a, a.pos(), dm_b.tbvm(), offset_b, b.pos(), length)) return false;
+bool doc_manager::contains(doc const& a, unsigned_vector const& colsa,
+                           doc const& b, unsigned_vector const& colsb) const {
+    if (!m.contains(a.pos(), colsa, b.pos(), colsb))
+        return false;
+
     for (unsigned i = 0; i < a.neg().size(); ++i) {
         bool found = false;
         for (unsigned j = 0; !found && j < b.neg().size(); ++j) {
-            found = dm_b.tbvm().contains(offset_b, b.neg()[j], tbvm(), offset_a, a.neg()[i], length);
+            found = m.contains(b.neg()[j], colsb, a.neg()[i], colsa);
         }
         if (!found) return false;
     }

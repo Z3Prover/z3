@@ -82,9 +82,8 @@ public:
     bool equals(doc const& a, doc const& b) const;
     unsigned hash(doc const& src) const;
     bool contains(doc const& a, doc const& b) const;
-    bool contains(unsigned offset_a, doc const& a,
-                  doc_manager const& dm_b, unsigned offset_b, doc const& b,
-                  unsigned length) const;
+    bool contains(doc const& a, unsigned_vector const& colsa,
+                  doc const& b, unsigned_vector const& colsb) const;
     std::ostream& display(std::ostream& out, doc const& b) const;
     std::ostream& display(std::ostream& out, doc const& b, unsigned hi, unsigned lo) const;
     unsigned num_tbits() const { return m.num_tbits(); }

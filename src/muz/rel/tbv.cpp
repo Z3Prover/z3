@@ -245,18 +245,12 @@ bool tbv_manager::contains(tbv const& a, tbv const& b) const {
     return m.contains(a, b);
 }
 
-bool tbv_manager::contains(unsigned offset_a, tbv const& a,
-                           tbv_manager const& dm_b, unsigned offset_b, tbv const& b,
-                           unsigned length) const {
-    if (this == &dm_b && length == num_tbits()) {
-        SASSERT(offset_a == 0);
-        SASSERT(offset_b == 0);
-        return m.contains(a, b);
-    }
-    for (unsigned i = 0; i < length; ++i) {
-        tbit bit_a = a[offset_a + i];
+bool tbv_manager::contains(tbv const& a, unsigned_vector const& colsa,
+                           tbv const& b, unsigned_vector const& colsb) const {
+    for (unsigned i = 0; i < colsa.size(); ++i) {
+        tbit bit_a = a[colsa[i]];
         if (bit_a == BIT_x) continue;
-        if (bit_a != b[offset_b + i]) return false;
+        if (bit_a != b[colsb[i]]) return false;
     }
     return true;
 }

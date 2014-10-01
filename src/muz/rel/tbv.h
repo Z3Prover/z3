@@ -70,9 +70,8 @@ public:
     bool equals(tbv const& a, tbv const& b) const;
     unsigned hash(tbv const& src) const;
     bool contains(tbv const& a, tbv const& b) const;
-    bool contains(unsigned offset_a, tbv const& a,
-                  tbv_manager const& dm_b, unsigned offset_b, tbv const& b,
-                  unsigned length) const;
+    bool contains(tbv const& a, unsigned_vector const& colsa,
+                  tbv const& b, unsigned_vector const& colsb) const;
     bool intersect(tbv const& a, tbv const& b, tbv& result);
     std::ostream& display(std::ostream& out, tbv const& b) const;
     std::ostream& display(std::ostream& out, tbv const& b, unsigned hi, unsigned lo) const;

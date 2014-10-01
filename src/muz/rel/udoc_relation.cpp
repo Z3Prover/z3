@@ -1064,14 +1064,16 @@ namespace datalog {
     // 4. Unit/stress test cases are needed.
     // 
     class udoc_plugin::negation_filter_fn : public relation_intersection_filter_fn {
-        const unsigned_vector m_t_cols;
-        const unsigned_vector m_neg_cols;
+        unsigned_vector m_t_cols;
+        unsigned_vector m_neg_cols;
 
     public:
         negation_filter_fn(const udoc_relation & r, const udoc_relation & neg, unsigned joined_col_cnt,
                            const unsigned *t_cols, const unsigned *neg_cols)
             : m_t_cols(joined_col_cnt, t_cols), m_neg_cols(joined_col_cnt, neg_cols) {
             SASSERT(joined_col_cnt > 0);
+            r.expand_column_vector(m_t_cols);
+            neg.expand_column_vector(m_neg_cols);
         }
         
         virtual void operator()(relation_base& tb, const relation_base& negb) {
@@ -1086,30 +1088,16 @@ namespace datalog {
 
             udoc result;
             for (unsigned i = 0; i < dst.size(); ++i) {
+                bool subsumed = false;
                 for (unsigned j = 0; j < neg.size(); ++j) {
-                    for (unsigned c = 0; c < m_t_cols.size(); ++c) {
-                        unsigned t_col = m_t_cols[c];
-                        unsigned n_col = m_neg_cols[c];
-                        unsigned num_bits = t.column_num_bits(t_col);
-                        SASSERT(num_bits == n.column_num_bits(n_col));
-                        unsigned t_idx = t.column_idx(t_col);
-                        unsigned n_idx = n.column_idx(n_col);
-                        bool cont = dmn.contains(n_idx, neg[j], dmt, t_idx, dst[i], num_bits);
-                        IF_VERBOSE(
-                            3, 
-                            dmt.display(verbose_stream() << "dst:", dst[i], t_idx+num_bits-1,t_idx) << "\n";
-                            dmn.display(verbose_stream() << "neg:", neg[j], n_idx+num_bits-1,n_idx) << "\n";
-                            verbose_stream() << "contains: " << (cont?"true":"false") << "\n";);
-                        if (!cont) {
-                            goto next_neg_disj;
-                        }
+                    if (dmn.contains(neg[j], m_neg_cols, dst[i], m_t_cols)) {
+                        dmt.deallocate(&dst[i]);
+                        subsumed = true;
+                        break;
                     }
-                    dmt.deallocate(&dst[i]);
-                    goto next_disj;
-                next_neg_disj:;
                 }
-                result.push_back(&dst[i]);
-            next_disj:;
+                if (!subsumed)
+                    result.push_back(&dst[i]);
             }
             std::swap(dst, result);
             if (dst.is_empty()) {
