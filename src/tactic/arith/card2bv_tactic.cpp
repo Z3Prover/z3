@@ -221,6 +221,7 @@ namespace pb {
         default:
             UNREACHABLE();
         }
+        TRACE("card2bv", tout << result << "\n";);
     }
 
     struct argc_t {
@@ -268,6 +269,8 @@ namespace pb {
                 SASSERT(argcs[i].m_coeff >= argcs[i+1].m_coeff);
             }
             );
+        result = m.mk_app(f, sz, args);
+        TRACE("card2bv", tout << result << "\n";);
         argc_cache cache;
         expr_ref_vector trail(m);
         vector<rational> todo_k;
@@ -277,7 +280,7 @@ namespace pb {
         decl_kind kind = f->get_decl_kind();
         argc_entry entry1;
         while (!todo_i.empty()) {
-
+            SASSERT(todo_i.size() == todo_k.size());
             if (cache.size() > max_clauses) {
                 return BR_FAILED;
             }
@@ -307,13 +310,17 @@ namespace pb {
                     break;
                 case OP_AT_LEAST_K:
                 case OP_PB_GE:
-                    if (coeff < k) {
+                    if (k.is_zero()) {
+                        entry.m_value = m.mk_true();
+                    }
+                    else if (coeff < k) {
                         entry.m_value = m.mk_false();
                     }
                     else if (coeff.is_zero()) {
                         entry.m_value = m.mk_true();
                     }
                     else {
+                        SASSERT(coeff >= k && k.is_pos());
                         entry.m_value = arg;
                     }
                     break;
@@ -345,7 +352,7 @@ namespace pb {
                 todo_k.push_back(k);
             }
             entry.m_k -= coeff;
-            if (kind != OP_PB_EQ && entry.m_k.is_neg()) {
+            if (kind != OP_PB_EQ && !entry.m_k.is_pos()) {
                 switch (kind) {
                 case OP_AT_MOST_K:
                 case OP_PB_LE:
@@ -379,6 +386,7 @@ namespace pb {
         argc_entry entry(0, pb.get_k(f));
         VERIFY(cache.find(entry, entry));
         result = entry.m_value;
+        TRACE("card2bv", tout << result << "\n";);
         return BR_DONE;
     }
 

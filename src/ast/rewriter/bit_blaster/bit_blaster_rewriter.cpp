@@ -335,6 +335,9 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             SASSERT(num == 2);
             if (butil().is_bv(args[0])) {
                 reduce_eq(args[0], args[1], result);
+                std::cout << "reduce eq: " << mk_pp(args[0], m()) << "\n" << mk_pp(args[1], m()) << "\n";
+                std::cout << mk_pp(result, m()) << "\n";
+
                 return BR_DONE;
             }
             return BR_FAILED;

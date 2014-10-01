@@ -2872,7 +2872,7 @@ namespace smt {
                 // mark_as_relevant(l); <<< not needed
                 // internalize_assertion marked l as relevant.
                 SASSERT(is_relevant(l));
-                TRACE("assumptions", tout << mk_pp(curr_assumption, m_manager) << "\n";);
+                TRACE("assumptions", tout << l << ":" << mk_pp(curr_assumption, m_manager) << "\n";);
                 if (m_manager.proofs_enabled())
                     assign(l, mk_justification(justification_proof_wrapper(*this, pr)));
                 else
@@ -2907,6 +2907,7 @@ namespace smt {
             literal l = *it;
             TRACE("unsat_core_bug", tout << "answer literal: " << l << "\n";);
             SASSERT(get_bdata(l.var()).m_assumption);
+            if (!m_literal2assumption.contains(l.index())) l.neg();
             SASSERT(m_literal2assumption.contains(l.index()));
             expr * a = m_literal2assumption[l.index()];
             if (!already_found_assumptions.contains(a)) {
