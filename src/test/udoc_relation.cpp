@@ -148,6 +148,7 @@ public:
 
         test_rename();
         test_filter_neg();
+        test_filter_neg2();
 
 
         // empty
@@ -547,6 +548,55 @@ public:
             set_random(*t2, 2*num_bits/3);
             apply_filter_neg(*t1,*t2, cols1, cols2);
         }
+        t1->deallocate();
+        t2->deallocate();
+    }
+
+    void test_filter_neg2() {
+        // filter_by_negation
+        relation_signature sig4;
+        sig4.push_back(bv.mk_sort(1));
+        sig4.push_back(bv.mk_sort(1));
+        sig4.push_back(bv.mk_sort(1));
+        unsigned_vector cols, allcols;
+
+        cols.push_back(0);
+        cols.push_back(2);
+        allcols.push_back(0);
+        allcols.push_back(1);
+        allcols.push_back(2);
+
+        /// xxx \ 1x0
+        udoc_relation* t1 = mk_full(sig4);
+        {
+            udoc_relation* neg = mk_full(sig4);
+            doc& n = neg->get_udoc()[0];
+            neg->get_dm().set(n, 0, BIT_1);
+            neg->get_dm().set(n, 2, BIT_0);
+            apply_filter_neg(*t1, *neg, allcols, allcols);
+            neg->deallocate();
+        }
+
+        /// xxx \ (1x1 u 0x0)
+        udoc_relation* t2 = mk_full(sig4);
+        {
+            udoc_relation* neg = mk_full(sig4);
+            doc& n = neg->get_udoc()[0];
+            neg->get_dm().set(n, 0, BIT_0);
+            neg->get_dm().set(n, 2, BIT_0);
+            apply_filter_neg(*t2, *neg, allcols, allcols);
+            neg->deallocate();
+        }
+        {
+            udoc_relation* neg = mk_full(sig4);
+            doc& n = neg->get_udoc()[0];
+            neg->get_dm().set(n, 0, BIT_1);
+            neg->get_dm().set(n, 2, BIT_1);
+            apply_filter_neg(*t2, *neg, allcols, allcols);
+            neg->deallocate();
+        }
+
+        apply_filter_neg(*t2, *t1, cols, cols);
         t1->deallocate();
         t2->deallocate();
     }

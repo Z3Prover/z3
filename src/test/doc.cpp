@@ -73,23 +73,24 @@ static void tst_doc1(unsigned n) {
     m.display(std::cout, *d1) << "\n";
 
 
-    svector<bool> to_delete(n, false);
-    to_delete[1] = true;
-    to_delete[3] = true;
+    bit_vector to_delete;
+    to_delete.resize(n, false);
+    to_delete.set(1);
+    to_delete.set(3);
     doc_manager m1(n-2);
-    doc_ref d1_1(m1, m.project(m1, n, to_delete.c_ptr(), *d1));
+    doc_ref d1_1(m1, m.project(m1, n, to_delete, *d1));
     doc_ref d1_2(m1, m1.allocate1());
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";
     SASSERT(m1.equals(*d1_1,*d1_2));
     m.set(*d1,2,BIT_x);
     m.set(*d1,4,BIT_x);
-    d1_1 = m.project(m1, n, to_delete.c_ptr(), *d1);
+    d1_1 = m.project(m1, n, to_delete, *d1);
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";
     d1->neg().push_back(m.tbvm().allocate1());
     SASSERT(m.well_formed(*d1));
-    d1_1 = m.project(m1, n, to_delete.c_ptr(), *d1);
+    d1_1 = m.project(m1, n, to_delete, *d1);
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";    
 }
@@ -216,11 +217,11 @@ class test_doc_cls {
         return result;
     }
 
-    void project(doc const& d, doc_manager& m2, bool const* to_delete, doc_ref& result) {
+    void project(doc const& d, doc_manager& m2, const bit_vector& to_delete, doc_ref& result) {
         result = dm.project(m2, m_vars.size(), to_delete, d);
         TRACE("doc",
               for (unsigned i = 0; i < m_vars.size(); ++i) {
-                  tout << (to_delete[i]?"0":"1");
+                  tout << (to_delete.get(i)?"0":"1");
               }
               tout << " ";
               dm.display(tout, d) << " -> ";
@@ -234,28 +235,29 @@ class test_doc_cls {
         d = mk_rand_doc(3);
         expr_ref fml1(m), fml2(m), fml3(m), tmp1(m), tmp2(m), fml(m);
         fml1 = to_formula(*d, dm);
-        svector<bool> to_delete(m_vars.size(), false);
+        bit_vector to_delete;
+        to_delete.reserve(m_vars.size(), false);
         unsigned num_bits = 1;
         for (unsigned i = 1; i < to_delete.size(); ++i) {
-            to_delete[i] = (m_ran(2) == 0);
-            if (!to_delete[i]) ++num_bits;
+            to_delete.set(i, m_ran(2) == 0);
+            if (!to_delete.get(i)) ++num_bits;
         }
         doc_manager m2(num_bits);
         doc_ref result(m2);
-        project(*d, m2, to_delete.c_ptr(), result);
+        project(*d, m2, to_delete, result);
         TRACE("doc",              
               dm.display(tout, *d) << "\n";
               m2.display(tout, *result) << "\n";);
         fml2 = to_formula(*result, m2);
-        project_expand(fml1, to_delete.c_ptr());
-        project_rename(fml2, to_delete.c_ptr());
+        project_expand(fml1, to_delete);
+        project_rename(fml2, to_delete);
         check_equiv(fml1, fml2);
     }
 
-    void project_expand(expr_ref& fml, bool const* to_delete) {
+    void project_expand(expr_ref& fml, bit_vector const& to_delete) {
         expr_ref tmp1(m), tmp2(m);
         for (unsigned i = 0; i < m_vars.size(); ++i) {
-            if (to_delete[i]) {
+            if (to_delete.get(i)) {
                 expr_safe_replace rep1(m), rep2(m);
                 rep1.insert(m_vars[i].get(), m.mk_true());
                 rep1(fml, tmp1);
@@ -271,10 +273,10 @@ class test_doc_cls {
         }
     }
 
-    void project_rename(expr_ref& fml, bool const* to_delete) {
+    void project_rename(expr_ref& fml, bit_vector const& to_delete) {
         expr_safe_replace rep(m);
         for (unsigned i = 0, j = 0; i < m_vars.size(); ++i) {
-            if (!to_delete[i]) {
+            if (!to_delete.get(i)) {
                 rep.insert(m_vars[j].get(), m_vars[i].get());
                 ++j;
             }
@@ -293,7 +295,7 @@ class test_doc_cls {
             d->neg().push_back(t);
         }
         fml1 = mk_and(m, fmls.size(), fmls.c_ptr());
-        svector<bool> to_merge(N, false), to_delete(N, false);
+        svector<bool> to_merge(N, false);
         bit_vector discard_cols;
         discard_cols.resize(N, false);
         unsigned num_bits = 1;
@@ -371,17 +373,18 @@ public:
         dm.tbvm().set(*t, 0, BIT_0);
         d->neg().push_back(t.detach());
         unsigned num_bits = dm.num_tbits();
-        svector<bool> to_delete(num_bits, false);
+        bit_vector to_delete;
+        to_delete.reserve(num_bits, false);
         fml1 = to_formula(*d, dm);
-        to_delete[0] = true;
+        to_delete.set(0, true);
         doc_manager m2(num_bits-1);
         doc_ref result(m2);
-        project(*d, m2, to_delete.c_ptr(), result);
+        project(*d, m2, to_delete, result);
         dm.display(std::cout, *d) << "\n";
         m2.display(std::cout, *result) << "\n";
         fml2 = to_formula(*result, m2);
-        project_rename(fml2, to_delete.c_ptr());
-        project_expand(fml1, to_delete.c_ptr());
+        project_rename(fml2, to_delete);
+        project_expand(fml1, to_delete);
         std::cout << fml1 << " " << fml2 << "\n";
         check_equiv(fml1, fml2);
     }

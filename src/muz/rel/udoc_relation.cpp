@@ -21,10 +21,6 @@ Revision History:
 Notes:
 
     Current pending items:
-    - Fix the incomplete non-emptiness check in doc.cpp
-      It can fall back to a sat_solver call in the worst case.
-      The sat_solver.h interface gives a way to add clauses to a sat solver
-      and check for satisfiability. It can be used from scratch each time.
     - Profile and fix bottlnecks:
       - Potential bottleneck in projection exercised in some benchmarks.
         Projection is asymptotically very expensive. We are here interested in 
@@ -58,9 +54,6 @@ Notes:
      return tgt \ join_project(tgt, neg, c1, .., cN, d1, .. , dN)
      We have most of the facilities required for a join project operation.
      For example, the filter_project function uses both equalities and deleted columns.
-   - Lipstick service:
-     - filter_proj_fn uses both a bit_vector and a svector<bool> for representing removed bits. 
-       This is due to underlying routines using different types for the same purpose. 
 --*/
 #include "udoc_relation.h"
 #include "dl_relation_manager.h"
@@ -127,12 +120,7 @@ namespace datalog {
         m_elems.push_back(fact2doc(f));
     }
     bool udoc_relation::empty() const {
-        if (m_elems.is_empty()) return true;
-        // TBD: make this a complete check
-        for (unsigned i = 0; i < m_elems.size(); ++i) {
-            if (!dm.is_empty(m_elems[i])) return false;
-        }
-        return true;
+        return m_elems.is_empty_complete(get_plugin().m, dm);
     }
     bool udoc_relation::contains_fact(const relation_fact & f) const {
         doc_ref d(dm, fact2doc(f));
@@ -482,7 +470,7 @@ namespace datalog {
     }
 
     class udoc_plugin::project_fn : public convenient_relation_project_fn {
-        svector<bool> m_to_delete;
+        bit_vector m_to_delete;
     public:
         project_fn(udoc_relation const & t, unsigned removed_col_cnt, const unsigned * removed_cols) 
             : convenient_relation_project_fn(t.get_signature(), removed_col_cnt, removed_cols) {
@@ -490,7 +478,7 @@ namespace datalog {
             unsigned n = t.get_dm().num_tbits();
             m_to_delete.resize(n, false);
             for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
-                m_to_delete[m_removed_cols[i]] = true;
+                m_to_delete.set(m_removed_cols[i], true);
             }
         }
 
@@ -505,7 +493,7 @@ namespace datalog {
             udoc const& ud1 = t.get_udoc();
             udoc& ud2 = r->get_udoc();
             for (unsigned i = 0; i < ud1.size(); ++i) {
-                d2 = dm1.project(dm2, m_to_delete.size(), m_to_delete.c_ptr(), ud1[i]);
+                d2 = dm1.project(dm2, m_to_delete.size(), m_to_delete, ud1[i]);
                 ud2.push_back(d2.detach());
             }
             TRACE("doc", tout << "final size: " << r->get_size_estimate_rows() << '\n';);
@@ -1076,14 +1064,16 @@ namespace datalog {
     // 4. Unit/stress test cases are needed.
     // 
     class udoc_plugin::negation_filter_fn : public relation_intersection_filter_fn {
-        const unsigned_vector m_t_cols;
-        const unsigned_vector m_neg_cols;
+        unsigned_vector m_t_cols;
+        unsigned_vector m_neg_cols;
 
     public:
         negation_filter_fn(const udoc_relation & r, const udoc_relation & neg, unsigned joined_col_cnt,
                            const unsigned *t_cols, const unsigned *neg_cols)
             : m_t_cols(joined_col_cnt, t_cols), m_neg_cols(joined_col_cnt, neg_cols) {
             SASSERT(joined_col_cnt > 0);
+            r.expand_column_vector(m_t_cols);
+            neg.expand_column_vector(m_neg_cols);
         }
         
         virtual void operator()(relation_base& tb, const relation_base& negb) {
@@ -1098,30 +1088,16 @@ namespace datalog {
 
             udoc result;
             for (unsigned i = 0; i < dst.size(); ++i) {
+                bool subsumed = false;
                 for (unsigned j = 0; j < neg.size(); ++j) {
-                    for (unsigned c = 0; c < m_t_cols.size(); ++c) {
-                        unsigned t_col = m_t_cols[c];
-                        unsigned n_col = m_neg_cols[c];
-                        unsigned num_bits = t.column_num_bits(t_col);
-                        SASSERT(num_bits == n.column_num_bits(n_col));
-                        unsigned t_idx = t.column_idx(t_col);
-                        unsigned n_idx = n.column_idx(n_col);
-                        bool cont = dmn.contains(n_idx, neg[j], dmt, t_idx, dst[i], num_bits);
-                        IF_VERBOSE(
-                            3, 
-                            dmt.display(verbose_stream() << "dst:", dst[i], t_idx+num_bits-1,t_idx) << "\n";
-                            dmn.display(verbose_stream() << "neg:", neg[j], n_idx+num_bits-1,n_idx) << "\n";
-                            verbose_stream() << "contains: " << (cont?"true":"false") << "\n";);
-                        if (!cont) {
-                            goto next_neg_disj;
-                        }
+                    if (dmn.contains(neg[j], m_neg_cols, dst[i], m_t_cols)) {
+                        dmt.deallocate(&dst[i]);
+                        subsumed = true;
+                        break;
                     }
-                    dmt.deallocate(&dst[i]);
-                    goto next_disj;
-                next_neg_disj:;
                 }
-                result.push_back(&dst[i]);
-            next_disj:;
+                if (!subsumed)
+                    result.push_back(&dst[i]);
             }
             std::swap(dst, result);
             if (dst.is_empty()) {
@@ -1207,8 +1183,7 @@ namespace datalog {
         expr_ref     m_reduced_condition;
         udoc         m_udoc;
         udoc         m_udoc2;
-        bit_vector   m_col_list; // map: col idx -> bool (whether the column is to be removed)
-        svector<bool> m_to_delete; // same
+        bit_vector   m_to_delete; // map: col idx -> bool (whether the column is to be removed)
         subset_ints  m_equalities;
         unsigned_vector m_roots;
 
@@ -1222,19 +1197,17 @@ namespace datalog {
             m_equalities(union_ctx) {
             unsigned num_bits = t.get_num_bits();
             t.expand_column_vector(m_removed_cols);
-            m_col_list.resize(num_bits,  false);
             m_to_delete.resize(num_bits, false);
             for (unsigned i = 0; i < num_bits; ++i) {
                 m_equalities.mk_var();
             }        
             for (unsigned i = 0; i < m_removed_cols.size(); ++i) {
-                m_col_list.set(m_removed_cols[i], true);
-                m_to_delete[m_removed_cols[i]] = true;
+                m_to_delete.set(m_removed_cols[i], true);
             }
             expr_ref guard(m), non_eq_cond(condition, m);
             t.extract_equalities(condition, non_eq_cond, m_equalities, m_roots);
             t.extract_guard(non_eq_cond, guard, m_reduced_condition);            
-            t.compile_guard(guard, m_udoc, m_col_list);
+            t.compile_guard(guard, m_udoc, m_to_delete);
         }
         
         virtual ~filter_proj_fn() {
@@ -1247,13 +1220,13 @@ namespace datalog {
             ast_manager& m = m_reduced_condition.get_manager();
             m_udoc2.copy(dm, u1);
             m_udoc2.intersect(dm, m_udoc);
-            t.apply_guard(m_reduced_condition, m_udoc2, m_equalities, m_col_list);
-            m_udoc2.merge(dm, m_roots, m_equalities, m_col_list);
+            t.apply_guard(m_reduced_condition, m_udoc2, m_equalities, m_to_delete);
+            m_udoc2.merge(dm, m_roots, m_equalities, m_to_delete);
             SASSERT(m_udoc2.well_formed(dm));  
             udoc_relation* r = get(t.get_plugin().mk_empty(get_result_signature()));
             doc_manager& dm2 = r->get_dm();
             for (unsigned i = 0; i < m_udoc2.size(); ++i) {
-                doc* d = dm.project(dm2, m_to_delete.size(), m_to_delete.c_ptr(), m_udoc2[i]);
+                doc* d = dm.project(dm2, m_to_delete.size(), m_to_delete, m_udoc2[i]);
                 r->get_udoc().insert(dm2, d);
                 SASSERT(r->get_udoc().well_formed(dm2));
             }

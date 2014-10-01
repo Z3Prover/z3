@@ -48,7 +48,7 @@ class doc_manager {
         project_resolve        
     };
     project_action_t pick_resolvent(
-        tbv const& pos, tbv_vector const& neg, bool const* to_delete, unsigned& idx);
+        tbv const& pos, tbv_vector const& neg, bit_vector const& to_delete, unsigned& idx);
 public:
     doc_manager(unsigned num_bits);
     ~doc_manager();
@@ -72,7 +72,7 @@ public:
     doc& fill1(doc& src);
     doc& fillX(doc& src);
     bool is_full(doc const& src) const;
-    bool is_empty(doc const& src);
+    bool is_empty_complete(ast_manager& m, doc const& src);
     bool set_and(doc& dst, doc const& src);
     bool set_and(doc& dst, tbv const& src);
     bool fold_neg(doc& dst);
@@ -82,23 +82,22 @@ public:
     bool equals(doc const& a, doc const& b) const;
     unsigned hash(doc const& src) const;
     bool contains(doc const& a, doc const& b) const;
-    bool contains(unsigned offset_a, doc const& a,
-                  doc_manager const& dm_b, unsigned offset_b, doc const& b,
-                  unsigned length) const;
+    bool contains(doc const& a, unsigned_vector const& colsa,
+                  doc const& b, unsigned_vector const& colsb) const;
     std::ostream& display(std::ostream& out, doc const& b) const;
     std::ostream& display(std::ostream& out, doc const& b, unsigned hi, unsigned lo) const;
     unsigned num_tbits() const { return m.num_tbits(); }
-    doc* project(doc_manager& dstm, unsigned n, bool const* to_delete, doc const& src);
+    doc* project(doc_manager& dstm, unsigned n, bit_vector const& to_delete, doc const& src);
     bool well_formed(doc const& d) const;
     bool merge(doc& d, unsigned lo, unsigned length, subset_ints const& equalities, bit_vector const& discard_cols);
     void set(doc& d, unsigned idx, tbit value);
 
-    void verify_project(ast_manager& m, doc_manager& dstm, bool const* to_delete, doc const& src, doc const& dst);
+    void verify_project(ast_manager& m, doc_manager& dstm, bit_vector const& to_delete, doc const& src, doc const& dst);
 private:
     unsigned diff_by_012(tbv const& pos, tbv const& neg, unsigned& index);
     bool merge(doc& d, unsigned idx, subset_ints const& equalities, bit_vector const& discard_cols);
-    void project_rename(expr_ref& fml, bool const* to_delete);
-    void project_expand(expr_ref& fml, bool const* to_delete);
+    void project_rename(expr_ref& fml, bit_vector const& to_delete);
+    void project_expand(expr_ref& fml, bit_vector const& to_delete);
     expr_ref to_formula(ast_manager& m, doc const& src);
     void check_equiv(ast_manager& m, expr* fml1, expr* fml2);
 };
@@ -119,10 +118,17 @@ class union_bvec {
 public:
     unsigned size() const { return m_elems.size(); }
     T& operator[](unsigned idx) const { return *m_elems[idx]; }
-    bool is_empty() const { return m_elems.empty(); }    
+    bool is_empty() const { return m_elems.empty(); }
+    bool is_empty_complete(ast_manager& m, doc_manager& dm) const {
+        for (unsigned i = 0; i < size(); ++i) {
+            if (!dm.is_empty_complete(m, *m_elems[i]))
+                return false;
+        }
+        return true;
+    }
     bool is_full(M& m) const { return size() == 1 && m.is_full(*m_elems[0]); }
     bool contains(M& m, T& t) const {
-        for (unsigned i = 0; i < m_elems.size(); ++i) {
+        for (unsigned i = 0; i < size(); ++i) {
             if (m.contains(*m_elems[i], t)) return true;
         }
         return false;
@@ -164,11 +170,13 @@ public:
         SASSERT(t);
         unsigned sz = size(), j = 0;
         bool found = false;
-        for (unsigned i = 0; i < sz; ++i, ++j) {
+        unsigned i = 0;
+        for ( ; i < sz; ++i, ++j) {
             if (m.contains(*m_elems[i], *t)) {
                 found = true;
+                break;
             }
-            if (!found && m.contains(*t, *m_elems[i])) {
+            if (m.contains(*t, *m_elems[i])) {
                 m.deallocate(m_elems[i]);
                 --j;
             }
@@ -178,6 +186,7 @@ public:
         }
         if (j != sz) m_elems.resize(j);
         if (found) {
+            SASSERT(j == i);
             m.deallocate(t);
         }
         else {

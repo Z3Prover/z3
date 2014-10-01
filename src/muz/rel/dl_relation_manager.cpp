@@ -122,7 +122,7 @@ namespace datalog {
         relation_map::iterator it = m_relations.begin();
         relation_map::iterator end = m_relations.end();
         for(; it!=end; ++it) {
-            if(!it->m_value->empty()) {
+            if(!it->m_value->fast_empty()) {
                 res.insert(it->m_key);
             }
         }

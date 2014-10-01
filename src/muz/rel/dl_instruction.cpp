@@ -307,7 +307,7 @@ namespace datalog {
             idx_vector::const_iterator end=m_controls.end();
             for(; it != end; ++it) {
                 reg_idx r = *it;
-                if (ctx.reg(r) && !ctx.reg(r)->empty()) {
+                if (ctx.reg(r) && !ctx.reg(r)->fast_empty()) {
                     return false;
                 }
             }

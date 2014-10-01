@@ -83,7 +83,6 @@ void doc_manager::deallocate(doc* src) {
     m.deallocate(&src->pos());
     src->neg().reset(m);
     m_alloc.deallocate(sizeof(doc), src);
-    //    dealloc(src);
 }
 void doc_manager::copy(doc& dst, doc const& src)  {
     m.copy(dst.pos(), src.pos());
@@ -110,23 +109,21 @@ doc& doc_manager::fillX(doc& src) {
 bool doc_manager::set_and(doc& dst, doc const& src)  {
     // (A \ B) & (C \ D) = (A & C) \ (B u D)
     if (!m.set_and(dst.pos(), src.pos())) return false;
-    dst.neg().intersect(m, dst.pos());    
+    dst.neg().intersect(m, dst.pos());
     tbv_ref t(m);
     for (unsigned i = 0; i < src.neg().size(); ++i) {
         t = m.allocate(src.neg()[i]);
         if (m.set_and(*t, dst.pos())) {
-            if (m.equals(*t, dst.pos())) return false;
             dst.neg().insert(m, t.detach());
         }
     }
-    SASSERT(well_formed(dst));
     return fold_neg(dst);
 }
 bool doc_manager::set_and(doc& dst, tbv const& src)  {
-    // (A \ B) & C  = (A & C) \ B
+    // (A \ B) & C  = (A & C) \ (B & C)
     if (!m.set_and(dst.pos(), src)) return false;
     dst.neg().intersect(m, src);
-    return true;
+    return fold_neg(dst);
 }
 
 bool doc_manager::well_formed(doc const& d) const {
@@ -141,6 +138,9 @@ bool doc_manager::well_formed(doc const& d) const {
 bool doc_manager::fold_neg(doc& dst) {
  start_over:
     for (unsigned i = 0; i < dst.neg().size(); ++i) {
+        if (m.contains(dst.neg()[i], dst.pos()))
+            return false;
+
         unsigned index;
         unsigned count = diff_by_012(dst.pos(), dst.neg()[i], index);
         if (count != 2) {
@@ -280,7 +280,7 @@ bool doc_manager::intersect(doc const& A, doc const& B, doc& result) {
 //   indices where BIT_0 is set are positive.
 //
 
-doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, doc const& src) {
+doc* doc_manager::project(doc_manager& dstm, unsigned n, bit_vector const& to_delete, doc const& src) {
     tbv_manager& dstt = dstm.m;    
     tbv_ref t(dstt);
     t = dstt.project(n, to_delete, src.pos());
@@ -391,7 +391,7 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bool const* to_delete, 
 
 doc_manager::project_action_t 
 doc_manager::pick_resolvent(
-    tbv const& pos, tbv_vector const& neg, bool const* to_delete, unsigned& idx) {
+    tbv const& pos, tbv_vector const& neg, bit_vector const& to_delete, unsigned& idx) {
     if (neg.empty()) return project_done;
     for (unsigned j = 0; j < neg.size(); ++j) {
         if (m.equals(pos, *neg[j])) return project_is_empty;   
@@ -401,7 +401,7 @@ doc_manager::pick_resolvent(
     unsigned best_neg = UINT_MAX;
     unsigned best_idx = UINT_MAX;
     for (unsigned i = 0; i < num_tbits(); ++i) {
-        if (!to_delete[i]) continue;
+        if (!to_delete.get(i)) continue;
         if (pos[i] != BIT_x) continue;
         unsigned num_pos = 0, num_neg = 0;
         tbit b1 = (*neg[0])[i];
@@ -472,12 +472,12 @@ void doc_manager::subtract(doc const& A, doc const& B, doc_vector& result) {
     tbv_ref t(m);
     r = allocate(A);
     t = m.allocate(B.pos());
-    if (m.set_and(*t, A.pos()) && r->neg().insert(m, t.detach())) {
+    if (m.set_and(*t, A.pos())) {
+        r->neg().insert(m, t.detach());
+    }
+    if (fold_neg(*r))
         result.push_back(r.detach());
-    }
-    else {
-        result.push_back(allocate(A));
-    }
+
     for (unsigned i = 0; i < B.neg().size(); ++i) {
         r = allocate(A);
         if (set_and(*r, B.neg()[i])) {
@@ -496,36 +496,19 @@ bool doc_manager::equals(doc const& a, doc const& b) const {
 bool doc_manager::is_full(doc const& src) const {
     return src.neg().is_empty() && m.equals(src.pos(), *m_full);
 }
-bool doc_manager::is_empty(doc const& src)  {
+bool doc_manager::is_empty_complete(ast_manager& m, doc const& src)  {
     if (src.neg().size() == 0) return false;
-    if (src.neg().size() == 1) {
-        return m.equals(src.pos(), src.neg()[0]);
+
+    smt_params fp;
+    smt::kernel s(m, fp);
+    expr_ref fml = to_formula(m, src);
+    s.assert_expr(fml);
+    lbool res = s.check();
+    if (res == l_true) {
+        return false;
     }
-    return false;
-#if 0
-    // buggy:
-    tbv_ref pos(m, m.allocate(src.pos()));
-    for (unsigned i = 0; i < src.neg().size(); ++i) {
-        bool found = false;
-        for (unsigned j = 0; !found && j < num_tbits(); ++j) {
-            tbit b1 = (*pos)[j];
-            tbit b2 = src.neg()[i][j];
-            found = (b1 != BIT_x && b2 != BIT_x && b1 != b2);
-        }
-        for (unsigned j = 0; !found && j < num_tbits(); ++j) {
-            tbit b1 = (*pos)[j];
-            tbit b2 = src.neg()[i][j];
-            found = (b1 == BIT_x && b2 != BIT_x);
-            if (found) {
-                m.set(*pos, j, neg(b2));
-            }
-        }
-        if (!found) {
-            return false; // TBD make complete SAT check.
-        }
-    }
+    SASSERT(res == l_false);
     return true;
-#endif
 }
 
 unsigned doc_manager::hash(doc const& src) const {
@@ -553,16 +536,15 @@ bool doc_manager::contains(doc const& a, doc const& b) const {
     return true;
 }
 
-bool doc_manager::contains(
-    unsigned offset_a, doc const& a,
-    doc_manager const& dm_b,
-    unsigned offset_b, doc const& b,
-    unsigned length) const {
-    if (!m.contains(offset_a, a.pos(), dm_b.tbvm(), offset_b, b.pos(), length)) return false;
+bool doc_manager::contains(doc const& a, unsigned_vector const& colsa,
+                           doc const& b, unsigned_vector const& colsb) const {
+    if (!m.contains(a.pos(), colsa, b.pos(), colsb))
+        return false;
+
     for (unsigned i = 0; i < a.neg().size(); ++i) {
         bool found = false;
         for (unsigned j = 0; !found && j < b.neg().size(); ++j) {
-            found = dm_b.tbvm().contains(offset_b, b.neg()[j], tbvm(), offset_a, a.neg()[i], length);
+            found = m.contains(b.neg()[j], colsb, a.neg()[i], colsa);
         }
         if (!found) return false;
     }
@@ -583,7 +565,7 @@ std::ostream& doc_manager::display(std::ostream& out, doc const& b, unsigned hi,
 }
 
 
-void doc_manager::verify_project(ast_manager& m, doc_manager& dstm, bool const* to_delete, doc const& src, doc const& dst) {
+void doc_manager::verify_project(ast_manager& m, doc_manager& dstm, bit_vector const& to_delete, doc const& src, doc const& dst) {
     expr_ref fml1 = to_formula(m, src);
     expr_ref fml2 = dstm.to_formula(m, dst);
     project_rename(fml2, to_delete);
@@ -620,11 +602,11 @@ expr_ref doc_manager::to_formula(ast_manager& m, doc const& src) {
     return result;
 }
     
-void doc_manager::project_expand(expr_ref& fml, bool const* to_delete) {
+void doc_manager::project_expand(expr_ref& fml, bit_vector const& to_delete) {
     ast_manager& m = fml.get_manager();
     expr_ref tmp1(m), tmp2(m);
     for (unsigned i = 0; i < num_tbits(); ++i) {
-        if (to_delete[i]) {
+        if (to_delete.get(i)) {
             expr_safe_replace rep1(m), rep2(m);
             rep1.insert(tbvm().mk_var(m, i), m.mk_true());
             rep1(fml, tmp1);
@@ -640,11 +622,11 @@ void doc_manager::project_expand(expr_ref& fml, bool const* to_delete) {
     }
 }
 
-void doc_manager::project_rename(expr_ref& fml, bool const* to_delete) {
+void doc_manager::project_rename(expr_ref& fml, bit_vector const& to_delete) {
     ast_manager& m = fml.get_manager();
     expr_safe_replace rep(m);
     for (unsigned i = 0, j = 0; i < num_tbits(); ++i) {
-        if (!to_delete[i]) {
+        if (!to_delete.get(i)) {
             rep.insert(tbvm().mk_var(m, j), tbvm().mk_var(m, i));
             ++j;
         }
