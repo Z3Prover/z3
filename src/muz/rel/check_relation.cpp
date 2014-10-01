@@ -38,7 +38,11 @@ namespace datalog {
     }
 
     expr_ref check_relation::ground(expr* fml) const {
-        relation_signature const& sig = get_signature();
+        return get_plugin().ground(*this, fml);
+    }
+
+    expr_ref check_relation_plugin::ground(relation_base const& dst, expr* fml) const {
+        relation_signature const& sig = dst.get_signature();
         var_subst sub(m, false);
         expr_ref_vector vars(m);
         for (unsigned i = 0; i < sig.size(); ++i) {
@@ -625,7 +629,7 @@ namespace datalog {
             t.to_formula(dst0);
             (*m_filter)(t.rb(), n.rb());
             t.rb().to_formula(t.m_fml);
-            p.verify_filter_by_negation(dst0, t, n, m_t_cols, m_neg_cols);
+            p.verify_filter_by_negation(dst0, t.rb(), n.rb(), m_t_cols, m_neg_cols);
         }
     };
 
@@ -646,8 +650,8 @@ namespace datalog {
 
     void check_relation_plugin::verify_filter_by_negation(
         expr* dst0, 
-        check_relation const& dst,
-        check_relation const& neg,
+        relation_base const& dst,
+        relation_base const& neg,
         unsigned_vector const& cols1,
         unsigned_vector const& cols2) {
         relation_signature const& sig1 = dst.get_signature();
@@ -678,8 +682,8 @@ namespace datalog {
         }
         negf = m.mk_exists(rev_sig2.size(), rev_sig2.c_ptr(), names.c_ptr(), negf);
         negf = m.mk_and(dst0, m.mk_not(negf));
-        negf = dst.ground(negf);
-        dstf = dst.ground(dstf);
+        negf = ground(dst, negf);
+        dstf = ground(dst, dstf);
         std::cout << negf << "\n";
         std::cout << dstf << "\n";
         check_equiv("filter by negation", dstf, negf);

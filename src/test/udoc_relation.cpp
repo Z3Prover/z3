@@ -619,60 +619,16 @@ public:
         full->deallocate();
     }
 
-    void apply_filter_neg(udoc_relation& t1, udoc_relation& t2, 
+    void apply_filter_neg(udoc_relation& dst, udoc_relation& neg, 
                           unsigned_vector const& cols1, unsigned_vector const& cols2) {
 
-        relation_signature const& sig = t1.get_signature();
         scoped_ptr<datalog::relation_intersection_filter_fn> negf;
-        negf = p.mk_filter_by_negation_fn(t1, t2, cols1.size(), cols1.c_ptr(), cols2.c_ptr());
-        expr_ref fml1(m), fml2(m), fml3(m);
-        t1.to_formula(fml1);
-        t2.to_formula(fml2);
-        for (unsigned i = 0; i < cols1.size(); ++i) {
-            std::cout << cols1[i] << " = " << cols2[i] << " ";
-        }
-        std::cout << "\n";
-        t1.display(std::cout); std::cout << "\n";
-        t2.display(std::cout); std::cout << "\n";
-        (*negf)(t1, t2);
-        t1.display(std::cout); std::cout << "\n";
-        t1.to_formula(fml3);
-        std::cout << fml1 << "\n";
-        std::cout << fml2 << "\n";
-        std::cout << fml3 << "\n";
-        expr_ref_vector eqs(m);
-        expr_ref_vector sub(m);
-        for (unsigned i = 0; i < sig.size(); ++i) {
-            sub.push_back(m.mk_var(i+sig.size(),sig[i]));
-        }
-        var_subst subst(m, false);
-        subst(fml2, sub.size(), sub.c_ptr(), fml2);
-        eqs.push_back(fml2);
-        for (unsigned i = 0; i < cols1.size(); ++i) {
-            var_ref v1(m), v2(m);
-            unsigned c1 = cols1[i];
-            unsigned c2 = cols2[i];
-            v1 = m.mk_var(c1, sig[c1]);
-            v2 = m.mk_var(sig.size() + c2, sig[c2]);
-            eqs.push_back(m.mk_eq(v1,v2));
-        }
-        fml2 = mk_and(m, eqs.size(), eqs.c_ptr());
-        for (unsigned i = 0; i < sub.size(); ++i) {
-            project_var(sig.size() + i, m.get_sort(sub[i].get()), fml2);
-        }
-        fml1 = m.mk_and(fml1, m.mk_not(fml2));
-        
-        expr_ref_vector vars(m);
-        for (unsigned i = 0; i < sig.size(); ++i) {
-            std::stringstream strm;
-            strm << "x" << i;
-            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
-        }
+        negf = p.mk_filter_by_negation_fn(dst, neg, cols1.size(), cols1.c_ptr(), cols2.c_ptr());
+        expr_ref dst0(m);
+        dst.to_formula(dst0);
+        (*negf)(dst, neg);
+        cr.verify_filter_by_negation(dst0, dst, neg, cols1, cols2);
 
-        subst(fml1, vars.size(), vars.c_ptr(), fml1);
-        subst(fml3, vars.size(), vars.c_ptr(), fml3);
-
-        check_equiv(fml1, fml3);
         /*
           
         tgt_1:={ x: x\in tgt_0 && ! \exists y: 

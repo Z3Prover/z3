@@ -77,6 +77,7 @@ namespace datalog {
         static check_relation& get(relation_base& r);
         static check_relation* get(relation_base* r);
         static check_relation const & get(relation_base const& r);   
+        expr_ref ground(relation_base const& rb, expr* fml) const;
     public:
         check_relation_plugin(relation_manager& rm);
         ~check_relation_plugin();
@@ -141,8 +142,8 @@ namespace datalog {
 
         void verify_filter_by_negation(
             expr* dst0, 
-            check_relation  const& dst,
-            check_relation  const& neg,
+            relation_base  const& dst,
+            relation_base  const& neg,
             unsigned_vector const& dst_eq,
             unsigned_vector const& neg_eq);
     };
