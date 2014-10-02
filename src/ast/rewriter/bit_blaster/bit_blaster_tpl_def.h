@@ -913,20 +913,32 @@ void bit_blaster_tpl<Cfg>::mk_shl(unsigned sz, expr * const * a_bits, expr * con
     else {
         out_bits.append(sz, a_bits);
         
-        for (unsigned i = 0; i < sz; ++i) {
+        unsigned i = 0;
+        expr_ref_vector new_out_bits(m());
+        for (; i < sz; ++i) {
             checkpoint();
-            expr_ref_vector new_out_bits(m());
             unsigned shift_i = 1 << i;
+            if (shift_i >= sz) break;
             for (unsigned j = 0; j < sz; ++j) {
                 expr_ref new_out(m());
                 expr* a_j = m().mk_false();
-                if (shift_i <= j) a_j = a_bits[j-shift_i];
+                if (shift_i <= j) a_j = out_bits[j-shift_i].get();
                 mk_ite(b_bits[i], a_j, out_bits[j].get(), new_out);
                 new_out_bits.push_back(new_out);
             }
             out_bits.reset();
             out_bits.append(new_out_bits);
-            if (shift_i >= sz) break;
+            new_out_bits.reset();
+        }        
+        expr_ref is_large(m());
+        is_large = m().mk_false();
+        for (; i < sz; ++i) {
+            mk_or(is_large, b_bits[i], is_large);
+        }
+        for (unsigned j = 0; j < sz; ++j) {
+            expr_ref new_out(m());
+            mk_ite(is_large, m().mk_false(), out_bits[j].get(), new_out);
+            out_bits[j] = new_out;
         }
     }
 }
@@ -944,20 +956,31 @@ void bit_blaster_tpl<Cfg>::mk_lshr(unsigned sz, expr * const * a_bits, expr * co
     }
     else {
         out_bits.append(sz, a_bits);        
-        for (unsigned i = 0; i < sz; ++i) {
+        unsigned i = 0;
+        for (; i < sz; ++i) {
             checkpoint();
             expr_ref_vector new_out_bits(m());
             unsigned shift_i = 1 << i;
+            if (shift_i >= sz) break;
             for (unsigned j = 0; j < sz; ++j) {
                 expr_ref new_out(m());
                 expr* a_j = m().mk_false();
-                if (shift_i + j < sz) a_j = a_bits[j+shift_i];
+                if (shift_i + j < sz) a_j = out_bits[j+shift_i].get();
                 mk_ite(b_bits[i], a_j, out_bits[j].get(), new_out);
                 new_out_bits.push_back(new_out);
             }
             out_bits.reset();
             out_bits.append(new_out_bits);
-            if (shift_i >= sz) break;
+        }
+        expr_ref is_large(m());
+        is_large = m().mk_false();
+        for (; i < sz; ++i) {
+            mk_or(is_large, b_bits[i], is_large);
+        }
+        for (unsigned j = 0; j < sz; ++j) {
+            expr_ref new_out(m());
+            mk_ite(is_large, m().mk_false(), out_bits[j].get(), new_out);
+            out_bits[j] = new_out;
         }
     }
 }
@@ -975,20 +998,31 @@ void bit_blaster_tpl<Cfg>::mk_ashr(unsigned sz, expr * const * a_bits, expr * co
     }
     else {
         out_bits.append(sz, a_bits);        
-        for (unsigned i = 0; i < sz; ++i) {
+        unsigned i = 0;
+        for (; i < sz; ++i) {
             checkpoint();
             expr_ref_vector new_out_bits(m());
             unsigned shift_i = 1 << i;
+            if (shift_i >= sz) break;
             for (unsigned j = 0; j < sz; ++j) {
                 expr_ref new_out(m());
                 expr* a_j = a_bits[sz-1];
-                if (shift_i + j < sz) a_j = a_bits[j+shift_i];
+                if (shift_i + j < sz) a_j = out_bits[j+shift_i].get();
                 mk_ite(b_bits[i], a_j, out_bits[j].get(), new_out);
                 new_out_bits.push_back(new_out);
             }
             out_bits.reset();
             out_bits.append(new_out_bits);
-            if (shift_i >= sz) break;
+        }
+        expr_ref is_large(m());
+        is_large = m().mk_false();
+        for (; i < sz; ++i) {
+            mk_or(is_large, b_bits[i], is_large);
+        }
+        for (unsigned j = 0; j < sz; ++j) {
+            expr_ref new_out(m());
+            mk_ite(is_large, a_bits[sz-1], out_bits[j].get(), new_out);
+            out_bits[j] = new_out;
         }
     }
 }
