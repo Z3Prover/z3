@@ -221,7 +221,8 @@ namespace datalog {
         relation_plugin(udoc_plugin::get_name(), rm),
         m(rm.get_context().get_manager()),
         bv(m),
-        dl(m) {
+        dl(m),
+        m_disable_fast_pass(false) {
     }
     udoc_plugin::~udoc_plugin() {
         u_map<doc_manager*>::iterator it = m_dms.begin(), end = m_dms.end();
@@ -1079,13 +1080,22 @@ namespace datalog {
         virtual void operator()(relation_base& tb, const relation_base& negb) {
             udoc_relation& t = get(tb);
             udoc_relation const& n = get(negb);
+            udoc_plugin& p = t.get_plugin();
+            IF_VERBOSE(3, t.display(verbose_stream() << "dst:"););
+            IF_VERBOSE(3, n.display(verbose_stream() << "neg:"););
+            if (!t.fast_empty() && !n.fast_empty() && !p.m_disable_fast_pass) {
+                fast_pass(t, n);
+            }
+            if (!t.fast_empty() && !n.fast_empty()) {
+                slow_pass(t, n);
+            }
+        }
+
+        void fast_pass(udoc_relation& t, const udoc_relation& n) {
             udoc & dst = t.get_udoc();
             udoc const & neg = n.get_udoc();
             doc_manager& dmt = t.get_dm();
             doc_manager& dmn = n.get_dm();
-            IF_VERBOSE(3, t.display(verbose_stream() << "dst:"););
-            IF_VERBOSE(3, n.display(verbose_stream() << "neg:"););
-
             udoc result;
             for (unsigned i = 0; i < dst.size(); ++i) {
                 bool subsumed = false;
@@ -1100,12 +1110,13 @@ namespace datalog {
                     result.push_back(&dst[i]);
             }
             std::swap(dst, result);
-            if (dst.is_empty()) {
-                IF_VERBOSE(3, tb.display(verbose_stream() << "fast empty"););
-                return;
-            }
+        }
 
-            // slow case
+        void slow_pass(udoc_relation& t, udoc_relation const& n) {
+            udoc & dst = t.get_udoc();
+            udoc const & neg = n.get_udoc();
+            doc_manager& dmt = t.get_dm();
+            doc_manager& dmn = n.get_dm();
             udoc renamed_neg;
             for (unsigned i = 0; i < neg.size(); ++i) {
                 doc& neg_i = neg[i];
@@ -1142,8 +1153,9 @@ namespace datalog {
             TRACE("doc", dst.display(dmt, tout) << "\n";);
             SASSERT(dst.well_formed(dmt));
             renamed_neg.reset(dmt);
-            IF_VERBOSE(3, tb.display(verbose_stream() << "slow case:"););
+            IF_VERBOSE(3, t.display(verbose_stream() << "slow case:"););
         }
+        
         bool copy_columns(
             tbv& dst, tbv const& src, 
             udoc_relation const& dstt,

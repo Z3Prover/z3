@@ -144,12 +144,16 @@ public:
         udoc_relation* t1, *t2, *t3;
         expr_ref fml(m);
 
-        test_join(1000);
+        test_filter_neg4(false);
+        test_filter_neg4(true);
 
-        test_rename();
         test_filter_neg();
         test_filter_neg2();
         test_filter_neg3();
+
+        test_join(1000);
+
+        test_rename();
 
 
         // empty
@@ -633,6 +637,25 @@ public:
         apply_filter_neg(*t1, *t2, cols1, cols2);
         t1->deallocate();
         t2->deallocate();
+    }
+
+    void test_filter_neg4(bool disable_fast) {
+        relation_signature sig1, sig2;
+        sig1.push_back(bv.mk_sort(2));
+        sig1.push_back(bv.mk_sort(2));
+        sig2.push_back(bv.mk_sort(2));
+        unsigned_vector cols1, cols2;
+
+        cols1.push_back(0);
+        cols1.push_back(1);
+        cols2.push_back(0);
+        cols2.push_back(0);
+        udoc_relation* tgt = mk_full(sig1);
+        udoc_relation* neg = mk_full(sig2);
+        if (disable_fast) p.disable_fast_pass();
+        apply_filter_neg(*tgt, *neg, cols1, cols2);
+        tgt->deallocate();
+        neg->deallocate();        
     }
 
     void set_random(udoc_relation& r, unsigned num_vals) {

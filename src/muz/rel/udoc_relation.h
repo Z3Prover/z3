@@ -91,10 +91,12 @@ namespace datalog {
         class filter_by_union_fn;
         class filter_proj_fn;
         class negation_filter_fn;
-        ast_manager& m;
-        bv_util      bv;
-        dl_decl_util dl;
+        ast_manager&        m;
+        bv_util             bv;
+        dl_decl_util        dl;
         u_map<doc_manager*> m_dms;
+        bool                m_disable_fast_pass;
+
         doc_manager& dm(unsigned sz);
         doc_manager& dm(relation_signature const& sig);
         static udoc_relation& get(relation_base& r);
@@ -136,6 +138,7 @@ namespace datalog {
         virtual relation_transformer_fn * mk_filter_interpreted_and_project_fn(
             const relation_base & t, app * condition,
             unsigned removed_col_cnt, const unsigned * removed_cols);
+        void disable_fast_pass() { m_disable_fast_pass = true; }
     };
 };
        
