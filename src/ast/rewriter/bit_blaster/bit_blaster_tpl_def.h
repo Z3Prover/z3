@@ -911,18 +911,21 @@ void bit_blaster_tpl<Cfg>::mk_shl(unsigned sz, expr * const * a_bits, expr * con
             out_bits.push_back(a_bits[i]);
     }
     else {
-        expr_ref_vector eqs(m());
-        mk_eqs(sz, b_bits, eqs);
-        for (unsigned i = 0; i < sz; i++) {
-            checkpoint();
-            expr_ref out(m());
-            mk_ite(eqs.get(i), a_bits[0], m().mk_false(), out);
-            for (unsigned j = 1; j <= i; j++) {
+        out_bits.append(sz, a_bits);
+        expr_ref_vector new_out_bits(m());
+        
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned shift_i = 1 << i;
+            for (unsigned j = 0; j < sz; ++j) {
                 expr_ref new_out(m());
-                mk_ite(eqs.get(i - j), a_bits[j], out, new_out);
-                out = new_out;
+                expr* a_j = m().mk_false();
+                if (shift_i <= j) a_j = a_bits[j-shift_i];
+                mk_ite(b_bits[i], a_j, out_bits[j].get(), new_out);
+                new_out_bits.push_back(new_out);
             }
-            out_bits.push_back(out);
+            out_bits.reset();
+            out_bits.append(new_out_bits);
+            if (shift_i > sz) break;
         }
     }
 }
