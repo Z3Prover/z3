@@ -174,7 +174,6 @@ public:
         for ( ; i < sz; ++i, ++j) {
             if (m.contains(*m_elems[i], *t)) {
                 found = true;
-                break;
             }
             if (m.contains(*t, *m_elems[i])) {
                 m.deallocate(m_elems[i]);
