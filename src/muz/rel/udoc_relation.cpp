@@ -1110,11 +1110,16 @@ namespace datalog {
             for (unsigned i = 0; i < neg.size(); ++i) {
                 doc& neg_i = neg[i];
                 doc_ref newD(dmt, dmt.allocateX());
-                copy_columns(newD->pos(), neg_i.pos(), t, n);
+                if (!copy_columns(newD->pos(), neg_i.pos(), t, n))
+                    continue;
+
                 bool is_empty = false;
                 for (unsigned j = 0; !is_empty && j < neg_i.neg().size(); ++j) {
                     tbv_ref newT(dmt.tbvm(), dmt.tbvm().allocateX());
-                    copy_columns(*newT, neg_i.neg()[j], t, n);
+                    if (!copy_columns(*newT, neg_i.neg()[j], t, n) ||
+                        !dmt.tbvm().set_and(*newT, newD->pos())) {
+                        continue;
+                    }
                     if (dmt.tbvm().equals(newD->pos(), *newT)) {
                         is_empty = true;
                     }
@@ -1139,17 +1144,19 @@ namespace datalog {
             renamed_neg.reset(dmt);
             IF_VERBOSE(3, tb.display(verbose_stream() << "slow case:"););
         }
-        void copy_columns(
+        bool copy_columns(
             tbv& dst, tbv const& src, 
             udoc_relation const& dstt,
             udoc_relation const& srct)
         {
             unsigned num_cols = m_t_cols.size();
             for (unsigned i = 0; i < num_cols; ++i) {
-                copy_column(dst, src, m_t_cols[i], m_neg_cols[i], dstt, srct);
+                if (!copy_column(dst, src, m_t_cols[i], m_neg_cols[i], dstt, srct))
+                    return false;
             }
+            return true;
         }
-        void copy_column(
+        bool copy_column(
             tbv& dst, tbv const& src,
             unsigned col_dst, unsigned col_src, 
             udoc_relation const& dstt,
@@ -1162,8 +1169,12 @@ namespace datalog {
             IF_VERBOSE(3, verbose_stream() << "copy column " << idx_src
                        << " to " << idx_dst << " " << num_tbits << "\n";);
             for (unsigned i = 0; i < num_tbits; ++i) {
-                dm.set(dst, idx_dst + i, src[idx_src + i]);
-            }                        
+                tbit bit = (tbit)(dst[idx_dst + i] & src[idx_src + i]);
+                if (bit == BIT_z)
+                    return false;
+                dm.set(dst, idx_dst + i, bit);
+            }
+            return true;
         }
     };
 

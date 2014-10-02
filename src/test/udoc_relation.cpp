@@ -149,6 +149,7 @@ public:
         test_rename();
         test_filter_neg();
         test_filter_neg2();
+        test_filter_neg3();
 
 
         // empty
@@ -597,6 +598,39 @@ public:
         }
 
         apply_filter_neg(*t2, *t1, cols, cols);
+        t1->deallocate();
+        t2->deallocate();
+    }
+
+    void test_filter_neg3() {
+        // filter_by_negation
+        relation_signature sig;
+        sig.push_back(bv.mk_sort(1));
+        sig.push_back(bv.mk_sort(1));
+        sig.push_back(bv.mk_sort(1));
+        unsigned_vector cols1, cols2;
+
+        cols1.push_back(0);
+        cols1.push_back(0);
+        cols2.push_back(0);
+        cols2.push_back(1);
+
+        /// 1xx
+        udoc_relation* t1 = mk_full(sig);
+        {
+            doc& d = t1->get_udoc()[0];
+            t1->get_dm().set(d, 0, BIT_1);
+        }
+
+        /// 10x
+        udoc_relation* t2 = mk_full(sig);
+        {
+            doc& d = t2->get_udoc()[0];
+            t1->get_dm().set(d, 0, BIT_1);
+            t1->get_dm().set(d, 1, BIT_0);
+        }
+
+        apply_filter_neg(*t1, *t2, cols1, cols2);
         t1->deallocate();
         t2->deallocate();
     }

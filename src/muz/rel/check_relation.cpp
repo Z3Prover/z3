@@ -661,7 +661,7 @@ namespace datalog {
         expr_ref_vector eqs(m);
         dst.to_formula(dstf);
         std::cout << mk_pp(dstf, m) << "\n";
-        dst.to_formula(negf);        
+        neg.to_formula(negf);
         std::cout << mk_pp(negf, m) << "\n";
         eqs.push_back(negf);
         for (unsigned i = 0; i < cols1.size(); ++i) {

@@ -174,19 +174,18 @@ public:
         for ( ; i < sz; ++i, ++j) {
             if (m.contains(*m_elems[i], *t)) {
                 found = true;
-                break;
             }
-            if (m.contains(*t, *m_elems[i])) {
+            else if (m.contains(*t, *m_elems[i])) {
                 m.deallocate(m_elems[i]);
                 --j;
+                continue;
             }
-            else if (i != j) {                
+            if (i != j) {
                 m_elems[j] = m_elems[i];
             } 
         }
         if (j != sz) m_elems.resize(j);
         if (found) {
-            SASSERT(j == i);
             m.deallocate(t);
         }
         else {
