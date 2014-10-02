@@ -2252,22 +2252,27 @@ namespace Duality {
 	      int update_count = 0;
 	      for(unsigned i = 0; i < expansions.size(); i++){
 		Node *node = expansions[i];
-		tree->SolveSingleNode(top,node);
-#ifdef NO_GENERALIZE
-		node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
-#else
 		try {
+		  tree->SolveSingleNode(top,node);
+#ifdef NO_GENERALIZE
+		  node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
+#else
 		  if(expansions.size() == 1 && NodeTooComplicated(node))
 		    SimplifyNode(node);
 		  else
 		    node->Annotation.Formula = tree->RemoveRedundancy(node->Annotation.Formula).simplify();
 		  Generalize(node);
+#endif
 		}
 		catch(const RPFP::Bad &){
 		  // bad interpolants can get us here
 		  throw DoRestart();
 		}
-#endif
+		catch(char const *msg){
+		  // bad interpolants can get us here
+		  reporter->Message(std::string("interpolation failure:") + msg);
+		  throw DoRestart();
+		}
 		if(RecordUpdate(node)){
 		  update_count++;
 		  total_updates++;
@@ -2283,8 +2288,14 @@ namespace Duality {
 	      if(update_count == 0){
 		if(was_sat){
 		  update_failures++;
-		  if(update_failures > 10)
-		    throw Incompleteness();
+		  if(update_failures > 10){
+		    for(unsigned i = 0; i < expansions.size(); i++){
+		      Node *node = expansions[i];
+		      node->map->Annotation.SetFull();
+		      reporter->Message("incompleteness: cleared annotation");
+		    }
+		    throw DoRestart();
+		  }
 		}
 		reporter->Message("backtracked without learning");
 	      }
