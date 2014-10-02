@@ -912,9 +912,9 @@ void bit_blaster_tpl<Cfg>::mk_shl(unsigned sz, expr * const * a_bits, expr * con
     }
     else {
         out_bits.append(sz, a_bits);
-        expr_ref_vector new_out_bits(m());
         
         for (unsigned i = 0; i < sz; ++i) {
+            expr_ref_vector new_out_bits(m());
             unsigned shift_i = 1 << i;
             for (unsigned j = 0; j < sz; ++j) {
                 expr_ref new_out(m());
@@ -925,7 +925,7 @@ void bit_blaster_tpl<Cfg>::mk_shl(unsigned sz, expr * const * a_bits, expr * con
             }
             out_bits.reset();
             out_bits.append(new_out_bits);
-            if (shift_i > sz) break;
+            if (shift_i >= sz) break;
         }
     }
 }
