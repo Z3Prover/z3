@@ -914,6 +914,7 @@ void bit_blaster_tpl<Cfg>::mk_shl(unsigned sz, expr * const * a_bits, expr * con
         out_bits.append(sz, a_bits);
         
         for (unsigned i = 0; i < sz; ++i) {
+            checkpoint();
             expr_ref_vector new_out_bits(m());
             unsigned shift_i = 1 << i;
             for (unsigned j = 0; j < sz; ++j) {
@@ -942,19 +943,21 @@ void bit_blaster_tpl<Cfg>::mk_lshr(unsigned sz, expr * const * a_bits, expr * co
             out_bits.push_back(m().mk_false());
     }
     else {
-        expr_ref_vector eqs(m());
-        mk_eqs(sz, b_bits, eqs);
-        out_bits.resize(sz);
-        for (unsigned i = 0; i < sz; i++) {
+        out_bits.append(sz, a_bits);        
+        for (unsigned i = 0; i < sz; ++i) {
             checkpoint();
-            expr_ref out(m());
-            mk_ite(eqs.get(i), a_bits[sz-1], m().mk_false(), out);
-            for (unsigned j = 1; j <= i; j++) {
+            expr_ref_vector new_out_bits(m());
+            unsigned shift_i = 1 << i;
+            for (unsigned j = 0; j < sz; ++j) {
                 expr_ref new_out(m());
-                mk_ite(eqs.get(i - j), a_bits[sz - j - 1], out, new_out);
-                out = new_out;
+                expr* a_j = m().mk_false();
+                if (shift_i + j < sz) a_j = a_bits[j+shift_i];
+                mk_ite(b_bits[i], a_j, out_bits[j].get(), new_out);
+                new_out_bits.push_back(new_out);
             }
-            out_bits.set(sz - i - 1, out);
+            out_bits.reset();
+            out_bits.append(new_out_bits);
+            if (shift_i >= sz) break;
         }
     }
 }
@@ -971,20 +974,21 @@ void bit_blaster_tpl<Cfg>::mk_ashr(unsigned sz, expr * const * a_bits, expr * co
             out_bits.push_back(a_bits[sz-1]);
     }
     else {
-        expr_ref_vector eqs(m());
-        mk_eqs(sz, b_bits, eqs);
-        out_bits.resize(sz);
-        for (unsigned i = 0; i < sz; i++) {
+        out_bits.append(sz, a_bits);        
+        for (unsigned i = 0; i < sz; ++i) {
             checkpoint();
-            expr_ref out(m());
-            out = a_bits[sz-1];
-            for (unsigned j = 1; j <= i; j++) {
+            expr_ref_vector new_out_bits(m());
+            unsigned shift_i = 1 << i;
+            for (unsigned j = 0; j < sz; ++j) {
                 expr_ref new_out(m());
-                mk_ite(eqs.get(i - j), a_bits[sz - j - 1], out, new_out);
-                out = new_out;
+                expr* a_j = a_bits[sz-1];
+                if (shift_i + j < sz) a_j = a_bits[j+shift_i];
+                mk_ite(b_bits[i], a_j, out_bits[j].get(), new_out);
+                new_out_bits.push_back(new_out);
             }
-            TRACE("bit_blaster", tout << (sz - i - 1) << " :\n" << mk_pp(out, m()) << "\n";);
-            out_bits.set(sz - i - 1, out);
+            out_bits.reset();
+            out_bits.append(new_out_bits);
+            if (shift_i >= sz) break;
         }
     }
 }
@@ -1000,6 +1004,11 @@ void bit_blaster_tpl<Cfg>::mk_ext_rotate_left_right(unsigned sz, expr * const * 
             mk_rotate_right(sz, a_bits, static_cast<unsigned>(k.get_uint64()), out_bits);
     }
     else {
+        //
+        // Review: a better tuned implementation is possible by using shifts by power of two.
+        // e.g., looping over the bits of b_bits, then rotate by a power of two depending
+        // on the bit-position. This would get rid of the mk_urem.
+        //
         expr_ref_vector sz_bits(m());
         expr_ref_vector masked_b_bits(m());
         expr_ref_vector eqs(m());
