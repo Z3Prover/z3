@@ -356,9 +356,9 @@ public:
             while (index < asms.size() && is_sat == l_true) {
                 while (asms.size() > 20*(index - last_index) && index < asms.size()) {
                     index = next_index(asms, index);
-                    //std::cout << "weight: " << get_weight(asms[index-1].get()) << "\n";
                     //break;
                 }
+                IF_VERBOSE(3, verbose_stream() << "weight: " << get_weight(asms[0].get()) << " " << get_weight(asms[index-1].get()) << "\n";);
                 last_index = index;
                 is_sat = s().check_sat(index, asms.c_ptr());
             }            

@@ -94,7 +94,6 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieves an assignment to atomic propositions for a satisfiable context.
         /// </summary>
-        /// <seealso cref="Pop"/>
          public static BoolExpr GetAssignment(Context ctx) 
          {
              IntPtr x = Native.Z3_get_context_assignment(ctx.nCtx);
