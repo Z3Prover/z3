@@ -42,26 +42,22 @@ namespace sat {
     }
 
     lbool mus::operator()() {
-        bool minimize_partial = s.m_config.m_minimize_core_partial;
         flet<bool> _disable_min(s.m_config.m_minimize_core, false);
         flet<bool> _disable_min_partial(s.m_config.m_minimize_core_partial, false);
         flet<bool> _disable_opt(s.m_config.m_optimize_model, false);
         flet<bool> _is_active(m_is_active, true);
-        TRACE("sat", tout << "old core: " << s.get_core() << "\n";);
         IF_VERBOSE(2, verbose_stream() << "(sat.mus " << s.get_core() << ")\n";);
         reset();
-        literal_vector& core = m_core;
+        return mus1();
+    }
+
+    lbool mus::mus1() {
+        bool minimize_partial = s.m_config.m_minimize_core_partial;
+        TRACE("sat", tout << "old core: " << s.get_core() << "\n";);
+        literal_vector& core = get_core();
         literal_vector& mus = m_mus;
-        core.append(s.get_core());        
-        for (unsigned i = 0; i < core.size(); ++i) {
-            if (s.m_user_scope_literals.contains(core[i])) {
-                mus.push_back(core[i]);
-                core[i] = core.back();
-                core.pop_back();
-                --i;
-            }
-        }
         unsigned delta_time  = 0;
+        unsigned core_miss = 0;
         while (!core.empty()) {
             IF_VERBOSE(2, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
             TRACE("sat", 
@@ -72,7 +68,7 @@ namespace sat {
                 set_core();
                 return l_undef;
             }
-            if (minimize_partial && delta_time > 4) {
+            if (minimize_partial && 3*delta_time > core.size() && core.size() < mus.size()) {
                 break;
             }
             unsigned num_literals = core.size() + mus.size();
@@ -81,7 +77,9 @@ namespace sat {
             core.pop_back();
             unsigned sz = mus.size();
             mus.append(core);
-            mus.push_back(~lit); // TBD: measure
+            if (true || core_miss < 2) {
+                mus.push_back(~lit); // TBD: measure
+            }
             lbool is_sat = s.check(mus.size(), mus.c_ptr());
             TRACE("sat", tout << "mus: " << mus << "\n";);
             switch (is_sat) {
@@ -111,17 +109,20 @@ namespace sat {
             }
             case l_false:
                 literal_vector const& new_core = s.get_core();
-                if (new_core.contains(~lit)) {
-                    mus.resize(sz);
-                    break;
-                }
                 mus.resize(sz);
-                TRACE("sat", tout << "new core: " << new_core << "\n";);
-                core.reset();
-                for (unsigned i = 0; i < new_core.size(); ++i) {
-                    literal lit = new_core[i];
-                    if (!mus.contains(lit)) {
-                        core.push_back(lit);
+                if (new_core.contains(~lit)) {
+                    IF_VERBOSE(2, verbose_stream() << "miss core " << lit << "\n";);
+                    ++core_miss;
+                }
+                else {
+                    core_miss = 0;
+                    TRACE("sat", tout << "new core: " << new_core << "\n";);
+                    core.reset();
+                    for (unsigned i = 0; i < new_core.size(); ++i) {
+                        literal lit = new_core[i];
+                        if (!mus.contains(lit)) {
+                            core.push_back(lit);
+                        }
                     }
                 }
                 break;
@@ -139,6 +140,39 @@ namespace sat {
         set_core();
         IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << core << ")\n";);
         return l_true;
+    }
+
+    // bisection search.
+    lbool mus::mus2() {
+        literal_vector& core = get_core();
+        literal_vector& mus = m_mus;
+        while (true) {
+
+#if 0
+            unsigned start = 0;
+            unsigned len = core.size();
+            SASSERT(start < len);
+            unsigned mid = (len-start+1)/2;
+            mus.append(mid, core.c_ptr() + start);
+            start = start + mid;
+#endif
+        }
+        return l_undef;
+    }
+
+    literal_vector& mus::get_core() {
+        m_core.reset();
+        literal_vector& core = m_core;
+        core.append(s.get_core());        
+        for (unsigned i = 0; i < core.size(); ++i) {
+            if (s.m_user_scope_literals.contains(core[i])) {
+                m_mus.push_back(core[i]);
+                core[i] = core.back();
+                core.pop_back();
+                --i;
+            }
+        }
+        return core;
     }
 
     void mus::mr() {
