@@ -223,7 +223,7 @@ namespace sat {
         return to_elim.size();
     }
 
-    void scc::collect_statistics(statistics & st) {
+    void scc::collect_statistics(statistics & st) const {
         st.update("elim bool vars", m_num_elim);
     }
     

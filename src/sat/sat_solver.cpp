@@ -459,9 +459,6 @@ namespace sat {
     void solver::set_conflict(justification c, literal not_l) {
         if (m_inconsistent)
             return;
-        TRACE("sat_conflict", tout << "conflict\n";);
-        // int * p = 0;
-        // *p = 0;
         m_inconsistent = true;
         m_conflict = c;
         m_not_l    = not_l;
@@ -863,6 +860,7 @@ namespace sat {
         m_next_simplify           = 0;
         m_stopwatch.reset();
         m_stopwatch.start();
+        TRACE("sat", display(tout););
     }
 
     /**
