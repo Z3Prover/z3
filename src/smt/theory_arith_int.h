@@ -1299,8 +1299,10 @@ namespace smt {
               }
               tout << "max: " << max << ", min: " << min << "\n";);
 
-        if (m_params.m_arith_ignore_int)
+        if (m_params.m_arith_ignore_int) {
+            TRACE("arith", tout << "Ignore int: give up\n";);
             return FC_GIVEUP;
+        }
 
         if (!gcd_test())
             return FC_CONTINUE;

@@ -49,7 +49,7 @@ namespace sat {
         m_qhead(0),
         m_scope_lvl(0),
         m_params(p) {
-        m_config.updt_params(p);
+        updt_params(p);
         m_conflicts_since_gc      = 0;
         m_conflicts               = 0;
         m_next_simplify           = 0;
@@ -2358,7 +2358,7 @@ namespace sat {
         m_asymm_branch.updt_params(p);
         m_probing.updt_params(p);
         m_scc.updt_params(p);
-        m_rand.set_seed(p.get_uint("random_seed", 0));
+        m_rand.set_seed(m_config.m_random_seed);
     }
 
     void solver::collect_param_descrs(param_descrs & d) {

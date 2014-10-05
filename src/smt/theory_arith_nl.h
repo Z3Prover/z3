@@ -2314,13 +2314,15 @@ namespace smt {
             return FC_DONE;
         }
 
-        if (!m_params.m_nl_arith)
+        if (!m_params.m_nl_arith) {
+            TRACE("non_linear", tout << "Non-linear is not enabled\n";);
             return FC_GIVEUP;
+        }
 
         TRACE("process_non_linear", display(tout););
 
         if (m_nl_rounds > m_params.m_nl_arith_rounds) {
-            TRACE("non_linear", tout << "GIVE UP non linear problem...\n";);
+            TRACE("non_linear", tout << "GIVEUP non linear problem...\n";);
             IF_VERBOSE(3, verbose_stream() << "Max. non linear arithmetic rounds. Increase threshold using NL_ARITH_ROUNDS=<limit>\n";);
             return FC_GIVEUP;
         }

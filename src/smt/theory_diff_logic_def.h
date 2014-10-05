@@ -1066,11 +1066,8 @@ template<typename Ext>
 void theory_diff_logic<Ext>::get_eq_antecedents(
     theory_var v1, theory_var v2, unsigned timestamp, conflict_resolution & cr) {
     imp_functor functor(cr);
-    bool r;
-    r = m_graph.find_shortest_zero_edge_path(v1, v2, timestamp, functor);
-    SASSERT(r);
-    r = m_graph.find_shortest_zero_edge_path(v2, v1, timestamp, functor);
-    SASSERT(r);
+    VERIFY(m_graph.find_shortest_zero_edge_path(v1, v2, timestamp, functor));
+    VERIFY(m_graph.find_shortest_zero_edge_path(v2, v1, timestamp, functor));
 }
 
 template<typename Ext>

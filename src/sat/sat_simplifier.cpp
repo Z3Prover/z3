@@ -922,6 +922,7 @@ namespace sat {
             if (s.is_external(l.var()) || s.was_eliminated(l.var())) 
                 return;
             {
+
                 m_to_remove.reset();
                 {
                     clause_use_list & occs = s.m_use_list.get(l);
@@ -1341,6 +1342,7 @@ namespace sat {
         }
         TRACE("resolution", tout << "found var to eliminate, before: " << before_clauses << " after: " << after_clauses << "\n";);
 
+        
         // eliminate variable
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         save_clauses(mc_entry, m_pos_cls);
