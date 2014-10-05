@@ -985,6 +985,9 @@ namespace datalog {
             flush_add_rules();
             break;
         case DUALITY_ENGINE:
+	    // this lets us use duality with SAS 2013 abstraction
+	    if(quantify_arrays())
+	      flush_add_rules();
 	    break;
         default:
             UNREACHABLE();
