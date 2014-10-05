@@ -81,6 +81,7 @@ namespace datalog {
     class udoc_plugin : public relation_plugin {
         friend class udoc_relation;
         class join_fn;
+        class join_project_fn;
         class project_fn;
         class union_fn;
         class rename_fn;
@@ -138,6 +139,11 @@ namespace datalog {
         virtual relation_transformer_fn * mk_filter_interpreted_and_project_fn(
             const relation_base & t, app * condition,
             unsigned removed_col_cnt, const unsigned * removed_cols);
+        virtual relation_join_fn * mk_join_project_fn(
+            relation_base const& t1, relation_base const& t2,
+            unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
+            unsigned removed_col_cnt, const unsigned * removed_cols);
+             
         void disable_fast_pass() { m_disable_fast_pass = true; }
     };
 };

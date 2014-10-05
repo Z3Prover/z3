@@ -483,7 +483,6 @@ namespace sat {
     void solver::set_conflict(justification c, literal not_l) {
         if (m_inconsistent)
             return;
-        TRACE("sat", tout << "conflict: " << not_l << "\n";);
         m_inconsistent = true;
         m_conflict = c;
         m_not_l    = not_l;
@@ -960,7 +959,11 @@ namespace sat {
         m_stopwatch.start();
         m_core.reset();
         TRACE("sat", display(tout););
-
+        
+        if (m_config.m_bcd) {
+            bceq bc(*this);
+            bc();
+        }
     }
 
     /**
@@ -1737,11 +1740,10 @@ namespace sat {
             // TBD: 
             // apply optional clause minimization by detecting subsumed literals.
             // initial experiment suggests it has no effect.
-
             m_mus(); // ignore return value on cancelation.
             m_model.reset();
             m_model.append(m_mus.get_model());            
-            m_model_is_current = true;
+            m_model_is_current = !m_model.empty();
         }
     }
 

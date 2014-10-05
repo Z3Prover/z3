@@ -1264,6 +1264,21 @@ namespace datalog {
         return check_kind(t)?alloc(filter_proj_fn, get(t), get_ast_manager(), condition, removed_col_cnt, removed_cols):0;
     }
 
+    relation_join_fn * udoc_plugin::mk_join_project_fn(
+        relation_base const& t1, relation_base const& t2,
+        unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
+        unsigned removed_col_cnt, const unsigned * removed_cols) {    
+        if (check_kind(t1) && check_kind(t2)) 
+            return 0;
+#if 0
+            return alloc(join_proj_fn, get(t1), ge(t2), 
+                         joined_col_cnt, cols1, cols2, 
+                         removed_col_cnt, removed_cols);   
+#endif     
+        else
+            return 0;
+    }
+
 
 
 

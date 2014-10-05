@@ -64,6 +64,7 @@ Notes:
 #include "pb_decl_plugin.h"
 #include "opt_params.hpp"
 #include "ast_util.h"
+#include "smt_solver.h"
 
 using namespace opt;
 
@@ -150,6 +151,7 @@ public:
     }
 
     void new_assumption(expr* e, rational const& w) {
+        IF_VERBOSE(3, verbose_stream() << "new assumption " << mk_pp(e, m) << " " << w << "\n";);
         TRACE("opt", tout << "insert: " << mk_pp(e, m) << " : " << w << "\n";);
         m_asm2weight.insert(e, w);
         m_asms.push_back(e);
@@ -171,7 +173,6 @@ public:
             if (m_cancel) {
                 return l_undef;
             }
-            model_ref mdl;
             switch (is_sat) {
             case l_true: 
                 found_optimum();
@@ -179,7 +180,6 @@ public:
             case l_false:
                 is_sat = process_unsat();
                 if (is_sat != l_true) return is_sat;
-                get_mus_model(mdl);
                 break;
             case l_undef:
                 return l_undef;
@@ -187,6 +187,7 @@ public:
                 break;
             }
         }
+        trace_bounds("maxres");
         return l_true;
     }
 
@@ -370,6 +371,7 @@ public:
     }
 
     void found_optimum() {
+        IF_VERBOSE(1, verbose_stream() << "found optimum\n";);
         s().get_model(m_model);
         DEBUG_CODE(
             for (unsigned i = 0; i < m_asms.size(); ++i) {
@@ -404,6 +406,9 @@ public:
         while (is_sat == l_false) {
             core.reset();
             s().get_unsat_core(core);
+            //verify_core(core);
+            model_ref mdl;
+            get_mus_model(mdl);
             is_sat = minimize_core(core);
             if (is_sat != l_true) {
                 break;
@@ -420,18 +425,12 @@ public:
                 break;
             }
             remove_soft(core, asms);
-            TRACE("opt",
-                  display_vec(tout << "core: ", core.size(), core.c_ptr());
-                  display_vec(tout << "assumptions: ", asms.size(), asms.c_ptr()););
             is_sat = check_sat_hill_climb(asms);
         }
         TRACE("opt", 
               tout << "num cores: " << cores.size() << "\n";
               for (unsigned i = 0; i < cores.size(); ++i) {
-                  for (unsigned j = 0; j < cores[i].size(); ++j) {
-                      tout << mk_pp(cores[i][j], m) << " ";
-                  }
-                  tout << "\n";
+                  display_vec(tout, cores[i].size(), cores[i].c_ptr());
               }
               tout << "num satisfying: " << asms.size() << "\n";);
         
@@ -535,6 +534,7 @@ public:
         if (m_c.sat_enabled()) {
             // SAT solver core extracts some model 
             // during unsat core computation.
+            mdl = 0;
             s().get_model(mdl);
         }
         else {
@@ -601,10 +601,7 @@ public:
         // find the minimal weight:
         rational w = get_weight(core[0]);
         for (unsigned i = 1; i < core.size(); ++i) {
-            rational w2 = get_weight(core[i]);
-            if (w2 < w) {
-                w = w2;
-            }
+            w = std::min(w, get_weight(core[i]));
         }
         // add fresh soft clauses for weights that are above w.
         for (unsigned i = 0; i < core.size(); ++i) {
@@ -614,6 +611,7 @@ public:
                 new_assumption(core[i], w3);
             }
         }
+        
         return w;
     }
 
@@ -754,6 +752,7 @@ public:
             case l_false:
                 core.reset();
                 s().get_unsat_core(core);
+                DEBUG_CODE(verify_core(core););
                 is_sat = minimize_core(core);
                 if (is_sat != l_true) {
                     break;
@@ -786,14 +785,9 @@ public:
         rational upper(0);
         expr_ref tmp(m);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            expr* n = m_soft[i];
-            VERIFY(mdl->eval(n, tmp));
-            if (!m.is_true(tmp)) {
+            if (!is_true(mdl, m_soft[i])) {
                 upper += m_weights[i];
             }
-            TRACE("opt", tout << mk_pp(n, m) << " |-> " << mk_pp(tmp, m) << "\n";);
-            CTRACE("opt", !m.is_true(tmp) && !m.is_false(tmp), 
-                   tout << mk_pp(n, m) << " |-> " << mk_pp(tmp, m) << "\n";);
         }
         if (upper >= m_upper) {
             return;
@@ -804,7 +798,7 @@ public:
             m_assignment[i] = is_true(m_soft[i]);
         }
         m_upper = upper;
-        // verify_assignment();
+        DEBUG_CODE(verify_assignment(););
         trace_bounds("maxres");
 
         add_upper_bound_block();
@@ -886,6 +880,38 @@ public:
         else {
             maxsmt_solver_base::commit_assignment();
         }
+    }
+
+    void verify_core(exprs const& core) {
+        IF_VERBOSE(3, verbose_stream() << "verify core\n";);        
+        ref<solver> sat_solver = mk_inc_sat_solver(m, m_params);
+
+        for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
+            sat_solver->assert_expr(s().get_assertion(i));
+        }
+        expr_ref n(m);        
+        for (unsigned i = 0; i < core.size(); ++i) {
+            IF_VERBOSE(1, verbose_stream() << mk_pp(core[i],m) << " ";);
+            sat_solver->assert_expr(core[i]);
+        }
+        IF_VERBOSE(1, verbose_stream() << "\n";);
+        lbool is_sat = sat_solver->check_sat(0, 0);
+        if (is_sat != l_false) {
+            IF_VERBOSE(0, verbose_stream() << "!!!not a core\n";);
+        }        
+
+        sat_solver = mk_smt_solver(m, m_params, symbol());
+        for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
+            sat_solver->assert_expr(s().get_assertion(i));
+        }
+        for (unsigned i = 0; i < core.size(); ++i) {
+            sat_solver->assert_expr(core[i]);
+        }
+        is_sat = sat_solver->check_sat(0, 0);
+        if (is_sat == l_true) {
+            IF_VERBOSE(0, verbose_stream() << "not a core\n";);
+        }        
+        
     }
 
     void verify_assignment() {
