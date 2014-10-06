@@ -135,6 +135,7 @@ public:
     // dissolve equivalence class of v
     // this method cannot be used with backtracking.
     void dissolve(unsigned v) {
+        unsigned w;
         do {
             w = next(v);                        
             m_size[v] = 1;
