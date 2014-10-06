@@ -146,8 +146,8 @@ public:
 
         test_filter_neg4(false);
         test_filter_neg4(true);
-        test_filter_neg6(false);
-        test_filter_neg6(true);
+        test_filter_neg5(false);
+        test_filter_neg5(true);
 
         test_filter_neg();
         test_filter_neg2();
@@ -657,6 +657,10 @@ public:
         if (disable_fast) p.disable_fast_pass();
         apply_filter_neg(*tgt, *neg, cols1, cols2);
         tgt->deallocate();
+
+        tgt = mk_full(sig1);
+        apply_filter_neg(*neg, *tgt, cols2, cols1);
+        tgt->deallocate();
         neg->deallocate();        
     }
 
@@ -675,7 +679,6 @@ public:
         cols2.push_back(2);
         cols3.push_back(0);
         cols3.push_back(1);
-        cols3.push_back(2);
         udoc_relation* tgt = mk_full(sig1);
         udoc_relation* neg = mk_full(sig2);
         rel_mut filter_id = p.mk_filter_identical_fn(*tgt, cols3.size(), cols3.c_ptr());
@@ -685,9 +688,6 @@ public:
         tgt->deallocate();
         neg->deallocate();        
     }
-
-    // TBD: unit test to expose similar bug as projection had.
-    // you can't just remove columns when there are side-constraints in neg.
 
     void set_random(udoc_relation& r, unsigned num_vals) {
         unsigned num_bits = r.get_dm().num_tbits();
