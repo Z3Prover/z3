@@ -316,6 +316,7 @@ private:
         for (; it != end; ++it) {
             asms.push_back(it->m_value);
         }
+        //IF_VERBOSE(0, verbose_stream() << asms << "\n";);
     }
 
     void extract_core(dep2asm_t& dep2asm) {
@@ -341,7 +342,7 @@ private:
         m_core.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
             expr* e;
-            VERIFY (asm2dep.find(core[i].index(), e));
+            VERIFY(asm2dep.find(core[i].index(), e));
             m_core.push_back(e);
         }
 
@@ -397,6 +398,14 @@ private:
         SASSERT(m_model);
         // IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *(m_model.get()), 0););
 
+        DEBUG_CODE(
+            for (unsigned i = 0; i < m_fmls.size(); ++i) {
+                expr_ref tmp(m);
+                VERIFY(m_model->eval(m_fmls[i].get(), tmp));                
+                CTRACE("opt", !m.is_true(tmp),
+                       tout << "Evaluation failed: " << mk_pp(m_fmls[i].get(), m) << "\n";);
+                SASSERT(m.is_true(tmp));
+            });
     }
 };
 

@@ -120,7 +120,8 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, double value) {
     // double === mpf(11, 53)
     COMPILE_TIME_ASSERT(sizeof(double) == 8);
 
-    uint64 raw = *reinterpret_cast<uint64*>(&value);
+    uint64 raw;
+    memcpy(&raw, &value, sizeof(double));
     bool sign = (raw >> 63) != 0;
     int64 e =  ((raw & 0x7FF0000000000000ull) >> 52) - 1023;
     uint64 s = raw & 0x000FFFFFFFFFFFFFull;
@@ -155,7 +156,8 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, float value) {
     // single === mpf(8, 24)
     COMPILE_TIME_ASSERT(sizeof(float) == 4);
 
-    unsigned int raw = *reinterpret_cast<unsigned int*>(&value);
+    unsigned int raw;
+    memcpy(&raw, &value, sizeof(float));
     bool sign = (raw >> 31) != 0;
     signed int e = ((raw & 0x7F800000) >> 23) - 127;
     unsigned int s = raw & 0x007FFFFF;
@@ -1288,7 +1290,9 @@ double mpf_manager::to_double(mpf const & x) {
     if (x.sign) 
         raw = raw | 0x8000000000000000ull;
 
-    return *reinterpret_cast<double*>(&raw);
+    double ret;
+    memcpy(&ret, &raw, sizeof(double));
+    return ret;
 }
 
 float mpf_manager::to_float(mpf const & x) {
@@ -1318,7 +1322,9 @@ float mpf_manager::to_float(mpf const & x) {
     if (x.sign)
         raw = raw | 0x80000000;
 
-    return *reinterpret_cast<float*>(&raw);
+    float ret;
+    memcpy(&ret, &raw, sizeof(float));
+    return ret;
 }
 
 bool mpf_manager::is_nan(mpf const & x) {
@@ -1679,7 +1685,7 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
     TRACE("mpf_dbg", tout << "OVF2 = " << OVF2 << std::endl;);
     TRACE("mpf_dbg", tout << "o_has_max_exp = " << o_has_max_exp << std::endl;);
 
-    if (!OVFen && SIGovf && o_has_max_exp)
+    if (!OVFen && OVF2)
         mk_round_inf(rm, o);
     else {        
         const mpz & p = m_powers2(o.sbits-1);

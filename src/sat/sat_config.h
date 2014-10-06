@@ -53,6 +53,7 @@ namespace sat {
         unsigned           m_restart_initial;
         double             m_restart_factor; // for geometric case
         double             m_random_freq;
+        unsigned           m_random_seed;
         unsigned           m_burst_search;
         unsigned           m_max_conflicts;
 

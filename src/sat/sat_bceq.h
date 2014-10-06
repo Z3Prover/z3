@@ -65,8 +65,9 @@ namespace sat {
         uint64 eval_clause(clause const& cls) const;
         void verify_sweep();
         void extract_partition();
-        void check_equality(unsigned v1, unsigned v2);
-        bool is_equiv(literal l1, literal l2);
+        bool check_equality(unsigned v1, unsigned v2);
+        bool is_already_equiv(literal l1, literal l2);
+        void assert_equality(literal l1, literal l2);
     public:
         bceq(solver & s);
         void operator()();

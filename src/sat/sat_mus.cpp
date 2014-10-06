@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
    
-    Faster MUS extraction based on Belov et.al. HYB (Algorithm 3, 4)
+    Faster MUS extraction
 
 Author:
 
@@ -33,12 +33,27 @@ namespace sat {
         m_mus.reset();
         m_model.reset();
         m_best_value = 0;
+        m_max_restarts = 10;
+        m_restart = s.m_stats.m_restart;
     }
 
-    void mus::set_core() {        
-        m_core.append(m_mus);                
+    void mus::set_core() {   
+        m_mus.append(m_core);
         s.m_core.reset();
-        s.m_core.append(m_core);
+        s.m_core.append(m_mus);
+    }
+
+    void mus::update_model() {
+        double new_value = s.m_wsls.evaluate_model(s.m_model);
+        if (m_model.empty()) {
+            m_model.append(s.m_model);
+            m_best_value = new_value;
+        }
+        else if (m_best_value > new_value) {
+            m_model.reset();
+            m_model.append(s.m_model);
+            m_best_value = new_value;
+        }
     }
 
     lbool mus::operator()() {
@@ -56,6 +71,9 @@ namespace sat {
         TRACE("sat", tout << "old core: " << s.get_core() << "\n";);
         literal_vector& core = get_core();
         literal_vector& mus = m_mus;
+        if (core.size() > 64) {
+            return mus2();
+        }
         unsigned delta_time  = 0;
         unsigned core_miss = 0;
         while (!core.empty()) {
@@ -75,41 +93,31 @@ namespace sat {
 
             literal lit = core.back();
             core.pop_back();
-            unsigned sz = mus.size();
-            mus.append(core);
-            if (true || core_miss < 2) {
-                mus.push_back(~lit); // TBD: measure
+            lbool is_sat;
+            {
+                scoped_append _sa(mus, core);
+                if (true || core_miss < 2) {
+                    mus.push_back(~lit); // TBD: measure
+                }
+                is_sat = s.check(mus.size(), mus.c_ptr());
+                TRACE("sat", tout << "mus: " << mus << "\n";);
             }
-            lbool is_sat = s.check(mus.size(), mus.c_ptr());
-            TRACE("sat", tout << "mus: " << mus << "\n";);
             switch (is_sat) {
             case l_undef:
-                mus.resize(sz);
                 core.push_back(lit);
                 set_core();
                 return l_undef;
             case l_true: {
                 SASSERT(value_at(lit, s.get_model()) == l_false);
-                mus.resize(sz);
                 mus.push_back(lit);
+                update_model();
                 if (!core.empty()) {
                     // mr(); // TBD: measure
-                }
-                double new_value = s.m_wsls.evaluate_model(s.m_model);
-                if (m_model.empty()) {
-                    m_model.append(s.m_model);
-                    m_best_value = new_value;
-                }
-                else if (m_best_value > new_value) {
-                    m_model.reset();
-                    m_model.append(s.m_model);
-                    m_best_value = new_value;
                 }
                 break;
             }
             case l_false:
                 literal_vector const& new_core = s.get_core();
-                mus.resize(sz);
                 if (new_core.contains(~lit)) {
                     IF_VERBOSE(2, verbose_stream() << "miss core " << lit << "\n";);
                     ++core_miss;
@@ -141,27 +149,93 @@ namespace sat {
         IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << core << ")\n";);
         return l_true;
     }
+    
 
     // bisection search.
     lbool mus::mus2() {
-        literal_vector& core = get_core();
-        literal_vector& mus = m_mus;
-        while (true) {
+        literal_set core(get_core());
+        literal_set support;
+        lbool is_sat = qx(core, support, false);
+        s.m_core.reset();
+        s.m_core.append(core.to_vector());
+        IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << s.m_core << ")\n";);
+        return is_sat;
+    }
 
-#if 0
-            unsigned start = 0;
-            unsigned len = core.size();
-            SASSERT(start < len);
-            unsigned mid = (len-start+1)/2;
-            mus.append(mid, core.c_ptr() + start);
-            start = start + mid;
-#endif
+    lbool mus::qx(literal_set& assignment, literal_set& support, bool has_support) {
+        lbool is_sat = l_true;
+        if (s.m_stats.m_restart - m_restart > m_max_restarts) {
+            IF_VERBOSE(1, verbose_stream() << "restart budget exceeded\n";);
+            return l_true;
         }
-        return l_undef;
+        if (has_support) {
+            scoped_append _sa(m_mus, support.to_vector());
+            is_sat = s.check(m_mus.size(), m_mus.c_ptr());
+            switch (is_sat) {
+            case l_false: {
+                literal_set core(s.get_core());
+                support &= core;
+                assignment.reset();
+                return l_true;
+            }
+            case l_undef:
+                return l_undef;
+            case l_true:
+                update_model();
+                break;
+            default:
+                break;
+            }
+        }
+        if (assignment.size() == 1) {
+            return l_true;
+        }
+        literal_set assign2;
+        split(assignment, assign2);
+        support |= assignment;
+        is_sat = qx(assign2, support, !assignment.empty());        
+        unsplit(support, assignment);
+        if (is_sat != l_true) return is_sat;
+        support |= assign2;
+        is_sat = qx(assignment, support, !assign2.empty());
+        assignment |= assign2;
+        unsplit(support, assign2);
+        return is_sat;
+    }
+
+    void mus::unsplit(literal_set& A, literal_set& B) {
+        literal_set A1, B1;
+        literal_set::iterator it = A.begin(), end = A.end();
+        for (; it != end; ++it) {
+            if (B.contains(*it)) {
+                B1.insert(*it);
+            }
+            else {
+                A1.insert(*it);
+            }
+        }
+        A = A1;
+        B = B1;
+    }
+
+    void mus::split(literal_set& lits1, literal_set& lits2) {
+        unsigned half = lits1.size()/2;
+        literal_set lits3;
+        literal_set::iterator it = lits1.begin(), end = lits1.end();
+        for (unsigned i = 0; it != end; ++it, ++i) {
+            if (i < half) {
+                lits3.insert(*it);
+            }
+            else {
+                lits2.insert(*it);
+            }
+        }
+        lits1 = lits3;
     }
 
     literal_vector& mus::get_core() {
         m_core.reset();
+        m_mus.reset();
         literal_vector& core = m_core;
         core.append(s.get_core());        
         for (unsigned i = 0; i < core.size(); ++i) {
@@ -173,6 +247,11 @@ namespace sat {
             }
         }
         return core;
+    }
+
+    void mus::verify_core(literal_vector const& core) {
+        lbool is_sat = s.check(core.size(), core.c_ptr());
+        IF_VERBOSE(3, verbose_stream() << "core verification: " << is_sat << " " << core << "\n";);
     }
 
     void mus::mr() {

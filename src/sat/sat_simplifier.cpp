@@ -21,7 +21,6 @@ Revision History:
 #include"sat_simplifier.h"
 #include"sat_simplifier_params.hpp"
 #include"sat_solver.h"
-#include"sat_bceq.h"
 #include"stopwatch.h"
 #include"trace.h"
 
@@ -138,8 +137,10 @@ namespace sat {
             return;
         if (!m_subsumption && !m_elim_blocked_clauses && !m_resolution)
             return;
+
         CASSERT("sat_solver", s.check_invariant());
         TRACE("before_simplifier", s.display(tout););
+
         s.m_cleaner(true);
         m_last_sub_trail_sz = s.m_trail.size();
         TRACE("after_cleanup", s.display(tout););
@@ -157,13 +158,6 @@ namespace sat {
         if (!learned && (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls))
             elim_blocked_clauses();
 
-#if 1
-        // experiment is disabled.
-        if (!learned) { // && m_equality_inference
-            bceq bc(s);
-            bc();
-        }
-#endif
 
         if (!learned)
             m_num_calls++;
@@ -188,23 +182,21 @@ namespace sat {
 
         bool vars_eliminated = m_num_elim_vars > old_num_elim_vars;
 
-        if (!m_need_cleanup) {
+        if (m_need_cleanup) {
+            TRACE("after_simplifier", tout << "cleanning watches...\n";);
+            cleanup_watches();
+            cleanup_clauses(s.m_learned, true, vars_eliminated,  learned_in_use_lists);
+            cleanup_clauses(s.m_clauses, false, vars_eliminated, true);
+        }
+        else {
             TRACE("after_simplifier", tout << "skipping cleanup...\n";);
             if (vars_eliminated) {
                 // must remove learned clauses with eliminated variables
                 cleanup_clauses(s.m_learned, true, true, learned_in_use_lists);
             }
-            CASSERT("sat_solver", s.check_invariant());
-            TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
-            free_memory();
-            return;
         }
-        TRACE("after_simplifier", tout << "cleanning watches...\n";);
-        cleanup_watches();
-        cleanup_clauses(s.m_learned, true, vars_eliminated,  learned_in_use_lists);
-        cleanup_clauses(s.m_clauses, false, vars_eliminated, true);
-        TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
         CASSERT("sat_solver", s.check_invariant());
+        TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
         free_memory();
     }
 
@@ -926,11 +918,11 @@ namespace sat {
 
         void process(literal l) {
             TRACE("blocked_clause", tout << "processing: " << l << "\n";);
-            if (s.is_external(l.var()) || s.was_eliminated(l.var())) {
-                return;
-            }
             model_converter::entry * new_entry = 0;
+            if (s.is_external(l.var()) || s.was_eliminated(l.var())) 
+                return;
             {
+
                 m_to_remove.reset();
                 {
                     clause_use_list & occs = s.m_use_list.get(l);
@@ -1186,7 +1178,6 @@ namespace sat {
                 continue;
             m_visited[l2.index()] = false;
         }
-
         return res;
     }
 
@@ -1351,6 +1342,7 @@ namespace sat {
         }
         TRACE("resolution", tout << "found var to eliminate, before: " << before_clauses << " after: " << after_clauses << "\n";);
 
+        
         // eliminate variable
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         save_clauses(mc_entry, m_pos_cls);

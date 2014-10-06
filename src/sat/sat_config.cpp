@@ -68,7 +68,10 @@ namespace sat {
         m_restart_factor  = p.restart_factor();
         
         m_random_freq     = p.random_freq();
-
+        m_random_seed     = p.random_seed();
+        if (m_random_seed == 0) 
+            m_random_seed = _p.get_uint("random_seed", 0);
+        
         m_burst_search    = p.burst_search();
         
         m_max_conflicts   = p.max_conflicts();

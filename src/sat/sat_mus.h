@@ -26,6 +26,8 @@ namespace sat {
         bool           m_is_active;
         model          m_model;       // model obtained during minimal unsat core
         double         m_best_value;
+        unsigned       m_restart;
+        unsigned       m_max_restarts;
 
 
         solver& s;
@@ -38,10 +40,30 @@ namespace sat {
     private:
         lbool mus1();
         lbool mus2();
+        lbool qx(literal_set& assignment, literal_set& support, bool has_support);
         void mr();
         void reset();
         void set_core();
+        void update_model();
         literal_vector & get_core();
+        void verify_core(literal_vector const& lits);
+        void split(literal_set& src, literal_set& dst);
+        void intersect(literal_set& dst, literal_set const& src);
+        void unsplit(literal_set& A, literal_set& B);
+        class scoped_append {
+            unsigned m_size;
+            literal_vector& m_lits;
+        public:
+            scoped_append(literal_vector& lits, literal_vector const& other):
+                m_size(lits.size()),
+                m_lits(lits) {
+                m_lits.append(other);
+            }
+            ~scoped_append() {
+                m_lits.resize(m_size);
+            }
+                
+        };
     };
 
 };

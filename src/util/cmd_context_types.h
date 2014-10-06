@@ -55,12 +55,12 @@ class cmd_exception : public default_exception {
     }
 public:
     cmd_exception(char const * msg):default_exception(msg), m_line(-1), m_pos(-1) {}
-    cmd_exception(std::string const & msg):default_exception(msg.c_str()), m_line(-1), m_pos(-1) {}
-    cmd_exception(std::string const & msg, int line, int pos):default_exception(msg.c_str()), m_line(line), m_pos(pos) {}
+    cmd_exception(std::string const & msg):default_exception(msg), m_line(-1), m_pos(-1) {}
+    cmd_exception(std::string const & msg, int line, int pos):default_exception(msg), m_line(line), m_pos(pos) {}
     cmd_exception(char const * msg, symbol const & s): 
-        default_exception(compose(msg,s).c_str()),m_line(-1),m_pos(-1) {}
+        default_exception(compose(msg,s)),m_line(-1),m_pos(-1) {}
     cmd_exception(char const * msg, symbol const & s, int line, int pos): 
-        default_exception(compose(msg,s).c_str()),m_line(line),m_pos(pos) {}
+        default_exception(compose(msg,s)),m_line(line),m_pos(pos) {}
 
     bool has_pos() const { return m_line >= 0; }
     int line() const { SASSERT(has_pos()); return m_line; }

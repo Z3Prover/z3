@@ -24,9 +24,6 @@ Revision History:
 #include<iostream>
 #include<climits>
 #include<limits>
-#ifdef _MSC_VER
-#include<intrin.h>
-#endif
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
@@ -99,9 +96,7 @@ COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
 
 // Return the number of 1 bits in v.
 static inline unsigned get_num_1bits(unsigned v) {
-#ifdef _MSC_VER
-    return __popcnt(v);
-#elif defined(__GNUC__)
+#ifdef __GNUC__
     return __builtin_popcount(v);
 #else
 #ifdef Z3DEBUG

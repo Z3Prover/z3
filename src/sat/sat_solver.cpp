@@ -49,7 +49,7 @@ namespace sat {
         m_qhead(0),
         m_scope_lvl(0),
         m_params(p) {
-        m_config.updt_params(p);
+        updt_params(p);
         m_conflicts_since_gc      = 0;
         m_conflicts               = 0;
         m_next_simplify           = 0;
@@ -483,7 +483,6 @@ namespace sat {
     void solver::set_conflict(justification c, literal not_l) {
         if (m_inconsistent)
             return;
-        TRACE("sat", tout << "conflict: " << not_l << "\n";);
         m_inconsistent = true;
         m_conflict = c;
         m_not_l    = not_l;
@@ -960,7 +959,11 @@ namespace sat {
         m_stopwatch.start();
         m_core.reset();
         TRACE("sat", display(tout););
-
+        
+        if (m_config.m_bcd) {
+            bceq bc(*this);
+            bc();
+        }
     }
 
     /**
@@ -1737,11 +1740,10 @@ namespace sat {
             // TBD: 
             // apply optional clause minimization by detecting subsumed literals.
             // initial experiment suggests it has no effect.
-
             m_mus(); // ignore return value on cancelation.
             m_model.reset();
             m_model.append(m_mus.get_model());            
-            m_model_is_current = true;
+            m_model_is_current = !m_model.empty();
         }
     }
 
@@ -2356,7 +2358,7 @@ namespace sat {
         m_asymm_branch.updt_params(p);
         m_probing.updt_params(p);
         m_scc.updt_params(p);
-        m_rand.set_seed(p.get_uint("random_seed", 0));
+        m_rand.set_seed(m_config.m_random_seed);
     }
 
     void solver::collect_param_descrs(param_descrs & d) {

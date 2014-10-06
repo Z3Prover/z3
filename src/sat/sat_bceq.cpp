@@ -22,6 +22,7 @@ Revision History:
 #include"trace.h"
 #include"bit_vector.h"
 #include"map.h"
+#include"sat_elim_eqs.h"
 
 namespace sat {
     
@@ -54,7 +55,7 @@ namespace sat {
             }
         }
         bin_clauses bc;
-        m_solver.collect_bin_clauses(bc, false);
+        m_solver.collect_bin_clauses(bc, false); // exclude roots.
         literal lits[2];
         for (unsigned i = 0; i < bc.size(); ++i) {
             lits[0] = bc[i].first;
@@ -215,7 +216,7 @@ namespace sat {
             m_L.append(new_clauses);
             m_L_blits.append(new_blits);
         }
-        std::cout << "Number left after BCE: " << clauses.size() << "\n";
+        if (!clauses.empty()) std::cout << "Number left after BCE: " << clauses.size() << "\n";
         return clauses.empty();
     }
 
@@ -362,7 +363,13 @@ namespace sat {
             while (v != i) {
                 if (!m_solver.was_eliminated(v)) {
                     if (last_v != UINT_MAX) {
-                        check_equality(v, last_v);
+                        if (check_equality(v, last_v)) {
+                            // last_v was eliminated.
+                            
+                        }
+                        else {
+                            // TBD: refine partition.
+                        }
                     }
                     last_v = v;
                 }
@@ -371,7 +378,7 @@ namespace sat {
         }
     }
 
-    void bceq::check_equality(unsigned v1, unsigned v2) {
+    bool bceq::check_equality(unsigned v1, unsigned v2) {
         TRACE("sat", tout << "check: " << v1 << " = " << v2 << "\n";);
         uint64 val1 = m_rbits[v1];
         uint64 val2 = m_rbits[v2];
@@ -381,9 +388,9 @@ namespace sat {
             SASSERT(val1 == ~val2);
             l2.neg();
         }
-        if (is_equiv(l1, l2)) {
+        if (is_already_equiv(l1, l2)) {
             TRACE("sat", tout << "Already equivalent: " << l1 << " " << l2 << "\n";);
-            return;
+            return false;
         }
 
         literal lits[2];
@@ -397,13 +404,16 @@ namespace sat {
         }
         if (is_sat == l_false) {
             TRACE("sat", tout << "Found equivalent: " << l1 << " " << l2 << "\n";);
+            assert_equality(l1, l2);
         }
         else {
             TRACE("sat", tout << "Not equivalent: " << l1 << " " << l2 << "\n";);
+            // TBD: if is_sat == l_true, then refine partition.
         }
+        return is_sat == l_false;
     }
 
-    bool bceq::is_equiv(literal l1, literal l2) {
+    bool bceq::is_already_equiv(literal l1, literal l2) {
         watch_list const& w1 = m_solver.get_wlist(l1);
         bool found = false;
         for (unsigned i = 0; !found && i < w1.size(); ++i) {
@@ -420,6 +430,24 @@ namespace sat {
         return found;
     }
 
+    void bceq::assert_equality(literal l1, literal l2) {
+        if (l2.sign()) {
+            l1.neg();
+            l2.neg();
+        }
+        literal_vector roots;
+        bool_var_vector vars;
+        for (unsigned i = 0; i < m_solver.num_vars(); ++i) {
+            roots.push_back(literal(i, false));
+        }
+        roots[l2.var()] = l1;
+        vars.push_back(l2.var());
+        elim_eqs elim(m_solver);
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            std::cout << "var: " << vars[i] << " root: " << roots[vars[i]] << "\n";
+        }
+        elim(roots, vars);
+    }
 
     void bceq::cleanup() {
         m_solver.del_clauses(m_bin_clauses.begin(), m_bin_clauses.end());
@@ -430,15 +458,23 @@ namespace sat {
     void bceq::operator()() {
         if (!m_solver.m_config.m_bcd) return;
         flet<bool> _disable_bcd(m_solver.m_config.m_bcd, false);
+        flet<bool> _disable_min(m_solver.m_config.m_minimize_core, false);
+        flet<bool> _disable_opt(m_solver.m_config.m_optimize_model, false);
+        flet<unsigned> _bound_maxc(m_solver.m_config.m_max_conflicts, 1500);
+
         use_list     ul;        
         solver       s(m_solver.m_params, 0);
+        s.m_config.m_bcd            = false;
+        s.m_config.m_minimize_core  = false;
+        s.m_config.m_optimize_model = false;
+        s.m_config.m_max_conflicts  = 1500;
         m_use_list = &ul;
         m_s = &s;
         ul.init(m_solver.num_vars());
         init();
         pure_decompose();
         post_decompose();
-        std::cout << "Decomposed set " << m_L.size() << "\n";
+        std::cout << "Decomposed set " << m_L.size() << " rest: " << m_R.size() << "\n";
 
         TRACE("sat",
               tout << "Decomposed set " << m_L.size() << "\n";

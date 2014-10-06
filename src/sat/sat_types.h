@@ -160,6 +160,12 @@ namespace sat {
             m_in_set[v] = true; 
             m_set.push_back(v); 
         }
+
+        uint_set& operator=(uint_set const& other) {
+            m_in_set = other.m_in_set;
+            m_set = other.m_set;
+            return *this;
+        }
         
         bool contains(unsigned v) const { 
             return v < m_in_set.size() && m_in_set[v] != 0; 
@@ -177,10 +183,31 @@ namespace sat {
             m_in_set[v] = false; 
             return v; 
         }
+        unsigned size() const { return m_set.size(); }
         iterator begin() const { return m_set.begin(); }
         iterator end() const { return m_set.end(); }
         void reset() { m_set.reset(); m_in_set.reset(); }
         void cleanup() { m_set.finalize(); m_in_set.finalize(); }
+        uint_set& operator&=(uint_set const& other) {
+            unsigned j = 0;
+            for (unsigned i = 0; i < m_set.size(); ++i) {
+                if (other.contains(m_set[i])) {
+                    m_set[j] = m_set[i];
+                    ++j;
+                }
+                else {
+                    m_in_set[m_set[i]] = false;
+                }
+            }
+            m_set.resize(j);
+            return *this;
+        }
+        uint_set& operator|=(uint_set const& other) {
+            for (unsigned i = 0; i < other.m_set.size(); ++i) {
+                insert(other.m_set[i]);
+            }
+            return *this;
+        }
     };
 
     typedef uint_set bool_var_set;
@@ -188,11 +215,44 @@ namespace sat {
     class literal_set {
         uint_set m_set;
     public:
+        literal_set(literal_vector const& v) {
+            for (unsigned i = 0; i < v.size(); ++i) insert(v[i]);
+        }
+        literal_set() {}
+        literal_vector to_vector() const {
+            literal_vector result;
+            iterator it = begin(), e = end();
+            for (; it != e; ++it) {
+                result.push_back(*it);
+            }
+            return result;
+        }
         void insert(literal l) { m_set.insert(l.index()); }
         bool contains(literal l) const { return m_set.contains(l.index()); }
         bool empty() const { return m_set.empty(); }
+        unsigned size() const { return m_set.size(); }
         void reset() { m_set.reset(); }
         void cleanup() { m_set.cleanup(); }
+        class iterator {
+            uint_set::iterator m_it;
+        public:
+            iterator(uint_set::iterator it):m_it(it) {}
+            literal operator*() const { return to_literal(*m_it); }
+            iterator& operator++() { ++m_it; return *this; }
+            iterator operator++(int) { iterator tmp = *this; ++m_it; return tmp; }
+            bool operator==(iterator const& it) const { return m_it == it.m_it; }
+            bool operator!=(iterator const& it) const { return m_it != it.m_it; }
+        };
+        iterator begin() const { return iterator(m_set.begin()); }
+        iterator end() const { return iterator(m_set.end()); }
+        literal_set& operator&=(literal_set const& other) {
+            m_set &= other.m_set;
+            return *this;
+        }
+        literal_set& operator|=(literal_set const& other) {
+            m_set |= other.m_set;
+            return *this;
+        }
     };
     
     struct mem_stat {

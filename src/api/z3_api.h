@@ -6023,7 +6023,7 @@ END_MLAPI_EXCLUDE
        \param a - arithmetical term       
        def_API('Z3_optimize_maximize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
-    unsigned Z3_API Z3_optimize_maximize(Z3_context, Z3_optimize o, Z3_ast t);
+    unsigned Z3_API Z3_optimize_maximize(Z3_context c, Z3_optimize o, Z3_ast t);
 
     /**
        \brief Add a minimization constraint.
@@ -6033,7 +6033,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_optimize_minimize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
-    unsigned Z3_API Z3_optimize_minimize(Z3_context, Z3_optimize o, Z3_ast t);
+    unsigned Z3_API Z3_optimize_minimize(Z3_context c, Z3_optimize o, Z3_ast t);
 
 
     /**
