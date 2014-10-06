@@ -62,6 +62,7 @@ namespace datalog {
         friend class check_relation;
         
         class join_fn;
+        class join_project_fn;
         class project_fn;
         class union_fn;
         class rename_fn;
@@ -78,6 +79,15 @@ namespace datalog {
         static check_relation* get(relation_base* r);
         static check_relation const & get(relation_base const& r);   
         expr_ref ground(relation_base const& rb, expr* fml) const;
+        expr_ref ground(relation_base const& rb) const;
+
+        expr_ref mk_project(
+            relation_signature const& sig, 
+            expr* fml, unsigned_vector const& removed_cols);
+
+        expr_ref mk_join(
+            relation_base const& t1, relation_base const& t2, 
+            unsigned_vector const& cols1, unsigned_vector const& cols2);
     public:
         check_relation_plugin(relation_manager& rm);
         ~check_relation_plugin();
@@ -89,6 +99,10 @@ namespace datalog {
         virtual relation_base * mk_full(func_decl* p, const relation_signature & s);
         virtual relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
+        virtual relation_join_fn * mk_join_project_fn(
+            const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2,
+            unsigned removed_col_cnt, const unsigned * removed_cols);
         virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
             const unsigned * removed_cols);
         virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
@@ -111,7 +125,8 @@ namespace datalog {
             unsigned removed_col_cnt, const unsigned * removed_cols);
 
         void verify_join(relation_base const& t1, relation_base const& t2, relation_base const& t,
-                         unsigned sz, unsigned const* cols1, unsigned const* cols2);
+                         unsigned_vector const& cols1, unsigned_vector const& cols2);
+
 
         void verify_filter(expr* fml0, relation_base const& t, expr* cond);
 
@@ -135,6 +150,10 @@ namespace datalog {
         void verify_filter_project(
             relation_base const& src, relation_base const& dst, 
             app* cond, unsigned_vector const& removed_cols);
+
+        void verify_join_project(
+            relation_base const& t1, relation_base const& t2, relation_base const& t,
+            unsigned_vector const& cols1, unsigned_vector const& cols2, unsigned_vector const& rm_cols);
 
         void check_equiv(char const* objective, expr* f1, expr* f2);
 
