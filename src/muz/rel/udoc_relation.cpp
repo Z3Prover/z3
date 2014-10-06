@@ -1056,6 +1056,52 @@ namespace datalog {
         return check_kind(t)?alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition):0;
     }
 
+    class udoc_plugin::join_project_fn : convenient_relation_join_project_fn {
+        udoc_plugin::join_fn m_joiner;
+    public:
+        join_project_fn(
+            udoc_relation const& t1, udoc_relation const& t2, unsigned col_cnt,
+            const unsigned * cols1, const unsigned * cols2, 
+            unsigned removed_col_cnt, unsigned const* removed_cols)
+            : convenient_relation_join_project_fn(
+                t1.get_signature(), t2.get_signature(), 
+                col_cnt, cols1, cols2,
+                removed_col_cnt, removed_cols),
+              m_joiner(t1.get_plugin(), t1, t2, col_cnt, cols1, cols2)
+        {
+        }
+
+        virtual relation_base* operator()(relation_base const& t1, relation_base const& t2) {
+            udoc_relation *joined = get(m_joiner(t1, t2));
+            relation_base* result = 0;
+            if (joined->fast_empty()) {
+                result = t1.get_plugin().mk_empty(get_result_signature());
+            }
+            else {
+                project_fn projector(*joined, m_removed_cols.size(), m_removed_cols.c_ptr());
+                result = projector(*joined);
+            }
+            joined->deallocate();
+            return result;
+        }           
+    };
+
+    relation_join_fn * udoc_plugin::mk_join_project_fn(
+        relation_base const& t1, relation_base const& t2,
+        unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
+        unsigned removed_col_cnt, const unsigned * removed_cols) {    
+        if (check_kind(t1) && check_kind(t2)) 
+            return 0;
+#if 0
+        return alloc(join_project_fn, get(t1), ge(t2), 
+                     joined_col_cnt, cols1, cols2, 
+                     removed_col_cnt, removed_cols);   
+#endif
+        else
+            return 0;
+    }
+
+
     //
     // Notes:
     // 1. this code could use some cleanup and simplification.
@@ -1065,25 +1111,43 @@ namespace datalog {
     // 4. Unit/stress test cases are needed.
     // 
     class udoc_plugin::negation_filter_fn : public relation_intersection_filter_fn {
+        struct mk_remove_cols {
+            mk_remove_cols(relation_base const& t1, relation_base const& t2, unsigned_vector& remove_cols) {
+                unsigned sz1 = t1.get_signature().size();
+                unsigned sz2 = t2.get_signature().size();
+                for (unsigned i = 0; i < sz2; ++i) {
+                    remove_cols.push_back(sz1 + i);
+                }                
+            }                
+        };
         unsigned_vector m_t_cols;
         unsigned_vector m_neg_cols;
         unsigned_vector m_remove_cols;
-        join_fn joiner;
-
+        mk_remove_cols  m_mk_remove_cols;
+        join_project_fn m_join_project;
+        bool            m_is_subtract;
+        bool            m_is_aliased;
     public:
         negation_filter_fn(const udoc_relation & r, const udoc_relation & neg, unsigned joined_col_cnt,
                            const unsigned *t_cols, const unsigned *neg_cols)
-            : m_t_cols(joined_col_cnt, t_cols), m_neg_cols(joined_col_cnt, neg_cols),
-            joiner(r.get_plugin(), r, neg, joined_col_cnt, t_cols, neg_cols) {
+            : m_t_cols(joined_col_cnt, t_cols), 
+              m_neg_cols(joined_col_cnt, neg_cols),
+              m_mk_remove_cols(r, neg, m_remove_cols),
+              m_join_project(r, neg, joined_col_cnt, t_cols, neg_cols, 
+                             m_remove_cols.size(), m_remove_cols.c_ptr()),
+              m_is_subtract(false),
+              m_is_aliased(true) {
             SASSERT(joined_col_cnt > 0);
+            if (joined_col_cnt == r.get_signature().size()) {
+                m_is_subtract = true;
+                svector<bool> found(joined_col_cnt, false);
+                for (unsigned i = 0; m_is_subtract && i < joined_col_cnt; ++i) {
+                    m_is_subtract = !found[t_cols[i]] && (t_cols[i] == neg_cols[i]);
+                    found[t_cols[i]] = true;
+                }
+            }
             r.expand_column_vector(m_t_cols);
             neg.expand_column_vector(m_neg_cols);
-
-            unsigned num_neg_cols = get(neg).get_num_cols();
-            unsigned num_r_cols = get(r).get_num_cols();
-            for (unsigned i = 0; i < num_neg_cols; ++i) {
-                m_remove_cols.push_back(num_r_cols + i);
-            }
         }
         
         virtual void operator()(relation_base& tb, const relation_base& negb) {
@@ -1092,17 +1156,22 @@ namespace datalog {
             udoc_plugin& p = t.get_plugin();
             IF_VERBOSE(3, t.display(verbose_stream() << "dst:"););
             IF_VERBOSE(3, n.display(verbose_stream() << "neg:"););
-            if (!t.fast_empty() && !n.fast_empty() && !p.m_disable_fast_pass) {
-                fast_pass(t, n);
+            if (!m_is_aliased && !t.fast_empty() && !n.fast_empty() && !p.m_disable_fast_pass) {
+                // fast_pass(t, n);
+            }
+            if (m_is_subtract && !t.fast_empty() && !n.fast_empty()) {
+                t.get_udoc().subtract(t.get_dm(), n.get_udoc());
+                return;
             }
             if (!t.fast_empty() && !n.fast_empty()) {
                 slow_pass(t, n);
             }
         }
 
+    private:
+
         void fast_pass(udoc_relation& t, const udoc_relation& n) {
-            /*
-            // FIXME: this code doesn't take aliased columns into account
+            SASSERT(!m_is_aliased);
             udoc & dst = t.get_udoc();
             udoc const & neg = n.get_udoc();
             doc_manager& dmt = t.get_dm();
@@ -1121,26 +1190,16 @@ namespace datalog {
                     result.push_back(&dst[i]);
             }
             std::swap(dst, result);
-            */
         }
 
         void slow_pass(udoc_relation& t, udoc_relation const& n) {
-            udoc & dst = t.get_udoc();
             doc_manager& dmt = t.get_dm();
-            udoc_relation *joined = get(joiner(t, n));
-            if (joined->fast_empty()) {
-                return;
+            udoc_relation* jp = get(m_join_project(t, n));
+            if (!jp->fast_empty()) {
+                t.get_udoc().subtract(dmt, jp->get_udoc());
             }
-
-            project_fn projector(*joined, m_remove_cols.size(), m_remove_cols.c_ptr());
-            udoc_relation *neg_projected = get(projector(*joined));
-            joined->deallocate();
-
-            TRACE("doc", dst.display(dmt, tout) << "\n";
-                  neg_projected->get_udoc().display(dmt, tout) << "\n";
-                  );
-            dst.subtract(dmt, neg_projected->get_udoc());
-            neg_projected->deallocate();
+            TRACE("doc", t.display(tout); tout << "\n"; jp->display(tout); tout << "\n";);
+            jp->deallocate();
         }
     };
 
@@ -1152,6 +1211,8 @@ namespace datalog {
             return 0;
         return alloc(negation_filter_fn, get(t), get(neg), joined_col_cnt, t_cols, negated_cols);
     }
+
+
 
     class udoc_plugin::filter_proj_fn : public convenient_relation_project_fn {
         union_find_default_ctx union_ctx;
@@ -1218,20 +1279,6 @@ namespace datalog {
         return check_kind(t)?alloc(filter_proj_fn, get(t), get_ast_manager(), condition, removed_col_cnt, removed_cols):0;
     }
 
-    relation_join_fn * udoc_plugin::mk_join_project_fn(
-        relation_base const& t1, relation_base const& t2,
-        unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
-        unsigned removed_col_cnt, const unsigned * removed_cols) {    
-        if (check_kind(t1) && check_kind(t2)) 
-            return 0;
-#if 0
-            return alloc(join_proj_fn, get(t1), ge(t2), 
-                         joined_col_cnt, cols1, cols2, 
-                         removed_col_cnt, removed_cols);   
-#endif     
-        else
-            return 0;
-    }
 
 
 
