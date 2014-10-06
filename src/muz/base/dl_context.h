@@ -160,7 +160,6 @@ namespace datalog {
         class symbol_sort_domain;
         class uint64_sort_domain;
         class restore_rules;
-        class contains_pred;
 
         typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
         typedef map<symbol, func_decl*, symbol_hash_proc, symbol_eq_proc> sym2decl;
