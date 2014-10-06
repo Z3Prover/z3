@@ -1449,10 +1449,18 @@ namespace qe {
         
             m_solver.assert_expr(m_fml);
             if (assumption) m_solver.assert_expr(assumption);
-            bool is_sat = false;            
-            while (l_true == m_solver.check()) {
-                is_sat = true;
+            bool is_sat = false;   
+            lbool res = l_true;
+            while (res == l_true) {
+                res = m_solver.check();
+                if (res == l_true) is_sat = true;
                 final_check();
+            }
+            if (res == l_undef) {
+                free_vars.append(num_vars, vars);
+                reset();
+                m_solver.pop(1);
+                return;
             }
 
             if (!is_sat) {
@@ -1484,12 +1492,13 @@ namespace qe {
                   );
 
             free_vars.append(m_free_vars);
-            SASSERT(!m_free_vars.empty() || m_solver.inconsistent());
+            if (!m_free_vars.empty() || m_solver.inconsistent()) {
 
-            if (m_fml.get() != m_subfml.get()) {
-                scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m);
-                rp->apply_substitution(to_app(m_subfml.get()), fml, m_fml);
-                fml = m_fml;
+                if (m_fml.get() != m_subfml.get()) {
+                    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m);
+                    rp->apply_substitution(to_app(m_subfml.get()), fml, m_fml);
+                    fml = m_fml;
+                }
             }
             reset();
             m_solver.pop(1);
