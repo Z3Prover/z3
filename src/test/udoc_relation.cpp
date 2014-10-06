@@ -456,7 +456,7 @@ public:
         join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
         t = (*join_fn)(*t1, *t2);
 
-        cr.verify_join(*t1, *t2, *t, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
+        cr.verify_join(*t1, *t2, *t, jc1, jc2);
         t1->display(std::cout);
         t2->display(std::cout);
         t->display(std::cout);
