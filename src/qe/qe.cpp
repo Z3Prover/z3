@@ -1451,10 +1451,15 @@ namespace qe {
             if (assumption) m_solver.assert_expr(assumption);
             bool is_sat = false;   
             lbool res = l_true;
-            while (res == l_true) {
+            while (true) {
                 res = m_solver.check();
-                if (res == l_true) is_sat = true;
-                final_check();
+                if (res == l_true) {
+                    is_sat = true;
+                    final_check();
+                }
+                else {
+                    break;
+                }
             }
             if (res == l_undef) {
                 free_vars.append(num_vars, vars);
