@@ -82,6 +82,7 @@ void doc_manager::deallocate(doc* src) {
     if (!src) return;
     m.deallocate(&src->pos());
     src->neg().reset(m);
+    src->~doc();
     m_alloc.deallocate(sizeof(doc), src);
 }
 void doc_manager::copy(doc& dst, doc const& src)  {
