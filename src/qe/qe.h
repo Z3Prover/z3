@@ -275,13 +275,12 @@ namespace qe {
 
     class expr_quant_elim {
         ast_manager&            m;
-        smt_params const& m_fparams;
+        smt_params const&       m_fparams;
         params_ref              m_params;
         expr_ref_vector         m_trail;
         obj_map<expr,expr*>     m_visited;
         quant_elim*             m_qe;
         expr*                   m_assumption;
-        bool                    m_use_new_qe;
     public:
         expr_quant_elim(ast_manager& m, smt_params const& fp, params_ref const& p = params_ref());
         ~expr_quant_elim(); 
@@ -372,6 +371,8 @@ namespace qe {
         
         bool pre_visit(expr* e);
 
+        void updt_params(params_ref const& p);
+
     };
     
     class simplify_rewriter_star : public rewriter_tpl<simplify_rewriter_cfg> {
@@ -380,6 +381,8 @@ namespace qe {
         simplify_rewriter_star(ast_manager& m):
             rewriter_tpl<simplify_rewriter_cfg>(m, false, m_cfg),
             m_cfg(m) {}
+         
+        void updt_params(params_ref const& p) { m_cfg.updt_params(p); }
     };
 
 };
