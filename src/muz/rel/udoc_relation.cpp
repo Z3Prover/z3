@@ -80,7 +80,7 @@ namespace datalog {
     void udoc_relation::reset() {
         m_elems.reset(dm);
     }
-    void udoc_relation::expand_column_vector(unsigned_vector& v, udoc_relation* other) const {
+    void udoc_relation::expand_column_vector(unsigned_vector& v, const udoc_relation* other) const {
         unsigned_vector orig;
         orig.swap(v);
         for (unsigned i = 0; i < orig.size(); ++i) {
@@ -1076,13 +1076,12 @@ namespace datalog {
               m_equalities(union_ctx)
         {
             udoc_plugin& p = t1.get_plugin();
-            udoc_relation* res = get(p.mk_empty(get_result_signature()));
-            unsigned num_bits  = res->get_num_bits();
             unsigned num_bits1 = t1.get_num_bits();
+            unsigned num_bits = num_bits1 + t2.get_num_bits();
             unsigned_vector removed_cols(removed_col_cnt, rm_cols);
             unsigned_vector expcols1(col_cnt, cols1);
             unsigned_vector expcols2(col_cnt, cols2);
-            res->expand_column_vector(removed_cols);
+            t1.expand_column_vector(removed_cols, &t2);
             t1.expand_column_vector(expcols1);
             t2.expand_column_vector(expcols2);
             m_to_delete.resize(num_bits, false);
@@ -1096,7 +1095,6 @@ namespace datalog {
                 m_equalities.merge(expcols1[i], expcols2[i] + num_bits1);                
             }
             m_roots.append(expcols1);
-            res->deallocate();
         }
 
 

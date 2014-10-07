@@ -62,7 +62,7 @@ namespace datalog {
         unsigned get_num_cols() const { return m_column_info.size()-1; }
         unsigned column_idx(unsigned col) const { return m_column_info[col]; }
         unsigned column_num_bits(unsigned col) const { return m_column_info[col+1] - m_column_info[col]; }
-        void expand_column_vector(unsigned_vector& v, udoc_relation* other = 0) const;
+        void expand_column_vector(unsigned_vector& v, const udoc_relation* other = 0) const;
         void extract_guard(expr* condition, expr_ref& guard, expr_ref& rest) const;
         bool is_guard(expr* g) const;
         bool is_guard(unsigned n, expr* const *g) const;
