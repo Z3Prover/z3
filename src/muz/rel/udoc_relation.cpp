@@ -1056,7 +1056,7 @@ namespace datalog {
         return check_kind(t)?alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition):0;
     }
 
-    class udoc_plugin::join_project_fn : convenient_relation_join_project_fn {
+    class udoc_plugin::join_project_fn : public convenient_relation_join_project_fn {
         udoc_plugin::join_fn   m_joiner;
         union_find_default_ctx union_ctx;
         bit_vector             m_to_delete; 
@@ -1172,15 +1172,11 @@ namespace datalog {
         relation_base const& t1, relation_base const& t2,
         unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
         unsigned removed_col_cnt, const unsigned * removed_cols) {    
-        if (check_kind(t1) && check_kind(t2)) 
+        if (!check_kind(t1) || !check_kind(t2))
             return 0;
-#if 0
-        return alloc(join_project_fn, get(t1), ge(t2), 
-                     joined_col_cnt, cols1, cols2, 
-                     removed_col_cnt, removed_cols);   
-#endif
-        else
-            return 0;
+        return alloc(join_project_fn, get(t1), get(t2),
+                     joined_col_cnt, cols1, cols2,
+                     removed_col_cnt, removed_cols);
     }
 
 
