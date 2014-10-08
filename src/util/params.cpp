@@ -302,10 +302,19 @@ public:
         svector<params::entry>::const_iterator end = m_entries.end();
         for (; it != end; ++it) {                                
             param_kind expected = p.get_kind(it->first);
-            if (expected == CPK_INVALID)
-                throw default_exception("unknown parameter '%s'", it->first.str().c_str());
-            if (it->second.m_kind != expected) 
-                throw default_exception("parameter kind mismatch '%s'", it->first.str().c_str());
+            if (expected == CPK_INVALID) {
+                std::stringstream strm;
+                strm << "unknown parameter '" << it->first.str() << "'\n";    
+                strm << "Legal parameters are:\n";
+                p.display(strm, 2, false, false);
+                throw default_exception(strm.str());
+            }
+            if (it->second.m_kind != expected) {
+                std::stringstream strm;
+                strm << "Parameter " << it->first.str() << " was given argument of type ";
+                strm << it->second.m_kind << ", expected " << expected;                
+                throw default_exception(strm.str());
+            }
         }
     }
     

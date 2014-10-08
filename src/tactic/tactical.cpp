@@ -1229,6 +1229,9 @@ class using_params_tactical : public unary_tactical {
     params_ref m_params;
 public:
     using_params_tactical(tactic * t, params_ref const & p):unary_tactical(t), m_params(p) {
+        param_descrs r;
+        collect_param_descrs(r);
+        p.validate(r);
         t->updt_params(p);
     }
 
