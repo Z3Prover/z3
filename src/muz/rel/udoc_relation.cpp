@@ -1148,18 +1148,21 @@ namespace datalog {
             utbv& neg = d->neg();
             unsigned mid = dm1.num_tbits();
             unsigned hi  = dm.num_tbits();
-            tbm.set(pos,d1.pos(), mid-1, 0);
-            tbm.set(pos,d2.pos(), hi-1, mid);
+            tbm.set(pos, d1.pos(), mid-1, 0);
+            tbm.set(pos, d2.pos(), hi-1, mid);
             for (unsigned i = 0; i < d1.neg().size(); ++i) {
                 t = tbm.allocateX();
                 tbm.set(*t, d1.neg()[i], mid-1, 0);
+                VERIFY(tbm.set_and(*t, pos));
                 neg.push_back(t.detach());
             }
             for (unsigned i = 0; i < d2.neg().size(); ++i) {
                 t = tbm.allocateX();
                 tbm.set(*t, d2.neg()[i], hi-1, mid);
+                VERIFY(tbm.set_and(*t, pos));
                 neg.push_back(t.detach());
             }
+            SASSERT(dm.well_formed(*d));
             return d.detach();
         }
 
