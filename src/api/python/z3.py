@@ -4467,7 +4467,7 @@ def args2params(arguments, keywords, ctx=None):
     A ':' is added to the keywords, and '_' is replaced with '-'
 
     >>> args2params(['model', True, 'relevancy', 2], {'elim_and' : True})
-    (params model 1 relevancy 2 elim_and 1)
+    (params model true relevancy 2 elim_and true)
     """
     if __debug__:
         _z3_assert(len(arguments) % 2 == 0, "Argument list must have an even number of elements.")

@@ -34,10 +34,10 @@ static tactic * mk_qfnra_sat_solver(ast_manager& m, params_ref const& p, unsigne
 
 tactic * mk_qfnra_tactic(ast_manager & m, params_ref const& p) {
     params_ref p1 = p;
-    p1.set_uint("seed", 11);
+    p1.set_uint("random_seed", 11);
     p1.set_bool("factor", false);
     params_ref p2 = p;
-    p2.set_uint("seed", 13);
+    p2.set_uint("random_seed", 13);
     p2.set_bool("factor", false);
 
     return and_then(mk_simplify_tactic(m, p), 
