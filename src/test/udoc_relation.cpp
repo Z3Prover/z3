@@ -376,15 +376,31 @@ public:
             unsigned_vector remove;
             remove.push_back(0);
             remove.push_back(2);
+
             t1 = mk_full(sig2);
+            apply_filter(*t1, conds[2].get());
+            apply_filter_project(*t1, remove, conds[2].get());
+            apply_filter_project(*t1, remove, conds[3].get());
+            t1->deallocate();
+
+            t1 = mk_full(sig2);
+            apply_filter(*t1, conds[3].get());
+            apply_filter_project(*t1, remove, conds[2].get());
+            apply_filter_project(*t1, remove, conds[3].get());
+            t1->deallocate();
+
             for (unsigned i = 0; i < conds.size(); ++i) {
+                t1 = mk_full(sig2);
                 apply_filter_project(*t1, remove, conds[i].get());
+                t1->deallocate();
             }
+
             remove[1] = 1;
             for (unsigned i = 0; i < conds.size(); ++i) {
+                t1 = mk_full(sig2);
                 apply_filter_project(*t1, remove, conds[i].get());
+                t1->deallocate();
             }
-            t1->deallocate();
         }
 
 
@@ -476,50 +492,11 @@ public:
         scoped_ptr<datalog::relation_transformer_fn> rename;
         rename = p.mk_rename_fn(*t1, cycle.size(), cycle.c_ptr());        
         relation_base* t = (*rename)(*t1);
-        verify_permutation(*t1,*t, cycle);
+        cr.verify_permutation(*t1,*t, cycle);
         t1->display(std::cout); std::cout << "\n";
         t->display(std::cout); std::cout << "\n";
         t->deallocate();            
         t1->deallocate();
-    }
-
-    void verify_permutation(relation_base const& src, relation_base const& dst, 
-                            unsigned_vector const& cycle) {
-        unsigned_vector perm;
-        relation_signature const& sig1 = src.get_signature();
-        relation_signature const& sig2 = dst.get_signature();
-        for (unsigned i = 0; i < sig1.size(); ++i) {
-            perm.push_back(i);
-        }
-        for (unsigned i = 0; i < cycle.size(); ++i) {
-            unsigned j = (i + 1)%cycle.size();
-            unsigned col1 = cycle[i];
-            unsigned col2 = cycle[j];
-            perm[col2] = col1;
-        }
-        for (unsigned i = 0; i < perm.size(); ++i) {
-            SASSERT(sig2[perm[i]] == sig1[i]);
-        }
-        expr_ref_vector sub(m);
-        for (unsigned i = 0; i < perm.size(); ++i) {
-            sub.push_back(m.mk_var(perm[i], sig1[i]));
-        }
-        var_subst subst(m, false);
-        expr_ref fml1(m), fml2(m);
-        src.to_formula(fml1);
-        dst.to_formula(fml2);
-        subst(fml1, sub.size(), sub.c_ptr(), fml1);
-        expr_ref_vector vars(m);
-        for (unsigned i = 0; i < sig2.size(); ++i) {
-            std::stringstream strm;
-            strm << "x" << i;
-            vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig2[i]));            
-        }
-
-        subst(fml1, vars.size(), vars.c_ptr(), fml1);
-        subst(fml2, vars.size(), vars.c_ptr(), fml2);
-        
-        check_equiv(fml1, fml2);
     }
 
     /*
@@ -733,51 +710,9 @@ public:
     void apply_filter_project(udoc_relation& t, unsigned_vector const& rm, app* cond) {
         scoped_ptr<datalog::relation_transformer_fn> rt;
         rt = p.mk_filter_interpreted_and_project_fn(t, cond, rm.size(), rm.c_ptr());
-        udoc_relation* full = mk_full(t.get_signature());
-        rel_union union_fn = p.mk_union_fn(t, *full, 0);
-        (*union_fn)(t, *full, 0);
         datalog::relation_base* result = (*rt)(t);
-        
-        for (unsigned i = 0; i < rm.size(); ++i) {
-            std::cout << rm[i] << " ";
-        }
-        std::cout << mk_pp(cond, m) << "\n";
-        t.display(std::cout);
-        result->display(std::cout);
+        cr.verify_filter_project(t, *result, cond, rm);
         result->deallocate();
-        full->deallocate();
-    }
-
-    void verify_filter_project(udoc_relation const& r, unsigned_vector const& rm, app* cond) {
-        expr_ref fml(m), cfml(m);
-        r.to_formula(fml);
-        cfml = cond;
-        relation_signature const& sig = r.get_signature();
-        expr_ref_vector vars(m);
-        for (unsigned i = 0, j = 0, k = 0; i < sig.size(); ++i) {
-            if (j < rm.size() && rm[j] == i) {
-                project_var(i, sig[i], cfml);
-                ++j;
-            }
-            else {
-                vars.push_back(m.mk_var(k, sig[i]));
-                ++k;
-            }            
-        }
-        
-        check_equiv(fml, cfml);
-    }
-
-    void check_equiv(expr* fml1, expr* fml2) {
-        TRACE("doc", tout << mk_pp(fml1, m) << "\n";
-              tout << mk_pp(fml2, m) << "\n";);
-        smt_params fp;
-        smt::kernel solver(m, fp);
-        expr_ref tmp(m);
-        tmp = m.mk_not(m.mk_eq(fml1, fml2));
-        solver.assert_expr(tmp);
-        lbool res = solver.check();
-        SASSERT(res == l_false);
     }
 
     void project_var(unsigned i, sort* s, expr_ref& fml) {

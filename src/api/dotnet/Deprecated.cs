@@ -65,22 +65,29 @@ namespace Microsoft.Z3
         /// <summary>
         /// Checks whether the assertions in the context are consistent or not.
         /// </summary>
-        public static Status Check(Context ctx, List<BoolExpr> core, params Expr[] assumptions)
+        public static Status Check(Context ctx, List<BoolExpr> core, ref Model model, ref Expr proof, params Expr[] assumptions)
         {
             Z3_lbool r;
-            core = null;
+            model = null;
+            proof = null;
             if (assumptions == null || assumptions.Length == 0)
                 r = (Z3_lbool)Native.Z3_check(ctx.nCtx);
             else {
-                IntPtr model = IntPtr.Zero, proof = IntPtr.Zero;
+                IntPtr mdl = IntPtr.Zero, prf = IntPtr.Zero;
                 uint core_size = 0;
                 IntPtr[] native_core = new IntPtr[assumptions.Length];
                 r = (Z3_lbool)Native.Z3_check_assumptions(ctx.nCtx, 
                                    (uint)assumptions.Length, AST.ArrayToNative(assumptions),
-                                   ref model, ref proof, ref core_size, native_core);
+                                   ref mdl, ref prf, ref core_size, native_core);
 
                 for (uint i = 0; i < core_size; i++)
                     core.Add((BoolExpr)Expr.Create(ctx, native_core[i]));
+                if (mdl != IntPtr.Zero) {
+                    model = new Model(ctx, mdl);
+                }
+                if (prf != IntPtr.Zero) {
+                    proof = Expr.Create(ctx, prf);
+                }
 
             }
             switch (r)

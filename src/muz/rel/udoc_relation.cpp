@@ -904,12 +904,17 @@ namespace datalog {
         else if (m.is_not(g, e1)) {
             udoc sub;
             sub.push_back(dm.allocateX());
-            apply_guard(e1, sub, equalities, discard_cols);
-            TRACE("doc", 
-                  result.display(dm, tout << "result0:") << "\n";
-                  sub.display(dm, tout << "sub:") << "\n";);
+            // TODO: right now we state that no columns are discarded to avoid
+            // silent column merging. This can be optimized if the set of merged
+            // columns is returned so that here we remove different columns.
+            bit_vector empty;
+            empty.resize(discard_cols.size(), false);
+            apply_guard(e1, sub, equalities, empty);
             result.subtract(dm, sub);
             result.simplify(dm);
+            TRACE("doc",
+                  result.display(dm, tout << "result0:") << "\n";
+                  sub.display(dm, tout << "sub:") << "\n";);
             sub.reset(dm);
             TRACE("doc", result.display(dm, tout << "result:") << "\n";);
         }
@@ -1022,7 +1027,7 @@ namespace datalog {
         return check_kind(t)?alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition):0;
     }
 
-    class udoc_plugin::join_project_fn : convenient_relation_join_project_fn {
+    class udoc_plugin::join_project_fn : public convenient_relation_join_project_fn {
         udoc_plugin::join_fn   m_joiner;
         union_find_default_ctx union_ctx;
         bit_vector             m_to_delete; 
@@ -1114,18 +1119,21 @@ namespace datalog {
             utbv& neg = d->neg();
             unsigned mid = dm1.num_tbits();
             unsigned hi  = dm.num_tbits();
-            tbm.set(pos,d1.pos(), mid-1, 0);
-            tbm.set(pos,d2.pos(), hi-1, mid);
+            tbm.set(pos, d1.pos(), mid-1, 0);
+            tbm.set(pos, d2.pos(), hi-1, mid);
             for (unsigned i = 0; i < d1.neg().size(); ++i) {
                 t = tbm.allocateX();
                 tbm.set(*t, d1.neg()[i], mid-1, 0);
+                VERIFY(tbm.set_and(*t, pos));
                 neg.push_back(t.detach());
             }
             for (unsigned i = 0; i < d2.neg().size(); ++i) {
                 t = tbm.allocateX();
                 tbm.set(*t, d2.neg()[i], hi-1, mid);
+                VERIFY(tbm.set_and(*t, pos));
                 neg.push_back(t.detach());
             }
+            SASSERT(dm.well_formed(*d));
             return d.detach();
         }
 
@@ -1135,15 +1143,11 @@ namespace datalog {
         relation_base const& t1, relation_base const& t2,
         unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
         unsigned removed_col_cnt, const unsigned * removed_cols) {    
-        if (check_kind(t1) && check_kind(t2)) 
+        if (!check_kind(t1) || !check_kind(t2))
             return 0;
-#if 0
-        return alloc(join_project_fn, get(t1), ge(t2), 
-                     joined_col_cnt, cols1, cols2, 
-                     removed_col_cnt, removed_cols);   
-#endif
-        else
-            return 0;
+        return alloc(join_project_fn, get(t1), get(t2),
+                     joined_col_cnt, cols1, cols2,
+                     removed_col_cnt, removed_cols);
     }
 
 
