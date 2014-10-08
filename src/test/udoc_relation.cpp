@@ -376,15 +376,31 @@ public:
             unsigned_vector remove;
             remove.push_back(0);
             remove.push_back(2);
+
             t1 = mk_full(sig2);
+            apply_filter(*t1, conds[2].get());
+            apply_filter_project(*t1, remove, conds[2].get());
+            apply_filter_project(*t1, remove, conds[3].get());
+            t1->deallocate();
+
+            t1 = mk_full(sig2);
+            apply_filter(*t1, conds[3].get());
+            apply_filter_project(*t1, remove, conds[2].get());
+            apply_filter_project(*t1, remove, conds[3].get());
+            t1->deallocate();
+
             for (unsigned i = 0; i < conds.size(); ++i) {
+                t1 = mk_full(sig2);
                 apply_filter_project(*t1, remove, conds[i].get());
+                t1->deallocate();
             }
+
             remove[1] = 1;
             for (unsigned i = 0; i < conds.size(); ++i) {
+                t1 = mk_full(sig2);
                 apply_filter_project(*t1, remove, conds[i].get());
+                t1->deallocate();
             }
-            t1->deallocate();
         }
 
 

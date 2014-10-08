@@ -938,12 +938,17 @@ namespace datalog {
         else if (m.is_not(g, e1)) {
             udoc sub;
             sub.push_back(dm.allocateX());
-            apply_guard(e1, sub, equalities, discard_cols);
-            TRACE("doc", 
-                  result.display(dm, tout << "result0:") << "\n";
-                  sub.display(dm, tout << "sub:") << "\n";);
+            // TODO: right now we state that no columns are discarded to avoid
+            // silent column merging. This can be optimized if the set of merged
+            // columns is returned so that here we remove different columns.
+            bit_vector empty;
+            empty.resize(discard_cols.size(), false);
+            apply_guard(e1, sub, equalities, empty);
             result.subtract(dm, sub);
             result.simplify(dm);
+            TRACE("doc",
+                  result.display(dm, tout << "result0:") << "\n";
+                  sub.display(dm, tout << "sub:") << "\n";);
             sub.reset(dm);
             TRACE("doc", result.display(dm, tout << "result:") << "\n";);
         }
