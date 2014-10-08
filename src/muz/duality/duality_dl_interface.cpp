@@ -37,6 +37,7 @@ Revision History:
 #include "fixedpoint_params.hpp"
 #include "used_vars.h"
 #include "func_decl_dependencies.h"
+#include "dl_transforms.h"
 
 // template class symbol_table<family_id>;
 
@@ -158,7 +159,38 @@ lbool dl_interface::query(::expr * query) {
   vector<unsigned> bounds;
   // m_ctx.get_rules_as_formulas(rules, names);
 
-  m_ctx.get_raw_rule_formulas(rules, names, bounds);
+
+  // If using SAS 2013 abstractiion, we need to perform some transforms
+  expr_ref query_ref(m_ctx.get_manager());
+  if(m_ctx.quantify_arrays()){
+    datalog::rule_manager& rm = m_ctx.get_rule_manager();
+    rm.mk_query(query, m_ctx.get_rules());
+    apply_default_transformation(m_ctx);
+    datalog::rule_set &rs = m_ctx.get_rules();
+    if(m_ctx.get_rules().get_output_predicates().empty())
+        query_ref = m_ctx.get_manager().mk_false();
+    else {
+        func_decl_ref query_pred(m_ctx.get_manager());
+	query_pred = m_ctx.get_rules().get_output_predicate();
+	ptr_vector<sort> sorts;
+	unsigned nargs = query_pred.get()->get_arity();
+	expr_ref_vector vars(m_ctx.get_manager());
+	for(unsigned i = 0; i < nargs; i++){
+	  ::sort *s = query_pred.get()->get_domain(i);
+	  vars.push_back(m_ctx.get_manager().mk_var(nargs-1-i,s));
+	}
+	query_ref = m_ctx.get_manager().mk_app(query_pred.get(),nargs,vars.c_ptr());
+	query = query_ref.get();
+    }
+    unsigned nrules = rs.get_num_rules();
+    for(unsigned i = 0; i < nrules; i++){
+      expr_ref f(m_ctx.get_manager());
+      rs.get_rule(i)->to_formula(f);
+      rules.push_back(f);
+    }
+  }
+  else 
+    m_ctx.get_raw_rule_formulas(rules, names, bounds);
 
   // get all the rules as clauses
   std::vector<expr> &clauses = _d->clauses;
