@@ -145,11 +145,11 @@ extern "C" {
 
             Z3_push(ctx); // so we can rewind later
 
-            for (int i = 0; i < num; i++)
+            for (unsigned i = 0; i < num; i++)
                 Z3_assert_cnstr(ctx, cnsts[i]);  // assert all the constraints
 
             if (theory){
-                for (int i = 0; i < num_theory; i++)
+                for (unsigned i = 0; i < num_theory; i++)
                     Z3_assert_cnstr(ctx, theory[i]);
             }
 
@@ -180,7 +180,7 @@ extern "C" {
                                  theory);
 
             if (!incremental)
-                for (int i = 0; i < num - 1; i++)
+                for (unsigned i = 0; i < num - 1; i++)
                     Z3_persist_ast(ctx, interps[i], 1);
             break;
 
@@ -226,13 +226,13 @@ extern "C" {
         scoped_ptr<solver> sp((*(sf))(_m, p, false, true, false, symbol("AUFLIA")));
 
         ptr_vector<ast> cnsts_vec(num);  // get constraints in a vector
-        for (int i = 0; i < num; i++){
+        for (unsigned i = 0; i < num; i++){
             ast *a = to_ast(cnsts[i]);
             cnsts_vec[i] = a;
         }
 
         ptr_vector<ast> itp_vec(num);  // get interpolants in a vector
-        for (int i = 0; i < num - 1; i++){
+        for (unsigned i = 0; i < num - 1; i++){
             ast *a = to_ast(itp[i]);
             itp_vec[i] = a;
         }
@@ -240,14 +240,14 @@ extern "C" {
         ::vector<int> parents_vec;  // get parents in a vector
         if (parents){
             parents_vec.resize(num);
-            for (int i = 0; i < num; i++)
+            for (unsigned i = 0; i < num; i++)
                 parents_vec[i] = parents[i];
         }
 
         ptr_vector<ast> theory_vec; // get background theory in a vector
         if (theory){
             theory_vec.resize(num_theory);
-            for (int i = 0; i < num_theory; i++)
+            for (unsigned i = 0; i < num_theory; i++)
                 theory_vec[i] = to_ast(theory[i]);
         }
 
@@ -506,16 +506,22 @@ extern "C" {
     void Z3_write_interpolation_problem(Z3_context ctx, unsigned num, Z3_ast *cnsts, unsigned *parents, const char *filename, unsigned num_theory, Z3_ast *theory){
         std::ofstream f(filename);
         if (num > 0){
+#if 0
+            // Suggested shorthand:
+            ptr_vector<expr> cnsts_vec;
+            cnsts_vec.append(num, to_exprs(cnsts));
+            cnsts_vec.append(num_theory, to_exprs(theory));
+#endif
             ptr_vector<expr> cnsts_vec(num);  // get constraints in a vector
-            for (int i = 0; i < num; i++){
+            for (unsigned i = 0; i < num; i++){
                 expr *a = to_expr(cnsts[i]);
                 cnsts_vec[i] = a;
             }
-            Z3_ast tree = parents_vector_to_tree(ctx, num, cnsts, parents);
-            for (int i = 0; i < num_theory; i++){
+            for (unsigned i = 0; i < num_theory; i++){
                 expr *a = to_expr(theory[i]);
                 cnsts_vec.push_back(a);
             }
+            Z3_ast tree = parents_vector_to_tree(ctx, num, cnsts, parents);
             iz3pp(mk_c(ctx)->m(), cnsts_vec, to_expr(tree), f);
             Z3_dec_ref(ctx, tree);
         }

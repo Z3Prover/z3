@@ -309,7 +309,8 @@ public:
                 p.display(strm, 2, false, false);
                 throw default_exception(strm.str());
             }
-            if (it->second.m_kind != expected) {
+            if (it->second.m_kind != expected && 
+                !(it->second.m_kind == CPK_UINT && expected == CPK_NUMERAL)) {
                 std::stringstream strm;
                 strm << "Parameter " << it->first.str() << " was given argument of type ";
                 strm << it->second.m_kind << ", expected " << expected;                
