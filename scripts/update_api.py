@@ -123,6 +123,7 @@ SYMBOL     = 9
 PRINT_MODE = 10
 ERROR_CODE = 11
 DOUBLE     = 12
+UINT_PTR   = 13
 
 FIRST_OBJ_ID = 100
 
@@ -131,28 +132,28 @@ def is_obj(ty):
 
 Type2Str = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', INT64 : '__int64', UINT64 : '__uint64', DOUBLE : 'double',
              STRING : 'Z3_string', STRING_PTR : 'Z3_string_ptr', BOOL : 'Z3_bool', SYMBOL : 'Z3_symbol',
-             PRINT_MODE : 'Z3_ast_print_mode', ERROR_CODE : 'Z3_error_code',
+             PRINT_MODE : 'Z3_ast_print_mode', ERROR_CODE : 'Z3_error_code', UINT_PTR : 'unsigned*'
              }
 
 Type2PyStr = { VOID_PTR : 'ctypes.c_void_p', INT : 'ctypes.c_int', UINT : 'ctypes.c_uint', INT64 : 'ctypes.c_longlong',
                UINT64 : 'ctypes.c_ulonglong', DOUBLE : 'ctypes.c_double',
                STRING : 'ctypes.c_char_p', STRING_PTR : 'ctypes.POINTER(ctypes.c_char_p)', BOOL : 'ctypes.c_bool', SYMBOL : 'Symbol',
-               PRINT_MODE : 'ctypes.c_uint', ERROR_CODE : 'ctypes.c_uint', 
+               PRINT_MODE : 'ctypes.c_uint', ERROR_CODE : 'ctypes.c_uint', UINT_PTR : 'ctypes.POINTER(ctypes.c_uint)'
                }
 
 # Mapping to .NET types
 Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', INT64 : 'Int64', UINT64 : 'UInt64', DOUBLE : 'double',
                 STRING : 'string', STRING_PTR : 'byte**', BOOL : 'int', SYMBOL : 'IntPtr',
-                PRINT_MODE : 'uint', ERROR_CODE : 'uint' }
+                PRINT_MODE : 'uint', ERROR_CODE : 'uint', UINT_PTR : 'uint[]'}
 
 # Mapping to Java types
 Type2Java = { VOID : 'void', VOID_PTR : 'long', INT : 'int', UINT : 'int', INT64 : 'long', UINT64 : 'long', DOUBLE : 'double',
               STRING : 'String', STRING_PTR : 'StringPtr', 
-              BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int' }
+              BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int', UINT_PTR : 'int[]'}
 
 Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', INT64 : 'jlong', UINT64 : 'jlong', DOUBLE : 'jdouble',
                STRING : 'jstring', STRING_PTR : 'jobject',
-               BOOL : 'jboolean', SYMBOL : 'jlong', PRINT_MODE : 'jint', ERROR_CODE : 'jint' }
+               BOOL : 'jboolean', SYMBOL : 'jlong', PRINT_MODE : 'jint', ERROR_CODE : 'jint', UINT_PTR : 'jlong'}
 
 
 next_type_id = FIRST_OBJ_ID
@@ -259,7 +260,7 @@ def param2dotnet(p):
     if k == INOUT_ARRAY:
         return "[In, Out] %s[]" % type2dotnet(param_type(p))
     if k == OUT_ARRAY:
-        return "[Out] %s[]" % type2dotnet(param_type(p))
+        return "[Out] out %s[]" % type2dotnet(param_type(p))
     else:
         return type2dotnet(param_type(p))
 
@@ -466,6 +467,8 @@ def mk_dotnet_wrappers():
                     dotnet.write('out ');
                 else:
                     dotnet.write('ref ')
+            elif param_kind(param) == OUT_ARRAY:
+                dotnet.write('out ');
             dotnet.write('a%d' % i)
             i = i + 1
         dotnet.write(');\n');
@@ -953,20 +956,33 @@ def def_API(name, result, params):
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_uint_array(%s)" % i)
             else:
-                error ("unsupported parameter for %s, %s" % (name, p))
+                error ("unsupported parameter for %s, %s" % (ty, name, p))
         elif kind == OUT_ARRAY:
             sz   = param_array_capacity_pos(p)
-            log_c.write("  for (unsigned i = 0; i < a%s; i++) { " % sz)
+            sz_p = params[sz]            
+            sz_p_k = param_kind(sz_p)
+            tstr = type2str(ty)
+            if sz_p_k == OUT or sz_p_k == INOUT:
+                sz_e = ("(*a%s)" % sz)
+                tstr = tstr + '*'
+            else:
+                sz_e = ("a%s" % sz)
+            log_c.write("  for (unsigned i = 0; i < %s; i++) { " % sz_e)
             if is_obj(ty):
                 log_c.write("P(0);")
                 log_c.write(" }\n")
-                log_c.write("  Ap(a%s);\n" % sz)
-                exe_c.write("reinterpret_cast<%s*>(in.get_obj_array(%s))" % (type2str(ty), i))
+                log_c.write("  Ap(%s);\n" % sz_e)
+                exe_c.write("reinterpret_cast<%s*>(in.get_obj_array(%s))" % (tstr, i))
             elif ty == UINT:
                 log_c.write("U(0);")
                 log_c.write(" }\n")
-                log_c.write("  Au(a%s);\n" % sz)
+                log_c.write("  Au(%s);\n" % sz_e)
                 exe_c.write("in.get_uint_array(%s)" % i)
+            elif ty == UINT_PTR:
+                log_c.write("P(0);")
+                log_c.write(" }\n")
+                log_c.write("  Ap(%s);\n" % sz_e)
+                exe_c.write("reinterpret_cast<%s>(in.get_obj_array(%s))" % (tstr, i))
             else:
                 error ("unsupported parameter for %s, %s" % (name, p))
         else:

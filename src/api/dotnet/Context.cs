@@ -424,7 +424,7 @@ namespace Microsoft.Z3
                 n_constr[i] = cla[i].NativeObject;
             }
             IntPtr[] n_res = new IntPtr[n];
-            Native.Z3_mk_datatypes(nCtx, n, Symbol.ArrayToNative(names), n_res, n_constr);
+            Native.Z3_mk_datatypes(nCtx, n, Symbol.ArrayToNative(names), out n_res, n_constr);
             DatatypeSort[] res = new DatatypeSort[n];
             for (uint i = 0; i < n; i++)
                 res[i] = new DatatypeSort(this, n_res[i]);
