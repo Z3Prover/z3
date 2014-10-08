@@ -158,26 +158,7 @@ lbool dl_interface::query(::expr * query) {
   vector<unsigned> bounds;
   // m_ctx.get_rules_as_formulas(rules, names);
 
-  expr_ref query_ref(m_ctx.get_manager());
-  if(****){
-    m_ctx.flush_add_rules();
-    datalog::rule_manager& rm = m_ctx.get_rule_manager();
-    rm.mk_query(query, m_ctx.get_rules());
-    apply_default_transformation(m_ctx);
-    rule_set &rs = m_ctx.get_rules();
-    if(m_ctx.get_rules().get_output_predicates().empty())
-      query_ref = m_ctx.get_manager().mk_true();
-    else {
-          query_pred = m_ctx.get_rules().get_output_predicate();
-	  func_decl_ref query_pred(m_ctx.get_manager());
-	  query_pred = m_ctx.get_rules().get_output_predicate();
-	  ptr_vector<sort> sorts;
-	  unsi
-
-    }
-  }
-  else 
-    m_ctx.get_raw_rule_formulas(rules, names, bounds);
+  m_ctx.get_raw_rule_formulas(rules, names, bounds);
 
   // get all the rules as clauses
   std::vector<expr> &clauses = _d->clauses;

@@ -802,6 +802,15 @@ namespace Duality {
       annot.Simplify();
     }    
 
+    bool NodeSolutionFromIndSetFull(Node *node){
+      std::vector<Node *> &insts = insts_of_node[node];
+      for(unsigned j = 0; j < insts.size(); j++)
+	if(indset->Contains(insts[j]))
+	  if(insts[j]->Annotation.IsFull())
+	    return true;
+      return false;
+    }
+
     bool recursionBounded;
 
     /** See if the solution might be bounded. */
@@ -1453,16 +1462,18 @@ namespace Duality {
 	slvr.pop(1);
 	delete checker;
 #else
-	RPFP_caching::scoped_solver_for_edge ssfe(gen_cands_rpfp,edge,true /* models */, true /*axioms*/);
-	gen_cands_rpfp->Push();
-	Node *root = CheckerForEdgeClone(edge,gen_cands_rpfp);
-	if(gen_cands_rpfp->Check(root) != unsat){
-	  Candidate candidate;
-	  ExtractCandidateFromCex(edge,gen_cands_rpfp,root,candidate);
-	  reporter->InductionFailure(edge,candidate.Children);
-	  candidates.push_back(candidate);
+	if(!NodeSolutionFromIndSetFull(edge->Parent)){
+	  RPFP_caching::scoped_solver_for_edge ssfe(gen_cands_rpfp,edge,true /* models */, true /*axioms*/);
+	  gen_cands_rpfp->Push();
+	  Node *root = CheckerForEdgeClone(edge,gen_cands_rpfp);
+	  if(gen_cands_rpfp->Check(root) != unsat){
+	    Candidate candidate;
+	    ExtractCandidateFromCex(edge,gen_cands_rpfp,root,candidate);
+	    reporter->InductionFailure(edge,candidate.Children);
+	    candidates.push_back(candidate);
+	  }
+	  gen_cands_rpfp->Pop(1);
 	}
-	gen_cands_rpfp->Pop(1);
 #endif
       }
       updated_nodes.clear();
