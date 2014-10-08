@@ -90,6 +90,7 @@ public:
     void set_sym(char const * k, symbol const & v);
 
     void display(std::ostream & out) const;
+    void display_smt2(std::ostream& out, char const* module, param_descrs& module_desc) const;
 
     void validate(param_descrs const & p) const;
 

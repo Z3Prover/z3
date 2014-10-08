@@ -1229,6 +1229,9 @@ class using_params_tactical : public unary_tactical {
     params_ref m_params;
 public:
     using_params_tactical(tactic * t, params_ref const & p):unary_tactical(t), m_params(p) {
+        param_descrs r;
+        collect_param_descrs(r);
+        p.validate(r);
         t->updt_params(p);
     }
 
@@ -1276,7 +1279,7 @@ public:
                             model_converter_ref & mc, 
                             proof_converter_ref & pc, 
                             expr_dependency_ref & core) {
-        if (m_p->operator()(*(in.get())).is_true())
+        if (m_p->operator()(*(in.get())).is_true()) 
             m_t1->operator()(in, result, mc, pc, core);
         else
             m_t2->operator()(in, result, mc, pc, core);
