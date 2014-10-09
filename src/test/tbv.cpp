@@ -32,7 +32,7 @@ static void tst1(unsigned num_bits) {
     to_delete.set(3);
     m.set(*b1, 2, BIT_0);
     m.set(*b1, 4, BIT_x);
-    tbv_ref b2(m2, m2.project(num_bits, to_delete, *b1));
+    tbv_ref b2(m2, m2.project(to_delete, *b1));
     m.display(std::cout, *b1) << " -> ";
     m2.display(std::cout, *b2) << "\n";
     m.deallocate(b0);

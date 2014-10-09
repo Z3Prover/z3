@@ -75,7 +75,7 @@ public:
     bool intersect(tbv const& a, tbv const& b, tbv& result);
     std::ostream& display(std::ostream& out, tbv const& b) const;
     std::ostream& display(std::ostream& out, tbv const& b, unsigned hi, unsigned lo) const;
-    tbv* project(unsigned n, bit_vector const& to_delete, tbv const& src);
+    tbv* project(bit_vector const& to_delete, tbv const& src);
     bool is_well_formed(tbv const& b) const; // - does not contain BIT_z;
     void set(tbv& dst, uint64 n, unsigned hi, unsigned lo);
     void set(tbv& dst, rational const& r, unsigned hi, unsigned lo);

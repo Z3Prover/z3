@@ -76,20 +76,32 @@ class udoc_tester {
     
     doc* mk_rand_doc(doc_manager& dm, unsigned num_diff) {
         tbv_ref t(dm.tbvm());
+        doc_ref result(dm);
         t = mk_rand_tbv(dm);
-        doc* result = dm.allocate(*t);
+        result = dm.allocate(*t);
         SASSERT(dm.tbvm().equals(*t, result->pos()));
         for (unsigned i = 0; i < num_diff; ++i) {
-            result->neg().push_back(mk_rand_tbv(dm, result->pos()));            
+            t = mk_rand_tbv(dm, result->pos());
+            if (dm.tbvm().equals(*t, result->pos())) {
+                return 0;
+            }
+            if (!result->neg().is_empty() &&
+                dm.tbvm().equals(*t, result->neg()[0])) {
+                continue;
+            }
+            result->neg().push_back(t.detach());            
         }        
         SASSERT(dm.well_formed(*result));
-        return result;
+        return result.detach();
     }
 
     void mk_rand_udoc(doc_manager& dm, unsigned num_elems, unsigned num_diff, udoc& result) {
         result.reset(dm);
         for (unsigned i = 0; i < num_elems; ++i) {
-            result.push_back(mk_rand_doc(dm, num_diff));
+            doc* d = mk_rand_doc(dm, num_diff);
+            if (d) {
+                result.push_back(d);
+            }
         }
     }
 
@@ -144,6 +156,8 @@ public:
         udoc_relation* t1, *t2, *t3;
         expr_ref fml(m);
 
+        test_filter_neg2();
+
         test_join_project();
 
         test_filter_neg4(false);
@@ -152,7 +166,6 @@ public:
         test_filter_neg5(true);
 
         test_filter_neg();
-        test_filter_neg2();
         test_filter_neg3();
 
         test_join(1000);
@@ -408,27 +421,34 @@ public:
 
     }
 
+    // {11xx \ {111x}, x011 \ {x011}, 0111}
+    // {xx11 \ {0011, 1111, x111}}
+    // 0111
+    // {1x1x \ {1x1x}, 1111 \ {1111}, x1x1 \ {x1x1}}
+
     void test_join_project() 
     {
         datalog::relation_signature sig;
-        sig.push_back(bv.mk_sort(3));
-        sig.push_back(bv.mk_sort(3));
-        sig.push_back(bv.mk_sort(3));
+        sig.push_back(bv.mk_sort(2));
+        sig.push_back(bv.mk_sort(2));
+        //sig.push_back(bv.mk_sort(3));
         
         unsigned_vector jc1, jc2, pc;
         jc1.push_back(0);
         jc2.push_back(0);
         pc.push_back(1);
         pc.push_back(3);
-        pc.push_back(4);        
+        //pc.push_back(4);        
         udoc_relation* t1, *t2;
         relation_base* t;
 
         scoped_ptr<datalog::relation_join_fn> join_project_fn;
 
-        for (unsigned i = 0; i < 20; ++i) {
+        for (unsigned i = 0; i < 200; ++i) {
             t1 = mk_rand(sig);
             t2 = mk_rand(sig);
+            t1->display(std::cout);
+            t2->display(std::cout);
             join_project_fn = p.mk_join_project_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr(), pc.size(), pc.c_ptr());
             t = (*join_project_fn)(*t1, *t2);
             t->display(std::cout);
@@ -612,6 +632,8 @@ public:
             apply_filter_neg(*t2, *neg, allcols, allcols);
             neg->deallocate();
         }
+        t1->display(std::cout);
+        t2->display(std::cout);
 
         apply_filter_neg(*t2, *t1, cols, cols);
         t1->deallocate();

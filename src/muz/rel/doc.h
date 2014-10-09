@@ -87,7 +87,7 @@ public:
     std::ostream& display(std::ostream& out, doc const& b) const;
     std::ostream& display(std::ostream& out, doc const& b, unsigned hi, unsigned lo) const;
     unsigned num_tbits() const { return m.num_tbits(); }
-    doc* project(doc_manager& dstm, unsigned n, bit_vector const& to_delete, doc const& src);
+    doc* project(doc_manager& dstm, bit_vector const& to_delete, doc const& src);
     bool well_formed(doc const& d) const;
     bool merge(doc& d, unsigned lo, unsigned length, subset_ints const& equalities, bit_vector const& discard_cols);
     void set(doc& d, unsigned idx, tbit value);

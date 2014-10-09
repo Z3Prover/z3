@@ -460,7 +460,7 @@ namespace datalog {
             udoc const& ud1 = t.get_udoc();
             udoc& ud2 = r->get_udoc();
             for (unsigned i = 0; i < ud1.size(); ++i) {
-                d2 = dm1.project(dm2, m_to_delete.size(), m_to_delete, ud1[i]);
+                d2 = dm1.project(dm2, m_to_delete, ud1[i]);
                 ud2.push_back(d2.detach());
             }
             TRACE("doc", tout << "final size: " << r->get_size_estimate_rows() << '\n';);
@@ -1071,7 +1071,7 @@ namespace datalog {
 
         // TBD: replace this by "join" given below.
         virtual relation_base* operator()(relation_base const& t1, relation_base const& t2) {
-#if 0
+#if 1
             return join(get(t1), get(t2));
 #else
             udoc_relation *joined = get(m_joiner(t1, t2));
@@ -1097,6 +1097,7 @@ namespace datalog {
             udoc const& d1 = t1.get_udoc();
             udoc const& d2 = t2.get_udoc();
             doc_manager& dm1 = t1.get_dm();
+            doc_manager& dm2 = t2.get_dm();
             udoc_plugin& p = t1.get_plugin();
             doc_manager& dm_prod = p.dm(prod_signature);
             udoc_relation* result = get(p.mk_empty(get_result_signature()));
@@ -1104,17 +1105,21 @@ namespace datalog {
             doc_manager& dm_res  = result->get_dm();            
             for (unsigned i = 0; i < d1.size(); ++i) {
                 for (unsigned j = 0; j < d2.size(); ++j) {
-                    prod.push_back(xprod(dm_prod, dm1, d1[i], d2[j]));
+                    prod.push_back(xprod(dm_prod, dm1, dm2, d1[i], d2[j]));
                 }
             }
+            TRACE("doc", prod.display(dm_prod, tout) << "\n";);
             prod.merge(dm_prod, m_roots, m_equalities, m_to_delete);
+            TRACE("doc", prod.display(dm_prod, tout) << "\n";);
             for (unsigned i = 0; i < prod.size(); ++i) {
-                res.insert(dm_res, dm_prod.project(dm_res, m_to_delete.size(), m_to_delete, prod[i]));
+                res.insert(dm_res, dm_prod.project(dm_res, m_to_delete, prod[i]));
             }
+            TRACE("doc", result->display(tout););
             prod.reset(dm_prod);
             return result;            
         }
-        doc* xprod(doc_manager& dm, doc_manager& dm1, doc const& d1, doc const& d2) {
+        doc* xprod(doc_manager& dm, doc_manager& dm1, doc_manager& dm2,
+                   doc const& d1, doc const& d2) {
             tbv_manager& tbm = dm.tbvm();
             doc_ref d(dm);
             tbv_ref t(tbm);
@@ -1138,6 +1143,10 @@ namespace datalog {
                 neg.push_back(t.detach());
             }
             SASSERT(dm.well_formed(*d));
+            TRACE("doc", 
+                  dm1.display(tout, d1) << "\n";
+                  dm2.display(tout, d2) << "\n";
+                  dm.display(tout, *d) << "\n";);
             return d.detach();
         }
 
@@ -1181,24 +1190,24 @@ namespace datalog {
         bool            m_is_subtract;
         bool            m_is_aliased;
     public:
-        negation_filter_fn(const udoc_relation & r, const udoc_relation & neg, unsigned joined_col_cnt,
+        negation_filter_fn(const udoc_relation & t, const udoc_relation & neg, unsigned joined_col_cnt,
                            const unsigned *t_cols, const unsigned *neg_cols)
             : m_t_cols(joined_col_cnt, t_cols), 
               m_neg_cols(joined_col_cnt, neg_cols),
-              m_mk_remove_cols(r, neg, m_remove_cols),
-              m_join_project(r, neg, joined_col_cnt, t_cols, neg_cols, 
+              m_mk_remove_cols(t, neg, m_remove_cols),
+              m_join_project(t, neg, joined_col_cnt, t_cols, neg_cols, 
                              m_remove_cols.size(), m_remove_cols.c_ptr()),
               m_is_subtract(false),
               m_is_aliased(true) {
             SASSERT(joined_col_cnt > 0);
-            m_is_subtract = (joined_col_cnt == r.get_signature().size());
+            m_is_subtract = (joined_col_cnt == t.get_signature().size());
             m_is_subtract &= (joined_col_cnt == neg.get_signature().size());
             svector<bool> found(joined_col_cnt, false);
             for (unsigned i = 0; m_is_subtract && i < joined_col_cnt; ++i) {
                 m_is_subtract = !found[t_cols[i]] && (t_cols[i] == neg_cols[i]);
                 found[t_cols[i]] = true;
             }
-            r.expand_column_vector(m_t_cols);
+            t.expand_column_vector(m_t_cols);
             neg.expand_column_vector(m_neg_cols);
         }
         
@@ -1316,7 +1325,7 @@ namespace datalog {
             udoc_relation* r = get(t.get_plugin().mk_empty(get_result_signature()));
             doc_manager& dm2 = r->get_dm();
             for (unsigned i = 0; i < m_udoc2.size(); ++i) {
-                doc* d = dm.project(dm2, m_to_delete.size(), m_to_delete, m_udoc2[i]);
+                doc* d = dm.project(dm2, m_to_delete, m_udoc2[i]);
                 r->get_udoc().insert(dm2, d);
                 SASSERT(r->get_udoc().well_formed(dm2));
             }

@@ -187,7 +187,14 @@ unsigned doc_manager::diff_by_012(tbv const& pos, tbv const& neg, unsigned& inde
 void doc_manager::set(doc& d, unsigned idx, tbit value) {
     m.set(d.pos(), idx, value);
     for (unsigned i = 0; i < d.neg().size(); ++i) {
-        m.set(d.neg()[i], idx, value);
+        tbit b = d.neg()[i][idx];
+        if (b != BIT_x && value != BIT_x && value != b) {
+            d.neg().erase(tbvm(), i);
+            --i;
+        }
+        else {
+            m.set(d.neg()[i], idx, value);
+        }
     }
 }
 
@@ -234,6 +241,7 @@ bool doc_manager::merge(doc& d, unsigned idx, subset_ints const& equalities,
     }
     while (idx != root);
 
+    TRACE("doc", tout << "num_x: " << num_x << " value: " << value << "\n";);
     if (num_x == 0) {
         // nothing to do.
     }
@@ -248,7 +256,7 @@ bool doc_manager::merge(doc& d, unsigned idx, subset_ints const& equalities,
     }
     else {
         do {
-            if (!discard_cols.get(idx) && idx != root1) {
+            if (/*!discard_cols.get(idx) &&*/ idx != root1) {
                 tbv* t = m.allocate(d.pos());
                 m.set(*t, idx, BIT_0);
                 m.set(*t, root1, BIT_1);
@@ -281,10 +289,10 @@ bool doc_manager::intersect(doc const& A, doc const& B, doc& result) {
 //   indices where BIT_0 is set are positive.
 //
 
-doc* doc_manager::project(doc_manager& dstm, unsigned n, bit_vector const& to_delete, doc const& src) {
+doc* doc_manager::project(doc_manager& dstm, bit_vector const& to_delete, doc const& src) {
     tbv_manager& dstt = dstm.m;    
     tbv_ref t(dstt);
-    t = dstt.project(n, to_delete, src.pos());
+    t = dstt.project(to_delete, src.pos());
     doc* r = dstm.allocate(t.detach());
     SASSERT(r);
 
@@ -368,7 +376,7 @@ doc* doc_manager::project(doc_manager& dstm, unsigned n, bit_vector const& to_de
         }
         case project_done: {
             for (unsigned i = 0; i < todo.size(); ++i) {
-                t = dstt.project(n, to_delete, *todo[i]);
+                t = dstt.project(to_delete, *todo[i]);
                 if (dstt.equals(r->pos(), *t)) {
                     r->neg().reset(dstt);
                     r->neg().push_back(t.detach());

@@ -78,19 +78,19 @@ static void tst_doc1(unsigned n) {
     to_delete.set(1);
     to_delete.set(3);
     doc_manager m1(n-2);
-    doc_ref d1_1(m1, m.project(m1, n, to_delete, *d1));
+    doc_ref d1_1(m1, m.project(m1, to_delete, *d1));
     doc_ref d1_2(m1, m1.allocate1());
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";
     SASSERT(m1.equals(*d1_1,*d1_2));
     m.set(*d1,2,BIT_x);
     m.set(*d1,4,BIT_x);
-    d1_1 = m.project(m1, n, to_delete, *d1);
+    d1_1 = m.project(m1, to_delete, *d1);
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";
     d1->neg().push_back(m.tbvm().allocate1());
     SASSERT(m.well_formed(*d1));
-    d1_1 = m.project(m1, n, to_delete, *d1);
+    d1_1 = m.project(m1, to_delete, *d1);
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";    
 }
@@ -218,7 +218,7 @@ class test_doc_cls {
     }
 
     void project(doc const& d, doc_manager& m2, const bit_vector& to_delete, doc_ref& result) {
-        result = dm.project(m2, m_vars.size(), to_delete, d);
+        result = dm.project(m2, to_delete, d);
         TRACE("doc",
               for (unsigned i = 0; i < m_vars.size(); ++i) {
                   tout << (to_delete.get(i)?"0":"1");
