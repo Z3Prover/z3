@@ -159,9 +159,10 @@ namespace Microsoft.Z3
         /// <remarks>For more information on interpolation please refer
         /// too the function Z3_write_interpolation_problem in the C/C++ API, which is 
         /// well documented.</remarks>
-        public void WriteInterpolationProblem(string filename, Expr[] cnsts, int[] parents, string error, Expr[] theory)
+        public void WriteInterpolationProblem(string filename, Expr[] cnsts, uint[] parents, string error, Expr[] theory)
         {
             Contract.Requires(cnsts.Length == parents.Length);
+            Native.Z3_write_interpolation_problem(nCtx, (uint)cnsts.Length, Expr.ArrayToNative(cnsts), parents, error, (uint)theory.Length, Expr.ArrayToNative(theory));
         }
     }
 }
