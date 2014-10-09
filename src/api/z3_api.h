@@ -1779,7 +1779,7 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_tuple_sort(__in Z3_context c, 
                                         __in Z3_symbol mk_tuple_name, 
                                         __in unsigned num_fields, 
-                                        __in_ecount(num_fields) Z3_symbol   const field_names[],
+                                        __in_ecount(num_fields) Z3_symbol const field_names[],
                                         __in_ecount(num_fields) Z3_sort const field_sorts[],
                                         __out Z3_func_decl * mk_tuple_decl,
                                         __out_ecount(num_fields)  Z3_func_decl proj_decl[]);
@@ -4907,8 +4907,7 @@ END_MLAPI_EXCLUDE
                                           __in_ecount(num_sorts) Z3_sort const sorts[],
                                           __in unsigned num_decls,
                                           __in_ecount(num_decls) Z3_symbol const decl_names[],
-                                          __in_ecount(num_decls) Z3_func_decl const decls[]  
-                                          );
+                                          __in_ecount(num_decls) Z3_func_decl const decls[]);
     
     /**
        \brief Similar to #Z3_parse_smtlib2_string, but reads the benchmark from a file.
@@ -4917,13 +4916,12 @@ END_MLAPI_EXCLUDE
     */
     Z3_ast Z3_API Z3_parse_smtlib2_file(__in Z3_context c, 
                                         __in Z3_string file_name,
-                                          __in unsigned num_sorts,
-                                          __in_ecount(num_sorts) Z3_symbol const sort_names[],
-                                          __in_ecount(num_sorts) Z3_sort const sorts[],
-                                          __in unsigned num_decls,
-                                          __in_ecount(num_decls) Z3_symbol const decl_names[],
-                                          __in_ecount(num_decls) Z3_func_decl const decls[]    
-                                        );
+                                        __in unsigned num_sorts,
+                                        __in_ecount(num_sorts) Z3_symbol const sort_names[],
+                                        __in_ecount(num_sorts) Z3_sort const sorts[],
+                                        __in unsigned num_decls,
+                                        __in_ecount(num_decls) Z3_symbol const decl_names[],
+                                        __in_ecount(num_decls) Z3_func_decl const decls[]);
 
 #ifdef ML4only
 #include <mlx_parse_smtlib.idl>
