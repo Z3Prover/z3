@@ -144,6 +144,8 @@ public:
         udoc_relation* t1, *t2, *t3;
         expr_ref fml(m);
 
+        test_join_project();
+
         test_filter_neg4(false);
         test_filter_neg4(true);
         test_filter_neg5(false);
@@ -404,6 +406,37 @@ public:
         }
 
 
+    }
+
+    void test_join_project() 
+    {
+        datalog::relation_signature sig;
+        sig.push_back(bv.mk_sort(3));
+        sig.push_back(bv.mk_sort(3));
+        sig.push_back(bv.mk_sort(3));
+        
+        unsigned_vector jc1, jc2, pc;
+        jc1.push_back(0);
+        jc2.push_back(0);
+        pc.push_back(1);
+        pc.push_back(3);
+        pc.push_back(4);        
+        udoc_relation* t1, *t2;
+        relation_base* t;
+
+        scoped_ptr<datalog::relation_join_fn> join_project_fn;
+
+        for (unsigned i = 0; i < 20; ++i) {
+            t1 = mk_rand(sig);
+            t2 = mk_rand(sig);
+            join_project_fn = p.mk_join_project_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr(), pc.size(), pc.c_ptr());
+            t = (*join_project_fn)(*t1, *t2);
+            t->display(std::cout);
+            cr.verify_join_project(*t1, *t2, *t, jc1, jc2, pc);
+            t->deallocate();
+            t1->deallocate();
+            t2->deallocate();
+        }
     }
 
     void test_rename() {

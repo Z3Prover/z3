@@ -1071,6 +1071,9 @@ namespace datalog {
 
         // TBD: replace this by "join" given below.
         virtual relation_base* operator()(relation_base const& t1, relation_base const& t2) {
+#if 0
+            return join(get(t1), get(t2));
+#else
             udoc_relation *joined = get(m_joiner(t1, t2));
             relation_base* result = 0;
             if (joined->fast_empty()) {
@@ -1082,6 +1085,7 @@ namespace datalog {
             }
             joined->deallocate();
             return result;
+#endif
         }           
     private:
 
