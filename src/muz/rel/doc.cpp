@@ -255,8 +255,20 @@ bool doc_manager::merge(doc& d, unsigned idx, subset_ints const& equalities,
         while (idx != root);
     }
     else {
+        bool all_x = true;
+        if (!d.neg().is_empty()) {
+            idx = root;
+            do {
+                for (unsigned i = 0; all_x && i < d.neg().size(); ++i) {
+                    all_x = (BIT_x == d.neg()[i][idx]);
+                }
+                idx = equalities.next(idx);
+            }
+            while (idx != root && all_x);
+        }
+        idx = root;
         do {
-            if (/*!discard_cols.get(idx) &&*/ idx != root1) {
+            if ((!discard_cols.get(idx) || !all_x) &&  idx != root1) {
                 tbv* t = m.allocate(d.pos());
                 m.set(*t, idx, BIT_0);
                 m.set(*t, root1, BIT_1);
