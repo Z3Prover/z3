@@ -97,6 +97,35 @@ struct param_descrs::imp {
         return CPK_INVALID;
     }
 
+    bool split_name(symbol const& name, symbol & prefix, symbol & suffix) const {
+        if (name.is_numerical()) return false;
+        char const* str = name.bare_str();
+        char const* period = strchr(str,'.');
+        if (!period) return false;
+        svector<char> prefix_((unsigned)(period-str), str);
+        prefix_.push_back(0);
+        prefix = symbol(prefix_.c_ptr());
+        suffix = symbol(period + 1);
+        return true;
+    }
+
+    param_kind get_kind_in_module(symbol & name) const {
+        param_kind k = get_kind(name);
+        symbol prefix, suffix;
+        if (k == CPK_INVALID && split_name(name, prefix, suffix)) {   
+            k = get_kind(suffix);
+            if (k != CPK_INVALID) {
+                if (symbol(get_module(suffix)) == prefix) {
+                    name = suffix;
+                }
+                else {
+                    k = CPK_INVALID;
+                }
+            }
+        }
+        return k;
+    }
+
     char const* get_module(symbol const& name) const {
         info i;
         if (m_info.find(name, i)) 
@@ -230,6 +259,10 @@ void param_descrs::erase(char const * name) {
     erase(symbol(name));
 }
 
+param_kind param_descrs::get_kind_in_module(symbol & name) const {
+    return m_imp->get_kind_in_module(name);
+}
+
 param_kind param_descrs::get_kind(symbol const & name) const {
     return m_imp->get_kind(name);
 }
@@ -311,35 +344,13 @@ public:
     void reset(symbol const & k);
     void reset(char const * k);
 
-    bool split_name(symbol const& name, symbol & prefix, symbol & suffix) {
-        if (name.is_numerical()) return false;
-        char const* str = name.bare_str();
-        char const* period = strchr(str,'.');
-        if (!period) return false;
-        svector<char> prefix_((unsigned)(period-str), str);
-        prefix_.push_back(0);
-        prefix = symbol(prefix_.c_ptr());
-        suffix = symbol(period + 1);
-        return true;
-    }
 
     void validate(param_descrs const & p) {
         svector<params::entry>::iterator it  = m_entries.begin();  
         svector<params::entry>::iterator end = m_entries.end();
         symbol suffix, prefix;
         for (; it != end; ++it) {                                
-            param_kind expected = p.get_kind(it->first);
-            if (expected == CPK_INVALID && split_name(it->first, prefix, suffix)) {                
-                expected = p.get_kind(suffix);
-                if (expected != CPK_INVALID) {
-                    if (symbol(p.get_module(suffix)) == prefix) {
-                        it->first = suffix;                    
-                    }
-                    else {
-                        expected = CPK_INVALID;
-                    }
-                }
-            }
+            param_kind expected = p.get_kind_in_module(it->first);
             if (expected == CPK_INVALID) {
                 std::stringstream strm;
                 strm << "unknown parameter '" << it->first.str() << "'\n";    
