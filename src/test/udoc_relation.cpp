@@ -204,15 +204,18 @@ public:
             datalog::relation_join_fn* join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
             SASSERT(join_fn);
             t = (*join_fn)(*t1, *t2);
+            cr.verify_join(*t1, *t2, *t, jc1, jc2);
             t->display(std::cout); std::cout << "\n";
             t->deallocate();
 
             t = (*join_fn)(*t1, *t3);
+            cr.verify_join(*t1, *t3, *t, jc1, jc2);
             SASSERT(t->empty());
             t->display(std::cout); std::cout << "\n";
             t->deallocate();
 
             t = (*join_fn)(*t3, *t3);
+            cr.verify_join(*t3, *t3, *t, jc1, jc2);
             SASSERT(t->empty());
             t->display(std::cout); std::cout << "\n";
             t->deallocate();
@@ -231,11 +234,13 @@ public:
             pc.push_back(0);
             datalog::relation_transformer_fn* proj_fn = p.mk_project_fn(*t1, pc.size(), pc.c_ptr());
             t = (*proj_fn)(*t1);
+            cr.verify_project(*t1, *t, pc);
             t->display(std::cout); std::cout << "\n";
             t->deallocate();
             
             t1->reset();
             t = (*proj_fn)(*t1);
+            cr.verify_project(*t1, *t, pc);
             t->display(std::cout); std::cout << "\n";
             t->deallocate();
             
@@ -243,6 +248,7 @@ public:
             t1->add_fact(fact2);
             t1->add_fact(fact3);
             t = (*proj_fn)(*t1);
+            cr.verify_project(*t1, *t, pc);
             t1->display(std::cout); std::cout << "\n";
             t->display(std::cout); std::cout << "\n";
             t->deallocate();
@@ -260,10 +266,15 @@ public:
             t2->add_fact(fact2);
             t1->add_fact(fact3);
 
+            expr_ref t10(m);
+            t1->to_formula(t10);
+            expr_ref delta0(m);
+            delta->to_formula(delta0);
             rel_union union_fn = p.mk_union_fn(*t1, *t2, 0);
 
             t1->display(std::cout << "t1 before:"); std::cout << "\n";
             (*union_fn)(*t1, *t2, delta);
+            cr.verify_union(t10, *t2, *t1, delta0, delta);
             t1->display(std::cout << "t1 after:"); std::cout << "\n";
             delta->display(std::cout << "delta:"); std::cout << "\n";
             
