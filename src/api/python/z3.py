@@ -4448,7 +4448,7 @@ def args2params(arguments, keywords, ctx=None):
     A ':' is added to the keywords, and '_' is replaced with '-'
 
     >>> args2params(['model', True, 'relevancy', 2], {'elim_and' : True})
-    (params model 1 relevancy 2 elim_and 1)
+    (params model true relevancy 2 elim_and true)
     """
     if __debug__:
         _z3_assert(len(arguments) % 2 == 0, "Argument list must have an even number of elements.")
@@ -7253,19 +7253,19 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
     return _to_expr_ref(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
    
-def Interp(a,ctx=None):
+def Interpolant(a,ctx=None):
     """Create an interpolation operator.
     
     The argument is an interpolation pattern (see tree_interpolant). 
 
     >>> x = Int('x')
-    >>> print Interp(x>0)
+    >>> print Interpolant(x>0)
     interp(x > 0)
     """
     ctx = _get_ctx(_ctx_from_ast_arg_list([a], ctx))
     s = BoolSort(ctx)
     a = s.cast(a)
-    return BoolRef(Z3_mk_interp(ctx.ref(), a.as_ast()), ctx)
+    return BoolRef(Z3_mk_interpolant(ctx.ref(), a.as_ast()), ctx)
 
 def tree_interpolant(pat,p=None,ctx=None):
     """Compute interpolant for a tree of formulas.
@@ -7304,10 +7304,10 @@ def tree_interpolant(pat,p=None,ctx=None):
 
     >>> x = Int('x')
     >>> y = Int('y')
-    >>> print tree_interpolant(And(Interp(x < 0), Interp(y > 2), x == y))
+    >>> print tree_interpolant(And(Interpolant(x < 0), Interpolant(y > 2), x == y))
     [Not(x >= 0), Not(y <= 2)]
 
-    >>> g = And(Interp(x<0),x<2)
+    >>> g = And(Interpolant(x<0),x<2)
     >>> try:
     ...     print tree_interpolant(g).sexpr()
     ... except ModelRef as m:
@@ -7346,7 +7346,7 @@ def binary_interpolant(a,b,p=None,ctx=None):
     print binary_interpolant(x<0,x>2)
     Not(x >= 0)
     """
-    f = And(Interp(a),b)
+    f = And(Interpolant(a),b)
     return tree_interpolant(f,p,ctx)[0]
 
 def sequence_interpolant(v,p=None,ctx=None):
@@ -7375,6 +7375,6 @@ def sequence_interpolant(v,p=None,ctx=None):
     """
     f = v[0]
     for i in range(1,len(v)):
-        f = And(Interp(f),v[i])
+        f = And(Interpolant(f),v[i])
     return tree_interpolant(f,p,ctx)
 

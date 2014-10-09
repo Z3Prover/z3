@@ -222,6 +222,9 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_tactic_using_params(c, t, p);
         RESET_ERROR_CODE();
+        param_descrs r;
+        to_tactic_ref(t)->collect_param_descrs(r);
+        to_param_ref(p).validate(r);
         tactic * new_t = using_params(to_tactic_ref(t), to_param_ref(p));
         RETURN_TACTIC(new_t);
         Z3_CATCH_RETURN(0);

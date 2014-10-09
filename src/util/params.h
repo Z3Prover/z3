@@ -90,8 +90,9 @@ public:
     void set_sym(char const * k, symbol const & v);
 
     void display(std::ostream & out) const;
+    void display_smt2(std::ostream& out, char const* module, param_descrs& module_desc) const;
 
-    void validate(param_descrs const & p) const;
+    void validate(param_descrs const & p);
 
     /*
       \brief Display the value of the given parameter.
@@ -114,8 +115,8 @@ public:
     param_descrs();
     ~param_descrs();
     void copy(param_descrs & other);
-    void insert(char const * name, param_kind k, char const * descr, char const * def = 0);
-    void insert(symbol const & name, param_kind k, char const * descr, char const * def = 0);
+    void insert(char const * name, param_kind k, char const * descr, char const * def = 0, char const* module = 0);
+    void insert(symbol const & name, param_kind k, char const * descr, char const * def = 0, char const* module = 0);
     bool contains(char const * name) const;
     bool contains(symbol const & name) const;
     void erase(char const * name);
@@ -129,6 +130,7 @@ public:
     void display(std::ostream & out, unsigned indent = 0, bool smt2_style=false, bool include_descr=true) const;
     unsigned size() const; 
     symbol get_param_name(unsigned idx) const;
+    char const * get_module(symbol const& name) const;
 };
 
 void insert_max_memory(param_descrs & r);

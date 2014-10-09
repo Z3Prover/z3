@@ -1801,7 +1801,7 @@ def def_module_params(module_name, export, params, class_name=None, description=
     out.write(' {}\n')
     out.write('  static void collect_param_descrs(param_descrs & d) {\n')
     for param in params:
-        out.write('    d.insert("%s", %s, "%s", "%s");\n' % (param[0], TYPE2CPK[param[1]], param[3], pyg_default(param)))
+        out.write('    d.insert("%s", %s, "%s", "%s","%s");\n' % (param[0], TYPE2CPK[param[1]], param[3], pyg_default(param), module_name))
     out.write('  }\n')
     if export:
         out.write('  /*\n')
