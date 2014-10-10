@@ -129,27 +129,21 @@ namespace Microsoft.Z3
         /// <remarks>For more information on interpolation please refer
         /// too the function Z3_read_interpolation_problem in the C/C++ API, which is 
         /// well documented.</remarks>
-        public int ReadInterpolationProblem(string filename, out Expr[] cnsts, ref uint[] parents, out string error, out Expr[] theory)
+        public int ReadInterpolationProblem(string filename, out Expr[] cnsts, out uint[] parents, out string error, out Expr[] theory)
         {
             uint num = 0, num_theory = 0;
-            IntPtr n_cnsts = new IntPtr();
-            IntPtr n_theory = new IntPtr();
+            IntPtr[] n_cnsts;
+            IntPtr[] n_theory;
             IntPtr n_err_str;
-            int r = Native.Z3_read_interpolation_problem(nCtx, ref num, ref n_cnsts, out parents, filename, out n_err_str, ref num_theory, ref n_theory);
+            int r = Native.Z3_read_interpolation_problem(nCtx, ref num, out n_cnsts, out parents, filename, out n_err_str, ref num_theory, out n_theory);
             error = Marshal.PtrToStringAnsi(n_err_str);
             cnsts = new Expr[num];
             parents = new uint[num];
             theory = new Expr[num_theory];
             for (int i = 0; i < num; i++)
-            {
-                IntPtr ce = new IntPtr(n_cnsts.ToInt64() + (IntPtr.Size * i));                
-                cnsts[i] = Expr.Create(this, ce);
-            }
+                cnsts[i] = Expr.Create(this, n_cnsts[i]);
             for (int i = 0; i < num_theory; i++)
-            {
-                IntPtr te = new IntPtr(n_theory.ToInt64() + (IntPtr.Size * i));
-                theory[i] = Expr.Create(this, te);
-            }
+                theory[i] = Expr.Create(this, n_theory[i]);
             return r;
         }
 

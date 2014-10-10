@@ -520,7 +520,7 @@ extern "C" {
     }
 
 
-    int Z3_read_interpolation_problem(Z3_context ctx, unsigned *_num, Z3_ast cnsts[], unsigned parents[], const char *filename, Z3_string_ptr error, unsigned *ret_num_theory, Z3_ast theory[]){
+    int Z3_read_interpolation_problem(Z3_context ctx, unsigned *_num, Z3_ast *cnsts[], unsigned *parents[], const char *filename, Z3_string_ptr error, unsigned *ret_num_theory, Z3_ast *theory[]){
 
         hash_map<std::string, std::string> file_params;
         get_file_params(filename, file_params);
@@ -549,11 +549,11 @@ extern "C" {
         if (ret_num_theory)
             *ret_num_theory = num_theory;
         if (theory)
-            theory = &read_theory[0];
+            *theory = &read_theory[0];
 
         if (!parents){
             *_num = num;
-            cnsts = &read_cnsts[0];
+            *cnsts = &read_cnsts[0];
             return true;
         }
 
@@ -623,8 +623,8 @@ extern "C" {
             }
 
         *_num = num;
-        cnsts = &read_cnsts[0];
-        parents = &read_parents[0];
+        *cnsts = &read_cnsts[0];
+        *parents = &read_parents[0];
         return true;
 
     fail:

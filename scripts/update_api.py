@@ -108,6 +108,7 @@ INOUT       = 2
 IN_ARRAY    = 3
 OUT_ARRAY   = 4
 INOUT_ARRAY = 5
+OUT_MANAGED_ARRAY  = 6
 
 # Primitive Types
 VOID       = 0
@@ -224,6 +225,10 @@ def _out_array2(cap, sz, ty):
 def _inout_array(sz, ty):
     return (INOUT_ARRAY, ty, sz, sz);
 
+def _out_managed_array(sz,ty):
+    return (OUT_MANAGED_ARRAY, ty, 0, sz)
+
+
 def param_kind(p):
     return p[0]
 
@@ -254,11 +259,11 @@ def param2dotnet(p):
             return "out IntPtr"
         else:
             return "[In, Out] ref %s" % type2dotnet(param_type(p))
-    if k == IN_ARRAY:
+    elif k == IN_ARRAY:
         return "[In] %s[]" % type2dotnet(param_type(p))
-    if k == INOUT_ARRAY:
+    elif k == INOUT_ARRAY:
         return "[In, Out] %s[]" % type2dotnet(param_type(p))
-    if k == OUT_ARRAY:
+    elif k == OUT_ARRAY or k == OUT_MANAGED_ARRAY:
         return "[Out] out %s[]" % type2dotnet(param_type(p))
     else:
         return type2dotnet(param_type(p))
@@ -268,7 +273,7 @@ def param2java(p):
     if k == OUT:
         if param_type(p) == INT or param_type(p) == UINT:
             return "IntPtr"
-        elif param_type(p) == INT64 or param_type(p) == UINT64 or param_type(p) >= FIRST_OBJ_ID:
+        elif param_type(p) == INT64 or param_type(p) == UINT64 or param_type(p) == VOID_PTR or param_type(p) >= FIRST_OBJ_ID:
             return "LongPtr"
         elif param_type(p) == STRING:
             return "StringPtr"
@@ -466,7 +471,7 @@ def mk_dotnet_wrappers():
                     dotnet.write('out ');
                 else:
                     dotnet.write('ref ')
-            elif param_kind(param) == OUT_ARRAY:
+            elif param_kind(param) == OUT_ARRAY or param_kind(param) == OUT_MANAGED_ARRAY:
                 dotnet.write('out ');
             dotnet.write('a%d' % i)
             i = i + 1
@@ -678,9 +683,11 @@ def mk_java():
                 if param_type(param) == INT or param_type(param) == UINT:
                     java_wrapper.write('  jenv->GetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
                 else:
-                    java_wrapper.write('  GETLONGAREGION(%s, a%s, 0, a%s, _a%s);\n' % (type2str(param_type(param)), i, param_array_capacity_pos(param), i))
+                    java_wrapper.write('  GETLONGAREGION(%s, a%s, 0, a%s, _a%s);\n' % (type2str(param_type(param)), i, param_array_capacity_pos(param), i))    
             elif k == IN and param_type(param) == STRING:
                 java_wrapper.write('  Z3_string _a%s = (Z3_string) jenv->GetStringUTFChars(a%s, NULL);\n' % (i, i))
+            elif k == OUT_MANAGED_ARRAY:
+                java_wrapper.write('  %s * _a%s = 0;\n' % (type2str(param_type(param)), i))
             i = i + 1
         # invoke procedure
         java_wrapper.write('  ')
@@ -699,6 +706,8 @@ def mk_java():
                 java_wrapper.write('&_a%s' % i)
             elif k == OUT_ARRAY or k == IN_ARRAY or k == INOUT_ARRAY:
                 java_wrapper.write('_a%s' % i)
+            elif k == OUT_MANAGED_ARRAY:
+                java_wrapper.write('&_a%s' % i)
             elif k == IN and param_type(param) == STRING:
                 java_wrapper.write('_a%s' % i)
             else:
@@ -734,6 +743,8 @@ def mk_java():
                     java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "J");\n')
                     java_wrapper.write('     jenv->SetLongField(a%s, fid, (jlong) _a%s);\n' % (i, i))
                     java_wrapper.write('  }\n')
+            elif k == OUT_MANAGED_ARRAY:
+                java_wrapper.write('  *(jlong**)a%s = (jlong*)_a%s;\n' % (i, i))
             i = i + 1
         # return
         if result == STRING:
@@ -934,6 +945,9 @@ def def_API(name, result, params):
             elif ty == INT64:
                 log_c.write("  I(0);\n")
                 exe_c.write("in.get_int64_addr(%s)" % i)
+            elif ty == VOID_PTR:
+                log_c.write("  P(0);\n")
+                exe_c.write("in.get_obj_addr(%s)" % i)
             else:
                 error("unsupported parameter for %s, %s" % (name, p))
         elif kind == IN_ARRAY or kind == INOUT_ARRAY:
@@ -978,6 +992,20 @@ def def_API(name, result, params):
                 exe_c.write("in.get_uint_array(%s)" % i)
             else:
                 error ("unsupported parameter for %s, %s" % (name, p))
+        elif kind == OUT_MANAGED_ARRAY:
+            sz   = param_array_size_pos(p)
+            sz_p = params[sz]
+            sz_p_k = param_kind(sz_p)
+            tstr = type2str(ty)
+            if sz_p_k == OUT or sz_p_k == INOUT:
+                sz_e = ("(*a%s)" % sz)
+            else:
+                sz_e = ("a%s" % sz)
+            log_c.write("  for (unsigned i = 0; i < %s; i++) { " % sz_e)
+            log_c.write("P(0);")
+            log_c.write(" }\n")
+            log_c.write("  Ap(%s);\n" % sz_e)
+            exe_c.write("reinterpret_cast<%s**>(in.get_obj_array(%s))" % (tstr, i))
         else:
             error ("unsupported parameter for %s, %s" % (name, p))
         i = i + 1
