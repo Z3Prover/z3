@@ -281,8 +281,13 @@ def param2java(p):
             print("ERROR: unreachable code")
             assert(False)
             exit(1)
-    if k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
+    elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
         return "%s[]" % type2java(param_type(p))
+    elif k == OUT_MANAGED_ARRAY:
+        if param_type(p) == UINT:
+            return "UIntArrayPtr"
+        else:
+            return "ObjArrayPtr"
     else:
         return type2java(param_type(p))
 
@@ -529,6 +534,8 @@ def mk_java():
     java_native.write('  public static class IntPtr { public int value; }\n')
     java_native.write('  public static class LongPtr { public long value; }\n')
     java_native.write('  public static class StringPtr { public String value; }\n')
+    java_native.write('  public static class ObjArrayPtr { public long[] value; }\n')
+    java_native.write('  public static class UIntArrayPtr { public int[] value; }\n')
     java_native.write('  public static native void setInternalErrorHandler(long ctx);\n\n')
     if IS_WINDOWS or os.uname()[0]=="CYGWIN":
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name)
