@@ -8,10 +8,8 @@
 #include"timeout.h"
 #include"reg_decl_plugins.h"
 
-static bool g_display_statistics = false;
+extern bool g_display_statistics;
 static bool g_first_interrupt = true;
-static int g_timeout = 0;
-static bool g_display_model = false;
 static opt::context* g_opt = 0;
 static double g_start_time = 0;
 static unsigned_vector g_handles;
@@ -143,7 +141,10 @@ public:
                     opt.add_hard_constraint(cls);
                 }
                 else {
-                    opt.add_soft_constraint(cls, rational(weight), symbol::null);
+                    unsigned id = opt.add_soft_constraint(cls, rational(weight), symbol::null);
+                    if (g_handles.empty()) {
+                        g_handles.push_back(id);
+                    }
                 }
             }
         }
@@ -255,9 +256,16 @@ static void display_statistics() {
         g_opt->collect_statistics(stats);
         stats.display(std::cout);
         double end_time = static_cast<double>(clock());
-        std::cout << "time:   " << (end_time - g_start_time)/CLOCKS_PER_SEC << " secs\n";
+        std::cout << "time:                " << (end_time - g_start_time)/CLOCKS_PER_SEC << " secs\n";
         for (unsigned i = 0; i < g_handles.size(); ++i) {
-            std::cout << "  [" << g_opt->get_lower(g_handles[i]) << ":" << g_opt->get_upper(g_handles[i]) << "]\n";
+            expr_ref lo = g_opt->get_lower(g_handles[i]);
+            expr_ref hi = g_opt->get_upper(g_handles[i]);
+            if (lo == hi) {
+                std::cout << "   " << lo << "\n";
+            }
+            else {
+                std::cout << "  [" << lo << ":" << hi << "]\n";
+            }
         }
     }    
 }
@@ -302,7 +310,11 @@ static unsigned parse_opt(std::istream& in, bool is_wcnf) {
         opb.parse();
     }
     lbool r = opt.optimize();
-    std::cout << r << "\n";
+    switch (r) {
+    case l_true: std::cout << "sat\n"; break;
+    case l_false: std::cout << "unsat\n"; break;
+    case l_undef: std::cout << "unknown\n"; break;
+    }
     #pragma omp critical (g_display_stats) 
     {
         display_statistics();
