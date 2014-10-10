@@ -123,6 +123,7 @@ public:
     void erase(symbol const & name);
     param_kind get_kind(char const * name) const;
     param_kind get_kind(symbol const & name) const;
+    param_kind get_kind_in_module(symbol & name) const;
     char const * get_descr(char const * name) const;
     char const * get_descr(symbol const & name) const;
     char const * get_default(char const * name) const;
