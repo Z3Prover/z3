@@ -19,11 +19,11 @@ static unsigned_vector g_handles;
 class stream_buffer {
     std::istream & m_stream;
     int            m_val;
-    unsigned       m_lines;
+    unsigned       m_line;
 public:    
     stream_buffer(std::istream & s):
         m_stream(s),
-        m_lines(0) {
+        m_line(0) {
         m_val = m_stream.get();
     }
     int  operator *() const { return m_val;}
@@ -34,7 +34,7 @@ public:
     unsigned line() const { return m_line; }
     void skip_whitespace() {
         while ((ch() >= 9 && ch() <= 13) || ch() == 32) {
-            if (ch() == 10) ++m_lines;
+            if (ch() == 10) ++m_line;
             next(); 
         }
     }
@@ -44,7 +44,7 @@ public:
                 return;
             }
             if (ch() == '\n') { 
-                ++m_lines;
+                ++m_line;
                 next();
                 return; 
             }
@@ -75,7 +75,7 @@ public:
             next();
         }        
         if (ch() < '0' || ch() > '9') {
-            std::cerr << "(error line " << line() << " \"unexpected char: " << ((char)ch()) << "\)\n";
+            std::cerr << "(error line " << line() << " \"unexpected char: " << ((char)ch()) << "\" )\n";
             exit(3);
         }        
         while (ch() >= '0' && ch() <= '9') {
@@ -160,7 +160,7 @@ class opb {
     app_ref parse_id() {
         bool negated = in.parse_token("~");
         if (!in.parse_token("x")) {
-            std::cerr << "(error line " << in.line() << " \"unexpected char: " << ((char)in.ch()) << "\)\n";
+            std::cerr << "(error line " << in.line() << " \"unexpected char: " << ((char)in.ch()) << "\")\n";
             exit(3);
         }
         app_ref p(m);

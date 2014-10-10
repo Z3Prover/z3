@@ -92,7 +92,6 @@ def init_project_def():
     add_cpp_example('cpp_example', 'c++') 
     add_cpp_example('iz3', 'interp') 
     add_cpp_example('z3_tptp', 'tptp') 
-    add_cpp_example('z3_opt', 'opt') 
     add_c_example('c_example', 'c')
     add_c_example('maxsat')
     add_dotnet_example('dotnet_example', 'dotnet')
