@@ -304,6 +304,12 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (!strcmp(arg,"st") || !strcmp(arg,"statistics")) {
                 g_display_statistics = true;
             }
+            else if (strcmp(opt_name, "T") == 0) {
+                if (!opt_arg)
+                    error("option argument (-T:timeout) is missing.");
+                long tm = strtol(opt_arg, 0, 10);
+                //set_timeout(tm * 1000);
+            }
             else if (!strcmp(arg,"t") || !strcmp(arg,"timeout")) {
                 if (!opt_arg) {
                     display_usage();
