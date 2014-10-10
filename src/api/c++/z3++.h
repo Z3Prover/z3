@@ -1432,12 +1432,12 @@ namespace z3 {
             t1.check_error();
             return tactic(t1.ctx(), r);
         }
-        friend tactic repeat(tactic const & t, unsigned max=UINT_MAX);
+        friend tactic repeat(tactic const & t, unsigned max);
         friend tactic with(tactic const & t, params const & p);
         friend tactic try_for(tactic const & t, unsigned ms);
     };
     
-    inline tactic repeat(tactic const & t, unsigned max) {
+    inline tactic repeat(tactic const & t, unsigned max=UINT_MAX) {
         Z3_tactic r = Z3_tactic_repeat(t.ctx(), t, max);
         t.check_error();
         return tactic(t.ctx(), r);
