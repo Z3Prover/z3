@@ -90,12 +90,12 @@ int main(int argc, const char **argv) {
   
   /* Read an interpolation problem */
 
-  int num;
+  unsigned num;
   Z3_ast *constraints;
-  int *parents = 0;
+  unsigned *parents = 0;
   const char *error;
   bool ok;
-  int num_theory;
+  unsigned num_theory;
   Z3_ast *theory;
 
   ok = Z3_read_interpolation_problem(ctx, &num, &constraints, tree_mode ? &parents : 0, filename, &error, &num_theory, &theory);
@@ -144,7 +144,7 @@ int main(int argc, const char **argv) {
 
   if(!incremental_mode){
     /* In non-incremental mode, we just pass the constraints. */
-    result = Z3_interpolate(ctx, num, constraints, (unsigned int *)parents,  options, interpolants, &model, 0, false, num_theory, theory);
+    result = Z3_interpolate(ctx, num, constraints, parents,  options, interpolants, &model, 0, false, num_theory, theory);
   }
   else {
 
@@ -165,7 +165,7 @@ int main(int argc, const char **argv) {
     for(int i = 0; i < num; i++){
       asserted[i] = constraints[i];
       Z3_assert_cnstr(ctx,constraints[i]);  // assert one constraint
-      result = Z3_interpolate(ctx, num, &asserted[0], (unsigned int *)parents,  options, interpolants, &model, 0, true, 0, 0);
+      result = Z3_interpolate(ctx, num, &asserted[0], parents,  options, interpolants, &model, 0, true, 0, 0);
       if(result == Z3_L_FALSE){
 	for(unsigned j = 0; j < num-1; j++)
           /* Since we want the interpolant formulas to survive a "pop", we
