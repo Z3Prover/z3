@@ -1203,10 +1203,15 @@ namespace opt {
             }
             case O_MAXSMT: {
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);
+                rational value(0);
                 for (unsigned i = 0; i < obj.m_terms.size(); ++i) {
                     VERIFY(m_model->eval(obj.m_terms[i], val));
+                    if (!m.is_true(val)) {
+                        value += obj.m_weights[i];
+                    }
                     // TBD: check that optimal was not changed.
                 }
+                TRACE("opt", tout << "value " << value << "\n";);
                 break;
             }
             }       

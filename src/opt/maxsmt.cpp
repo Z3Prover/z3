@@ -66,6 +66,7 @@ namespace opt {
         }       
         pb_util pb(m);
         tmp = pb.mk_ge(m_weights.size(), m_weights.c_ptr(), m_soft.c_ptr(), k);
+        TRACE("opt", tout << tmp << "\n";);
         s().assert_expr(tmp);
     }
 
@@ -205,18 +206,13 @@ namespace opt {
             }
         }
 
-        // Infrastructure for displaying and storing solution is TBD.
         IF_VERBOSE(1, verbose_stream() << "is-sat: " << is_sat << "\n";
                    if (is_sat == l_true) {
                        verbose_stream() << "Satisfying soft constraints\n";
                        display_answer(verbose_stream());
                    });
 
-        DEBUG_CODE(if (is_sat == l_true) {
-                       verify_assignment();
-                   });
-
-        // TBD: check that all extensions are unsat too
+        DEBUG_CODE(if (is_sat == l_true) verify_assignment(););
         
         return is_sat;
     }
