@@ -6314,8 +6314,24 @@ class Fixedpoint(Z3PPObject):
 #########################################
 
 class OptimizeObjective:
-    def __init__(self, value):
-	self.value = value	
+    def __init__(self, opt, value, is_max):
+	self._opt = opt
+	self._value = value
+	self._is_max = is_max
+
+    def lower(self):
+	opt = self._opt
+	return _to_expr_ref(Z3_optimize_get_lower(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
+    
+    def upper(self):
+	opt = self._opt
+	return _to_expr_ref(Z3_optimize_get_upper(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
+
+    def value(self):
+	if self._is_max:
+	    return self.upper()
+	else:
+	    return self.lower()
 
 class Optimize(Z3PPObject):
     """Optimize API provides methods for solving using objective functions and weighted soft constraints"""
@@ -6372,15 +6388,15 @@ class Optimize(Z3PPObject):
 	    id = ""
 	id = to_symbol(id, self.ctx)
 	v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, arg.as_ast(), weight, id)
-	return OptimizeObjective(v)
+	return OptimizeObjective(self, v, False)
 
     def maximize(self, arg):
 	"""Add objective function to maximize."""
-	return OptimizeObjective(Z3_optimize_maximize(self.ctx.ref(), self.optimize, arg.as_ast()))
+	return OptimizeObjective(self, Z3_optimize_maximize(self.ctx.ref(), self.optimize, arg.as_ast()), True)
 
     def minimize(self, arg):
 	"""Add objective function to minimize."""
-	return OptimizeObjective(Z3_optimize_minimize(self.ctx.ref(), self.optimize, arg.as_ast()))
+	return OptimizeObjective(self, Z3_optimize_minimize(self.ctx.ref(), self.optimize, arg.as_ast()), False)
 
     def push(self):
         """create a backtracking point for added rules, facts and assertions"""
@@ -6404,12 +6420,12 @@ class Optimize(Z3PPObject):
     def lower(self, obj):
 	if not isinstance(obj, OptimizeObjective):
 	    raise Z3Exception("Expecting objective handle returned by maximize/minimize")
-	return _to_expr_ref(Z3_optimize_get_lower(self.ctx.ref(), self.optimize, obj.value), self.ctx)
+	return obj.lower()
 
     def upper(self, obj):
 	if not isinstance(obj, OptimizeObjective):
 	    raise Z3Exception("Expecting objective handle returned by maximize/minimize")
-	return _to_expr_ref(Z3_optimize_get_upper(self.ctx.ref(), self.optimize, obj.value), self.ctx)    
+	return obj.upper()
     
     def __repr__(self):
         """Return a formatted string with all added rules and constraints."""
