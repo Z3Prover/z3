@@ -90,47 +90,6 @@ namespace Microsoft.Z3
         }
 
         /// <summary> 
-        /// Computes an interpolant.
-        /// </summary>    
-        /// <remarks>For more information on interpolation please refer
-        /// too the function Z3_compute_interpolant in the C/C++ API, which is 
-        /// well documented.</remarks>
-        Z3_lbool Interpolate(Expr[] cnsts, uint[] parents, Params options, bool incremental, Expr[] theory, out Expr[] interps, out Model model)
-        {
-            Contract.Requires(cnsts != null);
-            Contract.Requires(parents != null);
-            Contract.Requires(cnsts.Length == parents.Length);
-            Contract.Ensures(Contract.ValueAtReturn(out interps) != null);
-            Contract.Ensures(Contract.ValueAtReturn(out model) != null);
-
-            CheckContextMatch(cnsts);
-            CheckContextMatch(theory);
-
-            uint sz = (uint)cnsts.Length;
-
-            IntPtr[] ni = new IntPtr[sz - 1];
-            IntPtr nm = IntPtr.Zero;
-            IntPtr z = IntPtr.Zero;
-
-            int r = Native.Z3_interpolate(nCtx,
-                      sz, Expr.ArrayToNative(cnsts), parents,
-                      options.NativeObject,
-                      out ni,
-                      ref nm,
-                      ref z, // Z3_lterals are deprecated.
-                      (uint)(incremental ? 1 : 0),
-                      (uint)theory.Length, Expr.ArrayToNative(theory));
-
-            interps = new Expr[sz - 1];
-            for (uint i = 0; i < sz - 1; i++)
-                interps[i] = Expr.Create(this, ni[i]);
-
-            model = new Model(this, nm);
-
-            return (Z3_lbool)r;
-        }
-
-        /// <summary> 
         /// Return a string summarizing cumulative time used for interpolation.
         /// </summary>    
         /// <remarks>For more information on interpolation please refer
@@ -150,7 +109,7 @@ namespace Microsoft.Z3
         public int CheckInterpolant(Expr[] cnsts, uint[] parents, Expr[] interps, out string error, Expr[] theory)
         {
             Contract.Requires(cnsts.Length == parents.Length);
-            Contract.Requires(cnsts.Length == interps.Length+1);
+            Contract.Requires(cnsts.Length == interps.Length + 1);
             IntPtr n_err_str;
             int r = Native.Z3_check_interpolant(nCtx,
                                                 (uint)cnsts.Length,
@@ -176,17 +135,13 @@ namespace Microsoft.Z3
             IntPtr[] n_cnsts;
             IntPtr[] n_theory;
             IntPtr n_err_str;
-            uint[][] n_parents;
-            int r = Native.Z3_read_interpolation_problem(nCtx, ref num, out n_cnsts, out n_parents, filename, out n_err_str, ref num_theory, out n_theory);
+            int r = Native.Z3_read_interpolation_problem(nCtx, ref num, out n_cnsts, out parents, filename, out n_err_str, ref num_theory, out n_theory);
             error = Marshal.PtrToStringAnsi(n_err_str);
             cnsts = new Expr[num];
             parents = new uint[num];
-            theory = new Expr[num_theory];           
+            theory = new Expr[num_theory];
             for (int i = 0; i < num; i++)
-            {
                 cnsts[i] = Expr.Create(this, n_cnsts[i]);
-                parents[i] = n_parents[0][i];
-            }
             for (int i = 0; i < num_theory; i++)
                 theory[i] = Expr.Create(this, n_theory[i]);
             return r;
@@ -198,9 +153,10 @@ namespace Microsoft.Z3
         /// <remarks>For more information on interpolation please refer
         /// too the function Z3_write_interpolation_problem in the C/C++ API, which is 
         /// well documented.</remarks>
-        public void WriteInterpolationProblem(string filename, Expr[] cnsts, int[] parents, string error, Expr[] theory)
+        public void WriteInterpolationProblem(string filename, Expr[] cnsts, uint[] parents, Expr[] theory)
         {
             Contract.Requires(cnsts.Length == parents.Length);
+            Native.Z3_write_interpolation_problem(nCtx, (uint)cnsts.Length, Expr.ArrayToNative(cnsts), parents, filename, (uint)theory.Length, Expr.ArrayToNative(theory));
         }
     }
 }
