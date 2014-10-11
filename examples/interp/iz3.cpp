@@ -144,7 +144,7 @@ int main(int argc, const char **argv) {
 
   if(!incremental_mode){
     /* In non-incremental mode, we just pass the constraints. */
-    result = Z3_interpolate(ctx, num, constraints, parents,  options, interpolants, &model, 0, false, num_theory, theory);
+      result = Z3_L_UNDEF; // FIXME: Z3_interpolate(ctx, num, constraints, parents,  options, interpolants, &model, 0, false, num_theory, theory);
   }
   else {
 
@@ -165,7 +165,7 @@ int main(int argc, const char **argv) {
     for(int i = 0; i < num; i++){
       asserted[i] = constraints[i];
       Z3_assert_cnstr(ctx,constraints[i]);  // assert one constraint
-      result = Z3_interpolate(ctx, num, &asserted[0], parents,  options, interpolants, &model, 0, true, 0, 0);
+      result = Z3_L_UNDEF; // FIXME: Z3_interpolate(ctx, num, &asserted[0], parents,  options, interpolants, &model, 0, true, 0, 0);
       if(result == Z3_L_FALSE){
 	for(unsigned j = 0; j < num-1; j++)
           /* Since we want the interpolant formulas to survive a "pop", we
