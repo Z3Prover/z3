@@ -309,11 +309,16 @@ static unsigned parse_opt(std::istream& in, bool is_wcnf) {
         opb opb(opt, _in);
         opb.parse();
     }
-    lbool r = opt.optimize();
-    switch (r) {
-    case l_true: std::cout << "sat\n"; break;
-    case l_false: std::cout << "unsat\n"; break;
-    case l_undef: std::cout << "unknown\n"; break;
+    try {
+        lbool r = opt.optimize();
+        switch (r) {
+        case l_true:  std::cout << "sat\n"; break;
+        case l_false: std::cout << "unsat\n"; break;
+        case l_undef: std::cout << "unknown\n"; break;
+        }
+    }
+    catch (z3_exception & ex) {
+        std::cerr << ex.msg() << "\n";
     }
     #pragma omp critical (g_display_stats) 
     {
@@ -325,6 +330,7 @@ static unsigned parse_opt(std::istream& in, bool is_wcnf) {
 }
 
 unsigned parse_opt(char const* file_name, bool is_wcnf) {
+    g_first_interrupt = true;
     g_start_time = static_cast<double>(clock());
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
