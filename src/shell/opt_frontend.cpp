@@ -168,6 +168,7 @@ class opb {
         int id = in.parse_int();
         p = m.mk_const(symbol(id), m.mk_bool_sort());
         if (negated) p = m.mk_not(p);
+        in.skip_whitespace();
         return p;
     }
 
@@ -179,7 +180,7 @@ class opb {
         return result;
     }
 
-    app_ref parse_coeff() {
+    rational parse_coeff_r() {
         in.skip_whitespace();
         svector<char> num;
         bool pos = true;
@@ -187,9 +188,13 @@ class opb {
         if (*in == '+') ++in;
         if (!pos) num.push_back('-');
         in.skip_whitespace();
-        while (*in >= '0' && *in <='9') num.push_back(*in), ++in;
+        while ('0' <= *in && *in <='9') num.push_back(*in), ++in;
         num.push_back(0);
-        return app_ref(arith.mk_numeral(rational(num.c_ptr()), true), m);
+        return rational(num.c_ptr());
+    }
+
+    app_ref parse_coeff() {
+        return app_ref(arith.mk_numeral(parse_coeff_r(), true), m);
     }
     
     app_ref parse_term() {        
@@ -229,7 +234,6 @@ public:
         in(in), arith(m) {}
 
     void parse() {
-
         while (true) {
             in.skip_whitespace();
             if (in.eof()) {
