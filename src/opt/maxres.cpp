@@ -78,6 +78,7 @@ public:
 private:
     expr_ref_vector  m_B;
     expr_ref_vector  m_asms;    
+    expr_ref_vector  m_defs;
     obj_map<expr, rational> m_asm2weight;
     ptr_vector<expr> m_new_core;
     mus              m_mus;
@@ -102,7 +103,7 @@ public:
            weights_t& ws, expr_ref_vector const& soft, 
            strategy_t st):
         maxsmt_solver_base(c, ws, soft),
-        m_B(m), m_asms(m),
+        m_B(m), m_asms(m), m_defs(m),
         m_mus(c.get_solver(), m),
         m_mss(c.get_solver(), m),
         m_trail(m),
@@ -377,15 +378,19 @@ public:
             for (unsigned i = 0; i < m_asms.size(); ++i) {
                 SASSERT(is_true(m_asms[i].get()));
             });
+        rational upper(0);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i]);
+            if (!m_assignment[i]) upper += m_weights[i];
         }
+        SASSERT(upper == m_lower);
         m_upper = m_lower;
         m_found_feasible_optimum = true;
     }
 
 
     virtual lbool operator()() {
+        m_defs.reset();
         switch(m_st) {
         case s_mus:
             return mus_solver();
@@ -635,7 +640,6 @@ public:
         app_ref cls(m), d(m), dd(m);
         m_B.reset();
         m_B.append(core.size(), core.c_ptr());
-        d = m.mk_true();
         //
         // d_0 := true
         // d_i := b_{i-1} and d_{i-1}    for i = 1...sz-1
@@ -651,23 +655,29 @@ public:
         for (unsigned i = 1; i < core.size(); ++i) {
             expr* b_i = m_B[i-1].get();
             expr* b_i1 = m_B[i].get();
-            if (i > 2) {
+            if (i == 1) {
+                d = to_app(b_i);
+            }
+            else if (i == 2) {
+                d = m.mk_and(b_i, d);
+                m_trail.push_back(d);
+            }
+            else {
                 dd = mk_fresh_bool("d");
                 fml = m.mk_implies(dd, d);
                 s().assert_expr(fml);
+                m_defs.push_back(fml);
                 fml = m.mk_implies(dd, b_i);
                 s().assert_expr(fml);
+                m_defs.push_back(fml);
                 d = dd;
-            }
-            else {
-                d = m.mk_and(b_i, d);
-                m_trail.push_back(d);
             }
             asum = mk_fresh_bool("a");
             cls = m.mk_or(b_i1, d);
             fml = m.mk_implies(asum, cls);
             new_assumption(asum, w);
             s().assert_expr(fml);
+            m_defs.push_back(fml);
         }
     }
 
@@ -698,6 +708,7 @@ public:
                 d = mk_fresh_bool("d");
                 fml = m.mk_implies(d, cls);
                 s().assert_expr(fml);
+                m_defs.push_back(fml);
             }
             else {
                 d = cls;
@@ -705,8 +716,10 @@ public:
             asum = mk_fresh_bool("a");
             fml = m.mk_implies(asum, b_i1);
             s().assert_expr(fml);
+            m_defs.push_back(fml);
             fml = m.mk_implies(asum, cls);
             s().assert_expr(fml);
+            m_defs.push_back(fml);
             new_assumption(asum, w);
         }
         fml = m.mk_or(m_B.size(), m_B.c_ptr());
@@ -872,7 +885,13 @@ public:
 
     virtual void commit_assignment() {
         if (m_found_feasible_optimum) {
-            TRACE("opt", tout << "Committing feasible solution\n";);
+            TRACE("opt", tout << "Committing feasible solution\n";
+                  tout << m_defs;
+                  tout << m_asms;
+                  );
+            for (unsigned i = 0; i < m_defs.size(); ++i) {
+                s().assert_expr(m_defs[i].get());
+            }
             for (unsigned i = 0; i < m_asms.size(); ++i) {
                 s().assert_expr(m_asms[i].get());
             }
@@ -883,42 +902,25 @@ public:
     }
 
     void verify_core(exprs const& core) {
-        IF_VERBOSE(3, verbose_stream() << "verify core\n";);        
-        ref<solver> sat_solver = mk_inc_sat_solver(m, m_params);
-
+        IF_VERBOSE(3, verbose_stream() << "verify core\n";);                
+        ref<solver> smt_solver = mk_smt_solver(m, m_params, symbol());
         for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
-            sat_solver->assert_expr(s().get_assertion(i));
-        }
-        expr_ref n(m);        
-        for (unsigned i = 0; i < core.size(); ++i) {
-            IF_VERBOSE(1, verbose_stream() << mk_pp(core[i],m) << " ";);
-            sat_solver->assert_expr(core[i]);
-        }
-        IF_VERBOSE(1, verbose_stream() << "\n";);
-        lbool is_sat = sat_solver->check_sat(0, 0);
-        if (is_sat != l_false) {
-            IF_VERBOSE(0, verbose_stream() << "!!!not a core\n";);
-        }        
-
-        sat_solver = mk_smt_solver(m, m_params, symbol());
-        for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
-            sat_solver->assert_expr(s().get_assertion(i));
+            smt_solver->assert_expr(s().get_assertion(i));
         }
         for (unsigned i = 0; i < core.size(); ++i) {
-            sat_solver->assert_expr(core[i]);
+            smt_solver->assert_expr(core[i]);
         }
-        is_sat = sat_solver->check_sat(0, 0);
+        lbool is_sat = smt_solver->check_sat(0, 0);
         if (is_sat == l_true) {
             IF_VERBOSE(0, verbose_stream() << "not a core\n";);
         }        
-        
     }
 
     void verify_assignment() {
         IF_VERBOSE(0, verbose_stream() << "verify assignment\n";);        
-        ref<solver> sat_solver = mk_inc_sat_solver(m, m_params);
+        ref<solver> smt_solver = mk_smt_solver(m, m_params, symbol());
         for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
-            sat_solver->assert_expr(s().get_assertion(i));
+            smt_solver->assert_expr(s().get_assertion(i));
         }
         expr_ref n(m);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -926,9 +928,9 @@ public:
             if (!m_assignment[i]) {
                 n = mk_not(m, n);
             }
-            sat_solver->assert_expr(n);
+            smt_solver->assert_expr(n);
         }
-        lbool is_sat = sat_solver->check_sat(0, 0);
+        lbool is_sat = smt_solver->check_sat(0, 0);
         if (is_sat == l_false) {
             IF_VERBOSE(0, verbose_stream() << "assignment is infeasible\n";);
         }
