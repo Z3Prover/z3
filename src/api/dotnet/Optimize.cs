@@ -85,17 +85,55 @@ namespace Microsoft.Z3
             Assert(constraints);
         }
 
+	/// <summary>
+	/// Handle to objectives returned by objective functions.
+	/// </summary>
+	public class Handle 
+        {
+	    Optimize opt;
+	    uint     handle;
+	    internal Handle(Optimize opt, uint h) 
+	    {
+	        this.opt = opt;
+	        this.handle = h;
+	    }
+
+            /// <summary>
+            /// Retrieve a lower bound for the objective handle.
+            /// </summary>        	   	
+	    public ArithExpr Lower()
+	    {
+		return opt.GetLower(handle);
+	    }
+
+            /// <summary>
+            /// Retrieve an upper bound for the objective handle.
+            /// </summary>        	   	
+	    public ArithExpr Upper()
+	    {
+		return opt.GetUpper(handle);
+	    }
+
+            /// <summary>
+            /// Retrieve the value of an objective.
+            /// </summary>        	   	
+	    public ArithExpr Value()
+	    {
+		return Lower();
+	    }
+	}
+
         /// <summary>
         /// Assert soft constraint
         /// </summary>        
         /// <remarks>
         /// Return an objective which associates with the group of constraints.
         /// </remarks>
-        public uint AssertSoft(BoolExpr constraint, uint weight, string group)
+        public Handle AssertSoft(BoolExpr constraint, uint weight, string group)
         {
             Context.CheckContextMatch(constraint);
 	        Symbol s = Context.MkSymbol(group);            
-	        return Native.Z3_optimize_assert_soft(Context.nCtx, NativeObject, constraint.NativeObject, weight.ToString(), s.NativeObject);            
+	        return new Handle(this, Native.Z3_optimize_assert_soft(Context.nCtx, NativeObject, constraint.NativeObject, weight.ToString(), s.NativeObject));            
         }
 
 	
@@ -161,26 +199,26 @@ namespace Microsoft.Z3
         /// <summary>
         /// Declare an arithmetical maximization objective.
 	/// Return a handle to the objective. The handle is used as
-	/// an argument to GetLower and GetUpper.
+	/// to retrieve the values of objectives after calling Check.
         /// </summary>        	
-        public uint MkMaximize(ArithExpr e) 
+        public Handle MkMaximize(ArithExpr e) 
         {
-	        return Native.Z3_optimize_maximize(Context.nCtx, NativeObject, e.NativeObject);
+	        return new Handle(this, Native.Z3_optimize_maximize(Context.nCtx, NativeObject, e.NativeObject));
 	    }
 
         /// <summary>
         /// Declare an arithmetical minimization objective. 
 	/// Similar to MkMaximize.
         /// </summary>        	
-        public uint MkMinimize(ArithExpr e)
+        public Handle MkMinimize(ArithExpr e)
         {
-	        return Native.Z3_optimize_minimize(Context.nCtx, NativeObject, e.NativeObject);
+	        return new Handle(this, Native.Z3_optimize_minimize(Context.nCtx, NativeObject, e.NativeObject));
         }
 
         /// <summary>
         /// Retrieve a lower bound for the objective handle.
         /// </summary>        	
-        public ArithExpr GetLower(uint index) 
+        private ArithExpr GetLower(uint index) 
         {
             return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
         }
@@ -189,7 +227,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieve an upper bound for the objective handle.
         /// </summary>        	
-        public ArithExpr GetUpper(uint index)
+        private ArithExpr GetUpper(uint index)
         {
             return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
         }
