@@ -450,6 +450,9 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_tactic_apply_ex(c, t, g, p);
         RESET_ERROR_CODE();
+        param_descrs pd;
+        to_tactic_ref(t)->collect_param_descrs(pd);
+        to_param_ref(p).validate(pd);
         Z3_apply_result r = _tactic_apply(c, t, g, to_param_ref(p));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);

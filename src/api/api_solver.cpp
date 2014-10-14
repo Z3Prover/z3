@@ -130,6 +130,9 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_set_params(c, s, p);
         RESET_ERROR_CODE();
+        param_descrs r;
+        to_solver_ref(s)->collect_param_descrs(r);
+        to_param_ref(p).validate(r);
         if (to_solver(s)->m_solver) {
             bool old_model = to_solver(s)->m_params.get_bool("model", true);
             bool new_model = to_param_ref(p).get_bool("model", true);
