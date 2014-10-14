@@ -101,25 +101,25 @@ namespace Microsoft.Z3
             /// <summary>
             /// Retrieve a lower bound for the objective handle.
             /// </summary>        	   	
-	    public ArithExpr Lower()
+	    public ArithExpr Lower
 	    {
-		return opt.GetLower(handle);
+		get { return opt.GetLower(handle); }
 	    }
 
             /// <summary>
             /// Retrieve an upper bound for the objective handle.
             /// </summary>        	   	
-	    public ArithExpr Upper()
+	    public ArithExpr Upper
 	    {
-		return opt.GetUpper(handle);
+		get { return opt.GetUpper(handle); }
 	    }
 
             /// <summary>
             /// Retrieve the value of an objective.
             /// </summary>        	   	
-	    public ArithExpr Value()
+	    public ArithExpr Value
 	    {
-		return Lower();
+		get { return Lower; }
 	    }
 	}
 
