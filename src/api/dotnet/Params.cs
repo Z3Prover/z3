@@ -69,6 +69,7 @@ namespace Microsoft.Z3
             Native.Z3_params_set_symbol(Context.nCtx, NativeObject, name.NativeObject, value.NativeObject);
         }
 
+
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
@@ -101,6 +102,17 @@ namespace Microsoft.Z3
             Contract.Requires(value != null);
 
             Native.Z3_params_set_symbol(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value.NativeObject);
+        }
+
+        /// <summary>
+        /// Adds a parameter setting.
+        /// </summary>
+        public void Add(string name, string value)
+        {
+            Contract.Requires(name != null);
+            Contract.Requires(value != null);
+
+            Native.Z3_params_set_symbol(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, Context.MkSymbol(value).NativeObject);
         }
 
         /// <summary>
