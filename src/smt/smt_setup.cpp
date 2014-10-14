@@ -703,7 +703,12 @@ namespace smt {
     }
 
     void setup::setup_mi_arith() {
-        m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+        if (m_params.m_arith_mode == AS_OPTINF) {
+            m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
+        }
+        else {
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+        }
     }
 
     void setup::setup_arith() {

@@ -435,11 +435,22 @@ namespace opt {
     }
 
     void context::init_solver() {
+        setup_arith_solver();
         #pragma omp critical (opt_context)
         {
             m_opt_solver = alloc(opt_solver, m, m_params, m_fm);
             m_opt_solver->set_logic(m_logic);
             m_solver = m_opt_solver.get();
+        }
+    }
+
+    void context::setup_arith_solver() {
+        opt_params p(m_params);        
+        if (p.optsmt_engine() == symbol("symba") ||
+            p.optsmt_engine() == symbol("farkas")) {
+            std::stringstream strm;
+            strm << AS_OPTINF;
+            gparams::set("smt.arith.solver", strm.str().c_str());
         }
     }
 

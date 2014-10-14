@@ -35,7 +35,7 @@ namespace opt {
         vector<inf_eps>  m_upper;
         app_ref_vector   m_objs;
         svector<smt::theory_var> m_vars;
-        symbol           m_engine;
+        symbol           m_optsmt_engine;
         model_ref        m_model;
     public:
         optsmt(ast_manager& m): m(m), m_s(0), m_cancel(false), m_objs(m) {}
@@ -66,6 +66,8 @@ namespace opt {
     private:
         
         lbool basic_opt();
+
+        lbool symba_opt();
 
         lbool basic_lex(unsigned idx, bool is_maximize);
 

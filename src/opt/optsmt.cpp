@@ -107,6 +107,62 @@ namespace opt {
         return l_true;        
     }
 
+    lbool optsmt::symba_opt() {
+        smt::theory_opt& opt = m_s->get_optimizer();
+
+        if (typeid(smt::theory_inf_arith) != typeid(opt)) {
+            return l_undef;
+        }
+
+
+        expr_ref_vector ors(m), disj(m);
+        expr_ref or(m), bound(m.mk_true(), m);
+        for (unsigned i = 0; i < m_upper.size(); ++i) {
+            ors.push_back(m_s->mk_ge(i, m_upper[i]));
+        }
+        {
+            solver::scoped_push _push(*m_s);
+            or = m.mk_or(ors.size(), ors.c_ptr());
+            m_s->assert_expr(or);
+            lbool is_sat = l_true;
+            while (!m_cancel) {
+                is_sat = m_s->check_sat(0,0);
+                if (is_sat == l_true) {
+                    disj.reset();
+                    m_s->maximize_objectives(disj);
+                    m_s->get_model(m_model);                   
+                    set_max(m_lower, m_s->get_objective_values()); 
+                    for (unsigned i = 0; i < ors.size(); ++i) {
+                        expr_ref tmp(m);
+                        m_model->eval(ors[i].get(), tmp);
+                        if (m.is_true(tmp)) {
+                            m_lower[i] = m_upper[i];
+                            ors[i] = m.mk_false();
+                        }
+                        if (m.is_false(ors[i].get())) {
+                            disj[i] = m.mk_false();
+                        }
+                    }
+                    or = m.mk_or(ors.size(), ors.c_ptr());
+                    bound = m.mk_or(disj.size(), disj.c_ptr());
+                    m_s->assert_expr(or);
+                }
+                else if (is_sat == l_undef) {
+                    return l_undef;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+        m_s->assert_expr(bound);
+        
+        if (m_cancel) {
+            return l_undef;
+        }
+        return basic_opt();
+    }
+
     void optsmt::update_lower(unsigned idx, inf_eps const& v, bool override) {
         if (m_lower[idx] < v || override) {
             m_lower[idx] = v;            
@@ -124,13 +180,13 @@ namespace opt {
         m_s->maximize_objectives(disj);
         m_s->get_model(m_model);
         set_max(m_lower, m_s->get_objective_values());
-        IF_VERBOSE(1, 
-                   for (unsigned i = 0; i < m_lower.size(); ++i) {
-                       verbose_stream() << m_lower[i] << " ";
-                   }
-                   verbose_stream() << "\n";
-                   model_pp(verbose_stream(), *m_model);
-                   );
+        TRACE("opt",
+              for (unsigned i = 0; i < m_lower.size(); ++i) {
+                  tout << m_lower[i] << " ";
+              }
+              tout << "\n";
+              model_pp(tout, *m_model);
+              );
         expr_ref constraint(m);        
         constraint = m.mk_or(disj.size(), disj.c_ptr());
         m_s->assert_expr(constraint);
@@ -171,13 +227,13 @@ namespace opt {
                 lbool is_sat = m_s->check_sat(1, bounds.c_ptr() + i);
                 switch(is_sat) {
                 case l_true:
-                    IF_VERBOSE(2, verbose_stream() << "Setting lower bound for v" << m_vars[i] << " to " << m_upper[i] << "\n";);
+                    IF_VERBOSE(2, verbose_stream() << "(optsmt lower bound for v" << m_vars[i] << " := " << m_upper[i] << ")\n";);
                     m_lower[i] = mid[i];
                     th.enable_record_conflict(0);
                     update_lower();
                     break;
                 case l_false:
-                    IF_VERBOSE(2, verbose_stream() << "conflict: " << th.conflict_minimize() << "\n";);
+                    IF_VERBOSE(2, verbose_stream() << "(optsmt conflict: " << th.conflict_minimize() << ") \n";);
                     if (!th.conflict_minimize().is_finite()) {
                         // bounds is not in the core. The context is unsat.
                         m_upper[i] = m_lower[i];
@@ -288,13 +344,15 @@ namespace opt {
         }
         // assertions added during search are temporary.
         solver::scoped_push _push(*m_s);
-        if (m_engine == symbol("farkas")) {
+        if (m_optsmt_engine == symbol("farkas")) {
             is_sat = farkas_opt();
+        }
+        else if (m_optsmt_engine == symbol("symba")) {
+            is_sat = symba_opt();
         }
         else {
             is_sat = basic_opt();
         }
-
         return is_sat;
     }
 
@@ -337,7 +395,7 @@ namespace opt {
 
     void optsmt::updt_params(params_ref& p) {
         opt_params _p(p);
-        m_engine = _p.engine();        
+        m_optsmt_engine = _p.optsmt_engine();        
     }
 
     void optsmt::reset() {

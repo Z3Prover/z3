@@ -224,6 +224,7 @@ namespace opt {
 
         void    init_solver();
         void    update_solver();
+        void    setup_arith_solver();
         void    add_maxsmt(symbol const& id);
         void    set_simplify(tactic *simplify);
         void    set_pareto(pareto_base* p);        
