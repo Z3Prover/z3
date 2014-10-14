@@ -187,6 +187,17 @@ namespace opt {
               tout << "\n";
               model_pp(tout, *m_model);
               );
+        IF_VERBOSE(2, verbose_stream() << "(optsmt.lower ";
+                   for (unsigned i = 0; i < m_lower.size(); ++i) {
+                       verbose_stream() << m_lower[i] << " ";
+                   }
+                   verbose_stream() << ")\n";);
+        for (unsigned i = 0; i < m_lower.size(); ++i) {
+            if (m_lower[i].is_pos() && !m_lower[i].is_finite()) {
+                disj[i] = m.mk_false();
+            }
+        }
+
         expr_ref constraint(m);        
         constraint = m.mk_or(disj.size(), disj.c_ptr());
         m_s->assert_expr(constraint);
