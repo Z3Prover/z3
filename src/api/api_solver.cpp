@@ -43,6 +43,7 @@ extern "C" {
         
         param_descrs r;
         s->m_solver->collect_param_descrs(r);
+        context_params::collect_solver_param_descrs(r);
         p.validate(r);
         s->m_solver->updt_params(p);
     }
@@ -106,6 +107,7 @@ extern "C" {
         if (!initialized)
             init_solver(c, s);
         to_solver_ref(s)->collect_param_descrs(descrs);
+        context_params::collect_solver_param_descrs(descrs);
         if (!initialized)
             to_solver(s)->m_solver = 0;
         descrs.display(buffer);
@@ -123,6 +125,7 @@ extern "C" {
         if (!initialized)
             init_solver(c, s);
         to_solver_ref(s)->collect_param_descrs(d->m_descrs);
+        context_params::collect_solver_param_descrs(d->m_descrs);
         if (!initialized)
             to_solver(s)->m_solver = 0;
         Z3_param_descrs r = of_param_descrs(d);
@@ -142,6 +145,7 @@ extern "C" {
                 to_solver_ref(s)->set_produce_models(new_model);
             param_descrs r;
             to_solver_ref(s)->collect_param_descrs(r);
+            context_params::collect_solver_param_descrs(r);
             to_param_ref(p).validate(r);
             to_solver_ref(s)->updt_params(to_param_ref(p));
         }
