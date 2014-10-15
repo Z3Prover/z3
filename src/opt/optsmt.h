@@ -34,11 +34,13 @@ namespace opt {
         vector<inf_eps>  m_lower;
         vector<inf_eps>  m_upper;
         app_ref_vector   m_objs;
+        expr_ref_vector  m_lower_fmls;
         svector<smt::theory_var> m_vars;
         symbol           m_optsmt_engine;
         model_ref        m_model;
     public:
-        optsmt(ast_manager& m): m(m), m_s(0), m_cancel(false), m_objs(m) {}
+        optsmt(ast_manager& m): 
+            m(m), m_s(0), m_cancel(false), m_objs(m), m_lower_fmls(m) {}
 
         void setup(opt_solver& solver);
 
@@ -73,7 +75,7 @@ namespace opt {
 
         lbool farkas_opt();
 
-        void set_max(vector<inf_eps>& dst, vector<inf_eps> const& src);
+        void set_max(vector<inf_eps>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls);
 
         void update_lower();
 

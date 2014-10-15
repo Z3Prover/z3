@@ -257,7 +257,7 @@ namespace pdr {
         void enqueue_leaf(model_node& n); // add leaf to priority queue.
         void update_models();
     public:
-        model_search(bool bfs):  m_bfs(bfs), m_root(0) {}
+        model_search(bool bfs): m_bfs(bfs), m_root(0) {}
         ~model_search();
 
         void reset();

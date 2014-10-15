@@ -61,6 +61,16 @@ namespace Microsoft.Z3
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
+        public void Add(Symbol name, string value)
+        {
+            Contract.Requires(value != null);
+
+            Native.Z3_params_set_symbol(Context.nCtx, NativeObject, name.NativeObject, Context.MkSymbol(value).NativeObject);
+        }
+
+        /// <summary>
+        /// Adds a parameter setting.
+        /// </summary>
         public void Add(Symbol name, Symbol value)
         {
             Contract.Requires(name != null);

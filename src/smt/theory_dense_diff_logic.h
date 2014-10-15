@@ -267,6 +267,7 @@ namespace smt {
         // -----------------------------------
 
         virtual inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker);
+        virtual inf_eps_rational<inf_rational> value(theory_var v);
         virtual theory_var add_objective(app* term);
         virtual expr_ref mk_gt(theory_var v, inf_rational const& val);
         virtual expr* mk_ge(theory_var v, inf_rational const& val) { return 0; }

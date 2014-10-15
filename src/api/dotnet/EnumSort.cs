@@ -88,7 +88,7 @@ namespace Microsoft.Z3
             IntPtr[] n_constdecls = new IntPtr[n];
             IntPtr[] n_testers = new IntPtr[n];
             NativeObject = Native.Z3_mk_enumeration_sort(ctx.nCtx, name.NativeObject, (uint)n,
-                                                         Symbol.ArrayToNative(enumNames), n_constdecls, n_testers);
+                                                         Symbol.ArrayToNative(enumNames), out n_constdecls, out n_testers);
         }
         #endregion
     };

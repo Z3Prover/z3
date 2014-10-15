@@ -2238,8 +2238,7 @@ namespace qe {
         m_params(p),
         m_trail(m),
         m_qe(0),
-        m_assumption(m.mk_true()),
-        m_use_new_qe(true)
+        m_assumption(m.mk_true())
     {
     }
 
@@ -2261,12 +2260,6 @@ namespace qe {
     }
 
     void expr_quant_elim::updt_params(params_ref const& p) {
-        bool r = p.get_bool("use_neq_qe", m_use_new_qe);
-        if (r != m_use_new_qe) {
-            dealloc(m_qe);
-            m_qe = 0;
-            m_use_new_qe = r;
-        }
         init_qe();
         m_qe->updt_params(p);
     }
@@ -2274,7 +2267,6 @@ namespace qe {
     void expr_quant_elim::collect_param_descrs(param_descrs& r) {
         r.insert("eliminate_variables_as_block", CPK_BOOL, 
                  "(default: true) eliminate variables as a block (true) or one at a time (false)");
-        // r.insert("use_new_qe", CPK_BOOL, "(default: true) invoke quantifier engine based on abstracted solver");
     }
 
     void expr_quant_elim::init_qe() {
@@ -2517,6 +2509,10 @@ namespace qe {
             add_plugin(mk_arith_plugin(*this, false, m_fparams));
         }
 
+        void updt_params(params_ref const& p) {
+            m_fparams.updt_params(p);
+        }
+
         virtual ~simplify_solver_context() { reset(); }    
         
         void solve(expr_ref& fml, app_ref_vector& vars) {
@@ -2607,6 +2603,10 @@ namespace qe {
     public:
         impl(ast_manager& m) : m(m), m_ctx(m) {}
 
+        void updt_params(params_ref const& p) {
+            m_ctx.updt_params(p);
+        }
+
         bool reduce_quantifier(
             quantifier * old_q, 
             expr * new_body, 
@@ -2670,6 +2670,10 @@ namespace qe {
         return imp->reduce_quantifier(old_q, new_body, new_patterns, new_no_patterns, result, result_pr);
     }
 
+    void simplify_rewriter_cfg::updt_params(params_ref const& p) {
+        imp->updt_params(p);
+    }
+
     bool simplify_rewriter_cfg::pre_visit(expr* e) {
         if (!is_quantifier(e)) return true;
         quantifier * q = to_quantifier(e);
@@ -2677,7 +2681,6 @@ namespace qe {
     }
     
     void simplify_exists(app_ref_vector& vars, expr_ref& fml) {
-        smt_params params;
         ast_manager& m = fml.get_manager();
         simplify_solver_context ctx(m);
         ctx.solve(fml, vars);       

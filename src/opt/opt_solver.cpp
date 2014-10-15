@@ -161,17 +161,27 @@ namespace opt {
 
     void opt_solver::maximize_objectives(expr_ref_vector& blockers) {
         expr_ref blocker(m);
+        vector<inf_eps> values;
+        for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
+            values.push_back(current_objective_value(i));
+        }
         for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
             maximize_objective(i, blocker);
             blockers.push_back(blocker);
+            if (values[i] > m_objective_values[i]) {
+                std::cout << "local optimization produced a worse result\n";
+                exit(0);
+            }
         }
     }
+
 
     void opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
         smt::theory_var v = m_objective_vars[i];
         m_objective_values[i] = get_optimizer().maximize(v, blocker);
         m_context.get_context().update_model();        
-        TRACE("opt", { model_ref mdl; get_model(mdl); model_smt2_pp(tout << "update model: ", m, *mdl, 0); });
+        TRACE("opt", { model_ref mdl; tout << m_objective_values[i] << "\n"; 
+                get_model(mdl); model_smt2_pp(tout << "update model: ", m, *mdl, 0); });
     }
     
     void opt_solver::get_unsat_core(ptr_vector<expr> & r) {
@@ -232,9 +242,15 @@ namespace opt {
         return m_objective_values;
     }
 
-    inf_eps const& opt_solver::get_objective_value(unsigned i) {
+    inf_eps const& opt_solver::saved_objective_value(unsigned i) {
         return m_objective_values[i];
     }
+
+    inf_eps opt_solver::current_objective_value(unsigned i) {
+        smt::theory_var v = m_objective_vars[i];
+        return get_optimizer().value(v);
+    }
+
 
     expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& val) {
         smt::theory_opt& opt = get_optimizer();

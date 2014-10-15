@@ -1426,7 +1426,6 @@ namespace sat {
 
     void simplifier::elim_vars() {
         if (!m_elim_vars) return;
-        
         elim_var_report rpt(*this);
         bool_var_vector vars;
         order_vars_for_elim(vars);

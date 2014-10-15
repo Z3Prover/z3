@@ -1059,12 +1059,16 @@ namespace smt {
     theory_var theory_arith<Ext>::add_objective(app* term) {
         theory_var v = internalize_term_core(term);
         TRACE("opt", tout << mk_pp(term, get_manager()) << " |-> v" << v << "\n";);
-        TRACE("opt", tout << "data-size: " << m_data.size() << "\n";);
         SASSERT(!is_quasi_base(v));
         if (!is_linear(get_manager(), term)) {
             v = null_theory_var;
         }
         return v;
+    }
+
+    template<typename Ext>
+    inf_eps_rational<inf_rational> theory_arith<Ext>::value(theory_var v) {
+        return inf_eps_rational<inf_rational>(get_value(v));
     }
 
     template<typename Ext>
@@ -1533,12 +1537,14 @@ namespace smt {
     */
     template<typename Ext>
     typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(theory_var v, bool max) {
-        TRACE("opt", tout << (max ? "maximizing" : "minimizing") << " v" << v << "...\n";);
+        expr* e = get_enode(v)->get_owner();
         SASSERT(valid_row_assignment());
         SASSERT(satisfy_bounds());
         SASSERT(!is_quasi_base(v));
-        if ((max && at_upper(v)) || (!max && at_lower(v)))
+        if ((max && at_upper(v)) || (!max && at_lower(v))) {
+            TRACE("opt", tout << "At bound: " << mk_pp(e, get_manager()) << "...\n";);
             return AT_BOUND; // nothing to be done...
+        }
         m_tmp_row.reset();
         if (is_non_base(v)) {
             add_tmp_row_entry<false>(m_tmp_row, numeral(1), v);
@@ -1554,11 +1560,16 @@ namespace smt {
         }
         max_min_t r = max_min(m_tmp_row, max);
         if (r == OPTIMIZED) {
-            TRACE("opt", tout << "v" << v << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
+            TRACE("opt", tout << mk_pp(e, get_manager()) << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););
             
-            mk_bound_from_row(v, get_value(v), max ? B_UPPER : B_LOWER, m_tmp_row);
-            
+            mk_bound_from_row(v, get_value(v), max ? B_UPPER : B_LOWER, m_tmp_row);            
+        }
+        else if (r == UNBOUNDED) {
+            TRACE("opt", tout << "unbounded: " << mk_pp(e, get_manager()) << "...\n";);
+        }
+        else {
+            TRACE("opt", tout << "not optimized: " << mk_pp(e, get_manager()) << "...\n";);
         }
         return r;
     }

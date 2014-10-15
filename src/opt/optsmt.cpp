@@ -46,12 +46,21 @@ namespace opt {
         m_cancel = f;
     }
 
-    void optsmt::set_max(vector<inf_eps>& dst, vector<inf_eps> const& src) {
+    void optsmt::set_max(vector<inf_eps>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls) {
         for (unsigned i = 0; i < src.size(); ++i) {
             if (src[i] > dst[i]) {
                 dst[i] = src[i];
+                m_lower_fmls[i] = fmls[i].get();
+                if (dst[i].is_pos() && !dst[i].is_finite()) { // review: likely done already.
+                    m_lower_fmls[i] = m.mk_false();
+                    fmls[i] = m.mk_false();
+                }
+            }
+            else if (src[i] < dst[i] && !m.is_true(m_lower_fmls[i].get())) {
+                fmls[i] = m_lower_fmls[i].get();
             }
         }
+        std::cout << "\n";
     }
 
     /*
@@ -131,20 +140,17 @@ namespace opt {
                     disj.reset();
                     m_s->maximize_objectives(disj);
                     m_s->get_model(m_model);                   
-                    set_max(m_lower, m_s->get_objective_values()); 
                     for (unsigned i = 0; i < ors.size(); ++i) {
                         expr_ref tmp(m);
                         m_model->eval(ors[i].get(), tmp);
                         if (m.is_true(tmp)) {
                             m_lower[i] = m_upper[i];
-                            ors[i] = m.mk_false();
-                        }
-                        if (m.is_false(ors[i].get())) {
+                            ors[i]  = m.mk_false();
                             disj[i] = m.mk_false();
                         }
                     }
+                    set_max(m_lower, m_s->get_objective_values(), disj);
                     or = m.mk_or(ors.size(), ors.c_ptr());
-                    bound = m.mk_or(disj.size(), disj.c_ptr());
                     m_s->assert_expr(or);
                 }
                 else if (is_sat == l_undef) {
@@ -155,6 +161,7 @@ namespace opt {
                 }
             }
         }
+        bound = m.mk_or(m_lower_fmls.size(), m_lower_fmls.c_ptr());
         m_s->assert_expr(bound);
         
         if (m_cancel) {
@@ -177,9 +184,9 @@ namespace opt {
 
     void optsmt::update_lower() {
         expr_ref_vector disj(m);
-        m_s->maximize_objectives(disj);
         m_s->get_model(m_model);
-        set_max(m_lower, m_s->get_objective_values());
+        m_s->maximize_objectives(disj);
+        set_max(m_lower, m_s->get_objective_values(), disj);
         TRACE("opt",
               for (unsigned i = 0; i < m_lower.size(); ++i) {
                   tout << m_lower[i] << " ";
@@ -192,11 +199,8 @@ namespace opt {
                        verbose_stream() << m_lower[i] << " ";
                    }
                    verbose_stream() << ")\n";);
-        for (unsigned i = 0; i < m_lower.size(); ++i) {
-            if (m_lower[i].is_pos() && !m_lower[i].is_finite()) {
-                disj[i] = m.mk_false();
-            }
-        }
+        IF_VERBOSE(3, verbose_stream() << disj << "\n";);
+        IF_VERBOSE(3, model_pp(verbose_stream(), *m_model););
 
         expr_ref constraint(m);        
         constraint = m.mk_or(disj.size(), disj.c_ptr());
@@ -309,7 +313,7 @@ namespace opt {
             
             m_s->maximize_objective(obj_index, block);
             m_s->get_model(m_model);
-            inf_eps obj = m_s->get_objective_value(obj_index);
+            inf_eps obj = m_s->saved_objective_value(obj_index);
             if (obj > m_lower[obj_index]) {
                 m_lower[obj_index] = obj;                
                 IF_VERBOSE(1, 
@@ -320,7 +324,7 @@ namespace opt {
                            );
                 for (unsigned i = obj_index+1; i < m_vars.size(); ++i) {
                     m_s->maximize_objective(i, tmp);
-                    m_lower[i] = m_s->get_objective_value(i);
+                    m_lower[i] = m_s->saved_objective_value(i);
                 }
             }
             m_s->assert_expr(block);
@@ -401,6 +405,7 @@ namespace opt {
         m_objs.push_back(to_app(t2));
         m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
         m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
+        m_lower_fmls.push_back(m.mk_true());
         return m_objs.size()-1;
     }
 
@@ -415,6 +420,7 @@ namespace opt {
         m_objs.reset();
         m_vars.reset();
         m_model.reset();
+        m_lower_fmls.reset();
         m_s = 0;
     }
 }

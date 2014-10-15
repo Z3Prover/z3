@@ -50,7 +50,7 @@ namespace Microsoft.Z3
                 IntPtr constructor = IntPtr.Zero;
                 IntPtr tester = IntPtr.Zero;
                 IntPtr[] accessors = new IntPtr[n];
-                Native.Z3_query_constructor(Context.nCtx, NativeObject, n, ref constructor, ref tester, accessors);
+                Native.Z3_query_constructor(Context.nCtx, NativeObject, n, ref constructor, ref tester, out accessors);
                 return new FuncDecl(Context, constructor);                
             }
         }
@@ -66,7 +66,7 @@ namespace Microsoft.Z3
                 IntPtr constructor = IntPtr.Zero;
                 IntPtr tester = IntPtr.Zero;
                 IntPtr[] accessors = new IntPtr[n];
-                Native.Z3_query_constructor(Context.nCtx, NativeObject, n, ref constructor, ref tester, accessors);
+                Native.Z3_query_constructor(Context.nCtx, NativeObject, n, ref constructor, ref tester, out accessors);
                 return new FuncDecl(Context, tester);                
             }
         }
@@ -82,7 +82,7 @@ namespace Microsoft.Z3
                 IntPtr constructor = IntPtr.Zero;
                 IntPtr tester = IntPtr.Zero;
                 IntPtr[] accessors = new IntPtr[n];
-                Native.Z3_query_constructor(Context.nCtx, NativeObject, n, ref constructor, ref tester, accessors);                
+                Native.Z3_query_constructor(Context.nCtx, NativeObject, n, ref constructor, ref tester, out accessors);                
                 FuncDecl[] t = new FuncDecl[n];
                 for (uint i = 0; i < n; i++)
                     t[i] = new FuncDecl(Context, accessors[i]); 

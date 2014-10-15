@@ -91,7 +91,7 @@ public:
     ~stopwatch() {}
     
     void reset() {
-	m_time = 0ull;
+        m_time = 0ull;
     }
     
     void start() {
@@ -102,11 +102,11 @@ public:
     }
 
     void stop() {
-	if (m_running) {
+        if (m_running) {
             mach_timespec_t _stop;
             clock_get_time(m_host_clock, &_stop);
             m_time += (_stop.tv_sec - m_start.tv_sec) * 1000000000ull;
-            m_time += (_stop.tv_nsec - m_start.tv_nsec);
+	    m_time += (_stop.tv_nsec - m_start.tv_nsec);
             m_running = false;
         }
     }
@@ -121,7 +121,7 @@ public:
     }
 
     double get_current_seconds() const { 
-	return get_seconds(); 
+        return get_seconds(); 
     }
 };
 
@@ -142,22 +142,23 @@ public:
     ~stopwatch() {}
     
     void reset() {
-	m_time = 0ull;
+        m_time = 0ull;
     }
     
     void start() {
         if (!m_running) {
-            clock_gettime(CLOCK_THREAD_CPUTIME_ID, &m_start);
+            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &m_start);
             m_running = true;
         }
     }
 
     void stop() {
-	if (m_running) {
+    if (m_running) {
             struct timespec _stop;
-            clock_gettime(CLOCK_THREAD_CPUTIME_ID, &_stop);
+            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &_stop);
             m_time += (_stop.tv_sec - m_start.tv_sec) * 1000000000ull;
-            m_time += (_stop.tv_nsec - m_start.tv_nsec);
+	    if (m_time != 0 || _stop.tv_nsec >= m_start.tv_nsec)
+	      m_time += (_stop.tv_nsec - m_start.tv_nsec);
             m_running = false;
         }
     }
@@ -172,7 +173,7 @@ public:
     }
 
     double get_current_seconds() const { 
-	return get_seconds(); 
+    return get_seconds(); 
     }
 };
 

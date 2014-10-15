@@ -36,6 +36,7 @@ class qe_tactic : public tactic {
         }
 
         void updt_params(params_ref const & p) {
+            m_fparams.updt_params(p);
             m_fparams.m_nlquant_elim = p.get_bool("qe_nonlinear", false);
             m_qe.updt_params(p);
         }

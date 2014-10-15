@@ -107,9 +107,10 @@ namespace opt {
         void reset_objectives();
         void maximize_objective(unsigned i, expr_ref& blocker);
         void maximize_objectives(expr_ref_vector& blockers);
+        inf_eps const & saved_objective_value(unsigned obj_index);
+        inf_eps current_objective_value(unsigned obj_index);
 
         vector<inf_eps> const& get_objective_values();
-        inf_eps const & get_objective_value(unsigned obj_index);
         expr_ref mk_ge(unsigned obj_index, inf_eps const& val);
 
         static opt_solver& to_opt(solver& s);

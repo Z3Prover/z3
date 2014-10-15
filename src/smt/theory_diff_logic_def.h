@@ -1078,43 +1078,32 @@ void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, 
 
 template<typename Ext>
 unsigned theory_diff_logic<Ext>::node2simplex(unsigned v) {
-    //return v;
     return m_objectives.size() + 2*v + 1;
 }
 template<typename Ext>
 unsigned theory_diff_logic<Ext>::edge2simplex(unsigned e) {
-    //return m_graph.get_num_nodes() + e;
     return m_objectives.size() + 2*e;
 }
 template<typename Ext>
 unsigned theory_diff_logic<Ext>::obj2simplex(unsigned e) {
-    //return m_graph.get_num_nodes() + m_graph.get_num_edges() + e;
     return e;
 }
 
 template<typename Ext>
 unsigned theory_diff_logic<Ext>::num_simplex_vars() {
-    //return m_graph.get_num_nodes() + m_graph.get_num_edges() + m_objectives.size();
     return m_objectives.size() + std::max(2*m_graph.get_num_edges(),2*m_graph.get_num_nodes()+1);
 }
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::is_simplex_edge(unsigned e) {
-#if 0
-    return 
-        m_graph.get_num_nodes() <= e &&
-        e < m_graph.get_num_nodes() + m_graph.get_num_edges();
-#else
     if (e < m_objectives.size()) return false;
     e -= m_objectives.size();
     return (0 == (e & 0x1));
-#endif
 }
 
 template<typename Ext> 
 unsigned theory_diff_logic<Ext>::simplex2edge(unsigned e) {
     SASSERT(is_simplex_edge(e));
-    //return e - m_graph.get_num_nodes();
     return (e - m_objectives.size())/2;
 }
 
@@ -1184,7 +1173,21 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
 }
 
 template<typename Ext>
-inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker) {
+typename theory_diff_logic<Ext>::inf_eps theory_diff_logic<Ext>::value(theory_var v) {
+     objective_term const& objective = m_objectives[v];   
+     inf_eps r = inf_eps(m_objective_consts[v]);
+     for (unsigned i = 0; i < objective.size(); ++i) {
+         numeral n = m_graph.get_assignment(v);
+         rational r1 = n.get_rational().to_rational();
+         rational r2 = n.get_infinitesimal().to_rational();
+         r += objective[i].second * inf_eps(rational(0), inf_rational(r1, r2));
+     }
+     return r;
+}
+
+template<typename Ext>
+typename theory_diff_logic<Ext>::inf_eps 
+theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker) {
     
     Simplex& S = m_S;
     ast_manager& m = get_manager();
@@ -1206,7 +1209,7 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v, ex
     lbool is_sat = S.make_feasible();
     if (is_sat == l_undef) {
         blocker = m.mk_false();
-        return inf_eps_rational<inf_rational>::infinity();        
+        return inf_eps::infinity();        
     }
     TRACE("opt", S.display(tout); );    
     SASSERT(is_sat != l_false);
@@ -1233,12 +1236,12 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v, ex
             }
         }
         blocker = mk_gt(v, r);
-        return inf_eps_rational<inf_rational>(rational(0), r);
+        return inf_eps(rational(0), r);
     }
     default:
         TRACE("opt", tout << "unbounded\n"; );        
         blocker = m.mk_false();
-        return inf_eps_rational<inf_rational>::infinity();        
+        return inf_eps::infinity();        
     }
 }
 
