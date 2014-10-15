@@ -60,8 +60,8 @@ namespace opt {
         inf_eps get_upper(unsigned index) const;
         void    get_model(model_ref& mdl);
 
-        void update_lower(unsigned idx, inf_eps const& r, bool override);
-        void update_upper(unsigned idx, inf_eps const& r, bool override);
+        void update_lower(unsigned idx, inf_eps const& r);
+        void update_upper(unsigned idx, inf_eps const& r);
 
         void reset();
         

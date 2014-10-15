@@ -48,7 +48,7 @@ namespace opt {
 
     void optsmt::set_max(vector<inf_eps>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls) {
         for (unsigned i = 0; i < src.size(); ++i) {
-            if (src[i] > dst[i]) {
+            if (src[i] >= dst[i]) {
                 dst[i] = src[i];
                 m_lower_fmls[i] = fmls[i].get();
                 if (dst[i].is_pos() && !dst[i].is_finite()) { // review: likely done already.
@@ -60,7 +60,6 @@ namespace opt {
                 fmls[i] = m_lower_fmls[i].get();
             }
         }
-        std::cout << "\n";
     }
 
     /*
@@ -170,16 +169,13 @@ namespace opt {
         return basic_opt();
     }
 
-    void optsmt::update_lower(unsigned idx, inf_eps const& v, bool override) {
-        if (m_lower[idx] < v || override) {
-            m_lower[idx] = v;            
-        }
+    void optsmt::update_lower(unsigned idx, inf_eps const& v) {
+        m_lower_fmls[idx] = m_s->mk_ge(idx, v);
+        m_lower[idx] = v;                    
     }
 
-    void optsmt::update_upper(unsigned idx, inf_eps const& v, bool override) {
-        if (m_upper[idx] > v || override) {
-            m_upper[idx] = v;            
-        }
+    void optsmt::update_upper(unsigned idx, inf_eps const& v) {
+        m_upper[idx] = v;                    
     }
 
     void optsmt::update_lower() {

@@ -843,7 +843,6 @@ namespace opt {
     void context::update_bound(bool is_lower) {
         expr_ref val(m);
         if (!m_model.get()) return;
-        bool override = true;
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             rational r;
@@ -852,10 +851,10 @@ namespace opt {
                 if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
                     if (is_lower) {
-                        m_optsmt.update_lower(obj.m_index, val, override);
+                        m_optsmt.update_lower(obj.m_index, val);
                     }
                     else {
-                        m_optsmt.update_upper(obj.m_index, val, override);
+                        m_optsmt.update_upper(obj.m_index, val);
                     }
                 }
                 break;
@@ -863,10 +862,10 @@ namespace opt {
                 if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
                     if (is_lower) {
-                        m_optsmt.update_lower(obj.m_index, val, override);
+                        m_optsmt.update_lower(obj.m_index, val);
                     }
                     else {
-                        m_optsmt.update_upper(obj.m_index, val, override);
+                        m_optsmt.update_upper(obj.m_index, val);
                     }
                 }
                 break;
