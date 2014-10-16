@@ -201,7 +201,7 @@ public:
         }
     }
 
-    void throw_unknown_parameter(symbol const & param_name, symbol const & mod_name) {
+    void throw_unknown_parameter(symbol const & param_name, param_descrs const& d, symbol const & mod_name) {
         if (mod_name == symbol::null) {
             char const * new_name = get_new_param_name(param_name);
             if (new_name) {
@@ -213,11 +213,20 @@ public:
                                 param_name.bare_str());
             }
             else {
-                throw exception("unknown parameter '%s'", param_name.bare_str());
+                std::stringstream strm;
+                strm << "unknown parameter '" << param_name << "'\n";    
+                strm << "Legal parameters are:\n";
+                d.display(strm, 2, false, false);
+                throw default_exception(strm.str());
             }
         }
         else {
-            throw exception("unknown parameter '%s' at module '%s'", param_name.bare_str(), mod_name.bare_str());
+            std::stringstream strm;
+            strm << "unknown parameter '" << param_name << "' ";
+            strm << "at module '" << mod_name << "'\n";
+            strm << "Legal parameters are:\n";
+            d.display(strm, 2, false, false);
+            throw default_exception(strm.str());
         }
     }
 
@@ -225,7 +234,7 @@ public:
         param_kind k = d.get_kind(param_name);
         params_ref & ps = get_params(mod_name);
         if (k == CPK_INVALID) {
-            throw_unknown_parameter(param_name, mod_name);
+            throw_unknown_parameter(param_name, d, mod_name);
         }
         else if (k == CPK_UINT) {
             long val = strtol(value, 0, 10);
@@ -312,7 +321,7 @@ public:
 
     std::string get_default(param_descrs const & d, symbol const & p, symbol const & m) {
         if (!d.contains(p)) {
-            throw_unknown_parameter(p, m);
+            throw_unknown_parameter(p, d, m);
         }
         char const * r = d.get_default(p);
         if (r == 0) 
@@ -478,7 +487,7 @@ public:
                         throw exception("unknown module '%s'", m.bare_str());
                 }
                 if (!d->contains(p))
-                    throw_unknown_parameter(p, m);
+                    throw_unknown_parameter(p, *d, m);
                 out << "  name:           " << p << "\n";
                 if (m != symbol::null) {
                     out << "  module:         " << m << "\n";

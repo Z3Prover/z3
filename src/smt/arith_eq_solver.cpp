@@ -604,7 +604,9 @@ bool arith_eq_solver::solve_integer_equations_gcd(
                 }
                 SASSERT(g == r0[i]);
             }
-            SASSERT(abs(r0[i]).is_one());
+            if (!abs(r0[i]).is_one()) {
+                return false;
+            }
             live.erase(live.begin()+live_pos);
             for (j = 0; j < live.size(); ++j) {
                 row& r = rows[live[j]];
