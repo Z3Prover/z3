@@ -3225,11 +3225,13 @@ namespace smt {
                 case QUASI_BASE:
                     SASSERT(m_columns[v].size() == 1);
                     del_row(get_var_row(v));
+                    TRACE("arith_make_feasible", tout << "del row v" << v << "\n";);
                     break; 
                 case BASE:
                     SASSERT(lazy_pivoting_lvl() != 0 || m_columns[v].size() == 1);
                     if (lazy_pivoting_lvl() > 0)
                         eliminate<false>(v, false);
+                    TRACE("arith_make_feasible", tout << "del row v" << v << "\n";);
                     del_row(get_var_row(v));
                     break;
                 case NON_BASE: {
@@ -3241,6 +3243,10 @@ namespace smt {
                         pivot<false>(r.get_base_var(), v, r[entry->m_row_idx].m_coeff, false);
                         SASSERT(is_base(v));
                         del_row(get_var_row(v));
+                        TRACE("arith_make_feasible", tout << "del row v" << v << "\n";);
+                    }
+                    else {
+                        TRACE("arith_make_feasible", tout << "no row v" << v << "\n";);
                     }
                     break;
                 } }
