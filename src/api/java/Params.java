@@ -28,6 +28,17 @@ public class Params extends Z3Object
         Native.paramsSetDouble(getContext().nCtx(), getNativeObject(),
                 name.getNativeObject(), value);
     }
+    
+    /**
+     * Adds a parameter setting.
+     **/
+    public void add(Symbol name, String value) throws Z3Exception
+    {
+
+        Native.paramsSetSymbol(getContext().nCtx(), getNativeObject(),
+                name.getNativeObject(), 
+                getContext().mkSymbol(value).getNativeObject());
+    }
 
     /**
      * Adds a parameter setting.
@@ -75,6 +86,17 @@ public class Params extends Z3Object
                 .mkSymbol(name).getNativeObject(), value.getNativeObject());
     }
 
+    /**
+     * Adds a parameter setting.
+     **/
+    public void add(String name, String value) throws Z3Exception
+    {
+
+        Native.paramsSetSymbol(getContext().nCtx(), getNativeObject(),
+                getContext().mkSymbol(name).getNativeObject(),
+                getContext().mkSymbol(value).getNativeObject());
+    }
+    
     /**
      * A string representation of the parameter set.
      **/
