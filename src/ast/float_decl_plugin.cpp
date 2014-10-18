@@ -581,8 +581,9 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("isSubnormal", OP_FLOAT_IS_SUBNORMAL));
     op_names.push_back(builtin_name("isSignMinus", OP_FLOAT_IS_SIGN_MINUS));
 
-    op_names.push_back(builtin_name("min", OP_FLOAT_MIN));
-    op_names.push_back(builtin_name("max", OP_FLOAT_MAX));
+    // Disabled min/max, clashes with user-defined min/max functions
+    // op_names.push_back(builtin_name("min", OP_FLOAT_MIN));
+    // op_names.push_back(builtin_name("max", OP_FLOAT_MAX));
 
     op_names.push_back(builtin_name("asFloat", OP_TO_FLOAT));
 
