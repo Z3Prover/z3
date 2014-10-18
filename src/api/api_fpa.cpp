@@ -121,6 +121,16 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    Z3_ast Z3_API Z3_mk_fpa_zero(Z3_context c, Z3_sort s, Z3_bool negative) {
+        Z3_TRY;
+        LOG_Z3_mk_fpa_inf(c, s, negative);
+        RESET_ERROR_CODE();
+        api::context * ctx = mk_c(c);
+        Z3_ast r = of_ast(negative != 0 ? ctx->float_util().mk_nzero(to_sort(s)) : ctx->float_util().mk_pzero(to_sort(s)));
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(0);
+    }
+
     Z3_ast Z3_API Z3_mk_fpa_double(Z3_context c, double v, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_fpa_double(c, v, ty);
@@ -361,7 +371,7 @@ extern "C" {
         LOG_Z3_mk_fpa_to_ieee_bv(c, t);
         RESET_ERROR_CODE();        
         api::context * ctx = mk_c(c);
-        Z3_ast r = of_ast(ctx->float_util().mk_to_ieee_bv(to_expr(t)));
+        Z3_ast r = of_ast(ctx->float_util().mk_float_to_ieee_bv(to_expr(t)));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }

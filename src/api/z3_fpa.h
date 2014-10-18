@@ -109,11 +109,24 @@ extern "C" {
         \param s target sort 
         \param negative indicates whether the result should be negative
      
-        When \c negative is true, -Inf will be generated instead of +Inf.
+        When \c negative is true, -oo will be generated instead of +oo.
 
         def_API('Z3_mk_fpa_inf', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
     */
     Z3_ast Z3_API Z3_mk_fpa_inf(__in Z3_context c, __in Z3_sort s, __in Z3_bool negative);
+
+    /**
+    \brief Create a floating point zero of sort s.
+
+    \param c logical context.
+    \param s target sort
+    \param negative indicates whether the result should be negative
+
+    When \c negative is true, -zero will be generated instead of +zero.
+
+    def_API('Z3_mk_fpa_zero', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
+    */
+    Z3_ast Z3_API Z3_mk_fpa_zero(__in Z3_context c, __in Z3_sort s, __in Z3_bool negative);
 
     /**
        \brief Create a numeral of floating point sort. 
@@ -130,6 +143,24 @@ extern "C" {
        \sa Z3_mk_numeral
 
        def_API('Z3_mk_fpa_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
+    */
+    Z3_ast Z3_API Z3_mk_fpa_double(__in Z3_context c, __in double v, __in Z3_sort ty);
+
+    /**
+    \brief Create a numeral of floating point sort.
+
+    This function can be use to create numerals that fit in a double value.
+    It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
+
+    \params c logical context.
+    \params v value.
+    \params ty sort.
+
+    ty must be a floating point sort
+
+    \sa Z3_mk_numeral
+
+    def_API('Z3_mk_fpa_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
     */
     Z3_ast Z3_API Z3_mk_fpa_double(__in Z3_context c, __in double v, __in Z3_sort ty);
 

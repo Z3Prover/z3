@@ -1844,9 +1844,17 @@ void fpa2bv_converter::mk_is_subnormal(func_decl * f, unsigned num, expr * const
     mk_is_denormal(args[0], result);
 }
 
-void fpa2bv_converter::mk_is_sign_minus(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+void fpa2bv_converter::mk_is_negative(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 1);
     mk_is_neg(args[0], result);
+}
+
+void fpa2bv_converter::mk_is_positive(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 1);
+    expr_ref t1(m), t2(m);
+    mk_is_nan(args[0], t1);
+    mk_is_pos(args[0], t2);
+    result = m.mk_and(m.mk_not(t1), t2);    
 }
 
 void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -2139,10 +2147,6 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
 void fpa2bv_converter::mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 3);
     mk_triple(args[0], args[2], args[1], result);
-}
-
-void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    NOT_IMPLEMENTED_YET();
 }
 
 void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {

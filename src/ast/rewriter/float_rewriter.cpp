@@ -36,17 +36,17 @@ br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     br_status st = BR_FAILED;
     SASSERT(f->get_family_id() == get_fid());
     switch (f->get_decl_kind()) {
-    case OP_TO_FLOAT:        st = mk_to_float(f, num_args, args, result); break;
+    case OP_TO_FLOAT:        st = mk_to_fp(f, num_args, args, result); break;
     case OP_FLOAT_ADD:       SASSERT(num_args == 3); st = mk_add(args[0], args[1], args[2], result); break;
     case OP_FLOAT_SUB:       SASSERT(num_args == 3); st = mk_sub(args[0], args[1], args[2], result); break;
-    case OP_FLOAT_UMINUS:    SASSERT(num_args == 1); st = mk_uminus(args[0], result); break;
+    case OP_FLOAT_NEG:       SASSERT(num_args == 1); st = mk_neg(args[0], result); break;
     case OP_FLOAT_MUL:       SASSERT(num_args == 3); st = mk_mul(args[0], args[1], args[2], result); break;
     case OP_FLOAT_DIV:       SASSERT(num_args == 3); st = mk_div(args[0], args[1], args[2], result); break;
     case OP_FLOAT_REM:       SASSERT(num_args == 2); st = mk_rem(args[0], args[1], result); break;
     case OP_FLOAT_ABS:       SASSERT(num_args == 1); st = mk_abs(args[0], result); break;
     case OP_FLOAT_MIN:       SASSERT(num_args == 2); st = mk_min(args[0], args[1], result); break;
     case OP_FLOAT_MAX:       SASSERT(num_args == 2); st = mk_max(args[0], args[1], result); break;
-    case OP_FLOAT_FUSED_MA:  SASSERT(num_args == 4); st = mk_fused_ma(args[0], args[1], args[2], args[3], result); break;
+    case OP_FLOAT_FMA:       SASSERT(num_args == 4); st = mk_fma(args[0], args[1], args[2], args[3], result); break;
     case OP_FLOAT_SQRT:      SASSERT(num_args == 2); st = mk_sqrt(args[0], args[1], result); break;
     case OP_FLOAT_ROUND_TO_INTEGRAL: SASSERT(num_args == 2); st = mk_round(args[0], args[1], result); break;
 
@@ -62,10 +62,10 @@ br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_FLOAT_IS_INF:    SASSERT(num_args == 1); st = mk_is_inf(args[0], result); break;
     case OP_FLOAT_IS_NORMAL: SASSERT(num_args == 1); st = mk_is_normal(args[0], result); break;
     case OP_FLOAT_IS_SUBNORMAL: SASSERT(num_args == 1); st = mk_is_subnormal(args[0], result); break;
-    case OP_FLOAT_IS_SIGN_MINUS: SASSERT(num_args == 1); st = mk_is_sign_minus(args[0], result); break;
-    case OP_TO_IEEE_BV:      SASSERT(num_args == 1); st = mk_to_ieee_bv(args[0], result); break;
-    case OP_FLOAT_FP:        SASSERT(num_args == 3); st = mk_fp(args[0], args[1], args[2], result); break;
-    case OP_FLOAT_TO_FP_UNSIGNED: SASSERT(num_args == 2); st = mk_to_fp_unsigned(args[0], args[1], result); break;
+    case OP_FLOAT_IS_NEGATIVE: SASSERT(num_args == 1); st = mk_is_negative(args[0], result); break;
+    case OP_FLOAT_IS_POSITIVE: SASSERT(num_args == 1); st = mk_is_positive(args[0], result); break;
+    case OP_FLOAT_TO_IEEE_BV: SASSERT(num_args == 1); st = mk_to_ieee_bv(args[0], result); break;
+    case OP_FLOAT_FP:        SASSERT(num_args == 3); st = mk_fp(args[0], args[1], args[2], result); break;    
     case OP_FLOAT_TO_UBV:    SASSERT(num_args == 2); st = mk_to_ubv(args[0], args[1], result); break;
     case OP_FLOAT_TO_SBV:    SASSERT(num_args == 2); st = mk_to_sbv(args[0], args[1], result); break;
     case OP_FLOAT_TO_REAL:   SASSERT(num_args == 1); st = mk_to_real(args[0], result); break;
@@ -73,7 +73,7 @@ br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     return st;
 }
 
-br_status float_rewriter::mk_to_float(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
+br_status float_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_num_parameters() == 2);
     SASSERT(f->get_parameter(0).is_int());
     SASSERT(f->get_parameter(1).is_int());
@@ -188,7 +188,7 @@ br_status float_rewriter::mk_div(expr * arg1, expr * arg2, expr * arg3, expr_ref
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_uminus(expr * arg1, expr_ref & result) {
+br_status float_rewriter::mk_neg(expr * arg1, expr_ref & result) {
     if (m_util.is_nan(arg1)) {
         // -nan --> nan
         result = arg1;
@@ -284,7 +284,7 @@ br_status float_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_REWRITE_FULL;
 }
 
-br_status float_rewriter::mk_fused_ma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result) {
+br_status float_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result) {
     mpf_rounding_mode rm;
     if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm()), v3(m_util.fm()), v4(m_util.fm());
@@ -480,7 +480,7 @@ br_status float_rewriter::mk_is_subnormal(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_is_sign_minus(expr * arg1, expr_ref & result) {
+br_status float_rewriter::mk_is_negative(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_neg(v)) ? m().mk_true() : m().mk_false();
@@ -489,6 +489,17 @@ br_status float_rewriter::mk_is_sign_minus(expr * arg1, expr_ref & result) {
 
     return BR_FAILED;
 }
+
+br_status float_rewriter::mk_is_positive(expr * arg1, expr_ref & result) {
+    scoped_mpf v(m_util.fm());
+    if (m_util.is_value(arg1, v)) {
+        result = (m_util.fm().is_neg(v) || m_util.fm().is_nan(v)) ? m().mk_false() : m().mk_true();
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
 
 // This the SMT =
 br_status float_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) {
@@ -529,10 +540,6 @@ br_status float_rewriter::mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref 
         return BR_DONE;
     }
 
-    return BR_FAILED;
-}
-
-br_status float_rewriter::mk_to_fp_unsigned(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_FAILED;
 }
 

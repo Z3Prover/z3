@@ -44,18 +44,17 @@ public:
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * arg1, expr * arg2, expr_ref & result);
-
-    br_status mk_to_float(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
+    
     br_status mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
     br_status mk_sub(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
     br_status mk_mul(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
     br_status mk_div(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
-    br_status mk_uminus(expr * arg1, expr_ref & result);
+    br_status mk_neg(expr * arg1, expr_ref & result);
     br_status mk_rem(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_abs(expr * arg1, expr_ref & result);
     br_status mk_min(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_max(expr * arg1, expr * arg2, expr_ref & result);
-    br_status mk_fused_ma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result);
+    br_status mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result);
     br_status mk_sqrt(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_round(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_float_eq(expr * arg1, expr * arg2, expr_ref & result);
@@ -70,10 +69,12 @@ public:
     br_status mk_is_inf(expr * arg1, expr_ref & result);
     br_status mk_is_normal(expr * arg1, expr_ref & result);
     br_status mk_is_subnormal(expr * arg1, expr_ref & result);
-    br_status mk_is_sign_minus(expr * arg1, expr_ref & result);
+    br_status mk_is_negative(expr * arg1, expr_ref & result);
+    br_status mk_is_positive(expr * arg1, expr_ref & result);
 
     br_status mk_to_ieee_bv(expr * arg1, expr_ref & result);
 
+    br_status mk_to_fp(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
     br_status mk_to_fp_unsigned(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_to_ubv(expr * arg1, expr * arg2, expr_ref & result);
