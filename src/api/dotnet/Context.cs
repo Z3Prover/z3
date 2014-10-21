@@ -3527,26 +3527,9 @@ namespace Microsoft.Z3
         /// Only a few configuration parameters are mutable once the context is created.
         /// An exception is thrown when trying to modify an immutable parameter.
         /// </remarks>
-        /// <seealso cref="GetParamValue"/>
         public void UpdateParamValue(string id, string value)
         {
             Native.Z3_update_param_value(nCtx, id, value);
-        }
-
-        /// <summary>
-        /// Get a configuration parameter.
-        /// </summary>
-        /// <remarks>
-        /// Returns null if the parameter value does not exist.
-        /// </remarks>
-        /// <seealso cref="UpdateParamValue"/>
-        public string GetParamValue(string id)
-        {
-            IntPtr res = IntPtr.Zero;
-            if (Native.Z3_get_param_value(nCtx, id, out res) == 0)
-                return null;
-            else
-                return Marshal.PtrToStringAnsi(res);
         }
 
         #endregion
