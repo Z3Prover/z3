@@ -230,6 +230,43 @@ public:
         }
     }
 
+    void validate_type(symbol const& name, char const* value, param_descrs const& d) {
+        param_kind k = d.get_kind(name);
+        std::stringstream strm;
+
+        switch (k) {
+        case CPK_UINT:
+            for (; *value; ++value) {
+                if (!('0' <= *value && *value <= '9')) {
+                    strm << "Expected values for parameter " << name 
+                         << " is an unsigned integer. It was given argument '" << value << "'";
+                    throw default_exception(strm.str());                    
+                }
+            }
+            break;
+        case CPK_DOUBLE:
+            for (; *value; ++value) {
+                if (!('0' <= *value && *value <= '9') && *value != '.' && *value != '-') {
+                    strm << "Expected values for parameter " << name 
+                         << " is a double. It was given argument '" << value << "'";
+                    throw default_exception(strm.str());                                        
+                }
+            }
+            break;
+
+        case CPK_BOOL:
+            if (strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {
+                strm << "Expected values for parameter " << name 
+                     << " are 'true' or 'false'. It was given argument '" << value << "'";
+                throw default_exception(strm.str());
+            }
+            break;
+        case CPK_SYMBOL:
+        case CPK_STRING:
+            break;
+        }
+    }
+
     void set(param_descrs const & d, symbol const & param_name, char const * value, symbol const & mod_name) {
         param_kind k = d.get_kind(param_name);
         params_ref & ps = get_params(mod_name);
@@ -291,11 +328,13 @@ public:
                 symbol m, p;
                 normalize(name, m, p);
                 if (m == symbol::null) {
+                    validate_type(p, value, get_param_descrs());
                     set(get_param_descrs(), p, value, m);
                 }
                 else {
                     param_descrs * d;
                     if (get_module_param_descrs().find(m, d)) {
+                        validate_type(p, value, *d);
                         set(*d, p, value, m);
                     }
                     else {
