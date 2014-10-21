@@ -233,22 +233,22 @@ public:
     void validate_type(symbol const& name, char const* value, param_descrs const& d) {
         param_kind k = d.get_kind(name);
         std::stringstream strm;
-
+        char const* _value = value;
         switch (k) {
         case CPK_UINT:
             for (; *value; ++value) {
                 if (!('0' <= *value && *value <= '9')) {
                     strm << "Expected values for parameter " << name 
-                         << " is an unsigned integer. It was given argument '" << value << "'";
+                         << " is an unsigned integer. It was given argument '" << _value << "'";
                     throw default_exception(strm.str());                    
                 }
             }
             break;
         case CPK_DOUBLE:
             for (; *value; ++value) {
-                if (!('0' <= *value && *value <= '9') && *value != '.' && *value != '-') {
+                if (!('0' <= *value && *value <= '9') && *value != '.' && *value != '-' && *value != '/') {
                     strm << "Expected values for parameter " << name 
-                         << " is a double. It was given argument '" << value << "'";
+                         << " is a double. It was given argument '" << _value << "'";
                     throw default_exception(strm.str());                                        
                 }
             }
