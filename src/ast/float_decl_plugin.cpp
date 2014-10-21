@@ -314,8 +314,8 @@ func_decl * float_decl_plugin::mk_binary_decl(decl_kind k, unsigned num_paramete
     symbol name;
     switch (k) {
     case OP_FLOAT_REM: name = "remainder";  break;
-    case OP_FLOAT_MIN: name = "min";   break;
-    case OP_FLOAT_MAX: name = "max";   break;
+    case OP_FLOAT_MIN: name = "fp.min";   break;
+    case OP_FLOAT_MAX: name = "fp.max";   break;
     default:
         UNREACHABLE();
         break;
