@@ -261,8 +261,7 @@ public:
                 throw default_exception(strm.str());
             }
             break;
-        case CPK_SYMBOL:
-        case CPK_STRING:
+        default:
             break;
         }
     }
