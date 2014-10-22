@@ -61,9 +61,6 @@ void context_params::set(char const * param, char const * value) {
     else if (p == "proof") {
         set_bool(m_proof, param, value);
     }
-    else if (p == "check_interpolants") {
-        set_bool(m_check_interpolants, param, value);
-    }
     else if (p == "model") {
         set_bool(m_model, param, value);
     }
@@ -105,7 +102,6 @@ void context_params::updt_params(params_ref const & p) {
     m_well_sorted_check = p.get_bool("type_check", p.get_bool("well_sorted_check", true));
     m_auto_config       = p.get_bool("auto_config", true);
     m_proof             = p.get_bool("proof", false);
-    m_check_interpolants = p.get_bool("check_interpolants", false);
     m_model             = p.get_bool("model", true);
     m_model_validate    = p.get_bool("model_validate", false);
     m_trace             = p.get_bool("trace", false);
@@ -120,7 +116,6 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("well_sorted_check", CPK_BOOL, "type checker", "true");
     d.insert("type_check", CPK_BOOL, "type checker (alias for well_sorted_check)", "true");
     d.insert("auto_config", CPK_BOOL, "use heuristics to automatically select solver and configure it", "true");
-    d.insert("check_interpolants", CPK_BOOL, "check correctness of interpolants", "false");
     d.insert("model_validate", CPK_BOOL, "validate models produced by solvers", "false");
     d.insert("trace", CPK_BOOL, "trace generation for VCC", "false");
     d.insert("trace_file_name", CPK_STRING, "trace out file name (see option 'trace')", "z3.log");
