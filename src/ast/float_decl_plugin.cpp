@@ -635,61 +635,18 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     
     op_names.push_back(builtin_name("to_fp", OP_FLOAT_FP));
 
-    if (m_bv_plugin) {
-        op_names.push_back(builtin_name("fp", OP_FLOAT_FP));        
-        op_names.push_back(builtin_name("fp.to_ubv", OP_FLOAT_TO_UBV));
-        op_names.push_back(builtin_name("fp.to_sbv", OP_FLOAT_TO_SBV));
-    }
-        
-    // We also support the names of operators in older drafts.
-    op_names.push_back(builtin_name("plusInfinity", OP_FLOAT_PLUS_INF));
-    op_names.push_back(builtin_name("minusInfinity", OP_FLOAT_MINUS_INF));
+    op_names.push_back(builtin_name("fp", OP_FLOAT_FP));        
+    op_names.push_back(builtin_name("fp.to_ubv", OP_FLOAT_TO_UBV));
+    op_names.push_back(builtin_name("fp.to_sbv", OP_FLOAT_TO_SBV));
 
-    op_names.push_back(builtin_name("+", OP_FLOAT_ADD));
-    op_names.push_back(builtin_name("-", OP_FLOAT_SUB));
-    op_names.push_back(builtin_name("/", OP_FLOAT_DIV));
-    op_names.push_back(builtin_name("*", OP_FLOAT_MUL));
-
-    op_names.push_back(builtin_name("abs", OP_FLOAT_ABS));
-    op_names.push_back(builtin_name("remainder", OP_FLOAT_REM));
-    op_names.push_back(builtin_name("fusedMA", OP_FLOAT_FMA));
-    op_names.push_back(builtin_name("squareRoot", OP_FLOAT_SQRT));
-    op_names.push_back(builtin_name("roundToIntegral", OP_FLOAT_ROUND_TO_INTEGRAL));
-
-    op_names.push_back(builtin_name("==", OP_FLOAT_EQ));
-
-    op_names.push_back(builtin_name("<", OP_FLOAT_LT));
-    op_names.push_back(builtin_name(">", OP_FLOAT_GT));
-    op_names.push_back(builtin_name("<=", OP_FLOAT_LE));
-    op_names.push_back(builtin_name(">=", OP_FLOAT_GE));
-
-    op_names.push_back(builtin_name("isNaN", OP_FLOAT_IS_NAN));
-    op_names.push_back(builtin_name("isInfinite", OP_FLOAT_IS_INF));
-    op_names.push_back(builtin_name("isZero", OP_FLOAT_IS_ZERO));
-    op_names.push_back(builtin_name("isNZero", OP_FLOAT_IS_NZERO));
-    op_names.push_back(builtin_name("isPZero", OP_FLOAT_IS_PZERO));
-    op_names.push_back(builtin_name("isNormal", OP_FLOAT_IS_NORMAL));
-    op_names.push_back(builtin_name("isSubnormal", OP_FLOAT_IS_SUBNORMAL));
-    op_names.push_back(builtin_name("isSignMinus", OP_FLOAT_IS_NEGATIVE));
-
-    // Disabled min/max, clashes with user-defined min/max functions
-    // op_names.push_back(builtin_name("min", OP_FLOAT_MIN));
-    // op_names.push_back(builtin_name("max", OP_FLOAT_MAX));
-
-    op_names.push_back(builtin_name("to_fp", OP_TO_FLOAT));
-
-    if (m_bv_plugin)
-        op_names.push_back(builtin_name("asIEEEBV", OP_FLOAT_TO_IEEE_BV));
+    op_names.push_back(builtin_name("to_fp", OP_TO_FLOAT));    
 }
 
-void float_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
-    // Old draft sort names.
-    sort_names.push_back(builtin_name("FP", FLOAT_SORT));
+void float_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {    
+    sort_names.push_back(builtin_name("FloatingPoint", FLOAT_SORT));
     sort_names.push_back(builtin_name("RoundingMode", ROUNDING_MODE_SORT));
 
-    // In the final draft, FP is called FloatingPoint ...
-    sort_names.push_back(builtin_name("FloatingPoint", FLOAT_SORT));
-    // ... and it supports three common FloatingPoint sorts
+    // The final theory supports three common FloatingPoint sorts
     sort_names.push_back(builtin_name("Float16", FLOAT16_SORT));
     sort_names.push_back(builtin_name("Float32", FLOAT32_SORT));
     sort_names.push_back(builtin_name("Float64", FLOAT64_SORT));
