@@ -123,6 +123,7 @@ namespace opt {
         m_objective_refs(m),
         m_enable_sat(false),
         m_enable_sls(false),
+        m_is_clausal(false),
         m_pp_neat(false)
     {
         params_ref p;
@@ -553,6 +554,10 @@ namespace opt {
     }
 
     void context::simplify_fmls(expr_ref_vector& fmls) {
+        if (m_is_clausal) {
+            return;
+        }
+
         goal_ref g(alloc(goal, m, true, false));
         for (unsigned i = 0; i < fmls.size(); ++i) {
             g->assert_expr(fmls[i].get());

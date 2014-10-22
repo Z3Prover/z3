@@ -81,8 +81,8 @@ public:
         simp2_p.set_bool("hoist_mul", false); // required by som
         m_preprocess = 
             and_then(mk_card2bv_tactic(m, m_params),
-                     mk_simplify_tactic(m),
-                     mk_propagate_values_tactic(m),
+                     //mk_simplify_tactic(m),
+                     //mk_propagate_values_tactic(m),
                      using_params(mk_simplify_tactic(m), simp2_p),
                      mk_max_bv_sharing_tactic(m),
                      mk_bit_blaster_tactic(m), 

@@ -161,17 +161,9 @@ namespace opt {
 
     void opt_solver::maximize_objectives(expr_ref_vector& blockers) {
         expr_ref blocker(m);
-        vector<inf_eps> values;
-        for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
-            values.push_back(current_objective_value(i));
-        }
         for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
             maximize_objective(i, blocker);
             blockers.push_back(blocker);
-            if (values[i] > m_objective_values[i]) {
-                std::cout << "local optimization produced a worse result\n";
-                exit(0);
-            }
         }
     }
 

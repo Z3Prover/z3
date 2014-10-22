@@ -118,7 +118,9 @@ class wcnf {
 
 public:
     
-    wcnf(opt::context& opt, stream_buffer& in): opt(opt), m(opt.get_manager()), in(in) {}
+    wcnf(opt::context& opt, stream_buffer& in): opt(opt), m(opt.get_manager()), in(in) {
+        opt.set_clausal(true);
+    }
     
     void parse() {
         int num_vars = 0, num_clauses = 0, max_weight = 0;

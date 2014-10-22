@@ -90,15 +90,17 @@ namespace sat {
                 break;
             }
             unsigned num_literals = core.size() + mus.size();
+            if (num_literals <= 2) {
+                // IF_VERBOSE(0, verbose_stream() << "num literals: " << core << " " << mus << "\n";);
+                break;
+            }
 
             literal lit = core.back();
             core.pop_back();
             lbool is_sat;
             {
                 scoped_append _sa(mus, core);
-                if (true || core_miss < 2) {
-                    mus.push_back(~lit); // TBD: measure
-                }
+                mus.push_back(~lit); 
                 is_sat = s.check(mus.size(), mus.c_ptr());
                 TRACE("sat", tout << "mus: " << mus << "\n";);
             }
@@ -146,7 +148,7 @@ namespace sat {
         }
         TRACE("sat", tout << "new core: " << mus << "\n";);
         set_core();
-        IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << core << ")\n";);
+        IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << s.m_core << ")\n";);
         return l_true;
     }
     

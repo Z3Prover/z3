@@ -88,6 +88,7 @@ private:
     rational         m_max_upper;
     bool             m_found_feasible_optimum;
     bool             m_hill_climb;             // prefer large weight soft clauses for cores
+    unsigned         m_last_index;             // last index used during hill-climbing
     bool             m_add_upper_bound_block;  // restrict upper bound with constraint
     unsigned         m_max_num_cores;          // max number of cores per round.
     unsigned         m_max_core_size;          // max core size per round.
@@ -110,6 +111,7 @@ public:
         m_st(st),
         m_found_feasible_optimum(false),
         m_hill_climb(true),
+        m_last_index(0),
         m_add_upper_bound_block(false),
         m_max_num_cores(UINT_MAX),
         m_max_core_size(3),
@@ -352,16 +354,21 @@ public:
             /**
                Give preference to cores that have large minmal values.
             */
-            sort_assumptions(asms);            
-            unsigned index = 0;
-            unsigned last_index = 0;
+            sort_assumptions(asms);  
+            
+            m_last_index = std::min(m_last_index, asms.size()-1);
+            m_last_index = 0;
+            unsigned index = m_last_index>0?m_last_index-1:0;
+            m_last_index = 0;
+            bool first = index > 0;
+            SASSERT(index < asms.size() || asms.empty());
             while (index < asms.size() && is_sat == l_true) {
-                while (asms.size() > 20*(index - last_index) && index < asms.size()) {
+                while (!first && asms.size() > 20*(index - m_last_index) && index < asms.size()) {
                     index = next_index(asms, index);
-                    //break;
                 }
-                IF_VERBOSE(3, verbose_stream() << "weight: " << get_weight(asms[0].get()) << " " << get_weight(asms[index-1].get()) << "\n";);
-                last_index = index;
+                first = false;
+                IF_VERBOSE(3, verbose_stream() << "weight: " << get_weight(asms[0].get()) << " " << get_weight(asms[index-1].get()) << " num soft: " << index << "\n";);
+                m_last_index = index;
                 is_sat = s().check_sat(index, asms.c_ptr());
             }            
         }
@@ -880,6 +887,7 @@ public:
         }
         m_max_upper = m_upper;
         m_found_feasible_optimum = false;
+        m_last_index = 0;
         add_upper_bound_block();
     }
 

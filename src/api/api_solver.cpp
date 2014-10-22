@@ -149,7 +149,7 @@ extern "C" {
             to_param_ref(p).validate(r);
             to_solver_ref(s)->updt_params(to_param_ref(p));
         }
-        to_solver(s)->m_params = to_param_ref(p);
+        to_solver(s)->m_params.append(to_param_ref(p));
         Z3_CATCH;
     }
     

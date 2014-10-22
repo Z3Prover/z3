@@ -135,6 +135,7 @@ class propagate_values_tactic : public tactic {
 
             TRACE("shallow_context_simplifier_bug", tout << mk_ismt2_pp(curr, m()) << "\n---->\n" << mk_ismt2_pp(new_curr, m()) << "\n";);
             push_result(new_curr, new_pr);
+            
             if (new_curr != curr)
                 m_modified = true;
         }
@@ -158,6 +159,9 @@ class propagate_values_tactic : public tactic {
             unsigned round = 0;
 
             if (m_goal->inconsistent())
+                goto end;
+
+            if (m_max_rounds == 0)
                 goto end;
 
             m_subst = alloc(expr_substitution, m(), g->unsat_core_enabled(), g->proofs_enabled());
