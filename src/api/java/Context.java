@@ -2904,25 +2904,11 @@ public class Context extends IDisposable
      * configuration parameters can be obtained using the Z3 executable:
      * <code>z3.exe -ini?</code> Only a few configuration parameters are mutable
      * once the context is created. An exception is thrown when trying to modify
-     * an immutable parameter. </remarks> <seealso cref="GetParamValue"/>
+     * an immutable parameter. </remarks> 
      **/
     public void updateParamValue(String id, String value) throws Z3Exception
     {
         Native.updateParamValue(nCtx(), id, value);
-    }
-
-    /**
-     * Get a configuration parameter. <remarks> Returns null if the parameter
-     * value does not exist. </remarks> <seealso cref="UpdateParamValue"/>
-     **/
-    public String getParamValue(String id) throws Z3Exception
-    {
-        Native.StringPtr res = new Native.StringPtr();
-        boolean r = Native.getParamValue(nCtx(), id, res);
-        if (!r)
-            return null;
-        else
-            return res.value;
     }
 
     long m_ctx = 0;
