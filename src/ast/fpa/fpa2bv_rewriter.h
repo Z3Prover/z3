@@ -142,8 +142,8 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FLOAT_IS_INF: m_conv.mk_is_inf(f, num, args, result); return BR_DONE;
             case OP_FLOAT_IS_NORMAL: m_conv.mk_is_normal(f, num, args, result); return BR_DONE;
             case OP_FLOAT_IS_SUBNORMAL: m_conv.mk_is_subnormal(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_POSITIVE: m_conv.mk_is_negative(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_NEGATIVE: m_conv.mk_is_positive(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_IS_POSITIVE: m_conv.mk_is_positive(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_IS_NEGATIVE: m_conv.mk_is_negative(f, num, args, result); return BR_DONE;
             case OP_TO_FLOAT: m_conv.mk_to_float(f, num, args, result); return BR_DONE;
             case OP_FLOAT_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
             case OP_FLOAT_FP: m_conv.mk_fp(f, num, args, result); return BR_DONE;           
