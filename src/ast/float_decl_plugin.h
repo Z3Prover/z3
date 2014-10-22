@@ -27,7 +27,11 @@ Revision History:
  
 enum float_sort_kind {
     FLOAT_SORT,
-    ROUNDING_MODE_SORT
+    ROUNDING_MODE_SORT,
+    FLOAT16_SORT,
+    FLOAT32_SORT,
+    FLOAT64_SORT,
+    FLOAT128_SORT
 };
 
 enum float_op_kind {
@@ -37,22 +41,23 @@ enum float_op_kind {
     OP_RM_TOWARD_NEGATIVE,
     OP_RM_TOWARD_ZERO,
 
-    
     OP_FLOAT_VALUE,
     OP_FLOAT_PLUS_INF,
     OP_FLOAT_MINUS_INF,
     OP_FLOAT_NAN,
+    OP_FLOAT_PLUS_ZERO,
+    OP_FLOAT_MINUS_ZERO,
     
     OP_FLOAT_ADD,
     OP_FLOAT_SUB,
-    OP_FLOAT_UMINUS,
+    OP_FLOAT_NEG,
     OP_FLOAT_MUL,
     OP_FLOAT_DIV,
     OP_FLOAT_REM,
     OP_FLOAT_ABS,
     OP_FLOAT_MIN,
     OP_FLOAT_MAX,
-    OP_FLOAT_FUSED_MA, // x*y + z
+    OP_FLOAT_FMA, // x*y + z
     OP_FLOAT_SQRT,
     OP_FLOAT_ROUND_TO_INTEGRAL,
 
@@ -68,13 +73,14 @@ enum float_op_kind {
     OP_FLOAT_IS_SUBNORMAL,    
     OP_FLOAT_IS_PZERO,
     OP_FLOAT_IS_NZERO,
-    OP_FLOAT_IS_SIGN_MINUS,
+    OP_FLOAT_IS_NEGATIVE,
+    OP_FLOAT_IS_POSITIVE,
 
     OP_TO_FLOAT,
-    OP_TO_IEEE_BV,
+    OP_FLOAT_TO_IEEE_BV,
 
     OP_FLOAT_FP,
-    OP_FLOAT_TO_FP_UNSIGNED,
+    OP_FLOAT_TO_FP,    
     OP_FLOAT_TO_UBV,
     OP_FLOAT_TO_SBV,
     OP_FLOAT_TO_REAL,
@@ -125,16 +131,14 @@ class float_decl_plugin : public decl_plugin {
                                   unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_rm_unary_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                  unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_fused_ma(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                            unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_fma(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                       unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_float(decl_kind k, unsigned num_parameters, parameter const * parameters,
                             unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                              unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_float_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                    unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_from3bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                            unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_to_fp_unsigned(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                  unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_ubv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_sbv(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -195,6 +199,7 @@ public:
     family_id get_fid() const { return m_fid; }
     family_id get_family_id() const { return m_fid; }
     arith_util & au() { return m_a_util; }
+    float_decl_plugin & plugin() { return *m_plugin; }
 
     sort * mk_float_sort(unsigned ebits, unsigned sbits);
     sort * mk_rm_sort() { return m().mk_sort(m_fid, ROUNDING_MODE_SORT); }
@@ -242,16 +247,16 @@ public:
     app * mk_mul(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_MUL, arg1, arg2, arg3); }
     app * mk_sub(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_SUB, arg1, arg2, arg3); }
     app * mk_div(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_DIV, arg1, arg2, arg3); }
-    app * mk_uminus(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_UMINUS, arg1); }
+    app * mk_neg(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_NEG, arg1); }
     app * mk_rem(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_REM, arg1, arg2); }
     app * mk_max(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_MAX, arg1, arg2); }
     app * mk_min(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_MIN, arg1, arg2); }
     app * mk_abs(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_ABS, arg1); }
     app * mk_sqrt(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_SQRT, arg1, arg2); }
     app * mk_round(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_ROUND_TO_INTEGRAL, arg1, arg2); }
-    app * mk_fused_ma(expr * arg1, expr * arg2, expr * arg3, expr * arg4) {
+    app * mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4) {
         expr * args[4] = { arg1, arg2, arg3, arg4 };
-        return m().mk_app(m_fid, OP_FLOAT_FUSED_MA, 4, args);
+        return m().mk_app(m_fid, OP_FLOAT_FMA, 4, args);
     }
 
     app * mk_float_eq(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_EQ, arg1, arg2); }
@@ -267,11 +272,13 @@ public:
     app * mk_is_subnormal(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_SUBNORMAL, arg1); }
     app * mk_is_nzero(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NZERO, arg1); }
     app * mk_is_pzero(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_PZERO, arg1); }
-    app * mk_is_sign_minus(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_SIGN_MINUS, arg1); }
+    app * mk_is_sign_minus(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NEGATIVE, arg1); }
+    app * mk_is_positive(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_POSITIVE, arg1); }
+    app * mk_is_negative(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NEGATIVE, arg1); }
 
-    bool is_uminus(expr * a) { return is_app_of(a, m_fid, OP_FLOAT_UMINUS); }
+    bool is_neg(expr * a) { return is_app_of(a, m_fid, OP_FLOAT_NEG); }
     
-    app * mk_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_TO_IEEE_BV, arg1); }
+    app * mk_float_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_TO_IEEE_BV, arg1); }
 };
 
 #endif
