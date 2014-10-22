@@ -2911,20 +2911,6 @@ public class Context extends IDisposable
         Native.updateParamValue(nCtx(), id, value);
     }
 
-    /**
-     * Get a configuration parameter. <remarks> Returns null if the parameter
-     * value does not exist. </remarks> <seealso cref="UpdateParamValue"/>
-     **/
-    public String getParamValue(String id) throws Z3Exception
-    {
-        Native.StringPtr res = new Native.StringPtr();
-        boolean r = Native.getParamValue(nCtx(), id, res);
-        if (!r)
-            return null;
-        else
-            return res.value;
-    }
-
     long m_ctx = 0;
 
     long nCtx()
