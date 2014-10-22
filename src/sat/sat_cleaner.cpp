@@ -206,7 +206,7 @@ namespace sat {
         m_elim_literals = 0;
     }
     
-    void cleaner::collect_statistics(statistics & st) {
+    void cleaner::collect_statistics(statistics & st) const {
         st.update("elim clauses", m_elim_clauses);
         st.update("elim literals", m_elim_literals);
     }

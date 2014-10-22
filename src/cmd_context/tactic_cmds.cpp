@@ -500,7 +500,7 @@ static tactic * mk_using_params(cmd_context & ctx, sexpr * n) {
         symbol param_name = symbol(norm_param_name(c->get_symbol()).c_str());
         c = n->get_child(i);
         i++;
-        switch (descrs.get_kind(param_name)) {
+        switch (descrs.get_kind_in_module(param_name)) {
         case CPK_INVALID:
             throw cmd_exception("invalid using-params combinator, unknown parameter ", param_name, c->get_line(), c->get_pos());
         case CPK_BOOL:

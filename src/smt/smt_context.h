@@ -76,7 +76,7 @@ namespace smt {
 
     protected:
         ast_manager &               m_manager;
-        smt_params &          m_fparams;
+        smt_params &                m_fparams;
         params_ref                  m_params;
         setup                       m_setup;
         volatile bool               m_cancel_flag;

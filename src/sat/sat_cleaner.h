@@ -42,7 +42,7 @@ namespace sat {
 
         bool operator()(bool force = false);
 
-        void collect_statistics(statistics & st);
+        void collect_statistics(statistics & st) const;
         void reset_statistics();
 
         void dec() { m_cleanup_counter--; }

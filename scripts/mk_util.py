@@ -455,7 +455,7 @@ def display_help(exit_code):
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
     if IS_WINDOWS:
         print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
-    print("  -j, --java                    generate Java bindinds.")
+    print("  -j, --java                    generate Java bindings.")
     print("  --staticlib                   build Z3 static library.")
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
@@ -587,7 +587,7 @@ def set_z3py_dir(p):
         raise MKException("Python bindings directory '%s' does not exist" % full)
     Z3PY_SRC_DIR = full
     if VERBOSE:
-        print("Python bindinds directory was detected.")
+        print("Python bindings directory was detected.")
 
 _UNIQ_ID = 0
 
@@ -1801,7 +1801,7 @@ def def_module_params(module_name, export, params, class_name=None, description=
     out.write(' {}\n')
     out.write('  static void collect_param_descrs(param_descrs & d) {\n')
     for param in params:
-        out.write('    d.insert("%s", %s, "%s", "%s");\n' % (param[0], TYPE2CPK[param[1]], param[3], pyg_default(param)))
+        out.write('    d.insert("%s", %s, "%s", "%s","%s");\n' % (param[0], TYPE2CPK[param[1]], param[3], pyg_default(param), module_name))
     out.write('  }\n')
     if export:
         out.write('  /*\n')
@@ -2522,7 +2522,11 @@ def mk_vs_proj(name, components):
     f.write('    <ClCompile>\n')
     f.write('      <Optimization>Disabled</Optimization>\n')
     f.write('      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_TRACE;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
-    f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
+    if VS_PAR:
+        f.write('      <MinimalRebuild>false</MinimalRebuild>\n')
+        f.write('      <MultiProcessorCompilation>true</MultiProcessorCompilation>\n')
+    else:
+        f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
     f.write('      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>\n')
     f.write('      <WarningLevel>Level3</WarningLevel>\n')
     f.write('      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>\n')
@@ -2556,7 +2560,11 @@ def mk_vs_proj(name, components):
     f.write('    <ClCompile>\n')
     f.write('      <Optimization>Disabled</Optimization>\n')
     f.write('      <PreprocessorDefinitions>WIN32;_NDEBUG;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
-    f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
+    if VS_PAR:
+        f.write('      <MinimalRebuild>false</MinimalRebuild>\n')
+        f.write('      <MultiProcessorCompilation>true</MultiProcessorCompilation>\n')
+    else:
+        f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
     f.write('      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>\n')
     f.write('      <WarningLevel>Level3</WarningLevel>\n')
     f.write('      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>\n')

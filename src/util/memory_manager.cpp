@@ -35,6 +35,7 @@ static long long  g_memory_max_used_size     = 0;
 static long long  g_memory_watermark         = 0;
 static bool       g_exit_when_out_of_memory  = false;
 static char const * g_out_of_memory_msg      = "ERROR: out of memory";
+static volatile bool g_memory_fully_initialized = false;
 
 void memory::exit_when_out_of_memory(bool flag, char const * msg) {
     g_exit_when_out_of_memory = flag;
@@ -83,10 +84,18 @@ void memory::initialize(size_t max_size) {
             initialize = true;
         }
     }
-    if (!initialize)
-        return;
-    g_memory_out_of_memory  = false;
-    mem_initialize();
+    if (initialize) {
+        g_memory_out_of_memory = false;
+        mem_initialize();
+        g_memory_fully_initialized = true;
+    }
+    else {        
+        // Delay the current thread until the DLL is fully initialized
+        // Without this, multiple threads can start to call API functions
+        // before memory::initialize(...) finishes.
+        while (!g_memory_fully_initialized)
+            /* wait */ ;
+    }
 }
 
 bool memory::is_out_of_memory() {
@@ -98,9 +107,9 @@ bool memory::is_out_of_memory() {
     return r;
 }
 
-void memory::set_high_watermark(size_t watermak) {
+void memory::set_high_watermark(size_t watermark) {
     // This method is only safe to invoke at initialization time, that is, before the threads are created.
-    g_memory_watermark = watermak;
+    g_memory_watermark = watermark;
 }
 
 bool memory::above_high_watermark() {

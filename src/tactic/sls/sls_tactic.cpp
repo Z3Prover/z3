@@ -557,17 +557,12 @@ public:
     }
 
     virtual void cleanup() {        
-        imp * d = m_imp;
+        imp * d = alloc(imp, m, m_params, m_stats);
         #pragma omp critical (tactic_cancel)
         {
-            d = m_imp;
+            std::swap(d, m_imp);
         }
         dealloc(d);
-        d = alloc(imp, m, m_params, m_stats);
-        #pragma omp critical (tactic_cancel) 
-        {
-            m_imp = d;
-        }
     }
     
     virtual void collect_statistics(statistics & st) const {

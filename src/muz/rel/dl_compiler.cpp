@@ -589,49 +589,8 @@ namespace datalog {
             dealloc = true;
         }
 
-        //enforce negative predicates
-        unsigned ut_len=r->get_uninterpreted_tail_size();
-        for(unsigned i=pt_len; i<ut_len; i++) {
-            app * neg_tail = r->get_tail(i);
-            func_decl * neg_pred = neg_tail->get_decl();
-            variable_intersection neg_intersection(m_context.get_manager());
-            neg_intersection.populate(single_res_expr, neg_tail);
-            unsigned_vector t_cols(neg_intersection.size(), neg_intersection.get_cols1());
-            unsigned_vector neg_cols(neg_intersection.size(), neg_intersection.get_cols2());
-
-            unsigned neg_len = neg_tail->get_num_args();
-            for(unsigned i=0; i<neg_len; i++) {
-                expr * e = neg_tail->get_arg(i);
-                if(is_var(e)) {
-                    continue;
-                }
-                SASSERT(is_app(e));
-                relation_sort arg_sort;
-                m_context.get_rel_context()->get_rmanager().from_predicate(neg_pred, i, arg_sort);
-                reg_idx new_reg;
-                bool new_dealloc;
-                make_add_constant_column(head_pred, filtered_res, arg_sort, to_app(e), new_reg, new_dealloc, acc);
-
-                if (dealloc)
-                    make_dealloc_non_void(filtered_res, acc);
-                dealloc = new_dealloc;
-                filtered_res = new_reg;                // here filtered_res value gets changed !!
-
-                t_cols.push_back(single_res_expr.size());
-                neg_cols.push_back(i);
-                single_res_expr.push_back(e);
-            }
-            SASSERT(t_cols.size()==neg_cols.size());
-
-            reg_idx neg_reg = m_pred_regs.find(neg_pred);
-            if (!dealloc)
-                make_clone(filtered_res, filtered_res, acc);
-            acc.push_back(instruction::mk_filter_by_negation(filtered_res, neg_reg, t_cols.size(),
-                t_cols.c_ptr(), neg_cols.c_ptr()));
-            dealloc = true;
-        }
-
         // enforce interpreted tail predicates
+        unsigned ut_len = r->get_uninterpreted_tail_size();
         unsigned ft_len = r->get_tail_size(); // full tail
         ptr_vector<expr> tail;
         for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
@@ -735,6 +694,47 @@ namespace datalog {
                     make_dealloc_non_void(filtered_res, acc);
                 filtered_res = new_reg;
             }
+            dealloc = true;
+        }
+
+        //enforce negative predicates
+        for (unsigned i = pt_len; i<ut_len; i++) {
+            app * neg_tail = r->get_tail(i);
+            func_decl * neg_pred = neg_tail->get_decl();
+            variable_intersection neg_intersection(m_context.get_manager());
+            neg_intersection.populate(single_res_expr, neg_tail);
+            unsigned_vector t_cols(neg_intersection.size(), neg_intersection.get_cols1());
+            unsigned_vector neg_cols(neg_intersection.size(), neg_intersection.get_cols2());
+
+            unsigned neg_len = neg_tail->get_num_args();
+            for (unsigned i = 0; i<neg_len; i++) {
+                expr * e = neg_tail->get_arg(i);
+                if (is_var(e)) {
+                    continue;
+                }
+                SASSERT(is_app(e));
+                relation_sort arg_sort;
+                m_context.get_rel_context()->get_rmanager().from_predicate(neg_pred, i, arg_sort);
+                reg_idx new_reg;
+                bool new_dealloc;
+                make_add_constant_column(head_pred, filtered_res, arg_sort, to_app(e), new_reg, new_dealloc, acc);
+
+                if (dealloc)
+                    make_dealloc_non_void(filtered_res, acc);
+                dealloc = new_dealloc;
+                filtered_res = new_reg;                // here filtered_res value gets changed !!
+
+                t_cols.push_back(single_res_expr.size());
+                neg_cols.push_back(i);
+                single_res_expr.push_back(e);
+            }
+            SASSERT(t_cols.size() == neg_cols.size());
+
+            reg_idx neg_reg = m_pred_regs.find(neg_pred);
+            if (!dealloc)
+                make_clone(filtered_res, filtered_res, acc);
+            acc.push_back(instruction::mk_filter_by_negation(filtered_res, neg_reg, t_cols.size(),
+                t_cols.c_ptr(), neg_cols.c_ptr()));
             dealloc = true;
         }
 

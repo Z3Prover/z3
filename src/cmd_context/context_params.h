@@ -55,6 +55,8 @@ public:
     */
     void get_solver_params(ast_manager const & m, params_ref & p, bool & proofs_enabled, bool & models_enabled, bool & unsat_core_enabled);
 
+    static void collect_solver_param_descrs(param_descrs & d);
+
     /**
        \brief Include in p parameters derived from this context_params.
        These are parameters that are meaningful for tactics and solvers.

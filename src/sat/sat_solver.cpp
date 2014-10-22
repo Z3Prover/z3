@@ -46,7 +46,7 @@ namespace sat {
         m_qhead(0),
         m_scope_lvl(0),
         m_params(p) {
-        m_config.updt_params(p);
+        updt_params(p);
     }
 
     solver::~solver() {
@@ -459,9 +459,6 @@ namespace sat {
     void solver::set_conflict(justification c, literal not_l) {
         if (m_inconsistent)
             return;
-        TRACE("sat_conflict", tout << "conflict\n";);
-        // int * p = 0;
-        // *p = 0;
         m_inconsistent = true;
         m_conflict = c;
         m_not_l    = not_l;
@@ -863,6 +860,7 @@ namespace sat {
         m_next_simplify           = 0;
         m_stopwatch.reset();
         m_stopwatch.start();
+        TRACE("sat", display(tout););
     }
 
     /**
@@ -1972,7 +1970,7 @@ namespace sat {
         m_asymm_branch.updt_params(p);
         m_probing.updt_params(p);
         m_scc.updt_params(p);
-        m_rand.set_seed(p.get_uint("random_seed", 0));
+        m_rand.set_seed(m_config.m_random_seed);
     }
 
     void solver::collect_param_descrs(param_descrs & d) {

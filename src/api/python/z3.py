@@ -297,6 +297,11 @@ class AstRef(Z3PPObject):
         """Return a pointer to the corresponding C Z3_ast object."""
         return self.ast
 
+    def get_id(self):
+	"""Return unique identifier for object. It can be used for hash-tables and maps."""
+	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+
+
     def ctx_ref(self):
         """Return a reference to the C context where this AST node is stored."""
         return self.ctx.ref()
@@ -447,6 +452,10 @@ class SortRef(AstRef):
     def as_ast(self):
         return Z3_sort_to_ast(self.ctx_ref(), self.ast)
 
+    def get_id(self):
+	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+
+
     def kind(self):
         """Return the Z3 internal kind of a sort. This method can be used to test if `self` is one of the Z3 builtin sorts.
         
@@ -584,6 +593,9 @@ class FuncDeclRef(AstRef):
     """
     def as_ast(self):
         return Z3_func_decl_to_ast(self.ctx_ref(), self.ast)
+
+    def get_id(self):
+	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def as_func_decl(self):
         return self.ast
@@ -729,6 +741,9 @@ class ExprRef(AstRef):
     """
     def as_ast(self):
         return self.ast
+
+    def get_id(self):
+	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def sort(self):
         """Return the sort of expression `self`.
@@ -1524,6 +1539,9 @@ class PatternRef(ExprRef):
     def as_ast(self):
         return Z3_pattern_to_ast(self.ctx_ref(), self.ast)
 
+    def get_id(self):
+	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+
 def is_pattern(a):
     """Return `True` if `a` is a Z3 pattern (hint for quantifier instantiation.
 
@@ -1585,6 +1603,9 @@ class QuantifierRef(BoolRef):
 
     def as_ast(self):
         return self.ast
+
+    def get_id(self):
+	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def sort(self):
         """Return the Boolean sort."""
@@ -4448,7 +4469,7 @@ def args2params(arguments, keywords, ctx=None):
     A ':' is added to the keywords, and '_' is replaced with '-'
 
     >>> args2params(['model', True, 'relevancy', 2], {'elim_and' : True})
-    (params model 1 relevancy 2 elim_and 1)
+    (params model true relevancy 2 elim_and true)
     """
     if __debug__:
         _z3_assert(len(arguments) % 2 == 0, "Argument list must have an even number of elements.")
@@ -6011,6 +6032,24 @@ class Solver(Z3PPObject):
         """
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
 
+    def to_smt2(self):
+	"""return SMTLIB2 formatted benchmark for solver's assertions"""
+	es = self.assertions()
+	sz = len(es)
+	sz1 = sz
+	if sz1 > 0:
+	    sz1 -= 1
+	v = (Ast * sz1)()
+	for i in range(sz1):
+	    v[i] = es[i].as_ast()
+	if sz > 0:
+	    e = es[sz1].as_ast()
+	else:
+	    e = BoolVal(True, self.ctx).as_ast()
+	return Z3_benchmark_to_smtlib_string(self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e)
+
+
+
 def SolverFor(logic, ctx=None):
     """Create a solver customized for the given logic. 
 
@@ -6960,7 +6999,7 @@ def substitute(t, *m):
     if isinstance(m, tuple):
         m1 = _get_args(m)
         if isinstance(m1, list):
-            m = _get_args(m1)
+            m = m1
     if __debug__:
         _z3_assert(is_expr(t), "Z3 expression expected")
         _z3_assert(all([isinstance(p, tuple) and is_expr(p[0]) and is_expr(p[1]) and p[0].sort().eq(p[1].sort()) for p in m]), "Z3 invalid substitution, expression pairs expected.")
@@ -7253,19 +7292,19 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
     return _to_expr_ref(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
    
-def Interp(a,ctx=None):
+def Interpolant(a,ctx=None):
     """Create an interpolation operator.
     
     The argument is an interpolation pattern (see tree_interpolant). 
 
     >>> x = Int('x')
-    >>> print Interp(x>0)
+    >>> print Interpolant(x>0)
     interp(x > 0)
     """
     ctx = _get_ctx(_ctx_from_ast_arg_list([a], ctx))
     s = BoolSort(ctx)
     a = s.cast(a)
-    return BoolRef(Z3_mk_interp(ctx.ref(), a.as_ast()), ctx)
+    return BoolRef(Z3_mk_interpolant(ctx.ref(), a.as_ast()), ctx)
 
 def tree_interpolant(pat,p=None,ctx=None):
     """Compute interpolant for a tree of formulas.
@@ -7304,10 +7343,10 @@ def tree_interpolant(pat,p=None,ctx=None):
 
     >>> x = Int('x')
     >>> y = Int('y')
-    >>> print tree_interpolant(And(Interp(x < 0), Interp(y > 2), x == y))
+    >>> print tree_interpolant(And(Interpolant(x < 0), Interpolant(y > 2), x == y))
     [Not(x >= 0), Not(y <= 2)]
 
-    >>> g = And(Interp(x<0),x<2)
+    >>> g = And(Interpolant(x<0),x<2)
     >>> try:
     ...     print tree_interpolant(g).sexpr()
     ... except ModelRef as m:
@@ -7342,11 +7381,11 @@ def binary_interpolant(a,b,p=None,ctx=None):
     If parameters p are supplied, these are used in creating the
     solver that determines satisfiability.
 
-    >>> x = Int('x')
-    >>> print binary_interpolant(x<0,x>2)
-    x <= 2
+    x = Int('x')
+    print binary_interpolant(x<0,x>2)
+    Not(x >= 0)
     """
-    f = And(Interp(a),b)
+    f = And(Interpolant(a),b)
     return tree_interpolant(f,p,ctx)[0]
 
 def sequence_interpolant(v,p=None,ctx=None):
@@ -7375,6 +7414,6 @@ def sequence_interpolant(v,p=None,ctx=None):
     """
     f = v[0]
     for i in range(1,len(v)):
-        f = And(Interp(f),v[i])
+        f = And(Interpolant(f),v[i])
     return tree_interpolant(f,p,ctx)
 
