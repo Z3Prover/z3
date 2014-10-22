@@ -617,7 +617,7 @@ extern "C" {
         }
 
         for (unsigned j = 0; j < num - 1; j++)
-            if (read_parents[j] == SHRT_MIN){
+            if (read_parents[j] == SHRT_MAX){
             read_error << "formula " << j + 1 << ": unreferenced";
             goto fail;
             }

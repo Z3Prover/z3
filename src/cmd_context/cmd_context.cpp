@@ -397,10 +397,6 @@ void cmd_context::set_produce_interpolants(bool f) {
     // set_solver_factory(mk_smt_solver_factory());
 }
 
-void cmd_context::set_check_interpolants(bool f) {
-    m_params.m_check_interpolants = f;
-}
-
 bool cmd_context::produce_models() const { 
     return m_params.m_model;
 }
@@ -412,10 +408,6 @@ bool cmd_context::produce_proofs() const {
 bool cmd_context::produce_interpolants() const { 
     // FIXME currently synonym for produce_proofs
     return m_params.m_proof;
-}
-
-bool cmd_context::check_interpolants() const { 
-    return m_params.m_check_interpolants;
 }
 
 bool cmd_context::produce_unsat_cores() const { 

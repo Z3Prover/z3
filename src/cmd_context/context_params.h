@@ -30,7 +30,6 @@ public:
     bool        m_auto_config;
     bool        m_proof;
     bool        m_interpolants;
-    bool        m_check_interpolants;
     bool        m_debug_ref_count;
     bool        m_trace;
     std::string m_trace_file_name;
