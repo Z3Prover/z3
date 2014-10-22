@@ -38,7 +38,7 @@ Z3 exceptions:
 ...   n = x + y
 ... except Z3Exception as ex:
 ...   print("failed: %s" % ex)
-failed: 'sort mismatch'
+failed: sort mismatch
 """
 from z3core import *
 from z3types import *
