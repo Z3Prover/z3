@@ -78,7 +78,7 @@ namespace Microsoft.Z3
                 IntPtr[] native_core = new IntPtr[assumptions.Length];
                 r = (Z3_lbool)Native.Z3_check_assumptions(ctx.nCtx, 
                                    (uint)assumptions.Length, AST.ArrayToNative(assumptions),
-                                   ref mdl, ref prf, ref core_size, out native_core);
+                                   ref mdl, ref prf, ref core_size, native_core);
 
                 for (uint i = 0; i < core_size; i++)
                     core.Add((BoolExpr)Expr.Create(ctx, native_core[i]));

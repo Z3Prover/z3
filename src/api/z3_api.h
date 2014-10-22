@@ -1479,15 +1479,6 @@ extern "C" {
     */
     void Z3_API Z3_update_param_value(__in Z3_context c, __in Z3_string param_id, __in Z3_string param_value);
 
-    /**
-       \brief Return the value of a context parameter.
-      
-       \sa Z3_global_param_get
-
-       def_API('Z3_get_param_value', BOOL, (_in(CONTEXT), _in(STRING), _out(STRING)))
-    */
-    Z3_bool_opt Z3_API Z3_get_param_value(__in Z3_context c, __in Z3_string param_id, __out_opt Z3_string_ptr param_value);
-
 #ifdef CorML4
     /**
        \brief Interrupt the execution of a Z3 procedure.

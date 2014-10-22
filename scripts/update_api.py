@@ -263,8 +263,10 @@ def param2dotnet(p):
         return "[In] %s[]" % type2dotnet(param_type(p))
     elif k == INOUT_ARRAY:
         return "[In, Out] %s[]" % type2dotnet(param_type(p))
-    elif k == OUT_ARRAY or k == OUT_MANAGED_ARRAY:
-        return "[Out] out %s[]" % type2dotnet(param_type(p))
+    elif k == OUT_ARRAY:
+        return "[Out] %s[]" % type2dotnet(param_type(p))
+    elif k == OUT_MANAGED_ARRAY:
+	return "[Out] out %s[]" % type2dotnet(param_type(p))
     else:
         return type2dotnet(param_type(p))
 
@@ -476,7 +478,7 @@ def mk_dotnet_wrappers():
                     dotnet.write('out ');
                 else:
                     dotnet.write('ref ')
-            elif param_kind(param) == OUT_ARRAY or param_kind(param) == OUT_MANAGED_ARRAY:
+            elif param_kind(param) == OUT_MANAGED_ARRAY:
                 dotnet.write('out ');
             dotnet.write('a%d' % i)
             i = i + 1
