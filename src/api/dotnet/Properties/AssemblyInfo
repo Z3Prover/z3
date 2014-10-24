@@ -12,7 +12,7 @@ using System.Security.Permissions;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Microsoft Corporation")]
 [assembly: AssemblyProduct("Z3")]
-[assembly: AssemblyCopyright("Copyright © Microsoft Corporation 2006")]
+[assembly: AssemblyCopyright("Copyright (C) 2006-2014 Microsoft Corporation")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

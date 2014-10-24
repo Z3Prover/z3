@@ -27,6 +27,10 @@ try:
     shutil.copyfile('website.dox', 'tmp/website.dox')
     shutil.copyfile('../src/api/python/z3.py', 'tmp/z3py.py')
     cleanup_API('../src/api/z3_api.h', 'tmp/z3_api.h')
+    cleanup_API('../src/api/z3_algebraic.h', 'tmp/z3_algebraic.h')
+    cleanup_API('../src/api/z3_polynomial.h', 'tmp/z3_polynomial.h')
+    cleanup_API('../src/api/z3_rcf.h', 'tmp/z3_rcf.h')
+    cleanup_API('../src/api/z3_interp.h', 'tmp/z3_interp.h')
     
     print "Removed annotations from z3_api.h."
     try:
@@ -38,6 +42,10 @@ try:
         exit(1)
     print "Generated C and .NET API documentation."
     os.remove('tmp/z3_api.h')
+    os.remove('tmp/z3_algebraic.h')
+    os.remove('tmp/z3_polynomial.h')
+    os.remove('tmp/z3_rcf.h')
+    os.remove('tmp/z3_interp.h')
     print "Removed temporary file z3_api.h."
     os.remove('tmp/website.dox')	
     print "Removed temporary file website.dox"

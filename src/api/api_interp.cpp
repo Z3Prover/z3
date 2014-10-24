@@ -273,6 +273,9 @@ extern "C" {
                                        0 // ignore params for now
                                        );
 
+        for (unsigned i = 0; i < cnsts.size(); i++)
+            _m.dec_ref(cnsts[i]);
+
         Z3_lbool status = of_lbool(_status);
 
         Z3_ast_vector_ref *v = 0;

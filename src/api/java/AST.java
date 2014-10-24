@@ -24,28 +24,12 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
  **/
 public class AST extends Z3Object
 {
-    /**
-     * Comparison operator. <param name="a">An AST</param> <param name="b">An
-     * AST</param>
-     * 
-     * @return True if <paramref name="a"/> and <paramref name="b"/> are from
-     *         the same context and represent the same sort; false otherwise.
-     **/
-    /* Overloaded operators are not translated. */
-
-    /**
-     * Comparison operator. <param name="a">An AST</param> <param name="b">An
-     * AST</param>
-     * 
-     * @return True if <paramref name="a"/> and <paramref name="b"/> are not
-     *         from the same context or represent different sorts; false
-     *         otherwise.
-     **/
     /* Overloaded operators are not translated. */
 
     /**
      * Object comparison.
-     **/
+     * <param name="o">another AST</param>
+     **/    
     public boolean equals(Object o)
     {
         AST casted = null;
