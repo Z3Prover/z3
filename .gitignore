@@ -64,3 +64,4 @@ src/util/version.h
 src/api/java/Native.cpp
 src/api/java/Native.java
 src/api/java/enumerations/*.java
+*.bak
