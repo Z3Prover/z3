@@ -1398,7 +1398,7 @@ def BoolVector(prefix, sz, ctx=None):
     return [ Bool('%s__%s' % (prefix, i)) for i in range(sz) ]
 
 def FreshBool(prefix='b', ctx=None):
-    """Return a fresh Bolean constant in the given context using the given prefix.
+    """Return a fresh Boolean constant in the given context using the given prefix.
     
     If `ctx=None`, then the global context is used.    
 
