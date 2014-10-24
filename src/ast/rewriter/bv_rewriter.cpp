@@ -21,6 +21,7 @@ Notes:
 #include"poly_rewriter_def.h"
 #include"ast_smt2_pp.h"
 
+
 mk_extract_proc::mk_extract_proc(bv_util & u):
     m_util(u),
     m_high(0),

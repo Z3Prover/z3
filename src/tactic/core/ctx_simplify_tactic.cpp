@@ -21,7 +21,7 @@ Notes:
 #include"goal_num_occurs.h"
 #include"cooperate.h"
 #include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
+#include"ast_pp.h"
 
 struct ctx_simplify_tactic::imp {
     struct cached_result {
@@ -105,6 +105,7 @@ struct ctx_simplify_tactic::imp {
     }
 
     bool shared(expr * t) const { 
+        TRACE("ctx_simplify_tactic_bug", tout << mk_pp(t, m) << "\n";);
         return t->get_ref_count() > 1 && m_occs.get_num_occs(t) > 1;
     }
 
@@ -242,12 +243,13 @@ struct ctx_simplify_tactic::imp {
     }
 
     void assert_expr(expr * t, bool sign) {
+        expr * p = t;
         if (m.is_not(t)) {
             t    = to_app(t)->get_arg(0);
             sign = !sign;
         }
         bool mk_scope = true;
-        if (shared(t)) {
+        if (shared(t) || shared(p)) {
             push();
             mk_scope  = false;
             assert_eq_core(t, sign ? m.mk_false() : m.mk_true());
@@ -457,7 +459,7 @@ struct ctx_simplify_tactic::imp {
             if (visit.is_marked(s)) {
                 continue;
             }
-			visit.mark(s, true);
+            visit.mark(s, true);
             ++sz;
             for (unsigned i = 0; is_app(s) && i < to_app(s)->get_num_args(); ++i) {
                 todo.push_back(to_app(s)->get_arg(i));
@@ -546,16 +548,11 @@ void ctx_simplify_tactic::set_cancel(bool f) {
 
 void ctx_simplify_tactic::cleanup() {
     ast_manager & m   = m_imp->m;
-    imp * d = m_imp;
+    imp * d = alloc(imp, m, m_params);
     #pragma omp critical (tactic_cancel)
     {
-        m_imp = 0;
+        std::swap(d, m_imp);
     }
     dealloc(d);
-    d = alloc(imp, m, m_params);
-    #pragma omp critical (tactic_cancel)
-    {
-        m_imp = d;
-    }
 }
 

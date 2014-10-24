@@ -94,13 +94,21 @@ namespace smt {
             }
 
             obj_map<expr, unsigned> const & get_elems() const { return m_elems; }
-            
+
             void insert(expr * n, unsigned generation) {
                 if (m_elems.contains(n))
                     return;
                 m_manager.inc_ref(n);
                 m_elems.insert(n, generation);
                 SASSERT(!m_manager.is_model_value(n));
+            }
+
+            void remove(expr * n) {
+                // We can only remove n if it is in m_elems, AND m_inv was not initialized yet.
+                SASSERT(m_elems.contains(n));
+                SASSERT(m_inv.empty());
+                m_elems.erase(n);
+                m_manager.dec_ref(n);
             }
             
             void display(std::ostream & out) const {
@@ -388,7 +396,7 @@ namespace smt {
             
             // Support for evaluating expressions in the current model.
             proto_model *             m_model;
-            obj_map<expr, expr *>     m_eval_cache;
+            obj_map<expr, expr *>     m_eval_cache[2];            
             expr_ref_vector           m_eval_cache_range;
 
             ptr_vector<node>          m_root_nodes;
@@ -401,7 +409,8 @@ namespace smt {
             }
 
             void reset_eval_cache() {
-                m_eval_cache.reset();
+                m_eval_cache[0].reset();
+                m_eval_cache[1].reset();
                 m_eval_cache_range.reset();
             }
             
@@ -460,6 +469,7 @@ namespace smt {
 
             ~auf_solver() {
                 flush_nodes();
+                reset_eval_cache();
             }
         
             void set_context(context * ctx) {
@@ -525,6 +535,30 @@ namespace smt {
                 }
             }
 
+            // For each instantiation_set, reemove entries that do not evaluate to values.
+            void cleanup_instantiation_sets() {
+                ptr_vector<expr> to_delete;
+                ptr_vector<node>::const_iterator it  = m_nodes.begin();
+                ptr_vector<node>::const_iterator end = m_nodes.end();
+                for (; it != end; ++it) {
+                    node * curr = *it;
+                    if (curr->is_root()) {
+                        instantiation_set * s = curr->get_instantiation_set();
+                        to_delete.reset();
+                        obj_map<expr, unsigned> const & elems = s->get_elems();
+                        for (obj_map<expr, unsigned>::iterator it = elems.begin(); it != elems.end(); it++) {
+                            expr * n     = it->m_key;
+                            expr * n_val = eval(n, true);
+                            if (!n_val || !m_manager.is_value(n_val))
+                                to_delete.push_back(n);
+                        }
+                        for (ptr_vector<expr>::iterator it = to_delete.begin(); it != to_delete.end(); it++) {
+                            s->remove(*it);
+                        }
+                    }
+                }
+            }
+
             void display_nodes(std::ostream & out) const {
                 display_key2node(out, m_uvars);
                 display_A_f_is(out);                
@@ -537,15 +571,19 @@ namespace smt {
 
             virtual expr * eval(expr * n, bool model_completion) {
                 expr * r = 0;
-                if (m_eval_cache.find(n, r)) {
+                if (m_eval_cache[model_completion].find(n, r)) {
                     return r;
                 }
                 expr_ref tmp(m_manager);
-                if (!m_model->eval(n, tmp, model_completion)) 
+                if (!m_model->eval(n, tmp, model_completion)) {
                     r = 0;
-                else
+                    TRACE("model_finder", tout << "eval\n" << mk_pp(n, m_manager) << "\n-----> null\n";);
+                }
+                else {
                     r = tmp;
-                m_eval_cache.insert(n, r);
+                    TRACE("model_finder", tout << "eval\n" << mk_pp(n, m_manager) << "\n----->\n" << mk_pp(r, m_manager) << "\n";);
+                }
+                m_eval_cache[model_completion].insert(n, r);
                 m_eval_cache_range.push_back(r);
                 return r;
             }
@@ -942,9 +980,11 @@ namespace smt {
                         // Moreover, a model assigns an arbitrary intepretation to these sorts using "model_values" a model value.
                         // If these module values "leak" inside the logical context, they may affect satisfiability.
                         // 
-                        // n->insert(m_model->get_some_value(n->get_sort()), 0);
-                        // TODO: we can use get_some_value if the sort n->get_sort() does not depend on any uninterpreted sorts.
-                        n->insert(m_manager.mk_fresh_const("elem", n->get_sort()), 0);
+                        sort * ns = n->get_sort();
+                        if (m_manager.is_fully_interp(ns))
+                            n->insert(m_model->get_some_value(ns), 0);
+                        else
+                            n->insert(m_manager.mk_fresh_const("elem", ns), 0);
                     }
                 }
             }
@@ -1047,6 +1087,7 @@ namespace smt {
 
         public:
             void fix_model(expr_ref_vector & new_constraints) {
+                cleanup_instantiation_sets();
                 m_new_constraints = &new_constraints;
                 func_decl_set partial_funcs;
                 collect_partial_funcs(partial_funcs);

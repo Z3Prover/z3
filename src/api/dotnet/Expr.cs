@@ -99,7 +99,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(args, a => a != null));
 
             Context.CheckContextMatch(args);
-            if (args.Length != NumArgs)
+            if (IsApp && args.Length != NumArgs)
                 throw new Z3Exception("Number of arguments does not match");
             NativeObject = Native.Z3_update_term(Context.nCtx, NativeObject, (uint)args.Length, Expr.ArrayToNative(args));
         }
@@ -269,57 +269,66 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is the constant true.
         /// </summary>
-        public bool IsTrue { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_TRUE; } }
+        public bool IsTrue { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_TRUE; } }
 
         /// <summary>
         /// Indicates whether the term is the constant false.
         /// </summary>
-        public bool IsFalse { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FALSE; } }
+        public bool IsFalse { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FALSE; } }
 
         /// <summary>
         /// Indicates whether the term is an equality predicate.
         /// </summary>
-        public bool IsEq { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EQ; } }
+        public bool IsEq { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EQ; } }
 
         /// <summary>
         /// Indicates whether the term is an n-ary distinct predicate (every argument is mutually distinct).
         /// </summary>
-        public bool IsDistinct { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_DISTINCT; } }
+        public bool IsDistinct { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_DISTINCT; } }
 
         /// <summary>
         /// Indicates whether the term is a ternary if-then-else term
         /// </summary>
-        public bool IsITE { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ITE; } }
+        public bool IsITE { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ITE; } }
 
         /// <summary>
         /// Indicates whether the term is an n-ary conjunction
         /// </summary>
-        public bool IsAnd { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_AND; } }
+        public bool IsAnd { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_AND; } }
 
         /// <summary>
         /// Indicates whether the term is an n-ary disjunction
         /// </summary>
-        public bool IsOr { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_OR; } }
+        public bool IsOr { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_OR; } }
 
         /// <summary>
         /// Indicates whether the term is an if-and-only-if (Boolean equivalence, binary)
         /// </summary>
-        public bool IsIff { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IFF; } }
+        public bool IsIff { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IFF; } }
 
         /// <summary>
         /// Indicates whether the term is an exclusive or
         /// </summary>
-        public bool IsXor { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_XOR; } }
+        public bool IsXor { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_XOR; } }
 
         /// <summary>
         /// Indicates whether the term is a negation
         /// </summary>
-        public bool IsNot { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_NOT; } }
+        public bool IsNot { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_NOT; } }
 
         /// <summary>
         /// Indicates whether the term is an implication
         /// </summary>
-        public bool IsImplies { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IMPLIES; } }
+        public bool IsImplies { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IMPLIES; } }
+
+        #endregion
+
+        #region Interpolation
+        /// <summary>
+        /// Indicates whether the term is marked for interpolation.
+        /// </summary>
+        /// <remarks></remarks>
+        public bool IsInterpolant { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_INTERP; } }
         #endregion
 
         #region Arithmetic Terms
@@ -346,82 +355,82 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is an arithmetic numeral.
         /// </summary>
-        public bool IsArithmeticNumeral { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ANUM; } }
+        public bool IsArithmeticNumeral { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ANUM; } }
 
         /// <summary>
         /// Indicates whether the term is a less-than-or-equal
         /// </summary>
-        public bool IsLE { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LE; } }
+        public bool IsLE { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LE; } }
 
         /// <summary>
         /// Indicates whether the term is a greater-than-or-equal
         /// </summary>
-        public bool IsGE { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_GE; } }
+        public bool IsGE { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_GE; } }
 
         /// <summary>
         /// Indicates whether the term is a less-than
         /// </summary>
-        public bool IsLT { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LT; } }
+        public bool IsLT { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LT; } }
 
         /// <summary>
         /// Indicates whether the term is a greater-than
         /// </summary>
-        public bool IsGT { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_GT; } }
+        public bool IsGT { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_GT; } }
 
         /// <summary>
         /// Indicates whether the term is addition (binary)
         /// </summary>
-        public bool IsAdd { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ADD; } }
+        public bool IsAdd { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ADD; } }
 
         /// <summary>
         /// Indicates whether the term is subtraction (binary)
         /// </summary>
-        public bool IsSub { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SUB; } }
+        public bool IsSub { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SUB; } }
 
         /// <summary>
         /// Indicates whether the term is a unary minus
         /// </summary>
-        public bool IsUMinus { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_UMINUS; } }
+        public bool IsUMinus { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_UMINUS; } }
 
         /// <summary>
         /// Indicates whether the term is multiplication (binary)
         /// </summary>
-        public bool IsMul { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_MUL; } }
+        public bool IsMul { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_MUL; } }
 
         /// <summary>
         /// Indicates whether the term is division (binary)
         /// </summary>
-        public bool IsDiv { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_DIV; } }
+        public bool IsDiv { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_DIV; } }
 
         /// <summary>
         /// Indicates whether the term is integer division (binary)
         /// </summary>
-        public bool IsIDiv { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IDIV; } }
+        public bool IsIDiv { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IDIV; } }
 
         /// <summary>
         /// Indicates whether the term is remainder (binary)
         /// </summary>
-        public bool IsRemainder { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_REM; } }
+        public bool IsRemainder { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_REM; } }
 
         /// <summary>
         /// Indicates whether the term is modulus (binary)
         /// </summary>
-        public bool IsModulus { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_MOD; } }
+        public bool IsModulus { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_MOD; } }
 
         /// <summary>
         /// Indicates whether the term is a coercion of integer to real (unary)
         /// </summary>
-        public bool IsIntToReal { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_TO_REAL; } }
+        public bool IsIntToReal { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_TO_REAL; } }
 
         /// <summary>
         /// Indicates whether the term is a coercion of real to integer (unary)
         /// </summary>
-        public bool IsRealToInt { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_TO_INT; } }
+        public bool IsRealToInt { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_TO_INT; } }
 
         /// <summary>
         /// Indicates whether the term is a check that tests whether a real is integral (unary)
         /// </summary>
-        public bool IsRealIsInt { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IS_INT; } }
+        public bool IsRealIsInt { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IS_INT; } }
         #endregion
 
         #region Array Terms
@@ -443,64 +452,64 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>It satisfies select(store(a,i,v),j) = if i = j then v else select(a,j). 
         /// Array store takes at least 3 arguments. </remarks>
-        public bool IsStore { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_STORE; } }
+        public bool IsStore { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_STORE; } }
 
         /// <summary>
         /// Indicates whether the term is an array select.
         /// </summary>
-        public bool IsSelect { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SELECT; } }
+        public bool IsSelect { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SELECT; } }
 
         /// <summary>
         /// Indicates whether the term is a constant array.
         /// </summary>
         /// <remarks>For example, select(const(v),i) = v holds for every v and i. The function is unary.</remarks>
-        public bool IsConstantArray { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_CONST_ARRAY; } }
+        public bool IsConstantArray { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_CONST_ARRAY; } }
 
         /// <summary>
         /// Indicates whether the term is a default array.
         /// </summary>
         /// <remarks>For example default(const(v)) = v. The function is unary.</remarks>
-        public bool IsDefaultArray { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ARRAY_DEFAULT; } }
+        public bool IsDefaultArray { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ARRAY_DEFAULT; } }
 
         /// <summary>
         /// Indicates whether the term is an array map.
         /// </summary>
         /// <remarks>It satisfies map[f](a1,..,a_n)[i] = f(a1[i],...,a_n[i]) for every i.</remarks>
-        public bool IsArrayMap { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ARRAY_MAP; } }
+        public bool IsArrayMap { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ARRAY_MAP; } }
 
         /// <summary>
         /// Indicates whether the term is an as-array term.
         /// </summary>
         /// <remarks>An as-array term is n array value that behaves as the function graph of the 
         /// function passed as parameter.</remarks>
-        public bool IsAsArray { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_AS_ARRAY; } }
+        public bool IsAsArray { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_AS_ARRAY; } }
         #endregion
 
         #region Set Terms
         /// <summary>
         /// Indicates whether the term is set union
         /// </summary>
-        public bool IsSetUnion { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_UNION; } }
+        public bool IsSetUnion { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_UNION; } }
 
         /// <summary>
         /// Indicates whether the term is set intersection
         /// </summary>
-        public bool IsSetIntersect { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_INTERSECT; } }
+        public bool IsSetIntersect { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_INTERSECT; } }
 
         /// <summary>
         /// Indicates whether the term is set difference
         /// </summary>
-        public bool IsSetDifference { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_DIFFERENCE; } }
+        public bool IsSetDifference { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_DIFFERENCE; } }
 
         /// <summary>
         /// Indicates whether the term is set complement
         /// </summary>
-        public bool IsSetComplement { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_COMPLEMENT; } }
+        public bool IsSetComplement { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_COMPLEMENT; } }
 
         /// <summary>
         /// Indicates whether the term is set subset
         /// </summary>
-        public bool IsSetSubset { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_SUBSET; } }
+        public bool IsSetSubset { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_SUBSET; } }
         #endregion
 
         #region Bit-vector terms
@@ -515,266 +524,266 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is a bit-vector numeral
         /// </summary>
-        public bool IsBVNumeral { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNUM; } }
+        public bool IsBVNumeral { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNUM; } }
 
         /// <summary>
         /// Indicates whether the term is a one-bit bit-vector with value one
         /// </summary>
-        public bool IsBVBitOne { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BIT1; } }
+        public bool IsBVBitOne { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BIT1; } }
 
         /// <summary>
         /// Indicates whether the term is a one-bit bit-vector with value zero
         /// </summary>
-        public bool IsBVBitZero { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BIT0; } }
+        public bool IsBVBitZero { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BIT0; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector unary minus
         /// </summary>
-        public bool IsBVUMinus { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNEG; } }
+        public bool IsBVUMinus { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNEG; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector addition (binary)
         /// </summary>
-        public bool IsBVAdd { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BADD; } }
+        public bool IsBVAdd { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BADD; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector subtraction (binary)
         /// </summary>
-        public bool IsBVSub { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSUB; } }
+        public bool IsBVSub { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSUB; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector multiplication (binary)
         /// </summary>
-        public bool IsBVMul { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BMUL; } }
+        public bool IsBVMul { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BMUL; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector signed division (binary)
         /// </summary>
-        public bool IsBVSDiv { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSDIV; } }
+        public bool IsBVSDiv { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSDIV; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector unsigned division (binary)
         /// </summary>
-        public bool IsBVUDiv { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUDIV; } }
+        public bool IsBVUDiv { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUDIV; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector signed remainder (binary)
         /// </summary>
-        public bool IsBVSRem { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSREM; } }
+        public bool IsBVSRem { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSREM; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector unsigned remainder (binary)
         /// </summary>
-        public bool IsBVURem { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUREM; } }
+        public bool IsBVURem { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUREM; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector signed modulus
         /// </summary>
-        public bool IsBVSMod { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSMOD; } }
+        public bool IsBVSMod { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSMOD; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector signed division by zero
         /// </summary>
-        internal bool IsBVSDiv0 { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSDIV0; } }
+        internal bool IsBVSDiv0 { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSDIV0; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector unsigned division by zero
         /// </summary>
-        internal bool IsBVUDiv0 { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUDIV0; } }
+        internal bool IsBVUDiv0 { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUDIV0; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector signed remainder by zero
         /// </summary>
-        internal bool IsBVSRem0 { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSREM0; } }
+        internal bool IsBVSRem0 { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSREM0; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector unsigned remainder by zero
         /// </summary>
-        internal bool IsBVURem0 { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUREM0; } }
+        internal bool IsBVURem0 { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUREM0; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector signed modulus by zero
         /// </summary>
-        internal bool IsBVSMod0 { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSMOD0; } }
+        internal bool IsBVSMod0 { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSMOD0; } }
 
         /// <summary>
         /// Indicates whether the term is an unsigned bit-vector less-than-or-equal
         /// </summary>
-        public bool IsBVULE { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ULEQ; } }
+        public bool IsBVULE { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ULEQ; } }
 
         /// <summary>
         /// Indicates whether the term is a signed bit-vector less-than-or-equal
         /// </summary>
-        public bool IsBVSLE { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SLEQ; } }
+        public bool IsBVSLE { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SLEQ; } }
 
         /// <summary>
         /// Indicates whether the term is an unsigned bit-vector greater-than-or-equal
         /// </summary>
-        public bool IsBVUGE { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_UGEQ; } }
+        public bool IsBVUGE { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_UGEQ; } }
 
         /// <summary>
         /// Indicates whether the term is a signed bit-vector greater-than-or-equal
         /// </summary>
-        public bool IsBVSGE { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SGEQ; } }
+        public bool IsBVSGE { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SGEQ; } }
 
         /// <summary>
         /// Indicates whether the term is an unsigned bit-vector less-than
         /// </summary>
-        public bool IsBVULT { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ULT; } }
+        public bool IsBVULT { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ULT; } }
 
         /// <summary>
         /// Indicates whether the term is a signed bit-vector less-than
         /// </summary>
-        public bool IsBVSLT { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SLT; } }
+        public bool IsBVSLT { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SLT; } }
 
         /// <summary>
         /// Indicates whether the term is an unsigned bit-vector greater-than
         /// </summary>
-        public bool IsBVUGT { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_UGT; } }
+        public bool IsBVUGT { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_UGT; } }
 
         /// <summary>
         /// Indicates whether the term is a signed bit-vector greater-than
         /// </summary>
-        public bool IsBVSGT { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SGT; } }
+        public bool IsBVSGT { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SGT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-wise AND
         /// </summary>
-        public bool IsBVAND { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BAND; } }
+        public bool IsBVAND { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BAND; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-wise OR
         /// </summary>
-        public bool IsBVOR { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BOR; } }
+        public bool IsBVOR { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BOR; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-wise NOT
         /// </summary>
-        public bool IsBVNOT { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNOT; } }
+        public bool IsBVNOT { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNOT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-wise XOR
         /// </summary>
-        public bool IsBVXOR { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BXOR; } }
+        public bool IsBVXOR { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BXOR; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-wise NAND
         /// </summary>
-        public bool IsBVNAND { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNAND; } }
+        public bool IsBVNAND { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNAND; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-wise NOR
         /// </summary>
-        public bool IsBVNOR { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNOR; } }
+        public bool IsBVNOR { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNOR; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-wise XNOR
         /// </summary>
-        public bool IsBVXNOR { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BXNOR; } }
+        public bool IsBVXNOR { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BXNOR; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector concatenation (binary)
         /// </summary>
-        public bool IsBVConcat { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_CONCAT; } }
+        public bool IsBVConcat { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_CONCAT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector sign extension
         /// </summary>
-        public bool IsBVSignExtension { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SIGN_EXT; } }
+        public bool IsBVSignExtension { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SIGN_EXT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector zero extension
         /// </summary>
-        public bool IsBVZeroExtension { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ZERO_EXT; } }
+        public bool IsBVZeroExtension { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ZERO_EXT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector extraction
         /// </summary>
-        public bool IsBVExtract { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EXTRACT; } }
+        public bool IsBVExtract { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EXTRACT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector repetition
         /// </summary>
-        public bool IsBVRepeat { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_REPEAT; } }
+        public bool IsBVRepeat { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_REPEAT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector reduce OR
         /// </summary>
-        public bool IsBVReduceOR { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BREDOR; } }
+        public bool IsBVReduceOR { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BREDOR; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector reduce AND
         /// </summary>
-        public bool IsBVReduceAND { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BREDAND; } }
+        public bool IsBVReduceAND { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BREDAND; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector comparison
         /// </summary>
-        public bool IsBVComp { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BCOMP; } }
+        public bool IsBVComp { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BCOMP; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector shift left
         /// </summary>
-        public bool IsBVShiftLeft { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSHL; } }
+        public bool IsBVShiftLeft { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSHL; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector logical shift right
         /// </summary>
-        public bool IsBVShiftRightLogical { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BLSHR; } }
+        public bool IsBVShiftRightLogical { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BLSHR; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector arithmetic shift left
         /// </summary>
-        public bool IsBVShiftRightArithmetic { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BASHR; } }
+        public bool IsBVShiftRightArithmetic { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BASHR; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector rotate left
         /// </summary>
-        public bool IsBVRotateLeft { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ROTATE_LEFT; } }
+        public bool IsBVRotateLeft { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ROTATE_LEFT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector rotate right
         /// </summary>
-        public bool IsBVRotateRight { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ROTATE_RIGHT; } }
+        public bool IsBVRotateRight { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ROTATE_RIGHT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector rotate left (extended)
         /// </summary>
         /// <remarks>Similar to Z3_OP_ROTATE_LEFT, but it is a binary operator instead of a parametric one.</remarks>
-        public bool IsBVRotateLeftExtended { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EXT_ROTATE_LEFT; } }
+        public bool IsBVRotateLeftExtended { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EXT_ROTATE_LEFT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector rotate right (extended)
         /// </summary>
         /// <remarks>Similar to Z3_OP_ROTATE_RIGHT, but it is a binary operator instead of a parametric one.</remarks>
-        public bool IsBVRotateRightExtended { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EXT_ROTATE_RIGHT; } }
+        public bool IsBVRotateRightExtended { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EXT_ROTATE_RIGHT; } }
 
         /// <summary>
         /// Indicates whether the term is a coercion from integer to bit-vector
         /// </summary>
         /// <remarks>This function is not supported by the decision procedures. Only the most 
         /// rudimentary simplification rules are applied to this function.</remarks>
-        public bool IsIntToBV { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_INT2BV; } }
+        public bool IsIntToBV { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_INT2BV; } }
 
         /// <summary>
         /// Indicates whether the term is a coercion from bit-vector to integer
         /// </summary>
         /// <remarks>This function is not supported by the decision procedures. Only the most 
         /// rudimentary simplification rules are applied to this function.</remarks>
-        public bool IsBVToInt { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BV2INT; } }
+        public bool IsBVToInt { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BV2INT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector carry
         /// </summary>
         /// <remarks>Compute the carry bit in a full-adder.  The meaning is given by the 
         /// equivalence (carry l1 l2 l3) &lt;=&gt; (or (and l1 l2) (and l1 l3) (and l2 l3)))</remarks>
-        public bool IsBVCarry { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_CARRY; } }
+        public bool IsBVCarry { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_CARRY; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector ternary XOR
         /// </summary>
         /// <remarks>The meaning is given by the equivalence (xor3 l1 l2 l3) &lt;=&gt; (xor (xor l1 l2) l3)</remarks>
-        public bool IsBVXOR3 { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_XOR3; } }
+        public bool IsBVXOR3 { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_XOR3; } }
 
         #endregion
 
@@ -783,14 +792,14 @@ namespace Microsoft.Z3
         /// Indicates whether the term is a label (used by the Boogie Verification condition generator).
         /// </summary>
         /// <remarks>The label has two parameters, a string and a Boolean polarity. It takes one argument, a formula.</remarks>
-        public bool IsLabel { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL; } }
+        public bool IsLabel { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL; } }
 
         /// <summary>
         /// Indicates whether the term is a label literal (used by the Boogie Verification condition generator).                     
         /// </summary>
         /// <remarks>A label literal has a set of string parameters. It takes no arguments.</remarks>
-        public bool IsLabelLit { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL_LIT; } }
-        #endregion
+        public bool IsLabelLit { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL_LIT; } }
+        #endregion        
 
         #region Proof Terms
         /// <summary>
@@ -798,22 +807,22 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>This binary predicate is used in proof terms.
         /// It captures equisatisfiability and equivalence modulo renamings.</remarks>
-        public bool IsOEQ { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_OEQ; } }
+        public bool IsOEQ { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_OEQ; } }
 
         /// <summary>
         /// Indicates whether the term is a Proof for the expression 'true'.
         /// </summary>
-        public bool IsProofTrue { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TRUE; } }
+        public bool IsProofTrue { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TRUE; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for a fact asserted by the user.
         /// </summary>
-        public bool IsProofAsserted { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_ASSERTED; } }
+        public bool IsProofAsserted { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_ASSERTED; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for a fact (tagged as goal) asserted by the user.
         /// </summary>
-        public bool IsProofGoal { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_GOAL; } }
+        public bool IsProofGoal { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_GOAL; } }
 
         /// <summary>
         /// Indicates whether the term is proof via modus ponens
@@ -824,7 +833,7 @@ namespace Microsoft.Z3
         /// T2: (implies p q)
         /// [mp T1 T2]: q
         /// The second antecedents may also be a proof for (iff p q).</remarks>
-        public bool IsProofModusPonens { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS; } }
+        public bool IsProofModusPonens { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for (R t t), where R is a reflexive relation.
@@ -833,7 +842,7 @@ namespace Microsoft.Z3
         /// The only reflexive relations that are used are 
         /// equivalence modulo namings, equality and equivalence.
         /// That is, R is either '~', '=' or 'iff'.</remarks>
-        public bool IsProofReflexivity { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REFLEXIVITY; } }
+        public bool IsProofReflexivity { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REFLEXIVITY; } }
 
         /// <summary>
         /// Indicates whether the term is proof by symmetricity of a relation
@@ -844,7 +853,7 @@ namespace Microsoft.Z3
         /// [symmetry T1]: (R s t)
         /// T1 is the antecedent of this proof object.
         /// </remarks>
-        public bool IsProofSymmetry { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_SYMMETRY; } }
+        public bool IsProofSymmetry { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_SYMMETRY; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by transitivity of a relation
@@ -856,7 +865,7 @@ namespace Microsoft.Z3
         /// T2: (R s u)
         /// [trans T1 T2]: (R t u)
         /// </remarks>
-        public bool IsProofTransitivity { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY; } }
+        public bool IsProofTransitivity { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by condensed transitivity of a relation
@@ -877,7 +886,7 @@ namespace Microsoft.Z3
         /// if there is a path from s to t, if we view every
         /// antecedent (R a b) as an edge between a and b.
         /// </remarks>
-        public bool IsProofTransitivityStar { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY_STAR; } }
+        public bool IsProofTransitivityStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY_STAR; } }
 
 
         /// <summary>
@@ -891,7 +900,7 @@ namespace Microsoft.Z3
         /// Remark: if t_i == s_i, then the antecedent Ti is suppressed.
         /// That is, reflexivity proofs are supressed to save space.
         /// </remarks>
-        public bool IsProofMonotonicity { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MONOTONICITY; } }
+        public bool IsProofMonotonicity { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MONOTONICITY; } }
 
         /// <summary>
         /// Indicates whether the term is a quant-intro proof 
@@ -901,7 +910,7 @@ namespace Microsoft.Z3
         /// T1: (~ p q)
         /// [quant-intro T1]: (~ (forall (x) p) (forall (x) q))
         /// </remarks>
-        public bool IsProofQuantIntro { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_QUANT_INTRO; } }
+        public bool IsProofQuantIntro { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_QUANT_INTRO; } }
 
         /// <summary>
         /// Indicates whether the term is a distributivity proof object.  
@@ -919,7 +928,7 @@ namespace Microsoft.Z3
         /// Remark. This rule is used by the CNF conversion pass and 
         /// instantiated by f = or, and g = and.
         /// </remarks>
-        public bool IsProofDistributivity { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DISTRIBUTIVITY; } }
+        public bool IsProofDistributivity { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DISTRIBUTIVITY; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by elimination of AND
@@ -929,7 +938,7 @@ namespace Microsoft.Z3
         /// T1: (and l_1 ... l_n)
         /// [and-elim T1]: l_i
         /// </remarks>
-        public bool IsProofAndElimination { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_AND_ELIM; } }
+        public bool IsProofAndElimination { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_AND_ELIM; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by eliminiation of not-or
@@ -939,7 +948,7 @@ namespace Microsoft.Z3
         /// T1: (not (or l_1 ... l_n))
         /// [not-or-elim T1]: (not l_i)       
         /// </remarks>
-        public bool IsProofOrElimination { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NOT_OR_ELIM; } }
+        public bool IsProofOrElimination { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NOT_OR_ELIM; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by rewriting
@@ -958,7 +967,7 @@ namespace Microsoft.Z3
         /// (= (+ x 1 2) (+ 3 x))
         /// (iff (or x false) x)          
         /// </remarks>
-        public bool IsProofRewrite { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REWRITE; } }
+        public bool IsProofRewrite { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REWRITE; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by rewriting
@@ -974,7 +983,7 @@ namespace Microsoft.Z3
         /// - When converting bit-vectors to Booleans (BIT2BOOL=true)
         /// - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true)
         /// </remarks>
-        public bool IsProofRewriteStar { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR; } }
+        public bool IsProofRewriteStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for pulling quantifiers out.
@@ -982,7 +991,7 @@ namespace Microsoft.Z3
         /// <remarks>
         /// A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents.
         /// </remarks>
-        public bool IsProofPullQuant { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT; } }
+        public bool IsProofPullQuant { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for pulling quantifiers out.
@@ -992,7 +1001,7 @@ namespace Microsoft.Z3
         /// This proof object is only used if the parameter PROOF_MODE is 1.       
         /// This proof object has no antecedents
         /// </remarks>
-        public bool IsProofPullQuantStar { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR; } }
+        public bool IsProofPullQuantStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for pushing quantifiers in.
@@ -1005,7 +1014,7 @@ namespace Microsoft.Z3
         ///      (forall (x_1 ... x_m) p_n[x_1 ... x_m])))               
         ///  This proof object has no antecedents
         /// </remarks>
-        public bool IsProofPushQuant { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PUSH_QUANT; } }
+        public bool IsProofPushQuant { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PUSH_QUANT; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for elimination of unused variables.
@@ -1017,7 +1026,7 @@ namespace Microsoft.Z3
         /// It is used to justify the elimination of unused variables.
         /// This proof object has no antecedents.
         /// </remarks>
-        public bool IsProofElimUnusedVars { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_ELIM_UNUSED_VARS; } }
+        public bool IsProofElimUnusedVars { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_ELIM_UNUSED_VARS; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for destructive equality resolution
@@ -1031,7 +1040,7 @@ namespace Microsoft.Z3
         /// 
         /// Several variables can be eliminated simultaneously.
         /// </remarks>
-        public bool IsProofDER { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DER; } }
+        public bool IsProofDER { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DER; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for quantifier instantiation
@@ -1039,13 +1048,13 @@ namespace Microsoft.Z3
         /// <remarks>
         /// A proof of (or (not (forall (x) (P x))) (P a))
         /// </remarks>
-        public bool IsProofQuantInst { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_QUANT_INST; } }
+        public bool IsProofQuantInst { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_QUANT_INST; } }
 
         /// <summary>
         /// Indicates whether the term is a hypthesis marker.
         /// </summary>
         /// <remarks>Mark a hypothesis in a natural deduction style proof.</remarks>
-        public bool IsProofHypothesis { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS; } }
+        public bool IsProofHypothesis { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by lemma
@@ -1058,7 +1067,7 @@ namespace Microsoft.Z3
         /// It converts the proof in a proof for (or (not l_1) ... (not l_n)),
         /// when T1 contains the hypotheses: l_1, ..., l_n.
         /// </remarks>
-        public bool IsProofLemma { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_LEMMA; } }
+        public bool IsProofLemma { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_LEMMA; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by unit resolution
@@ -1070,7 +1079,7 @@ namespace Microsoft.Z3
         /// T(n+1):  (not l_n)
         /// [unit-resolution T1 ... T(n+1)]: (or l_1' ... l_m')
         /// </remarks>
-        public bool IsProofUnitResolution { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_UNIT_RESOLUTION; } }
+        public bool IsProofUnitResolution { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_UNIT_RESOLUTION; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by iff-true
@@ -1079,7 +1088,7 @@ namespace Microsoft.Z3
         /// T1: p
         /// [iff-true T1]: (iff p true)
         /// </remarks>
-        public bool IsProofIFFTrue { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_IFF_TRUE; } }
+        public bool IsProofIFFTrue { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_IFF_TRUE; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by iff-false
@@ -1088,7 +1097,7 @@ namespace Microsoft.Z3
         /// T1: (not p)
         /// [iff-false T1]: (iff p false)
         /// </remarks>
-        public bool IsProofIFFFalse { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_IFF_FALSE; } }
+        public bool IsProofIFFFalse { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_IFF_FALSE; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by commutativity
@@ -1101,7 +1110,7 @@ namespace Microsoft.Z3
         /// This proof object has no antecedents.
         /// Remark: if f is bool, then = is iff.
         /// </remarks>
-        public bool IsProofCommutativity { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_COMMUTATIVITY; } }
+        public bool IsProofCommutativity { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_COMMUTATIVITY; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for Tseitin-like axioms
@@ -1137,7 +1146,7 @@ namespace Microsoft.Z3
         /// unfolding the Boolean connectives in the axioms a small
         /// bounded number of steps (=3).
         /// </remarks>
-        public bool IsProofDefAxiom { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DEF_AXIOM; } }
+        public bool IsProofDefAxiom { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DEF_AXIOM; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for introduction of a name
@@ -1160,7 +1169,7 @@ namespace Microsoft.Z3
         /// Otherwise:
         /// [def-intro]: (= n e)       
         /// </remarks>
-        public bool IsProofDefIntro { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DEF_INTRO; } }
+        public bool IsProofDefIntro { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DEF_INTRO; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for application of a definition
@@ -1170,7 +1179,7 @@ namespace Microsoft.Z3
         ///  F is 'equivalent' to n, given that T1 is a proof that
         ///  n is a name for F.
         /// </remarks>
-        public bool IsProofApplyDef { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_APPLY_DEF; } }
+        public bool IsProofApplyDef { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_APPLY_DEF; } }
 
         /// <summary>
         /// Indicates whether the term is a proof iff-oeq
@@ -1179,7 +1188,7 @@ namespace Microsoft.Z3
         /// T1: (iff p q)
         /// [iff~ T1]: (~ p q)
         /// </remarks>
-        public bool IsProofIFFOEQ { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_IFF_OEQ; } }
+        public bool IsProofIFFOEQ { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_IFF_OEQ; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for a positive NNF step
@@ -1207,7 +1216,7 @@ namespace Microsoft.Z3
         /// NNF_NEG furthermore handles the case where negation is pushed
         /// over Boolean connectives 'and' and 'or'.
         /// </remarks>
-        public bool IsProofNNFPos { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_POS; } }
+        public bool IsProofNNFPos { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_POS; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for a negative NNF step
@@ -1232,7 +1241,7 @@ namespace Microsoft.Z3
         ///   [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
         ///                             (and (or r_1 r_2) (or r_1' r_2')))
         /// </remarks>
-        public bool IsProofNNFNeg { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_NEG; } }
+        public bool IsProofNNFNeg { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_NEG; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
@@ -1244,7 +1253,7 @@ namespace Microsoft.Z3
         /// 
         /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
         /// </remarks>
-        public bool IsProofNNFStar { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_STAR; } }
+        public bool IsProofNNFStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_STAR; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
@@ -1254,7 +1263,7 @@ namespace Microsoft.Z3
         /// This proof object is only used if the parameter PROOF_MODE is 1.       
         /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.          
         /// </remarks>
-        public bool IsProofCNFStar { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_CNF_STAR; } }
+        public bool IsProofCNFStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_CNF_STAR; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for a Skolemization step
@@ -1267,7 +1276,7 @@ namespace Microsoft.Z3
         ///   
         /// This proof object has no antecedents.
         /// </remarks>
-        public bool IsProofSkolemize { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_SKOLEMIZE; } }
+        public bool IsProofSkolemize { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_SKOLEMIZE; } }
 
         /// <summary>
         /// Indicates whether the term is a proof by modus ponens for equi-satisfiability.
@@ -1278,7 +1287,7 @@ namespace Microsoft.Z3
         /// T2: (~ p q)
         /// [mp~ T1 T2]: q  
         /// </remarks>
-        public bool IsProofModusPonensOEQ { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS_OEQ; } }
+        public bool IsProofModusPonensOEQ { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS_OEQ; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for theory lemma
@@ -1297,7 +1306,7 @@ namespace Microsoft.Z3
         ///   (iff (= t1 t2) (and (&lt;= t1 t2) (&lt;= t2 t1)))
         /// - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test.
         /// </remarks>
-        public bool IsProofTheoryLemma { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TH_LEMMA; } }
+        public bool IsProofTheoryLemma { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TH_LEMMA; } }
         #endregion
 
         #region Relational Terms
@@ -1322,40 +1331,40 @@ namespace Microsoft.Z3
         /// The function takes <c>n+1</c> arguments, where the first argument is the relation and the remaining <c>n</c> elements 
         /// correspond to the <c>n</c> columns of the relation.
         /// </remarks>
-        public bool IsRelationStore { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_STORE; } }
+        public bool IsRelationStore { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_STORE; } }
 
         /// <summary>
         /// Indicates whether the term is an empty relation
         /// </summary>
-        public bool IsEmptyRelation { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_EMPTY; } }
+        public bool IsEmptyRelation { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_EMPTY; } }
 
         /// <summary>
         /// Indicates whether the term is a test for the emptiness of a relation
         /// </summary>
-        public bool IsIsEmptyRelation { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_IS_EMPTY; } }
+        public bool IsIsEmptyRelation { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_IS_EMPTY; } }
 
         /// <summary>
         /// Indicates whether the term is a relational join
         /// </summary>
-        public bool IsRelationalJoin { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_JOIN; } }
+        public bool IsRelationalJoin { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_JOIN; } }
 
         /// <summary>
         /// Indicates whether the term is the union or convex hull of two relations. 
         /// </summary>
         /// <remarks>The function takes two arguments.</remarks>
-        public bool IsRelationUnion { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_UNION; } }
+        public bool IsRelationUnion { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_UNION; } }
 
         /// <summary>
         /// Indicates whether the term is the widening of two relations
         /// </summary>
         /// <remarks>The function takes two arguments.</remarks>
-        public bool IsRelationWiden { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_WIDEN; } }
+        public bool IsRelationWiden { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_WIDEN; } }
 
         /// <summary>
         /// Indicates whether the term is a projection of columns (provided as numbers in the parameters).
         /// </summary>
         /// <remarks>The function takes one argument.</remarks>
-        public bool IsRelationProject { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_PROJECT; } }
+        public bool IsRelationProject { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_PROJECT; } }
 
         /// <summary>
         /// Indicates whether the term is a relation filter
@@ -1367,7 +1376,7 @@ namespace Microsoft.Z3
         /// corresponding to the columns of the relation.
         /// So the first column in the relation has index 0.
         /// </remarks>
-        public bool IsRelationFilter { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_FILTER; } }
+        public bool IsRelationFilter { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_FILTER; } }
 
         /// <summary>
         /// Indicates whether the term is an intersection of a relation with the negation of another.
@@ -1383,7 +1392,7 @@ namespace Microsoft.Z3
         /// target are elements in x in pos, such that there is no y in neg that agrees with
         /// x on the columns c1, d1, .., cN, dN.
         /// </remarks>
-        public bool IsRelationNegationFilter { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_NEGATION_FILTER; } }
+        public bool IsRelationNegationFilter { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_NEGATION_FILTER; } }
 
         /// <summary>
         /// Indicates whether the term is the renaming of a column in a relation
@@ -1392,12 +1401,12 @@ namespace Microsoft.Z3
         /// The function takes one argument.
         /// The parameters contain the renaming as a cycle.
         /// </remarks>
-        public bool IsRelationRename { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_RENAME; } }
+        public bool IsRelationRename { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_RENAME; } }
 
         /// <summary>
         /// Indicates whether the term is the complement of a relation
         /// </summary>
-        public bool IsRelationComplement { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_COMPLEMENT; } }
+        public bool IsRelationComplement { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_COMPLEMENT; } }
 
         /// <summary>
         /// Indicates whether the term is a relational select
@@ -1407,7 +1416,7 @@ namespace Microsoft.Z3
         /// The function takes <c>n+1</c> arguments, where the first argument is a relation,
         /// and the remaining <c>n</c> arguments correspond to a record.
         /// </remarks>
-        public bool IsRelationSelect { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_SELECT; } }
+        public bool IsRelationSelect { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_SELECT; } }
 
         /// <summary>
         /// Indicates whether the term is a relational clone (copy)
@@ -1419,7 +1428,7 @@ namespace Microsoft.Z3
         /// for terms of kind <seealso cref="IsRelationUnion"/> 
         /// to perform destructive updates to the first argument.
         /// </remarks>
-        public bool IsRelationClone { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_CLONE; } }
+        public bool IsRelationClone { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_CLONE; } }
         #endregion
 
         #region Finite domain terms
@@ -1438,7 +1447,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is a less than predicate over a finite domain.
         /// </summary>
-        public bool IsFiniteDomainLT { get { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FD_LT; } }
+        public bool IsFiniteDomainLT { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FD_LT; } }
         #endregion
         #endregion
 

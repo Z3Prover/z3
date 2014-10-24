@@ -29,6 +29,8 @@ class datatype_factory : public struct_factory {
     expr * get_last_fresh_value(sort * s);
     expr * get_almost_fresh_value(sort * s);
 
+    bool is_subterm_of_last_value(app* e);
+
 public:
     datatype_factory(ast_manager & m, proto_model & md);
     virtual ~datatype_factory() {}

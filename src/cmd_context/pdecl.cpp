@@ -189,7 +189,7 @@ class psort_app : public psort {
         m.inc_ref(d);
         m.inc_ref(num_args, args);
         SASSERT(num_args == m_decl->get_num_params() || m_decl->has_var_params());
-        DEBUG_CODE(for (unsigned i = 0; i < num_params; i++) args[i]->check_num_params(this););
+        DEBUG_CODE(if (num_args == num_params) { for (unsigned i = 0; i < num_params; i++) args[i]->check_num_params(this); });
     }
 
     virtual void finalize(pdecl_manager & m) { 
@@ -514,6 +514,25 @@ bool pdatatype_decl::has_missing_refs(symbol & missing) const {
     }
     return false;
 }
+
+bool pdatatype_decl::has_duplicate_accessors(symbol & duplicated) const {
+    hashtable<symbol, symbol_hash_proc, symbol_eq_proc> names;
+    ptr_vector<pconstructor_decl>::const_iterator it  = m_constructors.begin();
+    ptr_vector<pconstructor_decl>::const_iterator end = m_constructors.end();
+    for (; it != end; ++it) {
+        ptr_vector<paccessor_decl> const& acc = (*it)->m_accessors;
+        for (unsigned i = 0; i < acc.size(); ++i) {
+            symbol const& name = acc[i]->get_name();
+            if (names.contains(name)) {
+                duplicated = name;
+                return true;
+            }
+            names.insert(name);
+        }
+    }
+    return false;
+}
+
 
 bool pdatatype_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing) {
     ptr_vector<pconstructor_decl>::iterator it  = m_constructors.begin();

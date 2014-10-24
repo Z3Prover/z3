@@ -31,7 +31,7 @@ Revision History:
 #include"ast_smt2_pp.h"
 #include"th_rewriter.h"
 #include"var_subst.h"
-#include"expr_substitution.h"
+#include"expr_safe_replace.h"
 #include"pp.h"
 #include"scoped_ctrl_c.h"
 #include"cancel_eh.h"
@@ -208,6 +208,7 @@ extern "C" {
     MK_BINARY(Z3_mk_xor, mk_c(c)->get_basic_fid(), OP_XOR, SKIP);
     MK_NARY(Z3_mk_and, mk_c(c)->get_basic_fid(), OP_AND, SKIP);
     MK_NARY(Z3_mk_or, mk_c(c)->get_basic_fid(), OP_OR, SKIP);
+    MK_UNARY(Z3_mk_interpolant, mk_c(c)->get_basic_fid(), OP_INTERP, SKIP);
 
     Z3_ast mk_ite_core(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_ast t3) {
         expr * result = mk_c(c)->m().mk_ite(to_expr(t1), to_expr(t2), to_expr(t3));
@@ -786,17 +787,12 @@ extern "C" {
                 RETURN_Z3(of_expr(0));
             }
         }
-
-        expr_substitution subst(m);
+        expr_safe_replace subst(m);
         for (unsigned i = 0; i < num_exprs; i++) {
             subst.insert(from[i], to[i]);
         }
-        th_rewriter   m_rw(m);
-        m_rw.set_substitution(&subst);
-        
         expr_ref   new_a(m);
-        proof_ref  pr(m);
-        m_rw(a, new_a, pr);
+        subst(a, new_a);
         mk_c(c)->save_ast_trail(new_a);
         r = new_a.get();
         RETURN_Z3(of_expr(r));
@@ -927,6 +923,7 @@ extern "C" {
             case OP_NOT:      return Z3_OP_NOT;
             case OP_IMPLIES:  return Z3_OP_IMPLIES;
             case OP_OEQ:      return Z3_OP_OEQ;
+            case OP_INTERP:   return Z3_OP_INTERP;
 
             case PR_UNDEF:    return Z3_OP_PR_UNDEF;
             case PR_TRUE:     return Z3_OP_PR_TRUE;
@@ -1073,6 +1070,12 @@ extern "C" {
             case OP_BSMUL_NO_OVFL: 
             case OP_BUMUL_NO_OVFL:
             case OP_BSMUL_NO_UDFL:
+            case OP_BSDIV_I:
+            case OP_BUDIV_I:
+            case OP_BSREM_I:
+            case OP_BUREM_I:
+            case OP_BSMOD_I:
+
                 return Z3_OP_UNINTERPRETED;
             default:
                 UNREACHABLE();

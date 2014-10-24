@@ -45,6 +45,7 @@ class quasi_macros {
     expr_mark                 m_visited_more;
     
     bool is_unique(func_decl * f) const;
+    bool is_non_ground_uninterp(expr const * e) const;
     bool fully_depends_on(app * a, quantifier * q) const;    
     bool depends_on(expr * e, func_decl * f) const;
 

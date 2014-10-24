@@ -83,7 +83,13 @@ void context_params::set(char const * param, char const * value) {
         set_bool(m_smtlib2_compliant, param, value);
     }
     else {
-        throw default_exception("unknown parameter '%s'", p.c_str());
+       param_descrs d;
+       collect_param_descrs(d);
+       std::stringstream strm;
+       strm << "unknown parameter '" << p << "'\n";
+       strm << "Legal parameters are:\n";
+       d.display(strm, 2, false, false);
+       throw default_exception(strm.str());        
     }
 }
 
@@ -110,14 +116,18 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("well_sorted_check", CPK_BOOL, "type checker", "true");
     d.insert("type_check", CPK_BOOL, "type checker (alias for well_sorted_check)", "true");
     d.insert("auto_config", CPK_BOOL, "use heuristics to automatically select solver and configure it", "true");
-    d.insert("proof", CPK_BOOL, "proof generation, it must be enabled when the Z3 context is created", "false");
-    d.insert("model", CPK_BOOL, "model generation for solvers, this parameter can be overwritten when creating a solver", "true");
     d.insert("model_validate", CPK_BOOL, "validate models produced by solvers", "false");
     d.insert("trace", CPK_BOOL, "trace generation for VCC", "false");
     d.insert("trace_file_name", CPK_STRING, "trace out file name (see option 'trace')", "z3.log");
-    d.insert("unsat_core", CPK_BOOL, "unsat-core generation for solvers, this parameter can be overwritten when creating a solver, not every solver in Z3 supports unsat core generation", "false");
     d.insert("debug_ref_count", CPK_BOOL, "debug support for AST reference counting", "false");
     d.insert("smtlib2_compliant", CPK_BOOL, "enable/disable SMT-LIB 2.0 compliance", "false");
+    collect_solver_param_descrs(d);
+}
+
+void context_params::collect_solver_param_descrs(param_descrs & d) {
+    d.insert("proof", CPK_BOOL, "proof generation, it must be enabled when the Z3 context is created", "false");
+    d.insert("model", CPK_BOOL, "model generation for solvers, this parameter can be overwritten when creating a solver", "true");
+    d.insert("unsat_core", CPK_BOOL, "unsat-core generation for solvers, this parameter can be overwritten when creating a solver, not every solver in Z3 supports unsat core generation", "false");
 }
 
 params_ref context_params::merge_default_params(params_ref const & p) {

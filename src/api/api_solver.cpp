@@ -40,6 +40,12 @@ extern "C" {
         params_ref p = s->m_params;
         mk_c(c)->params().get_solver_params(mk_c(c)->m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
         s->m_solver = (*(s->m_solver_factory))(mk_c(c)->m(), p, proofs_enabled, models_enabled, unsat_core_enabled, s->m_logic);
+        
+        param_descrs r;
+        s->m_solver->collect_param_descrs(r);
+        context_params::collect_solver_param_descrs(r);
+        p.validate(r);
+        s->m_solver->updt_params(p);
     }
 
     static void init_solver(Z3_context c, Z3_solver s) {
@@ -101,6 +107,7 @@ extern "C" {
         if (!initialized)
             init_solver(c, s);
         to_solver_ref(s)->collect_param_descrs(descrs);
+        context_params::collect_solver_param_descrs(descrs);
         if (!initialized)
             to_solver(s)->m_solver = 0;
         descrs.display(buffer);
@@ -118,6 +125,7 @@ extern "C" {
         if (!initialized)
             init_solver(c, s);
         to_solver_ref(s)->collect_param_descrs(d->m_descrs);
+        context_params::collect_solver_param_descrs(d->m_descrs);
         if (!initialized)
             to_solver(s)->m_solver = 0;
         Z3_param_descrs r = of_param_descrs(d);
@@ -129,14 +137,19 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_set_params(c, s, p);
         RESET_ERROR_CODE();
+
         if (to_solver(s)->m_solver) {
             bool old_model = to_solver(s)->m_params.get_bool("model", true);
             bool new_model = to_param_ref(p).get_bool("model", true);
             if (old_model != new_model)
                 to_solver_ref(s)->set_produce_models(new_model);
+            param_descrs r;
+            to_solver_ref(s)->collect_param_descrs(r);
+            context_params::collect_solver_param_descrs(r);
+            to_param_ref(p).validate(r);
             to_solver_ref(s)->updt_params(to_param_ref(p));
         }
-        to_solver(s)->m_params = to_param_ref(p);
+        to_solver(s)->m_params.append(to_param_ref(p));
         Z3_CATCH;
     }
     

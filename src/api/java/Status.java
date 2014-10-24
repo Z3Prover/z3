@@ -1,8 +1,19 @@
 /**
- * This file was automatically generated from Status.cs 
- * w/ further modifications by:
- * @author Christoph M. Wintersteiger (cwinter)
- **/
+Copyright (c) 2012-2014 Microsoft Corporation
+   
+Module Name:
+
+    Status.java
+
+Abstract:
+
+Author:
+
+    @author Christoph Wintersteiger (cwinter) 2012-03-15
+
+Notes:
+    
+**/ 
 
 package com.microsoft.z3;
 
@@ -12,7 +23,7 @@ package com.microsoft.z3;
 public enum Status
 {
     // / Used to signify an unsatisfiable status.
-    UNSATISFIABLE(1),
+    UNSATISFIABLE(-1),
 
     // / Used to signify an unknown status.
     UNKNOWN(0),

@@ -70,7 +70,9 @@ struct scoped_timer::imp {
     pthread_t        m_thread_id;
     pthread_attr_t   m_attributes;
     unsigned         m_interval;    
+    pthread_mutex_t  m_mutex;
     pthread_cond_t   m_condition_var;
+    struct timespec  m_end_time;
 #elif defined(_LINUX_) || defined(_FREEBSD_)
     // Linux & FreeBSD
     timer_t         m_timerid;
@@ -93,35 +95,15 @@ struct scoped_timer::imp {
     static void * thread_func(void * arg) {
         scoped_timer::imp * st = static_cast<scoped_timer::imp*>(arg);  
 
-        pthread_mutex_t  mutex;
-        clock_serv_t host_clock;
-        struct timespec abstime;
-        mach_timespec_t now;
-        unsigned long long nano = static_cast<unsigned long long>(st->m_interval) * 1000000ull;
+        pthread_mutex_lock(&st->m_mutex);
 
-        host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &host_clock);
-
-        if (pthread_mutex_init(&mutex, NULL) != 0)
-            throw default_exception("failed to initialize timer mutex");
-        if (pthread_cond_init(&st->m_condition_var, NULL) != 0)
-            throw default_exception("failed to initialize timer condition variable");
-
-        abstime.tv_sec  = nano / 1000000000ull;
-        abstime.tv_nsec = nano % 1000000000ull;
-
-        pthread_mutex_lock(&mutex);
-        clock_get_time(host_clock, &now);
-        ADD_MACH_TIMESPEC(&abstime, &now);
-        int e = pthread_cond_timedwait(&st->m_condition_var, &mutex, &abstime);
+        int e = pthread_cond_timedwait(&st->m_condition_var, &st->m_mutex, &st->m_end_time);
         if (e != 0 && e != ETIMEDOUT)
             throw default_exception("failed to start timed wait");
         st->m_eh->operator()();
-        pthread_mutex_unlock(&mutex);
 
-        if (pthread_mutex_destroy(&mutex) != 0)
-            throw default_exception("failed to destroy pthread mutex");
-        if (pthread_cond_destroy(&st->m_condition_var) != 0)
-            throw default_exception("failed to destroy pthread condition variable");
+        pthread_mutex_unlock(&st->m_mutex);
+
         return st;
     }
 #elif defined(_LINUX_) || defined(_FREEBSD_)
@@ -147,9 +129,25 @@ struct scoped_timer::imp {
                               WT_EXECUTEINTIMERTHREAD);	
 #elif defined(__APPLE__) && defined(__MACH__)
         // Mac OS X
-        m_interval = ms;
+        m_interval = ms?ms:0xFFFFFFFF;
         if (pthread_attr_init(&m_attributes) != 0)
             throw default_exception("failed to initialize timer thread attributes");
+        if (pthread_cond_init(&m_condition_var, NULL) != 0)
+            throw default_exception("failed to initialize timer condition variable");
+        if (pthread_mutex_init(&m_mutex, NULL) != 0)
+            throw default_exception("failed to initialize timer mutex");
+
+        clock_serv_t host_clock;
+        mach_timespec_t now;
+        unsigned long long nano = static_cast<unsigned long long>(m_interval) * 1000000ull;
+        
+        host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &host_clock);
+        m_end_time.tv_sec  = nano / 1000000000ull;
+        m_end_time.tv_nsec = nano % 1000000000ull;
+        clock_get_time(host_clock, &now);
+        ADD_MACH_TIMESPEC(&m_end_time, &now);
+
+
         if (pthread_create(&m_thread_id, &m_attributes, &thread_func, this) != 0)
             throw default_exception("failed to start timer thread");
 #elif defined(_LINUX_) || defined(_FREEBSD_)
@@ -183,9 +181,25 @@ struct scoped_timer::imp {
                               INVALID_HANDLE_VALUE);
 #elif defined(__APPLE__) && defined(__MACH__)
         // Mac OS X
-        pthread_cond_signal(&m_condition_var); // this is okay to fail
+
+        // If the waiting-thread is not up and waiting yet, 
+        // we can make sure that it finishes quickly by 
+        // setting the end-time to zero.
+        m_end_time.tv_sec = 0;
+        m_end_time.tv_nsec = 0;
+
+        // Otherwise it's already up and waiting, and
+        // we can send a signal on m_condition_var:
+        pthread_mutex_lock(&m_mutex);
+        pthread_cond_signal(&m_condition_var);
+        pthread_mutex_unlock(&m_mutex);
+
         if (pthread_join(m_thread_id, NULL) != 0)
             throw default_exception("failed to join thread");
+        if (pthread_mutex_destroy(&m_mutex) != 0)
+            throw default_exception("failed to destroy pthread mutex");
+        if (pthread_cond_destroy(&m_condition_var) != 0)
+            throw default_exception("failed to destroy pthread condition variable");
         if (pthread_attr_destroy(&m_attributes) != 0)
             throw default_exception("failed to destroy pthread attributes object");
 #elif defined(_LINUX_) || defined(_FREEBSD_)

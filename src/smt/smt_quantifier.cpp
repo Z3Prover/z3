@@ -335,6 +335,10 @@ namespace smt {
         return m_imp->m_plugin->model_based();
     }
 
+    bool quantifier_manager::mbqi_enabled(quantifier *q) const {
+        return m_imp->m_plugin->mbqi_enabled(q);
+    }
+
     void quantifier_manager::adjust_model(proto_model * m) {
         m_imp->m_plugin->adjust_model(m);
     }
@@ -434,8 +438,22 @@ namespace smt {
 
         virtual bool model_based() const { return m_fparams->m_mbqi; }
 
+        virtual bool mbqi_enabled(quantifier *q) const { 
+            if(!m_fparams->m_mbqi_id) return true;
+            const symbol &s = q->get_qid();
+            size_t len = strlen(m_fparams->m_mbqi_id);
+            if(s == symbol::null || s.is_numerical())
+                return len == 0;
+            return strncmp(s.bare_str(),m_fparams->m_mbqi_id,len) == 0;
+	}
+
+      /* Quantifier id's must begin with the prefix specified by
+	 parameter mbqi.id to be instantiated with MBQI.  The default
+	 value is the empty string, so all quantifiers are
+	 instantiated.
+       */
         virtual void add(quantifier * q) {
-            if (m_fparams->m_mbqi) {
+            if (m_fparams->m_mbqi && mbqi_enabled(q)) {
                 m_model_finder->register_quantifier(q);
             }
         }

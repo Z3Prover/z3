@@ -480,7 +480,10 @@ private:
                     break;
             }
         
-            SASSERT (i < sz);
+            if (i >= sz) {
+                // [Christoph]: In this case, all the m_a are equal to m_c.
+                return;
+            }
 
             // copy lits [0, i) to m_clause
             for (unsigned j = 0; j < i; j++)
@@ -500,6 +503,7 @@ private:
         }
 
         void mk_pbc(polynomial & m_p, numeral & m_c, expr_ref & r, bool enable_split) {
+            TRACE("mk_pbc", display(tout, m_p, m_c); );
             if (m_c.is_nonpos()) {
                 // constraint is equivalent to true.
                 r = m.mk_true();
@@ -507,7 +511,7 @@ private:
             }
             polynomial::iterator it  = m_p.begin();
             polynomial::iterator end = m_p.end();
-            numeral a_gcd = it->m_a;
+            numeral a_gcd = (it->m_a > m_c) ? m_c : it->m_a;
             for (; it != end; ++it) {
                 if (it->m_a > m_c)
                     it->m_a = m_c; // trimming coefficients
@@ -520,6 +524,7 @@ private:
                     it->m_a /= a_gcd;
                 m_c = ceil(m_c/a_gcd);
             }
+            TRACE("mk_pbc", tout << "GCD = " << a_gcd << "; Normalized: "; display(tout, m_p, m_c); tout << "\n"; );
             it  = m_p.begin();
             numeral a_sum;
             for (; it != end; ++it) {
@@ -997,17 +1002,12 @@ public:
     
     virtual void cleanup() {
         ast_manager & m = m_imp->m;
-        imp * d = m_imp;
+        imp * d = alloc(imp, m, m_params);
         #pragma omp critical (tactic_cancel)
         {
-            d = m_imp;
+            std::swap(d, m_imp);
         }
         dealloc(d);
-        d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel) 
-        {
-            m_imp = d;
-        }
     }
 
 protected:

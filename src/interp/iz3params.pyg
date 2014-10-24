@@ -1,0 +1,6 @@
+def_module_params('interp', 
+                  description='interpolation parameters',
+                  export=True,
+                  params=(('profile', BOOL, False, '(INTERP) profile interpolation'),
+                          ('check', BOOL, False, '(INTERP) check interpolants'),
+                          ))

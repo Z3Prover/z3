@@ -4,7 +4,7 @@ class Z3Exception(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
-        return repr(self.value)
+        return str(self.value)
 
 class ContextObj(ctypes.c_void_p):
   def __init__(self, context): self._as_parameter_ = context
@@ -109,3 +109,4 @@ class FuncEntryObj(ctypes.c_void_p):
 class RCFNumObj(ctypes.c_void_p):
   def __init__(self, e): self._as_parameter_ = e
   def from_param(obj): return obj
+

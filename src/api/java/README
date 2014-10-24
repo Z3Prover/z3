@@ -1,3 +1,6 @@
 Java bindings
 -------------
 
+The Java bindings will be included in the Z3 build if it is configured with   
+the option --java to python scripts/mk_make.py. This will produce the   
+com.microsoft.z3.jar package in the build directory.

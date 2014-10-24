@@ -51,6 +51,9 @@ struct theory_array_params : public array_simplifier_params {
         m_array_lazy_ieq_delay(10) {
     }
 
+
+    void updt_params(params_ref const & _p);
+
 #if 0
     void register_params(ini_params & p) {
         p.register_int_param("array_solver", 0, 3, reinterpret_cast<int&>(m_array_mode), "0 - no array, 1 - simple, 2 - model based, 3 - full");

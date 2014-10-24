@@ -196,6 +196,7 @@ namespace sat {
         s.propagate(false); // make sure propagation queue is empty
         if (s.inconsistent())
             return true;
+        SASSERT(s.m_qhead == s.m_trail.size());
         CASSERT("probing", s.check_invariant());
         if (!force && m_counter > 0)
             return true;
@@ -259,7 +260,7 @@ namespace sat {
         m_to_assert.finalize();
     }
     
-    void probing::collect_statistics(statistics & st) {
+    void probing::collect_statistics(statistics & st) const {
         st.update("probing assigned", m_num_assigned);
     }
     

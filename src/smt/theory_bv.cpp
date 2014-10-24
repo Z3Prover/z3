@@ -53,6 +53,7 @@ namespace smt {
         unsigned bv_size      = get_bv_size(n);
         context & ctx         = get_context();
         literal_vector & bits = m_bits[v];
+        bits.reset();
         for (unsigned i = 0; i < bv_size; i++) {
             app * bit  = mk_bit2bool(owner, i);
             ctx.internalize(bit, true);
@@ -75,12 +76,14 @@ namespace smt {
     void theory_bv::mk_bit2bool(app * n) {
         context & ctx    = get_context();
         SASSERT(!ctx.b_internalized(n));
-        if (!ctx.e_internalized(n->get_arg(0))) {
+        
+        expr* first_arg = n->get_arg(0);
+
+        if (!ctx.e_internalized(first_arg)) {
             // This may happen if bit2bool(x) is in a conflict
             // clause that is being reinitialized, and x was not reinitialized
             // yet.
-            // So, we internalize x (i.e., n->get_arg(0))
-            expr * first_arg = n->get_arg(0);
+            // So, we internalize x (i.e., arg)
             ctx.internalize(first_arg, false);
             SASSERT(ctx.e_internalized(first_arg));
             // In most cases, when x is internalized, its bits are created.
@@ -91,10 +94,27 @@ namespace smt {
             // This will also force the creation of all bits for x.
             enode * first_arg_enode = ctx.get_enode(first_arg);
             get_var(first_arg_enode);
-            SASSERT(ctx.b_internalized(n));
+            // numerals are not blasted into bit2bool, so we do this directly.
+            if (!ctx.b_internalized(n)) {
+                rational val;
+                unsigned sz;
+                VERIFY(m_util.is_numeral(first_arg, val, sz));
+                theory_var v = first_arg_enode->get_th_var(get_id());
+                app* owner = first_arg_enode->get_owner();
+                for (unsigned i = 0; i < sz; ++i) {
+                    ctx.internalize(mk_bit2bool(owner, i), true);
+                }
+                m_bits[v].reset();
+                rational bit;                
+                for (unsigned i = 0; i < sz; ++i) {
+                    div(val, rational::power_of_two(i), bit);
+                    mod(bit, rational(2), bit);
+                    m_bits[v].push_back(bit.is_zero()?false_literal:true_literal);
+                }
+            }
         }
         else {
-            enode * arg      = ctx.get_enode(n->get_arg(0));
+            enode * arg      = ctx.get_enode(first_arg);
             // The argument was already internalized, but it may not have a theory variable associated with it.
             // For example, for ite-terms the method apply_sort_cnstr is not invoked.
             // See comment in the then-branch.
@@ -581,9 +601,12 @@ namespace smt {
     void theory_bv::assert_int2bv_axiom(app* n) {
         //
         // create the axiom:
-        // bv2int(n) = e mod 2^bit_width 
-        //
+        //   bv2int(n) = e mod 2^bit_width 
         // where n = int2bv(e)
+        //
+        // Create the axioms:
+        //   bit2bool(i,n) == ((e div 2^i) mod 2 != 0)
+        // for i = 0,.., sz-1
         //
         SASSERT(get_context().e_internalized(n));
         SASSERT(m_util.is_int2bv(n));
@@ -592,10 +615,12 @@ namespace smt {
 
         parameter param(m_autil.mk_int());
         expr* n_expr = n;
-        expr* lhs = m.mk_app(get_id(), OP_BV2INT, 1, &param, 1, &n_expr);
+        expr* e = n->get_arg(0);
+        expr_ref lhs(m), rhs(m);
+        lhs = m.mk_app(get_id(), OP_BV2INT, 1, &param, 1, &n_expr);
         unsigned sz = m_util.get_bv_size(n);
         numeral mod = power(numeral(2), sz);
-        expr* rhs = m_autil.mk_mod(n->get_arg(0), m_autil.mk_numeral(mod, true));
+        rhs = m_autil.mk_mod(e, m_autil.mk_numeral(mod, true));
 
         literal l(mk_eq(lhs, rhs, false));
         ctx.mark_as_relevant(l);
@@ -605,6 +630,24 @@ namespace smt {
               tout << mk_pp(lhs, m) << " == \n";
               tout << mk_pp(rhs, m) << "\n";
               );
+
+        expr_ref_vector n_bits(m);
+        enode * n_enode = mk_enode(n);
+        get_bits(n_enode, n_bits);
+
+        for (unsigned i = 0; i < sz; ++i) {
+            numeral div = power(numeral(2), i);
+            mod = numeral(2);
+            rhs = m_autil.mk_idiv(e, m_autil.mk_numeral(div,true));
+            rhs = m_autil.mk_mod(rhs, m_autil.mk_numeral(mod, true));
+            rhs = m.mk_eq(rhs, m_autil.mk_numeral(rational(1), true));
+            lhs = n_bits.get(i);
+            TRACE("bv", tout << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << "\n";);
+            l = literal(mk_eq(lhs, rhs, false));
+            ctx.mark_as_relevant(l);
+            ctx.mk_th_axiom(get_id(), 1, &l);
+            
+        }
     }
 
 
@@ -1018,6 +1061,7 @@ namespace smt {
 
     void theory_bv::new_diseq_eh(theory_var v1, theory_var v2) {
         if (is_bv(v1)) {
+            SASSERT(m_bits[v1].size() == m_bits[v2].size());
             expand_diseq(v1, v2);
         }
     }
@@ -1175,6 +1219,7 @@ namespace smt {
     void theory_bv::relevant_eh(app * n) {
         ast_manager & m = get_manager();
         context & ctx   = get_context();
+        TRACE("bv", tout << "relevant: " << mk_pp(n, m) << "\n";);
         if (m.is_bool(n)) {
             bool_var v = ctx.get_bool_var(n);
             atom * a   = get_bv2a(v);
@@ -1357,6 +1402,7 @@ namespace smt {
             if (v1 != null_theory_var) {
                 // conflict was detected ... v1 and v2 have complementary bits
                 SASSERT(m_bits[v1][it->m_idx] == ~(m_bits[v2][it->m_idx]));
+                SASSERT(m_bits[v1].size() == m_bits[v2].size());
                 mk_new_diseq_axiom(v1, v2, it->m_idx);
                 RESET_MERGET_AUX();
                 return false;

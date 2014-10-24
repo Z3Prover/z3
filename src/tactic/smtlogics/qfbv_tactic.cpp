@@ -43,6 +43,8 @@ tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
     simp2_p.set_bool("push_ite_bv", false);
     simp2_p.set_bool("local_ctx", true);
     simp2_p.set_uint("local_ctx_limit", 10000000);
+    simp2_p.set_bool("flat", true); // required by som
+    simp2_p.set_bool("hoist_mul", false); // required by som
 
     params_ref local_ctx_p = p;
     local_ctx_p.set_bool("local_ctx", true);

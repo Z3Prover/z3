@@ -99,7 +99,6 @@ public:
     */
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) = 0;
 
-    virtual void set_cancel(bool f) {}
     /**
        \brief Interrupt this solver.
     */
@@ -130,6 +129,9 @@ public:
        \brief Display the content of this solver.
     */
     virtual void display(std::ostream & out) const;
+protected:
+    virtual void set_cancel(bool f) = 0;
+
 };
 
 #endif

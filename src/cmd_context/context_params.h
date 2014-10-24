@@ -29,6 +29,7 @@ class context_params {
 public:
     bool        m_auto_config;
     bool        m_proof;
+    bool        m_interpolants;
     bool        m_debug_ref_count;
     bool        m_trace;
     std::string m_trace_file_name;
@@ -52,6 +53,8 @@ public:
        \brief Goodies for extracting parameters for creating a solver object.
     */
     void get_solver_params(ast_manager const & m, params_ref & p, bool & proofs_enabled, bool & models_enabled, bool & unsat_core_enabled);
+
+    static void collect_solver_param_descrs(param_descrs & d);
 
     /**
        \brief Include in p parameters derived from this context_params.

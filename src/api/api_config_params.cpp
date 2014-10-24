@@ -106,10 +106,4 @@ extern "C" {
         Z3_CATCH;
     }
 
-    Z3_bool Z3_API Z3_get_param_value(Z3_context c, Z3_string param_id, Z3_string* param_value) {
-        LOG_Z3_get_param_value(c, param_id, param_value);
-        // TODO
-        return Z3_FALSE;
-    }
-
 };

@@ -302,8 +302,11 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a new finite domain sort.
+        /// Create a new finite domain sort.	    
+	    /// <returns>The result is a sort</returns>
         /// </summary>
+        /// <param name="name">The name used to identify the sort</param>
+        /// <param name="size">The size of the sort</param>
         public FiniteDomainSort MkFiniteDomainSort(Symbol name, ulong size)
         {
             Contract.Requires(name != null);
@@ -314,8 +317,13 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a new finite domain sort.
+        /// Create a new finite domain sort.	    
+	    /// <returns>The result is a sort</returns>
+	    /// Elements of the sort are created using <seealso cref="MkNumeral(ulong, Sort)"/>, 
+	    /// and the elements range from 0 to <tt>size-1</tt>.
         /// </summary>
+        /// <param name="name">The name used to identify the sort</param>
+        /// <param name="size">The size of the sort</param>
         public FiniteDomainSort MkFiniteDomainSort(string name, ulong size)
         {
             Contract.Ensures(Contract.Result<FiniteDomainSort>() != null);
@@ -908,6 +916,8 @@ namespace Microsoft.Z3
             CheckContextMatch(t);
             return new BoolExpr(this, Native.Z3_mk_or(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
+
+
         #endregion
 
         #region Arithmetic
@@ -3513,30 +3523,13 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// The list of all configuration parameters can be obtained using the Z3 executable:
-        /// <c>z3.exe -ini?</c>
+        /// <c>z3.exe -p</c>
         /// Only a few configuration parameters are mutable once the context is created.
         /// An exception is thrown when trying to modify an immutable parameter.
         /// </remarks>
-        /// <seealso cref="GetParamValue"/>
         public void UpdateParamValue(string id, string value)
         {
             Native.Z3_update_param_value(nCtx, id, value);
-        }
-
-        /// <summary>
-        /// Get a configuration parameter.
-        /// </summary>
-        /// <remarks>
-        /// Returns null if the parameter value does not exist.
-        /// </remarks>
-        /// <seealso cref="UpdateParamValue"/>
-        public string GetParamValue(string id)
-        {
-            IntPtr res = IntPtr.Zero;
-            if (Native.Z3_get_param_value(nCtx, id, out res) == 0)
-                return null;
-            else
-                return Marshal.PtrToStringAnsi(res);
         }
 
         #endregion
@@ -3636,7 +3629,7 @@ namespace Microsoft.Z3
         internal Fixedpoint.DecRefQueue Fixedpoint_DRQ { get { Contract.Ensures(Contract.Result<Fixedpoint.DecRefQueue>() != null); return m_Fixedpoint_DRQ; } }
 
 
-        internal uint refCount = 0;
+        internal long refCount = 0;
 
         /// <summary>
         /// Finalizer.

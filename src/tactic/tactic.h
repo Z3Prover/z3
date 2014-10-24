@@ -47,7 +47,6 @@ public:
 
     void cancel();
     void reset_cancel();
-    virtual void set_cancel(bool f) {}
     
     /**
        \brief Apply tactic to goal \c in.
@@ -96,6 +95,13 @@ public:
 
     // translate tactic to the given manager
     virtual tactic * translate(ast_manager & m) = 0;
+private:
+    friend class nary_tactical;
+    friend class binary_tactical;
+    friend class unary_tactical;
+
+    virtual void set_cancel(bool f) {}
+
 };
 
 typedef ref<tactic>         tactic_ref;

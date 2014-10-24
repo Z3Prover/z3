@@ -235,6 +235,9 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
                     SASSERT(str[0] - '0' <= 9);
                     exp = (10*exp) + (str[0] - '0');
                 }
+                else if ('/' == str[0]) {
+                    throw default_exception("mixing rational/scientific notation");
+                }
                 TRACE("mpq_set", tout << "[exp]: " << exp << ", str[0]: " << (str[0] - '0') << std::endl;);
                 ++str;
             }

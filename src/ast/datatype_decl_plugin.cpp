@@ -84,7 +84,8 @@ class datatype_decl {
     ptr_vector<constructor_decl> m_constructors;
 public:
     datatype_decl(const symbol & n, unsigned num_constructors, constructor_decl * const * constructors):
-        m_name(n), m_constructors(num_constructors, constructors) {}
+        m_name(n), m_constructors(num_constructors, constructors) {
+    }
     ~datatype_decl() {
         std::for_each(m_constructors.begin(), m_constructors.end(), delete_proc<constructor_decl>());
     }

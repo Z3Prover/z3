@@ -136,9 +136,8 @@ namespace smt {
         if (cex == 0)
             return false; // no model available.
         unsigned num_decls = q->get_num_decls();
-        unsigned   num_sks = sks.size();
         // Remark: sks were created for the flat version of q.
-        SASSERT(num_sks >= num_decls); 
+        SASSERT(sks.size() >= num_decls);
         expr_ref_buffer bindings(m_manager);
         bindings.resize(num_decls);
         unsigned max_generation = 0;
@@ -322,6 +321,7 @@ namespace smt {
 
         for (; it != end; ++it) {
             quantifier * q = *it;
+	    if(!m_qm->mbqi_enabled(q)) continue;
             if (m_context->is_relevant(q) && m_context->get_assignment(q) == l_true) {
                 if (m_params.m_mbqi_trace && q->get_qid() != symbol::null) {
                     verbose_stream() << "(smt.mbqi :checking " << q->get_qid() << ")\n";

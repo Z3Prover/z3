@@ -125,7 +125,7 @@ namespace sat {
         void collect_subsumed0(clause const & c1, clause_vector & out);
         void back_subsumption0(clause & c1);
 
-        bool cleanup_clause(clause & c);
+        bool cleanup_clause(clause & c, bool in_use_list);
         bool cleanup_clause(literal_vector & c);
         void propagate_unit(literal l);
         void elim_lit(clause & c, literal l);
@@ -136,7 +136,7 @@ namespace sat {
         void subsume();
         
         void cleanup_watches();
-        void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated);
+        void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists);
 
         bool is_external(bool_var v) const;
         bool was_eliminated(bool_var v) const;
@@ -180,7 +180,7 @@ namespace sat {
         
         void free_memory();
 
-        void collect_statistics(statistics & st);
+        void collect_statistics(statistics & st) const;
         void reset_statistics();
     };
 };

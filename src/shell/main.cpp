@@ -65,7 +65,7 @@ void display_usage() {
 #ifdef Z3GITHASH
     std::cout << " - build hashcode " << STRINGIZE_VALUE_OF(Z3GITHASH);
 #endif
-    std::cout << "]. (C) Copyright 2006-2013 Microsoft Corp.\n";
+    std::cout << "]. (C) Copyright 2006-2014 Microsoft Corp.\n";
     std::cout << "Usage: z3 [options] [-file:]file\n";
     std::cout << "\nInput format:\n";
     std::cout << "  -smt        use parser for SMT input format.\n";
@@ -87,7 +87,7 @@ void display_usage() {
     std::cout << "\nResources:\n";
     // timeout and memout are now available on Linux and OSX too.
     std::cout << "  -T:timeout  set the timeout (in seconds).\n";
-    std::cout << "  -t:timeout  set the soft timeout (in seconds). It only kills the current query.\n";
+    std::cout << "  -t:timeout  set the soft timeout (in milli seconds). It only kills the current query.\n";
     std::cout << "  -memory:Megabytes  set a limit for virtual memory consumption.\n";
     // 
     std::cout << "\nOutput:\n";

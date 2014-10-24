@@ -19,10 +19,11 @@ Revision History:
 #include"smt_params.h"
 #include"smt_params_helper.hpp"
 #include"model_params.hpp"
+#include"gparams.h"
 
 void smt_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
-    m_auto_config = p.auto_config();
+    m_auto_config = p.auto_config() && gparams::get_value("auto_config") == "true"; // auto-config is not scoped by smt in gparams.
     m_random_seed = p.random_seed();
     m_relevancy_lvl = p.relevancy();
     m_ematching   = p.ematching();
@@ -40,6 +41,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
         m_arith_pivot_strategy = ARITH_PIVOT_GREATEST_ERROR;
     else if (_p.get_bool("arith.least_error_pivot", false))
         m_arith_pivot_strategy = ARITH_PIVOT_LEAST_ERROR;
+    theory_array_params::updt_params(_p);
 }
 
 void smt_params::updt_params(params_ref const & p) {
@@ -47,6 +49,7 @@ void smt_params::updt_params(params_ref const & p) {
     qi_params::updt_params(p);
     theory_arith_params::updt_params(p);
     theory_bv_params::updt_params(p);
+    // theory_array_params::updt_params(p);
     updt_local_params(p);
 }
 

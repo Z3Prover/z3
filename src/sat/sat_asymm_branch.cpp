@@ -72,11 +72,14 @@ namespace sat {
         int limit  = -static_cast<int>(m_asymm_branch_limit);
         std::stable_sort(s.m_clauses.begin(), s.m_clauses.end(), clause_size_lt());
         m_counter -= s.m_clauses.size();
+        SASSERT(s.m_qhead == s.m_trail.size());
         clause_vector::iterator it  = s.m_clauses.begin();
         clause_vector::iterator it2 = it;
         clause_vector::iterator end = s.m_clauses.end();
         try {
             for (; it != end; ++it) {
+                if (s.inconsistent())
+                    break;
                 SASSERT(s.m_qhead == s.m_trail.size());
                 if (m_counter < limit || s.inconsistent()) {
                     *it2 = *it;
@@ -111,6 +114,7 @@ namespace sat {
     bool asymm_branch::process(clause & c) {
         TRACE("asymm_branch_detail", tout << "processing: " << c << "\n";);
         SASSERT(s.scope_lvl() == 0);
+        SASSERT(s.m_qhead == s.m_trail.size());
 #ifdef Z3DEBUG
         unsigned trail_sz = s.m_trail.size();
 #endif
@@ -143,6 +147,7 @@ namespace sat {
         SASSERT(!s.inconsistent());
         SASSERT(s.scope_lvl() == 0);
         SASSERT(trail_sz == s.m_trail.size());
+        SASSERT(s.m_qhead == s.m_trail.size());
         if (i == sz - 1) {
             // clause size can't be reduced.
             s.attach_clause(c);
@@ -181,15 +186,18 @@ namespace sat {
             s.assign(c[0], justification());
             s.del_clause(c);
             s.propagate_core(false); 
+            SASSERT(s.inconsistent() || s.m_qhead == s.m_trail.size());
             return false; // check_missed_propagation() may fail, since m_clauses is not in a consistent state.
         case 2:
             SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
             s.mk_bin_clause(c[0], c[1], false);
             s.del_clause(c);
+            SASSERT(s.m_qhead == s.m_trail.size());
             return false;
         default:
             c.shrink(new_sz);
             s.attach_clause(c);
+            SASSERT(s.m_qhead == s.m_trail.size());
             return true;
         }
     }
@@ -207,7 +215,7 @@ namespace sat {
         sat_asymm_branch_params::collect_param_descrs(d);
     }
     
-    void asymm_branch::collect_statistics(statistics & st) {
+    void asymm_branch::collect_statistics(statistics & st) const {
         st.update("elim literals", m_elim_literals);
     }
 

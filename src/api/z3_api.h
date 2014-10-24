@@ -249,6 +249,8 @@ typedef enum
    - Z3_OP_OEQ Binary equivalence modulo namings. This binary predicate is used in proof terms.
         It captures equisatisfiability and equivalence modulo renamings.
 
+   - Z3_OP_INTERP Marks a sub-formula for interpolation.
+
    - Z3_OP_ANUM Arithmetic numeral.
 
    - Z3_OP_AGNUM Arithmetic algebraic numeral. Algebraic numbers are used to represent irrational numbers in Z3.
@@ -769,7 +771,6 @@ typedef enum
 
         The premises of the rules is a sequence of clauses.
         The first clause argument is the main clause of the rule.
-        One literal from the second, third, .. clause is resolved
         with a literal from the first (main) clause.
 
         Premises of the rules are of the form
@@ -778,11 +779,11 @@ typedef enum
         }
         or
         \nicebox{
-             (=> (and ln+1 ln+2 .. ln+m) l0)
+             (=> (and l1 l2 .. ln) l0)
         }
         or in the most general (ground) form:
         \nicebox{
-             (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln-1))
+             (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln))
         }
         In other words we use the following (Prolog style) convention for Horn 
         implications:
@@ -798,7 +799,7 @@ typedef enum
         general non-ground form is:
 
         \nicebox{
-             (forall (vars) (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln-1)))
+             (forall (vars) (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln)))
         }
 
         The hyper-resolution rule takes a sequence of parameters.
@@ -890,6 +891,7 @@ typedef enum {
     Z3_OP_NOT,
     Z3_OP_IMPLIES,
     Z3_OP_OEQ,
+    Z3_OP_INTERP,
 
     // Arithmetic
     Z3_OP_ANUM = 0x200,
@@ -1140,8 +1142,8 @@ typedef enum {
    - Z3_FILE_ACCESS_ERRROR: A file could not be accessed.
    - Z3_INVALID_USAGE:   API call is invalid in the current state.
    - Z3_INTERNAL_FATAL: An error internal to Z3 occurred.
-   - Z3_DEC_REF_ERROR: Trying to decrement the reference counter of an AST that was deleted or the reference counter was not initialized\mlonly.\endmlonly\conly with #Z3_inc_ref.
-   - Z3_EXCEPTION:     Internal Z3 exception. Additional details can be retrieved using \mlonly #Z3_get_error_msg. \endmlonly \conly #Z3_get_error_msg_ex.
+   - Z3_DEC_REF_ERROR: Trying to decrement the reference counter of an AST that was deleted or the reference counter was not initialized \mlonly.\endmlonly \conly with #Z3_inc_ref.
+   - Z3_EXCEPTION:     Internal Z3 exception. Additional details can be retrieved using #Z3_get_error_msg.
 */
 typedef enum
 {
@@ -1284,8 +1286,6 @@ extern "C" {
 
        \sa Z3_global_param_set
 
-       The caller must invoke #Z3_global_param_del_value to delete the value returned at \c param_value.
-
        \remark This function cannot be invoked simultaneously from different threads without synchronization.
        The result string stored in param_value is stored in shared location.
 
@@ -1372,6 +1372,16 @@ extern "C" {
        although some parameters can be changed using #Z3_update_param_value.
        All main interaction with Z3 happens in the context of a \c Z3_context.
 
+       In contrast to #Z3_mk_context_rc, the life time of Z3_ast objects
+       are determined by the scope level of #Z3_push and #Z3_pop.
+       In other words, a Z3_ast object remains valid until there is a 
+       call to Z3_pop that takes the current scope below the level where 
+       the object was created.
+
+       Note that all other reference counted objects, including Z3_model,
+       Z3_solver, Z3_func_interp have to be managed by the caller. 
+       Their reference counts are not handled by the context.       
+
        \conly \sa Z3_del_context
 
        \conly \deprecated Use #Z3_mk_context_rc
@@ -1448,15 +1458,6 @@ extern "C" {
        def_API('Z3_update_param_value', VOID, (_in(CONTEXT), _in(STRING), _in(STRING)))
     */
     void Z3_API Z3_update_param_value(__in Z3_context c, __in Z3_string param_id, __in Z3_string param_value);
-
-    /**
-       \brief Return the value of a context parameter.
-      
-       \sa Z3_global_param_get
-
-       def_API('Z3_get_param_value', BOOL, (_in(CONTEXT), _in(STRING), _out(STRING)))
-    */
-    Z3_bool_opt Z3_API Z3_get_param_value(__in Z3_context c, __in Z3_string param_id, __out_opt Z3_string_ptr param_value);
 
 #ifdef CorML4
     /**
@@ -1721,6 +1722,8 @@ extern "C" {
        To create constants that belong to the finite domain, 
        use the APIs for creating numerals and pass a numeric
        constant together with the sort returned by this call.
+       The numeric constant should be between 0 and the less 
+       than the size of the domain.
 
        \sa Z3_get_finite_domain_sort_size
 
@@ -1764,7 +1767,7 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_tuple_sort(__in Z3_context c, 
                                         __in Z3_symbol mk_tuple_name, 
                                         __in unsigned num_fields, 
-                                        __in_ecount(num_fields) Z3_symbol   const field_names[],
+                                        __in_ecount(num_fields) Z3_symbol const field_names[],
                                         __in_ecount(num_fields) Z3_sort const field_sorts[],
                                         __out Z3_func_decl * mk_tuple_decl,
                                         __out_ecount(num_fields)  Z3_func_decl proj_decl[]);
@@ -2101,7 +2104,7 @@ END_MLAPI_EXCLUDE
         def_API('Z3_mk_not', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_not(__in Z3_context c, __in Z3_ast a);
-    
+        
     /**
        \brief \mlh mk_ite c t1 t2 t2 \endmlh 
        Create an AST node representing an if-then-else: <tt>ite(t1, t2,
@@ -4899,8 +4902,7 @@ END_MLAPI_EXCLUDE
                                           __in_ecount(num_sorts) Z3_sort const sorts[],
                                           __in unsigned num_decls,
                                           __in_ecount(num_decls) Z3_symbol const decl_names[],
-                                          __in_ecount(num_decls) Z3_func_decl const decls[]  
-                                          );
+                                          __in_ecount(num_decls) Z3_func_decl const decls[]);
     
     /**
        \brief Similar to #Z3_parse_smtlib2_string, but reads the benchmark from a file.
@@ -4909,13 +4911,12 @@ END_MLAPI_EXCLUDE
     */
     Z3_ast Z3_API Z3_parse_smtlib2_file(__in Z3_context c, 
                                         __in Z3_string file_name,
-                                          __in unsigned num_sorts,
-                                          __in_ecount(num_sorts) Z3_symbol const sort_names[],
-                                          __in_ecount(num_sorts) Z3_sort const sorts[],
-                                          __in unsigned num_decls,
-                                          __in_ecount(num_decls) Z3_symbol const decl_names[],
-                                          __in_ecount(num_decls) Z3_func_decl const decls[]    
-                                        );
+                                        __in unsigned num_sorts,
+                                        __in_ecount(num_sorts) Z3_symbol const sort_names[],
+                                        __in_ecount(num_sorts) Z3_sort const sorts[],
+                                        __in unsigned num_decls,
+                                        __in_ecount(num_decls) Z3_symbol const decl_names[],
+                                        __in_ecount(num_decls) Z3_func_decl const decls[]);
 
 #ifdef ML4only
 #include <mlx_parse_smtlib.idl>
@@ -5660,7 +5661,8 @@ END_MLAPI_EXCLUDE
        Each conjunct encodes values of the bound variables of the query that are satisfied.
        In PDR mode, the returned answer is a single conjunction.
 
-       The previous call to Z3_fixedpoint_query must have returned Z3_L_TRUE.
+       When used in Datalog mode the previous call to Z3_fixedpoint_query must have returned Z3_L_TRUE.
+       When used with the PDR engine, the previous call must have been either Z3_L_TRUE or Z3_L_FALSE.
 
        def_API('Z3_fixedpoint_get_answer', AST, (_in(CONTEXT), _in(FIXEDPOINT)))
     */    
@@ -6601,6 +6603,13 @@ END_MLAPI_EXCLUDE
     /**
        \brief Create a new (incremental) solver.
 
+       The function #Z3_solver_get_model retrieves a model if the
+       assertions is satisfiable (i.e., the result is \c
+       Z3_L_TRUE) and model construction is enabled.
+       The function #Z3_solver_get_model can also be used even
+       if the result is \c Z3_L_UNDEF, but the returned model
+       is not guaranteed to satisfy quantified assertions.
+
        def_API('Z3_mk_simple_solver', SOLVER, (_in(CONTEXT),))
     */
     Z3_solver Z3_API Z3_mk_simple_solver(__in Z3_context c);
@@ -6738,8 +6747,11 @@ END_MLAPI_EXCLUDE
        \brief Check whether the assertions in a given solver are consistent or not.
 
        The function #Z3_solver_get_model retrieves a model if the
-       assertions are not unsatisfiable (i.e., the result is not \c
-       Z3_L_FALSE) and model construction is enabled.
+       assertions is satisfiable (i.e., the result is \c
+       Z3_L_TRUE) and model construction is enabled.
+       Note that if the call returns Z3_L_UNDEF, Z3 does not
+       ensure that calls to #Z3_solver_get_model succeed and any models
+       produced in this case are not guaranteed to satisfy the assertions.
 
        The function #Z3_solver_get_proof retrieves a proof if proof
        generation was enabled when the context was created, and the 
@@ -7050,7 +7062,7 @@ END_MLAPI_EXCLUDE
        \mlonly then a valid model is returned.  Otherwise, it is unsafe to use the returned model.\endmlonly
        \conly The caller is responsible for deleting the model using the function #Z3_del_model.
        
-       \conly \remark In constrast with the rest of the Z3 API, the reference counter of the
+       \conly \remark In contrast with the rest of the Z3 API, the reference counter of the
        \conly model is incremented. This is to guarantee backward compatibility. In previous
        \conly versions, models did not support reference counting.
        
@@ -7163,6 +7175,11 @@ END_MLAPI_EXCLUDE
        \brief Delete a model object.
        
        \sa Z3_check_and_get_model
+
+       \conly \remark The Z3_check_and_get_model automatically increments a reference count on the model.
+       \conly The expected usage is that models created by that method are deleted using Z3_del_model.
+       \conly This is for backwards compatibility and in contrast to the rest of the API where
+       \conly callers are responsible for managing reference counts.
     
        \deprecated Subsumed by Z3_solver API
        
@@ -7666,7 +7683,6 @@ END_MLAPI_EXCLUDE
     Z3_ast Z3_API Z3_get_context_assignment(__in Z3_context c);
 
     /*@}*/
-
 #endif
 
 

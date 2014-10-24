@@ -71,6 +71,7 @@ class lia2pb_tactic : public tactic {
             if (m_bm.has_lower(n, l, s) &&
                 m_bm.has_upper(n, u, s) &&  
                 l.is_zero() &&
+                !u.is_neg() && 
                 u.get_num_bits() <= m_max_bits) {
                 
                 return true;
@@ -344,18 +345,12 @@ public:
     }
     
     virtual void cleanup() {
-        ast_manager & m = m_imp->m;
-        imp * d = m_imp;
+        imp * d = alloc(imp, m_imp->m, m_params);
         #pragma omp critical (tactic_cancel)
         {
-            d = m_imp;
+            std::swap(d, m_imp);
         }
         dealloc(d);
-        d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel) 
-        {
-            m_imp = d;
-        }
     }
 
 protected:

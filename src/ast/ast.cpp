@@ -640,6 +640,7 @@ basic_decl_plugin::basic_decl_plugin():
     m_iff_decl(0),
     m_xor_decl(0),
     m_not_decl(0),
+    m_interp_decl(0),
     m_implies_decl(0),
     
     m_proof_sort(0),
@@ -863,6 +864,7 @@ void basic_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_iff_decl     = mk_bool_op_decl("iff", OP_IFF, 2, false, true, false, false, true);
     m_xor_decl     = mk_bool_op_decl("xor", OP_XOR, 2, true, true);
     m_not_decl     = mk_bool_op_decl("not", OP_NOT, 1);
+    m_interp_decl  = mk_bool_op_decl("interp", OP_INTERP, 1);
     m_implies_decl = mk_implies_decl();
     
     m_proof_sort = m->mk_sort(symbol("Proof"), sort_info(id, PROOF_SORT));
@@ -887,6 +889,7 @@ void basic_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("or", OP_OR));
     op_names.push_back(builtin_name("xor", OP_XOR));
     op_names.push_back(builtin_name("not", OP_NOT));
+    op_names.push_back(builtin_name("interp", OP_INTERP));
     op_names.push_back(builtin_name("=>", OP_IMPLIES));
     if (logic == symbol::null) {
         // user friendly aliases
@@ -898,6 +901,7 @@ void basic_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
         op_names.push_back(builtin_name("||", OP_OR));
         op_names.push_back(builtin_name("equals", OP_EQ));
         op_names.push_back(builtin_name("equiv", OP_IFF));
+        op_names.push_back(builtin_name("@@", OP_INTERP));
     }
 }
 
@@ -918,6 +922,7 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_and_decl);
     DEC_REF(m_or_decl);
     DEC_REF(m_not_decl);
+    DEC_REF(m_interp_decl);
     DEC_REF(m_iff_decl);
     DEC_REF(m_xor_decl);
     DEC_REF(m_implies_decl);
@@ -1016,6 +1021,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_AND:     return m_and_decl;
     case OP_OR:      return m_or_decl;
     case OP_NOT:     return m_not_decl;
+    case OP_INTERP:  return m_interp_decl;
     case OP_IFF:     return m_iff_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
@@ -1051,6 +1057,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_AND:     return m_and_decl;
     case OP_OR:      return m_or_decl;
     case OP_NOT:     return m_not_decl;
+    case OP_INTERP:  return m_interp_decl;
     case OP_IFF:     return m_iff_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
@@ -1843,6 +1850,7 @@ func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort 
 
 void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * const * args) const {
     ast_manager& m = const_cast<ast_manager&>(*this);
+
     if (decl->is_associative()) {
         sort * expected = decl->get_domain(0);
         for (unsigned i = 0; i < num_args; i++) {
@@ -1887,7 +1895,18 @@ void ast_manager::check_sorts_core(ast const * n) const {
     if  (n->get_kind() != AST_APP) 
         return; // nothing else to check...
     app const * a = to_app(n);
-    check_sort(a->get_decl(), a->get_num_args(), a->get_args());
+    func_decl* d = a->get_decl();
+    check_sort(d, a->get_num_args(), a->get_args());
+    if (a->get_num_args() == 2 &&
+        !d->is_flat_associative() && 
+        d->is_right_associative()) {
+        check_sorts_core(a->get_arg(1));
+    }
+    if (a->get_num_args() == 2 &&
+        !d->is_flat_associative() && 
+        d->is_left_associative()) {
+        check_sorts_core(a->get_arg(0));
+    }
 }
 
 bool ast_manager::check_sorts(ast const * n) const {
@@ -3146,4 +3165,14 @@ void scoped_mark::pop_scope(unsigned num_scopes) {
     }
 }
    
+// Added by KLM for use in GDB
 
+// show an expr_ref on stdout
+
+void prexpr(expr_ref &e){
+  std::cout << mk_pp(e.get(), e.get_manager()) << std::endl;
+}
+
+void ast_manager::show_id_gen(){
+  std::cout << "id_gen: " << m_expr_id_gen.show_hash() << " " << m_decl_id_gen.show_hash() << "\n";
+}

@@ -376,8 +376,10 @@ namespace smt {
         enode_vector::const_iterator end = r->end_parents();
         for (; it != end; ++it) {
             enode * parent       = *it;
+#if 0
             if (!ctx.is_relevant(parent))
                 continue;
+#endif
             unsigned    num_args = parent->get_num_args();
             if (is_store(parent)) {
                 SET_ARRAY(parent->get_arg(0));
@@ -399,6 +401,7 @@ namespace smt {
         return false;
     }
 
+#if 0
     void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
         TRACE("array_shared", tout << "collecting shared vars...\n";);
         context & ctx = get_context();
@@ -420,6 +423,31 @@ namespace smt {
         }
         unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
     }
+#else
+    void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
+        TRACE("array_shared", tout << "collecting shared vars...\n";);
+        context & ctx = get_context();
+        ptr_buffer<enode> to_unmark;
+        unsigned num_vars = get_num_vars();
+        for (unsigned i = 0; i < num_vars; i++) {
+	    enode * n = get_enode(i);
+            if (ctx.is_relevant(n)) {
+	        enode * r = n->get_root();
+		if (!r->is_marked()){
+		    if(is_array_sort(r) && ctx.is_shared(r)) {
+		      TRACE("array_shared", tout << "new shared var: #" << r->get_owner_id() << "\n";);
+		      theory_var r_th_var = r->get_th_var(get_id());
+		      SASSERT(r_th_var != null_theory_var);
+		      result.push_back(r_th_var);
+		    }
+		    r->set_mark();
+		    to_unmark.push_back(r);
+		}
+            }
+        }
+        unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
+    }
+#endif
 
     /**
        \brief Create interface variables for shared array variables.
@@ -688,7 +716,7 @@ namespace smt {
             }
         }
     }
-
+    
     void theory_array_base::propagate_select_to_store_parents(enode * r, enode * sel, svector<enode_pair> & todo) {
         SASSERT(r->get_root() == r);
         SASSERT(is_select(sel));
@@ -880,7 +908,7 @@ namespace smt {
             }
             else {
                 theory_var r    = mg_find(v);
-                void * else_val = m_else_values[r];
+                void * else_val = m_else_values[r];                
                 // DISABLED. It seems wrong, since different nodes can share the same
                 // else_val according to the mg class.
                 // SASSERT(else_val == 0 || get_context().is_relevant(UNTAG(app*, else_val)));

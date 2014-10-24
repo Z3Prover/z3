@@ -51,31 +51,34 @@ struct param_descrs::imp {
         param_kind   m_kind;
         char const * m_descr;
         char const * m_default;
+        char const * m_module;
 
-        info(param_kind k, char const * descr, char const * def):
+        info(param_kind k, char const * descr, char const * def, char const* module):
             m_kind(k),
             m_descr(descr),
-            m_default(def) {
+            m_default(def),
+            m_module(module) {
         }
 
         info():
             m_kind(CPK_INVALID), 
             m_descr(0), 
-            m_default(0) {
+            m_default(0),
+            m_module(0) {
         }
     };
 
     dictionary<info> m_info;
     svector<symbol> m_names;
 
-    void insert(symbol const & name, param_kind k, char const * descr, char const * def) {
+    void insert(symbol const & name, param_kind k, char const * descr, char const * def, char const* module) {
         SASSERT(!name.is_numerical());
         info i;
         if (m_info.find(name, i)) {
             SASSERT(i.m_kind == k);
             return;
         }
-        m_info.insert(name, info(k, descr, def));
+        m_info.insert(name, info(k, descr, def, module));
         m_names.push_back(name);
     }
 
@@ -92,6 +95,42 @@ struct param_descrs::imp {
         if (m_info.find(name, i))
             return i.m_kind;
         return CPK_INVALID;
+    }
+
+    bool split_name(symbol const& name, symbol & prefix, symbol & suffix) const {
+        if (name.is_numerical()) return false;
+        char const* str = name.bare_str();
+        char const* period = strchr(str,'.');
+        if (!period) return false;
+        svector<char> prefix_((unsigned)(period-str), str);
+        prefix_.push_back(0);
+        prefix = symbol(prefix_.c_ptr());
+        suffix = symbol(period + 1);
+        return true;
+    }
+
+    param_kind get_kind_in_module(symbol & name) const {
+        param_kind k = get_kind(name);
+        symbol prefix, suffix;
+        if (k == CPK_INVALID && split_name(name, prefix, suffix)) {   
+            k = get_kind(suffix);
+            if (k != CPK_INVALID) {
+                if (symbol(get_module(suffix)) == prefix) {
+                    name = suffix;
+                }
+                else {
+                    k = CPK_INVALID;
+                }
+            }
+        }
+        return k;
+    }
+
+    char const* get_module(symbol const& name) const {
+        info i;
+        if (m_info.find(name, i)) 
+            return i.m_module;
+        return 0;
     }
 
     char const * get_descr(symbol const & name) const {
@@ -162,7 +201,7 @@ struct param_descrs::imp {
         dictionary<info>::iterator it  = other.m_imp->m_info.begin();
         dictionary<info>::iterator end = other.m_imp->m_info.end();
         for (; it != end; ++it) {
-            insert(it->m_key, it->m_value.m_kind, it->m_value.m_descr, it->m_value.m_default);
+            insert(it->m_key, it->m_value.m_kind, it->m_value.m_descr, it->m_value.m_default, it->m_value.m_module);
         }
     }
 
@@ -180,12 +219,12 @@ void param_descrs::copy(param_descrs & other) {
     m_imp->copy(other);
 }
 
-void param_descrs::insert(symbol const & name, param_kind k, char const * descr, char const * def) {
-    m_imp->insert(name, k, descr, def);
+void param_descrs::insert(symbol const & name, param_kind k, char const * descr, char const * def, char const* module) {
+    m_imp->insert(name, k, descr, def, module);
 }
 
-void param_descrs::insert(char const * name, param_kind k, char const * descr, char const * def) {
-    insert(symbol(name), k, descr, def);
+void param_descrs::insert(char const * name, param_kind k, char const * descr, char const * def, char const* module) {
+    insert(symbol(name), k, descr, def, module);
 }
 
 bool param_descrs::contains(char const * name) const {
@@ -220,6 +259,10 @@ void param_descrs::erase(char const * name) {
     erase(symbol(name));
 }
 
+param_kind param_descrs::get_kind_in_module(symbol & name) const {
+    return m_imp->get_kind_in_module(name);
+}
+
 param_kind param_descrs::get_kind(symbol const & name) const {
     return m_imp->get_kind(name);
 }
@@ -234,6 +277,10 @@ unsigned param_descrs::size() const {
 
 symbol param_descrs::get_param_name(unsigned i) const {
     return m_imp->get_param_name(i);
+}
+
+char const* param_descrs::get_module(symbol const& name) const {
+    return m_imp->get_module(name);
 }
 
 void param_descrs::display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {
@@ -297,15 +344,27 @@ public:
     void reset(symbol const & k);
     void reset(char const * k);
 
-    void validate(param_descrs const & p) const {
-        svector<params::entry>::const_iterator it  = m_entries.begin();  
-        svector<params::entry>::const_iterator end = m_entries.end();
+
+    void validate(param_descrs const & p) {
+        svector<params::entry>::iterator it  = m_entries.begin();  
+        svector<params::entry>::iterator end = m_entries.end();
+        symbol suffix, prefix;
         for (; it != end; ++it) {                                
-            param_kind expected = p.get_kind(it->first);
-            if (expected == CPK_INVALID)
-                throw default_exception("unknown parameter '%s'", it->first.str().c_str());
-            if (it->second.m_kind != expected) 
-                throw default_exception("parameter kind mismatch '%s'", it->first.str().c_str());
+            param_kind expected = p.get_kind_in_module(it->first);
+            if (expected == CPK_INVALID) {
+                std::stringstream strm;
+                strm << "unknown parameter '" << it->first.str() << "'\n";    
+                strm << "Legal parameters are:\n";
+                p.display(strm, 2, false, false);
+                throw default_exception(strm.str());
+            }
+            if (it->second.m_kind != expected && 
+                !(it->second.m_kind == CPK_UINT && expected == CPK_NUMERAL)) {
+                std::stringstream strm;
+                strm << "Parameter " << it->first.str() << " was given argument of type ";
+                strm << it->second.m_kind << ", expected " << expected;                
+                throw default_exception(strm.str());
+            }
         }
     }
     
@@ -347,11 +406,11 @@ public:
         out << "(params";
         svector<params::entry>::const_iterator it  = m_entries.begin();  
         svector<params::entry>::const_iterator end = m_entries.end();
-        for (; it != end; ++it) {                                
-            out << " " << it->first;
+        for (; it != end; ++it) {
+            out << " " << it->first;            
             switch (it->second.m_kind) {
             case CPK_BOOL:
-                out << " " << it->second.m_bool_value;
+                out << " " << (it->second.m_bool_value?"true":"false");
                 break;
             case CPK_UINT:
                 out << " " <<it->second.m_uint_value;
@@ -374,6 +433,41 @@ public:
             }
         }
         out << ")";
+    }
+
+    void display_smt2(std::ostream & out, char const* module, param_descrs& descrs) const {
+        svector<params::entry>::const_iterator it  = m_entries.begin();  
+        svector<params::entry>::const_iterator end = m_entries.end();
+        for (; it != end; ++it) {
+            if (!descrs.contains(it->first)) continue;
+            out << "(set-option :";
+            out << module << ".";        
+            out << it->first;
+            switch (it->second.m_kind) {
+            case CPK_BOOL:
+                out << " " << (it->second.m_bool_value?"true":"false");
+                break;
+            case CPK_UINT:
+                out << " " <<it->second.m_uint_value;
+                break;
+            case CPK_DOUBLE:
+                out << " " << it->second.m_double_value;
+                break;
+            case CPK_NUMERAL:
+                out << " " << *(it->second.m_rat_value);
+                break;
+            case CPK_SYMBOL:
+                out << " " << symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);
+                break;
+            case CPK_STRING:
+                out << " " << it->second.m_str_value;
+                break;
+            default:
+                UNREACHABLE();
+                break;
+            }
+            out << ")\n";
+        }
     }
 
     void display(std::ostream & out, symbol const & k) const {
@@ -423,9 +517,16 @@ params_ref::params_ref(params_ref const & p):
 void params_ref::display(std::ostream & out) const {
     if (m_params)
         m_params->display(out);
-    else
+    else 
         out << "(params)";
 }
+
+void params_ref::display_smt2(std::ostream& out, char const* module, param_descrs& descrs) const {
+    if (m_params)
+        m_params->display_smt2(out, module, descrs);
+
+}
+
 
 void params_ref::display(std::ostream & out, char const * k) const {
     display(out, symbol(k));
@@ -438,7 +539,7 @@ void params_ref::display(std::ostream & out, symbol const & k) const {
         out << "default";
 }
 
-void params_ref::validate(param_descrs const & p) const {
+void params_ref::validate(param_descrs const & p) {
     if (m_params)
         m_params->validate(p);
 }

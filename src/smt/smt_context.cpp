@@ -1615,6 +1615,8 @@ namespace smt {
             unsigned qhead = m_qhead;
             if (!bcp())
                 return false;
+            if (m_cancel_flag) 
+                return true;
             SASSERT(!inconsistent());
             propagate_relevancy(qhead);
             if (inconsistent()) 

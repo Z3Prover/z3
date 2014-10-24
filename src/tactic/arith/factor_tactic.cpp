@@ -50,7 +50,7 @@ class factor_tactic : public tactic {
                 return args[0];
             return m_util.mk_mul(sz, args);
         }
-        
+
         expr * mk_zero_for(expr * arg) {
             return m_util.mk_numeral(rational(0), m_util.is_int(arg));
         }
@@ -92,10 +92,10 @@ class factor_tactic : public tactic {
                 return k;
             }
         }
-        
+
         // p1^{2*k1} * p2^{2*k2 + 1} >=< 0
         // -->
-        // (p1^2)*p2 >=<0 
+        // (p1^2)*p2 >=<0
         void mk_comp(decl_kind k, polynomial::factors const & fs, expr_ref & result) {
             SASSERT(k == OP_LT || k == OP_GT || k == OP_LE || k == OP_GE);
             expr_ref_buffer args(m);
@@ -127,7 +127,7 @@ class factor_tactic : public tactic {
                 }
             }
         }
-        
+
         // Strict case
         // p1^{2*k1} * p2^{2*k2 + 1} >< 0
         // -->
@@ -158,11 +158,11 @@ class factor_tactic : public tactic {
                 args.push_back(m.mk_app(m_util.get_family_id(), k, mk_mul(odd_factors.size(), odd_factors.c_ptr()), mk_zero_for(odd_factors[0])));
             }
             SASSERT(!args.empty());
-            if (args.size() == 1) 
+            if (args.size() == 1)
                 result = args[0];
             else if (strict)
                 result = m.mk_and(args.size(), args.c_ptr());
-            else 
+            else
                 result = m.mk_or(args.size(), args.c_ptr());
         }
 
@@ -173,7 +173,7 @@ class factor_tactic : public tactic {
             scoped_mpz d2(m_qm);
             m_expr2poly.to_polynomial(lhs, p1, d1);
             m_expr2poly.to_polynomial(rhs, p2, d2);
-            TRACE("factor_tactic_bug", 
+            TRACE("factor_tactic_bug",
                   tout << "lhs: " << mk_ismt2_pp(lhs, m) << "\n";
                   tout << "p1:  " << p1 << "\n";
                   tout << "d1:  " << d1 << "\n";
@@ -195,18 +195,18 @@ class factor_tactic : public tactic {
             SASSERT(fs.distinct_factors() > 0);
             TRACE("factor_tactic_bug", tout << "factors:\n"; fs.display(tout); tout << "\n";);
             if (fs.distinct_factors() == 1 && fs.get_degree(0) == 1)
-                return BR_FAILED; 
+                return BR_FAILED;
             if (m.is_eq(f)) {
                 if (m_split_factors)
                     mk_split_eq(fs, result);
-                else 
+                else
                     mk_eq(fs, result);
             }
             else {
                 decl_kind k = f->get_decl_kind();
                 if (m_qm.is_neg(fs.get_constant()))
                     k = flip(k);
-                
+
                 if (m_split_factors)
                     mk_split_comp(k, fs, result);
                 else
@@ -215,10 +215,10 @@ class factor_tactic : public tactic {
             return BR_DONE;
         }
 
-        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
+        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
             if (num != 2)
                 return BR_FAILED;
-            if (m.is_eq(f) && (m_util.is_arith_expr(args[0]) || m_util.is_arith_expr(args[1])))
+            if (m.is_eq(f) && (m_util.is_arith_expr(args[0]) || m_util.is_arith_expr(args[1])) && (!m.is_bool(args[0])))
                 return factor(f, args[0], args[1], result);
             if (f->get_family_id() != m_util.get_family_id())
                 return BR_FAILED;
@@ -232,10 +232,10 @@ class factor_tactic : public tactic {
             return BR_FAILED;
         }
     };
-    
+
     struct rw : public rewriter_tpl<rw_cfg> {
         rw_cfg m_cfg;
-        
+
         rw(ast_manager & m, params_ref const & p):
             rewriter_tpl<rw_cfg>(m, m.proofs_enabled(), m_cfg),
             m_cfg(m, p) {
@@ -245,24 +245,24 @@ class factor_tactic : public tactic {
     struct imp {
         ast_manager & m;
         rw            m_rw;
-        
+
         imp(ast_manager & _m, params_ref const & p):
             m(_m),
             m_rw(m, p) {
         }
-        
+
         void set_cancel(bool f) {
             m_rw.set_cancel(f);
             m_rw.cfg().m_pm.set_cancel(f);
         }
-        
+
         void updt_params(params_ref const & p) {
             m_rw.cfg().updt_params(p);
         }
-        
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
+
+        void operator()(goal_ref const & g,
+                        goal_ref_buffer & result,
+                        model_converter_ref & mc,
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
@@ -288,7 +288,7 @@ class factor_tactic : public tactic {
             SASSERT(g->is_well_sorted());
         }
     };
-    
+
     imp *      m_imp;
     params_ref m_params;
 public:
@@ -300,7 +300,7 @@ public:
     virtual tactic * translate(ast_manager & m) {
         return alloc(factor_tactic, m, m_params);
     }
-        
+
     virtual ~factor_tactic() {
         dealloc(m_imp);
     }
@@ -311,14 +311,14 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) {
-        r.insert("split_factors", CPK_BOOL, 
+        r.insert("split_factors", CPK_BOOL,
                  "(default: true) apply simplifications such as (= (* p1 p2) 0) --> (or (= p1 0) (= p2 0)).");
         polynomial::factor_params::get_param_descrs(r);
     }
-    
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
+
+    virtual void operator()(goal_ref const & in,
+                            goal_ref_buffer & result,
+                            model_converter_ref & mc,
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         try {
@@ -331,20 +331,14 @@ public:
             throw tactic_exception(ex.msg());
         }
     }
-    
+
     virtual void cleanup() {
-        ast_manager & m = m_imp->m;
-        imp * d = m_imp;
+        imp * d = alloc(imp, m_imp->m, m_params);
         #pragma omp critical (tactic_cancel)
         {
-            m_imp = 0;
+            std::swap(d, m_imp);
         }
         dealloc(d);
-        d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            m_imp = d;
-        }
     }
 
     virtual void set_cancel(bool f) {

@@ -144,7 +144,7 @@ def mk_z3_core(x64):
         cmds.append('call "%VCINSTALLDIR%vcvarsall.bat" amd64')
         cmds.append('cd %s' % BUILD_X64_DIR)    
     else:
-        cmds.append('"call %VCINSTALLDIR%vcvarsall.bat" x86')
+        cmds.append('call "%VCINSTALLDIR%vcvarsall.bat" x86')
         cmds.append('cd %s' % BUILD_X86_DIR)
     cmds.append('nmake')
     if exec_cmds(cmds) != 0:

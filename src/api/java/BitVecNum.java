@@ -1,8 +1,19 @@
 /**
- * This file was automatically generated from BitVecNum.cs 
- * w/ further modifications by:
- * @author Christoph M. Wintersteiger (cwinter)
- **/
+Copyright (c) 2012-2014 Microsoft Corporation
+   
+Module Name:
+
+    BitVecNum.java
+
+Abstract:
+
+Author:
+
+    @author Christoph Wintersteiger (cwinter) 2012-03-15
+
+Notes:
+    
+**/
 
 package com.microsoft.z3;
 
@@ -35,7 +46,7 @@ public class BitVecNum extends BitVecExpr
     {
         Native.LongPtr res = new Native.LongPtr();
         if (Native.getNumeralInt64(getContext().nCtx(), getNativeObject(), res) ^ true)
-            throw new Z3Exception("Numeral is not an int64");
+            throw new Z3Exception("Numeral is not a long");
         return res.value;
     }
 

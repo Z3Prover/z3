@@ -38,7 +38,6 @@ class elim_uncnstr_tactic : public tactic {
             typedef std::pair<expr *, unsigned> frame;
             svector<frame>   m_stack;
             ptr_vector<app>  m_vars;
-            expr_sparse_mark m_uncnstr_vars;
             
             bool visit(expr * t) {
                 if (m_visited.is_marked(t)) {
@@ -1037,18 +1036,13 @@ public:
     
     virtual void cleanup() {
         unsigned num_elim_apps = get_num_elim_apps();
-        ast_manager & m = m_imp->m_manager;
-        imp * d = m_imp;
+        ast_manager & m = m_imp->m_manager;        
+        imp * d = alloc(imp, m, m_params);
         #pragma omp critical (tactic_cancel)
         {
-            m_imp = 0;
+            std::swap(d, m_imp);
         }
         dealloc(d);
-        d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            m_imp = d;
-        }
         m_imp->m_num_elim_apps = num_elim_apps;
     }
 
