@@ -40,7 +40,7 @@ public class Expr extends AST
 	/**
 	 * Returns a simplified version of the expression 
 	 * A set of
-	 * parameters <param name="p" /> to configure the simplifier 
+	 * parameters <param name="p">a Params object</param> to configure the simplifier 
 	 * <seealso cref="Context.SimplifyHelp"/>
 	 **/
 	public Expr simplify(Params p) throws Z3Exception
