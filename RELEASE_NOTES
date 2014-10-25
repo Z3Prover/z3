@@ -1,5 +1,10 @@
 RELEASE NOTES
 
+Version 4.3.3
+=============
+
+- Fixed bug in floating point models
+
 Version 4.3.2
 =============
 
