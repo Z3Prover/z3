@@ -771,7 +771,6 @@ typedef enum
 
         The premises of the rules is a sequence of clauses.
         The first clause argument is the main clause of the rule.
-        One literal from the second, third, .. clause is resolved
         with a literal from the first (main) clause.
 
         Premises of the rules are of the form
@@ -1143,8 +1142,8 @@ typedef enum {
    - Z3_FILE_ACCESS_ERRROR: A file could not be accessed.
    - Z3_INVALID_USAGE:   API call is invalid in the current state.
    - Z3_INTERNAL_FATAL: An error internal to Z3 occurred.
-   - Z3_DEC_REF_ERROR: Trying to decrement the reference counter of an AST that was deleted or the reference counter was not initialized\mlonly.\endmlonly\conly with #Z3_inc_ref.
-   - Z3_EXCEPTION:     Internal Z3 exception. Additional details can be retrieved using \mlonly #Z3_get_error_msg. \endmlonly \conly #Z3_get_error_msg_ex.
+   - Z3_DEC_REF_ERROR: Trying to decrement the reference counter of an AST that was deleted or the reference counter was not initialized \mlonly.\endmlonly \conly with #Z3_inc_ref.
+   - Z3_EXCEPTION:     Internal Z3 exception. Additional details can be retrieved using #Z3_get_error_msg.
 */
 typedef enum
 {
@@ -1286,8 +1285,6 @@ extern "C" {
        if the parameter value does not exist.
 
        \sa Z3_global_param_set
-
-       The caller must invoke #Z3_global_param_del_value to delete the value returned at \c param_value.
 
        \remark This function cannot be invoked simultaneously from different threads without synchronization.
        The result string stored in param_value is stored in shared location.

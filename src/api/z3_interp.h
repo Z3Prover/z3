@@ -24,7 +24,14 @@ extern "C" {
 #endif // __cplusplus
 
     /**
-        @name Interpolation
+    \defgroup capi C API
+
+    */
+
+    /*@{*/
+
+    /**
+        @name Interpolation API
         */
     /*@{*/
 
@@ -184,6 +191,8 @@ extern "C" {
        \param cnsts Returns sequence of formulas (do not free)
        \param parents Returns the parents vector (or NULL for sequence)
        \param error Returns an error message in case of failure (do not free the string)
+       \param num_theory Number of theory terms
+       \param theory Theory terms
 
        Returns true on success.
 
@@ -232,6 +241,8 @@ extern "C" {
         \param parents The parents vector (or NULL for sequence)
         \param interps The interpolant to check
         \param error Returns an error message if interpolant incorrect (do not free the string)
+        \param num_theory Number of theory terms
+        \param theory Theory terms
 
         Return value is Z3_L_TRUE if interpolant is verified, Z3_L_FALSE if
         incorrect, and Z3_L_UNDEF if unknown.
@@ -258,6 +269,8 @@ extern "C" {
         \param cnsts Array of constraints
         \param parents The parents vector (or NULL for sequence)
         \param filename The file name to write
+        \param num_theory Number of theory terms
+        \param theory Theory terms
 
         def_API('Z3_write_interpolation_problem', VOID, (_in(CONTEXT), _in(UINT), _in_array(1, AST), _in_array(1, UINT), _in(STRING), _in(UINT), _in_array(5, AST)))
         */
@@ -269,6 +282,9 @@ extern "C" {
                                                 __in Z3_string filename,
                                                 __in unsigned num_theory,
                                                 __in_ecount(num_theory) Z3_ast theory[]);
+
+    /*@}*/
+    /*@}*/
 
 #ifdef __cplusplus
 };

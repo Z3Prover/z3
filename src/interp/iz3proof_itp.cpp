@@ -3078,6 +3078,11 @@ public:
     m().dec_ref(add_pos);
     m().dec_ref(rewrite_A);
     m().dec_ref(rewrite_B);
+    m().dec_ref(normal_step);
+    m().dec_ref(normal_chain);
+    m().dec_ref(normal);
+    m().dec_ref(sforall);
+    m().dec_ref(sexists);
   }
 };
 

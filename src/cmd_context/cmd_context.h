@@ -279,7 +279,6 @@ public:
     bool produce_models() const;
     bool produce_proofs() const;
     bool produce_interpolants() const;
-    bool check_interpolants() const;
     bool produce_unsat_cores() const;
     bool well_sorted_check_enabled() const;
     bool validate_model_enabled() const;
@@ -287,7 +286,6 @@ public:
     void set_produce_unsat_cores(bool flag);
     void set_produce_proofs(bool flag);
     void set_produce_interpolants(bool flag);
-    void set_check_interpolants(bool flag);
     bool produce_assignments() const { return m_produce_assignments; }
     void set_produce_assignments(bool flag) { m_produce_assignments = flag; }
     void set_status(status st) { m_status = st; }

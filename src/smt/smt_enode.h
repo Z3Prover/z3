@@ -38,6 +38,29 @@ namespace smt {
         }
     };
 
+    /** \ brief Use sparse maps in SMT solver.
+
+	Define this to use hash maps rather than vectors over ast
+	nodes. This is useful in the case there are many solvers, each
+	referencing few nodes from a large ast manager. There is some
+	unknown performance penalty for this. */
+
+    // #define SPARSE_MAP
+
+#ifndef SPARSE_MAP
+    typedef ptr_vector<enode> app2enode_t;    // app -> enode
+#else
+    class app2enode_t : public u_map<enode *> {
+    public:
+      void setx(unsigned x, enode *val, enode *def){
+	if(val == 0)
+	  erase(x);
+	else
+	  insert(x,val);
+      }
+    };
+#endif
+
     class tmp_enode;
 
     /**
@@ -115,7 +138,7 @@ namespace smt {
 
         friend class tmp_enode;
 
-        static enode * init(ast_manager & m, void * mem, ptr_vector<enode> const & app2enode, app * owner, 
+        static enode * init(ast_manager & m, void * mem, app2enode_t const & app2enode, app * owner, 
                             unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                             bool cgc_enabled, bool update_children_parent);
     public:
@@ -124,11 +147,11 @@ namespace smt {
             return sizeof(enode) + num_args * sizeof(enode*);
         }
         
-        static enode * mk(ast_manager & m, region & r, ptr_vector<enode> const & app2enode, app * owner, 
+        static enode * mk(ast_manager & m, region & r, app2enode_t const & app2enode, app * owner, 
                           unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                           bool cgc_enabled, bool update_children_parent);
 
-        static enode * mk_dummy(ast_manager & m, ptr_vector<enode> const & app2enode, app * owner);
+        static enode * mk_dummy(ast_manager & m, app2enode_t const & app2enode, app * owner);
         
         static void del_dummy(enode * n) { dealloc_svect(reinterpret_cast<char*>(n)); }
 

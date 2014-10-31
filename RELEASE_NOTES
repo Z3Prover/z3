@@ -1,7 +1,21 @@
 RELEASE NOTES
 
+Version 4.3.3
+=============
+
+- Fixed bug in floating point models
+
 Version 4.3.2
 =============
+
+- Added preliminary support for the theory of floating point numbers (tactics qffpa, qffpabv, and logics QF_FPA, QF_FPABV).
+
+- Added the interpolation features of iZ3, which are now integrated into the Z3. 
+
+- Fixed a multitude of bugs and inconsistencies that were reported to us either in person, by email, or on Codeplex. Of those that we do have records of, we would like to express our gratitude to:
+    Vladimir Klebanov, Konrad Jamrozik, Nuno Lopes, Carsten Ruetz, Esteban Pavese, Tomer Weiss, Ilya Mironov, Gabriele Paganelli, Levent Erkok, Fabian Emmes, David Cok, Etienne Kneuss, Arlen Cox, Matt Lewis, Carsten Otto, Paul Jackson, David Monniaux, Markus Rabe, Martin Pluecker, Jasmin Blanchette, Jules Villard, Andrew Gacek, George Karpenkov, Joerg Pfaehler, and Pablo Aledo
+    as well as the following Codeplex users that either reported bugs or took part in discussions:
+xor88, parno, gario, Bauna, GManNickG, hanwentao, dinu09, fhowar, Cici, chinissai, barak_cohen, tvalentyn, krikunts, sukyoung, daramos, snedunuri, rajtendulkar, sonertari, nick8325, dvitek, amdragon, Beatgodes, dmonniaux, nickolai, DameNingen, mangpo, ttsiodras, blurium, sbrickey, pcodemod, indranilsaha, apanda, hougaardj, yoff, EfForEffort, Ansotegui, scottgw, viorelpreoteasa, idudka, c2855337, gario, jnfoster, omarmrivas, switicus, vosandi, foens, yzwwf, Heizmann, znajem, ilyagri, hougaardj, cliguda, rgrig, 92c849c1ccc707173, edmcman, cipher1024, MichaelvW, hellok, n00b42, ic3guy, Adorf, tvcsantos, zilongwang, Elarnon, immspw, jbridge99, danliew, zverlov, petross, jmh93, dradorf, fniksic, Heyji, cxcfan, henningg, wxlfrank, rvprasad, MovGP0, jackie1015, cowang, ffaghih, sanpra1989, gzchenyin, baitman, xjtulixiangyang, andreis, trucnguyenlam, erizzi, hanhchi, qsp, windypan, vadave, gradanne, SamWot, gsingh93, manjeetdahiya, zverlov, RaLa, and regehr.
 
 - New parameter setting infrastructure. Now, it is possible to set parameter for Z3 internal modules. Several parameter names changed. Execute `z3 -p` for the new parameter list.
 

@@ -241,7 +241,6 @@ protected:
     symbol      m_produce_models;
     symbol      m_produce_assignments;
     symbol      m_produce_interpolants;
-    symbol      m_check_interpolants;
     symbol      m_regular_output_channel;
     symbol      m_diagnostic_output_channel;
     symbol      m_random_seed;
@@ -256,7 +255,6 @@ protected:
             s == m_print_success || s == m_print_warning || s == m_expand_definitions || 
             s == m_interactive_mode || s == m_produce_proofs || s == m_produce_unsat_cores ||
             s == m_produce_models || s == m_produce_assignments || s == m_produce_interpolants ||
-	    s == m_check_interpolants ||
 	    s == m_regular_output_channel || s == m_diagnostic_output_channel || 
             s == m_random_seed || s == m_verbosity || s == m_global_decls;
     }
@@ -275,7 +273,6 @@ public:
         m_produce_models(":produce-models"),
         m_produce_assignments(":produce-assignments"),
         m_produce_interpolants(":produce-interpolants"),
-        m_check_interpolants(":check-interpolants"),
         m_regular_output_channel(":regular-output-channel"),
         m_diagnostic_output_channel(":diagnostic-output-channel"),
         m_random_seed(":random-seed"),
@@ -346,9 +343,6 @@ class set_option_cmd : public set_get_option_cmd {
         else if (m_option == m_produce_interpolants) {
             check_not_initialized(ctx, m_produce_interpolants);
             ctx.set_produce_interpolants(to_bool(value));
-        }
-        else if (m_option == m_check_interpolants) {
-	    ctx.set_check_interpolants(to_bool(value));
         }
         else if (m_option == m_produce_unsat_cores) {
             check_not_initialized(ctx, m_produce_unsat_cores);
