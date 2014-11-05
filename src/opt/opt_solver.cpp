@@ -87,8 +87,13 @@ namespace opt {
     smt::theory_opt& opt_solver::get_optimizer() {
         smt::context& ctx = m_context.get_context();                        
         smt::theory_id arith_id = m_context.m().get_family_id("arith");     
-        smt::theory* arith_theory = ctx.get_theory(arith_id);               
+        smt::theory* arith_theory = ctx.get_theory(arith_id);
         
+        if (!arith_theory) {
+            ctx.register_plugin(alloc(smt::theory_mi_arith, m, m_params));
+            arith_theory = ctx.get_theory(arith_id);
+            SASSERT(arith_theory);
+        }
         if (typeid(smt::theory_mi_arith) == typeid(*arith_theory)) {        
             return dynamic_cast<smt::theory_mi_arith&>(*arith_theory); 
         }                                                                   
