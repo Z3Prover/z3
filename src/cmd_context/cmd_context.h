@@ -294,7 +294,7 @@ public:
     std::string reason_unknown() const;
 
     bool has_manager() const { return m_manager != 0; }
-    ast_manager & m() const { if (!m_manager) const_cast<cmd_context*>(this)->init_manager(); return *m_manager; }
+    ast_manager & m() const { const_cast<cmd_context*>(this)->init_manager(); return *m_manager; }
     virtual ast_manager & get_ast_manager() { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }

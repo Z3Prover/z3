@@ -623,17 +623,17 @@ void cmd_context::init_manager() {
         // no-op
     }
     else if (m_manager) {
+        m_manager_initialized = true;
         SASSERT(!m_own_manager);
         init_external_manager();
-        m_manager_initialized = true;
     }
     else {
+        m_manager_initialized = true;
         SASSERT(m_pmanager == 0);
         m_check_sat_result = 0;
         m_manager  = m_params.mk_ast_manager();
         m_pmanager = alloc(pdecl_manager, *m_manager);
         init_manager_core(true);
-        m_manager_initialized = true;
     }
 }
 
