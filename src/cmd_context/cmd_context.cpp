@@ -314,8 +314,9 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_numeral_as_real(false),
     m_ignore_check(false),
     m_exit_on_error(false),
-    m_manager(m),
+    m_manager(m),   
     m_own_manager(m == 0),
+    m_manager_initialized(false),
     m_pmanager(0),
     m_sexpr_manager(0),
     m_regular("stdout", std::cout),
@@ -326,8 +327,6 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     install_core_tactic_cmds(*this);
     install_interpolant_cmds(*this);
     SASSERT(m != 0 || !has_manager());
-    if (m)
-        init_external_manager();
     if (m_main_ctx) { 
         set_verbose_stream(diagnostic_stream());
     }
@@ -620,12 +619,22 @@ void cmd_context::init_manager_core(bool new_manager) {
 }
 
 void cmd_context::init_manager() {
-    SASSERT(m_manager == 0);
-    SASSERT(m_pmanager == 0);
-    m_check_sat_result = 0;
-    m_manager  = m_params.mk_ast_manager();
-    m_pmanager = alloc(pdecl_manager, *m_manager);
-    init_manager_core(true);
+    if (m_manager_initialized) {
+        // no-op
+    }
+    else if (m_manager) {
+        SASSERT(!m_own_manager);
+        init_external_manager();
+        m_manager_initialized = true;
+    }
+    else {
+        SASSERT(m_pmanager == 0);
+        m_check_sat_result = 0;
+        m_manager  = m_params.mk_ast_manager();
+        m_pmanager = alloc(pdecl_manager, *m_manager);
+        init_manager_core(true);
+        m_manager_initialized = true;
+    }
 }
 
 void cmd_context::init_external_manager() {
@@ -1211,8 +1220,7 @@ void cmd_context::assert_expr(symbol const & name, expr * t) {
 
 void cmd_context::push() {
     m_check_sat_result = 0;
-    if (!has_manager())
-        init_manager();
+    init_manager();
     m_scopes.push_back(scope());
     scope & s = m_scopes.back();
     s.m_func_decls_stack_lim   = m_func_decls_stack.size();
@@ -1332,8 +1340,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         return;
     IF_VERBOSE(100, verbose_stream() << "(started \"check-sat\")" << std::endl;);
     TRACE("before_check_sat", dump_assertions(tout););
-    if (!has_manager())
-        init_manager();
+    init_manager();
     if (m_solver) {
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
         m_solver->set_progress_callback(this);
