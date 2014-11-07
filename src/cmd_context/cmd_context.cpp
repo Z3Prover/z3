@@ -470,6 +470,16 @@ void cmd_context::register_plugin(symbol const & name, decl_plugin * p, bool ins
     }
 }
 
+void cmd_context::load_plugin(symbol const & name, bool install, svector<family_id>& fids) {
+    family_id id = m_manager->get_family_id(name);
+    decl_plugin* p = m_manager->get_plugin(id);
+    if (install && p && fids.contains(id)) {
+        register_builtin_sorts(p);
+        register_builtin_ops(p);
+    }
+    fids.erase(id);
+}
+
 bool cmd_context::logic_has_arith_core(symbol const & s) const {
     return 
         s == "QF_LRA" ||
@@ -586,17 +596,26 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_builtin_sorts(basic);
         register_builtin_ops(basic);
         // the manager was created by the command context.
-        register_plugin(symbol("arith"), alloc(arith_decl_plugin), logic_has_arith());
-        register_plugin(symbol("bv"), alloc(bv_decl_plugin), logic_has_bv());
-        register_plugin(symbol("array"), alloc(array_decl_plugin), logic_has_array());
+        register_plugin(symbol("arith"),    alloc(arith_decl_plugin), logic_has_arith());
+        register_plugin(symbol("bv"),       alloc(bv_decl_plugin), logic_has_bv());
+        register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
         register_plugin(symbol("float"),    alloc(float_decl_plugin), logic_has_floats());
     }
     else {
-        // the manager was created by an external module, we must register all plugins available in the manager.
+        // the manager was created by an external module
+        // we register all plugins available in the manager.
+        // unless the logic specifies otherwise.
         svector<family_id> fids;
         m_manager->get_range(fids);
+        load_plugin(symbol("arith"),    logic_has_arith(), fids);
+        load_plugin(symbol("bv"),       logic_has_bv(), fids);
+        load_plugin(symbol("array"),    logic_has_array(), fids);
+        load_plugin(symbol("datatype"), logic_has_datatype(), fids);
+        load_plugin(symbol("seq"),      logic_has_seq(), fids);
+        load_plugin(symbol("float"),    logic_has_floats(), fids);
+        
         svector<family_id>::iterator it  = fids.begin();
         svector<family_id>::iterator end = fids.end();
         for (; it != end; ++it) {
@@ -1174,12 +1193,15 @@ void cmd_context::reset(bool finalize) {
         if (m_own_manager) {
             dealloc(m_manager);
             m_manager = 0;
+            m_manager_initialized = false;
         }
         else {
             // doesn't own manager... so it cannot be deleted
             // reinit cmd_context if this is not a finalization step
             if (!finalize)
                 init_external_manager();
+            else 
+                m_manager_initialized = false;
         }
     }
     if (m_sexpr_manager) {

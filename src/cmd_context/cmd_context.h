@@ -214,6 +214,7 @@ protected:
     void register_builtin_sorts(decl_plugin * p);
     void register_builtin_ops(decl_plugin * p);
     void register_plugin(symbol const & name, decl_plugin * p, bool install_names);
+    void load_plugin(symbol const & name, bool install_names, svector<family_id>& fids);
     void init_manager_core(bool new_manager);
     void init_manager();
     void init_external_manager();
