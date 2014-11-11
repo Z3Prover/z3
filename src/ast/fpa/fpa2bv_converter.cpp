@@ -1858,14 +1858,6 @@ void fpa2bv_converter::mk_is_positive(func_decl * f, unsigned num, expr * const 
     result = m.mk_and(m.mk_not(t1), t2);    
 }
 
-void fpa2bv_converter::mk_is_positive(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    SASSERT(num == 1);
-    expr_ref t1(m), t2(m);
-    mk_is_nan(args[0], t1);
-    mk_is_pos(args[0], t2);
-    result = m.mk_and(m.mk_not(t1), t2);    
-}
-
 void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     TRACE("fpa2bv_to_float", for (unsigned i=0; i < num; i++)
                                  tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl; );

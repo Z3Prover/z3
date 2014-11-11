@@ -2618,7 +2618,7 @@ void fpa_example() {
     symbol_y = Z3_mk_string_symbol(ctx, "y");
     x = Z3_mk_const(ctx, symbol_x, double_sort);
     y = Z3_mk_const(ctx, symbol_y, double_sort);
-    n = Z3_mk_fpa_double(ctx, 42.0, double_sort);
+    n = Z3_mk_fpa_numeral_double(ctx, 42.0, double_sort);
 
     symbol_q = Z3_mk_string_symbol(ctx, "q");
     q = Z3_mk_const(ctx, symbol_q, double_sort);

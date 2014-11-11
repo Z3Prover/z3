@@ -24,6 +24,18 @@ extern "C" {
 #endif // __cplusplus
 
     /**
+    \defgroup capi C API
+
+    */
+
+    /*@{*/
+
+    /**
+        @name Floating-Point API
+        */
+    /*@{*/
+
+    /**
         \brief Create a rounding mode sort.
 
         \param c logical context.
@@ -93,6 +105,59 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_fpa_sort(__in Z3_context c, __in unsigned ebits, __in unsigned sbits);
 
     /**
+        \brief Create the half-precision (16-bit) floating point sort.
+
+        \param c logical context.
+        \param ebits number of exponent bits
+        \param sbits number of significand bits
+
+        \remark ebits must be larger than 1 and sbits must be larger than 2.
+
+        def_API('Z3_mk_fpa_sort_half', SORT, (_in(CONTEXT),))
+    */
+    Z3_sort Z3_API Z3_mk_fpa_sort_half(__in Z3_context c);
+
+    /**
+        \brief Create the single-precision (32-bit) floating point sort.
+
+        \param c logical context.
+        \param ebits number of exponent bits
+        \param sbits number of significand bits
+
+        \remark ebits must be larger than 1 and sbits must be larger than 2.
+
+        def_API('Z3_mk_fpa_sort_single', SORT, (_in(CONTEXT),))
+    */
+    Z3_sort Z3_API Z3_mk_fpa_sort_single(__in Z3_context c);
+
+    /**
+        \brief Create the double-precision (64-bit) floating point sort.
+
+        \param c logical context.
+        \param ebits number of exponent bits
+        \param sbits number of significand bits
+
+        \remark ebits must be larger than 1 and sbits must be larger than 2.
+
+        def_API('Z3_mk_fpa_sort_double', SORT, (_in(CONTEXT),))
+    */
+    Z3_sort Z3_API Z3_mk_fpa_sort_double(__in Z3_context c);
+
+    /**
+        \brief Create the quadruple-precision (128-bit) floating point sort.
+
+        \param c logical context.
+        \param ebits number of exponent bits
+        \param sbits number of significand bits
+
+        \remark ebits must be larger than 1 and sbits must be larger than 2.
+
+        def_API('Z3_mk_fpa_sort_quadruple', SORT, (_in(CONTEXT),))
+    */
+    Z3_sort Z3_API Z3_mk_fpa_sort_quadruple(__in Z3_context c);
+
+
+    /**
         \brief Create a NaN of sort s.
 
         \param c logical context.
@@ -129,7 +194,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_zero(__in Z3_context c, __in Z3_sort s, __in Z3_bool negative);
 
     /**
-       \brief Create a numeral of floating point sort. 
+       \brief Create a numeral of floating point sort from a double. 
        
        This function can be use to create numerals that fit in a double value.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
@@ -142,27 +207,9 @@ extern "C" {
 
        \sa Z3_mk_numeral
 
-       def_API('Z3_mk_fpa_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
+       def_API('Z3_mk_fpa_numeral_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_double(__in Z3_context c, __in double v, __in Z3_sort ty);
-
-    /**
-    \brief Create a numeral of floating point sort.
-
-    This function can be use to create numerals that fit in a double value.
-    It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
-
-    \params c logical context.
-    \params v value.
-    \params ty sort.
-
-    ty must be a floating point sort
-
-    \sa Z3_mk_numeral
-
-    def_API('Z3_mk_fpa_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
-    */
-    Z3_ast Z3_API Z3_mk_fpa_double(__in Z3_context c, __in double v, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_double(__in Z3_context c, __in double v, __in Z3_sort ty);
 
     /**
         \brief Floating-point absolute value
@@ -468,7 +515,10 @@ extern "C" {
         def_API('Z3_mk_fpa_to_ieee_bv', AST, (_in(CONTEXT),_in(AST)))
     */      
     Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(__in Z3_context c, __in Z3_ast t);
-   
+
+    /*@}*/
+    /*@}*/
+
 #ifdef __cplusplus
 };
 #endif // __cplusplus

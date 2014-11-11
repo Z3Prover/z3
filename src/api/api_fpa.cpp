@@ -99,7 +99,23 @@ extern "C" {
         Z3_sort r = of_sort(ctx->float_util().mk_float_sort(ebits, sbits));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
-    }   
+    }
+
+    Z3_sort Z3_API Z3_mk_fpa_sort_half(__in Z3_context c) {
+        return Z3_mk_fpa_sort(c, 5, 11);
+    }
+
+    Z3_sort Z3_API Z3_mk_fpa_sort_single(__in Z3_context c) {
+        return Z3_mk_fpa_sort(c, 8, 24);
+    }
+
+    Z3_sort Z3_API Z3_mk_fpa_sort_double(__in Z3_context c) {
+        return Z3_mk_fpa_sort(c, 11, 53);
+    }
+
+    Z3_sort Z3_API Z3_mk_fpa_sort_quadruple(__in Z3_context c) {
+        return Z3_mk_fpa_sort(c, 15, 113);
+    }
 
     Z3_ast Z3_API Z3_mk_fpa_nan(Z3_context c, Z3_sort s) {
         Z3_TRY;
@@ -131,9 +147,9 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_double(Z3_context c, double v, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_fpa_numeral_double(Z3_context c, double v, Z3_sort ty) {
         Z3_TRY;
-        LOG_Z3_mk_fpa_double(c, v, ty);
+        LOG_Z3_mk_fpa_numeral_double(c, v, ty);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         scoped_mpf tmp(ctx->float_util().fm());
@@ -158,7 +174,7 @@ extern "C" {
         LOG_Z3_mk_fpa_neg(c, t);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
-        Z3_ast r = of_ast(ctx->float_util().mk_uminus(to_expr(t)));
+        Z3_ast r = of_ast(ctx->float_util().mk_neg(to_expr(t)));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
@@ -208,7 +224,7 @@ extern "C" {
         LOG_Z3_mk_fpa_fma(c, rm, t1, t2, t3);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
-        Z3_ast r = of_ast(ctx->float_util().mk_fused_ma(to_expr(rm), to_expr(t1), to_expr(t2), to_expr(t3)));
+        Z3_ast r = of_ast(ctx->float_util().mk_fma(to_expr(rm), to_expr(t1), to_expr(t2), to_expr(t3)));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
