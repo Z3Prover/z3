@@ -167,14 +167,15 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
          it++)
     {
         func_decl * var = it->m_key;
-        app * a = to_app(it->m_value);
+        expr * v = it->m_value;
+        expr_ref eval_v(m);
         SASSERT(fu.is_rm(var->get_range()));
-        rational val(0);
+        rational bv_val(0);
         unsigned sz = 0;
-        if (a && bu.is_numeral(a, val, sz)) {
-            TRACE("fpa2bv_mc", tout << var->get_name() << " == " << val.to_string() << std::endl;);
-            SASSERT(val.is_uint64());
-            switch (val.get_uint64())
+        if (v && bv_mdl->eval(v, eval_v, true) && bu.is_numeral(eval_v, bv_val, sz)) {
+            TRACE("fpa2bv_mc", tout << var->get_name() << " == " << bv_val.to_string() << std::endl;);
+            SASSERT(bv_val.is_uint64());
+            switch (bv_val.get_uint64())
             {
             case BV_RM_TIES_TO_AWAY: float_mdl->register_decl(var, fu.mk_round_nearest_ties_to_away()); break;
             case BV_RM_TIES_TO_EVEN: float_mdl->register_decl(var, fu.mk_round_nearest_ties_to_even()); break;
@@ -183,7 +184,8 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
             case BV_RM_TO_ZERO:
             default: float_mdl->register_decl(var, fu.mk_round_toward_zero());
             }
-            seen.insert(var);
+            SASSERT(v->get_kind() == AST_APP);
+            seen.insert(to_app(v)->get_decl());
         }
     }
 
