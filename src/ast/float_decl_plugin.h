@@ -247,14 +247,14 @@ public:
     app * mk_mul(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_MUL, arg1, arg2, arg3); }
     app * mk_sub(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_SUB, arg1, arg2, arg3); }
     app * mk_div(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_DIV, arg1, arg2, arg3); }
-    app * mk_uminus(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_NEG, arg1); }
+    app * mk_neg(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_NEG, arg1); }
     app * mk_rem(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_REM, arg1, arg2); }
     app * mk_max(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_MAX, arg1, arg2); }
     app * mk_min(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_MIN, arg1, arg2); }
     app * mk_abs(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_ABS, arg1); }
     app * mk_sqrt(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_SQRT, arg1, arg2); }
     app * mk_round(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_ROUND_TO_INTEGRAL, arg1, arg2); }
-    app * mk_fused_ma(expr * arg1, expr * arg2, expr * arg3, expr * arg4) {
+    app * mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4) {
         expr * args[4] = { arg1, arg2, arg3, arg4 };
         return m().mk_app(m_fid, OP_FLOAT_FMA, 4, args);
     }
@@ -276,7 +276,7 @@ public:
     app * mk_is_positive(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_POSITIVE, arg1); }
     app * mk_is_negative(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NEGATIVE, arg1); }
 
-    bool is_uminus(expr * a) { return is_app_of(a, m_fid, OP_FLOAT_NEG); }
+    bool is_neg(expr * a) { return is_app_of(a, m_fid, OP_FLOAT_NEG); }
     
     app * mk_float_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_TO_IEEE_BV, arg1); }
 };

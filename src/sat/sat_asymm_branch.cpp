@@ -215,7 +215,7 @@ namespace sat {
         sat_asymm_branch_params::collect_param_descrs(d);
     }
     
-    void asymm_branch::collect_statistics(statistics & st) {
+    void asymm_branch::collect_statistics(statistics & st) const {
         st.update("elim literals", m_elim_literals);
     }
 

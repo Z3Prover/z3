@@ -348,13 +348,24 @@ namespace smt {
         context & ctx   = get_context();
         simplifier & s  = ctx.get_simplifier();
         expr_ref s_ante(m), s_conseq(m);
+        expr* s_conseq_n, * s_ante_n;
+        bool negated;
         proof_ref pr(m);
+
         s(ante, s_ante, pr);
+        negated = m.is_not(s_ante, s_ante_n);
+        if (negated) s_ante = s_ante_n;
         ctx.internalize(s_ante, false);
         literal l_ante = ctx.get_literal(s_ante);
+        if (negated) l_ante.neg();
+
         s(conseq, s_conseq, pr);
+        negated = m.is_not(s_conseq, s_conseq_n);
+        if (negated) s_conseq = s_conseq_n;
         ctx.internalize(s_conseq, false);
         literal l_conseq = ctx.get_literal(s_conseq);
+        if (negated) l_conseq.neg();
+
         literal lits[2] = {l_ante, l_conseq};
         ctx.mk_th_axiom(get_id(), 2, lits);
         if (ctx.relevancy()) {
@@ -800,47 +811,237 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::mk_bound_axioms(atom * a1) {
         theory_var v = a1->get_var();
-        literal   l1(a1->get_bool_var()); 
+        atoms & occs = m_var_occs[v];
+        if (!get_context().is_searching()) {
+            //
+            // NB. We make an assumption that user push calls propagation 
+            // before internal scopes are pushed. This flushes all newly 
+            // asserted atoms into the right context.
+            //
+            m_new_atoms.push_back(a1);
+            return;
+        }
         numeral const & k1(a1->get_k());
         atom_kind kind1 = a1->get_atom_kind();
         TRACE("mk_bound_axioms", tout << "making bound axioms for v" << v << " " << kind1 << " " << k1 << "\n";);
-        atoms & occs = m_var_occs[v];
         typename atoms::iterator it  = occs.begin();
         typename atoms::iterator end = occs.end();
+
+        typename atoms::iterator lo_inf = end, lo_sup = end;
+        typename atoms::iterator hi_inf = end, hi_sup = end;
         for (; it != end; ++it) {
-            atom * a2 = *it;
-            literal l2(a2->get_bool_var());
-            numeral const & k2 = a2->get_k();
-            atom_kind kind2    = a2->get_atom_kind();
+            atom * a2 = *it;            
+            numeral const & k2(a2->get_k());
+            atom_kind kind2 = a2->get_atom_kind();
             SASSERT(k1 != k2 || kind1 != kind2);
-            SASSERT(a2->get_var() == v);
-            parameter coeffs[3] = { parameter(symbol("farkas")), parameter(rational(1)), parameter(rational(1)) };
-            if (kind1 == A_LOWER) {
-                if (kind2 == A_LOWER) {
-                    // x >= k1, x >= k2 
-                    if (k1 >= k2) mk_clause(~l1, l2, 3, coeffs);
-                    else mk_clause(~l2, l1, 3, coeffs);
+            if (kind2 == A_LOWER) {
+                if (k2 < k1) {
+                    if (lo_inf == end || k2 > (*lo_inf)->get_k()) {
+                        lo_inf = it;
+                    }
                 }
-                else {
-                    // x >= k1, x <= k2      
-                    if (k1 > k2) mk_clause(~l1, ~l2, 3, coeffs);
-                    else mk_clause(l1, l2, 3, coeffs);
+                else if (lo_sup == end || k2 < (*lo_sup)->get_k()) {
+                    lo_sup = it;
                 }
             }
-            else {
-                if (kind2 == A_LOWER) {
-                    // x <= k1, x >= k2
-                    if (k1 < k2) mk_clause(~l1, ~l2, 3, coeffs);
-                    else mk_clause(l1, l2, 3, coeffs);
+            else if (k2 < k1) {
+                if (hi_inf == end || k2 > (*hi_inf)->get_k()) {
+                    hi_inf = it;
+                }
+            }
+            else if (hi_sup == end || k2 < (*hi_sup)->get_k()) {
+                hi_sup = it;
+            }
+        }        
+        if (lo_inf != end) mk_bound_axiom(a1, *lo_inf);
+        if (lo_sup != end) mk_bound_axiom(a1, *lo_sup);
+        if (hi_inf != end) mk_bound_axiom(a1, *hi_inf);
+        if (hi_sup != end) mk_bound_axiom(a1, *hi_sup);
+    }
+
+    template<typename Ext>
+    void theory_arith<Ext>::mk_bound_axiom(atom* a1, atom* a2) {
+        theory_var v = a1->get_var();
+        literal   l1(a1->get_bool_var()); 
+        literal   l2(a2->get_bool_var()); 
+        numeral const & k1(a1->get_k());
+        numeral const & k2(a2->get_k());
+        atom_kind kind1 = a1->get_atom_kind();
+        atom_kind kind2 = a2->get_atom_kind();
+        bool v_is_int = is_int(v);
+        SASSERT(v == a2->get_var());
+        SASSERT(k1 != k2 || kind1 != kind2);
+        parameter coeffs[3] = { parameter(symbol("farkas")), 
+                                parameter(rational(1)), parameter(rational(1)) };
+
+        if (kind1 == A_LOWER) {
+            if (kind2 == A_LOWER) {
+                if (k2 <= k1) {
+                    mk_clause(~l1, l2, 3, coeffs);
                 }
                 else {
-                    // x <= k1, x <= k2
-                    if (k1 < k2) mk_clause(~l1, l2, 3, coeffs);
-                    else mk_clause(~l2, l1, 3, coeffs);
+                    mk_clause(l1, ~l2, 3, coeffs);
+                }
+            }
+            else if (k1 <= k2) {
+                // k1 <= k2, k1 <= x or x <= k2
+                mk_clause(l1, l2, 3, coeffs);
+            }
+            else {
+                // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
+                mk_clause(~l1, ~l2, 3, coeffs);
+                if (v_is_int && k1 == k2 + numeral(1)) {
+                    // k1 <= x or x <= k1-1
+                    mk_clause(l1, l2, 3, coeffs);
                 }
             }
         }
+        else if (kind2 == A_LOWER) {
+            if (k1 >= k2) {
+                // k1 >= lo_inf, k1 >= x or lo_inf <= x
+                mk_clause(l1, l2, 3, coeffs);
+            }
+            else {
+                // k1 < k2, k2 <= x => ~(x <= k1)
+                mk_clause(~l1, ~l2, 3, coeffs); 
+                if (v_is_int && k1 == k2 - numeral(1)) {
+                    // x <= k1 or k1+l <= x
+                    mk_clause(l1, l2, 3, coeffs);
+                }
+
+            }
+        }
+        else {
+            // kind1 == A_UPPER, kind2 == A_UPPER
+            if (k1 >= k2) {
+                // k1 >= k2, x <= k2 => x <= k1
+                mk_clause(l1, ~l2, 3, coeffs);
+            }
+            else {
+                // k1 <= hi_sup , x <= k1 =>  x <= hi_sup
+                mk_clause(~l1, l2, 3, coeffs);
+            }
+        }        
     }
+
+    template<typename Ext>
+    void theory_arith<Ext>::flush_bound_axioms() {
+        while (!m_new_atoms.empty()) {
+            ptr_vector<atom> atoms;            
+            atoms.push_back(m_new_atoms.back());
+            m_new_atoms.pop_back();
+            theory_var v = atoms.back()->get_var();
+            for (unsigned i = 0; i < m_new_atoms.size(); ++i) {
+                if (m_new_atoms[i]->get_var() == v) {
+                    atoms.push_back(m_new_atoms[i]);
+                    m_new_atoms[i] = m_new_atoms.back();
+                    m_new_atoms.pop_back();
+                    --i;
+                }
+            }            
+            ptr_vector<atom> occs(m_var_occs[v]);
+
+            std::sort(atoms.begin(), atoms.end(), compare_atoms());
+            std::sort(occs.begin(), occs.end(), compare_atoms());
+
+            typename atoms::iterator begin1 = occs.begin();
+            typename atoms::iterator begin2 = occs.begin();
+            typename atoms::iterator end = occs.end();
+            begin1 = first(A_LOWER, begin1, end);
+            begin2 = first(A_UPPER, begin2, end);
+
+            typename atoms::iterator lo_inf = begin1, lo_sup = begin1;
+            typename atoms::iterator hi_inf = begin2, hi_sup = begin2;
+            typename atoms::iterator lo_inf1 = begin1, lo_sup1 = begin1;
+            typename atoms::iterator hi_inf1 = begin2, hi_sup1 = begin2;
+            bool flo_inf, fhi_inf, flo_sup, fhi_sup;
+            ptr_addr_hashtable<atom> visited;
+            for (unsigned i = 0; i < atoms.size(); ++i) {
+                atom* a1 = atoms[i];
+                lo_inf1 = next_inf(a1, A_LOWER, lo_inf, end, flo_inf);
+                hi_inf1 = next_inf(a1, A_UPPER, hi_inf, end, fhi_inf);
+                lo_sup1 = next_sup(a1, A_LOWER, lo_sup, end, flo_sup);
+                hi_sup1 = next_sup(a1, A_UPPER, hi_sup, end, fhi_sup);
+                if (lo_inf1 != end) lo_inf = lo_inf1; 
+                if (lo_sup1 != end) lo_sup = lo_sup1; 
+                if (hi_inf1 != end) hi_inf = hi_inf1; 
+                if (hi_sup1 != end) hi_sup = hi_sup1; 
+                if (!flo_inf) lo_inf = end;
+                if (!fhi_inf) hi_inf = end;
+                if (!flo_sup) lo_sup = end;
+                if (!fhi_sup) hi_sup = end;
+                visited.insert(a1);
+                if (lo_inf1 != end && lo_inf != end && !visited.contains(*lo_inf)) mk_bound_axiom(a1, *lo_inf);
+                if (lo_sup1 != end && lo_sup != end && !visited.contains(*lo_sup)) mk_bound_axiom(a1, *lo_sup);
+                if (hi_inf1 != end && hi_inf != end && !visited.contains(*hi_inf)) mk_bound_axiom(a1, *hi_inf);
+                if (hi_sup1 != end && hi_sup != end && !visited.contains(*hi_sup)) mk_bound_axiom(a1, *hi_sup);
+            }                            
+        }
+    }
+
+    template<typename Ext>
+    typename theory_arith<Ext>::atoms::iterator 
+    theory_arith<Ext>::first(
+        atom_kind kind, 
+        typename atoms::iterator it, 
+        typename atoms::iterator end) {
+        for (; it != end; ++it) {
+            atom* a = *it;
+            if (a->get_atom_kind() == kind) return it;
+        }
+        return end;
+    }
+
+    template<typename Ext>
+    typename theory_arith<Ext>::atoms::iterator 
+    theory_arith<Ext>::next_inf(
+        atom* a1, 
+        atom_kind kind, 
+        typename atoms::iterator it, 
+        typename atoms::iterator end,
+        bool& found_compatible) {
+        numeral const & k1(a1->get_k());
+        typename atoms::iterator result = end;
+        found_compatible = false;
+        for (; it != end; ++it) {
+            atom * a2 = *it;            
+            if (a1 == a2) continue;
+            if (a2->get_atom_kind() != kind) continue;
+            numeral const & k2(a2->get_k());
+            found_compatible = true;
+            if (k2 <= k1) {
+                result = it;
+            }
+            else {
+                break;
+            }
+        }
+        return result;
+    }
+
+    template<typename Ext>
+    typename theory_arith<Ext>::atoms::iterator 
+    theory_arith<Ext>::next_sup(
+        atom* a1, 
+        atom_kind kind, 
+        typename atoms::iterator it, 
+        typename atoms::iterator end,
+        bool& found_compatible) {
+        numeral const & k1(a1->get_k());
+        found_compatible = false;
+        for (; it != end; ++it) {
+            atom * a2 = *it;            
+            if (a1 == a2) continue;
+            if (a2->get_atom_kind() != kind) continue;
+            numeral const & k2(a2->get_k());
+            found_compatible = true;
+            if (k1 < k2) {
+                return it;
+            }
+        }
+        return end;
+    }
+
 
     template<typename Ext>
     bool theory_arith<Ext>::internalize_atom(app * n, bool gate_ctx) {
@@ -879,7 +1080,7 @@ namespace smt {
         bool_var bv    = ctx.mk_bool_var(n);
         ctx.set_var_theory(bv, get_id());
         rational _k;
-        m_util.is_numeral(rhs, _k);
+        VERIFY(m_util.is_numeral(rhs, _k));
         numeral   k(_k);
         atom * a = alloc(atom, bv, v, k, kind);
         mk_bound_axioms(a);
@@ -927,6 +1128,7 @@ namespace smt {
     
     template<typename Ext>
     void theory_arith<Ext>::assign_eh(bool_var v, bool is_true) {
+        TRACE("arith", tout << "v" << v << " " << is_true << "\n";);
         atom * a = get_bv2a(v);
         if (!a) return;
         SASSERT(get_context().get_assignment(a->get_bool_var()) != l_undef);
@@ -1072,8 +1274,10 @@ namespace smt {
             }
         }
         while (m_final_check_idx != old_idx);
-        if (result == FC_DONE && m_found_unsupported_op)
+        if (result == FC_DONE && m_found_unsupported_op) {
+            TRACE("arith", tout << "Found unsupported operation\n";);
             result = FC_GIVEUP;
+        }
         return result;
     }
 
@@ -1142,6 +1346,7 @@ namespace smt {
         CASSERT("arith", wf_columns());
         CASSERT("arith", valid_row_assignment());
         
+        flush_bound_axioms();
         propagate_linear_monomials();
         while (m_asserted_qhead < m_asserted_bounds.size()) {
             bound * b = m_asserted_bounds[m_asserted_qhead];
@@ -2421,6 +2626,8 @@ namespace smt {
                     if (val == l_undef)
                         continue;
                     // TODO: check if the following line is a bottleneck
+                    TRACE("arith", tout << "v" << a->get_bool_var() << " " << (val == l_true) << "\n";);
+
                     a->assign_eh(val == l_true, get_epsilon(a->get_var()));
                     if (val != l_undef && a->get_bound_kind() == b->get_bound_kind()) {
                         SASSERT((ctx.get_assignment(bv) == l_true) == a->is_true());
@@ -2780,13 +2987,14 @@ namespace smt {
     */
     template<typename Ext>
     void theory_arith<Ext>::refine_epsilon() {
-        typedef map<rational, theory_var, obj_hash<rational>, default_eq<rational> > rational2var;
         while (true) {
             rational2var mapping;
             theory_var num = get_num_vars();
             bool refine = false;
             for (theory_var v = 0; v < num; v++) {
                 if (is_int(v))
+                    continue;
+                if (!get_context().is_shared(get_enode(v)))
                     continue;
                 inf_numeral const & val = get_value(v);
                 rational value = val.get_rational().to_rational() + m_epsilon.to_rational() * val.get_infinitesimal().to_rational();
@@ -2915,6 +3123,7 @@ namespace smt {
         SASSERT(m_to_patch.empty());
         m_to_check.reset();
         m_in_to_check.reset();
+        m_new_atoms.reset();
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
         CASSERT("arith", valid_row_assignment());

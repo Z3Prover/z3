@@ -41,6 +41,7 @@ Revision History:
 #include "iz3hash.h"
 #include "iz3interp.h"
 
+#include"scoped_proof.h"
 
 
 using namespace stl_ext;
@@ -347,8 +348,10 @@ public:
     // get the interps for the tree positions
     std::vector<ast> _interps = interps;
     interps.resize(pos_map.size());
-    for(unsigned i = 0; i < pos_map.size(); i++)
-      interps[i] = i < _interps.size() ? _interps[i] : mk_false();
+    for(unsigned i = 0; i < pos_map.size(); i++){
+      unsigned j = pos_map[i];
+      interps[i] = j < _interps.size() ? _interps[j] : mk_false();
+    }
   }
 
   bool has_interp(hash_map<ast,bool> &memo, const ast &t){
@@ -501,6 +504,8 @@ lbool iz3interpolate(ast_manager &_m_manager,
   return res;
 }
 
+
+
 void interpolation_options_struct::apply(iz3base &b){
   for(stl_ext::hash_map<std::string,std::string>::iterator it = map.begin(), en = map.end();
       it != en;
@@ -508,3 +513,26 @@ void interpolation_options_struct::apply(iz3base &b){
     b.set_option((*it).first,(*it).second);
 }
 
+// On linux and mac, unlimit stack space so we get recursion
+
+#if defined(_WINDOWS) || defined(_CYGWIN)
+
+#else
+
+#include <sys/time.h>
+#include <sys/resource.h>
+
+class iz3stack_unlimiter {
+public:
+  iz3stack_unlimiter() {
+    struct rlimit rl = {RLIM_INFINITY, RLIM_INFINITY};
+    setrlimit(RLIMIT_STACK, &rl);
+    // nothing to be done if above fails
+  }
+};
+
+// initializing this will unlimit stack
+
+iz3stack_unlimiter the_iz3stack_unlimiter;
+
+#endif

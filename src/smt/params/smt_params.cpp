@@ -19,10 +19,11 @@ Revision History:
 #include"smt_params.h"
 #include"smt_params_helper.hpp"
 #include"model_params.hpp"
+#include"gparams.h"
 
 void smt_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
-    m_auto_config = p.auto_config();
+    m_auto_config = p.auto_config() && gparams::get_value("auto_config") == "true"; // auto-config is not scoped by smt in gparams.
     m_random_seed = p.random_seed();
     m_relevancy_lvl = p.relevancy();
     m_ematching   = p.ematching();

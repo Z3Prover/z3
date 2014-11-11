@@ -773,7 +773,6 @@ typedef enum
 
         The premises of the rules is a sequence of clauses.
         The first clause argument is the main clause of the rule.
-        One literal from the second, third, .. clause is resolved
         with a literal from the first (main) clause.
 
         Premises of the rules are of the form
@@ -1145,8 +1144,8 @@ typedef enum {
    - Z3_FILE_ACCESS_ERRROR: A file could not be accessed.
    - Z3_INVALID_USAGE:   API call is invalid in the current state.
    - Z3_INTERNAL_FATAL: An error internal to Z3 occurred.
-   - Z3_DEC_REF_ERROR: Trying to decrement the reference counter of an AST that was deleted or the reference counter was not initialized\mlonly.\endmlonly\conly with #Z3_inc_ref.
-   - Z3_EXCEPTION:     Internal Z3 exception. Additional details can be retrieved using \mlonly #Z3_get_error_msg. \endmlonly \conly #Z3_get_error_msg_ex.
+   - Z3_DEC_REF_ERROR: Trying to decrement the reference counter of an AST that was deleted or the reference counter was not initialized \mlonly.\endmlonly \conly with #Z3_inc_ref.
+   - Z3_EXCEPTION:     Internal Z3 exception. Additional details can be retrieved using #Z3_get_error_msg.
 */
 typedef enum
 {
@@ -1289,8 +1288,6 @@ extern "C" {
 
        \sa Z3_global_param_set
 
-       The caller must invoke #Z3_global_param_del_value to delete the value returned at \c param_value.
-
        \remark This function cannot be invoked simultaneously from different threads without synchronization.
        The result string stored in param_value is stored in shared location.
 
@@ -1377,6 +1374,16 @@ extern "C" {
        although some parameters can be changed using #Z3_update_param_value.
        All main interaction with Z3 happens in the context of a \c Z3_context.
 
+       In contrast to #Z3_mk_context_rc, the life time of Z3_ast objects
+       are determined by the scope level of #Z3_push and #Z3_pop.
+       In other words, a Z3_ast object remains valid until there is a 
+       call to Z3_pop that takes the current scope below the level where 
+       the object was created.
+
+       Note that all other reference counted objects, including Z3_model,
+       Z3_solver, Z3_func_interp have to be managed by the caller. 
+       Their reference counts are not handled by the context.       
+
        \conly \sa Z3_del_context
 
        \conly \deprecated Use #Z3_mk_context_rc
@@ -1453,15 +1460,6 @@ extern "C" {
        def_API('Z3_update_param_value', VOID, (_in(CONTEXT), _in(STRING), _in(STRING)))
     */
     void Z3_API Z3_update_param_value(__in Z3_context c, __in Z3_string param_id, __in Z3_string param_value);
-
-    /**
-       \brief Return the value of a context parameter.
-      
-       \sa Z3_global_param_get
-
-       def_API('Z3_get_param_value', BOOL, (_in(CONTEXT), _in(STRING), _out(STRING)))
-    */
-    Z3_bool_opt Z3_API Z3_get_param_value(__in Z3_context c, __in Z3_string param_id, __out_opt Z3_string_ptr param_value);
 
 #ifdef CorML4
     /**
@@ -1771,7 +1769,7 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_tuple_sort(__in Z3_context c, 
                                         __in Z3_symbol mk_tuple_name, 
                                         __in unsigned num_fields, 
-                                        __in_ecount(num_fields) Z3_symbol   const field_names[],
+                                        __in_ecount(num_fields) Z3_symbol const field_names[],
                                         __in_ecount(num_fields) Z3_sort const field_sorts[],
                                         __out Z3_func_decl * mk_tuple_decl,
                                         __out_ecount(num_fields)  Z3_func_decl proj_decl[]);
@@ -2108,17 +2106,7 @@ END_MLAPI_EXCLUDE
         def_API('Z3_mk_not', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_not(__in Z3_context c, __in Z3_ast a);
-    
-    /**
-        \brief \mlh mk_interp c a \endmlh 
-        Create an AST node marking a formula position for interpolation.
         
-        The node \c a must have Boolean sort.
-
-        def_API('Z3_mk_interp', AST, (_in(CONTEXT), _in(AST)))
-    */
-    Z3_ast Z3_API Z3_mk_interp(__in Z3_context c, __in Z3_ast a);
-    
     /**
        \brief \mlh mk_ite c t1 t2 t2 \endmlh 
        Create an AST node representing an if-then-else: <tt>ite(t1, t2,
@@ -4002,6 +3990,12 @@ END_MLAPI_EXCLUDE
 
     /**
         \brief Return a unique identifier for \c t.
+        The identifier is unique up to structural equality. Thus, two ast nodes
+        created by the same context and having the same children and same function symbols
+        have the same identifiers. Ast nodes created in the same context, but having
+        different children or different functions have different identifiers.
+        Variables and quantifiers are also assigned different identifiers according to
+        their structure.        
         \mlonly \remark Implicitly used by [Pervasives.compare] for values of type [ast], [app], [sort], [func_decl], and [pattern]. \endmlonly
 
         def_API('Z3_get_ast_id', UINT, (_in(CONTEXT), _in(AST)))
@@ -4010,6 +4004,8 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return a hash code for the given AST.
+       The hash code is structural. You can use Z3_get_ast_id interchangably with 
+       this function.
        \mlonly \remark Implicitly used by [Hashtbl.hash] for values of type [ast], [app], [sort], [func_decl], and [pattern]. \endmlonly
 
        def_API('Z3_get_ast_hash', UINT, (_in(CONTEXT), _in(AST)))
@@ -4909,8 +4905,7 @@ END_MLAPI_EXCLUDE
                                           __in_ecount(num_sorts) Z3_sort const sorts[],
                                           __in unsigned num_decls,
                                           __in_ecount(num_decls) Z3_symbol const decl_names[],
-                                          __in_ecount(num_decls) Z3_func_decl const decls[]  
-                                          );
+                                          __in_ecount(num_decls) Z3_func_decl const decls[]);
     
     /**
        \brief Similar to #Z3_parse_smtlib2_string, but reads the benchmark from a file.
@@ -4919,13 +4914,12 @@ END_MLAPI_EXCLUDE
     */
     Z3_ast Z3_API Z3_parse_smtlib2_file(__in Z3_context c, 
                                         __in Z3_string file_name,
-                                          __in unsigned num_sorts,
-                                          __in_ecount(num_sorts) Z3_symbol const sort_names[],
-                                          __in_ecount(num_sorts) Z3_sort const sorts[],
-                                          __in unsigned num_decls,
-                                          __in_ecount(num_decls) Z3_symbol const decl_names[],
-                                          __in_ecount(num_decls) Z3_func_decl const decls[]    
-                                        );
+                                        __in unsigned num_sorts,
+                                        __in_ecount(num_sorts) Z3_symbol const sort_names[],
+                                        __in_ecount(num_sorts) Z3_sort const sorts[],
+                                        __in unsigned num_decls,
+                                        __in_ecount(num_decls) Z3_symbol const decl_names[],
+                                        __in_ecount(num_decls) Z3_func_decl const decls[]);
 
 #ifdef ML4only
 #include <mlx_parse_smtlib.idl>
@@ -6612,6 +6606,13 @@ END_MLAPI_EXCLUDE
     /**
        \brief Create a new (incremental) solver.
 
+       The function #Z3_solver_get_model retrieves a model if the
+       assertions is satisfiable (i.e., the result is \c
+       Z3_L_TRUE) and model construction is enabled.
+       The function #Z3_solver_get_model can also be used even
+       if the result is \c Z3_L_UNDEF, but the returned model
+       is not guaranteed to satisfy quantified assertions.
+
        def_API('Z3_mk_simple_solver', SOLVER, (_in(CONTEXT),))
     */
     Z3_solver Z3_API Z3_mk_simple_solver(__in Z3_context c);
@@ -6749,8 +6750,11 @@ END_MLAPI_EXCLUDE
        \brief Check whether the assertions in a given solver are consistent or not.
 
        The function #Z3_solver_get_model retrieves a model if the
-       assertions are not unsatisfiable (i.e., the result is not \c
-       Z3_L_FALSE) and model construction is enabled.
+       assertions is satisfiable (i.e., the result is \c
+       Z3_L_TRUE) and model construction is enabled.
+       Note that if the call returns Z3_L_UNDEF, Z3 does not
+       ensure that calls to #Z3_solver_get_model succeed and any models
+       produced in this case are not guaranteed to satisfy the assertions.
 
        The function #Z3_solver_get_proof retrieves a proof if proof
        generation was enabled when the context was created, and the 
@@ -7061,7 +7065,7 @@ END_MLAPI_EXCLUDE
        \mlonly then a valid model is returned.  Otherwise, it is unsafe to use the returned model.\endmlonly
        \conly The caller is responsible for deleting the model using the function #Z3_del_model.
        
-       \conly \remark In constrast with the rest of the Z3 API, the reference counter of the
+       \conly \remark In contrast with the rest of the Z3 API, the reference counter of the
        \conly model is incremented. This is to guarantee backward compatibility. In previous
        \conly versions, models did not support reference counting.
        
@@ -7174,6 +7178,11 @@ END_MLAPI_EXCLUDE
        \brief Delete a model object.
        
        \sa Z3_check_and_get_model
+
+       \conly \remark The Z3_check_and_get_model automatically increments a reference count on the model.
+       \conly The expected usage is that models created by that method are deleted using Z3_del_model.
+       \conly This is for backwards compatibility and in contrast to the rest of the API where
+       \conly callers are responsible for managing reference counts.
     
        \deprecated Subsumed by Z3_solver API
        
@@ -7677,212 +7686,6 @@ END_MLAPI_EXCLUDE
     Z3_ast Z3_API Z3_get_context_assignment(__in Z3_context c);
 
     /*@}*/
-
-    /**
-        @name Interpolation
-    */
-    /*@{*/
-
-    /** \brief This function generates a Z3 context suitable for generation of
-	interpolants. Formulas can be generated as abstract syntx trees in
-	this context using the Z3 C API.
-	
-	Interpolants are also generated as AST's in this context.
-
-	If cfg is non-null, it will be used as the base configuration
-	for the Z3 context. This makes it possible to set Z3 options
-	to be used during interpolation. This feature should be used
-	with some caution however, as it may be that certain Z3 options
-	are incompatible with interpolation. 
-
-	def_API('Z3_mk_interpolation_context', CONTEXT, (_in(CONFIG),))
-
-    */
-
-  Z3_context Z3_API Z3_mk_interpolation_context(__in Z3_config cfg);
-
-
-/** Constant reprepresenting a root of a formula tree for tree interpolation */
-#define IZ3_ROOT SHRT_MAX
-
-/** This function uses Z3 to determine satisfiability of a set of
-    constraints. If UNSAT, an interpolant is returned, based on the
-    refutation generated by Z3. If SAT, a model is returned.
-
-    If "parents" is non-null, computes a tree interpolant. The tree is
-    defined by the array "parents".  This array maps each formula in
-    the tree to its parent, where formulas are indicated by their
-    integer index in "cnsts". The parent of formula n must have index
-    greater than n. The last formula is the root of the tree. Its
-    parent entry should be the constant IZ3_ROOT.
-
-    If "parents" is null, computes a sequence interpolant. 
-
-    \param ctx The Z3 context. Must be generated by iz3_mk_context
-    \param num The number of constraints in the sequence
-    \param cnsts Array of constraints (AST's in context ctx)
-    \param parents The parents vector defining the tree structure
-    \param options Interpolation options (may be NULL)
-    \param interps Array to return interpolants (size at least num-1, may be NULL)
-    \param model Returns a Z3 model if constraints SAT (may be NULL)
-    \param labels Returns relevant labels if SAT (may be NULL)
-    \param incremental 
-
-    VERY IMPORTANT: All the Z3 formulas in cnsts must be in Z3
-    context ctx. The model and interpolants returned are also
-    in this context. 
-
-    The return code is as in Z3_check_assumptions, that is,
-
-    Z3_L_FALSE = constraints UNSAT (interpolants returned)
-    Z3_L_TRUE = constraints SAT (model returned)
-    Z3_L_UNDEF = Z3 produced no result, or interpolation not possible
-
-    Currently, this function supports integer and boolean variables,
-    as well as arrays over these types, with linear arithmetic,
-    uninterpreted functions and quantifiers over integers (that is
-    AUFLIA). Interpolants are produced in AUFLIA. However, some
-    uses of array operations may cause quantifiers to appear in the
-    interpolants even when there are no quantifiers in the input formulas.
-    Although quantifiers may appear in the input formulas, Z3 may give up in
-    this case, returning Z3_L_UNDEF.
-
-    If "incremental" is true, cnsts must contain exactly the set of
-    formulas that are currently asserted in the context. If false,
-    there must be no formulas currently asserted in the context.
-    Setting "incremental" to true makes it posisble to incrementally
-    add and remove constraints from the context until the context
-    becomes UNSAT, at which point an interpolant is computed. Caution
-    must be used, however. Before popping the context, if you wish to
-    keep the interolant formulas, you *must* preserve them by using
-    Z3_persist_ast. Also, if you want to simplify the interpolant
-    formulas using Z3_simplify, you must first pop all of the
-    assertions in the context (or use a different context). Otherwise,
-    the formulas will be simplified *relative* to these constraints,
-    which is almost certainly not what you want.
-    
-
-    Current limitations on tree interpolants. In a tree interpolation
-    problem, each constant (0-ary function symbol) must occur only
-    along one path from root to leaf. Function symbols (of arity > 0)
-    are considered to have global scope (i.e., may appear in any
-    interpolant formula). 
-
-   
-  */  
-
-
-  Z3_lbool Z3_API Z3_interpolate(__in Z3_context ctx, 
-				 __in int num,
-				 __in_ecount(num) Z3_ast *cnsts,
-				 __in_ecount(num) unsigned *parents,
-				 __in Z3_params options,
-				 __out_ecount(num-1) Z3_ast *interps,
-				 __out Z3_model *model,
-				 __out Z3_literals *labels,
-				 __in int incremental,
-				 __in int num_theory,
-				 __in_ecount(num_theory) Z3_ast *theory);
-  
-  /** Return a string summarizing cumulative time used for
-      interpolation.  This string is purely for entertainment purposes
-      and has no semantics.
-      
-      \param ctx The context (currently ignored)
-
-    def_API('Z3_interpolation_profile', STRING, (_in(CONTEXT),))
-  */
-
-  Z3_string Z3_API Z3_interpolation_profile(__in Z3_context ctx);
-  
-  /**
-     \brief Read an interpolation problem from file.
-
-     \param ctx The Z3 context. This resets the error handler of ctx.
-     \param filename The file name to read.
-     \param num Returns length of sequence.
-     \param cnsts Returns sequence of formulas (do not free)
-     \param parents Returns the parents vector (or NULL for sequence)
-     \param error Returns an error message in case of failure (do not free the string)
-
-     Returns true on success. 
-
-     File formats: Currently two formats are supported, based on
-     SMT-LIB2. For sequence interpolants, the sequence of constraints is
-     represented by the sequence of "assert" commands in the file.
-
-     For tree interpolants, one symbol of type bool is associated to
-     each vertex of the tree. For each vertex v there is an "assert"
-     of the form:
-
-     (implies (and c1 ... cn f) v)
-
-     where c1 .. cn are the children of v (which must precede v in the file)
-     and f is the formula assiciated to node v. The last formula in the
-     file is the root vertex, and is represented by the predicate "false".
-
-     A solution to a tree interpolation problem can be thought of as a
-     valuation of the vertices that makes all the implications true
-     where each value is represented using the common symbols between
-     the formulas in the subtree and the remainder of the formulas.
-
-  */
-  
-
-  int Z3_API Z3_read_interpolation_problem(__in Z3_context ctx,
-				__out int *num, 
-				__out_ecount(*num) Z3_ast **cnsts, 
-				__out_ecount(*num) int **parents,
-				__in const char *filename,
-				__out const char **error,
-                                __out int *num_theory,
-				__out_ecount(*num_theory) Z3_ast **theory);
-
-
-
-  /** Check the correctness of an interpolant. The Z3 context must
-      have no constraints asserted when this call is made. That means
-      that after interpolating, you must first fully pop the Z3
-      context before calling this. See Z3_interpolate for meaning of parameters.
-
-      \param ctx The Z3 context. Must be generated by Z3_mk_interpolation_context
-      \param num The number of constraints in the sequence
-      \param cnsts Array of constraints (AST's in context ctx)
-      \param parents The parents vector (or NULL for sequence)
-      \param interps The interpolant to check
-      \param error Returns an error message if interpolant incorrect (do not free the string)
-
-      Return value is Z3_L_TRUE if interpolant is verified, Z3_L_FALSE if
-      incorrect, and Z3_L_UNDEF if unknown.
-
-  */
-  
-  int Z3_API Z3_check_interpolant(Z3_context ctx, int num, Z3_ast *cnsts, int *parents, Z3_ast *interps, const char **error,
-                                       int num_theory, Z3_ast *theory);
-
-  /** Write an interpolation problem to file suitable for reading with
-      Z3_read_interpolation_problem. The output file is a sequence
-      of SMT-LIB2 format commands, suitable for reading with command-line Z3
-      or other interpolating solvers.
-
-      \param ctx The Z3 context. Must be generated by z3_mk_interpolation_context
-      \param num The number of constraints in the sequence
-      \param cnsts Array of constraints
-      \param parents The parents vector (or NULL for sequence)
-      \param filename The file name to write
-
-  */
-
-  void Z3_API  Z3_write_interpolation_problem(Z3_context ctx,
-				 int num, 
-				 Z3_ast *cnsts, 
-				 int *parents,
-				 const char *filename,
-                                 int num_theory,
-				 Z3_ast *theory);
-
-
-
 #endif
 
 

@@ -95,7 +95,10 @@ unsigned uint64_log2(uint64 v);
 COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
 
 // Return the number of 1 bits in v.
-inline unsigned get_num_1bits(unsigned v) {
+static inline unsigned get_num_1bits(unsigned v) {
+#ifdef __GNUC__
+    return __builtin_popcount(v);
+#else
 #ifdef Z3DEBUG
     unsigned c;
     unsigned v1 = v;
@@ -108,15 +111,16 @@ inline unsigned get_num_1bits(unsigned v) {
     unsigned r = (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24; 
     SASSERT(c == r);
     return r;
+#endif
 }
 
 // Remark: on gcc, the operators << and >> do not produce zero when the second argument >= 64.
 // So, I'm using the following two definitions to fix the problem
-inline uint64 shift_right(uint64 x, uint64 y) {
+static inline uint64 shift_right(uint64 x, uint64 y) {
     return y < 64ull ? (x >> y) : 0ull;
 }
 
-inline uint64 shift_left(uint64 x, uint64 y) {
+static inline uint64 shift_left(uint64 x, uint64 y) {
     return y < 64ull ? (x << y) : 0ull;
 }
 
@@ -254,10 +258,6 @@ inline std::ostream & operator<<(std::ostream & out, std::pair<T1, T2> const & p
     out << "(" << p.first << ", " << p.second << ")";
     return out;
 }
-
-#ifndef _WINDOWS
-#define __forceinline inline
-#endif
 
 template<typename IT>
 bool has_duplicates(const IT & begin, const IT & end) {

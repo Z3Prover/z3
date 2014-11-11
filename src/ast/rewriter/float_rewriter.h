@@ -44,7 +44,7 @@ public:
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * arg1, expr * arg2, expr_ref & result);
-    
+
     br_status mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
     br_status mk_sub(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
     br_status mk_mul(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);

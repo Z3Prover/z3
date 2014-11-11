@@ -749,23 +749,19 @@ public:
     virtual void cleanup() {
         unsigned num_elim_vars = m_imp->m_num_eliminated_vars;
         ast_manager & m = m_imp->m();
-        imp * d = m_imp;
         expr_replacer * r = m_imp->m_r;
         if (r)
             r->set_substitution(0);
         bool owner = m_imp->m_r_owner;
         m_imp->m_r_owner  = false; // stole replacer
+
+        imp * d = alloc(imp, m, m_params, r, owner);
+        d->m_num_eliminated_vars = num_elim_vars;
         #pragma omp critical (tactic_cancel)
         {
-            m_imp = 0;
+            std::swap(d, m_imp);
         }
         dealloc(d);
-        d = alloc(imp, m, m_params, r, owner);
-        #pragma omp critical (tactic_cancel)
-        {
-            m_imp = d;
-        }
-        m_imp->m_num_eliminated_vars = num_elim_vars;
     }
 
     virtual void collect_statistics(statistics & st) const {

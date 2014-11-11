@@ -25,6 +25,18 @@ Notes:
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
+    
+    /**
+    \defgroup capi C API
+
+    */
+
+    /*@{*/
+
+    /**
+    @name Real Closed Fields API
+    */
+    /*@{*/
 
     /**
        \brief Delete a RCF numeral created using the RCF API.
@@ -191,6 +203,9 @@ extern "C" {
        def_API('Z3_rcf_get_numerator_denominator', VOID, (_in(CONTEXT), _in(RCF_NUM), _out(RCF_NUM), _out(RCF_NUM)))
     */
     void Z3_API Z3_rcf_get_numerator_denominator(__in Z3_context c, __in Z3_rcf_num a, __out Z3_rcf_num * n, __out Z3_rcf_num * d);
+
+    /*@}*/
+    /*@}*/
 
 #ifdef __cplusplus
 };

@@ -654,6 +654,7 @@ namespace smt {
         }
         return get_value(v, computed_epsilon) == val;
     }
+    
 
     /**
        \brief Return true if for every monomial x_1 * ... * x_n,
@@ -2309,16 +2310,19 @@ namespace smt {
         if (m_nl_monomials.empty())
             return FC_DONE;
 
-        if (check_monomial_assignments())
+        if (check_monomial_assignments()) {
             return FC_DONE;
+        }
 
-        if (!m_params.m_nl_arith)
+        if (!m_params.m_nl_arith) {
+            TRACE("non_linear", tout << "Non-linear is not enabled\n";);
             return FC_GIVEUP;
+        }
 
         TRACE("process_non_linear", display(tout););
 
         if (m_nl_rounds > m_params.m_nl_arith_rounds) {
-            TRACE("non_linear", tout << "GIVE UP non linear problem...\n";);
+            TRACE("non_linear", tout << "GIVEUP non linear problem...\n";);
             IF_VERBOSE(3, verbose_stream() << "Max. non linear arithmetic rounds. Increase threshold using NL_ARITH_ROUNDS=<limit>\n";);
             return FC_GIVEUP;
         }
@@ -2338,9 +2342,10 @@ namespace smt {
         if (!max_min_nl_vars())
             return FC_CONTINUE;
 
-        if (check_monomial_assignments())
+        if (check_monomial_assignments()) {
             return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
-        
+        }
+
         svector<theory_var> vars;
         get_non_linear_cluster(vars);
 
@@ -2391,8 +2396,9 @@ namespace smt {
         }
         while (m_nl_strategy_idx != old_idx);
 
-        if (check_monomial_assignments())
+        if (check_monomial_assignments()) {
             return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
+        }
 
         TRACE("non_linear", display(tout););
 

@@ -73,7 +73,7 @@ bool is_debug_enabled(const char * tag);
         UNREACHABLE();                                          \
     }                                                           
 #else
-#define VERIFY(_x_) (_x_)
+#define VERIFY(_x_) (void)(_x_)
 #endif
 
 #define MAKE_NAME2(LINE) zofty_ ## LINE 

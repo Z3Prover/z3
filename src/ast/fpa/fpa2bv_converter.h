@@ -94,14 +94,14 @@ public:
 
     void mk_add(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_sub(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_uminus(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_neg(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_mul(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_div(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_remainder(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_rem(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_abs(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_min(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_fusedma(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_sqrt(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_round_to_integral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 

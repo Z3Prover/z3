@@ -2747,7 +2747,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast orig_e = e;
     pf = make_refl(e);  // proof that e = e
 
-    prover::range erng = pv->ast_scope(e);
+    // prover::range erng = 
+    pv->ast_scope(e);
 #if 0
     if(!(erng.lo > erng.hi) && pv->ranges_intersect(pv->ast_scope(e),rng)){
       return e; // this term occurs in range, so it's O.K.
@@ -3078,6 +3079,11 @@ public:
     m().dec_ref(add_pos);
     m().dec_ref(rewrite_A);
     m().dec_ref(rewrite_B);
+    m().dec_ref(normal_step);
+    m().dec_ref(normal_chain);
+    m().dec_ref(normal);
+    m().dec_ref(sforall);
+    m().dec_ref(sexists);
   }
 };
 

@@ -3887,30 +3887,13 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// The list of all configuration parameters can be obtained using the Z3 executable:
-        /// <c>z3.exe -ini?</c>
+        /// <c>z3.exe -p</c>
         /// Only a few configuration parameters are mutable once the context is created.
         /// An exception is thrown when trying to modify an immutable parameter.
         /// </remarks>
-        /// <seealso cref="GetParamValue"/>
         public void UpdateParamValue(string id, string value)
         {
             Native.Z3_update_param_value(nCtx, id, value);
-        }
-
-        /// <summary>
-        /// Get a configuration parameter.
-        /// </summary>
-        /// <remarks>
-        /// Returns null if the parameter value does not exist.
-        /// </remarks>
-        /// <seealso cref="UpdateParamValue"/>
-        public string GetParamValue(string id)
-        {
-            IntPtr res = IntPtr.Zero;
-            if (Native.Z3_get_param_value(nCtx, id, out res) == 0)
-                return null;
-            else
-                return Marshal.PtrToStringAnsi(res);
         }
 
         #endregion
@@ -4010,7 +3993,7 @@ namespace Microsoft.Z3
         internal Fixedpoint.DecRefQueue Fixedpoint_DRQ { get { Contract.Ensures(Contract.Result<Fixedpoint.DecRefQueue>() != null); return m_Fixedpoint_DRQ; } }
 
 
-        internal uint refCount = 0;
+        internal long refCount = 0;
 
         /// <summary>
         /// Finalizer.

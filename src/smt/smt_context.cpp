@@ -1615,6 +1615,8 @@ namespace smt {
             unsigned qhead = m_qhead;
             if (!bcp())
                 return false;
+            if (m_cancel_flag) 
+                return true;
             SASSERT(!inconsistent());
             propagate_relevancy(qhead);
             if (inconsistent()) 
@@ -3945,7 +3947,7 @@ namespace smt {
               m_fingerprints.display(tout); 
               );
         failure fl = get_last_search_failure();
-        if (fl == TIMEOUT || fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS || fl == THEORY) {
+        if (fl == TIMEOUT || fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS) {
             // don't generate model.
             return;
         }

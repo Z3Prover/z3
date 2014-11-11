@@ -64,7 +64,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     }
 
     bool max_steps_exceeded(unsigned num_steps) const { 
-        cooperate("fpa2bv");        
+        cooperate("fpa2bv");
         return num_steps > m_max_steps;
     }
 
@@ -120,14 +120,14 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FLOAT_NAN: m_conv.mk_nan(f, result); return BR_DONE;
             case OP_FLOAT_ADD: m_conv.mk_add(f, num, args, result); return BR_DONE;
             case OP_FLOAT_SUB: m_conv.mk_sub(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_NEG: m_conv.mk_uminus(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_NEG: m_conv.mk_neg(f, num, args, result); return BR_DONE;
             case OP_FLOAT_MUL: m_conv.mk_mul(f, num, args, result); return BR_DONE;
             case OP_FLOAT_DIV: m_conv.mk_div(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_REM: m_conv.mk_remainder(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_REM: m_conv.mk_rem(f, num, args, result); return BR_DONE;
             case OP_FLOAT_ABS: m_conv.mk_abs(f, num, args, result); return BR_DONE;
             case OP_FLOAT_MIN: m_conv.mk_min(f, num, args, result); return BR_DONE;
             case OP_FLOAT_MAX: m_conv.mk_max(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_FMA: m_conv.mk_fusedma(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_FMA: m_conv.mk_fma(f, num, args, result); return BR_DONE;
             case OP_FLOAT_SQRT: m_conv.mk_sqrt(f, num, args, result); return BR_DONE;
             case OP_FLOAT_ROUND_TO_INTEGRAL: m_conv.mk_round_to_integral(f, num, args, result); return BR_DONE;
             case OP_FLOAT_EQ: m_conv.mk_float_eq(f, num, args, result); return BR_DONE;
@@ -146,7 +146,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FLOAT_IS_NEGATIVE: m_conv.mk_is_negative(f, num, args, result); return BR_DONE;
             case OP_TO_FLOAT: m_conv.mk_to_float(f, num, args, result); return BR_DONE;
             case OP_FLOAT_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_FP: m_conv.mk_fp(f, num, args, result); return BR_DONE;           
+            case OP_FLOAT_FP: m_conv.mk_fp(f, num, args, result); return BR_DONE;
             case OP_FLOAT_TO_UBV: m_conv.mk_to_ubv(f, num, args, result); return BR_DONE;
             case OP_FLOAT_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
             case OP_FLOAT_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;

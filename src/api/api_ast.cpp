@@ -208,7 +208,7 @@ extern "C" {
     MK_BINARY(Z3_mk_xor, mk_c(c)->get_basic_fid(), OP_XOR, SKIP);
     MK_NARY(Z3_mk_and, mk_c(c)->get_basic_fid(), OP_AND, SKIP);
     MK_NARY(Z3_mk_or, mk_c(c)->get_basic_fid(), OP_OR, SKIP);
-    MK_UNARY(Z3_mk_interp, mk_c(c)->get_basic_fid(), OP_INTERP, SKIP);
+    MK_UNARY(Z3_mk_interpolant, mk_c(c)->get_basic_fid(), OP_INTERP, SKIP);
 
     Z3_ast mk_ite_core(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_ast t3) {
         expr * result = mk_c(c)->m().mk_ite(to_expr(t1), to_expr(t2), to_expr(t3));

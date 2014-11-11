@@ -154,7 +154,7 @@ br_status float_rewriter::mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref
 
 br_status float_rewriter::mk_sub(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
     // a - b = a + (-b)
-    result = m_util.mk_add(arg1, arg2, m_util.mk_uminus(arg3));
+    result = m_util.mk_add(arg1, arg2, m_util.mk_neg(arg3));
     return BR_REWRITE2;
 }
 
@@ -204,7 +204,7 @@ br_status float_rewriter::mk_neg(expr * arg1, expr_ref & result) {
         result = m_util.mk_plus_inf(m().get_sort(arg1));
         return BR_DONE;
     }
-    if (m_util.is_uminus(arg1)) {
+    if (m_util.is_neg(arg1)) {
         // - - a --> a
         result = to_app(arg1)->get_arg(0);
         return BR_DONE;
@@ -239,7 +239,7 @@ br_status float_rewriter::mk_abs(expr * arg1, expr_ref & result) {
         return BR_DONE;
     }
     result = m().mk_ite(m_util.mk_is_sign_minus(arg1),
-                        m_util.mk_uminus(arg1),
+                        m_util.mk_neg(arg1),
                         arg1);
     return BR_REWRITE2;
 }

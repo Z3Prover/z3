@@ -100,7 +100,7 @@ struct dl_context {
         dlctx().set_predicate_representation(pred, num_kinds, kinds);        
     }
     
-    void add_rule(expr * rule, symbol const& name) {
+    void add_rule(expr * rule, symbol const& name, unsigned bound) {
         init();
         if (m_collected_cmds) {
             expr_ref rl = m_context->bind_variables(rule, true);
@@ -110,7 +110,7 @@ struct dl_context {
             m_trail.push(push_back_vector<dl_context, svector<symbol> >(m_collected_cmds->m_names));
         }
         else {
-            m_context->add_rule(rule, name);
+	    m_context->add_rule(rule, name, bound);
         }
     }    
 
@@ -151,19 +151,22 @@ class dl_rule_cmd : public cmd {
     mutable unsigned     m_arg_idx;
     expr*        m_t;
     symbol       m_name;
+    unsigned     m_bound;
 public:
     dl_rule_cmd(dl_context * dl_ctx):
         cmd("rule"),
         m_dl_ctx(dl_ctx),       
         m_arg_idx(0),
-        m_t(0) {}
-    virtual char const * get_usage() const { return "(forall (q) (=> (and body) head)) :optional-name"; }
+        m_t(0),
+        m_bound(UINT_MAX) {}
+    virtual char const * get_usage() const { return "(forall (q) (=> (and body) head)) :optional-name :optional-recursion-bound"; }
     virtual char const * get_descr(cmd_context & ctx) const { return "add a Horn rule."; }
     virtual unsigned get_arity() const { return VAR_ARITY; }
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
         switch(m_arg_idx) {
         case 0: return CPK_EXPR;
         case 1: return CPK_SYMBOL;
+        case 2: return CPK_UINT;
         default: return CPK_SYMBOL;
         }
     }
@@ -173,13 +176,18 @@ public:
     }
     virtual void set_next_arg(cmd_context & ctx, symbol const & s) {
         m_name = s;
+        m_arg_idx++;
+    }
+    virtual void set_next_arg(cmd_context & ctx, unsigned bound) {
+        m_bound = bound;
+        m_arg_idx++;
     }
     virtual void reset(cmd_context & ctx) { m_dl_ctx->reset(); prepare(ctx); }
-    virtual void prepare(cmd_context& ctx) { m_arg_idx = 0; m_name = symbol::null; }
+    virtual void prepare(cmd_context& ctx) { m_arg_idx = 0; m_name = symbol::null; m_bound = UINT_MAX; }
     virtual void finalize(cmd_context & ctx) { 
     }
     virtual void execute(cmd_context & ctx) {
-        m_dl_ctx->add_rule(m_t, m_name);
+      m_dl_ctx->add_rule(m_t, m_name, m_bound);
     }
 };
 
@@ -252,6 +260,11 @@ public:
             print_certificate(ctx);
             break;
         case l_undef: 
+	    if(dlctx.get_status() == datalog::BOUNDED){
+	      ctx.regular_stream() << "bounded\n";
+	      print_certificate(ctx);
+	      break;
+	    }
             ctx.regular_stream() << "unknown\n";
             switch(dlctx.get_status()) {
             case datalog::INPUT_ERROR:

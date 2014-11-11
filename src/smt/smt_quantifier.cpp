@@ -453,9 +453,9 @@ namespace smt {
 	 instantiated.
        */
         virtual void add(quantifier * q) {
-	  if (m_fparams->m_mbqi && mbqi_enabled(q)) {
-	    m_model_finder->register_quantifier(q);
-	  }
+            if (m_fparams->m_mbqi && mbqi_enabled(q)) {
+                m_model_finder->register_quantifier(q);
+            }
         }
 
         virtual void del(quantifier * q) {

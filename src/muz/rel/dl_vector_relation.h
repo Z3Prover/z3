@@ -62,8 +62,6 @@ namespace datalog {
             dealloc(m_elems);
         }
 
-        virtual bool can_swap() const { return true; }
-
         virtual void swap(relation_base& other) {
             vector_relation& o = dynamic_cast<vector_relation&>(other);
             if (&o == this) return;

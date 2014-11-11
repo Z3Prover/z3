@@ -604,12 +604,12 @@ void fpa2bv_converter::mk_add(func_decl * f, unsigned num, expr * const * args, 
 void fpa2bv_converter::mk_sub(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 3);
     expr_ref t(m);
-    mk_uminus(f, 1, &args[2], t);
+    mk_neg(f, 1, &args[2], t);
     expr * nargs[3] = { args[0], args[1], t };
     mk_add(f, 3, nargs, result);
 }
 
-void fpa2bv_converter::mk_uminus(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+void fpa2bv_converter::mk_neg(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 1);
     expr * sgn, * s, * e;
     split(args[0], sgn, s, e);
@@ -915,7 +915,7 @@ void fpa2bv_converter::mk_div(func_decl * f, unsigned num, expr * const * args, 
     TRACE("fpa2bv_div", tout << "DIV = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
-void fpa2bv_converter::mk_remainder(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+void fpa2bv_converter::mk_rem(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
     
     // Remainder is always exact, so there is no rounding mode.
@@ -1123,7 +1123,7 @@ void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, 
     mk_triple(r_sgn, r_sig, r_exp, result);
 }
 
-void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 4);
     
     // fusedma means (x * y) + z
@@ -1847,6 +1847,15 @@ void fpa2bv_converter::mk_is_subnormal(func_decl * f, unsigned num, expr * const
 void fpa2bv_converter::mk_is_negative(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 1);
     mk_is_neg(args[0], result);
+    TRACE("fpa2bv_is_negative", tout << "result = " << mk_ismt2_pp(result, m) << std::endl;);
+}
+
+void fpa2bv_converter::mk_is_positive(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 1);
+    expr_ref t1(m), t2(m);
+    mk_is_nan(args[0], t1);
+    mk_is_pos(args[0], t2);
+    result = m.mk_and(m.mk_not(t1), t2);    
 }
 
 void fpa2bv_converter::mk_is_positive(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -2140,7 +2149,7 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
 void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 1);
     expr * sgn, * s, * e;
-    split(args[0], sgn, s, e);    
+    split(args[0], sgn, s, e);
     result = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s);
 }
 
@@ -2150,14 +2159,54 @@ void fpa2bv_converter::mk_fp(func_decl * f, unsigned num, expr * const * args, e
 }
 
 void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(f->get_num_parameters() == 1);
+    SASSERT(f->get_parameter(0).is_int());
+    
+    //unsigned ebits = m_util.get_ebits(f->get_range());
+    //unsigned sbits = m_util.get_sbits(f->get_range());
+    //int width = f->get_parameter(0).get_int();
+
+    //expr * rm = args[0];
+    //expr * x = args[1];
+    
+    //expr * sgn, *s, *e;
+    //split(x, sgn, s, e);
+
     NOT_IMPLEMENTED_YET();
 }
 
 void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    SASSERT(f->get_num_parameters() == 1);
+    SASSERT(f->get_parameter(0).is_int());
+
+    //unsigned ebits = m_util.get_ebits(f->get_range());
+    //unsigned sbits = m_util.get_sbits(f->get_range());
+    //int width = f->get_parameter(0).get_int();
+
+    //expr * rm = args[0];
+    //expr * x = args[1];
+
+    //expr * sgn, *s, *e;
+    //split(x, sgn, s, e);
+
     NOT_IMPLEMENTED_YET();
 }
 
 void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 1);
+
+    //unsigned ebits = m_util.get_ebits(f->get_range());
+    //unsigned sbits = m_util.get_sbits(f->get_range());
+    //int width = f->get_parameter(0).get_int();
+
+    //expr * rm = args[0];
+    //expr * x = args[1];
+
+    //expr * sgn, *s, *e;
+    //split(x, sgn, s, e);
+
     NOT_IMPLEMENTED_YET();
 }
 

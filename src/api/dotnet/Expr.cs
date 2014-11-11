@@ -323,6 +323,14 @@ namespace Microsoft.Z3
 
         #endregion
 
+        #region Interpolation
+        /// <summary>
+        /// Indicates whether the term is marked for interpolation.
+        /// </summary>
+        /// <remarks></remarks>
+        public bool IsInterpolant { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_INTERP; } }
+        #endregion
+
         #region Arithmetic Terms
         /// <summary>
         /// Indicates whether the term is of integer sort.
@@ -791,7 +799,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>A label literal has a set of string parameters. It takes no arguments.</remarks>
         public bool IsLabelLit { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL_LIT; } }
-        #endregion
+        #endregion        
 
         #region Proof Terms
         /// <summary>

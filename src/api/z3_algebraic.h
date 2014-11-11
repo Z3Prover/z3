@@ -23,7 +23,19 @@ Notes:
 
 #ifdef __cplusplus
 extern "C" {
-#endif // __cplusplus
+#endif // __cplusplus    
+
+    /**
+    \defgroup capi C API
+
+    */
+
+    /*@{*/
+
+    /**
+    @name Algebraic Numbers API
+    */
+    /*@{*/
 
     /**
        \brief Return Z3_TRUE if \c can be used as value in the Z3 real algebraic
@@ -218,6 +230,8 @@ extern "C" {
     */
     int Z3_API Z3_algebraic_eval(__in Z3_context c, __in Z3_ast p, __in unsigned n, __in Z3_ast a[]);    
 
+    /*@}*/
+    /*@}*/
 
 #ifdef __cplusplus
 };

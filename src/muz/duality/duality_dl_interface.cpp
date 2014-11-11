@@ -36,6 +36,8 @@ Revision History:
 #include "model_v2_pp.h"
 #include "fixedpoint_params.hpp"
 #include "used_vars.h"
+#include "func_decl_dependencies.h"
+#include "dl_transforms.h"
 
 // template class symbol_table<family_id>;
 
@@ -154,8 +156,41 @@ lbool dl_interface::query(::expr * query) {
 
   expr_ref_vector rules(m_ctx.get_manager());
   svector< ::symbol> names;  
+  vector<unsigned> bounds;
   // m_ctx.get_rules_as_formulas(rules, names);
-   m_ctx.get_raw_rule_formulas(rules, names);
+
+
+  // If using SAS 2013 abstractiion, we need to perform some transforms
+  expr_ref query_ref(m_ctx.get_manager());
+  if(m_ctx.quantify_arrays()){
+    datalog::rule_manager& rm = m_ctx.get_rule_manager();
+    rm.mk_query(query, m_ctx.get_rules());
+    apply_default_transformation(m_ctx);
+    datalog::rule_set &rs = m_ctx.get_rules();
+    if(m_ctx.get_rules().get_output_predicates().empty())
+        query_ref = m_ctx.get_manager().mk_false();
+    else {
+        func_decl_ref query_pred(m_ctx.get_manager());
+	query_pred = m_ctx.get_rules().get_output_predicate();
+	ptr_vector<sort> sorts;
+	unsigned nargs = query_pred.get()->get_arity();
+	expr_ref_vector vars(m_ctx.get_manager());
+	for(unsigned i = 0; i < nargs; i++){
+	  ::sort *s = query_pred.get()->get_domain(i);
+	  vars.push_back(m_ctx.get_manager().mk_var(nargs-1-i,s));
+	}
+	query_ref = m_ctx.get_manager().mk_app(query_pred.get(),nargs,vars.c_ptr());
+	query = query_ref.get();
+    }
+    unsigned nrules = rs.get_num_rules();
+    for(unsigned i = 0; i < nrules; i++){
+      expr_ref f(m_ctx.get_manager());
+      rs.get_rule(i)->to_formula(f);
+      rules.push_back(f);
+    }
+  }
+  else 
+    m_ctx.get_raw_rule_formulas(rules, names, bounds);
 
   // get all the rules as clauses
   std::vector<expr> &clauses = _d->clauses;
@@ -199,6 +234,7 @@ lbool dl_interface::query(::expr * query) {
   expr qc = implies(q,_d->ctx.bool_val(false));
   qc = _d->ctx.make_quant(Forall,b_sorts,b_names,qc);
   clauses.push_back(qc);
+  bounds.push_back(UINT_MAX);
   
   // get the background axioms
   unsigned num_asserts = m_ctx.get_num_assertions();
@@ -207,8 +243,56 @@ lbool dl_interface::query(::expr * query) {
     _d->rpfp->AssertAxiom(e);
   }
   
+  // make sure each predicate is the head of at least one clause
+  func_decl_set heads;
+  for(unsigned i = 0; i < clauses.size(); i++){
+    expr cl = clauses[i];
+
+    while(true){
+      if(cl.is_app()){
+	decl_kind k = cl.decl().get_decl_kind();
+	if(k == Implies)
+	  cl = cl.arg(1);
+	else {
+	  heads.insert(cl.decl());
+	  break;
+	}
+      }
+      else if(cl.is_quantifier())
+	cl = cl.body();
+      else break;
+    }
+  }
+  ast_ref_vector const &pinned = m_ctx.get_pinned();
+  for(unsigned i = 0; i < pinned.size(); i++){
+    ::ast *fa = pinned[i];
+    if(is_func_decl(fa)){
+      ::func_decl *fd = to_func_decl(fa);
+      if(m_ctx.is_predicate(fd)) {
+	func_decl f(_d->ctx,fd);
+	if(!heads.contains(fd)){
+	  int arity = f.arity();
+	  std::vector<expr> args;
+	  for(int j = 0; j < arity; j++)
+	    args.push_back(_d->ctx.fresh_func_decl("X",f.domain(j))());
+	  expr c = implies(_d->ctx.bool_val(false),f(args));
+	  c = _d->ctx.make_quant(Forall,args,c);
+	  clauses.push_back(c);
+	  bounds.push_back(UINT_MAX);
+	}
+      }
+    }
+  }
+  unsigned rb = m_ctx.get_params().recursion_bound();
+  std::vector<unsigned> std_bounds;
+  for(unsigned i = 0; i < bounds.size(); i++){
+    unsigned b = bounds[i];
+    if (b == UINT_MAX) b = rb;
+    std_bounds.push_back(b);
+  }
+
   // creates 1-1 map between clauses and rpfp edges
-  _d->rpfp->FromClauses(clauses);
+  _d->rpfp->FromClauses(clauses,&std_bounds);
 
   // populate the edge-to-clause map
   for(unsigned i = 0; i < _d->rpfp->edges.size(); ++i)
@@ -230,11 +314,13 @@ lbool dl_interface::query(::expr * query) {
   rs->SetOption("stratified_inlining",m_ctx.get_params().stratified_inlining() ? "1" : "0");
   rs->SetOption("batch_expand",m_ctx.get_params().batch_expand() ? "1" : "0");
   rs->SetOption("conjecture_file",m_ctx.get_params().conjecture_file());
-  unsigned rb = m_ctx.get_params().recursion_bound();
+  rs->SetOption("enable_restarts",m_ctx.get_params().enable_restarts() ? "1" : "0");
+#if 0
   if(rb != UINT_MAX){
     std::ostringstream os; os << rb;
     rs->SetOption("recursion_bound", os.str());
   }
+#endif
 
   // Solve!
   bool ans;
@@ -265,7 +351,19 @@ lbool dl_interface::query(::expr * query) {
   // dealloc(rs); this is now owned by data
 
   // true means the RPFP problem is SAT, so the query is UNSAT
-  return ans ? l_false : l_true;
+  // but we return undef if the UNSAT result is bounded
+  if(ans){
+    if(rs->IsResultRecursionBounded()){
+#if 0
+      m_ctx.set_status(datalog::BOUNDED);
+      return l_undef;
+#else
+      return l_false;
+#endif
+    }
+    return l_false;
+  }
+  return l_true;
 }
 
 expr_ref dl_interface::get_cover_delta(int level, ::func_decl* pred_orig) {
