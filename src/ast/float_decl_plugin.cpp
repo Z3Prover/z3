@@ -454,20 +454,6 @@ func_decl * float_decl_plugin::mk_to_float(decl_kind k, unsigned num_parameters,
         symbol name("to_fp");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
     }
-    else if (arity == 2 &&
-             is_sort_of(domain[0], m_family_id, ROUNDING_MODE_SORT) &&
-             is_sort_of(domain[1], m_family_id, FLOAT_SORT)) {
-        // Rounding + 1 FP -> 1 FP
-        if (num_parameters != 2)
-            m_manager->raise_exception("invalid number of parameters to to_fp");
-        if (!parameters[0].is_int() || !parameters[1].is_int())
-            m_manager->raise_exception("invalid parameter type to to_fp");
-        int ebits = parameters[0].get_int();
-        int sbits = parameters[1].get_int();        
-        if (!is_rm_sort(domain[0]) ||
-            !is_sort_of(domain[1], m_family_id, FLOAT_SORT))
-            m_manager->raise_exception("sort mismatch");
-    }
     else {
         // 1 Real -> 1 FP
         if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int())) 
@@ -481,7 +467,7 @@ func_decl * float_decl_plugin::mk_to_float(decl_kind k, unsigned num_parameters,
         
         sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
         symbol name("to_fp");
-        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));            
+        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
     }
 }
 
