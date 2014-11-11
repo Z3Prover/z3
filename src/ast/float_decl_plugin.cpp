@@ -194,7 +194,7 @@ sort * float_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
     case FLOAT64_SORT:
         return mk_float_sort(11, 53);
     case FLOAT128_SORT:
-        return mk_float_sort(15, 133);
+        return mk_float_sort(15, 113);
     default:
         m_manager->raise_exception("unknown floating point theory sort");
         return 0;
