@@ -1379,7 +1379,7 @@ enum proof_gen_mode {
 // -----------------------------------
 
 class ast_manager {
-    friend basic_decl_plugin;
+    friend class basic_decl_plugin;
 protected:
     struct config {
         typedef ast_manager              value_manager;
