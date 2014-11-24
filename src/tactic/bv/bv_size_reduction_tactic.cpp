@@ -229,7 +229,7 @@ struct bv_size_reduction_tactic::imp {
                         else {
                             // l < u
                             if (l.is_neg()) {
-                                unsigned i_nb = (u - l).get_num_bits();
+                                unsigned i_nb = (u - l).get_num_bits() + 1;
                                 unsigned v_nb = m_util.get_bv_size(v);
                                 if (i_nb < v_nb) {
                                     new_const = m.mk_fresh_const(0, m_util.mk_sort(i_nb));
