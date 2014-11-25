@@ -92,7 +92,7 @@ void context_params::set(char const * param, char const * value) {
         strm << "unknown parameter '" << p << "'\n";
         strm << "Legal parameters are:\n";
         d.display(strm, 2, false, false);
-        throw default_exception(strm.str());
+        throw default_exception(strm.str());        
     }
 }
 
