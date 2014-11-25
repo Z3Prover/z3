@@ -151,7 +151,7 @@ struct bv_size_reduction_tactic::imp {
                             // bound is infeasible.
                         } 
                         else {
-                            update_signed_upper(to_app(lhs), val);
+                            update_signed_upper(to_app(rhs), val);
                         }                        
                     }
                     else update_signed_lower(to_app(rhs), val);
