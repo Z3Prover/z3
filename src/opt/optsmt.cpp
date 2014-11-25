@@ -124,14 +124,14 @@ namespace opt {
 
 
         expr_ref_vector ors(m), disj(m);
-        expr_ref or(m), bound(m.mk_true(), m);
+        expr_ref fml(m), bound(m.mk_true(), m);
         for (unsigned i = 0; i < m_upper.size(); ++i) {
             ors.push_back(m_s->mk_ge(i, m_upper[i]));
         }
         {
             solver::scoped_push _push(*m_s);
-            or = m.mk_or(ors.size(), ors.c_ptr());
-            m_s->assert_expr(or);
+            fml = m.mk_or(ors.size(), ors.c_ptr());
+            m_s->assert_expr(fml);
             lbool is_sat = l_true;
             while (!m_cancel) {
                 is_sat = m_s->check_sat(0,0);
@@ -149,8 +149,8 @@ namespace opt {
                         }
                     }
                     set_max(m_lower, m_s->get_objective_values(), disj);
-                    or = m.mk_or(ors.size(), ors.c_ptr());
-                    m_s->assert_expr(or);
+                    fml = m.mk_or(ors.size(), ors.c_ptr());
+                    m_s->assert_expr(fml);
                 }
                 else if (is_sat == l_undef) {
                     return l_undef;
