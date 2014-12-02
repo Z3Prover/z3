@@ -1392,9 +1392,14 @@ class MLComponent(Component):
                 out.write('%s.cmi: %s.mli\n' % (os.path.join(sub_dir,m),os.path.join(sub_dir,m)))
                 out.write('\t%s -I %s -c %s.mli\n' % (OCAMLC,sub_dir,os.path.join(sub_dir,m)))
                 cmis = cmis + ' ' + os.path.join(sub_dir,m) + '.cmi'
-            out.write('api/ml/libz3ml$(LIB_EXT): api/ml/z3native_stubs.c %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
+            out.write('api/ml/z3native_stubs$(OBJ_EXT): %s/z3native_stubs.c\n' % (sub_dir));
             out.write('\t$(CC) $(CXXFLAGS) -I %s -I %s %s/z3native_stubs.c $(CXX_OUT_FLAG)api/ml/z3native_stubs$(OBJ_EXT)\n' % (OCAML_LIB, api_src, sub_dir))
+            out.write('api/ml/libz3ml$(LIB_EXT): api/ml/z3native_stubs$(OBJ_EXT) %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
             out.write('\t$(AR) $(AR_FLAGS) $(AR_OUTFLAG)api/ml/libz3ml$(LIB_EXT) api/ml/z3native_stubs$(OBJ_EXT)\n')
+            out.write('api/ml/libz3mldyn$(SO_EXT): api/ml/z3native_stubs.c %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
+            out.write('\t$(CC) $(CXXFLAGS) -I %s -I %s %s/z3native_stubs.c $(CXX_OUT_FLAG)api/ml/z3native_stubs$(OBJ_EXT)\n' % (OCAML_LIB, api_src, sub_dir))
+            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)api/ml/libz3ml$(SO_EXT) $(SLINK_FLAGS) -I %s -I %s api/ml/z3native_stubs$(OBJ_EXT) %s$(LIB_EXT)\n' % (OCAML_LIB, api_src, get_component(Z3_DLL_COMPONENT).dll_name))
+
             out.write('%s: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT) %s' % (os.path.join(sub_dir, 'z3.cmxa'), get_component(Z3_DLL_COMPONENT).dll_name, cmis))
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(sub_dir, mlfile))
