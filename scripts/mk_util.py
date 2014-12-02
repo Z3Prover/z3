@@ -1379,6 +1379,10 @@ class MLComponent(Component):
                 out.write('%s: %s\n' % (os.path.join(sub_dir,f),os.path.join(src_dir,f)))
                 str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(sub_dir,f))
                 out.write(str)
+            for f in filter(lambda f: f=='META', os.listdir(self.src_dir)):
+                out.write('%s: %s\n' % (os.path.join(sub_dir,f),os.path.join(src_dir,f)))
+                str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(sub_dir,f))
+                out.write(str)
             modules = ["z3enums", "z3native", "z3"]  # dependencies in this order!
             prev = ''
             for m in modules:
@@ -1421,7 +1425,7 @@ class MLComponent(Component):
             # Generate META file and package installation commands
             self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
             if OCAMLFIND != '':
-                out.write('ocamlfind_install: api/ml/z3.cma api/ml/z3.cmxa api/ml/z3.cmxs\n')
+                out.write('ocamlfind_install: api/ml/z3.cma api/ml/z3.cmxa api/ml/z3.cmxs api/ml/META\n')
                 out.write('\t%s remove Z3\n' % (OCAMLFIND))
                 out.write('\t%s install Z3 api/ml/META api/ml/z3.cma api/ml/z3.cmxa api/ml/z3.cmxs api/ml/z3$(LIB_EXT) api/ml/libz3ml$(LIB_EXT) libz3$(SO_EXT)' % (OCAMLFIND))
                 for m in modules:
