@@ -1361,10 +1361,6 @@ class MLComponent(Component):
                 out.write('%s: %s\n' % (os.path.join(sub_dir,f),os.path.join(src_dir,f)))
                 str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(sub_dir,f))
                 out.write(str)
-            for f in filter(lambda f: f=='META', os.listdir(self.src_dir)):
-                out.write('%s: %s\n' % (os.path.join(sub_dir,f),os.path.join(src_dir,f)))
-                str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(sub_dir,f))
-                out.write(str)
             modules = ["z3enums", "z3native", "z3"]  # dependencies in this order!
             prev = ''
             for m in modules:
