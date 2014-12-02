@@ -334,6 +334,8 @@ def param2ml(p):
             return "ptr"
     elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
         return "%s array" % type2ml(param_type(p))
+    elif k == OUT_MANAGED_ARRAY:
+        return "%s array" % type2ml(param_type(p));
     else:
         return type2ml(param_type(p))
 
@@ -1067,7 +1069,7 @@ def ml_method_name(name):
     return name[3:] # Remove Z3_
 
 def is_out_param(p):
-     if param_kind(p) == OUT or param_kind(p) == INOUT or param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY:
+     if param_kind(p) == OUT or param_kind(p) == INOUT or param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY or param_kind(p) == OUT_MANAGED_ARRAY:
          return True
      else:
          return False
@@ -1411,6 +1413,8 @@ def mk_ml():
                         type2str(param_type(param)),
                         type2str(param_type(param)),
                         param_array_capacity_pos(param)))
+            elif k == OUT_MANAGED_ARRAY:
+                ml_wrapper.write('  %s * _a%s = 0;\n' % (type2str(param_type(param)), i))
             elif k == IN_ARRAY or k == INOUT_ARRAY:
                 t = param_type(param)
                 ts = type2str(t)
@@ -1449,7 +1453,7 @@ def mk_ml():
             else:
                 ml_wrapper.write(', ')
             k = param_kind(param)
-            if k == OUT or k == INOUT:
+            if k == OUT or k == INOUT or k == OUT_MANAGED_ARRAY:
                 ml_wrapper.write('&_a%s' %  i)
             else:
                 ml_wrapper.write('_a%i' % i)
@@ -1465,6 +1469,8 @@ def mk_ml():
                 if param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY:
                     ml_wrapper.write('  _a%s_val = caml_alloc(_a%s, 0);\n' % (i, param_array_capacity_pos(p)))
                     ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) { value t; %s Store_field(_a%s_val, _i, t); }\n' % (param_array_capacity_pos(p), ml_set_wrap(param_type(p), 't', '_a' + str(i) + '[_i]'), i))
+                elif param_kind(p) == OUT_MANAGED_ARRAY:
+                    ml_wrapper.write('  %s\n' % ml_set_wrap(param_type(p), "_a" + str(i) + "_val", "_a"  + str(i) ))
                 elif is_out_param(p):
                     ml_wrapper.write('  %s\n' % ml_set_wrap(param_type(p), "_a" + str(i) + "_val", "_a"  + str(i) ))
                 i = i + 1
