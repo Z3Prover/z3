@@ -149,11 +149,11 @@ sig
     val resize : ast_vector -> int -> unit
 
     (** Add an ast to the back of the vector. The size
-       is increased by 1. *)
+	is increased by 1. *)
     val push : ast_vector -> ast -> unit
 
     (** Translates all ASTs in the vector to another context.
-       @return A new ASTVector *)
+	@return A new ASTVector *)
     val translate : ast_vector -> context -> ast_vector
 
     (** Retrieves a string representation of the vector. *)
@@ -196,7 +196,7 @@ sig
   end
 
   (** The AST's hash code.
-     @return A hash code *)
+      @return A hash code *)
   val hash : ast -> int
 
   (** A unique identifier for the AST (unique among all ASTs). *)
@@ -227,34 +227,34 @@ sig
   val to_sexpr : ast -> string
 
   (** Comparison operator.
-     @return True if the two ast's are from the same context 
-     and represent the same sort; false otherwise. *)
+      @return True if the two ast's are from the same context 
+      and represent the same sort; false otherwise. *)
   val equal : ast -> ast -> bool
 
   (** Object Comparison.
-     @return Negative if the first ast should be sorted before the second, positive if after else zero. *)
+      @return Negative if the first ast should be sorted before the second, positive if after else zero. *)
   val compare : ast -> ast -> int
 
   (** Translates (copies) the AST to another context.
-     @return A copy of the AST which is associated with the other context.  *)
+      @return A copy of the AST which is associated with the other context.  *)
   val translate : ast -> context -> ast
 
   (** Unwraps an AST.
-     This function is used for transitions between native and 
-     managed objects. It returns the native pointer to the AST. Note that 
-     AST objects are reference counted and unwrapping an AST disables automatic
-     reference counting, i.e., all references to the IntPtr that is returned 
-     must be handled externally and through native calls (see e.g., 
-     [Z3native.inc_ref]).
-     {!wrap_ast} *)
+      This function is used for transitions between native and 
+      managed objects. It returns the native pointer to the AST. Note that 
+      AST objects are reference counted and unwrapping an AST disables automatic
+      reference counting, i.e., all references to the IntPtr that is returned 
+      must be handled externally and through native calls (see e.g., 
+      [Z3native.inc_ref]).
+      {!wrap_ast} *)
   val unwrap_ast : ast -> Z3native.ptr
 
   (** Wraps an AST.
 
-     This function is used for transitions between native and 
-     managed objects. Note that the native ast that is passed must be a 
-     native object obtained from Z3 (e.g., through {!unwrap_ast})
-     and that it must have a correct reference count (see e.g., 
+      This function is used for transitions between native and 
+      managed objects. Note that the native ast that is passed must be a 
+      native object obtained from Z3 (e.g., through {!unwrap_ast})
+      and that it must have a correct reference count (see e.g., 
       [Z3native.inc_ref]). *)
   val wrap_ast : context -> Z3native.z3_ast -> ast
 end
@@ -267,8 +267,8 @@ sig
   val ast_of_sort : sort -> AST.ast
 
   (** Comparison operator.
-     @return True if the two sorts are from the same context 
-     and represent the same sort; false otherwise. *)
+      @return True if the two sorts are from the same context 
+      and represent the same sort; false otherwise. *)
   val equal : sort -> sort -> bool
 
   (** Returns a unique identifier for the sort. *)
@@ -441,33 +441,26 @@ sig
   val to_string : params -> string
 
   (** Update a mutable configuration parameter.
-     
-     The list of all configuration parameters can be obtained using the Z3 executable:
-     [z3.exe -p]
-     Only a few configuration parameters are mutable once the context is created.
-     An exception is thrown when trying to modify an immutable parameter.
-     {!get_param_value} *)
+      
+      The list of all configuration parameters can be obtained using the Z3 executable:
+      [z3.exe -p]
+      Only a few configuration parameters are mutable once the context is created.
+      An exception is thrown when trying to modify an immutable parameter. *)
   val update_param_value : context -> string -> string -> unit
-
-  (** Get a configuration parameter.
-     
-     Returns None if the parameter value does not exist.
-     {!update_param_value} *)
-  val get_param_value : context -> string -> string option
-
+    
   (** Selects the format used for pretty-printing expressions.
-     
-     The default mode for pretty printing expressions is to produce
-     SMT-LIB style output where common subexpressions are printed 
-     at each occurrence. The mode is called PRINT_SMTLIB_FULL.
-     To print shared common subexpressions only once, 
-     use the PRINT_LOW_LEVEL mode.
-     To print in way that conforms to SMT-LIB standards and uses let
-     expressions to share common sub-expressions use PRINT_SMTLIB_COMPLIANT.
-     {!AST.to_string}
-     {!Quantifier.Pattern.to_string}
-     {!FuncDecl.to_string}
-     {!Sort.to_string} *)
+      
+      The default mode for pretty printing expressions is to produce
+      SMT-LIB style output where common subexpressions are printed 
+      at each occurrence. The mode is called PRINT_SMTLIB_FULL.
+      To print shared common subexpressions only once, 
+      use the PRINT_LOW_LEVEL mode.
+      To print in way that conforms to SMT-LIB standards and uses let
+      expressions to share common sub-expressions use PRINT_SMTLIB_COMPLIANT.
+      {!AST.to_string}
+      {!Quantifier.Pattern.to_string}
+      {!FuncDecl.to_string}
+      {!Sort.to_string} *)
   val set_print_mode : context -> Z3enums.ast_print_mode -> unit
 end
 
@@ -480,7 +473,7 @@ sig
   val expr_of_ast : AST.ast -> Expr.expr
 
   (** Returns a simplified version of the expression.
-     {!get_simplify_help} *)
+      {!get_simplify_help} *)
   val simplify : Expr.expr -> Params.params option -> expr
 
   (** A string describing all available parameters to [Expr.Simplify]. *)
@@ -503,23 +496,23 @@ sig
   val update : Expr.expr -> Expr.expr list -> expr
 
   (** Substitute every occurrence of [from[i]] in the expression with [to[i]], for [i] smaller than [num_exprs].
-     
-     The result is the new expression. The arrays [from] and [to] must have size [num_exprs].
-     For every [i] smaller than [num_exprs], we must have that 
-     sort of [from[i]] must be equal to sort of [to[i]]. *)
+      
+      The result is the new expression. The arrays [from] and [to] must have size [num_exprs].
+      For every [i] smaller than [num_exprs], we must have that 
+      sort of [from[i]] must be equal to sort of [to[i]]. *)
   val substitute : Expr.expr -> Expr.expr list -> Expr.expr list -> expr
 
   (** Substitute every occurrence of [from] in the expression with [to].
-     {!substitute} *)
+      {!substitute} *)
   val substitute_one : Expr.expr -> Expr.expr -> Expr.expr -> expr
 
   (** Substitute the free variables in the expression with the expressions in the expr array
 
-     For every [i] smaller than [num_exprs], the variable with de-Bruijn index [i] is replaced with term [to[i]]. *)
+      For every [i] smaller than [num_exprs], the variable with de-Bruijn index [i] is replaced with term [to[i]]. *)
   val substitute_vars : Expr.expr -> Expr.expr list -> expr
 
   (** Translates (copies) the term to another context.
-     @return A copy of the term which is associated with the other context *)
+      @return A copy of the term which is associated with the other context *)
   val translate : Expr.expr -> context -> expr
 
   (** Returns a string representation of the expression. *)    
@@ -529,7 +522,7 @@ sig
   val is_numeral : Expr.expr -> bool
 
   (** Indicates whether the term is well-sorted.
-     @return True if the term is well-sorted, false otherwise. *)   
+      @return True if the term is well-sorted, false otherwise. *)   
   val is_well_sorted : Expr.expr -> bool
 
   (** The Sort of the term. *)
@@ -537,26 +530,26 @@ sig
 
   (** Indicates whether the term represents a constant. *)
   val is_const : Expr.expr -> bool
-  
+    
   (** Creates a new constant. *)
   val mk_const : context -> Symbol.symbol -> Sort.sort -> expr
-  
+    
   (** Creates a new constant. *)
   val mk_const_s : context -> string -> Sort.sort -> expr
-  
+    
   (** Creates a  constant from the func_decl. *)
   val mk_const_f : context -> FuncDecl.func_decl -> expr
-  
+    
   (** Creates a fresh constant with a name prefixed with a string. *)
   val mk_fresh_const : context -> string -> Sort.sort -> expr
-  
+    
   (** Create a new function application. *)
   val mk_app : context -> FuncDecl.func_decl -> Expr.expr list -> expr
-  
+    
   (** Create a numeral of a given sort.         
-     @return A Term with the given value and sort *)
+      @return A Term with the given value and sort *)
   val mk_numeral_string : context -> string -> Sort.sort -> expr
-  
+    
   (** Create a numeral of a given sort. This function can be use to create numerals that fit in a machine integer.
       It is slightly faster than [MakeNumeral] since it is not necessary to parse a string.       
       @return A Term with the given value and sort *)
@@ -692,21 +685,21 @@ sig
 
 
   (** The de-Burijn index of a bound variable.
-     
-     Bound variables are indexed by de-Bruijn indices. It is perhaps easiest to explain
-     the meaning of de-Bruijn indices by indicating the compilation process from
-     non-de-Bruijn formulas to de-Bruijn format.
-     <code>
-     abs(forall (x1) phi) = forall (x1) abs1(phi, x1, 0)
-     abs(forall (x1, x2) phi) = abs(forall (x1) abs(forall (x2) phi))
-     abs1(x, x, n) = b_n
-     abs1(y, x, n) = y
-     abs1(f(t1,...,tn), x, n) = f(abs1(t1,x,n), ..., abs1(tn,x,n))
-     abs1(forall (x1) phi, x, n) = forall (x1) (abs1(phi, x, n+1))
-     </code>
-     The last line is significant: the index of a bound variable is different depending
-     on the scope in which it appears. The deeper ( x : expr ) appears, the higher is its
-     index. *)
+      
+      Bound variables are indexed by de-Bruijn indices. It is perhaps easiest to explain
+      the meaning of de-Bruijn indices by indicating the compilation process from
+      non-de-Bruijn formulas to de-Bruijn format.
+      <code>
+      abs(forall (x1) phi) = forall (x1) abs1(phi, x1, 0)
+      abs(forall (x1, x2) phi) = abs(forall (x1) abs(forall (x2) phi))
+      abs1(x, x, n) = b_n
+      abs1(y, x, n) = y
+      abs1(f(t1,...,tn), x, n) = f(abs1(t1,x,n), ..., abs1(tn,x,n))
+      abs1(forall (x1) phi, x, n) = forall (x1) (abs1(phi, x, n+1))
+      </code>
+      The last line is significant: the index of a bound variable is different depending
+      on the scope in which it appears. The deeper ( x : expr ) appears, the higher is its
+      index. *)
   val get_index : Expr.expr -> int
 
   (** Indicates whether the quantifier is universal. *)
@@ -723,19 +716,19 @@ sig
 
   (** The patterns. *)
   val get_patterns : quantifier -> Pattern.pattern list
-  
- (** The number of no-patterns. *)
+    
+  (** The number of no-patterns. *)
   val get_num_no_patterns : quantifier -> int
     
   (** The no-patterns. *)
   val get_no_patterns : quantifier -> Pattern.pattern list
 
- (** The number of bound variables. *)
-   val get_num_bound : quantifier -> int
- 
- (** The symbols for the bound variables. *)
+   (** The number of bound variables. *)
+  val get_num_bound : quantifier -> int
+    
+  (** The symbols for the bound variables. *)
   val get_bound_variable_names : quantifier -> Symbol.symbol list
- 
+    
   (** The sorts of the bound variables. *)
   val get_bound_variable_sorts : quantifier -> Sort.sort list
 
@@ -767,7 +760,7 @@ sig
   val mk_quantifier : context -> bool -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
     (** A string representation of the quantifier. *)
-    val to_string : quantifier -> string
+  val to_string : quantifier -> string
 end
 
 (** Functions to manipulate Array expressions *)
@@ -777,28 +770,28 @@ sig
   val mk_sort : context -> Sort.sort -> Sort.sort -> Sort.sort
 
   (** Indicates whether the term is an array store.        
-     It satisfies select(store(a,i,v),j) = if i = j then v else select(a,j). 
-     Array store takes at least 3 arguments.  *)
+      It satisfies select(store(a,i,v),j) = if i = j then v else select(a,j). 
+      Array store takes at least 3 arguments.  *)
   val is_store : Expr.expr -> bool
 
   (** Indicates whether the term is an array select. *)
   val is_select : Expr.expr -> bool
 
   (** Indicates whether the term is a constant array.        
-     For example, select(const(v),i) = v holds for every v and i. The function is unary. *)
+      For example, select(const(v),i) = v holds for every v and i. The function is unary. *)
   val is_constant_array : Expr.expr -> bool
 
   (** Indicates whether the term is a default array.        
-     For example default(const(v)) = v. The function is unary. *)
+      For example default(const(v)) = v. The function is unary. *)
   val is_default_array : Expr.expr -> bool
 
   (** Indicates whether the term is an array map.     
-     It satisfies map[f](a1,..,a_n)[i] = f(a1[i],...,a_n[i]) for every i. *)
+      It satisfies map[f](a1,..,a_n)[i] = f(a1[i],...,a_n[i]) for every i. *)
   val is_array_map : Expr.expr -> bool
 
   (** Indicates whether the term is an as-array term.        
-     An as-array term is n array value that behaves as the function graph of the 
-     function passed as parameter. *)
+      An as-array term is n array value that behaves as the function graph of the 
+      function passed as parameter. *)
   val is_as_array : Expr.expr -> bool
 
   (** Indicates whether the term is of an array sort. *)
@@ -806,66 +799,66 @@ sig
 
   (** The domain of the array sort. *)
   val get_domain : Sort.sort -> Sort.sort
-  
+    
   (** The range of the array sort. *)
   val get_range : Sort.sort -> Sort.sort
-  
+    
   (** Create an array constant. *)        
   val mk_const : context -> Symbol.symbol -> Sort.sort -> Sort.sort -> Expr.expr
-  
+    
   (** Create an array constant. *)        
   val mk_const_s : context -> string -> Sort.sort -> Sort.sort -> Expr.expr
-  
+    
   (** Array read.       
-     
-     The argument [a] is the array and [i] is the index 
-     of the array that gets read.      
-     
-     The node [a] must have an array sort [[domain -> range]], 
-     and [i] must have the sort [domain].
-     The sort of the result is [range].
-     {!Z3Array.mk_sort}
-     {!mk_store} *)
+      
+      The argument [a] is the array and [i] is the index 
+      of the array that gets read.      
+      
+      The node [a] must have an array sort [[domain -> range]], 
+      and [i] must have the sort [domain].
+      The sort of the result is [range].
+      {!Z3Array.mk_sort}
+      {!mk_store} *)
   val mk_select : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Array update.       
-     
-     The node [a] must have an array sort [[domain -> range]], 
-     [i] must have sort [domain],
-     [v] must have sort range. The sort of the result is [[domain -> range]].
-     The semantics of this function is given by the theory of arrays described in the SMT-LIB
-     standard. See http://smtlib.org for more details.
-     The result of this function is an array that is equal to [a] 
-     (with respect to [select])
-     on all indices except for [i], where it maps to [v] 
-     (and the [select] of [a] with 
-     respect to [i] may be a different value).
-     {!Z3Array.mk_sort}
-     {!mk_select} *)
+      
+      The node [a] must have an array sort [[domain -> range]], 
+      [i] must have sort [domain],
+      [v] must have sort range. The sort of the result is [[domain -> range]].
+      The semantics of this function is given by the theory of arrays described in the SMT-LIB
+      standard. See http://smtlib.org for more details.
+      The result of this function is an array that is equal to [a] 
+      (with respect to [select])
+      on all indices except for [i], where it maps to [v] 
+      (and the [select] of [a] with 
+      respect to [i] may be a different value).
+      {!Z3Array.mk_sort}
+      {!mk_select} *)
   val mk_store : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Create a constant array.
-     
-     The resulting term is an array, such that a [select]on an arbitrary index 
-     produces the value [v].
-     {!Z3Array.mk_sort}
-     {!mk_select} *)
+      
+      The resulting term is an array, such that a [select]on an arbitrary index 
+      produces the value [v].
+      {!Z3Array.mk_sort}
+      {!mk_select} *)
   val mk_const_array : context -> Sort.sort -> Expr.expr -> Expr.expr
 
   (** Maps f on the argument arrays.
-     
-     Eeach element of [args] must be of an array sort [[domain_i -> range_i]].
-     The function declaration [f] must have type [ range_1 .. range_n -> range].
-     [v] must have sort range. The sort of the result is [[domain_i -> range]].
-     {!Z3Array.mk_sort}
-     {!mk_select}
-     {!mk_store} *)
+      
+      Eeach element of [args] must be of an array sort [[domain_i -> range_i]].
+      The function declaration [f] must have type [ range_1 .. range_n -> range].
+      [v] must have sort range. The sort of the result is [[domain_i -> range]].
+      {!Z3Array.mk_sort}
+      {!mk_select}
+      {!mk_store} *)
   val mk_map : context -> FuncDecl.func_decl -> Expr.expr list -> Expr.expr
 
   (** Access the array default value.
-     
-     Produces the default range value, for arrays that can be represented as 
-     finite maps with a default range value.     *)
+      
+      Produces the default range value, for arrays that can be represented as 
+      finite maps with a default range value.     *)
   val mk_term_array : context -> Expr.expr -> Expr.expr
 end
 
@@ -948,10 +941,10 @@ sig
   val is_relation : Expr.expr -> bool
 
   (** Indicates whether the term is an relation store
-     
-     Insert a record into a relation.
-     The function takes [n+1] arguments, where the first argument is the relation and the remaining [n] elements 
-     correspond to the [n] columns of the relation. *)
+      
+      Insert a record into a relation.
+      The function takes [n+1] arguments, where the first argument is the relation and the remaining [n] elements 
+      correspond to the [n] columns of the relation. *)
   val is_store : Expr.expr -> bool
 
   (** Indicates whether the term is an empty relation *)
@@ -964,62 +957,62 @@ sig
   val is_join : Expr.expr -> bool
 
   (** Indicates whether the term is the union or convex hull of two relations. 
-     The function takes two arguments. *)
+      The function takes two arguments. *)
   val is_union : Expr.expr -> bool
 
   (** Indicates whether the term is the widening of two relations
-     The function takes two arguments. *)
+      The function takes two arguments. *)
   val is_widen : Expr.expr -> bool
 
   (** Indicates whether the term is a projection of columns (provided as numbers in the parameters).
-     The function takes one argument. *)
+      The function takes one argument. *)
   val is_project : Expr.expr -> bool
 
   (** Indicates whether the term is a relation filter
-     
-     Filter (restrict) a relation with respect to a predicate.
-     The first argument is a relation. 
-     The second argument is a predicate with free de-Brujin indices
-     corresponding to the columns of the relation.
-     So the first column in the relation has index 0. *)
+      
+      Filter (restrict) a relation with respect to a predicate.
+      The first argument is a relation. 
+      The second argument is a predicate with free de-Brujin indices
+      corresponding to the columns of the relation.
+      So the first column in the relation has index 0. *)
   val is_filter : Expr.expr -> bool
 
   (** Indicates whether the term is an intersection of a relation with the negation of another.
-     
-     Intersect the first relation with respect to negation
-     of the second relation (the function takes two arguments).
-     Logically, the specification can be described by a function
-     
-     target = filter_by_negation(pos, neg, columns)
-     
-     where columns are pairs c1, d1, .., cN, dN of columns from pos and neg, such that
-     target are elements in ( x : expr ) in pos, such that there is no y in neg that agrees with
-     ( x : expr ) on the columns c1, d1, .., cN, dN. *)
+      
+      Intersect the first relation with respect to negation
+      of the second relation (the function takes two arguments).
+      Logically, the specification can be described by a function
+      
+      target = filter_by_negation(pos, neg, columns)
+      
+      where columns are pairs c1, d1, .., cN, dN of columns from pos and neg, such that
+      target are elements in ( x : expr ) in pos, such that there is no y in neg that agrees with
+      ( x : expr ) on the columns c1, d1, .., cN, dN. *)
   val is_negation_filter : Expr.expr -> bool
 
   (** Indicates whether the term is the renaming of a column in a relation
-         
-     The function takes one argument.
-     The parameters contain the renaming as a cycle. *)
+      
+      The function takes one argument.
+      The parameters contain the renaming as a cycle. *)
   val is_rename : Expr.expr -> bool
 
   (** Indicates whether the term is the complement of a relation *)
   val is_complement : Expr.expr -> bool
 
   (** Indicates whether the term is a relational select
-     
-     Check if a record is an element of the relation.
-     The function takes [n+1] arguments, where the first argument is a relation,
-     and the remaining [n] arguments correspond to a record. *)
+      
+      Check if a record is an element of the relation.
+      The function takes [n+1] arguments, where the first argument is a relation,
+      and the remaining [n] arguments correspond to a record. *)
   val is_select : Expr.expr -> bool
 
   (** Indicates whether the term is a relational clone (copy)
-     
-     Create a fresh copy (clone) of a relation. 
-     The function is logically the identity, but
-     in the context of a register machine allows 
-     for terms of kind {!is_union} 
-     to perform destructive updates to the first argument. *)
+      
+      Create a fresh copy (clone) of a relation. 
+      The function is logically the identity, but
+      in the context of a register machine allows 
+      for terms of kind {!is_union} 
+      to perform destructive updates to the first argument. *)
   val is_clone : Expr.expr -> bool
 
   (** The arity of the relation sort. *)
@@ -1039,25 +1032,25 @@ sig
 
     (** The number of fields of the constructor. *)
     val get_num_fields : constructor -> int
-  
+      
     (** The function declaration of the constructor. *)
     val get_constructor_decl : constructor -> FuncDecl.func_decl
 
     (** The function declaration of the tester. *)
     val get_tester_decl : constructor -> FuncDecl.func_decl
-    
+      
     (** The function declarations of the accessors *)
     val get_accessor_decls : constructor -> FuncDecl.func_decl list
   end
 
   (** Create a datatype constructor.
-     if the corresponding sort reference is 0, then the value in sort_refs should be an index 
-     referring to one of the recursive datatypes that is declared. *)
+      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
+      referring to one of the recursive datatypes that is declared. *)
   val mk_constructor : context -> Symbol.symbol -> Symbol.symbol -> Symbol.symbol list -> Sort.sort option list -> int list -> Constructor.constructor
 
   (** Create a datatype constructor.
-     if the corresponding sort reference is 0, then the value in sort_refs should be an index 
-     referring to one of the recursive datatypes that is declared. *)
+      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
+      referring to one of the recursive datatypes that is declared. *)
   val mk_constructor_s : context -> string -> Symbol.symbol -> Symbol.symbol list -> Sort.sort option list -> int list -> Constructor.constructor
 
   (** Create a new datatype sort. *)
@@ -1078,7 +1071,7 @@ sig
 
   (** The constructors. *)
   val get_constructors : Sort.sort -> FuncDecl.func_decl list
-  
+    
   (** The recognizers. *)
   val get_recognizers : Sort.sort -> FuncDecl.func_decl list
 
@@ -1174,38 +1167,38 @@ sig
     val mk_const_s : context -> string -> Expr.expr
 
     (** Create an expression representing [t1 mod t2].
-       The arguments must have int type. *)
+	The arguments must have int type. *)
     val mk_mod : context -> Expr.expr -> Expr.expr -> Expr.expr
 
     (** Create an expression representing [t1 rem t2].
-       The arguments must have int type. *)
+	The arguments must have int type. *)
     val mk_rem : context -> Expr.expr -> Expr.expr -> Expr.expr
 
     (** Create an integer numeral. *)
     val mk_numeral_s : context -> string -> Expr.expr
 
     (** Create an integer numeral.
-       @return A Term with the given value and sort Integer *)
+	@return A Term with the given value and sort Integer *)
     val mk_numeral_i : context -> int -> Expr.expr
 
     (** Coerce an integer to a real.
-       
-       
-       There is also a converse operation exposed. It follows the semantics prescribed by the SMT-LIB standard.
-       
-       You can take the floor of a real by creating an auxiliary integer Term [k] and
-       and asserting [MakeInt2Real(k) <= t1 < MkInt2Real(k)+1].
-       The argument must be of integer sort. *)
+	
+	
+	There is also a converse operation exposed. It follows the semantics prescribed by the SMT-LIB standard.
+	
+	You can take the floor of a real by creating an auxiliary integer Term [k] and
+	and asserting [MakeInt2Real(k) <= t1 < MkInt2Real(k)+1].
+	The argument must be of integer sort. *)
     val mk_int2real : context -> Expr.expr -> Expr.expr
 
     (**   Create an n-bit bit-vector from an integer argument.
-       
-       
-       NB. This function is essentially treated as uninterpreted. 
-       So you cannot expect Z3 to precisely reflect the semantics of this function
-       when solving constraints with this function.
-       
-       The argument must be of integer sort. *)
+	  
+	  
+	  NB. This function is essentially treated as uninterpreted. 
+	  So you cannot expect Z3 to precisely reflect the semantics of this function
+	  when solving constraints with this function.
+	  
+	  The argument must be of integer sort. *)
     val mk_int2bv : context -> int -> Expr.expr -> Expr.expr
   end
 
@@ -1238,16 +1231,16 @@ sig
     val mk_const_s : context -> string -> Expr.expr
 
     (** Create a real numeral from a fraction.       
-       @return A Term with rational value and sort Real
-       {!mk_numeral_s} *)
+	@return A Term with rational value and sort Real
+	{!mk_numeral_s} *)
     val mk_numeral_nd : context -> int -> int -> Expr.expr
 
     (** Create a real numeral.
-       @return A Term with the given value and sort Real *)
+	@return A Term with the given value and sort Real *)
     val mk_numeral_s : context -> string -> Expr.expr
 
     (** Create a real numeral.
-       @return A Term with the given value and sort Real *)
+	@return A Term with the given value and sort Real *)
     val mk_numeral_i : context -> int -> Expr.expr
 
     (** Creates an expression that checks whether a real number is an integer. *)
@@ -1255,8 +1248,8 @@ sig
 
     (** Coerce a real to an integer.
 
-       The semantics of this function follows the SMT-LIB standard for the function to_int.
-       The argument must be of real sort. *)
+	The semantics of this function follows the SMT-LIB standard for the function to_int.
+	The argument must be of real sort. *)
     val mk_real2int : context -> Expr.expr -> Expr.expr
       
     (** Algebraic Numbers *)
@@ -1522,34 +1515,34 @@ sig
   val is_bv_rotateright : Expr.expr -> bool
 
   (** Indicates whether the term is a bit-vector rotate left (extended)
-     Similar to Z3_OP_ROTATE_LEFT, but it is a binary operator instead of a parametric one. *)
+      Similar to Z3_OP_ROTATE_LEFT, but it is a binary operator instead of a parametric one. *)
   val is_bv_rotateleftextended : Expr.expr -> bool
 
   (** Indicates whether the term is a bit-vector rotate right (extended)
-     Similar to Z3_OP_ROTATE_RIGHT, but it is a binary operator instead of a parametric one. *)
+      Similar to Z3_OP_ROTATE_RIGHT, but it is a binary operator instead of a parametric one. *)
   val is_bv_rotaterightextended : Expr.expr -> bool
- 
+    
   (** Indicates whether the term is a coercion from integer to bit-vector
-     This function is not supported by the decision procedures. Only the most 
-     rudimentary simplification rules are applied to this function. *)
+      This function is not supported by the decision procedures. Only the most 
+      rudimentary simplification rules are applied to this function. *)
 
   (** Indicates whether the term is a coercion from bit-vector to integer
-     This function is not supported by the decision procedures. Only the most 
-     rudimentary simplification rules are applied to this function. *)
+      This function is not supported by the decision procedures. Only the most 
+      rudimentary simplification rules are applied to this function. *)
   val is_int_to_bv : Expr.expr -> bool
 
   (** Indicates whether the term is a coercion from integer to bit-vector
-     This function is not supported by the decision procedures. Only the most 
-     rudimentary simplification rules are applied to this function. *)
+      This function is not supported by the decision procedures. Only the most 
+      rudimentary simplification rules are applied to this function. *)
   val is_bv_to_int : Expr.expr -> bool
 
   (** Indicates whether the term is a bit-vector carry
-     Compute the carry bit in a full-adder.  The meaning is given by the 
-     equivalence (carry l1 l2 l3) <=> (or (and l1 l2) (and l1 l3) (and l2 l3))) *)
+      Compute the carry bit in a full-adder.  The meaning is given by the 
+      equivalence (carry l1 l2 l3) <=> (or (and l1 l2) (and l1 l3) (and l2 l3))) *)
   val is_bv_carry : Expr.expr -> bool
- 
+    
   (** Indicates whether the term is a bit-vector ternary XOR
-     The meaning is given by the equivalence (xor3 l1 l2 l3) <=> (xor (xor l1 l2) l3) *)
+      The meaning is given by the equivalence (xor3 l1 l2 l3) <=> (xor (xor l1 l2) l3) *)
   val is_bv_xor3 : Expr.expr -> bool
 
   (** The size of a bit-vector sort. *)
@@ -1557,7 +1550,7 @@ sig
 
   (**  Retrieve the int value. *)
   val get_int : Expr.expr -> int
-      
+    
   (** Returns a string representation of the numeral. *)
   val to_string : Expr.expr -> string
 
@@ -1568,146 +1561,145 @@ sig
   val mk_const_s : context -> string -> int -> Expr.expr
 
   (** Bitwise negation.
-     The argument must have a bit-vector sort. *)
+      The argument must have a bit-vector sort. *)
   val mk_not : context -> Expr.expr -> Expr.expr
 
   (** Take conjunction of bits in a vector,vector of length 1.
-     The argument must have a bit-vector sort. *)
+      The argument must have a bit-vector sort. *)
   val mk_redand : context -> Expr.expr -> Expr.expr
 
   (** Take disjunction of bits in a vector,vector of length 1.
-     The argument must have a bit-vector sort. *)
+      The argument must have a bit-vector sort. *)
   val mk_redor : context -> Expr.expr -> Expr.expr
 
   (** Bitwise conjunction.
-     The arguments must have a bit-vector sort. *)
+      The arguments must have a bit-vector sort. *)
   val mk_and : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Bitwise disjunction.
-     The arguments must have a bit-vector sort. *)
+      The arguments must have a bit-vector sort. *)
   val mk_or : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Bitwise XOR.
-     The arguments must have a bit-vector sort. *)
+      The arguments must have a bit-vector sort. *)
   val mk_xor : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Bitwise NAND.
-     The arguments must have a bit-vector sort. *)
+      The arguments must have a bit-vector sort. *)
   val mk_nand : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Bitwise NOR.
-     The arguments must have a bit-vector sort. *)
+      The arguments must have a bit-vector sort. *)
   val mk_nor : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Bitwise XNOR.
-     The arguments must have a bit-vector sort. *)
+      The arguments must have a bit-vector sort. *)
   val mk_xnor : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Standard two's complement unary minus.
-     The arguments must have a bit-vector sort. *)
+      The arguments must have a bit-vector sort. *)
   val mk_neg : context -> Expr.expr -> Expr.expr
 
   (** Two's complement addition.
-     The arguments must have the same bit-vector sort. *)
+      The arguments must have the same bit-vector sort. *)
   val mk_add : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Two's complement subtraction.
-     The arguments must have the same bit-vector sort. *)
+      The arguments must have the same bit-vector sort. *)
   val mk_sub : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Two's complement multiplication.
-     The arguments must have the same bit-vector sort. *)
+      The arguments must have the same bit-vector sort. *)
   val mk_mul : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Unsigned division.
-
-     
-     It is defined as the floor of [t1/t2] if \c t2 is
-     different from zero. If [t2] is zero, then the result
-     is undefined.
-     The arguments must have the same bit-vector sort. *)
+      
+      It is defined as the floor of [t1/t2] if \c t2 is
+      different from zero. If [t2] is zero, then the result
+      is undefined.
+      The arguments must have the same bit-vector sort. *)
   val mk_udiv : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Signed division.
-     
-     It is defined in the following way:
+      
+      It is defined in the following way:
 
-     - The \c floor of [t1/t2] if \c t2 is different from zero, and [t1*t2 >= 0].
+      - The \c floor of [t1/t2] if \c t2 is different from zero, and [t1*t2 >= 0].
 
-     - The \c ceiling of [t1/t2] if \c t2 is different from zero, and [t1*t2 < 0].
+      - The \c ceiling of [t1/t2] if \c t2 is different from zero, and [t1*t2 < 0].
 
-     If [t2] is zero, then the result is undefined.
-     The arguments must have the same bit-vector sort. *)
+      If [t2] is zero, then the result is undefined.
+      The arguments must have the same bit-vector sort. *)
   val mk_sdiv : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Unsigned remainder.
-     
-     It is defined as [t1 - (t1 /u t2) * t2], where [/u] represents unsigned division.       
-     If [t2] is zero, then the result is undefined.
-     The arguments must have the same bit-vector sort. *)
+      
+      It is defined as [t1 - (t1 /u t2) * t2], where [/u] represents unsigned division.       
+      If [t2] is zero, then the result is undefined.
+      The arguments must have the same bit-vector sort. *)
   val mk_urem : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Signed remainder.
-     
-     It is defined as [t1 - (t1 /s t2) * t2], where [/s] represents signed division.
-     The most significant bit (sign) of the result is equal to the most significant bit of \c t1.
+      
+      It is defined as [t1 - (t1 /s t2) * t2], where [/s] represents signed division.
+      The most significant bit (sign) of the result is equal to the most significant bit of \c t1.
 
-     If [t2] is zero, then the result is undefined.
-     The arguments must have the same bit-vector sort. *)
+      If [t2] is zero, then the result is undefined.
+      The arguments must have the same bit-vector sort. *)
   val mk_srem : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Two's complement signed remainder (sign follows divisor).
-     
-     If [t2] is zero, then the result is undefined.
-     The arguments must have the same bit-vector sort. *)
+      
+      If [t2] is zero, then the result is undefined.
+      The arguments must have the same bit-vector sort. *)
   val mk_smod : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Unsigned less-than
-         
-     The arguments must have the same bit-vector sort. *)
+      
+      The arguments must have the same bit-vector sort. *)
   val mk_ult : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Two's complement signed less-than
-         
-     The arguments must have the same bit-vector sort. *)
+      
+      The arguments must have the same bit-vector sort. *)
   val mk_slt : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Unsigned less-than or equal to.
-         
-     The arguments must have the same bit-vector sort. *)
+      
+      The arguments must have the same bit-vector sort. *)
   val mk_ule : context -> Expr.expr -> Expr.expr -> Expr.expr
- 
+    
   (** Two's complement signed less-than or equal to.
-         
-     The arguments must have the same bit-vector sort. *)
+      
+      The arguments must have the same bit-vector sort. *)
   val mk_sle : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Unsigned greater than or equal to.
-         
-     The arguments must have the same bit-vector sort. *)
+      
+      The arguments must have the same bit-vector sort. *)
   val mk_uge : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Two's complement signed greater than or equal to.
-         
-     The arguments must have the same bit-vector sort. *)
+      
+      The arguments must have the same bit-vector sort. *)
   val mk_sge : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Unsigned greater-than.
-         
-     The arguments must have the same bit-vector sort. *)
+      
+      The arguments must have the same bit-vector sort. *)
   val mk_ugt : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Two's complement signed greater-than.
-         
-     The arguments must have the same bit-vector sort. *)
+      
+      The arguments must have the same bit-vector sort. *)
   val mk_sgt : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Bit-vector concatenation.
-         
-     The arguments must have a bit-vector sort.
-     @return 
-     The result is a bit-vector of size [n1+n2], where [n1] ([n2]) 
-     is the size of [t1] ([t2]). *)
+      
+      The arguments must have a bit-vector sort.
+      @return 
+      The result is a bit-vector of size [n1+n2], where [n1] ([n2]) 
+      is the size of [t1] ([t2]). *)
   val mk_concat : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Bit-vector extraction.
@@ -1719,17 +1711,17 @@ sig
 
   (** Bit-vector sign extension.
 
-     Sign-extends the given bit-vector to the (signed) equivalent bitvector of
-     size [m+i], where \c m is the size of the given bit-vector. *)
+      Sign-extends the given bit-vector to the (signed) equivalent bitvector of
+      size [m+i], where \c m is the size of the given bit-vector. *)
   val mk_sign_ext : context -> int -> Expr.expr -> Expr.expr
 
   (** Bit-vector zero extension.
 
-     Extend the given bit-vector with zeros to the (unsigned) equivalent
-     bitvector of size [m+i], where \c m is the size of the
-     given bit-vector. *)
+      Extend the given bit-vector with zeros to the (unsigned) equivalent
+      bitvector of size [m+i], where \c m is the size of the
+      given bit-vector. *)
   val mk_zero_ext : context -> int -> Expr.expr -> Expr.expr
- 
+    
   (** Bit-vector repetition. *)
   val mk_repeat : context -> int -> Expr.expr -> Expr.expr
 
@@ -1743,27 +1735,27 @@ sig
   val mk_shl : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Logical shift right
-     
-     It is equivalent to unsigned division by [2^x] where \c x is the value of the third argument.
+      
+      It is equivalent to unsigned division by [2^x] where \c x is the value of the third argument.
 
-     NB. The semantics of shift operations varies between environments. This 
-     definition does not necessarily capture directly the semantics of the 
-     programming language or assembly architecture you are modeling.
+      NB. The semantics of shift operations varies between environments. This 
+      definition does not necessarily capture directly the semantics of the 
+      programming language or assembly architecture you are modeling.
 
-     The arguments must have a bit-vector sort. *)
+      The arguments must have a bit-vector sort. *)
   val mk_lshr : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Arithmetic shift right
-     
-     It is like logical shift right except that the most significant
-     bits of the result always copy the most significant bit of the
-     second argument.
+      
+      It is like logical shift right except that the most significant
+      bits of the result always copy the most significant bit of the
+      second argument.
 
-     NB. The semantics of shift operations varies between environments. This 
-     definition does not necessarily capture directly the semantics of the 
-     programming language or assembly architecture you are modeling.
+      NB. The semantics of shift operations varies between environments. This 
+      definition does not necessarily capture directly the semantics of the 
+      programming language or assembly architecture you are modeling.
 
-     The arguments must have a bit-vector sort. *)
+      The arguments must have a bit-vector sort. *)
   val mk_ashr : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Rotate Left.
@@ -1783,7 +1775,7 @@ sig
   val mk_ext_rotate_right : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Create an integer from the bit-vector argument 
-     
+      
       If \c is_signed is false, then the bit-vector \c t1 is treated as unsigned. 
       So the result is non-negative and in the range [[0..2^N-1]], where 
       N are the number of bits in the argument.
@@ -1795,45 +1787,45 @@ sig
   val mk_bv2int : context -> Expr.expr -> bool -> Expr.expr
     
   (** Create a predicate that checks that the bit-wise addition does not overflow.
-     
-     The arguments must be of bit-vector sort. *)
+      
+      The arguments must be of bit-vector sort. *)
   val mk_add_no_overflow : context -> Expr.expr -> Expr.expr -> bool -> Expr.expr
 
   (** Create a predicate that checks that the bit-wise addition does not underflow.
-     
-     The arguments must be of bit-vector sort. *)
+      
+      The arguments must be of bit-vector sort. *)
   val mk_add_no_underflow : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Create a predicate that checks that the bit-wise subtraction does not overflow.
-     
-     The arguments must be of bit-vector sort. *)
+      
+      The arguments must be of bit-vector sort. *)
   val mk_sub_no_overflow : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Create a predicate that checks that the bit-wise subtraction does not underflow.
-     
-     The arguments must be of bit-vector sort. *)
+      
+      The arguments must be of bit-vector sort. *)
   val mk_sub_no_underflow : context -> Expr.expr -> Expr.expr -> bool -> Expr.expr
 
   (** Create a predicate that checks that the bit-wise signed division does not overflow.
-     
-     The arguments must be of bit-vector sort. *)
+      
+      The arguments must be of bit-vector sort. *)
   val mk_sdiv_no_overflow : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Create a predicate that checks that the bit-wise negation does not overflow.
-     
-     The arguments must be of bit-vector sort. *)      
+      
+      The arguments must be of bit-vector sort. *)      
   val mk_neg_no_overflow : context -> Expr.expr -> Expr.expr
 
   (** Create a predicate that checks that the bit-wise multiplication does not overflow.
-     
-     The arguments must be of bit-vector sort. *)
+      
+      The arguments must be of bit-vector sort. *)
   val mk_mul_no_overflow : context -> Expr.expr -> Expr.expr -> bool -> Expr.expr
 
   (** Create a predicate that checks that the bit-wise multiplication does not underflow.
-     
-     The arguments must be of bit-vector sort. *)
-  val mk_mul_no_underflow : context -> Expr.expr -> Expr.expr -> Expr.expr
       
+      The arguments must be of bit-vector sort. *)
+  val mk_mul_no_underflow : context -> Expr.expr -> Expr.expr -> Expr.expr
+    
   (** Create a bit-vector numeral. *)
   val mk_numeral : context -> string -> int -> Expr.expr
 end
@@ -1851,389 +1843,389 @@ sig
   val is_goal : Expr.expr -> bool
 
   (** Indicates whether the term is a binary equivalence modulo namings. 
-     This binary predicate is used in proof terms.
-     It captures equisatisfiability and equivalence modulo renamings. *)
+      This binary predicate is used in proof terms.
+      It captures equisatisfiability and equivalence modulo renamings. *)
   val is_oeq : Expr.expr -> bool
 
   (** Indicates whether the term is proof via modus ponens
-     
-     Given a proof for p and a proof for (implies p q), produces a proof for q.
-     T1: p
-     T2: (implies p q)
-     [mp T1 T2]: q
-     The second antecedents may also be a proof for (iff p q). *)
+      
+      Given a proof for p and a proof for (implies p q), produces a proof for q.
+      T1: p
+      T2: (implies p q)
+      [mp T1 T2]: q
+      The second antecedents may also be a proof for (iff p q). *)
   val is_modus_ponens : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for (R t t), where R is a reflexive relation.
-     This proof object has no antecedents. 
-     The only reflexive relations that are used are 
-     equivalence modulo namings, equality and equivalence.
-     That is, R is either '~', '=' or 'iff'. *)
+      This proof object has no antecedents. 
+      The only reflexive relations that are used are 
+      equivalence modulo namings, equality and equivalence.
+      That is, R is either '~', '=' or 'iff'. *)
   val is_reflexivity : Expr.expr -> bool
 
   (** Indicates whether the term is proof by symmetricity of a relation
-     
-     Given an symmetric relation R and a proof for (R t s), produces a proof for (R s t).
-     T1: (R t s)
-     [symmetry T1]: (R s t)
-     T1 is the antecedent of this proof object. *)
+      
+      Given an symmetric relation R and a proof for (R t s), produces a proof for (R s t).
+      T1: (R t s)
+      [symmetry T1]: (R s t)
+      T1 is the antecedent of this proof object. *)
   val is_symmetry : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by transitivity of a relation
-     
-     Given a transitive relation R, and proofs for (R t s) and (R s u), produces a proof 
-     for (R t u). 
-     T1: (R t s)
-     T2: (R s u)
-     [trans T1 T2]: (R t u) *)
+      
+      Given a transitive relation R, and proofs for (R t s) and (R s u), produces a proof 
+      for (R t u). 
+      T1: (R t s)
+      T2: (R s u)
+      [trans T1 T2]: (R t u) *)
   val is_transitivity : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by condensed transitivity of a relation
-     
-     Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
-     It combines several symmetry and transitivity proofs. 
-     Example:
-     T1: (R a b)
-     T2: (R c b)
-     T3: (R c d)
-     [trans* T1 T2 T3]: (R a d)          
-     R must be a symmetric and transitive relation.
-     
-     Assuming that this proof object is a proof for (R s t), then
-     a proof checker must check if it is possible to prove (R s t)
-     using the antecedents, symmetry and transitivity.  That is, 
-     if there is a path from s to t, if we view every
-     antecedent (R a b) as an edge between a and b. *)
+      
+      Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
+      It combines several symmetry and transitivity proofs. 
+      Example:
+      T1: (R a b)
+      T2: (R c b)
+      T3: (R c d)
+      [trans* T1 T2 T3]: (R a d)          
+      R must be a symmetric and transitive relation.
+      
+      Assuming that this proof object is a proof for (R s t), then
+      a proof checker must check if it is possible to prove (R s t)
+      using the antecedents, symmetry and transitivity.  That is, 
+      if there is a path from s to t, if we view every
+      antecedent (R a b) as an edge between a and b. *)
   val is_Transitivity_star : Expr.expr -> bool
 
   (** Indicates whether the term is a monotonicity proof object.
-     
-     T1: (R t_1 s_1)
-     ...
-     Tn: (R t_n s_n)
-     [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))          
-     Remark: if t_i == s_i, then the antecedent Ti is suppressed.
-     That is, reflexivity proofs are supressed to save space. *)
+      
+      T1: (R t_1 s_1)
+      ...
+      Tn: (R t_n s_n)
+      [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))          
+      Remark: if t_i == s_i, then the antecedent Ti is suppressed.
+      That is, reflexivity proofs are supressed to save space. *)
   val is_monotonicity : Expr.expr -> bool
 
   (** Indicates whether the term is a quant-intro proof 
-     
-     Given a proof for (~ p q), produces a proof for (~ (forall (x) p) (forall (x) q)).
-     T1: (~ p q)
-     [quant-intro T1]: (~ (forall (x) p) (forall (x) q)) *)
+      
+      Given a proof for (~ p q), produces a proof for (~ (forall (x) p) (forall (x) q)).
+      T1: (~ p q)
+      [quant-intro T1]: (~ (forall (x) p) (forall (x) q)) *)
   val is_quant_intro : Expr.expr -> bool
 
   (** Indicates whether the term is a distributivity proof object.  
-     
-     Given that f (= or) distributes over g (= and), produces a proof for
-     (= (f a (g c d))
-     (g (f a c) (f a d)))
-     If f and g are associative, this proof also justifies the following equality:
-     (= (f (g a b) (g c d))
-     (g (f a c) (f a d) (f b c) (f b d)))
-     where each f and g can have arbitrary number of arguments.
-     
-     This proof object has no antecedents.
-     Remark. This rule is used by the CNF conversion pass and 
-     instantiated by f = or, and g = and. *)
+      
+      Given that f (= or) distributes over g (= and), produces a proof for
+      (= (f a (g c d))
+      (g (f a c) (f a d)))
+      If f and g are associative, this proof also justifies the following equality:
+      (= (f (g a b) (g c d))
+      (g (f a c) (f a d) (f b c) (f b d)))
+      where each f and g can have arbitrary number of arguments.
+      
+      This proof object has no antecedents.
+      Remark. This rule is used by the CNF conversion pass and 
+      instantiated by f = or, and g = and. *)
   val is_distributivity : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by elimination of AND
-     
-     Given a proof for (and l_1 ... l_n), produces a proof for l_i
-     T1: (and l_1 ... l_n)
-     [and-elim T1]: l_i *)
+      
+      Given a proof for (and l_1 ... l_n), produces a proof for l_i
+      T1: (and l_1 ... l_n)
+      [and-elim T1]: l_i *)
   val is_and_elimination : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by eliminiation of not-or
-     
-     Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i).
-     T1: (not (or l_1 ... l_n))
-     [not-or-elim T1]: (not l_i)        *)
+      
+      Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i).
+      T1: (not (or l_1 ... l_n))
+      [not-or-elim T1]: (not l_i)        *)
   val is_or_elimination : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by rewriting
-     
-     A proof for a local rewriting step (= t s).
-     The head function symbol of t is interpreted.
-     
-     This proof object has no antecedents.
-     The conclusion of a rewrite rule is either an equality (= t s), 
-     an equivalence (iff t s), or equi-satisfiability (~ t s).
-     Remark: if f is bool, then = is iff.
-     
-     Examples:
-     (= (+ ( x : expr ) 0) x)
-     (= (+ ( x : expr ) 1 2) (+ 3 x))
-     (iff (or ( x : expr ) false) x)           *)
+      
+      A proof for a local rewriting step (= t s).
+      The head function symbol of t is interpreted.
+      
+      This proof object has no antecedents.
+      The conclusion of a rewrite rule is either an equality (= t s), 
+      an equivalence (iff t s), or equi-satisfiability (~ t s).
+      Remark: if f is bool, then = is iff.
+      
+      Examples:
+      (= (+ ( x : expr ) 0) x)
+      (= (+ ( x : expr ) 1 2) (+ 3 x))
+      (iff (or ( x : expr ) false) x)           *)
   val is_rewrite : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by rewriting
-     
-     A proof for rewriting an expression t into an expression s.
-     This proof object is used if the parameter PROOF_MODE is 1.
-     This proof object can have n antecedents.
-     The antecedents are proofs for equalities used as substitution rules.
-     The object is also used in a few cases if the parameter PROOF_MODE is 2.
-     The cases are:
-     - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
-     - When converting bit-vectors to Booleans (BIT2BOOL=true)
-     - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true) *)
+      
+      A proof for rewriting an expression t into an expression s.
+      This proof object is used if the parameter PROOF_MODE is 1.
+      This proof object can have n antecedents.
+      The antecedents are proofs for equalities used as substitution rules.
+      The object is also used in a few cases if the parameter PROOF_MODE is 2.
+      The cases are:
+      - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
+      - When converting bit-vectors to Booleans (BIT2BOOL=true)
+      - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true) *)
   val is_rewrite_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for pulling quantifiers out.
-     
-     A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents. *)
+      
+      A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents. *)
   val is_pull_quant : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for pulling quantifiers out.
-     
-     A proof for (iff P Q) where Q is in prenex normal form. 
-     This proof object is only used if the parameter PROOF_MODE is 1.       
-     This proof object has no antecedents *)
+      
+      A proof for (iff P Q) where Q is in prenex normal form. 
+      This proof object is only used if the parameter PROOF_MODE is 1.       
+      This proof object has no antecedents *)
   val is_pull_quant_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for pushing quantifiers in.
-     
-     A proof for:
-     (iff (forall (x_1 ... x_m) (and p_1[x_1 ... x_m] ... p_n[x_1 ... x_m]))
-     (and (forall (x_1 ... x_m) p_1[x_1 ... x_m])
-     ... 
-     (forall (x_1 ... x_m) p_n[x_1 ... x_m])))               
-     This proof object has no antecedents *)
+      
+      A proof for:
+      (iff (forall (x_1 ... x_m) (and p_1[x_1 ... x_m] ... p_n[x_1 ... x_m]))
+      (and (forall (x_1 ... x_m) p_1[x_1 ... x_m])
+      ... 
+      (forall (x_1 ... x_m) p_n[x_1 ... x_m])))               
+      This proof object has no antecedents *)
   val is_push_quant : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for elimination of unused variables.
-     
-     A proof for (iff (forall (x_1 ... x_n y_1 ... y_m) p[x_1 ... x_n])
-     (forall (x_1 ... x_n) p[x_1 ... x_n])) 
-     
-     It is used to justify the elimination of unused variables.
-     This proof object has no antecedents. *)
+      
+      A proof for (iff (forall (x_1 ... x_n y_1 ... y_m) p[x_1 ... x_n])
+      (forall (x_1 ... x_n) p[x_1 ... x_n])) 
+      
+      It is used to justify the elimination of unused variables.
+      This proof object has no antecedents. *)
   val is_elim_unused_vars : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for destructive equality resolution
-     
-     A proof for destructive equality resolution:
-     (iff (forall (x) (or (not (= ( x : expr ) t)) P[x])) P[t])
-     if ( x : expr ) does not occur in t.
-     
-     This proof object has no antecedents.
-     
-     Several variables can be eliminated simultaneously. *)
+      
+      A proof for destructive equality resolution:
+      (iff (forall (x) (or (not (= ( x : expr ) t)) P[x])) P[t])
+      if ( x : expr ) does not occur in t.
+      
+      This proof object has no antecedents.
+      
+      Several variables can be eliminated simultaneously. *)
   val is_der : Expr.expr -> bool
- 
+    
   (** Indicates whether the term is a proof for quantifier instantiation
-     
-     A proof of (or (not (forall (x) (P x))) (P a)) *)
+      
+      A proof of (or (not (forall (x) (P x))) (P a)) *)
   val is_quant_inst : Expr.expr -> bool
 
   (** Indicates whether the term is a hypthesis marker.
-     Mark a hypothesis in a natural deduction style proof. *)
+      Mark a hypothesis in a natural deduction style proof. *)
   val is_hypothesis : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by lemma
-     
-     T1: false
-     [lemma T1]: (or (not l_1) ... (not l_n))
-     
-     This proof object has one antecedent: a hypothetical proof for false.
-     It converts the proof in a proof for (or (not l_1) ... (not l_n)),
-     when T1 contains the hypotheses: l_1, ..., l_n. *)
+      
+      T1: false
+      [lemma T1]: (or (not l_1) ... (not l_n))
+      
+      This proof object has one antecedent: a hypothetical proof for false.
+      It converts the proof in a proof for (or (not l_1) ... (not l_n)),
+      when T1 contains the hypotheses: l_1, ..., l_n. *)
   val is_lemma : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by unit resolution
-     
-     T1:      (or l_1 ... l_n l_1' ... l_m')
-     T2:      (not l_1)
-     ...
-     T(n+1):  (not l_n)
-     [unit-resolution T1 ... T(n+1)]: (or l_1' ... l_m') *)
+      
+      T1:      (or l_1 ... l_n l_1' ... l_m')
+      T2:      (not l_1)
+      ...
+      T(n+1):  (not l_n)
+      [unit-resolution T1 ... T(n+1)]: (or l_1' ... l_m') *)
   val is_unit_resolution : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by iff-true
-     
-     T1: p
-     [iff-true T1]: (iff p true) *)
+      
+      T1: p
+      [iff-true T1]: (iff p true) *)
   val is_iff_true : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by iff-false
-     
-     T1: (not p)
-     [iff-false T1]: (iff p false) *)
+      
+      T1: (not p)
+      [iff-false T1]: (iff p false) *)
   val is_iff_false : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by commutativity
-     
-     [comm]: (= (f a b) (f b a))
-     
-     f is a commutative operator.
-     
-     This proof object has no antecedents.
-     Remark: if f is bool, then = is iff. *)
+      
+      [comm]: (= (f a b) (f b a))
+      
+      f is a commutative operator.
+      
+      This proof object has no antecedents.
+      Remark: if f is bool, then = is iff. *)
   val is_commutativity : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for Tseitin-like axioms
-     
-     Proof object used to justify Tseitin's like axioms:
-     
-     (or (not (and p q)) p)
-     (or (not (and p q)) q)
-     (or (not (and p q r)) p)
-     (or (not (and p q r)) q)
-     (or (not (and p q r)) r)
-     ...
-     (or (and p q) (not p) (not q))
-     (or (not (or p q)) p q)
-     (or (or p q) (not p))
-     (or (or p q) (not q))
-     (or (not (iff p q)) (not p) q)
-     (or (not (iff p q)) p (not q))
-     (or (iff p q) (not p) (not q))
-     (or (iff p q) p q)
-     (or (not (ite a b c)) (not a) b)
-     (or (not (ite a b c)) a c)
-     (or (ite a b c) (not a) (not b))
-     (or (ite a b c) a (not c))
-     (or (not (not a)) (not a))
-     (or (not a) a)
-     
-     This proof object has no antecedents.
-     Note: all axioms are propositional tautologies.
-     Note also that 'and' and 'or' can take multiple arguments.
-     You can recover the propositional tautologies by
-     unfolding the Boolean connectives in the axioms a small
-     bounded number of steps (=3). *)
+      
+      Proof object used to justify Tseitin's like axioms:
+      
+      (or (not (and p q)) p)
+      (or (not (and p q)) q)
+      (or (not (and p q r)) p)
+      (or (not (and p q r)) q)
+      (or (not (and p q r)) r)
+      ...
+      (or (and p q) (not p) (not q))
+      (or (not (or p q)) p q)
+      (or (or p q) (not p))
+      (or (or p q) (not q))
+      (or (not (iff p q)) (not p) q)
+      (or (not (iff p q)) p (not q))
+      (or (iff p q) (not p) (not q))
+      (or (iff p q) p q)
+      (or (not (ite a b c)) (not a) b)
+      (or (not (ite a b c)) a c)
+      (or (ite a b c) (not a) (not b))
+      (or (ite a b c) a (not c))
+      (or (not (not a)) (not a))
+      (or (not a) a)
+      
+      This proof object has no antecedents.
+      Note: all axioms are propositional tautologies.
+      Note also that 'and' and 'or' can take multiple arguments.
+      You can recover the propositional tautologies by
+      unfolding the Boolean connectives in the axioms a small
+      bounded number of steps (=3). *)
   val is_def_axiom : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for introduction of a name
-     
-     Introduces a name for a formula/term.
-     Suppose e is an expression with free variables x, and def-intro
-     introduces the name n(x). The possible cases are:
-     
-     When e is of Boolean type:
-     [def-intro]: (and (or n (not e)) (or (not n) e))
-     
-     or:
-     [def-intro]: (or (not n) e)
-     when e only occurs positively.
-     
-     When e is of the form (ite cond th el):
-     [def-intro]: (and (or (not cond) (= n th)) (or cond (= n el)))
-     
-     Otherwise:
-     [def-intro]: (= n e)        *)
+      
+      Introduces a name for a formula/term.
+      Suppose e is an expression with free variables x, and def-intro
+      introduces the name n(x). The possible cases are:
+      
+      When e is of Boolean type:
+      [def-intro]: (and (or n (not e)) (or (not n) e))
+      
+      or:
+      [def-intro]: (or (not n) e)
+      when e only occurs positively.
+      
+      When e is of the form (ite cond th el):
+      [def-intro]: (and (or (not cond) (= n th)) (or cond (= n el)))
+      
+      Otherwise:
+      [def-intro]: (= n e)        *)
   val is_def_intro : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for application of a definition
-     
-     [apply-def T1]: F ~ n
-     F is 'equivalent' to n, given that T1 is a proof that
-     n is a name for F. *)
+      
+      [apply-def T1]: F ~ n
+      F is 'equivalent' to n, given that T1 is a proof that
+      n is a name for F. *)
   val is_apply_def : Expr.expr -> bool
 
   (** Indicates whether the term is a proof iff-oeq
-     
-     T1: (iff p q)
-     [iff~ T1]: (~ p q) *)
+      
+      T1: (iff p q)
+      [iff~ T1]: (~ p q) *)
   val is_iff_oeq : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for a positive NNF step
-     
-     Proof for a (positive) NNF step. Example:
-     
-     T1: (not s_1) ~ r_1
-     T2: (not s_2) ~ r_2
-     T3: s_1 ~ r_1'
-     T4: s_2 ~ r_2'
-     [nnf-pos T1 T2 T3 T4]: (~ (iff s_1 s_2)
-     (and (or r_1 r_2') (or r_1' r_2)))
-     
-     The negation normal form steps NNF_POS and NNF_NEG are used in the following cases:
-     (a) When creating the NNF of a positive force quantifier.
-     The quantifier is retained (unless the bound variables are eliminated).
-     Example
-     T1: q ~ q_new 
-     [nnf-pos T1]: (~ (forall (x T) q) (forall (x T) q_new))
-     
-     (b) When recursively creating NNF over Boolean formulas, where the top-level
-     connective is changed during NNF conversion. The relevant Boolean connectives
-     for NNF_POS are 'implies', 'iff', 'xor', 'ite'.
-     NNF_NEG furthermore handles the case where negation is pushed
-     over Boolean connectives 'and' and 'or'. *)
+      
+      Proof for a (positive) NNF step. Example:
+      
+      T1: (not s_1) ~ r_1
+      T2: (not s_2) ~ r_2
+      T3: s_1 ~ r_1'
+      T4: s_2 ~ r_2'
+      [nnf-pos T1 T2 T3 T4]: (~ (iff s_1 s_2)
+      (and (or r_1 r_2') (or r_1' r_2)))
+      
+      The negation normal form steps NNF_POS and NNF_NEG are used in the following cases:
+      (a) When creating the NNF of a positive force quantifier.
+      The quantifier is retained (unless the bound variables are eliminated).
+      Example
+      T1: q ~ q_new 
+      [nnf-pos T1]: (~ (forall (x T) q) (forall (x T) q_new))
+      
+      (b) When recursively creating NNF over Boolean formulas, where the top-level
+      connective is changed during NNF conversion. The relevant Boolean connectives
+      for NNF_POS are 'implies', 'iff', 'xor', 'ite'.
+      NNF_NEG furthermore handles the case where negation is pushed
+      over Boolean connectives 'and' and 'or'. *)
   val is_nnf_pos : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for a negative NNF step
-     
-     Proof for a (negative) NNF step. Examples:
-     
-     T1: (not s_1) ~ r_1
-     ...
-     Tn: (not s_n) ~ r_n
-     [nnf-neg T1 ... Tn]: (not (and s_1 ... s_n)) ~ (or r_1 ... r_n)
-     and
-     T1: (not s_1) ~ r_1
-     ...
-     Tn: (not s_n) ~ r_n
-     [nnf-neg T1 ... Tn]: (not (or s_1 ... s_n)) ~ (and r_1 ... r_n)
-     and
-     T1: (not s_1) ~ r_1
-     T2: (not s_2) ~ r_2
-     T3: s_1 ~ r_1'
-     T4: s_2 ~ r_2'
-     [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
-     (and (or r_1 r_2) (or r_1' r_2'))) *)
+      
+      Proof for a (negative) NNF step. Examples:
+      
+      T1: (not s_1) ~ r_1
+      ...
+      Tn: (not s_n) ~ r_n
+      [nnf-neg T1 ... Tn]: (not (and s_1 ... s_n)) ~ (or r_1 ... r_n)
+      and
+      T1: (not s_1) ~ r_1
+      ...
+      Tn: (not s_n) ~ r_n
+      [nnf-neg T1 ... Tn]: (not (or s_1 ... s_n)) ~ (and r_1 ... r_n)
+      and
+      T1: (not s_1) ~ r_1
+      T2: (not s_2) ~ r_2
+      T3: s_1 ~ r_1'
+      T4: s_2 ~ r_2'
+      [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
+      (and (or r_1 r_2) (or r_1' r_2'))) *)
   val is_nnf_neg : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
-     
-     A proof for (~ P Q) where Q is in negation normal form.
-     
-     This proof object is only used if the parameter PROOF_MODE is 1.       
-     
-     This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO. *)
+      
+      A proof for (~ P Q) where Q is in negation normal form.
+      
+      This proof object is only used if the parameter PROOF_MODE is 1.       
+      
+      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO. *)
   val is_nnf_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
-     
-     A proof for (~ P Q) where Q is in conjunctive normal form.
-     This proof object is only used if the parameter PROOF_MODE is 1.       
-     This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.           *)
+      
+      A proof for (~ P Q) where Q is in conjunctive normal form.
+      This proof object is only used if the parameter PROOF_MODE is 1.       
+      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.           *)
   val is_cnf_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for a Skolemization step
-     
-     Proof for: 
-     
-     [sk]: (~ (not (forall ( x : expr ) (p ( x : expr ) y))) (not (p (sk y) y)))
-     [sk]: (~ (exists ( x : expr ) (p ( x : expr ) y)) (p (sk y) y))
-     
-     This proof object has no antecedents. *)
+      
+      Proof for: 
+      
+      [sk]: (~ (not (forall ( x : expr ) (p ( x : expr ) y))) (not (p (sk y) y)))
+      [sk]: (~ (exists ( x : expr ) (p ( x : expr ) y)) (p (sk y) y))
+      
+      This proof object has no antecedents. *)
   val is_skolemize : Expr.expr -> bool
 
   (** Indicates whether the term is a proof by modus ponens for equi-satisfiability.
-     
-     Modus ponens style rule for equi-satisfiability.
-     T1: p
-     T2: (~ p q)
-     [mp~ T1 T2]: q   *)
+      
+      Modus ponens style rule for equi-satisfiability.
+      T1: p
+      T2: (~ p q)
+      [mp~ T1 T2]: q   *)
   val is_modus_ponens_oeq : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for theory lemma
-     
-     Generic proof for theory lemmas.
-     
-     The theory lemma function comes with one or more parameters.
-     The first parameter indicates the name of the theory.
-     For the theory of arithmetic, additional parameters provide hints for
-     checking the theory lemma. 
-     The hints for arithmetic are:
-     - farkas - followed by rational coefficients. Multiply the coefficients to the
-     inequalities in the lemma, add the (negated) inequalities and obtain a contradiction.
-     - triangle-eq - Indicates a lemma related to the equivalence:        
-     (iff (= t1 t2) (and (<= t1 t2) (<= t2 t1)))
-     - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test. *)
+      
+      Generic proof for theory lemmas.
+      
+      The theory lemma function comes with one or more parameters.
+      The first parameter indicates the name of the theory.
+      For the theory of arithmetic, additional parameters provide hints for
+      checking the theory lemma. 
+      The hints for arithmetic are:
+      - farkas - followed by rational coefficients. Multiply the coefficients to the
+      inequalities in the lemma, add the (negated) inequalities and obtain a contradiction.
+      - triangle-eq - Indicates a lemma related to the equivalence:        
+      (iff (= t1 t2) (and (<= t1 t2) (<= t2 t1)))
+      - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test. *)
   val is_theory_lemma : Expr.expr -> bool
 end
 
@@ -2265,12 +2257,12 @@ sig
   (** Indicates whether the goal is garbage (i.e., the product of over- and under-approximations). *)
   val is_garbage : goal -> bool
 
- (** Adds the constraints to the given goal. *)
+  (** Adds the constraints to the given goal. *)
   val add : goal -> Expr.expr list -> unit
- 
+    
   (** Indicates whether the goal contains `false'. *)
   val is_inconsistent : goal -> bool
-  
+    
   (** The depth of the goal.      
       This tracks how many transformations were applied to it. *)
   val get_depth : goal -> int
@@ -2300,7 +2292,7 @@ sig
   val simplify : goal -> Params.params option -> goal
 
   (** Creates a new Goal.
-     
+      
       Note that the Context must have been created with proof generation support if 
       the fourth argument is set to true here. *)
   val mk_goal : context -> bool -> bool -> bool -> goal
@@ -2323,7 +2315,7 @@ sig
   module FuncInterp :
   sig
     type func_interp 
-    
+      
     (** Function interpretations entries 
 
 	An Entry object represents an element in the finite map used to a function interpretation. *)  
@@ -2418,7 +2410,7 @@ sig
       {!get_sorts}
       @return A list of expressions, where each is an element of the universe of the sort *)
   val sort_universe : model -> Sort.sort -> AST.ast list
-      
+    
   (** Conversion of models to strings. 
       @return A string representation of the model. *)
   val to_string : model -> string
@@ -2437,8 +2429,8 @@ sig
   type probe 
 
   (** Execute the probe over the goal. 
-     @return A probe always produce a float value.
-     "Boolean" probes return 0.0 for false, and a value different from 0.0 for true. *)
+      @return A probe always produce a float value.
+      "Boolean" probes return 0.0 for false, and a value different from 0.0 for true. *)
   val apply : probe -> Goal.goal -> float
 
   (** The number of supported Probes. *)
@@ -2546,21 +2538,21 @@ sig
   val mk_tactic : context -> string -> tactic
 
   (** Create a tactic that applies one tactic to a Goal and
-     then another one to every subgoal produced by the first one. *)
+      then another one to every subgoal produced by the first one. *)
   val and_then : context -> tactic -> tactic -> tactic list -> tactic
 
   (** Create a tactic that first applies one tactic to a Goal and
-     if it fails then returns the result of another tactic applied to the Goal. *)
+      if it fails then returns the result of another tactic applied to the Goal. *)
   val or_else : context -> tactic -> tactic -> tactic
 
   (** Create a tactic that applies one tactic to a goal for some time (in milliseconds).    
-     
-     If the tactic does not terminate within the timeout, then it fails. *)
+      
+      If the tactic does not terminate within the timeout, then it fails. *)
   val try_for : context -> tactic -> int -> tactic
 
   (** Create a tactic that applies one tactic to a given goal if the probe 
       evaluates to true. 
-     
+      
       If the probe evaluates to false, then the new tactic behaves like the [skip] tactic.  *)
   val when_ : context -> Probe.probe -> tactic -> tactic
 
@@ -2569,7 +2561,7 @@ sig
   val cond : context -> Probe.probe -> tactic -> tactic -> tactic
 
   (** Create a tactic that keeps applying one tactic until the goal is not 
-     modified anymore or the maximum number of iterations is reached. *)
+      modified anymore or the maximum number of iterations is reached. *)
   val repeat : context -> tactic -> int -> tactic
 
   (** Create a tactic that just returns the given goal. *)
@@ -2582,14 +2574,14 @@ sig
   val fail_if : context -> Probe.probe -> tactic
 
   (** Create a tactic that fails if the goal is not triviall satisfiable (i.e., empty)
-     or trivially unsatisfiable (i.e., contains `false'). *)
+      or trivially unsatisfiable (i.e., contains `false'). *)
   val fail_if_not_decided : context -> tactic
 
   (** Create a tactic that applies a tactic using the given set of parameters. *)
   val using_params : context -> tactic -> Params.params -> tactic
 
   (** Create a tactic that applies a tactic using the given set of parameters.
-     Alias for [UsingParams]*)
+      Alias for [UsingParams]*)
   val with_ : context -> tactic -> Params.params -> tactic
 
   (** Create a tactic that applies the given tactics in parallel. *)
@@ -2600,7 +2592,7 @@ sig
   val par_and_then : context -> tactic -> tactic -> tactic
 
   (** Interrupt the execution of a Z3 procedure.        
-     This procedure can be used to interrupt: solvers, simplifiers and tactics. *)
+      This procedure can be used to interrupt: solvers, simplifiers and tactics. *)
   val interrupt : context -> unit
 end
 
@@ -2618,8 +2610,8 @@ sig
     type statistics 
 
     (**   Statistical data is organized into pairs of \[Key, Entry\], where every
-       Entry is either a floating point or integer value.
- *)
+	  Entry is either a floating point or integer value.
+    *)
     module Entry :
     sig
       type statistics_entry
@@ -2641,7 +2633,7 @@ sig
 	
       (** The string representation of the the entry's value. *)
       val to_string_value : statistics_entry -> string
-	    
+	
       (** The string representation of the entry (key and value) *)
       val to_string : statistics_entry -> string
     end
@@ -2672,49 +2664,49 @@ sig
   val get_param_descrs : solver -> Params.ParamDescrs.param_descrs
 
   (** The current number of backtracking points (scopes).
-     {!pop}
-     {!push} *)
+      {!pop}
+      {!push} *)
   val get_num_scopes : solver -> int
 
   (** Creates a backtracking point.
-     {!pop} *)
+      {!pop} *)
   val push : solver -> unit
 
   (** Backtracks a number of backtracking points.
-     Note that an exception is thrown if the integer is not smaller than {!get_num_scopes}
-     {!push} *)
+      Note that an exception is thrown if the integer is not smaller than {!get_num_scopes}
+      {!push} *)
   val pop : solver -> int -> unit
 
   (** Resets the Solver.
-     This removes all assertions from the solver. *)
+      This removes all assertions from the solver. *)
   val reset : solver -> unit
 
   (** Assert a constraint (or multiple) into the solver. *)        
   val add : solver -> Expr.expr list -> unit
 
   (** * Assert multiple constraints (cs) into the solver, and track them (in the
-     * unsat) core
-     * using the Boolean constants in ps.
-     *
-     * This API is an alternative to {!check} with assumptions for
-     * extracting unsat cores.
-     * Both APIs can be used in the same solver. The unsat core will contain a
-     * combination
-     * of the Boolean variables provided using {!assert_and_track}
-     * and the Boolean literals
-     * provided using {!check} with assumptions. *)
+      * unsat) core
+      * using the Boolean constants in ps.
+      *
+      * This API is an alternative to {!check} with assumptions for
+      * extracting unsat cores.
+      * Both APIs can be used in the same solver. The unsat core will contain a
+      * combination
+      * of the Boolean variables provided using {!assert_and_track}
+      * and the Boolean literals
+      * provided using {!check} with assumptions. *)
   val assert_and_track_l : solver -> Expr.expr list -> Expr.expr list -> unit
 
   (** * Assert a constraint (c) into the solver, and track it (in the unsat) core
-     * using the Boolean constant p.
-     * 
-     * This API is an alternative to {!check} with assumptions for
-     * extracting unsat cores.
-     * Both APIs can be used in the same solver. The unsat core will contain a
-     * combination
-     * of the Boolean variables provided using {!assert_and_track}
-     * and the Boolean literals
-     * provided using {!check} with assumptions. *)
+      * using the Boolean constant p.
+      * 
+      * This API is an alternative to {!check} with assumptions for
+      * extracting unsat cores.
+      * Both APIs can be used in the same solver. The unsat core will contain a
+      * combination
+      * of the Boolean variables provided using {!assert_and_track}
+      * and the Boolean literals
+      * provided using {!check} with assumptions. *)
   val assert_and_track : solver -> Expr.expr -> Expr.expr -> unit
 
   (** The number of assertions in the solver. *)
@@ -2724,29 +2716,29 @@ sig
   val get_assertions : solver -> Expr.expr list
 
   (** Checks whether the assertions in the solver are consistent or not.
-     
-     {!Model}
-     {!get_unsat_core}
-     {!Proof}     *)
+      
+      {!Model}
+      {!get_unsat_core}
+      {!Proof}     *)
   val check : solver -> Expr.expr list -> status
 
   (** The model of the last [Check].
-     
-     The result is [None] if [Check] was not invoked before,
-     if its results was not [SATISFIABLE], or if model production is not enabled. *)
+      
+      The result is [None] if [Check] was not invoked before,
+      if its results was not [SATISFIABLE], or if model production is not enabled. *)
   val get_model : solver -> Model.model option
 
   (** The proof of the last [Check].
-         
-     The result is [null] if [Check] was not invoked before,
-     if its results was not [UNSATISFIABLE], or if proof production is disabled. *)
+      
+      The result is [null] if [Check] was not invoked before,
+      if its results was not [UNSATISFIABLE], or if proof production is disabled. *)
   val get_proof : solver -> Expr.expr option
 
   (** The unsat core of the last [Check].
-     
-     The unsat core is a subset of [Assertions]
-     The result is empty if [Check] was not invoked before,
-     if its results was not [UNSATISFIABLE], or if core production is disabled. *)
+      
+      The unsat core is a subset of [Assertions]
+      The result is empty if [Check] was not invoked before,
+      if its results was not [UNSATISFIABLE], or if core production is disabled. *)
   val get_unsat_core : solver -> AST.ast list
 
   (** A brief justification of why the last call to [Check] returned [UNKNOWN]. *)
@@ -2756,23 +2748,23 @@ sig
   val get_statistics : solver -> Statistics.statistics
 
   (** Creates a new (incremental) solver. 
-     
-     This solver also uses a set of builtin tactics for handling the first 
-     check-sat command, and check-sat commands that take more than a given 
-     number of milliseconds to be solved.  *)    
+      
+      This solver also uses a set of builtin tactics for handling the first 
+      check-sat command, and check-sat commands that take more than a given 
+      number of milliseconds to be solved.  *)    
   val mk_solver : context -> Symbol.symbol option -> solver
 
   (** Creates a new (incremental) solver.
-     {!mk_solver} *)        
+      {!mk_solver} *)        
   val mk_solver_s : context -> string -> solver
 
   (** Creates a new (incremental) solver.  *)
   val mk_simple_solver : context -> solver
 
   (** Creates a solver that is implemented using the given tactic.
-     
-     The solver supports the commands [Push] and [Pop], but it
-     will always solve each check from scratch. *)
+      
+      The solver supports the commands [Push] and [Pop], but it
+      will always solve each check from scratch. *)
   val mk_solver_t : context -> Tactic.tactic -> solver
 
   (** A string representation of the solver. *)
@@ -2806,32 +2798,32 @@ sig
   val add_fact : fixedpoint -> FuncDecl.func_decl -> int list -> unit
 
   (** Query the fixedpoint solver.
-     A query is a conjunction of constraints. The constraints may include the recursively defined relations.
-     The query is satisfiable if there is an instance of the query variables and a derivation for it.
-     The query is unsatisfiable if there are no derivations satisfying the query variables.  *)        
+      A query is a conjunction of constraints. The constraints may include the recursively defined relations.
+      The query is satisfiable if there is an instance of the query variables and a derivation for it.
+      The query is unsatisfiable if there are no derivations satisfying the query variables.  *)        
   val query : fixedpoint -> Expr.expr -> Solver.status
 
   (** Query the fixedpoint solver.
-     A query is an array of relations.
-     The query is satisfiable if there is an instance of some relation that is non-empty.
-     The query is unsatisfiable if there are no derivations satisfying any of the relations. *)        
+      A query is an array of relations.
+      The query is satisfiable if there is an instance of some relation that is non-empty.
+      The query is unsatisfiable if there are no derivations satisfying any of the relations. *)        
   val query_r : fixedpoint -> FuncDecl.func_decl list -> Solver.status
 
   (** Creates a backtracking point.
-     {!pop} *)
+      {!pop} *)
   val push : fixedpoint -> unit
 
   (** Backtrack one backtracking point.
 
-     Note that an exception is thrown if Pop is called without a corresponding [Push]</remarks>
-     {!push} *)
+      Note that an exception is thrown if Pop is called without a corresponding [Push]</remarks>
+      {!push} *)
   val pop : fixedpoint -> unit
 
   (** Update named rule into in the fixedpoint solver. *)        
   val update_rule : fixedpoint -> Expr.expr -> Symbol.symbol -> unit
 
   (** Retrieve satisfying instance or instances of solver, 
-     or definitions for the recursive predicates that show unsatisfiability. *)                
+      or definitions for the recursive predicates that show unsatisfiability. *)                
   val get_answer : fixedpoint -> Expr.expr option
 
   (** Retrieve explanation why fixedpoint engine returned status Unknown. *)                
@@ -2844,7 +2836,7 @@ sig
   val get_cover_delta : fixedpoint -> int -> FuncDecl.func_decl -> Expr.expr option
 
   (** Add <tt>property</tt> about the <tt>predicate</tt>.
-     The property is added at <tt>level</tt>. *)                
+      The property is added at <tt>level</tt>. *)                
   val add_cover : fixedpoint -> int -> FuncDecl.func_decl -> Expr.expr -> unit
 
   (** Retrieve internal string representation of fixedpoint object. *)
@@ -2871,7 +2863,7 @@ module SMT :
 sig
   (** Convert a benchmark into an SMT-LIB formatted string.
 
-     @return A string representation of the benchmark. *)
+      @return A string representation of the benchmark. *)
   val benchmark_to_smtstring : context -> string -> string -> string -> string -> Expr.expr list -> Expr.expr -> string
 
   (** Parse the given string using the SMT-LIB parser. 
@@ -2884,7 +2876,7 @@ sig
   val parse_smtlib_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
 
   (** Parse the given file using the SMT-LIB parser. 
-     {!parse_smtlib_string} *)
+      {!parse_smtlib_string} *)
   val parse_smtlib_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
 
   (** The number of SMTLIB formulas parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
@@ -2913,13 +2905,59 @@ sig
 
   (** Parse the given string using the SMT-LIB2 parser. 
 
-     {!parse_smtlib_string}
-     @return A conjunction of assertions in the scope (up to push/pop) at the end of the string. *)
+      {!parse_smtlib_string}
+      @return A conjunction of assertions in the scope (up to push/pop) at the end of the string. *)
   val parse_smtlib2_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
 
   (** Parse the given file using the SMT-LIB2 parser. 
-     {!parse_smtlib2_string} *)
+      {!parse_smtlib2_string} *)
   val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
+end
+
+(** Interpolation *)
+module Interpolation :
+sig
+
+  (** Create an AST node marking a formula position for interpolation.
+      The expression must have Boolean sort. *)
+  val mk_interpolant : context -> Expr.expr -> Expr.expr
+    
+  (** The interpolation context is suitable for generation of interpolants.
+      For more information on interpolation please refer
+      too the C/C++ API, which is well documented. *)
+  val mk_interpolation_context : (string * string) list -> context
+
+  (** Gets an interpolant.
+      For more information on interpolation please refer
+      too the C/C++ API, which is well documented. *)
+  val get_interpolant : context -> Expr.expr -> Expr.expr -> Params.params -> AST.ASTVector.ast_vector
+
+  (** Computes an interpolant.
+      For more information on interpolation please refer
+      too the C/C++ API, which is well documented. *)
+  val compute_interpolant : context -> Expr.expr -> Params.params -> (AST.ASTVector.ast_vector * Model.model)
+
+  (** Retrieves an interpolation profile.
+      For more information on interpolation please refer
+      too the C/C++ API, which is well documented. *)
+  val get_interpolation_profile : context -> string
+    
+  (** Read an interpolation problem from file.
+      For more information on interpolation please refer
+      too the C/C++ API, which is well documented. *)
+  val read_interpolation_problem : context -> string -> (Expr.expr list * int list * Expr.expr list)
+    
+  (** Check the correctness of an interpolant.
+      For more information on interpolation please refer
+      too the C/C++ API, which is well documented. *)
+  val check_interpolant : context -> int -> Expr.expr list -> int list -> Expr.expr list -> int -> Expr.expr list -> unit
+
+  (** Write an interpolation problem to file suitable for reading with
+      Z3_read_interpolation_problem.
+      For more information on interpolation please refer
+      too the C/C++ API, which is well documented. *)
+  val write_interpolation_problem : context -> int -> Expr.expr list -> int list -> string -> int -> Expr.expr list -> unit
+
 end
 
 (** Set a global (or module) parameter, which is shared by all Z3 contexts.
@@ -2939,9 +2977,9 @@ end
 val set_global_param : string -> string -> unit
 
 (** Get a global (or module) parameter.
-                   
+    
     Returns None if the parameter does not exist.
-    The caller must invoke #Z3_global_param_del_value to delete the value returned at \c param_value.
+    The caller must invoke #Z3_global_param_del_value to delete the value returned at param_value.
     This function cannot be invoked simultaneously from different threads without synchronization.
     The result string stored in param_value is stored in a shared location.
 *)
