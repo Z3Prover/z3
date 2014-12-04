@@ -1394,16 +1394,18 @@ class MLComponent(Component):
                     archives,
                     get_component(Z3_DLL_COMPONENT).dll_name))
             out.write(' %s\n' % (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)')))
-            out.write('\tcd %s ; ocamlmklib -o z3ml -ldopt \'-L../.. -lz3\' ' % (sub_dir))
+            out.write('\tocamlmklib -o %s -I %s -ldopt \'-L. -lz3\' ' % (
+                    os.path.join(sub_dir, 'z3ml'),
+                    sub_dir))
             for m in modules:
-                out.write(' %s.ml' % m)
-            out.write(' z3native_stubs$(OBJ_EXT) ; cd -\n')
+                out.write(' %s' % (os.path.join(sub_dir, m+'.ml')))
+            out.write(' z3native_stubs$(OBJ_EXT)\n')
             out.write('ml: %s\n' % (os.path.join(sub_dir, 'z3ml.cmxa')))
             self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
             if OCAMLFIND != '':
                 out.write('\nocamlfind_install: %s %s %s\n' % (
-                        get_component(Z3_DLL_COMPONENT).dll_name)+'$(SO_EXT)',
-                        os.path.join(sub_dir, 'z3ml.cmxa'), 
+                        get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT)',
+                        os.path.join(sub_dir, 'z3ml.cmxa'),
                         os.path.join(sub_dir, 'META')))
                 out.write('\t%s remove Z3\n' % (OCAMLFIND))
                 out.write('\t%s install Z3 %s' % (OCAMLFIND, (os.path.join(sub_dir, 'META'))))
@@ -1424,7 +1426,7 @@ class MLComponent(Component):
                     out.write('.lib')
                 else:
                     out.write('.so') # .so also on OSX!
-                out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name) + '$(SO_EXT)'))))
+                out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT)')
                 out.write('\n\n')
     
     def main_component(self):
