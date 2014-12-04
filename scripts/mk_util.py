@@ -1416,8 +1416,8 @@ class MLComponent(Component):
             out.write('%s:' % (os.path.join(sub_dir, "z3.cmxa")))
             for m in modules:
                 out.write(' %s.cmi' % (os.path.join(sub_dir, m)))
-                out.write(' %s.cmx' % (os.path.join(sub_dir, m)))
-                out.write(' %s.cmo' % (os.path.join(sub_dir, m)))
+                # out.write(' %s.cmx' % (os.path.join(sub_dir, m)))
+                # out.write(' %s.cmo' % (os.path.join(sub_dir, m)))
             out.write('%s/z3native_stubs.o\n' % (sub_dir))
             out.write('\tcd %s ; ocamlmklib -verbose -o z3' % (sub_dir))
             for m in modules:
@@ -1435,11 +1435,15 @@ class MLComponent(Component):
                 for m in modules:
                     out.write(' %s.cma' % (os.path.join(sub_dir, m)))
                     out.write(' %s.cmxa' % (os.path.join(sub_dir, m)))
-                    out.write(' %s.cmxx' % (os.path.join(sub_dir, m)))
-                    out.write(' %s.cmi' % (os.path.join(sub_dir, m)))
                     out.write(' %s.cmx' % (os.path.join(sub_dir, m)))
+                    out.write(' %s.cmxs' % (os.path.join(sub_dir, m)))
+                    out.write(' %s.cmi' % (os.path.join(sub_dir, m)))
                 out.write(' %s' % ((os.path.join(sub_dir, 'libz3$(LIB_EXT)'))))
-                out.write(' %s' % ((os.path.join(sub_dir, 'dllz3$(SO_EXT)'))))
+                out.write(' %s' % ((os.path.join(sub_dir, 'dllz3'))))
+                if IS_WINDOWS:
+                    out.write('.lib')
+                else:
+                    out.write('.so') # .so also on OSX!
                 out.write('\n\n')
     
     def main_component(self):
