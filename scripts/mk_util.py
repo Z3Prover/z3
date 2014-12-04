@@ -1422,14 +1422,19 @@ class MLComponent(Component):
             # if DEBUG_MODE:
             #     out.write('-g ')
             # out.write('-cclib "-L %s -lz3ml" -shared -o %s %s -linkall\n' % (sub_dir, os.path.join(sub_dir, 'z3.cmxs'), os.path.join(sub_dir, 'z3.cmxa')))
-            # out.write('%s: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT) %s' % (os.path.join(sub_dir, 'z3.cma'), get_component(Z3_DLL_COMPONENT).dll_name, cmis))
-            # for mlfile in get_ml_files(self.src_dir):
-            #     out.write(' %s' % os.path.join(sub_dir, mlfile))
-            # out.write('\n')
-            # out.write('\t%s ' % (OCAMLC))
-            # if DEBUG_MODE:
-            #     out.write('-g ')
-            # out.write('-cclib "-L %s -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cma -linkall\n' % (sub_dir, sub_dir,sub_dir,sub_dir,sub_dir))            
+            out.write('%s: %s %s$(SO_EXT) %s' % (
+                    os.path.join(sub_dir, 'z3.cma'), 
+                    os.path.join(sub_dir, 'libz3ml$(LIB_EXT)'),
+                    get_component(Z3_DLL_COMPONENT).dll_name, cmis))
+            for mlfile in get_ml_files(self.src_dir):
+                out.write(' %s' % os.path.join(sub_dir, mlfile))
+            out.write('\n')
+            out.write('\t%s ' % (OCAMLC))
+            if DEBUG_MODE:
+                out.write('-g ')
+            out.write('-I %s -a -o %s -linkall' % (sub_dir, os.path.join(sub_dir, 'z3.cma')))
+            for m in modules:
+                out.write(' %s.ml' % (os.path.join(sub_dir, m)))
 
             out.write('%s:' % (os.path.join(sub_dir, "z3.cmxa")))
             for m in modules:
