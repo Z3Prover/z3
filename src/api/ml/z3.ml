@@ -110,7 +110,7 @@ struct
     string_of_int mj ^ "." ^
       string_of_int mn ^ "." ^
       string_of_int bld ^ "." ^
-      string_of_int rev ^ "."
+      string_of_int rev
 end
 
 
