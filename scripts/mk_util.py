@@ -1422,8 +1422,9 @@ class MLComponent(Component):
             out.write('\tcd %s ; ocamlmklib -verbose -o z3' % (sub_dir))
             for m in modules:
                 out.write(' ' + m)
-            out.write('z3native_stubs$(OBJ_EXT) ; cd -' )
-            out.write('ml: %s\n' % (os.path.join(sub_dir, 'z3.cmxa'))) # , os.path.join(sub_dir, 'z3.cmxs'), os.path.join(sub_dir, 'z3.cma')))
+            out.write(' z3native_stubs$(OBJ_EXT) ; cd -\n')
+            out.write('ml: %s\n' % (os.path.join(sub_dir, 'z3.cmxa'))) 
+            # , os.path.join(sub_dir, 'z3.cmxs'), os.path.join(sub_dir, 'z3.cma')))
             #out.write('\n')
             # Generate META file and package installation commands
             self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
