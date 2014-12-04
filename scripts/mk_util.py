@@ -1421,7 +1421,7 @@ class MLComponent(Component):
             out.write(' %s/z3native_stubs.o\n' % (sub_dir))
             out.write('\tcd %s ; ocamlmklib -verbose -o z3' % (sub_dir))
             for m in modules:
-                out.write(' ' + m)
+                out.write(' %s.ml' % m)
             out.write(' z3native_stubs$(OBJ_EXT) ; cd -\n')
             out.write('ml: %s\n' % (os.path.join(sub_dir, 'z3.cmxa'))) 
             # , os.path.join(sub_dir, 'z3.cmxs'), os.path.join(sub_dir, 'z3.cma')))
