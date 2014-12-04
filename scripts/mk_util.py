@@ -1436,28 +1436,28 @@ class MLComponent(Component):
                 out.write(' %s.cmi' % (os.path.join(sub_dir, m)))
                 # out.write(' %s.cmx' % (os.path.join(sub_dir, m)))
                 # out.write(' %s.cmo' % (os.path.join(sub_dir, m)))
-            out.write(' %s/z3native_stubs.o\n' % (sub_dir))
-            out.write('\tcd %s ; ocamlmklib -verbose -o z3' % (sub_dir))
+            out.write(' %s\n' % (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)')))
+            out.write('\tcd %s ; ocamlmklib -o z3ml' % (sub_dir))
             for m in modules:
                 out.write(' %s.ml' % m)
             out.write(' z3native_stubs$(OBJ_EXT) ; cd -\n')
-            out.write('ml: %s\n' % (os.path.join(sub_dir, 'z3.cmxa'))) 
+            out.write('ml: %s\n' % (os.path.join(sub_dir, 'z3.cmxa')))
             # , os.path.join(sub_dir, 'z3.cmxs'), os.path.join(sub_dir, 'z3.cma')))
             #out.write('\n')
             # Generate META file and package installation commands
             self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
             if OCAMLFIND != '':
-                out.write('\nocamlfind_install: api/ml/z3.cmxa api/ml/META\n')
+                out.write('\nocamlfind_install: %s %s\n' % (os.path.join(sub_dir, 'z3.cmxa'), os.path.join(sub_dir, 'META')))
                 out.write('\t%s remove Z3\n' % (OCAMLFIND))
                 out.write('\t%s install Z3 %s' % (OCAMLFIND, (os.path.join(sub_dir, 'META'))))
                 for m in modules:
                     out.write(' %s.cma' % (os.path.join(sub_dir, m)))
                     out.write(' %s.cmxa' % (os.path.join(sub_dir, m)))
                     out.write(' %s.cmx' % (os.path.join(sub_dir, m)))
-                    out.write(' %s.cmxs' % (os.path.join(sub_dir, m)))
+                    #out.write(' %s.cmxs' % (os.path.join(sub_dir, m)))
                     out.write(' %s.cmi' % (os.path.join(sub_dir, m)))
-                out.write(' %s' % ((os.path.join(sub_dir, 'libz3$(LIB_EXT)'))))
-                out.write(' %s' % ((os.path.join(sub_dir, 'dllz3'))))
+                out.write(' %s' % ((os.path.join(sub_dir, 'libz3ml$(LIB_EXT)'))))
+                out.write(' %s' % ((os.path.join(sub_dir, 'dllz3ml'))))
                 if IS_WINDOWS:
                     out.write('.lib')
                 else:
