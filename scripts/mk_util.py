@@ -1394,12 +1394,10 @@ class MLComponent(Component):
                     archives,
                     get_component(Z3_DLL_COMPONENT).dll_name))
             out.write(' %s\n' % (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)')))
-            out.write('\tocamlmklib -o %s -I %s -ldopt \'-L. -lz3\' ' % (
-                    os.path.join(sub_dir, 'z3ml'),
-                    sub_dir))
+            out.write('\tocamlmklib -o %s -I %s -ldopt \"-L. -lz3\" ' % (os.path.join(sub_dir, 'z3ml'), sub_dir))
             for m in modules:
                 out.write(' %s' % (os.path.join(sub_dir, m+'.ml')))
-            out.write(' z3native_stubs$(OBJ_EXT)\n')
+            out.write(' %s\n' % (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)')))
             out.write('ml: %s\n' % (os.path.join(sub_dir, 'z3ml.cmxa')))
             self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
             if OCAMLFIND != '':
@@ -1417,13 +1415,13 @@ class MLComponent(Component):
                     out.write(' %s.ml' % (os.path.join(sub_dir, m)))
                     out.write(' %s.mli' % (os.path.join(sub_dir, m)))
                     out.write(' %s$(OBJ_EXT)' % (os.path.join(sub_dir, m)))
-                out.write(' %s' % ((os.path.join(sub_dir, 'z3ml.a'))))
+                out.write(' %s' % ((os.path.join(sub_dir, 'z3ml$(LIB_EXT)'))))
                 out.write(' %s' % ((os.path.join(sub_dir, 'z3ml.cma'))))
                 out.write(' %s' % ((os.path.join(sub_dir, 'z3ml.cmxa'))))
                 out.write(' %s' % ((os.path.join(sub_dir, 'libz3ml$(LIB_EXT)'))))
                 out.write(' %s' % ((os.path.join(sub_dir, 'dllz3ml'))))
                 if IS_WINDOWS:
-                    out.write('.lib')
+                    out.write('.dll')
                 else:
                     out.write('.so') # .so also on OSX!
                 out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT)')
@@ -1550,7 +1548,7 @@ class MLExampleComponent(ExampleComponent):
 
     def mk_makefile(self, out):
         if ML_ENABLED:
-            out.write('ml_example.byte: api/ml/z3ml.cma ')
+            out.write('ml_example.byte: api/ml/z3ml.cmxa ')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
             out.write('\n')
