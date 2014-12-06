@@ -1443,6 +1443,8 @@ class MLComponent(Component):
                 else:
                     out.write('.so') # .so also on OSX!
                 out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT)')
+                if IS_WINDOWS:
+                    out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name + '$(LIB_EXT)')
                 out.write('\n\n')
 
     
