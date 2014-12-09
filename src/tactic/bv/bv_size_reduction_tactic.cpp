@@ -151,7 +151,7 @@ struct bv_size_reduction_tactic::imp {
                             // bound is infeasible.
                         } 
                         else {
-                            update_signed_upper(to_app(lhs), val);
+                            update_signed_upper(to_app(rhs), val);
                         }                        
                     }
                     else update_signed_lower(to_app(rhs), val);
@@ -229,17 +229,35 @@ struct bv_size_reduction_tactic::imp {
                         else {
                             // l < u
                             if (l.is_neg()) {
-                                unsigned i_nb = (u - l).get_num_bits();
+                                unsigned l_nb = (-l).get_num_bits();
                                 unsigned v_nb = m_util.get_bv_size(v);
-                                if (i_nb < v_nb) {
-                                    new_const = m.mk_fresh_const(0, m_util.mk_sort(i_nb));
-                                    new_def = m_util.mk_sign_extend(v_nb - i_nb, new_const);
+
+                                if (u.is_neg())
+                                {
+                                    // l <= v <= u <= 0
+                                    unsigned i_nb = l_nb;
+                                    TRACE("bv_size_reduction", tout << " l <= " << v->get_decl()->get_name() << " <= u <= 0 " << " --> " << i_nb << " bits\n";);
+                                    if (i_nb < v_nb) {
+                                        new_const = m.mk_fresh_const(0, m_util.mk_sort(i_nb));
+                                        new_def = m_util.mk_concat(m_util.mk_numeral(numeral(-1), v_nb - i_nb), new_const);
+                                    }
+                                }
+                                else {
+                                    // l <= v <= 0 <= u
+                                    unsigned u_nb = u.get_num_bits();
+                                    unsigned i_nb = ((l_nb > u_nb) ? l_nb : u_nb) + 1;
+                                    TRACE("bv_size_reduction", tout << " l <= " << v->get_decl()->get_name() << " <= 0 <= u " << " --> " << i_nb << " bits\n";);
+                                    if (i_nb < v_nb) {
+                                        new_const = m.mk_fresh_const(0, m_util.mk_sort(i_nb));
+                                        new_def = m_util.mk_sign_extend(v_nb - i_nb, new_const);
+                                    }
                                 }
                             }
                             else {
                                 // 0 <= l <= v <= u
                                 unsigned u_nb = u.get_num_bits();
                                 unsigned v_nb = m_util.get_bv_size(v);
+                                TRACE("bv_size_reduction", tout << l << " <= " << v->get_decl()->get_name() << " <= " << u << " --> " << u_nb << " bits\n";);
                                 if (u_nb < v_nb) {
                                     new_const = m.mk_fresh_const(0, m_util.mk_sort(u_nb));
                                     new_def = m_util.mk_concat(m_util.mk_numeral(numeral(0), v_nb - u_nb), new_const);

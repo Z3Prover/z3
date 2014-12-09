@@ -298,8 +298,8 @@ class AstRef(Z3PPObject):
         return self.ast
 
     def get_id(self):
-	"""Return unique identifier for object. It can be used for hash-tables and maps."""
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+        """Return unique identifier for object. It can be used for hash-tables and maps."""
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
 
     def ctx_ref(self):
@@ -453,7 +453,7 @@ class SortRef(AstRef):
         return Z3_sort_to_ast(self.ctx_ref(), self.ast)
 
     def get_id(self):
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
 
     def kind(self):
@@ -595,7 +595,7 @@ class FuncDeclRef(AstRef):
         return Z3_func_decl_to_ast(self.ctx_ref(), self.ast)
 
     def get_id(self):
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def as_func_decl(self):
         return self.ast
@@ -743,7 +743,7 @@ class ExprRef(AstRef):
         return self.ast
 
     def get_id(self):
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def sort(self):
         """Return the sort of expression `self`.
@@ -1540,7 +1540,7 @@ class PatternRef(ExprRef):
         return Z3_pattern_to_ast(self.ctx_ref(), self.ast)
 
     def get_id(self):
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
 def is_pattern(a):
     """Return `True` if `a` is a Z3 pattern (hint for quantifier instantiation.
@@ -1605,7 +1605,7 @@ class QuantifierRef(BoolRef):
         return self.ast
 
     def get_id(self):
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def sort(self):
         """Return the Boolean sort."""
@@ -6033,20 +6033,20 @@ class Solver(Z3PPObject):
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
 
     def to_smt2(self):
-	"""return SMTLIB2 formatted benchmark for solver's assertions"""
-	es = self.assertions()
-	sz = len(es)
-	sz1 = sz
-	if sz1 > 0:
-	    sz1 -= 1
-	v = (Ast * sz1)()
-	for i in range(sz1):
-	    v[i] = es[i].as_ast()
-	if sz > 0:
-	    e = es[sz1].as_ast()
-	else:
-	    e = BoolVal(True, self.ctx).as_ast()
-	return Z3_benchmark_to_smtlib_string(self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e)
+        """return SMTLIB2 formatted benchmark for solver's assertions"""
+        es = self.assertions()
+        sz = len(es)
+        sz1 = sz
+        if sz1 > 0:
+            sz1 -= 1
+        v = (Ast * sz1)()
+        for i in range(sz1):
+            v[i] = es[i].as_ast()
+        if sz > 0:
+            e = es[sz1].as_ast()
+        else:
+            e = BoolVal(True, self.ctx).as_ast()
+            return Z3_benchmark_to_smtlib_string(self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e)
 
 
 
@@ -6166,7 +6166,7 @@ class Fixedpoint(Z3PPObject):
             Z3_fixedpoint_add_rule(self.ctx.ref(), self.fixedpoint, head.as_ast(), name)            
         else:
             body = _get_args(body)
-            f    = self.abstract(Implies(And(body),head))
+            f    = self.abstract(Implies(And(body, self.ctx),head))
             Z3_fixedpoint_add_rule(self.ctx.ref(), self.fixedpoint, f.as_ast(), name)
         
     def rule(self, head, body = None, name = None):
@@ -6194,7 +6194,7 @@ class Fixedpoint(Z3PPObject):
             if sz == 1:
                 query = query[0]
             else:
-                query = And(query)
+                query = And(query, self.ctx)
             query = self.abstract(query, False)
             r = Z3_fixedpoint_query(self.ctx.ref(), self.fixedpoint, query.as_ast())
         return CheckSatResult(r)
@@ -6213,7 +6213,7 @@ class Fixedpoint(Z3PPObject):
             name = ""
         name = to_symbol(name, self.ctx)
         body = _get_args(body)
-        f    = self.abstract(Implies(And(body),head))
+        f    = self.abstract(Implies(And(body, self.ctx),head))
         Z3_fixedpoint_update_rule(self.ctx.ref(), self.fixedpoint, f.as_ast(), name)
 
     def get_answer(self):       

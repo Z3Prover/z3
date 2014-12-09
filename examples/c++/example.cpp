@@ -21,6 +21,7 @@ void demorgan() {
     // adding the negation of the conjecture as a constraint.
     s.add(!conjecture);
     std::cout << s << "\n";
+    std::cout << s.to_smt2() << "\n";
     switch (s.check()) {
     case unsat:   std::cout << "de-Morgan is valid\n"; break;
     case sat:     std::cout << "de-Morgan is not valid\n"; break;

@@ -1100,6 +1100,7 @@ protected:
     virtual void set_manager(ast_manager * m, family_id id);
     func_decl * mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache);
     func_decl * mk_ite_decl(sort * s);
+    sort* join(sort* s1, sort* s2);
 public:
     basic_decl_plugin();
     
@@ -1378,7 +1379,7 @@ enum proof_gen_mode {
 // -----------------------------------
 
 class ast_manager {
-protected:
+    friend class basic_decl_plugin;
 protected:
     struct config {
         typedef ast_manager              value_manager;
