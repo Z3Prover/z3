@@ -54,7 +54,11 @@ Revision History:
 // the case that each context only references a few expressions.
 // Using a map instead of a vector for the literals can compress space 
 // consumption.
+#ifdef SPARSE_MAP
+#define USE_BOOL_VAR_VECTOR 0
+#else
 #define USE_BOOL_VAR_VECTOR 1
+#endif
 
 namespace smt {
 
@@ -68,6 +72,7 @@ namespace smt {
         std::ostream& display_last_failure(std::ostream& out) const;
         std::string last_failure_as_string() const;
         void set_progress_callback(progress_callback *callback);
+
 
     protected:
         ast_manager &               m_manager;
@@ -106,7 +111,7 @@ namespace smt {
         // -----------------------------------
         enode *                     m_true_enode;
         enode *                     m_false_enode;
-        ptr_vector<enode>           m_app2enode;    // app -> enode
+        app2enode_t                 m_app2enode;    // app -> enode
         ptr_vector<enode>           m_enodes;
         plugin_manager<theory>      m_theories;     // mapping from theory_id -> theory
         ptr_vector<theory>          m_theory_set;   // set of theories for fast traversal
@@ -1390,7 +1395,7 @@ namespace smt {
         
         void get_model(model_ref & m) const;
 
-        void update_model();
+        bool update_model(bool refinalize);
 
         void get_proto_model(proto_model_ref & m) const;
         

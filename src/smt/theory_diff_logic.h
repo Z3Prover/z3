@@ -320,7 +320,7 @@ namespace smt {
         //
         // -----------------------------------
 
-        virtual inf_eps maximize(theory_var v, expr_ref& blocker);
+        virtual inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared);
         virtual inf_eps value(theory_var v);
         virtual theory_var add_objective(app* term);
         virtual expr_ref mk_gt(theory_var v, inf_rational const& val);

@@ -222,7 +222,6 @@ namespace opt {
         for (unsigned i = 0; i < m_lower.size() && !m_cancel; ++i) {
             if (m_lower[i] < m_upper[i]) {
                 mid.push_back((m_upper[i]+m_lower[i])/rational(2));
-                //mid.push_back(m_upper[i]);
                 bound = m_s->mk_ge(i, mid[i]);
                 bounds.push_back(bound);
             }
@@ -371,6 +370,10 @@ namespace opt {
     inf_eps optsmt::get_lower(unsigned i) const {
         if (i >= m_lower.size()) return inf_eps();
         return m_lower[i];
+    }
+
+    bool optsmt::objective_is_model_valid(unsigned index) const {
+        return m_s->objective_is_model_valid(index);
     }
 
     inf_eps optsmt::get_upper(unsigned i) const {

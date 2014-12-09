@@ -38,7 +38,7 @@ Z3 exceptions:
 ...   n = x + y
 ... except Z3Exception as ex:
 ...   print("failed: %s" % ex)
-failed: 'sort mismatch'
+failed: sort mismatch
 """
 from z3core import *
 from z3types import *
@@ -1396,7 +1396,7 @@ def BoolVector(prefix, sz, ctx=None):
     return [ Bool('%s__%s' % (prefix, i)) for i in range(sz) ]
 
 def FreshBool(prefix='b', ctx=None):
-    """Return a fresh Bolean constant in the given context using the given prefix.
+    """Return a fresh Boolean constant in the given context using the given prefix.
     
     If `ctx=None`, then the global context is used.    
 
@@ -6162,7 +6162,7 @@ class Fixedpoint(Z3PPObject):
             Z3_fixedpoint_add_rule(self.ctx.ref(), self.fixedpoint, head.as_ast(), name)            
         else:
             body = _get_args(body)
-            f    = self.abstract(Implies(And(body),head))
+            f    = self.abstract(Implies(And(body,self.ctx),head))
             Z3_fixedpoint_add_rule(self.ctx.ref(), self.fixedpoint, f.as_ast(), name)
         
     def rule(self, head, body = None, name = None):
@@ -6190,7 +6190,7 @@ class Fixedpoint(Z3PPObject):
             if sz == 1:
                 query = query[0]
             else:
-                query = And(query)
+                query = And(query, self.ctx)
             query = self.abstract(query, False)
             r = Z3_fixedpoint_query(self.ctx.ref(), self.fixedpoint, query.as_ast())
         return CheckSatResult(r)
@@ -6209,7 +6209,7 @@ class Fixedpoint(Z3PPObject):
             name = ""
         name = to_symbol(name, self.ctx)
         body = _get_args(body)
-        f    = self.abstract(Implies(And(body),head))
+        f    = self.abstract(Implies(And(body, self.ctx),head))
         Z3_fixedpoint_update_rule(self.ctx.ref(), self.fixedpoint, f.as_ast(), name)
 
     def get_answer(self):       

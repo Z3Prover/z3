@@ -131,7 +131,7 @@ public:
     value const& get(key const& k, value const& default_value) const {
         entry* e = find_core(k);
         if (e) {
-            return e->m_value;
+	  return e->get_data().m_value;
         }
         else {
             return default_value;

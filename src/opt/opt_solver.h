@@ -76,6 +76,8 @@ namespace opt {
         bool                m_objective_enabled;
         svector<smt::theory_var>  m_objective_vars;
         vector<inf_eps>     m_objective_values;
+        sort_ref_vector     m_objective_sorts;
+        svector<bool>       m_valid_objectives;
         bool                m_dump_benchmarks;
         static unsigned     m_dump_count;
         statistics          m_stats;
@@ -109,6 +111,9 @@ namespace opt {
         void maximize_objectives(expr_ref_vector& blockers);
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
+        bool objective_is_model_valid(unsigned obj_index) const {
+            return m_valid_objectives[obj_index];
+        }
 
         vector<inf_eps> const& get_objective_values();
         expr_ref mk_ge(unsigned obj_index, inf_eps const& val);
@@ -124,6 +129,9 @@ namespace opt {
                                unsigned num_assumptions, expr * const * assumptions,
                                char const * name = "benchmarks", 
                                char const * logic = "", char const * status = "unknown", char const * attributes = "");
+
+    private:
+        void decrement_value(unsigned i, inf_eps& val);
     };
 }
 

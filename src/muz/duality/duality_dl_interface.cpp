@@ -37,6 +37,7 @@ Revision History:
 #include "fixedpoint_params.hpp"
 #include "used_vars.h"
 #include "func_decl_dependencies.h"
+#include "dl_transforms.h"
 
 // template class symbol_table<family_id>;
 
@@ -155,8 +156,41 @@ lbool dl_interface::query(::expr * query) {
 
   expr_ref_vector rules(m_ctx.get_manager());
   svector< ::symbol> names;  
+  vector<unsigned> bounds;
   // m_ctx.get_rules_as_formulas(rules, names);
-   m_ctx.get_raw_rule_formulas(rules, names);
+
+
+  // If using SAS 2013 abstractiion, we need to perform some transforms
+  expr_ref query_ref(m_ctx.get_manager());
+  if(m_ctx.quantify_arrays()){
+    datalog::rule_manager& rm = m_ctx.get_rule_manager();
+    rm.mk_query(query, m_ctx.get_rules());
+    apply_default_transformation(m_ctx);
+    datalog::rule_set &rs = m_ctx.get_rules();
+    if(m_ctx.get_rules().get_output_predicates().empty())
+        query_ref = m_ctx.get_manager().mk_false();
+    else {
+        func_decl_ref query_pred(m_ctx.get_manager());
+	query_pred = m_ctx.get_rules().get_output_predicate();
+	ptr_vector<sort> sorts;
+	unsigned nargs = query_pred.get()->get_arity();
+	expr_ref_vector vars(m_ctx.get_manager());
+	for(unsigned i = 0; i < nargs; i++){
+	  ::sort *s = query_pred.get()->get_domain(i);
+	  vars.push_back(m_ctx.get_manager().mk_var(nargs-1-i,s));
+	}
+	query_ref = m_ctx.get_manager().mk_app(query_pred.get(),nargs,vars.c_ptr());
+	query = query_ref.get();
+    }
+    unsigned nrules = rs.get_num_rules();
+    for(unsigned i = 0; i < nrules; i++){
+      expr_ref f(m_ctx.get_manager());
+      rm.to_formula(*rs.get_rule(i), f);
+      rules.push_back(f);
+    }
+  }
+  else 
+    m_ctx.get_raw_rule_formulas(rules, names, bounds);
 
   // get all the rules as clauses
   std::vector<expr> &clauses = _d->clauses;
@@ -200,6 +234,7 @@ lbool dl_interface::query(::expr * query) {
   expr qc = implies(q,_d->ctx.bool_val(false));
   qc = _d->ctx.make_quant(Forall,b_sorts,b_names,qc);
   clauses.push_back(qc);
+  bounds.push_back(UINT_MAX);
   
   // get the background axioms
   unsigned num_asserts = m_ctx.get_num_assertions();
@@ -243,13 +278,21 @@ lbool dl_interface::query(::expr * query) {
 	  expr c = implies(_d->ctx.bool_val(false),f(args));
 	  c = _d->ctx.make_quant(Forall,args,c);
 	  clauses.push_back(c);
+	  bounds.push_back(UINT_MAX);
 	}
       }
     }
   }
+  unsigned rb = m_ctx.get_params().duality_recursion_bound();
+  std::vector<unsigned> std_bounds;
+  for(unsigned i = 0; i < bounds.size(); i++){
+    unsigned b = bounds[i];
+    if (b == UINT_MAX) b = rb;
+    std_bounds.push_back(b);
+  }
 
   // creates 1-1 map between clauses and rpfp edges
-  _d->rpfp->FromClauses(clauses);
+  _d->rpfp->FromClauses(clauses,&std_bounds);
 
   // populate the edge-to-clause map
   for(unsigned i = 0; i < _d->rpfp->edges.size(); ++i)
@@ -271,11 +314,13 @@ lbool dl_interface::query(::expr * query) {
   rs->SetOption("stratified_inlining",m_ctx.get_params().duality_stratified_inlining() ? "1" : "0");
   rs->SetOption("batch_expand",m_ctx.get_params().duality_batch_expand() ? "1" : "0");
   rs->SetOption("conjecture_file",m_ctx.get_params().duality_conjecture_file());
-  unsigned rb = m_ctx.get_params().duality_recursion_bound();
+  rs->SetOption("enable_restarts",m_ctx.get_params().duality_enable_restarts() ? "1" : "0");
+#if 0
   if(rb != UINT_MAX){
     std::ostringstream os; os << rb;
     rs->SetOption("recursion_bound", os.str());
   }
+#endif
 
   // Solve!
   bool ans;

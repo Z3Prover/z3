@@ -1187,8 +1187,9 @@ typename theory_diff_logic<Ext>::inf_eps theory_diff_logic<Ext>::value(theory_va
 
 template<typename Ext>
 typename theory_diff_logic<Ext>::inf_eps 
-theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker) {
+theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
     
+    has_shared = false;
     Simplex& S = m_S;
     ast_manager& m = get_manager();
 

@@ -3939,9 +3939,16 @@ namespace smt {
         return th->get_value(n, value);
     }
 
-    void context::update_model() {
-        mk_proto_model(l_true);
-        m_model = m_proto_model->mk_model();
+    bool context::update_model(bool refinalize) {
+        final_check_status fcs = FC_DONE;
+        if (refinalize) {
+            fcs = final_check();
+        }
+        if (fcs == FC_DONE) {
+            mk_proto_model(l_true);
+            m_model = m_proto_model->mk_model();
+        }
+        return fcs == FC_DONE;
     }
 
     void context::mk_proto_model(lbool r) {

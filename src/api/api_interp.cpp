@@ -273,6 +273,9 @@ extern "C" {
                                        0 // ignore params for now
                                        );
 
+        for (unsigned i = 0; i < cnsts.size(); i++)
+            _m.dec_ref(cnsts[i]);
+
         Z3_lbool status = of_lbool(_status);
 
         Z3_ast_vector_ref *v = 0;
@@ -617,7 +620,7 @@ extern "C" {
         }
 
         for (unsigned j = 0; j < num - 1; j++)
-            if (read_parents[j] == SHRT_MIN){
+            if (read_parents[j] == SHRT_MAX){
             read_error << "formula " << j + 1 << ": unreferenced";
             goto fail;
             }

@@ -65,7 +65,7 @@ static void show_interpolant_and_maybe_check(cmd_context & ctx,
   s.cleanup();
 
   // verify, for the paranoid...
-  if(check || ctx.check_interpolants()){
+  if(check || interp_params(m_params).check()){
     std::ostringstream err;
     ast_manager &_m = ctx.m();
 

@@ -513,3 +513,26 @@ void interpolation_options_struct::apply(iz3base &b){
     b.set_option((*it).first,(*it).second);
 }
 
+// On linux and mac, unlimit stack space so we get recursion
+
+#if defined(_WINDOWS) || defined(_CYGWIN)
+
+#else
+
+#include <sys/time.h>
+#include <sys/resource.h>
+
+class iz3stack_unlimiter {
+public:
+  iz3stack_unlimiter() {
+    struct rlimit rl = {RLIM_INFINITY, RLIM_INFINITY};
+    setrlimit(RLIMIT_STACK, &rl);
+    // nothing to be done if above fails
+  }
+};
+
+// initializing this will unlimit stack
+
+iz3stack_unlimiter the_iz3stack_unlimiter;
+
+#endif

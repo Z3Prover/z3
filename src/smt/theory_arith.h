@@ -874,13 +874,13 @@ namespace smt {
 
         void add_tmp_row(row & r1, numeral const & coeff, row const & r2);
         theory_var pick_var_to_leave(bool has_int, theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain, bool& skiped_row);
-        bool is_safe_to_leave(theory_var x, bool& has_int);
+        bool is_safe_to_leave(theory_var x, bool& has_int, bool& is_shared);
         bool move_to_bound(theory_var x_i, bool inc);
         template<bool invert>
         void add_tmp_row_entry(row & r, numeral const & coeff, theory_var v);
         enum max_min_t { UNBOUNDED, AT_BOUND, OPTIMIZED, BEST_EFFORT};
-        max_min_t max_min(theory_var v, bool max);
-        max_min_t max_min(row & r, bool max);
+        max_min_t max_min(theory_var v, bool max, bool& has_shared);
+        max_min_t max_min(row & r, bool max, bool& has_shared);
         bool max_min(svector<theory_var> const & vars);
 
         // -----------------------------------
@@ -1016,7 +1016,7 @@ namespace smt {
         // Optimization
         //
         // -----------------------------------
-        virtual inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker);
+        virtual inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker, bool& has_shared);
         virtual inf_eps_rational<inf_rational> value(theory_var v);
         virtual theory_var add_objective(app* term);
         virtual expr* mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val);

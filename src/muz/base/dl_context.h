@@ -195,6 +195,7 @@ namespace datalog {
         unsigned           m_rule_fmls_head;
         expr_ref_vector    m_rule_fmls;
         svector<symbol>    m_rule_names;
+        vector<unsigned>   m_rule_bounds;
         expr_ref_vector    m_background;
         model_converter_ref m_mc;
         proof_converter_ref m_pc;
@@ -372,7 +373,7 @@ namespace datalog {
         rule_set & get_rules() { flush_add_rules(); return m_rule_set; }
 
         void get_rules_as_formulas(expr_ref_vector& fmls, expr_ref_vector& qs, svector<symbol>& names);
-        void get_raw_rule_formulas(expr_ref_vector& fmls, svector<symbol>& names);
+        void get_raw_rule_formulas(expr_ref_vector& fmls, svector<symbol>& names, vector<unsigned> &bounds);
 
         void add_fact(app * head);
         void add_fact(func_decl * pred, const relation_fact & fact);
@@ -389,7 +390,7 @@ namespace datalog {
         /**
            Method exposed from API for adding rules.
         */
-        void add_rule(expr* rl, symbol const& name);
+        void add_rule(expr* rl, symbol const& name, unsigned bound = UINT_MAX);
         
 
         /**

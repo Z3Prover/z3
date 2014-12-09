@@ -43,6 +43,7 @@ namespace opt {
         m(mgr),
         m_dump_benchmarks(false),
         m_fm(fm),
+        m_objective_sorts(m),
         m_first(true) {
         m_params.updt_params(p);
         m_params.m_relevancy_lvl = 0;
@@ -173,13 +174,56 @@ namespace opt {
     }
 
 
+    /**
+       \brief maximize the value of objective i in the current state.
+       Return a predicate that blocks the current maximal value.
+       
+       The result of 'maximize' is post-processed. 
+       When maximization involves shared symbols the model produced
+       by local optimization does not necessarily satisfy combination 
+       constraints (it may not be a real model).
+       In this case, the model is post-processed (update_model 
+       causes an additional call to final_check to propagate theory equalities
+       when 'has_shared' is true).
+       
+    */
     void opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
         smt::theory_var v = m_objective_vars[i];
-        m_objective_values[i] = get_optimizer().maximize(v, blocker);
-        m_context.get_context().update_model();        
+        bool has_shared = false;
+        inf_eps val = get_optimizer().maximize(v, blocker, has_shared);
+        inf_eps val2;
+        m_valid_objectives[i] = true;
+        if (m_context.get_context().update_model(has_shared)) {
+            if (has_shared) {
+                val2 = current_objective_value(i);                
+                if (val2 != val) {
+                    decrement_value(i, val);
+                }
+            }
+        }
+        else {
+            SASSERT(has_shared);
+            // model is not final. We set the current objective to
+            // close to the optimal (ignoring types).
+            decrement_value(i, val);
+        }
+        m_objective_values[i] = val;
+
         TRACE("opt", { model_ref mdl; tout << m_objective_values[i] << "\n"; 
-                get_model(mdl); model_smt2_pp(tout << "update model: ", m, *mdl, 0); });
+                  tout << blocker << "\n";
+                  get_model(mdl); model_smt2_pp(tout << "update model:\n", m, *mdl, 0); });
     }
+
+    void opt_solver::decrement_value(unsigned i, inf_eps& val) {
+        if (arith_util(m).is_real(m_objective_sorts[i].get())) {
+            val -= inf_eps(inf_rational(rational(0),true));
+        }
+        else {
+            val -= inf_eps(inf_rational(rational(1)));
+        }
+        m_valid_objectives[i] = false;
+    }
+
     
     void opt_solver::get_unsat_core(ptr_vector<expr> & r) {
         unsigned sz = m_context.get_unsat_core_size();
@@ -232,6 +276,8 @@ namespace opt {
         smt::theory_var v = get_optimizer().add_objective(term);
         m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
+        m_objective_sorts.push_back(m.get_sort(term));
+        m_valid_objectives.push_back(true);
         return v;
     }
     
@@ -278,6 +324,8 @@ namespace opt {
     void opt_solver::reset_objectives() {
         m_objective_vars.reset();
         m_objective_values.reset();
+        m_objective_sorts.reset();
+        m_valid_objectives.reset();
     }
 
     opt_solver& opt_solver::to_opt(solver& s) {

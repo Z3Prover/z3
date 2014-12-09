@@ -297,11 +297,13 @@ def param2javaw(p):
     k = param_kind(p)
     if k == OUT:
         return "jobject"
-    if k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
+    elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
         if param_type(p) == INT or param_type(p) == UINT:
             return "jintArray"
         else:
             return "jlongArray"
+    elif k == OUT_MANAGED_ARRAY:
+        return "jlong";
     else:
         return type2javaw(param_type(p))
 

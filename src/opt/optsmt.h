@@ -58,6 +58,7 @@ namespace opt {
         void commit_assignment(unsigned index);
         inf_eps get_lower(unsigned index) const;
         inf_eps get_upper(unsigned index) const;
+        bool objective_is_model_valid(unsigned index) const;
         void    get_model(model_ref& mdl);
 
         void update_lower(unsigned idx, inf_eps const& r);

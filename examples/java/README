@@ -1,7 +1,6 @@
-### This is work-in-progress and does not work yet.
+A small example using the Z3 Java bindings.   
 
-Small example using the Z3 Java bindings.
-To build the example execute
+To build the example, configure Z3 with the --java option to scripts/mk_make.py, build via  
    make examples
 in the build directory.
 
@@ -11,5 +10,5 @@ which can be run on Windows via
 
 On Linux and FreeBSD, we must use
    LD_LIBRARY_PATH=. java -cp com.microsoft.z3.jar:. JavaExample
- 
-   
+On OSX, the corresponding option is DYLD_LIBRARY_PATH:   
+   DYLD_LIBRARY_PATH=. java -cp com.microsoft.z3.jar:. JavaExample  

@@ -928,11 +928,10 @@ namespace smt {
 
     */
     template<typename Ext>
-    bool theory_arith<Ext>::is_safe_to_leave(theory_var x, bool& has_int) {
+    bool theory_arith<Ext>::is_safe_to_leave(theory_var x, bool& has_int, bool& shared) {
         
-        if (get_context().is_shared(get_enode(x))) {
-            return false;
-        }
+        context& ctx = get_context();
+        shared |= ctx.is_shared(get_enode(x));
         column & c      = m_columns[x];
         typename svector<col_entry>::iterator it  = c.begin_entries();
         typename svector<col_entry>::iterator end = c.end_entries();
@@ -944,8 +943,9 @@ namespace smt {
             numeral const & coeff = r[it->m_row_idx].m_coeff;    
             if (s != null_theory_var && is_int(s)) has_int = true;
             bool is_unsafe = (s != null_theory_var && is_int(s) && !coeff.is_int());                
-            is_unsafe = is_unsafe || (s != null_theory_var && get_context().is_shared(get_enode(s)));
-            TRACE("opt", tout << "is v" << x << " safe to leave for v" << s << "? " << (is_unsafe?"no":"yes") << " " << (has_int?"int":"real") << "\n";
+            shared |= (s != null_theory_var && ctx.is_shared(get_enode(s)));
+            TRACE("opt", tout << "is v" << x << " safe to leave for v" << s 
+                  << "? " << (is_unsafe?"no":"yes") << " " << (has_int?"int":"real") << "\n";
                   display_row(tout, r, true););
             if (is_unsafe) return false;            
         }
@@ -1072,10 +1072,12 @@ namespace smt {
     }
 
     template<typename Ext>
-    inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker) {
+    inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         TRACE("bound_bug", display_var(tout, v); display(tout););
-        max_min_t r = max_min(v, true); 
+        has_shared = false;
+        max_min_t r = max_min(v, true, has_shared); 
         if (r == UNBOUNDED) {
+            has_shared = false;
             blocker = get_manager().mk_false();
             return inf_eps_rational<inf_rational>::infinity();
         }
@@ -1299,10 +1301,11 @@ namespace smt {
        Return true if succeeded.
     */
     template<typename Ext>
-    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(row & r, bool max) {
+    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(row & r, bool max, bool& has_shared) {
         TRACE("max_min", tout << "max_min...\n";);
         m_stats.m_max_min++;
         bool skipped_row = false;
+        has_shared = false;
 
         SASSERT(valid_row_assignment());
         SASSERT(satisfy_bounds());
@@ -1332,7 +1335,7 @@ namespace smt {
                     bool has_int = false;
                     if ((curr_inc && at_upper(curr_x_j)) || (!curr_inc && at_lower(curr_x_j)))
                         continue; // variable cannot be used for max/min.
-                    if (!is_safe_to_leave(curr_x_j, has_int)) {
+                    if (!is_safe_to_leave(curr_x_j, has_int, has_shared)) {
                         skipped_row = true;
                         continue;
                     }
@@ -1536,7 +1539,7 @@ namespace smt {
        \brief Maximize/Minimize the given variable. The bounds of v are update if procedure succeeds.
     */
     template<typename Ext>
-    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(theory_var v, bool max) {
+    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(theory_var v, bool max, bool& has_shared) {
         expr* e = get_enode(v)->get_owner();
         SASSERT(valid_row_assignment());
         SASSERT(satisfy_bounds());
@@ -1558,7 +1561,7 @@ namespace smt {
                     add_tmp_row_entry<true>(m_tmp_row, it->m_coeff, it->m_var);
             }            
         }
-        max_min_t r = max_min(m_tmp_row, max);
+        max_min_t r = max_min(m_tmp_row, max, has_shared);
         if (r == OPTIMIZED) {
             TRACE("opt", tout << mk_pp(e, get_manager()) << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););
@@ -1581,12 +1584,13 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::max_min(svector<theory_var> const & vars) { 
         bool succ = false;
+        bool has_shared = false;
         svector<theory_var>::const_iterator it  = vars.begin();
         svector<theory_var>::const_iterator end = vars.end();
         for (; it != end; ++it) {
-            if (max_min(*it, true) == OPTIMIZED)
+            if (max_min(*it, true, has_shared) == OPTIMIZED && !has_shared)
                 succ = true;
-            if (max_min(*it, false) == OPTIMIZED)
+            if (max_min(*it, false, has_shared) == OPTIMIZED && !has_shared)
                 succ = true;
         }
         if (succ) {

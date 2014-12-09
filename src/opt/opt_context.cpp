@@ -1202,7 +1202,8 @@ namespace opt {
             case O_MINIMIZE:
             case O_MAXIMIZE: {
                 inf_eps n = m_optsmt.get_lower(obj.m_index);
-                if (n.get_infinity().is_zero() &&
+                if (m_optsmt.objective_is_model_valid(obj.m_index) && 
+                    n.get_infinity().is_zero() &&
                     n.get_infinitesimal().is_zero() &&
                     m_model->eval(obj.m_term, val) &&
                     is_numeral(val, r1)) {

@@ -889,11 +889,12 @@ namespace smt {
     }
 
     template<typename Ext>
-    inf_eps_rational<inf_rational> theory_dense_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker) {
+    inf_eps_rational<inf_rational> theory_dense_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         typedef simplex::simplex<simplex::mpq_ext> Simplex;
         Simplex S;
         ast_manager& m = get_manager();
         objective_term const& objective = m_objectives[v];
+        has_shared = false;
         
         IF_VERBOSE(1,
                    for (unsigned i = 0; i < objective.size(); ++i) {
