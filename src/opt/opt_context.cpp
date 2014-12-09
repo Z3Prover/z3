@@ -218,6 +218,7 @@ namespace opt {
         }
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n";);
         s.get_model(m_model);
+        TRACE("opt", model_smt2_pp(tout, m, *m_model, 0););
         m_optsmt.setup(*m_opt_solver.get());
         update_lower();
         switch (m_objectives.size()) {
@@ -566,7 +567,7 @@ namespace opt {
             and_then(mk_simplify_tactic(m), 
                      mk_propagate_values_tactic(m),
                      mk_solve_eqs_tactic(m),
-                     mk_elim_uncnstr_tactic(m),
+                     // NB: mk_elim_uncstr_tactic(m) is not sound with soft constraints
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
         tactic_ref tac2, tac3;
