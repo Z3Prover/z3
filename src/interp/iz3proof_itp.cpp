@@ -1027,7 +1027,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	linear_comb(Aineqs,coeff,make(Leq,make_int(rational(0)),make(Sub,term2,term1)));
     }
     else {
-      ast pf = extract_rewrites(make(concat,mk_true(),rest),p1);
+      ast pf = extract_rewrites(make(concat,mk_true(),last),p1);
       ast new_normal = fix_normal(term1,term2,pf);
       normals = merge_normal_chains(normals,cons_normal(new_normal,mk_true()), Aproves, Bproves);
     }
