@@ -180,7 +180,7 @@ extern "C" {
 
     def_API('Z3_mk_fpa_sort_64', SORT, (_in(CONTEXT),))
     */
-    Z3_sort Z3_API Z3_mk_fpa_sort__64(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_fpa_sort_64(__in Z3_context c);
 
     /**
         \brief Create the quadruple-precision (128-bit) floating point sort.
