@@ -88,6 +88,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+
     Z3_sort Z3_API Z3_mk_fpa_sort(Z3_context c, unsigned ebits, unsigned sbits) {
         Z3_TRY;
         LOG_Z3_mk_fpa_sort(c, ebits, sbits);
@@ -105,7 +106,15 @@ extern "C" {
         return Z3_mk_fpa_sort(c, 5, 11);
     }
 
+    Z3_sort Z3_API Z3_mk_fpa_sort_16(__in Z3_context c) {
+        return Z3_mk_fpa_sort(c, 5, 11);
+    }
+
     Z3_sort Z3_API Z3_mk_fpa_sort_single(__in Z3_context c) {
+        return Z3_mk_fpa_sort(c, 8, 24);
+    }
+
+    Z3_sort Z3_API Z3_mk_fpa_sort_32(__in Z3_context c) {
         return Z3_mk_fpa_sort(c, 8, 24);
     }
 
@@ -113,7 +122,15 @@ extern "C" {
         return Z3_mk_fpa_sort(c, 11, 53);
     }
 
+    Z3_sort Z3_API Z3_mk_fpa_sort_64(__in Z3_context c) {
+        return Z3_mk_fpa_sort(c, 11, 53);
+    }
+
     Z3_sort Z3_API Z3_mk_fpa_sort_quadruple(__in Z3_context c) {
+        return Z3_mk_fpa_sort(c, 15, 113);
+    }
+
+    Z3_sort Z3_API Z3_mk_fpa_sort_128(__in Z3_context c) {
         return Z3_mk_fpa_sort(c, 15, 113);
     }
 
@@ -373,21 +390,11 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_fpa_convert(c, s, rm, t);
         RESET_ERROR_CODE();
-        api::context * ctx = mk_c(c);        
+        api::context * ctx = mk_c(c);
         expr * args [2] = { to_expr(rm), to_expr(t) };
-        Z3_ast r = of_ast(ctx->m().mk_app(ctx->float_util().get_family_id(), OP_TO_FLOAT, 
+        Z3_ast r = of_ast(ctx->m().mk_app(ctx->float_util().get_family_id(), OP_FLOAT_TO_FP, 
                                           to_sort(s)->get_num_parameters(), to_sort(s)->get_parameters(),
                                           2, args));
-        RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
-    }
-
-    Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(__in Z3_context c, __in Z3_ast t) {
-        Z3_TRY;
-        LOG_Z3_mk_fpa_to_ieee_bv(c, t);
-        RESET_ERROR_CODE();        
-        api::context * ctx = mk_c(c);
-        Z3_ast r = of_ast(ctx->float_util().mk_float_to_ieee_bv(to_expr(t)));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }

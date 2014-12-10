@@ -135,13 +135,7 @@ namespace smt {
             simp(a->get_arg(2), exp, pr_exp);
 
             m_converter.mk_triple(sgn, sig, exp, bv_term);
-        }
-        else if (term->get_decl_kind() == OP_FLOAT_TO_IEEE_BV) {
-            SASSERT(is_app(t));
-            expr_ref bv_e(m);
-            proof_ref bv_pr(m);
-            simp(t, bv_term, bv_pr);
-        }
+        }        
         else
             NOT_IMPLEMENTED_YET();
 
@@ -419,17 +413,6 @@ namespace smt {
                 ctx.mark_as_relevant(bv_sgn);
                 ctx.mark_as_relevant(bv_sig);
                 ctx.mark_as_relevant(bv_exp);
-            }
-            else if (n->get_decl()->get_decl_kind() == OP_FLOAT_TO_IEEE_BV) {                
-                expr_ref eq(m);
-                app * ex_a = to_app(ex);
-                if (n->get_id() > ex_a->get_id())
-                    std::swap(n, ex_a);                
-                eq = m.mk_eq(n, ex_a);
-                ctx.internalize(eq, false);
-                literal l = ctx.get_literal(eq);
-                ctx.mk_th_axiom(get_id(), 1, &l);
-                ctx.mark_as_relevant(l);
             }
             else
                 NOT_IMPLEMENTED_YET();

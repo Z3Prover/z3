@@ -116,7 +116,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         bv_mdl->eval(a->get_arg(1), sig, true);
         bv_mdl->eval(a->get_arg(2), exp, true);
 
-        SASSERT(a->is_app_of(fu.get_family_id(), OP_TO_FLOAT));
+        SASSERT(a->is_app_of(fu.get_family_id(), OP_FLOAT_TO_FP));
 
 #ifdef Z3DEBUG                
         SASSERT(to_app(a->get_arg(0))->get_decl()->get_arity() == 0);

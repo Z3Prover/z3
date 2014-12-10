@@ -81,7 +81,7 @@ namespace smt {
 
     protected:
         void split_triple(expr * e, expr * & sgn, expr * & sig, expr * & exp) const {
-            SASSERT(is_app_of(e, get_family_id(), OP_TO_FLOAT));
+            SASSERT(is_app_of(e, get_family_id(), OP_FLOAT_TO_FP));
             SASSERT(to_app(e)->get_num_args() == 3);
             sgn = to_app(e)->get_arg(0);
             sig = to_app(e)->get_arg(1);

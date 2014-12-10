@@ -36,7 +36,7 @@ br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     br_status st = BR_FAILED;
     SASSERT(f->get_family_id() == get_fid());
     switch (f->get_decl_kind()) {
-    case OP_TO_FLOAT:        st = mk_to_fp(f, num_args, args, result); break;
+    case OP_FLOAT_TO_FP:        st = mk_to_fp(f, num_args, args, result); break;
     case OP_FLOAT_ADD:       SASSERT(num_args == 3); st = mk_add(args[0], args[1], args[2], result); break;
     case OP_FLOAT_SUB:       SASSERT(num_args == 3); st = mk_sub(args[0], args[1], args[2], result); break;
     case OP_FLOAT_NEG:       SASSERT(num_args == 1); st = mk_neg(args[0], result); break;
@@ -63,8 +63,7 @@ br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_FLOAT_IS_NORMAL: SASSERT(num_args == 1); st = mk_is_normal(args[0], result); break;
     case OP_FLOAT_IS_SUBNORMAL: SASSERT(num_args == 1); st = mk_is_subnormal(args[0], result); break;
     case OP_FLOAT_IS_NEGATIVE: SASSERT(num_args == 1); st = mk_is_negative(args[0], result); break;
-    case OP_FLOAT_IS_POSITIVE: SASSERT(num_args == 1); st = mk_is_positive(args[0], result); break;
-    case OP_FLOAT_TO_IEEE_BV: SASSERT(num_args == 1); st = mk_to_ieee_bv(args[0], result); break;
+    case OP_FLOAT_IS_POSITIVE: SASSERT(num_args == 1); st = mk_is_positive(args[0], result); break;    
     case OP_FLOAT_FP:        SASSERT(num_args == 3); st = mk_fp(args[0], args[1], args[2], result); break;    
     case OP_FLOAT_TO_UBV:    SASSERT(num_args == 2); st = mk_to_ubv(args[0], args[1], result); break;
     case OP_FLOAT_TO_SBV:    SASSERT(num_args == 2); st = mk_to_sbv(args[0], args[1], result); break;

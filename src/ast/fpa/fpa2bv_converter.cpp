@@ -53,8 +53,8 @@ fpa2bv_converter::~fpa2bv_converter() {
 }
 
 void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
-    SASSERT(is_app_of(a, m_plugin->get_family_id(), OP_TO_FLOAT));
-    SASSERT(is_app_of(b, m_plugin->get_family_id(), OP_TO_FLOAT));
+    SASSERT(is_app_of(a, m_plugin->get_family_id(), OP_FLOAT_TO_FP));
+    SASSERT(is_app_of(b, m_plugin->get_family_id(), OP_FLOAT_TO_FP));
 
     expr_ref sgn(m), s(m), e(m);
     m_simp.mk_eq(to_app(a)->get_arg(0), to_app(b)->get_arg(0), sgn);
@@ -73,8 +73,8 @@ void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
 }
 
 void fpa2bv_converter::mk_ite(expr * c, expr * t, expr * f, expr_ref & result) {
-    SASSERT(is_app_of(t, m_plugin->get_family_id(), OP_TO_FLOAT));
-    SASSERT(is_app_of(f, m_plugin->get_family_id(), OP_TO_FLOAT));
+    SASSERT(is_app_of(t, m_plugin->get_family_id(), OP_FLOAT_TO_FP));
+    SASSERT(is_app_of(f, m_plugin->get_family_id(), OP_FLOAT_TO_FP));
 
     expr_ref sgn(m), s(m), e(m);
     m_simp.mk_ite(c, to_app(t)->get_arg(0), to_app(f)->get_arg(0), sgn);
@@ -2203,7 +2203,7 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
 }
 
 void fpa2bv_converter::split(expr * e, expr * & sgn, expr * & sig, expr * & exp) const {
-    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_TO_FLOAT));
+    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_FLOAT_TO_FP));
     SASSERT(to_app(e)->get_num_args() == 3);
     
     sgn = to_app(e)->get_arg(0);
@@ -2252,7 +2252,7 @@ void fpa2bv_converter::mk_is_ninf(expr * e, expr_ref & result) {
 }
 
 void fpa2bv_converter::mk_is_pos(expr * e, expr_ref & result) {
-    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_TO_FLOAT));
+    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_FLOAT_TO_FP));
     SASSERT(to_app(e)->get_num_args() == 3);
     expr * a0 = to_app(e)->get_arg(0);
     expr_ref zero(m);
@@ -2261,7 +2261,7 @@ void fpa2bv_converter::mk_is_pos(expr * e, expr_ref & result) {
 }
 
 void fpa2bv_converter::mk_is_neg(expr * e, expr_ref & result) {
-    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_TO_FLOAT));
+    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_FLOAT_TO_FP));
     SASSERT(to_app(e)->get_num_args() == 3);
     expr * a0 = to_app(e)->get_arg(0);
     expr_ref one(m);
@@ -2424,7 +2424,7 @@ void fpa2bv_converter::mk_unbias(expr * e, expr_ref & result) {
 }
 
 void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & lz, bool normalize) {
-    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_TO_FLOAT));
+    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_FLOAT_TO_FP));
     SASSERT(to_app(e)->get_num_args() == 3);
 
     sort * srt = to_app(e)->get_decl()->get_range();
@@ -2519,11 +2519,11 @@ void fpa2bv_converter::mk_rounding_mode(func_decl * f, expr_ref & result)
 {
     switch(f->get_decl_kind())
     {    
-    case OP_RM_NEAREST_TIES_TO_AWAY: result = m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3); break;
-    case OP_RM_NEAREST_TIES_TO_EVEN: result = m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3); break;
-    case OP_RM_TOWARD_NEGATIVE: result = m_bv_util.mk_numeral(BV_RM_TO_NEGATIVE, 3); break;
-    case OP_RM_TOWARD_POSITIVE: result = m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3); break;
-    case OP_RM_TOWARD_ZERO: result = m_bv_util.mk_numeral(BV_RM_TO_ZERO, 3); break;    
+    case OP_FLOAT_RM_NEAREST_TIES_TO_AWAY: result = m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3); break;
+    case OP_FLOAT_RM_NEAREST_TIES_TO_EVEN: result = m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3); break;
+    case OP_FLOAT_RM_TOWARD_NEGATIVE: result = m_bv_util.mk_numeral(BV_RM_TO_NEGATIVE, 3); break;
+    case OP_FLOAT_RM_TOWARD_POSITIVE: result = m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3); break;
+    case OP_FLOAT_RM_TOWARD_ZERO: result = m_bv_util.mk_numeral(BV_RM_TO_ZERO, 3); break;
     default: UNREACHABLE();
     }
 }

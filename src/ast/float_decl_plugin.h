@@ -35,11 +35,11 @@ enum float_sort_kind {
 };
 
 enum float_op_kind {
-    OP_RM_NEAREST_TIES_TO_EVEN,
-    OP_RM_NEAREST_TIES_TO_AWAY,
-    OP_RM_TOWARD_POSITIVE,
-    OP_RM_TOWARD_NEGATIVE,
-    OP_RM_TOWARD_ZERO,
+    OP_FLOAT_RM_NEAREST_TIES_TO_EVEN,
+    OP_FLOAT_RM_NEAREST_TIES_TO_AWAY,
+    OP_FLOAT_RM_TOWARD_POSITIVE,
+    OP_FLOAT_RM_TOWARD_NEGATIVE,
+    OP_FLOAT_RM_TOWARD_ZERO,
 
     OP_FLOAT_VALUE,
     OP_FLOAT_PLUS_INF,
@@ -76,11 +76,9 @@ enum float_op_kind {
     OP_FLOAT_IS_NEGATIVE,
     OP_FLOAT_IS_POSITIVE,
 
-    OP_TO_FLOAT,
-    OP_FLOAT_TO_IEEE_BV,
-
     OP_FLOAT_FP,
-    OP_FLOAT_TO_FP,    
+    OP_FLOAT_TO_FP,
+    OP_FLOAT_TO_FP_UNSIGNED,
     OP_FLOAT_TO_UBV,
     OP_FLOAT_TO_SBV,
     OP_FLOAT_TO_REAL,
@@ -134,9 +132,7 @@ class float_decl_plugin : public decl_plugin {
     func_decl * mk_fma(decl_kind k, unsigned num_parameters, parameter const * parameters,
                        unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_float(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                            unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_float_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                    unsigned arity, sort * const * domain, sort * range);
+                            unsigned arity, sort * const * domain, sort * range);    
     func_decl * mk_from3bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                            unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_ubv(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -210,11 +206,11 @@ public:
     unsigned get_ebits(sort * s);
     unsigned get_sbits(sort * s);
 
-    app * mk_round_nearest_ties_to_even() { return m().mk_const(m_fid, OP_RM_NEAREST_TIES_TO_EVEN); }
-    app * mk_round_nearest_ties_to_away() { return m().mk_const(m_fid, OP_RM_NEAREST_TIES_TO_AWAY); }
-    app * mk_round_toward_positive() { return m().mk_const(m_fid, OP_RM_TOWARD_POSITIVE); }
-    app * mk_round_toward_negative() { return m().mk_const(m_fid, OP_RM_TOWARD_NEGATIVE); }
-    app * mk_round_toward_zero() { return m().mk_const(m_fid, OP_RM_TOWARD_ZERO); }
+    app * mk_round_nearest_ties_to_even() { return m().mk_const(m_fid, OP_FLOAT_RM_NEAREST_TIES_TO_EVEN); }
+    app * mk_round_nearest_ties_to_away() { return m().mk_const(m_fid, OP_FLOAT_RM_NEAREST_TIES_TO_AWAY); }
+    app * mk_round_toward_positive() { return m().mk_const(m_fid, OP_FLOAT_RM_TOWARD_POSITIVE); }
+    app * mk_round_toward_negative() { return m().mk_const(m_fid, OP_FLOAT_RM_TOWARD_NEGATIVE); }
+    app * mk_round_toward_zero() { return m().mk_const(m_fid, OP_FLOAT_RM_TOWARD_ZERO); }
 
     app * mk_nan(unsigned ebits, unsigned sbits);
     app * mk_plus_inf(unsigned ebits, unsigned sbits);
@@ -240,9 +236,9 @@ public:
     bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_pzero(v); }
     bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_nzero(v); }
 
-    bool is_to_float(expr * n) { return is_app_of(n, m_fid, OP_TO_FLOAT); }
+    bool is_to_float(expr * n) { return is_app_of(n, m_fid, OP_FLOAT_TO_FP); }
 
-    app * mk_to_float(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_TO_FLOAT, arg1, arg2); }    
+    app * mk_to_float(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_TO_FP, arg1, arg2); }    
     app * mk_add(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_ADD, arg1, arg2, arg3); }
     app * mk_mul(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_MUL, arg1, arg2, arg3); }
     app * mk_sub(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_SUB, arg1, arg2, arg3); }
@@ -277,8 +273,6 @@ public:
     app * mk_is_negative(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NEGATIVE, arg1); }
 
     bool is_neg(expr * a) { return is_app_of(a, m_fid, OP_FLOAT_NEG); }
-    
-    app * mk_float_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_TO_IEEE_BV, arg1); }
 };
 
 #endif

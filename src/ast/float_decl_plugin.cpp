@@ -118,23 +118,23 @@ bool float_decl_plugin::is_value(expr * n, mpf & val) {
 }
 
 bool float_decl_plugin::is_rm_value(expr * n, mpf_rounding_mode & val) {
-    if (is_app_of(n, m_family_id, OP_RM_NEAREST_TIES_TO_AWAY)) {
+    if (is_app_of(n, m_family_id, OP_FLOAT_RM_NEAREST_TIES_TO_AWAY)) {
         val = MPF_ROUND_NEAREST_TAWAY;
         return true;
     }
-    else if (is_app_of(n, m_family_id, OP_RM_NEAREST_TIES_TO_EVEN)) {
+    else if (is_app_of(n, m_family_id, OP_FLOAT_RM_NEAREST_TIES_TO_EVEN)) {
         val = MPF_ROUND_NEAREST_TEVEN;
         return true;
     }
-    else if (is_app_of(n, m_family_id, OP_RM_TOWARD_NEGATIVE)) {
+    else if (is_app_of(n, m_family_id, OP_FLOAT_RM_TOWARD_NEGATIVE)) {
         val = MPF_ROUND_TOWARD_NEGATIVE;
         return true;
     }
-    else if (is_app_of(n, m_family_id, OP_RM_TOWARD_POSITIVE)) {
+    else if (is_app_of(n, m_family_id, OP_FLOAT_RM_TOWARD_POSITIVE)) {
         val = MPF_ROUND_TOWARD_POSITIVE;
         return true;
     }
-    else if (is_app_of(n, m_family_id, OP_RM_TOWARD_ZERO)) {
+    else if (is_app_of(n, m_family_id, OP_FLOAT_RM_TOWARD_ZERO)) {
         val = MPF_ROUND_TOWARD_ZERO;
         return true;
     }
@@ -210,15 +210,15 @@ func_decl * float_decl_plugin::mk_rm_const_decl(decl_kind k, unsigned num_parame
     sort * s = mk_rm_sort();
     func_decl_info finfo(m_family_id, k);
     switch (k) {
-    case OP_RM_NEAREST_TIES_TO_EVEN:
+    case OP_FLOAT_RM_NEAREST_TIES_TO_EVEN:
         return m_manager->mk_const_decl(symbol("roundNearestTiesToEven"), s, finfo);
-    case OP_RM_NEAREST_TIES_TO_AWAY:
+    case OP_FLOAT_RM_NEAREST_TIES_TO_AWAY:
         return m_manager->mk_const_decl(symbol("roundNearestTiesToAway"), s, finfo);
-    case OP_RM_TOWARD_POSITIVE:
+    case OP_FLOAT_RM_TOWARD_POSITIVE:
         return m_manager->mk_const_decl(symbol("roundTowardPositive"), s, finfo);
-    case OP_RM_TOWARD_NEGATIVE:
+    case OP_FLOAT_RM_TOWARD_NEGATIVE:
         return m_manager->mk_const_decl(symbol("roundTowardNegative"), s, finfo);
-    case OP_RM_TOWARD_ZERO:
+    case OP_FLOAT_RM_TOWARD_ZERO:
         return m_manager->mk_const_decl(symbol("roundTowardZero"), s, finfo);
     default:
         UNREACHABLE();
@@ -471,20 +471,6 @@ func_decl * float_decl_plugin::mk_to_float(decl_kind k, unsigned num_parameters,
     }
 }
 
-func_decl * float_decl_plugin::mk_float_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                             unsigned arity, sort * const * domain, sort * range) {
-    if (arity != 1)
-        m_manager->raise_exception("invalid number of arguments to asIEEEBV");
-    if (!is_float_sort(domain[0]))
-        m_manager->raise_exception("sort mismatch, expected argument of FloatingPoint sort");
-    
-    unsigned float_sz = domain[0]->get_parameter(0).get_int() + domain[0]->get_parameter(1).get_int();
-    parameter ps[] = { parameter(float_sz) };
-    sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
-    symbol name("asIEEEBV");
-    return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));        
-}
-
 func_decl * float_decl_plugin::mk_from3bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                           unsigned arity, sort * const * domain, sort * range) {
     if (arity != 3)
@@ -528,17 +514,19 @@ func_decl * float_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, 
 func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                             unsigned arity, sort * const * domain, sort * range) {
     switch (k) {
-    case OP_TO_FLOAT:
+    case OP_FLOAT_TO_FP:
         return mk_to_float(k, num_parameters, parameters, arity, domain, range);
     case OP_FLOAT_MINUS_INF:
     case OP_FLOAT_PLUS_INF:
     case OP_FLOAT_NAN:
+    case OP_FLOAT_MINUS_ZERO:
+    case OP_FLOAT_PLUS_ZERO:
         return mk_float_const_decl(k, num_parameters, parameters, arity, domain, range);
-    case OP_RM_NEAREST_TIES_TO_EVEN:
-    case OP_RM_NEAREST_TIES_TO_AWAY:
-    case OP_RM_TOWARD_POSITIVE:
-    case OP_RM_TOWARD_NEGATIVE:
-    case OP_RM_TOWARD_ZERO:
+    case OP_FLOAT_RM_NEAREST_TIES_TO_EVEN:
+    case OP_FLOAT_RM_NEAREST_TIES_TO_AWAY:
+    case OP_FLOAT_RM_TOWARD_POSITIVE:
+    case OP_FLOAT_RM_TOWARD_NEGATIVE:
+    case OP_FLOAT_RM_TOWARD_ZERO:
         return mk_rm_const_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FLOAT_EQ:
     case OP_FLOAT_LT:
@@ -577,8 +565,6 @@ func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return mk_rm_unary_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FLOAT_FMA:
         return mk_fma(k, num_parameters, parameters, arity, domain, range);
-    case OP_FLOAT_TO_IEEE_BV:
-        return mk_float_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
     case OP_FLOAT_FP:
         return mk_from3bv(k, num_parameters, parameters, arity, domain, range);
     case OP_FLOAT_TO_UBV:
@@ -601,17 +587,17 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("-zero", OP_FLOAT_MINUS_ZERO));
     op_names.push_back(builtin_name("NaN", OP_FLOAT_NAN));
 
-    op_names.push_back(builtin_name("roundNearestTiesToEven", OP_RM_NEAREST_TIES_TO_EVEN));
-    op_names.push_back(builtin_name("roundNearestTiesToAway", OP_RM_NEAREST_TIES_TO_AWAY));
-    op_names.push_back(builtin_name("roundTowardPositive", OP_RM_TOWARD_POSITIVE));
-    op_names.push_back(builtin_name("roundTowardNegative", OP_RM_TOWARD_NEGATIVE));
-    op_names.push_back(builtin_name("roundTowardZero", OP_RM_TOWARD_ZERO));
+    op_names.push_back(builtin_name("roundNearestTiesToEven", OP_FLOAT_RM_NEAREST_TIES_TO_EVEN));
+    op_names.push_back(builtin_name("roundNearestTiesToAway", OP_FLOAT_RM_NEAREST_TIES_TO_AWAY));
+    op_names.push_back(builtin_name("roundTowardPositive", OP_FLOAT_RM_TOWARD_POSITIVE));
+    op_names.push_back(builtin_name("roundTowardNegative", OP_FLOAT_RM_TOWARD_NEGATIVE));
+    op_names.push_back(builtin_name("roundTowardZero", OP_FLOAT_RM_TOWARD_ZERO));
 
-    op_names.push_back(builtin_name("RNE", OP_RM_NEAREST_TIES_TO_EVEN));
-    op_names.push_back(builtin_name("RNA", OP_RM_NEAREST_TIES_TO_AWAY));
-    op_names.push_back(builtin_name("RTP", OP_RM_TOWARD_POSITIVE));
-    op_names.push_back(builtin_name("RTN", OP_RM_TOWARD_NEGATIVE));
-    op_names.push_back(builtin_name("RTZ", OP_RM_TOWARD_ZERO));
+    op_names.push_back(builtin_name("RNE", OP_FLOAT_RM_NEAREST_TIES_TO_EVEN));
+    op_names.push_back(builtin_name("RNA", OP_FLOAT_RM_NEAREST_TIES_TO_AWAY));
+    op_names.push_back(builtin_name("RTP", OP_FLOAT_RM_TOWARD_POSITIVE));
+    op_names.push_back(builtin_name("RTN", OP_FLOAT_RM_TOWARD_NEGATIVE));
+    op_names.push_back(builtin_name("RTZ", OP_FLOAT_RM_TOWARD_ZERO));
 
     op_names.push_back(builtin_name("fp.abs", OP_FLOAT_ABS));
     op_names.push_back(builtin_name("fp.neg", OP_FLOAT_NEG)); 
@@ -643,7 +629,8 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("fp.to_ubv", OP_FLOAT_TO_UBV));
     op_names.push_back(builtin_name("fp.to_sbv", OP_FLOAT_TO_SBV));
         
-    op_names.push_back(builtin_name("to_fp", OP_TO_FLOAT));    
+    op_names.push_back(builtin_name("to_fp", OP_FLOAT_TO_FP));
+    op_names.push_back(builtin_name("to_fp_unsigned", OP_FLOAT_TO_FP_UNSIGNED));
 }
 
 void float_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
@@ -670,11 +657,11 @@ bool float_decl_plugin::is_value(app * e) const {
     if (e->get_family_id() != m_family_id) 
         return false;
     switch (e->get_decl_kind()) {
-    case OP_RM_NEAREST_TIES_TO_EVEN:
-    case OP_RM_NEAREST_TIES_TO_AWAY:
-    case OP_RM_TOWARD_POSITIVE:
-    case OP_RM_TOWARD_NEGATIVE:
-    case OP_RM_TOWARD_ZERO:
+    case OP_FLOAT_RM_NEAREST_TIES_TO_EVEN:
+    case OP_FLOAT_RM_NEAREST_TIES_TO_AWAY:
+    case OP_FLOAT_RM_TOWARD_POSITIVE:
+    case OP_FLOAT_RM_TOWARD_NEGATIVE:
+    case OP_FLOAT_RM_TOWARD_ZERO:
     case OP_FLOAT_VALUE:
     case OP_FLOAT_PLUS_INF:
     case OP_FLOAT_MINUS_INF:
@@ -682,7 +669,7 @@ bool float_decl_plugin::is_value(app * e) const {
     case OP_FLOAT_MINUS_ZERO:
     case OP_FLOAT_NAN:
         return true;
-    case OP_TO_FLOAT:
+    case OP_FLOAT_TO_FP:
         return m_manager->is_value(e->get_arg(0));
     default:
         return false;

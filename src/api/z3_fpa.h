@@ -118,6 +118,19 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_fpa_sort_half(__in Z3_context c);
 
     /**
+    \brief Create the half-precision (16-bit) floating point sort.
+
+    \param c logical context.
+    \param ebits number of exponent bits
+    \param sbits number of significand bits
+
+    \remark ebits must be larger than 1 and sbits must be larger than 2.
+
+    def_API('Z3_mk_fpa_sort_16', SORT, (_in(CONTEXT),))
+    */
+    Z3_sort Z3_API Z3_mk_fpa_sort_16(__in Z3_context c);
+
+    /**
         \brief Create the single-precision (32-bit) floating point sort.
 
         \param c logical context.
@@ -129,6 +142,19 @@ extern "C" {
         def_API('Z3_mk_fpa_sort_single', SORT, (_in(CONTEXT),))
     */
     Z3_sort Z3_API Z3_mk_fpa_sort_single(__in Z3_context c);
+
+    /**
+    \brief Create the single-precision (32-bit) floating point sort.
+
+    \param c logical context.
+    \param ebits number of exponent bits
+    \param sbits number of significand bits
+
+    \remark ebits must be larger than 1 and sbits must be larger than 2.
+
+    def_API('Z3_mk_fpa_sort_32', SORT, (_in(CONTEXT),))
+    */
+    Z3_sort Z3_API Z3_mk_fpa_sort_32(__in Z3_context c);
 
     /**
         \brief Create the double-precision (64-bit) floating point sort.
@@ -144,6 +170,19 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_fpa_sort_double(__in Z3_context c);
 
     /**
+    \brief Create the double-precision (64-bit) floating point sort.
+
+    \param c logical context.
+    \param ebits number of exponent bits
+    \param sbits number of significand bits
+
+    \remark ebits must be larger than 1 and sbits must be larger than 2.
+
+    def_API('Z3_mk_fpa_sort_64', SORT, (_in(CONTEXT),))
+    */
+    Z3_sort Z3_API Z3_mk_fpa_sort__64(__in Z3_context c);
+
+    /**
         \brief Create the quadruple-precision (128-bit) floating point sort.
 
         \param c logical context.
@@ -156,6 +195,18 @@ extern "C" {
     */
     Z3_sort Z3_API Z3_mk_fpa_sort_quadruple(__in Z3_context c);
 
+    /**
+    \brief Create the quadruple-precision (128-bit) floating point sort.
+
+    \param c logical context.
+    \param ebits number of exponent bits
+    \param sbits number of significand bits
+
+    \remark ebits must be larger than 1 and sbits must be larger than 2.
+
+    def_API('Z3_mk_fpa_sort_128', SORT, (_in(CONTEXT),))
+    */
+    Z3_sort Z3_API Z3_mk_fpa_sort_128(__in Z3_context c);
 
     /**
         \brief Create a NaN of sort s.
@@ -503,18 +554,6 @@ extern "C" {
         def_API('Z3_mk_fpa_convert', AST, (_in(CONTEXT),_in(SORT),_in(AST),_in(AST)))
     */      
     Z3_ast Z3_API Z3_mk_fpa_convert(__in Z3_context c, __in Z3_sort s, __in Z3_ast rm, __in Z3_ast t);
-
-    /**
-        \brief Conversion of a floating point term to a bit-vector term in IEEE754 format.
-
-        \param c logical context.        
-        \param t floating-point term.        
-
-        t must have floating point sort. The size of the resulting bit-vector is automatically determined.
-     
-        def_API('Z3_mk_fpa_to_ieee_bv', AST, (_in(CONTEXT),_in(AST)))
-    */      
-    Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(__in Z3_context c, __in Z3_ast t);
 
     /*@}*/
     /*@}*/

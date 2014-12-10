@@ -73,7 +73,7 @@ public:
         SASSERT(m_bv_util.is_bv(sign) && m_bv_util.get_bv_size(sign) == 1);
         SASSERT(m_bv_util.is_bv(significand));
         SASSERT(m_bv_util.is_bv(exponent));
-        result = m.mk_app(m_util.get_family_id(), OP_TO_FLOAT, sign, significand, exponent);
+        result = m.mk_app(m_util.get_family_id(), OP_FLOAT_FP, sign, significand, exponent);
     }
 
     void mk_eq(expr * a, expr * b, expr_ref & result);
