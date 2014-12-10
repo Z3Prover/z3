@@ -3788,19 +3788,6 @@ namespace Microsoft.Z3
             return new FPExpr(this, Native.Z3_mk_fpa_convert(this.nCtx, s.NativeObject, rm.NativeObject, t.NativeObject));
         }
 
-        /// <summary>
-        /// Conversion of a floating point term to a bit-vector term in IEEE754 format.
-        /// </summary>
-        /// <remarks>
-        /// The size of the resulting bit-vector is automatically determined.
-        /// </remarks>
-        /// <param name="t">floating point term</param>    
-        public FPExpr MkFPToIEEEBV(FPExpr t) 
-        {
-            Contract.Ensures(Contract.Result<FPNum>() != null);
-            return new FPExpr(this, Native.Z3_mk_fpa_to_ieee_bv(this.nCtx, t.NativeObject));
-        }
-
         #endregion
 
         #region Miscellaneous
