@@ -108,6 +108,7 @@ class float_decl_plugin : public decl_plugin {
     value_table         m_value_table;
     sort *              m_real_sort;
     sort *              m_int_sort;
+    family_id           m_arith_fid;
     family_id           m_bv_fid;
     bv_decl_plugin *    m_bv_plugin;
 
@@ -130,11 +131,13 @@ class float_decl_plugin : public decl_plugin {
     func_decl * mk_rm_unary_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                  unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_fma(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                       unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_to_float(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                            unsigned arity, sort * const * domain, sort * range);    
-    func_decl * mk_from3bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                           unsigned arity, sort * const * domain, sort * range);
+                       unsigned arity, sort * const * domain, sort * range);    
+    func_decl * mk_fp(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                      unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_to_fp(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                         unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_to_fp_unsigned(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                  unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_ubv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_sbv(decl_kind k, unsigned num_parameters, parameter const * parameters,
