@@ -565,6 +565,21 @@ func_decl * float_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, 
     return m_manager->mk_func_decl(name, 1, domain, m_real_sort, func_decl_info(m_family_id, k));
 }
 
+func_decl * float_decl_plugin::mk_float_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                                   unsigned arity, sort * const * domain, sort * range) {
+    if (arity != 1)
+        m_manager->raise_exception("invalid number of arguments to asIEEEBV");
+    if (!is_float_sort(domain[0]))
+        m_manager->raise_exception("sort mismatch, expected argument of FloatingPoint sort");
+
+    unsigned float_sz = domain[0]->get_parameter(0).get_int() + domain[0]->get_parameter(1).get_int();
+    parameter ps[] = { parameter(float_sz) };
+    sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
+    symbol name("to_ieee_bv");
+    return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
+}
+
+
 func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                             unsigned arity, sort * const * domain, sort * range) {
     switch (k) {    
@@ -629,6 +644,8 @@ func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return mk_to_fp(k, num_parameters, parameters, arity, domain, range);
     case OP_FLOAT_TO_FP_UNSIGNED:
         return mk_to_fp_unsigned(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_TO_IEEE_BV:
+        return mk_float_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
     default:
         m_manager->raise_exception("unsupported floating point operator");
         return 0;
@@ -687,6 +704,9 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
    
     op_names.push_back(builtin_name("to_fp", OP_FLOAT_TO_FP));
     op_names.push_back(builtin_name("to_fp_unsigned", OP_FLOAT_TO_FP_UNSIGNED));
+
+    /* Extensions */
+    op_names.push_back(builtin_name("to_ieee_bv", OP_FLOAT_TO_IEEE_BV));
 }
 
 void float_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {

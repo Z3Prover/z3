@@ -398,4 +398,15 @@ extern "C" {
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
+
+    Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(__in Z3_context c, __in Z3_ast t) {
+        Z3_TRY;
+        LOG_Z3_mk_fpa_to_ieee_bv(c, t);
+        RESET_ERROR_CODE();
+        api::context * ctx = mk_c(c);
+        Z3_ast r = of_ast(ctx->float_util().mk_float_to_ieee_bv(to_expr(t)));
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(0);
+    }
+
 };

@@ -555,6 +555,19 @@ extern "C" {
     */      
     Z3_ast Z3_API Z3_mk_fpa_convert(__in Z3_context c, __in Z3_sort s, __in Z3_ast rm, __in Z3_ast t);
 
+    /**
+        \brief Conversion of a floating point term to a bit-vector term in IEEE754 format.
+
+        \param c logical context.
+        \param t floating-point term.
+
+        t must have floating point sort. The size of the resulting bit-vector is automatically determined.
+
+        def_API('Z3_mk_fpa_to_ieee_bv', AST, (_in(CONTEXT),_in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(__in Z3_context c, __in Z3_ast t);
+
+
     /*@}*/
     /*@}*/
 

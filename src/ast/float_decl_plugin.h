@@ -82,6 +82,9 @@ enum float_op_kind {
     OP_FLOAT_TO_UBV,
     OP_FLOAT_TO_SBV,
     OP_FLOAT_TO_REAL,
+
+    /* Extensions */
+    OP_FLOAT_TO_IEEE_BV,
     
     LAST_FLOAT_OP
 };
@@ -139,12 +142,14 @@ class float_decl_plugin : public decl_plugin {
     func_decl * mk_to_fp_unsigned(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                   unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_ubv(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                             unsigned arity, sort * const * domain, sort * range);
+                          unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_sbv(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                             unsigned arity, sort * const * domain, sort * range);
+                          unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_real(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                              unsigned arity, sort * const * domain, sort * range);
-    
+                           unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_float_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                    unsigned arity, sort * const * domain, sort * range);
+
     virtual void set_manager(ast_manager * m, family_id id);
     unsigned mk_id(mpf const & v);
     void recycled_id(unsigned id);
@@ -276,6 +281,8 @@ public:
     app * mk_is_negative(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NEGATIVE, arg1); }
 
     bool is_neg(expr * a) { return is_app_of(a, m_fid, OP_FLOAT_NEG); }
+
+    app * mk_float_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_TO_IEEE_BV, arg1); }
 };
 
 #endif

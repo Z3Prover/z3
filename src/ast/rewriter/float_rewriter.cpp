@@ -68,6 +68,7 @@ br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_FLOAT_TO_UBV:    SASSERT(num_args == 2); st = mk_to_ubv(args[0], args[1], result); break;
     case OP_FLOAT_TO_SBV:    SASSERT(num_args == 2); st = mk_to_sbv(args[0], args[1], result); break;
     case OP_FLOAT_TO_REAL:   SASSERT(num_args == 1); st = mk_to_real(args[0], result); break;
+    case OP_FLOAT_TO_IEEE_BV: SASSERT(num_args == 1); st = mk_to_ieee_bv(args[0], result); break;
     }
     return st;
 }
