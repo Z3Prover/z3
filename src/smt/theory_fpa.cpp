@@ -136,7 +136,8 @@ namespace smt {
 
             m_converter.mk_triple(sgn, sig, exp, bv_term);
         }   
-        else if (term->get_decl_kind() == OP_FLOAT_TO_IEEE_BV) {
+        else if (term->get_decl_kind() == OP_FLOAT_TO_IEEE_BV ||
+                 term->get_decl_kind() == OP_FLOAT_TO_REAL) {
             SASSERT(is_app(t));
             expr_ref bv_e(m);
             proof_ref bv_pr(m);
@@ -420,7 +421,8 @@ namespace smt {
                 ctx.mark_as_relevant(bv_sig);
                 ctx.mark_as_relevant(bv_exp);
             }
-            else if (n->get_decl()->get_decl_kind() == OP_FLOAT_TO_IEEE_BV) {
+            else if (n->get_decl()->get_decl_kind() == OP_FLOAT_TO_IEEE_BV ||
+                     n->get_decl()->get_decl_kind() == OP_FLOAT_TO_REAL) {
                 expr_ref eq(m);
                 app * ex_a = to_app(ex);
                 if (n->get_id() > ex_a->get_id())

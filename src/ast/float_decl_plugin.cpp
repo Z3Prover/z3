@@ -413,9 +413,13 @@ func_decl * float_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, pa
             m_manager->raise_exception("invalid number of parameters to to_fp");
         if (!parameters[0].is_int() || !parameters[1].is_int())
             m_manager->raise_exception("invalid parameter type to to_fp");
+
         int ebits = parameters[0].get_int();
         int sbits = parameters[1].get_int();
         
+        if (domain[0]->get_parameter(0).get_int() != (ebits + sbits))
+            m_manager->raise_exception("sort mismtach; invalid bit-vector size, expected bitvector of size (ebits+sbits)");
+
         sort * fp = mk_float_sort(ebits, sbits);
         symbol name("to_fp");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
@@ -461,7 +465,7 @@ func_decl * float_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, pa
         if (arity != 2 && arity != 3)
             m_manager->raise_exception("invalid number of arguments to to_fp operator");
         if (arity == 3 && domain[2] != m_int_sort)
-            m_manager->raise_exception("sort mismatch, expected second argument of Int sort");     
+            m_manager->raise_exception("sort mismatch, expected third argument of Int sort");     
         if (domain[1] != m_real_sort)
             m_manager->raise_exception("sort mismatch, expected second argument of Real sort");
         
@@ -701,6 +705,7 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("fp", OP_FLOAT_FP));
     op_names.push_back(builtin_name("fp.to_ubv", OP_FLOAT_TO_UBV));
     op_names.push_back(builtin_name("fp.to_sbv", OP_FLOAT_TO_SBV));
+    op_names.push_back(builtin_name("fp.to_real", OP_FLOAT_TO_REAL));
    
     op_names.push_back(builtin_name("to_fp", OP_FLOAT_TO_FP));
     op_names.push_back(builtin_name("to_fp_unsigned", OP_FLOAT_TO_FP_UNSIGNED));

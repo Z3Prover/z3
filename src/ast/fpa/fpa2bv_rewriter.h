@@ -144,11 +144,12 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FLOAT_IS_SUBNORMAL: m_conv.mk_is_subnormal(f, num, args, result); return BR_DONE;
             case OP_FLOAT_IS_POSITIVE: m_conv.mk_is_positive(f, num, args, result); return BR_DONE;
             case OP_FLOAT_IS_NEGATIVE: m_conv.mk_is_negative(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_TO_FP: m_conv.mk_to_float(f, num, args, result); return BR_DONE;            
+            case OP_FLOAT_TO_FP: m_conv.mk_to_fp(f, num, args, result); return BR_DONE;            
             case OP_FLOAT_FP: m_conv.mk_fp(f, num, args, result); return BR_DONE;
             case OP_FLOAT_TO_UBV: m_conv.mk_to_ubv(f, num, args, result); return BR_DONE;
             case OP_FLOAT_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
             case OP_FLOAT_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
             default:
                 TRACE("fpa2bv", tout << "unsupported operator: " << f->get_name() << "\n";
                       for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);

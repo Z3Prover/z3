@@ -199,35 +199,59 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         o.sign = m_mpq_manager.is_neg(value);
 
         m_mpz_manager.set(o.significand, 0);
-        const mpz & p = m_powers2(sbits+2);
-        signed lz = 0;
-        
-        o.exponent = sbits+2;
+        const mpz & p = m_powers2(sbits+3);
+                        
+        scoped_mpq v(m_mpq_manager);
+        m_mpq_manager.set(v, value);        
+        o.exponent = 0;
 
-        // CMW: This could be optimized considerably.        
-        scoped_mpz t(m_mpz_manager);
-        retry:                        
-        m_mpz_manager.mul2k(value.numerator(), lz, t);
-        m_mpz_manager.machine_div(t, value.denominator(), o.significand);
-        m_mpz_manager.abs(o.significand);
-        if (m_mpz_manager.lt(o.significand, p)) {
-            lz++;
-            goto retry;
-        }
-        o.exponent -= lz;
-
-        bool sticky = false;
-        while (m_mpz_manager.ge(o.significand, m_powers2(sbits+3))) {
-            sticky = sticky || !m_mpz_manager.is_even(o.significand);
-            m_mpz_manager.machine_div2k(o.significand, 1);
+        // Normalize
+        while (m_mpq_manager.ge(v, mpq(2)))
+        {
+            m_mpq_manager.div(v, mpq(2), v);
             o.exponent++;
         }
-        if (sticky && m_mpz_manager.is_even(o.significand))
-            m_mpz_manager.inc(o.significand);
 
-        TRACE("mpf_dbg", tout << "QUOTIENT = " << m_mpz_manager.to_string(o.significand) << " shift=" << lz << std::endl;);
+        while (m_mpq_manager.lt(v, mpq(1)))
+        {
+            m_mpq_manager.mul(v, mpq(2), v);
+            o.exponent--;
+        }
 
-        SASSERT(m_mpz_manager.ge(o.significand, m_powers2(sbits+2)));
+        m_mpz_manager.set(o.significand, 0);
+        // o.exponent += sbits ;        
+
+        SASSERT(m_mpq_manager.lt(v, mpq(2)));
+        SASSERT(m_mpq_manager.ge(v, mpq(1)));
+
+        // 1.0 <= v < 2.0 (* 2^o.exponent)    
+        // (and v != 0.0)      
+        for (unsigned i = 0; i < sbits + 3 ; i++)
+        {
+            m_mpz_manager.mul(o.significand, mpz(2), o.significand);
+            if (m_mpq_manager.ge(v, mpq(1)))
+                m_mpz_manager.add(o.significand, mpz(1), o.significand);            
+            m_mpq_manager.sub(v, mpq(1), v); // v := v - 1.0
+            m_mpq_manager.mul(mpq(2), v, v); // v := 2.0 * v
+        }        
+
+        // Sticky
+        // m_mpz_manager.mul(o.significand, mpz(2), o.significand);
+        /*if (!m_mpq_manager.is_zero(v))
+            m_mpz_manager.add(o.significand, mpz(1), o.significand);*/
+        
+        // bias?
+        // o.exponent += m_mpz_manager.get_int64(m_powers2.m1(ebits - 1, false));
+
+        // mpq pow;
+        // m_mpq_manager.power(mpq(2), sbits + 3, pow);
+        // m_mpq_manager.div(o.significand, pow, o.significand);
+        // SASSERT(m_mpz_manager.ge(o.significand, mpq(1.0)));
+        // SASSERT(m_mpz_manager.lt(o.significand, mpq(2.0)));
+        
+        TRACE("mpf_dbg", tout << "sig=" << m_mpz_manager.to_string(o.significand) << " exp=" << o.exponent << 
+                                 " sticky=" << (!m_mpq_manager.is_zero(v)) << std::endl;);
+        
         round(rm, o);
     }
 
@@ -253,7 +277,6 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
 
     TRACE("mpf_dbg", tout << " f = " << f << " e = " << e << std::endl;);   
 
-    // [Leo]: potential memory leak. moving q and ex to scoped versions
     scoped_mpq q(m_mpq_manager);    
     m_mpq_manager.set(q, f.c_str());
 
@@ -276,9 +299,6 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
     if (m_mpq_manager.is_zero(significand))
         mk_zero(ebits, sbits, o.sign, o);
     else {	
-        // [Leo]: The following two lines may produce a memory leak. Moving to scoped version
-        // mpq sig;
-        // mpz exp;	
         scoped_mpq sig(m_mpq_manager);
         scoped_mpz exp(m_mpq_manager);
 
