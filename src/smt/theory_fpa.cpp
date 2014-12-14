@@ -24,11 +24,11 @@ Revision History:
 
 namespace smt {
 
-    class mk_atom_trail : public trail<theory_fpa> {
+    class fpa_atom_trail : public trail<theory_fpa> {
         bool_var m_var;
     public:
-        mk_atom_trail(bool_var v) : m_var(v) {}
-        virtual ~mk_atom_trail() {}
+        fpa_atom_trail(bool_var v) : m_var(v) {}
+        virtual ~fpa_atom_trail() {}
         virtual void undo(theory_fpa & th) {
             theory_fpa::atom * a = th.get_bv2a(m_var);
             a->~atom();
@@ -87,7 +87,7 @@ namespace smt {
         ctx.set_var_theory(l.var(), get_id());
         pred_atom * a = new (get_region()) pred_atom(l, def);
         insert_bv2a(l.var(), a);
-        m_trail_stack.push(mk_atom_trail(l.var()));
+        m_trail_stack.push(fpa_atom_trail(l.var()));
         
         if (!ctx.relevancy()) {
             ctx.mk_th_axiom(get_id(), l, ~def);
@@ -257,7 +257,7 @@ namespace smt {
     }
 
     void theory_fpa::pop_scope_eh(unsigned num_scopes) {
-        TRACE("bv", tout << num_scopes << "\n";);
+        TRACE("t_fpa", tout << num_scopes << "\n";);        
         m_trail_stack.pop_scope(num_scopes);
         unsigned num_old_vars = get_old_num_vars(num_scopes);
         for (unsigned i = num_old_vars; i < get_num_vars(); i++) {

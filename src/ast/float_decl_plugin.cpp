@@ -750,8 +750,10 @@ bool float_decl_plugin::is_value(app * e) const {
     case OP_FLOAT_MINUS_ZERO:
     case OP_FLOAT_NAN:
         return true;
-    case OP_FLOAT_TO_FP:
-        return m_manager->is_value(e->get_arg(0));
+    case OP_FLOAT_FP:
+        return m_manager->is_value(e->get_arg(0)) &&
+               m_manager->is_value(e->get_arg(1)) &&
+               m_manager->is_value(e->get_arg(2));
     default:
         return false;
     }

@@ -27,7 +27,11 @@ Revision History:
 namespace smt {
 
     class theory_fpa : public theory {
-        typedef trail_stack<theory_fpa> th_trail_stack;
+        class th_trail_stack : public trail_stack<theory_fpa> {
+        public: 
+            th_trail_stack(theory_fpa & th) : trail_stack<theory_fpa>(th) {}
+            virtual ~th_trail_stack() {}
+        };
 
     public:
         class atom {
