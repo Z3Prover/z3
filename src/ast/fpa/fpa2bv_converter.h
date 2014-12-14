@@ -121,11 +121,13 @@ public:
     void mk_is_normal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_is_subnormal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
-    void mk_to_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-
     void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+
+    void mk_to_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_fp_signed(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    
     void mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);

@@ -1870,6 +1870,12 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
         // Just keep it here, as there will be something else that uses it.
         mk_triple(args[0], args[1], args[2], result);
     }
+    else if (num == 2 &&
+             m_bv_util.is_bv(args[0]) &&
+             m_bv_util.is_bv(args[1]))
+    {
+        mk_to_fp_signed(f, num, args, result);
+    }
     else if (num == 3 &&
              m_bv_util.is_bv(args[0]) &&
              m_arith_util.is_numeral(args[1]) &&
@@ -2141,6 +2147,50 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
         UNREACHABLE();
 
     SASSERT(is_well_sorted(m, result));    
+}
+
+void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    TRACE("fpa2bv_to_fp_signed", for (unsigned i = 0; i < num; i++)
+          tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
+    
+    // This is meant to be a conversion from signed bitvector to float:
+    // ; from signed machine integer, represented as a 2's complement bit vector
+    // ((_ to_fp eb sb) RoundingMode(_ BitVec m) (_ FloatingPoint eb sb))
+
+
+    // Semantics:
+    //((_ to_fp eb sb) RoundingMode (_ BitVec m) (_ FloatingPoint eb sb)):
+    //    Let b in[[(_ BitVec m)]] and let n be the signed integer represented by b (in 2's complement format).
+    //    [[(_ to_fp eb sb)]](r, b) = +/ -infinity if n is too large / too small to be represented as a finite 
+    //    number of [[(_ FloatingPoint eb sb)]]; [[(_ to_fp eb sb)]](r, x) = y otherwise, where y is the finite 
+    //    number such that [[fp.to_real]](y) is closest to n according to rounding mode r.
+
+    NOT_IMPLEMENTED_YET();
+
+    SASSERT(m_util.is_float(f->get_range()));
+    unsigned ebits = m_util.get_ebits(f->get_range());
+    unsigned sbits = m_util.get_sbits(f->get_range());
+    unsigned sz = sbits + ebits;
+    SASSERT(m_bv_util.get_bv_size(args[0]) == 3);
+    SASSERT(m_bv_util.get_bv_size(args[1]) == sz);
+
+    expr_ref rm(m), x(m);
+    rm = args[0];
+    x = args[1];
+
+    expr_ref sgn(m), sig(m), exp(m);
+    sgn = m_bv_util.mk_extract(sz - 1, sz - 1, x);
+    sig = m_bv_util.mk_extract(sz - ebits - 2, 0, x);
+    exp = m_bv_util.mk_extract(sz - 2, sz - ebits - 1, x);
+
+    round(f->get_range(), rm, sgn, sig, exp, result);
+}
+
+void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    TRACE("fpa2bv_to_fp_unsigned", for (unsigned i = 0; i < num; i++)
+          tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
+
+    NOT_IMPLEMENTED_YET();
 }
 
 void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {

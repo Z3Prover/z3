@@ -457,22 +457,47 @@ func_decl * float_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, pa
         sort * fp = mk_float_sort(ebits, sbits);
         symbol name("to_fp");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
-    }
-    else {
-        // 1 Real -> 1 FP
-        if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int())) 
-            m_manager->raise_exception("expecting two integer parameters to to_fp");        
-        if (arity != 2 && arity != 3)
-            m_manager->raise_exception("invalid number of arguments to to_fp operator");
-        if (arity == 3 && domain[2] != m_int_sort)
-            m_manager->raise_exception("sort mismatch, expected third argument of Int sort");     
-        if (domain[1] != m_real_sort)
-            m_manager->raise_exception("sort mismatch, expected second argument of Real sort");
-        
+    }    
+    else if (arity == 3 &&
+             is_sort_of(domain[0], m_family_id, ROUNDING_MODE_SORT) &&
+             is_sort_of(domain[1], m_arith_fid, REAL_SORT) &&
+             is_sort_of(domain[2], m_arith_fid, INT_SORT))
+    {
+        // Rounding + 1 Real + 1 Int -> 1 FP
+        if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int()))
+            m_manager->raise_exception("expecting two integer parameters to to_fp");                
+
         sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
         symbol name("to_fp");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
     }
+    else if (arity == 1 &&
+             is_sort_of(domain[0], m_arith_fid, REAL_SORT))
+    {
+        // 1 Real -> 1 FP
+        if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int()))
+            m_manager->raise_exception("expecting two integer parameters to to_fp");
+        if (domain[1] != m_real_sort)
+            m_manager->raise_exception("sort mismatch, expected one argument of Real sort");
+
+        sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
+        symbol name("to_fp");
+        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
+    else if (arity == 2 &&
+             is_sort_of(domain[0], m_family_id, ROUNDING_MODE_SORT) &&
+             is_sort_of(domain[1], m_arith_fid, REAL_SORT))
+    {
+        // Rounding + 1 Real -> 1 FP
+        if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int()))
+            m_manager->raise_exception("expecting two integer parameters to to_fp");
+
+        sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
+        symbol name("to_fp");
+        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
+    else
+        NOT_IMPLEMENTED_YET();
 }
 
 func_decl * float_decl_plugin::mk_to_fp_unsigned(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -754,6 +779,32 @@ bool float_decl_plugin::is_value(app * e) const {
         return m_manager->is_value(e->get_arg(0)) &&
                m_manager->is_value(e->get_arg(1)) &&
                m_manager->is_value(e->get_arg(2));
+    default:
+        return false;
+    }
+}
+
+bool float_decl_plugin::is_unique_value(app* e) const {
+    if (e->get_family_id() != m_family_id)
+        return false;
+    switch (e->get_decl_kind()) {
+    case OP_FLOAT_RM_NEAREST_TIES_TO_EVEN:
+    case OP_FLOAT_RM_NEAREST_TIES_TO_AWAY:
+    case OP_FLOAT_RM_TOWARD_POSITIVE:
+    case OP_FLOAT_RM_TOWARD_NEGATIVE:
+    case OP_FLOAT_RM_TOWARD_ZERO:
+        return true;    
+    case OP_FLOAT_PLUS_INF:  /* No; +oo == fp(#b0 #b11 #b00) */
+    case OP_FLOAT_MINUS_INF: /* Nol -oo == fp #b1 #b11 #b00) */
+    case OP_FLOAT_PLUS_ZERO: /* No; +zero == fp #b0 #b00 #b000) */
+    case OP_FLOAT_MINUS_ZERO: /* No; -zero == fp #b1 #b00 #b000) */
+    case OP_FLOAT_NAN: /* No; NaN == (fp #b0 #b111111 #b0000001) */
+    case OP_FLOAT_VALUE: /* above */
+        return false;
+    case OP_FLOAT_FP:
+        return m_manager->is_unique_value(e->get_arg(0)) &&
+            m_manager->is_unique_value(e->get_arg(1)) &&
+            m_manager->is_unique_value(e->get_arg(2));
     default:
         return false;
     }

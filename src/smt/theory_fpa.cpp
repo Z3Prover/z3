@@ -336,10 +336,13 @@ namespace smt {
                   << mk_ismt2_pp(e_exp, m) << "]\n";);
 
             rational sgn_r(0), sig_r(0), exp_r(0);
-
-            bv_th->get_fixed_value(e_sgn, sgn_r); // OK to fail
-            bv_th->get_fixed_value(e_sig, sig_r); // OK to fail
-            bv_th->get_fixed_value(e_exp, exp_r); // OK to fail
+            
+            if (ctx.e_internalized(bv_sgn) && ctx.get_enode(bv_sgn)->get_num_th_vars() > 0)
+                bv_th->get_fixed_value(e_sgn, sgn_r); // OK to fail
+            if (ctx.e_internalized(bv_sig) && ctx.get_enode(bv_sig)->get_num_th_vars() > 0)
+                bv_th->get_fixed_value(e_sig, sig_r); // OK to fail
+            if (ctx.e_internalized(bv_exp) && ctx.get_enode(bv_exp)->get_num_th_vars() > 0)
+                bv_th->get_fixed_value(e_exp, exp_r); // OK to fail
 
             TRACE("t_fpa", tout << "bv model: [" << sgn_r.to_string() << " "
                       << sig_r.to_string() << " "

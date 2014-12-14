@@ -37,6 +37,7 @@ br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     SASSERT(f->get_family_id() == get_fid());
     switch (f->get_decl_kind()) {
     case OP_FLOAT_TO_FP:        st = mk_to_fp(f, num_args, args, result); break;
+    case OP_FLOAT_TO_FP_UNSIGNED: st = mk_to_fp_unsigned(f, num_args, args, result); break;
     case OP_FLOAT_ADD:       SASSERT(num_args == 3); st = mk_add(args[0], args[1], args[2], result); break;
     case OP_FLOAT_SUB:       SASSERT(num_args == 3); st = mk_sub(args[0], args[1], args[2], result); break;
     case OP_FLOAT_NEG:       SASSERT(num_args == 1); st = mk_neg(args[0], result); break;
@@ -86,10 +87,10 @@ br_status float_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * cons
             return BR_FAILED;
         
         rational q;
-        mpf q_mpf;
+        scoped_mpf q_mpf(m_util.fm());
         if (m_util.au().is_numeral(args[1], q)) {        
             TRACE("fp_rewriter", tout << "q: " << q << std::endl; );
-            mpf v;
+            scoped_mpf v(m_util.fm());
             m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
             result = m_util.mk_value(v);
             m_util.fm().del(v);
@@ -98,7 +99,7 @@ br_status float_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * cons
         }
         else if (m_util.is_value(args[1], q_mpf)) {
             TRACE("fp_rewriter", tout << "q: " << m_util.fm().to_string(q_mpf) << std::endl; );
-            mpf v;
+            scoped_mpf v(m_util.fm());
             m_util.fm().set(v, ebits, sbits, rm, q_mpf);
             result = m_util.mk_value(v);
             m_util.fm().del(v);
@@ -126,7 +127,7 @@ br_status float_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * cons
             return BR_FAILED;
 
         TRACE("fp_rewriter", tout << "q: " << q << ", e: " << e << "\n";);
-        mpf v;
+        scoped_mpf v(m_util.fm());
 	    m_util.fm().set(v, ebits, sbits, rm, q.to_mpq(), e.to_mpq().numerator());
         result = m_util.mk_value(v);
         m_util.fm().del(v);
@@ -135,6 +136,16 @@ br_status float_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * cons
     else {
         return BR_FAILED;
     }
+}
+
+br_status float_rewriter::mk_to_fp_unsigned(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
+    SASSERT(f->get_num_parameters() == 2);
+    SASSERT(f->get_parameter(0).is_int());
+    SASSERT(f->get_parameter(1).is_int());
+    unsigned ebits = f->get_parameter(0).get_int();
+    unsigned sbits = f->get_parameter(1).get_int();
+    
+    return BR_FAILED;
 }
 
 br_status float_rewriter::mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {    
