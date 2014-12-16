@@ -434,7 +434,6 @@ namespace datalog {
 
     relation_union_fn * explanation_relation_plugin::mk_union_fn(const relation_base & tgt, const relation_base & src, 
             const relation_base * delta) {
-        std::cout << "check kind: " << check_kind(tgt) << "\n";
         if (!check_kind(tgt) || (delta && !check_kind(*delta))) {
             return 0;
         }
