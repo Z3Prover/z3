@@ -23,8 +23,37 @@ Revision History:
 #include"trail.h"
 #include"fpa2bv_converter.h"
 #include"fpa2bv_rewriter.h"
+#include"value_factory.h"
 
 namespace smt {
+
+    class fpa_factory : public value_factory {
+        float_util          m_util;
+
+        virtual app * mk_value_core(mpf const & val, sort * s) {
+            SASSERT(m_util.get_ebits(s) == val.get_ebits());
+            SASSERT(m_util.get_sbits(s) == val.get_sbits());
+            return m_util.mk_value(val);
+        }
+
+    public:
+        fpa_factory(ast_manager & m, family_id fid) :
+            value_factory(m, fid),
+            m_util(m) {
+        }
+
+        virtual ~fpa_factory() {}
+
+        virtual expr * get_some_value(sort * s) { NOT_IMPLEMENTED_YET(); }
+        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) { NOT_IMPLEMENTED_YET(); }
+        virtual expr * get_fresh_value(sort * s) { NOT_IMPLEMENTED_YET(); }
+        virtual void register_value(expr * n) { /* Ignore */ }
+
+        app * mk_value(mpf const & x) { 
+            return m_util.mk_value(x);
+        }
+    };
+
 
     class theory_fpa : public theory {
         class th_trail_stack : public trail_stack<theory_fpa> {
@@ -60,6 +89,7 @@ namespace smt {
         bool_var2atom    m_bool_var2atom;
         enode_vector     m_temporaries;
         int_vector       m_tvars;
+        fpa_factory *    m_factory;
 
         virtual final_check_status final_check_eh() { return FC_DONE; }
         virtual bool internalize_atom(app * atom, bool gate_ctx);
@@ -78,7 +108,6 @@ namespace smt {
         void assign_eh(bool_var v, bool is_true);
         virtual void relevant_eh(app * n);
         virtual void init_model(model_generator & m);
-
     public:
         theory_fpa(ast_manager& m);
         virtual ~theory_fpa();
@@ -91,7 +120,8 @@ namespace smt {
             sig = to_app(e)->get_arg(1);
             exp = to_app(e)->get_arg(2);
         }
-                
+
+        void add_extra_assertions();
         void mk_bv_eq(expr * x, expr * y);
     };
 

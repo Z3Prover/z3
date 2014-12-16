@@ -49,6 +49,24 @@ namespace smt {
     {
     }
 
+    void theory_fpa::add_extra_assertions()
+    {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+        simplifier & simp = ctx.get_simplifier();
+
+        expr_ref_vector::iterator it = m_converter.extra_assertions.begin();
+        expr_ref_vector::iterator end = m_converter.extra_assertions.end();
+        for (; it != end; it++) {
+            expr_ref t(m);
+            proof_ref t_pr(m);
+            simp(*it, t, t_pr);            
+            TRACE("t_fpa", tout << "extra: " << mk_ismt2_pp(t, m) << "\n";);            
+            ctx.internalize_assertion(t, t_pr, 0);
+        }
+        m_converter.extra_assertions.reset();
+    }
+
     void theory_fpa::mk_bv_eq(expr * x, expr * y) {
         SASSERT(get_sort(x)->get_family_id() == m_converter.bu().get_family_id());
         SASSERT(get_sort(y)->get_family_id() == m_converter.bu().get_family_id());
@@ -94,6 +112,8 @@ namespace smt {
             ctx.mk_th_axiom(get_id(), ~l, def);
         }
 
+        add_extra_assertions();
+
         return true;
     }
 
@@ -134,7 +154,7 @@ namespace smt {
             simp(a->get_arg(1), sig, pr_sig);
             simp(a->get_arg(2), exp, pr_exp);
 
-            m_converter.mk_triple(sgn, sig, exp, bv_term);
+            m_converter.mk_triple(sgn, sig, exp, bv_term);            
         }   
         else if (term->get_decl_kind() == OP_FLOAT_TO_IEEE_BV ||
                  term->get_decl_kind() == OP_FLOAT_TO_REAL) {
@@ -149,7 +169,9 @@ namespace smt {
         TRACE("t_fpa", tout << "converted: " << mk_ismt2_pp(bv_term, get_manager()) << "\n";);
 
         SASSERT(!m_trans_map.contains(term));
-        m_trans_map.insert(term, bv_term, 0);        
+        m_trans_map.insert(term, bv_term, 0);
+
+        add_extra_assertions();
 
         enode * e = (ctx.e_internalized(term)) ? ctx.get_enode(term) : ctx.mk_enode(term, false, false, true);
         theory_var v = mk_var(e);
@@ -176,11 +198,15 @@ namespace smt {
             m_rw(owner, converted);
             simp(converted, converted, pr);
             m_trans_map.insert(owner, converted, 0);
+
+            add_extra_assertions();
             
             sort * owner_sort = m.get_sort(owner);
             if (m_converter.is_rm(owner_sort)) {
                 bv_util & bu = m_converter.bu();
-                bu.mk_ule(converted, bu.mk_numeral(4, bu.get_bv_size(converted)));
+                expr_ref t(m);
+                t = bu.mk_ule(converted, bu.mk_numeral(4, bu.get_bv_size(converted)));
+                ctx.internalize_assertion(t, proof_ref(m), 0);
             }
 
             TRACE("t_fpa", tout << "new theory var (const): " << mk_ismt2_pp(owner, get_manager()) << " := " << v << "\n";);
@@ -191,7 +217,8 @@ namespace smt {
         TRACE("t_fpa", tout << "new eq: " << x << " = " << y << "\n";);
         ast_manager & m = get_manager();
         context & ctx = get_context();
-        
+        float_util & fu = m_converter.fu();
+
         app * ax = get_enode(x)->get_owner();
         app * ay = get_enode(y)->get_owner();
         expr * ex, *ey;
@@ -199,7 +226,7 @@ namespace smt {
         m_trans_map.get(ax, ex, px);
         m_trans_map.get(ay, ey, py);
 
-        if (m_converter.fu().is_float(get_enode(x)->get_owner())) {
+        if (fu.is_float(get_enode(x)->get_owner())) {
             expr * sgn_x, *sig_x, *exp_x;
             expr * sgn_y, *sig_y, *exp_y;
             split_triple(ex, sgn_x, sig_x, exp_x);
@@ -209,7 +236,7 @@ namespace smt {
             mk_bv_eq(sig_x, sig_y);
             mk_bv_eq(exp_x, exp_y);
         }
-        else if (m_converter.fu().is_rm(get_enode(x)->get_owner())) {
+        else if (fu.is_rm(get_enode(x)->get_owner())) {
             mk_bv_eq(ex, ey);
         }
         else 
@@ -220,7 +247,8 @@ namespace smt {
         TRACE("t_fpa", tout << "new diseq: " << x << " != " << y << "\n";);
         ast_manager & m = get_manager();
         context & ctx = get_context();
-        
+        float_util & fu = m_converter.fu();
+
         app * ax = get_enode(x)->get_owner();
         app * ay = get_enode(y)->get_owner();
         expr * ex, *ey;
@@ -230,7 +258,7 @@ namespace smt {
 
         expr_ref deq(m);
 
-        if (m_converter.fu().is_float(m.get_sort(get_enode(x)->get_owner()))) {
+        if (fu.is_float(m.get_sort(get_enode(x)->get_owner()))) {
             expr * sgn_x, *sig_x, *exp_x;
             expr * sgn_y, *sig_y, *exp_y;
             split_triple(ex, sgn_x, sig_x, exp_x);
@@ -240,7 +268,7 @@ namespace smt {
                           m.mk_not(m.mk_eq(sig_x, sig_y)),
                           m.mk_not(m.mk_eq(exp_x, exp_y)));            
         } 
-        else if (m_converter.fu().is_rm(m.get_sort(get_enode(x)->get_owner()))) {
+        else if (fu.is_rm(m.get_sort(get_enode(x)->get_owner()))) {
             deq = m.mk_not(m.mk_eq(ex, ey));
         }
         else
@@ -317,67 +345,65 @@ namespace smt {
             split_triple(bv_e, bv_sgn, bv_sig, bv_exp);
 
             family_id fid = m.get_family_id("bv");
-            theory_bv * bv_th = (theory_bv*)ctx.get_theory(fid);
+            theory_bv * bv_th = (theory_bv*)ctx.get_theory(fid);            
 
             app * e_sgn, *e_sig, *e_exp;
-            unsigned exp_sz = fpa_e_srt->get_parameter(0).get_int();
+            unsigned ebits = fpa_e_srt->get_parameter(0).get_int();
+            unsigned sbits = fpa_e_srt->get_parameter(1).get_int();
             unsigned sig_sz = fpa_e_srt->get_parameter(1).get_int() - 1;
 
+            rational bias = mpfm.m_powers2.m1(ebits - 1);
+            rational sgn_r(0), sig_r(0), exp_r(bias);
+
             e_sgn = (ctx.e_internalized(bv_sgn)) ? ctx.get_enode(bv_sgn)->get_owner() : 
-                                                   m_converter.bu().mk_numeral(0, 1);
+                                                   bu.mk_numeral(0, 1);
             e_sig = (ctx.e_internalized(bv_sig)) ? ctx.get_enode(bv_sig)->get_owner() : 
-                                                   m_converter.bu().mk_numeral(0, sig_sz);
+                                                   bu.mk_numeral(0, sig_sz);
             e_exp = (ctx.e_internalized(bv_exp)) ? ctx.get_enode(bv_exp)->get_owner() :
-                                                   m_converter.bu().mk_numeral(0, exp_sz);
+                                                   bu.mk_numeral(bias, ebits);
 
             TRACE("t_fpa", tout << "bv rep: ["
                   << mk_ismt2_pp(e_sgn, m) << "\n"
                   << mk_ismt2_pp(e_sig, m) << "\n"
-                  << mk_ismt2_pp(e_exp, m) << "]\n";);
-
-            rational sgn_r(0), sig_r(0), exp_r(0);
+                  << mk_ismt2_pp(e_exp, m) << "]\n";);                        
             
-            if (ctx.e_internalized(bv_sgn) && ctx.get_enode(bv_sgn)->get_num_th_vars() > 0)
-                bv_th->get_fixed_value(e_sgn, sgn_r); // OK to fail
-            if (ctx.e_internalized(bv_sig) && ctx.get_enode(bv_sig)->get_num_th_vars() > 0)
-                bv_th->get_fixed_value(e_sig, sig_r); // OK to fail
-            if (ctx.e_internalized(bv_exp) && ctx.get_enode(bv_exp)->get_num_th_vars() > 0)
-                bv_th->get_fixed_value(e_exp, exp_r); // OK to fail
-
-            TRACE("t_fpa", tout << "bv model: [" << sgn_r.to_string() << " "
-                      << sig_r.to_string() << " "
-                      << exp_r.to_string() << "]\n";);
+            if (!ctx.e_internalized(bv_sgn) ||
+                ctx.get_enode(bv_sgn)->get_num_th_vars() == 0 ||
+                !bv_th->get_fixed_value(e_sgn, sgn_r))
+                    sgn_r = rational(0);
+            if (!ctx.e_internalized(bv_sig) ||
+                ctx.get_enode(bv_sig)->get_num_th_vars() == 0 ||
+                !bv_th->get_fixed_value(e_sig, sig_r))
+                    sig_r = rational(0);
+            if (!ctx.e_internalized(bv_exp) || 
+                ctx.get_enode(bv_exp)->get_num_th_vars() == 0 ||
+                !bv_th->get_fixed_value(e_exp, exp_r))
+                    exp_r = bias;
 
             // un-bias exponent
             rational exp_unbiased_r;
-            exp_unbiased_r = exp_r - mpfm.m_powers2.m1(exp_sz - 1);
+            exp_unbiased_r = exp_r - bias;
 
-            mpz sig_z; mpf_exp_t exp_z;
-            mpq sig_q, exp_q;
-            mpz sig_num, exp_num;
+            TRACE("t_fpa", tout << "bv model: [" << sgn_r.to_string() << " "
+                  << sig_r.to_string() << " "
+                  << exp_unbiased_r.to_string() << "(" << exp_r.to_string() << ")]\n"; );
+
+            scoped_mpz sig_z(mpzm);
+            mpf_exp_t exp_z;
+            scoped_mpq sig_q(mpqm), exp_q(mpqm);
+            scoped_mpz sig_num(mpzm), exp_num(mpzm);
             mpqm.set(sig_q, sig_r.to_mpq());
-            mpzm.set(sig_num, sig_q.numerator());
+            mpzm.set(sig_num, sig_q.get().numerator());
             mpqm.set(exp_q, exp_unbiased_r.to_mpq());
-            mpzm.set(exp_num, exp_q.numerator());
+            mpzm.set(exp_num, exp_q.get().numerator());
             mpzm.set(sig_z, sig_num);
             exp_z = mpzm.get_int64(exp_num);
 
-            mpf fp_val;
-            mpfm.set(fp_val, exp_sz, sig_sz + 1, !sgn_r.is_zero(), sig_z, exp_z);
+            scoped_mpf fp_val(mpfm);
+            mpfm.set(fp_val, ebits, sbits, !sgn_r.is_zero(), sig_z, exp_z);            
 
-            app * fp_val_e;
-            fp_val_e = fu.mk_value(fp_val);
-
-            TRACE("t_fpa", tout << mk_ismt2_pp(fpa_e, m) << " := " << mk_ismt2_pp(fp_val_e, m) << std::endl;);
-
-            mpfm.del(fp_val);
-            mpzm.del(sig_num);
-            mpzm.del(exp_num);
-            mpqm.del(sig_q);
-            mpqm.del(exp_q);
-            mpzm.del(sig_z);
-
-            res = alloc(expr_wrapper_proc, fp_val_e);
+            TRACE("t_fpa", tout << mk_ismt2_pp(fpa_e, m) << " := " << mpfm.to_string(fp_val) << std::endl;);
+            res = alloc(expr_wrapper_proc, m_factory->mk_value(fp_val));
         }
         else
             UNREACHABLE();
@@ -445,7 +471,7 @@ namespace smt {
 
     void theory_fpa::reset_eh() {
         pop_scope_eh(m_trail_stack.get_num_scopes());
-        m_rw.reset();        
+        m_rw.reset();
         m_trans_map.reset();
         m_bool_var2atom.reset();
         m_temporaries.reset();
@@ -453,6 +479,8 @@ namespace smt {
         theory::reset_eh();
     }
 
-    void theory_fpa::init_model(model_generator & m) {
+    void theory_fpa::init_model(model_generator & m) {        
+        m_factory = alloc(fpa_factory, get_manager(), get_family_id());
+        m.register_factory(m_factory);
     }
 };

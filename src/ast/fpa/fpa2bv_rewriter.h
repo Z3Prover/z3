@@ -113,8 +113,8 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FLOAT_RM_TOWARD_POSITIVE:
             case OP_FLOAT_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f, result); return BR_DONE;
             case OP_FLOAT_VALUE: m_conv.mk_value(f, num, args, result); return BR_DONE;                             
-            case OP_FLOAT_PLUS_INF: m_conv.mk_plus_inf(f, result); return BR_DONE;
-            case OP_FLOAT_MINUS_INF: m_conv.mk_minus_inf(f, result); return BR_DONE;
+            case OP_FLOAT_PLUS_INF: m_conv.mk_pinf(f, result); return BR_DONE;
+            case OP_FLOAT_MINUS_INF: m_conv.mk_ninf(f, result); return BR_DONE;
             case OP_FLOAT_PLUS_ZERO: m_conv.mk_pzero(f, result); return BR_DONE;
             case OP_FLOAT_MINUS_ZERO: m_conv.mk_nzero(f, result); return BR_DONE;
             case OP_FLOAT_NAN: m_conv.mk_nan(f, result); return BR_DONE;

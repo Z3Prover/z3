@@ -163,6 +163,11 @@ decl_plugin * float_decl_plugin::mk_fresh() {
 }
 
 sort * float_decl_plugin::mk_float_sort(unsigned ebits, unsigned sbits) {
+    if (ebits > sbits)
+        m_manager->raise_exception("floating point sorts with ebits > sbits are currently not supported");
+    if (ebits <= 2)
+        m_manager->raise_exception("floating point sorts with ebits <= 2 are currently not supported");
+
     parameter p1(ebits), p2(sbits);
     parameter ps[2] = { p1, p2 };
     sort_size sz;
@@ -841,13 +846,13 @@ app * float_util::mk_nan(unsigned ebits, unsigned sbits) {
     return mk_value(v);
 }
 
-app * float_util::mk_plus_inf(unsigned ebits, unsigned sbits) {
+app * float_util::mk_pinf(unsigned ebits, unsigned sbits) {
     scoped_mpf v(fm());
     fm().mk_pinf(ebits, sbits, v);
     return mk_value(v);
 }
 
-app * float_util::mk_minus_inf(unsigned ebits, unsigned sbits) {
+app * float_util::mk_ninf(unsigned ebits, unsigned sbits) {
     scoped_mpf v(fm());
     fm().mk_ninf(ebits, sbits, v);
     return mk_value(v);

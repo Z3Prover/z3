@@ -86,8 +86,8 @@ public:
     void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_var(unsigned base_inx, sort * srt, expr_ref & result);
 
-    void mk_plus_inf(func_decl * f, expr_ref & result);
-    void mk_minus_inf(func_decl * f, expr_ref & result);
+    void mk_pinf(func_decl * f, expr_ref & result);
+    void mk_ninf(func_decl * f, expr_ref & result);
     void mk_nan(func_decl * f, expr_ref & result);
     void mk_nzero(func_decl *f, expr_ref & result);
     void mk_pzero(func_decl *f, expr_ref & result);

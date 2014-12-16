@@ -221,11 +221,11 @@ public:
     app * mk_round_toward_zero() { return m().mk_const(m_fid, OP_FLOAT_RM_TOWARD_ZERO); }
 
     app * mk_nan(unsigned ebits, unsigned sbits);
-    app * mk_plus_inf(unsigned ebits, unsigned sbits);
-    app * mk_minus_inf(unsigned ebits, unsigned sbits);
+    app * mk_pinf(unsigned ebits, unsigned sbits);
+    app * mk_ninf(unsigned ebits, unsigned sbits);
     app * mk_nan(sort * s) { return mk_nan(get_ebits(s), get_sbits(s)); }
-    app * mk_plus_inf(sort * s) { return mk_plus_inf(get_ebits(s), get_sbits(s)); }
-    app * mk_minus_inf(sort * s) { return mk_minus_inf(get_ebits(s), get_sbits(s)); }
+    app * mk_pinf(sort * s) { return mk_pinf(get_ebits(s), get_sbits(s)); }
+    app * mk_ninf(sort * s) { return mk_ninf(get_ebits(s), get_sbits(s)); }
 
     app * mk_value(mpf const & v) { return m_plugin->mk_value(v); }
     bool is_value(expr * n) { return m_plugin->is_value(n); }
@@ -238,8 +238,8 @@ public:
     app * mk_nzero(sort * s) { return mk_nzero(get_ebits(s), get_sbits(s)); }
 
     bool is_nan(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_nan(v); } 
-    bool is_plus_inf(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_pinf(v); }
-    bool is_minus_inf(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_ninf(v); }    
+    bool is_pinf(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_pinf(v); }
+    bool is_ninf(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_ninf(v); }    
     bool is_zero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_zero(v); }
     bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_pzero(v); }
     bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_nzero(v); }

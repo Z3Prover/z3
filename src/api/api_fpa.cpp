@@ -149,7 +149,7 @@ extern "C" {
         LOG_Z3_mk_fpa_inf(c, s, negative);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
-        Z3_ast r = of_ast(negative != 0 ? ctx->float_util().mk_minus_inf(to_sort(s)) : ctx->float_util().mk_plus_inf(to_sort(s)));
+        Z3_ast r = of_ast(negative != 0 ? ctx->float_util().mk_ninf(to_sort(s)) : ctx->float_util().mk_pinf(to_sort(s)));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
