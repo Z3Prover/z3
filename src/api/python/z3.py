@@ -3813,6 +3813,18 @@ def RepeatBitVec(n, a):
         _z3_assert(is_bv(a), "Second argument must be a Z3 Bitvector expression")
     return BitVecRef(Z3_mk_repeat(a.ctx_ref(), n, a.as_ast()), a.ctx)
 
+def BVRedAnd(a):
+    """Return the reduction-and expression of `a`."""
+    if __debug__:
+        _z3_assert(is_bv(a), "First argument must be a Z3 Bitvector expression")
+    return BitVecRef(Z3_mk_bvredand(a.ctx_ref(), a.as_ast()), a.ctx)
+
+def BVRedOr(a):
+    """Return the reduction-or expression of `a`."""
+    if __debug__:
+        _z3_assert(is_bv(a), "First argument must be a Z3 Bitvector expression")
+    return BitVecRef(Z3_mk_bvredor(a.ctx_ref(), a.as_ast()), a.ctx)
+
 #########################################
 #
 # Arrays
