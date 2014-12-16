@@ -32,6 +32,7 @@ namespace datalog {
         context&      m_ctx;
         i_expr_pred&  m_is_predicate;
         datatype_util m_dt;
+        dl_decl_util  m_dl;
         bool          m_generate_proof;
         rule*         m_rule;
         obj_map<quantifier, rule*> m_quantifiers;

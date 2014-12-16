@@ -26,7 +26,7 @@ Notes:
 
 using namespace datalog;
 rule_properties::rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& p): 
-    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), m_dt(m), m_generate_proof(false) {}
+    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), m_dt(m), m_dl(m), m_generate_proof(false) {}
 
 rule_properties::~rule_properties() {}
 
@@ -168,7 +168,7 @@ void rule_properties::operator()(app* n) {
     if (m_is_predicate(n)) {
         insert(m_interp_pred, m_rule);
     }    
-    else if (is_uninterp(n)) {
+    else if (is_uninterp(n) && !m_dl.is_rule_sort(n->get_decl()->get_range())) {
         m_uninterp_funs.insert(n->get_decl(), m_rule);
     }
     else if (m_dt.is_accessor(n)) {

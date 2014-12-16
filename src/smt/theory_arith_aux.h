@@ -1377,11 +1377,11 @@ namespace smt {
                 SASSERT(satisfy_bounds());
                 result = skipped_row?BEST_EFFORT:OPTIMIZED;
                 break; 
-           }
+            }
 
             if (x_i == null_theory_var) {
                 // can increase/decrease x_j as much as we want.
-                if (inc && upper(x_j)) {
+                if (inc && upper(x_j) && !skipped_row) {
                     update_value(x_j, upper_bound(x_j) - get_value(x_j));
                     TRACE("opt", tout << "moved v" << x_j << " to upper bound\n";);
                     SASSERT(valid_row_assignment());
@@ -1389,7 +1389,7 @@ namespace smt {
                     SASSERT(satisfy_integrality());
                     continue;
                 }
-                if (!inc && lower(x_j)) {
+                if (!inc && lower(x_j) && !skipped_row) {
                     update_value(x_j, lower_bound(x_j) - get_value(x_j));
                     TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
                     SASSERT(valid_row_assignment());
@@ -1463,6 +1463,7 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::move_to_bound(theory_var x_i, bool move_to_lower) {
         inf_numeral delta, delta_abs;
+        numeral lc(1);
 
         if (move_to_lower) {
             delta = lower_bound(x_i) - get_value(x_i);
@@ -1475,7 +1476,7 @@ namespace smt {
 
         TRACE("opt", tout << "Original delta: " << delta << "\n";);
 
-        delta_abs = abs(delta);
+        delta_abs = abs(delta);        
         //
         // Decrease absolute value of delta according to bounds on rows where x_i is used.
         //
@@ -1483,28 +1484,31 @@ namespace smt {
         typename svector<col_entry>::iterator it  = c.begin_entries();
         typename svector<col_entry>::iterator end = c.end_entries();
         for (; it != end && delta_abs.is_pos(); ++it) {
-            if (!it->is_dead()) {
-                row & r = m_rows[it->m_row_id];
-                theory_var s = r.get_base_var();
-                if (s != null_theory_var && !is_quasi_base(s)) {
-                    numeral const & coeff = r[it->m_row_idx].m_coeff;
-                    SASSERT(!coeff.is_zero());
-                    bool inc_s = coeff.is_pos() ? move_to_lower : !move_to_lower; // NSB: review this..
-                    bound * b = get_bound(s, inc_s);
-                    if (b) {
-                        inf_numeral delta2 = abs((get_value(s) - b->get_value())/coeff);
-                        if (delta2 < delta_abs) {
-                            delta_abs = delta2;
-                        }
+            if (it->is_dead()) continue;
+            row & r = m_rows[it->m_row_id];
+            theory_var s = r.get_base_var();
+            if (s != null_theory_var && !is_quasi_base(s)) {
+                numeral const & coeff = r[it->m_row_idx].m_coeff;
+                SASSERT(!coeff.is_zero());
+                bool inc_s = coeff.is_pos() ? move_to_lower : !move_to_lower; // NSB: review this..
+                bound * b = get_bound(s, inc_s);
+                if (b) {
+                    inf_numeral delta2 = abs((get_value(s) - b->get_value())/coeff);
+                    if (delta2 < delta_abs) {
+                        delta_abs = delta2;
                     }
+                }
+                if (is_int(x_i)) {
+                    lc = lcm(lc, denominator(abs(coeff)));
                 }
             }
         }
 
         bool truncated = false;
         if (is_int(x_i)) {
-            truncated = !delta_abs.is_int();
-            delta_abs = floor(delta_abs);
+            inf_numeral tmp = delta_abs/lc;
+            truncated = !tmp.is_int();
+            delta_abs = lc*floor(tmp);            
         }
 
         if (move_to_lower) {

@@ -115,7 +115,7 @@ namespace datalog {
 
         rm.register_plugin(alloc(bound_relation_plugin, rm));
         rm.register_plugin(alloc(interval_relation_plugin, rm));
-        rm.register_plugin(alloc(karr_relation_plugin, rm));
+        if (m_context.karr()) rm.register_plugin(alloc(karr_relation_plugin, rm));
         rm.register_plugin(alloc(product_set_plugin, rm));
         rm.register_plugin(alloc(udoc_plugin, rm));
         rm.register_plugin(alloc(check_relation_plugin, rm));

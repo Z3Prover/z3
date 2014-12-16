@@ -434,6 +434,7 @@ namespace datalog {
 
     relation_union_fn * explanation_relation_plugin::mk_union_fn(const relation_base & tgt, const relation_base & src, 
             const relation_base * delta) {
+        std::cout << "check kind: " << check_kind(tgt) << "\n";
         if (!check_kind(tgt) || (delta && !check_kind(*delta))) {
             return 0;
         }
@@ -854,7 +855,10 @@ namespace datalog {
                 scoped_ptr<relation_join_fn> product_fun = rmgr.mk_join_fn(orig_rel, *m_e_fact_relation, 0, 0, 0);
                 SASSERT(product_fun);
                 scoped_rel<relation_base> aux_extended_rel = (*product_fun)(orig_rel, *m_e_fact_relation);
+                TRACE("dl", tout << aux_extended_rel << " " << aux_extended_rel->get_plugin().get_name() << "\n";
+                      tout << e_rel.get_plugin().get_name() << "\n";);
                 scoped_ptr<relation_union_fn> union_fun = rmgr.mk_union_fn(e_rel, *aux_extended_rel);
+                TRACE("dl", tout << union_fun << "\n";);
                 SASSERT(union_fun);
                 (*union_fun)(e_rel, *aux_extended_rel);
             }
