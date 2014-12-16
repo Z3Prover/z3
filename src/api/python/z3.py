@@ -3820,7 +3820,7 @@ def BVRedAnd(a):
     return BitVecRef(Z3_mk_bvredand(a.ctx_ref(), a.as_ast()), a.ctx)
 
 def BVRedOr(a):
-    """Return the reduction-and expression of `a`."""
+    """Return the reduction-or expression of `a`."""
     if __debug__:
         _z3_assert(is_bv(a), "First argument must be a Z3 Bitvector expression")
     return BitVecRef(Z3_mk_bvredor(a.ctx_ref(), a.as_ast()), a.ctx)
