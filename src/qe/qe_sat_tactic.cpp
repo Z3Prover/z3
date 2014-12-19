@@ -74,6 +74,7 @@ namespace qe {
         is_relevant_default     m_is_relevant;
         mk_atom_default         m_mk_atom;
         th_rewriter             m_rewriter;
+        simplify_rewriter_star  m_qe_rw;
         expr_strong_context_simplifier m_ctx_rewriter;
 
         class solver_context : public i_solver_context {
@@ -218,6 +219,7 @@ namespace qe {
             m_Ms(m),
             m_assignments(m),
             m_rewriter(m),
+            m_qe_rw(m),
             m_ctx_rewriter(m_fparams, m) {            
             m_fparams.m_model = true;
         }
@@ -256,10 +258,9 @@ namespace qe {
                 ptr_vector<expr> fmls;
                 goal->get_formulas(fmls);
                 m_fml = m.mk_and(fmls.size(), fmls.c_ptr());
-                TRACE("qe", tout << "input: " << mk_pp(m_fml,m) << "\n";);
-                simplify_rewriter_star rw(m);
+                TRACE("qe", tout << "input: " << mk_pp(m_fml,m) << "\n";);               
                 expr_ref tmp(m);
-                rw(m_fml, tmp);
+                m_qe_rw(m_fml, tmp);
                 m_fml = tmp;
                 TRACE("qe", tout << "reduced: " << mk_pp(m_fml,m) << "\n";);
                 skolemize_existential_prefix();
@@ -305,6 +306,8 @@ namespace qe {
             m_projection_mode_param = p.get_bool("projection_mode", m_projection_mode_param);
             m_strong_context_simplify_param = p.get_bool("strong_context_simplify", m_strong_context_simplify_param);
             m_ctx_simplify_local_param = p.get_bool("strong_context_simplify_local", m_ctx_simplify_local_param);
+            m_fparams.updt_params(p);
+            m_qe_rw.updt_params(p);
         }
 
         virtual void collect_param_descrs(param_descrs & r) {

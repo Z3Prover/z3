@@ -201,7 +201,7 @@ public:
         }
     }
 
-    void throw_unknown_parameter(symbol const & param_name, symbol const & mod_name) {
+    void throw_unknown_parameter(symbol const & param_name, param_descrs const& d, symbol const & mod_name) {
         if (mod_name == symbol::null) {
             char const * new_name = get_new_param_name(param_name);
             if (new_name) {
@@ -213,11 +213,56 @@ public:
                                 param_name.bare_str());
             }
             else {
-                throw exception("unknown parameter '%s'", param_name.bare_str());
+                std::stringstream strm;
+                strm << "unknown parameter '" << param_name << "'\n";    
+                strm << "Legal parameters are:\n";
+                d.display(strm, 2, false, false);
+                throw default_exception(strm.str());
             }
         }
         else {
-            throw exception("unknown parameter '%s' at module '%s'", param_name.bare_str(), mod_name.bare_str());
+            std::stringstream strm;
+            strm << "unknown parameter '" << param_name << "' ";
+            strm << "at module '" << mod_name << "'\n";
+            strm << "Legal parameters are:\n";
+            d.display(strm, 2, false, false);
+            throw default_exception(strm.str());
+        }
+    }
+
+    void validate_type(symbol const& name, char const* value, param_descrs const& d) {
+        param_kind k = d.get_kind(name);
+        std::stringstream strm;
+        char const* _value = value;
+        switch (k) {
+        case CPK_UINT:
+            for (; *value; ++value) {
+                if (!('0' <= *value && *value <= '9')) {
+                    strm << "Expected values for parameter " << name 
+                         << " is an unsigned integer. It was given argument '" << _value << "'";
+                    throw default_exception(strm.str());                    
+                }
+            }
+            break;
+        case CPK_DOUBLE:
+            for (; *value; ++value) {
+                if (!('0' <= *value && *value <= '9') && *value != '.' && *value != '-' && *value != '/') {
+                    strm << "Expected values for parameter " << name 
+                         << " is a double. It was given argument '" << _value << "'";
+                    throw default_exception(strm.str());                                        
+                }
+            }
+            break;
+
+        case CPK_BOOL:
+            if (strcmp(value, "true") != 0 && strcmp(value, "false") != 0) {
+                strm << "Expected values for parameter " << name 
+                     << " are 'true' or 'false'. It was given argument '" << value << "'";
+                throw default_exception(strm.str());
+            }
+            break;
+        default:
+            break;
         }
     }
 
@@ -225,7 +270,7 @@ public:
         param_kind k = d.get_kind(param_name);
         params_ref & ps = get_params(mod_name);
         if (k == CPK_INVALID) {
-            throw_unknown_parameter(param_name, mod_name);
+            throw_unknown_parameter(param_name, d, mod_name);
         }
         else if (k == CPK_UINT) {
             long val = strtol(value, 0, 10);
@@ -282,11 +327,13 @@ public:
                 symbol m, p;
                 normalize(name, m, p);
                 if (m == symbol::null) {
+                    validate_type(p, value, get_param_descrs());
                     set(get_param_descrs(), p, value, m);
                 }
                 else {
                     param_descrs * d;
                     if (get_module_param_descrs().find(m, d)) {
+                        validate_type(p, value, *d);
                         set(*d, p, value, m);
                     }
                     else {
@@ -312,7 +359,7 @@ public:
 
     std::string get_default(param_descrs const & d, symbol const & p, symbol const & m) {
         if (!d.contains(p)) {
-            throw_unknown_parameter(p, m);
+            throw_unknown_parameter(p, d, m);
         }
         char const * r = d.get_default(p);
         if (r == 0) 
@@ -478,7 +525,7 @@ public:
                         throw exception("unknown module '%s'", m.bare_str());
                 }
                 if (!d->contains(p))
-                    throw_unknown_parameter(p, m);
+                    throw_unknown_parameter(p, *d, m);
                 out << "  name:           " << p << "\n";
                 if (m != symbol::null) {
                     out << "  module:         " << m << "\n";

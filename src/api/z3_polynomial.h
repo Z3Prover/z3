@@ -25,6 +25,19 @@ extern "C" {
 #endif // __cplusplus
 
     /**
+    \defgroup capi C API
+
+    */
+
+    /*@{*/
+
+
+    /**
+    @name Polynomials API
+    */
+    /*@{*/
+
+    /**
        \brief Return the nonzero subresultants of \c p and \c q with respect to the "variable" \c x.
        
        \pre \c p, \c q and \c x are Z3 expressions where \c p and \c q are arithmetic terms.
@@ -37,6 +50,9 @@ extern "C" {
     */
     Z3_ast_vector Z3_API Z3_polynomial_subresultants(__in Z3_context c, __in Z3_ast p, __in Z3_ast q, __in Z3_ast x);
 
+
+    /*@}*/
+    /*@}*/
 
 #ifdef __cplusplus
 };

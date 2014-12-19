@@ -1,8 +1,20 @@
 /**
- * This file was automatically generated from Params.cs 
- * w/ further modifications by:
- * @author Christoph M. Wintersteiger (cwinter)
- **/
+Copyright (c) 2012-2014 Microsoft Corporation
+   
+Module Name:
+
+    Params.java
+
+Abstract:
+
+Author:
+
+    @author Christoph Wintersteiger (cwinter) 2012-03-15
+
+Notes:
+    
+**/ 
+
 
 package com.microsoft.z3;
 
@@ -27,6 +39,17 @@ public class Params extends Z3Object
     {
         Native.paramsSetDouble(getContext().nCtx(), getNativeObject(),
                 name.getNativeObject(), value);
+    }
+    
+    /**
+     * Adds a parameter setting.
+     **/
+    public void add(Symbol name, String value) throws Z3Exception
+    {
+
+        Native.paramsSetSymbol(getContext().nCtx(), getNativeObject(),
+                name.getNativeObject(), 
+                getContext().mkSymbol(value).getNativeObject());
     }
 
     /**
@@ -75,6 +98,17 @@ public class Params extends Z3Object
                 .mkSymbol(name).getNativeObject(), value.getNativeObject());
     }
 
+    /**
+     * Adds a parameter setting.
+     **/
+    public void add(String name, String value) throws Z3Exception
+    {
+
+        Native.paramsSetSymbol(getContext().nCtx(), getNativeObject(),
+                getContext().mkSymbol(name).getNativeObject(),
+                getContext().mkSymbol(value).getNativeObject());
+    }
+    
     /**
      * A string representation of the parameter set.
      **/

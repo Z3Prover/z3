@@ -2643,6 +2643,10 @@ namespace Duality {
 	GetGroundLitsUnderQuants(memo,f.body(),res,1);
       return;
     }
+    if(f.is_var()){
+      //      std::cout << "foo!\n";
+      return;
+    }
     if(under && f.is_ground())
       res.push_back(f);
   }
@@ -2815,6 +2819,62 @@ namespace Duality {
       }
     }
   }
+
+  void foobar(){
+  }
+
+  void RPFP::GreedyReduceNodes(std::vector<Node *> &nodes){
+    std::vector<expr> lits;
+    for(unsigned i = 0; i < nodes.size(); i++){
+      Term b; std::vector<Term> v;
+      RedVars(nodes[i], b, v);
+      lits.push_back(!b);
+      expr bv = dualModel.eval(b);
+      if(eq(bv,ctx.bool_val(true))){
+	check_result  res = slvr_check(lits.size(),&lits[0]);
+	if(res == unsat)
+	  lits.pop_back();
+	else
+	  foobar();
+      }
+    }
+  }
+
+  check_result RPFP::CheckWithConstrainedNodes(std::vector<Node *> &posnodes,std::vector<Node *> &negnodes){
+    timer_start("Check");
+    std::vector<expr> lits;
+    for(unsigned i = 0; i < posnodes.size(); i++){
+      Term b; std::vector<Term> v;
+      RedVars(posnodes[i], b, v);
+      lits.push_back(b);
+    }
+    for(unsigned i = 0; i < negnodes.size(); i++){
+      Term b; std::vector<Term> v;
+      RedVars(negnodes[i], b, v);
+      lits.push_back(!b);
+    }
+    check_result res = slvr_check(lits.size(),&lits[0]);
+    if(res == unsat && posnodes.size()){
+      lits.resize(posnodes.size());
+      res = slvr_check(lits.size(),&lits[0]);
+    }
+    dualModel = slvr().get_model();
+#if 0
+    if(!dualModel.null()){
+      std::cout << "posnodes called:\n";
+      for(unsigned i = 0; i < posnodes.size(); i++)
+	if(!Empty(posnodes[i]))
+	  std::cout << posnodes[i]->Name.name() << "\n";
+      std::cout << "negnodes called:\n";
+      for(unsigned i = 0; i < negnodes.size(); i++)
+	if(!Empty(negnodes[i]))
+	  std::cout << negnodes[i]->Name.name() << "\n";
+    }
+#endif
+    timer_stop("Check");
+    return res;
+  }
+
 
   void RPFP_caching::FilterCore(std::vector<expr> &core, std::vector<expr> &full_core){
     hash_set<ast> core_set;
@@ -3009,10 +3069,14 @@ namespace Duality {
     node->Annotation.SetEmpty();
     hash_set<ast> *core = new hash_set<ast>;
     core->insert(node->Outgoing->dual);
+    expr prev_annot = ctx.bool_val(false);
+    expr prev_impl = ctx.bool_val(false);
+    int repeated_case_count = 0;
     while(1){
       by_case_counter++;
       is.push();
       expr annot = !GetAnnotation(node);
+      Transformer old_annot = node->Annotation;
       is.add(annot);
       if(is.check() == unsat){
 	is.pop(1);
@@ -3020,56 +3084,70 @@ namespace Duality {
       }
       is.pop(1);
       Push();
-      ConstrainEdgeLocalized(node->Outgoing,is.get_implicant());
+      expr the_impl = is.get_implicant();
+      if(eq(the_impl,prev_impl)){
+	//	std::cout << "got old implicant\n";
+	repeated_case_count++;
+      }
+      prev_impl = the_impl;
+      ConstrainEdgeLocalized(node->Outgoing,the_impl);
       ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node)); //TODO: need this?
-      check_result foo = Check(root);
-      if(foo != unsat){
-	slvr().print("should_be_unsat.smt2");
-	throw "should be unsat";
-      }
-      std::vector<expr> assumps, axioms_to_add;
-      slvr().get_proof().get_assumptions(assumps);
-      for(unsigned i = 0; i < assumps.size(); i++){
-	(*core).insert(assumps[i]);
-	if(axioms_needed.find(assumps[i]) != axioms_needed.end()){
-	  axioms_to_add.push_back(assumps[i]);
-	  axioms_needed.erase(assumps[i]);
-	}
-      }
-      // AddToProofCore(*core);
-      Transformer old_annot = node->Annotation;
-      SolveSingleNode(root,node);
-
-      {
-	expr itp = GetAnnotation(node);
-	dualModel = is.get_model(); // TODO: what does this mean?
-	std::vector<expr> case_lits;
-	itp = StrengthenFormulaByCaseSplitting(itp, case_lits);
-	SetAnnotation(node,itp);
-	node->Annotation.Formula = node->Annotation.Formula.simplify();
-      }
-
-      for(unsigned i = 0; i < axioms_to_add.size(); i++)
-	is.add(axioms_to_add[i]);
       
-#define TEST_BAD
-#ifdef TEST_BAD
       {
-	static int bad_count = 0, num_bads = 1;
-	if(bad_count >= num_bads){
-	  bad_count = 0;
-	  num_bads = num_bads * 2;
+	check_result foo = Check(root);
+	if(foo != unsat){
 	  Pop(1);
 	  is.pop(1);
 	  delete core;
 	  timer_stop("InterpolateByCases");
-	  throw Bad();
+	  throw ReallyBad();
+	  // slvr().print("should_be_unsat.smt2");
+	  // throw "should be unsat";
 	}
-	bad_count++;
-      }
-#endif
+	std::vector<expr> assumps, axioms_to_add;
+	slvr().get_proof().get_assumptions(assumps);
+	for(unsigned i = 0; i < assumps.size(); i++){
+	  (*core).insert(assumps[i]);
+	  if(axioms_needed.find(assumps[i]) != axioms_needed.end()){
+	    axioms_to_add.push_back(assumps[i]);
+	    axioms_needed.erase(assumps[i]);
+	  }
+	}
+	// AddToProofCore(*core);
+	SolveSingleNode(root,node);
 
-      if(node->Annotation.IsEmpty()){
+	{
+	  expr itp = GetAnnotation(node);
+	  dualModel = is.get_model(); // TODO: what does this mean?
+	  std::vector<expr> case_lits;
+	  itp = StrengthenFormulaByCaseSplitting(itp, case_lits);
+	  SetAnnotation(node,itp);
+	  node->Annotation.Formula = node->Annotation.Formula.simplify();
+	}
+
+	for(unsigned i = 0; i < axioms_to_add.size(); i++)
+	  is.add(axioms_to_add[i]);
+      
+#define TEST_BAD
+#ifdef TEST_BAD
+	{
+	  static int bad_count = 0, num_bads = 1;
+	  if(bad_count >= num_bads){
+	    bad_count = 0;
+	    num_bads = num_bads * 2;
+	    Pop(1);
+	    is.pop(1);
+	    delete core;
+	    timer_stop("InterpolateByCases");
+	    throw Bad();
+	  }
+	  bad_count++;
+	}
+#endif
+      }
+
+      if(node->Annotation.IsEmpty() || eq(node->Annotation.Formula,prev_annot) || (repeated_case_count > 0 && !axioms_added) || (repeated_case_count >= 10)){
+      looks_bad:
 	if(!axioms_added){
 	  // add the axioms in the off chance they are useful
 	  const std::vector<expr> &theory = ls->get_axioms();
@@ -3078,6 +3156,7 @@ namespace Duality {
 	  axioms_added = true;
 	}
 	else {
+	  //#define KILL_ON_BAD_INTERPOLANT	  
 #ifdef KILL_ON_BAD_INTERPOLANT	  
 	  std::cout << "bad in InterpolateByCase -- core:\n";
 #if 0
@@ -3119,10 +3198,11 @@ namespace Duality {
 	  is.pop(1);
 	  delete core;
 	  timer_stop("InterpolateByCases");
-	  throw Bad();
+	  throw ReallyBad();
 	}
       }
       Pop(1);
+      prev_annot = node->Annotation.Formula;
       node->Annotation.UnionWith(old_annot);
     }
     if(proof_core)
@@ -3326,6 +3406,17 @@ namespace Duality {
         {
 	  std::string name = f.name().str();
 	  name = name.substr(0,name.rfind('_')) + "_" + string_of_int(n);
+	  int arity = f.arity();
+	  std::vector<sort> domain;
+	  for(int i = 0; i < arity; i++)
+	    domain.push_back(f.domain(i));
+	  return ctx.function(name.c_str(), arity, &domain[0], f.range());
+        }
+
+  Z3User::FuncDecl Z3User::NumberPred(const FuncDecl &f, int n)
+        {
+	  std::string name = f.name().str();
+	  name = name + "_" + string_of_int(n);
 	  int arity = f.arity();
 	  std::vector<sort> domain;
 	  for(int i = 0; i < arity; i++)
@@ -3570,7 +3661,7 @@ namespace Duality {
 
 #define USE_QE_LITE
 
-  void RPFP::FromClauses(const std::vector<Term> &unskolemized_clauses){
+  void RPFP::FromClauses(const std::vector<Term> &unskolemized_clauses, const std::vector<unsigned> *bounds){
     hash_map<func_decl,Node *> pmap;
     func_decl fail_pred = ctx.fresh_func_decl("@Fail", ctx.bool_sort());
     
@@ -3663,6 +3754,7 @@ namespace Duality {
 	pmap[R] = node;
         if (is_query)
           node->Bound = CreateRelation(std::vector<Term>(), ctx.bool_val(false));
+	node->recursion_bound = bounds ? 0 : UINT_MAX;
       }
     }
 
@@ -3728,6 +3820,8 @@ namespace Duality {
       Transformer T = CreateTransformer(Relparams,Indparams,body);
       Edge *edge = CreateEdge(Parent,T,Children);
       edge->labeled = labeled;; // remember for label extraction
+      if(bounds)
+	Parent->recursion_bound = std::max(Parent->recursion_bound,(*bounds)[i]);
       // edges.push_back(edge);
     }
 

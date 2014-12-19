@@ -362,7 +362,6 @@ namespace smt {
          (store A i v) <--- v is used as an value
     */
     bool theory_array_base::is_shared(theory_var v) const {
-        context & ctx  = get_context();
         enode * n      = get_enode(v);
         enode * r      = n->get_root();
         bool is_array  = false;
@@ -376,8 +375,10 @@ namespace smt {
         enode_vector::const_iterator end = r->end_parents();
         for (; it != end; ++it) {
             enode * parent       = *it;
+#if 0
             if (!ctx.is_relevant(parent))
                 continue;
+#endif
             unsigned    num_args = parent->get_num_args();
             if (is_store(parent)) {
                 SET_ARRAY(parent->get_arg(0));
@@ -399,6 +400,7 @@ namespace smt {
         return false;
     }
 
+#if 0
     void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
         TRACE("array_shared", tout << "collecting shared vars...\n";);
         context & ctx = get_context();
@@ -420,6 +422,31 @@ namespace smt {
         }
         unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
     }
+#else
+    void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
+        TRACE("array_shared", tout << "collecting shared vars...\n";);
+        context & ctx = get_context();
+        ptr_buffer<enode> to_unmark;
+        unsigned num_vars = get_num_vars();
+        for (unsigned i = 0; i < num_vars; i++) {
+	    enode * n = get_enode(i);
+            if (ctx.is_relevant(n)) {
+	        enode * r = n->get_root();
+		if (!r->is_marked()){
+		    if(is_array_sort(r) && ctx.is_shared(r)) {
+		      TRACE("array_shared", tout << "new shared var: #" << r->get_owner_id() << "\n";);
+		      theory_var r_th_var = r->get_th_var(get_id());
+		      SASSERT(r_th_var != null_theory_var);
+		      result.push_back(r_th_var);
+		    }
+		    r->set_mark();
+		    to_unmark.push_back(r);
+		}
+            }
+        }
+        unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
+    }
+#endif
 
     /**
        \brief Create interface variables for shared array variables.

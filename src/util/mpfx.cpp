@@ -38,8 +38,7 @@ mpfx_manager::mpfx_manager(unsigned int_sz, unsigned frac_sz, unsigned initial_c
     m_buffer0.resize(2*m_total_sz, 0);
     m_buffer1.resize(2*m_total_sz, 0);
     m_buffer2.resize(2*m_total_sz, 0);
-    unsigned zero_sig_idx = m_id_gen.mk();
-    SASSERT(zero_sig_idx == 0);
+    VERIFY(m_id_gen.mk() == 0);
     set(m_one, 1);
 }
 

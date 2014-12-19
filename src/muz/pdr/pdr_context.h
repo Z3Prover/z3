@@ -245,7 +245,6 @@ namespace pdr {
 
     class model_search {
         typedef ptr_vector<model_node> model_nodes;
-        ast_manager&       m;
         bool               m_bfs;
         model_node*        m_root;
         std::deque<model_node*> m_leaves;
@@ -258,7 +257,7 @@ namespace pdr {
         void enqueue_leaf(model_node& n); // add leaf to priority queue.
         void update_models();
     public:
-        model_search(bool bfs, ast_manager& m): m(m), m_bfs(bfs), m_root(0) {}
+        model_search(bool bfs): m_bfs(bfs), m_root(0) {}
         ~model_search();
 
         void reset();

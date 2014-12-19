@@ -129,7 +129,7 @@ struct scoped_timer::imp {
                               WT_EXECUTEINTIMERTHREAD);	
 #elif defined(__APPLE__) && defined(__MACH__)
         // Mac OS X
-        m_interval = ms;
+        m_interval = ms?ms:0xFFFFFFFF;
         if (pthread_attr_init(&m_attributes) != 0)
             throw default_exception("failed to initialize timer thread attributes");
         if (pthread_cond_init(&m_condition_var, NULL) != 0)

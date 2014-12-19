@@ -24,7 +24,7 @@ namespace smt {
     /**
        \brief Initialize an enode in the given memory position.
     */
-    enode * enode::init(ast_manager & m, void * mem, ptr_vector<enode> const & app2enode, app * owner, 
+    enode * enode::init(ast_manager & m, void * mem, app2enode_t const & app2enode, app * owner, 
                         unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                         bool cgc_enabled, bool update_children_parent) {
         SASSERT(m.is_bool(owner) || !merge_tf);
@@ -60,7 +60,7 @@ namespace smt {
         return n;
     }
 
-    enode * enode::mk(ast_manager & m, region & r, ptr_vector<enode> const & app2enode, app * owner, 
+    enode * enode::mk(ast_manager & m, region & r, app2enode_t const & app2enode, app * owner, 
                            unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                            bool cgc_enabled, bool update_children_parent) {
         SASSERT(m.is_bool(owner) || !merge_tf);
@@ -69,7 +69,7 @@ namespace smt {
         return init(m, mem, app2enode, owner, generation, suppress_args, merge_tf, iscope_lvl, cgc_enabled, update_children_parent);
     }
 
-    enode * enode::mk_dummy(ast_manager & m, ptr_vector<enode> const & app2enode, app * owner) {
+    enode * enode::mk_dummy(ast_manager & m, app2enode_t const & app2enode, app * owner) {
         unsigned sz           = get_enode_size(owner->get_num_args());
         void * mem            = alloc_svect(char, sz);
         return init(m, mem, app2enode, owner, 0, false, false, 0, true, false);

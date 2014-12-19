@@ -1274,7 +1274,7 @@ namespace pdr {
           m_pm(m_fparams, params.max_num_contexts(), m),
           m_query_pred(m),
           m_query(0),
-          m_search(m_params.bfs_model_search(), m),
+          m_search(m_params.bfs_model_search()),
           m_last_result(l_undef),
           m_inductive_lvl(0),
           m_expanded_lvl(0),
