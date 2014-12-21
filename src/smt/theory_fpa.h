@@ -23,7 +23,9 @@ Revision History:
 #include"trail.h"
 #include"fpa2bv_converter.h"
 #include"fpa2bv_rewriter.h"
+#include"th_rewriter.h"
 #include"value_factory.h"
+#include"smt_model_generator.h"
 
 namespace smt {
 
@@ -52,8 +54,7 @@ namespace smt {
         app * mk_value(mpf const & x) { 
             return m_util.mk_value(x);
         }
-    };
-
+    };    
 
     class theory_fpa : public theory {
         class th_trail_stack : public trail_stack<theory_fpa> {
@@ -62,6 +63,45 @@ namespace smt {
             virtual ~th_trail_stack() {}
         };
 
+        class fpa2bv_converter_wrapped : public fpa2bv_converter {
+        public:
+            theory_fpa & m_th;
+            fpa2bv_converter_wrapped(ast_manager & m, theory_fpa * th) :
+                fpa2bv_converter(m),
+                m_th(*th) {}
+            virtual ~fpa2bv_converter_wrapped() {}
+            virtual void mk_const(func_decl * f, expr_ref & result);
+            virtual void mk_rm_const(func_decl * f, expr_ref & result);
+        };
+        
+        class fpa_value_proc : public model_value_proc {
+        protected:
+            theory_fpa                    & m_th;
+            app_ref                         m_a;
+            svector<model_value_dependency> m_dependencies;
+        public:
+            fpa_value_proc(theory_fpa * th, app_ref & a) : m_th(*th), m_a(a) {}
+            void add_dependency(enode * n) { m_dependencies.push_back(model_value_dependency(n)); }
+            virtual ~fpa_value_proc() {}
+            virtual void get_dependencies(buffer<model_value_dependency> & result) {
+                result.append(m_dependencies.size(), m_dependencies.c_ptr());
+            }
+            virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
+        };
+
+        class fpa_rm_value_proc : public fpa_value_proc {
+            float_util & m_fu;
+            bv_util    & m_bu;
+        public:
+            fpa_rm_value_proc(theory_fpa * th, app_ref & a) : 
+                fpa_value_proc(th, a), 
+                m_fu(th->m_converter.fu()), 
+                m_bu(th->m_converter.bu()) {}
+            void add_dependency(enode * n) { fpa_value_proc::add_dependency(n); }
+            virtual ~fpa_rm_value_proc() {}
+            virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
+        };
+    
     public:
         class atom {
         public:
@@ -79,17 +119,20 @@ namespace smt {
         void insert_bv2a(bool_var bv, pred_atom * a) { m_bool_var2atom.setx(bv, a, 0); }
         void erase_bv2a(bool_var bv) { m_bool_var2atom[bv] = 0; }
         pred_atom * get_bv2a(bool_var bv) const { return m_bool_var2atom.get(bv, 0); }
-        region & get_region() { return m_trail_stack.get_region(); }
+        region & get_region() { return m_trail_stack.get_region(); }        
 
     protected:
-        fpa2bv_converter m_converter;
-        fpa2bv_rewriter  m_rw;
-        expr_map         m_trans_map;
-        th_trail_stack   m_trail_stack;
-        bool_var2atom    m_bool_var2atom;
-        enode_vector     m_temporaries;
-        int_vector       m_tvars;
-        fpa_factory *    m_factory;
+        fpa2bv_converter_wrapped  m_converter;
+        fpa2bv_rewriter           m_rw;
+        th_rewriter               m_th_rw;
+        th_trail_stack            m_trail_stack;
+        bool_var2atom             m_bool_var2atom;
+        enode_vector              m_temporaries;
+        vector<theory_var>        m_tvars;        
+        fpa_factory *             m_factory;
+        obj_map<sort, func_decl*> m_wraps;
+        obj_map<sort, func_decl*> m_unwraps;
+        float_decl_plugin         m_flt_plugin;
 
         virtual final_check_status final_check_eh() { return FC_DONE; }
         virtual bool internalize_atom(app * atom, bool gate_ctx);
@@ -108,21 +151,24 @@ namespace smt {
         void assign_eh(bool_var v, bool is_true);
         virtual void relevant_eh(app * n);
         virtual void init_model(model_generator & m);
+        virtual void finalize_model(model_generator & mg);
+
     public:
         theory_fpa(ast_manager& m);
         virtual ~theory_fpa();
 
-    protected:
-        void split_triple(expr * e, expr * & sgn, expr * & sig, expr * & exp) const {
-            SASSERT(is_app_of(e, get_family_id(), OP_FLOAT_TO_FP));
-            SASSERT(to_app(e)->get_num_args() == 3);
-            sgn = to_app(e)->get_arg(0);
-            sig = to_app(e)->get_arg(1);
-            exp = to_app(e)->get_arg(2);
-        }
+        virtual void display(std::ostream & out) const;
 
-        void add_extra_assertions();
+    protected:
+        expr_ref mk_side_conditions();
+        expr_ref convert_atom(expr * e);
+        expr_ref convert_term(expr * e);
+        void get_wrap(sort * s, func_decl *& wrap, func_decl *& unwrap);
+        void add_trail(ast * a);
+
         void mk_bv_eq(expr * x, expr * y);
+        void attach_new_th_var(enode * n);
+        void assert_cnstr(expr * e);
     };
 
 };
