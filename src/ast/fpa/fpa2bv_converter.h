@@ -42,6 +42,7 @@ struct func_decl_triple {
     };
 
 class fpa2bv_converter {
+protected:
     ast_manager              & m;
     basic_simplifier_plugin    m_simp;
     float_util                 m_util;
@@ -73,16 +74,19 @@ public:
         SASSERT(m_bv_util.is_bv(sign) && m_bv_util.get_bv_size(sign) == 1);
         SASSERT(m_bv_util.is_bv(significand));
         SASSERT(m_bv_util.is_bv(exponent));
-        result = m.mk_app(m_util.get_family_id(), OP_FLOAT_TO_FP, sign, significand, exponent);
+        result = m.mk_app(m_util.get_family_id(), OP_FLOAT_TO_FP, sign, exponent, significand);
     }
+
+    void split_triple(expr * e, expr * & sgn, expr * & sig, expr * & exp) const;
+    void split_triple(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp) const;
 
     void mk_eq(expr * a, expr * b, expr_ref & result);
     void mk_ite(expr * c, expr * t, expr * f, expr_ref & result);
 
     void mk_rounding_mode(func_decl * f, expr_ref & result);
     void mk_value(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_const(func_decl * f, expr_ref & result);    
-    void mk_rm_const(func_decl * f, expr_ref & result);
+    virtual void mk_const(func_decl * f, expr_ref & result);
+    virtual void mk_rm_const(func_decl * f, expr_ref & result);
     void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_var(unsigned base_inx, sort * srt, expr_ref & result);
 
@@ -138,11 +142,11 @@ public:
     obj_map<func_decl, func_decl_triple> const & uf23bvuf() const { return m_uf23bvuf; }
 
     void dbg_decouple(const char * prefix, expr_ref & e);
-    expr_ref_vector extra_assertions;
+    expr_ref_vector m_extra_assertions;
 
+    void mk_internal_bvwrap(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_internal_bvunwrap(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 protected:
-    void split(expr * e, expr * & sgn, expr * & sig, expr * & exp) const;
-
     void mk_is_nan(expr * e, expr_ref & result);
     void mk_is_inf(expr * e, expr_ref & result);
     void mk_is_pinf(expr * e, expr_ref & result);
@@ -173,6 +177,8 @@ protected:
     void add_core(unsigned sbits, unsigned ebits, expr_ref & rm,
         expr_ref & c_sgn, expr_ref & c_sig, expr_ref & c_exp, expr_ref & d_sgn, expr_ref & d_sig, expr_ref & d_exp,
         expr_ref & res_sgn, expr_ref & res_sig, expr_ref & res_exp);
+
+    app * mk_fresh_const(char const * prefix, unsigned sz);
 };
 
 #endif

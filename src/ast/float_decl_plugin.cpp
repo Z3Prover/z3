@@ -163,10 +163,10 @@ decl_plugin * float_decl_plugin::mk_fresh() {
 }
 
 sort * float_decl_plugin::mk_float_sort(unsigned ebits, unsigned sbits) {
-    if (ebits > sbits)
-        m_manager->raise_exception("floating point sorts with ebits > sbits are currently not supported");
-    if (ebits <= 2)
-        m_manager->raise_exception("floating point sorts with ebits <= 2 are currently not supported");
+    if (sbits < 2)
+        m_manager->raise_exception("minimum number of significand bits is 1");
+    if (ebits < 2)
+        m_manager->raise_exception("minimum number of exponent bits is 2");
 
     parameter p1(ebits), p2(sbits);
     parameter ps[2] = { p1, p2 };
@@ -182,13 +182,8 @@ sort * float_decl_plugin::mk_rm_sort() {
 sort * float_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
     switch (k) {
     case FLOAT_SORT:
-        if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int())) {
-            m_manager->raise_exception("expecting two integer parameters to floating point sort");
-        }
-        if (parameters[0].get_int() <= 1 || parameters[1].get_int() <= 1)
-            m_manager->raise_exception("floating point sorts need parameters > 1");
-        if (parameters[0].get_int() > parameters[1].get_int())
-            m_manager->raise_exception("floating point sorts with ebits > sbits are currently not supported");
+        if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int()))
+            m_manager->raise_exception("expecting two integer parameters to floating point sort (ebits, sbits)");
         return mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
     case ROUNDING_MODE_SORT:
         return mk_rm_sort();
@@ -279,8 +274,8 @@ func_decl * float_decl_plugin::mk_bin_rel_decl(decl_kind k, unsigned num_paramet
     case OP_FLOAT_EQ: name = "fp.eq";  break;
     case OP_FLOAT_LT: name = "fp.lt";   break;
     case OP_FLOAT_GT: name = "fp.gt";   break;        
-    case OP_FLOAT_LE: name = "fp.lte";  break;        
-    case OP_FLOAT_GE: name = "fp.gte";  break;        
+    case OP_FLOAT_LE: name = "fp.leq";  break;        
+    case OP_FLOAT_GE: name = "fp.geq";  break;        
     default:
         UNREACHABLE();
         break;
@@ -408,9 +403,12 @@ func_decl * float_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, pa
         is_sort_of(domain[1], m_bv_fid, BV_SORT) &&
         is_sort_of(domain[2], m_bv_fid, BV_SORT)) {
         // 3 BVs -> 1 FP
-        sort * fp = mk_float_sort(domain[2]->get_parameter(0).get_int(), domain[1]->get_parameter(0).get_int()+1);
-        symbol name("fp");
-        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
+        unsigned ebits = domain[1]->get_parameter(0).get_int();
+        unsigned sbits = domain[2]->get_parameter(0).get_int() + 1;
+        parameter ps[] = { parameter(ebits), parameter(sbits) };
+        sort * fp = mk_float_sort(ebits, sbits);
+        symbol name("to_fp");
+        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, 2, ps));
     }
     else if (m_bv_plugin && arity == 1 && is_sort_of(domain[0], m_bv_fid, BV_SORT)) {
         // 1 BV -> 1 FP
@@ -423,7 +421,7 @@ func_decl * float_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, pa
         int sbits = parameters[1].get_int();
         
         if (domain[0]->get_parameter(0).get_int() != (ebits + sbits))
-            m_manager->raise_exception("sort mismtach; invalid bit-vector size, expected bitvector of size (ebits+sbits)");
+            m_manager->raise_exception("sort mismatch; invalid bit-vector size, expected bitvector of size (ebits+sbits)");
 
         sort * fp = mk_float_sort(ebits, sbits);
         symbol name("to_fp");
@@ -613,6 +611,39 @@ func_decl * float_decl_plugin::mk_float_to_ieee_bv(decl_kind k, unsigned num_par
     return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
+func_decl * float_decl_plugin::mk_internal_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                                   unsigned arity, sort * const * domain, sort * range) {
+    if (arity != 1)
+        m_manager->raise_exception("invalid number of arguments to internal_bv_wrap");
+    if (!is_float_sort(domain[0]) && !is_rm_sort(domain[0]))
+        m_manager->raise_exception("sort mismatch, expected argument of FloatingPoint or RoundingMode sort");
+
+    if (is_float_sort(domain[0]))
+    {
+        unsigned float_sz = domain[0]->get_parameter(0).get_int() + domain[0]->get_parameter(1).get_int();
+        parameter ps[] = { parameter(float_sz) };
+        sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
+        return m_manager->mk_func_decl(symbol("bv_wrap"), 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
+    else {        
+        parameter ps[] = { parameter(3) };
+        sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
+        return m_manager->mk_func_decl(symbol("bv_wrap"), 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
+}
+
+func_decl * float_decl_plugin::mk_internal_bv_unwrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                                     unsigned arity, sort * const * domain, sort * range) {
+    if (arity != 1)
+        m_manager->raise_exception("invalid number of arguments to internal_bv_unwrap");    
+    if (!is_sort_of(domain[0], m_bv_fid, BV_SORT))
+        m_manager->raise_exception("sort mismatch, expected argument of bitvector sort");
+    if (!is_float_sort(range) && !is_rm_sort(range))
+        m_manager->raise_exception("sort mismatch, expected range of FloatingPoint sort");
+    
+    return m_manager->mk_func_decl(symbol("bv_unwrap"), 1, domain, range, func_decl_info(m_family_id, k, num_parameters, parameters));
+}
+
 
 func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                             unsigned arity, sort * const * domain, sort * range) {
@@ -680,6 +711,10 @@ func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return mk_to_fp_unsigned(k, num_parameters, parameters, arity, domain, range);
     case OP_FLOAT_TO_IEEE_BV:
         return mk_float_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_INTERNAL_BVWRAP:
+        return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_INTERNAL_BVUNWRAP:
+        return mk_internal_bv_unwrap(k, num_parameters, parameters, arity, domain, range);
     default:
         m_manager->raise_exception("unsupported floating point operator");
         return 0;
