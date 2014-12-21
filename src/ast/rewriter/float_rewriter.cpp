@@ -109,33 +109,54 @@ br_status float_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * cons
         else 
             return BR_FAILED;
     }
-    else if (num_args == 3 && 
-             m_util.is_rm(args[0]) && 
-             m_util.au().is_real(args[1]) &&
-             m_util.au().is_int(args[2])) {
+    else if (num_args == 3) {
+        bv_util bu(m());
+        rational r1, r2, r3;
+        unsigned bvs1, bvs2, bvs3;
 
-        mpf_rounding_mode rm;
-        if (!m_util.is_rm_value(args[0], rm))
+        if (m_util.is_rm(args[0]) &&
+            m_util.au().is_real(args[1]) &&
+            m_util.au().is_int(args[2])) {
+            mpf_rounding_mode rm;
+            if (!m_util.is_rm_value(args[0], rm))
+                return BR_FAILED;
+
+            rational q;
+            if (!m_util.au().is_numeral(args[1], q))
+                return BR_FAILED;
+
+            rational e;
+            if (!m_util.au().is_numeral(args[2], e))
+                return BR_FAILED;
+
+            TRACE("fp_rewriter", tout << "q: " << q << ", e: " << e << "\n";);
+            scoped_mpf v(m_util.fm());
+            m_util.fm().set(v, ebits, sbits, rm, q.to_mpq(), e.to_mpq().numerator());
+            result = m_util.mk_value(v);
+            m_util.fm().del(v);
+            return BR_DONE;
+        }
+        else if (bu.is_numeral(args[0], r1, bvs1) &&
+                 bu.is_numeral(args[1], r2, bvs2) &&
+                 bu.is_numeral(args[2], r3, bvs3)) {
+            SASSERT(m_util.fm().mpz_manager().is_one(r2.to_mpq().denominator()));
+            SASSERT(m_util.fm().mpz_manager().is_one(r3.to_mpq().denominator()));
+            SASSERT(m_util.fm().mpz_manager().is_int64(r3.to_mpq().numerator()));
+            scoped_mpf v(m_util.fm());
+            mpf_exp_t biased_exp = m_util.fm().mpz_manager().get_int64(r2.to_mpq().numerator());
+            m_util.fm().set(v, bvs2, bvs3 + 1,
+                            r1.is_one(),
+                            r3.to_mpq().numerator(),
+                            m_util.fm().unbias_exp(bvs2, biased_exp));
+            TRACE("fp_rewriter", tout << "v = " << m_util.fm().to_string(v) << std::endl;);
+            result = m_util.mk_value(v);
+            return BR_DONE;
+        }
+        else
             return BR_FAILED;
-
-        rational q;
-        if (!m_util.au().is_numeral(args[1], q))
-            return BR_FAILED;
-
-        rational e;
-        if (!m_util.au().is_numeral(args[2], e))
-            return BR_FAILED;
-
-        TRACE("fp_rewriter", tout << "q: " << q << ", e: " << e << "\n";);
-        scoped_mpf v(m_util.fm());
-	    m_util.fm().set(v, ebits, sbits, rm, q.to_mpq(), e.to_mpq().numerator());
-        result = m_util.mk_value(v);
-        m_util.fm().del(v);
-        return BR_DONE;
     }
-    else {
+    else
         return BR_FAILED;
-    }
 }
 
 br_status float_rewriter::mk_to_fp_unsigned(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
