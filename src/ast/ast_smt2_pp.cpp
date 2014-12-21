@@ -222,34 +222,55 @@ format * smt2_pp_environment::pp_bv_literal(app * t, bool use_bv_lits, bool bv_n
     return vf;
 }
 
-format * smt2_pp_environment::pp_float_literal(app * t) {
+format * smt2_pp_environment::pp_float_literal(app * t, bool use_bv_lits) {
     mpf_manager & fm = get_futil().fm();
     scoped_mpf v(fm);
+    ast_manager & m = get_manager();
     format * body = 0;
+    string_buffer<> buf;
     VERIFY(get_futil().is_value(t, v));
     if (fm.is_nan(v)) {
-        body = mk_string(get_manager(), "NaN");
+        buf << "(_ NaN " << v.get().get_ebits() << " " << v.get().get_sbits() << ")";
+        return mk_string(get_manager(), buf.c_str());
     }
     else if (fm.is_pinf(v)) {
-        body = mk_string(get_manager(), "plusInfinity");
+        buf << "(_ +oo " << v.get().get_ebits() << " " << v.get().get_sbits() << ")";
+        return mk_string(get_manager(), buf.c_str());
     }
     else if (fm.is_ninf(v)) {
-        body = mk_string(get_manager(), "minusInfinity");
+        buf << "(_ -oo " << v.get().get_ebits() << " " << v.get().get_sbits() << ")";
+        return mk_string(get_manager(), buf.c_str());
     }
-    else if (fm.is_pzero(v)) {
-        // TODO: make it SMT 2.0 compatible
-        body = mk_string(get_manager(), "+0.0");
+    else if (fm.is_pzero(v)) {        
+        buf << "(_ +zero " << v.get().get_ebits() << " " << v.get().get_sbits() << ")";
+        return mk_string(get_manager(), buf.c_str());
     }
     else if (fm.is_nzero(v)) {
-        // TODO: make it SMT 2.0 compatible
-        body = mk_string(get_manager(), "-0.0");
+        buf << "(_ -zero " << v.get().get_ebits() << " " << v.get().get_sbits() << ")";
+        return mk_string(get_manager(), buf.c_str());
     }
-    else {
-        // TODO: make it SMT 2.0 compatible
-        std::string val = fm.to_string(v);
-        body = mk_string(get_manager(), val.c_str());
+    else {        
+        buf << "(fp #b" << (fm.sgn(v) ? 1 : 0);
+        body = mk_string(get_manager(), buf.c_str());        
+        body = mk_compose(m, body, mk_string(get_manager(), " "));
+
+        mpf_exp_t exp = fm.exp(v);
+        const mpz & bias = fm.m_powers2.m1(v.get().get_ebits() - 1);
+        mpf_exp_t biased_exp = exp + fm.mpz_manager().get_int64(bias);
+        app_ref e_biased_exp(m);
+        e_biased_exp = get_bvutil().mk_numeral(biased_exp, v.get().get_ebits());
+        body = mk_compose(m, body, pp_bv_literal(e_biased_exp, use_bv_lits, false));
+        body = mk_compose(m, body, mk_string(get_manager(), " "));
+
+        scoped_mpz sig(fm.mpz_manager());
+        sig = fm.sig(v);
+        app_ref e_sig(m);
+        e_sig = get_bvutil().mk_numeral(rational(sig), v.get().get_sbits() - 1);
+        body = mk_compose(m, body, pp_bv_literal(e_sig, use_bv_lits, false));
+        
+        body = mk_compose(m, body, mk_string(get_manager(), ")"));        
+        return body;
     }
-    return pp_as(body, get_manager().get_sort(t));
 }
 
 // generate (- f)
@@ -544,7 +565,7 @@ class smt2_printer {
             f = m_env.pp_bv_literal(c, m_pp_bv_lits, m_pp_bv_neg);
         }
         else if (m_env.get_futil().is_value(c)) {
-            f = m_env.pp_float_literal(c);
+            f = m_env.pp_float_literal(c, m_pp_bv_lits);
         }
         else if (m_env.get_dlutil().is_numeral(c)) {
             f = m_env.pp_datalog_literal(c);
