@@ -408,13 +408,14 @@ namespace datalog {
 
     void compiler::get_local_indexes_for_projection(app * t, var_counter & globals, unsigned ofs, 
             unsigned_vector & res) {
+        // TODO: this can be optimized to avoid renames in some cases
         unsigned n = t->get_num_args();
         for(unsigned i = 0; i<n; i++) {
             expr * e = t->get_arg(i);
-            if(!is_var(e) || globals.get(to_var(e)->get_idx())!=0) {
-                continue;
+            if (is_var(e) && globals.get(to_var(e)->get_idx()) > 0) {
+              globals.update(to_var(e)->get_idx(), -1);
+              res.push_back(i + ofs);
             }
-            res.push_back(i+ofs);
         }
     }
 
@@ -422,11 +423,30 @@ namespace datalog {
         SASSERT(r->get_positive_tail_size()==2);
         ast_manager & m = m_context.get_manager();
         rule_counter counter;
-        counter.count_rule_vars(m, r);
+        // leave one column copy per var in the head (avoids later duplication)
+        counter.count_vars(m, r->get_head(), -1);
+
+        // take interp & neg preds into account (at least 1 column copy if referenced)
+        unsigned n = r->get_tail_size();
+        if (n > 2) {
+          rule_counter counter_tail;
+          for (unsigned i = 2; i < n; ++i) {
+            counter_tail.count_vars(m, r->get_tail(i));
+          }
+
+          rule_counter::iterator I = counter_tail.begin(), E = counter_tail.end();
+          for (; I != E; ++I) {
+            int& n = counter.get(I->m_key);
+            if (n == 0)
+              n = -1;
+          }
+        }
+
         app * t1 = r->get_tail(0);
         app * t2 = r->get_tail(1);
-        counter.count_vars(m, t1, -1);
-        counter.count_vars(m, t2, -1);
+        counter.count_vars(m, t1);
+        counter.count_vars(m, t2);
+
         get_local_indexes_for_projection(t1, counter, 0, res);
         get_local_indexes_for_projection(t2, counter, t1->get_num_args(), res);
     }
