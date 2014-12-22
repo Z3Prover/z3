@@ -995,7 +995,7 @@ namespace opt {
             args.push_back(m_arith.mk_numeral(r, r.is_int()));
         }
         if (!eps.is_zero()) {
-            expr* ep = m.mk_const(symbol("epsilon"), m_arith.mk_int());
+            expr* ep = m.mk_const(symbol("epsilon"), m_arith.mk_real());
             if (eps.is_one()) {
                 args.push_back(ep);
             }

@@ -82,6 +82,7 @@ namespace datalog {
         friend class udoc_relation;
         class join_fn;
         class join_project_fn;
+        class join_project_and_fn;
         class project_fn;
         class union_fn;
         class rename_fn;
