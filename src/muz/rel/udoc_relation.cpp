@@ -1028,7 +1028,9 @@ namespace datalog {
     }
 
     class udoc_plugin::join_project_fn : public convenient_relation_join_project_fn {
+#if 0
         udoc_plugin::join_fn   m_joiner;
+#endif
         union_find_default_ctx union_ctx;
         bit_vector             m_to_delete; 
         subset_ints            m_equalities;
@@ -1043,7 +1045,9 @@ namespace datalog {
                 t1.get_signature(), t2.get_signature(), 
                 col_cnt, cols1, cols2,
                 removed_col_cnt, rm_cols),
+#if 0
               m_joiner(t1.get_plugin(), t1, t2, col_cnt, cols1, cols2),
+#endif
               m_equalities(union_ctx)
         {
             udoc_plugin& p = t1.get_plugin();
@@ -1152,12 +1156,42 @@ namespace datalog {
 
     };
 
+
+    class udoc_plugin::join_project_and_fn : public convenient_relation_join_project_fn {
+    public:
+      join_project_and_fn(udoc_relation const& t1, udoc_relation const& t2,
+        unsigned col_cnt, const unsigned *cols1, const unsigned *cols2,
+        unsigned removed_col_cnt, unsigned const *rm_cols)
+        : convenient_relation_join_project_fn(t1.get_signature(), t2.get_signature(),
+        col_cnt, cols1, cols2, removed_col_cnt, rm_cols) {}
+
+      virtual relation_base* operator()(relation_base const& t1, relation_base const& t2) {
+          udoc_relation *result = get(t1.clone());
+          result->get_udoc().intersect(result->get_dm(), get(t2).get_udoc());
+          return result;
+      }
+    };
+
     relation_join_fn * udoc_plugin::mk_join_project_fn(
         relation_base const& t1, relation_base const& t2,
         unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
         unsigned removed_col_cnt, const unsigned * removed_cols) {    
         if (!check_kind(t1) || !check_kind(t2))
             return 0;
+        // special case where we have h(X) :- f(X), g(X).
+        if (joined_col_cnt == removed_col_cnt &&
+            t1.get_signature().size() == joined_col_cnt &&
+            t2.get_signature().size() == joined_col_cnt) {
+            for (unsigned i = 0; i < removed_col_cnt; ++i) {
+                if (removed_cols[i] != i)
+                    goto general_fn;
+            }
+            return alloc(join_project_and_fn, get(t1), get(t2),
+                         joined_col_cnt, cols1, cols2,
+                         removed_col_cnt, removed_cols);
+        }
+
+      general_fn:
         return alloc(join_project_fn, get(t1), get(t2),
                      joined_col_cnt, cols1, cols2,
                      removed_col_cnt, removed_cols);
