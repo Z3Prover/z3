@@ -266,7 +266,6 @@ namespace datalog {
             : m_clone(clone), m_src(src), m_tgt(tgt) {}
         virtual bool perform(execution_context & ctx) {
             if (ctx.reg(m_src)) log_verbose(ctx);            
-            ctx.make_empty(m_tgt);
             if (m_clone) {
                 ctx.set_reg(m_tgt, ctx.reg(m_src) ? ctx.reg(m_src)->clone() : 0);
             }
@@ -370,9 +369,9 @@ namespace datalog {
             m_cols2(col_cnt, cols2), m_res(result) {}
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
-            ctx.make_empty(m_res);
             ++ctx.m_stats.m_join;
             if (!ctx.reg(m_rel1) || !ctx.reg(m_rel2)) {
+                ctx.make_empty(m_res);
                 return true;
             }
             relation_join_fn * fn;
@@ -755,8 +754,8 @@ namespace datalog {
             reg_idx tgt) : m_projection(projection), m_src(src), 
             m_cols(col_cnt, cols), m_tgt(tgt) {}
         virtual bool perform(execution_context & ctx) {
-            ctx.make_empty(m_tgt);
             if (!ctx.reg(m_src)) {
+                ctx.make_empty(m_tgt);
                 return true;
             }
 
@@ -823,8 +822,8 @@ namespace datalog {
         }
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
-            ctx.make_empty(m_res);
             if (!ctx.reg(m_rel1) || !ctx.reg(m_rel2)) {
+                ctx.make_empty(m_res);
                 return true;
             }
             ++ctx.m_stats.m_join_project;
@@ -1000,7 +999,6 @@ namespace datalog {
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
             ++ctx.m_stats.m_unary_singleton;
-            ctx.make_empty(m_tgt);
             relation_base * rel = ctx.get_rel_context().get_rmanager().mk_empty_relation(m_sig, m_pred);
             rel->add_fact(m_fact);
             ctx.set_reg(m_tgt, rel);
@@ -1034,7 +1032,6 @@ namespace datalog {
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
             ++ctx.m_stats.m_total;
-            ctx.make_empty(m_tgt);
             ctx.set_reg(m_tgt, ctx.get_rel_context().get_rmanager().mk_full_relation(m_sig, m_pred));
             return true;
         }
