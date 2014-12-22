@@ -71,7 +71,8 @@ namespace datalog {
         transf.register_plugin(alloc(datalog::mk_quantifier_instantiation, ctx, 32000));
 
         transf.register_plugin(alloc(datalog::mk_bit_blast, ctx, 35000));
-        transf.register_plugin(alloc(datalog::mk_array_blast, ctx, 36000));
+        if (!ctx.get_params().quantify_arrays())
+	  transf.register_plugin(alloc(datalog::mk_array_blast, ctx, 36000));
         transf.register_plugin(alloc(datalog::mk_karr_invariants, ctx, 36010));
         if (ctx.get_params().magic()) {
             transf.register_plugin(alloc(datalog::mk_magic_symbolic, ctx, 36020));

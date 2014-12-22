@@ -278,7 +278,8 @@ class iz3mgr  {
   }
 
   symb sym(ast t){
-    return to_app(t.raw())->get_decl();
+    raw_ast *_ast = t.raw();
+    return is_app(_ast) ? to_app(_ast)->get_decl() : 0;
   }
 
   std::string string_of_symbol(symb s){

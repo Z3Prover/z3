@@ -71,7 +71,7 @@ namespace sat {
 
         void free_memory();
 
-        void collect_statistics(statistics & st);
+        void collect_statistics(statistics & st) const;
         void reset_statistics();
 
         // return the literals implied by l.

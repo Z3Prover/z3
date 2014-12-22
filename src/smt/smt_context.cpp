@@ -1615,6 +1615,8 @@ namespace smt {
             unsigned qhead = m_qhead;
             if (!bcp())
                 return false;
+            if (m_cancel_flag) 
+                return true;
             SASSERT(!inconsistent());
             propagate_relevancy(qhead);
             if (inconsistent()) 
@@ -3319,13 +3321,13 @@ namespace smt {
                 CASSERT("dyn_ack", check_clauses(m_lemmas) && check_clauses(m_aux_clauses));
             }
             
-            if (resource_limits_exceeded()) {
-                SASSERT(!inconsistent());
+            if (resource_limits_exceeded() && !inconsistent()) {
                 return l_undef;
             }
 
             if (m_base_lvl == m_scope_lvl && m_fparams.m_simplify_clauses)
                 simplify_clauses();
+
             
             if (!decide()) {
                 final_check_status fcs = final_check();
@@ -3340,8 +3342,7 @@ namespace smt {
                 }
             }
 
-            if (resource_limits_exceeded()) {
-                SASSERT(!inconsistent());
+            if (resource_limits_exceeded() && !inconsistent()) {
                 return l_undef;
             }
         }
@@ -3945,7 +3946,7 @@ namespace smt {
               m_fingerprints.display(tout); 
               );
         failure fl = get_last_search_failure();
-        if (fl == TIMEOUT || fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS || fl == THEORY) {
+        if (fl == TIMEOUT || fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS) {
             // don't generate model.
             return;
         }

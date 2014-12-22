@@ -778,6 +778,8 @@ int iz3mgr::occurs_in(ast var, ast e){
 
 
 bool iz3mgr::solve_arith(const ast &v, const ast &x, const ast &y, ast &res){
+  if(occurs_in(v,y))
+    return false;
   if(op(x) == Plus){
     int n = num_args(x);
     for(int i = 0; i < n; i++){
@@ -801,8 +803,8 @@ iz3mgr::ast iz3mgr::cont_eq(stl_ext::hash_set<ast> &cont_eq_memo, bool truth, as
     return ast();
   cont_eq_memo.insert(e);
   if(!truth && op(e) == Equal){
-    if(arg(e,0) == v) return(arg(e,1));
-    if(arg(e,1) == v) return(arg(e,0));
+    if(arg(e,0) == v && !occurs_in(v,arg(e,1))) return(arg(e,1));
+    if(arg(e,1) == v && !occurs_in(v,arg(e,0))) return(arg(e,0));
     ast res;
     if(solve_arith(v,arg(e,0),arg(e,1),res)) return res;
     if(solve_arith(v,arg(e,1),arg(e,0),res)) return res;

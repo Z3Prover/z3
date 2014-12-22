@@ -125,8 +125,18 @@ namespace Duality {
 
   void timer_stop(const char *name){
     if(current->name != name || !current->parent){
+#if 0
       std::cerr << "imbalanced timer_start and timer_stop";
       exit(1);
+#endif
+      // in case we lost a timer stop due to an exception
+      while(current->name != name && current->parent)
+	current = current->parent;
+      if(current->parent){
+	current->time += (current_time() - current->start_time);
+	current = current->parent;
+      }
+      return;
     }
     current->time += (current_time() - current->start_time);
     current = current->parent;

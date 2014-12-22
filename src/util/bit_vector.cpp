@@ -138,9 +138,8 @@ bool bit_vector::operator==(bit_vector const & source) const {
 bit_vector & bit_vector::operator|=(bit_vector const & source) {
     if (size() < source.size())
         resize(source.size(), false);
-    unsigned n1 = num_words();
     unsigned n2 = source.num_words();
-    SASSERT(n2 <= n1);
+    SASSERT(n2 <= num_words());
     unsigned bit_rest = source.m_num_bits % 32;
     if (bit_rest == 0) {
         unsigned i = 0;
