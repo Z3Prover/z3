@@ -315,8 +315,9 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_numeral_as_real(false),
     m_ignore_check(false),
     m_exit_on_error(false),
-    m_manager(m),
+    m_manager(m),   
     m_own_manager(m == 0),
+    m_manager_initialized(false),
     m_pmanager(0),
     m_sexpr_manager(0),
     m_regular("stdout", std::cout),
@@ -327,8 +328,6 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     install_core_tactic_cmds(*this);
     install_interpolant_cmds(*this);
     SASSERT(m != 0 || !has_manager());
-    if (m)
-        init_external_manager();
     if (m_main_ctx) { 
         set_verbose_stream(diagnostic_stream());
     }
@@ -484,6 +483,16 @@ void cmd_context::register_plugin(symbol const & name, decl_plugin * p, bool ins
     }
 }
 
+void cmd_context::load_plugin(symbol const & name, bool install, svector<family_id>& fids) {
+    family_id id = m_manager->get_family_id(name);
+    decl_plugin* p = m_manager->get_plugin(id);
+    if (install && p && fids.contains(id)) {
+        register_builtin_sorts(p);
+        register_builtin_ops(p);
+    }
+    fids.erase(id);
+}
+
 bool cmd_context::logic_has_arith_core(symbol const & s) const {
     return 
         s == "QF_LRA" ||
@@ -601,18 +610,27 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_builtin_sorts(basic);
         register_builtin_ops(basic);
         // the manager was created by the command context.
-        register_plugin(symbol("arith"), alloc(arith_decl_plugin), logic_has_arith());
-        register_plugin(symbol("bv"), alloc(bv_decl_plugin), logic_has_bv());
-        register_plugin(symbol("array"), alloc(array_decl_plugin), logic_has_array());
+        register_plugin(symbol("arith"),    alloc(arith_decl_plugin), logic_has_arith());
+        register_plugin(symbol("bv"),       alloc(bv_decl_plugin), logic_has_bv());
+        register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
         register_plugin(symbol("float"),    alloc(float_decl_plugin), logic_has_floats());
         register_plugin(symbol("pb"),     alloc(pb_decl_plugin), !has_logic());
     }
     else {
-        // the manager was created by an external module, we must register all plugins available in the manager.
+        // the manager was created by an external module
+        // we register all plugins available in the manager.
+        // unless the logic specifies otherwise.
         svector<family_id> fids;
         m_manager->get_range(fids);
+        load_plugin(symbol("arith"),    logic_has_arith(), fids);
+        load_plugin(symbol("bv"),       logic_has_bv(), fids);
+        load_plugin(symbol("array"),    logic_has_array(), fids);
+        load_plugin(symbol("datatype"), logic_has_datatype(), fids);
+        load_plugin(symbol("seq"),      logic_has_seq(), fids);
+        load_plugin(symbol("float"),    logic_has_floats(), fids);
+        
         svector<family_id>::iterator it  = fids.begin();
         svector<family_id>::iterator end = fids.end();
         for (; it != end; ++it) {
@@ -635,12 +653,22 @@ void cmd_context::init_manager_core(bool new_manager) {
 }
 
 void cmd_context::init_manager() {
-    SASSERT(m_manager == 0);
-    SASSERT(m_pmanager == 0);
-    m_check_sat_result = 0;
-    m_manager  = m_params.mk_ast_manager();
-    m_pmanager = alloc(pdecl_manager, *m_manager);
-    init_manager_core(true);
+    if (m_manager_initialized) {
+        // no-op
+    }
+    else if (m_manager) {
+        m_manager_initialized = true;
+        SASSERT(!m_own_manager);
+        init_external_manager();
+    }
+    else {
+        m_manager_initialized = true;
+        SASSERT(m_pmanager == 0);
+        m_check_sat_result = 0;
+        m_manager  = m_params.mk_ast_manager();
+        m_pmanager = alloc(pdecl_manager, *m_manager);
+        init_manager_core(true);
+    }
 }
 
 void cmd_context::init_external_manager() {
@@ -1180,12 +1208,15 @@ void cmd_context::reset(bool finalize) {
         if (m_own_manager) {
             dealloc(m_manager);
             m_manager = 0;
+            m_manager_initialized = false;
         }
         else {
             // doesn't own manager... so it cannot be deleted
             // reinit cmd_context if this is not a finalization step
             if (!finalize)
                 init_external_manager();
+            else 
+                m_manager_initialized = false;
         }
     }
     if (m_sexpr_manager) {
@@ -1226,8 +1257,7 @@ void cmd_context::assert_expr(symbol const & name, expr * t) {
 
 void cmd_context::push() {
     m_check_sat_result = 0;
-    if (!has_manager())
-        init_manager();
+    init_manager();
     m_scopes.push_back(scope());
     scope & s = m_scopes.back();
     s.m_func_decls_stack_lim   = m_func_decls_stack.size();
@@ -1351,8 +1381,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         return;
     IF_VERBOSE(100, verbose_stream() << "(started \"check-sat\")" << std::endl;);
     TRACE("before_check_sat", dump_assertions(tout););
-    if (!has_manager())
-        init_manager();
+    init_manager();
     unsigned timeout = m_params.m_timeout;
     scoped_watch sw(*this);
     lbool r;

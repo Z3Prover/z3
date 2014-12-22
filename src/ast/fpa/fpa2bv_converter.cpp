@@ -2155,15 +2155,15 @@ void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * arg
     SASSERT(f->get_num_parameters() == 1);
     SASSERT(f->get_parameter(0).is_int());
     
-    unsigned ebits = m_util.get_ebits(f->get_range());
-    unsigned sbits = m_util.get_sbits(f->get_range());
-    int width = f->get_parameter(0).get_int();
+    //unsigned ebits = m_util.get_ebits(f->get_range());
+    //unsigned sbits = m_util.get_sbits(f->get_range());
+    //int width = f->get_parameter(0).get_int();
 
-    expr * rm = args[0];
-    expr * x = args[1];
+    //expr * rm = args[0];
+    //expr * x = args[1];
     
-    expr * sgn, *s, *e;
-    split(x, sgn, s, e);
+    //expr * sgn, *s, *e;
+    //split(x, sgn, s, e);
 
     NOT_IMPLEMENTED_YET();
 }
@@ -2173,15 +2173,15 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     SASSERT(f->get_num_parameters() == 1);
     SASSERT(f->get_parameter(0).is_int());
 
-    unsigned ebits = m_util.get_ebits(f->get_range());
-    unsigned sbits = m_util.get_sbits(f->get_range());
-    int width = f->get_parameter(0).get_int();
+    //unsigned ebits = m_util.get_ebits(f->get_range());
+    //unsigned sbits = m_util.get_sbits(f->get_range());
+    //int width = f->get_parameter(0).get_int();
 
-    expr * rm = args[0];
-    expr * x = args[1];
+    //expr * rm = args[0];
+    //expr * x = args[1];
 
-    expr * sgn, *s, *e;
-    split(x, sgn, s, e);
+    //expr * sgn, *s, *e;
+    //split(x, sgn, s, e);
 
     NOT_IMPLEMENTED_YET();
 }
@@ -2189,15 +2189,15 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
 void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 1);
 
-    unsigned ebits = m_util.get_ebits(f->get_range());
-    unsigned sbits = m_util.get_sbits(f->get_range());
-    int width = f->get_parameter(0).get_int();
+    //unsigned ebits = m_util.get_ebits(f->get_range());
+    //unsigned sbits = m_util.get_sbits(f->get_range());
+    //int width = f->get_parameter(0).get_int();
 
-    expr * rm = args[0];
-    expr * x = args[1];
+    //expr * rm = args[0];
+    //expr * x = args[1];
 
-    expr * sgn, *s, *e;
-    split(x, sgn, s, e);
+    //expr * sgn, *s, *e;
+    //split(x, sgn, s, e);
 
     NOT_IMPLEMENTED_YET();
 }

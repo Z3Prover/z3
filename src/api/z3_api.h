@@ -4028,6 +4028,12 @@ END_MLAPI_EXCLUDE
 
     /**
         \brief Return a unique identifier for \c t.
+        The identifier is unique up to structural equality. Thus, two ast nodes
+        created by the same context and having the same children and same function symbols
+        have the same identifiers. Ast nodes created in the same context, but having
+        different children or different functions have different identifiers.
+        Variables and quantifiers are also assigned different identifiers according to
+        their structure.        
         \mlonly \remark Implicitly used by [Pervasives.compare] for values of type [ast], [app], [sort], [func_decl], and [pattern]. \endmlonly
 
         def_API('Z3_get_ast_id', UINT, (_in(CONTEXT), _in(AST)))
@@ -4036,6 +4042,8 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return a hash code for the given AST.
+       The hash code is structural. You can use Z3_get_ast_id interchangably with 
+       this function.
        \mlonly \remark Implicitly used by [Hashtbl.hash] for values of type [ast], [app], [sort], [func_decl], and [pattern]. \endmlonly
 
        def_API('Z3_get_ast_hash', UINT, (_in(CONTEXT), _in(AST)))

@@ -1013,6 +1013,17 @@ func_decl * basic_decl_plugin::mk_ite_decl(sort * s) {
     return m_ite_decls[id];
 }
 
+sort* basic_decl_plugin::join(sort* s1, sort* s2) {
+    if (s1 == s2) return s1;
+    if (s1->get_family_id() == m_manager->m_arith_family_id && 
+        s2->get_family_id() == m_manager->m_arith_family_id) {
+        if (s1->get_decl_kind() == REAL_SORT) {
+            return s1;
+        }
+    }
+    return s2;
+}
+
 func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                           unsigned arity, sort * const * domain, sort * range) {
     switch (static_cast<basic_op_kind>(k)) {
@@ -1025,10 +1036,10 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_IFF:     return m_iff_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
-    case OP_ITE:     return arity == 3 ? mk_ite_decl(domain[1]) : 0;
+    case OP_ITE:     return arity == 3 ? mk_ite_decl(join(domain[1], domain[2])) : 0;
         // eq and oeq must have at least two arguments, they can have more since they are chainable
-    case OP_EQ:      return arity >= 2 ? mk_eq_decl_core("=", OP_EQ, domain[0], m_eq_decls) : 0;
-    case OP_OEQ:     return arity >= 2 ? mk_eq_decl_core("~", OP_OEQ, domain[0], m_oeq_decls) : 0;
+    case OP_EQ:      return arity >= 2 ? mk_eq_decl_core("=", OP_EQ, join(domain[0],domain[1]), m_eq_decls) : 0;
+    case OP_OEQ:     return arity >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(domain[0],domain[1]), m_oeq_decls) : 0;
     case OP_DISTINCT: {
         func_decl_info info(m_family_id, OP_DISTINCT);
         info.set_pairwise();
@@ -1061,10 +1072,12 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_IFF:     return m_iff_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
-    case OP_ITE:     return num_args == 3 ? mk_ite_decl(m_manager->get_sort(args[1])): 0;
+    case OP_ITE:     return num_args == 3 ? mk_ite_decl(join(m_manager->get_sort(args[1]), m_manager->get_sort(args[2]))): 0;
         // eq and oeq must have at least two arguments, they can have more since they are chainable
-    case OP_EQ:      return num_args >= 2 ? mk_eq_decl_core("=", OP_EQ, m_manager->get_sort(args[0]), m_eq_decls) : 0;
-    case OP_OEQ:     return num_args >= 2 ? mk_eq_decl_core("~", OP_OEQ, m_manager->get_sort(args[0]), m_oeq_decls) : 0;
+    case OP_EQ:      return num_args >= 2 ? mk_eq_decl_core("=", OP_EQ, join(m_manager->get_sort(args[0]),
+                                                                             m_manager->get_sort(args[1])), m_eq_decls) : 0;
+    case OP_OEQ:     return num_args >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(m_manager->get_sort(args[0]),
+                                                                              m_manager->get_sort(args[1])), m_oeq_decls) : 0;
     case OP_DISTINCT:
         return decl_plugin::mk_func_decl(k, num_parameters, parameters, num_args, args, range);
     default:
