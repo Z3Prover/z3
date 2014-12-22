@@ -1157,13 +1157,9 @@ namespace datalog {
     };
 
 
-    class udoc_plugin::join_project_and_fn : public convenient_relation_join_project_fn {
+    class udoc_plugin::join_project_and_fn : public relation_join_fn {
     public:
-      join_project_and_fn(udoc_relation const& t1, udoc_relation const& t2,
-        unsigned col_cnt, const unsigned *cols1, const unsigned *cols2,
-        unsigned removed_col_cnt, unsigned const *rm_cols)
-        : convenient_relation_join_project_fn(t1.get_signature(), t2.get_signature(),
-        col_cnt, cols1, cols2, removed_col_cnt, rm_cols) {}
+      join_project_and_fn() {}
 
       virtual relation_base* operator()(relation_base const& t1, relation_base const& t2) {
           udoc_relation *result = get(t1.clone());
@@ -1186,9 +1182,7 @@ namespace datalog {
                 if (removed_cols[i] != i)
                     goto general_fn;
             }
-            return alloc(join_project_and_fn, get(t1), get(t2),
-                         joined_col_cnt, cols1, cols2,
-                         removed_col_cnt, removed_cols);
+            return alloc(join_project_and_fn);
         }
 
       general_fn:
