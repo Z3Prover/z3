@@ -1223,7 +1223,9 @@ std::string mpf_manager::to_string(mpf const & x) {
 
             std::stringstream ss;
             m_mpq_manager.display_decimal(ss, r, x.sbits);
-            ss << "p" << exponent; // "p" means 2^exp 
+            if (m_mpq_manager.is_int(r))
+                ss << ".0";
+            ss << " " << exponent;
             res += ss.str();            
         }
     }
