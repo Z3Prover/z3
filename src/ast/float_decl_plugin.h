@@ -239,6 +239,7 @@ public:
     app * mk_value(mpf const & v) { return m_plugin->mk_value(v); }
     bool is_value(expr * n) { return m_plugin->is_value(n); }
     bool is_value(expr * n, mpf & v) { return m_plugin->is_value(n, v); }
+    bool is_rm_value(expr * n) { return m_plugin->is_rm_value(n); }
     bool is_rm_value(expr * n, mpf_rounding_mode & v) { return m_plugin->is_rm_value(n, v); }
 
     app * mk_pzero(unsigned ebits, unsigned sbits);
@@ -254,8 +255,7 @@ public:
     bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_nzero(v); }
 
     bool is_to_float(expr * n) { return is_app_of(n, m_fid, OP_FLOAT_TO_FP); }
-
-    app * mk_to_float(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_TO_FP, arg1, arg2); }    
+    
     app * mk_add(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_ADD, arg1, arg2, arg3); }
     app * mk_mul(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_MUL, arg1, arg2, arg3); }
     app * mk_sub(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_SUB, arg1, arg2, arg3); }

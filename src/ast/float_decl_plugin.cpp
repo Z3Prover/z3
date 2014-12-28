@@ -499,8 +499,19 @@ func_decl * float_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, pa
         symbol name("to_fp");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
     }
-    else
-        NOT_IMPLEMENTED_YET();
+    else {
+        m_manager->raise_exception("Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: "
+                                   "((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)),"
+                                   "(_ BitVec (eb+sb)),"
+                                   "(Real),"
+                                   "(RoundingMode (_ BitVec (eb+sb))),"
+                                   "(RoundingMode (_ FloatingPoint eb' sb')),"
+                                   "(RoundingMode Real Int), and"
+                                   "(RoundingMode Real)."
+                                   );
+    }
+
+    return 0;
 }
 
 func_decl * float_decl_plugin::mk_to_fp_unsigned(decl_kind k, unsigned num_parameters, parameter const * parameters,
