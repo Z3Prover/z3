@@ -2171,11 +2171,6 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     unsigned bv_sz = m_bv_util.get_bv_size(x);
     SASSERT(m_bv_util.get_bv_size(rm) == 3);
 
-    //if (bv_sz < f_sz) {
-    //    x = m_bv_util.mk_zero_extend(f_sz - bv_sz, x);
-    //    bv_sz = f_sz;
-    //}
-
     expr_ref bv0_1(m), bv1_1(m), bv0_sz(m), bv1_sz(m);
     bv0_1 = m_bv_util.mk_numeral(0, 1);
     bv1_1 = m_bv_util.mk_numeral(1, 1);
@@ -2245,12 +2240,14 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     unsigned exp_sz = ebits + 2; // (+2 for rounder)
     exp_2 = m_bv_util.mk_extract(exp_sz - 1, 0, s_exp);
     // the remaining bits are 0 if ebits is large enough.    
-    exp_too_large = m.mk_false(); // This is always in range.        
+    exp_too_large = m.mk_false();
 
     // The exponent is at most bv_sz, i.e., we need ld(bv_sz)+1 ebits.
     // exp < bv_sz (+sign bit which is [0])    
     unsigned exp_worst_case_sz = (unsigned)((log((double)bv_sz) / log((double)2)) + 1.0);
     
+    TRACE("fpa2bv_to_fp_signed", tout << "exp worst case sz: " << exp_worst_case_sz << std::endl;);
+
     if (exp_sz < exp_worst_case_sz) {
         // exp_sz < exp_worst_case_sz and exp >= 0.
         // Take the maximum legal exponent; this
@@ -2266,7 +2263,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
         sig_4 = m.mk_ite(exp_too_large, m_bv_util.mk_numeral(0, sig_sz), sig_4);
         exp_2 = m.mk_ite(exp_too_large, max_exp, exp_2);
     }
-    dbg_decouple("fpa2bv_to_fp_signed_exp_too_large", exp_too_large);
+    dbg_decouple("fpa2bv_to_fp_signed_exp_too_large", exp_too_large);    
 
     expr_ref sgn(m), sig(m), exp(m);
     sgn = is_neg_bit;
@@ -2290,7 +2287,134 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     TRACE("fpa2bv_to_fp_unsigned", for (unsigned i = 0; i < num; i++)
           tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
 
-    NOT_IMPLEMENTED_YET();
+    // This is a conversion from unsigned bitvector to float:
+    // ((_ to_fp_unsigned eb sb) RoundingMode(_ BitVec m) (_ FloatingPoint eb sb))
+    // Semantics:
+    //    Let b in[[(_ BitVec m)]] and let n be the unsigned integer represented by b.
+    //    [[(_ to_fp_unsigned eb sb)]](r, x) = +infinity if n is too large to be
+    //    represented as a finite number of[[(_ FloatingPoint eb sb)]];
+    //    [[(_ to_fp_unsigned eb sb)]](r, x) = y otherwise, where y is the finite number
+    //    such that[[fp.to_real]](y) is closest to n according to rounding mode r.
+
+    SASSERT(num == 2);
+    SASSERT(m_util.is_float(f->get_range()));
+    SASSERT(m_bv_util.is_bv(args[0]));
+    SASSERT(m_bv_util.is_bv(args[1]));
+
+    expr_ref rm(m), x(m);
+    rm = args[0];
+    x = args[1];
+
+    dbg_decouple("fpa2bv_to_fp_unsigned_x", x);
+
+    unsigned ebits = m_util.get_ebits(f->get_range());
+    unsigned sbits = m_util.get_sbits(f->get_range());
+    unsigned f_sz = sbits + ebits;
+    unsigned bv_sz = m_bv_util.get_bv_size(x);
+    SASSERT(m_bv_util.get_bv_size(rm) == 3);    
+
+    expr_ref bv0_1(m), bv1_1(m), bv0_sz(m), bv1_sz(m);
+    bv0_1 = m_bv_util.mk_numeral(0, 1);
+    bv1_1 = m_bv_util.mk_numeral(1, 1);
+    bv0_sz = m_bv_util.mk_numeral(0, bv_sz);
+    bv1_sz = m_bv_util.mk_numeral(1, bv_sz);
+
+    expr_ref is_zero(m), nzero(m), pzero(m), ninf(m), pinf(m);
+    is_zero = m.mk_eq(x, bv0_sz);
+    mk_nzero(f, nzero);
+    mk_pzero(f, pzero);
+    mk_ninf(f, ninf);
+    mk_pinf(f, pinf);
+
+    // Special case: x == 0 -> p/n zero
+    expr_ref c1(m), v1(m), rm_is_to_neg(m);
+    c1 = is_zero;
+    mk_is_rm(rm, BV_RM_TO_NEGATIVE, rm_is_to_neg);
+    mk_ite(rm_is_to_neg, nzero, pzero, v1);
+
+    // Special case: x != 0
+    expr_ref exp_too_large(m), sig_4(m), exp_2(m);        
+    // x is [bv_sz-1] . [bv_sz-2 ... 0] * 2^(bv_sz-1)
+    // bv_sz-1 is the "1.0" bit for the rounder.
+
+    expr_ref lz(m), e_bv_sz(m), e_rest_sz(m);
+    mk_leading_zeros(x, bv_sz, lz);
+    e_bv_sz = m_bv_util.mk_numeral(bv_sz, bv_sz);
+    e_rest_sz = m_bv_util.mk_bv_sub(e_bv_sz, lz);
+    SASSERT(m_bv_util.get_bv_size(lz) == m_bv_util.get_bv_size(e_bv_sz));
+    dbg_decouple("fpa2bv_to_fp_unsigned_lz", lz);
+    expr_ref shifted_sig(m);
+    shifted_sig = m_bv_util.mk_bv_shl(x, lz);
+
+    expr_ref sticky(m);
+    // shifted_sig is [bv_sz-1] . [bv_sz-2 ... 0] * 2^(bv_sz-1) * 2^(-lz)
+    unsigned sig_sz = sbits + 4; // we want extra rounding bits.
+    if (sig_sz <= bv_sz) {
+        expr_ref sig_rest(m);
+        sig_4 = m_bv_util.mk_extract(bv_sz - 1, bv_sz - sig_sz + 1, shifted_sig); // one short
+        sig_rest = m_bv_util.mk_extract(bv_sz - sig_sz, 0, shifted_sig);
+        sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sig_rest);
+        sig_4 = m_bv_util.mk_concat(sig_4, sticky);
+    }
+    else {
+        unsigned extra_bits = sig_sz - bv_sz;
+        expr_ref extra_zeros(m);
+        extra_zeros = m_bv_util.mk_numeral(0, extra_bits);
+        sig_4 = m_bv_util.mk_concat(shifted_sig, extra_zeros);
+        lz = m_bv_util.mk_bv_add(m_bv_util.mk_concat(extra_zeros, lz),
+                                 m_bv_util.mk_numeral(extra_bits, sig_sz));
+        bv_sz = bv_sz + extra_bits;
+        SASSERT(is_well_sorted(m, lz));
+    }
+    SASSERT(m_bv_util.get_bv_size(sig_4) == sig_sz);
+
+    expr_ref s_exp(m), exp_rest(m);
+    s_exp = m_bv_util.mk_bv_sub(m_bv_util.mk_numeral(bv_sz - 2, bv_sz), lz);
+    // s_exp = (bv_sz-2) + (-lz) signed
+    SASSERT(m_bv_util.get_bv_size(s_exp) == bv_sz);
+
+    unsigned exp_sz = ebits + 2; // (+2 for rounder)
+    exp_2 = m_bv_util.mk_extract(exp_sz - 1, 0, s_exp);
+    // the remaining bits are 0 if ebits is large enough.    
+    exp_too_large = m.mk_false(); // This is always in range.        
+
+    // The exponent is at most bv_sz, i.e., we need ld(bv_sz)+1 ebits.
+    // exp < bv_sz (+sign bit which is [0])    
+    unsigned exp_worst_case_sz = (unsigned)((log((double)bv_sz) / log((double)2)) + 1.0);
+
+    if (exp_sz < exp_worst_case_sz) {
+        // exp_sz < exp_worst_case_sz and exp >= 0.
+        // Take the maximum legal exponent; this
+        // allows us to keep the most precision.
+        expr_ref max_exp(m), max_exp_bvsz(m);
+        mk_max_exp(exp_sz, max_exp);
+        max_exp_bvsz = m_bv_util.mk_zero_extend(bv_sz - exp_sz, max_exp);
+
+        exp_too_large = m_bv_util.mk_ule(m_bv_util.mk_bv_add(
+            max_exp_bvsz,
+            m_bv_util.mk_numeral(1, bv_sz)),
+            s_exp);
+        sig_4 = m.mk_ite(exp_too_large, m_bv_util.mk_numeral(0, sig_sz), sig_4);
+        exp_2 = m.mk_ite(exp_too_large, max_exp, exp_2);
+    }
+    dbg_decouple("fpa2bv_to_fp_unsigned_exp_too_large", exp_too_large);
+
+    expr_ref sgn(m), sig(m), exp(m);
+    sgn = bv0_1;
+    sig = sig_4;
+    exp = exp_2;
+
+    dbg_decouple("fpa2bv_to_fp_unsigned_sgn", sgn);
+    dbg_decouple("fpa2bv_to_fp_unsigned_sig", sig);
+    dbg_decouple("fpa2bv_to_fp_unsigned_exp", exp);
+
+    SASSERT(m_bv_util.get_bv_size(sig) == sbits + 4);
+    SASSERT(m_bv_util.get_bv_size(exp) == ebits + 2);
+
+    expr_ref v2(m);
+    round(f->get_range(), rm, sgn, sig, exp, v2);
+
+    mk_ite(c1, v1, v2, result);
 }
 
 void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
