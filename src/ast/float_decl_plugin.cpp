@@ -562,9 +562,9 @@ func_decl * float_decl_plugin::mk_to_ubv(decl_kind k, unsigned num_parameters, p
         m_manager->raise_exception("invalid number of arguments to fp.to_ubv");
     if (num_parameters != 1)
         m_manager->raise_exception("invalid number of parameters to fp.to_ubv");
-    if (parameters[0].is_int())
+    if (!parameters[0].is_int())
         m_manager->raise_exception("invalid parameter type; fp.to_ubv expects an int parameter");
-    if (is_rm_sort(domain[0]))
+    if (!is_rm_sort(domain[0]))
         m_manager->raise_exception("sort mismatch, expected first argument of RoundingMode sort");
     if (!is_sort_of(domain[1], m_family_id, FLOAT_SORT))
         m_manager->raise_exception("sort mismatch, expected second argument of FloatingPoint sort");
@@ -573,7 +573,7 @@ func_decl * float_decl_plugin::mk_to_ubv(decl_kind k, unsigned num_parameters, p
 
     symbol name("fp.to_ubv");
     sort * bvs = m_bv_plugin->mk_sort(BV_SORT, 1, parameters);
-    return m_manager->mk_func_decl(name, arity, domain, bvs, func_decl_info(m_family_id, k));
+    return m_manager->mk_func_decl(name, arity, domain, bvs, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
 func_decl * float_decl_plugin::mk_to_sbv(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -594,7 +594,7 @@ func_decl * float_decl_plugin::mk_to_sbv(decl_kind k, unsigned num_parameters, p
 
     symbol name("fp.to_sbv");
     sort * bvs = m_bv_plugin->mk_sort(BV_SORT, 1, parameters);
-    return m_manager->mk_func_decl(name, arity, domain, bvs, func_decl_info(m_family_id, k));
+    return m_manager->mk_func_decl(name, arity, domain, bvs, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
 func_decl * float_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, parameter const * parameters,
