@@ -216,7 +216,7 @@ bool doc_manager::merge(doc& d, unsigned idx, subset_ints const& equalities,
     unsigned root = equalities.find(idx);
     idx = root;
     unsigned num_x = 0;
-    unsigned root1;
+    unsigned root1 = root;
     tbit value = BIT_x;
     do {
         switch (d[idx]) {
@@ -229,12 +229,13 @@ bool doc_manager::merge(doc& d, unsigned idx, subset_ints const& equalities,
             value = BIT_1;
             break;
         case BIT_x:
+            ++num_x;
             if (!discard_cols.get(idx)) {
-                ++num_x;
                 root1 = idx;
             }
             break;
         default:
+            UNREACHABLE();
             break;
         }
         idx = equalities.next(idx);
