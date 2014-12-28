@@ -37,19 +37,7 @@ fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
 }
 
 fpa2bv_converter::~fpa2bv_converter() {
-    dec_ref_map_key_values(m, m_const2bv);
-    dec_ref_map_key_values(m, m_rm_const2bv);
-    dec_ref_map_key_values(m, m_uf2bvuf);
-    
-    obj_map<func_decl, func_decl_triple>::iterator it  = m_uf23bvuf.begin();
-    obj_map<func_decl, func_decl_triple>::iterator end = m_uf23bvuf.end();
-    for (; it != end; ++it) {
-        m.dec_ref(it->m_key);
-        m.dec_ref(it->m_value.f_sgn);
-        m.dec_ref(it->m_value.f_sig);
-        m.dec_ref(it->m_value.f_exp);
-    }
-    m_uf23bvuf.reset();
+    reset();
 }
 
 void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
@@ -58,8 +46,8 @@ void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
 
     expr_ref sgn(m), s(m), e(m);
     m_simp.mk_eq(to_app(a)->get_arg(0), to_app(b)->get_arg(0), sgn);
-    m_simp.mk_eq(to_app(a)->get_arg(1), to_app(b)->get_arg(1), s);
-    m_simp.mk_eq(to_app(a)->get_arg(2), to_app(b)->get_arg(2), e);
+    m_simp.mk_eq(to_app(a)->get_arg(1), to_app(b)->get_arg(1), e);
+    m_simp.mk_eq(to_app(a)->get_arg(2), to_app(b)->get_arg(2), s);
 
     // The SMT FPA theory asks for _one_ NaN value, but the bit-blasting
     // has many, like IEEE754. This encoding of equality makes it look like
@@ -2261,7 +2249,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
 
     // The exponent is at most bv_sz, i.e., we need ld(bv_sz)+1 ebits.
     // exp < bv_sz (+sign bit which is [0])    
-    unsigned exp_worst_case_sz = (unsigned)((log(bv_sz) / log(2)) + 1);
+    unsigned exp_worst_case_sz = (unsigned)((log((double)bv_sz) / log((double)2)) + 1.0);
     
     if (exp_sz < exp_worst_case_sz) {
         // exp_sz < exp_worst_case_sz and exp >= 0.
@@ -2473,9 +2461,9 @@ void fpa2bv_converter::split_triple(expr * e, expr * & sgn, expr * & sig, expr *
     SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_FLOAT_TO_FP));
     SASSERT(to_app(e)->get_num_args() == 3);
     
-    sgn = to_app(e)->get_arg(0);
-    sig = to_app(e)->get_arg(2);
+    sgn = to_app(e)->get_arg(0);    
     exp = to_app(e)->get_arg(1);
+    sig = to_app(e)->get_arg(2);
 }
 
 void fpa2bv_converter::split_triple(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp) const {
@@ -3139,4 +3127,23 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     mk_triple(res_sgn, res_sig, res_exp, result);
 
     TRACE("fpa2bv_round", tout << "ROUND = " << mk_ismt2_pp(result, m) << std::endl; );
+}
+
+
+void fpa2bv_converter::reset(void) {
+    dec_ref_map_key_values(m, m_const2bv);
+    dec_ref_map_key_values(m, m_rm_const2bv);
+    dec_ref_map_key_values(m, m_uf2bvuf);
+
+    obj_map<func_decl, func_decl_triple>::iterator it = m_uf23bvuf.begin();
+    obj_map<func_decl, func_decl_triple>::iterator end = m_uf23bvuf.end();
+    for (; it != end; ++it) {
+        m.dec_ref(it->m_key);
+        m.dec_ref(it->m_value.f_sgn);
+        m.dec_ref(it->m_value.f_sig);
+        m.dec_ref(it->m_value.f_exp);
+    }
+    m_uf23bvuf.reset();
+
+    m_extra_assertions.reset();
 }

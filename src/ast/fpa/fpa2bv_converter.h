@@ -63,6 +63,7 @@ public:
 
     float_util & fu() { return m_util; }
     bv_util & bu() { return m_bv_util; }
+    arith_util & au() { return m_arith_util; }
 
     bool is_float(sort * s) { return m_util.is_float(s); }
     bool is_float(expr * e) { return is_app(e) && m_util.is_float(to_app(e)->get_decl()->get_range()); }
@@ -141,11 +142,14 @@ public:
     obj_map<func_decl, func_decl*> const & uf2bvuf() const { return m_uf2bvuf; }
     obj_map<func_decl, func_decl_triple> const & uf23bvuf() const { return m_uf23bvuf; }
 
+    void reset(void);
+
     void dbg_decouple(const char * prefix, expr_ref & e);
     expr_ref_vector m_extra_assertions;
 
     void mk_internal_bvwrap(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_internal_bvunwrap(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+
 protected:
     void mk_is_nan(expr * e, expr_ref & result);
     void mk_is_inf(expr * e, expr_ref & result);
