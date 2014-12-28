@@ -112,16 +112,16 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         unsigned sbits = fu.get_sbits(var->get_range());
 
         expr_ref sgn(m), sig(m), exp(m);        
-        bv_mdl->eval(a->get_arg(0), sgn, true);
-        bv_mdl->eval(a->get_arg(1), sig, true);
-        bv_mdl->eval(a->get_arg(2), exp, true);
+        bv_mdl->eval(a->get_arg(0), sgn, true);        
+        bv_mdl->eval(a->get_arg(1), exp, true);
+        bv_mdl->eval(a->get_arg(2), sig, true);
 
         SASSERT(a->is_app_of(fu.get_family_id(), OP_FLOAT_TO_FP));
 
 #ifdef Z3DEBUG                
         SASSERT(to_app(a->get_arg(0))->get_decl()->get_arity() == 0);
         SASSERT(to_app(a->get_arg(1))->get_decl()->get_arity() == 0);
-        SASSERT(to_app(a->get_arg(1))->get_decl()->get_arity() == 0);        
+        SASSERT(to_app(a->get_arg(2))->get_decl()->get_arity() == 0);        
         seen.insert(to_app(a->get_arg(0))->get_decl());
         seen.insert(to_app(a->get_arg(1))->get_decl());
         seen.insert(to_app(a->get_arg(2))->get_decl());
@@ -134,9 +134,9 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         if (!sgn && !sig && !exp)
             continue;
 
-        unsigned sgn_sz = bu.get_bv_size(m.get_sort(a->get_arg(0)));
-        unsigned sig_sz = bu.get_bv_size(m.get_sort(a->get_arg(1))) - 1;
-        unsigned exp_sz = bu.get_bv_size(m.get_sort(a->get_arg(2)));
+        unsigned sgn_sz = bu.get_bv_size(m.get_sort(a->get_arg(0)));        
+        unsigned exp_sz = bu.get_bv_size(m.get_sort(a->get_arg(1)));
+        unsigned sig_sz = bu.get_bv_size(m.get_sort(a->get_arg(2))) - 1;
 
         rational sgn_q(0), sig_q(0), exp_q(0);
 
