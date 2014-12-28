@@ -846,11 +846,11 @@ bool float_decl_plugin::is_unique_value(app* e) const {
     case OP_FLOAT_RM_TOWARD_ZERO:
         return true;    
     case OP_FLOAT_PLUS_INF:  /* No; +oo == fp(#b0 #b11 #b00) */
-    case OP_FLOAT_MINUS_INF: /* Nol -oo == fp #b1 #b11 #b00) */
+    case OP_FLOAT_MINUS_INF: /* No; -oo == fp #b1 #b11 #b00) */
     case OP_FLOAT_PLUS_ZERO: /* No; +zero == fp #b0 #b00 #b000) */
     case OP_FLOAT_MINUS_ZERO: /* No; -zero == fp #b1 #b00 #b000) */
     case OP_FLOAT_NAN: /* No; NaN == (fp #b0 #b111111 #b0000001) */
-    case OP_FLOAT_VALUE: /* above */
+    case OP_FLOAT_VALUE: /* see NaN */
         return false;
     case OP_FLOAT_FP:
         return m_manager->is_unique_value(e->get_arg(0)) &&
