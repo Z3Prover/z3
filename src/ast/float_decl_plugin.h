@@ -47,7 +47,7 @@ enum float_op_kind {
     OP_FLOAT_NAN,
     OP_FLOAT_PLUS_ZERO,
     OP_FLOAT_MINUS_ZERO,
-    
+
     OP_FLOAT_ADD,
     OP_FLOAT_SUB,
     OP_FLOAT_NEG,
@@ -70,7 +70,7 @@ enum float_op_kind {
     OP_FLOAT_IS_INF,
     OP_FLOAT_IS_ZERO,
     OP_FLOAT_IS_NORMAL,
-    OP_FLOAT_IS_SUBNORMAL,    
+    OP_FLOAT_IS_SUBNORMAL,
     OP_FLOAT_IS_PZERO,
     OP_FLOAT_IS_NZERO,
     OP_FLOAT_IS_NEGATIVE,
@@ -85,10 +85,13 @@ enum float_op_kind {
 
     /* Extensions */
     OP_FLOAT_TO_IEEE_BV,
-    
+
     /* Internal use only */
     OP_FLOAT_INTERNAL_BVWRAP,
     OP_FLOAT_INTERNAL_BVUNWRAP,
+    OP_FLOAT_INTERNAL_TO_UBV_UNSPECIFIED,
+    OP_FLOAT_INTERNAL_TO_SBV_UNSPECIFIED,    
+    OP_FLOAT_INTERNAL_TO_REAL_UNSPECIFIED,    
 
     LAST_FLOAT_OP
 };
@@ -155,9 +158,15 @@ class float_decl_plugin : public decl_plugin {
                                     unsigned arity, sort * const * domain, sort * range);
 
     func_decl * mk_internal_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                          unsigned arity, sort * const * domain, sort * range);
+                                    unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_bv_unwrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                            unsigned arity, sort * const * domain, sort * range);
+                                      unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_internal_to_ubv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                               unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_internal_to_sbv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                               unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_internal_to_real_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                                unsigned arity, sort * const * domain, sort * range);
 
     virtual void set_manager(ast_manager * m, family_id id);
     unsigned mk_id(mpf const & v);
@@ -203,6 +212,7 @@ class float_util {
     float_decl_plugin * m_plugin;
     family_id           m_fid;
     arith_util          m_a_util;    
+    bv_util             m_bv_util;
 public:
     float_util(ast_manager & m);
     ~float_util();
@@ -292,6 +302,10 @@ public:
     bool is_neg(expr * a) { return is_app_of(a, m_fid, OP_FLOAT_NEG); }
 
     app * mk_float_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_TO_IEEE_BV, arg1); }
+
+    app * mk_internal_to_ubv_unspecified(unsigned width);
+    app * mk_internal_to_sbv_unspecified(unsigned width);
+    app * mk_internal_to_real_unspecified();
 };
 
 #endif

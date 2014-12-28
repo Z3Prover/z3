@@ -291,7 +291,7 @@ namespace smt {
             SASSERT(m_bv_util.get_bv_size(res) == 3);
             ctx.internalize(res, false);
         }
-        else {
+        else if (m_float_util.is_float(e)) {
             SASSERT(to_app(res)->get_family_id() == get_family_id());
             decl_kind k = to_app(res)->get_decl_kind();
             if (k == OP_FLOAT_TO_FP) {
@@ -313,6 +313,9 @@ namespace smt {
                 SASSERT(is_sort_of(m.get_sort(e), get_family_id(), ROUNDING_MODE_SORT));
                 SASSERT(is_sort_of(m.get_sort(res), m_bv_util.get_family_id(), BV_SORT));
             }
+        }
+        else {
+            /* ignore; these are the conversion functions fp.to_* */
         }
 
         TRACE("t_fpa_detail", tout << "converted term:" << std::endl;
@@ -338,6 +341,8 @@ namespace smt {
             if (m.is_bool(e))
                 res = convert_atom(e);
             else if (m_float_util.is_float(e) || m_float_util.is_rm(e))
+                res = convert_term(e);
+            else if (m_arith_util.is_real(e))
                 res = convert_term(e);
             else
                 UNREACHABLE();
@@ -508,12 +513,10 @@ namespace smt {
 
             c = m.mk_and(m.mk_eq(x_sgn, y_sgn),
                          m.mk_eq(x_sig, y_sig),
-                         m.mk_eq(x_exp, y_exp));            
+                         m.mk_eq(x_exp, y_exp));
         }
-        else if (fu.is_rm(xe) && fu.is_rm(ye))
-            c = m.mk_eq(xc, yc);
         else
-            UNREACHABLE();
+            c = m.mk_eq(xc, yc);
 
         // assert_cnstr(m.mk_iff(m.mk_eq(xe, ye), c));
         assert_cnstr(c);
@@ -556,12 +559,10 @@ namespace smt {
             
             c = m.mk_or(m.mk_not(m.mk_eq(x_sgn, y_sgn)),
                         m.mk_not(m.mk_eq(x_sig, y_sig)),
-                        m.mk_not(m.mk_eq(x_exp, y_exp)));
+                        m.mk_not(m.mk_eq(x_exp, y_exp)));            
         }
-        else if (m_float_util.is_rm(xe) && m_float_util.is_rm(ye))
-            c = m.mk_not(m.mk_eq(xc, yc));
         else
-            UNREACHABLE();
+            c = m.mk_not(m.mk_eq(xc, yc));
 
         // assert_cnstr(m.mk_iff(m.mk_not(m.mk_eq(xe, ye)), c));
         assert_cnstr(c);
@@ -637,6 +638,9 @@ namespace smt {
                     assert_cnstr(c);
                 }
             }
+        }
+        else {
+            // These are the conversion functions fp.to_* */
         }
     }
 

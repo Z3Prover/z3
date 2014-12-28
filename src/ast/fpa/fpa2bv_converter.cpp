@@ -2487,10 +2487,13 @@ void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * arg
     mk_is_neg(x, x_is_neg);
     mk_is_nzero(x, x_is_nzero);
 
+    expr_ref undef(m);
+    undef = m_util.mk_internal_to_ubv_unspecified(bv_sz);
+
     // NaN, Inf, or negative (except -0) -> undefined
     expr_ref c1(m), v1(m);
     c1 = m.mk_or(x_is_nan, x_is_inf, m.mk_and(x_is_neg, m.mk_not(x_is_nzero)));
-    v1 = mk_fresh_const(0, bv_sz);
+    v1 = undef;
     dbg_decouple("fpa2bv_to_ubv_c1", c1);
 
     // +-Zero  -> 0
@@ -2546,9 +2549,10 @@ void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * arg
     dbg_decouple("fpa2bv_to_ubv_shifted_sig", shifted_sig);
 
     expr_ref rounded(m);
-    rounded = shifted_sig; // TODO.
+    // TODO: Rounding.
+    rounded = shifted_sig; 
 
-    result = m.mk_ite(c_in_limits, rounded, mk_fresh_const(0, bv_sz));
+    result = m.mk_ite(c_in_limits, rounded, undef);
     result = m.mk_ite(c2, v2, result);
     result = m.mk_ite(c1, v1, result);
 
@@ -2658,7 +2662,7 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
                             tout << "exp2 = " << mk_ismt2_pp(exp2, m) << std::endl;);
 
     expr_ref undef(m);
-    undef = m.mk_fresh_const(0, rs);
+    undef = m_util.mk_internal_to_real_unspecified();
     
     result = m.mk_ite(x_is_zero, zero, res);
     result = m.mk_ite(x_is_inf, undef, result);

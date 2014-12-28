@@ -655,6 +655,45 @@ func_decl * float_decl_plugin::mk_internal_bv_unwrap(decl_kind k, unsigned num_p
     return m_manager->mk_func_decl(symbol("bv_unwrap"), 1, domain, range, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
+func_decl * float_decl_plugin::mk_internal_to_ubv_unspecified(
+    decl_kind k, unsigned num_parameters, parameter const * parameters,
+    unsigned arity, sort * const * domain, sort * range) {
+    if (arity != 0)
+        m_manager->raise_exception("invalid number of arguments to fp.to_ubv_unspecified");
+    if (num_parameters != 1)
+        m_manager->raise_exception("invalid number of parameters to fp.to_ubv_unspecified; expecting 1");
+    if (!parameters[0].is_int())
+        m_manager->raise_exception("invalid parameters type provided to fp.to_ubv_unspecified; expecting an integer");
+        
+    sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, parameters);
+    return m_manager->mk_func_decl(symbol("fp.to_ubv_unspecified"), 0, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
+}
+
+func_decl * float_decl_plugin::mk_internal_to_sbv_unspecified(
+    decl_kind k, unsigned num_parameters, parameter const * parameters,
+    unsigned arity, sort * const * domain, sort * range) {
+    if (arity != 0)
+        m_manager->raise_exception("invalid number of arguments to internal_to_sbv_unspecified");
+    if (!is_sort_of(domain[0], m_bv_fid, BV_SORT))
+        m_manager->raise_exception("sort mismatch, expected argument of bitvector sort");
+    if (!is_sort_of(range, m_bv_fid, BV_SORT))
+        m_manager->raise_exception("sort mismatch, expected range of FloatingPoint sort");
+
+    sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, parameters);
+    return m_manager->mk_func_decl(symbol("fp.to_sbv_unspecified"), 0, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
+}
+
+func_decl * float_decl_plugin::mk_internal_to_real_unspecified(
+    decl_kind k, unsigned num_parameters, parameter const * parameters,
+    unsigned arity, sort * const * domain, sort * range) {
+    if (arity != 0)
+        m_manager->raise_exception("invalid number of arguments to internal_to_real_unspecified");
+    if (!is_sort_of(range, m_arith_fid, REAL_SORT))
+        m_manager->raise_exception("sort mismatch, expected range of FloatingPoint sort");
+
+    return m_manager->mk_func_decl(symbol("fp.to_real_unspecified"), 0, domain, m_real_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+}
+
 
 func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                             unsigned arity, sort * const * domain, sort * range) {
@@ -726,6 +765,12 @@ func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);
     case OP_FLOAT_INTERNAL_BVUNWRAP:
         return mk_internal_bv_unwrap(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_INTERNAL_TO_UBV_UNSPECIFIED:
+        return mk_internal_to_ubv_unspecified(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_INTERNAL_TO_SBV_UNSPECIFIED:
+        return mk_internal_to_sbv_unspecified(k, num_parameters, parameters, arity, domain, range);
+    case OP_FLOAT_INTERNAL_TO_REAL_UNSPECIFIED:
+        return mk_internal_to_real_unspecified(k, num_parameters, parameters, arity, domain, range);
     default:
         m_manager->raise_exception("unsupported floating point operator");
         return 0;
@@ -864,7 +909,8 @@ bool float_decl_plugin::is_unique_value(app* e) const {
 float_util::float_util(ast_manager & m):
     m_manager(m),
     m_fid(m.mk_family_id("float")),
-    m_a_util(m) {
+    m_a_util(m),
+    m_bv_util(m) {
     m_plugin = static_cast<float_decl_plugin*>(m.get_plugin(m_fid));
 }
 
@@ -916,3 +962,19 @@ app * float_util::mk_nzero(unsigned ebits, unsigned sbits) {
     return mk_value(v);
 }
 
+app * float_util::mk_internal_to_ubv_unspecified(unsigned width) {    
+    parameter ps[] = { parameter(width) };
+    sort * range = m_bv_util.mk_sort(width);
+    return m().mk_app(get_family_id(), OP_FLOAT_INTERNAL_TO_UBV_UNSPECIFIED, 1, ps, 0, 0, range);
+}
+
+app * float_util::mk_internal_to_sbv_unspecified(unsigned width) {
+    parameter ps[] = { parameter(width) };
+    sort * range = m_bv_util.mk_sort(width);
+    return m().mk_app(get_family_id(), OP_FLOAT_INTERNAL_TO_SBV_UNSPECIFIED, 1, ps, 0, 0, range);
+}
+
+app * float_util::mk_internal_to_real_unspecified() {
+    sort * range = m_a_util.mk_real();
+    return m().mk_app(get_family_id(), OP_FLOAT_INTERNAL_TO_REAL_UNSPECIFIED, 0, 0, 0, 0, range);
+}
