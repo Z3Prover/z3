@@ -29,39 +29,10 @@ Revision History:
 
 namespace smt {
 
-    class fpa_factory : public value_factory {
-        float_util          m_util;
-
-        virtual app * mk_value_core(mpf const & val, sort * s) {
-            SASSERT(m_util.get_ebits(s) == val.get_ebits());
-            SASSERT(m_util.get_sbits(s) == val.get_sbits());
-            return m_util.mk_value(val);
-        }
-
-    public:
-        fpa_factory(ast_manager & m, family_id fid) :
-            value_factory(m, fid),
-            m_util(m) {
-        }
-
-        virtual ~fpa_factory() {}
-
-        virtual expr * get_some_value(sort * s) { NOT_IMPLEMENTED_YET(); }
-        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) { NOT_IMPLEMENTED_YET(); }
-        virtual expr * get_fresh_value(sort * s) { NOT_IMPLEMENTED_YET(); }
-        virtual void register_value(expr * n) { /* Ignore */ }
-
-        app * mk_value(mpf const & x) { 
-            return m_util.mk_value(x);
-        }
-    };    
+    class fpa_factory;    
 
     class theory_fpa : public theory {
-        class th_trail_stack : public trail_stack<theory_fpa> {
-        public: 
-            th_trail_stack(theory_fpa & th) : trail_stack<theory_fpa>(th) {}
-            virtual ~th_trail_stack() {}
-        };
+        typedef trail_stack<theory_fpa> th_trail_stack;
 
         class fpa2bv_converter_wrapped : public fpa2bv_converter {
         public:
@@ -76,11 +47,13 @@ namespace smt {
         
         class fpa_value_proc : public model_value_proc {
         protected:
-            theory_fpa                    & m_th;
-            app_ref                         m_a;
+            theory_fpa & m_th;            
+            float_util & m_fu;
+            bv_util    & m_bu;
             svector<model_value_dependency> m_dependencies;
         public:
-            fpa_value_proc(theory_fpa * th, app_ref & a) : m_th(*th), m_a(a) {}
+            fpa_value_proc(theory_fpa * th) : 
+                m_th(*th),m_fu(th->m_float_util),m_bu(th->m_bv_util) {}
             void add_dependency(enode * n) { m_dependencies.push_back(model_value_dependency(n)); }
             virtual ~fpa_value_proc() {}
             virtual void get_dependencies(buffer<model_value_dependency> & result) {
@@ -89,50 +62,27 @@ namespace smt {
             virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
         };
 
-        class fpa_rm_value_proc : public fpa_value_proc {
-            float_util & m_fu;
-            bv_util    & m_bu;
+        class fpa_rm_value_proc : public fpa_value_proc {            
         public:
-            fpa_rm_value_proc(theory_fpa * th, app_ref & a) : 
-                fpa_value_proc(th, a), 
-                m_fu(th->m_converter.fu()), 
-                m_bu(th->m_converter.bu()) {}
+            fpa_rm_value_proc(theory_fpa * th) : 
+                fpa_value_proc(th) {}
             void add_dependency(enode * n) { fpa_value_proc::add_dependency(n); }
             virtual ~fpa_rm_value_proc() {}
             virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
         };
     
-    public:
-        class atom {
-        public:
-            virtual ~atom() {}
-        };
-
-        struct pred_atom : public atom {
-            literal    m_var;
-            literal    m_def;
-            pred_atom(literal v, literal d) : m_var(v), m_def(d) {}
-            virtual ~pred_atom() {}
-        };
-
-        typedef ptr_vector<pred_atom> bool_var2atom;
-        void insert_bv2a(bool_var bv, pred_atom * a) { m_bool_var2atom.setx(bv, a, 0); }
-        void erase_bv2a(bool_var bv) { m_bool_var2atom[bv] = 0; }
-        pred_atom * get_bv2a(bool_var bv) const { return m_bool_var2atom.get(bv, 0); }
-        region & get_region() { return m_trail_stack.get_region(); }        
-
     protected:
         fpa2bv_converter_wrapped  m_converter;
         fpa2bv_rewriter           m_rw;
         th_rewriter               m_th_rw;
         th_trail_stack            m_trail_stack;
-        bool_var2atom             m_bool_var2atom;
-        enode_vector              m_temporaries;
-        vector<theory_var>        m_tvars;        
         fpa_factory *             m_factory;
+        float_util              & m_float_util;
+        bv_util                 & m_bv_util;
+        arith_util              & m_arith_util;
         obj_map<sort, func_decl*> m_wraps;
         obj_map<sort, func_decl*> m_unwraps;
-        float_decl_plugin         m_flt_plugin;
+        obj_map<expr, expr*>      m_conversions;
 
         virtual final_check_status final_check_eh() { return FC_DONE; }
         virtual bool internalize_atom(app * atom, bool gate_ctx);
@@ -161,14 +111,16 @@ namespace smt {
 
     protected:
         expr_ref mk_side_conditions();
+        expr_ref convert(expr * e);
         expr_ref convert_atom(expr * e);
         expr_ref convert_term(expr * e);
-        void get_wrap(sort * s, func_decl *& wrap, func_decl *& unwrap);
+        void get_wrap(sort * s, func_decl_ref & wrap, func_decl_ref & unwrap);
         void add_trail(ast * a);
 
         void mk_bv_eq(expr * x, expr * y);
         void attach_new_th_var(enode * n);
         void assert_cnstr(expr * e);
+        void add_value_dep(fpa_value_proc * vp, expr * e);
     };
 
 };
