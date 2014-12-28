@@ -218,39 +218,24 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
             o.exponent--;
         }
 
-        m_mpz_manager.set(o.significand, 0);
-        // o.exponent += sbits ;        
-
+        m_mpz_manager.set(o.significand, 0);  
         SASSERT(m_mpq_manager.lt(v, mpq(2)));
         SASSERT(m_mpq_manager.ge(v, mpq(1)));
 
         // 1.0 <= v < 2.0 (* 2^o.exponent)    
-        // (and v != 0.0)      
+        // (and v != 0.0)
         for (unsigned i = 0; i < sbits + 3 ; i++)
         {
-            m_mpz_manager.mul(o.significand, mpz(2), o.significand);
-            if (m_mpq_manager.ge(v, mpq(1)))
-                m_mpz_manager.add(o.significand, mpz(1), o.significand);            
-            m_mpq_manager.sub(v, mpq(1), v); // v := v - 1.0
+            m_mpz_manager.mul2k(o.significand, 1);
+            if (m_mpq_manager.ge(v, mpq(1))) {
+                m_mpz_manager.inc(o.significand);
+                m_mpq_manager.dec(v);            // v := v - 1.0
+            }
             m_mpq_manager.mul(mpq(2), v, v); // v := 2.0 * v
-        }        
-
-        // Sticky
-        // m_mpz_manager.mul(o.significand, mpz(2), o.significand);
-        /*if (!m_mpq_manager.is_zero(v))
-            m_mpz_manager.add(o.significand, mpz(1), o.significand);*/
+        }
         
-        // bias?
-        // o.exponent += m_mpz_manager.get_int64(m_powers2.m1(ebits - 1, false));
-
-        // mpq pow;
-        // m_mpq_manager.power(mpq(2), sbits + 3, pow);
-        // m_mpq_manager.div(o.significand, pow, o.significand);
-        // SASSERT(m_mpz_manager.ge(o.significand, mpq(1.0)));
-        // SASSERT(m_mpz_manager.lt(o.significand, mpq(2.0)));
-        
-        TRACE("mpf_dbg", tout << "sig=" << m_mpz_manager.to_string(o.significand) << " exp=" << o.exponent << 
-                                 " sticky=" << (!m_mpq_manager.is_zero(v)) << std::endl;);
+        TRACE("mpf_dbg", tout << "rnd sig=" << m_mpz_manager.to_string(o.significand) << 
+                                 " exp=" << o.exponent << std::endl;);
         
         round(rm, o);
     }
