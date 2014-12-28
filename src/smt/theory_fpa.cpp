@@ -41,8 +41,23 @@ namespace smt {
 
         virtual ~fpa_factory() {}
 
-        virtual expr * get_some_value(sort * s) { NOT_IMPLEMENTED_YET(); }
-        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) { NOT_IMPLEMENTED_YET(); }
+        virtual expr * get_some_value(sort * s) {
+            mpf_manager & mpfm = m_util.fm();
+            scoped_mpf q(mpfm);            
+            mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 0);
+            return m_util.mk_value(q);
+        }
+
+        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) { 
+            mpf_manager & mpfm = m_util.fm();
+            scoped_mpf q(mpfm);
+            mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 0);
+            v1 = m_util.mk_value(q);
+            mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 1);
+            v2 = m_util.mk_value(q);
+            return true;
+        }
+
         virtual expr * get_fresh_value(sort * s) { NOT_IMPLEMENTED_YET(); }
         virtual void register_value(expr * n) { /* Ignore */ }
 
