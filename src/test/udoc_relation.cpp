@@ -159,6 +159,7 @@ public:
         test_filter_neg2();
 
         test_join_project();
+        test_join_project2();
 
         test_filter_neg4(false);
         test_filter_neg4(true);
@@ -468,6 +469,54 @@ public:
             t1->deallocate();
             t2->deallocate();
         }
+    }
+
+    void test_join_project2()
+    {
+        relation_signature sig3;
+        sig3.push_back(bv.mk_sort(1));
+        sig3.push_back(bv.mk_sort(1));
+        sig3.push_back(bv.mk_sort(1));
+
+        /// xxx \ x11
+        udoc_relation *t1 = mk_full(sig3);
+        {
+            udoc_relation *neg = mk_full(sig3);
+            doc& n = neg->get_udoc()[0];
+            neg->get_dm().set(n, 1, BIT_1);
+            neg->get_dm().set(n, 2, BIT_1);
+
+            unsigned_vector allcols;
+            allcols.push_back(0);
+            allcols.push_back(1);
+            allcols.push_back(2);
+            apply_filter_neg(*t1, *neg, allcols, allcols);
+            neg->deallocate();
+        }
+
+        // 11x
+        udoc_relation *t2 = mk_full(sig3);
+        {
+            doc& n = t2->get_udoc()[0];
+            t2->get_dm().set(n, 0, BIT_1);
+            t2->get_dm().set(n, 1, BIT_1);
+        }
+
+        unsigned_vector jc1, jc2, pc;
+        jc1.push_back(1);
+        jc1.push_back(2);
+        jc2.push_back(0);
+        jc2.push_back(1);
+        pc.push_back(1);
+        pc.push_back(2);
+
+        scoped_ptr<datalog::relation_join_fn> join_project_fn;
+        join_project_fn = p.mk_join_project_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr(), pc.size(), pc.c_ptr());
+        relation_base *t = (*join_project_fn)(*t1, *t2);
+        cr.verify_join_project(*t1, *t2, *t, jc1, jc2, pc);
+        t->deallocate();
+        t1->deallocate();
+        t2->deallocate();
     }
 
     void test_rename() {
