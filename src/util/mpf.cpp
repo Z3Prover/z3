@@ -1174,7 +1174,7 @@ std::string mpf_manager::to_string(mpf const & x) {
     if (is_nan(x)) 
         res = "NaN";
     else {
-        res = sgn(x) ? "-" : "+";
+        res = sgn(x) ? "-" : "";
 
         if (is_inf(x))
             res += "INF";
