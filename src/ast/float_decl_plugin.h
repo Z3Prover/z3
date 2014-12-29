@@ -264,7 +264,7 @@ public:
     bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_pzero(v); }
     bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_nzero(v); }
 
-    bool is_to_float(expr * n) { return is_app_of(n, m_fid, OP_FLOAT_TO_FP); }
+    bool is_to_fp(expr * n) { return is_app_of(n, m_fid, OP_FLOAT_TO_FP); }
     
     app * mk_add(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_ADD, arg1, arg2, arg3); }
     app * mk_mul(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_MUL, arg1, arg2, arg3); }
