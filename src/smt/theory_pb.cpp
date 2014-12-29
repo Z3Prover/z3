@@ -321,7 +321,7 @@ namespace smt {
                     m_simplex.get_upper(v, last_bound);
                     if (m_mpq_inf_mgr.gt(bound, last_bound)) {
                         literal lit = m_explain_upper.get(v, null_literal);
-                        get_context().mk_clause(~lit, ~explain, 0);
+                        get_context().mk_clause(~lit, ~explain, justify(~lit, ~explain));
                         return false;
                     }
                 }
@@ -341,7 +341,7 @@ namespace smt {
                     m_simplex.get_lower(v, last_bound);
                     if (m_mpq_inf_mgr.gt(last_bound, bound)) {
                         literal lit = m_explain_lower.get(v, null_literal);
-                        get_context().mk_clause(~lit, ~explain, 0);
+                        get_context().mk_clause(~lit, ~explain, justify(~lit, ~explain));
                         return false;
                     }
                 }
@@ -358,6 +358,7 @@ namespace smt {
     };
 
     bool theory_pb::check_feasible() {
+        context& ctx = get_context();
         lbool is_sat = m_simplex.make_feasible();
         if (l_false != is_sat) {
             return true;
@@ -400,7 +401,10 @@ namespace smt {
 
         m_stats.m_num_conflicts++;
         justification* js = 0;
-        get_context().mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+        if (proofs_enabled()) {                                         
+            js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
+        }
+        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
 
         return false;
     }
@@ -1143,12 +1147,14 @@ namespace smt {
     struct theory_pb::psort_expr {
         context&     ctx;
         ast_manager& m;
+        theory_pb&   th;
         typedef smt::literal literal;
         typedef smt::literal_vector literal_vector;
       
-        psort_expr(context& c):
+        psort_expr(context& c, theory_pb& th):
             ctx(c), 
-            m(c.get_manager()) {}
+            m(c.get_manager()),
+            th(th) {}
 
         literal fresh() {
             app_ref y(m);
@@ -1180,7 +1186,7 @@ namespace smt {
 
         void mk_clause(unsigned n, literal const* ls) {
             literal_vector tmp(n, ls);
-            ctx.mk_clause(n, tmp.c_ptr(), 0, CLS_AUX, 0);
+            ctx.mk_clause(n, tmp.c_ptr(), th.justify(tmp), CLS_AUX, 0);
         }
 
         literal mk_false() { return false_literal; }
@@ -1192,7 +1198,9 @@ namespace smt {
 
     // for testing
     literal theory_pb::assert_ge(context& ctx, unsigned k, unsigned n, literal const* xs) {
-        psort_expr ps(ctx);
+        theory_pb_params p;
+        theory_pb th(ctx.get_manager(), p);
+        psort_expr ps(ctx, th);
         psort_nw<psort_expr> sort(ps);
         return sort.ge(false, k, n, xs);
     }
@@ -1249,21 +1257,21 @@ namespace smt {
         }
         if (ctx.get_assignment(thl) == l_true  && 
             ctx.get_assign_level(thl) == ctx.get_base_level()) {
-            psort_expr ps(ctx);
+            psort_expr ps(ctx, *this);
             psort_nw<psort_expr> sortnw(ps);
             sortnw.m_stats.reset();
             at_least_k = sortnw.ge(false, k, in.size(), in.c_ptr());
-            ctx.mk_clause(~thl, at_least_k, 0);
+            ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
             m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
             m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
         }
         else {
-            psort_expr ps(ctx);
+            psort_expr ps(ctx, *this);
             psort_nw<psort_expr> sortnw(ps);
             sortnw.m_stats.reset();
             literal at_least_k = sortnw.ge(true, k, in.size(), in.c_ptr());
-            ctx.mk_clause(~thl, at_least_k, 0);
-            ctx.mk_clause(~at_least_k, thl, 0);
+            ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
+            ctx.mk_clause(~at_least_k, thl, justify(thl, ~at_least_k));
             m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
             m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
         }
@@ -1432,7 +1440,9 @@ namespace smt {
         if (m_conflict_frequency == 0 || (m_conflict_frequency -1 == (c.m_num_propagations % m_conflict_frequency))) {
             resolve_conflict(c);
         }
-
+        if (proofs_enabled()) {                                         
+            js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
+        }
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
     }
 
@@ -1739,7 +1749,7 @@ namespace smt {
             for (unsigned i = 0; i < m_ineq_literals.size(); ++i) {
                 m_ineq_literals[i].neg();
             }
-            ctx.mk_clause(m_ineq_literals.size(), m_ineq_literals.c_ptr(), 0, CLS_AUX_LEMMA, 0);
+            ctx.mk_clause(m_ineq_literals.size(), m_ineq_literals.c_ptr(), justify(m_ineq_literals), CLS_AUX_LEMMA, 0);
             break;
         default: {
             app_ref tmp = m_lemma.to_expr(false, ctx, get_manager());
@@ -1757,6 +1767,22 @@ namespace smt {
         return typeid(smt::justification_proof_wrapper) == typeid(j);
     }
 
+    justification* theory_pb::justify(literal l1, literal l2) {
+        literal lits[2] = { l1, l2 };
+        justification* js = 0;
+        if (proofs_enabled()) {                                         
+            js = alloc(theory_axiom_justification, get_id(), get_context().get_region(), 2, lits);
+        }
+        return js;
+    }
+
+    justification* theory_pb::justify(literal_vector const& lits) {
+        justification* js = 0;
+        if (proofs_enabled()) {                                         
+            js = alloc(theory_lemma_justification, get_id(), get_context(), lits.size(), lits.c_ptr());
+        }
+        return js;        
+    }
 
     void theory_pb::hoist_maximal_values() {
         for (unsigned i = 0; i < m_lemma.size(); ++i) {

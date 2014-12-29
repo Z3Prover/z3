@@ -289,6 +289,11 @@ namespace smt {
         void validate_final_check(ineq& c);
         void validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
         void validate_watch(ineq const& c) const;
+
+        bool proofs_enabled() const { return get_manager().proofs_enabled(); }
+        justification* justify(literal l1, literal l2);
+        justification* justify(literal_vector const& lits);
+
     public:
         theory_pb(ast_manager& m, theory_pb_params& p);
         

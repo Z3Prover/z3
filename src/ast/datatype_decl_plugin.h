@@ -32,6 +32,7 @@ enum datatype_op_kind {
     OP_DT_CONSTRUCTOR,
     OP_DT_RECOGNISER,
     OP_DT_ACCESSOR,
+    OP_DT_UPDATE_FIELD,
     LAST_DT_OP
 };
 
@@ -148,6 +149,8 @@ public:
     virtual bool is_value(app* e) const;
 
     virtual bool is_unique_value(app * e) const { return is_value(e); }
+
+    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
 
 private:
     bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;

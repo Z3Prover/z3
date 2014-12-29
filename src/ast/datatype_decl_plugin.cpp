@@ -521,6 +521,20 @@ func_decl * datatype_decl_plugin::mk_func_decl(decl_kind k, unsigned num_paramet
             return m_manager->mk_func_decl(a_name, arity, domain, a_type, info);
         }
         break;
+    case OP_DT_UPDATE_FIELD:
+        if (num_parameters != 2 || arity != 2 || domain[0] != datatype) { 
+            m_manager->raise_exception("invalid parameters for datatype field update");
+            return 0;
+        }
+        else {
+            symbol con_name = parameters[0].get_symbol();
+            symbol acc_name = parameters[1].get_symbol();
+            func_decl_info info(m_family_id, k, num_parameters, parameters);
+            info.m_private_parameters = true;
+            SASSERT(info.private_parameters());
+            return m_manager->mk_func_decl(symbol("update_field"), arity, domain, datatype, info);
+        }
+        
     default:
         m_manager->raise_exception("invalid datatype operator kind");
         return 0;
@@ -671,6 +685,16 @@ bool datatype_decl_plugin::is_value(app * e) const {
     }
     return true;
 }
+
+void datatype_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+#if 0
+    // disabled
+    if (logic == symbol::null) {
+        op_names.push_back(builtin_name("update_field", OP_DT_UPDATE_FIELD));
+    }
+#endif
+}
+
 
 datatype_util::datatype_util(ast_manager & m):
     m_manager(m),
@@ -919,9 +943,9 @@ void datatype_util::display_datatype(sort *s0, std::ostream& strm) {
     todo.push_back(s0);
     mark.mark(s0, true);
     while (!todo.empty()) {
-		sort* s = todo.back();
+        sort* s = todo.back();
         todo.pop_back();
-		strm << s->get_name() << " =\n";
+        strm << s->get_name() << " =\n";
 
         ptr_vector<func_decl> const * cnstrs = get_datatype_constructors(s);
         for (unsigned i = 0; i < cnstrs->size(); ++i) {
@@ -931,14 +955,14 @@ void datatype_util::display_datatype(sort *s0, std::ostream& strm) {
             ptr_vector<func_decl> const * accs = get_constructor_accessors(cns);
             for (unsigned j = 0; j < accs->size(); ++j) {
                 func_decl* acc = (*accs)[j];
-				sort* s1 = acc->get_range();
+                sort* s1 = acc->get_range();
                 strm << "(" << acc->get_name() << ": " << s1->get_name() << ") "; 
                 if (is_datatype(s1) && are_siblings(s1, s0) && !mark.is_marked(s1)) {
                         mark.mark(s1, true);
                         todo.push_back(s1);
                 }          
             }
-			strm << "\n";
+            strm << "\n";
         }
     }
 
