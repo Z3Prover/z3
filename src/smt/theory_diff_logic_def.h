@@ -1237,7 +1237,7 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
             }
         }
         blocker = mk_gt(v, r);
-        return inf_eps(rational(0), r);
+        return inf_eps(rational(0), r + m_objective_consts[v]);
     }
     default:
         TRACE("opt", tout << "unbounded\n"; );        
@@ -1295,7 +1295,7 @@ expr_ref theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational cons
         return f;
     }
 
-    inf_rational new_val = val - inf_rational(m_objective_consts[v]);
+    inf_rational new_val = val; // - inf_rational(m_objective_consts[v]);
     e = m_util.mk_numeral(new_val.get_rational(), m.get_sort(f));
     
     if (new_val.get_infinitesimal().is_neg()) {
