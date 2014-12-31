@@ -512,8 +512,8 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "UFNIA" ||
         s == "LIA" ||        
         s == "LRA" || 
-        s == "QF_FPA" ||
-        s == "QF_FPABV" ||
+        s == "QF_FP" ||
+        s == "QF_FPBV" ||
         s == "HORN";
 }
 
@@ -532,7 +532,7 @@ bool cmd_context::logic_has_bv_core(symbol const & s) const {
         s == "QF_ABV" ||
         s == "QF_AUFBV" ||
         s == "QF_BVRE" ||
-        s == "QF_FPABV" ||
+        s == "QF_FPBV" ||
         s == "HORN";
 }
 
@@ -557,7 +557,7 @@ bool cmd_context::logic_has_seq() const {
 }
 
 bool cmd_context::logic_has_floats() const {
-    return !has_logic() || m_logic == "QF_FPA" || m_logic == "QF_FPABV";
+    return !has_logic() || m_logic == "QF_FP" || m_logic == "QF_FPBV";
 }
 
 bool cmd_context::logic_has_array_core(symbol const & s) const {
@@ -668,7 +668,7 @@ bool cmd_context::supported_logic(symbol const & s) const {
         logic_has_arith_core(s) || logic_has_bv_core(s) || 
         logic_has_array_core(s) || logic_has_seq_core(s) ||
         logic_has_horn(s) ||
-        s == "QF_FPA" || s == "QF_FPABV";
+        s == "QF_FP" || s == "QF_FPBV";
 }
 
 bool cmd_context::set_logic(symbol const & s) {

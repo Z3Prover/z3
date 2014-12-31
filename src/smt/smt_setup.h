@@ -75,8 +75,8 @@ namespace smt {
         void setup_QF_AX(static_features const & st);
         void setup_QF_AUFLIA();
         void setup_QF_AUFLIA(static_features const & st);
-        void setup_QF_FPA();
-        void setup_QF_FPABV();
+        void setup_QF_FP();
+        void setup_QF_FPBV();
         void setup_LRA();
         void setup_AUFLIA(bool simple_array = true);
         void setup_AUFLIA(static_features const & st);

@@ -680,11 +680,11 @@ namespace smt {
         setup_mi_arith();
     }
 
-    void setup::setup_QF_FPA() {        
+    void setup::setup_QF_FP() {        
         m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
     }
 
-    void setup::setup_QF_FPABV() {
+    void setup::setup_QF_FPBV() {
         setup_QF_BV();
         m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
     }
