@@ -587,9 +587,14 @@ br_status float_rewriter::mk_to_real(expr * arg1, expr_ref & result) {
     scoped_mpf fv(m_util.fm());
     
     if (m_util.is_value(arg1, fv)) {
-        scoped_mpq r(m_fm.mpq_manager());
-        m_fm.to_rational(fv, r);
-        result = m_util.au().mk_numeral(r.get(), false);
+        if (m_fm.is_nan(fv) || m_fm.is_inf(fv)) {
+            result = m_util.mk_internal_to_real_unspecified();
+        }
+        else {
+            scoped_mpq r(m_fm.mpq_manager());
+            m_fm.to_rational(fv, r);
+            result = m_util.au().mk_numeral(r.get(), false);
+        }
         return BR_DONE;
     }
 
