@@ -2422,29 +2422,6 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
     split_triple(args[0], sgn, s, e);
     result = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s);
 }
-void fpa2bv_converter::mk_internal_bvwrap(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE("fpa2bv_internal", tout << "wrap ";
-                             for (unsigned i = 0; i < num; i++)
-                                 tout << " " << mk_ismt2_pp(args[i], m);
-                             tout << std::endl;);
-    SASSERT(num == 1);    
-    result = m.mk_app(f, num, args);
-}
-
-void fpa2bv_converter::mk_internal_bvunwrap(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-    TRACE("fpa2bv_internal", tout << "unwrap ";
-    for (unsigned i = 0; i < num; i++)
-        tout << " " << mk_ismt2_pp(args[i], m);
-    tout << std::endl;);
-    SASSERT(num == 1);
-    app * a0 = to_app(args[0]);
-    SASSERT(a0->get_kind() == AST_APP);
-    SASSERT(is_float_family(a0->get_decl()));
-    decl_kind k = a0->get_decl_kind();
-    SASSERT(k == OP_FLOAT_INTERNAL_BVWRAP);
-    SASSERT(a0->get_num_args() == 1);
-    result = a0->get_arg(0);
-}
 
 void fpa2bv_converter::mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 3);
@@ -2631,7 +2608,7 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     expr_ref sgn(m), sig(m), exp(m), lz(m);
     unpack(x, sgn, sig, exp, lz, true);
     // sig is of the form [1].[sigbits]
-
+    
     SASSERT(m_bv_util.get_bv_size(sgn) == 1);
     SASSERT(m_bv_util.get_bv_size(sig) == sbits);
     SASSERT(m_bv_util.get_bv_size(exp) == ebits);
@@ -2646,8 +2623,8 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     for (unsigned i = sbits-2; i != (unsigned)-1; i--)
     {
         bit = m_bv_util.mk_extract(i, i, sig);
-        rsig = m_arith_util.mk_mul(rsig, two);
-        rsig = m_arith_util.mk_add(rsig, m.mk_ite(m.mk_eq(bit, bv1), one, zero));
+        rsig = m_arith_util.mk_add(m_arith_util.mk_mul(rsig, two),
+                                   m.mk_ite(m.mk_eq(bit, bv1), one, zero));
     }
 
     const mpz & p2 = fu().fm().m_powers2(sbits-1);
@@ -2661,19 +2638,18 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     exp_is_neg = m.mk_eq(m_bv_util.mk_extract(ebits - 1, ebits - 1, exp), bv1);
     dbg_decouple("fpa2bv_to_real_exp_is_neg", exp_is_neg);
     exp_p = m_bv_util.mk_sign_extend(1, exp);
-    exp_n = m_bv_util.mk_bv_not(m_bv_util.mk_sign_extend(1, exp));
+    exp_n = m_bv_util.mk_bv_neg(exp_p);
     exp_abs = m.mk_ite(exp_is_neg, exp_n, exp_p);
     dbg_decouple("fpa2bv_to_real_exp_abs", exp);
     SASSERT(m_bv_util.get_bv_size(exp_abs) == ebits + 1);
 
     expr_ref exp2(m), prev_bit(m);
     exp2 = zero;
-    prev_bit = bv0;
     for (unsigned i = ebits; i != (unsigned)-1; i--)
     {
         bit = m_bv_util.mk_extract(i, i, exp_abs);
-        exp2 = m_arith_util.mk_mul(exp2, two);
-        exp2 = m_arith_util.mk_add(exp2, m.mk_ite(m.mk_eq(bit, prev_bit), zero, one));
+        exp2 = m_arith_util.mk_add(m_arith_util.mk_mul(exp2, two),
+                                   m.mk_ite(m.mk_eq(bit, bv1), one, zero));
         prev_bit = bit;
     }
     

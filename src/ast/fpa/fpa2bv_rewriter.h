@@ -151,8 +151,11 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FLOAT_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
             case OP_FLOAT_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
             case OP_FLOAT_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_INTERNAL_BVWRAP: m_conv.mk_internal_bvwrap(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_INTERNAL_BVUNWRAP: m_conv.mk_internal_bvunwrap(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_INTERNAL_BVWRAP: 
+            case OP_FLOAT_INTERNAL_BVUNWRAP:
+            case OP_FLOAT_INTERNAL_TO_REAL_UNSPECIFIED:
+            case OP_FLOAT_INTERNAL_TO_UBV_UNSPECIFIED: 
+            case OP_FLOAT_INTERNAL_TO_SBV_UNSPECIFIED: return BR_FAILED;
             default:
                 TRACE("fpa2bv", tout << "unsupported operator: " << f->get_name() << "\n";
                       for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);

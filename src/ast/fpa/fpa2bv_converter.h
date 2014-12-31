@@ -147,13 +147,6 @@ public:
     void dbg_decouple(const char * prefix, expr_ref & e);
     expr_ref_vector m_extra_assertions;
 
-    void mk_internal_bvwrap(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_internal_bvunwrap(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    
-    void mk_internal_to_ubv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_internal_to_sbv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_internal_to_real_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-
 protected:
     void mk_is_nan(expr * e, expr_ref & result);
     void mk_is_inf(expr * e, expr_ref & result);
