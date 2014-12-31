@@ -26,15 +26,15 @@ class tactic;
 
 tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p = params_ref());
 /*
-  ADD_TACTIC("qffp", "(try to) solve goal using the tactic for QF_FPA.", "mk_qffp_tactic(m, p)")
-  ADD_TACTIC("qffpbv", "(try to) solve goal using the tactic for QF_FPABV (floats+bit-vectors).", "mk_qffp_tactic(m, p)")
+  ADD_TACTIC("qffp", "(try to) solve goal using the tactic for QF_FP.", "mk_qffp_tactic(m, p)")
+  ADD_TACTIC("qffpbv", "(try to) solve goal using the tactic for QF_FPBV (floats+bit-vectors).", "mk_qffp_tactic(m, p)")
 */
 
 probe * mk_is_qffp_probe();
 probe * mk_is_qffpbv_probe();
 /*
-  ADD_PROBE("is-qffp", "true if the goal is in QF_FPA (FloatingPoints).", "mk_is_qffp_probe()")
-  ADD_PROBE("is-qffpbv", "true if the goal is in QF_FPABV (FloatingPoints+Bitvectors).", "mk_is_qffp_probe()")
+  ADD_PROBE("is-qffp", "true if the goal is in QF_FP (floats).", "mk_is_qffp_probe()")
+  ADD_PROBE("is-qffpbv", "true if the goal is in QF_FPBV (floats+bit-vectors).", "mk_is_qffp_probe()")
 */
 
 #endif

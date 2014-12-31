@@ -73,7 +73,7 @@ public:
     }
 };
 
-probe * mk_is_qffpa_probe() {
+probe * mk_is_qffp_probe() {
     return alloc(is_qffp_probe);
 }
     
