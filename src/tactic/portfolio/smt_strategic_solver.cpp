@@ -78,10 +78,8 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_ufbv_tactic(m, p);
     else if (logic=="BV")
         return mk_ufbv_tactic(m, p);
-    else if (logic=="QF_FPA")
-        return mk_qffpa_tactic(m, p);
-    else if (logic=="QF_FPABV")
-        return mk_qffpa_tactic(m, p);
+    else if (logic=="QF_FP" || logic=="QF_FPBV")
+        return mk_qffp_tactic(m, p);
     else if (logic=="HORN")
         return mk_horn_tactic(m, p);
     else 

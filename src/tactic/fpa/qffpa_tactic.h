@@ -24,17 +24,17 @@ Notes:
 class ast_manager;
 class tactic;
 
-tactic * mk_qffpa_tactic(ast_manager & m, params_ref const & p = params_ref());
+tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p = params_ref());
 /*
-  ADD_TACTIC("qffpa", "(try to) solve goal using the tactic for QF_FPA.", "mk_qffpa_tactic(m, p)")
-  ADD_TACTIC("qffpabv", "(try to) solve goal using the tactic for QF_FPABV (floats+bit-vectors).", "mk_qffpa_tactic(m, p)")
+  ADD_TACTIC("qffp", "(try to) solve goal using the tactic for QF_FPA.", "mk_qffp_tactic(m, p)")
+  ADD_TACTIC("qffpbv", "(try to) solve goal using the tactic for QF_FPABV (floats+bit-vectors).", "mk_qffp_tactic(m, p)")
 */
 
-probe * mk_is_qffpa_probe();
-probe * mk_is_qffpabv_probe();
+probe * mk_is_qffp_probe();
+probe * mk_is_qffpbv_probe();
 /*
-  ADD_PROBE("is-qffpa", "true if the goal is in QF_FPA (FloatingPoints).", "mk_is_qffpa_probe()")
-  ADD_PROBE("is-qffpabv", "true if the goal is in QF_FPABV (FloatingPoints+Bitvectors).", "mk_is_qffpabv_probe()")
+  ADD_PROBE("is-qffp", "true if the goal is in QF_FPA (FloatingPoints).", "mk_is_qffp_probe()")
+  ADD_PROBE("is-qffpbv", "true if the goal is in QF_FPABV (FloatingPoints+Bitvectors).", "mk_is_qffp_probe()")
 */
 
 #endif
