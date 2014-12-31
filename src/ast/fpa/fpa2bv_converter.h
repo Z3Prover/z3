@@ -51,6 +51,7 @@ protected:
     mpf_manager              & m_mpf_manager;
     unsynch_mpz_manager      & m_mpz_manager;    
     float_decl_plugin        * m_plugin;
+    bool                       m_hi_fp_unspecified;
 
     obj_map<func_decl, expr*>  m_const2bv;
     obj_map<func_decl, expr*>  m_rm_const2bv;
@@ -136,6 +137,11 @@ public:
     void mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+
+    void set_unspecified_fp_hi(bool v) { m_hi_fp_unspecified = v; }
+    expr_ref mk_to_ubv_unspecified(unsigned width);
+    expr_ref mk_to_sbv_unspecified(unsigned width);
+    expr_ref mk_to_real_unspecified();
 
     obj_map<func_decl, expr*> const & const2bv() const { return m_const2bv; }
     obj_map<func_decl, expr*> const & rm_const2bv() const { return m_rm_const2bv; }

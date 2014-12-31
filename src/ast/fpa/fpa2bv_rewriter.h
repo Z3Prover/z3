@@ -24,6 +24,7 @@ Notes:
 #include"rewriter_def.h"
 #include"bv_decl_plugin.h"
 #include"fpa2bv_converter.h"
+#include"fpa2bv_rewriter_params.hpp"
 
 struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     ast_manager              & m_manager;    
@@ -36,7 +37,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 
     ast_manager & m() const { return m_manager; }
 
-    fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, params_ref const & p):
+    fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, params_ref const & p) :
         m_manager(m),
         m_out(m),
         m_conv(c),
@@ -58,9 +59,16 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     void reset() {
     }
 
+    void updt_local_params(params_ref const & _p) {
+        fpa2bv_rewriter_params p(_p);
+        bool v = p.hi_fp_unspecified();
+        m_conv.set_unspecified_fp_hi(v);
+    }
+
     void updt_params(params_ref const & p) {
-        m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-        m_max_steps      = p.get_uint("max_steps", UINT_MAX);        
+        m_max_memory        = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+        m_max_steps         = p.get_uint("max_steps", UINT_MAX);
+        updt_local_params(p);
     }
 
     bool max_steps_exceeded(unsigned num_steps) const { 

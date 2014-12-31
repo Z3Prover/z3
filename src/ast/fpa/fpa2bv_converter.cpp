@@ -32,6 +32,7 @@ fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
     m_arith_util(m),
     m_mpf_manager(m_util.fm()),
     m_mpz_manager(m_mpf_manager.mpz_manager()),    
+    m_hi_fp_unspecified(true),
     m_extra_assertions(m) {
     m_plugin = static_cast<float_decl_plugin*>(m.get_plugin(m.mk_family_id("float")));
 }
@@ -2465,14 +2466,10 @@ void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * arg
     mk_is_neg(x, x_is_neg);
     mk_is_nzero(x, x_is_nzero);
 
-    expr_ref undef(m);
-    undef = m_util.mk_internal_to_ubv_unspecified(bv_sz);
-    dbg_decouple("fpa2bv_to_ubv_undef", undef);
-
     // NaN, Inf, or negative (except -0) -> undefined
     expr_ref c1(m), v1(m);
     c1 = m.mk_or(x_is_nan, x_is_inf, m.mk_and(x_is_neg, m.mk_not(x_is_nzero)));
-    v1 = undef;
+    v1 = mk_to_ubv_unspecified(bv_sz);
     dbg_decouple("fpa2bv_to_ubv_c1", c1);
 
     // +-Zero  -> 0
@@ -2556,8 +2553,8 @@ void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * arg
     rounded = m_bv_util.mk_extract(bv_sz - 1, 0, pre_rounded);
     rnd_has_overflown = m.mk_eq(rnd_overflow, bv1);
 
-    result = m.mk_ite(rnd_has_overflown, undef, rounded);
-    result = m.mk_ite(c_in_limits, result, undef);
+    result = m.mk_ite(rnd_has_overflown, mk_to_ubv_unspecified(bv_sz), rounded);
+    result = m.mk_ite(c_in_limits, result, mk_to_ubv_unspecified(bv_sz));
     result = m.mk_ite(c2, v2, result);
     result = m.mk_ite(c1, v1, result);
 
@@ -2664,15 +2661,33 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     
     TRACE("fpa2bv_to_real", tout << "rsig = " << mk_ismt2_pp(rsig, m) << std::endl; 
                             tout << "exp2 = " << mk_ismt2_pp(exp2, m) << std::endl;);
-
-    expr_ref undef(m);
-    undef = m_util.mk_internal_to_real_unspecified();
     
     result = m.mk_ite(x_is_zero, zero, res);
-    result = m.mk_ite(x_is_inf, undef, result);
-    result = m.mk_ite(x_is_nan, undef, result);    
+    result = m.mk_ite(x_is_inf, mk_to_real_unspecified(), result);
+    result = m.mk_ite(x_is_nan, mk_to_real_unspecified(), result);
     
     SASSERT(is_well_sorted(m, result));
+}
+
+expr_ref fpa2bv_converter::mk_to_ubv_unspecified(unsigned width) {
+    if (m_hi_fp_unspecified)
+        return expr_ref(m_bv_util.mk_numeral(0, width), m);
+    else
+        return expr_ref(m_util.mk_internal_to_ubv_unspecified(width), m);
+}
+
+expr_ref fpa2bv_converter::mk_to_sbv_unspecified(unsigned width) {
+    if (m_hi_fp_unspecified)
+        return expr_ref(m_bv_util.mk_numeral(0, width), m);
+    else
+        return expr_ref(m_util.mk_internal_to_sbv_unspecified(width), m);
+}
+
+expr_ref fpa2bv_converter::mk_to_real_unspecified() {
+    if (m_hi_fp_unspecified)
+        return expr_ref(m_arith_util.mk_numeral(rational(0), false), m);
+    else
+        return expr_ref(m_util.mk_internal_to_real_unspecified(), m);
 }
 
 void fpa2bv_converter::split_triple(expr * e, expr * & sgn, expr * & sig, expr * & exp) const {
