@@ -24,55 +24,14 @@ Revision History:
 
 namespace smt {
 
-    class fpa_factory : public value_factory {
-        float_util          m_util;
-
-        virtual app * mk_value_core(mpf const & val, sort * s) {
-            SASSERT(m_util.get_ebits(s) == val.get_ebits());
-            SASSERT(m_util.get_sbits(s) == val.get_sbits());
-            return m_util.mk_value(val);
-        }
-
-    public:
-        fpa_factory(ast_manager & m, family_id fid) :
-            value_factory(m, fid),
-            m_util(m) {
-        }
-
-        virtual ~fpa_factory() {}
-
-        virtual expr * get_some_value(sort * s) {
-            mpf_manager & mpfm = m_util.fm();
-            scoped_mpf q(mpfm);            
-            mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 0);
-            return m_util.mk_value(q);
-        }
-
-        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) { 
-            mpf_manager & mpfm = m_util.fm();
-            scoped_mpf q(mpfm);
-            mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 0);
-            v1 = m_util.mk_value(q);
-            mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 1);
-            v2 = m_util.mk_value(q);
-            return true;
-        }
-
-        virtual expr * get_fresh_value(sort * s) { NOT_IMPLEMENTED_YET(); }
-        virtual void register_value(expr * n) { /* Ignore */ }
-
-        app * mk_value(mpf const & x) {
-            return m_util.mk_value(x);
-        }
-    };
-
-    class fpa_conv_trail : public trail<theory_fpa> {
+    class fpa2bv_conversion_trail_elem : public trail<theory_fpa> {
         ast_manager & m;
         obj_map<expr, expr*> & m_conversions;
         expr * m_e;
     public:
-        fpa_conv_trail(ast_manager & m, obj_map<expr, expr*> & c, expr * e) : m(m), m_conversions(c), m_e(e) {}
-        virtual ~fpa_conv_trail() {}
+        fpa2bv_conversion_trail_elem(ast_manager & m, obj_map<expr, expr*> & c, expr * e) : 
+            m(m), m_conversions(c), m_e(e) {}
+        virtual ~fpa2bv_conversion_trail_elem() {}
         virtual void undo(theory_fpa & th) {
             expr * v = m_conversions.find(m_e);
             m_conversions.remove(m_e);
@@ -150,50 +109,52 @@ namespace smt {
     }
 
     app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
-        SASSERT(values.size() == 3);
-        ast_manager & m = m_th.get_manager();
-
-        TRACE("t_fpa", tout << "fpa_value_proc::mk_value for: [" << 
-              mk_ismt2_pp(values[0], m) << " " <<
-              mk_ismt2_pp(values[1], m) << " " <<
-              mk_ismt2_pp(values[2], m) << "]" << std::endl;);
+        SASSERT(values.size() == 1);
+        ast_manager & m = m_th.get_manager();        
 
         mpf_manager & mpfm = m_fu.fm();
         unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
         unsynch_mpz_manager & mpzm = mpfm.mpz_manager(); 
-
-        unsigned ebits = m_bu.get_bv_size(values[2]);
-        unsigned sbits = m_bu.get_bv_size(values[1]) + 1;
+        
+        SASSERT(m_bu.get_bv_size(values[0]) == (m_ebits + m_sbits));
+        
         app * result;
         
-        scoped_mpz sgn_z(mpzm), sig_z(mpzm), exp_z(mpzm);
         scoped_mpz bias(mpzm);
-        mpzm.power(mpz(2), ebits - 1, bias);
+        mpzm.power(mpz(2), m_ebits - 1, bias);
         mpzm.dec(bias);
 
-        rational sgn_q(0), sig_q(0), exp_q(bias);
+        rational all_rat(0);
+        scoped_mpz all_bits(mpzm);        
         unsigned bv_sz;
 
-        bool r;
-        r = m_bu.is_numeral(values[0], sgn_q, bv_sz); SASSERT(r); SASSERT(bv_sz == 1);
-        r = m_bu.is_numeral(values[1], sig_q, bv_sz); SASSERT(r); SASSERT(bv_sz == sbits - 1);
-        r = m_bu.is_numeral(values[2], exp_q, bv_sz); SASSERT(r); SASSERT(bv_sz == ebits);
+        bool r = m_bu.is_numeral(values[0], all_rat, bv_sz);
+        SASSERT(r); 
+        SASSERT(bv_sz == (m_ebits+m_sbits));
+        SASSERT(all_rat.is_int());
+        mpzm.set(all_bits, all_rat.to_mpq().numerator());
 
-        TRACE("t_fpa", tout << "sgn=" << sgn_q.to_string() << " ; " <<
-                               "sig=" << sig_q.to_string() << " ; " <<
-                               "exp=" << exp_q.to_string() << std::endl;);
+        scoped_mpz sgn_z(mpzm), sig_z(mpzm), exp_z(mpzm);
+        mpzm.machine_div2k(all_bits, m_ebits + m_sbits - 1, sgn_z);        
+        mpzm.mod(all_bits, mpfm.m_powers2(m_ebits + m_sbits - 1), all_bits);
 
-        rational exp_u = exp_q - rational(bias);
-        SASSERT(exp_u.is_int64());
+        mpzm.machine_div2k(all_bits, m_sbits - 1, exp_z);
+        mpzm.mod(all_bits, mpfm.m_powers2(m_sbits - 1), all_bits);
 
-        scoped_mpf f(mpfm);
-        scoped_mpq sig_mpq(mpqm);
-        sig_mpq = sig_q.to_mpq();
-        mpfm.set(f, ebits, sbits, sgn_q.is_one(), sig_mpq.get().numerator(), exp_u.get_int64());
+        TRACE("t_fpa_detail", tout << "sgn=" << mpzm.to_string(sgn_z) << " ; " <<
+                                      "sig=" << mpzm.to_string(sig_z) << " ; " <<
+                                      "exp=" << mpzm.to_string(exp_z) << std::endl;);
+
+        scoped_mpz exp_u = exp_z - bias;
+        SASSERT(mpzm.is_int64(exp_u));
+
+        scoped_mpf f(mpfm);        
+        mpfm.set(f, m_ebits, m_sbits, mpzm.is_one(sgn_z), sig_z, mpzm.get_int64(exp_u));
         result = m_fu.mk_value(f);
 
-        TRACE("t_fpa", tout << "fpa_value_proc::mk_value result: " << 
-                               mk_ismt2_pp(result, m_th.get_manager()) << "\n";);
+        TRACE("t_fpa", tout << "fpa_value_proc::mk_value [" <<
+              mk_ismt2_pp(values[0], m) << "] --> " << 
+              mk_ismt2_pp(result, m_th.get_manager()) << "\n";);
         return result;
     }
 
@@ -267,11 +228,6 @@ namespace smt {
         proof_ref pr(m);
         m_rw(e, res);
         m_th_rw(res, res);
-
-        TRACE("t_fpa_detail", tout << "converted atom:" << std::endl;
-                              tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
-                                      mk_ismt2_pp(res, m) << std::endl;);
-
         SASSERT(is_app(res));
         SASSERT(m.is_bool(res));
         return res;
@@ -290,11 +246,13 @@ namespace smt {
             SASSERT(is_sort_of(m.get_sort(res), m_bv_util.get_family_id(), BV_SORT));
             SASSERT(m_bv_util.get_bv_size(res) == 3);
             ctx.internalize(res, false);
+            m_th_rw(res, res);
         }
         else if (m_float_util.is_float(e)) {
             SASSERT(to_app(res)->get_family_id() == get_family_id());
-            decl_kind k = to_app(res)->get_decl_kind();
-            if (k == OP_FLOAT_TO_FP) {
+            float_op_kind k = (float_op_kind)(to_app(res)->get_decl_kind());
+            switch (k) {
+            case OP_FLOAT_TO_FP: {
                 SASSERT(to_app(res)->get_num_args() == 3);
                 SASSERT(is_sort_of(m.get_sort(to_app(res)->get_arg(0)), m_bv_util.get_family_id(), BV_SORT));
                 SASSERT(is_sort_of(m.get_sort(to_app(res)->get_arg(1)), m_bv_util.get_family_id(), BV_SORT));
@@ -305,22 +263,32 @@ namespace smt {
                 m_converter.split_triple(res, sgn, sig, exp);
                 m_th_rw(sgn, s_sgn);
                 m_th_rw(sig, s_sig);
-                m_th_rw(exp, s_exp);                
-                
-                m_converter.mk_triple(s_sgn, s_sig, s_exp, res);
-            }
-            else {
-                SASSERT(is_sort_of(m.get_sort(e), get_family_id(), ROUNDING_MODE_SORT));
-                SASSERT(is_sort_of(m.get_sort(res), m_bv_util.get_family_id(), BV_SORT));
-            }
-        }
-        else {
-            /* ignore; these are the conversion functions fp.to_* */
-        }
+                m_th_rw(exp, s_exp);
 
-        TRACE("t_fpa_detail", tout << "converted term:" << std::endl;
-                              tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
-                                   mk_ismt2_pp(res, m) << std::endl;);
+                m_converter.mk_triple(s_sgn, s_sig, s_exp, res);
+                break;
+            }
+            default:
+                /* nothing */;
+            }
+        }
+        else
+            UNREACHABLE();
+
+        return res;
+    }
+
+    expr_ref theory_fpa::convert_conversion_term(expr * e) {
+        /* This is for the conversion functions fp.to_* */
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+        expr_ref res(m);
+        proof_ref pr(m);
+
+        SASSERT(m_arith_util.is_real(e) || m_bv_util.is_bv(e));
+
+        m_rw(e, res);        
+        m_th_rw(res, res);
         return res;
     }
 
@@ -342,18 +310,18 @@ namespace smt {
                 res = convert_atom(e);
             else if (m_float_util.is_float(e) || m_float_util.is_rm(e))
                 res = convert_term(e);
-            else if (m_arith_util.is_real(e))
-                res = convert_term(e);
+            else if (m_arith_util.is_real(e) || m_bv_util.is_bv(e))
+                res = convert_conversion_term(e);
             else
                 UNREACHABLE();
 
-            TRACE("t_fpa_detail", tout << "caching:" << std::endl;
+            TRACE("t_fpa_detail", tout << "converted; caching:" << std::endl;
             tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
                 mk_ismt2_pp(res, m) << std::endl;);
 
             m_conversions.insert(e, res);
             m.inc_ref(res);
-            m_trail_stack.push(fpa_conv_trail(m, m_conversions, e));
+            m_trail_stack.push(fpa2bv_conversion_trail_elem(m, m_conversions, e));
         }
 
         return res;
@@ -381,9 +349,9 @@ namespace smt {
         return res;
     }
 
-    void theory_fpa::assert_cnstr(expr * e) {        
-        TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << "\n";);
+    void theory_fpa::assert_cnstr(expr * e) {
         if (get_manager().is_true(e)) return;
+        TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << "\n";);        
         context& ctx = get_context();
         ctx.internalize(e, false);
         literal lit(ctx.get_literal(e));
@@ -395,11 +363,11 @@ namespace smt {
         context & ctx = get_context();
         theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
-        TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := " << v << "\n";);       
+        TRACE("t_fpa_detail", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := " << v << "\n";);
     }
 
     bool theory_fpa::internalize_atom(app * atom, bool gate_ctx) {
-        TRACE("t_fpa_detail", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << "\n";);
+        TRACE("t_fpa", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << "\n";);
         SASSERT(atom->get_family_id() == get_family_id());
 
         ast_manager & m = get_manager();
@@ -416,9 +384,8 @@ namespace smt {
         ctx.set_var_theory(l.var(), get_id());
 
         expr_ref bv_atom(m);
-        bv_atom = convert(atom);
-        TRACE("t_fpa_detail", tout << "converted: " << mk_ismt2_pp(bv_atom, get_manager()) << "\n";);
-        SASSERT(bv_atom.get()->get_kind() == AST_APP);
+        bv_atom = convert(atom);        
+        SASSERT(is_app(bv_atom) && m.is_bool(bv_atom));
         bv_atom = m.mk_and(bv_atom, mk_side_conditions());
         
         expr_ref atom_iff(m);
@@ -429,8 +396,7 @@ namespace smt {
     bool theory_fpa::internalize_term(app * term) {
         ast_manager & m = get_manager();
         context & ctx = get_context();
-
-        TRACE("t_fpa_detail", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << "\n";);
+        TRACE("t_fpa", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << "\n";);
         SASSERT(term->get_family_id() == get_family_id());
         SASSERT(!ctx.e_internalized(term));
 
@@ -438,51 +404,90 @@ namespace smt {
         for (unsigned i = 0; i < num_args; i++)
             ctx.internalize(term->get_arg(i), false);
         
-        enode * e = (ctx.e_internalized(term)) ? ctx.get_enode(term) : 
+        enode * e = (ctx.e_internalized(term)) ? ctx.get_enode(term) :
                                                  ctx.mk_enode(term, false, false, true);
 
         if (is_attached_to_var(e))
             return false;
 
-        attach_new_th_var(e);        
+        attach_new_th_var(e);
+
+        // The conversion operators fp.to_* appear in non-FP constraints.
+        // The corresponding constraints will not be translated and added 
+        // via convert(...) and assert_cnstr(...) in initialize_atom(...).
+        // Therefore, we translate and assert them here.
+        float_op_kind k = (float_op_kind)term->get_decl_kind();
+        switch (k) {
+        case OP_FLOAT_TO_UBV:
+        case OP_FLOAT_TO_SBV:
+        case OP_FLOAT_TO_REAL: {
+            expr_ref conv(m);
+            conv = convert(term);
+            assert_cnstr(m.mk_eq(term, conv));
+            assert_cnstr(mk_side_conditions());
+            break;
+        }
+        default: /* ignore */;
+        }
+        
         return true;
     }    
 
-    void theory_fpa::apply_sort_cnstr(enode * n, sort * s) {        
-        TRACE("t_fpa", tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_owner(), get_manager()) << "\n";);        
+    void theory_fpa::apply_sort_cnstr(enode * n, sort * s) {
+        TRACE("t_fpa", tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_owner(), get_manager()) << "\n";);
         SASSERT(n->get_owner()->get_family_id() == get_family_id() ||
                 n->get_owner()->get_family_id() == null_theory_id);
-        SASSERT(s->get_family_id() == get_family_id());
-        ast_manager & m = get_manager();
+        SASSERT(s->get_family_id() == get_family_id());        
 
         if (!is_attached_to_var(n))
             attach_new_th_var(n);
-            
+
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+
         app_ref owner(m);
         sort_ref owner_sort(m);
         owner = n->get_owner();
         owner_sort = m.get_sort(owner);
 
         if (m_float_util.is_rm(owner_sort)) {
+            // For every RM term, we need to make sure that it's
+            // associated bit-vector is within the valid range.
+            // This also ensures that wrap(owner) is internalized.
             func_decl_ref wrap(m), unwrap(m);
             get_wrap(owner_sort, wrap, unwrap);
             if (owner->get_decl() != unwrap)
             {
-                expr_ref converted(m), t(m), limit(m);
-                converted = convert(owner);
+                expr_ref wrapped(m), valid(m), limit(m);
+                wrapped = m.mk_app(wrap, owner.get());
                 limit = m_bv_util.mk_numeral(4, 3);
-                t = m_bv_util.mk_ule(converted, limit);
-                assert_cnstr(t);
+                valid = m_bv_util.mk_ule(wrapped, limit);
+                assert_cnstr(valid);
             }
         }
+        else if (m_float_util.is_float(owner_sort)) {
+            // For every FP term, we need to make sure that 
+            // its wrapped version is also internalized so that
+            // we can build a model for it later.
+            func_decl_ref wrap(m), unwrap(m);
+            get_wrap(owner_sort, wrap, unwrap);
+            if (owner->get_decl() != unwrap) {
+                expr_ref wrapped(m);
+                wrapped = m.mk_app(wrap, owner.get());
+                if (!ctx.e_internalized(wrapped))
+                    ctx.internalize(wrapped, false);
+            }
+        }
+        else
+            UNREACHABLE();
     }
 
     void theory_fpa::new_eq_eh(theory_var x, theory_var y) {        
         ast_manager & m = get_manager();
 
-        TRACE("t_fpa", tout << "new eq: " << x << " = " << y << std::endl;
-                       tout << mk_ismt2_pp(get_enode(x)->get_owner(), m) << " = " << 
-                               mk_ismt2_pp(get_enode(y)->get_owner(), m) << std::endl; );
+        TRACE("t_fpa", tout << "new eq: " << x << " = " << y << std::endl;);
+        TRACE("t_fpa_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), m) << " = " <<
+                                      mk_ismt2_pp(get_enode(y)->get_owner(), m) << std::endl;);
         
         context & ctx = get_context();
         float_util & fu = m_float_util;
@@ -492,7 +497,8 @@ namespace smt {
         app * xe = get_enode(x)->get_owner();
         app * ye = get_enode(y)->get_owner();
 
-        if (m_bv_util.is_bv(xe) && m_bv_util.is_bv(ye))
+        if ((m.is_bool(xe) && m.is_bool(ye)) || 
+            (m_bv_util.is_bv(xe) && m_bv_util.is_bv(ye)))
         {
             SASSERT(xe->get_decl()->get_family_id() == get_family_id());
             return;
@@ -503,9 +509,14 @@ namespace smt {
         yc = convert(ye);
         
         expr_ref c(m);
-
+                
         if (fu.is_float(xe) && fu.is_float(ye))
         {
+            func_decl_ref wrap(m), unwrap(m);
+            get_wrap(m.get_sort(ye), wrap, unwrap);
+            if (ye->get_decl() == unwrap)
+                return;
+
             expr *x_sgn, *x_sig, *x_exp;
             m_converter.split_triple(xc, x_sgn, x_sig, x_exp);
             expr *y_sgn, *y_sig, *y_exp;
@@ -518,8 +529,7 @@ namespace smt {
         else
             c = m.mk_eq(xc, yc);
 
-        // assert_cnstr(m.mk_iff(m.mk_eq(xe, ye), c));
-        assert_cnstr(c);
+        assert_cnstr(m.mk_iff(m.mk_eq(xe, ye), c));        
         assert_cnstr(mk_side_conditions());
 
         return;
@@ -528,9 +538,9 @@ namespace smt {
     void theory_fpa::new_diseq_eh(theory_var x, theory_var y) {
         ast_manager & m = get_manager();
 
-        TRACE("t_fpa", tout << "new diseq: " << x << " != " << y << std::endl;
-                       tout << mk_ismt2_pp(get_enode(x)->get_owner(), m) << " != " <<
-                               mk_ismt2_pp(get_enode(y)->get_owner(), m) << std::endl;);
+        TRACE("t_fpa", tout << "new diseq: " << x << " != " << y << std::endl;);
+        TRACE("t_fpa_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), m) << " != " <<
+                                      mk_ismt2_pp(get_enode(y)->get_owner(), m) << std::endl;);
 
         context & ctx = get_context();
         mpf_manager & mpfm = m_float_util.fm();
@@ -538,8 +548,8 @@ namespace smt {
         app * xe = get_enode(x)->get_owner();
         app * ye = get_enode(y)->get_owner();
 
-        if (m_bv_util.is_bv(xe) && m_bv_util.is_bv(ye))
-        {
+        if ((m.is_bool(xe) && m.is_bool(ye)) ||
+            (m_bv_util.is_bv(xe) && m_bv_util.is_bv(ye))) {
             SASSERT(xe->get_decl()->get_family_id() == get_family_id());
             return;
         }
@@ -559,13 +569,12 @@ namespace smt {
             
             c = m.mk_or(m.mk_not(m.mk_eq(x_sgn, y_sgn)),
                         m.mk_not(m.mk_eq(x_sig, y_sig)),
-                        m.mk_not(m.mk_eq(x_exp, y_exp)));            
+                        m.mk_not(m.mk_eq(x_exp, y_exp)));
         }
         else
             c = m.mk_not(m.mk_eq(xc, yc));
 
-        // assert_cnstr(m.mk_iff(m.mk_not(m.mk_eq(xe, ye)), c));
-        assert_cnstr(c);
+        assert_cnstr(m.mk_iff(m.mk_not(m.mk_eq(xe, ye)), c));        
         assert_cnstr(mk_side_conditions());
 
         return;
@@ -591,8 +600,7 @@ namespace smt {
         TRACE("t_fpa", tout << "assign_eh for: " << v << " (" << is_true << "):\n" << mk_ismt2_pp(e, m) << "\n";);
         
         expr_ref converted(m);
-        converted = convert(e);
-        converted = m.mk_and(converted, mk_side_conditions());
+        converted = m.mk_and(convert(e), mk_side_conditions());
         if (!is_true) converted = m.mk_not(converted);
         assert_cnstr(converted);
     }
@@ -615,8 +623,7 @@ namespace smt {
                 mpf_rounding_mode rm;
                 scoped_mpf val(mpfm);
                 if (m_float_util.is_rm_value(n, rm)) {
-                    c = m.mk_eq(wrapped, m_bv_util.mk_numeral(rm, 3));
-                    c = m.mk_and(c, mk_side_conditions());
+                    c = m.mk_eq(wrapped, m_bv_util.mk_numeral(rm, 3));                    
                     assert_cnstr(c);
                 }
                 else if (m_float_util.is_value(n, val)) {
@@ -626,22 +633,26 @@ namespace smt {
                     SASSERT(is_app(bv_val_e));
                     SASSERT(to_app(bv_val_e)->get_num_args() == 3);
                     app_ref bv_val_a(to_app(bv_val_e.get()), m);
-                    c = m.mk_eq(wrapped, m_bv_util.mk_concat(
-                        m_bv_util.mk_concat(bv_val_a->get_arg(0), bv_val_a->get_arg(1)),
-                        bv_val_a->get_arg(2)));
+                    c = m.mk_eq(wrapped, m_bv_util.mk_concat( m_bv_util.mk_concat(
+                                                bv_val_a->get_arg(0), 
+                                                bv_val_a->get_arg(1)),
+                                                bv_val_a->get_arg(2)));
                     c = m.mk_and(c, mk_side_conditions());
                     assert_cnstr(c);
                 }
                 else {
                     c = m.mk_eq(m.mk_app(unwrap, wrapped), n);
-                    c = m.mk_and(c, mk_side_conditions());
                     assert_cnstr(c);
                 }
             }
         }
-        else {
+        else if (n->get_family_id() == get_family_id()) {
+            SASSERT(!m_float_util.is_float(n) && !m_float_util.is_rm(n));
             // These are the conversion functions fp.to_* */
         }
+        else
+            UNREACHABLE();
+
     }
 
     void theory_fpa::reset_eh() {
@@ -659,26 +670,15 @@ namespace smt {
         theory::reset_eh();
     }
 
-    void theory_fpa::init_model(model_generator & mg) {
-        TRACE("t_fpa", tout << "initializing model" << std::endl;);
-        m_factory = alloc(fpa_factory, get_manager(), get_family_id());
-        mg.register_factory(m_factory);
-        TRACE("t_fpa", display(tout););
+    final_check_status theory_fpa::final_check_eh() {
+        TRACE("t_fpa", tout << "final_check_eh\n";);
+        return FC_DONE; 
     }
 
-    void theory_fpa::add_value_dep(fpa_value_proc * vp, expr * e) {
-        SASSERT(m_bv_util.is_bv(e));
-        ast_manager & m = get_manager();
-        context & ctx = get_context();        
-        if (ctx.e_internalized(e))
-            vp->add_dependency(ctx.get_enode(e));
-        else {
-            expr_ref n(m);
-            n = m_bv_util.mk_numeral(0, m_bv_util.get_bv_size(e));
-            if (!ctx.e_internalized(n))
-                ctx.internalize(n, false);
-            vp->add_dependency(ctx.get_enode(n));
-        }
+    void theory_fpa::init_model(model_generator & mg) {
+        TRACE("t_fpa", tout << "initializing model" << std::endl; display(tout););
+        m_factory = alloc(fpa_factory, get_manager(), get_family_id());
+        mg.register_factory(m_factory);
     }
 
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
@@ -688,26 +688,36 @@ namespace smt {
         context & ctx = get_context();
         app * owner = n->get_owner();
 
-        app_ref c_a(m);
-        c_a = to_app(convert(owner));
+        // If the owner is not internalized, it doesn't have an enode associated.        
         SASSERT(ctx.e_internalized(owner));
-
-        TRACE("t_fpa", tout << "converted = " << mk_ismt2_pp(c_a, get_manager()) << "\n";);
-
+        
+        if (m_float_util.is_rm_value(owner) ||
+            m_float_util.is_value(owner))
+            return alloc(expr_wrapper_proc, owner);
+        
         model_value_proc * res = 0;
+        func_decl_ref wrap(m), unwrap(m);
+        get_wrap(m.get_sort(owner), wrap, unwrap);
 
+        app_ref wrapped(m);
+        wrapped = m.mk_app(wrap, owner);
+        
+        CTRACE("t_fpa", !ctx.e_internalized(wrapped),
+               tout << "Model dependency not internalized: " <<
+               mk_ismt2_pp(wrapped, m) <<
+               " (owner " << (!ctx.e_internalized(owner) ? "not" : "is") << 
+               " internalized)" << std::endl;);
+        
         if (m_float_util.is_rm(owner)) {
-             fpa_rm_value_proc * vp = alloc(fpa_rm_value_proc, this);
-             add_value_dep(vp, c_a);
-             res = vp;
+            fpa_rm_value_proc * vp = alloc(fpa_rm_value_proc, this);
+            vp->add_dependency(ctx.get_enode(wrapped));
+            res = vp;
         } 
         else if (m_float_util.is_float(owner)) {
-            fpa_value_proc * vp = alloc(fpa_value_proc, this);
-            expr_ref bv_sgn(m), bv_sig(m), bv_exp(m);
-            m_converter.split_triple(c_a, bv_sgn, bv_sig, bv_exp);
-            add_value_dep(vp, bv_sgn);
-            add_value_dep(vp, bv_sig);
-            add_value_dep(vp, bv_exp);
+            unsigned ebits = m_float_util.get_ebits(m.get_sort(owner));
+            unsigned sbits = m_float_util.get_sbits(m.get_sort(owner));
+            fpa_value_proc * vp = alloc(fpa_value_proc, this, ebits, sbits);
+            vp->add_dependency(ctx.get_enode(wrapped));
             res = vp;
         }
         else

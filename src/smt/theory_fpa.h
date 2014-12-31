@@ -29,9 +29,49 @@ Revision History:
 
 namespace smt {
 
-    class fpa_factory;    
+    class fpa_factory : public value_factory {
+        float_util          m_util;
+
+        virtual app * mk_value_core(mpf const & val, sort * s) {
+            SASSERT(m_util.get_ebits(s) == val.get_ebits());
+            SASSERT(m_util.get_sbits(s) == val.get_sbits());
+            return m_util.mk_value(val);
+        }
+
+    public:
+        fpa_factory(ast_manager & m, family_id fid) :
+            value_factory(m, fid),
+            m_util(m) {}
+
+        virtual ~fpa_factory() {}
+
+        virtual expr * get_some_value(sort * s) {
+            mpf_manager & mpfm = m_util.fm();
+            scoped_mpf q(mpfm);
+            mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 0);
+            return m_util.mk_value(q);
+        }
+
+        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+            mpf_manager & mpfm = m_util.fm();
+            scoped_mpf q(mpfm);
+            mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 0);
+            v1 = m_util.mk_value(q);
+            mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 1);
+            v2 = m_util.mk_value(q);
+            return true;
+        }
+
+        virtual expr * get_fresh_value(sort * s) { NOT_IMPLEMENTED_YET(); }
+        virtual void register_value(expr * n) { /* Ignore */ }
+
+        app * mk_value(mpf const & x) {
+            return m_util.mk_value(x);
+        }
+    };
 
     class theory_fpa : public theory {
+    protected:
         typedef trail_stack<theory_fpa> th_trail_stack;
 
         class fpa2bv_converter_wrapped : public fpa2bv_converter {
@@ -46,27 +86,48 @@ namespace smt {
         };
         
         class fpa_value_proc : public model_value_proc {
-        protected:
-            theory_fpa & m_th;            
+        protected:            
+            theory_fpa & m_th;
+            ast_manager & m;
             float_util & m_fu;
             bv_util    & m_bu;
-            svector<model_value_dependency> m_dependencies;
+            buffer<model_value_dependency> m_deps;
+            unsigned m_ebits;
+            unsigned m_sbits;
+
         public:
-            fpa_value_proc(theory_fpa * th) : 
-                m_th(*th),m_fu(th->m_float_util),m_bu(th->m_bv_util) {}
-            void add_dependency(enode * n) { m_dependencies.push_back(model_value_dependency(n)); }
+            fpa_value_proc(theory_fpa * th, unsigned ebits, unsigned sbits) : 
+                m_th(*th), m_fu(th->m_float_util), m_bu(th->m_bv_util), m(th->get_manager()),
+                m_ebits(ebits), m_sbits(sbits) {}
+            
             virtual ~fpa_value_proc() {}
+
+            void add_dependency(enode * e) { m_deps.push_back(model_value_dependency(e)); }
+
             virtual void get_dependencies(buffer<model_value_dependency> & result) {
-                result.append(m_dependencies.size(), m_dependencies.c_ptr());
+                result.append(m_deps);
             }
+
             virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
         };
 
-        class fpa_rm_value_proc : public fpa_value_proc {            
+        class fpa_rm_value_proc : public model_value_proc {
+            theory_fpa & m_th;
+            ast_manager & m;
+            float_util & m_fu;
+            bv_util    & m_bu;
+            buffer<model_value_dependency> m_deps;
+
         public:
             fpa_rm_value_proc(theory_fpa * th) : 
-                fpa_value_proc(th) {}
-            void add_dependency(enode * n) { fpa_value_proc::add_dependency(n); }
+                m_th(*th), m_fu(th->m_float_util), m_bu(th->m_bv_util), m(th->get_manager()) {}
+
+            void add_dependency(enode * e) { m_deps.push_back(model_value_dependency(e)); }
+
+            virtual void get_dependencies(buffer<model_value_dependency> & result) {
+                result.append(m_deps);
+            }
+
             virtual ~fpa_rm_value_proc() {}
             virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
         };
@@ -84,7 +145,7 @@ namespace smt {
         obj_map<sort, func_decl*> m_unwraps;
         obj_map<expr, expr*>      m_conversions;
 
-        virtual final_check_status final_check_eh() { return FC_DONE; }
+        virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app * atom, bool gate_ctx);
         virtual bool internalize_term(app * term);
         virtual void apply_sort_cnstr(enode * n, sort * s);
@@ -114,13 +175,12 @@ namespace smt {
         expr_ref convert(expr * e);
         expr_ref convert_atom(expr * e);
         expr_ref convert_term(expr * e);
+        expr_ref convert_conversion_term(expr * e);
         void get_wrap(sort * s, func_decl_ref & wrap, func_decl_ref & unwrap);
         void add_trail(ast * a);
 
-        void mk_bv_eq(expr * x, expr * y);
         void attach_new_th_var(enode * n);
-        void assert_cnstr(expr * e);
-        void add_value_dep(fpa_value_proc * vp, expr * e);
+        void assert_cnstr(expr * e);        
     };
 
 };
