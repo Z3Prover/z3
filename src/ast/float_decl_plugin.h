@@ -263,9 +263,41 @@ public:
     bool is_zero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_zero(v); }
     bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_pzero(v); }
     bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_nzero(v); }
+       
+    app * mk_fp(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_FP, arg1, arg2, arg3); }
+    app * mk_to_fp(sort * s, expr * bv_t) {
+        SASSERT(is_float(s) && s->get_num_parameters() == 2);
+        return m().mk_app(m_fid, OP_FLOAT_TO_FP, 2, s->get_parameters(), 1, &bv_t); 
+    }
+    app * mk_to_fp(sort * s, expr * rm, expr * t) { 
+        SASSERT(is_float(s) && s->get_num_parameters() == 2);
+        expr * args[] = { rm, t };
+        return m().mk_app(m_fid, OP_FLOAT_TO_FP, 2, s->get_parameters(), 2, args);
+    }
+    app * mk_to_fp(sort * s, expr * rm, expr * sig, expr * exp) {
+        SASSERT(is_float(s) && s->get_num_parameters() == 2);
+        expr * args[] = { rm, sig, exp };
+        return m().mk_app(m_fid, OP_FLOAT_TO_FP, 2, s->get_parameters(), 3, args);
+    }
+    app * mk_to_fp_unsigned(sort * s, expr * rm, expr * t) { 
+        SASSERT(is_float(s) && s->get_num_parameters() == 2);
+        expr * args[] = { rm, t };
+        return m().mk_app(m_fid, OP_FLOAT_TO_FP_UNSIGNED, 2, s->get_parameters(), 2, args);
+    }
 
     bool is_to_fp(expr * n) { return is_app_of(n, m_fid, OP_FLOAT_TO_FP); }
-    
+
+    app * mk_to_ubv(expr * rm, expr * t, unsigned sz) {         
+        parameter ps[] = { parameter(sz) };
+        expr * args[] = { rm, t };
+        return m().mk_app(m_fid, OP_FLOAT_TO_UBV, 1, ps, 2, args); }
+    app * mk_to_sbv(expr * rm, expr * t, unsigned sz) { 
+        parameter ps[] = { parameter(sz) };
+        expr * args[] = { rm, t };
+        return m().mk_app(m_fid, OP_FLOAT_TO_SBV, 1, ps, 2, args);
+    }
+    app * mk_to_real(expr * t) { return m().mk_app(m_fid, OP_FLOAT_TO_REAL, t); }
+
     app * mk_add(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_ADD, arg1, arg2, arg3); }
     app * mk_mul(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_MUL, arg1, arg2, arg3); }
     app * mk_sub(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_SUB, arg1, arg2, arg3); }
@@ -276,7 +308,7 @@ public:
     app * mk_min(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_MIN, arg1, arg2); }
     app * mk_abs(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_ABS, arg1); }
     app * mk_sqrt(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_SQRT, arg1, arg2); }
-    app * mk_round(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_ROUND_TO_INTEGRAL, arg1, arg2); }
+    app * mk_round_to_integral(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_ROUND_TO_INTEGRAL, arg1, arg2); }
     app * mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4) {
         expr * args[4] = { arg1, arg2, arg3, arg4 };
         return m().mk_app(m_fid, OP_FLOAT_FMA, 4, args);
@@ -306,6 +338,9 @@ public:
     app * mk_internal_to_ubv_unspecified(unsigned width);
     app * mk_internal_to_sbv_unspecified(unsigned width);
     app * mk_internal_to_real_unspecified();
+
+    bool is_wrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FLOAT_INTERNAL_BVWRAP); }
+    bool is_unwrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FLOAT_INTERNAL_BVUNWRAP); }
 };
 
 #endif

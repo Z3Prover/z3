@@ -1700,8 +1700,7 @@ extern "C" {
     /**
        \brief Create the real type. 
 
-       This type is not a floating point number.
-       Z3 does not have support for floating point numbers yet.
+       Note that this type is not a floating point number.
 
        def_API('Z3_mk_real_sort', SORT, (_in(CONTEXT), ))
     */

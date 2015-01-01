@@ -3661,10 +3661,10 @@ namespace Microsoft.Z3
         /// </summary>        
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        public BoolExpr MkFPLe(FPExpr t1, FPExpr t2) 
+        public BoolExpr MkFPLEq(FPExpr t1, FPExpr t2) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
-            return new BoolExpr(this, Native.Z3_mk_fpa_le(this.nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.Z3_mk_fpa_leq(this.nCtx, t1.NativeObject, t2.NativeObject));
         }
 
         /// <summary>
@@ -3683,10 +3683,10 @@ namespace Microsoft.Z3
         /// </summary>        
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        public BoolExpr MkFPGe(FPExpr t1, FPExpr t2) 
+        public BoolExpr MkFPGEq(FPExpr t1, FPExpr t2) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
-            return new BoolExpr(this, Native.Z3_mk_fpa_ge(this.nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.Z3_mk_fpa_geq(this.nCtx, t1.NativeObject, t2.NativeObject));
         }
 
         /// <summary>
@@ -3737,7 +3737,7 @@ namespace Microsoft.Z3
         public BoolExpr MkFPIsInf(FPExpr t) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
-            return new BoolExpr(this, Native.Z3_mk_fpa_is_inf(this.nCtx, t.NativeObject));
+            return new BoolExpr(this, Native.Z3_mk_fpa_is_infinite(this.nCtx, t.NativeObject));
         }
 
         /// <summary>
@@ -3782,10 +3782,10 @@ namespace Microsoft.Z3
         /// <param name="s">floating point sort</param>
         /// <param name="rm">floating point rounding mode term</param>
         /// <param name="t">floating point term</param>
-        public FPExpr MkFPConvert(FPSort s, FPRMExpr rm, FPExpr t) 
+        public FPExpr MkFPToFP(FPSort s, FPRMExpr rm, FPExpr t) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
-            return new FPExpr(this, Native.Z3_mk_fpa_convert(this.nCtx, s.NativeObject, rm.NativeObject, t.NativeObject));
+            return new FPExpr(this, Native.Z3_mk_fpa_to_fp_float(this.nCtx, s.NativeObject, rm.NativeObject, t.NativeObject));
         }
 
         #endregion

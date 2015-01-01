@@ -176,11 +176,15 @@ namespace smt {
         expr_ref convert_atom(expr * e);
         expr_ref convert_term(expr * e);
         expr_ref convert_conversion_term(expr * e);
-        void get_wrap(sort * s, func_decl_ref & wrap, func_decl_ref & unwrap);
+        expr_ref convert_unwrap(expr * e);
+        
         void add_trail(ast * a);
 
         void attach_new_th_var(enode * n);
-        void assert_cnstr(expr * e);        
+        void assert_cnstr(expr * e);
+
+        app_ref wrap(expr * e);
+        app_ref unwrap(expr * e, sort * s);        
     };
 
 };

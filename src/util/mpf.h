@@ -75,7 +75,7 @@ public:
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpq const & value);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, char const * value);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpq const & significand, mpz const & exponent);
-    void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, uint64 significand, int exponent);
+    void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, uint64 significand, mpf_exp_t exponent);
     void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpz const & significand, mpf_exp_t exponent);	
     void set(mpf & o, mpf const & x);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpf const & x);
