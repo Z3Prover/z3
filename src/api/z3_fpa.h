@@ -344,7 +344,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_uint_int', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(INT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_uint_int(__in Z3_context c, __in bool sgn, __in unsigned sig, __in signed exp, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_uint_int(__in Z3_context c, __in Z3_bool sgn, __in unsigned sig, __in signed exp, Z3_sort ty);
 
     /**
         \brief Create a numeral of FloatingPoint sort from a sign bit and two 64-bit integers.
@@ -360,7 +360,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_uint64_int64', AST, (_in(CONTEXT), _in(BOOL), _in(UINT64), _in(INT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_uint64_int64(__in Z3_context c, __in bool sgn, __in __uint64 sig, __in __int64 exp, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_uint64_int64(__in Z3_context c, __in Z3_bool sgn, __in __uint64 sig, __in __int64 exp, Z3_sort ty);
 
     /**
         \brief Floating-point absolute value

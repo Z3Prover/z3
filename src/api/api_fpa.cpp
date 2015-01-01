@@ -264,7 +264,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_numeral_uint_int(Z3_context c, bool sgn, unsigned sig, signed exp, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_fpa_numeral_uint_int(Z3_context c, Z3_bool sgn, unsigned sig, signed exp, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_fpa_numeral_uint64_int64(c, sgn, sig, exp, ty);
         RESET_ERROR_CODE();
@@ -273,13 +273,13 @@ extern "C" {
         ctx->float_util().fm().set(tmp, 
                                    ctx->float_util().get_ebits(to_sort(ty)), 
                                    ctx->float_util().get_sbits(to_sort(ty)), 
-                                   sgn, sig, exp);
+                                   sgn != 0, sig, exp);
         Z3_ast r = of_ast(ctx->float_util().mk_value(tmp));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_numeral_uint64_int64(Z3_context c, bool sgn, __uint64 sig, __int64 exp, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_fpa_numeral_uint64_int64(Z3_context c, Z3_bool sgn, __uint64 sig, __int64 exp, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_fpa_numeral_uint64_int64(c, sgn, sig, exp, ty);
         RESET_ERROR_CODE();
@@ -288,7 +288,7 @@ extern "C" {
         ctx->float_util().fm().set(tmp,
                                    ctx->float_util().get_ebits(to_sort(ty)),
                                    ctx->float_util().get_sbits(to_sort(ty)),
-                                   sgn, sig, exp);
+                                   sgn != 0, sig, exp);
         Z3_ast r = of_ast(ctx->float_util().mk_value(tmp));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
