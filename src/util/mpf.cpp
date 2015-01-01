@@ -336,7 +336,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
     TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
 }
 
-void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, bool sign, uint64 significand, int exponent) {
+void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, bool sign, uint64 significand, mpf_exp_t exponent) {
     // Assumption: this represents (sign * -1) * (significand/2^sbits) * 2^exponent.
     o.ebits = ebits;
     o.sbits = sbits;
