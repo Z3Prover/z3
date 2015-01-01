@@ -396,7 +396,7 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
         unsigned ebits = get_futil().get_ebits(s);
         unsigned sbits = get_futil().get_sbits(s);
         ptr_buffer<format> fs;
-        fs.push_back(mk_string(m, "FP"));
+        fs.push_back(mk_string(m, "FloatingPoint"));
         fs.push_back(mk_unsigned(m, ebits));
         fs.push_back(mk_unsigned(m, sbits));
         return mk_seq1(m, fs.begin(), fs.end(), f2f(), "_");
