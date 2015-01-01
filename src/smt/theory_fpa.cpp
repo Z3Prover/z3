@@ -344,7 +344,7 @@ namespace smt {
             res = m_conversions.find(e);
             TRACE("t_fpa_detail", tout << "cached:" << std::endl;
                                   tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
-                                      mk_ismt2_pp(res, m) << std::endl;);
+                                          mk_ismt2_pp(res, m) << std::endl;);
             return res;
         }
         else {
@@ -360,8 +360,8 @@ namespace smt {
                 UNREACHABLE();
 
             TRACE("t_fpa_detail", tout << "converted; caching:" << std::endl;
-            tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
-                mk_ismt2_pp(res, m) << std::endl;);
+                                  tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
+                                          mk_ismt2_pp(res, m) << std::endl;);
 
             m_conversions.insert(e, res);
             m.inc_ref(res);
@@ -539,10 +539,8 @@ namespace smt {
                         
         if (fu.is_float(xe) && fu.is_float(ye))
         {
-
             expr *x_sgn, *x_sig, *x_exp;
             m_converter.split_triple(xc, x_sgn, x_sig, x_exp);
-
             expr *y_sgn, *y_sig, *y_exp;
             m_converter.split_triple(yc, y_sgn, y_sig, y_exp);
 
