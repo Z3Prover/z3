@@ -1181,14 +1181,13 @@ std::string mpf_manager::to_string(mpf const & x) {
 
     if (is_nan(x)) 
         res = "NaN";
-    else {
-        res = sgn(x) ? "-" : "";
-
+    else {        
         if (is_inf(x))
-            res += "INF";
+            res = sgn(x) ? "-oo" : "+oo";
         else if (is_zero(x)) 
-            res += "0";
+            res = sgn(x) ? "-zero" : "+zero";
         else {
+            res = sgn(x) ? "-" : "";
             scoped_mpz num(m_mpq_manager), denom(m_mpq_manager);
             num   = 0;
             denom = 1;
@@ -1218,7 +1217,7 @@ std::string mpf_manager::to_string(mpf const & x) {
             m_mpq_manager.display_decimal(ss, r, x.sbits);
             if (m_mpq_manager.is_int(r))
                 ss << ".0";
-            ss << " " << exponent;
+            ss << "p" << exponent;
             res += ss.str();            
         }
     }
