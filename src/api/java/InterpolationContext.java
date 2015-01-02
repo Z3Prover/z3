@@ -20,8 +20,6 @@ package com.microsoft.z3;
 import java.util.Map;
 import java.lang.String;
 
-import com.microsoft.z3.Native.IntPtr;
-import com.microsoft.z3.Native.UIntArrayPtr;
 import com.microsoft.z3.enumerations.Z3_lbool;
 
 /** <summary>
