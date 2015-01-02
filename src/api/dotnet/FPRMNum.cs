@@ -22,7 +22,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// Floatiung Point Rounding Mode Numerals
+    /// FloatingPoint RoundingMode Numerals
     /// </summary>
     [ContractVerification(true)]
     public class FPRMNum : FPRMExpr

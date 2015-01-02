@@ -16,17 +16,26 @@ Author:
 Notes:
     
 --*/
-
 using System;
 using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
-    ///  A floating point sort
+    /// FloatingPoint sort
     /// </summary>
     public class FPSort : Sort
     {
+        /// <summary>
+        /// The number of exponent bits.
+        /// </summary>
+        public uint EBits { get { return Native.Z3_mk_fpa_get_ebits(Context.nCtx, NativeObject); } }
+
+        /// <summary>
+        /// The number of significand bits.
+        /// </summary>
+        public uint SBits { get { return Native.Z3_mk_fpa_get_ebits(Context.nCtx, NativeObject); } }
+
         #region Internal
         internal FPSort(Context ctx, IntPtr obj)
             : base(ctx, obj)
@@ -39,5 +48,5 @@ namespace Microsoft.Z3
             Contract.Requires(ctx != null);
         }
         #endregion
-    }
+    }    
 }

@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Z3 Managed API: Floating Point Rounding Mode Sorts
+    Z3 Managed API: Rounding Mode Sort
 
 Author:
 
@@ -23,7 +23,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    ///  A floating point rounding mode sort
+    /// The FloatingPoint RoundingMode sort
     /// </summary>
     public class FPRMSort : Sort
     {

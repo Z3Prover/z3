@@ -26,7 +26,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// Floating Point Expressions
+    /// FloatingPoint RoundingMode Expressions
     /// </summary>
     public class FPRMExpr : Expr
     {

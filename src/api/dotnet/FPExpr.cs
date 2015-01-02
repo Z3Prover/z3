@@ -26,7 +26,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// Floating Point Expressions
+    /// FloatingPoint Expressions
     /// </summary>
     public class FPExpr : Expr
     {

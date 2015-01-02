@@ -22,7 +22,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// Floatiung Point Numerals
+    /// FloatiungPoint Numerals
     /// </summary>
     [ContractVerification(true)]
     public class FPNum : FPExpr
