@@ -129,7 +129,9 @@ public:
 
     void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
-    void mk_to_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
+    void mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);
+    void mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);
     void mk_to_fp_signed(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -186,7 +188,7 @@ protected:
         expr_ref & c_sgn, expr_ref & c_sig, expr_ref & c_exp, expr_ref & d_sgn, expr_ref & d_sig, expr_ref & d_exp,
         expr_ref & res_sgn, expr_ref & res_sig, expr_ref & res_exp);
 
-    app * mk_fresh_const(char const * prefix, unsigned sz);
+    app * mk_fresh_const(char const * prefix, unsigned sz);    
 };
 
 #endif
