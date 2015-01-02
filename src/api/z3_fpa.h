@@ -228,7 +228,7 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_fpa_sort_128(__in Z3_context c);
 
     /**
-        \brief Create a NaN of sort s.
+        \brief Create a floating-point NaN of sort s.
 
         \param c logical context.
         \param s target sort 
@@ -266,6 +266,7 @@ extern "C" {
     /**
         \brief Create an expression of FloatingPoint sort from three bit-vector expressions.
 
+	This is the operator named `fp' in the SMT FP theory definition.
         Note that \c sign is required to be a bit-vector of size 1. Significand and exponent 
         are required to be greater than 1 and 2 respectively. The FloatingPoint sort 
         of the resulting expression is automatically determined from the bit-vector sizes
@@ -495,7 +496,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_round_to_integral(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t);
 
     /**
-        \brief Minimum of floating-point numbers
+        \brief Minimum of floating-point numbers.
 
         \param c logical context.
         \param t1 term of FloatingPoint sort.
@@ -508,7 +509,7 @@ extern "C" {
         Z3_ast Z3_API Z3_mk_fpa_min(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
 
         /**
-        \brief Maximum of floating-point numbers
+        \brief Maximum of floating-point numbers.
 
         \param c logical context.
         \param t1 term of FloatingPoint sort.
@@ -521,7 +522,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_max(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
    
      /**
-        \brief Floating-point less than or equal        
+        \brief Floating-point less than or equal.
 
         \param c logical context.
         \param t1 term of FloatingPoint sort.
@@ -534,7 +535,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_leq(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
 
      /**
-        \brief Floating-point less-than
+        \brief Floating-point less than.
 
         \param c logical context.
         \param t1 term of FloatingPoint sort.
@@ -547,7 +548,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_lt(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
         
     /**
-        \brief Floating-point greater than or equal
+        \brief Floating-point greater than or equal.
 
         \param c logical context.
         \param t1 term of FloatingPoint sort.
@@ -560,7 +561,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_geq(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
 
     /**
-        \brief Floating-point greater-than
+        \brief Floating-point greater than.
 
         \param c logical context.
         \param t1 term of FloatingPoint sort.
@@ -573,7 +574,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_gt(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
 
     /**
-        \brief Floating-point equality
+        \brief Floating-point equality.
 
         \param c logical context.
         \param t1 term of FloatingPoint sort.
@@ -636,7 +637,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_is_infinite(__in Z3_context c, __in Z3_ast t);
 
     /**
-        \brief Predicate indicating whether t is a NaN
+        \brief Predicate indicating whether t is a NaN.
 
         \param c logical context.
         \param t term of FloatingPoint sort.
@@ -682,16 +683,15 @@ extern "C" {
         \param s floating-point sort.
 
         s must be a FloatingPoint sort, t must be of bit-vector sort, and the bit-vector 
-        size of bv, m, must be equal to ebits+sbits of s. The format of the bit-vector is 
-        as defined by the IEEE 754-2008 interchange format and the resulting floating-point
-        sort (ebits, sbits) is automatically determined.
+        size of bv must be equal to ebits+sbits of s. The format of the bit-vector is 
+        as defined by the IEEE 754-2008 interchange format.
      
         def_API('Z3_mk_fpa_to_fp_bv', AST, (_in(CONTEXT),_in(AST),_in(SORT)))
     */      
     Z3_ast Z3_API Z3_mk_fpa_to_fp_bv(__in Z3_context c, __in Z3_ast bv, __in Z3_sort s);
 
     /**
-        \brief Conversion of a floating-point term into another floating-point term of different floating-point sort.
+        \brief Conversion of a FloatingPoint term into another term of different FloatingPoint sort.
         
         Produces a term that represents the conversion of a floating-point term t to a
         floating-point term of sort s. If necessary, the result will be rounded according
@@ -768,8 +768,8 @@ extern "C" {
         \brief Conversion of a floating-point term into an unsigned bit-vector.
 
         Produces a term that represents the conversion of the floating-poiunt term t into a
-        bit-vector term in unsigned 2's complement format. If necessary, the result will be 
-        rounded according to rounding mode rm.
+        bit-vector term of size sz in unsigned 2's complement format. If necessary, the result 
+	will be rounded according to rounding mode rm.
 
         \param c logical context.
         \param rm term of RoundingMode sort.
@@ -784,8 +784,8 @@ extern "C" {
         \brief Conversion of a floating-point term into a signed bit-vector.
 
         Produces a term that represents the conversion of the floating-poiunt term t into a
-        bit-vector term in signed 2's complement format. If necessary, the result will be
-        rounded according to rounding mode rm.
+        bit-vector term of size sz in signed 2's complement format. If necessary, the result 
+	will be rounded according to rounding mode rm.
 
         \param c logical context.
         \param rm term of RoundingMode sort.
@@ -797,7 +797,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_to_sbv(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t, __in unsigned sz);
 
     /**
-        \brief Conversion of a floating-point term into a real number.
+        \brief Conversion of a floating-point term into a real-numbered term.
 
         Produces a term that represents the conversion of the floating-poiunt term t into a
         real number. Note that this type of conversion will often result in non-linear 
@@ -810,10 +810,29 @@ extern "C" {
     */
     Z3_ast Z3_API Z3_mk_fpa_to_real(__in Z3_context c, __in Z3_ast t);
 
+
     /**
         @name Z3-specific extensions
     */
     /*@{*/
+
+    /**
+        \brief Retrieves the number of bits reserved for the exponent in a FloatingPoint sort.
+
+        \param s FloatingPoint sort.
+
+        def_API('Z3_mk_fpa_get_ebits', UINT, (_in(CONTEXT),_in(SORT)))
+    */
+    unsigned Z3_API Z3_mk_fpa_get_ebits(__in Z3_context c, __in Z3_sort s);
+
+    /**
+        \brief Retrieves the number of bits reserved for the significand in a FloatingPoint sort.
+
+        \param s FloatingPoint sort.
+
+        def_API('Z3_mk_fpa_get_sbits', UINT, (_in(CONTEXT),_in(SORT)))
+    */
+    unsigned Z3_API Z3_mk_fpa_get_sbits(__in Z3_context c, __in Z3_sort s);
 
     /**
         \brief Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format.
@@ -842,8 +861,8 @@ extern "C" {
         \param c logical context.        
         \param rm term of RoundingMode sort.
         \param sig significand term of Real sort.
-        \param exp exponent term of Real sort.
-        \param s floating-point sort.
+        \param exp exponent term of Int sort.
+        \param s FloatingPoint sort.
 
         s must be a FloatingPoint sort, rm must be of RoundingMode sort, t must be of real sort.
 

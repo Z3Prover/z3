@@ -649,6 +649,26 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    unsigned int Z3_API Z3_mk_fpa_get_ebits(Z3_context c, Z3_sort s) {
+        Z3_TRY;
+        LOG_Z3_mk_fpa_get_ebits(c, s);
+        RESET_ERROR_CODE();
+        api::context * ctx = mk_c(c);
+        unsigned r = ctx->float_util().get_ebits(to_sort(s));
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(0);
+    }
+
+    unsigned Z3_API Z3_mk_fpa_get_sbits(Z3_context c, Z3_sort s) {
+        Z3_TRY;
+        LOG_Z3_mk_fpa_get_sbits(c, s);
+        RESET_ERROR_CODE();
+        api::context * ctx = mk_c(c);
+        unsigned r = ctx->float_util().get_sbits(to_sort(s));
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(0);
+    }
+
     Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_mk_fpa_to_ieee_bv(c, t);
