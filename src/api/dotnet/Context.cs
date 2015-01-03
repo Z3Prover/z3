@@ -3590,7 +3590,7 @@ namespace Microsoft.Z3
         public FPSort MkFPSort32()
         {
             Contract.Ensures(Contract.Result<FPSort>() != null);
-            return new FPSort(this, Native.Z3_mk_fpa_sort_16(nCtx));
+            return new FPSort(this, Native.Z3_mk_fpa_sort_32(nCtx));
         }
 
         /// <summary>
@@ -3617,7 +3617,7 @@ namespace Microsoft.Z3
         public FPSort MkFPSortQuadruple()
         {
             Contract.Ensures(Contract.Result<FPSort>() != null);
-            return new FPSort(this, Native.Z3_mk_fpa_sort_double(nCtx));
+            return new FPSort(this, Native.Z3_mk_fpa_sort_quadruple(nCtx));
         }
 
         /// <summary>
