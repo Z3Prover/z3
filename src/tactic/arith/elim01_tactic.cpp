@@ -193,11 +193,14 @@ public:
                
         expr_ref   new_curr(m), tmp_curr(m);
         proof_ref  new_pr(m);
-        
         for (unsigned i = 0; i < g->size(); i++) {
             expr * curr = g->form(i);
             sub(curr, tmp_curr);           
             m_rewriter(tmp_curr, new_curr);
+            if (m.proofs_enabled()) {
+                new_pr = m.mk_rewrite(curr, new_curr);
+                new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
+            }
             g->update(i, new_curr, new_pr, g->dep(i));
         }
         for (unsigned i = 0; i < axioms.size(); ++i) {
