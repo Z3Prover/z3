@@ -56,8 +56,8 @@ public class Solver extends Z3Object
     }
 
     /**
-     * The current number of backtracking points (scopes). <seealso cref="Pop"/>
-     * <seealso cref="Push"/>
+     * The current number of backtracking points (scopes). @see Pop
+     * @see Push
      **/
     public int getNumScopes() throws Z3Exception
     {
@@ -66,7 +66,7 @@ public class Solver extends Z3Object
     }
 
     /**
-     * Creates a backtracking point. <seealso cref="Pop"/>
+     * Creates a backtracking point. @see Pop
      **/
     public void push() throws Z3Exception
     {
@@ -84,7 +84,7 @@ public class Solver extends Z3Object
     /**
      * Backtracks <paramref name="n"/> backtracking points. <remarks>Note that
      * an exception is thrown if <paramref name="n"/> is not smaller than
-     * <code>NumScopes</code></remarks> <seealso cref="Push"/>
+     * <code>NumScopes</code></remarks> @see Push
      **/
     public void pop(int n) throws Z3Exception
     {
@@ -193,7 +193,7 @@ public class Solver extends Z3Object
 
     /**
      * Checks whether the assertions in the solver are consistent or not.
-     * <remarks> <seealso cref="Model"/> <seealso cref="UnsatCore"/> <seealso
+     * <remarks> @see Model"/> <seealso cref="UnsatCore <seealso
      * cref="Proof"/> </remarks>
      **/
     public Status check(Expr... assumptions) throws Z3Exception
@@ -219,7 +219,7 @@ public class Solver extends Z3Object
 
     /**
      * Checks whether the assertions in the solver are consistent or not.
-     * <remarks> <seealso cref="Model"/> <seealso cref="UnsatCore"/> <seealso
+     * <remarks> @see Model"/> <seealso cref="UnsatCore <seealso
      * cref="Proof"/> </remarks>
      **/
     public Status check() throws Z3Exception

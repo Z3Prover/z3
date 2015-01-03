@@ -25,7 +25,7 @@ public class AlgebraicNum extends ArithExpr
 	/**
 	 * Return a upper bound for a given real algebraic number. The interval
 	 * isolating the number is smaller than 1/10^<paramref name="precision"/>.
-	 * <seealso cref="Expr.IsAlgebraicNumber"/> <param name="precision">the
+	 * @see Expr.IsAlgebraicNumber <param name="precision">the
 	 * precision of the result</param>
 	 * 
 	 * @return A numeral Expr of sort Real
@@ -33,14 +33,17 @@ public class AlgebraicNum extends ArithExpr
 	public RatNum toUpper(int precision) throws Z3Exception
 	{
 
-		return new RatNum(getContext(), Native.getAlgebraicNumberUpper(getContext()
-				.nCtx(), getNativeObject(), precision));
+		return new RatNum(getContext(), 
+				Native.getAlgebraicNumberUpper(
+						getContext().nCtx(), 
+						getNativeObject(), 
+						precision));
 	}
 
 	/**
 	 * Return a lower bound for the given real algebraic number. The interval
 	 * isolating the number is smaller than 1/10^<paramref name="precision"/>.
-	 * <seealso cref="Expr.IsAlgebraicNumber"/> <param name="precision"></param>
+	 * @see Expr.IsAlgebraicNumber @param precision 
 	 * 
 	 * @return A numeral Expr of sort Real
 	 **/

@@ -42,7 +42,7 @@ public class InterpolationContext extends Context
     /** 
      * Constructor.
      *
-     * <remarks><seealso cref="Context.Context(Dictionary&lt;string, string&gt;)"/></remarks>
+     * <remarks>@see Context.Context(Dictionary&lt;string, string&gt;)</remarks>
      **/
     public InterpolationContext(Map<String, String> settings) throws Z3Exception
     { 

@@ -39,7 +39,7 @@ class ASTMap extends Z3Object
     /**
      * Finds the value associated with the key <paramref name="k"/>. <remarks>
      * This function signs an error when <paramref name="k"/> is not a key in
-     * the map. </remarks> <param name="k">An AST</param>
+     * the map. </remarks> @param k An AST
      * 
      * @throws Z3Exception
      **/
@@ -51,7 +51,7 @@ class ASTMap extends Z3Object
 
     /**
      * Stores or replaces a new key/value pair in the map. <param name="k">The
-     * key AST</param> <param name="v">The value AST</param>
+     * key AST</param> @param v The value AST
      **/
     public void insert(AST k, AST v) throws Z3Exception
     {

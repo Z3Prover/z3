@@ -26,7 +26,7 @@ public class Model extends Z3Object
 {
     /**
      * Retrieves the interpretation (the assignment) of <paramref name="a"/> in
-     * the model. <param name="a">A Constant</param>
+     * the model. @param a A Constant
      * 
      * @return An expression if the constant has an interpretation in the model,
      *         null otherwise.
@@ -40,7 +40,7 @@ public class Model extends Z3Object
 
     /**
      * Retrieves the interpretation (the assignment) of <paramref name="f"/> in
-     * the model. <param name="f">A function declaration of zero arity</param>
+     * the model. @param f A function declaration of zero arity
      * 
      * @return An expression if the function has an interpretation in the model,
      *         null otherwise.
@@ -242,7 +242,7 @@ public class Model extends Z3Object
      * <remarks> Z3 also provides an intepretation for uninterpreted sorts used
      * in a formula. The interpretation for a sort is a finite set of distinct
      * values. We say this finite set is the "universe" of the sort. </remarks>
-     * <seealso cref="NumSorts"/> <seealso cref="SortUniverse"/>
+     * @see NumSorts"/> <seealso cref="SortUniverse
      * 
      * @throws Z3Exception
      **/
@@ -259,7 +259,7 @@ public class Model extends Z3Object
 
     /**
      * The finite set of distinct values that represent the interpretation for
-     * sort <paramref name="s"/>. <seealso cref="Sorts"/> <param name="s">An
+     * sort <paramref name="s"/>. @see Sorts <param name="s">An
      * uninterpreted sort</param>
      * 
      * @return An array of expressions, where each is an element of the universe

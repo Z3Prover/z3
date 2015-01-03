@@ -294,9 +294,9 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create a datatype constructor. <param name="name"></param> <param
-     * name="recognizer"></param> <param name="fieldNames"></param> <param
-     * name="sorts"></param> <param name="sortRefs"></param>
+     * Create a datatype constructor. @param name  <param
+     * name="recognizer"></param> @param fieldNames  <param
+     * name="sorts"></param> @param sortRefs 
      * 
      * @return
      **/
@@ -363,7 +363,7 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create mutually recursive data-types. <param name="names"></param> <param
+     * Create mutually recursive data-types. @param names  <param
      * name="c"></param>
      * 
      * @return
@@ -429,7 +429,7 @@ public class Context extends IDisposable
 
     /**
      * Creates a fresh function declaration with a name prefixed with <paramref
-     * name="prefix"/>. <seealso cref="MkFuncDecl(string,Sort,Sort)"/> <seealso
+     * name="prefix"/>. @see MkFuncDecl(string,Sort,Sort) <seealso
      * cref="MkFuncDecl(string,Sort[],Sort)"/>
      **/
     public FuncDecl mkFreshFuncDecl(String prefix, Sort[] domain, Sort range)
@@ -464,8 +464,8 @@ public class Context extends IDisposable
 
     /**
      * Creates a fresh constant function declaration with a name prefixed with
-     * <paramref name="prefix"/>. <seealso cref="MkFuncDecl(string,Sort,Sort)"/>
-     * <seealso cref="MkFuncDecl(string,Sort[],Sort)"/>
+     * <paramref name="prefix"/>. @see MkFuncDecl(string,Sort,Sort)
+     * @see MkFuncDecl(string,Sort[],Sort)
      **/
     public FuncDecl mkFreshConstDecl(String prefix, Sort range)
             throws Z3Exception
@@ -477,7 +477,7 @@ public class Context extends IDisposable
 
     /**
      * Creates a new bound variable. <param name="index">The de-Bruijn index of
-     * the variable</param> <param name="ty">The sort of the variable</param>
+     * the variable</param> @param ty The sort of the variable
      **/
     public Expr mkBound(int index, Sort ty) throws Z3Exception
     {
@@ -686,7 +686,7 @@ public class Context extends IDisposable
     /**
      * Create an expression representing an if-then-else:
      * <code>ite(t1, t2, t3)</code>. <param name="t1">An expression with Boolean
-     * sort</param> <param name="t2">An expression </param> <param name="t3">An
+     * sort</param> @param t2 An expression  <param name="t3">An
      * expression with the same sort as <paramref name="t2"/></param>
      **/
     public Expr mkITE(BoolExpr t1, Expr t2, Expr t3) throws Z3Exception
@@ -1654,7 +1654,7 @@ public class Context extends IDisposable
      * The node <code>a</code> must have an array sort
      * <code>[domain -> range]</code>, and <code>i</code> must have the sort
      * <code>domain</code>. The sort of the result is <code>range</code>.
-     * <seealso cref="MkArraySort"/> <seealso cref="MkStore"/> </remarks>
+     * @see MkArraySort"/> <seealso cref="MkStore </remarks>
      **/
     public Expr mkSelect(ArrayExpr a, Expr i) throws Z3Exception
     {
@@ -1678,7 +1678,7 @@ public class Context extends IDisposable
      * <code>select</code>) on all indices except for <code>i</code>, where it
      * maps to <code>v</code> (and the <code>select</code> of <code>a</code>
      * with respect to <code>i</code> may be a different value). <seealso
-     * cref="MkArraySort"/> <seealso cref="MkSelect"/> </remarks>
+     * cref="MkArraySort"/> @see MkSelect </remarks>
      **/
     public ArrayExpr mkStore(ArrayExpr a, Expr i, Expr v) throws Z3Exception
     {
@@ -1693,7 +1693,7 @@ public class Context extends IDisposable
     /**
      * Create a constant array. <remarks> The resulting term is an array, such
      * that a <code>select</code>on an arbitrary index produces the value
-     * <code>v</code>. <seealso cref="MkArraySort"/> <seealso cref="MkSelect"/>
+     * <code>v</code>. @see MkArraySort"/> <seealso cref="MkSelect
      * </remarks>
      **/
     public ArrayExpr mkConstArray(Sort domain, Expr v) throws Z3Exception
@@ -1711,8 +1711,8 @@ public class Context extends IDisposable
      * <code>[domain_i -> range_i]</code>. The function declaration
      * <code>f</code> must have type <code> range_1 .. range_n -> range</code>.
      * <code>v</code> must have sort range. The sort of the result is
-     * <code>[domain_i -> range]</code>. <seealso cref="MkArraySort"/> <seealso
-     * cref="MkSelect"/> <seealso cref="MkStore"/> </remarks>
+     * <code>[domain_i -> range]</code>. @see MkArraySort <seealso
+     * cref="MkSelect"/> @see MkStore </remarks>
      **/
     public ArrayExpr mkMap(FuncDecl f, ArrayExpr... args) throws Z3Exception
     {
@@ -1899,7 +1899,7 @@ public class Context extends IDisposable
      * Create a Term of a given sort. This function can be use to create
      * numerals that fit in a machine integer. It is slightly faster than
      * <code>MakeNumeral</code> since it is not necessary to parse a string.
-     * <param name="v">Value of the numeral</param> <param name="ty">Sort of the
+     * @param v Value of the numeral <param name="ty">Sort of the
      * numeral</param>
      * 
      * @return A Term with value <paramref name="v"/> and type <paramref
@@ -1916,7 +1916,7 @@ public class Context extends IDisposable
      * Create a Term of a given sort. This function can be use to create
      * numerals that fit in a machine integer. It is slightly faster than
      * <code>MakeNumeral</code> since it is not necessary to parse a string.
-     * <param name="v">Value of the numeral</param> <param name="ty">Sort of the
+     * @param v Value of the numeral <param name="ty">Sort of the
      * numeral</param>
      * 
      * @return A Term with value <paramref name="v"/> and type <paramref
@@ -1932,10 +1932,10 @@ public class Context extends IDisposable
 
     /**
      * Create a real from a fraction. <param name="num">numerator of
-     * rational.</param> <param name="den">denominator of rational.</param>
+     * rational.</param> @param den denominator of rational.
      * 
      * @return A Term with value <paramref name="num"/>/<paramref name="den"/>
-     *         and sort Real <seealso cref="MkNumeral(string, Sort)"/>
+     *         and sort Real @see MkNumeral(string, Sort)
      **/
     public RatNum mkReal(int num, int den) throws Z3Exception
     {
@@ -1959,7 +1959,7 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create a real numeral. <param name="v">value of the numeral.</param>
+     * Create a real numeral. @param v value of the numeral.
      * 
      * @return A Term with value <paramref name="v"/> and sort Real
      **/
@@ -1971,7 +1971,7 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create a real numeral. <param name="v">value of the numeral.</param>
+     * Create a real numeral. @param v value of the numeral.
      * 
      * @return A Term with value <paramref name="v"/> and sort Real
      **/
@@ -1994,7 +1994,7 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create an integer numeral. <param name="v">value of the numeral.</param>
+     * Create an integer numeral. @param v value of the numeral.
      * 
      * @return A Term with value <paramref name="v"/> and sort Integer
      **/
@@ -2006,7 +2006,7 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create an integer numeral. <param name="v">value of the numeral.</param>
+     * Create an integer numeral. @param v value of the numeral.
      * 
      * @return A Term with value <paramref name="v"/> and sort Integer
      **/
@@ -2030,7 +2030,7 @@ public class Context extends IDisposable
 
     /**
      * Create a bit-vector numeral. <param name="v">value of the
-     * numeral.</param> <param name="size">the size of the bit-vector</param>
+     * numeral.</param> @param size the size of the bit-vector
      **/
     public BitVecNum mkBV(int v, int size) throws Z3Exception
     {
@@ -2040,7 +2040,7 @@ public class Context extends IDisposable
 
     /**
      * Create a bit-vector numeral. <param name="v">value of the
-     * numeral.</param> * <param name="size">the size of the bit-vector</param>
+     * numeral.</param> * @param size the size of the bit-vector
      **/
     public BitVecNum mkBV(long v, int size) throws Z3Exception
     {
@@ -2056,7 +2056,7 @@ public class Context extends IDisposable
      * 'names' of the bound variables, and <paramref name="body"/> is the body
      * of the quantifier. Quantifiers are associated with weights indicating the
      * importance of using the quantifier during instantiation. </remarks>
-     * <param name="sorts">the sorts of the bound variables.</param> <param
+     * @param sorts the sorts of the bound variables. <param
      * name="names">names of the bound variables</param> <param name="body">the
      * body of the quantifier.</param> <param name="weight">quantifiers are
      * associated with weights indicating the importance of using the quantifier
@@ -2154,8 +2154,8 @@ public class Context extends IDisposable
      * subexpressions only once, use the Z3_PRINT_LOW_LEVEL mode. To print in
      * way that conforms to SMT-LIB standards and uses let expressions to share
      * common sub-expressions use Z3_PRINT_SMTLIB_COMPLIANT. </remarks> <seealso
-     * cref="AST.ToString()"/> <seealso cref="Pattern.ToString()"/> <seealso
-     * cref="FuncDecl.ToString()"/> <seealso cref="Sort.ToString()"/>
+     * cref="AST.ToString()"/> @see Pattern.ToString() <seealso
+     * cref="FuncDecl.ToString()"/> @see Sort.ToString()
      **/
     public void setPrintMode(Z3_ast_print_mode value) throws Z3Exception
     {
@@ -2165,7 +2165,7 @@ public class Context extends IDisposable
     /**
      * Convert a benchmark into an SMT-LIB formatted string. <param
      * name="name">Name of the benchmark. The argument is optional.</param>
-     * <param name="logic">The benchmark logic. </param> <param
+     * @param logic The benchmark logic.  <param
      * name="status">The status string (sat, unsat, or unknown)</param> <param
      * name="attributes">Other attributes, such as source, difficulty or
      * category.</param> <param name="assumptions">Auxiliary
@@ -2809,12 +2809,11 @@ public class Context extends IDisposable
         if (logic == null)
             return new Solver(this, Native.mkSolver(nCtx()));
         else
-            return new Solver(this, Native.mkSolverForLogic(nCtx(),
-                    logic.getNativeObject()));
+            return new Solver(this, Native.mkSolverForLogic(nCtx(), logic.getNativeObject()));
     }
 
     /**
-     * Creates a new (incremental) solver. <seealso cref="MkSolver(Symbol)"/>
+     * Creates a new (incremental) solver. @see MkSolver(Symbol)
      **/
     public Solver mkSolver(String logic) throws Z3Exception
     {
@@ -2839,8 +2838,7 @@ public class Context extends IDisposable
     public Solver mkSolver(Tactic t) throws Z3Exception
     {
 
-        return new Solver(this, Native.mkSolverFromTactic(nCtx(),
-                t.getNativeObject()));
+        return new Solver(this, Native.mkSolverFromTactic(nCtx(), t.getNativeObject()));
     }
 
     /**
@@ -2851,15 +2849,807 @@ public class Context extends IDisposable
 
         return new Fixedpoint(this);
     }
+    
+    /** Begin Floating-Point Arithmetic **/    
+
+    /** Rounding Modes: RoundingMode Sort **/
+    
+    /** 
+     * Create the floating-point RoundingMode sort.
+     * @throws Z3Exception on error
+     **/   
+    public FPRMSort mkFPRoundingModeSort() throws Z3Exception
+    {
+        return new FPRMSort(this);
+    }    
+    
+    /** Rounding Modes: Numerals **/
+    
+    /** 
+     * Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
+     * @throws Z3Exception on error
+     **/
+    public FPRMNum mkFPRoundNearestTiesToEven() throws Z3Exception
+    {
+        return new FPRMNum(this, Native.mkFpaRoundNearestTiesToEven(nCtx()));
+    }
+
+    /** 
+     * Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
+     * @throws Z3Exception 
+     **/
+    public FPRMNum mkFPRNE() throws Z3Exception
+    {
+        return new FPRMNum(this, Native.mkFpaRne(nCtx()));
+    }
+
+    /** 
+     * Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
+     * @throws Z3Exception 
+     **/
+    public FPRMNum mkFPRoundNearestTiesToAway() throws Z3Exception
+    {
+        return new FPRMNum(this, Native.mkFpaRoundNearestTiesToAway(nCtx()));
+    }
+
+    /** 
+     * Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
+     * @throws Z3Exception 
+     **/
+    public FPRMNum mkFPRNA() throws Z3Exception
+    {
+        return new FPRMNum(this, Native.mkFpaRna(nCtx()));
+    }
+
+    /** 
+     * Create a numeral of RoundingMode sort which represents the RoundTowardPositive rounding mode.
+     * @throws Z3Exception 
+     **/
+    public FPRMNum mkFPRoundTowardPositive() throws Z3Exception
+    {
+        return new FPRMNum(this, Native.mkFpaRoundTowardPositive(nCtx()));
+    }
+
+    /** 
+     * Create a numeral of RoundingMode sort which represents the RoundTowardPositive rounding mode.
+     * @throws Z3Exception 
+     **/
+    public FPRMNum mkFPRTP() throws Z3Exception
+    {
+        return new FPRMNum(this, Native.mkFpaRtp(nCtx()));
+    }
+
+    /** 
+     * Create a numeral of RoundingMode sort which represents the RoundTowardNegative rounding mode.
+     * @throws Z3Exception 
+     **/
+    public FPRMNum mkFPRoundTowardNegative() throws Z3Exception
+    {
+        return new FPRMNum(this, Native.mkFpaRoundTowardNegative(nCtx()));
+    }
+
+    /** 
+     * Create a numeral of RoundingMode sort which represents the RoundTowardNegative rounding mode.
+     * @throws Z3Exception 
+     **/
+    public FPRMNum mkFPRTN() throws Z3Exception
+    {
+        return new FPRMNum(this, Native.mkFpaRtn(nCtx()));
+    }
+
+    /** 
+     * Create a numeral of RoundingMode sort which represents the RoundTowardZero rounding mode.
+     * @throws Z3Exception 
+     **/
+    public FPRMNum mkFPRoundTowardZero() throws Z3Exception
+    {
+        return new FPRMNum(this, Native.mkFpaRoundTowardZero(nCtx()));
+    }
+
+    /** 
+     * Create a numeral of RoundingMode sort which represents the RoundTowardZero rounding mode.
+     * @throws Z3Exception 
+     **/
+    public FPRMNum mkFPRTZ() throws Z3Exception
+    {
+        return new FPRMNum(this, Native.mkFpaRtz(nCtx()));
+    }        
+
+    /** FloatingPoint Sorts **/
+    
+    /** 
+     * Create a FloatingPoint sort.
+     * @param ebits exponent bits in the FloatingPoint sort.
+     * @param sbits significand bits in the FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPSort mkFPSort(int ebits, int sbits) throws Z3Exception
+    {
+        return new FPSort(this, ebits, sbits);
+    }
+
+    /** 
+     * Create the half-precision (16-bit) FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPSort mkFPSortHalf() throws Z3Exception
+    {
+        return new FPSort(this, Native.mkFpaSortHalf(nCtx()));
+    }
+
+    /** 
+     * Create the half-precision (16-bit) FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPSort mkFPSort16() throws Z3Exception
+    {
+        return new FPSort(this, Native.mkFpaSort16(nCtx()));
+    }
+
+    /** 
+     * Create the single-precision (32-bit) FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPSort mkFPSortSingle() throws Z3Exception
+    {
+        return new FPSort(this, Native.mkFpaSortSingle(nCtx()));
+    }
+
+    /** 
+     * Create the single-precision (32-bit) FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPSort mkFPSort32() throws Z3Exception
+    {
+        return new FPSort(this, Native.mkFpaSort16(nCtx()));
+    }
+
+    /** 
+     * Create the double-precision (64-bit) FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPSort mkFPSortDouble() throws Z3Exception
+    {
+        return new FPSort(this, Native.mkFpaSortDouble(nCtx()));
+    }
+
+    /** 
+     * Create the double-precision (64-bit) FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPSort mkFPSort64() throws Z3Exception
+    {
+        return new FPSort(this, Native.mkFpaSort64(nCtx()));
+    }
+
+    /** 
+     * Create the quadruple-precision (128-bit) FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPSort mkFPSortQuadruple() throws Z3Exception
+    {
+        return new FPSort(this, Native.mkFpaSortQuadruple(nCtx()));
+    }
+
+    /** 
+     * Create the quadruple-precision (128-bit) FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPSort mkFPSort128() throws Z3Exception
+    {
+        return new FPSort(this, Native.mkFpaSort128(nCtx()));
+    }
+    
+    /** FloatingPoint Numerals **/
+    
+    /** 
+     * Create a NaN of sort s.
+     * @throws Z3Exception 
+     * @param s FloatingPoint sort.        
+     **/
+    public FPNum mkFPNaN(FPSort s) throws Z3Exception
+    {
+        return new FPNum(this, Native.mkFpaNan(nCtx(), s.getNativeObject()));
+    }
+
+    /** 
+     * Create a floating-point infinity of sort s.
+     * @throws Z3Exception 
+     * @param s FloatingPoint sort.   
+     * @param negative indicates whether the result should be negative.
+     **/
+    public FPNum mkFPInf(FPSort s, boolean negative) throws Z3Exception
+    {
+        return new FPNum(this, Native.mkFpaInf(nCtx(), s.getNativeObject(), negative));
+    }
+
+    /** 
+     * Create a floating-point zero of sort s.
+     * @throws Z3Exception 
+     * @param s FloatingPoint sort.   
+     * @param negative indicates whether the result should be negative.
+     **/
+    public FPNum mkFPZero(FPSort s, boolean negative) throws Z3Exception
+    {
+        return new FPNum(this, Native.mkFpaZero(nCtx(), s.getNativeObject(), negative));
+    }
+
+    /** 
+     * Create a numeral of FloatingPoint sort from a float.
+     * @throws Z3Exception 
+     * @param v numeral value.
+     * @param s FloatingPoint sort.        
+     **/
+    public FPNum mkFPNumeral(float v, FPSort s) throws Z3Exception
+    {
+        return new FPNum(this, Native.mkFpaNumeralFloat(nCtx(), v, s.getNativeObject()));
+    }
+
+    /** 
+     * Create a numeral of FloatingPoint sort from a float.
+     * @throws Z3Exception 
+     * @param v numeral value.
+     * @param s FloatingPoint sort.
+     **/
+    public FPNum mkFPNumeral(double v, FPSort s) throws Z3Exception
+    {
+        return new FPNum(this, Native.mkFpaNumeralDouble(nCtx(), v, s.getNativeObject()));
+    }
+
+    /** 
+     * Create a numeral of FloatingPoint sort from an int.
+     * @param v numeral value.
+     * @param s FloatingPoint sort.        
+     * @throws Z3Exception 
+     **/
+    public FPNum mkFPNumeral(int v, FPSort s) throws Z3Exception
+    {
+        return new FPNum(this, Native.mkFpaNumeralInt(nCtx(), v, s.getNativeObject()));
+    }
+
+    /** 
+     * Create a numeral of FloatingPoint sort from a sign bit and two integers.
+     * @param sgn the sign.
+     * @param sig the significand.
+     * @param exp the exponent.
+     * @param s FloatingPoint sort.        
+     * @throws Z3Exception 
+     **/
+    public FPNum mkFPNumeral(boolean sgn, int sig, int exp, FPSort s) throws Z3Exception
+    {
+        return new FPNum(this, Native.mkFpaNumeralUintInt(nCtx(), sgn, sig, exp, s.getNativeObject()));
+    }
+
+    /** 
+     * Create a numeral of FloatingPoint sort from a sign bit and two long integers.
+     * @param sgn the sign.
+     * @param sig the significand.
+     * @param exp the exponent.
+     * @param s FloatingPoint sort.        
+     * @throws Z3Exception 
+     **/
+    public FPNum mkFPNumeral(boolean sgn, long sig, long exp, FPSort s) throws Z3Exception
+    {
+        return new FPNum(this, Native.mkFpaNumeralUint64Int64(nCtx(), sgn, sig, exp, s.getNativeObject()));
+    }
+
+    /** 
+     * Create a numeral of FloatingPoint sort from a float.
+     * @param v numeral value.
+     * @param s FloatingPoint sort.        
+     * @throws Z3Exception 
+     **/
+    public FPNum mkFP(float v, FPSort s) throws Z3Exception
+    {
+        return mkFPNumeral(v, s);
+    }
+
+    /** 
+     * Create a numeral of FloatingPoint sort from a float.
+     * @param v numeral value.
+     * @param s FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPNum mkFP(double v, FPSort s) throws Z3Exception
+    {
+        return mkFPNumeral(v, s);
+    }
+
+    /** 
+     * Create a numeral of FloatingPoint sort from an int.
+     * @param v numeral value.
+     * @param s FloatingPoint sort.        
+     * @throws Z3Exception 
+     **/
+    public FPNum mkFP(int v, FPSort s) throws Z3Exception
+    {
+        return mkFPNumeral(v, s);
+    }
+
+    /** 
+     * Create a numeral of FloatingPoint sort from a sign bit and two integers.
+     * @param sgn the sign.
+     * @param sig the significand.
+     * @param exp the exponent.
+     * @param s FloatingPoint sort.        
+     * @throws Z3Exception 
+     **/
+    public FPNum mkFP(boolean sgn, int sig, int exp, FPSort s) throws Z3Exception
+    {
+        return mkFPNumeral(sgn, sig, exp, s);
+    }
+
+    /** 
+     * Create a numeral of FloatingPoint sort from a sign bit and two 64-bit integers.
+     * @param sgn the sign.
+     * @param sig the significand.
+     * @param exp the exponent.
+     * @param s FloatingPoint sort.        
+     * @throws Z3Exception 
+     **/
+    public FPNum mkFP(boolean sgn, long sig, long exp, FPSort s) throws Z3Exception
+    {
+        return mkFPNumeral(sgn, sig, exp, s);
+    }
+
+    /** FloatingPoint Operators **/
+    
+    /** 
+     * Floating-point absolute value
+     * @param t floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPAbs(FPExpr t) throws Z3Exception 
+    {
+        return new FPExpr(this, Native.mkFpaAbs(nCtx(), t.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point negation
+     * @param t floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPNeg(FPExpr t) throws Z3Exception 
+    {
+        return new FPExpr(this, Native.mkFpaNeg(nCtx(), t.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point addition
+     * @param rm rounding mode term
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPAdd(FPRMExpr rm, FPExpr t1, FPExpr t2) throws Z3Exception 
+    {
+        return new FPExpr(this, Native.mkFpaAdd(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point subtraction
+     * @param rm rounding mode term
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPSub(FPRMExpr rm, FPExpr t1, FPExpr t2) throws Z3Exception 
+    {
+        return new FPExpr(this, Native.mkFpaSub(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point multiplication
+     * @param rm rounding mode term
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPMul(FPRMExpr rm, FPExpr t1, FPExpr t2) throws Z3Exception 
+    {
+        return new FPExpr(this, Native.mkFpaMul(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point division
+     * @param rm rounding mode term
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPDiv(FPRMExpr rm, FPExpr t1, FPExpr t2) throws Z3Exception 
+    {
+        return new FPExpr(this, Native.mkFpaDiv(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point fused multiply-add
+     *
+     * Remarks: The result is round((t1 * t2) + t3)
+     * @param rm rounding mode term
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @param t3 floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPFMA(FPRMExpr rm, FPExpr t1, FPExpr t2, FPExpr t3) throws Z3Exception 
+    {
+        return new FPExpr(this, Native.mkFpaFma(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject(), t3.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point square root
+     * @param rm rounding mode term        
+     * @param t floating-point term        
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPSqrt(FPRMExpr rm, FPExpr t) throws Z3Exception 
+    {
+        return new FPExpr(this, Native.mkFpaSqrt(nCtx(), rm.getNativeObject(), t.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point remainder
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPRem(FPExpr t1, FPExpr t2) throws Z3Exception 
+    {
+        return new FPExpr(this, Native.mkFpaRem(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
+    }
 
     /**
-     * Wraps an AST. <remarks>This function is used for transitions between
+     *  Floating-point roundToIntegral. Rounds a floating-point number to 
+     *  the closest integer, again represented as a floating-point number.        
+     *  @param rm term of RoundingMode sort
+     *  @param t2 floating-point term
+     * @throws Z3Exception 
+     */
+    public FPExpr mkFPRoundToIntegral(FPRMExpr rm, FPExpr t) throws Z3Exception
+    {
+        return new FPExpr(this, Native.mkFpaRoundToIntegral(nCtx(), rm.getNativeObject(), t.getNativeObject()));
+    }
+
+    /** 
+     * Minimum of floating-point numbers.
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPMin(FPExpr t1, FPExpr t2) throws Z3Exception
+    {
+        return new FPExpr(this, Native.mkFpaMin(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /** 
+     * Maximum of floating-point numbers.
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPMax(FPExpr t1, FPExpr t2) throws Z3Exception
+    {
+        return new FPExpr(this, Native.mkFpaMax(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
+    }   
+    
+    /** 
+     * Floating-point less than or equal.
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPLEq(FPExpr t1, FPExpr t2) throws Z3Exception 
+    {
+
+        return new BoolExpr(this, Native.mkFpaLeq(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point less than.
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPLt(FPExpr t1, FPExpr t2) throws Z3Exception 
+    {
+
+        return new BoolExpr(this, Native.mkFpaLt(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point greater than or equal.
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPGEq(FPExpr t1, FPExpr t2) throws Z3Exception 
+    {
+
+        return new BoolExpr(this, Native.mkFpaGeq(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point greater than.
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPGt(FPExpr t1, FPExpr t2) throws Z3Exception 
+    {
+
+        return new BoolExpr(this, Native.mkFpaGt(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /** 
+     * Floating-point equality.
+     *
+     * Remarks: Note that this is IEEE 754 equality (as opposed to standard =).
+     * @param t1 floating-point term
+     * @param t2 floating-point term
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPEq(FPExpr t1, FPExpr t2) throws Z3Exception
+    {
+        return new BoolExpr(this, Native.mkFpaEq(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /** 
+     * Predicate indicating whether t is a normal floating-point number.
+     * @param t floating-point term        
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPIsNormal(FPExpr t) throws Z3Exception 
+    {
+
+        return new BoolExpr(this, Native.mkFpaIsNormal(nCtx(), t.getNativeObject()));
+    }
+
+    /** 
+     * Predicate indicating whether t is a subnormal floating-point number.
+     * @param t floating-point term        
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPIsSubnormal(FPExpr t) throws Z3Exception 
+    {
+        return new BoolExpr(this, Native.mkFpaIsSubnormal(nCtx(), t.getNativeObject()));
+    }
+
+    /** 
+     * Predicate indicating whether t is a floating-point number with zero value, i.e., +0 or -0.
+     * @param t floating-point term        
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPIsZero(FPExpr t) throws Z3Exception
+    {
+        return new BoolExpr(this, Native.mkFpaIsZero(nCtx(), t.getNativeObject()));
+    }
+
+    /** 
+     * Predicate indicating whether t is a floating-point number representing +oo or -oo.
+     * @param t floating-point term        
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPIsInfinite(FPExpr t) throws Z3Exception
+    {
+        return new BoolExpr(this, Native.mkFpaIsInfinite(nCtx(), t.getNativeObject()));
+    }
+
+    /** 
+     * Predicate indicating whether t is a NaN.
+     * @param t floating-point term        
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPIsNaN(FPExpr t) throws Z3Exception 
+    {
+        return new BoolExpr(this, Native.mkFpaIsNan(nCtx(), t.getNativeObject()));
+    }
+
+    /** 
+     * Predicate indicating whether t is a negative floating-point number.
+     * @param t floating-point term        
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPIsNegative(FPExpr t) throws Z3Exception
+    {
+        return new BoolExpr(this, Native.mkFpaIsNegative(nCtx(), t.getNativeObject()));
+    }
+
+    /** 
+     * Predicate indicating whether t is a positive floating-point number.
+     * @param t floating-point term        
+     * @throws Z3Exception 
+     **/
+    public BoolExpr mkFPIsPositive(FPExpr t) throws Z3Exception
+    {
+        return new BoolExpr(this, Native.mkFpaIsPositive(nCtx(), t.getNativeObject()));
+    }
+
+    /** Conversions to FloatingPoint terms **/
+    
+    /** 
+     * Create an expression of FloatingPoint sort from three bit-vector expressions.
+     *
+     * Remarks: This is the operator named `fp' in the SMT FP theory definition. 
+     * Note that sgn is required to be a bit-vector of size 1. Significand and exponent 
+     * are required to be greater than 1 and 2 respectively. The FloatingPoint sort 
+     * of the resulting expression is automatically determined from the bit-vector sizes
+     * of the arguments.
+     * @param sgn bit-vector term (of size 1) representing the sign.
+     * @param sig bit-vector term representing the significand.
+     * @param exp bit-vector term representing the exponent.
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFP(BitVecExpr sgn, BitVecExpr sig, BitVecExpr exp) throws Z3Exception
+    {
+        return new FPExpr(this, Native.mkFpaFp(nCtx(), sgn.getNativeObject(), sig.getNativeObject(), exp.getNativeObject()));
+    }
+
+    /** 
+     * Conversion of a single IEEE 754-2008 bit-vector into a floating-point number.
+     *
+     * Remarks: Produces a term that represents the conversion of a bit-vector term bv to a 
+     * floating-point term of sort s. The bit-vector size of bv (m) must be equal 
+     *  to ebits+sbits of s. The format of the bit-vector is as defined by the 
+     * IEEE 754-2008 interchange format.
+     * @param bv bit-vector value (of size m).
+     * @param s FloatingPoint sort (ebits+sbits == m)
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPToFP(BitVecExpr bv, FPSort s) throws Z3Exception
+    {
+        return new FPExpr(this, Native.mkFpaToFpBv(nCtx(), bv.getNativeObject(), s.getNativeObject()));
+    }
+
+    /** 
+     * Conversion of a FloatingPoint term into another term of different FloatingPoint sort.
+     *
+     * Remarks: Produces a term that represents the conversion of a floating-point term t to a
+     * floating-point term of sort s. If necessary, the result will be rounded according
+     *  to rounding mode rm.
+     * @param rm RoundingMode term.
+     * @param t FloatingPoint term.
+     * @param s FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPToFP(FPRMExpr rm, FPExpr t, FPSort s) throws Z3Exception
+    {
+        return new FPExpr(this, Native.mkFpaToFpFloat(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
+    }
+
+    /** 
+     * Conversion of a term of real sort into a term of FloatingPoint sort.
+     *
+     * Remarks: Produces a term that represents the conversion of term t of real sort into a
+     * floating-point term of sort s. If necessary, the result will be rounded according
+     *  to rounding mode rm.
+     * @param rm RoundingMode term.
+     * @param t term of Real sort.
+     * @param s FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPToFP(FPRMExpr rm, RealExpr t, FPSort s) throws Z3Exception
+    {
+        return new FPExpr(this, Native.mkFpaToFpReal(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
+    }
+
+    /** 
+     * Conversion of a 2's complement signed bit-vector term into a term of FloatingPoint sort.
+     *
+     * Remarks: Produces a term that represents the conversion of the bit-vector term t into a
+     * floating-point term of sort s. The bit-vector t is taken to be in signed 
+     *  2's complement format (when signed==true, otherwise unsigned). If necessary, the 
+     * result will be rounded according to rounding mode rm.
+     * @param rm RoundingMode term.
+     * @param t term of bit-vector sort.
+     * @param s FloatingPoint sort.
+     * @param signed flag indicating whether t is interpreted as signed or unsigned bit-vector.
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPToFP(FPRMExpr rm, BitVecExpr t, FPSort s, boolean signed) throws Z3Exception
+    {
+        if (signed)
+            return new FPExpr(this, Native.mkFpaToFpSigned(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
+        else
+            return new FPExpr(this, Native.mkFpaToFpUnsigned(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
+    }
+
+    /** 
+     * Conversion of a floating-point number to another FloatingPoint sort s.
+     *
+     * Remarks: Produces a term that represents the conversion of a floating-point term t to a different
+     * FloatingPoint sort s. If necessary, rounding according to rm is applied. 
+     * @param s FloatingPoint sort
+     * @param rm floating-point rounding mode term
+     * @param t floating-point term
+     * @throws Z3Exception 
+     **/
+    public FPExpr mkFPToFP(FPSort s, FPRMExpr rm, FPExpr t) throws Z3Exception
+    {
+        return new FPExpr(this, Native.mkFpaToFpFloat(nCtx(), s.getNativeObject(), rm.getNativeObject(), t.getNativeObject()));
+    }
+
+    /** Conversions from FloatingPoint terms **/ 
+    
+    /** 
+     * Conversion of a floating-point term into a bit-vector.
+     *
+     * Remarks: Produces a term that represents the conversion of the floating-poiunt term t into a
+     * bit-vector term of size sz in 2's complement format (signed when signed==true). If necessary, 
+     * the result will be rounded according to rounding mode rm.     
+     * @param rm RoundingMode term.
+     * @param t FloatingPoint term
+     * @param sz Size of the resulting bit-vector.
+     * @param signed Indicates whether the result is a signed or unsigned bit-vector.
+     * @throws Z3Exception
+     **/
+    public BitVecExpr mkFPToBV(FPRMExpr rm, FPExpr t, int sz, boolean signed) throws Z3Exception
+    {
+        if (signed)
+            return new BitVecExpr(this, Native.mkFpaToSbv(nCtx(), rm.getNativeObject(), t.getNativeObject(), sz));
+        else
+            return new BitVecExpr(this, Native.mkFpaToUbv(nCtx(), rm.getNativeObject(), t.getNativeObject(), sz));
+    }
+
+    /** 
+     * Conversion of a floating-point term into a real-numbered term.
+     *
+     * Remarks: Produces a term that represents the conversion of the floating-poiunt term t into a
+     * real number. Note that this type of conversion will often result in non-linear 
+     *  constraints over real terms.
+     * @param t FloatingPoint term
+     * @throws Z3Exception 
+     **/
+    public RealExpr mkFPToReal(FPExpr t) throws Z3Exception
+    {
+        return new RealExpr(this, Native.mkFpaToReal(nCtx(), t.getNativeObject()));
+    }
+
+    /** Z3-specific extensions **/
+    
+    /** 
+     * Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format.
+     *
+     * Remarks: The size of the resulting bit-vector is automatically determined. Note that 
+     * IEEE 754-2008 allows multiple different representations of NaN. This conversion 
+     *  knows only one NaN and it will always produce the same bit-vector represenatation of 
+     * that NaN. 
+     * @param t FloatingPoint term.
+     * @throws Z3Exception 
+     **/
+    public BitVecExpr mkFPToIEEEBV(FPExpr t) throws Z3Exception
+    {
+        return new BitVecExpr(this, Native.mkFpaToIeeeBv(nCtx(), t.getNativeObject()));
+    }
+
+    /** 
+     * Conversion of a real-sorted significand and an integer-sorted exponent into a term of FloatingPoint sort.
+     *
+     * Remarks: Produces a term that represents the conversion of sig * 2^exp into a 
+     * floating-point term of sort s. If necessary, the result will be rounded
+     *  according to rounding mode rm.
+     * @param rm RoundingMode term.
+     * @param sig Significand term of Real sort.
+     * @param exp Exponent term of Int sort.
+     * @param s FloatingPoint sort.
+     * @throws Z3Exception 
+     **/
+    public BitVecExpr mkFPToFP(FPRMExpr rm, RealExpr sig, IntExpr exp, FPSort s) throws Z3Exception
+    {
+        return new BitVecExpr(this, Native.mkFpaToFpRealInt(nCtx(), rm.getNativeObject(), sig.getNativeObject(), exp.getNativeObject(), s.getNativeObject()));
+    }
+    
+    /** End Floating-Point Arithmetic **/
+
+    /**
+     * Wraps an AST. 
+     * Remarks: This function is used for transitions between
      * native and managed objects. Note that <paramref name="nativeObject"/>
-     * must be a native object obtained from Z3 (e.g., through <seealso
-     * cref="UnwrapAST"/>) and that it must have a correct reference count (see
-     * e.g., <seealso cref="Native.Z3_inc_ref"/>.</remarks> <seealso
-     * cref="UnwrapAST"/> <param name="nativeObject">The native pointer to
-     * wrap.</param>
+     * must be a native object obtained from Z3 (e.g., through {@code unwrapAST})
+     * and that it must have a correct reference count. 
+     * @see Native.incRef
+     * @see wnwrapAST 
+     * <param name="nativeObject">The native pointer to wrap.</param>
      **/
     public AST wrapAST(long nativeObject) throws Z3Exception
     {
@@ -2868,13 +3658,15 @@ public class Context extends IDisposable
     }
 
     /**
-     * Unwraps an AST. <remarks>This function is used for transitions between
+     * Unwraps an AST.
+     * Remarks: This function is used for transitions between
      * native and managed objects. It returns the native pointer to the AST.
      * Note that AST objects are reference counted and unwrapping an AST
      * disables automatic reference counting, i.e., all references to the IntPtr
-     * that is returned must be handled externally and through native calls (see
-     * e.g., <seealso cref="Native.Z3_inc_ref"/>).</remarks> <seealso
-     * cref="WrapAST"/> <param name="a">The AST to unwrap.</param>
+     * that is returned must be handled externally and through native calls
+     * @see Native.incRef
+     * @see wrapAST
+	 * @param a The AST to unwrap.
      **/
     public long unwrapAST(AST a)
     {

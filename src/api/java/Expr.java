@@ -40,8 +40,8 @@ public class Expr extends AST
 	/**
 	 * Returns a simplified version of the expression 
 	 * A set of
-	 * parameters <param name="p">a Params object</param> to configure the simplifier 
-	 * <seealso cref="Context.SimplifyHelp"/>
+	 * parameters @param p a Params object to configure the simplifier 
+	 * @see Context.SimplifyHelp
 	 **/
 	public Expr simplify(Params p) throws Z3Exception
 	{
@@ -133,7 +133,7 @@ public class Expr extends AST
 
 	/**
 	 * Substitute every occurrence of <code>from</code> in the expression with
-	 * <code>to</code>. <seealso cref="Substitute(Expr[],Expr[])"/>
+	 * <code>to</code>. @see Substitute(Expr[],Expr[])
 	 **/
 	public Expr substitute(Expr from, Expr to) throws Z3Exception
 	{
@@ -157,7 +157,7 @@ public class Expr extends AST
 
 	/**
 	 * Translates (copies) the term to the Context <paramref name="ctx"/>.
-	 * <param name="ctx">A context</param>
+	 * @param ctx A context
 	 * 
 	 * @return A copy of the term which is associated with <paramref
 	 *         name="ctx"/>
@@ -1682,7 +1682,7 @@ public class Expr extends AST
 	 * Indicates whether the term is a relational clone (copy) <remarks> Create
 	 * a fresh copy (clone) of a relation. The function is logically the
 	 * identity, but in the context of a register machine allows for terms of
-	 * kind <seealso cref="IsRelationUnion"/> to perform destructive updates to
+	 * kind @see IsRelationUnion to perform destructive updates to
 	 * the first argument. </remarks>
 	 **/
 	public boolean isRelationClone() throws Z3Exception

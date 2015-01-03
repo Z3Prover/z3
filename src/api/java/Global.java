@@ -50,7 +50,7 @@ public final class Global
     /**
      * Get a global (or module) parameter.     
      * <remarks>               
-     * Returns null if the parameter <param name="id">parameter id</param> does not exist.     
+     * Returns null if the parameter @param id parameter id does not exist.     
      * This function cannot be invoked simultaneously from different threads without synchronization.
      * The result string stored in param_value is stored in a shared location.
      * </remarks>
@@ -69,7 +69,7 @@ public final class Global
      * <remarks>
      * This command will not affect already created objects (such as tactics and solvers)
      * </remarks>
-     * <seealso cref="SetParameter"/>
+     * @see SetParameter
      **/
     public static void resetParameters()
     {

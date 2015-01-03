@@ -33,7 +33,7 @@ class ASTVector extends Z3Object
     /**
      * Retrieves the i-th object in the vector. <remarks>May throw an
      * IndexOutOfBoundsException when <paramref name="i"/> is out of
-     * range.</remarks> <param name="i">Index</param>
+     * range.</remarks> @param i Index
      * 
      * @return An AST
      * @throws Z3Exception
@@ -62,7 +62,7 @@ class ASTVector extends Z3Object
 
     /**
      * Add the AST <paramref name="a"/> to the back of the vector. The size is
-     * increased by 1. <param name="a">An AST</param>
+     * increased by 1. @param a An AST
      **/
     public void push(AST a) throws Z3Exception
     {

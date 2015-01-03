@@ -28,7 +28,7 @@ public class AST extends Z3Object
 
     /**
      * Object comparison.
-     * <param name="o">another AST</param>
+     * @param o another AST
      **/    
     public boolean equals(Object o)
     {
@@ -46,7 +46,7 @@ public class AST extends Z3Object
     }
 
     /**
-     * Object Comparison. <param name="other">Another AST</param>
+     * Object Comparison. @param other Another AST
      * 
      * @return Negative if the object should be sorted before <paramref
      *         name="other"/>, positive if after else zero.
