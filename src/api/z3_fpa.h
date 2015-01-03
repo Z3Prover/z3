@@ -821,18 +821,18 @@ extern "C" {
 
         \param s FloatingPoint sort.
 
-        def_API('Z3_mk_fpa_get_ebits', UINT, (_in(CONTEXT),_in(SORT)))
+        def_API('Z3_fpa_get_ebits', UINT, (_in(CONTEXT),_in(SORT)))
     */
-    unsigned Z3_API Z3_mk_fpa_get_ebits(__in Z3_context c, __in Z3_sort s);
+    unsigned Z3_API Z3_fpa_get_ebits(__in Z3_context c, __in Z3_sort s);
 
     /**
         \brief Retrieves the number of bits reserved for the significand in a FloatingPoint sort.
 
         \param s FloatingPoint sort.
 
-        def_API('Z3_mk_fpa_get_sbits', UINT, (_in(CONTEXT),_in(SORT)))
+        def_API('Z3_fpa_get_sbits', UINT, (_in(CONTEXT),_in(SORT)))
     */
-    unsigned Z3_API Z3_mk_fpa_get_sbits(__in Z3_context c, __in Z3_sort s);
+    unsigned Z3_API Z3_fpa_get_sbits(__in Z3_context c, __in Z3_sort s);
 
     /**
         \brief Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format.
