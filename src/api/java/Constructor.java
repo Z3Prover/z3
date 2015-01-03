@@ -25,6 +25,8 @@ public class Constructor extends Z3Object
 	/**
 	 * The number of fields of the constructor.
 	 * @throws Z3Exception 
+	 * @throws Z3Exception on error
+	 * @return an int
 	 **/
 	public int getNumFields() throws Z3Exception
 	{	
@@ -34,6 +36,7 @@ public class Constructor extends Z3Object
 	/**
 	 * The function declaration of the constructor.
 	 * @throws Z3Exception 
+	 * @throws Z3Exception on error
 	 **/
 	public FuncDecl ConstructorDecl() throws Z3Exception
 	{
@@ -47,6 +50,7 @@ public class Constructor extends Z3Object
 	/**
 	 * The function declaration of the tester.
 	 * @throws Z3Exception 
+	 * @throws Z3Exception on error
 	 **/
 	public FuncDecl getTesterDecl() throws Z3Exception
 	{
@@ -60,6 +64,7 @@ public class Constructor extends Z3Object
 	/**
 	 * The function declarations of the accessors
 	 * @throws Z3Exception 
+	 * @throws Z3Exception on error
 	 **/
 	public FuncDecl[] getAccessorDecls() throws Z3Exception
 	{
@@ -75,6 +80,7 @@ public class Constructor extends Z3Object
 
 	/**
 	 * Destructor.
+	 * @throws Z3Exception on error
 	 **/
 	protected void finalize() throws Z3Exception
 	{

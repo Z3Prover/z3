@@ -23,7 +23,7 @@ package com.microsoft.z3;
 public class ArithExpr extends Expr
 {
 	/**
-	 * Constructor for ArithExpr </summary>
+	 * Constructor for ArithExpr
 	 **/
 	protected ArithExpr(Context ctx)
 	{

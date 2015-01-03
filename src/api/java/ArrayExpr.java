@@ -24,7 +24,7 @@ package com.microsoft.z3;
 public class ArrayExpr extends Expr
 {
 	/**
-	 * Constructor for ArrayExpr </summary>
+	 * Constructor for ArrayExpr
 	 **/
 	protected ArrayExpr(Context ctx)
 	{

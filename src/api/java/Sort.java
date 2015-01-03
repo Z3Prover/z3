@@ -28,8 +28,8 @@ public class Sort extends AST
     /* Overloaded operators are not translated. */
 
     /**
-     * Equality operator for objects of type Sort. <param name="o"/>
-     * 
+     * Equality operator for objects of type Sort. 
+	 * @param o
      * @return
      **/
     public boolean equals(Object o)
