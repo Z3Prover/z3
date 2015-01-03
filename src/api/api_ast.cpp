@@ -1076,7 +1076,6 @@ extern "C" {
             case OP_BSREM_I:
             case OP_BUREM_I:
             case OP_BSMOD_I:
-
                 return Z3_OP_UNINTERPRETED;
             default:
                 UNREACHABLE();
@@ -1085,9 +1084,10 @@ extern "C" {
         }
         if (mk_c(c)->get_dt_fid() == _d->get_family_id()) {
             switch(_d->get_decl_kind()) {
-            case OP_DT_CONSTRUCTOR: return Z3_OP_DT_CONSTRUCTOR;
-            case OP_DT_RECOGNISER:  return Z3_OP_DT_RECOGNISER;
-            case OP_DT_ACCESSOR:    return Z3_OP_DT_ACCESSOR;
+            case OP_DT_CONSTRUCTOR:  return Z3_OP_DT_CONSTRUCTOR;
+            case OP_DT_RECOGNISER:   return Z3_OP_DT_RECOGNISER;
+            case OP_DT_ACCESSOR:     return Z3_OP_DT_ACCESSOR;
+            case OP_DT_UPDATE_FIELD: return Z3_OP_DT_UPDATE_FIELD;
             default:
                 UNREACHABLE();
                 return Z3_OP_UNINTERPRETED;
