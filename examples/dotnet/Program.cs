@@ -2028,53 +2028,81 @@ namespace test_mapi
             // Console.WriteLine("{0}", ctx.MkEq(s1, t1));	    
         }
 
-        public static void FloatingPointExample(Context ctx)
+        public static void FloatingPointExample1(Context ctx)
         {
-            Console.WriteLine("FloatingPointExample");
+            Console.WriteLine("FloatingPointExample1");
 
             FPSort s = ctx.MkFPSort(11, 53);
             Console.WriteLine("Sort: {0}", s);
 
-            FPNum x = (FPNum)ctx.MkNumeral("-1e1", s);
-            Console.WriteLine("Numeral: {0}", x.ToString());
-
-            FPNum y = (FPNum)ctx.MkNumeral("-10", s);
-            Console.WriteLine("Numeral: {0}", y.ToString());
-
-            FPNum z = (FPNum)ctx.MkNumeral("-1.25p3", s);
-            Console.WriteLine("Numeral: {0}", z.ToString());
+            FPNum x = (FPNum)ctx.MkNumeral("-1e1", s); /* -1 * 10^1 = -10 */
+            FPNum y = (FPNum)ctx.MkNumeral("-10", s); /* -10 */
+            FPNum z = (FPNum)ctx.MkNumeral("-1.25p3", s); /* -1.25 * 2^3 = -1.25 * 8 = -10 */
+            Console.WriteLine("x={0}; y={1}; z={2}", x.ToString(), y.ToString(), z.ToString());
 
             BoolExpr a = ctx.MkAnd(ctx.MkFPEq(x, y), ctx.MkFPEq(y, z));
-
             Check(ctx, ctx.MkNot(a), Status.UNSATISFIABLE);
 
-            x = ctx.MkFPNaN(s);
-            FPExpr c = (FPExpr)ctx.MkConst("y", s);
+            /* nothing is equal to NaN according to floating-point 
+             * equality, so NaN == k should be unsatisfiable. */
+            FPExpr k = (FPExpr)ctx.MkConst("x", s);
+            FPExpr nan = ctx.MkFPNaN(s);
 
-            // Note: We need to use a special solver for QF_FPA here; the 
-            // general solver does not support FPA yet.
-
-            Solver slvr = ctx.MkSolver("QF_FPA");
-            slvr.Add(ctx.MkFPEq(x, c));
-            if (slvr.Check() != Status.UNSATISFIABLE) // nothing is equal to NaN according to floating-point equality.
-                throw new TestFailedException();
-
-            slvr = ctx.MkSolver("QF_FPA");
-            slvr.Add(ctx.MkEq(x, c)); // NaN is equal to NaN according to normal equality.
-            if (slvr.Check() != Status.SATISFIABLE)
-                throw new TestFailedException();
-
-
-            x = (FPNum)ctx.MkNumeral("-1e1", s);
-            y = (FPNum)ctx.MkNumeral("-10", s);
-            FPExpr q = (FPExpr)ctx.MkConst("q", s);
-            FPNum mh = (FPNum)ctx.MkNumeral("100", s);
-            slvr = ctx.MkSolver("QF_FPA");
-            // Let's prove -1e1 * -10 == +100
-            slvr.Add(ctx.MkEq(ctx.MkFPMul(ctx.MkFPRMNearestTiesToAway(), x, y), q));
-            slvr.Add(ctx.MkNot(ctx.MkFPEq(q, mh)));
+            /* solver that runs the default tactic for QF_FP. */
+            Solver slvr = ctx.MkSolver("QF_FP");
+            slvr.Add(ctx.MkFPEq(nan, k));
             if (slvr.Check() != Status.UNSATISFIABLE)
                 throw new TestFailedException();
+            Console.WriteLine("OK, unsat:" + Environment.NewLine + slvr);
+
+            /* NaN is equal to NaN according to normal equality. */
+            slvr = ctx.MkSolver("QF_FP");
+            slvr.Add(ctx.MkEq(nan, nan));
+            if (slvr.Check() != Status.SATISFIABLE)
+                throw new TestFailedException();
+            Console.WriteLine("OK, sat:" + Environment.NewLine + slvr);
+
+            /* Let's prove -1e1 * -1.25e3 == +100 */
+            x = (FPNum)ctx.MkNumeral("-1e1", s);
+            y = (FPNum)ctx.MkNumeral("-1.25p3", s);
+            FPExpr x_plus_y = (FPExpr)ctx.MkConst("x_plus_y", s);
+            FPNum r = (FPNum)ctx.MkNumeral("100", s);
+            slvr = ctx.MkSolver("QF_FP");
+
+            slvr.Add(ctx.MkEq(x_plus_y, ctx.MkFPMul(ctx.MkFPRoundNearestTiesToAway(), x, y)));
+            slvr.Add(ctx.MkNot(ctx.MkFPEq(x_plus_y, r)));
+            if (slvr.Check() != Status.UNSATISFIABLE)
+                throw new TestFailedException();
+            Console.WriteLine("OK, unsat:" + Environment.NewLine + slvr);
+        }
+
+        public static void FloatingPointExample2(Context ctx)
+        {
+            Console.WriteLine("FloatingPointExample2");
+            FPSort double_sort = ctx.MkFPSort(11, 53);
+            FPRMSort rm_sort = ctx.MkFPRoundingModeSort();
+
+            FPRMExpr rm = (FPRMExpr)ctx.MkConst(ctx.MkSymbol("rm"), rm_sort);
+            BitVecExpr x = (BitVecExpr)ctx.MkConst(ctx.MkSymbol("x"), ctx.MkBitVecSort(64));
+            FPExpr y = (FPExpr)ctx.MkConst(ctx.MkSymbol("y"), double_sort);
+            RealExpr real_val = ctx.MkReal(42);
+            BitVecExpr bv_val = ctx.MkBV(42, 64);
+            FPExpr fp_val = ctx.MkFP(42, double_sort);
+
+            BoolExpr c1 = ctx.MkEq(x, ctx.MkFPToIEEEBV(fp_val));
+            BoolExpr c2 = ctx.MkEq(x, ctx.MkBV(42, 64));
+            BoolExpr c3 = ctx.MkEq(fp_val, ctx.MkFPToFP(rm, real_val, double_sort));
+            BoolExpr c4 = ctx.MkAnd(c1, c2);
+            Console.WriteLine("c3 = " + c3);
+
+            /* Generic solver */
+            Solver s = ctx.MkSolver();
+            s.Assert(c3);
+
+            if (s.Check() != Status.SATISFIABLE)
+                throw new TestFailedException();
+
+            Console.WriteLine("OK, model: ", s.Model.ToString());
         }
 
         static void Main(string[] args)
@@ -2118,7 +2146,8 @@ namespace test_mapi
                     FindSmallModelExample(ctx);
                     SimplifierExample(ctx);
                     FiniteDomainExample(ctx);
-                    FloatingPointExample(ctx);
+                    FloatingPointExample1(ctx);
+                    FloatingPointExample2(ctx);
                 }
 
                 // These examples need proof generation turned on.

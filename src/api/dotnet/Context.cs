@@ -3895,7 +3895,7 @@ namespace Microsoft.Z3
         /// the closest integer, again represented as a floating-point number.
         /// </summary>        
         /// <param name="rm">term of RoundingMode sort</param>
-        /// <param name="t2">floating-point term</param>
+        /// <param name="t">floating-point term</param>
         public FPExpr MkFPRoundToIntegral(FPRMExpr rm, FPExpr t)
         {            
             Contract.Ensures(Contract.Result<FPNum>() != null);
