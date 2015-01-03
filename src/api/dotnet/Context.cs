@@ -449,6 +449,19 @@ namespace Microsoft.Z3
             return MkDatatypeSorts(MkSymbols(names), c);
         }
 
+        /// <summary>
+        /// Update a datatype field at expression t with value v.
+	/// The function performs a record update at t. The field
+	/// that is passed in as argument is updated with value v,
+	/// the remainig fields of t are unchanged.	
+        /// </summary>
+	public Expr MkUpdateField(FuncDecl field, Expr t, Expr v) 
+	{
+	    return Expr.Create(this, Native.Z3_datatype_update_field(
+	                                  nCtx, field.NativeObject,
+                                          t.NativeObject, v.NativeObject));		
+	}
+
         #endregion
         #endregion
 

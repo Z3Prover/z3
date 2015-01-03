@@ -877,6 +877,8 @@ typedef enum
 
       - Z3_OP_DT_ACCESSOR: datatype accessor.
 
+      - Z3_OP_DT_UPDATE_FIELD: datatype field update.
+
       - Z3_OP_PB_AT_MOST: Cardinality constraint. 
               E.g., x + y + z <= 2
       
@@ -1066,6 +1068,7 @@ typedef enum {
     Z3_OP_DT_CONSTRUCTOR=0x800,
     Z3_OP_DT_RECOGNISER,
     Z3_OP_DT_ACCESSOR,
+    Z3_OP_DT_UPDATE_FIELD,
 
     // Pseudo Booleans
     Z3_OP_PB_AT_MOST=0x900,
@@ -3751,6 +3754,28 @@ END_MLAPI_EXCLUDE
     Z3_func_decl Z3_API Z3_get_datatype_sort_constructor_accessor(
         __in Z3_context c, __in Z3_sort t, unsigned idx_c, unsigned idx_a);
 
+    /**
+       \brief Update record field with a value.
+
+       This corresponds to the 'with' construct in OCaml. 
+       It has the effect of updating a record field with a given value.
+       The remaining fields are left unchanged. It is the record
+       equivalent of an array store (see \sa Z3_mk_store).
+       If the datatype has more than one constructor, then the update function
+       behaves as identity if there is a miss-match between the accessor and
+       constructor. For example ((_ update-field car) nil 1) is nil, 
+       while ((_ update-field car) (cons 2 nil) 1) is (cons 1 nil).
+
+
+       \pre Z3_get_sort_kind(Z3_get_sort(c, t)) == Z3_get_domain(c, field_access, 1) == Z3_DATATYPE_SORT
+       \pre Z3_get_sort(c, value) == Z3_get_range(c, field_access)
+
+
+       def_API('Z3_datatype_update_field', AST, (_in(CONTEXT), _in(FUNC_DECL), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_datatype_update_field(
+        __in Z3_context c,  __in Z3_func_decl field_access, 
+        __in Z3_ast t, __in Z3_ast value);
 
     /**
         \brief Return arity of relation.

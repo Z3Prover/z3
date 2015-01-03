@@ -41,7 +41,7 @@ namespace smt {
 
         struct stats {
             unsigned   m_occurs_check, m_splits;
-            unsigned   m_assert_cnstr, m_assert_accessor;
+            unsigned   m_assert_cnstr, m_assert_accessor, m_assert_update_field;
             void reset() { memset(this, 0, sizeof(stats)); }
             stats() { reset(); }
         };
@@ -58,14 +58,17 @@ namespace smt {
         bool is_constructor(app * f) const { return m_util.is_constructor(f); }
         bool is_recognizer(app * f) const { return m_util.is_recognizer(f); }
         bool is_accessor(app * f) const { return m_util.is_accessor(f); }
-        
+        bool is_update_field(app * f) const { return m_util.is_update_field(f); }
+
         bool is_constructor(enode * n) const { return is_constructor(n->get_owner()); }
         bool is_recognizer(enode * n) const { return is_recognizer(n->get_owner()); }
         bool is_accessor(enode * n) const { return is_accessor(n->get_owner()); }
+        bool is_update_field(enode * n) const { return m_util.is_update_field(n->get_owner()); }
 
         void assert_eq_axiom(enode * lhs, expr * rhs, literal antecedent);
         void assert_is_constructor_axiom(enode * n, func_decl * c, literal antecedent);
         void assert_accessor_axioms(enode * n);
+        void assert_update_field_axioms(enode * n);
         void add_recognizer(theory_var v, enode * recognizer);
         void propagate_recognizer(theory_var v, enode * r);
         void sign_recognizer_conflict(enode * c, enode * r);
