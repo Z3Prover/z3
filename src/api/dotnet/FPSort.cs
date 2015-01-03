@@ -29,12 +29,12 @@ namespace Microsoft.Z3
         /// <summary>
         /// The number of exponent bits.
         /// </summary>
-        public uint EBits { get { return Native.Z3_mk_fpa_get_ebits(Context.nCtx, NativeObject); } }
+        public uint EBits { get { return Native.Z3_fpa_get_ebits(Context.nCtx, NativeObject); } }
 
         /// <summary>
         /// The number of significand bits.
         /// </summary>
-        public uint SBits { get { return Native.Z3_mk_fpa_get_ebits(Context.nCtx, NativeObject); } }
+        public uint SBits { get { return Native.Z3_fpa_get_sbits(Context.nCtx, NativeObject); } }
 
         #region Internal
         internal FPSort(Context ctx, IntPtr obj)
