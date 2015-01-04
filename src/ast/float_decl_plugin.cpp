@@ -581,20 +581,21 @@ func_decl * float_decl_plugin::mk_to_sbv(decl_kind k, unsigned num_parameters, p
     SASSERT(m_bv_plugin);
     if (arity != 2)
         m_manager->raise_exception("invalid number of arguments to fp.to_sbv");
-    if (parameters[0].is_int())
-        m_manager->raise_exception("invalid parameter type; fp.to_sbv expects an int parameter");
     if (num_parameters != 1)
         m_manager->raise_exception("invalid number of parameters to fp.to_sbv");
-    if (is_rm_sort(domain[0]))
+    if (!parameters[0].is_int())
+        m_manager->raise_exception("invalid parameter type; fp.to_sbv expects an int parameter");
+    if (!is_rm_sort(domain[0]))
         m_manager->raise_exception("sort mismatch, expected first argument of RoundingMode sort");
     if (!is_sort_of(domain[1], m_family_id, FLOAT_SORT))
         m_manager->raise_exception("sort mismatch, expected second argument of FloatingPoint sort");
     if (parameters[0].get_int() <= 0)
-        m_manager->raise_exception("invalid parameter value; fp.to_ubv expects a parameter larger than 0");
+        m_manager->raise_exception("invalid parameter value; fp.to_sbv expects a parameter larger than 0");
 
     symbol name("fp.to_sbv");
     sort * bvs = m_bv_plugin->mk_sort(BV_SORT, 1, parameters);
     return m_manager->mk_func_decl(name, arity, domain, bvs, func_decl_info(m_family_id, k, num_parameters, parameters));
+
 }
 
 func_decl * float_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -674,11 +675,10 @@ func_decl * float_decl_plugin::mk_internal_to_sbv_unspecified(
     unsigned arity, sort * const * domain, sort * range) {
     if (arity != 0)
         m_manager->raise_exception("invalid number of arguments to internal_to_sbv_unspecified");
-    if (!is_sort_of(domain[0], m_bv_fid, BV_SORT))
-        m_manager->raise_exception("sort mismatch, expected argument of bitvector sort");
-    if (!is_sort_of(range, m_bv_fid, BV_SORT))
-        m_manager->raise_exception("sort mismatch, expected range of FloatingPoint sort");
-
+    if (num_parameters != 1)
+        m_manager->raise_exception("invalid number of parameters to fp.to_sbv_unspecified; expecting 1");
+    if (!parameters[0].is_int())
+        m_manager->raise_exception("invalid parameters type provided to fp.to_sbv_unspecified; expecting an integer");
     sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, parameters);
     return m_manager->mk_func_decl(symbol("fp.to_sbv_unspecified"), 0, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
