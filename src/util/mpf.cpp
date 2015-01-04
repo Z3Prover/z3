@@ -196,13 +196,17 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
     else {
         o.ebits = ebits;
         o.sbits = sbits;
-        o.sign = m_mpq_manager.is_neg(value);
-
+        o.sign = m_mpq_manager.is_neg(value);        
+        
+        scoped_mpq x(m_mpq_manager);
+        m_mpq_manager.set(x, value);
+        m_mpq_manager.abs(x);
+            
         m_mpz_manager.set(o.significand, 0);
         const mpz & p = m_powers2(sbits+3);
                         
         scoped_mpq v(m_mpq_manager);
-        m_mpq_manager.set(v, value);        
+        m_mpq_manager.set(v, x);
         o.exponent = 0;
 
         // Normalize
