@@ -225,6 +225,13 @@ struct z3_replayer::imp {
         return curr() == '-' || curr() == '.' || ('0' <= curr() && curr() <= '9') || curr() == 'e' || curr() == 'E'; 
     }
 
+#if (!defined(strtof))
+    float strtof(const char * str, char ** end_ptr) {
+        // Note: This may introduce a double-rounding problem.
+        return (float)strtod(str, end_ptr);
+    }
+#endif
+
     void read_float() {
         m_string.reset();
         while (is_double_char()) {

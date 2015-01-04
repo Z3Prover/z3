@@ -146,7 +146,6 @@ void fpa2bv_converter::mk_const(func_decl * f, expr_ref & result) {
         app_ref bv(m);
         unsigned bv_sz = 1 + ebits + (sbits - 1);
         bv = mk_fresh_const(0, bv_sz);
-        m_fresh_bv_variables.insert(bv);
 
         sgn = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv);
         e = m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv);
