@@ -928,7 +928,7 @@ namespace smt {
 
     */
     template<typename Ext>
-    bool theory_arith<Ext>::is_safe_to_leave(theory_var x, bool& has_int, bool& shared) {
+    bool theory_arith<Ext>::is_safe_to_leave(theory_var x, bool inc, bool& has_int, bool& shared) {
         
         context& ctx = get_context();
         shared |= ctx.is_shared(get_enode(x));
@@ -936,6 +936,8 @@ namespace smt {
         typename svector<col_entry>::iterator it  = c.begin_entries();
         typename svector<col_entry>::iterator end = c.end_entries();
         has_int = false;
+        bool unbounded = (inc && !upper(x)) || (!inc && !lower(x));
+        bool was_unsafe = false;
         for (; it != end; ++it) {
             if (it->is_dead()) continue;
             row const & r = m_rows[it->m_row_id];
@@ -944,19 +946,22 @@ namespace smt {
             if (s != null_theory_var && is_int(s)) has_int = true;
             bool is_unsafe = (s != null_theory_var && is_int(s) && !coeff.is_int());                
             shared |= (s != null_theory_var && ctx.is_shared(get_enode(s)));
+            was_unsafe |= is_unsafe;
+            bool inc_s = coeff.is_neg() ? inc : !inc;
+            unbounded &= !get_bound(s, inc_s);
             TRACE("opt", tout << "is v" << x << " safe to leave for v" << s 
-                  << "? " << (is_unsafe?"no":"yes") << " " << (has_int?"int":"real") << "\n";
+                  << "? " << (is_unsafe?"no":"yes") << " " << (has_int?"int":"real") << " " << (unbounded?"unbounded":"bounded") << "\n";
                   display_row(tout, r, true););
-            if (is_unsafe) return false;            
+            if (was_unsafe && !unbounded) return false;
         }
 
-        return true;
+        return !was_unsafe || unbounded;
     }
 
     template<typename Ext>
-        theory_var theory_arith<Ext>::pick_var_to_leave(
-            bool has_int, theory_var x_j, bool inc, 
-            numeral & a_ij, inf_numeral & gain, bool& skipped_row) {
+    theory_var theory_arith<Ext>::pick_var_to_leave(
+        bool has_int, theory_var x_j, bool inc, 
+        numeral & a_ij, inf_numeral & gain, bool& skipped_row) {
         TRACE("opt", tout << "selecting variable to replace v" << x_j << ", inc: " << inc << "\n";);
         theory_var x_i  = null_theory_var;
         inf_numeral curr_gain; 
@@ -1335,7 +1340,7 @@ namespace smt {
                     bool has_int = false;
                     if ((curr_inc && at_upper(curr_x_j)) || (!curr_inc && at_lower(curr_x_j)))
                         continue; // variable cannot be used for max/min.
-                    if (!is_safe_to_leave(curr_x_j, has_int, has_shared)) {
+                    if (!is_safe_to_leave(curr_x_j, curr_inc, has_int, has_shared)) {
                         skipped_row = true;
                         continue;
                     }
