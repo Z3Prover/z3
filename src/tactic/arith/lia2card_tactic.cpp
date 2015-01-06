@@ -89,7 +89,11 @@ public:
         
         for (unsigned i = 0; i < g->size(); i++) {
             expr * curr = g->form(i);
-            sub(curr, new_curr);                
+            sub(curr, new_curr);     
+            if (m.proofs_enabled()) {
+                new_pr = m.mk_rewrite(curr, new_curr);
+                new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
+            }
             g->update(i, new_curr, new_pr, g->dep(i));
         }
         g->inc_depth();

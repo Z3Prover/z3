@@ -487,11 +487,17 @@ public:
                 
         unsigned size = g->size();
         expr_ref new_f1(m), new_f2(m);
+        proof_ref new_pr1(m), new_pr2(m);
         for (unsigned idx = 0; idx < size; idx++) {
-            m_rw1(g->form(idx), new_f1);
+            m_rw1(g->form(idx), new_f1, new_pr1);
             TRACE("card2bv", tout << "Rewriting " << mk_ismt2_pp(new_f1.get(), m) << std::endl;);
             m_rw2.rewrite(new_f1, new_f2);
-            g->update(idx, new_f2, g->pr(idx), g->dep(idx));
+            if (m.proofs_enabled()) {
+                new_pr1  = m.mk_modus_ponens(g->pr(idx), new_pr1);
+                new_pr2  = m.mk_rewrite(new_f1, new_f2);
+                new_pr1  = m.mk_modus_ponens(new_pr1, new_pr2);
+            }
+            g->update(idx, new_f2, new_pr1, g->dep(idx));
         }
         for (unsigned i = 0; i < m_rw2.lemmas().size(); ++i) {
             g->assert_expr(m_rw2.lemmas()[i].get());
