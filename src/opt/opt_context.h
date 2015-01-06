@@ -213,6 +213,7 @@ namespace opt {
         void to_fmls(expr_ref_vector& fmls);
         void from_fmls(expr_ref_vector const& fmls);
         void simplify_fmls(expr_ref_vector& fmls);
+        void mk_atomic(expr_ref_vector& terms);
 
         void update_lower() { update_bound(true); }
         void update_bound(bool is_lower);
@@ -223,6 +224,9 @@ namespace opt {
 
         struct is_bv;
         bool probe_bv();
+
+        struct is_propositional_fn;
+        bool is_propositional(expr* e);
 
         void    init_solver();
         void    update_solver();

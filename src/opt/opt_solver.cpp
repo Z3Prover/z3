@@ -82,6 +82,7 @@ namespace opt {
     }
 
     void opt_solver::set_logic(symbol const& logic) {
+        m_logic = logic;
         m_context.set_logic(logic);
     }
 

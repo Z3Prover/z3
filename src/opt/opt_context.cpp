@@ -39,6 +39,7 @@ Notes:
 #include "bv_decl_plugin.h"
 #include "pb_decl_plugin.h"
 #include "ast_smt_pp.h"
+#include "filter_model_converter.h"
 
 namespace opt {
 
@@ -533,6 +534,38 @@ namespace opt {
         return true;
     }
 
+    struct context::is_propositional_fn {
+        struct found {};
+        ast_manager& m;
+        is_propositional_fn(ast_manager& m): m(m) {}
+        void operator()(var *) { throw found(); }
+        void operator()(quantifier *) { throw found(); }
+        void operator()(app *n) {
+            family_id fid = n->get_family_id();
+            if (fid != m.get_basic_family_id() &&
+                !is_uninterp_const(n)) {
+                throw found();
+            }
+        }        
+    };
+
+    bool context::is_propositional(expr* p) {
+        expr* np;
+        if (is_uninterp_const(p) || (m.is_not(p, np) && is_uninterp_const(np))) {
+            return true;
+        }
+        is_propositional_fn proc(m);
+        expr_fast_mark1 visited;
+        try {
+            quick_for_each_expr(proc, visited, p);
+        }
+        catch (is_propositional_fn::found) {
+            return false;
+        }
+        return true;
+    }
+
+
     void context::add_maxsmt(symbol const& id) {
         maxsmt* ms = alloc(maxsmt, *this);
         ms->updt_params(m_params);
@@ -778,6 +811,7 @@ namespace opt {
                     SASSERT(!m_maxsmts.contains(id));
                     add_maxsmt(id);
                 }
+                mk_atomic(terms);
                 SASSERT(obj.m_id == id);
                 obj.m_terms.reset();
                 obj.m_terms.append(terms);
@@ -796,6 +830,33 @@ namespace opt {
             else {
                 m_hard_constraints.push_back(fml);
             }
+        }
+    }
+
+    /**
+       To select the proper theory solver we have to ensure that all theory 
+       symbols from soft constraints are reflected in the hard constraints.
+
+       - filter "obj" from generated model.
+     */
+    void context::mk_atomic(expr_ref_vector& terms) {
+        ref<filter_model_converter> fm;
+        for (unsigned i = 0; i < terms.size(); ++i) {
+            expr_ref p(terms[i].get(), m);
+            app_ref q(m);
+            if (is_propositional(p)) {
+                terms[i] = p;
+            }
+            else {
+                q = m.mk_fresh_const("obj", m.mk_bool_sort()); 
+                terms[i] = q;
+                m_hard_constraints.push_back(m.mk_iff(p, q));
+                if (!fm) fm = alloc(filter_model_converter, m);
+                fm->insert(q->get_decl());
+            }
+        }
+        if (fm) {
+            m_model_converter = concat(m_model_converter.get(), fm.get());
         }
     }
 
