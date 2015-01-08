@@ -41,7 +41,7 @@ enum fpa_op_kind {
     OP_FPA_RM_TOWARD_NEGATIVE,
     OP_FPA_RM_TOWARD_ZERO,
 
-    OP_FPA_VALUE,
+    OP_FPA_NUM,
     OP_FPA_PLUS_INF,
     OP_FPA_MINUS_INF,
     OP_FPA_NAN,
@@ -189,12 +189,12 @@ public:
     virtual bool is_unique_value(app* e) const;
     
     mpf_manager & fm() { return m_fm; }
-    func_decl * mk_value_decl(mpf const & v);
-    app * mk_value(mpf const & v);
-    bool is_value(expr * n) { return is_app_of(n, m_family_id, OP_FPA_VALUE); }
-    bool is_value(expr * n, mpf & val);
-    bool is_rm_value(expr * n, mpf_rounding_mode & val);
-    bool is_rm_value(expr * n) { mpf_rounding_mode t; return is_rm_value(n, t); }
+    func_decl * mk_numeral_decl(mpf const & v);
+    app * mk_numeral(mpf const & v);
+    bool is_numeral(expr * n) { return is_app_of(n, m_family_id, OP_FPA_NUM); }
+    bool is_numeral(expr * n, mpf & val);
+    bool is_rm_numeral(expr * n, mpf_rounding_mode & val);
+    bool is_rm_numeral(expr * n) { mpf_rounding_mode t; return is_rm_numeral(n, t); }
 
     mpf const & get_value(unsigned id) const { 
         SASSERT(m_value_table.contains(id));
@@ -244,23 +244,23 @@ public:
     app * mk_pinf(sort * s) { return mk_pinf(get_ebits(s), get_sbits(s)); }
     app * mk_ninf(sort * s) { return mk_ninf(get_ebits(s), get_sbits(s)); }
 
-    app * mk_value(mpf const & v) { return m_plugin->mk_value(v); }
-    bool is_value(expr * n) { return m_plugin->is_value(n); }
-    bool is_value(expr * n, mpf & v) { return m_plugin->is_value(n, v); }
-    bool is_rm_value(expr * n) { return m_plugin->is_rm_value(n); }
-    bool is_rm_value(expr * n, mpf_rounding_mode & v) { return m_plugin->is_rm_value(n, v); }
+    app * mk_value(mpf const & v) { return m_plugin->mk_numeral(v); }
+    bool is_numeral(expr * n) { return m_plugin->is_numeral(n); }
+    bool is_numeral(expr * n, mpf & v) { return m_plugin->is_numeral(n, v); }
+    bool is_rm_numeral(expr * n) { return m_plugin->is_rm_numeral(n); }
+    bool is_rm_numeral(expr * n, mpf_rounding_mode & v) { return m_plugin->is_rm_numeral(n, v); }
 
     app * mk_pzero(unsigned ebits, unsigned sbits);
     app * mk_nzero(unsigned ebits, unsigned sbits);
     app * mk_pzero(sort * s) { return mk_pzero(get_ebits(s), get_sbits(s)); }
     app * mk_nzero(sort * s) { return mk_nzero(get_ebits(s), get_sbits(s)); }
 
-    bool is_nan(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_nan(v); } 
-    bool is_pinf(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_pinf(v); }
-    bool is_ninf(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_ninf(v); }    
-    bool is_zero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_zero(v); }
-    bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_pzero(v); }
-    bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_nzero(v); }
+    bool is_nan(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_nan(v); } 
+    bool is_pinf(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pinf(v); }
+    bool is_ninf(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_ninf(v); }
+    bool is_zero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_zero(v); }
+    bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pzero(v); }
+    bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_nzero(v); }
        
     app * mk_fp(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FPA_FP, arg1, arg2, arg3); }
     app * mk_to_fp(sort * s, expr * bv_t) {

@@ -80,7 +80,7 @@ void fpa2bv_converter::mk_ite(expr * c, expr * t, expr * f, expr_ref & result) {
     mk_triple(sgn, s, e, result);
 }
 
-void fpa2bv_converter::mk_value(func_decl * f, unsigned num, expr * const * args, expr_ref & result) { 
+void fpa2bv_converter::mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result) { 
     SASSERT(num == 0);
     SASSERT(f->get_num_parameters() == 1);
     SASSERT(f->get_parameter(0).is_external());
@@ -2177,18 +2177,18 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
     m_mpf_manager.set(tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, q.to_mpq(), e.to_mpq().numerator());
 
     app_ref a_nte(m), a_nta(m), a_tp(m), a_tn(m), a_tz(m);
-    a_nte = m_plugin->mk_value(nte);
-    a_nta = m_plugin->mk_value(nta);
-    a_tp = m_plugin->mk_value(tp);
-    a_tn = m_plugin->mk_value(tn);
-    a_tz = m_plugin->mk_value(tz);
+    a_nte = m_plugin->mk_numeral(nte);
+    a_nta = m_plugin->mk_numeral(nta);
+    a_tp = m_plugin->mk_numeral(tp);
+    a_tn = m_plugin->mk_numeral(tn);
+    a_tz = m_plugin->mk_numeral(tz);
 
     expr_ref bv_nte(m), bv_nta(m), bv_tp(m), bv_tn(m), bv_tz(m);
-    mk_value(a_nte->get_decl(), 0, 0, bv_nte);
-    mk_value(a_nta->get_decl(), 0, 0, bv_nta);
-    mk_value(a_tp->get_decl(), 0, 0, bv_tp);
-    mk_value(a_tn->get_decl(), 0, 0, bv_tn);
-    mk_value(a_tz->get_decl(), 0, 0, bv_tz);
+    mk_numeral(a_nte->get_decl(), 0, 0, bv_nte);
+    mk_numeral(a_nta->get_decl(), 0, 0, bv_nta);
+    mk_numeral(a_tp->get_decl(), 0, 0, bv_tp);
+    mk_numeral(a_tn->get_decl(), 0, 0, bv_tn);
+    mk_numeral(a_tz->get_decl(), 0, 0, bv_tz);
 
     expr_ref c1(m), c2(m), c3(m), c4(m);
     c1 = m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3));

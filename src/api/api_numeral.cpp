@@ -149,7 +149,7 @@ extern "C" {
         return 
             mk_c(c)->autil().is_numeral(e) ||
             mk_c(c)->bvutil().is_numeral(e) ||
-            mk_c(c)->fpa_util().is_value(e);
+            mk_c(c)->fpa_util().is_numeral(e);
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
@@ -193,7 +193,7 @@ extern "C" {
             // floats are separated from all others to avoid huge rationals.
             fpa_util & fu = mk_c(c)->fpa_util();
             scoped_mpf tmp(fu.fm());
-            if (mk_c(c)->fpa_util().is_value(to_expr(a), tmp)) {
+            if (mk_c(c)->fpa_util().is_numeral(to_expr(a), tmp)) {
                 return mk_c(c)->mk_external_string(fu.fm().to_string(tmp));
             }
             else {

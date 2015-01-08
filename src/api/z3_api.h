@@ -887,7 +887,7 @@ typedef enum
       
       - Z3_OP_FPA_RM_TOWARD_ZERO: Floating-point rounding mode RTZ
 
-      - Z3_OP_FPA_VALUE: Floating-point value
+      - Z3_OP_FPA_NUM: Floating-point value
       
       - Z3_OP_FPA_PLUS_INF: Floating-point +oo
       
@@ -1149,7 +1149,7 @@ typedef enum {
     Z3_OP_FPA_RM_TOWARD_NEGATIVE,
     Z3_OP_FPA_RM_TOWARD_ZERO,
 
-    Z3_OP_FPA_VALUE,
+    Z3_OP_FPA_NUM,
     Z3_OP_FPA_PLUS_INF,
     Z3_OP_FPA_MINUS_INF,
     Z3_OP_FPA_NAN,

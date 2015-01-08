@@ -1127,7 +1127,7 @@ extern "C" {
             case OP_FPA_RM_TOWARD_POSITIVE: return Z3_OP_FPA_RM_TOWARD_POSITIVE;
             case OP_FPA_RM_TOWARD_NEGATIVE: return Z3_OP_FPA_RM_TOWARD_NEGATIVE;
             case OP_FPA_RM_TOWARD_ZERO: return Z3_OP_FPA_RM_TOWARD_ZERO;
-            case OP_FPA_VALUE: return Z3_OP_FPA_VALUE;
+            case OP_FPA_NUM: return Z3_OP_FPA_NUM;
             case OP_FPA_PLUS_INF: return Z3_OP_FPA_PLUS_INF;
             case OP_FPA_MINUS_INF: return Z3_OP_FPA_MINUS_INF;
             case OP_FPA_NAN: return Z3_OP_FPA_NAN;

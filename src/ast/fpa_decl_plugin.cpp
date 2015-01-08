@@ -72,7 +72,7 @@ func_decl * fpa_decl_plugin::mk_value_decl(mpf const & v) {
     parameter p(mk_id(v), true);
     SASSERT(p.is_external());
     sort * s = mk_float_sort(v.get_ebits(), v.get_sbits());
-    return m_manager->mk_const_decl(symbol("fpa"),  s, func_decl_info(m_family_id, OP_FPA_VALUE, 1, &p));
+    return m_manager->mk_const_decl(symbol("fpa"),  s, func_decl_info(m_family_id, OP_FPA_NUM, 1, &p));
 }
 
 app * fpa_decl_plugin::mk_value(mpf const & v) {
@@ -80,7 +80,7 @@ app * fpa_decl_plugin::mk_value(mpf const & v) {
 }
 
 bool fpa_decl_plugin::is_value(expr * n, mpf & val) {
-    if (is_app_of(n, m_family_id, OP_FPA_VALUE)) {
+    if (is_app_of(n, m_family_id, OP_FPA_NUM)) {
         m_fm.set(val, m_values[to_app(n)->get_decl()->get_parameter(0).get_ext_id()]);
         return true;
     }
@@ -860,7 +860,7 @@ bool fpa_decl_plugin::is_value(app * e) const {
     case OP_FPA_RM_TOWARD_POSITIVE:
     case OP_FPA_RM_TOWARD_NEGATIVE:
     case OP_FPA_RM_TOWARD_ZERO:
-    case OP_FPA_VALUE:
+    case OP_FPA_NUM:
     case OP_FPA_PLUS_INF:
     case OP_FPA_MINUS_INF:
     case OP_FPA_PLUS_ZERO:
@@ -891,7 +891,7 @@ bool fpa_decl_plugin::is_unique_value(app* e) const {
     case OP_FPA_PLUS_ZERO: /* No; +zero == fp #b0 #b00 #b000) */
     case OP_FPA_MINUS_ZERO: /* No; -zero == fp #b1 #b00 #b000) */
     case OP_FPA_NAN: /* No; NaN == (fp #b0 #b111111 #b0000001) */
-    case OP_FPA_VALUE: /* see NaN */
+    case OP_FPA_NUM: /* see NaN */
         return false;
     case OP_FPA_FP:
         return m_manager->is_unique_value(e->get_arg(0)) &&

@@ -647,11 +647,11 @@ namespace smt {
                 wrapped = wrap(n);
                 mpf_rounding_mode rm;
                 scoped_mpf val(mpfm);
-                if (m_fpa_util.is_rm_value(n, rm)) {
+                if (m_fpa_util.is_rm_numeral(n, rm)) {
                     c = m.mk_eq(wrapped, m_bv_util.mk_numeral(rm, 3));                    
                     assert_cnstr(c);
                 }
-                else if (m_fpa_util.is_value(n, val)) {
+                else if (m_fpa_util.is_numeral(n, val)) {
                     unsigned sz = val.get().get_ebits() + val.get().get_sbits();
                     expr_ref bv_val_e(m);
                     bv_val_e = convert(n);
@@ -714,8 +714,8 @@ namespace smt {
         // If the owner is not internalized, it doesn't have an enode associated.        
         SASSERT(ctx.e_internalized(owner));
         
-        if (m_fpa_util.is_rm_value(owner) ||
-            m_fpa_util.is_value(owner))
+        if (m_fpa_util.is_rm_numeral(owner) ||
+            m_fpa_util.is_numeral(owner))
             return alloc(expr_wrapper_proc, owner);
         
         model_value_proc * res = 0;
