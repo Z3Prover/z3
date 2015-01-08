@@ -24,12 +24,22 @@ using System.Text;
 using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
-{
+{    
     /// <summary>
     /// FloatingPoint Expressions
     /// </summary>
     public class FPExpr : Expr
     {
+        /// <summary>
+        /// The number of exponent bits.
+        /// </summary>
+        public uint EBits { get { return ((FPSort)Sort).EBits; } }
+
+        /// <summary>
+        /// The number of significand bits.
+        /// </summary>
+        public uint SBits { get { return ((FPSort)Sort).EBits; } }
+
         #region Internal
         /// <summary> Constructor for FPExpr </summary>
         internal protected FPExpr(Context ctx)

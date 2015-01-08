@@ -4161,7 +4161,6 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<FPExpr>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_to_fp_float(this.nCtx, s.NativeObject, rm.NativeObject, t.NativeObject));
         }
-
         #endregion
 
         #region Conversions from FloatingPoint terms

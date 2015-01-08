@@ -27,7 +27,6 @@ namespace Microsoft.Z3
     [ContractVerification(true)]
     public class FPNum : FPExpr
     {
-
         #region Internal
         internal FPNum(Context ctx, IntPtr obj)
             : base(ctx, obj)

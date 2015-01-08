@@ -1709,6 +1709,366 @@ public class Expr extends AST
 		return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FD_LT;
 	}
 
+	
+    /**
+     * Indicates whether the terms is of floating-point sort.
+     * @throws Z3Exception 
+     */
+    public boolean IsFP() throws Z3Exception { return Z3_sort_kind.fromInt(Native.getSortKind(getContext().nCtx(), Native.getSort(getContext().nCtx(), getNativeObject()))) == Z3_sort_kind.Z3_FLOATING_POINT_SORT; }
+
+    /**
+     * Indicates whether the terms is of floating-point rounding mode sort.
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRM() throws Z3Exception { return Z3_sort_kind.fromInt(Native.getSortKind(getContext().nCtx(), Native.getSort(getContext().nCtx(), getNativeObject()))) == Z3_sort_kind.Z3_ROUNDING_MODE_SORT; }
+
+    /**
+     * Indicates whether the term is a floating-point numeral
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPNumeral() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_NUM; }
+
+    /**
+     * Indicates whether the term is the floating-point rounding numeral roundNearestTiesToEven
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNumRoundNearestTiesToEven() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN; }
+    
+    /**
+     * Indicates whether the term is the floating-point rounding numeral roundNearestTiesToAway
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNumRoundNearestTiesToAway() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY; }        
+
+    /**
+     * Indicates whether the term is the floating-point rounding numeral roundTowardNegative
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNumRoundTowardNegative() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_NEGATIVE; }
+
+    /**
+     * Indicates whether the term is the floating-point rounding numeral roundTowardPositive
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNumRoundTowardPositive() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_POSITIVE; }
+
+    /**
+     * Indicates whether the term is the floating-point rounding numeral roundTowardZero
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNumRoundTowardZero() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_ZERO; }
+
+    /**
+     * Indicates whether the term is the floating-point rounding numeral roundNearestTiesToEven
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNumRNE() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN; }
+    
+    /**
+     *  Indicates whether the term is the floating-point rounding numeral roundNearestTiesToAway
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNumRNA() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY; }        
+
+    /**
+     * Indicates whether the term is the floating-point rounding numeral roundTowardNegative
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNumRTN() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_NEGATIVE; }
+
+    /**
+     * Indicates whether the term is the floating-point rounding numeral roundTowardPositive
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNumRTP() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_POSITIVE; }
+
+    /**
+     * Indicates whether the term is the floating-point rounding numeral roundTowardZero
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNumRTZ() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_ZERO; }
+
+    /**
+     * Indicates whether the term is a floating-point rounding mode numeral
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRMNum() throws Z3Exception {
+    	return isApp() &&
+    			(getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY ||
+                getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN  ||
+                getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_POSITIVE ||
+                getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_NEGATIVE ||
+                getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_ZERO);
+    }
+    
+    /**
+     * Indicates whether the term is a floating-point +oo
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPPlusInfinity() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_PLUS_INF; }
+
+    /**
+     * Indicates whether the term is a floating-point -oo
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPMinusInfinity() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_MINUS_INF; }
+
+    /**
+     * Indicates whether the term is a floating-point NaN
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPNaN() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_NAN; }
+
+    /**
+     * Indicates whether the term is a floating-point +zero
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPPlusZero() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_PLUS_ZERO; }
+
+    /**
+     * Indicates whether the term is a floating-point -zero
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPMinusZero() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_MINUS_ZERO; }
+
+    /**
+     * Indicates whether the term is a floating-point addition term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPAdd() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_ADD; }
+
+
+    /**
+     * Indicates whether the term is a floating-point subtraction term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPSub() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_SUB; }
+
+    /**
+     * Indicates whether the term is a floating-point negation term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPNeg() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_NEG; }
+
+    /**
+     * Indicates whether the term is a floating-point multiplication term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPMul() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_MUL; }
+                
+    /**
+     * Indicates whether the term is a floating-point divison term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPDiv() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_DIV; }
+
+    /**
+     * Indicates whether the term is a floating-point remainder term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRem() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_REM; }
+
+    /**
+     * Indicates whether the term is a floating-point term absolute value term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPAbs() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_ABS; }
+
+    /**
+     * Indicates whether the term is a floating-point minimum term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPMin() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_MIN; }
+
+    /**
+     * Indicates whether the term is a floating-point maximum term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPMax() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_MAX; }
+
+    /**
+     * Indicates whether the term is a floating-point fused multiply-add term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPFMA() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_FMA; }
+
+    /**
+     * Indicates whether the term is a floating-point square root term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPSqrt() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_SQRT; }
+
+    /**
+     * Indicates whether the term is a floating-point roundToIntegral term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPRoundToIntegral() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_ROUND_TO_INTEGRAL; }
+
+    /**
+     * Indicates whether the term is a floating-point equality term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPEq() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_EQ; }
+
+    /**
+     * Indicates whether the term is a floating-point less-than term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPLt() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_LT; }
+
+    /**
+     * Indicates whether the term is a floating-point greater-than term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPGt() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_GT; }
+
+    /**
+     * Indicates whether the term is a floating-point less-than or equal term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPLe() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_LE; }
+
+    /**
+     * Indicates whether the term is a floating-point greater-than or erqual term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPGe() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_GE; } 
+
+    /**
+     * Indicates whether the term is a floating-point isNaN predicate term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPisNaN() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_IS_NAN; }
+
+    /**
+     * Indicates whether the term is a floating-point isInf predicate term
+     * @return 
+     * @throws Z3Exception 
+     */
+    public boolean IsFPisInf() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_IS_INF; }
+
+    /**
+     * Indicates whether the term is a floating-point isZero predicate term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPisZero() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_IS_ZERO; }
+
+    /**
+     * Indicates whether the term is a floating-point isNormal term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPisNormal() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_IS_NORMAL; }
+
+    /**
+     * Indicates whether the term is a floating-point isSubnormal predicate term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPisSubnormal() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_IS_SUBNORMAL; }
+
+    /**
+     * Indicates whether the term is a floating-point isNegative predicate term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPisNegative() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_IS_NEGATIVE; }     
+
+    /**
+     * Indicates whether the term is a floating-point isPositive predicate term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPisPositive() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_IS_POSITIVE; }    
+
+    /**
+     * Indicates whether the term is a floating-point constructor term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPFP() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_FP; }
+
+    /**
+     * Indicates whether the term is a floating-point conversion term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPToFp() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_TO_FP; }
+
+    /**
+     * Indicates whether the term is a floating-point conversion from unsigned bit-vector term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPToFpUnsigned() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_TO_FP_UNSIGNED; }
+
+    /**
+     * Indicates whether the term is a floating-point conversion to unsigned bit-vector term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPToUBV() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_TO_UBV; } 
+
+    /**
+     * Indicates whether the term is a floating-point conversion to signed bit-vector term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPToSBV() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_TO_SBV; }
+
+    /**
+     * Indicates whether the term is a floating-point conversion to real term
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPToReal() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_TO_REAL; }    
+
+
+    /**
+     * Indicates whether the term is a floating-point conversion to IEEE-754 bit-vector term1
+     * @return
+     * @throws Z3Exception 
+     */
+    public boolean IsFPToIEEEBV() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_TO_IEEE_BV; }    
+    
+    
 	/**
 	 * The de-Burijn index of a bound variable. <remarks> Bound variables are
 	 * indexed by de-Bruijn indices. It is perhaps easiest to explain the
@@ -1793,8 +2153,8 @@ public class Expr extends AST
 				return new BitVecNum(ctx, obj);
 			case Z3_FLOATING_POINT_SORT:
 				return new FPNum(ctx, obj);
-			case Z3_FLOATING_POINT_ROUNDING_MODE_SORT:
-				return new FPRMNum(ctx, obj);
+			case Z3_ROUNDING_MODE_SORT:
+				return new FPRMNum(ctx, obj);				
 			default: ;
 			}
 		}
@@ -1815,7 +2175,7 @@ public class Expr extends AST
 			return new DatatypeExpr(ctx, obj);
 		case Z3_FLOATING_POINT_SORT:
 			return new FPExpr(ctx, obj);
-		case Z3_FLOATING_POINT_ROUNDING_MODE_SORT:
+		case Z3_ROUNDING_MODE_SORT:
 			return new FPRMExpr(ctx, obj);
 		default: ;
 		}
