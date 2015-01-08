@@ -24,14 +24,6 @@ public class BoolExpr extends Expr
 {
 	/**
 	 * Constructor for BoolExpr </summary>
-	 **/
-	protected BoolExpr(Context ctx)
-	{
-		super(ctx);
-	}
-
-	/**
-	 * Constructor for BoolExpr </summary>
 	 * @throws Z3Exception 
 	 **/
 	BoolExpr(Context ctx, long obj) throws Z3Exception

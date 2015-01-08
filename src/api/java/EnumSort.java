@@ -60,7 +60,7 @@ public class EnumSort extends Sort
 
 	EnumSort(Context ctx, Symbol name, Symbol[] enumNames) throws Z3Exception
 	{
-		super(ctx);
+		super(ctx, 0);
 
 		int n = enumNames.length;
 		long[] n_constdecls = new long[n];

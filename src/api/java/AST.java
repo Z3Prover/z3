@@ -213,10 +213,8 @@ public class AST extends Z3Object
     void incRef(long o) throws Z3Exception
     {
         // Console.WriteLine("AST IncRef()");
-        if (getContext() == null)
-            throw new Z3Exception("inc() called on null context");
-        if (o == 0)
-            throw new Z3Exception("inc() called on null AST");
+        if (getContext() == null || o == 0)
+            return;
         getContext().ast_DRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
@@ -224,10 +222,8 @@ public class AST extends Z3Object
     void decRef(long o) throws Z3Exception
     {
         // Console.WriteLine("AST DecRef()");
-        if (getContext() == null)
-            throw new Z3Exception("dec() called on null context");
-        if (o == 0)
-            throw new Z3Exception("dec() called on null AST");
+        if (getContext() == null || o == 0)
+            return;
         getContext().ast_DRQ().add(o);
         super.decRef(o);
     }

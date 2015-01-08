@@ -2095,21 +2095,9 @@ public class Expr extends AST
 	/**
 	 * Constructor for Expr
 	 **/
-	protected Expr(Context ctx)
-	{
-		super(ctx);
-		{
-		}
-	}
-
-	/**
-	 * Constructor for Expr
-	 **/
 	protected Expr(Context ctx, long obj) throws Z3Exception
 	{
 		super(ctx, obj);
-		{
-		}
 	}
 
 	void checkNativeObject(long obj) throws Z3Exception
@@ -2135,8 +2123,7 @@ public class Expr extends AST
 		if (k == Z3_ast_kind.Z3_QUANTIFIER_AST)
 			return new Quantifier(ctx, obj);
 		long s = Native.getSort(ctx.nCtx(), obj);
-		Z3_sort_kind sk = Z3_sort_kind
-				.fromInt(Native.getSortKind(ctx.nCtx(), s));
+		Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(ctx.nCtx(), s));
 
 		if (Native.isAlgebraicNumber(ctx.nCtx(), obj)) // is this a numeral ast?
 			return new AlgebraicNum(ctx, obj);

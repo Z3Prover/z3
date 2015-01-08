@@ -2212,29 +2212,29 @@ class JavaExample
     {
         System.out.println("FloatingPointExample2");
         Log.append("FloatingPointExample2");
-        
         FPSort double_sort = ctx.mkFPSort(11, 53);
         FPRMSort rm_sort = ctx.mkFPRoundingModeSort();
         
         FPRMExpr rm = (FPRMExpr)ctx.mkConst(ctx.mkSymbol("rm"), rm_sort);
         BitVecExpr x = (BitVecExpr)ctx.mkConst(ctx.mkSymbol("x"), ctx.mkBitVecSort(64));
-        RealExpr real_val = ctx.mkReal(42);
+        FPExpr y = (FPExpr)ctx.mkConst(ctx.mkSymbol("y"), double_sort);            
         FPExpr fp_val = ctx.mkFP(42, double_sort);
-
-        BoolExpr c1 = ctx.mkEq(x, ctx.mkFPToIEEEBV(fp_val));
-        BoolExpr c2 = ctx.mkEq(x, ctx.mkBV(42, 64));
-        BoolExpr c3 = ctx.mkEq(fp_val, ctx.mkFPToFP(rm, real_val, double_sort));
-        BoolExpr c4 = ctx.mkAnd(c1, c2);
-        System.out.println("c3 = " + c3);
+        
+        BoolExpr c1 = ctx.mkEq(y, fp_val);
+        BoolExpr c2 = ctx.mkEq(x, ctx.mkFPToBV(rm, y, 64, false));
+        BoolExpr c3 = ctx.mkEq(x, ctx.mkBV(42, 64));
+        BoolExpr c4 = ctx.mkEq(ctx.mkNumeral(42, ctx.getRealSort()), ctx.mkFPToReal(fp_val));
+        BoolExpr c5 = ctx.mkAnd(c1, c2, c3, c4);
+        System.out.println("c5 = " + c5);
 
         /* Generic solver */
         Solver s = ctx.mkSolver();
-        s.add(c3);
+        s.add(c5);
 
         if (s.check() != Status.SATISFIABLE)
             throw new TestFailedException();
 
-        System.out.println("OK, model: " + s.getModel().toString());
+        System.out.println("OK, model: " + s.getModel().toString());        
     }
     
     public static void main(String[] args)

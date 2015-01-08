@@ -504,14 +504,10 @@ public class Context extends IDisposable
      **/
     public Expr mkConst(Symbol name, Sort range) throws Z3Exception
     {
-
         checkContextMatch(name);
         checkContextMatch(range);
 
-        return Expr.create(
-                this,
-                Native.mkConst(nCtx(), name.getNativeObject(),
-                        range.getNativeObject()));
+        return Expr.create(this, Native.mkConst(nCtx(), name.getNativeObject(), range.getNativeObject()));
     }
 
     /**
