@@ -294,8 +294,6 @@ func_decl * fpa_decl_plugin::mk_unary_rel_decl(decl_kind k, unsigned num_paramet
     symbol name;
     switch (k) {
     case OP_FPA_IS_ZERO: name = "fp.isZero";  break;
-    case OP_FPA_IS_NZERO: name = "fp.isNZero";   break;
-    case OP_FPA_IS_PZERO: name = "fp.isPZero";   break;        
     case OP_FPA_IS_NEGATIVE: name = "fp.isNegative";  break;
     case OP_FPA_IS_POSITIVE: name = "fp.isPositive";  break;
     case OP_FPA_IS_NAN: name = "fp.isNaN";  break;
@@ -717,8 +715,6 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_GE:
         return mk_bin_rel_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_IS_ZERO:
-    case OP_FPA_IS_NZERO:
-    case OP_FPA_IS_PZERO:
     case OP_FPA_IS_NEGATIVE: 
     case OP_FPA_IS_POSITIVE:
     case OP_FPA_IS_NAN:

@@ -57,8 +57,6 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_LE:        SASSERT(num_args == 2); st = mk_le(args[0], args[1], result); break;
     case OP_FPA_GE:        SASSERT(num_args == 2); st = mk_ge(args[0], args[1], result); break;
     case OP_FPA_IS_ZERO:   SASSERT(num_args == 1); st = mk_is_zero(args[0], result); break;
-    case OP_FPA_IS_NZERO:  SASSERT(num_args == 1); st = mk_is_nzero(args[0], result); break;
-    case OP_FPA_IS_PZERO:  SASSERT(num_args == 1); st = mk_is_pzero(args[0], result); break;
     case OP_FPA_IS_NAN:    SASSERT(num_args == 1); st = mk_is_nan(args[0], result); break;
     case OP_FPA_IS_INF:    SASSERT(num_args == 1); st = mk_is_inf(args[0], result); break;
     case OP_FPA_IS_NORMAL: SASSERT(num_args == 1); st = mk_is_normal(args[0], result); break;

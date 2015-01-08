@@ -1155,8 +1155,6 @@ extern "C" {
             case OP_FPA_IS_ZERO: return Z3_OP_FPA_IS_ZERO;
             case OP_FPA_IS_NORMAL: return Z3_OP_FPA_IS_NORMAL;
             case OP_FPA_IS_SUBNORMAL: return Z3_OP_FPA_IS_SUBNORMAL;
-            case OP_FPA_IS_PZERO: return Z3_OP_FPA_IS_PZERO;
-            case OP_FPA_IS_NZERO: return Z3_OP_FPA_IS_NZERO;
             case OP_FPA_IS_NEGATIVE: return Z3_OP_FPA_IS_NEGATIVE;
             case OP_FPA_IS_POSITIVE: return Z3_OP_FPA_IS_POSITIVE;
             case OP_FPA_FP: return Z3_OP_FPA_FP;

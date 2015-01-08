@@ -71,8 +71,6 @@ enum fpa_op_kind {
     OP_FPA_IS_ZERO,
     OP_FPA_IS_NORMAL,
     OP_FPA_IS_SUBNORMAL,
-    OP_FPA_IS_PZERO,
-    OP_FPA_IS_NZERO,
     OP_FPA_IS_NEGATIVE,
     OP_FPA_IS_POSITIVE,
 
@@ -325,8 +323,6 @@ public:
     app * mk_is_zero(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_ZERO, arg1); }
     app * mk_is_normal(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_NORMAL, arg1); }
     app * mk_is_subnormal(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_SUBNORMAL, arg1); }
-    app * mk_is_nzero(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_NZERO, arg1); }
-    app * mk_is_pzero(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_PZERO, arg1); }
     app * mk_is_sign_minus(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_NEGATIVE, arg1); }
     app * mk_is_positive(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_POSITIVE, arg1); }
     app * mk_is_negative(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_NEGATIVE, arg1); }

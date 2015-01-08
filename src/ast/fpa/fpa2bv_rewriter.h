@@ -143,9 +143,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FPA_GT: m_conv.mk_float_gt(f, num, args, result); return BR_DONE;
             case OP_FPA_LE: m_conv.mk_float_le(f, num, args, result); return BR_DONE;
             case OP_FPA_GE: m_conv.mk_float_ge(f, num, args, result); return BR_DONE;
-            case OP_FPA_IS_ZERO: m_conv.mk_is_zero(f, num, args, result); return BR_DONE;
-            case OP_FPA_IS_NZERO: m_conv.mk_is_nzero(f, num, args, result); return BR_DONE;
-            case OP_FPA_IS_PZERO: m_conv.mk_is_pzero(f, num, args, result); return BR_DONE;
+            case OP_FPA_IS_ZERO: m_conv.mk_is_zero(f, num, args, result); return BR_DONE;            
             case OP_FPA_IS_NAN: m_conv.mk_is_nan(f, num, args, result); return BR_DONE;
             case OP_FPA_IS_INF: m_conv.mk_is_inf(f, num, args, result); return BR_DONE;
             case OP_FPA_IS_NORMAL: m_conv.mk_is_normal(f, num, args, result); return BR_DONE;
