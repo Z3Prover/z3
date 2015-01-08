@@ -877,6 +877,90 @@ typedef enum
 
       - Z3_OP_DT_ACCESSOR: datatype accessor.
 
+      - Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: Floating-point rounding mode RNE
+      
+      - Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: Floating-point rounding mode RNA
+      
+      - Z3_OP_FPA_RM_TOWARD_POSITIVE: Floating-point rounding mode RTP
+      
+      - Z3_OP_FPA_RM_TOWARD_NEGATIVE: Floating-point rounding mode RTN
+      
+      - Z3_OP_FPA_RM_TOWARD_ZERO: Floating-point rounding mode RTZ
+
+      - Z3_OP_FPA_VALUE: Floating-point value
+      
+      - Z3_OP_FPA_PLUS_INF: Floating-point +oo
+      
+      - Z3_OP_FPA_MINUS_INF: Floating-point -oo
+      
+      - Z3_OP_FPA_NAN: Floating-point NaN
+      
+      - Z3_OP_FPA_PLUS_ZERO: Floating-point +zero
+      
+      - Z3_OP_FPA_MINUS_ZERO: Floating-point -zero
+
+      - Z3_OP_FPA_ADD: Floating-point addition
+      
+      - Z3_OP_FPA_SUB: Floating-point subtraction
+      
+      - Z3_OP_FPA_NEG: Floating-point negation
+
+      - Z3_OP_FPA_MUL: Floating-point multiplication
+      
+      - Z3_OP_FPA_DIV: Floating-point division
+      
+      - Z3_OP_FPA_REM: Floating-point remainder
+      
+      - Z3_OP_FPA_ABS: Floating-point absolute value
+      
+      - Z3_OP_FPA_MIN: Floating-point minimum
+
+      - Z3_OP_FPA_MAX: Floating-point maximum
+
+      - Z3_OP_FPA_FMA: Floating-point fused multiply-add
+      
+      - Z3_OP_FPA_SQRT: Floating-point square root
+      
+      - Z3_OP_FPA_ROUND_TO_INTEGRAL: Floating-point round to integral
+
+      - Z3_OP_FPA_EQ: Floating-point equality 
+
+      - Z3_OP_FPA_LT: Floating-point less than
+      
+      - Z3_OP_FPA_GT: Floating-point greater than
+      
+      - Z3_OP_FPA_LE: Floating-point less than or equal
+      
+      - Z3_OP_FPA_GE: Floating-point greater than or equal
+
+      - Z3_OP_FPA_IS_NAN: Floating-point isNaN
+      
+      - Z3_OP_FPA_IS_INF: Floating-point isInfinite
+
+      - Z3_OP_FPA_IS_ZERO: Floating-point isZero
+
+      - Z3_OP_FPA_IS_NORMAL: Floating-point isNormal
+
+      - Z3_OP_FPA_IS_SUBNORMAL: Floating-point isSubnormal      
+
+      - Z3_OP_FPA_IS_NEGATIVE: Floating-point isNegative
+
+      - Z3_OP_FPA_IS_POSITIVE: Floating-point isPositive
+
+      - Z3_OP_FPA_FP: Floating-point constructor from 3 bit-vectors
+
+      - Z3_OP_FPA_TO_FP: Floating-point conversion (various)
+
+      - Z3_OP_FPA_TO_FP_UNSIGNED: Floating-point conversion from unsigend bit-vector
+      
+      - Z3_OP_FPA_TO_UBV: Floating-point conversion to unsigned bit-vector
+
+      - Z3_OP_FPA_TO_SBV: Floating-point conversion to signed bit-vector
+      
+      - Z3_OP_FPA_TO_REAL: Floating-point conversion to real number
+
+      - Z3_OP_FPA_TO_IEEE_BV: Floating-point conversion to IEEE-754 bit-vector
+      
       - Z3_OP_UNINTERPRETED: kind used for uninterpreted symbols.
 */
 typedef enum {
@@ -1095,8 +1179,6 @@ typedef enum {
     Z3_OP_FPA_IS_ZERO,
     Z3_OP_FPA_IS_NORMAL,
     Z3_OP_FPA_IS_SUBNORMAL,
-    Z3_OP_FPA_IS_PZERO,
-    Z3_OP_FPA_IS_NZERO,
     Z3_OP_FPA_IS_NEGATIVE,
     Z3_OP_FPA_IS_POSITIVE,
 
