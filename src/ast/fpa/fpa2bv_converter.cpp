@@ -2064,7 +2064,7 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
     unsigned ebits = m_util.get_ebits(s);
     unsigned sbits = m_util.get_sbits(s);
 
-    if (false && m_bv_util.is_numeral(rm) && m_util.au().is_numeral(x)) {
+    if (m_bv_util.is_numeral(rm) && m_util.au().is_numeral(x)) {
         rational tmp_rat; unsigned sz;
         m_bv_util.is_numeral(to_expr(rm), tmp_rat, sz);
         SASSERT(tmp_rat.is_int32());
@@ -2096,6 +2096,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         mk_triple(sgn, s, e, result);
     }
     else {
+        NOT_IMPLEMENTED_YET();
+
         mpf_manager & fm = fu().fm();
         bv_util & bu = m_bv_util;
         arith_util & au = m_arith_util;
@@ -2135,16 +2137,16 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         //dbg_decouple("fpa2bv_to_float_real_inc", inc);
         //sig = m.mk_ite(inc, bu.mk_bv_add(sig, bv1_s4), sig);        
         
-        SASSERT(bu.get_bv_size(sgn) == 1);
-        SASSERT(bu.get_bv_size(sig) == sbits + 4);
-        SASSERT(bu.get_bv_size(exp) == ebits + 2);
+        //SASSERT(bu.get_bv_size(sgn) == 1);
+        //SASSERT(bu.get_bv_size(sig) == sbits + 4);
+        //SASSERT(bu.get_bv_size(exp) == ebits + 2);
 
-        dbg_decouple("fpa2bv_to_float_real_sgn", sgn);
-        dbg_decouple("fpa2bv_to_float_real_sig", sig);
-        dbg_decouple("fpa2bv_to_float_real_exp", exp);
+        //dbg_decouple("fpa2bv_to_float_real_sgn", sgn);
+        //dbg_decouple("fpa2bv_to_float_real_sig", sig);
+        //dbg_decouple("fpa2bv_to_float_real_exp", exp);
 
-        expr_ref rmr(rm, m);
-        round(s, rmr, sgn, sig, exp, result);
+        //expr_ref rmr(rm, m);
+        //round(s, rmr, sgn, sig, exp, result);
     }
 
     SASSERT(is_well_sorted(m, result));
