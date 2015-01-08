@@ -45,7 +45,7 @@ class fpa2bv_converter {
 protected:
     ast_manager              & m;
     basic_simplifier_plugin    m_simp;
-    float_util                 m_util;
+    fpa_util                   m_util;
     bv_util                    m_bv_util;
     arith_util                 m_arith_util;
     mpf_manager              & m_mpf_manager;
@@ -62,7 +62,7 @@ public:
     fpa2bv_converter(ast_manager & m);    
     ~fpa2bv_converter();
 
-    float_util & fu() { return m_util; }
+    fpa_util & fu() { return m_util; }
     bv_util & bu() { return m_bv_util; }
     arith_util & au() { return m_arith_util; }
 

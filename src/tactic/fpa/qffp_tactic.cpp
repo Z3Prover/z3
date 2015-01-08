@@ -48,6 +48,10 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
     return st;
 }
 
+tactic * mk_qffpbv_tactic(ast_manager & m, params_ref const & p) {
+    return mk_qffp_tactic(m, p);
+}
+
 struct is_non_qffp_predicate {
     struct found {};
     ast_manager & m;
@@ -90,3 +94,6 @@ probe * mk_is_qffp_probe() {
     return alloc(is_qffp_probe);
 }
     
+probe * mk_is_qffpbv_probe() {
+    return alloc(is_qffp_probe);
+}

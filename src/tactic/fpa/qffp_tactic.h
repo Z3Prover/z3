@@ -25,6 +25,7 @@ class ast_manager;
 class tactic;
 
 tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p = params_ref());
+tactic * mk_qffpbv_tactic(ast_manager & m, params_ref const & p = params_ref());
 /*
   ADD_TACTIC("qffp", "(try to) solve goal using the tactic for QF_FP.", "mk_qffp_tactic(m, p)")
   ADD_TACTIC("qffpbv", "(try to) solve goal using the tactic for QF_FPBV (floats+bit-vectors).", "mk_qffpbv_tactic(m, p)")

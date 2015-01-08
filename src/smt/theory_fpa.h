@@ -29,7 +29,7 @@ Revision History:
 
 namespace smt {
 
-    class fpa_value_actory : public value_factory {
+    class fpa_value_factory : public value_factory {
         fpa_util          m_util;
 
         virtual app * mk_value_core(mpf const & val, sort * s) {
@@ -39,11 +39,11 @@ namespace smt {
         }
 
     public:
-        fpa_value_actory(ast_manager & m, family_id fid) :
+        fpa_value_factory(ast_manager & m, family_id fid) :
             value_factory(m, fid),
             m_util(m) {}
 
-        virtual ~fpa_value_actory() {}
+        virtual ~fpa_value_factory() {}
 
         virtual expr * get_some_value(sort * s) {
             mpf_manager & mpfm = m_util.fm();
@@ -97,7 +97,7 @@ namespace smt {
 
         public:
             fpa_value_proc(theory_fpa * th, unsigned ebits, unsigned sbits) : 
-                m_th(*th), m_fu(th->m_float_util), m_bu(th->m_bv_util), m(th->get_manager()),
+                m_th(*th), m_fu(th->m_fpa_util), m_bu(th->m_bv_util), m(th->get_manager()),
                 m_ebits(ebits), m_sbits(sbits) {}
             
             virtual ~fpa_value_proc() {}
@@ -112,15 +112,15 @@ namespace smt {
         };
 
         class fpa_rm_value_proc : public model_value_proc {
-            theory_fpa & m_th;
+            theory_fpa  & m_th;
             ast_manager & m;
-            float_util & m_fu;
-            bv_util    & m_bu;
+            fpa_util    & m_fu;
+            bv_util     & m_bu;
             buffer<model_value_dependency> m_deps;
 
         public:
             fpa_rm_value_proc(theory_fpa * th) : 
-                m_th(*th), m_fu(th->m_float_util), m_bu(th->m_bv_util), m(th->get_manager()) {}
+                m_th(*th), m_fu(th->m_fpa_util), m_bu(th->m_bv_util), m(th->get_manager()) {}
 
             void add_dependency(enode * e) { m_deps.push_back(model_value_dependency(e)); }
 
@@ -137,8 +137,8 @@ namespace smt {
         fpa2bv_rewriter           m_rw;
         th_rewriter               m_th_rw;
         th_trail_stack            m_trail_stack;
-        fpa_factory *             m_factory;
-        float_util              & m_float_util;
+        fpa_value_factory *       m_factory;
+        fpa_util                & m_fpa_util;
         bv_util                 & m_bv_util;
         arith_util              & m_arith_util;
         obj_map<sort, func_decl*> m_wraps;

@@ -700,7 +700,7 @@ namespace smt {
 
     void theory_fpa::init_model(model_generator & mg) {
         TRACE("t_fpa", tout << "initializing model" << std::endl; display(tout););
-        m_factory = alloc(fpa_factory, get_manager(), get_family_id());
+        m_factory = alloc(fpa_value_factory, get_manager(), get_family_id());
         mg.register_factory(m_factory);
     }
 
