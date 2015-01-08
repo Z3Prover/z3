@@ -963,12 +963,12 @@ namespace datalog {
         // TODO: what?
         if(get_engine() != DUALITY_ENGINE) {
           new_query();
-	  rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-	  rule_ref r(m_rule_manager);
-	  for (; it != end; ++it) {
+      rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
+      rule_ref r(m_rule_manager);
+      for (; it != end; ++it) {
             r = *it;
             check_rule(r);
-	  }     
+      }     
         }   
 #endif
         m_mc = mk_skip_model_converter();
@@ -985,10 +985,10 @@ namespace datalog {
             flush_add_rules();
             break;
         case DUALITY_ENGINE:
-	    // this lets us use duality with SAS 2013 abstraction
-	    if(quantify_arrays())
-	      flush_add_rules();
-	    break;
+            // this lets us use duality with SAS 2013 abstraction
+            if(quantify_arrays())
+              flush_add_rules();
+            break;
         default:
             UNREACHABLE();
         }
@@ -1109,11 +1109,11 @@ namespace datalog {
    
   void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names, vector<unsigned> &bounds){
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
-	    expr_ref r = bind_variables(m_rule_fmls[i].get(), true);
-	    rules.push_back(r.get());
-	    //            rules.push_back(m_rule_fmls[i].get());
-	    names.push_back(m_rule_names[i]);
-	    bounds.push_back(m_rule_bounds[i]);
+            expr_ref r = bind_variables(m_rule_fmls[i].get(), true);
+            rules.push_back(r.get());
+            //            rules.push_back(m_rule_fmls[i].get());
+            names.push_back(m_rule_names[i]);
+            bounds.push_back(m_rule_bounds[i]);
         }
     }
 

@@ -1531,7 +1531,7 @@ public:
     catch (aig_exception ex) {
         dec_ref(r);
         throw ex;
-	}
+    }
         dec_ref_result(r);
         return r;
     }

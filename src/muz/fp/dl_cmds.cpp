@@ -110,7 +110,7 @@ struct dl_context {
             m_trail.push(push_back_vector<dl_context, svector<symbol> >(m_collected_cmds->m_names));
         }
         else {
-	    m_context->add_rule(rule, name, bound);
+        m_context->add_rule(rule, name, bound);
         }
     }    
 
@@ -260,11 +260,11 @@ public:
             print_certificate(ctx);
             break;
         case l_undef: 
-	    if(dlctx.get_status() == datalog::BOUNDED){
-	      ctx.regular_stream() << "bounded\n";
-	      print_certificate(ctx);
-	      break;
-	    }
+            if(dlctx.get_status() == datalog::BOUNDED){
+              ctx.regular_stream() << "bounded\n";
+              print_certificate(ctx);
+              break;
+            }
             ctx.regular_stream() << "unknown\n";
             switch(dlctx.get_status()) {
             case datalog::INPUT_ERROR:
