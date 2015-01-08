@@ -2084,25 +2084,26 @@ namespace test_mapi
 
             FPRMExpr rm = (FPRMExpr)ctx.MkConst(ctx.MkSymbol("rm"), rm_sort);
             BitVecExpr x = (BitVecExpr)ctx.MkConst(ctx.MkSymbol("x"), ctx.MkBitVecSort(64));
-            FPExpr y = (FPExpr)ctx.MkConst(ctx.MkSymbol("y"), double_sort);
-            RealExpr real_val = ctx.MkReal(42);
-            BitVecExpr bv_val = ctx.MkBV(42, 64);
+            FPExpr y = (FPExpr)ctx.MkConst(ctx.MkSymbol("y"), double_sort);            
             FPExpr fp_val = ctx.MkFP(42, double_sort);
 
-            BoolExpr c1 = ctx.MkEq(x, ctx.MkFPToIEEEBV(fp_val));
-            BoolExpr c2 = ctx.MkEq(x, ctx.MkBV(42, 64));
-            BoolExpr c3 = ctx.MkEq(fp_val, ctx.MkFPToFP(rm, real_val, double_sort));
-            BoolExpr c4 = ctx.MkAnd(c1, c2);
-            Console.WriteLine("c3 = " + c3);
+            BoolExpr c1 = ctx.MkEq(y, fp_val);
+            BoolExpr c2 = ctx.MkEq(x, ctx.MkFPToBV(rm, y, 64, false));
+            BoolExpr c3 = ctx.MkEq(x, ctx.MkBV(42, 64));
+            BoolExpr c4 = ctx.MkEq(ctx.MkNumeral(42, ctx.RealSort), ctx.MkFPToReal(fp_val));
+            BoolExpr c5 = ctx.MkAnd(c1, c2, c3, c4);
+            Console.WriteLine("c5 = " + c5);
 
             /* Generic solver */
             Solver s = ctx.MkSolver();
-            s.Assert(c3);
+            s.Assert(c5);
+            
+            Console.WriteLine(s);
 
             if (s.Check() != Status.SATISFIABLE)
                 throw new TestFailedException();
 
-            Console.WriteLine("OK, model: ", s.Model.ToString());
+            Console.WriteLine("OK, model: {0}", s.Model.ToString());
         }
 
         static void Main(string[] args)

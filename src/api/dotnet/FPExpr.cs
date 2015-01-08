@@ -42,11 +42,6 @@ namespace Microsoft.Z3
 
         #region Internal
         /// <summary> Constructor for FPExpr </summary>
-        internal protected FPExpr(Context ctx)
-            : base(ctx)
-        {
-            Contract.Requires(ctx != null);
-        }
         internal FPExpr(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {

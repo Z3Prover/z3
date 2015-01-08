@@ -41,7 +41,6 @@ namespace Microsoft.Z3
 
         #region Internal
         /// <summary> Constructor for BitVecExpr </summary>
-        internal protected BitVecExpr(Context ctx) : base(ctx) { Contract.Requires(ctx != null); }
         internal BitVecExpr(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
         #endregion
     }

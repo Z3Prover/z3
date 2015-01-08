@@ -32,11 +32,6 @@ namespace Microsoft.Z3
     {
         #region Internal
         /// <summary> Constructor for FPRMExpr </summary>
-        internal protected FPRMExpr(Context ctx)
-            : base(ctx)
-        {
-            Contract.Requires(ctx != null);
-        }
         internal FPRMExpr(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {

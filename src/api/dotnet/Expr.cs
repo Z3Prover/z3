@@ -1759,10 +1759,6 @@ namespace Microsoft.Z3
         /// <summary> 
         /// Constructor for Expr 
         /// </summary>
-        internal protected Expr(Context ctx) : base(ctx) { Contract.Requires(ctx != null); }
-        /// <summary> 
-        /// Constructor for Expr 
-        /// </summary>
         internal protected Expr(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 
 #if DEBUG
