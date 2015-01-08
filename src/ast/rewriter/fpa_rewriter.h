@@ -26,7 +26,7 @@ Notes:
 #include"mpf.h"
 
 class fpa_rewriter {
-    float_util    m_util;
+    fpa_util      m_util;
     mpf_manager   m_fm;
 
     app * mk_eq_nan(expr * arg);

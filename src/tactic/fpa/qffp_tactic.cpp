@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Tactic for QF_FPA benchmarks.
+    Tactic for QF_FP benchmarks.
 
 Author:
 
@@ -23,7 +23,7 @@ Notes:
 #include"fpa2bv_tactic.h"
 #include"smt_tactic.h"
 
-#include"qffpa_tactic.h"
+#include"qffp_tactic.h"
 
 tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
     params_ref simp_p = p;
@@ -52,7 +52,7 @@ struct is_non_qffp_predicate {
     struct found {};
     ast_manager & m;
     bv_util       bu;
-    float_util    fu;
+    fpa_util      fu;
     arith_util    au;
 
     is_non_qffp_predicate(ast_manager & _m) : m(_m), bu(m), fu(m), au(m) {}

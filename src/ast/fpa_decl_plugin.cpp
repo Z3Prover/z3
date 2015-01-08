@@ -906,7 +906,7 @@ bool fpa_decl_plugin::is_unique_value(app* e) const {
     }
 }
 
-float_util::float_util(ast_manager & m):
+fpa_util::fpa_util(ast_manager & m):
     m_manager(m),
     m_fid(m.mk_family_id("fpa")),
     m_a_util(m),
@@ -914,67 +914,67 @@ float_util::float_util(ast_manager & m):
     m_plugin = static_cast<fpa_decl_plugin*>(m.get_plugin(m_fid));
 }
 
-float_util::~float_util() {
+fpa_util::~fpa_util() {
 }
 
-sort * float_util::mk_float_sort(unsigned ebits, unsigned sbits) {
+sort * fpa_util::mk_float_sort(unsigned ebits, unsigned sbits) {
     parameter ps[2] = { parameter(ebits), parameter(sbits) };
     return m().mk_sort(m_fid, FLOATING_POINT_SORT, 2, ps);
 }
 
-unsigned float_util::get_ebits(sort * s) {
+unsigned fpa_util::get_ebits(sort * s) {
     SASSERT(is_float(s));
     return static_cast<unsigned>(s->get_parameter(0).get_int());
 }
 
-unsigned float_util::get_sbits(sort * s) {
+unsigned fpa_util::get_sbits(sort * s) {
     SASSERT(is_float(s));
     return static_cast<unsigned>(s->get_parameter(1).get_int());
 }
 
-app * float_util::mk_nan(unsigned ebits, unsigned sbits) {
+app * fpa_util::mk_nan(unsigned ebits, unsigned sbits) {
     scoped_mpf v(fm());
     fm().mk_nan(ebits, sbits, v);
     return mk_value(v);
 }
 
-app * float_util::mk_pinf(unsigned ebits, unsigned sbits) {
+app * fpa_util::mk_pinf(unsigned ebits, unsigned sbits) {
     scoped_mpf v(fm());
     fm().mk_pinf(ebits, sbits, v);
     return mk_value(v);
 }
 
-app * float_util::mk_ninf(unsigned ebits, unsigned sbits) {
+app * fpa_util::mk_ninf(unsigned ebits, unsigned sbits) {
     scoped_mpf v(fm());
     fm().mk_ninf(ebits, sbits, v);
     return mk_value(v);
 }
 
-app * float_util::mk_pzero(unsigned ebits, unsigned sbits) {
+app * fpa_util::mk_pzero(unsigned ebits, unsigned sbits) {
     scoped_mpf v(fm());
     fm().mk_pzero(ebits, sbits, v);
     return mk_value(v);
 }
 
-app * float_util::mk_nzero(unsigned ebits, unsigned sbits) {
+app * fpa_util::mk_nzero(unsigned ebits, unsigned sbits) {
     scoped_mpf v(fm());
     fm().mk_nzero(ebits, sbits, v);
     return mk_value(v);
 }
 
-app * float_util::mk_internal_to_ubv_unspecified(unsigned width) {    
+app * fpa_util::mk_internal_to_ubv_unspecified(unsigned width) {    
     parameter ps[] = { parameter(width) };
     sort * range = m_bv_util.mk_sort(width);
     return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED, 1, ps, 0, 0, range);
 }
 
-app * float_util::mk_internal_to_sbv_unspecified(unsigned width) {
+app * fpa_util::mk_internal_to_sbv_unspecified(unsigned width) {
     parameter ps[] = { parameter(width) };
     sort * range = m_bv_util.mk_sort(width);
     return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED, 1, ps, 0, 0, range);
 }
 
-app * float_util::mk_internal_to_real_unspecified() {
+app * fpa_util::mk_internal_to_real_unspecified() {
     sort * range = m_a_util.mk_real();
     return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED, 0, 0, 0, 0, range);
 }

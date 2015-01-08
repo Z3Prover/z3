@@ -29,8 +29,8 @@ Revision History:
 
 namespace smt {
 
-    class fpa_factory : public value_factory {
-        float_util          m_util;
+    class fpa_value_actory : public value_factory {
+        fpa_util          m_util;
 
         virtual app * mk_value_core(mpf const & val, sort * s) {
             SASSERT(m_util.get_ebits(s) == val.get_ebits());
@@ -39,11 +39,11 @@ namespace smt {
         }
 
     public:
-        fpa_factory(ast_manager & m, family_id fid) :
+        fpa_value_actory(ast_manager & m, family_id fid) :
             value_factory(m, fid),
             m_util(m) {}
 
-        virtual ~fpa_factory() {}
+        virtual ~fpa_value_actory() {}
 
         virtual expr * get_some_value(sort * s) {
             mpf_manager & mpfm = m_util.fm();
@@ -87,10 +87,10 @@ namespace smt {
         
         class fpa_value_proc : public model_value_proc {
         protected:            
-            theory_fpa & m_th;
+            theory_fpa  & m_th;
             ast_manager & m;
-            float_util & m_fu;
-            bv_util    & m_bu;
+            fpa_util    & m_fu;
+            bv_util     & m_bu;
             buffer<model_value_dependency> m_deps;
             unsigned m_ebits;
             unsigned m_sbits;

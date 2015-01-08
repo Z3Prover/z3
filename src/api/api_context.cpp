@@ -88,7 +88,7 @@ namespace api {
         m_arith_util(m()),
         m_bv_util(m()),
         m_datalog_util(m()),
-        m_float_util(m()),
+        m_fpa_util(m()),
         m_last_result(m()),
         m_ast_trail(m()),
         m_replay_stack() {

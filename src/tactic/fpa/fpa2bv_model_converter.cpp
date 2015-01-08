@@ -85,7 +85,7 @@ model_converter * fpa2bv_model_converter::translate(ast_translation & translator
 }
 
 void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
-    float_util fu(m);
+    fpa_util fu(m);
     bv_util bu(m);
     mpf fp_val;
     unsynch_mpz_manager & mpzm = fu.fm().mpz_manager();

@@ -207,15 +207,15 @@ public:
     virtual parameter translate(parameter const & p, decl_plugin & target);
 };
 
-class float_util {
+class fpa_util {
     ast_manager &       m_manager;
     fpa_decl_plugin * m_plugin;
     family_id           m_fid;
     arith_util          m_a_util;    
     bv_util             m_bv_util;
 public:
-    float_util(ast_manager & m);
-    ~float_util();
+    fpa_util(ast_manager & m);
+    ~fpa_util();
 
     ast_manager & m() const { return m_manager; }
     mpf_manager & fm() const { return m_plugin->fm(); }

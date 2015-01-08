@@ -240,7 +240,7 @@ protected:
     arith_util    m_autil;
     bv_util       m_bvutil;
     array_util    m_arutil;
-    float_util    m_futil;
+    fpa_util      m_futil;
     datalog::dl_decl_util m_dlutil;
 
     format_ns::format * pp_fdecl_name(symbol const & s, func_decls const & fs, func_decl * f, unsigned & len) {
@@ -267,7 +267,7 @@ public:
     virtual arith_util & get_autil() { return m_autil; }
     virtual bv_util & get_bvutil() { return m_bvutil; }
     virtual array_util & get_arutil() { return m_arutil; }
-    virtual float_util & get_futil() { return m_futil; }
+    virtual fpa_util & get_futil() { return m_futil; }
     virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
     virtual bool uses(symbol const & s) const { 
         return 

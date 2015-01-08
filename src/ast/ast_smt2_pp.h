@@ -46,7 +46,7 @@ public:
     virtual arith_util & get_autil() = 0;
     virtual bv_util & get_bvutil() = 0;
     virtual array_util & get_arutil() = 0;
-    virtual float_util & get_futil() = 0;
+    virtual fpa_util & get_futil() = 0;
     virtual datalog::dl_decl_util& get_dlutil() = 0;
     virtual bool uses(symbol const & s) const = 0; 
     virtual format_ns::format * pp_fdecl(func_decl * f, unsigned & len);
@@ -69,7 +69,7 @@ class smt2_pp_environment_dbg : public smt2_pp_environment {
     arith_util    m_autil;
     bv_util       m_bvutil;
     array_util    m_arutil;
-    float_util    m_futil;
+    fpa_util      m_futil;
     datalog::dl_decl_util m_dlutil;
 public:
     smt2_pp_environment_dbg(ast_manager & m):m_manager(m), m_autil(m), m_bvutil(m), m_arutil(m), m_futil(m), m_dlutil(m) {}
@@ -77,7 +77,7 @@ public:
     virtual arith_util & get_autil() { return m_autil; }
     virtual bv_util & get_bvutil() { return m_bvutil; }
     virtual array_util & get_arutil() { return m_arutil; }
-    virtual float_util & get_futil() { return m_futil; }
+    virtual fpa_util & get_futil() { return m_futil; }
     virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
     virtual bool uses(symbol const & s) const { return false; }
 };
