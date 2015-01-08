@@ -68,18 +68,18 @@ void fpa_decl_plugin::recycled_id(unsigned id) {
     m_fm.del(m_values[id]);
 }
 
-func_decl * fpa_decl_plugin::mk_value_decl(mpf const & v) {
+func_decl * fpa_decl_plugin::mk_numeral_decl(mpf const & v) {
     parameter p(mk_id(v), true);
     SASSERT(p.is_external());
     sort * s = mk_float_sort(v.get_ebits(), v.get_sbits());
     return m_manager->mk_const_decl(symbol("fpa"),  s, func_decl_info(m_family_id, OP_FPA_NUM, 1, &p));
 }
 
-app * fpa_decl_plugin::mk_value(mpf const & v) {
-    return m_manager->mk_const(mk_value_decl(v));
+app * fpa_decl_plugin::mk_numeral(mpf const & v) {
+    return m_manager->mk_const(mk_numeral_decl(v));
 }
 
-bool fpa_decl_plugin::is_value(expr * n, mpf & val) {
+bool fpa_decl_plugin::is_numeral(expr * n, mpf & val) {
     if (is_app_of(n, m_family_id, OP_FPA_NUM)) {
         m_fm.set(val, m_values[to_app(n)->get_decl()->get_parameter(0).get_ext_id()]);
         return true;
@@ -117,7 +117,7 @@ bool fpa_decl_plugin::is_value(expr * n, mpf & val) {
     return false;
 }
 
-bool fpa_decl_plugin::is_rm_value(expr * n, mpf_rounding_mode & val) {
+bool fpa_decl_plugin::is_rm_numeral(expr * n, mpf_rounding_mode & val) {
     if (is_app_of(n, m_family_id, OP_FPA_RM_NEAREST_TIES_TO_AWAY)) {
         val = MPF_ROUND_NEAREST_TAWAY;
         return true;
@@ -260,7 +260,7 @@ func_decl * fpa_decl_plugin::mk_float_const_decl(decl_kind k, unsigned num_param
     case OP_FPA_PLUS_ZERO: m_fm.mk_pzero(ebits, sbits, val); break;
     }
 
-    return mk_value_decl(val);
+    return mk_numeral_decl(val);
 }
 
 func_decl * fpa_decl_plugin::mk_bin_rel_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -846,7 +846,7 @@ expr * fpa_decl_plugin::get_some_value(sort * s) {
     SASSERT(s->is_sort_of(m_family_id, FLOATING_POINT_SORT));    
     mpf tmp;
     m_fm.mk_nan(s->get_parameter(0).get_int(), s->get_parameter(1).get_int(), tmp);
-    expr * res = this->mk_value(tmp);
+    expr * res = this->mk_numeral(tmp);
     m_fm.del(tmp);
     return res;
 }

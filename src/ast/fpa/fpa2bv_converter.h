@@ -50,7 +50,7 @@ protected:
     arith_util                 m_arith_util;
     mpf_manager              & m_mpf_manager;
     unsynch_mpz_manager      & m_mpz_manager;    
-    fpa_decl_plugin        * m_plugin;
+    fpa_decl_plugin          * m_plugin;
     bool                       m_hi_fp_unspecified;
 
     obj_map<func_decl, expr*>  m_const2bv;
@@ -86,7 +86,7 @@ public:
     void mk_ite(expr * c, expr * t, expr * f, expr_ref & result);
 
     void mk_rounding_mode(func_decl * f, expr_ref & result);
-    void mk_value(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual void mk_const(func_decl * f, expr_ref & result);
     virtual void mk_rm_const(func_decl * f, expr_ref & result);
     void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);

@@ -120,7 +120,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FPA_RM_TOWARD_NEGATIVE:
             case OP_FPA_RM_TOWARD_POSITIVE:
             case OP_FPA_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f, result); return BR_DONE;
-            case OP_FPA_VALUE: m_conv.mk_value(f, num, args, result); return BR_DONE;                             
+            case OP_FPA_NUM: m_conv.mk_numeral(f, num, args, result); return BR_DONE;                             
             case OP_FPA_PLUS_INF: m_conv.mk_pinf(f, result); return BR_DONE;
             case OP_FPA_MINUS_INF: m_conv.mk_ninf(f, result); return BR_DONE;
             case OP_FPA_PLUS_ZERO: m_conv.mk_pzero(f, result); return BR_DONE;

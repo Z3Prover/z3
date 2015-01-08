@@ -228,7 +228,7 @@ format * smt2_pp_environment::pp_float_literal(app * t, bool use_bv_lits, bool u
     ast_manager & m = get_manager();
     format * body = 0;
     string_buffer<> buf;
-    VERIFY(get_futil().is_value(t, v));
+    VERIFY(get_futil().is_numeral(t, v));
     if (fm.is_nan(v)) {
         buf << "(_ NaN " << v.get().get_ebits() << " " << v.get().get_sbits() << ")";
         return mk_string(m, buf.c_str());
@@ -575,7 +575,7 @@ class smt2_printer {
         else if (m_env.get_bvutil().is_numeral(c)) {
             f = m_env.pp_bv_literal(c, m_pp_bv_lits, m_pp_bv_neg);
         }
-        else if (m_env.get_futil().is_value(c)) {
+        else if (m_env.get_futil().is_numeral(c)) {
             f = m_env.pp_float_literal(c, m_pp_bv_lits, m_pp_float_real_lits);
         }
         else if (m_env.get_dlutil().is_numeral(c)) {
