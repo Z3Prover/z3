@@ -27,7 +27,7 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"dl_decl_plugin.h"
-#include"float_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"smt_kernel.h"
 #include"smt_params.h"
 #include"event_handler.h"

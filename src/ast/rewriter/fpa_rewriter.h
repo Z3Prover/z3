@@ -22,10 +22,10 @@ Notes:
 #include"ast.h"
 #include"rewriter.h"
 #include"params.h"
-#include"float_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"mpf.h"
 
-class float_rewriter {
+class fpa_rewriter {
     float_util    m_util;
     mpf_manager   m_fm;
 
@@ -33,8 +33,8 @@ class float_rewriter {
     app * mk_neq_nan(expr * arg);
 
 public:
-    float_rewriter(ast_manager & m, params_ref const & p = params_ref());
-    ~float_rewriter();
+    fpa_rewriter(ast_manager & m, params_ref const & p = params_ref());
+    ~fpa_rewriter();
 
     ast_manager & m() const { return m_util.m(); }
     family_id get_fid() const { return m_util.get_fid(); }

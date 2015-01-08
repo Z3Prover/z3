@@ -22,7 +22,7 @@ Notes:
 #include"ast.h"
 #include"obj_hashtable.h"
 #include"ref_util.h"
-#include"float_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"basic_simplifier_plugin.h"
 
@@ -50,7 +50,7 @@ protected:
     arith_util                 m_arith_util;
     mpf_manager              & m_mpf_manager;
     unsynch_mpz_manager      & m_mpz_manager;    
-    float_decl_plugin        * m_plugin;
+    fpa_decl_plugin        * m_plugin;
     bool                       m_hi_fp_unspecified;
 
     obj_map<func_decl, expr*>  m_const2bv;
@@ -76,7 +76,7 @@ public:
         SASSERT(m_bv_util.is_bv(sign) && m_bv_util.get_bv_size(sign) == 1);
         SASSERT(m_bv_util.is_bv(significand));
         SASSERT(m_bv_util.is_bv(exponent));
-        result = m.mk_app(m_util.get_family_id(), OP_FLOAT_TO_FP, sign, exponent, significand);
+        result = m.mk_app(m_util.get_family_id(), OP_FPA_TO_FP, sign, exponent, significand);
     }
 
     void split_triple(expr * e, expr * & sgn, expr * & sig, expr * & exp) const;
@@ -130,15 +130,16 @@ public:
     void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void mk_to_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
-    void mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);
-    void mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);
+    void mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);    
     void mk_to_fp_signed(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    
+    void mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);
+    void mk_to_fp_real_int(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+
     void mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
 
     void set_unspecified_fp_hi(bool v) { m_hi_fp_unspecified = v; }
     expr_ref mk_to_ubv_unspecified(unsigned width);

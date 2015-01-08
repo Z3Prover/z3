@@ -27,7 +27,7 @@ Revision History:
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"array_decl_plugin.h"
-#include"float_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"dl_decl_plugin.h"
 #include"smt2_util.h"
 

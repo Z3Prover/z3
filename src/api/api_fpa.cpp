@@ -20,7 +20,7 @@ Notes:
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"
-#include"float_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 
 extern "C" {
 

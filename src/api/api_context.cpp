@@ -113,7 +113,7 @@ namespace api {
         m_array_fid = m().mk_family_id("array");
         m_dt_fid    = m().mk_family_id("datatype");
         m_datalog_fid = m().mk_family_id("datalog_relation");
-        m_fpa_fid   = m().mk_family_id("float");
+        m_fpa_fid   = m().mk_family_id("fpa");
         m_dt_plugin = static_cast<datatype_decl_plugin*>(m().get_plugin(m_dt_fid));
 
         if (!m_user_ref_count) {

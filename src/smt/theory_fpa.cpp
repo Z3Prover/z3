@@ -82,7 +82,7 @@ namespace smt {
     }
 
     theory_fpa::theory_fpa(ast_manager & m) :
-        theory(m.mk_family_id("float")),
+        theory(m.mk_family_id("fpa")),
         m_converter(m, this),
         m_rw(m, m_converter, params_ref()),
         m_th_rw(m),
@@ -91,6 +91,9 @@ namespace smt {
         m_bv_util(m_converter.bu()),
         m_arith_util(m_converter.au())
     {
+        params_ref p;
+        p.set_bool("arith_lhs", true);
+        m_th_rw.updt_params(p);
     }
 
     theory_fpa::~theory_fpa()
@@ -207,7 +210,7 @@ namespace smt {
                 bv_srt = m_bv_util.mk_sort(ebits + sbits);
             }
                        
-            w = m.mk_func_decl(get_family_id(), OP_FLOAT_INTERNAL_BVWRAP, 0, 0, 1, &e_srt, bv_srt);            
+            w = m.mk_func_decl(get_family_id(), OP_FPA_INTERNAL_BVWRAP, 0, 0, 1, &e_srt, bv_srt);            
             m_wraps.insert(e_srt, w);
             m.inc_ref(w);            
         }
@@ -226,7 +229,7 @@ namespace smt {
         if (!m_unwraps.find(e_srt, u)) {
             SASSERT(!m_unwraps.contains(e_srt));
             sort * bv_srt = m.get_sort(e);            
-            u = m.mk_func_decl(get_family_id(), OP_FLOAT_INTERNAL_BVUNWRAP, 0, 0, 1, &bv_srt, s);
+            u = m.mk_func_decl(get_family_id(), OP_FPA_INTERNAL_BVUNWRAP, 0, 0, 1, &bv_srt, s);
             m_unwraps.insert(s, u);
             m.inc_ref(u);
         }
@@ -268,10 +271,10 @@ namespace smt {
         }
         else if (m_float_util.is_float(e)) {
             SASSERT(eca->get_family_id() == get_family_id());
-            float_op_kind k = (float_op_kind)(eca->get_decl_kind());
-            SASSERT(k == OP_FLOAT_TO_FP || k == OP_FLOAT_INTERNAL_BVUNWRAP);
+            fpa_op_kind k = (fpa_op_kind)(eca->get_decl_kind());
+            SASSERT(k == OP_FPA_TO_FP || k == OP_FPA_INTERNAL_BVUNWRAP);
             switch (k) {
-            case OP_FLOAT_TO_FP: {
+            case OP_FPA_TO_FP: {
                 SASSERT(eca->get_num_args() == 3);
                 SASSERT(is_sort_of(m.get_sort(eca->get_arg(0)), m_bv_util.get_family_id(), BV_SORT));
                 SASSERT(is_sort_of(m.get_sort(eca->get_arg(1)), m_bv_util.get_family_id(), BV_SORT));
@@ -388,6 +391,8 @@ namespace smt {
             res = m.mk_and(res, t);
         }
         m_converter.m_extra_assertions.reset();
+
+        m_th_rw(res);
         
         CTRACE("t_fpa", !m.is_true(res), tout << "side condition: " << mk_ismt2_pp(res, m) << "\n";);
         return res;
@@ -460,11 +465,11 @@ namespace smt {
         // The corresponding constraints will not be translated and added 
         // via convert(...) and assert_cnstr(...) in initialize_atom(...).
         // Therefore, we translate and assert them here.
-        float_op_kind k = (float_op_kind)term->get_decl_kind();
+        fpa_op_kind k = (fpa_op_kind)term->get_decl_kind();
         switch (k) {
-        case OP_FLOAT_TO_UBV:
-        case OP_FLOAT_TO_SBV:
-        case OP_FLOAT_TO_REAL: {
+        case OP_FPA_TO_UBV:
+        case OP_FPA_TO_SBV:
+        case OP_FPA_TO_REAL: {
             expr_ref conv(m);
             conv = convert(term);
             assert_cnstr(m.mk_eq(term, conv));
@@ -546,7 +551,7 @@ namespace smt {
 
             c = m.mk_and(m.mk_eq(x_sgn, y_sgn),
                          m.mk_eq(x_sig, y_sig),
-                         m.mk_eq(x_exp, y_exp));
+                         m.mk_eq(x_exp, y_exp));            
         }
         else
             c = m.mk_eq(xc, yc);

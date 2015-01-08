@@ -3,11 +3,11 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    qffpa_tactic.h
+    qffp_tactic.h
 
 Abstract:
 
-    Tactic QF_FPA benchmarks.
+    Tactic for QF_FP benchmarks.
 
 Author:
 

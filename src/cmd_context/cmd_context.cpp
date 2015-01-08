@@ -24,7 +24,7 @@ Notes:
 #include"array_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"seq_decl_plugin.h"
-#include"float_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"ast_pp.h"
 #include"var_subst.h"
 #include"pp.h"
@@ -556,7 +556,7 @@ bool cmd_context::logic_has_seq() const {
     return !has_logic() || logic_has_seq_core(m_logic);        
 }
 
-bool cmd_context::logic_has_floats() const {
+bool cmd_context::logic_has_fpa() const {
     return !has_logic() || m_logic == "QF_FP" || m_logic == "QF_FPBV";
 }
 
@@ -601,7 +601,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
-        register_plugin(symbol("float"),    alloc(float_decl_plugin), logic_has_floats());
+        register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
     }
     else {
         // the manager was created by an external module
@@ -614,7 +614,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("array"),    logic_has_array(), fids);
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
-        load_plugin(symbol("float"),    logic_has_floats(), fids);
+        load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         
         svector<family_id>::iterator it  = fids.begin();
         svector<family_id>::iterator end = fids.end();

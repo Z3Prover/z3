@@ -26,21 +26,23 @@ Notes:
 #include"qffpa_tactic.h"
 
 tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
-    params_ref sat_simp_p = p;
-    sat_simp_p .set_bool("elim_and", true);
+    params_ref simp_p = p;
+    simp_p.set_bool("arith_lhs", true);
+    simp_p.set_bool("elim_and", true);
 
-    tactic * st = 
-                cond(mk_or(mk_produce_proofs_probe(), mk_produce_unsat_cores_probe()),
-                    and_then(mk_simplify_tactic(m),
-                             mk_smt_tactic()),
-                and_then(
-                    mk_simplify_tactic(m, p),
-                    mk_fpa2bv_tactic(m, p),
-                    using_params(mk_simplify_tactic(m, p), sat_simp_p),
-                    mk_bit_blaster_tactic(m, p),
-                    using_params(mk_simplify_tactic(m, p), sat_simp_p),
-                    mk_sat_tactic(m, p),
-                    mk_fail_if_undecided_tactic()));
+    tactic * st = cond( mk_or(mk_produce_proofs_probe(), mk_produce_unsat_cores_probe()),
+                       and_then(mk_simplify_tactic(m, simp_p),
+                                 mk_smt_tactic()),
+                        and_then(
+                            mk_simplify_tactic(m, p),
+                            mk_fpa2bv_tactic(m, p),
+                            using_params(mk_simplify_tactic(m, p), simp_p),
+                            mk_bit_blaster_tactic(m, p),
+                            using_params(mk_simplify_tactic(m, p), simp_p),
+                            cond(mk_is_propositional_probe(),
+                                mk_sat_tactic(m, p),
+                                mk_smt_tactic(p)),
+                            mk_fail_if_undecided_tactic()));
 
     st->updt_params(p);
     return st;
@@ -69,6 +71,8 @@ struct is_non_qffp_predicate {
         if (fid == fu.get_family_id() || fid == bu.get_family_id())
             return;
         if (is_uninterp_const(n))
+            return;
+        if (au.is_real(s) && au.is_numeral(n))
             return;
 
         throw found();

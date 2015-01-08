@@ -3,7 +3,7 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    float_rewriter.cpp
+    fpa_rewriter.cpp
 
 Abstract:
 
@@ -16,65 +16,65 @@ Author:
 Notes:
 
 --*/
-#include"float_rewriter.h"
+#include"fpa_rewriter.h"
 
-float_rewriter::float_rewriter(ast_manager & m, params_ref const & p):
+fpa_rewriter::fpa_rewriter(ast_manager & m, params_ref const & p):
     m_util(m) {
     updt_params(p);
 }
 
-float_rewriter::~float_rewriter() {
+fpa_rewriter::~fpa_rewriter() {
 }
 
-void float_rewriter::updt_params(params_ref const & p) {
+void fpa_rewriter::updt_params(params_ref const & p) {
 }
  
-void float_rewriter::get_param_descrs(param_descrs & r) {
+void fpa_rewriter::get_param_descrs(param_descrs & r) {
 }
 
-br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
+br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     br_status st = BR_FAILED;
     SASSERT(f->get_family_id() == get_fid());
     switch (f->get_decl_kind()) {
-    case OP_FLOAT_TO_FP:        st = mk_to_fp(f, num_args, args, result); break;
-    case OP_FLOAT_TO_FP_UNSIGNED: st = mk_to_fp_unsigned(f, num_args, args, result); break;
-    case OP_FLOAT_ADD:       SASSERT(num_args == 3); st = mk_add(args[0], args[1], args[2], result); break;
-    case OP_FLOAT_SUB:       SASSERT(num_args == 3); st = mk_sub(args[0], args[1], args[2], result); break;
-    case OP_FLOAT_NEG:       SASSERT(num_args == 1); st = mk_neg(args[0], result); break;
-    case OP_FLOAT_MUL:       SASSERT(num_args == 3); st = mk_mul(args[0], args[1], args[2], result); break;
-    case OP_FLOAT_DIV:       SASSERT(num_args == 3); st = mk_div(args[0], args[1], args[2], result); break;
-    case OP_FLOAT_REM:       SASSERT(num_args == 2); st = mk_rem(args[0], args[1], result); break;
-    case OP_FLOAT_ABS:       SASSERT(num_args == 1); st = mk_abs(args[0], result); break;
-    case OP_FLOAT_MIN:       SASSERT(num_args == 2); st = mk_min(args[0], args[1], result); break;
-    case OP_FLOAT_MAX:       SASSERT(num_args == 2); st = mk_max(args[0], args[1], result); break;
-    case OP_FLOAT_FMA:       SASSERT(num_args == 4); st = mk_fma(args[0], args[1], args[2], args[3], result); break;
-    case OP_FLOAT_SQRT:      SASSERT(num_args == 2); st = mk_sqrt(args[0], args[1], result); break;
-    case OP_FLOAT_ROUND_TO_INTEGRAL: SASSERT(num_args == 2); st = mk_round(args[0], args[1], result); break;
+    case OP_FPA_TO_FP:        st = mk_to_fp(f, num_args, args, result); break;
+    case OP_FPA_TO_FP_UNSIGNED: st = mk_to_fp_unsigned(f, num_args, args, result); break;
+    case OP_FPA_ADD:       SASSERT(num_args == 3); st = mk_add(args[0], args[1], args[2], result); break;
+    case OP_FPA_SUB:       SASSERT(num_args == 3); st = mk_sub(args[0], args[1], args[2], result); break;
+    case OP_FPA_NEG:       SASSERT(num_args == 1); st = mk_neg(args[0], result); break;
+    case OP_FPA_MUL:       SASSERT(num_args == 3); st = mk_mul(args[0], args[1], args[2], result); break;
+    case OP_FPA_DIV:       SASSERT(num_args == 3); st = mk_div(args[0], args[1], args[2], result); break;
+    case OP_FPA_REM:       SASSERT(num_args == 2); st = mk_rem(args[0], args[1], result); break;
+    case OP_FPA_ABS:       SASSERT(num_args == 1); st = mk_abs(args[0], result); break;
+    case OP_FPA_MIN:       SASSERT(num_args == 2); st = mk_min(args[0], args[1], result); break;
+    case OP_FPA_MAX:       SASSERT(num_args == 2); st = mk_max(args[0], args[1], result); break;
+    case OP_FPA_FMA:       SASSERT(num_args == 4); st = mk_fma(args[0], args[1], args[2], args[3], result); break;
+    case OP_FPA_SQRT:      SASSERT(num_args == 2); st = mk_sqrt(args[0], args[1], result); break;
+    case OP_FPA_ROUND_TO_INTEGRAL: SASSERT(num_args == 2); st = mk_round(args[0], args[1], result); break;
 
-    case OP_FLOAT_EQ:        SASSERT(num_args == 2); st = mk_float_eq(args[0], args[1], result); break; 
-    case OP_FLOAT_LT:        SASSERT(num_args == 2); st = mk_lt(args[0], args[1], result); break;
-    case OP_FLOAT_GT:        SASSERT(num_args == 2); st = mk_gt(args[0], args[1], result); break;
-    case OP_FLOAT_LE:        SASSERT(num_args == 2); st = mk_le(args[0], args[1], result); break;
-    case OP_FLOAT_GE:        SASSERT(num_args == 2); st = mk_ge(args[0], args[1], result); break;
-    case OP_FLOAT_IS_ZERO:   SASSERT(num_args == 1); st = mk_is_zero(args[0], result); break;
-    case OP_FLOAT_IS_NZERO:  SASSERT(num_args == 1); st = mk_is_nzero(args[0], result); break;
-    case OP_FLOAT_IS_PZERO:  SASSERT(num_args == 1); st = mk_is_pzero(args[0], result); break;
-    case OP_FLOAT_IS_NAN:    SASSERT(num_args == 1); st = mk_is_nan(args[0], result); break;
-    case OP_FLOAT_IS_INF:    SASSERT(num_args == 1); st = mk_is_inf(args[0], result); break;
-    case OP_FLOAT_IS_NORMAL: SASSERT(num_args == 1); st = mk_is_normal(args[0], result); break;
-    case OP_FLOAT_IS_SUBNORMAL: SASSERT(num_args == 1); st = mk_is_subnormal(args[0], result); break;
-    case OP_FLOAT_IS_NEGATIVE: SASSERT(num_args == 1); st = mk_is_negative(args[0], result); break;
-    case OP_FLOAT_IS_POSITIVE: SASSERT(num_args == 1); st = mk_is_positive(args[0], result); break;    
-    case OP_FLOAT_FP:        SASSERT(num_args == 3); st = mk_fp(args[0], args[1], args[2], result); break;    
-    case OP_FLOAT_TO_UBV:    SASSERT(num_args == 2); st = mk_to_ubv(args[0], args[1], result); break;
-    case OP_FLOAT_TO_SBV:    SASSERT(num_args == 2); st = mk_to_sbv(args[0], args[1], result); break;
-    case OP_FLOAT_TO_REAL:   SASSERT(num_args == 1); st = mk_to_real(args[0], result); break;
-    case OP_FLOAT_TO_IEEE_BV: SASSERT(num_args == 1); st = mk_to_ieee_bv(args[0], result); break;
+    case OP_FPA_EQ:        SASSERT(num_args == 2); st = mk_float_eq(args[0], args[1], result); break; 
+    case OP_FPA_LT:        SASSERT(num_args == 2); st = mk_lt(args[0], args[1], result); break;
+    case OP_FPA_GT:        SASSERT(num_args == 2); st = mk_gt(args[0], args[1], result); break;
+    case OP_FPA_LE:        SASSERT(num_args == 2); st = mk_le(args[0], args[1], result); break;
+    case OP_FPA_GE:        SASSERT(num_args == 2); st = mk_ge(args[0], args[1], result); break;
+    case OP_FPA_IS_ZERO:   SASSERT(num_args == 1); st = mk_is_zero(args[0], result); break;
+    case OP_FPA_IS_NZERO:  SASSERT(num_args == 1); st = mk_is_nzero(args[0], result); break;
+    case OP_FPA_IS_PZERO:  SASSERT(num_args == 1); st = mk_is_pzero(args[0], result); break;
+    case OP_FPA_IS_NAN:    SASSERT(num_args == 1); st = mk_is_nan(args[0], result); break;
+    case OP_FPA_IS_INF:    SASSERT(num_args == 1); st = mk_is_inf(args[0], result); break;
+    case OP_FPA_IS_NORMAL: SASSERT(num_args == 1); st = mk_is_normal(args[0], result); break;
+    case OP_FPA_IS_SUBNORMAL: SASSERT(num_args == 1); st = mk_is_subnormal(args[0], result); break;
+    case OP_FPA_IS_NEGATIVE: SASSERT(num_args == 1); st = mk_is_negative(args[0], result); break;
+    case OP_FPA_IS_POSITIVE: SASSERT(num_args == 1); st = mk_is_positive(args[0], result); break;    
+    case OP_FPA_FP:        SASSERT(num_args == 3); st = mk_fp(args[0], args[1], args[2], result); break;    
+    case OP_FPA_TO_UBV:    SASSERT(num_args == 2); st = mk_to_ubv(args[0], args[1], result); break;
+    case OP_FPA_TO_SBV:    SASSERT(num_args == 2); st = mk_to_sbv(args[0], args[1], result); break;
+    case OP_FPA_TO_REAL:   SASSERT(num_args == 1); st = mk_to_real(args[0], result); break;
+    case OP_FPA_TO_IEEE_BV: SASSERT(num_args == 1); st = mk_to_ieee_bv(args[0], result); break;
     }
     return st;
 }
 
-br_status float_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
+br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_num_parameters() == 2);
     SASSERT(f->get_parameter(0).is_int());
     SASSERT(f->get_parameter(1).is_int());
@@ -159,7 +159,7 @@ br_status float_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * cons
         return BR_FAILED;
 }
 
-br_status float_rewriter::mk_to_fp_unsigned(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
+br_status fpa_rewriter::mk_to_fp_unsigned(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_num_parameters() == 2);
     SASSERT(f->get_parameter(0).is_int());
     SASSERT(f->get_parameter(1).is_int());
@@ -169,7 +169,7 @@ br_status float_rewriter::mk_to_fp_unsigned(func_decl * f, unsigned num_args, ex
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {    
+br_status fpa_rewriter::mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {    
     mpf_rounding_mode rm;
     if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm()), v3(m_util.fm());
@@ -184,13 +184,13 @@ br_status float_rewriter::mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_sub(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
+br_status fpa_rewriter::mk_sub(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
     // a - b = a + (-b)
     result = m_util.mk_add(arg1, arg2, m_util.mk_neg(arg3));
     return BR_REWRITE2;
 }
 
-br_status float_rewriter::mk_mul(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {    
+br_status fpa_rewriter::mk_mul(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {    
     mpf_rounding_mode rm;
     if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm()), v3(m_util.fm());
@@ -205,7 +205,7 @@ br_status float_rewriter::mk_mul(expr * arg1, expr * arg2, expr * arg3, expr_ref
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_div(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
+br_status fpa_rewriter::mk_div(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
     mpf_rounding_mode rm;
     if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm()), v3(m_util.fm());
@@ -220,7 +220,7 @@ br_status float_rewriter::mk_div(expr * arg1, expr * arg2, expr * arg3, expr_ref
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_neg(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_neg(expr * arg1, expr_ref & result) {
     if (m_util.is_nan(arg1)) {
         // -nan --> nan
         result = arg1;
@@ -253,7 +253,7 @@ br_status float_rewriter::mk_neg(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_rem(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_rem(expr * arg1, expr * arg2, expr_ref & result) {
     scoped_mpf v1(m_util.fm()), v2(m_util.fm());
     if (m_util.is_value(arg1, v1) && m_util.is_value(arg2, v2)) {
         scoped_mpf t(m_util.fm());
@@ -265,7 +265,7 @@ br_status float_rewriter::mk_rem(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_abs(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_abs(expr * arg1, expr_ref & result) {
     if (m_util.is_nan(arg1)) {
         result = arg1;
         return BR_DONE;
@@ -276,7 +276,7 @@ br_status float_rewriter::mk_abs(expr * arg1, expr_ref & result) {
     return BR_REWRITE2;
 }
 
-br_status float_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
     if (m_util.is_nan(arg1)) {
         result = arg2;
         return BR_DONE;
@@ -296,7 +296,7 @@ br_status float_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_REWRITE_FULL;
 }
 
-br_status float_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
     if (m_util.is_nan(arg1)) {
         result = arg2;
         return BR_DONE;
@@ -316,7 +316,7 @@ br_status float_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_REWRITE_FULL;
 }
 
-br_status float_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result) {
+br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result) {
     mpf_rounding_mode rm;
     if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm()), v3(m_util.fm()), v4(m_util.fm());
@@ -331,7 +331,7 @@ br_status float_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * a
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_sqrt(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_sqrt(expr * arg1, expr * arg2, expr_ref & result) {
     mpf_rounding_mode rm;
     if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm());
@@ -346,7 +346,7 @@ br_status float_rewriter::mk_sqrt(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_round(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_round(expr * arg1, expr * arg2, expr_ref & result) {
     mpf_rounding_mode rm;
     if (m_util.is_rm_value(arg1, rm)) {
         scoped_mpf v2(m_util.fm());
@@ -362,7 +362,7 @@ br_status float_rewriter::mk_round(expr * arg1, expr * arg2, expr_ref & result) 
 }
 
 // This the floating point theory ==
-br_status float_rewriter::mk_float_eq(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_float_eq(expr * arg1, expr * arg2, expr_ref & result) {
     scoped_mpf v1(m_util.fm()), v2(m_util.fm());
     if (m_util.is_value(arg1, v1) && m_util.is_value(arg2, v2)) {
         result = (m_util.fm().eq(v1, v2)) ? m().mk_true() : m().mk_false();
@@ -373,16 +373,16 @@ br_status float_rewriter::mk_float_eq(expr * arg1, expr * arg2, expr_ref & resul
 }
 
 // Return (= arg NaN)
-app * float_rewriter::mk_eq_nan(expr * arg) {
+app * fpa_rewriter::mk_eq_nan(expr * arg) {
     return m().mk_eq(arg, m_util.mk_nan(m().get_sort(arg)));
 }
 
 // Return (not (= arg NaN))
-app * float_rewriter::mk_neq_nan(expr * arg) {
+app * fpa_rewriter::mk_neq_nan(expr * arg) {
     return m().mk_not(mk_eq_nan(arg));
 }
 
-br_status float_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
     if (m_util.is_nan(arg1) || m_util.is_nan(arg2)) {
         result = m().mk_false();
         return BR_DONE;
@@ -418,12 +418,12 @@ br_status float_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_gt(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_gt(expr * arg1, expr * arg2, expr_ref & result) {
     result = m_util.mk_lt(arg2, arg1);
     return BR_REWRITE1;
 }
 
-br_status float_rewriter::mk_le(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_le(expr * arg1, expr * arg2, expr_ref & result) {
     if (m_util.is_nan(arg1) || m_util.is_nan(arg2)) {
         result = m().mk_false();
         return BR_DONE;
@@ -437,12 +437,12 @@ br_status float_rewriter::mk_le(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_ge(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_ge(expr * arg1, expr * arg2, expr_ref & result) {
     result = m_util.mk_le(arg2, arg1);
     return BR_REWRITE1;
 }
 
-br_status float_rewriter::mk_is_zero(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_is_zero(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_zero(v)) ? m().mk_true() : m().mk_false();
@@ -452,7 +452,7 @@ br_status float_rewriter::mk_is_zero(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_is_nzero(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_is_nzero(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_nzero(v)) ? m().mk_true() : m().mk_false();
@@ -462,7 +462,7 @@ br_status float_rewriter::mk_is_nzero(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_is_pzero(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_is_pzero(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_pzero(v)) ? m().mk_true() : m().mk_false();
@@ -472,7 +472,7 @@ br_status float_rewriter::mk_is_pzero(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_is_nan(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_is_nan(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_nan(v)) ? m().mk_true() : m().mk_false();
@@ -482,7 +482,7 @@ br_status float_rewriter::mk_is_nan(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_is_inf(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_is_inf(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_inf(v)) ? m().mk_true() : m().mk_false();
@@ -492,7 +492,7 @@ br_status float_rewriter::mk_is_inf(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_is_normal(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_is_normal(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_normal(v)) ? m().mk_true() : m().mk_false();
@@ -502,7 +502,7 @@ br_status float_rewriter::mk_is_normal(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_is_subnormal(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_is_subnormal(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_denormal(v)) ? m().mk_true() : m().mk_false();
@@ -512,7 +512,7 @@ br_status float_rewriter::mk_is_subnormal(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_is_negative(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_is_negative(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_neg(v)) ? m().mk_true() : m().mk_false();
@@ -522,7 +522,7 @@ br_status float_rewriter::mk_is_negative(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_is_positive(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_is_positive(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_neg(v) || m_util.fm().is_nan(v)) ? m().mk_false() : m().mk_true();
@@ -534,7 +534,7 @@ br_status float_rewriter::mk_is_positive(expr * arg1, expr_ref & result) {
 
 
 // This the SMT =
-br_status float_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) {
     scoped_mpf v1(m_util.fm()), v2(m_util.fm());
     if (m_util.is_value(arg1, v1) && m_util.is_value(arg2, v2)) {
         // Note: == is the floats-equality, here we need normal equality.
@@ -548,11 +548,11 @@ br_status float_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_to_ieee_bv(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_to_ieee_bv(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {    
+br_status fpa_rewriter::mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {    
     bv_util bu(m());
     rational r1, r2, r3;
     unsigned bvs1, bvs2, bvs3;
@@ -575,15 +575,15 @@ br_status float_rewriter::mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref 
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_to_ubv(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_to_ubv(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_to_sbv(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_to_sbv(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status float_rewriter::mk_to_real(expr * arg1, expr_ref & result) {
+br_status fpa_rewriter::mk_to_real(expr * arg1, expr_ref & result) {
     scoped_mpf fv(m_util.fm());
     
     if (m_util.is_value(arg1, fv)) {

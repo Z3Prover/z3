@@ -115,55 +115,55 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
         
         if (m_conv.is_float_family(f)) {
             switch (f->get_decl_kind()) {            
-            case OP_FLOAT_RM_NEAREST_TIES_TO_AWAY:
-            case OP_FLOAT_RM_NEAREST_TIES_TO_EVEN:
-            case OP_FLOAT_RM_TOWARD_NEGATIVE:
-            case OP_FLOAT_RM_TOWARD_POSITIVE:
-            case OP_FLOAT_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f, result); return BR_DONE;
-            case OP_FLOAT_VALUE: m_conv.mk_value(f, num, args, result); return BR_DONE;                             
-            case OP_FLOAT_PLUS_INF: m_conv.mk_pinf(f, result); return BR_DONE;
-            case OP_FLOAT_MINUS_INF: m_conv.mk_ninf(f, result); return BR_DONE;
-            case OP_FLOAT_PLUS_ZERO: m_conv.mk_pzero(f, result); return BR_DONE;
-            case OP_FLOAT_MINUS_ZERO: m_conv.mk_nzero(f, result); return BR_DONE;
-            case OP_FLOAT_NAN: m_conv.mk_nan(f, result); return BR_DONE;
-            case OP_FLOAT_ADD: m_conv.mk_add(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_SUB: m_conv.mk_sub(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_NEG: m_conv.mk_neg(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_MUL: m_conv.mk_mul(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_DIV: m_conv.mk_div(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_REM: m_conv.mk_rem(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_ABS: m_conv.mk_abs(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_MIN: m_conv.mk_min(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_MAX: m_conv.mk_max(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_FMA: m_conv.mk_fma(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_SQRT: m_conv.mk_sqrt(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_ROUND_TO_INTEGRAL: m_conv.mk_round_to_integral(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_EQ: m_conv.mk_float_eq(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_LT: m_conv.mk_float_lt(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_GT: m_conv.mk_float_gt(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_LE: m_conv.mk_float_le(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_GE: m_conv.mk_float_ge(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_ZERO: m_conv.mk_is_zero(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_NZERO: m_conv.mk_is_nzero(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_PZERO: m_conv.mk_is_pzero(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_NAN: m_conv.mk_is_nan(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_INF: m_conv.mk_is_inf(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_NORMAL: m_conv.mk_is_normal(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_SUBNORMAL: m_conv.mk_is_subnormal(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_POSITIVE: m_conv.mk_is_positive(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_IS_NEGATIVE: m_conv.mk_is_negative(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_TO_FP: m_conv.mk_to_fp(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_TO_FP_UNSIGNED: m_conv.mk_to_fp_unsigned(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_FP: m_conv.mk_fp(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_TO_UBV: m_conv.mk_to_ubv(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
-            case OP_FLOAT_INTERNAL_BVWRAP: 
-            case OP_FLOAT_INTERNAL_BVUNWRAP:
-            case OP_FLOAT_INTERNAL_TO_REAL_UNSPECIFIED:
-            case OP_FLOAT_INTERNAL_TO_UBV_UNSPECIFIED: 
-            case OP_FLOAT_INTERNAL_TO_SBV_UNSPECIFIED: return BR_FAILED;
+            case OP_FPA_RM_NEAREST_TIES_TO_AWAY:
+            case OP_FPA_RM_NEAREST_TIES_TO_EVEN:
+            case OP_FPA_RM_TOWARD_NEGATIVE:
+            case OP_FPA_RM_TOWARD_POSITIVE:
+            case OP_FPA_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f, result); return BR_DONE;
+            case OP_FPA_VALUE: m_conv.mk_value(f, num, args, result); return BR_DONE;                             
+            case OP_FPA_PLUS_INF: m_conv.mk_pinf(f, result); return BR_DONE;
+            case OP_FPA_MINUS_INF: m_conv.mk_ninf(f, result); return BR_DONE;
+            case OP_FPA_PLUS_ZERO: m_conv.mk_pzero(f, result); return BR_DONE;
+            case OP_FPA_MINUS_ZERO: m_conv.mk_nzero(f, result); return BR_DONE;
+            case OP_FPA_NAN: m_conv.mk_nan(f, result); return BR_DONE;
+            case OP_FPA_ADD: m_conv.mk_add(f, num, args, result); return BR_DONE;
+            case OP_FPA_SUB: m_conv.mk_sub(f, num, args, result); return BR_DONE;
+            case OP_FPA_NEG: m_conv.mk_neg(f, num, args, result); return BR_DONE;
+            case OP_FPA_MUL: m_conv.mk_mul(f, num, args, result); return BR_DONE;
+            case OP_FPA_DIV: m_conv.mk_div(f, num, args, result); return BR_DONE;
+            case OP_FPA_REM: m_conv.mk_rem(f, num, args, result); return BR_DONE;
+            case OP_FPA_ABS: m_conv.mk_abs(f, num, args, result); return BR_DONE;
+            case OP_FPA_MIN: m_conv.mk_min(f, num, args, result); return BR_DONE;
+            case OP_FPA_MAX: m_conv.mk_max(f, num, args, result); return BR_DONE;
+            case OP_FPA_FMA: m_conv.mk_fma(f, num, args, result); return BR_DONE;
+            case OP_FPA_SQRT: m_conv.mk_sqrt(f, num, args, result); return BR_DONE;
+            case OP_FPA_ROUND_TO_INTEGRAL: m_conv.mk_round_to_integral(f, num, args, result); return BR_DONE;
+            case OP_FPA_EQ: m_conv.mk_float_eq(f, num, args, result); return BR_DONE;
+            case OP_FPA_LT: m_conv.mk_float_lt(f, num, args, result); return BR_DONE;
+            case OP_FPA_GT: m_conv.mk_float_gt(f, num, args, result); return BR_DONE;
+            case OP_FPA_LE: m_conv.mk_float_le(f, num, args, result); return BR_DONE;
+            case OP_FPA_GE: m_conv.mk_float_ge(f, num, args, result); return BR_DONE;
+            case OP_FPA_IS_ZERO: m_conv.mk_is_zero(f, num, args, result); return BR_DONE;
+            case OP_FPA_IS_NZERO: m_conv.mk_is_nzero(f, num, args, result); return BR_DONE;
+            case OP_FPA_IS_PZERO: m_conv.mk_is_pzero(f, num, args, result); return BR_DONE;
+            case OP_FPA_IS_NAN: m_conv.mk_is_nan(f, num, args, result); return BR_DONE;
+            case OP_FPA_IS_INF: m_conv.mk_is_inf(f, num, args, result); return BR_DONE;
+            case OP_FPA_IS_NORMAL: m_conv.mk_is_normal(f, num, args, result); return BR_DONE;
+            case OP_FPA_IS_SUBNORMAL: m_conv.mk_is_subnormal(f, num, args, result); return BR_DONE;
+            case OP_FPA_IS_POSITIVE: m_conv.mk_is_positive(f, num, args, result); return BR_DONE;
+            case OP_FPA_IS_NEGATIVE: m_conv.mk_is_negative(f, num, args, result); return BR_DONE;
+            case OP_FPA_TO_FP: m_conv.mk_to_fp(f, num, args, result); return BR_DONE;
+            case OP_FPA_TO_FP_UNSIGNED: m_conv.mk_to_fp_unsigned(f, num, args, result); return BR_DONE;
+            case OP_FPA_FP: m_conv.mk_fp(f, num, args, result); return BR_DONE;
+            case OP_FPA_TO_UBV: m_conv.mk_to_ubv(f, num, args, result); return BR_DONE;
+            case OP_FPA_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
+            case OP_FPA_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
+            case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
+            case OP_FPA_INTERNAL_BVWRAP: 
+            case OP_FPA_INTERNAL_BVUNWRAP:
+            case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
+            case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED: 
+            case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED: return BR_FAILED;
             default:
                 TRACE("fpa2bv", tout << "unsupported operator: " << f->get_name() << "\n";
                       for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);

@@ -23,7 +23,7 @@ Revision History:
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"algebraic_numbers.h"
-#include"float_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 
 bool is_numeral_sort(Z3_context c, Z3_sort ty) {
     sort * _ty = to_sort(ty);
