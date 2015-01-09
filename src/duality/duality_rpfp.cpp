@@ -2478,7 +2478,7 @@ done:
           expr junct = negate ? Negate(f) : f;
           lits.push_back(junct);
       }
-  }|
+  }
 
   struct TermLt {
     bool operator()(const expr &x, const expr &y){
