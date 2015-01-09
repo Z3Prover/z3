@@ -30,6 +30,56 @@ namespace Microsoft.Z3
     /// </summary>
     public class FPRMExpr : Expr
     {
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToEven
+        /// </summary>
+        public bool isRoundNearestTiesToEven { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToEven
+        /// </summary>
+        public bool isRNE { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToAway
+        /// </summary>
+        public bool isRoundNearestTiesToAway { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToAway
+        /// </summary>
+        public bool isRNA { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardPositive
+        /// </summary>
+        public bool isRoundTowardPositive { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_POSITIVE; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardPositive
+        /// </summary>
+        public bool isRTP { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_POSITIVE; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardNegative
+        /// </summary>
+        public bool isRoundTowardNegative { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_NEGATIVE; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardNegative
+        /// </summary>
+        public bool isRTN { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_NEGATIVE; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardZero
+        /// </summary>
+        public bool isRoundTowardZero { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_ZERO; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardZero
+        /// </summary>
+        public bool isRTZ { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_ZERO; } }
+
         #region Internal
         /// <summary> Constructor for FPRMExpr </summary>
         internal FPRMExpr(Context ctx, IntPtr obj)

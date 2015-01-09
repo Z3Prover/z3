@@ -2140,8 +2140,6 @@ public class Expr extends AST
 				return new BitVecNum(ctx, obj);
 			case Z3_FLOATING_POINT_SORT:
 				return new FPNum(ctx, obj);
-			case Z3_ROUNDING_MODE_SORT:
-				return new FPRMNum(ctx, obj);				
 			default: ;
 			}
 		}

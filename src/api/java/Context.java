@@ -2865,90 +2865,90 @@ public class Context extends IDisposable
      * Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
      * @throws Z3Exception on error
      **/
-    public FPRMNum mkFPRoundNearestTiesToEven() throws Z3Exception
+    public FPRMExpr mkFPRoundNearestTiesToEven() throws Z3Exception
     {
-        return new FPRMNum(this, Native.mkFpaRoundNearestTiesToEven(nCtx()));
+        return new FPRMExpr(this, Native.mkFpaRoundNearestTiesToEven(nCtx()));
     }
 
     /** 
      * Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
      * @throws Z3Exception 
      **/
-    public FPRMNum mkFPRNE() throws Z3Exception
+    public FPRMExpr mkFPRNE() throws Z3Exception
     {
-        return new FPRMNum(this, Native.mkFpaRne(nCtx()));
+        return new FPRMExpr(this, Native.mkFpaRne(nCtx()));
     }
 
     /** 
      * Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
      * @throws Z3Exception 
      **/
-    public FPRMNum mkFPRoundNearestTiesToAway() throws Z3Exception
+    public FPRMExpr mkFPRoundNearestTiesToAway() throws Z3Exception
     {
-        return new FPRMNum(this, Native.mkFpaRoundNearestTiesToAway(nCtx()));
+        return new FPRMExpr(this, Native.mkFpaRoundNearestTiesToAway(nCtx()));
     }
 
     /** 
      * Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
      * @throws Z3Exception 
      **/
-    public FPRMNum mkFPRNA() throws Z3Exception
+    public FPRMExpr mkFPRNA() throws Z3Exception
     {
-        return new FPRMNum(this, Native.mkFpaRna(nCtx()));
+        return new FPRMExpr(this, Native.mkFpaRna(nCtx()));
     }
 
     /** 
      * Create a numeral of RoundingMode sort which represents the RoundTowardPositive rounding mode.
      * @throws Z3Exception 
      **/
-    public FPRMNum mkFPRoundTowardPositive() throws Z3Exception
+    public FPRMExpr mkFPRoundTowardPositive() throws Z3Exception
     {
-        return new FPRMNum(this, Native.mkFpaRoundTowardPositive(nCtx()));
+        return new FPRMExpr(this, Native.mkFpaRoundTowardPositive(nCtx()));
     }
 
     /** 
      * Create a numeral of RoundingMode sort which represents the RoundTowardPositive rounding mode.
      * @throws Z3Exception 
      **/
-    public FPRMNum mkFPRTP() throws Z3Exception
+    public FPRMExpr mkFPRTP() throws Z3Exception
     {
-        return new FPRMNum(this, Native.mkFpaRtp(nCtx()));
+        return new FPRMExpr(this, Native.mkFpaRtp(nCtx()));
     }
 
     /** 
      * Create a numeral of RoundingMode sort which represents the RoundTowardNegative rounding mode.
      * @throws Z3Exception 
      **/
-    public FPRMNum mkFPRoundTowardNegative() throws Z3Exception
+    public FPRMExpr mkFPRoundTowardNegative() throws Z3Exception
     {
-        return new FPRMNum(this, Native.mkFpaRoundTowardNegative(nCtx()));
+        return new FPRMExpr(this, Native.mkFpaRoundTowardNegative(nCtx()));
     }
 
     /** 
      * Create a numeral of RoundingMode sort which represents the RoundTowardNegative rounding mode.
      * @throws Z3Exception 
      **/
-    public FPRMNum mkFPRTN() throws Z3Exception
+    public FPRMExpr mkFPRTN() throws Z3Exception
     {
-        return new FPRMNum(this, Native.mkFpaRtn(nCtx()));
+        return new FPRMExpr(this, Native.mkFpaRtn(nCtx()));
     }
 
     /** 
      * Create a numeral of RoundingMode sort which represents the RoundTowardZero rounding mode.
      * @throws Z3Exception 
      **/
-    public FPRMNum mkFPRoundTowardZero() throws Z3Exception
+    public FPRMExpr mkFPRoundTowardZero() throws Z3Exception
     {
-        return new FPRMNum(this, Native.mkFpaRoundTowardZero(nCtx()));
+        return new FPRMExpr(this, Native.mkFpaRoundTowardZero(nCtx()));
     }
 
     /** 
      * Create a numeral of RoundingMode sort which represents the RoundTowardZero rounding mode.
      * @throws Z3Exception 
      **/
-    public FPRMNum mkFPRTZ() throws Z3Exception
+    public FPRMExpr mkFPRTZ() throws Z3Exception
     {
-        return new FPRMNum(this, Native.mkFpaRtz(nCtx()));
+        return new FPRMExpr(this, Native.mkFpaRtz(nCtx()));
     }        
 
     /** FloatingPoint Sorts **/

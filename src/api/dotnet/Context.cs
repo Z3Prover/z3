@@ -3456,91 +3456,91 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
         /// </summary>
-        public FPRMNum MkFPRoundNearestTiesToEven()
+        public FPRMExpr MkFPRoundNearestTiesToEven()
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
-            return new FPRMNum(this, Native.Z3_mk_fpa_round_nearest_ties_to_even(nCtx));
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
+            return new FPRMExpr(this, Native.Z3_mk_fpa_round_nearest_ties_to_even(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
         /// </summary>
-        public FPRMNum MkFPRNE()
+        public FPRMExpr MkFPRNE()
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
-            return new FPRMNum(this, Native.Z3_mk_fpa_rne(nCtx));
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
+            return new FPRMExpr(this, Native.Z3_mk_fpa_rne(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
         /// </summary>
-        public FPRMNum MkFPRoundNearestTiesToAway()
+        public FPRMExpr MkFPRoundNearestTiesToAway()
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
-            return new FPRMNum(this, Native.Z3_mk_fpa_round_nearest_ties_to_away(nCtx));
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
+            return new FPRMExpr(this, Native.Z3_mk_fpa_round_nearest_ties_to_away(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
         /// </summary>
-        public FPRMNum MkFPRNA()
+        public FPRMExpr MkFPRNA()
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
-            return new FPRMNum(this, Native.Z3_mk_fpa_rna(nCtx));
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
+            return new FPRMExpr(this, Native.Z3_mk_fpa_rna(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardPositive rounding mode.
         /// </summary>
-        public FPRMNum MkFPRoundTowardPositive()
+        public FPRMExpr MkFPRoundTowardPositive()
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
-            return new FPRMNum(this, Native.Z3_mk_fpa_round_toward_positive(nCtx));
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
+            return new FPRMExpr(this, Native.Z3_mk_fpa_round_toward_positive(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardPositive rounding mode.
         /// </summary>
-        public FPRMNum MkFPRTP()
+        public FPRMExpr MkFPRTP()
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
-            return new FPRMNum(this, Native.Z3_mk_fpa_rtp(nCtx));
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
+            return new FPRMExpr(this, Native.Z3_mk_fpa_rtp(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardNegative rounding mode.
         /// </summary>
-        public FPRMNum MkFPRoundTowardNegative()
+        public FPRMExpr MkFPRoundTowardNegative()
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
-            return new FPRMNum(this, Native.Z3_mk_fpa_round_toward_negative(nCtx));
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
+            return new FPRMExpr(this, Native.Z3_mk_fpa_round_toward_negative(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardNegative rounding mode.
         /// </summary>
-        public FPRMNum MkFPRTN()
+        public FPRMExpr MkFPRTN()
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
-            return new FPRMNum(this, Native.Z3_mk_fpa_rtn(nCtx));
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
+            return new FPRMExpr(this, Native.Z3_mk_fpa_rtn(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardZero rounding mode.
         /// </summary>
-        public FPRMNum MkFPRoundTowardZero()
+        public FPRMExpr MkFPRoundTowardZero()
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
-            return new FPRMNum(this, Native.Z3_mk_fpa_round_toward_zero(nCtx));
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
+            return new FPRMExpr(this, Native.Z3_mk_fpa_round_toward_zero(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardZero rounding mode.
         /// </summary>
-        public FPRMNum MkFPRTZ()
+        public FPRMExpr MkFPRTZ()
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
-            return new FPRMNum(this, Native.Z3_mk_fpa_rtz(nCtx));
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
+            return new FPRMExpr(this, Native.Z3_mk_fpa_rtz(nCtx));
         }        
         #endregion
         #endregion
@@ -3637,7 +3637,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>        
         public FPNum MkFPNaN(FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return new FPNum(this, Native.Z3_mk_fpa_nan(nCtx, s.NativeObject));
         }
 
@@ -3648,7 +3648,7 @@ namespace Microsoft.Z3
         /// <param name="negative">indicates whether the result should be negative.</param>
         public FPNum MkFPInf(FPSort s, bool negative)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return new FPNum(this, Native.Z3_mk_fpa_inf(nCtx, s.NativeObject, negative ? 1 : 0));
         }
 
@@ -3659,7 +3659,7 @@ namespace Microsoft.Z3
         /// <param name="negative">indicates whether the result should be negative.</param>
         public FPNum MkFPZero(FPSort s, bool negative)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return new FPNum(this, Native.Z3_mk_fpa_zero(nCtx, s.NativeObject, negative ? 1 : 0));
         }
 
@@ -3670,7 +3670,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>        
         public FPNum MkFPNumeral(float v, FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return new FPNum(this, Native.Z3_mk_fpa_numeral_float(nCtx, v, s.NativeObject));
         }
 
@@ -3681,7 +3681,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>
         public FPNum MkFPNumeral(double v, FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return new FPNum(this, Native.Z3_mk_fpa_numeral_double(nCtx, v, s.NativeObject));
         }
 
@@ -3692,7 +3692,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>        
         public FPNum MkFPNumeral(int v, FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return new FPNum(this, Native.Z3_mk_fpa_numeral_int(nCtx, v, s.NativeObject));
         }
 
@@ -3705,7 +3705,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>        
         public FPNum MkFPNumeral(bool sgn, uint sig, int exp, FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return new FPNum(this, Native.Z3_mk_fpa_numeral_uint_int(nCtx, sgn ? 1 : 0, sig, exp, s.NativeObject));
         }
 
@@ -3718,7 +3718,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>        
         public FPNum MkFPNumeral(bool sgn, UInt64 sig, Int64 exp, FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return new FPNum(this, Native.Z3_mk_fpa_numeral_uint64_int64(nCtx, sgn ? 1 : 0, sig, exp, s.NativeObject));
         }
 
@@ -3729,7 +3729,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>        
         public FPNum MkFP(float v, FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return MkFPNumeral(v, s);
         }
 
@@ -3740,7 +3740,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>
         public FPNum MkFP(double v, FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return MkFPNumeral(v, s);
         }
 
@@ -3751,7 +3751,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>        
         public FPNum MkFP(int v, FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return MkFPNumeral(v, s);
         }
 
@@ -3764,7 +3764,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>        
         public FPNum MkFP(bool sgn, uint sig, int exp, FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return MkFPNumeral(sgn, sig, exp, s);
         }
 
@@ -3777,7 +3777,7 @@ namespace Microsoft.Z3
         /// <param name="s">FloatingPoint sort.</param>        
         public FPNum MkFP(bool sgn, UInt64 sig, Int64 exp, FPSort s)
         {
-            Contract.Ensures(Contract.Result<FPRMNum>() != null);
+            Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return MkFPNumeral(sgn, sig, exp, s);
         }
 
