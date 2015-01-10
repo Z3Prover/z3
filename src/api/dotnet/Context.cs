@@ -3465,82 +3465,82 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
         /// </summary>
-        public FPRMExpr MkFPRNE()
+        public FPRMNum MkFPRNE()
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPRMExpr(this, Native.Z3_mk_fpa_rne(nCtx));
+            return new FPRMNum(this, Native.Z3_mk_fpa_rne(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
         /// </summary>
-        public FPRMExpr MkFPRoundNearestTiesToAway()
+        public FPRMNum MkFPRoundNearestTiesToAway()
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPRMExpr(this, Native.Z3_mk_fpa_round_nearest_ties_to_away(nCtx));
+            return new FPRMNum(this, Native.Z3_mk_fpa_round_nearest_ties_to_away(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
         /// </summary>
-        public FPRMExpr MkFPRNA()
+        public FPRMNum MkFPRNA()
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPRMExpr(this, Native.Z3_mk_fpa_rna(nCtx));
+            return new FPRMNum(this, Native.Z3_mk_fpa_rna(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardPositive rounding mode.
         /// </summary>
-        public FPRMExpr MkFPRoundTowardPositive()
+        public FPRMNum MkFPRoundTowardPositive()
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPRMExpr(this, Native.Z3_mk_fpa_round_toward_positive(nCtx));
+            return new FPRMNum(this, Native.Z3_mk_fpa_round_toward_positive(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardPositive rounding mode.
         /// </summary>
-        public FPRMExpr MkFPRTP()
+        public FPRMNum MkFPRTP()
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPRMExpr(this, Native.Z3_mk_fpa_rtp(nCtx));
+            return new FPRMNum(this, Native.Z3_mk_fpa_rtp(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardNegative rounding mode.
         /// </summary>
-        public FPRMExpr MkFPRoundTowardNegative()
+        public FPRMNum MkFPRoundTowardNegative()
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPRMExpr(this, Native.Z3_mk_fpa_round_toward_negative(nCtx));
+            return new FPRMNum(this, Native.Z3_mk_fpa_round_toward_negative(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardNegative rounding mode.
         /// </summary>
-        public FPRMExpr MkFPRTN()
+        public FPRMNum MkFPRTN()
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPRMExpr(this, Native.Z3_mk_fpa_rtn(nCtx));
+            return new FPRMNum(this, Native.Z3_mk_fpa_rtn(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardZero rounding mode.
         /// </summary>
-        public FPRMExpr MkFPRoundTowardZero()
+        public FPRMNum MkFPRoundTowardZero()
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPRMExpr(this, Native.Z3_mk_fpa_round_toward_zero(nCtx));
+            return new FPRMNum(this, Native.Z3_mk_fpa_round_toward_zero(nCtx));
         }
 
         /// <summary>
         /// Create a numeral of RoundingMode sort which represents the RoundTowardZero rounding mode.
         /// </summary>
-        public FPRMExpr MkFPRTZ()
+        public FPRMNum MkFPRTZ()
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPRMExpr(this, Native.Z3_mk_fpa_rtz(nCtx));
+            return new FPRMNum(this, Native.Z3_mk_fpa_rtz(nCtx));
         }        
         #endregion
         #endregion

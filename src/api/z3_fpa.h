@@ -835,6 +835,47 @@ extern "C" {
     unsigned Z3_API Z3_fpa_get_sbits(__in Z3_context c, __in Z3_sort s);
 
     /**
+        \brief Retrieves the sign of a floating-point literal
+
+        Remarks: sets \c sgn to 0 if the literal is NaN or positive and to 1 otherwise.
+
+        \param t a floating-point numeral.
+
+        def_API('Z3_fpa_get_numeral_sign', BOOL, (_in(CONTEXT), _in(AST), _out(INT)))
+    */
+    Z3_bool Z3_API Z3_fpa_get_numeral_sign(__in Z3_context c, __in Z3_ast t, __out int * sgn);
+
+    /**
+        \brief Return the significand value of a floating-point numeral as a string
+
+        Remarks: The significand s is always 0 < s < 2.0; the resulting string is long
+        enough to represent the real significand precisely.
+
+        \param t a floating-point numeral.
+
+        def_API('Z3_fpa_get_numeral_significand_string', STRING, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_string Z3_API Z3_fpa_get_numeral_significand_string(__in Z3_context c, __in Z3_ast t);
+
+    /**
+        \brief Return the exponent value of a floating-point numeral as a string
+
+        \param t a floating-point numeral.
+
+        def_API('Z3_fpa_get_numeral_exponent_string', STRING, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(__in Z3_context c, __in Z3_ast t);
+
+    /**
+        \brief Return the exponent value of a floating-point numeral as a signed 64-bit integer
+
+        \param t a floating-point numeral.
+
+        def_API('Z3_fpa_get_numeral_exponent_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64)))
+    */
+    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(__in Z3_context c, __in Z3_ast t, __out __int64 * n);
+
+    /**
         \brief Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format.
 
         \param c logical context.

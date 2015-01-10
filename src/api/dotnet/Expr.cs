@@ -1470,7 +1470,12 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is a floating-point numeral
         /// </summary>
-        public bool IsFPNumeral { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_NUM; } }
+        public bool IsFPNumeral { get { return IsFP && IsNumeral; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point rounding mode numeral
+        /// </summary>
+        public bool IsFPRMNumeral { get { return IsFPRM && IsNumeral; } }
 
         /// <summary>
         /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToEven
@@ -1809,7 +1814,7 @@ namespace Microsoft.Z3
                     case Z3_sort_kind.Z3_REAL_SORT: return new RatNum(ctx, obj);
                     case Z3_sort_kind.Z3_BV_SORT: return new BitVecNum(ctx, obj);
                     case Z3_sort_kind.Z3_FLOATING_POINT_SORT: return new FPNum(ctx, obj);
-                    case Z3_sort_kind.Z3_ROUNDING_MODE_SORT: return new FPRMExpr(ctx, obj);
+                    case Z3_sort_kind.Z3_ROUNDING_MODE_SORT: return new FPRMNum(ctx, obj);
                 }
             }
 

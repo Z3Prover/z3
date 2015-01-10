@@ -50,7 +50,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_numeral(Z3_context c, const char* n, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_numeral(c, n, ty);
-        RESET_ERROR_CODE();          
+        RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
             RETURN_Z3(0);
         }
@@ -64,20 +64,19 @@ extern "C" {
         char const* m = n;
         while (*m) {
             if (!(('0' <= *m && *m <= '9') ||
-                  ('/' == *m) || ('-' == *m) ||
-                  (' ' == *m) || ('\n' == *m) ||
-                  ('.' == *m) || ('e' == *m) ||
-                  ('E' == *m) ||
-                  (('p' == *m) && is_float) || 
-                  (('P' == *m)) && is_float)) {
+                ('/' == *m) || ('-' == *m) ||
+                (' ' == *m) || ('\n' == *m) ||
+                ('.' == *m) || ('e' == *m) ||
+                ('E' == *m) ||
+                (('p' == *m) && is_float) ||
+                (('P' == *m)) && is_float)) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR);
                 return 0;
             }
             ++m;
         }
-        ast * a = 0;        
-        if (_ty->get_family_id() == mk_c(c)->get_fpa_fid())
-        {
+        ast * a = 0;
+        if (_ty->get_family_id() == mk_c(c)->get_fpa_fid()) {
             // avoid expanding floats into huge rationals.
             fpa_util & fu = mk_c(c)->fpa_util();
             scoped_mpf t(fu.fm());
@@ -90,23 +89,11 @@ extern "C" {
         RETURN_Z3(of_ast(a));
         Z3_CATCH_RETURN(0);
     }
-    
+
     Z3_ast Z3_API Z3_mk_int(Z3_context c, int value, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_int(c, value, ty);
-        RESET_ERROR_CODE();  
-        if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
-        }
-        ast * a = mk_c(c)->mk_numeral_core(rational(value), to_sort(ty));
-        RETURN_Z3(of_ast(a)); 
-        Z3_CATCH_RETURN(0);
-    }
-    
-    Z3_ast Z3_API Z3_mk_unsigned_int(Z3_context c, unsigned value, Z3_sort ty) {
-        Z3_TRY;
-        LOG_Z3_mk_unsigned_int(c, value, ty);
-        RESET_ERROR_CODE();   
+        RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
             RETURN_Z3(0);
         }
@@ -114,11 +101,23 @@ extern "C" {
         RETURN_Z3(of_ast(a));
         Z3_CATCH_RETURN(0);
     }
-    
+
+    Z3_ast Z3_API Z3_mk_unsigned_int(Z3_context c, unsigned value, Z3_sort ty) {
+        Z3_TRY;
+        LOG_Z3_mk_unsigned_int(c, value, ty);
+        RESET_ERROR_CODE();
+        if (!check_numeral_sort(c, ty)) {
+            RETURN_Z3(0);
+        }
+        ast * a = mk_c(c)->mk_numeral_core(rational(value), to_sort(ty));
+        RETURN_Z3(of_ast(a));
+        Z3_CATCH_RETURN(0);
+    }
+
     Z3_ast Z3_API Z3_mk_int64(Z3_context c, long long value, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_int64(c, value, ty);
-        RESET_ERROR_CODE();  
+        RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
             RETURN_Z3(0);
         }
@@ -127,11 +126,11 @@ extern "C" {
         RETURN_Z3(of_ast(a));
         Z3_CATCH_RETURN(0);
     }
-    
+
     Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, unsigned long long value, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_unsigned_int64(c, value, ty);
-        RESET_ERROR_CODE(); 
+        RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
             RETURN_Z3(0);
         }
@@ -146,10 +145,11 @@ extern "C" {
         LOG_Z3_is_numeral_ast(c, a);
         RESET_ERROR_CODE();
         expr* e = to_expr(a);
-        return 
+        return
             mk_c(c)->autil().is_numeral(e) ||
             mk_c(c)->bvutil().is_numeral(e) ||
-            mk_c(c)->fpa_util().is_numeral(e);
+            mk_c(c)->fpa_util().is_numeral(e) ||
+            mk_c(c)->fpa_util().is_rm_numeral(e);
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
@@ -193,7 +193,28 @@ extern "C" {
             // floats are separated from all others to avoid huge rationals.
             fpa_util & fu = mk_c(c)->fpa_util();
             scoped_mpf tmp(fu.fm());
-            if (mk_c(c)->fpa_util().is_numeral(to_expr(a), tmp)) {
+            mpf_rounding_mode rm;
+            if (mk_c(c)->fpa_util().is_rm_numeral(to_expr(a), rm)) {
+                switch (rm) {
+                case OP_FPA_RM_NEAREST_TIES_TO_EVEN: 
+                    return mk_c(c)->mk_external_string("roundNearestTiesToEven"); 
+                    break;
+                case OP_FPA_RM_NEAREST_TIES_TO_AWAY:
+                    return mk_c(c)->mk_external_string("roundNearestTiesToAway"); 
+                    break;
+                case OP_FPA_RM_TOWARD_POSITIVE:
+                    return mk_c(c)->mk_external_string("roundTowardPositive");
+                    break;
+                case OP_FPA_RM_TOWARD_NEGATIVE:
+                    return mk_c(c)->mk_external_string("roundTowardNegative");
+                    break;
+                case OP_FPA_RM_TOWARD_ZERO:
+                default:
+                    return mk_c(c)->mk_external_string("roundTowardZero");
+                    break;
+                }                
+            }
+            else if (mk_c(c)->fpa_util().is_numeral(to_expr(a), tmp)) {
                 return mk_c(c)->mk_external_string(fu.fm().to_string(tmp));
             }
             else {
