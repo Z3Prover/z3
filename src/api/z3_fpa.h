@@ -273,13 +273,13 @@ extern "C" {
         of the arguments.
 
         \params c logical context.
-        \params sgn sign 
-        \params sig significand
+        \params sgn sign         
         \params exp exponent
+        \params sig significand
 
         def_API('Z3_mk_fpa_fp', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_fp(__in Z3_context c, __in Z3_ast sgn, __in Z3_ast sig, __in Z3_ast exp);
+    Z3_ast Z3_API Z3_mk_fpa_fp(__in Z3_context c, __in Z3_ast sgn, __in Z3_ast exp, __in Z3_ast sig);
 
     /**
     \brief Create a numeral of FloatingPoint sort from a float.

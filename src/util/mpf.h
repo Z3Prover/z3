@@ -146,7 +146,24 @@ public:
     
     bool sgn(mpf const & x) const { return x.sign; }
     const mpz & sig(mpf const & x) const { return x.significand; }
+    mpz sig_normalized(mpf const & x) { 
+        mpf t;
+        set(t, x);
+        unpack(t, true);
+        mpz r;
+        mpz_manager().set(r, t.significand);
+        del(t);
+        return r;
+    }
     const mpf_exp_t & exp(mpf const & x) const { return x.exponent; }
+    mpf_exp_t exp_normalized(mpf const & x) { 
+        mpf t;
+        set(t, x);
+        unpack(t, true);
+        mpf_exp_t r = t.exponent;
+        del(t);
+        return r;
+    }
 
     bool is_nan(mpf const & x);
     bool is_inf(mpf const & x);

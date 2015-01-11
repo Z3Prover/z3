@@ -76,7 +76,21 @@ func_decl * fpa_decl_plugin::mk_numeral_decl(mpf const & v) {
 }
 
 app * fpa_decl_plugin::mk_numeral(mpf const & v) {
-    return m_manager->mk_const(mk_numeral_decl(v));
+    sort * s = mk_float_sort(v.get_ebits(), v.get_sbits());
+    func_decl * d;
+    if (m_fm.is_nan(v))
+        d = m_manager->mk_const_decl(symbol("NaN"), s, func_decl_info(m_family_id, OP_FPA_NAN));
+    else if (m_fm.is_pinf(v))
+        d = m_manager->mk_const_decl(symbol("+oo"), s, func_decl_info(m_family_id, OP_FPA_PLUS_INF));
+    else if (m_fm.is_ninf(v))
+        d = m_manager->mk_const_decl(symbol("-oo"), s, func_decl_info(m_family_id, OP_FPA_MINUS_INF));
+    else if (m_fm.is_pzero(v))
+        d = m_manager->mk_const_decl(symbol("+zero"), s, func_decl_info(m_family_id, OP_FPA_PLUS_ZERO));
+    else if (m_fm.is_nzero(v))
+        d = m_manager->mk_const_decl(symbol("-zero"), s, func_decl_info(m_family_id, OP_FPA_MINUS_ZERO));
+    else
+        d = mk_numeral_decl(v);
+    return m_manager->mk_const(d);
 }
 
 bool fpa_decl_plugin::is_numeral(expr * n, mpf & val) {

@@ -217,7 +217,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_fp(Z3_context c, Z3_ast sgn, Z3_ast sig, Z3_ast exp) {
+    Z3_ast Z3_API Z3_mk_fpa_fp(Z3_context c, Z3_ast sgn, Z3_ast exp, Z3_ast sig) {
         Z3_TRY;
         LOG_Z3_mk_fpa_fp(c, sgn, sig, exp);
         RESET_ERROR_CODE();
@@ -680,7 +680,11 @@ extern "C" {
         mpf_manager & mpfm = mk_c(c)->fpa_util().fm();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
         scoped_mpf val(mpfm);
-        bool r = plugin->is_numeral(to_expr(t), val);        
+        bool r = plugin->is_numeral(to_expr(t), val);
+        if (!r || mpfm.is_nan(val)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
         *sgn = (mpfm.is_nan(val)) ? 0 : mpfm.sgn(val);
         return r;
         Z3_CATCH_RETURN(0);
@@ -694,14 +698,18 @@ extern "C" {
         mpf_manager & mpfm = mk_c(c)->fpa_util().fm();
         unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
-        scoped_mpf val(mpfm);
-        if (!plugin->is_numeral(to_expr(t), val)) {
+        scoped_mpf val(mpfm);        
+        if (!plugin->is_numeral(to_expr(t), val)) {            
             SET_ERROR_CODE(Z3_INVALID_ARG);
+            return "";
+        }
+        else if (!mpfm.is_regular(val)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG)
             return "";
         }
         unsigned sbits = val.get().get_sbits();
         scoped_mpq q(mpqm);
-        mpqm.set(q, mpfm.sig(val));
+        mpqm.set(q, mpfm.sig_normalized(val));
         mpqm.div(q, mpfm.m_powers2(sbits - 1), q);
         std::stringstream ss;
         mpqm.display_decimal(ss, q, sbits);
@@ -724,7 +732,11 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return "";
         }
-        const mpf_exp_t exp = mpfm.exp(val);        
+        else if (!mpfm.is_normal(val) && !mpfm.is_denormal(val)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG)
+                return "";
+        }
+        mpf_exp_t exp = mpfm.exp_normalized(val);        
         std::stringstream ss;
         ss << exp;
         return mk_c(c)->mk_external_string(ss.str());
@@ -740,7 +752,7 @@ extern "C" {
         unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
         scoped_mpf val(mpfm);
-        bool r = plugin->is_numeral(to_expr(t), val);
+        bool r = plugin->is_numeral(to_expr(t), val);        
         if (!r) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
