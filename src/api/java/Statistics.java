@@ -24,7 +24,7 @@ public class Statistics extends Z3Object
 {
     /**
      * Statistical data is organized into pairs of [Key, Entry], where every
-     * Entry is either a <code>DoubleEntry</code> or a <code>UIntEntry</code>
+     * Entry is either a {@code DoubleEntry} or a {@code UIntEntry}
      **/
     public class Entry
     {
@@ -176,8 +176,9 @@ public class Statistics extends Z3Object
     }
 
     /**
-     * The value of a particular statistical counter. <remarks>Returns null if
-     * the key is unknown.</remarks>
+     * The value of a particular statistical counter.
+	 * Remarks: Returns null if
+     * the key is unknown.
      * 
      * @throws Z3Exception
      **/

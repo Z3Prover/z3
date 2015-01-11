@@ -34,7 +34,8 @@ public class FuncInterp extends Z3Object
 		 * Return the (symbolic) value of this entry.
 		 * 
 		 * @throws Z3Exception
-		 **/
+		 * @throws Z3Exception on error
+	 **/
 		public Expr getValue() throws Z3Exception
 		{
 			return Expr.create(getContext(),
@@ -43,7 +44,8 @@ public class FuncInterp extends Z3Object
 
 		/**
 		 * The number of arguments of the entry.
-		 **/
+		 * @throws Z3Exception on error
+	 **/
 		public int getNumArgs() throws Z3Exception
 		{
 			return Native.funcEntryGetNumArgs(getContext().nCtx(), getNativeObject());
@@ -53,7 +55,8 @@ public class FuncInterp extends Z3Object
 		 * The arguments of the function entry.
 		 * 
 		 * @throws Z3Exception
-		 **/
+		 * @throws Z3Exception on error
+	 **/
 		public Expr[] getArgs() throws Z3Exception
 		{
 			int n = getNumArgs();
@@ -103,6 +106,8 @@ public class FuncInterp extends Z3Object
 
 	/**
 	 * The number of entries in the function interpretation.
+	 * @throws Z3Exception on error
+	 * @return an int
 	 **/
 	public int getNumEntries() throws Z3Exception
 	{
@@ -113,6 +118,7 @@ public class FuncInterp extends Z3Object
 	 * The entries in the function interpretation
 	 * 
 	 * @throws Z3Exception
+	 * @throws Z3Exception on error
 	 **/
 	public Entry[] getEntries() throws Z3Exception
 	{
@@ -128,6 +134,8 @@ public class FuncInterp extends Z3Object
 	 * The (symbolic) `else' value of the function interpretation.
 	 * 
 	 * @throws Z3Exception
+	 * @throws Z3Exception on error
+	 * @return an Expr
 	 **/
 	public Expr getElse() throws Z3Exception
 	{
@@ -137,6 +145,8 @@ public class FuncInterp extends Z3Object
 
 	/**
 	 * The arity of the function interpretation
+	 * @throws Z3Exception on error
+	 * @return an int
 	 **/
 	public int getArity() throws Z3Exception
 	{

@@ -23,7 +23,7 @@ package com.microsoft.z3;
 public class RealExpr extends ArithExpr
 {
     /**
-     * Constructor for RealExpr </summary>
+     * Constructor for RealExpr
      **/
     RealExpr(Context ctx, long obj) throws Z3Exception
     {

@@ -23,7 +23,8 @@ package com.microsoft.z3;
 public class IntExpr extends ArithExpr
 {
 	/**
-	 * Constructor for IntExpr </summary>
+	 * Constructor for IntExpr
+	 * @throws Z3Exception on error
 	 **/
 	IntExpr(Context ctx, long obj) throws Z3Exception
 	{

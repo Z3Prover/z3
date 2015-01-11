@@ -24,6 +24,7 @@ public class ConstructorList extends Z3Object
 {
 	/**
 	 * Destructor.
+	 * @throws Z3Exception on error
 	 **/
 	protected void finalize() throws Z3Exception
 	{

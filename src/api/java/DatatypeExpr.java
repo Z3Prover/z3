@@ -23,7 +23,7 @@ package com.microsoft.z3;
 public class DatatypeExpr extends Expr
 {
 	/**
-	 * Constructor for DatatypeExpr </summary>
+	 * Constructor for DatatypeExpr
 	 **/
 	DatatypeExpr(Context ctx, long obj) throws Z3Exception
 	{
