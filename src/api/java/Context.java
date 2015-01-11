@@ -3170,7 +3170,7 @@ public class Context extends IDisposable
      * @param s FloatingPoint sort.        
      * @throws Z3Exception 
      **/
-    public FPNum mkFP(boolean sgn, int sig, int exp, FPSort s) throws Z3Exception
+    public FPNum mkFP(boolean sgn, int exp, int sig, FPSort s) throws Z3Exception
     {
         return mkFPNumeral(sgn, sig, exp, s);
     }
@@ -3183,7 +3183,7 @@ public class Context extends IDisposable
      * @param s FloatingPoint sort.        
      * @throws Z3Exception 
      **/
-    public FPNum mkFP(boolean sgn, long sig, long exp, FPSort s) throws Z3Exception
+    public FPNum mkFP(boolean sgn, long exp, long sig, FPSort s) throws Z3Exception
     {
         return mkFPNumeral(sgn, sig, exp, s);
     }

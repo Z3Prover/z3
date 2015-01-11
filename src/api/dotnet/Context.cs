@@ -3758,11 +3758,11 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a numeral of FloatingPoint sort from a sign bit and two integers.
         /// </summary>        
-        /// <param name="sgn">the sign.</param>
-        /// <param name="sig">the significand.</param>
+        /// <param name="sgn">the sign.</param>        
         /// <param name="exp">the exponent.</param>
+        /// <param name="sig">the significand.</param>
         /// <param name="s">FloatingPoint sort.</param>        
-        public FPNum MkFP(bool sgn, uint sig, int exp, FPSort s)
+        public FPNum MkFP(bool sgn, int exp, uint sig, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return MkFPNumeral(sgn, sig, exp, s);
@@ -3771,11 +3771,11 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a numeral of FloatingPoint sort from a sign bit and two 64-bit integers.
         /// </summary>        
-        /// <param name="sgn">the sign.</param>
-        /// <param name="sig">the significand.</param>
+        /// <param name="sgn">the sign.</param>        
         /// <param name="exp">the exponent.</param>
+        /// <param name="sig">the significand.</param>
         /// <param name="s">FloatingPoint sort.</param>        
-        public FPNum MkFP(bool sgn, UInt64 sig, Int64 exp, FPSort s)
+        public FPNum MkFP(bool sgn, Int64 exp, UInt64 sig, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
             return MkFPNumeral(sgn, sig, exp, s);
