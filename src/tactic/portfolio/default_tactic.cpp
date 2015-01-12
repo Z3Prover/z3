@@ -28,6 +28,7 @@ Notes:
 #include"probe_arith.h"
 #include"quant_tactics.h"
 #include"qffpa_tactic.h"
+#include"sls_tactic.h"
 
 tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = using_params(and_then(mk_simplify_tactic(m),
