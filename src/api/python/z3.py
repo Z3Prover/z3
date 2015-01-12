@@ -6058,7 +6058,7 @@ class Solver(Z3PPObject):
             e = es[sz1].as_ast()
         else:
             e = BoolVal(True, self.ctx).as_ast()
-            return Z3_benchmark_to_smtlib_string(self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e)
+        return Z3_benchmark_to_smtlib_string(self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e)
 
 
 

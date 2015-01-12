@@ -25,6 +25,8 @@ public class ArraySort extends Sort
 	/**
 	 * The domain of the array sort.
 	 * @throws Z3Exception 
+	 * @throws Z3Exception on error
+	 * @return a sort
 	 **/
 	public Sort getDomain() throws Z3Exception
 	{
@@ -35,6 +37,8 @@ public class ArraySort extends Sort
 	/**
 	 * The range of the array sort.
 	 * @throws Z3Exception 
+	 * @throws Z3Exception on error
+	 * @return a sort
 	 **/
 	public Sort getRange() throws Z3Exception
 	{
