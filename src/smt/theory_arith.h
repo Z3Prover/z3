@@ -883,6 +883,8 @@ namespace smt {
         max_min_t max_min(row & r, bool max, bool& has_shared);
         bool max_min(svector<theory_var> const & vars);
 
+        max_min_t max_min_new(theory_var v, bool max, bool& has_shared);
+
         // -----------------------------------
         //
         // Non linear

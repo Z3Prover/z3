@@ -26,11 +26,14 @@ Notes:
 */
 class base_simplifier {
 protected:
-    ast_manager &                  m_manager;
+    ast_manager &                  m;
     expr_map                       m_cache;
     ptr_vector<expr>               m_todo;
 
-    void cache_result(expr * n, expr * r, proof * p) { m_cache.insert(n, r, p); }
+    void cache_result(expr * n, expr * r, proof * p) { 
+        m_cache.insert(n, r, p); 
+        SASSERT(is_rewrite_proof(n, r, p));
+    }
     void reset_cache() { m_cache.reset(); }
     void flush_cache() { m_cache.flush(); }
     void get_cached(expr * n, expr * & r, proof * & p) const { m_cache.get(n, r, p); }
@@ -44,11 +47,21 @@ protected:
 
 public:
     base_simplifier(ast_manager & m):
-        m_manager(m),
+        m(m),
         m_cache(m, m.fine_grain_proofs()) {
     }
     bool is_cached(expr * n) const {  return m_cache.contains(n); }
-    ast_manager & get_manager() { return m_manager; }
+    ast_manager & get_manager() { return m; }
+
+    bool is_rewrite_proof(expr* n, expr* r, proof* p) {
+        if (p && 
+            !(m.has_fact(p) && 
+              (m.is_eq(m.get_fact(p)) || m.is_oeq(m.get_fact(p)) || m.is_iff(m.get_fact(p))) && 
+              to_app(m.get_fact(p))->get_arg(0) == n && 
+              to_app(m.get_fact(p))->get_arg(1) == r)) return false;
+        
+        return (!m.fine_grain_proofs() || p || (n == r));
+    }
 };
 
 #endif /* _BASE_SIMPLIFIER_H_ */

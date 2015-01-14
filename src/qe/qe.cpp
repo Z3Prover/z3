@@ -2435,7 +2435,6 @@ namespace qe {
             cache_result(q, q, 0); 
             return;
         }
-        ast_manager& m = m_manager;
 
         quantifier_ref new_q(m);
         expr * new_body = 0;
@@ -2461,7 +2460,6 @@ namespace qe {
     }
 
     void expr_quant_elim_star1::reduce_with_assumption(expr* ctx, expr* fml, expr_ref& result) {
-        ast_manager& m = m_manager;
         proof_ref pr(m);
         m_assumption = ctx;
         (*this)(fml, result, pr);

@@ -905,28 +905,6 @@ namespace smt {
         r1.reset_var_pos(m_var_pos);
     }
 
-    /**
-       \brief Select tightest variable x_i to pivot with x_j. The goal
-       is to select a x_i such that the value of x_j is increased
-       (decreased) if inc = true (inc = false), and the tableau
-       remains feasible. Store the gain in x_j of the pivoting
-       operation in 'gain'. Note the gain can be too much. That is,
-       it may make x_i infeasible. In this case, instead of pivoting
-       we move x_j to its upper bound (lower bound) when inc = true (inc = false).
-       
-       If no x_i imposes a restriction on x_j, then return null_theory_var.
-       That is, x_j is free to move to its upper bound (lower bound).
-
-       Get the equations for x_j:
-
-       x_i1 = coeff_1 * x_j + rest_1
-       ...
-       x_in = coeff_n * x_j + rest_n
-
-       gain_k := (upper_bound(x_ik) - value(x_ik))/coeff_k
-
-
-    */
     template<typename Ext>
     bool theory_arith<Ext>::is_safe_to_leave(theory_var x, bool inc, bool& has_int, bool& shared) {
         
@@ -957,6 +935,29 @@ namespace smt {
 
         return !was_unsafe || unbounded;
     }
+
+
+    /**
+       \brief Select tightest variable x_i to pivot with x_j. The goal
+       is to select a x_i such that the value of x_j is increased
+       (decreased) if inc = true (inc = false), and the tableau
+       remains feasible. Store the gain in x_j of the pivoting
+       operation in 'gain'. Note the gain can be too much. That is,
+       it may make x_i infeasible. In this case, instead of pivoting
+       we move x_j to its upper bound (lower bound) when inc = true (inc = false).
+       
+       If no x_i imposes a restriction on x_j, then return null_theory_var.
+       That is, x_j is free to move to its upper bound (lower bound).
+
+       Get the equations for x_j:
+
+       x_i1 = coeff_1 * x_j + rest_1
+       ...
+       x_in = coeff_n * x_j + rest_n
+
+       gain_k := (upper_bound(x_ik) - value(x_ik))/coeff_k
+
+    */
 
     template<typename Ext>
     theory_var theory_arith<Ext>::pick_var_to_leave(
@@ -1457,6 +1458,166 @@ namespace smt {
         TRACE("opt", display(tout););
         return result;
     }
+
+
+#if 0
+    /**
+       \brief Maximize (Minimize) the given temporary row.
+       Return true if succeeded.
+    */
+    template<typename Ext>
+    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min_new(row & r, bool max, bool& has_shared) {
+        TRACE("max_min", tout << "max_min...\n";);
+        m_stats.m_max_min++;
+        bool skipped_row = false;
+        has_shared = false;
+
+        SASSERT(valid_row_assignment());
+        SASSERT(satisfy_bounds());
+
+        theory_var x_i = null_theory_var;
+        theory_var x_j = null_theory_var;
+        bool inc       = false;
+        numeral a_ij, curr_a_ij, coeff, curr_coeff;
+        inf_numeral gain, curr_gain;
+#ifdef _TRACE
+        unsigned i = 0;
+#endif
+        max_min_t result = BEST_EFFORT;
+        while (true) {
+            x_j = null_theory_var;
+            x_i = null_theory_var;
+            gain.reset();
+            TRACE("opt", tout << "i: " << i << ", max: " << max << "\n"; display_row(tout, r, true); tout << "state:\n"; display(tout); i++;);
+            typename vector<row_entry>::const_iterator it  = r.begin_entries();
+            typename vector<row_entry>::const_iterator end = r.end_entries();
+            for (; it != end; ++it) {  
+                if (it->is_dead()) continue;                                                  
+                theory_var curr_x_j = it->m_var;
+                SASSERT(is_non_base(curr_x_j));
+                curr_coeff    = it->m_coeff;
+                bool curr_inc = curr_coeff.is_pos() ? max : !max; 
+                bool has_int = false;
+                if ((curr_inc && at_upper(curr_x_j)) || (!curr_inc && at_lower(curr_x_j)))
+                    continue; // variable cannot be used for max/min.
+                if (!is_safe_to_leave(curr_x_j, curr_inc, has_int, has_shared)) {
+                    skipped_row = true;
+                    continue;
+                }
+                theory_var curr_x_i = pick_var_to_leave(has_int, curr_x_j, curr_inc, curr_a_ij, curr_gain, skipped_row);
+                if (curr_x_i == null_theory_var) {
+                    TRACE("opt", tout << "unbounded\n";);
+                    // we can increase/decrease curr_x_j as much as we want.
+                    x_i   = null_theory_var; // unbounded
+                    x_j   = curr_x_j;
+                    inc   = curr_inc;
+                    break;
+                }
+                else if (curr_gain > gain) {
+                    x_i   = curr_x_i;
+                    x_j   = curr_x_j;
+                    a_ij  = curr_a_ij;
+                    coeff = curr_coeff;
+                    gain  = curr_gain;
+                    inc   = curr_inc;
+                }
+                else if (curr_gain.is_zero() && (x_i == null_theory_var || curr_x_i < x_i)) {
+                    x_i   = curr_x_i;
+                    x_j   = curr_x_j;
+                    a_ij  = curr_a_ij;
+                    coeff = curr_coeff;
+                    gain  = curr_gain;
+                    inc   = curr_inc;
+                    // continue
+                }
+            }
+
+            TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << gain << "\n";
+                  tout << "skipped row: " << (skipped_row?"yes":"no") << "\n";
+                  display(tout););
+            
+            if (x_j == null_theory_var) {
+                TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);
+                SASSERT(valid_row_assignment());
+                SASSERT(satisfy_bounds());
+                result = skipped_row?BEST_EFFORT:OPTIMIZED;
+                break; 
+            }
+            
+            if (x_i == null_theory_var) {
+                // can increase/decrease x_j as much as we want.
+                if (inc && upper(x_j) && !skipped_row) {
+                    update_value(x_j, upper_bound(x_j) - get_value(x_j));
+                    TRACE("opt", tout << "moved v" << x_j << " to upper bound\n";);
+                    SASSERT(valid_row_assignment());
+                    SASSERT(satisfy_bounds());
+                    SASSERT(satisfy_integrality());
+                    continue;
+                }
+                if (!inc && lower(x_j) && !skipped_row) {
+                    update_value(x_j, lower_bound(x_j) - get_value(x_j));
+                    TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
+                    SASSERT(valid_row_assignment());
+                    SASSERT(satisfy_bounds());
+                    SASSERT(satisfy_integrality());
+                    continue;
+                }
+                result = skipped_row?BEST_EFFORT:UNBOUNDED;
+                break;
+            }
+            
+            if (!is_fixed(x_j) && is_bounded(x_j) && !skipped_row && (upper_bound(x_j) - lower_bound(x_j) <= gain)) {
+                // can increase/decrease x_j up to upper/lower bound.
+                if (inc) {
+                    update_value(x_j, upper_bound(x_j) - get_value(x_j));
+                    TRACE("opt", tout << "moved v" << x_j << " to upper bound\n";);
+                }
+                else {
+                    update_value(x_j, lower_bound(x_j) - get_value(x_j));
+                    TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
+                }
+                SASSERT(valid_row_assignment());
+                SASSERT(satisfy_bounds());
+                SASSERT(satisfy_integrality());
+                continue;
+            }
+            
+            TRACE("opt", tout << "max: " << max << ", x_i: v" << x_i << ", x_j: v" << x_j << ", a_ij: " << a_ij << ", coeff: " << coeff << "\n";
+                  if (upper(x_i)) tout << "upper x_i: " << upper_bound(x_i) << " ";
+                  if (lower(x_i)) tout << "lower x_i: " << lower_bound(x_i) << " ";
+                  tout << "value x_i: " << get_value(x_i) << "\n";
+                  if (upper(x_j)) tout << "upper x_j: " << upper_bound(x_j) << " ";
+                  if (lower(x_j)) tout << "lower x_j: " << lower_bound(x_j) << " ";
+                  tout << "value x_j: " << get_value(x_j) << "\n";
+                  );
+            pivot<true>(x_i, x_j, a_ij, false);
+            
+            
+            SASSERT(is_non_base(x_i));
+            SASSERT(is_base(x_j));
+            
+            bool move_xi_to_lower;
+            if (inc) 
+                move_xi_to_lower = a_ij.is_pos();
+            else
+                move_xi_to_lower = a_ij.is_neg();
+            if (!move_to_bound(x_i, move_xi_to_lower)) {
+                result = BEST_EFFORT;
+                break;
+            }
+        
+            row & r2 = m_rows[get_var_row(x_j)];
+            coeff.neg();
+            add_tmp_row(r, coeff, r2);
+            SASSERT(r.get_idx_of(x_j) == -1);
+            SASSERT(valid_row_assignment());
+            SASSERT(satisfy_bounds());
+            SASSERT(satisfy_integrality());
+        }
+        TRACE("opt", display(tout););
+        return result;
+    }
+#endif
 
     /**
        Move the variable x_i maximally towards its bound as long as 
