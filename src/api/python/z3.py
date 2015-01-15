@@ -3813,6 +3813,18 @@ def RepeatBitVec(n, a):
         _z3_assert(is_bv(a), "Second argument must be a Z3 Bitvector expression")
     return BitVecRef(Z3_mk_repeat(a.ctx_ref(), n, a.as_ast()), a.ctx)
 
+def BVRedAnd(a):
+    """Return the reduction-and expression of `a`."""
+    if __debug__:
+        _z3_assert(is_bv(a), "First argument must be a Z3 Bitvector expression")
+    return BitVecRef(Z3_mk_bvredand(a.ctx_ref(), a.as_ast()), a.ctx)
+
+def BVRedOr(a):
+    """Return the reduction-or expression of `a`."""
+    if __debug__:
+        _z3_assert(is_bv(a), "First argument must be a Z3 Bitvector expression")
+    return BitVecRef(Z3_mk_bvredor(a.ctx_ref(), a.as_ast()), a.ctx)
+
 #########################################
 #
 # Arrays
@@ -6046,7 +6058,7 @@ class Solver(Z3PPObject):
             e = es[sz1].as_ast()
         else:
             e = BoolVal(True, self.ctx).as_ast()
-            return Z3_benchmark_to_smtlib_string(self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e)
+        return Z3_benchmark_to_smtlib_string(self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e)
 
 
 

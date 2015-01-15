@@ -24,6 +24,8 @@ public class BitVecSort extends Sort
 {
 	/**
 	 * The size of the bit-vector sort.
+	 * @throws Z3Exception on error
+	 * @return an int
 	 **/
 	public int getSize() throws Z3Exception
 	{

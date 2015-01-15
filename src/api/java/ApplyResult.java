@@ -48,10 +48,10 @@ public class ApplyResult extends Z3Object
     }
 
     /**
-     * Convert a model for the subgoal <paramref name="i"/> into a model for the
-     * original goal <code>g</code>, that the ApplyResult was obtained from.
+     * Convert a model for the subgoal {@code i} into a model for the
+     * original goal {@code g}, that the ApplyResult was obtained from.
      * 
-     * @return A model for <code>g</code>
+     * @return A model for {@code g}
      * @throws Z3Exception
      **/
     public Model convertModel(int i, Model m) throws Z3Exception

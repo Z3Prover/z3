@@ -24,6 +24,8 @@ public class DatatypeSort extends Sort
 {
 	/**
 	 * The number of constructors of the datatype sort.
+	 * @throws Z3Exception on error
+	 * @return an int
 	 **/
 	public int getNumConstructors() throws Z3Exception
 	{
@@ -35,6 +37,7 @@ public class DatatypeSort extends Sort
 	 * The constructors.
 	 * 
 	 * @throws Z3Exception
+	 * @throws Z3Exception on error
 	 **/
 	public FuncDecl[] getConstructors() throws Z3Exception
 	{
@@ -50,6 +53,7 @@ public class DatatypeSort extends Sort
 	 * The recognizers.
 	 * 
 	 * @throws Z3Exception
+	 * @throws Z3Exception on error
 	 **/
 	public FuncDecl[] getRecognizers() throws Z3Exception
 	{
@@ -65,6 +69,7 @@ public class DatatypeSort extends Sort
 	 * The constructor accessors.
 	 * 
 	 * @throws Z3Exception
+	 * @throws Z3Exception on error
 	 **/
 	public FuncDecl[][] getAccessors() throws Z3Exception
 	{
