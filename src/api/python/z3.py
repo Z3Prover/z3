@@ -6210,7 +6210,7 @@ class Fixedpoint(Z3PPObject):
         """
         query = _get_args(query)
         sz = len(query)
-        if sz >= 1 and isinstance(query[0], FuncDecl):            
+        if sz >= 1 and isinstance(query[0], FuncDeclRef):            
             _decls = (FuncDecl * sz)()
             i = 0
             for q in query:
