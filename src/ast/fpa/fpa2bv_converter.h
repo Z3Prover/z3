@@ -72,15 +72,11 @@ public:
     bool is_rm(sort * s) { return m_util.is_rm(s); }
     bool is_float_family(func_decl * f) { return f->get_family_id() == m_util.get_family_id(); }
 
-    void mk_triple(expr * sign, expr * significand, expr * exponent, expr_ref & result) {
-        SASSERT(m_bv_util.is_bv(sign) && m_bv_util.get_bv_size(sign) == 1);
-        SASSERT(m_bv_util.is_bv(significand));
-        SASSERT(m_bv_util.is_bv(exponent));
-        result = m.mk_app(m_util.get_family_id(), OP_FPA_TO_FP, sign, exponent, significand);
-    }
+    void mk_fp(expr * sign, expr * exponent, expr * significand, expr_ref & result);
+    void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
-    void split_triple(expr * e, expr * & sgn, expr * & sig, expr * & exp) const;
-    void split_triple(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp) const;
+    void split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const;
+    void split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const;
 
     void mk_eq(expr * a, expr * b, expr_ref & result);
     void mk_ite(expr * c, expr * t, expr * f, expr_ref & result);
@@ -125,9 +121,7 @@ public:
     void mk_is_nan(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_is_inf(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_is_normal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_is_subnormal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-
-    void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_is_subnormal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
 
     void mk_to_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
     void mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);    

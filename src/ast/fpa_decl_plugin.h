@@ -191,10 +191,10 @@ public:
     mpf_manager & fm() { return m_fm; }
     func_decl * mk_numeral_decl(mpf const & v);
     app * mk_numeral(mpf const & v);
-    bool is_numeral(expr * n) { return is_app_of(n, m_family_id, OP_FPA_NUM); }
+    bool is_numeral(expr * n);
     bool is_numeral(expr * n, mpf & val);
     bool is_rm_numeral(expr * n, mpf_rounding_mode & val);
-    bool is_rm_numeral(expr * n) { mpf_rounding_mode t; return is_rm_numeral(n, t); }
+    bool is_rm_numeral(expr * n);
 
     mpf const & get_value(unsigned id) const { 
         SASSERT(m_value_table.contains(id));
@@ -322,8 +322,7 @@ public:
     app * mk_is_inf(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_INF, arg1); }
     app * mk_is_zero(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_ZERO, arg1); }
     app * mk_is_normal(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_NORMAL, arg1); }
-    app * mk_is_subnormal(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_SUBNORMAL, arg1); }
-    app * mk_is_sign_minus(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_NEGATIVE, arg1); }
+    app * mk_is_subnormal(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_SUBNORMAL, arg1); }    
     app * mk_is_positive(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_POSITIVE, arg1); }
     app * mk_is_negative(expr * arg1) { return m().mk_app(m_fid, OP_FPA_IS_NEGATIVE, arg1); }
 

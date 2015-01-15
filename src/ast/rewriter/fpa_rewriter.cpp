@@ -131,7 +131,7 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
             scoped_mpf v(m_util.fm());
             m_util.fm().set(v, ebits, sbits, rm, q.to_mpq(), e.to_mpq().numerator());
             result = m_util.mk_value(v);
-            m_util.fm().del(v);
+            m_util.fm().del(v);            
             return BR_DONE;
         }
         else if (bu.is_numeral(args[0], r1, bvs1) &&
@@ -268,10 +268,8 @@ br_status fpa_rewriter::mk_abs(expr * arg1, expr_ref & result) {
         result = arg1;
         return BR_DONE;
     }
-    result = m().mk_ite(m_util.mk_is_sign_minus(arg1),
-                        m_util.mk_neg(arg1),
-                        arg1);
-    return BR_REWRITE2;
+    
+    return BR_FAILED;
 }
 
 br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
@@ -565,7 +563,7 @@ br_status fpa_rewriter::mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref & 
                         r1.is_one(),
                         r3.to_mpq().numerator(),
                         m_util.fm().unbias_exp(bvs2, biased_exp));
-        TRACE("fp_rewriter", tout << "v = " << m_util.fm().to_string(v) << std::endl;);
+        TRACE("fp_rewriter", tout << "simplified (fp ...) to " << m_util.fm().to_string(v) << std::endl;);
         result = m_util.mk_value(v);
         return BR_DONE;
     }
