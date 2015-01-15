@@ -20,6 +20,7 @@ Notes:
 #define _BASE_SIMPLIFIER_H_
 
 #include"expr_map.h"
+#include"ast_pp.h"
 
 /**
    \brief Implements basic functionality used by expression simplifiers.
@@ -32,11 +33,18 @@ protected:
 
     void cache_result(expr * n, expr * r, proof * p) { 
         m_cache.insert(n, r, p); 
+        CTRACE("simplifier", !is_rewrite_proof(n, r, p),
+               tout << mk_pp(n, m) << "\n";
+               tout << mk_pp(r, m) << "\n";
+               tout << mk_pp(p, m) << "\n";);
         SASSERT(is_rewrite_proof(n, r, p));
     }
     void reset_cache() { m_cache.reset(); }
     void flush_cache() { m_cache.flush(); }
     void get_cached(expr * n, expr * & r, proof * & p) const { m_cache.get(n, r, p); }
+
+    void reinitialize() { m_cache.set_store_proofs(m.fine_grain_proofs()); }
+
 
     void visit(expr * n, bool & visited) {
         if (!is_cached(n)) {
@@ -55,6 +63,7 @@ public:
 
     bool is_rewrite_proof(expr* n, expr* r, proof* p) {
         if (p && 
+            !m.is_undef_proof(p) && 
             !(m.has_fact(p) && 
               (m.is_eq(m.get_fact(p)) || m.is_oeq(m.get_fact(p)) || m.is_iff(m.get_fact(p))) && 
               to_app(m.get_fact(p))->get_arg(0) == n && 

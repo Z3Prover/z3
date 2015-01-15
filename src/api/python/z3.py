@@ -553,6 +553,8 @@ def _to_sort_ref(s, ctx):
         return ArraySortRef(s, ctx)
     elif k == Z3_DATATYPE_SORT:
         return DatatypeSortRef(s, ctx)
+    elif k == Z3_FINITE_DOMAIN_SORT:
+	return FiniteDomainSortRef(s, ctx)
     return SortRef(s, ctx)
 
 def _sort(ctx, a):
@@ -6179,7 +6181,7 @@ class Fixedpoint(Z3PPObject):
         """
         query = _get_args(query)
         sz = len(query)
-        if sz >= 1 and isinstance(query[0], FuncDecl):            
+        if sz >= 1 and isinstance(query[0], FuncDeclRef):            
             _decls = (FuncDecl * sz)()
             i = 0
             for q in query:
@@ -6306,6 +6308,28 @@ class Fixedpoint(Z3PPObject):
         else:
             return Exists(self.vars, fml)
 
+
+#########################################
+#
+# Finite domain sorts
+#
+#########################################
+
+class FiniteDomainSortRef(SortRef):
+    """Finite domain sort."""
+
+    def size(self):
+	"""Return the size of the finite domain sort"""
+	r = (ctype.c_ulonglong * 1)()
+	if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast(), r):
+	    return r[0]
+	else:
+	    raise Z3Exception("Failed to retrieve finite domain sort size")
+
+def FiniteDomainSort(name, sz, ctx=None):
+    """Create a named finite domain sort of a given size sz"""
+    ctx = _get_ctx(ctx)
+    return FiniteDomainSortRef(Z3_mk_finite_domain_sort(ctx.ref(), name, sz), ctx)
 
 #########################################
 #

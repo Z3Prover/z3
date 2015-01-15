@@ -61,6 +61,7 @@ void simplifier::enable_ac_support(bool flag) {
 */
 void simplifier::operator()(expr * s, expr_ref & r, proof_ref & p) {
     m_need_reset = true;
+    reinitialize();
     expr  * s_orig = s;
     expr  * old_s;
     expr  * result;

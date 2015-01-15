@@ -51,6 +51,7 @@ Revision History:
 #include"dl_mk_interp_tail_simplifier.h"
 #include"dl_mk_bit_blast.h"
 #include"dl_mk_separate_negated_tails.h"
+#include"ast_util.h"
 
 
 namespace datalog {
@@ -258,11 +259,21 @@ namespace datalog {
                     is_approx = true;
                 }
                 rel.to_formula(e);
+#if 0
+                // Alternative format: 
+                // List the signature of the relation as 
+                // part of the answer.
+                expr_ref_vector args(m);
+                for (unsigned j = 0; j < q->get_arity(); ++j) {
+                    args.push_back(m.mk_var(j, q->get_domain(j)));
+                }
+                e = m.mk_implies(m.mk_app(q, args.size(), args.c_ptr()), e);
+#endif
                 ans.push_back(e);
             }
             SASSERT(!m_last_result_relation);
             if (some_non_empty) {
-                m_answer = m.mk_and(ans.size(), ans.c_ptr());
+                m_answer = mk_and(m, ans.size(), ans.c_ptr());
                 if (is_approx) {
                     res = l_undef;
                     m_context.set_status(APPROX);
