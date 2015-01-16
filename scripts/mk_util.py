@@ -357,6 +357,7 @@ def check_ml():
     rmf('hello.cmo')
     rmf('hello.cmx')
     rmf('a.out')
+    rmf('hello.o')
     find_ml_lib()
     find_ocaml_find()
 
@@ -384,6 +385,8 @@ def find_ml_lib():
         OCAML_LIB = line[:-1]
     if is_verbose():
         print 'OCAML_LIB=%s' % OCAML_LIB
+    t.close()
+    rmf('output')
     return
 
 def is64():
@@ -1737,10 +1740,10 @@ def mk_config():
         # End of Windows VS config.mk
         if is_verbose():
             print('64-bit:         %s' % is64())
-            print('ML API:         %s' % is_ml_enabled())
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
+            print('ML API:         %s' % is_ml_enabled())
             if is_ml_enabled():
                 print('OCaml Compiler: %s' % OCAMLC)
                 print('OCaml Native:   %s' % OCAMLOPT)
@@ -1859,11 +1862,11 @@ def mk_config():
             print('64-bit:         %s' % is64())
             if GPROF:
                 print('gprof:          enabled')
-            print('Python version: %s' % distutils.sysconfig.get_python_version())
-            print('ML API:         %s' % is_ml_enabled())
+            print('Python version: %s' % distutils.sysconfig.get_python_version())            
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
+            print('ML API:         %s' % is_ml_enabled())
             if is_ml_enabled():
                 print('Ocaml Compiler: %s' % OCAMLC)
                 print('Ocaml Native:   %s' % OCAMLOPT)
