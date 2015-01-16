@@ -295,6 +295,8 @@ interval & interval::operator*=(interval const & other) {
     }
     if (other.is_zero()) {
         *this = other;
+        m_lower_dep = m_manager.mk_join(m_lower_dep, m_upper_dep);
+        m_upper_dep = m_lower_dep;
         return *this;
     }
 
