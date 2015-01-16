@@ -3147,7 +3147,7 @@ namespace Duality {
       }
 
       if(node->Annotation.IsEmpty() || eq(node->Annotation.Formula,prev_annot) || (repeated_case_count > 0 && !axioms_added) || (repeated_case_count >= 10)){
-      looks_bad:
+          //looks_bad:
 	if(!axioms_added){
 	  // add the axioms in the off chance they are useful
 	  const std::vector<expr> &theory = ls->get_axioms();
