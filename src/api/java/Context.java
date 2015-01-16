@@ -383,7 +383,7 @@ public class Context extends IDisposable
      **/
     public Expr MkUpdateField(FuncDecl field, Expr t, Expr v) 
     {
-	return Expr.Create
+	return Expr.create
 	    (this, 
 	     Native.datatypeUpdateField
 	     (nCtx(), field.getNativeObject(),

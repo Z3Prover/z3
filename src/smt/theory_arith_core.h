@@ -1270,7 +1270,9 @@ namespace smt {
                 result = FC_GIVEUP;
                 break;
             case FC_CONTINUE:
-                TRACE("final_check_arith", tout << "continue arith...\n";);
+                TRACE("final_check_arith", 
+                      tout << "continue arith..." 
+                      << (get_context().inconsistent()?"inconsistent\n":"\n"););
                 return FC_CONTINUE;
             }
         }
@@ -2333,7 +2335,8 @@ namespace smt {
         b2->push_justification(ante, numeral(1), coeffs_enabled());
 
         set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), ante, is_int(b1->get_var()), "farkas");
-        TRACE("arith_conflict", tout << "bound conflict\n";);
+        TRACE("arith_conflict", tout << "bound conflict v" << b1->get_var() << "\n";
+              tout << "bounds: " << b1 << " " << b2 << "\n";);
     }
 
     // -----------------------------------

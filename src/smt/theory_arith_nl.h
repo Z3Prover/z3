@@ -897,31 +897,54 @@ namespace smt {
         m_tmp_lit_set.reset();
         m_tmp_eq_set.reset();
 
-        bool found_zero = false;
         SASSERT(is_pure_monomial(m));
-        for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
-            expr * arg = to_app(m)->get_arg(i);
-            if (!found_zero) {                                                                  
-                theory_var _var = expr2var(arg);                                                
-                if (is_fixed(_var)) {                                                           
-                    bound * l  = lower(_var);                                                   
-                    bound * u  = upper(_var);                                                   
-                    if (l->get_value().is_zero()) {                                             
-                        /* if zero was found, then it is the explanation */                     
-                        SASSERT(k.is_zero());                                                   
-                        found_zero = true;                                                      
-                        m_tmp_lit_set.reset();                                                  
-                        m_tmp_eq_set.reset();                                                   
-                        new_lower->m_lits.reset();                                              
-                        new_lower->m_eqs.reset();                                               
-                    }                                                                           
-                    accumulate_justification(*l, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);      
-                    accumulate_justification(*u, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);      
-                }                                                                               
-            }                                                                                   
-        }
+        bool found_zero = false;
+        for (unsigned i = 0; !found_zero && i < to_app(m)->get_num_args(); i++) {            
+            expr * arg = to_app(m)->get_arg(i);            
+            theory_var _var = expr2var(arg);                                                
+            if (is_fixed(_var)) {                                                           
+                bound * l  = lower(_var);                                                   
+                bound * u  = upper(_var);                                                   
+                if (l->get_value().is_zero()) {                                             
+                    /* if zero was found, then it is the explanation */                     
+                    SASSERT(k.is_zero());                                                   
+                    found_zero = true;                                                      
+                    m_tmp_lit_set.reset();                                                  
+                    m_tmp_eq_set.reset();                                                   
+                    new_lower->m_lits.reset();                                              
+                    new_lower->m_eqs.reset();                                               
+                }                                                                           
+                accumulate_justification(*l, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);
+                
+                TRACE("non_linear", 
+                      for (unsigned j = 0; j < new_lower->m_lits.size(); ++j) {
+                          ctx.display_detailed_literal(tout, new_lower->m_lits[j]);
+                          tout << " ";
+                      }
+                      tout << "\n";);
+      
+                accumulate_justification(*u, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);
+      
+                TRACE("non_linear", 
+                      for (unsigned j = 0; j < new_lower->m_lits.size(); ++j) {
+                          ctx.display_detailed_literal(tout, new_lower->m_lits[j]);
+                          tout << " ";
+                      }
+                      tout << "\n";);
+                    
+            }                                                                               
+        } 
         new_upper->m_lits.append(new_lower->m_lits);
         new_upper->m_eqs.append(new_lower->m_eqs);
+
+        TRACE("non_linear", 
+              tout << "lower: " << new_lower << " upper: " << new_upper << "\n";
+              for (unsigned j = 0; j < new_upper->m_lits.size(); ++j) {
+                  ctx.display_detailed_literal(tout, new_upper->m_lits[j]);
+                  tout << " ";
+              }
+              tout << "\n";);
+
         return true;
     }
 
@@ -1887,6 +1910,10 @@ namespace smt {
         derived_bound  b(null_theory_var, inf_numeral(0), B_LOWER);
         dependency2new_bound(d, b);
         set_conflict(b.m_lits.size(), b.m_lits.c_ptr(), b.m_eqs.size(), b.m_eqs.c_ptr(), ante, is_lia, "arith_nl");
+        TRACE("non_linear", 
+              for (unsigned i = 0; i < b.m_lits.size(); ++i) {
+                  tout << b.m_lits[i] << " ";
+              });
     }
 
     /**
