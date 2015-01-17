@@ -26,7 +26,7 @@ Notes:
 #include"bv_decl_plugin.h"
 #include"basic_simplifier_plugin.h"
 
-typedef enum { BV_RM_TIES_TO_AWAY=0, BV_RM_TIES_TO_EVEN=1, BV_RM_TO_NEGATIVE=2, BV_RM_TO_POSITIVE=3, BV_RM_TO_ZERO=4 } BV_RM_VAL;
+typedef enum { BV_RM_TIES_TO_EVEN, BV_RM_TIES_TO_AWAY, BV_RM_TO_POSITIVE, BV_RM_TO_NEGATIVE, BV_RM_TO_ZERO = 4 } BV_RM_VAL;
 
 struct func_decl_triple {
         func_decl_triple () { f_sgn = 0; f_sig = 0; f_exp = 0; }
