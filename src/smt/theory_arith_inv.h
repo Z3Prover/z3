@@ -211,6 +211,15 @@ namespace smt {
         }
         return true;
     }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::valid_assignment() const {
+        return 
+            valid_row_assignment() &&
+            satisfy_bounds() &&
+            satisfy_integrality();
+    }
+
 #endif
 
 };

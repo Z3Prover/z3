@@ -265,6 +265,7 @@ namespace smt {
             inf_numeral const & get_value() const { return m_value; }
             virtual bool has_justification() const { return false; }
             virtual void push_justification(antecedents& antecedents, numeral const& coeff, bool proofs_enabled) {}
+            virtual void display(theory_arith const& th, std::ostream& out) const;
         };
 
 
@@ -291,6 +292,7 @@ namespace smt {
             virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) { 
                 a.push_lit(literal(get_bool_var(), !m_is_true), coeff, proofs_enabled); 
             }
+            virtual void display(theory_arith const& th, std::ostream& out) const;
         };
 
         class eq_bound : public bound { 
@@ -309,6 +311,7 @@ namespace smt {
                 SASSERT(m_lhs->get_root() == m_rhs->get_root());
                 a.push_eq(enode_pair(m_lhs, m_rhs), coeff, proofs_enabled); 
             }
+            virtual void display(theory_arith const& th, std::ostream& out) const;
         };
 
         class derived_bound : public bound {
@@ -323,6 +326,7 @@ namespace smt {
             virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled); 
             virtual void push_lit(literal l, numeral const&) { m_lits.push_back(l); }
             virtual void push_eq(enode_pair const& p, numeral const&) { m_eqs.push_back(p); }
+            virtual void display(theory_arith const& th, std::ostream& out) const;
         };
     
         class justified_derived_bound : public derived_bound {
@@ -883,7 +887,18 @@ namespace smt {
         max_min_t max_min(row & r, bool max, bool& has_shared);
         bool max_min(svector<theory_var> const & vars);
 
-        // max_min_t max_min_new(theory_var v, bool max, bool& has_shared);
+        max_min_t max_min_new(row& r, bool max, bool& has_shared);
+        bool unbounded_gain(inf_numeral const & max_gain) const;
+        bool safe_gain(inf_numeral const& min_gain, inf_numeral const & max_gain) const;
+        void normalize_gain(numeral const& divisor, inf_numeral & max_gain) const;
+        void init_gains(theory_var x, bool inc, inf_numeral& min_gain, inf_numeral& max_gain);
+        bool update_gains(bool inc, theory_var x_i, numeral const& a_ij, 
+                          inf_numeral& min_gain, inf_numeral& max_gain);
+        bool move_to_bound_new(theory_var x_i, bool inc, bool& best_effort, bool& has_shared);
+        bool pick_var_to_leave(
+            theory_var x_j, bool inc, numeral & a_ij, 
+            inf_numeral& min_gain, inf_numeral& max_gain, 
+            bool& shared, theory_var& x_i);
 
         // -----------------------------------
         //
@@ -1064,6 +1079,8 @@ namespace smt {
         void display_bounds_in_smtlib() const;
         void display_nl_monomials(std::ostream & out) const;
         void display_coeff_exprs(std::ostream & out, sbuffer<coeff_expr> const & p) const;
+        void display_interval(std::ostream& out, interval const& i);
+        void display_deps(std::ostream& out, v_dependency* dep);
 
     protected:
         // -----------------------------------
@@ -1079,6 +1096,7 @@ namespace smt {
         bool wf_rows() const;
         bool wf_column(theory_var v) const;
         bool wf_columns() const;
+        bool valid_assignment() const;
         bool valid_row_assignment() const;
         bool valid_row_assignment(row const & r) const;
         bool satisfy_bounds() const;
