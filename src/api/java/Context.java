@@ -382,6 +382,7 @@ public class Context extends IDisposable
      * the remainig fields of t are unchanged.	
      **/
     public Expr MkUpdateField(FuncDecl field, Expr t, Expr v) 
+            throws Z3Exception
     {
 	return Expr.create
 	    (this, 
