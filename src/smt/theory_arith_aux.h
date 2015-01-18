@@ -371,8 +371,8 @@ namespace smt {
 
     
     template<typename Ext>
-    void theory_arith<Ext>::bound::display(theory_arith const& th, std::ostream& out) const {
-        out << "v" << m_var << " " << get_bound_kind() << " " << get_value();
+    void theory_arith<Ext>::bound::display(theory_arith<Ext> const& th, std::ostream& out) const {
+        out << "v" << get_var() << " " << get_bound_kind() << " " << get_value();
     }
 
 
@@ -415,9 +415,9 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::atom::display(theory_arith const& th, std::ostream& out) const {
+    void theory_arith<Ext>::atom::display(theory_arith<Ext> const& th, std::ostream& out) const {
         literal l(get_bool_var(), !m_is_true);
-        out << "v" << m_var << " " << get_bound_kind() << " " << get_k() << " ";
+        out << "v" << get_var() << " " << get_bound_kind() << " " << get_k() << " ";
         out << l << ":";
         th.get_context().display_detailed_literal(out, l);
     }
@@ -429,7 +429,7 @@ namespace smt {
     // -----------------------------------
 
     template<typename Ext>
-    void theory_arith<Ext>::eq_bound::display(theory_arith const& th, std::ostream& out) const {        
+    void theory_arith<Ext>::eq_bound::display(theory_arith<Ext> const& th, std::ostream& out) const {        
         ast_manager& m = th.get_manager();
         out << "#" << m_lhs->get_owner_id() << " " << mk_pp(m_lhs->get_owner(), m) << " = "
             << "#" << m_rhs->get_owner_id() << " " << mk_pp(m_rhs->get_owner(), m);
@@ -746,7 +746,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::derived_bound::display(theory_arith const& th, std::ostream& out) const {
+    void theory_arith<Ext>::derived_bound::display(theory_arith<Ext> const& th, std::ostream& out) const {
         out << "v" << m_var << " " << get_bound_kind() << " " << get_value();
         
         ast_manager& m = th.get_manager();
@@ -1359,8 +1359,7 @@ namespace smt {
        Return true if succeeded.
     */
     template<typename Ext>
-    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(row & r, bool max, bool& has_shared) {
-        TRACE("max_min", tout << "max_min...\n";);
+    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min_orig(row & r, bool max, bool& has_shared) {
         m_stats.m_max_min++;
         bool skipped_row = false;
         has_shared = false;
@@ -1536,7 +1535,7 @@ namespace smt {
         bool& has_shared,      // determine if pivot involves shared variable
         theory_var& x_i) {     // base variable to pivot with x_j
         
-
+        x_i = null_theory_var;
         context& ctx = get_context();
         column & c   = m_columns[x_j];
         typename svector<col_entry>::iterator it  = c.begin_entries();
@@ -1548,18 +1547,26 @@ namespace smt {
             row const & r = m_rows[it->m_row_id];
             theory_var s  = r.get_base_var();
             numeral const & coeff_ij = r[it->m_row_idx].m_coeff;
-            if (update_gains(inc, s, coeff_ij, min_gain, max_gain)) {
+            if (update_gains(inc, s, coeff_ij, min_gain, max_gain) ||
+                (x_i == null_theory_var && !unbounded_gain(max_gain))) {
                 x_i = s;
+                a_ij = coeff_ij;
             }
             has_shared |= ctx.is_shared(get_enode(s));
         }
-        if (safe_gain(min_gain, max_gain)) {
-            SASSERT(unbounded_gain(max_gain) == (x_i != null_theory_var));        
-            return true;
-        }
-        else {
-            return false;
-        }
+        bool empty_column = (c.begin_entries() == end);
+        TRACE("opt", 
+              tout << (safe_gain(min_gain, max_gain)?"safe":"unsafe") << "\n";
+              tout << "min gain: " << min_gain;
+              tout << " max gain: " << max_gain << "\n";
+              tout << "v" << x_i << " ";
+              tout << (has_shared?"shared":"not shared") << "\n";);
+
+        SASSERT(!safe_gain(min_gain, max_gain) ||
+                empty_column ||
+                (unbounded_gain(max_gain) == (x_i == null_theory_var)));
+        
+        return !empty_column && safe_gain(min_gain, max_gain);
     }
 
     template<typename Ext>
@@ -1588,7 +1595,7 @@ namespace smt {
     void theory_arith<Ext>::normalize_gain(numeral const& divisor, inf_numeral & max_gain) const {
         SASSERT(divisor.is_int());
         SASSERT(divisor.is_pos());
-        if (!divisor.is_one()) {
+        if (!divisor.is_one() && !max_gain.is_minus_one()) {
             max_gain = floor(max_gain/divisor)*divisor;
         }
     }
@@ -1598,8 +1605,8 @@ namespace smt {
      */
     template<typename Ext>
     void theory_arith<Ext>::init_gains(
-        theory_var x,                // non-base variable to increment/decrement 
-        bool       inc, 
+        theory_var     x,            // non-base variable to increment/decrement 
+        bool           inc, 
         inf_numeral&   min_gain,     // min value to increment, -1 if rational
         inf_numeral&   max_gain) {   // max value to decrement, -1 if unbounded
         min_gain = -inf_numeral::one();
@@ -1617,6 +1624,11 @@ namespace smt {
         SASSERT(min_gain.is_minus_one() || min_gain.is_one());
         SASSERT(!is_int(x) || max_gain.is_int());
         SASSERT(is_int(x) == min_gain.is_one());
+        TRACE("opt",
+              tout << "v" << x << " "
+              << "min gain: " << min_gain << " " 
+              << "max gain: " << max_gain << "\n";);              
+
     }
 
     template<typename Ext>
@@ -1666,6 +1678,11 @@ namespace smt {
                 normalize_gain(den_aij, max_gain);
             }
         }
+        TRACE("opt",
+              tout << "v" << x_i << " a_ij " << a_ij << " "
+              << "min gain: " << min_gain << " " 
+              << "max gain: " << max_gain << " tighter: "
+              << (is_tighter?"true":"false") << "\n";);
         SASSERT(max_gain.is_minus_one() || !max_gain.is_neg());
         SASSERT(min_gain.is_minus_one() || !min_gain.is_neg());
         SASSERT(!is_int(x_i) || min_gain.is_pos());
@@ -1683,7 +1700,6 @@ namespace smt {
         row & r, 
         bool max, 
         bool& has_shared) {
-        TRACE("max_min", tout << "max_min...\n";);
         m_stats.m_max_min++;
         bool best_effort = false, inc = false;
 
@@ -1988,7 +2004,7 @@ namespace smt {
                     add_tmp_row_entry<true>(m_tmp_row, it->m_coeff, it->m_var);
             }            
         }
-        max_min_t r = max_min(m_tmp_row, max, has_shared);
+        max_min_t r = max_min_orig(m_tmp_row, max, has_shared);
         if (r == OPTIMIZED) {
             TRACE("opt", tout << mk_pp(e, get_manager()) << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););
