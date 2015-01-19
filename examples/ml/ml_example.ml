@@ -190,7 +190,7 @@ let basic_tests ( ctx : context ) =
   (* Error handling test. *)
   try (
     let i = Integer.mk_numeral_s ctx "1/2" in
-    raise (TestFailedException "") (* unreachable *)
+    raise (TestFailedException (to_string i)) (* unreachable *)
   )
   with Z3native.Exception(_) -> (
     Printf.printf "Exception caught, OK.\n" 

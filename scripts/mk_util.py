@@ -357,14 +357,13 @@ def check_ml():
     rmf('hello.cmo')
     rmf('hello.cmx')
     rmf('a.out')
-    rmf('hello.o')
     find_ml_lib()
     find_ocaml_find()
 
 def find_ocaml_find():
     global OCAMLFIND
     if is_verbose():
-        print ('Testing %s...' % OCAMLFIND)
+        print ("Testing %s..." % OCAMLFIND)
     r = exec_cmd([OCAMLFIND, 'printconf'])
     if r != 0:
         OCAMLFIND=''
@@ -1743,7 +1742,6 @@ def mk_config():
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
-            print('ML API:         %s' % is_ml_enabled())
             if is_ml_enabled():
                 print('OCaml Compiler: %s' % OCAMLC)
                 print('OCaml Native:   %s' % OCAMLOPT)
@@ -1866,11 +1864,10 @@ def mk_config():
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
-            print('ML API:         %s' % is_ml_enabled())
             if is_ml_enabled():
-                print('Ocaml Compiler: %s' % OCAMLC)
-                print('Ocaml Native:   %s' % OCAMLOPT)
-                print('Ocaml Library:  %s' % OCAML_LIB)
+                print('OCaml Compiler: %s' % OCAMLC)
+                print('OCaml Native:   %s' % OCAMLOPT)
+                print('OCaml Library:  %s' % OCAML_LIB)
 
 def mk_install(out):
     out.write('install: ')
@@ -2437,9 +2434,6 @@ def mk_bindings(api_files):
         if is_java_enabled():
             check_java()
             mk_z3consts_java(api_files)
-        if is_ml_enabled():
-            check_ml()
-            mk_z3consts_ml(api_files)
         _execfile(os.path.join('scripts', 'update_api.py'), g) # HACK
         cp_z3py_to_build()
         if is_ml_enabled():
@@ -2808,7 +2802,6 @@ def mk_z3consts_ml(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
-    efile.write('end\n')
     if VERBOSE:
         print ('Generated "%s/z3enums.ml"' % ('%s' % gendir))
     efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
