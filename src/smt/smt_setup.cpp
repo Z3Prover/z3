@@ -813,6 +813,7 @@ namespace smt {
                 setup_AUFLIA(false);
             setup_datatypes();
             setup_bv();
+            setup_fpa();
             return;
         }
 
