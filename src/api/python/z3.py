@@ -904,12 +904,8 @@ def _to_expr_ref(a, ctx):
     if sk == Z3_DATATYPE_SORT:
         return DatatypeRef(a, ctx)
     if sk == Z3_FLOATING_POINT_SORT:  
-        if k == Z3_APP_AST:
-            e = ExprRef(a, ctx)
-            if e.decl().kind() == Z3_OP_FPA_NUM:
-                return FPNumRef(a, ctx)
-            else:
-                return FPRef(a, ctx)
+        if k == Z3_APP_AST and _is_numeral(ctx, a):
+            return FPNumRef(a, ctx)
         else:
             return FPRef(a, ctx)
     if sk == Z3_ROUNDING_MODE_SORT:
@@ -7817,7 +7813,8 @@ class FPNumRef(FPRef):
         return self.decl().kind() == Z3_OP_FPA_PLUS_ZERO or self.decl().kind() == Z3_OP_FPA_MINUS_ZERO
 
     def isNegative(self):
-        return (self.num_args() == 0 and (Z3_OP_FPA_MINUS_INF or Z3_OP_FPA_MINUS_ZERO)) or (self.num_args() == 3 and self.arg(0) == BitVecVal(1))
+        k = self.decl().kind()
+        return (self.num_args() == 0 and (k == Z3_OP_FPA_MINUS_INF or k == Z3_OP_FPA_MINUS_ZERO)) or (self.num_args() == 3 and self.arg(0) == BitVecVal(1))
 
 def _to_fpnum(num, ctx=None):
     if isinstance(num, FPNum):
@@ -7851,7 +7848,7 @@ def is_fp_value(a):
     True
     """
     return is_fp(a) and _is_numeral(a.ctx, a.ast)
-    
+
 def FPSort(ebits, sbits, ctx=None):
     """Return a Z3 floating-point sort of the given sizes. If `ctx=None`, then the global context is used.
 
@@ -7989,7 +7986,7 @@ def fpAbs(a):
     FloatingPoint(8, 24)
     """
     if __debug__:        
-        _z3_assert(is_fp(a), "First argument must be Z3 floating-point expressions")
+        _z3_assert(is_fp(a), "First argument must be Z3 floating-point expression")
     return FPRef(Z3_mk_fpa_abs(a.ctx_ref(), a.as_ast()), a.ctx)
 
 def fpNeg(a):
@@ -8004,7 +8001,7 @@ def fpNeg(a):
     FloatingPoint(8, 24)
     """
     if __debug__:        
-        _z3_assert(is_fp(a), "First argument must be Z3 floating-point expressions")
+        _z3_assert(is_fp(a), "First argument must be Z3 floating-point expression")
     return FPRef(Z3_mk_fpa_neg(a.ctx_ref(), a.as_ast()), a.ctx)
 
 def fpAdd(rm, a, b):
@@ -8069,7 +8066,7 @@ def fpDiv(rm, a, b):
     if __debug__:
         _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
         _z3_assert(is_fp(a) and is_fp(b), "Second and third argument must be Z3 floating-point expressions")
-    return FPRef(Z3_mk_fpa_mul(rm.ctx_ref(), rm.as_ast(), a.as_ast(), b.as_ast()), rm.ctx)
+    return FPRef(Z3_mk_fpa_div(rm.ctx_ref(), rm.as_ast(), a.as_ast(), b.as_ast()), rm.ctx)
 
 def fpRem(a, b):
     """Create a Z3 floating-point remainder expression.

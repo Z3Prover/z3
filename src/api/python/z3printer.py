@@ -71,7 +71,7 @@ _z3_op_to_fpa_normal_str = {
     Z3_OP_FPA_NAN : 'NaN', Z3_OP_FPA_PLUS_ZERO : 'PZero', Z3_OP_FPA_MINUS_ZERO : 'NZero',
     Z3_OP_FPA_ADD : 'fpAdd', Z3_OP_FPA_SUB : 'fpSub', Z3_OP_FPA_NEG : 'fpNeg', Z3_OP_FPA_MUL : 'fpMul',
     Z3_OP_FPA_DIV : 'fpDiv', Z3_OP_FPA_REM : 'fpRem', Z3_OP_FPA_ABS : 'fpAbs',
-    Z3_OP_FPA_NEG : 'fpNeg', Z3_OP_FPA_MIN : 'fpMin', Z3_OP_FPA_MAX : 'fpMax',
+    Z3_OP_FPA_MIN : 'fpMin', Z3_OP_FPA_MAX : 'fpMax',
     Z3_OP_FPA_FMA : 'fpFMA', Z3_OP_FPA_SQRT : 'fpSqrt', Z3_OP_FPA_ROUND_TO_INTEGRAL : 'fpRoundToIntegral',
 
     Z3_OP_FPA_EQ : 'fpEQ', Z3_OP_FPA_LT : 'fpLT', Z3_OP_FPA_GT : 'fpGT', Z3_OP_FPA_LE : 'fpLEQ',
@@ -93,9 +93,8 @@ _z3_op_to_fpa_pretty_str = {
     Z3_OP_FPA_PLUS_INF : '+oo', Z3_OP_FPA_MINUS_INF : '-oo',
     Z3_OP_FPA_NAN : 'NaN', Z3_OP_FPA_PLUS_ZERO : '+0.0', Z3_OP_FPA_MINUS_ZERO : '-0.0',
     
-    Z3_OP_FPA_ADD : '+', Z3_OP_FPA_SUB : '-', Z3_OP_FPA_NEG : '-', Z3_OP_FPA_MUL : '*',
-    Z3_OP_FPA_DIV : '/', Z3_OP_FPA_REM : '%',
-    Z3_OP_FPA_NEG: '-',
+    Z3_OP_FPA_ADD : '+', Z3_OP_FPA_SUB : '-', Z3_OP_FPA_MUL : '*', Z3_OP_FPA_DIV : '/', 
+    Z3_OP_FPA_REM : '%', Z3_OP_FPA_NEG : '-',
     
     Z3_OP_FPA_EQ : 'fpEQ', Z3_OP_FPA_LT : '<', Z3_OP_FPA_GT : '>', Z3_OP_FPA_LE : '<=', Z3_OP_FPA_GE : '>='
 }
@@ -578,7 +577,7 @@ class Formatter:
 
     def pp_fprm_value(self, a):
         z3._z3_assert(z3.is_fprm_value(a), 'expected FPRMNumRef')        
-        if self.fpa_pretty and _z3_op_to_fpa_pretty_str.has_key(a.decl().kind()):
+        if self.fpa_pretty and a.decl().kind() in _z3_op_to_fpa_pretty_str:
             return to_format(_z3_op_to_fpa_pretty_str.get(a.decl().kind()))
         else:
             return to_format(a.as_string())
@@ -617,7 +616,7 @@ class Formatter:
                 return compose(r)
         else:
             if (a.isNaN()):
-                return to_format(_z3_op_to_fpa_pretty_str[Z3_OP_NAN])
+                return to_format(_z3_op_to_fpa_pretty_str[Z3_OP_FPA_NAN])
             elif (a.isInf()):
                 if (a.isNegative()):
                     return to_format(_z3_op_to_fpa_pretty_str[Z3_OP_FPA_MINUS_INF])
@@ -649,28 +648,33 @@ class Formatter:
         z3._z3_assert(isinstance(a, z3.FPRef), "type mismatch")
         k = a.decl().kind()
         op = '?'
-        if self.fpa_pretty:
-            op = _z3_op_to_fpa_pretty_str.get(k, None)
-        if (op == None):
-            op = _z3_op_to_str.get(k, None)        
+        if (self.fpa_pretty and k in _z3_op_to_fpa_pretty_str):
+            op = _z3_op_to_fpa_pretty_str[k]
+        elif k in _z3_op_to_fpa_normal_str:
+            op = _z3_op_to_fpa_normal_str[k]
+        elif k in _z3_op_to_str:
+            op = _z3_op_to_str[k]
 
         n = a.num_args()
 
-        if self.fpa_pretty and self.is_infix(k) and n >= 3:            
-            rm = a.arg(0)
-            if z3.is_fprm_value(rm) and z3._dflt_rm(a.ctx).eq(rm):
-                arg1 = to_format(self.pp_expr(a.arg(1), d+1, xs))
-                arg2 = to_format(self.pp_expr(a.arg(2), d+1, xs))
-                r = []
-                r.append(arg1)
-                r.append(to_format(' '))
-                r.append(to_format(op))
-                r.append(to_format(' '))
-                r.append(arg2)
-                return compose(r)
+        if self.fpa_pretty:
+            if self.is_infix(k) and n >= 3:            
+                rm = a.arg(0)
+                if z3.is_fprm_value(rm) and z3._dflt_rm(a.ctx).eq(rm):
+                    arg1 = to_format(self.pp_expr(a.arg(1), d+1, xs))
+                    arg2 = to_format(self.pp_expr(a.arg(2), d+1, xs))
+                    r = []
+                    r.append(arg1)
+                    r.append(to_format(' '))
+                    r.append(to_format(op))
+                    r.append(to_format(' '))
+                    r.append(arg2)
+                    return compose(r)
+            elif k == Z3_OP_FPA_NEG:
+                return compose([to_format('-') , to_format(self.pp_expr(a.arg(0), d+1, xs))])
 
-        if _z3_op_to_fpa_normal_str.has_key(k):
-            op = _z3_op_to_fpa_normal_str.get(k, None)
+        if k in _z3_op_to_fpa_normal_str:
+            op = _z3_op_to_fpa_normal_str[k]
         
         r = []        
         r.append(to_format(op))
