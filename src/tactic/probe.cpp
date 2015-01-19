@@ -316,6 +316,44 @@ probe * mk_is_qfbv_probe() {
     return alloc(is_qfbv_probe); 
 }
 
+struct is_non_qfaufbv_predicate {
+    struct found {};
+    ast_manager & m;
+    bv_util       m_bv_util;
+    array_util    m_array_util;
+
+    is_non_qfaufbv_predicate(ast_manager & _m) : m(_m), m_bv_util(_m), m_array_util(_m) {}
+
+    void operator()(var *) { throw found(); }
+
+    void operator()(quantifier *) { throw found(); }
+
+    void operator()(app * n) {        
+        if (!m.is_bool(n) && !m_bv_util.is_bv(n) && !m_array_util.is_array(n))
+            throw found();
+        family_id fid = n->get_family_id();
+        if (fid == m.get_basic_family_id())
+            return;
+        if (fid == m_bv_util.get_family_id() || fid == m_array_util.get_family_id())
+            return;
+        if (is_uninterp(n))
+            return;
+
+        throw found();
+    }
+};
+
+class is_qfaufbv_probe : public probe {
+public:
+    virtual result operator()(goal const & g) {
+        return !test<is_non_qfaufbv_predicate>(g);
+    }
+};
+
+probe * mk_is_qfaufbv_probe() {
+    return alloc(is_qfaufbv_probe);
+}
+
 class num_consts_probe : public probe {
     bool         m_bool;   // If true, track only boolean constants. Otherwise, track only non boolean constants.
     char const * m_family; // (Ignored if m_bool == true), if != 0 and m_bool == true, then track only constants of the given family.

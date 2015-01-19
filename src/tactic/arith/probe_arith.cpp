@@ -198,8 +198,72 @@ struct is_non_qflira_functor {
     }
 };
 
+struct is_non_qfauflira_functor {
+    struct found {};
+    ast_manager & m;
+    arith_util    m_arith_util;
+    array_util    m_array_util;
+    bool          m_int;
+    bool          m_real;
+
+    is_non_qfauflira_functor(ast_manager & _m, bool _int, bool _real) : 
+        m(_m), m_arith_util(_m), m_array_util(_m), m_int(_int), m_real(_real) {}
+
+    void operator()(var *) { throw found(); }
+
+    void operator()(quantifier *) { throw found(); }
+
+    bool compatible_sort(app * n) const {
+        if (m.is_bool(n))
+            return true;
+        if (m_int && m_arith_util.is_int(n))
+            return true;
+        if (m_real && m_arith_util.is_real(n))
+            return true;
+        if (m_array_util.is_array(n))
+            return true;
+        return false;
+    }
+
+    void operator()(app * n) {
+        if (!compatible_sort(n))
+            throw found();
+        family_id fid = n->get_family_id();
+        if (fid == m.get_basic_family_id())
+            return;
+        if (fid == m_arith_util.get_family_id()) {
+            switch (n->get_decl_kind()) {
+            case OP_LE:  case OP_GE: case OP_LT: case OP_GT:
+            case OP_ADD: case OP_NUM:
+                return;
+            case OP_MUL:
+                if (n->get_num_args() != 2)
+                    throw found();
+                if (!m_arith_util.is_numeral(n->get_arg(0)))
+                    throw found();
+                return;
+            case OP_TO_REAL:
+                if (!m_real)
+                    throw found();
+                break;
+            default:
+                throw found();
+            }
+            return;
+        }
+        if (is_uninterp(n))
+            return;
+        throw found();
+    }
+};
+
 static bool is_qflia(goal const & g) {
     is_non_qflira_functor p(g.m(), true, false);
+    return !test(g, p);
+}
+
+static bool is_qfauflia(goal const & g) {
+    is_non_qfauflira_functor p(g.m(), true, false);
     return !test(g, p);
 }
 
@@ -207,6 +271,13 @@ class is_qflia_probe : public probe {
 public:
     virtual result operator()(goal const & g) {
         return is_qflia(g);
+    }
+};
+
+class is_qfauflia_probe : public probe {
+public:
+    virtual result operator()(goal const & g) {
+        return is_qfauflia(g);
     }
 };
 
@@ -287,6 +358,10 @@ public:
 
 probe * mk_is_qflia_probe() {
     return alloc(is_qflia_probe);
+}
+
+probe * mk_is_qfauflia_probe() {
+    return alloc(is_qfauflia_probe);
 }
 
 probe * mk_is_qflra_probe() {
