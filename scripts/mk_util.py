@@ -344,12 +344,12 @@ def check_ml():
     t.add('print_string "Hello world!\n";;')
     t.commit()
     if is_verbose():
-        print "Testing %s..." % OCAMLC
+        print ('Testing %s...' % OCAMLC)
     r = exec_cmd([OCAMLC, '-o', 'a.out', 'hello.ml'])
     if r != 0:
         raise MKException('Failed testing ocamlc compiler. Set environment variable OCAMLC with the path to the Ocaml compiler')
     if is_verbose():
-        print "Testing %s..." % OCAMLOPT
+        print ('Testing %s...' % OCAMLOPT)
     r = exec_cmd([OCAMLOPT, '-o', 'a.out', 'hello.ml'])
     if r != 0:
         raise MKException('Failed testing ocamlopt compiler. Set environment variable OCAMLOPT with the path to the Ocaml native compiler. Note that ocamlopt may require flexlink to be in your path.')
@@ -364,7 +364,7 @@ def check_ml():
 def find_ocaml_find():
     global OCAMLFIND
     if is_verbose():
-        print "Testing %s..." % OCAMLFIND
+        print ('Testing %s...' % OCAMLFIND)
     r = exec_cmd([OCAMLFIND, 'printconf'])
     if r != 0:
         OCAMLFIND=''
@@ -372,7 +372,7 @@ def find_ocaml_find():
 def find_ml_lib():
     global OCAML_LIB
     if is_verbose():
-        print "Finding OCAML_LIB..."
+        print ('Finding OCAML_LIB...')
     t = TempFile('output')
     null = open(os.devnull, 'wb')
     try: 
@@ -384,7 +384,7 @@ def find_ml_lib():
     for line in t:
         OCAML_LIB = line[:-1]
     if is_verbose():
-        print 'OCAML_LIB=%s' % OCAML_LIB
+        print ('OCAML_LIB=%s' % OCAML_LIB)
     t.close()
     rmf('output')
     return
@@ -2810,7 +2810,7 @@ def mk_z3consts_ml(api_files):
             linenum = linenum + 1
     efile.write('end\n')
     if VERBOSE:
-        print "Generated '%s/z3enums.ml'" % ('%s' % gendir)
+        print ('Generated "%s/z3enums.ml"' % ('%s' % gendir))
     efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
     efile.write('(* Automatically generated file *)\n\n')
     efile.write('(** The enumeration types of Z3. *)\n\n')
@@ -2880,7 +2880,7 @@ def mk_z3consts_ml(api_files):
                     idx = idx + 1
             linenum = linenum + 1
     if VERBOSE:
-        print "Generated '%s/z3enums.mli'" % ('%s' % gendir)
+        print ('Generated "%s/z3enums.mli"' % ('%s' % gendir))
 
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id

@@ -276,7 +276,7 @@ def param2dotnet(p):
     elif k == OUT_ARRAY:
         return "[Out] %s[]" % type2dotnet(param_type(p))
     elif k == OUT_MANAGED_ARRAY:
-	return "[Out] out %s[]" % type2dotnet(param_type(p))
+        return "[Out] out %s[]" % type2dotnet(param_type(p))
     else:
         return type2dotnet(param_type(p))
 
@@ -1517,7 +1517,7 @@ def mk_ml():
     ml_wrapper.write('}\n')
     ml_wrapper.write('#endif\n')
     if is_verbose():
-        print "Generated '%s'" % ml_nativef
+        print ('Generated "%s"' % ml_nativef)
 
 # Collect API(...) commands from
 def def_APIs():
