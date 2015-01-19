@@ -417,7 +417,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::atom::display(theory_arith<Ext> const& th, std::ostream& out) const {
         literal l(get_bool_var(), !m_is_true);
-        out << "v" << get_var() << " " << get_bound_kind() << " " << get_k() << " ";
+        out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << get_k() << " ";
         out << l << ":";
         th.get_context().display_detailed_literal(out, l);
     }
@@ -747,7 +747,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::derived_bound::display(theory_arith<Ext> const& th, std::ostream& out) const {
-        out << "v" << m_var << " " << get_bound_kind() << " " << get_value();
+      out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << bound::get_value();
         
         ast_manager& m = th.get_manager();
         for (unsigned i = 0; i < m_eqs.size(); ++i) {
