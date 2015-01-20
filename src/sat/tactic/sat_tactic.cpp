@@ -66,7 +66,7 @@ class sat_tactic : public tactic {
             CASSERT("sat_solver", m_solver.check_invariant());
             IF_VERBOSE(TACTIC_VERBOSITY_LVL, m_solver.display_status(verbose_stream()););
             TRACE("sat_dimacs", m_solver.display_dimacs(tout););
-            
+
             lbool r = m_solver.check();
             if (r == l_false) {
                 g->assert_expr(m.mk_false(), 0, 0);
