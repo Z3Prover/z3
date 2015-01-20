@@ -1,9 +1,13 @@
 RELEASE NOTES
 
-Version 4.3.3
+Version 4.4
 =============
 
-- Fixed bug in floating point models
+- New feature: Stochastic local search engine for bit-vector formulas (see the qfbv-sls tactic).
+  See also: Froehlich, Biere, Wintersteiger, Hamadi: Stochastic Local Search 
+  for Satisfiability Modulo Theories, AAAI 2015.
+
+- Fixed various bugs reported by Marc Brockschmidt, Venkatesh-Prasad Ranganath, Enric Carbonell, Morgan Deters, Tom Ball, and Codeplex users rsas, clockish, Heizmann.
 
 Version 4.3.2
 =============
