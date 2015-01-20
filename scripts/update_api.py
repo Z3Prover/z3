@@ -266,7 +266,7 @@ def param2dotnet(p):
     elif k == OUT_ARRAY:
         return "[Out] %s[]" % type2dotnet(param_type(p))
     elif k == OUT_MANAGED_ARRAY:
-	return "[Out] out %s[]" % type2dotnet(param_type(p))
+        return "[Out] out %s[]" % type2dotnet(param_type(p))
     else:
         return type2dotnet(param_type(p))
 
