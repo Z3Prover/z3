@@ -93,32 +93,6 @@ tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
                             mk_sat_tactic(m));
 #endif    
     
-    /* use full sls
-    tactic * st = using_params(and_then(preamble_st,
-                                        cond(mk_is_qfbv_probe(),
-                                             cond(mk_is_qfbv_eq_probe(),
-                                                  and_then(mk_bv1_blaster_tactic(m),
-                                                           using_params(mk_smt_tactic(), solver_p)),
-                                                  and_then(mk_nnf_tactic(m, p), mk_sls_tactic(m))),
-                                             mk_smt_tactic())),
-                               main_p);*/
-
-    /* use pure dpll
-    tactic * st = using_params(and_then(mk_simplify_tactic(m),
-                                        cond(mk_is_qfbv_probe(),
-                                                  and_then(mk_bit_blaster_tactic(m),
-                                                           when(mk_lt(mk_memory_probe(), mk_const_probe(MEMLIMIT)),
-                                                                and_then(using_params(and_then(mk_simplify_tactic(m),
-                                                                                               mk_solve_eqs_tactic(m)),
-                                                                                      local_ctx_p),
-                                                                         if_no_proofs(cond(mk_produce_unsat_cores_probe(),
-                                                                                           mk_aig_tactic(),
-                                                                                           using_params(mk_aig_tactic(),
-                                                                                                        big_aig_p))))),
-                                                           new_sat),
-                                             mk_smt_tactic())),
-                               main_p);*/
-
     tactic * st = using_params(and_then(preamble_st,
                                         // If the user sets HI_DIV0=false, then the formula may contain uninterpreted function
                                         // symbols. In this case, we should not use 
