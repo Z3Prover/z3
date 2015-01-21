@@ -925,7 +925,7 @@ public:
     }
 
     void verify_assignment() {
-        IF_VERBOSE(0, verbose_stream() << "verify assignment\n";);        
+        IF_VERBOSE(1, verbose_stream() << "verify assignment\n";);        
         ref<solver> smt_solver = mk_smt_solver(m, m_params, symbol());
         for (unsigned i = 0; i < s().get_num_assertions(); ++i) {
             smt_solver->assert_expr(s().get_assertion(i));

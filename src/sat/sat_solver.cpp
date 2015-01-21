@@ -930,8 +930,11 @@ namespace sat {
 
     void solver::reinit_assumptions() {
         if (tracking_assumptions() && scope_lvl() == 0) {
-            TRACE("sat", tout << m_assumptions.size() << "\n";);
+            TRACE("sat", tout << m_assumptions << "\n";);
             push();
+            for (unsigned i = 0; !inconsistent() && i < m_user_scope_literals.size(); ++i) {
+                assign(~m_user_scope_literals[i], justification());
+            }
             for (unsigned i = 0; !inconsistent() && i < m_assumptions.size(); ++i) {
                 assign(m_assumptions[i], justification());
             }
