@@ -2161,6 +2161,10 @@ public class Expr extends AST
 				return new RatNum(ctx, obj);
 			case Z3_BV_SORT:
 				return new BitVecNum(ctx, obj);
+			case Z3_FLOATING_POINT_SORT:
+				return new FPNum(ctx, obj);
+			case Z3_ROUNDING_MODE_SORT:
+				return new FPRMNum(ctx, obj);
 			default: ;
 			}
 		}
@@ -2179,6 +2183,10 @@ public class Expr extends AST
 			return new ArrayExpr(ctx, obj);
 		case Z3_DATATYPE_SORT:
 			return new DatatypeExpr(ctx, obj);
+		case Z3_FLOATING_POINT_SORT:
+			return new FPExpr(ctx, obj);
+		case Z3_ROUNDING_MODE_SORT:
+			return new FPRMExpr(ctx, obj);
 		default: ;
 		}
 
