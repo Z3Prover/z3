@@ -31,8 +31,6 @@ public class FPNum extends FPExpr
         if (Native.fpaGetNumeralSign(getContext().nCtx(), getNativeObject(), res) ^ true)                
             throw new Z3Exception("Sign is not a Boolean value");
         return res.value != 0;
-        
-        
     }
 
     /**
