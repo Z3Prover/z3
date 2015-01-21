@@ -7749,7 +7749,7 @@ class FPRMRef(ExprRef):
         return Z3_ast_to_string(self.ctx_ref(), self.as_ast())
 
   
-def RoundNearestTiesToEven (ctx=None):
+def RoundNearestTiesToEven(ctx=None):
     ctx = _get_ctx(ctx)
     return FPRMRef(Z3_mk_fpa_round_nearest_ties_to_even(ctx.ref()), ctx)
 
@@ -7757,7 +7757,7 @@ def RNE (ctx=None):
     ctx = _get_ctx(ctx)
     return FPRMRef(Z3_mk_fpa_round_nearest_ties_to_even(ctx.ref()), ctx)
 
-def RoundNearestTiesToAway (ctx=None):
+def RoundNearestTiesToAway(ctx=None):
     ctx = _get_ctx(ctx)
     return FPRMRef(Z3_mk_fpa_round_nearest_ties_to_away(ctx.ref()), ctx)
 
@@ -7765,27 +7765,27 @@ def RNA (ctx=None):
     ctx = _get_ctx(ctx)
     return FPRMRef(Z3_mk_fpa_round_nearest_ties_to_away(ctx.ref()), ctx)
 
-def RoundTowardPositive (ctx=None):
+def RoundTowardPositive(ctx=None):
     ctx = _get_ctx(ctx)
     return FPRMRef(Z3_mk_fpa_round_toward_positive(ctx.ref()), ctx)
 
-def RTP (ctx=None):
+def RTP(ctx=None):
     ctx = _get_ctx(ctx)
     return FPRMRef(Z3_mk_fpa_round_toward_positive(ctx.ref()), ctx)
 
-def RoundTowardNegative (ctx=None):
+def RoundTowardNegative(ctx=None):
     ctx = _get_ctx(ctx)
     return FPRMRef(Z3_mk_fpa_round_toward_negative(ctx.ref()), ctx)
 
-def RTN (ctx=None):
+def RTN(ctx=None):
     ctx = _get_ctx(ctx)
     return FPRMRef(Z3_mk_fpa_round_toward_negative(ctx.ref()), ctx)
 
-def RoundTowardZero (ctx=None):
+def RoundTowardZero(ctx=None):
     ctx = _get_ctx(ctx)
     return FPRMRef(Z3_mk_fpa_round_toward_zero(ctx.ref()), ctx)
 
-def RTZ (ctx=None):
+def RTZ(ctx=None):
     ctx = _get_ctx(ctx)
     return FPRMRef(Z3_mk_fpa_round_toward_zero(ctx.ref()), ctx)
 

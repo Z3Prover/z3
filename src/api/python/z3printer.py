@@ -64,9 +64,9 @@ _z3_precedence = {
 
 # FPA operators 
 _z3_op_to_fpa_normal_str = {
-    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN : 'RNE()', Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY : 'RNA()',
-    Z3_OP_FPA_RM_TOWARD_POSITIVE : 'RTP()', Z3_OP_FPA_RM_TOWARD_NEGATIVE : 'RTN()',
-    Z3_OP_FPA_RM_TOWARD_ZERO : 'RTZ()',
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN : 'RoundNearestTiesToEven()', Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY : 'RoundNearestTiesToAway()',
+    Z3_OP_FPA_RM_TOWARD_POSITIVE : 'RoundTowardPositive()', Z3_OP_FPA_RM_TOWARD_NEGATIVE : 'RoundTowardNegative()',
+    Z3_OP_FPA_RM_TOWARD_ZERO : 'RoundTowardZero()',
     Z3_OP_FPA_PLUS_INF : '+oo', Z3_OP_FPA_MINUS_INF : '-oo',
     Z3_OP_FPA_NAN : 'NaN', Z3_OP_FPA_PLUS_ZERO : 'PZero', Z3_OP_FPA_MINUS_ZERO : 'NZero',
     Z3_OP_FPA_ADD : 'fpAdd', Z3_OP_FPA_SUB : 'fpSub', Z3_OP_FPA_NEG : 'fpNeg', Z3_OP_FPA_MUL : 'fpMul',
@@ -580,7 +580,7 @@ class Formatter:
         if self.fpa_pretty and a.decl().kind() in _z3_op_to_fpa_pretty_str:
             return to_format(_z3_op_to_fpa_pretty_str.get(a.decl().kind()))
         else:
-            return to_format(a.as_string())
+            return to_format(_z3_op_to_fpa_normal_str.get(a.decl().kind()))
 
     def pp_fp_value(self, a):
         z3._z3_assert(isinstance(a, z3.FPNumRef), 'type mismatch')
