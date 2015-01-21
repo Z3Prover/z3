@@ -769,7 +769,7 @@ typedef enum
          - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test.
 
 
-      - Z3_OP_PR_HYPER_RESOLVE: Hyper-resolution rule.
+    - Z3_OP_PR_HYPER_RESOLVE: Hyper-resolution rule.
 
         The premises of the rules is a sequence of clauses.
         The first clause argument is the main clause of the rule.

@@ -173,7 +173,7 @@ public class Fixedpoint extends Z3Object
 
     /**
      * Backtrack one backtracking point.
-	 * Remarks: Note that an exception is thrown if {#code pop} 
+	 * Remarks: Note that an exception is thrown if {@code pop} 
 	 * is called without a corresponding {@code push}
      *  
 	 * @see push

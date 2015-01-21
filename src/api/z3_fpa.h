@@ -38,7 +38,7 @@ extern "C" {
     /**
         \brief Create the RoundingMode sort.
 
-        \param c logical context.
+        \param c logical context
      
         def_API('Z3_mk_fpa_rounding_mode_sort', SORT, (_in(CONTEXT),))
     */
@@ -47,7 +47,7 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
 
-        \param c logical context.
+        \param c logical context
      
         def_API('Z3_mk_fpa_round_nearest_ties_to_even', AST, (_in(CONTEXT),))
     */
@@ -56,7 +56,7 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
 
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_rne', AST, (_in(CONTEXT),))
     */
@@ -65,7 +65,7 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
 
-        \param c logical context.
+        \param c logical context
      
         def_API('Z3_mk_fpa_round_nearest_ties_to_away', AST, (_in(CONTEXT),))
     */
@@ -74,7 +74,7 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
 
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_rna', AST, (_in(CONTEXT),))
     */
@@ -83,7 +83,7 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode.
 
-        \param c logical context.
+        \param c logical context
      
         def_API('Z3_mk_fpa_round_toward_positive', AST, (_in(CONTEXT),))
     */
@@ -92,7 +92,7 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode.
 
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_rtp', AST, (_in(CONTEXT),))
     */
@@ -101,7 +101,7 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode.
      
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_round_toward_negative', AST, (_in(CONTEXT),))
     */
@@ -110,7 +110,7 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode.
 
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_rtn', AST, (_in(CONTEXT),))
     */
@@ -119,7 +119,7 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardZero rounding mode.
 
-        \param c logical context.
+        \param c logical context
      
         def_API('Z3_mk_fpa_round_toward_zero', AST, (_in(CONTEXT),))
     */
@@ -128,7 +128,7 @@ extern "C" {
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardZero rounding mode.
 
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_rtz', AST, (_in(CONTEXT),))
     */
@@ -137,9 +137,9 @@ extern "C" {
     /**
         \brief Create a FloatingPoint sort.
 
-        \param c logical context.
-        \param ebits number of exponent bits.
-        \param sbits number of significand bits.
+        \param c logical context
+        \param ebits number of exponent bits
+        \param sbits number of significand bits
 
         \remark ebits must be larger than 1 and sbits must be larger than 2.
      
@@ -150,7 +150,7 @@ extern "C" {
     /**
         \brief Create the half-precision (16-bit) FloatingPoint sort.
 
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_sort_half', SORT, (_in(CONTEXT),))
     */
@@ -159,7 +159,7 @@ extern "C" {
     /**
         \brief Create the half-precision (16-bit) FloatingPoint sort.
 
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_sort_16', SORT, (_in(CONTEXT),))
     */
@@ -168,7 +168,7 @@ extern "C" {
     /**
         \brief Create the single-precision (32-bit) FloatingPoint sort.
 
-        \param c logical context.        
+        \param c logical context.       
 
         def_API('Z3_mk_fpa_sort_single', SORT, (_in(CONTEXT),))
     */
@@ -177,7 +177,7 @@ extern "C" {
     /**
         \brief Create the single-precision (32-bit) FloatingPoint sort.
 
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_sort_32', SORT, (_in(CONTEXT),))
     */
@@ -186,7 +186,7 @@ extern "C" {
     /**
         \brief Create the double-precision (64-bit) FloatingPoint sort.
 
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_sort_double', SORT, (_in(CONTEXT),))
     */
@@ -195,7 +195,7 @@ extern "C" {
     /**
         \brief Create the double-precision (64-bit) FloatingPoint sort.
 
-        \param c logical context.
+        \param c logical context
 
         def_API('Z3_mk_fpa_sort_64', SORT, (_in(CONTEXT),))
     */
@@ -204,11 +204,7 @@ extern "C" {
     /**
         \brief Create the quadruple-precision (128-bit) FloatingPoint sort.
 
-        \param c logical context.
-        \param ebits number of exponent bits
-        \param sbits number of significand bits
-
-        \remark ebits must be larger than 1 and sbits must be larger than 2.
+        \param c logical context
 
         def_API('Z3_mk_fpa_sort_quadruple', SORT, (_in(CONTEXT),))
     */
@@ -217,11 +213,7 @@ extern "C" {
     /**
         \brief Create the quadruple-precision (128-bit) FloatingPoint sort.
 
-        \param c logical context.
-        \param ebits number of exponent bits
-        \param sbits number of significand bits
-
-        \remark ebits must be larger than 1 and sbits must be larger than 2.
+        \param c logical context
 
         def_API('Z3_mk_fpa_sort_128', SORT, (_in(CONTEXT),))
     */
@@ -230,7 +222,7 @@ extern "C" {
     /**
         \brief Create a floating-point NaN of sort s.
 
-        \param c logical context.
+        \param c logical context
         \param s target sort 
      
         def_API('Z3_mk_fpa_nan', AST, (_in(CONTEXT),_in(SORT)))
@@ -240,7 +232,7 @@ extern "C" {
     /**
         \brief Create a floating-point infinity of sort s.
 
-        \param c logical context.
+        \param c logical context
         \param s target sort 
         \param negative indicates whether the result should be negative
      
@@ -253,7 +245,7 @@ extern "C" {
     /**
         \brief Create a floating-point zero of sort s.
 
-        \param c logical context.
+        \param c logical context
         \param s target sort
         \param negative indicates whether the result should be negative
 
@@ -272,10 +264,10 @@ extern "C" {
         of the resulting expression is automatically determined from the bit-vector sizes
         of the arguments.
 
-        \params c logical context.
-        \params sgn sign         
-        \params exp exponent
-        \params sig significand
+        \param c logical context
+        \param sgn sign         
+        \param exp exponent
+        \param sig significand
 
         def_API('Z3_mk_fpa_fp', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
     */
@@ -287,9 +279,9 @@ extern "C" {
         This function is used to create numerals that fit in a float value.
         It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
-        \params c logical context.
-        \params v value.
-        \params ty sort.
+        \param c logical context
+        \param v value
+        \param ty sort
 
         ty must be a FloatingPoint sort
 
@@ -305,9 +297,9 @@ extern "C" {
        This function is used to create numerals that fit in a double value.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
-       \params c logical context.
-       \params v value.
-       \params ty sort.
+       \param c logical context
+       \param v value
+       \param ty sort
 
        ty must be a FloatingPoint sort
 
@@ -320,8 +312,9 @@ extern "C" {
     /**
         \brief Create a numeral of FloatingPoint sort from a signed integer.
 
-        \params c logical context.
-        \params v value.
+        \param c logical context
+        \param v value
+        \param ty result sort
 
         ty must be a FloatingPoint sort
 
@@ -334,10 +327,11 @@ extern "C" {
     /**
         \brief Create a numeral of FloatingPoint sort from a sign bit and two integers.
 
-        \params c logical context.
-        \params sgn sign bit (true == negative).
-        \params sig significand.
-        \params exp exponent.
+        \param c logical context
+        \param sgn sign bit (true == negative)
+        \param sig significand
+        \param exp exponent
+        \param ty result sort
 
         ty must be a FloatingPoint sort
 
@@ -350,10 +344,11 @@ extern "C" {
     /**
         \brief Create a numeral of FloatingPoint sort from a sign bit and two 64-bit integers.
 
-        \params c logical context.
-        \params sgn sign bit (true == negative).
-        \params sig significand.
-        \params exp exponent.
+        \param c logical context
+        \param sgn sign bit (true == negative)
+        \param sig significand
+        \param exp exponent
+        \param ty result sort
 
         ty must be a FloatingPoint sort
 
@@ -366,8 +361,8 @@ extern "C" {
     /**
         \brief Floating-point absolute value
 
-        \param c logical context.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param t term of FloatingPoint sort
      
         def_API('Z3_mk_fpa_abs', AST, (_in(CONTEXT),_in(AST)))
     */
@@ -376,8 +371,8 @@ extern "C" {
     /**
         \brief Floating-point negation
 
-        \param c logical context.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param t term of FloatingPoint sort
      
         def_API('Z3_mk_fpa_neg', AST, (_in(CONTEXT),_in(AST)))
     */
@@ -386,10 +381,10 @@ extern "C" {
     /**
         \brief Floating-point addition
 
-        \param c logical context.
-        \param rm term of RoundingMode sort.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param rm term of RoundingMode sort
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         rm must be of RoundingMode sort, t1 and t2 must have the same FloatingPoint sort.
      
@@ -400,10 +395,10 @@ extern "C" {
     /**
         \brief Floating-point subtraction
 
-        \param c logical context.
-        \param rm term of RoundingMode sort.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param rm term of RoundingMode sort
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         rm must be of RoundingMode sort, t1 and t2 must have the same FloatingPoint sort.
      
@@ -414,10 +409,10 @@ extern "C" {
     /**
         \brief Floating-point multiplication
 
-        \param c logical context.
-        \param rm term of RoundingMode sort.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param rm term of RoundingMode sort
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         rm must be of RoundingMode sort, t1 and t2 must have the same FloatingPoint sort.
      
@@ -428,10 +423,10 @@ extern "C" {
     /**
         \brief Floating-point division
 
-        \param c logical context.
-        \param rm term of RoundingMode sort.
+        \param c logical context
+        \param rm term of RoundingMode sort
         \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param t2 term of FloatingPoint sort
 
         The nodes rm must be of RoundingMode sort t1 and t2 must have the same FloatingPoint sort.
      
@@ -442,10 +437,11 @@ extern "C" {
     /**
         \brief Floating-point fused multiply-add.
 
-        \param c logical context.
-        \param rm term of RoundingMode sort.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param rm term of RoundingMode sort
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sor
+        \param t3 term of FloatingPoint sort
 
         The result is round((t1 * t2) + t3)
 
@@ -458,9 +454,9 @@ extern "C" {
     /**
         \brief Floating-point square root
 
-        \param c logical context.
-        \param rm term of RoundingMode sort.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param rm term of RoundingMode sort
+        \param t term of FloatingPoint sort
 
         rm must be of RoundingMode sort, t must have FloatingPoint sort.
      
@@ -471,9 +467,9 @@ extern "C" {
     /**
         \brief Floating-point remainder
 
-        \param c logical context.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         t1 and t2 must have the same FloatingPoint sort.
      
@@ -485,9 +481,9 @@ extern "C" {
         \brief Floating-point roundToIntegral. Rounds a floating-point number to 
         the closest integer, again represented as a floating-point number.
 
-        \param c logical context.
-        \param rm term of RoundingMode sort.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param rm term of RoundingMode sort
+        \param t term of FloatingPoint sort
 
         t must be of FloatingPoint sort.
 
@@ -498,9 +494,9 @@ extern "C" {
     /**
         \brief Minimum of floating-point numbers.
 
-        \param c logical context.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         t1, t2 must have the same FloatingPoint sort.
 
@@ -511,9 +507,9 @@ extern "C" {
         /**
         \brief Maximum of floating-point numbers.
 
-        \param c logical context.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         t1, t2 must have the same FloatingPoint sort.
 
@@ -524,9 +520,9 @@ extern "C" {
      /**
         \brief Floating-point less than or equal.
 
-        \param c logical context.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         t1 and t2 must have the same FloatingPoint sort.
      
@@ -537,9 +533,9 @@ extern "C" {
      /**
         \brief Floating-point less than.
 
-        \param c logical context.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         t1 and t2 must have the same FloatingPoint sort.
      
@@ -550,9 +546,9 @@ extern "C" {
     /**
         \brief Floating-point greater than or equal.
 
-        \param c logical context.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         t1 and t2 must have the same FloatingPoint sort.
      
@@ -563,9 +559,9 @@ extern "C" {
     /**
         \brief Floating-point greater than.
 
-        \param c logical context.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         t1 and t2 must have the same FloatingPoint sort.
      
@@ -576,9 +572,9 @@ extern "C" {
     /**
         \brief Floating-point equality.
 
-        \param c logical context.
-        \param t1 term of FloatingPoint sort.
-        \param t2 term of FloatingPoint sort.
+        \param c logical context
+        \param t1 term of FloatingPoint sort
+        \param t2 term of FloatingPoint sort
 
         Note that this is IEEE 754 equality (as opposed to SMT-LIB =).
 
@@ -591,8 +587,8 @@ extern "C" {
     /**
         \brief Predicate indicating whether t is a normal floating-point number.
 
-        \param c logical context.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param t term of FloatingPoint sort
 
         t must have FloatingPoint sort.
      
@@ -603,8 +599,8 @@ extern "C" {
     /**
         \brief Predicate indicating whether t is a subnormal floating-point number.
 
-        \param c logical context.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param t term of FloatingPoint sort
 
         t must have FloatingPoint sort.
      
@@ -615,8 +611,8 @@ extern "C" {
     /**
         \brief Predicate indicating whether t is a floating-point number with zero value, i.e., +zero or -zero.
 
-        \param c logical context.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param t term of FloatingPoint sort
 
         t must have FloatingPoint sort.
      
@@ -627,8 +623,8 @@ extern "C" {
    /**
         \brief Predicate indicating whether t is a floating-point number representing +oo or -oo.
 
-        \param c logical context.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param t term of FloatingPoint sort
 
         t must have FloatingPoint sort.
      
@@ -639,8 +635,8 @@ extern "C" {
     /**
         \brief Predicate indicating whether t is a NaN.
 
-        \param c logical context.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param t term of FloatingPoint sort
 
         t must have FloatingPoint sort.
      
@@ -651,8 +647,8 @@ extern "C" {
     /**
         \brief Predicate indicating whether t is a negative floating-point number.
 
-        \param c logical context.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param t term of FloatingPoint sort
 
         t must have FloatingPoint sort.
 
@@ -663,8 +659,8 @@ extern "C" {
     /**
         \brief Predicate indicating whether t is a positive floating-point number.
 
-        \param c logical context.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param t term of FloatingPoint sort
 
         t must have FloatingPoint sort.
 
@@ -678,9 +674,9 @@ extern "C" {
         Produces a term that represents the conversion of a bit-vector term bv to a 
         floating-point term of sort s.
 
-        \param c logical context.        
-        \param bv a bit-vector term.
-        \param s floating-point sort.
+        \param c logical context
+        \param bv a bit-vector term
+        \param s floating-point sort
 
         s must be a FloatingPoint sort, t must be of bit-vector sort, and the bit-vector 
         size of bv must be equal to ebits+sbits of s. The format of the bit-vector is 
@@ -697,10 +693,10 @@ extern "C" {
         floating-point term of sort s. If necessary, the result will be rounded according
         to rounding mode rm.
 
-        \param c logical context.        
-        \param rm term of RoundingMode sort.
-        \param t term of FloatingPoint sort.
-        \param s floating-point sort.
+        \param c logical context    
+        \param rm term of RoundingMode sort
+        \param t term of FloatingPoint sort
+        \param s floating-point sort
 
         s must be a FloatingPoint sort, rm must be of RoundingMode sort, t must be of floating-point sort.
 
@@ -715,10 +711,10 @@ extern "C" {
         floating-point term of sort s. If necessary, the result will be rounded according
         to rounding mode rm.
 
-        \param c logical context.        
-        \param rm term of RoundingMode sort.
-        \param t term of Real sort.
-        \param s floating-point sort.
+        \param c logical context    
+        \param rm term of RoundingMode sort
+        \param t term of Real sort
+        \param s floating-point sort
 
         s must be a FloatingPoint sort, rm must be of RoundingMode sort, t must be of real sort.
 
@@ -734,10 +730,10 @@ extern "C" {
         2's complement format. If necessary, the result will be rounded according
         to rounding mode rm.
 
-        \param c logical context.        
-        \param rm term of RoundingMode sort.
-        \param t term of bit-vector sort.
-        \param s floating-point sort.
+        \param c logical context
+        \param rm term of RoundingMode sort
+        \param t term of bit-vector sort
+        \param s floating-point sort
 
         s must be a FloatingPoint sort, rm must be of RoundingMode sort, t must be of bit-vector sort.
 
@@ -753,10 +749,10 @@ extern "C" {
         2's complement format. If necessary, the result will be rounded according
         to rounding mode rm.
 
-        \param c logical context.        
-        \param rm term of RoundingMode sort.
-        \param t term of bit-vector sort.
-        \param s floating-point sort.
+        \param c logical context
+        \param rm term of RoundingMode sort
+        \param t term of bit-vector sort
+        \param s floating-point sort
 
         s must be a FloatingPoint sort, rm must be of RoundingMode sort, t must be of bit-vector sort.
 
@@ -769,12 +765,12 @@ extern "C" {
 
         Produces a term that represents the conversion of the floating-poiunt term t into a
         bit-vector term of size sz in unsigned 2's complement format. If necessary, the result 
-	will be rounded according to rounding mode rm.
+		will be rounded according to rounding mode rm.
 
-        \param c logical context.
-        \param rm term of RoundingMode sort.
-        \param t term of FloatingPoint sort.
-        \param sz size of the resulting bit-vector.
+        \param c logical context
+        \param rm term of RoundingMode sort
+        \param t term of FloatingPoint sort
+        \param sz size of the resulting bit-vector
 
         def_API('Z3_mk_fpa_to_ubv', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(UINT)))
     */
@@ -785,12 +781,12 @@ extern "C" {
 
         Produces a term that represents the conversion of the floating-poiunt term t into a
         bit-vector term of size sz in signed 2's complement format. If necessary, the result 
-	will be rounded according to rounding mode rm.
+		will be rounded according to rounding mode rm.
 
-        \param c logical context.
-        \param rm term of RoundingMode sort.
-        \param t term of FloatingPoint sort.
-        \param sz size of the resulting bit-vector.
+        \param c logical context
+        \param rm term of RoundingMode sort
+        \param t term of FloatingPoint sort
+        \param sz size of the resulting bit-vector
 
         def_API('Z3_mk_fpa_to_sbv', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(UINT)))
     */
@@ -803,8 +799,8 @@ extern "C" {
         real number. Note that this type of conversion will often result in non-linear 
         constraints over real terms.
 
-        \param c logical context.        
-        \param t term of FloatingPoint sort.
+        \param c logical context        
+        \param t term of FloatingPoint sort
 
         def_API('Z3_mk_fpa_to_real', AST, (_in(CONTEXT),_in(AST)))
     */
@@ -812,14 +808,15 @@ extern "C" {
 
 
     /**
-        @name Z3-specific extensions
+        @name Z3-specific floating-point extensions
     */
     /*@{*/
 
     /**
         \brief Retrieves the number of bits reserved for the exponent in a FloatingPoint sort.
 
-        \param s FloatingPoint sort.
+		\param c logical context
+        \param s FloatingPoint sort
 
         def_API('Z3_fpa_get_ebits', UINT, (_in(CONTEXT),_in(SORT)))
     */
@@ -828,30 +825,34 @@ extern "C" {
     /**
         \brief Retrieves the number of bits reserved for the significand in a FloatingPoint sort.
 
-        \param s FloatingPoint sort.
+		\param c logical context
+        \param s FloatingPoint sort
 
         def_API('Z3_fpa_get_sbits', UINT, (_in(CONTEXT),_in(SORT)))
     */
     unsigned Z3_API Z3_fpa_get_sbits(__in Z3_context c, __in Z3_sort s);
 
     /**
-        \brief Retrieves the sign of a floating-point literal
+        \brief Retrieves the sign of a floating-point literal.
+
+		\param c logical context
+        \param t a floating-point numeral
+		\param sgn sign
 
         Remarks: sets \c sgn to 0 if the literal is NaN or positive and to 1 otherwise.
-
-        \param t a floating-point numeral.
 
         def_API('Z3_fpa_get_numeral_sign', BOOL, (_in(CONTEXT), _in(AST), _out(INT)))
     */
     Z3_bool Z3_API Z3_fpa_get_numeral_sign(__in Z3_context c, __in Z3_ast t, __out int * sgn);
 
     /**
-        \brief Return the significand value of a floating-point numeral as a string
+        \brief Return the significand value of a floating-point numeral as a string.
+
+		\param c logical context
+        \param t a floating-point numeral
 
         Remarks: The significand s is always 0 < s < 2.0; the resulting string is long
         enough to represent the real significand precisely.
-
-        \param t a floating-point numeral.
 
         def_API('Z3_fpa_get_numeral_significand_string', STRING, (_in(CONTEXT), _in(AST)))
     */
@@ -860,7 +861,8 @@ extern "C" {
     /**
         \brief Return the exponent value of a floating-point numeral as a string
 
-        \param t a floating-point numeral.
+		\param c logical context
+        \param t a floating-point numeral
 
         def_API('Z3_fpa_get_numeral_exponent_string', STRING, (_in(CONTEXT), _in(AST)))
     */
@@ -869,7 +871,9 @@ extern "C" {
     /**
         \brief Return the exponent value of a floating-point numeral as a signed 64-bit integer
 
-        \param t a floating-point numeral.
+        \param c logical context
+        \param t a floating-point numeral
+		\param n exponent
 
         def_API('Z3_fpa_get_numeral_exponent_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64)))
     */
@@ -878,8 +882,8 @@ extern "C" {
     /**
         \brief Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format.
 
-        \param c logical context.
-        \param t term of FloatingPoint sort.
+        \param c logical context
+        \param t term of FloatingPoint sort
 
         t must have FloatingPoint sort. The size of the resulting bit-vector is automatically 
         determined. 
@@ -899,11 +903,11 @@ extern "C" {
         floating-point term of sort s. If necessary, the result will be rounded
         according to rounding mode rm.
 
-        \param c logical context.        
-        \param rm term of RoundingMode sort.
-        \param sig significand term of Real sort.
-        \param exp exponent term of Int sort.
-        \param s FloatingPoint sort.
+        \param c logical context     
+        \param rm term of RoundingMode sort
+        \param sig significand term of Real sort
+        \param exp exponent term of Int sort
+        \param s FloatingPoint sort
 
         s must be a FloatingPoint sort, rm must be of RoundingMode sort, t must be of real sort.
 
