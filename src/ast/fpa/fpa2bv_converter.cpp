@@ -2982,12 +2982,11 @@ void fpa2bv_converter::mk_is_rm(expr * e, BV_RM_VAL rm, expr_ref & result) {
     case BV_RM_TIES_TO_AWAY: 
     case BV_RM_TIES_TO_EVEN: 
     case BV_RM_TO_NEGATIVE:
-    case BV_RM_TO_POSITIVE: return m_simp.mk_eq(e, rm_num, result);
+    case BV_RM_TO_POSITIVE: 
     case BV_RM_TO_ZERO: 
+        return m_simp.mk_eq(e, rm_num, result);
     default:
-        rm_num = m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3);
-        expr_ref r(m); r = m_bv_util.mk_ule(e, rm_num);
-        return m_simp.mk_not(r, result);
+        UNREACHABLE();
     }
 }
 
@@ -3182,7 +3181,7 @@ void fpa2bv_converter::mk_rounding_mode(func_decl * f, expr_ref & result)
 
 void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {    
     #ifdef Z3DEBUG
-    return;
+    // return;
     // CMW: This works only for quantifier-free formulas.
     expr_ref new_e(m);
     new_e = m.mk_fresh_const(prefix, m.get_sort(e));
@@ -3485,9 +3484,14 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     mk_is_rm(rm, BV_RM_TO_POSITIVE, rm_is_to_pos);
     m_simp.mk_or(rm_is_to_zero, rm_is_to_neg, rm_zero_or_neg);
     m_simp.mk_or(rm_is_to_zero, rm_is_to_pos, rm_zero_or_pos);
+    dbg_decouple("fpa2bv_rnd_rm_is_to_zero", rm_is_to_zero);
+    dbg_decouple("fpa2bv_rnd_rm_is_to_neg", rm_is_to_neg);
+    dbg_decouple("fpa2bv_rnd_rm_is_to_pos", rm_is_to_pos);
+
 
     expr_ref sgn_is_zero(m);
     m_simp.mk_eq(sgn, m_bv_util.mk_numeral(0, 1), sgn_is_zero);
+    dbg_decouple("fpa2bv_rnd_sgn_is_zero", sgn_is_zero);
 
     expr_ref max_sig(m), max_exp(m), inf_sig(m), inf_exp(m);
     max_sig = m_bv_util.mk_numeral(fu().fm().m_powers2.m1(sbits-1, false), sbits-1);
@@ -3497,22 +3501,30 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     inf_exp = top_exp;
 
     dbg_decouple("fpa2bv_rnd_max_exp", max_exp);
+    dbg_decouple("fpa2bv_rnd_max_sig", max_sig);
+    dbg_decouple("fpa2bv_rnd_inf_sig", inf_sig);
+    dbg_decouple("fpa2bv_rnd_inf_exp", inf_exp);
 
     expr_ref ovfl_exp(m), max_inf_exp_neg(m), max_inf_exp_pos(m), n_d_check(m), n_d_exp(m);    
-    m_simp.mk_ite(rm_zero_or_neg, max_exp, inf_exp, max_inf_exp_neg);
-    m_simp.mk_ite(rm_zero_or_pos, max_exp, inf_exp, max_inf_exp_pos);
-    m_simp.mk_ite(sgn_is_zero, max_inf_exp_neg, max_inf_exp_pos, ovfl_exp);
+    m_simp.mk_ite(rm_zero_or_pos, max_exp, inf_exp, max_inf_exp_neg);
+    m_simp.mk_ite(rm_zero_or_neg, max_exp, inf_exp, max_inf_exp_pos);
+    m_simp.mk_ite(sgn_is_zero, max_inf_exp_pos, max_inf_exp_neg, ovfl_exp);
     t_sig = m_bv_util.mk_extract(sbits-1, sbits-1, sig);
     m_simp.mk_eq(t_sig, nil_1, n_d_check);
     m_simp.mk_ite(n_d_check, bot_exp /* denormal */, biased_exp, n_d_exp);
     m_simp.mk_ite(OVF, ovfl_exp, n_d_exp, exp);
 
     expr_ref max_inf_sig_neg(m), max_inf_sig_pos(m), ovfl_sig(m), rest_sig(m);
-    m_simp.mk_ite(rm_zero_or_neg, max_sig, inf_sig, max_inf_sig_neg);
-    m_simp.mk_ite(rm_zero_or_pos, max_sig, inf_sig, max_inf_sig_pos);
-    m_simp.mk_ite(sgn_is_zero, max_inf_sig_neg, max_inf_sig_pos, ovfl_sig);
+    m_simp.mk_ite(rm_zero_or_pos, max_sig, inf_sig, max_inf_sig_neg);
+    m_simp.mk_ite(rm_zero_or_neg, max_sig, inf_sig, max_inf_sig_pos);
+    m_simp.mk_ite(sgn_is_zero, max_inf_sig_pos, max_inf_sig_neg, ovfl_sig);
     rest_sig = m_bv_util.mk_extract(sbits-2, 0, sig);
     m_simp.mk_ite(OVF, ovfl_sig, rest_sig, sig);
+    
+    dbg_decouple("fpa2bv_rnd_max_inf_sig_neg", max_inf_sig_neg);
+    dbg_decouple("fpa2bv_rnd_max_inf_sig_pos", max_inf_sig_pos);
+    dbg_decouple("fpa2bv_rnd_rm_zero_or_neg", rm_zero_or_neg);
+    dbg_decouple("fpa2bv_rnd_rm_zero_or_pos", rm_zero_or_pos);
 
     dbg_decouple("fpa2bv_rnd_sgn_final", sgn);
     dbg_decouple("fpa2bv_rnd_sig_final", sig);

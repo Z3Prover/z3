@@ -1221,7 +1221,7 @@ std::string mpf_manager::to_string(mpf const & x) {
             m_mpq_manager.display_decimal(ss, r, x.sbits);
             if (m_mpq_manager.is_int(r))
                 ss << ".0";
-            ss << "p" << exponent;
+            ss << " " << exponent;
             res += ss.str();            
         }
     }
