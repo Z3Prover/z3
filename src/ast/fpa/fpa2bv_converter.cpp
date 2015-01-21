@@ -2467,7 +2467,7 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
         expr_ref sig_rest(m);
         sig_4 = m_bv_util.mk_extract(bv_sz - 1, bv_sz - sig_sz + 1, shifted_sig); // one short
         sig_rest = m_bv_util.mk_extract(bv_sz - sig_sz, 0, shifted_sig);
-        sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sig_rest);
+        sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sig_rest.get());
         sig_4 = m_bv_util.mk_concat(sig_4, sticky);
     }
     else {
