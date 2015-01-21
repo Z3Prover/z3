@@ -53,8 +53,8 @@ def init_project_def():
     add_lib('user_plugin', ['smt'], 'smt/user_plugin')
     add_lib('bv_tactics', ['tactic', 'bit_blaster'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
-    add_lib('fpa_tactics', ['fpa', 'core_tactics', 'bv_tactics', 'sat_tactic'], 'tactic/fpa')
     add_lib('smt_tactic', ['smt'], 'smt/tactic')
+    add_lib('fpa_tactics', ['fpa', 'core_tactics', 'bv_tactics', 'sat_tactic', 'smt_tactic'], 'tactic/fpa')
     add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
     add_lib('qe', ['smt','sat'], 'qe')
     add_lib('duality', ['smt', 'interp', 'qe'])
@@ -75,7 +75,7 @@ def init_project_def():
 #            dll_name='foci2', 
 #            export_files=['foci2stub.cpp'])
 #    add_lib('interp', ['solver','foci2'])
-    API_files = ['z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_interp.h']
+    API_files = ['z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_interp.h', 'z3_fpa.h']
     add_lib('api', ['portfolio', 'user_plugin', 'smtparser', 'realclosure', 'interp'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
     add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')

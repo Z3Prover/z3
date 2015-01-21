@@ -28,6 +28,7 @@ Notes:
 #include"z3_polynomial.h"
 #include"z3_rcf.h"
 #include"z3_interp.h"
+#include"z3_fpa.h"
 
 #undef __in
 #undef __out

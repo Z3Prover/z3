@@ -22,19 +22,19 @@ Notes:
 #include"ast.h"
 #include"rewriter.h"
 #include"params.h"
-#include"float_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"mpf.h"
 
-class float_rewriter {
-    float_util    m_util;
+class fpa_rewriter {
+    fpa_util      m_util;
     mpf_manager   m_fm;
 
     app * mk_eq_nan(expr * arg);
     app * mk_neq_nan(expr * arg);
 
 public:
-    float_rewriter(ast_manager & m, params_ref const & p = params_ref());
-    ~float_rewriter();
+    fpa_rewriter(ast_manager & m, params_ref const & p = params_ref());
+    ~fpa_rewriter();
 
     ast_manager & m() const { return m_util.m(); }
     family_id get_fid() const { return m_util.get_fid(); }
@@ -75,6 +75,7 @@ public:
     br_status mk_to_ieee_bv(expr * arg1, expr_ref & result);
 
     br_status mk_to_fp(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
+    br_status mk_to_fp_unsigned(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
     br_status mk_to_fp_unsigned(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_to_ubv(expr * arg1, expr * arg2, expr_ref & result);

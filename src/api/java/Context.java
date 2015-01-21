@@ -2000,25 +2000,22 @@ public class Context extends IDisposable
 
     /**
      * Create a universal Quantifier.
+	 * @param sorts the sorts of the bound variables. 
+	 * @param names names of the bound variables 
+	 * @param body the body of the quantifier. 
+	 * @param weight quantifiers are associated with weights indicating the importance of using the quantifier during instantiation. By default, pass the weight 0.
+     * @param patterns array containing the patterns created using {@code MkPattern}. 
+	 * @param noPatterns array containing the anti-patterns created using {@code MkPattern}. 
+	 * @param quantifierID optional symbol to track quantifier. 
+	 * @param skolemID optional symbol to track skolem constants.
+	 * 
 	 * Remarks:  Creates a forall formula, where
      * {@code weight"/> is the weight, <paramref name="patterns} is
      * an array of patterns, {@code sorts} is an array with the sorts
      * of the bound variables, {@code names} is an array with the
      * 'names' of the bound variables, and {@code body} is the body
      * of the quantifier. Quantifiers are associated with weights indicating the
-     * importance of using the quantifier during instantiation. 
-     * 
-	 * @param sorts the sorts of the bound variables. 
-	 * @param names names of the bound variables 
-	 * @param body the body of the quantifier. 
-	 * @param weight quantifiers are
-     * associated with weights indicating the importance of using the quantifier
-     * during instantiation. By default, pass the weight 0.
-     * @param patterns array containing the patterns created using
-     * {@code MkPattern}. 
-	 * @param noPatterns array containing the anti-patterns created using {@code MkPattern}. 
-	 * @param quantifierID optional symbol to track quantifier. 
-	 * @param skolemID optional symbol to track skolem constants.
+     * importance of using the quantifier during instantiation.
      **/
     public Quantifier mkForall(Sort[] sorts, Symbol[] names, Expr body,
             int weight, Pattern[] patterns, Expr[] noPatterns,

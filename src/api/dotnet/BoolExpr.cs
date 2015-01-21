@@ -32,8 +32,6 @@ namespace Microsoft.Z3
     {
         #region Internal
         /// <summary> Constructor for BoolExpr </summary>
-        internal protected BoolExpr(Context ctx) : base(ctx) { Contract.Requires(ctx != null); }
-        /// <summary> Constructor for BoolExpr </summary>
         internal BoolExpr(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
         #endregion
     }

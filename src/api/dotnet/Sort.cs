@@ -116,8 +116,7 @@ namespace Microsoft.Z3
         #region Internal
         /// <summary>
         /// Sort constructor
-        /// </summary>
-        internal protected Sort(Context ctx) : base(ctx) { Contract.Requires(ctx != null); }
+        /// </summary>        
         internal Sort(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 
 #if DEBUG
@@ -146,6 +145,8 @@ namespace Microsoft.Z3
                 case Z3_sort_kind.Z3_UNINTERPRETED_SORT: return new UninterpretedSort(ctx, obj);
                 case Z3_sort_kind.Z3_FINITE_DOMAIN_SORT: return new FiniteDomainSort(ctx, obj);
                 case Z3_sort_kind.Z3_RELATION_SORT: return new RelationSort(ctx, obj);
+                case Z3_sort_kind.Z3_FLOATING_POINT_SORT: return new FPSort(ctx, obj);
+                case Z3_sort_kind.Z3_ROUNDING_MODE_SORT: return new FPRMSort(ctx, obj);
                 default:
                     throw new Z3Exception("Unknown sort kind");
             }

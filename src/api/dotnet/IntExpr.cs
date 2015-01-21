@@ -1,5 +1,5 @@
 ﻿/*++
-Copyright (<c>) 2012 Microsoft Corporation
+Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
@@ -32,11 +32,6 @@ namespace Microsoft.Z3
     {
         #region Internal
         /// <summary> Constructor for IntExpr </summary>
-        internal protected IntExpr(Context ctx)
-            : base(ctx)
-        {
-            Contract.Requires(ctx != null);
-        }
         internal IntExpr(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {

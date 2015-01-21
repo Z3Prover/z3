@@ -2028,6 +2028,84 @@ namespace test_mapi
             // Console.WriteLine("{0}", ctx.MkEq(s1, t1));	    
         }
 
+        public static void FloatingPointExample1(Context ctx)
+        {
+            Console.WriteLine("FloatingPointExample1");
+
+            FPSort s = ctx.MkFPSort(11, 53);
+            Console.WriteLine("Sort: {0}", s);
+
+            FPNum x = (FPNum)ctx.MkNumeral("-1e1", s); /* -1 * 10^1 = -10 */
+            FPNum y = (FPNum)ctx.MkNumeral("-10", s); /* -10 */
+            FPNum z = (FPNum)ctx.MkNumeral("-1.25p3", s); /* -1.25 * 2^3 = -1.25 * 8 = -10 */
+            Console.WriteLine("x={0}; y={1}; z={2}", x.ToString(), y.ToString(), z.ToString());
+
+            BoolExpr a = ctx.MkAnd(ctx.MkFPEq(x, y), ctx.MkFPEq(y, z));
+            Check(ctx, ctx.MkNot(a), Status.UNSATISFIABLE);
+
+            /* nothing is equal to NaN according to floating-point 
+             * equality, so NaN == k should be unsatisfiable. */
+            FPExpr k = (FPExpr)ctx.MkConst("x", s);
+            FPExpr nan = ctx.MkFPNaN(s);
+
+            /* solver that runs the default tactic for QF_FP. */
+            Solver slvr = ctx.MkSolver("QF_FP");
+            slvr.Add(ctx.MkFPEq(nan, k));
+            if (slvr.Check() != Status.UNSATISFIABLE)
+                throw new TestFailedException();
+            Console.WriteLine("OK, unsat:" + Environment.NewLine + slvr);
+
+            /* NaN is equal to NaN according to normal equality. */
+            slvr = ctx.MkSolver("QF_FP");
+            slvr.Add(ctx.MkEq(nan, nan));
+            if (slvr.Check() != Status.SATISFIABLE)
+                throw new TestFailedException();
+            Console.WriteLine("OK, sat:" + Environment.NewLine + slvr);
+
+            /* Let's prove -1e1 * -1.25e3 == +100 */
+            x = (FPNum)ctx.MkNumeral("-1e1", s);
+            y = (FPNum)ctx.MkNumeral("-1.25p3", s);
+            FPExpr x_plus_y = (FPExpr)ctx.MkConst("x_plus_y", s);
+            FPNum r = (FPNum)ctx.MkNumeral("100", s);
+            slvr = ctx.MkSolver("QF_FP");
+
+            slvr.Add(ctx.MkEq(x_plus_y, ctx.MkFPMul(ctx.MkFPRoundNearestTiesToAway(), x, y)));
+            slvr.Add(ctx.MkNot(ctx.MkFPEq(x_plus_y, r)));
+            if (slvr.Check() != Status.UNSATISFIABLE)
+                throw new TestFailedException();
+            Console.WriteLine("OK, unsat:" + Environment.NewLine + slvr);
+        }
+
+        public static void FloatingPointExample2(Context ctx)
+        {
+            Console.WriteLine("FloatingPointExample2");
+            FPSort double_sort = ctx.MkFPSort(11, 53);
+            FPRMSort rm_sort = ctx.MkFPRoundingModeSort();
+
+            FPRMExpr rm = (FPRMExpr)ctx.MkConst(ctx.MkSymbol("rm"), rm_sort);
+            BitVecExpr x = (BitVecExpr)ctx.MkConst(ctx.MkSymbol("x"), ctx.MkBitVecSort(64));
+            FPExpr y = (FPExpr)ctx.MkConst(ctx.MkSymbol("y"), double_sort);            
+            FPExpr fp_val = ctx.MkFP(42, double_sort);
+
+            BoolExpr c1 = ctx.MkEq(y, fp_val);
+            BoolExpr c2 = ctx.MkEq(x, ctx.MkFPToBV(rm, y, 64, false));
+            BoolExpr c3 = ctx.MkEq(x, ctx.MkBV(42, 64));
+            BoolExpr c4 = ctx.MkEq(ctx.MkNumeral(42, ctx.RealSort), ctx.MkFPToReal(fp_val));
+            BoolExpr c5 = ctx.MkAnd(c1, c2, c3, c4);
+            Console.WriteLine("c5 = " + c5);
+
+            /* Generic solver */
+            Solver s = ctx.MkSolver();
+            s.Assert(c5);
+            
+            Console.WriteLine(s);
+
+            if (s.Check() != Status.SATISFIABLE)
+                throw new TestFailedException();
+
+            Console.WriteLine("OK, model: {0}", s.Model.ToString());
+        }
+
         static void Main(string[] args)
         {
             try
@@ -2069,6 +2147,8 @@ namespace test_mapi
                     FindSmallModelExample(ctx);
                     SimplifierExample(ctx);
                     FiniteDomainExample(ctx);
+                    FloatingPointExample1(ctx);
+                    FloatingPointExample2(ctx);
                 }
 
                 // These examples need proof generation turned on.

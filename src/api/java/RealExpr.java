@@ -25,11 +25,6 @@ public class RealExpr extends ArithExpr
     /**
      * Constructor for RealExpr
      **/
-    protected RealExpr(Context ctx)
-    {
-        super(ctx);
-    }
-
     RealExpr(Context ctx, long obj) throws Z3Exception
     {
         super(ctx, obj);
