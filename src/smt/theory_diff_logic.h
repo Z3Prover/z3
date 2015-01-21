@@ -324,13 +324,13 @@ namespace smt {
         virtual inf_eps value(theory_var v);
         virtual theory_var add_objective(app* term);
         virtual expr_ref mk_gt(theory_var v, inf_rational const& val);
-        virtual expr* mk_ge(theory_var v, inf_rational const& val) { return 0; }
+        virtual expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val);
 
         bool internalize_objective(expr * n, rational const& m, rational& r, objective_term & objective);
 
     private:     
 
-        expr_ref block_objective(theory_var v, inf_rational const& val);
+        expr_ref mk_ineq(theory_var v, inf_rational const& val, bool is_strict);
 
         virtual void new_eq_eh(theory_var v1, theory_var v2, justification& j);
 

@@ -194,6 +194,7 @@ namespace opt {
         inf_eps val = get_optimizer().maximize(v, blocker, has_shared);
         inf_eps val2;
         m_valid_objectives[i] = true;
+        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << "\n";);
         if (m_context.get_context().update_model(has_shared)) {
             if (has_shared) {
                 val2 = current_objective_value(i);                
@@ -302,20 +303,31 @@ namespace opt {
 
         if (typeid(smt::theory_inf_arith) == typeid(opt)) {
             smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
-            return expr_ref(th.mk_ge(m_fm, v, val), m);
+            return th.mk_ge(m_fm, v, val);
         }
 
         if (typeid(smt::theory_mi_arith) == typeid(opt)) {
             smt::theory_mi_arith& th = dynamic_cast<smt::theory_mi_arith&>(opt); 
             SASSERT(val.is_finite());
-            return expr_ref(th.mk_ge(m_fm, v, val.get_numeral()), m);
+            return th.mk_ge(m_fm, v, val.get_numeral());
         }
 
         if (typeid(smt::theory_i_arith) == typeid(opt)) {
             SASSERT(val.is_finite());
             SASSERT(val.get_infinitesimal().is_zero());
             smt::theory_i_arith& th = dynamic_cast<smt::theory_i_arith&>(opt); 
-            return expr_ref(th.mk_ge(m_fm, v, val.get_rational()), m);
+            return th.mk_ge(m_fm, v, val.get_rational());
+        }
+
+        if (typeid(smt::theory_idl) == typeid(opt)) {
+            smt::theory_idl& th = dynamic_cast<smt::theory_idl&>(opt);
+            return th.mk_ge(m_fm, v, val.get_rational());
+        }
+
+        if (typeid(smt::theory_rdl) == typeid(opt) &&
+            val.get_infinitesimal().is_zero()) {
+            smt::theory_rdl& th = dynamic_cast<smt::theory_rdl&>(opt);
+            return th.mk_ge(m_fm, v, val.get_rational());
         }
 
         // difference logic?

@@ -1030,6 +1030,17 @@ namespace smt {
 
     template<typename Ext>
     expr_ref theory_dense_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
+        return mk_ineq(v, val, true);
+    }
+
+    template<typename Ext>
+    expr_ref theory_dense_diff_logic<Ext>::mk_ge(
+        filter_model_converter& fm, theory_var v, inf_rational const& val) {
+        return mk_ineq(v, val, false);
+    }
+
+    template<typename Ext>
+    expr_ref theory_dense_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, bool is_strict) {
         ast_manager& m = get_manager();
         objective_term const& t = m_objectives[v];
         expr_ref e(m), f(m), f2(m);
@@ -1052,19 +1063,32 @@ namespace smt {
         else {
             // 
             expr_ref_vector const& core = m_objective_assignments[v];
-            f = m.mk_not(m.mk_and(core.size(), core.c_ptr()));
+            f = m.mk_and(core.size(), core.c_ptr());
+            if (is_strict) {
+                f = m.mk_not(f);
+            }
             TRACE("arith", tout << "block: " << f << "\n";);
             return f;
         }
         
-        inf_rational new_val = val - inf_rational(m_objective_consts[v]);
-        e = m_autil.mk_numeral(new_val.get_rational(), m.get_sort(f));
+        e = m_autil.mk_numeral(val.get_rational(), m.get_sort(f));
         
-        if (new_val.get_infinitesimal().is_neg()) {
-            f = m_autil.mk_ge(f, e);
+        if (val.get_infinitesimal().is_neg()) {
+            if (is_strict) {
+                f = m_autil.mk_ge(f, e);
+            }
+            else {
+                expr_ref_vector const& core = m_objective_assignments[v];
+                f = m.mk_and(core.size(), core.c_ptr());
+            }
         }
         else {
-            f = m_autil.mk_gt(f, e);
+            if (is_strict) {
+                f = m_autil.mk_gt(f, e);
+            }
+            else {
+                f = m_autil.mk_ge(f, e);
+            }
         }
         return f;
     }

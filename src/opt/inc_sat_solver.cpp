@@ -30,6 +30,7 @@ Notes:
 #include "simplify_tactic.h"
 #include "goal2sat.h"
 #include "ast_pp.h"
+#include "model_smt2_pp.h"
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
@@ -396,14 +397,15 @@ private:
             (*m_mc)(m_model);
         }
         SASSERT(m_model);
-        // IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *(m_model.get()), 0););
 
         DEBUG_CODE(
             for (unsigned i = 0; i < m_fmls.size(); ++i) {
                 expr_ref tmp(m);
                 VERIFY(m_model->eval(m_fmls[i].get(), tmp));                
                 CTRACE("opt", !m.is_true(tmp),
-                       tout << "Evaluation failed: " << mk_pp(m_fmls[i].get(), m) << "\n";);
+                       tout << "Evaluation failed: " << mk_pp(m_fmls[i].get(), m) 
+                       << " to " << tmp << "\n";
+                       model_smt2_pp(tout, m, *(m_model.get()), 0););
                 SASSERT(m.is_true(tmp));
             });
     }

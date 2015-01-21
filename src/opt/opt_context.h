@@ -147,6 +147,8 @@ namespace opt {
         virtual void set_hard_constraints(ptr_vector<expr> & hard);
         virtual lbool optimize();
         virtual void get_model(model_ref& m);
+        virtual void set_model(model_ref& m);
+        virtual void fix_model(model_ref& m);
         virtual void collect_statistics(statistics& stats) const;
         virtual proof* get_proof() { return 0; }
         virtual void get_labels(svector<symbol> & r) {}

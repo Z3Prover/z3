@@ -1189,7 +1189,7 @@ namespace smt {
       This allows to handle inequalities with non-standard numbers.
     */
     template<typename Ext>
-    expr* theory_arith<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val) {
+    expr_ref theory_arith<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val) {
         ast_manager& m = get_manager();
         context& ctx = get_context();
         std::ostringstream strm;
@@ -1208,7 +1208,7 @@ namespace smt {
             TRACE("arith", tout << mk_pp(b, m) << "\n";
                   display_atom(tout, a, false););            
         }
-        return b;
+        return expr_ref(b, m);
     }
 
 
@@ -1658,9 +1658,17 @@ namespace smt {
         bool is_tighter = false;
         if (is_int(x_i)) den_aij = denominator(a_ij);
         SASSERT(den_aij.is_pos() && den_aij.is_int());
+
+        if (is_int(x_i) && !den_aij.is_one()) {
+            SASSERT(min_gain.is_pos());
+            min_gain = inf_numeral(lcm(min_gain.get_rational(), den_aij));
+            normalize_gain(min_gain.get_rational(), max_gain);
+        }
+
         if (!max_inc.is_minus_one()) {
             if (is_int(x_i)) {
-                normalize_gain(den_aij, max_inc);
+                max_inc = floor(max_inc);
+                normalize_gain(min_gain.get_rational(), max_inc);
             }
             if (unbounded_gain(max_gain)) {
                 max_gain = max_inc;
@@ -1669,13 +1677,6 @@ namespace smt {
             else if (max_gain > max_inc) {
                 max_gain = max_inc;
                 is_tighter = true;
-            }
-        }
-        if (is_int(x_i)) {
-            SASSERT(min_gain.is_pos());
-            if (!den_aij.is_one()) {
-                min_gain = inf_numeral(lcm(min_gain.get_rational(), den_aij));
-                normalize_gain(den_aij, max_gain);
             }
         }
         TRACE("opt",
@@ -1701,7 +1702,8 @@ namespace smt {
         bool max, 
         bool& has_shared) {
         m_stats.m_max_min++;
-        bool best_effort = false, inc = false;
+        unsigned best_efforts = 0;
+        bool inc = false;
 
         SASSERT(valid_assignment());
 
@@ -1712,7 +1714,8 @@ namespace smt {
 #endif
         max_min_t result = OPTIMIZED;
         has_shared = false;
-        while (true) {
+        unsigned max_efforts = 10 + (get_context().get_random_value() % 20);
+        while (best_efforts < max_efforts) {
             theory_var x_j = null_theory_var;
             theory_var x_i = null_theory_var;
             max_gain.reset();
@@ -1734,10 +1737,11 @@ namespace smt {
                 if (!pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, 
                                        curr_min_gain, curr_max_gain, 
                                        has_shared, curr_x_i)) {
-                    best_effort = true;
-                    continue;
+                    best_efforts++;
                 }
-                SASSERT(safe_gain(curr_min_gain, curr_max_gain));
+                else {
+                    SASSERT(safe_gain(curr_min_gain, curr_max_gain));
+                }
                 if (curr_x_i == null_theory_var) {
                     TRACE("opt", tout << "unbounded\n";);
                     // we can increase/decrease curr_x_j as much as we want.
@@ -1770,7 +1774,7 @@ namespace smt {
             }
 
             TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << max_gain << "\n";
-                  tout << "skipped row: " << (best_effort?"yes":"no") << "\n";
+                  tout << "best efforts: " << best_efforts << "\n";
                   display(tout););
             
             if (x_j == null_theory_var) {
@@ -1781,7 +1785,7 @@ namespace smt {
             }
             
             if (min_gain.is_pos() && !min_gain.is_one()) {
-                best_effort = true;
+                ++best_efforts;
             }
             if (x_i == null_theory_var) {
                 // can increase/decrease x_j as much as we want.
@@ -1802,7 +1806,7 @@ namespace smt {
                     continue;
                 }
                 SASSERT(unbounded_gain(max_gain));
-                best_effort = false;
+                best_efforts = 0;
                 result = UNBOUNDED;
                 break;
             }
@@ -1836,9 +1840,8 @@ namespace smt {
             SASSERT(is_base(x_j));
             
             bool inc_xi = inc?a_ij.is_neg():a_ij.is_pos();
-            if (!move_to_bound_new(x_i, inc_xi, best_effort, has_shared)) {
-                best_effort = true;
-                break;
+            if (!move_to_bound_new(x_i, inc_xi, best_efforts, has_shared)) {
+                // break;
             }
             
             row & r2 = m_rows[get_var_row(x_j)];
@@ -1848,7 +1851,7 @@ namespace smt {
             SASSERT(valid_assignment());
         }
         TRACE("opt", display(tout););
-        return best_effort?BEST_EFFORT:result;
+        return (best_efforts>0)?BEST_EFFORT:result;
     }
 
     /**
@@ -1862,7 +1865,7 @@ namespace smt {
     bool theory_arith<Ext>::move_to_bound_new(
         theory_var x_i,         // variable to move
         bool inc,               // increment variable or decrement
-        bool& best_effort,      // is bound move a best effort?
+        unsigned& best_efforts, // is bound move a best effort?
         bool& has_shared) {     // does move include shared variables?
         inf_numeral min_gain, max_gain;
         init_gains(x_i, inc, min_gain, max_gain);        
@@ -1877,6 +1880,7 @@ namespace smt {
             update_gains(inc, s, coeff, min_gain, max_gain);
             has_shared |= get_context().is_shared(get_enode(s));
         }
+        bool result = false;
         if (safe_gain(min_gain, max_gain)) {
             TRACE("opt", tout << "Safe delta: " << max_gain << "\n";);
             SASSERT(!unbounded_gain(max_gain));
@@ -1884,12 +1888,15 @@ namespace smt {
                 max_gain.neg();
             }
             update_value(x_i, max_gain);
-            best_effort = min_gain.is_pos() && !min_gain.is_one();
-            return !max_gain.is_zero();
+            if (!min_gain.is_pos() || min_gain.is_one()) {
+                ++best_efforts;
+            }
+            result = !max_gain.is_zero();
         }
-        else {
-            return false;
+        if (!result) {
+            ++best_efforts;
         }
+        return result;
     }
 
     /**
@@ -2004,7 +2011,7 @@ namespace smt {
                     add_tmp_row_entry<true>(m_tmp_row, it->m_coeff, it->m_var);
             }            
         }
-        max_min_t r = max_min_orig(m_tmp_row, max, has_shared);
+        max_min_t r = max_min_new(m_tmp_row, max, has_shared);
         if (r == OPTIMIZED) {
             TRACE("opt", tout << mk_pp(e, get_manager()) << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););

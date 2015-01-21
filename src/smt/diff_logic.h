@@ -1193,6 +1193,10 @@ public:
         return m_assignment[v]; 
     }
 
+    void set_assignment(dl_var v, numeral const & n) {
+        m_assignment[v] = n; 
+    }
+
     unsigned get_timestamp() const {
         return m_timestamp;
     }

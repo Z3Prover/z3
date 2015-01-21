@@ -247,14 +247,23 @@ namespace opt {
         mdl = m_model;
     }
 
-    void context::get_model(model_ref& mdl) {
-        mdl = m_model;
+    void context::fix_model(model_ref& mdl) {
         if (mdl) {
             if (m_model_converter) {
                 (*m_model_converter)(mdl, 0);
             }
             m_fm(mdl, 0);
         }
+    }
+
+    void context::set_model(model_ref& mdl) {
+        m_model = mdl;
+        fix_model(mdl);
+    }
+
+    void context::get_model(model_ref& mdl) {
+        mdl = m_model;
+        fix_model(mdl);
     }
 
     lbool context::execute_min_max(unsigned index, bool committed, bool scoped, bool is_max) {
@@ -384,6 +393,9 @@ namespace opt {
             break;
         }
         }
+        TRACE("opt", 
+              model_smt2_pp(tout << "Model:\n", m, *mdl, 0);
+              mdl->eval(term, val); tout << term << " " << val << "\n";);
         VERIFY(mdl->eval(term, val) && is_numeral(val, r));
     }        
 
@@ -914,9 +926,12 @@ namespace opt {
             objective const& obj = m_objectives[i];
             rational r;
             switch(obj.m_type) {
-            case O_MINIMIZE:
-                if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
+            case O_MINIMIZE: {
+                bool evaluated = m_model->eval(obj.m_term, val);
+                TRACE("opt", tout << obj.m_term << " " << val << " " << evaluated << " " << is_numeral(val, r) << "\n";);
+                if (evaluated && is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
+                    TRACE("opt", tout << "adjusted value: " << val << "\n";);
                     if (is_lower) {
                         m_optsmt.update_lower(obj.m_index, val);
                     }
@@ -925,9 +940,13 @@ namespace opt {
                     }
                 }
                 break;
-            case O_MAXIMIZE:
-                if (m_model->eval(obj.m_term, val) && is_numeral(val, r)) {
+            }
+            case O_MAXIMIZE: {
+                bool evaluated = m_model->eval(obj.m_term, val);
+                TRACE("opt", tout << obj.m_term << " " << val << "\n";);
+                if (evaluated && is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
+                    TRACE("opt", tout << "adjusted value: " << val << "\n";);
                     if (is_lower) {
                         m_optsmt.update_lower(obj.m_index, val);
                     }
@@ -936,10 +955,13 @@ namespace opt {
                     }
                 }
                 break;
+            }
             case O_MAXSMT: {
                 bool ok = true;
                 for (unsigned j = 0; ok && j < obj.m_terms.size(); ++j) {
-                    if (m_model->eval(obj.m_terms[j], val)) {
+                    bool evaluated = m_model->eval(obj.m_terms[j], val);
+                    TRACE("opt", tout << mk_pp(obj.m_terms[j], m) << " " << val << "\n";);
+                    if (evaluated) {
                         if (!m.is_true(val)) {
                             r += obj.m_weights[j];
                         }
@@ -949,11 +971,14 @@ namespace opt {
                     }
                 }
                 if (ok) {
+                    maxsmt& ms = *m_maxsmts.find(obj.m_id);
                     if (is_lower) {
-                        m_maxsmts.find(obj.m_id)->update_upper(r);
+                        ms.update_upper(r);
+                        TRACE("opt", tout << r << " " << ms.get_upper() << "\n";);                        
                     }
                     else {
-                        m_maxsmts.find(obj.m_id)->update_lower(r);
+                        ms.update_lower(r);
+                        TRACE("opt", tout << r << " " << ms.get_lower() << "\n";);                        
                     }
                 }
                 break;

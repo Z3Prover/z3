@@ -894,7 +894,7 @@ namespace smt {
         void init_gains(theory_var x, bool inc, inf_numeral& min_gain, inf_numeral& max_gain);
         bool update_gains(bool inc, theory_var x_i, numeral const& a_ij, 
                           inf_numeral& min_gain, inf_numeral& max_gain);
-        bool move_to_bound_new(theory_var x_i, bool inc, bool& best_effort, bool& has_shared);
+        bool move_to_bound_new(theory_var x_i, bool inc, unsigned& best_efforts, bool& has_shared);
         bool pick_var_to_leave(
             theory_var x_j, bool inc, numeral & a_ij, 
             inf_numeral& min_gain, inf_numeral& max_gain, 
@@ -1036,7 +1036,7 @@ namespace smt {
         virtual inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker, bool& has_shared);
         virtual inf_eps_rational<inf_rational> value(theory_var v);
         virtual theory_var add_objective(app* term);
-        virtual expr* mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val);
+        virtual expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val);
         void enable_record_conflict(expr* bound);
         void record_conflict(unsigned num_lits, literal const * lits, 
                           unsigned num_eqs, enode_pair const * eqs,

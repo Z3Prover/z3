@@ -251,11 +251,11 @@ namespace opt {
     }
 
     void maxsmt::update_lower(rational const& r) {
-        if (m_lower > r) m_lower = r;
+        m_lower = r;
     }
 
     void maxsmt::update_upper(rational const& r) {
-        if (m_upper < r) m_upper = r;
+        m_upper = r;
     }    
 
     void maxsmt::get_model(model_ref& mdl) {

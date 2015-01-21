@@ -38,7 +38,10 @@ namespace opt {
                         return l_undef;
                     }
                     m_solver->get_model(m_model);
-                    IF_VERBOSE(1, model_smt2_pp(verbose_stream() << "new model:\n", m, *m_model, 0););
+                    IF_VERBOSE(1,
+                               model_ref mdl(m_model);
+                               cb.fix_model(mdl); 
+                               model_smt2_pp(verbose_stream() << "new model:\n", m, *mdl, 0););
                     // TBD: we can also use local search to tune solution coordinate-wise.
                     mk_dominates();
                     is_sat = m_solver->check_sat(0, 0);
@@ -65,6 +68,7 @@ namespace opt {
         fmls.push_back(m.mk_or(gt.size(), gt.c_ptr()));
         fml = m.mk_and(fmls.size(), fmls.c_ptr());
         IF_VERBOSE(10, verbose_stream() << "dominates: " << fml << "\n";);
+        TRACE("opt", tout << fml << "\n";);
         m_solver->assert_expr(fml);        
     }
 
@@ -77,6 +81,7 @@ namespace opt {
         }
         fml = m.mk_not(m.mk_and(le.size(), le.c_ptr()));
         IF_VERBOSE(10, verbose_stream() << "not dominated by: " << fml << "\n";);
+        TRACE("opt", tout << fml << "\n";);
         m_solver->assert_expr(fml);        
     }
 

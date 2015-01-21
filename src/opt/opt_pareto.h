@@ -31,6 +31,8 @@ namespace opt {
         virtual expr_ref mk_gt(unsigned i, model_ref& model) = 0;
         virtual expr_ref mk_ge(unsigned i, model_ref& model) = 0;
         virtual expr_ref mk_le(unsigned i, model_ref& model) = 0;
+        virtual void set_model(model_ref& m) = 0;
+        virtual void fix_model(model_ref& m) = 0;
     };
     class pareto_base {
     protected:

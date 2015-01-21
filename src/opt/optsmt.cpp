@@ -170,11 +170,13 @@ namespace opt {
     }
 
     void optsmt::update_lower(unsigned idx, inf_eps const& v) {
+        TRACE("opt", tout << "v" << idx << " >= " << v << "\n";);
         m_lower_fmls[idx] = m_s->mk_ge(idx, v);
         m_lower[idx] = v;                    
     }
 
     void optsmt::update_upper(unsigned idx, inf_eps const& v) {
+        TRACE("opt", tout << "v" << idx << " <= " << v << "\n";);
         m_upper[idx] = v;                    
     }
 
@@ -302,6 +304,9 @@ namespace opt {
         lbool is_sat = l_true;
         expr_ref block(m), tmp(m);
 
+        for (unsigned i = 0; i < obj_index; ++i) {
+            commit_assignment(i);
+        }
         while (is_sat == l_true && !m_cancel) {
             is_sat = m_s->check_sat(0, 0); 
             if (is_sat != l_true) break;

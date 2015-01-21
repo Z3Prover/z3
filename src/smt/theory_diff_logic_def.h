@@ -546,7 +546,7 @@ void theory_diff_logic<Ext>::propagate_core() {
 template<typename Ext>
 bool theory_diff_logic<Ext>::propagate_atom(atom* a) {
     context& ctx = get_context();
-    TRACE("arith", a->display(*this, tout); );
+    TRACE("arith", a->display(*this, tout); tout << "\n";);
     if (ctx.inconsistent()) {
         return false;
     }
@@ -1236,6 +1236,13 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
                 core.push_back(tmp);
             }
         }
+        compute_delta();
+        for (unsigned i = 0; i < m_graph.get_num_nodes(); ++i) {
+            unsigned w = node2simplex(i);
+            simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
+            rational r = rational(val.first) + m_delta*rational(val.second);
+            m_graph.set_assignment(i, numeral(r));
+        }
         blocker = mk_gt(v, r);
         return inf_eps(rational(0), r + m_objective_consts[v]);
     }
@@ -1267,7 +1274,7 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
 }
 
 template<typename Ext>
-expr_ref theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational const& val) {
+expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, bool is_strict) {
     ast_manager& m = get_manager();
     objective_term const& t = m_objectives[v];
     expr_ref e(m), f(m), f2(m);
@@ -1290,7 +1297,10 @@ expr_ref theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational cons
     else {
         // 
         expr_ref_vector const& core = m_objective_assignments[v];
-        f = m.mk_not(m.mk_and(core.size(), core.c_ptr()));
+        f = m.mk_and(core.size(), core.c_ptr());
+        if (is_strict) {
+            f = m.mk_not(f);
+        }
         TRACE("arith", tout << "block: " << f << "\n";);
         return f;
     }
@@ -1299,18 +1309,35 @@ expr_ref theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational cons
     e = m_util.mk_numeral(new_val.get_rational(), m.get_sort(f));
     
     if (new_val.get_infinitesimal().is_neg()) {
-        f = m_util.mk_ge(f, e);
+        if (is_strict) {
+            f = m_util.mk_ge(f, e);
+        }
+        else {
+            expr_ref_vector const& core = m_objective_assignments[v];
+            f = m.mk_and(core.size(), core.c_ptr());            
+        }
     }
     else {
-        f = m_util.mk_gt(f, e);
+        if (is_strict) {
+            f = m_util.mk_gt(f, e);
+        }
+        else {
+            f = m_util.mk_ge(f, e);
+        }
     }
     return f;
 }
 
 template<typename Ext>
 expr_ref theory_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
-    expr_ref o = block_objective(v, val);
-    return o;
+    return mk_ineq(v, val, true);
+}
+
+template<typename Ext>
+expr_ref theory_diff_logic<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val) {
+    return mk_ineq(v, val, false);
+}
+
 #if 0
     context & ctx = get_context();
     model_ref mdl;
@@ -1321,7 +1348,6 @@ expr_ref theory_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
     expr_ref_vector implicants = impl_extractor.minimize_literals(formulas, mdl);
     return m.mk_and(o, m.mk_not(m.mk_and(implicants.size(), implicants.c_ptr())));
 #endif
-}
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::internalize_objective(expr * n, rational const& m, rational& q, objective_term & objective) {

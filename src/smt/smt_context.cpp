@@ -3944,10 +3944,12 @@ namespace smt {
         if (refinalize) {
             fcs = final_check();
         }
+        TRACE("opt", tout << (refinalize?"refinalize":"no-op") << " " << fcs << "\n";);
         if (fcs == FC_DONE) {
             mk_proto_model(l_true);
             m_model = m_proto_model->mk_model();
         }
+            
         return fcs == FC_DONE;
     }
 
