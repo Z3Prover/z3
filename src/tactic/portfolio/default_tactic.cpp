@@ -43,7 +43,7 @@ tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
                                         cond(mk_is_nra_probe(),   mk_nra_tactic(m),
                                         cond(mk_is_lira_probe(),  mk_lira_tactic(m, p),
                                         cond(mk_is_qffp_probe(), mk_qffp_tactic(m, p),
-                                             mk_smt_tactic()))))))))),
+                                             mk_smt_tactic()))))))))))),
                                p);
     return st;
 }
