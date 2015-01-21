@@ -97,7 +97,7 @@ namespace smt {
 
         public:
             fpa_value_proc(theory_fpa * th, unsigned ebits, unsigned sbits) : 
-                m_th(*th), m_fu(th->m_fpa_util), m_bu(th->m_bv_util), m(th->get_manager()),
+                m_th(*th), m(th->get_manager()), m_fu(th->m_fpa_util), m_bu(th->m_bv_util),
                 m_ebits(ebits), m_sbits(sbits) {}
             
             virtual ~fpa_value_proc() {}
@@ -120,7 +120,7 @@ namespace smt {
 
         public:
             fpa_rm_value_proc(theory_fpa * th) : 
-                m_th(*th), m_fu(th->m_fpa_util), m_bu(th->m_bv_util), m(th->get_manager()) {}
+                m_th(*th), m(th->get_manager()), m_fu(th->m_fpa_util), m_bu(th->m_bv_util) {}
 
             void add_dependency(enode * e) { m_deps.push_back(model_value_dependency(e)); }
 

@@ -16,6 +16,8 @@ Author:
 Notes:
 
 --*/
+#include<float.h> // Need DBL_MAX
+
 #include"map.h"
 #include"ast_smt2_pp.h"
 #include"ast_pp.h"

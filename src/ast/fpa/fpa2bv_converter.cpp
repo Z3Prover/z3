@@ -2283,7 +2283,6 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
 
     unsigned ebits = m_util.get_ebits(f->get_range());
     unsigned sbits = m_util.get_sbits(f->get_range());
-    unsigned f_sz = sbits + ebits;
     unsigned bv_sz = m_bv_util.get_bv_size(x);
     SASSERT(m_bv_util.get_bv_size(rm) == 3);
 
@@ -2425,7 +2424,6 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
 
     unsigned ebits = m_util.get_ebits(f->get_range());
     unsigned sbits = m_util.get_sbits(f->get_range());
-    unsigned f_sz = sbits + ebits;
     unsigned bv_sz = m_bv_util.get_bv_size(x);
     SASSERT(m_bv_util.get_bv_size(rm) == 3);    
 

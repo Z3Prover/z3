@@ -723,8 +723,7 @@ extern "C" {
         LOG_Z3_fpa_get_numeral_exponent_string(c, t);
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
-        mpf_manager & mpfm = mk_c(c)->fpa_util().fm();
-        unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
+        mpf_manager & mpfm = mk_c(c)->fpa_util().fm();        
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
         scoped_mpf val(mpfm);
         bool r = plugin->is_numeral(to_expr(t), val);
@@ -749,7 +748,6 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpa_util().fm();
-        unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
         scoped_mpf val(mpfm);
         bool r = plugin->is_numeral(to_expr(t), val);        
