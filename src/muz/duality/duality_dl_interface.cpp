@@ -82,7 +82,7 @@ namespace Duality {
         if(rpfp)
             dealloc(rpfp);
         if(ls)
-            (ls);
+            dealloc(ls);
     }
   };
 
