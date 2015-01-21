@@ -111,7 +111,6 @@ namespace smt {
                                   tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
         
         mpf_manager & mpfm = m_fu.fm();
-        unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
         unsynch_mpz_manager & mpzm = mpfm.mpz_manager();
         app * result;
 
