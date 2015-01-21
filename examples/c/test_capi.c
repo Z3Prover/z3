@@ -2605,7 +2605,8 @@ void fpa_example() {
     Z3_sort double_sort, rm_sort;
     Z3_symbol s_rm, s_x, s_y, s_x_plus_y;
     Z3_ast rm, x, y, n, x_plus_y, c1, c2, c3, c4, c5, c6;
-        
+	Z3_ast args[2], args2[2], and_args[3], args3[3];
+
     printf("\nFPA-example\n");
     LOG_MSG("FPA-example");
         
@@ -2616,76 +2617,72 @@ void fpa_example() {
     double_sort = Z3_mk_fpa_sort(ctx, 11, 53);
     rm_sort = Z3_mk_fpa_rounding_mode_sort(ctx);
 
-    {
-        // Show that there are x, y s.t. (x + y) = 42.0 (with rounding mode).    
-        s_rm = Z3_mk_string_symbol(ctx, "rm");
-        rm = Z3_mk_const(ctx, s_rm, rm_sort);
-        s_x = Z3_mk_string_symbol(ctx, "x");
-        s_y = Z3_mk_string_symbol(ctx, "y");
-        x = Z3_mk_const(ctx, s_x, double_sort);
-        y = Z3_mk_const(ctx, s_y, double_sort);
-        n = Z3_mk_fpa_numeral_double(ctx, 42.0, double_sort);
+	// Show that there are x, y s.t. (x + y) = 42.0 (with rounding mode).    
+	s_rm = Z3_mk_string_symbol(ctx, "rm");
+	rm = Z3_mk_const(ctx, s_rm, rm_sort);
+	s_x = Z3_mk_string_symbol(ctx, "x");
+	s_y = Z3_mk_string_symbol(ctx, "y");
+	x = Z3_mk_const(ctx, s_x, double_sort);
+	y = Z3_mk_const(ctx, s_y, double_sort);
+	n = Z3_mk_fpa_numeral_double(ctx, 42.0, double_sort);
 
-        s_x_plus_y = Z3_mk_string_symbol(ctx, "x_plus_y");
-        x_plus_y = Z3_mk_const(ctx, s_x_plus_y, double_sort);
-        c1 = Z3_mk_eq(ctx, x_plus_y, Z3_mk_fpa_add(ctx, rm, x, y));
+	s_x_plus_y = Z3_mk_string_symbol(ctx, "x_plus_y");
+	x_plus_y = Z3_mk_const(ctx, s_x_plus_y, double_sort);
+	c1 = Z3_mk_eq(ctx, x_plus_y, Z3_mk_fpa_add(ctx, rm, x, y));
 
-        Z3_ast args[2] = { c1, Z3_mk_eq(ctx, x_plus_y, n) };
-        c2 = Z3_mk_and(ctx, 2, (Z3_ast*)&args);
+	args[0] = c1;
+	args[1] = Z3_mk_eq(ctx, x_plus_y, n);
+	c2 = Z3_mk_and(ctx, 2, (Z3_ast*)&args);
 
-        Z3_ast args2[2] = { c2, Z3_mk_not(ctx, Z3_mk_eq(ctx, rm, Z3_mk_fpa_rtz(ctx))) };
-        c3 = Z3_mk_and(ctx, 2, (Z3_ast*)&args2);
+	args2[0] = c2;
+	args2[1] = Z3_mk_not(ctx, Z3_mk_eq(ctx, rm, Z3_mk_fpa_rtz(ctx)));
+	c3 = Z3_mk_and(ctx, 2, (Z3_ast*)&args2);
 
-        Z3_ast and_args[3] = { 
-            Z3_mk_not(ctx, Z3_mk_fpa_is_zero(ctx, y)),
-            Z3_mk_not(ctx, Z3_mk_fpa_is_nan(ctx, y)),
-            Z3_mk_not(ctx, Z3_mk_fpa_is_infinite(ctx, y)) };
-        Z3_ast args3[2] = { c3, Z3_mk_and(ctx, 3, and_args) };
-        c4 = Z3_mk_and(ctx, 2, (Z3_ast*)&args3);
+	and_args[0] = Z3_mk_not(ctx, Z3_mk_fpa_is_zero(ctx, y));
+	and_args[1] = Z3_mk_not(ctx, Z3_mk_fpa_is_nan(ctx, y));
+	and_args[2] = Z3_mk_not(ctx, Z3_mk_fpa_is_infinite(ctx, y));
+	args3[0] = c3;
+	args3[1] = Z3_mk_and(ctx, 3, and_args);
+	c4 = Z3_mk_and(ctx, 2, (Z3_ast*)&args3);
         
-        printf("c4: %s\n", Z3_ast_to_string(ctx, c4));
-        Z3_push(ctx);                  
-        Z3_assert_cnstr(ctx, c4);
-        check(ctx, Z3_L_TRUE);
-        Z3_pop(ctx, 1);
-    }
+	printf("c4: %s\n", Z3_ast_to_string(ctx, c4));
+	Z3_push(ctx);                  
+	Z3_assert_cnstr(ctx, c4);
+	check(ctx, Z3_L_TRUE);
+	Z3_pop(ctx, 1);
 
-
-    {
-        // Show that the following are equal:
-        //   (fp #b0 #b10000000001 #xc000000000000) 
-        //   ((_ to_fp 11 53) #x401c000000000000))
-        //   ((_ to_fp 11 53) RTZ 1.75 2)))
-        //   ((_ to_fp 11 53) RTZ 7.0)))
-        Z3_ast args3[3];
-
-        Z3_push(ctx);
-        c1 = Z3_mk_fpa_fp(ctx, 
-                          Z3_mk_numeral(ctx, "0", Z3_mk_bv_sort(ctx, 1)),
-                          Z3_mk_numeral(ctx, "1025", Z3_mk_bv_sort(ctx, 11)),
-                          Z3_mk_numeral(ctx, "3377699720527872", Z3_mk_bv_sort(ctx, 52)));
-        c2 = Z3_mk_fpa_to_fp_bv(ctx,
-                                Z3_mk_numeral(ctx, "4619567317775286272", Z3_mk_bv_sort(ctx, 64)),
-                                Z3_mk_fpa_sort(ctx, 11, 53));
-        c3 = Z3_mk_fpa_to_fp_real_int(ctx,
+	// Show that the following are equal:
+	//   (fp #b0 #b10000000001 #xc000000000000) 
+	//   ((_ to_fp 11 53) #x401c000000000000))
+	//   ((_ to_fp 11 53) RTZ 1.75 2)))
+	//   ((_ to_fp 11 53) RTZ 7.0)))
+	
+	Z3_push(ctx);
+	c1 = Z3_mk_fpa_fp(ctx, 
+					  Z3_mk_numeral(ctx, "0", Z3_mk_bv_sort(ctx, 1)),
+					  Z3_mk_numeral(ctx, "3377699720527872", Z3_mk_bv_sort(ctx, 52)),
+					  Z3_mk_numeral(ctx, "1025", Z3_mk_bv_sort(ctx, 11)));
+	c2 = Z3_mk_fpa_to_fp_bv(ctx,
+							Z3_mk_numeral(ctx, "4619567317775286272", Z3_mk_bv_sort(ctx, 64)),
+							Z3_mk_fpa_sort(ctx, 11, 53));
+	c3 = Z3_mk_fpa_to_fp_real_int(ctx,
                                   Z3_mk_fpa_rtz(ctx),
                                   Z3_mk_numeral(ctx, "1.75", Z3_mk_real_sort(ctx)),
                                   Z3_mk_numeral(ctx, "2", Z3_mk_int_sort(ctx)),
                                   Z3_mk_fpa_sort(ctx, 11, 53));
-        c4 = Z3_mk_fpa_to_fp_real(ctx,
-                                  Z3_mk_fpa_rtz(ctx),
-                                  Z3_mk_numeral(ctx, "7.0", Z3_mk_real_sort(ctx)),
-                                  Z3_mk_fpa_sort(ctx, 11, 53));
-        args3[0] = Z3_mk_eq(ctx, c1, c2);
-        args3[1] = Z3_mk_eq(ctx, c1, c3);
-        args3[2] = Z3_mk_eq(ctx, c1, c4);
-        c5 = Z3_mk_and(ctx, 3, args3);
+	c4 = Z3_mk_fpa_to_fp_real(ctx,
+							  Z3_mk_fpa_rtz(ctx),
+							  Z3_mk_numeral(ctx, "7.0", Z3_mk_real_sort(ctx)),
+							  Z3_mk_fpa_sort(ctx, 11, 53));
+	args3[0] = Z3_mk_eq(ctx, c1, c2);
+	args3[1] = Z3_mk_eq(ctx, c1, c3);
+	args3[2] = Z3_mk_eq(ctx, c1, c4);
+	c5 = Z3_mk_and(ctx, 3, args3);
 
-        printf("c5: %s\n", Z3_ast_to_string(ctx, c5));
-        Z3_assert_cnstr(ctx, c5);
-        check(ctx, Z3_L_TRUE);
-        Z3_pop(ctx, 1);
-    }
+	printf("c5: %s\n", Z3_ast_to_string(ctx, c5));
+	Z3_assert_cnstr(ctx, c5);
+	check(ctx, Z3_L_TRUE);
+	Z3_pop(ctx, 1);
 
     Z3_del_context(ctx);
 }
