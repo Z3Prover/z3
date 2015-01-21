@@ -19,7 +19,6 @@ Author:
 fpa_simplifier_plugin::fpa_simplifier_plugin(ast_manager & m, basic_simplifier_plugin & b) :
 simplifier_plugin(symbol("fpa"), m),
 m_util(m),
-m_bsimp(b),
 m_rw(m) {}
 
 fpa_simplifier_plugin::~fpa_simplifier_plugin() {}
@@ -28,9 +27,6 @@ bool fpa_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * cons
     set_reduce_invoked();    
 
     SASSERT(f->get_family_id() == get_family_id());
-    /*switch (f->get_decl_kind()) {
-    case OP_FPA_FP: break;
-    }*/    
 
     return m_rw.mk_app_core(f, num_args, args, result) == BR_DONE;
 }

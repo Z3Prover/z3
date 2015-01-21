@@ -16,7 +16,8 @@ Author:
 Notes:
 
 --*/
-#include<sstream>
+#include<math.h>
+
 #include"ast_smt2_pp.h"
 #include"well_sorted.h"
 #include"th_rewriter.h"
@@ -688,8 +689,7 @@ void fpa2bv_converter::mk_mul(func_decl * f, unsigned num, expr * const * args, 
     m_simp.mk_xor(x_is_pos, y_is_pos, sign_xor);
     mk_ite(sign_xor, nzero, pzero, v6);
         
-    // else comes the actual multiplication.
-    unsigned ebits = m_util.get_ebits(f->get_range());
+    // else comes the actual multiplication.    
     unsigned sbits = m_util.get_sbits(f->get_range());    
 
     expr_ref a_sgn(m), a_sig(m), a_exp(m), a_lz(m), b_sgn(m), b_sig(m), b_exp(m), b_lz(m);
@@ -2037,7 +2037,8 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
         dbg_decouple("fpa2bv_to_float_res_exp", res_exp);
 
         expr_ref rounded(m);
-        round(s, expr_ref (rm, m), res_sgn, res_sig, res_exp, rounded);
+        expr_ref rm_e(rm, m);
+        round(s, rm_e, res_sgn, res_sig, res_exp, rounded);
 
         expr_ref is_neg(m), sig_inf(m);
         m_simp.mk_eq(sgn, one1, is_neg);
@@ -2098,7 +2099,6 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         mk_fp(sgn, e, s, result);
     }
     else {        
-        mpf_manager & fm = fu().fm();
         bv_util & bu = m_bv_util;
         arith_util & au = m_arith_util;
         
@@ -2333,7 +2333,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
         expr_ref sig_rest(m);
         sig_4 = m_bv_util.mk_extract(bv_sz - 1, bv_sz - sig_sz + 1, shifted_sig); // one short
         sig_rest = m_bv_util.mk_extract(bv_sz - sig_sz, 0, shifted_sig);
-        sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sig_rest);
+        sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sig_rest.get());
         sig_4 = m_bv_util.mk_concat(sig_4, sticky);
     }
     else {
@@ -2496,7 +2496,7 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
 
     // The exponent is at most bv_sz, i.e., we need ld(bv_sz)+1 ebits.
     // exp < bv_sz (+sign bit which is [0])    
-    unsigned exp_worst_case_sz = (unsigned)((log((double)bv_sz) / log((double)2)) + 1.0);
+    unsigned exp_worst_case_sz = (unsigned)((log((double)bv_sz) / log((double)2)) + 1.0);    
 
     if (exp_sz < exp_worst_case_sz) {
         // exp_sz < exp_worst_case_sz and exp >= 0.
@@ -2558,7 +2558,6 @@ void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * arg
     unsigned ebits = m_util.get_ebits(xs);
     unsigned sbits = m_util.get_sbits(xs);
     unsigned bv_sz = (unsigned)f->get_parameter(0).get_int();
-    unsigned rounding_sz = bv_sz + 3;
     
     expr_ref bv0(m), bv1(m);
     bv0 = m_bv_util.mk_numeral(0, 1);
@@ -2575,7 +2574,6 @@ void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * arg
     expr_ref c1(m), v1(m);
     c1 = m.mk_or(x_is_nan, x_is_inf, m.mk_and(x_is_neg, m.mk_not(x_is_nzero)));
     v1 = mk_to_ubv_unspecified(bv_sz);
-    dbg_decouple("fpa2bv_to_ubv_c1", c1);
 
     // +-Zero  -> 0
     expr_ref c2(m), v2(m);
@@ -2682,8 +2680,7 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
 
     unsigned ebits = m_util.get_ebits(xs);
     unsigned sbits = m_util.get_sbits(xs);
-    unsigned bv_sz = (unsigned)f->get_parameter(0).get_int();
-    unsigned rounding_sz = bv_sz + 3;
+    unsigned bv_sz = (unsigned)f->get_parameter(0).get_int();    
 
     expr_ref bv0(m), bv1(m), bv0_2(m), bv1_2(m), bv3_2(m);
     bv0 = m_bv_util.mk_numeral(0, 1);

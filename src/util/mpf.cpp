@@ -203,7 +203,6 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         m_mpq_manager.abs(x);
             
         m_mpz_manager.set(o.significand, 0);
-        const mpz & p = m_powers2(sbits+3);
                         
         scoped_mpq v(m_mpq_manager);
         m_mpq_manager.set(v, x);

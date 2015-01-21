@@ -23,7 +23,6 @@ Author:
 
 class fpa_simplifier_plugin : public simplifier_plugin {
     fpa_util                  m_util;
-    basic_simplifier_plugin & m_bsimp;
     fpa_rewriter              m_rw;
 
 public:

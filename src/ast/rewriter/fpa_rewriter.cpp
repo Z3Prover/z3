@@ -160,9 +160,7 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
 br_status fpa_rewriter::mk_to_fp_unsigned(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_num_parameters() == 2);
     SASSERT(f->get_parameter(0).is_int());
-    SASSERT(f->get_parameter(1).is_int());
-    unsigned ebits = f->get_parameter(0).get_int();
-    unsigned sbits = f->get_parameter(1).get_int();
+    SASSERT(f->get_parameter(1).is_int());    
     
     return BR_FAILED;
 }
