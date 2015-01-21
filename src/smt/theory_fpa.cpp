@@ -153,9 +153,9 @@ namespace smt {
             r = m_bu.is_numeral(values[2], sig_r, bv_sz);
             SASSERT(r && bv_sz == m_sbits - 1);
             
-            SASSERT(sgn_r.to_mpq().denominator() == mpz(1));
-            SASSERT(exp_r.to_mpq().denominator() == mpz(1));
-            SASSERT(sig_r.to_mpq().denominator() == mpz(1));
+            SASSERT(mpzm.is_one(sgn_r.to_mpq().denominator()));
+            SASSERT(mpzm.is_one(exp_r.to_mpq().denominator()));
+            SASSERT(mpzm.is_one(sig_r.to_mpq().denominator()));
 
             mpzm.set(sgn_z, sgn_r.to_mpq().numerator());
             mpzm.set(exp_z, exp_r.to_mpq().numerator());
@@ -187,8 +187,7 @@ namespace smt {
         TRACE("t_fpa_detail", for (unsigned i = 0; i < values.size(); i++)
               tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
 
-        app * result = 0;
-        sort * s = m.get_sort(values[0]);
+        app * result = 0;        
         unsigned bv_sz;
 
         rational val(0);
@@ -215,7 +214,6 @@ namespace smt {
     app_ref theory_fpa::wrap(expr * e) {
         SASSERT(!m_fpa_util.is_wrap(e));
         ast_manager & m = get_manager();
-        context & ctx = get_context();
         sort * e_srt = m.get_sort(e);
 
         func_decl *w;
@@ -245,8 +243,7 @@ namespace smt {
 
     app_ref theory_fpa::unwrap(expr * e, sort * s) {
         SASSERT(!m_fpa_util.is_unwrap(e));
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
+        ast_manager & m = get_manager();        
         sort * bv_srt = m.get_sort(e);
 
         func_decl *u;
@@ -276,8 +273,7 @@ namespace smt {
 
     expr_ref theory_fpa::convert_term(expr * e) {
         ast_manager & m = get_manager();        
-
-        context & ctx = get_context();
+        
         expr_ref e_conv(m), res(m);
         proof_ref pr(m);
         m_rw(e, e_conv);
@@ -304,8 +300,7 @@ namespace smt {
 
     expr_ref theory_fpa::convert_conversion_term(expr * e) {
         /* This is for the conversion functions fp.to_* */
-        ast_manager & m = get_manager();
-        context & ctx = get_context();
+        ast_manager & m = get_manager();        
         expr_ref res(m);
         proof_ref pr(m);
 
@@ -326,7 +321,6 @@ namespace smt {
         }
         else {
             SASSERT(m_fpa_util.is_float(srt));
-            unsigned ebits = m_fpa_util.get_ebits(srt);
             unsigned sbits = m_fpa_util.get_sbits(srt);
             expr_ref bv(m);
             bv = to_app(e)->get_arg(0);
@@ -342,7 +336,6 @@ namespace smt {
     expr_ref theory_fpa::convert(expr * e)
     {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
         expr_ref res(m);
 
         if (m_conversions.contains(e)) {
@@ -524,10 +517,7 @@ namespace smt {
         TRACE("t_fpa_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), m) << " = " <<
                                       mk_ismt2_pp(get_enode(y)->get_owner(), m) << std::endl;);
         
-        context & ctx = get_context();
         fpa_util & fu = m_fpa_util;
-        bv_util & bu = m_bv_util;
-        mpf_manager & mpfm = fu.fm();
 
         expr_ref xe(m), ye(m);
         xe = get_enode(x)->get_owner();
@@ -575,9 +565,6 @@ namespace smt {
         TRACE("t_fpa_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), m) << " != " <<
                                       mk_ismt2_pp(get_enode(y)->get_owner(), m) << std::endl;);
 
-        context & ctx = get_context();
-        mpf_manager & mpfm = m_fpa_util.fm();
-
         expr_ref xe(m), ye(m);
         xe = get_enode(x)->get_owner();
         ye = get_enode(y)->get_owner();
@@ -588,13 +575,15 @@ namespace smt {
             return;
         }
 
+        fpa_util & fu = m_fpa_util;
+
         expr_ref xc(m), yc(m);
         xc = convert(xe);
         yc = convert(ye);
 
         expr_ref c(m);
 
-        if (m_fpa_util.is_float(xe) && m_fpa_util.is_float(ye))
+        if (fu.is_float(xe) && fu.is_float(ye))
         {
             expr *x_sgn, *x_sig, *x_exp;
             m_converter.split_fp(xc, x_sgn, x_exp, x_sig);
@@ -645,12 +634,9 @@ namespace smt {
         ast_manager & m = get_manager();
         TRACE("t_fpa", tout << "relevant_eh for: " << mk_ismt2_pp(n, m) << "\n";);
 
-        mpf_manager & mpfm = m_fpa_util.fm();
-        unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
+        mpf_manager & mpfm = m_fpa_util.fm();        
 
         if (m_fpa_util.is_float(n) || m_fpa_util.is_rm(n)) {
-            sort * s = m.get_sort(n);
-
             if (!m_fpa_util.is_unwrap(n)) {
                 expr_ref wrapped(m), c(m);
                 wrapped = wrap(n);
@@ -661,7 +647,6 @@ namespace smt {
                     assert_cnstr(c);
                 }
                 else if (m_fpa_util.is_numeral(n, val)) {
-                    unsigned sz = val.get().get_ebits() + val.get().get_sbits();
                     expr_ref bv_val_e(m);
                     bv_val_e = convert(n);
                     SASSERT(is_app(bv_val_e));
