@@ -41,7 +41,7 @@ class sls_tracker {
     mpz                   m_zero, m_one, m_two;
         
     struct value_score { 
-        value_score() : m(0), value(unsynch_mpz_manager::mk_z(0)), score(0.0), distance(0), score_prune(0.0), has_pos_occ(0), has_neg_occ(0), touched(1) {};
+    value_score() : m(0), value(unsynch_mpz_manager::mk_z(0)), score(0.0), score_prune(0.0), has_pos_occ(0), has_neg_occ(0), distance(0), touched(1) {};
         ~value_score() { if (m) m->del(value); }
         unsynch_mpz_manager * m;
         mpz value;
