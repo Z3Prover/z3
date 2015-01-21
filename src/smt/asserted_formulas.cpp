@@ -22,6 +22,7 @@ Revision History:
 #include"arith_simplifier_plugin.h"
 #include"array_simplifier_plugin.h"
 #include"datatype_simplifier_plugin.h"
+#include"fpa_simplifier_plugin.h"
 #include"bv_simplifier_plugin.h"
 #include"for_each_expr.h"
 #include"well_sorted.h"
@@ -96,7 +97,8 @@ void asserted_formulas::setup_simplifier_plugins(simplifier & s, basic_simplifie
     s.register_plugin(alloc(array_simplifier_plugin, m_manager, *bsimp, s, m_params));
     bvsimp = alloc(bv_simplifier_plugin, m_manager, *bsimp, m_params);
     s.register_plugin(bvsimp);
-    s.register_plugin(alloc(datatype_simplifier_plugin, m_manager, *bsimp));
+    s.register_plugin(alloc(datatype_simplifier_plugin, m_manager, *bsimp));    
+    s.register_plugin(alloc(fpa_simplifier_plugin, m_manager, *bsimp));
 }
 
 void asserted_formulas::init(unsigned num_formulas, expr * const * formulas, proof * const * prs) {

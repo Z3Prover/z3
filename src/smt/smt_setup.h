@@ -75,6 +75,8 @@ namespace smt {
         void setup_QF_AX(static_features const & st);
         void setup_QF_AUFLIA();
         void setup_QF_AUFLIA(static_features const & st);
+        void setup_QF_FP();
+        void setup_QF_FPBV();
         void setup_LRA();
         void setup_AUFLIA(bool simple_array = true);
         void setup_AUFLIA(static_features const & st);
@@ -91,10 +93,12 @@ namespace smt {
         void setup_bv();
         void setup_arith();
         void setup_dl();
-        void setup_seq();
+        void setup_seq();        
         void setup_instgen();
         void setup_i_arith();
         void setup_mi_arith();
+        void setup_fpa();
+
     public:
         setup(context & c, smt_params & params);
         void mark_already_configured() { m_already_configured = true; }

@@ -27,7 +27,7 @@ Notes:
 #include"nra_tactic.h"
 #include"probe_arith.h"
 #include"quant_tactics.h"
-#include"qffpa_tactic.h"
+#include"qffp_tactic.h"
 #include"qfaufbv_tactic.h"
 #include"qfauflia_tactic.h"
 
@@ -42,8 +42,8 @@ tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
                                         cond(mk_is_qfnia_probe(), mk_qfnia_tactic(m),
                                         cond(mk_is_nra_probe(),   mk_nra_tactic(m),
                                         cond(mk_is_lira_probe(),  mk_lira_tactic(m, p),
-                                        cond(mk_is_qffpabv_probe(), mk_qffpa_tactic(m, p),
-                                             mk_smt_tactic()))))))))))),
+                                        cond(mk_is_qffp_probe(), mk_qffp_tactic(m, p),
+                                             mk_smt_tactic()))))))))),
                                p);
     return st;
 }

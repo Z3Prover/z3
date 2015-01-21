@@ -59,7 +59,7 @@ public class TupleSort extends Sort
     TupleSort(Context ctx, Symbol name, int numFields, Symbol[] fieldNames,
             Sort[] fieldSorts) throws Z3Exception
     {
-        super(ctx);
+        super(ctx, 0);
 
         Native.LongPtr t = new Native.LongPtr();
         setNativeObject(Native.mkTupleSort(ctx.nCtx(), name.getNativeObject(),

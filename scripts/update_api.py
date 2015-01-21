@@ -124,6 +124,7 @@ SYMBOL     = 9
 PRINT_MODE = 10
 ERROR_CODE = 11
 DOUBLE     = 12
+FLOAT      = 13
 
 FIRST_OBJ_ID = 100
 
@@ -131,28 +132,28 @@ def is_obj(ty):
     return ty >= FIRST_OBJ_ID
 
 Type2Str = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', INT64 : '__int64', UINT64 : '__uint64', DOUBLE : 'double',
-             STRING : 'Z3_string', STRING_PTR : 'Z3_string_ptr', BOOL : 'Z3_bool', SYMBOL : 'Z3_symbol',
+             FLOAT : 'float', STRING : 'Z3_string', STRING_PTR : 'Z3_string_ptr', BOOL : 'Z3_bool', SYMBOL : 'Z3_symbol',
              PRINT_MODE : 'Z3_ast_print_mode', ERROR_CODE : 'Z3_error_code'
              }
 
 Type2PyStr = { VOID_PTR : 'ctypes.c_void_p', INT : 'ctypes.c_int', UINT : 'ctypes.c_uint', INT64 : 'ctypes.c_longlong',
-               UINT64 : 'ctypes.c_ulonglong', DOUBLE : 'ctypes.c_double',
+               UINT64 : 'ctypes.c_ulonglong', DOUBLE : 'ctypes.c_double', FLOAT : 'ctypes.c_float',
                STRING : 'ctypes.c_char_p', STRING_PTR : 'ctypes.POINTER(ctypes.c_char_p)', BOOL : 'ctypes.c_bool', SYMBOL : 'Symbol',
                PRINT_MODE : 'ctypes.c_uint', ERROR_CODE : 'ctypes.c_uint'
                }
 
 # Mapping to .NET types
 Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', INT64 : 'Int64', UINT64 : 'UInt64', DOUBLE : 'double',
-                STRING : 'string', STRING_PTR : 'byte**', BOOL : 'int', SYMBOL : 'IntPtr',
+                FLOAT : 'float', STRING : 'string', STRING_PTR : 'byte**', BOOL : 'int', SYMBOL : 'IntPtr',
                 PRINT_MODE : 'uint', ERROR_CODE : 'uint' }
 
 # Mapping to Java types
 Type2Java = { VOID : 'void', VOID_PTR : 'long', INT : 'int', UINT : 'int', INT64 : 'long', UINT64 : 'long', DOUBLE : 'double',
-              STRING : 'String', STRING_PTR : 'StringPtr', 
+              FLOAT : 'float', STRING : 'String', STRING_PTR : 'StringPtr', 
               BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int'}
 
 Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', INT64 : 'jlong', UINT64 : 'jlong', DOUBLE : 'jdouble',
-               STRING : 'jstring', STRING_PTR : 'jobject',
+               FLOAT : 'jfloat', STRING : 'jstring', STRING_PTR : 'jobject',
                BOOL : 'jboolean', SYMBOL : 'jlong', PRINT_MODE : 'jint', ERROR_CODE : 'jint'}
 
 
@@ -927,6 +928,9 @@ def def_API(name, result, params):
             elif ty == DOUBLE:
                 log_c.write("  D(a%s);\n" % i)
                 exe_c.write("in.get_double(%s)" % i)
+            elif ty == FLOAT:
+                log_c.write("  D(a%s);\n" % i)
+                exe_c.write("in.get_float(%s)" % i)
             elif ty == BOOL:
                 log_c.write("  I(a%s);\n" % i)
                 exe_c.write("in.get_bool(%s)" % i)

@@ -27,7 +27,7 @@ Notes:
 struct aig;
 
 class aig_lit {
-	friend class aig_ref;
+    friend class aig_ref;
     aig * m_ref;
 public:
     aig_lit(aig * n = 0):m_ref(n) {}
@@ -1508,10 +1508,10 @@ public:
     template<typename S>
     aig_lit mk_aig(S const & s) { 
         aig_lit r;
-	r   = m_true;
-	inc_ref(r);
+        r   = m_true;
+        inc_ref(r);
         try {
-	    expr2aig proc(*this);
+        expr2aig proc(*this);
             unsigned sz = s.size();
             for (unsigned i = 0; i < sz; i++) {
                 SASSERT(ref_count(r) >= 1);
@@ -1528,10 +1528,10 @@ public:
             }
             SASSERT(ref_count(r) >= 1);
         }
-	catch (aig_exception ex) {
-            dec_ref(r);
-	    throw ex;
-	}
+    catch (aig_exception ex) {
+        dec_ref(r);
+        throw ex;
+    }
         dec_ref_result(r);
         return r;
     }

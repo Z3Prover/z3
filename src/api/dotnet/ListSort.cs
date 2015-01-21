@@ -113,9 +113,9 @@ namespace Microsoft.Z3
             }
         }
 
-        #region Internal        
+        #region Internal
         internal ListSort(Context ctx, Symbol name, Sort elemSort)
-            : base(ctx)
+            : base(ctx, IntPtr.Zero)
         {
             Contract.Requires(ctx != null);
             Contract.Requires(name != null);

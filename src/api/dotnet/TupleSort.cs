@@ -68,7 +68,7 @@ namespace Microsoft.Z3
 
         #region Internal
         internal TupleSort(Context ctx, Symbol name, uint numFields, Symbol[] fieldNames, Sort[] fieldSorts)
-            : base(ctx)
+            : base(ctx, IntPtr.Zero)
         {
             Contract.Requires(ctx != null);
             Contract.Requires(name != null);

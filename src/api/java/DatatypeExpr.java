@@ -25,11 +25,6 @@ public class DatatypeExpr extends Expr
 	/**
 	 * Constructor for DatatypeExpr
 	 **/
-	protected DatatypeExpr(Context ctx)
-	{
-		super(ctx);
-	}
-
 	DatatypeExpr(Context ctx, long obj) throws Z3Exception
 	{
 		super(ctx, obj);

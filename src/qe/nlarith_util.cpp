@@ -1492,11 +1492,11 @@ namespace nlarith {
             }
             fml = mk_and(equivs.size(), equivs.c_ptr());
         }
-        void mk_plus_inf_sign(util::literal_set const& literals, app_ref& fml, app_ref_vector& new_atoms) {
+        void mk_pinf_sign(util::literal_set const& literals, app_ref& fml, app_ref_vector& new_atoms) {
             plus_inf_subst sub(*this);
             mk_inf_sign(sub, literals, fml, new_atoms);
         }
-        void mk_minus_inf_sign(util::literal_set const& literals, app_ref& fml, app_ref_vector& new_atoms) {
+        void mk_ninf_sign(util::literal_set const& literals, app_ref& fml, app_ref_vector& new_atoms) {
             minus_inf_subst sub(*this);
             mk_inf_sign(sub, literals, fml, new_atoms);
         }
@@ -1704,10 +1704,10 @@ namespace nlarith {
             app_ref fml(m());
             app_ref_vector new_atoms(m());
             if (is_pos) {
-                mk_plus_inf_sign(literals, fml, new_atoms);
+                mk_pinf_sign(literals, fml, new_atoms);
             }
             else {
-                mk_minus_inf_sign(literals, fml, new_atoms);
+                mk_ninf_sign(literals, fml, new_atoms);
             }
             simple_branch* br = alloc(simple_branch, m(), fml);
             swap_atoms(br, literals.lits(), new_atoms);
