@@ -696,6 +696,7 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpa_util().fm();
+        unsynch_mpz_manager & mpzm = mpfm.mpz_manager();
         unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
         scoped_mpf val(mpfm);        
@@ -709,7 +710,9 @@ extern "C" {
         }
         unsigned sbits = val.get().get_sbits();
         scoped_mpq q(mpqm);
-        mpqm.set(q, mpfm.sig_normalized(val));
+        scoped_mpz sn(mpzm);
+        mpfm.sig_normalized(val, sn);
+        mpqm.set(q, sn);
         mpqm.div(q, mpfm.m_powers2(sbits - 1), q);
         std::stringstream ss;
         mpqm.display_decimal(ss, q, sbits);

@@ -146,14 +146,12 @@ public:
     
     bool sgn(mpf const & x) const { return x.sign; }
     const mpz & sig(mpf const & x) const { return x.significand; }
-    mpz sig_normalized(mpf const & x) { 
+    void sig_normalized(mpf const & x, mpz & res) { 
         mpf t;
         set(t, x);
         unpack(t, true);
-        mpz r;
-        mpz_manager().set(r, t.significand);
+        mpz_manager().set(res, t.significand);
         del(t);
-        return r;
     }
     const mpf_exp_t & exp(mpf const & x) const { return x.exponent; }
     mpf_exp_t exp_normalized(mpf const & x) { 
