@@ -59,7 +59,7 @@ extern "C" {
             RETURN_Z3(0);
         }
         sort * _ty = to_sort(ty);
-        bool is_float = mk_c(c)->fpa_util().is_float(_ty);
+        bool is_float = mk_c(c)->fpautil().is_float(_ty);
         std::string fixed_num;
         char const* m = n;
         while (*m) {
@@ -78,7 +78,7 @@ extern "C" {
         ast * a = 0;
         if (_ty->get_family_id() == mk_c(c)->get_fpa_fid()) {
             // avoid expanding floats into huge rationals.
-            fpa_util & fu = mk_c(c)->fpa_util();
+            fpa_util & fu = mk_c(c)->fpautil();
             scoped_mpf t(fu.fm());
             fu.fm().set(t, fu.get_ebits(_ty), fu.get_sbits(_ty), MPF_ROUND_TOWARD_ZERO, n);
             a = fu.mk_value(t);
@@ -148,8 +148,8 @@ extern "C" {
         return
             mk_c(c)->autil().is_numeral(e) ||
             mk_c(c)->bvutil().is_numeral(e) ||
-            mk_c(c)->fpa_util().is_numeral(e) ||
-            mk_c(c)->fpa_util().is_rm_numeral(e);
+            mk_c(c)->fpautil().is_numeral(e) ||
+            mk_c(c)->fpautil().is_rm_numeral(e);
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
@@ -191,10 +191,10 @@ extern "C" {
         }
         else {
             // floats are separated from all others to avoid huge rationals.
-            fpa_util & fu = mk_c(c)->fpa_util();
+            fpa_util & fu = mk_c(c)->fpautil();
             scoped_mpf tmp(fu.fm());
             mpf_rounding_mode rm;
-            if (mk_c(c)->fpa_util().is_rm_numeral(to_expr(a), rm)) {
+            if (mk_c(c)->fpautil().is_rm_numeral(to_expr(a), rm)) {
                 switch (rm) {
                 case OP_FPA_RM_NEAREST_TIES_TO_EVEN: 
                     return mk_c(c)->mk_external_string("roundNearestTiesToEven"); 
@@ -214,7 +214,7 @@ extern "C" {
                     break;
                 }                
             }
-            else if (mk_c(c)->fpa_util().is_numeral(to_expr(a), tmp)) {
+            else if (mk_c(c)->fpautil().is_numeral(to_expr(a), tmp)) {
                 return mk_c(c)->mk_external_string(fu.fm().to_string(tmp));
             }
             else {
