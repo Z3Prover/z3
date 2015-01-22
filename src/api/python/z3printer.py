@@ -182,9 +182,6 @@ _infix_map = {}
 _unary_map = {}
 _infix_compact_map = {}
 
-for (_k,_v) in _z3_op_to_fpa_normal_str.items():
-    _z3_op_to_str[_k] = _v
-
 for _k in _z3_infix:
     _infix_map[_k] = True
 for _k in _z3_unary:
@@ -515,7 +512,7 @@ class Formatter:
         self.precision           = 10
         self.ellipses            = to_format(_ellipses)
         self.max_visited         = 10000
-        self.fpa_pretty          = False
+        self.fpa_pretty          = True
     
     def pp_ellipses(self):
         return self.ellipses
@@ -576,8 +573,8 @@ class Formatter:
         return to_format(a.as_string())
 
     def pp_fprm_value(self, a):
-        z3._z3_assert(z3.is_fprm_value(a), 'expected FPRMNumRef')        
-        if self.fpa_pretty and a.decl().kind() in _z3_op_to_fpa_pretty_str:
+        z3._z3_assert(z3.is_fprm_value(a), 'expected FPRMNumRef')
+        if self.fpa_pretty and (a.decl().kind() in _z3_op_to_fpa_pretty_str):
             return to_format(_z3_op_to_fpa_pretty_str.get(a.decl().kind()))
         else:
             return to_format(_z3_op_to_fpa_normal_str.get(a.decl().kind()))
@@ -600,12 +597,12 @@ class Formatter:
             else:
                 z3._z3_assert(z3.is_fp_value(a), 'expecting FP num ast')
                 r = []
-                sgn = c_long(0)
+                sgn = c_int(0)
                 sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
                 sig = Z3_fpa_get_numeral_significand_string(a.ctx_ref(), a.ast)
                 exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast)
                 r.append(to_format('FPVal('))
-                if not sgnb and sgn: 
+                if sgnb and sgn.value != 0:
                     r.append(to_format('-'))
                 r.append(to_format(sig))
                 r.append(to_format('*(2**'))
@@ -634,17 +631,17 @@ class Formatter:
                 sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
                 sig = Z3_fpa_get_numeral_significand_string(a.ctx_ref(), a.ast)
                 exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast)
-                if not sgnb and sgn != 0: 
+                if sgnb and sgn.value != 0:
                     r.append(to_format('-'))
                 r.append(to_format(sig))
                 if (exp != '0'):
                     r.append(to_format('*(2**'))
                     r.append(to_format(exp))
-                    r.append(to_format(')'))
+                    r.append(to_format(')'))                
                 return compose(r)
 
 
-    def pp_fp(self, a, d, xs):        
+    def pp_fp(self, a, d, xs):
         z3._z3_assert(isinstance(a, z3.FPRef), "type mismatch")
         k = a.decl().kind()
         op = '?'
@@ -653,7 +650,7 @@ class Formatter:
         elif k in _z3_op_to_fpa_normal_str:
             op = _z3_op_to_fpa_normal_str[k]
         elif k in _z3_op_to_str:
-            op = _z3_op_to_str[k]
+            op = _z3_op_to_str[k]        
 
         n = a.num_args()
 
@@ -1164,7 +1161,7 @@ def set_fpa_pretty(flag=True):
         for _k in _z3_fpa_infix:
             _infix_map[_k] = False
 
-
+set_fpa_pretty(True)
 
 def in_html_mode():
     return isinstance(_Formatter, HTMLFormatter)
