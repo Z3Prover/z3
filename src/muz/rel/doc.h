@@ -91,6 +91,8 @@ public:
     bool well_formed(doc const& d) const;
     bool merge(doc& d, unsigned lo, unsigned length, subset_ints const& equalities, bit_vector const& discard_cols);
     void set(doc& d, unsigned idx, tbit value);
+    doc* join(const doc& a, const doc& b, doc_manager& dm1,
+        const unsigned_vector& cols1, const unsigned_vector& cols2);
 
     void verify_project(ast_manager& m, doc_manager& dstm, bit_vector const& to_delete, doc const& src, doc const& dst);
 private:
@@ -314,6 +316,16 @@ public:
         }
     }
 
+    void join(const union_bvec& d1, const union_bvec& d2, M& dm, M& dm1,
+              const unsigned_vector& cols1, const unsigned_vector& cols2) {
+        for (unsigned i = 0; i < d1.size(); ++i) {
+            for (unsigned j = 0; j < d2.size(); ++j) {
+                if (T *d = dm.join(d1[i], d2[j], dm1, cols1, cols2))
+                    insert(dm, d);
+            }
+        }
+    }
+
 };
 
 
@@ -367,6 +379,7 @@ public:
     doc& operator*() { return *d; }
     doc* operator->() { return d; }
     doc* detach() { doc* r = d; d = 0; return r; }
+    operator bool() const { return d != 0; }
 };
 
 #endif /* _DOC_H_ */
