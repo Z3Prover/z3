@@ -19,6 +19,7 @@ open Z3.Arithmetic.Integer
 open Z3.Arithmetic.Real
 open Z3.BitVector
 
+
 exception TestFailedException of string
 
 (**
@@ -73,7 +74,6 @@ let  model_converter_test ( ctx : context ) =
 *)
 let basic_tests ( ctx : context ) =
   Printf.printf "BasicTests\n" ;
-(*  let qi = (mk_int ctx 1) in *)
   let fname = (mk_string ctx "f") in
   let x = (mk_string ctx "x") in
   let y = (mk_string ctx "y") in
@@ -167,8 +167,8 @@ let basic_tests ( ctx : context ) =
   let rn = Real.mk_numeral_nd ctx 42 43 in
   let inum = (get_numerator rn) in
   let iden = get_denominator rn in
-  Printf.printf "Numerator: %s Denominator: %s\n" (Real.to_string inum) (Real.to_string iden) ;
-  if ((Real.to_string inum) <> "42" || (Real.to_string iden) <> "43") then
+  Printf.printf "Numerator: %s Denominator: %s\n" (Real.numeral_to_string inum) (Real.numeral_to_string iden) ;
+  if ((Real.numeral_to_string inum) <> "42" || (Real.numeral_to_string iden) <> "43") then
     raise (TestFailedException "")
   else 
     Printf.printf "Test passed.\n"
@@ -190,7 +190,7 @@ let basic_tests ( ctx : context ) =
   (* Error handling test. *)
   try (
     let i = Integer.mk_numeral_s ctx "1/2" in
-    raise (TestFailedException (to_string i)) (* unreachable *)
+    raise (TestFailedException (numeral_to_string i)) (* unreachable *)
   )
   with Z3native.Exception(_) -> (
     Printf.printf "Exception caught, OK.\n" 
@@ -199,7 +199,7 @@ let basic_tests ( ctx : context ) =
 (**
    A basic example of how to use quantifiers.
 **)
-let  quantifierExample1 ( ctx : context ) =
+let  quantifier_example1 ( ctx : context ) =
   Printf.printf "QuantifierExample\n" ;
   let is = (Integer.mk_sort ctx) in
   let types = [ is; is; is ] in
@@ -239,6 +239,82 @@ let  quantifierExample1 ( ctx : context ) =
   else if (is_const (Quantifier.expr_of_quantifier x)) then
     raise (TestFailedException "") (* unreachable *)
 
+
+open Z3.FloatingPoint
+
+(** 
+	A basic example of floating point arithmetic 
+**)
+let fpa_example ( ctx : context ) =
+  Printf.printf "FPAExample\n" ;
+  let double_sort = (FloatingPoint.mk_sort_double ctx) in
+  let rm_sort = (FloatingPoint.RoundingMode.mk_sort ctx) in
+
+  (** Show that there are x, y s.t. (x + y) = 42.0 (with rounding mode). *)
+  let s_rm = (mk_string ctx "rm") in
+  let rm = (mk_const ctx s_rm rm_sort) in
+  let s_x = (mk_string ctx "x") in
+  let s_y = (mk_string ctx "y") in
+  let x = (mk_const ctx s_x double_sort) in
+  let y = (mk_const ctx s_y double_sort)in
+  Printf.printf "A\n" ;
+  let n = (mk_numeral_f ctx 42.0 double_sort) in
+  Printf.printf "B\n" ;
+  let s_x_plus_y = (mk_string ctx "x_plus_y") in
+  let x_plus_y = (mk_const ctx s_x_plus_y double_sort) in
+  let c1 = (mk_eq ctx x_plus_y (mk_add ctx rm x y)) in
+  let args = [ c1 ; (mk_eq ctx x_plus_y n) ] in
+  let c2 = (Boolean.mk_and ctx args) in
+  let args2 = [ c2 ; (Boolean.mk_not ctx (mk_eq ctx rm (RoundingMode.mk_rtz ctx))) ] in
+  let c3 = (Boolean.mk_and ctx args2) in
+  let and_args = [ (Boolean.mk_not ctx (mk_is_zero ctx y)) ;
+				   (Boolean.mk_not ctx (mk_is_nan ctx y)) ;
+				   (Boolean.mk_not ctx (mk_is_infinite ctx y)) ] in
+  let args3 = [ c3 ; (Boolean.mk_and ctx and_args) ] in
+  let c4 = (Boolean.mk_and ctx args3) in
+  
+  (Printf.printf "c4: %s\n" (Expr.to_string c4))
+	(* push(ctx); *)
+	(* Z3_assert_cnstr(ctx, c4); *)
+	(* check(ctx, Z3_L_TRUE); *)
+	(* Z3_pop(ctx, 1); *)
+
+	(* // Show that the following are equal: *)
+	(* //   (fp #b0 #b10000000001 #xc000000000000)  *)
+	(* //   ((_ to_fp 11 53) #x401c000000000000)) *)
+	(* //   ((_ to_fp 11 53) RTZ 1.75 2))) *)
+	(* //   ((_ to_fp 11 53) RTZ 7.0))) *)
+	
+	(* Z3_push(ctx); *)
+	(* c1 = Z3_mk_fpa_fp(ctx,  *)
+	(* 				  Z3_mk_numeral(ctx, "0", Z3_mk_bv_sort(ctx, 1)), *)
+	(* 				  Z3_mk_numeral(ctx, "3377699720527872", Z3_mk_bv_sort(ctx, 52)), *)
+	(* 				  Z3_mk_numeral(ctx, "1025", Z3_mk_bv_sort(ctx, 11))); *)
+	(* c2 = Z3_mk_fpa_to_fp_bv(ctx, *)
+	(* 						Z3_mk_numeral(ctx, "4619567317775286272", Z3_mk_bv_sort(ctx, 64)), *)
+	(* 						Z3_mk_fpa_sort(ctx, 11, 53)); *)
+	(* c3 = Z3_mk_fpa_to_fp_real_int(ctx, *)
+    (*                               Z3_mk_fpa_rtz(ctx), *)
+    (*                               Z3_mk_numeral(ctx, "1.75", Z3_mk_real_sort(ctx)), *)
+    (*                               Z3_mk_numeral(ctx, "2", Z3_mk_int_sort(ctx)), *)
+    (*                               Z3_mk_fpa_sort(ctx, 11, 53)); *)
+	(* c4 = Z3_mk_fpa_to_fp_real(ctx, *)
+	(* 						  Z3_mk_fpa_rtz(ctx), *)
+	(* 						  Z3_mk_numeral(ctx, "7.0", Z3_mk_real_sort(ctx)), *)
+	(* 						  Z3_mk_fpa_sort(ctx, 11, 53)); *)
+	(* args3[0] = Z3_mk_eq(ctx, c1, c2); *)
+	(* args3[1] = Z3_mk_eq(ctx, c1, c3); *)
+	(* args3[2] = Z3_mk_eq(ctx, c1, c4); *)
+	(* c5 = Z3_mk_and(ctx, 3, args3); *)
+
+	(* printf("c5: %s\n", Z3_ast_to_string(ctx, c5)); *)
+	(* Z3_assert_cnstr(ctx, c5); *)
+	(* check(ctx, Z3_L_TRUE); *)
+	(* Z3_pop(ctx, 1); *)
+
+    (* Z3_del_context(ctx); *)
+ 
+
 let _ = 
   try (
     if not (Log.open_ "z3.log") then
@@ -259,7 +335,8 @@ let _ =
 	Printf.printf "int sort: %s\n" (Sort.to_string ints);
 	Printf.printf "real sort: %s\n" (Sort.to_string rs);
 	basic_tests ctx ;
-	quantifierExample1 ctx ;
+	quantifier_example1 ctx ;
+	fpa_example ctx ;
 	Printf.printf "Disposing...\n";
 	Gc.full_major ()
       );

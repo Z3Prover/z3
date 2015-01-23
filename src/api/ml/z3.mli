@@ -1157,8 +1157,8 @@ sig
     (** Get a big_int from an integer numeral *)
     val get_big_int : Expr.expr -> Big_int.big_int
 
-    (** Returns a string representation of the numeral. *)
-    val to_string : Expr.expr -> string
+    (** Returns a string representation of a numeral. *)
+    val numeral_to_string : Expr.expr -> string
 
     (** Creates an integer constant. *)        
     val mk_const : context -> Symbol.symbol -> Expr.expr
@@ -1221,8 +1221,8 @@ sig
 	The result has at most as many decimal places as indicated by the int argument.*)
     val to_decimal_string : Expr.expr-> int -> string
 
-    (** Returns a string representation of the numeral. *)
-    val to_string : Expr.expr-> string
+    (** Returns a string representation of a numeral. *)
+    val numeral_to_string : Expr.expr-> string
 
     (** Creates a real constant. *)
     val mk_const : context -> Symbol.symbol -> Expr.expr
@@ -1271,8 +1271,8 @@ sig
 	  The result has at most as many decimal places as the int argument provided.*)
       val to_decimal_string : Expr.expr -> int -> string
 	
-      (** Returns a string representation of the numeral. *)
-      val to_string : Expr.expr -> string
+      (** Returns a string representation of a numeral. *)
+      val numeral_to_string : Expr.expr -> string
     end
   end
 
@@ -1551,8 +1551,8 @@ sig
   (**  Retrieve the int value. *)
   val get_int : Expr.expr -> int
     
-  (** Returns a string representation of the numeral. *)
-  val to_string : Expr.expr -> string
+  (** Returns a string representation of a numeral. *)
+  val numeral_to_string : Expr.expr -> string
 
   (** Creates a bit-vector constant. *)
   val mk_const : context -> Symbol.symbol -> int -> Expr.expr
@@ -1829,6 +1829,342 @@ sig
   (** Create a bit-vector numeral. *)
   val mk_numeral : context -> string -> int -> Expr.expr
 end
+
+(** Floating-Point Arithmetic *)
+module FloatingPoint :
+  sig
+
+	(** Rounding Modes *)	
+    module RoundingMode :
+      sig
+		(** Create the RoundingMode sort. *)
+        val mk_sort : context -> Sort.sort
+
+		(** Indicates whether the terms is of floating-point rounding mode sort. *)
+        val is_fprm : Expr.expr -> bool
+
+		(** Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode. *)
+        val mk_round_nearest_ties_to_even : context -> Expr.expr
+		
+		(** Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode. *)
+        val mk_rne : context -> Expr.expr
+
+		(** Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode. *)
+        val mk_round_nearest_ties_to_away : context -> Expr.expr
+		
+		(** Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode. *)
+        val mk_rna : context -> Expr.expr
+		
+		(** Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode. *)
+        val mk_round_toward_positive : context -> Expr.expr
+		
+		(** Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode. *)
+		val mk_rtp : context -> Expr.expr
+		
+		(** Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode. *)
+        val mk_round_toward_negative : context -> Expr.expr
+		
+		(** Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode. *)
+        val mk_rtn : context -> Expr.expr
+		
+		(** Create a numeral of RoundingMode sort which represents the TowardZero rounding mode. *)
+        val mk_round_toward_zero : context -> Expr.expr
+		
+		(** Create a numeral of RoundingMode sort which represents the TowardZero rounding mode. *)
+        val mk_rtz : context -> Expr.expr
+      end
+
+	(** Create a FloatingPoint sort. *)
+    val mk_sort : context -> int -> int -> Sort.sort
+	
+	(** Create the half-precision (16-bit) FloatingPoint sort.*) 
+    val mk_sort_half : context -> Sort.sort
+	
+	(** Create the half-precision (16-bit) FloatingPoint sort. *)
+    val mk_sort_16 : context -> Sort.sort
+
+    (** Create the single-precision (32-bit) FloatingPoint sort.*)
+	val mk_sort_single : context -> Sort.sort
+    
+	(** Create the single-precision (32-bit) FloatingPoint sort. *)
+	val mk_sort_32 : context -> Sort.sort
+
+	(** Create the double-precision (64-bit) FloatingPoint sort. *)
+    val mk_sort_double : context -> Sort.sort
+
+	(** Create the double-precision (64-bit) FloatingPoint sort. *)
+    val mk_sort_64 : context -> Sort.sort
+	  
+	(** Create the quadruple-precision (128-bit) FloatingPoint sort. *)
+    val mk_sort_quadruple : context -> Sort.sort
+
+	(** Create the quadruple-precision (128-bit) FloatingPoint sort. *)
+    val mk_sort_128 : context -> Sort.sort
+
+	(** Create a floating-point NaN of a given FloatingPoint sort. *)
+    val mk_nan : context -> Sort.sort -> Expr.expr
+
+	(** Create a floating-point infinity of a given FloatingPoint sort. *)
+    val mk_inf : context -> Sort.sort -> bool -> Expr.expr
+
+	(** Create a floating-point zero of a given FloatingPoint sort. *)
+    val mk_zero : context -> Sort.sort -> bool -> Expr.expr
+
+	(** Create an expression of FloatingPoint sort from three bit-vector expressions. 
+
+		This is the operator named `fp' in the SMT FP theory definition.
+        Note that \c sign is required to be a bit-vector of size 1. Significand and exponent 
+        are required to be greater than 1 and 2 respectively. The FloatingPoint sort 
+        of the resulting expression is automatically determined from the bit-vector sizes
+        of the arguments. *)
+    val mk_fp : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Create a numeral of FloatingPoint sort from a float.
+
+        This function is used to create numerals that fit in a float value.
+        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string. *)
+    val mk_numeral_f : context -> float -> Sort.sort -> Expr.expr
+
+	(** Create a numeral of FloatingPoint sort from a signed integer. *)
+    val mk_numeral_i : context -> int -> Sort.sort -> Expr.expr
+	  
+	(** Create a numeral of FloatingPoint sort from a sign bit and two integers. *)
+    val mk_numeral_i_u : context -> bool -> int -> int -> Sort.sort -> Expr.expr
+
+	(** Create a numeral of FloatingPoint sort from a string *)
+    val mk_numeral_s : context -> string -> Sort.sort -> Expr.expr
+	
+	(** Indicates whether the terms is of floating-point sort. *)
+    val is_fp : Expr.expr -> bool
+	
+
+	(** Indicates whether an expression is a floating-point abs expression *)
+    val is_abs : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point neg expression *)
+    val is_neg : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point add expression *)
+    val is_add : Expr.expr -> bool
+	  
+	(** Indicates whether an expression is a floating-point sub expression *)
+    val is_sub : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point mul expression *)
+    val is_mul : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point div expression *)
+    val is_div : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point fma expression *)
+    val is_fma : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point sqrt expression *)
+    val is_sqrt : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point rem expression *)
+    val is_rem : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point round_to_integral expression *)
+    val is_round_to_integral : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point min expression *)
+    val is_min : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point max expression *)
+    val is_max : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point leq expression *)
+    val is_leq : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point lt expression *)
+    val is_lt : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point geqexpression *)
+    val is_geq : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point gt expression *)
+    val is_gt : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point eq expression *)
+    val is_eq : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point is_normal expression *)
+    val is_is_normal : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point is_subnormal expression *)
+    val is_is_subnormal : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point is_zero expression *)
+    val is_is_zero : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point is_infinite expression *)
+    val is_is_infinite : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point is_nan expression *)
+    val is_is_nan : Expr.expr -> bool
+	  
+	(** Indicates whether an expression is a floating-point is_negative expression *)
+    val is_is_negative : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point is_positive expression *)
+    val is_is_positive : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point to_fp expression *)
+    val is_to_fp : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point to_fp_unsigned expression *)
+    val is_to_fp_unsigned : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point to_ubv expression *)
+    val is_to_ubv : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point to_sbv expression *)
+    val is_to_sbv : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point to_real expression *)
+    val is_to_real : Expr.expr -> bool
+
+	(** Indicates whether an expression is a floating-point to_ieee_bv expression *)
+    val is_to_ieee_bv : Expr.expr -> bool
+
+
+	(** Returns a string representation of a numeral. *)
+    val numeral_to_string : Expr.expr -> string
+
+	(** Creates a floating-point constant. *)
+    val mk_const : context -> Symbol.symbol -> Sort.sort -> Expr.expr
+
+	(** Creates a floating-point constant. *)
+    val mk_const_s : context -> string -> Sort.sort -> Expr.expr
+
+	(** Floating-point absolute value *)
+    val mk_abs : context -> Expr.expr -> Expr.expr
+
+	(** Floating-point negation *)
+    val mk_neg : context -> Expr.expr -> Expr.expr
+
+	(** Floating-point addition *)
+    val mk_add : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Floating-point subtraction *)
+    val mk_sub : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Floating-point multiplication *)
+    val mk_mul : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Floating-point division *)
+    val mk_div : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Floating-point fused multiply-add. *)
+    val mk_fma : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+	  
+	(** Floating-point square root *)
+    val mk_sqrt : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Floating-point remainder *)
+    val mk_rem : context -> Expr.expr -> Expr.expr -> Expr.expr
+	  
+	(** Floating-point roundToIntegral. 
+
+		Rounds a floating-point number to the closest integer, 
+		again represented as a floating-point number. *)
+    val mk_round_to_integral : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Minimum of floating-point numbers. *)
+    val mk_min : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Maximum of floating-point numbers. *)
+    val mk_max : context -> Expr.expr -> Expr.expr -> Expr.expr
+	
+	(** Floating-point less than or equal. *)
+    val mk_leq : context -> Expr.expr -> Expr.expr -> Expr.expr
+	
+	(** Floating-point less than. *)
+    val mk_lt : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Floating-point greater than or equal. *)
+    val mk_geq : context -> Expr.expr -> Expr.expr -> Expr.expr
+	
+	(** Floating-point greater than. *)
+    val mk_gt : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Floating-point equality. *)
+    val mk_eq : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+	(** Predicate indicating whether t is a normal floating-point number. *)
+    val mk_is_normal : context -> Expr.expr -> Expr.expr
+
+	(** Predicate indicating whether t is a subnormal floating-point number. *)
+    val mk_is_subnormal : context -> Expr.expr -> Expr.expr
+
+	(** Predicate indicating whether t is a floating-point number with zero value, i.e., +zero or -zero. *)
+    val mk_is_zero : context -> Expr.expr -> Expr.expr
+
+	(** Predicate indicating whether t is a floating-point number representing +oo or -oo. *)
+    val mk_is_infinite : context -> Expr.expr -> Expr.expr
+
+	(** Predicate indicating whether t is a NaN. *)
+    val mk_is_nan : context -> Expr.expr -> Expr.expr
+
+	(** Predicate indicating whether t is a negative floating-point number. *)
+    val mk_is_negative : context -> Expr.expr -> Expr.expr
+
+	(** Predicate indicating whether t is a positive floating-point number. *)
+    val mk_is_positive : context -> Expr.expr -> Expr.expr
+
+	(** Conversion of a single IEEE 754-2008 bit-vector into a floating-point number. *)
+    val mk_to_fp_bv : context -> Expr.expr -> Sort.sort -> Expr.expr
+
+	(** Conversion of a FloatingPoint term into another term of different FloatingPoint sort. *)
+    val mk_to_fp_float : context -> Expr.expr -> Expr.expr -> Sort.sort -> Expr.expr
+
+	(** Conversion of a term of real sort into a term of FloatingPoint sort. *)
+    val mk_to_fp_real : context -> Expr.expr -> Expr.expr -> Sort.sort -> Expr.expr
+
+	(** Conversion of a 2's complement signed bit-vector term into a term of FloatingPoint sort. *)
+    val mk_to_fp_signed : context -> Expr.expr -> Expr.expr -> Sort.sort -> Expr.expr
+
+	(** Conversion of a 2's complement unsigned bit-vector term into a term of FloatingPoint sort. *)
+    val mk_to_fp_unsigned : context -> Expr.expr -> Expr.expr -> Sort.sort -> Expr.expr
+
+	(** C1onversion of a floating-point term into an unsigned bit-vector. *)
+    val mk_to_fp_ubv : context -> Expr.expr -> Expr.expr -> int -> Expr.expr
+	
+	(** Conversion of a floating-point term into a signed bit-vector. *)
+    val mk_to_fp_sbv : context -> Expr.expr -> Expr.expr -> int -> Expr.expr
+
+	(** Conversion of a floating-point term into a real-numbered term. *)
+    val mk_to_fp_real : context -> Expr.expr -> Expr.expr
+	  
+	(** Retrieves the number of bits reserved for the exponent in a FloatingPoint sort. *)
+    val get_ebits : context -> Sort.sort -> int
+
+	(** Retrieves the number of bits reserved for the significand in a FloatingPoint sort. *)
+    val get_sbits : context -> Sort.sort -> int
+	  
+	(** Retrieves the sign of a floating-point literal. *)
+    val get_numeral_sign : context -> Expr.expr -> bool * int
+
+	(** Return the significand value of a floating-point numeral as a string. *)
+    val get_numeral_significand_string : context -> Expr.expr -> string
+
+	(** Return the exponent value of a floating-point numeral as a string *)
+    val get_numeral_exponent_string : context -> Expr.expr -> string
+
+	(** Return the exponent value of a floating-point numeral as a signed integer *)
+    val get_numeral_exponent_int : context -> Expr.expr -> bool * int
+ 
+	(** Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format. *)
+    val mk_to_ieee_bv : context -> Expr.expr -> Expr.expr
+
+	(** Conversion of a real-sorted significand and an integer-sorted exponent into a term of FloatingPoint sort. *)
+    val mk_to_fp_real_int : context -> Expr.expr -> Expr.expr -> Expr.expr -> Sort.sort -> Expr.expr
+
+	(** The string representation of a numeral *)
+    val numeral_to_string : Expr.expr -> string
+  end
+
 
 (** Functions to manipulate proof expressions *)
 module Proof :

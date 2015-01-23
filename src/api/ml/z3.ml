@@ -362,7 +362,9 @@ struct
 	| REAL_SORT 
 	| UNINTERPRETED_SORT 
 	| FINITE_DOMAIN_SORT 
-	| RELATION_SORT -> Sort(q)
+	| RELATION_SORT 
+	| FLOATING_POINT_SORT
+	| ROUNDING_MODE_SORT -> Sort(q)
 	| UNKNOWN_SORT -> raise (Z3native.Exception "Unknown sort kind encountered")
 
   let ast_of_sort s = match s with Sort(x) -> x
@@ -745,7 +747,8 @@ end = struct
 	Expr(z3_native_object_of_ast_ptr ctx no)
       else
 	if (Z3native.is_numeral_ast (context_gno ctx) no) then
-	  if (sk == INT_SORT || sk == REAL_SORT || sk == BV_SORT) then
+	  if (sk == INT_SORT || sk == REAL_SORT || sk == BV_SORT || 
+			sk == FLOATING_POINT_SORT || sk == ROUNDING_MODE_SORT) then
 	    Expr(z3_native_object_of_ast_ptr ctx no)
 	  else
 	    raise (Z3native.Exception "Unsupported numeral object")
@@ -1507,7 +1510,7 @@ struct
 	(Big_int.big_int_of_string s)
       else raise (Z3native.Exception "Conversion failed.")
 	
-    let to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
+    let numeral_to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
 
     let mk_const ( ctx : context ) ( name : Symbol.symbol ) =
       Expr.mk_const ctx name (mk_sort ctx) 
@@ -1554,7 +1557,7 @@ struct
     let to_decimal_string ( x : expr ) ( precision : int ) = 
       Z3native.get_numeral_decimal_string (Expr.gnc x) (Expr.gno x) precision
 	
-    let to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
+    let numeral_to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
 
     let mk_const ( ctx : context ) ( name : Symbol.symbol )  =
       Expr.mk_const ctx name (mk_sort ctx)
@@ -1562,7 +1565,7 @@ struct
     let mk_const_s ( ctx : context ) ( name : string )  =
       mk_const ctx (Symbol.mk_string ctx name)
 
-    let mk_numeral_nd ( ctx : context ) ( num : int ) ( den : int) =
+    let mk_numeral_nd ( ctx : context ) ( num : int ) ( den : int ) =
       if (den == 0) then 
 	raise (Z3native.Exception "Denominator is zero")
       else      
@@ -1591,7 +1594,7 @@ struct
       let to_decimal_string ( x : expr ) ( precision : int ) = 
 	Z3native.get_numeral_decimal_string (Expr.gnc x) (Expr.gno x) precision	
 	  
-      let to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)      
+      let numeral_to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)      
     end
   end
 
@@ -1692,7 +1695,7 @@ struct
     let (r, v) = Z3native.get_numeral_int (Expr.gnc x) (Expr.gno x) in
     if r then v
     else raise (Z3native.Exception "Conversion failed.")
-  let to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
+  let numeral_to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
   let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( size : int ) =
     Expr.mk_const ctx name (mk_sort ctx size) 
   let mk_const_s ( ctx : context ) ( name : string ) ( size : int ) =
@@ -1791,8 +1794,199 @@ struct
     (expr_of_ptr ctx (Z3native.mk_bvmul_no_overflow (context_gno ctx) (Expr.gno t1) (Expr.gno t2) signed))
   let mk_mul_no_underflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
     (expr_of_ptr ctx (Z3native.mk_bvmul_no_underflow (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))	  
-  let mk_numeral ( ctx : context ) ( v : string ) ( size : int) =
+  let mk_numeral ( ctx : context ) ( v : string ) ( size : int ) =
     expr_of_ptr ctx (Z3native.mk_numeral (context_gno ctx) v (Sort.gno (mk_sort ctx size)))
+end
+
+
+module FloatingPoint = 
+struct
+  module RoundingMode = 
+  struct
+	let mk_sort ( ctx : context ) =
+	  (sort_of_ptr ctx (Z3native.mk_fpa_rounding_mode_sort (context_gno ctx)))
+	let is_fprm ( x : expr ) =
+	  (Sort.get_sort_kind (Expr.get_sort(x))) == ROUNDING_MODE_SORT
+	let mk_round_nearest_ties_to_even ( ctx : context ) = 
+	  (expr_of_ptr ctx (Z3native.mk_fpa_round_nearest_ties_to_even (context_gno ctx)))
+	let mk_rne ( ctx : context ) =
+	  (expr_of_ptr ctx (Z3native.mk_fpa_rne (context_gno ctx)))
+	let mk_round_nearest_ties_to_away ( ctx : context ) = 
+	  (expr_of_ptr ctx (Z3native.mk_fpa_round_nearest_ties_to_away (context_gno ctx)))
+	let mk_rna ( ctx : context ) =
+	  (expr_of_ptr ctx (Z3native.mk_fpa_rna (context_gno ctx)))
+	let mk_round_toward_positive ( ctx : context ) = 
+	  (expr_of_ptr ctx (Z3native.mk_fpa_round_toward_positive (context_gno ctx)))
+	let mk_rtp ( ctx : context ) =
+	  (expr_of_ptr ctx (Z3native.mk_fpa_rtp (context_gno ctx)))
+	let mk_round_toward_negative ( ctx : context ) = 
+	  (expr_of_ptr ctx (Z3native.mk_fpa_round_toward_negative  (context_gno ctx)))
+	let mk_rtn ( ctx : context ) =
+	  (expr_of_ptr ctx (Z3native.mk_fpa_rtn (context_gno ctx)))
+	let mk_round_toward_zero ( ctx : context ) = 
+	  (expr_of_ptr ctx (Z3native.mk_fpa_round_toward_zero (context_gno ctx)))
+	let mk_rtz ( ctx : context ) =
+	  (expr_of_ptr ctx (Z3native.mk_fpa_rtz (context_gno ctx)))		
+  end
+	
+  let mk_sort ( ctx : context ) ( ebits : int ) ( sbits : int ) =
+	(sort_of_ptr ctx (Z3native.mk_fpa_sort (context_gno ctx) ebits sbits))
+  let mk_sort_half ( ctx : context ) =
+	(sort_of_ptr ctx (Z3native.mk_fpa_sort_half (context_gno ctx)))
+  let mk_sort_16 ( ctx : context ) =
+	(sort_of_ptr ctx (Z3native.mk_fpa_sort_16 (context_gno ctx)))
+  let mk_sort_single ( ctx : context ) =
+	(sort_of_ptr ctx (Z3native.mk_fpa_sort_single (context_gno ctx)))
+  let mk_sort_32 ( ctx : context ) =
+	(sort_of_ptr ctx (Z3native.mk_fpa_sort_32 (context_gno ctx)))
+  let mk_sort_double ( ctx : context ) =
+	(sort_of_ptr ctx (Z3native.mk_fpa_sort_double (context_gno ctx)))
+  let mk_sort_64 ( ctx : context ) =
+	(sort_of_ptr ctx (Z3native.mk_fpa_sort_64 (context_gno ctx)))
+  let mk_sort_quadruple ( ctx : context ) =
+	(sort_of_ptr ctx (Z3native.mk_fpa_sort_quadruple (context_gno ctx)))
+  let mk_sort_128 ( ctx : context ) =
+	(sort_of_ptr ctx (Z3native.mk_fpa_sort_128 (context_gno ctx)))
+  let mk_nan ( ctx : context ) ( s : sort ) =
+	(expr_of_ptr ctx (Z3native.mk_fpa_nan (context_gno ctx) (Sort.gno s)))
+  let mk_inf ( ctx : context ) ( s : sort ) ( negative : bool ) =
+	(expr_of_ptr ctx (Z3native.mk_fpa_inf (context_gno ctx) (Sort.gno s) negative))
+  let mk_zero ( ctx : context ) ( s : sort ) ( negative : bool ) =
+	(expr_of_ptr ctx (Z3native.mk_fpa_zero (context_gno ctx) (Sort.gno s) negative))
+
+  let mk_fp ( ctx : context ) ( sign : expr ) ( exponent : expr ) ( significand : expr ) =
+	(expr_of_ptr ctx (Z3native.mk_fpa_fp (context_gno ctx) (Expr.gno sign) (Expr.gno exponent) (Expr.gno significand)))
+  let mk_numeral_f ( ctx : context ) ( value : float ) ( s : sort ) =
+	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_double (context_gno ctx) value (Sort.gno s))) 
+  let mk_numeral_i ( ctx : context ) ( value : int ) ( s : sort ) =
+	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_int (context_gno ctx) value (Sort.gno s))) 
+  let mk_numeral_i_u ( ctx : context ) ( sign : bool ) ( exponent : int ) ( significand : int ) ( s : sort ) =
+	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_int64_uint64 (context_gno ctx) sign exponent significand (Sort.gno s))) 
+  let mk_numeral_s ( ctx : context ) ( v : string ) ( s : sort ) =
+    (expr_of_ptr ctx (Z3native.mk_numeral (context_gno ctx) v (Sort.gno s)))
+
+  let is_fp ( x : expr ) = (Sort.get_sort_kind (Expr.get_sort x)) == FLOATING_POINT_SORT
+  let is_abs ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_ABS)
+  let is_neg ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_NEG)
+  let is_add ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_ADD)
+  let is_sub ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_SUB)
+  let is_mul ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_MUL)
+  let is_div ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_DIV)
+  let is_fma ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_FMA)
+  let is_sqrt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_SQRT)
+  let is_rem ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_REM)
+  let is_round_to_integral ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_ROUND_TO_INTEGRAL)
+  let is_min ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_MIN)
+  let is_max ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_MAX)
+  let is_leq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_LE)
+  let is_lt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_LT)
+  let is_geq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_GE)
+  let is_gt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_GT)
+  let is_eq ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_EQ)
+  let is_is_normal ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_IS_NORMAL)
+  let is_is_subnormal ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_IS_SUBNORMAL)
+  let is_is_zero ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_IS_ZERO)
+  let is_is_infinite ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_IS_INF)
+  let is_is_nan ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_IS_NAN)
+  let is_is_negative ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_IS_NEGATIVE)
+  let is_is_positive ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_IS_POSITIVE)
+  let is_to_fp ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_TO_FP)
+  let is_to_fp_unsigned ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_TO_FP_UNSIGNED)
+  let is_to_ubv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_TO_UBV)
+  let is_to_sbv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_TO_SBV)
+  let is_to_real ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_TO_REAL)
+  let is_to_ieee_bv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_TO_IEEE_BV)
+	
+  let numeral_to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
+  let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( s : sort ) =
+    Expr.mk_const ctx name s
+  let mk_const_s ( ctx : context ) ( name : string ) ( s : sort ) =
+    mk_const ctx (Symbol.mk_string ctx name) s
+
+  let mk_abs ( ctx : context ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_abs (context_gno ctx) (Expr.gno t))
+  let mk_neg ( ctx : context ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_neg (context_gno ctx) (Expr.gno t))
+  let mk_add ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_add (context_gno ctx) (Expr.gno rm) (Expr.gno t1) (Expr.gno t2))
+  let mk_sub ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_sub (context_gno ctx) (Expr.gno rm) (Expr.gno t1) (Expr.gno t2))
+  let mk_mul ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_mul (context_gno ctx) (Expr.gno rm) (Expr.gno t1) (Expr.gno t2))
+  let mk_div ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_div (context_gno ctx) (Expr.gno rm) (Expr.gno t1) (Expr.gno t2))
+  let mk_fma ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) ( t3 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_fma (context_gno ctx) (Expr.gno rm) (Expr.gno t1) (Expr.gno t2) (Expr.gno t3))
+  let mk_sqrt ( ctx : context ) ( rm : expr ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_sqrt (context_gno ctx) (Expr.gno rm) (Expr.gno t))
+  let mk_rem ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_rem (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+  let mk_round_to_integral  ( ctx : context ) ( rm : expr ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_round_to_integral (context_gno ctx) (Expr.gno rm) (Expr.gno t))
+  let mk_min ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_min (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+  let mk_max ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_max (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+  let mk_leq ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_leq (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+  let mk_lt ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_lt (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+  let mk_geq ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_geq (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+  let mk_gt ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_gt (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+  let mk_eq ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_eq (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+  let mk_is_normal ( ctx : context ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_is_normal (context_gno ctx) (Expr.gno t))
+  let mk_is_subnormal ( ctx : context ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_is_subnormal (context_gno ctx) (Expr.gno t))
+  let mk_is_zero ( ctx : context ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_is_zero (context_gno ctx) (Expr.gno t))
+  let mk_is_infinite  ( ctx : context ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_is_infinite (context_gno ctx) (Expr.gno t))
+  let mk_is_nan ( ctx : context ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_is_nan (context_gno ctx) (Expr.gno t))
+  let mk_is_negative  ( ctx : context ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_is_negative (context_gno ctx) (Expr.gno t))
+  let mk_is_positive ( ctx : context ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_is_positive (context_gno ctx) (Expr.gno t))
+  let mk_to_fp_bv ( ctx : context ) ( t : expr ) ( s : sort ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_to_fp_bv (context_gno ctx) (Expr.gno t) (Sort.gno s))
+  let mk_to_fp_float ( ctx : context ) ( rm : expr) ( t : expr ) ( s : sort ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_to_fp_float (context_gno ctx) (Expr.gno rm) (Expr.gno t) (Sort.gno s))
+  let mk_to_fp_real ( ctx : context ) ( rm : expr ) ( t : expr ) ( s : sort ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_to_fp_real (context_gno ctx) (Expr.gno rm) (Expr.gno t) (Sort.gno s))
+  let mk_to_fp_signed  ( ctx : context ) ( rm : expr) ( t : expr ) ( s : sort ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_to_fp_signed (context_gno ctx) (Expr.gno rm) (Expr.gno t) (Sort.gno s))
+  let mk_to_fp_unsigned  ( ctx : context ) ( rm : expr) ( t : expr ) ( s : sort ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_to_fp_unsigned (context_gno ctx) (Expr.gno rm) (Expr.gno t) (Sort.gno s))
+  let mk_to_fp_ubv ( ctx : context ) ( rm : expr) ( t : expr ) ( size : int ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_to_ubv (context_gno ctx) (Expr.gno rm) (Expr.gno t) size)
+  let mk_to_fp_sbv ( ctx : context ) ( rm : expr) ( t : expr ) ( size : int ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_to_sbv (context_gno ctx) (Expr.gno rm) (Expr.gno t) size)
+  let mk_to_fp_real ( ctx : context ) ( t : expr ) =
+    expr_of_ptr ctx (Z3native.mk_fpa_to_real (context_gno ctx) (Expr.gno t))
+
+  let get_ebits ( ctx : context ) ( s : sort ) =
+	(Z3native.fpa_get_ebits (context_gno ctx) (Sort.gno s))
+  let get_sbits ( ctx : context ) ( s : sort ) =
+	(Z3native.fpa_get_sbits (context_gno ctx) (Sort.gno s))
+  let get_numeral_sign ( ctx : context ) ( t : expr ) =
+	(Z3native.fpa_get_numeral_sign (context_gno ctx) (Expr.gno t))
+  let get_numeral_significand_string ( ctx : context ) ( t : expr ) =
+	(Z3native.fpa_get_numeral_significand_string (context_gno ctx) (Expr.gno t))
+  let get_numeral_exponent_string ( ctx : context ) ( t : expr ) =
+	(Z3native.fpa_get_numeral_exponent_string (context_gno ctx) (Expr.gno t))
+  let get_numeral_exponent_int ( ctx : context ) ( t : expr ) =
+	(Z3native.fpa_get_numeral_exponent_int64 (context_gno ctx) (Expr.gno t))
+
+  let mk_to_ieee_bv ( ctx : context ) ( t : expr ) =
+	(expr_of_ptr ctx (Z3native.mk_fpa_to_ieee_bv (context_gno ctx) (Expr.gno t)))
+  let mk_to_fp_real_int ( ctx : context ) ( rm : expr ) ( exponent : expr ) ( significand : expr ) ( s : sort) =
+	(expr_of_ptr ctx (Z3native.mk_fpa_to_fp_real_int (context_gno ctx) (Expr.gno rm) (Expr.gno exponent) (Expr.gno significand) (Sort.gno s)))
+
+  let numeral_to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
 end
 
 
