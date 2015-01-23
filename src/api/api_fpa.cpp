@@ -269,9 +269,9 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_numeral_uint_int(Z3_context c, Z3_bool sgn, unsigned sig, signed exp, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int_uint(Z3_context c, Z3_bool sgn, signed exp, unsigned sig, Z3_sort ty) {
         Z3_TRY;
-        LOG_Z3_mk_fpa_numeral_uint64_int64(c, sgn, sig, exp, ty);
+        LOG_Z3_mk_fpa_numeral_int64_uint64(c, sgn, exp, sig, ty);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         scoped_mpf tmp(ctx->fpautil().fm());
@@ -284,9 +284,9 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_numeral_uint64_int64(Z3_context c, Z3_bool sgn, __uint64 sig, __int64 exp, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, Z3_bool sgn, __int64 exp, __uint64 sig, Z3_sort ty) {
         Z3_TRY;
-        LOG_Z3_mk_fpa_numeral_uint64_int64(c, sgn, sig, exp, ty);
+        LOG_Z3_mk_fpa_numeral_int64_uint64(c, sgn, exp, sig, ty);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         scoped_mpf tmp(ctx->fpautil().fm());
