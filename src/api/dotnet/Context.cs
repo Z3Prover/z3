@@ -3706,7 +3706,7 @@ namespace Microsoft.Z3
         public FPNum MkFPNumeral(bool sgn, uint sig, int exp, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPNum(this, Native.Z3_mk_fpa_numeral_uint_int(nCtx, sgn ? 1 : 0, sig, exp, s.NativeObject));
+            return new FPNum(this, Native.Z3_mk_fpa_numeral_int_uint(nCtx, sgn ? 1 : 0, exp, sig, s.NativeObject));
         }
 
         /// <summary>
@@ -3716,10 +3716,10 @@ namespace Microsoft.Z3
         /// <param name="sig">the significand.</param>
         /// <param name="exp">the exponent.</param>
         /// <param name="s">FloatingPoint sort.</param>        
-        public FPNum MkFPNumeral(bool sgn, UInt64 sig, Int64 exp, FPSort s)
+        public FPNum MkFPNumeral(bool sgn, Int64 exp, UInt64 sig, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPNum(this, Native.Z3_mk_fpa_numeral_uint64_int64(nCtx, sgn ? 1 : 0, sig, exp, s.NativeObject));
+            return new FPNum(this, Native.Z3_mk_fpa_numeral_int64_uint64(nCtx, sgn ? 1 : 0, exp, sig, s.NativeObject));
         }
 
         /// <summary>
@@ -3765,7 +3765,7 @@ namespace Microsoft.Z3
         public FPNum MkFP(bool sgn, int exp, uint sig, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return MkFPNumeral(sgn, sig, exp, s);
+            return MkFPNumeral(sgn, exp, sig, s);
         }
 
         /// <summary>
@@ -3778,7 +3778,7 @@ namespace Microsoft.Z3
         public FPNum MkFP(bool sgn, Int64 exp, UInt64 sig, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return MkFPNumeral(sgn, sig, exp, s);
+            return MkFPNumeral(sgn, exp, sig, s);
         }
 
         #endregion

@@ -3043,9 +3043,9 @@ public class Context extends IDisposable
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/            
-    public FPNum mkFPNumeral(boolean sgn, int sig, int exp, FPSort s) throws Z3Exception
+    public FPNum mkFPNumeral(boolean sgn, int exp, int sig, FPSort s) throws Z3Exception
     {
-        return new FPNum(this, Native.mkFpaNumeralUintInt(nCtx(), sgn, sig, exp, s.getNativeObject()));    
+        return new FPNum(this, Native.mkFpaNumeralIntUint(nCtx(), sgn, exp, sig, s.getNativeObject()));    
     }
 
     /**
@@ -3056,9 +3056,9 @@ public class Context extends IDisposable
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/
-    public FPNum mkFPNumeral(boolean sgn, long sig, long exp, FPSort s) throws Z3Exception
+    public FPNum mkFPNumeral(boolean sgn, long exp, long sig, FPSort s) throws Z3Exception
     {
-        return new FPNum(this, Native.mkFpaNumeralUint64Int64(nCtx(), sgn, sig, exp, s.getNativeObject()));
+        return new FPNum(this, Native.mkFpaNumeralInt64Uint64(nCtx(), sgn, exp, sig, s.getNativeObject()));
     }
 
     /**
