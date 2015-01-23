@@ -948,7 +948,6 @@ namespace datalog {
 #if 0
         udoc_plugin::join_fn   m_joiner;
 #endif
-        union_find_default_ctx union_ctx;
         bit_vector             m_to_delete; 
 
     public:
