@@ -314,17 +314,13 @@ namespace datalog {
         doc_manager& dm;
         doc_manager& dm1;
         doc_manager& dm2;
-        unsigned_vector m_orig_cols1;
-        unsigned_vector m_orig_cols2;
     public:
         join_fn(udoc_plugin& p, udoc_relation const& t1, udoc_relation const& t2, unsigned col_cnt,
                 const unsigned * cols1, const unsigned * cols2) 
             : convenient_relation_join_fn(t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2),
               dm(p.dm(get_result_signature())),
               dm1(t1.get_dm()),
-              dm2(t2.get_dm()),
-              m_orig_cols1(m_cols1),
-              m_orig_cols2(m_cols2) {
+              dm2(t2.get_dm()) {
             t1.expand_column_vector(m_cols1);
             t2.expand_column_vector(m_cols2);
         }
