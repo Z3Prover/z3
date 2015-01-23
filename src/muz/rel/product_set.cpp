@@ -30,7 +30,7 @@ namespace datalog {
     product_set::product_set(
         product_set_plugin& p, relation_signature const& s, 
         initial_t init, T const& t):
-        vector_relation(p, s, false, t), m_refs(0) {
+        vector_relation<bit_vector>(p, s, false, t), m_refs(0) {
         unsigned delta = 0;
         for (unsigned i = 0; i < s.size(); ++i) {
             unsigned sz = p.set_size(s[i]);
