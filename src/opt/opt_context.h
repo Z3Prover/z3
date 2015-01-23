@@ -184,6 +184,7 @@ namespace opt {
         params_ref& params() { return m_params; }
         void enable_sls(expr_ref_vector const& soft, weights_t& weights);
         void set_enable_sls(bool f) { m_enable_sls = f; }
+        void set_soft_assumptions();
         symbol const& maxsat_engine() const { return m_maxsat_engine; }
         void get_base_model(model_ref& m);
 

@@ -914,17 +914,26 @@ namespace sat {
 
         for (unsigned i = 0; !inconsistent() && i < m_user_scope_literals.size(); ++i) {
             literal nlit = ~m_user_scope_literals[i];
-            assign(nlit, justification());       
-            //        propagate(false);         
+            assign(nlit, justification());                   
         }
 
         for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
             literal lit = lits[i];
             SASSERT(is_external((lit).var()));  
             m_assumption_set.insert(lit);       
-            m_assumptions.push_back(lit);       
-            assign(lit, justification());       
-            //        propagate(false);         
+
+            if (m_config.soft_assumptions) {
+                if (value(lit) == l_undef) {
+                    m_assumptions.push_back(lit);       
+                    assign(lit, justification());
+                }
+                propagate(false);         
+            }
+            else {
+                m_assumptions.push_back(lit);       
+                assign(lit, justification());       
+                //        propagate(false);         
+            }
         }
     }
 

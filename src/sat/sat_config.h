@@ -72,6 +72,7 @@ namespace sat {
         bool               m_minimize_core;
         bool               m_minimize_core_partial;
         bool               m_optimize_model;
+        bool               m_soft_assumptions;
         bool               m_bcd;
 
 

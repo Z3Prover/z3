@@ -493,6 +493,13 @@ namespace opt {
         }
     }
 
+    void context::set_soft_assumptions() {
+        if (m_sat_solver.get()) {
+            m_params.set_bool("soft_assumptions", true);
+            m_sat_solver->updt_params(m_params);
+        }
+    }
+
     void context::enable_sls(expr_ref_vector const& soft, vector<rational> const& weights) {
         SASSERT(soft.size() == weights.size());
         if (m_sat_solver.get()) {
