@@ -773,9 +773,9 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_to_fp_real_int(Z3_context c, Z3_ast rm, Z3_ast sig, Z3_ast exp, Z3_sort s) {
+    Z3_ast Z3_API Z3_mk_fpa_to_fp_int_real(Z3_context c, Z3_ast rm, Z3_ast exp, Z3_ast sig, Z3_sort s) {
         Z3_TRY;
-        LOG_Z3_mk_fpa_to_fp_real_int(c, rm, sig, exp, s);
+        LOG_Z3_mk_fpa_to_fp_int_real(c, rm, exp, sig, s);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();

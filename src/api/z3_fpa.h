@@ -501,10 +501,10 @@ extern "C" {
         t1, t2 must have the same FloatingPoint sort.
 
         def_API('Z3_mk_fpa_min', AST, (_in(CONTEXT),_in(AST),_in(AST)))
-        */
-        Z3_ast Z3_API Z3_mk_fpa_min(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    */
+    Z3_ast Z3_API Z3_mk_fpa_min(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
 
-        /**
+    /**
         \brief Maximum of floating-point numbers.
 
         \param c logical context
@@ -905,15 +905,15 @@ extern "C" {
 
         \param c logical context     
         \param rm term of RoundingMode sort
-        \param sig significand term of Real sort
         \param exp exponent term of Int sort
+        \param sig significand term of Real sort        
         \param s FloatingPoint sort
 
-        s must be a FloatingPoint sort, rm must be of RoundingMode sort, t must be of real sort.
+        s must be a FloatingPoint sort, rm must be of RoundingMode sort, exp must be of int sort, sig must be of real sort.
 
-        def_API('Z3_mk_fpa_to_fp_real_int', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST),_in(SORT)))
+        def_API('Z3_mk_fpa_to_fp_int_real', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST),_in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_fp_real_int(__in Z3_context c, __in Z3_ast rm, __in Z3_ast sig, __in Z3_ast exp, __in Z3_sort s);
+    Z3_ast Z3_API Z3_mk_fpa_to_fp_int_real(__in Z3_context c, __in Z3_ast rm, __in Z3_ast exp, __in Z3_ast sig, __in Z3_sort s);
 
     /*@}*/
 
