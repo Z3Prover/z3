@@ -314,94 +314,15 @@ namespace datalog {
         doc_manager& dm;
         doc_manager& dm1;
         doc_manager& dm2;
-        unsigned_vector m_orig_cols1;
-        unsigned_vector m_orig_cols2;
     public:
         join_fn(udoc_plugin& p, udoc_relation const& t1, udoc_relation const& t2, unsigned col_cnt,
                 const unsigned * cols1, const unsigned * cols2) 
             : convenient_relation_join_fn(t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2),
               dm(p.dm(get_result_signature())),
               dm1(t1.get_dm()),
-              dm2(t2.get_dm()),
-              m_orig_cols1(m_cols1),
-              m_orig_cols2(m_cols2) {
+              dm2(t2.get_dm()) {
             t1.expand_column_vector(m_cols1);
             t2.expand_column_vector(m_cols2);
-        }
-
-        void join(doc const& d1, doc const& d2, udoc& result) {
-            doc_ref d(dm);
-            tbv_ref t(dm.tbvm());
-            d = dm.allocateX();
-            tbv& pos = d->pos();
-            utbv& neg = d->neg();
-            unsigned mid = dm1.num_tbits();
-            unsigned hi  = dm.num_tbits();
-            dm.tbvm().set(pos,d1.pos(), mid-1, 0);
-            dm.tbvm().set(pos,d2.pos(), hi-1, mid);
-            SASSERT(dm.well_formed(*d));
-            // first fix bits
-            for (unsigned i = 0; i < m_cols1.size(); ++i) {
-                unsigned idx1 = m_cols1[i];
-                unsigned idx2 = mid + m_cols2[i];
-                tbit v1 = pos[idx1];
-                tbit v2 = pos[idx2];
-
-                if (v1 == BIT_x) {
-                    if (v2 != BIT_x)
-                        dm.tbvm().set(pos, idx1, v2);
-                } 
-                else if (v2 == BIT_x) {
-                    dm.tbvm().set(pos, idx2, v1);
-                } 
-                else if (v1 != v2) {
-                    // columns don't match
-                    return;
-                }
-                SASSERT(dm.well_formed(*d));
-            }
-            // fix equality of don't care columns
-            for (unsigned i = 0; i < m_cols1.size(); ++i) {
-                unsigned idx1 = m_cols1[i];
-                unsigned idx2 = mid + m_cols2[i];
-                unsigned v1 = pos[idx1];
-                unsigned v2 = pos[idx2];
-                
-                if (v1 == BIT_x && v2 == BIT_x) {
-                    // add to subtracted TBVs: 1xx0 and 0xx1
-                    t = dm.tbvm().allocate(pos);
-                    dm.tbvm().set(*t, idx1, BIT_0);
-                    dm.tbvm().set(*t, idx2, BIT_1);
-                    neg.push_back(t.detach());                    
-                    t = dm.tbvm().allocate(pos);
-                    dm.tbvm().set(*t, idx1, BIT_1);
-                    dm.tbvm().set(*t, idx2, BIT_0);
-                    neg.push_back(t.detach());
-                }
-                SASSERT(dm.well_formed(*d));
-            }
-
-            // handle subtracted TBVs:  1010 -> 1010xxx
-            for (unsigned i = 0; i < d1.neg().size(); ++i) {
-                t = dm.tbvm().allocate();
-                dm.tbvm().set(*t, d1.neg()[i], mid - 1, 0);
-                dm.tbvm().set(*t, d2.pos(),    hi -  1, mid);
-                if (dm.tbvm().set_and(*t, pos)) {
-                    neg.push_back(t.detach());
-                }
-                SASSERT(dm.well_formed(*d));
-            }
-            for (unsigned i = 0; i < d2.neg().size(); ++i) {
-                t = dm.tbvm().allocate();
-                dm.tbvm().set(*t, d1.pos(),    mid- 1, 0);
-                dm.tbvm().set(*t, d2.neg()[i], hi - 1, mid);
-                if (dm.tbvm().set_and(*t, pos)) {
-                    neg.push_back(t.detach());
-                }
-                SASSERT(dm.well_formed(*d));
-            }            
-            SASSERT(dm.well_formed(*d));
-            result.insert(dm, d.detach());
         }
 
         virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
@@ -414,11 +335,7 @@ namespace datalog {
             udoc const& d1 = r1.get_udoc();
             udoc const& d2 = r2.get_udoc();
             udoc& r = result->get_udoc();
-            for (unsigned i = 0; i < d1.size(); ++i) {
-                for (unsigned j = 0; j < d2.size(); ++j) {
-                    join(d1[i], d2[j], r);
-                }
-            }
+            r.join(d1, d2, dm, dm1, m_cols1, m_cols2);
             TRACE("doc", result->display(tout << "result:\n"););
             IF_VERBOSE(3, result->display(verbose_stream() << "join result:\n"););
             SASSERT(r.well_formed(result->get_dm()));
@@ -1054,11 +971,9 @@ namespace datalog {
             unsigned num_bits1 = t1.get_num_bits();
             unsigned num_bits = num_bits1 + t2.get_num_bits();
             unsigned_vector removed_cols(removed_col_cnt, rm_cols);
-            unsigned_vector expcols1(col_cnt, cols1);
-            unsigned_vector expcols2(col_cnt, cols2);
             t1.expand_column_vector(removed_cols, &t2);
-            t1.expand_column_vector(expcols1);
-            t2.expand_column_vector(expcols2);
+            t1.expand_column_vector(m_cols1);
+            t2.expand_column_vector(m_cols2);
             m_to_delete.resize(num_bits, false);
             for (unsigned i = 0; i < num_bits; ++i) {
                 m_equalities.mk_var();
@@ -1066,10 +981,10 @@ namespace datalog {
             for (unsigned i = 0; i < removed_cols.size(); ++i) {
                 m_to_delete.set(removed_cols[i], true);
             }
-            for (unsigned i = 0; i < expcols1.size(); ++i) {
-                m_equalities.merge(expcols1[i], expcols2[i] + num_bits1);                
+            for (unsigned i = 0; i < m_cols1.size(); ++i) {
+                m_equalities.merge(m_cols1[i], m_cols2[i] + num_bits1);
             }
-            m_roots.append(expcols1);
+            m_roots.append(m_cols1);
         }
 
 
@@ -1107,11 +1022,7 @@ namespace datalog {
             udoc_relation* result = get(p.mk_empty(get_result_signature()));
             udoc& res = result->get_udoc();
             doc_manager& dm_res  = result->get_dm();            
-            for (unsigned i = 0; i < d1.size(); ++i) {
-                for (unsigned j = 0; j < d2.size(); ++j) {
-                    prod.push_back(xprod(dm_prod, dm1, dm2, d1[i], d2[j]));
-                }
-            }
+            prod.join(d1, d2, dm_prod, dm1, m_cols1, m_cols2);
             TRACE("doc", prod.display(dm_prod, tout) << "\n";);
             prod.merge(dm_prod, m_roots, m_equalities, m_to_delete);
             TRACE("doc", prod.display(dm_prod, tout) << "\n";);
@@ -1122,38 +1033,6 @@ namespace datalog {
             prod.reset(dm_prod);
             return result;            
         }
-        doc* xprod(doc_manager& dm, doc_manager& dm1, doc_manager& dm2,
-                   doc const& d1, doc const& d2) {
-            tbv_manager& tbm = dm.tbvm();
-            doc_ref d(dm);
-            tbv_ref t(tbm);
-            d = dm.allocateX();
-            tbv& pos = d->pos();
-            utbv& neg = d->neg();
-            unsigned mid = dm1.num_tbits();
-            unsigned hi  = dm.num_tbits();
-            tbm.set(pos, d1.pos(), mid-1, 0);
-            tbm.set(pos, d2.pos(), hi-1, mid);
-            for (unsigned i = 0; i < d1.neg().size(); ++i) {
-                t = tbm.allocateX();
-                tbm.set(*t, d1.neg()[i], mid-1, 0);
-                VERIFY(tbm.set_and(*t, pos));
-                neg.push_back(t.detach());
-            }
-            for (unsigned i = 0; i < d2.neg().size(); ++i) {
-                t = tbm.allocateX();
-                tbm.set(*t, d2.neg()[i], hi-1, mid);
-                VERIFY(tbm.set_and(*t, pos));
-                neg.push_back(t.detach());
-            }
-            SASSERT(dm.well_formed(*d));
-            TRACE("doc", 
-                  dm1.display(tout, d1) << "\n";
-                  dm2.display(tout, d2) << "\n";
-                  dm.display(tout, *d) << "\n";);
-            return d.detach();
-        }
-
     };
 
 

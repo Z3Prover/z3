@@ -411,6 +411,81 @@ doc* doc_manager::project(doc_manager& dstm, bit_vector const& to_delete, doc co
     return r;
 }
 
+doc* doc_manager::join(const doc& d1, const doc& d2, doc_manager& dm1,
+                       const unsigned_vector& cols1,
+                       const unsigned_vector& cols2) {
+    doc_ref d(*this, allocateX());
+    tbv_ref t(m);
+    tbv& pos = d->pos();
+    utbv& neg = d->neg();
+    unsigned mid = dm1.num_tbits();
+    unsigned hi = num_tbits();
+    m.set(pos, d1.pos(), mid - 1, 0);
+    m.set(pos, d2.pos(), hi - 1, mid);
+    SASSERT(well_formed(*d));
+
+    // first fix bits
+    for (unsigned i = 0; i < cols1.size(); ++i) {
+        unsigned idx1 = cols1[i];
+        unsigned idx2 = mid + cols2[i];
+        tbit v1 = pos[idx1];
+        tbit v2 = pos[idx2];
+
+        if (v1 == BIT_x) {
+            if (v2 != BIT_x)
+                m.set(pos, idx1, v2);
+        }
+        else if (v2 == BIT_x) {
+            m.set(pos, idx2, v1);
+        }
+        else if (v1 != v2) {
+            // columns don't match
+            return 0;
+        }
+        SASSERT(well_formed(*d));
+    }
+
+    // fix equality of don't care columns
+    for (unsigned i = 0; i < cols1.size(); ++i) {
+        unsigned idx1 = cols1[i];
+        unsigned idx2 = mid + cols2[i];
+        unsigned v1 = pos[idx1];
+        unsigned v2 = pos[idx2];
+
+        if (v1 == BIT_x && v2 == BIT_x) {
+            // add to subtracted TBVs: 1xx0 and 0xx1
+            t = m.allocate(pos);
+            m.set(*t, idx1, BIT_0);
+            m.set(*t, idx2, BIT_1);
+            neg.push_back(t.detach());
+            t = m.allocate(pos);
+            m.set(*t, idx1, BIT_1);
+            m.set(*t, idx2, BIT_0);
+            neg.push_back(t.detach());
+        }
+        SASSERT(well_formed(*d));
+    }
+
+    // handle subtracted TBVs:  1010 -> 1010xxx
+    for (unsigned i = 0; i < d1.neg().size(); ++i) {
+        t = m.allocateX();
+        m.set(*t, d1.neg()[i], mid - 1, 0);
+        if (m.set_and(*t, pos))
+            neg.push_back(t.detach());
+        SASSERT(well_formed(*d));
+    }
+    for (unsigned i = 0; i < d2.neg().size(); ++i) {
+        t = m.allocateX();
+        m.set(*t, d2.neg()[i], hi - 1, mid);
+        if (m.set_and(*t, pos))
+            neg.push_back(t.detach());
+        SASSERT(well_formed(*d));
+    }
+    SASSERT(well_formed(*d));
+
+    return d.detach();
+}
+
 doc_manager::project_action_t 
 doc_manager::pick_resolvent(
     tbv const& pos, tbv_vector const& neg, bit_vector const& to_delete, unsigned& idx) {
