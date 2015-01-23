@@ -950,8 +950,6 @@ namespace datalog {
 #endif
         union_find_default_ctx union_ctx;
         bit_vector             m_to_delete; 
-        subset_ints            m_equalities;
-        unsigned_vector        m_roots;
 
     public:
         join_project_fn(
@@ -961,11 +959,10 @@ namespace datalog {
             : convenient_relation_join_project_fn(
                 t1.get_signature(), t2.get_signature(), 
                 col_cnt, cols1, cols2,
-                removed_col_cnt, rm_cols),
+                removed_col_cnt, rm_cols)
 #if 0
-              m_joiner(t1.get_plugin(), t1, t2, col_cnt, cols1, cols2),
+              , m_joiner(t1.get_plugin(), t1, t2, col_cnt, cols1, cols2)
 #endif
-              m_equalities(union_ctx)
         {
             udoc_plugin& p = t1.get_plugin();
             unsigned num_bits1 = t1.get_num_bits();
@@ -975,16 +972,9 @@ namespace datalog {
             t1.expand_column_vector(m_cols1);
             t2.expand_column_vector(m_cols2);
             m_to_delete.resize(num_bits, false);
-            for (unsigned i = 0; i < num_bits; ++i) {
-                m_equalities.mk_var();
-            }
             for (unsigned i = 0; i < removed_cols.size(); ++i) {
                 m_to_delete.set(removed_cols[i], true);
             }
-            for (unsigned i = 0; i < m_cols1.size(); ++i) {
-                m_equalities.merge(m_cols1[i], m_cols2[i] + num_bits1);
-            }
-            m_roots.append(m_cols1);
         }
 
 
@@ -1023,8 +1013,6 @@ namespace datalog {
             udoc& res = result->get_udoc();
             doc_manager& dm_res  = result->get_dm();            
             prod.join(d1, d2, dm_prod, dm1, m_cols1, m_cols2);
-            TRACE("doc", prod.display(dm_prod, tout) << "\n";);
-            prod.merge(dm_prod, m_roots, m_equalities, m_to_delete);
             TRACE("doc", prod.display(dm_prod, tout) << "\n";);
             for (unsigned i = 0; i < prod.size(); ++i) {
                 res.insert(dm_res, dm_prod.project(dm_res, m_to_delete, prod[i]));
