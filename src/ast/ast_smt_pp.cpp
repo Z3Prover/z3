@@ -1003,7 +1003,7 @@ public:
             visit_sort(d->get_domain(i), true);
         }
         m_out << ")";
-	}
+    }
 };
 
 

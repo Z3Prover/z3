@@ -31,6 +31,7 @@ try:
     cleanup_API('../src/api/z3_polynomial.h', 'tmp/z3_polynomial.h')
     cleanup_API('../src/api/z3_rcf.h', 'tmp/z3_rcf.h')
     cleanup_API('../src/api/z3_interp.h', 'tmp/z3_interp.h')
+    cleanup_API('../src/api/z3_fpa.h', 'tmp/z3_fpa.h')
     
     print "Removed annotations from z3_api.h."
     try:
@@ -46,6 +47,7 @@ try:
     os.remove('tmp/z3_polynomial.h')
     os.remove('tmp/z3_rcf.h')
     os.remove('tmp/z3_interp.h')
+    os.remove('tmp/z3_fpa.h')
     print "Removed temporary file z3_api.h."
     os.remove('tmp/website.dox')	
     print "Removed temporary file website.dox"

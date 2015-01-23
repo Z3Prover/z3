@@ -75,7 +75,7 @@ public:
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpq const & value);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, char const * value);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpq const & significand, mpz const & exponent);
-    void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, uint64 significand, int exponent);
+    void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, uint64 significand, mpf_exp_t exponent);
     void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpz const & significand, mpf_exp_t exponent);	
     void set(mpf & o, mpf const & x);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpf const & x);
@@ -146,7 +146,22 @@ public:
     
     bool sgn(mpf const & x) const { return x.sign; }
     const mpz & sig(mpf const & x) const { return x.significand; }
+    void sig_normalized(mpf const & x, mpz & res) { 
+        mpf t;
+        set(t, x);
+        unpack(t, true);
+        mpz_manager().set(res, t.significand);
+        del(t);
+    }
     const mpf_exp_t & exp(mpf const & x) const { return x.exponent; }
+    mpf_exp_t exp_normalized(mpf const & x) { 
+        mpf t;
+        set(t, x);
+        unpack(t, true);
+        mpf_exp_t r = t.exponent;
+        del(t);
+        return r;
+    }
 
     bool is_nan(mpf const & x);
     bool is_inf(mpf const & x);

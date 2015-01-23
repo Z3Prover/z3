@@ -22,7 +22,7 @@ Notes:
 #include"bv_rewriter.h"
 #include"datatype_rewriter.h"
 #include"array_rewriter.h"
-#include"float_rewriter.h"
+#include"fpa_rewriter.h"
 
 struct mk_simplified_app::imp {
     ast_manager &         m;
@@ -31,7 +31,7 @@ struct mk_simplified_app::imp {
     bv_rewriter           m_bv_rw;
     array_rewriter        m_ar_rw;
     datatype_rewriter     m_dt_rw;
-    float_rewriter        m_f_rw;
+    fpa_rewriter          m_f_rw;
 
     imp(ast_manager & _m, params_ref const & p):
         m(_m),

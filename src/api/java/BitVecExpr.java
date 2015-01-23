@@ -37,11 +37,6 @@ public class BitVecExpr extends Expr
 	/**
 	 * Constructor for BitVecExpr
 	 **/
-	BitVecExpr(Context ctx)
-	{
-		super(ctx);
-	}
-
 	BitVecExpr(Context ctx, long obj) throws Z3Exception
 	{
 		super(ctx, obj);

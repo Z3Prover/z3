@@ -32,11 +32,6 @@ namespace Microsoft.Z3
     {
         #region Internal
         /// <summary> Constructor for DatatypeExpr </summary>
-        internal protected DatatypeExpr(Context ctx)
-            : base(ctx)
-        {
-            Contract.Requires(ctx != null);
-        }
         internal DatatypeExpr(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
