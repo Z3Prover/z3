@@ -274,7 +274,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_fp(__in Z3_context c, __in Z3_ast sgn, __in Z3_ast exp, __in Z3_ast sig);
 
     /**
-    \brief Create a numeral of FloatingPoint sort from a float.
+        \brief Create a numeral of FloatingPoint sort from a float.
 
         This function is used to create numerals that fit in a float value.
         It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
@@ -292,20 +292,20 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_numeral_float(__in Z3_context c, __in float v, __in Z3_sort ty);
 
     /**
-       \brief Create a numeral of FloatingPoint sort from a double. 
+        \brief Create a numeral of FloatingPoint sort from a double. 
        
-       This function is used to create numerals that fit in a double value.
-       It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
+        This function is used to create numerals that fit in a double value.
+        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
-       \param c logical context
-       \param v value
-       \param ty sort
+        \param c logical context
+        \param v value
+        \param ty sort
 
-       ty must be a FloatingPoint sort
+        ty must be a FloatingPoint sort
 
-       \sa Z3_mk_numeral
+        \sa Z3_mk_numeral
 
-       def_API('Z3_mk_fpa_numeral_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
+        def_API('Z3_mk_fpa_numeral_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
     */
     Z3_ast Z3_API Z3_mk_fpa_numeral_double(__in Z3_context c, __in double v, __in Z3_sort ty);
 
