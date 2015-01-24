@@ -64,6 +64,7 @@ VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
 VS_X64 = False
+LINUX_X64 = True
 ONLY_MAKEFILES = False
 Z3PY_SRC_DIR=None
 VS_PROJ = False
@@ -389,7 +390,8 @@ def find_ml_lib():
     return
 
 def is64():
-    return sys.maxsize >= 2**32
+    global LINUX_X64
+    return LINUX_X64 and sys.maxsize >= 2**32
 
 def check_ar():
     if is_verbose():
@@ -505,6 +507,8 @@ def display_help(exit_code):
     print("  -t, --trace                   enable tracing in release mode.")
     if IS_WINDOWS:
         print("  -x, --x64                     create 64 binary when using Visual Studio.")
+    else:
+        print("  --x86                         force 32-bit x86 build on x64 systems.")
     print("  -m, --makefiles               generate only makefiles.")
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
@@ -536,12 +540,13 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
+    global LINUX_X64
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'ml'])
+                                                'githash=', 'x86'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -560,6 +565,8 @@ def parse_options():
             if not IS_WINDOWS:
                 raise MKException('x64 compilation mode can only be specified when using Visual Studio')
             VS_X64 = True
+	elif opt in ('--x86'):
+            LINUX_X64=False
         elif opt in ('-h', '--help'):
             display_help(0)
         elif opt in ('-m', '--onlymakefiles'):
@@ -1823,6 +1830,10 @@ def mk_config():
             CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
                 CPPFLAGS = '%s -D_USE_THREAD_LOCAL' % CPPFLAGS
+        elif not LINUX_X64:
+            CXXFLAGS     = '%s -m32' % CXXFLAGS
+            LDFLAGS      = '%s -m32' % LDFLAGS
+            SLIBFLAGS    = '%s -m32' % SLIBFLAGS
         if DEBUG_MODE:
             CPPFLAGS     = '%s -DZ3DEBUG' % CPPFLAGS
         if TRACE or DEBUG_MODE:

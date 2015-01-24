@@ -4227,13 +4227,13 @@ namespace Microsoft.Z3
         /// according to rounding mode rm.
         /// </remarks>
         /// <param name="rm">RoundingMode term.</param>
-        /// <param name="sig">Significand term of Real sort.</param>
         /// <param name="exp">Exponent term of Int sort.</param>
+        /// <param name="sig">Significand term of Real sort.</param>        
         /// <param name="s">FloatingPoint sort.</param>
-        public BitVecExpr MkFPToFP(FPRMExpr rm, RealExpr sig, IntExpr exp, FPSort s)
+        public BitVecExpr MkFPToFP(FPRMExpr rm, IntExpr exp, RealExpr sig, FPSort s)
         {
             Contract.Ensures(Contract.Result<BitVecExpr>() != null);
-            return new BitVecExpr(this, Native.Z3_mk_fpa_to_fp_real_int(this.nCtx, rm.NativeObject, sig.NativeObject, exp.NativeObject, s.NativeObject));
+            return new BitVecExpr(this, Native.Z3_mk_fpa_to_fp_int_real(this.nCtx, rm.NativeObject, exp.NativeObject, sig.NativeObject, s.NativeObject));
         }
         #endregion
         #endregion // Floating-point Arithmetic

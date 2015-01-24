@@ -274,7 +274,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_fp(__in Z3_context c, __in Z3_ast sgn, __in Z3_ast exp, __in Z3_ast sig);
 
     /**
-    \brief Create a numeral of FloatingPoint sort from a float.
+        \brief Create a numeral of FloatingPoint sort from a float.
 
         This function is used to create numerals that fit in a float value.
         It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
@@ -292,20 +292,20 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_numeral_float(__in Z3_context c, __in float v, __in Z3_sort ty);
 
     /**
-       \brief Create a numeral of FloatingPoint sort from a double. 
+        \brief Create a numeral of FloatingPoint sort from a double. 
        
-       This function is used to create numerals that fit in a double value.
-       It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
+        This function is used to create numerals that fit in a double value.
+        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
-       \param c logical context
-       \param v value
-       \param ty sort
+        \param c logical context
+        \param v value
+        \param ty sort
 
-       ty must be a FloatingPoint sort
+        ty must be a FloatingPoint sort
 
-       \sa Z3_mk_numeral
+        \sa Z3_mk_numeral
 
-       def_API('Z3_mk_fpa_numeral_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
+        def_API('Z3_mk_fpa_numeral_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
     */
     Z3_ast Z3_API Z3_mk_fpa_numeral_double(__in Z3_context c, __in double v, __in Z3_sort ty);
 
@@ -501,10 +501,10 @@ extern "C" {
         t1, t2 must have the same FloatingPoint sort.
 
         def_API('Z3_mk_fpa_min', AST, (_in(CONTEXT),_in(AST),_in(AST)))
-        */
-        Z3_ast Z3_API Z3_mk_fpa_min(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    */
+    Z3_ast Z3_API Z3_mk_fpa_min(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
 
-        /**
+    /**
         \brief Maximum of floating-point numbers.
 
         \param c logical context
@@ -905,15 +905,15 @@ extern "C" {
 
         \param c logical context     
         \param rm term of RoundingMode sort
-        \param sig significand term of Real sort
         \param exp exponent term of Int sort
+        \param sig significand term of Real sort        
         \param s FloatingPoint sort
 
-        s must be a FloatingPoint sort, rm must be of RoundingMode sort, t must be of real sort.
+        s must be a FloatingPoint sort, rm must be of RoundingMode sort, exp must be of int sort, sig must be of real sort.
 
-        def_API('Z3_mk_fpa_to_fp_real_int', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST),_in(SORT)))
+        def_API('Z3_mk_fpa_to_fp_int_real', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST),_in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_fp_real_int(__in Z3_context c, __in Z3_ast rm, __in Z3_ast sig, __in Z3_ast exp, __in Z3_sort s);
+    Z3_ast Z3_API Z3_mk_fpa_to_fp_int_real(__in Z3_context c, __in Z3_ast rm, __in Z3_ast exp, __in Z3_ast sig, __in Z3_sort s);
 
     /*@}*/
 

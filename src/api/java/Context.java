@@ -3542,8 +3542,8 @@ public class Context extends IDisposable
     /**
      * Conversion of a real-sorted significand and an integer-sorted exponent into a term of FloatingPoint sort.
      * @param rm RoundingMode term.
-     * @param sig Significand term of Real sort.
      * @param exp Exponent term of Int sort.
+     * @param sig Significand term of Real sort.
      * @param s FloatingPoint sort.
      * Remarks:
      * Produces a term that represents the conversion of sig * 2^exp into a 
@@ -3552,9 +3552,9 @@ public class Context extends IDisposable
      * @throws Z3Exception 
      **/
          
-    public BitVecExpr mkFPToFP(FPRMExpr rm, RealExpr sig, IntExpr exp, FPSort s) throws Z3Exception
+    public BitVecExpr mkFPToFP(FPRMExpr rm, IntExpr exp, RealExpr sig, FPSort s) throws Z3Exception
     {
-        return new BitVecExpr(this, Native.mkFpaToFpRealInt(nCtx(), rm.getNativeObject(), sig.getNativeObject(), exp.getNativeObject(), s.getNativeObject()));
+        return new BitVecExpr(this, Native.mkFpaToFpIntReal(nCtx(), rm.getNativeObject(), exp.getNativeObject(), sig.getNativeObject(), s.getNativeObject()));
     }
     
     
