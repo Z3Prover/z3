@@ -282,13 +282,11 @@ let fpa_example ( ctx : context ) =
       Printf.printf "Test passed.\n"
   );
 
-(*  Show that the following are equal: *)
-(* (fp #b0 #b10000000001 #xc000000000000)  *)
-(* ((_ to_fp 11 53) #x401c000000000000)) *)
-(* ((_ to_fp 11 53) RTZ 1.75 2))) *)
-(* ((_ to_fp 11 53) RTZ 7.0))) *)
-	
-  let solver = (mk_solver ctx None) in
+  (*  Show that the following are equal: *)
+  (* (fp #b0 #b10000000001 #xc000000000000)  *)
+  (* ((_ to_fp 11 53) #x401c000000000000)) *)
+  (* ((_ to_fp 11 53) RTZ 1.75 2))) *)
+  (* ((_ to_fp 11 53) RTZ 7.0))) *)
   let c1 = (mk_fp ctx 
  			  (mk_numeral_string ctx "0" (BitVector.mk_sort ctx 1))
  			  (mk_numeral_string ctx "3377699720527872" (BitVector.mk_sort ctx 52))			  
