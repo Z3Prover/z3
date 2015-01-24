@@ -1,5 +1,3 @@
-### This is work-in-progress.
-
 Small example using the Z3 ML bindings.
 To build the example execute
    make examples
