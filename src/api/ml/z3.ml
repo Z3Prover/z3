@@ -1479,9 +1479,9 @@ struct
 
   let is_modulus ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MOD)
 
-  let is_inttoreal ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_REAL)
+  let is_int2real ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_REAL)
 
-  let is_real_to_int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_INT)
+  let is_real2int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_INT)
 
   let is_real_is_int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IS_INT)
 
@@ -1686,8 +1686,8 @@ struct
   let is_bv_rotateright ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ROTATE_RIGHT)
   let is_bv_rotateleftextended ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXT_ROTATE_LEFT)
   let is_bv_rotaterightextended ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXT_ROTATE_RIGHT) 
-  let is_int_to_bv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_INT2BV)
-  let is_bv_to_int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BV2INT)
+  let is_int2bv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_INT2BV)
+  let is_bv2int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BV2INT)
   let is_bv_carry ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CARRY)
   let is_bv_xor3 ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_XOR3)
   let get_size (x : sort ) = Z3native.get_bv_sort_size (Sort.gnc x) (Sort.gno x)
@@ -1847,6 +1847,7 @@ struct
 	(sort_of_ptr ctx (Z3native.mk_fpa_sort_quadruple (context_gno ctx)))
   let mk_sort_128 ( ctx : context ) =
 	(sort_of_ptr ctx (Z3native.mk_fpa_sort_128 (context_gno ctx)))
+
   let mk_nan ( ctx : context ) ( s : sort ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_nan (context_gno ctx) (Sort.gno s)))
   let mk_inf ( ctx : context ) ( s : sort ) ( negative : bool ) =
@@ -1857,11 +1858,11 @@ struct
   let mk_fp ( ctx : context ) ( sign : expr ) ( exponent : expr ) ( significand : expr ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_fp (context_gno ctx) (Expr.gno sign) (Expr.gno exponent) (Expr.gno significand)))
   let mk_numeral_f ( ctx : context ) ( value : float ) ( s : sort ) =
-	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_double (context_gno ctx) value (Sort.gno s))) 
+	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_double (context_gno ctx) value (Sort.gno s)))
   let mk_numeral_i ( ctx : context ) ( value : int ) ( s : sort ) =
-	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_int (context_gno ctx) value (Sort.gno s))) 
+	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_int (context_gno ctx) value (Sort.gno s)))
   let mk_numeral_i_u ( ctx : context ) ( sign : bool ) ( exponent : int ) ( significand : int ) ( s : sort ) =
-	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_int64_uint64 (context_gno ctx) sign exponent significand (Sort.gno s))) 
+	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_int64_uint64 (context_gno ctx) sign exponent significand (Sort.gno s)))
   let mk_numeral_s ( ctx : context ) ( v : string ) ( s : sort ) =
     (expr_of_ptr ctx (Z3native.mk_numeral (context_gno ctx) v (Sort.gno s)))
 
@@ -1961,11 +1962,11 @@ struct
     expr_of_ptr ctx (Z3native.mk_fpa_to_fp_signed (context_gno ctx) (Expr.gno rm) (Expr.gno t) (Sort.gno s))
   let mk_to_fp_unsigned  ( ctx : context ) ( rm : expr) ( t : expr ) ( s : sort ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_fp_unsigned (context_gno ctx) (Expr.gno rm) (Expr.gno t) (Sort.gno s))
-  let mk_to_fp_ubv ( ctx : context ) ( rm : expr) ( t : expr ) ( size : int ) =
+  let mk_to_ubv ( ctx : context ) ( rm : expr) ( t : expr ) ( size : int ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_ubv (context_gno ctx) (Expr.gno rm) (Expr.gno t) size)
-  let mk_to_fp_sbv ( ctx : context ) ( rm : expr) ( t : expr ) ( size : int ) =
+  let mk_to_sbv ( ctx : context ) ( rm : expr) ( t : expr ) ( size : int ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_sbv (context_gno ctx) (Expr.gno rm) (Expr.gno t) size)
-  let mk_to_fp_real ( ctx : context ) ( t : expr ) =
+  let mk_to_real ( ctx : context ) ( t : expr ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_real (context_gno ctx) (Expr.gno t))
 
   let get_ebits ( ctx : context ) ( s : sort ) =
@@ -1983,8 +1984,8 @@ struct
 
   let mk_to_ieee_bv ( ctx : context ) ( t : expr ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_to_ieee_bv (context_gno ctx) (Expr.gno t)))
-  let mk_to_fp_real_int ( ctx : context ) ( rm : expr ) ( exponent : expr ) ( significand : expr ) ( s : sort) =
-	(expr_of_ptr ctx (Z3native.mk_fpa_to_fp_real_int (context_gno ctx) (Expr.gno rm) (Expr.gno exponent) (Expr.gno significand) (Sort.gno s)))
+  let mk_to_fp_int_real ( ctx : context ) ( rm : expr ) ( exponent : expr ) ( significand : expr ) ( s : sort ) =
+	(expr_of_ptr ctx (Z3native.mk_fpa_to_fp_int_real (context_gno ctx) (Expr.gno rm) (Expr.gno exponent) (Expr.gno significand) (Sort.gno s)))
 
   let numeral_to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
 end

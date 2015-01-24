@@ -546,7 +546,7 @@ def parse_options():
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'x86'])
+                                                'githash=', 'x86', 'ml'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)

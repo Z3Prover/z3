@@ -247,6 +247,8 @@ open Z3.FloatingPoint
 **)
 let fpa_example ( ctx : context ) =
   Printf.printf "FPAExample\n" ;
+  (* let str = ref "" in *)
+  (* (read_line ()) ; *)
   let double_sort = (FloatingPoint.mk_sort_double ctx) in
   let rm_sort = (FloatingPoint.RoundingMode.mk_sort ctx) in
 
@@ -257,63 +259,64 @@ let fpa_example ( ctx : context ) =
   let s_y = (mk_string ctx "y") in
   let x = (mk_const ctx s_x double_sort) in
   let y = (mk_const ctx s_y double_sort)in
-  Printf.printf "A\n" ;
-  let n = (mk_numeral_f ctx 42.0 double_sort) in
-  Printf.printf "B\n" ;
+  let n = (FloatingPoint.mk_numeral_f ctx 42.0 double_sort) in
   let s_x_plus_y = (mk_string ctx "x_plus_y") in
   let x_plus_y = (mk_const ctx s_x_plus_y double_sort) in
   let c1 = (mk_eq ctx x_plus_y (mk_add ctx rm x y)) in
   let args = [ c1 ; (mk_eq ctx x_plus_y n) ] in
   let c2 = (Boolean.mk_and ctx args) in
-  let args2 = [ c2 ; (Boolean.mk_not ctx (mk_eq ctx rm (RoundingMode.mk_rtz ctx))) ] in
+  let args2 = [ c2 ; (Boolean.mk_not ctx (Boolean.mk_eq ctx rm (RoundingMode.mk_rtz ctx))) ] in
   let c3 = (Boolean.mk_and ctx args2) in
   let and_args = [ (Boolean.mk_not ctx (mk_is_zero ctx y)) ;
 				   (Boolean.mk_not ctx (mk_is_nan ctx y)) ;
 				   (Boolean.mk_not ctx (mk_is_infinite ctx y)) ] in
   let args3 = [ c3 ; (Boolean.mk_and ctx and_args) ] in
-  let c4 = (Boolean.mk_and ctx args3) in
-  
-  (Printf.printf "c4: %s\n" (Expr.to_string c4))
-	(* push(ctx); *)
-	(* Z3_assert_cnstr(ctx, c4); *)
-	(* check(ctx, Z3_L_TRUE); *)
-	(* Z3_pop(ctx, 1); *)
+  let c4 = (Boolean.mk_and ctx args3) in  
+  (Printf.printf "c4: %s\n" (Expr.to_string c4)) ;
+  (
+    let solver = (mk_solver ctx None) in
+	(Solver.add solver [ c4 ]) ;
+    if (check solver []) != SATISFIABLE then
+      raise (TestFailedException "")
+    else
+      Printf.printf "Test passed.\n"
+  );
 
-	(* // Show that the following are equal: *)
-	(* //   (fp #b0 #b10000000001 #xc000000000000)  *)
-	(* //   ((_ to_fp 11 53) #x401c000000000000)) *)
-	(* //   ((_ to_fp 11 53) RTZ 1.75 2))) *)
-	(* //   ((_ to_fp 11 53) RTZ 7.0))) *)
+(*  Show that the following are equal: *)
+(* (fp #b0 #b10000000001 #xc000000000000)  *)
+(* ((_ to_fp 11 53) #x401c000000000000)) *)
+(* ((_ to_fp 11 53) RTZ 1.75 2))) *)
+(* ((_ to_fp 11 53) RTZ 7.0))) *)
 	
-	(* Z3_push(ctx); *)
-	(* c1 = Z3_mk_fpa_fp(ctx,  *)
-	(* 				  Z3_mk_numeral(ctx, "0", Z3_mk_bv_sort(ctx, 1)), *)
-	(* 				  Z3_mk_numeral(ctx, "3377699720527872", Z3_mk_bv_sort(ctx, 52)), *)
-	(* 				  Z3_mk_numeral(ctx, "1025", Z3_mk_bv_sort(ctx, 11))); *)
-	(* c2 = Z3_mk_fpa_to_fp_bv(ctx, *)
-	(* 						Z3_mk_numeral(ctx, "4619567317775286272", Z3_mk_bv_sort(ctx, 64)), *)
-	(* 						Z3_mk_fpa_sort(ctx, 11, 53)); *)
-	(* c3 = Z3_mk_fpa_to_fp_real_int(ctx, *)
-    (*                               Z3_mk_fpa_rtz(ctx), *)
-    (*                               Z3_mk_numeral(ctx, "1.75", Z3_mk_real_sort(ctx)), *)
-    (*                               Z3_mk_numeral(ctx, "2", Z3_mk_int_sort(ctx)), *)
-    (*                               Z3_mk_fpa_sort(ctx, 11, 53)); *)
-	(* c4 = Z3_mk_fpa_to_fp_real(ctx, *)
-	(* 						  Z3_mk_fpa_rtz(ctx), *)
-	(* 						  Z3_mk_numeral(ctx, "7.0", Z3_mk_real_sort(ctx)), *)
-	(* 						  Z3_mk_fpa_sort(ctx, 11, 53)); *)
-	(* args3[0] = Z3_mk_eq(ctx, c1, c2); *)
-	(* args3[1] = Z3_mk_eq(ctx, c1, c3); *)
-	(* args3[2] = Z3_mk_eq(ctx, c1, c4); *)
-	(* c5 = Z3_mk_and(ctx, 3, args3); *)
-
-	(* printf("c5: %s\n", Z3_ast_to_string(ctx, c5)); *)
-	(* Z3_assert_cnstr(ctx, c5); *)
-	(* check(ctx, Z3_L_TRUE); *)
-	(* Z3_pop(ctx, 1); *)
-
-    (* Z3_del_context(ctx); *)
- 
+  let solver = (mk_solver ctx None) in
+  let c1 = (mk_fp ctx 
+ 			  (mk_numeral_string ctx "0" (BitVector.mk_sort ctx 1))
+ 			  (mk_numeral_string ctx "3377699720527872" (BitVector.mk_sort ctx 52))			  
+			  (mk_numeral_string ctx "1025" (BitVector.mk_sort ctx 11))) in
+  let c2 = (mk_to_fp_bv ctx
+			  (mk_numeral_string ctx "4619567317775286272" (BitVector.mk_sort ctx 64))
+			  (mk_sort ctx 11 53)) in
+  let c3 = (mk_to_fp_int_real ctx 
+			  (RoundingMode.mk_rtz ctx)
+              (mk_numeral_string ctx "2" (Integer.mk_sort ctx))
+			  (mk_numeral_string ctx "1.75" (Real.mk_sort ctx))
+			  (FloatingPoint.mk_sort ctx 11 53)) in
+  let c4 = (mk_to_fp_real ctx (RoundingMode.mk_rtz ctx)
+			  (mk_numeral_string ctx "7.0" (Real.mk_sort ctx))
+			  (FloatingPoint.mk_sort ctx 11 53)) in
+  let args3 = [ (mk_eq ctx c1 c2) ;
+				(mk_eq ctx c1 c3) ;
+				(mk_eq ctx c1 c4) ] in
+  let c5 = (Boolean.mk_and ctx args3) in  
+  (Printf.printf "c5: %s\n" (Expr.to_string c5)) ;
+  (
+    let solver = (mk_solver ctx None) in
+	(Solver.add solver [ c5 ]) ;
+    if (check solver []) != SATISFIABLE then
+	  raise (TestFailedException "")
+    else
+	  Printf.printf "Test passed.\n"
+  ) 
 
 let _ = 
   try (
