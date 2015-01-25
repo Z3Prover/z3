@@ -630,7 +630,7 @@ namespace datalog {
 
         out << "\n--------------\n";
         out << "Instructions\n";
-        m_code.display(*this, out);
+        m_code.display(m_ectx, out);
 
         out << "\n--------------\n";
         out << "Big relations\n";

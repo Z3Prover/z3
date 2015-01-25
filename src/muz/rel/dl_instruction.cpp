@@ -62,6 +62,10 @@ namespace datalog {
         return dynamic_cast<rel_context&>(*m_context.get_rel_context()); 
     }
 
+    rel_context const& execution_context::get_rel_context() const { 
+        return dynamic_cast<rel_context const&>(*m_context.get_rel_context()); 
+    }
+
     struct compare_size_proc {
         typedef std::pair<unsigned, unsigned> pr;
         bool operator()(pr const& a, pr const& b) const {
@@ -164,21 +168,21 @@ namespace datalog {
     }
 
 
-    void instruction::display_indented(rel_context_base const & _ctx, std::ostream & out, std::string indentation) const {
+    void instruction::display_indented(execution_context const & _ctx, std::ostream & out, std::string indentation) const {
         out << indentation;
-        rel_context const& ctx = dynamic_cast<const rel_context&>(_ctx);
-        display_head_impl(ctx, out);
+        rel_context const& ctx = _ctx.get_rel_context();
+        display_head_impl(_ctx, out);
         if (ctx.output_profile()) {
             out << " {";
             output_profile(out);
             out << '}';
         }
         out << "\n";
-        display_body_impl(ctx, out, indentation);
+        display_body_impl(_ctx, out, indentation);
     }
 
     void instruction::log_verbose(execution_context& ctx) {
-        IF_VERBOSE(2, display(ctx.get_rel_context(), verbose_stream()););
+        IF_VERBOSE(2, display(ctx, verbose_stream()););
     }
 
     class instr_io : public instruction {
@@ -217,7 +221,7 @@ namespace datalog {
         virtual void make_annotations(execution_context & ctx) {
             ctx.set_register_annotation(m_reg, m_pred->get_name().bare_str());
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             const char * rel_name = m_pred->get_name().bare_str();
             if (m_store) {
                 out << "store " << m_reg << " into " << rel_name;
@@ -248,7 +252,7 @@ namespace datalog {
         virtual void make_annotations(execution_context & ctx) {
             ctx.set_register_annotation(m_reg, "alloc");
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "dealloc " << m_reg;
         }
     };
@@ -283,7 +287,7 @@ namespace datalog {
                 ctx.set_register_annotation(m_src, str);
             }
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << (m_clone ? "clone " : "move ") << m_src << " into " << m_tgt;
         }
     };
@@ -340,11 +344,11 @@ namespace datalog {
         virtual void make_annotations(execution_context & ctx) {
             m_body->make_annotations(ctx);
         }
-        virtual void display_head_impl(rel_context const & ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const & ctx, std::ostream & out) const {
             out << "while";
             print_container(m_controls, out);
         }
-        virtual void display_body_impl(rel_context_base const & ctx, std::ostream & out, std::string indentation) const {
+        virtual void display_body_impl(execution_context const & ctx, std::ostream & out, std::string indentation) const {
             m_body->display_indented(ctx, out, indentation+"    ");
         }
     };
@@ -409,7 +413,7 @@ namespace datalog {
             ctx.get_register_annotation(m_rel1, a1);
             ctx.set_register_annotation(m_res, "join " + a1 + " " + a2);
         }
-        virtual void display_head_impl(rel_context const & ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const & ctx, std::ostream & out) const {
             out << "join " << m_rel1;
             print_container(m_cols1, out);
             out << " and " << m_rel2;
@@ -460,9 +464,9 @@ namespace datalog {
             a << "filter_equal " << m_col << " val: " << ctx.get_rel_context().get_rmanager().to_nice_string(m_value);
             ctx.set_register_annotation(m_reg, a.str());
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "filter_equal " << m_reg << " col: " << m_col << " val: "
-                << ctx.get_rmanager().to_nice_string(m_value);
+                << ctx.get_rel_context().get_rmanager().to_nice_string(m_value);
         }
     };
 
@@ -504,7 +508,7 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "filter_identical " << m_reg << " ";
             print_container(m_cols, out);
         }
@@ -552,7 +556,7 @@ namespace datalog {
 
             return true;
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "filter_interpreted " << m_reg << " using "
                 << mk_pp(m_cond, m_cond.get_manager());
         }
@@ -609,7 +613,7 @@ namespace datalog {
             return true;
         }
 
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "filter_interpreted_and_project " << m_src << " into " << m_res;
             out << " using " << mk_pp(m_cond, m_cond.get_manager());
             out << " deleting columns ";
@@ -726,7 +730,7 @@ namespace datalog {
             }
             ctx.set_register_annotation(m_delta, str);            
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << (m_widen ? "widen " : "union ") << m_src << " into " << m_tgt;
             if (m_delta!=execution_context::void_register) {
                 out << " with delta " << m_delta;
@@ -782,7 +786,7 @@ namespace datalog {
 
             return true;
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << (m_projection ? "project " : "rename ") << m_src << " into " << m_tgt;
             out << (m_projection ? " deleting columns " : " with cycle ");
             print_container(m_cols, out);
@@ -846,10 +850,20 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
-            out << "join_project " << m_rel1;
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
+            relation_base const* r1 = ctx.reg(m_rel1);
+            relation_base const* r2 = ctx.reg(m_rel2);
+            out << "join_project " << m_rel1;            
+            if (r1) {
+                out << ":" << r1->num_columns();
+                out << "-" << r1->get_size_estimate_rows();
+            }
             print_container(m_cols1, out);
             out << " and " << m_rel2;
+            if (r2) {
+                out << ":" << r2->num_columns();
+                out << "-" << r2->get_size_estimate_rows();
+            }
             print_container(m_cols2, out);
             out << " into " << m_res << " removing columns ";
             print_container(m_removed_cols, out);
@@ -908,9 +922,9 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "select_equal_and_project " << m_src <<" into " << m_result << " col: " << m_col 
-                << " val: " << ctx.get_rmanager().to_nice_string(m_value);
+                << " val: " << ctx.get_rel_context().get_rmanager().to_nice_string(m_value);
         }
         virtual void make_annotations(execution_context & ctx) {
             std::stringstream s;
@@ -965,7 +979,7 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "filter_by_negation on " << m_tgt;
             print_container(m_cols1, out);
             out << " with " << m_neg_rel;
@@ -1004,10 +1018,10 @@ namespace datalog {
             ctx.set_reg(m_tgt, rel);
             return true;
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "mk_unary_singleton into " << m_tgt << " sort:" 
-                << ctx.get_rmanager().to_nice_string(m_sig[0]) << " val:" 
-                <<  ctx.get_rmanager().to_nice_string(m_sig[0], m_fact[0]);
+                << ctx.get_rel_context().get_rmanager().to_nice_string(m_sig[0]) << " val:" 
+                << ctx.get_rel_context().get_rmanager().to_nice_string(m_sig[0], m_fact[0]);
         }
         virtual void make_annotations(execution_context & ctx) {
             std::string s;
@@ -1035,9 +1049,9 @@ namespace datalog {
             ctx.set_reg(m_tgt, ctx.get_rel_context().get_rmanager().mk_full_relation(m_sig, m_pred));
             return true;
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "mk_total into " << m_tgt << " sort:" 
-                << ctx.get_rmanager().to_nice_string(m_sig);
+                << ctx.get_rel_context().get_rmanager().to_nice_string(m_sig);
         }
         virtual void make_annotations(execution_context & ctx) {
             std::string s;
@@ -1061,7 +1075,7 @@ namespace datalog {
             ctx.get_rel_context().get_rmanager().mark_saturated(m_pred);
             return true;
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "mark_saturated " << m_pred->get_name().bare_str();
         }
         virtual void make_annotations(execution_context & ctx) {            
@@ -1085,7 +1099,7 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "instr_assert_signature of " << m_tgt << " signature:";
             print_container(m_sig, out);
         }
@@ -1166,14 +1180,14 @@ namespace datalog {
         }
     }
 
-    void instruction_block::display_indented(rel_context_base const& _ctx, std::ostream & out, std::string indentation) const {
-        rel_context const& ctx = dynamic_cast<rel_context const&>(_ctx);
+    void instruction_block::display_indented(execution_context const& _ctx, std::ostream & out, std::string indentation) const {
+        rel_context const& ctx = _ctx.get_rel_context();
         instr_seq_type::const_iterator it = m_data.begin();
         instr_seq_type::const_iterator end = m_data.end();
         for(; it!=end; ++it) {
             instruction * i = (*it);
             if (i->passes_output_thresholds(ctx.get_context()) || i->being_recorded()) {
-                i->display_indented(ctx, out, indentation);
+                i->display_indented(_ctx, out, indentation);
             }
         }
     }

@@ -506,6 +506,7 @@ namespace datalog {
             virtual unsigned get_size_estimate_rows() const { return UINT_MAX; }
             virtual unsigned get_size_estimate_bytes() const { return UINT_MAX; }
             virtual bool knows_exact_size() const { return false; }
+            unsigned num_columns() const { return get_signature().size(); }
 
             virtual void display(std::ostream & out) const = 0;
         };

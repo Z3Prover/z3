@@ -106,7 +106,7 @@ namespace opt {
     }
 
     void maxsmt_solver_base::set_soft_assumptions() {
-        m_c.set_soft_assumptions()
+        m_c.set_soft_assumptions();
     }
 
     app* maxsmt_solver_base::mk_fresh_bool(char const* name) {
@@ -174,11 +174,8 @@ namespace opt {
         else if (maxsat_engine == symbol("maxres")) {            
             m_msolver = mk_maxres(m_c, m_weights, m_soft_constraints);
         }
-        else if (maxsat_engine == symbol("mus-mss-maxres")) {            
-            m_msolver = mk_mus_mss_maxres(m_c, m_weights, m_soft_constraints);
-        }
-        else if (maxsat_engine == symbol("mss-maxres")) {            
-            m_msolver = mk_mss_maxres(m_c, m_weights, m_soft_constraints);
+        else if (maxsat_engine == symbol("pd-maxres")) {            
+            m_msolver = mk_primal_dual_maxres(m_c, m_weights, m_soft_constraints);
         }
         else if (maxsat_engine == symbol("bcd2")) {
             m_msolver = mk_bcd2(m_c, m_weights, m_soft_constraints);

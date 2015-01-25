@@ -11,7 +11,6 @@ Abstract:
 
     - mus:     max-sat algorithm by Nina and Bacchus, AAAI 2014.
     - mus-mss: based on dual refinement of bounds.
-    - mss:     based on maximal satisfying sets (only).
 
     MaxRes is a core-guided approach to maxsat.
     MusMssMaxRes extends the core-guided approach by
@@ -71,11 +70,19 @@ using namespace opt;
 class maxres : public maxsmt_solver_base {
 public:
     enum strategy_t {
-        s_mus,
-        s_mus_mss,
-        s_mss
+        s_primal,
+        s_primal_dual
     };
 private:
+    struct stats {
+        unsigned m_num_cores;
+        unsigned m_num_cs;
+        stats() { reset(); }
+        void reset() {
+            memset(this, 0, sizeof(*this));
+        }
+    };
+    stats            m_stats;
     expr_ref_vector  m_B;
     expr_ref_vector  m_asms;    
     expr_ref_vector  m_defs;
@@ -167,7 +174,7 @@ public:
         trace_bounds("maxres");
         while (m_lower < m_upper) {
             TRACE("opt", 
-                  display_vec(tout, m_asms.size(), m_asms.c_ptr());
+                  display_vec(tout, m_asms);
                   s().display(tout);
                   tout << "\n";
                   display(tout);
@@ -194,158 +201,50 @@ public:
         return l_true;
     }
 
-
-    lbool mss_solver() {
+    lbool primal_dual_solver() {
         init();
         init_local();
-        sls();
-        set_mus(false);
-        exprs mcs;
+        set_soft_assumptions();
         lbool is_sat = l_true;
-        while (m_lower < m_upper && is_sat == l_true) {            
-            trace_bounds("maxres");
-            if (m_cancel) {
-                return l_undef;
-            }
-            vector<exprs> cores;
-            exprs mss;       
-            model_ref mdl;
-            expr_ref tmp(m);
-            mcs.reset();
-            s().get_model(mdl);
-            update_assignment(mdl.get());
-
-            exprs cs;
-            get_current_correction_set(mdl.get(), cs);
-            process_sat(cs);
-
+        trace_bounds("max_res");
+        exprs cs;
+        while (m_lower < m_upper) {
 #if 0
-            is_sat = get_mss(mdl.get(), cores, mss, mcs);
-            
-            switch (is_sat) {
-            case l_undef:
-                return l_undef;
-            case l_false:
-                m_lower = m_upper;
-                return l_true;
-            case l_true:                 
-                process_sat(mcs);
-                get_mss_model();
-                break;            
-            }
+            expr_ref_vector asms(m_asms);
+            sort_assumptions(asms);
+            is_sat = s().check_sat(asms.size(), asms.c_ptr());
+#else
+            is_sat = check_sat_hill_climb(m_asms);
 #endif
-            if (m_lower < m_upper) {
-                is_sat = s().check_sat(0, 0);
-            }
-        }
-        m_lower = m_upper;
-        return l_true;
-    }
-
-    /**
-       Plan:
-       - Get maximal set of disjoint cores.
-       - Update the lower bound using the cores.
-       - As a side-effect find a satisfying assignment that has maximal weight.
-         (during core minimization several queries are bound to be SAT,
-         those can be used to boot-strap the MCS search).
-       - Use the best satisfying assignment from the MUS search to find an MCS of least weight.
-       - Update the upper bound using the MCS.
-       - Update the soft constraints using first the cores.
-       - Then update the resulting soft constraints using the evaluation of the MCS/MSS 
-       - Add a cardinality constraint to force new satisfying assignments to improve 
-         the new upper bound.
-       - In every iteration, the lower bound is improved using the cores.
-       - In every iteration, the upper bound is improved using the MCS.
-       - Optionally: add a cardinality constraint to prune the upper bound.
-       
-       What are the corner cases:
-       - suppose that cost of cores adds up to current upper bound.
-         -> it means that each core is a unit (?)
-
-       TBD:
-       - Block upper bound using wmax or pb constraint, or in case of
-         unweighted constraints using incremental tricks.
-       - Throttle when correction set gets added based on its size.
-         Suppose correction set is huge. Do we really need it?
-       
-    */
-    lbool mus_mss_solver() {
-        init();
-        init_local();
-        sls();
-        vector<exprs> cores;
-        m_mus.set_soft(m_soft.size(), m_soft.c_ptr(), m_weights.c_ptr());
-        lbool is_sat = l_true;
-        while (m_lower < m_upper && is_sat == l_true) {            
-            TRACE("opt", 
-                  display_vec(tout, m_asms.size(), m_asms.c_ptr());
-                  s().display(tout);
-                  tout << "\n";
-                  display(tout);
-                  );
-            lbool is_sat = check_sat_hill_climb(m_asms);
             if (m_cancel) {
                 return l_undef;
             }
             switch (is_sat) {
             case l_true: 
-                found_optimum();
-                return l_true;
-            case l_false:
-                is_sat = get_cores(cores);
+                get_current_correction_set(cs);
+                IF_VERBOSE(2, display_vec(verbose_stream() << "correction set: ", cs););
+                if (cs.empty()) {
+                    m_found_feasible_optimum = m_model.get() != 0;
+                    m_lower = m_upper;
+                }
+                else {
+                    process_sat(cs);
+                }
                 break;
+            case l_false:
+                is_sat = process_unsat();
+                if (is_sat != l_true) return is_sat;                
+                break;
+            case l_undef:
+                return l_undef;
             default:
                 break;
             }
-            if (is_sat == l_undef) {
-                return l_undef;
-            }
-            SASSERT((is_sat == l_false) == cores.empty());
-            SASSERT((is_sat == l_true) == !cores.empty());
-            if (cores.empty()) {
-                break;
-            }           
-
-            //
-            // There is a best model, retrieve 
-            // it from the previous core calls.
-            //
-            model_ref mdl;
-            get_mus_model(mdl);
-
-            // 
-            // Extend the current model to a (maximal)
-            // assignment extracting the ss and cs.
-            // ss - satisfying subset
-            // cs - correction set (complement of ss).
-            //
-            if (m_maximize_assignment && mdl.get()) {
-                exprs ss, cs;
-                is_sat = get_mss(mdl.get(), cores, ss, cs);
-                if (is_sat != l_true) return is_sat;
-                get_mss_model();
-            }
-            //
-            // block the hard constraints corresponding to the cores.
-            // block the soft constraints corresponding to the cs
-            // obtained from the current best model.
-            // 
-
-            exprs cs;
-            get_current_correction_set(mdl.get(), cs);
-            unsigned max_core = max_core_size(cores);
-            if (!cs.empty() && cs.size() < max_core) {
-                process_sat(cs);                        
-            }
-            else {
-                process_unsat(cores);                
-            }
         }
-        
-        m_lower = m_upper;
+        trace_bounds("maxres");
         return l_true;
     }
+
 
     lbool check_sat_hill_climb(expr_ref_vector& asms1) {
         expr_ref_vector asms(asms1);
@@ -399,14 +298,17 @@ public:
     virtual lbool operator()() {
         m_defs.reset();
         switch(m_st) {
-        case s_mus:
+        case s_primal:
             return mus_solver();
-        case s_mus_mss:
-            return mus_mss_solver();
-        case s_mss:
-            return mss_solver();
+        case s_primal_dual:
+            return primal_dual_solver();
         }
         return l_undef;
+    }
+
+    virtual void collect_statistics(statistics& st) const { 
+        st.update("maxres-cores", m_stats.m_num_cores);
+        st.update("maxres-correction-sets", m_stats.m_num_cs);
     }
 
     lbool get_cores(vector<exprs>& cores) {
@@ -422,12 +324,14 @@ public:
             model_ref mdl;
             get_mus_model(mdl);
             is_sat = minimize_core(core);
+            ++m_stats.m_num_cores;
             if (is_sat != l_true) {
                 break;
             }
             if (core.empty()) {
                 cores.reset();
-                return l_false;
+                m_lower = m_upper;
+                return l_true;
             }
             cores.push_back(core);
             if (core.size() >= m_max_core_size) {
@@ -442,22 +346,30 @@ public:
         TRACE("opt", 
               tout << "num cores: " << cores.size() << "\n";
               for (unsigned i = 0; i < cores.size(); ++i) {
-                  display_vec(tout, cores[i].size(), cores[i].c_ptr());
+                  display_vec(tout, cores[i]);
               }
               tout << "num satisfying: " << asms.size() << "\n";);
         
         return is_sat;
     }
 
+    void get_current_correction_set(exprs& cs) {
+        model_ref mdl;
+        s().get_model(mdl);
+        update_assignment(mdl.get());
+        get_current_correction_set(mdl.get(), cs);
+    }
+
     void get_current_correction_set(model* mdl, exprs& cs) {
+        ++m_stats.m_num_cs;
         cs.reset();
         if (!mdl) return;
         for (unsigned i = 0; i < m_asms.size(); ++i) {
-            if (!is_true(mdl, m_asms[i].get())) {
+            if (is_false(mdl, m_asms[i].get())) {
                 cs.push_back(m_asms[i].get());
             }
         }
-        TRACE("opt", display_vec(tout << "new correction set: ", cs.size(), cs.c_ptr()););
+        TRACE("opt", display_vec(tout << "new correction set: ", cs););
     }
 
     struct compare_asm {
@@ -492,7 +404,7 @@ public:
 
     void process_sat(exprs const& corr_set) {
         expr_ref fml(m), tmp(m);
-        TRACE("opt", display_vec(tout << "corr_set: ", corr_set.size(), corr_set.c_ptr()););
+        TRACE("opt", display_vec(tout << "corr_set: ", corr_set););
         remove_core(corr_set);
         rational w = split_core(corr_set);
         cs_max_resolve(corr_set, w);       
@@ -533,7 +445,7 @@ public:
         remove_core(core);
         SASSERT(!core.empty());
         rational w = split_core(core);
-        TRACE("opt", display_vec(tout << "minimized core: ", core.size(), core.c_ptr()););
+        TRACE("opt", display_vec(tout << "minimized core: ", core););
         max_resolve(core, w);
         fml = mk_not(m, mk_and(m, m_B.size(), m_B.c_ptr()));
         s().assert_expr(fml);
@@ -556,22 +468,6 @@ public:
             update_assignment(mdl.get());
         }
         return 0 != mdl.get();
-    }
-
-    void get_mss_model() {
-        model_ref mdl;
-        m_mss.get_model(mdl); // last model is best way to reduce search space.
-        update_assignment(mdl.get());
-    }
-
-    lbool get_mss(model* mdl, vector<exprs> const& cores, exprs& literals, exprs& mcs) {
-        literals.reset();
-        mcs.reset();
-        literals.append(m_asms.size(), m_asms.c_ptr());
-        set_mus(false);
-        lbool is_sat = m_mss(mdl, cores, literals, mcs);
-        set_mus(true);
-        return is_sat;
     }
 
     lbool minimize_core(exprs& core) {
@@ -622,12 +518,19 @@ public:
                 rational w3 = w2 - w;
                 new_assumption(core[i], w3);
             }
-        }
-        
+        }        
         return w;
     }
 
-    void display_vec(std::ostream& out, unsigned sz, expr* const* args) {
+    void display_vec(std::ostream& out, exprs const& exprs) {
+        display_vec(out, exprs.size(), exprs.c_ptr());
+    }
+
+    void display_vec(std::ostream& out, expr_ref_vector const& exprs) {
+        display_vec(out, exprs.size(), exprs.c_ptr());
+    }
+
+    void display_vec(std::ostream& out, unsigned sz, expr* const* args) const {
         for (unsigned i = 0; i < sz; ++i) {
             out << mk_pp(args[i], m) << " : " << get_weight(args[i]) << " ";
         }
@@ -691,7 +594,7 @@ public:
     // cs is a correction set (a complement of a (maximal) satisfying assignment).
     void cs_max_resolve(exprs const& cs, rational const& w) {
         if (cs.empty()) return;
-        TRACE("opt", display_vec(tout << "correction set: ", cs.size(), cs.c_ptr()););
+        TRACE("opt", display_vec(tout << "correction set: ", cs););
         expr_ref fml(m), asum(m);
         app_ref cls(m), d(m), dd(m);
         m_B.reset();
@@ -733,74 +636,6 @@ public:
         s().assert_expr(fml);
     }
 
-    lbool try_improve_bound(vector<exprs>& cores, exprs& mcs) {
-        cores.reset();
-        mcs.reset();
-        exprs core;
-        expr_ref_vector asms(m_asms);
-        while (true) {
-            rational upper = m_max_upper;
-            unsigned sz = 0;
-            for (unsigned i = 0; m_upper <= rational(2)*upper && i < asms.size(); ++i, ++sz) {
-                upper -= get_weight(asms[i].get());
-            }
-            lbool is_sat = s().check_sat(sz, asms.c_ptr());
-            switch (is_sat) {
-            case l_true: {
-                model_ref mdl;
-                s().get_model(mdl); // last model is best way to reduce search space.
-                update_assignment(mdl.get());
-                exprs mss;
-                mss.append(asms.size(), asms.c_ptr());
-                set_mus(false);
-                is_sat = m_mss(m_model.get(), cores, mss, mcs);
-                set_mus(true);
-                if (is_sat != l_true) {
-                    return is_sat;
-                }
-                get_mss_model();
-                if (!cores.empty() && mcs.size() > cores.back().size()) {
-                    mcs.reset();
-                }
-                else {
-                    cores.reset();
-                }
-                return l_true;
-            }
-            case l_undef:
-                return l_undef;
-            case l_false:
-                core.reset();
-                s().get_unsat_core(core);
-                DEBUG_CODE(verify_core(core););
-                is_sat = minimize_core(core);
-                if (is_sat != l_true) {
-                    break;
-                }
-                if (core.empty()) {
-                    cores.reset();
-                    mcs.reset();
-                    return l_false;
-                }
-                cores.push_back(core);
-                if (core.size() >= 3) {
-                    return l_true;
-                }
-                //
-                // check arithmetic: cannot improve upper bound
-                //
-                if (m_upper <= upper) {
-                    return l_true;
-                }
-                
-                remove_soft(core, asms);
-                break;
-            }
-        }
-        
-        return l_undef;
-    }
-
     void update_assignment(model* mdl) {
         rational upper(0);
         expr_ref tmp(m);
@@ -840,6 +675,12 @@ public:
         expr_ref tmp(m);
         VERIFY(mdl->eval(e, tmp));
         return m.is_true(tmp);
+    }
+
+    bool is_false(model* mdl, expr* e) {
+        expr_ref tmp(m);
+        VERIFY(mdl->eval(e, tmp));
+        return m.is_false(tmp);
     }
 
     bool is_true(expr* e) {
@@ -948,16 +789,11 @@ public:
 
 opt::maxsmt_solver_base* opt::mk_maxres(
     context& c, weights_t& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, c, ws, soft, maxres::s_mus);
+    return alloc(maxres, c, ws, soft, maxres::s_primal);
 }
 
-opt::maxsmt_solver_base* opt::mk_mus_mss_maxres(
+opt::maxsmt_solver_base* opt::mk_primal_dual_maxres(
     context& c, weights_t& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, c, ws, soft, maxres::s_mus_mss);
-}
-
-opt::maxsmt_solver_base* opt::mk_mss_maxres(
-    context& c, weights_t& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, c, ws, soft, maxres::s_mss);
+    return alloc(maxres, c, ws, soft, maxres::s_primal_dual);
 }
 

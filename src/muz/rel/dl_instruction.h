@@ -73,6 +73,7 @@ namespace datalog {
         void reset();
 
         rel_context & get_rel_context();
+        rel_context const & get_rel_context() const;
 
         void set_timelimit(unsigned time_in_ms);
         void reset_timelimit();
@@ -224,7 +225,7 @@ namespace datalog {
 
            The newline character at the end should not be printed.
         */
-        virtual void display_head_impl(rel_context const & ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const & ctx, std::ostream & out) const {
             out << "<instruction>";
         }
         /**
@@ -232,7 +233,7 @@ namespace datalog {
 
            Each line must be prepended by \c indentation and ended by a newline character.
         */
-        virtual void display_body_impl(rel_context_base const & ctx, std::ostream & out, std::string indentation) const {}
+        virtual void display_body_impl(execution_context const & ctx, std::ostream & out, std::string indentation) const {}
         void log_verbose(execution_context& ctx);
 
     public:
@@ -245,10 +246,10 @@ namespace datalog {
 
         virtual void make_annotations(execution_context & ctx)  = 0;
 
-        void display(rel_context_base const& ctx, std::ostream & out) const {
+        void display(execution_context const& ctx, std::ostream & out) const {
             display_indented(ctx, out, "");
         }
-        void display_indented(rel_context_base const & ctx, std::ostream & out, std::string indentation) const;
+        void display_indented(execution_context const & ctx, std::ostream & out, std::string indentation) const;
 
         static instruction * mk_load(ast_manager & m, func_decl * pred, reg_idx tgt);
         /**
@@ -353,10 +354,10 @@ namespace datalog {
 
         void make_annotations(execution_context & ctx);
 
-        void display(rel_context_base const & ctx, std::ostream & out) const {
+        void display(execution_context const & ctx, std::ostream & out) const {
             display_indented(ctx, out, "");
         }
-        void display_indented(rel_context_base const & ctx, std::ostream & out, std::string indentation) const;
+        void display_indented(execution_context const & ctx, std::ostream & out, std::string indentation) const;
 
         unsigned num_instructions() const { return m_data.size(); }
     };

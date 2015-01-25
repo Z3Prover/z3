@@ -77,7 +77,7 @@ static void display_statistics(
 
         out << "--------------\n";
         out << "instructions  \n";
-        code.display(*ctx.get_rel_context(), out);
+        code.display(ex_ctx, out);
 
         out << "--------------\n";
         out << "big relations \n";

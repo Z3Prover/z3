@@ -474,8 +474,7 @@ namespace opt {
             return;
         }
         if (m_maxsat_engine != symbol("maxres") &&
-            m_maxsat_engine != symbol("mus-mss-maxres") &&
-            m_maxsat_engine != symbol("mss-maxres") &&
+            m_maxsat_engine != symbol("pd-maxres") &&
             m_maxsat_engine != symbol("bcd2") &&
             m_maxsat_engine != symbol("sls")) {
             return;

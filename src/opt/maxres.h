@@ -24,9 +24,7 @@ namespace opt {
 
     maxsmt_solver_base* mk_maxres(context& c, weights_t & ws, expr_ref_vector const& soft);
 
-    maxsmt_solver_base* mk_mus_mss_maxres(context& c, weights_t & ws, expr_ref_vector const& soft);
-
-    maxsmt_solver_base* mk_mss_maxres(context& c, weights_t & ws, expr_ref_vector const& soft);
+    maxsmt_solver_base* mk_primal_dual_maxres(context& c, weights_t & ws, expr_ref_vector const& soft);
 
 };
 

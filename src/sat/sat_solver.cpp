@@ -922,7 +922,7 @@ namespace sat {
             SASSERT(is_external((lit).var()));  
             m_assumption_set.insert(lit);       
 
-            if (m_config.soft_assumptions) {
+            if (m_config.m_soft_assumptions) {
                 if (value(lit) == l_undef) {
                     m_assumptions.push_back(lit);       
                     assign(lit, justification());
