@@ -1001,7 +1001,6 @@ namespace datalog {
             relation_signature prod_signature;
             prod_signature.append(t1.get_signature());
             prod_signature.append(t2.get_signature());
-            udoc prod;
             udoc const& d1 = t1.get_udoc();
             udoc const& d2 = t2.get_udoc();
             doc_manager& dm1 = t1.get_dm();
@@ -1011,13 +1010,22 @@ namespace datalog {
             udoc_relation* result = get(p.mk_empty(get_result_signature()));
             udoc& res = result->get_udoc();
             doc_manager& dm_res  = result->get_dm();            
-            prod.join(d1, d2, dm_prod, dm1, m_cols1, m_cols2);
-            TRACE("doc", prod.display(dm_prod, tout) << "\n";);
-            for (unsigned i = 0; i < prod.size(); ++i) {
-                res.insert(dm_res, dm_prod.project(dm_res, m_to_delete, prod[i]));
+
+            for (unsigned i = 0; i < d1.size(); ++i) {
+                for (unsigned j = 0; j < d2.size(); ++j) {
+                    doc_ref d(dm_prod, dm_prod.join(d1[i], d2[j], dm1, m_cols1, m_cols2));
+                    if (d) {
+                        res.insert(dm_res, dm_prod.project(dm_res, m_to_delete, *d));
+                        IF_VERBOSE(2, 
+                                   if (res.size() > 0 && 0 == res.size() % 10000) {
+                                       verbose_stream() << "result size: " << res.size() 
+                                                        << " i:" << i << " j:" << j << " "
+                                                        << 100*i/d1.size() << "% complete\n";
+                                   });
+                    }
+                }
             }
             TRACE("doc", result->display(tout););
-            prod.reset(dm_prod);
             return result;            
         }
     };
