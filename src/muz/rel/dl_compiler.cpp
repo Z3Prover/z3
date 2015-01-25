@@ -1355,7 +1355,7 @@ namespace datalog {
 
         acc.set_observer(0);
 
-        TRACE("dl", execution_code.display(*m_context.get_rel_context(), tout););
+        TRACE("dl", execution_code.display(execution_context(m_context), tout););
     }
 
 

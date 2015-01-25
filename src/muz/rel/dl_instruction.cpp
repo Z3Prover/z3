@@ -1148,7 +1148,7 @@ namespace datalog {
 
             TRACE("dl",      
                 tout <<"% ";
-                  instr->display_head_impl(ctx.get_rel_context(), tout);
+                  instr->display_head_impl(ctx, tout);
                 tout <<"\n";);
             success = !ctx.should_terminate() && instr->perform(ctx);
         }

@@ -190,7 +190,7 @@ unsigned read_datalog(char const * file) {
             
             datalog::compiler::compile(ctx, ctx.get_rules(), rules_code, termination_code);
             
-            TRACE("dl_compiler", rules_code.display(*ctx.get_rel_context(), tout););
+            TRACE("dl_compiler", rules_code.display(ex_ctx, tout););
             
             rules_code.make_annotations(ex_ctx);
             
@@ -230,7 +230,7 @@ unsigned read_datalog(char const * file) {
         
 
         TRACE("dl_compiler", ctx.display(tout);
-              rules_code.display(*ctx.get_rel_context(), tout););
+              rules_code.display(ex_ctx, tout););
         
         if (ctx.output_tuples()) {
             ctx.get_rel_context()->display_output_facts(ctx.get_rules(), std::cout);

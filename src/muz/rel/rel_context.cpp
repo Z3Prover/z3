@@ -172,7 +172,7 @@ namespace datalog {
 
             compiler::compile(m_context, m_context.get_rules(), m_code, termination_code);
 
-            TRACE("dl", m_code.display(*this, tout); );
+            TRACE("dl", m_code.display(m_ectx, tout); );
 
             bool timeout_after_this_round = time_limit && (restart_time==0 || remaining_time_limit<=restart_time);
 
