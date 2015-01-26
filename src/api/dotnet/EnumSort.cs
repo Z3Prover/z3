@@ -78,7 +78,7 @@ namespace Microsoft.Z3
 
         #region Internal
         internal EnumSort(Context ctx, Symbol name, Symbol[] enumNames)
-            : base(ctx)
+            : base(ctx, IntPtr.Zero)
         {
             Contract.Requires(ctx != null);
             Contract.Requires(name != null);

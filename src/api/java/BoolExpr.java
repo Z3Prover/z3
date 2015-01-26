@@ -23,7 +23,7 @@ package com.microsoft.z3;
 public class BoolExpr extends Expr
 {
 	/**
-	 * Constructor for BoolExpr </summary>
+	 * Constructor for BoolExpr
 	 **/
 	protected BoolExpr(Context ctx)
 	{
@@ -31,8 +31,9 @@ public class BoolExpr extends Expr
 	}
 
 	/**
-	 * Constructor for BoolExpr </summary>
+	 * Constructor for BoolExpr
 	 * @throws Z3Exception 
+	 * @throws Z3Exception on error
 	 **/
 	BoolExpr(Context ctx, long obj) throws Z3Exception
 	{

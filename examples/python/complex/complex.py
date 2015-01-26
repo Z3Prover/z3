@@ -65,9 +65,6 @@ class ComplexExpr:
     def __neq__(self, other):
         return Not(self.__eq__(other))
 
-    def __pow__(self, k):
-        
-
     def simplify(self):
         return ComplexExpr(simplify(self.r), simplify(self.i))
 

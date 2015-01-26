@@ -919,9 +919,9 @@ void datatype_util::display_datatype(sort *s0, std::ostream& strm) {
     todo.push_back(s0);
     mark.mark(s0, true);
     while (!todo.empty()) {
-		sort* s = todo.back();
+        sort* s = todo.back();
         todo.pop_back();
-		strm << s->get_name() << " =\n";
+        strm << s->get_name() << " =\n";
 
         ptr_vector<func_decl> const * cnstrs = get_datatype_constructors(s);
         for (unsigned i = 0; i < cnstrs->size(); ++i) {
@@ -931,14 +931,14 @@ void datatype_util::display_datatype(sort *s0, std::ostream& strm) {
             ptr_vector<func_decl> const * accs = get_constructor_accessors(cns);
             for (unsigned j = 0; j < accs->size(); ++j) {
                 func_decl* acc = (*accs)[j];
-				sort* s1 = acc->get_range();
+                sort* s1 = acc->get_range();
                 strm << "(" << acc->get_name() << ": " << s1->get_name() << ") "; 
                 if (is_datatype(s1) && are_siblings(s1, s0) && !mark.is_marked(s1)) {
                         mark.mark(s1, true);
                         todo.push_back(s1);
                 }          
             }
-			strm << "\n";
+            strm << "\n";
         }
     }
 

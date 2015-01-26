@@ -149,7 +149,7 @@ public class Quantifier extends BoolExpr
             Expr body, int weight, Pattern[] patterns, Expr[] noPatterns,
             Symbol quantifierID, Symbol skolemID) throws Z3Exception
     {
-        super(ctx);
+        super(ctx, 0);
 
         getContext().checkContextMatch(patterns);
         getContext().checkContextMatch(noPatterns);
@@ -185,7 +185,7 @@ public class Quantifier extends BoolExpr
             int weight, Pattern[] patterns, Expr[] noPatterns,
             Symbol quantifierID, Symbol skolemID) throws Z3Exception
     {
-        super(ctx);
+        super(ctx, 0);
 
         getContext().checkContextMatch(noPatterns);
         getContext().checkContextMatch(patterns);

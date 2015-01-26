@@ -111,10 +111,12 @@ probe * mk_div(probe * p1, probe * p2);
 
 probe * mk_is_propositional_probe();
 probe * mk_is_qfbv_probe();
+probe * mk_is_qfaufbv_probe();
 
 /*
   ADD_PROBE("is-propositional", "true if the goal is in propositional logic.", "mk_is_propositional_probe()")
   ADD_PROBE("is-qfbv", "true if the goal is in QF_BV.", "mk_is_qfbv_probe()")
+  ADD_PROBE("is-qfaufbv", "true if the goal is in QF_AUFBV.", "mk_is_qfaufbv_probe()")
 */
 
 #endif

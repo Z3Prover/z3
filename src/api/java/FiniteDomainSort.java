@@ -24,6 +24,7 @@ public class FiniteDomainSort extends Sort
 {
 	/**
 	 * The size of the finite domain sort.
+	 * @throws Z3Exception on error
 	 **/
 	public long getSize() throws Z3Exception
 	{

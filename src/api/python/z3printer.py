@@ -8,6 +8,7 @@
 import sys, io, z3
 from z3consts import *
 from z3core import *
+from ctypes import *
 
 ##############################
 #
@@ -30,7 +31,7 @@ _z3_op_to_str = {
     Z3_OP_BASHR : '>>', Z3_OP_BSHL : '<<', Z3_OP_BLSHR : 'LShR', 
     Z3_OP_CONCAT : 'Concat', Z3_OP_EXTRACT : 'Extract', Z3_OP_BV2INT : 'BV2Int',
     Z3_OP_ARRAY_MAP : 'Map', Z3_OP_SELECT : 'Select', Z3_OP_STORE : 'Store', 
-    Z3_OP_CONST_ARRAY : 'K' 
+    Z3_OP_CONST_ARRAY : 'K'
     }
 
 # List of infix operators
@@ -45,16 +46,63 @@ _z3_unary = [ Z3_OP_UMINUS, Z3_OP_BNOT, Z3_OP_BNEG ]
 # Precedence
 _z3_precedence = {
     Z3_OP_POWER : 0,
-    Z3_OP_UMINUS : 1, Z3_OP_BNEG : 1, Z3_OP_BNOT : 1,
+    Z3_OP_UMINUS : 1, Z3_OP_BNEG : 1, Z3_OP_BNOT : 1, 
     Z3_OP_MUL : 2, Z3_OP_DIV : 2, Z3_OP_IDIV : 2, Z3_OP_MOD : 2, Z3_OP_BMUL : 2, Z3_OP_BSDIV : 2, Z3_OP_BSMOD : 2,
-    Z3_OP_ADD : 3, Z3_OP_SUB : 3, Z3_OP_BADD : 3, Z3_OP_BSUB : 3,
+    Z3_OP_ADD : 3, Z3_OP_SUB : 3, Z3_OP_BADD : 3, Z3_OP_BSUB : 3,    
     Z3_OP_BASHR : 4, Z3_OP_BSHL : 4,
     Z3_OP_BAND : 5,
     Z3_OP_BXOR : 6,
     Z3_OP_BOR : 7,
     Z3_OP_LE : 8, Z3_OP_LT : 8, Z3_OP_GE : 8, Z3_OP_GT : 8, Z3_OP_EQ : 8, Z3_OP_SLEQ : 8, Z3_OP_SLT : 8, Z3_OP_SGEQ : 8, Z3_OP_SGT : 8,
-    Z3_OP_IFF : 8
+    Z3_OP_IFF : 8,
+    
+    Z3_OP_FPA_NEG : 1,
+    Z3_OP_FPA_MUL : 2, Z3_OP_FPA_DIV : 2, Z3_OP_FPA_REM : 2, Z3_OP_FPA_FMA : 2,
+    Z3_OP_FPA_ADD: 3, Z3_OP_FPA_SUB : 3,
+    Z3_OP_FPA_LE : 8, Z3_OP_FPA_LT : 8, Z3_OP_FPA_GE : 8, Z3_OP_FPA_GT : 8, Z3_OP_FPA_EQ : 8
     }
+
+# FPA operators 
+_z3_op_to_fpa_normal_str = {
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN : 'RoundNearestTiesToEven()', Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY : 'RoundNearestTiesToAway()',
+    Z3_OP_FPA_RM_TOWARD_POSITIVE : 'RoundTowardPositive()', Z3_OP_FPA_RM_TOWARD_NEGATIVE : 'RoundTowardNegative()',
+    Z3_OP_FPA_RM_TOWARD_ZERO : 'RoundTowardZero()',
+    Z3_OP_FPA_PLUS_INF : '+oo', Z3_OP_FPA_MINUS_INF : '-oo',
+    Z3_OP_FPA_NAN : 'NaN', Z3_OP_FPA_PLUS_ZERO : 'PZero', Z3_OP_FPA_MINUS_ZERO : 'NZero',
+    Z3_OP_FPA_ADD : 'fpAdd', Z3_OP_FPA_SUB : 'fpSub', Z3_OP_FPA_NEG : 'fpNeg', Z3_OP_FPA_MUL : 'fpMul',
+    Z3_OP_FPA_DIV : 'fpDiv', Z3_OP_FPA_REM : 'fpRem', Z3_OP_FPA_ABS : 'fpAbs',
+    Z3_OP_FPA_MIN : 'fpMin', Z3_OP_FPA_MAX : 'fpMax',
+    Z3_OP_FPA_FMA : 'fpFMA', Z3_OP_FPA_SQRT : 'fpSqrt', Z3_OP_FPA_ROUND_TO_INTEGRAL : 'fpRoundToIntegral',
+
+    Z3_OP_FPA_EQ : 'fpEQ', Z3_OP_FPA_LT : 'fpLT', Z3_OP_FPA_GT : 'fpGT', Z3_OP_FPA_LE : 'fpLEQ',
+    Z3_OP_FPA_GE : 'fpGEQ',
+
+    Z3_OP_FPA_IS_NAN : 'fpIsNaN', Z3_OP_FPA_IS_INF : 'fpIsInf', Z3_OP_FPA_IS_ZERO : 'fpIsZero',
+    Z3_OP_FPA_IS_NORMAL : 'fpIsNormal', Z3_OP_FPA_IS_SUBNORMAL : 'fpIsSubnormal',
+    Z3_OP_FPA_IS_NEGATIVE : 'fpIsNegative', Z3_OP_FPA_IS_POSITIVE : 'fpIsPositive',
+    
+    Z3_OP_FPA_FP : 'fpFP', Z3_OP_FPA_TO_FP : 'fpToFP', Z3_OP_FPA_TO_FP_UNSIGNED: 'fpToFPUnsigned',
+    Z3_OP_FPA_TO_UBV : 'fpToUBV', Z3_OP_FPA_TO_SBV : 'fpToSBV', Z3_OP_FPA_TO_REAL: 'fpToReal',
+    Z3_OP_FPA_TO_IEEE_BV : 'fpToIEEEBV'
+    }
+
+_z3_op_to_fpa_pretty_str = {    
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN : 'RNE()', Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY : 'RNA()',
+    Z3_OP_FPA_RM_TOWARD_POSITIVE : 'RTP()', Z3_OP_FPA_RM_TOWARD_NEGATIVE : 'RTN()',
+    Z3_OP_FPA_RM_TOWARD_ZERO : 'RTZ()',
+    Z3_OP_FPA_PLUS_INF : '+oo', Z3_OP_FPA_MINUS_INF : '-oo',
+    Z3_OP_FPA_NAN : 'NaN', Z3_OP_FPA_PLUS_ZERO : '+0.0', Z3_OP_FPA_MINUS_ZERO : '-0.0',
+    
+    Z3_OP_FPA_ADD : '+', Z3_OP_FPA_SUB : '-', Z3_OP_FPA_MUL : '*', Z3_OP_FPA_DIV : '/', 
+    Z3_OP_FPA_REM : '%', Z3_OP_FPA_NEG : '-',
+    
+    Z3_OP_FPA_EQ : 'fpEQ', Z3_OP_FPA_LT : '<', Z3_OP_FPA_GT : '>', Z3_OP_FPA_LE : '<=', Z3_OP_FPA_GE : '>='
+}
+    
+_z3_fpa_infix = [
+    Z3_OP_FPA_ADD, Z3_OP_FPA_SUB, Z3_OP_FPA_MUL, Z3_OP_FPA_DIV, Z3_OP_FPA_REM,
+    Z3_OP_FPA_LT, Z3_OP_FPA_GT, Z3_OP_FPA_LE, Z3_OP_FPA_GE
+]
 
 def _is_assoc(k):
     return k == Z3_OP_BOR or k == Z3_OP_BXOR or k == Z3_OP_BAND or k == Z3_OP_ADD or k == Z3_OP_BADD or k == Z3_OP_MUL or k == Z3_OP_BMUL
@@ -138,6 +186,7 @@ for _k in _z3_infix:
     _infix_map[_k] = True
 for _k in _z3_unary:
     _unary_map[_k] = True
+    
 for _k in _z3_infix_compact:
     _infix_compact_map[_k] = True
 
@@ -463,6 +512,7 @@ class Formatter:
         self.precision           = 10
         self.ellipses            = to_format(_ellipses)
         self.max_visited         = 10000
+        self.fpa_pretty          = True
     
     def pp_ellipses(self):
         return self.ellipses
@@ -499,6 +549,8 @@ class Formatter:
             return seq1('Array', (self.pp_sort(s.domain()), self.pp_sort(s.range())))
         elif isinstance(s, z3.BitVecSortRef):
             return seq1('BitVec', (to_format(s.size()), ))
+        elif isinstance(s, z3.FPSortRef):
+            return seq1('FPSort', (to_format(s.ebits()), to_format(s.sbits())))
         else:
             return to_format(s.name())
 
@@ -519,6 +571,123 @@ class Formatter:
 
     def pp_bv(self, a):
         return to_format(a.as_string())
+
+    def pp_fprm_value(self, a):
+        z3._z3_assert(z3.is_fprm_value(a), 'expected FPRMNumRef')
+        if self.fpa_pretty and (a.decl().kind() in _z3_op_to_fpa_pretty_str):
+            return to_format(_z3_op_to_fpa_pretty_str.get(a.decl().kind()))
+        else:
+            return to_format(_z3_op_to_fpa_normal_str.get(a.decl().kind()))
+
+    def pp_fp_value(self, a):
+        z3._z3_assert(isinstance(a, z3.FPNumRef), 'type mismatch')
+        if not self.fpa_pretty:            
+            if (a.isNaN()):
+                return to_format('NaN')
+            elif (a.isInf()):
+                if (a.isNegative()):
+                    return to_format('-oo')
+                else:
+                    return to_format('+oo')
+            elif (a.isZero()):
+                if (a.isNegative()):
+                    return to_format('-zero')
+                else:
+                    return to_format('+zero')
+            else:
+                z3._z3_assert(z3.is_fp_value(a), 'expecting FP num ast')
+                r = []
+                sgn = c_int(0)
+                sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
+                sig = Z3_fpa_get_numeral_significand_string(a.ctx_ref(), a.ast)
+                exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast)
+                r.append(to_format('FPVal('))
+                if sgnb and sgn.value != 0:
+                    r.append(to_format('-'))
+                r.append(to_format(sig))
+                r.append(to_format('*(2**'))
+                r.append(to_format(exp))
+                r.append(to_format(', '))
+                r.append(to_format(a.sort()))
+                r.append(to_format('))'))
+                return compose(r)
+        else:
+            if (a.isNaN()):
+                return to_format(_z3_op_to_fpa_pretty_str[Z3_OP_FPA_NAN])
+            elif (a.isInf()):
+                if (a.isNegative()):
+                    return to_format(_z3_op_to_fpa_pretty_str[Z3_OP_FPA_MINUS_INF])
+                else:
+                    return to_format(_z3_op_to_fpa_pretty_str[Z3_OP_FPA_PLUS_INF])
+            elif (a.isZero()):
+                if (a.isNegative()):
+                    return to_format(_z3_op_to_fpa_pretty_str[Z3_OP_FPA_MINUS_ZERO])
+                else:
+                    return to_format(_z3_op_to_fpa_pretty_str[Z3_OP_FPA_PLUS_ZERO])
+            else:
+                z3._z3_assert(z3.is_fp_value(a), 'expecting FP num ast')
+                r = []
+                sgn = (ctypes.c_int)(0)
+                sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
+                sig = Z3_fpa_get_numeral_significand_string(a.ctx_ref(), a.ast)
+                exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast)
+                if sgnb and sgn.value != 0:
+                    r.append(to_format('-'))
+                r.append(to_format(sig))
+                if (exp != '0'):
+                    r.append(to_format('*(2**'))
+                    r.append(to_format(exp))
+                    r.append(to_format(')'))                
+                return compose(r)
+
+
+    def pp_fp(self, a, d, xs):
+        z3._z3_assert(isinstance(a, z3.FPRef), "type mismatch")
+        k = a.decl().kind()
+        op = '?'
+        if (self.fpa_pretty and k in _z3_op_to_fpa_pretty_str):
+            op = _z3_op_to_fpa_pretty_str[k]
+        elif k in _z3_op_to_fpa_normal_str:
+            op = _z3_op_to_fpa_normal_str[k]
+        elif k in _z3_op_to_str:
+            op = _z3_op_to_str[k]        
+
+        n = a.num_args()
+
+        if self.fpa_pretty:
+            if self.is_infix(k) and n >= 3:            
+                rm = a.arg(0)
+                if z3.is_fprm_value(rm) and z3._dflt_rm(a.ctx).eq(rm):
+                    arg1 = to_format(self.pp_expr(a.arg(1), d+1, xs))
+                    arg2 = to_format(self.pp_expr(a.arg(2), d+1, xs))
+                    r = []
+                    r.append(arg1)
+                    r.append(to_format(' '))
+                    r.append(to_format(op))
+                    r.append(to_format(' '))
+                    r.append(arg2)
+                    return compose(r)
+            elif k == Z3_OP_FPA_NEG:
+                return compose([to_format('-') , to_format(self.pp_expr(a.arg(0), d+1, xs))])
+
+        if k in _z3_op_to_fpa_normal_str:
+            op = _z3_op_to_fpa_normal_str[k]
+        
+        r = []        
+        r.append(to_format(op))
+        if not z3.is_const(a):
+            r.append(to_format('('))                        
+            first = True
+            for c in a.children():                
+                if first:
+                    first = False
+                else:
+                    r.append(to_format(', '))
+                r.append(self.pp_expr(c, d+1, xs))
+            r.append(to_format(')'))
+            return compose(r)
+        else:
+            return to_format(a.as_string())
 
     def pp_prefix(self, a, d, xs):
         r  = []
@@ -678,9 +847,15 @@ class Formatter:
         elif z3.is_rational_value(a):
             return self.pp_rational(a)
         elif z3.is_algebraic_value(a):
-            return self.pp_algebraic(a)
+            return self.pp_algebraic(a)        
         elif z3.is_bv_value(a):
             return self.pp_bv(a)
+        elif z3.is_fprm_value(a):
+            return self.pp_fprm_value(a)
+        elif z3.is_fp_value(a):
+            return self.pp_fp_value(a)
+        elif z3.is_fp(a):
+            return self.pp_fp(a, d, xs)
         elif z3.is_const(a):
             return self.pp_const(a)
         else:
@@ -939,6 +1114,12 @@ def set_pp_option(k, v):
         else:
             set_html_mode(False)
         return True
+    if k == 'fpa_pretty':
+        if v:
+            set_fpa_pretty(True)
+        else:
+            set_fpa_pretty(False)
+        return True
     val = getattr(_PP, k, None)
     if val != None:
         z3._z3_assert(type(v) == type(val), "Invalid pretty print option value")
@@ -964,6 +1145,23 @@ def set_html_mode(flag=True):
         _Formatter = HTMLFormatter()
     else:
         _Formatter = Formatter()
+
+def set_fpa_pretty(flag=True):
+    global _Formatter
+    global _z3_op_to_str
+    _Formatter.fpa_pretty = flag
+    if flag:
+        for (_k,_v) in _z3_op_to_fpa_pretty_str.items():
+            _z3_op_to_str[_k] = _v
+        for _k in _z3_fpa_infix:
+            _infix_map[_k] = True
+    else:
+        for (_k,_v) in _z3_op_to_fpa_normal_str.items():
+            _z3_op_to_str[_k] = _v
+        for _k in _z3_fpa_infix:
+            _infix_map[_k] = False
+
+set_fpa_pretty(True)
 
 def in_html_mode():
     return isinstance(_Formatter, HTMLFormatter)

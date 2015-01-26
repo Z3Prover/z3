@@ -26,6 +26,8 @@ public class BitVecExpr extends Expr
 	/**
 	 * The size of the sort of a bit-vector term.
 	 * @throws Z3Exception 
+	 * @throws Z3Exception on error
+	 * @return an int
 	 **/
 	public int getSortSize() throws Z3Exception
 	{
@@ -33,13 +35,8 @@ public class BitVecExpr extends Expr
 	}
 
 	/**
-	 * Constructor for BitVecExpr </summary>
+	 * Constructor for BitVecExpr
 	 **/
-	BitVecExpr(Context ctx)
-	{
-		super(ctx);
-	}
-
 	BitVecExpr(Context ctx, long obj) throws Z3Exception
 	{
 		super(ctx, obj);

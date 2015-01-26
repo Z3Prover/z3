@@ -342,6 +342,12 @@
     <Compile Include="ConstructorList.cs" />
     <Compile Include="DatatypeExpr.cs" />
     <Compile Include="DatatypeSort.cs" />
+    <Compile Include="FPExpr.cs" />
+    <Compile Include="FPNum.cs" />
+    <Compile Include="FPRMExpr.cs" />
+    <Compile Include="FPRMNum.cs" />
+    <Compile Include="FPRMSort.cs" />
+    <Compile Include="FPSort.cs" />
     <Compile Include="Global.cs" />
     <Compile Include="IDecRefQueue.cs" />
     <Compile Include="Enumerations.cs" />

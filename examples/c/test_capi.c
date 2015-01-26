@@ -2595,6 +2595,97 @@ void substitute_vars_example() {
     Z3_del_context(ctx);
 }
 
+/**
+   \brief Demonstrates some basic features of the FloatingPoint theory.
+*/
+
+void fpa_example() {
+    Z3_config cfg;
+    Z3_context ctx;
+    Z3_sort double_sort, rm_sort;
+    Z3_symbol s_rm, s_x, s_y, s_x_plus_y;
+    Z3_ast rm, x, y, n, x_plus_y, c1, c2, c3, c4, c5, c6;
+	Z3_ast args[2], args2[2], and_args[3], args3[3];
+
+    printf("\nFPA-example\n");
+    LOG_MSG("FPA-example");
+        
+    cfg = Z3_mk_config();
+    ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    double_sort = Z3_mk_fpa_sort(ctx, 11, 53);
+    rm_sort = Z3_mk_fpa_rounding_mode_sort(ctx);
+
+	// Show that there are x, y s.t. (x + y) = 42.0 (with rounding mode).    
+	s_rm = Z3_mk_string_symbol(ctx, "rm");
+	rm = Z3_mk_const(ctx, s_rm, rm_sort);
+	s_x = Z3_mk_string_symbol(ctx, "x");
+	s_y = Z3_mk_string_symbol(ctx, "y");
+	x = Z3_mk_const(ctx, s_x, double_sort);
+	y = Z3_mk_const(ctx, s_y, double_sort);
+	n = Z3_mk_fpa_numeral_double(ctx, 42.0, double_sort);
+
+	s_x_plus_y = Z3_mk_string_symbol(ctx, "x_plus_y");
+	x_plus_y = Z3_mk_const(ctx, s_x_plus_y, double_sort);
+	c1 = Z3_mk_eq(ctx, x_plus_y, Z3_mk_fpa_add(ctx, rm, x, y));
+
+	args[0] = c1;
+	args[1] = Z3_mk_eq(ctx, x_plus_y, n);
+	c2 = Z3_mk_and(ctx, 2, (Z3_ast*)&args);
+
+	args2[0] = c2;
+	args2[1] = Z3_mk_not(ctx, Z3_mk_eq(ctx, rm, Z3_mk_fpa_rtz(ctx)));
+	c3 = Z3_mk_and(ctx, 2, (Z3_ast*)&args2);
+
+	and_args[0] = Z3_mk_not(ctx, Z3_mk_fpa_is_zero(ctx, y));
+	and_args[1] = Z3_mk_not(ctx, Z3_mk_fpa_is_nan(ctx, y));
+	and_args[2] = Z3_mk_not(ctx, Z3_mk_fpa_is_infinite(ctx, y));
+	args3[0] = c3;
+	args3[1] = Z3_mk_and(ctx, 3, and_args);
+	c4 = Z3_mk_and(ctx, 2, (Z3_ast*)&args3);
+        
+	printf("c4: %s\n", Z3_ast_to_string(ctx, c4));
+	Z3_push(ctx);                  
+	Z3_assert_cnstr(ctx, c4);
+	check(ctx, Z3_L_TRUE);
+	Z3_pop(ctx, 1);
+
+	// Show that the following are equal:
+	//   (fp #b0 #b10000000001 #xc000000000000) 
+	//   ((_ to_fp 11 53) #x401c000000000000))
+	//   ((_ to_fp 11 53) RTZ 1.75 2)))
+	//   ((_ to_fp 11 53) RTZ 7.0)))
+	
+	Z3_push(ctx);
+	c1 = Z3_mk_fpa_fp(ctx, 
+					  Z3_mk_numeral(ctx, "0", Z3_mk_bv_sort(ctx, 1)),
+					  Z3_mk_numeral(ctx, "3377699720527872", Z3_mk_bv_sort(ctx, 52)),
+					  Z3_mk_numeral(ctx, "1025", Z3_mk_bv_sort(ctx, 11)));
+	c2 = Z3_mk_fpa_to_fp_bv(ctx,
+							Z3_mk_numeral(ctx, "4619567317775286272", Z3_mk_bv_sort(ctx, 64)),
+							Z3_mk_fpa_sort(ctx, 11, 53));
+	c3 = Z3_mk_fpa_to_fp_int_real(ctx,
+                                  Z3_mk_fpa_rtz(ctx),
+								  Z3_mk_numeral(ctx, "2", Z3_mk_int_sort(ctx)),
+                                  Z3_mk_numeral(ctx, "1.75", Z3_mk_real_sort(ctx)),                                  
+                                  Z3_mk_fpa_sort(ctx, 11, 53));
+	c4 = Z3_mk_fpa_to_fp_real(ctx,
+							  Z3_mk_fpa_rtz(ctx),
+							  Z3_mk_numeral(ctx, "7.0", Z3_mk_real_sort(ctx)),
+							  Z3_mk_fpa_sort(ctx, 11, 53));
+	args3[0] = Z3_mk_eq(ctx, c1, c2);
+	args3[1] = Z3_mk_eq(ctx, c1, c3);
+	args3[2] = Z3_mk_eq(ctx, c1, c4);
+	c5 = Z3_mk_and(ctx, 3, args3);
+
+	printf("c5: %s\n", Z3_ast_to_string(ctx, c5));
+	Z3_assert_cnstr(ctx, c5);
+	check(ctx, Z3_L_TRUE);
+	Z3_pop(ctx, 1);
+
+    Z3_del_context(ctx);
+}
 
 /*@}*/
 /*@}*/
@@ -2640,5 +2731,6 @@ int main() {
     smt2parser_example();
     substitute_example();
     substitute_vars_example();
+    fpa_example();
     return 0;
 }

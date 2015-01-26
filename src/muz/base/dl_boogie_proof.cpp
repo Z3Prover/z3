@@ -142,7 +142,7 @@ namespace datalog {
         steps.push_back(step());
         obj_map<proof, unsigned> index;
         index.insert(m_proof, 0);
-		
+        
         for (unsigned j = 0; j < rules.size(); ++j) {
             proof* p = rules[j];
             proof_ref_vector premises(m);

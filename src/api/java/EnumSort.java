@@ -24,6 +24,7 @@ public class EnumSort extends Sort
 {
 	/**
 	 * The function declarations of the constants in the enumeration.
+	 * @throws Z3Exception on error
 	 **/
 	public FuncDecl[] getConstDecls() throws Z3Exception
 	{
@@ -36,6 +37,8 @@ public class EnumSort extends Sort
 
 	/**
 	 * The constants in the enumeration.
+	 * @throws Z3Exception on error
+	 * @return an Expr
 	 **/
 	public Expr[] getConsts() throws Z3Exception
 	{	    
@@ -48,6 +51,7 @@ public class EnumSort extends Sort
 
 	/**
 	 * The test predicates for the constants in the enumeration.
+	 * @throws Z3Exception on error
 	 **/
 	public FuncDecl[] getTesterDecls() throws Z3Exception
 	{
@@ -60,7 +64,7 @@ public class EnumSort extends Sort
 
 	EnumSort(Context ctx, Symbol name, Symbol[] enumNames) throws Z3Exception
 	{
-		super(ctx);
+		super(ctx, 0);
 
 		int n = enumNames.length;
 		long[] n_constdecls = new long[n];

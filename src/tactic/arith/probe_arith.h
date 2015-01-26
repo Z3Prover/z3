@@ -33,6 +33,7 @@ probe * mk_arith_max_degree_probe();
 */
 
 probe * mk_is_qflia_probe();
+probe * mk_is_qfauflia_probe();
 probe * mk_is_qflra_probe();
 probe * mk_is_qflira_probe();
 probe * mk_is_ilp_probe();
@@ -40,6 +41,7 @@ probe * mk_is_mip_probe();
 
 /*
   ADD_PROBE("is-qflia", "true if the goal is in QF_LIA.", "mk_is_qflia_probe()")
+  ADD_PROBE("is-qfauflia", "true if the goal is in QF_AUFLIA.", "mk_is_qfauflia_probe()")
   ADD_PROBE("is-qflra", "true if the goal is in QF_LRA.", "mk_is_qflra_probe()")
   ADD_PROBE("is-qflira", "true if the goal is in QF_LIRA.", "mk_is_qflira_probe()")
   ADD_PROBE("is-ilp", "true if the goal is ILP.", "mk_is_ilp_probe()")
