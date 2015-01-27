@@ -1090,7 +1090,7 @@ namespace datalog {
         mk_remove_cols  m_mk_remove_cols;
         join_project_fn m_join_project;
         bool            m_is_subtract;
-        bool            m_is_aliased;
+        //bool            m_is_aliased;
     public:
         negation_filter_fn(const udoc_relation & t, const udoc_relation & neg, unsigned joined_col_cnt,
                            const unsigned *t_cols, const unsigned *neg_cols)
@@ -1099,9 +1099,9 @@ namespace datalog {
               m_mk_remove_cols(t, neg, m_remove_cols),
               m_join_project(t, neg, joined_col_cnt, t_cols, neg_cols, 
                              m_remove_cols.size(), m_remove_cols.c_ptr()),
-              m_is_subtract(false),
-              m_is_aliased(true) {
-            SASSERT(joined_col_cnt > 0);
+              m_is_subtract(false)//,
+              /*m_is_aliased(true) */{
+            SASSERT(joined_col_cnt > 0 || neg.get_signature().size() == 0);
             m_is_subtract = (joined_col_cnt == t.get_signature().size());
             m_is_subtract &= (joined_col_cnt == neg.get_signature().size());
             svector<bool> found(joined_col_cnt, false);
@@ -1119,20 +1119,24 @@ namespace datalog {
             udoc_plugin& p = t.get_plugin();
             IF_VERBOSE(3, t.display(verbose_stream() << "dst:"););
             IF_VERBOSE(3, n.display(verbose_stream() << "neg:"););
-            if (!m_is_aliased && !t.fast_empty() && !n.fast_empty() && !p.m_disable_fast_pass) {
+            if (t.fast_empty() || n.fast_empty())
+                return;
+
+            /* TODO: double check
+            if (!m_is_aliased && !p.m_disable_fast_pass) {
                 // fast_pass(t, n);
             }
-            if (m_is_subtract && !t.fast_empty() && !n.fast_empty()) {
+            */
+            if (n.get_signature().size() == 0)
+                t.get_udoc().reset(t.get_dm());
+            else if (m_is_subtract)
                 t.get_udoc().subtract(t.get_dm(), n.get_udoc());
-                return;
-            }
-            if (!t.fast_empty() && !n.fast_empty()) {
+            else
                 slow_pass(t, n);
-            }
         }
 
     private:
-
+        /*
         void fast_pass(udoc_relation& t, const udoc_relation& n) {
             SASSERT(!m_is_aliased);
             udoc & dst = t.get_udoc();
@@ -1154,6 +1158,7 @@ namespace datalog {
             }
             std::swap(dst, result);
         }
+        */
 
         void slow_pass(udoc_relation& t, udoc_relation const& n) {
             doc_manager& dmt = t.get_dm();
