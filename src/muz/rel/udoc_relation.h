@@ -48,7 +48,7 @@ namespace datalog {
         virtual udoc_relation * complement(func_decl*) const;
         virtual void to_formula(expr_ref& fml) const;
         udoc_plugin& get_plugin() const; 
-        virtual bool fast_empty() const { return !get_signature().empty() && m_elems.is_empty(); }
+        virtual bool fast_empty() const { return m_elems.is_empty(); }
         virtual bool empty() const; 
         virtual void display(std::ostream& out) const;
         virtual bool is_precise() const { return true; }

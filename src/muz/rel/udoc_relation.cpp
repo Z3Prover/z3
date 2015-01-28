@@ -1127,7 +1127,7 @@ namespace datalog {
                 // fast_pass(t, n);
             }
             */
-            if (n.get_signature().size() == 0)
+            if (n.get_signature().empty())
                 t.get_udoc().reset(t.get_dm());
             else if (m_is_subtract)
                 t.get_udoc().subtract(t.get_dm(), n.get_udoc());
