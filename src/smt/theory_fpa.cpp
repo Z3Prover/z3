@@ -463,7 +463,8 @@ namespace smt {
         switch (k) {
         case OP_FPA_TO_UBV:
         case OP_FPA_TO_SBV:
-        case OP_FPA_TO_REAL: {
+        case OP_FPA_TO_REAL: 
+        case OP_FPA_TO_IEEE_BV: {
             expr_ref conv(m);
             conv = convert(term);
             assert_cnstr(m.mk_eq(term, conv));
