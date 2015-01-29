@@ -857,7 +857,7 @@ namespace datalog {
         ast_manager& m = m_context.get_manager();
         unsigned pt_len = r->get_positive_tail_size();
         unsigned ut_len = r->get_uninterpreted_tail_size();
-        if (pt_len == ut_len || pt_len == 0) {
+        if (pt_len == ut_len) {
             return;
         }
         // populate negative variables:
