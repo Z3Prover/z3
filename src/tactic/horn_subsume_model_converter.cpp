@@ -43,7 +43,7 @@ bool horn_subsume_model_converter::mk_horn(
     app* head, expr* body, func_decl_ref& pred, expr_ref& body_res) {
 
     expr_ref_vector conjs(m), subst(m);
-    ptr_vector<sort> sorts, sorts2;
+    ptr_vector<sort> sorts2;
     var_subst vs(m, false);
 
     if (!is_uninterp(head)) {
@@ -53,28 +53,27 @@ bool horn_subsume_model_converter::mk_horn(
     pred = head->get_decl();
     unsigned arity = head->get_num_args();
     
-    get_free_vars(head, sorts);
-    get_free_vars(body, sorts);
+    expr_free_vars fv;
+    fv(head);
+    fv.accumulate(body);
     
-    if (arity == 0 && sorts.empty()) {
+    if (arity == 0 && fv.empty()) {
         body_res = body;
         return true;
     }
+    fv.set_default_sort(m.mk_bool_sort());
 
     svector<symbol> names;
-    for (unsigned i = 0; i < sorts.size(); ++i) {
-        if (!sorts[i]) {
-            sorts[i] = m.mk_bool_sort();
-        }            
+    for (unsigned i = 0; i < fv.size(); ++i) {
         names.push_back(symbol(i));
     }
     names.reverse();
-    sorts.reverse();
+    fv.reverse();
     conjs.push_back(body);
     for (unsigned i = 0; i < arity; ++i) {
         expr* arg = head->get_arg(i);
         var_ref v(m);
-        v = m.mk_var(sorts.size()+i, m.get_sort(arg));
+        v = m.mk_var(fv.size()+i, m.get_sort(arg));
         
         if (is_var(arg)) {
             unsigned w = to_var(arg)->get_idx();
@@ -101,12 +100,12 @@ bool horn_subsume_model_converter::mk_horn(
         vs(tmp, subst.size(), subst.c_ptr(), body_expr);
     }    
 
-    if (sorts.empty()) {
+    if (fv.empty()) {
         SASSERT(subst.empty());
         body_res = body_expr;
     }   
     else {
-        body_res  = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), body_expr.get()); 
+        body_res  = m.mk_exists(fv.size(), fv.c_ptr(), names.c_ptr(), body_expr.get()); 
         m_rewrite(body_res);
         
     }
@@ -120,10 +119,9 @@ bool horn_subsume_model_converter::mk_horn(
 
 bool horn_subsume_model_converter::mk_horn(
     expr* clause, func_decl_ref& pred, expr_ref& body) {
-    ptr_vector<sort> sorts;
 
     // formula is closed.
-    DEBUG_CODE(get_free_vars(clause, sorts); SASSERT(sorts.empty()););
+    DEBUG_CODE(expr_free_vars fv; fv(clause); SASSERT(fv.empty()););
         
     while (is_quantifier(clause) && to_quantifier(clause)->is_forall()) {
         quantifier* q = to_quantifier(clause);

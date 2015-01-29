@@ -61,6 +61,13 @@ namespace smt {
             if (antecedent == null_literal) {
                 ctx.assign_eq(lhs, ctx.get_enode(rhs), eq_justification::mk_axiom());
             }
+            else if (ctx.get_assignment(antecedent) != l_true) {
+                literal l(mk_eq(lhs->get_owner(), rhs, true));
+                ctx.mark_as_relevant(l);
+                ctx.mark_as_relevant(antecedent);
+                literal lits[2] = {l, ~antecedent};
+                ctx.mk_th_axiom(get_id(), 2, lits);
+            }
             else {
                 SASSERT(ctx.get_assignment(antecedent) == l_true);
                 region & r   = ctx.get_region();
@@ -143,6 +150,48 @@ namespace smt {
         ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), reg, 1, &l, 1, &p)));
     }
 
+    /**
+       \brief Given a field update n := { r with field := v } for constructor C, assert the axioms:
+       (=> (is-C r) (= (acc_j n) (acc_j r))) for acc_j != field
+       (=> (is-C r) (= (field n) v))         for acc_j != field
+       (=> (not (is-C r)) (= n r))
+    */
+    void theory_datatype::assert_update_field_axioms(enode * n) {
+        m_stats.m_assert_update_field++;
+        SASSERT(is_update_field(n));
+        context & ctx = get_context();
+        ast_manager & m  = get_manager();
+        app*        own  = n->get_owner();
+        expr*       arg1 = own->get_arg(0);
+        expr*       arg2 = own->get_arg(1);
+        func_decl * upd  = n->get_decl();
+        func_decl * acc  = to_func_decl(upd->get_parameter(0).get_ast());
+        func_decl * con  = m_util.get_accessor_constructor(acc);
+        func_decl * rec  = m_util.get_constructor_recognizer(con);
+        ptr_vector<func_decl> const * accessors   = m_util.get_constructor_accessors(con);
+        ptr_vector<func_decl>::const_iterator it  = accessors->begin();
+        ptr_vector<func_decl>::const_iterator end = accessors->end();
+        app_ref rec_app(m.mk_app(rec, arg1), m);
+        ctx.internalize(rec_app, false);
+        literal is_con(ctx.get_bool_var(rec_app));
+        for (; it != end; ++it) {
+            enode* arg;
+            func_decl * acc1   = *it;
+            if (acc1 == acc) {
+                arg = n->get_arg(1);
+            }
+            else {
+                app* acc_app = m.mk_app(acc1, arg1);
+                ctx.internalize(acc_app, false);
+                arg = ctx.get_enode(acc_app);
+            }
+            app * acc_own = m.mk_app(acc1, own);
+            assert_eq_axiom(arg, acc_own, is_con); 
+        }
+        // update_field is identity if 'n' is not created by a matching constructor.        
+        assert_eq_axiom(n, arg1, ~is_con);
+    }
+
     theory_var theory_datatype::mk_var(enode * n) {
         theory_var r  = theory::mk_var(n);
         theory_var r2 = m_find.mk_var();
@@ -150,15 +199,17 @@ namespace smt {
         SASSERT(r == static_cast<int>(m_var_data.size()));
         m_var_data.push_back(alloc(var_data));
         var_data * d  = m_var_data[r];
+        context & ctx   = get_context();
+        ctx.attach_th_var(n, this, r);
         if (is_constructor(n)) {
             d->m_constructor = n;
-            get_context().attach_th_var(n, this, r);
             assert_accessor_axioms(n);
+        }
+        else if (is_update_field(n)) {
+            assert_update_field_axioms(n);
         }
         else {
             ast_manager & m = get_manager();
-            context & ctx   = get_context();
-            ctx.attach_th_var(n, this, r);
             sort * s      = m.get_sort(n->get_owner());
             if (m_util.get_datatype_num_constructors(s) == 1) {
                 func_decl * c = m_util.get_datatype_constructors(s)->get(0);
@@ -192,7 +243,7 @@ namespace smt {
             ctx.set_var_theory(bv, get_id());
             ctx.set_enode_flag(bv, true);
         }
-        if (is_constructor(term)) {
+        if (is_constructor(term) || is_update_field(term)) {
             SASSERT(!is_attached_to_var(e));
             // *** We must create a theory variable for each argument that has sort datatype ***
             //
@@ -478,6 +529,7 @@ namespace smt {
         st.update("datatype splits", m_stats.m_splits);
         st.update("datatype constructor ax", m_stats.m_assert_cnstr);
         st.update("datatype accessor ax", m_stats.m_assert_accessor);
+        st.update("datatype update ax", m_stats.m_assert_update_field);
     }
     
     void theory_datatype::display_var(std::ostream & out, theory_var v) const {

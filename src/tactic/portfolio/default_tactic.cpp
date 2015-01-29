@@ -30,7 +30,7 @@ Notes:
 #include"qffpa_tactic.h"
 
 tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
-    tactic * st = using_params(and_then(mk_simplify_tactic(m),
+    tactic * st = using_params(and_then(mk_simplify_tactic(m),                                        
                                         cond(mk_is_qfbv_probe(),  mk_qfbv_tactic(m),
                                         cond(mk_is_qflia_probe(), mk_qflia_tactic(m),
                                         cond(mk_is_qflra_probe(), mk_qflra_tactic(m),

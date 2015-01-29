@@ -184,7 +184,7 @@ namespace datalog {
         TRACE("dl", tout << "Adding unbound column " << mk_pp(pred, m_context.get_manager()) << "\n";);
             IF_VERBOSE(3, { 
                     expr_ref e(m_context.get_manager()); 
-                    compiled_rule->to_formula(e); 
+                    m_context.get_rule_manager().to_formula(*compiled_rule, e); 
                     verbose_stream() << "Compiling unsafe rule column " << col_idx << "\n" 
                                      << mk_ismt2_pp(e, m_context.get_manager()) << "\n"; 
                 });
@@ -408,13 +408,14 @@ namespace datalog {
 
     void compiler::get_local_indexes_for_projection(app * t, var_counter & globals, unsigned ofs, 
             unsigned_vector & res) {
+        // TODO: this can be optimized to avoid renames in some cases
         unsigned n = t->get_num_args();
         for(unsigned i = 0; i<n; i++) {
             expr * e = t->get_arg(i);
-            if(!is_var(e) || globals.get(to_var(e)->get_idx())!=0) {
-                continue;
+            if (is_var(e) && globals.get(to_var(e)->get_idx()) > 0) {
+              globals.update(to_var(e)->get_idx(), -1);
+              res.push_back(i + ofs);
             }
-            res.push_back(i+ofs);
         }
     }
 
@@ -422,11 +423,30 @@ namespace datalog {
         SASSERT(r->get_positive_tail_size()==2);
         ast_manager & m = m_context.get_manager();
         rule_counter counter;
-        counter.count_rule_vars(m, r);
+        // leave one column copy per var in the head (avoids later duplication)
+        counter.count_vars(m, r->get_head(), -1);
+
+        // take interp & neg preds into account (at least 1 column copy if referenced)
+        unsigned n = r->get_tail_size();
+        if (n > 2) {
+          rule_counter counter_tail;
+          for (unsigned i = 2; i < n; ++i) {
+            counter_tail.count_vars(m, r->get_tail(i));
+          }
+
+          rule_counter::iterator I = counter_tail.begin(), E = counter_tail.end();
+          for (; I != E; ++I) {
+            int& n = counter.get(I->m_key);
+            if (n == 0)
+              n = -1;
+          }
+        }
+
         app * t1 = r->get_tail(0);
         app * t2 = r->get_tail(1);
-        counter.count_vars(m, t1, -1);
-        counter.count_vars(m, t2, -1);
+        counter.count_vars(m, t1);
+        counter.count_vars(m, t2);
+
         get_local_indexes_for_projection(t1, counter, 0, res);
         get_local_indexes_for_projection(t2, counter, t1->get_num_args(), res);
     }
@@ -589,7 +609,8 @@ namespace datalog {
             dealloc = true;
         }
 
-        // enforce interpreted tail predicates
+
+        // add unbounded columns for interpreted filter
         unsigned ut_len = r->get_uninterpreted_tail_size();
         unsigned ft_len = r->get_tail_size(); // full tail
         ptr_vector<expr> tail;
@@ -597,17 +618,14 @@ namespace datalog {
             tail.push_back(r->get_tail(tail_index));
         }
 
+        expr_ref_vector binding(m);
         if (!tail.empty()) {
             app_ref filter_cond(tail.size() == 1 ? to_app(tail.back()) : m.mk_and(tail.size(), tail.c_ptr()), m);
-            ptr_vector<sort> filter_vars;
-            get_free_vars(filter_cond, filter_vars);
-
+            m_free_vars(filter_cond);
             // create binding
-            expr_ref_vector binding(m);
-            binding.resize(filter_vars.size()+1);
-            
-            for (unsigned v = 0; v < filter_vars.size(); ++v) {
-                if (!filter_vars[v])
+            binding.resize(m_free_vars.size()+1);
+            for (unsigned v = 0; v < m_free_vars.size(); ++v) {
+                if (!m_free_vars[v])
                     continue;
 
                 int2ints::entry * entry = var_indexes.find_core(v);
@@ -616,7 +634,7 @@ namespace datalog {
                     src_col = entry->get_data().m_value.back();
                 } else {
                     // we have an unbound variable, so we add an unbound column for it
-                    relation_sort unbound_sort = filter_vars[v];
+                    relation_sort unbound_sort = m_free_vars[v];
 
                     reg_idx new_reg;
                     bool new_dealloc;
@@ -633,19 +651,64 @@ namespace datalog {
                     entry->get_data().m_value.push_back(src_col);
                 }
                 relation_sort var_sort = m_reg_signatures[filtered_res][src_col];
-                binding[filter_vars.size()-v] = m.mk_var(src_col, var_sort);
+                binding[m_free_vars.size()-v] = m.mk_var(src_col, var_sort);
             }
+        }
+
+        //enforce negative predicates
+        for (unsigned i = pt_len; i<ut_len; i++) {
+            app * neg_tail = r->get_tail(i);
+            func_decl * neg_pred = neg_tail->get_decl();
+            variable_intersection neg_intersection(m_context.get_manager());
+            neg_intersection.populate(single_res_expr, neg_tail);
+            unsigned_vector t_cols(neg_intersection.size(), neg_intersection.get_cols1());
+            unsigned_vector neg_cols(neg_intersection.size(), neg_intersection.get_cols2());
+
+            unsigned neg_len = neg_tail->get_num_args();
+            for (unsigned i = 0; i<neg_len; i++) {
+                expr * e = neg_tail->get_arg(i);
+                if (is_var(e)) {
+                    continue;
+                }
+                SASSERT(is_app(e));
+                relation_sort arg_sort;
+                m_context.get_rel_context()->get_rmanager().from_predicate(neg_pred, i, arg_sort);
+                reg_idx new_reg;
+                bool new_dealloc;
+                make_add_constant_column(head_pred, filtered_res, arg_sort, to_app(e), new_reg, new_dealloc, acc);
+
+                if (dealloc)
+                    make_dealloc_non_void(filtered_res, acc);
+                dealloc = new_dealloc;
+                filtered_res = new_reg;
+
+                t_cols.push_back(single_res_expr.size());
+                neg_cols.push_back(i);
+                single_res_expr.push_back(e);
+            }
+            SASSERT(t_cols.size() == neg_cols.size());
+
+            reg_idx neg_reg = m_pred_regs.find(neg_pred);
+            if (!dealloc)
+                make_clone(filtered_res, filtered_res, acc);
+            acc.push_back(instruction::mk_filter_by_negation(filtered_res, neg_reg, t_cols.size(),
+                t_cols.c_ptr(), neg_cols.c_ptr()));
+            dealloc = true;
+        }
+
+        // enforce interpreted tail predicates
+        if (!tail.empty()) {
+            app_ref filter_cond(tail.size() == 1 ? to_app(tail.back()) : m.mk_and(tail.size(), tail.c_ptr()), m);
 
             // check if there are any columns to remove
             unsigned_vector remove_columns;
             {
                 unsigned_vector var_idx_to_remove;
-                ptr_vector<sort> vars;
-                get_free_vars(r->get_head(), vars);
+                m_free_vars(r->get_head());
                 for (int2ints::iterator I = var_indexes.begin(), E = var_indexes.end();
                     I != E; ++I) {
                     unsigned var_idx = I->m_key;
-                    if (!vars.get(var_idx, 0)) {
+                    if (!m_free_vars.contains(var_idx)) {
                         unsigned_vector & cols = I->m_value;
                         for (unsigned i = 0; i < cols.size(); ++i) {
                             remove_columns.push_back(cols[i]);
@@ -697,47 +760,6 @@ namespace datalog {
             dealloc = true;
         }
 
-        //enforce negative predicates
-        for (unsigned i = pt_len; i<ut_len; i++) {
-            app * neg_tail = r->get_tail(i);
-            func_decl * neg_pred = neg_tail->get_decl();
-            variable_intersection neg_intersection(m_context.get_manager());
-            neg_intersection.populate(single_res_expr, neg_tail);
-            unsigned_vector t_cols(neg_intersection.size(), neg_intersection.get_cols1());
-            unsigned_vector neg_cols(neg_intersection.size(), neg_intersection.get_cols2());
-
-            unsigned neg_len = neg_tail->get_num_args();
-            for (unsigned i = 0; i<neg_len; i++) {
-                expr * e = neg_tail->get_arg(i);
-                if (is_var(e)) {
-                    continue;
-                }
-                SASSERT(is_app(e));
-                relation_sort arg_sort;
-                m_context.get_rel_context()->get_rmanager().from_predicate(neg_pred, i, arg_sort);
-                reg_idx new_reg;
-                bool new_dealloc;
-                make_add_constant_column(head_pred, filtered_res, arg_sort, to_app(e), new_reg, new_dealloc, acc);
-
-                if (dealloc)
-                    make_dealloc_non_void(filtered_res, acc);
-                dealloc = new_dealloc;
-                filtered_res = new_reg;                // here filtered_res value gets changed !!
-
-                t_cols.push_back(single_res_expr.size());
-                neg_cols.push_back(i);
-                single_res_expr.push_back(e);
-            }
-            SASSERT(t_cols.size() == neg_cols.size());
-
-            reg_idx neg_reg = m_pred_regs.find(neg_pred);
-            if (!dealloc)
-                make_clone(filtered_res, filtered_res, acc);
-            acc.push_back(instruction::mk_filter_by_negation(filtered_res, neg_reg, t_cols.size(),
-                t_cols.c_ptr(), neg_cols.c_ptr()));
-            dealloc = true;
-        }
-
 #if 0
         // this version is potentially better for non-symbolic tables,
         // since it constraints each unbound column at a time (reducing the
@@ -745,10 +767,9 @@ namespace datalog {
         unsigned ft_len=r->get_tail_size(); //full tail
         for(unsigned tail_index=ut_len; tail_index<ft_len; tail_index++) {
             app * t = r->get_tail(tail_index);
-            ptr_vector<sort> t_vars;
-            ::get_free_vars(t, t_vars);
+            m_free_vars(t);
             
-            if(t_vars.empty()) {
+            if (m_free_vars.empty()) {
                 expr_ref simplified(m);
                 m_context.get_rewriter()(t, simplified);
                 if(m.is_true(simplified)) {
@@ -761,23 +782,22 @@ namespace datalog {
             }
 
             //determine binding size
-            while (!t_vars.back()) {
-                t_vars.pop_back();
-            }
-            unsigned max_var = t_vars.size();
+            
+            unsigned max_var = m_free_vars.size();
+            while (max_var > 0 && !m_free_vars[max_var-1]) --max_var;
 
             //create binding
             expr_ref_vector binding(m);
-            binding.resize(max_var+1);
+            binding.resize(max_var);
             
-            for(unsigned v = 0; v < t_vars.size(); ++v) {
-                if (!t_vars[v]) {
+            for(unsigned v = 0; v < max_var; ++v) {
+                if (!m_free_vars[v]) {
                     continue;
                 }
                 int2ints::entry * e = var_indexes.find_core(v);
                 if(!e) {
                     //we have an unbound variable, so we add an unbound column for it
-                    relation_sort unbound_sort = t_vars[v];
+                    relation_sort unbound_sort = m_free_vars[v];
 
                     reg_idx new_reg;
                     TRACE("dl", tout << mk_pp(head_pred, m_context.get_manager()) << "\n";);
@@ -1338,7 +1358,7 @@ namespace datalog {
 
         acc.set_observer(0);
 
-        TRACE("dl", execution_code.display(*m_context.get_rel_context(), tout););
+        TRACE("dl", execution_code.display(execution_context(m_context), tout););
     }
 
 

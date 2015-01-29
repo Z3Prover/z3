@@ -427,7 +427,7 @@ namespace smt {
         }
         expr_ref n(m_manager);
         literal2expr(~consequent, n);
-        pp.display(out, n);
+        pp.display_smt2(out, n);
     }
 
     static unsigned g_lemma_id = 0;
@@ -437,9 +437,9 @@ namespace smt {
     void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, const char * logic) const {
         char buffer[BUFFER_SZ];
 #ifdef _WINDOWS
-        sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt", g_lemma_id);
+        sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
 #else
-        sprintf(buffer, "lemma_%d.smt", g_lemma_id);
+        sprintf(buffer, "lemma_%d.smt2", g_lemma_id);
 #endif
         std::ofstream out(buffer);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
@@ -468,7 +468,7 @@ namespace smt {
         }
         expr_ref n(m_manager);
         literal2expr(~consequent, n);
-        pp.display(out, n);
+        pp.display_smt2(out, n);
     }
 
     void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, 
@@ -476,9 +476,9 @@ namespace smt {
                                                literal consequent, const char * logic) const {
         char buffer[BUFFER_SZ];
 #ifdef _WINDOWS
-        sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt", g_lemma_id);
+        sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
 #else
-        sprintf(buffer, "lemma_%d.smt", g_lemma_id);
+        sprintf(buffer, "lemma_%d.smt2", g_lemma_id);
 #endif
         std::ofstream out(buffer);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);

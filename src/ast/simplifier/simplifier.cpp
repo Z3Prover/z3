@@ -61,16 +61,18 @@ void simplifier::enable_ac_support(bool flag) {
 */
 void simplifier::operator()(expr * s, expr_ref & r, proof_ref & p) {
     m_need_reset = true;
+    reinitialize();
+    expr  * s_orig = s;
     expr  * old_s;
     expr  * result;
     proof * result_proof;
-    switch (m_manager.proof_mode()) {
+    switch (m.proof_mode()) {
     case PGM_DISABLED: // proof generation is disabled.
         reduce_core(s); 
         // after executing reduce_core, the result of the simplification is in the cache
         get_cached(s, result, result_proof);
         r = result;
-        p = m_manager.mk_undef_proof();
+        p = m.mk_undef_proof();
         break;
     case PGM_COARSE: // coarse proofs... in this case, we do not produce a step by step (fine grain) proof to show the equivalence (or equisatisfiability) of s an r.
         m_subst_proofs.reset(); // m_subst_proofs is an auxiliary vector that is used to justify substitutions. See comment on method get_subst. 
@@ -78,10 +80,10 @@ void simplifier::operator()(expr * s, expr_ref & r, proof_ref & p) {
         get_cached(s, result, result_proof);
         r = result;
         if (result == s)
-            p = m_manager.mk_reflexivity(s);
+            p = m.mk_reflexivity(s);
         else {
             remove_duplicates(m_subst_proofs);
-            p = m_manager.mk_rewrite_star(s, result, m_subst_proofs.size(), m_subst_proofs.c_ptr());
+            p = m.mk_rewrite_star(s, result, m_subst_proofs.size(), m_subst_proofs.c_ptr());
         }
         break;
     case PGM_FINE: // fine grain proofs... in this mode, every proof step (or most of them) is described.
@@ -90,17 +92,20 @@ void simplifier::operator()(expr * s, expr_ref & r, proof_ref & p) {
         // keep simplyfing until no further simplifications are possible.
         while (s != old_s) {
             TRACE("simplifier", tout << "simplification pass... " << s->get_id() << "\n";);
-            TRACE("simplifier_loop", tout << mk_ll_pp(s, m_manager) << "\n";);
+            TRACE("simplifier_loop", tout << mk_ll_pp(s, m) << "\n";);
             reduce_core(s);
             get_cached(s, result, result_proof);
-            if (result_proof != 0)
+            SASSERT(is_rewrite_proof(s, result, result_proof));
+            if (result_proof != 0) {
                 m_proofs.push_back(result_proof);
+            }
             old_s = s;
             s     = result;
         }
         SASSERT(s != 0);
         r = s;
-        p = m_proofs.empty() ? m_manager.mk_reflexivity(s) : m_manager.mk_transitivity(m_proofs.size(), m_proofs.c_ptr());
+        p = m_proofs.empty() ? m.mk_reflexivity(s) : m.mk_transitivity(m_proofs.size(), m_proofs.c_ptr());
+        SASSERT(is_rewrite_proof(s_orig, r, p));
         break;
     default:
         UNREACHABLE();
@@ -259,9 +264,9 @@ void simplifier::reduce1(expr * n) {
    specific simplifications via plugins.
 */
 void simplifier::reduce1_app(app * n) {
-    expr_ref r(m_manager);
-    proof_ref p(m_manager);
-    TRACE("reduce", tout << "reducing...\n" << mk_pp(n, m_manager) << "\n";);
+    expr_ref r(m);
+    proof_ref p(m);
+    TRACE("reduce", tout << "reducing...\n" << mk_pp(n, m) << "\n";);
     if (get_subst(n, r, p)) {
         TRACE("reduce", tout << "applying substitution...\n";);
         cache_result(n, r, p);
@@ -279,7 +284,7 @@ void simplifier::reduce1_app(app * n) {
 void simplifier::reduce1_app_core(app * n) {
     m_args.reset();
     func_decl * decl = n->get_decl();
-    proof_ref p1(m_manager);
+    proof_ref p1(m);
     // Stores the new arguments of n in m_args.
     // Let n be of the form
     // (decl arg_0 ... arg_{n-1})
@@ -296,23 +301,23 @@ void simplifier::reduce1_app_core(app * n) {
     //   If none of the arguments have been simplified, and n is not a theory symbol,
     //   Then no simplification is possible, and we can cache the result of the simplification of n as n.
     if (has_new_args || decl->get_family_id() != null_family_id) {
-        expr_ref r(m_manager);
-        TRACE("reduce", tout << "reduce1_app\n"; for(unsigned i = 0; i < m_args.size(); i++) tout << mk_ll_pp(m_args[i], m_manager););
+        expr_ref r(m);
+        TRACE("reduce", tout << "reduce1_app\n"; for(unsigned i = 0; i < m_args.size(); i++) tout << mk_ll_pp(m_args[i], m););
         // the method mk_app invokes get_subst and plugins to simplify
         // (decl arg_0' ... arg_{n-1}')
         mk_app(decl, m_args.size(), m_args.c_ptr(), r);
-        if (!m_manager.fine_grain_proofs()) {
+        if (!m.fine_grain_proofs()) {
             cache_result(n, r, 0);
         }
         else {
-            expr * s = m_manager.mk_app(decl, m_args.size(), m_args.c_ptr());
+            expr * s = m.mk_app(decl, m_args.size(), m_args.c_ptr());
             proof * p;
             if (n == r)
                 p = 0;
             else if (r != s) 
                 // we use a "theory rewrite generic proof" to justify the step
                 // s = (decl arg_0' ... arg_{n-1}') --> r
-                p = m_manager.mk_transitivity(p1, m_manager.mk_rewrite(s, r));
+                p = m.mk_transitivity(p1, m.mk_rewrite(s, r));
             else
                 p = p1;
             cache_result(n, r, p);
@@ -354,11 +359,11 @@ bool is_ac_vector(app * n) {
 }
 
 void simplifier::reduce1_ac_app_core(app * n) {
-    app_ref    n_c(m_manager);
-    proof_ref  p1(m_manager);
+    app_ref    n_c(m);
+    proof_ref  p1(m);
     mk_ac_congruent_term(n, n_c, p1);
-    TRACE("ac", tout << "expr:\n" << mk_pp(n, m_manager) << "\ncongruent term:\n" << mk_pp(n_c, m_manager) << "\n";);
-    expr_ref r(m_manager); 
+    TRACE("ac", tout << "expr:\n" << mk_pp(n, m) << "\ncongruent term:\n" << mk_pp(n_c, m) << "\n";);
+    expr_ref r(m); 
     func_decl * decl = n->get_decl();
     family_id fid    = decl->get_family_id();
     plugin * p       = get_plugin(fid);
@@ -376,7 +381,7 @@ void simplifier::reduce1_ac_app_core(app * n) {
             // done...
         }
         else {
-            r = m_manager.mk_app(decl, m_args.size(), m_args.c_ptr());
+            r = m.mk_app(decl, m_args.size(), m_args.c_ptr());
         }
     }
     else {
@@ -385,7 +390,7 @@ void simplifier::reduce1_ac_app_core(app * n) {
         get_ac_args(n_c, m_args, m_mults);
         TRACE("ac", tout << "AC args:\n";
               for (unsigned i = 0; i < m_args.size(); i++) {
-                  tout << mk_pp(m_args[i], m_manager) << " * " << m_mults[i] << "\n";
+                  tout << mk_pp(m_args[i], m) << " * " << m_mults[i] << "\n";
               });
         if (p != 0 && p->reduce(decl, m_args.size(), m_mults.c_ptr(), m_args.c_ptr(), r)) {
             // done...
@@ -393,12 +398,12 @@ void simplifier::reduce1_ac_app_core(app * n) {
         else {
             ptr_buffer<expr> new_args;
             expand_args(m_args.size(), m_mults.c_ptr(), m_args.c_ptr(), new_args);
-            r = m_manager.mk_app(decl, new_args.size(), new_args.c_ptr());
+            r = m.mk_app(decl, new_args.size(), new_args.c_ptr());
         }
     }
-    TRACE("ac", tout << "AC result:\n" << mk_pp(r, m_manager) << "\n";);
+    TRACE("ac", tout << "AC result:\n" << mk_pp(r, m) << "\n";);
 
-    if (!m_manager.fine_grain_proofs()) {
+    if (!m.fine_grain_proofs()) {
         cache_result(n, r, 0);
     }
     else {
@@ -406,7 +411,7 @@ void simplifier::reduce1_ac_app_core(app * n) {
         if (n == r.get())
             p = 0;
         else if (r.get() != n_c.get()) 
-            p = m_manager.mk_transitivity(p1, m_manager.mk_rewrite(n_c, r));
+            p = m.mk_transitivity(p1, m.mk_rewrite(n_c, r));
         else
             p = p1;
         cache_result(n, r, p);
@@ -416,8 +421,8 @@ void simplifier::reduce1_ac_app_core(app * n) {
 static unsigned g_rewrite_lemma_id = 0;
 
 void simplifier::dump_rewrite_lemma(func_decl * decl, unsigned num_args, expr * const * args, expr* result) {
-    expr_ref arg(m_manager);
-    arg = m_manager.mk_app(decl, num_args, args);
+    expr_ref arg(m);
+    arg = m.mk_app(decl, num_args, args);
     if (arg.get() != result) {
         char buffer[128];
 #ifdef _WINDOWS
@@ -425,11 +430,11 @@ void simplifier::dump_rewrite_lemma(func_decl * decl, unsigned num_args, expr * 
 #else
         sprintf(buffer, "rewrite_lemma_%d.smt", g_rewrite_lemma_id);
 #endif        
-        ast_smt_pp pp(m_manager);
+        ast_smt_pp pp(m);
         pp.set_benchmark_name("rewrite_lemma");
         pp.set_status("unsat");
-        expr_ref n(m_manager);
-        n = m_manager.mk_not(m_manager.mk_eq(arg.get(), result));
+        expr_ref n(m);
+        n = m.mk_not(m.mk_eq(arg.get(), result));
         std::ofstream out(buffer);
         pp.display(out, n);
         out.close();
@@ -445,14 +450,14 @@ void simplifier::dump_rewrite_lemma(func_decl * decl, unsigned num_args, expr * 
 */
 void simplifier::mk_app(func_decl * decl, unsigned num_args, expr * const * args, expr_ref & result) {
     m_need_reset = true;
-    if (m_manager.is_eq(decl)) {
-        sort * s = m_manager.get_sort(args[0]);
+    if (m.is_eq(decl)) {
+        sort * s = m.get_sort(args[0]);
         plugin * p = get_plugin(s->get_family_id());
         if (p != 0 && p->reduce_eq(args[0], args[1], result))
             return;
     }
-    else if (m_manager.is_distinct(decl)) {
-        sort * s = m_manager.get_sort(args[0]);
+    else if (m.is_distinct(decl)) {
+        sort * s = m.get_sort(args[0]);
         plugin * p = get_plugin(s->get_family_id());
         if (p != 0 && p->reduce_distinct(num_args, args, result))
             return;
@@ -464,7 +469,7 @@ void simplifier::mk_app(func_decl * decl, unsigned num_args, expr * const * args
         //dump_rewrite_lemma(decl, num_args, args, result.get());
         return;
     }
-    result = m_manager.mk_app(decl, num_args, args);
+    result = m.mk_app(decl, num_args, args);
 }
 
 /**
@@ -484,7 +489,7 @@ void simplifier::mk_congruent_term(app * n, app_ref & r, proof_ref & p) {
         get_cached(arg, new_arg, arg_proof);
 
         CTRACE("simplifier_bug", (arg != new_arg) != (arg_proof != 0), 
-               tout << mk_ll_pp(arg, m_manager) << "\n---->\n" << mk_ll_pp(new_arg, m_manager) << "\n";
+               tout << mk_ll_pp(arg, m) << "\n---->\n" << mk_ll_pp(new_arg, m) << "\n";
                tout << "#" << arg->get_id() << " #" << new_arg->get_id() << "\n";
                tout << arg << " " << new_arg << "\n";);
         
@@ -500,11 +505,11 @@ void simplifier::mk_congruent_term(app * n, app_ref & r, proof_ref & p) {
         args.push_back(new_arg);
     }
     if (has_new_args) {
-        r = m_manager.mk_app(n->get_decl(), args.size(), args.c_ptr());
+        r = m.mk_app(n->get_decl(), args.size(), args.c_ptr());
         if (m_use_oeq)
-            p = m_manager.mk_oeq_congruence(n, r, proofs.size(), proofs.c_ptr());
+            p = m.mk_oeq_congruence(n, r, proofs.size(), proofs.c_ptr());
         else
-            p = m_manager.mk_congruence(n, r, proofs.size(), proofs.c_ptr());
+            p = m.mk_congruence(n, r, proofs.size(), proofs.c_ptr());
     }
     else {
         r = n;
@@ -523,8 +528,8 @@ void simplifier::mk_congruent_term(app * n, app_ref & r, proof_ref & p) {
 bool simplifier::get_args(app * n, ptr_vector<expr> & result, proof_ref & p) {
     bool has_new_args  = false;
     unsigned num       = n->get_num_args();
-    if (m_manager.fine_grain_proofs()) {
-        app_ref r(m_manager);
+    if (m.fine_grain_proofs()) {
+        app_ref r(m);
         mk_congruent_term(n, r, p);
         result.append(r->get_num_args(), r->get_args());
         SASSERT(n->get_num_args() == result.size());
@@ -582,7 +587,7 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
                     new_args.push_back(new_arg);
                     if (arg != new_arg)
                         has_new_arg = true;
-                    if (m_manager.fine_grain_proofs()) {
+                    if (m.fine_grain_proofs()) {
                         proof * pr = 0;
                         m_ac_pr_cache.find(to_app(arg), pr);
                         if (pr != 0)
@@ -601,7 +606,7 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
                 new_args.push_back(new_arg);
                 if (arg != new_arg)
                     has_new_arg = true;
-                if (m_manager.fine_grain_proofs() && pr != 0)
+                if (m.fine_grain_proofs() && pr != 0)
                     new_arg_prs.push_back(pr);
             }
         }
@@ -610,14 +615,14 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
             todo.pop_back();
             if (!has_new_arg) {
                 m_ac_cache.insert(curr, curr);
-                if (m_manager.fine_grain_proofs()) 
+                if (m.fine_grain_proofs()) 
                     m_ac_pr_cache.insert(curr, 0);
             }
             else {
-                app * new_curr = m_manager.mk_app(f, new_args.size(), new_args.c_ptr());
+                app * new_curr = m.mk_app(f, new_args.size(), new_args.c_ptr());
                 m_ac_cache.insert(curr, new_curr);
-                if (m_manager.fine_grain_proofs()) {
-                    proof * p = m_manager.mk_congruence(curr, new_curr, new_arg_prs.size(), new_arg_prs.c_ptr());
+                if (m.fine_grain_proofs()) {
+                    proof * p = m.mk_congruence(curr, new_curr, new_arg_prs.size(), new_arg_prs.c_ptr());
                     m_ac_pr_cache.insert(curr, p);
                 }
             }
@@ -628,7 +633,7 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
     app *   new_n = 0;
     m_ac_cache.find(n, new_n);
     r = new_n;
-    if (m_manager.fine_grain_proofs()) {
+    if (m.fine_grain_proofs()) {
         proof * new_pr = 0;
         m_ac_pr_cache.find(n, new_pr);
         p = new_pr;
@@ -719,7 +724,7 @@ void simplifier::get_ac_args(app * n, ptr_vector<expr> & args, vector<rational> 
     SASSERT(!sorted_exprs.empty());
     SASSERT(sorted_exprs[sorted_exprs.size()-1] == n);
     
-    TRACE("ac", tout << mk_ll_pp(n, m_manager, true, false) << "#" << n->get_id() << "\nsorted expressions...\n";
+    TRACE("ac", tout << mk_ll_pp(n, m, true, false) << "#" << n->get_id() << "\nsorted expressions...\n";
           for (unsigned i = 0; i < sorted_exprs.size(); i++) {
               tout << "#" << sorted_exprs[i]->get_id() << " ";
           }
@@ -754,10 +759,10 @@ void simplifier::get_ac_args(app * n, ptr_vector<expr> & args, vector<rational> 
 void simplifier::reduce1_quantifier(quantifier * q) {
     expr *  new_body;
     proof * new_body_pr;
-    SASSERT(is_well_sorted(m_manager, q));
+    SASSERT(is_well_sorted(m, q));
     get_cached(q->get_expr(), new_body, new_body_pr);
 
-    quantifier_ref q1(m_manager);
+    quantifier_ref q1(m);
     proof * p1 = 0;
     
     if (is_quantifier(new_body) && 
@@ -774,7 +779,7 @@ void simplifier::reduce1_quantifier(quantifier * q) {
         sorts.append(nested_q->get_num_decls(), nested_q->get_decl_sorts());
         names.append(nested_q->get_num_decls(), nested_q->get_decl_names());
 
-        q1 = m_manager.mk_quantifier(q->is_forall(),
+        q1 = m.mk_quantifier(q->is_forall(),
                                      sorts.size(),
                                      sorts.c_ptr(),
                                      names.c_ptr(),
@@ -783,13 +788,13 @@ void simplifier::reduce1_quantifier(quantifier * q) {
                                      q->get_qid(),
                                      q->get_skid(),
                                      0, 0, 0, 0);
-        SASSERT(is_well_sorted(m_manager, q1));
+        SASSERT(is_well_sorted(m, q1));
         
-        if (m_manager.fine_grain_proofs()) {
-            quantifier * q0 = m_manager.update_quantifier(q, new_body);
-            proof * p0 = q == q0 ? 0 : m_manager.mk_quant_intro(q, q0, new_body_pr);
-            p1 = m_manager.mk_pull_quant(q0, q1);
-            p1 = m_manager.mk_transitivity(p0, p1);
+        if (m.fine_grain_proofs()) {
+            quantifier * q0 = m.update_quantifier(q, new_body);
+            proof * p0 = q == q0 ? 0 : m.mk_quant_intro(q, q0, new_body_pr);
+            p1 = m.mk_pull_quant(q0, q1);
+            p1 = m.mk_transitivity(p0, p1);
         }
     }
     else {
@@ -802,7 +807,7 @@ void simplifier::reduce1_quantifier(quantifier * q) {
         unsigned num = q->get_num_patterns();
         for (unsigned i = 0; i < num; i++) {
             get_cached(q->get_pattern(i), new_pattern, new_pattern_pr);
-            if (m_manager.is_pattern(new_pattern)) {
+            if (m.is_pattern(new_pattern)) {
                 new_patterns.push_back(new_pattern);
             }            
         }
@@ -815,7 +820,7 @@ void simplifier::reduce1_quantifier(quantifier * q) {
         remove_duplicates(new_patterns);
         remove_duplicates(new_no_patterns);
 
-        q1 = m_manager.mk_quantifier(q->is_forall(),
+        q1 = m.mk_quantifier(q->is_forall(),
                                      q->get_num_decls(),
                                      q->get_decl_sorts(),
                                      q->get_decl_names(),
@@ -827,26 +832,26 @@ void simplifier::reduce1_quantifier(quantifier * q) {
                                      new_patterns.c_ptr(),
                                      new_no_patterns.size(),
                                      new_no_patterns.c_ptr());
-        SASSERT(is_well_sorted(m_manager, q1));
+        SASSERT(is_well_sorted(m, q1));
 
-        TRACE("simplifier", tout << mk_pp(q, m_manager) << "\n" << mk_pp(q1, m_manager) << "\n";);
-        if (m_manager.fine_grain_proofs()) {
+        TRACE("simplifier", tout << mk_pp(q, m) << "\n" << mk_pp(q1, m) << "\n";);
+        if (m.fine_grain_proofs()) {
             if (q != q1 && !new_body_pr) {
-                new_body_pr = m_manager.mk_rewrite(q->get_expr(), new_body);
+                new_body_pr = m.mk_rewrite(q->get_expr(), new_body);
             }
-            p1 = q == q1 ? 0 : m_manager.mk_quant_intro(q, q1, new_body_pr);
+            p1 = q == q1 ? 0 : m.mk_quant_intro(q, q1, new_body_pr);
         }
     }
     
-    expr_ref r(m_manager);
-    elim_unused_vars(m_manager, q1, r);
+    expr_ref r(m);
+    elim_unused_vars(m, q1, r);
     
     proof * pr = 0;
-    if (m_manager.fine_grain_proofs()) {
+    if (m.fine_grain_proofs()) {
         proof * p2 = 0;
         if (q1.get() != r.get())
-            p2 = m_manager.mk_elim_unused_vars(q1, r);
-        pr = m_manager.mk_transitivity(p1, p2);
+            p2 = m.mk_elim_unused_vars(q1, r);
+        pr = m.mk_transitivity(p1, p2);
     }
 
     cache_result(q, r, pr);
@@ -892,7 +897,7 @@ bool subst_simplifier::get_subst(expr * n, expr_ref & r, proof_ref & p) {
         m_subst_map->get(n, _r, _p);
         r = _r;
         p = _p;
-        if (m_manager.coarse_grain_proofs()) 
+        if (m.coarse_grain_proofs()) 
             m_subst_proofs.push_back(p);
         return true;
     }

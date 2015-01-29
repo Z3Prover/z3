@@ -1038,6 +1038,11 @@ void bit_blaster_tpl<Cfg>::mk_ext_rotate_left_right(unsigned sz, expr * const * 
             mk_rotate_right(sz, a_bits, static_cast<unsigned>(k.get_uint64()), out_bits);
     }
     else {
+        //
+        // Review: a better tuned implementation is possible by using shifts by power of two.
+        // e.g., looping over the bits of b_bits, then rotate by a power of two depending
+        // on the bit-position. This would get rid of the mk_urem.
+        //
         expr_ref_vector sz_bits(m());
         expr_ref_vector masked_b_bits(m());
         expr_ref_vector eqs(m());

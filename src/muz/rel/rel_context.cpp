@@ -21,6 +21,7 @@ Revision History:
 
 
 #include"rel_context.h"
+#include"stopwatch.h"
 #include"dl_context.h"
 #include"dl_compiler.h"
 #include"dl_instruction.h"
@@ -31,6 +32,9 @@ Revision History:
 #include"dl_interval_relation.h"
 #include"karr_relation.h"
 #include"dl_finite_product_relation.h"
+#include"product_set.h"
+#include"udoc_relation.h"
+#include"check_relation.h"
 #include"dl_lazy_table.h"
 #include"dl_sparse_table.h"
 #include"dl_table.h"
@@ -47,7 +51,7 @@ Revision History:
 #include"dl_mk_interp_tail_simplifier.h"
 #include"dl_mk_bit_blast.h"
 #include"dl_mk_separate_negated_tails.h"
-#include"fixedpoint_params.hpp"
+#include"ast_util.h"
 
 
 namespace datalog {
@@ -95,7 +99,8 @@ namespace datalog {
           m_rmanager(ctx),
           m_answer(m), 
           m_last_result_relation(0),
-          m_ectx(ctx) {
+          m_ectx(ctx),
+          m_sw(0) {
 
         // register plugins for builtin tables
 
@@ -111,7 +116,10 @@ namespace datalog {
 
         rm.register_plugin(alloc(bound_relation_plugin, rm));
         rm.register_plugin(alloc(interval_relation_plugin, rm));
-        rm.register_plugin(alloc(karr_relation_plugin, rm));
+        if (m_context.karr()) rm.register_plugin(alloc(karr_relation_plugin, rm));
+        rm.register_plugin(alloc(product_set_plugin, rm));
+        rm.register_plugin(alloc(udoc_plugin, rm));
+        rm.register_plugin(alloc(check_relation_plugin, rm));
     }
 
     rel_context::~rel_context() {
@@ -149,18 +157,22 @@ namespace datalog {
                 break;
             }
             TRACE("dl", m_context.display(tout););
+            //IF_VERBOSE(3, m_context.display_smt2(0,0,verbose_stream()););
 
-            if (m_context.get_params().dump_aig().size()) {
-                const char *filename = static_cast<const char*>(m_context.get_params().dump_aig().c_ptr());
+            if (m_context.print_aig().size()) {
+                const char *filename = static_cast<const char*>(m_context.print_aig().c_ptr());
                 aig_exporter aig(m_context.get_rules(), get_context(), &m_table_facts);
                 std::ofstream strm(filename, std::ios_base::binary);
                 aig(strm);
                 exit(0);
             }
 
+            ::stopwatch sw;
+            sw.start();
+
             compiler::compile(m_context, m_context.get_rules(), m_code, termination_code);
 
-            TRACE("dl", m_code.display(*this, tout); );
+            TRACE("dl", m_code.display(m_ectx, tout); );
 
             bool timeout_after_this_round = time_limit && (restart_time==0 || remaining_time_limit<=restart_time);
 
@@ -176,6 +188,9 @@ namespace datalog {
             VERIFY( termination_code.perform(m_ectx) || m_context.canceled());
 
             m_code.process_all_costs();
+            sw.stop();
+            m_sw += sw.get_seconds();
+
 
             IF_VERBOSE(10, m_ectx.report_big_relations(1000, verbose_stream()););
 
@@ -218,6 +233,7 @@ namespace datalog {
     }
  
     lbool rel_context::query(unsigned num_rels, func_decl * const* rels) {
+        setup_default_relation();
         get_rmanager().reset_saturated_marks();
         scoped_query _scoped_query(m_context);
         for (unsigned i = 0; i < num_rels; ++i) {
@@ -243,11 +259,21 @@ namespace datalog {
                     is_approx = true;
                 }
                 rel.to_formula(e);
+#if 0
+                // Alternative format: 
+                // List the signature of the relation as 
+                // part of the answer.
+                expr_ref_vector args(m);
+                for (unsigned j = 0; j < q->get_arity(); ++j) {
+                    args.push_back(m.mk_var(j, q->get_domain(j)));
+                }
+                e = m.mk_implies(m.mk_app(q, args.size(), args.c_ptr()), e);
+#endif
                 ans.push_back(e);
             }
             SASSERT(!m_last_result_relation);
             if (some_non_empty) {
-                m_answer = m.mk_and(ans.size(), ans.c_ptr());
+                m_answer = mk_and(m, ans.size(), ans.c_ptr());
                 if (is_approx) {
                     res = l_undef;
                     m_context.set_status(APPROX);
@@ -284,7 +310,7 @@ namespace datalog {
         transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context));
         transf.register_plugin(alloc(mk_separate_negated_tails, m_context));
 
-        if (m_context.get_params().bit_blast()) {
+        if (m_context.xform_bit_blast()) {
             transf.register_plugin(alloc(mk_bit_blast, m_context, 22000));
             transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context, 21000));
         }
@@ -303,6 +329,7 @@ namespace datalog {
     }
 
     lbool rel_context::query(expr* query) {
+        setup_default_relation();
         get_rmanager().reset_saturated_marks();
         scoped_query _scoped_query(m_context);
         rule_manager& rm = m_context.get_rule_manager();
@@ -359,7 +386,7 @@ namespace datalog {
             for (; it != end; ++it) {
                 func_decl* pred = *it;
                 relation_base & rel = get_relation(pred);
-                if (!rel.empty()) {
+                if (!rel.fast_empty()) {
                     non_empty = true;
                     break;
                 }
@@ -433,7 +460,7 @@ namespace datalog {
 
     bool rel_context::is_empty_relation(func_decl* pred) const {
         relation_base* rb = try_get_relation(pred);
-        return !rb || rb->empty();
+        return !rb || rb->fast_empty();
     }
 
     relation_manager & rel_context::get_rmanager() { return m_rmanager; }
@@ -491,6 +518,12 @@ namespace datalog {
         get_rmanager().set_cancel(f);        
     }
 
+    void rel_context::setup_default_relation() {
+        if (m_context.default_relation() == symbol("doc")) {
+            m_context.set_unbound_compressor(false);
+        }
+    }
+
     relation_plugin & rel_context::get_ordinary_relation_plugin(symbol relation_name) {
         relation_plugin * plugin = get_rmanager().get_relation_plugin(relation_name);
         if (!plugin) {
@@ -514,27 +547,13 @@ namespace datalog {
         SASSERT(m_last_result_relation);
         return m_last_result_relation->contains_fact(f);
     }
-
-    void rel_context::reset_tables() {
-        get_rmanager().reset_saturated_marks();
-        rule_set::decl2rules::iterator it  = m_context.get_rules().begin_grouped_rules();
-        rule_set::decl2rules::iterator end = m_context.get_rules().end_grouped_rules();
-        for (; it != end; ++it) {
-            func_decl* p = it->m_key;
-            relation_base & rel = get_relation(p);
-            rel.reset();
-        }
-        for (unsigned i = 0; i < m_table_facts.size(); ++i) {
-            func_decl* pred = m_table_facts[i].first;
-            relation_fact const& fact = m_table_facts[i].second;
-            get_relation(pred).add_fact(fact);
-        }
-    }
  
     void rel_context::add_fact(func_decl* pred, relation_fact const& fact) {
         get_rmanager().reset_saturated_marks();
         get_relation(pred).add_fact(fact);
-        m_table_facts.push_back(std::make_pair(pred, fact));
+        if (m_context.print_aig().size()) {
+            m_table_facts.push_back(std::make_pair(pred, fact));
+        }
     }
 
     void rel_context::add_fact(func_decl* pred, table_fact const& fact) {
@@ -563,6 +582,31 @@ namespace datalog {
         get_rmanager().store_relation(pred, rel);
     }
 
+    void rel_context::collect_statistics(statistics& st) const {
+        st.update("saturation time", m_sw);
+        m_code.collect_statistics(st);
+        m_ectx.collect_statistics(st);
+    }
+
+    void rel_context::updt_params() {
+        if (m_context.check_relation() != symbol::null &&
+            m_context.check_relation() != symbol("null")) {
+            symbol cr("check_relation");
+            m_context.set_default_relation(cr);
+            relation_plugin* p = get_rmanager().get_relation_plugin(cr);
+            SASSERT(p);
+            check_relation_plugin* p1 = dynamic_cast<check_relation_plugin*>(p);
+            relation_plugin* p2 = get_rmanager().get_relation_plugin(m_context.check_relation());
+            SASSERT(p2);
+            SASSERT(p1 != p2);
+            p1->set_plugin(p2);
+            get_rmanager().set_favourite_plugin(p1);
+            if (m_context.check_relation() == symbol("doc")) {
+                m_context.set_unbound_compressor(false);
+            }
+        }
+    }
+
     void rel_context::inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred) {
         if (orig_pred) {
             family_id target_kind = get_rmanager().get_requested_predicate_kind(orig_pred);            
@@ -586,7 +630,7 @@ namespace datalog {
 
         out << "\n--------------\n";
         out << "Instructions\n";
-        m_code.display(*this, out);
+        m_code.display(m_ectx, out);
 
         out << "\n--------------\n";
         out << "Big relations\n";

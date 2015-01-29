@@ -49,6 +49,7 @@ public:
     void * get_obj(unsigned pos) const;
 
     unsigned * get_uint_array(unsigned pos) const;
+    int * get_int_array(unsigned pos) const;
     Z3_symbol * get_symbol_array(unsigned pos) const;
     void ** get_obj_array(unsigned pos) const;
 

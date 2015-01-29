@@ -558,7 +558,6 @@ namespace pdr {
         {
             expr_ref_vector conj(m), sub(m);
             expr_ref result(m);
-            ptr_vector<sort> sorts;
             svector<symbol> names;
             unsigned ut_size = rule.get_uninterpreted_tail_size();
             unsigned t_size = rule.get_tail_size();              
@@ -599,16 +598,15 @@ namespace pdr {
                 expr_ref tmp = result;
                 var_subst(m, false)(tmp, sub.size(), sub.c_ptr(), result);
             }
-            get_free_vars(result, sorts);         
-            for (unsigned i = 0; i < sorts.size(); ++i) {
-                if (!sorts[i]) {
-                    sorts[i] = m.mk_bool_sort();
-                }
-                names.push_back(symbol(sorts.size() - i - 1));
+            expr_free_vars fv;
+            fv(result);
+            fv.set_default_sort(m.mk_bool_sort());
+            for (unsigned i = 0; i < fv.size(); ++i) {
+                names.push_back(symbol(fv.size() - i - 1));
             }
-            if (!sorts.empty()) {
-                sorts.reverse();
-                result = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), result); 
+            if (!fv.empty()) {
+                fv.reverse();
+                result = m.mk_exists(fv.size(), fv.c_ptr(), names.c_ptr(), result); 
             }            
             return result;
         }

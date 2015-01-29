@@ -111,14 +111,25 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         unsigned ebits = fu.get_ebits(var->get_range());
         unsigned sbits = fu.get_sbits(var->get_range());
 
-        expr_ref sgn(m), sig(m), exp(m);
-        sgn = bv_mdl->get_const_interp(to_app(a->get_arg(0))->get_decl());
-        sig = bv_mdl->get_const_interp(to_app(a->get_arg(1))->get_decl());
-        exp = bv_mdl->get_const_interp(to_app(a->get_arg(2))->get_decl());
+        expr_ref sgn(m), sig(m), exp(m);        
+        bv_mdl->eval(a->get_arg(0), sgn, true);
+        bv_mdl->eval(a->get_arg(1), sig, true);
+        bv_mdl->eval(a->get_arg(2), exp, true);
 
+        SASSERT(a->is_app_of(fu.get_family_id(), OP_TO_FLOAT));
+
+#ifdef Z3DEBUG                
+        SASSERT(to_app(a->get_arg(0))->get_decl()->get_arity() == 0);
+        SASSERT(to_app(a->get_arg(1))->get_decl()->get_arity() == 0);
+        SASSERT(to_app(a->get_arg(1))->get_decl()->get_arity() == 0);        
         seen.insert(to_app(a->get_arg(0))->get_decl());
         seen.insert(to_app(a->get_arg(1))->get_decl());
         seen.insert(to_app(a->get_arg(2))->get_decl());
+#else        
+        SASSERT(a->get_arg(0)->get_kind() == OP_EXTRACT);
+        SASSERT(to_app(a->get_arg(0))->get_arg(0)->get_kind() == OP_EXTRACT);
+        seen.insert(to_app(to_app(a->get_arg(0))->get_arg(0))->get_decl());
+#endif
 
         if (!sgn && !sig && !exp)
             continue;

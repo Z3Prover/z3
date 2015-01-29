@@ -125,6 +125,8 @@ public:
     unsigned get_word(unsigned word_idx) const {
         return m_data[word_idx];
     }
+
+    unsigned get_hash() const;
     
     bool get(unsigned bit_idx) const {
         SASSERT(bit_idx < size());
@@ -198,8 +200,13 @@ public:
     bit_vector & operator|=(bit_vector const & source);
 
     bit_vector & operator&=(bit_vector const & source);
+
+    bit_vector & neg();
     
     void display(std::ostream & out) const;
+
+    bool contains(const bit_vector & other) const;
+
 };
 
 inline std::ostream & operator<<(std::ostream & out, bit_vector const & b) {

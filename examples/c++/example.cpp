@@ -21,6 +21,7 @@ void demorgan() {
     // adding the negation of the conjecture as a constraint.
     s.add(!conjecture);
     std::cout << s << "\n";
+    std::cout << s.to_smt2() << "\n";
     switch (s.check()) {
     case unsat:   std::cout << "de-Morgan is valid\n"; break;
     case sat:     std::cout << "de-Morgan is not valid\n"; break;
@@ -974,6 +975,30 @@ void substitute_example() {
     std::cout << new_f << std::endl;
 }
 
+void opt_example() {
+    context c;
+    optimize opt(c);
+    params p(c);
+    p.set("priority",c.str_symbol("pareto"));
+    opt.set(p);
+    expr x = c.int_const("x");
+    expr y = c.int_const("y");
+    opt.add(10 >= x && x >= 0);
+    opt.add(10 >= y && y >= 0);
+    opt.add(x + y <= 11);
+    optimize::handle h1 = opt.maximize(x);
+    optimize::handle h2 = opt.maximize(y);
+    check_result r = sat;
+    while (true) {
+        if (sat == opt.check()) {
+            std::cout << x << ": " << opt.lower(h1) << " " << y << ": " << opt.lower(h2) << "\n";
+        }
+        else {
+            break;
+        }
+    }
+}
+
 int main() {
     try {
         demorgan(); std::cout << "\n";
@@ -1012,6 +1037,7 @@ int main() {
         expr_vector_example(); std::cout << "\n";
         exists_expr_vector_example(); std::cout << "\n";
         substitute_example(); std::cout << "\n";
+        opt_example(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {

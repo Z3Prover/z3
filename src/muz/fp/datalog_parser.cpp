@@ -41,15 +41,12 @@ class line_reader {
     static const char s_delimiter = '\n';
     static const unsigned s_expansion_step = 1024;
 
-#if 0
-    std::istream & m_stm;
-#else
     FILE * m_file;
-#endif
     svector<char> m_data;
     bool m_eof;
     bool m_eof_behind_buffer;
     unsigned m_next_index;
+    bool m_ok;
     
     //actually by one larger than the actual size of m_data, 
     //to fit in the terminating delimiter
@@ -88,27 +85,17 @@ class line_reader {
 
 public:
 
-#if 0
-    line_reader(std::istream & stm) 
-            : m_stm(stm), 
-            m_eof(false), 
-            m_eof_behind_buffer(false), 
-            m_next_index(0),
-            m_data_size(0) {
-        m_data.resize(2*s_expansion_step);
-        resize_data(0);
-    }
-#else
     line_reader(const char * fname) 
-            :m_eof(false), 
-            m_eof_behind_buffer(false), 
-            m_next_index(0),
-            m_data_size(0) {
+        :m_eof(false), 
+         m_eof_behind_buffer(false), 
+         m_next_index(0),
+         m_data_size(0),
+         m_ok(true) {
         m_data.resize(2*s_expansion_step);
         resize_data(0);
 #if _WINDOWS
         errno_t err = fopen_s(&m_file, fname, "rb");
-        SASSERT(err==0);
+        m_ok = err == 0;
 #else
         m_file = fopen(fname, "rb");
 #endif
@@ -116,7 +103,8 @@ public:
     ~line_reader() {
         fclose(m_file);
     }
-#endif
+
+    bool operator()() { return m_ok; }
 
     /**
        \brief Retrieve next line from the stream.
@@ -170,6 +158,38 @@ public:
     bool eof() const { return m_eof; }
 };
 
+class char_reader {
+    line_reader m_line_reader;
+    char const* m_line;
+public:
+    char_reader(char const* file):
+        m_line_reader(file),
+        m_line(0)
+    {}
+   
+    bool operator()() { return m_line_reader(); }
+
+    char get() {
+        if (!m_line) {
+            if (m_line_reader.eof()) {
+                return EOF;
+            }
+            m_line = m_line_reader.get_line();
+        }
+        if (!(m_line[0])) {
+            m_line = 0;
+            return '\n';
+        }
+        char result = m_line[0];
+        ++m_line;
+        return result;
+    }
+
+    bool eof() {
+        return m_line_reader.eof();
+    }
+};
+
 class reserved_symbols {
     typedef map<char const *, dtoken, str_hash_proc, str_eq_proc> str2token;
     str2token m_str2token;
@@ -200,6 +220,7 @@ public:
 
 class dlexer {
     std::istream*   m_input;
+    char_reader*    m_reader;
     char            m_prev_char;
     char            m_curr_char;
     int             m_line;
@@ -219,7 +240,12 @@ public:
     
     void next() {
         m_prev_char = m_curr_char;
-        m_curr_char = m_input->get();
+        if (m_reader) {
+            m_curr_char = m_reader->get();
+        }
+        else {
+            m_curr_char = m_input->get();
+        }
         m_pos++;
     }
     
@@ -234,6 +260,7 @@ public:
 
     dlexer():
         m_input(0),
+        m_reader(0),
         m_prev_char(0),
         m_curr_char(0),
         m_line(1),
@@ -242,8 +269,9 @@ public:
         m_parsing_domains(false) {
     }
 
-    void set_stream(std::istream& s) { 
-        m_input = &s; 
+    void set_stream(std::istream* s, char_reader* r) { 
+        m_input = s; 
+        m_reader = r;
         next();
     }
 
@@ -279,7 +307,10 @@ public:
         m_tok_pos = m_pos; 
         next(); 
         while (m_curr_char != '"') { 
-            if (m_input->eof()) {
+            if (m_input && m_input->eof()) {
+                return TK_ERROR;
+            }
+            if (m_reader && m_reader->eof()) {
                 return TK_ERROR;
             }
             if (m_curr_char == '\n') {
@@ -431,7 +462,6 @@ protected:
     ast_manager&      m_manager;
 
     dlexer*           m_lexer;
-    ast_ref_vector    m_pinned;
     region            m_region;
     dl_decl_util &    m_decl_util;
     arith_util        m_arith;
@@ -450,7 +480,6 @@ public:
     dparser(context& ctx, ast_manager& m):
         m_context(ctx),
         m_manager(m),
-        m_pinned(m),
         m_decl_util(ctx.get_decl_util()),
         m_arith(m),
         m_num_vars(0),
@@ -460,17 +489,17 @@ public:
 
     virtual bool parse_file(char const * filename) {
         reset();
-        if (filename != 0) {
+        if (filename != 0) {            
             set_path(filename);
-            std::ifstream stream(filename);
-            if (!stream) {
+            char_reader reader(filename);            
+            if (!reader()) {
                 get_err() << "ERROR: could not open file '" << filename << "'.\n";
                 return false;
             }
-            return parse_stream(stream);
+            return parse_stream(0, &reader);
         }
         else {
-            return parse_stream(std::cin);
+            return parse_stream(&std::cin, 0);
         }
     }
 
@@ -478,7 +507,7 @@ public:
         reset();
         std::string s(string);
         std::istringstream is(s);
-        return parse_stream(is);
+        return parse_stream(&is, 0);
     }
     
 protected:
@@ -486,7 +515,6 @@ protected:
     void reset() {
         m_num_vars = 0;
         m_sym_idx = 0;
-        m_pinned.reset();
         m_vars.reset();
         m_region.reset();
         m_path.clear();
@@ -507,13 +535,13 @@ protected:
         return std::cerr;
     }
 
-    bool parse_stream(std::istream& is) {
+    bool parse_stream(std::istream* is, char_reader* r) {
         bool result = false;
         try {
             m_error=false;
             dlexer lexer;
             m_lexer = &lexer;
-            m_lexer->set_stream(is);
+            m_lexer->set_stream(is, r);
             dtoken tok = m_lexer->next_token();
             tok = parse_domains(tok);
             tok = parse_decls(tok);
@@ -741,7 +769,7 @@ protected:
     // 
     dtoken parse_infix(dtoken tok1, char const* td, app_ref& pred) {
         symbol td1(td);
-        expr* v1 = 0, *v2 = 0;
+        expr_ref v1(m_manager), v2(m_manager);
         sort* s = 0;
         dtoken tok2 = m_lexer->next_token();
         if (tok2 != TK_NEQ && tok2 != TK_GT && tok2 != TK_LT && tok2 != TK_EQ) {
@@ -755,12 +783,16 @@ protected:
         symbol td2(td);
 
         if (tok1 == TK_ID) {
-            m_vars.find(td1.bare_str(), v1);
+            expr* _v1 = 0;
+            m_vars.find(td1.bare_str(), _v1);
+            v1 = _v1;
         }
         if (tok3 == TK_ID) {
-            m_vars.find(td2.bare_str(), v2);
+            expr* _v2 = 0;
+            m_vars.find(td2.bare_str(), _v2);
+            v2 = _v2;
         }
-        if (v1 == 0 && v2 == 0) {
+        if (!v1 && !v2) {
             return unexpected(tok3, "at least one argument should be a variable");
         }
         if (v1) {
@@ -963,10 +995,11 @@ protected:
     }    
 
     dtoken parse_include(char const* filename, bool parsing_domain) {
+        IF_VERBOSE(2, verbose_stream() << "include: " << filename << "\n";);
         std::string path(m_path);
         path += filename;
-        std::ifstream stream(path.c_str());
-        if (!stream) {
+        char_reader stream(path.c_str());
+        if (!stream()) {
             get_err() << "ERROR: could not open file '" << path << "'.\n";
             return TK_ERROR;
         }
@@ -974,7 +1007,7 @@ protected:
         dlexer lexer;
         {
             flet<dlexer*> lexer_let(m_lexer, &lexer);
-            m_lexer->set_stream(stream);
+            m_lexer->set_stream(0, &stream);
             tok = m_lexer->next_token();
             if(parsing_domain) {
                 tok = parse_domains(tok);
@@ -990,15 +1023,16 @@ protected:
     dtoken parse_mapfile(dtoken tok, sort * s, char const* filename) {
         std::string path(m_path);
         path += filename;
-        std::ifstream stream(path.c_str());
-        if (!stream) {
+        line_reader reader(path.c_str());
+
+        if (!reader()) {
             get_err() << "Warning: could not open file '" << path << "'.\n";
             return m_lexer->next_token();
         }
 
         std::string line;
-        while(read_line(stream, line)) {
-            symbol sym=symbol(line.c_str());
+        while(!reader.eof()) {
+            symbol sym=symbol(reader.get_line());
             m_context.get_constant_number(s, sym); 
         }        
         return m_lexer->next_token();
@@ -1018,10 +1052,6 @@ protected:
     }
 
     void add_rule(app* head, unsigned sz, app* const* body, const bool * is_neg) {
-        m_pinned.push_back(head);
-        for (unsigned i = 0; i < sz; ++i) {
-            m_pinned.push_back(body[i]);
-        }
         rule_manager& m = m_context.get_rule_manager();
 
         if(sz==0 && m.is_fact(head)) {
@@ -1075,7 +1105,6 @@ protected:
             unsigned idx = m_context.get_constant_number(s, name);
             res = m_decl_util.mk_numeral(idx, s);
         }
-        m_pinned.push_back(res);
         return res;
     }
     /**
@@ -1090,13 +1119,11 @@ protected:
             unsigned idx = m_context.get_constant_number(s, symbol(to_string(el).c_str()));
             res = m_decl_util.mk_numeral(idx, s);
         }
-        m_pinned.push_back(res);
         return res;
     }
     app* mk_const(uint64 el, sort* s) {
         unsigned idx = m_context.get_constant_number(s, el);
         app * res = m_decl_util.mk_numeral(idx, s);
-        m_pinned.push_back(res);
         return res;
     }
 
@@ -1278,7 +1305,7 @@ private:
 
         dlexer lexer;
         m_lexer = &lexer;
-        m_lexer->set_stream(stm);
+        m_lexer->set_stream(&stm, 0);
         dtoken tok = m_lexer->next_token();
         tok = parse_decls(tok);
         m_lexer = 0;

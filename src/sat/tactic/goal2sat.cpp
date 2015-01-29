@@ -35,6 +35,8 @@ Notes:
 #include"for_each_expr.h"
 #include"model_v2_pp.h"
 #include"tactic.h"
+#include"ast_pp.h"
+#include<strstream>
 
 struct goal2sat::imp {
     struct frame {
@@ -52,15 +54,21 @@ struct goal2sat::imp {
     obj_hashtable<expr>         m_interface_vars;
     sat::solver &               m_solver;
     atom2bool_var &             m_map;
+    dep2asm_map &               m_dep2asm;
     sat::bool_var               m_true;
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
     volatile bool               m_cancel;
+    expr_ref_vector             m_trail;
+    bool                        m_default_external;
     
-    imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map):
+    imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
         m_solver(s),
-        m_map(map) {
+        m_map(map),
+        m_dep2asm(dep2asm),
+        m_trail(m),
+        m_default_external(default_external) {
         updt_params(p);
         m_cancel = false;
         m_true = sat::null_bool_var;
@@ -71,8 +79,9 @@ struct goal2sat::imp {
         m_max_memory      = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
     }
 
-    void throw_op_not_handled() {
-        throw tactic_exception("operator not supported, apply simplifier before invoking translator");
+    void throw_op_not_handled(std::string const& s) {
+        std::string s0 = "operator " + s + " not supported, apply simplifier before invoking translator";
+        throw tactic_exception(s0.c_str());
     }
     
     void mk_clause(sat::literal l) {
@@ -116,7 +125,7 @@ struct goal2sat::imp {
                 l = sat::literal(mk_true(), !sign);
             }
             else {
-                bool ext = !is_uninterp_const(t) || m_interface_vars.contains(t);
+                bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
                 sat::bool_var v = m_solver.mk_var(ext);
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
@@ -176,9 +185,12 @@ struct goal2sat::imp {
         case OP_AND:
         case OP_XOR:
         case OP_IMPLIES:
-        case OP_DISTINCT:
+        case OP_DISTINCT: {
             TRACE("goal2sat_not_handled", tout << mk_ismt2_pp(t, m) << "\n";);
-            throw_op_not_handled();
+            std::ostringstream strm;
+            strm << mk_ismt2_pp(t, m);
+            throw_op_not_handled(strm.str());
+        }
         default:
             convert_atom(t, root, sign);
             return true;
@@ -360,15 +372,65 @@ struct goal2sat::imp {
         SASSERT(m_result_stack.empty());
     }
 
+    void insert_dep(expr* dep0, expr* dep, bool sign) {
+        SASSERT(sign || dep0 == dep); // !sign || (not dep0) == dep.
+        SASSERT(!sign || m.is_not(dep0));
+        expr_ref new_dep(m), fml(m);
+        if (is_uninterp_const(dep)) {
+            new_dep = dep;
+        }
+        else {
+            new_dep = m.mk_fresh_const("dep", m.mk_bool_sort());
+            m_trail.push_back(new_dep);
+            m_interface_vars.insert(new_dep);
+            fml = m.mk_iff(new_dep, dep);
+            process(fml);            
+        }
+        convert_atom(new_dep, false, false);
+        sat::literal lit = m_result_stack.back();
+        m_dep2asm.insert(dep0, sign?~lit:lit);
+        m_result_stack.pop_back();
+    }
 
     void operator()(goal const & g) {
         m_interface_vars.reset();
         collect_boolean_interface(g, m_interface_vars);
-        
         unsigned size = g.size();
+        expr_ref f(m), d_new(m);
+        ptr_vector<expr> deps;
+        expr_ref_vector  fmls(m);
         for (unsigned idx = 0; idx < size; idx++) {
-            expr * f = g.form(idx);
+            f = g.form(idx);
+            // Add assumptions.
+            if (g.dep(idx)) {
+                deps.reset();
+                fmls.reset();
+                m.linearize(g.dep(idx), deps);
+                fmls.push_back(f);
+                for (unsigned i = 0; i < deps.size(); ++i) {
+                    expr * d = deps[i];
+                    expr * d1 = d;
+                    SASSERT(m.is_bool(d));
+                    bool sign = m.is_not(d, d1);
+
+                    insert_dep(d, d1, sign);
+                    if (d == f) {
+                        goto skip_dep;
+                    }
+                    if (sign) {
+                        d_new = d1;
+                    }
+                    else {
+                        d_new = m.mk_not(d);
+                    }
+                    fmls.push_back(d_new);
+                }                
+                f = m.mk_or(fmls.size(), fmls.c_ptr());
+            }
+            TRACE("sat", tout << mk_pp(f, m) << "\n";);
             process(f);
+        skip_dep:
+            ;
         }
     }
 
@@ -439,8 +501,8 @@ struct goal2sat::scoped_set_imp {
     }
 };
 
-void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m) {
-    imp proc(g.m(), p, t, m);
+void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external) {
+    imp proc(g.m(), p, t, m, dep2asm, default_external);
     scoped_set_imp set(this, &proc);
     proc(g);
 }

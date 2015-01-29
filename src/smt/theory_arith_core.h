@@ -821,7 +821,7 @@ namespace smt {
             m_new_atoms.push_back(a1);
             return;
         }
-        numeral const & k1(a1->get_k());
+        inf_numeral const & k1(a1->get_k());
         atom_kind kind1 = a1->get_atom_kind();
         TRACE("mk_bound_axioms", tout << "making bound axioms for v" << v << " " << kind1 << " " << k1 << "\n";);
         typename atoms::iterator it  = occs.begin();
@@ -831,7 +831,7 @@ namespace smt {
         typename atoms::iterator hi_inf = end, hi_sup = end;
         for (; it != end; ++it) {
             atom * a2 = *it;            
-            numeral const & k2(a2->get_k());
+            inf_numeral const & k2(a2->get_k());
             atom_kind kind2 = a2->get_atom_kind();
             SASSERT(k1 != k2 || kind1 != kind2);
             if (kind2 == A_LOWER) {
@@ -864,12 +864,13 @@ namespace smt {
         theory_var v = a1->get_var();
         literal   l1(a1->get_bool_var()); 
         literal   l2(a2->get_bool_var()); 
-        numeral const & k1(a1->get_k());
-        numeral const & k2(a2->get_k());
+        inf_numeral const & k1(a1->get_k());
+        inf_numeral const & k2(a2->get_k());
         atom_kind kind1 = a1->get_atom_kind();
         atom_kind kind2 = a2->get_atom_kind();
         bool v_is_int = is_int(v);
         SASSERT(v == a2->get_var());
+        if (k1 == k2 && kind1 == kind2) return;
         SASSERT(k1 != k2 || kind1 != kind2);
         parameter coeffs[3] = { parameter(symbol("farkas")), 
                                 parameter(rational(1)), parameter(rational(1)) };
@@ -890,7 +891,7 @@ namespace smt {
             else {
                 // k1 > hi_inf, k1 <= x => ~(x <= hi_inf)
                 mk_clause(~l1, ~l2, 3, coeffs);
-                if (v_is_int && k1 == k2 + numeral(1)) {
+                if (v_is_int && k1 == k2 + inf_numeral(1)) {
                     // k1 <= x or x <= k1-1
                     mk_clause(l1, l2, 3, coeffs);
                 }
@@ -904,7 +905,7 @@ namespace smt {
             else {
                 // k1 < k2, k2 <= x => ~(x <= k1)
                 mk_clause(~l1, ~l2, 3, coeffs); 
-                if (v_is_int && k1 == k2 - numeral(1)) {
+                if (v_is_int && k1 == k2 - inf_numeral(1)) {
                     // x <= k1 or k1+l <= x
                     mk_clause(l1, l2, 3, coeffs);
                 }
@@ -1000,14 +1001,14 @@ namespace smt {
         typename atoms::iterator it, 
         typename atoms::iterator end,
         bool& found_compatible) {
-        numeral const & k1(a1->get_k());
+        inf_numeral const & k1(a1->get_k());
         typename atoms::iterator result = end;
         found_compatible = false;
         for (; it != end; ++it) {
             atom * a2 = *it;            
             if (a1 == a2) continue;
             if (a2->get_atom_kind() != kind) continue;
-            numeral const & k2(a2->get_k());
+            inf_numeral const & k2(a2->get_k());
             found_compatible = true;
             if (k2 <= k1) {
                 result = it;
@@ -1027,13 +1028,13 @@ namespace smt {
         typename atoms::iterator it, 
         typename atoms::iterator end,
         bool& found_compatible) {
-        numeral const & k1(a1->get_k());
+        inf_numeral const & k1(a1->get_k());
         found_compatible = false;
         for (; it != end; ++it) {
             atom * a2 = *it;            
             if (a1 == a2) continue;
             if (a2->get_atom_kind() != kind) continue;
-            numeral const & k2(a2->get_k());
+            inf_numeral const & k2(a2->get_k());
             found_compatible = true;
             if (k1 < k2) {
                 return it;
@@ -1081,7 +1082,7 @@ namespace smt {
         ctx.set_var_theory(bv, get_id());
         rational _k;
         VERIFY(m_util.is_numeral(rhs, _k));
-        numeral   k(_k);
+        inf_numeral   k(_k);
         atom * a = alloc(atom, bv, v, k, kind);
         mk_bound_axioms(a);
         m_unassigned_atoms[v]++;
@@ -1269,7 +1270,9 @@ namespace smt {
                 result = FC_GIVEUP;
                 break;
             case FC_CONTINUE:
-                TRACE("final_check_arith", tout << "continue arith...\n";);
+                TRACE("final_check_arith", 
+                      tout << "continue arith..." 
+                      << (get_context().inconsistent()?"inconsistent\n":"\n"););
                 return FC_CONTINUE;
             }
         }
@@ -1519,7 +1522,8 @@ namespace smt {
         m_assume_eq_head(0),
         m_nl_rounds(0),
         m_nl_gb_exhausted(false),
-        m_nl_new_exprs(m) {
+        m_nl_new_exprs(m),
+        m_bound_watch(null_bool_var) {
     }
 
     template<typename Ext>
@@ -2184,7 +2188,7 @@ namespace smt {
               tout << "is_below_lower: " << below_lower(x_i) << ", is_above_upper: " << above_upper(x_i) << "\n";);
         antecedents& ante = get_antecedents();
         explain_bound(r, idx, !is_below, delta, ante);
-        b->push_justification(ante, numeral(1), proofs_enabled());
+        b->push_justification(ante, numeral(1), coeffs_enabled());
        
 
         set_conflict(ante.lits().size(), ante.lits().c_ptr(), 
@@ -2327,11 +2331,12 @@ namespace smt {
     void theory_arith<Ext>::sign_bound_conflict(bound * b1, bound * b2) {
         SASSERT(b1->get_var() == b2->get_var());
         antecedents& ante = get_antecedents();
-        b1->push_justification(ante, numeral(1), proofs_enabled());
-        b2->push_justification(ante, numeral(1), proofs_enabled());
+        b1->push_justification(ante, numeral(1), coeffs_enabled());
+        b2->push_justification(ante, numeral(1), coeffs_enabled());
 
         set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), ante, is_int(b1->get_var()), "farkas");
-        TRACE("arith_conflict", tout << "bound conflict\n";);
+        TRACE("arith_conflict", tout << "bound conflict v" << b1->get_var() << "\n";
+              tout << "bounds: " << b1 << " " << b2 << "\n";);
     }
 
     // -----------------------------------
@@ -2587,7 +2592,7 @@ namespace smt {
                 if (!b->has_justification())
                     continue;
                 if (!relax_bounds() || delta.is_zero()) {
-                    b->push_justification(ante, it->m_coeff, proofs_enabled());
+                    b->push_justification(ante, it->m_coeff, coeffs_enabled());
                     continue;
                 }
                 numeral coeff = it->m_coeff;
@@ -2649,7 +2654,7 @@ namespace smt {
                 SASSERT(!is_b_lower || k_2 <= k_1);
                 SASSERT(is_b_lower  || k_2 >= k_1);
                 if (new_atom == 0) {
-                    b->push_justification(ante, coeff, proofs_enabled());
+                    b->push_justification(ante, coeff, coeffs_enabled());
                     continue;
                 }
                 SASSERT(!is_b_lower || k_2 < k_1);
@@ -2663,7 +2668,7 @@ namespace smt {
                     delta -= coeff*(k_2 - k_1);
                 }
                 TRACE("propagate_bounds", tout << "delta (after replace): " << delta << "\n";);
-                new_atom->push_justification(ante, coeff, proofs_enabled());
+                new_atom->push_justification(ante, coeff, coeffs_enabled());
                 SASSERT(delta >= inf_numeral::zero());
             }
         }
@@ -2682,7 +2687,7 @@ namespace smt {
             bool_var bv = a->get_bool_var();
             literal  l(bv);
             if (get_context().get_assignment(bv) == l_undef) {
-                numeral const & k2 = a->get_k();
+                inf_numeral const & k2 = a->get_k();
                 delta.reset();
                 if (a->get_atom_kind() == A_LOWER) {
                     // v >= k  k >= k2  |-  v >= k2
@@ -2863,13 +2868,13 @@ namespace smt {
               for (unsigned i = 0; i < num_literals; i++) {
                   ctx.display_detailed_literal(tout, lits[i]);
                   tout << " ";
-                  if (proofs_enabled()) {
+                  if (coeffs_enabled()) {
                       tout << "bound: " << bounds.lit_coeffs()[i] << "\n";
                   }
               }
               for (unsigned i = 0; i < num_eqs; i++) {
                   tout << "#" << eqs[i].first->get_owner_id() << "=#" << eqs[i].second->get_owner_id() << " ";
-                  if (proofs_enabled()) {
+                  if (coeffs_enabled()) {
                       tout << "bound: " << bounds.eq_coeffs()[i] << "\n";
                   }
               }
@@ -2877,6 +2882,7 @@ namespace smt {
                   tout << bounds.params(proof_rule)[i] << "\n";
               }
               tout << "\n";);
+        record_conflict(num_literals, lits, num_eqs, eqs, bounds.num_params(), bounds.params(proof_rule));
         ctx.set_conflict(
             ctx.mk_justification(
                 ext_theory_conflict_justification(get_id(), r, num_literals, lits, num_eqs, eqs, 
@@ -2893,8 +2899,8 @@ namespace smt {
         typename vector<row_entry>::const_iterator end = r.end_entries();
         for (; it != end; ++it) {
             if (!it->is_dead() && is_fixed(it->m_var)) {
-                lower(it->m_var)->push_justification(antecedents, it->m_coeff, proofs_enabled());
-                upper(it->m_var)->push_justification(antecedents, it->m_coeff, proofs_enabled());                
+                lower(it->m_var)->push_justification(antecedents, it->m_coeff, coeffs_enabled());
+                upper(it->m_var)->push_justification(antecedents, it->m_coeff, coeffs_enabled());                
             }
         }
     }
@@ -2997,6 +3003,9 @@ namespace smt {
                 if (!get_context().is_shared(get_enode(v)))
                     continue;
                 inf_numeral const & val = get_value(v);
+                if (Ext::is_infinite(val)) {
+                    continue;
+                }
                 rational value = val.get_rational().to_rational() + m_epsilon.to_rational() * val.get_infinitesimal().to_rational();
                 theory_var v2;
                 if (mapping.find(value, v2)) {
@@ -3220,11 +3229,13 @@ namespace smt {
                 case QUASI_BASE:
                     SASSERT(m_columns[v].size() == 1);
                     del_row(get_var_row(v));
+                    TRACE("arith_make_feasible", tout << "del row v" << v << "\n";);
                     break; 
                 case BASE:
                     SASSERT(lazy_pivoting_lvl() != 0 || m_columns[v].size() == 1);
                     if (lazy_pivoting_lvl() > 0)
                         eliminate<false>(v, false);
+                    TRACE("arith_make_feasible", tout << "del row v" << v << "\n";);
                     del_row(get_var_row(v));
                     break;
                 case NON_BASE: {
@@ -3236,6 +3247,10 @@ namespace smt {
                         pivot<false>(r.get_base_var(), v, r[entry->m_row_idx].m_coeff, false);
                         SASSERT(is_base(v));
                         del_row(get_var_row(v));
+                        TRACE("arith_make_feasible", tout << "del row v" << v << "\n";);
+                    }
+                    else {
+                        TRACE("arith_make_feasible", tout << "no row v" << v << "\n";);
                     }
                     break;
                 } }

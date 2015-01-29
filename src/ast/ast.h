@@ -1100,6 +1100,7 @@ protected:
     virtual void set_manager(ast_manager * m, family_id id);
     func_decl * mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache);
     func_decl * mk_ite_decl(sort * s);
+    sort* join(sort* s1, sort* s2);
 public:
     basic_decl_plugin();
     
@@ -1378,7 +1379,7 @@ enum proof_gen_mode {
 // -----------------------------------
 
 class ast_manager {
-protected:
+    friend class basic_decl_plugin;
 protected:
     struct config {
         typedef ast_manager              value_manager;
@@ -2004,6 +2005,7 @@ public:
     app * mk_true() { return m_true; }
     app * mk_false() { return m_false; }
     app * mk_interp(expr * arg) { return mk_app(m_basic_family_id, OP_INTERP, arg); }
+
 
     func_decl* mk_and_decl() { 
         sort* domain[2] = { m_bool_sort, m_bool_sort };

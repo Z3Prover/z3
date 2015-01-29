@@ -23,6 +23,7 @@ Revision History:
 #include"bool_rewriter.h"
 #include"arith_rewriter.h"
 #include"bv_rewriter.h"
+#include"pb_rewriter.h"
 #include"datatype_rewriter.h"
 #include"array_rewriter.h"
 #include"float_rewriter.h"
@@ -36,6 +37,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     bv_rewriter                     m_bv_rw;
     array_rewriter                  m_ar_rw;
     datatype_rewriter               m_dt_rw;
+    pb_rewriter                     m_pb_rw;
     float_rewriter                  m_f_rw;
     unsigned long long              m_max_memory;
     unsigned                        m_max_steps;
@@ -52,6 +54,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         // See comment above. We want to allow customers to set :sort-store
         m_ar_rw(m, p),
         m_dt_rw(m),
+        m_pb_rw(m),
         m_f_rw(m) {
         m_b_rw.set_flat(false);
         m_a_rw.set_flat(false);
@@ -153,6 +156,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return m_ar_rw.mk_app_core(f, num, args, result);
         if (fid == m_dt_rw.get_fid())
             return m_dt_rw.mk_app_core(f, num, args, result);
+        if (fid == m_pb_rw.get_fid())
+            return m_pb_rw.mk_app_core(f, num, args, result);
         if (fid == m_f_rw.get_fid())
             return m_f_rw.mk_app_core(f, num, args, result);
         return BR_FAILED;

@@ -124,6 +124,7 @@ namespace pdr {
         unsigned get_num_levels() { return m_levels.size(); }
         expr_ref get_cover_delta(func_decl* p_orig, int level);
         void     add_cover(unsigned level, expr* property);
+        context& get_context() { return ctx; }
 
         std::ostream& display(std::ostream& strm) const;
 
@@ -249,7 +250,6 @@ namespace pdr {
         model_node*        m_root;
         std::deque<model_node*> m_leaves;
         vector<obj_map<expr, model_nodes > > m_cache;
-        
         obj_map<expr, model_nodes>& cache(model_node const& n);
         void erase_children(model_node& n, bool backtrack);
         void erase_leaf(model_node& n);
@@ -269,7 +269,7 @@ namespace pdr {
         void set_root(model_node* n);
         model_node& get_root() const { return *m_root; }
         std::ostream& display(std::ostream& out) const; 
-        expr_ref get_trace(context const& ctx);
+        expr_ref get_trace(context const& ctx);        
         proof_ref get_proof_trace(context const& ctx);
         void backtrack_level(bool uses_level, model_node& n);
     };
@@ -357,6 +357,9 @@ namespace pdr {
         void reset_core_generalizers();
 
         void validate();
+        void validate_proof();
+        void validate_search();
+        void validate_model();
 
     public:       
         

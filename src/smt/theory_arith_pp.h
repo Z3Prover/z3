@@ -395,9 +395,30 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::display_bound(std::ostream & out, bound * b, unsigned indent) const {
         for (unsigned i = 0; i < indent; i++) out << "  ";
-        theory_var v = b->get_var();
-        enode * e    = get_enode(v);
-        out << "v" << v << " #" << e->get_owner_id() << " " << (b->get_bound_kind() == B_LOWER ? ">=" : "<=") << " " << b->get_value() << "\n";
+        b->display(*this, out);
+        out << "\n";
+    }
+
+    template<typename Ext>
+    void theory_arith<Ext>::display_deps(std::ostream & out, v_dependency* dep) {
+        ptr_vector<void> bounds;
+        m_dep_manager.linearize(dep, bounds);
+        m_tmp_lit_set.reset();
+        m_tmp_eq_set.reset();
+        ptr_vector<void>::const_iterator it  = bounds.begin();
+        ptr_vector<void>::const_iterator end = bounds.end();
+        for (; it != end; ++it) {
+            bound * b = static_cast<bound*>(*it);
+            out << " ";
+            b->display(*this, out);
+        }
+    }
+
+    template<typename Ext>
+    void theory_arith<Ext>::display_interval(std::ostream & out, interval const& i) {
+        i.display(out);
+        display_deps(out << " lo:", i.get_lower_dependencies());
+        display_deps(out << " hi:", i.get_upper_dependencies());
     }
 
     template<typename Ext>
@@ -428,7 +449,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::display_atom(std::ostream & out, atom * a, bool show_sign) const {
         theory_var      v = a->get_var();
-        numeral const & k = a->get_k();
+        inf_numeral const & k = a->get_k();
         enode *         e = get_enode(v);
         if (show_sign) {
             if (!a->is_true()) 

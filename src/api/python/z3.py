@@ -298,9 +298,8 @@ class AstRef(Z3PPObject):
         return self.ast
 
     def get_id(self):
-	"""Return unique identifier for object. It can be used for hash-tables and maps."""
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
-
+        """Return unique identifier for object. It can be used for hash-tables and maps."""
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def ctx_ref(self):
         """Return a reference to the C context where this AST node is stored."""
@@ -453,8 +452,7 @@ class SortRef(AstRef):
         return Z3_sort_to_ast(self.ctx_ref(), self.ast)
 
     def get_id(self):
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
-
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def kind(self):
         """Return the Z3 internal kind of a sort. This method can be used to test if `self` is one of the Z3 builtin sorts.
@@ -555,6 +553,8 @@ def _to_sort_ref(s, ctx):
         return ArraySortRef(s, ctx)
     elif k == Z3_DATATYPE_SORT:
         return DatatypeSortRef(s, ctx)
+    elif k == Z3_FINITE_DOMAIN_SORT:
+	return FiniteDomainSortRef(s, ctx)
     return SortRef(s, ctx)
 
 def _sort(ctx, a):
@@ -595,7 +595,7 @@ class FuncDeclRef(AstRef):
         return Z3_func_decl_to_ast(self.ctx_ref(), self.ast)
 
     def get_id(self):
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def as_func_decl(self):
         return self.ast
@@ -743,7 +743,7 @@ class ExprRef(AstRef):
         return self.ast
 
     def get_id(self):
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def sort(self):
         """Return the sort of expression `self`.
@@ -1540,7 +1540,7 @@ class PatternRef(ExprRef):
         return Z3_pattern_to_ast(self.ctx_ref(), self.ast)
 
     def get_id(self):
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
 def is_pattern(a):
     """Return `True` if `a` is a Z3 pattern (hint for quantifier instantiation.
@@ -1605,7 +1605,7 @@ class QuantifierRef(BoolRef):
         return self.ast
 
     def get_id(self):
-	return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
+        return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def sort(self):
         """Return the Boolean sort."""
@@ -6033,22 +6033,20 @@ class Solver(Z3PPObject):
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
 
     def to_smt2(self):
-	"""return SMTLIB2 formatted benchmark for solver's assertions"""
-	es = self.assertions()
-	sz = len(es)
-	sz1 = sz
-	if sz1 > 0:
-	    sz1 -= 1
-	v = (Ast * sz1)()
-	for i in range(sz1):
-	    v[i] = es[i].as_ast()
-	if sz > 0:
-	    e = es[sz1].as_ast()
-	else:
-	    e = BoolVal(True, self.ctx).as_ast()
-	return Z3_benchmark_to_smtlib_string(self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e)
-
-
+        """return SMTLIB2 formatted benchmark for solver's assertions"""
+        es = self.assertions()
+        sz = len(es)
+        sz1 = sz
+        if sz1 > 0:
+            sz1 -= 1
+        v = (Ast * sz1)()
+        for i in range(sz1):
+            v[i] = es[i].as_ast()
+        if sz > 0:
+            e = es[sz1].as_ast()
+        else:
+            e = BoolVal(True, self.ctx).as_ast()
+            return Z3_benchmark_to_smtlib_string(self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e)
 
 def SolverFor(logic, ctx=None):
     """Create a solver customized for the given logic. 
@@ -6166,7 +6164,7 @@ class Fixedpoint(Z3PPObject):
             Z3_fixedpoint_add_rule(self.ctx.ref(), self.fixedpoint, head.as_ast(), name)            
         else:
             body = _get_args(body)
-            f    = self.abstract(Implies(And(body),head))
+            f    = self.abstract(Implies(And(body, self.ctx),head))
             Z3_fixedpoint_add_rule(self.ctx.ref(), self.fixedpoint, f.as_ast(), name)
         
     def rule(self, head, body = None, name = None):
@@ -6183,7 +6181,7 @@ class Fixedpoint(Z3PPObject):
         """
         query = _get_args(query)
         sz = len(query)
-        if sz >= 1 and isinstance(query[0], FuncDecl):            
+        if sz >= 1 and isinstance(query[0], FuncDeclRef):            
             _decls = (FuncDecl * sz)()
             i = 0
             for q in query:
@@ -6194,7 +6192,7 @@ class Fixedpoint(Z3PPObject):
             if sz == 1:
                 query = query[0]
             else:
-                query = And(query)
+                query = And(query, self.ctx)
             query = self.abstract(query, False)
             r = Z3_fixedpoint_query(self.ctx.ref(), self.fixedpoint, query.as_ast())
         return CheckSatResult(r)
@@ -6213,7 +6211,7 @@ class Fixedpoint(Z3PPObject):
             name = ""
         name = to_symbol(name, self.ctx)
         body = _get_args(body)
-        f    = self.abstract(Implies(And(body),head))
+        f    = self.abstract(Implies(And(body, self.ctx),head))
         Z3_fixedpoint_update_rule(self.ctx.ref(), self.fixedpoint, f.as_ast(), name)
 
     def get_answer(self):       
@@ -6309,6 +6307,166 @@ class Fixedpoint(Z3PPObject):
             return ForAll(self.vars, fml)
         else:
             return Exists(self.vars, fml)
+
+
+#########################################
+#
+# Finite domain sorts
+#
+#########################################
+
+class FiniteDomainSortRef(SortRef):
+    """Finite domain sort."""
+
+    def size(self):
+	"""Return the size of the finite domain sort"""
+	r = (ctype.c_ulonglong * 1)()
+	if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast(), r):
+	    return r[0]
+	else:
+	    raise Z3Exception("Failed to retrieve finite domain sort size")
+
+def FiniteDomainSort(name, sz, ctx=None):
+    """Create a named finite domain sort of a given size sz"""
+    ctx = _get_ctx(ctx)
+    return FiniteDomainSortRef(Z3_mk_finite_domain_sort(ctx.ref(), name, sz), ctx)
+
+#########################################
+#
+# Optimize
+#
+#########################################
+
+class OptimizeObjective:
+    def __init__(self, opt, value, is_max):
+	self._opt = opt
+	self._value = value
+	self._is_max = is_max
+
+    def lower(self):
+	opt = self._opt
+	return _to_expr_ref(Z3_optimize_get_lower(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
+    
+    def upper(self):
+	opt = self._opt
+	return _to_expr_ref(Z3_optimize_get_upper(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
+
+    def value(self):
+	if self._is_max:
+	    return self.upper()
+	else:
+	    return self.lower()
+
+class Optimize(Z3PPObject):
+    """Optimize API provides methods for solving using objective functions and weighted soft constraints"""
+     
+    def __init__(self, ctx=None):
+        self.ctx    = _get_ctx(ctx)
+	self.optimize = Z3_mk_optimize(self.ctx.ref())
+        Z3_optimize_inc_ref(self.ctx.ref(), self.optimize)
+
+    def __del__(self):
+        if self.optimize != None:
+            Z3_optimize_dec_ref(self.ctx.ref(), self.optimize)
+
+    def set(self, *args, **keys):
+        """Set a configuration option. The method `help()` return a string containing all available options.        
+        """
+        p = args2params(args, keys, self.ctx)
+        Z3_optimize_set_params(self.ctx.ref(), self.optimize, p.params)
+
+    def help(self):
+        """Display a string describing all available options."""
+        print(Z3_optimize_get_help(self.ctx.ref(), self.optimize))
+            
+    def param_descrs(self):
+        """Return the parameter description set."""
+        return ParamDescrsRef(Z3_optimize_get_param_descrs(self.ctx.ref(), self.optimize), self.ctx)
+    
+    def assert_exprs(self, *args):
+        """Assert constraints as background axioms for the optimize solver."""
+        args = _get_args(args)
+        for arg in args:
+            if isinstance(arg, Goal) or isinstance(arg, AstVector):
+                for f in arg:
+                    Z3_optimize_assert(self.ctx.ref(), self.optimize, f.as_ast())
+            else:
+                Z3_optimize_assert(self.ctx.ref(), self.optimize, arg.as_ast())
+
+    def add(self, *args):
+        """Assert constraints as background axioms for the optimize solver. Alias for assert_expr."""
+        self.assert_exprs(*args)
+
+    def add_soft(self, arg, weight = "1", id = None):
+	"""Add soft constraint with optional weight and optional identifier.
+	   If no weight is supplied, then the penalty for violating the soft constraint
+	   is 1.
+	   Soft constraints are grouped by identifiers. Soft constraints that are
+	   added without identifiers are grouped by default.
+	"""
+	if _is_int(weight):
+	    weight = "%d" % weight
+	if not isinstance(weight, str):
+	    raise Z3Exception("weight should be a string or an integer")
+	if id == None:
+	    id = ""
+	id = to_symbol(id, self.ctx)
+	v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, arg.as_ast(), weight, id)
+	return OptimizeObjective(self, v, False)
+
+    def maximize(self, arg):
+	"""Add objective function to maximize."""
+	return OptimizeObjective(self, Z3_optimize_maximize(self.ctx.ref(), self.optimize, arg.as_ast()), True)
+
+    def minimize(self, arg):
+	"""Add objective function to minimize."""
+	return OptimizeObjective(self, Z3_optimize_minimize(self.ctx.ref(), self.optimize, arg.as_ast()), False)
+
+    def push(self):
+        """create a backtracking point for added rules, facts and assertions"""
+        Z3_optimize_push(self.ctx.ref(), self.optimize)
+
+    def pop(self):
+        """restore to previously created backtracking point"""
+        Z3_optimize_pop(self.ctx.ref(), self.optimize)
+
+    def check(self):
+	"""Check satisfiability while optimizing objective functions."""
+	return CheckSatResult(Z3_optimize_check(self.ctx.ref(), self.optimize))
+
+    def model(self):
+	"""Return a model for the last check()."""
+	try:
+	    return ModelRef(Z3_optimize_get_model(self.ctx.ref(), self.optimize), self.ctx)
+	except Z3Exception:
+	    raise Z3Exception("model is not available")
+
+    def lower(self, obj):
+	if not isinstance(obj, OptimizeObjective):
+	    raise Z3Exception("Expecting objective handle returned by maximize/minimize")
+	return obj.lower()
+
+    def upper(self, obj):
+	if not isinstance(obj, OptimizeObjective):
+	    raise Z3Exception("Expecting objective handle returned by maximize/minimize")
+	return obj.upper()
+    
+    def __repr__(self):
+        """Return a formatted string with all added rules and constraints."""
+        return self.sexpr()
+
+    def sexpr(self):
+        """Return a formatted string (in Lisp-like format) with all added constraints. We say the string is in s-expression format.        
+        """
+        return Z3_optimize_to_string(self.ctx.ref(), self.optimize)
+    
+    def statistics(self):
+        """Return statistics for the last `query()`.
+        """
+        return Statistics(Z3_optimize_get_statistics(self.ctx.ref(), self.optimize), self.ctx)
+
+
+        
 
 #########################################
 #

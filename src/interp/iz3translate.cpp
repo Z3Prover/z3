@@ -1712,11 +1712,17 @@ public:
 	std::cout << "foo!\n";
 
       // no idea why this shows up
-      if(dk == PR_MODUS_PONENS_OEQ)
+      if(dk == PR_MODUS_PONENS_OEQ){
 	if(conc(prem(proof,0)) == con){
 	  res = translate_main(prem(proof,0),expect_clause);
 	  return res;
 	}
+	if(expect_clause && op(con) == Or){ // skolemization does this
+	  Iproof::node clause = translate_main(prem(proof,0),true);
+	  res = RewriteClause(clause,prem(proof,1));
+	  return res;
+	}
+      }
       
 #if 0
       if(1 && dk == PR_TRANSITIVITY && pr(prem(proof,1)) == PR_COMMUTATIVITY){
@@ -1800,7 +1806,9 @@ public:
 	}
 	break;
       }
-      case PR_MONOTONICITY: {
+      case PR_QUANT_INTRO:
+      case PR_MONOTONICITY:
+	{
 	std::vector<ast> eqs; eqs.resize(args.size());
 	for(unsigned i = 0; i < args.size(); i++)
 	  eqs[i] = conc(prem(proof,i));

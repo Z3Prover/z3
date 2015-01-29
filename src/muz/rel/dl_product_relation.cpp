@@ -184,8 +184,10 @@ namespace datalog {
     }
 
     relation_base * product_relation_plugin::mk_full(func_decl* p, const relation_signature & s, family_id kind) {
-        if (kind == null_family_id) {
-            return alloc(product_relation, *this, s);
+        if (kind == null_family_id || !m_spec_store.contains_signature(s)) {
+            product_relation* result = alloc(product_relation, *this, s);
+            result->m_default_empty = false;
+            return result;
         }
         rel_spec spec;
         m_spec_store.get_relation_spec(s, kind, spec);

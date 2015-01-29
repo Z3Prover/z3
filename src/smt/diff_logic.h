@@ -25,6 +25,7 @@ Revision History:
 #include"trace.h"
 #include"warning.h"
 #include"uint_set.h"
+#include<deque>
 
 typedef int dl_var;
 
@@ -280,6 +281,8 @@ public:
     }
 
     unsigned get_num_edges() const { return m_edges.size(); }
+
+    unsigned get_num_nodes() const { return m_out_edges.size(); }
 
     dl_var get_source(edge_id id) const {  return m_edges[id].get_source(); }
 
@@ -931,6 +934,120 @@ public:
         return found;
     }
 
+    // Return true if there is an edge source --> target (also counting disabled edges).
+    // If there is such edge, return its edge_id in parameter id.
+    bool get_edge_id(dl_var source, dl_var target, edge_id & id) const {
+        edge_id_vector const & edges = m_out_edges[source];
+        typename edge_id_vector::const_iterator it  = edges.begin();
+        typename edge_id_vector::const_iterator end = edges.end();
+        for (; it != end; ++it) {
+            id = *it;
+            edge const & e = m_edges[id];
+            if (e.get_target() == target) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    edges const & get_all_edges() const {
+        return m_edges;
+    }
+
+    void get_neighbours_undirected(dl_var current, svector<dl_var> & neighbours) {
+	    neighbours.reset();
+	    edge_id_vector & out_edges = m_out_edges[current];
+        typename edge_id_vector::iterator it = out_edges.begin(), end = out_edges.end();
+        for (; it != end; ++it) {
+            edge_id e_id = *it;
+            edge & e     = m_edges[e_id];
+            SASSERT(e.get_source() == current);
+            dl_var neighbour = e.get_target();
+            neighbours.push_back(neighbour);
+        }
+        edge_id_vector & in_edges = m_in_edges[current];
+        typename edge_id_vector::iterator it2 = in_edges.begin(), end2 = in_edges.end();
+	    for (; it2 != end2; ++it2) {
+            edge_id e_id = *it2;
+            edge & e     = m_edges[e_id];
+            SASSERT(e.get_target() == current);
+            dl_var neighbour = e.get_source();
+            neighbours.push_back(neighbour);
+        }
+    }
+
+    void dfs_undirected(dl_var start, svector<dl_var> & threads) {
+        threads.reset();
+        threads.resize(get_num_nodes());
+	    uint_set discovered, explored;
+	    svector<dl_var> nodes;
+        discovered.insert(start);
+	    nodes.push_back(start);
+	    dl_var prev = start;
+	    while(!nodes.empty()) {
+		    dl_var current = nodes.back();
+            SASSERT(discovered.contains(current) && !explored.contains(current));
+		    svector<dl_var> neighbours;
+		    get_neighbours_undirected(current, neighbours);
+            SASSERT(!neighbours.empty());
+            bool found = false;
+		    for (unsigned i = 0; i < neighbours.size(); ++i) {
+                dl_var next = neighbours[i];
+                DEBUG_CODE(
+                edge_id id;
+                SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););                
+                if (!discovered.contains(next) && !explored.contains(next)) {
+                    TRACE("diff_logic", tout << "thread[" << prev << "] --> " << next << std::endl;);
+                    threads[prev] = next;
+                    prev = next;
+                    discovered.insert(next);
+	                nodes.push_back(next);
+                    found = true;
+                    break;
+                }
+		    }            
+            SASSERT(!nodes.empty());
+            if (!found) {
+                explored.insert(current);
+                nodes.pop_back();
+            }
+	    }
+	    threads[prev] = start;
+    }
+
+    void bfs_undirected(dl_var start, svector<dl_var> & parents, svector<dl_var> & depths) {
+        parents.reset();
+        parents.resize(get_num_nodes());
+        parents[start] = -1;
+        depths.reset();
+        depths.resize(get_num_nodes());
+	    uint_set visited;
+	    std::deque<dl_var> nodes;
+	    visited.insert(start);
+	    nodes.push_front(start);
+	    while(!nodes.empty()) {
+            dl_var current = nodes.back();
+            nodes.pop_back();
+		    SASSERT(visited.contains(current));
+            svector<dl_var> neighbours;
+		    get_neighbours_undirected(current, neighbours);
+            SASSERT(!neighbours.empty());
+		    for (unsigned i = 0; i < neighbours.size(); ++i) {
+			    dl_var next = neighbours[i];
+                DEBUG_CODE(
+                edge_id id;
+                SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););
+                if (!visited.contains(next)) {
+                    TRACE("diff_logic", tout << "parents[" << next << "] --> " << current << std::endl;);
+	                parents[next] = current;
+	                depths[next] = depths[current] + 1;
+	                visited.insert(next);
+	                nodes.push_front(next);
+                }
+		    }
+	    }
+    }
+
     template<typename Functor>
     void enumerate_edges(dl_var source, dl_var target, Functor& f) {
         edge_id_vector & edges = m_out_edges[source];
@@ -1074,6 +1191,10 @@ public:
 
     numeral get_assignment(dl_var v) const {
         return m_assignment[v]; 
+    }
+
+    void set_assignment(dl_var v, numeral const & n) {
+        m_assignment[v] = n; 
     }
 
     unsigned get_timestamp() const {

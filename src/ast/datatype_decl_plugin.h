@@ -32,6 +32,7 @@ enum datatype_op_kind {
     OP_DT_CONSTRUCTOR,
     OP_DT_RECOGNISER,
     OP_DT_ACCESSOR,
+    OP_DT_UPDATE_FIELD,
     LAST_DT_OP
 };
 
@@ -149,8 +150,14 @@ public:
 
     virtual bool is_unique_value(app * e) const { return is_value(e); }
 
+    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+
 private:
     bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
+
+    func_decl * mk_update_field(
+        unsigned num_parameters, parameter const * parameters, 
+        unsigned arity, sort * const * domain, sort * range);
 };
 
 class datatype_util {
@@ -181,9 +188,11 @@ public:
     bool is_constructor(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_CONSTRUCTOR); }
     bool is_recognizer(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_RECOGNISER); }
     bool is_accessor(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_ACCESSOR); }
+    bool is_update_field(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
     bool is_constructor(app * f) const { return is_app_of(f, m_family_id, OP_DT_CONSTRUCTOR); }
     bool is_recognizer(app * f) const { return is_app_of(f, m_family_id, OP_DT_RECOGNISER); }
     bool is_accessor(app * f) const { return is_app_of(f, m_family_id, OP_DT_ACCESSOR); }
+    bool is_update_field(app * f) const { return is_app_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
     ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
     unsigned get_datatype_num_constructors(sort * ty) { return get_datatype_constructors(ty)->size(); }
     unsigned get_constructor_idx(func_decl * f) const { SASSERT(is_constructor(f)); return f->get_parameter(1).get_int(); }

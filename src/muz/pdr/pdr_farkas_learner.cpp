@@ -34,8 +34,6 @@ Revision History:
 #include "proof_utils.h"
 #include "reg_decl_plugins.h"
 
-#define PROOF_MODE PGM_FINE
-//#define PROOF_MODE PGM_COARSE
 
 namespace pdr {
 
@@ -374,7 +372,7 @@ namespace pdr {
     
     farkas_learner::farkas_learner(smt_params& params, ast_manager& outer_mgr) 
         : m_proof_params(get_proof_params(params)), 
-          m_pr(PROOF_MODE),
+          m_pr(PGM_FINE),
           m_constr(0),
           m_combine_farkas_coefficients(true),
           p2o(m_pr, outer_mgr),

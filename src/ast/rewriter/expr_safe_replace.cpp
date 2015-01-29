@@ -29,43 +29,39 @@ void expr_safe_replace::insert(expr* src, expr* dst) {
 }
 
 void expr_safe_replace::operator()(expr* e, expr_ref& res) {
-    obj_map<expr,expr*> cache;
-    ptr_vector<expr> todo, args;
-    expr_ref_vector refs(m);
-    todo.push_back(e);
+    m_todo.push_back(e);
     expr* a, *b, *d;
-    todo.push_back(e);
     
-    while (!todo.empty()) {
-        a = todo.back();
-        if (cache.contains(a)) {
-            todo.pop_back();
+    while (!m_todo.empty()) {
+        a = m_todo.back();
+        if (m_cache.contains(a)) {
+            m_todo.pop_back();
         }
         else if (m_subst.find(a, b)) {
-            cache.insert(a, b);
-            todo.pop_back();
+            m_cache.insert(a, b);
+            m_todo.pop_back();
         }
         else if (is_var(a)) {
-            cache.insert(a, a);
-            todo.pop_back();
+            m_cache.insert(a, a);
+            m_todo.pop_back();
         }
         else if (is_app(a)) {
             app* c = to_app(a);
             unsigned n = c->get_num_args();
-            args.reset();
+            m_args.reset();
             for (unsigned i = 0; i < n; ++i) {
-                if (cache.find(c->get_arg(i), d)) {
-                    args.push_back(d);
+                if (m_cache.find(c->get_arg(i), d)) {
+                    m_args.push_back(d);
                 }
                 else {
-                    todo.push_back(c->get_arg(i));
+                    m_todo.push_back(c->get_arg(i));
                 }
             }
-            if (args.size() == n) {
-                b = m.mk_app(c->get_decl(), args.size(), args.c_ptr());
-                refs.push_back(b);
-                cache.insert(a, b);
-                todo.pop_back();
+            if (m_args.size() == n) {
+                b = m.mk_app(c->get_decl(), m_args.size(), m_args.c_ptr());
+                m_refs.push_back(b);
+                m_cache.insert(a, b);
+                m_todo.pop_back();
             }
         }
         else {
@@ -93,12 +89,16 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             }
             replace(q->get_expr(), new_body);
             b = m.update_quantifier(q, pats.size(), pats.c_ptr(), nopats.size(), nopats.c_ptr(), new_body);
-            refs.push_back(b);
-            cache.insert(a, b);
-            todo.pop_back();
+            m_refs.push_back(b);
+            m_cache.insert(a, b);
+            m_todo.pop_back();
         }        
     }
-    res = cache.find(e);
+    res = m_cache.find(e);
+    m_cache.reset();
+    m_todo.reset();
+    m_args.reset();
+    m_refs.reset();    
 }
 
 void expr_safe_replace::reset() {

@@ -2279,6 +2279,18 @@ namespace Duality {
 		  // bad interpolants can get us here
 		  throw DoRestart();
 		}
+		catch(const RPFP::ReallyBad &){
+		  // this could be caused by incompleteness
+		  for(unsigned i = 0; i < expansions.size(); i++){
+		    Node *node = expansions[i];
+		    node->map->Annotation.SetFull();
+		    std::vector<Node *> &chs = node->map->Outgoing->Children;
+		    for(unsigned j = 0; j < chs.size(); j++)
+		      chs[j]->Annotation.SetFull();
+		    reporter->Message("incompleteness: cleared annotation and child annotations");
+		  }
+		  throw DoRestart();
+		}
 		catch(char const *msg){
 		  // bad interpolants can get us here
 		  reporter->Message(std::string("interpolation failure:") + msg);

@@ -111,6 +111,21 @@ struct builtin_decl {
     builtin_decl(family_id fid, decl_kind k, builtin_decl * n = 0):m_fid(fid), m_decl(k), m_next(n) {}
 };
 
+class opt_wrapper : public check_sat_result {
+public:
+    virtual bool empty() = 0;
+    virtual void push() = 0;
+    virtual void pop(unsigned n) = 0;
+    virtual void set_cancel(bool f) = 0;
+    virtual void reset_cancel() = 0;
+    virtual void cancel() = 0;
+    virtual lbool optimize() = 0;
+    virtual void set_hard_constraints(ptr_vector<expr> & hard) = 0;
+    virtual void display_assignment(std::ostream& out) = 0;
+    virtual bool is_pareto() = 0;
+    virtual void set_logic(symbol const& s) = 0;
+};
+
 class cmd_context : public progress_callback, public tactic_manager, public ast_printer_context {
 public:
     enum status {
@@ -149,6 +164,7 @@ protected:
 
     ast_manager *                m_manager;
     bool                         m_own_manager;
+    bool                         m_manager_initialized;
     pdecl_manager *              m_pmanager;
     sexpr_manager *              m_sexpr_manager;
     check_logic                  m_check_logic;
@@ -187,8 +203,9 @@ protected:
     svector<scope>               m_scopes;
     scoped_ptr<solver_factory>   m_solver_factory;
     scoped_ptr<solver_factory>   m_interpolating_solver_factory;
-    ref<solver>                  m_solver;
+    ref<solver>                  m_solver;    
     ref<check_sat_result>        m_check_sat_result;
+    ref<opt_wrapper>             m_opt;
 
     stopwatch                    m_watch;
 
@@ -212,7 +229,7 @@ protected:
 
     void register_builtin_sorts(decl_plugin * p);
     void register_builtin_ops(decl_plugin * p);
-    void register_plugin(symbol const & name, decl_plugin * p, bool install_names);
+    void load_plugin(symbol const & name, bool install_names, svector<family_id>& fids);
     void init_manager_core(bool new_manager);
     void init_manager();
     void init_external_manager();
@@ -256,6 +273,8 @@ public:
     context_params  & params() { return m_params; }
     solver_factory &get_solver_factory() { return *m_solver_factory; }
     solver_factory &get_interpolating_solver_factory() { return *m_interpolating_solver_factory; }
+    opt_wrapper*  get_opt();
+    void          set_opt(opt_wrapper* o);
     void global_params_updated(); // this method should be invoked when global (and module) params are updated.
     bool set_logic(symbol const & s);
     bool has_logic() const { return m_logic != symbol::null; }
@@ -293,7 +312,7 @@ public:
     std::string reason_unknown() const;
 
     bool has_manager() const { return m_manager != 0; }
-    ast_manager & m() const { if (!m_manager) const_cast<cmd_context*>(this)->init_manager(); return *m_manager; }
+    ast_manager & m() const { const_cast<cmd_context*>(this)->init_manager(); return *m_manager; }
     virtual ast_manager & get_ast_manager() { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
@@ -304,7 +323,8 @@ public:
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;
     void validate_model();
-    
+
+    void register_plugin(symbol const & name, decl_plugin * p, bool install_names);    
     bool is_func_decl(symbol const & s) const;
     bool is_sort_decl(symbol const& s) const { return m_psort_decls.contains(s); }
     void insert(cmd * c);

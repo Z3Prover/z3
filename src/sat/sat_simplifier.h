@@ -82,6 +82,7 @@ namespace sat {
 
         bool                   m_subsumption;
         unsigned               m_subsumption_limit;
+        bool                   m_elim_vars;
         
         // stats
         unsigned               m_num_blocked_clauses;

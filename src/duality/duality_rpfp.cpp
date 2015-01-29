@@ -2643,6 +2643,10 @@ namespace Duality {
 	GetGroundLitsUnderQuants(memo,f.body(),res,1);
       return;
     }
+    if(f.is_var()){
+      //      std::cout << "foo!\n";
+      return;
+    }
     if(under && f.is_ground())
       res.push_back(f);
   }
@@ -3065,10 +3069,14 @@ namespace Duality {
     node->Annotation.SetEmpty();
     hash_set<ast> *core = new hash_set<ast>;
     core->insert(node->Outgoing->dual);
+    expr prev_annot = ctx.bool_val(false);
+    expr prev_impl = ctx.bool_val(false);
+    int repeated_case_count = 0;
     while(1){
       by_case_counter++;
       is.push();
       expr annot = !GetAnnotation(node);
+      Transformer old_annot = node->Annotation;
       is.add(annot);
       if(is.check() == unsat){
 	is.pop(1);
@@ -3076,56 +3084,70 @@ namespace Duality {
       }
       is.pop(1);
       Push();
-      ConstrainEdgeLocalized(node->Outgoing,is.get_implicant());
+      expr the_impl = is.get_implicant();
+      if(eq(the_impl,prev_impl)){
+	//	std::cout << "got old implicant\n";
+	repeated_case_count++;
+      }
+      prev_impl = the_impl;
+      ConstrainEdgeLocalized(node->Outgoing,the_impl);
       ConstrainEdgeLocalized(node->Outgoing,!GetAnnotation(node)); //TODO: need this?
-      check_result foo = Check(root);
-      if(foo != unsat){
-	slvr().print("should_be_unsat.smt2");
-	throw "should be unsat";
-      }
-      std::vector<expr> assumps, axioms_to_add;
-      slvr().get_proof().get_assumptions(assumps);
-      for(unsigned i = 0; i < assumps.size(); i++){
-	(*core).insert(assumps[i]);
-	if(axioms_needed.find(assumps[i]) != axioms_needed.end()){
-	  axioms_to_add.push_back(assumps[i]);
-	  axioms_needed.erase(assumps[i]);
-	}
-      }
-      // AddToProofCore(*core);
-      Transformer old_annot = node->Annotation;
-      SolveSingleNode(root,node);
-
-      {
-	expr itp = GetAnnotation(node);
-	dualModel = is.get_model(); // TODO: what does this mean?
-	std::vector<expr> case_lits;
-	itp = StrengthenFormulaByCaseSplitting(itp, case_lits);
-	SetAnnotation(node,itp);
-	node->Annotation.Formula = node->Annotation.Formula.simplify();
-      }
-
-      for(unsigned i = 0; i < axioms_to_add.size(); i++)
-	is.add(axioms_to_add[i]);
       
-#define TEST_BAD
-#ifdef TEST_BAD
       {
-	static int bad_count = 0, num_bads = 1;
-	if(bad_count >= num_bads){
-	  bad_count = 0;
-	  num_bads = num_bads * 2;
+	check_result foo = Check(root);
+	if(foo != unsat){
 	  Pop(1);
 	  is.pop(1);
 	  delete core;
 	  timer_stop("InterpolateByCases");
-	  throw Bad();
+	  throw ReallyBad();
+	  // slvr().print("should_be_unsat.smt2");
+	  // throw "should be unsat";
 	}
-	bad_count++;
-      }
-#endif
+	std::vector<expr> assumps, axioms_to_add;
+	slvr().get_proof().get_assumptions(assumps);
+	for(unsigned i = 0; i < assumps.size(); i++){
+	  (*core).insert(assumps[i]);
+	  if(axioms_needed.find(assumps[i]) != axioms_needed.end()){
+	    axioms_to_add.push_back(assumps[i]);
+	    axioms_needed.erase(assumps[i]);
+	  }
+	}
+	// AddToProofCore(*core);
+	SolveSingleNode(root,node);
 
-      if(node->Annotation.IsEmpty()){
+	{
+	  expr itp = GetAnnotation(node);
+	  dualModel = is.get_model(); // TODO: what does this mean?
+	  std::vector<expr> case_lits;
+	  itp = StrengthenFormulaByCaseSplitting(itp, case_lits);
+	  SetAnnotation(node,itp);
+	  node->Annotation.Formula = node->Annotation.Formula.simplify();
+	}
+
+	for(unsigned i = 0; i < axioms_to_add.size(); i++)
+	  is.add(axioms_to_add[i]);
+      
+#define TEST_BAD
+#ifdef TEST_BAD
+	{
+	  static int bad_count = 0, num_bads = 1;
+	  if(bad_count >= num_bads){
+	    bad_count = 0;
+	    num_bads = num_bads * 2;
+	    Pop(1);
+	    is.pop(1);
+	    delete core;
+	    timer_stop("InterpolateByCases");
+	    throw Bad();
+	  }
+	  bad_count++;
+	}
+#endif
+      }
+
+      if(node->Annotation.IsEmpty() || eq(node->Annotation.Formula,prev_annot) || (repeated_case_count > 0 && !axioms_added) || (repeated_case_count >= 10)){
+//      looks_bad:
 	if(!axioms_added){
 	  // add the axioms in the off chance they are useful
 	  const std::vector<expr> &theory = ls->get_axioms();
@@ -3134,6 +3156,7 @@ namespace Duality {
 	  axioms_added = true;
 	}
 	else {
+	  //#define KILL_ON_BAD_INTERPOLANT	  
 #ifdef KILL_ON_BAD_INTERPOLANT	  
 	  std::cout << "bad in InterpolateByCase -- core:\n";
 #if 0
@@ -3175,10 +3198,11 @@ namespace Duality {
 	  is.pop(1);
 	  delete core;
 	  timer_stop("InterpolateByCases");
-	  throw Bad();
+	  throw ReallyBad();
 	}
       }
       Pop(1);
+      prev_annot = node->Annotation.Formula;
       node->Annotation.UnionWith(old_annot);
     }
     if(proof_core)

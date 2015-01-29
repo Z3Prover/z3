@@ -66,14 +66,6 @@ namespace datalog {
         reg_annotations     m_reg_annotation;
         stopwatch *         m_stopwatch;
         unsigned            m_timelimit_ms; //zero means no limit
-        /**
-           \brief If true, after every operation that may result in an empty relation, a check
-           for emptiness will be performed, and if a relation is empty, it will be deleted
-           and replaced by zero. This allows us to avoid performing operations that would have
-           no effect due to relation emptiness, but if the check for emptiness is expensive, its
-           cost may overcome the gains.
-         */
-        bool                m_eager_emptiness_checking;
     public:
         execution_context(context & context);
         ~execution_context();
@@ -81,12 +73,32 @@ namespace datalog {
         void reset();
 
         rel_context & get_rel_context();
+        rel_context const & get_rel_context() const;
 
         void set_timelimit(unsigned time_in_ms);
         void reset_timelimit();
         bool should_terminate();
 
-        bool eager_emptiness_checking() const { return m_eager_emptiness_checking; }
+        struct stats {
+            unsigned m_join;
+            unsigned m_project;
+            unsigned m_filter;
+            unsigned m_total;
+            unsigned m_unary_singleton;
+            unsigned m_filter_by_negation;
+            unsigned m_select_equal_project;
+            unsigned m_join_project;
+            unsigned m_project_rename;
+            unsigned m_union;
+            unsigned m_filter_interp_project;
+            unsigned m_filter_id;
+            unsigned m_filter_eq;
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
+        stats m_stats;
+
+        void collect_statistics(statistics& st) const;
 
         /**
            \brief Return reference to \c i -th register that contains pointer to a relation.
@@ -213,7 +225,7 @@ namespace datalog {
 
            The newline character at the end should not be printed.
         */
-        virtual void display_head_impl(rel_context const & ctx, std::ostream & out) const {
+        virtual void display_head_impl(execution_context const & ctx, std::ostream & out) const {
             out << "<instruction>";
         }
         /**
@@ -221,7 +233,9 @@ namespace datalog {
 
            Each line must be prepended by \c indentation and ended by a newline character.
         */
-        virtual void display_body_impl(rel_context const & ctx, std::ostream & out, std::string indentation) const {}
+        virtual void display_body_impl(execution_context const & ctx, std::ostream & out, std::string indentation) const {}
+        void log_verbose(execution_context& ctx);
+
     public:
         typedef execution_context::reg_type reg_type;
         typedef execution_context::reg_idx reg_idx;
@@ -232,10 +246,10 @@ namespace datalog {
 
         virtual void make_annotations(execution_context & ctx)  = 0;
 
-        void display(rel_context_base const& ctx, std::ostream & out) const {
+        void display(execution_context const& ctx, std::ostream & out) const {
             display_indented(ctx, out, "");
         }
-        void display_indented(rel_context_base const & ctx, std::ostream & out, std::string indentation) const;
+        void display_indented(execution_context const & ctx, std::ostream & out, std::string indentation) const;
 
         static instruction * mk_load(ast_manager & m, func_decl * pred, reg_idx tgt);
         /**
@@ -288,6 +302,8 @@ namespace datalog {
 
         static instruction * mk_assert_signature(const relation_signature & s, reg_idx tgt);
 
+        void collect_statistics(statistics& st) const;
+
     };
 
 
@@ -314,7 +330,7 @@ namespace datalog {
 
         void push_back(instruction * i) { 
             m_data.push_back(i);
-            if(m_observer) {
+            if (m_observer) {
                 m_observer->notify(i);
             }
         }
@@ -322,6 +338,8 @@ namespace datalog {
             SASSERT(o==0 || m_observer==0);
             m_observer = o;
         }
+
+        void collect_statistics(statistics& st) const;
 
         /**
            \brief Perform instructions in the block. If the run was interrupted before completion,
@@ -336,10 +354,12 @@ namespace datalog {
 
         void make_annotations(execution_context & ctx);
 
-        void display(rel_context_base const & ctx, std::ostream & out) const {
+        void display(execution_context const & ctx, std::ostream & out) const {
             display_indented(ctx, out, "");
         }
-        void display_indented(rel_context_base const & ctx, std::ostream & out, std::string indentation) const;
+        void display_indented(execution_context const & ctx, std::ostream & out, std::string indentation) const;
+
+        unsigned num_instructions() const { return m_data.size(); }
     };
 
 

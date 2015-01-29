@@ -20,6 +20,7 @@ Revision History:
 #include"sat_integrity_checker.h"
 #include"luby.h"
 #include"trace.h"
+#include"sat_bceq.h"
 
 // define to update glue during propagation
 #define UPDATE_GLUE
@@ -39,6 +40,8 @@ namespace sat {
         m_scc(*this, p),
         m_asymm_branch(*this, p),
         m_probing(*this, p),
+        m_mus(*this),
+        m_wsls(*this),
         m_inconsistent(false),
         m_num_frozen(0),
         m_activity_inc(128),
@@ -47,6 +50,10 @@ namespace sat {
         m_scope_lvl(0),
         m_params(p) {
         updt_params(p);
+        m_conflicts_since_gc      = 0;
+        m_conflicts               = 0;
+        m_next_simplify           = 0;
+        m_num_checkpoints         = 0;
     }
 
     solver::~solver() {
@@ -58,6 +65,7 @@ namespace sat {
         for (clause * const * it = begin; it != end; ++it) {
             m_cls_allocator.del_clause(*it);
         }
+        ++m_stats.m_non_learned_generation;
     }
 
     void solver::copy(solver const & src) {
@@ -140,7 +148,16 @@ namespace sat {
             for (unsigned i = 0; i < num_lits; i++)
                 SASSERT(m_eliminated[lits[i].var()] == false);
         });
-        mk_clause_core(num_lits, lits, false);
+        
+        if (m_user_scope_literals.empty()) {
+            mk_clause_core(num_lits, lits, false);
+        }
+        else {
+            m_aux_literals.reset();
+            m_aux_literals.append(num_lits, lits);
+            m_aux_literals.append(m_user_scope_literals);
+            mk_clause_core(m_aux_literals.size(), m_aux_literals.c_ptr(), false);
+        }
     }
 
     void solver::mk_clause(literal l1, literal l2) {
@@ -153,15 +170,22 @@ namespace sat {
         mk_clause(3, ls);
     }
 
+    void solver::del_clause(clause& c) {
+        if (!c.is_learned()) m_stats.m_non_learned_generation++;
+        m_cls_allocator.del_clause(&c); 
+        m_stats.m_del_clause++; 
+    }
+
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, bool learned) {
+        TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << "\n";);
         if (!learned) {
-            TRACE("sat_mk_clause", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << "\n";);
             bool keep = simplify_clause(num_lits, lits);
             TRACE("sat_mk_clause", tout << "mk_clause (after simp), keep: " << keep << "\n" << mk_lits_pp(num_lits, lits) << "\n";);
             if (!keep) {
                 return 0; // clause is equivalent to true.
             }
-        }
+            ++m_stats.m_non_learned_generation;
+        }        
 
         switch (num_lits) {
         case 0:
@@ -507,6 +531,10 @@ namespace sat {
         return found_undef ? l_undef : l_false;
     }
 
+    void solver::initialize_soft(unsigned sz, literal const* lits, double const* weights) {
+        m_wsls.set_soft(sz, lits, weights);
+    }
+
     // -----------------------
     //
     // Propagation
@@ -666,6 +694,7 @@ namespace sat {
             }
             wlist.set_end(it2);
         }
+        SASSERT(m_qhead == m_trail.size());
         SASSERT(!m_inconsistent);
         return true;
     }
@@ -682,7 +711,9 @@ namespace sat {
     // Search
     //
     // -----------------------
-    lbool solver::check() {
+    lbool solver::check(unsigned num_lits, literal const* lits) {
+        pop_to_base_level();
+        IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(scope_lvl() == 0);
 #ifdef CLONE_BEFORE_SOLVING
         if (m_mc.empty()) {
@@ -695,22 +726,24 @@ namespace sat {
             init_search();
             propagate(false);
             if (inconsistent()) return l_false;
+            init_assumptions(num_lits, lits);
+            propagate(false);
+            if (check_inconsistent()) return l_false;
             cleanup();
             if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {
                 m_restart_threshold = m_config.m_burst_search;
                 lbool r = bounded_search();
                 if (r != l_undef)
                     return r;
-                pop(scope_lvl());
+                pop_reinit(scope_lvl());
                 m_conflicts_since_restart = 0;
                 m_restart_threshold       = m_config.m_restart_initial;
             }
 
-            // iff3_finder(*this)();
+            // iff3_finder(*this)();            
             simplify_problem();
-
-            if (inconsistent()) return l_false;
-            m_next_simplify = m_config.m_restart_initial * m_config.m_simplify_mult1;
+            if (check_inconsistent()) return l_false;
+            
 
             if (m_config.m_max_conflicts == 0) {
                 IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"abort: max-conflicts = 0\"\n";);
@@ -730,12 +763,8 @@ namespace sat {
                 }
 
                 restart();
-                if (m_conflicts >= m_next_simplify) {
-                    simplify_problem();
-                    m_next_simplify = static_cast<unsigned>(m_conflicts * m_config.m_simplify_mult2);
-                    if (m_next_simplify > m_conflicts + m_config.m_simplify_max)
-                        m_next_simplify = m_conflicts + m_config.m_simplify_max;
-                }
+                simplify_problem();
+                if (check_inconsistent()) return l_false;                
                 gc();
             }
         }
@@ -800,7 +829,7 @@ namespace sat {
         SASSERT(phase != l_undef);
         literal next_lit(next, phase == l_false);
         assign(next_lit, justification());
-        TRACE("sat_decide", tout << "next-case-split: " << next_lit << "\n";);
+        TRACE("sat_decide", tout << scope_lvl() << ": next-case-split: " << next_lit << "\n";);
         return true;
     }
 
@@ -819,8 +848,10 @@ namespace sat {
                     return l_undef;
                 if (scope_lvl() == 0) {
                     cleanup(); // cleaner may propagate frozen clauses
-                    if (inconsistent())
+                    if (inconsistent()) {
+                        TRACE("sat", tout << "conflict at level 0\n";);
                         return l_false;
+                    }
                     gc();
                 }
             }
@@ -847,26 +878,122 @@ namespace sat {
         }
     }
 
+    bool solver::check_inconsistent() {
+        if (inconsistent()) {
+            if (tracking_assumptions()) 
+                resolve_conflict();
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    void solver::init_assumptions(unsigned num_lits, literal const* lits) {
+        if (num_lits == 0 && m_user_scope_literals.empty()) {
+            return;
+        }
+        m_assumptions.reset();
+        m_assumption_set.reset();        
+        push();
+
+        propagate(false);
+        if (inconsistent()) {
+            return;
+        }
+
+        TRACE("sat", 
+              for (unsigned i = 0; i < num_lits; ++i) 
+                  tout << lits[i] << " ";
+              tout << "\n";
+              if (!m_user_scope_literals.empty()) {
+                  tout << "user literals: " << m_user_scope_literals << "\n";
+              }
+              m_mc.display(tout);
+              );
+
+        for (unsigned i = 0; !inconsistent() && i < m_user_scope_literals.size(); ++i) {
+            literal nlit = ~m_user_scope_literals[i];
+            assign(nlit, justification());                   
+        }
+
+        for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
+            literal lit = lits[i];
+            SASSERT(is_external((lit).var()));  
+            m_assumption_set.insert(lit);       
+
+            if (m_config.m_soft_assumptions) {
+                if (value(lit) == l_undef) {
+                    m_assumptions.push_back(lit);       
+                    assign(lit, justification());
+                }
+                propagate(false);         
+            }
+            else {
+                m_assumptions.push_back(lit);       
+                assign(lit, justification());       
+                //        propagate(false);         
+            }
+        }
+    }
+
+    void solver::reinit_assumptions() {
+        if (tracking_assumptions() && scope_lvl() == 0) {
+            TRACE("sat", tout << m_assumptions << "\n";);
+            push();
+            for (unsigned i = 0; !inconsistent() && i < m_user_scope_literals.size(); ++i) {
+                assign(~m_user_scope_literals[i], justification());
+            }
+            for (unsigned i = 0; !inconsistent() && i < m_assumptions.size(); ++i) {
+                assign(m_assumptions[i], justification());
+            }
+        }
+    }
+
+    bool solver::tracking_assumptions() const {
+        return !m_assumptions.empty();
+    }
+
+    bool solver::is_assumption(literal l) const {
+        return tracking_assumptions() && m_assumption_set.contains(l);
+    }
+
     void solver::init_search() {
+        m_model_is_current        = false;
         m_phase_counter           = 0;
         m_phase_cache_on          = false;
-        m_conflicts               = 0;
         m_conflicts_since_restart = 0;
         m_restart_threshold       = m_config.m_restart_initial;
         m_luby_idx                = 1;
-        m_conflicts_since_gc      = 0;
         m_gc_threshold            = m_config.m_gc_initial;
         m_min_d_tk                = 1.0;
-        m_next_simplify           = 0;
         m_stopwatch.reset();
         m_stopwatch.start();
+        m_core.reset();
         TRACE("sat", display(tout););
+        
+        if (m_config.m_bcd) {
+            bceq bc(*this);
+            bc();
+        }
     }
 
     /**
        \brief Apply all simplifications.
+
     */
     void solver::simplify_problem() {
+        if (m_conflicts < m_next_simplify) {
+            return;
+        }
+        IF_VERBOSE(2, verbose_stream() << "(sat.simplify)\n";);
+
+        // Disable simplification during MUS computation.        
+        // if (m_mus.is_active()) return;
+        TRACE("sat", tout << "simplify\n";);
+
+        pop(scope_lvl());        
+
         SASSERT(scope_lvl() == 0);
 
         m_cleaner();
@@ -878,7 +1005,7 @@ namespace sat {
         m_simplifier(false);
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
-
+        
         if (!m_learned.empty()) {
             m_simplifier(true);
             CASSERT("sat_missed_prop", check_missed_propagation());
@@ -900,6 +1027,19 @@ namespace sat {
             m_ext->clauses_modifed();
             m_ext->simplify();
         }
+
+        TRACE("sat", display(tout << "consistent: " << (!inconsistent()) << "\n"););
+
+        reinit_assumptions();
+
+        if (m_next_simplify == 0) {
+            m_next_simplify = m_config.m_restart_initial * m_config.m_simplify_mult1;
+        }
+        else {
+            m_next_simplify = static_cast<unsigned>(m_conflicts * m_config.m_simplify_mult2);
+            if (m_next_simplify > m_conflicts + m_config.m_simplify_max)
+                m_next_simplify = m_conflicts + m_config.m_simplify_max;
+        }
     }
 
     void solver::sort_watch_lits() {
@@ -913,6 +1053,7 @@ namespace sat {
 
     void solver::mk_model() {
         m_model.reset();
+        m_model_is_current = true;
         unsigned num = num_vars();
         m_model.resize(num, l_undef);
         for (bool_var v = 0; v < num; v++) {
@@ -920,13 +1061,19 @@ namespace sat {
                 m_model[v] = value(v);
         }
         TRACE("sat_mc_bug", m_mc.display(tout););
+        if (m_config.m_optimize_model) {
+            m_wsls.opt(0, 0, false);
+            m_model.reset();
+            m_model.append(m_wsls.get_model());
+        }
         m_mc(m_model);
-        TRACE("sat_model", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
+        TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
 
 #ifndef _EXTERNAL_RELEASE
         IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"checking model\"\n";);
         if (!check_model(m_model))
             throw solver_exception("check model failed");
+
         if (m_clone) {
             IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
             if (!m_clone->check_model(m_model))
@@ -945,7 +1092,12 @@ namespace sat {
             for (; it != end; ++it) {
                 clause const & c = *(*it);
                 if (!c.satisfied_by(m)) {
-                    TRACE("sat_model_bug", tout << "failed: " << c << "\n";);
+                    TRACE("sat", tout << "failed: " << c << "\n";
+                          tout << "assumptions: " << m_assumptions << "\n";
+                          tout << "trail: " << m_trail << "\n";
+                          tout << "model: " << m << "\n";      
+                          m_mc.display(tout);
+                          );
                     ok = false;
                 }
             }
@@ -963,15 +1115,28 @@ namespace sat {
                         continue;
                     literal l2 = it2->get_literal();
                     if (value_at(l2, m) != l_true) {
-                        TRACE("sat_model_bug", tout << "failed binary: " << l << " " << l2 << " learned: " << it2->is_learned() << "\n";);
+                        TRACE("sat", tout << "failed binary: " << l << " " << l2 << " learned: " << it2->is_learned() << "\n";
+                          m_mc.display(tout););
                         ok = false;
                     }
                 }
             }
         }
-        if (!m_mc.check_model(m))
+        for (unsigned i = 0; i < m_assumptions.size(); ++i) {
+            if (value_at(m_assumptions[i], m) != l_true) {
+                TRACE("sat", 
+                      tout << m_assumptions[i] << " does not model check\n";
+                      tout << "trail: " << m_trail << "\n";
+                      tout << "model: " << m << "\n";      
+                      m_mc.display(tout);
+                      );
+                ok = false;
+            }
+        }
+        if (ok && !m_mc.check_model(m)) {
             ok = false;
-        CTRACE("sat_model_bug", !ok, tout << m << "\n";);
+            TRACE("sat", tout << "model: " << m << "\n"; m_mc.display(tout););
+        }
         return ok;
     }
 
@@ -982,7 +1147,7 @@ namespace sat {
                    << " :restarts " << m_stats.m_restart << mk_stat(*this)
                    << " :time " << std::fixed << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
         IF_VERBOSE(30, display_status(verbose_stream()););
-        pop(scope_lvl());
+        pop_reinit(scope_lvl());
         m_conflicts_since_restart = 0;
         switch (m_config.m_restart) {
         case RS_GEOMETRIC:
@@ -1255,7 +1420,7 @@ namespace sat {
                 break;
             }
         }
-        TRACE("sat_gc", tout << "after cleanup:\n" << mk_lits_pp(j, c.begin()) << "\n";);
+        TRACE("sat", tout << "after cleanup:\n" << mk_lits_pp(j, c.begin()) << "\n";);
         unsigned new_sz = j;
         switch (new_sz) {
         case 0:
@@ -1313,7 +1478,6 @@ namespace sat {
     }
 
     bool solver::resolve_conflict_core() {
-        TRACE("sat_conflict", tout << "conflict detected\n";);
 
         m_stats.m_conflict++;
         m_conflicts++;
@@ -1321,8 +1485,18 @@ namespace sat {
         m_conflicts_since_gc++;
 
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict);
-        if (m_conflict_lvl == 0)
+        TRACE("sat", tout << "conflict detected at level " << m_conflict_lvl << " for ";
+              if (m_not_l == literal()) tout << "null literal\n";
+              else tout << m_not_l << "\n";);
+
+        if (m_conflict_lvl <= 1 && tracking_assumptions()) {
+            resolve_conflict_for_unsat_core();
             return false;
+        }
+        if (m_conflict_lvl == 0) {
+            return false;
+        }
+
         m_lemma.reset();
 
         forget_phase_of_vars(m_conflict_lvl);
@@ -1426,7 +1600,7 @@ namespace sat {
 
         unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
 
-        pop(m_scope_lvl - new_scope_lvl);
+        pop_reinit(m_scope_lvl - new_scope_lvl);
         TRACE("sat_conflict_detail", display(tout); tout << "assignment:\n"; display_assignment(tout););
         clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), true);
         if (lemma) {
@@ -1436,6 +1610,155 @@ namespace sat {
         updt_phase_counters();
         return true;
     }
+
+    void solver::process_antecedent_for_unsat_core(literal antecedent) {
+        bool_var var     = antecedent.var();
+        unsigned var_lvl = lvl(var);
+        SASSERT(var < num_vars());
+        TRACE("sat", tout << antecedent << " " << (is_marked(var)?"+":"-") << "\n";);
+        if (!is_marked(var)) {
+            mark(var);
+            m_unmark.push_back(var);
+            if (is_assumption(antecedent)) {
+                m_core.push_back(antecedent);
+            }
+        }
+    }
+
+    void solver::process_consequent_for_unsat_core(literal consequent, justification const& js) {
+        TRACE("sat", tout << "processing consequent: ";
+              if (consequent == null_literal) tout << "null\n";
+              else tout << consequent << "\n";
+              display_justification(tout << "js kind: ", js);
+              tout << "\n";);
+        switch (js.get_kind()) {
+        case justification::NONE:
+            break;
+        case justification::BINARY:
+            SASSERT(consequent != null_literal);
+            process_antecedent_for_unsat_core(~(js.get_literal()));
+            break;
+        case justification::TERNARY:
+            SASSERT(consequent != null_literal);
+            process_antecedent_for_unsat_core(~(js.get_literal1()));
+            process_antecedent_for_unsat_core(~(js.get_literal2()));
+            break;
+        case justification::CLAUSE: {
+            clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
+            unsigned i = 0;
+            if (consequent != null_literal) {
+                SASSERT(c[0] == consequent || c[1] == consequent);
+                if (c[0] == consequent) {
+                    i = 1;
+                }
+                else {
+                    process_antecedent_for_unsat_core(~c[0]);
+                    i = 2;
+                }
+            }
+            unsigned sz = c.size();
+            for (; i < sz; i++)
+                process_antecedent_for_unsat_core(~c[i]);
+            break;
+        }
+        case justification::EXT_JUSTIFICATION: {
+            fill_ext_antecedents(consequent, js);
+            literal_vector::iterator it  = m_ext_antecedents.begin();
+            literal_vector::iterator end = m_ext_antecedents.end();
+            for (; it != end; ++it)
+                process_antecedent_for_unsat_core(*it);
+            break;
+        }
+        default:
+            UNREACHABLE();
+            break;
+        }
+    }
+
+    void solver::resolve_conflict_for_unsat_core() {
+        TRACE("sat", display(tout);
+              unsigned level = 0;
+              for (unsigned i = 0; i < m_trail.size(); ++i) {
+                  literal l = m_trail[i];
+                  if (level != m_level[l.var()]) {
+                      level = m_level[l.var()];
+                      tout << level << ": ";
+                  }
+                  tout << l;
+                  if (m_mark[l.var()]) {
+                      tout << "*";
+                  }
+                  tout << " ";
+              }
+              tout << "\n";
+              );
+
+        m_core.reset();
+        if (m_conflict_lvl == 0) {
+            return;
+        }
+        SASSERT(m_unmark.empty());
+        DEBUG_CODE({
+                for (unsigned i = 0; i < m_trail.size(); ++i) {
+                    SASSERT(!is_marked(m_trail[i].var()));
+                }});
+
+        unsigned old_size = m_unmark.size();        
+        int idx = skip_literals_above_conflict_level();
+
+        if (m_not_l != null_literal) {
+            justification js = m_justification[m_not_l.var()];
+            TRACE("sat", tout << "not_l: " << m_not_l << "\n";
+                  display_justification(tout, js);
+                  tout << "\n";);
+
+            process_antecedent_for_unsat_core(m_not_l);
+            if (is_assumption(~m_not_l)) {
+                m_core.push_back(~m_not_l);
+            }
+            else {
+                process_consequent_for_unsat_core(m_not_l, js);
+            }
+        }
+                    
+        literal consequent = m_not_l;
+        justification js   = m_conflict;
+
+
+        while (true) {
+            process_consequent_for_unsat_core(consequent, js);
+            while (idx >= 0) {
+                literal l = m_trail[idx];
+                if (is_marked(l.var()))
+                    break;
+                idx--;
+            }
+
+            if (idx < 0) {
+                break;
+            }
+            consequent     = m_trail[idx];
+            if (lvl(consequent) < m_conflict_lvl) {
+                TRACE("sat", tout << consequent << " at level " << lvl(consequent) << "\n";);
+                break;
+            }
+            bool_var c_var = consequent.var();
+            SASSERT(lvl(consequent) == m_conflict_lvl);
+            js             = m_justification[c_var];
+            idx--;
+        }        
+        reset_unmark(old_size);
+        if (m_config.m_minimize_core || m_config.m_minimize_core_partial) {
+            // TBD: 
+            // apply optional clause minimization by detecting subsumed literals.
+            // initial experiment suggests it has no effect.
+            m_mus(); // ignore return value on cancelation.
+            m_model.reset();
+            m_model.append(m_mus.get_model());            
+            m_model_is_current = !m_model.empty();
+        }
+    }
+
 
     unsigned solver::get_max_lvl(literal consequent, justification js) {
         if (!m_ext)
@@ -1524,6 +1847,7 @@ namespace sat {
                 m_lemma.push_back(~antecedent);
         }
     }
+
 
     /**
        \brief js is an external justification. Collect its antecedents and store at m_ext_antecedents.
@@ -1712,7 +2036,8 @@ namespace sat {
        assigned at level 0.
     */
     void solver::minimize_lemma() {
-        m_unmark.reset();
+        SASSERT(m_unmark.empty());
+        //m_unmark.reset();
         updt_lemma_lvl_set();
 
         unsigned sz   = m_lemma.size();
@@ -1721,6 +2046,7 @@ namespace sat {
         for (; i < sz; i++) {
             literal l = m_lemma[i];
             if (implied_by_marked(l)) {
+                TRACE("sat", tout << "drop: " << l << "\n";);
                 m_unmark.push_back(l.var());
             }
             else {
@@ -1882,6 +2208,7 @@ namespace sat {
     // -----------------------
     void solver::push() {
         SASSERT(!inconsistent());
+        TRACE("sat_verbose", tout << "q:" << m_qhead << " trail: " << m_trail.size() << "\n";);
         SASSERT(m_qhead == m_trail.size());
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
@@ -1891,6 +2218,11 @@ namespace sat {
         s.m_inconsistent = m_inconsistent;
         if (m_ext)
             m_ext->push();
+    }
+
+    void solver::pop_reinit(unsigned num_scopes) {
+        pop(num_scopes);
+        reinit_assumptions();        
     }
 
     void solver::pop(unsigned num_scopes) {
@@ -1957,6 +2289,74 @@ namespace sat {
         m_clauses_to_reinit.shrink(j);
     }
 
+    // 
+    // All new clauses that are added to the solver
+    // are relative to the user-scope literals.
+    // 
+
+    void solver::user_push() {
+        literal lit;
+        if (m_user_scope_literal_pool.empty()) {
+            bool_var new_v = mk_var(true, false);
+            lit = literal(new_v, false);
+        }
+        else {
+            lit = m_user_scope_literal_pool.back();
+            m_user_scope_literal_pool.pop_back();
+        }
+        TRACE("sat", tout << "user_push: " << lit << "\n";);
+        m_user_scope_literals.push_back(lit);
+    }
+
+    void solver::gc_lit(clause_vector &clauses, literal lit) {
+        unsigned j = 0;
+        for (unsigned i = 0; i < clauses.size(); ++i) {
+            clause & c = *(clauses[i]);
+            if (c.contains(lit)) {
+                dettach_clause(c);
+                del_clause(c);
+            }
+            else {
+                clauses[j] = &c;
+                ++j;
+            }
+        }
+        clauses.shrink(j);
+    }
+
+    void solver::gc_bin(bool learned, literal nlit) {
+        m_user_bin_clauses.reset();
+        collect_bin_clauses(m_user_bin_clauses, learned);
+        for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
+            literal l1 = m_user_bin_clauses[i].first;
+            literal l2 = m_user_bin_clauses[i].second;
+            if (nlit == l1 || nlit == l2) {
+                dettach_bin_clause(l1, l2, learned);
+            }
+        }
+    }
+
+    void solver::user_pop(unsigned num_scopes) {
+        pop_to_base_level();
+        while (num_scopes > 0) {
+            literal lit = m_user_scope_literals.back();
+            m_user_scope_literal_pool.push_back(lit);   
+            m_user_scope_literals.pop_back();
+            gc_lit(m_learned, lit);
+            gc_lit(m_clauses, lit);
+            gc_bin(true, lit);
+            gc_bin(false, lit);
+            TRACE("sat", tout << "gc: " << lit << "\n"; display(tout););
+            --num_scopes;
+        }
+    }
+
+    void solver::pop_to_base_level() {
+        m_assumptions.reset();
+        m_assumption_set.reset();
+        pop(scope_lvl());
+    }
+
     // -----------------------
     //
     // Misc
@@ -1983,9 +2383,10 @@ namespace sat {
 
     void solver::set_cancel(bool f) {
         m_cancel = f;
+        m_wsls.set_cancel(f);
     }
 
-    void solver::collect_statistics(statistics & st) {
+    void solver::collect_statistics(statistics & st) const {
         m_stats.collect_statistics(st);
         m_cleaner.collect_statistics(st);
         m_simplifier.collect_statistics(st);
@@ -2096,6 +2497,13 @@ namespace sat {
         display_binary(out);
         out << m_clauses << m_learned;
         out << ")\n";
+    }
+
+    void solver::display_justification(std::ostream & out, justification const& js) const {
+        out << js;
+        if (js.is_clause()) {
+            out << *(m_cls_allocator.get_clause(js.get_clause_offset()));
+        }
     }
 
     unsigned solver::num_clauses() const {
@@ -2369,6 +2777,7 @@ namespace sat {
         m_del_clause = 0;
         m_minimized_lits = 0;
         m_dyn_sub_res = 0;
+        m_non_learned_generation = 0;
     }
 
     void mk_stat::display(std::ostream & out) const {

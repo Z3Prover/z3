@@ -22,6 +22,7 @@ Revision History:
 #include "tab_context.h"
 #include "rel_context.h"
 #include "pdr_dl_interface.h"
+#include "ddnf.h"
 #include "duality_dl_interface.h"
 
 namespace datalog {
@@ -43,6 +44,8 @@ namespace datalog {
             return alloc(clp, *m_ctx);
         case DUALITY_ENGINE:
             return alloc(Duality::dl_interface, *m_ctx);
+        case DDNF_ENGINE:
+            return alloc(ddnf, *m_ctx);
         case LAST_ENGINE:
             UNREACHABLE();
             return 0;

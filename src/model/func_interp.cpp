@@ -159,11 +159,17 @@ void func_interp::insert_entry(expr * const * args, expr * r) {
 void func_interp::insert_new_entry(expr * const * args, expr * r) {
     reset_interp_cache();
     CTRACE("func_interp_bug", get_entry(args) != 0,
+           tout << "Old: " << mk_ismt2_pp(get_entry(args)->m_result, m_manager) << "\n";
+           tout << "Args:";
+           for (unsigned i = 0; i < m_arity; i++) {
+               tout << mk_ismt2_pp(get_entry(args)->get_arg(i), m_manager) << "\n";
+           }
+           tout << "New: " << mk_ismt2_pp(r, m_manager) << "\n";
+           tout << "Args:";
            for (unsigned i = 0; i < m_arity; i++) {
                tout << mk_ismt2_pp(args[i], m_manager) << "\n";
            }
-           tout << "Old: " << mk_ismt2_pp(get_entry(args)->m_result, m_manager) << "\n";
-           tout << "New: " << mk_ismt2_pp(r, m_manager) << "\n";);
+           );
     SASSERT(get_entry(args) == 0);
     func_entry * new_entry = func_entry::mk(m_manager, m_arity, args, r);
     if (!new_entry->args_are_values())

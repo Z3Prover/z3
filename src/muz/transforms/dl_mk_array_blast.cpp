@@ -294,7 +294,7 @@ namespace datalog {
         if (m_simplifier.transform_rule(new_rules.last(), new_rule)) {
             if (r.get_proof()) {
                 scoped_proof _sc(m);
-                r.to_formula(fml1);
+                rm.to_formula(r, fml1);
                 p = m.mk_rewrite(fml1, fml2);
                 p = m.mk_modus_ponens(r.get_proof(), p);
                 new_rule->set_proof(m, p);                

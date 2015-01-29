@@ -119,7 +119,7 @@ namespace pdr {
     }
 
     
-    void inductive_property::display(ptr_vector<datalog::rule> const& rules, std::ostream& out) const {
+    void inductive_property::display(datalog::rule_manager& rm, ptr_vector<datalog::rule> const& rules, std::ostream& out) const {
         func_decl_set bound_decls, aux_decls;
         collect_decls_proc collect_decls(bound_decls, aux_decls);
 
@@ -153,7 +153,7 @@ namespace pdr {
         for (unsigned i = 0; i < rules.size(); ++i) {
             out << "(push)\n";
             out << "(assert (not\n";
-            rules[i]->display_smt2(m, out);
+            rm.display_smt2(*rules[i], out);
             out << "))\n";
             out << "(check-sat)\n";
             out << "(pop)\n";

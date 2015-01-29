@@ -540,12 +540,42 @@ static void tst19() {
     saturate_basis(hb);    
 }
 
+static void test_A_5_5_3() {
+    hilbert_basis hb;
+    for (unsigned i = 0; i < 15; ++i) {
+        vector<rational> v;
+        for (unsigned j = 0; j < 5; ++j) {
+            for (unsigned k = 0; k < 15; ++k) {
+                v.push_back(rational(k == i));                
+            }
+        }
+        hb.add_ge(v, R(0));
+    }
+    for (unsigned i = 1; i <= 15; ++i) {
+        vector<rational> v;
+        for (unsigned k = 1; k <= 5; ++k) {
+            for (unsigned l = 1; l <= 5; ++l) {
+                for (unsigned j = 1; j <= 3; ++j) {
+                    bool one = ((j*k <= i) && (((i - j) % 3) == 0)); // fixme
+                    v.push_back(rational(one));
+                }
+            }
+        }
+        hb.add_ge(v, R(0));
+    }
+    // etc.
+    saturate_basis(hb);
+}
+
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";
 //    tst3();
 //    return;
 
     g_use_ordered_support = true;
+
+    test_A_5_5_3();
+    return;
 
     tst18();
     return;

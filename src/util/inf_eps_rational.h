@@ -127,6 +127,10 @@ class inf_eps_rational {
         return m_r.get_uint64();
     }
 
+    Numeral const& get_numeral() const {
+        return m_r;
+    }
+
     rational const& get_rational() const {
         return m_r.get_rational();
     }
@@ -139,16 +143,37 @@ class inf_eps_rational {
         return m_infty;
     }
 
+    bool is_finite() const {
+        return m_infty.is_zero();
+    }
+
+    static inf_eps_rational zero() {
+        return inf_eps_rational(Numeral::zero());
+    }
+
+    static inf_eps_rational one() {
+        return inf_eps_rational(Numeral::one());
+    }
+
+    static inf_eps_rational minus_one() {
+        return inf_eps_rational(Numeral::minus_one());
+    }
+
+    static inf_eps_rational infinity() {
+        return inf_eps_rational(rational::one(), Numeral::zero());
+    }
+
+
     inf_eps_rational & operator=(const inf_eps_rational & r) {
         m_infty = r.m_infty;
         m_r = r.m_r;
 	return *this;
     }
 
-    inf_eps_rational & operator=(const rational & r) {
+    inf_eps_rational & operator=(const Numeral & r) {
         m_infty.reset();
         m_r = r;
-        return *this;
+	return *this;
     }
 
     inf_eps_rational & operator+=(const inf_eps_rational & r) { 
@@ -160,6 +185,16 @@ class inf_eps_rational {
     inf_eps_rational & operator-=(const inf_eps_rational & r) { 
         m_infty  -= r.m_infty;
         m_r      -= r.m_r;
+	return *this; 
+    }
+
+    inf_eps_rational & operator-=(const inf_rational & r) { 
+        m_r      -= r;
+	return *this; 
+    }
+
+    inf_eps_rational & operator+=(const inf_rational & r) { 
+        m_r      += r;
 	return *this; 
     }
 
@@ -272,12 +307,12 @@ class inf_eps_rational {
     }
 
     friend inline rational floor(const inf_eps_rational & r) {
-        SASSERT(r.m_infty.is_zero());
+        // SASSERT(r.m_infty.is_zero());
         return floor(r.m_r);
     }
 
     friend inline rational ceil(const inf_eps_rational & r) {
-        SASSERT(r.m_infty.is_zero());
+        // SASSERT(r.m_infty.is_zero());
         return ceil(r.m_r);
     }
 

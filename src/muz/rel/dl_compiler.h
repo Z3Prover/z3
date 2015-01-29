@@ -111,12 +111,13 @@ namespace datalog {
          */
         instruction_block & m_top_level_code;
         pred2idx m_pred_regs;
-        reg_idx m_new_reg;
-        vector<relation_signature> m_reg_signatures;
-        obj_pair_map<sort, app, reg_idx> m_constant_registers;
+        reg_idx                           m_new_reg;
+        vector<relation_signature>        m_reg_signatures;
+        obj_pair_map<sort, app, reg_idx>  m_constant_registers;
         obj_pair_map<sort, decl, reg_idx> m_total_registers;
-        obj_map<decl, reg_idx> m_empty_tables_registers;
-        instruction_observer m_instruction_observer;
+        obj_map<decl, reg_idx>            m_empty_tables_registers;
+        instruction_observer              m_instruction_observer;
+        expr_free_vars                    m_free_vars;
 
         /**
            If true, the union operation on the underlying structure only provides the information

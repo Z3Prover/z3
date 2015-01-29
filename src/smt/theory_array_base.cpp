@@ -362,7 +362,6 @@ namespace smt {
          (store A i v) <--- v is used as an value
     */
     bool theory_array_base::is_shared(theory_var v) const {
-        context & ctx  = get_context();
         enode * n      = get_enode(v);
         enode * r      = n->get_root();
         bool is_array  = false;

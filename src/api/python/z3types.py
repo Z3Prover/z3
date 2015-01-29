@@ -78,6 +78,10 @@ class FixedpointObj(ctypes.c_void_p):
   def __init__(self, fixedpoint): self._as_parameter_ = fixedpoint
   def from_param(obj): return obj
 
+class OptimizeObj(ctypes.c_void_p):
+  def __init__(self, optimize): self._as_parameter_ = optimize
+  def from_param(obj): return obj
+
 class ModelObj(ctypes.c_void_p):
   def __init__(self, model): self._as_parameter_ = model
   def from_param(obj): return obj

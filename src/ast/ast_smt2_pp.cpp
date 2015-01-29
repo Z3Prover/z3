@@ -77,6 +77,8 @@ bool smt2_pp_environment::is_indexed_fdecl(func_decl * f) const {
     for (i = 0; i < num; i++) {
         if (f->get_parameter(i).is_int())
             continue;
+        if (f->get_parameter(i).is_rational())
+            continue;
         if (f->get_parameter(i).is_ast() && is_func_decl(f->get_parameter(i).get_ast()))
             continue;
         break;
@@ -105,9 +107,13 @@ format * smt2_pp_environment::pp_fdecl_params(format * fname, func_decl * f) {
     ptr_buffer<format> fs;
     fs.push_back(fname);
     for (unsigned i = 0; i < num; i++) {
-        SASSERT(f->get_parameter(i).is_int() || (f->get_parameter(i).is_ast() && is_func_decl(f->get_parameter(i).get_ast())));
+        SASSERT(f->get_parameter(i).is_int() || 
+                f->get_parameter(i).is_rational() || 
+                (f->get_parameter(i).is_ast() && is_func_decl(f->get_parameter(i).get_ast())));
         if (f->get_parameter(i).is_int())
             fs.push_back(mk_int(get_manager(), f->get_parameter(i).get_int()));
+        else if (f->get_parameter(i).is_rational())
+            fs.push_back(mk_string(get_manager(), f->get_parameter(i).get_rational().to_string().c_str()));
         else
             fs.push_back(pp_fdecl_ref(to_func_decl(f->get_parameter(i).get_ast())));
     }
@@ -1123,6 +1129,26 @@ std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p) {
         SASSERT(is_func_decl(p.m_ast));
         ast_smt2_pp(out, to_func_decl(p.m_ast), env, p.m_params, p.m_indent);
     }
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& out, expr_ref const&  e) {
+    return out << mk_ismt2_pp(e.get(), e.get_manager());
+}
+
+std::ostream& operator<<(std::ostream& out, app_ref const&  e) {
+    return out << mk_ismt2_pp(e.get(), e.get_manager());
+}
+
+std::ostream& operator<<(std::ostream& out, expr_ref_vector const&  e) {
+    for (unsigned i = 0; i < e.size(); ++i) 
+        out << mk_ismt2_pp(e[i], e.get_manager()) << "\n";
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& out, app_ref_vector const&  e) {
+    for (unsigned i = 0; i < e.size(); ++i) 
+        out << mk_ismt2_pp(e[i], e.get_manager()) << "\n";
     return out;
 }
 

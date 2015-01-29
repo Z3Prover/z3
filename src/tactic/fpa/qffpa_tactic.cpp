@@ -78,7 +78,7 @@ struct is_non_qffpabv_predicate {
 
     void operator()(app * n) {
         sort * s = get_sort(n);
-        if (!m.is_bool(s) && !fu.is_float(s) && !fu.is_rm(s) && !bu.is_bv_sort(s))
+        if (!(m.is_bool(s) || fu.is_float(s) || fu.is_rm(s) || bu.is_bv_sort(s)))
             throw found();
         family_id fid = n->get_family_id();
         if (fid == m.get_basic_family_id())

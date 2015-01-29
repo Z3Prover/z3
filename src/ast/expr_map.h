@@ -44,6 +44,10 @@ public:
     void erase(expr * k);
     void reset();
     void flush();
+    void set_store_proofs(bool f) { 
+        if (m_store_proofs != f) flush();
+        m_store_proofs = f; 
+    }
 };
 
 #endif

@@ -29,13 +29,14 @@ Revision History:
 #include"version.h"
 #include"dimacs_frontend.h"
 #include"datalog_frontend.h"
+#include"opt_frontend.h"
 #include"timeout.h"
 #include"z3_exception.h"
 #include"error_codes.h"
 #include"gparams.h"
 #include"env_params.h"
 
-typedef enum { IN_UNSPECIFIED, IN_SMTLIB, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_Z3_LOG } input_kind;
+typedef enum { IN_UNSPECIFIED, IN_SMTLIB, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_Z3_LOG } input_kind;
 
 std::string         g_aux_input_file;
 char const *        g_input_file          = 0;
@@ -168,6 +169,12 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "dimacs") == 0) {
                 g_input_kind = IN_DIMACS;
             }
+            else if (strcmp(opt_name, "wcnf") == 0) {
+                g_input_kind = IN_WCNF;
+            }
+            else if (strcmp(opt_name, "bpo") == 0) {
+                g_input_kind = IN_OPB;
+            }
             else if (strcmp(opt_name, "log") == 0) {
                 g_input_kind = IN_Z3_LOG;
             }
@@ -297,7 +304,7 @@ int main(int argc, char ** argv) {
         }
         
         if (g_input_kind == IN_UNSPECIFIED) {
-            g_input_kind = IN_SMTLIB;
+            g_input_kind = IN_SMTLIB_2;
             char const * ext = get_extension(g_input_file);
             if (ext) {
                 if (strcmp(ext, "datalog") == 0 || strcmp(ext, "dl") == 0) {
@@ -305,6 +312,12 @@ int main(int argc, char ** argv) {
                 }
                 else if (strcmp(ext, "dimacs") == 0 || strcmp(ext, "cnf") == 0) {
                     g_input_kind = IN_DIMACS;
+                }
+                else if (strcmp(ext, "wcnf") == 0) {
+                    g_input_kind = IN_WCNF;
+                }
+                else if (strcmp(ext, "opb") == 0) {
+                    g_input_kind = IN_OPB;
                 }
                 else if (strcmp(ext, "log") == 0) {
                     g_input_kind = IN_Z3_LOG;
@@ -327,6 +340,12 @@ int main(int argc, char ** argv) {
             break;
         case IN_DIMACS:
             return_value = read_dimacs(g_input_file);
+            break;
+        case IN_WCNF:
+            return_value = parse_opt(g_input_file, true);
+            break;
+        case IN_OPB:
+            return_value = parse_opt(g_input_file, false);
             break;
         case IN_DATALOG:
             read_datalog(g_input_file);

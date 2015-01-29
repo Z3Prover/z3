@@ -979,6 +979,11 @@ def def_API(name, result, params):
                 log_c.write(" }\n")
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_uint_array(%s)" % i)
+            elif ty == INT:
+                log_c.write("U(a%s[i]);" % i)
+                log_c.write(" }\n")
+                log_c.write("  Au(a%s);\n" % sz)
+                exe_c.write("in.get_int_array(%s)" % i)
             else:
                 error ("unsupported parameter for %s, %s" % (ty, name, p))
         elif kind == OUT_ARRAY:
