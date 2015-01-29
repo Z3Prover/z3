@@ -509,13 +509,27 @@ namespace datalog {
         }
     };
     void udoc_plugin::mk_union(doc_manager& dm, udoc& dst, udoc const& src, udoc* delta) {
-        for (unsigned i = 0; i < src.size(); ++i) {
-            doc* d = dm.allocate(src[i]);
-            if (dst.insert(dm, d)) {
+        bool deltaempty = delta ? delta->is_empty() : false;
+
+        if (dst.is_empty()) {
+            for (unsigned i = 0; i < src.size(); ++i) {
+                dst.push_back(dm.allocate(src[i]));
                 if (delta) {
-                    delta->insert(dm, dm.allocate(src[i]));
+                    if (deltaempty)
+                        delta->push_back(dm.allocate(src[i]));
+                    else
+                        delta->insert(dm, dm.allocate(src[i]));
                 }
-            } 
+            }
+        } else {
+            for (unsigned i = 0; i < src.size(); ++i) {
+                if (dst.insert(dm, dm.allocate(src[i])) && delta) {
+                    if (deltaempty)
+                        delta->push_back(dm.allocate(src[i]));
+                    else
+                        delta->insert(dm, dm.allocate(src[i]));
+                }
+            }
         }
     }
     relation_union_fn * udoc_plugin::mk_union_fn(
