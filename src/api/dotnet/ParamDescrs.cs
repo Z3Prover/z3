@@ -87,6 +87,8 @@ namespace Microsoft.Z3
 
         internal class DecRefQueue : IDecRefQueue
         {
+            public DecRefQueue() : base() { }
+            public DecRefQueue(uint move_limit) : base(move_limit) { }
             public override void IncRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_param_descrs_inc_ref(ctx.nCtx, obj);

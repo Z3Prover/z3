@@ -40,7 +40,12 @@ namespace Microsoft.Z3
 
         readonly internal protected Object m_lock = new Object();
         readonly internal protected List<IntPtr> m_queue = new List<IntPtr>();
-        internal const uint m_move_limit = 1024;
+        internal uint m_move_limit;
+
+        public IDecRefQueue(uint move_limit = 1024)
+        {
+            m_move_limit = move_limit;
+        }
 
         public abstract void IncRef(Context ctx, IntPtr obj);
         public abstract void DecRef(Context ctx, IntPtr obj);
