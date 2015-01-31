@@ -4399,16 +4399,16 @@ namespace Microsoft.Z3
         readonly private ASTMap.DecRefQueue m_ASTMap_DRQ = new ASTMap.DecRefQueue(10);
         readonly private ASTVector.DecRefQueue m_ASTVector_DRQ = new ASTVector.DecRefQueue(10);
         readonly private ApplyResult.DecRefQueue m_ApplyResult_DRQ = new ApplyResult.DecRefQueue(10);
-        readonly private FuncInterp.Entry.DecRefQueue m_FuncEntry_DRQ = new FuncInterp.Entry.DecRefQueue();
-        readonly private FuncInterp.DecRefQueue m_FuncInterp_DRQ = new FuncInterp.DecRefQueue();
+        readonly private FuncInterp.Entry.DecRefQueue m_FuncEntry_DRQ = new FuncInterp.Entry.DecRefQueue(10);
+        readonly private FuncInterp.DecRefQueue m_FuncInterp_DRQ = new FuncInterp.DecRefQueue(10);
         readonly private Goal.DecRefQueue m_Goal_DRQ = new Goal.DecRefQueue(10);
         readonly private Model.DecRefQueue m_Model_DRQ = new Model.DecRefQueue(10);
-        readonly private Params.DecRefQueue m_Params_DRQ = new Params.DecRefQueue();
-        readonly private ParamDescrs.DecRefQueue m_ParamDescrs_DRQ = new ParamDescrs.DecRefQueue();
-        readonly private Probe.DecRefQueue m_Probe_DRQ = new Probe.DecRefQueue();
+        readonly private Params.DecRefQueue m_Params_DRQ = new Params.DecRefQueue(10);
+        readonly private ParamDescrs.DecRefQueue m_ParamDescrs_DRQ = new ParamDescrs.DecRefQueue(10);
+        readonly private Probe.DecRefQueue m_Probe_DRQ = new Probe.DecRefQueue(10);
         readonly private Solver.DecRefQueue m_Solver_DRQ = new Solver.DecRefQueue(10);
         readonly private Statistics.DecRefQueue m_Statistics_DRQ = new Statistics.DecRefQueue(10);
-        readonly private Tactic.DecRefQueue m_Tactic_DRQ = new Tactic.DecRefQueue();
+        readonly private Tactic.DecRefQueue m_Tactic_DRQ = new Tactic.DecRefQueue(10);
         readonly private Fixedpoint.DecRefQueue m_Fixedpoint_DRQ = new Fixedpoint.DecRefQueue(10);
 
         internal AST.DecRefQueue AST_DRQ { get { Contract.Ensures(Contract.Result<AST.DecRefQueue>() != null); return m_AST_DRQ; } }

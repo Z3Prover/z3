@@ -115,7 +115,7 @@ public class Z3Object extends IDisposable
             return null;
         long[] an = new long[a.length];
         for (int i = 0; i < a.length; i++)
-	    an[i] = (a[i] == null) ? 0 : a[i].getNativeObject();
+        an[i] = (a[i] == null) ? 0 : a[i].getNativeObject();
         return an;
     }
 

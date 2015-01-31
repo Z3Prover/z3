@@ -27,7 +27,7 @@ public class Model extends Z3Object
     /**
      * Retrieves the interpretation (the assignment) of {@code a} in
      * the model. 
-	 * @param a A Constant
+     * @param a A Constant
      * 
      * @return An expression if the constant has an interpretation in the model,
      *         null otherwise.
@@ -42,7 +42,7 @@ public class Model extends Z3Object
     /**
      * Retrieves the interpretation (the assignment) of {@code f} in
      * the model. 
-	 * @param f A function declaration of zero arity
+     * @param f A function declaration of zero arity
      * 
      * @return An expression if the function has an interpretation in the model,
      *         null otherwise.
@@ -68,7 +68,7 @@ public class Model extends Z3Object
 
     /**
      * Retrieves the interpretation (the assignment) of a non-constant {@code f} in the model. 
-	 * @param f A function declaration of non-zero arity
+     * @param f A function declaration of non-zero arity
      * 
      * @return A FunctionInterpretation if the function has an interpretation in
      *         the model, null otherwise.
@@ -201,7 +201,7 @@ public class Model extends Z3Object
      * Remarks:  This function may fail if {@code t} contains
      * quantifiers, is partial (MODEL_PARTIAL enabled), or if {@code t} is not well-sorted. In this case a
      * {@code ModelEvaluationFailedException} is thrown.  
-	 * @param t An expression {@code completion} When this flag
+     * @param t An expression {@code completion} When this flag
      * is enabled, a model value will be assigned to any constant or function
      * that does not have an interpretation in the model.
      * 
@@ -243,8 +243,8 @@ public class Model extends Z3Object
      * in a formula. The interpretation for a sort is a finite set of distinct
      * values. We say this finite set is the "universe" of the sort. 
      * 
-	 * @see getNumSorts
-	 * @see getSortUniverse
+     * @see getNumSorts
+     * @see getSortUniverse
      * 
      * @throws Z3Exception
      **/
@@ -262,7 +262,7 @@ public class Model extends Z3Object
     /**
      * The finite set of distinct values that represent the interpretation for
      * sort {@code s}. 
-	 * @param s An uninterpreted sort
+     * @param s An uninterpreted sort
      * 
      * @return An array of expressions, where each is an element of the universe
      *         of {@code s}

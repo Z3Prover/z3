@@ -49,7 +49,7 @@ public class Tactic extends Z3Object
      * @throws Z3Exception 
      **/
     public ApplyResult apply(Goal g) throws Z3Exception
-    {	
+    {    
         return apply(g, null);
     }
 
@@ -74,7 +74,7 @@ public class Tactic extends Z3Object
 
     /**
      * Creates a solver that is implemented using the given tactic. 
-	 * @see Context#mkSolver(Tactic)
+     * @see Context#mkSolver(Tactic)
      * @throws Z3Exception 
      **/
     public Solver getSolver() throws Z3Exception

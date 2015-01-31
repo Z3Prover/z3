@@ -19,7 +19,7 @@ package com.microsoft.z3;
 
 /**
  * Interaction logging for Z3.
-	 * Remarks:  Note that this is a global, static log
+     * Remarks:  Note that this is a global, static log
  * and if multiple Context objects are created, it logs the interaction with all
  * of them. 
  **/
@@ -29,7 +29,7 @@ public final class Log
 
     /**
      * Open an interaction log file. 
-	 * @param filename the name of the file to open
+     * @param filename the name of the file to open
      * 
      * @return True if opening the log file succeeds, false otherwise.
      **/

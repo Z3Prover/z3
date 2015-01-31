@@ -19,7 +19,7 @@ package com.microsoft.z3;
 
 /**
  * Version information. 
-	 * Remarks: Note that this class is static.
+     * Remarks: Note that this class is static.
  **/
 public class Version
 {

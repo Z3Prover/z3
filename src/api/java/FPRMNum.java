@@ -23,7 +23,7 @@ import com.microsoft.z3.enumerations.Z3_decl_kind;
  */
 public class FPRMNum extends FPRMExpr {
 
-	/**
+    /**
      * Indicates whether the term is the floating-point rounding numeral roundNearestTiesToEven
      * @throws Z3Exception 
      * **/
@@ -83,8 +83,8 @@ public class FPRMNum extends FPRMExpr {
      */
     public boolean isRTZ() throws Z3Exception { return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_ZERO; }
     
-	public FPRMNum(Context ctx, long obj) throws Z3Exception {
-		super(ctx, obj);
-	}
+    public FPRMNum(Context ctx, long obj) throws Z3Exception {
+        super(ctx, obj);
+    }
 
 }

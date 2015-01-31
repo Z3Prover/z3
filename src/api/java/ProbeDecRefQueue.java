@@ -19,6 +19,16 @@ package com.microsoft.z3;
 
 class ProbeDecRefQueue extends IDecRefQueue
 {
+    public ProbeDecRefQueue() 
+    {
+        super();
+    }
+
+    public ProbeDecRefQueue(int move_limit) 
+    {
+        super(move_limit);
+    }
+
     protected void incRef(Context ctx, long obj)
     {
         try

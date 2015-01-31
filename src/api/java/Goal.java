@@ -27,7 +27,7 @@ public class Goal extends Z3Object
 {
     /**
      * The precision of the goal.
-	 * Remarks:  Goals can be transformed using over
+     * Remarks:  Goals can be transformed using over
      * and under approximations. An under approximation is applied when the
      * objective is to find a model for a given goal. An over approximation is
      * applied when the objective is to find a proof for a given goal.
@@ -97,7 +97,7 @@ public class Goal extends Z3Object
 
     /**
      * The depth of the goal.
-	 * Remarks:  This tracks how many transformations
+     * Remarks:  This tracks how many transformations
      * were applied to it. 
      **/
     public int getDepth() throws Z3Exception
@@ -176,7 +176,7 @@ public class Goal extends Z3Object
 
     /**
      * Simplifies the goal.
-	 * Remarks: Essentially invokes the `simplify' tactic
+     * Remarks: Essentially invokes the `simplify' tactic
      * on the goal.
      **/
     public Goal simplify() throws Z3Exception
@@ -192,7 +192,7 @@ public class Goal extends Z3Object
     
     /**
      * Simplifies the goal.
-	 * Remarks: Essentially invokes the `simplify' tactic
+     * Remarks: Essentially invokes the `simplify' tactic
      * on the goal.
      **/
     public Goal simplify(Params p) throws Z3Exception

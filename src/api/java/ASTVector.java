@@ -34,7 +34,7 @@ class ASTVector extends Z3Object
      * Retrieves the i-th object in the vector.
      * Remarks: May throw an {@code IndexOutOfBoundsException} when 
      * {@code i} is out of range. 
-	 * @param i Index
+     * @param i Index
      * 
      * @return An AST
      * @throws Z3Exception
@@ -54,7 +54,7 @@ class ASTVector extends Z3Object
 
     /**
      * Resize the vector to {@code newSize}. 
-	 * @param newSize The new size of the vector.
+     * @param newSize The new size of the vector.
      **/
     public void resize(int newSize) throws Z3Exception
     {
@@ -64,7 +64,7 @@ class ASTVector extends Z3Object
     /**
      * Add the AST {@code a} to the back of the vector. The size is
      * increased by 1. 
-	 * @param a An AST
+     * @param a An AST
      **/
     public void push(AST a) throws Z3Exception
     {
@@ -73,7 +73,7 @@ class ASTVector extends Z3Object
 
     /**
      * Translates all ASTs in the vector to {@code ctx}. 
-	 * @param ctx A context
+     * @param ctx A context
      * 
      * @return A new ASTVector
      * @throws Z3Exception

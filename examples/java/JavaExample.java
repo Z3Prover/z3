@@ -2169,8 +2169,8 @@ class JavaExample
         FPNum y = (FPNum)ctx.mkNumeral("-10", s); /* -10 */
         FPNum z = (FPNum)ctx.mkNumeral("-1.25p3", s); /* -1.25 * 2^3 = -1.25 * 8 = -10 */
         System.out.println("x=" + x.toString()  + 
-        				   "; y=" + y.toString() + 
-        				   "; z=" + z.toString());
+                           "; y=" + y.toString() + 
+                           "; z=" + z.toString());
         
         BoolExpr a = ctx.mkAnd(ctx.mkFPEq(x, y), ctx.mkFPEq(y, z));
         check(ctx, ctx.mkNot(a), Status.UNSATISFIABLE);

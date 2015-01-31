@@ -261,12 +261,12 @@ public class Context extends IDisposable
 
     /**
      * Create a datatype constructor. 
-	 * @param name constructor name 
-	 * @param recognizer name of recognizer function. 
-	 * @param fieldNames names of the constructor fields. 
-	 * @param sorts field sorts, 0 if the field sort refers to a recursive sort. 
-	 * @param sortRefs reference to datatype sort that is an argument to the 
-	 * constructor; if the corresponding sort reference is 0, then the value in sort_refs should be
+     * @param name constructor name 
+     * @param recognizer name of recognizer function. 
+     * @param fieldNames names of the constructor fields. 
+     * @param sorts field sorts, 0 if the field sort refers to a recursive sort. 
+     * @param sortRefs reference to datatype sort that is an argument to the 
+     * constructor; if the corresponding sort reference is 0, then the value in sort_refs should be
      * an index referring to one of the recursive datatypes that is
      * declared.
      **/
@@ -281,11 +281,11 @@ public class Context extends IDisposable
 
     /**
      * Create a datatype constructor. 
-	 * @param name  
-	 * @param recognizer  
-	 * @param fieldNames  
-	 * @param sorts  
-	 * @param sortRefs 
+     * @param name  
+     * @param recognizer  
+     * @param fieldNames  
+     * @param sorts  
+     * @param sortRefs 
      * 
      * @return
      **/
@@ -321,8 +321,8 @@ public class Context extends IDisposable
 
     /**
      * Create mutually recursive datatypes. 
-	 * @param names names of datatype sorts 
-	 * @param c list of constructors, one list per sort.
+     * @param names names of datatype sorts 
+     * @param c list of constructors, one list per sort.
      **/
     public DatatypeSort[] mkDatatypeSorts(Symbol[] names, Constructor[][] c)
             throws Z3Exception
@@ -350,8 +350,8 @@ public class Context extends IDisposable
 
     /**
      * Create mutually recursive data-types. 
-	 * @param names  
-	 * @param c 
+     * @param names  
+     * @param c 
      * 
      * @return
      **/
@@ -412,7 +412,7 @@ public class Context extends IDisposable
     /**
      * Creates a fresh function declaration with a name prefixed with
      * {@code prefix}. 
-	 * @see mkFuncDecl(String,Sort,Sort)
+     * @see mkFuncDecl(String,Sort,Sort)
      * @see mkFuncDecl(String,Sort[],Sort)
      **/
     public FuncDecl mkFreshFuncDecl(String prefix, Sort[] domain, Sort range)
@@ -457,8 +457,8 @@ public class Context extends IDisposable
 
     /**
      * Creates a new bound variable. 
-	 * @param index The de-Bruijn index of the variable 
-	 * @param ty The sort of the variable
+     * @param index The de-Bruijn index of the variable 
+     * @param ty The sort of the variable
      **/
     public Expr mkBound(int index, Sort ty) throws Z3Exception
     {
@@ -516,7 +516,7 @@ public class Context extends IDisposable
 
     /**
      * Creates a fresh constant from the FuncDecl {@code f}. 
-	 * @param f A decl of a 0-arity function
+     * @param f A decl of a 0-arity function
      **/
     public Expr mkConst(FuncDecl f) throws Z3Exception
     {
@@ -654,9 +654,9 @@ public class Context extends IDisposable
     /**
      * Create an expression representing an if-then-else:
      * {@code ite(t1, t2, t3)}. 
-	 * @param t1 An expression with Boolean sort 
-	 * @param t2 An expression  
-	 * @param t3 An expression with the same sort as {@code t2}
+     * @param t1 An expression with Boolean sort 
+     * @param t2 An expression  
+     * @param t3 An expression with the same sort as {@code t2}
      **/
     public Expr mkITE(BoolExpr t1, Expr t2, Expr t3) throws Z3Exception
     {
@@ -773,7 +773,7 @@ public class Context extends IDisposable
 
     /**
      * Create an expression representing {@code t1 mod t2}.
-	 * Remarks: The
+     * Remarks: The
      * arguments must have int type.
      **/
     public IntExpr mkMod(IntExpr t1, IntExpr t2) throws Z3Exception
@@ -786,7 +786,7 @@ public class Context extends IDisposable
 
     /**
      * Create an expression representing {@code t1 rem t2}.
-	 * Remarks: The
+     * Remarks: The
      * arguments must have int type.
      **/
     public IntExpr mkRem(IntExpr t1, IntExpr t2) throws Z3Exception
@@ -856,7 +856,7 @@ public class Context extends IDisposable
 
     /**
      * Coerce an integer to a real.
-	 * Remarks:  There is also a converse operation
+     * Remarks:  There is also a converse operation
      * exposed. It follows the semantics prescribed by the SMT-LIB standard.
      * 
      * You can take the floor of a real by creating an auxiliary integer Term
@@ -873,7 +873,7 @@ public class Context extends IDisposable
 
     /**
      * Coerce a real to an integer.
-	 * Remarks:  The semantics of this function
+     * Remarks:  The semantics of this function
      * follows the SMT-LIB standard for the function to_int. The argument must
      * be of real sort. 
      **/
@@ -894,7 +894,7 @@ public class Context extends IDisposable
 
     /**
      * Bitwise negation.
-	 * Remarks: The argument must have a bit-vector
+     * Remarks: The argument must have a bit-vector
      * sort.
      **/
     public BitVecExpr mkBVNot(BitVecExpr t) throws Z3Exception
@@ -906,7 +906,7 @@ public class Context extends IDisposable
     /**
      * Take conjunction of bits in a vector, return vector of length 1.
      * 
-	 * Remarks: The argument must have a bit-vector sort.
+     * Remarks: The argument must have a bit-vector sort.
      **/
     public BitVecExpr mkBVRedAND(BitVecExpr t) throws Z3Exception
     {
@@ -918,7 +918,7 @@ public class Context extends IDisposable
     /**
      * Take disjunction of bits in a vector, return vector of length 1.
      * 
-	 * Remarks: The argument must have a bit-vector sort.
+     * Remarks: The argument must have a bit-vector sort.
      **/
     public BitVecExpr mkBVRedOR(BitVecExpr t) throws Z3Exception
     {
@@ -929,7 +929,7 @@ public class Context extends IDisposable
 
     /**
      * Bitwise conjunction.
-	 * Remarks: The arguments must have a bit-vector
+     * Remarks: The arguments must have a bit-vector
      * sort.
      **/
     public BitVecExpr mkBVAND(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -942,7 +942,7 @@ public class Context extends IDisposable
 
     /**
      * Bitwise disjunction.
-	 * Remarks: The arguments must have a bit-vector
+     * Remarks: The arguments must have a bit-vector
      * sort.
      **/
     public BitVecExpr mkBVOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -955,7 +955,7 @@ public class Context extends IDisposable
 
     /**
      * Bitwise XOR.
-	 * Remarks: The arguments must have a bit-vector
+     * Remarks: The arguments must have a bit-vector
      * sort.
      **/
     public BitVecExpr mkBVXOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -968,7 +968,7 @@ public class Context extends IDisposable
 
     /**
      * Bitwise NAND.
-	 * Remarks: The arguments must have a bit-vector
+     * Remarks: The arguments must have a bit-vector
      * sort.
      **/
     public BitVecExpr mkBVNAND(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -981,7 +981,7 @@ public class Context extends IDisposable
 
     /**
      * Bitwise NOR.
-	 * Remarks: The arguments must have a bit-vector
+     * Remarks: The arguments must have a bit-vector
      * sort.
      **/
     public BitVecExpr mkBVNOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -994,7 +994,7 @@ public class Context extends IDisposable
 
     /**
      * Bitwise XNOR.
-	 * Remarks: The arguments must have a bit-vector
+     * Remarks: The arguments must have a bit-vector
      * sort.
      **/
     public BitVecExpr mkBVXNOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1007,7 +1007,7 @@ public class Context extends IDisposable
 
     /**
      * Standard two's complement unary minus.
-	 * Remarks: The arguments must have a
+     * Remarks: The arguments must have a
      * bit-vector sort.
      **/
     public BitVecExpr mkBVNeg(BitVecExpr t) throws Z3Exception
@@ -1018,7 +1018,7 @@ public class Context extends IDisposable
 
     /**
      * Two's complement addition.
-	 * Remarks: The arguments must have the same
+     * Remarks: The arguments must have the same
      * bit-vector sort.
      **/
     public BitVecExpr mkBVAdd(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1031,7 +1031,7 @@ public class Context extends IDisposable
 
     /**
      * Two's complement subtraction.
-	 * Remarks: The arguments must have the same
+     * Remarks: The arguments must have the same
      * bit-vector sort.
      **/
     public BitVecExpr mkBVSub(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1044,7 +1044,7 @@ public class Context extends IDisposable
 
     /**
      * Two's complement multiplication.
-	 * Remarks: The arguments must have the
+     * Remarks: The arguments must have the
      * same bit-vector sort.
      **/
     public BitVecExpr mkBVMul(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1057,7 +1057,7 @@ public class Context extends IDisposable
 
     /**
      * Unsigned division.
-	 * Remarks:  It is defined as the floor of
+     * Remarks:  It is defined as the floor of
      * {@code t1/t2} if \c t2 is different from zero. If {@code t2} is
      * zero, then the result is undefined. The arguments must have the same
      * bit-vector sort. 
@@ -1072,7 +1072,7 @@ public class Context extends IDisposable
 
     /**
      * Signed division.
-	 * Remarks:  It is defined in the following way:
+     * Remarks:  It is defined in the following way:
      * 
      * - The \c floor of {@code t1/t2} if \c t2 is different from zero, and
      * {@code t1*t2 >= 0}.
@@ -1093,7 +1093,7 @@ public class Context extends IDisposable
 
     /**
      * Unsigned remainder.
-	 * Remarks:  It is defined as
+     * Remarks:  It is defined as
      * {@code t1 - (t1 /u t2) * t2}, where {@code /u} represents
      * unsigned division. If {@code t2} is zero, then the result is
      * undefined. The arguments must have the same bit-vector sort. 
@@ -1108,7 +1108,7 @@ public class Context extends IDisposable
 
     /**
      * Signed remainder.
-	 * Remarks:  It is defined as
+     * Remarks:  It is defined as
      * {@code t1 - (t1 /s t2) * t2}, where {@code /s} represents
      * signed division. The most significant bit (sign) of the result is equal
      * to the most significant bit of \c t1.
@@ -1126,7 +1126,7 @@ public class Context extends IDisposable
 
     /**
      * Two's complement signed remainder (sign follows divisor).
-	 * Remarks:  If
+     * Remarks:  If
      * {@code t2} is zero, then the result is undefined. The arguments must
      * have the same bit-vector sort. 
      **/
@@ -1140,7 +1140,7 @@ public class Context extends IDisposable
 
     /**
      * Unsigned less-than
-	 * Remarks:  The arguments must have the same bit-vector
+     * Remarks:  The arguments must have the same bit-vector
      * sort. 
      **/
     public BoolExpr mkBVULT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1153,7 +1153,7 @@ public class Context extends IDisposable
 
     /**
      * Two's complement signed less-than
-	 * Remarks:  The arguments must have the
+     * Remarks:  The arguments must have the
      * same bit-vector sort. 
      **/
     public BoolExpr mkBVSLT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1166,7 +1166,7 @@ public class Context extends IDisposable
 
     /**
      * Unsigned less-than or equal to.
-	 * Remarks:  The arguments must have the
+     * Remarks:  The arguments must have the
      * same bit-vector sort. 
      **/
     public BoolExpr mkBVULE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1179,7 +1179,7 @@ public class Context extends IDisposable
 
     /**
      * Two's complement signed less-than or equal to.
-	 * Remarks:  The arguments
+     * Remarks:  The arguments
      * must have the same bit-vector sort. 
      **/
     public BoolExpr mkBVSLE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1192,7 +1192,7 @@ public class Context extends IDisposable
 
     /**
      * Unsigned greater than or equal to.
-	 * Remarks:  The arguments must have the
+     * Remarks:  The arguments must have the
      * same bit-vector sort. 
      **/
     public BoolExpr mkBVUGE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1205,7 +1205,7 @@ public class Context extends IDisposable
 
     /**
      * Two's complement signed greater than or equal to.
-	 * Remarks:  The arguments
+     * Remarks:  The arguments
      * must have the same bit-vector sort. 
      **/
     public BoolExpr mkBVSGE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1218,7 +1218,7 @@ public class Context extends IDisposable
 
     /**
      * Unsigned greater-than.
-	 * Remarks:  The arguments must have the same
+     * Remarks:  The arguments must have the same
      * bit-vector sort. 
      **/
     public BoolExpr mkBVUGT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1231,7 +1231,7 @@ public class Context extends IDisposable
 
     /**
      * Two's complement signed greater-than.
-	 * Remarks:  The arguments must have
+     * Remarks:  The arguments must have
      * the same bit-vector sort. 
      **/
     public BoolExpr mkBVSGT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
@@ -1244,7 +1244,7 @@ public class Context extends IDisposable
 
     /**
      * Bit-vector concatenation.
-	 * Remarks:  The arguments must have a bit-vector
+     * Remarks:  The arguments must have a bit-vector
      * sort. 
      * 
      * @return The result is a bit-vector of size {@code n1+n2}, where
@@ -1262,7 +1262,7 @@ public class Context extends IDisposable
 
     /**
      * Bit-vector extraction.
-	 * Remarks:  Extract the bits {@code high}
+     * Remarks:  Extract the bits {@code high}
      * down to {@code low} from a bitvector of size {@code m} to
      * yield a new bitvector of size {@code n}, where
      * {@code n = high - low + 1}. The argument {@code t} must
@@ -1278,7 +1278,7 @@ public class Context extends IDisposable
 
     /**
      * Bit-vector sign extension.
-	 * Remarks:  Sign-extends the given bit-vector to
+     * Remarks:  Sign-extends the given bit-vector to
      * the (signed) equivalent bitvector of size {@code m+i}, where \c m is
      * the size of the given bit-vector. The argument {@code t} must
      * have a bit-vector sort. 
@@ -1292,7 +1292,7 @@ public class Context extends IDisposable
 
     /**
      * Bit-vector zero extension.
-	 * Remarks:  Extend the given bit-vector with
+     * Remarks:  Extend the given bit-vector with
      * zeros to the (unsigned) equivalent bitvector of size {@code m+i},
      * where \c m is the size of the given bit-vector. The argument {@code t}
      * must have a bit-vector sort. 
@@ -1306,7 +1306,7 @@ public class Context extends IDisposable
 
     /**
      * Bit-vector repetition.
-	 * Remarks:  The argument {@code t} must
+     * Remarks:  The argument {@code t} must
      * have a bit-vector sort. 
      **/
     public BitVecExpr mkRepeat(int i, BitVecExpr t) throws Z3Exception
@@ -1318,7 +1318,7 @@ public class Context extends IDisposable
 
     /**
      * Shift left.
-	 * Remarks:  It is equivalent to multiplication by
+     * Remarks:  It is equivalent to multiplication by
      * {@code 2^x} where \c x is the value of {@code t2}.
      * 
      * NB. The semantics of shift operations varies between environments. This
@@ -1337,7 +1337,7 @@ public class Context extends IDisposable
 
     /**
      * Logical shift right
-	 * Remarks:  It is equivalent to unsigned division by
+     * Remarks:  It is equivalent to unsigned division by
      * {@code 2^x} where \c x is the value of {@code t2}.
      * 
      * NB. The semantics of shift operations varies between environments. This
@@ -1356,7 +1356,7 @@ public class Context extends IDisposable
 
     /**
      * Arithmetic shift right
-	 * Remarks:  It is like logical shift right except
+     * Remarks:  It is like logical shift right except
      * that the most significant bits of the result always copy the most
      * significant bit of the second argument.
      * 
@@ -1376,7 +1376,7 @@ public class Context extends IDisposable
 
     /**
      * Rotate Left.
-	 * Remarks:  Rotate bits of \c t to the left \c i times. The
+     * Remarks:  Rotate bits of \c t to the left \c i times. The
      * argument {@code t} must have a bit-vector sort. 
      **/
     public BitVecExpr mkBVRotateLeft(int i, BitVecExpr t) throws Z3Exception
@@ -1388,7 +1388,7 @@ public class Context extends IDisposable
 
     /**
      * Rotate Right.
-	 * Remarks:  Rotate bits of \c t to the right \c i times. The
+     * Remarks:  Rotate bits of \c t to the right \c i times. The
      * argument {@code t} must have a bit-vector sort. 
      **/
     public BitVecExpr mkBVRotateRight(int i, BitVecExpr t) throws Z3Exception
@@ -1400,7 +1400,7 @@ public class Context extends IDisposable
 
     /**
      * Rotate Left.
-	 * Remarks:  Rotate bits of {@code t1} to the left
+     * Remarks:  Rotate bits of {@code t1} to the left
      * {@code t2} times. The arguments must have the same bit-vector
      * sort. 
      **/
@@ -1415,7 +1415,7 @@ public class Context extends IDisposable
 
     /**
      * Rotate Right.
-	 * Remarks:  Rotate bits of {@code t1} to the
+     * Remarks:  Rotate bits of {@code t1} to the
      * right{@code t2} times. The arguments must have the same
      * bit-vector sort. 
      **/
@@ -1431,7 +1431,7 @@ public class Context extends IDisposable
     /**
      * Create an {@code n} bit bit-vector from the integer argument
      * {@code t}.
-	 * Remarks:  NB. This function is essentially treated
+     * Remarks:  NB. This function is essentially treated
      * as uninterpreted. So you cannot expect Z3 to precisely reflect the
      * semantics of this function when solving constraints with this function.
      * 
@@ -1468,7 +1468,7 @@ public class Context extends IDisposable
     /**
      * Create a predicate that checks that the bit-wise addition does not
      * overflow. 
-	 * Remarks:  The arguments must be of bit-vector sort. 
+     * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVAddNoOverflow(BitVecExpr t1, BitVecExpr t2,
             boolean isSigned) throws Z3Exception
@@ -1483,7 +1483,7 @@ public class Context extends IDisposable
     /**
      * Create a predicate that checks that the bit-wise addition does not
      * underflow. 
-	 * Remarks:  The arguments must be of bit-vector sort. 
+     * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVAddNoUnderflow(BitVecExpr t1, BitVecExpr t2)
             throws Z3Exception
@@ -1497,7 +1497,7 @@ public class Context extends IDisposable
     /**
      * Create a predicate that checks that the bit-wise subtraction does not
      * overflow. 
-	 * Remarks:  The arguments must be of bit-vector sort. 
+     * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVSubNoOverflow(BitVecExpr t1, BitVecExpr t2)
             throws Z3Exception
@@ -1511,7 +1511,7 @@ public class Context extends IDisposable
     /**
      * Create a predicate that checks that the bit-wise subtraction does not
      * underflow. 
-	 * Remarks:  The arguments must be of bit-vector sort. 
+     * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVSubNoUnderflow(BitVecExpr t1, BitVecExpr t2,
             boolean isSigned) throws Z3Exception
@@ -1526,7 +1526,7 @@ public class Context extends IDisposable
     /**
      * Create a predicate that checks that the bit-wise signed division does not
      * overflow. 
-	 * Remarks:  The arguments must be of bit-vector sort. 
+     * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVSDivNoOverflow(BitVecExpr t1, BitVecExpr t2)
             throws Z3Exception
@@ -1540,7 +1540,7 @@ public class Context extends IDisposable
     /**
      * Create a predicate that checks that the bit-wise negation does not
      * overflow. 
-	 * Remarks:  The arguments must be of bit-vector sort. 
+     * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVNegNoOverflow(BitVecExpr t) throws Z3Exception
     {
@@ -1552,7 +1552,7 @@ public class Context extends IDisposable
     /**
      * Create a predicate that checks that the bit-wise multiplication does not
      * overflow. 
-	 * Remarks:  The arguments must be of bit-vector sort. 
+     * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVMulNoOverflow(BitVecExpr t1, BitVecExpr t2,
             boolean isSigned) throws Z3Exception
@@ -1567,7 +1567,7 @@ public class Context extends IDisposable
     /**
      * Create a predicate that checks that the bit-wise multiplication does not
      * underflow. 
-	 * Remarks:  The arguments must be of bit-vector sort. 
+     * Remarks:  The arguments must be of bit-vector sort. 
      **/
     public BoolExpr mkBVMulNoUnderflow(BitVecExpr t1, BitVecExpr t2)
             throws Z3Exception
@@ -1598,15 +1598,15 @@ public class Context extends IDisposable
 
     /**
      * Array read.
-	 * Remarks:  The argument {@code a} is the array and
+     * Remarks:  The argument {@code a} is the array and
      * {@code i} is the index of the array that gets read.
      * 
      * The node {@code a} must have an array sort
      * {@code [domain -> range]}, and {@code i} must have the sort
      * {@code domain}. The sort of the result is {@code range}.
      * 
-	 * @see mkArraySort
-	 * @see mkStore
+     * @see mkArraySort
+     * @see mkStore
 
      **/
     public Expr mkSelect(ArrayExpr a, Expr i) throws Z3Exception
@@ -1621,7 +1621,7 @@ public class Context extends IDisposable
 
     /**
      * Array update.
-	 * Remarks:  The node {@code a} must have an array sort
+     * Remarks:  The node {@code a} must have an array sort
      * {@code [domain -> range]}, {@code i} must have sort
      * {@code domain}, {@code v} must have sort range. The sort of the
      * result is {@code [domain -> range]}. The semantics of this function
@@ -1631,8 +1631,8 @@ public class Context extends IDisposable
      * {@code select}) on all indices except for {@code i}, where it
      * maps to {@code v} (and the {@code select} of {@code a}
      * with respect to {@code i} may be a different value). 
-	 * @see mkArraySort 
-	 * @see mkSelect
+     * @see mkArraySort 
+     * @see mkSelect
 
      **/
     public ArrayExpr mkStore(ArrayExpr a, Expr i, Expr v) throws Z3Exception
@@ -1646,11 +1646,11 @@ public class Context extends IDisposable
 
     /**
      * Create a constant array.
-	 * Remarks:  The resulting term is an array, such
+     * Remarks:  The resulting term is an array, such
      * that a {@code select} on an arbitrary index produces the value
      * {@code v}. 
-	 * @see mkArraySort
-	 * @see mkSelect
+     * @see mkArraySort
+     * @see mkSelect
      * 
      **/
     public ArrayExpr mkConstArray(Sort domain, Expr v) throws Z3Exception
@@ -1663,15 +1663,15 @@ public class Context extends IDisposable
 
     /**
      * Maps f on the argument arrays.
-	 * Remarks:  Eeach element of
+     * Remarks:  Eeach element of
      * {@code args} must be of an array sort
      * {@code [domain_i -> range_i]}. The function declaration
      * {@code f} must have type {@code  range_1 .. range_n -> range}.
      * {@code v} must have sort range. The sort of the result is
      * {@code [domain_i -> range]}. 
-	 * @see mkArraySort
-	 * @see mkSelect 
-	 * @see mkStore
+     * @see mkArraySort
+     * @see mkSelect 
+     * @see mkStore
 
      **/
     public ArrayExpr mkMap(FuncDecl f, ArrayExpr... args) throws Z3Exception
@@ -1685,7 +1685,7 @@ public class Context extends IDisposable
 
     /**
      * Access the array default value.
-	 * Remarks:  Produces the default range
+     * Remarks:  Produces the default range
      * value, for arrays that can be represented as finite maps with a default
      * range value. 
      **/
@@ -1826,10 +1826,10 @@ public class Context extends IDisposable
 
     /**
      * Create a Term of a given sort. 
-	 * @param v A string representing the term value in decimal notation. If the given sort is a real, then the
+     * @param v A string representing the term value in decimal notation. If the given sort is a real, then the
      * Term can be a rational, that is, a string of the form
      * {@code [num]* / [num]*}.
-	 * @param ty The sort of the
+     * @param ty The sort of the
      * numeral. In the current implementation, the given sort can be an int,
      * real, or bit-vectors of arbitrary size.
      * 
@@ -1847,8 +1847,8 @@ public class Context extends IDisposable
      * numerals that fit in a machine integer. It is slightly faster than
      * {@code MakeNumeral} since it is not necessary to parse a string.
      * 
-	 * @param v Value of the numeral 
-	 * @param ty Sort of the numeral
+     * @param v Value of the numeral 
+     * @param ty Sort of the numeral
      * 
      * @return A Term with value {@code v} and type {@code ty}
      **/
@@ -1863,8 +1863,8 @@ public class Context extends IDisposable
      * numerals that fit in a machine integer. It is slightly faster than
      * {@code MakeNumeral} since it is not necessary to parse a string.
      * 
-	 * @param v Value of the numeral 
-	 * @param ty Sort of the numeral
+     * @param v Value of the numeral 
+     * @param ty Sort of the numeral
      * 
      * @return A Term with value {@code v} and type {@code ty}
      **/
@@ -1877,12 +1877,12 @@ public class Context extends IDisposable
 
     /**
      * Create a real from a fraction. 
-	 * @param num numerator of rational. 
-	 * @param den denominator of rational.
+     * @param num numerator of rational. 
+     * @param den denominator of rational.
      * 
      * @return A Term with value {@code num}/{@code den}
      *         and sort Real 
-	 * @see mkNumeral(String,Sort)
+     * @see mkNumeral(String,Sort)
      **/
     public RatNum mkReal(int num, int den) throws Z3Exception
     {
@@ -1894,7 +1894,7 @@ public class Context extends IDisposable
 
     /**
      * Create a real numeral. 
-	 * @param v A string representing the Term value in decimal notation.
+     * @param v A string representing the Term value in decimal notation.
      * 
      * @return A Term with value {@code v} and sort Real
      **/
@@ -1907,7 +1907,7 @@ public class Context extends IDisposable
 
     /**
      * Create a real numeral. 
-	 * @param v value of the numeral.
+     * @param v value of the numeral.
      * 
      * @return A Term with value {@code v} and sort Real
      **/
@@ -1920,7 +1920,7 @@ public class Context extends IDisposable
 
     /**
      * Create a real numeral. 
-	 * @param v value of the numeral.
+     * @param v value of the numeral.
      * 
      * @return A Term with value {@code v} and sort Real
      **/
@@ -1933,7 +1933,7 @@ public class Context extends IDisposable
 
     /**
      * Create an integer numeral. 
-	 * @param v A string representing the Term value in decimal notation.
+     * @param v A string representing the Term value in decimal notation.
      **/
     public IntNum mkInt(String v) throws Z3Exception
     {
@@ -1944,7 +1944,7 @@ public class Context extends IDisposable
 
     /**
      * Create an integer numeral. 
-	 * @param v value of the numeral.
+     * @param v value of the numeral.
      * 
      * @return A Term with value {@code v} and sort Integer
      **/
@@ -1957,7 +1957,7 @@ public class Context extends IDisposable
 
     /**
      * Create an integer numeral. 
-	 * @param v value of the numeral.
+     * @param v value of the numeral.
      * 
      * @return A Term with value {@code v} and sort Integer
      **/
@@ -1970,8 +1970,8 @@ public class Context extends IDisposable
 
     /**
      * Create a bit-vector numeral. 
-	 * @param v A string representing the value in decimal notation. 
-	 * @param size the size of the bit-vector
+     * @param v A string representing the value in decimal notation. 
+     * @param size the size of the bit-vector
      **/
     public BitVecNum mkBV(String v, int size) throws Z3Exception
     {
@@ -1980,8 +1980,8 @@ public class Context extends IDisposable
 
     /**
      * Create a bit-vector numeral. 
-	 * @param v value of the numeral. 
-	 * @param size the size of the bit-vector
+     * @param v value of the numeral. 
+     * @param size the size of the bit-vector
      **/
     public BitVecNum mkBV(int v, int size) throws Z3Exception
     {
@@ -1990,8 +1990,8 @@ public class Context extends IDisposable
 
     /**
      * Create a bit-vector numeral. 
-	 * @param v value of the numeral. * 
-	 * @param size the size of the bit-vector
+     * @param v value of the numeral. * 
+     * @param size the size of the bit-vector
      **/
     public BitVecNum mkBV(long v, int size) throws Z3Exception
     {
@@ -2000,16 +2000,16 @@ public class Context extends IDisposable
 
     /**
      * Create a universal Quantifier.
-	 * @param sorts the sorts of the bound variables. 
-	 * @param names names of the bound variables 
-	 * @param body the body of the quantifier. 
-	 * @param weight quantifiers are associated with weights indicating the importance of using the quantifier during instantiation. By default, pass the weight 0.
+     * @param sorts the sorts of the bound variables. 
+     * @param names names of the bound variables 
+     * @param body the body of the quantifier. 
+     * @param weight quantifiers are associated with weights indicating the importance of using the quantifier during instantiation. By default, pass the weight 0.
      * @param patterns array containing the patterns created using {@code MkPattern}. 
-	 * @param noPatterns array containing the anti-patterns created using {@code MkPattern}. 
-	 * @param quantifierID optional symbol to track quantifier. 
-	 * @param skolemID optional symbol to track skolem constants.
-	 * 
-	 * Remarks:  Creates a forall formula, where
+     * @param noPatterns array containing the anti-patterns created using {@code MkPattern}. 
+     * @param quantifierID optional symbol to track quantifier. 
+     * @param skolemID optional symbol to track skolem constants.
+     * 
+     * Remarks:  Creates a forall formula, where
      * {@code weight"/> is the weight, <paramref name="patterns} is
      * an array of patterns, {@code sorts} is an array with the sorts
      * of the bound variables, {@code names} is an array with the
@@ -2040,7 +2040,7 @@ public class Context extends IDisposable
 
     /**
      * Create an existential Quantifier. 
-	 * @see mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
+     * @see mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
      **/
     public Quantifier mkExists(Sort[] sorts, Symbol[] names, Expr body,
             int weight, Pattern[] patterns, Expr[] noPatterns,
@@ -2098,17 +2098,17 @@ public class Context extends IDisposable
 
     /**
      * Selects the format used for pretty-printing expressions.
-	 * Remarks:  The
+     * Remarks:  The
      * default mode for pretty printing expressions is to produce SMT-LIB style
      * output where common subexpressions are printed at each occurrence. The
      * mode is called Z3_PRINT_SMTLIB_FULL. To print shared common
      * subexpressions only once, use the Z3_PRINT_LOW_LEVEL mode. To print in
      * way that conforms to SMT-LIB standards and uses let expressions to share
      * common sub-expressions use Z3_PRINT_SMTLIB_COMPLIANT.  
-	 * @see AST#toString
-	 * @see Pattern#toString
+     * @see AST#toString
+     * @see Pattern#toString
      * @see FuncDecl#toString
-	 * @see Sort#toString
+     * @see Sort#toString
      **/
     public void setPrintMode(Z3_ast_print_mode value) throws Z3Exception
     {
@@ -2117,14 +2117,14 @@ public class Context extends IDisposable
 
     /**
      * Convert a benchmark into an SMT-LIB formatted string. 
-	 * @param name Name of the benchmark. The argument is optional.
+     * @param name Name of the benchmark. The argument is optional.
      * 
-	 * @param logic The benchmark logic.  
-	 * @param status The status string (sat, unsat, or unknown) 
-	 * @param attributes Other attributes, such as source, difficulty or
+     * @param logic The benchmark logic.  
+     * @param status The status string (sat, unsat, or unknown) 
+     * @param attributes Other attributes, such as source, difficulty or
      * category.
-	 * @param assumptions Auxiliary assumptions. 
-	 * @param formula Formula to be checked for consistency in conjunction with assumptions.
+     * @param assumptions Auxiliary assumptions. 
+     * @param formula Formula to be checked for consistency in conjunction with assumptions.
      * 
      * @return A string representation of the benchmark.
      **/
@@ -2140,7 +2140,7 @@ public class Context extends IDisposable
 
     /**
      * Parse the given string using the SMT-LIB parser.
-	 * Remarks:  The symbol
+     * Remarks:  The symbol
      * table of the parser can be initialized using the given sorts and
      * declarations. The symbols in the arrays {@code sortNames} and
      * {@code declNames} don't need to match the names of the sorts
@@ -2164,7 +2164,7 @@ public class Context extends IDisposable
 
     /**
      * Parse the given file using the SMT-LIB parser. 
-	 * @see parseSMTLIBString
+     * @see parseSMTLIBString
      **/
     public void parseSMTLIBFile(String fileName, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
@@ -2278,7 +2278,7 @@ public class Context extends IDisposable
 
     /**
      * Parse the given string using the SMT-LIB2 parser. 
-	 * @see parseSMTLIBString
+     * @see parseSMTLIBString
      * 
      * @return A conjunction of assertions in the scope (up to push/pop) at the
      *         end of the string.
@@ -2302,7 +2302,7 @@ public class Context extends IDisposable
 
     /**
      * Parse the given file using the SMT-LIB2 parser. 
-	 * @see parseSMTLIB2String
+     * @see parseSMTLIB2String
      **/
     public BoolExpr parseSMTLIB2File(String fileName, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
@@ -2324,12 +2324,12 @@ public class Context extends IDisposable
 
     /**
      * Creates a new Goal.
-	 * Remarks:  Note that the Context must have been
+     * Remarks:  Note that the Context must have been
      * created with proof generation support if {@code proofs} is set
      * to true here.  
-	 * @param models Indicates whether model generation should be enabled. 
-	 * @param unsatCores Indicates whether unsat core generation should be enabled. 
-	 * @param proofs Indicates whether proof generation should be
+     * @param models Indicates whether model generation should be enabled. 
+     * @param unsatCores Indicates whether unsat core generation should be enabled. 
+     * @param proofs Indicates whether proof generation should be
      * enabled.
      **/
     public Goal mkGoal(boolean models, boolean unsatCores, boolean proofs)
@@ -2417,7 +2417,7 @@ public class Context extends IDisposable
      * Create a tactic that applies {@code t1} to a Goal and then
      * {@code t2"/> to every subgoal produced by <paramref name="t1}.
      * 
-	 * Remarks:  Shorthand for {@code AndThen}. 
+     * Remarks:  Shorthand for {@code AndThen}. 
      **/
     public Tactic then(Tactic t1, Tactic t2, Tactic... ts) throws Z3Exception
     {
@@ -2439,7 +2439,7 @@ public class Context extends IDisposable
 
     /**
      * Create a tactic that applies {@code t} to a goal for {@code ms} milliseconds.
-	 * Remarks:  If {@code t} does not
+     * Remarks:  If {@code t} does not
      * terminate within {@code ms} milliseconds, then it fails.
      * 
      **/
@@ -2453,7 +2453,7 @@ public class Context extends IDisposable
     /**
      * Create a tactic that applies {@code t} to a given goal if the
      * probe {@code p} evaluates to true.
-	 * Remarks:  If {@code p} evaluates to false, then the new tactic behaves like the
+     * Remarks:  If {@code p} evaluates to false, then the new tactic behaves like the
      * {@code skip} tactic. 
      **/
     public Tactic when(Probe p, Tactic t) throws Z3Exception
@@ -2540,7 +2540,7 @@ public class Context extends IDisposable
     /**
      * Create a tactic that applies {@code t} using the given set of
      * parameters {@code p}.
-	 * Remarks: Alias for
+     * Remarks: Alias for
      * {@code UsingParams}
      **/
     public Tactic with(Tactic t, Params p) throws Z3Exception
@@ -2572,7 +2572,7 @@ public class Context extends IDisposable
 
     /**
      * Interrupt the execution of a Z3 procedure.
-	 * Remarks: This procedure can be
+     * Remarks: This procedure can be
      * used to interrupt: solvers, simplifiers and tactics.
      **/
     public void interrupt() throws Z3Exception
@@ -2721,7 +2721,7 @@ public class Context extends IDisposable
 
     /**
      * Creates a new (incremental) solver.
-	 * Remarks:  This solver also uses a set
+     * Remarks:  This solver also uses a set
      * of builtin tactics for handling the first check-sat command, and
      * check-sat commands that take more than a given number of milliseconds to
      * be solved. 
@@ -2733,7 +2733,7 @@ public class Context extends IDisposable
 
     /**
      * Creates a new (incremental) solver.
-	 * Remarks:  This solver also uses a set
+     * Remarks:  This solver also uses a set
      * of builtin tactics for handling the first check-sat command, and
      * check-sat commands that take more than a given number of milliseconds to
      * be solved. 
@@ -2750,7 +2750,7 @@ public class Context extends IDisposable
 
     /**
      * Creates a new (incremental) solver. 
-	 * @see mkSolver(Symbol)
+     * @see mkSolver(Symbol)
      **/
     public Solver mkSolver(String logic) throws Z3Exception
     {
@@ -2767,7 +2767,7 @@ public class Context extends IDisposable
 
     /**
      * Creates a solver that is implemented using the given tactic.
-	 * Remarks: 
+     * Remarks: 
      * The solver supports the commands {@code Push} and {@code Pop},
      * but it will always solve each check from scratch. 
      **/
@@ -3560,13 +3560,13 @@ public class Context extends IDisposable
     
     /**
      * Wraps an AST.
-	 * Remarks: This function is used for transitions between
+     * Remarks: This function is used for transitions between
      * native and managed objects. Note that {@code nativeObject}
      * must be a native object obtained from Z3 (e.g., through 
-	 * {@code UnwrapAST}) and that it must have a correct reference count.
-	 * @see Native#incRef 
-	 * @see unwrapAST
-	 * @param nativeObject The native pointer to wrap.
+     * {@code UnwrapAST}) and that it must have a correct reference count.
+     * @see Native#incRef 
+     * @see unwrapAST
+     * @param nativeObject The native pointer to wrap.
      **/
     public AST wrapAST(long nativeObject) throws Z3Exception
     {
@@ -3575,15 +3575,15 @@ public class Context extends IDisposable
 
     /**
      * Unwraps an AST.
-	 * Remarks: This function is used for transitions between
+     * Remarks: This function is used for transitions between
      * native and managed objects. It returns the native pointer to the AST.
      * Note that AST objects are reference counted and unwrapping an AST
      * disables automatic reference counting, i.e., all references to the IntPtr
      * that is returned must be handled externally and through native calls (see
      * e.g., 
-	 * @see Native#incRef 
-	 * @see wrapAST 
-	 * @param a The AST to unwrap.
+     * @see Native#incRef 
+     * @see wrapAST 
+     * @param a The AST to unwrap.
      **/
     public long unwrapAST(AST a)
     {
@@ -3609,7 +3609,7 @@ public class Context extends IDisposable
 
     /**
      * Enable/disable printing of warning messages to the console.
-	 * Remarks: Note
+     * Remarks: Note
      * that this function is static and effects the behaviour of all contexts
      * globally.
      **/
@@ -3621,7 +3621,7 @@ public class Context extends IDisposable
 
     /**
      * Update a mutable configuration parameter.
-	 * Remarks:  The list of all
+     * Remarks:  The list of all
      * configuration parameters can be obtained using the Z3 executable:
      * {@code z3.exe -ini?} Only a few configuration parameters are mutable
      * once the context is created. An exception is thrown when trying to modify
@@ -3659,20 +3659,20 @@ public class Context extends IDisposable
     }
 
     private ASTDecRefQueue m_AST_DRQ = new ASTDecRefQueue();
-    private ASTMapDecRefQueue m_ASTMap_DRQ = new ASTMapDecRefQueue();
-    private ASTVectorDecRefQueue m_ASTVector_DRQ = new ASTVectorDecRefQueue();
-    private ApplyResultDecRefQueue m_ApplyResult_DRQ = new ApplyResultDecRefQueue();
-    private FuncInterpEntryDecRefQueue m_FuncEntry_DRQ = new FuncInterpEntryDecRefQueue();
-    private FuncInterpDecRefQueue m_FuncInterp_DRQ = new FuncInterpDecRefQueue();
-    private GoalDecRefQueue m_Goal_DRQ = new GoalDecRefQueue();
-    private ModelDecRefQueue m_Model_DRQ = new ModelDecRefQueue();
-    private ParamsDecRefQueue m_Params_DRQ = new ParamsDecRefQueue();
-    private ParamDescrsDecRefQueue m_ParamDescrs_DRQ = new ParamDescrsDecRefQueue();
-    private ProbeDecRefQueue m_Probe_DRQ = new ProbeDecRefQueue();
-    private SolverDecRefQueue m_Solver_DRQ = new SolverDecRefQueue();
-    private StatisticsDecRefQueue m_Statistics_DRQ = new StatisticsDecRefQueue();
-    private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue();
-    private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue();
+    private ASTMapDecRefQueue m_ASTMap_DRQ = new ASTMapDecRefQueue(10);
+    private ASTVectorDecRefQueue m_ASTVector_DRQ = new ASTVectorDecRefQueue(10);
+    private ApplyResultDecRefQueue m_ApplyResult_DRQ = new ApplyResultDecRefQueue(10);
+    private FuncInterpEntryDecRefQueue m_FuncEntry_DRQ = new FuncInterpEntryDecRefQueue(10);
+    private FuncInterpDecRefQueue m_FuncInterp_DRQ = new FuncInterpDecRefQueue(10);
+    private GoalDecRefQueue m_Goal_DRQ = new GoalDecRefQueue(10);
+    private ModelDecRefQueue m_Model_DRQ = new ModelDecRefQueue(10);
+    private ParamsDecRefQueue m_Params_DRQ = new ParamsDecRefQueue(10);
+    private ParamDescrsDecRefQueue m_ParamDescrs_DRQ = new ParamDescrsDecRefQueue(10);
+    private ProbeDecRefQueue m_Probe_DRQ = new ProbeDecRefQueue(10);
+    private SolverDecRefQueue m_Solver_DRQ = new SolverDecRefQueue(10);
+    private StatisticsDecRefQueue m_Statistics_DRQ = new StatisticsDecRefQueue(10);
+    private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue(10);
+    private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue(10);
 
     ASTDecRefQueue ast_DRQ()
     {

@@ -43,8 +43,8 @@ public class InterpolationContext extends Context
      * Constructor.
      *
      * 
-	 * Remarks: 
-	 * @see Context#Context
+     * Remarks: 
+     * @see Context#Context
      **/
     public InterpolationContext(Map<String, String> settings) throws Z3Exception
     { 

@@ -26,7 +26,7 @@ public class StringSymbol extends Symbol
 {
     /**
      * The string value of the symbol.
-	 * Remarks: Throws an exception if the
+     * Remarks: Throws an exception if the
      * symbol is not of string kind.
      **/
     public String getString() throws Z3Exception
