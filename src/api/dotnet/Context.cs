@@ -4411,21 +4411,80 @@ namespace Microsoft.Z3
         readonly private Tactic.DecRefQueue m_Tactic_DRQ = new Tactic.DecRefQueue(10);
         readonly private Fixedpoint.DecRefQueue m_Fixedpoint_DRQ = new Fixedpoint.DecRefQueue(10);
 
-        internal AST.DecRefQueue AST_DRQ { get { Contract.Ensures(Contract.Result<AST.DecRefQueue>() != null); return m_AST_DRQ; } }
-        internal ASTMap.DecRefQueue ASTMap_DRQ { get { Contract.Ensures(Contract.Result<ASTMap.DecRefQueue>() != null); return m_ASTMap_DRQ; } }
-        internal ASTVector.DecRefQueue ASTVector_DRQ { get { Contract.Ensures(Contract.Result<ASTVector.DecRefQueue>() != null); return m_ASTVector_DRQ; } }
-        internal ApplyResult.DecRefQueue ApplyResult_DRQ { get { Contract.Ensures(Contract.Result<ApplyResult.DecRefQueue>() != null); return m_ApplyResult_DRQ; } }
-        internal FuncInterp.Entry.DecRefQueue FuncEntry_DRQ { get { Contract.Ensures(Contract.Result<FuncInterp.Entry.DecRefQueue>() != null); return m_FuncEntry_DRQ; } }
-        internal FuncInterp.DecRefQueue FuncInterp_DRQ { get { Contract.Ensures(Contract.Result<FuncInterp.DecRefQueue>() != null); return m_FuncInterp_DRQ; } }
-        internal Goal.DecRefQueue Goal_DRQ { get { Contract.Ensures(Contract.Result<Goal.DecRefQueue>() != null); return m_Goal_DRQ; } }
-        internal Model.DecRefQueue Model_DRQ { get { Contract.Ensures(Contract.Result<Model.DecRefQueue>() != null); return m_Model_DRQ; } }
-        internal Params.DecRefQueue Params_DRQ { get { Contract.Ensures(Contract.Result<Params.DecRefQueue>() != null); return m_Params_DRQ; } }
-        internal ParamDescrs.DecRefQueue ParamDescrs_DRQ { get { Contract.Ensures(Contract.Result<ParamDescrs.DecRefQueue>() != null); return m_ParamDescrs_DRQ; } }
-        internal Probe.DecRefQueue Probe_DRQ { get { Contract.Ensures(Contract.Result<Probe.DecRefQueue>() != null); return m_Probe_DRQ; } }
-        internal Solver.DecRefQueue Solver_DRQ { get { Contract.Ensures(Contract.Result<Solver.DecRefQueue>() != null); return m_Solver_DRQ; } }
-        internal Statistics.DecRefQueue Statistics_DRQ { get { Contract.Ensures(Contract.Result<Statistics.DecRefQueue>() != null); return m_Statistics_DRQ; } }
-        internal Tactic.DecRefQueue Tactic_DRQ { get { Contract.Ensures(Contract.Result<Tactic.DecRefQueue>() != null); return m_Tactic_DRQ; } }
-        internal Fixedpoint.DecRefQueue Fixedpoint_DRQ { get { Contract.Ensures(Contract.Result<Fixedpoint.DecRefQueue>() != null); return m_Fixedpoint_DRQ; } }
+        /// <summary>
+        /// AST DRQ
+        /// </summary>
+        public IDecRefQueue AST_DRQ { get { Contract.Ensures(Contract.Result<AST.DecRefQueue>() != null); return m_AST_DRQ; } }
+
+        /// <summary>
+        /// ASTMap DRQ
+        /// </summary>
+        public IDecRefQueue ASTMap_DRQ { get { Contract.Ensures(Contract.Result<ASTMap.DecRefQueue>() != null); return m_ASTMap_DRQ; } }
+        
+        /// <summary>
+        /// ASTVector DRQ
+        /// </summary>
+        public IDecRefQueue ASTVector_DRQ { get { Contract.Ensures(Contract.Result<ASTVector.DecRefQueue>() != null); return m_ASTVector_DRQ; } }
+
+        /// <summary>
+        /// ApplyResult DRQ
+        /// </summary>
+        public IDecRefQueue ApplyResult_DRQ { get { Contract.Ensures(Contract.Result<ApplyResult.DecRefQueue>() != null); return m_ApplyResult_DRQ; } }
+
+        /// <summary>
+        /// FuncEntry DRQ
+        /// </summary>
+        public IDecRefQueue FuncEntry_DRQ { get { Contract.Ensures(Contract.Result<FuncInterp.Entry.DecRefQueue>() != null); return m_FuncEntry_DRQ; } }
+
+        /// <summary>
+        /// FuncInterp DRQ
+        /// </summary>
+        public IDecRefQueue FuncInterp_DRQ { get { Contract.Ensures(Contract.Result<FuncInterp.DecRefQueue>() != null); return m_FuncInterp_DRQ; } }
+
+        /// <summary>
+        /// Goal DRQ
+        /// </summary>
+        public IDecRefQueue Goal_DRQ { get { Contract.Ensures(Contract.Result<Goal.DecRefQueue>() != null); return m_Goal_DRQ; } }
+
+        /// <summary>
+        /// Model DRQ
+        /// </summary>
+        public IDecRefQueue Model_DRQ { get { Contract.Ensures(Contract.Result<Model.DecRefQueue>() != null); return m_Model_DRQ; } }
+
+        /// <summary>
+        /// Params DRQ
+        /// </summary>
+        public IDecRefQueue Params_DRQ { get { Contract.Ensures(Contract.Result<Params.DecRefQueue>() != null); return m_Params_DRQ; } }
+
+        /// <summary>
+        /// ParamDescrs DRQ
+        /// </summary>
+        public IDecRefQueue ParamDescrs_DRQ { get { Contract.Ensures(Contract.Result<ParamDescrs.DecRefQueue>() != null); return m_ParamDescrs_DRQ; } }
+
+        /// <summary>
+        /// Probe DRQ
+        /// </summary>
+        public IDecRefQueue Probe_DRQ { get { Contract.Ensures(Contract.Result<Probe.DecRefQueue>() != null); return m_Probe_DRQ; } }
+
+        /// <summary>
+        /// Solver DRQ
+        /// </summary>
+        public IDecRefQueue Solver_DRQ { get { Contract.Ensures(Contract.Result<Solver.DecRefQueue>() != null); return m_Solver_DRQ; } }
+
+        /// <summary>
+        /// Statistics DRQ
+        /// </summary>
+        public IDecRefQueue Statistics_DRQ { get { Contract.Ensures(Contract.Result<Statistics.DecRefQueue>() != null); return m_Statistics_DRQ; } }
+
+        /// <summary>
+        /// Tactic DRQ
+        /// </summary>
+        public IDecRefQueue Tactic_DRQ { get { Contract.Ensures(Contract.Result<Tactic.DecRefQueue>() != null); return m_Tactic_DRQ; } }
+        
+        /// <summary>
+        /// FixedPoint DRQ
+        /// </summary>
+        public IDecRefQueue Fixedpoint_DRQ { get { Contract.Ensures(Contract.Result<Fixedpoint.DecRefQueue>() != null); return m_Fixedpoint_DRQ; } }
 
 
         internal long refCount = 0;

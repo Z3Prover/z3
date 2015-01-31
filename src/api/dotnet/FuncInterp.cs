@@ -93,12 +93,12 @@ namespace Microsoft.Z3
             {
                 public DecRefQueue() : base() { }
                 public DecRefQueue(uint move_limit) : base(move_limit) { }
-                public override void IncRef(Context ctx, IntPtr obj)
+                internal override void IncRef(Context ctx, IntPtr obj)
                 {
                     Native.Z3_func_entry_inc_ref(ctx.nCtx, obj);
                 }
 
-                public override void DecRef(Context ctx, IntPtr obj)
+                internal override void DecRef(Context ctx, IntPtr obj)
                 {
                     Native.Z3_func_entry_dec_ref(ctx.nCtx, obj);
                 }
@@ -201,12 +201,12 @@ namespace Microsoft.Z3
         {
             public DecRefQueue() : base() { }
             public DecRefQueue(uint move_limit) : base(move_limit) { }
-            public override void IncRef(Context ctx, IntPtr obj)
+            internal override void IncRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_func_interp_inc_ref(ctx.nCtx, obj);
             }
 
-            public override void DecRef(Context ctx, IntPtr obj)
+            internal override void DecRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_func_interp_dec_ref(ctx.nCtx, obj);
             }

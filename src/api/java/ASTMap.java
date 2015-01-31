@@ -124,13 +124,13 @@ class ASTMap extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().astmap_DRQ().incAndClear(getContext(), o);
+        getContext().getASTMapDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().astmap_DRQ().add(o);
+        getContext().getASTMapDRQ().add(o);
         super.decRef(o);
     }
 }

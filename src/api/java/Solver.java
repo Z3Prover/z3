@@ -337,13 +337,13 @@ public class Solver extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().solver_DRQ().incAndClear(getContext(), o);
+        getContext().getSolverDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().solver_DRQ().add(o);
+        getContext().getSolverDRQ().add(o);
         super.decRef(o);
     }
 }

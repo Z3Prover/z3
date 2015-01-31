@@ -334,13 +334,13 @@ public class Fixedpoint extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().fixedpoint_DRQ().incAndClear(getContext(), o);
+        getContext().getFixedpointDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().fixedpoint_DRQ().add(o);
+        getContext().getFixedpointDRQ().add(o);
         super.decRef(o);
     }
 }

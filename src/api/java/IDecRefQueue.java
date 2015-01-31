@@ -19,22 +19,24 @@ package com.microsoft.z3;
 
 import java.util.LinkedList;
 
-abstract class IDecRefQueue
+public abstract class IDecRefQueue
 {
     protected Object m_lock = new Object();
     protected LinkedList<Long> m_queue = new LinkedList<Long>();
     protected int m_move_limit;
 
-    public IDecRefQueue() 
-    {
-    m_move_limit = 1024;
+    protected IDecRefQueue() 
+	{
+    	m_move_limit = 1024;
     }
 
-    public IDecRefQueue(int move_limit) 
+    protected IDecRefQueue(int move_limit) 
     {
-    m_move_limit = move_limit;
+    	m_move_limit = move_limit;
     }
-
+ 
+    public void setLimit(int l) { m_move_limit = l; }
+ 
     protected abstract void incRef(Context ctx, long obj);
 
     protected abstract void decRef(Context ctx, long obj);

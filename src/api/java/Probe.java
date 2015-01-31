@@ -53,13 +53,13 @@ public class Probe extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().probe_DRQ().incAndClear(getContext(), o);
+        getContext().getProbeDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().probe_DRQ().add(o);
+        getContext().getProbeDRQ().add(o);
         super.decRef(o);
     }
 }

@@ -303,13 +303,13 @@ public class Model extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().model_DRQ().incAndClear(getContext(), o);
+        getContext().getModelDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().model_DRQ().add(o);
+        getContext().getModelDRQ().add(o);
         super.decRef(o);
     }
 }

@@ -236,13 +236,13 @@ public class Goal extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().goal_DRQ().incAndClear(getContext(), o);
+        getContext().getGoalDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().goal_DRQ().add(o);
+        getContext().getGoalDRQ().add(o);
         super.decRef(o);
     }
 

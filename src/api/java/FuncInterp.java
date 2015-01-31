@@ -93,13 +93,13 @@ public class FuncInterp extends Z3Object
 
         void incRef(long o) throws Z3Exception
         {
-            getContext().funcEntry_DRQ().incAndClear(getContext(), o);
+            getContext().getFuncEntryDRQ().incAndClear(getContext(), o);
             super.incRef(o);
         }
 
         void decRef(long o) throws Z3Exception
         {
-            getContext().funcEntry_DRQ().add(o);
+            getContext().getFuncEntryDRQ().add(o);
             super.decRef(o);
         }
     };
@@ -194,13 +194,13 @@ public class FuncInterp extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().funcInterp_DRQ().incAndClear(getContext(), o);
+        getContext().getFuncInterpDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().funcInterp_DRQ().add(o);
+        getContext().getFuncInterpDRQ().add(o);
         super.decRef(o);
     }
 }

@@ -229,7 +229,7 @@ public class AST extends Z3Object
         // Console.WriteLine("AST IncRef()");
         if (getContext() == null || o == 0)
             return;
-        getContext().ast_DRQ().incAndClear(getContext(), o);
+        getContext().getASTDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
@@ -238,7 +238,7 @@ public class AST extends Z3Object
         // Console.WriteLine("AST DecRef()");
         if (getContext() == null || o == 0)
             return;
-        getContext().ast_DRQ().add(o);
+        getContext().getASTDRQ().add(o);
         super.decRef(o);
     }
 

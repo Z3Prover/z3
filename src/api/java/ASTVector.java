@@ -110,13 +110,13 @@ class ASTVector extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().astvector_DRQ().incAndClear(getContext(), o);
+        getContext().getASTVectorDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().astvector_DRQ().add(o);
+        getContext().getASTVectorDRQ().add(o);
         super.decRef(o);
     }
 }

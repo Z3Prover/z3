@@ -112,16 +112,19 @@ namespace Microsoft.Z3
             Contract.Requires(ctx != null);
         }
 
+        /// <summary>
+        /// DecRefQueue
+        /// </summary>
         internal class DecRefQueue : IDecRefQueue
         {
             public DecRefQueue() : base() { }
             public DecRefQueue(uint move_limit) : base(move_limit) { }
-            public override void IncRef(Context ctx, IntPtr obj)
+            internal override void IncRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_tactic_inc_ref(ctx.nCtx, obj);
             }
 
-            public override void DecRef(Context ctx, IntPtr obj)
+            internal override void DecRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_tactic_dec_ref(ctx.nCtx, obj);
             }

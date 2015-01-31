@@ -25,8 +25,11 @@ using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
+    /// <summary>
+    /// DecRefQueue interface
+    /// </summary>
     [ContractClass(typeof(DecRefQueueContracts))]
-    internal abstract class IDecRefQueue
+    public abstract class IDecRefQueue
     {
         #region Object invariant
 
@@ -38,19 +41,25 @@ namespace Microsoft.Z3
 
         #endregion
 
-        readonly internal protected Object m_lock = new Object();
-        readonly internal protected List<IntPtr> m_queue = new List<IntPtr>();
-        internal uint m_move_limit;
+        readonly private Object m_lock = new Object();
+        readonly private List<IntPtr> m_queue = new List<IntPtr>();
+        private uint m_move_limit;
 
-        public IDecRefQueue(uint move_limit = 1024)
+        internal IDecRefQueue(uint move_limit = 1024)
         {
             m_move_limit = move_limit;
         }
 
-        public abstract void IncRef(Context ctx, IntPtr obj);
-        public abstract void DecRef(Context ctx, IntPtr obj);
+        /// <summary>
+        /// Sets the limit on numbers of objects that are kept back at GC collection.
+        /// </summary>
+        /// <param name="l"></param>
+        public void SetLimit(uint l) { m_move_limit = l; }
 
-        public void IncAndClear(Context ctx, IntPtr o)
+        internal abstract void IncRef(Context ctx, IntPtr obj);
+        internal abstract void DecRef(Context ctx, IntPtr obj);
+
+        internal void IncAndClear(Context ctx, IntPtr o)
         {
             Contract.Requires(ctx != null);
 
@@ -58,7 +67,7 @@ namespace Microsoft.Z3
             if (m_queue.Count >= m_move_limit) Clear(ctx);
         }
 
-        public void Add(IntPtr o)
+        internal void Add(IntPtr o)
         {
             if (o == IntPtr.Zero) return;
 
@@ -68,7 +77,7 @@ namespace Microsoft.Z3
             }
         }
 
-        public void Clear(Context ctx)
+        internal void Clear(Context ctx)
         {
             Contract.Requires(ctx != null);
 
@@ -84,12 +93,12 @@ namespace Microsoft.Z3
     [ContractClassFor(typeof(IDecRefQueue))]
     abstract class DecRefQueueContracts : IDecRefQueue
     {
-        public override void IncRef(Context ctx, IntPtr obj)
+        internal override void IncRef(Context ctx, IntPtr obj)
         {
             Contract.Requires(ctx != null);
         }
 
-        public override void DecRef(Context ctx, IntPtr obj)
+        internal override void DecRef(Context ctx, IntPtr obj)
         {
             Contract.Requires(ctx != null);
         }

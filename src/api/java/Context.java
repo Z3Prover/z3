@@ -3674,77 +3674,77 @@ public class Context extends IDisposable
     private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue(10);
     private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue(10);
 
-    ASTDecRefQueue ast_DRQ()
+    public IDecRefQueue getASTDRQ()
     {
         return m_AST_DRQ;
     }
 
-    ASTMapDecRefQueue astmap_DRQ()
+    public IDecRefQueue getASTMapDRQ()
     {
         return m_ASTMap_DRQ;
     }
 
-    ASTVectorDecRefQueue astvector_DRQ()
+    public IDecRefQueue getASTVectorDRQ()
     {
         return m_ASTVector_DRQ;
     }
 
-    ApplyResultDecRefQueue applyResult_DRQ()
+    public IDecRefQueue getApplyResultDRQ()
     {
         return m_ApplyResult_DRQ;
     }
 
-    FuncInterpEntryDecRefQueue funcEntry_DRQ()
+    public IDecRefQueue getFuncEntryDRQ()
     {
         return m_FuncEntry_DRQ;
     }
 
-    FuncInterpDecRefQueue funcInterp_DRQ()
+    public IDecRefQueue getFuncInterpDRQ()
     {
         return m_FuncInterp_DRQ;
     }
 
-    GoalDecRefQueue goal_DRQ()
+    public IDecRefQueue getGoalDRQ()
     {
         return m_Goal_DRQ;
     }
 
-    ModelDecRefQueue model_DRQ()
+    public IDecRefQueue getModelDRQ()
     {
         return m_Model_DRQ;
     }
 
-    ParamsDecRefQueue params_DRQ()
+    public IDecRefQueue getParamsDRQ()
     {
         return m_Params_DRQ;
     }
 
-    ParamDescrsDecRefQueue paramDescrs_DRQ()
+    public IDecRefQueue getParamDescrsDRQ()
     {
         return m_ParamDescrs_DRQ;
     }
 
-    ProbeDecRefQueue probe_DRQ()
+    public IDecRefQueue getProbeDRQ()
     {
         return m_Probe_DRQ;
     }
 
-    SolverDecRefQueue solver_DRQ()
+    public IDecRefQueue getSolverDRQ()
     {
         return m_Solver_DRQ;
     }
 
-    StatisticsDecRefQueue statistics_DRQ()
+    public IDecRefQueue getStatisticsDRQ()
     {
         return m_Statistics_DRQ;
     }
 
-    TacticDecRefQueue tactic_DRQ()
+    public IDecRefQueue getTacticDRQ()
     {
         return m_Tactic_DRQ;
     }
 
-    FixedpointDecRefQueue fixedpoint_DRQ()
+    public IDecRefQueue getFixedpointDRQ()
     {
         return m_Fixedpoint_DRQ;
     }

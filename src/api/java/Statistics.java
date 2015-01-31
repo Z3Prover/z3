@@ -199,13 +199,13 @@ public class Statistics extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().statistics_DRQ().incAndClear(getContext(), o);
+        getContext().getStatisticsDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().statistics_DRQ().add(o);
+        getContext().getStatisticsDRQ().add(o);
         super.decRef(o);
     }
 }
