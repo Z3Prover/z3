@@ -171,13 +171,13 @@ public class Quantifier extends BoolExpr
         } else
         {
             setNativeObject(Native.mkQuantifierEx(ctx.nCtx(), 
-		    (isForall) ? true : false, weight, AST.getNativeObject(quantifierID), 
-		     AST.getNativeObject(skolemID), 
-		     AST.arrayLength(patterns), AST.arrayToNative(patterns), 
-		     AST.arrayLength(noPatterns), AST.arrayToNative(noPatterns), 
-		     AST.arrayLength(sorts), AST.arrayToNative(sorts), 
-		     Symbol.arrayToNative(names), 
-		     body.getNativeObject()));
+            (isForall) ? true : false, weight, AST.getNativeObject(quantifierID), 
+             AST.getNativeObject(skolemID), 
+             AST.arrayLength(patterns), AST.arrayToNative(patterns), 
+             AST.arrayLength(noPatterns), AST.arrayToNative(noPatterns), 
+             AST.arrayLength(sorts), AST.arrayToNative(sorts), 
+             Symbol.arrayToNative(names), 
+             body.getNativeObject()));
         }
     }
 

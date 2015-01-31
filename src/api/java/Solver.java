@@ -57,8 +57,8 @@ public class Solver extends Z3Object
 
     /**
      * The current number of backtracking points (scopes). 
-	 * @see pop 
-	 * @see push
+     * @see pop 
+     * @see push
      **/
     public int getNumScopes() throws Z3Exception
     {
@@ -68,7 +68,7 @@ public class Solver extends Z3Object
 
     /**
      * Creates a backtracking point. 
-	 * @see pop
+     * @see pop
      **/
     public void push() throws Z3Exception
     {
@@ -77,7 +77,7 @@ public class Solver extends Z3Object
 
     /**
      * Backtracks one backtracking point.
-	 * Remarks: .
+     * Remarks: .
      **/
     public void pop() throws Z3Exception
     {
@@ -86,10 +86,10 @@ public class Solver extends Z3Object
 
     /**
      * Backtracks {@code n} backtracking points.
-	 * Remarks: Note that
+     * Remarks: Note that
      * an exception is thrown if {@code n} is not smaller than
      * {@code NumScopes} 
-	 * @see push
+     * @see push
      **/
     public void pop(int n) throws Z3Exception
     {
@@ -98,7 +98,7 @@ public class Solver extends Z3Object
 
     /**
      * Resets the Solver.
-	 * Remarks: This removes all assertions from the
+     * Remarks: This removes all assertions from the
      * solver.
      **/
     public void reset() throws Z3Exception
@@ -121,20 +121,20 @@ public class Solver extends Z3Object
         }
     }
 
-    // / 
-    // / Assert multiple constraints into the solver, and track them (in the
-    // unsat) core
-    // / using the Boolean constants in ps.
-    // /
-    // / Remarks: 
-    // / This API is an alternative to <see cref="Check"/> with assumptions for
-    // extracting unsat cores.
-    // / Both APIs can be used in the same solver. The unsat core will contain a
-    // combination
-    // / of the Boolean variables provided using <see cref="AssertAndTrack"/>
-    // and the Boolean literals
-    // / provided using <see cref="Check"/> with assumptions.
-    // / 
+    /** 
+     *  Assert multiple constraints into the solver, and track them (in the
+     * unsat) core
+     * using the Boolean constants in ps.
+     *
+     * Remarks: 
+     * This API is an alternative to <see cref="Check"/> with assumptions for
+     * extracting unsat cores.
+     * Both APIs can be used in the same solver. The unsat core will contain a
+     * combination
+     * of the Boolean variables provided using <see cref="AssertAndTrack"/>
+     * and the Boolean literals
+     * provided using <see cref="Check"/> with assumptions.
+     **/
     public void assertAndTrack(BoolExpr[] constraints, BoolExpr[] ps) throws Z3Exception
     {
         getContext().checkContextMatch(constraints);
@@ -147,19 +147,19 @@ public class Solver extends Z3Object
                     constraints[i].getNativeObject(), ps[i].getNativeObject());
     }
 
-    // / 
-    // / Assert a constraint into the solver, and track it (in the unsat) core
-    // / using the Boolean constant p.
-    // /
-    // / Remarks: 
-    // / This API is an alternative to <see cref="Check"/> with assumptions for
-    // extracting unsat cores.
-    // / Both APIs can be used in the same solver. The unsat core will contain a
-    // combination
-    // / of the Boolean variables provided using <see cref="AssertAndTrack"/>
-    // and the Boolean literals
-    // / provided using <see cref="Check"/> with assumptions.
-    // / 
+    /** 
+     * Assert a constraint into the solver, and track it (in the unsat) core
+     * using the Boolean constant p.
+     * 
+     * Remarks: 
+     * This API is an alternative to <see cref="Check"/> with assumptions for
+     * extracting unsat cores.
+     * Both APIs can be used in the same solver. The unsat core will contain a
+     * combination
+     * of the Boolean variables provided using <see cref="AssertAndTrack"/>
+     * and the Boolean literals
+     * provided using <see cref="Check"/> with assumptions.
+     */ 
     public void assertAndTrack(BoolExpr constraint, BoolExpr p) throws Z3Exception
     {
         getContext().checkContextMatch(constraint);
@@ -200,9 +200,9 @@ public class Solver extends Z3Object
     /**
      * Checks whether the assertions in the solver are consistent or not.
      * Remarks:  
-	 * @see getModel
-	 * @see getUnsatCore
-	 * @see getProof 
+     * @see getModel
+     * @see getUnsatCore
+     * @see getProof 
      **/
     public Status check(Expr... assumptions) throws Z3Exception
     {
@@ -228,9 +228,9 @@ public class Solver extends Z3Object
     /**
      * Checks whether the assertions in the solver are consistent or not.
      * Remarks:  
-	 * @see getModel
-	 * @see getUnsatCore
-	 * @see getProof 
+     * @see getModel
+     * @see getUnsatCore
+     * @see getProof 
      **/
     public Status check() throws Z3Exception
     {
@@ -239,7 +239,7 @@ public class Solver extends Z3Object
 
     /**
      * The model of the last {@code Check}.
-	 * Remarks:  The result is
+     * Remarks:  The result is
      * {@code null} if {@code Check} was not invoked before, if its
      * results was not {@code SATISFIABLE}, or if model production is not
      * enabled. 
@@ -257,7 +257,7 @@ public class Solver extends Z3Object
 
     /**
      * The proof of the last {@code Check}.
-	 * Remarks:  The result is
+     * Remarks:  The result is
      * {@code null} if {@code Check} was not invoked before, if its
      * results was not {@code UNSATISFIABLE}, or if proof production is
      * disabled. 
@@ -275,7 +275,7 @@ public class Solver extends Z3Object
 
     /**
      * The unsat core of the last {@code Check}.
-	 * Remarks:  The unsat core
+     * Remarks:  The unsat core
      * is a subset of {@code Assertions} The result is empty if
      * {@code Check} was not invoked before, if its results was not
      * {@code UNSATISFIABLE}, or if core production is disabled. 

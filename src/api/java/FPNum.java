@@ -21,13 +21,13 @@ package com.microsoft.z3;
  */
 public class FPNum extends FPExpr
 {
-	/**
-	 * Retrieves the sign of a floating-point literal	 
+    /**
+     * Retrieves the sign of a floating-point literal     
      * Remarks: returns true if the numeral is negative 
-	 * @throws Z3Exception 
+     * @throws Z3Exception 
      */
     public boolean getSign() throws Z3Exception {
-    	Native.IntPtr res = new Native.IntPtr();
+        Native.IntPtr res = new Native.IntPtr();
         if (Native.fpaGetNumeralSign(getContext().nCtx(), getNativeObject(), res) ^ true)                
             throw new Z3Exception("Sign is not a Boolean value");
         return res.value != 0;

@@ -44,7 +44,7 @@ public final class Global
      **/
     public static void setParameter(String id, String value)
     {
-	Native.globalParamSet(id, value);
+    Native.globalParamSet(id, value);
     }
     
     /**
@@ -67,10 +67,10 @@ public final class Global
      * Restore the value of all global (and module) parameters.
      * Remarks: 
      * This command will not affect already created objects (such as tactics and solvers)
-	 * @see setParameter
+     * @see setParameter
      **/
     public static void resetParameters()
     {
-	Native.globalParamResetAll();
+    Native.globalParamResetAll();
     }   
 }

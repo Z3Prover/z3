@@ -24,7 +24,7 @@ class ASTMap extends Z3Object
 {
     /**
      * Checks whether the map contains the key {@code k}. 
-	 * @param k An AST
+     * @param k An AST
      * 
      * @return True if {@code k} is a key in the map, false
      *         otherwise.
@@ -40,7 +40,7 @@ class ASTMap extends Z3Object
      * Finds the value associated with the key {@code k}. 
      * Remarks: This function signs an error when {@code k} is not a key in
      * the map. 
-	 * @param k An AST
+     * @param k An AST
      * 
      * @throws Z3Exception
      **/
@@ -52,8 +52,8 @@ class ASTMap extends Z3Object
 
     /**
      * Stores or replaces a new key/value pair in the map. 
-	 * @param k The key AST
-	 * @param v The value AST
+     * @param k The key AST
+     * @param v The value AST
      **/
     public void insert(AST k, AST v) throws Z3Exception
     {
@@ -64,7 +64,7 @@ class ASTMap extends Z3Object
 
     /**
      * Erases the key {@code k} from the map. 
-	 * @param k An AST
+     * @param k An AST
      **/
     public void erase(AST k) throws Z3Exception
     {

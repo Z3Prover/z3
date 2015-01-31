@@ -93,7 +93,7 @@ public class FuncDecl extends AST
 
     /**
      * The size of the domain of the function declaration 
-	 * @see getArity
+     * @see getArity
      **/
     public int getDomainSize() throws Z3Exception
     {
@@ -376,7 +376,7 @@ public class FuncDecl extends AST
 
     /**
      * Create expression that applies function to arguments. 
-	 * @param args 
+     * @param args 
      * 
      * @return
      **/

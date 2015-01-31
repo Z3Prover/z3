@@ -28,22 +28,22 @@ public class FPSort extends Sort
     }
     
     public FPSort(Context ctx, int ebits, int sbits) throws Z3Exception
-	{
-    	super(ctx, Native.mkFpaSort(ctx.nCtx(), ebits, sbits));	    
-	}
+    {
+        super(ctx, Native.mkFpaSort(ctx.nCtx(), ebits, sbits));        
+    }
     
     /**
      * The number of exponent bits.
      */
     public int getEBits() throws Z3Exception {
-    	return Native.fpaGetEbits(getContext().nCtx(), getNativeObject());    	
+        return Native.fpaGetEbits(getContext().nCtx(), getNativeObject());        
     }
     
     /**
      * The number of significand bits.
      */
     public int getSBits() throws Z3Exception {
-    	return Native.fpaGetEbits(getContext().nCtx(), getNativeObject());    	
+        return Native.fpaGetEbits(getContext().nCtx(), getNativeObject());        
     }
     
 }

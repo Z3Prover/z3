@@ -26,7 +26,7 @@ public class IntSymbol extends Symbol
 {
     /**
      * The int value of the symbol.
-	 * Remarks: Throws an exception if the symbol
+     * Remarks: Throws an exception if the symbol
      * is not of int kind. 
      **/
     public int getInt() throws Z3Exception

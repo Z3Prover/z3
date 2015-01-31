@@ -29,7 +29,7 @@ public class AST extends Z3Object
     /**
      * Object comparison.
      * 
-	 * @param o another AST
+     * @param o another AST
      **/    
     public boolean equals(Object o)
     {
@@ -48,7 +48,7 @@ public class AST extends Z3Object
 
     /**
      * Object Comparison. 
-	 * @param other Another AST
+     * @param other Another AST
      * 
      * @return Negative if the object should be sorted before {@code other}, 
      * positive if after else zero.
@@ -102,7 +102,7 @@ public class AST extends Z3Object
 
     /**
      * Translates (copies) the AST to the Context {@code ctx}. 
-	 * @param ctx A context
+     * @param ctx A context
      * 
      * @return A copy of the AST which is associated with {@code ctx}
      * @throws Z3Exception on error
@@ -130,7 +130,7 @@ public class AST extends Z3Object
     /**
      * Indicates whether the AST is an Expr
      * @throws Z3Exception on error
-	 * @throws Z3Exception on error
+     * @throws Z3Exception on error
      **/
     public boolean isExpr() throws Z3Exception
     {
@@ -148,7 +148,7 @@ public class AST extends Z3Object
 
     /**
      * Indicates whether the AST is an application
-	 * @return a boolean
+     * @return a boolean
      * @throws Z3Exception on error
      **/
     public boolean isApp() throws Z3Exception
@@ -158,7 +158,7 @@ public class AST extends Z3Object
 
     /**
      * Indicates whether the AST is a BoundVariable.
-	 * @return a boolean
+     * @return a boolean
      * @throws Z3Exception on error
      **/
     public boolean isVar() throws Z3Exception
@@ -168,7 +168,7 @@ public class AST extends Z3Object
 
     /**
      * Indicates whether the AST is a Quantifier
-	 * @return a boolean
+     * @return a boolean
      * @throws Z3Exception on error
      **/
     public boolean isQuantifier() throws Z3Exception
@@ -228,7 +228,7 @@ public class AST extends Z3Object
     {
         // Console.WriteLine("AST IncRef()");
         if (getContext() == null || o == 0)
-			return;
+            return;
         getContext().ast_DRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
@@ -237,7 +237,7 @@ public class AST extends Z3Object
     {
         // Console.WriteLine("AST DecRef()");
         if (getContext() == null || o == 0)
-			return;
+            return;
         getContext().ast_DRQ().add(o);
         super.decRef(o);
     }
