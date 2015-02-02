@@ -107,6 +107,13 @@ doc& doc_manager::fillX(doc& src) {
     m.fillX(src.pos());
     return src;
 }
+
+unsigned doc_manager::get_size_estimate_bytes(const doc& d) const {
+    return m.get_size_estimate_bytes(d.pos())
+        + d.neg().get_size_estimate_bytes(m)
+        + sizeof(doc);
+}
+
 bool doc_manager::set_and(doc& dst, doc const& src)  {
     // (A \ B) & (C \ D) = (A & C) \ (B u D)
     if (!m.set_and(dst.pos(), src.pos())) return false;

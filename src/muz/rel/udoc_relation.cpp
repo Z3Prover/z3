@@ -181,6 +181,10 @@ namespace datalog {
         m_elems.display(dm, out); out << "\n";
     }
 
+    unsigned udoc_relation::get_size_estimate_bytes() const {
+        return sizeof(*this) + m_elems.get_size_estimate_bytes(dm);
+    }
+
     // -------------
 
     udoc_plugin::udoc_plugin(relation_manager& rm):

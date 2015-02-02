@@ -57,6 +57,8 @@ public:
     tbv* allocate(tbv const& bv, unsigned const* permutation);
 
     void deallocate(tbv* bv);
+
+    unsigned get_size_estimate_bytes(const tbv&) const { return m.num_bytes(); }
         
     void copy(tbv& dst, tbv const& src) const;
     unsigned num_tbits() const { return m.num_bits()/2; }
