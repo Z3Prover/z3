@@ -631,6 +631,16 @@ namespace datalog {
             }
         }
 
+        // add at least one column for the negative filter
+        if (pt_len != ut_len && filtered_res == execution_context::void_register) {
+            relation_signature & head_sig = m_reg_signatures[head_reg];
+            if (head_sig.empty()) {
+                make_full_relation(head_pred, m_reg_signatures[head_reg], filtered_res, acc);
+            } else {
+                make_add_unbound_column(r, 0, head_pred, filtered_res, head_sig[0], filtered_res, dealloc, acc);
+            }
+        }
+
         //enforce negative predicates
         for (unsigned i = pt_len; i<ut_len; i++) {
             app * neg_tail = r->get_tail(i);
