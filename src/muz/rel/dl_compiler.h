@@ -82,9 +82,11 @@ namespace datalog {
             
             relation_sort domain;           // domain of the column
             assembling_column_kind kind;    // "instruction" tag
-            unsigned source_column;         // for ACK_BOUND_VAR
-            unsigned var_index;             // for ACK_UNBOUND_VAR
-            relation_element constant;      // for ACK_CONSTANT
+            union {
+                unsigned source_column;         // for ACK_BOUND_VAR
+                unsigned var_index;             // for ACK_UNBOUND_VAR
+                relation_element constant;      // for ACK_CONSTANT
+            };
         };
 
         class instruction_observer : public instruction_block::instruction_observer {
