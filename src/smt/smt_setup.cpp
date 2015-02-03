@@ -113,6 +113,10 @@ namespace smt {
             setup_UFLRA();
         else if (m_logic == "LRA")
             setup_LRA();
+        else if (m_logic == "QF_FP")
+            setup_QF_FP();
+        else if (m_logic == "QF_FPBV")
+            setup_QF_FPBV();
         else
             setup_unknown();
     }
@@ -680,7 +684,8 @@ namespace smt {
         setup_mi_arith();
     }
 
-    void setup::setup_QF_FP() {        
+    void setup::setup_QF_FP() {
+        setup_QF_BV();
         m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
     }
 
@@ -791,6 +796,7 @@ namespace smt {
     }
 
     void setup::setup_fpa() {
+        setup_bv();
         m_context.register_plugin(alloc(theory_fpa, m_manager));
     }
 
@@ -867,7 +873,22 @@ namespace smt {
             return;
         }
 
-        // TODO QF_BV, QF_AUFBV, QF_AUFLIA
+        if (st.num_theories() == 1 && st.m_has_bv) {
+            setup_QF_BV();
+            return;
+        }
+
+        if (st.num_theories() == 1 && st.m_has_fpa) {
+            setup_QF_FP();
+            return;
+        }
+
+        if (st.num_theories() == 2 && st.m_has_fpa && st.m_has_bv) {
+            setup_QF_FPBV();
+            return;
+        }
+
+        // TODO QF_AUFBV, QF_AUFLIA
         setup_unknown();
     }
 

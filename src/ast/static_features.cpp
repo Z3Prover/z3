@@ -22,6 +22,8 @@ Revision History:
 static_features::static_features(ast_manager & m):
     m_manager(m),
     m_autil(m),
+    m_bvutil(m),
+    m_fpautil(m),
     m_bfid(m.get_basic_family_id()),
     m_afid(m.mk_family_id("arith")),
     m_lfid(m.mk_family_id("label")),
@@ -266,6 +268,10 @@ void static_features::update_core(expr * e) {
         m_has_int  = true;
     if (!m_has_real && m_autil.is_real(e))
         m_has_real = true;
+    if (!m_has_bv && m_bvutil.is_bv(e))
+        m_has_bv = true;
+    if (!m_has_fpa && (m_fpautil.is_float(e) || m_fpautil.is_rm(e)))
+        m_has_fpa = true;
     if (is_app(e)) {
         family_id fid = to_app(e)->get_family_id();
         mark_theory(fid);
