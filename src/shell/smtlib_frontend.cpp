@@ -124,6 +124,7 @@ unsigned read_smtlib2_commands(char const * file_name) {
             exit(ERR_OPEN_FILE);
         }
         result = parse_smt2_commands(ctx, in);
+        in.close();
     }
     else {
         result = parse_smt2_commands(ctx, std::cin, true);
