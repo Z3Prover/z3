@@ -100,6 +100,11 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED: 
         SASSERT(num_args == 0); st = mk_to_real_unspecified(result); break;
 
+    case OP_FPA_INTERNAL_BVWRAP:
+    case OP_FPA_INTERNAL_BVUNWRAP:
+        st = BR_FAILED;
+        break;
+
     default: 
         NOT_IMPLEMENTED_YET();
     }
@@ -183,8 +188,15 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
 
             SASSERT(mpzm.is_int64(exp));
             mpf_exp_t mpf_exp = mpzm.get_int64(exp);
+            mpf_exp = m_fm.unbias_exp(ebits, mpf_exp);
 
             m_fm.set(v, ebits, sbits, !mpzm.is_zero(z), sig, mpf_exp);
+            TRACE("fp_rewriter", 
+                  tout << "sgn: " << !mpzm.is_zero(z) << std::endl;
+                  tout << "sig: " << mpzm.to_string(sig) << std::endl;
+                  tout << "exp: " << mpf_exp << std::endl;
+                  tout << "v: " << m_fm.to_string(v) << std::endl;);
+
             result = m_util.mk_value(v);
             return BR_DONE;
         }
@@ -198,22 +210,24 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
             TRACE("fp_rewriter", tout << "r: " << r1 << std::endl;);
             scoped_mpf v(m_fm);
             m_fm.set(v, ebits, sbits, rmv, r1.to_mpq());
-            result = m_util.mk_value(v);            
+            result = m_util.mk_value(v);
             // TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
             return BR_DONE;
         }
         else if (m_util.is_numeral(args[1], v)) {
             // rm + float -> float
             TRACE("fp_rewriter", tout << "v: " << m_fm.to_string(v) << std::endl; );
-            scoped_mpf v(m_fm);
-            m_fm.set(v, ebits, sbits, rmv, v);
-            result = m_util.mk_value(v);
+            scoped_mpf vf(m_fm);
+            m_fm.set(vf, ebits, sbits, rmv, v);
+            result = m_util.mk_value(vf);
             // TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
             return BR_DONE;
         }
-        else if (bu.is_numeral(args[1], r1, bvs1)) {
+        else if (bu.is_numeral(args[1], r1, bvs1)) {            
             // rm + signed bv -> float
-            scoped_mpf v(m_fm);
+            TRACE("fp_rewriter", tout << "r1: " << r1 << std::endl;);
+            r1 = bu.norm(r1, bvs1, true);
+            TRACE("fp_rewriter", tout << "r1 norm: " << r1 << std::endl;);
             m_fm.set(v, ebits, sbits, rmv, r1.to_mpq());
             result = m_util.mk_value(v);
             return BR_DONE;
@@ -229,8 +243,7 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
                 !m_util.au().is_numeral(args[2], r2))
                 return BR_FAILED;
 
-            TRACE("fp_rewriter", tout << "r1: " << r1 << ", r2: " << r2 << "\n";);
-            scoped_mpf v(m_fm);
+            TRACE("fp_rewriter", tout << "r1: " << r1 << ", r2: " << r2 << "\n";);            
             m_fm.set(v, ebits, sbits, rmv, r1.to_mpq(), r2.to_mpq().numerator());
             result = m_util.mk_value(v);
             return BR_DONE;
@@ -242,7 +255,6 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
             SASSERT(m_fm.mpz_manager().is_one(r2.to_mpq().denominator()));
             SASSERT(m_fm.mpz_manager().is_one(r3.to_mpq().denominator()));
             SASSERT(m_fm.mpz_manager().is_int64(r3.to_mpq().numerator()));
-            scoped_mpf v(m_fm);
             mpf_exp_t biased_exp = m_fm.mpz_manager().get_int64(r2.to_mpq().numerator());
             m_fm.set(v, bvs2, bvs3 + 1,
                             r1.is_one(),
@@ -711,8 +723,16 @@ br_status fpa_rewriter::mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_
         bv_util bu(m());
         scoped_mpq q(m_fm.mpq_manager());        
         m_fm.to_sbv_mpq(rmv, v, q);
+        
         rational r(q);
-        result = bu.mk_numeral(r, bv_sz);
+        unsynch_mpz_manager & mpzm = m_fm.mpz_manager();
+        rational ul, ll;
+        ul = m_fm.m_powers2.m1(bv_sz);
+        ll = rational(0);
+        if (r >= ll && r <= ul)
+            result = bu.mk_numeral(r, bv_sz);
+        else
+            result = m_util.mk_internal_to_ubv_unspecified(bv_sz);
         return BR_DONE;
     }
 
@@ -737,8 +757,16 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
         bv_util bu(m());
         scoped_mpq q(m_fm.mpq_manager());
         m_fm.to_sbv_mpq(rmv, v, q);
+        
         rational r(q);
-        result = bu.mk_numeral(r, bv_sz);
+        unsynch_mpz_manager & mpzm = m_fm.mpz_manager();
+        rational ul, ll;
+        ul = m_fm.m_powers2.m1(bv_sz - 1);
+        ll = - m_fm.m_powers2(bv_sz - 1);
+        if (r >= ll && r <= ul)
+            result = bu.mk_numeral(r, bv_sz);
+        else
+            result = m_util.mk_internal_to_sbv_unspecified(bv_sz);
         return BR_DONE;
     }
 
