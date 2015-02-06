@@ -22,8 +22,8 @@ Author:
 #include"fpa_rewriter.h"
 
 class fpa_simplifier_plugin : public simplifier_plugin {
-    fpa_util                  m_util;
-    fpa_rewriter              m_rw;
+    fpa_util     m_util;
+    fpa_rewriter m_rw;
 
 public:
     fpa_simplifier_plugin(ast_manager & m, basic_simplifier_plugin & b);

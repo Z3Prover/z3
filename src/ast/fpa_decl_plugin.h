@@ -206,11 +206,12 @@ public:
 };
 
 class fpa_util {
-    ast_manager &       m_manager;
+    ast_manager     & m_manager;
     fpa_decl_plugin * m_plugin;
-    family_id           m_fid;
-    arith_util          m_a_util;    
-    bv_util             m_bv_util;
+    family_id         m_fid;
+    arith_util        m_a_util;    
+    bv_util           m_bv_util;
+
 public:
     fpa_util(ast_manager & m);
     ~fpa_util();

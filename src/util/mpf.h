@@ -206,6 +206,8 @@ public:
     */
     unsigned prev_power_of_two(mpf const & a);
 
+    void to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o);
+
 protected:    
     bool has_bot_exp(mpf const & x);
     bool has_top_exp(mpf const & x);
@@ -218,8 +220,8 @@ protected:
     void mk_round_inf(mpf_rounding_mode rm, mpf & o);    
 
     // Convert x into a mpz numeral. zm is the manager that owns o.
-    void to_mpz(mpf const & x, unsynch_mpz_manager & zm, mpz & o);    
-    void to_mpz(mpf const & x, scoped_mpz & o) { to_mpz(x, o.m(), o); }
+    void to_mpz(mpf const & x, unsynch_mpz_manager & zm, mpz & o);
+    void to_mpz(mpf const & x, scoped_mpz & o) { to_mpz(x, o.m(), o); }    
 
     class powers2 {
         unsynch_mpz_manager & m;

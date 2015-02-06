@@ -1872,7 +1872,7 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
              m_bv_util.is_bv(args[0]) &&
              m_bv_util.get_bv_size(args[0]) == 3 &&
              m_util.is_float(m.get_sort(args[1]))) {
-        // float -> float conversion
+        // rm + float -> float
         mk_to_fp_float(f, f->get_range(), args[0], args[1], result);
     }
     else if (num == 2 &&
@@ -1886,12 +1886,14 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
              m_bv_util.is_bv(args[0]) &&
              m_bv_util.get_bv_size(args[0]) == 3 &&
              m_bv_util.is_bv(args[1])) {
+        // rm + signed bv -> float
         mk_to_fp_signed(f, num, args, result);
     }
     else if (num == 3 && 
              m_bv_util.is_bv(args[0]) && 
              m_bv_util.is_bv(args[1]) && 
-             m_bv_util.is_bv(args[2])) {                
+             m_bv_util.is_bv(args[2])) { 
+        // 3 BV -> float
         SASSERT(m_bv_util.get_bv_size(args[0]) == 1);
         SASSERT(m_util.get_ebits(f->get_range()) == m_bv_util.get_bv_size(args[1]));
         SASSERT(m_util.get_sbits(f->get_range()) == m_bv_util.get_bv_size(args[2])+1);        
@@ -1899,9 +1901,11 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
     }
     else if (num == 3 &&
              m_bv_util.is_bv(args[0]) &&
+             m_bv_util.get_bv_size(args[0]) == 3 &&
              m_arith_util.is_numeral(args[1]) &&
              m_arith_util.is_numeral(args[2]))
     {
+        // rm + real + int -> float
         mk_to_fp_real_int(f, num, args, result);
     }    
     else
@@ -3206,7 +3210,7 @@ expr_ref fpa2bv_converter::mk_rounding_decision(expr * rm, expr * sgn, expr * la
     expr_ref inc_teven(m), inc_taway(m), inc_pos(m), inc_neg(m);
     inc_teven = m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, nround_lors));
     expr *taway_args[2] = { m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, nl_r)),
-        m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(3, nl_nr_sn)) };
+                            m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(3, nl_nr_sn)) };
     inc_taway = m_bv_util.mk_bv_or(2, taway_args);
     inc_pos = m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, pos_args));
     inc_neg = m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, neg_args));

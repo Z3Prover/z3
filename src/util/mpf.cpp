@@ -1098,6 +1098,46 @@ void mpf_manager::to_mpz(mpf const & x, unsynch_mpz_manager & zm, mpz & o) {
         zm.mul2k(o, e);
 }
 
+void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o) {
+    SASSERT(!is_nan(x) && !is_inf(x));
+
+    scoped_mpf t(*this);
+    scoped_mpz z(m_mpz_manager);
+
+    set(t, x);
+    unpack(t, true);
+
+    SASSERT(t.exponent() < INT_MAX);
+
+    m_mpz_manager.set(z, t.significand());
+    if (t.sign()) m_mpz_manager.neg(z);
+    mpf_exp_t e = (mpf_exp_t)t.exponent() - t.sbits() + 1;
+    if (e < 0) {
+        bool last = false, round = false, guard = false, sticky = m_mpz_manager.is_odd(z);
+        for (; e != 0; e++) {            
+            m_mpz_manager.machine_div2k(z, 1);
+            sticky |= guard;
+            guard = round;
+            round = last;
+            last = m_mpz_manager.is_odd(z);
+        }
+        bool inc = false;
+        switch (rm) {
+        case MPF_ROUND_NEAREST_TEVEN: inc = round && (last || sticky); break;
+        case MPF_ROUND_NEAREST_TAWAY: inc = round && (!last || sticky); break; // CMW: Check!
+        case MPF_ROUND_TOWARD_POSITIVE: inc = (!m_mpz_manager.is_neg(z) && (round || sticky)); break;
+        case MPF_ROUND_TOWARD_NEGATIVE: inc = (m_mpz_manager.is_neg(z) && (round || sticky)); break;
+        case MPF_ROUND_TOWARD_ZERO: inc = false; break;
+        default: UNREACHABLE();
+        }
+        if (inc) m_mpz_manager.inc(z);
+    }
+    else
+        m_mpz_manager.mul2k(z, (unsigned) e);
+
+    m_mpq_manager.set(o, z);
+}
+
 void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
     SASSERT(x.sbits == y.sbits && x.ebits == y.ebits);
 
@@ -1662,7 +1702,8 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
     bool inc = false;
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN: inc = round && (last || sticky); break;
-    case MPF_ROUND_NEAREST_TAWAY: inc = round; break; // CMW: Check this.
+    // case MPF_ROUND_NEAREST_TAWAY: inc = round; break; // CMW: Check
+    case MPF_ROUND_NEAREST_TAWAY: inc = round && (!last || sticky); break; // CMW: Fix ok?
     case MPF_ROUND_TOWARD_POSITIVE: inc = (!o.sign && (round || sticky)); break;
     case MPF_ROUND_TOWARD_NEGATIVE: inc = (o.sign && (round || sticky)); break;
     case MPF_ROUND_TOWARD_ZERO: inc = false; break;

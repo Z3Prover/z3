@@ -27,7 +27,8 @@ Notes:
 
 class fpa_rewriter {
     fpa_util      m_util;
-    mpf_manager   m_fm;
+    mpf_manager & m_fm;
+    bool          m_hi_fp_unspecified;
 
     app * mk_eq_nan(expr * arg);
     app * mk_neq_nan(expr * arg);
@@ -44,7 +45,7 @@ public:
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * arg1, expr * arg2, expr_ref & result);
-
+    
     br_status mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
     br_status mk_sub(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
     br_status mk_mul(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
@@ -75,12 +76,16 @@ public:
     br_status mk_to_ieee_bv(expr * arg1, expr_ref & result);
 
     br_status mk_to_fp(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
-    br_status mk_to_fp_unsigned(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
+    br_status mk_to_fp_unsigned(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
     br_status mk_to_fp_unsigned(expr * arg1, expr * arg2, expr_ref & result);
-    br_status mk_to_ubv(expr * arg1, expr * arg2, expr_ref & result);
-    br_status mk_to_sbv(expr * arg1, expr * arg2, expr_ref & result);
-    br_status mk_to_real(expr * arg1, expr_ref & result);
+    br_status mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_to_real(expr * arg, expr_ref & result);
+
+    br_status mk_to_ubv_unspecified(func_decl * f, expr_ref & result);
+    br_status mk_to_sbv_unspecified(func_decl * f, expr_ref & result);
+    br_status mk_to_real_unspecified(expr_ref & result);
 };
 
 #endif

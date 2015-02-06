@@ -89,6 +89,8 @@ public:
     virtual result operator()(goal const & g) {
         return !test<is_non_qffp_predicate>(g);
     }
+
+    virtual ~is_qffp_probe() {}
 };
 
 probe * mk_is_qffp_probe() {
