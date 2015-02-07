@@ -1662,7 +1662,7 @@ ast * ast_manager::register_node_core(ast * n) {
             for (unsigned i = 0; i < num_args; i++) {
                 expr * arg = t->get_arg(i);
                 inc_ref(arg);
-                unsigned arg_depth;
+                unsigned arg_depth = 0;
                 switch (arg->get_kind()) {
                 case AST_APP: {
                     app_flags * arg_flags = to_app(arg)->flags();

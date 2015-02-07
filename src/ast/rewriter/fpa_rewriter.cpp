@@ -724,8 +724,7 @@ br_status fpa_rewriter::mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_
         scoped_mpq q(m_fm.mpq_manager());        
         m_fm.to_sbv_mpq(rmv, v, q);
         
-        rational r(q);
-        unsynch_mpz_manager & mpzm = m_fm.mpz_manager();
+        rational r(q);        
         rational ul, ll;
         ul = m_fm.m_powers2.m1(bv_sz);
         ll = rational(0);
@@ -758,8 +757,7 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
         scoped_mpq q(m_fm.mpq_manager());
         m_fm.to_sbv_mpq(rmv, v, q);
         
-        rational r(q);
-        unsynch_mpz_manager & mpzm = m_fm.mpz_manager();
+        rational r(q);        
         rational ul, ll;
         ul = m_fm.m_powers2.m1(bv_sz - 1);
         ll = - m_fm.m_powers2(bv_sz - 1);

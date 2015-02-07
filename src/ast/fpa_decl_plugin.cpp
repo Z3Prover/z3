@@ -252,7 +252,7 @@ func_decl * fpa_decl_plugin::mk_rm_const_decl(decl_kind k, unsigned num_paramete
 
 func_decl * fpa_decl_plugin::mk_float_const_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                    unsigned arity, sort * const * domain, sort * range) {
-    sort * s;
+    sort * s = 0;
     if (num_parameters == 1 && parameters[0].is_ast() && is_sort(parameters[0].get_ast()) && is_float_sort(to_sort(parameters[0].get_ast()))) {
         s = to_sort(parameters[0].get_ast());
     }
