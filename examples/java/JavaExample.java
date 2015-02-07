@@ -1101,7 +1101,7 @@ class JavaExample
         System.out.println("LogicTest");
         Log.append("LogicTest");
 
-        Context.ToggleWarningMessages(true);
+        com.microsoft.z3.Global.ToggleWarningMessages(true);
 
         BitVecSort bvs = ctx.mkBitVecSort(32);
         Expr x = ctx.mkConst("x", bvs);
@@ -2242,7 +2242,7 @@ class JavaExample
         JavaExample p = new JavaExample();
         try
         {
-            Context.ToggleWarningMessages(true);
+            com.microsoft.z3.Global.ToggleWarningMessages(true);
             Log.open("test.log");
 
             System.out.print("Z3 Major Version: ");

@@ -1041,7 +1041,7 @@ namespace test_mapi
         {
             Console.WriteLine("LogicTest");
 
-            Context.ToggleWarningMessages(true);
+            Microsoft.Z3.Global.ToggleWarningMessages(true);
 
             BitVecSort bvs = ctx.MkBitVecSort(32);
             Expr x = ctx.MkConst("x", bvs);
@@ -2110,7 +2110,7 @@ namespace test_mapi
         {
             try
             {
-                Context.ToggleWarningMessages(true);
+                Microsoft.Z3.Global.ToggleWarningMessages(true);
                 Log.Open("test.log");
 
                 Console.Write("Z3 Major Version: ");

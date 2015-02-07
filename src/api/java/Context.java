@@ -3608,18 +3608,6 @@ public class Context extends IDisposable
     }
 
     /**
-     * Enable/disable printing of warning messages to the console.
-     * Remarks: Note
-     * that this function is static and effects the behaviour of all contexts
-     * globally.
-     **/
-    public static void ToggleWarningMessages(boolean enabled)
-            throws Z3Exception
-    {
-        Native.toggleWarningMessages((enabled) ? true : false);
-    }
-
-    /**
      * Update a mutable configuration parameter.
      * Remarks:  The list of all
      * configuration parameters can be obtained using the Z3 executable:

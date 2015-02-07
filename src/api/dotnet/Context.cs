@@ -4287,17 +4287,7 @@ namespace Microsoft.Z3
         public ParamDescrs SimplifyParameterDescriptions
         {
             get { return new ParamDescrs(this, Native.Z3_simplify_get_param_descrs(nCtx)); }
-        }
-
-        /// <summary>
-        /// Enable/disable printing of warning messages to the console.
-        /// </summary>
-        /// <remarks>Note that this function is static and effects the behaviour of 
-        /// all contexts globally.</remarks>
-        public static void ToggleWarningMessages(bool enabled)
-        {
-            Native.Z3_toggle_warning_messages((enabled) ? 1 : 0);
-        }
+        }        
         #endregion
 
         #region Error Handling

@@ -44,7 +44,7 @@ public final class Global
      **/
     public static void setParameter(String id, String value)
     {
-    Native.globalParamSet(id, value);
+        Native.globalParamSet(id, value);
     }
     
     /**
@@ -71,6 +71,38 @@ public final class Global
      **/
     public static void resetParameters()
     {
-    Native.globalParamResetAll();
-    }   
+        Native.globalParamResetAll();
+    }
+    
+    /**
+     * Enable/disable printing of warning messages to the console.
+     * Remarks: Note
+     * that this function is static and effects the behaviour of all contexts
+     * globally.
+     **/
+    public static void ToggleWarningMessages(boolean enabled)
+            throws Z3Exception
+    {
+        Native.toggleWarningMessages((enabled) ? true : false);
+    }
+    
+    /** 
+     * Enable tracing messages tagged as `tag' when Z3 is compiled in debug mode.        
+     * 
+     * Remarks: It is a NOOP otherwise.
+     **/
+    public static void enableTrace(String tag)
+    {
+        Native.enableTrace(tag);
+    }
+
+    /** 
+     * Disable tracing messages tagged as `tag' when Z3 is compiled in debug mode.        
+     * 
+     * Remarks: It is a NOOP otherwise.
+     **/
+    public static void disableTrace(String tag)
+    {
+        Native.disableTrace(tag);
+    }
 }

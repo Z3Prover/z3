@@ -2943,5 +2943,12 @@ let get_global_param ( id : string ) =
 let global_param_reset_all =
   Z3native.global_param_reset_all
 
-let toggle_warning_messages ( enabled: bool ) =
+let toggle_warning_messages ( enabled : bool ) =
   Z3native.toggle_warning_messages enabled
+
+let enable_trace ( tag : string ) =
+  (Z3native.enable_trace tag)
+
+let disable_trace ( tag : string ) =
+  (Z3native.enable_trace tag)
+

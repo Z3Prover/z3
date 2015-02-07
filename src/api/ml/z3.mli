@@ -3328,4 +3328,18 @@ val global_param_reset_all : unit -> unit
     Note that this function is static and effects the behaviour of 
     all contexts globally. *)
 val toggle_warning_messages : bool -> unit
-  
+
+(**
+   Enable tracing messages tagged as `tag' when Z3 is compiled in debug mode.
+   
+   Remarks: It is a NOOP otherwise. 
+*)
+val enable_trace : string -> unit
+
+(**
+   Disable tracing messages tagged as `tag' when Z3 is compiled in debug mode.        
+
+   Remarks: It is a NOOP otherwise.
+*)
+val disable_trace : string -> unit
+
