@@ -37,7 +37,7 @@ Revision History:
 // #define LS_BINARY_GCD
 // #define LEHMER_GCD
 
-#if defined(_MP_GMP) || (defined(_MP_MSBIGNUM) && defined(_AMD64_))
+#if defined(_MP_GMP)
 // Use LEHMER only if not using GMP
 // LEHMER assumes 32-bit digits, so it cannot be used with MSBIGNUM library + 64-bit binary
 #define EUCLID_GCD
@@ -365,25 +365,18 @@ void mpz_manager<SYNCH>::big_add_sub(mpz const & a, mpz const & b, mpz & c) {
         sign_b = -sign_b;
     size_t real_sz;
     if (sign_a == sign_b) {
-        unsigned sz  = max(cell_a->m_size, cell_b->m_size)+1;
+        unsigned sz  = std::max(cell_a->m_size, cell_b->m_size)+1;
         ensure_tmp_capacity<0>(sz);
-        add_full(cell_a->m_digits,
-                 cell_a->m_size,
-                 cell_b->m_digits,
-                 cell_b->m_size,
-                 m_tmp[0]->m_digits,
-                 sz,
-                 &real_sz,
-                 0);
+        m_mpn_manager.add(cell_a->m_digits, cell_a->m_size,
+                          cell_b->m_digits, cell_b->m_size, 
+                          m_tmp[0]->m_digits, sz, &real_sz);
         SASSERT(real_sz <= sz);
         set<0>(c, sign_a, static_cast<unsigned>(real_sz));
     }
     else {
         digit_t borrow;
-        int r = compare_diff(cell_a->m_digits,
-                             cell_a->m_size,
-                             cell_b->m_digits,
-                             cell_b->m_size);
+        int r = m_mpn_manager.compare(cell_a->m_digits, cell_a->m_size,
+                                      cell_b->m_digits, cell_b->m_size);
         if (r == 0) {
             reset(c);
         }
@@ -391,13 +384,12 @@ void mpz_manager<SYNCH>::big_add_sub(mpz const & a, mpz const & b, mpz & c) {
             // a < b
             unsigned sz = cell_b->m_size;
             ensure_tmp_capacity<0>(sz);
-            sub_diff(cell_b->m_digits,
-                     cell_b->m_size,
-                     cell_a->m_digits,
-                     cell_a->m_size,
-                     m_tmp[0]->m_digits,
-                     &borrow,
-                     0);
+            m_mpn_manager.sub(cell_b->m_digits,
+                              cell_b->m_size,
+                              cell_a->m_digits,
+                              cell_a->m_size,
+                              m_tmp[0]->m_digits,
+                              &borrow);
             SASSERT(borrow == 0);
             set<0>(c, sign_b, sz);
         }
@@ -405,13 +397,12 @@ void mpz_manager<SYNCH>::big_add_sub(mpz const & a, mpz const & b, mpz & c) {
             // a > b
             unsigned sz = cell_a->m_size;
             ensure_tmp_capacity<0>(sz);
-            sub_diff(cell_a->m_digits,
-                     cell_a->m_size,
-                     cell_b->m_digits,
-                     cell_b->m_size,
-                     m_tmp[0]->m_digits,
-                     &borrow,
-                     0);
+            m_mpn_manager.sub(cell_a->m_digits,
+                              cell_a->m_size,
+                              cell_b->m_digits,
+                              cell_b->m_size,
+                              m_tmp[0]->m_digits,
+                              &borrow);
             SASSERT(borrow == 0);
             set<0>(c, sign_a, sz);
         }
@@ -460,12 +451,11 @@ void mpz_manager<SYNCH>::big_mul(mpz const & a, mpz const & b, mpz & c) {
     get_sign_cell<1>(b, sign_b, cell_b);
     unsigned sz  = cell_a->m_size + cell_b->m_size;
     ensure_tmp_capacity<0>(sz);
-    multiply(cell_a->m_digits,
-             cell_a->m_size,
-             cell_b->m_digits,
-             cell_b->m_size,
-             m_tmp[0]->m_digits,
-             0);
+    m_mpn_manager.mul(cell_a->m_digits,
+                      cell_a->m_size,
+                      cell_b->m_digits,
+                      cell_b->m_size,
+                      m_tmp[0]->m_digits);
     set<0>(c, sign_a == sign_b ? 1 : -1, sz);
 #else
     // GMP version
@@ -505,14 +495,10 @@ void mpz_manager<SYNCH>::quot_rem_core(mpz const & a, mpz const & b, mpz & q, mp
     unsigned r_sz = cell_b->m_size;
     ensure_tmp_capacity<0>(q_sz);
     ensure_tmp_capacity<1>(r_sz);
-    divide(cell_a->m_digits,
-           cell_a->m_size,
-           cell_b->m_digits,
-           cell_b->m_size,
-           reciprocal_1_NULL,
-           m_tmp[0]->m_digits,
-           m_tmp[1]->m_digits,
-           0);
+    m_mpn_manager.div(cell_a->m_digits, cell_a->m_size,
+                      cell_b->m_digits, cell_b->m_size,                      
+                       m_tmp[0]->m_digits,
+                       m_tmp[1]->m_digits);
     if (MODE == QUOT_ONLY || MODE == QUOT_AND_REM)
         set<0>(q, sign_a == sign_b ? 1 : -1, q_sz);
     if (MODE == REM_ONLY || MODE == QUOT_AND_REM)
@@ -606,7 +592,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
         // Binary GCD for big numbers
         // - It doesn't use division
         // - The initial experiments, don't show any performance improvement
-        // - It only works with _MP_INTERNAL and _MP_MSBIGNUM
+        // - It only works with _MP_INTERNAL
         mpz u, v, diff;
         set(u, a);
         set(v, b);
@@ -1243,10 +1229,8 @@ int mpz_manager<SYNCH>::big_compare(mpz const & a, mpz const & b) {
         // a is positive
         if (sign_b > 0) {
             // a & b are positive
-            return compare_diff(cell_a->m_digits,
-                                cell_a->m_size,
-                                cell_b->m_digits,
-                                cell_b->m_size);
+            return m_mpn_manager.compare(cell_a->m_digits, cell_a->m_size,
+                                         cell_b->m_digits, cell_b->m_size);
         }
         else {
             // b is negative
@@ -1261,10 +1245,8 @@ int mpz_manager<SYNCH>::big_compare(mpz const & a, mpz const & b) {
         }
         else {
             // a & b are negative
-            return compare_diff(cell_b->m_digits,
-                                cell_b->m_size,
-                                cell_a->m_digits,
-                                cell_a->m_size);
+            return m_mpn_manager.compare(cell_b->m_digits, cell_b->m_size,
+                                         cell_a->m_digits, cell_a->m_size);
         }
     }
 #else
@@ -1411,11 +1393,11 @@ void mpz_manager<SYNCH>::display(std::ostream & out, mpz const & a) const {
             out << "-";
         if (sizeof(digit_t) == 4) {
             sbuffer<char, 1024> buffer(11*size(a), 0);
-            out << mp_decimal(digits(a), size(a), buffer.begin(), buffer.size(), 0);
+            out << m_mpn_manager.to_string(digits(a), size(a), buffer.begin(), buffer.size());
         }
         else {
             sbuffer<char, 1024> buffer(21*size(a), 0);
-            out << mp_decimal(digits(a), size(a), buffer.begin(), buffer.size(), 0);
+            out << m_mpn_manager.to_string(digits(a), size(a), buffer.begin(), buffer.size());
         }
 #else
         // GMP version

@@ -387,12 +387,12 @@ void mpfx_manager::add_sub(bool is_sub, mpfx const & a, mpfx const & b, mpfx & c
         SASSERT(sgn_a != sgn_b);
         if (::lt(m_total_sz, w_a, w_b)) {
             c.m_sign = sgn_b;
-            sub_diff(w_b, m_total_sz, w_a, m_total_sz, w_c, &borrow, 0);
+            m_mpn_manager.sub(w_b, m_total_sz, w_a, m_total_sz, w_c, &borrow);
             SASSERT(!::is_zero(m_total_sz, w_c));
         }
         else {
             c.m_sign = sgn_a;
-            sub_diff(w_a, m_total_sz, w_b, m_total_sz, w_c, &borrow, 0);
+            m_mpn_manager.sub(w_a, m_total_sz, w_b, m_total_sz, w_c, &borrow);
             if (::is_zero(m_total_sz, w_c))
                 reset(c);
         }
@@ -423,7 +423,7 @@ void mpfx_manager::mul(mpfx const & a, mpfx const & b, mpfx & c) {
         allocate_if_needed(c);
         c.m_sign      = a.m_sign ^ b.m_sign;
         unsigned * r  = m_buffer0.c_ptr();
-        multiply(words(a), m_total_sz, words(b), m_total_sz, r, 0);
+        m_mpn_manager.mul(words(a), m_total_sz, words(b), m_total_sz, r);
         // round result
         unsigned * _r = r + m_frac_part_sz;
         if ((c.m_sign == 1) != m_to_plus_inf && !::is_zero(m_frac_part_sz, r)) {
@@ -473,12 +473,10 @@ void mpfx_manager::div(mpfx const & a, mpfx const & b, mpfx & c) {
             unsigned q_sz        = a_shft_sz - b_sz + 1; 
             unsigned * w_r       = m_buffer2.c_ptr();
             unsigned r_sz        = b_sz;
-            divide(w_a_shft, a_shft_sz, 
-                   w_b,      b_sz,
-                   reciprocal_1_NULL,
-                   w_q, 
-                   w_r, 
-                   0);
+            m_mpn_manager.div(w_a_shft, a_shft_sz,
+                              w_b,      b_sz,
+                              w_q, 
+                              w_r);
             for (unsigned i = m_total_sz; i < q_sz; i++)
                 if (w_q[i] != 0)
                     throw overflow_exception();
@@ -769,7 +767,7 @@ void mpfx_manager::display(std::ostream & out, mpfx const & n) const {
     }
 
     sbuffer<char, 1024> str_buffer(11*sz, 0);
-    out << mp_decimal(w, sz, str_buffer.begin(), str_buffer.size(), 0);
+    out << m_mpn_manager.to_string(w, sz, str_buffer.begin(), str_buffer.size());
     if (!is_int(n)) {
         SASSERT(shift != UINT_MAX);
         // reverse effect of shr
@@ -796,7 +794,7 @@ void mpfx_manager::display_smt2(std::ostream & out, mpfx const & n) const {
         out << "(/ ";
     }
     sbuffer<char, 1024> str_buffer(11*sz, 0);
-    out << mp_decimal(w, sz, str_buffer.begin(), str_buffer.size(), 0);
+    out << m_mpn_manager.to_string(w, sz, str_buffer.begin(), str_buffer.size());
     if (!is_int(n)) {
         out << " ";
         unsigned * w = m_buffer0.c_ptr();
@@ -804,7 +802,7 @@ void mpfx_manager::display_smt2(std::ostream & out, mpfx const & n) const {
             w[i] = 0;
         w[m_frac_part_sz] = 1;
         sbuffer<char, 1024> str_buffer2(11*(m_frac_part_sz+1), 0);
-        out << mp_decimal(w, m_frac_part_sz+1, str_buffer2.begin(), str_buffer2.size(), 0);
+        out << m_mpn_manager.to_string(w, m_frac_part_sz + 1, str_buffer2.begin(), str_buffer2.size());
         out << ")";
     }
     if (is_neg(n))
@@ -816,7 +814,7 @@ void mpfx_manager::display_decimal(std::ostream & out, mpfx const & n, unsigned 
         out << "-";
     unsigned * w = words(n);
     sbuffer<char, 1024> str_buffer(11*m_int_part_sz, 0);
-    out << mp_decimal(w + m_frac_part_sz, m_int_part_sz, str_buffer.begin(), str_buffer.size(), 0);
+    out << m_mpn_manager.to_string(w + m_frac_part_sz, m_int_part_sz, str_buffer.begin(), str_buffer.size());
     if (!is_int(n)) {
         out << ".";
         unsigned * frac   = m_buffer0.c_ptr();
@@ -830,7 +828,7 @@ void mpfx_manager::display_decimal(std::ostream & out, mpfx const & n, unsigned 
                 out << "?";
                 return;
             }
-            multiply(frac, m_frac_part_sz, &ten, 1, n_frac, 0);
+            m_mpn_manager.mul(frac, m_frac_part_sz, &ten, 1, n_frac);
             frac_is_zero = ::is_zero(m_frac_part_sz, n_frac);
             SASSERT(n_frac[m_frac_part_sz] <= 9);
             if (!frac_is_zero || n_frac[m_frac_part_sz] != 0)

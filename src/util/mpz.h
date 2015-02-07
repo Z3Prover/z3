@@ -27,6 +27,7 @@ Revision History:
 #include"scoped_numeral.h"
 #include"scoped_numeral_vector.h"
 #include"z3_omp.h"
+#include"mpn.h"
 
 unsigned u_gcd(unsigned u, unsigned v);
 uint64 u64_gcd(uint64 u, uint64 v);
@@ -37,7 +38,7 @@ typedef unsigned digit_t;
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4200)
-#endif 
+#endif
 
 template<bool SYNCH> class mpz_manager;
 template<bool SYNCH> class mpq_manager;
@@ -107,6 +108,7 @@ class mpz_manager {
     omp_nest_lock_t         m_lock;
 #define MPZ_BEGIN_CRITICAL() if (SYNCH) omp_set_nest_lock(&m_lock);
 #define MPZ_END_CRITICAL()   if (SYNCH) omp_unset_nest_lock(&m_lock);
+    mpn_manager             m_mpn_manager;
 
 #ifndef _MP_GMP
     unsigned                m_init_cell_capacity;

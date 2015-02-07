@@ -26,17 +26,17 @@ Revision History:
 typedef uint64 mpn_double_digit;
 COMPILE_TIME_ASSERT(sizeof(mpn_double_digit) == 2 * sizeof(mpn_digit));
 
-mpn_manager static_mpn_manager;
-
 const mpn_digit mpn_manager::zero = 0;
 
 mpn_manager::mpn_manager() {
 #ifdef Z3DEBUG
     trace_enabled=true;
 #endif
+    omp_init_nest_lock(&m_lock);
 }
 
 mpn_manager::~mpn_manager() {
+    omp_destroy_nest_lock(&m_lock);
 }
 
 int mpn_manager::compare(mpn_digit const * a, size_t const lnga, 
@@ -164,6 +164,7 @@ bool mpn_manager::div(mpn_digit const * numer, size_t const lnum,
                       mpn_digit const * denom, size_t const lden,
                       mpn_digit * quot,
                       mpn_digit * rem) {
+    MPN_BEGIN_CRITICAL();
     trace(numer, lnum, denom, lden, "/");
     bool res = false;    
 
@@ -225,6 +226,7 @@ bool mpn_manager::div(mpn_digit const * numer, size_t const lnum,
     SASSERT(ok);
 #endif
 
+    MPN_END_CRITICAL();
     return res;
 }
 
@@ -233,6 +235,7 @@ size_t mpn_manager::div_normalize(mpn_digit const * numer, size_t const lnum,
                                   mpn_sbuffer & n_numer,
                                   mpn_sbuffer & n_denom) const
 {
+    MPN_BEGIN_CRITICAL();
     size_t d = 0;
     while (((denom[lden-1] << d) & MASK_FIRST) == 0) d++;
     SASSERT(d < DIGIT_BITS);
@@ -261,11 +264,13 @@ size_t mpn_manager::div_normalize(mpn_digit const * numer, size_t const lnum,
     STRACE("mpn_norm", tout << "Normalized: n_numer="; display_raw(tout, n_numer.c_ptr(), n_numer.size()); 
                        tout << " n_denom="; display_raw(tout, n_denom.c_ptr(), n_denom.size()); tout << std::endl; );
 
+    MPN_END_CRITICAL();
     return d;
 }
 
 void mpn_manager::div_unnormalize(mpn_sbuffer & numer, mpn_sbuffer & denom,
                                   size_t const d, mpn_digit * rem) const {
+    MPN_BEGIN_CRITICAL();
     if (d == 0) {
         for (size_t i = 0; i < denom.size(); i++)
             rem[i] = numer[i];
@@ -275,11 +280,13 @@ void mpn_manager::div_unnormalize(mpn_sbuffer & numer, mpn_sbuffer & denom,
             rem[i] = numer[i] >> d | (LAST_BITS(d, numer[i+1]) << (DIGIT_BITS-d));
         rem[denom.size()-1] = numer[denom.size()-1] >> d;
     }
+    MPN_END_CRITICAL();
 }
 
 bool mpn_manager::div_1(mpn_sbuffer & numer, mpn_digit const denom,
                         mpn_digit * quot) const
 {
+    MPN_BEGIN_CRITICAL();
     mpn_double_digit q_hat, temp, r_hat, ms;
     mpn_digit borrow;
 
@@ -307,11 +314,13 @@ bool mpn_manager::div_1(mpn_sbuffer & numer, mpn_digit const denom,
                            tout << std::endl; );
     }
 
+    MPN_END_CRITICAL();
     return true; // return rem != 0 or something like that?
 }
 
 bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
                         mpn_digit * quot, mpn_digit * rem) {
+    MPN_BEGIN_CRITICAL();
     SASSERT(denom.size() > 1);
 
     // This is essentially Knuth's Algorithm D.
@@ -363,7 +372,8 @@ bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
                           tout << " borrow=" << borrow;
                           tout << std::endl; );
     }
-
+    
+    MPN_END_CRITICAL();
     return true; // return rem != 0 or something like that?
 }
 
