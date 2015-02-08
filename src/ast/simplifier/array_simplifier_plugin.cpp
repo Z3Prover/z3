@@ -421,9 +421,6 @@ bool array_simplifier_plugin::reduce_eq(expr * lhs, expr * rhs, expr_ref & resul
                   tout << mk_pp(lhs, m_manager) << " = " 
                   << mk_pp(rhs, m_manager) << " := " << eq << "\n";);
             switch(eq) {
-            case l_false: 
-                result = m_manager.mk_false(); 
-                return true;
             case l_true: 
                 result = m_manager.mk_true(); 
                 return true;
