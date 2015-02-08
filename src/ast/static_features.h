@@ -22,6 +22,7 @@ Revision History:
 #include"ast.h"
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
+#include"array_decl_plugin.h"
 #include"fpa_decl_plugin.h"
 #include"map.h"
 
@@ -29,6 +30,7 @@ struct static_features {
     ast_manager &            m_manager;
     arith_util               m_autil;
     bv_util                  m_bvutil;
+    array_util               m_arrayutil;
     fpa_util                 m_fpautil;
     family_id                m_bfid;
     family_id                m_afid;
@@ -72,8 +74,9 @@ struct static_features {
     bool                     m_has_rational;    //
     bool                     m_has_int;         //
     bool                     m_has_real;        //
-    bool                     m_has_bv;         //
-    bool                     m_has_fpa;        //
+    bool                     m_has_bv;          //
+    bool                     m_has_fpa;         //
+    bool                     m_has_arrays;      //
     rational                 m_arith_k_sum;     // sum of the numerals in arith atoms.
     unsigned                 m_num_arith_terms;
     unsigned                 m_num_arith_eqs;   // equalities of the form t = k where k is a numeral
