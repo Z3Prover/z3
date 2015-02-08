@@ -65,7 +65,7 @@ tactic * mk_propagate_ineqs_tactic(ast_manager & m, params_ref const & p) {
 
 struct propagate_ineqs_tactic::imp {
     ast_manager &          m;
-    synch_mpq_manager    nm;
+    unsynch_mpq_manager    nm;
     small_object_allocator m_allocator;
     bound_propagator       bp;
     arith_util             m_util;
@@ -73,7 +73,7 @@ struct propagate_ineqs_tactic::imp {
     obj_map<expr, a_var>   m_expr2var;
     expr_ref_vector        m_var2expr;
 
-    typedef numeral_buffer<mpq, synch_mpq_manager> mpq_buffer;
+    typedef numeral_buffer<mpq, unsynch_mpq_manager> mpq_buffer;
     typedef svector<a_var> var_buffer;                          
     
     mpq_buffer             m_num_buffer;

@@ -52,7 +52,7 @@ public:
 
 class linear_equation_manager {
 public:
-    typedef synch_mpq_manager numeral_manager;
+    typedef unsynch_mpq_manager numeral_manager;
     typedef linear_equation::var var;
     typedef numeral_buffer<mpz, numeral_manager> mpz_buffer;
 private:

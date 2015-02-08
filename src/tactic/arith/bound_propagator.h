@@ -31,7 +31,7 @@ class bound_propagator {
 public:
     typedef unsigned var;
     typedef unsigned assumption;
-    typedef synch_mpq_manager numeral_manager;
+    typedef unsynch_mpq_manager numeral_manager;
     typedef unsigned_vector assumption_vector;
     typedef unsigned constraint_id;
     typedef numeral_buffer<mpz, numeral_manager> mpz_buffer;
