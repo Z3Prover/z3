@@ -28,8 +28,8 @@ typedef unsigned int mpn_digit;
 
 class mpn_manager {
     omp_nest_lock_t m_lock;
-#define MPN_BEGIN_CRITICAL() omp_set_nest_lock(&const_cast<omp_nest_lock_t>(m_lock));
-#define MPN_END_CRITICAL() omp_unset_nest_lock(&const_cast<omp_nest_lock_t>(m_lock));
+#define MPN_BEGIN_CRITICAL() omp_set_nest_lock(&m_lock);
+#define MPN_END_CRITICAL() omp_unset_nest_lock(&m_lock);
 
 public:
     mpn_manager();
@@ -100,12 +100,8 @@ private:
                mpn_digit * quot) const;
 
     bool div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
-               mpn_digit * quot, mpn_digit * rem);
-
-    #ifdef Z3DEBUG
-    mutable char char_buf[4096];
-    bool trace_enabled;
-    #endif
+               mpn_digit * quot, mpn_digit * rem,
+               mpn_sbuffer & ms, mpn_sbuffer & ab) const;
 
     void trace(mpn_digit const * a, size_t const lnga, 
                mpn_digit const * b, size_t const lngb, 
