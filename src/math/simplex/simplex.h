@@ -141,7 +141,7 @@ namespace simplex {
         void  unset_upper(var_t var); 
         void  set_value(var_t var, eps_numeral const& b);        
         void  set_cancel(bool f) { m_cancel = f; }
-        void  set_max_iterations(unsigned m) { m_max_iterations = m; }
+        void  set_max_iterations(unsigned n) { m_max_iterations = n; }
         void  reset();
         lbool make_feasible();
         lbool minimize(var_t var);

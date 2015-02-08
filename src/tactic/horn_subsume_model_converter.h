@@ -72,7 +72,7 @@ public:
 
     void insert(func_decl* p, expr* body) { m_funcs.push_back(p); m_bodies.push_back(body); }
     
-    virtual void operator()(model_ref& m);
+    virtual void operator()(model_ref& _m);
 
     virtual model_converter * translate(ast_translation & translator);
 

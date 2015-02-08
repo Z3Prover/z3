@@ -923,9 +923,28 @@ namespace sat {
             m_assumption_set.insert(lit);       
 
             if (m_config.m_soft_assumptions) {
-                if (value(lit) == l_undef) {
+                switch(value(lit)) {
+                case l_undef:
                     m_assumptions.push_back(lit);       
                     assign(lit, justification());
+                    break;
+                case l_false: {
+                    set_conflict(lit);
+                    flet<bool> _min1(m_config.m_minimize_core, false);
+                    flet<bool> _min2(m_config.m_minimize_core_partial, false);
+                    resolve_conflict_for_unsat_core();
+                    SASSERT(m_core.size() <= m_assumptions.size());
+                    if (m_core.size() <= 3 || 
+                        m_core.size() <= i - m_assumptions.size() + 1) {
+                        return;
+                    }
+                    else {
+                        m_inconsistent = false;
+                    }
+                    break;
+                }
+                case l_true:
+                    break;
                 }
                 propagate(false);         
             }

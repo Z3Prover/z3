@@ -146,9 +146,9 @@ namespace opt {
         virtual void cancel() { set_cancel(true); }
         virtual void set_hard_constraints(ptr_vector<expr> & hard);
         virtual lbool optimize();
-        virtual void get_model(model_ref& m);
-        virtual void set_model(model_ref& m);
-        virtual void fix_model(model_ref& m);
+        virtual void get_model(model_ref& _m);
+        virtual void set_model(model_ref& _m);
+        virtual void fix_model(model_ref& _m);
         virtual void collect_statistics(statistics& stats) const;
         virtual proof* get_proof() { return 0; }
         virtual void get_labels(svector<symbol> & r) {}
@@ -186,7 +186,7 @@ namespace opt {
         void set_enable_sls(bool f) { m_enable_sls = f; }
         void set_soft_assumptions();
         symbol const& maxsat_engine() const { return m_maxsat_engine; }
-        void get_base_model(model_ref& m);
+        void get_base_model(model_ref& _m);
 
 
     private:

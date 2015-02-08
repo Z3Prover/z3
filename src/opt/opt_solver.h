@@ -94,7 +94,7 @@ namespace opt {
         virtual void pop_core(unsigned n);
         virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);        
         virtual void get_unsat_core(ptr_vector<expr> & r);
-        virtual void get_model(model_ref & m);
+        virtual void get_model(model_ref & _m);
         virtual proof * get_proof();
         virtual std::string reason_unknown() const;
         virtual void get_labels(svector<symbol> & r);

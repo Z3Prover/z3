@@ -190,11 +190,11 @@ public:
         r.reset();
         r.append(m_core.size(), m_core.c_ptr());
     }
-    virtual void get_model(model_ref & m) {
+    virtual void get_model(model_ref & mdl) {
         if (!m_model.get()) {
             extract_model();
         }
-        m = m_model;
+        mdl = m_model;
     }
     virtual proof * get_proof() {
         UNREACHABLE();
@@ -331,10 +331,10 @@ private:
         }
         sat::literal_vector const& core = m_solver.get_core();
         TRACE("opt",
-              dep2asm_t::iterator it = dep2asm.begin();
-              dep2asm_t::iterator end = dep2asm.end();
-              for (; it != end; ++it) {
-                  tout << mk_pp(it->m_key, m) << " |-> " << sat::literal(it->m_value) << "\n";
+              dep2asm_t::iterator it2 = dep2asm.begin();
+              dep2asm_t::iterator end2 = dep2asm.end();
+              for (; it2 != end2; ++it2) {
+                  tout << mk_pp(it2->m_key, m) << " |-> " << sat::literal(it2->m_value) << "\n";
               }
               tout << "core: ";
               for (unsigned i = 0; i < core.size(); ++i) {

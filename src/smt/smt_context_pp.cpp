@@ -103,9 +103,9 @@ namespace smt {
     void context::display_literal_info(std::ostream & out, literal l) const {
         l.display_compact(out, m_bool_var2expr.c_ptr());
         if (l.sign())
-            out << "  (not " << mk_bounded_pp(bool_var2expr(l.var()), m_manager, 10) << ")\n";
+            out << "  (not " << mk_bounded_pp(bool_var2expr(l.var()), m_manager, 10) << ") ";
         else
-            out << "  " << mk_bounded_pp(bool_var2expr(l.var()), m_manager, 10) << "\n";
+            out << "  " << mk_bounded_pp(bool_var2expr(l.var()), m_manager, 10) << " ";
         out << "relevant: " << is_relevant(bool_var2expr(l.var())) << ", val: " << get_assignment(l) << "\n";
     }
 

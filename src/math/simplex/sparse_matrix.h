@@ -100,7 +100,7 @@ namespace simplex {
             _row_entry & add_row_entry(unsigned & pos_idx);
             void del_row_entry(unsigned idx);
             void compress(manager& m, vector<column> & cols); 
-            void compress_if_needed(manager& m, vector<column> & cols);
+            void compress_if_needed(manager& _m, vector<column> & cols);
             void save_var_pos(svector<int> & result_map, unsigned_vector& idxs) const;
             //bool is_coeff_of(var_t v, numeral const & expected) const;
             int get_idx_of(var_t v) const;
@@ -143,7 +143,7 @@ namespace simplex {
 
     public:
 
-        sparse_matrix(manager& m): m(m) {}
+        sparse_matrix(manager& _m): m(_m) {}
         ~sparse_matrix();
         void reset();
         
