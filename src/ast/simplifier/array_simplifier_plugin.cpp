@@ -413,7 +413,7 @@ bool array_simplifier_plugin::reduce_eq(expr * lhs, expr * rhs, expr_ref & resul
     unsigned arity2 = 0;
     get_stores(lhs, arity1, c1, st1);
     get_stores(rhs, arity2, c2, st2);
-    if (arity1 == arity1 && is_const_array(c1) && is_const_array(c2)) {
+    if (arity1 == arity2 && is_const_array(c1) && is_const_array(c2)) {
         c1 = to_app(c1)->get_arg(0);
         c2 = to_app(c2)->get_arg(0);
         if (c1 == c2) {
