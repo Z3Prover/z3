@@ -87,6 +87,7 @@ public:
     std::ostream& display(std::ostream& out, doc const& b) const;
     std::ostream& display(std::ostream& out, doc const& b, unsigned hi, unsigned lo) const;
     unsigned num_tbits() const { return m.num_tbits(); }
+    unsigned get_size_estimate_bytes(const doc& d) const;
     doc* project(doc_manager& dstm, bit_vector const& to_delete, doc const& src);
     bool well_formed(doc const& d) const;
     bool merge(doc& d, unsigned lo, unsigned length, subset_ints const& equalities, bit_vector const& discard_cols);
@@ -326,6 +327,13 @@ public:
         }
     }
 
+    unsigned get_size_estimate_bytes(const M& m) const {
+        unsigned sz = sizeof(T*) * size();
+        for (unsigned i = 0; i < size(); ++i) {
+            sz += m.get_size_estimate_bytes(*m_elems[i]);
+        }
+        return sz;
+    }
 };
 
 

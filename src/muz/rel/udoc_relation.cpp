@@ -181,6 +181,10 @@ namespace datalog {
         m_elems.display(dm, out); out << "\n";
     }
 
+    unsigned udoc_relation::get_size_estimate_bytes() const {
+        return sizeof(*this) + m_elems.get_size_estimate_bytes(dm);
+    }
+
     // -------------
 
     udoc_plugin::udoc_plugin(relation_manager& rm):
@@ -509,13 +513,27 @@ namespace datalog {
         }
     };
     void udoc_plugin::mk_union(doc_manager& dm, udoc& dst, udoc const& src, udoc* delta) {
-        for (unsigned i = 0; i < src.size(); ++i) {
-            doc* d = dm.allocate(src[i]);
-            if (dst.insert(dm, d)) {
+        bool deltaempty = delta ? delta->is_empty() : false;
+
+        if (dst.is_empty()) {
+            for (unsigned i = 0; i < src.size(); ++i) {
+                dst.push_back(dm.allocate(src[i]));
                 if (delta) {
-                    delta->insert(dm, dm.allocate(src[i]));
+                    if (deltaempty)
+                        delta->push_back(dm.allocate(src[i]));
+                    else
+                        delta->insert(dm, dm.allocate(src[i]));
                 }
-            } 
+            }
+        } else {
+            for (unsigned i = 0; i < src.size(); ++i) {
+                if (dst.insert(dm, dm.allocate(src[i])) && delta) {
+                    if (deltaempty)
+                        delta->push_back(dm.allocate(src[i]));
+                    else
+                        delta->insert(dm, dm.allocate(src[i]));
+                }
+            }
         }
     }
     relation_union_fn * udoc_plugin::mk_union_fn(

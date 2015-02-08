@@ -172,8 +172,6 @@ namespace datalog {
 
             compiler::compile(m_context, m_context.get_rules(), m_code, termination_code);
 
-            TRACE("dl", m_code.display(m_ectx, tout); );
-
             bool timeout_after_this_round = time_limit && (restart_time==0 || remaining_time_limit<=restart_time);
 
             if (time_limit || restart_time!=0) {
@@ -628,11 +626,6 @@ namespace datalog {
         m_code.make_annotations(m_ectx);
         m_code.process_all_costs();  
 
-        out << "\n--------------\n";
-        out << "Instructions\n";
-        m_code.display(m_ectx, out);
-
-        out << "\n--------------\n";
         out << "Big relations\n";
         m_ectx.report_big_relations(1000, out);
 

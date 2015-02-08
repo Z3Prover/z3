@@ -53,6 +53,7 @@ namespace datalog {
         virtual void display(std::ostream& out) const;
         virtual bool is_precise() const { return true; }
         virtual unsigned get_size_estimate_rows() const { return m_elems.size(); }
+        virtual unsigned get_size_estimate_bytes() const;
 
         doc_manager& get_dm() const { return dm; }
         udoc const& get_udoc() const { return m_elems; }
