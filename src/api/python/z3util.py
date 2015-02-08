@@ -29,9 +29,9 @@ def ehash(v):
     z3 expressions in some cases.
     
     >>> x1 = Bool('x'); x2 = Bool('x'); x3 = Int('x')
-    >>> print x1.hash(),x2.hash(),x3.hash() #BAD: all same hash values
+    >>> print(x1.hash(),x2.hash(),x3.hash()) #BAD: all same hash values
     783810685 783810685 783810685
-    >>> print ehash(x1), ehash(x2), ehash(x3)
+    >>> print(ehash(x1), ehash(x2), ehash(x3))
     x_783810685_1 x_783810685_1 x_783810685_2
     
     """
@@ -174,9 +174,9 @@ def prove(claim,assume=None,verbose=0):
     (False, [(x, False), (y, True)])
 
     >>> r,m = prove(And(x,y),assume=y,verbose=0)
-    >>> print r
+    >>> print(r)
     False
-    >>> print model_str(m,as_str=True)
+    >>> print(model_str(m,as_str=True))
     x = False
     y = True
 
@@ -210,18 +210,18 @@ def prove(claim,assume=None,verbose=0):
 
 
     if verbose >= 2:
-        print 'assume: '
-        print assume
-        print 'claim: '
-        print claim
-        print 'to_prove: '
-        print to_prove
+        print('assume: ')
+        print(assume)
+        print('claim: ')
+        print(claim)
+        print('to_prove: ')
+        print(to_prove)
 
     f = Not(to_prove)
 
     models = get_models(f,k=1)
     if models is None: #unknown
-        print 'E: cannot solve !'
+        print('E: cannot solve !')
         return None, None
     elif models == False: #unsat
         return True,None   
@@ -438,7 +438,7 @@ def myImplies(a,b):return myBinOp(Z3_OP_IMPLIES,[a,b])
     
 
 
-Iff = lambda f,g: And(Implies(f,g),Implies(g,f))
+Iff = lambda f: And(Implies(f[0],f[1]),Implies(f[1],f[0]))
 
 
 
@@ -458,7 +458,7 @@ def model_str(m,as_str=True):
 
     if m :
         vs = [(v,m[v]) for v in m]
-        vs = sorted(vs,key=lambda (a,_): str(a)) 
+        vs = sorted(vs,key=lambda a: str(a[0]))
         if as_str:
             return '\n'.join(['{} = {}'.format(k,v) for (k,v) in vs])
         else:
