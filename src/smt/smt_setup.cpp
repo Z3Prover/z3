@@ -888,14 +888,20 @@ namespace smt {
             return;
         }
 
-        if (st.num_theories() == 1 && st.m_has_arrays)
+        if (st.num_theories() == 1 && st.m_has_arrays) {
             setup_QF_AX();
+            return;
+        }
 
-        if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_bv)
+        if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_bv) {
             setup_QF_AUFBV();
+            return;
+        }
 
-        if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_int)
+        if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_int) {
             setup_QF_AUFLIA();
+            return;
+        }
 
         setup_unknown();
     }
