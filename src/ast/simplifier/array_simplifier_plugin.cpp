@@ -409,14 +409,15 @@ bool array_simplifier_plugin::reduce_eq(expr * lhs, expr * rhs, expr_ref & resul
     set_reduce_invoked();
     expr* c1, *c2;
     ptr_vector<expr*const> st1, st2;
-    unsigned arity = 0;
-    get_stores(lhs, arity, c1, st1);
-    get_stores(rhs, arity, c2, st2);
-    if (is_const_array(c1) && is_const_array(c2)) {
+    unsigned arity1 = 0;
+    unsigned arity2 = 0;
+    get_stores(lhs, arity1, c1, st1);
+    get_stores(rhs, arity2, c2, st2);
+    if (arity1 == arity1 && is_const_array(c1) && is_const_array(c2)) {
         c1 = to_app(c1)->get_arg(0);
         c2 = to_app(c2)->get_arg(0);
         if (c1 == c2) {
-            lbool eq = eq_stores(c1, arity, st1.size(), st1.c_ptr(), st2.size(), st2.c_ptr());
+            lbool eq = eq_stores(c1, arity2, st1.size(), st1.c_ptr(), st2.size(), st2.c_ptr());
             TRACE("array_simplifier", 
                   tout << mk_pp(lhs, m_manager) << " = " 
                   << mk_pp(rhs, m_manager) << " := " << eq << "\n";);
