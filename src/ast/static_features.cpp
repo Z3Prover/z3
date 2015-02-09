@@ -321,12 +321,12 @@ void static_features::update_core(expr * e) {
         if (m_arrayutil.is_array(e)) {
             TRACE("sf_array", tout << mk_ismt2_pp(e, m_manager) << "\n";);
             sort * ty = to_app(e)->get_decl()->get_range();
-            SASSERT(ty->get_num_parameters() == 2);
-            sort * inx_srt = to_sort(ty->get_parameter(0).get_ast());
-            sort * elm_srt = to_sort(ty->get_parameter(1).get_ast());
             mark_theory(ty->get_family_id());
-            update_core(inx_srt);
-            update_core(elm_srt);
+            unsigned n = ty->get_num_parameters();
+            for (unsigned i = 0; i < n; i++) {
+                sort * ds = to_sort(ty->get_parameter(i).get_ast());
+                update_core(ds);
+            }
         }
         func_decl * d = to_app(e)->get_decl();
         inc_num_apps(d);
