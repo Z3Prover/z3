@@ -35,6 +35,7 @@ struct static_features {
     family_id                m_bfid;
     family_id                m_afid;
     family_id                m_lfid;    
+    family_id                m_arrfid;
     ast_mark                 m_already_visited;
     bool                     m_cnf;
     unsigned                 m_num_exprs;             // 
@@ -148,6 +149,7 @@ struct static_features {
     void inc_theory_eqs(family_id fid) { m_num_theory_eqs.reserve(fid+1, 0); m_num_theory_eqs[fid]++; }
     void inc_num_aliens(family_id fid) { m_num_aliens_per_family.reserve(fid+1, 0); m_num_aliens_per_family[fid]++; }
     void update_core(expr * e);
+    void update_core(sort * s);
     void process(expr * e, bool form_ctx, bool or_and_ctx, bool ite_ctx, unsigned stack_depth);
     void process_root(expr * e);
     unsigned get_depth(expr const * e) const { return m_expr2depth.get(e->get_id(), 1); }

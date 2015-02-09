@@ -830,7 +830,10 @@ namespace smt {
               tout << "is_arith: " << is_arith(st) << "\n";
               tout << "has UF: " << st.has_uf() << "\n";
               tout << "has real: " << st.m_has_real << "\n";
-              tout << "has int: " << st.m_has_int << "\n";);
+              tout << "has int: " << st.m_has_int << "\n";
+              tout << "has bv: " << st.m_has_bv << "\n";
+              tout << "has fpa: " << st.m_has_fpa << "\n"; 
+              tout << "has arrays: " << st.m_has_arrays << "\n";);
 
         if (st.num_non_uf_theories() == 0) {
             setup_QF_UF(st);
