@@ -564,11 +564,9 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_numeral(app * n) {
         rational _val;
-        context & ctx = get_context();
-        bool flag = m_util.is_numeral(n, _val);
+        VERIFY(m_util.is_numeral(n, _val));
         numeral val(_val);
-        SASSERT(flag);
-        SASSERT(!ctx.e_internalized(n));
+        SASSERT(!get_context().e_internalized(n));
         enode * e    = mk_enode(n);
         // internalizer is marking enodes as interpreted whenever the associated ast is a value and a constant.
         // e->mark_as_interpreted();
@@ -3117,8 +3115,7 @@ namespace smt {
         del_vars(get_old_num_vars(num_scopes));
         m_scopes.shrink(new_lvl);
         theory::pop_scope_eh(num_scopes);
-        bool r = make_feasible();
-        SASSERT(r);
+        VERIFY(make_feasible());
         SASSERT(m_to_patch.empty());
         m_to_check.reset();
         m_in_to_check.reset();

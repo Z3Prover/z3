@@ -189,8 +189,7 @@ namespace datalog {
         union_find_default_ctx uf_ctx;
         union_find<> uf(uf_ctx); //the numbers in uf correspond to column indexes after the join
         for(unsigned i=0; i<join_sig_sz; i++) {
-            unsigned v = uf.mk_var();
-            SASSERT(v==i);
+            VERIFY(uf.mk_var() == i);
         }
 
         for(unsigned i=0; i<joined_col_cnt; i++) {
