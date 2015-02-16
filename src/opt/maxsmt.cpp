@@ -36,7 +36,7 @@ Notes:
 namespace opt {
 
     maxsmt_solver_base::maxsmt_solver_base(
-        context& c, vector<rational> const& ws, expr_ref_vector const& soft):
+        maxsat_context& c, vector<rational> const& ws, expr_ref_vector const& soft):
         m(c.get_manager()), 
         m_c(c),
         m_cancel(false), 
@@ -156,7 +156,7 @@ namespace opt {
 
 
 
-    maxsmt::maxsmt(context& c):
+    maxsmt::maxsmt(maxsat_context& c):
         m(c.get_manager()), m_c(c), m_cancel(false), 
         m_soft_constraints(m), m_answer(m) {}
 

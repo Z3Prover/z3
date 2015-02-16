@@ -23,7 +23,7 @@ Notes:
 #include "maxsmt.h"
 
 namespace opt {
-    maxsmt_solver_base* mk_wmax(context& c, weights_t & ws, expr_ref_vector const& soft);
+    maxsmt_solver_base* mk_wmax(maxsat_context& c, weights_t & ws, expr_ref_vector const& soft);
 
 }
 #endif

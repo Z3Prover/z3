@@ -107,7 +107,7 @@ private:
     typedef ptr_vector<expr> exprs;
 
 public:
-    maxres(context& c,
+    maxres(maxsat_context& c,
            weights_t& ws, expr_ref_vector const& soft, 
            strategy_t st):
         maxsmt_solver_base(c, ws, soft),
@@ -788,12 +788,12 @@ public:
 };
 
 opt::maxsmt_solver_base* opt::mk_maxres(
-    context& c, weights_t& ws, expr_ref_vector const& soft) {
+    maxsat_context& c, weights_t& ws, expr_ref_vector const& soft) {
     return alloc(maxres, c, ws, soft, maxres::s_primal);
 }
 
 opt::maxsmt_solver_base* opt::mk_primal_dual_maxres(
-    context& c, weights_t& ws, expr_ref_vector const& soft) {
+    maxsat_context& c, weights_t& ws, expr_ref_vector const& soft) {
     return alloc(maxres, c, ws, soft, maxres::s_primal_dual);
 }
 

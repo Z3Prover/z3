@@ -27,7 +27,7 @@ Notes:
 namespace opt {
 
 
-    maxsmt_solver_base* mk_sls(context& c, weights_t& ws, expr_ref_vector const& soft);
+    maxsmt_solver_base* mk_sls(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft);
 
     
 };

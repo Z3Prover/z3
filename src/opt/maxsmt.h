@@ -33,7 +33,7 @@ namespace opt {
 
     typedef vector<rational> const weights_t;
 
-    class context;
+    class maxsat_context;
 
     class maxsmt_solver {
     protected:
@@ -59,7 +59,7 @@ namespace opt {
     class maxsmt_solver_base : public maxsmt_solver {
     protected:
         ast_manager&     m;
-        context&         m_c;
+        maxsat_context&  m_c;
         volatile bool    m_cancel;
         const expr_ref_vector  m_soft;
         vector<rational> m_weights;
@@ -71,7 +71,7 @@ namespace opt {
         params_ref       m_params;           // config
 
     public:
-        maxsmt_solver_base(context& c, weights_t& ws, expr_ref_vector const& soft); 
+        maxsmt_solver_base(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft); 
 
         virtual ~maxsmt_solver_base() {}        
         virtual rational get_lower() const { return m_lower; }
@@ -114,7 +114,7 @@ namespace opt {
 
     class maxsmt {
         ast_manager&              m;
-        context&                  m_c;
+        maxsat_context&           m_c;
         scoped_ptr<maxsmt_solver_base> m_msolver;
         volatile bool    m_cancel;
         expr_ref_vector  m_soft_constraints;
@@ -126,7 +126,7 @@ namespace opt {
         model_ref        m_model;
         params_ref       m_params;
     public:
-        maxsmt(context& c);
+        maxsmt(maxsat_context& c);
         lbool operator()();
         void set_cancel(bool f);
         void updt_params(params_ref& p);

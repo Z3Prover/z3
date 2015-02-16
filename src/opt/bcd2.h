@@ -23,6 +23,6 @@ Notes:
 #include "maxsmt.h"
 
 namespace opt {
-    maxsmt_solver_base* mk_bcd2(context& c, weights_t& ws, expr_ref_vector const& soft);
+    maxsmt_solver_base* mk_bcd2(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft);
 }
 #endif

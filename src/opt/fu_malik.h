@@ -29,7 +29,7 @@ Notes:
 
 namespace opt {
 
-    maxsmt_solver_base* mk_fu_malik(context& c, weights_t & ws, expr_ref_vector const& soft);
+    maxsmt_solver_base* mk_fu_malik(maxsat_context& c, weights_t & ws, expr_ref_vector const& soft);
 
     
 };

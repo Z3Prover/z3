@@ -33,7 +33,7 @@ namespace opt {
 
     class wmax : public maxsmt_solver_base {
     public:
-        wmax(context& c, weights_t& ws, expr_ref_vector const& soft): 
+        wmax(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft): 
             maxsmt_solver_base(c, ws, soft) {}
         virtual ~wmax() {}
 
@@ -76,7 +76,7 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* mk_wmax(context& c, weights_t& ws, expr_ref_vector const& soft) {
+    maxsmt_solver_base* mk_wmax(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft) {
         return alloc(wmax, c, ws, soft);
     }
 

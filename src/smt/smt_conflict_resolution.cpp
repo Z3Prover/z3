@@ -372,7 +372,7 @@ namespace smt {
               tout << "js.kind: " << js.get_kind() << "\n";
               tout << "consequent: " << consequent << "\n";
 	      for (unsigned i = 0; i < m_assigned_literals.size(); ++i) {
-		tout << m_assigned_literals[i] << " ";
+                  tout << m_assigned_literals[i] << " ";
 	      }
 	      tout << "\n";
 	      );

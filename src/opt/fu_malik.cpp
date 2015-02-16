@@ -50,7 +50,7 @@ namespace opt {
         model_ref       m_model;
 
     public:
-        fu_malik(context& c, weights_t& ws, expr_ref_vector const& soft):
+        fu_malik(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft):
             maxsmt_solver_base(c, ws, soft),
             m_fm(c.fm()),
             m_aux_soft(soft),
@@ -229,7 +229,7 @@ namespace opt {
         }
     };
 
-    maxsmt_solver_base* mk_fu_malik(context& c, weights_t & ws, expr_ref_vector const& soft) {
+    maxsmt_solver_base* mk_fu_malik(maxsat_context& c, weights_t & ws, expr_ref_vector const& soft) {
         return alloc(fu_malik, c, ws, soft);
     }
 
