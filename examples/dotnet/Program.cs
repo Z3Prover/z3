@@ -2010,6 +2010,47 @@ namespace test_mapi
             }
         }
 
+        /// <summary>
+        /// Extract unsatisfiable core example with AssertAndTrack
+        /// </summary>
+        public static void UnsatCoreAndProofExample2(Context ctx)
+        {
+            Console.WriteLine("UnsatCoreAndProofExample2");
+
+            Solver solver = ctx.MkSolver();
+
+            BoolExpr pa = ctx.MkBoolConst("PredA");
+            BoolExpr pb = ctx.MkBoolConst("PredB");
+            BoolExpr pc = ctx.MkBoolConst("PredC");
+            BoolExpr pd = ctx.MkBoolConst("PredD");
+            
+            BoolExpr f1 = ctx.MkAnd(new BoolExpr[] { pa, pb, pc });
+            BoolExpr f2 = ctx.MkAnd(new BoolExpr[] { pa, ctx.MkNot(pb), pc });
+            BoolExpr f3 = ctx.MkOr(ctx.MkNot(pa), ctx.MkNot(pc));
+            BoolExpr f4 = pd;
+
+            BoolExpr p1 = ctx.MkBoolConst("P1");
+            BoolExpr p2 = ctx.MkBoolConst("P2");
+            BoolExpr p3 = ctx.MkBoolConst("P3");
+            BoolExpr p4 = ctx.MkBoolConst("P4");
+
+            solver.AssertAndTrack(f1, p1);
+            solver.AssertAndTrack(f2, p2);
+            solver.AssertAndTrack(f3, p3);
+            solver.AssertAndTrack(f4, p4);
+            Status result = solver.Check();
+
+            if (result == Status.UNSATISFIABLE)
+            {
+                Console.WriteLine("unsat");                
+                Console.WriteLine("core: ");
+                foreach (Expr c in solver.UnsatCore)
+                {
+                    Console.WriteLine("{0}", c);
+                }
+            }
+        }
+
         public static void FiniteDomainExample(Context ctx)
         {
             Console.WriteLine("FiniteDomainExample");
@@ -2164,6 +2205,7 @@ namespace test_mapi
                     TreeExample(ctx);
                     ForestExample(ctx);
                     UnsatCoreAndProofExample(ctx);
+                    UnsatCoreAndProofExample2(ctx);
                 }
 
                 // These examples need proof generation turned on and auto-config set to false.
