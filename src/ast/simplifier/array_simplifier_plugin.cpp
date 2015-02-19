@@ -327,17 +327,21 @@ void array_simplifier_plugin::get_stores(expr* n, unsigned& arity, expr*& m, ptr
 }
 
 lbool array_simplifier_plugin::eq_default(expr* def, unsigned arity, unsigned num_st, expr*const* const* st) {
+    bool all_diseq = m_manager.is_unique_value(def) && num_st > 0;
+    bool all_eq = true;
     for (unsigned i = 0; i < num_st; ++i) {
-        if (st[i][arity] == def) {
-            continue;
-        }
-        if (m_manager.is_unique_value(st[i][arity]) && m_manager.is_unique_value(def)) {
-            return l_false;
-        }
-        return l_undef;
+        all_eq  &= (st[i][arity] == def);
+        all_diseq &= m_manager.is_unique_value(st[i][arity]) && (st[i][arity] != def);
     }
-    return l_true;
+    if (all_eq) {
+        return l_true;
+    }
+    if (all_diseq) {
+        return l_false;
+    }   
+    return l_undef;
 }
+
 
 bool array_simplifier_plugin::insert_table(expr* def, unsigned arity, unsigned num_st, expr*const* const* st, arg_table& table) {
     for (unsigned i = 0; i < num_st; ++i ) {
