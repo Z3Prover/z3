@@ -61,8 +61,9 @@ public class RatNum extends RealExpr
     }
 
     /**
-     * Returns a string representation in decimal notation. <remarks>The result
-     * has at most <paramref name="precision"/> decimal places.</remarks>
+     * Returns a string representation in decimal notation.
+     * Remarks: The result
+     * has at most {@code precision} decimal places.
      **/
     public String toDecimalString(int precision) throws Z3Exception
     {

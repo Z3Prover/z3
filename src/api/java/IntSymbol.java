@@ -25,8 +25,9 @@ import com.microsoft.z3.enumerations.Z3_symbol_kind;
 public class IntSymbol extends Symbol
 {
     /**
-     * The int value of the symbol. <remarks>Throws an exception if the symbol
-     * is not of int kind. </remarks>
+     * The int value of the symbol.
+     * Remarks: Throws an exception if the symbol
+     * is not of int kind. 
      **/
     public int getInt() throws Z3Exception
     {

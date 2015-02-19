@@ -21,8 +21,8 @@ package com.microsoft.z3;
  * Probes are used to inspect a goal (aka problem) and collect information that
  * may be used to decide which solver and/or preprocessing step will be used.
  * The complete list of probes may be obtained using the procedures
- * <code>Context.NumProbes</code> and <code>Context.ProbeNames</code>. It may
- * also be obtained using the command <code>(help-tactics)</code> in the SMT 2.0
+ * {@code Context.NumProbes} and {@code Context.ProbeNames}. It may
+ * also be obtained using the command {@code (help-tactics)} in the SMT 2.0
  * front-end.
  **/
 public class Probe extends Z3Object
@@ -53,13 +53,13 @@ public class Probe extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().probe_DRQ().incAndClear(getContext(), o);
+        getContext().getProbeDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().probe_DRQ().add(o);
+        getContext().getProbeDRQ().add(o);
         super.decRef(o);
     }
 }

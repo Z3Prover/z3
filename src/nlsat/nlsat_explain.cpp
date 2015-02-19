@@ -700,7 +700,7 @@ namespace nlsat {
         void add_root_literal(atom::kind k, var y, unsigned i, poly * p) {
             scoped_mpz c(m_pm.m());
             bool_var b;
-            bool     lsign;
+            bool     lsign = false;
             if (m_pm.degree(p, y) == 1 && m_pm.const_coeff(p, y, 1, c)) {
                 SASSERT(!m_pm.m().is_zero(c));
                 // literal can be expressed using a linear ineq_atom

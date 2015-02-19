@@ -1,6 +1,0 @@
-quote(mli,"
-(**
-   Summary: Return a string describing the given error code.
-*) 
-val get_error_msg: context -> error_code -> string
-");

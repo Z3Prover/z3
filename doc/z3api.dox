@@ -713,39 +713,10 @@ FILE_PATTERNS          = website.dox \
 			 z3_polynomial.h \
 			 z3_rcf.h \
 			 z3_interp.h \
+			 z3_fpa.h \
                          z3++.h \
                          z3py.py \
-                         ApplyResult.cs \
-                         AST.cs \
-                         ASTMap.cs \
-                         ASTVector.cs \
-                         Config.cs \
-                         Constructor.cs \
-                         Context.cs \
-                         DecRefQUeue.cs \
-                         Enumerations.cs \
-                         Expr.cs \
-                         FuncDecl.cs \
-                         FuncInterp.cs \
-                         Goal.cs \
-                         Log.cs \
-                         Model.cs \
-                         Native.cs \
-                         Numeral.cs \
-                         Params.cs \
-                         Pattern.cs \
-                         Probe.cs \
-                         Quantifier.cs \
-                         Solver.cs \
-                         Sort.cs \
-                         Statistics.cs \
-                         Status.cs \
-                         Symbol.cs \
-                         Tactic.cs \
-                         Util.cs \
-                         Version.cs \
-                         Z3Exception.cs \
-                         Z3Object.cs \
+						 *.cs \
                          *.java
 
 # The RECURSIVE tag can be used to turn specify whether or not subdirectories

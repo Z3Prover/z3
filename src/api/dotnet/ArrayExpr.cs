@@ -32,11 +32,6 @@ namespace Microsoft.Z3
     {
         #region Internal
         /// <summary> Constructor for ArrayExpr </summary>
-        internal protected ArrayExpr(Context ctx)
-            : base(ctx)
-        {
-            Contract.Requires(ctx != null);
-        }
         internal ArrayExpr(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {

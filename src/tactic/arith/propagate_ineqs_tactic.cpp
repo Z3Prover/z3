@@ -115,6 +115,7 @@ struct propagate_ineqs_tactic::imp {
                 out << "< oo";
             out << "\n";
         }
+        nm.del(k);
     }
 
     a_var mk_var(expr * t) {
@@ -234,6 +235,7 @@ struct propagate_ineqs_tactic::imp {
             SASSERT(k == GE);
             bp.assert_lower(x, c_prime, strict);
         }
+        nm.del(c_prime);
         return true;
     }
 
@@ -309,6 +311,8 @@ struct propagate_ineqs_tactic::imp {
                     m_new_goal->assert_expr(m_util.mk_le(p, m_util.mk_numeral(rational(u), m_util.is_int(p))));
             }
         }
+        nm.del(l);
+        nm.del(u);
     }
     
     bool is_x_minus_y_eq_0(expr * t, expr * & x, expr * & y) {

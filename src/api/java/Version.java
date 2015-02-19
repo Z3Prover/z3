@@ -18,7 +18,8 @@ Notes:
 package com.microsoft.z3;
 
 /**
- * Version information. <remarks>Note that this class is static.</remarks>
+ * Version information. 
+     * Remarks: Note that this class is static.
  **/
 public class Version
 {

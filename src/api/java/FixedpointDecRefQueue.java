@@ -19,6 +19,16 @@ package com.microsoft.z3;
 
 class FixedpointDecRefQueue extends IDecRefQueue
 {
+    public FixedpointDecRefQueue() 
+    {
+        super();
+    }
+
+    public FixedpointDecRefQueue(int move_limit) 
+    {
+        super(move_limit);
+    }
+
     protected void incRef(Context ctx, long obj)
     {
         try

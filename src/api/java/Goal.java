@@ -26,11 +26,12 @@ import com.microsoft.z3.enumerations.Z3_goal_prec;
 public class Goal extends Z3Object
 {
     /**
-     * The precision of the goal. <remarks> Goals can be transformed using over
+     * The precision of the goal.
+     * Remarks:  Goals can be transformed using over
      * and under approximations. An under approximation is applied when the
      * objective is to find a model for a given goal. An over approximation is
      * applied when the objective is to find a proof for a given goal.
-     * </remarks>
+     * 
      **/
     public Z3_goal_prec getPrecision() throws Z3Exception
     {
@@ -72,7 +73,7 @@ public class Goal extends Z3Object
     }
 
     /**
-     * Adds the <paramref name="constraints"/> to the given goal.
+     * Adds the {@code constraints} to the given goal.
      * 
      * @throws Z3Exception
      **/
@@ -95,8 +96,9 @@ public class Goal extends Z3Object
     }
 
     /**
-     * The depth of the goal. <remarks> This tracks how many transformations
-     * were applied to it. </remarks>
+     * The depth of the goal.
+     * Remarks:  This tracks how many transformations
+     * were applied to it. 
      **/
     public int getDepth() throws Z3Exception
     {
@@ -162,8 +164,7 @@ public class Goal extends Z3Object
     }
 
     /**
-     * Translates (copies) the Goal to the target Context <paramref
-     * name="ctx"/>.
+     * Translates (copies) the Goal to the target Context {@code ctx}.
      * 
      * @throws Z3Exception
      **/
@@ -174,8 +175,9 @@ public class Goal extends Z3Object
     }
 
     /**
-     * Simplifies the goal. <remarks>Essentially invokes the `simplify' tactic
-     * on the goal.</remarks>
+     * Simplifies the goal.
+     * Remarks: Essentially invokes the `simplify' tactic
+     * on the goal.
      **/
     public Goal simplify() throws Z3Exception
     {
@@ -189,8 +191,9 @@ public class Goal extends Z3Object
     }
     
     /**
-     * Simplifies the goal. <remarks>Essentially invokes the `simplify' tactic
-     * on the goal.</remarks>
+     * Simplifies the goal.
+     * Remarks: Essentially invokes the `simplify' tactic
+     * on the goal.
      **/
     public Goal simplify(Params p) throws Z3Exception
     {
@@ -233,13 +236,13 @@ public class Goal extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().goal_DRQ().incAndClear(getContext(), o);
+        getContext().getGoalDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().goal_DRQ().add(o);
+        getContext().getGoalDRQ().add(o);
         super.decRef(o);
     }
 

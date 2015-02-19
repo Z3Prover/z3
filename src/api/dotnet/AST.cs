@@ -213,12 +213,14 @@ namespace Microsoft.Z3
 
         internal class DecRefQueue : IDecRefQueue
         {
-            public override void IncRef(Context ctx, IntPtr obj)
+            public DecRefQueue() : base() { }
+            public DecRefQueue(uint move_limit) : base(move_limit) { }
+            internal override void IncRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_inc_ref(ctx.nCtx, obj);
             }
 
-            public override void DecRef(Context ctx, IntPtr obj)
+            internal override void DecRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_dec_ref(ctx.nCtx, obj);
             }
@@ -227,10 +229,8 @@ namespace Microsoft.Z3
         internal override void IncRef(IntPtr o)
         {            
             // Console.WriteLine("AST IncRef()");
-            if (Context == null)
-                throw new Z3Exception("inc() called on null context");
-            if (o == IntPtr.Zero)
-                throw new Z3Exception("inc() called on null AST");
+            if (Context == null || o == IntPtr.Zero)
+                return;
             Context.AST_DRQ.IncAndClear(Context, o);
             base.IncRef(o);
         }
@@ -238,10 +238,8 @@ namespace Microsoft.Z3
         internal override void DecRef(IntPtr o)
         {
             // Console.WriteLine("AST DecRef()");
-            if (Context == null)
-                throw new Z3Exception("dec() called on null context");
-            if (o == IntPtr.Zero)
-                throw new Z3Exception("dec() called on null AST");
+            if (Context == null || o == IntPtr.Zero)
+                return;
             Context.AST_DRQ.Add(o);
             base.DecRef(o);
         }

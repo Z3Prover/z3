@@ -1041,7 +1041,7 @@ namespace test_mapi
         {
             Console.WriteLine("LogicTest");
 
-            Context.ToggleWarningMessages(true);
+            Microsoft.Z3.Global.ToggleWarningMessages(true);
 
             BitVecSort bvs = ctx.MkBitVecSort(32);
             Expr x = ctx.MkConst("x", bvs);
@@ -2010,6 +2010,47 @@ namespace test_mapi
             }
         }
 
+        /// <summary>
+        /// Extract unsatisfiable core example with AssertAndTrack
+        /// </summary>
+        public static void UnsatCoreAndProofExample2(Context ctx)
+        {
+            Console.WriteLine("UnsatCoreAndProofExample2");
+
+            Solver solver = ctx.MkSolver();
+
+            BoolExpr pa = ctx.MkBoolConst("PredA");
+            BoolExpr pb = ctx.MkBoolConst("PredB");
+            BoolExpr pc = ctx.MkBoolConst("PredC");
+            BoolExpr pd = ctx.MkBoolConst("PredD");
+            
+            BoolExpr f1 = ctx.MkAnd(new BoolExpr[] { pa, pb, pc });
+            BoolExpr f2 = ctx.MkAnd(new BoolExpr[] { pa, ctx.MkNot(pb), pc });
+            BoolExpr f3 = ctx.MkOr(ctx.MkNot(pa), ctx.MkNot(pc));
+            BoolExpr f4 = pd;
+
+            BoolExpr p1 = ctx.MkBoolConst("P1");
+            BoolExpr p2 = ctx.MkBoolConst("P2");
+            BoolExpr p3 = ctx.MkBoolConst("P3");
+            BoolExpr p4 = ctx.MkBoolConst("P4");
+
+            solver.AssertAndTrack(f1, p1);
+            solver.AssertAndTrack(f2, p2);
+            solver.AssertAndTrack(f3, p3);
+            solver.AssertAndTrack(f4, p4);
+            Status result = solver.Check();
+
+            if (result == Status.UNSATISFIABLE)
+            {
+                Console.WriteLine("unsat");                
+                Console.WriteLine("core: ");
+                foreach (Expr c in solver.UnsatCore)
+                {
+                    Console.WriteLine("{0}", c);
+                }
+            }
+        }
+
         public static void FiniteDomainExample(Context ctx)
         {
             Console.WriteLine("FiniteDomainExample");
@@ -2028,11 +2069,89 @@ namespace test_mapi
             // Console.WriteLine("{0}", ctx.MkEq(s1, t1));	    
         }
 
+        public static void FloatingPointExample1(Context ctx)
+        {
+            Console.WriteLine("FloatingPointExample1");
+
+            FPSort s = ctx.MkFPSort(11, 53);
+            Console.WriteLine("Sort: {0}", s);
+
+            FPNum x = (FPNum)ctx.MkNumeral("-1e1", s); /* -1 * 10^1 = -10 */
+            FPNum y = (FPNum)ctx.MkNumeral("-10", s); /* -10 */
+            FPNum z = (FPNum)ctx.MkNumeral("-1.25p3", s); /* -1.25 * 2^3 = -1.25 * 8 = -10 */
+            Console.WriteLine("x={0}; y={1}; z={2}", x.ToString(), y.ToString(), z.ToString());
+
+            BoolExpr a = ctx.MkAnd(ctx.MkFPEq(x, y), ctx.MkFPEq(y, z));
+            Check(ctx, ctx.MkNot(a), Status.UNSATISFIABLE);
+
+            /* nothing is equal to NaN according to floating-point 
+             * equality, so NaN == k should be unsatisfiable. */
+            FPExpr k = (FPExpr)ctx.MkConst("x", s);
+            FPExpr nan = ctx.MkFPNaN(s);
+
+            /* solver that runs the default tactic for QF_FP. */
+            Solver slvr = ctx.MkSolver("QF_FP");
+            slvr.Add(ctx.MkFPEq(nan, k));
+            if (slvr.Check() != Status.UNSATISFIABLE)
+                throw new TestFailedException();
+            Console.WriteLine("OK, unsat:" + Environment.NewLine + slvr);
+
+            /* NaN is equal to NaN according to normal equality. */
+            slvr = ctx.MkSolver("QF_FP");
+            slvr.Add(ctx.MkEq(nan, nan));
+            if (slvr.Check() != Status.SATISFIABLE)
+                throw new TestFailedException();
+            Console.WriteLine("OK, sat:" + Environment.NewLine + slvr);
+
+            /* Let's prove -1e1 * -1.25e3 == +100 */
+            x = (FPNum)ctx.MkNumeral("-1e1", s);
+            y = (FPNum)ctx.MkNumeral("-1.25p3", s);
+            FPExpr x_plus_y = (FPExpr)ctx.MkConst("x_plus_y", s);
+            FPNum r = (FPNum)ctx.MkNumeral("100", s);
+            slvr = ctx.MkSolver("QF_FP");
+
+            slvr.Add(ctx.MkEq(x_plus_y, ctx.MkFPMul(ctx.MkFPRoundNearestTiesToAway(), x, y)));
+            slvr.Add(ctx.MkNot(ctx.MkFPEq(x_plus_y, r)));
+            if (slvr.Check() != Status.UNSATISFIABLE)
+                throw new TestFailedException();
+            Console.WriteLine("OK, unsat:" + Environment.NewLine + slvr);
+        }
+
+        public static void FloatingPointExample2(Context ctx)
+        {
+            Console.WriteLine("FloatingPointExample2");
+            FPSort double_sort = ctx.MkFPSort(11, 53);
+            FPRMSort rm_sort = ctx.MkFPRoundingModeSort();
+
+            FPRMExpr rm = (FPRMExpr)ctx.MkConst(ctx.MkSymbol("rm"), rm_sort);
+            BitVecExpr x = (BitVecExpr)ctx.MkConst(ctx.MkSymbol("x"), ctx.MkBitVecSort(64));
+            FPExpr y = (FPExpr)ctx.MkConst(ctx.MkSymbol("y"), double_sort);            
+            FPExpr fp_val = ctx.MkFP(42, double_sort);
+
+            BoolExpr c1 = ctx.MkEq(y, fp_val);
+            BoolExpr c2 = ctx.MkEq(x, ctx.MkFPToBV(rm, y, 64, false));
+            BoolExpr c3 = ctx.MkEq(x, ctx.MkBV(42, 64));
+            BoolExpr c4 = ctx.MkEq(ctx.MkNumeral(42, ctx.RealSort), ctx.MkFPToReal(fp_val));
+            BoolExpr c5 = ctx.MkAnd(c1, c2, c3, c4);
+            Console.WriteLine("c5 = " + c5);
+
+            /* Generic solver */
+            Solver s = ctx.MkSolver();
+            s.Assert(c5);
+            
+            Console.WriteLine(s);
+
+            if (s.Check() != Status.SATISFIABLE)
+                throw new TestFailedException();
+
+            Console.WriteLine("OK, model: {0}", s.Model.ToString());
+        }
+
         static void Main(string[] args)
         {
             try
             {
-                Context.ToggleWarningMessages(true);
+                Microsoft.Z3.Global.ToggleWarningMessages(true);
                 Log.Open("test.log");
 
                 Console.Write("Z3 Major Version: ");
@@ -2069,6 +2188,8 @@ namespace test_mapi
                     FindSmallModelExample(ctx);
                     SimplifierExample(ctx);
                     FiniteDomainExample(ctx);
+                    FloatingPointExample1(ctx);
+                    FloatingPointExample2(ctx);
                 }
 
                 // These examples need proof generation turned on.
@@ -2084,6 +2205,7 @@ namespace test_mapi
                     TreeExample(ctx);
                     ForestExample(ctx);
                     UnsatCoreAndProofExample(ctx);
+                    UnsatCoreAndProofExample2(ctx);
                 }
 
                 // These examples need proof generation turned on and auto-config set to false.

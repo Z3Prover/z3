@@ -26,27 +26,19 @@ Revision History:
 typedef uint64 mpn_double_digit;
 COMPILE_TIME_ASSERT(sizeof(mpn_double_digit) == 2 * sizeof(mpn_digit));
 
-mpn_manager static_mpn_manager;
-
 const mpn_digit mpn_manager::zero = 0;
 
 mpn_manager::mpn_manager() {
-#ifdef Z3DEBUG
-    trace_enabled=true;
-#endif
+    omp_init_nest_lock(&m_lock);
 }
 
 mpn_manager::~mpn_manager() {
+    omp_destroy_nest_lock(&m_lock);
 }
 
 int mpn_manager::compare(mpn_digit const * a, size_t const lnga, 
                          mpn_digit const * b, size_t const lngb) const {
     int res = 0;
-
-    #ifdef Z3DEBUG
-    if (trace_enabled)
-        STRACE("mpn", tout << "[mpn] "; );
-    #endif
 
     trace(a, lnga);
 
@@ -60,10 +52,7 @@ int mpn_manager::compare(mpn_digit const * a, size_t const lnga,
             res = -1;
     }
 
-    #ifdef Z3DEBUG
-    if (trace_enabled)
-        STRACE("mpn", tout << ((res == 1) ? " > " : (res == -1) ? " < " : " == "); );
-    #endif
+    TRACE("mpn", tout << ((res == 1) ? " > " : (res == -1) ? " < " : " == "); );
     
     trace_nl(b, lngb);
     return res;
@@ -92,7 +81,7 @@ bool mpn_manager::add(mpn_digit const * a, size_t const lnga,
     for (os = len+1; os > 1 && c[os-1] == 0; ) os--;
     SASSERT(os > 0 && os <= len+1);
     trace_nl(c, os);
-    return true; // return k != 0? What would MSBignum return?
+    return true; // return k != 0?
 }
 
 bool mpn_manager::sub(mpn_digit const * a, size_t const lnga,
@@ -164,6 +153,7 @@ bool mpn_manager::div(mpn_digit const * numer, size_t const lnum,
                       mpn_digit const * denom, size_t const lden,
                       mpn_digit * quot,
                       mpn_digit * rem) {
+    MPN_BEGIN_CRITICAL();
     trace(numer, lnum, denom, lden, "/");
     bool res = false;    
 
@@ -172,6 +162,7 @@ bool mpn_manager::div(mpn_digit const * numer, size_t const lnum,
             quot[i] = 0;
         for (size_t i = 0; i < lden; i++)
             rem[i] = (i < lnum) ? numer[i] : 0;
+        MPN_END_CRITICAL();
         return false;
     }
 
@@ -180,8 +171,8 @@ bool mpn_manager::div(mpn_digit const * numer, size_t const lnum,
         if (denom[i] != zero) all_zero = false;
 
     if (all_zero) {
-        // Division by 0. What would the MSBignum divide function do?
         UNREACHABLE();
+        MPN_END_CRITICAL();
         return res;
     }
 
@@ -201,12 +192,12 @@ bool mpn_manager::div(mpn_digit const * numer, size_t const lnum,
         if (lden == 1)
             res = div_1(u, v[0], quot);
         else
-            res = div_n(u, v, quot, rem);
+            res = div_n(u, v, quot, rem, t_ms, t_ab);
         div_unnormalize(u, v, d, rem);    
     }
 
-    // STRACE("mpn_dbg", display_raw(tout, quot, lnum - lden + 1); tout << ", ";
-    //                   display_raw(tout, rem, lden); tout << std::endl; );
+    // TRACE("mpn_dbg", display_raw(tout, quot, lnum - lden + 1); tout << ", ";
+    //                  display_raw(tout, rem, lden); tout << std::endl; );
     trace_nl(quot, lnum-lden+1);
 
     trace(numer, lnum, denom, lden, "%");
@@ -225,6 +216,7 @@ bool mpn_manager::div(mpn_digit const * numer, size_t const lnum,
     SASSERT(ok);
 #endif
 
+    MPN_END_CRITICAL();
     return res;
 }
 
@@ -232,7 +224,7 @@ size_t mpn_manager::div_normalize(mpn_digit const * numer, size_t const lnum,
                                   mpn_digit const * denom, size_t const lden,
                                   mpn_sbuffer & n_numer,
                                   mpn_sbuffer & n_denom) const
-{
+{    
     size_t d = 0;
     while (((denom[lden-1] << d) & MASK_FIRST) == 0) d++;
     SASSERT(d < DIGIT_BITS);
@@ -258,9 +250,8 @@ size_t mpn_manager::div_normalize(mpn_digit const * numer, size_t const lnum,
         n_denom[0] = denom[0] << d;   
     }
 
-    STRACE("mpn_norm", tout << "Normalized: n_numer="; display_raw(tout, n_numer.c_ptr(), n_numer.size()); 
-                       tout << " n_denom="; display_raw(tout, n_denom.c_ptr(), n_denom.size()); tout << std::endl; );
-
+    TRACE("mpn_norm", tout << "Normalized: n_numer="; display_raw(tout, n_numer.c_ptr(), n_numer.size()); 
+                      tout << " n_denom="; display_raw(tout, n_denom.c_ptr(), n_denom.size()); tout << std::endl; );
     return d;
 }
 
@@ -278,8 +269,7 @@ void mpn_manager::div_unnormalize(mpn_sbuffer & numer, mpn_sbuffer & denom,
 }
 
 bool mpn_manager::div_1(mpn_sbuffer & numer, mpn_digit const denom,
-                        mpn_digit * quot) const
-{
+                        mpn_digit * quot) const {
     mpn_double_digit q_hat, temp, r_hat, ms;
     mpn_digit borrow;
 
@@ -300,18 +290,19 @@ bool mpn_manager::div_1(mpn_sbuffer & numer, mpn_digit const denom,
             quot[j-1]--;
             numer[j] = numer[j-1] + denom;
         }
-        STRACE("mpn_div1", tout << "j=" << j << " q_hat=" << q_hat << " r_hat=" << r_hat;
-                           tout << " ms=" << ms;
-                           tout << " new numer="; display_raw(tout, numer.c_ptr(), numer.size());
-                           tout << " borrow=" << borrow;
-                           tout << std::endl; );
+        TRACE("mpn_div1", tout << "j=" << j << " q_hat=" << q_hat << " r_hat=" << r_hat;
+                          tout << " ms=" << ms;
+                          tout << " new numer="; display_raw(tout, numer.c_ptr(), numer.size());
+                          tout << " borrow=" << borrow;
+                          tout << std::endl; );
     }
 
-    return true; // return rem != 0 or something like that?
+    return true; // return rem != 0?
 }
 
 bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
-                        mpn_digit * quot, mpn_digit * rem) {
+                        mpn_digit * quot, mpn_digit * rem,
+                        mpn_sbuffer & ms, mpn_sbuffer & ab) const {
     SASSERT(denom.size() > 1);
 
     // This is essentially Knuth's Algorithm D.
@@ -320,7 +311,7 @@ bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
 
     SASSERT(numer.size() == m+n);
 
-    t_ms.resize(n+1);
+    ms.resize(n+1);
     
     mpn_double_digit q_hat, temp, r_hat;
     mpn_digit borrow;
@@ -340,36 +331,30 @@ bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
         // Replace numer[j+n]...numer[j] with 
         // numer[j+n]...numer[j] - q * (denom[n-1]...denom[0])
         mpn_digit q_hat_small = (mpn_digit)q_hat;
-        #ifdef Z3DEBUG
-        trace_enabled = false;
-        #endif
-        mul(&q_hat_small, 1, denom.c_ptr(), n, t_ms.c_ptr());
-        sub(&numer[j], n+1, t_ms.c_ptr(), n+1, &numer[j], &borrow);
+        mul(&q_hat_small, 1, denom.c_ptr(), n, ms.c_ptr());
+        sub(&numer[j], n+1, ms.c_ptr(), n+1, &numer[j], &borrow);
         quot[j] = q_hat_small;
         if (borrow) {
             quot[j]--;
-            t_ab.resize(n+2);
+            ab.resize(n+2);
             size_t real_size;
-            add(denom.c_ptr(), n, &numer[j], n+1, t_ab.c_ptr(), n+2, &real_size);
+            add(denom.c_ptr(), n, &numer[j], n+1, ab.c_ptr(), n+2, &real_size);
             for (size_t i = 0; i < n+1; i++)
-                numer[j+i] = t_ab[i];
+                numer[j+i] = ab[i];
         }
-        #ifdef Z3DEBUG
-        trace_enabled = true;
-        #endif
-        STRACE("mpn_div", tout << "q_hat=" << q_hat << " r_hat=" << r_hat;
-                          tout << " t_ms="; display_raw(tout, t_ms.c_ptr(), n);
-                          tout << " new numer="; display_raw(tout, numer.c_ptr(), m+n+1);
-                          tout << " borrow=" << borrow;
-                          tout << std::endl; );
+        TRACE("mpn_div", tout << "q_hat=" << q_hat << " r_hat=" << r_hat;
+                         tout << " ms="; display_raw(tout, ms.c_ptr(), n);
+                         tout << " new numer="; display_raw(tout, numer.c_ptr(), m+n+1);
+                         tout << " borrow=" << borrow;
+                         tout << std::endl; );
     }
-
-    return true; // return rem != 0 or something like that?
+    
+    return true; // return rem != 0?
 }
 
 char * mpn_manager::to_string(mpn_digit const * a, size_t const lng, char * buf, size_t const lbuf) const {
     SASSERT(buf && lbuf > 0);    
-    STRACE("mpn_to_string", tout << "[mpn] to_string "; display_raw(tout, a, lng); tout << " == "; );
+    TRACE("mpn_to_string", tout << "[mpn] to_string "; display_raw(tout, a, lng); tout << " == "; );
 
     if (lng == 1) {
 #ifdef _WINDOWS
@@ -402,7 +387,7 @@ char * mpn_manager::to_string(mpn_digit const * a, size_t const lng, char * buf,
             std::swap(buf[i], buf[j-i]);
     }
 
-    STRACE("mpn_to_string", tout << buf << std::endl; );
+    TRACE("mpn_to_string", tout << buf << std::endl; );
 
     return buf;
 }
@@ -417,23 +402,23 @@ void mpn_manager::trace(mpn_digit const * a, size_t const lnga,
                         mpn_digit const * b, size_t const lngb, 
                         const char * op) const {
 #ifdef Z3DEBUG
-    if (trace_enabled)
-        STRACE("mpn", tout << "[mpn] " << to_string(a, lnga, char_buf, sizeof(char_buf));
-                    tout << " " << op << " " << to_string(b, lngb, char_buf, sizeof(char_buf));
-                    tout << " == "; );
+    char char_buf[4096];
+    TRACE("mpn", tout << "[mpn] " << to_string(a, lnga, char_buf, sizeof(char_buf));
+                 tout << " " << op << " " << to_string(b, lngb, char_buf, sizeof(char_buf));
+                 tout << " == "; );
 #endif
 }
 
 void mpn_manager::trace(mpn_digit const * a, size_t const lnga) const {
 #ifdef Z3DEBUG
-    if (trace_enabled)
-        STRACE("mpn", tout << to_string(a, lnga, char_buf, sizeof(char_buf)); );
+    char char_buf[4096];
+    TRACE("mpn", tout << to_string(a, lnga, char_buf, sizeof(char_buf)); );
 #endif
 }
 
 void mpn_manager::trace_nl(mpn_digit const * a, size_t const lnga) const {
 #ifdef Z3DEBUG
-    if (trace_enabled)
-        STRACE("mpn", tout << to_string(a, lnga, char_buf, sizeof(char_buf)) << std::endl; );
+    char char_buf[4096];
+    TRACE("mpn", tout << to_string(a, lnga, char_buf, sizeof(char_buf)) << std::endl; );
 #endif
 }

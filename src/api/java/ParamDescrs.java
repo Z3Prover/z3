@@ -90,13 +90,13 @@ public class ParamDescrs extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().paramDescrs_DRQ().incAndClear(getContext(), o);
+        getContext().getParamDescrsDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().paramDescrs_DRQ().add(o);
+        getContext().getParamDescrsDRQ().add(o);
         super.decRef(o);
     }
 }

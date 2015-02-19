@@ -77,12 +77,12 @@ namespace Duality {
       old_rs = 0;
     }
     ~duality_data(){
-      if(old_rs)
-	dealloc(old_rs);
-      if(rpfp)
-	dealloc(rpfp);
-      if(ls)
-	dealloc(ls);
+        if(old_rs)
+            dealloc(old_rs);
+        if(rpfp)
+            dealloc(rpfp);
+        if(ls)
+            dealloc(ls);
     }
   };
 
@@ -171,16 +171,16 @@ lbool dl_interface::query(::expr * query) {
         query_ref = m_ctx.get_manager().mk_false();
     else {
         func_decl_ref query_pred(m_ctx.get_manager());
-	query_pred = m_ctx.get_rules().get_output_predicate();
-	ptr_vector<sort> sorts;
-	unsigned nargs = query_pred.get()->get_arity();
-	expr_ref_vector vars(m_ctx.get_manager());
-	for(unsigned i = 0; i < nargs; i++){
-	  ::sort *s = query_pred.get()->get_domain(i);
-	  vars.push_back(m_ctx.get_manager().mk_var(nargs-1-i,s));
-	}
-	query_ref = m_ctx.get_manager().mk_app(query_pred.get(),nargs,vars.c_ptr());
-	query = query_ref.get();
+        query_pred = m_ctx.get_rules().get_output_predicate();
+        ptr_vector<sort> sorts;
+        unsigned nargs = query_pred.get()->get_arity();
+        expr_ref_vector vars(m_ctx.get_manager());
+        for(unsigned i = 0; i < nargs; i++){
+          ::sort *s = query_pred.get()->get_domain(i);
+          vars.push_back(m_ctx.get_manager().mk_var(nargs-1-i,s));
+        }
+        query_ref = m_ctx.get_manager().mk_app(query_pred.get(),nargs,vars.c_ptr());
+        query = query_ref.get();
     }
     unsigned nrules = rs.get_num_rules();
     for(unsigned i = 0; i < nrules; i++){
@@ -250,16 +250,16 @@ lbool dl_interface::query(::expr * query) {
 
     while(true){
       if(cl.is_app()){
-	decl_kind k = cl.decl().get_decl_kind();
-	if(k == Implies)
-	  cl = cl.arg(1);
-	else {
-	  heads.insert(cl.decl());
-	  break;
-	}
+            decl_kind k = cl.decl().get_decl_kind();
+            if(k == Implies)
+              cl = cl.arg(1);
+            else {
+              heads.insert(cl.decl());
+              break;
+            }
       }
       else if(cl.is_quantifier())
-	cl = cl.body();
+        cl = cl.body();
       else break;
     }
   }
@@ -268,18 +268,18 @@ lbool dl_interface::query(::expr * query) {
     ::ast *fa = pinned[i];
     if(is_func_decl(fa)){
       ::func_decl *fd = to_func_decl(fa);
-      if(m_ctx.is_predicate(fd)) {
-	func_decl f(_d->ctx,fd);
-	if(!heads.contains(fd)){
-	  int arity = f.arity();
-	  std::vector<expr> args;
-	  for(int j = 0; j < arity; j++)
-	    args.push_back(_d->ctx.fresh_func_decl("X",f.domain(j))());
-	  expr c = implies(_d->ctx.bool_val(false),f(args));
-	  c = _d->ctx.make_quant(Forall,args,c);
-	  clauses.push_back(c);
-	  bounds.push_back(UINT_MAX);
-	}
+      if (m_ctx.is_predicate(fd)) {
+          func_decl f(_d->ctx, fd);
+          if (!heads.contains(fd)) {
+              int arity = f.arity();
+              std::vector<expr> args;
+              for (int j = 0; j < arity; j++)
+                  args.push_back(_d->ctx.fresh_func_decl("X", f.domain(j))());
+              expr c = implies(_d->ctx.bool_val(false), f(args));
+              c = _d->ctx.make_quant(Forall, args, c);
+              clauses.push_back(c);
+              bounds.push_back(UINT_MAX);
+          }
       }
     }
   }
@@ -483,17 +483,17 @@ void dl_interface::display_certificate_non_const(std::ostream& out) {
     model orig_model = _d->cex.get_tree()->dualModel;
     for(unsigned i = 0; i < orig_model.num_consts(); i++){
       func_decl cnst = orig_model.get_const_decl(i);
-      if(locals.find(cnst) == locals.end()){
-	expr thing = orig_model.get_const_interp(cnst);
-	mod.register_decl(to_func_decl(cnst.raw()),to_expr(thing.raw()));
+      if (locals.find(cnst) == locals.end()) {
+          expr thing = orig_model.get_const_interp(cnst);
+          mod.register_decl(to_func_decl(cnst.raw()), to_expr(thing.raw()));
       }
     }
     for(unsigned i = 0; i < orig_model.num_funcs(); i++){
       func_decl cnst = orig_model.get_func_decl(i);
-      if(locals.find(cnst) == locals.end()){
-	func_interp thing = orig_model.get_func_interp(cnst);
-	::func_interp *thing_raw = thing;
-	mod.register_decl(to_func_decl(cnst.raw()),thing_raw->copy());
+      if (locals.find(cnst) == locals.end()) {
+          func_interp thing = orig_model.get_func_interp(cnst);
+          ::func_interp *thing_raw = thing;
+          mod.register_decl(to_func_decl(cnst.raw()), thing_raw->copy());
       }
     }
     model_v2_pp(out,mod);

@@ -645,11 +645,10 @@ namespace smt {
             if (is_store(n)) {
                 theory_var w = n->get_arg(0)->get_th_var(get_id());
                 SASSERT(w != null_theory_var);
-                ast_manager& m = get_manager();
 
                 mg_merge(v, get_representative(w));
                                 
-                TRACE("array", tout << "merge: " << mk_pp(n->get_owner(), m) << " " << v << " " << w << "\n";);
+                TRACE("array", tout << "merge: " << mk_pp(n->get_owner(), get_manager()) << " " << v << " " << w << "\n";);
             }
             else if (is_const(n)) {
                 set_default(v, n->get_arg(0));
