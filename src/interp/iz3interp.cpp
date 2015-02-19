@@ -127,7 +127,7 @@ struct frame_reducer : public iz3mgr {
     for(int i = 0; i < frames-2; i++){
       int p = orig_parents_copy.size() == 0 ? i+1 : orig_parents_copy[i];
       if(p < frames - 1 && !used_frames[p])
-        interpolants[p] = interpolants[i];
+        interpolants[p] = mk_and(interpolants[i],interpolants[p]);
     }
   }
 };
