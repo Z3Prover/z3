@@ -165,7 +165,7 @@ scopes::range scopes::range_glb(const range &rng1, const range &rng2){
 	  return bar.first->second;
 	  //std::pair<hash_set<scopes::range_lo>::iterator,bool> bar = rt->unique.insert(foo);
 	  // const range_lo *baz = &*(bar.first); 
-	  // return (range_lo *)baz; // exit const hell
+	  // return (range_lo *)baz; // coerce const
   }
 
   scopes::range_lo *scopes::range_lub_lo(range_lo *rng1, range_lo *rng2){

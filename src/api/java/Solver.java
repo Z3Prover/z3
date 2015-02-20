@@ -176,9 +176,9 @@ public class Solver extends Z3Object
      **/
     public int getNumAssertions() throws Z3Exception
     {
-        ASTVector ass = new ASTVector(getContext(), Native.solverGetAssertions(
+        ASTVector assrts = new ASTVector(getContext(), Native.solverGetAssertions(
                 getContext().nCtx(), getNativeObject()));
-        return ass.size();
+        return assrts.size();
     }
 
     /**
@@ -188,12 +188,12 @@ public class Solver extends Z3Object
      **/
     public BoolExpr[] getAssertions() throws Z3Exception
     {
-        ASTVector ass = new ASTVector(getContext(), Native.solverGetAssertions(
+        ASTVector assrts = new ASTVector(getContext(), Native.solverGetAssertions(
                 getContext().nCtx(), getNativeObject()));
-        int n = ass.size();
+        int n = assrts.size();
         BoolExpr[] res = new BoolExpr[n];
         for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(getContext(), ass.get(i).getNativeObject());
+            res[i] = new BoolExpr(getContext(), assrts.get(i).getNativeObject());
         return res;
     }
 

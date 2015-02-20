@@ -1131,10 +1131,10 @@ namespace Duality {
           }
           std::vector<expr> *cnsts[2] = { &child->getTerms(), &assumptions->getTerms() };
           for (unsigned i = 0; i < assumps.size(); i++) {
-              expr &ass = assumps[i];
-              expr alit = (ass.is_app() && ass.decl().get_decl_kind() == Implies) ? ass.arg(0) : ass;
+              expr &as = assumps[i];
+              expr alit = (as.is_app() && as.decl().get_decl_kind() == Implies) ? as.arg(0) : as;
               bool isA = map.find(alit) != map.end();
-              cnsts[isA ? 0 : 1]->push_back(ass);
+              cnsts[isA ? 0 : 1]->push_back(as);
           }
       }
       else
@@ -3221,12 +3221,12 @@ done:
     std::vector<expr> assumps, core, conjuncts;
     AssertEdgeCache(edge,assumps);
     for(unsigned i = 0; i < edge->Children.size(); i++){
-      expr ass = GetAnnotation(edge->Children[i]);
+      expr as = GetAnnotation(edge->Children[i]);
       std::vector<expr> clauses;
-      if(!ass.is_true()){
-	CollectConjuncts(ass.arg(1),clauses);
+      if(!as.is_true()){
+	CollectConjuncts(as.arg(1),clauses);
 	for(unsigned j = 0; j < clauses.size(); j++)
-	  GetAssumptionLits(ass.arg(0) || clauses[j],assumps);
+	  GetAssumptionLits(as.arg(0) || clauses[j],assumps);
       }
     }
     expr fmla = GetAnnotation(node);
