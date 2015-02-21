@@ -327,16 +327,20 @@ void array_simplifier_plugin::get_stores(expr* n, unsigned& arity, expr*& m, ptr
 }
 
 lbool array_simplifier_plugin::eq_default(expr* def, unsigned arity, unsigned num_st, expr*const* const* st) {
+    bool all_diseq = m_manager.is_unique_value(def) && num_st > 0;
+    bool all_eq = true;
     for (unsigned i = 0; i < num_st; ++i) {
-        if (st[i][arity] == def) {
-            continue;
-        }
-        if (m_manager.is_unique_value(st[i][arity]) && m_manager.is_unique_value(def)) {
-            return l_false;
-        }
-        return l_undef;
+        all_eq  &= (st[i][arity] == def);
+        all_diseq &= m_manager.is_unique_value(st[i][arity]) && (st[i][arity] != def);
+        TRACE("array_simplifier", tout << m_manager.is_unique_value(st[i][arity]) << " " << mk_pp(st[i][arity], m_manager) << "\n";);
     }
-    return l_true;
+    if (all_eq) {
+        return l_true;
+    }
+    if (all_diseq) {
+        return l_false;
+    }   
+    return l_undef;
 }
 
 bool array_simplifier_plugin::insert_table(expr* def, unsigned arity, unsigned num_st, expr*const* const* st, arg_table& table) {
@@ -346,6 +350,12 @@ bool array_simplifier_plugin::insert_table(expr* def, unsigned arity, unsigned n
                 return false;
             }
         }
+        TRACE("array_simplifier", tout << "inserting: ";
+              for (unsigned j = 0; j < arity; ++j) {
+                  tout << mk_pp(st[i][j], m_manager) << " ";              
+              }
+            tout << " |-> " << mk_pp(def, m_manager) << "\n";
+            );
         args_entry e(arity, st[i]);
         table.insert_if_not_there(e);
     }
@@ -419,7 +429,8 @@ bool array_simplifier_plugin::reduce_eq(expr * lhs, expr * rhs, expr_ref & resul
             lbool eq = eq_stores(c1, arity, st1.size(), st1.c_ptr(), st2.size(), st2.c_ptr());
             TRACE("array_simplifier", 
                   tout << mk_pp(lhs, m_manager) << " = " 
-                  << mk_pp(rhs, m_manager) << " := " << eq << "\n";);
+                  << mk_pp(rhs, m_manager) << " := " << eq << "\n";
+                  tout << "arity: " << arity << "\n";);
             switch(eq) {
             case l_false: 
                 result = m_manager.mk_false(); 
