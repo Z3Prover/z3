@@ -86,6 +86,14 @@ namespace opt {
         m_context.set_logic(logic);
     }
 
+    void opt_solver::ensure_pb() {
+        smt::theory_id th_id = m.get_family_id("pb");
+        smt::theory* th = get_context().get_theory(th_id);               
+        if (!th) {
+            get_context().register_plugin(alloc(smt::theory_pb, m, m_params));
+        }
+    }
+
     smt::theory_opt& opt_solver::get_optimizer() {
         smt::context& ctx = m_context.get_context();                        
         smt::theory_id arith_id = m_context.m().get_family_id("arith");     

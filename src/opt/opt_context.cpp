@@ -327,78 +327,66 @@ namespace opt {
 
     expr_ref context::mk_le(unsigned i, model_ref& mdl) {
         objective const& obj = m_objectives[i];
-        expr_ref val(m), result(m), term(m);
-        mk_term_val(mdl, obj, term, val);
-        switch (obj.m_type) {
-        case O_MINIMIZE:
-            result = mk_ge(term, val);
-            break;
-        case O_MAXSMT:
-            result = mk_ge(term, val);
-            break;
-        case O_MAXIMIZE:
-            result = mk_ge(val, term);
-            break;
-        }
-        return result;
+        return mk_cmp(false, mdl, obj);
     }
     
     expr_ref context::mk_ge(unsigned i, model_ref& mdl) {
         objective const& obj = m_objectives[i];
-        expr_ref val(m), result(m), term(m);
-        mk_term_val(mdl, obj, term, val);
-        switch (obj.m_type) {
-        case O_MINIMIZE:
-            result = mk_ge(val, term);
-            break;
-        case O_MAXSMT:
-            result = mk_ge(val, term);
-            break;
-        case O_MAXIMIZE:
-            result = mk_ge(term, val);
-            break;
-        }
-        return result;
+        return mk_cmp(true, mdl, obj);
     }
+    
     
     expr_ref context::mk_gt(unsigned i, model_ref& mdl) {
         expr_ref result = mk_le(i, mdl);
         result = m.mk_not(result);
         return result;
     }
-    
-    void context::mk_term_val(model_ref& mdl, objective const& obj, expr_ref& term, expr_ref& val) {
-        rational r;
+
+    expr_ref context::mk_cmp(bool is_ge, model_ref& mdl, objective const& obj) {
+        rational k(0);
+        expr_ref val(m), result(m);
         switch (obj.m_type) {
         case O_MINIMIZE:
+            is_ge = !is_ge;
         case O_MAXIMIZE:
-            term = obj.m_term;
-            break;
-        case O_MAXSMT: {
-            unsigned sz = obj.m_terms.size();
-            expr_ref_vector sum(m);
-            expr_ref zero(m);
-            zero = m_arith.mk_numeral(rational(0), false);
-            for (unsigned i = 0; i < sz; ++i) {
-                expr* t = obj.m_terms[i];
-                rational const& w = obj.m_weights[i];
-                sum.push_back(m.mk_ite(t, m_arith.mk_numeral(w, false), zero));                    
-            }
-            if (sum.empty()) {
-                term = zero;
+            VERIFY(mdl->eval(obj.m_term, val) && is_numeral(val, k));
+            if (is_ge) {
+                result = mk_ge(obj.m_term, val);
             }
             else {
-                term = m_arith.mk_add(sum.size(), sum.c_ptr());
-            }                           
+                result = mk_ge(val, obj.m_term);
+            }
+            break;
+        case O_MAXSMT: {
+            m_opt_solver->ensure_pb();
+            pb_util      pb(m);
+            unsigned sz = obj.m_terms.size();
+            ptr_vector<expr> terms;
+            vector<rational> coeffs;
+            for (unsigned i = 0; i < sz; ++i) {
+                terms.push_back(obj.m_terms[i]);
+                coeffs.push_back(obj.m_weights[i]);
+                VERIFY(mdl->eval(obj.m_terms[i], val));
+                if (m.is_true(val)) {
+                    k += obj.m_weights[i];
+                }
+            }
+            if (is_ge) {
+                result = pb.mk_ge(sz, coeffs.c_ptr(), terms.c_ptr(), k);
+            }
+            else {
+                result = pb.mk_le(sz, coeffs.c_ptr(), terms.c_ptr(), k);
+            }
             break;
         }
         }
         TRACE("opt", 
-              model_smt2_pp(tout << "Model:\n", m, *mdl, 0);
-              mdl->eval(term, val); tout << term << " " << val << "\n";);
-        VERIFY(mdl->eval(term, val) && is_numeral(val, r));
-    }        
-
+              tout << (is_ge?">= ":"<= ") << k << "\n";
+              display_objective(tout, obj);
+              tout << "\n";
+              tout << result << "\n";);
+        return result;
+    }    
 
     expr_ref context::mk_ge(expr* t, expr* s) {
         expr_ref result(m);

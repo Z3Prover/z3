@@ -282,7 +282,7 @@ namespace opt {
         // pareto
         void yield();
         expr_ref mk_ge(expr* t, expr* s);
-        void mk_term_val(model_ref& mdl, objective const& obj, expr_ref& term, expr_ref& val);
+        expr_ref mk_cmp(bool is_ge, model_ref& mdl, objective const& obj);
 
     };
 

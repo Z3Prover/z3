@@ -122,6 +122,7 @@ namespace opt {
         bool dump_benchmarks();
 
         smt::context& get_context() { return m_context.get_context(); } // used by weighted maxsat.
+        void ensure_pb();
         
         smt::theory_opt& get_optimizer();
 

@@ -68,7 +68,7 @@ namespace opt {
         fmls.push_back(m.mk_or(gt.size(), gt.c_ptr()));
         fml = m.mk_and(fmls.size(), fmls.c_ptr());
         IF_VERBOSE(10, verbose_stream() << "dominates: " << fml << "\n";);
-        TRACE("opt", tout << fml << "\n";);
+        TRACE("opt", tout << fml << "\n"; model_smt2_pp(tout, m, *m_model, 0););
         m_solver->assert_expr(fml);        
     }
 
