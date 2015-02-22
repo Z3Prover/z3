@@ -21,6 +21,10 @@ Notes:
 #ifndef _Z3__H_
 #define _Z3__H_
 
+#ifdef __GNUC__
+# define Z3_API __attribute__ ((visibility ("default")))
+#endif
+
 #include<stdio.h>
 #include"z3_macros.h"
 #include"z3_api.h"

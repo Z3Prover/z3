@@ -507,7 +507,7 @@ extern "C" {
         return (Z3_ast)(p); 
     }    
 
-    char const * Z3_API Z3_pattern_to_string(Z3_context c, Z3_pattern p) {
+    Z3_API char const * Z3_pattern_to_string(Z3_context c, Z3_pattern p) {
         return Z3_ast_to_string(c, reinterpret_cast<Z3_ast>(p));
     }
     

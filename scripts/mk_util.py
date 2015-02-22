@@ -1782,7 +1782,7 @@ def mk_config():
                 FOCI2 = False
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
-        CXXFLAGS = '%s -c' % CXXFLAGS
+        CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
         HAS_OMP = test_openmp(CXX)
         if HAS_OMP:
             CXXFLAGS = '%s -fopenmp -mfpmath=sse' % CXXFLAGS
