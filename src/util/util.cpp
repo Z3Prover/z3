@@ -19,7 +19,7 @@ Revision History:
 
 #include"util.h"
 
-unsigned g_verbosity_level = 0;
+static unsigned g_verbosity_level = 0;
 
 void set_verbosity_level(unsigned lvl) {
     g_verbosity_level = lvl;
@@ -40,7 +40,7 @@ std::ostream& verbose_stream() {
 }
 
 
-void (*g_fatal_error_handler)(int) = 0;
+static void (*g_fatal_error_handler)(int) = 0;
 
 void fatal_error(int error_code) {
     if (g_fatal_error_handler) {

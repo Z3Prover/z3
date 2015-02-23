@@ -1185,6 +1185,7 @@ void cmd_context::reset(bool finalize) {
     restore_assertions(0);
     if (m_solver)
         m_solver = 0;
+    m_scopes.reset();
     m_pp_env = 0;
     m_dt_eh  = 0;
     if (m_manager) {

@@ -60,7 +60,7 @@ static void throw_out_of_memory() {
 }
 
 #ifdef PROFILE_MEMORY
-unsigned g_synch_counter = 0;
+static unsigned g_synch_counter = 0;
 class mem_usage_report {
 public:
     ~mem_usage_report() { 

@@ -548,12 +548,12 @@ extern "C" {
         }
     }
 
-    char const * Z3_API Z3_get_error_msg(Z3_error_code err) {
+    Z3_API char const * Z3_get_error_msg(Z3_error_code err) {
         LOG_Z3_get_error_msg(err);
         return _get_error_msg_ex(0, err);
     }
 
-    char const * Z3_API Z3_get_error_msg_ex(Z3_context c, Z3_error_code err) {
+    Z3_API char const * Z3_get_error_msg_ex(Z3_context c, Z3_error_code err) {
         LOG_Z3_get_error_msg_ex(c, err);
         return _get_error_msg_ex(c, err);
     }
@@ -577,7 +577,7 @@ extern "C" {
     
 };
 
-ast_manager & Z3_API Z3_get_manager(__in Z3_context c) {
+Z3_API ast_manager& Z3_get_manager(__in Z3_context c) {
     return mk_c(c)->m();
 }
 

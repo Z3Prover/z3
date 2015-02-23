@@ -1782,7 +1782,7 @@ def mk_config():
                 FOCI2 = False
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
-        CXXFLAGS = '%s -c' % CXXFLAGS
+        CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
         HAS_OMP = test_openmp(CXX)
         if HAS_OMP:
             CXXFLAGS = '%s -fopenmp -mfpmath=sse' % CXXFLAGS
@@ -2104,7 +2104,7 @@ def mk_pat_db():
     c = get_component(PATTERN_COMPONENT)
     fin  = open(os.path.join(c.src_dir, 'database.smt2'), 'r')
     fout = open(os.path.join(c.src_dir, 'database.h'), 'w')
-    fout.write('char const * g_pattern_database =\n')
+    fout.write('static char const g_pattern_database[] =\n')
     for line in fin:
         fout.write('"%s\\n"\n' % line.strip('\n'))
     fout.write(';\n')
