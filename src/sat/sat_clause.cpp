@@ -174,7 +174,7 @@ namespace sat {
     }
 
     void clause_allocator::del_clause(clause * cls) {
-        TRACE("sat", tout << "delete: " << cls->id() << " " << cls << "\n";);
+        TRACE("sat", tout << "delete: " << cls->id() << " " << cls << " " << *cls << "\n";);
         m_id_gen.recycle(cls->id());
         size_t size = clause::get_obj_size(cls->m_capacity);
 #ifdef _AMD64_
