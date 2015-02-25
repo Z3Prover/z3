@@ -533,6 +533,9 @@ namespace opt {
             for (unsigned i = 0; i < sz; i++) {
                 quick_for_each_expr(proc, visited, get_solver().get_assertion(i));
             }
+            for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
+                quick_for_each_expr(proc, visited, m_hard_constraints[i].get());
+            }
         }
         catch (is_bv::found) {
             return false;
