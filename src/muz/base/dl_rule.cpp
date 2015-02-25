@@ -884,14 +884,15 @@ namespace datalog {
     struct uninterpreted_function_finder_proc {
         ast_manager& m;
         datatype_util m_dt;
+        dl_decl_util  m_dl;
         bool m_found;
         func_decl* m_func;
         uninterpreted_function_finder_proc(ast_manager& m): 
-            m(m), m_dt(m), m_found(false), m_func(0) {}
+            m(m), m_dt(m), m_dl(m), m_found(false), m_func(0) {}
         void operator()(var * n) { }
         void operator()(quantifier * n) { }
         void operator()(app * n) {
-            if (is_uninterp(n)) {
+            if (is_uninterp(n) && !m_dl.is_rule_sort(n->get_decl()->get_range())) {
                 m_found = true;
                 m_func = n->get_decl();
             }
