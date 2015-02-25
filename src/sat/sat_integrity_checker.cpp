@@ -207,6 +207,24 @@ namespace sat {
         }
         return true;
     }
+
+    bool integrity_checker::check_disjoint_clauses() const {
+        uint_set ids;
+        clause_vector::const_iterator it  = s.m_clauses.begin();
+        clause_vector::const_iterator end = s.m_clauses.end();
+        for (; it != end; ++it) {
+            ids.insert((*it)->id());
+        }
+        it = s.m_learned.begin();
+        end = s.m_learned.end();
+        for (; it != end; ++it) {
+            if (ids.contains((*it)->id())) {
+                TRACE("sat", tout << "Repeated clause: " << (*it)->id() << "\n";);
+                return false;
+            }
+        }
+        return true;
+    }
     
     bool integrity_checker::operator()() const {
         if (s.inconsistent())
@@ -216,6 +234,7 @@ namespace sat {
         SASSERT(check_watches());
         SASSERT(check_bool_vars());
         SASSERT(check_reinit_stack());
+        SASSERT(check_disjoint_clauses());
         return true;
     }
 };
