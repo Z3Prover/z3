@@ -755,7 +755,7 @@ namespace datalog {
 
 
     relation_union_fn * relation_manager::mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta) { 
+            const relation_base * delta) {         
         relation_union_fn * res = tgt.get_plugin().mk_union_fn(tgt, src, delta);
         if(!res && &tgt.get_plugin()!=&src.get_plugin()) {
             res = src.get_plugin().mk_union_fn(tgt, src, delta);
