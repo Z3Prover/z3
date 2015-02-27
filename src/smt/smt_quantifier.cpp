@@ -361,8 +361,8 @@ namespace smt {
             context & ctx        = m_imp->m_context;
             smt_params & p = m_imp->m_params;
             quantifier_manager_plugin * plugin = m_imp->m_plugin->mk_fresh();
-            dealloc(m_imp);
-            m_imp = alloc(imp, *this, ctx, p, plugin);
+            m_imp->~imp();
+            m_imp = new (m_imp) imp(*this, ctx, p, plugin);
             plugin->set_manager(*this);
         }
     }
