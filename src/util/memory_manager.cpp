@@ -173,6 +173,7 @@ void memory::display_i_max_usage(std::ostream & os) {
               << "\n";
 }
 
+#if _DEBUG
 void memory::deallocate(char const * file, int line, void * p) {
     deallocate(p);
     TRACE_CODE(if (!g_finalizing) TRACE("memory", tout << "dealloc " << std::hex << p << std::dec << " " << file << ":" << line << "\n";););
@@ -183,6 +184,7 @@ void * memory::allocate(char const* file, int line, char const* obj, size_t s) {
     TRACE("memory", tout << "alloc " << std::hex << r << std::dec << " " << file << ":" << line << " " << obj << " " << s << "\n";);
     return r;
 }
+#endif
 
 #if defined(_WINDOWS) || defined(_USE_THREAD_LOCAL)
 // ==================================

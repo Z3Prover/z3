@@ -23,6 +23,24 @@ Revision History:
 #include<ostream>
 #include"z3_exception.h"
 
+#ifndef __has_builtin
+# define __has_builtin(x) 0
+#endif
+
+#ifdef __GNUC__
+# if (__GNUC__ * 100 + __GNUC_MINOR__) >= 409 || __has_builtin(returns_nonnull)
+#  define GCC_RET_NON_NULL __attribute__((returns_nonnull))
+# else
+#  define GCC_RET_NON_NULL
+# endif
+# define ALLOC_ATTR __attribute__((malloc)) GCC_RET_NON_NULL
+#elif defined(_WINDOWS)
+# define ALLOC_ATTR __declspec(restrict)
+#else
+# define ALLOC_ATTR
+#endif
+
+
 class out_of_memory_error : public z3_error {
 public:
     out_of_memory_error();
@@ -39,9 +57,11 @@ public:
     static void display_max_usage(std::ostream& os);
     static void display_i_max_usage(std::ostream& os);
     static void deallocate(void* p);
-    static void* allocate(size_t s);
+    static void* allocate(size_t s) ALLOC_ATTR;
+#if _DEBUG
     static void deallocate(char const* file, int line, void* p);
-    static void* allocate(char const* file, int line, char const* obj, size_t s);
+    static void* allocate(char const* file, int line, char const* obj, size_t s) ALLOC_ATTR;
+#endif
     static unsigned long long get_allocation_size();
     static unsigned long long get_max_used_memory();
     // temporary hack to avoid out-of-memory crash in z3.exe
@@ -73,6 +93,9 @@ void dealloc(T * ptr) {
 }
 
 #endif
+
+template<typename T>
+T * alloc_vect(unsigned sz) ALLOC_ATTR;
 
 template<typename T>
 T * alloc_vect(unsigned sz) {
