@@ -34,7 +34,7 @@ Revision History:
 #  define GCC_RET_NON_NULL
 # endif
 # define ALLOC_ATTR __attribute__((malloc)) GCC_RET_NON_NULL
-#elif defined(_WINDOWS)
+#elif defined(_WINDOWS) && (VisualStudioVersion >= 13)
 # define ALLOC_ATTR __declspec(restrict)
 #else
 # define ALLOC_ATTR
