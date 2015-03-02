@@ -34,7 +34,7 @@ Revision History:
 #  define GCC_RET_NON_NULL
 # endif
 # define ALLOC_ATTR __attribute__((malloc)) GCC_RET_NON_NULL
-#elif defined(_WINDOWS) && (VisualStudioVersion >= 13)
+#elif defined(_WINDOWS)
 # define ALLOC_ATTR __declspec(restrict)
 #else
 # define ALLOC_ATTR
@@ -57,10 +57,10 @@ public:
     static void display_max_usage(std::ostream& os);
     static void display_i_max_usage(std::ostream& os);
     static void deallocate(void* p);
-    static void* allocate(size_t s) ALLOC_ATTR;
+    static ALLOC_ATTR void* allocate(size_t s);
 #if _DEBUG
     static void deallocate(char const* file, int line, void* p);
-    static void* allocate(char const* file, int line, char const* obj, size_t s) ALLOC_ATTR;
+    static ALLOC_ATTR void* allocate(char const* file, int line, char const* obj, size_t s);
 #endif
     static unsigned long long get_allocation_size();
     static unsigned long long get_max_used_memory();
@@ -95,7 +95,7 @@ void dealloc(T * ptr) {
 #endif
 
 template<typename T>
-T * alloc_vect(unsigned sz) ALLOC_ATTR;
+ALLOC_ATTR T * alloc_vect(unsigned sz);
 
 template<typename T>
 T * alloc_vect(unsigned sz) {
