@@ -74,6 +74,7 @@ void model::register_decl(func_decl * d, expr * v) {
 
 void model::register_decl(func_decl * d, func_interp * fi) {
     SASSERT(d->get_arity() > 0);
+    SASSERT(&fi->m() == &m_manager);
     decl2finterp::obj_map_entry * entry = m_finterp.insert_if_not_there2(d, 0);
     if (entry->get_data().m_value == 0) {
         // new entry

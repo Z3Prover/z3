@@ -276,8 +276,8 @@ expr * func_interp::get_interp() const {
     return r;
 }
 
-func_interp * func_interp::translate(ast_translation & translator) const {
-    func_interp * new_fi = alloc(func_interp, m_manager, m_arity);
+func_interp * func_interp::translate(ast_translation & translator) const {    
+    func_interp * new_fi = alloc(func_interp, translator.to(), m_arity);
 
     ptr_vector<func_entry>::const_iterator it  = m_entries.begin();
     ptr_vector<func_entry>::const_iterator end = m_entries.end();
