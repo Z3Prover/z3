@@ -1376,6 +1376,7 @@ class MLComponent(Component):
             sub_dir = os.path.join('api', 'ml')
             mk_dir(os.path.join(BUILD_DIR, sub_dir))
             api_src = get_component(API_COMPONENT).to_src_dir
+            out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n') # remove /GL; the ocaml tools don't like it.
             for f in filter(lambda f: f.endswith('.ml'), os.listdir(self.src_dir)):
                 out.write('%s: %s\n' % (os.path.join(sub_dir,f),os.path.join(src_dir,f)))
                 str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(sub_dir,f))
@@ -1412,7 +1413,7 @@ class MLComponent(Component):
                       (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)'), 
                        os.path.join(sub_dir, 'z3native_stubs.c'), 
                        get_component(Z3_DLL_COMPONENT).dll_name+'$(SO_EXT)'));
-            out.write('\t$(CC) $(CXXFLAGS) -I %s -I %s %s $(CXX_OUT_FLAG)%s$(OBJ_EXT)\n' % 
+            out.write('\t$(CC) $(CXXFLAGS_OCAML) -I %s -I %s %s $(CXX_OUT_FLAG)%s$(OBJ_EXT)\n' % 
                       (OCAML_LIB, api_src, os.path.join(sub_dir, 'z3native_stubs.c'), os.path.join(sub_dir, 'z3native_stubs')))
 
             out.write('%s: %s %s %s$(SO_EXT)' % (
