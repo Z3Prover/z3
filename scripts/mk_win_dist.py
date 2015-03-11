@@ -39,7 +39,7 @@ def mk_dir(d):
         os.makedirs(d)
 
 def set_build_dir(path):
-    global BUILD_DIR
+    global BUILD_DIR, BUILD_X86_DIR, BUILD_X64_DIR
     BUILD_DIR = path
     BUILD_X86_DIR = os.path.join(path, 'x86')
     BUILD_X64_DIR = os.path.join(path, 'x64')
