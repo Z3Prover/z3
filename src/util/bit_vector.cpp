@@ -30,6 +30,7 @@ void bit_vector::expand_to(unsigned new_capacity) {
     } else {
         m_data = alloc_svect(unsigned, new_capacity);
     }
+    memset(m_data + m_capacity, 0, (new_capacity - m_capacity) * sizeof(unsigned));
     m_capacity = new_capacity;
 }
 
