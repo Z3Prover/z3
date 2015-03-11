@@ -78,7 +78,7 @@ struct mus::imp {
         expr_ref_vector assumptions(m);
         ptr_vector<expr> core_exprs;
         while (!core.empty()) { 
-            IF_VERBOSE(1, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
+            IF_VERBOSE(2, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
             unsigned cls_id = core.back();
             TRACE("opt", 
                   display_vec(tout << "core:  ", core);
