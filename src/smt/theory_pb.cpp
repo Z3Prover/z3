@@ -1771,7 +1771,7 @@ namespace smt {
         literal lits[2] = { l1, l2 };
         justification* js = 0;
         if (proofs_enabled()) {                                         
-            js = alloc(theory_axiom_justification, get_id(), get_context().get_region(), 2, lits);
+            js = get_context().mk_justification(theory_axiom_justification(get_id(), get_context().get_region(), 2, lits));
         }
         return js;
     }
@@ -1779,7 +1779,7 @@ namespace smt {
     justification* theory_pb::justify(literal_vector const& lits) {
         justification* js = 0;
         if (proofs_enabled()) {                                         
-            js = alloc(theory_lemma_justification, get_id(), get_context(), lits.size(), lits.c_ptr());
+            js = get_context().mk_justification(theory_axiom_justification(get_id(), get_context(), lits.size(), lits.c_ptr()));
         }
         return js;        
     }
