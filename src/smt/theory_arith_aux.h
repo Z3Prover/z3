@@ -1200,7 +1200,8 @@ namespace smt {
             bool_var bv = ctx.mk_bool_var(b);
             ctx.set_var_theory(bv, get_id());
             // ctx.set_enode_flag(bv, true);
-            atom* a = alloc(atom, bv, v, val, A_LOWER);   
+            atom* a = alloc(atom, bv, v, val, A_LOWER);
+            mk_bound_axioms(a);
             m_unassigned_atoms[v]++;
             m_var_occs[v].push_back(a);
             m_atoms.push_back(a);

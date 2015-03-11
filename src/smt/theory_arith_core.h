@@ -74,6 +74,7 @@ namespace smt {
         m_old_value        .push_back(inf_numeral());
         SASSERT(m_var_occs.size() == r);
         m_var_occs         .push_back(atoms());
+        SASSERT(m_var_occs.back().empty());
         m_unassigned_atoms .push_back(0);
         m_var_pos          .push_back(-1);
         m_bounds[0]        .push_back(0);
@@ -91,6 +92,7 @@ namespace smt {
               tout << "#" << n->get_owner_id() << " :=\n" << mk_ll_pp(n->get_owner(), get_manager()) << "\n";
               tout << "is_attached_to_var: " << is_attached_to_var(n) << ", var: " << n->get_th_var(get_id()) << "\n";);
         get_context().attach_th_var(n, this, r);
+        SASSERT(m_var_occs.back().empty());
         return r;
     }
 
@@ -826,7 +828,7 @@ namespace smt {
         }
         inf_numeral const & k1(a1->get_k());
         atom_kind kind1 = a1->get_atom_kind();
-        TRACE("mk_bound_axioms", tout << "making bound axioms for v" << v << " " << kind1 << " " << k1 << " " << a1 << "\n";);
+        TRACE("mk_bound_axioms", display_atom(tout << "making bound axioms for " << a1 << " ", a1, true); tout << "\n";);
         typename atoms::iterator it  = occs.begin();
         typename atoms::iterator end = occs.end();
 
@@ -836,11 +838,11 @@ namespace smt {
             atom * a2 = *it;            
             inf_numeral const & k2(a2->get_k());
             atom_kind kind2 = a2->get_atom_kind();
-            CTRACE("mk_bound_axioms", k1 == k2 && kind1 == kind2, 
-                   display_atom(tout << a1 << " ", a1, true);
-                   display_atom(tout << a2 << " ", a2, true);
-                   tout << &occs << " " << &m_var_occs[v] << "\n";
-                   );
+            TRACE("mk_bound_axioms", display_atom(tout << "compare " << a2 << " ", a2, true); tout << "\n";);
+
+            if (k1 == k2 && kind1 == kind2) {
+                continue;
+            }
 
             SASSERT(k1 != k2 || kind1 != kind2);
             if (kind2 == A_LOWER) {
@@ -2687,12 +2689,12 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_implied_bound(row const & r, unsigned idx, bool is_lower, theory_var v, bound_kind kind, inf_numeral const & k) {
-        atoms & as                       = m_var_occs[v];
+        atoms const & as                 = m_var_occs[v];
         antecedents& ante                = get_antecedents();
         inf_numeral const & epsilon      = get_epsilon(v);
         inf_numeral delta;
-        typename atoms::iterator     it  = as.begin();
-        typename atoms::iterator     end = as.end();
+        typename atoms::const_iterator     it  = as.begin();
+        typename atoms::const_iterator     end = as.end();
         for (; it != end; ++it) {
             atom * a = *it;
             bool_var bv = a->get_bool_var();
@@ -3211,7 +3213,6 @@ namespace smt {
             erase_bv2a(bv);
             SASSERT(m_var_occs[v].back() == a);
             m_var_occs[v].pop_back();
-            TRACE("mk_bound_axioms", tout << a << "\n";);
             dealloc(a);
         }    
         m_atoms.shrink(old_size);
