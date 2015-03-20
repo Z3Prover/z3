@@ -555,8 +555,12 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
         mc = 0;
 }
 
-lbool sls_engine::operator()() {
+lbool sls_engine::operator()() {    
     m_tracker.initialize(m_assertions);
+    m_tracker.reset(m_assertions);
+    if (m_restart_init)
+        m_tracker.randomize(m_assertions);
+
     lbool res = l_undef;
 
     do {
