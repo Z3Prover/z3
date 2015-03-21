@@ -36,6 +36,7 @@ namespace sat {
         bool check_bool_vars() const;
         bool check_watches() const;
         bool check_reinit_stack() const;
+        bool check_disjoint_clauses() const;
         bool operator()() const;
     };
 };

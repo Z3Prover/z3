@@ -25,13 +25,12 @@ Revision History:
 #define MK_MASK(_num_bits_) ((1U << _num_bits_) - 1)
 
 void bit_vector::expand_to(unsigned new_capacity) {
-    unsigned * new_data     = alloc_svect(unsigned, new_capacity);
-    memset(new_data, 0, new_capacity * sizeof(unsigned));
-    if (m_capacity > 0) {
-        memcpy(new_data, m_data, m_capacity * sizeof(unsigned));
-        dealloc_svect(m_data);
+    if (m_data) {
+        m_data = (unsigned*)memory::reallocate(m_data, new_capacity * sizeof(unsigned));
+    } else {
+        m_data = alloc_svect(unsigned, new_capacity);
     }
-    m_data     = new_data;
+    memset(m_data + m_capacity, 0, (new_capacity - m_capacity) * sizeof(unsigned));
     m_capacity = new_capacity;
 }
 

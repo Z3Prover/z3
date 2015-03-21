@@ -46,6 +46,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
 
 void smt_params::updt_params(params_ref const & p) {
     preprocessor_params::updt_params(p);
+    dyn_ack_params::updt_params(p);
     qi_params::updt_params(p);
     theory_arith_params::updt_params(p);
     theory_bv_params::updt_params(p);

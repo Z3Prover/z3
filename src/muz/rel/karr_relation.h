@@ -45,7 +45,7 @@ namespace datalog {
         {}            
         
         virtual bool can_handle_signature(const relation_signature & sig) {
-            return true;
+            return get_manager().get_context().karr();
         }
 
         static symbol get_name() { return symbol("karr_relation"); }

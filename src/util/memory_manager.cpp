@@ -60,7 +60,7 @@ static void throw_out_of_memory() {
 }
 
 #ifdef PROFILE_MEMORY
-unsigned g_synch_counter = 0;
+static unsigned g_synch_counter = 0;
 class mem_usage_report {
 public:
     ~mem_usage_report() { 
@@ -173,6 +173,7 @@ void memory::display_i_max_usage(std::ostream & os) {
               << "\n";
 }
 
+#if _DEBUG
 void memory::deallocate(char const * file, int line, void * p) {
     deallocate(p);
     TRACE_CODE(if (!g_finalizing) TRACE("memory", tout << "dealloc " << std::hex << p << std::dec << " " << file << ":" << line << "\n";););
@@ -183,6 +184,7 @@ void * memory::allocate(char const* file, int line, char const* obj, size_t s) {
     TRACE("memory", tout << "alloc " << std::hex << r << std::dec << " " << file << ":" << line << " " << obj << " " << s << "\n";);
     return r;
 }
+#endif
 
 #if defined(_WINDOWS) || defined(_USE_THREAD_LOCAL)
 // ==================================
@@ -250,6 +252,24 @@ void * memory::allocate(size_t s) {
     return static_cast<size_t*>(r) + 1; // we return a pointer to the location after the extra field
 }
 
+void* memory::reallocate(void *p, size_t s) {
+    size_t *sz_p = reinterpret_cast<size_t*>(p)-1;
+    size_t sz = *sz_p;
+    void *real_p = reinterpret_cast<void*>(sz_p);
+    s = s + sizeof(size_t); // we allocate an extra field!
+
+    g_memory_thread_alloc_size += s - sz;
+    if (g_memory_thread_alloc_size > SYNCH_THRESHOLD) {
+        synchronize_counters(true);
+    }
+
+    void *r = realloc(real_p, s);
+    if (r == 0)
+        throw_out_of_memory();
+    *(static_cast<size_t*>(r)) = s;
+    return static_cast<size_t*>(r) + 1; // we return a pointer to the location after the extra field
+}
+
 #else
 // ==================================
 // ==================================
@@ -285,6 +305,30 @@ void * memory::allocate(size_t s) {
     if (out_of_mem)
         throw_out_of_memory();
     void * r = malloc(s);
+    if (r == 0)
+        throw_out_of_memory();
+    *(static_cast<size_t*>(r)) = s;
+    return static_cast<size_t*>(r) + 1; // we return a pointer to the location after the extra field
+}
+
+void* memory::reallocate(void *p, size_t s) {
+    size_t * sz_p  = reinterpret_cast<size_t*>(p) - 1;
+    size_t sz      = *sz_p;
+    void * real_p  = reinterpret_cast<void*>(sz_p);
+    s = s + sizeof(size_t); // we allocate an extra field!
+    bool out_of_mem = false;
+    #pragma omp critical (z3_memory_manager)
+    {
+        g_memory_alloc_size += s - sz;
+        if (g_memory_alloc_size > g_memory_max_used_size)
+            g_memory_max_used_size = g_memory_alloc_size;
+        if (g_memory_max_size != 0 && g_memory_alloc_size > g_memory_max_size)
+            out_of_mem = true;
+    }
+    if (out_of_mem)
+        throw_out_of_memory();
+
+    void *r = realloc(real_p, s);
     if (r == 0)
         throw_out_of_memory();
     *(static_cast<size_t*>(r)) = s;

@@ -866,6 +866,9 @@ namespace z3 {
         friend expr operator|(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) | b; }
 
         friend expr operator~(expr const & a) { Z3_ast r = Z3_mk_bvnot(a.ctx(), a); return expr(a.ctx(), r); }
+        expr extract(unsigned hi, unsigned lo) const { Z3_ast r = Z3_mk_extract(ctx(), hi, lo, *this); return expr(ctx(), r); }
+        unsigned lo() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 1)); } 
+        unsigned hi() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 0)); } 
 
         /**
            \brief Return a simplified version of this expression.

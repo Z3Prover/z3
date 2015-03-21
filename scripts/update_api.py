@@ -642,6 +642,7 @@ def mk_java():
     java_wrapper.write('#ifdef __cplusplus\n')
     java_wrapper.write('extern "C" {\n')
     java_wrapper.write('#endif\n\n')
+    java_wrapper.write('#ifdef __GNUC__\n#if __GNUC__ >= 4\n#define DLL_VIS __attribute__ ((visibility ("default")))\n#else\n#define DLL_VIS\n#endif\n#else\n#define DLL_VIS\n#endif\n\n')
     java_wrapper.write('#if defined(_M_X64) || defined(_AMD64_)\n\n')
     java_wrapper.write('#define GETLONGAELEMS(T,OLD,NEW)                                   \\\n')
     java_wrapper.write('  T * NEW = (OLD == 0) ? 0 : (T*) jenv->GetLongArrayElements(OLD, NULL);\n')
@@ -688,13 +689,13 @@ def mk_java():
     java_wrapper.write('  // upon errors, but the actual error handling is done by throwing exceptions in the\n')
     java_wrapper.write('  // wrappers below.\n')
     java_wrapper.write('}\n\n')
-    java_wrapper.write('JNIEXPORT void JNICALL Java_%s_Native_setInternalErrorHandler(JNIEnv * jenv, jclass cls, jlong a0)\n' % pkg_str)
+    java_wrapper.write('DLL_VIS JNIEXPORT void JNICALL Java_%s_Native_setInternalErrorHandler(JNIEnv * jenv, jclass cls, jlong a0)\n' % pkg_str)
     java_wrapper.write('{\n')
     java_wrapper.write('  Z3_set_error_handler((Z3_context)a0, Z3JavaErrorHandler);\n')
     java_wrapper.write('}\n\n')
     java_wrapper.write('')
     for name, result, params in _dotnet_decls:
-        java_wrapper.write('JNIEXPORT %s JNICALL Java_%s_Native_INTERNAL%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), pkg_str, java_method_name(name)))
+        java_wrapper.write('DLL_VIS JNIEXPORT %s JNICALL Java_%s_Native_INTERNAL%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), pkg_str, java_method_name(name)))
         i = 0;
         for param in params:
             java_wrapper.write(', ')

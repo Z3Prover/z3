@@ -19,6 +19,8 @@ Revision History:
 #ifndef _DYN_ACK_PARAMS_H_
 #define _DYN_ACK_PARAMS_H_
 
+#include"params.h"
+
 enum dyn_ack_strategy {
     DACK_DISABLED,
     DACK_ROOT, // congruence is the root of the conflict
@@ -34,15 +36,17 @@ struct dyn_ack_params {
     double           m_dack_gc_inv_decay;
 
 public:
-    dyn_ack_params():
+    dyn_ack_params(params_ref const & p = params_ref()) :
         m_dack(DACK_ROOT),
         m_dack_eq(false),
         m_dack_factor(0.1),
         m_dack_threshold(10),
         m_dack_gc(2000), 
         m_dack_gc_inv_decay(0.8) {
+        updt_params(p);
     }
 
+    void updt_params(params_ref const & _p);
 };
 
 

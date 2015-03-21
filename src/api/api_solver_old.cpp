@@ -297,7 +297,7 @@ extern "C" {
         Z3_CATCH;
     }
 
-    char const * Z3_API Z3_context_to_string(Z3_context c) {
+    Z3_API char const * Z3_context_to_string(Z3_context c) {
         Z3_TRY;
         LOG_Z3_context_to_string(c);
         RESET_ERROR_CODE();

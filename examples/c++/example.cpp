@@ -975,6 +975,15 @@ void substitute_example() {
     std::cout << new_f << std::endl;
 }
 
+void extract_example() {
+    std::cout << "extract example\n";
+    context c;
+    expr x(c);
+    x = c.constant("x", c.bv_sort(32));
+    expr y = x.extract(21, 10);
+    std::cout << y << " " << y.hi() << " " << y.lo() << "\n";
+}
+
 int main() {
     try {
         demorgan(); std::cout << "\n";
@@ -1013,6 +1022,7 @@ int main() {
         expr_vector_example(); std::cout << "\n";
         exists_expr_vector_example(); std::cout << "\n";
         substitute_example(); std::cout << "\n";
+        extract_example(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {

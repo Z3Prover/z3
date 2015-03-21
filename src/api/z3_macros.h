@@ -35,7 +35,11 @@
 #endif
 
 #ifndef Z3_API
-#define Z3_API
+# ifdef __GNUC__
+#  define Z3_API __attribute__ ((visibility ("default")))
+# else
+#  define Z3_API
+# endif
 #endif 
 
 #ifndef DEFINE_TYPE

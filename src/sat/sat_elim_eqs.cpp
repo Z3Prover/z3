@@ -128,6 +128,11 @@ namespace sat {
             if (j == 0) {
                 // empty clause
                 m_solver.set_conflict(justification());
+                for (; it != end; ++it) {
+                    *it2 = *it;
+                    it2++;
+                }
+                cs.set_end(it2);
                 return;
             }
             TRACE("elim_eqs", tout << "after removing duplicates: " << c << " j: " << j << "\n";);

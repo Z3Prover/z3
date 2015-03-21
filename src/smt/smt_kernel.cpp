@@ -236,8 +236,8 @@ namespace smt {
         params_ref ps          = m_imp->params();
         #pragma omp critical (smt_kernel)
         {
-            dealloc(m_imp);
-            m_imp = alloc(imp, _m, fps, ps);
+            m_imp->~imp();
+            m_imp = new (m_imp) imp(_m, fps, ps);
         }
     }
 
