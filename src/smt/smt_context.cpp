@@ -3355,7 +3355,7 @@ namespace smt {
             if (m_last_search_failure != OK)
                 return true;
             
-            if (m_timer.ms_timeout(m_fparams.m_soft_timeout)) {
+            if (m_timer.ms_timeout(m_fparams.m_timeout)) {
                 m_last_search_failure = TIMEOUT;
                 return true;
             }
