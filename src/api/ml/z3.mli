@@ -1091,8 +1091,20 @@ sig
   (** The function declarations of the constants in the enumeration. *)
   val get_const_decls : Sort.sort -> FuncDecl.func_decl list
 
+  (** Retrieves the inx'th constant declaration in the enumeration. *)
+  val get_const_decl : Sort.sort -> int -> FuncDecl.func_decl
+
+  (** The constants in the enumeration. *)
+  val get_consts : Sort.sort -> Expr.expr list
+
+  (** Retrieves the inx'th constant in the enumeration. *)
+  val get_const : Sort.sort -> int -> Expr.expr
+
   (** The test predicates for the constants in the enumeration. *)
   val get_tester_decls : Sort.sort -> FuncDecl.func_decl list
+
+  (** Retrieves the inx'th tester/recognizer declaration in the enumeration. *)
+  val get_tester_decl : Sort.sort -> int -> FuncDecl.func_decl
 end
 
 (** Functions to manipulate List expressions *)

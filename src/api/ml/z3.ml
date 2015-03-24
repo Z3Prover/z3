@@ -1390,11 +1390,24 @@ struct
     let f i = (func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_constructor (Sort.gnc x) (Sort.gno x)  i)) in
     mk_list f n
 
+  let get_const_decl ( x : sort ) ( inx : int ) =
+    func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_constructor (Sort.gnc x) (Sort.gno x) inx)
+
+  let get_consts ( x : sort ) =
+    let n = Z3native.get_datatype_sort_num_constructors (Sort.gnc x) (Sort.gno x)  in
+    let f i = (Expr.mk_const_f (Sort.gc x) (get_const_decl x i)) in
+    mk_list f n
+
+  let get_const ( x : sort ) ( inx : int ) =
+    Expr.mk_const_f (Sort.gc x) (get_const_decl x inx)
+
   let get_tester_decls ( x : sort ) = 
     let n = Z3native.get_datatype_sort_num_constructors (Sort.gnc x) (Sort.gno x)  in
-    let f i = (func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_recognizer (Sort.gnc x) (Sort.gno x)  i)) in
+    let f i = (func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_recognizer (Sort.gnc x) (Sort.gno x) i)) in
     mk_list f n
       
+  let get_tester_decl ( x : sort ) ( inx : int ) = 
+    func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_recognizer (Sort.gnc x) (Sort.gno x) inx)
 end
 
 

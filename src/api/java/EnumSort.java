@@ -34,11 +34,20 @@ public class EnumSort extends Sort
             t[i] = new FuncDecl(getContext(), Native.getDatatypeSortConstructor(getContext().nCtx(), getNativeObject(), i));
         return t;
     }
+    
+    /**
+     * Retrieves the inx'th constant declaration in the enumeration.
+     * @throws Z3Exception on error
+     **/
+    public FuncDecl getConstDecl(int inx) throws Z3Exception
+    {
+        return new FuncDecl(getContext(), Native.getDatatypeSortConstructor(getContext().nCtx(), getNativeObject(), inx));
+    }
 
     /**
      * The constants in the enumeration.
      * @throws Z3Exception on error
-     * @return an Expr
+     * @return an Expr[]
      **/
     public Expr[] getConsts() throws Z3Exception
     {        
@@ -47,6 +56,16 @@ public class EnumSort extends Sort
         for (int i = 0; i < t.length; i++)
             t[i] = getContext().mkApp(cds[i]);
         return t;
+    }
+    
+    /**
+     * Retrieves the inx'th constant in the enumeration.
+     * @throws Z3Exception on error
+     * @return an Expr
+     **/
+    public Expr getConst(int inx) throws Z3Exception
+    {        
+    	return getContext().mkApp(getConstDecl(inx));
     }
 
     /**
@@ -60,6 +79,15 @@ public class EnumSort extends Sort
         for (int i = 0; i < n; i++)
             t[i] = new FuncDecl(getContext(), Native.getDatatypeSortRecognizer(getContext().nCtx(), getNativeObject(), i));
         return t;
+    }
+    
+    /**
+     * Retrieves the inx'th tester/recognizer declaration in the enumeration.
+     * @throws Z3Exception on error
+     **/
+    public FuncDecl getTesterDecl(int inx) throws Z3Exception
+    {
+        return new FuncDecl(getContext(), Native.getDatatypeSortRecognizer(getContext().nCtx(), getNativeObject(), inx));
     }
 
     EnumSort(Context ctx, Symbol name, Symbol[] enumNames) throws Z3Exception

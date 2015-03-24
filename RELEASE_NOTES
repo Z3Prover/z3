@@ -11,7 +11,7 @@ Version 4.4
 
 - Upgrade: This release includes a brand new OCaml/ML API that is much better integrated with the build system, and hopefully also easier to use than the previous one.
 
-- Fixed various bugs reported by Marc Brockschmidt, Venkatesh-Prasad Ranganath, Enric Carbonell, Morgan Deters, Tom Ball, Malte Schwerhoff, Amir Ebrahimi, Codeplex users rsas, clockish, Heizmann, susmitj, and Stackoverflow users user297886.
+- Fixed various bugs reported by Marc Brockschmidt, Venkatesh-Prasad Ranganath, Enric Carbonell, Morgan Deters, Tom Ball, Malte Schwerhoff, Amir Ebrahimi, Codeplex users rsas, clockish, Heizmann, susmitj, steimann, and Stackoverflow users user297886.
 
 
 Version 4.3.2
