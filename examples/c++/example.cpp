@@ -1,9 +1,27 @@
 #include<vector>
 #include"z3++.h"
-
+#include<strstream>
 
 using namespace z3;
 
+
+void slow() {
+  context ctx;
+  unsigned sortSize = 200000;
+  char** names = new char*[sortSize];
+  func_decl_vector enum_consts(ctx);
+  func_decl_vector enum_testers(ctx);
+  for (unsigned i = 0; i < sortSize; ++i) {
+    std::stringstream strm;
+    strm << "c" << i;
+    names[i] = strdup(strm.str().c_str());
+  }
+  sort s = ctx.enumeration_sort("enumT", sortSize, names, enum_consts, enum_testers);
+  std::vector<Z3_func_decl> decls;
+  for (unsigned i = 0; i < sortSize; ++i) {
+    decls.push_back(Z3_get_datatype_sort_constructor(ctx, s, i));
+  }
+}
 
 /**
    Demonstration of how Z3 can be used to prove validity of
@@ -986,6 +1004,8 @@ void extract_example() {
 }
 
 int main() {
+  slow();
+  return 0;
     try {
         demorgan(); std::cout << "\n";
         find_model_example1(); std::cout << "\n";
