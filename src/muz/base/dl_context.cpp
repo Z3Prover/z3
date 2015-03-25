@@ -226,6 +226,7 @@ namespace datalog {
         m_engine(0),
         m_closed(false),
         m_saturation_was_run(false),
+        m_enable_bind_variables(true),
         m_last_status(OK),
         m_last_answer(m),
         m_engine_type(LAST_ENGINE),
@@ -328,7 +329,12 @@ namespace datalog {
     }
 
     expr_ref context::bind_vars(expr* fml, bool is_forall) {
-        return m_bind_variables(fml, is_forall);
+        if (m_enable_bind_variables) {
+            return m_bind_variables(fml, is_forall);
+        }
+        else {
+            return expr_ref(fml, m);
+        }
     }
 
     void context::register_predicate(func_decl * decl, bool named) {
@@ -680,6 +686,7 @@ namespace datalog {
     }
 
     void context::transform_rules(rule_transformer::plugin* plugin) {
+        flet<bool> _enable_bv(m_enable_bind_variables, false);
         rule_transformer transformer(*this);
         transformer.register_plugin(plugin);
         transform_rules(transformer);
@@ -841,13 +848,6 @@ namespace datalog {
     }
 
     lbool context::query(expr* query) {
-#if 0
-        // TODO: what?
-        if(get_engine() != DUALITY_ENGINE) {
-          new_query();
-          check_rules(m_rule_set);	       
-        }   
-#endif
         m_mc = mk_skip_model_converter();
         m_last_status = OK;
         m_last_answer = 0;
@@ -990,7 +990,6 @@ namespace datalog {
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
 	    expr_ref r = bind_vars(m_rule_fmls[i].get(), true);
 	    rules.push_back(r.get());
-	    //            rules.push_back(m_rule_fmls[i].get());
 	    names.push_back(m_rule_names[i]);
 	    bounds.push_back(m_rule_bounds[i]);
         }

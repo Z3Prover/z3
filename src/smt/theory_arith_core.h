@@ -1376,6 +1376,9 @@ namespace smt {
             failed();
             return false;
         }
+        if (get_context().get_cancel_flag()) {
+            return true;
+        }
         CASSERT("arith", satisfy_bounds());
         discard_update_trail();
 
@@ -2145,6 +2148,9 @@ namespace smt {
                 return false;
             }
             TRACE("arith_make_feasible_detail", display(tout););
+            if (get_context().get_cancel_flag()) {
+                return true;
+            }
         }
         TRACE("arith_make_feasible", tout << "make_feasible: sat\n"; display(tout););
         CASSERT("arith", wf_rows());

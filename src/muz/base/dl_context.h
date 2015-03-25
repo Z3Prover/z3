@@ -205,6 +205,7 @@ namespace datalog {
 
         bool               m_closed;
         bool               m_saturation_was_run;
+        bool               m_enable_bind_variables;
         execution_result   m_last_status;
         expr_ref           m_last_answer;
         DL_ENGINE          m_engine_type;
@@ -293,6 +294,8 @@ namespace datalog {
           quantifier.
          */
         expr_ref bind_vars(expr* fml, bool is_forall);
+
+        bool& bind_vars_enabled() { return m_enable_bind_variables; }
 
         /**
            Register datalog relation.

@@ -266,11 +266,13 @@ namespace datalog {
             }
             else {
                 m_rewriter(e, tmp);
-                change = change || (tmp != e);
                 new_conjs.push_back(tmp);
             }
         }
-        
+        if (!inserted) {
+            rules.add_rule(&r);
+            return false;        
+        }
         expr_ref fml1(m), fml2(m), body(m), head(m);
         body = m.mk_and(new_conjs.size(), new_conjs.c_ptr());
         head = r.get_head();
@@ -278,8 +280,8 @@ namespace datalog {
         m_rewriter(body);
         sub(head);
         m_rewriter(head);
-        change = ackermanize(r, body, head) || change;
-        if (!inserted && !change) {
+        change = ackermanize(r, body, head);
+        if (!change) {
             rules.add_rule(&r);
             return false;
         }
@@ -287,6 +289,7 @@ namespace datalog {
         fml2 = m.mk_implies(body, head);
         proof_ref p(m);
         rule_set new_rules(m_ctx);
+        TRACE("dl", tout << fml2 << "\n";);
         rm.mk_rule(fml2, p, new_rules, r.name());
         
 

@@ -729,6 +729,7 @@ namespace pdr {
         obj_map<expr, unsigned>::iterator it  = other.m_prop2level.begin();
         obj_map<expr, unsigned>::iterator end = other.m_prop2level.end();        
         for (; it != end; ++it) {
+            IF_VERBOSE(2, verbose_stream() << "(pdr-inherit: " << mk_pp(it->m_key, m) << ")\n";);
             add_property(it->m_key, it->m_value);
         }
     }
