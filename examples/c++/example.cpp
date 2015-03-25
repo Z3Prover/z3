@@ -987,8 +987,6 @@ void extract_example() {
 }
 
 int main() {
-  slow();
-  return 0;
 
     try {
         demorgan(); std::cout << "\n";
