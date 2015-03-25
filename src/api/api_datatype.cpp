@@ -475,12 +475,12 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        unsigned n = dt_util.get_datatype_num_constructors(_t);        
-        if (idx >= n) {
+        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
+        if (idx >= decls->size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        func_decl* decl = dt_util.get_constructor(_t, idx);
+        func_decl* decl = (*decls)[idx];
         mk_c(c)->save_ast_trail(decl);
         return of_func_decl(decl);
     }
@@ -505,12 +505,12 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        unsigned n = dt_util.get_datatype_num_constructors(_t);
-        if (idx >= n) {
+        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
+        if (idx >= decls->size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        func_decl* decl = dt_util.get_constructor(_t, idx);
+        func_decl* decl = (*decls)[idx];
         decl = dt_util.get_constructor_recognizer(decl);
         mk_c(c)->save_ast_trail(decl);
         RETURN_Z3(of_func_decl(decl));
@@ -528,12 +528,12 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);            
         }
-        unsigned n = dt_util.get_datatype_num_constructors(_t);
-        if (idx_c >= n) {
+        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
+        if (idx_c >= decls->size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        func_decl* decl = dt_util.get_constructor(_t, idx_c);
+        func_decl* decl = (*decls)[idx_c];
         if (decl->get_arity() <= idx_a) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);                        

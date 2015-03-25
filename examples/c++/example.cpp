@@ -5,6 +5,7 @@ using namespace z3;
 
 
 
+
 /**
    Demonstration of how Z3 can be used to prove validity of
    De Morgan's Duality Law: {e not(x and y) <-> (not x) or ( not y) }
@@ -986,6 +987,9 @@ void extract_example() {
 }
 
 int main() {
+  slow();
+  return 0;
+
     try {
         demorgan(); std::cout << "\n";
         find_model_example1(); std::cout << "\n";
