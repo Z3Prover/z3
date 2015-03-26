@@ -1878,6 +1878,7 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
     else if (num == 2 &&
              m_bv_util.is_bv(args[0]) &&
              m_bv_util.get_bv_size(args[0]) == 3 &&
+             m_arith_util.is_int(args[1]) || 
              m_arith_util.is_real(args[1])) {
         // rm + real -> float
         mk_to_fp_real(f, f->get_range(), args[0], args[1], result);
@@ -2066,7 +2067,7 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
     TRACE("fpa2bv_to_fp_real", tout << "rm: " << mk_ismt2_pp(rm, m) << std::endl << 
                                     "x: " << mk_ismt2_pp(x, m) << std::endl;);
     SASSERT(m_util.is_float(s));
-    SASSERT(au().is_real(x));
+    SASSERT(au().is_real(x) || au().is_int(x));
 
     unsigned ebits = m_util.get_ebits(s);
     unsigned sbits = m_util.get_sbits(s);
@@ -2089,7 +2090,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         }
 
         rational q;
-        m_util.au().is_numeral(x, q);
+        bool is_int;
+        m_util.au().is_numeral(x, q, is_int);
 
         scoped_mpf v(m_mpf_manager);
         m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
