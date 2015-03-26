@@ -8,7 +8,7 @@ Z3 can be built using Visual Studio Command Prompt and make/g++.
    cd build
    nmake
 
-2) Building Z3 using make/g++ and Python
+2) Building Z3 using make/g++ and Python2
 Execute:
 
    python scripts/mk_make.py
