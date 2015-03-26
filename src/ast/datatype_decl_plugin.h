@@ -170,6 +170,7 @@ class datatype_util {
     ptr_vector<ptr_vector<func_decl> >          m_vectors;
     
     func_decl * get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
+    func_decl * get_constructor(sort * ty, unsigned c_id);
 
 public:
     datatype_util(ast_manager & m);
@@ -202,7 +203,6 @@ public:
     void reset();
     void display_datatype(sort *s, std::ostream& strm);
 
-    func_decl * get_constructor(sort * ty, unsigned c_id);
 };
 
 #endif /* _DATATYPE_DECL_PLUGIN_H_ */

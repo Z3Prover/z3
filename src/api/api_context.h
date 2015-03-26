@@ -58,6 +58,7 @@ namespace api {
         bv_util                    m_bv_util;
         datalog::dl_decl_util      m_datalog_util;
         fpa_util                   m_fpa_util;
+	datatype_util              m_dtutil;
 
         // Support for old solver API
         smt_params                 m_fparams;
@@ -119,6 +120,7 @@ namespace api {
         bv_util & bvutil() { return m_bv_util; }
         datalog::dl_decl_util & datalog_util() { return m_datalog_util; }
         fpa_util & fpautil() { return m_fpa_util; }
+	datatype_util& dtutil() { return m_dtutil; }
         family_id get_basic_fid() const { return m_basic_fid; }
         family_id get_array_fid() const { return m_array_fid; }
         family_id get_arith_fid() const { return m_arith_fid; }
