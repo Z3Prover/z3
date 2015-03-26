@@ -1,6 +1,5 @@
 Z3 is a theorem prover from Microsoft Research.
-Z3 is licensed under MSR-LA (Microsoft Research License Agreement). 
-See http://z3.codeplex.com/license for more information about this license.
+Z3 is licensed under the MIT license. 
 Z3 can be built using Visual Studio Command Prompt and make/g++.
 
 1) Building Z3 on Windows using Visual Studio Command Prompt
