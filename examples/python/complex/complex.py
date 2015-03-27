@@ -66,7 +66,7 @@ class ComplexExpr:
         return Not(self.__eq__(other))
 
     def __pow__(self, k):
-        
+        return reduce(lambda x, y: x * y, [self for _ in xrange(k)], ComplexExpr(1, 0))
 
     def simplify(self):
         return ComplexExpr(simplify(self.r), simplify(self.i))
@@ -107,4 +107,4 @@ print(s.model())
 s.add(x.i != 1)
 print(s.check())
 # print(s.model())
-print (3 + I)^2/(5 - I)
+print((3 + I) ** 2 / (5 - I))
