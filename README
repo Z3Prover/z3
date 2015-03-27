@@ -9,7 +9,7 @@ It relies on Python2 for configuring build scripts.
    cd build
    nmake
 
-2) Building Z3 using make/g++ and Python
+2) Building Z3 using make/g++ and Python2
 Execute:
 
    python scripts/mk_make.py
