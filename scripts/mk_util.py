@@ -565,7 +565,7 @@ def parse_options():
             if not IS_WINDOWS:
                 raise MKException('x64 compilation mode can only be specified when using Visual Studio')
             VS_X64 = True
-	elif opt in ('--x86'):
+        elif opt in ('--x86'):
             LINUX_X64=False
         elif opt in ('-h', '--help'):
             display_help(0)
