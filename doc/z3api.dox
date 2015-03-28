@@ -1567,7 +1567,7 @@ PREDEFINED             = Z3_ast_opt:=Z3_ast \
                          Z3_bool_opt:=Z3_bool \
                          Z3_func_interp_opt:=Z3_func_interp \
                          Z3_model_opt:=Z3_model \
-                         __out_opt:=__out
+                         Z3_out_opt:=Z3_out
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then
 # this tag can be used to specify a list of macro names that should be expanded.
