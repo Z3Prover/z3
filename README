@@ -1,7 +1,6 @@
 Z3 is a theorem prover from Microsoft Research.
 Z3 is licensed under the MIT license. 
 Z3 can be built using Visual Studio Command Prompt and make/g++.
-It relies on Python2 for configuring build scripts.
 
 1) Building Z3 on Windows using Visual Studio Command Prompt
    
