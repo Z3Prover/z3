@@ -1837,7 +1837,10 @@ void fpa2bv_converter::mk_is_subnormal(func_decl * f, unsigned num, expr * const
 
 void fpa2bv_converter::mk_is_negative(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 1);
-    mk_is_neg(args[0], result);
+    expr_ref t1(m), t2(m);
+    mk_is_nan(args[0], t1);
+    mk_is_neg(args[0], t2);
+    result = m.mk_and(m.mk_not(t1), t2);
     TRACE("fpa2bv_is_negative", tout << "result = " << mk_ismt2_pp(result, m) << std::endl;);
 }
 
