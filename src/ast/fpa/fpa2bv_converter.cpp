@@ -2107,6 +2107,64 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
         mk_fp(sgn, e, s, result);
     }
+    else if (m_util.au().is_numeral(x)) {
+        rational q;
+        bool is_int;
+        m_util.au().is_numeral(x, q, is_int);
+
+        expr_ref rm_nta(m), rm_nte(m), rm_tp(m), rm_tn(m), rm_tz(m);
+        mk_is_rm(rm, BV_RM_TIES_TO_AWAY, rm_nta);
+        mk_is_rm(rm, BV_RM_TIES_TO_EVEN, rm_nte);
+        mk_is_rm(rm, BV_RM_TO_POSITIVE, rm_tp);
+        mk_is_rm(rm, BV_RM_TO_NEGATIVE, rm_tn);
+        mk_is_rm(rm, BV_RM_TO_ZERO, rm_tz);        
+
+        scoped_mpf v_nta(m_mpf_manager), v_nte(m_mpf_manager), v_tp(m_mpf_manager);
+        scoped_mpf v_tn(m_mpf_manager), v_tz(m_mpf_manager);
+        m_util.fm().set(v_nta, ebits, sbits, MPF_ROUND_NEAREST_TAWAY, q.to_mpq());
+        m_util.fm().set(v_nte, ebits, sbits, MPF_ROUND_NEAREST_TEVEN, q.to_mpq());
+        m_util.fm().set(v_tp, ebits, sbits, MPF_ROUND_TOWARD_POSITIVE, q.to_mpq());
+        m_util.fm().set(v_tn, ebits, sbits, MPF_ROUND_TOWARD_NEGATIVE, q.to_mpq());
+        m_util.fm().set(v_tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, q.to_mpq());
+
+        expr_ref v1(m), v2(m), v3(m), v4(m);
+
+        expr_ref sgn(m), s(m), e(m), unbiased_exp(m);
+        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_nta)) ? 1 : 0, 1);
+        s = m_bv_util.mk_numeral(m_util.fm().sig(v_nta), sbits - 1);
+        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_nta), ebits);
+        mk_bias(unbiased_exp, e);
+        mk_fp(sgn, e, s, v1);
+
+        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_nte)) ? 1 : 0, 1);
+        s = m_bv_util.mk_numeral(m_util.fm().sig(v_nte), sbits - 1);
+        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_nte), ebits);
+        mk_bias(unbiased_exp, e);
+        mk_fp(sgn, e, s, v2);
+
+        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tp)) ? 1 : 0, 1);
+        s = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
+        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tp), ebits);
+        mk_bias(unbiased_exp, e);
+        mk_fp(sgn, e, s, v3);
+
+        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tn)) ? 1 : 0, 1);
+        s = m_bv_util.mk_numeral(m_util.fm().sig(v_tn), sbits - 1);
+        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tn), ebits);
+        mk_bias(unbiased_exp, e);
+        mk_fp(sgn, e, s, v4);
+
+        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tp)) ? 1 : 0, 1);
+        s = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
+        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tp), ebits);
+        mk_bias(unbiased_exp, e);
+        
+        mk_fp(sgn, e, s, result);        
+        mk_ite(rm_tn, v4, result, result);
+        mk_ite(rm_tp, v3, result, result);
+        mk_ite(rm_nte, v2, result, result);
+        mk_ite(rm_nta, v1, result, result);
+    }
     else {        
         bv_util & bu = m_bv_util;
         arith_util & au = m_arith_util;
