@@ -2952,11 +2952,16 @@ void fpa2bv_converter::mk_is_pzero(expr * e, expr_ref & result) {
 }
 
 void fpa2bv_converter::mk_is_denormal(expr * e, expr_ref & result) {
-    expr * sgn, * sig, * exp;
+    expr * sgn, *sig, *exp;
     split_fp(e, sgn, exp, sig);
-    expr_ref zero(m);
+
+    expr_ref zero(m), zexp(m), is_zero(m), n_is_zero(m);
     zero = m_bv_util.mk_numeral(0, m_bv_util.get_bv_size(exp));
     m_simp.mk_eq(exp, zero, result);
+    m_simp.mk_eq(exp, zero, zexp);
+    mk_is_zero(e, is_zero);
+    m_simp.mk_not(is_zero, n_is_zero);
+    m_simp.mk_and(n_is_zero, zexp, result);
 }
 
 void fpa2bv_converter::mk_is_normal(expr * e, expr_ref & result) {    
