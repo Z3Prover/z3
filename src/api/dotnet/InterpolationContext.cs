@@ -13,7 +13,7 @@ namespace Microsoft.Z3
     /// <remarks>For more information on interpolation please refer
     /// too the C/C++ API, which is well documented.</remarks>
     [ContractVerification(true)]
-    class InterpolationContext : Context
+    public class InterpolationContext : Context
     {
 
         /// <summary>
