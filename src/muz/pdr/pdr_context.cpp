@@ -622,14 +622,14 @@ namespace pdr {
             m_rule2transition.insert(&rule, fml.get());
             rules.push_back(&rule);
         }
-        m_rule2inst.insert(&rule,&var_reprs);
+        m_rule2inst.insert(&rule, &var_reprs);
         m_rule2vars.insert(&rule, aux_vars);
         TRACE("pdr", 
               tout << rule.get_decl()->get_name() << "\n";
               for (unsigned i = 0; i < var_reprs.size(); ++i) {
                   tout << mk_pp(var_reprs[i].get(), m) << " ";
               }
-              tout << "\n";);
+              if (!var_reprs.empty()) tout << "\n";);
     }
 
     bool pred_transformer::check_filled(app_ref_vector const& v) const {
@@ -742,9 +742,26 @@ namespace pdr {
         m_closed = true; 
     }
 
-    void model_node::reopen() {
+    void model_node::set_open() {
         SASSERT(m_closed);
         m_closed = false;
+        model_node* p = parent();
+        while (p && p->is_closed()) {
+            p->m_closed = false;
+            p = p->parent();
+        }
+    }
+
+    void model_node::check_pre_closed() {
+        for (unsigned i = 0; i < children().size(); ++i) {
+            if (children()[i]->is_open()) return;
+        }
+        set_pre_closed();
+        model_node* p = parent();
+        while (p && p->is_1closed()) {
+            p->set_pre_closed();
+            p = p->parent();
+        }
     }
 
     static bool is_ini(datalog::rule const& r) {
@@ -852,22 +869,66 @@ namespace pdr {
     }
 
 
+    void model_node::dequeue(model_node*& root) {
+        TRACE("pdr", tout << this << " " << state() << "\n";);
+        if (!m_next && !m_prev) return;
+        SASSERT(m_next);
+        SASSERT(m_prev);
+        SASSERT(children().empty());
+        if (this == m_next) {
+            SASSERT(root == this);
+            root = 0;
+        }
+        else {
+            m_next->m_prev = m_prev;
+            m_prev->m_next = m_next;
+            if (this == root) {
+                root = m_next;
+            }
+        }
+        TRACE("pdr", tout << "new root: " << root << "\n";);
+        m_prev = 0;
+        m_next = 0;
+    }
+
+
+    void model_node::enqueue(model_node* n) {
+        TRACE("pdr", tout << n << " " << n->state() << "\n";);
+        SASSERT(!n->m_next);
+        SASSERT(!n->m_prev);
+        if (this == n) {
+            m_next = n;
+            m_prev = n;
+        }
+        else {
+            n->m_next = m_next;
+            m_next->m_prev = n;
+            m_next = n;
+            n->m_prev = this;
+        }
+    }
     // ----------------
     // model_search
 
+    /**
+       \brief Dequeue the next goal.
+     */
     model_node* model_search::next() {
-        if (m_leaves.empty()) {
+        if (!m_goal) {
             return 0;
         }
-        model_node* result = m_leaves.back();
-        m_leaves.pop_back();
-        return result;
+        else {
+            model_node* result = m_goal;
+            result->dequeue(m_goal);
+            return result;
+        }
     }
 
     bool model_search::is_repeated(model_node& n) const {
         model_node* p = n.parent();
         while (p) {
             if (p->state() == n.state()) {
+                TRACE("pdr", tout << "repeated\n";);
                 return true;
             }
             p = p->parent();
@@ -876,10 +937,15 @@ namespace pdr {
     }
 
     void model_search::add_leaf(model_node& n) {
+        SASSERT(n.children().empty());
         model_nodes ns;
         model_nodes& nodes = cache(n).insert_if_not_there2(n.state(), ns)->get_data().m_value;
+        if (nodes.contains(&n)) {
+            return;
+        }
         nodes.push_back(&n);
-        if (nodes.size() == 1 || is_repeated(n)) {
+        TRACE("pdr_verbose", tout << "add: " << n.level() << ": " << &n << " " << n.state() << "\n";);
+        if (nodes.size() == 1) {
             set_leaf(n);
         }
         else {
@@ -890,15 +956,21 @@ namespace pdr {
     void model_search::set_leaf(model_node& n) {
         erase_children(n, true);
         SASSERT(n.is_open());      
-        enqueue_leaf(n);
+        enqueue_leaf(&n);
     }
 
-    void model_search::enqueue_leaf(model_node& n) {
-        if (m_bfs) {
-            m_leaves.push_front(&n);
+    void model_search::enqueue_leaf(model_node* n) {
+        TRACE("pdr_verbose", tout << n << " " << n->state() << " goal: " << m_goal << "\n";);
+        SASSERT(n->is_open());        
+        if (!m_goal) {
+            m_goal = n;
+            m_goal->enqueue(n);
+        }
+        else if (m_bfs) {
+            m_goal->enqueue(n);
         }
         else {
-            m_leaves.push_back(&n);
+            m_goal->next()->enqueue(n);
         }
     }
 
@@ -921,56 +993,132 @@ namespace pdr {
     void model_search::erase_children(model_node& n, bool backtrack) {
         ptr_vector<model_node> todo, nodes;
         todo.append(n.children());
-        erase_leaf(n);
+        remove_goal(n);
         n.reset();
         while (!todo.empty()) {
             model_node* m = todo.back();
             todo.pop_back();
             nodes.push_back(m);
             todo.append(m->children());
-            erase_leaf(*m);
             remove_node(*m, backtrack);
         }
         std::for_each(nodes.begin(), nodes.end(), delete_proc<model_node>());
     }
 
     void model_search::remove_node(model_node& n, bool backtrack) {
+        TRACE("pdr_verbose", tout << "remove: " << n.level() << ": " << &n << " " << n.state() << "\n";);
         model_nodes& nodes = cache(n).find(n.state());
         nodes.erase(&n);
-        if (nodes.size() > 0 && n.is_open() && backtrack) {
-            for (unsigned i = 0; i < nodes.size(); ++i) {
-                nodes[i]->reopen();
-            }
+        bool is_goal = n.is_goal();
+        remove_goal(n);
+        if (!nodes.empty() && is_goal && backtrack) {
+            TRACE("pdr_verbose", for (unsigned i = 0; i < nodes.size(); ++i) n.display(tout << &n << "\n", 2););
+            model_node* n1 = nodes[0];
+            n1->set_open();
+            SASSERT(n1->children().empty());
+            enqueue_leaf(n1);
         }
         if (nodes.empty()) {            
             cache(n).remove(n.state());
         }
     }
 
-    void model_search::erase_leaf(model_node& n) {
-        if (n.children().empty() && n.is_open()) {
-            std::deque<model_node*>::iterator 
-                it  = m_leaves.begin(), 
-                end = m_leaves.end();
-            for (; it != end; ++it) {
-                if (*it == &n) {
-                    m_leaves.erase(it);
-                    break;
+    void model_search::remove_goal(model_node& n) {
+        n.dequeue(m_goal);        
+    }
+
+    void model_search::well_formed() {
+        // each open leaf is in the set of m_goal.
+        ptr_vector<model_node> nodes;
+        nodes.push_back(&get_root());
+        for (unsigned i = 0; i < nodes.size(); ++i) {
+            model_node* n = nodes[i];
+            if (!n->children().empty()) {
+                nodes.append(n->children());
+            }
+            else if (n->is_open() && !n->is_goal() && n->parent()) {
+                TRACE("pdr", n->display(tout << "node " << n << " not found among leaves\n", 0); display(tout););
+                UNREACHABLE();
+                return;
+            }
+        }
+        if (m_goal) {
+            model_node* n = m_goal;            
+            do {
+                if (!n->is_open() || !n->children().empty()) {
+                    TRACE("pdr", n->display(tout << "invalid leaf\n", 0); 
+                          display(tout););
+                    UNREACHABLE();
+                    return;
+                }                
+                n = n->next();
+            }
+            while (m_goal != n);
+        }
+
+        // each state appears in at most one goal per level.        
+        bool found = true;
+        for (unsigned l = 0; m_goal && found; ++l) {
+            found = false;
+            obj_hashtable<expr> open_states;            
+            model_node* n = m_goal;
+            do {
+                if (n->level() == l) {
+                    found = true;
+                    if (n->is_open()) {
+                        if (open_states.contains(n->state())) {
+                            TRACE("pdr", n->display(tout << "repeated leaf\n", 0); display(tout););
+                            UNREACHABLE();
+                        }
+                        open_states.insert(n->state());
+                    }
+                }
+                n = n->next();
+            }
+            while (m_goal != n);
+        }
+        // a node is open if and only if it contains an 
+        // open child which is a goal.
+        for (unsigned i = 0; i < nodes.size(); ++i) {
+            model_node* n = nodes[i];
+            if (!n->children().empty() && n->parent()) {
+                found = false;
+                for (unsigned j = 0; !found && j < n->children().size(); ++j) {
+                    found = n->children()[j]->is_open();
+                }
+                if (n->is_open() != found) {
+                    TRACE("pdr", n->display(tout << "node in inconsistent state\n", 0); display(tout););
+                    UNREACHABLE();
                 }
             }
         }
+    }
+
+    unsigned model_search::num_goals() const {
+        model_node* n = m_goal;
+        unsigned num = 0;
+        if (n) {
+            do {
+                ++num;
+                n = n->next();
+            }
+            while (n != m_goal);
+        }
+        return num;
     }
 
     std::ostream& model_search::display(std::ostream& out) const {
         if (m_root) {
             m_root->display(out, 0);
         }
-        out << "goals\n";
-        std::deque<model_node*>::const_iterator 
-            it  = m_leaves.begin(), 
-            end = m_leaves.end();
-        for (; it != end; ++it) {
-            (*it)->display(out, 1);
+        out << "goals " << num_goals() << "\n";
+        model_node* n = m_goal;
+        if (n) {
+            do {
+                n->display(out, 1);
+                n = n->next();
+            }
+            while (n != m_goal);
         }
         return out;
     }
@@ -1253,8 +1401,8 @@ namespace pdr {
             remove_node(*m_root, false);
             dealloc(m_root);
             m_root = 0;
-            m_cache.reset();
         }
+        m_cache.reset();
     }
 
     void model_search::backtrack_level(bool uses_level, model_node& n) {
@@ -1262,7 +1410,7 @@ namespace pdr {
         if (uses_level && m_root->level() > n.level()) {
             IF_VERBOSE(2, verbose_stream() << "Increase level " << n.level() << "\n";);
             n.increase_level();
-            enqueue_leaf(n);
+            enqueue_leaf(&n);
         }
         else {
             model_node* p = n.parent();
@@ -1270,15 +1418,16 @@ namespace pdr {
                 set_leaf(*p);
             }               
         }     
+        DEBUG_CODE(well_formed(););
     }
 
     // ----------------
     // context
 
     context::context(
-        smt_params&     fparams,
-        fixedpoint_params const&     params,
-        ast_manager&          m
+        smt_params&               fparams,
+        fixedpoint_params const&  params,
+        ast_manager&              m
         )
         : m_fparams(fparams),
           m_params(params),
@@ -1862,17 +2011,6 @@ namespace pdr {
         }
     }
 
-    void context::check_pre_closed(model_node& n) {
-        for (unsigned i = 0; i < n.children().size(); ++i) {
-            if (!n.children()[i]->is_closed()) return;
-        }
-        n.set_pre_closed();
-        model_node* p = n.parent();
-        while (p && p->is_1closed()) {
-            p->set_pre_closed();
-            p = p->parent();
-        }
-    }
 
     void context::expand_node(model_node& n) {
         SASSERT(n.is_open());
@@ -2143,10 +2281,10 @@ namespace pdr {
             model_node* child = alloc(model_node, &n, n_cube, pt, n.level()-1);
             ++m_stats.m_num_nodes;
             m_search.add_leaf(*child); 
-            IF_VERBOSE(3, verbose_stream() << "Predecessor: " << mk_pp(o_cube, m) << "\n";);
+            IF_VERBOSE(2, verbose_stream() << "Predecessor: " << mk_pp(n_cube, m) << " " << (child->is_closed()?"closed":"open") << "\n";);
             m_stats.m_max_depth = std::max(m_stats.m_max_depth, child->depth());
         }
-        check_pre_closed(n);
+        n.check_pre_closed();
         TRACE("pdr", m_search.display(tout););
     }
 
