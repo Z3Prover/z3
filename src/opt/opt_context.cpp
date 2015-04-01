@@ -118,6 +118,7 @@ namespace opt {
         m_bv(m),
         m_hard_constraints(m),
         m_solver(0),
+        m_box_index(UINT_MAX),
         m_optsmt(m),
         m_scoped_state(m),
         m_fm(m),
@@ -198,6 +199,9 @@ namespace opt {
     lbool context::optimize() {
         if (m_pareto) {
             return execute_pareto();
+        }
+        if (m_box_index != UINT_MAX) {
+            return execute_box();
         }
         init_solver(); 
         import_scoped_state(); 
@@ -313,13 +317,31 @@ namespace opt {
     }    
 
     lbool context::execute_box() {
+        if (m_box_index < m_objectives.size()) {
+            m_model = m_box_models[m_box_index];
+            ++m_box_index;           
+            return l_true;
+        }
+        if (m_box_index != UINT_MAX && m_box_index >= m_objectives.size()) {
+            m_box_index = UINT_MAX;
+            return l_false;
+        }
+        m_box_index = 1;
         lbool r = m_optsmt.box();
-        for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
+        for (unsigned i = 0, j = 0; r == l_true && i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             if (obj.m_type == O_MAXSMT) {
                 solver::scoped_push _sp(get_solver());
                 r = execute(obj, false, false);
+                if (r == l_true) m_box_models.push_back(m_model.get());
             }
+            else {
+                m_box_models.push_back(m_optsmt.get_model(j));
+                ++j;
+            }
+        }
+        if (r == l_true && m_objectives.size() > 0) {
+            m_model = m_box_models[0];
         }
         return r;
     }

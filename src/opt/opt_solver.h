@@ -76,6 +76,7 @@ namespace opt {
         bool                m_objective_enabled;
         svector<smt::theory_var>  m_objective_vars;
         vector<inf_eps>     m_objective_values;
+        sref_vector<model>  m_models;
         sort_ref_vector     m_objective_sorts;
         svector<bool>       m_valid_objectives;
         bool                m_dump_benchmarks;
@@ -94,7 +95,7 @@ namespace opt {
         virtual void pop_core(unsigned n);
         virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);        
         virtual void get_unsat_core(ptr_vector<expr> & r);
-        virtual void get_model(model_ref & _m);
+        virtual void get_model(model_ref & _m);        
         virtual proof * get_proof();
         virtual std::string reason_unknown() const;
         virtual void get_labels(svector<symbol> & r);
@@ -111,6 +112,7 @@ namespace opt {
         void maximize_objectives(expr_ref_vector& blockers);
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
+        model* get_model(unsigned obj_index) { return m_models[obj_index]; }
         bool objective_is_model_valid(unsigned obj_index) const {
             return m_valid_objectives[obj_index];
         }

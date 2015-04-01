@@ -50,6 +50,7 @@ namespace opt {
         for (unsigned i = 0; i < src.size(); ++i) {
             if (src[i] >= dst[i]) {
                 dst[i] = src[i];
+                m_models.set(i, m_s->get_model(i));
                 m_lower_fmls[i] = fmls[i].get();
                 if (dst[i].is_pos() && !dst[i].is_finite()) { // review: likely done already.
                     m_lower_fmls[i] = m.mk_false();
@@ -57,7 +58,7 @@ namespace opt {
                 }
             }
             else if (src[i] < dst[i] && !m.is_true(m_lower_fmls[i].get())) {
-                fmls[i] = m_lower_fmls[i].get();
+                fmls[i] = m_lower_fmls[i].get();                
             }
         }
     }
@@ -410,6 +411,7 @@ namespace opt {
         m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
         m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
         m_lower_fmls.push_back(m.mk_true());
+        m_models.push_back(0);
         return m_objs.size()-1;
     }
 

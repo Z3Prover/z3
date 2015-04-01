@@ -219,9 +219,13 @@ namespace opt {
         }
         m_objective_values[i] = val;
 
-        TRACE("opt", { model_ref mdl; tout << m_objective_values[i] << "\n"; 
+        model_ref mdl;
+        get_model(mdl);
+        m_models.set(i, mdl.get());
+
+        TRACE("opt", { tout << m_objective_values[i] << "\n"; 
                   tout << blocker << "\n";
-                  get_model(mdl); model_smt2_pp(tout << "update model:\n", m, *mdl, 0); });
+                   model_smt2_pp(tout << "update model:\n", m, *mdl, 0); });
     }
 
     void opt_solver::decrement_value(unsigned i, inf_eps& val) {
@@ -288,6 +292,7 @@ namespace opt {
         m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
         m_objective_sorts.push_back(m.get_sort(term));
         m_valid_objectives.push_back(true);
+        m_models.push_back(0);
         return v;
     }
     
