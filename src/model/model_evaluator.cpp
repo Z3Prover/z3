@@ -26,7 +26,7 @@ Revision History:
 #include"pb_rewriter.h"
 #include"datatype_rewriter.h"
 #include"array_rewriter.h"
-#include"float_rewriter.h"
+#include"fpa_rewriter.h"
 #include"rewriter_def.h"
 #include"cooperate.h"
 
@@ -38,7 +38,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     array_rewriter                  m_ar_rw;
     datatype_rewriter               m_dt_rw;
     pb_rewriter                     m_pb_rw;
-    float_rewriter                  m_f_rw;
+    fpa_rewriter                    m_f_rw;
     unsigned long long              m_max_memory;
     unsigned                        m_max_steps;
     bool                            m_model_completion;

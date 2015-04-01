@@ -33,7 +33,7 @@ Notes:
 #include"qfidl_tactic.h"
 #include"default_tactic.h"
 #include"ufbv_tactic.h"
-#include"qffpa_tactic.h"
+#include"qffp_tactic.h"
 #include"horn_tactic.h"
 #include"smt_solver.h"
 
@@ -78,10 +78,10 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_ufbv_tactic(m, p);
     else if (logic=="BV")
         return mk_ufbv_tactic(m, p);
-    else if (logic=="QF_FPA")
-        return mk_qffpa_tactic(m, p);
-    else if (logic=="QF_FPABV")
-        return mk_qffpa_tactic(m, p);
+    else if (logic=="QF_FP")
+        return mk_qffp_tactic(m, p);
+    else if (logic == "QF_FPBV")
+        return mk_qffpbv_tactic(m, p);
     else if (logic=="HORN")
         return mk_horn_tactic(m, p);
     else 

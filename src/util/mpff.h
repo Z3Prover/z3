@@ -29,6 +29,7 @@ Revision History:
 #include"z3_exception.h"
 #include"scoped_numeral.h"
 #include"scoped_numeral_vector.h"
+#include"mpn.h"
 
 class mpff_manager;
 
@@ -115,6 +116,7 @@ class mpff_manager {
     svector<unsigned> m_buffers[MPFF_NUM_BUFFERS];      
     svector<unsigned> m_set_buffer;
     mpff              m_one;
+    mpn_manager       m_mpn_manager;
 
     unsigned * sig(mpff const & n) const { return m_significands.c_ptr() + (n.m_sig_idx * m_precision); }
     
@@ -465,7 +467,7 @@ public:
     void display_raw(std::ostream & out, mpff const & n) const;
     void display(std::ostream & out, mpff const & n) const;
     void display_pp(std::ostream & out, mpff const & n) const { display(out, n); }
-    void display_decimal(std::ostream & out, mpff const & n, unsigned prec=32, unsigned max_power=128) const;
+    void display_decimal(std::ostream & out, mpff const & n, unsigned prec=32, unsigned max_power=128);
     void display_smt2(std::ostream & out, mpff const & n, bool decimal=true) const;
 
     std::string to_string(mpff const & a) const;

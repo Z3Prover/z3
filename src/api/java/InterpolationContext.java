@@ -20,15 +20,13 @@ package com.microsoft.z3;
 import java.util.Map;
 import java.lang.String;
 
-import com.microsoft.z3.Native.IntPtr;
-import com.microsoft.z3.Native.UIntArrayPtr;
 import com.microsoft.z3.enumerations.Z3_lbool;
 
-/** <summary>
+/** 
  *  The InterpolationContext is suitable for generation of interpolants.
- * </summary>
- * <remarks>For more information on interpolation please refer
- * too the C/C++ API, which is well documented.</remarks> 
+ *
+ * Remarks: For more information on interpolation please refer
+ * too the C/C++ API, which is well documented. 
  **/
 public class InterpolationContext extends Context
 {
@@ -44,7 +42,9 @@ public class InterpolationContext extends Context
     /** 
      * Constructor.
      *
-     * <remarks><seealso cref="Context.Context(Dictionary&lt;string, string&gt;)"/></remarks>
+     * 
+     * Remarks: 
+     * @see Context#Context
      **/
     public InterpolationContext(Map<String, String> settings) throws Z3Exception
     { 
@@ -58,7 +58,7 @@ public class InterpolationContext extends Context
 
     /** 
       * Create an expression that marks a formula position for interpolation.
-     * @throws Z3Exception 
+      * @throws Z3Exception 
       **/
     public BoolExpr MkInterpolant(BoolExpr a) throws Z3Exception
     {
@@ -68,9 +68,9 @@ public class InterpolationContext extends Context
 
     /**
      * Computes an interpolant.
-     * <remarks>For more information on interpolation please refer
+     * Remarks: For more information on interpolation please refer
      * too the function Z3_get_interpolant in the C/C++ API, which is 
-     * well documented.</remarks>
+     * well documented.
      * @throws Z3Exception 
      **/
     Expr[] GetInterpolant(Expr pf, Expr pat, Params p) throws Z3Exception
@@ -89,9 +89,9 @@ public class InterpolationContext extends Context
 
     /**
      * Computes an interpolant.   
-     * <remarks>For more information on interpolation please refer
+     * Remarks: For more information on interpolation please refer
      * too the function Z3_compute_interpolant in the C/C++ API, which is 
-     * well documented.</remarks>
+     * well documented.
      * @throws Z3Exception 
      **/
     Z3_lbool ComputeInterpolant(Expr pat, Params p, ASTVector interp, Model model) throws Z3Exception
@@ -107,23 +107,23 @@ public class InterpolationContext extends Context
         return Z3_lbool.fromInt(r);
     }
 
-    /// <summary> 
+    ///  
     /// Return a string summarizing cumulative time used for interpolation.
-    /// </summary>    
-    /// <remarks>For more information on interpolation please refer
+    ///    
+    /// Remarks: For more information on interpolation please refer
     /// too the function Z3_interpolation_profile in the C/C++ API, which is 
-    /// well documented.</remarks>
+    /// well documented.
     public String InterpolationProfile() throws Z3Exception
     {
         return Native.interpolationProfile(nCtx());
     }
 
-    /// <summary> 
+    ///  
     /// Checks the correctness of an interpolant.
-    /// </summary>    
-    /// <remarks>For more information on interpolation please refer
+    ///    
+    /// Remarks: For more information on interpolation please refer
     /// too the function Z3_check_interpolant in the C/C++ API, which is 
-    /// well documented.</remarks>
+    /// well documented.
     public int CheckInterpolant(Expr[] cnsts, int[] parents, Expr[] interps, String error, Expr[] theory) throws Z3Exception
     {
         Native.StringPtr n_err_str = new Native.StringPtr();
@@ -139,12 +139,12 @@ public class InterpolationContext extends Context
         return r;
     }
 
-    /// <summary> 
+    ///  
     /// Reads an interpolation problem from a file.
-    /// </summary>    
-    /// <remarks>For more information on interpolation please refer
+    ///    
+    /// Remarks: For more information on interpolation please refer
     /// too the function Z3_read_interpolation_problem in the C/C++ API, which is 
-    /// well documented.</remarks>
+    /// well documented.
     public int ReadInterpolationProblem(String filename, Expr[] cnsts, int[] parents, String error, Expr[] theory) throws Z3Exception
     {
         Native.IntPtr n_num = new Native.IntPtr();
@@ -170,12 +170,12 @@ public class InterpolationContext extends Context
         return r;
     }
 
-    /// <summary> 
+    ///  
     /// Writes an interpolation problem to a file.
-    /// </summary>    
-    /// <remarks>For more information on interpolation please refer
+    ///    
+    /// Remarks: For more information on interpolation please refer
     /// too the function Z3_write_interpolation_problem in the C/C++ API, which is 
-    /// well documented.</remarks>
+    /// well documented.
     public void WriteInterpolationProblem(String filename, Expr[] cnsts, int[] parents, String error, Expr[] theory) throws Z3Exception
     {
         Native.writeInterpolationProblem(nCtx(), cnsts.length, Expr.arrayToNative(cnsts), parents, filename, theory.length, Expr.arrayToNative(theory));     

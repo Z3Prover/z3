@@ -134,14 +134,4 @@ tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
 
 }
 
-/* use full sls
-   tactic * st = main_p(and_then(preamble_st,
-                                        cond(mk_is_qfbv_probe(),
-                                             cond(mk_is_qfbv_eq_probe(),
-                                                  and_then(mk_bv1_blaster_tactic(m),
-                                                           using_params(mk_smt_tactic(), solver_p)),
-                                                  and_then(mk_nnf_tactic(m, p), mk_sls_tactic(m))),
-                                             mk_smt_tactic())));
-*/
-
 

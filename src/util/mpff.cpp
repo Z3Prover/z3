@@ -700,7 +700,7 @@ void mpff_manager::add_sub(bool is_sub, mpff const & a, mpff const & b, mpff & c
         c.m_sign = sgn_a;
         unsigned * sig_r = m_buffers[1].c_ptr();
         size_t   r_sz;
-        add_full(sig_a, m_precision, n_sig_b, m_precision, sig_r, m_precision + 1, &r_sz, 0);
+        m_mpn_manager.add(sig_a, m_precision, n_sig_b, m_precision, sig_r, m_precision + 1, &r_sz);
         SASSERT(r_sz <= m_precision + 1);
         unsigned num_leading_zeros = nlz(m_precision + 1, sig_r);
         SASSERT(num_leading_zeros >= sizeof(unsigned) * 8 - 1); // num_leading_zeros >= 31
@@ -740,11 +740,11 @@ void mpff_manager::add_sub(bool is_sub, mpff const & a, mpff const & b, mpff & c
         unsigned * sig_c = sig(c);
         if (::lt(m_precision, sig_a, n_sig_b)) {
             c.m_sign = sgn_b;
-            sub_diff(n_sig_b, m_precision, sig_a, m_precision, sig_c, &borrow, 0);
+            m_mpn_manager.sub(n_sig_b, m_precision, sig_a, m_precision, sig_c, &borrow);
         }
         else {
             c.m_sign = sgn_a;
-            sub_diff(sig_a, m_precision, n_sig_b, m_precision, sig_c, &borrow, 0);
+            m_mpn_manager.sub(sig_a, m_precision, n_sig_b, m_precision, sig_c, &borrow);
         }
         SASSERT(borrow == 0);
         unsigned num_leading_zeros = nlz(m_precision, sig_c);
@@ -793,7 +793,7 @@ void mpff_manager::mul(mpff const & a, mpff const & b, mpff & c) {
         int64 exp_c = exp_a + exp_b;
         // store result in m_buffers[0]
         unsigned * r = m_buffers[0].c_ptr();
-        multiply(sig(a), m_precision, sig(b), m_precision, r, 0);
+        m_mpn_manager.mul(sig(a), m_precision, sig(b), m_precision, r);
         // r has 2*m_precision_bits bits
         unsigned num_leading_zeros = nlz(m_precision*2, r);
         SASSERT(num_leading_zeros <= m_precision_bits);
@@ -864,12 +864,10 @@ void mpff_manager::div(mpff const & a, mpff const & b, mpff & c) {
         // a is at least 2^(2*m_precision_bits - 1)
         // Thus the quotient of a/b cannot be zero
         // Actually, quotient of a/b must be >= 2^(2*m_precision_bits - 1)/(2^m_precision_bits - 1)
-        divide(_a,     2*m_precision,
-               sig(b), m_precision,
-               reciprocal_1_NULL,
-               q, 
-               r, 
-               0);
+        m_mpn_manager.div(_a, 2 * m_precision,
+                          sig(b), m_precision,
+                          q, 
+                          r);
         TRACE("mpff_div", 
               unsigned j = q_sz; 
               while (j > 0) { --j; tout << std::hex << std::setfill('0') << std::setw(2*sizeof(unsigned)) << q[j]; tout << " "; } 
@@ -1193,7 +1191,7 @@ void mpff_manager::display(std::ostream & out, mpff const & n) const {
     if (shift > 0)
         shr(m_precision, u_buffer.c_ptr(), shift, u_buffer.c_ptr());
     sbuffer<char, 1024> str_buffer(11*m_precision, 0);
-    out << mp_decimal(u_buffer.c_ptr(), m_precision, str_buffer.begin(), str_buffer.size(), 0);
+    out << m_mpn_manager.to_string(u_buffer.c_ptr(), m_precision, str_buffer.begin(), str_buffer.size());
     if (exp > 0) {
         if (exp <= 63) {
             uint64 _exp = 1;
@@ -1225,7 +1223,7 @@ void mpff_manager::display(std::ostream & out, mpff const & n) const {
     }
 }
 
-void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned prec, unsigned min_exponent) const {
+void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned prec, unsigned min_exponent) {
     // The result in scientific notation when n.m_exponent >= min_exponent or n.m_exponent <= - min_exponent - m_precision_bits
     int64 exp  = n.m_exponent;
     if (exp >= min_exponent || exp <= -static_cast<int64>(min_exponent) - m_precision_bits || is_int(n)) {
@@ -1246,7 +1244,7 @@ void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned 
             buffer.push_back(s[i]);
         shr(buffer.size(), buffer.c_ptr(), shift, buffer.size(), buffer.c_ptr());
         sbuffer<char, 1024> str_buffer(11*buffer.size(), 0);
-        out << mp_decimal(buffer.c_ptr(), buffer.size(), str_buffer.begin(), str_buffer.size(), 0);
+        out << m_mpn_manager.to_string(buffer.c_ptr(), buffer.size(), str_buffer.begin(), str_buffer.size());
     }
     else {
         sbuffer<unsigned, 1024> buffer1, buffer2;
@@ -1274,14 +1272,12 @@ void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned 
             out << "0";
         }
         else {
-            divide(buffer1.c_ptr(), m_precision,
-                   pw_buffer.c_ptr(), num_words,
-                   reciprocal_1_NULL, 
-                   buffer3.c_ptr(),
-                   buffer2.c_ptr(),
-                   0);
+            m_mpn_manager.div(buffer1.c_ptr(), m_precision,
+                              pw_buffer.c_ptr(), num_words,
+                              buffer3.c_ptr(),
+                              buffer2.c_ptr());
             sbuffer<char, 1024> str_buffer(11*buffer3.size(), 0);
-            out << mp_decimal(buffer3.c_ptr(), buffer3.size(), str_buffer.begin(), str_buffer.size(), 0);
+            out << m_mpn_manager.to_string(buffer3.c_ptr(), buffer3.size(), str_buffer.begin(), str_buffer.size());
             SASSERT(!::is_zero(buffer2.size(), buffer2.c_ptr())); // otherwise n is an integer
             ::copy(buffer2.size(), buffer2.c_ptr(), buffer1.size(), buffer1.c_ptr());
         }
@@ -1298,7 +1294,7 @@ void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned 
                 return;
             }
             i = i + 1;
-            multiply(buffer1.c_ptr(), sz1, &ten, 1, buffer2.c_ptr(), 0);
+            m_mpn_manager.mul(buffer1.c_ptr(), sz1, &ten, 1, buffer2.c_ptr());
             unsigned sz2 = sz1 + 1;
             while (sz2 > 0 && buffer2[sz2-1] == 0)
                 --sz2;
@@ -1310,12 +1306,10 @@ void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned 
                 SASSERT(sz1 == 0 || !::is_zero(sz1, buffer1.c_ptr()));
             }
             else {
-                divide(buffer2.c_ptr(), sz2,
-                       pw_buffer.c_ptr(), num_words,
-                       reciprocal_1_NULL,
-                       buffer3.c_ptr(),
-                       buffer1.c_ptr(),
-                       0);
+                m_mpn_manager.div(buffer2.c_ptr(), sz2,
+                                  pw_buffer.c_ptr(), num_words,
+                                  buffer3.c_ptr(),
+                                  buffer1.c_ptr());
                 out << buffer3[0];
                 sz1 = num_words;
                 while (sz1 > 0 && buffer1[sz1-1] == 0)
@@ -1353,7 +1347,7 @@ void mpff_manager::display_smt2(std::ostream & out, mpff const & n, bool decimal
         out << "(/ ";
 
     sbuffer<char, 1024> str_buffer(11*m_precision, 0);
-    out << mp_decimal(u_buffer.c_ptr(), m_precision, str_buffer.begin(), str_buffer.size(), 0);
+    out << m_mpn_manager.to_string(u_buffer.c_ptr(), m_precision, str_buffer.begin(), str_buffer.size());
     if (decimal) out << ".0";
 
     if (exp != 0) {

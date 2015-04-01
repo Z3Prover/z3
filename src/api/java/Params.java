@@ -130,13 +130,13 @@ public class Params extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().params_DRQ().incAndClear(getContext(), o);
+        getContext().getParamsDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().params_DRQ().add(o);
+        getContext().getParamsDRQ().add(o);
         super.decRef(o);
     }
 }

@@ -256,7 +256,7 @@ protected:
     bool logic_has_seq() const;
     bool logic_has_array() const;
     bool logic_has_datatype() const;
-    bool logic_has_floats() const;
+    bool logic_has_fpa() const;
     bool supported_logic(symbol const & s) const;
 
     void print_unsupported_msg() { regular_stream() << "unsupported" << std::endl; }

@@ -87,9 +87,7 @@ public:
     }
 
     ~bit_vector() {
-        if (m_data) {
-            dealloc_svect(m_data);
-        }
+        dealloc_svect(m_data);
     }
     
     void reset() {

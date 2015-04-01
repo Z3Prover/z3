@@ -187,10 +187,10 @@ namespace datalog {
         if (m_trail.get_num_scopes() == 0) {
             throw default_exception("there are no backtracking points to pop to");
         }
-	if(m_engine.get()){
-	  if(get_engine() != DUALITY_ENGINE)
-	    throw default_exception("operation is not supported by engine");
-	}
+        if(m_engine.get()){
+            if(get_engine() != DUALITY_ENGINE)
+            throw default_exception("operation is not supported by engine");
+        }
         m_trail.pop_scope(1); 
     }
 
@@ -292,7 +292,7 @@ namespace datalog {
     void context::set_unbound_compressor(bool f) { m_unbound_compressor = f; }
     bool context::similarity_compressor() const { return m_params->datalog_similarity_compressor(); }
     unsigned context::similarity_compressor_threshold() const { return m_params->datalog_similarity_compressor_threshold(); }
-    unsigned context::soft_timeout() const { return m_fparams.m_soft_timeout; }
+    unsigned context::soft_timeout() const { return m_fparams.m_timeout; }
     unsigned context::initial_restart_timeout() const { return m_params->datalog_initial_restart_timeout(); } 
     bool context::generate_explanations() const { return m_params->datalog_generate_explanations(); }
     bool context::explanations_on_relation_level() const { return m_params->datalog_explanations_on_relation_level(); }
@@ -452,7 +452,7 @@ namespace datalog {
   void context::add_rule(expr* rl, symbol const& name, unsigned bound) {
         m_rule_fmls.push_back(rl);
         m_rule_names.push_back(name);
-	m_rule_bounds.push_back(bound);
+        m_rule_bounds.push_back(bound);
     }
 
     void context::flush_add_rules() {
@@ -863,10 +863,10 @@ namespace datalog {
             flush_add_rules();
             break;
         case DUALITY_ENGINE:
-	    // this lets us use duality with SAS 2013 abstraction
-	    if(quantify_arrays())
-	      flush_add_rules();
-	    break;
+            // this lets us use duality with SAS 2013 abstraction
+            if(quantify_arrays())
+              flush_add_rules();
+            break;
         default:
             UNREACHABLE();
         }

@@ -31,9 +31,10 @@ class ASTVector extends Z3Object
     }
 
     /**
-     * Retrieves the i-th object in the vector. <remarks>May throw an
-     * IndexOutOfBoundsException when <paramref name="i"/> is out of
-     * range.</remarks> <param name="i">Index</param>
+     * Retrieves the i-th object in the vector.
+     * Remarks: May throw an {@code IndexOutOfBoundsException} when 
+     * {@code i} is out of range. 
+     * @param i Index
      * 
      * @return An AST
      * @throws Z3Exception
@@ -52,8 +53,8 @@ class ASTVector extends Z3Object
     }
 
     /**
-     * Resize the vector to <paramref name="newSize"/>. <param
-     * name="newSize">The new size of the vector.</param>
+     * Resize the vector to {@code newSize}. 
+     * @param newSize The new size of the vector.
      **/
     public void resize(int newSize) throws Z3Exception
     {
@@ -61,8 +62,9 @@ class ASTVector extends Z3Object
     }
 
     /**
-     * Add the AST <paramref name="a"/> to the back of the vector. The size is
-     * increased by 1. <param name="a">An AST</param>
+     * Add the AST {@code a} to the back of the vector. The size is
+     * increased by 1. 
+     * @param a An AST
      **/
     public void push(AST a) throws Z3Exception
     {
@@ -70,8 +72,8 @@ class ASTVector extends Z3Object
     }
 
     /**
-     * Translates all ASTs in the vector to <paramref name="ctx"/>. <param
-     * name="ctx">A context</param>
+     * Translates all ASTs in the vector to {@code ctx}. 
+     * @param ctx A context
      * 
      * @return A new ASTVector
      * @throws Z3Exception
@@ -108,13 +110,13 @@ class ASTVector extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().astvector_DRQ().incAndClear(getContext(), o);
+        getContext().getASTVectorDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().astvector_DRQ().add(o);
+        getContext().getASTVectorDRQ().add(o);
         super.decRef(o);
     }
 }

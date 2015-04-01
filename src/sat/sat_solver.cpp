@@ -57,7 +57,10 @@ namespace sat {
     }
 
     solver::~solver() {
+        SASSERT(check_invariant());
+        TRACE("sat", tout << "Delete clauses\n";);
         del_clauses(m_clauses.begin(), m_clauses.end());
+        TRACE("sat", tout << "Delete learned\n";);
         del_clauses(m_learned.begin(), m_learned.end());
     }
 
@@ -1305,6 +1308,7 @@ namespace sat {
        \brief GC (the second) half of the clauses in the database.
     */
     void solver::gc_half(char const * st_name) {
+        TRACE("sat", tout << "gc\n";);
         unsigned sz     = m_learned.size();
         unsigned new_sz = sz/2;
         unsigned j      = new_sz;
@@ -1329,6 +1333,7 @@ namespace sat {
        \brief Use gc based on dynamic psm. Clauses are initially frozen.
     */
     void solver::gc_dyn_psm() {
+        TRACE("sat", tout << "gc\n";);
         // To do gc at scope_lvl() > 0, I will need to use the reinitialization stack, or live with the fact
         // that I may miss some propagations for reactivated clauses.
         SASSERT(scope_lvl() == 0);

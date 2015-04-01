@@ -147,8 +147,7 @@ tactic * mk_preamble(ast_manager & m, params_ref const & p) {
 }
 
 tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p) {
-    tactic * t = and_then(mk_preamble(m, p), mk_sls_tactic(m));    
-    //tactic * t = and_then(mk_simplify_tactic(m), mk_nnf_tactic(m, p), mk_sls_tactic(m));    
+    tactic * t = and_then(mk_preamble(m, p), mk_sls_tactic(m, p));
     t->updt_params(p);
     return t;
 }

@@ -46,6 +46,35 @@ namespace datalog {
     typedef ptr_vector<rule> rule_vector;
 
 
+    struct uninterpreted_function_finder_proc {
+        ast_manager& m;
+        datatype_util m_dt;
+        dl_decl_util  m_dl;
+        bool m_found;
+        func_decl* m_func;
+        uninterpreted_function_finder_proc(ast_manager& m): 
+            m(m), m_dt(m), m_dl(m), m_found(false), m_func(0) {}
+        void operator()(var * n) { }
+        void operator()(quantifier * n) { }
+        void operator()(app * n) {
+            if (is_uninterp(n) && !m_dl.is_rule_sort(n->get_decl()->get_range())) {
+                m_found = true;
+                m_func = n->get_decl();
+            }
+            else if (m_dt.is_accessor(n)) {
+                sort* s = m.get_sort(n->get_arg(0));
+                SASSERT(m_dt.is_datatype(s));
+                if (m_dt.get_datatype_constructors(s)->size() > 1) {
+                    m_found = true;
+                    m_func = n->get_decl();
+                }
+            }
+        }
+        void reset() { m_found = false; m_func = 0; }
+
+        bool found(func_decl*& f) const { f = m_func; return m_found; }
+    };
+
     struct quantifier_finder_proc {
         bool m_exist;
         bool m_univ;
@@ -62,36 +91,6 @@ namespace datalog {
         }
         void operator()(app * n) { }
         void reset() { m_exist = m_univ = false; }
-    };
-
-    struct uninterpreted_function_finder_proc {
-        ast_manager& m;
-        datatype_util m_dt;
-        bool m_found;
-        func_decl* m_func;
-        uninterpreted_function_finder_proc(ast_manager& m): 
-            m(m), m_dt(m), m_found(false), m_func(0) {}
-
-        void reset() { m_found = false; m_func = 0; }
-
-        void operator()(var * n) { }
-        void operator()(quantifier * n) { }
-        void operator()(app * n) {
-            if (is_uninterp(n)) {
-                m_found = true;
-                m_func = n->get_decl();
-            }
-            else if (m_dt.is_accessor(n)) {
-                sort* s = m.get_sort(n->get_arg(0));
-                SASSERT(m_dt.is_datatype(s));
-                if (m_dt.get_datatype_constructors(s)->size() > 1) {
-                    m_found = true;
-                    m_func = n->get_decl();
-                }
-            }
-        }
-
-        bool found(func_decl*& f) const { f = m_func; return m_found; }
     };
 
 

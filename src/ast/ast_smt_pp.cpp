@@ -34,9 +34,9 @@ Revision History:
 // ---------------------------------------
 // smt_renaming
 
-const static char* m_predef_names[] = {
+static const char m_predef_names[][8] = {
     "=", ">=", "<=", "+", "-", "*", ">", "<", "!=", "or", "and", "implies", "not", "iff", "xor",
-    "true", "false", "forall", "exists", "let", "flet", NULL
+    "true", "false", "forall", "exists", "let", "flet"
 };
 
 symbol smt_renaming::fix_symbol(symbol s, int k) {
@@ -120,8 +120,8 @@ bool smt_renaming::all_is_legal(char const* s) {
 }
 
 smt_renaming::smt_renaming() {
-    for (const char **p = m_predef_names; *p; ++p) {
-        symbol s(*p);
+    for (unsigned i = 0; i < ARRAYSIZE(m_predef_names); ++i) {
+        symbol s(m_predef_names[i]);
         m_translate.insert(s, s);
         m_rev_translate.insert(s, s);
     }
@@ -1003,7 +1003,7 @@ public:
             visit_sort(d->get_domain(i), true);
         }
         m_out << ")";
-	}
+    }
 };
 
 

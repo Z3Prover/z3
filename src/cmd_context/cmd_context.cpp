@@ -24,8 +24,8 @@ Notes:
 #include"array_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"seq_decl_plugin.h"
-#include"float_decl_plugin.h"
 #include"pb_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"ast_pp.h"
 #include"var_subst.h"
 #include"pp.h"
@@ -241,7 +241,7 @@ protected:
     arith_util    m_autil;
     bv_util       m_bvutil;
     array_util    m_arutil;
-    float_util    m_futil;
+    fpa_util      m_futil;
     datalog::dl_decl_util m_dlutil;
 
     format_ns::format * pp_fdecl_name(symbol const & s, func_decls const & fs, func_decl * f, unsigned & len) {
@@ -268,7 +268,7 @@ public:
     virtual arith_util & get_autil() { return m_autil; }
     virtual bv_util & get_bvutil() { return m_bvutil; }
     virtual array_util & get_arutil() { return m_arutil; }
-    virtual float_util & get_futil() { return m_futil; }
+    virtual fpa_util & get_futil() { return m_futil; }
     virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
     virtual bool uses(symbol const & s) const { 
         return 
@@ -525,8 +525,8 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "UFNIA" ||
         s == "LIA" ||        
         s == "LRA" || 
-        s == "QF_FPA" ||
-        s == "QF_FPABV" ||
+        s == "QF_FP" ||
+        s == "QF_FPBV" ||
         s == "HORN";
 }
 
@@ -545,7 +545,7 @@ bool cmd_context::logic_has_bv_core(symbol const & s) const {
         s == "QF_ABV" ||
         s == "QF_AUFBV" ||
         s == "QF_BVRE" ||
-        s == "QF_FPABV" ||
+        s == "QF_FPBV" ||
         s == "HORN";
 }
 
@@ -569,8 +569,8 @@ bool cmd_context::logic_has_seq() const {
     return !has_logic() || logic_has_seq_core(m_logic);        
 }
 
-bool cmd_context::logic_has_floats() const {
-    return !has_logic() || m_logic == "QF_FPA" || m_logic == "QF_FPABV";
+bool cmd_context::logic_has_fpa() const {
+    return !has_logic() || m_logic == "QF_FP" || m_logic == "QF_FPBV";
 }
 
 
@@ -615,8 +615,8 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
-        register_plugin(symbol("float"),    alloc(float_decl_plugin), logic_has_floats());
         register_plugin(symbol("pb"),     alloc(pb_decl_plugin), !has_logic());
+        register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
     }
     else {
         // the manager was created by an external module
@@ -629,7 +629,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("array"),    logic_has_array(), fids);
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
-        load_plugin(symbol("float"),    logic_has_floats(), fids);
+        load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         
         svector<family_id>::iterator it  = fids.begin();
         svector<family_id>::iterator end = fids.end();
@@ -683,7 +683,7 @@ bool cmd_context::supported_logic(symbol const & s) const {
         logic_has_arith_core(s) || logic_has_bv_core(s) || 
         logic_has_array_core(s) || logic_has_seq_core(s) ||
         logic_has_horn(s) ||
-        s == "QF_FPA" || s == "QF_FPABV";
+        s == "QF_FP" || s == "QF_FPBV";
 }
 
 bool cmd_context::set_logic(symbol const & s) {

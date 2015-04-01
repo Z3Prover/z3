@@ -42,6 +42,7 @@ public:
     unsigned get_uint(unsigned pos) const;
     __int64 get_int64(unsigned pos) const;
     __uint64 get_uint64(unsigned pos) const;
+    float get_float(unsigned pos) const;
     double get_double(unsigned pos) const;
     bool get_bool(unsigned pos) const;
     Z3_string get_str(unsigned pos) const;

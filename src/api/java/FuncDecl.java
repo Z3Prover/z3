@@ -29,7 +29,7 @@ public class FuncDecl extends AST
     /**
      * Comparison operator.
      * 
-     * @return True if <paramref name="a"/> and <paramref name="b"/> share the
+     * @return True if {@code a"/> and <paramref name="b} share the
      *         same context and are equal, false otherwise.
      **/
     /* Overloaded operators are not translated. */
@@ -37,7 +37,7 @@ public class FuncDecl extends AST
     /**
      * Comparison operator.
      * 
-     * @return True if <paramref name="a"/> and <paramref name="b"/> do not
+     * @return True if {@code a"/> and <paramref name="b} do not
      *         share the same context or are not equal, false otherwise.
      **/
     /* Overloaded operators are not translated. */
@@ -92,8 +92,8 @@ public class FuncDecl extends AST
     }
 
     /**
-     * The size of the domain of the function declaration <seealso
-     * cref="Arity"/>
+     * The size of the domain of the function declaration 
+     * @see getArity
      **/
     public int getDomainSize() throws Z3Exception
     {
@@ -221,7 +221,7 @@ public class FuncDecl extends AST
         private String r;
 
         /**
-         * The int value of the parameter.</summary>
+         * The int value of the parameter.
          **/
         public int getInt() throws Z3Exception
         {
@@ -231,7 +231,7 @@ public class FuncDecl extends AST
         }
 
         /**
-         * The double value of the parameter.</summary>
+         * The double value of the parameter.
          **/
         public double getDouble() throws Z3Exception
         {
@@ -241,7 +241,7 @@ public class FuncDecl extends AST
         }
 
         /**
-         * The Symbol value of the parameter.</summary>
+         * The Symbol value of the parameter.
          **/
         public Symbol getSymbol() throws Z3Exception
         {
@@ -251,7 +251,7 @@ public class FuncDecl extends AST
         }
 
         /**
-         * The Sort value of the parameter.</summary>
+         * The Sort value of the parameter.
          **/
         public Sort getSort() throws Z3Exception
         {
@@ -261,7 +261,7 @@ public class FuncDecl extends AST
         }
 
         /**
-         * The AST value of the parameter.</summary>
+         * The AST value of the parameter.
          **/
         public AST getAST() throws Z3Exception
         {
@@ -271,7 +271,7 @@ public class FuncDecl extends AST
         }
 
         /**
-         * The FunctionDeclaration value of the parameter.</summary>
+         * The FunctionDeclaration value of the parameter.
          **/
         public FuncDecl getFuncDecl() throws Z3Exception
         {
@@ -281,7 +281,7 @@ public class FuncDecl extends AST
         }
 
         /**
-         * The rational string value of the parameter.</summary>
+         * The rational string value of the parameter.
          **/
         public String getRational() throws Z3Exception
         {
@@ -375,8 +375,8 @@ public class FuncDecl extends AST
     }
 
     /**
-     * Create expression that applies function to arguments. <param
-     * name="args"></param>
+     * Create expression that applies function to arguments. 
+     * @param args 
      * 
      * @return
      **/

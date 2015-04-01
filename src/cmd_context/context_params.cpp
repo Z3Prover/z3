@@ -24,6 +24,16 @@ Notes:
 #include"solver.h"
 
 context_params::context_params() {
+    m_unsat_core     = false;
+    m_model          = true;
+    m_model_validate = false;
+    m_auto_config    = true;
+    m_proof          = false;
+    m_trace          = false;
+    m_debug_ref_count = false;
+    m_smtlib2_compliant = false;
+    m_well_sorted_check = false;
+    m_timeout = UINT_MAX;
     updt_params();
 }
 
@@ -98,17 +108,17 @@ void context_params::updt_params() {
 }
 
 void context_params::updt_params(params_ref const & p) {
-    m_timeout           = p.get_uint("timeout", UINT_MAX);
-    m_well_sorted_check = p.get_bool("type_check", p.get_bool("well_sorted_check", true));
-    m_auto_config       = p.get_bool("auto_config", true);
-    m_proof             = p.get_bool("proof", false);
-    m_model             = p.get_bool("model", true);
-    m_model_validate    = p.get_bool("model_validate", false);
-    m_trace             = p.get_bool("trace", false);
+    m_timeout           = p.get_uint("timeout", m_timeout);
+    m_well_sorted_check = p.get_bool("type_check", p.get_bool("well_sorted_check", m_well_sorted_check));
+    m_auto_config       = p.get_bool("auto_config", m_auto_config);
+    m_proof             = p.get_bool("proof", m_proof);
+    m_model             = p.get_bool("model", m_model);
+    m_model_validate    = p.get_bool("model_validate", m_model_validate);
+    m_trace             = p.get_bool("trace", m_trace);
     m_trace_file_name   = p.get_str("trace_file_name", "z3.log");
-    m_unsat_core        = p.get_bool("unsat_core", false);
-    m_debug_ref_count   = p.get_bool("debug_ref_count", false);
-    m_smtlib2_compliant = p.get_bool("smtlib2_compliant", false);
+    m_unsat_core        = p.get_bool("unsat_core", m_unsat_core);
+    m_debug_ref_count   = p.get_bool("debug_ref_count", m_debug_ref_count);
+    m_smtlib2_compliant = p.get_bool("smtlib2_compliant", m_smtlib2_compliant);
 }
 
 void context_params::collect_param_descrs(param_descrs & d) {

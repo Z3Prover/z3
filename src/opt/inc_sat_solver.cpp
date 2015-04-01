@@ -40,7 +40,9 @@ class inc_sat_solver : public solver {
     params_ref      m_params;
     bool            m_optimize_model; // parameter
     expr_ref_vector m_fmls;
+    expr_ref_vector m_asmsf;
     unsigned_vector m_fmls_lim;
+    unsigned_vector m_asms_lim;
     unsigned_vector m_fmls_head_lim;
     unsigned            m_fmls_head;
     expr_ref_vector     m_core;
@@ -65,6 +67,7 @@ public:
         m(m), m_solver(p,0), 
         m_params(p), m_optimize_model(false), 
         m_fmls(m), 
+        m_asmsf(m),
         m_fmls_head(0),
         m_core(m), 
         m_map(m),
@@ -138,6 +141,7 @@ public:
         m_solver.user_push();
         ++m_num_scopes;
         m_fmls_lim.push_back(m_fmls.size());
+        m_asms_lim.push_back(m_asmsf.size());
         m_fmls_head_lim.push_back(m_fmls_head);
     }
     virtual void pop(unsigned n) {
@@ -152,6 +156,8 @@ public:
             m_fmls.resize(m_fmls_lim.back());
             m_fmls_lim.pop_back();
             m_fmls_head_lim.pop_back();
+            m_asmsf.resize(m_asms_lim.back());
+            m_asms_lim.pop_back();
             --n;
         }
     }
@@ -160,6 +166,7 @@ public:
     }
     virtual void assert_expr(expr * t, expr * a) {
         if (a) {
+            m_asmsf.push_back(a);
             assert_expr(m.mk_implies(a, t));
         }
         else {
@@ -211,6 +218,12 @@ public:
     }
     virtual expr * get_assertion(unsigned idx) const {
         return m_fmls[idx];
+    }
+    virtual unsigned get_num_assumptions() const {
+        return m_asmsf.size();
+    }
+    virtual expr * get_assumption(unsigned idx) const {
+        return m_asmsf[idx];
     }
     void set_soft(unsigned sz, expr*const* soft, rational const* weights) {
         m_soft.reset();

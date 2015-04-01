@@ -97,12 +97,12 @@ namespace Duality {
     memo.insert(t);
     if(t.is_app()){
       decl_kind k = t.decl().get_decl_kind();
-      if(k == And || k == Or || k == Not || k == Implies || k == Iff){
-	ops++;
-	int nargs = t.num_args();
-	for(int i = 0; i < nargs; i++)
-	  SummarizeRec(memo,lits,ops,t.arg(i));
-	return;
+      if (k == And || k == Or || k == Not || k == Implies || k == Iff) {
+          ops++;
+          int nargs = t.num_args();
+          for (int i = 0; i < nargs; i++)
+              SummarizeRec(memo, lits, ops, t.arg(i));
+          return;
       }
     }
     lits.push_back(t);
@@ -137,12 +137,12 @@ namespace Duality {
     memo.insert(t);
     if(t.is_app()){
       decl_kind k = t.decl().get_decl_kind();
-      if(k == And || k == Or){
-	int count = 1;
-	int nargs = t.num_args();
-	for(int i = 0; i < nargs; i++)
-	  count += CountOperatorsRec(memo,t.arg(i));
-	return count;
+      if (k == And || k == Or) {
+          int count = 1;
+          int nargs = t.num_args();
+          for (int i = 0; i < nargs; i++)
+              count += CountOperatorsRec(memo, t.arg(i));
+          return count;
       }
       return 0;
     }
@@ -172,13 +172,12 @@ namespace Duality {
     Term b(ctx);
     std::vector<Term> v;
     RedVars(child, b, v);
-    for (unsigned i = 0; i < args.size(); i++)
-      {
-	if (eq(args[i].get_sort(),ctx.bool_sort()))
-	  args[i] = ctx.make(Iff,args[i], v[i]);
-	else
-	  args[i] = args[i] == v[i];
-      }
+    for (unsigned i = 0; i < args.size(); i++) {
+        if (eq(args[i].get_sort(), ctx.bool_sort()))
+            args[i] = ctx.make(Iff, args[i], v[i]);
+        else
+            args[i] = args[i] == v[i];
+    }
     return args.size() > 0 ? (b && conjoin(args)) : b;
   }
 
@@ -202,18 +201,18 @@ namespace Duality {
       names.push_back(Z3_get_quantifier_bound_name(c,a,i));
     }
     Z3_ast foo = Z3_mk_quantifier_ex(c,
-				     Z3_is_quantifier_forall(c,a),
-				     Z3_get_quantifier_weight(c,a),
-				     0,
-				     0,
-				     num_pats,
-				     &pats[0],
-				     num_no_pats,
-				     &no_pats[0],
-				     bound,
-				     &sorts[0],
-				     &names[0],
-				     new_body);
+                     Z3_is_quantifier_forall(c,a),
+                     Z3_get_quantifier_weight(c,a),
+                     0,
+                     0,
+                     num_pats,
+                     &pats[0],
+                     num_no_pats,
+                     &no_pats[0],
+                     bound,
+                     &sorts[0],
+                     &names[0],
+                     new_body);
     return expr(ctx,foo);
 #endif
     return clone_quantifier(t,new_body);
@@ -231,36 +230,32 @@ namespace Duality {
       res = it->second;
       return res;
     }
-    if (t.is_app())
-      {
-	func_decl f = t.decl();
-	std::vector<Term> args;
-	int nargs = t.num_args();
-	for(int i = 0; i < nargs; i++)
-	  args.push_back(LocalizeRec(e, memo, t.arg(i)));
-	hash_map<func_decl,int>::iterator rit = e->relMap.find(f);                 
-	if(rit != e->relMap.end())
-	  res = RedDualRela(e,args,(rit->second));
-	else {
-	  if (args.size() == 0 && f.get_decl_kind() == Uninterpreted && !ls->is_constant(f))
-	    {
-	      res = HideVariable(t,e->number);
-	    }
-	  else
-	    {
-	      res = f(args.size(),&args[0]);
-	    }
-	}
-      }
-    else if (t.is_quantifier())
-      {
-	std::vector<expr> pats;
-	t.get_patterns(pats);
-	for(unsigned i = 0; i < pats.size(); i++)
-	  pats[i] = LocalizeRec(e,memo,pats[i]);
-	Term body = LocalizeRec(e,memo,t.body());
-	res = clone_quantifier(t, body, pats);
-      }
+    if (t.is_app()) {
+        func_decl f = t.decl();
+        std::vector<Term> args;
+        int nargs = t.num_args();
+        for (int i = 0; i < nargs; i++)
+            args.push_back(LocalizeRec(e, memo, t.arg(i)));
+        hash_map<func_decl, int>::iterator rit = e->relMap.find(f);
+        if (rit != e->relMap.end())
+            res = RedDualRela(e, args, (rit->second));
+        else {
+            if (args.size() == 0 && f.get_decl_kind() == Uninterpreted && !ls->is_constant(f)) {
+                res = HideVariable(t, e->number);
+            }
+            else {
+                res = f(args.size(), &args[0]);
+            }
+        }
+    }
+    else if (t.is_quantifier()) {
+        std::vector<expr> pats;
+        t.get_patterns(pats);
+        for (unsigned i = 0; i < pats.size(); i++)
+            pats[i] = LocalizeRec(e, memo, pats[i]);
+        Term body = LocalizeRec(e, memo, t.body());
+        res = clone_quantifier(t, body, pats);
+    }
     else res = t;
     return res;
   }
@@ -353,24 +348,22 @@ namespace Duality {
     std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
     Term &res = bar.first->second;
     if(!bar.second) return res;
-    if (t.is_app())
-      {
-	func_decl f = t.decl();
-	std::vector<Term> args;
-	int nargs = t.num_args();
-	for(int i = 0; i < nargs; i++)
-	  args.push_back(SubstRec(memo, t.arg(i)));
-	res = f(args.size(),&args[0]);
-      }
-    else if (t.is_quantifier())
-      {
-	std::vector<expr> pats;
-	t.get_patterns(pats);
-	for(unsigned i = 0; i < pats.size(); i++)
-	  pats[i] = SubstRec(memo,pats[i]);
-	Term body = SubstRec(memo,t.body());
-	res = clone_quantifier(t, body, pats);
-      }
+    if (t.is_app()) {
+        func_decl f = t.decl();
+        std::vector<Term> args;
+        int nargs = t.num_args();
+        for (int i = 0; i < nargs; i++)
+            args.push_back(SubstRec(memo, t.arg(i)));
+        res = f(args.size(), &args[0]);
+    }
+    else if (t.is_quantifier()) {
+        std::vector<expr> pats;
+        t.get_patterns(pats);
+        for (unsigned i = 0; i < pats.size(); i++)
+            pats[i] = SubstRec(memo, pats[i]);
+        Term body = SubstRec(memo, t.body());
+        res = clone_quantifier(t, body, pats);
+    }
     // res = CloneQuantifier(t,SubstRec(memo, t.body()));
     else res = t;
     return res;
@@ -382,27 +375,25 @@ namespace Duality {
     std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
     Term &res = bar.first->second;
     if(!bar.second) return res;
-    if (t.is_app())
-      {
-	func_decl f = t.decl();
-	std::vector<Term> args;
-	int nargs = t.num_args();
-	for(int i = 0; i < nargs; i++)
-	  args.push_back(SubstRec(memo, map, t.arg(i)));
-	hash_map<func_decl,func_decl>::iterator it = map.find(f);
-	if(it != map.end())
-	  f = it->second;
-	res = f(args.size(),&args[0]);
-      }
-    else if (t.is_quantifier())
-      {
-	std::vector<expr> pats;
-	t.get_patterns(pats);
-	for(unsigned i = 0; i < pats.size(); i++)
-	  pats[i] = SubstRec(memo, map, pats[i]);
-	Term body = SubstRec(memo, map, t.body());
-	res = clone_quantifier(t, body, pats);
-      }
+    if (t.is_app()) {
+        func_decl f = t.decl();
+        std::vector<Term> args;
+        int nargs = t.num_args();
+        for (int i = 0; i < nargs; i++)
+            args.push_back(SubstRec(memo, map, t.arg(i)));
+        hash_map<func_decl, func_decl>::iterator it = map.find(f);
+        if (it != map.end())
+            f = it->second;
+        res = f(args.size(), &args[0]);
+    }
+    else if (t.is_quantifier()) {
+        std::vector<expr> pats;
+        t.get_patterns(pats);
+        for (unsigned i = 0; i < pats.size(); i++)
+            pats[i] = SubstRec(memo, map, pats[i]);
+        Term body = SubstRec(memo, map, t.body());
+        res = clone_quantifier(t, body, pats);
+    }
     // res = CloneQuantifier(t,SubstRec(memo, t.body()));
     else res = t;
     return res;
@@ -415,20 +406,20 @@ namespace Duality {
     Term &res = bar.first->second;
     if(!bar.second) return res;
     if (t.is_app()) {
-      func_decl f = t.decl();
-      std::vector<Term> args;
-      int nargs = t.num_args();
-      for(int i = 0; i < nargs; i++)
-	args.push_back(ExtractStores(memo, t.arg(i),cnstrs,renaming));
-      res = f(args.size(),&args[0]);
-      if(f.get_decl_kind() == Store){
-	func_decl fresh = ctx.fresh_func_decl("@arr", res.get_sort());
-	expr y = fresh();
-	expr equ = ctx.make(Equal,y,res);
-	cnstrs.push_back(equ);
-	renaming[y] = res;
-	res = y;
-      }
+        func_decl f = t.decl();
+        std::vector<Term> args;
+        int nargs = t.num_args();
+        for (int i = 0; i < nargs; i++)
+            args.push_back(ExtractStores(memo, t.arg(i), cnstrs, renaming));
+        res = f(args.size(), &args[0]);
+        if (f.get_decl_kind() == Store) {
+            func_decl fresh = ctx.fresh_func_decl("@arr", res.get_sort());
+            expr y = fresh();
+            expr equ = ctx.make(Equal, y, res);
+            cnstrs.push_back(equ);
+            renaming[y] = res;
+            res = y;
+        }
     }
     else res = t;
     return res;
@@ -436,20 +427,20 @@ namespace Duality {
 
 
   bool Z3User::IsLiteral(const expr &lit, expr &atom, expr &val){
-    if(!(lit.is_quantifier() && IsClosedFormula(lit))){
-      if(!lit.is_app())
-	return false;
-      decl_kind k = lit.decl().get_decl_kind();
-      if(k == Not){
-	if(IsLiteral(lit.arg(0),atom,val)){
-	  val = eq(val,ctx.bool_val(true)) ? ctx.bool_val(false) : ctx.bool_val(true); 
-	  return true;
-	}
-	return false;
+      if (!(lit.is_quantifier() && IsClosedFormula(lit))) {
+          if (!lit.is_app())
+              return false;
+          decl_kind k = lit.decl().get_decl_kind();
+          if (k == Not) {
+              if (IsLiteral(lit.arg(0), atom, val)) {
+                  val = eq(val, ctx.bool_val(true)) ? ctx.bool_val(false) : ctx.bool_val(true);
+                  return true;
+              }
+              return false;
+          }
+          if (k == And || k == Or || k == Iff || k == Implies)
+              return false;
       }
-      if(k == And || k == Or || k == Iff || k == Implies)
-	return false;
-    }
     atom = lit;
     val = ctx.bool_val(true);
     return true;
@@ -467,11 +458,11 @@ namespace Duality {
 
   expr Z3User::ReduceAndOr(const std::vector<expr> &args, bool is_and, std::vector<expr> &res){
     for(unsigned i = 0; i < args.size(); i++)
-      if(!eq(args[i],ctx.bool_val(is_and))){
-	if(eq(args[i],ctx.bool_val(!is_and)))
-	  return ctx.bool_val(!is_and);
-	res.push_back(args[i]);
-      }
+        if (!eq(args[i], ctx.bool_val(is_and))) {
+            if (eq(args[i], ctx.bool_val(!is_and)))
+                return ctx.bool_val(!is_and);
+            res.push_back(args[i]);
+        }
     return expr();
   }
 
@@ -495,36 +486,36 @@ namespace Duality {
     // first check if there's anything to do...
     if(args.size() < 2)
       return FinishAndOr(args,is_and);
-    for(unsigned i = 0; i < args.size(); i++){
-      const expr &a = args[i];
-      if(!(a.is_app() && a.decl().get_decl_kind() == (is_and ? Or : And)))
-	return FinishAndOr(args,is_and);
+    for (unsigned i = 0; i < args.size(); i++) {
+        const expr &a = args[i];
+        if (!(a.is_app() && a.decl().get_decl_kind() == (is_and ? Or : And)))
+            return FinishAndOr(args, is_and);
     }
     std::vector<expr> common;
-    for(unsigned i = 0; i < args.size(); i++){
-      unsigned n = args[i].num_args();
-      std::vector<expr> v(n),w;
-      for(unsigned j = 0; j < n; j++)
-	v[j] = args[i].arg(j);
-      std::less<ast> comp;
-      std::sort(v.begin(),v.end(),comp);
-      if(i == 0)
-	common.swap(v);
-      else {
-	std::set_intersection(common.begin(),common.end(),v.begin(),v.end(),std::inserter(w,w.begin()),comp);
-	common.swap(w);
-      }
-    }  
+    for (unsigned i = 0; i < args.size(); i++) {
+        unsigned n = args[i].num_args();
+        std::vector<expr> v(n), w;
+        for (unsigned j = 0; j < n; j++)
+            v[j] = args[i].arg(j);
+        std::less<ast> comp;
+        std::sort(v.begin(), v.end(), comp);
+        if (i == 0)
+            common.swap(v);
+        else {
+            std::set_intersection(common.begin(), common.end(), v.begin(), v.end(), std::inserter(w, w.begin()), comp);
+            common.swap(w);
+        }
+    }
     if(common.empty())
       return FinishAndOr(args,is_and);
     std::set<ast> common_set(common.begin(),common.end());
     for(unsigned i = 0; i < args.size(); i++){
       unsigned n = args[i].num_args();
       std::vector<expr> lits;
-      for(unsigned j = 0; j < n; j++){
-	const expr b = args[i].arg(j);
-	if(common_set.find(b) == common_set.end())
-	  lits.push_back(b);
+      for (unsigned j = 0; j < n; j++) {
+          const expr b = args[i].arg(j);
+          if (common_set.find(b) == common_set.end())
+              lits.push_back(b);
       }
       args[i] = SimplifyAndOr(lits,!is_and);
     }  
@@ -549,148 +540,145 @@ namespace Duality {
   }
 
   Z3User::Term Z3User::PushQuantifier(const expr &t, const expr &body, bool is_forall){
-    if(t.get_quantifier_num_bound() == 1){
-      std::vector<expr> fmlas,free,not_free;
-      CollectJuncts(body,fmlas, is_forall ? Or : And, false);
-      for(unsigned i = 0; i < fmlas.size(); i++){
-	const expr &fmla = fmlas[i];
-	if(fmla.has_free(0))
-	  free.push_back(fmla);
-	else
-	  not_free.push_back(fmla);
+      if (t.get_quantifier_num_bound() == 1) {
+          std::vector<expr> fmlas, free, not_free;
+          CollectJuncts(body, fmlas, is_forall ? Or : And, false);
+          for (unsigned i = 0; i < fmlas.size(); i++) {
+              const expr &fmla = fmlas[i];
+              if (fmla.has_free(0))
+                  free.push_back(fmla);
+              else
+                  not_free.push_back(fmla);
+          }
+          decl_kind op = is_forall ? Or : And;
+          if (free.empty())
+              return DeleteBound(0, 1, SimplifyAndOr(not_free, op == And));
+          expr q = clone_quantifier(is_forall ? Forall : Exists, t, SimplifyAndOr(free, op == And));
+          if (!not_free.empty())
+              q = ctx.make(op, q, DeleteBound(0, 1, SimplifyAndOr(not_free, op == And)));
+          return q;
       }
-      decl_kind op = is_forall ? Or : And;
-      if(free.empty())
-	return DeleteBound(0,1,SimplifyAndOr(not_free,op == And));
-      expr q = clone_quantifier(is_forall ? Forall : Exists,t, SimplifyAndOr(free, op == And));
-      if(!not_free.empty())
-	q = ctx.make(op,q,DeleteBound(0,1,SimplifyAndOr(not_free, op == And)));
-      return q;
-    }
     return clone_quantifier(is_forall ? Forall : Exists,t,body);
   }
 
-  Z3User::Term Z3User::CloneQuantAndSimp(const expr &t, const expr &body, bool is_forall){
-    if(body.is_app()){
-      if(body.decl().get_decl_kind() == (is_forall ? And : Or)){ // quantifier distributes
-	int nargs = body.num_args();
-	std::vector<expr> args(nargs);
-	for(int i = 0; i < nargs; i++)
-	  args[i] = CloneQuantAndSimp(t, body.arg(i), is_forall);
-	return SimplifyAndOr(args, body.decl().get_decl_kind() == And);
+  Z3User::Term Z3User::CloneQuantAndSimp(const expr &t, const expr &body, bool is_forall) {
+      if (body.is_app()) {
+          if (body.decl().get_decl_kind() == (is_forall ? And : Or)) { // quantifier distributes
+              int nargs = body.num_args();
+              std::vector<expr> args(nargs);
+              for (int i = 0; i < nargs; i++)
+                  args[i] = CloneQuantAndSimp(t, body.arg(i), is_forall);
+              return SimplifyAndOr(args, body.decl().get_decl_kind() == And);
+          }
+          else if (body.decl().get_decl_kind() == (is_forall ? Or : And)) { // quantifier distributes
+              return PushQuantifier(t, body, is_forall); // may distribute partially
+          }
+          else if (body.decl().get_decl_kind() == Not) {
+              return ctx.make(Not, CloneQuantAndSimp(t, body.arg(0), !is_forall));
+          }
       }
-      else if(body.decl().get_decl_kind() == (is_forall ? Or : And)){ // quantifier distributes
-	return PushQuantifier(t,body,is_forall); // may distribute partially
-      }
-      else if(body.decl().get_decl_kind() == Not){
-	return ctx.make(Not,CloneQuantAndSimp(t,body.arg(0),!is_forall));
-      }
-    }
-    if(t.get_quantifier_num_bound() == 1 && !body.has_free(0))
-      return DeleteBound(0,1,body); // drop the quantifier
-    return clone_quantifier(is_forall ? Forall : Exists,t,body);
+      if (t.get_quantifier_num_bound() == 1 && !body.has_free(0))
+          return DeleteBound(0, 1, body); // drop the quantifier
+      return clone_quantifier(is_forall ? Forall : Exists, t, body);
   }
 
   Z3User::Term Z3User::CloneQuantAndSimp(const expr &t, const expr &body){
     return CloneQuantAndSimp(t,body,t.is_quantifier_forall());
   }
 
-  Z3User::Term Z3User::SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val){
-    std::pair<ast,Term> foo(t,expr(ctx));
-    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
-    Term &res = bar.first->second;
-    if(!bar.second) return res;
-    if (t.is_app()){
-      func_decl f = t.decl();
-      decl_kind k = f.get_decl_kind();
-      
-      // TODO: recur here, but how much? We don't want to be quadractic in formula size
-      
-      if(k == And || k == Or){
-	int nargs = t.num_args();
-	std::vector<Term> args(nargs);
-	for(int i = 0; i < nargs; i++)
-	  args[i] = SubstAtom(memo,t.arg(i),atom,val);
-	res = ReallySimplifyAndOr(args, k==And);
-	return res;
+  Z3User::Term Z3User::SubstAtom(hash_map<ast, Term> &memo, const expr &t, const expr &atom, const expr &val) {
+      std::pair<ast, Term> foo(t, expr(ctx));
+      std::pair<hash_map<ast, Term>::iterator, bool> bar = memo.insert(foo);
+      Term &res = bar.first->second;
+      if (!bar.second) return res;
+      if (t.is_app()) {
+          func_decl f = t.decl();
+          decl_kind k = f.get_decl_kind();
+
+          // TODO: recur here, but how much? We don't want to be quadractic in formula size
+
+          if (k == And || k == Or) {
+              int nargs = t.num_args();
+              std::vector<Term> args(nargs);
+              for (int i = 0; i < nargs; i++)
+                  args[i] = SubstAtom(memo, t.arg(i), atom, val);
+              res = ReallySimplifyAndOr(args, k == And);
+              return res;
+          }
       }
-    }
-    else if(t.is_quantifier() && atom.is_quantifier()){
-      if(eq(t,atom))
-	res = val;
-      else
-	res = clone_quantifier(t,SubstAtom(memo,t.body(),atom,val));
+      else if (t.is_quantifier() && atom.is_quantifier()) {
+          if (eq(t, atom))
+              res = val;
+          else
+              res = clone_quantifier(t, SubstAtom(memo, t.body(), atom, val));
+          return res;
+      }
+      res = SubstAtomTriv(t, atom, val);
       return res;
-    }
-    res = SubstAtomTriv(t,atom,val);
-    return res;
   }
 
-  void Z3User::RemoveRedundancyOp(bool pol, std::vector<expr> &args, hash_map<ast, Term> &smemo){
-    for(unsigned i = 0; i < args.size(); i++){
-      const expr &lit = args[i];
-      expr atom, val;
-      if(IsLiteral(lit,atom,val)){
-	if(atom.is_app() && atom.decl().get_decl_kind() == Equal)
-	  if(pol ? eq(val,ctx.bool_val(true)) : eq(val,ctx.bool_val(false))){
-	    expr lhs = atom.arg(0), rhs = atom.arg(1);
-	    if(lhs.is_numeral())
-	      std::swap(lhs,rhs);
-	    if(rhs.is_numeral() && lhs.is_app()){
-	      for(unsigned j = 0; j < args.size(); j++)
-		if(j != i){
-		  smemo.clear();
-		  smemo[lhs] = rhs;
-		  args[j] = SubstRec(smemo,args[j]);
-		}
-	    }
-	  }
-	for(unsigned j = 0; j < args.size(); j++)
-	  if(j != i){
-	    smemo.clear();
-	    args[j] = SubstAtom(smemo,args[j],atom,pol ? val : !val);
-	  }
+  void Z3User::RemoveRedundancyOp(bool pol, std::vector<expr> &args, hash_map<ast, Term> &smemo) {
+      for (unsigned i = 0; i < args.size(); i++) {
+          const expr &lit = args[i];
+          expr atom, val;
+          if (IsLiteral(lit, atom, val)) {
+              if (atom.is_app() && atom.decl().get_decl_kind() == Equal)
+                  if (pol ? eq(val, ctx.bool_val(true)) : eq(val, ctx.bool_val(false))) {
+                      expr lhs = atom.arg(0), rhs = atom.arg(1);
+                      if (lhs.is_numeral())
+                          std::swap(lhs, rhs);
+                      if (rhs.is_numeral() && lhs.is_app()) {
+                          for (unsigned j = 0; j < args.size(); j++)
+                              if (j != i) {
+                                  smemo.clear();
+                                  smemo[lhs] = rhs;
+                                  args[j] = SubstRec(smemo, args[j]);
+                              }
+                      }
+                  }
+              for (unsigned j = 0; j < args.size(); j++)
+                  if (j != i) {
+                      smemo.clear();
+                      args[j] = SubstAtom(smemo, args[j], atom, pol ? val : !val);
+                  }
+          }
       }
-    }
   }
   
 
-  Z3User::Term Z3User::RemoveRedundancyRec(hash_map<ast, Term> &memo, hash_map<ast, Term> &smemo, const Term &t)
-  {
-    std::pair<ast,Term> foo(t,expr(ctx));
-    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
-    Term &res = bar.first->second;
-    if(!bar.second) return res;
-    if (t.is_app())
-      {
-	func_decl f = t.decl();
-	std::vector<Term> args;
-	int nargs = t.num_args();
-	for(int i = 0; i < nargs; i++)
-	  args.push_back(RemoveRedundancyRec(memo, smemo, t.arg(i)));
+  Z3User::Term Z3User::RemoveRedundancyRec(hash_map<ast, Term> &memo, hash_map<ast, Term> &smemo, const Term &t) {
+      std::pair<ast, Term> foo(t, expr(ctx));
+      std::pair<hash_map<ast, Term>::iterator, bool> bar = memo.insert(foo);
+      Term &res = bar.first->second;
+      if (!bar.second) return res;
+      if (t.is_app()) {
+          func_decl f = t.decl();
+          std::vector<Term> args;
+          int nargs = t.num_args();
+          for (int i = 0; i < nargs; i++)
+              args.push_back(RemoveRedundancyRec(memo, smemo, t.arg(i)));
 
-	decl_kind k = f.get_decl_kind();
-	if(k == And){
-	  RemoveRedundancyOp(true,args,smemo);
-	  res = ReallySimplifyAndOr(args, true);
-	}
-	else if(k == Or){
-	  RemoveRedundancyOp(false,args,smemo);
-	  res = ReallySimplifyAndOr(args, false);
-	}
-	else {
-	  if(k == Equal && args[0].get_id() > args[1].get_id())
-	    std::swap(args[0],args[1]);
-	  res = f(args.size(),&args[0]);
-	}
+          decl_kind k = f.get_decl_kind();
+          if (k == And) {
+              RemoveRedundancyOp(true, args, smemo);
+              res = ReallySimplifyAndOr(args, true);
+          }
+          else if (k == Or) {
+              RemoveRedundancyOp(false, args, smemo);
+              res = ReallySimplifyAndOr(args, false);
+          }
+          else {
+              if (k == Equal && args[0].get_id() > args[1].get_id())
+                  std::swap(args[0], args[1]);
+              res = f(args.size(), &args[0]);
+          }
       }
-    else if (t.is_quantifier())
-      {
-	Term body = RemoveRedundancyRec(memo,smemo,t.body());
-	res = CloneQuantAndSimp(t, body);
+      else if (t.is_quantifier()) {
+          Term body = RemoveRedundancyRec(memo, smemo, t.body());
+          res = CloneQuantAndSimp(t, body);
       }
-    else res = t;
-    return res;
+      else res = t;
+      return res;
   }
 
   Z3User::Term Z3User::RemoveRedundancy(const Term &t){
@@ -706,43 +694,40 @@ namespace Duality {
     return t;
   }
 
-  Z3User::Term Z3User::IneqToEqRec(hash_map<ast, Term> &memo, const Term &t)
-  {
-    std::pair<ast,Term> foo(t,expr(ctx));
-    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
-    Term &res = bar.first->second;
-    if(!bar.second) return res;
-    if (t.is_app())
-      {
-	func_decl f = t.decl();
-	std::vector<Term> args;
-	int nargs = t.num_args();
-	for(int i = 0; i < nargs; i++)
-	  args.push_back(IneqToEqRec(memo, t.arg(i)));
+  Z3User::Term Z3User::IneqToEqRec(hash_map<ast, Term> &memo, const Term &t) {
+      std::pair<ast, Term> foo(t, expr(ctx));
+      std::pair<hash_map<ast, Term>::iterator, bool> bar = memo.insert(foo);
+      Term &res = bar.first->second;
+      if (!bar.second) return res;
+      if (t.is_app()) {
+          func_decl f = t.decl();
+          std::vector<Term> args;
+          int nargs = t.num_args();
+          for (int i = 0; i < nargs; i++)
+              args.push_back(IneqToEqRec(memo, t.arg(i)));
 
-	decl_kind k = f.get_decl_kind();
-	if(k == And){
-	  for(int i = 0; i < nargs-1; i++){
-	    if((args[i].is_app() && args[i].decl().get_decl_kind() == Geq && 
-		args[i+1].is_app() && args[i+1].decl().get_decl_kind() == Leq)
-	       ||
-	       (args[i].is_app() && args[i].decl().get_decl_kind() == Leq && 
-		args[i+1].is_app() && args[i+1].decl().get_decl_kind() == Geq))
-	      if(eq(args[i].arg(0),args[i+1].arg(0)) && eq(args[i].arg(1),args[i+1].arg(1))){
-		args[i] = ctx.make(Equal,args[i].arg(0),args[i].arg(1));
-		args[i+1] = ctx.bool_val(true);
-	      }
-	  }
-	}
-	res = f(args.size(),&args[0]);
+          decl_kind k = f.get_decl_kind();
+          if (k == And) {
+              for (int i = 0; i < nargs - 1; i++) {
+                  if ((args[i].is_app() && args[i].decl().get_decl_kind() == Geq &&
+                      args[i + 1].is_app() && args[i + 1].decl().get_decl_kind() == Leq)
+                      ||
+                      (args[i].is_app() && args[i].decl().get_decl_kind() == Leq &&
+                      args[i + 1].is_app() && args[i + 1].decl().get_decl_kind() == Geq))
+                      if (eq(args[i].arg(0), args[i + 1].arg(0)) && eq(args[i].arg(1), args[i + 1].arg(1))) {
+                          args[i] = ctx.make(Equal, args[i].arg(0), args[i].arg(1));
+                          args[i + 1] = ctx.bool_val(true);
+                      }
+              }
+          }
+          res = f(args.size(), &args[0]);
       }
-    else if (t.is_quantifier())
-      {
-	Term body = IneqToEqRec(memo,t.body());
-	res = clone_quantifier(t, body);
+      else if (t.is_quantifier()) {
+          Term body = IneqToEqRec(memo, t.body());
+          res = clone_quantifier(t, body);
       }
-    else res = t;
-    return res;
+      else res = t;
+      return res;
   }
 
   Z3User::Term Z3User::IneqToEq(const Term &t){
@@ -750,87 +735,85 @@ namespace Duality {
     return IneqToEqRec(memo,t);
   }
 
-  Z3User::Term Z3User::SubstRecHide(hash_map<ast, Term> &memo, const Term &t, int number)
-  {
-    std::pair<ast,Term> foo(t,expr(ctx));
-    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
-    Term &res = bar.first->second;
-    if(!bar.second) return res;
-    if (t.is_app())
-      {
-	func_decl f = t.decl();
-	std::vector<Term> args;
-	int nargs = t.num_args();
-	if (nargs == 0 && f.get_decl_kind() == Uninterpreted){
-	  std::string name = std::string("@q_") + t.decl().name().str() + "_" + string_of_int(number);
-	  res = ctx.constant(name.c_str(), t.get_sort());
-	  return res;
-	}
-	for(int i = 0; i < nargs; i++)
-	  args.push_back(SubstRec(memo, t.arg(i)));
-	res = f(args.size(),&args[0]);
+  Z3User::Term Z3User::SubstRecHide(hash_map<ast, Term> &memo, const Term &t, int number) {
+      std::pair<ast, Term> foo(t, expr(ctx));
+      std::pair<hash_map<ast, Term>::iterator, bool> bar = memo.insert(foo);
+      Term &res = bar.first->second;
+      if (!bar.second) return res;
+      if (t.is_app()) {
+          func_decl f = t.decl();
+          std::vector<Term> args;
+          int nargs = t.num_args();
+          if (nargs == 0 && f.get_decl_kind() == Uninterpreted) {
+              std::string name = std::string("@q_") + t.decl().name().str() + "_" + string_of_int(number);
+              res = ctx.constant(name.c_str(), t.get_sort());
+              return res;
+          }
+          for (int i = 0; i < nargs; i++)
+              args.push_back(SubstRec(memo, t.arg(i)));
+          res = f(args.size(), &args[0]);
       }
-    else if (t.is_quantifier())
-      res = CloneQuantifier(t,SubstRec(memo, t.body()));
-    else res = t;
-    return res;
+      else if (t.is_quantifier())
+          res = CloneQuantifier(t, SubstRec(memo, t.body()));
+      else res = t;
+      return res;
   }
 
   RPFP::Term RPFP::SubstParams(const std::vector<Term> &from,
-			       const std::vector<Term> &to, const Term &t){
-    hash_map<ast, Term> memo;
-    bool some_diff = false;
-    for(unsigned i = 0; i < from.size(); i++)
-      if(i < to.size() && !eq(from[i],to[i])){
-	memo[from[i]] = to[i];
-	some_diff = true;
-      }
-    return some_diff ? SubstRec(memo,t) : t;
+                               const std::vector<Term> &to, const Term &t) {
+      hash_map<ast, Term> memo;
+      bool some_diff = false;
+      for (unsigned i = 0; i < from.size(); i++)
+          if (i < to.size() && !eq(from[i], to[i])) {
+              memo[from[i]] = to[i];
+              some_diff = true;
+          }
+      return some_diff ? SubstRec(memo, t) : t;
   }
 
   RPFP::Term RPFP::SubstParamsNoCapture(const std::vector<Term> &from,
-			                const std::vector<Term> &to, const Term &t){
-    hash_map<ast, Term> memo;
-    bool some_diff = false;
-    for(unsigned i = 0; i < from.size(); i++)
-      if(i < to.size() && !eq(from[i],to[i])){
-	memo[from[i]] = to[i];
-	// if the new param is not being mapped to anything else, we need to rename it to prevent capture
-	// note, if the new param *is* mapped later in the list, it will override this substitution
-	const expr &w = to[i];
-	if(memo.find(w) == memo.end()){
-	  std::string old_name = w.decl().name().str();
-          func_decl fresh = ctx.fresh_func_decl(old_name.c_str(), w.get_sort());
-          expr y = fresh();
-	  memo[w] = y;
-	}
-	some_diff = true;
-      }
-    return some_diff ? SubstRec(memo,t) : t;
+                                        const std::vector<Term> &to, const Term &t) {
+      hash_map<ast, Term> memo;
+      bool some_diff = false;
+      for (unsigned i = 0; i < from.size(); i++)
+          if (i < to.size() && !eq(from[i], to[i])) {
+              memo[from[i]] = to[i];
+              // if the new param is not being mapped to anything else, we need to rename it to prevent capture
+              // note, if the new param *is* mapped later in the list, it will override this substitution
+              const expr &w = to[i];
+              if (memo.find(w) == memo.end()) {
+                  std::string old_name = w.decl().name().str();
+                  func_decl fresh = ctx.fresh_func_decl(old_name.c_str(), w.get_sort());
+                  expr y = fresh();
+                  memo[w] = y;
+              }
+              some_diff = true;
+          }
+      return some_diff ? SubstRec(memo, t) : t;
   }
 
   
 
-  RPFP::Transformer RPFP::Fuse(const std::vector<Transformer *> &trs){
-    assert(!trs.empty());
-    const std::vector<expr> &params = trs[0]->IndParams;
-    std::vector<expr> fmlas(trs.size()); 
-    fmlas[0] = trs[0]->Formula;
-    for(unsigned i = 1; i < trs.size(); i++)
-      fmlas[i] = SubstParamsNoCapture(trs[i]->IndParams,params,trs[i]->Formula);
-    std::vector<func_decl> rel_params = trs[0]->RelParams;
-    for(unsigned i = 1; i < trs.size(); i++){
-      const std::vector<func_decl> &params2 = trs[i]->RelParams;
-      hash_map<func_decl,func_decl> map;
-      for(unsigned j = 0; j < params2.size(); j++){
-	func_decl rel = RenumberPred(params2[j],rel_params.size());
-	rel_params.push_back(rel);
-	map[params2[j]] = rel;
+  RPFP::Transformer RPFP::Fuse(const std::vector<Transformer *> &trs) {
+      assert(!trs.empty());
+      const std::vector<expr> &params = trs[0]->IndParams;
+      std::vector<expr> fmlas(trs.size());
+      fmlas[0] = trs[0]->Formula;
+      for (unsigned i = 1; i < trs.size(); i++)
+          fmlas[i] = SubstParamsNoCapture(trs[i]->IndParams, params, trs[i]->Formula);
+      std::vector<func_decl> rel_params = trs[0]->RelParams;
+      for (unsigned i = 1; i < trs.size(); i++) {
+          const std::vector<func_decl> &params2 = trs[i]->RelParams;
+          hash_map<func_decl, func_decl> map;
+          for (unsigned j = 0; j < params2.size(); j++) {
+              func_decl rel = RenumberPred(params2[j], rel_params.size());
+              rel_params.push_back(rel);
+              map[params2[j]] = rel;
+          }
+          hash_map<ast, expr> memo;
+          fmlas[i] = SubstRec(memo, map, fmlas[i]);
       }
-      hash_map<ast,expr> memo;
-      fmlas[i] = SubstRec(memo,map,fmlas[i]);
-    }
-    return Transformer(rel_params,params,ctx.make(Or,fmlas),trs[0]->owner);
+      return Transformer(rel_params, params, ctx.make(Or, fmlas), trs[0]->owner);
   }
 
 
@@ -855,19 +838,17 @@ namespace Duality {
     root->Annotation.Formula = annot;
   }
 
-  void RPFP::DecodeTree(Node *root, TermTree *interp, int persist)
-  {
-    std::vector<TermTree *> &ic = interp->getChildren();
-    if (ic.size() > 0)
-      {
-	std::vector<Node *> &nc = root->Outgoing->Children;
-	for (unsigned i = 0; i < nc.size(); i++)
-	  DecodeTree(nc[i], ic[i], persist);
+  void RPFP::DecodeTree(Node *root, TermTree *interp, int persist) {
+      std::vector<TermTree *> &ic = interp->getChildren();
+      if (ic.size() > 0) {
+          std::vector<Node *> &nc = root->Outgoing->Children;
+          for (unsigned i = 0; i < nc.size(); i++)
+              DecodeTree(nc[i], ic[i], persist);
       }
-    SetAnnotation(root,interp->getTerm());
+      SetAnnotation(root, interp->getTerm());
 #if 0
-    if(persist != 0)
-      Z3_persist_ast(ctx,root->Annotation.Formula,persist);
+      if(persist != 0)
+          Z3_persist_ast(ctx,root->Annotation.Formula,persist);
 #endif
   }
   
@@ -926,31 +907,30 @@ namespace Duality {
 #endif    
 
 
-  expr RPFP::GetEdgeFormula(Edge *e, int persist, bool with_children, bool underapprox)
-  {
-    if (e->dual.null()) {
-      timer_start("ReducedDualEdge");
-      e->dual = ReducedDualEdge(e);
-      timer_stop("ReducedDualEdge");
-      timer_start("getting children");
-      if(underapprox){
-	std::vector<expr> cus(e->Children.size());
-	for(unsigned i = 0; i < e->Children.size(); i++)
-	  cus[i] = !UnderapproxFlag(e->Children[i]) || GetUnderapprox(e->Children[i]);
-	expr cnst =  conjoin(cus);
-	e->dual = e->dual && cnst;
+  expr RPFP::GetEdgeFormula(Edge *e, int persist, bool with_children, bool underapprox) {
+      if (e->dual.null()) {
+          timer_start("ReducedDualEdge");
+          e->dual = ReducedDualEdge(e);
+          timer_stop("ReducedDualEdge");
+          timer_start("getting children");
+          if (underapprox) {
+              std::vector<expr> cus(e->Children.size());
+              for (unsigned i = 0; i < e->Children.size(); i++)
+                  cus[i] = !UnderapproxFlag(e->Children[i]) || GetUnderapprox(e->Children[i]);
+              expr cnst = conjoin(cus);
+              e->dual = e->dual && cnst;
+          }
+          timer_stop("getting children");
+          timer_start("Persisting");
+          std::list<stack_entry>::reverse_iterator it = stack.rbegin();
+          for (int i = 0; i < persist && it != stack.rend(); i++)
+              it++;
+          if (it != stack.rend())
+              it->edges.push_back(e);
+          timer_stop("Persisting");
+          //Console.WriteLine("{0}", cnst);
       }
-      timer_stop("getting children");
-      timer_start("Persisting");
-      std::list<stack_entry>::reverse_iterator it = stack.rbegin();
-      for(int i = 0; i < persist && it != stack.rend(); i++)
-	it++;
-      if(it != stack.rend())
-	it->edges.push_back(e);
-      timer_stop("Persisting");
-      //Console.WriteLine("{0}", cnst);
-    }
-    return e->dual;
+      return e->dual;
   }
 
   /** For incremental solving, asserts the constraint associated
@@ -970,47 +950,46 @@ namespace Duality {
    *
    */
 
-  void RPFP::AssertEdge(Edge *e, int persist, bool with_children, bool underapprox)
-  {
-    if(eq(e->F.Formula,ctx.bool_val(true)) && (!with_children || e->Children.empty()))
-      return;
-    expr fmla = GetEdgeFormula(e, persist, with_children, underapprox);
-    timer_start("solver add");
-    slvr_add(e->dual);
-    timer_stop("solver add");
-    if(with_children)
-      for(unsigned i = 0; i < e->Children.size(); i++)
-	ConstrainParent(e,e->Children[i]);
+  void RPFP::AssertEdge(Edge *e, int persist, bool with_children, bool underapprox) {
+      if (eq(e->F.Formula, ctx.bool_val(true)) && (!with_children || e->Children.empty()))
+          return;
+      expr fmla = GetEdgeFormula(e, persist, with_children, underapprox);
+      timer_start("solver add");
+      slvr_add(e->dual);
+      timer_stop("solver add");
+      if (with_children)
+          for (unsigned i = 0; i < e->Children.size(); i++)
+              ConstrainParent(e, e->Children[i]);
   }
 
 
 #ifdef LIMIT_STACK_WEIGHT
   void RPFP_caching::AssertEdge(Edge *e, int persist, bool with_children, bool underapprox)
   {
-    unsigned old_new_alits = new_alits.size();
-    if(eq(e->F.Formula,ctx.bool_val(true)) && (!with_children || e->Children.empty()))
-      return;
-    expr fmla = GetEdgeFormula(e, persist, with_children, underapprox);
-    timer_start("solver add");
-    slvr_add(e->dual);
-    timer_stop("solver add");
-    if(old_new_alits < new_alits.size())
-      weight_added.val++;
-    if(with_children)
-      for(unsigned i = 0; i < e->Children.size(); i++)
-	ConstrainParent(e,e->Children[i]);
+      unsigned old_new_alits = new_alits.size();
+      if(eq(e->F.Formula,ctx.bool_val(true)) && (!with_children || e->Children.empty()))
+          return;
+      expr fmla = GetEdgeFormula(e, persist, with_children, underapprox);
+      timer_start("solver add");
+      slvr_add(e->dual);
+      timer_stop("solver add");
+      if(old_new_alits < new_alits.size())
+          weight_added.val++;
+      if(with_children)
+          for(unsigned i = 0; i < e->Children.size(); i++)
+              ConstrainParent(e,e->Children[i]);
   }
 #endif
 
   // caching verion of above
-  void RPFP_caching::AssertEdgeCache(Edge *e, std::vector<Term> &lits, bool with_children){
-    if(eq(e->F.Formula,ctx.bool_val(true)) && (!with_children || e->Children.empty()))
-      return;
-    expr fmla = GetEdgeFormula(e, 0, with_children, false);
-    GetAssumptionLits(fmla,lits);
-    if(with_children)
-      for(unsigned i = 0; i < e->Children.size(); i++)
-	ConstrainParentCache(e,e->Children[i],lits);
+  void RPFP_caching::AssertEdgeCache(Edge *e, std::vector<Term> &lits, bool with_children) {
+      if (eq(e->F.Formula, ctx.bool_val(true)) && (!with_children || e->Children.empty()))
+          return;
+      expr fmla = GetEdgeFormula(e, 0, with_children, false);
+      GetAssumptionLits(fmla, lits);
+      if (with_children)
+          for (unsigned i = 0; i < e->Children.size(); i++)
+              ConstrainParentCache(e, e->Children[i], lits);
   }
       
   void RPFP::slvr_add(const expr &e){
@@ -1032,23 +1011,23 @@ namespace Duality {
   void RPFP_caching::slvr_pop(int i){
     for(int j = 0; j < i; j++){
 #ifdef LIMIT_STACK_WEIGHT
-      if(alit_stack_sizes.empty()){
-	if(big_stack.empty())
-	  throw "stack underflow";
-	for(unsigned k = 0; k < new_alits.size(); k++){
-	  if(AssumptionLits.find(new_alits[k]) == AssumptionLits.end())
-	    throw "foo!";
-	  AssumptionLits.erase(new_alits[k]);
-	}
-	big_stack_entry &bsb = big_stack.back();
-	bsb.alit_stack_sizes.swap(alit_stack_sizes);
-	bsb.alit_stack.swap(alit_stack);
-	bsb.new_alits.swap(new_alits);
-	bsb.weight_added.swap(weight_added);
-	big_stack.pop_back();
-	slvr().pop(1);
-	continue;
-      }
+        if(alit_stack_sizes.empty()){
+            if(big_stack.empty())
+                throw "stack underflow";
+            for(unsigned k = 0; k < new_alits.size(); k++){
+                if(AssumptionLits.find(new_alits[k]) == AssumptionLits.end())
+                    throw "foo!";
+                AssumptionLits.erase(new_alits[k]);
+            }
+            big_stack_entry &bsb = big_stack.back();
+            bsb.alit_stack_sizes.swap(alit_stack_sizes);
+            bsb.alit_stack.swap(alit_stack);
+            bsb.new_alits.swap(new_alits);
+            bsb.weight_added.swap(weight_added);
+            big_stack.pop_back();
+            slvr().pop(1);
+            continue;
+        }
 #endif
       alit_stack.resize(alit_stack_sizes.back());
       alit_stack_sizes.pop_back();
@@ -1057,18 +1036,18 @@ namespace Duality {
   
   void RPFP_caching::slvr_push(){
 #ifdef LIMIT_STACK_WEIGHT
-    if(weight_added.val > LIMIT_STACK_WEIGHT){
-      big_stack.resize(big_stack.size()+1);
-      big_stack_entry &bsb = big_stack.back();
-      bsb.alit_stack_sizes.swap(alit_stack_sizes);
-      bsb.alit_stack.swap(alit_stack);
-      bsb.new_alits.swap(new_alits);
-      bsb.weight_added.swap(weight_added);
-      slvr().push();
-      for(unsigned i = 0; i < bsb.alit_stack.size(); i++)
-	slvr().add(bsb.alit_stack[i]);
-      return;
-    }
+      if(weight_added.val > LIMIT_STACK_WEIGHT){
+          big_stack.resize(big_stack.size()+1);
+          big_stack_entry &bsb = big_stack.back();
+          bsb.alit_stack_sizes.swap(alit_stack_sizes);
+          bsb.alit_stack.swap(alit_stack);
+          bsb.new_alits.swap(new_alits);
+          bsb.weight_added.swap(weight_added);
+          slvr().push();
+          for(unsigned i = 0; i < bsb.alit_stack.size(); i++)
+              slvr().add(bsb.alit_stack[i]);
+          return;
+      }
 #endif
     alit_stack_sizes.push_back(alit_stack.size());
   }
@@ -1082,16 +1061,16 @@ namespace Duality {
     if(n && assumptions)
       std::copy(assumptions,assumptions+n,std::inserter(alit_stack,alit_stack.end()));
     check_result res;
-    if(core_size && core){
-      std::vector<expr> full_core(alit_stack.size()), core1(n);
-      std::copy(assumptions,assumptions+n,core1.begin());
-      res = slvr().check(alit_stack.size(), &alit_stack[0], core_size, &full_core[0]);
-      full_core.resize(*core_size);
-      if(res == unsat){
-	FilterCore(core1,full_core);
-	*core_size = core1.size();
-	std::copy(core1.begin(),core1.end(),core);
-      }
+    if (core_size && core) {
+        std::vector<expr> full_core(alit_stack.size()), core1(n);
+        std::copy(assumptions, assumptions + n, core1.begin());
+        res = slvr().check(alit_stack.size(), &alit_stack[0], core_size, &full_core[0]);
+        full_core.resize(*core_size);
+        if (res == unsat) {
+            FilterCore(core1, full_core);
+            *core_size = core1.size();
+            std::copy(core1.begin(), core1.end(), core);
+        }
     }
     else 
       res = slvr().check(alit_stack.size(), &alit_stack[0]);
@@ -1100,20 +1079,20 @@ namespace Duality {
   }
 
   lbool RPFP::ls_interpolate_tree(TermTree *assumptions,
-				  TermTree *&interpolants,
-				  model &_model,
-				  TermTree *goals,
-				  bool weak){
-    return ls->interpolate_tree(assumptions, interpolants, _model, goals, weak);
+                                  TermTree *&interpolants,
+                                  model &_model,
+                                  TermTree *goals,
+                                  bool weak) {
+      return ls->interpolate_tree(assumptions, interpolants, _model, goals, weak);
   }
 
   lbool RPFP_caching::ls_interpolate_tree(TermTree *assumptions,
-					  TermTree *&interpolants,
-					  model &_model,
-					  TermTree *goals,
-					  bool weak){
-    GetTermTreeAssertionLiterals(assumptions);
-    return ls->interpolate_tree(assumptions, interpolants, _model, goals, weak);
+                                          TermTree *&interpolants,
+                                          model &_model,
+                                          TermTree *goals,
+                                          bool weak) {
+      GetTermTreeAssertionLiterals(assumptions);
+      return ls->interpolate_tree(assumptions, interpolants, _model, goals, weak);
   }
 
   void RPFP_caching::GetTermTreeAssertionLiteralsRec(TermTree *assumptions){
@@ -1132,34 +1111,34 @@ namespace Duality {
     return;
   }
 
-  void RPFP_caching::GetTermTreeAssertionLiterals(TermTree *assumptions){
-    // optimize binary case
-    if(assumptions->getChildren().size() == 1
-       && assumptions->getChildren()[0]->getChildren().size() == 0){
-      hash_map<ast,expr> map;
-      TermTree *child = assumptions->getChildren()[0];
-      std::vector<expr> dummy;
-      GetAssumptionLits(child->getTerm(),dummy,&map);
-      std::vector<expr> &ts = child->getTerms();
-      for(unsigned i = 0; i < ts.size(); i++)
-	GetAssumptionLits(ts[i],dummy,&map);
-      std::vector<expr> assumps;
-      slvr().get_proof().get_assumptions(assumps);
-      if(!proof_core){ // save the proof core for later use
-	proof_core = new hash_set<ast>;
-	for(unsigned i = 0; i < assumps.size(); i++)
-	  proof_core->insert(assumps[i]);
+  void RPFP_caching::GetTermTreeAssertionLiterals(TermTree *assumptions) {
+      // optimize binary case
+      if (assumptions->getChildren().size() == 1
+          && assumptions->getChildren()[0]->getChildren().size() == 0) {
+          hash_map<ast, expr> map;
+          TermTree *child = assumptions->getChildren()[0];
+          std::vector<expr> dummy;
+          GetAssumptionLits(child->getTerm(), dummy, &map);
+          std::vector<expr> &ts = child->getTerms();
+          for (unsigned i = 0; i < ts.size(); i++)
+              GetAssumptionLits(ts[i], dummy, &map);
+          std::vector<expr> assumps;
+          slvr().get_proof().get_assumptions(assumps);
+          if (!proof_core) { // save the proof core for later use
+              proof_core = new hash_set < ast > ;
+              for (unsigned i = 0; i < assumps.size(); i++)
+                  proof_core->insert(assumps[i]);
+          }
+          std::vector<expr> *cnsts[2] = { &child->getTerms(), &assumptions->getTerms() };
+          for (unsigned i = 0; i < assumps.size(); i++) {
+              expr &as = assumps[i];
+              expr alit = (as.is_app() && as.decl().get_decl_kind() == Implies) ? as.arg(0) : as;
+              bool isA = map.find(alit) != map.end();
+              cnsts[isA ? 0 : 1]->push_back(as);
+          }
       }
-      std::vector<expr> *cnsts[2] = {&child->getTerms(),&assumptions->getTerms()};
-      for(unsigned i = 0; i < assumps.size(); i++){
-	expr &ass = assumps[i];
-	expr alit = (ass.is_app() && ass.decl().get_decl_kind() == Implies) ? ass.arg(0) : ass;
-	bool isA = map.find(alit) != map.end();
-	cnsts[isA ? 0 : 1]->push_back(ass);
-      }
-    }
-    else
-      GetTermTreeAssertionLiteralsRec(assumptions);
+      else
+          GetTermTreeAssertionLiteralsRec(assumptions);
   }
 
   void RPFP::AddToProofCore(hash_set<ast> &core){
@@ -1177,27 +1156,27 @@ namespace Duality {
   }
 
 
-  void RPFP_caching::GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map){
-    std::vector<expr> conjs;
-    CollectConjuncts(fmla,conjs);
-    for(unsigned i = 0; i < conjs.size(); i++){
-      const expr &conj = conjs[i];
-      std::pair<ast,Term> foo(conj,expr(ctx));
-      std::pair<hash_map<ast,Term>::iterator, bool> bar = AssumptionLits.insert(foo);
-      Term &res = bar.first->second;
-      if(bar.second){
-	func_decl pred = ctx.fresh_func_decl("@alit", ctx.bool_sort());
-	res = pred();
+  void RPFP_caching::GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast, expr> *opt_map) {
+      std::vector<expr> conjs;
+      CollectConjuncts(fmla, conjs);
+      for (unsigned i = 0; i < conjs.size(); i++) {
+          const expr &conj = conjs[i];
+          std::pair<ast, Term> foo(conj, expr(ctx));
+          std::pair<hash_map<ast, Term>::iterator, bool> bar = AssumptionLits.insert(foo);
+          Term &res = bar.first->second;
+          if (bar.second) {
+              func_decl pred = ctx.fresh_func_decl("@alit", ctx.bool_sort());
+              res = pred();
 #ifdef LIMIT_STACK_WEIGHT
-	new_alits.push_back(conj);
+              new_alits.push_back(conj);
 #endif
-	slvr().add(ctx.make(Implies,res,conj));
-	//	std::cout << res << ": " << conj << "\n";
+              slvr().add(ctx.make(Implies, res, conj));
+              //	std::cout << res << ": " << conj << "\n";
+          }
+          if (opt_map)
+              (*opt_map)[res] = conj;
+          lits.push_back(res);
       }
-      if(opt_map)
-	(*opt_map)[res] = conj;
-      lits.push_back(res);
-    }
   }
 
   void RPFP::ConstrainParent(Edge *parent, Node *child){
@@ -1215,39 +1194,37 @@ namespace Duality {
 
   void RPFP::AssertNode(Node *n)
   {
-    if (n->dual.null())
-      {
-	n->dual = GetUpperBound(n);
-	stack.back().nodes.push_back(n);
-	slvr_add(n->dual);
+      if (n->dual.null()) {
+          n->dual = GetUpperBound(n);
+          stack.back().nodes.push_back(n);
+          slvr_add(n->dual);
       }
   }
 
   // caching version of above
   void RPFP_caching::AssertNodeCache(Node *n, std::vector<Term> lits){
-    if (n->dual.null())
-      {
-	n->dual = GetUpperBound(n);
-	stack.back().nodes.push_back(n);
-	GetAssumptionLits(n->dual,lits);
+      if (n->dual.null()) {
+          n->dual = GetUpperBound(n);
+          stack.back().nodes.push_back(n);
+          GetAssumptionLits(n->dual, lits);
       }
   }
   
   /** Clone another RPFP into this one, keeping a map */
-  void RPFP_caching::Clone(RPFP *other){
+  void RPFP_caching::Clone(RPFP *other) {
 #if 0
-    for(unsigned i = 0; i < other->nodes.size(); i++)
-      NodeCloneMap[other->nodes[i]] = CloneNode(other->nodes[i]);
+      for(unsigned i = 0; i < other->nodes.size(); i++)
+          NodeCloneMap[other->nodes[i]] = CloneNode(other->nodes[i]);
 #endif
-    for(unsigned i = 0; i < other->edges.size(); i++){
-      Edge *edge = other->edges[i];
-      Node *parent = CloneNode(edge->Parent);
-      std::vector<Node *> cs;
-      for(unsigned j = 0; j < edge->Children.size(); j++)
-	// cs.push_back(NodeCloneMap[edge->Children[j]]);
-	cs.push_back(CloneNode(edge->Children[j]));
-      EdgeCloneMap[edge] = CreateEdge(parent,edge->F,cs);
-    }
+      for (unsigned i = 0; i < other->edges.size(); i++) {
+          Edge *edge = other->edges[i];
+          Node *parent = CloneNode(edge->Parent);
+          std::vector<Node *> cs;
+          for (unsigned j = 0; j < edge->Children.size(); j++)
+              // cs.push_back(NodeCloneMap[edge->Children[j]]);
+              cs.push_back(CloneNode(edge->Children[j]));
+          EdgeCloneMap[edge] = CreateEdge(parent, edge->F, cs);
+      }
   }
   
   /** Get the clone of a node */
@@ -1373,11 +1350,10 @@ namespace Duality {
     timer_start("interpolate_tree");
     lbool res = ls_interpolate_tree(tree, interpolant, dualModel,goals,true);
     timer_stop("interpolate_tree");
-    if (res == l_false)
-      {
-	DecodeTree(root, interpolant->getChildren()[0], persist);
-	delete interpolant;
-      }
+    if (res == l_false) {
+        DecodeTree(root, interpolant->getChildren()[0], persist);
+        delete interpolant;
+    }
 
     delete tree;
     if(goals)
@@ -1419,11 +1395,10 @@ namespace Duality {
     timer_start("interpolate_tree");
     lbool res = ls_interpolate_tree(tree, interpolant, dualModel,0,true);
     timer_stop("interpolate_tree");
-    if (res == l_false)
-      {
-	DecodeTree(node, interpolant->getChildren()[0], 0);
-	delete interpolant;
-      }
+    if (res == l_false) {
+        DecodeTree(node, interpolant->getChildren()[0], 0);
+        delete interpolant;
+    }
 
     delete tree;
     timer_stop("Solve");
@@ -1461,44 +1436,43 @@ namespace Duality {
    * 
    */ 
 
-  check_result RPFP::Check(Node *root, std::vector<Node *> underapproxes, std::vector<Node *> *underapprox_core )
-        {
-	  timer_start("Check");
-	  ClearProofCore();
-	  // if (dualModel != null) dualModel.Dispose();
-	  check_result res;
-	  if(!underapproxes.size())
-	    res = slvr_check();
-	  else {
-	    std::vector<expr> us(underapproxes.size());
-	    for(unsigned i = 0; i < underapproxes.size(); i++)
-	      us[i] = UnderapproxFlag(underapproxes[i]);
-            slvr_check(); // TODO: no idea why I need to do this
-	    if(underapprox_core){
-	      std::vector<expr> unsat_core(us.size());
-	      unsigned core_size = 0;
-	      res = slvr_check(us.size(),&us[0],&core_size,&unsat_core[0]);
-	      underapprox_core->resize(core_size);
-	      for(unsigned i = 0; i < core_size; i++)
-		(*underapprox_core)[i] = UnderapproxFlagRev(unsat_core[i]);
-	    }
-	    else {
-	      res = slvr_check(us.size(),&us[0]);
-	      bool dump = false;
-	      if(dump){
-		std::vector<expr> cnsts;
-		// cnsts.push_back(axioms[0]);
-		cnsts.push_back(root->dual);
-		cnsts.push_back(root->Outgoing->dual);
-		ls->write_interpolation_problem("temp.smt",cnsts,std::vector<expr>());
-	      }
-	    }
-            // check_result temp = slvr_check();
-	  }
-	  dualModel = slvr().get_model();
-	  timer_stop("Check");
-	  return res;
-        }
+  check_result RPFP::Check(Node *root, std::vector<Node *> underapproxes, std::vector<Node *> *underapprox_core) {
+      timer_start("Check");
+      ClearProofCore();
+      // if (dualModel != null) dualModel.Dispose();
+      check_result res;
+      if (!underapproxes.size())
+          res = slvr_check();
+      else {
+          std::vector<expr> us(underapproxes.size());
+          for (unsigned i = 0; i < underapproxes.size(); i++)
+              us[i] = UnderapproxFlag(underapproxes[i]);
+          slvr_check(); // TODO: no idea why I need to do this
+          if (underapprox_core) {
+              std::vector<expr> unsat_core(us.size());
+              unsigned core_size = 0;
+              res = slvr_check(us.size(), &us[0], &core_size, &unsat_core[0]);
+              underapprox_core->resize(core_size);
+              for (unsigned i = 0; i < core_size; i++)
+                  (*underapprox_core)[i] = UnderapproxFlagRev(unsat_core[i]);
+          }
+          else {
+              res = slvr_check(us.size(), &us[0]);
+              bool dump = false;
+              if (dump) {
+                  std::vector<expr> cnsts;
+                  // cnsts.push_back(axioms[0]);
+                  cnsts.push_back(root->dual);
+                  cnsts.push_back(root->Outgoing->dual);
+                  ls->write_interpolation_problem("temp.smt", cnsts, std::vector<expr>());
+              }
+          }
+          // check_result temp = slvr_check();
+      }
+      dualModel = slvr().get_model();
+      timer_stop("Check");
+      return res;
+  }
 
   check_result RPFP::CheckUpdateModel(Node *root, std::vector<expr> assumps){
     // check_result temp1 = slvr_check(); // no idea why I need to do this
@@ -1545,54 +1519,54 @@ namespace Duality {
   }
 
   void RPFP::EvalArrayTerm(const RPFP::Term &t, ArrayValue &res){
-    if(t.is_app()){
-      decl_kind k = t.decl().get_decl_kind();
-      if(k == AsArray){
-	func_decl fd = t.decl().get_func_decl_parameter(0);
-	func_interp r = dualModel.get_func_interp(fd);
-	int num = r.num_entries();
-	res.defined = true;
-	for(int i = 0; i < num; i++){
-	  expr arg = r.get_arg(i,0);
-	  expr value = r.get_value(i);
-	  res.entries[arg] = value;
-	}
-	res.def_val = r.else_value();
-	return;
+      if (t.is_app()) {
+          decl_kind k = t.decl().get_decl_kind();
+          if (k == AsArray) {
+              func_decl fd = t.decl().get_func_decl_parameter(0);
+              func_interp r = dualModel.get_func_interp(fd);
+              int num = r.num_entries();
+              res.defined = true;
+              for (int i = 0; i < num; i++) {
+                  expr arg = r.get_arg(i, 0);
+                  expr value = r.get_value(i);
+                  res.entries[arg] = value;
+              }
+              res.def_val = r.else_value();
+              return;
+          }
+          else if (k == Store) {
+              EvalArrayTerm(t.arg(0), res);
+              if (!res.defined)return;
+              expr addr = t.arg(1);
+              expr val = t.arg(2);
+              if (addr.is_numeral() && val.is_numeral()) {
+                  if (eq(val, res.def_val))
+                      res.entries.erase(addr);
+                  else
+                      res.entries[addr] = val;
+              }
+              else
+                  res.defined = false;
+              return;
+          }
       }
-      else if(k == Store){
-	EvalArrayTerm(t.arg(0),res);
-	if(!res.defined)return;
-	expr addr = t.arg(1);
-	expr val = t.arg(2);
-	if(addr.is_numeral() && val.is_numeral()){
-	  if(eq(val,res.def_val))
-	    res.entries.erase(addr);
-	  else
-	    res.entries[addr] = val;
-	}
-	else
-	  res.defined = false;
-	return;
-      }
-    }
     res.defined = false;
   }
 
   int eae_count = 0;
 
-  RPFP::Term RPFP::EvalArrayEquality(const RPFP::Term &f){
-    ArrayValue lhs,rhs;
-    eae_count++;
-    EvalArrayTerm(f.arg(0),lhs);
-    EvalArrayTerm(f.arg(1),rhs);
-    if(lhs.defined && rhs.defined){
-      if(eq(lhs.def_val,rhs.def_val))
-	if(lhs.entries == rhs.entries)
-	  return ctx.bool_val(true);
-      return ctx.bool_val(false);
-    }
-    return f;
+  RPFP::Term RPFP::EvalArrayEquality(const RPFP::Term &f) {
+      ArrayValue lhs, rhs;
+      eae_count++;
+      EvalArrayTerm(f.arg(0), lhs);
+      EvalArrayTerm(f.arg(1), rhs);
+      if (lhs.defined && rhs.defined) {
+          if (eq(lhs.def_val, rhs.def_val))
+              if (lhs.entries == rhs.entries)
+                  return ctx.bool_val(true);
+          return ctx.bool_val(false);
+      }
+      return f;
   }
 
   /** Compute truth values of all boolean subterms in current model.
@@ -1600,75 +1574,75 @@ namespace Duality {
       ands and, or, not. Returns result in memo. 
   */
 
-  int RPFP::SubtermTruth(hash_map<ast,int> &memo, const Term &f){
-    if(memo.find(f) != memo.end()){
-      return memo[f];
-    }
-    int res;
-    if(f.is_app()){
-      int nargs = f.num_args();
-      decl_kind k = f.decl().get_decl_kind();
-      if(k == Implies){
-	res = SubtermTruth(memo,!f.arg(0) || f.arg(1));
-	goto done;
+  int RPFP::SubtermTruth(hash_map<ast, int> &memo, const Term &f) {
+      if (memo.find(f) != memo.end()) {
+          return memo[f];
       }
-      if(k == And) {
-	res = 1; 
-	for(int i = 0; i < nargs; i++){
-	  int ar = SubtermTruth(memo,f.arg(i));
-	  if(ar == 0){
-	    res = 0;
-	    goto done;
-	  }
-	  if(ar == 2)res = 2; 
-	}
-	goto done;
+      int res;
+      if (f.is_app()) {
+          int nargs = f.num_args();
+          decl_kind k = f.decl().get_decl_kind();
+          if (k == Implies) {
+              res = SubtermTruth(memo, !f.arg(0) || f.arg(1));
+              goto done;
+          }
+          if (k == And) {
+              res = 1;
+              for (int i = 0; i < nargs; i++) {
+                  int ar = SubtermTruth(memo, f.arg(i));
+                  if (ar == 0) {
+                      res = 0;
+                      goto done;
+                  }
+                  if (ar == 2)res = 2;
+              }
+              goto done;
+          }
+          else if (k == Or) {
+              res = 0;
+              for (int i = 0; i < nargs; i++) {
+                  int ar = SubtermTruth(memo, f.arg(i));
+                  if (ar == 1) {
+                      res = 1;
+                      goto done;
+                  }
+                  if (ar == 2)res = 2;
+              }
+              goto done;
+          }
+          else if (k == Not) {
+              int ar = SubtermTruth(memo, f.arg(0));
+              res = (ar == 0) ? 1 : ((ar == 1) ? 0 : 2);
+              goto done;
+          }
       }
-      else if(k == Or) {
-	res = 0;
-	for(int i = 0; i < nargs; i++){
-	  int ar = SubtermTruth(memo,f.arg(i));
-	  if(ar == 1){
-	    res = 1;
-	    goto done;
-	  }
-	  if(ar == 2)res = 2; 
-	}
-	goto done;
-      }
-      else if(k == Not) {
-	int ar = SubtermTruth(memo,f.arg(0));
-	res = (ar == 0) ? 1 : ((ar == 1) ? 0 : 2);
-	goto done;
-      }
+    {
+        bool pos; std::vector<symbol> names;
+        if (f.is_label(pos, names)) {
+            res = SubtermTruth(memo, f.arg(0));
+            goto done;
+        }
     }
     {
-      bool pos; std::vector<symbol> names;
-      if(f.is_label(pos,names)){
-	res = SubtermTruth(memo,f.arg(0));
-	goto done;
-      }
+        expr bv = dualModel.eval(f);
+        if (bv.is_app() && bv.decl().get_decl_kind() == Equal &&
+            bv.arg(0).is_array()) {
+            bv = EvalArrayEquality(bv);
+        }
+        // Hack!!!! array equalities can occur negatively!
+        if (bv.is_app() && bv.decl().get_decl_kind() == Not &&
+            bv.arg(0).decl().get_decl_kind() == Equal &&
+            bv.arg(0).arg(0).is_array()) {
+            bv = dualModel.eval(!EvalArrayEquality(bv.arg(0)));
+        }
+        if (eq(bv, ctx.bool_val(true)))
+            res = 1;
+        else if (eq(bv, ctx.bool_val(false)))
+            res = 0;
+        else
+            res = 2;
     }
-    {
-      expr bv = dualModel.eval(f);
-      if(bv.is_app() && bv.decl().get_decl_kind() == Equal && 
-	 bv.arg(0).is_array()){
-	bv = EvalArrayEquality(bv);
-      }
-      // Hack!!!! array equalities can occur negatively!
-      if(bv.is_app() && bv.decl().get_decl_kind() == Not && 
-	 bv.arg(0).decl().get_decl_kind() == Equal &&
-	 bv.arg(0).arg(0).is_array()){
-	bv = dualModel.eval(!EvalArrayEquality(bv.arg(0)));
-      }
-      if(eq(bv,ctx.bool_val(true)))
-	res = 1;
-      else if(eq(bv,ctx.bool_val(false)))
-	res = 0;
-      else
-	res = 2;
-    }
-  done:
+done:
     memo[f] = res;
     return res;
   }
@@ -1685,137 +1659,137 @@ namespace Duality {
 
 #if 0
   int RPFP::GetLabelsRec(hash_map<ast,int> *memo, const Term &f, std::vector<symbol> &labels, bool labpos){
-    if(memo[labpos].find(f) != memo[labpos].end()){
-      return memo[labpos][f];
-    }
-    int res;
-    if(f.is_app()){
-      int nargs = f.num_args();
-      decl_kind k = f.decl().get_decl_kind();
-      if(k == Implies){
-	res = GetLabelsRec(memo,f.arg(1) || !f.arg(0), labels, labpos);
-	goto done;
+      if(memo[labpos].find(f) != memo[labpos].end()){
+          return memo[labpos][f];
       }
-      if(k == And) {
-	res = 1; 
-	for(int i = 0; i < nargs; i++){
-	  int ar = GetLabelsRec(memo,f.arg(i), labels, labpos);
-	  if(ar == 0){
-	    res = 0;
-	    goto done;
-	  }
-	  if(ar == 2)res = 2; 
-	}
-	goto done;
+      int res;
+      if(f.is_app()){
+          int nargs = f.num_args();
+          decl_kind k = f.decl().get_decl_kind();
+          if(k == Implies){
+              res = GetLabelsRec(memo,f.arg(1) || !f.arg(0), labels, labpos);
+              goto done;
+          }
+          if(k == And) {
+              res = 1; 
+              for(int i = 0; i < nargs; i++){
+                  int ar = GetLabelsRec(memo,f.arg(i), labels, labpos);
+                  if(ar == 0){
+                      res = 0;
+                      goto done;
+                  }
+                  if(ar == 2)res = 2; 
+              }
+              goto done;
+          }
+          else if(k == Or) {
+              res = 0;
+              for(int i = 0; i < nargs; i++){
+                  int ar = GetLabelsRec(memo,f.arg(i), labels, labpos);
+                  if(ar == 1){
+                      res = 1;
+                      goto done;
+                  }
+                  if(ar == 2)res = 2; 
+              }
+              goto done;
+          }
+          else if(k == Not) {
+              int ar = GetLabelsRec(memo,f.arg(0), labels, !labpos);
+              res = (ar == 0) ? 1 : ((ar == 1) ? 0 : 2);
+              goto done;
+          }
       }
-      else if(k == Or) {
-	res = 0;
-	for(int i = 0; i < nargs; i++){
-	  int ar = GetLabelsRec(memo,f.arg(i), labels, labpos);
-	  if(ar == 1){
-	    res = 1;
-	    goto done;
-	  }
-	  if(ar == 2)res = 2; 
-	}
-	goto done;
-      }
-      else if(k == Not) {
-	int ar = GetLabelsRec(memo,f.arg(0), labels, !labpos);
-	res = (ar == 0) ? 1 : ((ar == 1) ? 0 : 2);
-	goto done;
-      }
+    {
+        bool pos; std::vector<symbol> names;
+        if(f.is_label(pos,names)){
+            res = GetLabelsRec(memo,f.arg(0), labels, labpos);
+            if(pos == labpos && res == (pos ? 1 : 0))
+                for(unsigned i = 0; i < names.size(); i++)
+                    labels.push_back(names[i]);
+            goto done;
+        }
     }
     {
-      bool pos; std::vector<symbol> names;
-      if(f.is_label(pos,names)){
-	res = GetLabelsRec(memo,f.arg(0), labels, labpos);
-	if(pos == labpos && res == (pos ? 1 : 0))
-	  for(unsigned i = 0; i < names.size(); i++)
-	    labels.push_back(names[i]);
-	goto done;
-      }
+        expr bv = dualModel.eval(f);
+        if(bv.is_app() && bv.decl().get_decl_kind() == Equal && 
+           bv.arg(0).is_array()){
+            bv = EvalArrayEquality(bv);
+        }
+        // Hack!!!! array equalities can occur negatively!
+        if(bv.is_app() && bv.decl().get_decl_kind() == Not && 
+           bv.arg(0).decl().get_decl_kind() == Equal &&
+           bv.arg(0).arg(0).is_array()){
+            bv = dualModel.eval(!EvalArrayEquality(bv.arg(0)));
+        }
+        if(eq(bv,ctx.bool_val(true)))
+            res = 1;
+        else if(eq(bv,ctx.bool_val(false)))
+            res = 0;
+        else
+            res = 2;
     }
-    {
-      expr bv = dualModel.eval(f);
-      if(bv.is_app() && bv.decl().get_decl_kind() == Equal && 
-	 bv.arg(0).is_array()){
-	bv = EvalArrayEquality(bv);
-      }
-      // Hack!!!! array equalities can occur negatively!
-      if(bv.is_app() && bv.decl().get_decl_kind() == Not && 
-	 bv.arg(0).decl().get_decl_kind() == Equal &&
-	 bv.arg(0).arg(0).is_array()){
-	bv = dualModel.eval(!EvalArrayEquality(bv.arg(0)));
-      }
-      if(eq(bv,ctx.bool_val(true)))
-	res = 1;
-      else if(eq(bv,ctx.bool_val(false)))
-	res = 0;
-      else
-	res = 2;
-    }
-  done:
+done:
     memo[labpos][f] = res;
     return res;
   }
 #endif
 
-  void RPFP::GetLabelsRec(hash_map<ast,int> &memo, const Term &f, std::vector<symbol> &labels,
-			  hash_set<ast> *done, bool truth){
-    if(done[truth].find(f) != done[truth].end())
-      return; /* already processed */
-    if(f.is_app()){
-      int nargs = f.num_args();
-      decl_kind k = f.decl().get_decl_kind();
-      if(k == Implies){
-	GetLabelsRec(memo,f.arg(1) || !f.arg(0) ,labels,done,truth);
-	goto done;
+  void RPFP::GetLabelsRec(hash_map<ast, int> &memo, const Term &f, std::vector<symbol> &labels,
+                          hash_set<ast> *done, bool truth) {
+      if (done[truth].find(f) != done[truth].end())
+          return; /* already processed */
+      if (f.is_app()) {
+          int nargs = f.num_args();
+          decl_kind k = f.decl().get_decl_kind();
+          if (k == Implies) {
+              GetLabelsRec(memo, f.arg(1) || !f.arg(0), labels, done, truth);
+              goto done;
+          }
+          if (k == Iff) {
+              int b = SubtermTruth(memo, f.arg(0));
+              if (b == 2)
+                  throw "disaster in GetLabelsRec";
+              GetLabelsRec(memo, f.arg(1), labels, done, truth ? b : !b);
+              goto done;
+          }
+          if (truth ? k == And : k == Or) {
+              for (int i = 0; i < nargs; i++)
+                  GetLabelsRec(memo, f.arg(i), labels, done, truth);
+              goto done;
+          }
+          if (truth ? k == Or : k == And) {
+              for (int i = 0; i < nargs; i++) {
+                  Term a = f.arg(i);
+                  timer_start("SubtermTruth");
+                  int b = SubtermTruth(memo, a);
+                  timer_stop("SubtermTruth");
+                  if (truth ? (b == 1) : (b == 0)) {
+                      GetLabelsRec(memo, a, labels, done, truth);
+                      goto done;
+                  }
+              }
+              /* Unreachable! */
+              // throw "error in RPFP::GetLabelsRec";
+              goto done;
+          }
+          else if (k == Not) {
+              GetLabelsRec(memo, f.arg(0), labels, done, !truth);
+              goto done;
+          }
+          else {
+              bool pos; std::vector<symbol> names;
+              if (f.is_label(pos, names)) {
+                  GetLabelsRec(memo, f.arg(0), labels, done, truth);
+                  if (pos == truth)
+                      for (unsigned i = 0; i < names.size(); i++)
+                          labels.push_back(names[i]);
+                  goto done;
+              }
+          }
       }
-      if(k == Iff){
-	int b = SubtermTruth(memo,f.arg(0));
-	if(b == 2)
-	  throw "disaster in GetLabelsRec";
-	GetLabelsRec(memo,f.arg(1),labels,done,truth ? b : !b);
-	goto done;
-      }
-      if(truth ? k == And : k == Or) {
-	for(int i = 0; i < nargs; i++)
-	  GetLabelsRec(memo,f.arg(i),labels,done,truth);
-	goto done;
-      }
-      if(truth ? k == Or : k == And) {
-	for(int i = 0; i < nargs; i++){
-	  Term a = f.arg(i);
-	  timer_start("SubtermTruth");
-	  int b = SubtermTruth(memo,a);
-	  timer_stop("SubtermTruth");
-	  if(truth ? (b == 1) : (b == 0)){
-	    GetLabelsRec(memo,a,labels,done,truth);
-	    goto done;
-	  }
-	}
-	/* Unreachable! */
-	// throw "error in RPFP::GetLabelsRec";
-	goto done;
-      }
-      else if(k == Not) {
-	GetLabelsRec(memo,f.arg(0),labels,done,!truth);
-	goto done;
-      }
-      else {
-	bool pos; std::vector<symbol> names;
-	if(f.is_label(pos,names)){
-	  GetLabelsRec(memo,f.arg(0), labels, done, truth);
-	  if(pos == truth)
-	    for(unsigned i = 0; i < names.size(); i++)
-	      labels.push_back(names[i]);
-	  goto done;
-	}
-      }
-    }
   done:
-    done[truth].insert(f);
+      done[truth].insert(f);
   }
 
   void RPFP::GetLabels(Edge *e, std::vector<symbol> &labels){
@@ -1833,185 +1807,184 @@ namespace Duality {
 
   int ir_count = 0;
 
-  void RPFP::ImplicantRed(hash_map<ast,int> &memo, const Term &f, std::vector<Term> &lits,
-			  hash_set<ast> *done, bool truth, hash_set<ast> &dont_cares){
-    if(done[truth].find(f) != done[truth].end())
-      return; /* already processed */
+  void RPFP::ImplicantRed(hash_map<ast, int> &memo, const Term &f, std::vector<Term> &lits,
+                          hash_set<ast> *done, bool truth, hash_set<ast> &dont_cares) {
+      if (done[truth].find(f) != done[truth].end())
+          return; /* already processed */
 #if 0
-    int this_count = ir_count++;
-    if(this_count == 50092)
-      std::cout << "foo!\n";
+      int this_count = ir_count++;
+      if(this_count == 50092)
+          std::cout << "foo!\n";
 #endif
-    if(f.is_app()){
-      int nargs = f.num_args();
-      decl_kind k = f.decl().get_decl_kind();
-      if(k == Implies){
-	ImplicantRed(memo,f.arg(1) || !f.arg(0) ,lits,done,truth,dont_cares);
-	goto done;
-      }
-      if(k == Iff){
-	int b = SubtermTruth(memo,f.arg(0));
-	if(b == 2)
-	  throw "disaster in ImplicantRed";
-	ImplicantRed(memo,f.arg(1),lits,done,truth ? b : !b,dont_cares);
-	goto done;
-      }
-      if(truth ? k == And : k == Or) {
-	for(int i = 0; i < nargs; i++)
-	  ImplicantRed(memo,f.arg(i),lits,done,truth,dont_cares);
-	goto done;
-      }
-      if(truth ? k == Or : k == And) {
-	for(int i = 0; i < nargs; i++){
-	  Term a = f.arg(i);
+      if (f.is_app()) {
+          int nargs = f.num_args();
+          decl_kind k = f.decl().get_decl_kind();
+          if (k == Implies) {
+              ImplicantRed(memo, f.arg(1) || !f.arg(0), lits, done, truth, dont_cares);
+              goto done;
+          }
+          if (k == Iff) {
+              int b = SubtermTruth(memo, f.arg(0));
+              if (b == 2)
+                  throw "disaster in ImplicantRed";
+              ImplicantRed(memo, f.arg(1), lits, done, truth ? b : !b, dont_cares);
+              goto done;
+          }
+          if (truth ? k == And : k == Or) {
+              for (int i = 0; i < nargs; i++)
+                  ImplicantRed(memo, f.arg(i), lits, done, truth, dont_cares);
+              goto done;
+          }
+          if (truth ? k == Or : k == And) {
+              for (int i = 0; i < nargs; i++) {
+                  Term a = f.arg(i);
 #if 0
-	  if(i == nargs - 1){ // last chance!
- 	    ImplicantRed(memo,a,lits,done,truth,dont_cares);
-	    goto done;
-	  }
+                  if(i == nargs - 1){ // last chance!
+                      ImplicantRed(memo,a,lits,done,truth,dont_cares);
+                      goto done;
+                  }
 #endif
-	  timer_start("SubtermTruth");
+                  timer_start("SubtermTruth");
 #ifdef Z3OPS
-	  bool b = stt->eval(a);
+                  bool b = stt->eval(a);
 #else
-	  int b = SubtermTruth(memo,a);
+                  int b = SubtermTruth(memo, a);
 #endif
-	  timer_stop("SubtermTruth");
-	  if(truth ? (b == 1) : (b == 0)){
-	    ImplicantRed(memo,a,lits,done,truth,dont_cares);
-	    goto done;
-	  }
-	}
-	/* Unreachable! */
-	// TODO: need to indicate this failure to caller
-	// std::cerr << "error in RPFP::ImplicantRed";
-	goto done;
+                  timer_stop("SubtermTruth");
+                  if (truth ? (b == 1) : (b == 0)) {
+                      ImplicantRed(memo, a, lits, done, truth, dont_cares);
+                      goto done;
+                  }
+              }
+              /* Unreachable! */
+              // TODO: need to indicate this failure to caller
+              // std::cerr << "error in RPFP::ImplicantRed";
+              goto done;
+          }
+          else if (k == Not) {
+              ImplicantRed(memo, f.arg(0), lits, done, !truth, dont_cares);
+              goto done;
+          }
       }
-      else if(k == Not) {
-	ImplicantRed(memo,f.arg(0),lits,done,!truth,dont_cares);
-	goto done;
-      }
-    }
     {
-      if(dont_cares.find(f) == dont_cares.end()){
-	expr rf = ResolveIte(memo,f,lits,done,dont_cares);
-	expr bv = truth ? rf : !rf;
-	lits.push_back(bv);
-      }
+        if (dont_cares.find(f) == dont_cares.end()) {
+            expr rf = ResolveIte(memo, f, lits, done, dont_cares);
+            expr bv = truth ? rf : !rf;
+            lits.push_back(bv);
+        }
     }
-  done:
+done:
     done[truth].insert(f);
   }
 
-  void RPFP::ImplicantFullRed(hash_map<ast,int> &memo, const Term &f, std::vector<Term> &lits,
-			      hash_set<ast> &done, hash_set<ast> &dont_cares, bool extensional){
-    if(done.find(f) != done.end())
-      return; /* already processed */
-    if(f.is_app()){
-      int nargs = f.num_args();
-      decl_kind k = f.decl().get_decl_kind();
-      if(k == Implies || k == Iff || k == And || k == Or || k == Not){
-	for(int i = 0; i < nargs; i++)
-	  ImplicantFullRed(memo,f.arg(i),lits,done,dont_cares, extensional);
-	goto done;
+  void RPFP::ImplicantFullRed(hash_map<ast, int> &memo, const Term &f, std::vector<Term> &lits,
+                              hash_set<ast> &done, hash_set<ast> &dont_cares, bool extensional) {
+      if (done.find(f) != done.end())
+          return; /* already processed */
+      if (f.is_app()) {
+          int nargs = f.num_args();
+          decl_kind k = f.decl().get_decl_kind();
+          if (k == Implies || k == Iff || k == And || k == Or || k == Not) {
+              for (int i = 0; i < nargs; i++)
+                  ImplicantFullRed(memo, f.arg(i), lits, done, dont_cares, extensional);
+              goto done;
+          }
       }
-    }
     {
-      if(dont_cares.find(f) == dont_cares.end()){
-	int b = SubtermTruth(memo,f);
-	if(b != 0 && b != 1) goto done;
-	if(f.is_app() && f.decl().get_decl_kind() == Equal && f.arg(0).is_array()){
-	  if(b == 1 && !extensional){
-	    expr x = dualModel.eval(f.arg(0)); expr y = dualModel.eval(f.arg(1));
-	    if(!eq(x,y))
-	      b = 0;
-	  }
-	  if(b == 0)
-	    goto done;
-	}
-	expr bv = (b==1) ? f : !f;
-	lits.push_back(bv);
-      }
+        if (dont_cares.find(f) == dont_cares.end()) {
+            int b = SubtermTruth(memo, f);
+            if (b != 0 && b != 1) goto done;
+            if (f.is_app() && f.decl().get_decl_kind() == Equal && f.arg(0).is_array()) {
+                if (b == 1 && !extensional) {
+                    expr x = dualModel.eval(f.arg(0)); expr y = dualModel.eval(f.arg(1));
+                    if (!eq(x, y))
+                        b = 0;
+                }
+                if (b == 0)
+                    goto done;
+            }
+            expr bv = (b == 1) ? f : !f;
+            lits.push_back(bv);
+        }
     }
-  done:
+done:
     done.insert(f);
   }
 
-  RPFP::Term RPFP::ResolveIte(hash_map<ast,int> &memo, const Term &t, std::vector<Term> &lits,
-			hash_set<ast> *done, hash_set<ast> &dont_cares){
-    if(resolve_ite_memo.find(t) != resolve_ite_memo.end())
-      return resolve_ite_memo[t];
-    Term res;
-    if (t.is_app())
-      {
-	func_decl f = t.decl();
-	std::vector<Term> args;
-	int nargs = t.num_args();
-	if(f.get_decl_kind() == Ite){
-	  timer_start("SubtermTruth");
+  RPFP::Term RPFP::ResolveIte(hash_map<ast, int> &memo, const Term &t, std::vector<Term> &lits,
+                              hash_set<ast> *done, hash_set<ast> &dont_cares) {
+      if (resolve_ite_memo.find(t) != resolve_ite_memo.end())
+          return resolve_ite_memo[t];
+      Term res;
+      if (t.is_app()) {
+          func_decl f = t.decl();
+          std::vector<Term> args;
+          int nargs = t.num_args();
+          if (f.get_decl_kind() == Ite) {
+              timer_start("SubtermTruth");
 #ifdef Z3OPS
-	  bool sel = stt->eval(t.arg(0));
+              bool sel = stt->eval(t.arg(0));
 #else
-	  int xval = SubtermTruth(memo,t.arg(0));
-	  bool sel;
-	  if(xval == 0)sel = false;
-	  else if(xval == 1)sel = true;
-	  else
-	    throw "unresolved ite in model";
+              int xval = SubtermTruth(memo, t.arg(0));
+              bool sel;
+              if (xval == 0)sel = false;
+              else if (xval == 1)sel = true;
+              else
+                  throw "unresolved ite in model";
 #endif
-	  timer_stop("SubtermTruth");
-	  ImplicantRed(memo,t.arg(0),lits,done,sel,dont_cares);
-	  res = ResolveIte(memo,t.arg(sel?1:2),lits,done,dont_cares);
-	}
-	else {
-	  for(int i = 0; i < nargs; i++)
-	    args.push_back(ResolveIte(memo,t.arg(i),lits,done,dont_cares));
-	  res = f(args.size(),&args[0]);
-	}
+              timer_stop("SubtermTruth");
+              ImplicantRed(memo, t.arg(0), lits, done, sel, dont_cares);
+              res = ResolveIte(memo, t.arg(sel ? 1 : 2), lits, done, dont_cares);
+          }
+          else {
+              for (int i = 0; i < nargs; i++)
+                  args.push_back(ResolveIte(memo, t.arg(i), lits, done, dont_cares));
+              res = f(args.size(), &args[0]);
+          }
       }
-    else res = t;
-    resolve_ite_memo[t] = res;
-    return res;
+      else res = t;
+      resolve_ite_memo[t] = res;
+      return res;
   }
 
-  RPFP::Term RPFP::ElimIteRec(hash_map<ast,expr> &memo, const Term &t, std::vector<expr> &cnsts){ 
-    std::pair<ast,Term> foo(t,expr(ctx));
-    std::pair<hash_map<ast,Term>::iterator, bool> bar = memo.insert(foo);
-    Term &res = bar.first->second;
-    if(bar.second){
-      if(t.is_app()){
-	int nargs = t.num_args();
-	std::vector<expr> args;
-	if(t.decl().get_decl_kind() == Equal){
-	  expr lhs = t.arg(0);
-	  expr rhs = t.arg(1);
-	  if(rhs.decl().get_decl_kind() == Ite){
-	    expr rhs_args[3];
-	    lhs = ElimIteRec(memo,lhs,cnsts);
-	    for(int i = 0; i < 3; i++)
-	      rhs_args[i] = ElimIteRec(memo,rhs.arg(i),cnsts);
-	    res = (rhs_args[0] && (lhs == rhs_args[1])) || ((!rhs_args[0]) && (lhs == rhs_args[2]));
-	    goto done;
-	  }
-	}
-	if(t.decl().get_decl_kind() == Ite){
-	  func_decl sym = ctx.fresh_func_decl("@ite", t.get_sort());
-	  res = sym();
-	  cnsts.push_back(ElimIteRec(memo,ctx.make(Equal,res,t),cnsts));
-	}
-	else {
-	  for(int i = 0; i < nargs; i++)
-	    args.push_back(ElimIteRec(memo,t.arg(i),cnsts));
-	  res = t.decl()(args.size(),&args[0]);
-	}
+  RPFP::Term RPFP::ElimIteRec(hash_map<ast, expr> &memo, const Term &t, std::vector<expr> &cnsts) {
+      std::pair<ast, Term> foo(t, expr(ctx));
+      std::pair<hash_map<ast, Term>::iterator, bool> bar = memo.insert(foo);
+      Term &res = bar.first->second;
+      if (bar.second) {
+          if (t.is_app()) {
+              int nargs = t.num_args();
+              std::vector<expr> args;
+              if (t.decl().get_decl_kind() == Equal) {
+                  expr lhs = t.arg(0);
+                  expr rhs = t.arg(1);
+                  if (rhs.decl().get_decl_kind() == Ite) {
+                      expr rhs_args[3];
+                      lhs = ElimIteRec(memo, lhs, cnsts);
+                      for (int i = 0; i < 3; i++)
+                          rhs_args[i] = ElimIteRec(memo, rhs.arg(i), cnsts);
+                      res = (rhs_args[0] && (lhs == rhs_args[1])) || ((!rhs_args[0]) && (lhs == rhs_args[2]));
+                      goto done;
+                  }
+              }
+              if (t.decl().get_decl_kind() == Ite) {
+                  func_decl sym = ctx.fresh_func_decl("@ite", t.get_sort());
+                  res = sym();
+                  cnsts.push_back(ElimIteRec(memo, ctx.make(Equal, res, t), cnsts));
+              }
+              else {
+                  for (int i = 0; i < nargs; i++)
+                      args.push_back(ElimIteRec(memo, t.arg(i), cnsts));
+                  res = t.decl()(args.size(), &args[0]);
+              }
+          }
+          else if (t.is_quantifier())
+              res = clone_quantifier(t, ElimIteRec(memo, t.body(), cnsts));
+          else
+              res = t;
       }
-      else if(t.is_quantifier())
- 	res = clone_quantifier(t,ElimIteRec(memo,t.body(),cnsts));
-      else
-	res = t;
-    }
   done:
-    return res;
+      return res;
   }
 
   RPFP::Term RPFP::ElimIte(const Term &t){ 
@@ -2084,169 +2057,166 @@ namespace Duality {
     hash_map<ast,int> cand_map;
     params simp_params;
 
-    VariableProjector(Z3User &_user, std::vector<Term> &keep_vec) : 
-      Z3User(_user), simp_params()
-    {
-      num_vars = 0;
-      for(unsigned i = 0; i < keep_vec.size(); i++){
-	keep.insert(keep_vec[i]);
-	var_ord[keep_vec[i]] = num_vars++;
-      }
+    VariableProjector(Z3User &_user, std::vector<Term> &keep_vec) :
+        Z3User(_user), simp_params() {
+        num_vars = 0;
+        for (unsigned i = 0; i < keep_vec.size(); i++) {
+            keep.insert(keep_vec[i]);
+            var_ord[keep_vec[i]] = num_vars++;
+        }
     }
-    
-    int VarNum(const Term &v){
-      if(var_ord.find(v) == var_ord.end())
-	var_ord[v] = num_vars++;
-      return var_ord[v];
+    int VarNum(const Term &v) {
+        if (var_ord.find(v) == var_ord.end())
+            var_ord[v] = num_vars++;
+        return var_ord[v];
     }
 
     bool IsVar(const Term &t){
       return t.is_app() && t.num_args() == 0 && t.decl().get_decl_kind() == Uninterpreted;
     }
     
-    bool IsPropLit(const Term &t, Term &a){
-      if(IsVar(t)){
-	a = t;
-	return true;
-      }
-      else if(t.is_app() && t.decl().get_decl_kind() == Not)
-	return IsPropLit(t.arg(0),a);
-      return false;
+    bool IsPropLit(const Term &t, Term &a) {
+        if (IsVar(t)) {
+            a = t;
+            return true;
+        }
+        else if (t.is_app() && t.decl().get_decl_kind() == Not)
+            return IsPropLit(t.arg(0), a);
+        return false;
     }
     
-    void CountOtherVarsRec(hash_map<ast,int> &memo,
-			   const Term &t,
-			   int id,
-			   int &count){
-      std::pair<ast,int> foo(t,0);
-      std::pair<hash_map<ast,int>::iterator, bool> bar = memo.insert(foo);
-      // int &res = bar.first->second;
-      if(!bar.second) return;
-      if (t.is_app())
-      {
-	func_decl f = t.decl();
-	std::vector<Term> args;
-	int nargs = t.num_args();
-	if (nargs == 0 && f.get_decl_kind() == Uninterpreted){
-	  if(cand_map.find(t) != cand_map.end()){
-	    count++;
-	    sup_map[t].push_back(id);
-	  }
-	}
-	for(int i = 0; i < nargs; i++)
-	  CountOtherVarsRec(memo, t.arg(i), id, count);
-      }
-      else if (t.is_quantifier())
-	CountOtherVarsRec(memo, t.body(), id, count);
-    }  
+    void CountOtherVarsRec(hash_map<ast, int> &memo,
+                           const Term &t,
+                           int id,
+                           int &count) {
+        std::pair<ast, int> foo(t, 0);
+        std::pair<hash_map<ast, int>::iterator, bool> bar = memo.insert(foo);
+        // int &res = bar.first->second;
+        if (!bar.second) return;
+        if (t.is_app()) {
+            func_decl f = t.decl();
+            std::vector<Term> args;
+            int nargs = t.num_args();
+            if (nargs == 0 && f.get_decl_kind() == Uninterpreted) {
+                if (cand_map.find(t) != cand_map.end()) {
+                    count++;
+                    sup_map[t].push_back(id);
+                }
+            }
+            for (int i = 0; i < nargs; i++)
+                CountOtherVarsRec(memo, t.arg(i), id, count);
+        }
+        else if (t.is_quantifier())
+            CountOtherVarsRec(memo, t.body(), id, count);
+    }
     
-    void NewElimCand(const Term &lhs, const Term &rhs){
-      if(debug_gauss){
-	std::cout << "mapping " << lhs << " to " << rhs << std::endl;
-      }
-	elim_cand cand;
-	cand.var = lhs;
-	cand.sup = 0;
-	cand.val = rhs;
-	elim_cands.push_back(cand);
-	cand_map[lhs] = elim_cands.size()-1;
+    void NewElimCand(const Term &lhs, const Term &rhs) {
+        if (debug_gauss) {
+            std::cout << "mapping " << lhs << " to " << rhs << std::endl;
+        }
+        elim_cand cand;
+        cand.var = lhs;
+        cand.sup = 0;
+        cand.val = rhs;
+        elim_cands.push_back(cand);
+        cand_map[lhs] = elim_cands.size() - 1;
     }
 
-    void MakeElimCand(const Term &lhs, const Term &rhs){
-      if(eq(lhs,rhs))
-	return;
-      if(!IsVar(lhs)){
-	if(IsVar(rhs)){
-	  MakeElimCand(rhs,lhs);
-	  return;
-	}
-	else{
-	  std::cout << "would have mapped a non-var\n";
-	  return;
-	}
-      }
-      if(IsVar(rhs) && VarNum(rhs) > VarNum(lhs)){
-	MakeElimCand(rhs,lhs);
-	return;
-      }
-      if(keep.find(lhs) != keep.end())
-	return;
-      if(cand_map.find(lhs) == cand_map.end())
-	NewElimCand(lhs,rhs);
-      else {
-        int cand_idx = cand_map[lhs];
-	if(IsVar(rhs) && cand_map.find(rhs) == cand_map.end()
-	   && keep.find(rhs) == keep.end())
-	  NewElimCand(rhs,elim_cands[cand_idx].val);
-	elim_cands[cand_idx].val = rhs;
-      }
+    void MakeElimCand(const Term &lhs, const Term &rhs) {
+        if (eq(lhs, rhs))
+            return;
+        if (!IsVar(lhs)) {
+            if (IsVar(rhs)) {
+                MakeElimCand(rhs, lhs);
+                return;
+            }
+            else {
+                std::cout << "would have mapped a non-var\n";
+                return;
+            }
+        }
+        if (IsVar(rhs) && VarNum(rhs) > VarNum(lhs)) {
+            MakeElimCand(rhs, lhs);
+            return;
+        }
+        if (keep.find(lhs) != keep.end())
+            return;
+        if (cand_map.find(lhs) == cand_map.end())
+            NewElimCand(lhs, rhs);
+        else {
+            int cand_idx = cand_map[lhs];
+            if (IsVar(rhs) && cand_map.find(rhs) == cand_map.end()
+                && keep.find(rhs) == keep.end())
+                NewElimCand(rhs, elim_cands[cand_idx].val);
+            elim_cands[cand_idx].val = rhs;
+        }
     }
 
-    Term FindRep(const Term &t){
-      if(cand_map.find(t) == cand_map.end())
-	return t;
-      Term &res = elim_cands[cand_map[t]].val;
-      if(IsVar(res)){
-	assert(VarNum(res) < VarNum(t));
-	res = FindRep(res);
-	return res;
-      }
-      return t;
+    Term FindRep(const Term &t) {
+        if (cand_map.find(t) == cand_map.end())
+            return t;
+        Term &res = elim_cands[cand_map[t]].val;
+        if (IsVar(res)) {
+            assert(VarNum(res) < VarNum(t));
+            res = FindRep(res);
+            return res;
+        }
+        return t;
     }
 
     void GaussElimCheap(const std::vector<Term> &lits_in,
-			std::vector<Term> &lits_out){
-      for(unsigned i = 0; i < lits_in.size(); i++){
-	Term lit = lits_in[i];
-	if(lit.is_app()){
-	  decl_kind k = lit.decl().get_decl_kind();
-          if(k == Equal || k == Iff)
-	    MakeElimCand(FindRep(lit.arg(0)),FindRep(lit.arg(1)));
-	}
-      }
-      
-      for(unsigned i = 0; i < elim_cands.size(); i++){
-	elim_cand &cand = elim_cands[i];
-	hash_map<ast,int> memo;
-	CountOtherVarsRec(memo,cand.val,i,cand.sup);
-	if(cand.sup == 0)
-	  ready_cands.push_back(i);
-      }
-      
-      while(!ready_cands.empty()){
-	elim_cand &cand = elim_cands[ready_cands.back()];
-	ready_cands.pop_back();
-	Term rep = FindRep(cand.var);
-	if(!eq(rep,cand.var))
-	  if(cand_map.find(rep) != cand_map.end()){
-	    int rep_pos = cand_map[rep];
-	    cand.val = elim_cands[rep_pos].val;
-	  }
-	Term val = SubstRec(elim_map,cand.val);
-      if(debug_gauss){
-	std::cout << "subbing " << cand.var << " --> " << val << std::endl;
-      }
-	elim_map[cand.var] = val;
-	std::vector<int> &sup = sup_map[cand.var];
-	for(unsigned i = 0; i < sup.size(); i++){
-	  int c = sup[i];
-	  if((--elim_cands[c].sup) == 0)
-	    ready_cands.push_back(c);
-	}
-      }
-      
-      for(unsigned i = 0; i < lits_in.size(); i++){
-	Term lit = lits_in[i];
-	lit = SubstRec(elim_map,lit);
-	lit = lit.simplify();
-	if(eq(lit,ctx.bool_val(true)))
-	  continue;
-	Term a;
-	if(IsPropLit(lit,a))
-	  if(keep.find(lit) == keep.end())
-	    continue;
-	lits_out.push_back(lit);
-      }
+                        std::vector<Term> &lits_out) {
+        for (unsigned i = 0; i < lits_in.size(); i++) {
+            Term lit = lits_in[i];
+            if (lit.is_app()) {
+                decl_kind k = lit.decl().get_decl_kind();
+                if (k == Equal || k == Iff)
+                    MakeElimCand(FindRep(lit.arg(0)), FindRep(lit.arg(1)));
+            }
+        }
+
+        for (unsigned i = 0; i < elim_cands.size(); i++) {
+            elim_cand &cand = elim_cands[i];
+            hash_map<ast, int> memo;
+            CountOtherVarsRec(memo, cand.val, i, cand.sup);
+            if (cand.sup == 0)
+                ready_cands.push_back(i);
+        }
+
+        while (!ready_cands.empty()) {
+            elim_cand &cand = elim_cands[ready_cands.back()];
+            ready_cands.pop_back();
+            Term rep = FindRep(cand.var);
+            if (!eq(rep, cand.var))
+                if (cand_map.find(rep) != cand_map.end()) {
+                    int rep_pos = cand_map[rep];
+                    cand.val = elim_cands[rep_pos].val;
+                }
+            Term val = SubstRec(elim_map, cand.val);
+            if (debug_gauss) {
+                std::cout << "subbing " << cand.var << " --> " << val << std::endl;
+            }
+            elim_map[cand.var] = val;
+            std::vector<int> &sup = sup_map[cand.var];
+            for (unsigned i = 0; i < sup.size(); i++) {
+                int c = sup[i];
+                if ((--elim_cands[c].sup) == 0)
+                    ready_cands.push_back(c);
+            }
+        }
+
+        for (unsigned i = 0; i < lits_in.size(); i++) {
+            Term lit = lits_in[i];
+            lit = SubstRec(elim_map, lit);
+            lit = lit.simplify();
+            if (eq(lit, ctx.bool_val(true)))
+                continue;
+            Term a;
+            if (IsPropLit(lit, a))
+                if (keep.find(lit) == keep.end())
+                    continue;
+            lits_out.push_back(lit);
+        }
     }
 
     // maps variables to constrains in which the occur pos, neg
@@ -2255,88 +2225,88 @@ namespace Duality {
     std::vector<Term> la_pos_vars;
     bool fixing;
     
-    void IndexLAcoeff(const Term &coeff1, const Term &coeff2, Term t, int id){
-      Term coeff = coeff1 * coeff2;
-      coeff = coeff.simplify();
-      Term is_pos = (coeff >= ctx.int_val(0));
-      is_pos = is_pos.simplify();
-      if(eq(is_pos,ctx.bool_val(true)))
-	IndexLA(true,coeff,t, id);
-      else
-	IndexLA(false,coeff,t, id);
+    void IndexLAcoeff(const Term &coeff1, const Term &coeff2, Term t, int id) {
+        Term coeff = coeff1 * coeff2;
+        coeff = coeff.simplify();
+        Term is_pos = (coeff >= ctx.int_val(0));
+        is_pos = is_pos.simplify();
+        if (eq(is_pos, ctx.bool_val(true)))
+            IndexLA(true, coeff, t, id);
+        else
+            IndexLA(false, coeff, t, id);
     }
 
-    void IndexLAremove(const Term &t){
-      if(IsVar(t)){
-	la_index[0][t] = -1;  // means ineligible to be eliminated
-	la_index[1][t] = -1;  // (more that one occurrence, or occurs not in linear comb)
-      }
-      else if(t.is_app()){
-	int nargs = t.num_args();
-	for(int i = 0; i < nargs; i++)
-	  IndexLAremove(t.arg(i));
-      }
-      // TODO: quantifiers?
+    void IndexLAremove(const Term &t) {
+        if (IsVar(t)) {
+            la_index[0][t] = -1;  // means ineligible to be eliminated
+            la_index[1][t] = -1;  // (more that one occurrence, or occurs not in linear comb)
+        }
+        else if (t.is_app()) {
+            int nargs = t.num_args();
+            for (int i = 0; i < nargs; i++)
+                IndexLAremove(t.arg(i));
+        }
+        // TODO: quantifiers?
     }
 
 
-    void IndexLA(bool pos, const Term &coeff, const Term &t, int id){
-      if(t.is_numeral())
-	return;
-      if(t.is_app()){
-	int nargs = t.num_args();
-	switch(t.decl().get_decl_kind()){
-	case Plus:
-	  for(int i = 0; i < nargs; i++)
-	    IndexLA(pos,coeff,t.arg(i), id);
-	  break;
-	case Sub:
-	  IndexLA(pos,coeff,t.arg(0), id);
-	  IndexLA(!pos,coeff,t.arg(1), id);
-	  break;
-	case Times:
-	  if(t.arg(0).is_numeral())
-	    IndexLAcoeff(coeff,t.arg(0),t.arg(1), id);
-	  else if(t.arg(1).is_numeral())
-	    IndexLAcoeff(coeff,t.arg(1),t.arg(0), id);
-	  break;
-	default:
-	  if(IsVar(t) && (fixing || la_index[pos].find(t) == la_index[pos].end())){
-	    la_index[pos][t] = id;
-	    la_coeffs[pos][t] = coeff;
-	    if(pos && !fixing)
-	      la_pos_vars.push_back(t);  // this means we only add a var once
-	  }
-	  else
-	    IndexLAremove(t);
-	}
-      }
+    void IndexLA(bool pos, const Term &coeff, const Term &t, int id) {
+        if (t.is_numeral())
+            return;
+        if (t.is_app()) {
+            int nargs = t.num_args();
+            switch (t.decl().get_decl_kind()) {
+            case Plus:
+                for (int i = 0; i < nargs; i++)
+                    IndexLA(pos, coeff, t.arg(i), id);
+                break;
+            case Sub:
+                IndexLA(pos, coeff, t.arg(0), id);
+                IndexLA(!pos, coeff, t.arg(1), id);
+                break;
+            case Times:
+                if (t.arg(0).is_numeral())
+                    IndexLAcoeff(coeff, t.arg(0), t.arg(1), id);
+                else if (t.arg(1).is_numeral())
+                    IndexLAcoeff(coeff, t.arg(1), t.arg(0), id);
+                break;
+            default:
+                if (IsVar(t) && (fixing || la_index[pos].find(t) == la_index[pos].end())) {
+                    la_index[pos][t] = id;
+                    la_coeffs[pos][t] = coeff;
+                    if (pos && !fixing)
+                        la_pos_vars.push_back(t);  // this means we only add a var once
+                }
+                else
+                    IndexLAremove(t);
+            }
+        }
     }
 
     void IndexLAstart(bool pos, const Term &t, int id){
       IndexLA(pos,(pos ? ctx.int_val(1) : ctx.int_val(-1)), t, id);
     }
 
-    void IndexLApred(bool pos, const Term &p, int id){
-      if(p.is_app()){
-	switch(p.decl().get_decl_kind()){
-	case Not:
-	  IndexLApred(!pos, p.arg(0),id);
-	  break;
-	case Leq:
-	case Lt:
-	  IndexLAstart(!pos, p.arg(0), id);
-	  IndexLAstart(pos, p.arg(1), id);
-	  break;
-	case Geq:
-	case Gt:
-	  IndexLAstart(pos,p.arg(0), id);
-	  IndexLAstart(!pos,p.arg(1), id);
-	  break;
-	default:
-	  IndexLAremove(p);
-	}
-      }
+    void IndexLApred(bool pos, const Term &p, int id) {
+        if (p.is_app()) {
+            switch (p.decl().get_decl_kind()) {
+            case Not:
+                IndexLApred(!pos, p.arg(0), id);
+                break;
+            case Leq:
+            case Lt:
+                IndexLAstart(!pos, p.arg(0), id);
+                IndexLAstart(pos, p.arg(1), id);
+                break;
+            case Geq:
+            case Gt:
+                IndexLAstart(pos, p.arg(0), id);
+                IndexLAstart(!pos, p.arg(1), id);
+                break;
+            default:
+                IndexLAremove(p);
+            }
+        }
     }
 
     void IndexLAfix(const Term &p, int id){
@@ -2345,51 +2315,51 @@ namespace Duality {
       fixing = false;
     }
 
-    bool IsCanonIneq(const Term &lit, Term &term, Term &bound){
-      // std::cout << Z3_simplify_get_help(ctx) << std::endl;
-      bool pos = lit.decl().get_decl_kind() != Not;
-      Term atom = pos ? lit : lit.arg(0);
-      if(atom.decl().get_decl_kind() == Leq){
-	if(pos){
-	  bound = atom.arg(0);
-	  term = atom.arg(1).simplify(simp_params);
+    bool IsCanonIneq(const Term &lit, Term &term, Term &bound) {
+        // std::cout << Z3_simplify_get_help(ctx) << std::endl;
+        bool pos = lit.decl().get_decl_kind() != Not;
+        Term atom = pos ? lit : lit.arg(0);
+        if (atom.decl().get_decl_kind() == Leq) {
+            if (pos) {
+                bound = atom.arg(0);
+                term = atom.arg(1).simplify(simp_params);
 #if Z3_MAJOR_VERSION < 4
-	  term = SortSum(term);
+                term = SortSum(term);
 #endif
-	}
-	else {
-	  bound = (atom.arg(1) + ctx.int_val(1));
-	  term = atom.arg(0);
-	  // std::cout << "simplifying bound: " << bound << std::endl;
-	  bound = bound.simplify();
-	  term = term.simplify(simp_params);
+            }
+            else {
+                bound = (atom.arg(1) + ctx.int_val(1));
+                term = atom.arg(0);
+                // std::cout << "simplifying bound: " << bound << std::endl;
+                bound = bound.simplify();
+                term = term.simplify(simp_params);
 #if Z3_MAJOR_VERSION < 4
-	  term = SortSum(term);
+                term = SortSum(term);
 #endif
-	}
-	return true;
-      }
-      else if(atom.decl().get_decl_kind() == Geq){
-	if(pos){
-	  bound = atom.arg(1);  // integer axiom
-	  term = atom.arg(0).simplify(simp_params);
+            }
+            return true;
+        }
+        else if (atom.decl().get_decl_kind() == Geq) {
+            if (pos) {
+                bound = atom.arg(1);  // integer axiom
+                term = atom.arg(0).simplify(simp_params);
 #if Z3_MAJOR_VERSION < 4
-	  term = SortSum(term);
+                term = SortSum(term);
 #endif
-	  return true;
-	}
-	else{
-	  bound = -(atom.arg(1) - ctx.int_val(1));  // integer axiom
-	  term = -atom.arg(0);
-	  bound = bound.simplify();
-	  term = term.simplify(simp_params);
+                return true;
+            }
+            else {
+                bound = -(atom.arg(1) - ctx.int_val(1));  // integer axiom
+                term = -atom.arg(0);
+                bound = bound.simplify();
+                term = term.simplify(simp_params);
 #if Z3_MAJOR_VERSION < 4
-	  term = SortSum(term);
+                term = SortSum(term);
 #endif
-	}
-	return true;
-      }
-      return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     Term CanonIneqTerm(const Term &p){
@@ -2400,64 +2370,64 @@ namespace Duality {
       return term - bound;
     }
 
-    void ElimRedundantBounds(std::vector<Term> &lits){
-      hash_map<ast,int> best_bound;
-      for(unsigned i = 0; i < lits.size(); i++){
-	lits[i] = lits[i].simplify(simp_params);
-	Term term,bound;
-	if(IsCanonIneq(lits[i],term,bound)){
-	  if(best_bound.find(term) == best_bound.end())
-	    best_bound[term] = i;
-	  else {
-	    int best = best_bound[term];
-	    Term bterm,bbound;
-	    IsCanonIneq(lits[best],bterm,bbound);
-	    Term comp = bound > bbound;
-	    comp = comp.simplify();
-	    if(eq(comp,ctx.bool_val(true))){
-	      lits[best] = ctx.bool_val(true);
-	      best_bound[term] = i;
-	    }
-	    else {
-	      lits[i] = ctx.bool_val(true);
-	    }
-	  }
-	}
-      }
+    void ElimRedundantBounds(std::vector<Term> &lits) {
+        hash_map<ast, int> best_bound;
+        for (unsigned i = 0; i < lits.size(); i++) {
+            lits[i] = lits[i].simplify(simp_params);
+            Term term, bound;
+            if (IsCanonIneq(lits[i], term, bound)) {
+                if (best_bound.find(term) == best_bound.end())
+                    best_bound[term] = i;
+                else {
+                    int best = best_bound[term];
+                    Term bterm, bbound;
+                    IsCanonIneq(lits[best], bterm, bbound);
+                    Term comp = bound > bbound;
+                    comp = comp.simplify();
+                    if (eq(comp, ctx.bool_val(true))) {
+                        lits[best] = ctx.bool_val(true);
+                        best_bound[term] = i;
+                    }
+                    else {
+                        lits[i] = ctx.bool_val(true);
+                    }
+                }
+            }
+        }
     }
 
     void FourierMotzkinCheap(const std::vector<Term> &lits_in,
-			     std::vector<Term> &lits_out){
-      simp_params.set(":som",true);
-      simp_params.set(":sort-sums",true);
-      fixing = false; lits_out = lits_in;
-      ElimRedundantBounds(lits_out);
-      for(unsigned i = 0; i < lits_out.size(); i++)
-	IndexLApred(true,lits_out[i],i);
+                             std::vector<Term> &lits_out) {
+        simp_params.set(":som", true);
+        simp_params.set(":sort-sums", true);
+        fixing = false; lits_out = lits_in;
+        ElimRedundantBounds(lits_out);
+        for (unsigned i = 0; i < lits_out.size(); i++)
+            IndexLApred(true, lits_out[i], i);
 
-      for(unsigned i = 0; i < la_pos_vars.size(); i++){
-	Term var = la_pos_vars[i];
-	if(la_index[false].find(var) != la_index[false].end()){
-	  int pos_idx = la_index[true][var];
-	  int neg_idx = la_index[false][var];
-	  if(pos_idx >= 0 && neg_idx >= 0){
-	    if(keep.find(var) != keep.end()){
-	      std::cout << "would have eliminated keep var\n";
-	      continue;
-	    }
-	    Term tpos = CanonIneqTerm(lits_out[pos_idx]);
-	    Term tneg = CanonIneqTerm(lits_out[neg_idx]);
-	    Term pos_coeff = la_coeffs[true][var];
-	    Term neg_coeff = -la_coeffs[false][var];
-	    Term comb = neg_coeff * tpos + pos_coeff * tneg;
-	    Term ineq = ctx.int_val(0) <= comb;
-	    ineq = ineq.simplify();
-	    lits_out[pos_idx] = ineq;
-	    lits_out[neg_idx] = ctx.bool_val(true);
-	    IndexLAfix(ineq,pos_idx);
-	  }
-	}
-      }
+        for (unsigned i = 0; i < la_pos_vars.size(); i++) {
+            Term var = la_pos_vars[i];
+            if (la_index[false].find(var) != la_index[false].end()) {
+                int pos_idx = la_index[true][var];
+                int neg_idx = la_index[false][var];
+                if (pos_idx >= 0 && neg_idx >= 0) {
+                    if (keep.find(var) != keep.end()) {
+                        std::cout << "would have eliminated keep var\n";
+                        continue;
+                    }
+                    Term tpos = CanonIneqTerm(lits_out[pos_idx]);
+                    Term tneg = CanonIneqTerm(lits_out[neg_idx]);
+                    Term pos_coeff = la_coeffs[true][var];
+                    Term neg_coeff = -la_coeffs[false][var];
+                    Term comb = neg_coeff * tpos + pos_coeff * tneg;
+                    Term ineq = ctx.int_val(0) <= comb;
+                    ineq = ineq.simplify();
+                    lits_out[pos_idx] = ineq;
+                    lits_out[neg_idx] = ctx.bool_val(true);
+                    IndexLAfix(ineq, pos_idx);
+                }
+            }
+        }
     }
 
     Term ProjectFormula(const Term &f){
@@ -2473,41 +2443,41 @@ namespace Duality {
     }
   }; 
     
-  void Z3User::CollectConjuncts(const Term &f, std::vector<Term> &lits, bool pos){
-    if(f.is_app() && f.decl().get_decl_kind() == Not)
-      CollectConjuncts(f.arg(0), lits, !pos);
-    else if(pos && f.is_app() && f.decl().get_decl_kind() == And){
-      int num_args = f.num_args();
-      for(int i = 0; i < num_args; i++)
-	CollectConjuncts(f.arg(i),lits,true);
-    }
-    else if(!pos && f.is_app() && f.decl().get_decl_kind() == Or){
-      int num_args = f.num_args();
-      for(int i = 0; i < num_args; i++)
-	CollectConjuncts(f.arg(i),lits,false);
-    }
-    else if(pos){
-      if(!eq(f,ctx.bool_val(true)))
-	lits.push_back(f);
-    }
-    else {
-      if(!eq(f,ctx.bool_val(false)))
-	lits.push_back(!f);
-    }
+  void Z3User::CollectConjuncts(const Term &f, std::vector<Term> &lits, bool pos) {
+      if (f.is_app() && f.decl().get_decl_kind() == Not)
+          CollectConjuncts(f.arg(0), lits, !pos);
+      else if (pos && f.is_app() && f.decl().get_decl_kind() == And) {
+          int num_args = f.num_args();
+          for (int i = 0; i < num_args; i++)
+              CollectConjuncts(f.arg(i), lits, true);
+      }
+      else if (!pos && f.is_app() && f.decl().get_decl_kind() == Or) {
+          int num_args = f.num_args();
+          for (int i = 0; i < num_args; i++)
+              CollectConjuncts(f.arg(i), lits, false);
+      }
+      else if (pos) {
+          if (!eq(f, ctx.bool_val(true)))
+              lits.push_back(f);
+      }
+      else {
+          if (!eq(f, ctx.bool_val(false)))
+              lits.push_back(!f);
+      }
   }
 
-  void Z3User::CollectJuncts(const Term &f, std::vector<Term> &lits, decl_kind op, bool negate){
-    if(f.is_app() && f.decl().get_decl_kind() == Not)
-      CollectJuncts(f.arg(0), lits, (op == And) ? Or : And, !negate);
-    else if(f.is_app() && f.decl().get_decl_kind() == op){
-      int num_args = f.num_args();
-      for(int i = 0; i < num_args; i++)
-	CollectJuncts(f.arg(i),lits,op,negate);
-    }
-    else {
-      expr junct = negate ? Negate(f) : f;
-      lits.push_back(junct);
-    }
+  void Z3User::CollectJuncts(const Term &f, std::vector<Term> &lits, decl_kind op, bool negate) {
+      if (f.is_app() && f.decl().get_decl_kind() == Not)
+          CollectJuncts(f.arg(0), lits, (op == And) ? Or : And, !negate);
+      else if (f.is_app() && f.decl().get_decl_kind() == op) {
+          int num_args = f.num_args();
+          for (int i = 0; i < num_args; i++)
+              CollectJuncts(f.arg(i), lits, op, negate);
+      }
+      else {
+          expr junct = negate ? Negate(f) : f;
+          lits.push_back(junct);
+      }
   }
 
   struct TermLt {
@@ -2591,7 +2561,7 @@ namespace Duality {
       hash_map<ast,int> memo;
       int res = SubtermTruth(memo, eu);
       if(res != 1)
-	throw "inconsistent projection";
+    throw "inconsistent projection";
     }
 #endif
 
@@ -2622,16 +2592,16 @@ namespace Duality {
     if(memo[under].find(f) != memo[under].end())
       return;
     memo[under].insert(f);
-    if(f.is_app()){
-      if(!under && !f.has_quantifiers())
-	return;
-      decl_kind k = f.decl().get_decl_kind();
-      if(k == And || k == Or || k == Implies || k == Iff){
-	int num_args = f.num_args();
-	for(int i = 0; i < num_args; i++)
-	  GetGroundLitsUnderQuants(memo,f.arg(i),res,under);
-	return;
-      }
+    if (f.is_app()) {
+        if (!under && !f.has_quantifiers())
+            return;
+        decl_kind k = f.decl().get_decl_kind();
+        if (k == And || k == Or || k == Implies || k == Iff) {
+            int num_args = f.num_args();
+            for (int i = 0; i < num_args; i++)
+                GetGroundLitsUnderQuants(memo, f.arg(i), res, under);
+            return;
+        }
     }
     else if (f.is_quantifier()){
 #if 0
@@ -2712,28 +2682,28 @@ namespace Duality {
     return g;
   }
 
-  RPFP::Term RPFP::ModelValueAsConstraint(const Term &t){
-    if(t.is_array()){
-      ArrayValue arr;
-      Term e = dualModel.eval(t);
-      EvalArrayTerm(e, arr);
-      if(arr.defined){
-	std::vector<expr> cs;
-	for(std::map<ast,ast>::iterator it = arr.entries.begin(), en = arr.entries.end(); it != en; ++it){
-	  expr foo = select(t,expr(ctx,it->first)) == expr(ctx,it->second);
-	  cs.push_back(foo);
-	}
-	return conjoin(cs);
+  RPFP::Term RPFP::ModelValueAsConstraint(const Term &t) {
+      if (t.is_array()) {
+          ArrayValue arr;
+          Term e = dualModel.eval(t);
+          EvalArrayTerm(e, arr);
+          if (arr.defined) {
+              std::vector<expr> cs;
+              for (std::map<ast, ast>::iterator it = arr.entries.begin(), en = arr.entries.end(); it != en; ++it) {
+                  expr foo = select(t, expr(ctx, it->first)) == expr(ctx, it->second);
+                  cs.push_back(foo);
+              }
+              return conjoin(cs);
+          }
       }
-    }
-    else {
-      expr r = dualModel.get_const_interp(t.decl());
-      if(!r.null()){
-	expr res = t == expr(ctx,r);
-	return res;
+      else {
+          expr r = dualModel.get_const_interp(t.decl());
+          if (!r.null()) {
+              expr res = t == expr(ctx, r);
+              return res;
+          }
       }
-    }
-    return ctx.bool_val(true);
+      return ctx.bool_val(true);
   }
 
   void RPFP::EvalNodeAsConstraint(Node *p, Transformer &res)
@@ -3147,7 +3117,6 @@ namespace Duality {
       }
 
       if(node->Annotation.IsEmpty() || eq(node->Annotation.Formula,prev_annot) || (repeated_case_count > 0 && !axioms_added) || (repeated_case_count >= 10)){
-//      looks_bad:
 	if(!axioms_added){
 	  // add the axioms in the off chance they are useful
 	  const std::vector<expr> &theory = ls->get_axioms();
@@ -3251,12 +3220,12 @@ namespace Duality {
     std::vector<expr> assumps, core, conjuncts;
     AssertEdgeCache(edge,assumps);
     for(unsigned i = 0; i < edge->Children.size(); i++){
-      expr ass = GetAnnotation(edge->Children[i]);
+      expr as = GetAnnotation(edge->Children[i]);
       std::vector<expr> clauses;
-      if(!ass.is_true()){
-	CollectConjuncts(ass.arg(1),clauses);
+      if(!as.is_true()){
+	CollectConjuncts(as.arg(1),clauses);
 	for(unsigned j = 0; j < clauses.size(); j++)
-	  GetAssumptionLits(ass.arg(0) || clauses[j],assumps);
+	  GetAssumptionLits(as.arg(0) || clauses[j],assumps);
       }
     }
     expr fmla = GetAnnotation(node);

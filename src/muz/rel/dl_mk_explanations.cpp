@@ -829,7 +829,6 @@ namespace datalog {
             m_e_fact_relation = static_cast<explanation_relation *>(expl_singleton);
         }
         func_decl_set predicates(m_context.get_predicates());
-        
         decl_set::iterator it = predicates.begin();
         decl_set::iterator end = predicates.end();
         for (; it!=end; ++it) {

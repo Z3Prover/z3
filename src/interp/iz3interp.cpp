@@ -97,6 +97,18 @@ struct frame_reducer : public iz3mgr {
     get_proof_assumptions_rec(proof,memo,used_frames);
     std::vector<int> assertions_back_map(frames);
 
+    // if multiple children of a tree node are used, we can't delete it
+    std::vector<int> used_children; 
+    for(int i = 0; i < frames; i++)
+      used_children.push_back(0);
+    for(int i = 0; i < frames; i++)
+      if(orig_parents[i] != SHRT_MAX)
+	if(used_frames[i] || used_children[i]){
+	  if(used_children[i] > 1)
+	    used_frames[i] = true;
+	  used_children[orig_parents[i]]++;
+	}
+
     for(unsigned i = 0; i < z3_preds.size(); i++)
       if(used_frames[i] || i == z3_preds.size() - 1){
 	assertions.push_back(z3_preds[i]);
@@ -127,7 +139,7 @@ struct frame_reducer : public iz3mgr {
     for(int i = 0; i < frames-2; i++){
       int p = orig_parents_copy.size() == 0 ? i+1 : orig_parents_copy[i];
       if(p < frames - 1 && !used_frames[p])
-        interpolants[p] = interpolants[i];
+        interpolants[p] = mk_and(interpolants[i],interpolants[p]);
     }
   }
 };

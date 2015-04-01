@@ -23,7 +23,7 @@ Notes:
 #include"bv_rewriter.h"
 #include"datatype_rewriter.h"
 #include"array_rewriter.h"
-#include"float_rewriter.h"
+#include"fpa_rewriter.h"
 #include"dl_rewriter.h"
 #include"pb_rewriter.h"
 #include"rewriter_def.h"
@@ -40,7 +40,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bv_rewriter         m_bv_rw;
     array_rewriter      m_ar_rw;
     datatype_rewriter   m_dt_rw;
-    float_rewriter      m_f_rw;
+    fpa_rewriter        m_f_rw;
     dl_rewriter         m_dl_rw;
     pb_rewriter         m_pb_rw;
     arith_util          m_a_util;

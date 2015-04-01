@@ -1,0 +1,22 @@
+Small example using the Z3 ML bindings.
+To build the example execute
+   make examples
+in the build directory.
+
+It will create ml_example in the build directory,
+which can be run in the build directory via 
+LD_LIBRARY_PATH=. ./ml_example
+or
+LD_LIBRARY_PATH=. ./ml_example.byte
+for the byte-code version.
+
+If Z3 was installed into the ocamlfind package repository (see src/api/ml/README),
+then we can compile this example as follows:
+
+ocamlfind ocamlc -o ml_example.byte -package Z3 -linkpkg ml_example.ml
+ocamlfind ocamlopt -o ml_example -package Z3 -linkpkg ml_example.ml
+
+Note that the resulting binaries depend on the shared z3 library, which needs to be 
+in the PATH (Windows), LD_LIBRARY_PATH (Linux) or DYLD_LIBRARY_PATH (OSX). If Z3 was 
+installed into ocamlfind, the path that should be added is 
+`ocamlfind printconf destdir`/Z3

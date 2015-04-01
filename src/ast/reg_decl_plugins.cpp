@@ -24,8 +24,8 @@ Revision History:
 #include"datatype_decl_plugin.h"
 #include"dl_decl_plugin.h"
 #include"seq_decl_plugin.h"
-#include"float_decl_plugin.h"
 #include"pb_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 
 void reg_decl_plugins(ast_manager & m) {
     if (!m.get_plugin(m.mk_family_id(symbol("arith")))) {
@@ -46,8 +46,8 @@ void reg_decl_plugins(ast_manager & m) {
     if (!m.get_plugin(m.mk_family_id(symbol("seq")))) {
         m.register_plugin(symbol("seq"), alloc(seq_decl_plugin));
     }
-    if (!m.get_plugin(m.mk_family_id(symbol("float")))) {
-        m.register_plugin(symbol("float"), alloc(float_decl_plugin));
+    if (!m.get_plugin(m.mk_family_id(symbol("fpa")))) {
+        m.register_plugin(symbol("fpa"), alloc(fpa_decl_plugin));
     }
     if (!m.get_plugin(m.mk_family_id(symbol("pb")))) {
         m.register_plugin(symbol("pb"), alloc(pb_decl_plugin));

@@ -356,6 +356,7 @@ int main(int argc, char ** argv) {
         default:
             UNREACHABLE();
         }
+        memory::finalize();
 #ifdef _WINDOWS
         _CrtDumpMemoryLeaks();
 #endif

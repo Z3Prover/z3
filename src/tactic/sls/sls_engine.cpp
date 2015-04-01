@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-#include<float.h>
-#include<iomanip>
+#include<float.h> // Need DBL_MAX
 
 #include"map.h"
 #include"ast_smt2_pp.h"
@@ -570,8 +569,12 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
         mc = 0;
 }
 
-lbool sls_engine::operator()() {
+lbool sls_engine::operator()() {    
     m_tracker.initialize(m_assertions);
+    m_tracker.reset(m_assertions);
+    if (m_restart_init)
+        m_tracker.randomize(m_assertions);
+
     lbool res = l_undef;
 
     do {
@@ -589,7 +592,7 @@ lbool sls_engine::operator()() {
         }
     } while (res != l_true && m_stats.m_restarts++ < m_max_restarts);
 
-    verbose_stream() << "(restarts: " << m_stats.m_restarts << " flips: " << m_stats.m_moves << " time: " << std::fixed << std::setprecision(2) << m_stats.m_stopwatch.get_current_seconds() << " fps: " << (m_stats.m_moves / m_stats.m_stopwatch.get_current_seconds()) << ")" << std::endl;
+    verbose_stream() << "(restarts: " << m_stats.m_restarts << " flips: " << m_stats.m_moves << " fps: " << (m_stats.m_moves / m_stats.m_stopwatch.get_current_seconds()) << ")" << std::endl;
     
     return res;
 }

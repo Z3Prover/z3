@@ -40,7 +40,7 @@ class sls_tracker {
     mpz                   m_zero, m_one, m_two;
         
     struct value_score { 
-        value_score() : m(0), value(unsynch_mpz_manager::mk_z(0)), score(0.0), distance(0), touched(1), score_prune(0.0), has_pos_occ(0), has_neg_occ(0) { };
+    value_score() : m(0), value(unsynch_mpz_manager::mk_z(0)), score(0.0), score_prune(0.0), has_pos_occ(0), has_neg_occ(0), distance(0), touched(1) {};
         ~value_score() { if (m) m->del(value); }
         unsynch_mpz_manager * m;
         mpz value;
@@ -90,6 +90,7 @@ private:
     unsigned              m_track_unsat;
     obj_map<expr, unsigned> m_weights;
     double				  m_top_sum;
+    obj_hashtable<expr>   m_temp_seen;
 
 public:    
     sls_tracker(ast_manager & m, bv_util & bvu, unsynch_mpz_manager & mm, powers & p) :
@@ -454,6 +455,7 @@ public:
             }
         }
 
+        m_temp_seen.reset();
         for (unsigned i = 0; i < sz; i++)
         {
             expr * e = as[i];
@@ -666,7 +668,14 @@ public:
                 app * a = to_app(n);
                 expr * const * args = a->get_args();
                 for (unsigned i = 0; i < a->get_num_args(); i++)
-                    setup_occs(args[i]);
+                {
+                    expr * child = args[i];
+                    if (!m_temp_seen.contains(child))
+                    {
+                        setup_occs(child, false);
+                        m_temp_seen.insert(child);
+                    }
+                }
             }
             else if (m_manager.is_not(n))
             {
@@ -674,8 +683,7 @@ public:
                 app * a = to_app(n);
                 SASSERT(a->get_num_args() == 1);
                 expr * child = a->get_arg(0);
-                if (m_manager.is_and(child) || m_manager.is_or(child))
-                    NOT_IMPLEMENTED_YET();
+                SASSERT(!m_manager.is_and(child) && !m_manager.is_or(child));
                 setup_occs(child, true);
             }
             else

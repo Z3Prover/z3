@@ -88,7 +88,7 @@ public class ListSort extends Sort
 
     ListSort(Context ctx, Symbol name, Sort elemSort) throws Z3Exception
     {
-        super(ctx);
+        super(ctx, 0);
 
         Native.LongPtr inil = new Native.LongPtr(), iisnil = new Native.LongPtr();
         Native.LongPtr icons = new Native.LongPtr(), iiscons = new Native.LongPtr();

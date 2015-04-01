@@ -136,7 +136,7 @@ void bv_decl_plugin::finalize() {
     for (; it != end; ++it) {
         ptr_vector<func_decl> & ds = *it;
         DEC_REF(ds);
-	}
+    }
     DEC_REF(m_mkbv);
 }
 
@@ -157,13 +157,13 @@ void bv_decl_plugin::mk_bv_sort(unsigned bv_size) {
 }
 
 inline sort * bv_decl_plugin::get_bv_sort(unsigned bv_size) {
-	if (bv_size < (1 << 12)) {
-	    mk_bv_sort(bv_size);
+    if (bv_size < (1 << 12)) {
+        mk_bv_sort(bv_size);
             return m_bv_sorts[bv_size];
-	}
-	parameter p(bv_size);
-	sort_size sz(sort_size::mk_very_big());
-	return m_manager->mk_sort(symbol("bv"), sort_info(m_family_id, BV_SORT, sz, 1, &p));
+    }
+    parameter p(bv_size);
+    sort_size sz(sort_size::mk_very_big());
+    return m_manager->mk_sort(symbol("bv"), sort_info(m_family_id, BV_SORT, sz, 1, &p));
 }
 
 sort * bv_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {

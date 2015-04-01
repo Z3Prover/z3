@@ -293,10 +293,10 @@ extern "C" {
         else {
             model_ref mr;
             m_solver.get()->get_model(mr);
-            Z3_model_ref *crap = alloc(Z3_model_ref);
-            crap->m_model = mr.get();
-            mk_c(c)->save_object(crap);
-            *model = of_model(crap);
+            Z3_model_ref *tmp_val = alloc(Z3_model_ref);
+            tmp_val->m_model = mr.get();
+            mk_c(c)->save_object(tmp_val);
+            *model = of_model(tmp_val);
         }
 
         *out_interp = of_ast_vector(v);
@@ -490,8 +490,8 @@ extern "C" {
         try {
             std::string foo(filename);
             if (foo.size() >= 5 && foo.substr(foo.size() - 5) == ".smt2"){
-                Z3_ast ass = Z3_parse_smtlib2_file(ctx, filename, 0, 0, 0, 0, 0, 0);
-                Z3_app app = Z3_to_app(ctx, ass);
+                Z3_ast assrts = Z3_parse_smtlib2_file(ctx, filename, 0, 0, 0, 0, 0, 0);
+                Z3_app app = Z3_to_app(ctx, assrts);
                 int nconjs = Z3_get_app_num_args(ctx, app);
                 assertions.resize(nconjs);
                 for (int k = 0; k < nconjs; k++)

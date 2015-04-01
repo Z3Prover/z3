@@ -413,16 +413,16 @@ sort * get_sort(expr const * n) {
 //
 // -----------------------------------
 
-unsigned get_node_size(ast const * n) {					
-    switch(n->get_kind()) {					
-    case AST_SORT:       return to_sort(n)->get_size();	
-    case AST_FUNC_DECL:  return to_func_decl(n)->get_size();	
-    case AST_APP:        return to_app(n)->get_size();	
-    case AST_VAR:        return to_var(n)->get_size();	
-    case AST_QUANTIFIER: return to_quantifier(n)->get_size();	
-    default: UNREACHABLE();					
-    }								
-    return 0;							
+unsigned get_node_size(ast const * n) {
+    switch(n->get_kind()) {
+    case AST_SORT:       return to_sort(n)->get_size();
+    case AST_FUNC_DECL:  return to_func_decl(n)->get_size();
+    case AST_APP:        return to_app(n)->get_size();
+    case AST_VAR:        return to_var(n)->get_size();
+    case AST_QUANTIFIER: return to_quantifier(n)->get_size();
+    default: UNREACHABLE();
+    }
+    return 0;
 }    
 
 bool compare_nodes(ast const * n1, ast const * n2) {
@@ -737,7 +737,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(
     for (unsigned i = 0; i < num_parents; i++) 
         domain.push_back(m_proof_sort);
     domain.push_back(m_bool_sort);
-	func_decl_info info(m_family_id, k, num_parameters, params);
+    func_decl_info info(m_family_id, k, num_parameters, params);
     return m_manager->mk_func_decl(symbol(name), num_parents+1, domain.c_ptr(), m_proof_sort, info);
 }
 
@@ -1643,12 +1643,12 @@ ast * ast_manager::register_node_core(ast * n) {
             to_func_decl(n)->m_info = alloc(func_decl_info, *(to_func_decl(n)->get_info()));
             to_func_decl(n)->m_info->init_eh(*this);
         }
-	inc_array_ref(to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
-	inc_ref(to_func_decl(n)->get_range());
-	break;
+        inc_array_ref(to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
+        inc_ref(to_func_decl(n)->get_range());
+        break;
     case AST_APP: {
         app * t = to_app(n);
-	inc_ref(t->get_decl());
+        inc_ref(t->get_decl());
         unsigned num_args = t->get_num_args();
         if (num_args > 0) {
             app_flags * f     = t->flags();
@@ -1662,7 +1662,7 @@ ast * ast_manager::register_node_core(ast * n) {
             for (unsigned i = 0; i < num_args; i++) {
                 expr * arg = t->get_arg(i);
                 inc_ref(arg);
-                unsigned arg_depth;
+                unsigned arg_depth = 0;
                 switch (arg->get_kind()) {
                 case AST_APP: {
                     app_flags * arg_flags = to_app(arg)->flags();
@@ -1696,19 +1696,19 @@ ast * ast_manager::register_node_core(ast * n) {
             f->m_depth = depth;
             SASSERT(t->get_depth() == depth);
         }
-	break;
+        break;
     }
     case AST_VAR:
         inc_ref(to_var(n)->get_sort());
         break;
     case AST_QUANTIFIER:
-	inc_array_ref(to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
-	inc_ref(to_quantifier(n)->get_expr());
+        inc_array_ref(to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
+        inc_ref(to_quantifier(n)->get_expr());
         inc_array_ref(to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
         inc_array_ref(to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
-	break;
+        break;
     default:
-	break;
+        break;
     }
     return n;
 }
@@ -1721,7 +1721,7 @@ void ast_manager::delete_node(ast * n) {
     while (!worklist.empty()) {
         n = worklist.back();
         worklist.pop_back();
-		
+        
         TRACE("ast", tout << "Deleting object " << n->m_id << " " << n << "\n";);
         CTRACE("del_quantifier", is_quantifier(n), tout << "deleting quantifier " << n->m_id << " " << n << "\n";);
         TRACE("mk_var_bug", tout << "del_ast: " << n->m_id << "\n";);
@@ -1770,8 +1770,8 @@ void ast_manager::delete_node(ast * n) {
             dec_array_ref(worklist, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
             dec_array_ref(worklist, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
             break;
-	default:
-	    break;
+    default:
+        break;
         }
         if (m_debug_ref_count) {
             m_debug_free_indices.insert(n->m_id,0);
@@ -2569,9 +2569,9 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
               (is_eq(get_fact(p2)) || is_oeq(get_fact(p2)))));
     CTRACE("mk_transitivity", to_app(get_fact(p1))->get_arg(1) != to_app(get_fact(p2))->get_arg(0),       
            tout << mk_pp(get_fact(p1), *this) << "\n\n" << mk_pp(get_fact(p2), *this) << "\n";
-			tout << mk_bounded_pp(p1, *this, 5) << "\n\n";
-			tout << mk_bounded_pp(p2, *this, 5) << "\n\n";
-	);
+           tout << mk_bounded_pp(p1, *this, 5) << "\n\n";
+           tout << mk_bounded_pp(p2, *this, 5) << "\n\n";
+    );
     SASSERT(to_app(get_fact(p1))->get_arg(1) == to_app(get_fact(p2))->get_arg(0));
     if (is_reflexivity(p1))
         return p2;
@@ -2850,7 +2850,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         SASSERT(is_or(f1));
         app * cls            = to_app(f1);
         unsigned cls_sz      = cls->get_num_args();
-		CTRACE("cunit_bug", !(num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact))),
+        CTRACE("cunit_bug", !(num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact))),
           for (unsigned i = 0; i < num_proofs; i++) tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
           tout << "===>\n";
           tout << mk_pp(new_fact, *this) << "\n";);

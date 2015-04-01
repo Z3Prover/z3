@@ -42,11 +42,12 @@ struct z3_replayer::imp {
     __int64                  m_int64;
     __uint64                 m_uint64;
     double                   m_double;
+    float                    m_float;
     size_t                   m_ptr;
     size_t_map<void *>       m_heap;
     svector<z3_replayer_cmd> m_cmds;
 
-    enum value_kind { INT64, UINT64, DOUBLE, STRING, SYMBOL, OBJECT, UINT_ARRAY, INT_ARRAY, SYMBOL_ARRAY, OBJECT_ARRAY };
+    enum value_kind { INT64, UINT64, DOUBLE, STRING, SYMBOL, OBJECT, UINT_ARRAY, INT_ARRAY, SYMBOL_ARRAY, OBJECT_ARRAY, FLOAT };
 
     char const* kind2string(value_kind k) const {
         switch (k) {
@@ -60,6 +61,7 @@ struct z3_replayer::imp {
         case INT_ARRAY: return "int_array";
         case SYMBOL_ARRAY: return "symbol_array";
         case OBJECT_ARRAY: return "object_array";
+        case FLOAT: return "float";
         default: UNREACHABLE(); return "unknown";
         }
     }
@@ -86,6 +88,7 @@ struct z3_replayer::imp {
             double       m_double;
             char const * m_str;
             void *       m_obj;
+            float        m_float;
         };
         value():m_kind(OBJECT), m_int(0) {}
         value(void * obj):m_kind(OBJECT), m_obj(obj) {}
@@ -93,6 +96,7 @@ struct z3_replayer::imp {
         value(value_kind k, __uint64 u):m_kind(k), m_uint(u) {}
         value(value_kind k, __int64 i):m_kind(k), m_int(i) {}
         value(value_kind k, double d):m_kind(k), m_double(d) {}
+        value(value_kind k, float f):m_kind(k), m_float(f) {}
     };
 
     svector<value>              m_args;
@@ -118,9 +122,12 @@ struct z3_replayer::imp {
         case UINT64:
             out << v.m_uint;
             break;
+        case FLOAT:
+            out << v.m_float;
+            break;
         case DOUBLE:
             out << v.m_double;
-            break;
+            break;        
         case STRING:
             out << v.m_str;
             break;
@@ -250,6 +257,26 @@ struct z3_replayer::imp {
 
     bool is_double_char() const {
         return curr() == '-' || curr() == '.' || ('0' <= curr() && curr() <= '9') || curr() == 'e' || curr() == 'E'; 
+    }
+
+#if (!defined(strtof))
+    float strtof(const char * str, char ** end_ptr) {
+        // Note: This may introduce a double-rounding problem.
+        return (float)strtod(str, end_ptr);
+    }
+#endif
+
+    void read_float() {
+        m_string.reset();
+        while (is_double_char()) {
+            m_string.push_back(curr());
+            next();
+        }
+        if (m_string.empty())
+            throw z3_replayer_exception("invalid float");
+        m_string.push_back(0);
+        char * ptr;
+        m_float = strtof(m_string.begin(), &ptr);
     }
 
     void read_double() {
@@ -449,12 +476,18 @@ struct z3_replayer::imp {
                 TRACE("z3_replayer", tout << "[" << m_line << "] " << "U " << m_uint64 << "\n";);
                 m_args.push_back(value(UINT64, m_uint64));
                 break;
+            case 'F':
+                // push float
+                next(); skip_blank(); read_float();
+                TRACE("z3_replayer", tout << "[" << m_line << "] " << "F " << m_float << "\n";);
+                m_args.push_back(value(FLOAT, m_float));
+                break;
             case 'D':
                 // push double
                 next(); skip_blank(); read_double();
                 TRACE("z3_replayer", tout << "[" << m_line << "] " << "D " << m_double << "\n";);
                 m_args.push_back(value(DOUBLE, m_double));
-                break;
+                break;            
             case 'p':
             case 's':
             case 'u':
@@ -550,6 +583,12 @@ struct z3_replayer::imp {
     __uint64 get_uint64(unsigned pos) const {
         check_arg(pos, UINT64);
         return m_args[pos].m_uint;
+    }
+
+    float get_float(unsigned pos) const {
+        if (pos >= m_args.size() || m_args[pos].m_kind != FLOAT)
+            throw_invalid_reference();
+        return m_args[pos].m_float;
     }
 
     double get_double(unsigned pos) const {
@@ -681,6 +720,10 @@ __int64 z3_replayer::get_int64(unsigned pos) const {
 
 __uint64 z3_replayer::get_uint64(unsigned pos) const {
     return m_imp->get_uint64(pos);
+}
+
+float z3_replayer::get_float(unsigned pos) const {
+    return m_imp->get_float(pos);
 }
 
 double z3_replayer::get_double(unsigned pos) const {

@@ -19,6 +19,13 @@ package com.microsoft.z3;
 
 class SolverDecRefQueue extends IDecRefQueue
 {
+    public SolverDecRefQueue() { super(); }
+    
+    public SolverDecRefQueue(int move_limit) 
+    {
+        super(move_limit);
+    }
+
     protected void incRef(Context ctx, long obj)
     {
         try

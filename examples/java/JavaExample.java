@@ -1095,13 +1095,13 @@ class JavaExample
 
     // / Shows how to use Solver(logic)
 
-    // / <param name="ctx"></param>
+    // / @param ctx 
     void logicExample(Context ctx) throws Z3Exception, TestFailedException
     {
         System.out.println("LogicTest");
         Log.append("LogicTest");
 
-        Context.ToggleWarningMessages(true);
+        com.microsoft.z3.Global.ToggleWarningMessages(true);
 
         BitVecSort bvs = ctx.mkBitVecSort(32);
         Expr x = ctx.mkConst("x", bvs);
@@ -2137,6 +2137,47 @@ class JavaExample
             }
         }
     }
+    
+    /// Extract unsatisfiable core example with AssertAndTrack
+    
+    public void unsatCoreAndProofExample2(Context ctx) throws Z3Exception
+    {
+        System.out.println("UnsatCoreAndProofExample2");
+        Log.append("UnsatCoreAndProofExample2");
+
+        Solver solver = ctx.mkSolver();
+
+        BoolExpr pa = ctx.mkBoolConst("PredA");
+        BoolExpr pb = ctx.mkBoolConst("PredB");
+        BoolExpr pc = ctx.mkBoolConst("PredC");
+        BoolExpr pd = ctx.mkBoolConst("PredD");
+        
+        BoolExpr f1 = ctx.mkAnd(new BoolExpr[] { pa, pb, pc });
+        BoolExpr f2 = ctx.mkAnd(new BoolExpr[] { pa, ctx.mkNot(pb), pc });
+        BoolExpr f3 = ctx.mkOr(ctx.mkNot(pa), ctx.mkNot(pc));
+        BoolExpr f4 = pd;
+
+        BoolExpr p1 = ctx.mkBoolConst("P1");
+        BoolExpr p2 = ctx.mkBoolConst("P2");
+        BoolExpr p3 = ctx.mkBoolConst("P3");
+        BoolExpr p4 = ctx.mkBoolConst("P4");
+
+        solver.assertAndTrack(f1, p1);
+        solver.assertAndTrack(f2, p2);
+        solver.assertAndTrack(f3, p3);
+        solver.assertAndTrack(f4, p4);
+        Status result = solver.check();
+
+        if (result == Status.UNSATISFIABLE)
+        {
+            System.out.println("unsat");
+            System.out.println("core: ");
+            for (Expr c : solver.getUnsatCore())
+            {
+                System.out.println(c);
+            }
+        }
+    }
 
     public void finiteDomainExample(Context ctx) throws Z3Exception
     {
@@ -2157,12 +2198,92 @@ class JavaExample
         // System.out.println(ctx.mkEq(s1, t1));
     }    
 
+    public void floatingPointExample1(Context ctx) throws Z3Exception, TestFailedException
+    {
+        System.out.println("FloatingPointExample1");
+        Log.append("FloatingPointExample1");
+        
+        FPSort s = ctx.mkFPSort(11, 53);
+        System.out.println("Sort: " + s);
+
+        FPNum x = (FPNum)ctx.mkNumeral("-1e1", s); /* -1 * 10^1 = -10 */
+        FPNum y = (FPNum)ctx.mkNumeral("-10", s); /* -10 */
+        FPNum z = (FPNum)ctx.mkNumeral("-1.25p3", s); /* -1.25 * 2^3 = -1.25 * 8 = -10 */
+        System.out.println("x=" + x.toString()  + 
+                           "; y=" + y.toString() + 
+                           "; z=" + z.toString());
+        
+        BoolExpr a = ctx.mkAnd(ctx.mkFPEq(x, y), ctx.mkFPEq(y, z));
+        check(ctx, ctx.mkNot(a), Status.UNSATISFIABLE);
+
+        /* nothing is equal to NaN according to floating-point 
+         * equality, so NaN == k should be unsatisfiable. */
+        FPExpr k = (FPExpr)ctx.mkConst("x", s);
+        FPExpr nan = ctx.mkFPNaN(s);
+
+        /* solver that runs the default tactic for QF_FP. */
+        Solver slvr = ctx.mkSolver("QF_FP");
+        slvr.add(ctx.mkFPEq(nan, k));
+        if (slvr.check() != Status.UNSATISFIABLE)
+            throw new TestFailedException();
+        System.out.println("OK, unsat:" + System.getProperty("line.separator") + slvr);
+
+        /* NaN is equal to NaN according to normal equality. */
+        slvr = ctx.mkSolver("QF_FP");
+        slvr.add(ctx.mkEq(nan, nan));
+        if (slvr.check() != Status.SATISFIABLE)
+            throw new TestFailedException();
+        System.out.println("OK, sat:" + System.getProperty("line.separator")  + slvr);
+
+        /* Let's prove -1e1 * -1.25e3 == +100 */
+        x = (FPNum)ctx.mkNumeral("-1e1", s);
+        y = (FPNum)ctx.mkNumeral("-1.25p3", s);
+        FPExpr x_plus_y = (FPExpr)ctx.mkConst("x_plus_y", s);
+        FPNum r = (FPNum)ctx.mkNumeral("100", s);
+        slvr = ctx.mkSolver("QF_FP");
+
+        slvr.add(ctx.mkEq(x_plus_y, ctx.mkFPMul(ctx.mkFPRoundNearestTiesToAway(), x, y)));
+        slvr.add(ctx.mkNot(ctx.mkFPEq(x_plus_y, r)));
+        if (slvr.check() != Status.UNSATISFIABLE)
+            throw new TestFailedException();
+        System.out.println("OK, unsat:" + System.getProperty("line.separator")  + slvr);
+    }
+
+    public void floatingPointExample2(Context ctx) throws Z3Exception, TestFailedException
+    {
+        System.out.println("FloatingPointExample2");
+        Log.append("FloatingPointExample2");
+        FPSort double_sort = ctx.mkFPSort(11, 53);
+        FPRMSort rm_sort = ctx.mkFPRoundingModeSort();
+        
+        FPRMExpr rm = (FPRMExpr)ctx.mkConst(ctx.mkSymbol("rm"), rm_sort);
+        BitVecExpr x = (BitVecExpr)ctx.mkConst(ctx.mkSymbol("x"), ctx.mkBitVecSort(64));
+        FPExpr y = (FPExpr)ctx.mkConst(ctx.mkSymbol("y"), double_sort);            
+        FPExpr fp_val = ctx.mkFP(42, double_sort);
+        
+        BoolExpr c1 = ctx.mkEq(y, fp_val);
+        BoolExpr c2 = ctx.mkEq(x, ctx.mkFPToBV(rm, y, 64, false));
+        BoolExpr c3 = ctx.mkEq(x, ctx.mkBV(42, 64));
+        BoolExpr c4 = ctx.mkEq(ctx.mkNumeral(42, ctx.getRealSort()), ctx.mkFPToReal(fp_val));
+        BoolExpr c5 = ctx.mkAnd(c1, c2, c3, c4);
+        System.out.println("c5 = " + c5);
+
+        /* Generic solver */
+        Solver s = ctx.mkSolver();
+        s.add(c5);
+
+        if (s.check() != Status.SATISFIABLE)
+            throw new TestFailedException();
+
+        System.out.println("OK, model: " + s.getModel().toString());        
+    }
+    
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
         try
         {
-            Context.ToggleWarningMessages(true);
+            com.microsoft.z3.Global.ToggleWarningMessages(true);
             Log.open("test.log");
 
             System.out.print("Z3 Major Version: ");
@@ -2200,6 +2321,8 @@ class JavaExample
                 p.findSmallModelExample(ctx);
                 p.simplifierExample(ctx);
                 p.finiteDomainExample(ctx);
+                p.floatingPointExample1(ctx);
+                p.floatingPointExample2(ctx);
             }
 
             { // These examples need proof generation turned on.
@@ -2216,6 +2339,7 @@ class JavaExample
                 p.treeExample(ctx);
                 p.forestExample(ctx);
                 p.unsatCoreAndProofExample(ctx);
+                p.unsatCoreAndProofExample2(ctx);
             }
 
             { // These examples need proof generation turned on and auto-config

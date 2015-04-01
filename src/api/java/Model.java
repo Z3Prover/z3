@@ -25,8 +25,9 @@ import com.microsoft.z3.enumerations.Z3_sort_kind;
 public class Model extends Z3Object
 {
     /**
-     * Retrieves the interpretation (the assignment) of <paramref name="a"/> in
-     * the model. <param name="a">A Constant</param>
+     * Retrieves the interpretation (the assignment) of {@code a} in
+     * the model. 
+     * @param a A Constant
      * 
      * @return An expression if the constant has an interpretation in the model,
      *         null otherwise.
@@ -39,8 +40,9 @@ public class Model extends Z3Object
     }
 
     /**
-     * Retrieves the interpretation (the assignment) of <paramref name="f"/> in
-     * the model. <param name="f">A function declaration of zero arity</param>
+     * Retrieves the interpretation (the assignment) of {@code f} in
+     * the model. 
+     * @param f A function declaration of zero arity
      * 
      * @return An expression if the function has an interpretation in the model,
      *         null otherwise.
@@ -65,9 +67,8 @@ public class Model extends Z3Object
     }
 
     /**
-     * Retrieves the interpretation (the assignment) of a non-constant <paramref
-     * name="f"/> in the model. <param name="f">A function declaration of
-     * non-zero arity</param>
+     * Retrieves the interpretation (the assignment) of a non-constant {@code f} in the model. 
+     * @param f A function declaration of non-zero arity
      * 
      * @return A FunctionInterpretation if the function has an interpretation in
      *         the model, null otherwise.
@@ -196,16 +197,15 @@ public class Model extends Z3Object
     }
 
     /**
-     * Evaluates the expression <paramref name="t"/> in the current model.
-     * <remarks> This function may fail if <paramref name="t"/> contains
-     * quantifiers, is partial (MODEL_PARTIAL enabled), or if <paramref
-     * name="t"/> is not well-sorted. In this case a
-     * <code>ModelEvaluationFailedException</code> is thrown. </remarks> <param
-     * name="t">An expression</param> <param name="completion"> When this flag
+     * Evaluates the expression {@code t} in the current model.
+     * Remarks:  This function may fail if {@code t} contains
+     * quantifiers, is partial (MODEL_PARTIAL enabled), or if {@code t} is not well-sorted. In this case a
+     * {@code ModelEvaluationFailedException} is thrown.  
+     * @param t An expression {@code completion} When this flag
      * is enabled, a model value will be assigned to any constant or function
-     * that does not have an interpretation in the model. </param>
+     * that does not have an interpretation in the model.
      * 
-     * @return The evaluation of <paramref name="t"/> in the model.
+     * @return The evaluation of {@code t} in the model.
      * @throws Z3Exception
      **/
     public Expr eval(Expr t, boolean completion) throws Z3Exception
@@ -219,7 +219,7 @@ public class Model extends Z3Object
     }
 
     /**
-     * Alias for <code>Eval</code>.
+     * Alias for {@code Eval}.
      * 
      * @throws Z3Exception
      **/
@@ -239,10 +239,12 @@ public class Model extends Z3Object
 
     /**
      * The uninterpreted sorts that the model has an interpretation for.
-     * <remarks> Z3 also provides an intepretation for uninterpreted sorts used
+     * Remarks:  Z3 also provides an intepretation for uninterpreted sorts used
      * in a formula. The interpretation for a sort is a finite set of distinct
-     * values. We say this finite set is the "universe" of the sort. </remarks>
-     * <seealso cref="NumSorts"/> <seealso cref="SortUniverse"/>
+     * values. We say this finite set is the "universe" of the sort. 
+     * 
+     * @see getNumSorts
+     * @see getSortUniverse
      * 
      * @throws Z3Exception
      **/
@@ -259,11 +261,11 @@ public class Model extends Z3Object
 
     /**
      * The finite set of distinct values that represent the interpretation for
-     * sort <paramref name="s"/>. <seealso cref="Sorts"/> <param name="s">An
-     * uninterpreted sort</param>
+     * sort {@code s}. 
+     * @param s An uninterpreted sort
      * 
      * @return An array of expressions, where each is an element of the universe
-     *         of <paramref name="s"/>
+     *         of {@code s}
      * @throws Z3Exception
      **/
     public Expr[] getSortUniverse(Sort s) throws Z3Exception
@@ -301,13 +303,13 @@ public class Model extends Z3Object
 
     void incRef(long o) throws Z3Exception
     {
-        getContext().model_DRQ().incAndClear(getContext(), o);
+        getContext().getModelDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
     void decRef(long o) throws Z3Exception
     {
-        getContext().model_DRQ().add(o);
+        getContext().getModelDRQ().add(o);
         super.decRef(o);
     }
 }

@@ -148,7 +148,7 @@ void distribute_forall::operator()(expr * f, expr_ref & result) {
 
     while (!m_todo.empty()) {
         expr * e = m_todo.back();
-        if (visit_children(e)) {	        
+        if (visit_children(e)) {            
             m_todo.pop_back();
             reduce1(e);
         }                

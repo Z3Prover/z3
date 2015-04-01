@@ -34,7 +34,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_delay_units = p.delay_units();
     m_delay_units_threshold = p.delay_units_threshold();
     m_preprocess = _p.get_bool("preprocess", true); // hidden parameter
-    m_soft_timeout = p.soft_timeout();
+    m_timeout = p.timeout();
     model_params mp(_p);
     m_model_compact = mp.compact();
     if (_p.get_bool("arith.greatest_error_pivot", false))
@@ -46,6 +46,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
 
 void smt_params::updt_params(params_ref const & p) {
     preprocessor_params::updt_params(p);
+    dyn_ack_params::updt_params(p);
     qi_params::updt_params(p);
     theory_arith_params::updt_params(p);
     theory_bv_params::updt_params(p);

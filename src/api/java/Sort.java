@@ -28,21 +28,21 @@ public class Sort extends AST
     /* Overloaded operators are not translated. */
 
     /**
-     * Equality operator for objects of type Sort. <param name="o"/>
-     * 
+     * Equality operator for objects of type Sort. 
+     * @param o
      * @return
      **/
     public boolean equals(Object o)
     {
         Sort casted = null;
 
-	try {
-	    casted = Sort.class.cast(o);
-	} catch (ClassCastException e) {
-	    return false;
-	}
+    try {
+        casted = Sort.class.cast(o);
+    } catch (ClassCastException e) {
+        return false;
+    }
 
-	return this.getNativeObject() == casted.getNativeObject();
+    return this.getNativeObject() == casted.getNativeObject();
     }
 
     /**
@@ -98,18 +98,9 @@ public class Sort extends AST
     /**
      * Sort constructor
      **/
-    protected Sort(Context ctx) throws Z3Exception
-    {
-        super(ctx);
-        {
-        }
-    }
-
     Sort(Context ctx, long obj) throws Z3Exception
     {
         super(ctx, obj);
-        {
-        }
     }
 
     void checkNativeObject(long obj) throws Z3Exception
@@ -143,6 +134,10 @@ public class Sort extends AST
             return new FiniteDomainSort(ctx, obj);
         case Z3_RELATION_SORT:
             return new RelationSort(ctx, obj);
+        case Z3_FLOATING_POINT_SORT:
+            return new FPSort(ctx, obj);
+        case Z3_ROUNDING_MODE_SORT:
+            return new FPRMSort(ctx, obj);
         default:
             throw new Z3Exception("Unknown sort kind");
         }

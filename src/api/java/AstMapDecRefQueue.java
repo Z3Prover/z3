@@ -19,6 +19,16 @@ package com.microsoft.z3;
 
 class ASTMapDecRefQueue extends IDecRefQueue
 {
+    public ASTMapDecRefQueue() 
+    {
+        super();
+    }
+
+    public ASTMapDecRefQueue(int move_limit) 
+    {
+        super(move_limit);
+    }
+
     protected void incRef(Context ctx, long obj)
     {
         try
