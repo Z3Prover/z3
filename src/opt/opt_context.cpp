@@ -154,7 +154,7 @@ namespace opt {
         for (unsigned i = 0; i < n; ++i) {
             m_scoped_state.pop();
         }
-        m_model.reset();
+        clear_state();
         reset_maxsmts();
         m_optsmt.reset();        
         m_hard_constraints.reset();
@@ -162,21 +162,21 @@ namespace opt {
 
     void context::set_hard_constraints(ptr_vector<expr>& fmls) {
         m_scoped_state.set(fmls);
-        m_model.reset();
+        clear_state();
     }
 
     void context::add_hard_constraint(expr* f) { 
         m_scoped_state.add(f);
-        m_model.reset();
+        clear_state();
     }
 
     unsigned context::add_soft_constraint(expr* f, rational const& w, symbol const& id) { 
-        m_model.reset();
+        clear_state();
         return m_scoped_state.add(f, w, id);
     }
 
     unsigned context::add_objective(app* t, bool is_max) {
-        m_model.reset();
+        clear_state();
         return m_scoped_state.add(t, is_max);
     }
 
@@ -1120,6 +1120,12 @@ namespace opt {
         {
             m_simplify = tac;
         }
+    }
+
+    void context::clear_state() {
+        set_pareto(0);
+        m_box_index = UINT_MAX;
+        m_model.reset();
     }
 
     void context::set_pareto(pareto_base* p) {

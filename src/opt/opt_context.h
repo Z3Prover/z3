@@ -271,6 +271,7 @@ namespace opt {
         void    add_maxsmt(symbol const& id);
         void    set_simplify(tactic *simplify);
         void    set_pareto(pareto_base* p);        
+        void    clear_state();
 
         bool is_numeral(expr* e, rational& n) const;
 
