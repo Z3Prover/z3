@@ -25,7 +25,7 @@ namespace Microsoft.Z3
     /// <summary>
     /// Vectors of ASTs.
     /// </summary>
-    internal class ASTVector : Z3Object
+    public class ASTVector : Z3Object
     {
         /// <summary>
         /// The size of the vector
