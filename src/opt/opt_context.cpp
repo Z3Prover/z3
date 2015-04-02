@@ -75,9 +75,14 @@ namespace opt {
         m_hard.push_back(hard);
     }
 
-    void context::scoped_state::set(ptr_vector<expr> & hard) {
+    bool context::scoped_state::set(ptr_vector<expr> & hard) {
+        bool eq = hard.size() == m_hard.size();
+        for (unsigned i = 0; eq && i < hard.size(); ++i) {
+            eq = hard[i] == m_hard[i].get();
+        }
         m_hard.reset();
         m_hard.append(hard.size(), hard.c_ptr());
+        return !eq;
     }
 
     unsigned context::scoped_state::add(expr* f, rational const& w, symbol const& id) {
@@ -161,8 +166,9 @@ namespace opt {
     }
 
     void context::set_hard_constraints(ptr_vector<expr>& fmls) {
-        m_scoped_state.set(fmls);
-        clear_state();
+        if (m_scoped_state.set(fmls)) {
+            clear_state();
+        }
     }
 
     void context::add_hard_constraint(expr* f) { 
@@ -203,6 +209,7 @@ namespace opt {
         if (m_box_index != UINT_MAX) {
             return execute_box();
         }
+        clear_state();
         init_solver(); 
         import_scoped_state(); 
         normalize();
@@ -327,6 +334,7 @@ namespace opt {
             return l_false;
         }
         m_box_index = 1;
+        m_box_models.reset();
         lbool r = m_optsmt.box();
         for (unsigned i = 0, j = 0; r == l_true && i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];

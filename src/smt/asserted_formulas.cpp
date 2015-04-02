@@ -603,7 +603,7 @@ void asserted_formulas::propagate_values() {
     proof_ref_vector new_prs1(m_manager);
     expr_ref_vector  new_exprs2(m_manager);
     proof_ref_vector new_prs2(m_manager);
-    unsigned i  = 0;
+    unsigned i  = m_asserted_qhead;
     unsigned sz = m_asserted_formulas.size();
     for (; i < sz; i++) {
         expr * n    = m_asserted_formulas.get(i);
