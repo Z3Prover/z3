@@ -258,7 +258,7 @@ namespace datalog {
         bool unbound_compressor() const;
         bool similarity_compressor() const;
         unsigned similarity_compressor_threshold() const;
-        unsigned soft_timeout() const;
+        unsigned timeout() const;
         unsigned initial_restart_timeout() const;
         bool generate_explanations() const;
         bool explanations_on_relation_level() const;

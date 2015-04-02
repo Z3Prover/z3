@@ -1,8 +1,10 @@
 #include<vector>
 #include"z3++.h"
 
-
 using namespace z3;
+
+
+
 
 /**
    Demonstration of how Z3 can be used to prove validity of
@@ -985,6 +987,7 @@ void extract_example() {
 }
 
 int main() {
+
     try {
         demorgan(); std::cout << "\n";
         find_model_example1(); std::cout << "\n";
