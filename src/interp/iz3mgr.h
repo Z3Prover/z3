@@ -23,6 +23,8 @@ Revision History:
 
 #include <assert.h>
 #include <vector>
+#include <functional>
+
 #include "iz3hash.h"
 
 #include"well_sorted.h"
