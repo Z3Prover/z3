@@ -362,9 +362,6 @@ namespace smt {
                 m_context.register_plugin(alloc(smt::theory_dense_i, m_manager, m_params));
 
         }
-        else if (!m_params.m_arith_auto_config_simplex && !is_dense(st)) {
-            m_context.register_plugin(alloc(smt::theory_idl, m_manager, m_params));            
-        }
         else {
             // if (st.m_arith_k_sum < rational(INT_MAX / 8)) {
             //    TRACE("setup", tout << "using small integer simplex...\n";);
@@ -416,15 +413,6 @@ namespace smt {
                 return;
             }
         }
-#if 0
-        switch (m_params.m_arith_mode) {
-        case AS_DIFF_LOGIC:
-        case AS_DENSE_DIFF_LOGIC:
-        case AS_UTVPI:
-            setup_arith();
-            return;
-        }
-#endif
         m_params.m_arith_eq_bounds  = true;
         m_params.m_phase_selection  = PS_ALWAYS_FALSE;
         m_params.m_restart_strategy = RS_GEOMETRIC;
