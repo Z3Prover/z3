@@ -131,7 +131,7 @@ namespace opt {
             void push();
             void pop();
             void add(expr* hard);
-            void set(ptr_vector<expr> & hard);
+            bool set(ptr_vector<expr> & hard);
             unsigned add(expr* soft, rational const& weight, symbol const& id);
             unsigned add(app* obj, bool is_max);
         };
