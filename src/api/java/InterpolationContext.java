@@ -73,7 +73,7 @@ public class InterpolationContext extends Context
      * well documented.
      * @throws Z3Exception 
      **/
-    Expr[] GetInterpolant(Expr pf, Expr pat, Params p) throws Z3Exception
+    public Expr[] GetInterpolant(Expr pf, Expr pat, Params p) throws Z3Exception
     {
         checkContextMatch(pf);
         checkContextMatch(pat);
@@ -94,7 +94,7 @@ public class InterpolationContext extends Context
      * well documented.
      * @throws Z3Exception 
      **/
-    Z3_lbool ComputeInterpolant(Expr pat, Params p, ASTVector interp, Model model) throws Z3Exception
+    public Z3_lbool ComputeInterpolant(Expr pat, Params p, ASTVector interp, Model model) throws Z3Exception
     {
         checkContextMatch(pat);
         checkContextMatch(p);
