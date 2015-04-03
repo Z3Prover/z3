@@ -107,7 +107,7 @@ unsigned used_vars::get_num_vars() const {
     unsigned num = m_found_vars.size();
     for (unsigned i = 0; i < num; i++) {
         if (m_found_vars[i])
-            return r++;
+            r++;
     }
     return r;
 }
