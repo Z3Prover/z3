@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Vectors of ASTs.
  **/
-class ASTVector extends Z3Object
+public class ASTVector extends Z3Object
 {
     /**
      * The size of the vector
