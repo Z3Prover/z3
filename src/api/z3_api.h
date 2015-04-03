@@ -176,7 +176,7 @@ typedef enum
     Z3_PARAMETER_SYMBOL,
     Z3_PARAMETER_SORT,
     Z3_PARAMETER_AST,
-    Z3_PARAMETER_FUNC_DECL,
+    Z3_PARAMETER_FUNC_DECL
 } Z3_parameter_kind;
 
 /**

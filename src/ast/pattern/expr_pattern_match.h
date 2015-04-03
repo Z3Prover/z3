@@ -37,7 +37,7 @@ class expr_pattern_match {
         CHECK_TERM,
         SET_BOUND,
         CHECK_BOUND,        
-        YIELD,
+        YIELD
     };
 
     struct instr {
