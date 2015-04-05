@@ -989,8 +989,9 @@ void sudoku_example() {
             x.push_back(c.int_const(x_name.str().c_str()));
         }
 
-    // each cell contains a value in {1, ..., 9}
     solver s(c);
+
+    // each cell contains a value in {1, ..., 9}
     for (unsigned i = 0; i < 9; ++i)
         for (unsigned j = 0; j < 9; ++j) {
             s.add(x[i * 9 + j] >= 1 && x[i * 9 + j] <= 9);
