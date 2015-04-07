@@ -1344,6 +1344,15 @@ class JavaDLLComponent(Component):
             so = get_so_ext()
             shutil.copy(os.path.join(build_path, 'libz3java.%s' % so),
                         os.path.join(dist_path, 'bin', 'libz3java.%s' % so))
+    def mk_install(self, out):
+        dllfile = '%s$(SO_EXT)' % self.dll_name
+        out.write('\t@cp %s %s\n' % (dllfile, os.path.join('$(PREFIX)', 'lib', dllfile)))
+        out.write('\t@cp %s.jar %s.jar\n' % (self.package_name, os.path.join('$(PREFIX)', 'lib', self.package_name)))
+
+    def mk_uninstall(self, out):
+        dllfile = '%s$(SO_EXT)' % self.dll_name
+        out.write('\t@rm %s\n' % (os.path.join('$(PREFIX)', 'lib', dllfile)))
+        out.write('\t@rm %s.jar\n' % (os.path.join('$(PREFIX)', 'lib', self.package_name)))
 
 class MLComponent(Component):
     def __init__(self, name, lib_name, path, deps):
