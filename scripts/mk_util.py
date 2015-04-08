@@ -572,7 +572,7 @@ def parse_options():
             LINUX_X64=False
         elif opt in ('-h', '--help'):
             display_help(0)
-        elif opt in ('-m', '--onlymakefiles'):
+        elif opt in ('-m', '--makefiles'):
             ONLY_MAKEFILES = True
         elif opt in ('-c', '--showcpp'):
             SHOW_CPPS = True
