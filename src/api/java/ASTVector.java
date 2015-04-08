@@ -25,7 +25,7 @@ public class ASTVector extends Z3Object
     /**
      * The size of the vector
      **/
-    public int size() throws Z3Exception
+    public int size()
     {
         return Native.astVectorSize(getContext().nCtx(), getNativeObject());
     }
@@ -39,13 +39,13 @@ public class ASTVector extends Z3Object
      * @return An AST
      * @throws Z3Exception
      **/
-    public AST get(int i) throws Z3Exception
+    public AST get(int i)
     {
         return new AST(getContext(), Native.astVectorGet(getContext().nCtx(),
                 getNativeObject(), i));
     }
 
-    public void set(int i, AST value) throws Z3Exception
+    public void set(int i, AST value)
     {
 
         Native.astVectorSet(getContext().nCtx(), getNativeObject(), i,
@@ -56,7 +56,7 @@ public class ASTVector extends Z3Object
      * Resize the vector to {@code newSize}. 
      * @param newSize The new size of the vector.
      **/
-    public void resize(int newSize) throws Z3Exception
+    public void resize(int newSize)
     {
         Native.astVectorResize(getContext().nCtx(), getNativeObject(), newSize);
     }
@@ -66,7 +66,7 @@ public class ASTVector extends Z3Object
      * increased by 1. 
      * @param a An AST
      **/
-    public void push(AST a) throws Z3Exception
+    public void push(AST a)
     {
         Native.astVectorPush(getContext().nCtx(), getNativeObject(), a.getNativeObject());
     }
@@ -78,7 +78,7 @@ public class ASTVector extends Z3Object
      * @return A new ASTVector
      * @throws Z3Exception
      **/
-    public ASTVector translate(Context ctx) throws Z3Exception
+    public ASTVector translate(Context ctx)
     {
         return new ASTVector(getContext(), Native.astVectorTranslate(getContext()
                 .nCtx(), getNativeObject(), ctx.nCtx()));
@@ -98,23 +98,23 @@ public class ASTVector extends Z3Object
         }
     }
 
-    ASTVector(Context ctx, long obj) throws Z3Exception
+    ASTVector(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    ASTVector(Context ctx) throws Z3Exception
+    ASTVector(Context ctx)
     {
         super(ctx, Native.mkAstVector(ctx.nCtx()));
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
         getContext().getASTVectorDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
         getContext().getASTVectorDRQ().add(o);
         super.decRef(o);

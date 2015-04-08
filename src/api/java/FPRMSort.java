@@ -22,12 +22,12 @@ package com.microsoft.z3;
 public class FPRMSort extends Sort
 {
 
-    public FPRMSort(Context ctx) throws Z3Exception
+    public FPRMSort(Context ctx)
     {        
         super(ctx, Native.mkFpaRoundingModeSort(ctx.nCtx()));
     }
 
-    public FPRMSort(Context ctx, long obj) throws Z3Exception
+    public FPRMSort(Context ctx, long obj)
     {
         super(ctx, obj); 
     }

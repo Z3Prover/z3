@@ -33,7 +33,7 @@ public class Model extends Z3Object
      *         null otherwise.
      * @throws Z3Exception
      **/
-    public Expr getConstInterp(Expr a) throws Z3Exception
+    public Expr getConstInterp(Expr a)
     {
         getContext().checkContextMatch(a);
         return getConstInterp(a.getFuncDecl());
@@ -48,7 +48,7 @@ public class Model extends Z3Object
      *         null otherwise.
      * @throws Z3Exception
      **/
-    public Expr getConstInterp(FuncDecl f) throws Z3Exception
+    public Expr getConstInterp(FuncDecl f)
     {
         getContext().checkContextMatch(f);
         if (f.getArity() != 0
@@ -74,7 +74,7 @@ public class Model extends Z3Object
      *         the model, null otherwise.
      * @throws Z3Exception
      **/
-    public FuncInterp getFuncInterp(FuncDecl f) throws Z3Exception
+    public FuncInterp getFuncInterp(FuncDecl f)
     {
         getContext().checkContextMatch(f);
 
@@ -117,7 +117,7 @@ public class Model extends Z3Object
     /**
      * The number of constants that have an interpretation in the model.
      **/
-    public int getNumConsts() throws Z3Exception
+    public int getNumConsts()
     {
         return Native.modelGetNumConsts(getContext().nCtx(), getNativeObject());
     }
@@ -127,7 +127,7 @@ public class Model extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public FuncDecl[] getConstDecls() throws Z3Exception
+    public FuncDecl[] getConstDecls()
     {
         int n = getNumConsts();
         FuncDecl[] res = new FuncDecl[n];
@@ -140,7 +140,7 @@ public class Model extends Z3Object
     /**
      * The number of function interpretations in the model.
      **/
-    public int getNumFuncs() throws Z3Exception
+    public int getNumFuncs()
     {
         return Native.modelGetNumFuncs(getContext().nCtx(), getNativeObject());
     }
@@ -150,7 +150,7 @@ public class Model extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public FuncDecl[] getFuncDecls() throws Z3Exception
+    public FuncDecl[] getFuncDecls()
     {
         int n = getNumFuncs();
         FuncDecl[] res = new FuncDecl[n];
@@ -165,7 +165,7 @@ public class Model extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public FuncDecl[] getDecls() throws Z3Exception
+    public FuncDecl[] getDecls()
     {
         int nFuncs = getNumFuncs();
         int nConsts = getNumConsts();
@@ -208,7 +208,7 @@ public class Model extends Z3Object
      * @return The evaluation of {@code t} in the model.
      * @throws Z3Exception
      **/
-    public Expr eval(Expr t, boolean completion) throws Z3Exception
+    public Expr eval(Expr t, boolean completion)
     {
         Native.LongPtr v = new Native.LongPtr();
         if (Native.modelEval(getContext().nCtx(), getNativeObject(),
@@ -223,7 +223,7 @@ public class Model extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Expr evaluate(Expr t, boolean completion) throws Z3Exception
+    public Expr evaluate(Expr t, boolean completion)
     {
         return eval(t, completion);
     }
@@ -232,7 +232,7 @@ public class Model extends Z3Object
      * The number of uninterpreted sorts that the model has an interpretation
      * for.
      **/
-    public int getNumSorts() throws Z3Exception
+    public int getNumSorts()
     {
         return Native.modelGetNumSorts(getContext().nCtx(), getNativeObject());
     }
@@ -248,7 +248,7 @@ public class Model extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Sort[] getSorts() throws Z3Exception
+    public Sort[] getSorts()
     {
 
         int n = getNumSorts();
@@ -268,7 +268,7 @@ public class Model extends Z3Object
      *         of {@code s}
      * @throws Z3Exception
      **/
-    public Expr[] getSortUniverse(Sort s) throws Z3Exception
+    public Expr[] getSortUniverse(Sort s)
     {
 
         ASTVector nUniv = new ASTVector(getContext(), Native.modelGetSortUniverse(
@@ -296,18 +296,18 @@ public class Model extends Z3Object
         }
     }
 
-    Model(Context ctx, long obj) throws Z3Exception
+    Model(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
         getContext().getModelDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
         getContext().getModelDRQ().add(o);
         super.decRef(o);

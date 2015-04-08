@@ -26,17 +26,17 @@ public class ConstructorList extends Z3Object
      * Destructor.
      * @throws Z3Exception on error
      **/
-    protected void finalize() throws Z3Exception
+    protected void finalize()
     {
         Native.delConstructorList(getContext().nCtx(), getNativeObject());
     }
 
-    ConstructorList(Context ctx, long obj) throws Z3Exception
+    ConstructorList(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    ConstructorList(Context ctx, Constructor[] constructors) throws Z3Exception
+    ConstructorList(Context ctx, Constructor[] constructors)
     {
         super(ctx);
 

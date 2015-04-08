@@ -22,7 +22,7 @@ package com.microsoft.z3;
  **/
 public class ArithSort extends Sort
 {
-    ArithSort(Context ctx, long obj) throws Z3Exception
+    ArithSort(Context ctx, long obj)
     {
         super(ctx, obj);
     }

@@ -22,12 +22,12 @@ package com.microsoft.z3;
  **/
 public class SetSort extends Sort
 {
-    SetSort(Context ctx, long obj) throws Z3Exception
+    SetSort(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    SetSort(Context ctx, Sort ty) throws Z3Exception
+    SetSort(Context ctx, Sort ty)
     {
         super(ctx, Native.mkSetSort(ctx.nCtx(), ty.getNativeObject()));
     }

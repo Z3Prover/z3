@@ -35,7 +35,7 @@ public class BoolExpr extends Expr
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    BoolExpr(Context ctx, long obj) throws Z3Exception
+    BoolExpr(Context ctx, long obj)
     {
         super(ctx, obj);
     }

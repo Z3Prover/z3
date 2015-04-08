@@ -36,7 +36,7 @@ public class FuncInterp extends Z3Object
          * @throws Z3Exception
          * @throws Z3Exception on error
      **/
-        public Expr getValue() throws Z3Exception
+        public Expr getValue()
         {
             return Expr.create(getContext(),
                     Native.funcEntryGetValue(getContext().nCtx(), getNativeObject()));
@@ -46,7 +46,7 @@ public class FuncInterp extends Z3Object
          * The number of arguments of the entry.
          * @throws Z3Exception on error
      **/
-        public int getNumArgs() throws Z3Exception
+        public int getNumArgs()
         {
             return Native.funcEntryGetNumArgs(getContext().nCtx(), getNativeObject());
         }
@@ -57,7 +57,7 @@ public class FuncInterp extends Z3Object
          * @throws Z3Exception
          * @throws Z3Exception on error
      **/
-        public Expr[] getArgs() throws Z3Exception
+        public Expr[] getArgs()
         {
             int n = getNumArgs();
             Expr[] res = new Expr[n];
@@ -86,18 +86,18 @@ public class FuncInterp extends Z3Object
             }
         }
 
-        Entry(Context ctx, long obj) throws Z3Exception
+        Entry(Context ctx, long obj)
         {
             super(ctx, obj);
         }
 
-        void incRef(long o) throws Z3Exception
+        void incRef(long o)
         {
             getContext().getFuncEntryDRQ().incAndClear(getContext(), o);
             super.incRef(o);
         }
 
-        void decRef(long o) throws Z3Exception
+        void decRef(long o)
         {
             getContext().getFuncEntryDRQ().add(o);
             super.decRef(o);
@@ -109,7 +109,7 @@ public class FuncInterp extends Z3Object
      * @throws Z3Exception on error
      * @return an int
      **/
-    public int getNumEntries() throws Z3Exception
+    public int getNumEntries()
     {
         return Native.funcInterpGetNumEntries(getContext().nCtx(), getNativeObject());
     }
@@ -120,7 +120,7 @@ public class FuncInterp extends Z3Object
      * @throws Z3Exception
      * @throws Z3Exception on error
      **/
-    public Entry[] getEntries() throws Z3Exception
+    public Entry[] getEntries()
     {
         int n = getNumEntries();
         Entry[] res = new Entry[n];
@@ -137,7 +137,7 @@ public class FuncInterp extends Z3Object
      * @throws Z3Exception on error
      * @return an Expr
      **/
-    public Expr getElse() throws Z3Exception
+    public Expr getElse()
     {
         return Expr.create(getContext(),
                 Native.funcInterpGetElse(getContext().nCtx(), getNativeObject()));
@@ -148,7 +148,7 @@ public class FuncInterp extends Z3Object
      * @throws Z3Exception on error
      * @return an int
      **/
-    public int getArity() throws Z3Exception
+    public int getArity()
     {
         return Native.funcInterpGetArity(getContext().nCtx(), getNativeObject());
     }
@@ -187,18 +187,18 @@ public class FuncInterp extends Z3Object
         }
     }
 
-    FuncInterp(Context ctx, long obj) throws Z3Exception
+    FuncInterp(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
         getContext().getFuncInterpDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
         getContext().getFuncInterpDRQ().add(o);
         super.decRef(o);

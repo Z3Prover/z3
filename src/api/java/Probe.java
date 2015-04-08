@@ -34,30 +34,30 @@ public class Probe extends Z3Object
      *         0.0 for false, and a value different from 0.0 for true.
      * @throws Z3Exception 
      **/
-    public double apply(Goal g) throws Z3Exception
+    public double apply(Goal g)
     {
         getContext().checkContextMatch(g);
         return Native.probeApply(getContext().nCtx(), getNativeObject(),
                 g.getNativeObject());
     }
 
-    Probe(Context ctx, long obj) throws Z3Exception
+    Probe(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    Probe(Context ctx, String name) throws Z3Exception
+    Probe(Context ctx, String name)
     {
         super(ctx, Native.mkProbe(ctx.nCtx(), name));
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
         getContext().getProbeDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
         getContext().getProbeDRQ().add(o);
         super.decRef(o);

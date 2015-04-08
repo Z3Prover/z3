@@ -29,7 +29,7 @@ public class Tactic extends Z3Object
     /**
      * A string containing a description of parameters accepted by the tactic.
      **/
-    public String getHelp() throws Z3Exception
+    public String getHelp()
     {
         return Native.tacticGetHelp(getContext().nCtx(), getNativeObject());
     }
@@ -38,7 +38,7 @@ public class Tactic extends Z3Object
      * Retrieves parameter descriptions for Tactics.
      * @throws Z3Exception 
      **/
-    public ParamDescrs getParameterDescriptions() throws Z3Exception
+    public ParamDescrs getParameterDescriptions()
     {
         return new ParamDescrs(getContext(), Native.tacticGetParamDescrs(getContext()
                 .nCtx(), getNativeObject()));
@@ -48,7 +48,7 @@ public class Tactic extends Z3Object
      * Execute the tactic over the goal.
      * @throws Z3Exception 
      **/
-    public ApplyResult apply(Goal g) throws Z3Exception
+    public ApplyResult apply(Goal g)
     {    
         return apply(g, null);
     }
@@ -57,7 +57,7 @@ public class Tactic extends Z3Object
      * Execute the tactic over the goal.
      * @throws Z3Exception 
      **/
-    public ApplyResult apply(Goal g, Params p) throws Z3Exception
+    public ApplyResult apply(Goal g, Params p)
     {
         getContext().checkContextMatch(g);
         if (p == null)
@@ -77,28 +77,28 @@ public class Tactic extends Z3Object
      * @see Context#mkSolver(Tactic)
      * @throws Z3Exception 
      **/
-    public Solver getSolver() throws Z3Exception
+    public Solver getSolver()
     {
         return getContext().mkSolver(this);
     }
 
-    Tactic(Context ctx, long obj) throws Z3Exception
+    Tactic(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    Tactic(Context ctx, String name) throws Z3Exception
+    Tactic(Context ctx, String name)
     {
         super(ctx, Native.mkTactic(ctx.nCtx(), name));
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
         getContext().getTacticDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
         getContext().getTacticDRQ().add(o);
         super.decRef(o);

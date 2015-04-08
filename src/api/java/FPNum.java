@@ -26,7 +26,7 @@ public class FPNum extends FPExpr
      * Remarks: returns true if the numeral is negative 
      * @throws Z3Exception 
      */
-    public boolean getSign() throws Z3Exception {
+    public boolean getSign() {
         Native.IntPtr res = new Native.IntPtr();
         if (Native.fpaGetNumeralSign(getContext().nCtx(), getNativeObject(), res) ^ true)                
             throw new Z3Exception("Sign is not a Boolean value");
@@ -39,7 +39,7 @@ public class FPNum extends FPExpr
      * enough to represent the real significand precisely.
      * @throws Z3Exception 
      **/
-    public String getSignificand() throws Z3Exception {
+    public String getSignificand() {
         return Native.fpaGetNumeralSignificandString(getContext().nCtx(), getNativeObject());
     }
 
@@ -47,7 +47,7 @@ public class FPNum extends FPExpr
      * Return the exponent value of a floating-point numeral as a string
      * @throws Z3Exception 
      */
-    public String getExponent() throws Z3Exception {
+    public String getExponent() {
         return Native.fpaGetNumeralExponentString(getContext().nCtx(), getNativeObject());
     }
 
@@ -55,14 +55,14 @@ public class FPNum extends FPExpr
      * Return the exponent value of a floating-point numeral as a signed 64-bit integer
      * @throws Z3Exception 
      */
-    public long getExponentInt64() throws Z3Exception  {
+    public long getExponentInt64()  {
         Native.LongPtr res = new Native.LongPtr();
         if (Native.fpaGetNumeralExponentInt64(getContext().nCtx(), getNativeObject(), res) ^ true)
             throw new Z3Exception("Exponent is not a 64 bit integer");
         return res.value;
     }
     
-    public FPNum(Context ctx, long obj) throws Z3Exception
+    public FPNum(Context ctx, long obj)
     {
         super(ctx, obj);
     }

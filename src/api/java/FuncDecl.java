@@ -78,7 +78,7 @@ public class FuncDecl extends AST
     /**
      * Returns a unique identifier for the function declaration.
      **/
-    public int getId() throws Z3Exception
+    public int getId()
     {
         return Native.getFuncDeclId(getContext().nCtx(), getNativeObject());
     }
@@ -86,7 +86,7 @@ public class FuncDecl extends AST
     /**
      * The arity of the function declaration
      **/
-    public int getArity() throws Z3Exception
+    public int getArity()
     {
         return Native.getArity(getContext().nCtx(), getNativeObject());
     }
@@ -95,7 +95,7 @@ public class FuncDecl extends AST
      * The size of the domain of the function declaration 
      * @see getArity
      **/
-    public int getDomainSize() throws Z3Exception
+    public int getDomainSize()
     {
         return Native.getDomainSize(getContext().nCtx(), getNativeObject());
     }
@@ -103,7 +103,7 @@ public class FuncDecl extends AST
     /**
      * The domain of the function declaration
      **/
-    public Sort[] getDomain() throws Z3Exception
+    public Sort[] getDomain()
     {
 
         int n = getDomainSize();
@@ -118,7 +118,7 @@ public class FuncDecl extends AST
     /**
      * The range of the function declaration
      **/
-    public Sort getRange() throws Z3Exception
+    public Sort getRange()
     {
 
         return Sort.create(getContext(),
@@ -128,7 +128,7 @@ public class FuncDecl extends AST
     /**
      * The kind of the function declaration.
      **/
-    public Z3_decl_kind getDeclKind() throws Z3Exception
+    public Z3_decl_kind getDeclKind()
     {
         return Z3_decl_kind.fromInt(Native.getDeclKind(getContext().nCtx(),
                 getNativeObject()));
@@ -137,7 +137,7 @@ public class FuncDecl extends AST
     /**
      * The name of the function declaration
      **/
-    public Symbol getName() throws Z3Exception
+    public Symbol getName()
     {
 
         return Symbol.create(getContext(),
@@ -147,7 +147,7 @@ public class FuncDecl extends AST
     /**
      * The number of parameters of the function declaration
      **/
-    public int getNumParameters() throws Z3Exception
+    public int getNumParameters()
     {
         return Native.getDeclNumParameters(getContext().nCtx(), getNativeObject());
     }
@@ -155,7 +155,7 @@ public class FuncDecl extends AST
     /**
      * The parameters of the function declaration
      **/
-    public Parameter[] getParameters() throws Z3Exception
+    public Parameter[] getParameters()
     {
 
         int num = getNumParameters();
@@ -223,7 +223,7 @@ public class FuncDecl extends AST
         /**
          * The int value of the parameter.
          **/
-        public int getInt() throws Z3Exception
+        public int getInt()
         {
             if (getParameterKind() != Z3_parameter_kind.Z3_PARAMETER_INT)
                 throw new Z3Exception("parameter is not an int");
@@ -233,7 +233,7 @@ public class FuncDecl extends AST
         /**
          * The double value of the parameter.
          **/
-        public double getDouble() throws Z3Exception
+        public double getDouble()
         {
             if (getParameterKind() != Z3_parameter_kind.Z3_PARAMETER_DOUBLE)
                 throw new Z3Exception("parameter is not a double ");
@@ -243,7 +243,7 @@ public class FuncDecl extends AST
         /**
          * The Symbol value of the parameter.
          **/
-        public Symbol getSymbol() throws Z3Exception
+        public Symbol getSymbol()
         {
             if (getParameterKind() != Z3_parameter_kind.Z3_PARAMETER_SYMBOL)
                 throw new Z3Exception("parameter is not a Symbol");
@@ -253,7 +253,7 @@ public class FuncDecl extends AST
         /**
          * The Sort value of the parameter.
          **/
-        public Sort getSort() throws Z3Exception
+        public Sort getSort()
         {
             if (getParameterKind() != Z3_parameter_kind.Z3_PARAMETER_SORT)
                 throw new Z3Exception("parameter is not a Sort");
@@ -263,7 +263,7 @@ public class FuncDecl extends AST
         /**
          * The AST value of the parameter.
          **/
-        public AST getAST() throws Z3Exception
+        public AST getAST()
         {
             if (getParameterKind() != Z3_parameter_kind.Z3_PARAMETER_AST)
                 throw new Z3Exception("parameter is not an AST");
@@ -273,7 +273,7 @@ public class FuncDecl extends AST
         /**
          * The FunctionDeclaration value of the parameter.
          **/
-        public FuncDecl getFuncDecl() throws Z3Exception
+        public FuncDecl getFuncDecl()
         {
             if (getParameterKind() != Z3_parameter_kind.Z3_PARAMETER_FUNC_DECL)
                 throw new Z3Exception("parameter is not a function declaration");
@@ -283,7 +283,7 @@ public class FuncDecl extends AST
         /**
          * The rational string value of the parameter.
          **/
-        public String getRational() throws Z3Exception
+        public String getRational()
         {
             if (getParameterKind() != Z3_parameter_kind.Z3_PARAMETER_RATIONAL)
                 throw new Z3Exception("parameter is not a rational String");
@@ -293,7 +293,7 @@ public class FuncDecl extends AST
         /**
          * The kind of the parameter.
          **/
-        public Z3_parameter_kind getParameterKind() throws Z3Exception
+        public Z3_parameter_kind getParameterKind()
         {
             return kind;
         }
@@ -341,14 +341,14 @@ public class FuncDecl extends AST
         }
     }
 
-    FuncDecl(Context ctx, long obj) throws Z3Exception
+    FuncDecl(Context ctx, long obj)
     {
         super(ctx, obj);
 
     }
 
     FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range)
-            throws Z3Exception
+           
     {
         super(ctx, Native.mkFuncDecl(ctx.nCtx(), name.getNativeObject(),
                 AST.arrayLength(domain), AST.arrayToNative(domain),
@@ -357,7 +357,7 @@ public class FuncDecl extends AST
     }
 
     FuncDecl(Context ctx, String prefix, Sort[] domain, Sort range)
-            throws Z3Exception
+           
     {
         super(ctx, Native.mkFreshFuncDecl(ctx.nCtx(), prefix,
                 AST.arrayLength(domain), AST.arrayToNative(domain),
@@ -365,7 +365,7 @@ public class FuncDecl extends AST
 
     }
 
-    void checkNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj)
     {
         if (Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_FUNC_DECL_AST
                 .toInt())
@@ -380,7 +380,7 @@ public class FuncDecl extends AST
      * 
      * @return
      **/
-    public Expr apply(Expr ... args) throws Z3Exception
+    public Expr apply(Expr ... args)
     {
         getContext().checkContextMatch(args);
         return Expr.create(getContext(), this, args);

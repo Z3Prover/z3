@@ -29,7 +29,7 @@ public class BitVecExpr extends Expr
      * @throws Z3Exception on error
      * @return an int
      **/
-    public int getSortSize() throws Z3Exception
+    public int getSortSize()
     {
         return ((BitVecSort) getSort()).getSize();
     }
@@ -37,7 +37,7 @@ public class BitVecExpr extends Expr
     /**
      * Constructor for BitVecExpr
      **/
-    BitVecExpr(Context ctx, long obj) throws Z3Exception
+    BitVecExpr(Context ctx, long obj)
     {
         super(ctx, obj);
     }

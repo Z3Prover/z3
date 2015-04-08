@@ -54,7 +54,7 @@ public class AST extends Z3Object
      * positive if after else zero.
      * @throws Z3Exception on error
      **/
-    public int compareTo(Object other) throws Z3Exception
+    public int compareTo(Object other)
     {
         if (other == null)
             return 1;
@@ -95,7 +95,7 @@ public class AST extends Z3Object
      * A unique identifier for the AST (unique among all ASTs).
      * @throws Z3Exception on error
      **/
-    public int getId() throws Z3Exception
+    public int getId()
     {
         return Native.getAstId(getContext().nCtx(), getNativeObject());
     }
@@ -107,7 +107,7 @@ public class AST extends Z3Object
      * @return A copy of the AST which is associated with {@code ctx}
      * @throws Z3Exception on error
      **/
-    public AST translate(Context ctx) throws Z3Exception
+    public AST translate(Context ctx)
     {
 
         if (getContext() == ctx)
@@ -121,7 +121,7 @@ public class AST extends Z3Object
      * The kind of the AST.
      * @throws Z3Exception on error
      **/
-    public Z3_ast_kind getASTKind() throws Z3Exception
+    public Z3_ast_kind getASTKind()
     {
         return Z3_ast_kind.fromInt(Native.getAstKind(getContext().nCtx(),
                 getNativeObject()));
@@ -132,7 +132,7 @@ public class AST extends Z3Object
      * @throws Z3Exception on error
      * @throws Z3Exception on error
      **/
-    public boolean isExpr() throws Z3Exception
+    public boolean isExpr()
     {
         switch (getASTKind())
         {
@@ -151,7 +151,7 @@ public class AST extends Z3Object
      * @return a boolean
      * @throws Z3Exception on error
      **/
-    public boolean isApp() throws Z3Exception
+    public boolean isApp()
     {
         return this.getASTKind() == Z3_ast_kind.Z3_APP_AST;
     }
@@ -161,7 +161,7 @@ public class AST extends Z3Object
      * @return a boolean
      * @throws Z3Exception on error
      **/
-    public boolean isVar() throws Z3Exception
+    public boolean isVar()
     {
         return this.getASTKind() == Z3_ast_kind.Z3_VAR_AST;
     }
@@ -171,7 +171,7 @@ public class AST extends Z3Object
      * @return a boolean
      * @throws Z3Exception on error
      **/
-    public boolean isQuantifier() throws Z3Exception
+    public boolean isQuantifier()
     {
         return this.getASTKind() == Z3_ast_kind.Z3_QUANTIFIER_AST;
     }
@@ -179,7 +179,7 @@ public class AST extends Z3Object
     /**
      * Indicates whether the AST is a Sort
      **/
-    public boolean isSort() throws Z3Exception
+    public boolean isSort()
     {
         return this.getASTKind() == Z3_ast_kind.Z3_SORT_AST;
     }
@@ -187,7 +187,7 @@ public class AST extends Z3Object
     /**
      * Indicates whether the AST is a FunctionDeclaration
      **/
-    public boolean isFuncDecl() throws Z3Exception
+    public boolean isFuncDecl()
     {
         return this.getASTKind() == Z3_ast_kind.Z3_FUNC_DECL_AST;
     }
@@ -209,7 +209,7 @@ public class AST extends Z3Object
     /**
      * A string representation of the AST in s-expression notation.
      **/
-    public String getSExpr() throws Z3Exception
+    public String getSExpr()
     {
         return Native.astToString(getContext().nCtx(), getNativeObject());
     }
@@ -219,12 +219,12 @@ public class AST extends Z3Object
         super(ctx);
     }
 
-    AST(Context ctx, long obj) throws Z3Exception
+    AST(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
         // Console.WriteLine("AST IncRef()");
         if (getContext() == null || o == 0)
@@ -233,7 +233,7 @@ public class AST extends Z3Object
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
         // Console.WriteLine("AST DecRef()");
         if (getContext() == null || o == 0)
@@ -242,7 +242,7 @@ public class AST extends Z3Object
         super.decRef(o);
     }
 
-    static AST create(Context ctx, long obj) throws Z3Exception
+    static AST create(Context ctx, long obj)
     {
         switch (Z3_ast_kind.fromInt(Native.getAstKind(ctx.nCtx(), obj)))
         {

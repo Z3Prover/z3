@@ -28,7 +28,7 @@ public class Constructor extends Z3Object
      * @throws Z3Exception on error
      * @return an int
      **/
-    public int getNumFields() throws Z3Exception
+    public int getNumFields()
     {    
         return n;
     }
@@ -38,7 +38,7 @@ public class Constructor extends Z3Object
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    public FuncDecl ConstructorDecl() throws Z3Exception
+    public FuncDecl ConstructorDecl()
     {
         Native.LongPtr constructor = new Native.LongPtr();
         Native.LongPtr tester = new Native.LongPtr();
@@ -52,7 +52,7 @@ public class Constructor extends Z3Object
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    public FuncDecl getTesterDecl() throws Z3Exception
+    public FuncDecl getTesterDecl()
     {
         Native.LongPtr constructor = new Native.LongPtr();
         Native.LongPtr tester = new Native.LongPtr();
@@ -66,7 +66,7 @@ public class Constructor extends Z3Object
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    public FuncDecl[] getAccessorDecls() throws Z3Exception
+    public FuncDecl[] getAccessorDecls()
     {
         Native.LongPtr constructor = new Native.LongPtr();
         Native.LongPtr tester = new Native.LongPtr();
@@ -82,7 +82,7 @@ public class Constructor extends Z3Object
      * Destructor.
      * @throws Z3Exception on error
      **/
-    protected void finalize() throws Z3Exception
+    protected void finalize()
     {
         Native.delConstructor(getContext().nCtx(), getNativeObject());
     }
@@ -91,7 +91,7 @@ public class Constructor extends Z3Object
 
     Constructor(Context ctx, Symbol name, Symbol recognizer,
             Symbol[] fieldNames, Sort[] sorts, int[] sortRefs)
-            throws Z3Exception
+           
     {
         super(ctx);
 

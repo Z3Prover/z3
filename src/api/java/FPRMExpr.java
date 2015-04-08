@@ -21,7 +21,7 @@ package com.microsoft.z3;
  */
 public class FPRMExpr extends Expr
 {       
-    public FPRMExpr(Context ctx, long obj) throws Z3Exception
+    public FPRMExpr(Context ctx, long obj)
     {
         super(ctx, obj);
     }

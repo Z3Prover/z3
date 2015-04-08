@@ -25,15 +25,15 @@ public class FPExpr extends Expr
      * The number of exponent bits.
      * @throws Z3Exception 
      */
-    public int getEBits() throws Z3Exception { return ((FPSort)getSort()).getEBits(); }
+    public int getEBits() { return ((FPSort)getSort()).getEBits(); }
 
     /**
      * The number of significand bits.
      * @throws Z3Exception 
      */
-    public int getSBits() throws Z3Exception { return ((FPSort)getSort()).getSBits(); }
+    public int getSBits() { return ((FPSort)getSort()).getSBits(); }
     
-    public FPExpr(Context ctx, long obj) throws Z3Exception
+    public FPExpr(Context ctx, long obj)
     {
         super(ctx, obj); 
     }

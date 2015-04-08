@@ -25,7 +25,7 @@ public class ArithExpr extends Expr
     /**
      * Constructor for ArithExpr
      **/
-    ArithExpr(Context ctx, long obj) throws Z3Exception
+    ArithExpr(Context ctx, long obj)
     {
         super(ctx, obj);
     }

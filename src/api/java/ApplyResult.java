@@ -26,7 +26,7 @@ public class ApplyResult extends Z3Object
     /**
      * The number of Subgoals.
      **/
-    public int getNumSubgoals() throws Z3Exception
+    public int getNumSubgoals()
     {
         return Native.applyResultGetNumSubgoals(getContext().nCtx(),
                 getNativeObject());
@@ -37,7 +37,7 @@ public class ApplyResult extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Goal[] getSubgoals() throws Z3Exception
+    public Goal[] getSubgoals()
     {
         int n = getNumSubgoals();
         Goal[] res = new Goal[n];
@@ -54,7 +54,7 @@ public class ApplyResult extends Z3Object
      * @return A model for {@code g}
      * @throws Z3Exception
      **/
-    public Model convertModel(int i, Model m) throws Z3Exception
+    public Model convertModel(int i, Model m)
     {
         return new Model(getContext(), 
             Native.applyResultConvertModel(getContext().nCtx(), getNativeObject(), i, m.getNativeObject()));
@@ -74,18 +74,18 @@ public class ApplyResult extends Z3Object
         }
     }
 
-    ApplyResult(Context ctx, long obj) throws Z3Exception
+    ApplyResult(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
         getContext().getApplyResultDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
         getContext().getApplyResultDRQ().add(o);
         super.decRef(o);

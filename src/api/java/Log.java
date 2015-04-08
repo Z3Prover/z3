@@ -53,7 +53,7 @@ public final class Log
      * log.
      * @throws Z3Exception 
      **/
-    public static void append(String s) throws Z3Exception
+    public static void append(String s)
     {
         if (!m_is_open)
             throw new Z3Exception("Log cannot be closed.");
