@@ -2810,19 +2810,19 @@ def mk_z3consts_ml(api_files):
                     if name not in DeprecatedEnums:
                         efile.write('(** %s *)\n' % name[3:])
                         efile.write('type %s =\n' % name[3:]) # strip Z3_
-                        for k, i in decls.iteritems():
+                        for k, i in decls.items():
                             efile.write('  | %s \n' % k[3:]) # strip Z3_
                         efile.write('\n')
                         efile.write('(** Convert %s to int*)\n' % name[3:])
                         efile.write('let int_of_%s x : int =\n' % (name[3:])) # strip Z3_
                         efile.write('  match x with\n')
-                        for k, i in decls.iteritems():
+                        for k, i in decls.items():
                             efile.write('  | %s -> %d\n' % (k[3:], i))
                         efile.write('\n')
                         efile.write('(** Convert int to %s*)\n' % name[3:])
                         efile.write('let %s_of_int x : %s =\n' % (name[3:],name[3:])) # strip Z3_
                         efile.write('  match x with\n')
-                        for k, i in decls.iteritems():
+                        for k, i in decls.items():
                             efile.write('  | %d -> %s\n' % (i, k[3:]))
                         # use Z3.Exception?
                         efile.write('  | _ -> raise (Failure "undefined enum value")\n\n')
@@ -2888,7 +2888,7 @@ def mk_z3consts_ml(api_files):
                     if name not in DeprecatedEnums:
                         efile.write('(** %s *)\n' % name[3:])
                         efile.write('type %s =\n' % name[3:]) # strip Z3_
-                        for k, i in decls.iteritems():
+                        for k, i in decls.items():
                             efile.write('  | %s \n' % k[3:]) # strip Z3_
                         efile.write('\n')
                         efile.write('(** Convert %s to int*)\n' % name[3:])

@@ -1169,7 +1169,7 @@ def mk_ml():
     ml_i.write('type ptr\n')
     ml_native.write('and z3_symbol = ptr\n')
     ml_i.write('and z3_symbol = ptr\n')
-    for k, v in Type2Str.iteritems():
+    for k, v in Type2Str.items():
         if is_obj(k):
             ml_native.write('and %s = ptr\n' % v.lower())
             ml_i.write('and %s = ptr\n' % v.lower())
