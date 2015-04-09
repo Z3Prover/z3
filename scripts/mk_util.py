@@ -248,7 +248,7 @@ def check_java():
     if is_verbose():
         print("Finding javac ...")
 
-    if JDK_HOME != None:
+    if JDK_HOME is not None:
         if IS_WINDOWS:
             JAVAC = os.path.join(JDK_HOME, 'bin', 'javac.exe')
         else:
@@ -258,7 +258,7 @@ def check_java():
             raise MKException("Failed to detect javac at '%s/bin'; the environment variable JDK_HOME is probably set to the wrong path." % os.path.join(JDK_HOME))
     else:
         # Search for javac in the path.
-        ind = 'javac';
+        ind = 'javac'
         if IS_WINDOWS:
             ind = ind + '.exe'
         paths = os.getenv('PATH', None)
@@ -270,7 +270,7 @@ def check_java():
                     JAVAC = cmb
                     break
 
-    if JAVAC == None:
+    if JAVAC is None:
         raise MKException('No java compiler in the path, please adjust your PATH or set JDK_HOME to the location of the JDK.')
 
     if is_verbose():
@@ -305,7 +305,7 @@ def check_java():
     if is_verbose():
         print("Finding jni.h...")
 
-    if JNI_HOME != None:
+    if JNI_HOME is not None:
         if not os.path.exists(os.path.join(JNI_HOME, 'jni.h')):
             raise MKException("Failed to detect jni.h '%s'; the environment variable JNI_HOME is probably set to the wrong path." % os.path.join(JNI_HOME))
     else:
@@ -337,10 +337,10 @@ def check_java():
 
         for dir in cdirs:
             q = find_jni_h(dir)
-            if q != False:
+            if q is not False:
                 JNI_HOME = q
 
-        if JNI_HOME == None:
+        if JNI_HOME is None:
             raise MKException("Failed to detect jni.h. Possible solution: set JNI_HOME with the path to JDK.")
 
 def check_ml():
@@ -399,12 +399,12 @@ def is64():
 def check_ar():
     if is_verbose():
         print("Testing ar...")
-    if which('ar')== None:
+    if which('ar') is None:
         raise MKException('ar (archive tool) was not found')
 
 def find_cxx_compiler():
     global CXX, CXX_COMPILERS
-    if CXX != None:
+    if CXX is not None:
         if test_cxx_compiler(CXX):
             return CXX
     for cxx in CXX_COMPILERS:
@@ -415,7 +415,7 @@ def find_cxx_compiler():
 
 def find_c_compiler():
     global CC, C_COMPILERS
-    if CC != None:
+    if CC is not None:
         if test_c_compiler(CC):
             return CC
     for c in C_COMPILERS:
@@ -760,7 +760,7 @@ class Component:
         global BUILD_DIR, SRC_DIR, REV_BUILD_DIR
         if name in _ComponentNames:
             raise MKException("Component '%s' was already defined." % name)
-        if path == None:
+        if path is None:
             path = name
         self.name = name
         path = norm_path(path)
@@ -974,7 +974,7 @@ def sort_components(cnames):
 class ExeComponent(Component):
     def __init__(self, name, exe_name, path, deps, install):
         Component.__init__(self, name, path, deps)
-        if exe_name == None:
+        if exe_name is None:
             exe_name = name
         self.exe_name = exe_name
         self.install = install
@@ -1068,7 +1068,7 @@ def get_so_ext():
 class DLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, export_files, reexports, install, static):
         Component.__init__(self, name, path, deps)
-        if dll_name == None:
+        if dll_name is None:
             dll_name = name
         self.dll_name = dll_name
         self.export_files = export_files
@@ -1102,7 +1102,7 @@ class DLLComponent(Component):
             out.write(' ')
             out.write(obj)
         for dep in deps:
-            if not dep in self.reexports:
+            if dep not in self.reexports:
                 c_dep = get_component(dep)
                 out.write(' ' + c_dep.get_link_name())
         out.write('\n')
@@ -1111,7 +1111,7 @@ class DLLComponent(Component):
             out.write(' ')
             out.write(obj)
         for dep in deps:
-            if not dep in self.reexports:
+            if dep not in self.reexports:
                 c_dep = get_component(dep)
                 out.write(' ' + c_dep.get_link_name())
         out.write(' ' + FOCI2LIB)
@@ -1204,9 +1204,9 @@ class DLLComponent(Component):
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
         Component.__init__(self, name, path, deps)
-        if dll_name == None:
+        if dll_name is None:
             dll_name = name
-        if assembly_info_dir == None:
+        if assembly_info_dir is None:
             assembly_info_dir = "."
         self.dll_name          = dll_name
         self.assembly_info_dir = assembly_info_dir
@@ -1270,7 +1270,7 @@ class DotNetDLLComponent(Component):
 class JavaDLLComponent(Component):
     def __init__(self, name, dll_name, package_name, manifest_file, path, deps):
         Component.__init__(self, name, path, deps)
-        if dll_name == None:
+        if dll_name is None:
             dll_name = name
         self.dll_name     = dll_name
         self.package_name = package_name
@@ -1361,7 +1361,7 @@ class JavaDLLComponent(Component):
 class MLComponent(Component):
     def __init__(self, name, lib_name, path, deps):
         Component.__init__(self, name, path, deps)
-        if lib_name == None:
+        if lib_name is None:
             lib_name = name
         self.lib_name = lib_name
 
@@ -1428,7 +1428,7 @@ class MLComponent(Component):
             out.write('%s: %s %s\n' % 
                       (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)'), 
                        os.path.join(sub_dir, 'z3native_stubs.c'), 
-                       get_component(Z3_DLL_COMPONENT).dll_name+'$(SO_EXT)'));
+                       get_component(Z3_DLL_COMPONENT).dll_name+'$(SO_EXT)'))
             out.write('\t$(CC) $(CXXFLAGS_OCAML) -I %s -I %s %s $(CXX_OUT_FLAG)%s$(OBJ_EXT)\n' % 
                       (OCAML_LIB, api_src, os.path.join(sub_dir, 'z3native_stubs.c'), os.path.join(sub_dir, 'z3native_stubs')))
 
@@ -2050,7 +2050,7 @@ def to_c_method(s):
 def def_module_params(module_name, export, params, class_name=None, description=None):
     pyg = get_curr_pyg()
     dirname = os.path.split(get_curr_pyg())[0]
-    if class_name == None:
+    if class_name is None:
         class_name = '%s_params' % module_name
     hpp = os.path.join(dirname, '%s.hpp' % class_name)
     out = open(hpp, 'w')
@@ -2076,7 +2076,7 @@ def def_module_params(module_name, export, params, class_name=None, description=
     if export:
         out.write('  /*\n')
         out.write("     REG_MODULE_PARAMS('%s', '%s::collect_param_descrs')\n" % (module_name, class_name))
-        if description != None:
+        if description is not None:
             out.write("     REG_MODULE_DESCRIPTION('%s', '%s')\n" % (module_name, description))
         out.write('  */\n')
     # Generated accessors
@@ -2140,7 +2140,7 @@ def update_version():
     minor = VER_MINOR
     build = VER_BUILD
     revision = VER_REVISION
-    if major == None or minor == None or build == None or revision == None:
+    if major is None or minor is None or build is None or revision is None:
         raise MKException("set_version(major, minor, build, revision) must be used before invoking update_version()")
     if not ONLY_MAKEFILES:
         mk_version_dot_h(major, minor, build, revision)
@@ -2476,7 +2476,7 @@ def mk_bindings(api_files):
 
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
-    if Z3PY_SRC_DIR == None:
+    if Z3PY_SRC_DIR is None:
         raise MKException("You must invoke set_z3py_dir(path):")
 
     blank_pat      = re.compile("^ *$")
@@ -2570,7 +2570,7 @@ def mk_z3consts_dotnet(api_files):
     z3consts.write('using System;\n\n'
                    '#pragma warning disable 1591\n\n'
                    'namespace Microsoft.Z3\n'
-                   '{\n');
+                   '{\n')
 
     for api_file in api_files:
         api_file_c = dotnet.find_file(api_file, dotnet.name)
@@ -2634,7 +2634,7 @@ def mk_z3consts_dotnet(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
-    z3consts.write('}\n');
+    z3consts.write('}\n')
     if VERBOSE:
         print("Generated '%s'" % os.path.join(dotnet.src_dir, 'Enumerations.cs'))
 
@@ -2702,7 +2702,7 @@ def mk_z3consts_java(api_files):
                     if name not in DeprecatedEnums:
                         efile  = open('%s.java' % os.path.join(gendir, name), 'w')
                         efile.write('/**\n *  Automatically generated file\n **/\n\n')
-                        efile.write('package %s.enumerations;\n\n' % java.package_name);
+                        efile.write('package %s.enumerations;\n\n' % java.package_name)
 
                         efile.write('/**\n')
                         efile.write(' * %s\n' % name)
@@ -2713,7 +2713,7 @@ def mk_z3consts_java(api_files):
                         for k in decls:
                             i = decls[k]
                             if first:
-                               first = False
+                                first = False
                             else:
                                 efile.write(',\n')
                             efile.write('    %s (%s)' % (k, i))
