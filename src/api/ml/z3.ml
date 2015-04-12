@@ -2865,6 +2865,80 @@ struct
     (AST.ASTVector.to_expr_list av)
 end
 
+module Optimize =
+struct
+  type optimize = z3_native_object
+
+  type objective = int
+
+  let create ( ctx : context ) =
+    let res : optimize = { m_ctx = ctx ;
+			     m_n_obj = null ;
+			     inc_ref = Z3native.fixedpoint_inc_ref ;
+			     dec_ref = Z3native.fixedpoint_dec_ref } in
+    (z3obj_sno res ctx (Z3native.mk_optimize (context_gno ctx))) ;
+    (z3obj_create res) ;
+    res
+
+  let get_help ( x : optimize ) = Z3native.optimize_get_help (z3obj_gnc x) (z3obj_gno x)
+
+  let set_parameters ( x : optimize ) ( p : Params.params )=
+    Z3native.optimize_set_params (z3obj_gnc x) (z3obj_gno x) (z3obj_gno p)
+
+  let get_param_descrs ( x : optimize ) =
+    Params.ParamDescrs.param_descrs_of_ptr (z3obj_gc x) (Z3native.optimize_get_param_descrs (z3obj_gnc x) (z3obj_gno x))
+
+  let push ( x : optimize ) = Z3native.optimize_push (z3obj_gnc x) (z3obj_gno x)
+
+  let pop ( x : optimize ) = Z3native.optimize_pop (z3obj_gnc x) (z3obj_gno x)
+
+  let add ( x : optimize ) ( constraints : expr list ) =
+    let f e = (Z3native.optimize_assert (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)) in
+    List.iter f constraints
+
+  let add_soft ?id ( x : optimize ) ( weight : string ) ( e : expr ) =
+    let id = match id with
+      | None -> Z3native.mk_null()
+      | Some x -> Symbol.gno x
+    in
+    Z3native.optimize_assert_soft (z3obj_gnc x) (z3obj_gno x) (Expr.gno e) weight id
+
+  let maximize ( x : optimize ) ( e : expr ) =
+    Z3native.optimize_maximize (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)
+
+  let minimize ( x : optimize ) ( e : expr ) =
+    Z3native.optimize_minimize (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)
+
+  let get_upper ( x : optimize ) ( i : int ) =
+    Expr.expr_of_ptr (z3obj_gc x) (Z3native.optimize_get_upper (z3obj_gnc x) (z3obj_gno x) i)
+
+  let get_lower ( x : optimize ) ( i : int ) =
+    Expr.expr_of_ptr (z3obj_gc x) (Z3native.optimize_get_lower (z3obj_gnc x) (z3obj_gno x) i)
+
+  let check ( x : optimize ) =
+    let r =
+	    lbool_of_int (Z3native.optimize_check (z3obj_gnc x) (z3obj_gno x))
+    in
+    match r with
+      | L_TRUE -> Solver.SATISFIABLE
+      | L_FALSE -> Solver.UNSATISFIABLE
+      | _ -> Solver.UNKNOWN
+
+  let get_model ( x : optimize ) =
+    let q = Z3native.optimize_get_model (z3obj_gnc x) (z3obj_gno x) in
+    if (Z3native.is_null q) then
+      None
+    else
+      Some (Model.create (z3obj_gc x) q)
+
+  let get_statistics ( x : optimize ) =
+    (Statistics.create (z3obj_gc x) (Z3native.optimize_get_statistics (z3obj_gnc x) (z3obj_gno x)))
+
+  let mk_optimize ( ctx : context ) = create ctx
+
+  let to_string ( x : optimize ) = Z3native.optimize_to_string (z3obj_gnc x) (z3obj_gno x)
+end
+
 
 module SMT =
 struct
