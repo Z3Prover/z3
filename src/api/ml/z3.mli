@@ -3200,6 +3200,74 @@ sig
   val mk_fixedpoint : context -> fixedpoint
 end
 
+(** Optimizing solving *)
+module Optimize :
+  sig
+    type optimize
+
+    type objective
+
+    (** Return a string containing a description of parameters accepted by optimize. *)
+    val get_help : optimize -> string
+
+    (** Set parameters on optimization context. *)
+    val set_parameters : optimize -> Params.params -> unit
+
+    (**  Return the parameter description set for the given optimize object. *)
+    val get_param_descrs : optimize -> Params.ParamDescrs.param_descrs
+
+    (** Create a backtracking point. *)
+    val push : optimize -> unit
+
+    (** Backtrack one level. *)
+    val pop : optimize -> unit
+
+    (** Assert hard constraint to the optimization context. *)
+    val add : optimize -> Expr.expr list -> unit
+
+    (** Assert soft constraint to the optimization context.
+        [add_soft ~id ctx weight formulas]
+        @param ctx context
+        @param formulas A list of formulas
+        @param weight A positive weight, penalty for violating soft constraint
+        @param id optional identifier to group soft constraints
+        @return the optimization objective.
+    *)
+    val add_soft :
+      ?id:Symbol.symbol -> optimize -> string -> Expr.expr -> objective
+
+    (** Add a maximization constraint.
+        @return the optimization objective.
+    *)
+    val maximize : optimize -> Expr.expr -> objective
+
+    (** Add a minimization constraint.
+        @return the optimization objective.
+    *)
+    val minimize : optimize -> Expr.expr -> objective
+
+    (** Retrieve lower bound value or approximation for an optimization objective. *)
+    val get_upper : optimize -> objective -> Expr.expr
+
+    (** Retrieve upper bound value or approximation for an optimization objective. *)
+    val get_lower : optimize -> objective -> Expr.expr
+
+    (** Check consistency and produce optimal values. *)
+    val check : optimize -> Solver.status
+
+    (** Retrieve the model for the last {!check}. *)
+    val get_model : optimize -> Model.model option
+
+    (** Retrieve statistics information from the last call to {!check!} *)
+    val get_statistics : optimize -> Solver.Statistics.statistics
+
+    (** Create a new optimize context. *)
+    val mk_optimize : context -> optimize
+
+    (** Print the current context as a string. *)
+    val to_string : optimize -> string
+  end
+
 (** Functions for handling SMT and SMT2 expressions and files *)
 module SMT :
 sig
