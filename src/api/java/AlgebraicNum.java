@@ -32,7 +32,7 @@ public class AlgebraicNum extends ArithExpr
 	 * @return A numeral Expr of sort Real
 	 * @throws Z3Exception on error
 	 **/
-	public RatNum toUpper(int precision) throws Z3Exception
+	public RatNum toUpper(int precision)
 	{
 
 		return new RatNum(getContext(), Native.getAlgebraicNumberUpper(getContext()
@@ -49,7 +49,7 @@ public class AlgebraicNum extends ArithExpr
 	 * @return A numeral Expr of sort Real
 	 * @throws Z3Exception on error
 	 **/
-	public RatNum toLower(int precision) throws Z3Exception
+	public RatNum toLower(int precision)
 	{
 
 		return new RatNum(getContext(), Native.getAlgebraicNumberLower(getContext()
@@ -63,14 +63,14 @@ public class AlgebraicNum extends ArithExpr
 	 * @return String
 	 * @throws Z3Exception on error
 	 **/
-	public String toDecimal(int precision) throws Z3Exception
+	public String toDecimal(int precision)
 	{
 
 		return Native.getNumeralDecimalString(getContext().nCtx(), getNativeObject(),
 				precision);
 	}
 
-	AlgebraicNum(Context ctx, long obj) throws Z3Exception
+	AlgebraicNum(Context ctx, long obj)
 	{
 		super(ctx, obj);
 

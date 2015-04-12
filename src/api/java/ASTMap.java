@@ -29,7 +29,7 @@ class ASTMap extends Z3Object
      * @return True if {@code k} is a key in the map, false
      *         otherwise.
      **/
-    public boolean contains(AST k) throws Z3Exception
+    public boolean contains(AST k)
     {
 
         return Native.astMapContains(getContext().nCtx(), getNativeObject(),
@@ -44,7 +44,7 @@ class ASTMap extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public AST find(AST k) throws Z3Exception
+    public AST find(AST k)
     {
         return new AST(getContext(), Native.astMapFind(getContext().nCtx(),
                 getNativeObject(), k.getNativeObject()));
@@ -55,7 +55,7 @@ class ASTMap extends Z3Object
      * @param k The key AST
      * @param v The value AST
      **/
-    public void insert(AST k, AST v) throws Z3Exception
+    public void insert(AST k, AST v)
     {
 
         Native.astMapInsert(getContext().nCtx(), getNativeObject(), k.getNativeObject(),
@@ -66,7 +66,7 @@ class ASTMap extends Z3Object
      * Erases the key {@code k} from the map. 
      * @param k An AST
      **/
-    public void erase(AST k) throws Z3Exception
+    public void erase(AST k)
     {
         Native.astMapErase(getContext().nCtx(), getNativeObject(), k.getNativeObject());
     }
@@ -74,7 +74,7 @@ class ASTMap extends Z3Object
     /**
      * Removes all keys from the map.
      **/
-    public void reset() throws Z3Exception
+    public void reset()
     {
         Native.astMapReset(getContext().nCtx(), getNativeObject());
     }
@@ -82,7 +82,7 @@ class ASTMap extends Z3Object
     /**
      * The size of the map
      **/
-    public int size() throws Z3Exception
+    public int size()
     {
         return Native.astMapSize(getContext().nCtx(), getNativeObject());
     }
@@ -92,7 +92,7 @@ class ASTMap extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public ASTVector getKeys() throws Z3Exception
+    public ASTVector getKeys()
     {
         return new ASTVector(getContext(), Native.astMapKeys(getContext().nCtx(),
                 getNativeObject()));
@@ -112,23 +112,23 @@ class ASTMap extends Z3Object
         }
     }
 
-    ASTMap(Context ctx, long obj) throws Z3Exception
+    ASTMap(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    ASTMap(Context ctx) throws Z3Exception
+    ASTMap(Context ctx)
     {
         super(ctx, Native.mkAstMap(ctx.nCtx()));
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
         getContext().getASTMapDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
         getContext().getASTMapDRQ().add(o);
         super.decRef(o);

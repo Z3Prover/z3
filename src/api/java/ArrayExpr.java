@@ -26,7 +26,7 @@ public class ArrayExpr extends Expr
     /**
      * Constructor for ArrayExpr
      **/
-    ArrayExpr(Context ctx, long obj) throws Z3Exception
+    ArrayExpr(Context ctx, long obj)
     {
         super(ctx, obj);
     }

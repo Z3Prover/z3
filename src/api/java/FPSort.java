@@ -22,12 +22,12 @@ package com.microsoft.z3;
 public class FPSort extends Sort
 {
 
-    public FPSort(Context ctx, long obj) throws Z3Exception
+    public FPSort(Context ctx, long obj)
     {
         super(ctx, obj);        
     }
     
-    public FPSort(Context ctx, int ebits, int sbits) throws Z3Exception
+    public FPSort(Context ctx, int ebits, int sbits)
     {
         super(ctx, Native.mkFpaSort(ctx.nCtx(), ebits, sbits));        
     }
@@ -35,14 +35,14 @@ public class FPSort extends Sort
     /**
      * The number of exponent bits.
      */
-    public int getEBits() throws Z3Exception {
+    public int getEBits() {
         return Native.fpaGetEbits(getContext().nCtx(), getNativeObject());        
     }
     
     /**
      * The number of significand bits.
      */
-    public int getSBits() throws Z3Exception {
+    public int getSBits() {
         return Native.fpaGetEbits(getContext().nCtx(), getNativeObject());        
     }
     

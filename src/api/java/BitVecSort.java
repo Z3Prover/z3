@@ -27,12 +27,12 @@ public class BitVecSort extends Sort
      * @throws Z3Exception on error
      * @return an int
      **/
-    public int getSize() throws Z3Exception
+    public int getSize()
     {
         return Native.getBvSortSize(getContext().nCtx(), getNativeObject());
     }
 
-    BitVecSort(Context ctx, long obj) throws Z3Exception
+    BitVecSort(Context ctx, long obj)
     {
         super(ctx, obj);
     }

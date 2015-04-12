@@ -603,11 +603,11 @@ void asserted_formulas::propagate_values() {
     proof_ref_vector new_prs1(m_manager);
     expr_ref_vector  new_exprs2(m_manager);
     proof_ref_vector new_prs2(m_manager);
-    unsigned i  = m_asserted_qhead;
     unsigned sz = m_asserted_formulas.size();
-    for (; i < sz; i++) {
+    for (unsigned i = 0; i < sz; i++) {
         expr * n    = m_asserted_formulas.get(i);
         proof * pr  = m_asserted_formula_prs.get(i, 0);
+        TRACE("simplifier", tout << mk_pp(n, m_manager) << "\n";);
         if (m_manager.is_eq(n)) {
             expr * lhs = to_app(n)->get_arg(0);
             expr * rhs = to_app(n)->get_arg(1);
@@ -615,9 +615,11 @@ void asserted_formulas::propagate_values() {
                 if (m_manager.is_value(lhs))
                     std::swap(lhs, rhs);
                 if (!m_manager.is_value(lhs) && !m_simplifier.is_cached(lhs)) {
-                    new_exprs1.push_back(n);
-                    if (m_manager.proofs_enabled())
-                        new_prs1.push_back(pr);
+                    if (i >= m_asserted_qhead) {
+                        new_exprs1.push_back(n);
+                        if (m_manager.proofs_enabled())
+                            new_prs1.push_back(pr);
+                    }
                     TRACE("propagate_values", tout << "found:\n" << mk_pp(lhs, m_manager) << "\n->\n" << mk_pp(rhs, m_manager) << "\n";);
                     m_simplifier.cache_result(lhs, rhs, pr);
                     found = true;
@@ -625,9 +627,11 @@ void asserted_formulas::propagate_values() {
                 }
             }
         }
-        new_exprs2.push_back(n);
-        if (m_manager.proofs_enabled())
-            new_prs2.push_back(pr);
+        if (i >= m_asserted_qhead) {
+            new_exprs2.push_back(n);
+            if (m_manager.proofs_enabled())
+                new_prs2.push_back(pr);
+        }
     }
     TRACE("propagate_values", tout << "found: " << found << "\n";);
     // If C is not empty, then reduce R using the updated simplifier cache with entries

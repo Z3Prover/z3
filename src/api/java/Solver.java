@@ -27,7 +27,7 @@ public class Solver extends Z3Object
     /**
      * A string that describes all available solver parameters.
      **/
-    public String getHelp() throws Z3Exception
+    public String getHelp()
     {
         return Native.solverGetHelp(getContext().nCtx(), getNativeObject());
     }
@@ -37,7 +37,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void setParameters(Params value) throws Z3Exception
+    public void setParameters(Params value)
     {
         getContext().checkContextMatch(value);
         Native.solverSetParams(getContext().nCtx(), getNativeObject(),
@@ -49,7 +49,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public ParamDescrs getParameterDescriptions() throws Z3Exception
+    public ParamDescrs getParameterDescriptions()
     {
         return new ParamDescrs(getContext(), Native.solverGetParamDescrs(
                 getContext().nCtx(), getNativeObject()));
@@ -60,7 +60,7 @@ public class Solver extends Z3Object
      * @see pop 
      * @see push
      **/
-    public int getNumScopes() throws Z3Exception
+    public int getNumScopes()
     {
         return Native
                 .solverGetNumScopes(getContext().nCtx(), getNativeObject());
@@ -70,7 +70,7 @@ public class Solver extends Z3Object
      * Creates a backtracking point. 
      * @see pop
      **/
-    public void push() throws Z3Exception
+    public void push()
     {
         Native.solverPush(getContext().nCtx(), getNativeObject());
     }
@@ -79,7 +79,7 @@ public class Solver extends Z3Object
      * Backtracks one backtracking point.
      * Remarks: .
      **/
-    public void pop() throws Z3Exception
+    public void pop()
     {
         pop(1);
     }
@@ -91,7 +91,7 @@ public class Solver extends Z3Object
      * {@code NumScopes} 
      * @see push
      **/
-    public void pop(int n) throws Z3Exception
+    public void pop(int n)
     {
         Native.solverPop(getContext().nCtx(), getNativeObject(), n);
     }
@@ -101,7 +101,7 @@ public class Solver extends Z3Object
      * Remarks: This removes all assertions from the
      * solver.
      **/
-    public void reset() throws Z3Exception
+    public void reset()
     {
         Native.solverReset(getContext().nCtx(), getNativeObject());
     }
@@ -111,7 +111,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void add(BoolExpr... constraints) throws Z3Exception
+    public void add(BoolExpr... constraints)
     {
         getContext().checkContextMatch(constraints);
         for (BoolExpr a : constraints)
@@ -135,7 +135,7 @@ public class Solver extends Z3Object
      * and the Boolean literals
      * provided using <see cref="Check"/> with assumptions.
      **/
-    public void assertAndTrack(BoolExpr[] constraints, BoolExpr[] ps) throws Z3Exception
+    public void assertAndTrack(BoolExpr[] constraints, BoolExpr[] ps)
     {
         getContext().checkContextMatch(constraints);
         getContext().checkContextMatch(ps);
@@ -160,7 +160,7 @@ public class Solver extends Z3Object
      * and the Boolean literals
      * provided using <see cref="Check"/> with assumptions.
      */ 
-    public void assertAndTrack(BoolExpr constraint, BoolExpr p) throws Z3Exception
+    public void assertAndTrack(BoolExpr constraint, BoolExpr p)
     {
         getContext().checkContextMatch(constraint);
         getContext().checkContextMatch(p);
@@ -174,7 +174,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public int getNumAssertions() throws Z3Exception
+    public int getNumAssertions()
     {
         ASTVector assrts = new ASTVector(getContext(), Native.solverGetAssertions(
                 getContext().nCtx(), getNativeObject()));
@@ -186,7 +186,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public BoolExpr[] getAssertions() throws Z3Exception
+    public BoolExpr[] getAssertions()
     {
         ASTVector assrts = new ASTVector(getContext(), Native.solverGetAssertions(
                 getContext().nCtx(), getNativeObject()));
@@ -204,7 +204,7 @@ public class Solver extends Z3Object
      * @see getUnsatCore
      * @see getProof 
      **/
-    public Status check(Expr... assumptions) throws Z3Exception
+    public Status check(Expr... assumptions)
     {
         Z3_lbool r;
         if (assumptions == null)
@@ -232,7 +232,7 @@ public class Solver extends Z3Object
      * @see getUnsatCore
      * @see getProof 
      **/
-    public Status check() throws Z3Exception
+    public Status check()
     {
         return check((Expr[]) null);
     }
@@ -246,7 +246,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Model getModel() throws Z3Exception
+    public Model getModel()
     {
         long x = Native.solverGetModel(getContext().nCtx(), getNativeObject());
         if (x == 0)
@@ -264,7 +264,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Expr getProof() throws Z3Exception
+    public Expr getProof()
     {
         long x = Native.solverGetProof(getContext().nCtx(), getNativeObject());
         if (x == 0)
@@ -282,7 +282,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Expr[] getUnsatCore() throws Z3Exception
+    public Expr[] getUnsatCore()
     {
 
         ASTVector core = new ASTVector(getContext(), Native.solverGetUnsatCore(
@@ -298,7 +298,7 @@ public class Solver extends Z3Object
      * A brief justification of why the last call to {@code Check} returned
      * {@code UNKNOWN}.
      **/
-    public String getReasonUnknown() throws Z3Exception
+    public String getReasonUnknown()
     {
         return Native.solverGetReasonUnknown(getContext().nCtx(),
                 getNativeObject());
@@ -309,7 +309,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Statistics getStatistics() throws Z3Exception
+    public Statistics getStatistics()
     {
         return new Statistics(getContext(), Native.solverGetStatistics(
                 getContext().nCtx(), getNativeObject()));
@@ -330,18 +330,18 @@ public class Solver extends Z3Object
         }
     }
 
-    Solver(Context ctx, long obj) throws Z3Exception
+    Solver(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
         getContext().getSolverDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
         getContext().getSolverDRQ().add(o);
         super.decRef(o);

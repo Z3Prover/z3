@@ -66,7 +66,6 @@ extern "C" {
         // Z3_set_param_value(cfg, "SIMPLIFY_CLAUSES","false");
 
         Z3_context ctx = Z3_mk_context(cfg);
-        Z3_del_config(cfg);
         return ctx;
     }
 

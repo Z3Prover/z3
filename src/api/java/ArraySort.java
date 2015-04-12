@@ -28,7 +28,7 @@ public class ArraySort extends Sort
      * @throws Z3Exception on error
      * @return a sort
      **/
-    public Sort getDomain() throws Z3Exception
+    public Sort getDomain()
     {
         return Sort.create(getContext(),
                 Native.getArraySortDomain(getContext().nCtx(), getNativeObject()));
@@ -40,18 +40,18 @@ public class ArraySort extends Sort
      * @throws Z3Exception on error
      * @return a sort
      **/
-    public Sort getRange() throws Z3Exception
+    public Sort getRange()
     {
         return Sort.create(getContext(),
                 Native.getArraySortRange(getContext().nCtx(), getNativeObject()));
     }
 
-    ArraySort(Context ctx, long obj) throws Z3Exception
+    ArraySort(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    ArraySort(Context ctx, Sort domain, Sort range) throws Z3Exception
+    ArraySort(Context ctx, Sort domain, Sort range)
     {
         super(ctx, Native.mkArraySort(ctx.nCtx(), domain.getNativeObject(),
                 range.getNativeObject()));

@@ -572,7 +572,7 @@ def parse_options():
             LINUX_X64=False
         elif opt in ('-h', '--help'):
             display_help(0)
-        elif opt in ('-m', '--onlymakefiles'):
+        elif opt in ('-m', '--makefiles'):
             ONLY_MAKEFILES = True
         elif opt in ('-c', '--showcpp'):
             SHOW_CPPS = True
@@ -1275,6 +1275,7 @@ class JavaDLLComponent(Component):
         self.dll_name     = dll_name
         self.package_name = package_name
         self.manifest_file = manifest_file
+        self.install = not is_windows()
 
     def mk_makefile(self, out):
         global JAVAC
@@ -1344,6 +1345,18 @@ class JavaDLLComponent(Component):
             so = get_so_ext()
             shutil.copy(os.path.join(build_path, 'libz3java.%s' % so),
                         os.path.join(dist_path, 'bin', 'libz3java.%s' % so))
+
+    def mk_install(self, out):
+        if is_java_enabled() and self.install:
+            dllfile = '%s$(SO_EXT)' % self.dll_name
+            out.write('\t@cp %s %s\n' % (dllfile, os.path.join('$(PREFIX)', 'lib', dllfile)))
+            out.write('\t@cp %s.jar %s.jar\n' % (self.package_name, os.path.join('$(PREFIX)', 'lib', self.package_name)))
+
+    def mk_uninstall(self, out):
+        if is_java_enabled() and self.install:
+            dllfile = '%s$(SO_EXT)' % self.dll_name
+            out.write('\t@rm %s\n' % (os.path.join('$(PREFIX)', 'lib', dllfile)))
+            out.write('\t@rm %s.jar\n' % (os.path.join('$(PREFIX)', 'lib', self.package_name)))
 
 class MLComponent(Component):
     def __init__(self, name, lib_name, path, deps):
@@ -2797,19 +2810,19 @@ def mk_z3consts_ml(api_files):
                     if name not in DeprecatedEnums:
                         efile.write('(** %s *)\n' % name[3:])
                         efile.write('type %s =\n' % name[3:]) # strip Z3_
-                        for k, i in decls.iteritems():
+                        for k, i in decls.items():
                             efile.write('  | %s \n' % k[3:]) # strip Z3_
                         efile.write('\n')
                         efile.write('(** Convert %s to int*)\n' % name[3:])
                         efile.write('let int_of_%s x : int =\n' % (name[3:])) # strip Z3_
                         efile.write('  match x with\n')
-                        for k, i in decls.iteritems():
+                        for k, i in decls.items():
                             efile.write('  | %s -> %d\n' % (k[3:], i))
                         efile.write('\n')
                         efile.write('(** Convert int to %s*)\n' % name[3:])
                         efile.write('let %s_of_int x : %s =\n' % (name[3:],name[3:])) # strip Z3_
                         efile.write('  match x with\n')
-                        for k, i in decls.iteritems():
+                        for k, i in decls.items():
                             efile.write('  | %d -> %s\n' % (i, k[3:]))
                         # use Z3.Exception?
                         efile.write('  | _ -> raise (Failure "undefined enum value")\n\n')
@@ -2875,7 +2888,7 @@ def mk_z3consts_ml(api_files):
                     if name not in DeprecatedEnums:
                         efile.write('(** %s *)\n' % name[3:])
                         efile.write('type %s =\n' % name[3:]) # strip Z3_
-                        for k, i in decls.iteritems():
+                        for k, i in decls.items():
                             efile.write('  | %s \n' % k[3:]) # strip Z3_
                         efile.write('\n')
                         efile.write('(** Convert %s to int*)\n' % name[3:])

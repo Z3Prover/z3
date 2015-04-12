@@ -29,24 +29,24 @@ public class IntSymbol extends Symbol
      * Remarks: Throws an exception if the symbol
      * is not of int kind. 
      **/
-    public int getInt() throws Z3Exception
+    public int getInt()
     {
         if (!isIntSymbol())
             throw new Z3Exception("Int requested from non-Int symbol");
         return Native.getSymbolInt(getContext().nCtx(), getNativeObject());
     }
 
-    IntSymbol(Context ctx, long obj) throws Z3Exception
+    IntSymbol(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    IntSymbol(Context ctx, int i) throws Z3Exception
+    IntSymbol(Context ctx, int i)
     {
         super(ctx, Native.mkIntSymbol(ctx.nCtx(), i));
     }
 
-    void checkNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj)
     {
         if (Native.getSymbolKind(getContext().nCtx(), obj) != Z3_symbol_kind.Z3_INT_SYMBOL
                 .toInt())

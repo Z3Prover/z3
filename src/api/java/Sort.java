@@ -58,7 +58,7 @@ public class Sort extends AST
     /**
      * Returns a unique identifier for the sort.
      **/
-    public int getId() throws Z3Exception
+    public int getId()
     {
         return Native.getSortId(getContext().nCtx(), getNativeObject());
     }
@@ -66,7 +66,7 @@ public class Sort extends AST
     /**
      * The kind of the sort.
      **/
-    public Z3_sort_kind getSortKind() throws Z3Exception
+    public Z3_sort_kind getSortKind()
     {
         return Z3_sort_kind.fromInt(Native.getSortKind(getContext().nCtx(),
                 getNativeObject()));
@@ -75,7 +75,7 @@ public class Sort extends AST
     /**
      * The name of the sort
      **/
-    public Symbol getName() throws Z3Exception
+    public Symbol getName()
     {
         return Symbol.create(getContext(),
                 Native.getSortName(getContext().nCtx(), getNativeObject()));
@@ -98,12 +98,12 @@ public class Sort extends AST
     /**
      * Sort constructor
      **/
-    Sort(Context ctx, long obj) throws Z3Exception
+    Sort(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    void checkNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj)
     {
         if (Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_SORT_AST
                 .toInt())
@@ -111,7 +111,7 @@ public class Sort extends AST
         super.checkNativeObject(obj);
     }
 
-    static Sort create(Context ctx, long obj) throws Z3Exception
+    static Sort create(Context ctx, long obj)
     {
         Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(ctx.nCtx(), obj));
         switch (sk)

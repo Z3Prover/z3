@@ -81,7 +81,7 @@ public final class Global
      * globally.
      **/
     public static void ToggleWarningMessages(boolean enabled)
-            throws Z3Exception
+           
     {
         Native.toggleWarningMessages((enabled) ? true : false);
     }

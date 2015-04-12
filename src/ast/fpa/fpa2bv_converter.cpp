@@ -1881,8 +1881,8 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
     else if (num == 2 &&
              m_bv_util.is_bv(args[0]) &&
              m_bv_util.get_bv_size(args[0]) == 3 &&
-             m_arith_util.is_int(args[1]) || 
-             m_arith_util.is_real(args[1])) {
+             (m_arith_util.is_int(args[1]) || 
+              m_arith_util.is_real(args[1]))) {
         // rm + real -> float
         mk_to_fp_real(f, f->get_range(), args[0], args[1], result);
     }

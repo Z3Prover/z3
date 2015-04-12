@@ -33,7 +33,7 @@ public class InterpolationContext extends Context
     /**
      * Constructor.
      **/
-    public InterpolationContext() throws Z3Exception
+    public InterpolationContext()
     {
         m_ctx = Native.mkInterpolationContext(0);
         initContext(); 
@@ -46,7 +46,7 @@ public class InterpolationContext extends Context
      * Remarks: 
      * @see Context#Context
      **/
-    public InterpolationContext(Map<String, String> settings) throws Z3Exception
+    public InterpolationContext(Map<String, String> settings)
     { 
         long cfg = Native.mkConfig();
         for (Map.Entry<String, String> kv : settings.entrySet())
@@ -60,7 +60,7 @@ public class InterpolationContext extends Context
       * Create an expression that marks a formula position for interpolation.
       * @throws Z3Exception 
       **/
-    public BoolExpr MkInterpolant(BoolExpr a) throws Z3Exception
+    public BoolExpr MkInterpolant(BoolExpr a)
     {
         checkContextMatch(a);        
         return new BoolExpr(this, Native.mkInterpolant(nCtx(), a.getNativeObject()));
@@ -73,7 +73,7 @@ public class InterpolationContext extends Context
      * well documented.
      * @throws Z3Exception 
      **/
-    Expr[] GetInterpolant(Expr pf, Expr pat, Params p) throws Z3Exception
+    public Expr[] GetInterpolant(Expr pf, Expr pat, Params p)
     {
         checkContextMatch(pf);
         checkContextMatch(pat);
@@ -94,7 +94,7 @@ public class InterpolationContext extends Context
      * well documented.
      * @throws Z3Exception 
      **/
-    Z3_lbool ComputeInterpolant(Expr pat, Params p, ASTVector interp, Model model) throws Z3Exception
+    public Z3_lbool ComputeInterpolant(Expr pat, Params p, ASTVector interp, Model model)
     {
         checkContextMatch(pat);
         checkContextMatch(p);
@@ -113,7 +113,7 @@ public class InterpolationContext extends Context
     /// Remarks: For more information on interpolation please refer
     /// too the function Z3_interpolation_profile in the C/C++ API, which is 
     /// well documented.
-    public String InterpolationProfile() throws Z3Exception
+    public String InterpolationProfile()
     {
         return Native.interpolationProfile(nCtx());
     }
@@ -124,7 +124,7 @@ public class InterpolationContext extends Context
     /// Remarks: For more information on interpolation please refer
     /// too the function Z3_check_interpolant in the C/C++ API, which is 
     /// well documented.
-    public int CheckInterpolant(Expr[] cnsts, int[] parents, Expr[] interps, String error, Expr[] theory) throws Z3Exception
+    public int CheckInterpolant(Expr[] cnsts, int[] parents, Expr[] interps, String error, Expr[] theory)
     {
         Native.StringPtr n_err_str = new Native.StringPtr();
         int r = Native.checkInterpolant(nCtx(),
@@ -145,7 +145,7 @@ public class InterpolationContext extends Context
     /// Remarks: For more information on interpolation please refer
     /// too the function Z3_read_interpolation_problem in the C/C++ API, which is 
     /// well documented.
-    public int ReadInterpolationProblem(String filename, Expr[] cnsts, int[] parents, String error, Expr[] theory) throws Z3Exception
+    public int ReadInterpolationProblem(String filename, Expr[] cnsts, int[] parents, String error, Expr[] theory)
     {
         Native.IntPtr n_num = new Native.IntPtr();
         Native.IntPtr n_num_theory = new Native.IntPtr();
@@ -176,7 +176,7 @@ public class InterpolationContext extends Context
     /// Remarks: For more information on interpolation please refer
     /// too the function Z3_write_interpolation_problem in the C/C++ API, which is 
     /// well documented.
-    public void WriteInterpolationProblem(String filename, Expr[] cnsts, int[] parents, String error, Expr[] theory) throws Z3Exception
+    public void WriteInterpolationProblem(String filename, Expr[] cnsts, int[] parents, String error, Expr[] theory)
     {
         Native.writeInterpolationProblem(nCtx(), cnsts.length, Expr.arrayToNative(cnsts), parents, filename, theory.length, Expr.arrayToNative(theory));     
     }

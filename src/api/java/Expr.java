@@ -35,7 +35,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr
      **/
-    public Expr simplify() throws Z3Exception
+    public Expr simplify()
     {
         return simplify(null);
     }
@@ -50,7 +50,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr
      **/
-    public Expr simplify(Params p) throws Z3Exception
+    public Expr simplify(Params p)
     {
 
         if (p == null)
@@ -69,7 +69,7 @@ public class Expr extends AST
      * @return a FuncDecl
      * @throws Z3Exception on error 
      **/
-    public FuncDecl getFuncDecl() throws Z3Exception
+    public FuncDecl getFuncDecl()
     {
         return new FuncDecl(getContext(), Native.getAppDecl(getContext().nCtx(),
                 getNativeObject()));
@@ -81,7 +81,7 @@ public class Expr extends AST
      * @throws Z3Exception on error     
      * @return a Z3_lbool
      **/
-    public Z3_lbool getBoolValue() throws Z3Exception
+    public Z3_lbool getBoolValue()
     {
         return Z3_lbool.fromInt(Native.getBoolValue(getContext().nCtx(),
                 getNativeObject()));
@@ -92,7 +92,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an int
      **/
-    public int getNumArgs() throws Z3Exception
+    public int getNumArgs()
     {
         return Native.getAppNumArgs(getContext().nCtx(), getNativeObject());
     }
@@ -102,7 +102,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr[]
      **/
-    public Expr[] getArgs() throws Z3Exception
+    public Expr[] getArgs()
     {
         int n = getNumArgs();
         Expr[] res = new Expr[n];
@@ -119,7 +119,7 @@ public class Expr extends AST
      * @param args arguments
      * @throws Z3Exception on error
      **/
-    public void update(Expr[] args) throws Z3Exception
+    public void update(Expr[] args)
     {
         getContext().checkContextMatch(args);
         if (isApp() && args.length != getNumArgs())
@@ -140,7 +140,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr
      **/
-    public Expr substitute(Expr[] from, Expr[] to) throws Z3Exception
+    public Expr substitute(Expr[] from, Expr[] to)
     {
         getContext().checkContextMatch(from);
         getContext().checkContextMatch(to);
@@ -158,7 +158,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr
      **/
-    public Expr substitute(Expr from, Expr to) throws Z3Exception
+    public Expr substitute(Expr from, Expr to)
     {
 
         return substitute(new Expr[] { from }, new Expr[] { to });
@@ -174,7 +174,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr
      **/
-    public Expr substituteVars(Expr[] to) throws Z3Exception
+    public Expr substituteVars(Expr[] to)
     {
 
         getContext().checkContextMatch(to);
@@ -191,7 +191,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr
      **/
-    public Expr translate(Context ctx) throws Z3Exception
+    public Expr translate(Context ctx)
     {
 
         if (getContext() == ctx)
@@ -216,7 +216,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isNumeral() throws Z3Exception
+    public boolean isNumeral()
     {
         return Native.isNumeralAst(getContext().nCtx(), getNativeObject());
     }
@@ -228,7 +228,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isWellSorted() throws Z3Exception
+    public boolean isWellSorted()
     {
         return Native.isWellSorted(getContext().nCtx(), getNativeObject());
     }
@@ -238,7 +238,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a sort
      **/
-    public Sort getSort() throws Z3Exception
+    public Sort getSort()
     {
         return Sort.create(getContext(),
                 Native.getSort(getContext().nCtx(), getNativeObject()));
@@ -249,7 +249,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isConst() throws Z3Exception
+    public boolean isConst()
     {
         return isApp() && getNumArgs() == 0 && getFuncDecl().getDomainSize() == 0;
     }
@@ -259,7 +259,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isIntNum() throws Z3Exception
+    public boolean isIntNum()
     {
         return isNumeral() && isInt();
     }
@@ -269,7 +269,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRatNum() throws Z3Exception
+    public boolean isRatNum()
     {
         return isNumeral() && isReal();
     }
@@ -279,7 +279,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isAlgebraicNumber() throws Z3Exception
+    public boolean isAlgebraicNumber()
     {
         return Native.isAlgebraicNumber(getContext().nCtx(), getNativeObject());
     }
@@ -289,7 +289,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBool() throws Z3Exception
+    public boolean isBool()
     {
         return (isExpr() && Native.isEqSort(getContext().nCtx(),
                 Native.mkBoolSort(getContext().nCtx()),
@@ -301,7 +301,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isTrue() throws Z3Exception
+    public boolean isTrue()
     {
             return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TRUE;
     }
@@ -311,7 +311,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isFalse() throws Z3Exception
+    public boolean isFalse()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FALSE;
     }
@@ -321,7 +321,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isEq() throws Z3Exception
+    public boolean isEq()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EQ;
     }
@@ -332,7 +332,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isDistinct() throws Z3Exception
+    public boolean isDistinct()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_DISTINCT;
     }
@@ -342,7 +342,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isITE() throws Z3Exception
+    public boolean isITE()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ITE;
     }
@@ -352,7 +352,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isAnd() throws Z3Exception
+    public boolean isAnd()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_AND;
     }
@@ -362,7 +362,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isOr() throws Z3Exception
+    public boolean isOr()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_OR;
     }
@@ -373,7 +373,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isIff() throws Z3Exception
+    public boolean isIff()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IFF;
     }
@@ -383,7 +383,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isXor() throws Z3Exception
+    public boolean isXor()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_XOR;
     }
@@ -393,7 +393,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isNot() throws Z3Exception
+    public boolean isNot()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_NOT;
     }
@@ -403,7 +403,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isImplies() throws Z3Exception
+    public boolean isImplies()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IMPLIES;
     }
@@ -413,7 +413,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isInt() throws Z3Exception
+    public boolean isInt()
     {
         return (Native.isNumeralAst(getContext().nCtx(), getNativeObject()) && Native
                 .getSortKind(getContext().nCtx(),
@@ -426,7 +426,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isReal() throws Z3Exception
+    public boolean isReal()
     {
         return Native.getSortKind(getContext().nCtx(),
                 Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_REAL_SORT
@@ -438,7 +438,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isArithmeticNumeral() throws Z3Exception
+    public boolean isArithmeticNumeral()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ANUM;
     }
@@ -448,7 +448,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isLE() throws Z3Exception
+    public boolean isLE()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LE;
     }
@@ -458,7 +458,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isGE() throws Z3Exception
+    public boolean isGE()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_GE;
     }
@@ -468,7 +468,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isLT() throws Z3Exception
+    public boolean isLT()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LT;
     }
@@ -478,7 +478,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isGT() throws Z3Exception
+    public boolean isGT()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_GT;
     }
@@ -488,7 +488,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isAdd() throws Z3Exception
+    public boolean isAdd()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ADD;
     }
@@ -498,7 +498,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isSub() throws Z3Exception
+    public boolean isSub()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SUB;
     }
@@ -508,7 +508,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isUMinus() throws Z3Exception
+    public boolean isUMinus()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UMINUS;
     }
@@ -518,7 +518,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isMul() throws Z3Exception
+    public boolean isMul()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_MUL;
     }
@@ -528,7 +528,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isDiv() throws Z3Exception
+    public boolean isDiv()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_DIV;
     }
@@ -538,7 +538,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isIDiv() throws Z3Exception
+    public boolean isIDiv()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IDIV;
     }
@@ -548,7 +548,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRemainder() throws Z3Exception
+    public boolean isRemainder()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_REM;
     }
@@ -558,7 +558,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isModulus() throws Z3Exception
+    public boolean isModulus()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_MOD;
     }
@@ -568,7 +568,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isIntToReal() throws Z3Exception
+    public boolean isIntToReal()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TO_REAL;
     }
@@ -578,7 +578,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRealToInt() throws Z3Exception
+    public boolean isRealToInt()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TO_INT;
     }
@@ -589,7 +589,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRealIsInt() throws Z3Exception
+    public boolean isRealIsInt()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IS_INT;
     }
@@ -599,7 +599,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isArray() throws Z3Exception
+    public boolean isArray()
     {
         return (Native.isApp(getContext().nCtx(), getNativeObject()) && Z3_sort_kind
                 .fromInt(Native.getSortKind(getContext().nCtx(),
@@ -612,7 +612,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isStore() throws Z3Exception
+    public boolean isStore()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_STORE;
     }
@@ -622,7 +622,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isSelect() throws Z3Exception
+    public boolean isSelect()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SELECT;
     }
@@ -633,7 +633,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isConstantArray() throws Z3Exception
+    public boolean isConstantArray()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CONST_ARRAY;
     }
@@ -644,7 +644,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isDefaultArray() throws Z3Exception
+    public boolean isDefaultArray()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ARRAY_DEFAULT;
     }
@@ -656,7 +656,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isArrayMap() throws Z3Exception
+    public boolean isArrayMap()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ARRAY_MAP;
     }
@@ -667,7 +667,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isAsArray() throws Z3Exception
+    public boolean isAsArray()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_AS_ARRAY;
     }
@@ -677,7 +677,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isSetUnion() throws Z3Exception
+    public boolean isSetUnion()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_UNION;
     }
@@ -687,7 +687,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isSetIntersect() throws Z3Exception
+    public boolean isSetIntersect()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_INTERSECT;
     }
@@ -697,7 +697,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isSetDifference() throws Z3Exception
+    public boolean isSetDifference()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_DIFFERENCE;
     }
@@ -707,7 +707,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isSetComplement() throws Z3Exception
+    public boolean isSetComplement()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_COMPLEMENT;
     }
@@ -717,7 +717,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isSetSubset() throws Z3Exception
+    public boolean isSetSubset()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_SUBSET;
     }
@@ -727,7 +727,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBV() throws Z3Exception
+    public boolean isBV()
     {
         return Native.getSortKind(getContext().nCtx(),
                 Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_BV_SORT
@@ -739,7 +739,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVNumeral() throws Z3Exception
+    public boolean isBVNumeral()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNUM;
     }
@@ -749,7 +749,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVBitOne() throws Z3Exception
+    public boolean isBVBitOne()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BIT1;
     }
@@ -759,7 +759,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVBitZero() throws Z3Exception
+    public boolean isBVBitZero()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BIT0;
     }
@@ -769,7 +769,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVUMinus() throws Z3Exception
+    public boolean isBVUMinus()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNEG;
     }
@@ -779,7 +779,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVAdd() throws Z3Exception
+    public boolean isBVAdd()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BADD;
     }
@@ -789,7 +789,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVSub() throws Z3Exception
+    public boolean isBVSub()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSUB;
     }
@@ -799,7 +799,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVMul() throws Z3Exception
+    public boolean isBVMul()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BMUL;
     }
@@ -809,7 +809,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVSDiv() throws Z3Exception
+    public boolean isBVSDiv()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSDIV;
     }
@@ -819,7 +819,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVUDiv() throws Z3Exception
+    public boolean isBVUDiv()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUDIV;
     }
@@ -829,7 +829,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVSRem() throws Z3Exception
+    public boolean isBVSRem()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSREM;
     }
@@ -839,7 +839,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVURem() throws Z3Exception
+    public boolean isBVURem()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUREM;
     }
@@ -849,7 +849,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVSMod() throws Z3Exception
+    public boolean isBVSMod()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSMOD;
     }
@@ -859,7 +859,7 @@ public class Expr extends AST
      * @return a boolean
      * @throws Z3Exception on error
      **/
-    boolean isBVSDiv0() throws Z3Exception
+    boolean isBVSDiv0()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSDIV0;
     }
@@ -869,7 +869,7 @@ public class Expr extends AST
      * @return a boolean
      * @throws Z3Exception on error
      **/
-    boolean isBVUDiv0() throws Z3Exception
+    boolean isBVUDiv0()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUDIV0;
     }
@@ -879,7 +879,7 @@ public class Expr extends AST
      * @return a boolean
      * @throws Z3Exception on error
      **/
-    boolean isBVSRem0() throws Z3Exception
+    boolean isBVSRem0()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSREM0;
     }
@@ -889,7 +889,7 @@ public class Expr extends AST
      * @return a boolean
      * @throws Z3Exception on error
      **/
-    boolean isBVURem0() throws Z3Exception
+    boolean isBVURem0()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUREM0;
     }
@@ -899,7 +899,7 @@ public class Expr extends AST
      * @return a boolean
      * @throws Z3Exception on error
      **/
-    boolean isBVSMod0() throws Z3Exception
+    boolean isBVSMod0()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSMOD0;
     }
@@ -909,7 +909,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVULE() throws Z3Exception
+    public boolean isBVULE()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ULEQ;
     }
@@ -919,7 +919,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVSLE() throws Z3Exception
+    public boolean isBVSLE()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SLEQ;
     }
@@ -930,7 +930,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVUGE() throws Z3Exception
+    public boolean isBVUGE()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UGEQ;
     }
@@ -940,7 +940,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVSGE() throws Z3Exception
+    public boolean isBVSGE()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SGEQ;
     }
@@ -950,7 +950,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVULT() throws Z3Exception
+    public boolean isBVULT()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ULT;
     }
@@ -960,7 +960,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVSLT() throws Z3Exception
+    public boolean isBVSLT()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SLT;
     }
@@ -970,7 +970,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVUGT() throws Z3Exception
+    public boolean isBVUGT()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UGT;
     }
@@ -980,7 +980,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVSGT() throws Z3Exception
+    public boolean isBVSGT()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SGT;
     }
@@ -990,7 +990,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVAND() throws Z3Exception
+    public boolean isBVAND()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BAND;
     }
@@ -1000,7 +1000,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVOR() throws Z3Exception
+    public boolean isBVOR()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BOR;
     }
@@ -1010,7 +1010,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVNOT() throws Z3Exception
+    public boolean isBVNOT()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNOT;
     }
@@ -1020,7 +1020,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVXOR() throws Z3Exception
+    public boolean isBVXOR()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BXOR;
     }
@@ -1030,7 +1030,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVNAND() throws Z3Exception
+    public boolean isBVNAND()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNAND;
     }
@@ -1040,7 +1040,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVNOR() throws Z3Exception
+    public boolean isBVNOR()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNOR;
     }
@@ -1050,7 +1050,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVXNOR() throws Z3Exception
+    public boolean isBVXNOR()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BXNOR;
     }
@@ -1060,7 +1060,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVConcat() throws Z3Exception
+    public boolean isBVConcat()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CONCAT;
     }
@@ -1070,7 +1070,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVSignExtension() throws Z3Exception
+    public boolean isBVSignExtension()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SIGN_EXT;
     }
@@ -1080,7 +1080,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVZeroExtension() throws Z3Exception
+    public boolean isBVZeroExtension()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ZERO_EXT;
     }
@@ -1090,7 +1090,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVExtract() throws Z3Exception
+    public boolean isBVExtract()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXTRACT;
     }
@@ -1100,7 +1100,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVRepeat() throws Z3Exception
+    public boolean isBVRepeat()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_REPEAT;
     }
@@ -1110,7 +1110,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVReduceOR() throws Z3Exception
+    public boolean isBVReduceOR()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BREDOR;
     }
@@ -1120,7 +1120,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVReduceAND() throws Z3Exception
+    public boolean isBVReduceAND()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BREDAND;
     }
@@ -1130,7 +1130,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVComp() throws Z3Exception
+    public boolean isBVComp()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BCOMP;
     }
@@ -1140,7 +1140,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVShiftLeft() throws Z3Exception
+    public boolean isBVShiftLeft()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSHL;
     }
@@ -1150,7 +1150,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVShiftRightLogical() throws Z3Exception
+    public boolean isBVShiftRightLogical()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BLSHR;
     }
@@ -1160,7 +1160,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVShiftRightArithmetic() throws Z3Exception
+    public boolean isBVShiftRightArithmetic()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BASHR;
     }
@@ -1170,7 +1170,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVRotateLeft() throws Z3Exception
+    public boolean isBVRotateLeft()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ROTATE_LEFT;
     }
@@ -1180,7 +1180,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVRotateRight() throws Z3Exception
+    public boolean isBVRotateRight()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ROTATE_RIGHT;
     }
@@ -1192,7 +1192,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVRotateLeftExtended() throws Z3Exception
+    public boolean isBVRotateLeftExtended()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_LEFT;
     }
@@ -1204,7 +1204,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVRotateRightExtended() throws Z3Exception
+    public boolean isBVRotateRightExtended()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_RIGHT;
     }
@@ -1216,7 +1216,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isIntToBV() throws Z3Exception
+    public boolean isIntToBV()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_INT2BV;
     }
@@ -1228,7 +1228,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVToInt() throws Z3Exception
+    public boolean isBVToInt()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BV2INT;
     }
@@ -1239,7 +1239,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVCarry() throws Z3Exception
+    public boolean isBVCarry()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CARRY;
     }
@@ -1250,7 +1250,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isBVXOR3() throws Z3Exception
+    public boolean isBVXOR3()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_XOR3;
     }
@@ -1263,7 +1263,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isLabel() throws Z3Exception
+    public boolean isLabel()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LABEL;
     }
@@ -1276,7 +1276,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isLabelLit() throws Z3Exception
+    public boolean isLabelLit()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LABEL_LIT;
     }
@@ -1288,7 +1288,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isOEQ() throws Z3Exception
+    public boolean isOEQ()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_OEQ;
     }
@@ -1298,7 +1298,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofTrue() throws Z3Exception
+    public boolean isProofTrue()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRUE;
     }
@@ -1308,7 +1308,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofAsserted() throws Z3Exception
+    public boolean isProofAsserted()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_ASSERTED;
     }
@@ -1319,7 +1319,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofGoal() throws Z3Exception
+    public boolean isProofGoal()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_GOAL;
     }
@@ -1333,7 +1333,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofModusPonens() throws Z3Exception
+    public boolean isProofModusPonens()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS;
     }
@@ -1348,7 +1348,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofReflexivity() throws Z3Exception
+    public boolean isProofReflexivity()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REFLEXIVITY;
     }
@@ -1360,7 +1360,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofSymmetry() throws Z3Exception
+    public boolean isProofSymmetry()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_SYMMETRY;
     }
@@ -1372,7 +1372,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofTransitivity() throws Z3Exception
+    public boolean isProofTransitivity()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY;
     }
@@ -1393,7 +1393,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofTransitivityStar() throws Z3Exception
+    public boolean isProofTransitivityStar()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY_STAR;
     }
@@ -1408,7 +1408,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofMonotonicity() throws Z3Exception
+    public boolean isProofMonotonicity()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MONOTONICITY;
     }
@@ -1419,7 +1419,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofQuantIntro() throws Z3Exception
+    public boolean isProofQuantIntro()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INTRO;
     }
@@ -1438,7 +1438,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofDistributivity() throws Z3Exception
+    public boolean isProofDistributivity()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DISTRIBUTIVITY;
     }
@@ -1449,7 +1449,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofAndElimination() throws Z3Exception
+    public boolean isProofAndElimination()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_AND_ELIM;
     }
@@ -1460,7 +1460,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofOrElimination() throws Z3Exception
+    public boolean isProofOrElimination()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NOT_OR_ELIM;
     }
@@ -1480,7 +1480,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofRewrite() throws Z3Exception
+    public boolean isProofRewrite()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE;
     }
@@ -1499,7 +1499,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofRewriteStar() throws Z3Exception
+    public boolean isProofRewriteStar()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR;
     }
@@ -1511,7 +1511,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofPullQuant() throws Z3Exception
+    public boolean isProofPullQuant()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT;
     }
@@ -1523,7 +1523,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofPullQuantStar() throws Z3Exception
+    public boolean isProofPullQuantStar()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR;
     }
@@ -1537,7 +1537,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofPushQuant() throws Z3Exception
+    public boolean isProofPushQuant()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PUSH_QUANT;
     }
@@ -1553,7 +1553,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofElimUnusedVars() throws Z3Exception
+    public boolean isProofElimUnusedVars()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_ELIM_UNUSED_VARS;
     }
@@ -1569,7 +1569,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofDER() throws Z3Exception
+    public boolean isProofDER()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DER;
     }
@@ -1581,7 +1581,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofQuantInst() throws Z3Exception
+    public boolean isProofQuantInst()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INST;
     }
@@ -1593,7 +1593,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofHypothesis() throws Z3Exception
+    public boolean isProofHypothesis()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS;
     }
@@ -1609,7 +1609,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofLemma() throws Z3Exception
+    public boolean isProofLemma()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_LEMMA;
     }
@@ -1620,7 +1620,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofUnitResolution() throws Z3Exception
+    public boolean isProofUnitResolution()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_UNIT_RESOLUTION;
     }
@@ -1632,7 +1632,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofIFFTrue() throws Z3Exception
+    public boolean isProofIFFTrue()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_TRUE;
     }
@@ -1644,7 +1644,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofIFFFalse() throws Z3Exception
+    public boolean isProofIFFFalse()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_FALSE;
     }
@@ -1661,7 +1661,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofCommutativity() throws Z3Exception
+    public boolean isProofCommutativity()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_COMMUTATIVITY;
     }
@@ -1687,7 +1687,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofDefAxiom() throws Z3Exception
+    public boolean isProofDefAxiom()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_AXIOM;
     }
@@ -1710,7 +1710,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofDefIntro() throws Z3Exception
+    public boolean isProofDefIntro()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_INTRO;
     }
@@ -1722,7 +1722,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofApplyDef() throws Z3Exception
+    public boolean isProofApplyDef()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_APPLY_DEF;
     }
@@ -1734,7 +1734,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofIFFOEQ() throws Z3Exception
+    public boolean isProofIFFOEQ()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_OEQ;
     }
@@ -1762,7 +1762,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofNNFPos() throws Z3Exception
+    public boolean isProofNNFPos()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_POS;
     }
@@ -1781,7 +1781,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofNNFNeg() throws Z3Exception
+    public boolean isProofNNFNeg()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_NEG;
     }
@@ -1799,7 +1799,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofNNFStar() throws Z3Exception
+    public boolean isProofNNFStar()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_STAR;
     }
@@ -1814,7 +1814,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofCNFStar() throws Z3Exception
+    public boolean isProofCNFStar()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_CNF_STAR;
     }
@@ -1831,7 +1831,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofSkolemize() throws Z3Exception
+    public boolean isProofSkolemize()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_SKOLEMIZE;
     }
@@ -1844,7 +1844,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofModusPonensOEQ() throws Z3Exception
+    public boolean isProofModusPonensOEQ()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS_OEQ;
     }
@@ -1866,7 +1866,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isProofTheoryLemma() throws Z3Exception
+    public boolean isProofTheoryLemma()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TH_LEMMA;
     }
@@ -1876,7 +1876,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelation() throws Z3Exception
+    public boolean isRelation()
     {
         return (Native.isApp(getContext().nCtx(), getNativeObject()) && Native
                 .getSortKind(getContext().nCtx(),
@@ -1893,7 +1893,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationStore() throws Z3Exception
+    public boolean isRelationStore()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_STORE;
     }
@@ -1903,7 +1903,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isEmptyRelation() throws Z3Exception
+    public boolean isEmptyRelation()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_EMPTY;
     }
@@ -1913,7 +1913,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isIsEmptyRelation() throws Z3Exception
+    public boolean isIsEmptyRelation()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_IS_EMPTY;
     }
@@ -1923,7 +1923,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationalJoin() throws Z3Exception
+    public boolean isRelationalJoin()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_JOIN;
     }
@@ -1935,7 +1935,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationUnion() throws Z3Exception
+    public boolean isRelationUnion()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_UNION;
     }
@@ -1947,7 +1947,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationWiden() throws Z3Exception
+    public boolean isRelationWiden()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_WIDEN;
     }
@@ -1960,7 +1960,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationProject() throws Z3Exception
+    public boolean isRelationProject()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_PROJECT;
     }
@@ -1975,7 +1975,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationFilter() throws Z3Exception
+    public boolean isRelationFilter()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_FILTER;
     }
@@ -1995,7 +1995,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationNegationFilter() throws Z3Exception
+    public boolean isRelationNegationFilter()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_NEGATION_FILTER;
     }
@@ -2007,7 +2007,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationRename() throws Z3Exception
+    public boolean isRelationRename()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_RENAME;
     }
@@ -2017,7 +2017,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationComplement() throws Z3Exception
+    public boolean isRelationComplement()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_COMPLEMENT;
     }
@@ -2031,7 +2031,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationSelect() throws Z3Exception
+    public boolean isRelationSelect()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_SELECT;
     }
@@ -2047,7 +2047,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isRelationClone() throws Z3Exception
+    public boolean isRelationClone()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_CLONE;
     }
@@ -2057,7 +2057,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isFiniteDomain() throws Z3Exception
+    public boolean isFiniteDomain()
     {
         return (Native.isApp(getContext().nCtx(), getNativeObject()) && Native
                 .getSortKind(getContext().nCtx(),
@@ -2070,7 +2070,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a boolean
      **/
-    public boolean isFiniteDomainLT() throws Z3Exception
+    public boolean isFiniteDomainLT()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FD_LT;
     }
@@ -2093,7 +2093,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an int
      **/
-    public int getIndex() throws Z3Exception
+    public int getIndex()
     {
         if (!isVar())
             throw new Z3Exception("Term is not a bound variable.");
@@ -2115,14 +2115,14 @@ public class Expr extends AST
      * Constructor for Expr
      * @throws Z3Exception on error
      **/
-    protected Expr(Context ctx, long obj) throws Z3Exception
+    protected Expr(Context ctx, long obj)
     {
         super(ctx, obj);
         {
         }
     }
 
-    void checkNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj)
     {
         if (!Native.isApp(getContext().nCtx(), obj) && 
             Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_VAR_AST.toInt() &&
@@ -2132,14 +2132,14 @@ public class Expr extends AST
     }
 
     static Expr create(Context ctx, FuncDecl f, Expr ... arguments)
-            throws Z3Exception
+           
     {
         long obj = Native.mkApp(ctx.nCtx(), f.getNativeObject(),
                 AST.arrayLength(arguments), AST.arrayToNative(arguments));
         return create(ctx, obj);
     }
 
-    static Expr create(Context ctx, long obj) throws Z3Exception
+    static Expr create(Context ctx, long obj)
     {
         Z3_ast_kind k = Z3_ast_kind.fromInt(Native.getAstKind(ctx.nCtx(), obj));
         if (k == Z3_ast_kind.Z3_QUANTIFIER_AST)

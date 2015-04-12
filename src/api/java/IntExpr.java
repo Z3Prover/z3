@@ -26,7 +26,7 @@ public class IntExpr extends ArithExpr
      * Constructor for IntExpr
      * @throws Z3Exception on error
      **/
-    IntExpr(Context ctx, long obj) throws Z3Exception
+    IntExpr(Context ctx, long obj)
     {
         super(ctx, obj);
     }
