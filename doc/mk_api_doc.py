@@ -72,7 +72,7 @@ try:
         if (line != '[ML]\n'):
             fo.write(line)
         elif (ML_ENABLED):
-            fo.write('   - <a class="el" href="api/html/ml/index.html">ML/OCaml API</a>\n')
+            fo.write('   - <a class="el" href="ml/index.html">ML/OCaml API</a>\n')
     fi.close()
     fo.close()
 
