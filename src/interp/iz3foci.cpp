@@ -272,7 +272,7 @@ public:
 	}
 	break;
       default:
-	assert("unknown built-in op");
+	assert(false && "unknown built-in op");
       }
     }
     else if(foci->get_int(i,nval)){

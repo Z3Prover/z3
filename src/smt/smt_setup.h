@@ -28,7 +28,7 @@ namespace smt {
     enum config_mode {
         CFG_BASIC,   // install theories based on user options
         CFG_LOGIC,   // install theories and configure Z3 based on the value of the parameter set-logic.
-        CFG_AUTO,    // install theories based on static features of the input formula
+        CFG_AUTO    // install theories based on static features of the input formula
     };
 
     class context;

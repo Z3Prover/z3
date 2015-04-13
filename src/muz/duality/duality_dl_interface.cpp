@@ -327,10 +327,10 @@ lbool dl_interface::query(::expr * query) {
   try {
     ans = rs->Solve();
   }
-  catch (Duality::solver::cancel_exception &exn){
+  catch (const Duality::solver::cancel_exception &){
     throw default_exception("duality canceled");
   }
-  catch (Duality::Solver::Incompleteness &exn){
+  catch (const Duality::Solver::Incompleteness &){
     throw default_exception("incompleteness");
   }
   

@@ -522,7 +522,7 @@ public:
 /**
    The ids of expressions and declarations are in different ranges. 
 */
-const unsigned c_first_decl_id = (1 << 31);
+const unsigned c_first_decl_id = (1u << 31);
 
 /**
    \brief Superclass for function declarations and sorts.
@@ -1143,7 +1143,7 @@ typedef app proof; /* a proof is just an applicaton */
 
 enum label_op_kind {
     OP_LABEL,
-    OP_LABEL_LIT,
+    OP_LABEL_LIT
 };
 
 /**
