@@ -1,21 +1,21 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+  Copyright (c) 2011 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-   iz3interp.h
+  iz3interp.h
 
-Abstract:
+  Abstract:
 
-   Interpolation based on proof translation.
+  Interpolation based on proof translation.
 
-Author:
+  Author:
 
-    Ken McMillan (kenmcmil)
+  Ken McMillan (kenmcmil)
 
-Revision History:
+  Revision History:
 
---*/
+  --*/
 
 #ifndef IZ3_INTERP_H
 #define IZ3_INTERP_H
@@ -26,12 +26,12 @@ Revision History:
 class iz3base;
 
 struct interpolation_options_struct {
-  stl_ext::hash_map<std::string,std::string> map;
+    stl_ext::hash_map<std::string,std::string> map;
 public:
-  void set(const std::string &name, const std::string &value){
-    map[name] = value;
-  }
-  void apply(iz3base &b);
+    void set(const std::string &name, const std::string &value){
+        map[name] = value;
+    }
+    void apply(iz3base &b);
 };
 
 /** This object is thrown if a tree interpolation problem is mal-formed */

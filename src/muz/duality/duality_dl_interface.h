@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2013 Microsoft Corporation
+  Copyright (c) 2013 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    duality_dl_interface.h
+  duality_dl_interface.h
 
-Abstract:
+  Abstract:
 
-    SMT2 interface for Duality
+  SMT2 interface for Duality
 
-Author:
+  Author:
 
-    Krystof Hoder (t-khoder) 2011-9-22.
-    Modified by Ken McMIllan (kenmcmil) 2013-4-18.
+  Krystof Hoder (t-khoder) 2011-9-22.
+  Modified by Ken McMIllan (kenmcmil) 2013-4-18.
 
-Revision History:
+  Revision History:
 
---*/
+  --*/
 
 #ifndef _DUALITY_DL_INTERFACE_H_
 #define _DUALITY_DL_INTERFACE_H_

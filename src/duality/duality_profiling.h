@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+  Copyright (c) 2011 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    duality_profiling.h
+  duality_profiling.h
 
-Abstract:
+  Abstract:
 
-   collection performance information for duality
+  collection performance information for duality
 
-Author:
+  Author:
 
-    Ken McMillan (kenmcmil)
+  Ken McMillan (kenmcmil)
 
-Revision History:
+  Revision History:
 
 
---*/
+  --*/
 
 #ifndef DUALITYPROFILING_H
 #define DUALITYPROFILING_H
@@ -24,14 +24,14 @@ Revision History:
 #include <ostream>
 
 namespace Duality {
-  /** Start a timer with given name */
-  void timer_start(const char *);
-  /** Stop a timer with given name */
-  void timer_stop(const char *);
-  /** Print out timings */
-  void print_profile(std::ostream &s);
-  /** Show the current time. */
-  void show_time();
+    /** Start a timer with given name */
+    void timer_start(const char *);
+    /** Stop a timer with given name */
+    void timer_stop(const char *);
+    /** Print out timings */
+    void print_profile(std::ostream &s);
+    /** Show the current time. */
+    void show_time();
 }
 
 #endif

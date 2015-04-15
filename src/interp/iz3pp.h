@@ -1,21 +1,21 @@
 /*++
-Copyright (c) 2013 Microsoft Corporation
+  Copyright (c) 2013 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-   iz3pp.cpp
+  iz3pp.cpp
 
-Abstract:
+  Abstract:
 
-   Pretty-print interpolation problems
+  Pretty-print interpolation problems
 
-Author:
+  Author:
 
-    Ken McMillan (kenmcmil)
+  Ken McMillan (kenmcmil)
 
-Revision History:
+  Revision History:
 
---*/
+  --*/
 
 #ifndef IZ3_PP_H
 #define IZ3_PP_H
