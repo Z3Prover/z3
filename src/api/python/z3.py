@@ -8480,7 +8480,13 @@ def fpToReal(x):
     return ArithRef(Z3_mk_fpa_to_real(x.ctx_ref(), x.ast), x.ctx)
 
 def fpToIEEEBV(x):
-    """Create a Z3 floating-point conversion expression, from floating-point expression to IEEE bit-vector.
+    """\brief Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format.
+    
+    The size of the resulting bit-vector is automatically determined. 
+    
+    Note that IEEE 754-2008 allows multiple different representations of NaN. This conversion 
+    knows only one NaN and it will always produce the same bit-vector represenatation of 
+    that NaN.
 
     >>> x = FP('x', FPSort(8, 24))
     >>> y = fpToIEEEBV(x)
