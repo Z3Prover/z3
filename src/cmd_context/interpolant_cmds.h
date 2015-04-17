@@ -1,20 +1,20 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+  Copyright (c) 2011 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    interpolant_cmds.h
+  interpolant_cmds.h
 
-Abstract:
-    Commands for interpolation.
+  Abstract:
+  Commands for interpolation.
 
-Author:
+  Author:
 
-    Leonardo (leonardo) 2011-12-23
+  Leonardo (leonardo) 2011-12-23
 
-Notes:
+  Notes:
 
---*/
+  --*/
 #ifndef _INTERPOLANT_CMDS_H_
 #define _INTERPOLANT_CMDS_H_
 
