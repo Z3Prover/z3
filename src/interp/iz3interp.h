@@ -67,7 +67,11 @@ void iz3interpolate(ast_manager &_m_manager,
 		    interpolation_options_struct * options = 0);
 
 /* Compute an interpolant from a proof. This version uses the ast
-   representation, for compatibility with the new API. */
+   representation, for compatibility with the new API. Here, cnsts is
+   a vector of all the assertions in the proof. This can be
+   over-approximated by the set of all assertions in the
+   solver. However, if it is empty it will be reconstructed from the
+   proof, so it can be considered a hint.  */
 
 void iz3interpolate(ast_manager &_m_manager,
 		    ast *proof,
