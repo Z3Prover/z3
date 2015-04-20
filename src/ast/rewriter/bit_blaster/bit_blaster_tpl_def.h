@@ -902,6 +902,7 @@ template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_shl(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
     numeral k;
     if (is_numeral(sz, b_bits, k)) {
+        if (k > numeral(sz)) k = numeral(sz);
         unsigned n = static_cast<unsigned>(k.get_int64());
         if (n >= sz) n = sz;
         unsigned pos; 
@@ -947,6 +948,7 @@ template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_lshr(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
     numeral k;
     if (is_numeral(sz, b_bits, k)) {
+        if (k > numeral(sz)) k = numeral(sz);
         unsigned n   = static_cast<unsigned>(k.get_int64()); 
         unsigned pos = 0;
         for (unsigned i = n; i < sz; pos++, i++)
@@ -989,6 +991,7 @@ template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_ashr(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
     numeral k;
     if (is_numeral(sz, b_bits, k)) {
+        if (k > numeral(sz)) k = numeral(sz);
         unsigned n   = static_cast<unsigned>(k.get_int64()); 
         unsigned pos = 0;
         for (unsigned i = n; i < sz; pos++, i++)
