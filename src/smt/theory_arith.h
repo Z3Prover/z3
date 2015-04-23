@@ -879,22 +879,20 @@ namespace smt {
         void add_tmp_row(row & r1, numeral const & coeff, row const & r2);
         theory_var pick_var_to_leave(bool has_int, theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain, bool& skiped_row);
         bool is_safe_to_leave(theory_var x, bool inc, bool& has_int, bool& is_shared);
-        bool move_to_bound(theory_var x_i, bool inc);
         template<bool invert>
         void add_tmp_row_entry(row & r, numeral const & coeff, theory_var v);
         enum max_min_t { UNBOUNDED, AT_BOUND, OPTIMIZED, BEST_EFFORT};
         max_min_t max_min(theory_var v, bool max, bool& has_shared);
-        max_min_t max_min_orig(row & r, bool max, bool& has_shared);
         bool max_min(svector<theory_var> const & vars);
 
-        max_min_t max_min_new(row& r, bool max, bool& has_shared);
+        max_min_t max_min(row& r, bool max, bool& has_shared);
         bool unbounded_gain(inf_numeral const & max_gain) const;
         bool safe_gain(inf_numeral const& min_gain, inf_numeral const & max_gain) const;
         void normalize_gain(numeral const& divisor, inf_numeral & max_gain) const;
         void init_gains(theory_var x, bool inc, inf_numeral& min_gain, inf_numeral& max_gain);
         bool update_gains(bool inc, theory_var x_i, numeral const& a_ij, 
                           inf_numeral& min_gain, inf_numeral& max_gain);
-        bool move_to_bound_new(theory_var x_i, bool inc, unsigned& best_efforts, bool& has_shared);
+        bool move_to_bound(theory_var x_i, bool inc, unsigned& best_efforts, bool& has_shared);
         bool pick_var_to_leave(
             theory_var x_j, bool inc, numeral & a_ij, 
             inf_numeral& min_gain, inf_numeral& max_gain, 

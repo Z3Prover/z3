@@ -956,20 +956,17 @@ namespace datalog {
     void product_relation::ensure_correct_kind() {
         unsigned rel_cnt = m_relations.size();
         //the rel_cnt==0 part makes us to update the kind also when the relation is newly created
-        bool spec_changed = rel_cnt!=m_spec.size() || rel_cnt==0;
-        if(spec_changed) {
+        bool spec_changed = rel_cnt != m_spec.size() || rel_cnt==0;
+        if (spec_changed) {
             m_spec.resize(rel_cnt);
         }
-        for(unsigned i=0;i<rel_cnt; i++) {
-            family_id rkind=m_relations[i]->get_kind();
-            if(spec_changed || m_spec[i]!=rkind) {
-                spec_changed = true;
-                m_spec[i]=rkind;
-            }
+        for (unsigned i = 0; i < rel_cnt; i++) {
+            family_id rkind = m_relations[i]->get_kind();
+            spec_changed |= (m_spec[i] != rkind);
+            m_spec[i] = rkind;
         }
-        if(spec_changed) {
-            family_id new_kind = get_plugin().get_relation_kind(*this);
-            set_kind(new_kind);
+        if (spec_changed) {
+            set_kind(get_plugin().get_relation_kind(*this));
         }
     }
 
@@ -978,7 +975,7 @@ namespace datalog {
         func_decl* p = 0;
         const relation_signature & sig = get_signature();
         family_id new_kind = get_plugin().get_relation_kind(sig, spec);
-        if(new_kind==get_kind()) {
+        if(new_kind == get_kind()) {
             return;
         }
 
@@ -1001,7 +998,7 @@ namespace datalog {
                 }
             }
             if(!irel) {
-                if(old_sz==0 && m_default_empty) {
+                if(old_sz == 0 && m_default_empty) {
                     //The relation didn't contain any inner relations but it was empty,
                     //so we make the newly added relations empty as well.
                     irel = get_manager().mk_empty_relation(sig, new_kind);
@@ -1018,7 +1015,7 @@ namespace datalog {
         set_kind(new_kind);
         DEBUG_CODE(
             ensure_correct_kind();
-            SASSERT(get_kind()==new_kind);
+            SASSERT(get_kind() == new_kind);
             );
     }
 

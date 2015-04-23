@@ -3879,9 +3879,13 @@ namespace smt {
     bool context::is_shared(enode * n) const {
         n = n->get_root();
         unsigned num_th_vars = n->get_num_th_vars();
+        if (m_manager.is_ite(n->get_owner())) {
+            return true;
+        }
         switch (num_th_vars) {
-        case 0:
+        case 0: {
             return false;
+        }
         case 1: {
             if (m_qmanager->is_shared(n))
                 return true;

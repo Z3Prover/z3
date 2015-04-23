@@ -961,6 +961,7 @@ namespace smt {
     bool theory_arith<Ext>::is_safe_to_leave(theory_var x, bool inc, bool& has_int, bool& shared) {
         
         context& ctx = get_context();
+        ast_manager& m = get_manager();
         shared |= ctx.is_shared(get_enode(x));
         column & c      = m_columns[x];
         typename svector<col_entry>::iterator it  = c.begin_entries();
@@ -1356,154 +1357,6 @@ namespace smt {
     
 
     /**
-       \brief Maximize (Minimize) the given temporary row.
-       Return true if succeeded.
-    */
-    template<typename Ext>
-    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min_orig(row & r, bool max, bool& has_shared) {
-        m_stats.m_max_min++;
-        bool skipped_row = false;
-        has_shared = false;
-
-        SASSERT(valid_assignment());
-
-
-        theory_var x_i = null_theory_var;
-        theory_var x_j = null_theory_var;
-        bool inc       = false;
-        numeral a_ij, curr_a_ij, coeff, curr_coeff;
-        inf_numeral gain, curr_gain;
-#ifdef _TRACE
-        unsigned i = 0;
-#endif
-        max_min_t result;
-        while (true) {
-            x_j = null_theory_var;
-            x_i = null_theory_var;
-            gain.reset();
-            TRACE("opt", tout << "i: " << i << ", max: " << max << "\n"; display_row(tout, r, true); tout << "state:\n"; display(tout); i++;);
-            typename vector<row_entry>::const_iterator it  = r.begin_entries();
-            typename vector<row_entry>::const_iterator end = r.end_entries();
-            for (; it != end; ++it) {  
-                if (!it->is_dead()) {                                                  
-                    theory_var curr_x_j = it->m_var;
-                    SASSERT(is_non_base(curr_x_j));
-                    curr_coeff    = it->m_coeff;
-                    bool curr_inc = curr_coeff.is_pos() ? max : !max; 
-                    bool has_int = false;
-                    if ((curr_inc && at_upper(curr_x_j)) || (!curr_inc && at_lower(curr_x_j)))
-                        continue; // variable cannot be used for max/min.
-                    if (!is_safe_to_leave(curr_x_j, curr_inc, has_int, has_shared)) {
-                        skipped_row = true;
-                        continue;
-                    }
-                    theory_var curr_x_i = pick_var_to_leave(has_int, curr_x_j, curr_inc, curr_a_ij, curr_gain, skipped_row);
-                    if (curr_x_i == null_theory_var) {
-                        TRACE("opt", tout << "unbounded\n";);
-                        // we can increase/decrease curr_x_j as much as we want.
-                        x_i   = null_theory_var; // unbounded
-                        x_j   = curr_x_j;
-                        inc   = curr_inc;
-                        break;
-                    }
-                    else if (curr_gain > gain) {
-                        x_i   = curr_x_i;
-                        x_j   = curr_x_j;
-                        a_ij  = curr_a_ij;
-                        coeff = curr_coeff;
-                        gain  = curr_gain;
-                        inc   = curr_inc;
-                    }
-                    else if (curr_gain.is_zero() && (x_i == null_theory_var || curr_x_i < x_i)) {
-                        x_i   = curr_x_i;
-                        x_j   = curr_x_j;
-                        a_ij  = curr_a_ij;
-                        coeff = curr_coeff;
-                        gain  = curr_gain;
-                        inc   = curr_inc;
-                        // continue
-                    }
-                }
-            }
-            TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << gain << "\n";
-                  tout << "skipped row: " << (skipped_row?"yes":"no") << "\n";
-                  display(tout););
-
-            if (x_j == null_theory_var) {
-                TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);
-                SASSERT(valid_assignment());
-                result = skipped_row?BEST_EFFORT:OPTIMIZED;
-                break; 
-            }
-
-            if (x_i == null_theory_var) {
-                // can increase/decrease x_j as much as we want.
-                if (inc && upper(x_j) && !skipped_row) {
-                    update_value(x_j, upper_bound(x_j) - get_value(x_j));
-                    TRACE("opt", tout << "moved v" << x_j << " to upper bound\n";);
-                    SASSERT(valid_assignment());
-                    continue;
-                }
-                if (!inc && lower(x_j) && !skipped_row) {
-                    update_value(x_j, lower_bound(x_j) - get_value(x_j));
-                    TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
-                    SASSERT(valid_assignment());
-                    continue;
-                }
-                result = skipped_row?BEST_EFFORT:UNBOUNDED;
-                break;
-            }
-
-            if (!is_fixed(x_j) && is_bounded(x_j) && !skipped_row && (upper_bound(x_j) - lower_bound(x_j) <= gain)) {
-                // can increase/decrease x_j up to upper/lower bound.
-                if (inc) {
-                    update_value(x_j, upper_bound(x_j) - get_value(x_j));
-                    TRACE("opt", tout << "moved v" << x_j << " to upper bound\n";);
-                }
-                else {
-                    update_value(x_j, lower_bound(x_j) - get_value(x_j));
-                    TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
-                }
-                SASSERT(valid_assignment());
-                continue;
-            }
-
-            TRACE("opt", tout << "max: " << max << ", x_i: v" << x_i << ", x_j: v" << x_j << ", a_ij: " << a_ij << ", coeff: " << coeff << "\n";
-                  if (upper(x_i)) tout << "upper x_i: " << upper_bound(x_i) << " ";
-                  if (lower(x_i)) tout << "lower x_i: " << lower_bound(x_i) << " ";
-                  tout << "value x_i: " << get_value(x_i) << "\n";
-                  if (upper(x_j)) tout << "upper x_j: " << upper_bound(x_j) << " ";
-                  if (lower(x_j)) tout << "lower x_j: " << lower_bound(x_j) << " ";
-                  tout << "value x_j: " << get_value(x_j) << "\n";
-                  );
-            pivot<true>(x_i, x_j, a_ij, false);
-
-
-            SASSERT(is_non_base(x_i));
-            SASSERT(is_base(x_j));
-
-            bool move_xi_to_lower;
-            if (inc) 
-                move_xi_to_lower = a_ij.is_pos();
-            else
-                move_xi_to_lower = a_ij.is_neg();
-            if (!move_to_bound(x_i, move_xi_to_lower)) {
-                result = BEST_EFFORT;
-                break;
-            }
-
-            row & r2 = m_rows[get_var_row(x_j)];
-            coeff.neg();
-            add_tmp_row(r, coeff, r2);
-            SASSERT(r.get_idx_of(x_j) == -1);
-            SASSERT(valid_assignment());
-        }
-        TRACE("opt", display(tout););
-        return result;
-    }
-
-
-    /**
        \brief Select tightest variable x_i to pivot with x_j. The goal
        is to select a x_i such that the value of x_j is increased
        (decreased) if inc = true (inc = false), and the tableau
@@ -1698,13 +1551,14 @@ namespace smt {
        Return true if succeeded.
     */
     template<typename Ext>
-    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min_new(
+    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(
         row & r, 
         bool max, 
         bool& has_shared) {
         m_stats.m_max_min++;
         unsigned best_efforts = 0;
         bool inc = false;
+        context& ctx = get_context();
 
         SASSERT(valid_assignment());
 
@@ -1715,7 +1569,7 @@ namespace smt {
 #endif
         max_min_t result = OPTIMIZED;
         has_shared = false;
-        unsigned max_efforts = 10 + (get_context().get_random_value() % 20);
+        unsigned max_efforts = 10 + (ctx.get_random_value() % 20);
         while (best_efforts < max_efforts) {
             theory_var x_j = null_theory_var;
             theory_var x_i = null_theory_var;
@@ -1806,8 +1660,13 @@ namespace smt {
                     SASSERT(valid_assignment());
                     continue;
                 }
-                SASSERT(unbounded_gain(max_gain));
-                best_efforts = 0;
+                if (ctx.is_shared(get_enode(x_j))) {
+                    ++best_efforts;
+                }
+                else {
+                    SASSERT(unbounded_gain(max_gain));
+                    best_efforts = 0;
+                }
                 result = UNBOUNDED;
                 break;
             }
@@ -1841,8 +1700,10 @@ namespace smt {
             SASSERT(is_base(x_j));
             
             bool inc_xi = inc?a_ij.is_neg():a_ij.is_pos();
-            if (!move_to_bound_new(x_i, inc_xi, best_efforts, has_shared)) {
-                // break;
+            if (!move_to_bound(x_i, inc_xi, best_efforts, has_shared)) {
+                TRACE("opt", tout << "can't move bound fully\n";);
+                // break;                // break;
+
             }
             
             row & r2 = m_rows[get_var_row(x_j)];
@@ -1863,7 +1724,7 @@ namespace smt {
     */
 
     template<typename Ext>
-    bool theory_arith<Ext>::move_to_bound_new(
+    bool theory_arith<Ext>::move_to_bound(
         theory_var x_i,         // variable to move
         bool inc,               // increment variable or decrement
         unsigned& best_efforts, // is bound move a best effort?
@@ -1900,75 +1761,6 @@ namespace smt {
         return result;
     }
 
-    /**
-       Move the variable x_i maximally towards its bound as long as 
-       bounds of other variables are not violated.
-       Returns false if an integer bound was truncated and no
-       progress was made.
-    */
-
-    template<typename Ext>
-    bool theory_arith<Ext>::move_to_bound(theory_var x_i, bool move_to_lower) {
-        inf_numeral delta, delta_abs;
-        numeral lc(1);
-        
-        if (move_to_lower) {
-            delta = lower_bound(x_i) - get_value(x_i);
-            SASSERT(!delta.is_pos());
-        }
-        else {
-            delta = upper_bound(x_i) - get_value(x_i);
-            SASSERT(!delta.is_neg());
-        }
-
-        TRACE("opt", tout << "Original delta: " << delta << "\n";);
-
-        delta_abs = abs(delta);        
-        //
-        // Decrease absolute value of delta according to bounds on rows where x_i is used.
-        //
-        column & c = m_columns[x_i];
-        typename svector<col_entry>::iterator it  = c.begin_entries();
-        typename svector<col_entry>::iterator end = c.end_entries();
-        for (; it != end && delta_abs.is_pos(); ++it) {
-            if (it->is_dead()) continue;
-            row & r = m_rows[it->m_row_id];
-            theory_var s = r.get_base_var();
-            if (s != null_theory_var && !is_quasi_base(s)) {
-                numeral const & coeff = r[it->m_row_idx].m_coeff;
-                SASSERT(!coeff.is_zero());
-                bool inc_s = coeff.is_pos() ? move_to_lower : !move_to_lower; // NSB: review this..
-                bound * b = get_bound(s, inc_s);
-                if (b) {
-                    inf_numeral delta2 = abs((get_value(s) - b->get_value())/coeff);
-                    if (delta2 < delta_abs) {
-                        delta_abs = delta2;
-                    }
-                }
-                if (is_int(x_i)) {
-                    lc = lcm(lc, denominator(abs(coeff)));
-                }
-            }
-        }
-
-        bool truncated = false;
-        if (is_int(x_i)) {
-            inf_numeral tmp = delta_abs/lc;
-            truncated = !tmp.is_int();
-            delta_abs = lc*floor(tmp);            
-        }
-
-        if (move_to_lower) {
-            delta = -delta_abs;
-        }
-        else {
-            delta = delta_abs;
-        }
-
-        TRACE("opt", tout << "Safe delta: " << delta << "\n";);
-        update_value(x_i, delta);
-        return !truncated || !delta.is_zero();
-    }
 
     /**
        \brief Add an entry to a temporary row.
@@ -2012,7 +1804,7 @@ namespace smt {
                     add_tmp_row_entry<true>(m_tmp_row, it->m_coeff, it->m_var);
             }            
         }
-        max_min_t r = max_min_new(m_tmp_row, max, has_shared);
+        max_min_t r = max_min(m_tmp_row, max, has_shared);
         if (r == OPTIMIZED) {
             TRACE("opt", tout << mk_pp(e, get_manager()) << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););
