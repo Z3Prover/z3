@@ -1581,6 +1581,11 @@ def mk_config():
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
+        elif sysname == 'OpenBSD':
+            CXXFLAGS       = '%s -fno-strict-aliasing -D_OPENBSD_' % CXXFLAGS
+            OS_DEFINES     = '-D_OPENBSD_'
+            SO_EXT         = '.so'
+            SLIBFLAGS      = '-shared'
         elif sysname[:6] ==  'CYGWIN':
             CXXFLAGS    = '%s -D_CYGWIN -fno-strict-aliasing' % CXXFLAGS
             OS_DEFINES     = '-D_CYGWIN'
