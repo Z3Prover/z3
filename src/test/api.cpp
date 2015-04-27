@@ -460,8 +460,9 @@ static void test_mk_distinct() {
   Z3_sort bv8 = Z3_mk_bv_sort(ctx, 8);
   Z3_sort bv32 = Z3_mk_bv_sort(ctx, 32);
   Z3_ast args[] = { Z3_mk_int64(ctx, 0, bv8), Z3_mk_int64(ctx, 0, bv32) };
-  Z3_mk_distinct(ctx, 2, args);
+  Z3_ast d = Z3_mk_distinct(ctx, 2, args);
   SASSERT(cb_called);
+  
 }
 
 void tst_api() {

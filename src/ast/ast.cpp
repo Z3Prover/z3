@@ -1043,6 +1043,13 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_DISTINCT: {
         func_decl_info info(m_family_id, OP_DISTINCT);
         info.set_pairwise();
+        for (unsigned i = 1; i < arity; i++) {        
+            if (domain[i] != domain[0]) {
+                std::ostringstream buffer;
+                buffer << "Sort mismatch between first argument and argument " << (i+1);
+                throw ast_exception(buffer.str().c_str());
+            }
+        }
         return m_manager->mk_func_decl(symbol("distinct"), arity, domain, m_bool_sort, info);
     }
     default:
@@ -2336,6 +2343,10 @@ quantifier * ast_manager::update_quantifier(quantifier * q, bool is_forall, unsi
                          patterns,
                          num_patterns == 0 ? q->get_num_no_patterns() : 0,
                          num_patterns == 0 ? q->get_no_patterns() : 0);
+}
+
+app * ast_manager::mk_distinct(unsigned num_args, expr * const * args) {
+    return mk_app(m_basic_family_id, OP_DISTINCT, num_args, args);
 }
 
 app * ast_manager::mk_distinct_expanded(unsigned num_args, expr * const * args) {

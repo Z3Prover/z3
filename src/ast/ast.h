@@ -2000,7 +2000,7 @@ public:
     app * mk_and(expr * arg1, expr * arg2, expr * arg3) { return mk_app(m_basic_family_id, OP_AND, arg1, arg2, arg3); }
     app * mk_implies(expr * arg1, expr * arg2) { return mk_app(m_basic_family_id, OP_IMPLIES, arg1, arg2); }
     app * mk_not(expr * n) { return mk_app(m_basic_family_id, OP_NOT, n); }
-    app * mk_distinct(unsigned num_args, expr * const * args) { return mk_app(m_basic_family_id, OP_DISTINCT, num_args, args); }
+    app * mk_distinct(unsigned num_args, expr * const * args);
     app * mk_distinct_expanded(unsigned num_args, expr * const * args);
     app * mk_true() { return m_true; }
     app * mk_false() { return m_false; }
