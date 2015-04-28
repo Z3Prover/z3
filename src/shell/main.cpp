@@ -297,7 +297,7 @@ int main(int argc, char ** argv) {
         }
         
         if (g_input_kind == IN_UNSPECIFIED) {
-            g_input_kind = IN_SMTLIB;
+            g_input_kind = IN_SMTLIB_2;
             char const * ext = get_extension(g_input_file);
             if (ext) {
                 if (strcmp(ext, "datalog") == 0 || strcmp(ext, "dl") == 0) {
@@ -337,6 +337,7 @@ int main(int argc, char ** argv) {
         default:
             UNREACHABLE();
         }
+		memory::finalize();
 #ifdef _WINDOWS
         _CrtDumpMemoryLeaks();
 #endif

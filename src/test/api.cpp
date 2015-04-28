@@ -447,9 +447,28 @@ void test_bvneg() {
     Z3_del_context(ctx);    
 }
 
+static bool cb_called = false;
+static void my_cb(Z3_context, Z3_error_code) {
+  cb_called = true;
+}
+
+static void test_mk_distinct() {
+  Z3_config cfg = Z3_mk_config();
+  Z3_context ctx = Z3_mk_context(cfg);
+  Z3_set_error_handler(ctx, my_cb);
+
+  Z3_sort bv8 = Z3_mk_bv_sort(ctx, 8);
+  Z3_sort bv32 = Z3_mk_bv_sort(ctx, 32);
+  Z3_ast args[] = { Z3_mk_int64(ctx, 0, bv8), Z3_mk_int64(ctx, 0, bv32) };
+  Z3_ast d = Z3_mk_distinct(ctx, 2, args);
+  SASSERT(cb_called);
+  
+}
+
 void tst_api() {
     test_apps();
     test_bvneg();
+    test_mk_distinct();
     // bv_invariant();
 }
 #else

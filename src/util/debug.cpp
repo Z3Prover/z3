@@ -76,7 +76,8 @@ void invoke_gdb() {
     for (;;) {
         std::cerr << "(C)ontinue, (A)bort, (S)top, (T)hrow exception, Invoke (G)DB\n";
         char result;
-        std::cin >> result;
+        bool ok = (std::cin >> result);
+        if (!ok) exit(ERR_INTERNAL_FATAL); // happens if std::cin is eof or unattached.
         switch(result) {
         case 'C':
         case 'c':

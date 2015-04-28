@@ -1,21 +1,21 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+  Copyright (c) 2011 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    iz3secondary
+  iz3secondary
 
-Abstract:
+  Abstract:
 
-   Interface for secondary provers.
+  Interface for secondary provers.
 
-Author:
+  Author:
 
-    Ken McMillan (kenmcmil)
+  Ken McMillan (kenmcmil)
 
-Revision History:
+  Revision History:
 
---*/
+  --*/
 
 
 #ifndef IZ3SECONDARY_H
@@ -28,11 +28,11 @@ Revision History:
 
 class iz3secondary : public iz3mgr {
  public:
-  virtual int interpolate(const std::vector<ast> &frames, std::vector<ast> &interpolants) = 0;
-  virtual ~iz3secondary(){}
+    virtual int interpolate(const std::vector<ast> &frames, std::vector<ast> &interpolants) = 0;
+    virtual ~iz3secondary(){}
 
  protected:
-  iz3secondary(const iz3mgr &mgr) : iz3mgr(mgr) {}
+ iz3secondary(const iz3mgr &mgr) : iz3mgr(mgr) {}
 };
 
 

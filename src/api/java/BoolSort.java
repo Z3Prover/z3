@@ -22,6 +22,6 @@ package com.microsoft.z3;
  **/
 public class BoolSort extends Sort
 {
-    BoolSort(Context ctx, long obj) throws Z3Exception { super(ctx, obj); {  }}
-    BoolSort(Context ctx) throws Z3Exception { super(ctx, Native.mkBoolSort(ctx.nCtx())); {  }}
+    BoolSort(Context ctx, long obj) { super(ctx, obj); {  }}
+    BoolSort(Context ctx) { super(ctx, Native.mkBoolSort(ctx.nCtx())); {  }}
 };

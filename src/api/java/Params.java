@@ -26,7 +26,7 @@ public class Params extends Z3Object
     /**
      * Adds a parameter setting.
      **/
-    public void add(Symbol name, boolean value) throws Z3Exception
+    public void add(Symbol name, boolean value)
     {
         Native.paramsSetBool(getContext().nCtx(), getNativeObject(),
                 name.getNativeObject(), (value) ? true : false);
@@ -35,7 +35,7 @@ public class Params extends Z3Object
     /**
      * Adds a parameter setting.
      **/
-    public void add(Symbol name, double value) throws Z3Exception
+    public void add(Symbol name, double value)
     {
         Native.paramsSetDouble(getContext().nCtx(), getNativeObject(),
                 name.getNativeObject(), value);
@@ -44,7 +44,7 @@ public class Params extends Z3Object
     /**
      * Adds a parameter setting.
      **/
-    public void add(Symbol name, String value) throws Z3Exception
+    public void add(Symbol name, String value)
     {
 
         Native.paramsSetSymbol(getContext().nCtx(), getNativeObject(),
@@ -55,7 +55,7 @@ public class Params extends Z3Object
     /**
      * Adds a parameter setting.
      **/
-    public void add(Symbol name, Symbol value) throws Z3Exception
+    public void add(Symbol name, Symbol value)
     {
 
         Native.paramsSetSymbol(getContext().nCtx(), getNativeObject(),
@@ -65,7 +65,7 @@ public class Params extends Z3Object
     /**
      * Adds a parameter setting.
      **/
-    public void add(String name, boolean value) throws Z3Exception
+    public void add(String name, boolean value)
     {
         Native.paramsSetBool(getContext().nCtx(), getNativeObject(), 
                 getContext().mkSymbol(name).getNativeObject(), value);
@@ -74,7 +74,7 @@ public class Params extends Z3Object
     /**
      * Adds a parameter setting.
      **/
-    public void add(String name, int value) throws Z3Exception
+    public void add(String name, int value)
     {
         Native.paramsSetUint(getContext().nCtx(), getNativeObject(), getContext()
                 .mkSymbol(name).getNativeObject(), value);
@@ -83,7 +83,7 @@ public class Params extends Z3Object
     /**
      * Adds a parameter setting.
      **/
-    public void add(String name, double value) throws Z3Exception
+    public void add(String name, double value)
     {
         Native.paramsSetDouble(getContext().nCtx(), getNativeObject(), getContext()
                 .mkSymbol(name).getNativeObject(), value);
@@ -92,7 +92,7 @@ public class Params extends Z3Object
     /**
      * Adds a parameter setting.
      **/
-    public void add(String name, Symbol value) throws Z3Exception
+    public void add(String name, Symbol value)
     {
         Native.paramsSetSymbol(getContext().nCtx(), getNativeObject(), getContext()
                 .mkSymbol(name).getNativeObject(), value.getNativeObject());
@@ -101,7 +101,7 @@ public class Params extends Z3Object
     /**
      * Adds a parameter setting.
      **/
-    public void add(String name, String value) throws Z3Exception
+    public void add(String name, String value)
     {
 
         Native.paramsSetSymbol(getContext().nCtx(), getNativeObject(),
@@ -123,20 +123,20 @@ public class Params extends Z3Object
         }
     }
 
-    Params(Context ctx) throws Z3Exception
+    Params(Context ctx)
     {
         super(ctx, Native.mkParams(ctx.nCtx()));
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
-        getContext().params_DRQ().incAndClear(getContext(), o);
+        getContext().getParamsDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
-        getContext().params_DRQ().add(o);
+        getContext().getParamsDRQ().add(o);
         super.decRef(o);
     }
 }

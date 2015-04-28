@@ -89,7 +89,7 @@ namespace sat {
         clause_vector           m_learned;
         unsigned                m_num_frozen;
         vector<watch_list>      m_watches;
-        svector<lbool>          m_assignment;
+        char_vector             m_assignment;
         svector<justification>  m_justification; 
         svector<char>           m_decision;
         svector<char>           m_mark;
@@ -200,8 +200,8 @@ namespace sat {
         bool is_external(bool_var v) const { return m_external[v] != 0; }
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
         unsigned scope_lvl() const { return m_scope_lvl; }
-        lbool value(literal l) const { return m_assignment[l.index()]; }
-        lbool value(bool_var v) const { return m_assignment[literal(v, false).index()]; }
+        lbool value(literal l) const { return static_cast<lbool>(m_assignment[l.index()]); }
+        lbool value(bool_var v) const { return static_cast<lbool>(m_assignment[literal(v, false).index()]); }
         unsigned lvl(bool_var v) const { return m_level[v]; }
         unsigned lvl(literal l) const { return m_level[l.var()]; }
         void assign(literal l, justification j) {

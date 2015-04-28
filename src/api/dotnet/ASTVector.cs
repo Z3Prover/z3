@@ -25,7 +25,7 @@ namespace Microsoft.Z3
     /// <summary>
     /// Vectors of ASTs.
     /// </summary>
-    internal class ASTVector : Z3Object
+    public class ASTVector : Z3Object
     {
         /// <summary>
         /// The size of the vector
@@ -105,12 +105,14 @@ namespace Microsoft.Z3
 
         internal class DecRefQueue : IDecRefQueue
         {
-            public override void IncRef(Context ctx, IntPtr obj)
+            public DecRefQueue() : base() { }
+            public DecRefQueue(uint move_limit) : base(move_limit) { }
+            internal override void IncRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_ast_vector_inc_ref(ctx.nCtx, obj);
             }
 
-            public override void DecRef(Context ctx, IntPtr obj)
+            internal override void DecRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_ast_vector_dec_ref(ctx.nCtx, obj);
             }

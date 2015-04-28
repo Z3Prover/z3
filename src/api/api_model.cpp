@@ -663,7 +663,7 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
-    char const * Z3_API Z3_model_to_string(Z3_context c, Z3_model m) {
+    Z3_API char const * Z3_model_to_string(Z3_context c, Z3_model m) {
         Z3_TRY;
         LOG_Z3_model_to_string(c, m);
         RESET_ERROR_CODE();

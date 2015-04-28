@@ -22,20 +22,21 @@ package com.microsoft.z3;
  **/
 public class BoolExpr extends Expr
 {
-	/**
-	 * Constructor for BoolExpr </summary>
-	 **/
-	protected BoolExpr(Context ctx)
-	{
-		super(ctx);
-	}
+    /**
+     * Constructor for BoolExpr
+     **/
+    protected BoolExpr(Context ctx)
+    {
+        super(ctx);
+    }
 
-	/**
-	 * Constructor for BoolExpr </summary>
-	 * @throws Z3Exception 
-	 **/
-	BoolExpr(Context ctx, long obj) throws Z3Exception
-	{
-		super(ctx, obj);
-	}
+    /**
+     * Constructor for BoolExpr
+     * @throws Z3Exception 
+     * @throws Z3Exception on error
+     **/
+    BoolExpr(Context ctx, long obj)
+    {
+        super(ctx, obj);
+    }
 }

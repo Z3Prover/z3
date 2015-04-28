@@ -32,11 +32,6 @@ namespace Microsoft.Z3
     {
         #region Internal
         /// <summary> Constructor for RealExpr </summary>
-        internal protected RealExpr(Context ctx)
-            : base(ctx)
-        {
-            Contract.Requires(ctx != null);
-        }
         internal RealExpr(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {

@@ -26,7 +26,7 @@ public class TupleSort extends Sort
      * The constructor function of the tuple.
      * @throws Z3Exception 
      **/
-    public FuncDecl mkDecl() throws Z3Exception
+    public FuncDecl mkDecl()
     {
 
         return new FuncDecl(getContext(), Native.getTupleSortMkDecl(getContext()
@@ -36,7 +36,7 @@ public class TupleSort extends Sort
     /**
      * The number of fields in the tuple.
      **/
-    public int getNumFields() throws Z3Exception
+    public int getNumFields()
     {
         return Native.getTupleSortNumFields(getContext().nCtx(), getNativeObject());
     }
@@ -45,7 +45,7 @@ public class TupleSort extends Sort
      * The field declarations.
      * @throws Z3Exception 
      **/
-    public FuncDecl[] getFieldDecls() throws Z3Exception
+    public FuncDecl[] getFieldDecls()
     {
 
         int n = getNumFields();
@@ -57,9 +57,9 @@ public class TupleSort extends Sort
     }
 
     TupleSort(Context ctx, Symbol name, int numFields, Symbol[] fieldNames,
-            Sort[] fieldSorts) throws Z3Exception
+            Sort[] fieldSorts)
     {
-        super(ctx);
+        super(ctx, 0);
 
         Native.LongPtr t = new Native.LongPtr();
         setNativeObject(Native.mkTupleSort(ctx.nCtx(), name.getNativeObject(),

@@ -27,7 +27,7 @@ public class RatNum extends RealExpr
     /**
      * The numerator of a rational numeral.
      **/
-    public IntNum getNumerator() throws Z3Exception
+    public IntNum getNumerator()
     {
         return new IntNum(getContext(), Native.getNumerator(getContext().nCtx(),
                 getNativeObject()));
@@ -36,7 +36,7 @@ public class RatNum extends RealExpr
     /**
      * The denominator of a rational numeral.
      **/
-    public IntNum getDenominator() throws Z3Exception
+    public IntNum getDenominator()
     {
         return new IntNum(getContext(), Native.getDenominator(getContext().nCtx(),
                 getNativeObject()));
@@ -45,7 +45,7 @@ public class RatNum extends RealExpr
     /**
      * Converts the numerator of the rational to a BigInteger
      **/
-    public BigInteger getBigIntNumerator() throws Z3Exception
+    public BigInteger getBigIntNumerator()
     {
         IntNum n = getNumerator();
         return new BigInteger(n.toString());
@@ -54,17 +54,18 @@ public class RatNum extends RealExpr
     /**
      * Converts the denominator of the rational to a BigInteger
      **/
-    public BigInteger getBigIntDenominator() throws Z3Exception
+    public BigInteger getBigIntDenominator()
     {
         IntNum n = getDenominator();
         return new BigInteger(n.toString());
     }
 
     /**
-     * Returns a string representation in decimal notation. <remarks>The result
-     * has at most <paramref name="precision"/> decimal places.</remarks>
+     * Returns a string representation in decimal notation.
+     * Remarks: The result
+     * has at most {@code precision} decimal places.
      **/
-    public String toDecimalString(int precision) throws Z3Exception
+    public String toDecimalString(int precision)
     {
         return Native.getNumeralDecimalString(getContext().nCtx(), getNativeObject(),
                 precision);
@@ -84,7 +85,7 @@ public class RatNum extends RealExpr
         }
     }
 
-    RatNum(Context ctx, long obj) throws Z3Exception
+    RatNum(Context ctx, long obj)
     {
         super(ctx, obj);
     }

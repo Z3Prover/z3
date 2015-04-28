@@ -19,6 +19,16 @@ package com.microsoft.z3;
 
 class ParamDescrsDecRefQueue extends IDecRefQueue
 {
+    public ParamDescrsDecRefQueue() 
+    {
+        super();
+    }
+
+    public ParamDescrsDecRefQueue(int move_limit) 
+    {
+        super(move_limit);
+    }
+
     protected void incRef(Context ctx, long obj)
     {
         try

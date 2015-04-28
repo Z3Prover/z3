@@ -19,6 +19,16 @@ package com.microsoft.z3;
 
 class ApplyResultDecRefQueue extends IDecRefQueue
 {
+    public ApplyResultDecRefQueue() 
+    {
+        super();
+    }
+
+    public ApplyResultDecRefQueue(int move_limit) 
+    {
+        super(move_limit);
+    }
+
     protected void incRef(Context ctx, long obj)
     {
         try

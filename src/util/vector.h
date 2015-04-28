@@ -71,18 +71,12 @@ class vector {
             SZ old_capacity_T = sizeof(T) * old_capacity + sizeof(SZ) * 2;
             SZ new_capacity = (3 * old_capacity + 1) >> 1;
             SZ new_capacity_T = sizeof(T) * new_capacity + sizeof(SZ) * 2;
-            SZ size         = reinterpret_cast<SZ *>(m_data)[SIZE_IDX];
             if (new_capacity <= old_capacity || new_capacity_T <= old_capacity_T) {
                 throw default_exception("Overflow encountered when expanding vector");
             }
-            SZ * mem        = reinterpret_cast<SZ*>(memory::allocate(new_capacity_T));
-            *mem                  = new_capacity; 
-            mem ++;
-            *mem                  = size;         
-            mem++;
-            memcpy(mem, m_data, size * sizeof(T));
-            free_memory();
-            m_data                = reinterpret_cast<T *>(mem);
+            SZ *mem = (SZ*)memory::reallocate(reinterpret_cast<SZ*>(m_data)-2, new_capacity_T);
+            *mem    = new_capacity;
+            m_data  = reinterpret_cast<T *>(mem + 2);
         }
     }
 

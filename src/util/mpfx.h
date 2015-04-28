@@ -25,6 +25,7 @@ Revision History:
 #include"z3_exception.h"
 #include"scoped_numeral.h"
 #include"scoped_numeral_vector.h"
+#include"mpn.h"
 
 class mpfx_manager;
 
@@ -83,6 +84,7 @@ class mpfx_manager {
     unsigned_vector   m_buffer0, m_buffer1, m_buffer2;
     unsigned_vector   m_tmp_digits;
     mpfx              m_one;
+    mpn_manager       m_mpn_manager;
 
     unsigned * words(mpfx const & n) const { return m_words.c_ptr() + (n.m_sig_idx * m_total_sz); }
     unsigned sz(unsigned * ws) const;

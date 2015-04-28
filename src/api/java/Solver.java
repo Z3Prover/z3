@@ -27,7 +27,7 @@ public class Solver extends Z3Object
     /**
      * A string that describes all available solver parameters.
      **/
-    public String getHelp() throws Z3Exception
+    public String getHelp()
     {
         return Native.solverGetHelp(getContext().nCtx(), getNativeObject());
     }
@@ -37,7 +37,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void setParameters(Params value) throws Z3Exception
+    public void setParameters(Params value)
     {
         getContext().checkContextMatch(value);
         Native.solverSetParams(getContext().nCtx(), getNativeObject(),
@@ -49,53 +49,59 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public ParamDescrs getParameterDescriptions() throws Z3Exception
+    public ParamDescrs getParameterDescriptions()
     {
         return new ParamDescrs(getContext(), Native.solverGetParamDescrs(
                 getContext().nCtx(), getNativeObject()));
     }
 
     /**
-     * The current number of backtracking points (scopes). <seealso cref="Pop"/>
-     * <seealso cref="Push"/>
+     * The current number of backtracking points (scopes). 
+     * @see pop 
+     * @see push
      **/
-    public int getNumScopes() throws Z3Exception
+    public int getNumScopes()
     {
         return Native
                 .solverGetNumScopes(getContext().nCtx(), getNativeObject());
     }
 
     /**
-     * Creates a backtracking point. <seealso cref="Pop"/>
+     * Creates a backtracking point. 
+     * @see pop
      **/
-    public void push() throws Z3Exception
+    public void push()
     {
         Native.solverPush(getContext().nCtx(), getNativeObject());
     }
 
     /**
-     * Backtracks one backtracking point. <remarks>.
+     * Backtracks one backtracking point.
+     * Remarks: .
      **/
-    public void pop() throws Z3Exception
+    public void pop()
     {
         pop(1);
     }
 
     /**
-     * Backtracks <paramref name="n"/> backtracking points. <remarks>Note that
-     * an exception is thrown if <paramref name="n"/> is not smaller than
-     * <code>NumScopes</code></remarks> <seealso cref="Push"/>
+     * Backtracks {@code n} backtracking points.
+     * Remarks: Note that
+     * an exception is thrown if {@code n} is not smaller than
+     * {@code NumScopes} 
+     * @see push
      **/
-    public void pop(int n) throws Z3Exception
+    public void pop(int n)
     {
         Native.solverPop(getContext().nCtx(), getNativeObject(), n);
     }
 
     /**
-     * Resets the Solver. <remarks>This removes all assertions from the
-     * solver.</remarks>
+     * Resets the Solver.
+     * Remarks: This removes all assertions from the
+     * solver.
      **/
-    public void reset() throws Z3Exception
+    public void reset()
     {
         Native.solverReset(getContext().nCtx(), getNativeObject());
     }
@@ -105,7 +111,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void add(BoolExpr... constraints) throws Z3Exception
+    public void add(BoolExpr... constraints)
     {
         getContext().checkContextMatch(constraints);
         for (BoolExpr a : constraints)
@@ -115,21 +121,21 @@ public class Solver extends Z3Object
         }
     }
 
-    // / <summary>
-    // / Assert multiple constraints into the solver, and track them (in the
-    // unsat) core
-    // / using the Boolean constants in ps.
-    // / </summary>
-    // / <remarks>
-    // / This API is an alternative to <see cref="Check"/> with assumptions for
-    // extracting unsat cores.
-    // / Both APIs can be used in the same solver. The unsat core will contain a
-    // combination
-    // / of the Boolean variables provided using <see cref="AssertAndTrack"/>
-    // and the Boolean literals
-    // / provided using <see cref="Check"/> with assumptions.
-    // / </remarks>
-    public void assertAndTrack(BoolExpr[] constraints, BoolExpr[] ps) throws Z3Exception
+    /** 
+     *  Assert multiple constraints into the solver, and track them (in the
+     * unsat) core
+     * using the Boolean constants in ps.
+     *
+     * Remarks: 
+     * This API is an alternative to <see cref="Check"/> with assumptions for
+     * extracting unsat cores.
+     * Both APIs can be used in the same solver. The unsat core will contain a
+     * combination
+     * of the Boolean variables provided using <see cref="AssertAndTrack"/>
+     * and the Boolean literals
+     * provided using <see cref="Check"/> with assumptions.
+     **/
+    public void assertAndTrack(BoolExpr[] constraints, BoolExpr[] ps)
     {
         getContext().checkContextMatch(constraints);
         getContext().checkContextMatch(ps);
@@ -141,20 +147,20 @@ public class Solver extends Z3Object
                     constraints[i].getNativeObject(), ps[i].getNativeObject());
     }
 
-    // / <summary>
-    // / Assert a constraint into the solver, and track it (in the unsat) core
-    // / using the Boolean constant p.
-    // / </summary>
-    // / <remarks>
-    // / This API is an alternative to <see cref="Check"/> with assumptions for
-    // extracting unsat cores.
-    // / Both APIs can be used in the same solver. The unsat core will contain a
-    // combination
-    // / of the Boolean variables provided using <see cref="AssertAndTrack"/>
-    // and the Boolean literals
-    // / provided using <see cref="Check"/> with assumptions.
-    // / </remarks>
-    public void assertAndTrack(BoolExpr constraint, BoolExpr p) throws Z3Exception
+    /** 
+     * Assert a constraint into the solver, and track it (in the unsat) core
+     * using the Boolean constant p.
+     * 
+     * Remarks: 
+     * This API is an alternative to <see cref="Check"/> with assumptions for
+     * extracting unsat cores.
+     * Both APIs can be used in the same solver. The unsat core will contain a
+     * combination
+     * of the Boolean variables provided using <see cref="AssertAndTrack"/>
+     * and the Boolean literals
+     * provided using <see cref="Check"/> with assumptions.
+     */ 
+    public void assertAndTrack(BoolExpr constraint, BoolExpr p)
     {
         getContext().checkContextMatch(constraint);
         getContext().checkContextMatch(p);
@@ -168,11 +174,11 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public int getNumAssertions() throws Z3Exception
+    public int getNumAssertions()
     {
-        ASTVector ass = new ASTVector(getContext(), Native.solverGetAssertions(
+        ASTVector assrts = new ASTVector(getContext(), Native.solverGetAssertions(
                 getContext().nCtx(), getNativeObject()));
-        return ass.size();
+        return assrts.size();
     }
 
     /**
@@ -180,23 +186,25 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public BoolExpr[] getAssertions() throws Z3Exception
+    public BoolExpr[] getAssertions()
     {
-        ASTVector ass = new ASTVector(getContext(), Native.solverGetAssertions(
+        ASTVector assrts = new ASTVector(getContext(), Native.solverGetAssertions(
                 getContext().nCtx(), getNativeObject()));
-        int n = ass.size();
+        int n = assrts.size();
         BoolExpr[] res = new BoolExpr[n];
         for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(getContext(), ass.get(i).getNativeObject());
+            res[i] = new BoolExpr(getContext(), assrts.get(i).getNativeObject());
         return res;
     }
 
     /**
      * Checks whether the assertions in the solver are consistent or not.
-     * <remarks> <seealso cref="Model"/> <seealso cref="UnsatCore"/> <seealso
-     * cref="Proof"/> </remarks>
+     * Remarks:  
+     * @see getModel
+     * @see getUnsatCore
+     * @see getProof 
      **/
-    public Status check(Expr... assumptions) throws Z3Exception
+    public Status check(Expr... assumptions)
     {
         Z3_lbool r;
         if (assumptions == null)
@@ -219,23 +227,26 @@ public class Solver extends Z3Object
 
     /**
      * Checks whether the assertions in the solver are consistent or not.
-     * <remarks> <seealso cref="Model"/> <seealso cref="UnsatCore"/> <seealso
-     * cref="Proof"/> </remarks>
+     * Remarks:  
+     * @see getModel
+     * @see getUnsatCore
+     * @see getProof 
      **/
-    public Status check() throws Z3Exception
+    public Status check()
     {
         return check((Expr[]) null);
     }
 
     /**
-     * The model of the last <code>Check</code>. <remarks> The result is
-     * <code>null</code> if <code>Check</code> was not invoked before, if its
-     * results was not <code>SATISFIABLE</code>, or if model production is not
-     * enabled. </remarks>
+     * The model of the last {@code Check}.
+     * Remarks:  The result is
+     * {@code null} if {@code Check} was not invoked before, if its
+     * results was not {@code SATISFIABLE}, or if model production is not
+     * enabled. 
      * 
      * @throws Z3Exception
      **/
-    public Model getModel() throws Z3Exception
+    public Model getModel()
     {
         long x = Native.solverGetModel(getContext().nCtx(), getNativeObject());
         if (x == 0)
@@ -245,14 +256,15 @@ public class Solver extends Z3Object
     }
 
     /**
-     * The proof of the last <code>Check</code>. <remarks> The result is
-     * <code>null</code> if <code>Check</code> was not invoked before, if its
-     * results was not <code>UNSATISFIABLE</code>, or if proof production is
-     * disabled. </remarks>
+     * The proof of the last {@code Check}.
+     * Remarks:  The result is
+     * {@code null} if {@code Check} was not invoked before, if its
+     * results was not {@code UNSATISFIABLE}, or if proof production is
+     * disabled. 
      * 
      * @throws Z3Exception
      **/
-    public Expr getProof() throws Z3Exception
+    public Expr getProof()
     {
         long x = Native.solverGetProof(getContext().nCtx(), getNativeObject());
         if (x == 0)
@@ -262,14 +274,15 @@ public class Solver extends Z3Object
     }
 
     /**
-     * The unsat core of the last <code>Check</code>. <remarks> The unsat core
-     * is a subset of <code>Assertions</code> The result is empty if
-     * <code>Check</code> was not invoked before, if its results was not
-     * <code>UNSATISFIABLE</code>, or if core production is disabled. </remarks>
+     * The unsat core of the last {@code Check}.
+     * Remarks:  The unsat core
+     * is a subset of {@code Assertions} The result is empty if
+     * {@code Check} was not invoked before, if its results was not
+     * {@code UNSATISFIABLE}, or if core production is disabled. 
      * 
      * @throws Z3Exception
      **/
-    public Expr[] getUnsatCore() throws Z3Exception
+    public Expr[] getUnsatCore()
     {
 
         ASTVector core = new ASTVector(getContext(), Native.solverGetUnsatCore(
@@ -282,10 +295,10 @@ public class Solver extends Z3Object
     }
 
     /**
-     * A brief justification of why the last call to <code>Check</code> returned
-     * <code>UNKNOWN</code>.
+     * A brief justification of why the last call to {@code Check} returned
+     * {@code UNKNOWN}.
      **/
-    public String getReasonUnknown() throws Z3Exception
+    public String getReasonUnknown()
     {
         return Native.solverGetReasonUnknown(getContext().nCtx(),
                 getNativeObject());
@@ -296,7 +309,7 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Statistics getStatistics() throws Z3Exception
+    public Statistics getStatistics()
     {
         return new Statistics(getContext(), Native.solverGetStatistics(
                 getContext().nCtx(), getNativeObject()));
@@ -317,20 +330,20 @@ public class Solver extends Z3Object
         }
     }
 
-    Solver(Context ctx, long obj) throws Z3Exception
+    Solver(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
-        getContext().solver_DRQ().incAndClear(getContext(), o);
+        getContext().getSolverDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
-        getContext().solver_DRQ().add(o);
+        getContext().getSolverDRQ().add(o);
         super.decRef(o);
     }
 }

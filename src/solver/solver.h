@@ -72,7 +72,7 @@ public:
 
     /**
        \brief Add a new formula \c t to the assertion stack, and "tag" it with \c a.
-       The propositional varialbe \c a is used to track the use of \c t in a proof
+       The propositional variable \c a is used to track the use of \c t in a proof
        of unsatisfiability.
     */
     virtual void assert_expr(expr * t, expr * a) = 0;
@@ -124,6 +124,16 @@ public:
        \brief Return the assertion at position idx in the assertion stack.
     */
     virtual expr * get_assertion(unsigned idx) const;
+
+    /**
+    \brief The number of tracked assumptions (see assert_expr(t, a)).
+    */
+    virtual unsigned get_num_assumptions() const = 0;
+
+    /**
+    \brief Retrieves the idx'th tracked assumption (see assert_expr(t, a)).
+    */
+    virtual expr * get_assumption(unsigned idx) const = 0;
 
     /**
        \brief Display the content of this solver.

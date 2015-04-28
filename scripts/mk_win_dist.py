@@ -39,7 +39,7 @@ def mk_dir(d):
         os.makedirs(d)
 
 def set_build_dir(path):
-    global BUILD_DIR
+    global BUILD_DIR, BUILD_X86_DIR, BUILD_X64_DIR
     BUILD_DIR = path
     BUILD_X86_DIR = os.path.join(path, 'x86')
     BUILD_X64_DIR = os.path.join(path, 'x64')
@@ -47,16 +47,16 @@ def set_build_dir(path):
     mk_dir(BUILD_X64_DIR)
 
 def display_help():
-    print "mk_win_dist.py: Z3 Windows distribution generator\n"
-    print "This script generates the zip files containing executables, dlls, header files for Windows."
-    print "It must be executed from the Z3 root directory."
-    print "\nOptions:"
-    print "  -h, --help                    display this message."
-    print "  -s, --silent                  do not print verbose messages."
-    print "  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist)."
-    print "  -f, --force                   force script to regenerate Makefiles."
-    print "  --nojava                      do not include Java bindings in the binary distribution files."
-    print "  --githash                     include git hash in the Zip file."
+    print("mk_win_dist.py: Z3 Windows distribution generator\n")
+    print("This script generates the zip files containing executables, dlls, header files for Windows.")
+    print("It must be executed from the Z3 root directory.")
+    print("\nOptions:")
+    print("  -h, --help                    display this message.")
+    print("  -s, --silent                  do not print verbose messages.")
+    print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
+    print("  -f, --force                   force script to regenerate Makefiles.")
+    print("  --nojava                      do not include Java bindings in the binary distribution files.")
+    print("  --githash                     include git hash in the Zip file.")
     exit(0)
 
 # Parse configuration option for mk_make script
@@ -180,7 +180,7 @@ def mk_dist_dir_core(x64):
         mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_win_dist(build_path, dist_path)
     if is_verbose():
-        print "Generated %s distribution folder at '%s'" % (platform, dist_path)
+        print("Generated %s distribution folder at '%s'") % (platform, dist_path)
 
 def mk_dist_dir():
     mk_dist_dir_core(False)
@@ -208,7 +208,7 @@ def mk_zip_core(x64):
         ZIPOUT = zipfile.ZipFile(zfname, 'w', zipfile.ZIP_DEFLATED)
         os.path.walk(dist_path, mk_zip_visitor, '*')
         if is_verbose():
-            print "Generated '%s'" % zfname
+            print("Generated '%s'") % zfname
     except:
         pass
     ZIPOUT = None
@@ -253,7 +253,7 @@ def cp_vs_runtime_core(x64):
     for f in VS_RUNTIME_FILES:
         shutil.copy(f, bin_dist_path)
         if is_verbose():
-            print "Copied '%s' to '%s'" % (f, bin_dist_path)
+            print("Copied '%s' to '%s'") % (f, bin_dist_path)
 
 def cp_vs_runtime():
     cp_vs_runtime_core(True)

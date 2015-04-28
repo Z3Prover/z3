@@ -22,16 +22,11 @@ package com.microsoft.z3;
  **/
 public class ArithExpr extends Expr
 {
-	/**
-	 * Constructor for ArithExpr </summary>
-	 **/
-	protected ArithExpr(Context ctx)
-	{
-		super(ctx);
-	}
-
-	ArithExpr(Context ctx, long obj) throws Z3Exception
-	{
-		super(ctx, obj);
-	}
+    /**
+     * Constructor for ArithExpr
+     **/
+    ArithExpr(Context ctx, long obj)
+    {
+        super(ctx, obj);
+    }
 }

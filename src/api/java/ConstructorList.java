@@ -22,25 +22,26 @@ package com.microsoft.z3;
  **/
 public class ConstructorList extends Z3Object
 {
-	/**
-	 * Destructor.
-	 **/
-	protected void finalize() throws Z3Exception
-	{
-		Native.delConstructorList(getContext().nCtx(), getNativeObject());
-	}
+    /**
+     * Destructor.
+     * @throws Z3Exception on error
+     **/
+    protected void finalize()
+    {
+        Native.delConstructorList(getContext().nCtx(), getNativeObject());
+    }
 
-	ConstructorList(Context ctx, long obj) throws Z3Exception
-	{
-		super(ctx, obj);
-	}
+    ConstructorList(Context ctx, long obj)
+    {
+        super(ctx, obj);
+    }
 
-	ConstructorList(Context ctx, Constructor[] constructors) throws Z3Exception
-	{
-		super(ctx);
+    ConstructorList(Context ctx, Constructor[] constructors)
+    {
+        super(ctx);
 
-		setNativeObject(Native.mkConstructorList(getContext().nCtx(),
-				(int) constructors.length,
-				Constructor.arrayToNative(constructors)));
-	}
+        setNativeObject(Native.mkConstructorList(getContext().nCtx(),
+                (int) constructors.length,
+                Constructor.arrayToNative(constructors)));
+    }
 }

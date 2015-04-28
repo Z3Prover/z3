@@ -18,17 +18,18 @@ Notes:
 package com.microsoft.z3;
 
 /**
- * Interaction logging for Z3. <remarks> Note that this is a global, static log
+ * Interaction logging for Z3.
+     * Remarks:  Note that this is a global, static log
  * and if multiple Context objects are created, it logs the interaction with all
- * of them. </remarks>
+ * of them. 
  **/
 public final class Log
 {
     private static boolean m_is_open = false;
 
     /**
-     * Open an interaction log file. <param name="filename">the name of the file
-     * to open</param>
+     * Open an interaction log file. 
+     * @param filename the name of the file to open
      * 
      * @return True if opening the log file succeeds, false otherwise.
      **/
@@ -48,11 +49,11 @@ public final class Log
     }
 
     /**
-     * Appends the user-provided string <paramref name="s"/> to the interaction
+     * Appends the user-provided string {@code s} to the interaction
      * log.
      * @throws Z3Exception 
      **/
-    public static void append(String s) throws Z3Exception
+    public static void append(String s)
     {
         if (!m_is_open)
             throw new Z3Exception("Log cannot be closed.");

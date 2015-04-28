@@ -25,25 +25,26 @@ import com.microsoft.z3.enumerations.Z3_symbol_kind;
 public class StringSymbol extends Symbol
 {
     /**
-     * The string value of the symbol. <remarks>Throws an exception if the
-     * symbol is not of string kind.</remarks>
+     * The string value of the symbol.
+     * Remarks: Throws an exception if the
+     * symbol is not of string kind.
      **/
-    public String getString() throws Z3Exception
+    public String getString()
     {
         return Native.getSymbolString(getContext().nCtx(), getNativeObject());
     }
 
-    StringSymbol(Context ctx, long obj) throws Z3Exception
+    StringSymbol(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    StringSymbol(Context ctx, String s) throws Z3Exception
+    StringSymbol(Context ctx, String s)
     {
         super(ctx, Native.mkStringSymbol(ctx.nCtx(), s));
     }
 
-    void checkNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj)
     {
         if (Native.getSymbolKind(getContext().nCtx(), obj) != Z3_symbol_kind.Z3_STRING_SYMBOL
                 .toInt())

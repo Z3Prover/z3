@@ -194,6 +194,8 @@ typedef enum
     Z3_DATATYPE_SORT,
     Z3_RELATION_SORT,
     Z3_FINITE_DOMAIN_SORT,
+    Z3_FLOATING_POINT_SORT,
+    Z3_ROUNDING_MODE_SORT,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -767,7 +769,7 @@ typedef enum
          - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test.
 
 
-      - Z3_OP_PR_HYPER_RESOLVE: Hyper-resolution rule.
+    - Z3_OP_PR_HYPER_RESOLVE: Hyper-resolution rule.
 
         The premises of the rules is a sequence of clauses.
         The first clause argument is the main clause of the rule.
@@ -875,6 +877,90 @@ typedef enum
 
       - Z3_OP_DT_ACCESSOR: datatype accessor.
 
+      - Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: Floating-point rounding mode RNE
+      
+      - Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: Floating-point rounding mode RNA
+      
+      - Z3_OP_FPA_RM_TOWARD_POSITIVE: Floating-point rounding mode RTP
+      
+      - Z3_OP_FPA_RM_TOWARD_NEGATIVE: Floating-point rounding mode RTN
+      
+      - Z3_OP_FPA_RM_TOWARD_ZERO: Floating-point rounding mode RTZ
+
+      - Z3_OP_FPA_NUM: Floating-point value
+      
+      - Z3_OP_FPA_PLUS_INF: Floating-point +oo
+      
+      - Z3_OP_FPA_MINUS_INF: Floating-point -oo
+      
+      - Z3_OP_FPA_NAN: Floating-point NaN
+      
+      - Z3_OP_FPA_PLUS_ZERO: Floating-point +zero
+      
+      - Z3_OP_FPA_MINUS_ZERO: Floating-point -zero
+
+      - Z3_OP_FPA_ADD: Floating-point addition
+      
+      - Z3_OP_FPA_SUB: Floating-point subtraction
+      
+      - Z3_OP_FPA_NEG: Floating-point negation
+
+      - Z3_OP_FPA_MUL: Floating-point multiplication
+      
+      - Z3_OP_FPA_DIV: Floating-point division
+      
+      - Z3_OP_FPA_REM: Floating-point remainder
+      
+      - Z3_OP_FPA_ABS: Floating-point absolute value
+      
+      - Z3_OP_FPA_MIN: Floating-point minimum
+
+      - Z3_OP_FPA_MAX: Floating-point maximum
+
+      - Z3_OP_FPA_FMA: Floating-point fused multiply-add
+      
+      - Z3_OP_FPA_SQRT: Floating-point square root
+      
+      - Z3_OP_FPA_ROUND_TO_INTEGRAL: Floating-point round to integral
+
+      - Z3_OP_FPA_EQ: Floating-point equality 
+
+      - Z3_OP_FPA_LT: Floating-point less than
+      
+      - Z3_OP_FPA_GT: Floating-point greater than
+      
+      - Z3_OP_FPA_LE: Floating-point less than or equal
+      
+      - Z3_OP_FPA_GE: Floating-point greater than or equal
+
+      - Z3_OP_FPA_IS_NAN: Floating-point isNaN
+      
+      - Z3_OP_FPA_IS_INF: Floating-point isInfinite
+
+      - Z3_OP_FPA_IS_ZERO: Floating-point isZero
+
+      - Z3_OP_FPA_IS_NORMAL: Floating-point isNormal
+
+      - Z3_OP_FPA_IS_SUBNORMAL: Floating-point isSubnormal      
+
+      - Z3_OP_FPA_IS_NEGATIVE: Floating-point isNegative
+
+      - Z3_OP_FPA_IS_POSITIVE: Floating-point isPositive
+
+      - Z3_OP_FPA_FP: Floating-point constructor from 3 bit-vectors
+
+      - Z3_OP_FPA_TO_FP: Floating-point conversion (various)
+
+      - Z3_OP_FPA_TO_FP_UNSIGNED: Floating-point conversion from unsigend bit-vector
+      
+      - Z3_OP_FPA_TO_UBV: Floating-point conversion to unsigned bit-vector
+
+      - Z3_OP_FPA_TO_SBV: Floating-point conversion to signed bit-vector
+      
+      - Z3_OP_FPA_TO_REAL: Floating-point conversion to real number
+
+      - Z3_OP_FPA_TO_IEEE_BV: Floating-point conversion to IEEE-754 bit-vector
+      
       - Z3_OP_UNINTERPRETED: kind used for uninterpreted symbols.
 */
 typedef enum {
@@ -1055,6 +1141,55 @@ typedef enum {
     Z3_OP_DT_CONSTRUCTOR=0x800,
     Z3_OP_DT_RECOGNISER,
     Z3_OP_DT_ACCESSOR,
+
+    // Floating-Point Arithmetic
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN,
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY,
+    Z3_OP_FPA_RM_TOWARD_POSITIVE,
+    Z3_OP_FPA_RM_TOWARD_NEGATIVE,
+    Z3_OP_FPA_RM_TOWARD_ZERO,
+
+    Z3_OP_FPA_NUM,
+    Z3_OP_FPA_PLUS_INF,
+    Z3_OP_FPA_MINUS_INF,
+    Z3_OP_FPA_NAN,
+    Z3_OP_FPA_PLUS_ZERO,
+    Z3_OP_FPA_MINUS_ZERO,
+
+    Z3_OP_FPA_ADD,
+    Z3_OP_FPA_SUB,
+    Z3_OP_FPA_NEG,
+    Z3_OP_FPA_MUL,
+    Z3_OP_FPA_DIV,
+    Z3_OP_FPA_REM,
+    Z3_OP_FPA_ABS,
+    Z3_OP_FPA_MIN,
+    Z3_OP_FPA_MAX,
+    Z3_OP_FPA_FMA,
+    Z3_OP_FPA_SQRT,
+    Z3_OP_FPA_ROUND_TO_INTEGRAL,
+
+    Z3_OP_FPA_EQ,
+    Z3_OP_FPA_LT,
+    Z3_OP_FPA_GT,
+    Z3_OP_FPA_LE,
+    Z3_OP_FPA_GE,
+    Z3_OP_FPA_IS_NAN,
+    Z3_OP_FPA_IS_INF,
+    Z3_OP_FPA_IS_ZERO,
+    Z3_OP_FPA_IS_NORMAL,
+    Z3_OP_FPA_IS_SUBNORMAL,
+    Z3_OP_FPA_IS_NEGATIVE,
+    Z3_OP_FPA_IS_POSITIVE,
+
+    Z3_OP_FPA_FP,
+    Z3_OP_FPA_TO_FP,
+    Z3_OP_FPA_TO_FP_UNSIGNED,
+    Z3_OP_FPA_TO_UBV,
+    Z3_OP_FPA_TO_SBV,
+    Z3_OP_FPA_TO_REAL,
+
+    Z3_OP_FPA_TO_IEEE_BV,
 
     Z3_OP_UNINTERPRETED         
 } Z3_decl_kind;
@@ -1698,8 +1833,7 @@ extern "C" {
     /**
        \brief Create the real type. 
 
-       This type is not a floating point number.
-       Z3 does not have support for floating point numbers yet.
+       Note that this type is not a floating point number.
 
        def_API('Z3_mk_real_sort', SORT, (_in(CONTEXT), ))
     */
@@ -3988,6 +4122,12 @@ END_MLAPI_EXCLUDE
 
     /**
         \brief Return a unique identifier for \c t.
+        The identifier is unique up to structural equality. Thus, two ast nodes
+        created by the same context and having the same children and same function symbols
+        have the same identifiers. Ast nodes created in the same context, but having
+        different children or different functions have different identifiers.
+        Variables and quantifiers are also assigned different identifiers according to
+        their structure.        
         \mlonly \remark Implicitly used by [Pervasives.compare] for values of type [ast], [app], [sort], [func_decl], and [pattern]. \endmlonly
 
         def_API('Z3_get_ast_id', UINT, (_in(CONTEXT), _in(AST)))
@@ -3996,6 +4136,8 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return a hash code for the given AST.
+       The hash code is structural. You can use Z3_get_ast_id interchangably with 
+       this function.
        \mlonly \remark Implicitly used by [Hashtbl.hash] for values of type [ast], [app], [sort], [func_decl], and [pattern]. \endmlonly
 
        def_API('Z3_get_ast_hash', UINT, (_in(CONTEXT), _in(AST)))

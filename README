@@ -39,3 +39,6 @@ Remark: clang does not support OpenMP yet.
    CXX=clang++ CC=clang python scripts/mk_make.py
    cd build
    make
+
+
+To clean Z3 you can delete the build directory and run the mk_make.py script again.

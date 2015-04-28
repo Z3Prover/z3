@@ -866,6 +866,9 @@ namespace z3 {
         friend expr operator|(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) | b; }
 
         friend expr operator~(expr const & a) { Z3_ast r = Z3_mk_bvnot(a.ctx(), a); return expr(a.ctx(), r); }
+        expr extract(unsigned hi, unsigned lo) const { Z3_ast r = Z3_mk_extract(ctx(), hi, lo, *this); return expr(ctx(), r); }
+        unsigned lo() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 1)); } 
+        unsigned hi() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 0)); } 
 
         /**
            \brief Return a simplified version of this expression.
@@ -1314,6 +1317,26 @@ namespace z3 {
         expr_vector assertions() const { Z3_ast_vector r = Z3_solver_get_assertions(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }
         expr proof() const { Z3_ast r = Z3_solver_get_proof(ctx(), m_solver); check_error(); return expr(ctx(), r); }
         friend std::ostream & operator<<(std::ostream & out, solver const & s) { out << Z3_solver_to_string(s.ctx(), s); return out; }
+
+        std::string to_smt2(char const* status = "unknown") {
+            array<Z3_ast> es(assertions());
+            Z3_ast const* fmls = es.ptr();
+            Z3_ast fml = 0;
+            unsigned sz = es.size();
+            if (sz > 0) {
+                --sz;
+                fml = fmls[sz];
+            }
+            else {
+                fml = ctx().bool_val(true);
+            }
+            return std::string(Z3_benchmark_to_smtlib_string(
+                                   ctx(),
+                                   "", "", status, "", 
+                                   sz, 
+                                   fmls, 
+                                   fml));
+        }
     };
 
     class goal : public object {
