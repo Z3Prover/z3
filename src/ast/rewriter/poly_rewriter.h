@@ -26,8 +26,6 @@ Notes:
 
 template<typename Config>
 class poly_rewriter : public Config {
-public:
-    static char const * g_ste_blowup_msg;
 protected:
     typedef typename Config::numeral numeral; 
     sort *   m_curr_sort;

@@ -36,7 +36,7 @@ extern "C" {
         RESET_ERROR_CODE(); 
         mk_c(c)->reset_last_result();
         ast_manager& m = mk_c(c)->m();
-        datatype_util dt_util(m);
+        datatype_util& dt_util = mk_c(c)->dtutil();
 
         sort_ref_vector tuples(m);
         sort* tuple;
@@ -102,7 +102,7 @@ extern "C" {
         RESET_ERROR_CODE();
         mk_c(c)->reset_last_result();
         ast_manager& m = mk_c(c)->m();
-        datatype_util dt_util(m);
+        datatype_util& dt_util = mk_c(c)->dtutil();
 
         sort_ref_vector sorts(m);
         sort* e;
@@ -451,7 +451,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_VALID_AST(t, 0);
         sort * _t = to_sort(t);
-        datatype_util dt_util(mk_c(c)->m());
+        datatype_util& dt_util = mk_c(c)->dtutil();
         
         if (!dt_util.is_datatype(_t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
@@ -470,13 +470,13 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_VALID_AST(t, 0);   
         sort * _t = to_sort(t);
-        datatype_util dt_util(mk_c(c)->m());
+        datatype_util& dt_util = mk_c(c)->dtutil();
         if (!dt_util.is_datatype(_t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
         ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
-        if (!decls || idx >= decls->size()) {
+        if (idx >= decls->size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
@@ -499,16 +499,16 @@ extern "C" {
         LOG_Z3_get_datatype_sort_recognizer(c, t, idx);
         RESET_ERROR_CODE();   
         sort * _t = to_sort(t);
-        datatype_util dt_util(mk_c(c)->m());
+        datatype_util& dt_util = mk_c(c)->dtutil();
         
         if (!dt_util.is_datatype(_t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
         ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
-        if (!decls || idx >= decls->size()) {
+        if (idx >= decls->size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);                        
+            return 0;
         }
         func_decl* decl = (*decls)[idx];
         decl = dt_util.get_constructor_recognizer(decl);
@@ -522,16 +522,16 @@ extern "C" {
         LOG_Z3_get_datatype_sort_constructor_accessor(c, t, idx_c, idx_a);
         RESET_ERROR_CODE();  
         sort * _t = to_sort(t);
-        datatype_util dt_util(mk_c(c)->m());
+        datatype_util& dt_util = mk_c(c)->dtutil();
         
         if (!dt_util.is_datatype(_t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);            
         }
         ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
-        if (!decls || idx_c >= decls->size()) {
+        if (idx_c >= decls->size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);                        
+            return 0;
         }
         func_decl* decl = (*decls)[idx_c];
         if (decl->get_arity() <= idx_a) {
@@ -555,7 +555,7 @@ extern "C" {
         LOG_Z3_get_tuple_sort_mk_decl(c, t);
         RESET_ERROR_CODE();  
         sort * tuple = to_sort(t);
-        datatype_util dt_util(mk_c(c)->m());
+        datatype_util& dt_util = mk_c(c)->dtutil();
         if (!dt_util.is_datatype(tuple) || dt_util.is_recursive(tuple) || dt_util.get_datatype_num_constructors(tuple) != 1) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
@@ -570,7 +570,7 @@ extern "C" {
         LOG_Z3_get_tuple_sort_num_fields(c, t);
         RESET_ERROR_CODE();   
         sort * tuple = to_sort(t);
-        datatype_util dt_util(mk_c(c)->m());
+        datatype_util& dt_util = mk_c(c)->dtutil();
         if (!dt_util.is_datatype(tuple) || dt_util.is_recursive(tuple) || dt_util.get_datatype_num_constructors(tuple) != 1) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;            
@@ -593,7 +593,7 @@ extern "C" {
         LOG_Z3_get_tuple_sort_field_decl(c, t, i);
         RESET_ERROR_CODE();  
         sort * tuple = to_sort(t);
-        datatype_util dt_util(mk_c(c)->m());
+        datatype_util& dt_util = mk_c(c)->dtutil();
         if (!dt_util.is_datatype(tuple) || dt_util.is_recursive(tuple) || dt_util.get_datatype_num_constructors(tuple) != 1) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);

@@ -23,25 +23,22 @@ package com.microsoft.z3;
 public class BitVecExpr extends Expr
 {
 
-	/**
-	 * The size of the sort of a bit-vector term.
-	 * @throws Z3Exception 
-	 **/
-	public int getSortSize() throws Z3Exception
-	{
-		return ((BitVecSort) getSort()).getSize();
-	}
+    /**
+     * The size of the sort of a bit-vector term.
+     * @throws Z3Exception 
+     * @throws Z3Exception on error
+     * @return an int
+     **/
+    public int getSortSize()
+    {
+        return ((BitVecSort) getSort()).getSize();
+    }
 
-	/**
-	 * Constructor for BitVecExpr </summary>
-	 **/
-	BitVecExpr(Context ctx)
-	{
-		super(ctx);
-	}
-
-	BitVecExpr(Context ctx, long obj) throws Z3Exception
-	{
-		super(ctx, obj);
-	}
+    /**
+     * Constructor for BitVecExpr
+     **/
+    BitVecExpr(Context ctx, long obj)
+    {
+        super(ctx, obj);
+    }
 }

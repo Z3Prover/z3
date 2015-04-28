@@ -21,7 +21,7 @@ package com.microsoft.z3;
 
 public class IDisposable
 {
-	public void dispose() throws Z3Exception
-	{
-	}
+    public void dispose()
+    {
+    }
 }

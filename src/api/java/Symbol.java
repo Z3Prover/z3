@@ -27,7 +27,7 @@ public class Symbol extends Z3Object
     /**
      * The kind of the symbol (int or string)
      **/
-    protected Z3_symbol_kind getKind() throws Z3Exception
+    protected Z3_symbol_kind getKind()
     {
         return Z3_symbol_kind.fromInt(Native.getSymbolKind(getContext().nCtx(),
                 getNativeObject()));
@@ -36,7 +36,7 @@ public class Symbol extends Z3Object
     /**
      * Indicates whether the symbol is of Int kind
      **/
-    public boolean isIntSymbol() throws Z3Exception
+    public boolean isIntSymbol()
     {
         return getKind() == Z3_symbol_kind.Z3_INT_SYMBOL;
     }
@@ -44,7 +44,7 @@ public class Symbol extends Z3Object
     /**
      * Indicates whether the symbol is of string kind.
      **/
-    public boolean isStringSymbol() throws Z3Exception
+    public boolean isStringSymbol()
     {
         return getKind() == Z3_symbol_kind.Z3_STRING_SYMBOL;
     }
@@ -72,12 +72,12 @@ public class Symbol extends Z3Object
     /**
      * Symbol constructor
      **/
-    protected Symbol(Context ctx, long obj) throws Z3Exception
+    protected Symbol(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    static Symbol create(Context ctx, long obj) throws Z3Exception
+    static Symbol create(Context ctx, long obj)
     {
         switch (Z3_symbol_kind.fromInt(Native.getSymbolKind(ctx.nCtx(), obj)))
         {

@@ -26,7 +26,7 @@ public class Pattern extends AST
     /**
      * The number of terms in the pattern.
      **/
-    public int getNumTerms() throws Z3Exception
+    public int getNumTerms()
     {
         return Native.getPatternNumTerms(getContext().nCtx(), getNativeObject());
     }
@@ -36,7 +36,7 @@ public class Pattern extends AST
      * 
      * @throws Z3Exception
      **/
-    public Expr[] getTerms() throws Z3Exception
+    public Expr[] getTerms()
     {
 
         int n = getNumTerms();
@@ -61,7 +61,7 @@ public class Pattern extends AST
         }
     }
 
-    Pattern(Context ctx, long obj) throws Z3Exception
+    Pattern(Context ctx, long obj)
     {
         super(ctx, obj);
     }

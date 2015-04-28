@@ -178,8 +178,9 @@ public:
 
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
         m_check_sat_executed  = true;
-
-        if (num_assumptions > 0 || // assumptions were provided
+        
+        if (get_num_assumptions() != 0 ||            
+            num_assumptions > 0 || // assumptions were provided
             m_ignore_solver1)  {
             // must use incremental solver
             switch_inc_mode();
@@ -239,6 +240,16 @@ public:
 
     virtual expr * get_assertion(unsigned idx) const {
         return m_solver1->get_assertion(idx);
+    }
+
+    virtual unsigned get_num_assumptions() const {
+        return m_solver1->get_num_assumptions() + m_solver2->get_num_assumptions();
+    }
+
+    virtual expr * get_assumption(unsigned idx) const {
+        unsigned c1 = m_solver1->get_num_assumptions();
+        if (idx < c1) return m_solver1->get_assumption(idx);
+        return m_solver2->get_assumption(idx - c1);
     }
 
     virtual void display(std::ostream & out) const {

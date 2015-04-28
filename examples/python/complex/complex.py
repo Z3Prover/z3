@@ -46,6 +46,15 @@ class ComplexExpr:
         other = _to_complex(other)
         return ComplexExpr(other.r*self.r - other.i*self.i, other.i*self.r + other.r*self.i)
 
+    def __pow__(self, k):
+	if k == 0:
+	    return ComplexExpr(1, 0)
+	if k == 1:
+	    return self
+	if k < 0:
+	    return (self ** (-k)).inv()
+	return reduce(lambda x, y: x * y, [self for _ in xrange(k)], ComplexExpr(1, 0))
+
     def inv(self):
         den = self.r*self.r + self.i*self.i
         return ComplexExpr(self.r/den, -self.i/den)
@@ -64,9 +73,6 @@ class ComplexExpr:
 
     def __neq__(self, other):
         return Not(self.__eq__(other))
-
-    def __pow__(self, k):
-        
 
     def simplify(self):
         return ComplexExpr(simplify(self.r), simplify(self.i))
@@ -107,4 +113,5 @@ print(s.model())
 s.add(x.i != 1)
 print(s.check())
 # print(s.model())
-print (3 + I)^2/(5 - I)
+print ((3 + I) ** 2)/(5 - I)
+print ((3 + I) ** -3)/(5 - I)

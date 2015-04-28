@@ -13,7 +13,7 @@ namespace Microsoft.Z3
     /// <remarks>For more information on interpolation please refer
     /// too the C/C++ API, which is well documented.</remarks>
     [ContractVerification(true)]
-    class InterpolationContext : Context
+    public class InterpolationContext : Context
     {
 
         /// <summary>
@@ -47,7 +47,7 @@ namespace Microsoft.Z3
         /// <remarks>For more information on interpolation please refer
         /// too the function Z3_get_interpolant in the C/C++ API, which is 
         /// well documented.</remarks>
-        Expr[] GetInterpolant(Expr pf, Expr pat, Params p)
+        public Expr[] GetInterpolant(Expr pf, Expr pat, Params p)
         {
             Contract.Requires(pf != null);
             Contract.Requires(pat != null);
@@ -72,7 +72,7 @@ namespace Microsoft.Z3
         /// <remarks>For more information on interpolation please refer
         /// too the function Z3_compute_interpolant in the C/C++ API, which is 
         /// well documented.</remarks>
-        Z3_lbool ComputeInterpolant(Expr pat, Params p, out ASTVector interp, out Model model)
+        public Z3_lbool ComputeInterpolant(Expr pat, Params p, out ASTVector interp, out Model model)
         {
             Contract.Requires(pat != null);
             Contract.Requires(p != null);

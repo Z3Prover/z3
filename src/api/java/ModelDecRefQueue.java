@@ -19,6 +19,16 @@ package com.microsoft.z3;
 
 class ModelDecRefQueue extends IDecRefQueue
 {
+    public ModelDecRefQueue() 
+    {
+        super();
+    }
+
+    public ModelDecRefQueue(int move_limit) 
+    {
+        super(move_limit);
+    }
+
     protected void incRef(Context ctx, long obj)
     {
         try

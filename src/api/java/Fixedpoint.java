@@ -28,7 +28,7 @@ public class Fixedpoint extends Z3Object
     /**
      * A string that describes all available fixedpoint solver parameters.
      **/
-    public String getHelp() throws Z3Exception
+    public String getHelp()
     {
         return Native.fixedpointGetHelp(getContext().nCtx(), getNativeObject());
     }
@@ -38,7 +38,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void setParameters(Params value) throws Z3Exception
+    public void setParameters(Params value)
     {
 
         getContext().checkContextMatch(value);
@@ -51,7 +51,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public ParamDescrs getParameterDescriptions() throws Z3Exception
+    public ParamDescrs getParameterDescriptions()
     {
         return new ParamDescrs(getContext(), Native.fixedpointGetParamDescrs(
                 getContext().nCtx(), getNativeObject()));
@@ -62,7 +62,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void add(BoolExpr ... constraints) throws Z3Exception
+    public void add(BoolExpr ... constraints)
     {
         getContext().checkContextMatch(constraints);
         for (BoolExpr a : constraints)
@@ -77,7 +77,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void registerRelation(FuncDecl f) throws Z3Exception
+    public void registerRelation(FuncDecl f)
     {
 
         getContext().checkContextMatch(f);
@@ -90,7 +90,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void addRule(BoolExpr rule, Symbol name) throws Z3Exception
+    public void addRule(BoolExpr rule, Symbol name)
     {
 
         getContext().checkContextMatch(rule);
@@ -103,7 +103,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void addFact(FuncDecl pred, int ... args) throws Z3Exception
+    public void addFact(FuncDecl pred, int ... args)
     {
         getContext().checkContextMatch(pred);
         Native.fixedpointAddFact(getContext().nCtx(), getNativeObject(),
@@ -119,7 +119,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Status query(BoolExpr query) throws Z3Exception
+    public Status query(BoolExpr query)
     {
 
         getContext().checkContextMatch(query);
@@ -144,7 +144,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Status query(FuncDecl[] relations) throws Z3Exception
+    public Status query(FuncDecl[] relations)
     {
 
         getContext().checkContextMatch(relations);
@@ -163,19 +163,22 @@ public class Fixedpoint extends Z3Object
     }
 
     /**
-     * Creates a backtracking point. <seealso cref="Pop"/>
+     * Creates a backtracking point. 
+     * @see pop
      **/
-    public void push() throws Z3Exception
+    public void push()
     {
         Native.fixedpointPush(getContext().nCtx(), getNativeObject());
     }
 
     /**
-     * Backtrack one backtracking point. <remarks>Note that an exception is
-     * thrown if Pop is called without a corresponding <code>Push</code>
-     * </remarks> <seealso cref="Push"/>
+     * Backtrack one backtracking point.
+     * Remarks: Note that an exception is thrown if {@code pop} 
+     * is called without a corresponding {@code push}
+     *  
+     * @see push
      **/
-    public void pop() throws Z3Exception
+    public void pop()
     {
         Native.fixedpointPop(getContext().nCtx(), getNativeObject());
     }
@@ -185,7 +188,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void updateRule(BoolExpr rule, Symbol name) throws Z3Exception
+    public void updateRule(BoolExpr rule, Symbol name)
     {
 
         getContext().checkContextMatch(rule);
@@ -199,7 +202,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Expr getAnswer() throws Z3Exception
+    public Expr getAnswer()
     {
         long ans = Native.fixedpointGetAnswer(getContext().nCtx(), getNativeObject());
         return (ans == 0) ? null : Expr.create(getContext(), ans);
@@ -208,7 +211,7 @@ public class Fixedpoint extends Z3Object
     /**
      * Retrieve explanation why fixedpoint engine returned status Unknown.
      **/
-    public String getReasonUnknown() throws Z3Exception
+    public String getReasonUnknown()
     {
 
         return Native.fixedpointGetReasonUnknown(getContext().nCtx(),
@@ -218,7 +221,7 @@ public class Fixedpoint extends Z3Object
     /**
      * Retrieve the number of levels explored for a given predicate.
      **/
-    public int getNumLevels(FuncDecl predicate) throws Z3Exception
+    public int getNumLevels(FuncDecl predicate)
     {
         return Native.fixedpointGetNumLevels(getContext().nCtx(), getNativeObject(),
                 predicate.getNativeObject());
@@ -229,7 +232,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Expr getCoverDelta(int level, FuncDecl predicate) throws Z3Exception
+    public Expr getCoverDelta(int level, FuncDecl predicate)
     {
         long res = Native.fixedpointGetCoverDelta(getContext().nCtx(),
                 getNativeObject(), level, predicate.getNativeObject());
@@ -241,7 +244,7 @@ public class Fixedpoint extends Z3Object
      * at <tt>level</tt>.
      **/
     public void addCover(int level, FuncDecl predicate, Expr property)
-            throws Z3Exception
+           
     {
         Native.fixedpointAddCover(getContext().nCtx(), getNativeObject(), level,
                 predicate.getNativeObject(), property.getNativeObject());
@@ -266,7 +269,7 @@ public class Fixedpoint extends Z3Object
      * Instrument the Datalog engine on which table representation to use for
      * recursive predicate.
      **/
-    public void setPredicateRepresentation(FuncDecl f, Symbol[] kinds) throws Z3Exception
+    public void setPredicateRepresentation(FuncDecl f, Symbol[] kinds)
     {
 
         Native.fixedpointSetPredicateRepresentation(getContext().nCtx(),
@@ -278,7 +281,7 @@ public class Fixedpoint extends Z3Object
     /**
      * Convert benchmark given as set of axioms, rules and queries to a string.
      **/
-    public String toString(BoolExpr[] queries) throws Z3Exception
+    public String toString(BoolExpr[] queries)
     {
 
         return Native.fixedpointToString(getContext().nCtx(), getNativeObject(),
@@ -290,7 +293,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public BoolExpr[] getRules() throws Z3Exception
+    public BoolExpr[] getRules()
     {
 
         ASTVector v = new ASTVector(getContext(), Native.fixedpointGetRules(
@@ -307,7 +310,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public BoolExpr[] getAssertions() throws Z3Exception
+    public BoolExpr[] getAssertions()
     {
 
         ASTVector v = new ASTVector(getContext(), Native.fixedpointGetAssertions(
@@ -319,25 +322,25 @@ public class Fixedpoint extends Z3Object
         return res;
     }
 
-    Fixedpoint(Context ctx, long obj) throws Z3Exception
+    Fixedpoint(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    Fixedpoint(Context ctx) throws Z3Exception
+    Fixedpoint(Context ctx)
     {
         super(ctx, Native.mkFixedpoint(ctx.nCtx()));
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
-        getContext().fixedpoint_DRQ().incAndClear(getContext(), o);
+        getContext().getFixedpointDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
-        getContext().fixedpoint_DRQ().add(o);
+        getContext().getFixedpointDRQ().add(o);
         super.decRef(o);
     }
 }

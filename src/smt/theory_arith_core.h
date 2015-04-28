@@ -336,8 +336,9 @@ namespace smt {
     theory_var theory_arith<Ext>::internalize_rem(app * n) {
         theory_var s  = mk_binary_op(n);
         context & ctx = get_context();
-        if (!ctx.relevancy())
+        if (!ctx.relevancy()) {
             mk_rem_axiom(n->get_arg(0), n->get_arg(1));
+        }
         return s;
     }
 
@@ -456,22 +457,20 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_rem_axiom(expr * dividend, expr * divisor) {
-        if (!m_util.is_zero(divisor)) {
-            // if divisor is zero, then rem is an uninterpreted function.
-            ast_manager & m    = get_manager();
-            expr * zero        = m_util.mk_numeral(rational(0), true);
-            expr * rem         = m_util.mk_rem(dividend, divisor);
-            expr * mod         = m_util.mk_mod(dividend, divisor);
-            expr_ref dltz(m), eq1(m), eq2(m);
-            dltz               = m_util.mk_lt(divisor, zero);
-            eq1                = m.mk_eq(rem, mod);
-            eq2                = m.mk_eq(rem, m_util.mk_sub(zero, mod));
-            // n < 0 || rem(a,n) = mod(a, n)
-            mk_axiom(dltz, eq1);
-            dltz               = m.mk_not(dltz);
-            // !n < 0 || rem(a,n) = -mod(a, n)
-            mk_axiom(dltz, eq2);
-        }
+        // if divisor is zero, then rem is an uninterpreted function.
+        ast_manager & m    = get_manager();
+        expr * zero        = m_util.mk_numeral(rational(0), true);
+        expr * rem         = m_util.mk_rem(dividend, divisor);
+        expr * mod         = m_util.mk_mod(dividend, divisor);
+        expr_ref dltz(m), eq1(m), eq2(m);
+        dltz               = m_util.mk_lt(divisor, zero);
+        eq1                = m.mk_eq(rem, mod);
+        eq2                = m.mk_eq(rem, m_util.mk_sub(zero, mod));
+        // n < 0 || rem(a,n) = mod(a, n)
+        mk_axiom(dltz, eq1);
+        dltz               = m.mk_not(dltz);
+        // !n < 0 || rem(a,n) = -mod(a, n)
+        mk_axiom(dltz, eq2);        
     }
 
     //
@@ -565,11 +564,9 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_numeral(app * n) {
         rational _val;
-        context & ctx = get_context();
-        bool flag = m_util.is_numeral(n, _val);
+        VERIFY(m_util.is_numeral(n, _val));
         numeral val(_val);
-        SASSERT(flag);
-        SASSERT(!ctx.e_internalized(n));
+        SASSERT(!get_context().e_internalized(n));
         enode * e    = mk_enode(n);
         // internalizer is marking enodes as interpreted whenever the associated ast is a value and a constant.
         // e->mark_as_interpreted();
@@ -3118,8 +3115,7 @@ namespace smt {
         del_vars(get_old_num_vars(num_scopes));
         m_scopes.shrink(new_lvl);
         theory::pop_scope_eh(num_scopes);
-        bool r = make_feasible();
-        SASSERT(r);
+        VERIFY(make_feasible());
         SASSERT(m_to_patch.empty());
         m_to_check.reset();
         m_in_to_check.reset();

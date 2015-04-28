@@ -19,6 +19,16 @@ package com.microsoft.z3;
 
 class FuncInterpDecRefQueue extends IDecRefQueue
 {
+    public FuncInterpDecRefQueue() 
+    {
+        super();
+    }
+
+    public FuncInterpDecRefQueue(int move_limit) 
+    {
+        super(move_limit);
+    }
+
     protected void incRef(Context ctx, long obj)
     {
         try

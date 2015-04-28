@@ -30,6 +30,7 @@ Revision History:
 #include"theory_dummy.h"
 #include"theory_dl.h"
 #include"theory_seq_empty.h"
+#include"theory_fpa.h"
 
 namespace smt {
 
@@ -112,6 +113,10 @@ namespace smt {
             setup_UFLRA();
         else if (m_logic == "LRA")
             setup_LRA();
+        else if (m_logic == "QF_FP")
+            setup_QF_FP();
+        else if (m_logic == "QF_FPBV")
+            setup_QF_FPBV();
         else
             setup_unknown();
     }
@@ -679,6 +684,16 @@ namespace smt {
         setup_mi_arith();
     }
 
+    void setup::setup_QF_FP() {
+        setup_QF_BV();
+        m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
+    }
+
+    void setup::setup_QF_FPBV() {
+        setup_QF_BV();
+        m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
+    }
+
     bool is_arith(static_features const & st) {
         return st.m_num_arith_ineqs > 0 || st.m_num_arith_terms > 0 || st.m_num_arith_eqs > 0;
     }
@@ -780,6 +795,11 @@ namespace smt {
         m_context.register_plugin(alloc(theory_seq_empty, m_manager));
     }
 
+    void setup::setup_fpa() {
+        setup_bv();
+        m_context.register_plugin(alloc(theory_fpa, m_manager));
+    }
+
     void setup::setup_unknown() {
         setup_arith();
         setup_arrays();
@@ -787,6 +807,7 @@ namespace smt {
         setup_datatypes();
         setup_dl();
         setup_seq();
+        setup_fpa();
     }
 
     void setup::setup_unknown(static_features & st) {
@@ -798,6 +819,7 @@ namespace smt {
                 setup_AUFLIA(false);
             setup_datatypes();
             setup_bv();
+            setup_fpa();
             return;
         }
 
@@ -808,7 +830,10 @@ namespace smt {
               tout << "is_arith: " << is_arith(st) << "\n";
               tout << "has UF: " << st.has_uf() << "\n";
               tout << "has real: " << st.m_has_real << "\n";
-              tout << "has int: " << st.m_has_int << "\n";);
+              tout << "has int: " << st.m_has_int << "\n";
+              tout << "has bv: " << st.m_has_bv << "\n";
+              tout << "has fpa: " << st.m_has_fpa << "\n"; 
+              tout << "has arrays: " << st.m_has_arrays << "\n";);
 
         if (st.num_non_uf_theories() == 0) {
             setup_QF_UF(st);
@@ -851,7 +876,36 @@ namespace smt {
             return;
         }
 
-        // TODO QF_BV, QF_AUFBV, QF_AUFLIA
+        if (st.num_theories() == 1 && st.m_has_bv) {
+            setup_QF_BV();
+            return;
+        }
+
+        if (st.num_theories() == 1 && st.m_has_fpa) {
+            setup_QF_FP();
+            return;
+        }
+
+        if (st.num_theories() == 2 && st.m_has_fpa && st.m_has_bv) {
+            setup_QF_FPBV();
+            return;
+        }
+
+        if (st.num_theories() == 1 && st.m_has_arrays) {
+            setup_QF_AX();
+            return;
+        }
+
+        if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_bv) {
+            setup_QF_AUFBV();
+            return;
+        }
+
+        if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_int) {
+            setup_QF_AUFLIA();
+            return;
+        }
+
         setup_unknown();
     }
 

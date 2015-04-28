@@ -45,6 +45,16 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Retrieves the inx'th constant declaration in the enumeration.
+        /// </summary>
+        /// <param name="inx"></param>
+        /// <returns></returns>
+        public FuncDecl ConstDecl(uint inx)
+        {
+            return new FuncDecl(Context, Native.Z3_get_datatype_sort_constructor(Context.nCtx, NativeObject, inx));
+        }
+
+        /// <summary>
         /// The constants in the enumeration.
         /// </summary>
         public Expr[] Consts
@@ -61,7 +71,17 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// The test predicates for the constants in the enumeration.
+        /// Retrieves the inx'th constant in the enumeration.
+        /// </summary>
+        /// <param name="inx"></param>
+        /// <returns></returns>
+        public Expr Const(uint inx)
+        {
+            return Context.MkApp(ConstDecl(inx));
+        }
+
+        /// <summary>
+        /// The test predicates (recognizers) for the constants in the enumeration.
         /// </summary>
         public FuncDecl[] TesterDecls
         {
@@ -76,9 +96,19 @@ namespace Microsoft.Z3
             }
         }
 
+        /// <summary>
+        /// Retrieves the inx'th tester/recognizer declaration in the enumeration.
+        /// </summary>
+        /// <param name="inx"></param>
+        /// <returns></returns>
+        public FuncDecl TesterDecl(uint inx)
+        {
+            return new FuncDecl(Context, Native.Z3_get_datatype_sort_recognizer(Context.nCtx, NativeObject, inx));
+        }
+
         #region Internal
         internal EnumSort(Context ctx, Symbol name, Symbol[] enumNames)
-            : base(ctx)
+            : base(ctx, IntPtr.Zero)
         {
             Contract.Requires(ctx != null);
             Contract.Requires(name != null);

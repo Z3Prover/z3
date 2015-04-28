@@ -1,21 +1,21 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+  Copyright (c) 2011 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    iz3foci.h
+  iz3foci.h
 
-Abstract:
+  Abstract:
 
-   Implements a secondary solver using foci2.
+  Implements a secondary solver using foci2.
 
-Author:
+  Author:
 
-    Ken McMillan (kenmcmil)
+  Ken McMillan (kenmcmil)
 
-Revision History:
+  Revision History:
 
---*/
+  --*/
 
 #ifndef IZ3FOCI_H
 #define IZ3FOCI_H
@@ -26,7 +26,7 @@ Revision History:
 
 class iz3foci {
  public:
-  static iz3secondary *create(iz3mgr *mgr, int num, int *parents);
+    static iz3secondary *create(iz3mgr *mgr, int num, int *parents);
 };
 
 #endif

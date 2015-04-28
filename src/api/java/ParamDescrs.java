@@ -27,7 +27,7 @@ public class ParamDescrs extends Z3Object
     /**
      * validate a set of parameters.
      **/
-    public void validate(Params p) throws Z3Exception
+    public void validate(Params p)
     {
 
         Native.paramsValidate(getContext().nCtx(), p.getNativeObject(),
@@ -37,7 +37,7 @@ public class ParamDescrs extends Z3Object
     /**
      * Retrieve kind of parameter.
      **/
-    public Z3_param_kind getKind(Symbol name) throws Z3Exception
+    public Z3_param_kind getKind(Symbol name)
     {
 
         return Z3_param_kind.fromInt(Native.paramDescrsGetKind(
@@ -49,7 +49,7 @@ public class ParamDescrs extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Symbol[] getNames() throws Z3Exception
+    public Symbol[] getNames()
     {
         int sz = Native.paramDescrsSize(getContext().nCtx(), getNativeObject());
         Symbol[] names = new Symbol[sz];
@@ -64,7 +64,7 @@ public class ParamDescrs extends Z3Object
     /**
      * The size of the ParamDescrs.
      **/
-    public int size() throws Z3Exception
+    public int size()
     {
         return Native.paramDescrsSize(getContext().nCtx(), getNativeObject());
     }
@@ -83,20 +83,20 @@ public class ParamDescrs extends Z3Object
         }
     }
 
-    ParamDescrs(Context ctx, long obj) throws Z3Exception
+    ParamDescrs(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
-        getContext().paramDescrs_DRQ().incAndClear(getContext(), o);
+        getContext().getParamDescrsDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
-        getContext().paramDescrs_DRQ().add(o);
+        getContext().getParamDescrsDRQ().add(o);
         super.decRef(o);
     }
 }

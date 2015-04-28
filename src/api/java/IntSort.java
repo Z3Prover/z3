@@ -22,13 +22,13 @@ package com.microsoft.z3;
  **/
 public class IntSort extends ArithSort
 {
-	IntSort(Context ctx, long obj) throws Z3Exception
-	{
-		super(ctx, obj);
-	}
+    IntSort(Context ctx, long obj)
+    {
+        super(ctx, obj);
+    }
 
-	IntSort(Context ctx) throws Z3Exception
-	{
-		super(ctx, Native.mkIntSort(ctx.nCtx()));
-	}
+    IntSort(Context ctx)
+    {
+        super(ctx, Native.mkIntSort(ctx.nCtx()));
+    }
 }

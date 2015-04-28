@@ -26,7 +26,7 @@ public class Z3Object extends IDisposable
     /**
      * Finalizer.
      **/
-    protected void finalize() throws Z3Exception
+    protected void finalize()
     {
         dispose();
     }
@@ -34,7 +34,7 @@ public class Z3Object extends IDisposable
     /**
      * Disposes of the underlying native Z3 object.
      **/
-    public void dispose() throws Z3Exception
+    public void dispose()
     {
         if (m_n_obj != 0)
         {
@@ -58,7 +58,7 @@ public class Z3Object extends IDisposable
         m_ctx = ctx;
     }
 
-    Z3Object(Context ctx, long obj) throws Z3Exception
+    Z3Object(Context ctx, long obj)
     {
         ctx.m_refCount++;
         m_ctx = ctx;
@@ -66,15 +66,15 @@ public class Z3Object extends IDisposable
         m_n_obj = obj;
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
     }
 
-    void checkNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj)
     {
     }
 
@@ -83,7 +83,7 @@ public class Z3Object extends IDisposable
         return m_n_obj;
     }
 
-    void setNativeObject(long value) throws Z3Exception
+    void setNativeObject(long value)
     {
         if (value != 0)
         {
@@ -115,7 +115,7 @@ public class Z3Object extends IDisposable
             return null;
         long[] an = new long[a.length];
         for (int i = 0; i < a.length; i++)
-	    an[i] = (a[i] == null) ? 0 : a[i].getNativeObject();
+        an[i] = (a[i] == null) ? 0 : a[i].getNativeObject();
         return an;
     }
 

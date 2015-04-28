@@ -22,12 +22,12 @@ package com.microsoft.z3;
  **/
 public class UninterpretedSort extends Sort
 {
-    UninterpretedSort(Context ctx, long obj) throws Z3Exception
+    UninterpretedSort(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    UninterpretedSort(Context ctx, Symbol s) throws Z3Exception
+    UninterpretedSort(Context ctx, Symbol s)
     {
         super(ctx, Native.mkUninterpretedSort(ctx.nCtx(), s.getNativeObject()));
     }

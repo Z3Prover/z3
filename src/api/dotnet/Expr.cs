@@ -1311,7 +1311,7 @@ namespace Microsoft.Z3
 
         #region Relational Terms
         /// <summary>
-        /// Indicates whether the term is of an array sort.
+        /// Indicates whether the term is of relation sort.
         /// </summary>
         public bool IsRelation
         {
@@ -1449,6 +1449,281 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsFiniteDomainLT { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FD_LT; } }
         #endregion
+
+        #region Floating-point terms
+        /// <summary>
+        ///  Indicates whether the terms is of floating-point sort.
+        /// </summary>
+        public bool IsFP
+        {
+            get { return Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == (uint)Z3_sort_kind.Z3_FLOATING_POINT_SORT; }
+        }
+
+        /// <summary>
+        ///  Indicates whether the terms is of floating-point rounding mode sort.
+        /// </summary>
+        public bool IsFPRM
+        {
+            get { return Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == (uint)Z3_sort_kind.Z3_ROUNDING_MODE_SORT; }
+        }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point numeral
+        /// </summary>
+        public bool IsFPNumeral { get { return IsFP && IsNumeral; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point rounding mode numeral
+        /// </summary>
+        public bool IsFPRMNumeral { get { return IsFPRM && IsNumeral; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToEven
+        /// </summary>
+        public bool IsFPRMRoundNearestTiesToEven{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN; } }
+        
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToAway
+        /// </summary>
+        public bool IsFPRMRoundNearestTiesToAway{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY; } }        
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardNegative
+        /// </summary>
+        public bool IsFPRMRoundTowardNegative{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_NEGATIVE; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardPositive
+        /// </summary>
+        public bool IsFPRMRoundTowardPositive{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_POSITIVE; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardZero
+        /// </summary>
+        public bool IsFPRMRoundTowardZero{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_ZERO; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToEven
+        /// </summary>
+        public bool IsFPRMExprRNE{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN; } }
+        
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToAway
+        /// </summary>
+        public bool IsFPRMExprRNA { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY; } }        
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardNegative
+        /// </summary>
+        public bool IsFPRMExprRTN { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_NEGATIVE; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardPositive
+        /// </summary>
+        public bool IsFPRMExprRTP { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_POSITIVE; } }
+
+        /// <summary>
+        /// Indicates whether the term is the floating-point rounding numeral roundTowardZero
+        /// </summary>
+        public bool IsFPRMExprRTZ { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_ZERO; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point rounding mode numeral
+        /// </summary>
+        public bool IsFPRMExpr { 
+            get { 
+                return IsApp && 
+                       (FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY||
+                       FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN ||
+                       FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_POSITIVE ||
+                       FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_NEGATIVE ||
+                       FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_ZERO);
+            }
+        }
+        
+        /// <summary>
+        /// Indicates whether the term is a floating-point +oo
+        /// </summary>
+        public bool IsFPPlusInfinity{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_PLUS_INF; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point -oo
+        /// </summary>
+        public bool IsFPMinusInfinity{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_MINUS_INF; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point NaN
+        /// </summary>
+        public bool IsFPNaN { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_NAN; } }
+
+                /// <summary>
+        /// Indicates whether the term is a floating-point +zero
+        /// </summary>
+        public bool IsFPPlusZero { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_PLUS_ZERO; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point -zero
+        /// </summary>
+        public bool IsFPMinusZero { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_MINUS_ZERO; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point addition term
+        /// </summary>
+        public bool IsFPAdd { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_ADD; } }
+
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point subtraction term
+        /// </summary>
+        public bool IsFPSub { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_SUB; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point negation term
+        /// </summary>
+        public bool IsFPNeg { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_NEG; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point multiplication term
+        /// </summary>
+        public bool IsFPMul { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_MUL; } }
+                    
+        /// <summary>
+        /// Indicates whether the term is a floating-point divison term
+        /// </summary>
+        public bool IsFPDiv { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_DIV; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point remainder term
+        /// </summary>
+        public bool IsFPRem { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_REM; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point term absolute value term
+        /// </summary>
+        public bool IsFPAbs { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_ABS; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point minimum term
+        /// </summary>
+        public bool IsFPMin { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_MIN; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point maximum term
+        /// </summary>
+        public bool IsFPMax { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_MAX; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point fused multiply-add term
+        /// </summary>
+        public bool IsFPFMA { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_FMA; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point square root term
+        /// </summary>
+        public bool IsFPSqrt { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_SQRT; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point roundToIntegral term
+        /// </summary>
+        public bool IsFPRoundToIntegral { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_ROUND_TO_INTEGRAL; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point equality term
+        /// </summary>
+        public bool IsFPEq { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_EQ; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point less-than term
+        /// </summary>
+        public bool IsFPLt { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_LT; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point greater-than term
+        /// </summary>
+        public bool IsFPGt { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_GT; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point less-than or equal term
+        /// </summary>
+        public bool IsFPLe { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_LE; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point greater-than or erqual term
+        /// </summary>
+        public bool IsFPGe { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_GE; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point isNaN predicate term
+        /// </summary>
+        public bool IsFPisNaN { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_NAN; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point isInf predicate term
+        /// </summary>
+        public bool IsFPisInf { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_INF; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point isZero predicate term
+        /// </summary>
+        public bool IsFPisZero { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_ZERO; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point isNormal term
+        /// </summary>
+        public bool IsFPisNormal { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_NORMAL; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point isSubnormal predicate term
+        /// </summary>
+        public bool IsFPisSubnormal { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_SUBNORMAL; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point isNegative predicate term
+        /// </summary>
+        public bool IsFPisNegative { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_NEGATIVE; } }    
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point isPositive predicate term
+        /// </summary>
+        public bool IsFPisPositive { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_POSITIVE; } }    
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point constructor term
+        /// </summary>
+        public bool IsFPFP { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_FP; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point conversion term
+        /// </summary>
+        public bool IsFPToFp { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_TO_FP; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point conversion from unsigned bit-vector term
+        /// </summary>
+        public bool IsFPToFpUnsigned { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_TO_FP_UNSIGNED; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point conversion to unsigned bit-vector term
+        /// </summary>
+        public bool IsFPToUBV { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_TO_UBV; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point conversion to signed bit-vector term
+        /// </summary>
+        public bool IsFPToSBV { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_TO_SBV; } }
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point conversion to real term
+        /// </summary>
+        public bool IsFPToReal { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_TO_REAL; } }    
+
+
+        /// <summary>
+        /// Indicates whether the term is a floating-point conversion to IEEE-754 bit-vector term
+        /// </summary>
+        public bool IsFPToIEEEBV { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_TO_IEEE_BV; } }
+
+        #endregion
         #endregion
 
         #region Bound Variables
@@ -1486,10 +1761,6 @@ namespace Microsoft.Z3
         #endregion
 
         #region Internal
-        /// <summary> 
-        /// Constructor for Expr 
-        /// </summary>
-        internal protected Expr(Context ctx) : base(ctx) { Contract.Requires(ctx != null); }
         /// <summary> 
         /// Constructor for Expr 
         /// </summary>
@@ -1541,7 +1812,9 @@ namespace Microsoft.Z3
                 {
                     case Z3_sort_kind.Z3_INT_SORT: return new IntNum(ctx, obj);
                     case Z3_sort_kind.Z3_REAL_SORT: return new RatNum(ctx, obj);
-                    case Z3_sort_kind.Z3_BV_SORT: return new BitVecNum(ctx, obj);                    
+                    case Z3_sort_kind.Z3_BV_SORT: return new BitVecNum(ctx, obj);
+                    case Z3_sort_kind.Z3_FLOATING_POINT_SORT: return new FPNum(ctx, obj);
+                    case Z3_sort_kind.Z3_ROUNDING_MODE_SORT: return new FPRMNum(ctx, obj);
                 }
             }
 
@@ -1552,7 +1825,9 @@ namespace Microsoft.Z3
                 case Z3_sort_kind.Z3_REAL_SORT: return new RealExpr(ctx, obj);
                 case Z3_sort_kind.Z3_BV_SORT: return new BitVecExpr(ctx, obj);
                 case Z3_sort_kind.Z3_ARRAY_SORT: return new ArrayExpr(ctx, obj);
-                case Z3_sort_kind.Z3_DATATYPE_SORT: return new DatatypeExpr(ctx, obj);                
+                case Z3_sort_kind.Z3_DATATYPE_SORT: return new DatatypeExpr(ctx, obj);
+                case Z3_sort_kind.Z3_FLOATING_POINT_SORT: return new FPExpr(ctx, obj);
+                case Z3_sort_kind.Z3_ROUNDING_MODE_SORT: return new FPRMExpr(ctx, obj);
             }
 
             return new Expr(ctx, obj);

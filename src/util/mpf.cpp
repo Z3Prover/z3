@@ -190,47 +190,9 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, float value) {
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpq const & value) {
     TRACE("mpf_dbg", tout << "set: " << m_mpq_manager.to_string(value) << " [" << ebits << "/" << sbits << "]"<< std::endl;);
-
-    if (m_mpq_manager.is_zero(value))
-        mk_pzero(ebits, sbits, o);
-    else {
-        o.ebits = ebits;
-        o.sbits = sbits;
-        o.sign = m_mpq_manager.is_neg(value);
-
-        m_mpz_manager.set(o.significand, 0);
-        const mpz & p = m_powers2(sbits+2);
-        signed lz = 0;
-        
-        o.exponent = sbits+2;
-
-        // CMW: This could be optimized considerably.        
-        scoped_mpz t(m_mpz_manager);
-        retry:                        
-        m_mpz_manager.mul2k(value.numerator(), lz, t);
-        m_mpz_manager.machine_div(t, value.denominator(), o.significand);
-        m_mpz_manager.abs(o.significand);
-        if (m_mpz_manager.lt(o.significand, p)) {
-            lz++;
-            goto retry;
-        }
-        o.exponent -= lz;
-
-        bool sticky = false;
-        while (m_mpz_manager.ge(o.significand, m_powers2(sbits+3))) {
-            sticky = sticky || !m_mpz_manager.is_even(o.significand);
-            m_mpz_manager.machine_div2k(o.significand, 1);
-            o.exponent++;
-        }
-        if (sticky && m_mpz_manager.is_even(o.significand))
-            m_mpz_manager.inc(o.significand);
-
-        TRACE("mpf_dbg", tout << "QUOTIENT = " << m_mpz_manager.to_string(o.significand) << " shift=" << lz << std::endl;);
-
-        SASSERT(m_mpz_manager.ge(o.significand, m_powers2(sbits+2)));
-        round(rm, o);
-    }
-
+    scoped_mpz exp(m_mpz_manager);
+    m_mpz_manager.set(exp, 0);
+    set(o, ebits, sbits, rm, value, exp);
     TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
 }
 
@@ -253,7 +215,6 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
 
     TRACE("mpf_dbg", tout << " f = " << f << " e = " << e << std::endl;);   
 
-    // [Leo]: potential memory leak. moving q and ex to scoped versions
     scoped_mpq q(m_mpq_manager);    
     m_mpq_manager.set(q, f.c_str());
 
@@ -276,9 +237,6 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
     if (m_mpq_manager.is_zero(significand))
         mk_zero(ebits, sbits, o.sign, o);
     else {	
-        // [Leo]: The following two lines may produce a memory leak. Moving to scoped version
-        // mpq sig;
-        // mpz exp;	
         scoped_mpq sig(m_mpq_manager);
         scoped_mpz exp(m_mpq_manager);
 
@@ -296,34 +254,42 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
             m_mpq_manager.mul(sig, 2, sig);
             m_mpz_manager.dec(exp);
         }
-        
+
         // 1.0 <= sig < 2.0
         SASSERT((m_mpq_manager.le(1, sig) && m_mpq_manager.lt(sig, 2)));
         
-        TRACE("mpf_dbg", tout << "sig = " << m_mpq_manager.to_string(sig) << " exp = " << m_mpz_manager.to_string(exp) << std::endl;);
-        
+        TRACE("mpf_dbg", tout << "sig = " << m_mpq_manager.to_string(sig) << 
+                                 " exp = " << m_mpz_manager.to_string(exp) << std::endl;);        
+
         m_mpz_manager.set(o.significand, 0);
         for (unsigned i = 0; i < (sbits+3); i++) {
             m_mpz_manager.mul2k(o.significand, 1);
-            if (!m_mpq_manager.lt(sig, 1)) {
-                m_mpz_manager.inc(o.significand);			
+            if (m_mpq_manager.ge(sig, 1)) {
+                m_mpz_manager.inc(o.significand);
                 m_mpq_manager.dec(sig);
             }
-            m_mpq_manager.mul(sig, 2, sig);
+            m_mpq_manager.mul(sig, mpq(2), sig);
         }
+
+        // sticky
+        if (!m_mpq_manager.is_zero(sig) && m_mpz_manager.is_even(o.significand))
+            m_mpz_manager.inc(o.significand);            
+
+        TRACE("mpf_dbg", tout << "sig = " << m_mpz_manager.to_string(o.significand) << 
+                                 " exp = " << o.exponent << std::endl;);
 	
         if (m_mpz_manager.is_small(exp)) {
             o.exponent = m_mpz_manager.get_int64(exp);
             round(rm, o);
         }
         else
-            mk_inf(ebits, sbits, o.sign, o); // CMW: output warning message? throw exception?
+            mk_inf(ebits, sbits, o.sign, o);
     }
     
     TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
 }
 
-void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, bool sign, uint64 significand, int exponent) {
+void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, bool sign, uint64 significand, mpf_exp_t exponent) {
     // Assumption: this represents (sign * -1) * (significand/2^sbits) * 2^exponent.
     o.ebits = ebits;
     o.sbits = sbits;
@@ -1082,6 +1048,45 @@ void mpf_manager::to_mpz(mpf const & x, unsynch_mpz_manager & zm, mpz & o) {
         zm.mul2k(o, e);
 }
 
+void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o) {
+    SASSERT(!is_nan(x) && !is_inf(x));
+
+    scoped_mpf t(*this);
+    scoped_mpz z(m_mpz_manager);
+
+    set(t, x);
+    unpack(t, true);
+
+    SASSERT(t.exponent() < INT_MAX);
+
+    m_mpz_manager.set(z, t.significand());    
+    mpf_exp_t e = (mpf_exp_t)t.exponent() - t.sbits() + 1;
+    if (e < 0) {
+        bool last = false, round = false, sticky = m_mpz_manager.is_odd(z);
+        for (; e != 0; e++) {            
+            m_mpz_manager.machine_div2k(z, 1);
+            sticky |= round;
+            round = last;
+            last = m_mpz_manager.is_odd(z);
+        }
+        bool inc = false;
+        switch (rm) {
+        case MPF_ROUND_NEAREST_TEVEN: inc = round && (last || sticky); break;
+        case MPF_ROUND_NEAREST_TAWAY: inc = round && (!last || sticky); break; // CMW: Check!
+        case MPF_ROUND_TOWARD_POSITIVE: inc = (!x.sign && (round || sticky)); break;
+        case MPF_ROUND_TOWARD_NEGATIVE: inc = (x.sign && (round || sticky)); break;
+        case MPF_ROUND_TOWARD_ZERO: inc = false; break;
+        default: UNREACHABLE();
+        }
+        if (inc) m_mpz_manager.inc(z);
+    }
+    else
+        m_mpz_manager.mul2k(z, (unsigned) e);
+
+    m_mpq_manager.set(o, z);
+    if (x.sign) m_mpq_manager.neg(o);
+}
+
 void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
     SASSERT(x.sbits == y.sbits && x.ebits == y.ebits);
 
@@ -1168,14 +1173,13 @@ std::string mpf_manager::to_string(mpf const & x) {
 
     if (is_nan(x)) 
         res = "NaN";
-    else {
-        res = sgn(x) ? "-" : "+";
-
+    else {        
         if (is_inf(x))
-            res += "INF";
+            res = sgn(x) ? "-oo" : "+oo";
         else if (is_zero(x)) 
-            res += "0";
+            res = sgn(x) ? "-zero" : "+zero";
         else {
+            res = sgn(x) ? "-" : "";
             scoped_mpz num(m_mpq_manager), denom(m_mpq_manager);
             num   = 0;
             denom = 1;
@@ -1203,7 +1207,9 @@ std::string mpf_manager::to_string(mpf const & x) {
 
             std::stringstream ss;
             m_mpq_manager.display_decimal(ss, r, x.sbits);
-            ss << "p" << exponent; // "p" means 2^exp 
+            if (m_mpq_manager.is_int(r))
+                ss << ".0";
+            ss << " " << exponent;
             res += ss.str();            
         }
     }
@@ -1344,11 +1350,11 @@ bool mpf_manager::is_ninf(mpf const & x) {
 }
 
 bool mpf_manager::is_normal(mpf const & x) {
-    return !has_bot_exp(x) && !has_top_exp(x);
+    return !(has_top_exp(x) || is_denormal(x));
 }
 
 bool mpf_manager::is_denormal(mpf const & x) {
-    return has_bot_exp(x);
+    return !is_zero(x) && has_bot_exp(x);
 }
 
 bool mpf_manager::is_int(mpf const & x) {
@@ -1469,6 +1475,9 @@ void mpf_manager::mk_ninf(unsigned ebits, unsigned sbits, mpf & o) {
 
 void mpf_manager::unpack(mpf & o, bool normalize) {
     // Insert the hidden bit or adjust the exponent of denormal numbers.    
+    if (is_zero(o))
+        return;
+
     if (is_normal(o))
         m_mpz_manager.add(o.significand, m_powers2(o.sbits-1), o.significand);
     else {
@@ -1645,7 +1654,8 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
     bool inc = false;
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN: inc = round && (last || sticky); break;
-    case MPF_ROUND_NEAREST_TAWAY: inc = round; break; // CMW: Check this.
+    // case MPF_ROUND_NEAREST_TAWAY: inc = round; break; // CMW: Check
+    case MPF_ROUND_NEAREST_TAWAY: inc = round && (!last || sticky); break; // CMW: Fix ok?
     case MPF_ROUND_TOWARD_POSITIVE: inc = (!o.sign && (round || sticky)); break;
     case MPF_ROUND_TOWARD_NEGATIVE: inc = (o.sign && (round || sticky)); break;
     case MPF_ROUND_TOWARD_ZERO: inc = false; break;

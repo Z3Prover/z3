@@ -327,17 +327,21 @@ void array_simplifier_plugin::get_stores(expr* n, unsigned& arity, expr*& m, ptr
 }
 
 lbool array_simplifier_plugin::eq_default(expr* def, unsigned arity, unsigned num_st, expr*const* const* st) {
+    bool all_diseq = m_manager.is_unique_value(def) && num_st > 0;
+    bool all_eq = true;
     for (unsigned i = 0; i < num_st; ++i) {
-        if (st[i][arity] == def) {
-            continue;
-        }
-        if (m_manager.is_unique_value(st[i][arity]) && m_manager.is_unique_value(def)) {
-            return l_false;
-        }
-        return l_undef;
+        all_eq  &= (st[i][arity] == def);
+        all_diseq &= m_manager.is_unique_value(st[i][arity]) && (st[i][arity] != def);
     }
-    return l_true;
+    if (all_eq) {
+        return l_true;
+    }
+    if (all_diseq) {
+        return l_false;
+    }   
+    return l_undef;
 }
+
 
 bool array_simplifier_plugin::insert_table(expr* def, unsigned arity, unsigned num_st, expr*const* const* st, arg_table& table) {
     for (unsigned i = 0; i < num_st; ++i ) {
@@ -409,14 +413,15 @@ bool array_simplifier_plugin::reduce_eq(expr * lhs, expr * rhs, expr_ref & resul
     set_reduce_invoked();
     expr* c1, *c2;
     ptr_vector<expr*const> st1, st2;
-    unsigned arity = 0;
-    get_stores(lhs, arity, c1, st1);
-    get_stores(rhs, arity, c2, st2);
-    if (is_const_array(c1) && is_const_array(c2)) {
+    unsigned arity1 = 0;
+    unsigned arity2 = 0;
+    get_stores(lhs, arity1, c1, st1);
+    get_stores(rhs, arity2, c2, st2);
+    if (arity1 == arity2 && is_const_array(c1) && is_const_array(c2)) {
         c1 = to_app(c1)->get_arg(0);
         c2 = to_app(c2)->get_arg(0);
         if (c1 == c2) {
-            lbool eq = eq_stores(c1, arity, st1.size(), st1.c_ptr(), st2.size(), st2.c_ptr());
+            lbool eq = eq_stores(c1, arity2, st1.size(), st1.c_ptr(), st2.size(), st2.c_ptr());
             TRACE("array_simplifier", 
                   tout << mk_pp(lhs, m_manager) << " = " 
                   << mk_pp(rhs, m_manager) << " := " << eq << "\n";);

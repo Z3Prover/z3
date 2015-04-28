@@ -82,6 +82,40 @@ namespace Microsoft.Z3
         public static void ResetParameters()
         {
             Native.Z3_global_param_reset_all();
-        }   
+        }
+
+        /// <summary>
+        /// Enable/disable printing of warning messages to the console.
+        /// </summary>
+        /// <remarks>Note that this function is static and effects the behaviour of 
+        /// all contexts globally.</remarks>
+        public static void ToggleWarningMessages(bool enabled)
+        {
+            Native.Z3_toggle_warning_messages((enabled) ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Enable tracing messages tagged as `tag' when Z3 is compiled in debug mode.
+        /// </summary>
+        /// <remarks>
+        /// It is a NOOP otherwise. 
+        /// </remarks>
+        /// <param name="tag">trace tag</param>
+        public static void EnableTrace(string tag)
+        {
+            Native.Z3_enable_trace(tag);
+        }
+
+        /// <summary>
+        /// Disable tracing messages tagged as `tag' when Z3 is compiled in debug mode.        
+        /// </summary>
+        /// <remarks>
+        /// It is a NOOP otherwise.
+        /// </remarks>
+        /// <param name="tag">trace tag</param>
+        public static void DisableTrace(string tag)
+        {
+            Native.Z3_disable_trace(tag);
+        }
     }
 }

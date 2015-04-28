@@ -166,11 +166,10 @@ namespace smt {
                     terms[i].term = m.mk_app(m_array_util.get_family_id(), OP_SELECT, 0, 0, args.size(), args.c_ptr());
                 }
                 assert_relevant(terms);
-                lbool is_sat = m_solver.check_sat(0,0);
+                VERIFY(m_solver.check_sat(0,0) != l_false);
                 model_ref model1;
                 m_solver.get_model(model1);
                 SASSERT(model1.get());
-                SASSERT(is_sat != l_false);
                 get_implied_equalities_model_based(model1, terms);
                 m_solver.pop(1);
                 return;
