@@ -19,7 +19,7 @@ Notes:
 #include"tactical.h"
 #include"bit_blaster_model_converter.h"
 #include"bit_blaster_rewriter.h"
-#include"ast_smt2_pp.h"
+#include"ast_pp.h"
 #include"model_pp.h"
 #include"rewriter_types.h"
 
@@ -82,6 +82,7 @@ class bit_blaster_tactic : public tactic {
                 }
                 if (curr != new_curr) {
                     change = true;
+                    TRACE("bit_blaster", tout << mk_pp(curr, m()) << " -> " << mk_pp(new_curr, m()) << "\n";);
                     g->update(idx, new_curr, new_pr, g->dep(idx));
                 }
             }

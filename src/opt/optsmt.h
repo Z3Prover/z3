@@ -80,7 +80,7 @@ namespace opt {
 
         void set_max(vector<inf_eps>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls);
 
-        void update_lower();
+        expr_ref update_lower();
 
         lbool update_upper();
 

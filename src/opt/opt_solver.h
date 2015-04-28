@@ -134,7 +134,8 @@ namespace opt {
                                char const * logic = "", char const * status = "unknown", char const * attributes = "");
 
     private:
-        void decrement_value(unsigned i, inf_eps& val);
+        lbool decrement_value(unsigned i, inf_eps& val);
+        void set_model(unsigned i);
     };
 }
 

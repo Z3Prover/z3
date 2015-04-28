@@ -388,7 +388,6 @@ namespace opt {
             }
             break;
         case O_MAXSMT: {
-            m_opt_solver->ensure_pb();
             pb_util      pb(m);
             unsigned sz = obj.m_terms.size();
             ptr_vector<expr> terms;
@@ -475,6 +474,9 @@ namespace opt {
             m_opt_solver->set_logic(m_logic);
             m_solver = m_opt_solver.get();
         }
+        if (opt_params(m_params).priority() == symbol("pareto")) {
+            m_opt_solver->ensure_pb();
+        }        
     }
 
     void context::setup_arith_solver() {
@@ -495,6 +497,9 @@ namespace opt {
             m_maxsat_engine != symbol("pd-maxres") &&
             m_maxsat_engine != symbol("bcd2") &&
             m_maxsat_engine != symbol("sls")) {
+            return;
+        }
+        if (opt_params(m_params).priority() == symbol("pareto")) {
             return;
         }
         m_params.set_bool("minimize_core_partial", true); // false);

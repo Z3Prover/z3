@@ -204,38 +204,52 @@ namespace opt {
         m_valid_objectives[i] = true;
         TRACE("opt", tout << (has_shared?"has shared":"non-shared") << "\n";);
         if (m_context.get_context().update_model(has_shared)) {
-            if (has_shared) {
-                val2 = current_objective_value(i);                
-                if (val2 != val) {
-                    decrement_value(i, val);
-                }
+            if (has_shared && val != current_objective_value(i)) {
+                decrement_value(i, val);
+            }
+            else {
+                set_model(i);
             }
         }
         else {
             SASSERT(has_shared);
-            // model is not final. We set the current objective to
-            // close to the optimal (ignoring types).
-            decrement_value(i, val);
+            decrement_value(i, val);            
         }
         m_objective_values[i] = val;
+        TRACE("opt", { tout << val << "\n"; 
+                tout << blocker << "\n";
+                model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); });
+    }
 
+    void opt_solver::set_model(unsigned i) {
         model_ref mdl;
         get_model(mdl);
         m_models.set(i, mdl.get());
-
-        TRACE("opt", { tout << m_objective_values[i] << "\n"; 
-                  tout << blocker << "\n";
-                   model_smt2_pp(tout << "update model:\n", m, *mdl, 0); });
     }
 
-    void opt_solver::decrement_value(unsigned i, inf_eps& val) {
-        if (arith_util(m).is_real(m_objective_sorts[i].get())) {
-            val -= inf_eps(inf_rational(rational(0),true));
+    lbool opt_solver::decrement_value(unsigned i, inf_eps& val) {
+        push_core();
+        expr_ref ge = mk_ge(i, val);
+        TRACE("opt", tout << ge << "\n";);
+        assert_expr(ge);
+        lbool is_sat = m_context.check(0, 0);
+        if (is_sat == l_true) {
+            set_model(i);
         }
-        else {
-            val -= inf_eps(inf_rational(rational(1)));
+        pop_core(1);
+        TRACE("opt", tout << is_sat << "\n";);
+        if (is_sat != l_true) {
+            // cop-out approximation
+            if (arith_util(m).is_real(m_objective_sorts[i].get())) {
+                val -= inf_eps(inf_rational(rational(0), true));
+            }
+            else {
+                val -= inf_eps(inf_rational(rational(1)));
+            }
+            m_valid_objectives[i] = false;
         }
-        m_valid_objectives[i] = false;
+        return is_sat;
+
     }
 
     
@@ -308,8 +322,7 @@ namespace opt {
         smt::theory_var v = m_objective_vars[i];
         return get_optimizer().value(v);
     }
-
-
+    
     expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& val) {
         smt::theory_opt& opt = get_optimizer();
         smt::theory_var v = m_objective_vars[var];

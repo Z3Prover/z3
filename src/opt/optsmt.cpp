@@ -69,10 +69,19 @@ namespace opt {
     lbool optsmt::basic_opt() {
         lbool is_sat = l_true;
 
+        expr_ref bound(m.mk_true(), m), tmp(m);
+        expr* vars[1];
+
+        solver::scoped_push _push(*m_s);
         while (is_sat == l_true && !m_cancel) {
-            is_sat = m_s->check_sat(0, 0); 
+
+            tmp = m.mk_fresh_const("b", m.mk_bool_sort());            
+            vars[0] = tmp;
+            bound = m.mk_implies(tmp, bound);
+            m_s->assert_expr(bound);
+            is_sat = m_s->check_sat(1, vars); 
             if (is_sat == l_true) {
-                update_lower();
+                bound = update_lower();
             }
         }      
         
@@ -125,17 +134,23 @@ namespace opt {
 
 
         expr_ref_vector ors(m), disj(m);
-        expr_ref fml(m), bound(m.mk_true(), m);
-        for (unsigned i = 0; i < m_upper.size(); ++i) {
-            ors.push_back(m_s->mk_ge(i, m_upper[i]));
-        }
+        expr_ref fml(m), bound(m.mk_true(), m), tmp(m);
+        expr* vars[1];
         {
-            solver::scoped_push _push(*m_s);
+            for (unsigned i = 0; i < m_upper.size(); ++i) {
+                ors.push_back(m_s->mk_ge(i, m_upper[i]));
+            }
+            
             fml = m.mk_or(ors.size(), ors.c_ptr());
-            m_s->assert_expr(fml);
+            tmp = m.mk_fresh_const("b", m.mk_bool_sort());
+            fml = m.mk_implies(tmp, fml);
+            vars[0] = tmp;
             lbool is_sat = l_true;
+
+            solver::scoped_push _push(*m_s);
             while (!m_cancel) {
-                is_sat = m_s->check_sat(0,0);
+                m_s->assert_expr(fml);
+                is_sat = m_s->check_sat(1,vars);
                 if (is_sat == l_true) {
                     disj.reset();
                     m_s->maximize_objectives(disj);
@@ -151,7 +166,9 @@ namespace opt {
                     }
                     set_max(m_lower, m_s->get_objective_values(), disj);
                     fml = m.mk_or(ors.size(), ors.c_ptr());
-                    m_s->assert_expr(fml);
+                    tmp = m.mk_fresh_const("b", m.mk_bool_sort());
+                    fml = m.mk_implies(tmp, fml);
+                    vars[0] = tmp;
                 }
                 else if (is_sat == l_undef) {
                     return l_undef;
@@ -181,7 +198,7 @@ namespace opt {
         m_upper[idx] = v;                    
     }
 
-    void optsmt::update_lower() {
+    expr_ref optsmt::update_lower() {
         expr_ref_vector disj(m);
         m_s->get_model(m_model);
         m_s->maximize_objectives(disj);
@@ -201,9 +218,7 @@ namespace opt {
         IF_VERBOSE(3, verbose_stream() << disj << "\n";);
         IF_VERBOSE(3, model_pp(verbose_stream(), *m_model););
 
-        expr_ref constraint(m);        
-        constraint = m.mk_or(disj.size(), disj.c_ptr());
-        m_s->assert_expr(constraint);
+        return expr_ref(m.mk_or(disj.size(), disj.c_ptr()), m);
     }
 
     lbool optsmt::update_upper() {
@@ -243,7 +258,7 @@ namespace opt {
                     IF_VERBOSE(2, verbose_stream() << "(optsmt lower bound for v" << m_vars[i] << " := " << m_upper[i] << ")\n";);
                     m_lower[i] = mid[i];
                     th.enable_record_conflict(0);
-                    update_lower();
+                    m_s->assert_expr(update_lower());
                     break;
                 case l_false:
                     IF_VERBOSE(2, verbose_stream() << "(optsmt conflict: " << th.conflict_minimize() << ") \n";);
