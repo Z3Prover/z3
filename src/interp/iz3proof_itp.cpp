@@ -562,7 +562,10 @@ class iz3proof_itp_impl : public iz3proof_itp {
                 else res = clone(e,args);
             }
             catch (const cannot_simplify &){
-                res = clone(e,args);
+                if(g == sum)
+                    res = clone(e,args);
+                else
+                    throw "interpolation failure";
             }
         }
         return res;
