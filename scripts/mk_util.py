@@ -227,7 +227,13 @@ def test_openmp(cc):
     t.add('#include<omp.h>\nint main() { return omp_in_parallel() ? 1 : 0; }\n')
     t.commit()
     if IS_WINDOWS:
-        return exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '/openmp']) == 0
+        r = exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '/openmp']) == 0
+        try:
+            rmf('tstomp.obj')
+            rmf('tstomp.exe')
+        except:
+            pass
+        return r
     else:
         return exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '-fopenmp']) == 0
 
@@ -357,10 +363,14 @@ def check_ml():
     r = exec_cmd([OCAMLOPT, '-o', 'a.out', 'hello.ml'])
     if r != 0:
         raise MKException('Failed testing ocamlopt compiler. Set environment variable OCAMLOPT with the path to the Ocaml native compiler. Note that ocamlopt may require flexlink to be in your path.')
-    rmf('hello.cmi')
-    rmf('hello.cmo')
-    rmf('hello.cmx')
-    rmf('a.out')
+    try:
+        rmf('hello.cmi')
+        rmf('hello.cmo')
+        rmf('hello.cmx')
+        rmf('a.out')
+        rmf('hello.o')
+    except:
+        pass
     find_ml_lib()
     find_ocaml_find()
 
