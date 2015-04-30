@@ -86,6 +86,9 @@ VS_PAR_NUM=8
 GPROF=False
 GIT_HASH=False
 
+FPMATH="Default"
+FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
+
 def check_output(cmd):
     return str(subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]).rstrip('\r\n')
 
@@ -236,6 +239,27 @@ def test_openmp(cc):
         return r
     else:
         return exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '-fopenmp']) == 0
+
+def test_fpmath(cc):
+    global FPMATH_FLAGS
+    if is_verbose():
+        print("Testing floating point support...")
+    t = TempFile('tstsse.cpp')
+    t.add('int main() { return 42; }\n')
+    t.commit()
+    if exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpmath=sse -msse -msse2']) == 0:
+	FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
+        return "SSE2-GCC"
+    elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-msse -msse2']) == 0:
+	FPMATH_FLAGS="-msse -msse2"
+        return "SSE2-CLANG"
+    elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpu=vfp -mfloat-abi=hard']) == 0:
+	FPMATH_FLAGS="-mfpu=vfp -mfloat-abi=hard"
+        return "ARM-VFP"
+    else:
+	FPMATH_FLAGS=""
+        return "UNKNOWN"
+
 
 def find_jni_h(path):
     for root, dirs, files in os.walk(path):
@@ -1787,7 +1811,7 @@ def mk_config():
                 print('OCaml Native:   %s' % OCAMLOPT)
                 print('OCaml Library:  %s' % OCAML_LIB)
     else:
-        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG
+        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS
         OS_DEFINES = ""
         ARITH = "internal"
         check_ar()
@@ -1816,9 +1840,11 @@ def mk_config():
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
+        FPMATH = test_fpmath(CXX)
+	CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
         HAS_OMP = test_openmp(CXX)
         if HAS_OMP:
-            CXXFLAGS = '%s -fopenmp -mfpmath=sse' % CXXFLAGS
+            CXXFLAGS = '%s -fopenmp' % CXXFLAGS
             LDFLAGS  = '%s -fopenmp' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -fopenmp' % SLIBEXTRAFLAGS
         else:
@@ -1871,7 +1897,6 @@ def mk_config():
             CPPFLAGS     = '%s -DZ3DEBUG' % CPPFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
-        CXXFLAGS         = '%s -msse -msse2' % CXXFLAGS
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
@@ -1902,6 +1927,7 @@ def mk_config():
             print('OpenMP:         %s' % HAS_OMP)
             print('Prefix:         %s' % PREFIX)
             print('64-bit:         %s' % is64())
+            print('FP math:        %s' % FPMATH) 
             if GPROF:
                 print('gprof:          enabled')
             print('Python version: %s' % distutils.sysconfig.get_python_version())            
