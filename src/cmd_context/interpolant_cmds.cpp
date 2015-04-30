@@ -1,20 +1,20 @@
 /*++
-Copyright (c) 2013 Microsoft Corporation
+  Copyright (c) 2013 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    interpolant_cmds.cpp
+  interpolant_cmds.cpp
 
-Abstract:
-    Commands for interpolation.
+  Abstract:
+  Commands for interpolation.
 
-Author:
+  Author:
 
-    Leonardo (leonardo) 2011-12-23
+  Leonardo (leonardo) 2011-12-23
 
-Notes:
+  Notes:
 
---*/
+  --*/
 #include<sstream>
 #include"cmd_context.h"
 #include"cmd_util.h"
@@ -43,180 +43,180 @@ static void show_interpolant_and_maybe_check(cmd_context & ctx,
 					     bool check)
 {
   
-  if (m_params.get_bool("som", false))
-    m_params.set_bool("flat", true);
-  th_rewriter s(ctx.m(), m_params);
+    if (m_params.get_bool("som", false))
+        m_params.set_bool("flat", true);
+    th_rewriter s(ctx.m(), m_params);
   
-  for(unsigned i = 0; i < interps.size(); i++){
+    for(unsigned i = 0; i < interps.size(); i++){
 
-    expr_ref r(ctx.m());
-    proof_ref pr(ctx.m());
-    s(to_expr(interps[i]),r,pr);
+        expr_ref r(ctx.m());
+        proof_ref pr(ctx.m());
+        s(to_expr(interps[i]),r,pr);
 
-    ctx.regular_stream()  << mk_pp(r.get(), ctx.m()) << std::endl;
+        ctx.regular_stream()  << mk_pp(r.get(), ctx.m()) << std::endl;
 #if 0
-    ast_smt_pp pp(ctx.m());
-    pp.set_logic(ctx.get_logic().str().c_str());
-    pp.display_smt2(ctx.regular_stream(), to_expr(interps[i]));
-    ctx.regular_stream() << std::endl;
+        ast_smt_pp pp(ctx.m());
+        pp.set_logic(ctx.get_logic().str().c_str());
+        pp.display_smt2(ctx.regular_stream(), to_expr(interps[i]));
+        ctx.regular_stream() << std::endl;
 #endif
-  }
+    }
 
-  s.cleanup();
+    s.cleanup();
 
-  // verify, for the paranoid...
-  if(check || interp_params(m_params).check()){
-    std::ostringstream err;
-    ast_manager &_m = ctx.m();
+    // verify, for the paranoid...
+    if(check || interp_params(m_params).check()){
+        std::ostringstream err;
+        ast_manager &_m = ctx.m();
 
-    // need a solver -- make one here FIXME is this right?
-    bool proofs_enabled, models_enabled, unsat_core_enabled;
-    params_ref p;
-    ctx.params().get_solver_params(_m, p, proofs_enabled, models_enabled, unsat_core_enabled);
-    scoped_ptr<solver> sp = (ctx.get_solver_factory())(_m, p, false, true, false, ctx.get_logic());
+        // need a solver -- make one here FIXME is this right?
+        bool proofs_enabled, models_enabled, unsat_core_enabled;
+        params_ref p;
+        ctx.params().get_solver_params(_m, p, proofs_enabled, models_enabled, unsat_core_enabled);
+        scoped_ptr<solver> sp = (ctx.get_solver_factory())(_m, p, false, true, false, ctx.get_logic());
 
-    if(iz3check(_m,sp.get(),err,cnsts,t,interps))
-      ctx.regular_stream() << "correct\n";
-    else 
-      ctx.regular_stream() << "incorrect: " << err.str().c_str() << "\n";
-  }
+        if(iz3check(_m,sp.get(),err,cnsts,t,interps))
+            ctx.regular_stream() << "correct\n";
+        else 
+            ctx.regular_stream() << "incorrect: " << err.str().c_str() << "\n";
+    }
 
-  for(unsigned i = 0; i < interps.size(); i++){
-    ctx.m().dec_ref(interps[i]);
-  }
+    for(unsigned i = 0; i < interps.size(); i++){
+        ctx.m().dec_ref(interps[i]);
+    }
 
-  interp_params itp_params(m_params);
-  if(itp_params.profile())
-    profiling::print(ctx.regular_stream());
+    interp_params itp_params(m_params);
+    if(itp_params.profile())
+        profiling::print(ctx.regular_stream());
 
 }
 
 static void check_can_interpolate(cmd_context & ctx){
-  if (!ctx.produce_interpolants())
-    throw cmd_exception("interpolation is not enabled, use command (set-option :produce-interpolants true)");
+    if (!ctx.produce_interpolants())
+        throw cmd_exception("interpolation is not enabled, use command (set-option :produce-interpolants true)");
 }
 
 
 static void get_interpolant_and_maybe_check(cmd_context & ctx, expr * t, params_ref &m_params, bool check) {
 
-  check_can_interpolate(ctx);
+    check_can_interpolate(ctx);
 
-  // get the proof, if there is one
+    // get the proof, if there is one
 
-  if (!ctx.has_manager() ||
-      ctx.cs_state() != cmd_context::css_unsat)
-    throw cmd_exception("proof is not available");
-  expr_ref pr(ctx.m());
-  pr = ctx.get_check_sat_result()->get_proof();
-  if (pr == 0)
-    throw cmd_exception("proof is not available");
+    if (!ctx.has_manager() ||
+        ctx.cs_state() != cmd_context::css_unsat)
+        throw cmd_exception("proof is not available");
+    expr_ref pr(ctx.m());
+    pr = ctx.get_check_sat_result()->get_proof();
+    if (pr == 0)
+        throw cmd_exception("proof is not available");
 
-  // get the assertions from the context
+    // get the assertions from the context
 
-  ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-  ptr_vector<expr>::const_iterator end = ctx.end_assertions();
-  ptr_vector<ast> cnsts((unsigned)(end - it));
-  for (int i = 0; it != end; ++it, ++i)
-  cnsts[i] = *it;
+    ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
+    ptr_vector<expr>::const_iterator end = ctx.end_assertions();
+    ptr_vector<ast> cnsts((unsigned)(end - it));
+    for (int i = 0; it != end; ++it, ++i)
+        cnsts[i] = *it;
     
-  // compute an interpolant
+    // compute an interpolant
   
-  ptr_vector<ast> interps;
+    ptr_vector<ast> interps;
  
-  try {
-    iz3interpolate(ctx.m(),pr.get(),cnsts,t,interps,0);
-  }
-  catch (iz3_bad_tree &) {
-    throw cmd_exception("interpolation pattern contains non-asserted formula");
-  }
-  catch (iz3_incompleteness &) {
-    throw cmd_exception("incompleteness in interpolator");
-  }
+    try {
+        iz3interpolate(ctx.m(),pr.get(),cnsts,t,interps,0);
+    }
+    catch (iz3_bad_tree &) {
+        throw cmd_exception("interpolation pattern contains non-asserted formula");
+    }
+    catch (iz3_incompleteness &) {
+        throw cmd_exception("incompleteness in interpolator");
+    }
 
-  show_interpolant_and_maybe_check(ctx, cnsts, t, interps, m_params, check);
+    show_interpolant_and_maybe_check(ctx, cnsts, t, interps, m_params, check);
 }
 
 static void get_interpolant(cmd_context & ctx, expr * t, params_ref &m_params) {
-  get_interpolant_and_maybe_check(ctx,t,m_params,false);
+    get_interpolant_and_maybe_check(ctx,t,m_params,false);
 }
 
 #if 0
 static void get_and_check_interpolant(cmd_context & ctx, params_ref &m_params, expr * t) {
-  get_interpolant_and_maybe_check(ctx,t,m_params,true);
+    get_interpolant_and_maybe_check(ctx,t,m_params,true);
 }
 #endif
 
 static void compute_interpolant_and_maybe_check(cmd_context & ctx, expr * t, params_ref &m_params, bool check){
     
-  // create a fresh solver suitable for interpolation
-  bool proofs_enabled, models_enabled, unsat_core_enabled;
-  params_ref p;
-  ast_manager &_m = ctx.m();
-  // TODO: the following is a HACK to enable proofs in the old smt solver
-  // When we stop using that solver, this hack can be removed
-  scoped_proof_mode spm(_m,PGM_FINE);
-  ctx.params().get_solver_params(_m, p, proofs_enabled, models_enabled, unsat_core_enabled);
-  p.set_bool("proof", true);
-  scoped_ptr<solver> sp = (ctx.get_interpolating_solver_factory())(_m, p, true, models_enabled, false, ctx.get_logic());
+    // create a fresh solver suitable for interpolation
+    bool proofs_enabled, models_enabled, unsat_core_enabled;
+    params_ref p;
+    ast_manager &_m = ctx.m();
+    // TODO: the following is a HACK to enable proofs in the old smt solver
+    // When we stop using that solver, this hack can be removed
+    scoped_proof_mode spm(_m,PGM_FINE);
+    ctx.params().get_solver_params(_m, p, proofs_enabled, models_enabled, unsat_core_enabled);
+    p.set_bool("proof", true);
+    scoped_ptr<solver> sp = (ctx.get_interpolating_solver_factory())(_m, p, true, models_enabled, false, ctx.get_logic());
 
-  ptr_vector<ast> cnsts;
-  ptr_vector<ast> interps;
-  model_ref m;
+    ptr_vector<ast> cnsts;
+    ptr_vector<ast> interps;
+    model_ref m;
   
-  // compute an interpolant
+    // compute an interpolant
   
-  lbool res;
-  try {
-    res = iz3interpolate(_m, *sp.get(), t, cnsts, interps, m, 0);
-  }
-  catch (iz3_incompleteness &) {
-    throw cmd_exception("incompleteness in interpolator");
-  }
+    lbool res;
+    try {
+        res = iz3interpolate(_m, *sp.get(), t, cnsts, interps, m, 0);
+    }
+    catch (iz3_incompleteness &) {
+        throw cmd_exception("incompleteness in interpolator");
+    }
 
-  switch(res){
-  case l_false:
-    ctx.regular_stream() << "unsat\n";
-    show_interpolant_and_maybe_check(ctx, cnsts, t, interps, m_params, check);
-    break;
+    switch(res){
+    case l_false:
+        ctx.regular_stream() << "unsat\n";
+        show_interpolant_and_maybe_check(ctx, cnsts, t, interps, m_params, check);
+        break;
 
-  case l_true:
-    ctx.regular_stream() << "sat\n";
-    // TODO: how to return the model to the context, if it exists?
-    break;
+    case l_true:
+        ctx.regular_stream() << "sat\n";
+        // TODO: how to return the model to the context, if it exists?
+        break;
 
-  case l_undef:
-    ctx.regular_stream() << "unknown\n";
-    // TODO: how to return the model to the context, if it exists?
-    break;
-  }    
+    case l_undef:
+        ctx.regular_stream() << "unknown\n";
+        // TODO: how to return the model to the context, if it exists?
+        break;
+    }    
 
-  for(unsigned i = 0; i < cnsts.size(); i++)
-    ctx.m().dec_ref(cnsts[i]);
+    for(unsigned i = 0; i < cnsts.size(); i++)
+        ctx.m().dec_ref(cnsts[i]);
 
 }
 
 static expr *make_tree(cmd_context & ctx, const ptr_vector<expr> &exprs){
-  if(exprs.size() == 0)
-    throw cmd_exception("not enough arguments");
-  expr *foo = exprs[0];
-  for(unsigned i = 1; i < exprs.size(); i++){
-    foo = ctx.m().mk_and(ctx.m().mk_interp(foo),exprs[i]);
-  }    
-  return foo;
+    if(exprs.size() == 0)
+        throw cmd_exception("not enough arguments");
+    expr *foo = exprs[0];
+    for(unsigned i = 1; i < exprs.size(); i++){
+        foo = ctx.m().mk_and(ctx.m().mk_interp(foo),exprs[i]);
+    }    
+    return foo;
 }
 
 static void get_interpolant(cmd_context & ctx, const ptr_vector<expr> &exprs, params_ref &m_params) {
-  expr *foo = make_tree(ctx,exprs);
-  ctx.m().inc_ref(foo);
-  get_interpolant(ctx,foo,m_params);
-  ctx.m().dec_ref(foo);
+    expr *foo = make_tree(ctx,exprs);
+    ctx.m().inc_ref(foo);
+    get_interpolant(ctx,foo,m_params);
+    ctx.m().dec_ref(foo);
 }
 
 static void compute_interpolant(cmd_context & ctx, const ptr_vector<expr> &exprs, params_ref &m_params) {
-  expr *foo = make_tree(ctx, exprs);
-  ctx.m().inc_ref(foo);
-  compute_interpolant_and_maybe_check(ctx,foo,m_params,false);
-  ctx.m().dec_ref(foo);
+    expr *foo = make_tree(ctx, exprs);
+    ctx.m().inc_ref(foo);
+    compute_interpolant_and_maybe_check(ctx,foo,m_params,false);
+    ctx.m().dec_ref(foo);
 }
 
 
@@ -249,11 +249,11 @@ public:
     }
     
     virtual void set_next_arg(cmd_context & ctx, expr * arg) {
-      m_targets.push_back(arg);
+        m_targets.push_back(arg);
     }
     
     virtual void execute(cmd_context & ctx) {
-      get_interpolant(ctx,m_targets,m_params);
+        get_interpolant(ctx,m_targets,m_params);
     }
 };
 
@@ -262,7 +262,7 @@ public:
     compute_interpolant_cmd(char const * name = "compute-interpolant"):get_interpolant_cmd(name) {}
 
     virtual void execute(cmd_context & ctx) {      
-      compute_interpolant(ctx,m_targets,m_params);
+        compute_interpolant(ctx,m_targets,m_params);
     }
 
 };

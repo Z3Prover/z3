@@ -2559,7 +2559,7 @@ namespace Microsoft.Z3
         /// Create a bit-vector numeral.
         /// </summary>
         /// <param name="v">value of the numeral.</param>
-        /// /// <param name="size">the size of the bit-vector</param>
+        /// <param name="size">the size of the bit-vector</param>
         public BitVecNum MkBV(long v, uint size)
         {
             Contract.Ensures(Contract.Result<BitVecNum>() != null);

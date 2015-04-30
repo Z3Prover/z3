@@ -4761,6 +4761,25 @@ namespace polynomial {
             }
         }
 
+        // muladd may throw if the cancel flag is set.
+        // So we wrap the degree2pos set and reset
+        // in a scoped class to ensure the state is clean
+        // on exit.
+        struct scoped_degree2pos {
+            imp& pm;
+            polynomial const* p;            
+            scoped_degree2pos(imp& pm, polynomial const* p):
+                pm(pm),
+                p(p)
+            {
+                pm.save_degree2pos(p);
+            }
+
+            ~scoped_degree2pos() {
+                pm.reset_degree2pos(p);
+            }
+        };
+
         /**
            \brief Given an univariate polynomial p(x) and a polynomial q(y_1, ..., y_n),
            return a polynomial r(y_1, ..., y_n) = p(q(y_1, ..., y_n)).
@@ -4773,7 +4792,7 @@ namespace polynomial {
             }
             var x      = max_var(p);
             unsigned d = degree(p, x); 
-            save_degree2pos(p);
+            scoped_degree2pos _sd2pos(*this, p);
             scoped_numeral a(m());
             m_manager.set(a, p->a(m_degree2pos[d]));
             r = mk_const(a);
@@ -4783,9 +4802,8 @@ namespace polynomial {
                     m_manager.set(a, p->a(pos));
                 else
                     m_manager.reset(a);
-                r = muladd(q, r, a);
+                r = muladd(q, r, a); 
             }
-            reset_degree2pos(p);
         }
 
         polynomial * mk_x_minus_y(var x, var y) {

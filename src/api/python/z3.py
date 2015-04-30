@@ -8580,29 +8580,83 @@ def fpToFPUnsigned(rm, x, s):
     return FPRef(Z3_mk_fpa_to_fp_unsigned(rm.ctx_ref(), rm.ast, x.ast, s.ast), rm.ctx)
 
 def fpToSBV(rm, x, s):
-    """Create a Z3 floating-point conversion expression, from floating-point expression to signed bit-vector."""
+    """Create a Z3 floating-point conversion expression, from floating-point expression to signed bit-vector.
+
+    >>> x = FP('x', FPSort(8, 24))
+    >>> y = fpToSBV(RTZ(), x, BitVecSort(32))
+    >>> print is_fp(x)
+    True
+    >>> print is_bv(y)
+    True
+    >>> print is_fp(y)
+    False
+    >>> print is_bv(x)
+    False
+    """
     if __debug__:
         _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
         _z3_assert(is_fp(x), "Second argument must be a Z3 floating-point expression")
         _z3_assert(is_bv_sort(s), "Third argument must be Z3 bit-vector sort")
-    return FPRef(Z3_mk_fpa_to_sbv(rm.ctx_ref(), rm.ast, x.ast, s.size()), rm.ctx)
+    return BitVecRef(Z3_mk_fpa_to_sbv(rm.ctx_ref(), rm.ast, x.ast, s.size()), rm.ctx)
 
 def fpToUBV(rm, x, s):
-    """Create a Z3 floating-point conversion expression, from floating-point expression to unsigned bit-vector."""
+    """Create a Z3 floating-point conversion expression, from floating-point expression to unsigned bit-vector.
+
+    >>> x = FP('x', FPSort(8, 24))
+    >>> y = fpToUBV(RTZ(), x, BitVecSort(32))
+    >>> print is_fp(x)
+    True
+    >>> print is_bv(y)
+    True
+    >>> print is_fp(y)
+    False
+    >>> print is_bv(x)
+    False
+    """
     if __debug__:
         _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
         _z3_assert(is_fp(x), "Second argument must be a Z3 floating-point expression")
         _z3_assert(is_bv_sort(s), "Third argument must be Z3 bit-vector sort")
-    return FPRef(Z3_mk_fpa_to_ubv(rm.ctx_ref(), rm.ast, x.ast, s.size()), rm.ctx)
+    return BitVecRef(Z3_mk_fpa_to_ubv(rm.ctx_ref(), rm.ast, x.ast, s.size()), rm.ctx)
 
 def fpToReal(x):
-    """Create a Z3 floating-point conversion expression, from floating-point expression to real."""
+    """Create a Z3 floating-point conversion expression, from floating-point expression to real.
+
+    >>> x = FP('x', FPSort(8, 24))
+    >>> y = fpToReal(x)
+    >>> print is_fp(x)
+    True
+    >>> print is_real(y)
+    True
+    >>> print is_fp(y)
+    False
+    >>> print is_real(x)
+    False
+    """
     if __debug__:
         _z3_assert(is_fp(x), "First argument must be a Z3 floating-point expression")
-    return FPRef(Z3_mk_fpa_to_real(x.ctx_ref(), x.ast), x.ctx)
+    return ArithRef(Z3_mk_fpa_to_real(x.ctx_ref(), x.ast), x.ctx)
 
 def fpToIEEEBV(x):
-    """Create a Z3 floating-point conversion expression, from floating-point expression to IEEE bit-vector."""
+    """\brief Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format.
+    
+    The size of the resulting bit-vector is automatically determined. 
+    
+    Note that IEEE 754-2008 allows multiple different representations of NaN. This conversion 
+    knows only one NaN and it will always produce the same bit-vector represenatation of 
+    that NaN.
+
+    >>> x = FP('x', FPSort(8, 24))
+    >>> y = fpToIEEEBV(x)
+    >>> print is_fp(x)
+    True
+    >>> print is_bv(y)
+    True
+    >>> print is_fp(y)
+    False
+    >>> print is_bv(x)
+    False
+    """
     if __debug__:
         _z3_assert(is_fp(x), "First argument must be a Z3 floating-point expression")
-    return FPRef(Z3_mk_fpa_to_ieee_bv(x.ctx_ref(), x.ast), x.ctx)
+    return BitVecRef(Z3_mk_fpa_to_ieee_bv(x.ctx_ref(), x.ast), x.ctx)

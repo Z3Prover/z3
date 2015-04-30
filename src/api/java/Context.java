@@ -3212,7 +3212,7 @@ public class Context extends IDisposable
      * @param rm rounding mode term
      * @param t1 floating-point term
      * @param t2 floating-point term
-     * @param t3">floating-point term
+     * @param t3 floating-point term
      * Remarks:
      * The result is round((t1 * t2) + t3)
      * @throws Z3Exception 
@@ -3247,7 +3247,7 @@ public class Context extends IDisposable
     /**
      * Floating-point roundToIntegral. Rounds a floating-point number to 
      * the closest integer, again represented as a floating-point number.
-     * @param rm">term of RoundingMode sort
+     * @param rm term of RoundingMode sort
      * @param t floating-point term
      * @throws Z3Exception 
      **/             
@@ -3425,7 +3425,7 @@ public class Context extends IDisposable
 
     /**
      * Conversion of a single IEEE 754-2008 bit-vector into a floating-point number.
-     * @param bv">bit-vector value (of size m).
+     * @param bv bit-vector value (of size m).
      * @param s FloatingPoint sort (ebits+sbits == m)
      * Remarks:
      * Produces a term that represents the conversion of a bit-vector term bv to a 

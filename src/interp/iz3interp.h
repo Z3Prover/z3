@@ -1,21 +1,21 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+  Copyright (c) 2011 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-   iz3interp.h
+  iz3interp.h
 
-Abstract:
+  Abstract:
 
-   Interpolation based on proof translation.
+  Interpolation based on proof translation.
 
-Author:
+  Author:
 
-    Ken McMillan (kenmcmil)
+  Ken McMillan (kenmcmil)
 
-Revision History:
+  Revision History:
 
---*/
+  --*/
 
 #ifndef IZ3_INTERP_H
 #define IZ3_INTERP_H
@@ -26,12 +26,12 @@ Revision History:
 class iz3base;
 
 struct interpolation_options_struct {
-  stl_ext::hash_map<std::string,std::string> map;
+    stl_ext::hash_map<std::string,std::string> map;
 public:
-  void set(const std::string &name, const std::string &value){
-    map[name] = value;
-  }
-  void apply(iz3base &b);
+    void set(const std::string &name, const std::string &value){
+        map[name] = value;
+    }
+    void apply(iz3base &b);
 };
 
 /** This object is thrown if a tree interpolation problem is mal-formed */
@@ -67,7 +67,11 @@ void iz3interpolate(ast_manager &_m_manager,
 		    interpolation_options_struct * options = 0);
 
 /* Compute an interpolant from a proof. This version uses the ast
-   representation, for compatibility with the new API. */
+   representation, for compatibility with the new API. Here, cnsts is
+   a vector of all the assertions in the proof. This can be
+   over-approximated by the set of all assertions in the
+   solver. However, if it is empty it will be reconstructed from the
+   proof, so it can be considered a hint.  */
 
 void iz3interpolate(ast_manager &_m_manager,
 		    ast *proof,
