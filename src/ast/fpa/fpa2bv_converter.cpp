@@ -1041,80 +1041,54 @@ void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, 
     split_fp(x, x_sgn, x_exp, x_sig);
     split_fp(y, y_sgn, y_exp, y_sig);
 
-    expr_ref c1(m), c2(m), x_is_nan(m), y_is_nan(m), x_is_zero(m), y_is_zero(m), c1_and(m);
+    expr_ref x_is_nan(m), y_is_nan(m), x_is_zero(m), y_is_zero(m), both_zero(m), pzero(m);    
     mk_is_zero(x, x_is_zero);
     mk_is_zero(y, y_is_zero);
-    m_simp.mk_and(x_is_zero, y_is_zero, c1_and);
-    mk_is_nan(x, x_is_nan);
-    m_simp.mk_or(x_is_nan, c1_and, c1);
-
+    m_simp.mk_and(x_is_zero, y_is_zero, both_zero);
+    mk_is_nan(x, x_is_nan);    
     mk_is_nan(y, y_is_nan);
-    c2 = y_is_nan;       
+    mk_pzero(f, pzero);
+
+    expr_ref lt(m);
+    mk_float_lt(f, num, args, lt);
     
-    expr_ref c3(m);
-    mk_float_lt(f, num, args, c3);
+    result = y;
+    mk_ite(lt, x, result, result);
+    mk_ite(both_zero, pzero, result, result);
+    mk_ite(y_is_nan, x, result, result);
+    mk_ite(x_is_nan, y, result, result);
 
-    expr_ref r_sgn(m), r_sig(m), r_exp(m);
-    
-    expr_ref c3xy(m), c2c3(m);
-    m_simp.mk_ite(c3, x_sgn, y_sgn, c3xy);
-    m_simp.mk_ite(c2, x_sgn, c3xy, c2c3);
-    m_simp.mk_ite(c1, y_sgn, c2c3, r_sgn);
-
-    expr_ref c3xy_sig(m), c2c3_sig(m);
-    m_simp.mk_ite(c3, x_sig, y_sig, c3xy_sig);
-    m_simp.mk_ite(c2, x_sig, c3xy_sig, c2c3_sig);
-    m_simp.mk_ite(c1, y_sig, c2c3_sig, r_sig);
-
-    expr_ref c3xy_exp(m), c2c3_exp(m);
-    m_simp.mk_ite(c3, x_exp, y_exp, c3xy_exp);
-    m_simp.mk_ite(c2, x_exp, c3xy_exp, c2c3_exp);
-    m_simp.mk_ite(c1, y_exp, c2c3_exp, r_exp);
-
-    mk_fp(r_sgn, r_exp, r_sig, result);
+    SASSERT(is_well_sorted(m, result));
 }
 
 void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
-    
-    expr * x = args[0], * y = args[1];
 
-    expr * x_sgn, * x_sig, * x_exp;
-    expr * y_sgn, * y_sig, * y_exp;
+    expr * x = args[0], *y = args[1];
+
+    expr * x_sgn, *x_sig, *x_exp;
+    expr * y_sgn, *y_sig, *y_exp;
     split_fp(x, x_sgn, x_exp, x_sig);
     split_fp(y, y_sgn, y_exp, y_sig);
 
-    expr_ref c1(m), c2(m), x_is_nan(m), y_is_nan(m), y_is_zero(m), x_is_zero(m), c1_and(m);
-    mk_is_zero(y, y_is_zero);
+    expr_ref x_is_nan(m), y_is_nan(m), x_is_zero(m), y_is_zero(m), both_zero(m), pzero(m);    
     mk_is_zero(x, x_is_zero);
-    m_simp.mk_and(y_is_zero, x_is_zero, c1_and);
-    mk_is_nan(x, x_is_nan);    
-    m_simp.mk_or(x_is_nan, c1_and, c1);
-        
+    mk_is_zero(y, y_is_zero);
+    m_simp.mk_and(x_is_zero, y_is_zero, both_zero);
+    mk_is_nan(x, x_is_nan);
     mk_is_nan(y, y_is_nan);
-    c2 = y_is_nan;
-    
-    expr_ref c3(m);
-    mk_float_gt(f, num, args, c3);
+    mk_pzero(f, pzero);
 
-    expr_ref r_sgn(m), r_sig(m), r_exp(m);
-    
-    expr_ref c3xy_sgn(m), c2c3_sgn(m);
-    m_simp.mk_ite(c3, x_sgn, y_sgn, c3xy_sgn);
-    m_simp.mk_ite(c2, x_sgn, c3xy_sgn, c2c3_sgn);
-    m_simp.mk_ite(c1, y_sgn, c2c3_sgn, r_sgn);
+    expr_ref gt(m);
+    mk_float_gt(f, num, args, gt);
 
-    expr_ref c3xy_sig(m), c2c3_sig(m);
-    m_simp.mk_ite(c3, x_sig, y_sig, c3xy_sig);
-    m_simp.mk_ite(c2, x_sig, c3xy_sig, c2c3_sig);
-    m_simp.mk_ite(c1, y_sig, c2c3_sig, r_sig);
+    result = y;
+    mk_ite(gt, x, result, result);
+    mk_ite(both_zero, pzero, result, result);
+    mk_ite(y_is_nan, x, result, result);
+    mk_ite(x_is_nan, y, result, result);
 
-    expr_ref c3xy_exp(m), c2c3_exp(m);
-    m_simp.mk_ite(c3, x_exp, y_exp, c3xy_exp);
-    m_simp.mk_ite(c2, x_exp, c3xy_exp, c2c3_exp);
-    m_simp.mk_ite(c1, y_exp, c2c3_exp, r_exp);
-
-    mk_fp(r_sgn, r_exp, r_sig, result);
+    SASSERT(is_well_sorted(m, result));
 }
 
 void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
