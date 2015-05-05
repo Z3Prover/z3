@@ -248,16 +248,16 @@ def test_fpmath(cc):
     t.add('int main() { return 42; }\n')
     t.commit()
     if exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpmath=sse -msse -msse2']) == 0:
-	FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
+        FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
         return "SSE2-GCC"
     elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-msse -msse2']) == 0:
-	FPMATH_FLAGS="-msse -msse2"
+        FPMATH_FLAGS="-msse -msse2"
         return "SSE2-CLANG"
     elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpu=vfp -mfloat-abi=hard']) == 0:
-	FPMATH_FLAGS="-mfpu=vfp -mfloat-abi=hard"
+        FPMATH_FLAGS="-mfpu=vfp -mfloat-abi=hard"
         return "ARM-VFP"
     else:
-	FPMATH_FLAGS=""
+        FPMATH_FLAGS=""
         return "UNKNOWN"
 
 
@@ -412,7 +412,7 @@ def find_ml_lib():
         print ('Finding OCAML_LIB...')
     t = TempFile('output')
     null = open(os.devnull, 'wb')
-    try: 
+    try:
         subprocess.call([OCAMLC, '-where'], stdout=t.fname, stderr=null)
         t.commit()
     except:
@@ -553,7 +553,7 @@ def display_help(exit_code):
         print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
     print("  -j, --java                    generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
-    print("  --staticlib                   build Z3 static library.")    
+    print("  --staticlib                   build Z3 static library.")
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
@@ -1841,7 +1841,7 @@ def mk_config():
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
         FPMATH = test_fpmath(CXX)
-	CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
+        CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
         HAS_OMP = test_openmp(CXX)
         if HAS_OMP:
             CXXFLAGS = '%s -fopenmp' % CXXFLAGS
