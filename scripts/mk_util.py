@@ -8,7 +8,6 @@
 ############################################
 import sys
 import os
-import glob
 import re
 import getopt
 import shutil
@@ -17,7 +16,6 @@ from fnmatch import fnmatch
 import distutils.sysconfig
 import compileall
 import subprocess
-import string
 
 def getenv(name, default):
     try:
