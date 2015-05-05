@@ -180,6 +180,8 @@ def exec_cmd(cmd):
     except:
         # Failed to create process
         return 1
+    finally:
+        null.close()
 
 # rm -f fname
 def rmf(fname):
@@ -351,6 +353,7 @@ def check_java():
                     q = os.path.dirname(libdir)
                     if cdirs.count(q) == 0:
                         cdirs.append(q)
+        t.close()
 
         # ... plus some heuristic ones.
         extra_dirs = []
@@ -417,6 +420,9 @@ def find_ml_lib():
         t.commit()
     except:
         raise MKException('Failed to find Ocaml library; please set OCAML_LIB')
+    finally:
+        null.close()
+
     t = open('output', 'r')
     for line in t:
         OCAML_LIB = line[:-1]
@@ -475,6 +481,7 @@ def is_cr_lf(fname):
     # Check whether text files use cr/lf
     f = open(fname, 'r')
     line = f.readline()
+    f.close()
     sz = len(line)
     return sz >= 2 and line[sz-2] == '\r' and line[sz-1] == '\n'
 
@@ -663,6 +670,7 @@ def extract_c_includes(fname):
         elif not system_inc_pat.match(line) and non_std_inc_pat.match(line):
             raise MKException("Invalid #include directive at '%s':%s" % (fname, line))
         linenum = linenum + 1
+    f.close()
     return result
 
 
@@ -1939,6 +1947,8 @@ def mk_config():
                 print('OCaml Native:   %s' % OCAMLOPT)
                 print('OCaml Library:  %s' % OCAML_LIB)
 
+    config.close()
+
 def mk_install(out):
     out.write('install: ')
     for c in get_components():
@@ -2012,6 +2022,7 @@ def mk_makefile():
     if not IS_WINDOWS:
         mk_install(out)
         mk_uninstall(out)
+    out.close()
     # Finalize
     if VERBOSE:
         print("Makefile was successfully generated.")
@@ -2125,6 +2136,7 @@ def def_module_params(module_name, export, params, class_name=None, description=
                       (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
     out.write('};\n')
     out.write('#endif\n')
+    out.close()
     if is_verbose():
         print("Generated '%s'" % hpp)
 
@@ -2167,6 +2179,8 @@ def mk_pat_db():
     for line in fin:
         fout.write('"%s\\n"\n' % line.strip('\n'))
     fout.write(';\n')
+    fin.close()
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % os.path.join(c.src_dir, 'database.h'))
 
@@ -2192,6 +2206,7 @@ def mk_version_dot_h(major, minor, build, revision):
     fout.write('#define Z3_MINOR_VERSION   %s\n' % minor)
     fout.write('#define Z3_BUILD_NUMBER    %s\n' % build)
     fout.write('#define Z3_REVISION_NUMBER %s\n' % revision)
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % os.path.join(c.src_dir, 'version.h'))
 
@@ -2283,6 +2298,7 @@ def mk_install_tactic_cpp(cnames, path):
                         exec(line.strip('\n '), globals())
                     except:
                         raise MKException("Failed processing ADD_PROBE command at '%s'\n%s" % (fullname, line))
+            fin.close()
     # First pass will just generate the tactic factories
     idx = 0
     for data in ADD_TACTIC_DATA:
@@ -2298,6 +2314,7 @@ def mk_install_tactic_cpp(cnames, path):
     for data in ADD_PROBE_DATA:
         fout.write('  ADD_PROBE("%s", "%s", %s);\n' % data)
     fout.write('}\n')
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % fullname)
 
@@ -2350,6 +2367,7 @@ def mk_mem_initializer_cpp(cnames, path):
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
                     finalizer_cmds.append(m.group(1))
+            fin.close()
     initializer_cmds.sort(key=lambda tup: tup[1])
     fout.write('void mem_initialize() {\n')
     for (cmd, prio) in initializer_cmds:
@@ -2361,6 +2379,7 @@ def mk_mem_initializer_cpp(cnames, path):
         fout.write(cmd)
         fout.write('\n')
     fout.write('}\n')
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % fullname)
 
@@ -2410,6 +2429,7 @@ def mk_gparams_register_modules(cnames, path):
                 m = reg_mod_descr_pat.match(line)
                 if m:
                     mod_descrs.append((m.group(1), m.group(2)))
+            fin.close()
     fout.write('void gparams_register_modules() {\n')
     for code in cmds:
         fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
@@ -2418,6 +2438,7 @@ def mk_gparams_register_modules(cnames, path):
     for (mod, descr) in mod_descrs:
         fout.write('gparams::register_module_descr("%s", "%s");\n' % (mod, descr))
     fout.write('}\n')
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % fullname)
 
@@ -2451,6 +2472,8 @@ def mk_def_file(c):
                         fout.write('\t%s @%s\n' % (f, num))
                     i = i + 1
                 num = num + 1
+        api.close()
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % defname)
 
@@ -2585,6 +2608,8 @@ def mk_z3consts_py(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+        api.close()
+    z3consts.close()
     if VERBOSE:
         print("Generated '%s'" % os.path.join(Z3PY_SRC_DIR, 'z3consts.py'))
 
@@ -2670,7 +2695,9 @@ def mk_z3consts_dotnet(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+        api.close()
     z3consts.write('}\n');
+    z3consts.close()
     if VERBOSE:
         print("Generated '%s'" % os.path.join(dotnet.src_dir, 'Enumerations.cs'))
 
@@ -2777,6 +2804,7 @@ def mk_z3consts_java(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+        api.close()
     if VERBOSE:
         print("Generated '%s'" % ('%s' % gendir))
 
@@ -2872,6 +2900,8 @@ def mk_z3consts_ml(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+        api.close()
+    efile.close()
     if VERBOSE:
         print ('Generated "%s/z3enums.ml"' % ('%s' % gendir))
     efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
@@ -2942,6 +2972,8 @@ def mk_z3consts_ml(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+        api.close()
+    efile.close()
     if VERBOSE:
         print ('Generated "%s/z3enums.mli"' % ('%s' % gendir))
 
@@ -3078,6 +3110,7 @@ def mk_vs_proj(name, components):
     f.write('  <ImportGroup Label="ExtensionTargets">\n')
     f.write('  </ImportGroup>\n')
     f.write('</Project>\n')
+    f.close()
     if is_verbose():
         print("Generated '%s'" % proj_name)
 
