@@ -959,14 +959,14 @@ void fpa2bv_converter::mk_rem(func_decl * f, unsigned num, expr * const * args, 
     c3 = y_is_inf;
     v3 = x;
 
-    // (x is 0) -> x
-    c4 = x_is_zero;
-    v4 = pzero;
-    
     // (y is 0) -> NaN.
-    c5 = y_is_zero;
-    v5 = nan;
+    c4 = y_is_zero;
+    v4 = nan;
 
+    // (x is 0) -> x
+    c5 = x_is_zero;
+    v5 = pzero;
+        
     // else the actual remainder.
     unsigned ebits = m_util.get_ebits(f->get_range());
     unsigned sbits = m_util.get_sbits(f->get_range());    
