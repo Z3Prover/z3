@@ -1004,26 +1004,29 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
     else if (is_inf(x))
         set(o, x);
     else if (is_zero(x))
-        mk_zero(x.ebits, x.sbits, x.sign, o);
+        mk_zero(x.ebits, x.sbits, x.sign, o); // -0.0 -> -0.0, says IEEE754, Sec 5.9.
     else if (x.exponent < 0) {
         if (rm == MPF_ROUND_TOWARD_ZERO ||
             rm == MPF_ROUND_TOWARD_NEGATIVE)
-            mk_pzero(x.ebits, x.sbits, o);
+            mk_zero(x.ebits, x.sbits, x.sign, o);
         else if (rm == MPF_ROUND_NEAREST_TEVEN ||
                  rm == MPF_ROUND_NEAREST_TAWAY) {
             bool tie = m_mpz_manager.is_zero(x.significand) && x.exponent == -1;
             if (tie && rm == MPF_ROUND_NEAREST_TEVEN)
-                mk_pzero(x.ebits, x.sbits, o);
+                mk_zero(x.ebits, x.sbits, x.sign, o);
             else if (tie && rm == MPF_ROUND_NEAREST_TAWAY)
-                mk_one(x.ebits, x.sbits, o);
-            else if (x.exponent < -1 || m_mpz_manager.lt(x.significand, m_powers2(x.sbits-2)))
-                mk_pzero(x.ebits, x.sbits, o);
+                mk_one(x.ebits, x.sbits, x.sign, o);
+            else if (x.exponent < -1)
+                mk_zero(x.ebits, x.sbits, x.sign, o);
             else 
-                mk_one(x.ebits, x.sbits, o);
+                mk_one(x.ebits, x.sbits, x.sign, o);
         }
         else {
             SASSERT(rm == MPF_ROUND_TOWARD_POSITIVE);
-            mk_one(x.ebits, x.sbits, o);
+            if (x.sign) 
+                mk_nzero(x.ebits, x.sbits, o);
+            else
+                mk_one(x.ebits, x.sbits, false, o);
         }
     }
     else if (x.exponent >= x.sbits - 1)
@@ -1049,7 +1052,7 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
 
         unsigned shift = o.sbits - ((unsigned)o.exponent) - 1;
         const mpz & shift_p = m_powers2(shift);
-        TRACE("mpf_dbg", tout << "shift=" << shift << std::endl;);        
+        TRACE("mpf_dbg", tout << "shift=" << shift << std::endl;);
         
         scoped_mpz div(m_mpz_manager), rem(m_mpz_manager);        
         m_mpz_manager.machine_div_rem(o.significand, shift_p, div, rem);
@@ -1065,16 +1068,16 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
                 (rm == MPF_ROUND_NEAREST_TEVEN && m_mpz_manager.is_odd(div)) ||
                 (rm == MPF_ROUND_NEAREST_TAWAY && m_mpz_manager.is_even(div)))
                 m_mpz_manager.inc(div);
-            else if (m_mpz_manager.gt(t, shift_p))
+            else if (x.sign ^ m_mpz_manager.gt(t, shift_p))
                 m_mpz_manager.inc(div);
             break;
         }
         case MPF_ROUND_TOWARD_POSITIVE:
-            if (!m_mpz_manager.is_zero(rem) && !o.sign)
+            if (!m_mpz_manager.is_zero(rem) && o.sign)
                 m_mpz_manager.inc(div);
             break;
         case MPF_ROUND_TOWARD_NEGATIVE:
-            if (!m_mpz_manager.is_zero(rem) && o.sign)
+            if (!m_mpz_manager.is_zero(rem) && !o.sign)
                 m_mpz_manager.inc(div);
             break;
         case MPF_ROUND_TOWARD_ZERO:
@@ -1511,10 +1514,10 @@ void mpf_manager::mk_nan(unsigned ebits, unsigned sbits, mpf & o) {
     o.sign = false;
 }
 
-void mpf_manager::mk_one(unsigned ebits, unsigned sbits, mpf & o) const {
+void mpf_manager::mk_one(unsigned ebits, unsigned sbits, bool sign, mpf & o) const {
     o.sbits = sbits;
     o.ebits = ebits;
-    o.sign = false;
+    o.sign = sign;
     m_mpz_manager.set(o.significand, 0);
     o.exponent = 0;
 }
