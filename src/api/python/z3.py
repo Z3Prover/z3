@@ -1228,6 +1228,15 @@ class BoolSortRef(SortRef):
             _z3_assert(self.eq(val.sort()), "Value cannot be converted into a Z3 Boolean value")
         return val
 
+    def subsort(self, other):
+	return isinstance(other, ArithSortRef)
+
+    def is_int(self):
+	return True
+
+    def is_bool(self):
+	return True
+
 class BoolRef(ExprRef):
     """All Boolean expressions are instances of this class."""
     def sort(self):
@@ -1900,6 +1909,10 @@ class ArithSortRef(SortRef):
                 return val
             if val_s.is_int() and self.is_real():
                 return ToReal(val)
+	    if val_s.is_bool() and self.is_int():
+		return If(val, 1, 0)
+	    if val_s.is_bool() and self.is_real():
+		return ToReal(If(val, 1, 0))
             if __debug__:
                 _z3_assert(False, "Z3 Integer/Real expression expected" )
         else:
