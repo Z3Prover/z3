@@ -1099,10 +1099,10 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
         mk_nan(x.ebits, x.sbits, o);
     else if (is_inf(y))
         set(o, x);
-    else if (is_zero(x))        
-        set(o, x);
     else if (is_zero(y))
         mk_nan(x.ebits, x.sbits, o);
+    else if (is_zero(x))        
+        set(o, x);    
     else {        
         o.ebits = x.ebits;
         o.sbits = x.sbits;
