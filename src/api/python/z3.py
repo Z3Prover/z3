@@ -1237,6 +1237,7 @@ class BoolSortRef(SortRef):
     def is_bool(self):
 	return True
 
+
 class BoolRef(ExprRef):
     """All Boolean expressions are instances of this class."""
     def sort(self):
