@@ -32,7 +32,7 @@ sat
 Z3 exceptions:
 
 >>> try:
-...   x = Int('x')
+...   x = BitVec('x', 32)
 ...   y = Bool('y')
 ...   # the expression x + y is type incorrect
 ...   n = x + y
