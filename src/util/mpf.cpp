@@ -1475,6 +1475,9 @@ void mpf_manager::mk_ninf(unsigned ebits, unsigned sbits, mpf & o) {
 
 void mpf_manager::unpack(mpf & o, bool normalize) {
     // Insert the hidden bit or adjust the exponent of denormal numbers.    
+    if (is_zero(o))
+        return;
+
     if (is_normal(o))
         m_mpz_manager.add(o.significand, m_powers2(o.sbits-1), o.significand);
     else {

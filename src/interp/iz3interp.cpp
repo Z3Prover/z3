@@ -398,9 +398,26 @@ public:
             s.assert_expr(to_expr(cnsts[i].raw()));
     }
 
+    void get_proof_assumptions(z3pf proof, std::vector<ast> &cnsts, hash_set<ast> &memo){
+        if(memo.find(proof) != memo.end())return;
+        memo.insert(proof);
+        pfrule dk = pr(proof);
+        if(dk == PR_ASSERTED)
+            cnsts.push_back(conc(proof));
+        else {
+            unsigned nprems = num_prems(proof);
+            for(unsigned i = 0; i < nprems; i++){
+                z3pf arg = prem(proof,i);
+                get_proof_assumptions(arg,cnsts,memo);
+            }
+        }
+    }
+
     iz3interp(ast_manager &_m_manager)
         : iz3base(_m_manager) {}
 };
+
+
 
 void iz3interpolate(ast_manager &_m_manager,
 		    ast *proof,
@@ -475,6 +492,13 @@ void iz3interpolate(ast_manager &_m_manager,
         _cnsts[i] = itp.cook(cnsts[i]);
     iz3mgr::ast _proof = itp.cook(proof);
     iz3mgr::ast _tree = itp.cook(tree);
+
+    // if consts isn't provided, we can reconstruct it
+    if(_cnsts.empty()){
+        hash_set<iz3mgr::ast> memo;
+        itp.get_proof_assumptions(_proof,_cnsts,memo);
+    }
+
     itp.proof_to_interpolant(_proof,_cnsts,_tree,_interps,options);
     interps.resize(_interps.size());
     for(unsigned i = 0; i < interps.size(); i++)

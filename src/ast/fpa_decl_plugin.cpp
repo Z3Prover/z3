@@ -879,12 +879,20 @@ void fpa_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
 }
 
 expr * fpa_decl_plugin::get_some_value(sort * s) {
-    SASSERT(s->is_sort_of(m_family_id, FLOATING_POINT_SORT));    
-    mpf tmp;
-    m_fm.mk_nan(s->get_parameter(0).get_int(), s->get_parameter(1).get_int(), tmp);
-    expr * res = this->mk_numeral(tmp);
-    m_fm.del(tmp);
-    return res;
+    if (s->is_sort_of(m_family_id, FLOATING_POINT_SORT)) {
+        mpf tmp;
+        m_fm.mk_nan(s->get_parameter(0).get_int(), s->get_parameter(1).get_int(), tmp);
+        expr * res = mk_numeral(tmp);
+        m_fm.del(tmp);
+        return res;
+    }
+    else if (s->is_sort_of(m_family_id, ROUNDING_MODE_SORT)) {
+        func_decl * f = mk_rm_const_decl(OP_FPA_RM_TOWARD_ZERO, 0, 0, 0, 0, s);
+        return m_manager->mk_const(f);
+    }
+    
+    UNREACHABLE();
+    return 0;
 }
 
 bool fpa_decl_plugin::is_value(app * e) const {

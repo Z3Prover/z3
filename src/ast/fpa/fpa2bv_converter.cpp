@@ -1041,80 +1041,54 @@ void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, 
     split_fp(x, x_sgn, x_exp, x_sig);
     split_fp(y, y_sgn, y_exp, y_sig);
 
-    expr_ref c1(m), c2(m), x_is_nan(m), y_is_nan(m), x_is_zero(m), y_is_zero(m), c1_and(m);
+    expr_ref x_is_nan(m), y_is_nan(m), x_is_zero(m), y_is_zero(m), both_zero(m), pzero(m);    
     mk_is_zero(x, x_is_zero);
     mk_is_zero(y, y_is_zero);
-    m_simp.mk_and(x_is_zero, y_is_zero, c1_and);
-    mk_is_nan(x, x_is_nan);
-    m_simp.mk_or(x_is_nan, c1_and, c1);
-
+    m_simp.mk_and(x_is_zero, y_is_zero, both_zero);
+    mk_is_nan(x, x_is_nan);    
     mk_is_nan(y, y_is_nan);
-    c2 = y_is_nan;       
+    mk_pzero(f, pzero);
+
+    expr_ref lt(m);
+    mk_float_lt(f, num, args, lt);
     
-    expr_ref c3(m);
-    mk_float_lt(f, num, args, c3);
+    result = y;
+    mk_ite(lt, x, result, result);
+    mk_ite(both_zero, pzero, result, result);
+    mk_ite(y_is_nan, x, result, result);
+    mk_ite(x_is_nan, y, result, result);
 
-    expr_ref r_sgn(m), r_sig(m), r_exp(m);
-    
-    expr_ref c3xy(m), c2c3(m);
-    m_simp.mk_ite(c3, x_sgn, y_sgn, c3xy);
-    m_simp.mk_ite(c2, x_sgn, c3xy, c2c3);
-    m_simp.mk_ite(c1, y_sgn, c2c3, r_sgn);
-
-    expr_ref c3xy_sig(m), c2c3_sig(m);
-    m_simp.mk_ite(c3, x_sig, y_sig, c3xy_sig);
-    m_simp.mk_ite(c2, x_sig, c3xy_sig, c2c3_sig);
-    m_simp.mk_ite(c1, y_sig, c2c3_sig, r_sig);
-
-    expr_ref c3xy_exp(m), c2c3_exp(m);
-    m_simp.mk_ite(c3, x_exp, y_exp, c3xy_exp);
-    m_simp.mk_ite(c2, x_exp, c3xy_exp, c2c3_exp);
-    m_simp.mk_ite(c1, y_exp, c2c3_exp, r_exp);
-
-    mk_fp(r_sgn, r_exp, r_sig, result);
+    SASSERT(is_well_sorted(m, result));
 }
 
 void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
-    
-    expr * x = args[0], * y = args[1];
 
-    expr * x_sgn, * x_sig, * x_exp;
-    expr * y_sgn, * y_sig, * y_exp;
+    expr * x = args[0], *y = args[1];
+
+    expr * x_sgn, *x_sig, *x_exp;
+    expr * y_sgn, *y_sig, *y_exp;
     split_fp(x, x_sgn, x_exp, x_sig);
     split_fp(y, y_sgn, y_exp, y_sig);
 
-    expr_ref c1(m), c2(m), x_is_nan(m), y_is_nan(m), y_is_zero(m), x_is_zero(m), c1_and(m);
-    mk_is_zero(y, y_is_zero);
+    expr_ref x_is_nan(m), y_is_nan(m), x_is_zero(m), y_is_zero(m), both_zero(m), pzero(m);    
     mk_is_zero(x, x_is_zero);
-    m_simp.mk_and(y_is_zero, x_is_zero, c1_and);
-    mk_is_nan(x, x_is_nan);    
-    m_simp.mk_or(x_is_nan, c1_and, c1);
-        
+    mk_is_zero(y, y_is_zero);
+    m_simp.mk_and(x_is_zero, y_is_zero, both_zero);
+    mk_is_nan(x, x_is_nan);
     mk_is_nan(y, y_is_nan);
-    c2 = y_is_nan;
-    
-    expr_ref c3(m);
-    mk_float_gt(f, num, args, c3);
+    mk_pzero(f, pzero);
 
-    expr_ref r_sgn(m), r_sig(m), r_exp(m);
-    
-    expr_ref c3xy_sgn(m), c2c3_sgn(m);
-    m_simp.mk_ite(c3, x_sgn, y_sgn, c3xy_sgn);
-    m_simp.mk_ite(c2, x_sgn, c3xy_sgn, c2c3_sgn);
-    m_simp.mk_ite(c1, y_sgn, c2c3_sgn, r_sgn);
+    expr_ref gt(m);
+    mk_float_gt(f, num, args, gt);
 
-    expr_ref c3xy_sig(m), c2c3_sig(m);
-    m_simp.mk_ite(c3, x_sig, y_sig, c3xy_sig);
-    m_simp.mk_ite(c2, x_sig, c3xy_sig, c2c3_sig);
-    m_simp.mk_ite(c1, y_sig, c2c3_sig, r_sig);
+    result = y;
+    mk_ite(gt, x, result, result);
+    mk_ite(both_zero, pzero, result, result);
+    mk_ite(y_is_nan, x, result, result);
+    mk_ite(x_is_nan, y, result, result);
 
-    expr_ref c3xy_exp(m), c2c3_exp(m);
-    m_simp.mk_ite(c3, x_exp, y_exp, c3xy_exp);
-    m_simp.mk_ite(c2, x_exp, c3xy_exp, c2c3_exp);
-    m_simp.mk_ite(c1, y_exp, c2c3_exp, r_exp);
-
-    mk_fp(r_sgn, r_exp, r_sig, result);
+    SASSERT(is_well_sorted(m, result));
 }
 
 void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -2096,79 +2070,89 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         bool is_int;
         m_util.au().is_numeral(x, q, is_int);
 
-        scoped_mpf v(m_mpf_manager);
-        m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
+        if (q.is_zero())
+            return mk_pzero(f, result);
+        else {
+            scoped_mpf v(m_mpf_manager);
+            m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
 
-        expr_ref sgn(m), s(m), e(m), unbiased_exp(m);
-        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v)) ? 1 : 0, 1);
-        s = m_bv_util.mk_numeral(m_util.fm().sig(v), sbits - 1);
-        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v), ebits);
-        mk_bias(unbiased_exp, e);
 
-        mk_fp(sgn, e, s, result);
+
+            expr_ref sgn(m), s(m), e(m), unbiased_exp(m);
+            sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v)) ? 1 : 0, 1);
+            s = m_bv_util.mk_numeral(m_util.fm().sig(v), sbits - 1);
+            unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v), ebits);
+            mk_bias(unbiased_exp, e);
+
+            mk_fp(sgn, e, s, result);
+        }
     }
     else if (m_util.au().is_numeral(x)) {
         rational q;
         bool is_int;
         m_util.au().is_numeral(x, q, is_int);
 
-        expr_ref rm_nta(m), rm_nte(m), rm_tp(m), rm_tn(m), rm_tz(m);
-        mk_is_rm(rm, BV_RM_TIES_TO_AWAY, rm_nta);
-        mk_is_rm(rm, BV_RM_TIES_TO_EVEN, rm_nte);
-        mk_is_rm(rm, BV_RM_TO_POSITIVE, rm_tp);
-        mk_is_rm(rm, BV_RM_TO_NEGATIVE, rm_tn);
-        mk_is_rm(rm, BV_RM_TO_ZERO, rm_tz);        
+        if (m_util.au().is_zero(x))
+            mk_pzero(f, result);
+        else {
+            expr_ref rm_nta(m), rm_nte(m), rm_tp(m), rm_tn(m), rm_tz(m);
+            mk_is_rm(rm, BV_RM_TIES_TO_AWAY, rm_nta);
+            mk_is_rm(rm, BV_RM_TIES_TO_EVEN, rm_nte);
+            mk_is_rm(rm, BV_RM_TO_POSITIVE, rm_tp);
+            mk_is_rm(rm, BV_RM_TO_NEGATIVE, rm_tn);
+            mk_is_rm(rm, BV_RM_TO_ZERO, rm_tz);
 
-        scoped_mpf v_nta(m_mpf_manager), v_nte(m_mpf_manager), v_tp(m_mpf_manager);
-        scoped_mpf v_tn(m_mpf_manager), v_tz(m_mpf_manager);
-        m_util.fm().set(v_nta, ebits, sbits, MPF_ROUND_NEAREST_TAWAY, q.to_mpq());
-        m_util.fm().set(v_nte, ebits, sbits, MPF_ROUND_NEAREST_TEVEN, q.to_mpq());
-        m_util.fm().set(v_tp, ebits, sbits, MPF_ROUND_TOWARD_POSITIVE, q.to_mpq());
-        m_util.fm().set(v_tn, ebits, sbits, MPF_ROUND_TOWARD_NEGATIVE, q.to_mpq());
-        m_util.fm().set(v_tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, q.to_mpq());
+            scoped_mpf v_nta(m_mpf_manager), v_nte(m_mpf_manager), v_tp(m_mpf_manager);
+            scoped_mpf v_tn(m_mpf_manager), v_tz(m_mpf_manager);
+            m_util.fm().set(v_nta, ebits, sbits, MPF_ROUND_NEAREST_TAWAY, q.to_mpq());
+            m_util.fm().set(v_nte, ebits, sbits, MPF_ROUND_NEAREST_TEVEN, q.to_mpq());
+            m_util.fm().set(v_tp, ebits, sbits, MPF_ROUND_TOWARD_POSITIVE, q.to_mpq());
+            m_util.fm().set(v_tn, ebits, sbits, MPF_ROUND_TOWARD_NEGATIVE, q.to_mpq());
+            m_util.fm().set(v_tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, q.to_mpq());
 
-        expr_ref v1(m), v2(m), v3(m), v4(m);
+            expr_ref v1(m), v2(m), v3(m), v4(m);
 
-        expr_ref sgn(m), s(m), e(m), unbiased_exp(m);
-        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_nta)) ? 1 : 0, 1);
-        s = m_bv_util.mk_numeral(m_util.fm().sig(v_nta), sbits - 1);
-        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_nta), ebits);
-        mk_bias(unbiased_exp, e);
-        mk_fp(sgn, e, s, v1);
+            expr_ref sgn(m), s(m), e(m), unbiased_exp(m);
+            sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_nta)) ? 1 : 0, 1);
+            s = m_bv_util.mk_numeral(m_util.fm().sig(v_nta), sbits - 1);
+            unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_nta), ebits);
+            mk_bias(unbiased_exp, e);
+            mk_fp(sgn, e, s, v1);
 
-        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_nte)) ? 1 : 0, 1);
-        s = m_bv_util.mk_numeral(m_util.fm().sig(v_nte), sbits - 1);
-        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_nte), ebits);
-        mk_bias(unbiased_exp, e);
-        mk_fp(sgn, e, s, v2);
+            sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_nte)) ? 1 : 0, 1);
+            s = m_bv_util.mk_numeral(m_util.fm().sig(v_nte), sbits - 1);
+            unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_nte), ebits);
+            mk_bias(unbiased_exp, e);
+            mk_fp(sgn, e, s, v2);
 
-        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tp)) ? 1 : 0, 1);
-        s = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
-        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tp), ebits);
-        mk_bias(unbiased_exp, e);
-        mk_fp(sgn, e, s, v3);
+            sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tp)) ? 1 : 0, 1);
+            s = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
+            unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tp), ebits);
+            mk_bias(unbiased_exp, e);
+            mk_fp(sgn, e, s, v3);
 
-        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tn)) ? 1 : 0, 1);
-        s = m_bv_util.mk_numeral(m_util.fm().sig(v_tn), sbits - 1);
-        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tn), ebits);
-        mk_bias(unbiased_exp, e);
-        mk_fp(sgn, e, s, v4);
+            sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tn)) ? 1 : 0, 1);
+            s = m_bv_util.mk_numeral(m_util.fm().sig(v_tn), sbits - 1);
+            unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tn), ebits);
+            mk_bias(unbiased_exp, e);
+            mk_fp(sgn, e, s, v4);
 
-        sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tp)) ? 1 : 0, 1);
-        s = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
-        unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tp), ebits);
-        mk_bias(unbiased_exp, e);
-        
-        mk_fp(sgn, e, s, result);        
-        mk_ite(rm_tn, v4, result, result);
-        mk_ite(rm_tp, v3, result, result);
-        mk_ite(rm_nte, v2, result, result);
-        mk_ite(rm_nta, v1, result, result);
+            sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tp)) ? 1 : 0, 1);
+            s = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
+            unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tp), ebits);
+            mk_bias(unbiased_exp, e);
+
+            mk_fp(sgn, e, s, result);
+            mk_ite(rm_tn, v4, result, result);
+            mk_ite(rm_tp, v3, result, result);
+            mk_ite(rm_nte, v2, result, result);
+            mk_ite(rm_nta, v1, result, result);
+        }
     }
     else {        
         bv_util & bu = m_bv_util;
         arith_util & au = m_arith_util;
-        
+
         expr_ref bv0(m), bv1(m), zero(m), two(m);
         bv0 = bu.mk_numeral(0, 1);
         bv1 = bu.mk_numeral(1, 1);
@@ -2182,6 +2166,10 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
         expr_ref rme(rm, m);
         round(s, rme, sgn, sig, exp, result);
+        
+        expr_ref c0(m);
+        mk_is_zero(x, c0);
+        mk_ite(c0, x, result, result);
 
         expr * e = m.mk_eq(m_util.mk_to_real(result), x);
         m_extra_assertions.push_back(e);        
@@ -2209,38 +2197,43 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
     SASSERT(e.is_int64());
     SASSERT(m_mpz_manager.eq(e.to_mpq().denominator(), 1));
 
-    scoped_mpf nte(m_mpf_manager), nta(m_mpf_manager), tp(m_mpf_manager), tn(m_mpf_manager), tz(m_mpf_manager);
-    m_mpf_manager.set(nte, ebits, sbits, MPF_ROUND_NEAREST_TEVEN, q.to_mpq(), e.to_mpq().numerator());
-    m_mpf_manager.set(nta, ebits, sbits, MPF_ROUND_NEAREST_TAWAY, q.to_mpq(), e.to_mpq().numerator());
-    m_mpf_manager.set(tp, ebits, sbits, MPF_ROUND_TOWARD_POSITIVE, q.to_mpq(), e.to_mpq().numerator());
-    m_mpf_manager.set(tn, ebits, sbits, MPF_ROUND_TOWARD_NEGATIVE, q.to_mpq(), e.to_mpq().numerator());
-    m_mpf_manager.set(tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, q.to_mpq(), e.to_mpq().numerator());
+    if (q.is_zero())
+        return mk_pzero(f, result);
+    else {
+        scoped_mpf nte(m_mpf_manager), nta(m_mpf_manager), tp(m_mpf_manager), tn(m_mpf_manager), tz(m_mpf_manager);
+        m_mpf_manager.set(nte, ebits, sbits, MPF_ROUND_NEAREST_TEVEN, q.to_mpq(), e.to_mpq().numerator());
+        m_mpf_manager.set(nta, ebits, sbits, MPF_ROUND_NEAREST_TAWAY, q.to_mpq(), e.to_mpq().numerator());
+        m_mpf_manager.set(tp, ebits, sbits, MPF_ROUND_TOWARD_POSITIVE, q.to_mpq(), e.to_mpq().numerator());
+        m_mpf_manager.set(tn, ebits, sbits, MPF_ROUND_TOWARD_NEGATIVE, q.to_mpq(), e.to_mpq().numerator());
+        m_mpf_manager.set(tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, q.to_mpq(), e.to_mpq().numerator());
 
-    app_ref a_nte(m), a_nta(m), a_tp(m), a_tn(m), a_tz(m);
-    a_nte = m_plugin->mk_numeral(nte);
-    a_nta = m_plugin->mk_numeral(nta);
-    a_tp = m_plugin->mk_numeral(tp);
-    a_tn = m_plugin->mk_numeral(tn);
-    a_tz = m_plugin->mk_numeral(tz);
+        app_ref a_nte(m), a_nta(m), a_tp(m), a_tn(m), a_tz(m);
+        a_nte = m_plugin->mk_numeral(nte);
+        a_nta = m_plugin->mk_numeral(nta);
+        a_tp = m_plugin->mk_numeral(tp);
+        a_tn = m_plugin->mk_numeral(tn);
+        a_tz = m_plugin->mk_numeral(tz);
 
-    expr_ref bv_nte(m), bv_nta(m), bv_tp(m), bv_tn(m), bv_tz(m);
-    mk_numeral(a_nte->get_decl(), 0, 0, bv_nte);
-    mk_numeral(a_nta->get_decl(), 0, 0, bv_nta);
-    mk_numeral(a_tp->get_decl(), 0, 0, bv_tp);
-    mk_numeral(a_tn->get_decl(), 0, 0, bv_tn);
-    mk_numeral(a_tz->get_decl(), 0, 0, bv_tz);
+        expr_ref bv_nte(m), bv_nta(m), bv_tp(m), bv_tn(m), bv_tz(m);
+        mk_numeral(a_nte->get_decl(), 0, 0, bv_nte);
+        mk_numeral(a_nta->get_decl(), 0, 0, bv_nta);
+        mk_numeral(a_tp->get_decl(), 0, 0, bv_tp);
+        mk_numeral(a_tn->get_decl(), 0, 0, bv_tn);
+        mk_numeral(a_tz->get_decl(), 0, 0, bv_tz);
 
-    expr_ref c1(m), c2(m), c3(m), c4(m);
-    c1 = m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3));
-    c2 = m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3));
-    c3 = m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3));
-    c4 = m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3));
+        expr_ref c1(m), c2(m), c3(m), c4(m);
+        c1 = m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3));
+        c2 = m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3));
+        c3 = m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3));
+        c4 = m.mk_eq(rm, m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3));
 
-    mk_ite(c1, bv_tn, bv_tz, result);
-    mk_ite(c2, bv_tp, result, result);
-    mk_ite(c3, bv_nta, result, result);
-    mk_ite(c4, bv_nte, result, result);
+        mk_ite(c1, bv_tn, bv_tz, result);
+        mk_ite(c2, bv_tp, result, result);
+        mk_ite(c3, bv_nta, result, result);
+        mk_ite(c4, bv_nte, result, result);
+    }
 }
+
 void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     TRACE("fpa2bv_to_real", for (unsigned i = 0; i < num; i++)
           tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
@@ -2367,10 +2360,9 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     mk_pinf(f, pinf);
 
     // Special case: x == 0 -> p/n zero
-    expr_ref c1(m), v1(m), rm_is_to_neg(m);
-    c1 = is_zero;
-    mk_is_rm(rm, BV_RM_TO_NEGATIVE, rm_is_to_neg);
-    mk_ite(rm_is_to_neg, nzero, pzero, v1);
+    expr_ref c1(m), v1(m);
+    c1 = is_zero;    
+    v1 = pzero;
 
     // Special case: x != 0
     expr_ref is_neg_bit(m), exp_too_large(m), sig_4(m), exp_2(m);
@@ -2508,10 +2500,9 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     mk_pinf(f, pinf);
 
     // Special case: x == 0 -> p/n zero
-    expr_ref c1(m), v1(m), rm_is_to_neg(m);
+    expr_ref c1(m), v1(m);
     c1 = is_zero;
-    mk_is_rm(rm, BV_RM_TO_NEGATIVE, rm_is_to_neg);
-    mk_ite(rm_is_to_neg, nzero, pzero, v1);
+    v1 = pzero;
 
     // Special case: x != 0
     expr_ref exp_too_large(m), sig_4(m), exp_2(m);        
@@ -3182,7 +3173,7 @@ void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref
         m_simp.mk_ite(m.mk_or(is_normal, is_sig_zero), zero_e, lz_d, lz);
         dbg_decouple("fpa2bv_unpack_lz", lz);
 
-        expr_ref shift(m);        
+        expr_ref shift(m);
         m_simp.mk_ite(is_sig_zero, zero_e, lz, shift);
         dbg_decouple("fpa2bv_unpack_shift", shift);
         SASSERT(is_well_sorted(m, is_sig_zero));

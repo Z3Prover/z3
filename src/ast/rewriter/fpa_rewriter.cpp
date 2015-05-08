@@ -411,14 +411,20 @@ br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
         result = arg1;
         return BR_DONE;
     }
-    // expand as using ite's
-    result = m().mk_ite(m().mk_or(mk_eq_nan(arg1), m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2))),
+    if (m_util.is_zero(arg1) && m_util.is_zero(arg2)) {
+        result = m_util.mk_pzero(m().get_sort(arg1));
+        return BR_DONE;
+    }
+
+    result = m().mk_ite(mk_eq_nan(arg1),
                         arg2,
-                        m().mk_ite(mk_eq_nan(arg2), 
-                                   arg1,
-                                   m().mk_ite(m_util.mk_lt(arg1, arg2),
-                                           arg1,
-                                           arg2)));
+                        m().mk_ite(mk_eq_nan(arg2),
+                        arg1,
+                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2)),
+                        m_util.mk_pzero(m().get_sort(arg1)),
+                        m().mk_ite(m_util.mk_lt(arg1, arg2),
+                        arg1,
+                        arg2))));
     return BR_REWRITE_FULL;
 }
 
@@ -431,14 +437,20 @@ br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
         result = arg1;
         return BR_DONE;
     }
-    // expand as using ite's
-    result = m().mk_ite(m().mk_or(mk_eq_nan(arg1), m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2))),
+    if (m_util.is_zero(arg1) && m_util.is_zero(arg2)) {
+        result = m_util.mk_pzero(m().get_sort(arg1));
+        return BR_DONE;
+    }
+
+    result = m().mk_ite(mk_eq_nan(arg1),
                         arg2,
-                        m().mk_ite(mk_eq_nan(arg2), 
-                                   arg1,
-                                   m().mk_ite(m_util.mk_gt(arg1, arg2),
-                                              arg1,
-                                              arg2)));
+                        m().mk_ite(mk_eq_nan(arg2),
+                        arg1,
+                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2)),
+                        m_util.mk_pzero(m().get_sort(arg1)),
+                        m().mk_ite(m_util.mk_gt(arg1, arg2),
+                        arg1,
+                        arg2))));
     return BR_REWRITE_FULL;
 }
 
