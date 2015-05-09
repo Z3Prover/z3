@@ -655,6 +655,7 @@ namespace z3 {
         friend expr ite(expr const & c, expr const & t, expr const & e);
 
         friend expr distinct(expr_vector const& args);
+        friend expr concat(expr const& a, expr const& b);
 
         friend expr operator==(expr const & a, expr const & b) {
             check_context(a, b);
@@ -1105,6 +1106,12 @@ namespace z3 {
         context& ctx = args[0].ctx();
         array<Z3_ast> _args(args);
         Z3_ast r = Z3_mk_distinct(ctx, _args.size(), _args.ptr());
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+
+    inline expr concat(expr const& a, expr const& b) {
+        Z3_ast r = Z3_mk_concat(ctx, (Z3_app) a, (Z3_app) b);
         ctx.check_error();
         return expr(ctx, r);
     }
