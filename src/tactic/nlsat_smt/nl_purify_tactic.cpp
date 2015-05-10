@@ -264,7 +264,7 @@ private:
 
     void display_result(std::ostream& out, goal_ref_buffer const& result) {
         for (unsigned i = 0; i < result.size(); ++i) {
-            result[i]->display(tout << "goal\n");
+            result[i]->display(out << "goal\n");
         }        
     }
 

@@ -21,15 +21,12 @@ void read_nums(std::istream& is, unsigned & x, unsigned& y) {
     std::getline(is, line);
 }
 
-static bool g_verbose = false;
 static char const* g_file = 0;
 
 
 void create_forwarding(char const* file, datalog::ddnf_core& ddnf, ptr_vector<tbv>& tbvs) {
 
-    if (g_verbose) {
-        std::cout << "creating (and forgetting) forwarding index\n";
-    }
+    IF_VERBOSE(1, verbose_stream() << "creating (and forgetting) forwarding index\n";);
     std::ifstream is(file);
     if (is.bad() || is.fail()) {
         std::cout << "could not load " << file << "\n";
@@ -72,9 +69,7 @@ void create_forwarding(char const* file, datalog::ddnf_core& ddnf, ptr_vector<tb
 
 datalog::ddnf_core* populate_ddnf(char const* file, ptr_vector<tbv>& tbvs) {
 
-    if (g_verbose) {
-        std::cout << "populate ddnf\n";
-    }
+    IF_VERBOSE(1, verbose_stream() << "populate ddnf\n";);
 
     std::ifstream is(file);
     if (is.bad() || is.fail()) {
@@ -91,9 +86,7 @@ datalog::ddnf_core* populate_ddnf(char const* file, ptr_vector<tbv>& tbvs) {
     for (unsigned r = 0; r < M; ++r) {
         unsigned P, K;
         read_nums(is, K, P);
-        if (g_verbose) {
-            std::cout << K << " " << P << "\n";
-        }
+        IF_VERBOSE(1, verbose_stream() << K << " " << P << "\n";);
         unsigned p;
         for (unsigned g = 0; g < K; ++g) {
             is >> p;
@@ -123,15 +116,6 @@ static void read_args(char ** argv, int argc) {
         return;
     }
 
-    for (int i = 2; i < argc; ++i) {
-        if (argv[i] == "v") {
-            g_verbose = true;            
-        }
-        else {
-            g_file = argv[i];
-        }
-    }
-
     if (!g_file) {
         std::cout << "Need routing table file as argument. Arguments provided: ";
         for (int i = 0; i < argc; ++i) {
@@ -150,10 +134,7 @@ void tst_ddnf(char ** argv, int argc, int& i) {
     create_forwarding(g_file, *ddnf, tbvs);
     std::cout << "resulting size: " << ddnf->size() << "\n";
     ddnf->display_statistics(std::cout);
-    if (g_verbose) {
-        ddnf->display(std::cout);
-    }
-    std::cout.flush();
+    IF_VERBOSE(1, ddnf->display(verbose_stream()););
 
     tbv_manager& tbvm = ddnf->get_tbv_manager();
     for (unsigned i = 0; i < tbvs.size(); ++i) {
