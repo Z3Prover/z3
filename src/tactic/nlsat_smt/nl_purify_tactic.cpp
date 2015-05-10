@@ -56,6 +56,8 @@ Revision History:
 #include "trace.h"
 #include "smt_solver.h"
 #include "solver.h"
+#include "model_smt2_pp.h"
+#include "expr_safe_replace.h"
 
 class nl_purify_tactic : public tactic {
 
@@ -72,6 +74,7 @@ class nl_purify_tactic : public tactic {
     ref<filter_model_converter> m_fmc;
     bool            m_cancel;       
     tactic_ref      m_nl_tac;       // nlsat tactic
+    goal_ref        m_nl_g;         // nlsat goal
     ref<solver>     m_solver;       // SMT solver
     expr_ref_vector m_eq_preds;     // predicates for equality between pairs of interface variables
     svector<lbool>  m_eq_values;    // truth value of the equality predicates in nlsat 
@@ -94,8 +97,6 @@ public:
         app_ref_vector&      m_new_preds;
         obj_map<expr, polarity_t>& m_polarities;
         obj_map<expr,expr*>& m_interface_cache;
-        expr_ref_vector      m_nl_cnstrs;
-        proof_ref_vector     m_nl_cnstr_prs;
         expr_ref_vector      m_args;
         mode_t               m_mode;
 
@@ -106,8 +107,6 @@ public:
             m_new_preds(o.m_new_preds),
             m_polarities(o.m_polarities),
             m_interface_cache(o.m_interface_cache),
-            m_nl_cnstrs(m),
-            m_nl_cnstr_prs(m),            
             m_args(m),
             m_mode(mode_interface_var) {
         }
@@ -129,12 +128,12 @@ public:
             }
             r = m.mk_fresh_const(0, u().mk_real());
             m_new_reals.push_back(to_app(r));
+            m_owner.m_fmc->insert(to_app(r)->get_decl());
             m_interface_cache.insert(arg, r);
             expr_ref eq(m);
             eq = m.mk_eq(r, arg);
             if (is_real_expression(arg)) {
-                m_nl_cnstrs.push_back(eq);
-                m_nl_cnstr_prs.push_back(m.mk_oeq(r, arg));
+                m_owner.m_nl_g->assert_expr(eq); // m.mk_oeq(r, arg)
             }
             else {
                 m_owner.m_solver->assert_expr(eq);
@@ -149,18 +148,18 @@ public:
         void mk_interface_bool(func_decl * f, unsigned num, expr* const* args, expr_ref& result) {
             expr_ref old_pred(m.mk_app(f, num, args), m);
             polarity_t pol;
-            TRACE("nlsat_smt", tout << old_pred << "\n";);
             VERIFY(m_polarities.find(old_pred, pol));
             result = m.mk_fresh_const(0, m.mk_bool_sort());
             m_polarities.insert(result, pol);
             m_new_preds.push_back(to_app(result));
+            m_owner.m_fmc->insert(to_app(result)->get_decl());
             if (pol != pol_neg) {
-                m_nl_cnstrs.push_back(m.mk_or(m.mk_not(result), m.mk_app(f, num, args)));
+                m_owner.m_nl_g->assert_expr(m.mk_or(m.mk_not(result), m.mk_app(f, num, args)));
             }
             if (pol != pol_pos) {
-                m_nl_cnstrs.push_back(m.mk_or(result, m.mk_not(m.mk_app(f, num, args))));
+                m_owner.m_nl_g->assert_expr(m.mk_or(result, m.mk_not(m.mk_app(f, num, args))));
             }
-            TRACE("nlsat_smt", tout << result << " :  " << mk_pp(m_nl_cnstrs.back(), m) << "\n";);
+            TRACE("nlsat_smt", tout << old_pred << " : " << result << "\n";);
         }
 
         bool reduce_quantifier(quantifier * old_q, 
@@ -182,7 +181,6 @@ public:
         }
 
         br_status reduce_app_bool(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref & pr) {
-            TRACE("nlsat_smt", { expr_ref tmp(m); tmp = m.mk_app(f, num, args); tout << "reduce: " << tmp << "\n";});
             if (f->get_family_id() == m.get_basic_family_id()) {
                 if (f->get_decl_kind() == OP_EQ && u().is_real(args[0])) {
                     mk_interface_bool(f, num, args, result);
@@ -248,9 +246,6 @@ private:
             rewriter_tpl<rw_cfg>(o.m, o.m_produce_proofs, m_cfg),
             m_cfg(o) {
         } 
-        expr_ref_vector const& nl_cnstrs() const { 
-            return m_cfg.m_nl_cnstrs; 
-        }
         void set_bool_mode() {
             m_cfg.m_mode = rw_cfg::mode_bool_preds;
         }
@@ -289,19 +284,18 @@ private:
         }
     }
 
-    void solve(goal_ref const&      nl_g, 
-               goal_ref_buffer&     result, 
+    void solve(goal_ref_buffer&     result, 
                model_converter_ref& mc) {        
 
         while (true) {
             check_point();
-            TRACE("nlsat_smt", m_solver->display(tout << "SMT:\n"); nl_g->display(tout << "\nNL:\n"); );
+            TRACE("nlsat_smt", m_solver->display(tout << "SMT:\n"); m_nl_g->display(tout << "\nNL:\n"); );
             goal_ref tmp_nl  = alloc(goal, m, true, false);
             model_converter_ref nl_mc;
             proof_converter_ref nl_pc;
             expr_dependency_ref nl_core(m);
             result.reset();
-            tmp_nl->copy_from(*nl_g.get());
+            tmp_nl->copy_from(*m_nl_g.get());
             (*m_nl_tac)(tmp_nl, result, nl_mc, nl_pc, nl_core);
 
             if (is_decided_unsat(result)) {
@@ -319,11 +313,13 @@ private:
             model_ref mdl_nl, mdl_smt;
             model_converter2model(m, nl_mc.get(), mdl_nl);
             update_eq_values(mdl_nl);
-            enforce_equalities(mdl_nl, nl_g);
+            enforce_equalities(mdl_nl, m_nl_g);
             
             setup_assumptions(mdl_nl);
 
-            TRACE("nlsat_smt", m_solver->display(tout << "smt goal:\n"); );
+            TRACE("nlsat_smt", 
+                  model_smt2_pp(tout << "nl model\n", m, *mdl_nl.get(), 0);
+                  m_solver->display(tout << "smt goal:\n"); tout << "\n";);
 
             result.reset();
             lbool r = m_solver->check_sat(m_asms.size(), m_asms.c_ptr());
@@ -344,12 +340,12 @@ private:
                     clause.push_back(m.is_not(core[i], e)?e:m.mk_not(core[i]));
                 }
                 fml = m.mk_or(clause.size(), clause.c_ptr());
-                nl_g->assert_expr(fml);
+                m_nl_g->assert_expr(fml);
                 continue;
             }
             else if (r == l_true) {
                 m_solver->get_model(mdl_smt);
-                if (enforce_equalities(mdl_smt, nl_g)) {
+                if (enforce_equalities(mdl_smt, m_nl_g)) {
                     // SMT enforced a new equality that wasn't true for nlsat.
                     continue;
                 }
@@ -370,6 +366,7 @@ private:
         TRACE("nlsat_smt", display_result(tout, result););
     }
 
+
     void setup_assumptions(model_ref& mdl) {
         m_asms.reset();
         app_ref_vector const& fresh_preds = m_new_preds;
@@ -377,16 +374,17 @@ private:
         for (unsigned i = 0; i < fresh_preds.size(); ++i) {
             expr* pred = fresh_preds[i];
             if (mdl->eval(pred, tmp)) {
-                TRACE("nlsat_smt", tout << "pred: " << mk_pp(pred, m) << "\n";);
                 polarity_t pol = m_polarities.find(pred);
-                if (pol != pol_neg && m.is_true(tmp)) {
-                    m_asms.push_back(pred);
-                }
-                else if (pol != pol_pos && m.is_false(tmp)) {
+                // if assumptinon literals are used to satisfy NL state,
+                // we have to assume them when satisfying SMT state
+                if (pol != pol_neg && m.is_false(tmp)) {
                     m_asms.push_back(m.mk_not(pred));
                 }
+                else if (pol != pol_pos && m.is_true(tmp)) {
+                    m_asms.push_back(pred);
+                }
             }
-        }
+        }        
         for (unsigned i = 0; i < m_eq_preds.size(); ++i) {
             expr* pred = m_eq_preds[i].get();
             switch (m_eq_values[i]) {
@@ -400,6 +398,11 @@ private:
                 break;
             }
         }
+        TRACE("nlsat_smt", 
+              tout << "assumptions:\n";
+              for (unsigned i = 0; i < m_asms.size(); ++i) {
+                  tout << mk_pp(m_asms[i].get(), m) << "\n";
+              });
     }
 
     bool enforce_equalities(model_ref& mdl, goal_ref const& nl_g) {
@@ -439,9 +442,9 @@ private:
     }
 
     void merge_models(model const& mdl_nl, model_ref& mdl_smt) {
-        obj_map<expr,expr*> num2num;
+        expr_safe_replace num2num(m);
         expr_ref result(m), val2(m);
-        expr_ref_vector args(m), trail(m);
+        expr_ref_vector args(m);
         unsigned sz = mdl_nl.get_num_constants();
         for (unsigned i = 0; i < sz; ++i) {
             func_decl* v = mdl_nl.get_constant(i);
@@ -450,7 +453,6 @@ private:
                 if (mdl_smt->eval(v, val2)) {
                     if (val != val2) {
                         num2num.insert(val2, val);
-                        trail.push_back(val2);                        
                     }
                 }
             }
@@ -466,13 +468,13 @@ private:
                     args.reset();                    
                     func_entry const* entry = f1->get_entry(j);
                     for (unsigned k = 0; k < arity; ++k) {
-                        args.push_back(translate(num2num, entry->get_arg(k)));
+                        translate(num2num, entry->get_arg(k), result);
+                        args.push_back(result);
                     }
-                    result = translate(num2num, entry->get_result());
+                    translate(num2num, entry->get_result(), result);
                     f2->insert_entry(args.c_ptr(), result);
                 }
-                expr* e = f1->get_else();
-                result = translate(num2num, e);
+                translate(num2num, f1->get_else(), result);
                 f2->set_else(result);
                 mdl_smt->register_decl(f, f2);
             }            
@@ -487,11 +489,11 @@ private:
         return u().is_real(f->get_range());
     }
 
-    expr* translate(obj_map<expr, expr*> const& num2num, expr* e) {
-        if (!e || !u().is_real(e)) return e;
-        expr* result = 0;
-        if (num2num.find(e, result)) return result;
-        return e;
+    void translate(expr_safe_replace& num2num, expr* e, expr_ref& result) {
+        result = 0;
+        if (e) {
+            num2num(e, result);
+        }
     }
 
     void get_polarities(goal const& g) {
@@ -512,7 +514,7 @@ private:
                 if (p == q || q == pol_dual) continue;
                 p = pol_dual;
             }
-            TRACE("nlsat_smt", tout << mk_pp(e, m) << "\n";);
+            TRACE("nlsat_smt_verbose", tout << mk_pp(e, m) << "\n";);
             m_polarities.insert(e, p);
             if (is_quantifier(e) || is_var(e)) {
                 throw tactic_exception("nl-purify tactic does not support quantifiers");                
@@ -573,6 +575,56 @@ private:
         }
     }
 
+    void remove_pure_arith(goal_ref const& g) {
+        obj_map<expr, bool> is_pure;
+        unsigned sz = g->size();
+        for (unsigned i = 0; i < sz; i++) {
+            expr * curr = g->form(i);
+            if (is_pure_arithmetic(is_pure, curr)) {
+                m_nl_g->assert_expr(curr, g->pr(i), g->dep(i));
+                g->update(i, m.mk_true());
+            }
+        }        
+    }
+
+    bool is_pure_arithmetic(obj_map<expr, bool>& is_pure, expr* e0) {
+        ptr_vector<expr> todo;
+        todo.push_back(e0);
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            if (is_pure.contains(e)) {
+                todo.pop_back();
+                continue;
+            }
+            if (!is_app(e)) {
+                todo.pop_back();
+                is_pure.insert(e, false);
+                continue;
+            }
+            app* a = to_app(e);
+            bool pure = false, all_found = true, p;
+            pure |= (a->get_family_id() == u().get_family_id()) && u().is_real(a);
+            pure |= (m.is_eq(e) && u().is_real(a->get_arg(0)));
+            pure |= (a->get_family_id() == u().get_family_id()) && m.is_bool(a) && u().is_real(a->get_arg(0));
+            pure |= (a->get_family_id() == m.get_basic_family_id());
+            pure |= is_uninterp_const(a) && u().is_real(a);
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                if (!is_pure.find(a->get_arg(i), p)) {
+                    todo.push_back(a->get_arg(i));
+                    all_found = false;
+                }
+                else {
+                    pure &= p;
+                }
+            }
+            if (all_found) {
+                is_pure.insert(e, pure);
+                todo.pop_back();
+            }
+        }
+        return is_pure.find(e0);
+    }
+
 public:
 
     nl_purify_tactic(ast_manager & m, params_ref const& p):
@@ -580,6 +632,7 @@ public:
         m_util(m),
         m_params(p),
         m_nl_tac(mk_nlsat_tactic(m, p)),
+        m_nl_g(0),
         m_solver(mk_smt_solver(m, p, symbol::null)),
         m_fmc(0),
         m_cancel(false),
@@ -629,15 +682,16 @@ public:
                             expr_dependency_ref & core) {
 
         tactic_report report("qfufnl-purify", *g);
+        TRACE("nlsat_smt", g->display(tout););
+
         m_produce_proofs = g->proofs_enabled();
         mc = 0; pc = 0; core = 0;
 
         fail_if_proof_generation("qfufnra-purify", g);
         fail_if_unsat_core_generation("qfufnra-purify", g);        
         rw r(*this);
-        goal_ref nlg = alloc(goal, m, true, false);
-                
-        TRACE("nlsat_smt", g->display(tout););
+        m_nl_g = alloc(goal, m, true, false);
+        m_fmc = alloc(filter_model_converter, m);                
 
         // first hoist interface variables, 
         // then annotate subformulas by polarities,
@@ -645,34 +699,18 @@ public:
         // creating a place-holder predicate inside the
         // original goal and extracing pure nlsat clauses.
         r.set_interface_var_mode();
-        rewrite_goal(r, g);        
+        rewrite_goal(r, g);       
+        remove_pure_arith(g);
         get_polarities(*g.get());
         r.set_bool_mode();
         rewrite_goal(r, g);        
 
-        m_fmc = alloc(filter_model_converter, m);
-        app_ref_vector const& vars1 = m_new_reals;
-        for (unsigned i = 0; i < vars1.size(); ++i) {
-            SASSERT(is_uninterp_const(vars1[i]));
-            m_fmc->insert(vars1[i]->get_decl());
-        }
-        app_ref_vector const& vars2 = m_new_preds;
-        for (unsigned i = 0; i < vars2.size(); ++i) {
-            SASSERT(is_uninterp_const(vars2[i]));
-            m_fmc->insert(vars2[i]->get_decl());
-        }
-        
-        // add constraints to nlg.
-        unsigned sz = r.nl_cnstrs().size();
-        for (unsigned i = 0; i < sz; i++) {
-            nlg->assert_expr(r.nl_cnstrs()[i], m_produce_proofs ? r.cfg().m_nl_cnstr_prs.get(i) : 0, 0);
-        }
         g->inc_depth();
         for (unsigned i = 0; i < g->size(); ++i) {
             m_solver->assert_expr(g->form(i));
         }
         g->inc_depth();
-        solve(nlg, result, mc);        
+        solve(result, mc);        
     }
 };
 

@@ -27,19 +27,23 @@ Notes:
 #include"elim_uncnstr_tactic.h"
 #include"simplify_tactic.h"
 #include"nnf_tactic.h"
-
+#include"tseitin_cnf_tactic.h"
 
 tactic * mk_qfufnra_tactic(ast_manager & m, params_ref const& p) {
-
-    return and_then(and_then(mk_simplify_tactic(m, p), 
+    params_ref main_p = p;
+    main_p.set_bool("elim_and", true);
+    main_p.set_bool("blast_distinct", true);
+    
+    return and_then(and_then(using_params(mk_simplify_tactic(m, p), main_p),
                              mk_purify_arith_tactic(m, p),
                              mk_propagate_values_tactic(m, p),
                              mk_solve_eqs_tactic(m, p),
                              mk_elim_uncnstr_tactic(m, p)),
                     and_then(mk_elim_term_ite_tactic(m, p),
                              mk_solve_eqs_tactic(m, p),
-                             mk_simplify_tactic(m, p),
-                             mk_nnf_tactic(m, p),
+                             using_params(mk_simplify_tactic(m, p), main_p),
+                             mk_tseitin_cnf_core_tactic(m, p),
+                             using_params(mk_simplify_tactic(m, p), main_p),
                              mk_nl_purify_tactic(m, p)));
 }
 
