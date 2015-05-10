@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+Copyright (c) 2015 Microsoft Corporation
 
 Module Name:
 
@@ -42,12 +42,6 @@ Author:
     Nikolaj Bjorner (nbjorner) 2015-5-5.
 
 Revision History:
-
-- check for input assumptions
-- check for proof mode
-- check for quantifiers
-- add applicability filter
-- add to smtlogics
 
 --*/
 #include "tactical.h"
@@ -165,10 +159,17 @@ public:
             throw tactic_exception("quantifiers are not supported in mixed-mode nlsat engine");
         }
 
+        br_status reduce_app(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref & pr) {
+            if (m_mode == mode_bool_preds) {
+                return reduce_app_bool(f, num, args, result, pr);
+            }
+            else {
+                return reduce_app_real(f, num, args, result, pr);
+            }
+        }
+
         br_status reduce_app_bool(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref & pr) {
             if (f->get_family_id() == m.get_basic_family_id()) {
-                // TBD: do we have negated inequalities for strict?
-                // maybe equalities are already deleted by pre-processor stage, but why depend on this?
                 if (f->get_decl_kind() == OP_EQ && u().is_real(args[0])) {
                     mk_interface_bool(f, num, args, result);
                     return BR_DONE;
@@ -179,23 +180,30 @@ public:
             }
             if (f->get_family_id() == u().get_family_id()) {
                 switch (f->get_decl_kind()) {
-                case OP_LE:
-                case OP_GE:
-                case OP_LT:
-                case OP_GT:
+                case OP_LE: case OP_GE: case OP_LT: case OP_GT:
                     // these are the only real cases of non-linear atomic formulas besides equality.
                     mk_interface_bool(f, num, args, result);
                     return BR_DONE;
                 default:
                     return BR_FAILED;
                 }
-                }
+            }
             return BR_FAILED;            
         }
 
         br_status reduce_app_real(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref & pr) {
-            m_args.reset();
             bool has_interface = false;
+            if (f->get_family_id() == u().get_family_id()) {
+                switch (f->get_decl_kind()) {
+                case OP_NUM: case OP_IRRATIONAL_ALGEBRAIC_NUM:
+                case OP_ADD: case OP_MUL: case OP_SUB: 
+                case OP_UMINUS: case OP_ABS: case OP_POWER: 
+                    return BR_FAILED;
+                default:
+                    break;
+                }
+            }
+            m_args.reset();
             for (unsigned i = 0; i < num; ++i) {
                 expr* arg = args[i];
                 if (u().is_real(arg)) {
@@ -215,17 +223,10 @@ public:
                 return BR_FAILED;
             }
         }
-
-        br_status reduce_app(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref & pr) {
-            if (m_mode == mode_bool_preds) {
-                return reduce_app_bool(f, num, args, result, pr);
-            }
-            else {
-                return reduce_app_real(f, num, args, result, pr);
-            }
-        }
     };
+
 private:
+
     class rw : public rewriter_tpl<rw_cfg> {
         rw_cfg m_cfg;
     public:
@@ -242,7 +243,6 @@ private:
         void set_interface_var_mode() {
             m_cfg.m_mode = rw_cfg::mode_interface_var;
         }
-
     };
 
     arith_util & u() { return m_util; }
@@ -375,7 +375,7 @@ private:
         }
         for (unsigned i = 0; i < m_eq_preds.size(); ++i) {
             expr* pred = m_eq_preds[i].get();
-            switch(m_eq_values[i]) {
+            switch (m_eq_values[i]) {
             case l_true: 
                 m_asms.push_back(pred);
                 break;
@@ -558,8 +558,8 @@ private:
         }
     }
 
-
 public:
+
     nl_purify_tactic(ast_manager & m, params_ref const& p):
         m(m),
         m_util(m),
