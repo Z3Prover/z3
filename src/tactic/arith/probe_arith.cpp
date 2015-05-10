@@ -518,11 +518,17 @@ struct is_non_qfufnra_functor {
     struct found {};
     ast_manager & m;
     arith_util    u;
+    bool          m_has_nonlinear;
 
-    is_non_qfufnra_functor(ast_manager & _m): m(_m), u(m) {}
+    is_non_qfufnra_functor(ast_manager & _m): 
+        m(_m), u(m), m_has_nonlinear(false) {}
 
     void throw_found() {
         throw found();
+    }
+
+    bool has_nonlinear() const {
+        return m_has_nonlinear;
     }
 
     void operator()(var * x) {
@@ -539,13 +545,24 @@ struct is_non_qfufnra_functor {
             switch (n->get_decl_kind()) {
             case OP_LE:  case OP_GE: case OP_LT: case OP_GT:
             case OP_ADD: case OP_UMINUS: case OP_SUB: case OP_ABS: 
-            case OP_NUM: case OP_MUL:
+            case OP_NUM: 
             case OP_IRRATIONAL_ALGEBRAIC_NUM:
                 return;
+            case OP_MUL:
+                if (n->get_num_args() == 2 ||
+                    (!u.is_numeral(n->get_arg(0)) &&
+                     !u.is_numeral(n->get_arg(1)))) {
+                    m_has_nonlinear = true;
+                }
+                return;
             case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
-            case OP_POWER:
                 if (!u.is_numeral(n->get_arg(1)))
                     throw_found();
+                return;
+            case OP_POWER: 
+                if (!u.is_numeral(n->get_arg(1)))
+                    throw_found();
+                m_has_nonlinear = true;
                 return;
             case OP_IS_INT:
             case OP_TO_INT:
@@ -618,7 +635,7 @@ public:
 
 static bool is_qfufnra(goal const& g) {
     is_non_qfufnra_functor p(g.m());
-    return !test(g, p);    
+    return !test(g, p) && p.has_nonlinear();
 }
 
 class is_qfufnra_probe : public probe {

@@ -130,7 +130,20 @@ public:
             r = m.mk_fresh_const(0, u().mk_real());
             m_new_reals.push_back(to_app(r));
             m_interface_cache.insert(arg, r);
+            expr_ref eq(m);
+            eq = m.mk_eq(r, arg);
+            if (is_real_expression(arg)) {
+                m_nl_cnstrs.push_back(eq);
+                m_nl_cnstr_prs.push_back(m.mk_oeq(r, arg));
+            }
+            else {
+                m_owner.m_solver->assert_expr(eq);
+            }
             return r;
+        }
+
+        bool is_real_expression(expr* e) {
+            return is_app(e) && (to_app(e)->get_family_id() == u().get_family_id());
         }
 
         void mk_interface_bool(func_decl * f, unsigned num, expr* const* args, expr_ref& result) {
