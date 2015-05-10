@@ -123,6 +123,13 @@ namespace datalog {
 
 
     class ddnf_mgr {        
+        struct stats {
+            unsigned           m_num_inserts;            
+            unsigned           m_num_comparisons;
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
+
         unsigned               m_num_bits;
         ddnf_node*             m_root;
         ddnf_node_vector       m_noderefs;
@@ -131,6 +138,8 @@ namespace datalog {
         ddnf_node::hash        m_hash;
         ddnf_node::eq          m_eq;
         ddnf_nodes             m_nodes;
+        svector<bool>          m_marked;
+        stats                  m_stats;
     public:
         ddnf_mgr(unsigned n): m_num_bits(n), m_noderefs(*this), m_internalized(false), m_tbv(n),
                               m_hash(m_tbv), m_eq(m_tbv),
@@ -154,6 +163,31 @@ namespace datalog {
             n->dec_ref();
         }
 
+        void reset_accumulate() {
+            m_marked.resize(m_nodes.size());
+            for (unsigned i = 0; i < m_marked.size(); ++i) {
+                m_marked[i] = false;
+            }
+        }
+
+        void accumulate(tbv const& t, unsigned_vector& acc) {
+            ddnf_node* n = find(t);
+            ptr_vector<ddnf_node> todo;
+            todo.push_back(n);
+            while (!todo.empty()) {
+                n = todo.back();
+                todo.pop_back();
+                unsigned id = n->get_id();
+                if (m_marked[id]) continue;
+                acc.push_back(id);
+                m_marked[id] = true;
+                unsigned sz = n->num_children();
+                for (unsigned i = 0; i < sz; ++i) {
+                    todo.push_back((*n)[i]);
+                }
+            }
+        }
+
         ddnf_node* insert(tbv const& t) {
             SASSERT(!m_internalized);
             ptr_vector<tbv const> new_tbvs;
@@ -173,6 +207,9 @@ namespace datalog {
             return m_tbv.allocate(v, hi, lo);
         }
 
+        tbv_manager& get_tbv_manager() {
+            return m_tbv;
+        }
 
         unsigned size() const { 
             return m_noderefs.size(); 
@@ -183,12 +220,20 @@ namespace datalog {
             return find(t)->descendants();
         }
 
-        void display(std::ostream& out) const {
+        void display_statistics(std::ostream& out) const {            
+            std::cout << "Number of insertions:  " << m_stats.m_num_inserts << "\n";
+            std::cout << "Number of comparisons: " << m_stats.m_num_comparisons << "\n";
+            std::cout << "Number of nodes:       " << size() << "\n";
+        }
+
+        void display(std::ostream& out) const {            
             for (unsigned i = 0; i < m_noderefs.size(); ++i) {
                 m_noderefs[i]->display(out);
                 out << "\n";
             }
         }
+
+   
 
     private:
 
@@ -207,9 +252,11 @@ namespace datalog {
             
             SASSERT(m_tbv.contains(root.get_tbv(), new_tbv));
             if (&root == new_n) return;
+            ++m_stats.m_num_inserts;
             bool inserted = false;
             for (unsigned i = 0; i < root.num_children(); ++i) {
                 ddnf_node& child = *(root[i]);
+                ++m_stats.m_num_comparisons;
                 if (m_tbv.contains(child.get_tbv(), new_tbv)) {
                     inserted = true;
                     insert(child, new_n, new_intersections);
@@ -227,11 +274,16 @@ namespace datalog {
                 // checking for subset
                 if (m_tbv.contains(new_tbv, child.get_tbv())) {
                     subset_children.push_back(&child);
+                    ++m_stats.m_num_comparisons;
                 }
                 else if (m_tbv.intersect(child.get_tbv(), new_tbv, *intr)) {
                     // this means there is a non-full intersection
                     new_intersections.push_back(intr);
                     intr = m_tbv.allocate();
+                    m_stats.m_num_comparisons += 2;
+                }
+                else {
+                    m_stats.m_num_comparisons += 2;
                 }
             }
             m_tbv.deallocate(intr);
@@ -284,9 +336,37 @@ namespace datalog {
             for (; it != end; ++it) {
                 dst.insert(*it);
             }
-        }
-        
+        }        
     };
+
+    ddnf_core::ddnf_core(unsigned n) {
+        m_imp = alloc(ddnf_mgr, n);
+    }
+    ddnf_core::~ddnf_core() {
+        dealloc(m_imp);
+    }
+    ddnf_node* ddnf_core::insert(tbv const& t) {
+        return m_imp->insert(t);
+    }
+    tbv_manager& ddnf_core::get_tbv_manager() {
+        return m_imp->get_tbv_manager();
+    }
+    unsigned ddnf_core::size() const {
+        return m_imp->size();
+    }
+    void ddnf_core::reset_accumulate() {
+        return m_imp->reset_accumulate();
+    }
+    void ddnf_core::accumulate(tbv const& t, unsigned_vector& acc) {
+        return m_imp->accumulate(t, acc);
+    }
+    void ddnf_core::display(std::ostream& out) const {
+        m_imp->display(out);
+    }
+    void ddnf_core::display_statistics(std::ostream& out) const {
+        m_imp->display_statistics(out);
+    }
+    
 
     void ddnf_node::add_child(ddnf_node* n) {
         //SASSERT(!m_tbv.is_subset(n->m_tbv));

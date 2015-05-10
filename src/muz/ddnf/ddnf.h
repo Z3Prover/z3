@@ -24,6 +24,9 @@ Revision History:
 #include "statistics.h"
 #include "dl_engine_base.h"
 
+class tbv;
+class tbv_manager;
+
 namespace datalog {
     class context;
 
@@ -40,6 +43,28 @@ namespace datalog {
         virtual void collect_statistics(statistics& st) const;
         virtual void display_certificate(std::ostream& out) const;        
         virtual expr_ref get_answer();
+    };
+
+    class ddnf_node;
+    class ddnf_mgr;
+    class ddnf_core {
+        ddnf_mgr* m_imp;
+    public:
+        ddnf_core(unsigned n);
+        ~ddnf_core();
+        ddnf_node* insert(tbv const& t);
+        tbv_manager& get_tbv_manager();
+        unsigned size() const;
+
+        //
+        // accumulate labels covered by the stream of tbvs, 
+        // such that labels that are covered by the current 
+        // tbv but not the previous tbvs are included.
+        // 
+        void reset_accumulate();
+        void accumulate(tbv const& t, unsigned_vector& labels);
+        void display(std::ostream& out) const;
+        void display_statistics(std::ostream& out) const;
     };
 };
 

@@ -283,6 +283,10 @@ tactic * and_then(tactic * t1, tactic * t2, tactic * t3, tactic * t4, tactic * t
     return and_then(t1, and_then(t2, t3, t4, t5, t6, t7, t8, t9, t10));
 }
 
+tactic * and_then(tactic * t1, tactic * t2, tactic * t3, tactic * t4, tactic * t5, tactic * t6, tactic * t7, tactic * t8, tactic * t9, tactic * t10, tactic * t11) {
+    return and_then(t1, and_then(t2, t3, t4, t5, t6, t7, t8, t9, t10, t11));
+}
+
 tactic * and_then(unsigned num, tactic * const * ts) {
     SASSERT(num > 0);
     unsigned i = num - 1;

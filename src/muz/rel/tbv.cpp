@@ -99,6 +99,20 @@ tbv* tbv_manager::allocate(tbv const& bv, unsigned const* permutation) {
     }
     return r;
 }
+tbv* tbv_manager::allocate(char const* bv) {
+    tbv* result = allocateX();
+    unsigned i = 0, sz = num_tbits();
+    while(*bv && i < sz) {
+        if (*bv == '0') set(*result, i++, tbit::BIT_0);
+        else if (*bv == '1') set(*result, i++, tbit::BIT_1);
+        else if (*bv == '*') i++;
+        else if (i == 0 && (*bv == ' ' || *bv == '\t')) ;
+        else break;
+        ++bv;
+    }
+    return result;
+}
+
 tbv* tbv_manager::project(bit_vector const& to_delete, tbv const& src) {
     tbv* r = allocate();
     unsigned i, j;

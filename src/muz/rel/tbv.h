@@ -55,6 +55,7 @@ public:
     tbv* allocate(rational const& r);
     tbv* allocate(uint64 n, unsigned hi, unsigned lo);
     tbv* allocate(tbv const& bv, unsigned const* permutation);
+    tbv* allocate(char const* bv);
 
     void deallocate(tbv* bv);
 

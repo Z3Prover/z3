@@ -22,6 +22,7 @@ Notes:
 #include"smt_params.h"
 #include"smt_params_helper.hpp"
 #include"rewriter_types.h"
+#include"filter_model_converter.h"
 
 class smt_tactic : public tactic {
     smt_params                   m_params;
@@ -150,6 +151,7 @@ public:
             scoped_ptr<expr2expr_map> dep2bool;
             scoped_ptr<expr2expr_map> bool2dep; 
             ptr_vector<expr>          assumptions;       
+            ref<filter_model_converter> fmc;
             if (in->unsat_core_enabled()) {
                 if (in->proofs_enabled())
                     throw tactic_exception("smt tactic does not support simultaneous generation of proofs and unsat cores");
@@ -191,6 +193,10 @@ public:
                                     dep2bool->insert(d, b);
                                     bool2dep->insert(b, d);
                                     assumptions.push_back(b);
+                                    if (!fmc) {
+                                        fmc = alloc(filter_model_converter, m);
+                                    }
+                                    fmc->insert(to_app(b)->get_decl());
                                 }
                                 clause.push_back(m.mk_not(b));
                             }
@@ -229,11 +235,12 @@ public:
                 // the empty assertion set is trivially satifiable.
                 in->reset();
                 result.push_back(in.get());
-                // store the model in a do nothin model converter.
+                // store the model in a no-op model converter, and filter fresh Booleans
                 if (in->models_enabled()) {
                     model_ref md;
                     m_ctx->get_model(md);
                     mc = model2model_converter(md.get());
+                    mc = concat(fmc.get(), mc.get());
                 }
                 pc = 0;
                 core = 0;
