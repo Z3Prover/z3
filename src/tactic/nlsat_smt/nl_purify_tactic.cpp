@@ -182,6 +182,7 @@ public:
         }
 
         br_status reduce_app_bool(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref & pr) {
+            TRACE("nlsat_smt", { expr_ref tmp(m); tmp = m.mk_app(f, num, args); tout << "reduce: " << tmp << "\n";});
             if (f->get_family_id() == m.get_basic_family_id()) {
                 if (f->get_decl_kind() == OP_EQ && u().is_real(args[0])) {
                     mk_interface_bool(f, num, args, result);
@@ -557,6 +558,7 @@ private:
     }
 
     void rewrite_goal(rw& r, goal_ref const& g) {
+        r.reset();
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
         unsigned sz = g->size();
