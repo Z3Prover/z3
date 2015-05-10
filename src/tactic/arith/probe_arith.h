@@ -66,6 +66,6 @@ probe * mk_is_qfufnra_probe();
   ADD_PROBE("is-lia", "true if the goal is in LIA (linear integer arithmetic, formula may have quantifiers).", "mk_is_lia_probe()")
   ADD_PROBE("is-lra", "true if the goal is in LRA (linear real arithmetic, formula may have quantifiers).", "mk_is_lra_probe()")
   ADD_PROBE("is-lira", "true if the goal is in LIRA (linear integer and real arithmetic, formula may have quantifiers).", "mk_is_lira_probe()")
-  ADD_PROBE("is-qfufnra", "true if the goal is QF_UFNRA (quantifier-free nonlinear real arithmetic with other theories).", mk_is_qfufnra_probe()");
+  ADD_PROBE("is-qfufnra", "true if the goal is QF_UFNRA (quantifier-free nonlinear real arithmetic with other theories).", "mk_is_qfufnra_probe()")
 */
 #endif
