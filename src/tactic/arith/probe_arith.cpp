@@ -635,7 +635,7 @@ public:
 
 static bool is_qfufnra(goal const& g) {
     is_non_qfufnra_functor p(g.m());
-    return !test(g, p) && p.has_nonlinear();
+    return !g.proofs_enabled() && !g.unsat_core_enabled() && !test(g, p) && p.has_nonlinear();
 }
 
 class is_qfufnra_probe : public probe {
