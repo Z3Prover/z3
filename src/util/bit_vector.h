@@ -186,10 +186,10 @@ public:
     bool operator!=(bit_vector const & other) const { return !operator==(other); }
 
     bit_vector & operator=(bit_vector const & source) {
+        m_num_bits = source.m_num_bits;
         if (!source.m_data)
             return *this;
 
-        m_num_bits = source.m_num_bits;
         if (m_capacity < source.m_capacity) {
             dealloc_svect(m_data);
             m_data     = alloc_svect(unsigned, source.m_capacity);
