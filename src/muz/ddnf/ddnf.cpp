@@ -194,6 +194,7 @@ namespace datalog {
             new_tbvs.push_back(&t);
             for (unsigned i = 0; i < new_tbvs.size(); ++i) {
                 tbv const& nt = *new_tbvs[i];
+                IF_VERBOSE(10, m_tbv.display(verbose_stream() << "insert: ", nt); verbose_stream() << "\n";);
                 if (contains(nt)) continue;
                 ddnf_node* n = alloc(ddnf_node, *this, m_tbv, nt, m_noderefs.size());
                 m_noderefs.push_back(n);
@@ -233,6 +234,37 @@ namespace datalog {
             }
         }
 
+        bool contains(tbv const& t) {
+            ddnf_node dummy(*this, m_tbv, t, 0);
+            return m_nodes.contains(&dummy);
+        }    
+
+        bool well_formed() {
+            ptr_vector<ddnf_node> todo;
+            todo.push_back(m_root);
+            reset_accumulate();
+            while (!todo.empty()) {
+                ddnf_node* n = todo.back();
+                todo.pop_back();
+                if (m_marked[n->get_id()]) continue;
+                m_marked[n->get_id()] = true;
+                unsigned sz = n->num_children();
+                for (unsigned i = 0; i < sz; ++i) {
+                    ddnf_node* child = (*n)[i];
+                    if (!m_tbv.contains(n->get_tbv(), child->get_tbv())) {
+                        IF_VERBOSE(0, 
+                                   m_tbv.display(verbose_stream() << "parent ", n->get_tbv());
+                                   m_tbv.display(verbose_stream() << " does not contains child: ", child->get_tbv());
+                                   display(verbose_stream());
+                                   );
+                        return false;
+                    }
+                    todo.push_back(child);
+                }
+
+            }
+            return true;
+        }
    
 
     private:
@@ -242,10 +274,6 @@ namespace datalog {
             return *(m_nodes.find(&dummy));
         }
     
-        bool contains(tbv const& t) {
-            ddnf_node dummy(*this, m_tbv, t, 0);
-            return m_nodes.contains(&dummy);
-        }    
 
         void insert(ddnf_node& root, ddnf_node* new_n, ptr_vector<tbv const>& new_intersections) {
             tbv const& new_tbv = new_n->get_tbv();
@@ -354,6 +382,13 @@ namespace datalog {
     unsigned ddnf_core::size() const {
         return m_imp->size();
     }
+    bool ddnf_core::contains(tbv const& t) {
+        return m_imp->contains(t);
+    }
+    bool ddnf_core::well_formed()  {
+        return m_imp->well_formed();
+    }
+
     void ddnf_core::reset_accumulate() {
         return m_imp->reset_accumulate();
     }

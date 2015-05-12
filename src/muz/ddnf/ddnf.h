@@ -55,6 +55,8 @@ namespace datalog {
         ddnf_node* insert(tbv const& t);
         tbv_manager& get_tbv_manager();
         unsigned size() const;
+        bool contains(tbv const& t);
+        bool well_formed();
 
         //
         // accumulate labels covered by the stream of tbvs, 

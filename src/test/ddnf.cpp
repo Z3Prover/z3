@@ -101,6 +101,7 @@ datalog::ddnf_core* populate_ddnf(char const* file, ptr_vector<tbv>& tbvs) {
                 exit(0);
             }
             if (p == 0 && tbvm.equals(*t, *tX)) break;
+            // std::cout << ddnf->well_formed() << "\n";
         }
     }
 
@@ -131,10 +132,12 @@ void tst_ddnf(char ** argv, int argc, int& i) {
     read_args(argv, argc);
     ptr_vector<tbv> tbvs;
     datalog::ddnf_core* ddnf = populate_ddnf(g_file, tbvs);
+    IF_VERBOSE(1, ddnf->display(verbose_stream()););
     create_forwarding(g_file, *ddnf, tbvs);
     std::cout << "resulting size: " << ddnf->size() << "\n";
     ddnf->display_statistics(std::cout);
     IF_VERBOSE(1, ddnf->display(verbose_stream()););
+    std::cout << ddnf->well_formed() << "\n";
 
     tbv_manager& tbvm = ddnf->get_tbv_manager();
     for (unsigned i = 0; i < tbvs.size(); ++i) {
