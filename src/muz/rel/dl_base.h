@@ -470,7 +470,7 @@ namespace datalog {
                \brief fast emptiness check. This may be partial.
                The requirement is that if fast_empty returns true 
                then the table or relation is in fact empty.
-               It is allowed to return false even if the relation is non-empty.
+               It is allowed to return false even if the relation is empty.
             */
             virtual bool fast_empty() const { return empty(); }
 
