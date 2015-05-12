@@ -93,7 +93,7 @@ datalog::ddnf_core* populate_ddnf(char const* file, ptr_vector<tbv>& tbvs) {
             std::getline(is, line);
             tbv* t = tbvm.allocate(line.c_str());
             ddnf->insert(*t);
-            //tbvm.display(std::cout << line << " ", *t) << "\n";
+            IF_VERBOSE(2, tbvm.display(verbose_stream() << line << " ", *t) << "\n";);
             tbvs.push_back(t);
             if (p > P) {
                 std::cout << "port number " << p << " too big " << P << "\n";
@@ -110,16 +110,17 @@ datalog::ddnf_core* populate_ddnf(char const* file, ptr_vector<tbv>& tbvs) {
 }
 
 
-static void read_args(char ** argv, int argc) {
-    if (argc == 3) {
-        g_file = argv[2];
+static void read_args(char ** argv, int argc, int& i) {
+    if (argc = i + 2) {
+        g_file = argv[i + 1];
+        ++i;
         return;
     }
 
     if (!g_file) {
         std::cout << "Need routing table file as argument. Arguments provided: ";
-        for (int i = 0; i < argc; ++i) {
-            std::cout << argv[i] << " ";
+        for (int j = i; j < argc; ++j) {
+            std::cout << argv[j] << " ";
         }
         std::cout << "\n";
         exit(0);
@@ -128,7 +129,7 @@ static void read_args(char ** argv, int argc) {
 }
 
 void tst_ddnf(char ** argv, int argc, int& i) {
-    read_args(argv, argc);
+    read_args(argv, argc, i);
     ptr_vector<tbv> tbvs;
     datalog::ddnf_core* ddnf = populate_ddnf(g_file, tbvs);
     create_forwarding(g_file, *ddnf, tbvs);
