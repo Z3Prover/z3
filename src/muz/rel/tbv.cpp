@@ -103,8 +103,8 @@ tbv* tbv_manager::allocate(char const* bv) {
     tbv* result = allocateX();
     unsigned i = 0, sz = num_tbits();
     while(*bv && i < sz) {
-        if (*bv == '0') set(*result, i++, tbit::BIT_0);
-        else if (*bv == '1') set(*result, i++, tbit::BIT_1);
+        if (*bv == '0') set(*result, i++, BIT_0);
+        else if (*bv == '1') set(*result, i++, BIT_1);
         else if (*bv == '*') i++;
         else if (*bv == 'x') i++;
         else if (i == 0 && (*bv == ' ' || *bv == '\t')) ;
