@@ -24,7 +24,11 @@ void read_nums(std::istream& is, unsigned & x, unsigned& y) {
 static char const* g_file = 0;
 
 
-void create_forwarding(char const* file, datalog::ddnf_core& ddnf, ptr_vector<tbv>& tbvs) {
+void create_forwarding(
+    char const* file, 
+    datalog::ddnf_core& ddnf, 
+    ptr_vector<tbv>& tbvs,
+    vector<unsigned_vector>& fwd_indices) {
 
     IF_VERBOSE(1, verbose_stream() << "creating (and forgetting) forwarding index\n";);
     std::ifstream is(file);
@@ -44,7 +48,8 @@ void create_forwarding(char const* file, datalog::ddnf_core& ddnf, ptr_vector<tb
         read_nums(is, K, P);
         ddnf.reset_accumulate();
         unsigned p;
-        unsigned_vector forwarding_index;
+        fwd_indices.push_back(unsigned_vector());
+        unsigned_vector& forwarding_index = fwd_indices.back();
         forwarding_index.resize(ddnf.size());
         for (unsigned g = 0; g < K; ++g) {
             is >> p;
@@ -129,17 +134,60 @@ static void read_args(char ** argv, int argc, int& i) {
 
 }
 
+typedef std::pair<unsigned, unsigned> u_pair;
+
+struct uu_eq { bool operator()(u_pair u1, u_pair u2) const { return u1 == u2; } };
+
+typedef map<u_pair, unsigned, pair_hash<unsigned_hash, unsigned_hash>, uu_eq > pair_table;
+
+static unsigned refine_forwarding(
+    unsigned_vector& p,
+    unsigned_vector const& q) {
+    unsigned sz = p.size();
+    unsigned n = 0, m = 0;
+    pair_table tbl;
+    for (unsigned i = 0; i < sz; ++i) {
+        u_pair pr = std::make_pair(p[i], q[i]);
+        if (tbl.find(pr, m)) {
+            p[i] = m;
+        }
+        else {
+            p[i] = n;
+            tbl.insert(pr, n++);
+        }
+    }    
+    return n;
+}
+
+static void refine_forwarding(
+    datalog::ddnf_core& ddnf,
+    vector<unsigned_vector> const& fwd_indices) {
+    unsigned_vector roots;
+    roots.resize(ddnf.size());
+    for (unsigned i = 0; i < roots.size(); ++i) {
+        roots[i] = 0;
+    }
+    unsigned max_class = 1;
+    for (unsigned i = 0; i < fwd_indices.size(); ++i) {
+        unsigned_vector const& fwd = fwd_indices[i];
+        max_class = refine_forwarding(roots, fwd);
+    }    
+    std::cout << "num classes: " << max_class << "\n";    
+}
+
 void tst_ddnf(char ** argv, int argc, int& i) {
     read_args(argv, argc, i);
     ptr_vector<tbv> tbvs;
     datalog::ddnf_core* ddnf = populate_ddnf(g_file, tbvs);
     IF_VERBOSE(1, ddnf->display(verbose_stream()););
-    create_forwarding(g_file, *ddnf, tbvs);
+    vector<unsigned_vector> fwd_indices;
+    create_forwarding(g_file, *ddnf, tbvs, fwd_indices);
+    refine_forwarding(*ddnf, fwd_indices);
     std::cout << "resulting size: " << ddnf->size() << "\n";
     ddnf->display_statistics(std::cout);
-    IF_VERBOSE(1, ddnf->display(verbose_stream()););
-    std::cout << ddnf->well_formed() << "\n";
-
+    IF_VERBOSE(1, ddnf->display(verbose_stream());
+               verbose_stream() << ddnf->well_formed() << "\n";);
+    
     tbv_manager& tbvm = ddnf->get_tbv_manager();
     for (unsigned i = 0; i < tbvs.size(); ++i) {
         tbvm.deallocate(tbvs[i]);
