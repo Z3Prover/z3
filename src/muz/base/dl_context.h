@@ -300,7 +300,7 @@ namespace datalog {
         /**
            Register datalog relation.
 
-           If names is true, we associate the predicate with its name, so that it can be 
+           If named is true, we associate the predicate with its name, so that it can be 
            retrieved by the try_get_predicate_decl() function. Auxiliary predicates introduced
            e.g. by rule transformations do not need to be named.
          */

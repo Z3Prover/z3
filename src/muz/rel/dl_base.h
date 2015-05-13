@@ -88,7 +88,7 @@ namespace datalog {
         typedef typename Traits::signature signature; //this must be a vector-like type
 
         /**
-           The client submits an initial class to be used as a base for signature. Then we excend it by
+           The client submits an initial class to be used as a base for signature. Then we extend it by
            the common signature methods into a signature_base class which then the client inherits from
            to obtain the actual signature class.
         */
@@ -470,7 +470,7 @@ namespace datalog {
                \brief fast emptiness check. This may be partial.
                The requirement is that if fast_empty returns true 
                then the table or relation is in fact empty.
-               It is allowed to return false even if the relation is non-empty.
+               It is allowed to return false even if the relation is empty.
             */
             virtual bool fast_empty() const { return empty(); }
 
