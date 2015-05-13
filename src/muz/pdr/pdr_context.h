@@ -198,7 +198,7 @@ namespace pdr {
         bool                   m_closed;
         datalog::rule const*   m_rule;
     public:
-        model_node(model_node* parent, expr_ref& state, pred_transformer& pt, unsigned level):
+        model_node(model_node* parent, expr_ref state, pred_transformer& pt, unsigned level):
             m_parent(parent), m_next(0), m_prev(0), m_pt(pt), m_state(state), m_model(0), 
             m_level(level), m_orig_level(level), m_depth(0), m_closed(false), m_rule(0) {
             model_node* p = m_parent;
