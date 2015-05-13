@@ -256,12 +256,12 @@ namespace datalog {
     }
 
     
-    void rule_counter::count_rule_vars(ast_manager & m, const rule * r, int coef) {
+    void rule_counter::count_rule_vars(const rule * r, int coef) {
         reset();
-        count_vars(m, r->get_head(), 1);
+        count_vars(r->get_head(), 1);
         unsigned n = r->get_tail_size();
         for (unsigned i = 0; i < n; i++) {
-            count_vars(m, r->get_tail(i), coef);
+            count_vars(r->get_tail(i), coef);
         }
     }
 
