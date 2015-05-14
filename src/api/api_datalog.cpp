@@ -125,7 +125,7 @@ namespace api {
                 return "unknown";
             }
         }
-        std::string to_string(unsigned num_queries, expr*const* queries) {
+        std::string to_string(unsigned num_queries, expr* const* queries) {
             std::stringstream str;
             m_context.display_smt2(num_queries, queries, str);
             return str.str();
@@ -466,12 +466,15 @@ extern "C" {
         ast_manager& m = mk_c(c)->m();
         Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, m);
         mk_c(c)->save_object(v);
-        expr_ref_vector rules(m);
+        expr_ref_vector rules(m), queries(m);
         svector<symbol> names;
         
-        to_fixedpoint_ref(d)->ctx().get_rules_as_formulas(rules, names);
+        to_fixedpoint_ref(d)->ctx().get_rules_as_formulas(rules, queries, names);
         for (unsigned i = 0; i < rules.size(); ++i) {
             v->m_ast_vector.push_back(rules[i].get());
+        }
+        for (unsigned i = 0; i < queries.size(); ++i) {
+            v->m_ast_vector.push_back(m.mk_not(queries[i].get()));
         }
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);

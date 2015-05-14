@@ -31,6 +31,9 @@ struct simplify_tactic::imp {
         m_num_steps(0) {
     }
 
+    ~imp() {
+    }
+
     ast_manager & m() const { return m_manager; }
 
     void set_cancel(bool f) {

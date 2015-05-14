@@ -47,6 +47,7 @@ DEFINE_TYPE(Z3_func_interp);
 #define Z3_func_interp_opt Z3_func_interp
 DEFINE_TYPE(Z3_func_entry);
 DEFINE_TYPE(Z3_fixedpoint);
+DEFINE_TYPE(Z3_optimize);
 DEFINE_TYPE(Z3_rcf_num);
 DEFINE_VOID(Z3_theory_data);
 #endif
@@ -85,6 +86,7 @@ DEFINE_VOID(Z3_theory_data);
    - \c Z3_func_interp: interpretation of a function in a model.
    - \c Z3_func_entry: representation of the value of a \c Z3_func_interp at a particular point.
    - \c Z3_fixedpoint: context for the recursive predicate solver.
+   - \c Z3_optimize: context for solving optimization queries.
    - \c Z3_ast_vector: vector of \c Z3_ast objects.
    - \c Z3_ast_map: mapping from \c Z3_ast to \c Z3_ast objects.
    - \c Z3_goal: set of formulas that can be solved and/or transformed using tactics and solvers.
@@ -877,6 +879,17 @@ typedef enum
 
       - Z3_OP_DT_ACCESSOR: datatype accessor.
 
+      - Z3_OP_DT_UPDATE_FIELD: datatype field update.
+
+      - Z3_OP_PB_AT_MOST: Cardinality constraint. 
+              E.g., x + y + z <= 2
+      
+      - Z3_OP_PB_LE: Generalized Pseudo-Boolean cardinality constraint.
+              Example  2*x + 3*y <= 4
+
+      - Z3_OP_PB_GE: Generalized Pseudo-Boolean cardinality constraint.
+              Example  2*x + 3*y + 2*z >= 4
+
       - Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: Floating-point rounding mode RNE
       
       - Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: Floating-point rounding mode RNA
@@ -1141,6 +1154,12 @@ typedef enum {
     Z3_OP_DT_CONSTRUCTOR=0x800,
     Z3_OP_DT_RECOGNISER,
     Z3_OP_DT_ACCESSOR,
+    Z3_OP_DT_UPDATE_FIELD,
+
+    // Pseudo Booleans
+    Z3_OP_PB_AT_MOST=0x900,
+    Z3_OP_PB_LE,
+    Z3_OP_PB_GE,
 
     // Floating-Point Arithmetic
     Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN,
@@ -1327,6 +1346,7 @@ typedef enum
   def_Type('FUNC_INTERP',      'Z3_func_interp',      'FuncInterpObj')
   def_Type('FUNC_ENTRY',       'Z3_func_entry',       'FuncEntryObj')
   def_Type('FIXEDPOINT',       'Z3_fixedpoint',       'FixedpointObj')
+  def_Type('OPTIMIZE',         'Z3_optimize',         'OptimizeObj')
   def_Type('PARAM_DESCRS',     'Z3_param_descrs',     'ParamDescrs')
   def_Type('RCF_NUM',          'Z3_rcf_num',          'RCFNumObj')
 */
@@ -3868,6 +3888,28 @@ END_MLAPI_EXCLUDE
     Z3_func_decl Z3_API Z3_get_datatype_sort_constructor_accessor(
         __in Z3_context c, __in Z3_sort t, unsigned idx_c, unsigned idx_a);
 
+    /**
+       \brief Update record field with a value.
+
+       This corresponds to the 'with' construct in OCaml. 
+       It has the effect of updating a record field with a given value.
+       The remaining fields are left unchanged. It is the record
+       equivalent of an array store (see \sa Z3_mk_store).
+       If the datatype has more than one constructor, then the update function
+       behaves as identity if there is a miss-match between the accessor and
+       constructor. For example ((_ update-field car) nil 1) is nil, 
+       while ((_ update-field car) (cons 2 nil) 1) is (cons 1 nil).
+
+
+       \pre Z3_get_sort_kind(Z3_get_sort(c, t)) == Z3_get_domain(c, field_access, 1) == Z3_DATATYPE_SORT
+       \pre Z3_get_sort(c, value) == Z3_get_range(c, field_access)
+
+
+       def_API('Z3_datatype_update_field', AST, (_in(CONTEXT), _in(FUNC_DECL), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_datatype_update_field(
+        __in Z3_context c,  __in Z3_func_decl field_access, 
+        __in Z3_ast t, __in Z3_ast value);
 
     /**
         \brief Return arity of relation.
@@ -3892,6 +3934,29 @@ END_MLAPI_EXCLUDE
     */
     Z3_sort Z3_API Z3_get_relation_column(__in Z3_context c, __in Z3_sort s, unsigned col);
 
+
+    /**
+       \brief Pseudo-Boolean relations.
+
+       Encode p1 + p2 + ... + pn <= k
+
+       def_API('Z3_mk_atmost', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in(UINT)))
+    */
+
+    Z3_ast Z3_API Z3_mk_atmost(__in Z3_context c, __in unsigned num_args, 
+                               __in_ecount(num_args) Z3_ast const args[], __in unsigned k);
+
+    /**
+       \brief Pseudo-Boolean relations.
+
+       Encode k1*p1 + k2*p2 + ... + kn*pn <= k
+
+       def_API('Z3_mk_pble', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
+    */
+
+    Z3_ast Z3_API Z3_mk_pble(__in Z3_context c, __in unsigned num_args, 
+                             __in_ecount(num_args) Z3_ast const args[], __in_ecount(num_args) int coeffs[],
+                             __in int k);
 
     /**
        \mlonly {3 {L Function Declarations}} \endmlonly
@@ -4658,6 +4723,13 @@ END_MLAPI_EXCLUDE
        def_API('Z3_model_get_const_interp', AST, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL)))
     */
     Z3_ast_opt Z3_API Z3_model_get_const_interp(__in Z3_context c, __in Z3_model m, __in Z3_func_decl a);
+
+    /**
+       \brief Test if there exists an interpretation (i.e., assignment) for \c a in the model \c m.
+
+       def_API('Z3_model_has_interp', BOOL, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL)))
+    */
+    Z3_bool Z3_API Z3_model_has_interp(__in Z3_context c, __in Z3_model m, __in Z3_func_decl a);
 
     /**
        \brief Return the interpretation of the function \c f in the model \c m.
@@ -6037,6 +6109,197 @@ END_MLAPI_EXCLUDE
         __in Z3_context c,__in Z3_fixedpoint d, __in Z3_fixedpoint_reduce_app_callback_fptr cb);
         
 #endif
+#endif
+
+
+
+#ifdef CorML4
+    /**
+        @name Optimize facilities
+    */
+    /*@{*/
+
+    /**
+       \brief Create a new optimize context. 
+       
+       \conly \remark User must use #Z3_optimize_inc_ref and #Z3_optimize_dec_ref to manage optimize objects.
+       \conly Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
+
+       def_API('Z3_mk_optimize', OPTIMIZE, (_in(CONTEXT), ))
+    */
+    Z3_optimize Z3_API Z3_mk_optimize(__in Z3_context c);
+
+#ifdef Conly
+    /**
+       \brief Increment the reference counter of the given optimize context
+       
+       def_API('Z3_optimize_inc_ref', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    void Z3_API Z3_optimize_inc_ref(__in Z3_context c,__in Z3_optimize d);
+
+    /**
+       \brief Decrement the reference counter of the given optimize context.
+
+       def_API('Z3_optimize_dec_ref', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    void Z3_API Z3_optimize_dec_ref(__in Z3_context c,__in Z3_optimize d);
+#endif
+
+    /**
+       \brief Assert hard constraint to the optimization context.
+       
+       def_API('Z3_optimize_assert', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
+    */
+    void Z3_API Z3_optimize_assert(Z3_context c, Z3_optimize o, Z3_ast a);
+
+
+    /**
+       \brief Assert soft constraint to the optimization context.
+       \param c - context
+       \param o - optimization context
+       \param a - formula
+       \param weight - a positive weight, penalty for violating soft constraint
+       \param id - optional identifier to group soft constraints
+
+       def_API('Z3_optimize_assert_soft', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST), _in(STRING), _in(SYMBOL)))
+    */
+    unsigned Z3_API Z3_optimize_assert_soft(Z3_context c, Z3_optimize o, Z3_ast a, Z3_string weight, Z3_symbol id);
+
+
+    /**
+       \brief Add a maximization constraint.
+       \param c - context
+       \param o - optimization context
+       \param a - arithmetical term       
+       def_API('Z3_optimize_maximize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
+    */
+    unsigned Z3_API Z3_optimize_maximize(Z3_context c, Z3_optimize o, Z3_ast t);
+
+    /**
+       \brief Add a minimization constraint.
+       \param c - context
+       \param o - optimization context
+       \param a - arithmetical term   
+    
+       def_API('Z3_optimize_minimize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
+    */
+    unsigned Z3_API Z3_optimize_minimize(Z3_context c, Z3_optimize o, Z3_ast t);
+
+
+    /**
+       \brief Create a backtracking point.
+       
+       The optimize solver contains a set of rules, added facts and assertions.
+       The set of rules, facts and assertions are restored upon calling #Z3_optimize_pop.
+
+       \sa Z3_optimize_pop
+
+       def_API('Z3_optimize_push', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    void Z3_API Z3_optimize_push(Z3_context c,Z3_optimize d);
+
+    /**
+       \brief Backtrack one level.
+       
+       \sa Z3_optimize_push
+
+       \pre The number of calls to pop cannot exceed calls to push.
+
+       def_API('Z3_optimize_pop', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    void Z3_API Z3_optimize_pop(Z3_context c,Z3_optimize d);
+
+    /**
+       \brief Check consistency and produce optimal values.
+       \param c - context
+       \param o - optimization context
+       
+       def_API('Z3_optimize_check', INT, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_lbool Z3_API Z3_optimize_check(Z3_context c, Z3_optimize o);
+
+
+    /**
+       \brief Retrieve the model for the last #Z3_optimize_check
+
+       The error handler is invoked if a model is not available because 
+       the commands above were not invoked for the given optimization 
+       solver, or if the result was \c Z3_L_FALSE.
+       
+       def_API('Z3_optimize_get_model', MODEL, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_model Z3_API Z3_optimize_get_model(Z3_context c, Z3_optimize o);
+
+    /**
+       \brief Set parameters on optimization context.       
+
+       \param c - context
+       \param o - optimization context
+       \param p - parameters
+
+       def_API('Z3_optimize_set_params', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(PARAMS)))
+    */
+    void Z3_API Z3_optimize_set_params(Z3_context c, Z3_optimize o, Z3_params p);
+
+    /**
+       \brief Return the parameter description set for the given optimize object.
+
+       \param c - context
+       \param o - optimization context
+
+       def_API('Z3_optimize_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT), _in(OPTIMIZE)))
+    */    
+    Z3_param_descrs Z3_API Z3_optimize_get_param_descrs(Z3_context c, Z3_optimize o);
+
+    /**
+       \brief Retrieve lower bound value or approximation for the i'th optimization objective.
+
+       \param c - context
+       \param o - optimization context
+       \param idx - index of optimization objective
+
+       def_API('Z3_optimize_get_lower', AST, (_in(CONTEXT), _in(OPTIMIZE), _in(UINT)))
+    */
+    Z3_ast Z3_API Z3_optimize_get_lower(Z3_context c, Z3_optimize o, unsigned idx);
+
+    /**
+       \brief Retrieve upper bound value or approximation for the i'th optimization objective.
+
+       \param c - context
+       \param o - optimization context
+       \param idx - index of optimization objective
+
+       def_API('Z3_optimize_get_upper', AST, (_in(CONTEXT), _in(OPTIMIZE), _in(UINT)))
+    */
+    Z3_ast Z3_API Z3_optimize_get_upper(Z3_context c, Z3_optimize o, unsigned idx);
+
+    /**
+       \brief Print the current context as a string.
+       \param c - context.
+       \param o - optimization context.
+
+       def_API('Z3_optimize_to_string', STRING, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_string Z3_API Z3_optimize_to_string(
+        __in Z3_context c, 
+        __in Z3_optimize o);
+
+
+    /**
+       \brief Return a string containing a description of parameters accepted by optimize.
+
+       def_API('Z3_optimize_get_help', STRING, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_string Z3_API Z3_optimize_get_help(__in Z3_context c, __in Z3_optimize t);
+
+    /**
+       \brief Retrieve statistics information from the last call to #Z3_optimize_check
+
+       def_API('Z3_optimize_get_statistics', STATS, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_stats Z3_API Z3_optimize_get_statistics(__in Z3_context c,__in Z3_optimize d);
+
+
 #endif
 
 #ifdef CorML4

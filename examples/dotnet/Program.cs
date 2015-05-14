@@ -759,7 +759,7 @@ namespace test_mapi
             foreach (BoolExpr a in g.Formulas)
                 solver.Assert(a);
 
-            if (solver.Check() != Status.SATISFIABLE)
+            if (solver.Check() != Status.SATISFIABLE) 
                 throw new TestFailedException();
 
             ApplyResult ar = ApplyTactic(ctx, ctx.MkTactic("simplify"), g);

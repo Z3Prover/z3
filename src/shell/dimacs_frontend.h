@@ -21,5 +21,5 @@ Revision History:
 
 unsigned read_dimacs(char const * benchmark_file);
 
-#endif /* _DATALOG_FRONTEND_H_ */
+#endif /* _DIMACS_FRONTEND_H_ */
 

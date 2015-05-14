@@ -326,7 +326,7 @@ namespace datalog {
             for(unsigned i=0; i<pos_tail_size; i++) {
                 rule_content.push_back(r->get_tail(i));
             }
-            for(unsigned i=0; i<pos_tail_size; i++) {
+            for(unsigned i=0; i+1 < pos_tail_size; i++) {
                 app * t1 = r->get_tail(i);
                 var_idx_set t1_vars = rm.collect_vars(t1);
                 counter.count_vars(m, t1, -1);  //temporarily remove t1 variables from counter

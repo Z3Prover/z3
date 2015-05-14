@@ -65,6 +65,18 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    Z3_bool Z3_API Z3_model_has_interp(Z3_context c, Z3_model m, Z3_func_decl a) {
+        Z3_TRY;
+        LOG_Z3_model_has_interp(c, m, a);
+        CHECK_NON_NULL(m, 0);
+        if (to_model_ref(m)->has_interpretation(to_func_decl(a))) {
+            return Z3_TRUE;
+        } else {
+            return Z3_FALSE;
+        }
+        Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
     Z3_func_interp Z3_API Z3_model_get_func_interp(Z3_context c, Z3_model m, Z3_func_decl f) {
         Z3_TRY;
         LOG_Z3_model_get_func_interp(c, m, f);

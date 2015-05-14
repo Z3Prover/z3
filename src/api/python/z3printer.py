@@ -1017,6 +1017,8 @@ class Formatter:
             return self.pp_seq(a.assertions(), 0, [])
         elif isinstance(a, z3.Fixedpoint):
             return a.sexpr()
+        elif isinstance(a, z3.Optimize):
+            return a.sexpr()
         elif isinstance(a, z3.ApplyResult):
             return self.pp_seq_seq(a, 0, [])
         elif isinstance(a, z3.ModelRef):

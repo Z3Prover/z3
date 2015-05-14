@@ -417,6 +417,7 @@ inline decl_kind arith_decl_plugin::fix_kind(decl_kind k, unsigned arity) {
 
 app * arith_decl_plugin::mk_numeral(rational const & val, bool is_int) {
     if (is_int && !val.is_int()) {
+        SASSERT(false);
         m_manager->raise_exception("invalid rational value passed as an integer");
     }
     if (val.is_unsigned()) {

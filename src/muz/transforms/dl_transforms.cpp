@@ -38,11 +38,18 @@ Revision History:
 namespace datalog {
 
     void apply_default_transformation(context& ctx) {
+        flet<bool> _enable_bv(ctx.bind_vars_enabled(), false);
+
         rule_transformer transf(ctx);
         ctx.ensure_closed();
         transf.reset();
         transf.register_plugin(alloc(datalog::mk_coi_filter, ctx));
         transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, ctx));
+
+        if (ctx.get_params().xform_quantify_arrays()) {
+            transf.register_plugin(alloc(datalog::mk_quantifier_abstraction, ctx, 38000));
+        }
+        transf.register_plugin(alloc(datalog::mk_quantifier_instantiation, ctx, 37000));
 
         transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 35005));
         transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 35000));
@@ -63,21 +70,15 @@ namespace datalog {
         transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 34890));
         transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34880));
 
-
-        if (ctx.get_params().quantify_arrays()) {
-            transf.register_plugin(alloc(datalog::mk_quantifier_abstraction, ctx, 33000));
-            transf.register_plugin(alloc(datalog::mk_array_blast, ctx, 32500));
-        }
-        transf.register_plugin(alloc(datalog::mk_quantifier_instantiation, ctx, 32000));
-
         transf.register_plugin(alloc(datalog::mk_bit_blast, ctx, 35000));
-        if (!ctx.get_params().quantify_arrays())
-            transf.register_plugin(alloc(datalog::mk_array_blast, ctx, 36000));
         transf.register_plugin(alloc(datalog::mk_karr_invariants, ctx, 36010));
-        if (ctx.get_params().magic()) {
+        transf.register_plugin(alloc(datalog::mk_scale, ctx, 36030));
+        if (!ctx.get_params().xform_quantify_arrays()) {
+            transf.register_plugin(alloc(datalog::mk_array_blast, ctx, 36000));
+        }
+        if (ctx.get_params().xform_magic()) {
             transf.register_plugin(alloc(datalog::mk_magic_symbolic, ctx, 36020));
         }
-        transf.register_plugin(alloc(datalog::mk_scale, ctx, 36030));
         ctx.transform_rules(transf);
     }
 }

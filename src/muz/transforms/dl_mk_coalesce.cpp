@@ -134,9 +134,9 @@ namespace datalog {
         is_neg.push_back(false);
         res = rm.mk(head, tail.size(), tail.c_ptr(), is_neg.c_ptr(), tgt->name());
         if (m_ctx.generate_proof_trace()) {
-            src.to_formula(fml1);
-            tgt->to_formula(fml2);
-            res->to_formula(fml);
+            rm.to_formula(src, fml1);
+            rm.to_formula(*tgt.get(),fml2);
+            rm.to_formula(*res.get(),fml);
 #if 0
             sort* ps = m.mk_proof_sort();
             sort* domain[3] = { ps, ps, m.mk_bool_sort() };

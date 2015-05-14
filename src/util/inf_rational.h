@@ -88,7 +88,7 @@ class inf_rational {
         m_second(pos_inf?rational(1):rational(-1))
     {}
 
-    explicit inf_rational(rational const& r):
+    inf_rational(rational const& r):
         m_first(r)
     {
         m_second.reset();

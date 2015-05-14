@@ -80,6 +80,20 @@ void sls_engine::updt_params(params_ref const & _p) {
         NOT_IMPLEMENTED_YET();
 }
 
+void sls_engine::collect_statistics(statistics& st) const {
+    double seconds = m_stats.m_stopwatch.get_current_seconds();            
+    st.update("sls restarts", m_stats.m_restarts);
+    st.update("sls full evals", m_stats.m_full_evals);
+    st.update("sls incr evals", m_stats.m_incr_evals);
+    st.update("sls incr evals/sec", m_stats.m_incr_evals / seconds);
+    st.update("sls FLIP moves", m_stats.m_flips);
+    st.update("sls INC moves", m_stats.m_incs);
+    st.update("sls DEC moves", m_stats.m_decs);
+    st.update("sls INV moves", m_stats.m_invs);
+    st.update("sls moves", m_stats.m_moves);
+    st.update("sls moves/sec", m_stats.m_moves / seconds);
+}
+
 void sls_engine::checkpoint() {
     if (m_cancel)
         throw tactic_exception(TACTIC_CANCELED_MSG);

@@ -30,8 +30,9 @@ namespace datalog {
         QBMC_ENGINE,
         TAB_ENGINE,
         CLP_ENGINE,
-        LAST_ENGINE,
-	DUALITY_ENGINE
+	DUALITY_ENGINE,
+        DDNF_ENGINE,
+        LAST_ENGINE
     };
 
     class engine_base {

@@ -34,6 +34,7 @@ Notes:
 #include"default_tactic.h"
 #include"ufbv_tactic.h"
 #include"qffp_tactic.h"
+#include"qfufnra_tactic.h"
 #include"horn_tactic.h"
 #include"smt_solver.h"
 
@@ -41,7 +42,7 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
     if (logic=="QF_UF")
         return mk_qfuf_tactic(m, p);
     else if (logic=="QF_BV")
-	    return mk_qfbv_tactic(m, p);
+        return mk_qfbv_tactic(m, p);        
     else if (logic=="QF_IDL")
         return mk_qfidl_tactic(m, p);
     else if (logic=="QF_LIA")
@@ -84,6 +85,8 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_qffpbv_tactic(m, p);
     else if (logic=="HORN")
         return mk_horn_tactic(m, p);
+    else if (logic=="QF_UFNRA")
+        return mk_qfufnra_tactic(m, p);
     else 
         return mk_default_tactic(m, p);
 }

@@ -123,14 +123,14 @@ namespace datalog {
         }
         
         void ground(expr_ref& e) {
-            ptr_vector<sort> sorts;
-            get_free_vars(e, sorts);
-            if (m_ground.size() < sorts.size()) {
-                m_ground.resize(sorts.size());
+            expr_free_vars fv;
+            fv(e);
+            if (m_ground.size() < fv.size()) {
+                m_ground.resize(fv.size());
             }
-            for (unsigned i = 0; i < sorts.size(); ++i) {
-                if (sorts[i] && !m_ground[i].get()) {
-                    m_ground[i] = m.mk_fresh_const("c",sorts[i]);
+            for (unsigned i = 0; i < fv.size(); ++i) {
+                if (fv[i] && !m_ground[i].get()) {
+                    m_ground[i] = m.mk_fresh_const("c", fv[i]);
                 }
             }
             m_var_subst(e, m_ground.size(), m_ground.c_ptr(), e);

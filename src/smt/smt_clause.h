@@ -65,6 +65,13 @@ namespace smt {
             unsigned r = sizeof(clause) + sizeof(literal) * num_lits;
             if (k != CLS_AUX)
                 r += sizeof(unsigned);
+            /* dvitek: Fix alignment issues on 64-bit platforms.  The
+             * 'if' statement below probably isn't worthwhile since
+             * I'm guessing the allocator is probably going to round
+             * up internally anyway.
+             */
+            //if (has_atoms || has_del_eh || has_justification)
+            r = (r + (sizeof(void*)-1)) & ~(sizeof(void*)-1);
             if (has_atoms)
                 r += sizeof(expr*) * num_lits;
             if (has_del_eh)
@@ -86,7 +93,13 @@ namespace smt {
             unsigned const * addr = get_activity_addr();
             if (is_lemma())
                 addr ++;
-            return reinterpret_cast<clause_del_eh * const *>(addr);
+            /* dvitek: It would be better to use uintptr_t than
+             * size_t, but we need to wait until c++11 support is
+             * really available.
+             */
+            size_t as_int = reinterpret_cast<size_t>(addr);
+            as_int = (as_int + sizeof(void*)-1) & ~static_cast<size_t>(sizeof(void*)-1);
+            return reinterpret_cast<clause_del_eh * const *>(as_int);
         }
 
         justification * const * get_justification_addr() const {

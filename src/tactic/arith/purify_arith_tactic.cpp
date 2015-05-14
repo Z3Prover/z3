@@ -707,7 +707,7 @@ public:
 
     virtual void collect_param_descrs(param_descrs & r) {
         r.insert("complete", CPK_BOOL, 
-                 "(default: true) add constraints to make sure that any interpretation of a underspecified arithmetic operators is a functio. The result will include additional uninterpreted functions/constants: /0, div0, mod0, 0^0, neg-root");
+                 "(default: true) add constraints to make sure that any interpretation of a underspecified arithmetic operators is a function. The result will include additional uninterpreted functions/constants: /0, div0, mod0, 0^0, neg-root");
         r.insert("elim_root_objects", CPK_BOOL,
                  "(default: true) eliminate root objects.");
         r.insert("elim_inverses", CPK_BOOL,

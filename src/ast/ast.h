@@ -2006,6 +2006,7 @@ public:
     app * mk_false() { return m_false; }
     app * mk_interp(expr * arg) { return mk_app(m_basic_family_id, OP_INTERP, arg); }
 
+
     func_decl* mk_and_decl() { 
         sort* domain[2] = { m_bool_sort, m_bool_sort };
         return mk_func_decl(m_basic_family_id, OP_AND, 0, 0, 2, domain); 

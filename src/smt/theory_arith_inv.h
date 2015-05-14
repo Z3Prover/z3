@@ -199,6 +199,27 @@ namespace smt {
         }
         return true;
     }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::satisfy_integrality() const {
+        int num = get_num_vars();
+        for (theory_var v = 0; v < num; v++) {
+            if (is_int(v) && !get_value(v).is_int()) {
+                TRACE("bound_bug", display_var(tout, v); display(tout););
+                return false;
+            }
+        }
+        return true;
+    }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::valid_assignment() const {
+        return 
+            valid_row_assignment() &&
+            satisfy_bounds() &&
+            satisfy_integrality();
+    }
+
 #endif
 
 };

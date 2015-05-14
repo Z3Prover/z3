@@ -67,7 +67,7 @@ public:
     s_integer const& get_s_integer() const { return *this; }
     s_integer const& get_infinitesimal() const { return zero(); }
     static bool is_rational() { return true; }
-    s_integer const& get_rational() const { return *this; }
+    s_integer const& get_rational() const { return *this; } 
     s_integer & operator=(const s_integer & r) { m_val = r.m_val; return *this; }
     friend inline s_integer numerator(const s_integer & r) { return r; }
     friend inline s_integer denominator(const s_integer & r) { return one(); }

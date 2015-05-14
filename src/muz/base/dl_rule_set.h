@@ -39,10 +39,10 @@ namespace datalog {
            Each master object is also present as a key of the map, even if its master set
            is empty.
         */
-        deps_type m_data;
-        context & m_context;
+        deps_type        m_data;
+        context &        m_context;
         ptr_vector<expr> m_todo;
-        ast_mark         m_visited;
+        expr_sparse_mark m_visited;
 
 
         //we need to take care with removing to avoid memory leaks

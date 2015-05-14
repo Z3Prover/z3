@@ -78,6 +78,7 @@ namespace api {
         family_id                  m_bv_fid;
         family_id                  m_dt_fid;
         family_id                  m_datalog_fid;
+        family_id                  m_pb_fid;
         family_id                  m_fpa_fid;
         datatype_decl_plugin *     m_dt_plugin;
         
@@ -127,6 +128,7 @@ namespace api {
         family_id get_bv_fid() const { return m_bv_fid; }
         family_id get_dt_fid() const { return m_dt_fid; }
         family_id get_datalog_fid() const { return m_datalog_fid; }
+        family_id get_pb_fid() const { return m_pb_fid; }
         family_id get_fpa_fid() const { return m_fpa_fid; }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
 

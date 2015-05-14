@@ -155,6 +155,17 @@ class inf_int_rational {
 	return *this; 
     }
 
+    inf_int_rational & operator*=(const rational & r) { 
+        if (!r.is_int32()) {
+            throw default_exception("multiplication with large rational is not possible");
+        }
+        m_first  *= r;
+        m_second *= r.get_int32();
+	return *this; 
+    }
+
+
+
     inf_int_rational & operator-=(const inf_int_rational & r) { 
         m_first  -= r.m_first;
         m_second -= r.m_second;
@@ -342,6 +353,10 @@ inline bool operator>=(const inf_int_rational & r1, const rational & r2) {
 
 inline inf_int_rational operator+(const inf_int_rational & r1, const inf_int_rational & r2) { 
     return inf_int_rational(r1) += r2; 
+}
+
+inline inf_int_rational operator*(const rational & r1, const inf_int_rational & r2) { 
+    return inf_int_rational(r2) *= r1;
 }
 
 inline inf_int_rational operator-(const inf_int_rational & r1, const inf_int_rational & r2) { 

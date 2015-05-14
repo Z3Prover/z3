@@ -93,13 +93,13 @@ void context_params::set(char const * param, char const * value) {
         set_bool(m_smtlib2_compliant, param, value);
     }
     else {
-       param_descrs d;
-       collect_param_descrs(d);
-       std::stringstream strm;
-       strm << "unknown parameter '" << p << "'\n";
-       strm << "Legal parameters are:\n";
-       d.display(strm, 2, false, false);
-       throw default_exception(strm.str());        
+        param_descrs d;
+        collect_param_descrs(d);
+        std::stringstream strm;
+        strm << "unknown parameter '" << p << "'\n";
+        strm << "Legal parameters are:\n";
+        d.display(strm, 2, false, false);
+        throw default_exception(strm.str());        
     }
 }
 

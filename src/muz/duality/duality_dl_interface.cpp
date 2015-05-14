@@ -148,7 +148,7 @@ namespace Duality {
 
         // make a new problem and solver
         _d = alloc(duality_data,m_ctx.get_manager());
-        _d->ctx.set("mbqi",m_ctx.get_params().mbqi());
+        _d->ctx.set("mbqi",m_ctx.get_params().duality_mbqi());
         _d->ls = alloc(RPFP::iZ3LogicSolver,_d->ctx);
         _d->rpfp = alloc(RPFP,_d->ls);
 
@@ -185,7 +185,7 @@ namespace Duality {
             unsigned nrules = rs.get_num_rules();
             for(unsigned i = 0; i < nrules; i++){
                 expr_ref f(m_ctx.get_manager());
-                rs.get_rule(i)->to_formula(f);
+                rm.to_formula(*rs.get_rule(i), f);
                 rules.push_back(f);
             }
         }
@@ -283,7 +283,7 @@ namespace Duality {
                 }
             }
         }
-        unsigned rb = m_ctx.get_params().recursion_bound();
+        unsigned rb = m_ctx.get_params().duality_recursion_bound();
         std::vector<unsigned> std_bounds;
         for(unsigned i = 0; i < bounds.size(); i++){
             unsigned b = bounds[i];
@@ -307,14 +307,14 @@ namespace Duality {
   
         // set its options
         IF_VERBOSE(1, rs->SetOption("report","1"););
-        rs->SetOption("full_expand",m_ctx.get_params().full_expand() ? "1" : "0");
-        rs->SetOption("no_conj",m_ctx.get_params().no_conj() ? "1" : "0");
-        rs->SetOption("feasible_edges",m_ctx.get_params().feasible_edges() ? "1" : "0");
-        rs->SetOption("use_underapprox",m_ctx.get_params().use_underapprox() ? "1" : "0");
-        rs->SetOption("stratified_inlining",m_ctx.get_params().stratified_inlining() ? "1" : "0");
-        rs->SetOption("batch_expand",m_ctx.get_params().batch_expand() ? "1" : "0");
-        rs->SetOption("conjecture_file",m_ctx.get_params().conjecture_file());
-        rs->SetOption("enable_restarts",m_ctx.get_params().enable_restarts() ? "1" : "0");
+        rs->SetOption("full_expand",m_ctx.get_params().duality_full_expand() ? "1" : "0");
+        rs->SetOption("no_conj",m_ctx.get_params().duality_no_conj() ? "1" : "0");
+        rs->SetOption("feasible_edges",m_ctx.get_params().duality_feasible_edges() ? "1" : "0");
+        rs->SetOption("use_underapprox",m_ctx.get_params().duality_use_underapprox() ? "1" : "0");
+        rs->SetOption("stratified_inlining",m_ctx.get_params().duality_stratified_inlining() ? "1" : "0");
+        rs->SetOption("batch_expand",m_ctx.get_params().duality_batch_expand() ? "1" : "0");
+        rs->SetOption("conjecture_file",m_ctx.get_params().duality_conjecture_file());
+        rs->SetOption("enable_restarts",m_ctx.get_params().duality_enable_restarts() ? "1" : "0");
 #if 0
         if(rb != UINT_MAX){
             std::ostringstream os; os << rb;
@@ -336,7 +336,7 @@ namespace Duality {
   
         // profile!
 
-        if(m_ctx.get_params().profile())
+        if(m_ctx.get_params().duality_profile())
             print_profile(std::cout);
 
         // save the result and counterexample if there is one

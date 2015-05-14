@@ -179,7 +179,7 @@ namespace datalog {
             if (m_context.generate_proof_trace()) {
                 expr_ref_vector s1 = m_unifier.get_rule_subst(tgt, true);
                 expr_ref_vector s2 = m_unifier.get_rule_subst(src, false);
-                datalog::resolve_rule(tgt, src, tail_index, s1, s2, *res.get());
+                datalog::resolve_rule(m_rm, tgt, src, tail_index, s1, s2, *res.get());
             }
             return true;        
         }
@@ -644,7 +644,8 @@ namespace datalog {
               tout << " num unifiers: " << m_unifiers.size();
               tout << " num positions: " << m_positions.find(e).size() << "\n";
               output_predicate(m_context, to_app(e), tout); tout << "\n";);
-        return true;
+        // stop visitor when we have more than 1 unifier, since that's all we want.
+        return m_unifiers.size() <= 1;
     }
 
     void mk_rule_inliner::visitor::reset(unsigned sz) {
@@ -754,7 +755,7 @@ namespace datalog {
         valid.reset();
         valid.resize(sz, true);        
 
-        bool allow_branching = m_context.get_params().inline_linear_branch();
+        bool allow_branching = m_context.get_params().xform_inline_linear_branch();
 
         for (unsigned i = 0; i < sz; ++i) {
 
@@ -866,7 +867,7 @@ namespace datalog {
 
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
 
-        if (m_context.get_params().inline_eager()) {
+        if (m_context.get_params().xform_inline_eager()) {
             TRACE("dl", source.display(tout << "before eager inlining\n"););
             plan_inlining(source);            
             something_done = transform_rules(source, *res);            
@@ -884,7 +885,7 @@ namespace datalog {
             res = alloc(rule_set, source);
         }
 
-        if (m_context.get_params().inline_linear() && inline_linear(res)) {
+        if (m_context.get_params().xform_inline_linear() && inline_linear(res)) {
             something_done = true;
         }
 

@@ -111,6 +111,7 @@ namespace api {
         m_basic_fid = m().get_basic_family_id();
         m_arith_fid = m().mk_family_id("arith");
         m_bv_fid    = m().mk_family_id("bv");
+        m_pb_fid    = m().mk_family_id("pb");
         m_array_fid = m().mk_family_id("array");
         m_dt_fid    = m().mk_family_id("datatype");
         m_datalog_fid = m().mk_family_id("datalog_relation");

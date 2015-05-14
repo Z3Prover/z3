@@ -287,12 +287,13 @@ namespace smt {
     }
 
     void arith_eq_adapter::restart_eh() { 
+        context & ctx = get_context();
         TRACE("arith_eq_adapter", tout << "restart\n";);
         svector<enode_pair> tmp(m_restart_pairs);
         svector<enode_pair>::iterator it  =  tmp.begin();
         svector<enode_pair>::iterator end =  tmp.end();
         m_restart_pairs.reset();
-        for (; it != end; ++it) {
+        for (; it != end && !ctx.inconsistent(); ++it) {
             TRACE("arith_eq_adapter", tout << "creating arith_eq_adapter axioms at the base level #" << it->first->get_owner_id() << " #" <<
                   it->second->get_owner_id() << "\n";);
             mk_axioms(it->first, it->second);

@@ -814,6 +814,7 @@ namespace smt {
     */
     bool_var context::mk_bool_var(expr * n) {
         SASSERT(!b_internalized(n));
+        //SASSERT(!m_manager.is_not(n));
         unsigned id = n->get_id();
         bool_var v  = m_b_internalized_stack.size();
 #ifndef _EXTERNAL_RELEASE 
@@ -828,7 +829,7 @@ namespace smt {
         }
 #endif
         TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m_manager) << "\n";);
-        TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);
+        TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);        
         set_bool_var(id, v);
         m_bdata.reserve(v+1);
         m_activity.reserve(v+1);

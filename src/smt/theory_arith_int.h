@@ -33,11 +33,15 @@ namespace smt {
     // Integrality
     //
     // -----------------------------------
+       
     
     /**
        \brief Move non base variables to one of its bounds.
        If the variable does not have bounds, it is integer, but it is not assigned to an integer value, then the 
        variable is set to an integer value.
+       In mixed integer/real problems moving a real variable to a bound could cause an integer value to 
+       have an infinitesimal. Such an assignment would disable mk_gomory_cut, and Z3 would loop.
+       
     */
     template<typename Ext>
     void theory_arith<Ext>::move_non_base_vars_to_bounds() {
@@ -413,10 +417,10 @@ namespace smt {
         for (; it != end; ++it) {
             // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
             if (!it->is_dead() && it->m_var != b && (!at_bound(it->m_var) || !get_value(it->m_var).is_rational())) {
-                TRACE("gomory_cut", tout << "row is gomory cut target:\n";
+                TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
                       display_var(tout, it->m_var);
                       tout << "at_bound:      " << at_bound(it->m_var) << "\n";
-                      tout << "infinitesimal: " << get_value(it->m_var).is_rational() << "\n";);
+                      tout << "infinitesimal: " << !get_value(it->m_var).is_rational() << "\n";);
                 return false;
             }
         }
@@ -473,7 +477,8 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::mk_gomory_cut(row const & r) {
-        SASSERT(!all_coeff_int(r));
+        // The following assertion is wrong. It may be violated in mixed-integer problems.
+        // SASSERT(!all_coeff_int(r));
         theory_var x_i = r.get_base_var();
         
         SASSERT(is_int(x_i));
@@ -525,7 +530,7 @@ namespace smt {
                         }
                         // k += new_a_ij * lower_bound(x_j).get_rational();
                         k.addmul(new_a_ij, lower_bound(x_j).get_rational());
-                        lower(x_j)->push_justification(ante, numeral::zero(), proofs_enabled());
+                        lower(x_j)->push_justification(ante, numeral::zero(), coeffs_enabled());
                     }
                     else {
                         SASSERT(at_upper(x_j));
@@ -541,7 +546,7 @@ namespace smt {
                         }
                         // k += new_a_ij * upper_bound(x_j).get_rational();
                         k.addmul(new_a_ij, upper_bound(x_j).get_rational());
-                        upper(x_j)->push_justification(ante, numeral::zero(), proofs_enabled());
+                        upper(x_j)->push_justification(ante, numeral::zero(), coeffs_enabled());
                     }
                     pol.push_back(row_entry(new_a_ij, x_j));
                 }
@@ -566,7 +571,7 @@ namespace smt {
                             }
                             // k += new_a_ij * lower_bound(x_j).get_rational();
                             k.addmul(new_a_ij, lower_bound(x_j).get_rational());
-                            lower(x_j)->push_justification(ante, numeral::zero(), proofs_enabled());
+                            lower(x_j)->push_justification(ante, numeral::zero(), coeffs_enabled());
                         }
                         else {
                             SASSERT(at_upper(x_j));
@@ -579,7 +584,7 @@ namespace smt {
                             new_a_ij.neg(); // the upper terms are inverted
                             // k += new_a_ij * upper_bound(x_j).get_rational();
                             k.addmul(new_a_ij, upper_bound(x_j).get_rational());
-                            upper(x_j)->push_justification(ante, numeral::zero(), proofs_enabled());
+                            upper(x_j)->push_justification(ante, numeral::zero(), coeffs_enabled());
                         }
                         TRACE("gomory_cut_detail", tout << "new_a_ij: " << new_a_ij << "\n";);
                         pol.push_back(row_entry(new_a_ij, x_j));
@@ -772,8 +777,8 @@ namespace smt {
                         // u += ncoeff * lower_bound(v).get_rational();
                         u.addmul(ncoeff, lower_bound(v).get_rational());
                     }
-                    lower(v)->push_justification(ante, numeral::zero(), proofs_enabled());
-                    upper(v)->push_justification(ante, numeral::zero(), proofs_enabled());
+                    lower(v)->push_justification(ante, numeral::zero(), coeffs_enabled());
+                    upper(v)->push_justification(ante, numeral::zero(), coeffs_enabled());
                 }
                 else if (gcds.is_zero()) {
                     gcds = abs_ncoeff; 
@@ -1379,6 +1384,7 @@ namespace smt {
         m_branch_cut_counter++;
         // TODO: add giveup code
         if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
+            TRACE("opt", display(tout););
             move_non_base_vars_to_bounds();
             if (!make_feasible()) {
                 TRACE("arith_int", tout << "failed to move variables to bounds.\n";);
@@ -1390,7 +1396,9 @@ namespace smt {
                 TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
                 SASSERT(is_base(int_var));
                 row const & r = m_rows[get_var_row(int_var)];
-                mk_gomory_cut(r);
+                if (!mk_gomory_cut(r)) {
+                    // silent failure
+                }
                 return FC_CONTINUE;
             }
         }
@@ -1400,7 +1408,7 @@ namespace smt {
             }
             theory_var int_var = find_infeasible_int_base_var();
             if (int_var != null_theory_var) {
-                TRACE("arith_int", tout << "v" << int_var << " does not have and integer assignment: " << get_value(int_var) << "\n";);
+                TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
                 // apply branching 
                 branch_infeasible_int_var(int_var);
                 return FC_CONTINUE;

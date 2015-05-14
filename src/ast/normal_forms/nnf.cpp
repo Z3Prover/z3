@@ -137,7 +137,6 @@ class skolemizer {
             }
         }
         s(body, substitution.size(), substitution.c_ptr(), r);
-        SASSERT(is_well_sorted(m(), r));
         p = 0;
         if (m().proofs_enabled()) {
             if (q->is_forall()) 

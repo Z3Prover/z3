@@ -30,6 +30,8 @@ Revision History:
 #include"rewriter.h"
 #include"hnf.h"
 #include"qe_lite.h"
+#include"var_subst.h"
+#include"datatype_decl_plugin.h"
 
 namespace datalog {
 
@@ -42,6 +44,56 @@ namespace datalog {
     typedef obj_ref<rule, rule_manager> rule_ref;
     typedef ref_vector<rule, rule_manager> rule_ref_vector;
     typedef ptr_vector<rule> rule_vector;
+
+
+    struct uninterpreted_function_finder_proc {
+        ast_manager& m;
+        datatype_util m_dt;
+        dl_decl_util  m_dl;
+        bool m_found;
+        func_decl* m_func;
+        uninterpreted_function_finder_proc(ast_manager& m): 
+            m(m), m_dt(m), m_dl(m), m_found(false), m_func(0) {}
+        void operator()(var * n) { }
+        void operator()(quantifier * n) { }
+        void operator()(app * n) {
+            if (is_uninterp(n) && !m_dl.is_rule_sort(n->get_decl()->get_range())) {
+                m_found = true;
+                m_func = n->get_decl();
+            }
+            else if (m_dt.is_accessor(n)) {
+                sort* s = m.get_sort(n->get_arg(0));
+                SASSERT(m_dt.is_datatype(s));
+                if (m_dt.get_datatype_constructors(s)->size() > 1) {
+                    m_found = true;
+                    m_func = n->get_decl();
+                }
+            }
+        }
+        void reset() { m_found = false; m_func = 0; }
+
+        bool found(func_decl*& f) const { f = m_func; return m_found; }
+    };
+
+    struct quantifier_finder_proc {
+        bool m_exist;
+        bool m_univ;
+        quantifier_finder_proc() : m_exist(false), m_univ(false) {}
+        void operator()(var * n) { }
+        void operator()(quantifier * n) {
+            if (n->is_forall()) {
+                m_univ = true;
+            }
+            else {
+                SASSERT(n->is_exists());
+                m_exist = true;
+            }
+        }
+        void operator()(app * n) { }
+        void reset() { m_exist = m_univ = false; }
+    };
+
+
     /**
        \brief Manager for the \c rule class
 
@@ -64,10 +116,8 @@ namespace datalog {
         context&             m_ctx;
         rule_counter         m_counter;
         used_vars            m_used;
-        ptr_vector<sort>     m_vars;
         var_idx_set          m_var_idx;
-        ptr_vector<expr>     m_todo;
-        ast_mark             m_mark;
+        expr_free_vars       m_free_vars;
         app_ref_vector       m_body;
         app_ref              m_head;
         expr_ref_vector      m_args;
@@ -76,6 +126,9 @@ namespace datalog {
         qe_lite              m_qe;
         remove_label_cfg               m_cfg;
         rewriter_tpl<remove_label_cfg> m_rwr;
+        mutable uninterpreted_function_finder_proc m_ufproc;
+        mutable quantifier_finder_proc m_qproc;
+        mutable expr_sparse_mark       m_visited;
 
 
         // only the context can create a rule_manager
@@ -143,7 +196,7 @@ namespace datalog {
 
         void accumulate_vars(expr* pred);
 
-        ptr_vector<sort>& get_var_sorts() { return m_vars; }
+        // ptr_vector<sort>& get_var_sorts() { return m_vars; }
 
         var_idx_set&      get_var_idx() { return m_var_idx; }
 
@@ -213,10 +266,17 @@ namespace datalog {
         */
         bool is_fact(app * head) const;
 
-
         static bool is_forall(ast_manager& m, expr* e, quantifier*& q);
 
         rule_counter& get_counter() { return m_counter; }
+
+        void to_formula(rule const& r, expr_ref& result);
+
+        std::ostream& display_smt2(rule const& r, std::ostream & out);
+
+        bool has_uninterpreted_non_predicates(rule const& r, func_decl*& f) const;
+        void has_quantifiers(rule const& r, bool& existential, bool& universal) const;
+        bool has_quantifiers(rule const& r) const;
 
     };
 
@@ -293,9 +353,6 @@ namespace datalog {
         */
         bool is_in_tail(const func_decl * p, bool only_positive=false) const;
 
-        bool has_uninterpreted_non_predicates(ast_manager& m, func_decl*& f) const;
-        void has_quantifiers(bool& existential, bool& universal) const;
-        bool has_quantifiers() const;
         bool has_negation() const;
 
         /**
@@ -306,11 +363,7 @@ namespace datalog {
 
         void get_vars(ast_manager& m, ptr_vector<sort>& sorts) const;
 
-        void to_formula(expr_ref& result) const;
-
         void display(context & ctx, std::ostream & out) const;
-
-        std::ostream& display_smt2(ast_manager& m, std::ostream & out) const;
 
         symbol const& name() const { return m_name; }
 

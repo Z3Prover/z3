@@ -322,7 +322,19 @@ public class Fixedpoint extends Z3Object
         return res;
     }
 
-    Fixedpoint(Context ctx, long obj)
+    /**
+     * Fixedpoint statistics.
+     * 
+     * @throws Z3Exception
+     **/
+    public Statistics getStatistics() throws Z3Exception
+    {
+        return new Statistics(getContext(), Native.fixedpointGetStatistics(
+                getContext().nCtx(), getNativeObject()));
+    }
+
+
+    Fixedpoint(Context ctx, long obj) throws Z3Exception
     {
         super(ctx, obj);
     }

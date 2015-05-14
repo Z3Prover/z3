@@ -60,6 +60,32 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
         UNREACHABLE();
         break;
     }
+    case OP_DT_UPDATE_FIELD: {
+        SASSERT(num_args == 2);
+        if (!is_app(args[0]) || !m_util.is_constructor(to_app(args[0])))
+            return BR_FAILED;
+        app * a = to_app(args[0]);
+        func_decl * c_decl = a->get_decl();
+        if (c_decl != m_util.get_accessor_constructor(f)) {
+            result = a;
+            return BR_DONE;
+        }
+        ptr_vector<func_decl> const * acc = m_util.get_constructor_accessors(c_decl);
+        SASSERT(acc && acc->size() == a->get_num_args());
+        unsigned num = acc->size();
+        ptr_buffer<expr> new_args;
+        for (unsigned i = 0; i < num; ++i) {
+            
+            if (f == (*acc)[i]) {
+                new_args.push_back(args[1]);
+            }
+            else {
+                new_args.push_back(a->get_arg(i));
+            }
+        }
+        result = m().mk_app(c_decl, num, new_args.c_ptr());
+        return BR_DONE;        
+    }
     default:
         UNREACHABLE();
     }

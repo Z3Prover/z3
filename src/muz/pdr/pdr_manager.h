@@ -70,8 +70,8 @@ namespace pdr {
         expr_ref to_expr() const;
 
         void to_model(model_ref& md) const;
-
-        void display(ptr_vector<datalog::rule> const& rules, std::ostream& out) const;
+        
+        void display(datalog::rule_manager& rm, ptr_vector<datalog::rule> const& rules, std::ostream& out) const;
     };
 
     class manager

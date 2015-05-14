@@ -2965,3 +2965,4 @@ let enable_trace ( tag : string ) =
 let disable_trace ( tag : string ) =
   (Z3native.enable_trace tag)
 
+

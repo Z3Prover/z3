@@ -290,10 +290,10 @@ extern "C" {
             }
         }
         else {
-            model_ref _m;
-            m_solver.get()->get_model(_m);
+            model_ref mr;
+            m_solver.get()->get_model(mr);
             Z3_model_ref *tmp_val = alloc(Z3_model_ref);
-            tmp_val->m_model = _m.get();
+            tmp_val->m_model = mr.get();
             mk_c(c)->save_object(tmp_val);
             *model = of_model(tmp_val);
         }

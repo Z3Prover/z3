@@ -203,20 +203,20 @@ void elim_bounds_star::reduce1_quantifier(quantifier * q) {
         cache_result(q, q, 0); 
         return;
     }
-    quantifier_ref new_q(m_manager);
+    quantifier_ref new_q(m);
     expr * new_body = 0;
     proof * new_pr;
     get_cached(q->get_expr(), new_body, new_pr);
-    new_q = m_manager.update_quantifier(q, new_body);
-    expr_ref r(m_manager);
+    new_q = m.update_quantifier(q, new_body);
+    expr_ref r(m);
     m_elim(new_q, r);
     if (q == r.get()) {
         cache_result(q, q, 0);
         return;
     }
-    proof_ref pr(m_manager);
-    if (m_manager.fine_grain_proofs())
-        pr = m_manager.mk_rewrite(q, r); // TODO: improve justification
+    proof_ref pr(m);
+    if (m.fine_grain_proofs())
+        pr = m.mk_rewrite(q, r); // TODO: improve justification
     cache_result(q, r, pr);
 }
 

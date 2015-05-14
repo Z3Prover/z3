@@ -207,7 +207,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, proof_ref & pr, expr_d
     TRACE("tactic_mc", mc->display(tout););
     TRACE("tactic_check_sat",
           tout << "r.size(): " << r.size() << "\n";
-          for (unsigned i = 0; i < r.size(); i++) r[0]->display(tout););
+          for (unsigned i = 0; i < r.size(); i++) r[i]->display(tout););
 
     if (is_decided_sat(r)) {
         if (models_enabled) {
