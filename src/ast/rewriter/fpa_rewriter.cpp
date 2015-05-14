@@ -70,7 +70,7 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_MAX:       SASSERT(num_args == 2); st = mk_max(args[0], args[1], result); break;
     case OP_FPA_FMA:       SASSERT(num_args == 4); st = mk_fma(args[0], args[1], args[2], args[3], result); break;
     case OP_FPA_SQRT:      SASSERT(num_args == 2); st = mk_sqrt(args[0], args[1], result); break;
-    case OP_FPA_ROUND_TO_INTEGRAL: SASSERT(num_args == 2); st = mk_round(args[0], args[1], result); break;
+    case OP_FPA_ROUND_TO_INTEGRAL: SASSERT(num_args == 2); st = mk_round_to_integral(args[0], args[1], result); break;
 
     case OP_FPA_EQ:        SASSERT(num_args == 2); st = mk_float_eq(args[0], args[1], result); break; 
     case OP_FPA_LT:        SASSERT(num_args == 2); st = mk_lt(args[0], args[1], result); break;
@@ -411,14 +411,20 @@ br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
         result = arg1;
         return BR_DONE;
     }
-    // expand as using ite's
-    result = m().mk_ite(m().mk_or(mk_eq_nan(arg1), m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2))),
+    if (m_util.is_zero(arg1) && m_util.is_zero(arg2)) {
+        result = m_util.mk_pzero(m().get_sort(arg1));
+        return BR_DONE;
+    }
+
+    result = m().mk_ite(mk_eq_nan(arg1),
                         arg2,
-                        m().mk_ite(mk_eq_nan(arg2), 
-                                   arg1,
-                                   m().mk_ite(m_util.mk_lt(arg1, arg2),
-                                           arg1,
-                                           arg2)));
+                        m().mk_ite(mk_eq_nan(arg2),
+                        arg1,
+                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2)),
+                        m_util.mk_pzero(m().get_sort(arg1)),
+                        m().mk_ite(m_util.mk_lt(arg1, arg2),
+                        arg1,
+                        arg2))));
     return BR_REWRITE_FULL;
 }
 
@@ -431,14 +437,20 @@ br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
         result = arg1;
         return BR_DONE;
     }
-    // expand as using ite's
-    result = m().mk_ite(m().mk_or(mk_eq_nan(arg1), m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2))),
+    if (m_util.is_zero(arg1) && m_util.is_zero(arg2)) {
+        result = m_util.mk_pzero(m().get_sort(arg1));
+        return BR_DONE;
+    }
+
+    result = m().mk_ite(mk_eq_nan(arg1),
                         arg2,
-                        m().mk_ite(mk_eq_nan(arg2), 
-                                   arg1,
-                                   m().mk_ite(m_util.mk_gt(arg1, arg2),
-                                              arg1,
-                                              arg2)));
+                        m().mk_ite(mk_eq_nan(arg2),
+                        arg1,
+                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2)),
+                        m_util.mk_pzero(m().get_sort(arg1)),
+                        m().mk_ite(m_util.mk_gt(arg1, arg2),
+                        arg1,
+                        arg2))));
     return BR_REWRITE_FULL;
 }
 
@@ -472,7 +484,7 @@ br_status fpa_rewriter::mk_sqrt(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status fpa_rewriter::mk_round(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_round_to_integral(expr * arg1, expr * arg2, expr_ref & result) {
     mpf_rounding_mode rm;
     if (m_util.is_rm_numeral(arg1, rm)) {
         scoped_mpf v2(m_fm);

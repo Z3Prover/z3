@@ -57,7 +57,7 @@ public:
     br_status mk_max(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result);
     br_status mk_sqrt(expr * arg1, expr * arg2, expr_ref & result);
-    br_status mk_round(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_round_to_integral(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_float_eq(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_lt(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_gt(expr * arg1, expr * arg2, expr_ref & result);

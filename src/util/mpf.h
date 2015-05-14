@@ -208,7 +208,9 @@ public:
 
     void to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o);
 
-protected:    
+protected:
+    void mk_one(unsigned ebits, unsigned sbits, bool sign, mpf & o) const;
+
     bool has_bot_exp(mpf const & x);
     bool has_top_exp(mpf const & x);
 
