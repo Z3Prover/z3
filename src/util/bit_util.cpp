@@ -351,7 +351,7 @@ bool has_one_at_first_k_bits(unsigned sz, unsigned const * data, unsigned k) {
     }
     if (word_sz < sz) {
         unsigned bit_sz  = k % (8 * sizeof(unsigned));
-        unsigned mask    = (1 << bit_sz) - 1;
+        unsigned mask    = (1u << bit_sz) - 1;
         return (data[word_sz] & mask) != 0;
     }
     return false;

@@ -92,7 +92,7 @@ public:
     void mk_ninf(func_decl * f, expr_ref & result);
     void mk_nan(func_decl * f, expr_ref & result);
     void mk_nzero(func_decl *f, expr_ref & result);
-    void mk_pzero(func_decl *f, expr_ref & result);
+    void mk_pzero(func_decl *f, expr_ref & result);    
 
     void mk_add(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_sub(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -151,6 +151,8 @@ public:
     expr_ref_vector m_extra_assertions;
 
 protected:
+    void mk_one(func_decl *f, expr_ref sign, expr_ref & result);
+
     void mk_is_nan(expr * e, expr_ref & result);
     void mk_is_inf(expr * e, expr_ref & result);
     void mk_is_pinf(expr * e, expr_ref & result);
