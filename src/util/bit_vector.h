@@ -75,8 +75,11 @@ public:
     bit_vector(bit_vector const & source):
         m_num_bits(source.m_num_bits),
         m_capacity(source.m_capacity),
-        m_data(alloc_svect(unsigned, source.m_capacity)) {
-        memcpy(m_data, source.m_data, source.m_capacity * sizeof(unsigned));
+        m_data(0) {
+        if (source.m_data) {
+            m_data = alloc_svect(unsigned, m_capacity);
+            memcpy(m_data, source.m_data, m_capacity * sizeof(unsigned));
+        }
     }
     
     bit_vector(unsigned const * source, int num_bits):
@@ -184,6 +187,9 @@ public:
 
     bit_vector & operator=(bit_vector const & source) {
         m_num_bits = source.m_num_bits;
+        if (!source.m_data)
+            return *this;
+
         if (m_capacity < source.m_capacity) {
             dealloc_svect(m_data);
             m_data     = alloc_svect(unsigned, source.m_capacity);

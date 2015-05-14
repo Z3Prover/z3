@@ -248,16 +248,16 @@ def test_fpmath(cc):
     t.add('int main() { return 42; }\n')
     t.commit()
     if exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpmath=sse -msse -msse2']) == 0:
-	FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
+        FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
         return "SSE2-GCC"
     elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-msse -msse2']) == 0:
-	FPMATH_FLAGS="-msse -msse2"
+        FPMATH_FLAGS="-msse -msse2"
         return "SSE2-CLANG"
     elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpu=vfp -mfloat-abi=hard']) == 0:
-	FPMATH_FLAGS="-mfpu=vfp -mfloat-abi=hard"
+        FPMATH_FLAGS="-mfpu=vfp -mfloat-abi=hard"
         return "ARM-VFP"
     else:
-	FPMATH_FLAGS=""
+        FPMATH_FLAGS=""
         return "UNKNOWN"
 
 
@@ -1841,7 +1841,7 @@ def mk_config():
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
         FPMATH = test_fpmath(CXX)
-	CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
+        CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
         HAS_OMP = test_openmp(CXX)
         if HAS_OMP:
             CXXFLAGS = '%s -fopenmp' % CXXFLAGS
