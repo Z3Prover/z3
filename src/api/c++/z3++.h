@@ -1111,7 +1111,8 @@ namespace z3 {
     }
 
     inline expr concat(expr const& a, expr const& b) {
-        Z3_ast r = Z3_mk_concat(ctx, (Z3_app) a, (Z3_app) b);
+        context& ctx = a.ctx();
+        Z3_ast r = Z3_mk_concat(ctx, (Z3_ast) a, (Z3_ast) b);
         ctx.check_error();
         return expr(ctx, r);
     }
