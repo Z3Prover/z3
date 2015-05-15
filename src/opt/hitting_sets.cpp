@@ -122,7 +122,7 @@ namespace opt {
         bool                    m_enable_simplex;
         struct compare_scores {
             imp* m_imp;
-            compare_scores(imp* i):m_imp(i) {}
+            compare_scores():m_imp(0) {}
             bool operator()(int v1, int v2) const {
                 return m_imp->m_scored_weights[v1] > m_imp->m_scored_weights[v2];
             }
@@ -154,10 +154,10 @@ namespace opt {
             m_scope_lvl(0),
             m_conflict_j(justification(justification::AXIOM)),
             m_inconsistent(false),
-            m_compare_scores(this),
+            m_compare_scores(),
             m_heap(0, m_compare_scores) {
             m_enable_simplex = true;
-
+            m_compare_scores.m_imp = this;
         }
         ~imp() {
             for (unsigned i = 0; i < m_T.size(); ++i) {
