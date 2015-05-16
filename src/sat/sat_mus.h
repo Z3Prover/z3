@@ -21,6 +21,7 @@ Notes:
 
 namespace sat {
     class mus {
+        solver& s;
         literal_vector m_core;
         literal_vector m_mus;
         bool           m_is_active;
@@ -30,7 +31,6 @@ namespace sat {
         unsigned       m_max_restarts;
 
 
-        solver& s;
     public:
         mus(solver& s);
         ~mus();        

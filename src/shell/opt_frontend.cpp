@@ -340,7 +340,6 @@ unsigned parse_opt(char const* file_name, bool is_wcnf) {
     g_start_time = static_cast<double>(clock());
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
-    unsigned result = 0;
     if (file_name) {
         std::ifstream in(file_name);
         if (in.bad() || in.fail()) {

@@ -297,7 +297,6 @@ namespace datalog {
         relation_base const& t1, relation_base const& t2, relation_base const& t,
         unsigned_vector const& cols1, unsigned_vector const& cols2, unsigned_vector const& rm_cols) {
         ast_manager& m = get_ast_manager();
-        relation_signature const& sig2 = t.get_signature();
         relation_signature const& sigA = t1.get_signature();
         relation_signature const& sigB = t2.get_signature();
         relation_signature sig1;
@@ -383,7 +382,6 @@ namespace datalog {
     void check_relation_plugin::verify_join(
         relation_base const& t1, relation_base const& t2, relation_base const& t,
         unsigned_vector const& cols1, unsigned_vector const& cols2) {
-        ast_manager& m = get_ast_manager();
         expr_ref fml1 = ground(t, mk_join(t1, t2, cols1, cols2));
         expr_ref fml2 = ground(t);
         check_equiv("join", fml1, fml2);

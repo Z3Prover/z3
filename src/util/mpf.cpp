@@ -1065,8 +1065,8 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
             m_mpz_manager.mul2k(rem, 1, t);
             bool tie = m_mpz_manager.eq(t, shift_p);
             if (tie &&
-                (rm == MPF_ROUND_NEAREST_TEVEN && m_mpz_manager.is_odd(div)) ||
-                (rm == MPF_ROUND_NEAREST_TAWAY && m_mpz_manager.is_even(div)))
+                ((rm == MPF_ROUND_NEAREST_TEVEN && m_mpz_manager.is_odd(div)) ||
+                 (rm == MPF_ROUND_NEAREST_TAWAY && m_mpz_manager.is_even(div))))
                 m_mpz_manager.inc(div);
             else if (x.sign ^ m_mpz_manager.gt(t, shift_p))
                 m_mpz_manager.inc(div);

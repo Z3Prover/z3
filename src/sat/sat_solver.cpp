@@ -1637,7 +1637,6 @@ namespace sat {
 
     void solver::process_antecedent_for_unsat_core(literal antecedent) {
         bool_var var     = antecedent.var();
-        unsigned var_lvl = lvl(var);
         SASSERT(var < num_vars());
         TRACE("sat", tout << antecedent << " " << (is_marked(var)?"+":"-") << "\n";);
         if (!is_marked(var)) {

@@ -500,7 +500,6 @@ namespace datalog {
             udoc_relation const& src = get(_src);
             udoc_relation* d = get(_delta);
             doc_manager& dm = r.get_dm();
-            ast_manager& m = r.get_plugin().get_ast_manager();
             udoc* d1 = 0;
             if (d) d1 = &d->get_udoc();
             IF_VERBOSE(3, r.display(verbose_stream() << "orig:  "););
@@ -561,7 +560,6 @@ namespace datalog {
             : m_cols(col_cnt), m_equalities(union_ctx) {
             udoc_relation const& r = get(_r);
             doc_manager& dm = r.get_dm();
-            unsigned num_bits = dm.num_tbits();
             m_size = r.column_num_bits(identical_cols[0]);
             m_empty_bv.resize(r.get_num_bits(), false);            
             for (unsigned i = 0; i < col_cnt; ++i) {
@@ -946,7 +944,6 @@ namespace datalog {
         virtual void operator()(relation_base & tb) {            
             udoc_relation & t = get(tb);
             udoc& u = t.get_udoc();
-            ast_manager& m = m_reduced_condition.get_manager();
             SASSERT(u.well_formed(dm));
             u.intersect(dm, m_udoc);
             SASSERT(u.well_formed(dm));
@@ -981,7 +978,6 @@ namespace datalog {
               , m_joiner(t1.get_plugin(), t1, t2, col_cnt, cols1, cols2)
 #endif
         {
-            udoc_plugin& p = t1.get_plugin();
             unsigned num_bits1 = t1.get_num_bits();
             unsigned num_bits = num_bits1 + t2.get_num_bits();
             unsigned_vector removed_cols(removed_col_cnt, rm_cols);
@@ -1022,7 +1018,6 @@ namespace datalog {
             udoc const& d1 = t1.get_udoc();
             udoc const& d2 = t2.get_udoc();
             doc_manager& dm1 = t1.get_dm();
-            doc_manager& dm2 = t2.get_dm();
             udoc_plugin& p = t1.get_plugin();
             doc_manager& dm_prod = p.dm(prod_signature);
             udoc_relation* result = get(p.mk_empty(get_result_signature()));
@@ -1134,7 +1129,6 @@ namespace datalog {
         virtual void operator()(relation_base& tb, const relation_base& negb) {
             udoc_relation& t = get(tb);
             udoc_relation const& n = get(negb);
-            udoc_plugin& p = t.get_plugin();
             IF_VERBOSE(3, t.display(verbose_stream() << "dst:"););
             IF_VERBOSE(3, n.display(verbose_stream() << "neg:"););
             if (t.fast_empty() || n.fast_empty())
@@ -1241,7 +1235,6 @@ namespace datalog {
             udoc_relation const & t = get(tb);
             udoc const& u1 = t.get_udoc();
             doc_manager& dm = t.get_dm();
-            ast_manager& m = m_reduced_condition.get_manager();
             m_udoc2.copy(dm, u1);
             m_udoc2.intersect(dm, m_udoc);
             t.apply_guard(m_reduced_condition, m_udoc2, m_equalities, m_to_delete);

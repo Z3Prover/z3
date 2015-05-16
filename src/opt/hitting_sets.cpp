@@ -149,13 +149,13 @@ namespace opt {
             m_max_weight(0), 
             m_denominator(1),
             m_alloc("hitting-sets"),
-            m_weights_var(0),
             m_qhead(0),
-            m_scope_lvl(0),
             m_conflict_j(justification(justification::AXIOM)),
             m_inconsistent(false),
+            m_scope_lvl(0),
             m_compare_scores(),
-            m_heap(0, m_compare_scores) {
+            m_heap(0, m_compare_scores),
+            m_weights_var(0) {
             m_enable_simplex = true;
             m_compare_scores.m_imp = this;
         }

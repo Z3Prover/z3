@@ -961,7 +961,6 @@ namespace smt {
     bool theory_arith<Ext>::is_safe_to_leave(theory_var x, bool inc, bool& has_int, bool& shared) {
         
         context& ctx = get_context();
-        ast_manager& m = get_manager();
         shared |= ctx.is_shared(get_enode(x));
         column & c      = m_columns[x];
         typename svector<col_entry>::iterator it  = c.begin_entries();
