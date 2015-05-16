@@ -631,7 +631,6 @@ public:
         m(m),
         m_util(m),
         m_params(p),
-        m_produce_proofs(false),       
         m_fmc(0),
         m_cancel(false),
         m_nl_tac(mk_nlsat_tactic(m, p)),

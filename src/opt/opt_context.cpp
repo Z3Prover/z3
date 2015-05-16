@@ -1343,7 +1343,6 @@ namespace opt {
                 break;
             }
             case O_MAXSMT: {
-                maxsmt& ms = *m_maxsmts.find(obj.m_id);
                 rational value(0);
                 for (unsigned i = 0; i < obj.m_terms.size(); ++i) {
                     VERIFY(m_model->eval(obj.m_terms[i], val));
