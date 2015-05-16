@@ -41,9 +41,9 @@ namespace opt {
         m_params(p),
         m_context(mgr, m_params),
         m(mgr),
-        m_dump_benchmarks(false),
         m_fm(fm),
         m_objective_sorts(m),
+        m_dump_benchmarks(false),
         m_first(true) {
         m_params.updt_params(p);
         m_params.m_relevancy_lvl = 0;

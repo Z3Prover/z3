@@ -719,12 +719,11 @@ void hensel_lift_quadratic(z_manager& upm, numeral_vector const & C,
     // we create a new Z_p manager, since we'll be changing the input one
     zp_manager zp_upm(nm);
     zp_upm.set_zp(zpe_upm.m().p());
-    zp_numeral_manager & zp_nm = zp_upm.m();
 
     // get the U, V, such that A*U + B*V = 1 (mod p)
     scoped_mpz_vector U(nm), V(nm), D(nm);
     zp_upm.ext_gcd(A.size(), A.c_ptr(), B.size(), B.c_ptr(), U, V, D);
-    SASSERT(D.size() == 1 && zp_nm.is_one(D[0]));
+    SASSERT(D.size() == 1 && zp_upm.m().is_one(D[0]));
 
     // we start lifting from (a = p, b = p, r = p)
     scoped_mpz_vector A_lifted(nm), B_lifted(nm);

@@ -89,8 +89,8 @@ public:
         :m_eof(false), 
          m_eof_behind_buffer(false), 
          m_next_index(0),
-         m_data_size(0),
-         m_ok(true) {
+         m_ok(true),
+         m_data_size(0) {
         m_data.resize(2*s_expansion_step);
         resize_data(0);
 #if _WINDOWS

@@ -80,7 +80,7 @@ namespace pdr {
     pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head): 
         pm(pm), m(pm.get_manager()),
         ctx(ctx), m_head(head, m), 
-        m_sig(m), m_solver(pm, ctx.get_params().pdr_try_minimize_core(), head->get_name()),
+        m_sig(m), m_solver(pm, head->get_name()),
         m_invariants(m), m_transition(m), m_initial_state(m), 
         m_reachable(pm, (datalog::PDR_CACHE_MODE)ctx.get_params().pdr_cache_mode()) {}
 
@@ -150,9 +150,9 @@ namespace pdr {
     }
 
     datalog::rule const& pred_transformer::find_rule(model_core const& model) const {
-        datalog::rule_manager& rm = ctx.get_context().get_rule_manager();
         obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
         TRACE("pdr_verbose",
+              datalog::rule_manager& rm = ctx.get_context().get_rule_manager();
               for (; it != end; ++it) {
                   expr* pred = it->m_key;
                   tout << mk_pp(pred, m) << ":\n";
@@ -1137,9 +1137,6 @@ namespace pdr {
             if (n->get_model_ptr()) {
                 models.insert(n->state(), n->get_model_ptr());
                 rules.insert(n->state(), n->get_rule());
-                pred_transformer& pt = n->pt();
-                context& ctx = pt.get_context();
-                datalog::context& dctx = ctx.get_context();
             }
             todo.pop_back();
             todo.append(n->children().size(), n->children().c_ptr());

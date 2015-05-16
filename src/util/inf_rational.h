@@ -63,10 +63,7 @@ class inf_rational {
         return s;
     }
 
-    inf_rational():
-        m_first(rational()),
-        m_second(rational())
-     {}
+    inf_rational() {}
 
     inf_rational(const inf_rational & r): 
         m_first(r.m_first),

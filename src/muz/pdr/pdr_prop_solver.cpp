@@ -225,12 +225,11 @@ namespace pdr {
     };
 
 
-    prop_solver::prop_solver(manager& pm, bool try_minimize_core, symbol const& name) :
+    prop_solver::prop_solver(manager& pm, symbol const& name) :
         m_fparams(pm.get_fparams()),
         m(pm.get_manager()),
         m_pm(pm),
         m_name(name),
-        m_try_minimize_core(try_minimize_core),
         m_ctx(pm.mk_fresh()),
         m_pos_level_atoms(m),
         m_neg_level_atoms(m),

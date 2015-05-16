@@ -24,9 +24,9 @@ Revision History:
 #endif
 
 synch_mpq_manager *  rational::g_mpq_manager = 0;
-rational             rational::m_zero(0);
-rational             rational::m_one(1);
-rational             rational::m_minus_one(-1);
+rational             rational::m_zero;
+rational             rational::m_one;
+rational             rational::m_minus_one;
 vector<rational>     rational::m_powers_of_two;
 
 void mk_power_up_to(vector<rational> & pws, unsigned n) {
@@ -56,11 +56,17 @@ rational rational::power_of_two(unsigned k) {
 void rational::initialize() {
     if (!g_mpq_manager) {
         g_mpq_manager = alloc(synch_mpq_manager);
+        m().set(m_zero.m_val, 0);
+        m().set(m_one.m_val, 1);
+        m().set(m_minus_one.m_val, -1);
     }
 }
 
 void rational::finalize() {
     m_powers_of_two.finalize();
+    m_zero.~rational();
+    m_one.~rational();
+    m_minus_one.~rational();
     dealloc(g_mpq_manager);
     g_mpq_manager = 0;
 }

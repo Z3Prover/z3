@@ -40,7 +40,6 @@ namespace pdr {
         ast_manager&        m;
         manager&            m_pm;
         symbol              m_name;
-        bool                m_try_minimize_core;
         scoped_ptr<pdr::smt_context> m_ctx;
         decl_vector         m_level_preds;      
         app_ref_vector      m_pos_level_atoms;  // atoms used to identify level
@@ -74,7 +73,7 @@ namespace pdr {
         
         
     public:
-        prop_solver(pdr::manager& pm, bool try_minimize_core, symbol const& name);
+        prop_solver(pdr::manager& pm, symbol const& name);
         
         /** return true is s is a symbol introduced by prop_solver */
         bool is_aux_symbol(func_decl * s) const { 
