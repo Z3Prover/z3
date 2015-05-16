@@ -2371,7 +2371,7 @@ namespace smt {
             return FC_CONTINUE;
         }
         
-        if (!max_min_nl_vars())
+        if (!max_min_nl_vars()) 
             return FC_CONTINUE;
 
         if (check_monomial_assignments()) {

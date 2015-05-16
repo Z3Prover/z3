@@ -1133,7 +1133,7 @@ namespace smt {
     inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         TRACE("bound_bug", display_var(tout, v); display(tout););
         has_shared = false;
-        max_min_t r = max_min(v, true, has_shared); 
+        max_min_t r = max_min(v, true, true, has_shared); 
         if (r == UNBOUNDED) {
             has_shared = false;
             blocker = get_manager().mk_false();
@@ -1553,13 +1553,14 @@ namespace smt {
     typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(
         row & r, 
         bool max, 
+        bool maintain_integrality, 
         bool& has_shared) {
         m_stats.m_max_min++;
         unsigned best_efforts = 0;
         bool inc = false;
         context& ctx = get_context();
 
-        SASSERT(valid_assignment());
+        SASSERT(!maintain_integrality || valid_assignment());
 
         numeral a_ij, curr_a_ij, coeff, curr_coeff;
         inf_numeral min_gain, max_gain, curr_min_gain, curr_max_gain;
@@ -1633,7 +1634,7 @@ namespace smt {
             
             if (x_j == null_theory_var) {
                 TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);
-                SASSERT(valid_assignment());
+                SASSERT(!maintain_integrality || valid_assignment());
                 result = OPTIMIZED;
                 break; 
             }
@@ -1648,7 +1649,7 @@ namespace smt {
                     SASSERT(!unbounded_gain(max_gain));
                     update_value(x_j, max_gain);
                     TRACE("opt", tout << "moved v" << x_j << " to upper bound\n";);
-                    SASSERT(valid_assignment());
+                    SASSERT(!maintain_integrality || valid_assignment());
                     continue;
                 }
                 if (!inc && lower(x_j)) {
@@ -1656,7 +1657,7 @@ namespace smt {
                     max_gain.neg();
                     update_value(x_j, max_gain);
                     TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
-                    SASSERT(valid_assignment());
+                    SASSERT(!maintain_integrality || valid_assignment());
                     continue;
                 }
                 if (ctx.is_shared(get_enode(x_j))) {
@@ -1681,7 +1682,7 @@ namespace smt {
                     TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
                 }
                 update_value(x_j, max_gain);
-                SASSERT(valid_assignment());
+                SASSERT(!maintain_integrality || valid_assignment());
                 continue;
             }
             
@@ -1709,7 +1710,7 @@ namespace smt {
             coeff.neg();
             add_tmp_row(r, coeff, r2);
             SASSERT(r.get_idx_of(x_j) == -1);
-            SASSERT(valid_assignment());
+            SASSERT(!maintain_integrality || valid_assignment());
         }
         TRACE("opt", display(tout););
         return (best_efforts>0)?BEST_EFFORT:result;
@@ -1781,10 +1782,10 @@ namespace smt {
        \brief Maximize/Minimize the given variable. The bounds of v are update if procedure succeeds.
     */
     template<typename Ext>
-    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(theory_var v, bool max, bool& has_shared) {
+   typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(theory_var v, bool max, bool maintain_integrality, bool& has_shared) {
         expr* e = get_enode(v)->get_owner();
 
-        SASSERT(valid_assignment());
+        SASSERT(!maintain_integrality || valid_assignment());
         SASSERT(!is_quasi_base(v));
         if ((max && at_upper(v)) || (!max && at_lower(v))) {
             TRACE("opt", tout << "At bound: " << mk_pp(e, get_manager()) << "...\n";);
@@ -1803,7 +1804,7 @@ namespace smt {
                     add_tmp_row_entry<true>(m_tmp_row, it->m_coeff, it->m_var);
             }            
         }
-        max_min_t r = max_min(m_tmp_row, max, has_shared);
+        max_min_t r = max_min(m_tmp_row, max, maintain_integrality, has_shared);
         if (r == OPTIMIZED) {
             TRACE("opt", tout << mk_pp(e, get_manager()) << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););
@@ -1830,9 +1831,9 @@ namespace smt {
         svector<theory_var>::const_iterator it  = vars.begin();
         svector<theory_var>::const_iterator end = vars.end();
         for (; it != end; ++it) {
-            if (max_min(*it, true, has_shared) == OPTIMIZED && !has_shared)
+            if (max_min(*it, true, false, has_shared) == OPTIMIZED && !has_shared)
                 succ = true;
-            if (max_min(*it, false, has_shared) == OPTIMIZED && !has_shared)
+            if (max_min(*it, false, false, has_shared) == OPTIMIZED && !has_shared)
                 succ = true;
         }
         if (succ) {

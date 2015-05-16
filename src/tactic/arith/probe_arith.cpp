@@ -549,9 +549,10 @@ struct is_non_qfufnra_functor {
             case OP_IRRATIONAL_ALGEBRAIC_NUM:
                 return;
             case OP_MUL:
-                if (n->get_num_args() == 2 ||
-                    (!u.is_numeral(n->get_arg(0)) &&
-                     !u.is_numeral(n->get_arg(1)))) {
+                if (n->get_num_args() == 2 &&
+                    u.is_real(n->get_arg(0)) && 
+                    !u.is_numeral(n->get_arg(0)) &&
+                    !u.is_numeral(n->get_arg(1))) {
                     m_has_nonlinear = true;
                 }
                 return;
