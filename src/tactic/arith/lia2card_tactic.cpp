@@ -31,18 +31,22 @@ public:
     arith_util                       a;
     params_ref                       m_params;
     pb_util                          m_pb;
-    mutable ptr_vector<expr>         m_todo;
-    expr_set                         m_01s;
+    mutable ptr_vector<expr>*        m_todo;
+    expr_set*                        m_01s;
     bool                             m_compile_equality;
     
     lia2card_tactic(ast_manager & _m, params_ref const & p):
         m(_m),
         a(m),
         m_pb(m),
+        m_todo(alloc(ptr_vector<expr>)),
+        m_01s(alloc(expr_set)),
         m_compile_equality(false) {
     }
 
     virtual ~lia2card_tactic() {
+        dealloc(m_todo);
+        dealloc(m_01s);
     }
         
     void set_cancel(bool f) {
@@ -60,7 +64,7 @@ public:
                     expr_dependency_ref & core) {
         SASSERT(g->is_well_sorted());
         mc = 0; pc = 0; core = 0;
-        m_01s.reset();
+        m_01s->reset();
         
         tactic_report report("cardinality-intro", *g);
         
@@ -76,7 +80,7 @@ public:
             if (a.is_int(x) && 
                 bounds.has_lower(x, lo, s1) && !s1 && lo.is_zero() &&
                 bounds.has_upper(x, hi, s2) && !s2 && hi.is_one()) {
-                m_01s.insert(x);
+                m_01s->insert(x);
                 TRACE("pb", tout << "add bound " << mk_pp(x, m) << "\n";);
             }
         }
@@ -114,11 +118,11 @@ public:
     
     void extract_pb_substitution(ast_mark& mark, expr* fml, expr_safe_replace& sub) {
         expr_ref tmp(m);
-        m_todo.reset();
-        m_todo.push_back(fml);
-        while (!m_todo.empty()) {
-            expr* e = m_todo.back();
-            m_todo.pop_back();
+        m_todo->reset();
+        m_todo->push_back(fml);
+        while (!m_todo->empty()) {
+            expr* e = m_todo->back();
+            m_todo->pop_back();
             if (mark.is_marked(e) || !is_app(e)) {
                 continue;
             }
@@ -128,13 +132,13 @@ public:
                 continue;
             }
             app* ap = to_app(e);
-            m_todo.append(ap->get_num_args(), ap->get_args());
+            m_todo->append(ap->get_num_args(), ap->get_args());
         }
     }
 
 
     bool is_01var(expr* x) const {
-        return m_01s.contains(x);
+        return m_01s->contains(x);
     }
     
     expr_ref mk_01(expr* x) {
@@ -282,12 +286,16 @@ public:
                  "(default:false) compile equalities into pseudo-Boolean equality");
     }
         
-    virtual void cleanup() {
+    virtual void cleanup() {        
+        expr_set* d = alloc(expr_set);
+        ptr_vector<expr>* todo = alloc(ptr_vector<expr>);
         #pragma omp critical (tactic_cancel)
         {
-            m_01s.reset();
-            m_todo.reset();
+            std::swap(m_01s, d);
+            std::swap(m_todo, todo);
         }
+        dealloc(d);
+        dealloc(todo);
     }
 };
 
