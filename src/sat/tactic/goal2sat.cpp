@@ -36,7 +36,7 @@ Notes:
 #include"model_v2_pp.h"
 #include"tactic.h"
 #include"ast_pp.h"
-#include<strstream>
+#include<sstream>
 
 struct goal2sat::imp {
     struct frame {

@@ -72,7 +72,7 @@ namespace smt {
             m_value        .push_back(inf_numeral());
         }
         m_old_value        .push_back(inf_numeral());
-        SASSERT(m_var_occs.size() == r);
+        SASSERT(m_var_occs.size() == static_cast<unsigned>(r));
         m_var_occs         .push_back(atoms());
         SASSERT(m_var_occs.back().empty());
         m_unassigned_atoms .push_back(0);

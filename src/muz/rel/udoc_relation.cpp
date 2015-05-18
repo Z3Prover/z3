@@ -559,7 +559,6 @@ namespace datalog {
         filter_identical_fn(const relation_base & _r, unsigned col_cnt, const unsigned *identical_cols)
             : m_cols(col_cnt), m_equalities(union_ctx) {
             udoc_relation const& r = get(_r);
-            doc_manager& dm = r.get_dm();
             m_size = r.column_num_bits(identical_cols[0]);
             m_empty_bv.resize(r.get_num_bits(), false);            
             for (unsigned i = 0; i < col_cnt; ++i) {
