@@ -1892,7 +1892,8 @@ def mk_config():
         else:
             raise MKException('Unsupported platform: %s' % sysname)
         if is64():
-            CXXFLAGS     = '%s -fPIC' % CXXFLAGS
+            if sysname[:6] != 'CYGWIN':
+                CXXFLAGS     = '%s -fPIC' % CXXFLAGS
             CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
                 CPPFLAGS = '%s -D_USE_THREAD_LOCAL' % CPPFLAGS
