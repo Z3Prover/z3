@@ -316,7 +316,7 @@ namespace datalog {
 
         void register_rule(rule * r) {
             rule_counter counter;
-            counter.count_rule_vars(m, r, 1);
+            counter.count_rule_vars(r, 1);
 
             ptr_vector<app> & rule_content = 
                 m_rules_content.insert_if_not_there2(r, ptr_vector<app>())->get_data().m_value;
@@ -329,19 +329,19 @@ namespace datalog {
             for(unsigned i=0; i+1 < pos_tail_size; i++) {
                 app * t1 = r->get_tail(i);
                 var_idx_set t1_vars = rm.collect_vars(t1);
-                counter.count_vars(m, t1, -1);  //temporarily remove t1 variables from counter
+                counter.count_vars(t1, -1);  //temporarily remove t1 variables from counter
                 for(unsigned j=i+1; j<pos_tail_size; j++) {
                     app * t2 = r->get_tail(j);
-                    counter.count_vars(m, t2, -1);  //temporarily remove t2 variables from counter
+                    counter.count_vars(t2, -1);  //temporarily remove t2 variables from counter
                     var_idx_set scope_vars = rm.collect_vars(t2);
                     scope_vars |= t1_vars;
                     var_idx_set non_local_vars;
                     counter.collect_positive(non_local_vars);
-                    counter.count_vars(m, t2, 1);  //restore t2 variables in counter
+                    counter.count_vars(t2, 1);  //restore t2 variables in counter
                     set_intersection(non_local_vars, scope_vars);
                     register_pair(t1, t2, r, non_local_vars);
                 }
-                counter.count_vars(m, t1, 1);  //restore t1 variables in counter
+                counter.count_vars(t1, 1);  //restore t1 variables in counter
             }
         }
 
@@ -460,16 +460,16 @@ namespace datalog {
             app * head = r->get_head();
 
             var_counter counter;
-            counter.count_vars(m, head, 1);
+            counter.count_vars(head, 1);
 
             unsigned tail_size=r->get_tail_size();
             unsigned pos_tail_size=r->get_positive_tail_size();
 
             for(unsigned i=pos_tail_size; i<tail_size; i++) {
-                counter.count_vars(m, r->get_tail(i), 1);
+                counter.count_vars(r->get_tail(i), 1);
             }
             for(unsigned i=0; i<len; i++) {
-                counter.count_vars(m, rule_content[i], 1);
+                counter.count_vars(rule_content[i], 1);
             }
 
             //add edges that contain added tails
@@ -477,7 +477,7 @@ namespace datalog {
                 app * a_tail = added_tails.back();  //added tail
 
                 var_idx_set a_tail_vars = rm.collect_vars(a_tail);
-                counter.count_vars(m, a_tail, -1);  //temporarily remove a_tail variables from counter
+                counter.count_vars(a_tail, -1);  //temporarily remove a_tail variables from counter
 
                 for(unsigned i=0; i<len; i++) {
                     app * o_tail = rule_content[i]; //other tail
@@ -486,17 +486,17 @@ namespace datalog {
                         continue;
                     }
 
-                    counter.count_vars(m, o_tail, -1);  //temporarily remove o_tail variables from counter
+                    counter.count_vars(o_tail, -1);  //temporarily remove o_tail variables from counter
                     var_idx_set scope_vars = rm.collect_vars(o_tail);
                     scope_vars |= a_tail_vars;
                     var_idx_set non_local_vars;
                     counter.collect_positive(non_local_vars);
-                    counter.count_vars(m, o_tail, 1);  //restore o_tail variables in counter
+                    counter.count_vars(o_tail, 1);  //restore o_tail variables in counter
                     set_intersection(non_local_vars, scope_vars);
 
                     register_pair(o_tail, a_tail, r, non_local_vars);
                 }
-                counter.count_vars(m, a_tail, 1);  //restore t1 variables in counter
+                counter.count_vars(a_tail, 1);  //restore t1 variables in counter
                 added_tails.pop_back();
             }
         }

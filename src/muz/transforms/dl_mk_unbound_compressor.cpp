@@ -93,7 +93,7 @@ namespace datalog {
         unsigned n = head_pred->get_arity();
         
         rm.get_counter().reset();
-        rm.get_counter().count_vars(m, head, 1);
+        rm.get_counter().count_vars(head, 1);
 
         for (unsigned i=0; i<n; i++) {
             expr * arg = head->get_arg(i);
@@ -125,7 +125,7 @@ namespace datalog {
         unsigned head_arity = head_pred->get_arity();
 
         rm.get_counter().reset();
-        rm.get_counter().count_vars(m, head);
+        rm.get_counter().count_vars(head);
 
         unsigned arg_index;
         for (arg_index = 0; arg_index < head_arity; arg_index++) {

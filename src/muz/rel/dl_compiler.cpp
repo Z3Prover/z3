@@ -411,17 +411,16 @@ namespace datalog {
 
     void compiler::get_local_indexes_for_projection(rule * r, unsigned_vector & res) {
         SASSERT(r->get_positive_tail_size()==2);
-        ast_manager & m = m_context.get_manager();
         rule_counter counter;
         // leave one column copy per var in the head (avoids later duplication)
-        counter.count_vars(m, r->get_head(), -1);
+        counter.count_vars(r->get_head(), -1);
 
         // take interp & neg preds into account (at least 1 column copy if referenced)
         unsigned n = r->get_tail_size();
         if (n > 2) {
           rule_counter counter_tail;
           for (unsigned i = 2; i < n; ++i) {
-            counter_tail.count_vars(m, r->get_tail(i));
+            counter_tail.count_vars(r->get_tail(i));
           }
 
           rule_counter::iterator I = counter_tail.begin(), E = counter_tail.end();
@@ -434,8 +433,8 @@ namespace datalog {
 
         app * t1 = r->get_tail(0);
         app * t2 = r->get_tail(1);
-        counter.count_vars(m, t1);
-        counter.count_vars(m, t2);
+        counter.count_vars(t1);
+        counter.count_vars(t2);
 
         get_local_indexes_for_projection(t1, counter, 0, res);
         get_local_indexes_for_projection(t2, counter, t1->get_num_args(), res);
