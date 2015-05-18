@@ -656,13 +656,12 @@ public:
     }
 
     virtual void set_cancel(bool f) {
+        m_nl_tac->set_cancel(f);
         if (f) {
-            m_nl_tac->cancel();
             m_solver->cancel();
         }
         else {
             m_solver->reset_cancel();
-            m_nl_tac->reset_cancel();
         }
         m_cancel = f;
     }
