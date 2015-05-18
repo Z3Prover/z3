@@ -54,7 +54,6 @@ namespace datalog {
 
         typedef ptr_hashtable<ddnf_node, ddnf_node::hash, ddnf_node::eq> ddnf_nodes;
     private:
-        ddnf_mgr&             m;
         tbv_manager&          tbvm;
         tbv const&            m_tbv;
         ddnf_node_vector      m_children;
@@ -68,7 +67,6 @@ namespace datalog {
 
     public:
         ddnf_node(ddnf_mgr& m, tbv_manager& tbvm, tbv const& tbv, unsigned id):
-            m(m),
             tbvm(tbvm),
             m_tbv(tbv),
             m_children(m),
@@ -130,7 +128,6 @@ namespace datalog {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
-        unsigned               m_num_bits;
         ddnf_node*             m_root;
         ddnf_node_vector       m_noderefs;
         bool                   m_internalized;
@@ -141,7 +138,7 @@ namespace datalog {
         svector<bool>          m_marked;
         stats                  m_stats;
     public:
-        ddnf_mgr(unsigned n): m_num_bits(n), m_noderefs(*this), m_internalized(false), m_tbv(n),
+        ddnf_mgr(unsigned n): m_noderefs(*this), m_internalized(false), m_tbv(n),
                               m_hash(m_tbv), m_eq(m_tbv),
                               m_nodes(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_hash, m_eq) {
             tbv* bX = m_tbv.allocateX();

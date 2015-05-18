@@ -176,7 +176,6 @@ namespace sat {
     bool bceq::bce(clause& cls) {
         svector<bool> live_clauses;
         use_list ul;
-        use_list* save = m_use_list;
         m_use_list = &ul;
         ul.init(m_solver.num_vars());
         for (unsigned i = 0; i < m_L.size(); ++i) {

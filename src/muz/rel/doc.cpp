@@ -214,7 +214,7 @@ bool doc_manager::merge(
     subset_ints const& equalities, bit_vector const& discard_cols) {
     for (unsigned i = 0; i < length; ++i) {
         unsigned idx = lo + i;
-        if (!merge(d, lo + i, equalities, discard_cols)) return false;
+        if (!merge(d, idx, equalities, discard_cols)) return false;
     }
     return true;
 }

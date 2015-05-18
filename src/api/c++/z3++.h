@@ -1111,9 +1111,10 @@ namespace z3 {
     }
 
     inline expr concat(expr const& a, expr const& b) {
-        Z3_ast r = Z3_mk_concat(ctx, (Z3_app) a, (Z3_app) b);
-        ctx.check_error();
-        return expr(ctx, r);
+        check_context(a, b);
+        Z3_ast r = Z3_mk_concat(a.ctx(), a, b);
+        a.ctx().check_error();
+        return expr(a.ctx(), r);
     }
     
     class func_entry : public object {

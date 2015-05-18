@@ -24,7 +24,7 @@ Notes:
 
 namespace sat {
 
-    mus::mus(solver& s):s(s), m_is_active(false) {}
+    mus::mus(solver& s):s(s), m_is_active(false), m_best_value(0), m_restart(0), m_max_restarts(0) {}
 
     mus::~mus() {}
    

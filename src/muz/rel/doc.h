@@ -238,7 +238,6 @@ public:
     }
     void subtract(M& m, T& t) {
         unsigned sz = size();
-        bool found = false;
         union_bvec result;
         for (unsigned i = 0; i < sz; ++i) {
             m.subtract(*m_elems[i], t, result.m_elems);

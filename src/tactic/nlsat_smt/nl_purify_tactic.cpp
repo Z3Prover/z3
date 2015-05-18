@@ -311,16 +311,17 @@ private:
             // assert equalities between equal interface real variables.
 
             model_ref mdl_nl, mdl_smt;
-            model_converter2model(m, nl_mc.get(), mdl_nl);
-            update_eq_values(mdl_nl);
-            enforce_equalities(mdl_nl, m_nl_g);
-            
-            setup_assumptions(mdl_nl);
-
-            TRACE("nlsat_smt", 
-                  model_smt2_pp(tout << "nl model\n", m, *mdl_nl.get(), 0);
-                  m_solver->display(tout << "smt goal:\n"); tout << "\n";);
-
+            if (mdl_nl.get()) {
+                model_converter2model(m, nl_mc.get(), mdl_nl);
+                update_eq_values(mdl_nl);
+                enforce_equalities(mdl_nl, m_nl_g);
+                
+                setup_assumptions(mdl_nl);
+                
+                TRACE("nlsat_smt", 
+                      model_smt2_pp(tout << "nl model\n", m, *mdl_nl.get(), 0);
+                      m_solver->display(tout << "smt goal:\n"); tout << "\n";);
+            }
             result.reset();
             lbool r = m_solver->check_sat(m_asms.size(), m_asms.c_ptr());
             if (r == l_false) {
@@ -352,7 +353,9 @@ private:
                 TRACE("nlsat_smt", 
                       m_fmc->display(tout << "joint state is sat\n");
                       nl_mc->display(tout << "nl\n"););
-                merge_models(*mdl_nl.get(), mdl_smt);
+                if (mdl_nl.get()) {
+                    merge_models(*mdl_nl.get(), mdl_smt);
+                }
                 mc = m_fmc.get();
                 apply(mc, mdl_smt, 0);
                 mc = model2model_converter(mdl_smt.get());
@@ -631,11 +634,11 @@ public:
         m(m),
         m_util(m),
         m_params(p),
+        m_fmc(0),
+        m_cancel(false),
         m_nl_tac(mk_nlsat_tactic(m, p)),
         m_nl_g(0),
         m_solver(mk_smt_solver(m, p, symbol::null)),
-        m_fmc(0),
-        m_cancel(false),
         m_eq_preds(m),
         m_new_reals(m),
         m_new_preds(m),

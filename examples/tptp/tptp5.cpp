@@ -2083,7 +2083,7 @@ bool parse_is_sat_line(char const* line, bool& is_sat) {
         return true;
     }
     return false;
-    
+}    
 
 bool parse_is_sat(char const* filename, bool& is_sat) {
     std::ifstream is(filename);

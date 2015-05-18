@@ -255,7 +255,7 @@ void mpff_manager::set(mpff & n, int64 v) {
     }
     else {
         if (v < 0) {
-            set(n, -static_cast<uint64>(v));
+            set(n, 1 + static_cast<uint64>(-(1+v)));
             n.m_sign = 1;
         }
         else {

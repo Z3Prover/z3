@@ -163,7 +163,6 @@ namespace smt {
         ast_manager & m  = get_manager();
         app*        own  = n->get_owner();
         expr*       arg1 = own->get_arg(0);
-        expr*       arg2 = own->get_arg(1);
         func_decl * upd  = n->get_decl();
         func_decl * acc  = to_func_decl(upd->get_parameter(0).get_ast());
         func_decl * con  = m_util.get_accessor_constructor(acc);

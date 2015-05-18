@@ -53,7 +53,6 @@ void rule_properties::collect(rule_set const& rules) {
 
 void rule_properties::check_quantifier_free() {
     if (!m_quantifiers.empty()) {
-        quantifier* q = m_quantifiers.begin()->m_key;
         rule* r = m_quantifiers.begin()->m_value;
         std::stringstream stm;
         stm << "cannot process quantifier in rule ";

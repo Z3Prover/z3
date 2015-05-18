@@ -85,6 +85,7 @@ VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
 GIT_HASH=False
+OPTIMIZE=False
 
 FPMATH="Default"
 FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
@@ -551,6 +552,8 @@ def display_help(exit_code):
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
     if IS_WINDOWS:
         print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
+    if IS_WINDOWS:
+	print("  --optimize                    generate optimized code during linking.")
     print("  -j, --java                    generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
     print("  --staticlib                   build Z3 static library.")    
@@ -577,13 +580,13 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
-    global LINUX_X64
+    global LINUX_X64, OPTIMIZE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'x86', 'ml'])
+                                                'githash=', 'x86', 'ml', 'optimize'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -618,6 +621,8 @@ def parse_options():
             DOTNET_ENABLED = False
         elif opt in ('--staticlib'):
             STATIC_LIB = True
+	elif opt in ('--optimize'):
+	    OPTIMIZE = True
         elif not IS_WINDOWS and opt in ('-p', '--prefix'):
             PREFIX = arg
             PYTHON_PACKAGE_DIR = os.path.join(PREFIX, 'lib', 'python%s' % distutils.sysconfig.get_python_version(), 'dist-packages')
@@ -1746,7 +1751,6 @@ def mk_config():
             'OBJ_EXT=.obj\n'
             'LIB_EXT=.lib\n'
             'AR=lib\n'
-            'AR_FLAGS=/nologo /LTCG\n'
             'AR_OUTFLAG=/OUT:\n'
             'EXE_EXT=.exe\n'
             'LINK=cl\n'
@@ -1765,22 +1769,25 @@ def mk_config():
             extra_opt = ' %s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
         if DEBUG_MODE:
             config.write(
+                'AR_FLAGS=/nologo\n'
                 'LINK_FLAGS=/nologo /MDd\n'
                 'SLINK_FLAGS=/nologo /LDd\n')
             if not VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /GL /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link /LTCG /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
-                    'SLINK_EXTRA_FLAGS=/link /LTCG /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
+                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
+                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
             else:
                 config.write(
-                    'CXXFLAGS=/c /GL /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n' % extra_opt)
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n' % extra_opt)
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link /LTCG /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
-                    'SLINK_EXTRA_FLAGS=/link /LTCG /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
+                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
+                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
         else:
             # Windows Release mode
+	    if OPTIMIZE:
+		config.write('AR_FLAGS=/nologo /LTCG\n')                
             config.write(
                 'LINK_FLAGS=/nologo /MD\n'
                 'SLINK_FLAGS=/nologo /LD\n')

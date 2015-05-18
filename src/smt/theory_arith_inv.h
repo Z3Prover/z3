@@ -214,10 +214,13 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::valid_assignment() const {
-        return 
-            valid_row_assignment() &&
+        if (valid_row_assignment() &&
             satisfy_bounds() &&
-            satisfy_integrality();
+            satisfy_integrality()) {
+            return true;
+        }
+        TRACE("arith", display(tout););
+        return false;
     }
 
 #endif
