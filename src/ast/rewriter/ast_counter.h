@@ -76,7 +76,7 @@ protected:
     unsigned get_max_var(bool & has_var);    
 public:
     var_counter() {}
-    void count_vars(ast_manager & m, const app * t, int coef = 1);
+    void count_vars(const app * t, int coef = 1);
     unsigned get_max_var(expr* e);
     unsigned get_next_var(expr* e);
 };
