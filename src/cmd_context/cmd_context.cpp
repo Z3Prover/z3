@@ -500,6 +500,7 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "QF_RDL" ||
         s == "QF_IDL" ||
         s == "QF_AUFLIA" ||
+        s == "QF_ALIA" ||
         s == "QF_AUFLIRA" ||
         s == "QF_AUFNIA" ||
         s == "QF_AUFNIRA" ||
@@ -577,6 +578,7 @@ bool cmd_context::logic_has_array_core(symbol const & s) const {
     return 
         s == "QF_AX" ||
         s == "QF_AUFLIA" ||
+        s == "QF_ALIA" ||
         s == "QF_AUFLIRA" ||
         s == "QF_AUFNIA" ||
         s == "QF_AUFNIRA" ||
