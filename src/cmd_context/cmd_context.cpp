@@ -550,9 +550,7 @@ bool cmd_context::logic_has_bv_core(symbol const & s) const {
 }
 
 bool cmd_context::logic_has_horn(symbol const& s) const {
-    return
-        s == "HORN";
-
+    return s == "HORN";
 }
 
 bool cmd_context::logic_has_bv() const {
@@ -560,19 +558,20 @@ bool cmd_context::logic_has_bv() const {
 }
 
 bool cmd_context::logic_has_seq_core(symbol const& s) const {
-    return 
-        s == "QF_BVRE";
-        
+    return s == "QF_BVRE";
 }
 
 bool cmd_context::logic_has_seq() const {
     return !has_logic() || logic_has_seq_core(m_logic);        
 }
 
-bool cmd_context::logic_has_fpa() const {
-    return !has_logic() || m_logic == "QF_FP" || m_logic == "QF_FPBV";
+bool cmd_context::logic_has_fpa_core(symbol const& s) const {
+    return s == "QF_FP" || s == "QF_FPBV" || s == "QF_BVFP";
 }
 
+bool cmd_context::logic_has_fpa() const {
+    return !has_logic() || logic_has_fpa_core(m_logic);
+}
 
 bool cmd_context::logic_has_array_core(symbol const & s) const {
     return 
@@ -682,8 +681,7 @@ bool cmd_context::supported_logic(symbol const & s) const {
     return s == "QF_UF" || s == "UF" || 
         logic_has_arith_core(s) || logic_has_bv_core(s) || 
         logic_has_array_core(s) || logic_has_seq_core(s) ||
-        logic_has_horn(s) ||
-        s == "QF_FP" || s == "QF_FPBV";
+        logic_has_horn(s) || logic_has_fpa_core(s);
 }
 
 bool cmd_context::set_logic(symbol const & s) {

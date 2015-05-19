@@ -250,6 +250,7 @@ protected:
     bool logic_has_bv_core(symbol const & s) const;
     bool logic_has_array_core(symbol const & s) const;
     bool logic_has_seq_core(symbol const & s) const;
+    bool logic_has_fpa_core(symbol const & s) const;
     bool logic_has_horn(symbol const& s) const;
     bool logic_has_arith() const;
     bool logic_has_bv() const;
