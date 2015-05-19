@@ -36,11 +36,11 @@
 #include"scoped_proof.h"
 
 static void show_interpolant_and_maybe_check(cmd_context & ctx,
-					     ptr_vector<ast> &cnsts,
-					     expr *t, 
-					     ptr_vector<ast> &interps,
-					     params_ref &m_params,
-					     bool check)
+                                             ptr_vector<ast> &cnsts,
+                                             expr *t, 
+                                             ptr_vector<ast> &interps,
+                                             params_ref &m_params,
+                                             bool check)
 {
   
     if (m_params.get_bool("som", false))

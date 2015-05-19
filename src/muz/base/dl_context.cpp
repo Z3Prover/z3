@@ -584,7 +584,7 @@ namespace datalog {
             m_rule_properties.check_existential_tail();
             m_rule_properties.check_for_negated_predicates();
             break;
-	case DUALITY_ENGINE:
+        case DUALITY_ENGINE:
             m_rule_properties.collect(r);
             m_rule_properties.check_existential_tail();
             m_rule_properties.check_for_negated_predicates();
@@ -986,12 +986,12 @@ namespace datalog {
         }
     }
    
-  void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names, vector<unsigned> &bounds){
+    void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names, vector<unsigned> &bounds) {
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
-	    expr_ref r = bind_vars(m_rule_fmls[i].get(), true);
-	    rules.push_back(r.get());
-	    names.push_back(m_rule_names[i]);
-	    bounds.push_back(m_rule_bounds[i]);
+            expr_ref r = bind_vars(m_rule_fmls[i].get(), true);
+            rules.push_back(r.get());
+            names.push_back(m_rule_names[i]);
+            bounds.push_back(m_rule_bounds[i]);
         }
     }
 

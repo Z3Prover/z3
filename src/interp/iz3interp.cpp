@@ -252,7 +252,7 @@ public:
         // create a secondary prover
         iz3secondary *sp = iz3foci::create(this,num,parents_vec.empty()?0:&parents_vec[0]);
         sp_killer.set(sp); // kill this on exit
-	  
+      
 #define BINARY_INTERPOLATION
 #ifndef BINARY_INTERPOLATION    
         // create a translator
@@ -420,12 +420,12 @@ public:
 
 
 void iz3interpolate(ast_manager &_m_manager,
-		    ast *proof,
-		    const ptr_vector<ast> &cnsts,
-		    const ::vector<int> &parents,
-		    ptr_vector<ast> &interps,
-		    const ptr_vector<ast> &theory,
-		    interpolation_options_struct * options)
+            ast *proof,
+            const ptr_vector<ast> &cnsts,
+            const ::vector<int> &parents,
+            ptr_vector<ast> &interps,
+            const ptr_vector<ast> &theory,
+            interpolation_options_struct * options)
 {
     iz3interp itp(_m_manager);
     if(options)
@@ -448,12 +448,12 @@ void iz3interpolate(ast_manager &_m_manager,
 }
 
 void iz3interpolate(ast_manager &_m_manager,
-		    ast *proof,
-		    const ::vector<ptr_vector<ast> > &cnsts,
-		    const ::vector<int> &parents,
-		    ptr_vector<ast> &interps,
-		    const ptr_vector<ast> &theory,
-		    interpolation_options_struct * options)
+            ast *proof,
+            const ::vector<ptr_vector<ast> > &cnsts,
+            const ::vector<int> &parents,
+            ptr_vector<ast> &interps,
+            const ptr_vector<ast> &theory,
+            interpolation_options_struct * options)
 {
     iz3interp itp(_m_manager);
     if(options)
@@ -477,11 +477,11 @@ void iz3interpolate(ast_manager &_m_manager,
 }
 
 void iz3interpolate(ast_manager &_m_manager,
-		    ast *proof,
-		    const ptr_vector<ast> &cnsts,
-		    ast *tree,
-		    ptr_vector<ast> &interps,
-		    interpolation_options_struct * options)
+            ast *proof,
+            const ptr_vector<ast> &cnsts,
+            ast *tree,
+            ptr_vector<ast> &interps,
+            interpolation_options_struct * options)
 {
     iz3interp itp(_m_manager);
     if(options)
@@ -506,12 +506,12 @@ void iz3interpolate(ast_manager &_m_manager,
 }
 
 lbool iz3interpolate(ast_manager &_m_manager,
-		     solver &s,
-		     ast *tree,
-		     ptr_vector<ast> &cnsts,
-		     ptr_vector<ast> &interps,
-		     model_ref &m,
-		     interpolation_options_struct * options)
+             solver &s,
+             ast *tree,
+             ptr_vector<ast> &cnsts,
+             ptr_vector<ast> &interps,
+             model_ref &m,
+             interpolation_options_struct * options)
 {
     iz3interp itp(_m_manager);
     if(options)

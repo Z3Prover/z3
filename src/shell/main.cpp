@@ -329,7 +329,7 @@ int main(int argc, char ** argv) {
                     g_input_kind = IN_SMTLIB;
                 }
             }
-	}
+    }
         switch (g_input_kind) {
         case IN_SMTLIB:
             return_value = read_smtlib_file(g_input_file);

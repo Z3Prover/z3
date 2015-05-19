@@ -274,7 +274,7 @@ public:
                         ast neglit = mk_not(arg(con,i));
                         res.erase(neglit);
                     }
-                }	    
+                }        
             }
         }
 #if 0
@@ -612,7 +612,7 @@ public:
             rng = range_glb(rng,ast_scope(lit));
         }
         if(range_is_empty(rng)) return -1;
-	int hi = range_max(rng);
+    int hi = range_max(rng);
         if(hi >= frames) return frames - 1;
         return hi;
     }
@@ -2003,10 +2003,10 @@ public:
     }
 
     iz3translation_full(iz3mgr &mgr,
-			iz3secondary *_secondary,
+            iz3secondary *_secondary,
                         const std::vector<std::vector<ast> > &cnsts,
-			const std::vector<int> &parents,
-			const std::vector<ast> &theory)
+            const std::vector<int> &parents,
+            const std::vector<ast> &theory)
         : iz3translation(mgr, cnsts, parents, theory)
     {
         frames = cnsts.size();
@@ -2027,10 +2027,10 @@ public:
 #ifdef IZ3_TRANSLATE_FULL
 
 iz3translation *iz3translation::create(iz3mgr &mgr,
-				       iz3secondary *secondary,
-				       const std::vector<std::vector<ast> > &cnsts,
-				       const std::vector<int> &parents,
-				       const std::vector<ast> &theory){
+                       iz3secondary *secondary,
+                       const std::vector<std::vector<ast> > &cnsts,
+                       const std::vector<int> &parents,
+                       const std::vector<ast> &theory){
     return new iz3translation_full(mgr,secondary,cnsts,parents,theory);
 }
 

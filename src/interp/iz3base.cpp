@@ -292,14 +292,14 @@ bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof, std::vector<ast> &v
 
 
 void iz3base::find_children(const stl_ext::hash_set<ast> &cnsts_set,
-			    const ast &tree,
-			    std::vector<ast> &cnsts,
-			    std::vector<int> &parents,
-			    std::vector<ast> &conjuncts,
-			    std::vector<int> &children,
-			    std::vector<int> &pos_map,
-			    bool merge
-			    ){
+                            const ast &tree,
+                            std::vector<ast> &cnsts,
+                            std::vector<int> &parents,
+                            std::vector<ast> &conjuncts,
+                            std::vector<int> &children,
+                            std::vector<int> &pos_map,
+                            bool merge
+                            ){
     std::vector<int> my_children;
     std::vector<ast> my_conjuncts;
     if(op(tree) == Interp){ // if we've hit an interpolation position...
@@ -336,13 +336,13 @@ void iz3base::find_children(const stl_ext::hash_set<ast> &cnsts_set,
 }
     
 void iz3base::to_parents_vec_representation(const std::vector<ast> &_cnsts,
-					    const ast &tree,
-					    std::vector<ast> &cnsts,
-					    std::vector<int> &parents,
-					    std::vector<ast> &theory,
-					    std::vector<int> &pos_map,
-					    bool merge
-					    ){
+                                            const ast &tree,
+                                            std::vector<ast> &cnsts,
+                                            std::vector<int> &parents,
+                                            std::vector<ast> &theory,
+                                            std::vector<int> &pos_map,
+                                            bool merge
+                                            ){
     std::vector<int> my_children;
     std::vector<ast> my_conjuncts;
     hash_set<ast> cnsts_set;
