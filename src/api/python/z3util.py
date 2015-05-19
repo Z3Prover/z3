@@ -210,18 +210,18 @@ def prove(claim,assume=None,verbose=0):
 
 
     if verbose >= 2:
-        print 'assume: '
-        print assume
-        print 'claim: '
-        print claim
-        print 'to_prove: '
-        print to_prove
+        print('assume: ')
+        print(assume)
+        print('claim: ')
+        print(claim)
+        print('to_prove: ')
+        print(to_prove)
 
     f = Not(to_prove)
 
     models = get_models(f,k=1)
     if models is None: #unknown
-        print 'E: cannot solve !'
+        print('E: cannot solve !')
         return None, None
     elif models == False: #unsat
         return True,None   
@@ -458,7 +458,7 @@ def model_str(m,as_str=True):
 
     if m :
         vs = [(v,m[v]) for v in m]
-        vs = sorted(vs,key=lambda (a,_): str(a)) 
+        vs = sorted(vs,key=lambda a,_: str(a)) 
         if as_str:
             return '\n'.join(['{} = {}'.format(k,v) for (k,v) in vs])
         else:

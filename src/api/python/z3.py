@@ -554,7 +554,7 @@ def _to_sort_ref(s, ctx):
     elif k == Z3_DATATYPE_SORT:
         return DatatypeSortRef(s, ctx)
     elif k == Z3_FINITE_DOMAIN_SORT:
-	return FiniteDomainSortRef(s, ctx)
+        return FiniteDomainSortRef(s, ctx)
     elif k == Z3_FLOATING_POINT_SORT:
         return FPSortRef(s, ctx)
     elif k == Z3_ROUNDING_MODE_SORT:
@@ -6356,12 +6356,12 @@ class FiniteDomainSortRef(SortRef):
     """Finite domain sort."""
 
     def size(self):
-	"""Return the size of the finite domain sort"""
-	r = (ctype.c_ulonglong * 1)()
-	if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast(), r):
-	    return r[0]
-	else:
-	    raise Z3Exception("Failed to retrieve finite domain sort size")
+        """Return the size of the finite domain sort"""
+        r = (ctype.c_ulonglong * 1)()
+        if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast(), r):
+            return r[0]
+        else:
+            raise Z3Exception("Failed to retrieve finite domain sort size")
 
 def FiniteDomainSort(name, sz, ctx=None):
     """Create a named finite domain sort of a given size sz"""
@@ -6376,30 +6376,30 @@ def FiniteDomainSort(name, sz, ctx=None):
 
 class OptimizeObjective:
     def __init__(self, opt, value, is_max):
-	self._opt = opt
-	self._value = value
-	self._is_max = is_max
+        self._opt = opt
+        self._value = value
+        self._is_max = is_max
 
     def lower(self):
-	opt = self._opt
-	return _to_expr_ref(Z3_optimize_get_lower(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
+        opt = self._opt
+        return _to_expr_ref(Z3_optimize_get_lower(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
     
     def upper(self):
-	opt = self._opt
-	return _to_expr_ref(Z3_optimize_get_upper(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
+        opt = self._opt
+        return _to_expr_ref(Z3_optimize_get_upper(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
 
     def value(self):
-	if self._is_max:
-	    return self.upper()
-	else:
-	    return self.lower()
+        if self._is_max:
+            return self.upper()
+        else:
+            return self.lower()
 
 class Optimize(Z3PPObject):
     """Optimize API provides methods for solving using objective functions and weighted soft constraints"""
      
     def __init__(self, ctx=None):
         self.ctx    = _get_ctx(ctx)
-	self.optimize = Z3_mk_optimize(self.ctx.ref())
+        self.optimize = Z3_mk_optimize(self.ctx.ref())
         Z3_optimize_inc_ref(self.ctx.ref(), self.optimize)
 
     def __del__(self):
@@ -6435,29 +6435,29 @@ class Optimize(Z3PPObject):
         self.assert_exprs(*args)
 
     def add_soft(self, arg, weight = "1", id = None):
-	"""Add soft constraint with optional weight and optional identifier.
-	   If no weight is supplied, then the penalty for violating the soft constraint
-	   is 1.
-	   Soft constraints are grouped by identifiers. Soft constraints that are
-	   added without identifiers are grouped by default.
-	"""
-	if _is_int(weight):
-	    weight = "%d" % weight
-	if not isinstance(weight, str):
-	    raise Z3Exception("weight should be a string or an integer")
-	if id == None:
-	    id = ""
-	id = to_symbol(id, self.ctx)
-	v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, arg.as_ast(), weight, id)
-	return OptimizeObjective(self, v, False)
+        """Add soft constraint with optional weight and optional identifier.
+           If no weight is supplied, then the penalty for violating the soft constraint
+           is 1.
+           Soft constraints are grouped by identifiers. Soft constraints that are
+           added without identifiers are grouped by default.
+        """
+        if _is_int(weight):
+            weight = "%d" % weight
+        if not isinstance(weight, str):
+            raise Z3Exception("weight should be a string or an integer")
+        if id == None:
+            id = ""
+        id = to_symbol(id, self.ctx)
+        v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, arg.as_ast(), weight, id)
+        return OptimizeObjective(self, v, False)
 
     def maximize(self, arg):
-	"""Add objective function to maximize."""
-	return OptimizeObjective(self, Z3_optimize_maximize(self.ctx.ref(), self.optimize, arg.as_ast()), True)
+        """Add objective function to maximize."""
+        return OptimizeObjective(self, Z3_optimize_maximize(self.ctx.ref(), self.optimize, arg.as_ast()), True)
 
     def minimize(self, arg):
-	"""Add objective function to minimize."""
-	return OptimizeObjective(self, Z3_optimize_minimize(self.ctx.ref(), self.optimize, arg.as_ast()), False)
+        """Add objective function to minimize."""
+        return OptimizeObjective(self, Z3_optimize_minimize(self.ctx.ref(), self.optimize, arg.as_ast()), False)
 
     def push(self):
         """create a backtracking point for added rules, facts and assertions"""
@@ -6468,25 +6468,25 @@ class Optimize(Z3PPObject):
         Z3_optimize_pop(self.ctx.ref(), self.optimize)
 
     def check(self):
-	"""Check satisfiability while optimizing objective functions."""
-	return CheckSatResult(Z3_optimize_check(self.ctx.ref(), self.optimize))
+        """Check satisfiability while optimizing objective functions."""
+        return CheckSatResult(Z3_optimize_check(self.ctx.ref(), self.optimize))
 
     def model(self):
-	"""Return a model for the last check()."""
-	try:
-	    return ModelRef(Z3_optimize_get_model(self.ctx.ref(), self.optimize), self.ctx)
-	except Z3Exception:
-	    raise Z3Exception("model is not available")
+        """Return a model for the last check()."""
+        try:
+            return ModelRef(Z3_optimize_get_model(self.ctx.ref(), self.optimize), self.ctx)
+        except Z3Exception:
+            raise Z3Exception("model is not available")
 
     def lower(self, obj):
-	if not isinstance(obj, OptimizeObjective):
-	    raise Z3Exception("Expecting objective handle returned by maximize/minimize")
-	return obj.lower()
+        if not isinstance(obj, OptimizeObjective):
+            raise Z3Exception("Expecting objective handle returned by maximize/minimize")
+        return obj.lower()
 
     def upper(self, obj):
-	if not isinstance(obj, OptimizeObjective):
-	    raise Z3Exception("Expecting objective handle returned by maximize/minimize")
-	return obj.upper()
+        if not isinstance(obj, OptimizeObjective):
+            raise Z3Exception("Expecting objective handle returned by maximize/minimize")
+        return obj.upper()
     
     def __repr__(self):
         """Return a formatted string with all added rules and constraints."""
