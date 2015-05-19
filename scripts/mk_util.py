@@ -553,7 +553,7 @@ def display_help(exit_code):
     if IS_WINDOWS:
         print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
     if IS_WINDOWS:
-	print("  --optimize                    generate optimized code during linking.")
+        print("  --optimize                    generate optimized code during linking.")
     print("  -j, --java                    generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
     print("  --staticlib                   build Z3 static library.")    
@@ -621,8 +621,8 @@ def parse_options():
             DOTNET_ENABLED = False
         elif opt in ('--staticlib'):
             STATIC_LIB = True
-	elif opt in ('--optimize'):
-	    OPTIMIZE = True
+        elif opt in ('--optimize'):
+            OPTIMIZE = True
         elif not IS_WINDOWS and opt in ('-p', '--prefix'):
             PREFIX = arg
             PYTHON_PACKAGE_DIR = os.path.join(PREFIX, 'lib', 'python%s' % distutils.sysconfig.get_python_version(), 'dist-packages')
@@ -1786,8 +1786,8 @@ def mk_config():
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
         else:
             # Windows Release mode
-	    if OPTIMIZE:
-		config.write('AR_FLAGS=/nologo /LTCG\n')                
+            if OPTIMIZE:
+                config.write('AR_FLAGS=/nologo /LTCG\n')                
             config.write(
                 'LINK_FLAGS=/nologo /MD\n'
                 'SLINK_FLAGS=/nologo /LD\n')
