@@ -594,7 +594,10 @@ typedef enum
           }
           This proof object has one antecedent: a hypothetical proof for false.
           It converts the proof in a proof for (or (not l_1) ... (not l_n)),
-          when T1 contains the hypotheses: l_1, ..., l_n.
+          when T1 contains the open hypotheses: l_1, ..., l_n.
+          The hypotheses are closed after an application of a lemma.
+          Furthermore, there are no other open hypotheses in the subtree covered by
+          the lemma.
 
    - Z3_OP_PR_UNIT_RESOLUTION: 
        \nicebox{

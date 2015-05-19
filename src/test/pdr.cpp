@@ -47,10 +47,15 @@ struct test_model_search {
     void add_tree(model_node* parent, bool force_goal) {
         unsigned level = parent->level();
         search.add_leaf(*parent);
+        expr_ref state(m);
         if (level > 0 && (force_goal || parent->is_goal())) {
             search.remove_goal(*parent);
-            add_tree(alloc(model_node, parent, mk_state(states, rand), pt, level-1), false);
-            add_tree(alloc(model_node, parent, mk_state(states, rand), pt, level-1), false);
+
+            state = mk_state(states, rand);
+            add_tree(alloc(model_node, parent, state, pt, level-1), false);
+
+            state = mk_state(states, rand);
+            add_tree(alloc(model_node, parent, state, pt, level-1), false);
             parent->check_pre_closed();
         }
     }
@@ -91,7 +96,8 @@ struct test_model_search {
         state = states[0].get();
         unsigned level = 4;
         for(unsigned n = 0; n < 100; ++n) {
-            model_node* root = alloc(model_node, 0, mk_state(states, rand), pt, level);
+            state = mk_state(states, rand);
+            model_node* root = alloc(model_node, 0, state, pt, level);
             search.set_root(root);
             add_tree(root, false);
             search.display(std::cout);
