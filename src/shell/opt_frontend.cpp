@@ -89,11 +89,11 @@ class wcnf {
     ast_manager&   m;
     stream_buffer& in;
 
-    app_ref read_clause(unsigned& weight) {
+    app_ref read_clause(int& weight) {
         int     parsed_lit;
         int     var;    
         parsed_lit = in.parse_int();
-        weight = static_cast<unsigned>(parsed_lit);
+        weight = parsed_lit;
         app_ref result(m), p(m);
         expr_ref_vector ors(m);
         while (true) { 
@@ -137,7 +137,7 @@ public:
                 parse_spec(num_vars, num_clauses, max_weight);
             }
             else {
-                unsigned weight = 0;
+                int weight = 0;
                 app_ref cls = read_clause(weight);
                 if (weight == max_weight) {
                     opt.add_hard_constraint(cls);

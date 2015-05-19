@@ -318,7 +318,8 @@ mpz bvsls_opt_engine::find_best_move(
         }
 
         // reset to what it was before
-        double check = incremental_score(fd, old_value);
+        //double check = 
+        incremental_score(fd, old_value);
         m_obj_evaluator.update(fd, old_value);
     }
 

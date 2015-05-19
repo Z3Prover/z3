@@ -54,7 +54,8 @@ struct mus::imp {
     
     
     unsigned add_soft(expr* cls) {
-        SASSERT(is_uninterp_const(cls) || m.is_not(cls) && is_uninterp_const(to_app(cls)->get_arg(0)));
+        SASSERT(is_uninterp_const(cls) || 
+                (m.is_not(cls) && is_uninterp_const(to_app(cls)->get_arg(0))));
         unsigned idx = m_cls2expr.size();
         m_expr2cls.insert(cls, idx);
         m_cls2expr.push_back(cls);

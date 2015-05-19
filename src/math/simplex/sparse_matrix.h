@@ -48,7 +48,7 @@ namespace simplex {
             }
         };
 
-        static const int dead_id = -1;
+        static const unsigned dead_id = UINT_MAX;
 
         /**
            \brief A row_entry is:  m_var*m_coeff

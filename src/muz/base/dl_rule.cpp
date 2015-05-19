@@ -682,11 +682,11 @@ namespace datalog {
         svector<bool> tail_neg;
         app_ref head(r->get_head(), m);
 
-        vctr.count_vars(m, head);
+        vctr.count_vars(head);
 
         for (unsigned i = 0; i < ut_len; i++) {
             app * t = r->get_tail(i);
-            vctr.count_vars(m, t);
+            vctr.count_vars(t);
             tail.push_back(t);
             tail_neg.push_back(r->is_neg_tail(i));
         }

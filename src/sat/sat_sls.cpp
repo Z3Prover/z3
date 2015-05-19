@@ -273,7 +273,7 @@ namespace sat {
             clause const& c = *m_clauses[i];
             bool is_sat = c.satisfied_by(m_model);
             SASSERT(is_sat != m_false.contains(i));
-            SASSERT(is_sat == m_num_true[i] > 0);
+            SASSERT(is_sat == (m_num_true[i] > 0));
         }        
     }
 

@@ -55,7 +55,8 @@ void theory_wmaxsat::get_assignment(svector<bool>& result) {
     }
     else {
         std::sort(m_cost_save.begin(), m_cost_save.end());
-        for (unsigned i = 0, j = 0; i < m_vars.size(); ++i) {
+        unsigned j = 0;
+        for (theory_var i = 0; i < m_vars.size(); ++i) {
             if (j < m_cost_save.size() && m_cost_save[j] == i) {
                 result.push_back(false);
                 ++j;
@@ -120,7 +121,7 @@ bool_var theory_wmaxsat::register_var(app* var, bool attach) {
         theory_var v = mk_var(x);
         ctx.attach_th_var(x, this, v);
         m_bool2var.insert(bv, v);
-        SASSERT(v == m_var2bool.size());
+        SASSERT(v == static_cast<theory_var>(m_var2bool.size()));
         m_var2bool.push_back(bv);
         SASSERT(ctx.bool_var2enode(bv));
     }
