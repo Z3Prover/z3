@@ -399,7 +399,7 @@ namespace qe {
         expr_ref qt(unsigned i, expr* ctx, model_ref& model) {
             model_ref model1;
             while (true) {
-                IF_VERBOSE(1, verbose_stream() << "qt " << i << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "(qt " << i << ")\n";);
                 TRACE("qe",
                       tout << i << " " << mk_pp(ctx, m) << "\n";
                       display(tout););

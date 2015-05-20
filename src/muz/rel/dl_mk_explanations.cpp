@@ -654,7 +654,7 @@ namespace datalog {
         family_id expl_kind = m_er_plugin->get_kind();
         family_id expl_sieve_kind = sieve_plugin.get_relation_kind(sig, expl_sieve, expl_kind);
 
-        product_relation_plugin::rel_spec product_spec;
+        rel_spec product_spec;
         product_spec.push_back(inner_sieve_kind);
         product_spec.push_back(expl_sieve_kind);
 

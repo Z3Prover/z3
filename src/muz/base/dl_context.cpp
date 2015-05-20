@@ -558,6 +558,7 @@ namespace datalog {
             m_rule_properties.check_quantifier_free();
             m_rule_properties.check_uninterpreted_free();
             m_rule_properties.check_nested_free(); 
+            m_rule_properties.check_infinite_sorts();
             break;
         case PDR_ENGINE:
             m_rule_properties.collect(r);

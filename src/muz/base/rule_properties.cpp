@@ -26,7 +26,7 @@ Notes:
 
 using namespace datalog;
 rule_properties::rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& p): 
-    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), m_dt(m), m_dl(m), m_generate_proof(false) {}
+    m(m), rm(rm), m_ctx(ctx), m_is_predicate(p), m_dt(m), m_dl(m), m_bv(m), m_generate_proof(false) {}
 
 rule_properties::~rule_properties() {}
 
@@ -47,6 +47,12 @@ void rule_properties::collect(rule_set const& rules) {
         }
         if (m_generate_proof && !r->get_proof()) {
             rm.mk_rule_asserted_proof(*r);
+        }
+        for (unsigned i = 0; m_inf_sort.empty() && i < r->get_decl()->get_arity(); ++i) {
+            sort* d = r->get_decl()->get_domain(i);
+            if (!m.is_bool(d) && !m_dl.is_finite_sort(d) && !m_bv.is_bv_sort(d)) {
+                m_inf_sort.push_back(m_rule);
+            }
         }
     }     
 }
@@ -85,6 +91,16 @@ void rule_properties::check_uninterpreted_free() {
     }
 }
 
+void rule_properties::check_infinite_sorts() {
+    if (!m_inf_sort.empty()) {
+        std::stringstream stm;
+        rule* r = m_inf_sort.back();
+        stm << "Rule contains infinite sorts in rule ";
+        r->display(m_ctx, stm);
+        throw default_exception(stm.str());
+    }
+}
+
 void rule_properties::check_nested_free() {
     if (!m_interp_pred.empty()) {
         std::stringstream stm;
@@ -92,7 +108,6 @@ void rule_properties::check_nested_free() {
         stm << "Rule contains nested predicates ";
         r->display(m_ctx, stm);
         throw default_exception(stm.str());
-
     }
 }
 
@@ -158,7 +173,8 @@ void rule_properties::insert(ptr_vector<rule>& rules, rule* r) {
     }
 }
 
-void rule_properties::operator()(var* n) { }
+void rule_properties::operator()(var* n) { 
+}
 
 void rule_properties::operator()(quantifier* n) {
     m_quantifiers.insert(n, m_rule);
@@ -177,6 +193,10 @@ void rule_properties::operator()(app* n) {
             m_uninterp_funs.insert(n->get_decl(), m_rule);
         }
     }
+    else {
+        std::cout << mk_pp(n, m) << "\n";
+    }
+
 }
 
 void rule_properties::reset() {
@@ -184,5 +204,6 @@ void rule_properties::reset() {
     m_uninterp_funs.reset();
     m_interp_pred.reset();
     m_negative_rules.reset();
+    m_inf_sort.reset();
 }
 

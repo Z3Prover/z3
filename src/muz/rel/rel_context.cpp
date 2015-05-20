@@ -486,7 +486,7 @@ namespace datalog {
             target_kind = get_ordinary_relation_plugin(relation_names[0]).get_kind();
             break;
         default: {
-            svector<family_id> rel_kinds; // kinds of plugins that are not table plugins
+            rel_spec rel_kinds; // kinds of plugins that are not table plugins
             family_id rel_kind;           // the aggregate kind of non-table plugins
             for (unsigned i = 0; i < relation_name_cnt; i++) {
                 relation_plugin & p = get_ordinary_relation_plugin(relation_names[i]);
