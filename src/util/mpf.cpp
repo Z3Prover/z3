@@ -1428,7 +1428,7 @@ bool mpf_manager::is_ninf(mpf const & x) {
 }
 
 bool mpf_manager::is_normal(mpf const & x) {
-    return !(has_top_exp(x) || is_denormal(x));
+    return !(has_top_exp(x) || is_denormal(x) || is_zero(x));
 }
 
 bool mpf_manager::is_denormal(mpf const & x) {
