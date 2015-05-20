@@ -1702,14 +1702,16 @@ public:
                     return res;
                 }
             }
-            if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or){
+            if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or && op(conc(prem(proof,0))) == Or){
                 Iproof::node clause = translate_main(prem(proof,0),true);
                 res = RewriteClause(clause,prem(proof,1));
                 return res;
             }
 
+#if 0
             if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or)
                 std::cout << "foo!\n";
+#endif
 
             // no idea why this shows up
             if(dk == PR_MODUS_PONENS_OEQ){
@@ -1963,6 +1965,16 @@ public:
                 ast comm_equiv = make(op(con),arg(con,0),arg(con,0));
                 ast pf = iproof->make_reflexivity(comm_equiv);
                 res = make(commute,pf,comm_equiv);
+                break;
+            }
+            case PR_AND_ELIM: {
+                std::vector<ast> rule_ax, res_conc;
+                ast piv = conc(prem(proof,0));
+                rule_ax.push_back(make(Not,piv));
+                rule_ax.push_back(con);
+                ast pf = iproof->make_axiom(rule_ax);
+                res_conc.push_back(con);
+                res = iproof->make_resolution(piv,res_conc,pf,args[0]);
                 break;
             }
             default:

@@ -279,6 +279,12 @@ class iz3mgr  {
             res[i] = arg(t,i);
     }
 
+    std::vector<ast> args(const ast &t){
+        std::vector<ast> res;
+        get_args(t,res);
+        return res;
+    }
+
     symb sym(ast t){
         raw_ast *_ast = t.raw();
         return is_app(_ast) ? to_app(_ast)->get_decl() : 0;

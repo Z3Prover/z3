@@ -1018,9 +1018,11 @@ void fpa2bv_converter::mk_rem(func_decl * f, unsigned num, expr * const * args, 
                                   m_bv_util.mk_numeral(0, 3));
     res_exp = m_bv_util.mk_sign_extend(2, b_exp);
     
+    // CMW: Actual rounding is not necessary here, this is 
+    // just convenience to get rid of the extra bits.
     expr_ref rm(m);
-    rm = m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3);
-    round(f->get_range(), rm, res_sgn, res_sig, res_exp, v7);
+    rm = m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3);    
+    round(f->get_range(), rm, res_sgn, res_sig, res_exp, v7); 
 
     // And finally, we tie them together.        
     mk_ite(c6, v6, v7, result);
@@ -1029,6 +1031,11 @@ void fpa2bv_converter::mk_rem(func_decl * f, unsigned num, expr * const * args, 
     mk_ite(c3, v3, result, result);
     mk_ite(c2, v2, result, result);
     mk_ite(c1, v1, result, result);
+
+    expr_ref result_is_zero(m), zeros(m);
+    mk_is_zero(result, result_is_zero);
+    mk_ite(x_is_pos, pzero, nzero, zeros);
+    mk_ite(result_is_zero, zeros, result, result);
 
     SASSERT(is_well_sorted(m, result));
 
