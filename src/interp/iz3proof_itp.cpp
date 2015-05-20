@@ -2215,8 +2215,12 @@ class iz3proof_itp_impl : public iz3proof_itp {
         }
         else {
             if(get_term_type(p) == LitA){
-                if(get_term_type(q) == LitA)
-                    itp = mk_false();
+                if(get_term_type(q) == LitA){
+                    if(op(q) == Or)
+                        itp = make_assumption(rng.hi,args(q));
+                    else 
+                        itp = mk_false();
+                }
                 else {
                     if(get_term_type(p_eq_q) == LitA)
                         itp = q;
