@@ -23,6 +23,7 @@ Notes:
 
 #include"ast.h"
 #include"datatype_decl_plugin.h"
+#include"bv_decl_plugin.h"
 #include"dl_rule.h"
 
 namespace datalog {
@@ -33,12 +34,14 @@ namespace datalog {
         i_expr_pred&  m_is_predicate;
         datatype_util m_dt;
         dl_decl_util  m_dl;
+        bv_util       m_bv;
         bool          m_generate_proof;
         rule*         m_rule;
         obj_map<quantifier, rule*> m_quantifiers;
         obj_map<func_decl, rule*>  m_uninterp_funs;
         ptr_vector<rule>           m_interp_pred;
         ptr_vector<rule>           m_negative_rules;
+        ptr_vector<rule>           m_inf_sort;
 
         void insert(ptr_vector<rule>& rules, rule* r);
     public:
@@ -51,6 +54,7 @@ namespace datalog {
         void check_existential_tail();
         void check_for_negated_predicates();
         void check_nested_free();
+        void check_infinite_sorts();
         void operator()(var* n);
         void operator()(quantifier* n);
         void operator()(app* n);
