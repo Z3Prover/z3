@@ -276,7 +276,7 @@ namespace smt {
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         }
         else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
-            if (!st.m_has_rational && !m_params.m_model && st.m_arith_k_sum < rational(INT_MAX / 8))
+            if (!st.m_has_rational && !m_params.m_model && st.arith_k_sum_is_small())
                 m_context.register_plugin(alloc(smt::theory_dense_smi, m_manager, m_params));
             else
                 m_context.register_plugin(alloc(smt::theory_dense_mi, m_manager, m_params));
@@ -284,7 +284,7 @@ namespace smt {
         else {
             if (m_params.m_arith_auto_config_simplex || st.m_num_uninterpreted_constants > 4 * st.m_num_bool_constants 
                 || st.m_num_ite_terms > 0 /* theory_rdl and theory_frdl do not support ite-terms */) {
-                // if (!st.m_has_rational && !m_params.m_model && st.m_arith_k_sum < rational(INT_MAX / 8)) {
+                // if (!st.m_has_rational && !m_params.m_model && st.arith_k_sum_is_small()) {
                 //   TRACE("rdl_bug", tout << "using theory_smi_arith\n";);
                 //    m_context.register_plugin(alloc(smt::theory_smi_arith, m_manager, m_params));
                 // }
@@ -297,7 +297,7 @@ namespace smt {
                 m_params.m_arith_bound_prop           = BP_NONE;
                 m_params.m_arith_propagation_strategy = ARITH_PROP_AGILITY;
                 m_params.m_arith_add_binary_bounds    = true;
-                if (!st.m_has_rational && !m_params.m_model && st.m_arith_k_sum < rational(INT_MAX / 8))
+                if (!st.m_has_rational && !m_params.m_model && st.arith_k_sum_is_small())
                     m_context.register_plugin(alloc(smt::theory_frdl, m_manager, m_params));
                 else
                     m_context.register_plugin(alloc(smt::theory_rdl, m_manager, m_params));
@@ -356,14 +356,14 @@ namespace smt {
         else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
             TRACE("setup", tout << "using dense diff logic...\n";);
             m_params.m_phase_selection = PS_CACHING_CONSERVATIVE;
-            if (st.m_arith_k_sum < rational(INT_MAX / 8))
+            if (st.arith_k_sum_is_small())
                 m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
             else
                 m_context.register_plugin(alloc(smt::theory_dense_i, m_manager, m_params));
 
         }
         else {
-            // if (st.m_arith_k_sum < rational(INT_MAX / 8)) {
+            // if (st.arith_k_sum_is_small()) {
             //    TRACE("setup", tout << "using small integer simplex...\n";);
             //    m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
             // }
@@ -406,7 +406,7 @@ namespace smt {
                 if (m_manager.proofs_enabled()) {
                     m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
                 }
-                else if (st.m_arith_k_sum < rational(INT_MAX / 8))
+                else if (st.arith_k_sum_is_small())
                     m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
                 else
                     m_context.register_plugin(alloc(smt::theory_dense_i, m_manager, m_params));
@@ -421,7 +421,7 @@ namespace smt {
         if (m_manager.proofs_enabled()) {
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         }
-        // else if (st.m_arith_k_sum < rational(INT_MAX / 8))
+        // else if (st.arith_k_sum_is_small())
         //   m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
         else
             m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
@@ -602,7 +602,7 @@ namespace smt {
             m_params.m_phase_selection         = PS_CACHING_CONSERVATIVE2;
             m_params.m_random_initial_activity = IA_ZERO;
         }
-        // if (st.m_num_arith_ineqs == st.m_num_diff_ineqs && st.m_num_arith_eqs == st.m_num_diff_eqs && st.m_arith_k_sum < rational(INT_MAX / 8)) 
+        // if (st.m_num_arith_ineqs == st.m_num_diff_ineqs && st.m_num_arith_eqs == st.m_num_diff_eqs && st.arith_k_sum_is_small()) 
         //    m_context.register_plugin(new smt::theory_si_arith(m_manager, m_params));
         // else 
         setup_i_arith();
@@ -715,6 +715,12 @@ namespace smt {
     }
 
     void setup::setup_arith() {
+        static_features    st(m_manager);
+        IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
+        st.collect(m_context.get_num_asserted_formulas(), m_context.get_asserted_formulas());
+        IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
+        m_params.m_arith_fixnum = st.arith_k_sum_is_small();
+        m_params.m_arith_int_only = !st.m_has_rational && !st.m_has_real;
         switch(m_params.m_arith_mode) {
         case AS_NO_ARITH:
             m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("arith"), "no arithmetic"));
