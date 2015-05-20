@@ -3132,14 +3132,16 @@ void fpa2bv_converter::mk_is_normal(expr * e, expr_ref & result) {
     expr * sgn, * sig, * exp;
     split_fp(e, sgn, exp, sig);
 
-    expr_ref is_special(m), is_denormal(m), p(m);
+    expr_ref is_special(m), is_denormal(m), p(m), is_zero(m);
     mk_is_denormal(e, is_denormal);
+    mk_is_zero(e, is_zero);
     unsigned ebits = m_bv_util.get_bv_size(exp);
     p = m_bv_util.mk_numeral(fu().fm().m_powers2.m1(ebits), ebits);
     m_simp.mk_eq(exp, p, is_special);
 
     expr_ref or_ex(m);
     m_simp.mk_or(is_special, is_denormal, or_ex);
+    m_simp.mk_or(is_zero, or_ex, or_ex);
     m_simp.mk_not(or_ex, result);
 }
 
