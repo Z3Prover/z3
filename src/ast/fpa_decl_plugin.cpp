@@ -289,7 +289,7 @@ func_decl * fpa_decl_plugin::mk_float_const_decl(decl_kind k, unsigned num_param
 
 func_decl * fpa_decl_plugin::mk_bin_rel_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                unsigned arity, sort * const * domain, sort * range) {
-    if (arity != 2)
+    if (arity < 2)
         m_manager->raise_exception("invalid number of arguments to floating point relation");
     if (domain[0] != domain[1] || !is_float_sort(domain[0]))
         m_manager->raise_exception("sort mismatch, expected equal FloatingPoint sorts as arguments");
@@ -306,7 +306,7 @@ func_decl * fpa_decl_plugin::mk_bin_rel_decl(decl_kind k, unsigned num_parameter
     }
     func_decl_info finfo(m_family_id, k);
     finfo.set_chainable(true);
-    return m_manager->mk_func_decl(name, arity, domain, m_manager->mk_bool_sort(), finfo);
+    return m_manager->mk_func_decl(name, domain[0], domain[1], m_manager->mk_bool_sort(), finfo);
 }
 
 func_decl * fpa_decl_plugin::mk_unary_rel_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
