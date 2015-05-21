@@ -1072,7 +1072,7 @@ void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, 
     
     result = y;
     mk_ite(lt, x, result, result);
-    mk_ite(both_zero, pzero, result, result);
+    mk_ite(both_zero, y, result, result);
     mk_ite(y_is_nan, x, result, result);
     mk_ite(x_is_nan, y, result, result);
 
@@ -1102,7 +1102,7 @@ void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, 
 
     result = y;
     mk_ite(gt, x, result, result);
-    mk_ite(both_zero, pzero, result, result);
+    mk_ite(both_zero, y, result, result);
     mk_ite(y_is_nan, x, result, result);
     mk_ite(x_is_nan, y, result, result);
 
