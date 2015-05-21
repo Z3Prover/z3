@@ -1586,9 +1586,10 @@ void fpa2bv_converter::mk_round_to_integral(func_decl * f, unsigned num, expr * 
     mk_nzero(f, nzero); 
     mk_pzero(f, pzero);
 
-    expr_ref x_is_zero(m), x_is_pos(m);
+    expr_ref x_is_zero(m), x_is_pos(m), x_is_neg(m);
     mk_is_zero(x, x_is_zero);
     mk_is_pos(x, x_is_pos);
+    mk_is_neg(x, x_is_neg);
     
     dbg_decouple("fpa2bv_r2i_x_is_zero", x_is_zero);
     dbg_decouple("fpa2bv_r2i_x_is_pos", x_is_pos);    
@@ -1655,9 +1656,13 @@ void fpa2bv_converter::mk_round_to_integral(func_decl * f, unsigned num, expr * 
     mk_ite(c422, xone, v42, v42);
     mk_ite(c421, xzero, v42, v42);
     
-    mk_ite(m.mk_eq(a_sgn, one_1), nzero, pone, v4);
-    mk_ite(m.mk_or(rm_is_rte, rm_is_rta), v42, v4, v4);
-    mk_ite(m.mk_or(rm_is_rtz, rm_is_rtn), xzero, v4, v4);
+    expr_ref v4_rtn(m), v4_rtp(m);
+    mk_ite(x_is_neg, nzero, pone, v4_rtp);
+    mk_ite(x_is_neg, none, pzero, v4_rtn);
+
+    mk_ite(rm_is_rtp, v4_rtp, v42, v4);
+    mk_ite(rm_is_rtn, v4_rtn, v4, v4);
+    mk_ite(rm_is_rtz, xzero, v4, v4);
 
     SASSERT(is_well_sorted(m, v4));
     
