@@ -556,6 +556,20 @@ void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<rational>& rats){
     extract_lcd(rats);
 }
 
+void iz3mgr::get_broken_gcd_test_coeffs(const ast &proof, std::vector<rational>& rats){
+    symb s = sym(proof);
+    int numps = s->get_num_parameters();
+    rats.resize(numps-2);
+    for(int i = 2; i < numps; i++){
+        rational r;
+        bool ok = s->get_parameter(i).is_rational(r);
+        if(!ok)
+            throw "Bad Farkas coefficient";
+        rats[i-2] = r;
+    }
+    extract_lcd(rats);
+}
+
 void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<ast>& coeffs){
     std::vector<rational> rats;
     get_assign_bounds_coeffs(proof,rats);

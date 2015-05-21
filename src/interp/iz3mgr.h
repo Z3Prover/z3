@@ -424,6 +424,8 @@ class iz3mgr  {
 
     void get_farkas_coeffs(const ast &proof, std::vector<rational>& rats);
 
+    void get_broken_gcd_test_coeffs(const ast &proof, std::vector<rational>& rats);
+
     void get_assign_bounds_coeffs(const ast &proof, std::vector<rational>& rats);
 
     void get_assign_bounds_coeffs(const ast &proof, std::vector<ast>& rats);

@@ -1021,6 +1021,12 @@ public:
                 my_coeffs.push_back(make_int(c));
                 my_prem_cons.push_back(conc(prem(proof,i)));
             }
+            else if(c.is_neg()){
+                int j = (i % 2 == 0) ? i + 1 : i - 1;
+                my_prems.push_back(prems[j]);
+                my_coeffs.push_back(make_int(-coeffs[j]));
+                my_prem_cons.push_back(conc(prem(proof,j)));
+            }
         }
         ast my_con = sum_inequalities(my_coeffs,my_prem_cons);
 
@@ -1884,7 +1890,7 @@ public:
                     }
                     case GCDTestKind: {
                         std::vector<rational> farkas_coeffs;
-                        get_farkas_coeffs(proof,farkas_coeffs);
+                        get_broken_gcd_test_coeffs(proof,farkas_coeffs);
                         if(farkas_coeffs.size() != nprems){
                             pfgoto(proof);
                             throw unsupported();

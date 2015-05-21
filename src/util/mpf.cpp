@@ -1006,11 +1006,22 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
     else if (is_zero(x))
         mk_zero(x.ebits, x.sbits, x.sign, o); // -0.0 -> -0.0, says IEEE754, Sec 5.9.
     else if (x.exponent < 0) {
-        if (rm == MPF_ROUND_TOWARD_ZERO ||
-            rm == MPF_ROUND_TOWARD_NEGATIVE)
+        if (rm == MPF_ROUND_TOWARD_ZERO)
             mk_zero(x.ebits, x.sbits, x.sign, o);
-        else if (rm == MPF_ROUND_NEAREST_TEVEN ||
-                 rm == MPF_ROUND_NEAREST_TAWAY) {
+        else if (rm == MPF_ROUND_TOWARD_NEGATIVE) {
+            if (x.sign)
+                mk_one(x.ebits, x.sbits, true, o);
+            else
+                mk_zero(x.ebits, x.sbits, false, o);
+        }
+        else if (rm == MPF_ROUND_TOWARD_POSITIVE) {
+            if (x.sign)
+                mk_zero(x.ebits, x.sbits, true, o);
+            else
+                mk_one(x.ebits, x.sbits, false, o);
+        }
+        else {
+            SASSERT(rm == MPF_ROUND_NEAREST_TEVEN || rm == MPF_ROUND_NEAREST_TAWAY);
             bool tie = m_mpz_manager.is_zero(x.significand) && x.exponent == -1;
             TRACE("mpf_dbg", tout << "tie = " << tie << std::endl;);
             if (tie && rm == MPF_ROUND_NEAREST_TEVEN)
@@ -1019,15 +1030,8 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
                 mk_one(x.ebits, x.sbits, x.sign, o);
             else if (x.exponent < -1)
                 mk_zero(x.ebits, x.sbits, x.sign, o);
-            else 
-                mk_one(x.ebits, x.sbits, x.sign, o);
-        }
-        else {
-            SASSERT(rm == MPF_ROUND_TOWARD_POSITIVE);
-            if (x.sign) 
-                mk_nzero(x.ebits, x.sbits, o);
             else
-                mk_one(x.ebits, x.sbits, false, o);
+                mk_one(x.ebits, x.sbits, x.sign, o);
         }
     }
     else if (x.exponent >= x.sbits - 1)

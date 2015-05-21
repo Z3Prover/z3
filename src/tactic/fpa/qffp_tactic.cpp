@@ -37,6 +37,7 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
                                 mk_smt_tactic(),
                                 and_then(
                                      mk_fpa2bv_tactic(m, p),
+                                     mk_propagate_values_tactic(m, p),
                                      using_params(mk_simplify_tactic(m, p), simp_p),                                 
                                      mk_bit_blaster_tactic(m, p),
                                      using_params(mk_simplify_tactic(m, p), simp_p),                                 
