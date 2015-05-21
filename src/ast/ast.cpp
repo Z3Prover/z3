@@ -2043,10 +2043,8 @@ inline app * ast_manager::mk_app_core(func_decl * decl, expr * arg1, expr * arg2
 }
 
 app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * args) {
-    if (decl->get_arity() != num_args && 
-        !decl->is_right_associative() && 
-        !decl->is_left_associative() && 
-        !decl->is_chainable()) {
+    if (decl->get_arity() != num_args && !decl->is_right_associative() && 
+        !decl->is_left_associative() && !decl->is_chainable()) {
         std::ostringstream buffer;
         buffer << "Wrong number of arguments (" << num_args 
                << ") passed to function " << mk_pp(decl, *this);        
