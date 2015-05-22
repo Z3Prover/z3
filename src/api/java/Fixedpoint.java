@@ -298,11 +298,7 @@ public class Fixedpoint extends Z3Object
 
         ASTVector v = new ASTVector(getContext(), Native.fixedpointGetRules(
                 getContext().nCtx(), getNativeObject()));
-        int n = v.size();
-        BoolExpr[] res = new BoolExpr[n];
-        for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(getContext(), v.get(i).getNativeObject());
-        return res;
+	return v.ToBoolArray();
     }
 
     /**
@@ -315,11 +311,7 @@ public class Fixedpoint extends Z3Object
 
         ASTVector v = new ASTVector(getContext(), Native.fixedpointGetAssertions(
                 getContext().nCtx(), getNativeObject()));
-        int n = v.size();
-        BoolExpr[] res = new BoolExpr[n];
-        for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(getContext(), v.get(i).getNativeObject());
-        return res;
+	return v.ToBoolArray();
     }
 
     /**

@@ -119,4 +119,12 @@ public class ASTVector extends Z3Object
         getContext().getASTVectorDRQ().add(o);
         super.decRef(o);
     }
+
+    BoolExpr[] ToBoolArray() {
+        int n = size();
+        BoolExpr[] res = new BoolExpr[n];
+        for (int i = 0; i < n; i++)
+            res[i] = new BoolExpr(getContext(), get(i).getNativeObject());
+        return res;	
+    }
 }
