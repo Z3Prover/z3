@@ -3044,13 +3044,6 @@ void fpa2bv_converter::mk_is_nan(expr * e, expr_ref & result) {
     m_simp.mk_not(sig_is_zero, sig_is_not_zero);
     m_simp.mk_eq(exp, top_exp, exp_is_top);
     m_simp.mk_and(exp_is_top, sig_is_not_zero, result);
-
-    // Inject auxiliary lemmas that fix e to the one and only NaN value, 
-    // that is (= e (fp #b0 #b1...1 #b0...01)), so that the value propagation
-    // has a value to propagate.
-    m_extra_assertions.push_back(m.mk_eq(sgn, m_bv_util.mk_numeral(0, 1)));
-    m_extra_assertions.push_back(m.mk_eq(exp, top_exp));
-    m_extra_assertions.push_back(m.mk_eq(sig, m_bv_util.mk_numeral(1, m_bv_util.get_bv_size(sig))));
 }
 
 void fpa2bv_converter::mk_is_inf(expr * e, expr_ref & result) {
