@@ -90,7 +90,7 @@ public class InterpolationContext extends Context
     public class ComputeInterpolantResult 
     {
         public Z3_lbool status = Z3_lbool.Z3_L_UNDEF;
-        public ASTVector interp = null;
+        public Expr[] interp = null;
         public Model model = null;
     };
     
@@ -110,7 +110,14 @@ public class InterpolationContext extends Context
         Native.LongPtr n_i = new Native.LongPtr();
         Native.LongPtr n_m = new Native.LongPtr();
         res.status =Z3_lbool.fromInt(Native.computeInterpolant(nCtx(), pat.getNativeObject(), p.getNativeObject(), n_i, n_m));        
-        if (res.status == Z3_lbool.Z3_L_FALSE) res.interp = new ASTVector(this, n_i.value);
+        if (res.status == Z3_lbool.Z3_L_FALSE)
+        {
+            ASTVector seq = new ASTVector(this, n_i.value);
+            int n = seq.size();
+            res.interp = new Expr[n];
+            for (int i = 0; i < n; i++)
+                res.interp[i] = Expr.create(this, seq.get(i).getNativeObject());
+        }
         if (res.status == Z3_lbool.Z3_L_TRUE) res.model = new Model(this, n_m.value);
         return res;
     }
