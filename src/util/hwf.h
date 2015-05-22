@@ -105,7 +105,7 @@ public:
     void mul(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf & o);
     void div(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf & o);    
 
-    void fused_mul_add(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf const &z, hwf & o);
+    void fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf const &z, hwf & o);
 
     void sqrt(mpf_rounding_mode rm, hwf const & x, hwf & o);
 

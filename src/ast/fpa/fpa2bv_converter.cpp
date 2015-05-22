@@ -1072,7 +1072,7 @@ void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, 
     
     result = y;
     mk_ite(lt, x, result, result);
-    mk_ite(both_zero, pzero, result, result);
+    mk_ite(both_zero, y, result, result);
     mk_ite(y_is_nan, x, result, result);
     mk_ite(x_is_nan, y, result, result);
 
@@ -1102,7 +1102,7 @@ void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, 
 
     result = y;
     mk_ite(gt, x, result, result);
-    mk_ite(both_zero, pzero, result, result);
+    mk_ite(both_zero, y, result, result);
     mk_ite(y_is_nan, x, result, result);
     mk_ite(x_is_nan, y, result, result);
 
@@ -1586,9 +1586,10 @@ void fpa2bv_converter::mk_round_to_integral(func_decl * f, unsigned num, expr * 
     mk_nzero(f, nzero); 
     mk_pzero(f, pzero);
 
-    expr_ref x_is_zero(m), x_is_pos(m);
+    expr_ref x_is_zero(m), x_is_pos(m), x_is_neg(m);
     mk_is_zero(x, x_is_zero);
     mk_is_pos(x, x_is_pos);
+    mk_is_neg(x, x_is_neg);
     
     dbg_decouple("fpa2bv_r2i_x_is_zero", x_is_zero);
     dbg_decouple("fpa2bv_r2i_x_is_pos", x_is_pos);    
@@ -1655,9 +1656,13 @@ void fpa2bv_converter::mk_round_to_integral(func_decl * f, unsigned num, expr * 
     mk_ite(c422, xone, v42, v42);
     mk_ite(c421, xzero, v42, v42);
     
-    mk_ite(m.mk_eq(a_sgn, one_1), nzero, pone, v4);
-    mk_ite(m.mk_or(rm_is_rte, rm_is_rta), v42, v4, v4);
-    mk_ite(m.mk_or(rm_is_rtz, rm_is_rtn), xzero, v4, v4);
+    expr_ref v4_rtn(m), v4_rtp(m);
+    mk_ite(x_is_neg, nzero, pone, v4_rtp);
+    mk_ite(x_is_neg, none, pzero, v4_rtn);
+
+    mk_ite(rm_is_rtp, v4_rtp, v42, v4);
+    mk_ite(rm_is_rtn, v4_rtn, v4, v4);
+    mk_ite(rm_is_rtz, xzero, v4, v4);
 
     SASSERT(is_well_sorted(m, v4));
     
@@ -3039,6 +3044,13 @@ void fpa2bv_converter::mk_is_nan(expr * e, expr_ref & result) {
     m_simp.mk_not(sig_is_zero, sig_is_not_zero);
     m_simp.mk_eq(exp, top_exp, exp_is_top);
     m_simp.mk_and(exp_is_top, sig_is_not_zero, result);
+
+    // Inject auxiliary lemmas that fix e to the one and only NaN value, 
+    // that is (= e (fp #b0 #b1...1 #b0...01)), so that the value propagation
+    // has a value to propagate.
+    m_extra_assertions.push_back(m.mk_eq(sgn, m_bv_util.mk_numeral(0, 1)));
+    m_extra_assertions.push_back(m.mk_eq(exp, top_exp));
+    m_extra_assertions.push_back(m.mk_eq(sig, m_bv_util.mk_numeral(1, m_bv_util.get_bv_size(sig))));
 }
 
 void fpa2bv_converter::mk_is_inf(expr * e, expr_ref & result) {

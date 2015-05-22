@@ -1041,8 +1041,8 @@ namespace smt {
                     num_args = 1;
                     args     = &n;
                 }
-                for (unsigned j = 0; j < num_args; j++) {
-                    expr * arg = args[j];
+                for (unsigned i = 0; i < num_args; i++) {
+                    expr * arg = args[i];
                     expr * pp;
                     rational a_val;
                     get_monomial(arg, a_val, pp);

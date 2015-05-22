@@ -717,7 +717,7 @@ struct euclidean_solver::imp {
                 elim_unit();
             else
                 decompose_and_elim();
-            TRACE("euclidean_solver_step", display(tout);); 
+            TRACE("euclidean_solver", display(tout);); 
             if (inconsistent()) return false;
         }
         return true;

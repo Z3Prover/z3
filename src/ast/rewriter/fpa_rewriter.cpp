@@ -412,7 +412,7 @@ br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     if (m_util.is_zero(arg1) && m_util.is_zero(arg2)) {
-        result = m_util.mk_pzero(m().get_sort(arg1));
+        result = arg2;
         return BR_DONE;
     }
 
@@ -421,7 +421,7 @@ br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
                         m().mk_ite(mk_eq_nan(arg2),
                         arg1,
                         m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2)),
-                        m_util.mk_pzero(m().get_sort(arg1)),
+                        arg2,
                         m().mk_ite(m_util.mk_lt(arg1, arg2),
                         arg1,
                         arg2))));
@@ -438,7 +438,7 @@ br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     if (m_util.is_zero(arg1) && m_util.is_zero(arg2)) {
-        result = m_util.mk_pzero(m().get_sort(arg1));
+        result = arg2;
         return BR_DONE;
     }
 
@@ -447,7 +447,7 @@ br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
                         m().mk_ite(mk_eq_nan(arg2),
                         arg1,
                         m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2)),
-                        m_util.mk_pzero(m().get_sort(arg1)),
+                        arg2,
                         m().mk_ite(m_util.mk_gt(arg1, arg2),
                         arg1,
                         arg2))));
