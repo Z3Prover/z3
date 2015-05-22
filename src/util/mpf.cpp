@@ -348,7 +348,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
             bool sticky = false;
             while (ds < 0)
             {
-                if (!m_mpz_manager.is_even(o.significand)) sticky = true;
+                sticky |= m_mpz_manager.is_odd(o.significand);
                 m_mpz_manager.machine_div2k(o.significand, 1);            
                 ds++;
             }
