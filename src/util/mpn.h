@@ -27,7 +27,7 @@ Revision History:
 typedef unsigned int mpn_digit;
 
 class mpn_manager {
-#ifndef _NO_OMP
+#ifndef _NO_OMP_
     omp_nest_lock_t m_lock;
 #endif
 #define MPN_BEGIN_CRITICAL() omp_set_nest_lock(&m_lock);
