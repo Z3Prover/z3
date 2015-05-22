@@ -306,7 +306,7 @@ void hwf_manager::div(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf & 
 #pragma fp_contract(on)
 #endif
 
-void hwf_manager::fused_mul_add(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf const &z, hwf & o) {
+void hwf_manager::fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf const &z, hwf & o) {
     // CMW: fused_mul_add is not available on most CPUs. As of 2012, only Itanium, 
     // Intel Sandybridge and AMD Bulldozers support that (via AVX).
 
