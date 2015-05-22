@@ -315,11 +315,8 @@ void hwf_manager::fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf co
     set_rounding_mode(rm);
     o.value = x.value * y.value + z.value;
 #else
-    // NOT_IMPLEMENTED_YET();
-    // Just a dummy for now:
-    hwf t;
-    mul(rm, x, y, t);
-    add(rm, t, z, o);
+    set_rounding_mode(rm);
+    o.value = ::fma(x.value, y.value, z.value);
 #endif
 }
 
