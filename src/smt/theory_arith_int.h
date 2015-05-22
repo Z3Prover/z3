@@ -777,8 +777,8 @@ namespace smt {
                         // u += ncoeff * lower_bound(v).get_rational();
                         u.addmul(ncoeff, lower_bound(v).get_rational());
                     }
-                    lower(v)->push_justification(ante, numeral::zero(), coeffs_enabled());
-                    upper(v)->push_justification(ante, numeral::zero(), coeffs_enabled());
+                    lower(v)->push_justification(ante, it->m_coeff, coeffs_enabled());
+                    upper(v)->push_justification(ante, it->m_coeff, coeffs_enabled());
                 }
                 else if (gcds.is_zero()) {
                     gcds = abs_ncoeff; 
