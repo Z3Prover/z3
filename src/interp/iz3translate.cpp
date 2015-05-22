@@ -966,7 +966,7 @@ public:
         get_linear_coefficients(t,coeffs);
         if(coeffs.size() == 0)
             return make_int("1"); // arbitrary
-        rational d = coeffs[0];
+        rational d = abs(coeffs[0]);
         for(unsigned i = 1; i < coeffs.size(); i++){
             d = gcd(d,coeffs[i]);
         }
