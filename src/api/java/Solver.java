@@ -190,11 +190,7 @@ public class Solver extends Z3Object
     {
         ASTVector assrts = new ASTVector(getContext(), Native.solverGetAssertions(
                 getContext().nCtx(), getNativeObject()));
-        int n = assrts.size();
-        BoolExpr[] res = new BoolExpr[n];
-        for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(getContext(), assrts.get(i).getNativeObject());
-        return res;
+	return assrts.ToBoolArray();
     }
 
     /**
