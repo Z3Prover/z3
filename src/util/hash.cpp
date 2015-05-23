@@ -19,6 +19,13 @@ Revision History:
 
 #include"debug.h"
 #include"hash.h"
+#include <string.h>
+
+static unsigned read_unsigned(const char *s) {
+  unsigned n;
+  memcpy(&n, s, sizeof(unsigned));
+  return n;
+}
 
 // I'm using Bob Jenkin's hash function.
 // http://burtleburtle.net/bob/hash/doobs.html
@@ -31,10 +38,11 @@ unsigned string_hash(const char * str, unsigned length, unsigned init_value) {
     c = init_value;      /* the previous hash value */
 
     /*---------------------------------------- handle most of the key */
+    SASSERT(sizeof(unsigned) == 4);
     while (len >= 12) {
-        a += reinterpret_cast<const unsigned *>(str)[0];
-        b += reinterpret_cast<const unsigned *>(str)[1];
-        c += reinterpret_cast<const unsigned *>(str)[2];
+        a += read_unsigned(str);
+        b += read_unsigned(str+4);
+        c += read_unsigned(str+8);
         mix(a,b,c);
         str += 12; len -= 12;
     }
