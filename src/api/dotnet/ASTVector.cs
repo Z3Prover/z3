@@ -99,6 +99,30 @@ namespace Microsoft.Z3
             return Native.Z3_ast_vector_to_string(Context.nCtx, NativeObject);
         }
 
+        /// <summary>
+        /// Translates an AST vector into an AST[]
+        /// </summary>    
+        public AST[] ToArray()
+        {
+            uint n = Size;
+            AST[] res = new AST[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = AST.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
+        /// <summary>
+        /// Translates an AST vector into an Expr[]
+        /// </summary>    
+        public Expr[] ToExprArray()
+        {
+            uint n = Size;
+            Expr[] res = new Expr[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = Expr.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
         #region Internal
         internal ASTVector(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
         internal ASTVector(Context ctx) : base(ctx, Native.Z3_mk_ast_vector(ctx.nCtx)) { Contract.Requires(ctx != null); }
