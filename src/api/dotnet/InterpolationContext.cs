@@ -59,11 +59,7 @@ namespace Microsoft.Z3
             CheckContextMatch(p);
 
             ASTVector seq = new ASTVector(this, Native.Z3_get_interpolant(nCtx, pf.NativeObject, pat.NativeObject, p.NativeObject));
-            uint n = seq.Size;
-            Expr[] res = new Expr[n];
-            for (uint i = 0; i < n; i++)
-                res[i] = Expr.Create(this, seq[i].NativeObject);
-            return res;
+            return seq.ToExprArray();
         }
 
         /// <summary> 
@@ -72,7 +68,7 @@ namespace Microsoft.Z3
         /// <remarks>For more information on interpolation please refer
         /// too the function Z3_compute_interpolant in the C/C++ API, which is 
         /// well documented.</remarks>
-        public Z3_lbool ComputeInterpolant(Expr pat, Params p, out ASTVector interp, out Model model)
+        public Z3_lbool ComputeInterpolant(Expr pat, Params p, out Expr[] interp, out Model model)
         {
             Contract.Requires(pat != null);
             Contract.Requires(p != null);
@@ -84,7 +80,7 @@ namespace Microsoft.Z3
 
             IntPtr i = IntPtr.Zero, m = IntPtr.Zero;
             int r = Native.Z3_compute_interpolant(nCtx, pat.NativeObject, p.NativeObject, ref i, ref m);
-            interp = new ASTVector(this, i);
+            interp = new ASTVector(this, i).ToExprArray();
             model = new Model(this, m);
             return (Z3_lbool)r;
         }

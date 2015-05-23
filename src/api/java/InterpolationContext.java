@@ -80,11 +80,7 @@ public class InterpolationContext extends Context
         checkContextMatch(p);
 
         ASTVector seq = new ASTVector(this, Native.getInterpolant(nCtx(), pf.getNativeObject(), pat.getNativeObject(), p.getNativeObject()));
-        int n = seq.size();
-        Expr[] res = new Expr[n];
-        for (int i = 0; i < n; i++)
-            res[i] = Expr.create(this, seq.get(i).getNativeObject());
-        return res;
+        return seq.ToExprArray();
     }
 
     public class ComputeInterpolantResult 
@@ -110,9 +106,8 @@ public class InterpolationContext extends Context
         Native.LongPtr n_i = new Native.LongPtr();
         Native.LongPtr n_m = new Native.LongPtr();
         res.status = Z3_lbool.fromInt(Native.computeInterpolant(nCtx(), pat.getNativeObject(), p.getNativeObject(), n_i, n_m));        
-        if (res.status == Z3_lbool.Z3_L_FALSE) {
-	    res.interp = (new ASTVector(this, n_i.value)).ToBoolArray();
-	}
+        if (res.status == Z3_lbool.Z3_L_FALSE)
+            res.interp = (BoolExpr[]) (new ASTVector(this, n_i.value)).ToExprArray();
         if (res.status == Z3_lbool.Z3_L_TRUE) res.model = new Model(this, n_m.value);
         return res;
     }

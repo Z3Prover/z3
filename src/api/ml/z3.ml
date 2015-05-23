@@ -192,8 +192,59 @@ struct
 end
 
 
-module AST =
-struct    
+module rec AST :
+sig
+  type ast = z3_native_object
+  val context_of_ast : ast -> context
+  val nc_of_ast : ast -> Z3native.z3_context
+  val ptr_of_ast : ast -> Z3native.ptr
+  val ast_of_ptr : context -> Z3native.ptr -> ast
+  module ASTVector :
+  sig
+    type ast_vector = z3_native_object
+    val create : context -> Z3native.ptr -> ast_vector
+    val mk_ast_vector : context -> ast_vector
+    val get_size : ast_vector -> int
+    val get : ast_vector -> int -> ast
+    val set : ast_vector -> int -> ast -> unit
+    val resize : ast_vector -> int -> unit
+    val push : ast_vector -> ast -> unit
+    val translate : ast_vector -> context -> ast_vector
+    val to_list : ast_vector -> ast list
+    val to_expr_list : ast_vector -> Expr.expr list
+    val to_string : ast_vector -> string
+  end
+  module ASTMap :
+  sig
+    type ast_map = z3_native_object
+    val create : context -> Z3native.ptr -> ast_map
+    val mk_ast_map : context -> ast_map
+    val contains : ast_map -> ast -> bool
+    val find : ast_map -> ast -> ast
+    val insert : ast_map -> ast -> ast -> unit
+    val erase : ast_map -> ast -> unit
+    val reset : ast_map -> unit
+    val get_size : ast_map -> int
+    val get_keys : ast_map -> Expr.expr list
+    val to_string : ast_map -> string
+  end
+  val hash : ast -> int
+  val get_id : ast -> int
+  val get_ast_kind : ast -> Z3enums.ast_kind
+  val is_expr : ast -> bool
+  val is_app : ast -> bool
+  val is_var : ast -> bool
+  val is_quantifier : ast -> bool
+  val is_sort : ast -> bool
+  val is_func_decl : ast -> bool
+  val to_string : ast -> string
+  val to_sexpr : ast -> string
+  val equal : ast -> ast -> bool
+  val compare : ast -> ast -> int
+  val translate : ast -> context -> ast
+  val unwrap_ast : ast -> Z3native.ptr
+  val wrap_ast : context -> Z3native.z3_ast -> ast
+end = struct    
   type ast = z3_native_object
 
   let context_of_ast ( x : ast ) = (z3obj_gc x)
@@ -216,13 +267,13 @@ struct
 	
     let create ( ctx : context ) ( no : Z3native.ptr ) = 
       let res : ast_vector = { m_ctx = ctx ;
-			       m_n_obj = null ;
-			       inc_ref = Z3native.ast_vector_inc_ref ;
-			       dec_ref = Z3native.ast_vector_dec_ref } in
+			                   m_n_obj = null ;
+			                   inc_ref = Z3native.ast_vector_inc_ref ;
+			                   dec_ref = Z3native.ast_vector_dec_ref } in
       (z3obj_sno res ctx no) ;
       (z3obj_create res) ;
       res
-	
+	    
     let mk_ast_vector ( ctx : context ) = (create ctx (Z3native.mk_ast_vector (context_gno ctx)))
       
     let get_size ( x : ast_vector ) =
@@ -242,6 +293,16 @@ struct
 	
     let translate ( x : ast_vector ) ( to_ctx : context ) =
       create to_ctx (Z3native.ast_vector_translate (z3obj_gnc x) (z3obj_gno x) (context_gno to_ctx))
+
+    let to_list ( x : ast_vector ) =
+	  let xs = (get_size x) in
+      let f i = (get x i) in
+      mk_list f xs
+
+    let to_expr_list ( x : ast_vector ) =
+	  let xs = (get_size x) in
+      let f i = (Expr.expr_of_ptr (z3obj_gc x) (z3obj_gno (get x i))) in
+      mk_list f xs
 	
     let to_string ( x : ast_vector ) =
       Z3native.ast_vector_to_string (z3obj_gnc x) (z3obj_gno x)
@@ -253,9 +314,9 @@ struct
 	
     let create ( ctx : context ) ( no : Z3native.ptr ) = 
       let res : ast_map  = { m_ctx = ctx ;
-			     m_n_obj = null ;
-			     inc_ref = Z3native.ast_map_inc_ref ;
-			     dec_ref = Z3native.ast_map_dec_ref } in
+			                 m_n_obj = null ;
+			                 inc_ref = Z3native.ast_map_inc_ref ;
+			                 dec_ref = Z3native.ast_map_dec_ref } in
       (z3obj_sno res ctx no) ;
       (z3obj_create res) ;
       res	
@@ -291,8 +352,7 @@ struct
 	
     let get_keys ( x : ast_map ) =
       let av = ASTVector.create (z3obj_gc x) (Z3native.ast_map_keys (z3obj_gnc x) (z3obj_gno x)) in
-      let f i = (ASTVector.get av i) in
-      mk_list f (ASTVector.get_size av)
+      (ASTVector.to_expr_list av)
 
     let to_string ( x : ast_map ) =
       Z3native.ast_map_to_string (z3obj_gnc x) (z3obj_gno x)
@@ -341,31 +401,43 @@ struct
   let wrap_ast ( ctx : context ) ( ptr : Z3native.ptr ) = ast_of_ptr ctx ptr
 end
 
-open AST
-
-
-module Sort = 
-struct
+and Sort :
+sig
+  type sort = Sort of AST.ast
+  val ast_of_sort : Sort.sort -> AST.ast
+  val sort_of_ptr : context -> Z3native.ptr -> sort
+  val gc : sort -> context
+  val gnc : sort -> Z3native.ptr
+  val gno : sort -> Z3native.ptr
+  val sort_lton : sort list -> Z3native.ptr array
+  val sort_option_lton : sort option list -> Z3native.ptr array
+  val equal : sort -> sort -> bool
+  val get_id : sort -> int
+  val get_sort_kind : sort -> Z3enums.sort_kind
+  val get_name : sort -> Symbol.symbol
+  val to_string : sort -> string
+  val mk_uninterpreted : context -> Symbol.symbol -> sort
+  val mk_uninterpreted_s : context -> string -> sort
+end = struct
   type sort = Sort of AST.ast
 
   let sort_of_ptr : context -> Z3native.ptr -> sort = fun ctx no ->
-    let q = (z3_native_object_of_ast_ptr ctx no) in
     if ((Z3enums.ast_kind_of_int (Z3native.get_ast_kind (context_gno ctx) no)) != Z3enums.SORT_AST) then
       raise (Z3native.Exception "Invalid coercion")
     else
       match (sort_kind_of_int (Z3native.get_sort_kind (context_gno ctx) no)) with
-	| ARRAY_SORT
-	| BOOL_SORT
-	| BV_SORT 
-	| DATATYPE_SORT 
-	| INT_SORT 
-	| REAL_SORT 
-	| UNINTERPRETED_SORT 
-	| FINITE_DOMAIN_SORT 
-	| RELATION_SORT 
-	| FLOATING_POINT_SORT
-	| ROUNDING_MODE_SORT -> Sort(q)
-	| UNKNOWN_SORT -> raise (Z3native.Exception "Unknown sort kind encountered")
+        | ARRAY_SORT
+        | BOOL_SORT
+        | BV_SORT 
+        | DATATYPE_SORT 
+        | INT_SORT 
+        | REAL_SORT 
+        | UNINTERPRETED_SORT 
+        | FINITE_DOMAIN_SORT 
+        | RELATION_SORT 
+        | FLOATING_POINT_SORT
+        | ROUNDING_MODE_SORT -> Sort(z3_native_object_of_ast_ptr ctx no)
+        | UNKNOWN_SORT -> raise (Z3native.Exception "Unknown sort kind encountered")
 
   let ast_of_sort s = match s with Sort(x) -> x
     
@@ -387,7 +459,7 @@ struct
 	false 
       else 
 	(Z3native.is_eq_sort (gnc a) (gno a) (gno b))
-	  
+ 
 	  
   let get_id ( x : sort ) = Z3native.get_sort_id (gnc x) (gno x)
   let get_sort_kind ( x : sort ) = (sort_kind_of_int (Z3native.get_sort_kind (gnc x) (gno x)))
@@ -407,10 +479,7 @@ struct
     mk_uninterpreted ctx (Symbol.mk_string ( ctx : context ) s)
 end 
 
-open Sort
-
-
-module rec FuncDecl :
+and FuncDecl :
 sig 
   type func_decl = FuncDecl of AST.ast
   val ast_of_func_decl : FuncDecl.func_decl -> AST.ast
@@ -467,21 +536,21 @@ end = struct
 
   let ast_of_func_decl f = match f with FuncDecl(x) -> x
 
-  let create_ndr ( ctx : context ) ( name : Symbol.symbol ) ( domain : sort list ) ( range : sort )  = 
+  let create_ndr ( ctx : context ) ( name : Symbol.symbol ) ( domain : Sort.sort list ) ( range : Sort.sort )  = 
     let res = { m_ctx = ctx ;
 		m_n_obj = null ;
 		inc_ref = Z3native.inc_ref ;
 		dec_ref = Z3native.dec_ref } in
-    (z3obj_sno res ctx (Z3native.mk_func_decl (context_gno ctx) (Symbol.gno name) (List.length domain) (sort_lton domain) (Sort.gno range))) ;
+    (z3obj_sno res ctx (Z3native.mk_func_decl (context_gno ctx) (Symbol.gno name) (List.length domain) (Sort.sort_lton domain) (Sort.gno range))) ;
     (z3obj_create res) ;
     FuncDecl(res)
       
-  let create_pdr ( ctx : context) ( prefix : string ) ( domain : sort list ) ( range : sort ) = 
+  let create_pdr ( ctx : context) ( prefix : string ) ( domain : Sort.sort list ) ( range : Sort.sort ) = 
     let res = { m_ctx = ctx ;
 		m_n_obj = null ;
 		inc_ref = Z3native.inc_ref ;
 		dec_ref = Z3native.dec_ref } in
-    (z3obj_sno res ctx (Z3native.mk_fresh_func_decl (context_gno ctx) prefix (List.length domain) (sort_lton domain) (Sort.gno range))) ;
+    (z3obj_sno res ctx (Z3native.mk_fresh_func_decl (context_gno ctx) prefix (List.length domain) (Sort.sort_lton domain) (Sort.gno range))) ;
     (z3obj_create res) ;
     FuncDecl(res)
 
@@ -546,22 +615,22 @@ end = struct
 	| _ -> raise (Z3native.Exception "parameter is not a rational string")
   end
 
-  let mk_func_decl ( ctx : context ) ( name : Symbol.symbol ) ( domain : sort list ) ( range : sort ) =
+  let mk_func_decl ( ctx : context ) ( name : Symbol.symbol ) ( domain : Sort.sort list ) ( range : Sort.sort ) =
     create_ndr ctx name domain range
 
-  let mk_func_decl_s ( ctx : context ) ( name : string ) ( domain : sort list ) ( range : sort ) =
+  let mk_func_decl_s ( ctx : context ) ( name : string ) ( domain : Sort.sort list ) ( range : Sort.sort ) =
     mk_func_decl ctx (Symbol.mk_string ctx name) domain range
 
-  let mk_fresh_func_decl ( ctx : context ) ( prefix : string ) ( domain : sort list ) ( range : sort ) =
+  let mk_fresh_func_decl ( ctx : context ) ( prefix : string ) ( domain : Sort.sort list ) ( range : Sort.sort ) =
     create_pdr ctx prefix domain range
 
-  let mk_const_decl ( ctx : context ) ( name : Symbol.symbol ) ( range : sort ) =
+  let mk_const_decl ( ctx : context ) ( name : Symbol.symbol ) ( range : Sort.sort ) =
     create_ndr ctx name [] range
 
-  let mk_const_decl_s ( ctx : context ) ( name : string ) ( range : sort ) =
+  let mk_const_decl_s ( ctx : context ) ( name : string ) ( range : Sort.sort ) =
     create_ndr ctx (Symbol.mk_string ctx name) []  range
 
-  let mk_fresh_const_decl ( ctx : context ) ( prefix : string ) ( range : sort ) =
+  let mk_fresh_const_decl ( ctx : context ) ( prefix : string ) ( range : Sort.sort ) =
     create_pdr ctx prefix [] range
 
 
@@ -581,11 +650,11 @@ end = struct
     
   let get_domain ( x : func_decl ) = 
     let n = (get_domain_size x) in
-    let f i = sort_of_ptr (gc x) (Z3native.get_domain (gnc x) (gno x) i) in
+    let f i = Sort.sort_of_ptr (gc x) (Z3native.get_domain (gnc x) (gno x) i) in
     mk_list f n
       
   let get_range ( x : func_decl ) = 
-    sort_of_ptr (gc x) (Z3native.get_range (gnc x) (gno x))
+    Sort.sort_of_ptr (gc x) (Z3native.get_range (gnc x) (gno x))
       
   let get_decl_kind ( x : func_decl ) = (decl_kind_of_int (Z3native.get_decl_kind (gnc x) (gno x)))
 
@@ -599,7 +668,7 @@ end = struct
       | PARAMETER_INT -> Parameter.P_Int (Z3native.get_decl_int_parameter (gnc x) (gno x) i)
       | PARAMETER_DOUBLE -> Parameter.P_Dbl (Z3native.get_decl_double_parameter (gnc x) (gno x) i)
       | PARAMETER_SYMBOL-> Parameter.P_Sym (Symbol.create (gc x) (Z3native.get_decl_symbol_parameter (gnc x) (gno x) i))
-      | PARAMETER_SORT -> Parameter.P_Srt (sort_of_ptr (gc x) (Z3native.get_decl_sort_parameter (gnc x) (gno x) i))
+      | PARAMETER_SORT -> Parameter.P_Srt (Sort.sort_of_ptr (gc x) (Z3native.get_decl_sort_parameter (gnc x) (gno x) i))
       | PARAMETER_AST -> Parameter.P_Ast (AST.ast_of_ptr (gc x) (Z3native.get_decl_ast_parameter (gnc x) (gno x) i))
       | PARAMETER_FUNC_DECL -> Parameter.P_Fdl (func_decl_of_ptr (gc x) (Z3native.get_decl_func_decl_parameter (gnc x) (gno x) i))
       | PARAMETER_RATIONAL -> Parameter.P_Rat (Z3native.get_decl_rational_parameter (gnc x) (gno x) i)
@@ -820,29 +889,29 @@ end = struct
     
   let is_well_sorted ( x : expr ) = Z3native.is_well_sorted (gnc x) (gno x)
 
-  let get_sort ( x : expr ) = sort_of_ptr (Expr.gc x) (Z3native.get_sort (gnc x) (gno x))
+  let get_sort ( x : expr ) = Sort.sort_of_ptr (Expr.gc x) (Z3native.get_sort (gnc x) (gno x))
     
   let is_const ( x : expr ) = (match x with Expr(a) -> (AST.is_app a)) &&
     (get_num_args x) == 0 &&
     (FuncDecl.get_domain_size (get_func_decl x)) == 0
     
-  let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( range : sort ) =
+  let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( range : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_const (context_gno ctx) (Symbol.gno name) (Sort.gno range))
       
-  let mk_const_s ( ctx : context ) ( name : string ) ( range : sort ) =
+  let mk_const_s ( ctx : context ) ( name : string ) ( range : Sort.sort ) =
     mk_const ctx (Symbol.mk_string ctx name) range
 
   let mk_const_f ( ctx : context ) ( f : FuncDecl.func_decl ) = Expr.expr_of_func_app ctx f []
 
-  let mk_fresh_const ( ctx : context ) ( prefix : string ) ( range : sort ) =
+  let mk_fresh_const ( ctx : context ) ( prefix : string ) ( range : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_fresh_const (context_gno ctx) prefix (Sort.gno range))
 
   let mk_app ( ctx : context ) ( f : FuncDecl.func_decl ) ( args : expr list ) = expr_of_func_app ctx f args
 
-  let mk_numeral_string ( ctx : context ) ( v : string ) ( ty : sort ) =
+  let mk_numeral_string ( ctx : context ) ( v : string ) ( ty : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_numeral (context_gno ctx) v (Sort.gno ty))
 
-  let mk_numeral_int ( ctx : context ) ( v : int ) ( ty : sort ) =
+  let mk_numeral_int ( ctx : context ) ( v : int ) ( ty : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_int (context_gno ctx) v (Sort.gno ty))
 
   let equal ( a : expr ) ( b : expr ) = AST.equal (ast_of_expr a) (ast_of_expr b)
@@ -856,7 +925,7 @@ open Expr
 module Boolean = 
 struct      
   let mk_sort ( ctx : context ) =
-    (sort_of_ptr ctx (Z3native.mk_bool_sort (context_gno ctx)))
+    (Sort.sort_of_ptr ctx (Z3native.mk_bool_sort (context_gno ctx)))
 
   let mk_const ( ctx : context ) ( name : Symbol.symbol ) =
     (Expr.mk_const ctx name (mk_sort ctx))
@@ -943,7 +1012,7 @@ struct
     
   module Pattern = 
   struct
-    type pattern = Pattern of ast
+    type pattern = Pattern of AST.ast
 	
     let ast_of_pattern e = match e with Pattern(x) -> x
       
@@ -1002,13 +1071,13 @@ struct
       
   let get_bound_variable_sorts ( x : quantifier ) =
     let n = (get_num_bound x) in
-    let f i = (sort_of_ptr (gc x) (Z3native.get_quantifier_bound_sort (gnc x) (gno x) i)) in
+    let f i = (Sort.sort_of_ptr (gc x) (Z3native.get_quantifier_bound_sort (gnc x) (gno x) i)) in
     mk_list f n
       
   let get_body ( x : quantifier ) =
     expr_of_ptr (gc x) (Z3native.get_quantifier_body (gnc x) (gno x))  
 
-  let mk_bound ( ctx : context ) ( index : int ) ( ty : sort ) =
+  let mk_bound ( ctx : context ) ( index : int ) ( ty : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_bound (context_gno ctx) index (Sort.gno ty))
 
   let mk_pattern ( ctx : context ) ( terms : expr list ) =
@@ -1017,14 +1086,14 @@ struct
     else
       Pattern.Pattern(z3_native_object_of_ast_ptr ctx (Z3native.mk_pattern (context_gno ctx) (List.length terms) (expr_lton terms)))
 
-  let mk_forall ( ctx : context ) ( sorts : sort list ) ( names : Symbol.symbol list ) ( body : expr ) ( weight : int option ) ( patterns : Pattern.pattern list ) ( nopatterns : expr list ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
+  let mk_forall ( ctx : context ) ( sorts : Sort.sort list ) ( names : Symbol.symbol list ) ( body : expr ) ( weight : int option ) ( patterns : Pattern.pattern list ) ( nopatterns : expr list ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
     if (List.length sorts) != (List.length names) then
       raise (Z3native.Exception "Number of sorts does not match number of names")
     else if ((List.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
       Quantifier(expr_of_ptr ctx (Z3native.mk_quantifier (context_gno ctx) true 
 				    (match weight with | None -> 1 | Some(x) -> x)
 				    (List.length patterns) (let f x = (AST.ptr_of_ast (Pattern.ast_of_pattern x)) in (Array.of_list (List.map f patterns)))
-				    (List.length sorts) (sort_lton sorts)
+				    (List.length sorts) (Sort.sort_lton sorts)
 				    (Symbol.symbol_lton names)
 				    (Expr.gno body)))
     else
@@ -1034,7 +1103,7 @@ struct
 				    (match skolem_id with | None -> null | Some(x) -> (Symbol.gno x))
 				    (List.length patterns) (let f x = (AST.ptr_of_ast (Pattern.ast_of_pattern x)) in (Array.of_list (List.map f patterns)))
 				    (List.length nopatterns) (expr_lton nopatterns)
-				    (List.length sorts) (sort_lton sorts)
+				    (List.length sorts) (Sort.sort_lton sorts)
 				    (Symbol.symbol_lton names)
 				    (Expr.gno body)))
 	
@@ -1055,14 +1124,14 @@ struct
 				    (List.length nopatterns) (expr_lton nopatterns)
 				    (Expr.gno body)))
 
-  let mk_exists ( ctx : context ) ( sorts : sort list ) ( names : Symbol.symbol list ) ( body : expr ) ( weight : int option ) ( patterns : Pattern.pattern list ) ( nopatterns : expr list ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
+  let mk_exists ( ctx : context ) ( sorts : Sort.sort list ) ( names : Symbol.symbol list ) ( body : expr ) ( weight : int option ) ( patterns : Pattern.pattern list ) ( nopatterns : expr list ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
     if (List.length sorts) != (List.length names) then
       raise (Z3native.Exception "Number of sorts does not match number of names")
     else if ((List.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
       Quantifier(expr_of_ptr ctx (Z3native.mk_quantifier (context_gno ctx) false
 				    (match weight with | None -> 1 | Some(x) -> x)
 				    (List.length patterns) (let f x = (AST.ptr_of_ast (Pattern.ast_of_pattern x)) in (Array.of_list (List.map f patterns)))
-				    (List.length sorts) (sort_lton sorts)
+				    (List.length sorts) (Sort.sort_lton sorts)
 				    (Symbol.symbol_lton names)
 				    (Expr.gno body)))
     else
@@ -1072,7 +1141,7 @@ struct
 				    (match skolem_id with | None -> null | Some(x) -> (Symbol.gno x))
 				    (List.length patterns) (let f x = (AST.ptr_of_ast (Pattern.ast_of_pattern x)) in (Array.of_list (List.map f patterns)))
 				    (List.length nopatterns) (expr_lton nopatterns)
-				    (List.length sorts) (sort_lton sorts)
+				    (List.length sorts) (Sort.sort_lton sorts)
 				    (Symbol.symbol_lton names)
 				    (Expr.gno body)))
 	
@@ -1093,7 +1162,7 @@ struct
 				    (List.length nopatterns) (expr_lton nopatterns)
 				    (Expr.gno body)))
 
-  let mk_quantifier ( ctx : context ) ( universal : bool ) ( sorts : sort list ) ( names : Symbol.symbol list ) ( body : expr ) ( weight : int option ) ( patterns : Pattern.pattern list ) ( nopatterns : expr list ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
+  let mk_quantifier ( ctx : context ) ( universal : bool ) ( sorts : Sort.sort list ) ( names : Symbol.symbol list ) ( body : expr ) ( weight : int option ) ( patterns : Pattern.pattern list ) ( nopatterns : expr list ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
     if (universal) then
       (mk_forall ctx sorts names body weight patterns nopatterns quantifier_id skolem_id)
     else
@@ -1111,8 +1180,8 @@ end
 
 module Z3Array = 
 struct
-  let mk_sort ( ctx : context ) ( domain : sort ) ( range : sort ) =
-    sort_of_ptr ctx (Z3native.mk_array_sort (context_gno ctx) (Sort.gno domain) (Sort.gno range))
+  let mk_sort ( ctx : context ) ( domain : Sort.sort ) ( range : Sort.sort ) =
+    Sort.sort_of_ptr ctx (Z3native.mk_array_sort (context_gno ctx) (Sort.gno domain) (Sort.gno range))
 
   let is_store ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_STORE)
   let is_select ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SELECT)
@@ -1124,13 +1193,13 @@ struct
     (Z3native.is_app (Expr.gnc x) (Expr.gno x)) &&
       ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == ARRAY_SORT)      
 
-  let get_domain ( x : sort ) = Sort.sort_of_ptr (Sort.gc x) (Z3native.get_array_sort_domain (Sort.gnc x) (Sort.gno x))
-  let get_range ( x : sort ) = Sort.sort_of_ptr (Sort.gc x) (Z3native.get_array_sort_range (Sort.gnc x) (Sort.gno x))
+  let get_domain ( x : Sort.sort ) = Sort.sort_of_ptr (Sort.gc x) (Z3native.get_array_sort_domain (Sort.gnc x) (Sort.gno x))
+  let get_range ( x : Sort.sort ) = Sort.sort_of_ptr (Sort.gc x) (Z3native.get_array_sort_range (Sort.gnc x) (Sort.gno x))
 
-  let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( domain : sort ) ( range : sort ) = 
+  let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( domain : Sort.sort ) ( range : Sort.sort ) = 
     (Expr.mk_const ctx name (mk_sort ctx domain range))
       
-  let mk_const_s ( ctx : context ) ( name : string ) ( domain : sort ) ( range : sort ) =	
+  let mk_const_s ( ctx : context ) ( name : string ) ( domain : Sort.sort ) ( range : Sort.sort ) =	
     mk_const ctx (Symbol.mk_string ctx name) domain range
       
   let mk_select ( ctx : context ) ( a : expr ) ( i : expr ) =
@@ -1139,7 +1208,7 @@ struct
   let mk_store ( ctx : context ) ( a : expr ) ( i : expr ) ( v : expr ) =
     expr_of_ptr ctx (Z3native.mk_store (context_gno ctx) (Expr.gno a) (Expr.gno i) (Expr.gno v))
 
-  let mk_const_array ( ctx : context ) ( domain : sort ) ( v : expr ) =
+  let mk_const_array ( ctx : context ) ( domain : Sort.sort ) ( v : expr ) =
     expr_of_ptr ctx (Z3native.mk_const_array (context_gno ctx) (Sort.gno domain) (Expr.gno v))
 
   let mk_map ( ctx : context ) ( f : func_decl ) ( args : expr list ) =
@@ -1153,8 +1222,8 @@ end
 
 module Set = 
 struct     
-  let mk_sort  ( ctx : context ) ( ty : sort ) =
-    sort_of_ptr ctx (Z3native.mk_set_sort (context_gno ctx) (Sort.gno ty))
+  let mk_sort  ( ctx : context ) ( ty : Sort.sort ) =
+    Sort.sort_of_ptr ctx (Z3native.mk_set_sort (context_gno ctx) (Sort.gno ty))
 
   let is_union ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_UNION)
   let is_intersect ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_INTERSECT)
@@ -1163,10 +1232,10 @@ struct
   let is_subset ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SET_SUBSET)
 
 
-  let mk_empty ( ctx : context ) ( domain : sort ) =
+  let mk_empty ( ctx : context ) ( domain : Sort.sort ) =
     (expr_of_ptr ctx (Z3native.mk_empty_set (context_gno ctx) (Sort.gno domain)))
       
-  let mk_full ( ctx : context ) ( domain : sort ) =
+  let mk_full ( ctx : context ) ( domain : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_full_set (context_gno ctx) (Sort.gno domain))
 
   let mk_set_add  ( ctx : context ) ( set : expr ) ( element : expr ) =
@@ -1199,7 +1268,7 @@ end
 module FiniteDomain = 
 struct  
   let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( size : int ) =
-    (sort_of_ptr ctx (Z3native.mk_finite_domain_sort (context_gno ctx) (Symbol.gno name) size))
+    Sort.sort_of_ptr ctx (Z3native.mk_finite_domain_sort (context_gno ctx) (Symbol.gno name) size)
       
   let mk_sort_s ( ctx : context ) ( name : string ) ( size : int ) =
     mk_sort ctx (Symbol.mk_string ctx name) size
@@ -1211,7 +1280,7 @@ struct
 
   let is_lt ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FD_LT)
 
-  let get_size ( x : sort ) = 
+  let get_size ( x : Sort.sort ) = 
     let (r, v) = (Z3native.get_finite_domain_sort_size (Sort.gnc x) (Sort.gno x)) in
     if r then v
     else raise (Z3native.Exception "Conversion failed.")
@@ -1239,11 +1308,11 @@ struct
   let is_select ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_SELECT)
   let is_clone ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_RA_CLONE)
 
-  let get_arity ( x : sort ) = Z3native.get_relation_arity (Sort.gnc x) (Sort.gno x)
+  let get_arity ( x : Sort.sort ) = Z3native.get_relation_arity (Sort.gnc x) (Sort.gno x)
 
-  let get_column_sorts ( x : sort ) = 
+  let get_column_sorts ( x : Sort.sort ) = 
     let n = get_arity x in
-    let f i = (sort_of_ptr (Sort.gc x) (Z3native.get_relation_column (Sort.gnc x) (Sort.gno x) i)) in
+    let f i = (Sort.sort_of_ptr (Sort.gc x) (Z3native.get_relation_column (Sort.gnc x) (Sort.gno x) i)) in
     mk_list f n
 end
   
@@ -1262,7 +1331,7 @@ struct
 
     let _field_nums = FieldNumTable.create 0
 
-    let create ( ctx : context ) ( name : Symbol.symbol ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : sort option list ) ( sort_refs : int list ) =
+    let create ( ctx : context ) ( name : Symbol.symbol ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : Sort.sort option list ) ( sort_refs : int list ) =
       let n = (List.length field_names) in
       if n != (List.length sorts) then
 	raise (Z3native.Exception "Number of field names does not match number of sorts")
@@ -1274,7 +1343,7 @@ struct
 		       (Symbol.gno recognizer) 
 		       n
 		       (Symbol.symbol_lton field_names)
-		       (sort_option_lton sorts)
+		       (Sort.sort_option_lton sorts)
 		       (Array.of_list sort_refs)) in
 	  let no : constructor = { m_ctx = ctx ;
 				   m_n_obj = null ;
@@ -1321,17 +1390,17 @@ struct
       res       
   end
     
-  let mk_constructor ( ctx : context ) ( name : Symbol.symbol ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : sort option list ) ( sort_refs : int list ) =
+  let mk_constructor ( ctx : context ) ( name : Symbol.symbol ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : Sort.sort option list ) ( sort_refs : int list ) =
     Constructor.create ctx name recognizer field_names sorts sort_refs
 
 
-  let mk_constructor_s ( ctx : context ) ( name : string ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : sort option list ) ( sort_refs : int list ) =
+  let mk_constructor_s ( ctx : context ) ( name : string ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( sorts : Sort.sort option list ) ( sort_refs : int list ) =
     mk_constructor ctx (Symbol.mk_string ctx name) recognizer field_names sorts sort_refs
 
   let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( constructors : Constructor.constructor list ) =
     let f x = (z3obj_gno x) in 
     let (x,_) = (Z3native.mk_datatype (context_gno ctx) (Symbol.gno name) (List.length constructors) (Array.of_list (List.map f constructors))) in
-    sort_of_ptr ctx x
+    Sort.sort_of_ptr ctx x
 
   let mk_sort_s ( ctx : context ) ( name : string ) ( constructors : Constructor.constructor list ) =
     mk_sort ctx (Symbol.mk_string ctx name) constructors
@@ -1341,7 +1410,7 @@ struct
     let f e = (AST.ptr_of_ast (ConstructorList.create ctx e)) in
     let cla = (Array.of_list (List.map f c)) in
     let (r, a) = (Z3native.mk_datatypes (context_gno ctx) n (Symbol.symbol_lton names) cla) in
-    let g i = (sort_of_ptr ctx (Array.get r i)) in
+    let g i = (Sort.sort_of_ptr ctx (Array.get r i)) in
     mk_list g (Array.length r)
 
   let mk_sorts_s ( ctx : context ) ( names : string list ) ( c : Constructor.constructor list list ) =
@@ -1352,19 +1421,19 @@ struct
       )
       c
 
-  let get_num_constructors ( x : sort ) = Z3native.get_datatype_sort_num_constructors (Sort.gnc x) (Sort.gno x)
+  let get_num_constructors ( x : Sort.sort ) = Z3native.get_datatype_sort_num_constructors (Sort.gnc x) (Sort.gno x)
 
-  let get_constructors ( x : sort ) = 
+  let get_constructors ( x : Sort.sort ) = 
     let n = (get_num_constructors x) in
     let f i = func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_constructor (Sort.gnc x) (Sort.gno x) i) in
     mk_list f n
 
-  let get_recognizers ( x : sort ) = 
+  let get_recognizers ( x : Sort.sort ) = 
     let n = (get_num_constructors x) in
     let f i = func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_recognizer (Sort.gnc x) (Sort.gno x) i) in
     mk_list f n
       
-  let get_accessors ( x : sort ) =
+  let get_accessors ( x : Sort.sort ) =
     let n = (get_num_constructors x) in
     let f i = (
       let fd = func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_constructor (Sort.gnc x) (Sort.gno x) i) in
@@ -1380,80 +1449,80 @@ module Enumeration =
 struct 
   let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( enum_names : Symbol.symbol list ) =
     let (a, _, _) = (Z3native.mk_enumeration_sort (context_gno ctx) (Symbol.gno name) (List.length enum_names) (Symbol.symbol_lton enum_names)) in
-    sort_of_ptr ctx a
+    Sort.sort_of_ptr ctx a
 
   let mk_sort_s ( ctx : context ) ( name : string ) ( enum_names : string list ) =
     mk_sort ctx (Symbol.mk_string ctx name) (Symbol.mk_strings ctx enum_names)
 
-  let get_const_decls ( x : sort ) =
+  let get_const_decls ( x : Sort.sort ) =
     let n = Z3native.get_datatype_sort_num_constructors (Sort.gnc x) (Sort.gno x)  in
     let f i = (func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_constructor (Sort.gnc x) (Sort.gno x)  i)) in
     mk_list f n
 
-  let get_const_decl ( x : sort ) ( inx : int ) =
+  let get_const_decl ( x : Sort.sort ) ( inx : int ) =
     func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_constructor (Sort.gnc x) (Sort.gno x) inx)
 
-  let get_consts ( x : sort ) =
+  let get_consts ( x : Sort.sort ) =
     let n = Z3native.get_datatype_sort_num_constructors (Sort.gnc x) (Sort.gno x)  in
     let f i = (Expr.mk_const_f (Sort.gc x) (get_const_decl x i)) in
     mk_list f n
 
-  let get_const ( x : sort ) ( inx : int ) =
+  let get_const ( x : Sort.sort ) ( inx : int ) =
     Expr.mk_const_f (Sort.gc x) (get_const_decl x inx)
 
-  let get_tester_decls ( x : sort ) = 
+  let get_tester_decls ( x : Sort.sort ) = 
     let n = Z3native.get_datatype_sort_num_constructors (Sort.gnc x) (Sort.gno x)  in
     let f i = (func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_recognizer (Sort.gnc x) (Sort.gno x) i)) in
     mk_list f n
       
-  let get_tester_decl ( x : sort ) ( inx : int ) = 
+  let get_tester_decl ( x : Sort.sort ) ( inx : int ) = 
     func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_recognizer (Sort.gnc x) (Sort.gno x) inx)
 end
 
 
 module Z3List = 
 struct     
-  let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( elem_sort : sort ) =
+  let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( elem_sort : Sort.sort ) =
     let (r, _, _, _, _, _, _) = (Z3native.mk_list_sort (context_gno ctx) (Symbol.gno name) (Sort.gno elem_sort)) in
-    sort_of_ptr ctx r 
+    Sort.sort_of_ptr ctx r 
       
-  let mk_list_s ( ctx : context ) (name : string) elem_sort =
+  let mk_list_s ( ctx : context ) ( name : string ) elem_sort =
     mk_sort ctx (Symbol.mk_string ctx name) elem_sort
 
-  let get_nil_decl ( x : sort ) = 
+  let get_nil_decl ( x : Sort.sort ) = 
     func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_constructor (Sort.gnc x) (Sort.gno x)  0)
 
-  let get_is_nil_decl ( x : sort ) = 
+  let get_is_nil_decl ( x : Sort.sort ) = 
     func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_recognizer (Sort.gnc x) (Sort.gno x)  0)
 
-  let get_cons_decl ( x : sort ) = 
+  let get_cons_decl ( x : Sort.sort ) = 
     func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_constructor (Sort.gnc x) (Sort.gno x)  1)
 
-  let get_is_cons_decl ( x : sort ) =
+  let get_is_cons_decl ( x : Sort.sort ) =
     func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_recognizer (Sort.gnc x) (Sort.gno x)  1)
 
-  let get_head_decl ( x : sort )  = 
+  let get_head_decl ( x : Sort.sort )  = 
     func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_constructor_accessor (Sort.gnc x) (Sort.gno x) 1 0)
 
-  let get_tail_decl ( x : sort ) =
+  let get_tail_decl ( x : Sort.sort ) =
     func_decl_of_ptr (Sort.gc x) (Z3native.get_datatype_sort_constructor_accessor (Sort.gnc x) (Sort.gno x) 1 1)
 
-  let nil ( x : sort ) = expr_of_func_app (Sort.gc x) (get_nil_decl x) []
+  let nil ( x : Sort.sort ) = expr_of_func_app (Sort.gc x) (get_nil_decl x) []
 end
 
 
 module Tuple = 
 struct
-  let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( field_sorts : sort list ) =
-    let (r, _, _) = (Z3native.mk_tuple_sort (context_gno ctx) (Symbol.gno name) (List.length field_names) (Symbol.symbol_lton field_names) (sort_lton field_sorts)) in 
-    sort_of_ptr ctx r
+  let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( field_names : Symbol.symbol list ) ( field_sorts : Sort.sort list ) =
+    let (r, _, _) = (Z3native.mk_tuple_sort (context_gno ctx) (Symbol.gno name) (List.length field_names) (Symbol.symbol_lton field_names) (Sort.sort_lton field_sorts)) in 
+    Sort.sort_of_ptr ctx r
 
-  let get_mk_decl ( x : sort ) =
+  let get_mk_decl ( x : Sort.sort ) =
     func_decl_of_ptr (Sort.gc x) (Z3native.get_tuple_sort_mk_decl (Sort.gnc x) (Sort.gno x))
 
-  let get_num_fields ( x : sort ) = Z3native.get_tuple_sort_num_fields (Sort.gnc x) (Sort.gno x)
+  let get_num_fields ( x : Sort.sort ) = Z3native.get_tuple_sort_num_fields (Sort.gnc x) (Sort.gno x)
     
-  let get_field_decls ( x : sort ) = 
+  let get_field_decls ( x : Sort.sort ) = 
     let n = get_num_fields x in
     let f i = func_decl_of_ptr (Sort.gc x) (Z3native.get_tuple_sort_field_decl (Sort.gnc x) (Sort.gno x) i) in
     mk_list f n
@@ -1510,7 +1579,7 @@ struct
   module Integer =
   struct     
     let mk_sort ( ctx : context ) =
-      sort_of_ptr ctx (Z3native.mk_int_sort (context_gno ctx))
+      Sort.sort_of_ptr ctx (Z3native.mk_int_sort (context_gno ctx))
 
     let get_int ( x : expr ) = 
       let (r, v) = Z3native.get_numeral_int (Expr.gnc x) (Expr.gno x) in
@@ -1553,7 +1622,7 @@ struct
   module Real =
   struct  
     let mk_sort ( ctx : context ) =
-      sort_of_ptr ctx (Z3native.mk_real_sort (context_gno ctx))	
+      Sort.sort_of_ptr ctx (Z3native.mk_real_sort (context_gno ctx))	
 
     let get_numerator ( x : expr ) =
       expr_of_ptr (Expr.gc x) (Z3native.get_numerator (Expr.gnc x) (Expr.gno x))
@@ -1599,14 +1668,14 @@ struct
     module AlgebraicNumber =
     struct    
       let to_upper ( x : expr ) ( precision : int ) =
-	expr_of_ptr (Expr.gc x) (Z3native.get_algebraic_number_upper (Expr.gnc x) (Expr.gno x) precision)
-	  
+	    expr_of_ptr (Expr.gc x) (Z3native.get_algebraic_number_upper (Expr.gnc x) (Expr.gno x) precision)
+	      
       let to_lower ( x : expr ) precision =
-	expr_of_ptr (Expr.gc x) (Z3native.get_algebraic_number_lower (Expr.gnc x) (Expr.gno x) precision)
-	  
+	    expr_of_ptr (Expr.gc x) (Z3native.get_algebraic_number_lower (Expr.gnc x) (Expr.gno x) precision)
+	      
       let to_decimal_string ( x : expr ) ( precision : int ) = 
-	Z3native.get_numeral_decimal_string (Expr.gnc x) (Expr.gno x) precision	
-	  
+	    Z3native.get_numeral_decimal_string (Expr.gnc x) (Expr.gno x) precision	
+	      
       let numeral_to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)      
     end
   end
@@ -1649,7 +1718,7 @@ end
 module BitVector =
 struct  
   let mk_sort ( ctx : context ) size =
-    sort_of_ptr ctx (Z3native.mk_bv_sort (context_gno ctx) size)
+    Sort.sort_of_ptr ctx (Z3native.mk_bv_sort (context_gno ctx) size)
   let is_bv ( x : expr ) =
     ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == BV_SORT)
   let is_bv_numeral ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNUM)
@@ -1703,7 +1772,7 @@ struct
   let is_bv2int ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BV2INT)
   let is_bv_carry ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CARRY)
   let is_bv_xor3 ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_XOR3)
-  let get_size (x : sort ) = Z3native.get_bv_sort_size (Sort.gnc x) (Sort.gno x)
+  let get_size (x : Sort.sort ) = Z3native.get_bv_sort_size (Sort.gnc x) (Sort.gno x)
   let get_int ( x : expr ) = 
     let (r, v) = Z3native.get_numeral_int (Expr.gnc x) (Expr.gno x) in
     if r then v
@@ -1817,7 +1886,7 @@ struct
   module RoundingMode = 
   struct
 	let mk_sort ( ctx : context ) =
-	  (sort_of_ptr ctx (Z3native.mk_fpa_rounding_mode_sort (context_gno ctx)))
+	  (Sort.sort_of_ptr ctx (Z3native.mk_fpa_rounding_mode_sort (context_gno ctx)))
 	let is_fprm ( x : expr ) =
 	  (Sort.get_sort_kind (Expr.get_sort(x))) == ROUNDING_MODE_SORT
 	let mk_round_nearest_ties_to_even ( ctx : context ) = 
@@ -1843,40 +1912,40 @@ struct
   end
 	
   let mk_sort ( ctx : context ) ( ebits : int ) ( sbits : int ) =
-	(sort_of_ptr ctx (Z3native.mk_fpa_sort (context_gno ctx) ebits sbits))
+	(Sort.sort_of_ptr ctx (Z3native.mk_fpa_sort (context_gno ctx) ebits sbits))
   let mk_sort_half ( ctx : context ) =
-	(sort_of_ptr ctx (Z3native.mk_fpa_sort_half (context_gno ctx)))
+	(Sort.sort_of_ptr ctx (Z3native.mk_fpa_sort_half (context_gno ctx)))
   let mk_sort_16 ( ctx : context ) =
-	(sort_of_ptr ctx (Z3native.mk_fpa_sort_16 (context_gno ctx)))
+	(Sort.sort_of_ptr ctx (Z3native.mk_fpa_sort_16 (context_gno ctx)))
   let mk_sort_single ( ctx : context ) =
-	(sort_of_ptr ctx (Z3native.mk_fpa_sort_single (context_gno ctx)))
+	(Sort.sort_of_ptr ctx (Z3native.mk_fpa_sort_single (context_gno ctx)))
   let mk_sort_32 ( ctx : context ) =
-	(sort_of_ptr ctx (Z3native.mk_fpa_sort_32 (context_gno ctx)))
+	(Sort.sort_of_ptr ctx (Z3native.mk_fpa_sort_32 (context_gno ctx)))
   let mk_sort_double ( ctx : context ) =
-	(sort_of_ptr ctx (Z3native.mk_fpa_sort_double (context_gno ctx)))
+	(Sort.sort_of_ptr ctx (Z3native.mk_fpa_sort_double (context_gno ctx)))
   let mk_sort_64 ( ctx : context ) =
-	(sort_of_ptr ctx (Z3native.mk_fpa_sort_64 (context_gno ctx)))
+	(Sort.sort_of_ptr ctx (Z3native.mk_fpa_sort_64 (context_gno ctx)))
   let mk_sort_quadruple ( ctx : context ) =
-	(sort_of_ptr ctx (Z3native.mk_fpa_sort_quadruple (context_gno ctx)))
+	(Sort.sort_of_ptr ctx (Z3native.mk_fpa_sort_quadruple (context_gno ctx)))
   let mk_sort_128 ( ctx : context ) =
-	(sort_of_ptr ctx (Z3native.mk_fpa_sort_128 (context_gno ctx)))
+	(Sort.sort_of_ptr ctx (Z3native.mk_fpa_sort_128 (context_gno ctx)))
 
-  let mk_nan ( ctx : context ) ( s : sort ) =
+  let mk_nan ( ctx : context ) ( s : Sort.sort ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_nan (context_gno ctx) (Sort.gno s)))
-  let mk_inf ( ctx : context ) ( s : sort ) ( negative : bool ) =
+  let mk_inf ( ctx : context ) ( s : Sort.sort ) ( negative : bool ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_inf (context_gno ctx) (Sort.gno s) negative))
-  let mk_zero ( ctx : context ) ( s : sort ) ( negative : bool ) =
+  let mk_zero ( ctx : context ) ( s : Sort.sort ) ( negative : bool ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_zero (context_gno ctx) (Sort.gno s) negative))
 
   let mk_fp ( ctx : context ) ( sign : expr ) ( exponent : expr ) ( significand : expr ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_fp (context_gno ctx) (Expr.gno sign) (Expr.gno exponent) (Expr.gno significand)))
-  let mk_numeral_f ( ctx : context ) ( value : float ) ( s : sort ) =
+  let mk_numeral_f ( ctx : context ) ( value : float ) ( s : Sort.sort ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_double (context_gno ctx) value (Sort.gno s)))
-  let mk_numeral_i ( ctx : context ) ( value : int ) ( s : sort ) =
+  let mk_numeral_i ( ctx : context ) ( value : int ) ( s : Sort.sort ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_int (context_gno ctx) value (Sort.gno s)))
-  let mk_numeral_i_u ( ctx : context ) ( sign : bool ) ( exponent : int ) ( significand : int ) ( s : sort ) =
+  let mk_numeral_i_u ( ctx : context ) ( sign : bool ) ( exponent : int ) ( significand : int ) ( s : Sort.sort ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_numeral_int64_uint64 (context_gno ctx) sign exponent significand (Sort.gno s)))
-  let mk_numeral_s ( ctx : context ) ( v : string ) ( s : sort ) =
+  let mk_numeral_s ( ctx : context ) ( v : string ) ( s : Sort.sort ) =
     (expr_of_ptr ctx (Z3native.mk_numeral (context_gno ctx) v (Sort.gno s)))
 
   let is_fp ( x : expr ) = (Sort.get_sort_kind (Expr.get_sort x)) == FLOATING_POINT_SORT
@@ -1912,9 +1981,9 @@ struct
   let is_to_ieee_bv ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_FPA_TO_IEEE_BV)
 	
   let numeral_to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
-  let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( s : sort ) =
+  let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( s : Sort.sort ) =
     Expr.mk_const ctx name s
-  let mk_const_s ( ctx : context ) ( name : string ) ( s : sort ) =
+  let mk_const_s ( ctx : context ) ( name : string ) ( s : Sort.sort ) =
     mk_const ctx (Symbol.mk_string ctx name) s
 
   let mk_abs ( ctx : context ) ( t : expr ) =
@@ -1965,15 +2034,15 @@ struct
     expr_of_ptr ctx (Z3native.mk_fpa_is_negative (context_gno ctx) (Expr.gno t))
   let mk_is_positive ( ctx : context ) ( t : expr ) =
     expr_of_ptr ctx (Z3native.mk_fpa_is_positive (context_gno ctx) (Expr.gno t))
-  let mk_to_fp_bv ( ctx : context ) ( t : expr ) ( s : sort ) =
+  let mk_to_fp_bv ( ctx : context ) ( t : expr ) ( s : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_fp_bv (context_gno ctx) (Expr.gno t) (Sort.gno s))
-  let mk_to_fp_float ( ctx : context ) ( rm : expr) ( t : expr ) ( s : sort ) =
+  let mk_to_fp_float ( ctx : context ) ( rm : expr) ( t : expr ) ( s : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_fp_float (context_gno ctx) (Expr.gno rm) (Expr.gno t) (Sort.gno s))
-  let mk_to_fp_real ( ctx : context ) ( rm : expr ) ( t : expr ) ( s : sort ) =
+  let mk_to_fp_real ( ctx : context ) ( rm : expr ) ( t : expr ) ( s : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_fp_real (context_gno ctx) (Expr.gno rm) (Expr.gno t) (Sort.gno s))
-  let mk_to_fp_signed  ( ctx : context ) ( rm : expr) ( t : expr ) ( s : sort ) =
+  let mk_to_fp_signed  ( ctx : context ) ( rm : expr) ( t : expr ) ( s : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_fp_signed (context_gno ctx) (Expr.gno rm) (Expr.gno t) (Sort.gno s))
-  let mk_to_fp_unsigned  ( ctx : context ) ( rm : expr) ( t : expr ) ( s : sort ) =
+  let mk_to_fp_unsigned  ( ctx : context ) ( rm : expr) ( t : expr ) ( s : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_fp_unsigned (context_gno ctx) (Expr.gno rm) (Expr.gno t) (Sort.gno s))
   let mk_to_ubv ( ctx : context ) ( rm : expr) ( t : expr ) ( size : int ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_ubv (context_gno ctx) (Expr.gno rm) (Expr.gno t) size)
@@ -1982,9 +2051,9 @@ struct
   let mk_to_real ( ctx : context ) ( t : expr ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_real (context_gno ctx) (Expr.gno t))
 
-  let get_ebits ( ctx : context ) ( s : sort ) =
+  let get_ebits ( ctx : context ) ( s : Sort.sort ) =
 	(Z3native.fpa_get_ebits (context_gno ctx) (Sort.gno s))
-  let get_sbits ( ctx : context ) ( s : sort ) =
+  let get_sbits ( ctx : context ) ( s : Sort.sort ) =
 	(Z3native.fpa_get_sbits (context_gno ctx) (Sort.gno s))
   let get_numeral_sign ( ctx : context ) ( t : expr ) =
 	(Z3native.fpa_get_numeral_sign (context_gno ctx) (Expr.gno t))
@@ -1997,7 +2066,7 @@ struct
 
   let mk_to_ieee_bv ( ctx : context ) ( t : expr ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_to_ieee_bv (context_gno ctx) (Expr.gno t)))
-  let mk_to_fp_int_real ( ctx : context ) ( rm : expr ) ( exponent : expr ) ( significand : expr ) ( s : sort ) =
+  let mk_to_fp_int_real ( ctx : context ) ( rm : expr ) ( exponent : expr ) ( significand : expr ) ( s : Sort.sort ) =
 	(expr_of_ptr ctx (Z3native.mk_fpa_to_fp_int_real (context_gno ctx) (Expr.gno rm) (Expr.gno exponent) (Expr.gno significand) (Sort.gno s)))
 
   let numeral_to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
@@ -2280,14 +2349,12 @@ struct
     
   let get_sorts ( x : model ) =
     let n = (get_num_sorts x) in
-    let f i = (sort_of_ptr (z3obj_gc x) (Z3native.model_get_sort (z3obj_gnc x) (z3obj_gno x) i)) in
+    let f i = (Sort.sort_of_ptr (z3obj_gc x) (Z3native.model_get_sort (z3obj_gnc x) (z3obj_gno x) i)) in
     mk_list f n
 
-  let sort_universe ( x : model ) ( s : sort ) =
-    let n_univ = AST.ASTVector.create (z3obj_gc x) (Z3native.model_get_sort_universe (z3obj_gnc x) (z3obj_gno x) (Sort.gno s)) in
-    let n = (AST.ASTVector.get_size n_univ) in
-    let f i = (AST.ASTVector.get n_univ i) in
-    mk_list f n
+  let sort_universe ( x : model ) ( s : Sort.sort ) =
+    let av = AST.ASTVector.create (z3obj_gc x) (Z3native.model_get_sort_universe (z3obj_gnc x) (z3obj_gno x) (Sort.gno s)) in
+    (AST.ASTVector.to_expr_list av)
 
   let to_string ( x : model ) = Z3native.model_to_string (z3obj_gnc x) (z3obj_gno x) 
 end
@@ -2475,6 +2542,91 @@ struct
 end
 
 
+module Statistics =
+struct	
+  type statistics = z3_native_object
+
+  let create ( ctx : context ) ( no : Z3native.ptr ) = 
+    let res : statistics = { m_ctx = ctx ;
+			                 m_n_obj = null ;
+			                 inc_ref = Z3native.stats_inc_ref ;
+			                 dec_ref = Z3native.stats_dec_ref } in
+    (z3obj_sno res ctx no) ;
+    (z3obj_create res) ;
+    res
+      
+
+  module Entry =
+  struct
+    type statistics_entry = { 
+	  mutable m_key : string; 
+	  mutable m_is_int : bool ; 
+	  mutable m_is_float : bool ; 
+	  mutable m_int : int ; 
+	  mutable m_float : float }
+	    
+    let create_si k v = 
+	  let res : statistics_entry = { 
+	    m_key = k ;
+	    m_is_int = true ;
+	    m_is_float = false ;
+	    m_int = v ;
+	    m_float = 0.0
+	  } in
+	  res
+
+    let create_sd k v = 
+	  let res : statistics_entry = { 
+	    m_key = k ;
+	    m_is_int = false ;
+	    m_is_float = true ;
+	    m_int = 0 ;
+	    m_float = v
+	  } in
+	  res
+	    
+
+    let get_key (x : statistics_entry) = x.m_key
+    let get_int (x : statistics_entry) = x.m_int	
+    let get_float (x : statistics_entry) = x.m_float
+    let is_int (x : statistics_entry) = x.m_is_int
+    let is_float (x : statistics_entry) = x.m_is_float
+    let to_string_value (x : statistics_entry) = 
+	  if (is_int x) then
+	    string_of_int (get_int x)
+	  else if (is_float x) then 
+	    string_of_float (get_float x)
+	  else
+        raise (Z3native.Exception "Unknown statistical entry type")
+    let to_string ( x : statistics_entry ) = (get_key x) ^ ": " ^ (to_string_value x)
+  end
+
+  let to_string ( x : statistics ) = Z3native.stats_to_string (z3obj_gnc x) (z3obj_gno x)
+    
+  let get_size ( x : statistics ) = Z3native.stats_size (z3obj_gnc x) (z3obj_gno x)
+    
+  let get_entries ( x : statistics ) =
+    let n = (get_size x ) in
+    let f i = (
+	  let k = Z3native.stats_get_key (z3obj_gnc x) (z3obj_gno x) i in
+	  if (Z3native.stats_is_uint (z3obj_gnc x) (z3obj_gno x) i) then
+	    (Entry.create_si k (Z3native.stats_get_uint_value (z3obj_gnc x) (z3obj_gno x) i))
+	  else 
+	    (Entry.create_sd k (Z3native.stats_get_double_value (z3obj_gnc x) (z3obj_gno x) i))
+    ) in
+    mk_list f n
+
+  let get_keys ( x : statistics ) =
+    let n = (get_size x) in
+    let f i = (Z3native.stats_get_key (z3obj_gnc x) (z3obj_gno x) i) in
+    mk_list f n
+	  
+  let get ( x : statistics ) ( key : string ) =
+    let f p c = (if ((Entry.get_key c) == key) then (Some c) else p) in
+    List.fold_left f None (get_entries x)
+end
+
+
 module Solver =
 struct      
   type solver = z3_native_object
@@ -2493,90 +2645,6 @@ struct
     | UNSATISFIABLE -> "unsatisfiable"
     | SATISFIABLE -> "satisfiable" 
     | _ -> "unknown"
-
-  module Statistics =
-  struct	
-    type statistics = z3_native_object
-
-    let create ( ctx : context ) ( no : Z3native.ptr ) = 
-      let res : statistics = { m_ctx = ctx ;
-			       m_n_obj = null ;
-			       inc_ref = Z3native.stats_inc_ref ;
-			       dec_ref = Z3native.stats_dec_ref } in
-      (z3obj_sno res ctx no) ;
-      (z3obj_create res) ;
-      res
-        
-
-    module Entry =
-    struct
-      type statistics_entry = { 
-	mutable m_key : string; 
-	mutable m_is_int : bool ; 
-	mutable m_is_float : bool ; 
-	mutable m_int : int ; 
-	mutable m_float : float }
-	  
-      let create_si k v = 
-	let res : statistics_entry = { 
-	  m_key = k ;
-	  m_is_int = true ;
-	  m_is_float = false ;
-	  m_int = v ;
-	  m_float = 0.0
-	} in
-	res
-
-      let create_sd k v = 
-	let res : statistics_entry = { 
-	  m_key = k ;
-	  m_is_int = false ;
-	  m_is_float = true ;
-	  m_int = 0 ;
-	  m_float = v
-	} in
-	res
-	  
-
-      let get_key (x : statistics_entry) = x.m_key
-      let get_int (x : statistics_entry) = x.m_int	
-      let get_float (x : statistics_entry) = x.m_float
-      let is_int (x : statistics_entry) = x.m_is_int
-      let is_float (x : statistics_entry) = x.m_is_float
-      let to_string_value (x : statistics_entry) = 
-	if (is_int x) then
-	  string_of_int (get_int x)
-	else if (is_float x) then 
-	  string_of_float (get_float x)
-	else
-          raise (Z3native.Exception "Unknown statistical entry type")
-      let to_string ( x : statistics_entry ) = (get_key x) ^ ": " ^ (to_string_value x)
-    end
-
-    let to_string ( x : statistics ) = Z3native.stats_to_string (z3obj_gnc x) (z3obj_gno x)
-      
-    let get_size ( x : statistics ) = Z3native.stats_size (z3obj_gnc x) (z3obj_gno x)
-      
-    let get_entries ( x : statistics ) =
-      let n = (get_size x ) in
-      let f i = (
-	let k = Z3native.stats_get_key (z3obj_gnc x) (z3obj_gno x) i in
-	if (Z3native.stats_is_uint (z3obj_gnc x) (z3obj_gno x) i) then
-	  (Entry.create_si k (Z3native.stats_get_uint_value (z3obj_gnc x) (z3obj_gno x) i))
-	else 
-	  (Entry.create_sd k (Z3native.stats_get_double_value (z3obj_gnc x) (z3obj_gno x) i))
-      ) in
-      mk_list f n
-
-    let get_keys ( x : statistics ) =
-      let n = (get_size x) in
-      let f i = (Z3native.stats_get_key (z3obj_gnc x) (z3obj_gno x) i) in
-      mk_list f n
-	
-    let get ( x : statistics ) ( key : string ) =
-      let f p c = (if ((Entry.get_key c) == key) then (Some c) else p) in
-      List.fold_left f None (get_entries x)
-  end
 
   let get_help ( x : solver ) = Z3native.solver_get_help (z3obj_gnc x) (z3obj_gno x)
 
@@ -2613,10 +2681,8 @@ struct
     (AST.ASTVector.get_size a)
 
   let get_assertions ( x : solver ) =
-    let a = AST.ASTVector.create (z3obj_gc x) (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
-    let n = (AST.ASTVector.get_size a) in
-    let f i = (expr_of_ptr (z3obj_gc x) (z3obj_gno (AST.ASTVector.get a i))) in
-    mk_list f n
+    let av = AST.ASTVector.create (z3obj_gc x) (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
+    (AST.ASTVector.to_expr_list av)
 
   let check ( x : solver ) ( assumptions : expr list ) =
     let r = 
@@ -2646,10 +2712,8 @@ struct
       Some (expr_of_ptr (z3obj_gc x) q)
 	
   let get_unsat_core ( x : solver ) =
-    let cn = AST.ASTVector.create (z3obj_gc x) (Z3native.solver_get_unsat_core (z3obj_gnc x) (z3obj_gno x)) in 
-    let n = (AST.ASTVector.get_size cn) in
-    let f i = (AST.ASTVector.get cn i) in
-    mk_list f n
+    let av = AST.ASTVector.create (z3obj_gc x) (Z3native.solver_get_unsat_core (z3obj_gnc x) (z3obj_gno x)) in 
+    (AST.ASTVector.to_expr_list av)
 
   let get_reason_unknown ( x : solver ) =  Z3native.solver_get_reason_unknown (z3obj_gnc x) (z3obj_gno x)
 
@@ -2720,7 +2784,7 @@ struct
       | _ -> Solver.UNKNOWN
 
   let query_r ( x : fixedpoint ) ( relations : func_decl list ) =
-    let f x = ptr_of_ast (ast_of_func_decl x) in
+    let f x = AST.ptr_of_ast (ast_of_func_decl x) in
     match (lbool_of_int (Z3native.fixedpoint_query_relations (z3obj_gnc x) (z3obj_gno x) (List.length relations) (Array.of_list (List.map f relations)))) with
       | L_TRUE -> Solver.SATISFIABLE
       | L_FALSE -> Solver.UNSATISFIABLE
@@ -2768,18 +2832,26 @@ struct
     Z3native.fixedpoint_to_string (z3obj_gnc x) (z3obj_gno x) (List.length queries) (Array.of_list (List.map f queries))
 
   let get_rules ( x : fixedpoint ) = 
-    let v = (AST.ASTVector.create (z3obj_gc x) (Z3native.fixedpoint_get_rules (z3obj_gnc x) (z3obj_gno x))) in
-    let n = (AST.ASTVector.get_size v) in
-    let f i =(expr_of_ptr (z3obj_gc x) (z3obj_gno (AST.ASTVector.get v i))) in
-    mk_list f n
+    let av = (AST.ASTVector.create (z3obj_gc x) (Z3native.fixedpoint_get_rules (z3obj_gnc x) (z3obj_gno x))) in
+    (AST.ASTVector.to_expr_list av)
 
   let get_assertions ( x : fixedpoint ) = 
-    let v = (AST.ASTVector.create (z3obj_gc x) (Z3native.fixedpoint_get_assertions (z3obj_gnc x) (z3obj_gno x))) in
-    let n = (AST.ASTVector.get_size v) in
-    let f i =(expr_of_ptr (z3obj_gc x) (z3obj_gno (AST.ASTVector.get v i))) in
-    mk_list f n
+    let av = (AST.ASTVector.create (z3obj_gc x) (Z3native.fixedpoint_get_assertions (z3obj_gnc x) (z3obj_gno x))) in
+    (AST.ASTVector.to_expr_list av)
 
   let mk_fixedpoint ( ctx : context ) = create ctx
+
+  let get_statistics ( x : fixedpoint ) =
+    let s = Z3native.fixedpoint_get_statistics (z3obj_gnc x) (z3obj_gno x) in
+    (Statistics.create (z3obj_gc x) s)
+
+  let parse_string ( x : fixedpoint ) ( s : string ) =
+    let av = (AST.ASTVector.create (z3obj_gc x) (Z3native.fixedpoint_from_string (z3obj_gnc x) (z3obj_gno x) s)) in
+    (AST.ASTVector.to_expr_list av)
+
+  let parse_file ( x : fixedpoint ) ( filename : string ) =
+    let av = (AST.ASTVector.create (z3obj_gc x) (Z3native.fixedpoint_from_file (z3obj_gnc x) (z3obj_gno x) filename)) in
+    (AST.ASTVector.to_expr_list av)
 end
 
 
@@ -2790,7 +2862,7 @@ struct
       (List.length assumptions) (let f x = Expr.gno (x) in (Array.of_list (List.map f assumptions)))
       (Expr.gno formula)
 
-  let parse_smtlib_string ( ctx : context ) ( str : string ) ( sort_names : Symbol.symbol list ) ( sorts : sort list ) ( decl_names : Symbol.symbol list ) ( decls : func_decl list ) =
+  let parse_smtlib_string ( ctx : context ) ( str : string ) ( sort_names : Symbol.symbol list ) ( sorts : Sort.sort list ) ( decl_names : Symbol.symbol list ) ( decls : func_decl list ) =
     let csn = (List.length sort_names) in
     let cs = (List.length sorts) in
     let cdn = (List.length decl_names) in
@@ -2799,14 +2871,14 @@ struct
       raise (Z3native.Exception "Argument size mismatch")
     else
       Z3native.parse_smtlib_string (context_gno ctx) str 
-	cs 
-	(Symbol.symbol_lton sort_names)
-	(sort_lton sorts)
-	cd 
-	(Symbol.symbol_lton decl_names)
-	(let f x = FuncDecl.gno x in (Array.of_list (List.map f decls)))
+	    cs 
+	    (Symbol.symbol_lton sort_names)
+	    (Sort.sort_lton sorts)
+	    cd 
+	    (Symbol.symbol_lton decl_names)
+	    (let f x = FuncDecl.gno x in (Array.of_list (List.map f decls)))
 	
-  let parse_smtlib_file ( ctx : context ) ( file_name : string ) ( sort_names : Symbol.symbol list ) ( sorts : sort list ) ( decl_names : Symbol.symbol list ) ( decls : func_decl list ) =
+  let parse_smtlib_file ( ctx : context ) ( file_name : string ) ( sort_names : Symbol.symbol list ) ( sorts : Sort.sort list ) ( decl_names : Symbol.symbol list ) ( decls : func_decl list ) =
     let csn = (List.length sort_names) in
     let cs = (List.length sorts) in
     let cdn = (List.length decl_names) in
@@ -2815,13 +2887,13 @@ struct
       raise (Z3native.Exception "Argument size mismatch")
     else
       Z3native.parse_smtlib_file (context_gno ctx) file_name
-	cs 
-	(Symbol.symbol_lton sort_names)
-	(sort_lton sorts)
-	cd 
-	(Symbol.symbol_lton decl_names)
-	(let f x = FuncDecl.gno x in (Array.of_list (List.map f decls)))
-
+	    cs 
+	    (Symbol.symbol_lton sort_names)
+	    (Sort.sort_lton sorts)
+	    cd 
+	    (Symbol.symbol_lton decl_names)
+	    (let f x = FuncDecl.gno x in (Array.of_list (List.map f decls)))
+        
   let get_num_smtlib_formulas ( ctx : context ) = Z3native.get_smtlib_num_formulas (context_gno ctx)
 
   let get_smtlib_formulas ( ctx : context ) =
@@ -2847,10 +2919,10 @@ struct
     
   let get_smtlib_sorts ( ctx : context ) = 
     let n = (get_num_smtlib_sorts ctx) in
-    let f i = (sort_of_ptr ctx (Z3native.get_smtlib_sort (context_gno ctx) i)) in
+    let f i = (Sort.sort_of_ptr ctx (Z3native.get_smtlib_sort (context_gno ctx) i)) in
     mk_list f n
 
-  let parse_smtlib2_string ( ctx : context ) ( str : string ) ( sort_names : Symbol.symbol list ) ( sorts : sort list ) ( decl_names : Symbol.symbol list ) ( decls : func_decl list ) =
+  let parse_smtlib2_string ( ctx : context ) ( str : string ) ( sort_names : Symbol.symbol list ) ( sorts : Sort.sort list ) ( decl_names : Symbol.symbol list ) ( decls : func_decl list ) =
     let csn = (List.length sort_names) in
     let cs = (List.length sorts) in
     let cdn = (List.length decl_names) in
@@ -2859,14 +2931,14 @@ struct
       raise (Z3native.Exception "Argument size mismatch")
     else
       (expr_of_ptr ctx (Z3native.parse_smtlib2_string (context_gno ctx) str 
-			  cs 
-			  (Symbol.symbol_lton sort_names)
-			  (sort_lton sorts)
-			  cd 
-			  (Symbol.symbol_lton decl_names)
-			  (let f x = FuncDecl.gno x in (Array.of_list (List.map f decls)))))
-	
-  let parse_smtlib2_file ( ctx : context ) ( file_name : string ) ( sort_names : Symbol.symbol list ) ( sorts : sort list ) ( decl_names : Symbol.symbol list ) ( decls : func_decl list ) =
+			              cs 
+			              (Symbol.symbol_lton sort_names)
+			              (Sort.sort_lton sorts)
+			              cd 
+			              (Symbol.symbol_lton decl_names)
+			              (let f x = FuncDecl.gno x in (Array.of_list (List.map f decls)))))
+	    
+  let parse_smtlib2_file ( ctx : context ) ( file_name : string ) ( sort_names : Symbol.symbol list ) ( sorts : Sort.sort list ) ( decl_names : Symbol.symbol list ) ( decls : func_decl list ) =
     let csn = (List.length sort_names) in
     let cs = (List.length sorts) in
     let cdn = (List.length decl_names) in
@@ -2875,12 +2947,12 @@ struct
       raise (Z3native.Exception "Argument size mismatch")
     else
       (expr_of_ptr ctx (Z3native.parse_smtlib2_string (context_gno ctx) file_name
-			  cs 
-			  (Symbol.symbol_lton sort_names)
-			  (sort_lton sorts)
-			  cd 
-			  (Symbol.symbol_lton decl_names)
-			  (let f x = FuncDecl.gno x in (Array.of_list (List.map f decls)))))
+			              cs 
+			              (Symbol.symbol_lton sort_names)
+			              (Sort.sort_lton sorts)
+			              cd 
+			              (Symbol.symbol_lton decl_names)
+			              (let f x = FuncDecl.gno x in (Array.of_list (List.map f decls)))))
 end
 
 module Interpolation = 
@@ -2902,14 +2974,17 @@ struct
     res
 
   let get_interpolant ( ctx : context ) ( pf : expr ) ( pat: expr ) ( p : Params.params ) =
-    (ASTVector.create ctx (Z3native.get_interpolant (context_gno ctx) (Expr.gno pf) (Expr.gno pat) (z3obj_gno p)))
+    let av = (AST.ASTVector.create ctx (Z3native.get_interpolant (context_gno ctx) (Expr.gno pf) (Expr.gno pat) (z3obj_gno p))) in
+    AST.ASTVector.to_expr_list av
       
   let compute_interpolant ( ctx : context ) ( pat : expr ) ( p : Params.params ) =
     let (r, interp, model) = (Z3native.compute_interpolant (context_gno ctx) (Expr.gno pat) (z3obj_gno p)) in
-    match (lbool_of_int r) with
-      | L_TRUE -> ((ASTVector.create ctx interp), (Model.create ctx model))
-      | _ -> raise (Z3native.Exception "Error computing interpolant.")
-      
+    let res = (lbool_of_int r) in
+    match res with
+      | L_TRUE -> (res, None, Some(Model.create ctx model))
+      | L_FALSE -> (res, Some((AST.ASTVector.to_expr_list (AST.ASTVector.create ctx interp))), None)
+      | _ -> (res, None, None)
+       
   let get_interpolation_profile ( ctx : context ) =
     (Z3native.interpolation_profile (context_gno ctx))
       
