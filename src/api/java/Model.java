@@ -273,11 +273,7 @@ public class Model extends Z3Object
 
         ASTVector nUniv = new ASTVector(getContext(), Native.modelGetSortUniverse(
                 getContext().nCtx(), getNativeObject(), s.getNativeObject()));
-        int n = nUniv.size();
-        Expr[] res = new Expr[n];
-        for (int i = 0; i < n; i++)
-            res[i] = Expr.create(getContext(), nUniv.get(i).getNativeObject());
-        return res;
+        return nUniv.ToExprArray();
     }
 
     /**

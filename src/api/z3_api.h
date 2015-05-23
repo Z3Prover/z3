@@ -6022,7 +6022,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief Parse an SMT-LIB2 string with fixedpoint rules. 
        Add the rules to the current fixedpoint context. 
-       Return the set of queries in the file.
+       Return the set of queries in the string.
 
        \param c - context.
        \param f - fixedpoint context.

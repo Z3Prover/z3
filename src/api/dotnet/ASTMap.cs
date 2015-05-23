@@ -98,11 +98,12 @@ namespace Microsoft.Z3
         /// <summary>
         /// The keys stored in the map.
         /// </summary>
-        public ASTVector Keys
+        public AST[] Keys
         {
             get
             {
-                return new ASTVector(Context, Native.Z3_ast_map_keys(Context.nCtx, NativeObject));
+                ASTVector res = new ASTVector(Context, Native.Z3_ast_map_keys(Context.nCtx, NativeObject));
+                return res.ToArray();
             }
         }
 
