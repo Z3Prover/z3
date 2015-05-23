@@ -33,6 +33,8 @@ class inf_int_rational {
     rational m_first;
     int      m_second;
  public:
+    static void init(); // called from rational::initialize() only
+    static void finalize();  // called from rational::finalize() only
 
     unsigned hash() const { 
         return m_first.hash() ^ (static_cast<unsigned>(m_second) + 1);
@@ -272,7 +274,7 @@ class inf_int_rational {
             if (r.m_second >= 0) {
                 return r.m_first;
             }
-            return r.m_first - rational(1);
+            return r.m_first - rational::one();
         }
         
         return floor(r.m_first);
@@ -283,7 +285,7 @@ class inf_int_rational {
             if (r.m_second <= 0) {
                 return r.m_first;
             }
-            return r.m_first + rational(1);
+            return r.m_first + rational::one();
         }
         
         return ceil(r.m_first);

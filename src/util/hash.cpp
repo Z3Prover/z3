@@ -23,7 +23,7 @@ Revision History:
 // I'm using Bob Jenkin's hash function.
 // http://burtleburtle.net/bob/hash/doobs.html
 unsigned string_hash(const char * str, unsigned length, unsigned init_value) {
-    register unsigned a, b, c, len;
+    unsigned a, b, c, len;
 
     /* Set up the internal state */
     len = length;

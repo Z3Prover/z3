@@ -316,7 +316,8 @@ func_decl::func_decl(symbol const & name, unsigned arity, sort * const * domain,
     decl(AST_FUNC_DECL, name, info),
     m_arity(arity),
     m_range(range) {
-    memcpy(const_cast<sort **>(get_domain()), domain, sizeof(sort *) * arity);
+    if (arity != 0)
+        memcpy(const_cast<sort **>(get_domain()), domain, sizeof(sort *) * arity);
 }
 
 // -----------------------------------
@@ -378,8 +379,10 @@ quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sort
 
     memcpy(const_cast<sort **>(get_decl_sorts()), decl_sorts, sizeof(sort *) * num_decls);
     memcpy(const_cast<symbol*>(get_decl_names()), decl_names, sizeof(symbol) * num_decls);
-    memcpy(const_cast<expr **>(get_patterns()), patterns, sizeof(expr *) * num_patterns);
-    memcpy(const_cast<expr **>(get_no_patterns()), no_patterns, sizeof(expr *) * num_no_patterns);
+    if (num_patterns != 0)
+        memcpy(const_cast<expr **>(get_patterns()), patterns, sizeof(expr *) * num_patterns);
+    if (num_no_patterns != 0)
+        memcpy(const_cast<expr **>(get_no_patterns()), no_patterns, sizeof(expr *) * num_no_patterns);
 }
 
 // -----------------------------------

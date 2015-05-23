@@ -33,6 +33,8 @@ class inf_rational {
     rational m_first;
     rational m_second;
  public:
+    static void init(); // called from rational::initialize() only
+    static void finalize();  // called from rational::finalize() only
 
     unsigned hash() const { 
         return m_first.hash() ^ (m_second.hash()+1);
@@ -40,7 +42,7 @@ class inf_rational {
 
     struct hash_proc {  unsigned operator()(inf_rational const& r) const { return r.hash(); }  };
 
-	struct eq_proc { bool operator()(inf_rational const& r1, inf_rational const& r2) const { return r1 == r2; } };
+    struct eq_proc { bool operator()(inf_rational const& r1, inf_rational const& r2) const { return r1 == r2; } };
 
     void swap(inf_rational & n) { 
         m_first.swap(n.m_first);
@@ -82,7 +84,7 @@ class inf_rational {
 
     explicit inf_rational(rational const& r, bool pos_inf):
         m_first(r),
-        m_second(pos_inf?rational(1):rational(-1))
+        m_second(pos_inf ? rational::one() : rational::minus_one())
     {}
 
     inf_rational(rational const& r):
@@ -313,7 +315,7 @@ class inf_rational {
             if (r.m_second.is_nonneg()) {
                 return r.m_first;
             }
-            return r.m_first - rational(1);
+            return r.m_first - rational::one();
         }
         
         return floor(r.m_first);
@@ -324,7 +326,7 @@ class inf_rational {
             if (r.m_second.is_nonpos()) {
                 return r.m_first;
             }
-            return r.m_first + rational(1);
+            return r.m_first + rational::one();
         }
         
         return ceil(r.m_first);
