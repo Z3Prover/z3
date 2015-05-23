@@ -17,16 +17,15 @@ Revision History:
 
 --*/
 #include<float.h>
+#include<sstream>
 
 #ifdef _WINDOWS
 #pragma float_control( except, on )   // exception semantics; this does _not_ mean that exceptions are enabled (we want them off!)
 #pragma float_control( precise, on )  // precise semantics (no guessing!)
 #pragma fp_contract(off)              // contractions off (`contraction' means x*y+z is turned into a fused-mul-add).
 #pragma fenv_access(on)               // fpu environment sensitivity (needed to be allowed to make FPU mode changes).
+#include<amp_math.h>
 #else
-#ifdef _WINDOWS
-#pragma STDC FENV_ACCESS ON
-#endif
 #include <math.h>
 #include <fenv.h>
 #endif
@@ -34,8 +33,6 @@ Revision History:
 #ifndef _M_IA64
 #define USE_INTRINSICS
 #endif
-
-#include<sstream>
 
 #include"hwf.h"
 
