@@ -16,6 +16,7 @@ Author:
 Revision History:
 
 --*/
+#include<math.h>
 #include<float.h>
 #include<sstream>
 
@@ -24,10 +25,8 @@ Revision History:
 #pragma float_control( precise, on )  // precise semantics (no guessing!)
 #pragma fp_contract(off)              // contractions off (`contraction' means x*y+z is turned into a fused-mul-add).
 #pragma fenv_access(on)               // fpu environment sensitivity (needed to be allowed to make FPU mode changes).
-#include<amp_math.h>
 #else
-#include <math.h>
-#include <fenv.h>
+#include<fenv.h>
 #endif
 
 #ifndef _M_IA64
@@ -54,7 +53,7 @@ Revision History:
 
 hwf_manager::hwf_manager() :
     m_mpz_manager(m_mpq_manager)
-{
+{    
 #ifdef _WINDOWS
 #if defined(_AMD64_) || defined(_M_IA64)
     // Precision control is not supported on x64. 
@@ -307,13 +306,27 @@ void hwf_manager::fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf co
     // CMW: fused_mul_add is not available on most CPUs. As of 2012, only Itanium, 
     // Intel Sandybridge and AMD Bulldozers support that (via AVX).
 
-#ifdef _M_IA64
-    // IA64 (Itanium) will do it, if contractions are on.
     set_rounding_mode(rm);
+
+#ifdef _M_IA64
+    // IA64 (Itanium) will do it, if contractions are on.    
     o.value = x.value * y.value + z.value;
 #else
-    set_rounding_mode(rm);
+#if defined(_WINDOWS)    
+#if _MSC_VER >= 1800
+    o.value = ::fma(x.value, y.value, z.value);    
+#else // Windows, older than VS 2013
+  #ifdef USE_INTRINSICS
+      _mm_store_sd(&o.value, _mm_fmadd_sd(_mm_set_sd(x.value), _mm_set_sd(y.value), _mm_set_sd(z.value)));
+  #else
+      // If all else fails, we are imprecise.
+      o.value = (x.value * y.value) + z;
+  #endif
+#endif
+#else
+    // Linux, OSX
     o.value = ::fma(x.value, y.value, z.value);
+#endif
 #endif
 }
 
