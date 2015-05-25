@@ -7808,7 +7808,7 @@ class FPRef(ExprRef):
         return fpLEQ(self, other)
 
     def __lt__(self, other):
-        return fpLEQ(self, other)
+        return fpLT(self, other)
 
     def __ge__(self, other):
         return fpGEQ(self, other)
