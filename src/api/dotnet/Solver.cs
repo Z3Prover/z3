@@ -193,7 +193,7 @@ namespace Microsoft.Z3
                 Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
 
                 ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
-                return (BoolExpr[])assertions.ToExprArray();
+                return assertions.ToBoolExprArray();
             }
         }
 
@@ -273,7 +273,7 @@ namespace Microsoft.Z3
                 Contract.Ensures(Contract.Result<Expr[]>() != null);
 
                 ASTVector core = new ASTVector(Context, Native.Z3_solver_get_unsat_core(Context.nCtx, NativeObject));                
-                return (BoolExpr[])core.ToExprArray();
+                return core.ToBoolExprArray();
             }
         }
 

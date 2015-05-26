@@ -296,7 +296,7 @@ public class Fixedpoint extends Z3Object
     public BoolExpr[] getRules()
     {
         ASTVector v = new ASTVector(getContext(), Native.fixedpointGetRules(getContext().nCtx(), getNativeObject()));
-        return (BoolExpr[]) v.ToExprArray();
+        return v.ToBoolExprArray();
     }
 
     /**
@@ -307,7 +307,7 @@ public class Fixedpoint extends Z3Object
     public BoolExpr[] getAssertions()
     {
         ASTVector v = new ASTVector(getContext(), Native.fixedpointGetAssertions(getContext().nCtx(), getNativeObject()));
-        return (BoolExpr[]) v.ToExprArray();
+        return v.ToBoolExprArray();
     }
 
     /**
@@ -329,7 +329,7 @@ public class Fixedpoint extends Z3Object
     public BoolExpr[] ParseFile(String file)
     {
         ASTVector av = new ASTVector(getContext(), Native.fixedpointFromFile(getContext().nCtx(), getNativeObject(), file));
-        return (BoolExpr[])av.ToExprArray();
+        return av.ToBoolExprArray();
     }
 
     /** 
@@ -340,7 +340,7 @@ public class Fixedpoint extends Z3Object
     public BoolExpr[] ParseString(String s)
     {
         ASTVector av = new ASTVector(getContext(), Native.fixedpointFromString(getContext().nCtx(), getNativeObject(), s));
-        return (BoolExpr[])av.ToExprArray();
+        return av.ToBoolExprArray();
     }
     
 
