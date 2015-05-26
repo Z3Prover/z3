@@ -106,8 +106,12 @@ public class InterpolationContext extends Context
         Native.LongPtr n_i = new Native.LongPtr();
         Native.LongPtr n_m = new Native.LongPtr();
         res.status = Z3_lbool.fromInt(Native.computeInterpolant(nCtx(), pat.getNativeObject(), p.getNativeObject(), n_i, n_m));        
-        if (res.status == Z3_lbool.Z3_L_FALSE)
-            res.interp = (BoolExpr[]) (new ASTVector(this, n_i.value)).ToExprArray();
+        if (res.status == Z3_lbool.Z3_L_FALSE) {
+            Expr[] exps = (new ASTVector(this, n_i.value)).ToExprArray();
+            res.interp = new BoolExpr[exps.length];
+            for (int i = 0; i < exps.length; ++i)
+                res.interp[i] = (BoolExpr) exps[i];
+        }
         if (res.status == Z3_lbool.Z3_L_TRUE) res.model = new Model(this, n_m.value);
         return res;
     }
