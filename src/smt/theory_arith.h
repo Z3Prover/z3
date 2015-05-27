@@ -245,6 +245,8 @@ namespace smt {
             parameter* params(char const* name);
         };
 
+        class gomory_cut_justification;
+
         class bound { 
         protected:
             theory_var  m_var;

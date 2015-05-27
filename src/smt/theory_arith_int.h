@@ -460,13 +460,16 @@ namespace smt {
         SASSERT(is_well_sorted(get_manager(), result));
     }
 
-    class gomory_cut_justification : public ext_theory_propagation_justification {
+    template<typename Ext>
+    class theory_arith<Ext>::gomory_cut_justification : public ext_theory_propagation_justification {
     public:
-        gomory_cut_justification(family_id fid, region & r, 
+         gomory_cut_justification(family_id fid, region & r, 
                                  unsigned num_lits, literal const * lits, 
                                  unsigned num_eqs, enode_pair const * eqs,
+                                 antecedents& bounds, 
                                  literal consequent):
-            ext_theory_propagation_justification(fid, r, num_lits, lits, num_eqs, eqs, consequent) {
+        ext_theory_propagation_justification(fid, r, num_lits, lits, num_eqs, eqs, consequent,
+                                             bounds.num_params(), bounds.params("gomory-cut")) {
         }
         // Remark: the assignment must be propagated back to arith
         virtual theory_id get_from_theory() const { return null_theory_id; } 
@@ -530,7 +533,7 @@ namespace smt {
                         }
                         // k += new_a_ij * lower_bound(x_j).get_rational();
                         k.addmul(new_a_ij, lower_bound(x_j).get_rational());
-                        lower(x_j)->push_justification(ante, numeral::zero(), coeffs_enabled());
+                        lower(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
                     }
                     else {
                         SASSERT(at_upper(x_j));
@@ -546,7 +549,7 @@ namespace smt {
                         }
                         // k += new_a_ij * upper_bound(x_j).get_rational();
                         k.addmul(new_a_ij, upper_bound(x_j).get_rational());
-                        upper(x_j)->push_justification(ante, numeral::zero(), coeffs_enabled());
+                        upper(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
                     }
                     pol.push_back(row_entry(new_a_ij, x_j));
                 }
@@ -571,7 +574,7 @@ namespace smt {
                             }
                             // k += new_a_ij * lower_bound(x_j).get_rational();
                             k.addmul(new_a_ij, lower_bound(x_j).get_rational());
-                            lower(x_j)->push_justification(ante, numeral::zero(), coeffs_enabled());
+                            lower(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
                         }
                         else {
                             SASSERT(at_upper(x_j));
@@ -584,7 +587,7 @@ namespace smt {
                             new_a_ij.neg(); // the upper terms are inverted
                             // k += new_a_ij * upper_bound(x_j).get_rational();
                             k.addmul(new_a_ij, upper_bound(x_j).get_rational());
-                            upper(x_j)->push_justification(ante, numeral::zero(), coeffs_enabled());
+                            upper(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
                         }
                         TRACE("gomory_cut_detail", tout << "new_a_ij: " << new_a_ij << "\n";);
                         pol.push_back(row_entry(new_a_ij, x_j));
@@ -600,7 +603,7 @@ namespace smt {
         if (pol.empty()) {
             SASSERT(k.is_pos());
             // conflict 0 >= k where k is positive
-            set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), ante, true, "gomory_cut");
+            set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), ante, true, "gomory-cut");
             return true;
         }
         else if (pol.size() == 1) {
@@ -652,7 +655,7 @@ namespace smt {
                        gomory_cut_justification(
                            get_id(), ctx.get_region(), 
                            ante.lits().size(), ante.lits().c_ptr(), 
-                           ante.eqs().size(), ante.eqs().c_ptr(), l)));
+                           ante.eqs().size(), ante.eqs().c_ptr(), ante, l)));
         return true;
     }
     
