@@ -439,6 +439,7 @@ namespace smt {
                     j += rational(1);
                 }
                 ctx.mk_th_axiom(get_id(), lits.size(), lits.begin());
+                
 #else
                 // performs slightly worse.
                 literal_buffer lits;
@@ -2788,6 +2789,7 @@ namespace smt {
               tout << " --> ";
               ctx.display_detailed_literal(tout, l); 
               tout << "\n";);
+        SASSERT(false);
         if (ante.lits().size() < small_lemma_size() && ante.eqs().empty()) {
             literal_vector & lits = m_tmp_literal_vector2;
             lits.reset();

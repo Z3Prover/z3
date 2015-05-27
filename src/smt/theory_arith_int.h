@@ -1061,6 +1061,7 @@ namespace smt {
                 }
                 if (!failed) {
                     m_solver.assert_eq(as.size(), as.c_ptr(), xs.c_ptr(), c, j);
+                    TRACE("euclidean_solver", tout << "add definition: v" << v << " := " << mk_ismt2_pp(n, t.get_manager()) << "\n";);
                 }
                 else {
                     TRACE("euclidean_solver", tout << "failed for:\n" << mk_ismt2_pp(n, t.get_manager()) << "\n";);
@@ -1191,7 +1192,8 @@ namespace smt {
                 if (l != 0) {
                     rational l_old = l->get_value().get_rational().to_rational();
                     rational l_new = g*ceil((l_old - c2)/g) + c2;
-                    TRACE("euclidean_solver_new", tout << "new lower: " << l_new << " old: " << l_old << "\n";);
+                    TRACE("euclidean_solver_new", tout << "new lower: " << l_new << " old: " << l_old << "\n";
+                          tout << "c: " << c2 << " ceil((l_old - c2)/g): " << (ceil((l_old - c2)/g)) << "\n";);
                     if (l_new > l_old) {
                         propagated = true;
                         mk_lower(v, l_new, l, m_js);
