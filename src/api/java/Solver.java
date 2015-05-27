@@ -188,7 +188,7 @@ public class Solver extends Z3Object
     public BoolExpr[] getAssertions()
     {
         ASTVector assrts = new ASTVector(getContext(), Native.solverGetAssertions(getContext().nCtx(), getNativeObject()));
-        return (BoolExpr[]) assrts.ToExprArray();
+        return assrts.ToBoolExprArray();
     }
 
     /**
@@ -280,7 +280,7 @@ public class Solver extends Z3Object
     {
 
         ASTVector core = new ASTVector(getContext(), Native.solverGetUnsatCore(getContext().nCtx(), getNativeObject()));        
-        return (BoolExpr[])core.ToExprArray();
+        return core.ToBoolExprArray();
     }
 
     /**

@@ -35,9 +35,9 @@ Notes:
 tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = using_params(and_then(mk_simplify_tactic(m),
                                         cond(mk_is_qfbv_probe(),  mk_qfbv_tactic(m),
-                                        cond(mk_is_qfaufbv_probe(), mk_qfaufbv_tactic(m),
-                                        cond(mk_is_qfauflia_probe(), mk_qfauflia_tactic(m),
+                                        cond(mk_is_qfaufbv_probe(), mk_qfaufbv_tactic(m),                                        
                                         cond(mk_is_qflia_probe(), mk_qflia_tactic(m),
+                                        cond(mk_is_qfauflia_probe(), mk_qfauflia_tactic(m),
                                         cond(mk_is_qflra_probe(), mk_qflra_tactic(m),
                                         cond(mk_is_qfnra_probe(), mk_qfnra_tactic(m),
                                         cond(mk_is_qfnia_probe(), mk_qfnia_tactic(m),

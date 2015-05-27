@@ -112,7 +112,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Translates an AST vector into an Expr[]
+        /// Translates an ASTVector into an Expr[]
         /// </summary>    
         public Expr[] ToExprArray()
         {
@@ -120,6 +120,114 @@ namespace Microsoft.Z3
             Expr[] res = new Expr[n];
             for (uint i = 0; i < n; i++)
                 res[i] = Expr.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
+        /// <summary>
+        /// Translates an ASTVector into a BoolExpr[]
+        /// </summary>    
+        public BoolExpr[] ToBoolExprArray()
+        {
+            uint n = Size;
+            BoolExpr[] res = new BoolExpr[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = (BoolExpr) Expr.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
+        /// <summary>
+        /// Translates an ASTVector into a BitVecExpr[]
+        /// </summary>    
+        public BitVecExpr[] ToBitVecExprArray()
+        {
+            uint n = Size;
+            BitVecExpr[] res = new BitVecExpr[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = (BitVecExpr)Expr.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
+        /// <summary>
+        /// Translates an ASTVector into a ArithExpr[]
+        /// </summary>    
+        public ArithExpr[] ToArithExprArray()
+        {
+            uint n = Size;
+            ArithExpr[] res = new ArithExpr[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = (ArithExpr)Expr.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
+        /// <summary>
+        /// Translates an ASTVector into a ArrayExpr[]
+        /// </summary>    
+        public ArrayExpr[] ToArrayExprArray()
+        {
+            uint n = Size;
+            ArrayExpr[] res = new ArrayExpr[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = (ArrayExpr)Expr.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
+        /// <summary>
+        /// Translates an ASTVector into a DatatypeExpr[]
+        /// </summary>    
+        public DatatypeExpr[] ToDatatypeExprArray()
+        {
+            uint n = Size;
+            DatatypeExpr[] res = new DatatypeExpr[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = (DatatypeExpr)Expr.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
+        /// <summary>
+        /// Translates an ASTVector into a FPExpr[]
+        /// </summary>    
+        public FPExpr[] ToFPExprArray()
+        {
+            uint n = Size;
+            FPExpr[] res = new FPExpr[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = (FPExpr)Expr.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
+        /// <summary>
+        /// Translates an ASTVector into a FPRMExpr[]
+        /// </summary>    
+        public FPRMExpr[] ToFPRMExprArray()
+        {
+            uint n = Size;
+            FPRMExpr[] res = new FPRMExpr[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = (FPRMExpr)Expr.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
+        /// <summary>
+        /// Translates an ASTVector into a IntExpr[]
+        /// </summary>    
+        public IntExpr[] ToIntExprArray()
+        {
+            uint n = Size;
+            IntExpr[] res = new IntExpr[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = (IntExpr)Expr.Create(this.Context, this[i].NativeObject);
+            return res;
+        }
+
+        /// <summary>
+        /// Translates an ASTVector into a RealExpr[]
+        /// </summary>    
+        public RealExpr[] ToRealExprArray()
+        {
+            uint n = Size;
+            RealExpr[] res = new RealExpr[n];
+            for (uint i = 0; i < n; i++)
+                res[i] = (RealExpr)Expr.Create(this.Context, this[i].NativeObject);
             return res;
         }
 
