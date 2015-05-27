@@ -18,9 +18,9 @@ Revision History:
 --*/
 #include"inf_rational.h"
 
-inf_rational inf_rational::m_zero(0);
-inf_rational inf_rational::m_one(1);
-inf_rational inf_rational::m_minus_one(-1);
+inf_rational inf_rational::m_zero;
+inf_rational inf_rational::m_one;
+inf_rational inf_rational::m_minus_one;
 
 inf_rational inf_mult(inf_rational const& r1, inf_rational const& r2) 
 {
@@ -128,7 +128,7 @@ inf_rational inf_power(inf_rational const& r, unsigned n)
         // 0 will work.
     }
     else if (r.m_first.is_zero()) {
-        result.m_first = rational(-1);        
+        result.m_first = rational::minus_one();
     }
     else if (r.m_first.is_pos()) {
         result.m_first = rational(r.m_first - r.m_first/rational(2)).expt(n);
@@ -152,7 +152,7 @@ inf_rational sup_power(inf_rational const& r, unsigned n)
         result.m_first = r.m_first.expt(n);
     }
     else if (r.m_first.is_zero() || (n == 0)) {
-        result.m_first = rational(1);        
+        result.m_first = rational::one();
     }
     else if (r.m_first.is_pos() || is_even) {
         result.m_first = rational(r.m_first + r.m_first/rational(2)).expt(n);
@@ -176,4 +176,24 @@ inf_rational sup_root(inf_rational const& r, unsigned n)
     SASSERT(!r.is_neg());
     // use r.
     return r;
+}
+
+void initialize_inf_rational() {
+    inf_rational::init();
+}
+
+void inf_rational::init() {
+    m_zero.m_first = rational::zero();
+    m_one.m_first = rational::one();
+    m_minus_one.m_first = rational::minus_one();
+}
+
+void finalize_inf_rational() {
+    inf_rational::finalize();
+}
+
+void inf_rational::finalize() {
+    m_zero.~inf_rational();
+    m_one.~inf_rational();
+    m_minus_one.~inf_rational();
 }

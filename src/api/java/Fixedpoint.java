@@ -295,14 +295,8 @@ public class Fixedpoint extends Z3Object
      **/
     public BoolExpr[] getRules()
     {
-
-        ASTVector v = new ASTVector(getContext(), Native.fixedpointGetRules(
-                getContext().nCtx(), getNativeObject()));
-        int n = v.size();
-        BoolExpr[] res = new BoolExpr[n];
-        for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(getContext(), v.get(i).getNativeObject());
-        return res;
+        ASTVector v = new ASTVector(getContext(), Native.fixedpointGetRules(getContext().nCtx(), getNativeObject()));
+        return v.ToBoolExprArray();
     }
 
     /**
@@ -312,14 +306,8 @@ public class Fixedpoint extends Z3Object
      **/
     public BoolExpr[] getAssertions()
     {
-
-        ASTVector v = new ASTVector(getContext(), Native.fixedpointGetAssertions(
-                getContext().nCtx(), getNativeObject()));
-        int n = v.size();
-        BoolExpr[] res = new BoolExpr[n];
-        for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(getContext(), v.get(i).getNativeObject());
-        return res;
+        ASTVector v = new ASTVector(getContext(), Native.fixedpointGetAssertions(getContext().nCtx(), getNativeObject()));
+        return v.ToBoolExprArray();
     }
 
     /**
@@ -327,12 +315,34 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Statistics getStatistics() throws Z3Exception
+    public Statistics getStatistics()
     {
         return new Statistics(getContext(), Native.fixedpointGetStatistics(
                 getContext().nCtx(), getNativeObject()));
     }
 
+    /** 
+     * Parse an SMT-LIB2 file with fixedpoint rules. 
+     * Add the rules to the current fixedpoint context. 
+     * Return the set of queries in the file.
+     **/        
+    public BoolExpr[] ParseFile(String file)
+    {
+        ASTVector av = new ASTVector(getContext(), Native.fixedpointFromFile(getContext().nCtx(), getNativeObject(), file));
+        return av.ToBoolExprArray();
+    }
+
+    /** 
+     * Parse an SMT-LIB2 string with fixedpoint rules. 
+     * Add the rules to the current fixedpoint context. 
+     * Return the set of queries in the file.
+     **/ 
+    public BoolExpr[] ParseString(String s)
+    {
+        ASTVector av = new ASTVector(getContext(), Native.fixedpointFromString(getContext().nCtx(), getNativeObject(), s));
+        return av.ToBoolExprArray();
+    }
+    
 
     Fixedpoint(Context ctx, long obj) throws Z3Exception
     {

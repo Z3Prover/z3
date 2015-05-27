@@ -73,18 +73,14 @@ public class InterpolationContext extends Context
      * well documented.
      * @throws Z3Exception 
      **/
-    public Expr[] GetInterpolant(Expr pf, Expr pat, Params p)
+    public BoolExpr[] GetInterpolant(Expr pf, Expr pat, Params p)
     {
         checkContextMatch(pf);
         checkContextMatch(pat);
         checkContextMatch(p);
 
         ASTVector seq = new ASTVector(this, Native.getInterpolant(nCtx(), pf.getNativeObject(), pat.getNativeObject(), p.getNativeObject()));
-        int n = seq.size();
-        Expr[] res = new Expr[n];
-        for (int i = 0; i < n; i++)
-            res[i] = Expr.create(this, seq.get(i).getNativeObject());
-        return res;
+        return seq.ToBoolExprArray();
     }
 
     public class ComputeInterpolantResult 
@@ -110,13 +106,10 @@ public class InterpolationContext extends Context
         Native.LongPtr n_i = new Native.LongPtr();
         Native.LongPtr n_m = new Native.LongPtr();
         res.status = Z3_lbool.fromInt(Native.computeInterpolant(nCtx(), pat.getNativeObject(), p.getNativeObject(), n_i, n_m));        
-        if (res.status == Z3_lbool.Z3_L_FALSE) {xx
-	    res.interp = new BoolExpr[Native.astVectorSize(nCtx(), n_i.value)];
-	    for (int i = 0; i < res.interp.Length; ++i) {
-		res.interp[i] = new BoolExpr(this, Native.astVectorGet(nCtx(), i));
-	    }
-	}
-        if (res.status == Z3_lbool.Z3_L_TRUE) res.model = new Model(this, n_m.value);
+        if (res.status == Z3_lbool.Z3_L_FALSE)
+            res.interp = (new ASTVector(this, n_i.value)).ToBoolExprArray();
+        if (res.status == Z3_lbool.Z3_L_TRUE) 
+            res.model = new Model(this, n_m.value);
         return res;
     }
 
@@ -143,7 +136,7 @@ public class InterpolationContext extends Context
     /// Remarks: For more information on interpolation please refer
     /// too the function Z3_check_interpolant in the C/C++ API, which is 
     /// well documented.
-    public CheckInterpolantResult CheckInterpolant(Expr[] cnsts, int[] parents, Expr[] interps, String error, Expr[] theory)
+    public CheckInterpolantResult CheckInterpolant(Expr[] cnsts, int[] parents, BoolExpr[] interps, String error, Expr[] theory)
     {
         CheckInterpolantResult res = new CheckInterpolantResult();
         Native.StringPtr n_err_str = new Native.StringPtr();

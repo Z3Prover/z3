@@ -265,12 +265,8 @@ namespace Microsoft.Z3
             Contract.Requires(s != null);
             Contract.Ensures(Contract.Result<Expr[]>() != null);
 
-            ASTVector nUniv = new ASTVector(Context, Native.Z3_model_get_sort_universe(Context.nCtx, NativeObject, s.NativeObject));
-            uint n = nUniv.Size;
-            Expr[] res = new Expr[n];
-            for (uint i = 0; i < n; i++)
-                res[i] = Expr.Create(Context, nUniv[i].NativeObject);
-            return res;
+            ASTVector av = new ASTVector(Context, Native.Z3_model_get_sort_universe(Context.nCtx, NativeObject, s.NativeObject));            
+            return av.ToExprArray();
         }
 
         /// <summary>

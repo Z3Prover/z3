@@ -79,7 +79,7 @@ namespace simplex {
     void sparse_matrix<Ext>::_row::del_row_entry(unsigned idx) {
         _row_entry & t = m_entries[idx];
         SASSERT(!t.is_dead());
-        t.m_next_free_row_entry_idx = m_first_free_idx;
+        t.m_next_free_row_entry_idx = (unsigned)m_first_free_idx;
         t.m_var = dead_id;
         m_size--;
         m_first_free_idx = idx;
@@ -513,8 +513,8 @@ namespace simplex {
             SASSERT(!m.is_zero(e.m_coeff));            
             SASSERT(e.m_var != dead_id);
             col_entry const& c = m_columns[e.m_var].m_entries[e.m_col_idx];
-            SASSERT(c.m_row_id == row_id);
-            SASSERT(c.m_row_idx == i);
+            SASSERT((unsigned)c.m_row_id == row_id);
+            SASSERT((unsigned)c.m_row_idx == i);
             vars.insert(e.m_var);
         }                  
         int idx = r.m_first_free_idx;
@@ -544,7 +544,7 @@ namespace simplex {
             _row const& row = m_rows[c.m_row_id];
             _row_entry const& r = row.m_entries[c.m_row_idx];
             SASSERT(r.m_var == v); 
-            SASSERT(r.m_col_idx == i);
+            SASSERT((unsigned)r.m_col_idx == i);
             rows.insert(c.m_row_id);
         }                           
         int idx = col.m_first_free_idx;

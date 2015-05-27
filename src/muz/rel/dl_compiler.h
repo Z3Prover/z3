@@ -135,7 +135,7 @@ namespace datalog {
 
         reg_idx get_fresh_register(const relation_signature & sig);
         reg_idx get_register(const relation_signature & sig, bool reuse, reg_idx r);
-        reg_idx get_single_column_register(const relation_sort & s);
+        reg_idx get_single_column_register(const relation_sort s);
 
         /**
            \brief Allocate registers for predicates in \c pred and add them into the \c regs map.
@@ -150,7 +150,7 @@ namespace datalog {
             const unsigned_vector & removed_cols, reg_idx & result, bool reuse_t1, instruction_block & acc);
         void make_filter_interpreted_and_project(reg_idx src, app_ref & cond,
             const unsigned_vector & removed_cols, reg_idx & result, bool reuse, instruction_block & acc);
-        void make_select_equal_and_project(reg_idx src, const relation_element & val, unsigned col,
+        void make_select_equal_and_project(reg_idx src, const relation_element val, unsigned col,
             reg_idx & result, bool reuse, instruction_block & acc);
         /**
            \brief Create add an union or widen operation and put it into \c acc.
@@ -174,10 +174,10 @@ namespace datalog {
 
         void make_dealloc_non_void(reg_idx r, instruction_block & acc);
 
-        void make_add_constant_column(func_decl* pred, reg_idx src, const relation_sort & s, const relation_element & val,
+        void make_add_constant_column(func_decl* pred, reg_idx src, const relation_sort s, const relation_element val,
             reg_idx & result, bool & dealloc, instruction_block & acc);
 
-        void make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort & s, reg_idx & result, 
+        void make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort s, reg_idx & result,
             bool & dealloc, instruction_block & acc);
         void make_full_relation(func_decl* pred, const relation_signature & sig, reg_idx & result, 
             instruction_block & acc);

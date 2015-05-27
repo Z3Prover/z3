@@ -92,10 +92,10 @@ class ASTMap extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public ASTVector getKeys()
+    public AST[] getKeys()
     {
-        return new ASTVector(getContext(), Native.astMapKeys(getContext().nCtx(),
-                getNativeObject()));
+        ASTVector av = new ASTVector(getContext(), Native.astMapKeys(getContext().nCtx(), getNativeObject()));
+        return av.ToArray();
     }
 
     /**

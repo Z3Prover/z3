@@ -48,19 +48,31 @@ void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
     SASSERT(is_app_of(a, m_plugin->get_family_id(), OP_FPA_FP));
     SASSERT(is_app_of(b, m_plugin->get_family_id(), OP_FPA_FP));
 
-    expr_ref sgn(m), s(m), e(m);
-    m_simp.mk_eq(to_app(a)->get_arg(0), to_app(b)->get_arg(0), sgn);
-    m_simp.mk_eq(to_app(a)->get_arg(1), to_app(b)->get_arg(1), e);
-    m_simp.mk_eq(to_app(a)->get_arg(2), to_app(b)->get_arg(2), s);
+    TRACE("fpa2bv", tout << "mk_eq a=" << mk_ismt2_pp(a, m) << std::endl;
+                    tout << "mk_eq b=" << mk_ismt2_pp(b, m) << std::endl;);
+
+    expr_ref eq_sgn(m), eq_exp(m), eq_sig(m);
+    m_simp.mk_eq(to_app(a)->get_arg(0), to_app(b)->get_arg(0), eq_sgn);
+    m_simp.mk_eq(to_app(a)->get_arg(1), to_app(b)->get_arg(1), eq_exp);
+    m_simp.mk_eq(to_app(a)->get_arg(2), to_app(b)->get_arg(2), eq_sig);
+
+    dbg_decouple("fpa2bv_eq_sgn", eq_sgn);
+    dbg_decouple("fpa2bv_eq_exp", eq_exp);
+    dbg_decouple("fpa2bv_eq_sig", eq_sig);
+
+    expr_ref both_the_same(m);
+    m_simp.mk_and(eq_sgn, eq_exp, eq_sig, both_the_same);
+    dbg_decouple("fpa2bv_eq_both_the_same", both_the_same);
 
     // The SMT FPA theory asks for _one_ NaN value, but the bit-blasting
     // has many, like IEEE754. This encoding of equality makes it look like
     // a single NaN again. 
-    expr_ref both_the_same(m), a_is_nan(m), b_is_nan(m), both_are_nan(m);
-    m_simp.mk_and(sgn, s, e, both_the_same);
+    expr_ref a_is_nan(m), b_is_nan(m), both_are_nan(m);    
     mk_is_nan(a, a_is_nan);
     mk_is_nan(b, b_is_nan);
     m_simp.mk_and(a_is_nan, b_is_nan, both_are_nan);
+    dbg_decouple("fpa2bv_eq_both_are_nan", both_are_nan);
+
     m_simp.mk_or(both_are_nan, both_the_same, result);
 }
 
@@ -2051,6 +2063,7 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
         expr_ref sgn(m), sig(m), exp(m), lz(m);
         unpack(x, sgn, sig, exp, lz, true);
 
+        dbg_decouple("fpa2bv_to_float_x_sgn", sgn);
         dbg_decouple("fpa2bv_to_float_x_sig", sig);
         dbg_decouple("fpa2bv_to_float_x_exp", exp);
         dbg_decouple("fpa2bv_to_float_lz", lz);
@@ -2068,13 +2081,17 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
             // make sure that sig has at least to_sbits + 3
             res_sig = m_bv_util.mk_concat(sig, m_bv_util.mk_numeral(0, to_sbits + 3 - from_sbits));
         }
-        else if (from_sbits >(to_sbits + 3)) {
+        else if (from_sbits > (to_sbits + 3)) {
             // collapse the extra bits into a sticky bit.
             expr_ref sticky(m), low(m), high(m);
-            low = m_bv_util.mk_extract(from_sbits - to_sbits - 3, 0, sig);
             high = m_bv_util.mk_extract(from_sbits - 1, from_sbits - to_sbits - 2, sig);
+            SASSERT(m_bv_util.get_bv_size(high) == to_sbits + 2);
+            low = m_bv_util.mk_extract(from_sbits - to_sbits - 3, 0, sig);            
             sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, low.get());
-            res_sig = m_bv_util.mk_concat(high, sticky);
+            SASSERT(m_bv_util.get_bv_size(sticky) == 1);
+            dbg_decouple("fpa2bv_to_float_sticky", sticky);
+            res_sig = m_bv_util.mk_concat(high, sticky);            
+            SASSERT(m_bv_util.get_bv_size(res_sig) == to_sbits + 3);
         }
         else
             res_sig = sig;
@@ -2083,8 +2100,9 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
         unsigned sig_sz = m_bv_util.get_bv_size(res_sig);
         SASSERT(sig_sz == to_sbits + 4);
 
-        expr_ref exponent_overflow(m);
+        expr_ref exponent_overflow(m), exponent_underflow(m);
         exponent_overflow = m.mk_false();
+        exponent_underflow = m.mk_false();
 
         if (from_ebits < (to_ebits + 2)) {
             res_exp = m_bv_util.mk_sign_extend(to_ebits - from_ebits + 2, exp);
@@ -2094,37 +2112,58 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
             lz_ext = m_bv_util.mk_zero_extend(to_ebits - from_ebits + 2, lz);
             res_exp = m_bv_util.mk_bv_sub(res_exp, lz_ext);
         }
-        else if (from_ebits >(to_ebits + 2)) {
-            expr_ref high(m), low(m), lows(m), high_red_or(m), high_red_and(m), h_or_eq(m), h_and_eq(m);
-            expr_ref no_ovf(m), zero1(m), s_is_one(m), s_is_zero(m);
-            high = m_bv_util.mk_extract(from_ebits - 1, to_ebits + 2, exp);
-            low = m_bv_util.mk_extract(to_ebits + 1, 0, exp);
-            lows = m_bv_util.mk_extract(to_ebits + 1, to_ebits + 1, low);
-
-            high_red_or = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, high.get());
-            high_red_and = m.mk_app(m_bv_util.get_fid(), OP_BREDAND, high.get());
-
-            zero1 = m_bv_util.mk_numeral(0, 1);
-            m_simp.mk_eq(high_red_and, one1, h_and_eq);
-            m_simp.mk_eq(high_red_or, zero1, h_or_eq);
-            m_simp.mk_eq(lows, zero1, s_is_zero);
-            m_simp.mk_eq(lows, one1, s_is_one);
-
-            expr_ref c2(m);
-            m_simp.mk_ite(h_or_eq, s_is_one, m.mk_false(), c2);
-            m_simp.mk_ite(h_and_eq, s_is_zero, c2, exponent_overflow);
-
-            // Note: Upon overflow, we _could_ try to shift the significand around...
-
-            // subtract lz for subnormal numbers.
-            expr_ref lz_ext(m), lz_rest(m), lz_redor(m), lz_redor_bool(m);
-            lz_ext = m_bv_util.mk_extract(to_ebits + 1, 0, lz);
+        else if (from_ebits > (to_ebits + 2)) {            
+            expr_ref lz_rest(m), lz_redor(m), lz_redor_bool(m);            
             lz_rest = m_bv_util.mk_extract(from_ebits - 1, to_ebits + 2, lz);
             lz_redor = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, lz_rest.get());
             m_simp.mk_eq(lz_redor, one1, lz_redor_bool);
-            m_simp.mk_or(exponent_overflow, lz_redor_bool, exponent_overflow);
+            dbg_decouple("fpa2bv_to_float_exp_lz_redor", lz_redor);
 
-            res_exp = m_bv_util.mk_bv_sub(low, lz_ext);
+            // subtract lz for subnormal numbers.
+            expr_ref exp_sub_lz(m);
+            exp_sub_lz = m_bv_util.mk_bv_sub(exp, lz);
+            dbg_decouple("fpa2bv_to_float_exp_sub_lz", exp_sub_lz);
+
+            expr_ref high(m), low(m), low_msb(m);
+            expr_ref no_ovf(m), zero1(m);
+            high = m_bv_util.mk_extract(from_ebits - 1, to_ebits + 2, exp_sub_lz);
+            low = m_bv_util.mk_extract(to_ebits + 1, 0, exp_sub_lz);
+            low_msb = m_bv_util.mk_extract(to_ebits + 1, to_ebits + 1, low);
+            dbg_decouple("fpa2bv_to_float_exp_high", high);
+            dbg_decouple("fpa2bv_to_float_exp_low", low);
+            dbg_decouple("fpa2bv_to_float_exp_low_msb", low_msb);
+            
+            res_exp = low;
+
+            expr_ref high_red_or(m), high_red_and(m);
+            high_red_or = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, high.get());
+            high_red_and = m.mk_app(m_bv_util.get_fid(), OP_BREDAND, high.get());
+
+            expr_ref h_or_eq_0(m), h_and_eq_1(m), low_msb_is_one(m), low_msb_is_zero(m);
+            zero1 = m_bv_util.mk_numeral(0, 1);
+            m_simp.mk_eq(high_red_and, one1, h_and_eq_1);
+            m_simp.mk_eq(high_red_or, zero1, h_or_eq_0);
+            m_simp.mk_eq(low_msb, zero1, low_msb_is_zero);
+            m_simp.mk_eq(low_msb, one1, low_msb_is_one);
+            dbg_decouple("fpa2bv_to_float_exp_h_and_eq_1", h_and_eq_1);
+            dbg_decouple("fpa2bv_to_float_exp_h_or_eq_0", h_or_eq_0);
+            dbg_decouple("fpa2bv_to_float_exp_s_is_zero", low_msb_is_zero);
+            dbg_decouple("fpa2bv_to_float_exp_s_is_one", low_msb_is_one);
+            
+            m_simp.mk_and(h_or_eq_0, low_msb_is_one, exponent_underflow);
+            m_simp.mk_and(h_and_eq_1, low_msb_is_zero, exponent_overflow);
+            m_simp.mk_or(exponent_overflow, lz_redor_bool, exponent_overflow);
+            dbg_decouple("fpa2bv_to_float_exp_ovf", exponent_overflow);
+            dbg_decouple("fpa2bv_to_float_exp_udf", exponent_underflow);
+
+            // exponent underflow means that the result is the smallest 
+            // representable float, rounded according to rm.            
+            m_simp.mk_ite(exponent_underflow, 
+                                m_bv_util.mk_concat(m_bv_util.mk_numeral(1, 1),
+                                                    m_bv_util.mk_numeral(1, to_ebits+1)), 
+                                res_exp, 
+                                res_exp);
+            m_simp.mk_ite(exponent_underflow, m_bv_util.mk_numeral(1, to_sbits+4), res_sig, res_sig);
         }
         else // from_ebits == (to_ebits + 2)
             res_exp = m_bv_util.mk_bv_sub(exp, lz);
@@ -2143,8 +2182,7 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
         m_simp.mk_eq(sgn, one1, is_neg);
         mk_ite(is_neg, ninf, pinf, sig_inf);
 
-        dbg_decouple("fpa2bv_to_float_exp_ovf", exponent_overflow);
-        mk_ite(exponent_overflow, sig_inf, rounded, v6);
+        mk_ite(exponent_overflow, sig_inf, rounded, v6);        
 
         // And finally, we tie them together.
         mk_ite(c5, v5, v6, result);
@@ -3044,13 +3082,6 @@ void fpa2bv_converter::mk_is_nan(expr * e, expr_ref & result) {
     m_simp.mk_not(sig_is_zero, sig_is_not_zero);
     m_simp.mk_eq(exp, top_exp, exp_is_top);
     m_simp.mk_and(exp_is_top, sig_is_not_zero, result);
-
-    // Inject auxiliary lemmas that fix e to the one and only NaN value, 
-    // that is (= e (fp #b0 #b1...1 #b0...01)), so that the value propagation
-    // has a value to propagate.
-    m_extra_assertions.push_back(m.mk_eq(sgn, m_bv_util.mk_numeral(0, 1)));
-    m_extra_assertions.push_back(m.mk_eq(exp, top_exp));
-    m_extra_assertions.push_back(m.mk_eq(sig, m_bv_util.mk_numeral(1, m_bv_util.get_bv_size(sig))));
 }
 
 void fpa2bv_converter::mk_is_inf(expr * e, expr_ref & result) {
