@@ -203,7 +203,12 @@ namespace z3 {
            and in \c ts the predicates for testing if terms of the enumeration sort correspond to an enumeration.
         */
         sort enumeration_sort(char const * name, unsigned n, char const * const * enum_names, func_decl_vector & cs, func_decl_vector & ts);
-        
+        /**
+           \brief create an uninterpreted sort with the name given by the string or symbol.
+         */
+        sort uninterpreted_sort(char const* name);
+        sort uninterpreted_sort(symbol const& name);
+
         func_decl function(symbol const & name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(char const * name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(symbol const&  name, sort_vector const& domain, sort const& range);
@@ -1636,6 +1641,13 @@ namespace z3 {
         check_error();
         for (unsigned i = 0; i < n; i++) { cs.push_back(func_decl(*this, _cs[i])); ts.push_back(func_decl(*this, _ts[i])); }
         return s;
+    }
+    inline sort context::uninterpreted_sort(char const* name) {
+        Z3_symbol _name = Z3_mk_string_symbol(*this, name);
+        return to_sort(*this, Z3_mk_uninterpreted_sort(*this, _name));
+    }
+    inline sort context::uninterpreted_sort(symbol const& name) {
+        return to_sort(*this, Z3_mk_uninterpreted_sort(*this, name));
     }
 
     inline func_decl context::function(symbol const & name, unsigned arity, sort const * domain, sort const & range) {
