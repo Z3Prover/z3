@@ -85,7 +85,7 @@ namespace datalog {
             removed_cols.size(), removed_cols.c_ptr(), result));
     }
 
-    void compiler::make_select_equal_and_project(reg_idx src, const relation_element & val, unsigned col,
+    void compiler::make_select_equal_and_project(reg_idx src, const relation_element val, unsigned col,
             reg_idx & result, bool reuse, instruction_block & acc) {
         relation_signature res_sig;
         relation_signature::from_project(m_reg_signatures[src], 1, &col, res_sig);
@@ -139,7 +139,7 @@ namespace datalog {
         return r;
     }
 
-    compiler::reg_idx compiler::get_single_column_register(const relation_sort & s) {
+    compiler::reg_idx compiler::get_single_column_register(const relation_sort s) {
         relation_signature singl_sig;
         singl_sig.push_back(s);
         return get_fresh_register(singl_sig);
@@ -165,7 +165,7 @@ namespace datalog {
         }
     }
 
-    void compiler::make_add_constant_column(func_decl* head_pred, reg_idx src, const relation_sort & s, const relation_element & val,
+    void compiler::make_add_constant_column(func_decl* head_pred, reg_idx src, const relation_sort s, const relation_element val,
             reg_idx & result, bool & dealloc, instruction_block & acc) {
         reg_idx singleton_table;
         if(!m_constant_registers.find(s, val, singleton_table)) {
@@ -185,7 +185,7 @@ namespace datalog {
         }
     }
 
-    void compiler::make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort & s, reg_idx & result, 
+    void compiler::make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort s, reg_idx & result,
             bool & dealloc, instruction_block & acc) {
         
         TRACE("dl", tout << "Adding unbound column " << mk_pp(pred, m_context.get_manager()) << "\n";);
@@ -862,9 +862,11 @@ namespace datalog {
         ast_manager& m = m_context.get_manager();
         unsigned pt_len = r->get_positive_tail_size();
         unsigned ut_len = r->get_uninterpreted_tail_size();
-        if (pt_len == ut_len) {
+
+        // no negated predicates
+        if (pt_len == ut_len)
             return;
-        }
+
         // populate negative variables:
         for (unsigned i = pt_len; i < ut_len; ++i) {
             app * neg_tail = r->get_tail(i);
