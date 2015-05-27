@@ -809,8 +809,12 @@ class env {
                 r = terms[0] / terms[1];
             }
             else if (!strcmp(ch,"$distinct")) {
-                check_arity(terms.size(), 2);
-                r = terms[0] != terms[1];
+                if (terms.size() == 2) {
+                    r = terms[0] != terms[1];
+                }
+                else {
+                    r = distinct(terms);
+                }
             }
             else if (!strcmp(ch,"$floor") || !strcmp(ch,"$to_int")) {
                 check_arity(terms.size(), 1);
