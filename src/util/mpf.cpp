@@ -1229,7 +1229,11 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
 }
 
 void mpf_manager::maximum(mpf const & x, mpf const & y, mpf & o) {
-    if (is_nan(x) || (is_zero(x) && is_zero(y)))
+    if (is_nan(x))
+        set(o, y);
+    else if (is_zero(x) && is_zero(y) && sgn(x) != sgn(y))
+        mk_pzero(x.ebits, x.sbits, o);
+    else if (is_zero(x) && is_zero(y))
         set(o, y);
     else if (is_nan(y))
         set(o, x);
@@ -1240,7 +1244,11 @@ void mpf_manager::maximum(mpf const & x, mpf const & y, mpf & o) {
 }
 
 void mpf_manager::minimum(mpf const & x, mpf const & y, mpf & o) {
-    if (is_nan(x) || (is_zero(x) && is_zero(y)))
+    if (is_nan(x))
+        set(o, y);
+    else if (is_zero(x) && is_zero(y) && sgn(x) != sgn(y))
+        mk_pzero(x.ebits, x.sbits, o);
+    else if (is_zero(x) && is_zero(y))
         set(o, y);
     else if (is_nan(y))
         set(o, x);
