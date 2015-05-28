@@ -683,7 +683,7 @@ namespace z3 {
 
         friend expr operator+(expr const & a, expr const & b) {
             check_context(a, b);
-            Z3_ast r;
+            Z3_ast r = 0;
             if (a.is_arith() && b.is_arith()) {
                 Z3_ast args[2] = { a, b };
                 r = Z3_mk_add(a.ctx(), 2, args);
@@ -703,7 +703,7 @@ namespace z3 {
 
         friend expr operator*(expr const & a, expr const & b) {
             check_context(a, b);
-            Z3_ast r;
+            Z3_ast r = 0;
             if (a.is_arith() && b.is_arith()) {
                 Z3_ast args[2] = { a, b };
                 r = Z3_mk_mul(a.ctx(), 2, args);
@@ -730,7 +730,7 @@ namespace z3 {
 
         friend expr operator/(expr const & a, expr const & b) {
             check_context(a, b);
-            Z3_ast r;
+            Z3_ast r = 0;
             if (a.is_arith() && b.is_arith()) {
                 r = Z3_mk_div(a.ctx(), a, b);
             }
@@ -748,7 +748,7 @@ namespace z3 {
         friend expr operator/(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) / b; }
 
         friend expr operator-(expr const & a) {
-            Z3_ast r;
+            Z3_ast r = 0;
             if (a.is_arith()) {
                 r = Z3_mk_unary_minus(a.ctx(), a);
             }
@@ -765,7 +765,7 @@ namespace z3 {
 
         friend expr operator-(expr const & a, expr const & b) {
             check_context(a, b);
-            Z3_ast r;
+            Z3_ast r = 0;
             if (a.is_arith() && b.is_arith()) {
                 Z3_ast args[2] = { a, b };
                 r = Z3_mk_sub(a.ctx(), 2, args);
@@ -785,7 +785,7 @@ namespace z3 {
 
         friend expr operator<=(expr const & a, expr const & b) {
             check_context(a, b);
-            Z3_ast r;
+            Z3_ast r = 0;
             if (a.is_arith() && b.is_arith()) {
                 r = Z3_mk_le(a.ctx(), a, b);
             }
@@ -804,7 +804,7 @@ namespace z3 {
 
         friend expr operator>=(expr const & a, expr const & b) {
             check_context(a, b);
-            Z3_ast r;
+            Z3_ast r = 0;
             if (a.is_arith() && b.is_arith()) {
                 r = Z3_mk_ge(a.ctx(), a, b);
             }
@@ -823,7 +823,7 @@ namespace z3 {
 
         friend expr operator<(expr const & a, expr const & b) {
             check_context(a, b);
-            Z3_ast r;
+            Z3_ast r = 0;
             if (a.is_arith() && b.is_arith()) {
                 r = Z3_mk_lt(a.ctx(), a, b);
             }
@@ -842,7 +842,7 @@ namespace z3 {
         
         friend expr operator>(expr const & a, expr const & b) {
             check_context(a, b);
-            Z3_ast r;
+            Z3_ast r = 0;
             if (a.is_arith() && b.is_arith()) {
                 r = Z3_mk_gt(a.ctx(), a, b);
             }
@@ -1189,7 +1189,7 @@ namespace z3 {
         
         expr eval(expr const & n, bool model_completion=false) const {
             check_context(*this, n);
-            Z3_ast r;
+            Z3_ast r = 0;
             Z3_bool status = Z3_model_eval(ctx(), m_model, n, model_completion, &r);
             check_error();
             if (status == Z3_FALSE)
