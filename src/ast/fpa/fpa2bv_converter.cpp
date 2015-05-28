@@ -1071,7 +1071,7 @@ void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, 
     split_fp(x, x_sgn, x_exp, x_sig);
     split_fp(y, y_sgn, y_exp, y_sig);
 
-    expr_ref x_is_nan(m), y_is_nan(m), x_is_zero(m), y_is_zero(m), both_zero(m), pzero(m);    
+    expr_ref x_is_nan(m), y_is_nan(m), x_is_zero(m), y_is_zero(m), both_zero(m), pzero(m);
     mk_is_zero(x, x_is_zero);
     mk_is_zero(y, y_is_zero);
     m_simp.mk_and(x_is_zero, y_is_zero, both_zero);
@@ -1079,12 +1079,16 @@ void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, 
     mk_is_nan(y, y_is_nan);
     mk_pzero(f, pzero);
 
+    expr_ref sgn_diff(m);
+    sgn_diff = m.mk_not(m.mk_eq(x_sgn, y_sgn));
+
     expr_ref lt(m);
     mk_float_lt(f, num, args, lt);
     
     result = y;
     mk_ite(lt, x, result, result);
     mk_ite(both_zero, y, result, result);
+    mk_ite(m.mk_and(both_zero, sgn_diff), pzero, result, result); // min(-0.0, +0.0) = min(+0.0, -0.0) = +0.0
     mk_ite(y_is_nan, x, result, result);
     mk_ite(x_is_nan, y, result, result);
 
@@ -1109,12 +1113,16 @@ void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, 
     mk_is_nan(y, y_is_nan);
     mk_pzero(f, pzero);
 
+    expr_ref sgn_diff(m);
+    sgn_diff = m.mk_not(m.mk_eq(x_sgn, y_sgn));
+
     expr_ref gt(m);
     mk_float_gt(f, num, args, gt);
 
     result = y;
     mk_ite(gt, x, result, result);
-    mk_ite(both_zero, y, result, result);
+    mk_ite(both_zero, y, result, result);    
+    mk_ite(m.mk_and(both_zero, sgn_diff), pzero, result, result); // max(-0.0, +0.0) = max(+0.0, -0.0) = +0.0
     mk_ite(y_is_nan, x, result, result);
     mk_ite(x_is_nan, y, result, result);
 
