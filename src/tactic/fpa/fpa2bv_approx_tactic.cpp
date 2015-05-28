@@ -896,7 +896,9 @@ class fpa2bv_approx_tactic: public tactic {
             TRACE("before_sat_solver", g->display(tout););
             g->elim_redundancies();
 
-            m_goal2sat(*g, m_params, solver, map);
+            goal2sat::dep2asm_map d2am ;
+            m_goal2sat(*g, m_params, solver, map,  d2am , false);
+
 
             TRACE("sat_solver_unknown", tout << "interpreted_atoms: " << map.interpreted_atoms() << "\n";
             atom2bool_var::iterator it = map.begin();
