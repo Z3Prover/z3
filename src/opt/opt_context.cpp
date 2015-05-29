@@ -1179,6 +1179,10 @@ namespace opt {
         for (; it != end; ++it) {
             it->m_value->collect_statistics(stats);
         }        
+        unsigned long long max_mem = memory::get_max_used_memory();
+        unsigned long long mem = memory::get_allocation_size();
+        stats.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
+        stats.update("max memory", static_cast<double>(max_mem)/static_cast<double>(1024*1024));
     }
 
     void context::collect_param_descrs(param_descrs & r) {

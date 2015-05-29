@@ -18,8 +18,8 @@ Revision History:
 
 --*/
 
-#ifndef __QE_MBP_H__
-#define __QE_MBP_H__
+#ifndef __QE_QSAT_H__
+#define __QE_QSAT_H__
 
 #include "tactic.h"
 

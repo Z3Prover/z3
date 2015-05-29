@@ -21,10 +21,12 @@ Revision History:
 #include "qsat.h"
 #include "smt_kernel.h"
 #include "qe_mbp.h"
+#include "smt_params.h"
+#include "ast_util.h"
 
-namespace qe;
+using namespace qe;
 
-sturct qdef_t {
+struct qdef_t {
     expr_ref        m_pred;
     expr_ref        m_expr;
     expr_ref_vector m_vars;
@@ -41,15 +43,25 @@ typedef vector<qdef_t> qdefs_t;
 struct pdef_t {
     expr_ref  m_pred;
     expr_ref  m_atom;
-    pdef_t(expr_ref& p, expr_ref& a):
-        m_pred(p), 
-        m_atom(a)
+    pdef_t(expr_ref& p, expr* a):
+        m_pred(p),
+        m_atom(a, p.get_manager())
     {}
 };
 
 class qsat::impl {
-    ast_manager& m;
-    mbp          mbp;
+    ast_manager&      m;
+    qe::mbp           mbp;
+    smt_params        m_smtp;
+    smt::kernel       m_kernel;
+    expr_ref          m_fml_pred;  // predicate that encodes top-level formula
+    expr_ref_vector   m_atoms;     // predicates that encode atomic subformulas
+
+
+    lbool check_sat() {        
+        // TBD main procedure goes here.
+        return l_undef;
+    }
 
     /**
        \brief replace quantified sub-formulas by a predicate, introduce definitions for the predicate.
@@ -63,11 +75,12 @@ class qsat::impl {
         propositional variables, and adding definitions for each propositional formula on the side.
         Assumption is that the formula is quantifier-free.
     */
-    void mk_abstract(expr_ref_vector& fmls, vector<pdef_t>& pdefs) {
-        expr_ref_vector todo(fmls), trail(m);
+    void mk_abstract(expr_ref& fml, vector<pdef_t>& pdefs) {
+        expr_ref_vector todo(m), trail(m);
         obj_map<expr,expr*> cache;
         ptr_vector<expr> args;
         expr_ref r(m);
+        todo.push_back(fml);
         while (!todo.empty()) {
             expr* e = todo.back();
             if (cache.contains(e)) {
@@ -87,47 +100,114 @@ class qsat::impl {
                     else {
                         todo.push_back(f);
                     }
-                }
+                } 
                 if (args.size() == sz) {
                     r = m.mk_app(a->get_decl(), sz, args.c_ptr());
                     cache.insert(e, r);
                     trail.push_back(r);
-                    todo.pop_back(e);
+                    todo.pop_back();
                 }
             }
-            else if (is_uninterpreted_const(a)) {
+            else if (is_uninterp_const(a)) {
                 cache.insert(e, e);
             }
             else {
-                // TBD: nested Booleans.
+                // TBD: nested Booleans.    
+
                 r = m.mk_fresh_const("p",m.mk_bool_sort());
                 trail.push_back(r);
                 cache.insert(e, r);
-                pdefs.push_back(pdef_t(e, r));
+                pdefs.push_back(pdef_t(r, e));
             }
         }
-        
-        for (unsigned i = 0; i < fmls.size(); ++i) {
-            fmls[i] = cache.find(fmls[i].get());
-        }
+        fml = cache.find(fml);
     }
 
     /** 
         \brief use dual propagation to minimize model.
     */
-    void minimize_assignment(app_ref_vector& assignment) {
-        
+    bool minimize_assignment(expr_ref_vector& assignment, expr* not_fml) {        
+        bool result = false;
+        assignment.push_back(not_fml);
+        lbool res = m_kernel.check(assignment.size(), assignment.c_ptr());
+        switch (res) {
+        case l_true:
+            UNREACHABLE();
+            break;
+        case l_undef:
+            break;
+        case l_false: 
+            result = true;
+            get_core(assignment, not_fml);
+            break;
+        }
+        return result;
+    }
+
+    lbool check_sat(expr_ref_vector& assignment, expr* fml) {
+        assignment.push_back(fml);
+        lbool res = m_kernel.check(assignment.size(), assignment.c_ptr());
+        switch (res) {
+        case l_true: {
+            model_ref mdl;
+            expr_ref tmp(m);
+            assignment.reset();
+            m_kernel.get_model(mdl);
+            for (unsigned i = 0; i < m_atoms.size(); ++i) {
+                expr* p = m_atoms[i].get();
+                if (mdl->eval(p, tmp)) {
+                    if (m.is_true(tmp)) {
+                        assignment.push_back(p);
+                    }
+                    else if (m.is_false(tmp)) {
+                        assignment.push_back(m.mk_not(p));
+                    }
+                }                
+            }
+            expr_ref not_fml = mk_not(fml);
+            if (!minimize_assignment(assignment, not_fml)) {
+                res = l_undef;
+            }
+            break;
+        }
+        case l_undef:            
+            break;
+        case l_false:
+            get_core(assignment, fml);
+            break;
+        }
+        return res;
+    }
+
+    void get_core(expr_ref_vector& core, expr* exclude) {
+        unsigned sz = m_kernel.get_unsat_core_size();
+        core.reset();
+        for (unsigned i = 0; i < sz; ++i) {
+            expr* e = m_kernel.get_unsat_core_expr(i);
+            if (e != exclude) {
+                core.push_back(e);
+            } 
+        }        
+    }
+
+    expr_ref mk_not(expr* e) {
+        return expr_ref(::mk_not(m, e), m);
     }
 
 public:
     impl(ast_manager& m):
         m(m),
-        mbp(m) {}
-
+        mbp(m),
+        m_kernel(m, m_smtp),
+        m_fml_pred(m), 
+        m_atoms(m) {}
+    
     void updt_params(params_ref const & p) {
     }
+
     void collect_param_descrs(param_descrs & r) {
     }
+
     void operator()(/* in */  goal_ref const & in, 
                     /* out */ goal_ref_buffer & result, 
                     /* out */ model_converter_ref & mc, 
@@ -141,12 +221,16 @@ public:
     }
     void reset_statistics() {
     }
+
     void cleanup() {
     }
+
     void set_logic(symbol const & l) {
     }
+
     void set_progress_callback(progress_callback * callback) {
     }
+
     tactic * translate(ast_manager & m) {
         return 0;
     }
@@ -195,6 +279,3 @@ tactic * qsat::translate(ast_manager & m) {
 }
 
 
-};
-
-#endif 
