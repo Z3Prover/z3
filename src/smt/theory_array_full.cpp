@@ -775,17 +775,19 @@ namespace smt {
 
 
     bool theory_array_full::try_assign_eq(expr* v1, expr* v2) {
+        TRACE("array", 
+              tout << mk_bounded_pp(v1, get_manager()) << "\n==\n" 
+              << mk_bounded_pp(v2, get_manager()) << "\n";);
         context& ctx = get_context();
         if (m_eqs.contains(v1, v2)) {
             return false;
         }
-        m_eqs.insert(v1, v2, true);
-        TRACE("array", 
-              tout << mk_bounded_pp(v1, get_manager()) << "\n==\n" 
-              << mk_bounded_pp(v2, get_manager()) << "\n";);
-        literal eq(mk_eq(v1, v2, true));
-        m_eqsv.push_back(eq);
-        return true;
+        else {
+            m_eqs.insert(v1, v2, true);
+            literal eq(mk_eq(v1, v2, true));
+            m_eqsv.push_back(eq);
+            return true;
+        }
     }
 
     void theory_array_full::pop_scope_eh(unsigned num_scopes) {
