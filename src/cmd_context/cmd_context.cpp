@@ -528,6 +528,7 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "LRA" || 
         s == "QF_FP" ||
         s == "QF_FPBV" ||
+        s == "QF_BVFP" ||
         s == "HORN";
 }
 
@@ -547,6 +548,7 @@ bool cmd_context::logic_has_bv_core(symbol const & s) const {
         s == "QF_AUFBV" ||
         s == "QF_BVRE" ||
         s == "QF_FPBV" ||
+        s == "QF_BVFP" ||
         s == "HORN";
 }
 
