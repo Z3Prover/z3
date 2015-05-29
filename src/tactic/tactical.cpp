@@ -709,8 +709,6 @@ public:
             tactic_ref_vector              ts2;
             goal_ref_vector                g_copies;
 
-            ast_manager & m = in->m();
-
             for (unsigned i = 0; i < r1_size; i++) {
                 ast_manager * new_m = alloc(ast_manager, m, !m.proof_mode());
                 managers.push_back(new_m);
