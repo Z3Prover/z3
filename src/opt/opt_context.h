@@ -180,6 +180,7 @@ namespace opt {
         virtual void cancel() { set_cancel(true); }
         virtual void set_hard_constraints(ptr_vector<expr> & hard);
         virtual lbool optimize();
+        virtual bool print_model() const;
         virtual void get_model(model_ref& _m);
         virtual void set_model(model_ref& _m);
         virtual void fix_model(model_ref& _m);

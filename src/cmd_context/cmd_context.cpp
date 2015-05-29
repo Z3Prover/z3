@@ -40,6 +40,7 @@ Notes:
 #include"for_each_expr.h"
 #include"scoped_timer.h"
 #include"interpolant_cmds.h"
+#include"model_smt2_pp.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -1402,6 +1403,15 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
                 was_pareto = true;
                 get_opt()->display_assignment(regular_stream());
                 regular_stream() << "\n";
+                if (get_opt()->print_model()) {
+                    model_ref mdl;
+                    get_opt()->get_model(mdl);
+                    if (mdl) {
+                        regular_stream() << "(model " << std::endl;
+                        model_smt2_pp(regular_stream(), *this, *(mdl.get()), 2);
+                        regular_stream() << ")" << std::endl;                    
+                    }
+                }
                 r = get_opt()->optimize();
             }
         }
