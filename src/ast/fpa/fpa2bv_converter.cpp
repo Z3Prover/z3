@@ -2312,7 +2312,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
             mk_ite(rm_nta, v1, result, result);
         }
     }
-    else {        
+    else {
+        SASSERT(!m_arith_util.is_numeral(x));
         bv_util & bu = m_bv_util;
         arith_util & au = m_arith_util;
 
@@ -2330,12 +2331,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         expr_ref rme(rm, m);
         round(s, rme, sgn, sig, exp, result);
         
-        expr_ref c0(m);
-        mk_is_zero(x, c0);
-        mk_ite(c0, x, result, result);
-
         expr * e = m.mk_eq(m_util.mk_to_real(result), x);
-        m_extra_assertions.push_back(e);        
+        m_extra_assertions.push_back(e);
     }
 
     SASSERT(is_well_sorted(m, result));

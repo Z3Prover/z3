@@ -143,9 +143,9 @@ br_status fpa_rewriter::mk_to_sbv_unspecified(func_decl * f, expr_ref & result) 
 
 br_status fpa_rewriter::mk_to_real_unspecified(expr_ref & result) {
     if (m_hi_fp_unspecified)
-        result = m_util.au().mk_numeral(0, false);
-    else
         // The "hardware interpretation" is 0.
+        result = m_util.au().mk_numeral(rational(0), false);
+    else
         result = m_util.mk_internal_to_real_unspecified();
 
     return BR_DONE;    
