@@ -5617,7 +5617,7 @@ class Statistics:
         sat
         >>> st = s.statistics()
         >>> len(st)
-        2
+        4
         """
         return int(Z3_stats_size(self.ctx.ref(), self.stats))
 
@@ -5631,7 +5631,7 @@ class Statistics:
         sat
         >>> st = s.statistics()
         >>> len(st)
-        2
+        4
         >>> st[0]
         ('nlsat propagations', 2)
         >>> st[1]
@@ -5655,7 +5655,7 @@ class Statistics:
         sat
         >>> st = s.statistics()
         >>> st.keys()
-        ['nlsat propagations', 'nlsat stages']
+        ['nlsat propagations', 'nlsat stages', 'max memory', 'memory']
         """
         return [Z3_stats_get_key(self.ctx.ref(), self.stats, idx) for idx in range(len(self))]
 
@@ -5692,7 +5692,7 @@ class Statistics:
         sat
         >>> st = s.statistics() 
         >>> st.keys()
-        ['nlsat propagations', 'nlsat stages']
+        ['nlsat propagations', 'nlsat stages', 'max memory', 'memory']
         >>> st.nlsat_propagations
         2
         >>> st.nlsat_stages
