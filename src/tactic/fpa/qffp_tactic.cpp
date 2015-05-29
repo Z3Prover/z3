@@ -28,6 +28,42 @@ Notes:
 
 #include"qffp_tactic.h"
 
+
+struct has_fp_to_real_predicate {
+    struct found {};
+    ast_manager & m;
+    bv_util       bu;
+    fpa_util      fu;
+    arith_util    au;
+
+    has_fp_to_real_predicate(ast_manager & _m) : m(_m), bu(m), fu(m), au(m) {}
+
+    void operator()(var *) { throw found(); }
+
+    void operator()(quantifier *) { throw found(); }
+
+    void operator()(app * n) {
+        sort * s = get_sort(n);
+        if (au.is_real(s) && n->get_family_id() == fu.get_family_id() &&
+            is_app(n) && to_app(n)->get_kind() == OP_FPA_TO_REAL)
+            throw found();
+    }
+};
+
+class has_fp_to_real_probe : public probe {
+public:
+    virtual result operator()(goal const & g) {
+        return !test<has_fp_to_real_predicate>(g);
+    }
+
+    virtual ~has_fp_to_real_probe() {}
+};
+
+probe * mk_has_fp_to_real_probe() {
+    return alloc(has_fp_to_real_probe);
+}
+
+
 tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
     params_ref simp_p = p;
     simp_p.set_bool("arith_lhs", true);
@@ -45,7 +81,7 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
                                      using_params(mk_simplify_tactic(m, p), simp_p),
                                      cond(mk_is_propositional_probe(),
                                         mk_sat_tactic(m, p),
-                                        cond(mk_is_qfnra_probe(),
+                                        cond(mk_has_fp_to_real_probe(),
                                             mk_qfnra_tactic(m, p),
                                             mk_smt_tactic(p))
                                         ),
