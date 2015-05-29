@@ -2219,13 +2219,13 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         SASSERT(sz == 3);
         BV_RM_VAL bv_rm = (BV_RM_VAL)tmp_rat.get_unsigned();
 
-        mpf_rounding_mode rm;
+        mpf_rounding_mode mrm;
         switch (bv_rm) {
-        case BV_RM_TIES_TO_AWAY: rm = MPF_ROUND_NEAREST_TAWAY; break;
-        case BV_RM_TIES_TO_EVEN: rm = MPF_ROUND_NEAREST_TEVEN; break;
-        case BV_RM_TO_NEGATIVE: rm = MPF_ROUND_TOWARD_NEGATIVE; break;
-        case BV_RM_TO_POSITIVE: rm = MPF_ROUND_TOWARD_POSITIVE; break;
-        case BV_RM_TO_ZERO: rm = MPF_ROUND_TOWARD_ZERO; break;
+        case BV_RM_TIES_TO_AWAY: mrm = MPF_ROUND_NEAREST_TAWAY; break;
+        case BV_RM_TIES_TO_EVEN: mrm = MPF_ROUND_NEAREST_TEVEN; break;
+        case BV_RM_TO_NEGATIVE: mrm = MPF_ROUND_TOWARD_NEGATIVE; break;
+        case BV_RM_TO_POSITIVE: mrm = MPF_ROUND_TOWARD_POSITIVE; break;
+        case BV_RM_TO_ZERO: mrm = MPF_ROUND_TOWARD_ZERO; break;
         default: UNREACHABLE();
         }
 
@@ -2237,17 +2237,15 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
             return mk_pzero(f, result);
         else {
             scoped_mpf v(m_mpf_manager);
-            m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
+            m_util.fm().set(v, ebits, sbits, mrm, q.to_mpq());
 
-
-
-            expr_ref sgn(m), s(m), e(m), unbiased_exp(m);
+            expr_ref sgn(m), sig(m), exp(m), unbiased_exp(m);
             sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v)) ? 1 : 0, 1);
-            s = m_bv_util.mk_numeral(m_util.fm().sig(v), sbits - 1);
+            sig = m_bv_util.mk_numeral(m_util.fm().sig(v), sbits - 1);
             unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v), ebits);
-            mk_bias(unbiased_exp, e);
+            mk_bias(unbiased_exp, exp);
 
-            mk_fp(sgn, e, s, result);
+            mk_fp(sgn, exp, sig, result);
         }
     }
     else if (m_util.au().is_numeral(x)) {
@@ -2275,37 +2273,37 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
             expr_ref v1(m), v2(m), v3(m), v4(m);
 
-            expr_ref sgn(m), s(m), e(m), unbiased_exp(m);
+            expr_ref sgn(m), sig(m), exp(m), unbiased_exp(m);
             sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_nta)) ? 1 : 0, 1);
-            s = m_bv_util.mk_numeral(m_util.fm().sig(v_nta), sbits - 1);
+            sig = m_bv_util.mk_numeral(m_util.fm().sig(v_nta), sbits - 1);
             unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_nta), ebits);
-            mk_bias(unbiased_exp, e);
-            mk_fp(sgn, e, s, v1);
+            mk_bias(unbiased_exp, exp);
+            mk_fp(sgn, exp, sig, v1);
 
             sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_nte)) ? 1 : 0, 1);
-            s = m_bv_util.mk_numeral(m_util.fm().sig(v_nte), sbits - 1);
+            sig = m_bv_util.mk_numeral(m_util.fm().sig(v_nte), sbits - 1);
             unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_nte), ebits);
-            mk_bias(unbiased_exp, e);
-            mk_fp(sgn, e, s, v2);
+            mk_bias(unbiased_exp, exp);
+            mk_fp(sgn, exp, sig, v2);
 
             sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tp)) ? 1 : 0, 1);
-            s = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
+            sig = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
             unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tp), ebits);
-            mk_bias(unbiased_exp, e);
-            mk_fp(sgn, e, s, v3);
+            mk_bias(unbiased_exp, exp);
+            mk_fp(sgn, exp, sig, v3);
 
             sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tn)) ? 1 : 0, 1);
-            s = m_bv_util.mk_numeral(m_util.fm().sig(v_tn), sbits - 1);
+            sig = m_bv_util.mk_numeral(m_util.fm().sig(v_tn), sbits - 1);
             unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tn), ebits);
-            mk_bias(unbiased_exp, e);
-            mk_fp(sgn, e, s, v4);
+            mk_bias(unbiased_exp, exp);
+            mk_fp(sgn, exp, sig, v4);
 
             sgn = m_bv_util.mk_numeral((m_util.fm().sgn(v_tp)) ? 1 : 0, 1);
-            s = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
+            sig = m_bv_util.mk_numeral(m_util.fm().sig(v_tp), sbits - 1);
             unbiased_exp = m_bv_util.mk_numeral(m_util.fm().exp(v_tp), ebits);
-            mk_bias(unbiased_exp, e);
+            mk_bias(unbiased_exp, exp);
 
-            mk_fp(sgn, e, s, result);
+            mk_fp(sgn, exp, sig, result);
             mk_ite(rm_tn, v4, result, result);
             mk_ite(rm_tp, v3, result, result);
             mk_ite(rm_nte, v2, result, result);
@@ -3350,7 +3348,7 @@ void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref
             // the maximum shift is `sbits', because after that the mantissa
             // would be zero anyways. So we can safely cut the shift variable down,
             // as long as we check the higher bits.            
-            expr_ref sh(m), is_sh_zero(m), sl(m), zero_s(m), sbits_s(m), short_shift(m);
+            expr_ref sh(m), is_sh_zero(m), sl(m), sbits_s(m), short_shift(m);
             zero_s = m_bv_util.mk_numeral(0, sbits-1);
             sbits_s = m_bv_util.mk_numeral(sbits, sbits);
             sh = m_bv_util.mk_extract(ebits-1, sbits, shift);            

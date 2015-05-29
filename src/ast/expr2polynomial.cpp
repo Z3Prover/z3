@@ -367,16 +367,16 @@ struct expr2polynomial::imp {
             begin_loop:
                 checkpoint();
                 frame & fr = m_frame_stack.back();
-                app * t = fr.m_curr;
-                TRACE("expr2polynomial", tout << "processing: " << fr.m_idx << "\n" << mk_ismt2_pp(t, m()) << "\n";);
-                unsigned num_args = t->get_num_args();
+                app * a = fr.m_curr;
+                TRACE("expr2polynomial", tout << "processing: " << fr.m_idx << "\n" << mk_ismt2_pp(a, m()) << "\n";);
+                unsigned num_args = a->get_num_args();
                 while (fr.m_idx < num_args) {
-                    expr * arg = t->get_arg(fr.m_idx);
+                    expr * arg = a->get_arg(fr.m_idx);
                     fr.m_idx++;
                     if (!visit(arg)) 
                         goto begin_loop;
                 }
-                process_app(t);
+                process_app(a);
                 m_frame_stack.pop_back();
             }
         }

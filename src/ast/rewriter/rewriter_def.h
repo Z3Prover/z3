@@ -324,7 +324,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                     }
                     result_stack().push_back(def);
                     TRACE("get_macro", tout << "bindings:\n";
-                          for (unsigned i = 0; i < m_bindings.size(); i++) tout << i << ": " << mk_ismt2_pp(m_bindings[i], m()) << "\n";);
+                          for (unsigned j = 0; j < m_bindings.size(); j++) tout << j << ": " << mk_ismt2_pp(m_bindings[j], m()) << "\n";);
                     begin_scope();
                     m_num_qvars = 0;
                     m_root      = def;
