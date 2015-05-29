@@ -23,6 +23,8 @@ Notes:
 #include"fpa2bv_tactic.h"
 #include"smt_tactic.h"
 #include"propagate_values_tactic.h"
+#include"probe_arith.h"
+#include"qfnra_tactic.h"
 
 #include"qffp_tactic.h"
 
@@ -40,10 +42,13 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
                                      mk_propagate_values_tactic(m, p),
                                      using_params(mk_simplify_tactic(m, p), simp_p),                                 
                                      mk_bit_blaster_tactic(m, p),
-                                     using_params(mk_simplify_tactic(m, p), simp_p),                                 
+                                     using_params(mk_simplify_tactic(m, p), simp_p),
                                      cond(mk_is_propositional_probe(),
                                         mk_sat_tactic(m, p),
-                                        mk_smt_tactic(p)),
+                                        cond(mk_is_qfnra_probe(),
+                                            mk_qfnra_tactic(m, p),
+                                            mk_smt_tactic(p))
+                                        ),
                                      mk_fail_if_undecided_tactic())));
 
     st->updt_params(p);
