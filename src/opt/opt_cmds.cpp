@@ -323,12 +323,8 @@ private:
 
     void display_statistics(cmd_context& ctx) {
         statistics stats;
-        unsigned long long max_mem = memory::get_max_used_memory();
-        unsigned long long mem = memory::get_allocation_size();
-        stats.update("time", ctx.get_seconds());
-        stats.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
-        stats.update("max memory", static_cast<double>(max_mem)/static_cast<double>(1024*1024));
         get_opt(ctx).collect_statistics(stats);
+        stats.update("time", ctx.get_seconds());
         stats.display_smt2(ctx.regular_stream());        
     }
 };
