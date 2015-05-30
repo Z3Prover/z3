@@ -154,7 +154,7 @@ class func_decl_dependencies::top_sort {
             case OPEN:
                 set_color(cf, IN_PROGRESS);
                 if (visit_children(cf)) {
-                    SASSERT(m_todo.back() == f);
+                    SASSERT(m_todo.back() == cf);
                     m_todo.pop_back();
                     set_color(cf, CLOSED);
                 }
