@@ -2987,7 +2987,7 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     expr_ref last(m), round(m), sticky(m);
     last = m_bv_util.mk_extract(1, 1, upper_hss);
     round = m_bv_util.mk_extract(0, 0, upper_hss);    
-    sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, lower_hss);
+    sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, lower_hss.get());
     dbg_decouple("fpa2bv_to_sbv_last", last);
     dbg_decouple("fpa2bv_to_sbv_round", round);
     dbg_decouple("fpa2bv_to_sbv_sticky", sticky);
@@ -3412,7 +3412,7 @@ void fpa2bv_converter::mk_rounding_mode(func_decl * f, expr_ref & result)
 
 void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {    
     #ifdef Z3DEBUG
-    // return;
+    return;
     // CMW: This works only for quantifier-free formulas.
     expr_ref new_e(m);
     new_e = m.mk_fresh_const(prefix, m.get_sort(e));
@@ -3422,11 +3422,16 @@ void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {
 }
 
 expr_ref fpa2bv_converter::mk_rounding_decision(expr * rm, expr * sgn, expr * last, expr * round, expr * sticky) {
-    dbg_decouple("fpa2bv_rnd_dec_rm", expr_ref(rm, m));
-    dbg_decouple("fpa2bv_rnd_dec_sgn", expr_ref(sgn, m));
-    dbg_decouple("fpa2bv_rnd_dec_last", expr_ref(last, m));
-    dbg_decouple("fpa2bv_rnd_dec_round", expr_ref(round, m));
-    dbg_decouple("fpa2bv_rnd_dec_sticky", expr_ref(sticky, m));
+    expr_ref rmr(rm, m);
+    expr_ref sgnr(sgn, m);
+    expr_ref lastr(last, m);
+    expr_ref roundr(round, m);
+    expr_ref stickyr(sticky, m);
+    dbg_decouple("fpa2bv_rnd_dec_rm", rmr);
+    dbg_decouple("fpa2bv_rnd_dec_sgn", sgnr);
+    dbg_decouple("fpa2bv_rnd_dec_last", lastr);
+    dbg_decouple("fpa2bv_rnd_dec_round", roundr);
+    dbg_decouple("fpa2bv_rnd_dec_sticky", stickyr);
 
     expr_ref last_or_sticky(m), round_or_sticky(m), not_last(m), not_round(m), not_sticky(m), not_lors(m), not_rors(m), not_sgn(m);
     expr * last_sticky[2] = { last, sticky };
