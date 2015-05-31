@@ -85,7 +85,7 @@ model_converter * fpa2bv_model_converter::translate(ast_translation & translator
 }
 
 void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
-    float_util fu(m);
+    fpa_util fu(m);
     bv_util bu(m);
     mpf fp_val;
     unsynch_mpz_manager & mpzm = fu.fm().mpz_manager();
@@ -111,21 +111,32 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         unsigned ebits = fu.get_ebits(var->get_range());
         unsigned sbits = fu.get_sbits(var->get_range());
 
-        expr_ref sgn(m), sig(m), exp(m);
-        sgn = bv_mdl->get_const_interp(to_app(a->get_arg(0))->get_decl());
-        sig = bv_mdl->get_const_interp(to_app(a->get_arg(1))->get_decl());
-        exp = bv_mdl->get_const_interp(to_app(a->get_arg(2))->get_decl());
+        expr_ref sgn(m), sig(m), exp(m);        
+        bv_mdl->eval(a->get_arg(0), sgn, true);        
+        bv_mdl->eval(a->get_arg(1), exp, true);
+        bv_mdl->eval(a->get_arg(2), sig, true);
 
+        SASSERT(a->is_app_of(fu.get_family_id(), OP_FPA_FP));
+
+#ifdef Z3DEBUG                
+        SASSERT(to_app(a->get_arg(0))->get_decl()->get_arity() == 0);
+        SASSERT(to_app(a->get_arg(1))->get_decl()->get_arity() == 0);
+        SASSERT(to_app(a->get_arg(2))->get_decl()->get_arity() == 0);        
         seen.insert(to_app(a->get_arg(0))->get_decl());
         seen.insert(to_app(a->get_arg(1))->get_decl());
         seen.insert(to_app(a->get_arg(2))->get_decl());
+#else        
+        SASSERT(a->get_arg(0)->get_kind() == OP_EXTRACT);
+        SASSERT(to_app(a->get_arg(0))->get_arg(0)->get_kind() == OP_EXTRACT);
+        seen.insert(to_app(to_app(a->get_arg(0))->get_arg(0))->get_decl());
+#endif
 
         if (!sgn && !sig && !exp)
             continue;
 
-        unsigned sgn_sz = bu.get_bv_size(m.get_sort(a->get_arg(0)));
-        unsigned sig_sz = bu.get_bv_size(m.get_sort(a->get_arg(1))) - 1;
-        unsigned exp_sz = bu.get_bv_size(m.get_sort(a->get_arg(2)));
+        unsigned sgn_sz = bu.get_bv_size(m.get_sort(a->get_arg(0)));        
+        unsigned exp_sz = bu.get_bv_size(m.get_sort(a->get_arg(1)));
+        unsigned sig_sz = bu.get_bv_size(m.get_sort(a->get_arg(2))) - 1;
 
         rational sgn_q(0), sig_q(0), exp_q(0);
 
@@ -156,14 +167,15 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
          it++)
     {
         func_decl * var = it->m_key;
-        app * a = to_app(it->m_value);
+        expr * v = it->m_value;
+        expr_ref eval_v(m);
         SASSERT(fu.is_rm(var->get_range()));
-        rational val(0);
+        rational bv_val(0);
         unsigned sz = 0;
-        if (a && bu.is_numeral(a, val, sz)) {
-            TRACE("fpa2bv_mc", tout << var->get_name() << " == " << val.to_string() << std::endl;);
-            SASSERT(val.is_uint64());
-            switch (val.get_uint64())
+        if (v && bv_mdl->eval(v, eval_v, true) && bu.is_numeral(eval_v, bv_val, sz)) {
+            TRACE("fpa2bv_mc", tout << var->get_name() << " == " << bv_val.to_string() << std::endl;);
+            SASSERT(bv_val.is_uint64());
+            switch (bv_val.get_uint64())
             {
             case BV_RM_TIES_TO_AWAY: float_mdl->register_decl(var, fu.mk_round_nearest_ties_to_away()); break;
             case BV_RM_TIES_TO_EVEN: float_mdl->register_decl(var, fu.mk_round_nearest_ties_to_even()); break;
@@ -172,7 +184,8 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
             case BV_RM_TO_ZERO:
             default: float_mdl->register_decl(var, fu.mk_round_toward_zero());
             }
-            seen.insert(var);
+            SASSERT(v->get_kind() == AST_APP);
+            seen.insert(to_app(v)->get_decl());
         }
     }
 

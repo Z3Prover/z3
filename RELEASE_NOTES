@@ -1,11 +1,25 @@
 RELEASE NOTES
 
+Version 4.4.0
+=============
+
+- New feature: Support for the theory of floating-point numbers. This comes in the form of logics (QF_FP and QF_FPBV), tactics (qffp and qffpbv), as well as a theory plugin that allows theory combinations. Z3 supports the official SMT theory definition of FP (see http://smtlib.cs.uiowa.edu/theories/FloatingPoint.smt2) in SMT2 files, as well as all APIs.
+
+- New feature: Stochastic local search engine for bit-vector formulas (see the qfbv-sls tactic).
+  See also: Froehlich, Biere, Wintersteiger, Hamadi: Stochastic Local Search 
+  for Satisfiability Modulo Theories, AAAI 2015.
+
+- Upgrade: This release includes a brand new OCaml/ML API that is much better integrated with the build system, and hopefully also easier to use than the previous one.
+
+- Fixed various bugs reported by Marc Brockschmidt, Venkatesh-Prasad Ranganath, Enric Carbonell, Morgan Deters, Tom Ball, Malte Schwerhoff, Amir Ebrahimi, Codeplex users rsas, clockish, Heizmann, susmitj, steimann, and Stackoverflow users user297886.
+
+
 Version 4.3.2
 =============
 
 - Added preliminary support for the theory of floating point numbers (tactics qffpa, qffpabv, and logics QF_FPA, QF_FPABV).
 
-- Added the interpolation features of iZ3, which are now integrated into the Z3. 
+- Added the interpolation features of iZ3, which are now integrated into Z3. 
 
 - Fixed a multitude of bugs and inconsistencies that were reported to us either in person, by email, or on Codeplex. Of those that we do have records of, we would like to express our gratitude to:
     Vladimir Klebanov, Konrad Jamrozik, Nuno Lopes, Carsten Ruetz, Esteban Pavese, Tomer Weiss, Ilya Mironov, Gabriele Paganelli, Levent Erkok, Fabian Emmes, David Cok, Etienne Kneuss, Arlen Cox, Matt Lewis, Carsten Otto, Paul Jackson, David Monniaux, Markus Rabe, Martin Pluecker, Jasmin Blanchette, Jules Villard, Andrew Gacek, George Karpenkov, Joerg Pfaehler, and Pablo Aledo

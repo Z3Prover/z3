@@ -22,9 +22,6 @@ Notes:
 #include"ast_ll_pp.h"
 #include"ast_smt2_pp.h"
 
-template<typename Config>
-char const * poly_rewriter<Config>::g_ste_blowup_msg = "sum of monomials blowup";
-
 
 template<typename Config>
 void poly_rewriter<Config>::updt_params(params_ref const & _p) {
@@ -356,7 +353,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
         TRACE("som", for (unsigned i = 0; i < it.size(); i++) tout << it[i] << " ";
               tout << "\n";);
         if (sum.size() > m_som_blowup)
-            throw rewriter_exception(g_ste_blowup_msg);
+            throw rewriter_exception("sum of monomials blowup");
         m_args.reset();
         for (unsigned i = 0; i < num_args; i++) {
             expr * const * v = sums[i];

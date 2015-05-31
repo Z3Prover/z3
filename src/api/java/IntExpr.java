@@ -22,16 +22,12 @@ package com.microsoft.z3;
  **/
 public class IntExpr extends ArithExpr
 {
-	/**
-	 * Constructor for IntExpr </summary>
-	 **/
-	protected IntExpr(Context ctx) throws Z3Exception
-	{
-		super(ctx);
-	}
-
-	IntExpr(Context ctx, long obj) throws Z3Exception
-	{
-		super(ctx, obj);
-	}
+    /**
+     * Constructor for IntExpr
+     * @throws Z3Exception on error
+     **/
+    IntExpr(Context ctx, long obj)
+    {
+        super(ctx, obj);
+    }
 }

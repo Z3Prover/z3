@@ -88,6 +88,8 @@ namespace api {
         m_arith_util(m()),
         m_bv_util(m()),
         m_datalog_util(m()),
+        m_fpa_util(m()),
+	m_dtutil(m()),
         m_last_result(m()),
         m_ast_trail(m()),
         m_replay_stack() {
@@ -112,6 +114,7 @@ namespace api {
         m_array_fid = m().mk_family_id("array");
         m_dt_fid    = m().mk_family_id("datatype");
         m_datalog_fid = m().mk_family_id("datalog_relation");
+        m_fpa_fid   = m().mk_family_id("fpa");
         m_dt_plugin = static_cast<datatype_decl_plugin*>(m().get_plugin(m_dt_fid));
 
         if (!m_user_ref_count) {
@@ -546,12 +549,12 @@ extern "C" {
         }
     }
 
-    char const * Z3_API Z3_get_error_msg(Z3_error_code err) {
+    Z3_API char const * Z3_get_error_msg(Z3_error_code err) {
         LOG_Z3_get_error_msg(err);
         return _get_error_msg_ex(0, err);
     }
 
-    char const * Z3_API Z3_get_error_msg_ex(Z3_context c, Z3_error_code err) {
+    Z3_API char const * Z3_get_error_msg_ex(Z3_context c, Z3_error_code err) {
         LOG_Z3_get_error_msg_ex(c, err);
         return _get_error_msg_ex(c, err);
     }
@@ -575,7 +578,7 @@ extern "C" {
     
 };
 
-ast_manager & Z3_API Z3_get_manager(__in Z3_context c) {
+Z3_API ast_manager& Z3_get_manager(__in Z3_context c) {
     return mk_c(c)->m();
 }
 

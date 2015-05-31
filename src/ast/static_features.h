@@ -21,14 +21,21 @@ Revision History:
 
 #include"ast.h"
 #include"arith_decl_plugin.h"
+#include"bv_decl_plugin.h"
+#include"array_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"map.h"
 
 struct static_features {
     ast_manager &            m_manager;
     arith_util               m_autil;
+    bv_util                  m_bvutil;
+    array_util               m_arrayutil;
+    fpa_util                 m_fpautil;
     family_id                m_bfid;
     family_id                m_afid;
-    family_id                m_lfid;
+    family_id                m_lfid;    
+    family_id                m_arrfid;
     ast_mark                 m_already_visited;
     bool                     m_cnf;
     unsigned                 m_num_exprs;             // 
@@ -68,6 +75,9 @@ struct static_features {
     bool                     m_has_rational;    //
     bool                     m_has_int;         //
     bool                     m_has_real;        //
+    bool                     m_has_bv;          //
+    bool                     m_has_fpa;         //
+    bool                     m_has_arrays;      //
     rational                 m_arith_k_sum;     // sum of the numerals in arith atoms.
     unsigned                 m_num_arith_terms;
     unsigned                 m_num_arith_eqs;   // equalities of the form t = k where k is a numeral
@@ -139,6 +149,7 @@ struct static_features {
     void inc_theory_eqs(family_id fid) { m_num_theory_eqs.reserve(fid+1, 0); m_num_theory_eqs[fid]++; }
     void inc_num_aliens(family_id fid) { m_num_aliens_per_family.reserve(fid+1, 0); m_num_aliens_per_family[fid]++; }
     void update_core(expr * e);
+    void update_core(sort * s);
     void process(expr * e, bool form_ctx, bool or_and_ctx, bool ite_ctx, unsigned stack_depth);
     void process_root(expr * e);
     unsigned get_depth(expr const * e) const { return m_expr2depth.get(e->get_id(), 1); }

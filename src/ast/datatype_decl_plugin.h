@@ -168,9 +168,9 @@ class datatype_util {
     obj_map<sort, bool>                         m_is_recursive;
     ast_ref_vector                              m_asts;
     ptr_vector<ptr_vector<func_decl> >          m_vectors;
-
-    func_decl * get_constructor(sort * ty, unsigned c_id);
+    
     func_decl * get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
+    func_decl * get_constructor(sort * ty, unsigned c_id);
 
 public:
     datatype_util(ast_manager & m);
@@ -185,7 +185,12 @@ public:
     bool is_recognizer(app * f) const { return is_app_of(f, m_family_id, OP_DT_RECOGNISER); }
     bool is_accessor(app * f) const { return is_app_of(f, m_family_id, OP_DT_ACCESSOR); }
     ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
-    unsigned get_datatype_num_constructors(sort * ty) { return get_datatype_constructors(ty)->size(); }
+    unsigned get_datatype_num_constructors(sort * ty) { 
+        SASSERT(is_datatype(ty));
+        unsigned tid = ty->get_parameter(1).get_int();
+        unsigned o = ty->get_parameter(3 + 2 * tid).get_int();
+        return ty->get_parameter(o).get_int(); 
+    }
     unsigned get_constructor_idx(func_decl * f) const { SASSERT(is_constructor(f)); return f->get_parameter(1).get_int(); }
     unsigned get_recognizer_constructor_idx(func_decl * f) const { SASSERT(is_recognizer(f)); return f->get_parameter(1).get_int(); }
     func_decl * get_non_rec_constructor(sort * ty);
@@ -197,6 +202,7 @@ public:
     bool are_siblings(sort * s1, sort * s2);
     void reset();
     void display_datatype(sort *s, std::ostream& strm);
+
 };
 
 #endif /* _DATATYPE_DECL_PLUGIN_H_ */

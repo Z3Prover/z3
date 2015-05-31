@@ -32,11 +32,6 @@ namespace Microsoft.Z3
     {
         #region Internal
         /// <summary> Constructor for ArithExpr </summary>
-        internal protected ArithExpr(Context ctx)
-            : base(ctx)
-        {
-            Contract.Requires(ctx != null);
-        }
         internal ArithExpr(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {

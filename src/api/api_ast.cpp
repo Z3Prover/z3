@@ -300,7 +300,7 @@ extern "C" {
         Z3_CATCH_RETURN(-1);
     }
     
-    char const * Z3_API Z3_get_symbol_string(Z3_context c, Z3_symbol s) {
+    Z3_API char const * Z3_get_symbol_string(Z3_context c, Z3_symbol s) {
         Z3_TRY;
         LOG_Z3_get_symbol_string(c, s);
         RESET_ERROR_CODE();
@@ -648,6 +648,12 @@ extern "C" {
         else if (fid == mk_c(c)->get_datalog_fid() && k == datalog::DL_FINITE_SORT) {
             return Z3_FINITE_DOMAIN_SORT;
         }
+        else if (fid == mk_c(c)->get_fpa_fid() && k == FLOATING_POINT_SORT) {
+            return Z3_FLOATING_POINT_SORT;
+        }
+        else if (fid == mk_c(c)->get_fpa_fid() && k == ROUNDING_MODE_SORT) {
+            return Z3_ROUNDING_MODE_SORT;
+        }
         else {
             return Z3_UNKNOWN_SORT;
         }
@@ -817,7 +823,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    char const * Z3_API Z3_ast_to_string(Z3_context c, Z3_ast a) {
+    Z3_API char const * Z3_ast_to_string(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_ast_to_string(c, a);
         RESET_ERROR_CODE();
@@ -860,11 +866,11 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    char const * Z3_API Z3_sort_to_string(Z3_context c, Z3_sort s) {
+    Z3_API char const * Z3_sort_to_string(Z3_context c, Z3_sort s) {
         return Z3_ast_to_string(c, reinterpret_cast<Z3_ast>(s));
     }
 
-    char const * Z3_API Z3_func_decl_to_string(Z3_context c, Z3_func_decl f) {
+    Z3_API char const * Z3_func_decl_to_string(Z3_context c, Z3_func_decl f) {
         return Z3_ast_to_string(c, reinterpret_cast<Z3_ast>(f));
     }
 
@@ -1108,6 +1114,62 @@ extern "C" {
             case datalog::OP_RA_SELECT: return Z3_OP_RA_SELECT;
             case datalog::OP_RA_CLONE:  return Z3_OP_RA_CLONE;
             case datalog::OP_DL_LT: return Z3_OP_FD_LT;
+            default:
+                UNREACHABLE();
+                return Z3_OP_UNINTERPRETED;
+            }
+        }
+        
+        if (mk_c(c)->get_fpa_fid() == _d->get_family_id()) {
+            switch (_d->get_decl_kind()) {
+            case OP_FPA_RM_NEAREST_TIES_TO_EVEN: return Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN;
+            case OP_FPA_RM_NEAREST_TIES_TO_AWAY: return Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY;
+            case OP_FPA_RM_TOWARD_POSITIVE: return Z3_OP_FPA_RM_TOWARD_POSITIVE;
+            case OP_FPA_RM_TOWARD_NEGATIVE: return Z3_OP_FPA_RM_TOWARD_NEGATIVE;
+            case OP_FPA_RM_TOWARD_ZERO: return Z3_OP_FPA_RM_TOWARD_ZERO;
+            case OP_FPA_NUM: return Z3_OP_FPA_NUM;
+            case OP_FPA_PLUS_INF: return Z3_OP_FPA_PLUS_INF;
+            case OP_FPA_MINUS_INF: return Z3_OP_FPA_MINUS_INF;
+            case OP_FPA_NAN: return Z3_OP_FPA_NAN;
+            case OP_FPA_MINUS_ZERO: return Z3_OP_FPA_MINUS_ZERO;
+            case OP_FPA_PLUS_ZERO: return Z3_OP_FPA_PLUS_ZERO;
+            case OP_FPA_ADD: return Z3_OP_FPA_ADD;
+            case OP_FPA_SUB: return Z3_OP_FPA_SUB;
+            case OP_FPA_NEG: return Z3_OP_FPA_NEG;
+            case OP_FPA_MUL: return Z3_OP_FPA_MUL;
+            case OP_FPA_DIV: return Z3_OP_FPA_DIV;
+            case OP_FPA_REM: return Z3_OP_FPA_REM;
+            case OP_FPA_ABS: return Z3_OP_FPA_ABS;
+            case OP_FPA_MIN: return Z3_OP_FPA_MIN;
+            case OP_FPA_MAX: return Z3_OP_FPA_MAX;
+            case OP_FPA_FMA: return Z3_OP_FPA_FMA;
+            case OP_FPA_SQRT: return Z3_OP_FPA_SQRT;
+            case OP_FPA_EQ: return Z3_OP_FPA_EQ;
+            case OP_FPA_ROUND_TO_INTEGRAL: return Z3_OP_FPA_ROUND_TO_INTEGRAL;
+            case OP_FPA_LT: return Z3_OP_FPA_LT;
+            case OP_FPA_GT: return Z3_OP_FPA_GT;
+            case OP_FPA_LE: return Z3_OP_FPA_LE;
+            case OP_FPA_GE: return Z3_OP_FPA_GE;
+            case OP_FPA_IS_NAN: return Z3_OP_FPA_IS_NAN;
+            case OP_FPA_IS_INF: return Z3_OP_FPA_IS_INF;
+            case OP_FPA_IS_ZERO: return Z3_OP_FPA_IS_ZERO;
+            case OP_FPA_IS_NORMAL: return Z3_OP_FPA_IS_NORMAL;
+            case OP_FPA_IS_SUBNORMAL: return Z3_OP_FPA_IS_SUBNORMAL;
+            case OP_FPA_IS_NEGATIVE: return Z3_OP_FPA_IS_NEGATIVE;
+            case OP_FPA_IS_POSITIVE: return Z3_OP_FPA_IS_POSITIVE;
+            case OP_FPA_FP: return Z3_OP_FPA_FP;
+            case OP_FPA_TO_FP: return Z3_OP_FPA_TO_FP;
+            case OP_FPA_TO_FP_UNSIGNED: return Z3_OP_FPA_TO_FP_UNSIGNED;
+            case OP_FPA_TO_UBV: return Z3_OP_FPA_TO_UBV;
+            case OP_FPA_TO_SBV: return Z3_OP_FPA_TO_SBV;
+            case OP_FPA_TO_REAL: return Z3_OP_FPA_TO_REAL;
+            case OP_FPA_TO_IEEE_BV: return Z3_OP_FPA_TO_IEEE_BV;
+            case OP_FPA_INTERNAL_BVWRAP:
+            case OP_FPA_INTERNAL_BVUNWRAP:
+            case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
+            case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
+            case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
+                return Z3_OP_UNINTERPRETED;
             default:
                 UNREACHABLE();
                 return Z3_OP_UNINTERPRETED;

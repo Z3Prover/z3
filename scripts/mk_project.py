@@ -9,7 +9,7 @@ from mk_util import *
 
 # Z3 Project definition
 def init_project_def():
-    set_version(4, 3, 2, 0)
+    set_version(4, 4, 0, 0)
     add_lib('util', [])
     add_lib('polynomial', ['util'], 'math/polynomial')
     add_lib('sat', ['util'])
@@ -53,8 +53,8 @@ def init_project_def():
     add_lib('user_plugin', ['smt'], 'smt/user_plugin')
     add_lib('bv_tactics', ['tactic', 'bit_blaster'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
-    add_lib('fpa_tactics', ['fpa', 'core_tactics', 'bv_tactics', 'sat_tactic'], 'tactic/fpa')
     add_lib('smt_tactic', ['smt'], 'smt/tactic')
+    add_lib('fpa_tactics', ['fpa', 'core_tactics', 'bv_tactics', 'sat_tactic', 'smt_tactic'], 'tactic/fpa')
     add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
     add_lib('qe', ['smt','sat'], 'qe')
     add_lib('duality', ['smt', 'interp', 'qe'])
@@ -75,7 +75,7 @@ def init_project_def():
 #            dll_name='foci2', 
 #            export_files=['foci2stub.cpp'])
 #    add_lib('interp', ['solver','foci2'])
-    API_files = ['z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_interp.h']
+    API_files = ['z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_interp.h', 'z3_fpa.h']
     add_lib('api', ['portfolio', 'user_plugin', 'smtparser', 'realclosure', 'interp'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
     add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
@@ -87,6 +87,7 @@ def init_project_def():
             export_files=API_files)
     add_dot_net_dll('dotnet', ['api_dll'], 'api/dotnet', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
     add_java_dll('java', ['api_dll'], 'api/java', dll_name='libz3java', package_name="com.microsoft.z3", manifest_file='manifest')
+    add_ml_lib('ml', ['api_dll'], 'api/ml', lib_name='libz3ml')
     add_hlib('cpp', 'api/c++', includes2install=['z3++.h'])
     set_z3py_dir('api/python')
     # Examples
@@ -97,6 +98,7 @@ def init_project_def():
     add_c_example('maxsat')
     add_dotnet_example('dotnet_example', 'dotnet')
     add_java_example('java_example', 'java')
+    add_ml_example('ml_example', 'ml')
     add_z3py_example('py_example', 'python')
     return API_files
 

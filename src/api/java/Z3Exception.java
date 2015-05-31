@@ -22,7 +22,7 @@ package com.microsoft.z3;
  * The exception base class for error reporting from Z3
  **/
 @SuppressWarnings("serial")
-public class Z3Exception extends Exception
+public class Z3Exception extends RuntimeException
 {
     /**
      * Constructor.

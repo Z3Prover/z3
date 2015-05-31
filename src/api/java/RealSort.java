@@ -22,12 +22,12 @@ package com.microsoft.z3;
  **/
 public class RealSort extends ArithSort
 {
-    RealSort(Context ctx, long obj) throws Z3Exception
+    RealSort(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    RealSort(Context ctx) throws Z3Exception
+    RealSort(Context ctx)
     {
         super(ctx, Native.mkRealSort(ctx.nCtx()));
     }

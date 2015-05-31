@@ -22,9 +22,13 @@ Revision History:
 static_features::static_features(ast_manager & m):
     m_manager(m),
     m_autil(m),
+    m_bvutil(m),
+    m_arrayutil(m),
+    m_fpautil(m),
     m_bfid(m.get_basic_family_id()),
     m_afid(m.mk_family_id("arith")),
     m_lfid(m.mk_family_id("label")),
+    m_arrfid(m.mk_family_id("array")),
     m_label_sym("label"),
     m_pattern_sym("pattern"),
     m_expr_list_sym("expr-list") {
@@ -70,7 +74,10 @@ void static_features::reset() {
     m_num_eqs                              = 0;
     m_has_rational                         = false;
     m_has_int                              = false;
-    m_has_real                             = false;
+    m_has_real                             = false; 
+    m_has_bv                               = false;
+    m_has_fpa                              = false;
+    m_has_arrays                           = false;
     m_arith_k_sum                          .reset();
     m_num_arith_terms                      = 0;
     m_num_arith_eqs                        = 0;
@@ -266,6 +273,12 @@ void static_features::update_core(expr * e) {
         m_has_int  = true;
     if (!m_has_real && m_autil.is_real(e))
         m_has_real = true;
+    if (!m_has_bv && m_bvutil.is_bv(e))
+        m_has_bv = true;
+    if (!m_has_fpa && (m_fpautil.is_float(e) || m_fpautil.is_rm(e)))
+        m_has_fpa = true;
+    if (!m_has_arrays && m_arrayutil.is_array(e))
+        m_has_arrays = true;
     if (is_app(e)) {
         family_id fid = to_app(e)->get_family_id();
         mark_theory(fid);
@@ -305,6 +318,16 @@ void static_features::update_core(expr * e) {
                 }
             }
         }
+        if (m_arrayutil.is_array(e)) {
+            TRACE("sf_array", tout << mk_ismt2_pp(e, m_manager) << "\n";);
+            sort * ty = to_app(e)->get_decl()->get_range();
+            mark_theory(ty->get_family_id());
+            unsigned n = ty->get_num_parameters();
+            for (unsigned i = 0; i < n; i++) {
+                sort * ds = to_sort(ty->get_parameter(i).get_ast());
+                update_core(ds);
+            }
+        }
         func_decl * d = to_app(e)->get_decl();
         inc_num_apps(d);
         if (d->get_arity() > 0 && !is_marked(d)) {
@@ -337,6 +360,20 @@ void static_features::update_core(expr * e) {
             }
         }
     }
+}
+
+void static_features::update_core(sort * s) {
+    mark_theory(s->get_family_id());
+    if (!m_has_int && m_autil.is_int(s))
+        m_has_int = true;
+    if (!m_has_real && m_autil.is_real(s))
+        m_has_real = true;
+    if (!m_has_bv && m_bvutil.is_bv_sort(s))
+        m_has_bv = true;
+    if (!m_has_fpa && (m_fpautil.is_float(s) || m_fpautil.is_rm(s)))
+        m_has_fpa = true;
+    if (!m_has_arrays && m_arrayutil.is_array(s))
+        m_has_arrays = true;
 }
 
 void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite_ctx, unsigned stack_depth) {

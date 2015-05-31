@@ -23,7 +23,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// A ParameterSet represents a configuration in the form of Symbol/value pairs.
+    /// A Params objects represents a configuration in the form of Symbol/value pairs.
     /// </summary>
     [ContractVerification(true)]
     public class Params : Z3Object
@@ -140,12 +140,14 @@ namespace Microsoft.Z3
 
         internal class DecRefQueue : IDecRefQueue
         {
-            public override void IncRef(Context ctx, IntPtr obj)
+            public DecRefQueue() : base() { }
+            public DecRefQueue(uint move_limit) : base(move_limit) { }
+            internal override void IncRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_params_inc_ref(ctx.nCtx, obj);
             }
 
-            public override void DecRef(Context ctx, IntPtr obj)
+            internal override void DecRef(Context ctx, IntPtr obj)
             {
                 Native.Z3_params_dec_ref(ctx.nCtx, obj);
             }

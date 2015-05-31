@@ -27,6 +27,7 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"dl_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"smt_kernel.h"
 #include"smt_params.h"
 #include"event_handler.h"
@@ -56,6 +57,8 @@ namespace api {
         arith_util                 m_arith_util;
         bv_util                    m_bv_util;
         datalog::dl_decl_util      m_datalog_util;
+        fpa_util                   m_fpa_util;
+	datatype_util              m_dtutil;
 
         // Support for old solver API
         smt_params                 m_fparams;
@@ -75,6 +78,7 @@ namespace api {
         family_id                  m_bv_fid;
         family_id                  m_dt_fid;
         family_id                  m_datalog_fid;
+        family_id                  m_fpa_fid;
         datatype_decl_plugin *     m_dt_plugin;
         
         std::string                m_string_buffer; // temporary buffer used to cache strings sent to the "external" world.
@@ -115,12 +119,15 @@ namespace api {
         arith_util & autil() { return m_arith_util; }
         bv_util & bvutil() { return m_bv_util; }
         datalog::dl_decl_util & datalog_util() { return m_datalog_util; }
+        fpa_util & fpautil() { return m_fpa_util; }
+	datatype_util& dtutil() { return m_dtutil; }
         family_id get_basic_fid() const { return m_basic_fid; }
         family_id get_array_fid() const { return m_array_fid; }
         family_id get_arith_fid() const { return m_arith_fid; }
         family_id get_bv_fid() const { return m_bv_fid; }
         family_id get_dt_fid() const { return m_dt_fid; }
         family_id get_datalog_fid() const { return m_datalog_fid; }
+        family_id get_fpa_fid() const { return m_fpa_fid; }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
 
         Z3_error_code get_error_code() const { return m_error_code; }

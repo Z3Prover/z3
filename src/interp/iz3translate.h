@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+  Copyright (c) 2011 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-   iz3translate.h
+  iz3translate.h
 
-Abstract:
+  Abstract:
 
-   Interface for proof translations from Z3 proofs to interpolatable
-   proofs.
+  Interface for proof translations from Z3 proofs to interpolatable
+  proofs.
 
-Author:
+  Author:
 
-    Ken McMillan (kenmcmil)
+  Ken McMillan (kenmcmil)
 
-Revision History:
+  Revision History:
 
---*/
+  --*/
 
 
 #ifndef IZ3TRANSLATION_H
@@ -29,27 +29,27 @@ Revision History:
 // an interpolatable proof
 
 class iz3translation : public iz3base {
-public:
-  virtual iz3proof::node translate(ast, iz3proof &) = 0;
-  virtual ast quantify(ast e, const range &rng){return e;}
-  virtual ~iz3translation(){}
+ public:
+    virtual iz3proof::node translate(ast, iz3proof &) = 0;
+    virtual ast quantify(ast e, const range &rng){return e;}
+    virtual ~iz3translation(){}
 
-  /** This is thrown when the proof cannot be translated. */
-  struct unsupported {
-  };
+    /** This is thrown when the proof cannot be translated. */
+    struct unsupported {
+    };
 
-  static iz3translation *create(iz3mgr &mgr,
-				iz3secondary *secondary,
-				const std::vector<std::vector<ast> > &frames,
-				const std::vector<int> &parents,
-                                const std::vector<ast> &theory);
+    static iz3translation *create(iz3mgr &mgr,
+                                  iz3secondary *secondary,
+                                  const std::vector<std::vector<ast> > &frames,
+                                  const std::vector<int> &parents,
+                                  const std::vector<ast> &theory);
 
  protected:
  iz3translation(iz3mgr &mgr,
 		const std::vector<std::vector<ast> > &_cnsts,
 		const std::vector<int> &_parents,
 		const std::vector<ast> &_theory)
-   : iz3base(mgr,_cnsts,_parents,_theory)  {}
+     : iz3base(mgr,_cnsts,_parents,_theory)  {}
 };
 
 //#define IZ3_TRANSLATE_DIRECT2

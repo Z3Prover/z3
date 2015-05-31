@@ -22,16 +22,18 @@ package com.microsoft.z3;
  **/
 public class BitVecSort extends Sort
 {
-	/**
-	 * The size of the bit-vector sort.
-	 **/
-	public int getSize() throws Z3Exception
-	{
-		return Native.getBvSortSize(getContext().nCtx(), getNativeObject());
-	}
+    /**
+     * The size of the bit-vector sort.
+     * @throws Z3Exception on error
+     * @return an int
+     **/
+    public int getSize()
+    {
+        return Native.getBvSortSize(getContext().nCtx(), getNativeObject());
+    }
 
-	BitVecSort(Context ctx, long obj) throws Z3Exception
-	{
-		super(ctx, obj);
-	}
+    BitVecSort(Context ctx, long obj)
+    {
+        super(ctx, obj);
+    }
 };

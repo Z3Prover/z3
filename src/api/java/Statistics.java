@@ -24,7 +24,7 @@ public class Statistics extends Z3Object
 {
     /**
      * Statistical data is organized into pairs of [Key, Entry], where every
-     * Entry is either a <code>DoubleEntry</code> or a <code>UIntEntry</code>
+     * Entry is either a {@code DoubleEntry} or a {@code UIntEntry}
      **/
     public class Entry
     {
@@ -70,7 +70,7 @@ public class Statistics extends Z3Object
          * 
          * @throws Z3Exception
          **/
-        public String getValueString() throws Z3Exception
+        public String getValueString()
         {
             if (isUInt())
                 return Integer.toString(m_int);
@@ -131,7 +131,7 @@ public class Statistics extends Z3Object
     /**
      * The number of statistical data.
      **/
-    public int size() throws Z3Exception
+    public int size()
     {
         return Native.statsSize(getContext().nCtx(), getNativeObject());
     }
@@ -141,7 +141,7 @@ public class Statistics extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Entry[] getEntries() throws Z3Exception
+    public Entry[] getEntries()
     {
 
         int n = size();
@@ -166,7 +166,7 @@ public class Statistics extends Z3Object
     /**
      * The statistical counters.
      **/
-    public String[] getKeys() throws Z3Exception
+    public String[] getKeys()
     {
         int n = size();
         String[] res = new String[n];
@@ -176,12 +176,13 @@ public class Statistics extends Z3Object
     }
 
     /**
-     * The value of a particular statistical counter. <remarks>Returns null if
-     * the key is unknown.</remarks>
+     * The value of a particular statistical counter.
+     * Remarks: Returns null if
+     * the key is unknown.
      * 
      * @throws Z3Exception
      **/
-    public Entry get(String key) throws Z3Exception
+    public Entry get(String key)
     {
         int n = size();
         Entry[] es = getEntries();
@@ -191,20 +192,20 @@ public class Statistics extends Z3Object
         return null;
     }
 
-    Statistics(Context ctx, long obj) throws Z3Exception
+    Statistics(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    void incRef(long o) throws Z3Exception
+    void incRef(long o)
     {
-        getContext().statistics_DRQ().incAndClear(getContext(), o);
+        getContext().getStatisticsDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
-    void decRef(long o) throws Z3Exception
+    void decRef(long o)
     {
-        getContext().statistics_DRQ().add(o);
+        getContext().getStatisticsDRQ().add(o);
         super.decRef(o);
     }
 }

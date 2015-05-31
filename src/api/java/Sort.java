@@ -28,21 +28,21 @@ public class Sort extends AST
     /* Overloaded operators are not translated. */
 
     /**
-     * Equality operator for objects of type Sort. <param name="o"/>
-     * 
+     * Equality operator for objects of type Sort. 
+     * @param o
      * @return
      **/
     public boolean equals(Object o)
     {
         Sort casted = null;
 
-	try {
-	    casted = Sort.class.cast(o);
-	} catch (ClassCastException e) {
-	    return false;
-	}
+    try {
+        casted = Sort.class.cast(o);
+    } catch (ClassCastException e) {
+        return false;
+    }
 
-	return this.getNativeObject() == casted.getNativeObject();
+    return this.getNativeObject() == casted.getNativeObject();
     }
 
     /**
@@ -58,7 +58,7 @@ public class Sort extends AST
     /**
      * Returns a unique identifier for the sort.
      **/
-    public int getId() throws Z3Exception
+    public int getId()
     {
         return Native.getSortId(getContext().nCtx(), getNativeObject());
     }
@@ -66,7 +66,7 @@ public class Sort extends AST
     /**
      * The kind of the sort.
      **/
-    public Z3_sort_kind getSortKind() throws Z3Exception
+    public Z3_sort_kind getSortKind()
     {
         return Z3_sort_kind.fromInt(Native.getSortKind(getContext().nCtx(),
                 getNativeObject()));
@@ -75,7 +75,7 @@ public class Sort extends AST
     /**
      * The name of the sort
      **/
-    public Symbol getName() throws Z3Exception
+    public Symbol getName()
     {
         return Symbol.create(getContext(),
                 Native.getSortName(getContext().nCtx(), getNativeObject()));
@@ -98,21 +98,12 @@ public class Sort extends AST
     /**
      * Sort constructor
      **/
-    protected Sort(Context ctx) throws Z3Exception
-    {
-        super(ctx);
-        {
-        }
-    }
-
-    Sort(Context ctx, long obj) throws Z3Exception
+    Sort(Context ctx, long obj)
     {
         super(ctx, obj);
-        {
-        }
     }
 
-    void checkNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj)
     {
         if (Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_SORT_AST
                 .toInt())
@@ -120,7 +111,7 @@ public class Sort extends AST
         super.checkNativeObject(obj);
     }
 
-    static Sort create(Context ctx, long obj) throws Z3Exception
+    static Sort create(Context ctx, long obj)
     {
         Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(ctx.nCtx(), obj));
         switch (sk)
@@ -143,6 +134,10 @@ public class Sort extends AST
             return new FiniteDomainSort(ctx, obj);
         case Z3_RELATION_SORT:
             return new RelationSort(ctx, obj);
+        case Z3_FLOATING_POINT_SORT:
+            return new FPSort(ctx, obj);
+        case Z3_ROUNDING_MODE_SORT:
+            return new FPRMSort(ctx, obj);
         default:
             throw new Z3Exception("Unknown sort kind");
         }

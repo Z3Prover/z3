@@ -4,9 +4,9 @@
    Z3 is a high-performance theorem prover being developed at <a class="el"
    href="http://research.microsoft.com">Microsoft Research</a>. 
    
-   <b>The Z3 website moved to <a class="el" href="http://z3.codeplex.com">z3.codeplex.com</a>.</b>
+   <b>The Z3 website moved to <a class="el" href="http://github.com/z3prover">http://github.com/z3prover.</a>.</b>
 
-   The old Z3 website can be found <a class="el" href="http://research.microsoft.com/en-us/um/redmond/projects/z3/old/index.html">here</a>.
+   The old Z3 websites can be found <a class="el" href="http://research.microsoft.com/en-us/um/redmond/projects/z3/old/index.html">here</a> and <a href="http://z3.codeplex.com">here</a>.
 
    This website hosts the automatically generated documentation for the Z3 APIs.
 
@@ -14,6 +14,7 @@
    - \ref cppapi
    - <a class="el" href="class_microsoft_1_1_z3_1_1_context.html">.NET API</a>
    - <a class="el" href="namespacecom_1_1microsoft_1_1z3.html">Java API</a>
-   - <a class="el" href="namespacez3py.html">Python API</a> (also available in <a class="el" href="z3.html">pydoc format</a>).
+   - <a class="el" href="namespacez3py.html">Python API</a> (also available in <a class="el" href="z3.html">pydoc format</a>)
+[ML]
    - Try Z3 online at <a href="http://rise4fun.com/z3">RiSE4Fun</a>.
 */

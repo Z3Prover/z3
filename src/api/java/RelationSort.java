@@ -25,7 +25,7 @@ public class RelationSort extends Sort
     /**
      * The arity of the relation sort.
      **/
-    public int getArity() throws Z3Exception
+    public int getArity()
     {
         return Native.getRelationArity(getContext().nCtx(), getNativeObject());
     }
@@ -34,7 +34,7 @@ public class RelationSort extends Sort
      * The sorts of the columns of the relation sort.
      * @throws Z3Exception 
      **/
-    public Sort[] getColumnSorts() throws Z3Exception
+    public Sort[] getColumnSorts()
     {
 
         if (m_columnSorts != null)
@@ -50,7 +50,7 @@ public class RelationSort extends Sort
 
     private Sort[] m_columnSorts = null;
 
-    RelationSort(Context ctx, long obj) throws Z3Exception
+    RelationSort(Context ctx, long obj)
     {
         super(ctx, obj);
     }

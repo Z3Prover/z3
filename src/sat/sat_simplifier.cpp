@@ -227,6 +227,7 @@ namespace sat {
     }
 
     void simplifier::cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists) {
+        TRACE("sat", tout << "cleanup_clauses\n";);
         clause_vector::iterator it  = cs.begin();
         clause_vector::iterator it2 = it;
         clause_vector::iterator end = cs.end();

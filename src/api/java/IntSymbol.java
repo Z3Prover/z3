@@ -25,27 +25,28 @@ import com.microsoft.z3.enumerations.Z3_symbol_kind;
 public class IntSymbol extends Symbol
 {
     /**
-     * The int value of the symbol. <remarks>Throws an exception if the symbol
-     * is not of int kind. </remarks>
+     * The int value of the symbol.
+     * Remarks: Throws an exception if the symbol
+     * is not of int kind. 
      **/
-    public int getInt() throws Z3Exception
+    public int getInt()
     {
         if (!isIntSymbol())
             throw new Z3Exception("Int requested from non-Int symbol");
         return Native.getSymbolInt(getContext().nCtx(), getNativeObject());
     }
 
-    IntSymbol(Context ctx, long obj) throws Z3Exception
+    IntSymbol(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    IntSymbol(Context ctx, int i) throws Z3Exception
+    IntSymbol(Context ctx, int i)
     {
         super(ctx, Native.mkIntSymbol(ctx.nCtx(), i));
     }
 
-    void checkNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj)
     {
         if (Native.getSymbolKind(getContext().nCtx(), obj) != Z3_symbol_kind.Z3_INT_SYMBOL
                 .toInt())

@@ -41,6 +41,9 @@ public:
     virtual void push();
     virtual void pop(unsigned n);
     virtual unsigned get_scope_level() const;
+    
+    virtual unsigned get_num_assumptions() const { return m_assumptions.size(); }
+    virtual expr * get_assumption(unsigned idx) const { return m_assumptions[idx]; }
 protected:
     virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) = 0;
     virtual void push_core() = 0;

@@ -1,21 +1,21 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+  Copyright (c) 2011 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-   iz3checker.h
+  iz3checker.h
 
-Abstract:
+  Abstract:
 
-   check correctness of an interpolant
+  check correctness of an interpolant
 
-Author:
+  Author:
 
-    Ken McMillan (kenmcmil)
+  Ken McMillan (kenmcmil)
 
-Revision History:
+  Revision History:
 
---*/
+  --*/
 
 #ifndef IZ3_CHECKER_H
 #define IZ3_CHECKER_H

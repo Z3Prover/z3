@@ -255,7 +255,7 @@ protected:
             s == m_print_success || s == m_print_warning || s == m_expand_definitions || 
             s == m_interactive_mode || s == m_produce_proofs || s == m_produce_unsat_cores ||
             s == m_produce_models || s == m_produce_assignments || s == m_produce_interpolants ||
-	    s == m_regular_output_channel || s == m_diagnostic_output_channel || 
+        s == m_regular_output_channel || s == m_diagnostic_output_channel || 
             s == m_random_seed || s == m_verbosity || s == m_global_decls;
     }
 

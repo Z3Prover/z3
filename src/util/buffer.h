@@ -31,18 +31,18 @@ protected:
     char     m_initial_buffer[INITIAL_SIZE * sizeof(T)];
     
     void free_memory() {
-	if (m_buffer != reinterpret_cast<T*>(m_initial_buffer)) {
-	    memory::deallocate(m_buffer);
-        }
+        if (m_buffer != reinterpret_cast<T*>(m_initial_buffer)) {
+        memory::deallocate(m_buffer);
+            }
     }
 
     void expand() {
-	unsigned new_capacity = m_capacity << 1;
-	T * new_buffer        = reinterpret_cast<T*>(memory::allocate(sizeof(T) * new_capacity));
-	memcpy(new_buffer, m_buffer, m_pos * sizeof(T));
-	free_memory();
-	m_buffer              = new_buffer;
-	m_capacity            = new_capacity;
+        unsigned new_capacity = m_capacity << 1;
+        T * new_buffer        = reinterpret_cast<T*>(memory::allocate(sizeof(T) * new_capacity));
+        memcpy(new_buffer, m_buffer, m_pos * sizeof(T));
+        free_memory();
+        m_buffer              = new_buffer;
+        m_capacity            = new_capacity;
     }
     
     void destroy_elements() {
@@ -50,14 +50,14 @@ protected:
         iterator e  = end();
         for (; it != e; ++it) {
             it->~T();
-	}
+        }
     }
 
     void destroy() {
-	if (CallDestructors) {
-	    destroy_elements(); 
-	}
-	free_memory(); 
+        if (CallDestructors) {
+            destroy_elements(); 
+        }
+        free_memory();
     }
 
 public:
@@ -66,15 +66,15 @@ public:
     typedef const T * const_iterator;
 
     buffer():
-	m_buffer(reinterpret_cast<T *>(m_initial_buffer)),
-	m_pos(0),
-	m_capacity(INITIAL_SIZE) {
+    m_buffer(reinterpret_cast<T *>(m_initial_buffer)),
+    m_pos(0),
+    m_capacity(INITIAL_SIZE) {
     }
 
     buffer(const buffer & source):
-	m_buffer(reinterpret_cast<T *>(m_initial_buffer)),
-	m_pos(0),
-	m_capacity(INITIAL_SIZE) {
+    m_buffer(reinterpret_cast<T *>(m_initial_buffer)),
+    m_pos(0),
+    m_capacity(INITIAL_SIZE) {
         unsigned sz = source.size();
         for(unsigned i = 0; i < sz; i++) {
             push_back(source.m_buffer[i]);
@@ -82,9 +82,9 @@ public:
     }
 
     buffer(unsigned sz, const T & elem):
-	m_buffer(reinterpret_cast<T *>(m_initial_buffer)),
-	m_pos(0),
-	m_capacity(INITIAL_SIZE) {
+    m_buffer(reinterpret_cast<T *>(m_initial_buffer)),
+    m_pos(0),
+    m_capacity(INITIAL_SIZE) {
         for (unsigned i = 0; i < sz; i++) {
             push_back(elem);
         }
@@ -96,10 +96,10 @@ public:
     }
 
     void reset() { 
-	if (CallDestructors) {
-	    destroy_elements();
-	}
-	m_pos = 0;
+        if (CallDestructors) {
+            destroy_elements();
+        }
+        m_pos = 0;
     }
 
     void finalize() {
@@ -110,11 +110,11 @@ public:
     }
 
     unsigned size() const { 
-	return m_pos;
+        return m_pos;
     }
 
     bool empty() const {
-	return m_pos == 0;
+        return m_pos == 0;
     }
 
     iterator begin() { 
@@ -126,13 +126,13 @@ public:
     }
 
     void set_end(iterator it) {
-	m_pos = static_cast<unsigned>(it - m_buffer);
-	if (CallDestructors) {
-	    iterator e  = end();
-	    for (; it != e; ++it) {
-		it->~T();
-	    }
-	}
+        m_pos = static_cast<unsigned>(it - m_buffer);
+        if (CallDestructors) {
+            iterator e  = end();
+            for (; it != e; ++it) {
+            it->~T();
+            }
+        }
     }
 
     const_iterator begin() const { 
@@ -144,33 +144,33 @@ public:
     }
     
     void push_back(const T & elem) {
-	if (m_pos >= m_capacity)
-	    expand();
-	new (m_buffer + m_pos) T(elem);
-	m_pos++;
+        if (m_pos >= m_capacity)
+            expand();
+        new (m_buffer + m_pos) T(elem);
+        m_pos++;
     }
     
     void pop_back() {
         if (CallDestructors) {
             back().~T(); 
-	}
+        }
         m_pos--;
     }
 
     const T & back() const { 
         SASSERT(!empty()); 
-	SASSERT(m_pos > 0);
+        SASSERT(m_pos > 0);
         return m_buffer[m_pos - 1]; 
     }
 
     T & back() { 
         SASSERT(!empty()); 
-	SASSERT(m_pos > 0);
+        SASSERT(m_pos > 0);
         return m_buffer[m_pos - 1]; 
     }
     
     T * c_ptr() const {
-	return m_buffer;
+        return m_buffer;
     }
 
     void append(unsigned n, T const * elems) {

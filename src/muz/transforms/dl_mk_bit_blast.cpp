@@ -219,7 +219,7 @@ namespace datalog {
 
     class mk_bit_blast::impl {
 
-        context &	     m_context;
+        context &         m_context;
         ast_manager &        m;
         params_ref           m_params;
         mk_interp_tail_simplifier m_simplifier;

@@ -128,8 +128,8 @@ namespace datalog {
 
     lbool rel_context::saturate(scoped_query& sq) {
         m_context.ensure_closed();        
-        bool time_limit = m_context.soft_timeout()!=0;
-        unsigned remaining_time_limit = m_context.soft_timeout();
+        bool time_limit = m_context.timeout()!=0;
+        unsigned remaining_time_limit = m_context.timeout();
         unsigned restart_time = m_context.initial_restart_timeout();
                         
         instruction_block termination_code;
