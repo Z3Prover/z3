@@ -2953,9 +2953,8 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     shift_abs = m.mk_ite(m_bv_util.mk_sle(shift, bv0_e2), shift_neg, shift);
     SASSERT(m_bv_util.get_bv_size(shift) == ebits + 2);
     SASSERT(m_bv_util.get_bv_size(shift_neg) == ebits + 2);
-    SASSERT(m_bv_util.get_bv_size(shift_abs) == ebits + 2);
-    dbg_decouple("fpa2bv_to_sbv_shift", shift);
-    dbg_decouple("fpa2bv_to_sbv_shift_abs", shift_abs);
+    SASSERT(m_bv_util.get_bv_size(shift_abs) == ebits + 2);    
+    dbg_decouple("fpa2bv_to_sbv_shift", shift);    
 
     // sig is of the form +- [1].[sig][r][g][s] ... and at least bv_sz + 3 long    
     //           [1][ ... sig ... ][r][g][ ... s ...]
@@ -2964,25 +2963,39 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     max_shift = m_bv_util.mk_numeral(sig_sz, sig_sz);
     shift_abs = m_bv_util.mk_zero_extend(sig_sz - ebits - 2, shift_abs);
     SASSERT(m_bv_util.get_bv_size(shift_abs) == sig_sz);
+    dbg_decouple("fpa2bv_to_sbv_shift_abs", shift_abs);
 
     expr_ref c_in_limits(m);
     c_in_limits = m_bv_util.mk_sle(shift, m_bv_util.mk_numeral(0, ebits + 2));
     dbg_decouple("fpa2bv_to_sbv_in_limits", c_in_limits);
 
-    expr_ref shifted_sig(m);
-    shifted_sig = m_bv_util.mk_bv_lshr(sig, shift_abs);
-    dbg_decouple("fpa2bv_to_sbv_shifted_sig", shifted_sig);
+    expr_ref huge_sig(m), huge_shift(m), huge_shifted_sig(m);
+    huge_sig = m_bv_util.mk_concat(sig, m_bv_util.mk_numeral(0, sig_sz));
+    huge_shift = m_bv_util.mk_concat(m_bv_util.mk_numeral(0, sig_sz), shift_abs);
+    huge_shifted_sig = m_bv_util.mk_bv_lshr(huge_sig, huge_shift);
+    dbg_decouple("fpa2bv_to_sbv_huge_shifted_sig", huge_shifted_sig);
+    SASSERT(m_bv_util.get_bv_size(huge_shifted_sig) == 2 * sig_sz);
+
+    expr_ref upper_hss(m), lower_hss(m);
+    upper_hss = m_bv_util.mk_extract(2 * sig_sz - 1, sig_sz + 1, huge_shifted_sig);    
+    lower_hss = m_bv_util.mk_extract(sig_sz, 0, huge_shifted_sig);
+    SASSERT(m_bv_util.get_bv_size(upper_hss) == sig_sz - 1);
+    SASSERT(m_bv_util.get_bv_size(lower_hss) == sig_sz + 1);
+    dbg_decouple("fpa2bv_to_sbv_upper_hss", upper_hss);
+    dbg_decouple("fpa2bv_to_sbv_lower_hss", lower_hss);
 
     expr_ref last(m), round(m), sticky(m);
-    last = m_bv_util.mk_extract(sig_sz - bv_sz - 0, sig_sz - bv_sz - 0, shifted_sig);
-    round = m_bv_util.mk_extract(sig_sz - bv_sz - 1, sig_sz - bv_sz - 1, shifted_sig);
-    sticky = m.mk_ite(m.mk_eq(m_bv_util.mk_extract(sig_sz - bv_sz - 2, 0, shifted_sig),
-        m_bv_util.mk_numeral(0, sig_sz - (bv_sz + 3) + 2)),
-        bv0,
-        bv1);
+    last = m_bv_util.mk_extract(1, 1, upper_hss);
+    round = m_bv_util.mk_extract(0, 0, upper_hss);    
+    sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, lower_hss.get());
     dbg_decouple("fpa2bv_to_sbv_last", last);
     dbg_decouple("fpa2bv_to_sbv_round", round);
     dbg_decouple("fpa2bv_to_sbv_sticky", sticky);
+
+    expr_ref upper_hss_w_sticky(m);
+    upper_hss_w_sticky = m_bv_util.mk_concat(upper_hss, sticky);
+    dbg_decouple("fpa2bv_to_sbv_upper_hss_w_sticky", upper_hss_w_sticky);
+    SASSERT(m_bv_util.get_bv_size(upper_hss_w_sticky) == sig_sz);
 
     expr_ref rounding_decision(m);
     rounding_decision = mk_rounding_decision(rm, sgn, last, round, sticky);
@@ -2990,8 +3003,8 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     dbg_decouple("fpa2bv_to_sbv_rounding_decision", rounding_decision);
 
     expr_ref unrounded_sig(m), pre_rounded(m), inc(m);
-    unrounded_sig = m_bv_util.mk_zero_extend(1, m_bv_util.mk_extract(sig_sz - 1, sig_sz - bv_sz, shifted_sig));
-    inc = m_bv_util.mk_zero_extend(1, m_bv_util.mk_zero_extend(bv_sz - 1, rounding_decision));
+    unrounded_sig = m_bv_util.mk_extract(sig_sz - 1, sig_sz - bv_sz - 1, upper_hss_w_sticky);
+    inc = m_bv_util.mk_zero_extend(bv_sz, rounding_decision);
     pre_rounded = m_bv_util.mk_bv_add(unrounded_sig, inc);
     dbg_decouple("fpa2bv_to_sbv_inc", inc);
     dbg_decouple("fpa2bv_to_sbv_unrounded_sig", unrounded_sig);
@@ -3409,6 +3422,17 @@ void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {
 }
 
 expr_ref fpa2bv_converter::mk_rounding_decision(expr * rm, expr * sgn, expr * last, expr * round, expr * sticky) {
+    expr_ref rmr(rm, m);
+    expr_ref sgnr(sgn, m);
+    expr_ref lastr(last, m);
+    expr_ref roundr(round, m);
+    expr_ref stickyr(sticky, m);
+    dbg_decouple("fpa2bv_rnd_dec_rm", rmr);
+    dbg_decouple("fpa2bv_rnd_dec_sgn", sgnr);
+    dbg_decouple("fpa2bv_rnd_dec_last", lastr);
+    dbg_decouple("fpa2bv_rnd_dec_round", roundr);
+    dbg_decouple("fpa2bv_rnd_dec_sticky", stickyr);
+
     expr_ref last_or_sticky(m), round_or_sticky(m), not_last(m), not_round(m), not_sticky(m), not_lors(m), not_rors(m), not_sgn(m);
     expr * last_sticky[2] = { last, sticky };
     expr * round_sticky[2] = { round, sticky };
@@ -3446,6 +3470,7 @@ expr_ref fpa2bv_converter::mk_rounding_decision(expr * rm, expr * sgn, expr * la
     m_simp.mk_ite(rm_is_away, inc_taway, inc_c3, inc_c2);
     m_simp.mk_ite(rm_is_even, inc_teven, inc_c2, res);
     
+    dbg_decouple("fpa2bv_rnd_dec_res", res);
     return res;
 }
 
