@@ -8205,12 +8205,13 @@ def FPs(names, fpsort, ctx=None):
     
     >>> x, y, z = FPs('x y z', FPSort(8, 24))
     >>> x.sort()
+    FPSort(8, 24)
     >>> x.sbits()
     24
     >>> x.ebits()
     8
-    >>> simplify(Product(x, y, z))
-    x*y*z
+    >>> fpMul(RNE(), fpAdd(RNE(), x, y), z)
+    fpMul(RNE(), fpAdd(RNE(), x, y), z)
     """
     ctx = z3._get_ctx(ctx)
     if isinstance(names, str):
