@@ -272,8 +272,12 @@ class fpa2bv_approx_tactic: public tactic {
             expr_ref arg_e[] = { expr_ref(m), expr_ref(m), expr_ref(m), expr_ref(m) };
             unsigned i=0;
             //Set rounding mode
-            if (rhs->get_num_args() > 0 && m_float_util.is_rm(rhs->get_arg(0)))
+            if (rhs->get_num_args() > 0 && m_float_util.is_rm(rhs->get_arg(0))) {
+                expr_ref rm_val(m);
+                mdl->eval(rhs->get_arg(0), rm_val, true);
+                m_float_util.is_rm_numeral(rm_val, rm);
                 i = 1;
+            }
             //Collect argument values
             for (; i < rhs->get_num_args(); i++) {
                 expr * arg = rhs->get_arg(i);
@@ -370,6 +374,11 @@ class fpa2bv_approx_tactic: public tactic {
                 unsigned sbits = rhs->get_decl()->get_parameter(1).get_int();
                 mpf_mngr.set(rhs_value, ebits, sbits, rm, arg_val[1]);
                 mpf_mngr.set(est_rhs_value, ebits, sbits, rm, est_arg_val[1]);
+                break;
+            }
+            case OP_FPA_ABS:
+            {
+                mpf_mngr.abs(arg_val[0], rhs_value);
                 break;
             }
             default:
