@@ -108,7 +108,7 @@ namespace datalog {
 
     void relation_manager::store_relation(func_decl * pred, relation_base * rel) {
         SASSERT(rel);
-        relation_map::entry * e = m_relations.insert_if_not_there2(pred, 0);
+        relation_map::obj_map_entry * e = m_relations.insert_if_not_there2(pred, 0);
         if (e->get_data().m_value) {
             e->get_data().m_value->deallocate();
         }
