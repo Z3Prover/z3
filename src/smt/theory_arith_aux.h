@@ -1546,6 +1546,25 @@ namespace smt {
     }
 
     /**
+       \brief Check if bound change affects interface equality.
+    */
+    template<typename Ext>
+    bool theory_arith<Ext>::has_interface_equality(theory_var x) {
+        theory_var num = get_num_vars();
+        context& ctx = get_context();
+        enode* r = get_enode(x)->get_root();
+        for (theory_var v = 0; v < num; v++) {
+            if (v == x) continue;
+            enode* n = get_enode(v);
+            if (ctx.is_shared(n) && n->get_root() == r) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+
+    /**
        \brief Maximize (Minimize) the given temporary row.
        Return true if succeeded.
     */
@@ -1660,13 +1679,23 @@ namespace smt {
                     SASSERT(!maintain_integrality || valid_assignment());
                     continue;
                 }
-                if (ctx.is_shared(get_enode(x_j))) {
+#if 0
+                if (ctx.is_shared(get_enode(x_j)) && has_interface_equality(x_j)) {
                     ++best_efforts;
                 }
                 else {
                     SASSERT(unbounded_gain(max_gain));
+                    has_shared = false;
                     best_efforts = 0;
                 }
+#endif
+                //
+                // NB. As it stands this is a possibly unsound conclusion for shared theories.
+                // the tradeoff is non-termination for unbounded objectives in the
+                // presence of sharing.
+                // 
+                has_shared = false;
+                best_efforts = 0;
                 result = UNBOUNDED;
                 break;
             }
