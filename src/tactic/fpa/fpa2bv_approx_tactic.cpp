@@ -379,6 +379,7 @@ class fpa2bv_approx_tactic: public tactic {
             case OP_FPA_ABS:
             {
                 mpf_mngr.abs(arg_val[0], rhs_value);
+                mpf_mngr.abs(est_arg_val[0], est_rhs_value);
                 break;
             }
             default:
