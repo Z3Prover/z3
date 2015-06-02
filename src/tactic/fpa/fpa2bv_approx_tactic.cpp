@@ -147,7 +147,6 @@ class fpa2bv_approx_tactic: public tactic {
 
             while (to_traverse.size() > 0) {
                 cur = to_app(to_traverse.front());
-                mpf_rounding_mode rm;
 #ifdef Z3DEBUG
                 std::cout<<"Analyze - traversing: "<<mk_ismt2_pp(cur,m)<<std::endl;
                 std::cout.flush();
@@ -700,7 +699,6 @@ class fpa2bv_approx_tactic: public tactic {
 #ifdef Z3DEBUG
             std::cout<<"Increasing precision:"<<std::endl;
 #endif
-            mpf_rounding_mode rm;
             for(std::list<struct pair *>::iterator itp = ranked_terms.begin();
                     itp != ranked_terms.end();
                     itp++) {
