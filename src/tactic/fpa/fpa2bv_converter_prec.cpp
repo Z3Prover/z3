@@ -35,8 +35,8 @@ fpa2bv_converter_prec::fpa2bv_converter_prec(ast_manager & m, fpa_approximation_
 
 void fpa2bv_converter_prec::fix_bits(unsigned prec, expr_ref rounded,  unsigned sbits, unsigned ebits)//expr_ref& fixed,
 {   //AZ: TODO: revise! minimal number of legal bits is 3!!!! Remove magic numbers
-    unsigned szeroes=((sbits-2)*(MAX_PRECISION - prec +0.0)/MAX_PRECISION);//3 bits are minimum for the significand
-    unsigned ezeroes=((ebits-2)*(MAX_PRECISION - prec+0.0)/MAX_PRECISION);//2 bits are minimum for the exponent
+    unsigned szeroes = (unsigned) ((sbits-2)*(MAX_PRECISION - prec  +0.0) / MAX_PRECISION);//3 bits are minimum for the significand
+    unsigned ezeroes = (unsigned) ((ebits - 2)*(MAX_PRECISION - prec + 0.0) / MAX_PRECISION);//2 bits are minimum for the exponent
 
     expr_ref fix_sig(m), fix_exp(m);    
     expr * sgn, *sig, *expn;
@@ -226,8 +226,8 @@ void fpa2bv_converter_prec::mk_cast_small_to_big(unsigned sbits, unsigned ebits,
 void fpa2bv_converter_prec::match_sorts(expr * a, expr * b, expr_ref & n_a, expr_ref & n_b)
 {
     //Check if the sorts of lhs and rhs match, otherwise cast them to appropriate size?
-    SASSERT(is_app_of(a, m_plugin->get_family_id(), OP_FPA_TO_FP));
-    SASSERT(is_app_of(b, m_plugin->get_family_id(), OP_FPA_TO_FP));
+    SASSERT(is_app_of(a, m_plugin->get_family_id(), OP_FPA_FP));
+    SASSERT(is_app_of(b, m_plugin->get_family_id(), OP_FPA_FP));
     func_decl * a_decl = to_app(a)->get_decl();
     func_decl * b_decl = to_app(b)->get_decl();
 
