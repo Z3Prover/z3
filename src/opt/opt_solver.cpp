@@ -42,7 +42,7 @@ namespace opt {
         m_context(mgr, m_params),
         m(mgr),
         m_fm(fm),
-        m_objective_sorts(m),
+        m_objective_terms(m),
         m_dump_benchmarks(false),
         m_first(true) {
         m_params.updt_params(p);
@@ -213,11 +213,13 @@ namespace opt {
         }
         else {
             SASSERT(has_shared);
-            decrement_value(i, val);            
+            decrement_value(i, val);
         }
         m_objective_values[i] = val;
-        TRACE("opt", { tout << val << "\n"; 
-                tout << blocker << "\n";
+        TRACE("opt", { 
+                tout << "objective:     " << mk_pp(m_objective_terms[i].get(), m) << "\n";
+                tout << "maximal value: " << val << "\n"; 
+                tout << "new condition: " << blocker << "\n";
                 model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); });
     }
 
@@ -240,7 +242,7 @@ namespace opt {
         TRACE("opt", tout << is_sat << "\n";);
         if (is_sat != l_true) {
             // cop-out approximation
-            if (arith_util(m).is_real(m_objective_sorts[i].get())) {
+            if (arith_util(m).is_real(m_objective_terms[i].get())) {
                 val -= inf_eps(inf_rational(rational(0), true));
             }
             else {
@@ -304,7 +306,7 @@ namespace opt {
         smt::theory_var v = get_optimizer().add_objective(term);
         m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
-        m_objective_sorts.push_back(m.get_sort(term));
+        m_objective_terms.push_back(term);
         m_valid_objectives.push_back(true);
         m_models.push_back(0);
         return v;
@@ -363,7 +365,7 @@ namespace opt {
     void opt_solver::reset_objectives() {
         m_objective_vars.reset();
         m_objective_values.reset();
-        m_objective_sorts.reset();
+        m_objective_terms.reset();
         m_valid_objectives.reset();
     }
 
