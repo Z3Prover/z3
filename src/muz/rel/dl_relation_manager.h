@@ -73,7 +73,7 @@ namespace datalog {
         typedef map<const relation_plugin *, finite_product_relation_plugin *, ptr_hash<const relation_plugin>, 
             ptr_eq<const relation_plugin> > rp2fprp_map;
 
-        typedef map<func_decl *, relation_base *, ptr_hash<func_decl>, ptr_eq<func_decl> > relation_map;
+        typedef obj_map<func_decl, relation_base *> relation_map;
         typedef ptr_vector<table_plugin> table_plugin_vector;
         typedef ptr_vector<relation_plugin> relation_plugin_vector;
 
