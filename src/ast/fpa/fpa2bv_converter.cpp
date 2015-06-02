@@ -1403,14 +1403,20 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     expr * res_sgn_or_args[3] = { res_sgn_c1, res_sgn_c2, res_sgn_c3 };   
     res_sgn = m_bv_util.mk_bv_or(3, res_sgn_or_args);
 
-    sticky_raw = m_bv_util.mk_extract(sbits-5, 0, sig_abs);
-    sticky = m_bv_util.mk_zero_extend(sbits+3, m.mk_app(bvfid, OP_BREDOR, sticky_raw.get()));
+    if (sbits > 5) {
+        sticky_raw = m_bv_util.mk_extract(sbits - 5, 0, sig_abs);
+        sticky = m_bv_util.mk_zero_extend(sbits + 3, m.mk_app(bvfid, OP_BREDOR, sticky_raw.get()));
+        expr * res_or_args[2] = { m_bv_util.mk_extract(2 * sbits - 1, sbits - 4, sig_abs), sticky };
+        res_sig = m_bv_util.mk_bv_or(2, res_or_args);
+    }
+    else {
+        unsigned too_short = 6 - sbits;
+        sig_abs = m_bv_util.mk_concat(sig_abs, m_bv_util.mk_numeral(0, too_short));
+        res_sig = m_bv_util.mk_extract(sbits + 3, 0, sig_abs);
+    }
     dbg_decouple("fpa2bv_fma_add_sum_sticky", sticky);
+    SASSERT(m_bv_util.get_bv_size(res_sig) == sbits + 4);
 
-    expr * res_or_args[2] = {  m_bv_util.mk_extract(2*sbits-1, sbits-4, sig_abs), sticky };
-    res_sig = m_bv_util.mk_bv_or(2, res_or_args);
-    SASSERT(m_bv_util.get_bv_size(res_sig) == sbits+4);
-    
     expr_ref is_zero_sig(m), nil_sbits4(m);
     nil_sbits4 = m_bv_util.mk_numeral(0, sbits+4);
     m_simp.mk_eq(res_sig, nil_sbits4, is_zero_sig);
