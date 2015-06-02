@@ -55,6 +55,6 @@ setup(
                      'src/api/z3_interp.h', 'src/api/z3_fpa.h',
                      'src/api/c++/z3++.h') )),
     ],
-    scripts=[os.path.join(build_dir, 'build/z3')],
+    scripts=[ os.path.join(build_dir, 'build/z3') ] if sys.version_info[0] == 2 else [ ],
     cmdclass={'build': build},
 )
