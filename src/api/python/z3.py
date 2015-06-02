@@ -8194,21 +8194,21 @@ def FP(name, fpsort, ctx=None):
     >>> eq(x, x2)
     True
     """ 
-    ctx = fpsort.ctx
+    if isinstance(fpsort, FPSortRef):
+        ctx = fpsort.ctx
+    else:
+        ctx = _get_ctx(ctx)
     return FPRef(Z3_mk_const(ctx.ref(), to_symbol(name, ctx), fpsort.ast), ctx)
 
 def FPs(names, fpsort, ctx=None):
     """Return an array of floating-point constants.
     
-    >>> x, y, z = BitVecs('x y z', 16)
-    >>> x.size()
-    16
+    >>> x, y, z = FPs('x y z', FPSort(8, 24))
     >>> x.sort()
-    BitVec(16)
-    >>> Sum(x, y, z)
-    0 + x + y + z
-    >>> Product(x, y, z)
-    1*x*y*z
+    >>> x.sbits()
+    24
+    >>> x.ebits()
+    8
     >>> simplify(Product(x, y, z))
     x*y*z
     """
