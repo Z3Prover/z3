@@ -1411,6 +1411,10 @@ namespace smt {
     
     void context::mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params, parameter * params) {
         justification * js = 0; 
+        TRACE("mk_th_axiom", 
+              display_literals_verbose(tout, num_lits, lits);
+              tout << "\n";);
+
         if (m_manager.proofs_enabled()) {
             js = mk_justification(theory_axiom_justification(tid, m_region, num_lits, lits, num_params, params));
         }
@@ -1425,13 +1429,11 @@ namespace smt {
     
     void context::mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params, parameter * params) {
         literal ls[2] = { l1, l2 };
-        TRACE("mk_th_axiom", display_literal(tout, l1); tout << " "; display_literal(tout, l2); tout << "\n";);
         mk_th_axiom(tid, 2, ls, num_params, params);
     }
 
     void context::mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
         literal ls[3] = { l1, l2, l3 };
-        TRACE("mk_th_axiom", display_literal(tout, l1); tout << " "; display_literal(tout, l2); tout << " "; display_literal(tout, l3); tout << "\n";);
         mk_th_axiom(tid, 3, ls, num_params, params);
     }
 

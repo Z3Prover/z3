@@ -194,7 +194,6 @@ void rule_properties::operator()(app* n) {
         }
     }
     else {
-        std::cout << mk_pp(n, m) << "\n";
     }
 
 }

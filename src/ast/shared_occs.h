@@ -75,7 +75,7 @@ public:
     iterator end_shared() const { return m_shared.end(); }
     void reset();
     void cleanup();
-    void display(std::ostream & out, ast_manager & m) const;
+    void display(std::ostream & out, ast_manager & mgr) const;
 };
 
 #endif

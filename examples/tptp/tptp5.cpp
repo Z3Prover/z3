@@ -809,8 +809,12 @@ class env {
                 r = terms[0] / terms[1];
             }
             else if (!strcmp(ch,"$distinct")) {
-                check_arity(terms.size(), 2);
-                r = terms[0] != terms[1];
+                if (terms.size() == 2) {
+                    r = terms[0] != terms[1];
+                }
+                else {
+                    r = distinct(terms);
+                }
             }
             else if (!strcmp(ch,"$floor") || !strcmp(ch,"$to_int")) {
                 check_arity(terms.size(), 1);
@@ -1089,12 +1093,11 @@ class env {
     }
 
     z3::sort mk_sort(char const* s) {
-        z3::symbol sym = symbol(s);
-        return mk_sort(sym);
+        return m_context.uninterpreted_sort(s);
     }
 
     z3::sort mk_sort(z3::symbol& s) {
-        return z3::sort(m_context, Z3_mk_uninterpreted_sort(m_context, s));
+        return m_context.uninterpreted_sort(s);
     }
     
 public:

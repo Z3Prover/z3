@@ -108,7 +108,8 @@ public class InterpolationContext extends Context
         res.status = Z3_lbool.fromInt(Native.computeInterpolant(nCtx(), pat.getNativeObject(), p.getNativeObject(), n_i, n_m));        
         if (res.status == Z3_lbool.Z3_L_FALSE)
             res.interp = (new ASTVector(this, n_i.value)).ToBoolExprArray();
-        if (res.status == Z3_lbool.Z3_L_TRUE) res.model = new Model(this, n_m.value);
+        if (res.status == Z3_lbool.Z3_L_TRUE) 
+            res.model = new Model(this, n_m.value);
         return res;
     }
 

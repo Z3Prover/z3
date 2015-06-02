@@ -439,6 +439,7 @@ namespace smt {
                     j += rational(1);
                 }
                 ctx.mk_th_axiom(get_id(), lits.size(), lits.begin());
+                
 #else
                 // performs slightly worse.
                 literal_buffer lits;

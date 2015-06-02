@@ -40,6 +40,7 @@ Notes:
 #include"for_each_expr.h"
 #include"scoped_timer.h"
 #include"interpolant_cmds.h"
+#include"model_smt2_pp.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -528,6 +529,7 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "LRA" || 
         s == "QF_FP" ||
         s == "QF_FPBV" ||
+        s == "QF_BVFP" ||
         s == "HORN";
 }
 
@@ -547,6 +549,7 @@ bool cmd_context::logic_has_bv_core(symbol const & s) const {
         s == "QF_AUFBV" ||
         s == "QF_BVRE" ||
         s == "QF_FPBV" ||
+        s == "QF_BVFP" ||
         s == "HORN";
 }
 
@@ -1402,6 +1405,15 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
                 was_pareto = true;
                 get_opt()->display_assignment(regular_stream());
                 regular_stream() << "\n";
+                if (get_opt()->print_model()) {
+                    model_ref mdl;
+                    get_opt()->get_model(mdl);
+                    if (mdl) {
+                        regular_stream() << "(model " << std::endl;
+                        model_smt2_pp(regular_stream(), *this, *(mdl.get()), 2);
+                        regular_stream() << ")" << std::endl;                    
+                    }
+                }
                 r = get_opt()->optimize();
             }
         }
