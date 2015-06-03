@@ -124,6 +124,7 @@ public:
     virtual void display_assignment(std::ostream& out) = 0;
     virtual bool is_pareto() = 0;
     virtual void set_logic(symbol const& s) = 0;
+    virtual bool print_model() const = 0;
 };
 
 class cmd_context : public progress_callback, public tactic_manager, public ast_printer_context {

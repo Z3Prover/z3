@@ -1182,6 +1182,31 @@ public:
         return res;
     }
 
+    ast GomoryCutRule2Farkas(const ast &proof, const ast &con, std::vector<Iproof::node> prems){
+        std::vector<Iproof::node>  my_prems = prems;
+        std::vector<ast>  my_coeffs;
+        std::vector<Iproof::node>  my_prem_cons;
+        get_gomory_cut_coeffs(proof,my_coeffs);
+        int nargs = num_prems(proof);
+        if(nargs != (int)(my_coeffs.size()))
+            throw "bad gomory-cut theory lemma";
+        for(int i = 0; i < nargs; i++)
+            my_prem_cons.push_back(conc(prem(proof,i)));
+        ast my_con = normalize_inequality(sum_inequalities(my_coeffs,my_prem_cons));
+        Iproof::node hyp = iproof->make_hypothesis(mk_not(my_con));
+        my_prems.push_back(hyp);
+        my_coeffs.push_back(make_int("1"));
+        my_prem_cons.push_back(mk_not(my_con));
+        Iproof::node res = iproof->make_farkas(mk_false(),my_prems,my_prem_cons,my_coeffs);
+        ast t = arg(my_con,0);
+        ast c = arg(my_con,1);
+        ast d = gcd_of_coefficients(t);
+        t = z3_simplify(mk_idiv(t,d));
+        c = z3_simplify(mk_idiv(c,d));
+        ast cut_con = make(op(my_con),t,c);
+        return iproof->make_cut_rule(my_con,d,cut_con,res);
+    }
+
     Iproof::node RewriteClause(Iproof::node clause, const ast &rew){
         if(pr(rew) == PR_MONOTONICITY){
             int nequivs = num_prems(rew);
@@ -1910,6 +1935,13 @@ public:
                             res =  AssignBoundsRule2Farkas(proof, conc(proof), args);
                         else
                             res = AssignBounds2Farkas(proof,conc(proof));
+                        break;
+                    }
+                    case GomoryCutKind: {
+                        if(args.size() > 0)
+                            res =  GomoryCutRule2Farkas(proof, conc(proof), args);
+                        else
+                            throw unsupported();
                         break;
                     }
                     case EqPropagateKind: {

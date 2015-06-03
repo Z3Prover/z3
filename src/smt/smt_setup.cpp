@@ -116,7 +116,7 @@ namespace smt {
             setup_LRA();
         else if (m_logic == "QF_FP")
             setup_QF_FP();
-        else if (m_logic == "QF_FPBV")
+        else if (m_logic == "QF_FPBV" || m_logic == "QF_BVFP")
             setup_QF_FPBV();
         else
             setup_unknown();

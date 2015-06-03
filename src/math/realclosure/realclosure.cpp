@@ -4075,7 +4075,7 @@ namespace realclosure {
             
         void refine_rational_interval(rational_value * v, unsigned prec) {
             mpbqi & i = interval(v);
-            if (!i.lower_is_open() && !i.lower_is_open()) {
+            if (!i.lower_is_open() && !i.upper_is_open()) {
                 SASSERT(bqm().eq(i.lower(), i.upper()));
                 return;
             }

@@ -149,10 +149,10 @@ enum status {
 */
 static bool is_recursive_datatype(parameter const * parameters) {
     unsigned num_types          = parameters[0].get_int();
-    unsigned tid                = parameters[1].get_int();
+    unsigned top_tid            = parameters[1].get_int();
     buffer<status>    already_found(num_types, WHITE);
     buffer<unsigned>  todo;
-    todo.push_back(tid);
+    todo.push_back(top_tid);
     while (!todo.empty()) {
         unsigned tid = todo.back();
         if (already_found[tid] == BLACK) {
@@ -198,11 +198,11 @@ static bool is_recursive_datatype(parameter const * parameters) {
 */
 static sort_size get_datatype_size(parameter const * parameters) {
     unsigned num_types          = parameters[0].get_int();
-    unsigned tid                = parameters[1].get_int();
+    unsigned top_tid            = parameters[1].get_int();
     buffer<sort_size> szs(num_types, sort_size());
     buffer<status>    already_found(num_types, WHITE);
     buffer<unsigned>  todo;
-    todo.push_back(tid);
+    todo.push_back(top_tid);
     while (!todo.empty()) {
         unsigned tid  = todo.back();
         if (already_found[tid] == BLACK) {
@@ -280,7 +280,7 @@ static sort_size get_datatype_size(parameter const * parameters) {
             }
         }
     }
-    return szs[tid];
+    return szs[top_tid];
 }
 
 /**
@@ -657,8 +657,8 @@ bool datatype_decl_plugin::is_fully_interp(sort const * s) const {
     for (unsigned tid = 0; tid < num_types; tid++) {
         unsigned o                 = parameters[2 + 2*tid + 1].get_int(); // constructor offset
         unsigned num_constructors  = parameters[o].get_int();
-        for (unsigned s = 1; s <= num_constructors; s++) {
-            unsigned k_i           = parameters[o + s].get_int();
+        for (unsigned si = 1; si <= num_constructors; si++) {
+            unsigned k_i           = parameters[o + si].get_int();
             unsigned num_accessors = parameters[k_i + 2].get_int();
             unsigned r = 0;
             for (; r < num_accessors; r++) {

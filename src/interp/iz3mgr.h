@@ -396,7 +396,7 @@ class iz3mgr  {
         return UnknownTheory;
     }
 
-    enum lemma_kind {FarkasKind,Leq2EqKind,Eq2LeqKind,GCDTestKind,AssignBoundsKind,EqPropagateKind,ArithMysteryKind,UnknownKind};
+    enum lemma_kind {FarkasKind,Leq2EqKind,Eq2LeqKind,GCDTestKind,AssignBoundsKind,EqPropagateKind,GomoryCutKind,ArithMysteryKind,UnknownKind};
 
     lemma_kind get_theory_lemma_kind(const ast &proof){
         symb s = sym(proof);
@@ -417,6 +417,8 @@ class iz3mgr  {
             return AssignBoundsKind;
         if(foo == "eq-propagate")
             return EqPropagateKind;
+        if(foo == "gomory-cut")
+            return GomoryCutKind;
         return UnknownKind;
     }
 
@@ -433,6 +435,10 @@ class iz3mgr  {
     void get_assign_bounds_rule_coeffs(const ast &proof, std::vector<rational>& rats);
   
     void get_assign_bounds_rule_coeffs(const ast &proof, std::vector<ast>& rats);
+
+    void get_gomory_cut_coeffs(const ast &proof, std::vector<rational>& rats);
+
+    void get_gomory_cut_coeffs(const ast &proof, std::vector<ast>& rats);
 
     bool is_farkas_coefficient_negative(const ast &proof, int n);
 

@@ -31,6 +31,7 @@ Notes:
 #include "propagate_values_tactic.h"
 #include "solve_eqs_tactic.h"
 #include "elim_uncnstr_tactic.h"
+#include "elim_term_ite_tactic.h"
 #include "tactical.h"
 #include "model_smt2_pp.h"
 #include "card2bv_tactic.h"
@@ -252,6 +253,12 @@ namespace opt {
             }
         }
         }
+    }
+
+
+    bool context::print_model() const {
+        opt_params optp(m_params);
+        return optp.print_model();
     }
 
     void context::get_base_model(model_ref& mdl) {
@@ -644,17 +651,19 @@ namespace opt {
             and_then(mk_simplify_tactic(m), 
                      mk_propagate_values_tactic(m),
                      mk_solve_eqs_tactic(m),
+                     mk_elim_term_ite_tactic(m),
                      // NB: mk_elim_uncstr_tactic(m) is not sound with soft constraints
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
-        tactic_ref tac2, tac3;
+        tactic_ref tac2, tac3, tac4;
         if (optp.elim_01()) {
             tac2 = mk_elim01_tactic(m);
             tac3 = mk_lia2card_tactic(m);
+            tac4 = mk_elim_term_ite_tactic(m);
             params_ref lia_p;
             lia_p.set_bool("compile_equality", optp.pb_compile_equality());
             tac3->updt_params(lia_p);
-            set_simplify(and_then(tac0.get(), tac2.get(), tac3.get()));
+            set_simplify(and_then(tac0.get(), tac2.get(), tac3.get(), tac4.get()));
         }
         else {
             set_simplify(tac0.get());
@@ -1179,6 +1188,10 @@ namespace opt {
         for (; it != end; ++it) {
             it->m_value->collect_statistics(stats);
         }        
+        unsigned long long max_mem = memory::get_max_used_memory();
+        unsigned long long mem = memory::get_allocation_size();
+        stats.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
+        stats.update("max memory", static_cast<double>(max_mem)/static_cast<double>(1024*1024));
     }
 
     void context::collect_param_descrs(param_descrs & r) {

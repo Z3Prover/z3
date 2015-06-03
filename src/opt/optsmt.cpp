@@ -141,6 +141,7 @@ namespace opt {
                 ors.push_back(m_s->mk_ge(i, m_upper[i]));
             }
             
+            
             fml = m.mk_or(ors.size(), ors.c_ptr());
             tmp = m.mk_fresh_const("b", m.mk_bool_sort());
             fml = m.mk_implies(tmp, fml);
@@ -150,6 +151,7 @@ namespace opt {
             solver::scoped_push _push(*m_s);
             while (!m_cancel) {
                 m_s->assert_expr(fml);
+                TRACE("opt", tout << fml << "\n";);
                 is_sat = m_s->check_sat(1,vars);
                 if (is_sat == l_true) {
                     disj.reset();
@@ -343,6 +345,7 @@ namespace opt {
                     m_lower[i] = m_s->saved_objective_value(i);
                 }
             }
+            TRACE("opt", tout << "strengthen bound: " << block << "\n";);
             m_s->assert_expr(block);
             
             // TBD: only works for simplex 

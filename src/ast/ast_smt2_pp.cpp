@@ -341,22 +341,22 @@ format * smt2_pp_environment::pp_arith_literal(app * t, bool decimal, unsigned d
     }
     else {
         SASSERT(u.is_irrational_algebraic_numeral(t));
-        anum const & val = u.to_irrational_algebraic_numeral(t);
+        anum const & val2 = u.to_irrational_algebraic_numeral(t);
         algebraic_numbers::manager & am = u.am();
         format * vf;
         std::ostringstream buffer;
         bool is_neg = false;
         if (decimal) {
             scoped_anum abs_val(am);
-            am.set(abs_val, val);
-            if (am.is_neg(val)) {
+            am.set(abs_val, val2);
+            if (am.is_neg(val2)) {
                 is_neg = true;
                 am.neg(abs_val);
             }
             am.display_decimal(buffer, abs_val, decimal_prec);
         }
         else {
-            am.display_root_smt2(buffer, val); 
+            am.display_root_smt2(buffer, val2); 
         }
         vf = mk_string(get_manager(), buffer.str().c_str());
         return is_neg ? mk_neg(vf) : vf;
