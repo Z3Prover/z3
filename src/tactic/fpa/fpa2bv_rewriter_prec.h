@@ -126,6 +126,8 @@ struct fpa2bv_rewriter_prec_cfg : public default_rewriter_cfg {
     		case OP_FPA_PLUS_INF: m_conv.mk_pinf(f, result); return BR_DONE;
     		case OP_FPA_MINUS_INF: m_conv.mk_ninf(f, result); return BR_DONE;
     		case OP_FPA_NAN: m_conv.mk_nan(f, result); return BR_DONE;
+			case OP_FPA_PLUS_ZERO: m_conv.mk_pzero(f, result); return BR_DONE; 
+			case OP_FPA_MINUS_ZERO: m_conv.mk_nzero(f, result); return BR_DONE;	
     		//AZ: Added precision, if precision is MAX_PRECISION uses the regular implementation of the methods
     		case OP_FPA_ADD:
     			m_conv.mk_add(f,get_precision(f), num, args, result);return BR_DONE;
@@ -153,13 +155,12 @@ struct fpa2bv_rewriter_prec_cfg : public default_rewriter_cfg {
     		case OP_FPA_LE: m_conv.mk_float_le(f, num, args, result); return BR_DONE;
     		case OP_FPA_GE: m_conv.mk_float_ge(f, num, args, result); return BR_DONE;
     		case OP_FPA_IS_ZERO: m_conv.mk_is_zero(f, num, args, result); return BR_DONE;
-//case OP_FPA_IS_NZERO: m_conv.mk_is_nzero(f, num, args, result); return BR_DONE;
-//case OP_FPA_IS_PZERO: m_conv.mk_is_pzero(f, num, args, result); return BR_DONE;
             case OP_FPA_IS_NAN: m_conv.mk_is_nan(f, num, args, result); return BR_DONE;
             case OP_FPA_IS_INF: m_conv.mk_is_inf(f, num, args, result); return BR_DONE;
             case OP_FPA_IS_NORMAL: m_conv.mk_is_normal(f, num, args, result); return BR_DONE;
             case OP_FPA_IS_SUBNORMAL: m_conv.mk_is_subnormal(f, num, args, result); return BR_DONE;
     		case OP_FPA_IS_NEGATIVE: m_conv.mk_is_negative(f, num, args, result); return BR_DONE;
+			case OP_FPA_IS_POSITIVE: m_conv.mk_is_positive(f, num, args, result); return BR_DONE;
     		case OP_FPA_TO_FP: m_conv.mk_to_fp(f, num, args, result); return BR_DONE;
     		case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
     		default:
