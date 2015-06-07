@@ -516,6 +516,11 @@ extern "C" {
         memory::initialize(0);
     }
 
+    void Z3_API Z3_finalize_memory(void) {
+        LOG_Z3_finalize_memory();
+        memory::finalize();
+    }
+
     Z3_error_code Z3_API Z3_get_error_code(Z3_context c) {
         LOG_Z3_get_error_code(c);
         return mk_c(c)->get_error_code();

@@ -5365,7 +5365,19 @@ END_MLAPI_EXCLUDE
     */
     void Z3_API Z3_reset_memory(void);
 #endif
-    
+
+#ifdef CorML3
+    /**
+       \brief Destroy all allocated resources.
+
+       Any pointers previously returned by the API become invalid.
+       Can be used for memory leak detection.
+
+       def_API('Z3_finalize_memory', VOID, ())
+    */
+    void Z3_API Z3_finalize_memory(void);
+#endif
+
     /*@}*/
 
 #ifdef CorML3
