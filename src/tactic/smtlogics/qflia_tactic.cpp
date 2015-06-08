@@ -56,7 +56,7 @@ struct quasi_pb_probe : public probe {
     }
 };
 
-probe * mk_quasi_pb_probe() {
+probe * mk_is_quasi_pb_probe() {
     return mk_and(mk_not(mk_is_unbounded_probe()),
                   alloc(quasi_pb_probe));
 }
@@ -208,7 +208,7 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = using_params(and_then(preamble_st,
                                         or_else(mk_ilp_model_finder_tactic(m),
                                                 mk_pb_tactic(m),
-                                                and_then(fail_if_not(mk_quasi_pb_probe()), 
+                                                and_then(fail_if_not(mk_is_quasi_pb_probe()), 
                                                          using_params(mk_lia2sat_tactic(m), quasi_pb_p),
                                                          mk_fail_if_undecided_tactic()),
                                                 mk_bounded_tactic(m),
