@@ -100,9 +100,11 @@ static tactic * mk_bv2sat_tactic(ast_manager & m) {
 #define SMALL_SIZE 80000
 
 static tactic * mk_pb_tactic(ast_manager & m) {
-    params_ref pb2bv_p;
-    pb2bv_p.set_bool("ite_extra", true);    
+    params_ref pb2bv_p;    
     pb2bv_p.set_uint("pb2bv_all_clauses_limit", 8);
+
+    params_ref bv2sat_p;
+    bv2sat_p.set_bool("ite_extra", true);
     
     return and_then(fail_if_not(mk_is_pb_probe()),
                     fail_if(mk_produce_proofs_probe()),
@@ -113,14 +115,16 @@ static tactic * mk_pb_tactic(ast_manager & m) {
                                      mk_fail_if_undecided_tactic()),
                             and_then(using_params(mk_pb2bv_tactic(m), pb2bv_p),
                                      fail_if_not(mk_is_qfbv_probe()),
-                                     mk_bv2sat_tactic(m))));
+                                     using_params(mk_bv2sat_tactic(m), bv2sat_p))));
 }
 
 
 static tactic * mk_lia2sat_tactic(ast_manager & m) {
     params_ref pb2bv_p;
-    pb2bv_p.set_bool("ite_extra", true);    
     pb2bv_p.set_uint("pb2bv_all_clauses_limit", 8);
+
+    params_ref bv2sat_p;
+    bv2sat_p.set_bool("ite_extra", true);
     
     return and_then(fail_if(mk_is_unbounded_probe()),
                     fail_if(mk_produce_proofs_probe()),
@@ -130,7 +134,7 @@ static tactic * mk_lia2sat_tactic(ast_manager & m) {
                     mk_lia2pb_tactic(m),
                     using_params(mk_pb2bv_tactic(m), pb2bv_p),
                     fail_if_not(mk_is_qfbv_probe()),                    
-                    mk_bv2sat_tactic(m));
+                    using_params(mk_bv2sat_tactic(m), bv2sat_p));
 }
 
 // Try to find a model for an unbounded ILP problem.
