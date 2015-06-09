@@ -817,7 +817,7 @@ extern "C" {
 
     Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(__in Z3_context c, __in Z3_ast t, __out __int64 * n) {
         Z3_TRY;
-        LOG_Z3_fpa_get_numeral_exponent_string(c, t);
+        LOG_Z3_fpa_get_numeral_exponent_int64(c, t, n);
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
