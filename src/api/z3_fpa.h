@@ -866,7 +866,7 @@ extern "C" {
 
         Remarks: This function extracts the significand bits in `t`, without the 
         hidden bit or normalization. Sets the Z3_INVALID_ARG error code if the 
-        signicand does not fit into a uint64.
+        significand does not fit into a uint64.
 
         def_API('Z3_fpa_get_numeral_significand_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
     */

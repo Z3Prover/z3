@@ -2059,6 +2059,8 @@ struct
 	(Z3native.fpa_get_numeral_sign (context_gno ctx) (Expr.gno t))
   let get_numeral_significand_string ( ctx : context ) ( t : expr ) =
 	(Z3native.fpa_get_numeral_significand_string (context_gno ctx) (Expr.gno t))
+  let get_numeral_significand_uint ( ctx : context ) ( t : expr ) =
+	(Z3native.fpa_get_numeral_significand_uint64 (context_gno ctx) (Expr.gno t))
   let get_numeral_exponent_string ( ctx : context ) ( t : expr ) =
 	(Z3native.fpa_get_numeral_exponent_string (context_gno ctx) (Expr.gno t))
   let get_numeral_exponent_int ( ctx : context ) ( t : expr ) =

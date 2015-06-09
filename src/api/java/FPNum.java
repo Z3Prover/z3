@@ -44,6 +44,21 @@ public class FPNum extends FPExpr
     }
 
     /**
+     * The significand value of a floating-point numeral as a UInt64
+     * Remarks: This function extracts the significand bits, without the 
+     * hidden bit or normalization. Throws an exception if the
+     * significand does not fit into a UInt64.
+     * @throws Z3Exception
+     **/
+    public long getSignificandUInt64()
+    {
+        Native.LongPtr res = new Native.LongPtr();
+        if (Native.fpaGetNumeralSignificandUint64(getContext().nCtx(), getNativeObject(), res) ^ true)
+            throw new Z3Exception("Significand is not a 64 bit unsigned integer");
+        return res.value;
+    }
+    
+    /**
      * Return the exponent value of a floating-point numeral as a string
      * @throws Z3Exception 
      */
