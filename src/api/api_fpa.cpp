@@ -712,7 +712,7 @@ extern "C" {
 
     unsigned Z3_API Z3_fpa_get_sbits(Z3_context c, Z3_sort s) {
         Z3_TRY;
-        LOG_Z3_fpa_get_ebits(c, s);
+        LOG_Z3_fpa_get_sbits(c, s);
         RESET_ERROR_CODE();
         CHECK_NON_NULL(s, 0);
         return mk_c(c)->fpautil().get_sbits(to_sort(s));
