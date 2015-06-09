@@ -102,7 +102,7 @@ class fpa2bv_approx_tactic: public tactic {
                 obj_map<func_decl, app*> & const2term_map) {
             for (unsigned i = 0; i < cnsts.size(); i++)
             {
-                if (const2term_map.contains(cnsts[i]) || m_mode == FPAA_SMALL_FLOATS)
+                if (const2term_map.contains(cnsts.get(i)) || m_mode == FPAA_SMALL_FLOATS)
                     map.insert_if_not_there(cnsts.get(i), 0);
                 else
                     map.insert_if_not_there(cnsts.get(i), MAX_PRECISION);
@@ -516,19 +516,25 @@ class fpa2bv_approx_tactic: public tactic {
                                 else
                                     full_semantics_eval(rhs,mpf_mngr,rm,arg_val,est_arg_val, rhs_value, est_rhs_value);
 
-                                full_mdl->register_decl((to_app(lhs))->get_decl(), m_float_util.mk_value(est_rhs_value));
+                                if (mpf_mngr.eq(rhs_value, est_rhs_value)) {
+                                    full_mdl->register_decl((to_app(lhs))->get_decl(), m_float_util.mk_value(est_rhs_value));
+                                    precise_op.insert(lhs, true);
+                                }
+                                else {
+                                    full_mdl->register_decl((to_app(lhs))->get_decl(), m_float_util.mk_value(est_rhs_value));
 #ifdef Z3DEBUG
-                                std::cout << "Assigning " << mk_ismt2_pp(lhs, m) <<
-                                        " value " << mpf_mngr.to_string(est_rhs_value) << std::endl
-                                        << "Values of " << mk_ismt2_pp(lhs, m) << std::endl
-                                        << "Precise children: " << ((precise_children) ? "True" : "False") << std::endl
-                                        << "Lhs:   " << mk_ismt2_pp(lhs_eval, m) << std::endl
-                                        << "Model:    " << mpf_mngr.to_string(rhs_value) << std::endl
-                                        << "Estimate: " << mpf_mngr.to_string(est_rhs_value) << std::endl;
+                                    std::cout << "Assigning " << mk_ismt2_pp(lhs, m) <<
+                                            " value " << mpf_mngr.to_string(est_rhs_value) << std::endl
+                                            << "Values of " << mk_ismt2_pp(lhs, m) << std::endl
+                                            << "Precise children: " << ((precise_children) ? "True" : "False") << std::endl
+                                            << "Lhs:   " << mk_ismt2_pp(lhs_eval, m) << std::endl
+                                            << "Model:    " << mpf_mngr.to_string(rhs_value) << std::endl
+                                            << "Estimate: " << mpf_mngr.to_string(est_rhs_value) << std::endl;
 #endif
 
-                                calculate_error(lhs,mpf_mngr,precise_op,err_est,lhs_value,est_rhs_value,children_have_finite_err);
+                                    calculate_error(lhs,mpf_mngr,precise_op,err_est,lhs_value,est_rhs_value,children_have_finite_err);
 
+                                }
                                 if (!actual_value.contains(lhs)) {
                                     mpf * tmp = alloc(mpf);
                                     mpf_mngr.set(*tmp, est_rhs_value);
@@ -695,6 +701,7 @@ class fpa2bv_approx_tactic: public tactic {
                     }
                 }
             }
+
         }
 
         void increase_precision(
@@ -784,8 +791,13 @@ class fpa2bv_approx_tactic: public tactic {
 
             boolean_comparison_of_models(g, mdl, full_mdl, cnst2term_map, expr_count);
             calculate_relative_error(err_est, expr_count, err_ratio_map);
-            rank_terms (err_ratio_map,ranked_terms);
-            increase_precision(ranked_terms,cnsts,cnst2prec_map,cnst2term_map,new_map);
+            if (err_ratio_map.empty()) {
+                proof_guided_refinement(g,cnsts,cnst2prec_map,new_map);
+            }
+            else {
+                rank_terms (err_ratio_map,ranked_terms);
+                increase_precision(ranked_terms,cnsts,cnst2prec_map,cnst2term_map,new_map);
+            }
         }
 
         void simplify(goal_ref mg) {
@@ -1108,6 +1120,8 @@ class fpa2bv_approx_tactic: public tactic {
             m_num_steps = 0;
         }
 
+
+
         void print_constants(func_decl_ref_vector & constants, obj_map<func_decl, unsigned> & const2prec_map){
 #ifdef Z3DEBUG
             for(unsigned i=0;i<constants.size();i++)
@@ -1173,11 +1187,18 @@ class fpa2bv_approx_tactic: public tactic {
                     model_ref full_mdl = alloc(model, m);
                     obj_map<expr, double> err_est;
 
-                    solved = precise_model_reconstruction(m_fpa_model, full_mdl, mg, err_est, constants, const2term_map);
+                    if (fully_encoded(const2prec_map)) {
+                        full_mdl = m_fpa_model;
+                        solved = true;
+                        std::cout<<"Model is at full precision, no patching needed!"<<std::endl;
+                        std::cout.flush();
+                    }
+                    else {
+                        solved = precise_model_reconstruction(m_fpa_model, full_mdl, mg, err_est, constants, const2term_map);
 
-                    std::cout<<"Patching of the model "<<((solved)?"succeeded":"failed")<<std::endl;
-                    std::cout.flush();
-
+                        std::cout<<"Patching of the model "<<((solved)?"succeeded":"failed")<<std::endl;
+                        std::cout.flush();
+                    }
                     if (!solved)
                         model_guided_approximation_refinement(m_fpa_model, full_mdl, mg, constants, const2prec_map, const2term_map, err_est, next_const2prec_map);
                     else
