@@ -1423,7 +1423,7 @@ extern "C" {
 
        def_API('Z3_global_param_set', VOID, (_in(STRING), _in(STRING)))
     */
-    void Z3_API Z3_global_param_set(__in Z3_string param_id, __in Z3_string param_value);
+    void Z3_API Z3_global_param_set(Z3_in Z3_string param_id, Z3_in Z3_string param_value);
 
 
     /**
@@ -1449,7 +1449,7 @@ extern "C" {
 
        def_API('Z3_global_param_get', BOOL, (_in(STRING), _out(STRING)))
     */
-    Z3_bool_opt Z3_API Z3_global_param_get(__in Z3_string param_id, __out_opt Z3_string_ptr param_value);
+    Z3_bool_opt Z3_API Z3_global_param_get(Z3_in Z3_string param_id, Z3_out_opt Z3_string_ptr param_value);
 
     /*@}*/
 
@@ -1502,7 +1502,7 @@ extern "C" {
 
        def_API('Z3_del_config', VOID, (_in(CONFIG),))
     */
-    void Z3_API Z3_del_config(__in Z3_config c);
+    void Z3_API Z3_del_config(Z3_in Z3_config c);
 
     /**
        \brief Set a configuration parameter.
@@ -1513,7 +1513,7 @@ extern "C" {
 
        def_API('Z3_set_param_value', VOID, (_in(CONFIG), _in(STRING), _in(STRING)))
     */
-    void Z3_API Z3_set_param_value(__in Z3_config c, __in Z3_string param_id, __in Z3_string param_value);
+    void Z3_API Z3_set_param_value(Z3_in Z3_config c, Z3_in Z3_string param_id, Z3_in Z3_string param_value);
     
     /*@}*/
 #endif
@@ -1547,7 +1547,7 @@ extern "C" {
        def_API('Z3_mk_context', CONTEXT, (_in(CONFIG),))
     */
 #ifdef CorML3
-    Z3_context Z3_API Z3_mk_context(__in Z3_config c);
+    Z3_context Z3_API Z3_mk_context(Z3_in Z3_config c);
 #endif
 #ifdef ML4only
 #include <mlx_mk_context_x.idl>
@@ -1574,7 +1574,7 @@ extern "C" {
        
        def_API('Z3_mk_context_rc', CONTEXT, (_in(CONFIG),))
     */
-    Z3_context Z3_API Z3_mk_context_rc(__in Z3_config c);
+    Z3_context Z3_API Z3_mk_context_rc(Z3_in Z3_config c);
 #endif
     
 #ifdef CorML3
@@ -1585,7 +1585,7 @@ extern "C" {
 
        def_API('Z3_del_context', VOID, (_in(CONTEXT),))
     */
-    void Z3_API Z3_del_context(__in Z3_context c);
+    void Z3_API Z3_del_context(Z3_in Z3_context c);
 #endif
     
 #ifdef Conly
@@ -1596,7 +1596,7 @@ extern "C" {
 
        def_API('Z3_inc_ref', VOID, (_in(CONTEXT), _in(AST)))
     */
-    void Z3_API Z3_inc_ref(__in Z3_context c, __in Z3_ast a);
+    void Z3_API Z3_inc_ref(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Decrement the reference counter of the given AST.
@@ -1605,7 +1605,7 @@ extern "C" {
 
        def_API('Z3_dec_ref', VOID, (_in(CONTEXT), _in(AST)))
     */
-    void Z3_API Z3_dec_ref(__in Z3_context c, __in Z3_ast a);
+    void Z3_API Z3_dec_ref(Z3_in Z3_context c, Z3_in Z3_ast a);
 #endif
 
     /**
@@ -1615,7 +1615,7 @@ extern "C" {
 
        def_API('Z3_update_param_value', VOID, (_in(CONTEXT), _in(STRING), _in(STRING)))
     */
-    void Z3_API Z3_update_param_value(__in Z3_context c, __in Z3_string param_id, __in Z3_string param_value);
+    void Z3_API Z3_update_param_value(Z3_in Z3_context c, Z3_in Z3_string param_id, Z3_in Z3_string param_value);
 
 #ifdef CorML4
     /**
@@ -1624,7 +1624,7 @@ extern "C" {
 
        def_API('Z3_interrupt', VOID, (_in(CONTEXT),))
     */
-    void Z3_API Z3_interrupt(__in Z3_context c);
+    void Z3_API Z3_interrupt(Z3_in Z3_context c);
 #endif
 
 
@@ -1646,7 +1646,7 @@ extern "C" {
 
        def_API('Z3_mk_params', PARAMS, (_in(CONTEXT),))
     */
-    Z3_params Z3_API Z3_mk_params(__in Z3_context c);
+    Z3_params Z3_API Z3_mk_params(Z3_in Z3_context c);
     
 #ifdef Conly
     /**
@@ -1654,14 +1654,14 @@ extern "C" {
 
        def_API('Z3_params_inc_ref', VOID, (_in(CONTEXT), _in(PARAMS)))
     */
-    void Z3_API Z3_params_inc_ref(__in Z3_context c, __in Z3_params p);
+    void Z3_API Z3_params_inc_ref(Z3_in Z3_context c, Z3_in Z3_params p);
 
     /**
        \brief Decrement the reference counter of the given parameter set.
 
        def_API('Z3_params_dec_ref', VOID, (_in(CONTEXT), _in(PARAMS)))
     */
-    void Z3_API Z3_params_dec_ref(__in Z3_context c, __in Z3_params p);
+    void Z3_API Z3_params_dec_ref(Z3_in Z3_context c, Z3_in Z3_params p);
 #endif
 
     /**
@@ -1669,28 +1669,28 @@ extern "C" {
 
        def_API('Z3_params_set_bool', VOID, (_in(CONTEXT), _in(PARAMS), _in(SYMBOL), _in(BOOL)))
     */
-    void Z3_API Z3_params_set_bool(__in Z3_context c, __in Z3_params p, __in Z3_symbol k, __in Z3_bool v);
+    void Z3_API Z3_params_set_bool(Z3_in Z3_context c, Z3_in Z3_params p, Z3_in Z3_symbol k, Z3_in Z3_bool v);
 
     /**
        \brief Add a unsigned parameter \c k with value \c v to the parameter set \c p.
        
        def_API('Z3_params_set_uint', VOID, (_in(CONTEXT), _in(PARAMS), _in(SYMBOL), _in(UINT)))
     */
-    void Z3_API Z3_params_set_uint(__in Z3_context c, __in Z3_params p, __in Z3_symbol k, __in unsigned v);
+    void Z3_API Z3_params_set_uint(Z3_in Z3_context c, Z3_in Z3_params p, Z3_in Z3_symbol k, Z3_in unsigned v);
 
     /**
        \brief Add a double parameter \c k with value \c v to the parameter set \c p.
 
        def_API('Z3_params_set_double', VOID, (_in(CONTEXT), _in(PARAMS), _in(SYMBOL), _in(DOUBLE)))
     */
-    void Z3_API Z3_params_set_double(__in Z3_context c, __in Z3_params p, __in Z3_symbol k, __in double v);
+    void Z3_API Z3_params_set_double(Z3_in Z3_context c, Z3_in Z3_params p, Z3_in Z3_symbol k, Z3_in double v);
 
     /**
        \brief Add a symbol parameter \c k with value \c v to the parameter set \c p.
 
        def_API('Z3_params_set_symbol', VOID, (_in(CONTEXT), _in(PARAMS), _in(SYMBOL), _in(SYMBOL)))
     */
-    void Z3_API Z3_params_set_symbol(__in Z3_context c, __in Z3_params p, __in Z3_symbol k, __in Z3_symbol v);
+    void Z3_API Z3_params_set_symbol(Z3_in Z3_context c, Z3_in Z3_params p, Z3_in Z3_symbol k, Z3_in Z3_symbol v);
     
     /**
        \brief Convert a parameter set into a string. This function is mainly used for printing the
@@ -1698,7 +1698,7 @@ extern "C" {
 
        def_API('Z3_params_to_string', STRING, (_in(CONTEXT), _in(PARAMS)))
     */
-    Z3_string Z3_API Z3_params_to_string(__in Z3_context c, __in Z3_params p);
+    Z3_string Z3_API Z3_params_to_string(Z3_in Z3_context c, Z3_in Z3_params p);
 
     /**
        \brief Validate the parameter set \c p against the parameter description set \c d.
@@ -1707,7 +1707,7 @@ extern "C" {
 
        def_API('Z3_params_validate', VOID, (_in(CONTEXT), _in(PARAMS), _in(PARAM_DESCRS)))
     */
-    void Z3_API Z3_params_validate(__in Z3_context c, __in Z3_params p, __in Z3_param_descrs d);
+    void Z3_API Z3_params_validate(Z3_in Z3_context c, Z3_in Z3_params p, Z3_in Z3_param_descrs d);
     
 #endif
 
@@ -1725,14 +1725,14 @@ extern "C" {
 
        def_API('Z3_param_descrs_inc_ref', VOID, (_in(CONTEXT), _in(PARAM_DESCRS)))
     */
-    void Z3_API Z3_param_descrs_inc_ref(__in Z3_context c, __in Z3_param_descrs p);
+    void Z3_API Z3_param_descrs_inc_ref(Z3_in Z3_context c, Z3_in Z3_param_descrs p);
 
     /**
        \brief Decrement the reference counter of the given parameter description set.
 
        def_API('Z3_param_descrs_dec_ref', VOID, (_in(CONTEXT), _in(PARAM_DESCRS)))
     */
-    void Z3_API Z3_param_descrs_dec_ref(__in Z3_context c, __in Z3_param_descrs p);
+    void Z3_API Z3_param_descrs_dec_ref(Z3_in Z3_context c, Z3_in Z3_param_descrs p);
 #endif
     
     /**
@@ -1740,14 +1740,14 @@ extern "C" {
 
        def_API('Z3_param_descrs_get_kind', UINT, (_in(CONTEXT), _in(PARAM_DESCRS), _in(SYMBOL)))
     */
-    Z3_param_kind Z3_API Z3_param_descrs_get_kind(__in Z3_context c, __in Z3_param_descrs p, __in Z3_symbol n);
+    Z3_param_kind Z3_API Z3_param_descrs_get_kind(Z3_in Z3_context c, Z3_in Z3_param_descrs p, Z3_in Z3_symbol n);
     
     /**
        \brief Return the number of parameters in the given parameter description set.
        
        def_API('Z3_param_descrs_size', UINT, (_in(CONTEXT), _in(PARAM_DESCRS)))
     */
-    unsigned Z3_API Z3_param_descrs_size(__in Z3_context c, __in Z3_param_descrs p);
+    unsigned Z3_API Z3_param_descrs_size(Z3_in Z3_context c, Z3_in Z3_param_descrs p);
 
     /**
        \brief Return the number of parameters in the given parameter description set.
@@ -1756,7 +1756,7 @@ extern "C" {
 
        def_API('Z3_param_descrs_get_name', SYMBOL, (_in(CONTEXT), _in(PARAM_DESCRS), _in(UINT)))
     */
-    Z3_symbol Z3_API Z3_param_descrs_get_name(__in Z3_context c, __in Z3_param_descrs p, __in unsigned i);
+    Z3_symbol Z3_API Z3_param_descrs_get_name(Z3_in Z3_context c, Z3_in Z3_param_descrs p, Z3_in unsigned i);
 
     /**
        \brief Convert a parameter description set into a string. This function is mainly used for printing the
@@ -1764,7 +1764,7 @@ extern "C" {
 
        def_API('Z3_param_descrs_to_string', STRING, (_in(CONTEXT), _in(PARAM_DESCRS)))
     */
-    Z3_string Z3_API Z3_param_descrs_to_string(__in Z3_context c, __in Z3_param_descrs p);
+    Z3_string Z3_API Z3_param_descrs_to_string(Z3_in Z3_context c, Z3_in Z3_param_descrs p);
 
     /*@}*/
 #endif
@@ -1794,7 +1794,7 @@ extern "C" {
 
        def_API('Z3_mk_int_symbol', SYMBOL, (_in(CONTEXT), _in(INT)))
     */
-    Z3_symbol Z3_API Z3_mk_int_symbol(__in Z3_context c, __in int i);
+    Z3_symbol Z3_API Z3_mk_int_symbol(Z3_in Z3_context c, Z3_in int i);
 
     /**
        \brief Create a Z3 symbol using a C string.
@@ -1805,7 +1805,7 @@ extern "C" {
 
        def_API('Z3_mk_string_symbol', SYMBOL, (_in(CONTEXT), _in(STRING)))
     */
-    Z3_symbol Z3_API Z3_mk_string_symbol(__in Z3_context c, __in Z3_string s);
+    Z3_symbol Z3_API Z3_mk_string_symbol(Z3_in Z3_context c, Z3_in Z3_string s);
 
     /*@}*/
     
@@ -1829,7 +1829,7 @@ extern "C" {
 
        def_API('Z3_mk_uninterpreted_sort', SORT, (_in(CONTEXT), _in(SYMBOL)))
     */
-    Z3_sort Z3_API Z3_mk_uninterpreted_sort(__in Z3_context c, __in Z3_symbol s);
+    Z3_sort Z3_API Z3_mk_uninterpreted_sort(Z3_in Z3_context c, Z3_in Z3_symbol s);
 
     /**
        \brief Create the Boolean type. 
@@ -1838,7 +1838,7 @@ extern "C" {
 
        def_API('Z3_mk_bool_sort', SORT, (_in(CONTEXT), ))
     */
-    Z3_sort Z3_API Z3_mk_bool_sort(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_bool_sort(Z3_in Z3_context c);
     
     /**
        \brief Create the integer type.
@@ -1851,7 +1851,7 @@ extern "C" {
 
        def_API('Z3_mk_int_sort', SORT, (_in(CONTEXT), ))
     */
-    Z3_sort Z3_API Z3_mk_int_sort(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_int_sort(Z3_in Z3_context c);
     
     /**
        \brief Create the real type. 
@@ -1860,7 +1860,7 @@ extern "C" {
 
        def_API('Z3_mk_real_sort', SORT, (_in(CONTEXT), ))
     */
-    Z3_sort Z3_API Z3_mk_real_sort(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_real_sort(Z3_in Z3_context c);
 
     /**
        \brief Create a bit-vector type of the given size.
@@ -1871,7 +1871,7 @@ extern "C" {
 
        def_API('Z3_mk_bv_sort', SORT, (_in(CONTEXT), _in(UINT)))
     */
-    Z3_sort Z3_API Z3_mk_bv_sort(__in Z3_context c, __in unsigned sz);
+    Z3_sort Z3_API Z3_mk_bv_sort(Z3_in Z3_context c, Z3_in unsigned sz);
 
     /**
        \brief Create a named finite domain sort.
@@ -1886,7 +1886,7 @@ extern "C" {
 
        def_API('Z3_mk_finite_domain_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT64)))
     */
-    Z3_sort Z3_API Z3_mk_finite_domain_sort(__in Z3_context c, __in Z3_symbol name, __in unsigned __int64 size);
+    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_in Z3_context c, Z3_in Z3_symbol name, Z3_in unsigned __int64 size);
 
     /**
        \brief Create an array type. 
@@ -1899,7 +1899,7 @@ extern "C" {
 
        def_API('Z3_mk_array_sort', SORT, (_in(CONTEXT), _in(SORT), _in(SORT)))
     */
-    Z3_sort Z3_API Z3_mk_array_sort(__in Z3_context c, __in Z3_sort domain, __in Z3_sort range);
+    Z3_sort Z3_API Z3_mk_array_sort(Z3_in Z3_context c, Z3_in Z3_sort domain, Z3_in Z3_sort range);
 
     /**
        \brief Create a tuple type.
@@ -1921,13 +1921,13 @@ extern "C" {
 
        def_API('Z3_mk_tuple_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _out(FUNC_DECL), _out_array(2, FUNC_DECL)))
     */
-    Z3_sort Z3_API Z3_mk_tuple_sort(__in Z3_context c, 
-                                        __in Z3_symbol mk_tuple_name, 
-                                        __in unsigned num_fields, 
-                                        __in_ecount(num_fields) Z3_symbol const field_names[],
-                                        __in_ecount(num_fields) Z3_sort const field_sorts[],
-                                        __out Z3_func_decl * mk_tuple_decl,
-                                        __out_ecount(num_fields)  Z3_func_decl proj_decl[]);
+    Z3_sort Z3_API Z3_mk_tuple_sort(Z3_in Z3_context c, 
+                                        Z3_in Z3_symbol mk_tuple_name, 
+                                        Z3_in unsigned num_fields, 
+                                        Z3_in_ecount(num_fields) Z3_symbol const field_names[],
+                                        Z3_in_ecount(num_fields) Z3_sort const field_sorts[],
+                                        Z3_out Z3_func_decl * mk_tuple_decl,
+                                        Z3_out_ecount(num_fields)  Z3_func_decl proj_decl[]);
 
     /**
        \brief Create a enumeration sort.
@@ -1955,12 +1955,12 @@ extern "C" {
 
        def_API('Z3_mk_enumeration_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SYMBOL), _out_array(2, FUNC_DECL), _out_array(2, FUNC_DECL)))
     */
-    Z3_sort Z3_API Z3_mk_enumeration_sort(__in Z3_context c, 
-                                          __in Z3_symbol name,
-                                          __in unsigned n,
-                                          __in_ecount(n)  Z3_symbol  const enum_names[],
-                                          __out_ecount(n) Z3_func_decl enum_consts[],
-                                          __out_ecount(n) Z3_func_decl enum_testers[]);
+    Z3_sort Z3_API Z3_mk_enumeration_sort(Z3_in Z3_context c, 
+                                          Z3_in Z3_symbol name,
+                                          Z3_in unsigned n,
+                                          Z3_in_ecount(n)  Z3_symbol  const enum_names[],
+                                          Z3_out_ecount(n) Z3_func_decl enum_consts[],
+                                          Z3_out_ecount(n) Z3_func_decl enum_testers[]);
 
     /**
        \brief Create a list sort
@@ -1983,15 +1983,15 @@ extern "C" {
 
        def_API('Z3_mk_list_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(SORT), _out(FUNC_DECL), _out(FUNC_DECL), _out(FUNC_DECL), _out(FUNC_DECL), _out(FUNC_DECL), _out(FUNC_DECL)))
     */
-    Z3_sort Z3_API Z3_mk_list_sort(__in Z3_context c,
-                                   __in Z3_symbol name,
-                                   __in Z3_sort   elem_sort,
-                                   __out Z3_func_decl* nil_decl,
-                                   __out Z3_func_decl* is_nil_decl,
-                                   __out Z3_func_decl* cons_decl,
-                                   __out Z3_func_decl* is_cons_decl,
-                                   __out Z3_func_decl* head_decl,
-                                   __out Z3_func_decl* tail_decl
+    Z3_sort Z3_API Z3_mk_list_sort(Z3_in Z3_context c,
+                                   Z3_in Z3_symbol name,
+                                   Z3_in Z3_sort   elem_sort,
+                                   Z3_out Z3_func_decl* nil_decl,
+                                   Z3_out Z3_func_decl* is_nil_decl,
+                                   Z3_out Z3_func_decl* cons_decl,
+                                   Z3_out Z3_func_decl* is_cons_decl,
+                                   Z3_out Z3_func_decl* head_decl,
+                                   Z3_out Z3_func_decl* tail_decl
                                    );
 
 BEGIN_MLAPI_EXCLUDE
@@ -2012,13 +2012,13 @@ BEGIN_MLAPI_EXCLUDE
 
        def_API('Z3_mk_constructor', CONSTRUCTOR, (_in(CONTEXT), _in(SYMBOL), _in(SYMBOL), _in(UINT), _in_array(3, SYMBOL), _in_array(3, SORT), _in_array(3, UINT)))
     */
-    Z3_constructor Z3_API Z3_mk_constructor(__in Z3_context c,
-                                            __in Z3_symbol name,
-                                            __in Z3_symbol recognizer,
-                                            __in unsigned num_fields,
-                                            __in_ecount(num_fields) Z3_symbol const field_names[],
-                                            __in_ecount(num_fields) Z3_sort_opt const sorts[],
-                                            __in_ecount(num_fields) unsigned sort_refs[]
+    Z3_constructor Z3_API Z3_mk_constructor(Z3_in Z3_context c,
+                                            Z3_in Z3_symbol name,
+                                            Z3_in Z3_symbol recognizer,
+                                            Z3_in unsigned num_fields,
+                                            Z3_in_ecount(num_fields) Z3_symbol const field_names[],
+                                            Z3_in_ecount(num_fields) Z3_sort_opt const sorts[],
+                                            Z3_in_ecount(num_fields) unsigned sort_refs[]
                                             );
     
     /**
@@ -2029,7 +2029,7 @@ BEGIN_MLAPI_EXCLUDE
 
        def_API('Z3_del_constructor', VOID, (_in(CONTEXT), _in(CONSTRUCTOR)))
     */
-    void Z3_API Z3_del_constructor(__in Z3_context c, __in Z3_constructor constr);
+    void Z3_API Z3_del_constructor(Z3_in Z3_context c, Z3_in Z3_constructor constr);
 
     /**
        \brief Create datatype, such as lists, trees, records, enumerations or unions of records. 
@@ -2042,10 +2042,10 @@ BEGIN_MLAPI_EXCLUDE
 
        def_API('Z3_mk_datatype', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _inout_array(2, CONSTRUCTOR)))
     */
-    Z3_sort Z3_API Z3_mk_datatype(__in Z3_context c,
-                                  __in Z3_symbol name,
-                                  __in unsigned num_constructors,
-                                  __inout_ecount(num_constructors) Z3_constructor constructors[]);
+    Z3_sort Z3_API Z3_mk_datatype(Z3_in Z3_context c,
+                                  Z3_in Z3_symbol name,
+                                  Z3_in unsigned num_constructors,
+                                  Z3_inout_ecount(num_constructors) Z3_constructor constructors[]);
 
 
     /**
@@ -2057,9 +2057,9 @@ BEGIN_MLAPI_EXCLUDE
 
        def_API('Z3_mk_constructor_list', CONSTRUCTOR_LIST, (_in(CONTEXT), _in(UINT), _in_array(1, CONSTRUCTOR)))
     */
-    Z3_constructor_list Z3_API Z3_mk_constructor_list(__in Z3_context c,
-                                                      __in unsigned num_constructors,
-                                                      __in_ecount(num_constructors) Z3_constructor const constructors[]);
+    Z3_constructor_list Z3_API Z3_mk_constructor_list(Z3_in Z3_context c,
+                                                      Z3_in unsigned num_constructors,
+                                                      Z3_in_ecount(num_constructors) Z3_constructor const constructors[]);
 
     /**
        \brief Reclaim memory allocated for constructor list.
@@ -2071,7 +2071,7 @@ BEGIN_MLAPI_EXCLUDE
 
        def_API('Z3_del_constructor_list', VOID, (_in(CONTEXT), _in(CONSTRUCTOR_LIST)))
     */
-    void Z3_API Z3_del_constructor_list(__in Z3_context c, __in Z3_constructor_list clist);
+    void Z3_API Z3_del_constructor_list(Z3_in Z3_context c, Z3_in Z3_constructor_list clist);
                                         
     /**
        \brief Create mutually recursive datatypes.
@@ -2084,11 +2084,11 @@ BEGIN_MLAPI_EXCLUDE
 
        def_API('Z3_mk_datatypes', VOID, (_in(CONTEXT), _in(UINT), _in_array(1, SYMBOL), _out_array(1, SORT), _inout_array(1, CONSTRUCTOR_LIST)))
     */
-    void Z3_API Z3_mk_datatypes(__in Z3_context c,
-                                __in unsigned num_sorts,
-                                __in_ecount(num_sorts) Z3_symbol const sort_names[],
-                                __out_ecount(num_sorts) Z3_sort sorts[],
-                                __inout_ecount(num_sorts) Z3_constructor_list constructor_lists[]);
+    void Z3_API Z3_mk_datatypes(Z3_in Z3_context c,
+                                Z3_in unsigned num_sorts,
+                                Z3_in_ecount(num_sorts) Z3_symbol const sort_names[],
+                                Z3_out_ecount(num_sorts) Z3_sort sorts[],
+                                Z3_inout_ecount(num_sorts) Z3_constructor_list constructor_lists[]);
 
     /**
        \brief Query constructor for declared functions. 
@@ -2102,12 +2102,12 @@ BEGIN_MLAPI_EXCLUDE
 
        def_API('Z3_query_constructor', VOID, (_in(CONTEXT), _in(CONSTRUCTOR), _in(UINT), _out(FUNC_DECL), _out(FUNC_DECL), _out_array(2, FUNC_DECL)))
     */
-    void Z3_API Z3_query_constructor(__in Z3_context c,
-                                     __in Z3_constructor constr,
-                                     __in unsigned num_fields,
-                                     __out Z3_func_decl* constructor,
-                                     __out Z3_func_decl* tester,
-                                     __out_ecount(num_fields) Z3_func_decl accessors[]);
+    void Z3_API Z3_query_constructor(Z3_in Z3_context c,
+                                     Z3_in Z3_constructor constr,
+                                     Z3_in unsigned num_fields,
+                                     Z3_out Z3_func_decl* constructor,
+                                     Z3_out Z3_func_decl* tester,
+                                     Z3_out_ecount(num_fields) Z3_func_decl accessors[]);
 END_MLAPI_EXCLUDE
 
     /*@}*/
@@ -2137,9 +2137,9 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_func_decl', FUNC_DECL, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SORT), _in(SORT)))
     */
-    Z3_func_decl Z3_API Z3_mk_func_decl(__in Z3_context c, __in Z3_symbol s,
-                                        __in unsigned domain_size, __in_ecount(domain_size) Z3_sort const domain[],
-                                        __in Z3_sort range);
+    Z3_func_decl Z3_API Z3_mk_func_decl(Z3_in Z3_context c, Z3_in Z3_symbol s,
+                                        Z3_in unsigned domain_size, Z3_in_ecount(domain_size) Z3_sort const domain[],
+                                        Z3_in Z3_sort range);
 
     
     /**
@@ -2150,10 +2150,10 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_app', AST, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT), _in_array(2, AST)))
     */
     Z3_ast Z3_API Z3_mk_app(
-        __in Z3_context c, 
-        __in Z3_func_decl d,
-        __in unsigned num_args, 
-        __in_ecount(num_args) Z3_ast const args[]);
+        Z3_in Z3_context c, 
+        Z3_in Z3_func_decl d,
+        Z3_in unsigned num_args, 
+        Z3_in_ecount(num_args) Z3_ast const args[]);
 
     /**
        \brief Declare and create a constant.
@@ -2171,7 +2171,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_const', AST, (_in(CONTEXT), _in(SYMBOL), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_const(__in Z3_context c, __in Z3_symbol s, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_const(Z3_in Z3_context c, Z3_in Z3_symbol s, Z3_in Z3_sort ty);
 
     /**
        \brief Declare a fresh constant or function.
@@ -2185,9 +2185,9 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_fresh_func_decl', FUNC_DECL, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SORT), _in(SORT)))
     */
-    Z3_func_decl Z3_API Z3_mk_fresh_func_decl(__in Z3_context c, __in Z3_string prefix,
-                                                   __in unsigned domain_size, __in_ecount(domain_size) Z3_sort const domain[],
-                                                   __in Z3_sort range);
+    Z3_func_decl Z3_API Z3_mk_fresh_func_decl(Z3_in Z3_context c, Z3_in Z3_string prefix,
+                                                   Z3_in unsigned domain_size, Z3_in_ecount(domain_size) Z3_sort const domain[],
+                                                   Z3_in Z3_sort range);
     
     /**
        \brief Declare and create a fresh constant.
@@ -2204,7 +2204,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_fresh_const', AST, (_in(CONTEXT), _in(STRING), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fresh_const(__in Z3_context c, __in Z3_string prefix, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fresh_const(Z3_in Z3_context c, Z3_in Z3_string prefix, Z3_in Z3_sort ty);
     /*@}*/
 
     /**
@@ -2216,14 +2216,14 @@ END_MLAPI_EXCLUDE
         
         def_API('Z3_mk_true', AST, (_in(CONTEXT), ))
     */
-    Z3_ast Z3_API Z3_mk_true(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_true(Z3_in Z3_context c);
 
     /**
         \brief Create an AST node representing \c false.
 
         def_API('Z3_mk_false', AST, (_in(CONTEXT), ))
     */
-    Z3_ast Z3_API Z3_mk_false(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_false(Z3_in Z3_context c);
     
     /**
         \brief \mlh mk_eq c l r \endmlh
@@ -2233,7 +2233,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_eq', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_eq(__in Z3_context c, __in Z3_ast l, __in Z3_ast r);
+    Z3_ast Z3_API Z3_mk_eq(Z3_in Z3_context c, Z3_in Z3_ast l, Z3_in Z3_ast r);
     
     /**
        \conly \brief Create an AST node representing <tt>distinct(args[0], ..., args[num_args-1])</tt>.
@@ -2250,7 +2250,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_distinct', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
-    Z3_ast Z3_API Z3_mk_distinct(__in Z3_context c, __in unsigned num_args, __in_ecount(num_args) Z3_ast const args[]);
+    Z3_ast Z3_API Z3_mk_distinct(Z3_in Z3_context c, Z3_in unsigned num_args, Z3_in_ecount(num_args) Z3_ast const args[]);
 
     /**
         \brief \mlh mk_not c a \endmlh 
@@ -2260,7 +2260,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_not', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_not(__in Z3_context c, __in Z3_ast a);
+    Z3_ast Z3_API Z3_mk_not(Z3_in Z3_context c, Z3_in Z3_ast a);
         
     /**
        \brief \mlh mk_ite c t1 t2 t2 \endmlh 
@@ -2272,7 +2272,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_ite', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_ite(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2, __in Z3_ast t3);
+    Z3_ast Z3_API Z3_mk_ite(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2, Z3_in Z3_ast t3);
 
     /**
        \brief \mlh mk_iff c t1 t2 \endmlh
@@ -2282,7 +2282,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_iff', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_iff(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_iff(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_implies c t1 t2 \endmlh
@@ -2292,7 +2292,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_implies', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_implies(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_implies(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
     
     /**
        \brief \mlh mk_xor c t1 t2 \endmlh
@@ -2302,7 +2302,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_xor', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_xor(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_xor(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
     
     /**
        \conly \brief Create an AST node representing <tt>args[0] and ... and args[num_args-1]</tt>.
@@ -2315,7 +2315,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_and', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
-    Z3_ast Z3_API Z3_mk_and(__in Z3_context c, __in unsigned num_args, __in_ecount(num_args) Z3_ast const args[]);
+    Z3_ast Z3_API Z3_mk_and(Z3_in Z3_context c, Z3_in unsigned num_args, Z3_in_ecount(num_args) Z3_ast const args[]);
     
     /**
        \conly \brief Create an AST node representing <tt>args[0] or ... or args[num_args-1]</tt>.
@@ -2328,7 +2328,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_or', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
-    Z3_ast Z3_API Z3_mk_or(__in Z3_context c, __in unsigned num_args, __in_ecount(num_args) Z3_ast const args[]);
+    Z3_ast Z3_API Z3_mk_or(Z3_in Z3_context c, Z3_in unsigned num_args, Z3_in_ecount(num_args) Z3_ast const args[]);
     /*@}*/
 
     /**
@@ -2346,7 +2346,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_add', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
-    Z3_ast Z3_API Z3_mk_add(__in Z3_context c, __in unsigned num_args, __in_ecount(num_args) Z3_ast const args[]);
+    Z3_ast Z3_API Z3_mk_add(Z3_in Z3_context c, Z3_in unsigned num_args, Z3_in_ecount(num_args) Z3_ast const args[]);
     
     /**
        \conly \brief Create an AST node representing <tt>args[0] * ... * args[num_args-1]</tt>.
@@ -2360,7 +2360,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_mul', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
-    Z3_ast Z3_API Z3_mk_mul(__in Z3_context c, __in unsigned num_args, __in_ecount(num_args) Z3_ast const args[]);
+    Z3_ast Z3_API Z3_mk_mul(Z3_in Z3_context c, Z3_in unsigned num_args, Z3_in_ecount(num_args) Z3_ast const args[]);
     
     /**
        \conly \brief Create an AST node representing <tt>args[0] - ... - args[num_args - 1]</tt>.
@@ -2373,7 +2373,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_sub', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
-    Z3_ast Z3_API Z3_mk_sub(__in Z3_context c, __in unsigned num_args, __in_ecount(num_args) Z3_ast const args[]);
+    Z3_ast Z3_API Z3_mk_sub(Z3_in Z3_context c, Z3_in unsigned num_args, Z3_in_ecount(num_args) Z3_ast const args[]);
 
     /**
        \conly \brief Create an AST node representing <tt>-arg</tt>.
@@ -2383,7 +2383,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_unary_minus', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_unary_minus(__in Z3_context c, __in Z3_ast arg);
+    Z3_ast Z3_API Z3_mk_unary_minus(Z3_in Z3_context c, Z3_in Z3_ast arg);
 
     /**
        \conly \brief Create an AST node representing <tt>arg1 div arg2</tt>.
@@ -2395,7 +2395,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_div', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_div(__in Z3_context c, __in Z3_ast arg1, __in Z3_ast arg2);
+    Z3_ast Z3_API Z3_mk_div(Z3_in Z3_context c, Z3_in Z3_ast arg1, Z3_in Z3_ast arg2);
 
     /**
        \conly \brief Create an AST node representing <tt>arg1 mod arg2</tt>.
@@ -2405,7 +2405,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_mod', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_mod(__in Z3_context c, __in Z3_ast arg1, __in Z3_ast arg2);
+    Z3_ast Z3_API Z3_mk_mod(Z3_in Z3_context c, Z3_in Z3_ast arg1, Z3_in Z3_ast arg2);
 
     /**
        \conly \brief Create an AST node representing <tt>arg1 rem arg2</tt>.
@@ -2415,7 +2415,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_rem', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_rem(__in Z3_context c, __in Z3_ast arg1, __in Z3_ast arg2);
+    Z3_ast Z3_API Z3_mk_rem(Z3_in Z3_context c, Z3_in Z3_ast arg1, Z3_in Z3_ast arg2);
 
     /**
        \conly \brief Create an AST node representing <tt>arg1^arg2</tt>.
@@ -2424,7 +2424,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_power', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_power(__in Z3_context c, __in Z3_ast arg1, __in Z3_ast arg2);
+    Z3_ast Z3_API Z3_mk_power(Z3_in Z3_context c, Z3_in Z3_ast arg1, Z3_in Z3_ast arg2);
 
     /**
         \brief \mlh mk_lt c t1 t2 \endmlh 
@@ -2434,7 +2434,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_lt', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_lt(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_lt(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
         \brief \mlh mk_le c t1 t2 \endmlh
@@ -2444,7 +2444,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_le', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_le(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_le(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
         \brief \mlh mk_gt c t1 t2 \endmlh
@@ -2454,7 +2454,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_gt', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_gt(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_gt(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
         \brief \mlh mk_ge c t1 t2 \endmlh
@@ -2464,7 +2464,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_ge', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_ge(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_ge(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
         \brief \mlh mk_int2real c t1 \endmlh
@@ -2484,7 +2484,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_int2real', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_int2real(__in Z3_context c, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_int2real(Z3_in Z3_context c, Z3_in Z3_ast t1);
 
     /**
         \brief \mlh mk_real2int c t1 \endmlh
@@ -2498,7 +2498,7 @@ END_MLAPI_EXCLUDE
         
         def_API('Z3_mk_real2int', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_real2int(__in Z3_context c, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_real2int(Z3_in Z3_context c, Z3_in Z3_ast t1);
 
     /**
         \brief \mlh mk_is_int c t1 \endmlh
@@ -2509,7 +2509,7 @@ END_MLAPI_EXCLUDE
         
         def_API('Z3_mk_is_int', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_is_int(__in Z3_context c, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_is_int(Z3_in Z3_context c, Z3_in Z3_ast t1);
     /*@}*/
 
     /**
@@ -2524,7 +2524,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvnot', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvnot(__in Z3_context c, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_bvnot(Z3_in Z3_context c, Z3_in Z3_ast t1);
 
     /**
        \brief \mlh mk_bvredand c t1 \endmlh
@@ -2534,7 +2534,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvredand', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvredand(__in Z3_context c, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_bvredand(Z3_in Z3_context c, Z3_in Z3_ast t1);
 
     /**
        \brief \mlh mk_bvredor c t1 \endmlh
@@ -2544,7 +2544,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_bvredor', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvredor(__in Z3_context c, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_bvredor(Z3_in Z3_context c, Z3_in Z3_ast t1);
 
     /**
        \brief \mlh mk_bvand c t1 t2 \endmlh
@@ -2554,7 +2554,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_bvand', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvand(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvand(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvor c t1 t2 \endmlh
@@ -2564,7 +2564,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvor', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvor(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvor(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvxor c t1 t2 \endmlh
@@ -2574,7 +2574,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_bvxor', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvxor(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvxor(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvnand c t1 t2 \endmlh
@@ -2584,7 +2584,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvnand', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvnand(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvnand(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvnor c t1 t2 \endmlh
@@ -2594,7 +2594,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_mk_bvnor', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvnor(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvnor(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvxnor c t1 t2 \endmlh
@@ -2604,7 +2604,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvxnor', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvxnor(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvxnor(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvneg c t1 \endmlh
@@ -2614,7 +2614,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvneg', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvneg(__in Z3_context c, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_bvneg(Z3_in Z3_context c, Z3_in Z3_ast t1);
     
     /**
         \brief \mlh mk_bvadd c t1 t2 \endmlh
@@ -2624,7 +2624,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_bvadd', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvadd(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvadd(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
         \brief \mlh mk_bvsub c t1 t2 \endmlh
@@ -2634,7 +2634,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_bvsub', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvsub(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvsub(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
     
     /**
         \brief \mlh mk_bvmul c t1 t2 \endmlh
@@ -2644,7 +2644,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_bvmul', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvmul(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvmul(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
         \brief \mlh mk_bvudiv c t1 t2 \endmlh
@@ -2658,7 +2658,7 @@ END_MLAPI_EXCLUDE
         
         def_API('Z3_mk_bvudiv', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvudiv(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvudiv(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
         \brief \mlh mk_bvsdiv c t1 t2 \endmlh
@@ -2676,7 +2676,7 @@ END_MLAPI_EXCLUDE
     
         def_API('Z3_mk_bvsdiv', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvsdiv(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvsdiv(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvurem c t1 t2 \endmlh
@@ -2690,7 +2690,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvurem', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvurem(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvurem(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvsrem c t1 t2 \endmlh
@@ -2707,7 +2707,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvsrem', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvsrem(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvsrem(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvsmod c t1 t2 \endmlh
@@ -2721,7 +2721,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvsmod', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvsmod(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvsmod(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvult c t1 t2 \endmlh
@@ -2731,7 +2731,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_bvult', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvult(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvult(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
     
     /**
        \brief \mlh mk_bvslt c t1 t2 \endmlh
@@ -2749,7 +2749,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvslt', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvslt(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvslt(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvule c t1 t2 \endmlh
@@ -2759,7 +2759,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvule', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvule(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvule(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvsle c t1 t2 \endmlh
@@ -2769,7 +2769,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_mk_bvsle', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvsle(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvsle(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvuge c t1 t2 \endmlh
@@ -2779,7 +2779,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_mk_bvuge', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvuge(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvuge(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvsge c t1 t2 \endmlh
@@ -2789,7 +2789,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_mk_bvsge', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvsge(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvsge(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvugt c t1 t2 \endmlh
@@ -2799,7 +2799,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvugt', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvugt(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvugt(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvsgt c t1 t2 \endmlh
@@ -2809,7 +2809,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_bvsgt', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvsgt(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvsgt(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_concat c t1 t2 \endmlh
@@ -2822,7 +2822,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_concat', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_concat(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_concat(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
     
     /**
        \brief \mlh mk_extract c high low t1 \endmlh
@@ -2834,7 +2834,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_extract', AST, (_in(CONTEXT), _in(UINT), _in(UINT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_extract(__in Z3_context c, __in unsigned high, __in unsigned low, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_extract(Z3_in Z3_context c, Z3_in unsigned high, Z3_in unsigned low, Z3_in Z3_ast t1);
 
     /**
        \brief \mlh mk_sign_ext c i t1 \endmlh
@@ -2846,7 +2846,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_sign_ext', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_sign_ext(__in Z3_context c, __in unsigned i, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_sign_ext(Z3_in Z3_context c, Z3_in unsigned i, Z3_in Z3_ast t1);
 
     /**
        \brief \mlh mk_zero_ext c i t1 \endmlh
@@ -2858,7 +2858,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_zero_ext', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_zero_ext(__in Z3_context c, __in unsigned i, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_zero_ext(Z3_in Z3_context c, Z3_in unsigned i, Z3_in Z3_ast t1);
 
     /**
        \brief \mlh mk_repeat c i t1 \endmlh
@@ -2868,7 +2868,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_mk_repeat', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_repeat(__in Z3_context c, __in unsigned i, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_repeat(Z3_in Z3_context c, Z3_in unsigned i, Z3_in Z3_ast t1);
 
     /**
        \brief \mlh mk_bvshl c t1 t2 \endmlh
@@ -2885,7 +2885,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvshl', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvshl(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvshl(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvlshr c t1 t2 \endmlh
@@ -2902,7 +2902,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvlshr', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvlshr(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvlshr(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvashr c t1 t2 \endmlh
@@ -2920,7 +2920,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvashr', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvashr(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvashr(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
     
     /**
        \brief \mlh mk_rotate_left c i t1 \endmlh
@@ -2930,7 +2930,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_rotate_left', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_rotate_left(__in Z3_context c, __in unsigned i, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_rotate_left(Z3_in Z3_context c, Z3_in unsigned i, Z3_in Z3_ast t1);
     
     /**
        \brief \mlh mk_rotate_right c i t1 \endmlh
@@ -2940,7 +2940,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_rotate_right', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_rotate_right(__in Z3_context c, __in unsigned i, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_rotate_right(Z3_in Z3_context c, Z3_in unsigned i, Z3_in Z3_ast t1);
 
     /**
        \brief \mlh mk_ext_rotate_left c t1 t2 \endmlh
@@ -2950,7 +2950,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_ext_rotate_left', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_ext_rotate_left(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_ext_rotate_left(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_ext_rotate_right c t1 t2 \endmlh
@@ -2960,7 +2960,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_ext_rotate_right', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_ext_rotate_right(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_ext_rotate_right(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
     
     /**
        \brief \mlh mk_int2bv c n t1 \endmlh
@@ -2974,7 +2974,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_int2bv', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_int2bv(__in Z3_context c, __in unsigned n, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_int2bv(Z3_in Z3_context c, Z3_in unsigned n, Z3_in Z3_ast t1);
 
     /**
        \brief \mlh mk_bv2int c t1 is_signed \endmlh
@@ -2992,7 +2992,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bv2int', AST, (_in(CONTEXT), _in(AST), _in(BOOL)))
     */
-    Z3_ast Z3_API Z3_mk_bv2int(__in Z3_context c,__in Z3_ast t1, Z3_bool is_signed);
+    Z3_ast Z3_API Z3_mk_bv2int(Z3_in Z3_context c,Z3_in Z3_ast t1, Z3_bool is_signed);
 
     /**
        \brief \mlh mk_bvadd_no_overflow c t1 t2 is_signed \endmlh
@@ -3003,7 +3003,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvadd_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(BOOL)))
     */
-    Z3_ast Z3_API Z3_mk_bvadd_no_overflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2, Z3_bool is_signed);
+    Z3_ast Z3_API Z3_mk_bvadd_no_overflow(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2, Z3_bool is_signed);
 
     /**
        \brief \mlh mk_bvadd_no_underflow c t1 t2 \endmlh
@@ -3014,7 +3014,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_mk_bvadd_no_underflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvadd_no_underflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvadd_no_underflow(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvsub_no_overflow c t1 t2 \endmlh
@@ -3025,7 +3025,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_bvsub_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvsub_no_overflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvsub_no_overflow(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvsub_no_underflow c t1 t2 is_signed \endmlh
@@ -3036,7 +3036,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvsub_no_underflow', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(BOOL)))
     */
-    Z3_ast Z3_API Z3_mk_bvsub_no_underflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2, Z3_bool is_signed);
+    Z3_ast Z3_API Z3_mk_bvsub_no_underflow(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2, Z3_bool is_signed);
 
     /**
        \brief \mlh mk_bvsdiv_no_overflow c t1 t2 \endmlh
@@ -3047,7 +3047,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_bvsdiv_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvsdiv_no_overflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvsdiv_no_overflow(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
 
     /**
        \brief \mlh mk_bvneg_no_overflow c t1 \endmlh
@@ -3058,7 +3058,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvneg_no_overflow', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvneg_no_overflow(__in Z3_context c, __in Z3_ast t1);
+    Z3_ast Z3_API Z3_mk_bvneg_no_overflow(Z3_in Z3_context c, Z3_in Z3_ast t1);
 
     /**
        \brief \mlh mk_bvmul_no_overflow c t1 t2 is_signed \endmlh
@@ -3069,7 +3069,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_mk_bvmul_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(BOOL)))
     */
-    Z3_ast Z3_API Z3_mk_bvmul_no_overflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2, Z3_bool is_signed);
+    Z3_ast Z3_API Z3_mk_bvmul_no_overflow(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2, Z3_bool is_signed);
 
     /**
        \brief \mlh mk_bvmul_no_underflow c t1 t2 \endmlh
@@ -3080,7 +3080,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bvmul_no_underflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_bvmul_no_underflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_bvmul_no_underflow(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_in Z3_ast t2);
     /*@}*/
 
     /**
@@ -3102,7 +3102,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_select', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_select(__in Z3_context c, __in Z3_ast a, __in Z3_ast i);
+    Z3_ast Z3_API Z3_mk_select(Z3_in Z3_context c, Z3_in Z3_ast a, Z3_in Z3_ast i);
     
     /**
        \brief \mlh mk_store c a i v \endmlh
@@ -3121,7 +3121,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_store', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_store(__in Z3_context c, __in Z3_ast a, __in Z3_ast i, __in Z3_ast v);
+    Z3_ast Z3_API Z3_mk_store(Z3_in Z3_context c, Z3_in Z3_ast a, Z3_in Z3_ast i, Z3_in Z3_ast v);
 
     /**
         \brief Create the constant array.
@@ -3135,7 +3135,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_const_array', AST, (_in(CONTEXT), _in(SORT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_const_array(__in Z3_context c, __in Z3_sort domain, __in Z3_ast v);
+    Z3_ast Z3_API Z3_mk_const_array(Z3_in Z3_context c, Z3_in Z3_sort domain, Z3_in Z3_ast v);
 
     /**
        \brief \mlh mk_map f n args \endmlh
@@ -3151,7 +3151,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_map', AST, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT), _in_array(2, AST)))
     */
-    Z3_ast Z3_API Z3_mk_map(__in Z3_context c, __in Z3_func_decl f, unsigned n, __in Z3_ast const* args);
+    Z3_ast Z3_API Z3_mk_map(Z3_in Z3_context c, Z3_in Z3_func_decl f, unsigned n, Z3_in Z3_ast const* args);
 
     /**
         \brief Access the array default value.
@@ -3163,7 +3163,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_mk_array_default', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_array_default(__in Z3_context c, __in Z3_ast array);
+    Z3_ast Z3_API Z3_mk_array_default(Z3_in Z3_context c, Z3_in Z3_ast array);
     /*@}*/
 
     /**
@@ -3175,21 +3175,21 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_set_sort', SORT, (_in(CONTEXT), _in(SORT)))
     */
-    Z3_sort Z3_API Z3_mk_set_sort(__in Z3_context c, __in Z3_sort ty);
+    Z3_sort Z3_API Z3_mk_set_sort(Z3_in Z3_context c, Z3_in Z3_sort ty);
 
     /**
         \brief Create the empty set.
 
         def_API('Z3_mk_empty_set', AST, (_in(CONTEXT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_empty_set(__in Z3_context c, __in Z3_sort domain);
+    Z3_ast Z3_API Z3_mk_empty_set(Z3_in Z3_context c, Z3_in Z3_sort domain);
 
     /**
         \brief Create the full set.
 
         def_API('Z3_mk_full_set', AST, (_in(CONTEXT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_full_set(__in Z3_context c, __in Z3_sort domain);
+    Z3_ast Z3_API Z3_mk_full_set(Z3_in Z3_context c, Z3_in Z3_sort domain);
 
     /**
        \brief Add an element to a set.
@@ -3198,7 +3198,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_set_add', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_set_add(__in Z3_context c, __in Z3_ast set, __in Z3_ast elem);
+    Z3_ast Z3_API Z3_mk_set_add(Z3_in Z3_context c, Z3_in Z3_ast set, Z3_in Z3_ast elem);
 
     /**
        \brief Remove an element to a set.
@@ -3207,35 +3207,35 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_set_del', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_set_del(__in Z3_context c, __in Z3_ast set, __in Z3_ast elem);
+    Z3_ast Z3_API Z3_mk_set_del(Z3_in Z3_context c, Z3_in Z3_ast set, Z3_in Z3_ast elem);
 
     /**
        \brief Take the union of a list of sets.
 
        def_API('Z3_mk_set_union', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
-    Z3_ast Z3_API Z3_mk_set_union(__in Z3_context c, __in unsigned num_args, __in_ecount(num_args) Z3_ast const args[]);
+    Z3_ast Z3_API Z3_mk_set_union(Z3_in Z3_context c, Z3_in unsigned num_args, Z3_in_ecount(num_args) Z3_ast const args[]);
 
     /**
        \brief Take the intersection of a list of sets.
 
        def_API('Z3_mk_set_intersect', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
-    Z3_ast Z3_API Z3_mk_set_intersect(__in Z3_context c, __in unsigned num_args, __in_ecount(num_args) Z3_ast const args[]);
+    Z3_ast Z3_API Z3_mk_set_intersect(Z3_in Z3_context c, Z3_in unsigned num_args, Z3_in_ecount(num_args) Z3_ast const args[]);
 
     /**
        \brief Take the set difference between two sets.
 
        def_API('Z3_mk_set_difference', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_set_difference(__in Z3_context c, __in Z3_ast arg1, __in Z3_ast arg2);
+    Z3_ast Z3_API Z3_mk_set_difference(Z3_in Z3_context c, Z3_in Z3_ast arg1, Z3_in Z3_ast arg2);
 
     /**
        \brief Take the complement of a set.
 
        def_API('Z3_mk_set_complement', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_set_complement(__in Z3_context c, __in Z3_ast arg);
+    Z3_ast Z3_API Z3_mk_set_complement(Z3_in Z3_context c, Z3_in Z3_ast arg);
 
     /**
        \brief Check for set membership.
@@ -3244,14 +3244,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_set_member', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_set_member(__in Z3_context c, __in Z3_ast elem, __in Z3_ast set);
+    Z3_ast Z3_API Z3_mk_set_member(Z3_in Z3_context c, Z3_in Z3_ast elem, Z3_in Z3_ast set);
 
     /**
        \brief Check for subsetness of sets.
 
        def_API('Z3_mk_set_subset', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_set_subset(__in Z3_context c, __in Z3_ast arg1, __in Z3_ast arg2);
+    Z3_ast Z3_API Z3_mk_set_subset(Z3_in Z3_context c, Z3_in Z3_ast arg1, Z3_in Z3_ast arg2);
     /*@}*/
 
     /**
@@ -3279,7 +3279,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_numeral', AST, (_in(CONTEXT), _in(STRING), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_numeral(__in Z3_context c, __in Z3_string numeral, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_numeral(Z3_in Z3_context c, Z3_in Z3_string numeral, Z3_in Z3_sort ty);
 
     /**
        \brief Create a real from a fraction.
@@ -3296,7 +3296,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_real', AST, (_in(CONTEXT), _in(INT), _in(INT)))
     */
-    Z3_ast Z3_API Z3_mk_real(__in Z3_context c, __in int num, __in int den);
+    Z3_ast Z3_API Z3_mk_real(Z3_in Z3_context c, Z3_in int num, Z3_in int den);
     
     /**
        \brief Create a numeral of an int, bit-vector, or finite-domain sort. 
@@ -3308,7 +3308,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_int', AST, (_in(CONTEXT), _in(INT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_int(__in Z3_context c, __in int v, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_int(Z3_in Z3_context c, Z3_in int v, Z3_in Z3_sort ty);
     
 #ifdef Conly
     /**
@@ -3321,7 +3321,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_unsigned_int', AST, (_in(CONTEXT), _in(UINT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_unsigned_int(__in Z3_context c, __in unsigned v, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_unsigned_int(Z3_in Z3_context c, Z3_in unsigned v, Z3_in Z3_sort ty);
 #endif
 
     /**
@@ -3334,7 +3334,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_int64', AST, (_in(CONTEXT), _in(INT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_int64(__in Z3_context c, __in __int64 v, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_int64(Z3_in Z3_context c, Z3_in __int64 v, Z3_in Z3_sort ty);
 
 #ifdef Conly
     /**
@@ -3347,7 +3347,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_unsigned_int64', AST, (_in(CONTEXT), _in(UINT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_unsigned_int64(__in Z3_context c, __in unsigned __int64 v, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_in Z3_context c, Z3_in unsigned __int64 v, Z3_in Z3_sort ty);
 #endif
 
     /*@}*/
@@ -3378,8 +3378,8 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_pattern', PATTERN, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
     Z3_pattern Z3_API Z3_mk_pattern(
-        __in Z3_context c,
-        __in unsigned num_patterns, __in_ecount(num_patterns) Z3_ast const terms[]);
+        Z3_in Z3_context c,
+        Z3_in unsigned num_patterns, Z3_in_ecount(num_patterns) Z3_ast const terms[]);
 
     /**
        \brief Create a bound variable.
@@ -3410,7 +3410,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_bound', AST, (_in(CONTEXT), _in(UINT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_bound(__in Z3_context c, __in unsigned index, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_bound(Z3_in Z3_context c, Z3_in unsigned index, Z3_in Z3_sort ty);
     
     /**
        \brief Create a forall formula. It takes an expression \c body that contains bound variables
@@ -3445,11 +3445,11 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_forall', AST, (_in(CONTEXT), _in(UINT), _in(UINT), _in_array(2, PATTERN), _in(UINT), _in_array(4, SORT), _in_array(4, SYMBOL), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_forall(__in Z3_context c, __in unsigned weight,
-                               __in unsigned num_patterns, __in_ecount(num_patterns) Z3_pattern const patterns[],
-                               __in unsigned num_decls, __in_ecount(num_decls) Z3_sort const sorts[],
-                               __in_ecount(num_decls) Z3_symbol const decl_names[],
-                               __in Z3_ast body);
+    Z3_ast Z3_API Z3_mk_forall(Z3_in Z3_context c, Z3_in unsigned weight,
+                               Z3_in unsigned num_patterns, Z3_in_ecount(num_patterns) Z3_pattern const patterns[],
+                               Z3_in unsigned num_decls, Z3_in_ecount(num_decls) Z3_sort const sorts[],
+                               Z3_in_ecount(num_decls) Z3_symbol const decl_names[],
+                               Z3_in Z3_ast body);
 
     /**
        \brief Create an exists formula. Similar to #Z3_mk_forall.
@@ -3461,11 +3461,11 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_exists', AST, (_in(CONTEXT), _in(UINT), _in(UINT), _in_array(2, PATTERN), _in(UINT), _in_array(4, SORT), _in_array(4, SYMBOL), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_exists(__in Z3_context c, __in unsigned weight,
-                               __in unsigned num_patterns, __in_ecount(num_patterns) Z3_pattern const patterns[],
-                               __in unsigned num_decls, __in_ecount(num_decls) Z3_sort const sorts[],
-                               __in_ecount(num_decls) Z3_symbol const decl_names[],
-                               __in Z3_ast body);
+    Z3_ast Z3_API Z3_mk_exists(Z3_in Z3_context c, Z3_in unsigned weight,
+                               Z3_in unsigned num_patterns, Z3_in_ecount(num_patterns) Z3_pattern const patterns[],
+                               Z3_in unsigned num_decls, Z3_in_ecount(num_decls) Z3_sort const sorts[],
+                               Z3_in_ecount(num_decls) Z3_symbol const decl_names[],
+                               Z3_in Z3_ast body);
 
     /**
        \brief Create a quantifier - universal or existential, with pattern hints. 
@@ -3489,13 +3489,13 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_quantifier', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(UINT), _in_array(3, PATTERN), _in(UINT), _in_array(5, SORT), _in_array(5, SYMBOL), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_quantifier(
-        __in Z3_context c, 
-        __in Z3_bool is_forall, 
-        __in unsigned weight, 
-        __in unsigned num_patterns, __in_ecount(num_patterns) Z3_pattern const patterns[], 
-        __in unsigned num_decls, __in_ecount(num_decls) Z3_sort const sorts[], 
-        __in_ecount(num_decls) Z3_symbol const decl_names[], 
-        __in Z3_ast body);
+        Z3_in Z3_context c, 
+        Z3_in Z3_bool is_forall, 
+        Z3_in unsigned weight, 
+        Z3_in unsigned num_patterns, Z3_in_ecount(num_patterns) Z3_pattern const patterns[], 
+        Z3_in unsigned num_decls, Z3_in_ecount(num_decls) Z3_sort const sorts[], 
+        Z3_in_ecount(num_decls) Z3_symbol const decl_names[], 
+        Z3_in Z3_ast body);
 
 
     /**
@@ -3523,16 +3523,16 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_quantifier_ex', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(SYMBOL), _in(SYMBOL), _in(UINT), _in_array(5, PATTERN), _in(UINT), _in_array(7, AST), _in(UINT), _in_array(9, SORT), _in_array(9, SYMBOL), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_quantifier_ex(
-        __in Z3_context c, 
-        __in Z3_bool is_forall, 
-        __in unsigned weight, 
-        __in Z3_symbol quantifier_id,
-        __in Z3_symbol skolem_id,
-        __in unsigned num_patterns, __in_ecount(num_patterns) Z3_pattern const patterns[], 
-        __in unsigned num_no_patterns, __in_ecount(num_no_patterns) Z3_ast const no_patterns[], 
-        __in unsigned num_decls, __in_ecount(num_decls) Z3_sort const sorts[], 
-        __in_ecount(num_decls) Z3_symbol const decl_names[], 
-        __in Z3_ast body);
+        Z3_in Z3_context c, 
+        Z3_in Z3_bool is_forall, 
+        Z3_in unsigned weight, 
+        Z3_in Z3_symbol quantifier_id,
+        Z3_in Z3_symbol skolem_id,
+        Z3_in unsigned num_patterns, Z3_in_ecount(num_patterns) Z3_pattern const patterns[], 
+        Z3_in unsigned num_no_patterns, Z3_in_ecount(num_no_patterns) Z3_ast const no_patterns[], 
+        Z3_in unsigned num_decls, Z3_in_ecount(num_decls) Z3_sort const sorts[], 
+        Z3_in_ecount(num_decls) Z3_symbol const decl_names[], 
+        Z3_in Z3_ast body);
 
     /**
        \brief Create a universal quantifier using a list of constants that
@@ -3553,13 +3553,13 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_forall_const', AST, (_in(CONTEXT), _in(UINT), _in(UINT), _in_array(2, APP), _in(UINT), _in_array(4, PATTERN), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_forall_const(
-        __in Z3_context c, 
+        Z3_in Z3_context c, 
         unsigned weight,
         unsigned num_bound,
-        __in_ecount(num_bound) Z3_app const bound[],
+        Z3_in_ecount(num_bound) Z3_app const bound[],
         unsigned num_patterns,
-        __in_ecount(num_patterns) Z3_pattern const patterns[],
-        __in Z3_ast body
+        Z3_in_ecount(num_patterns) Z3_pattern const patterns[],
+        Z3_in Z3_ast body
         );
 
     /**
@@ -3583,13 +3583,13 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_exists_const', AST, (_in(CONTEXT), _in(UINT), _in(UINT), _in_array(2, APP), _in(UINT), _in_array(4, PATTERN), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_exists_const(
-        __in Z3_context c, 
+        Z3_in Z3_context c, 
         unsigned weight,
         unsigned num_bound,
-        __in_ecount(num_bound) Z3_app const bound[],
+        Z3_in_ecount(num_bound) Z3_app const bound[],
         unsigned num_patterns,
-        __in_ecount(num_patterns) Z3_pattern const patterns[],
-        __in Z3_ast body
+        Z3_in_ecount(num_patterns) Z3_pattern const patterns[],
+        Z3_in Z3_ast body
         );
 
     /**
@@ -3600,12 +3600,12 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_quantifier_const', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(UINT), _in_array(3, APP), _in(UINT), _in_array(5, PATTERN), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_quantifier_const(
-        __in Z3_context c, 
+        Z3_in Z3_context c, 
         Z3_bool is_forall,
         unsigned weight,
-        unsigned num_bound,  __in_ecount(num_bound) Z3_app const bound[],
-        unsigned num_patterns, __in_ecount(num_patterns) Z3_pattern const patterns[],
-        __in Z3_ast body
+        unsigned num_bound,  Z3_in_ecount(num_bound) Z3_app const bound[],
+        unsigned num_patterns, Z3_in_ecount(num_patterns) Z3_pattern const patterns[],
+        Z3_in Z3_ast body
         );
 
 
@@ -3618,15 +3618,15 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_quantifier_const_ex', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(SYMBOL), _in(SYMBOL), _in(UINT), _in_array(5, APP), _in(UINT), _in_array(7, PATTERN), _in(UINT), _in_array(9, AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_quantifier_const_ex(
-        __in Z3_context c, 
+        Z3_in Z3_context c, 
         Z3_bool is_forall,
         unsigned weight,
-        __in Z3_symbol quantifier_id,
-        __in Z3_symbol skolem_id,
-        unsigned num_bound,  __in_ecount(num_bound) Z3_app const bound[],
-        unsigned num_patterns, __in_ecount(num_patterns) Z3_pattern const patterns[],
-        unsigned num_no_patterns, __in_ecount(num_no_patterns) Z3_ast const no_patterns[],
-        __in Z3_ast body
+        Z3_in Z3_symbol quantifier_id,
+        Z3_in Z3_symbol skolem_id,
+        unsigned num_bound,  Z3_in_ecount(num_bound) Z3_app const bound[],
+        unsigned num_patterns, Z3_in_ecount(num_patterns) Z3_pattern const patterns[],
+        unsigned num_no_patterns, Z3_in_ecount(num_no_patterns) Z3_ast const no_patterns[],
+        Z3_in Z3_ast body
         );
 
     /*@}*/
@@ -3655,7 +3655,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_symbol_kind', UINT, (_in(CONTEXT), _in(SYMBOL)))
     */
-    Z3_symbol_kind Z3_API Z3_get_symbol_kind(__in Z3_context c, __in Z3_symbol s);
+    Z3_symbol_kind Z3_API Z3_get_symbol_kind(Z3_in Z3_context c, Z3_in Z3_symbol s);
 
     /**
        \brief \mlh get_symbol_int c s \endmlh
@@ -3667,7 +3667,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_symbol_int', INT, (_in(CONTEXT), _in(SYMBOL)))
     */
-    int Z3_API Z3_get_symbol_int(__in Z3_context c, __in Z3_symbol s);
+    int Z3_API Z3_get_symbol_int(Z3_in Z3_context c, Z3_in Z3_symbol s);
     
     /**
        \brief \mlh get_symbol_string c s \endmlh
@@ -3683,7 +3683,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_get_symbol_string', STRING, (_in(CONTEXT), _in(SYMBOL)))
     */
-    Z3_string Z3_API Z3_get_symbol_string(__in Z3_context c, __in Z3_symbol s);
+    Z3_string Z3_API Z3_get_symbol_string(Z3_in Z3_context c, Z3_in Z3_symbol s);
 
 
     /**
@@ -3699,7 +3699,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_sort_name', SYMBOL, (_in(CONTEXT), _in(SORT)))
     */
-    Z3_symbol Z3_API Z3_get_sort_name(__in Z3_context c, __in Z3_sort d);
+    Z3_symbol Z3_API Z3_get_sort_name(Z3_in Z3_context c, Z3_in Z3_sort d);
 
     /**
         \brief Return a unique identifier for \c s.
@@ -3707,7 +3707,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_get_sort_id', UINT, (_in(CONTEXT), _in(SORT)))
     */
-    unsigned Z3_API Z3_get_sort_id(__in Z3_context c, Z3_sort s);
+    unsigned Z3_API Z3_get_sort_id(Z3_in Z3_context c, Z3_sort s);
 
     /**
        \mlonly {4 {L Redundant low-level API}} \endmlonly
@@ -3719,7 +3719,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_sort_to_ast', AST, (_in(CONTEXT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_sort_to_ast(__in Z3_context c, __in Z3_sort s);
+    Z3_ast Z3_API Z3_sort_to_ast(Z3_in Z3_context c, Z3_in Z3_sort s);
     
     /**
        \brief compare sorts.
@@ -3727,7 +3727,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_is_eq_sort', BOOL, (_in(CONTEXT), _in(SORT), _in(SORT)))
     */
-    Z3_bool Z3_API Z3_is_eq_sort(__in Z3_context c, __in Z3_sort s1, __in Z3_sort s2);
+    Z3_bool Z3_API Z3_is_eq_sort(Z3_in Z3_context c, Z3_in Z3_sort s1, Z3_in Z3_sort s2);
 
     /**
        \brief Return the sort kind (e.g., array, tuple, int, bool, etc).
@@ -3736,7 +3736,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_sort_kind', UINT, (_in(CONTEXT), _in(SORT)))
     */
-    Z3_sort_kind Z3_API Z3_get_sort_kind(__in Z3_context c, __in Z3_sort t);
+    Z3_sort_kind Z3_API Z3_get_sort_kind(Z3_in Z3_context c, Z3_in Z3_sort t);
 
 
     /**
@@ -3750,7 +3750,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_bv_sort_size', UINT, (_in(CONTEXT), _in(SORT)))
     */
-    unsigned Z3_API Z3_get_bv_sort_size(__in Z3_context c, __in Z3_sort t);
+    unsigned Z3_API Z3_get_bv_sort_size(Z3_in Z3_context c, Z3_in Z3_sort t);
 
     /**
         \conly \brief Store the size of the sort in \c r. Return Z3_FALSE if the call failed.
@@ -3759,7 +3759,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_get_finite_domain_sort_size', BOOL, (_in(CONTEXT), _in(SORT), _out(UINT64)))
     */
-    Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(__in Z3_context c, __in Z3_sort s, __out_opt unsigned __int64* r);
+    Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(Z3_in Z3_context c, Z3_in Z3_sort s, Z3_out_opt unsigned __int64* r);
 
 
     /**
@@ -3773,7 +3773,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_array_sort_domain', SORT, (_in(CONTEXT), _in(SORT)))
     */
-    Z3_sort Z3_API Z3_get_array_sort_domain(__in Z3_context c, __in Z3_sort t);
+    Z3_sort Z3_API Z3_get_array_sort_domain(Z3_in Z3_context c, Z3_in Z3_sort t);
 
     /**
        \brief \mlh get_array_sort_range c t \endmlh 
@@ -3786,7 +3786,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_array_sort_range', SORT, (_in(CONTEXT), _in(SORT)))
     */
-    Z3_sort Z3_API Z3_get_array_sort_range(__in Z3_context c, __in Z3_sort t);
+    Z3_sort Z3_API Z3_get_array_sort_range(Z3_in Z3_context c, Z3_in Z3_sort t);
 
 
     /**
@@ -3801,7 +3801,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_get_tuple_sort_mk_decl', FUNC_DECL, (_in(CONTEXT), _in(SORT)))
     */
-    Z3_func_decl Z3_API Z3_get_tuple_sort_mk_decl(__in Z3_context c, __in Z3_sort t);
+    Z3_func_decl Z3_API Z3_get_tuple_sort_mk_decl(Z3_in Z3_context c, Z3_in Z3_sort t);
     
     /**
        \brief \mlh get_tuple_sort_num_fields c t \endmlh
@@ -3814,7 +3814,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_tuple_sort_num_fields', UINT, (_in(CONTEXT), _in(SORT)))
     */
-    unsigned Z3_API Z3_get_tuple_sort_num_fields(__in Z3_context c, __in Z3_sort t);
+    unsigned Z3_API Z3_get_tuple_sort_num_fields(Z3_in Z3_context c, Z3_in Z3_sort t);
 
     /**
        \brief \mlh get_tuple_sort_field_decl c t i \endmlh
@@ -3829,7 +3829,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_get_tuple_sort_field_decl', FUNC_DECL, (_in(CONTEXT), _in(SORT), _in(UINT)))
     */
-    Z3_func_decl Z3_API Z3_get_tuple_sort_field_decl(__in Z3_context c, __in Z3_sort t, __in unsigned i);
+    Z3_func_decl Z3_API Z3_get_tuple_sort_field_decl(Z3_in Z3_context c, Z3_in Z3_sort t, Z3_in unsigned i);
 
     /**
         \brief Return number of constructors for datatype.
@@ -3843,7 +3843,7 @@ END_MLAPI_EXCLUDE
         def_API('Z3_get_datatype_sort_num_constructors', UINT, (_in(CONTEXT), _in(SORT)))
     */
     unsigned Z3_API Z3_get_datatype_sort_num_constructors(
-        __in Z3_context c, __in Z3_sort t);
+        Z3_in Z3_context c, Z3_in Z3_sort t);
 
     /**
         \brief Return idx'th constructor.
@@ -3858,7 +3858,7 @@ END_MLAPI_EXCLUDE
         def_API('Z3_get_datatype_sort_constructor', FUNC_DECL, (_in(CONTEXT), _in(SORT), _in(UINT)))
     */
     Z3_func_decl Z3_API Z3_get_datatype_sort_constructor(
-        __in Z3_context c, __in Z3_sort t, unsigned idx);
+        Z3_in Z3_context c, Z3_in Z3_sort t, unsigned idx);
 
     /**
         \brief Return idx'th recognizer.
@@ -3873,7 +3873,7 @@ END_MLAPI_EXCLUDE
         def_API('Z3_get_datatype_sort_recognizer', FUNC_DECL, (_in(CONTEXT), _in(SORT), _in(UINT)))
     */
     Z3_func_decl Z3_API Z3_get_datatype_sort_recognizer(
-        __in Z3_context c, __in Z3_sort t, unsigned idx);
+        Z3_in Z3_context c, Z3_in Z3_sort t, unsigned idx);
 
     /**
         \brief Return idx_a'th accessor for the idx_c'th constructor.
@@ -3889,7 +3889,7 @@ END_MLAPI_EXCLUDE
         def_API('Z3_get_datatype_sort_constructor_accessor', FUNC_DECL, (_in(CONTEXT), _in(SORT), _in(UINT), _in(UINT)))
     */
     Z3_func_decl Z3_API Z3_get_datatype_sort_constructor_accessor(
-        __in Z3_context c, __in Z3_sort t, unsigned idx_c, unsigned idx_a);
+        Z3_in Z3_context c, Z3_in Z3_sort t, unsigned idx_c, unsigned idx_a);
 
     /**
        \brief Update record field with a value.
@@ -3923,7 +3923,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_get_relation_arity', UINT, (_in(CONTEXT), _in(SORT)))
     */
-    unsigned Z3_API Z3_get_relation_arity(__in Z3_context c, __in Z3_sort s);
+    unsigned Z3_API Z3_get_relation_arity(Z3_in Z3_context c, Z3_in Z3_sort s);
 
     /**
         \brief Return sort at i'th column of relation sort.
@@ -3935,7 +3935,7 @@ END_MLAPI_EXCLUDE
         
         def_API('Z3_get_relation_column', SORT, (_in(CONTEXT), _in(SORT), _in(UINT)))
     */
-    Z3_sort Z3_API Z3_get_relation_column(__in Z3_context c, __in Z3_sort s, unsigned col);
+    Z3_sort Z3_API Z3_get_relation_column(Z3_in Z3_context c, Z3_in Z3_sort s, unsigned col);
 
 
     /**
@@ -3971,7 +3971,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_func_decl_to_ast', AST, (_in(CONTEXT), _in(FUNC_DECL)))
     */
-    Z3_ast Z3_API Z3_func_decl_to_ast(__in Z3_context c, __in Z3_func_decl f);
+    Z3_ast Z3_API Z3_func_decl_to_ast(Z3_in Z3_context c, Z3_in Z3_func_decl f);
 
     /**
        \brief compare terms.
@@ -3979,7 +3979,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_is_eq_func_decl', BOOL, (_in(CONTEXT), _in(FUNC_DECL), _in(FUNC_DECL)))
     */
-    Z3_bool Z3_API Z3_is_eq_func_decl(__in Z3_context c, __in Z3_func_decl f1, Z3_func_decl f2);
+    Z3_bool Z3_API Z3_is_eq_func_decl(Z3_in Z3_context c, Z3_in Z3_func_decl f1, Z3_func_decl f2);
 
     /**
         \brief Return a unique identifier for \c f.
@@ -3987,21 +3987,21 @@ END_MLAPI_EXCLUDE
     
         def_API('Z3_get_func_decl_id', UINT, (_in(CONTEXT), _in(FUNC_DECL)))
     */
-    unsigned Z3_API Z3_get_func_decl_id(__in Z3_context c, Z3_func_decl f);
+    unsigned Z3_API Z3_get_func_decl_id(Z3_in Z3_context c, Z3_func_decl f);
 
     /**
        \brief Return the constant declaration name as a symbol. 
     
        def_API('Z3_get_decl_name', SYMBOL, (_in(CONTEXT), _in(FUNC_DECL)))
     */
-    Z3_symbol Z3_API Z3_get_decl_name(__in Z3_context c, __in Z3_func_decl d);
+    Z3_symbol Z3_API Z3_get_decl_name(Z3_in Z3_context c, Z3_in Z3_func_decl d);
 
     /**
        \brief Return declaration kind corresponding to declaration.
 
        def_API('Z3_get_decl_kind', UINT, (_in(CONTEXT), _in(FUNC_DECL)))
     */
-    Z3_decl_kind Z3_API Z3_get_decl_kind(__in Z3_context c, __in Z3_func_decl d);
+    Z3_decl_kind Z3_API Z3_get_decl_kind(Z3_in Z3_context c, Z3_in Z3_func_decl d);
 
     /**
        \brief Return the number of parameters of the given declaration.
@@ -4010,7 +4010,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_domain_size', UINT, (_in(CONTEXT), _in(FUNC_DECL)))
     */
-    unsigned Z3_API Z3_get_domain_size(__in Z3_context c, __in Z3_func_decl d);
+    unsigned Z3_API Z3_get_domain_size(Z3_in Z3_context c, Z3_in Z3_func_decl d);
 
     /**
        \brief Alias for \c Z3_get_domain_size.
@@ -4019,7 +4019,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_arity', UINT, (_in(CONTEXT), _in(FUNC_DECL)))
     */
-    unsigned Z3_API Z3_get_arity(__in Z3_context c, __in Z3_func_decl d);
+    unsigned Z3_API Z3_get_arity(Z3_in Z3_context c, Z3_in Z3_func_decl d);
 
     /**
        \brief \mlh get_domain c d i \endmlh
@@ -4031,7 +4031,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_get_domain', SORT, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
-    Z3_sort Z3_API Z3_get_domain(__in Z3_context c, __in Z3_func_decl d, __in unsigned i);
+    Z3_sort Z3_API Z3_get_domain(Z3_in Z3_context c, Z3_in Z3_func_decl d, Z3_in unsigned i);
 
 #ifdef ML4only
 #include <mlx_get_domains.idl>
@@ -4046,14 +4046,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_range', SORT, (_in(CONTEXT), _in(FUNC_DECL)))
     */
-    Z3_sort Z3_API Z3_get_range(__in Z3_context c, __in Z3_func_decl d);
+    Z3_sort Z3_API Z3_get_range(Z3_in Z3_context c, Z3_in Z3_func_decl d);
 
     /**
        \brief Return the number of parameters associated with a declaration.
 
        def_API('Z3_get_decl_num_parameters', UINT, (_in(CONTEXT), _in(FUNC_DECL)))
     */
-    unsigned Z3_API Z3_get_decl_num_parameters(__in Z3_context c, __in Z3_func_decl d);
+    unsigned Z3_API Z3_get_decl_num_parameters(Z3_in Z3_context c, Z3_in Z3_func_decl d);
 
     /**
        \brief Return the parameter type associated with a declaration.
@@ -4064,7 +4064,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_get_decl_parameter_kind', UINT, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
-    Z3_parameter_kind Z3_API Z3_get_decl_parameter_kind(__in Z3_context c, __in Z3_func_decl d, unsigned idx);
+    Z3_parameter_kind Z3_API Z3_get_decl_parameter_kind(Z3_in Z3_context c, Z3_in Z3_func_decl d, unsigned idx);
 
     /**
        \brief Return the integer value associated with an integer parameter.
@@ -4073,7 +4073,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_decl_int_parameter', INT, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
-    int Z3_API Z3_get_decl_int_parameter(__in Z3_context c, __in Z3_func_decl d, unsigned idx);
+    int Z3_API Z3_get_decl_int_parameter(Z3_in Z3_context c, Z3_in Z3_func_decl d, unsigned idx);
 
     /**
        \brief Return the double value associated with an double parameter.
@@ -4082,7 +4082,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_decl_double_parameter', DOUBLE, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
-    double Z3_API Z3_get_decl_double_parameter(__in Z3_context c, __in Z3_func_decl d, unsigned idx);
+    double Z3_API Z3_get_decl_double_parameter(Z3_in Z3_context c, Z3_in Z3_func_decl d, unsigned idx);
 
     /**
        \brief Return the double value associated with an double parameter.
@@ -4091,7 +4091,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_decl_symbol_parameter', SYMBOL, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
-    Z3_symbol Z3_API Z3_get_decl_symbol_parameter(__in Z3_context c, __in Z3_func_decl d, unsigned idx);
+    Z3_symbol Z3_API Z3_get_decl_symbol_parameter(Z3_in Z3_context c, Z3_in Z3_func_decl d, unsigned idx);
 
     /**
        \brief Return the sort value associated with a sort parameter.
@@ -4100,7 +4100,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_decl_sort_parameter', SORT, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
-    Z3_sort Z3_API Z3_get_decl_sort_parameter(__in Z3_context c, __in Z3_func_decl d, unsigned idx);
+    Z3_sort Z3_API Z3_get_decl_sort_parameter(Z3_in Z3_context c, Z3_in Z3_func_decl d, unsigned idx);
 
     /**
        \brief Return the expresson value associated with an expression parameter.
@@ -4109,7 +4109,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_decl_ast_parameter', AST, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_decl_ast_parameter(__in Z3_context c, __in Z3_func_decl d, unsigned idx);
+    Z3_ast Z3_API Z3_get_decl_ast_parameter(Z3_in Z3_context c, Z3_in Z3_func_decl d, unsigned idx);
 
     /**
        \brief Return the expresson value associated with an expression parameter.
@@ -4118,7 +4118,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_decl_func_decl_parameter', FUNC_DECL, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
-    Z3_func_decl Z3_API Z3_get_decl_func_decl_parameter(__in Z3_context c, __in Z3_func_decl d, unsigned idx);
+    Z3_func_decl Z3_API Z3_get_decl_func_decl_parameter(Z3_in Z3_context c, Z3_in Z3_func_decl d, unsigned idx);
 
     /**
        \brief Return the rational value, as a string, associated with a rational parameter.
@@ -4127,7 +4127,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_decl_rational_parameter', STRING, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
-    Z3_string Z3_API Z3_get_decl_rational_parameter(__in Z3_context c, __in Z3_func_decl d, unsigned idx);
+    Z3_string Z3_API Z3_get_decl_rational_parameter(Z3_in Z3_context c, Z3_in Z3_func_decl d, unsigned idx);
 
     /**
        \mlonly {3 {L Applications}} \endmlonly
@@ -4139,14 +4139,14 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_app_to_ast', AST, (_in(CONTEXT), _in(APP)))
     */
-    Z3_ast Z3_API Z3_app_to_ast(__in Z3_context c, __in Z3_app a);
+    Z3_ast Z3_API Z3_app_to_ast(Z3_in Z3_context c, Z3_in Z3_app a);
 
     /**
        \brief Return the declaration of a constant or function application.
 
        def_API('Z3_get_app_decl', FUNC_DECL, (_in(CONTEXT), _in(APP)))
     */
-    Z3_func_decl Z3_API Z3_get_app_decl(__in Z3_context c, __in Z3_app a);
+    Z3_func_decl Z3_API Z3_get_app_decl(Z3_in Z3_context c, Z3_in Z3_app a);
 
     /**
        \brief \mlh get_app_num_args c a \endmlh
@@ -4155,7 +4155,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_app_num_args', UINT, (_in(CONTEXT), _in(APP)))
     */
-    unsigned Z3_API Z3_get_app_num_args(__in Z3_context c, __in Z3_app a);
+    unsigned Z3_API Z3_get_app_num_args(Z3_in Z3_context c, Z3_in Z3_app a);
 
     /**
        \brief \mlh get_app_arg c a i \endmlh
@@ -4165,7 +4165,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_app_arg', AST, (_in(CONTEXT), _in(APP), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_app_arg(__in Z3_context c, __in Z3_app a, __in unsigned i);
+    Z3_ast Z3_API Z3_get_app_arg(Z3_in Z3_context c, Z3_in Z3_app a, Z3_in unsigned i);
 
 #ifdef ML4only
 #include <mlx_get_app_args.idl>
@@ -4186,7 +4186,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_is_eq_ast', BOOL, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_bool Z3_API Z3_is_eq_ast(__in Z3_context c, __in Z3_ast t1, Z3_ast t2);
+    Z3_bool Z3_API Z3_is_eq_ast(Z3_in Z3_context c, Z3_in Z3_ast t1, Z3_ast t2);
 
     /**
         \brief Return a unique identifier for \c t.
@@ -4200,7 +4200,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_get_ast_id', UINT, (_in(CONTEXT), _in(AST)))
     */
-    unsigned Z3_API Z3_get_ast_id(__in Z3_context c, Z3_ast t);
+    unsigned Z3_API Z3_get_ast_id(Z3_in Z3_context c, Z3_ast t);
 
     /**
        \brief Return a hash code for the given AST.
@@ -4210,7 +4210,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_ast_hash', UINT, (_in(CONTEXT), _in(AST)))
     */
-    unsigned Z3_API Z3_get_ast_hash(__in Z3_context c, __in Z3_ast a);
+    unsigned Z3_API Z3_get_ast_hash(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return the sort of an AST node.
@@ -4219,45 +4219,45 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_get_sort', SORT, (_in(CONTEXT), _in(AST)))
     */
-    Z3_sort Z3_API Z3_get_sort(__in Z3_context c, __in Z3_ast a);
+    Z3_sort Z3_API Z3_get_sort(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return true if the given expression \c t is well sorted.
        
        def_API('Z3_is_well_sorted', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_is_well_sorted(__in Z3_context c, __in Z3_ast t);
+    Z3_bool Z3_API Z3_is_well_sorted(Z3_in Z3_context c, Z3_in Z3_ast t);
 
     /**
        \brief Return Z3_L_TRUE if \c a is true, Z3_L_FALSE if it is false, and Z3_L_UNDEF otherwise.
 
        def_API('Z3_get_bool_value', UINT, (_in(CONTEXT), _in(AST)))
     */
-    Z3_lbool Z3_API Z3_get_bool_value(__in Z3_context c, __in Z3_ast a);
+    Z3_lbool Z3_API Z3_get_bool_value(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return the kind of the given AST.
 
        def_API('Z3_get_ast_kind', UINT, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast_kind Z3_API Z3_get_ast_kind(__in Z3_context c, __in Z3_ast a);
+    Z3_ast_kind Z3_API Z3_get_ast_kind(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
       def_API('Z3_is_app', BOOL, (_in(CONTEXT), _in(AST)))      
     */
-    Z3_bool Z3_API Z3_is_app(__in Z3_context c, __in Z3_ast a);
+    Z3_bool Z3_API Z3_is_app(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
       def_API('Z3_is_numeral_ast', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_is_numeral_ast(__in Z3_context c, __in Z3_ast a);
+    Z3_bool Z3_API Z3_is_numeral_ast(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return true if the give AST is a real algebraic number.
     
        def_API('Z3_is_algebraic_number', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_is_algebraic_number(__in Z3_context c, __in Z3_ast a);
+    Z3_bool Z3_API Z3_is_algebraic_number(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Convert an \c ast into an \c APP_AST. \conly This is just type casting.
@@ -4266,7 +4266,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_to_app', APP, (_in(CONTEXT), _in(AST)))
     */
-    Z3_app Z3_API Z3_to_app(__in Z3_context c, __in Z3_ast a);
+    Z3_app Z3_API Z3_to_app(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Convert an AST into a FUNC_DECL_AST. This is just type casting.
@@ -4275,7 +4275,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_to_func_decl', FUNC_DECL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_func_decl Z3_API Z3_to_func_decl(__in Z3_context c, __in Z3_ast a);
+    Z3_func_decl Z3_API Z3_to_func_decl(Z3_in Z3_context c, Z3_in Z3_ast a);
 
 
     /**
@@ -4297,7 +4297,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_numeral_string', STRING, (_in(CONTEXT), _in(AST)))
     */
-    Z3_string Z3_API Z3_get_numeral_string(__in Z3_context c, __in Z3_ast a);
+    Z3_string Z3_API Z3_get_numeral_string(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return numeral as a string in decimal notation.
@@ -4307,7 +4307,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_get_numeral_decimal_string', STRING, (_in(CONTEXT), _in(AST), _in(UINT)))       
     */
-    Z3_string Z3_API Z3_get_numeral_decimal_string(__in Z3_context c, __in Z3_ast a, __in unsigned precision);
+    Z3_string Z3_API Z3_get_numeral_decimal_string(Z3_in Z3_context c, Z3_in Z3_ast a, Z3_in unsigned precision);
 
     /**
        \brief Return the numerator (as a numeral AST) of a numeral AST of sort Real.
@@ -4316,7 +4316,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_numerator', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_get_numerator(__in Z3_context c, __in Z3_ast a);
+    Z3_ast Z3_API Z3_get_numerator(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return the denominator (as a numeral AST) of a numeral AST of sort Real.
@@ -4325,7 +4325,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_denominator', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_get_denominator(__in Z3_context c, __in Z3_ast a);
+    Z3_ast Z3_API Z3_get_denominator(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return numeral value, as a pair of 64 bit numbers if the representation fits.
@@ -4341,7 +4341,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_numeral_small', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _out(INT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_small(__in Z3_context c, __in Z3_ast a, __out __int64* num, __out __int64* den);
+    Z3_bool Z3_API Z3_get_numeral_small(Z3_in Z3_context c, Z3_in Z3_ast a, Z3_out __int64* num, Z3_out __int64* den);
 
     /**
        \brief \mlh get_numeral_int c v \endmlh
@@ -4354,7 +4354,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_numeral_int', BOOL, (_in(CONTEXT), _in(AST), _out(INT)))
     */
-    Z3_bool Z3_API Z3_get_numeral_int(__in Z3_context c, __in Z3_ast v, __out int* i);
+    Z3_bool Z3_API Z3_get_numeral_int(Z3_in Z3_context c, Z3_in Z3_ast v, Z3_out int* i);
 
 #ifdef Conly
     /**
@@ -4368,7 +4368,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_numeral_uint', BOOL, (_in(CONTEXT), _in(AST), _out(UINT)))
     */
-    Z3_bool Z3_API Z3_get_numeral_uint(__in Z3_context c, __in Z3_ast v, __out unsigned* u);
+    Z3_bool Z3_API Z3_get_numeral_uint(Z3_in Z3_context c, Z3_in Z3_ast v, Z3_out unsigned* u);
 #endif
 
 #ifdef Conly
@@ -4383,7 +4383,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_numeral_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_uint64(__in Z3_context c, __in Z3_ast v, __out unsigned __int64* u);
+    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_in Z3_context c, Z3_in Z3_ast v, Z3_out unsigned __int64* u);
 #endif
 
     /**
@@ -4397,7 +4397,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_numeral_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_int64(__in Z3_context c, __in Z3_ast v, __out __int64* i);
+    Z3_bool Z3_API Z3_get_numeral_int64(Z3_in Z3_context c, Z3_in Z3_ast v, Z3_out __int64* i);
 
     /**
        \brief \mlh get_numeral_rational_int64 c x y\endmlh
@@ -4410,7 +4410,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_numeral_rational_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _out(INT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_rational_int64(__in Z3_context c, __in Z3_ast v, __out __int64* num, __out __int64* den);
+    Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_in Z3_context c, Z3_in Z3_ast v, Z3_out __int64* num, Z3_out __int64* den);
     
     /**
        \brief Return a lower bound for the given real algebraic number. 
@@ -4421,7 +4421,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_algebraic_number_lower', AST, (_in(CONTEXT), _in(AST), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_algebraic_number_lower(__in Z3_context c, __in Z3_ast a, __in unsigned precision);
+    Z3_ast Z3_API Z3_get_algebraic_number_lower(Z3_in Z3_context c, Z3_in Z3_ast a, Z3_in unsigned precision);
 
     /**
        \brief Return a upper bound for the given real algebraic number. 
@@ -4445,7 +4445,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_pattern_to_ast', AST, (_in(CONTEXT), _in(PATTERN)))
     */
-    Z3_ast Z3_API Z3_pattern_to_ast(__in Z3_context c, __in Z3_pattern p);
+    Z3_ast Z3_API Z3_pattern_to_ast(Z3_in Z3_context c, Z3_in Z3_pattern p);
 
 #ifdef ML4only
 #include <mlx_get_pattern_terms.idl>
@@ -4456,14 +4456,14 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_get_pattern_num_terms', UINT, (_in(CONTEXT), _in(PATTERN)))
     */
-    unsigned Z3_API Z3_get_pattern_num_terms(__in Z3_context c, __in Z3_pattern p);
+    unsigned Z3_API Z3_get_pattern_num_terms(Z3_in Z3_context c, Z3_in Z3_pattern p);
     
     /**
        \brief Return i'th ast in pattern.
 
        def_API('Z3_get_pattern', AST, (_in(CONTEXT), _in(PATTERN), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_pattern(__in Z3_context c, __in Z3_pattern p, __in unsigned idx);
+    Z3_ast Z3_API Z3_get_pattern(Z3_in Z3_context c, Z3_in Z3_pattern p, Z3_in unsigned idx);
 
 
     /**
@@ -4477,7 +4477,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_get_index_value', UINT, (_in(CONTEXT), _in(AST)))
     */
-    unsigned Z3_API Z3_get_index_value(__in Z3_context c, __in Z3_ast a);
+    unsigned Z3_API Z3_get_index_value(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Determine if quantifier is universal.
@@ -4486,7 +4486,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_is_quantifier_forall', BOOL, (_in(CONTEXT), _in(AST)))       
     */
-    Z3_bool Z3_API Z3_is_quantifier_forall(__in Z3_context c, __in Z3_ast a);
+    Z3_bool Z3_API Z3_is_quantifier_forall(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Obtain weight of quantifier.
@@ -4495,7 +4495,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_quantifier_weight', UINT, (_in(CONTEXT), _in(AST)))       
     */
-    unsigned Z3_API Z3_get_quantifier_weight(__in Z3_context c, __in Z3_ast a);
+    unsigned Z3_API Z3_get_quantifier_weight(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return number of patterns used in quantifier.
@@ -4504,7 +4504,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_quantifier_num_patterns', UINT, (_in(CONTEXT), _in(AST)))
     */
-    unsigned Z3_API Z3_get_quantifier_num_patterns(__in Z3_context c, __in Z3_ast a);
+    unsigned Z3_API Z3_get_quantifier_num_patterns(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return i'th pattern.
@@ -4513,7 +4513,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_quantifier_pattern_ast', PATTERN, (_in(CONTEXT), _in(AST), _in(UINT)))
     */
-    Z3_pattern Z3_API Z3_get_quantifier_pattern_ast(__in Z3_context c, __in Z3_ast a, unsigned i);
+    Z3_pattern Z3_API Z3_get_quantifier_pattern_ast(Z3_in Z3_context c, Z3_in Z3_ast a, unsigned i);
 
     /**
        \brief Return number of no_patterns used in quantifier.
@@ -4522,7 +4522,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_quantifier_num_no_patterns', UINT, (_in(CONTEXT), _in(AST)))
     */
-    unsigned Z3_API Z3_get_quantifier_num_no_patterns(__in Z3_context c, __in Z3_ast a);
+    unsigned Z3_API Z3_get_quantifier_num_no_patterns(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return i'th no_pattern.
@@ -4531,7 +4531,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_quantifier_no_pattern_ast', AST, (_in(CONTEXT), _in(AST), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_quantifier_no_pattern_ast(__in Z3_context c, __in Z3_ast a, unsigned i);
+    Z3_ast Z3_API Z3_get_quantifier_no_pattern_ast(Z3_in Z3_context c, Z3_in Z3_ast a, unsigned i);
 
     /**
        \brief Return number of bound variables of quantifier.
@@ -4540,7 +4540,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_quantifier_num_bound', UINT, (_in(CONTEXT), _in(AST)))
     */
-    unsigned Z3_API Z3_get_quantifier_num_bound(__in Z3_context c, __in Z3_ast a);
+    unsigned Z3_API Z3_get_quantifier_num_bound(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
        \brief Return symbol of the i'th bound variable.
@@ -4549,7 +4549,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_quantifier_bound_name', SYMBOL, (_in(CONTEXT), _in(AST), _in(UINT)))
     */
-    Z3_symbol Z3_API Z3_get_quantifier_bound_name(__in Z3_context c, __in Z3_ast a, unsigned i);
+    Z3_symbol Z3_API Z3_get_quantifier_bound_name(Z3_in Z3_context c, Z3_in Z3_ast a, unsigned i);
 
     /**
        \brief Return sort of the i'th bound variable.
@@ -4558,7 +4558,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_get_quantifier_bound_sort', SORT, (_in(CONTEXT), _in(AST), _in(UINT)))
     */
-    Z3_sort Z3_API Z3_get_quantifier_bound_sort(__in Z3_context c, __in Z3_ast a, unsigned i);
+    Z3_sort Z3_API Z3_get_quantifier_bound_sort(Z3_in Z3_context c, Z3_in Z3_ast a, unsigned i);
 
     /**
        \brief Return body of quantifier.
@@ -4567,7 +4567,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_get_quantifier_body', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_get_quantifier_body(__in Z3_context c, __in Z3_ast a);
+    Z3_ast Z3_API Z3_get_quantifier_body(Z3_in Z3_context c, Z3_in Z3_ast a);
 
 
     /**
@@ -4581,7 +4581,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_simplify', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_simplify(__in Z3_context c, __in Z3_ast a);
+    Z3_ast Z3_API Z3_simplify(Z3_in Z3_context c, Z3_in Z3_ast a);
 
 #ifdef CorML4
     /**
@@ -4593,21 +4593,21 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_simplify_ex', AST, (_in(CONTEXT), _in(AST), _in(PARAMS)))
     */
-    Z3_ast Z3_API Z3_simplify_ex(__in Z3_context c, __in Z3_ast a, __in Z3_params p);
+    Z3_ast Z3_API Z3_simplify_ex(Z3_in Z3_context c, Z3_in Z3_ast a, Z3_in Z3_params p);
 
     /**
        \brief Return a string describing all available parameters.
     
        def_API('Z3_simplify_get_help', STRING, (_in(CONTEXT),))
     */
-    Z3_string Z3_API Z3_simplify_get_help(__in Z3_context c);
+    Z3_string Z3_API Z3_simplify_get_help(Z3_in Z3_context c);
 
     /**
        \brief Return the parameter description set for the simplify procedure.
 
        def_API('Z3_simplify_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT),))
     */
-    Z3_param_descrs Z3_API Z3_simplify_get_param_descrs(__in Z3_context c);
+    Z3_param_descrs Z3_API Z3_simplify_get_param_descrs(Z3_in Z3_context c);
 #endif
     
     /*@}*/
@@ -4625,7 +4625,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_update_term', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST)))
     */
-    Z3_ast Z3_API Z3_update_term(__in Z3_context c, __in Z3_ast a, __in unsigned num_args, __in_ecount(num_args) Z3_ast const args[]);
+    Z3_ast Z3_API Z3_update_term(Z3_in Z3_context c, Z3_in Z3_ast a, Z3_in unsigned num_args, Z3_in_ecount(num_args) Z3_ast const args[]);
 
     /**
        \brief Substitute every occurrence of <tt>from[i]</tt> in \c a with <tt>to[i]</tt>, for \c i smaller than \c num_exprs.
@@ -4634,11 +4634,11 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_substitute', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST), _in_array(2, AST)))
     */
-    Z3_ast Z3_API Z3_substitute(__in Z3_context c, 
-                                __in Z3_ast a, 
-                                __in unsigned num_exprs, 
-                                __in_ecount(num_exprs) Z3_ast const from[], 
-                                __in_ecount(num_exprs) Z3_ast const to[]);
+    Z3_ast Z3_API Z3_substitute(Z3_in Z3_context c, 
+                                Z3_in Z3_ast a, 
+                                Z3_in unsigned num_exprs, 
+                                Z3_in_ecount(num_exprs) Z3_ast const from[], 
+                                Z3_in_ecount(num_exprs) Z3_ast const to[]);
 
     /**
        \brief Substitute the free variables in \c a with the expressions in \c to.
@@ -4646,10 +4646,10 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_substitute_vars', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST)))
     */
-    Z3_ast Z3_API Z3_substitute_vars(__in Z3_context c, 
-                                     __in Z3_ast a, 
-                                     __in unsigned num_exprs, 
-                                     __in_ecount(num_exprs) Z3_ast const to[]);
+    Z3_ast Z3_API Z3_substitute_vars(Z3_in Z3_context c, 
+                                     Z3_in Z3_ast a, 
+                                     Z3_in unsigned num_exprs, 
+                                     Z3_in_ecount(num_exprs) Z3_ast const to[]);
 
 #ifdef CorML4
     /**
@@ -4659,7 +4659,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_translate', AST, (_in(CONTEXT), _in(AST), _in(CONTEXT)))
     */
-    Z3_ast Z3_API Z3_translate(__in Z3_context source, __in Z3_ast a, __in Z3_context target);
+    Z3_ast Z3_API Z3_translate(Z3_in Z3_context source, Z3_in Z3_ast a, Z3_in Z3_context target);
 #endif
     
     /*@}*/
@@ -4679,14 +4679,14 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_model_inc_ref', VOID, (_in(CONTEXT), _in(MODEL)))
     */
-    void Z3_API Z3_model_inc_ref(__in Z3_context c, __in Z3_model m);
+    void Z3_API Z3_model_inc_ref(Z3_in Z3_context c, Z3_in Z3_model m);
 
     /**
        \brief Decrement the reference counter of the given model.
 
        def_API('Z3_model_dec_ref', VOID, (_in(CONTEXT), _in(MODEL)))
     */
-    void Z3_API Z3_model_dec_ref(__in Z3_context c, __in Z3_model m);
+    void Z3_API Z3_model_dec_ref(Z3_in Z3_context c, Z3_in Z3_model m);
 #endif
     
     /**
@@ -4709,7 +4709,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_model_eval', BOOL, (_in(CONTEXT), _in(MODEL), _in(AST), _in(BOOL), _out(AST)))
     */
-    Z3_bool_opt Z3_API Z3_model_eval(__in Z3_context c, __in Z3_model m, __in Z3_ast t, __in Z3_bool model_completion, __out_opt Z3_ast * v);
+    Z3_bool_opt Z3_API Z3_model_eval(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in Z3_ast t, Z3_in Z3_bool model_completion, Z3_out_opt Z3_ast * v);
 
     /**
        \mlonly {4 {L Low-level API}} \endmlonly
@@ -4725,7 +4725,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_model_get_const_interp', AST, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL)))
     */
-    Z3_ast_opt Z3_API Z3_model_get_const_interp(__in Z3_context c, __in Z3_model m, __in Z3_func_decl a);
+    Z3_ast_opt Z3_API Z3_model_get_const_interp(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in Z3_func_decl a);
 
     /**
        \brief Test if there exists an interpretation (i.e., assignment) for \c a in the model \c m.
@@ -4747,7 +4747,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_model_get_func_interp', FUNC_INTERP, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL)))
     */
-    Z3_func_interp_opt Z3_API Z3_model_get_func_interp(__in Z3_context c, __in Z3_model m, __in Z3_func_decl f);
+    Z3_func_interp_opt Z3_API Z3_model_get_func_interp(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in Z3_func_decl f);
 
     /**
        \brief Return the number of constants assigned by the given model.
@@ -4756,7 +4756,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_model_get_num_consts', UINT, (_in(CONTEXT), _in(MODEL)))
     */
-    unsigned Z3_API Z3_model_get_num_consts(__in Z3_context c, __in Z3_model m);
+    unsigned Z3_API Z3_model_get_num_consts(Z3_in Z3_context c, Z3_in Z3_model m);
 
     /**
        \brief \mlh model_get_const_decl c m i \endmlh
@@ -4768,7 +4768,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_model_get_const_decl', FUNC_DECL, (_in(CONTEXT), _in(MODEL), _in(UINT)))
     */
-    Z3_func_decl Z3_API Z3_model_get_const_decl(__in Z3_context c, __in Z3_model m, __in unsigned i);
+    Z3_func_decl Z3_API Z3_model_get_const_decl(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in unsigned i);
     
     /**
        \brief Return the number of function interpretations in the given model.
@@ -4778,7 +4778,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_model_get_num_funcs', UINT, (_in(CONTEXT), _in(MODEL)))
     */
-    unsigned Z3_API Z3_model_get_num_funcs(__in Z3_context c, __in Z3_model m);
+    unsigned Z3_API Z3_model_get_num_funcs(Z3_in Z3_context c, Z3_in Z3_model m);
     
     /**
        \brief \mlh model_get_func_decl c m i \endmlh
@@ -4790,7 +4790,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_model_get_func_decl', FUNC_DECL, (_in(CONTEXT), _in(MODEL), _in(UINT)))
     */
-    Z3_func_decl Z3_API Z3_model_get_func_decl(__in Z3_context c, __in Z3_model m, __in unsigned i);
+    Z3_func_decl Z3_API Z3_model_get_func_decl(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in unsigned i);
     
     /**
        \brief Return the number of uninterpreted sorts that \c m assigs an interpretation to.
@@ -4804,7 +4804,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_model_get_num_sorts', UINT, (_in(CONTEXT), _in(MODEL)))
     */
-    unsigned Z3_API Z3_model_get_num_sorts(__in Z3_context c, __in Z3_model m);
+    unsigned Z3_API Z3_model_get_num_sorts(Z3_in Z3_context c, Z3_in Z3_model m);
 
     /**
        \brief Return a uninterpreted sort that \c m assigns an interpretation.
@@ -4816,7 +4816,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_model_get_sort', SORT, (_in(CONTEXT), _in(MODEL), _in(UINT)))
     */
-    Z3_sort Z3_API Z3_model_get_sort(__in Z3_context c, __in Z3_model m, __in unsigned i);
+    Z3_sort Z3_API Z3_model_get_sort(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in unsigned i);
 
     /**
        \brief Return the finite set of distinct values that represent the interpretation for sort \c s.
@@ -4826,7 +4826,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_model_get_sort_universe', AST_VECTOR, (_in(CONTEXT), _in(MODEL), _in(SORT)))
     */
-    Z3_ast_vector Z3_API Z3_model_get_sort_universe(__in Z3_context c, __in Z3_model m, __in Z3_sort s);
+    Z3_ast_vector Z3_API Z3_model_get_sort_universe(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in Z3_sort s);
     
     /**
        \brief The <tt>(_ as-array f)</tt> AST node is a construct for assigning interpretations for arrays in Z3.
@@ -4839,7 +4839,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_is_as_array', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_is_as_array(__in Z3_context c, __in Z3_ast a);
+    Z3_bool Z3_API Z3_is_as_array(Z3_in Z3_context c, Z3_in Z3_ast a);
     
     /**
        \brief Return the function declaration \c f associated with a <tt>(_ as_array f)</tt> node.
@@ -4848,7 +4848,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_as_array_func_decl', FUNC_DECL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_func_decl Z3_API Z3_get_as_array_func_decl(__in Z3_context c, __in Z3_ast a);
+    Z3_func_decl Z3_API Z3_get_as_array_func_decl(Z3_in Z3_context c, Z3_in Z3_ast a);
 
 #ifdef Conly
     /**
@@ -4856,14 +4856,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_func_interp_inc_ref', VOID, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
-    void Z3_API Z3_func_interp_inc_ref(__in Z3_context c, __in Z3_func_interp f);
+    void Z3_API Z3_func_interp_inc_ref(Z3_in Z3_context c, Z3_in Z3_func_interp f);
 
     /**
        \brief Decrement the reference counter of the given Z3_func_interp object.
 
        def_API('Z3_func_interp_dec_ref', VOID, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
-    void Z3_API Z3_func_interp_dec_ref(__in Z3_context c, __in Z3_func_interp f);
+    void Z3_API Z3_func_interp_dec_ref(Z3_in Z3_context c, Z3_in Z3_func_interp f);
 #endif
 
     /**
@@ -4875,7 +4875,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_func_interp_get_num_entries', UINT, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
-    unsigned Z3_API Z3_func_interp_get_num_entries(__in Z3_context c, __in Z3_func_interp f);
+    unsigned Z3_API Z3_func_interp_get_num_entries(Z3_in Z3_context c, Z3_in Z3_func_interp f);
 
     /**
        \brief Return a "point" of the given function intepretation. It represents the
@@ -4887,7 +4887,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_func_interp_get_entry', FUNC_ENTRY, (_in(CONTEXT), _in(FUNC_INTERP), _in(UINT)))
     */
-    Z3_func_entry Z3_API Z3_func_interp_get_entry(__in Z3_context c, __in Z3_func_interp f, unsigned i);
+    Z3_func_entry Z3_API Z3_func_interp_get_entry(Z3_in Z3_context c, Z3_in Z3_func_interp f, unsigned i);
     
     /**
        \brief Return the 'else' value of the given function interpretation.
@@ -4897,14 +4897,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_func_interp_get_else', AST, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
-    Z3_ast Z3_API Z3_func_interp_get_else(__in Z3_context c, __in Z3_func_interp f);
+    Z3_ast Z3_API Z3_func_interp_get_else(Z3_in Z3_context c, Z3_in Z3_func_interp f);
     
     /**
        \brief Return the arity (number of arguments) of the given function interpretation.
 
        def_API('Z3_func_interp_get_arity', UINT, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
-    unsigned Z3_API Z3_func_interp_get_arity(__in Z3_context c, __in Z3_func_interp f);
+    unsigned Z3_API Z3_func_interp_get_arity(Z3_in Z3_context c, Z3_in Z3_func_interp f);
 
 #ifdef Conly
     /**
@@ -4912,14 +4912,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_func_entry_inc_ref', VOID, (_in(CONTEXT), _in(FUNC_ENTRY)))
     */
-    void Z3_API Z3_func_entry_inc_ref(__in Z3_context c, __in Z3_func_entry e);
+    void Z3_API Z3_func_entry_inc_ref(Z3_in Z3_context c, Z3_in Z3_func_entry e);
 
     /**
        \brief Decrement the reference counter of the given Z3_func_entry object.
 
        def_API('Z3_func_entry_dec_ref', VOID, (_in(CONTEXT), _in(FUNC_ENTRY)))
     */
-    void Z3_API Z3_func_entry_dec_ref(__in Z3_context c, __in Z3_func_entry e);
+    void Z3_API Z3_func_entry_dec_ref(Z3_in Z3_context c, Z3_in Z3_func_entry e);
 #endif
     
     /**
@@ -4932,7 +4932,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_func_entry_get_value', AST, (_in(CONTEXT), _in(FUNC_ENTRY)))
     */
-    Z3_ast Z3_API Z3_func_entry_get_value(__in Z3_context c, __in Z3_func_entry e);
+    Z3_ast Z3_API Z3_func_entry_get_value(Z3_in Z3_context c, Z3_in Z3_func_entry e);
 
     /**
        \brief Return the number of arguments in a Z3_func_entry object.
@@ -4941,7 +4941,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_func_entry_get_num_args', UINT, (_in(CONTEXT), _in(FUNC_ENTRY)))
     */
-    unsigned Z3_API Z3_func_entry_get_num_args(__in Z3_context c, __in Z3_func_entry e);
+    unsigned Z3_API Z3_func_entry_get_num_args(Z3_in Z3_context c, Z3_in Z3_func_entry e);
     
     /**
        \brief Return an argument of a Z3_func_entry object.
@@ -4952,7 +4952,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_func_entry_get_arg', AST, (_in(CONTEXT), _in(FUNC_ENTRY), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_func_entry_get_arg(__in Z3_context c, __in Z3_func_entry e, __in unsigned i);
+    Z3_ast Z3_API Z3_func_entry_get_arg(Z3_in Z3_context c, Z3_in Z3_func_entry e, Z3_in unsigned i);
 
     /*@}*/
 #endif // CorML4
@@ -4967,7 +4967,7 @@ END_MLAPI_EXCLUDE
        
        extra_API('Z3_open_log', INT, (_in(STRING),))
     */
-    Z3_bool Z3_API Z3_open_log(__in Z3_string filename);
+    Z3_bool Z3_API Z3_open_log(Z3_in Z3_string filename);
 
     /**
        \brief Append user-defined string to interaction log.
@@ -4978,7 +4978,7 @@ END_MLAPI_EXCLUDE
 
        extra_API('Z3_append_log', VOID, (_in(STRING),))
     */
-    void Z3_API Z3_append_log(__in Z3_string string);
+    void Z3_API Z3_append_log(Z3_in Z3_string string);
 
     /**
        \brief Close interaction log.
@@ -4995,7 +4995,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_toggle_warning_messages', VOID, (_in(BOOL),))
     */
-    void Z3_API Z3_toggle_warning_messages(__in Z3_bool enabled);
+    void Z3_API Z3_toggle_warning_messages(Z3_in Z3_bool enabled);
 
     /*@}*/
 
@@ -5021,7 +5021,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_set_ast_print_mode', VOID, (_in(CONTEXT), _in(PRINT_MODE)))
     */
-    void Z3_API Z3_set_ast_print_mode(__in Z3_context c, __in Z3_ast_print_mode mode);
+    void Z3_API Z3_set_ast_print_mode(Z3_in Z3_context c, Z3_in Z3_ast_print_mode mode);
 
     /**
        \brief Convert the given AST node into a string.
@@ -5034,22 +5034,22 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_ast_to_string', STRING, (_in(CONTEXT), _in(AST)))
     */
-    Z3_string Z3_API Z3_ast_to_string(__in Z3_context c, __in Z3_ast a);
+    Z3_string Z3_API Z3_ast_to_string(Z3_in Z3_context c, Z3_in Z3_ast a);
 
     /**
       def_API('Z3_pattern_to_string', STRING, (_in(CONTEXT), _in(PATTERN)))
     */
-    Z3_string Z3_API Z3_pattern_to_string(__in Z3_context c, __in Z3_pattern p);
+    Z3_string Z3_API Z3_pattern_to_string(Z3_in Z3_context c, Z3_in Z3_pattern p);
 
     /**
       def_API('Z3_sort_to_string', STRING, (_in(CONTEXT), _in(SORT)))
     */
-    Z3_string Z3_API Z3_sort_to_string(__in Z3_context c, __in Z3_sort s);
+    Z3_string Z3_API Z3_sort_to_string(Z3_in Z3_context c, Z3_in Z3_sort s);
     
     /**
       def_API('Z3_func_decl_to_string', STRING, (_in(CONTEXT), _in(FUNC_DECL)))
     */
-    Z3_string Z3_API Z3_func_decl_to_string(__in Z3_context c, __in Z3_func_decl d);
+    Z3_string Z3_API Z3_func_decl_to_string(Z3_in Z3_context c, Z3_in Z3_func_decl d);
 
     /**
        \brief Convert the given model into a string.
@@ -5060,7 +5060,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_model_to_string', STRING, (_in(CONTEXT), _in(MODEL)))
     */
-    Z3_string Z3_API Z3_model_to_string(__in Z3_context c, __in Z3_model m);
+    Z3_string Z3_API Z3_model_to_string(Z3_in Z3_context c, Z3_in Z3_model m);
 
     /**
        \brief Convert the given benchmark into SMT-LIB formatted string.
@@ -5080,14 +5080,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_benchmark_to_smtlib_string', STRING, (_in(CONTEXT), _in(STRING), _in(STRING), _in(STRING), _in(STRING), _in(UINT), _in_array(5, AST), _in(AST)))
     */
-    Z3_string Z3_API Z3_benchmark_to_smtlib_string(__in   Z3_context c, 
-                                                   __in Z3_string name,
-                                                   __in Z3_string logic,
-                                                   __in Z3_string status,
-                                                   __in Z3_string attributes,
-                                                   __in   unsigned num_assumptions,
-                                                   __in_ecount(num_assumptions) Z3_ast const assumptions[],
-                                                   __in   Z3_ast formula);
+    Z3_string Z3_API Z3_benchmark_to_smtlib_string(Z3_in   Z3_context c, 
+                                                   Z3_in Z3_string name,
+                                                   Z3_in Z3_string logic,
+                                                   Z3_in Z3_string status,
+                                                   Z3_in Z3_string attributes,
+                                                   Z3_in   unsigned num_assumptions,
+                                                   Z3_in_ecount(num_assumptions) Z3_ast const assumptions[],
+                                                   Z3_in   Z3_ast formula);
 
     /*@}*/
 
@@ -5105,28 +5105,28 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_parse_smtlib2_string', AST, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    Z3_ast Z3_API Z3_parse_smtlib2_string(__in Z3_context c, 
-                                          __in Z3_string str,
-                                          __in unsigned num_sorts,
-                                          __in_ecount(num_sorts) Z3_symbol const sort_names[],
-                                          __in_ecount(num_sorts) Z3_sort const sorts[],
-                                          __in unsigned num_decls,
-                                          __in_ecount(num_decls) Z3_symbol const decl_names[],
-                                          __in_ecount(num_decls) Z3_func_decl const decls[]);
+    Z3_ast Z3_API Z3_parse_smtlib2_string(Z3_in Z3_context c, 
+                                          Z3_in Z3_string str,
+                                          Z3_in unsigned num_sorts,
+                                          Z3_in_ecount(num_sorts) Z3_symbol const sort_names[],
+                                          Z3_in_ecount(num_sorts) Z3_sort const sorts[],
+                                          Z3_in unsigned num_decls,
+                                          Z3_in_ecount(num_decls) Z3_symbol const decl_names[],
+                                          Z3_in_ecount(num_decls) Z3_func_decl const decls[]);
     
     /**
        \brief Similar to #Z3_parse_smtlib2_string, but reads the benchmark from a file.
 
        def_API('Z3_parse_smtlib2_file', AST, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    Z3_ast Z3_API Z3_parse_smtlib2_file(__in Z3_context c, 
-                                        __in Z3_string file_name,
-                                        __in unsigned num_sorts,
-                                        __in_ecount(num_sorts) Z3_symbol const sort_names[],
-                                        __in_ecount(num_sorts) Z3_sort const sorts[],
-                                        __in unsigned num_decls,
-                                        __in_ecount(num_decls) Z3_symbol const decl_names[],
-                                        __in_ecount(num_decls) Z3_func_decl const decls[]);
+    Z3_ast Z3_API Z3_parse_smtlib2_file(Z3_in Z3_context c, 
+                                        Z3_in Z3_string file_name,
+                                        Z3_in unsigned num_sorts,
+                                        Z3_in_ecount(num_sorts) Z3_symbol const sort_names[],
+                                        Z3_in_ecount(num_sorts) Z3_sort const sorts[],
+                                        Z3_in unsigned num_decls,
+                                        Z3_in_ecount(num_decls) Z3_symbol const decl_names[],
+                                        Z3_in_ecount(num_decls) Z3_func_decl const decls[]);
 
 #ifdef ML4only
 #include <mlx_parse_smtlib.idl>
@@ -5151,14 +5151,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_parse_smtlib_string', VOID, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    void Z3_API Z3_parse_smtlib_string(__in Z3_context c, 
-                                       __in Z3_string str,
-                                       __in unsigned num_sorts,
-                                       __in_ecount(num_sorts) Z3_symbol const sort_names[],
-                                       __in_ecount(num_sorts) Z3_sort const sorts[],
-                                       __in unsigned num_decls,
-                                       __in_ecount(num_decls) Z3_symbol const decl_names[],
-                                       __in_ecount(num_decls) Z3_func_decl const decls[]                     
+    void Z3_API Z3_parse_smtlib_string(Z3_in Z3_context c, 
+                                       Z3_in Z3_string str,
+                                       Z3_in unsigned num_sorts,
+                                       Z3_in_ecount(num_sorts) Z3_symbol const sort_names[],
+                                       Z3_in_ecount(num_sorts) Z3_sort const sorts[],
+                                       Z3_in unsigned num_decls,
+                                       Z3_in_ecount(num_decls) Z3_symbol const decl_names[],
+                                       Z3_in_ecount(num_decls) Z3_func_decl const decls[]                     
                                        );
 
     /**
@@ -5166,14 +5166,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_parse_smtlib_file', VOID, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    void Z3_API Z3_parse_smtlib_file(__in Z3_context c, 
-                                     __in Z3_string file_name,
-                                     __in unsigned num_sorts,
-                                     __in_ecount(num_sorts) Z3_symbol const sort_names[],
-                                     __in_ecount(num_sorts) Z3_sort const sorts[],
-                                     __in unsigned num_decls,
-                                     __in_ecount(num_decls) Z3_symbol const decl_names[],
-                                     __in_ecount(num_decls) Z3_func_decl const decls[]  
+    void Z3_API Z3_parse_smtlib_file(Z3_in Z3_context c, 
+                                     Z3_in Z3_string file_name,
+                                     Z3_in unsigned num_sorts,
+                                     Z3_in_ecount(num_sorts) Z3_symbol const sort_names[],
+                                     Z3_in_ecount(num_sorts) Z3_sort const sorts[],
+                                     Z3_in unsigned num_decls,
+                                     Z3_in_ecount(num_decls) Z3_symbol const decl_names[],
+                                     Z3_in_ecount(num_decls) Z3_func_decl const decls[]  
                                      );
 
     /**
@@ -5181,7 +5181,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_smtlib_num_formulas', UINT, (_in(CONTEXT), ))
     */
-    unsigned Z3_API Z3_get_smtlib_num_formulas(__in Z3_context c);
+    unsigned Z3_API Z3_get_smtlib_num_formulas(Z3_in Z3_context c);
 
     /**
        \brief \mlh get_smtlib_formula c i \endmlh
@@ -5191,14 +5191,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_smtlib_formula', AST, (_in(CONTEXT), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_smtlib_formula(__in Z3_context c, __in unsigned i);
+    Z3_ast Z3_API Z3_get_smtlib_formula(Z3_in Z3_context c, Z3_in unsigned i);
 
     /**
        \brief Return the number of SMTLIB assumptions parsed by #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
 
        def_API('Z3_get_smtlib_num_assumptions', UINT, (_in(CONTEXT), ))
     */
-    unsigned Z3_API Z3_get_smtlib_num_assumptions(__in Z3_context c);
+    unsigned Z3_API Z3_get_smtlib_num_assumptions(Z3_in Z3_context c);
 
     /**
        \brief \mlh get_smtlib_assumption c i \endmlh
@@ -5208,14 +5208,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_smtlib_assumption', AST, (_in(CONTEXT), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_smtlib_assumption(__in Z3_context c, __in unsigned i);
+    Z3_ast Z3_API Z3_get_smtlib_assumption(Z3_in Z3_context c, Z3_in unsigned i);
 
     /**
        \brief Return the number of declarations parsed by #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
 
        def_API('Z3_get_smtlib_num_decls', UINT, (_in(CONTEXT), ))
     */
-    unsigned Z3_API Z3_get_smtlib_num_decls(__in Z3_context c);
+    unsigned Z3_API Z3_get_smtlib_num_decls(Z3_in Z3_context c);
 
     /**
        \brief \mlh get_smtlib_decl c i \endmlh
@@ -5225,14 +5225,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_smtlib_decl', FUNC_DECL, (_in(CONTEXT), _in(UINT)))
     */
-    Z3_func_decl Z3_API Z3_get_smtlib_decl(__in Z3_context c, __in unsigned i);
+    Z3_func_decl Z3_API Z3_get_smtlib_decl(Z3_in Z3_context c, Z3_in unsigned i);
 
     /**
        \brief Return the number of sorts parsed by #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
 
        def_API('Z3_get_smtlib_num_sorts', UINT, (_in(CONTEXT), ))
     */
-    unsigned Z3_API Z3_get_smtlib_num_sorts(__in Z3_context c);
+    unsigned Z3_API Z3_get_smtlib_num_sorts(Z3_in Z3_context c);
 
     /**
        \brief \mlh get_smtlib_sort c i \endmlh
@@ -5242,7 +5242,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_smtlib_sort', SORT, (_in(CONTEXT), _in(UINT)))
     */
-    Z3_sort Z3_API Z3_get_smtlib_sort(__in Z3_context c, __in unsigned i);
+    Z3_sort Z3_API Z3_get_smtlib_sort(Z3_in Z3_context c, Z3_in unsigned i);
 
 BEGIN_MLAPI_EXCLUDE
     /**
@@ -5251,7 +5251,7 @@ BEGIN_MLAPI_EXCLUDE
 
        def_API('Z3_get_smtlib_error', STRING, (_in(CONTEXT), ))
     */
-    Z3_string Z3_API Z3_get_smtlib_error(__in Z3_context c);
+    Z3_string Z3_API Z3_get_smtlib_error(Z3_in Z3_context c);
 END_MLAPI_EXCLUDE
 
     /*@}*/
@@ -5273,7 +5273,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_error_code', UINT, (_in(CONTEXT), ))
     */
-    Z3_error_code Z3_API Z3_get_error_code(__in Z3_context c);
+    Z3_error_code Z3_API Z3_get_error_code(Z3_in Z3_context c);
 
     /**
        \brief Register a Z3 error handler.
@@ -5287,7 +5287,7 @@ END_MLAPI_EXCLUDE
 
        \sa Z3_get_error_code
     */
-    void Z3_API Z3_set_error_handler(__in Z3_context c, __in Z3_error_handler h);
+    void Z3_API Z3_set_error_handler(Z3_in Z3_context c, Z3_in Z3_error_handler h);
 #endif
     
     /**
@@ -5295,7 +5295,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_set_error', VOID, (_in(CONTEXT), _in(ERROR_CODE)))
     */
-    void Z3_API Z3_set_error(__in Z3_context c, __in Z3_error_code e);
+    void Z3_API Z3_set_error(Z3_in Z3_context c, Z3_in Z3_error_code e);
 
 #ifdef Conly
     /**
@@ -5305,7 +5305,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_error_msg', STRING, (_in(ERROR_CODE),))
     */
-    Z3_string Z3_API Z3_get_error_msg(__in Z3_error_code err);
+    Z3_string Z3_API Z3_get_error_msg(Z3_in Z3_error_code err);
 #endif
     
 BEGIN_MLAPI_EXCLUDE
@@ -5314,7 +5314,7 @@ BEGIN_MLAPI_EXCLUDE
 
        def_API('Z3_get_error_msg_ex', STRING, (_in(CONTEXT), _in(ERROR_CODE)))
     */
-    Z3_string Z3_API Z3_get_error_msg_ex(__in Z3_context c, __in Z3_error_code err);
+    Z3_string Z3_API Z3_get_error_msg_ex(Z3_in Z3_context c, Z3_in Z3_error_code err);
 END_MLAPI_EXCLUDE
 #ifdef ML4only
 #include <mlx_get_error_msg.idl>
@@ -5334,7 +5334,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_version', VOID, (_out(UINT), _out(UINT), _out(UINT), _out(UINT)))
     */
-    void Z3_API Z3_get_version(__out unsigned * major, __out unsigned * minor, __out unsigned * build_number, __out unsigned * revision_number);
+    void Z3_API Z3_get_version(Z3_out unsigned * major, Z3_out unsigned * minor, Z3_out unsigned * build_number, Z3_out unsigned * revision_number);
  
     /**
        \brief Enable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
@@ -5342,7 +5342,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_enable_trace', VOID, (_in(STRING),))
     */
-    void Z3_API Z3_enable_trace(__in Z3_string tag);
+    void Z3_API Z3_enable_trace(Z3_in Z3_string tag);
 
     /**
        \brief Disable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
@@ -5350,7 +5350,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_disable_trace', VOID, (_in(STRING),))
     */
-    void Z3_API Z3_disable_trace(__in Z3_string tag);
+    void Z3_API Z3_disable_trace(Z3_in Z3_string tag);
  
 #ifdef CorML3
     /**
@@ -5391,21 +5391,21 @@ END_MLAPI_EXCLUDE
     //
     // callbacks and void* don't work with CAMLIDL.
     // 
-    typedef Z3_bool Z3_reduce_eq_callback_fptr(__in Z3_theory t, __in Z3_ast a, __in Z3_ast b, __out Z3_ast * r);
+    typedef Z3_bool Z3_reduce_eq_callback_fptr(Z3_in Z3_theory t, Z3_in Z3_ast a, Z3_in Z3_ast b, Z3_out Z3_ast * r);
 
-    typedef Z3_bool Z3_reduce_app_callback_fptr(__in Z3_theory, __in Z3_func_decl, __in unsigned, __in Z3_ast const [], __out Z3_ast *);
+    typedef Z3_bool Z3_reduce_app_callback_fptr(Z3_in Z3_theory, Z3_in Z3_func_decl, Z3_in unsigned, Z3_in Z3_ast const [], Z3_out Z3_ast *);
 
-    typedef Z3_bool Z3_reduce_distinct_callback_fptr(__in Z3_theory, __in unsigned, __in Z3_ast const [], __out Z3_ast *);
+    typedef Z3_bool Z3_reduce_distinct_callback_fptr(Z3_in Z3_theory, Z3_in unsigned, Z3_in Z3_ast const [], Z3_out Z3_ast *);
 
-    typedef void Z3_theory_callback_fptr(__in Z3_theory t);
+    typedef void Z3_theory_callback_fptr(Z3_in Z3_theory t);
     
-    typedef Z3_bool Z3_theory_final_check_callback_fptr(__in Z3_theory);
+    typedef Z3_bool Z3_theory_final_check_callback_fptr(Z3_in Z3_theory);
     
-    typedef void Z3_theory_ast_callback_fptr(__in Z3_theory, __in Z3_ast);
+    typedef void Z3_theory_ast_callback_fptr(Z3_in Z3_theory, Z3_in Z3_ast);
     
-    typedef void Z3_theory_ast_bool_callback_fptr(__in Z3_theory, __in Z3_ast, __in Z3_bool);
+    typedef void Z3_theory_ast_bool_callback_fptr(Z3_in Z3_theory, Z3_in Z3_ast, Z3_in Z3_bool);
     
-    typedef void Z3_theory_ast_ast_callback_fptr(__in Z3_theory, __in Z3_ast, __in Z3_ast);
+    typedef void Z3_theory_ast_ast_callback_fptr(Z3_in Z3_theory, Z3_in Z3_ast, Z3_in Z3_ast);
 
 #endif
 
@@ -5418,42 +5418,42 @@ END_MLAPI_EXCLUDE
        \conly \c data is a pointer to an external data-structure that may be used to store
        \conly theory specific additional data.
     */
-    Z3_theory Z3_API Z3_mk_theory(__in Z3_context c, __in Z3_string th_name, __in Z3_theory_data data);
+    Z3_theory Z3_API Z3_mk_theory(Z3_in Z3_context c, Z3_in Z3_string th_name, Z3_in Z3_theory_data data);
 
     /**
        \brief Return a pointer to the external data-structure supplied to the function #Z3_mk_theory.
 
        \see Z3_mk_theory
     */
-    Z3_theory_data Z3_API Z3_theory_get_ext_data(__in Z3_theory t);
+    Z3_theory_data Z3_API Z3_theory_get_ext_data(Z3_in Z3_theory t);
 #endif
 
     /**
        \brief Create an interpreted theory sort.
     */
-    Z3_sort Z3_API Z3_theory_mk_sort(__in Z3_context c, __in Z3_theory t, __in Z3_symbol s);
+    Z3_sort Z3_API Z3_theory_mk_sort(Z3_in Z3_context c, Z3_in Z3_theory t, Z3_in Z3_symbol s);
     
     /**
        \brief Create an interpreted theory constant value. Values are assumed to be different from each other.
     */
-    Z3_ast Z3_API Z3_theory_mk_value(__in Z3_context c, __in Z3_theory t, __in Z3_symbol n, __in Z3_sort s);
+    Z3_ast Z3_API Z3_theory_mk_value(Z3_in Z3_context c, Z3_in Z3_theory t, Z3_in Z3_symbol n, Z3_in Z3_sort s);
 
     /**
        \brief Create an interpreted constant for the given theory.
     */
-    Z3_ast Z3_API Z3_theory_mk_constant(__in Z3_context c, __in Z3_theory t, __in Z3_symbol n, __in Z3_sort s);
+    Z3_ast Z3_API Z3_theory_mk_constant(Z3_in Z3_context c, Z3_in Z3_theory t, Z3_in Z3_symbol n, Z3_in Z3_sort s);
     
     /**
        \brief Create an interpreted function declaration for the given theory.
     */
-    Z3_func_decl Z3_API Z3_theory_mk_func_decl(__in Z3_context c, __in Z3_theory t, __in Z3_symbol n,
-                                               __in unsigned domain_size, __in_ecount(domain_size) Z3_sort const domain[],
-                                               __in Z3_sort range);
+    Z3_func_decl Z3_API Z3_theory_mk_func_decl(Z3_in Z3_context c, Z3_in Z3_theory t, Z3_in Z3_symbol n,
+                                               Z3_in unsigned domain_size, Z3_in_ecount(domain_size) Z3_sort const domain[],
+                                               Z3_in Z3_sort range);
 
     /**
        \brief Return the context where the given theory is installed.
     */
-    Z3_context Z3_API Z3_theory_get_context(__in Z3_theory t);
+    Z3_context Z3_API Z3_theory_get_context(Z3_in Z3_theory t);
 
 
 #ifdef Conly
@@ -5467,7 +5467,7 @@ END_MLAPI_EXCLUDE
        \see Z3_mk_theory 
        \conly \see Z3_theory_get_ext_data
     */
-    void Z3_API Z3_set_delete_callback(__in Z3_theory t, __in Z3_theory_callback_fptr f);
+    void Z3_API Z3_set_delete_callback(Z3_in Z3_theory t, Z3_in Z3_theory_callback_fptr f);
     
     /**
        \brief Set a callback for simplifying operators of the given theory.
@@ -5482,7 +5482,7 @@ END_MLAPI_EXCLUDE
 
        \conly If <tt>f(t, d, n, args, r)</tt> returns false, then \c r is ignored, and Z3 assumes that no simplification was performed.
     */
-    void Z3_API Z3_set_reduce_app_callback(__in Z3_theory t, __in Z3_reduce_app_callback_fptr f);
+    void Z3_API Z3_set_reduce_app_callback(Z3_in Z3_theory t, Z3_in Z3_reduce_app_callback_fptr f);
     
     /**
        \brief Set a callback for simplifying the atom <tt>s_1 = s_2</tt>, when the
@@ -5497,7 +5497,7 @@ END_MLAPI_EXCLUDE
          
        \conly If <tt>f(t, s_1, s_2, r)</tt> returns false, then \c r is ignored, and Z3 assumes that no simplification was performed.
     */
-    void Z3_API Z3_set_reduce_eq_callback(__in Z3_theory t, __in Z3_reduce_eq_callback_fptr f);
+    void Z3_API Z3_set_reduce_eq_callback(Z3_in Z3_theory t, Z3_in Z3_reduce_eq_callback_fptr f);
 
     /**
        \brief Set a callback for simplifying the atom <tt>distinct(s_1, ..., s_n)</tt>, when the
@@ -5512,7 +5512,7 @@ END_MLAPI_EXCLUDE
          
        \conly If <tt>f(t, n, args, r)</tt> returns false, then \c r is ignored, and Z3 assumes that no simplification was performed.
     */
-    void Z3_API Z3_set_reduce_distinct_callback(__in Z3_theory t, __in Z3_reduce_distinct_callback_fptr f);
+    void Z3_API Z3_set_reduce_distinct_callback(Z3_in Z3_theory t, Z3_in Z3_reduce_distinct_callback_fptr f);
     
     /**
        \brief Set a callback that is invoked when a theory application
@@ -5529,7 +5529,7 @@ END_MLAPI_EXCLUDE
        \remark An expression \c n added to the logical context at search level \c n,
        will remain in the logical context until this level is backtracked.
     */
-    void Z3_API Z3_set_new_app_callback(__in Z3_theory t, __in Z3_theory_ast_callback_fptr f);
+    void Z3_API Z3_set_new_app_callback(Z3_in Z3_theory t, Z3_in Z3_theory_ast_callback_fptr f);
 
     /**
        \brief Set a callback that is invoked when an expression of
@@ -5547,7 +5547,7 @@ END_MLAPI_EXCLUDE
        \remark An expression \c n added to the logical context at search level \c n,
        will remain in the logical context until this level is backtracked.
     */
-    void Z3_API Z3_set_new_elem_callback(__in Z3_theory t, __in Z3_theory_ast_callback_fptr f);
+    void Z3_API Z3_set_new_elem_callback(Z3_in Z3_theory t, Z3_in Z3_theory_ast_callback_fptr f);
 
     /**
        \brief Set a callback that is invoked when Z3 starts searching for a
@@ -5556,7 +5556,7 @@ END_MLAPI_EXCLUDE
        \conly The callback has the form <tt>f(t)</tt>, where
        \conly - \c t is the given theory
     */
-    void Z3_API Z3_set_init_search_callback(__in Z3_theory t, __in Z3_theory_callback_fptr f);
+    void Z3_API Z3_set_init_search_callback(Z3_in Z3_theory t, Z3_in Z3_theory_callback_fptr f);
         
     /**
        \brief Set a callback that is invoked when Z3 creates a
@@ -5567,7 +5567,7 @@ END_MLAPI_EXCLUDE
        \conly The callback has the form <tt>f(t)</tt>, where
        \conly - \c t is the given theory
     */
-    void Z3_API Z3_set_push_callback(__in Z3_theory t, __in Z3_theory_callback_fptr f);
+    void Z3_API Z3_set_push_callback(Z3_in Z3_theory t, Z3_in Z3_theory_callback_fptr f);
  
     /**
        \brief Set a callback that is invoked when Z3 backtracks a
@@ -5578,7 +5578,7 @@ END_MLAPI_EXCLUDE
        \conly The callback has the form <tt>f(t)</tt>, where
        \conly - \c t is the given theory
     */
-    void Z3_API Z3_set_pop_callback(__in Z3_theory t, __in Z3_theory_callback_fptr f);
+    void Z3_API Z3_set_pop_callback(Z3_in Z3_theory t, Z3_in Z3_theory_callback_fptr f);
 
     /**
        \brief Set a callback that is invoked when Z3 restarts the
@@ -5587,7 +5587,7 @@ END_MLAPI_EXCLUDE
        \conly The callback has the form <tt>f(t)</tt>, where
        \conly - \c t is the given theory
     */
-    void Z3_API Z3_set_restart_callback(__in Z3_theory t, __in Z3_theory_callback_fptr f);
+    void Z3_API Z3_set_restart_callback(Z3_in Z3_theory t, Z3_in Z3_theory_callback_fptr f);
 
     /**
        \brief Set a callback that is invoked when the logical context
@@ -5597,7 +5597,7 @@ END_MLAPI_EXCLUDE
        \conly The callback has the form <tt>f(t)</tt>, where
        \conly - \c t is the given theory
     */
-    void Z3_API Z3_set_reset_callback(__in Z3_theory t, __in Z3_theory_callback_fptr f);
+    void Z3_API Z3_set_reset_callback(Z3_in Z3_theory t, Z3_in Z3_theory_callback_fptr f);
 
     /**
        \brief Set a callback that is invoked before Z3 starts building a model.
@@ -5611,7 +5611,7 @@ END_MLAPI_EXCLUDE
        and it will assume that it was not possible to decide if the asserted constraints
        are satisfiable or not.
     */
-    void Z3_API Z3_set_final_check_callback(__in Z3_theory t, __in Z3_theory_final_check_callback_fptr f);
+    void Z3_API Z3_set_final_check_callback(Z3_in Z3_theory t, Z3_in Z3_theory_final_check_callback_fptr f);
 
     /**
        \brief Set a callback that is invoked when an equality <tt>s_1 = s_2</tt>
@@ -5622,7 +5622,7 @@ END_MLAPI_EXCLUDE
        \conly   - \c s_1 is the left-hand-side
        \conly   - \c s_2 is the right-hand-side
     */
-    void Z3_API Z3_set_new_eq_callback(__in Z3_theory t, __in Z3_theory_ast_ast_callback_fptr f);
+    void Z3_API Z3_set_new_eq_callback(Z3_in Z3_theory t, Z3_in Z3_theory_ast_ast_callback_fptr f);
 
     /**
        \brief Set a callback that is invoked when a disequality <tt>s_1 != s_2</tt>
@@ -5633,7 +5633,7 @@ END_MLAPI_EXCLUDE
        \conly   - \c s_1 is the left-hand-side
        \conly   - \c s_2 is the right-hand-side
     */
-    void Z3_API Z3_set_new_diseq_callback(__in Z3_theory t, __in Z3_theory_ast_ast_callback_fptr f);
+    void Z3_API Z3_set_new_diseq_callback(Z3_in Z3_theory t, Z3_in Z3_theory_ast_ast_callback_fptr f);
 
     /**
        \brief Set a callback that is invoked when a theory predicate is assigned to true/false by Z3.
@@ -5643,7 +5643,7 @@ END_MLAPI_EXCLUDE
        \conly   - \c p is the assigned predicate.
        \conly   - \c v is the value (true/false) assigned to \c p.
     */
-    void Z3_API Z3_set_new_assignment_callback(__in Z3_theory t, __in Z3_theory_ast_bool_callback_fptr f);
+    void Z3_API Z3_set_new_assignment_callback(Z3_in Z3_theory t, Z3_in Z3_theory_ast_bool_callback_fptr f);
 
     /**
        \brief Set a callback that is invoked when an expression is
@@ -5654,7 +5654,7 @@ END_MLAPI_EXCLUDE
        \conly   - \c t is the given theory
        \conly   - \c n is the relevant expression
     */
-    void Z3_API Z3_set_new_relevant_callback(__in Z3_theory t, __in Z3_theory_ast_callback_fptr f);
+    void Z3_API Z3_set_new_relevant_callback(Z3_in Z3_theory t, Z3_in Z3_theory_ast_callback_fptr f);
 
 #endif
 
@@ -5672,7 +5672,7 @@ END_MLAPI_EXCLUDE
        Z3 tracks the theory axioms asserted. So, multiple assertions of the same axiom are
        ignored.
     */
-    void Z3_API Z3_theory_assert_axiom(__in Z3_theory t, __in Z3_ast ax);
+    void Z3_API Z3_theory_assert_axiom(Z3_in Z3_theory t, Z3_in Z3_ast ax);
 
     /**
        \brief Inform to the logical context that \c lhs and \c rhs have the same interpretation
@@ -5681,7 +5681,7 @@ END_MLAPI_EXCLUDE
 
        For more information, see the paper "Model-Based Theory Combination" in the Z3 website.
     */
-    void Z3_API Z3_theory_assume_eq(__in Z3_theory t, __in Z3_ast lhs, __in Z3_ast rhs);
+    void Z3_API Z3_theory_assume_eq(Z3_in Z3_theory t, Z3_in Z3_ast lhs, Z3_in Z3_ast rhs);
 
     /**
        \brief Enable/disable the simplification of theory axioms asserted using #Z3_theory_assert_axiom.
@@ -5689,12 +5689,12 @@ END_MLAPI_EXCLUDE
        That is, the reduce theory callbacks are not invoked for theory axioms.
        The default behavior is useful when asserting axioms stating properties of theory operators.
     */
-    void Z3_API Z3_theory_enable_axiom_simplification(__in Z3_theory t, __in Z3_bool flag);
+    void Z3_API Z3_theory_enable_axiom_simplification(Z3_in Z3_theory t, Z3_in Z3_bool flag);
 
     /**
        \brief Return the root of the equivalence class containing \c n.
     */
-    Z3_ast Z3_API Z3_theory_get_eqc_root(__in Z3_theory t, __in Z3_ast n);
+    Z3_ast Z3_API Z3_theory_get_eqc_root(Z3_in Z3_theory t, Z3_in Z3_ast n);
     
     /**
        \brief Return the next element in the equivalence class containing \c n.
@@ -5710,56 +5710,56 @@ END_MLAPI_EXCLUDE
            while (curr != n);
        \endcode
     */
-    Z3_ast Z3_API Z3_theory_get_eqc_next(__in Z3_theory t, __in Z3_ast n);
+    Z3_ast Z3_API Z3_theory_get_eqc_next(Z3_in Z3_theory t, Z3_in Z3_ast n);
 
     /**
        \brief Return the number of parents of \c n that are operators of the given theory. 
     */
-    unsigned Z3_API Z3_theory_get_num_parents(__in Z3_theory t, __in Z3_ast n);
+    unsigned Z3_API Z3_theory_get_num_parents(Z3_in Z3_theory t, Z3_in Z3_ast n);
     
     /**
        \brief Return the i-th parent of \c n. 
        See #Z3_theory_get_num_parents. 
     */
-    Z3_ast Z3_API Z3_theory_get_parent(__in Z3_theory t, __in Z3_ast n, __in unsigned i);
+    Z3_ast Z3_API Z3_theory_get_parent(Z3_in Z3_theory t, Z3_in Z3_ast n, Z3_in unsigned i);
 
     /**
        \brief Return \c Z3_TRUE if \c n is an interpreted theory value.
     */
-    Z3_bool Z3_API Z3_theory_is_value(__in Z3_theory t, __in Z3_ast n);
+    Z3_bool Z3_API Z3_theory_is_value(Z3_in Z3_theory t, Z3_in Z3_ast n);
 
     /**
        \brief Return \c Z3_TRUE if \c d is an interpreted theory declaration.
     */
-    Z3_bool Z3_API Z3_theory_is_decl(__in Z3_theory t, __in Z3_func_decl d);
+    Z3_bool Z3_API Z3_theory_is_decl(Z3_in Z3_theory t, Z3_in Z3_func_decl d);
     
     /**
        \brief Return the number of expressions of the given theory in
        the logical context. These are the expressions notified using the
        callback #Z3_set_new_elem_callback.
     */
-    unsigned Z3_API Z3_theory_get_num_elems(__in Z3_theory t);
+    unsigned Z3_API Z3_theory_get_num_elems(Z3_in Z3_theory t);
     
     /**
        \brief Return the i-th elem of the given theory in the logical context.
        
        \see Z3_theory_get_num_elems
     */
-    Z3_ast Z3_API Z3_theory_get_elem(__in Z3_theory t, __in unsigned i);
+    Z3_ast Z3_API Z3_theory_get_elem(Z3_in Z3_theory t, Z3_in unsigned i);
 
     /**
        \brief Return the number of theory applications in the logical
        context. These are the expressions notified using the callback
        #Z3_set_new_app_callback.
     */
-    unsigned Z3_API Z3_theory_get_num_apps(__in Z3_theory t);
+    unsigned Z3_API Z3_theory_get_num_apps(Z3_in Z3_theory t);
     
     /**
        \brief Return the i-th application of the given theory in the logical context.
        
        \see Z3_theory_get_num_apps
     */
-    Z3_ast Z3_API Z3_theory_get_app(__in Z3_theory t, __in unsigned i);
+    Z3_ast Z3_API Z3_theory_get_app(Z3_in Z3_theory t, Z3_in unsigned i);
 
     /*@}*/
 
@@ -5779,7 +5779,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_fixedpoint', FIXEDPOINT, (_in(CONTEXT), ))
     */
-    Z3_fixedpoint Z3_API Z3_mk_fixedpoint(__in Z3_context c);
+    Z3_fixedpoint Z3_API Z3_mk_fixedpoint(Z3_in Z3_context c);
 
 #ifdef Conly
     /**
@@ -5787,14 +5787,14 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_fixedpoint_inc_ref', VOID, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
-    void Z3_API Z3_fixedpoint_inc_ref(__in Z3_context c,__in Z3_fixedpoint d);
+    void Z3_API Z3_fixedpoint_inc_ref(Z3_in Z3_context c,Z3_in Z3_fixedpoint d);
 
     /**
        \brief Decrement the reference counter of the given fixedpoint context.
 
        def_API('Z3_fixedpoint_dec_ref', VOID, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
-    void Z3_API Z3_fixedpoint_dec_ref(__in Z3_context c,__in Z3_fixedpoint d);
+    void Z3_API Z3_fixedpoint_dec_ref(Z3_in Z3_context c,Z3_in Z3_fixedpoint d);
 #endif
 
     /**
@@ -5809,7 +5809,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_fixedpoint_add_rule', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(AST), _in(SYMBOL)))
     */
-    void Z3_API Z3_fixedpoint_add_rule(__in Z3_context c,__in Z3_fixedpoint d, __in Z3_ast rule, __in Z3_symbol name);
+    void Z3_API Z3_fixedpoint_add_rule(Z3_in Z3_context c,Z3_in Z3_fixedpoint d, Z3_in Z3_ast rule, Z3_in Z3_symbol name);
 
     /**
        \brief Add a Database fact. 
@@ -5828,9 +5828,9 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_fixedpoint_add_fact', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(FUNC_DECL), _in(UINT), _in_array(3, UINT)))
     */
-    void Z3_API Z3_fixedpoint_add_fact(__in Z3_context c,__in Z3_fixedpoint d, 
-                                       __in Z3_func_decl r, 
-                                       __in unsigned num_args, __in_ecount(num_args) unsigned args[]);
+    void Z3_API Z3_fixedpoint_add_fact(Z3_in Z3_context c,Z3_in Z3_fixedpoint d, 
+                                       Z3_in Z3_func_decl r, 
+                                       Z3_in unsigned num_args, Z3_in_ecount(num_args) unsigned args[]);
 
     /**
        \brief Assert a constraint to the fixedpoint context.
@@ -5840,7 +5840,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_fixedpoint_assert', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(AST)))
     */
-    void Z3_API Z3_fixedpoint_assert(__in Z3_context c,__in Z3_fixedpoint d, __in Z3_ast axiom);
+    void Z3_API Z3_fixedpoint_assert(Z3_in Z3_context c,Z3_in Z3_fixedpoint d, Z3_in Z3_ast axiom);
 
     /**
         \brief Pose a query against the asserted rules.
@@ -5857,7 +5857,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_fixedpoint_query', INT, (_in(CONTEXT), _in(FIXEDPOINT), _in(AST)))
     */
-    Z3_lbool Z3_API Z3_fixedpoint_query(__in Z3_context c,__in Z3_fixedpoint d, __in Z3_ast query);
+    Z3_lbool Z3_API Z3_fixedpoint_query(Z3_in Z3_context c,Z3_in Z3_fixedpoint d, Z3_in Z3_ast query);
 
     /**
         \brief Pose multiple queries against the asserted rules.
@@ -5872,8 +5872,8 @@ END_MLAPI_EXCLUDE
         def_API('Z3_fixedpoint_query_relations', INT, (_in(CONTEXT), _in(FIXEDPOINT), _in(UINT), _in_array(2, FUNC_DECL)))
     */
     Z3_lbool Z3_API Z3_fixedpoint_query_relations(
-        __in Z3_context c,__in Z3_fixedpoint d, 
-        __in unsigned num_relations, __in_ecount(num_relations) Z3_func_decl const relations[]);
+        Z3_in Z3_context c,Z3_in Z3_fixedpoint d, 
+        Z3_in unsigned num_relations, Z3_in_ecount(num_relations) Z3_func_decl const relations[]);
 
     /**
        \brief Retrieve a formula that encodes satisfying answers to the query.
@@ -5888,7 +5888,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_fixedpoint_get_answer', AST, (_in(CONTEXT), _in(FIXEDPOINT)))
     */    
-    Z3_ast Z3_API Z3_fixedpoint_get_answer(__in Z3_context c,__in Z3_fixedpoint d);
+    Z3_ast Z3_API Z3_fixedpoint_get_answer(Z3_in Z3_context c,Z3_in Z3_fixedpoint d);
 
     /**
        \brief Retrieve a string that describes the last status returned by #Z3_fixedpoint_query.
@@ -5897,7 +5897,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_fixedpoint_get_reason_unknown', STRING, (_in(CONTEXT), _in(FIXEDPOINT) ))
     */
-    Z3_string Z3_API Z3_fixedpoint_get_reason_unknown(__in Z3_context c,__in Z3_fixedpoint d);
+    Z3_string Z3_API Z3_fixedpoint_get_reason_unknown(Z3_in Z3_context c,Z3_in Z3_fixedpoint d);
 
     /**
        \brief Update a named rule. 
@@ -5905,7 +5905,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_fixedpoint_update_rule', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(AST), _in(SYMBOL)))
     */
-    void Z3_API Z3_fixedpoint_update_rule(__in Z3_context c, __in Z3_fixedpoint d, __in Z3_ast a, __in Z3_symbol name);
+    void Z3_API Z3_fixedpoint_update_rule(Z3_in Z3_context c, Z3_in Z3_fixedpoint d, Z3_in Z3_ast a, Z3_in Z3_symbol name);
     
     /**
        \brief Query the PDR engine for the maximal levels properties are known about predicate.
@@ -5949,7 +5949,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_fixedpoint_get_statistics', STATS, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
-    Z3_stats Z3_API Z3_fixedpoint_get_statistics(__in Z3_context c,__in Z3_fixedpoint d);
+    Z3_stats Z3_API Z3_fixedpoint_get_statistics(Z3_in Z3_context c,Z3_in Z3_fixedpoint d);
 
     /**
        \brief Register relation as Fixedpoint defined.
@@ -5959,7 +5959,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_fixedpoint_register_relation', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(FUNC_DECL)))
     */
-    void Z3_API Z3_fixedpoint_register_relation(__in Z3_context c,__in Z3_fixedpoint d, __in Z3_func_decl f);
+    void Z3_API Z3_fixedpoint_register_relation(Z3_in Z3_context c,Z3_in Z3_fixedpoint d, Z3_in Z3_func_decl f);
 
     /**
        \brief Configure the predicate representation.
@@ -5971,11 +5971,11 @@ END_MLAPI_EXCLUDE
        def_API('Z3_fixedpoint_set_predicate_representation', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(FUNC_DECL), _in(UINT), _in_array(3, SYMBOL)))
     */
     void Z3_API Z3_fixedpoint_set_predicate_representation(
-        __in Z3_context c,
-        __in Z3_fixedpoint d, 
-        __in Z3_func_decl f, 
-        __in unsigned num_relations, 
-        __in_ecount(num_relations) Z3_symbol const relation_kinds[]);
+        Z3_in Z3_context c,
+        Z3_in Z3_fixedpoint d, 
+        Z3_in Z3_func_decl f, 
+        Z3_in unsigned num_relations, 
+        Z3_in_ecount(num_relations) Z3_symbol const relation_kinds[]);
                 
     /**
        \brief Retrieve set of rules from fixedpoint context.
@@ -5983,8 +5983,8 @@ END_MLAPI_EXCLUDE
        def_API('Z3_fixedpoint_get_rules', AST_VECTOR, (_in(CONTEXT),_in(FIXEDPOINT)))
      */
     Z3_ast_vector Z3_API Z3_fixedpoint_get_rules(
-        __in Z3_context c,
-        __in Z3_fixedpoint f);
+        Z3_in Z3_context c,
+        Z3_in Z3_fixedpoint f);
 
     /**
        \brief Retrieve set of background assertions from fixedpoint context.
@@ -5992,29 +5992,29 @@ END_MLAPI_EXCLUDE
        def_API('Z3_fixedpoint_get_assertions', AST_VECTOR, (_in(CONTEXT),_in(FIXEDPOINT)))
      */
     Z3_ast_vector Z3_API Z3_fixedpoint_get_assertions(
-        __in Z3_context c,
-        __in Z3_fixedpoint f);
+        Z3_in Z3_context c,
+        Z3_in Z3_fixedpoint f);
 
     /**
        \brief Set parameters on fixedpoint context.       
 
        def_API('Z3_fixedpoint_set_params', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(PARAMS)))
     */
-    void Z3_API Z3_fixedpoint_set_params(__in Z3_context c, __in Z3_fixedpoint f, __in Z3_params p);
+    void Z3_API Z3_fixedpoint_set_params(Z3_in Z3_context c, Z3_in Z3_fixedpoint f, Z3_in Z3_params p);
 
     /**
        \brief Return a string describing all fixedpoint available parameters.
        
        def_API('Z3_fixedpoint_get_help', STRING, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
-    Z3_string Z3_API Z3_fixedpoint_get_help(__in Z3_context c, __in Z3_fixedpoint f);
+    Z3_string Z3_API Z3_fixedpoint_get_help(Z3_in Z3_context c, Z3_in Z3_fixedpoint f);
 
     /**
        \brief Return the parameter description set for the given fixedpoint object.
 
        def_API('Z3_fixedpoint_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
-    Z3_param_descrs Z3_API Z3_fixedpoint_get_param_descrs(__in Z3_context c, __in Z3_fixedpoint f);
+    Z3_param_descrs Z3_API Z3_fixedpoint_get_param_descrs(Z3_in Z3_context c, Z3_in Z3_fixedpoint f);
 
     /**
        \brief Print the current rules and background axioms as a string.
@@ -6026,10 +6026,10 @@ END_MLAPI_EXCLUDE
        def_API('Z3_fixedpoint_to_string', STRING, (_in(CONTEXT), _in(FIXEDPOINT), _in(UINT), _in_array(2, AST)))
     */
     Z3_string Z3_API Z3_fixedpoint_to_string(
-        __in Z3_context c, 
-        __in Z3_fixedpoint f,
-        __in unsigned num_queries,
-        __in_ecount(num_queries) Z3_ast queries[]);
+        Z3_in Z3_context c, 
+        Z3_in Z3_fixedpoint f,
+        Z3_in unsigned num_queries,
+        Z3_in_ecount(num_queries) Z3_ast queries[]);
 
     /**
        \brief Parse an SMT-LIB2 string with fixedpoint rules. 
@@ -6043,9 +6043,9 @@ END_MLAPI_EXCLUDE
        def_API('Z3_fixedpoint_from_string', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
     */
     Z3_ast_vector Z3_API Z3_fixedpoint_from_string(
-        __in Z3_context c, 
-        __in Z3_fixedpoint f,
-        __in Z3_string s);
+        Z3_in Z3_context c, 
+        Z3_in Z3_fixedpoint f,
+        Z3_in Z3_string s);
 
     /**
        \brief Parse an SMT-LIB2 file with fixedpoint rules. 
@@ -6059,9 +6059,9 @@ END_MLAPI_EXCLUDE
        def_API('Z3_fixedpoint_from_file', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
     */
     Z3_ast_vector Z3_API Z3_fixedpoint_from_file(
-        __in Z3_context c, 
-        __in Z3_fixedpoint f,
-        __in Z3_string s);
+        Z3_in Z3_context c, 
+        Z3_in Z3_fixedpoint f,
+        Z3_in Z3_string s);
 
     /**
        \brief Create a backtracking point.
@@ -6093,20 +6093,20 @@ END_MLAPI_EXCLUDE
     */
 
     typedef void Z3_fixedpoint_reduce_assign_callback_fptr(
-        __in void*, __in Z3_func_decl, 
-        __in unsigned, __in Z3_ast const [], 
-        __in unsigned, __in Z3_ast const []); 
+        Z3_in void*, Z3_in Z3_func_decl, 
+        Z3_in unsigned, Z3_in Z3_ast const [], 
+        Z3_in unsigned, Z3_in Z3_ast const []); 
 
     typedef void Z3_fixedpoint_reduce_app_callback_fptr(
-        __in void*, __in Z3_func_decl, 
-        __in unsigned, __in Z3_ast const [], 
-        __out Z3_ast*);
+        Z3_in void*, Z3_in Z3_func_decl, 
+        Z3_in unsigned, Z3_in Z3_ast const [], 
+        Z3_out Z3_ast*);
         
 
     /**
        \brief Initialize the context with a user-defined state.   
     */
-    void Z3_API Z3_fixedpoint_init(__in Z3_context c,__in Z3_fixedpoint d, __in void* state);
+    void Z3_API Z3_fixedpoint_init(Z3_in Z3_context c,Z3_in Z3_fixedpoint d, Z3_in void* state);
 
     /**
        \brief Register a callback to destructive updates.
@@ -6114,14 +6114,14 @@ END_MLAPI_EXCLUDE
        Registers are identified with terms encoded as fresh constants,          
     */
     void Z3_API Z3_fixedpoint_set_reduce_assign_callback(
-        __in Z3_context c,__in Z3_fixedpoint d, __in Z3_fixedpoint_reduce_assign_callback_fptr cb);
+        Z3_in Z3_context c,Z3_in Z3_fixedpoint d, Z3_in Z3_fixedpoint_reduce_assign_callback_fptr cb);
     
     /**
        \brief Register a callback for buildling terms based on 
        the relational operators.
     */
     void Z3_API Z3_fixedpoint_set_reduce_app_callback(
-        __in Z3_context c,__in Z3_fixedpoint d, __in Z3_fixedpoint_reduce_app_callback_fptr cb);
+        Z3_in Z3_context c,Z3_in Z3_fixedpoint d, Z3_in Z3_fixedpoint_reduce_app_callback_fptr cb);
         
 #endif
 #endif
@@ -6333,7 +6333,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_ast_vector', AST_VECTOR, (_in(CONTEXT),))
     */
-    Z3_ast_vector Z3_API Z3_mk_ast_vector(__in Z3_context c);
+    Z3_ast_vector Z3_API Z3_mk_ast_vector(Z3_in Z3_context c);
     
 #ifdef Conly
     /**
@@ -6341,14 +6341,14 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_ast_vector_inc_ref', VOID, (_in(CONTEXT), _in(AST_VECTOR)))
     */
-    void Z3_API Z3_ast_vector_inc_ref(__in Z3_context c, __in Z3_ast_vector v);
+    void Z3_API Z3_ast_vector_inc_ref(Z3_in Z3_context c, Z3_in Z3_ast_vector v);
     
     /**
        \brief Decrement the reference counter of the given AST vector.
 
        def_API('Z3_ast_vector_dec_ref', VOID, (_in(CONTEXT), _in(AST_VECTOR)))
     */
-    void Z3_API Z3_ast_vector_dec_ref(__in Z3_context c, __in Z3_ast_vector v);
+    void Z3_API Z3_ast_vector_dec_ref(Z3_in Z3_context c, Z3_in Z3_ast_vector v);
 #endif
     
     /**
@@ -6356,7 +6356,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_ast_vector_size', UINT, (_in(CONTEXT), _in(AST_VECTOR)))
     */
-    unsigned Z3_API Z3_ast_vector_size(__in Z3_context c, __in Z3_ast_vector v);
+    unsigned Z3_API Z3_ast_vector_size(Z3_in Z3_context c, Z3_in Z3_ast_vector v);
 
     /**
        \brief Return the AST at position \c i in the AST vector \c v.
@@ -6365,7 +6365,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_ast_vector_get', AST, (_in(CONTEXT), _in(AST_VECTOR), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_ast_vector_get(__in Z3_context c, __in Z3_ast_vector v, __in unsigned i);    
+    Z3_ast Z3_API Z3_ast_vector_get(Z3_in Z3_context c, Z3_in Z3_ast_vector v, Z3_in unsigned i);    
 
     /**
        \brief Update position \c i of the AST vector \c v with the AST \c a. 
@@ -6374,35 +6374,35 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_ast_vector_set', VOID, (_in(CONTEXT), _in(AST_VECTOR), _in(UINT), _in(AST)))
     */
-    void Z3_API Z3_ast_vector_set(__in Z3_context c, __in Z3_ast_vector v, __in unsigned i, __in Z3_ast a);    
+    void Z3_API Z3_ast_vector_set(Z3_in Z3_context c, Z3_in Z3_ast_vector v, Z3_in unsigned i, Z3_in Z3_ast a);    
 
     /**
        \brief Resize the AST vector \c v. 
 
        def_API('Z3_ast_vector_resize', VOID, (_in(CONTEXT), _in(AST_VECTOR), _in(UINT)))
     */
-    void Z3_API Z3_ast_vector_resize(__in Z3_context c, __in Z3_ast_vector v, __in unsigned n);
+    void Z3_API Z3_ast_vector_resize(Z3_in Z3_context c, Z3_in Z3_ast_vector v, Z3_in unsigned n);
 
     /**
        \brief Add the AST \c a in the end of the AST vector \c v. The size of \c v is increased by one.
 
        def_API('Z3_ast_vector_push', VOID, (_in(CONTEXT), _in(AST_VECTOR), _in(AST)))
     */
-    void Z3_API Z3_ast_vector_push(__in Z3_context c, __in Z3_ast_vector v, __in Z3_ast a);        
+    void Z3_API Z3_ast_vector_push(Z3_in Z3_context c, Z3_in Z3_ast_vector v, Z3_in Z3_ast a);        
 
     /**
        \brief Translate the AST vector \c v from context \c s into an AST vector in context \c t.
 
        def_API('Z3_ast_vector_translate', AST_VECTOR, (_in(CONTEXT), _in(AST_VECTOR), _in(CONTEXT)))
     */
-    Z3_ast_vector Z3_API Z3_ast_vector_translate(__in Z3_context s, __in Z3_ast_vector v, __in Z3_context t);        
+    Z3_ast_vector Z3_API Z3_ast_vector_translate(Z3_in Z3_context s, Z3_in Z3_ast_vector v, Z3_in Z3_context t);        
 
     /**
        \brief Convert AST vector into a string.
     
        def_API('Z3_ast_vector_to_string', STRING, (_in(CONTEXT), _in(AST_VECTOR)))
     */
-    Z3_string Z3_API Z3_ast_vector_to_string(__in Z3_context c, __in Z3_ast_vector v);
+    Z3_string Z3_API Z3_ast_vector_to_string(Z3_in Z3_context c, Z3_in Z3_ast_vector v);
 
     /*@}*/
 
@@ -6419,7 +6419,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_ast_map', AST_MAP, (_in(CONTEXT),) )
     */
-    Z3_ast_map Z3_API Z3_mk_ast_map(__in Z3_context c);
+    Z3_ast_map Z3_API Z3_mk_ast_map(Z3_in Z3_context c);
 
 #ifdef Conly
     /**
@@ -6427,14 +6427,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_ast_map_inc_ref', VOID, (_in(CONTEXT), _in(AST_MAP)))
     */
-    void Z3_API Z3_ast_map_inc_ref(__in Z3_context c, __in Z3_ast_map m);
+    void Z3_API Z3_ast_map_inc_ref(Z3_in Z3_context c, Z3_in Z3_ast_map m);
     
     /**
        \brief Decrement the reference counter of the given AST map.
        
        def_API('Z3_ast_map_dec_ref', VOID, (_in(CONTEXT), _in(AST_MAP)))
     */
-    void Z3_API Z3_ast_map_dec_ref(__in Z3_context c, __in Z3_ast_map m);
+    void Z3_API Z3_ast_map_dec_ref(Z3_in Z3_context c, Z3_in Z3_ast_map m);
 #endif
     
     /**
@@ -6442,7 +6442,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_ast_map_contains', BOOL, (_in(CONTEXT), _in(AST_MAP), _in(AST)))
     */
-    Z3_bool Z3_API Z3_ast_map_contains(__in Z3_context c, __in Z3_ast_map m, __in Z3_ast k);
+    Z3_bool Z3_API Z3_ast_map_contains(Z3_in Z3_context c, Z3_in Z3_ast_map m, Z3_in Z3_ast k);
 
     /**
        \brief Return the value associated with the key \c k.
@@ -6451,49 +6451,49 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_ast_map_find', AST, (_in(CONTEXT), _in(AST_MAP), _in(AST)))
     */
-    Z3_ast Z3_API Z3_ast_map_find(__in Z3_context c, __in Z3_ast_map m, __in Z3_ast k);
+    Z3_ast Z3_API Z3_ast_map_find(Z3_in Z3_context c, Z3_in Z3_ast_map m, Z3_in Z3_ast k);
 
     /**
        \brief Store/Replace a new key, value pair in the given map.
 
        def_API('Z3_ast_map_insert', VOID, (_in(CONTEXT), _in(AST_MAP), _in(AST), _in(AST)))
     */
-    void Z3_API Z3_ast_map_insert(__in Z3_context c, __in Z3_ast_map m, __in Z3_ast k, __in Z3_ast v);
+    void Z3_API Z3_ast_map_insert(Z3_in Z3_context c, Z3_in Z3_ast_map m, Z3_in Z3_ast k, Z3_in Z3_ast v);
 
     /**
        \brief Erase a key from the map.
 
        def_API('Z3_ast_map_erase', VOID, (_in(CONTEXT), _in(AST_MAP), _in(AST)))
     */
-    void Z3_API Z3_ast_map_erase(__in Z3_context c, __in Z3_ast_map m, __in Z3_ast k);
+    void Z3_API Z3_ast_map_erase(Z3_in Z3_context c, Z3_in Z3_ast_map m, Z3_in Z3_ast k);
 
     /**
        \brief Remove all keys from the given map.
 
        def_API('Z3_ast_map_reset', VOID, (_in(CONTEXT), _in(AST_MAP)))
     */
-    void Z3_API Z3_ast_map_reset(__in Z3_context c, __in Z3_ast_map m);
+    void Z3_API Z3_ast_map_reset(Z3_in Z3_context c, Z3_in Z3_ast_map m);
     
     /**
        \brief Return the size of the given map.
 
        def_API('Z3_ast_map_size', UINT, (_in(CONTEXT), _in(AST_MAP)))
     */
-    unsigned Z3_API Z3_ast_map_size(__in Z3_context c, __in Z3_ast_map m);
+    unsigned Z3_API Z3_ast_map_size(Z3_in Z3_context c, Z3_in Z3_ast_map m);
 
     /**
        \brief Return the keys stored in the given map.
        
        def_API('Z3_ast_map_keys', AST_VECTOR, (_in(CONTEXT), _in(AST_MAP)))
     */
-    Z3_ast_vector Z3_API Z3_ast_map_keys(__in Z3_context c, __in Z3_ast_map m);
+    Z3_ast_vector Z3_API Z3_ast_map_keys(Z3_in Z3_context c, Z3_in Z3_ast_map m);
 
     /**
        \brief Convert the given map into a string.
 
        def_API('Z3_ast_map_to_string', STRING, (_in(CONTEXT), _in(AST_MAP)))
     */
-    Z3_string Z3_API Z3_ast_map_to_string(__in Z3_context c, __in Z3_ast_map m);
+    Z3_string Z3_API Z3_ast_map_to_string(Z3_in Z3_context c, Z3_in Z3_ast_map m);
 
     /*@}*/
     
@@ -6519,7 +6519,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_goal', GOAL, (_in(CONTEXT), _in(BOOL), _in(BOOL), _in(BOOL)))
     */
-    Z3_goal Z3_API Z3_mk_goal(__in Z3_context c, __in Z3_bool models, __in Z3_bool unsat_cores, __in Z3_bool proofs);
+    Z3_goal Z3_API Z3_mk_goal(Z3_in Z3_context c, Z3_in Z3_bool models, Z3_in Z3_bool unsat_cores, Z3_in Z3_bool proofs);
     
 #ifdef Conly
     /**
@@ -6527,14 +6527,14 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_goal_inc_ref', VOID, (_in(CONTEXT), _in(GOAL)))
     */
-    void Z3_API Z3_goal_inc_ref(__in Z3_context c, __in Z3_goal g);
+    void Z3_API Z3_goal_inc_ref(Z3_in Z3_context c, Z3_in Z3_goal g);
 
     /**
        \brief Decrement the reference counter of the given goal.
 
        def_API('Z3_goal_dec_ref', VOID, (_in(CONTEXT), _in(GOAL)))
     */
-    void Z3_API Z3_goal_dec_ref(__in Z3_context c, __in Z3_goal g);
+    void Z3_API Z3_goal_dec_ref(Z3_in Z3_context c, Z3_in Z3_goal g);
 #endif
 
     /**
@@ -6544,42 +6544,42 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_goal_precision', UINT, (_in(CONTEXT), _in(GOAL)))
     */
-    Z3_goal_prec Z3_API Z3_goal_precision(__in Z3_context c, __in Z3_goal g);
+    Z3_goal_prec Z3_API Z3_goal_precision(Z3_in Z3_context c, Z3_in Z3_goal g);
 
     /**
        \brief Add a new formula \c a to the given goal. 
        
        def_API('Z3_goal_assert', VOID, (_in(CONTEXT), _in(GOAL), _in(AST)))
     */
-    void Z3_API Z3_goal_assert(__in Z3_context c, __in Z3_goal g, __in Z3_ast a);
+    void Z3_API Z3_goal_assert(Z3_in Z3_context c, Z3_in Z3_goal g, Z3_in Z3_ast a);
     
     /**
        \brief Return true if the given goal contains the formula \c false.
 
        def_API('Z3_goal_inconsistent', BOOL, (_in(CONTEXT), _in(GOAL)))
     */
-    Z3_bool Z3_API Z3_goal_inconsistent(__in Z3_context c, __in Z3_goal g);
+    Z3_bool Z3_API Z3_goal_inconsistent(Z3_in Z3_context c, Z3_in Z3_goal g);
 
     /**
        \brief Return the depth of the given goal. It tracks how many transformations were applied to it.
 
        def_API('Z3_goal_depth', UINT, (_in(CONTEXT), _in(GOAL)))
     */
-    unsigned Z3_API Z3_goal_depth(__in Z3_context c, __in Z3_goal g);
+    unsigned Z3_API Z3_goal_depth(Z3_in Z3_context c, Z3_in Z3_goal g);
 
     /**
        \brief Erase all formulas from the given goal.
        
        def_API('Z3_goal_reset', VOID, (_in(CONTEXT), _in(GOAL)))
     */
-    void Z3_API Z3_goal_reset(__in Z3_context c, __in Z3_goal g);
+    void Z3_API Z3_goal_reset(Z3_in Z3_context c, Z3_in Z3_goal g);
 
     /**
        \brief Return the number of formulas in the given goal.
 
        def_API('Z3_goal_size', UINT, (_in(CONTEXT), _in(GOAL)))
     */
-    unsigned Z3_API Z3_goal_size(__in Z3_context c, __in Z3_goal g);
+    unsigned Z3_API Z3_goal_size(Z3_in Z3_context c, Z3_in Z3_goal g);
     
     /**
        \brief Return a formula from the given goal.
@@ -6588,42 +6588,42 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_goal_formula', AST, (_in(CONTEXT), _in(GOAL), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_goal_formula(__in Z3_context c, __in Z3_goal g, __in unsigned idx);
+    Z3_ast Z3_API Z3_goal_formula(Z3_in Z3_context c, Z3_in Z3_goal g, Z3_in unsigned idx);
     
     /**
        \brief Return the number of formulas, subformulas and terms in the given goal.
 
        def_API('Z3_goal_num_exprs', UINT, (_in(CONTEXT), _in(GOAL)))
     */
-    unsigned Z3_API Z3_goal_num_exprs(__in Z3_context c, __in Z3_goal g);
+    unsigned Z3_API Z3_goal_num_exprs(Z3_in Z3_context c, Z3_in Z3_goal g);
     
     /**
        \brief Return true if the goal is empty, and it is precise or the product of a under approximation.
 
        def_API('Z3_goal_is_decided_sat', BOOL, (_in(CONTEXT), _in(GOAL)))
     */
-    Z3_bool Z3_API Z3_goal_is_decided_sat(__in Z3_context c, __in Z3_goal g);
+    Z3_bool Z3_API Z3_goal_is_decided_sat(Z3_in Z3_context c, Z3_in Z3_goal g);
     
     /**
        \brief Return true if the goal contains false, and it is precise or the product of an over approximation.
 
        def_API('Z3_goal_is_decided_unsat', BOOL, (_in(CONTEXT), _in(GOAL)))
     */
-    Z3_bool Z3_API Z3_goal_is_decided_unsat(__in Z3_context c, __in Z3_goal g);
+    Z3_bool Z3_API Z3_goal_is_decided_unsat(Z3_in Z3_context c, Z3_in Z3_goal g);
 
     /**
        \brief Copy a goal \c g from the context \c source to a the context \c target.
 
        def_API('Z3_goal_translate', GOAL, (_in(CONTEXT), _in(GOAL), _in(CONTEXT)))
     */
-    Z3_goal Z3_API Z3_goal_translate(__in Z3_context source, __in Z3_goal g, __in Z3_context target);
+    Z3_goal Z3_API Z3_goal_translate(Z3_in Z3_context source, Z3_in Z3_goal g, Z3_in Z3_context target);
     
     /**
        \brief Convert a goal into a string.
 
        def_API('Z3_goal_to_string', STRING, (_in(CONTEXT), _in(GOAL)))
     */
-    Z3_string Z3_API Z3_goal_to_string(__in Z3_context c, __in Z3_goal g);
+    Z3_string Z3_API Z3_goal_to_string(Z3_in Z3_context c, Z3_in Z3_goal g);
 
     /*@}*/
 
@@ -6641,7 +6641,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_tactic', TACTIC, (_in(CONTEXT), _in(STRING)))
     */
-    Z3_tactic Z3_API Z3_mk_tactic(__in Z3_context c, __in Z3_string name);
+    Z3_tactic Z3_API Z3_mk_tactic(Z3_in Z3_context c, Z3_in Z3_string name);
 
 #ifdef Conly
     /**
@@ -6649,14 +6649,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_tactic_inc_ref', VOID, (_in(CONTEXT), _in(TACTIC)))
     */
-    void Z3_API Z3_tactic_inc_ref(__in Z3_context c, __in Z3_tactic t);
+    void Z3_API Z3_tactic_inc_ref(Z3_in Z3_context c, Z3_in Z3_tactic t);
 
     /**
        \brief Decrement the reference counter of the given tactic.
        
        def_API('Z3_tactic_dec_ref', VOID, (_in(CONTEXT), _in(TACTIC)))
     */
-    void Z3_API Z3_tactic_dec_ref(__in Z3_context c, __in Z3_tactic g);
+    void Z3_API Z3_tactic_dec_ref(Z3_in Z3_context c, Z3_in Z3_tactic g);
 #endif
     
     /**
@@ -6669,7 +6669,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_probe', PROBE, (_in(CONTEXT), _in(STRING)))
     */
-    Z3_probe Z3_API Z3_mk_probe(__in Z3_context c, __in Z3_string name);
+    Z3_probe Z3_API Z3_mk_probe(Z3_in Z3_context c, Z3_in Z3_string name);
 
 #ifdef Conly
     /**
@@ -6677,14 +6677,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_probe_inc_ref', VOID, (_in(CONTEXT), _in(PROBE)))
     */
-    void Z3_API Z3_probe_inc_ref(__in Z3_context c, __in Z3_probe p);
+    void Z3_API Z3_probe_inc_ref(Z3_in Z3_context c, Z3_in Z3_probe p);
 
     /**
        \brief Decrement the reference counter of the given probe.
 
        def_API('Z3_probe_dec_ref', VOID, (_in(CONTEXT), _in(PROBE)))
     */
-    void Z3_API Z3_probe_dec_ref(__in Z3_context c, __in Z3_probe p);
+    void Z3_API Z3_probe_dec_ref(Z3_in Z3_context c, Z3_in Z3_probe p);
 #endif
 
     /**
@@ -6693,7 +6693,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_tactic_and_then', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(TACTIC)))
     */
-    Z3_tactic Z3_API Z3_tactic_and_then(__in Z3_context c, __in Z3_tactic t1, __in Z3_tactic t2);
+    Z3_tactic Z3_API Z3_tactic_and_then(Z3_in Z3_context c, Z3_in Z3_tactic t1, Z3_in Z3_tactic t2);
 
     /**
        \brief Return a tactic that first applies \c t1 to a given goal,
@@ -6701,14 +6701,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_tactic_or_else', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(TACTIC)))
     */
-    Z3_tactic Z3_API Z3_tactic_or_else(__in Z3_context c, __in Z3_tactic t1, __in Z3_tactic t2);
+    Z3_tactic Z3_API Z3_tactic_or_else(Z3_in Z3_context c, Z3_in Z3_tactic t1, Z3_in Z3_tactic t2);
 
     /**
        \brief Return a tactic that applies the given tactics in parallel.
 
        def_API('Z3_tactic_par_or', TACTIC, (_in(CONTEXT), _in(UINT), _in_array(1, TACTIC)))
     */
-    Z3_tactic Z3_API Z3_tactic_par_or(__in Z3_context c, __in unsigned num, __in_ecount(num) Z3_tactic const ts[]);
+    Z3_tactic Z3_API Z3_tactic_par_or(Z3_in Z3_context c, Z3_in unsigned num, Z3_in_ecount(num) Z3_tactic const ts[]);
 
     /**
        \brief Return a tactic that applies \c t1 to a given goal and then \c t2
@@ -6716,7 +6716,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_tactic_par_and_then', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(TACTIC)))
     */
-    Z3_tactic Z3_API Z3_tactic_par_and_then(__in Z3_context c, __in Z3_tactic t1, __in Z3_tactic t2);
+    Z3_tactic Z3_API Z3_tactic_par_and_then(Z3_in Z3_context c, Z3_in Z3_tactic t1, Z3_in Z3_tactic t2);
     
     /**
        \brief Return a tactic that applies \c t to a given goal for \c ms milliseconds.
@@ -6724,7 +6724,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_tactic_try_for', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(UINT)))
      */
-    Z3_tactic Z3_API Z3_tactic_try_for(__in Z3_context c, __in Z3_tactic t, __in unsigned ms);
+    Z3_tactic Z3_API Z3_tactic_try_for(Z3_in Z3_context c, Z3_in Z3_tactic t, Z3_in unsigned ms);
 
     /**
        \brief Return a tactic that applies \c t to a given goal is the probe \c p evaluates to true.
@@ -6732,7 +6732,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_tactic_when', TACTIC, (_in(CONTEXT), _in(PROBE), _in(TACTIC)))
     */
-    Z3_tactic Z3_API Z3_tactic_when(__in Z3_context c, __in Z3_probe p, __in Z3_tactic t);
+    Z3_tactic Z3_API Z3_tactic_when(Z3_in Z3_context c, Z3_in Z3_probe p, Z3_in Z3_tactic t);
     
     /**
        \brief Return a tactic that applies \c t1 to a given goal if the probe \c p evaluates to true,
@@ -6740,7 +6740,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_tactic_cond', TACTIC, (_in(CONTEXT), _in(PROBE), _in(TACTIC), _in(TACTIC)))
      */
-    Z3_tactic Z3_API Z3_tactic_cond(__in Z3_context c, __in Z3_probe p, __in Z3_tactic t1, __in Z3_tactic t2);
+    Z3_tactic Z3_API Z3_tactic_cond(Z3_in Z3_context c, Z3_in Z3_probe p, Z3_in Z3_tactic t1, Z3_in Z3_tactic t2);
     
     /**
        \brief Return a tactic that keeps applying \c t until the goal is not modified anymore or the maximum
@@ -6748,28 +6748,28 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_tactic_repeat', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(UINT)))
     */
-    Z3_tactic Z3_API Z3_tactic_repeat(__in Z3_context c, __in Z3_tactic t, unsigned max);
+    Z3_tactic Z3_API Z3_tactic_repeat(Z3_in Z3_context c, Z3_in Z3_tactic t, unsigned max);
 
     /**
        \brief Return a tactic that just return the given goal.
 
        def_API('Z3_tactic_skip', TACTIC, (_in(CONTEXT),))
     */
-    Z3_tactic Z3_API Z3_tactic_skip(__in Z3_context c);
+    Z3_tactic Z3_API Z3_tactic_skip(Z3_in Z3_context c);
 
     /**
        \brief Return a tactic that always fails.
 
        def_API('Z3_tactic_fail', TACTIC, (_in(CONTEXT),))
     */
-    Z3_tactic Z3_API Z3_tactic_fail(__in Z3_context c);
+    Z3_tactic Z3_API Z3_tactic_fail(Z3_in Z3_context c);
 
     /**
        \brief Return a tactic that fails if the probe \c p evaluates to false.
 
        def_API('Z3_tactic_fail_if', TACTIC, (_in(CONTEXT), _in(PROBE)))
     */
-    Z3_tactic Z3_API Z3_tactic_fail_if(__in Z3_context c, __in Z3_probe p);
+    Z3_tactic Z3_API Z3_tactic_fail_if(Z3_in Z3_context c, Z3_in Z3_probe p);
 
     /**
        \brief Return a tactic that fails if the goal is not trivially satisfiable (i.e., empty) or
@@ -6777,21 +6777,21 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_tactic_fail_if_not_decided', TACTIC, (_in(CONTEXT),))
     */
-    Z3_tactic Z3_API Z3_tactic_fail_if_not_decided(__in Z3_context c);
+    Z3_tactic Z3_API Z3_tactic_fail_if_not_decided(Z3_in Z3_context c);
 
     /**
        \brief Return a tactic that applies \c t using the given set of parameters.
 
        def_API('Z3_tactic_using_params', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(PARAMS)))
     */
-    Z3_tactic Z3_API Z3_tactic_using_params(__in Z3_context c, __in Z3_tactic t, __in Z3_params p);
+    Z3_tactic Z3_API Z3_tactic_using_params(Z3_in Z3_context c, Z3_in Z3_tactic t, Z3_in Z3_params p);
 
     /**
        \brief Return a probe that always evaluates to val.
 
        def_API('Z3_probe_const', PROBE, (_in(CONTEXT), _in(DOUBLE)))
     */
-    Z3_probe Z3_API Z3_probe_const(__in Z3_context x, __in double val);
+    Z3_probe Z3_API Z3_probe_const(Z3_in Z3_context x, Z3_in double val);
 
     /**
        \brief Return a probe that evaluates to "true" when the value returned by \c p1 is less than the value returned by \c p2.
@@ -6800,7 +6800,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_probe_lt', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE)))
     */
-    Z3_probe Z3_API Z3_probe_lt(__in Z3_context x, __in Z3_probe p1, __in Z3_probe p2);
+    Z3_probe Z3_API Z3_probe_lt(Z3_in Z3_context x, Z3_in Z3_probe p1, Z3_in Z3_probe p2);
 
     /**
        \brief Return a probe that evaluates to "true" when the value returned by \c p1 is greater than the value returned by \c p2.
@@ -6809,7 +6809,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_probe_gt', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE)))
     */
-    Z3_probe Z3_API Z3_probe_gt(__in Z3_context x, __in Z3_probe p1, __in Z3_probe p2);
+    Z3_probe Z3_API Z3_probe_gt(Z3_in Z3_context x, Z3_in Z3_probe p1, Z3_in Z3_probe p2);
 
     /**
        \brief Return a probe that evaluates to "true" when the value returned by \c p1 is less than or equal to the value returned by \c p2.
@@ -6818,7 +6818,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_probe_le', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE)))
     */
-    Z3_probe Z3_API Z3_probe_le(__in Z3_context x, __in Z3_probe p1, __in Z3_probe p2);
+    Z3_probe Z3_API Z3_probe_le(Z3_in Z3_context x, Z3_in Z3_probe p1, Z3_in Z3_probe p2);
 
     /**
        \brief Return a probe that evaluates to "true" when the value returned by \c p1 is greater than or equal to the value returned by \c p2.
@@ -6827,7 +6827,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_probe_ge', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE))) 
     */
-    Z3_probe Z3_API Z3_probe_ge(__in Z3_context x, __in Z3_probe p1, __in Z3_probe p2);
+    Z3_probe Z3_API Z3_probe_ge(Z3_in Z3_context x, Z3_in Z3_probe p1, Z3_in Z3_probe p2);
 
     /**
        \brief Return a probe that evaluates to "true" when the value returned by \c p1 is equal to the value returned by \c p2.
@@ -6836,7 +6836,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_probe_eq', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE)))
     */
-    Z3_probe Z3_API Z3_probe_eq(__in Z3_context x, __in Z3_probe p1, __in Z3_probe p2);
+    Z3_probe Z3_API Z3_probe_eq(Z3_in Z3_context x, Z3_in Z3_probe p1, Z3_in Z3_probe p2);
 
     /**
        \brief Return a probe that evaluates to "true" when \c p1 and \c p2 evaluates to true.
@@ -6845,7 +6845,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_probe_and', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE)))
     */
-    Z3_probe Z3_API Z3_probe_and(__in Z3_context x, __in Z3_probe p1, __in Z3_probe p2);
+    Z3_probe Z3_API Z3_probe_and(Z3_in Z3_context x, Z3_in Z3_probe p1, Z3_in Z3_probe p2);
  
     /**
        \brief Return a probe that evaluates to "true" when \c p1 or \c p2 evaluates to true.
@@ -6854,7 +6854,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_probe_or', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE)))
     */
-    Z3_probe Z3_API Z3_probe_or(__in Z3_context x, __in Z3_probe p1, __in Z3_probe p2);
+    Z3_probe Z3_API Z3_probe_or(Z3_in Z3_context x, Z3_in Z3_probe p1, Z3_in Z3_probe p2);
 
     /**
        \brief Return a probe that evaluates to "true" when \c p does not evaluate to true.
@@ -6863,14 +6863,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_probe_not', PROBE, (_in(CONTEXT), _in(PROBE)))
     */
-    Z3_probe Z3_API Z3_probe_not(__in Z3_context x, __in Z3_probe p);
+    Z3_probe Z3_API Z3_probe_not(Z3_in Z3_context x, Z3_in Z3_probe p);
 
     /**
        \brief Return the number of builtin tactics available in Z3.
 
        def_API('Z3_get_num_tactics', UINT, (_in(CONTEXT),))
     */
-    unsigned Z3_API Z3_get_num_tactics(__in Z3_context c);
+    unsigned Z3_API Z3_get_num_tactics(Z3_in Z3_context c);
 
     /**
        \brief Return the name of the idx tactic.
@@ -6879,14 +6879,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_tactic_name', STRING, (_in(CONTEXT), _in(UINT)))
     */
-    Z3_string Z3_API Z3_get_tactic_name(__in Z3_context c, unsigned i);
+    Z3_string Z3_API Z3_get_tactic_name(Z3_in Z3_context c, unsigned i);
 
     /**
        \brief Return the number of builtin probes available in Z3.
 
        def_API('Z3_get_num_probes', UINT, (_in(CONTEXT),))
     */
-    unsigned Z3_API Z3_get_num_probes(__in Z3_context c);
+    unsigned Z3_API Z3_get_num_probes(Z3_in Z3_context c);
 
     /**
        \brief Return the name of the i probe.
@@ -6895,35 +6895,35 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_get_probe_name', STRING, (_in(CONTEXT), _in(UINT)))
     */
-    Z3_string Z3_API Z3_get_probe_name(__in Z3_context c, unsigned i);
+    Z3_string Z3_API Z3_get_probe_name(Z3_in Z3_context c, unsigned i);
 
     /**
        \brief Return a string containing a description of parameters accepted by the given tactic.
 
        def_API('Z3_tactic_get_help', STRING, (_in(CONTEXT), _in(TACTIC)))
     */
-    Z3_string Z3_API Z3_tactic_get_help(__in Z3_context c, __in Z3_tactic t);
+    Z3_string Z3_API Z3_tactic_get_help(Z3_in Z3_context c, Z3_in Z3_tactic t);
 
     /**
        \brief Return the parameter description set for the given tactic object.
 
        def_API('Z3_tactic_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT), _in(TACTIC)))
     */
-    Z3_param_descrs Z3_API Z3_tactic_get_param_descrs(__in Z3_context c, __in Z3_tactic t);
+    Z3_param_descrs Z3_API Z3_tactic_get_param_descrs(Z3_in Z3_context c, Z3_in Z3_tactic t);
 
     /**
        \brief Return a string containing a description of the tactic with the given name.
 
        def_API('Z3_tactic_get_descr', STRING, (_in(CONTEXT), _in(STRING)))
     */
-    Z3_string Z3_API Z3_tactic_get_descr(__in Z3_context c, __in Z3_string name);
+    Z3_string Z3_API Z3_tactic_get_descr(Z3_in Z3_context c, Z3_in Z3_string name);
     
     /**
        \brief Return a string containing a description of the probe with the given name.
 
        def_API('Z3_probe_get_descr', STRING, (_in(CONTEXT), _in(STRING)))
     */
-    Z3_string Z3_API Z3_probe_get_descr(__in Z3_context c, __in Z3_string name);
+    Z3_string Z3_API Z3_probe_get_descr(Z3_in Z3_context c, Z3_in Z3_string name);
 
     /**
        \brief Execute the probe over the goal. The probe always produce a double value.
@@ -6931,14 +6931,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_probe_apply', DOUBLE, (_in(CONTEXT), _in(PROBE), _in(GOAL)))
     */
-    double Z3_API Z3_probe_apply(__in Z3_context c, __in Z3_probe p, __in Z3_goal g);
+    double Z3_API Z3_probe_apply(Z3_in Z3_context c, Z3_in Z3_probe p, Z3_in Z3_goal g);
 
     /**
        \brief Apply tactic \c t to the goal \c g.
        
        def_API('Z3_tactic_apply', APPLY_RESULT, (_in(CONTEXT), _in(TACTIC), _in(GOAL)))
     */
-    Z3_apply_result Z3_API Z3_tactic_apply(__in Z3_context c, __in Z3_tactic t, __in Z3_goal g);
+    Z3_apply_result Z3_API Z3_tactic_apply(Z3_in Z3_context c, Z3_in Z3_tactic t, Z3_in Z3_goal g);
 
     /**
        \brief Apply tactic \c t to the goal \c g using the parameter set \c p.
@@ -6953,14 +6953,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_apply_result_inc_ref', VOID, (_in(CONTEXT), _in(APPLY_RESULT)))
     */
-    void Z3_API Z3_apply_result_inc_ref(__in Z3_context c, __in Z3_apply_result r);
+    void Z3_API Z3_apply_result_inc_ref(Z3_in Z3_context c, Z3_in Z3_apply_result r);
 
     /**
        \brief Decrement the reference counter of the given \c Z3_apply_result object.
 
        def_API('Z3_apply_result_dec_ref', VOID, (_in(CONTEXT), _in(APPLY_RESULT)))
     */
-    void Z3_API Z3_apply_result_dec_ref(__in Z3_context c, __in Z3_apply_result r);
+    void Z3_API Z3_apply_result_dec_ref(Z3_in Z3_context c, Z3_in Z3_apply_result r);
 #endif
     
     /**
@@ -6968,14 +6968,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_apply_result_to_string', STRING, (_in(CONTEXT), _in(APPLY_RESULT)))
     */
-    Z3_string Z3_API Z3_apply_result_to_string(__in Z3_context c, __in Z3_apply_result r);
+    Z3_string Z3_API Z3_apply_result_to_string(Z3_in Z3_context c, Z3_in Z3_apply_result r);
     
     /**
        \brief Return the number of subgoals in the \c Z3_apply_result object returned by #Z3_tactic_apply.
 
        def_API('Z3_apply_result_get_num_subgoals', UINT, (_in(CONTEXT), _in(APPLY_RESULT)))
     */
-    unsigned Z3_API Z3_apply_result_get_num_subgoals(__in Z3_context c, __in Z3_apply_result r);
+    unsigned Z3_API Z3_apply_result_get_num_subgoals(Z3_in Z3_context c, Z3_in Z3_apply_result r);
 
     /**
        \brief Return one of the subgoals in the \c Z3_apply_result object returned by #Z3_tactic_apply.
@@ -6984,7 +6984,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_apply_result_get_subgoal', GOAL, (_in(CONTEXT), _in(APPLY_RESULT), _in(UINT)))
     */ 
-    Z3_goal Z3_API Z3_apply_result_get_subgoal(__in Z3_context c, __in Z3_apply_result r, __in unsigned i);
+    Z3_goal Z3_API Z3_apply_result_get_subgoal(Z3_in Z3_context c, Z3_in Z3_apply_result r, Z3_in unsigned i);
     
     /**
        \brief Convert a model for the subgoal \c Z3_apply_result_get_subgoal(c, r, i) into a model for the original goal \c g.
@@ -6992,7 +6992,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_apply_result_convert_model', MODEL, (_in(CONTEXT), _in(APPLY_RESULT), _in(UINT), _in(MODEL)))
     */
-    Z3_model Z3_API Z3_apply_result_convert_model(__in Z3_context c, __in Z3_apply_result r, __in unsigned i, __in Z3_model m);
+    Z3_model Z3_API Z3_apply_result_convert_model(Z3_in Z3_context c, Z3_in Z3_apply_result r, Z3_in unsigned i, Z3_in Z3_model m);
 
     /*@}*/
 
@@ -7011,7 +7011,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_solver', SOLVER, (_in(CONTEXT),))
     */
-    Z3_solver Z3_API Z3_mk_solver(__in Z3_context c);
+    Z3_solver Z3_API Z3_mk_solver(Z3_in Z3_context c);
 
     /**
        \brief Create a new (incremental) solver.
@@ -7025,7 +7025,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_simple_solver', SOLVER, (_in(CONTEXT),))
     */
-    Z3_solver Z3_API Z3_mk_simple_solver(__in Z3_context c);
+    Z3_solver Z3_API Z3_mk_simple_solver(Z3_in Z3_context c);
 
     /**
        \brief Create a new solver customized for the given logic.
@@ -7036,7 +7036,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_solver_for_logic', SOLVER, (_in(CONTEXT), _in(SYMBOL)))
     */
-    Z3_solver Z3_API Z3_mk_solver_for_logic(__in Z3_context c, __in Z3_symbol logic);
+    Z3_solver Z3_API Z3_mk_solver_for_logic(Z3_in Z3_context c, Z3_in Z3_symbol logic);
 
     /**
        \brief Create a new solver that is implemented using the given tactic.
@@ -7045,28 +7045,28 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_solver_from_tactic', SOLVER, (_in(CONTEXT), _in(TACTIC)))
     */
-    Z3_solver Z3_API Z3_mk_solver_from_tactic(__in Z3_context c, __in Z3_tactic t);
+    Z3_solver Z3_API Z3_mk_solver_from_tactic(Z3_in Z3_context c, Z3_in Z3_tactic t);
 
     /**
        \brief Return a string describing all solver available parameters.
 
        def_API('Z3_solver_get_help', STRING, (_in(CONTEXT), _in(SOLVER)))
     */
-    Z3_string Z3_API Z3_solver_get_help(__in Z3_context c, __in Z3_solver s);
+    Z3_string Z3_API Z3_solver_get_help(Z3_in Z3_context c, Z3_in Z3_solver s);
 
     /**
        \brief Return the parameter description set for the given solver object.
 
        def_API('Z3_solver_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT), _in(SOLVER)))
     */
-    Z3_param_descrs Z3_API Z3_solver_get_param_descrs(__in Z3_context c, __in Z3_solver s);
+    Z3_param_descrs Z3_API Z3_solver_get_param_descrs(Z3_in Z3_context c, Z3_in Z3_solver s);
 
     /**
        \brief Set the given solver using the given parameters.
 
        def_API('Z3_solver_set_params', VOID, (_in(CONTEXT), _in(SOLVER), _in(PARAMS)))
     */
-    void Z3_API Z3_solver_set_params(__in Z3_context c, __in Z3_solver s, __in Z3_params p);
+    void Z3_API Z3_solver_set_params(Z3_in Z3_context c, Z3_in Z3_solver s, Z3_in Z3_params p);
     
 #ifdef Conly
     /**
@@ -7074,14 +7074,14 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_solver_inc_ref', VOID, (_in(CONTEXT), _in(SOLVER)))
     */
-    void Z3_API Z3_solver_inc_ref(__in Z3_context c, __in Z3_solver s);
+    void Z3_API Z3_solver_inc_ref(Z3_in Z3_context c, Z3_in Z3_solver s);
 
     /**
        \brief Decrement the reference counter of the given solver.
 
        def_API('Z3_solver_dec_ref', VOID, (_in(CONTEXT), _in(SOLVER)))
     */
-    void Z3_API Z3_solver_dec_ref(__in Z3_context c, __in Z3_solver s);
+    void Z3_API Z3_solver_dec_ref(Z3_in Z3_context c, Z3_in Z3_solver s);
 #endif
     
     /**
@@ -7093,7 +7093,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_solver_push', VOID, (_in(CONTEXT), _in(SOLVER)))
     */
-    void Z3_API Z3_solver_push(__in Z3_context c, __in Z3_solver s);
+    void Z3_API Z3_solver_push(Z3_in Z3_context c, Z3_in Z3_solver s);
 
     /**
        \brief Backtrack \c n backtracking points.
@@ -7104,14 +7104,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_solver_pop', VOID, (_in(CONTEXT), _in(SOLVER), _in(UINT)))
     */
-    void Z3_API Z3_solver_pop(__in Z3_context c, __in Z3_solver s, unsigned n);
+    void Z3_API Z3_solver_pop(Z3_in Z3_context c, Z3_in Z3_solver s, unsigned n);
 
     /**
        \brief Remove all assertions from the solver.
 
        def_API('Z3_solver_reset', VOID, (_in(CONTEXT), _in(SOLVER)))
     */
-    void Z3_API Z3_solver_reset(__in Z3_context c, __in Z3_solver s);
+    void Z3_API Z3_solver_reset(Z3_in Z3_context c, Z3_in Z3_solver s);
     
     /**
        \brief Return the number of backtracking points.
@@ -7121,7 +7121,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_solver_get_num_scopes', UINT, (_in(CONTEXT), _in(SOLVER)))
     */
-    unsigned Z3_API Z3_solver_get_num_scopes(__in Z3_context c, __in Z3_solver s);
+    unsigned Z3_API Z3_solver_get_num_scopes(Z3_in Z3_context c, Z3_in Z3_solver s);
     
     /**
        \brief Assert a constraint into the solver.
@@ -7131,7 +7131,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_solver_assert', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST)))
     */
-    void Z3_API Z3_solver_assert(__in Z3_context c, __in Z3_solver s, __in Z3_ast a);
+    void Z3_API Z3_solver_assert(Z3_in Z3_context c, Z3_in Z3_solver s, Z3_in Z3_ast a);
 
     /**
        \brief Assert a constraint \c a into the solver, and track it (in the unsat) core using
@@ -7147,14 +7147,14 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_solver_assert_and_track', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST), _in(AST)))
     */
-    void Z3_API Z3_solver_assert_and_track(__in Z3_context c, __in Z3_solver s, __in Z3_ast a, __in Z3_ast p);
+    void Z3_API Z3_solver_assert_and_track(Z3_in Z3_context c, Z3_in Z3_solver s, Z3_in Z3_ast a, Z3_in Z3_ast p);
     
     /**
        \brief Return the set of asserted formulas as a goal object.
     
        def_API('Z3_solver_get_assertions', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))       
     */
-    Z3_ast_vector Z3_API Z3_solver_get_assertions(__in Z3_context c, __in Z3_solver s);
+    Z3_ast_vector Z3_API Z3_solver_get_assertions(Z3_in Z3_context c, Z3_in Z3_solver s);
     
     /**
        \brief Check whether the assertions in a given solver are consistent or not.
@@ -7172,7 +7172,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_solver_check', INT, (_in(CONTEXT), _in(SOLVER)))
     */
-    Z3_lbool Z3_API Z3_solver_check(__in Z3_context c, __in Z3_solver s);
+    Z3_lbool Z3_API Z3_solver_check(Z3_in Z3_context c, Z3_in Z3_solver s);
 
     /**
        \brief Check whether the assertions in the given solver and
@@ -7185,8 +7185,8 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_solver_check_assumptions', INT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST)))
     */
-    Z3_lbool Z3_API Z3_solver_check_assumptions(__in Z3_context c, __in Z3_solver s, 
-                                                __in unsigned num_assumptions, __in_ecount(num_assumptions) Z3_ast const assumptions[]);
+    Z3_lbool Z3_API Z3_solver_check_assumptions(Z3_in Z3_context c, Z3_in Z3_solver s, 
+                                                Z3_in unsigned num_assumptions, Z3_in_ecount(num_assumptions) Z3_ast const assumptions[]);
 
     /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions
@@ -7196,7 +7196,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_solver_get_model', MODEL, (_in(CONTEXT), _in(SOLVER)))
     */
-    Z3_model Z3_API Z3_solver_get_model(__in Z3_context c, __in Z3_solver s);
+    Z3_model Z3_API Z3_solver_get_model(Z3_in Z3_context c, Z3_in Z3_solver s);
 
     /**
        \brief Retrieve the proof for the last #Z3_solver_check or #Z3_solver_check_assumptions
@@ -7207,7 +7207,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_solver_get_proof', AST, (_in(CONTEXT), _in(SOLVER)))
     */
-    Z3_ast Z3_API Z3_solver_get_proof(__in Z3_context c, __in Z3_solver s);
+    Z3_ast Z3_API Z3_solver_get_proof(Z3_in Z3_context c, Z3_in Z3_solver s);
 
     /**
        \brief Retrieve the unsat core for the last #Z3_solver_check_assumptions
@@ -7215,7 +7215,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_solver_get_unsat_core', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
     */
-    Z3_ast_vector Z3_API Z3_solver_get_unsat_core(__in Z3_context c, __in Z3_solver s);
+    Z3_ast_vector Z3_API Z3_solver_get_unsat_core(Z3_in Z3_context c, Z3_in Z3_solver s);
     
     /**
        \brief Return a brief justification for an "unknown" result (i.e., Z3_L_UNDEF) for
@@ -7223,7 +7223,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_solver_get_reason_unknown', STRING, (_in(CONTEXT), _in(SOLVER)))
     */
-    Z3_string Z3_API Z3_solver_get_reason_unknown(__in Z3_context c, __in Z3_solver s);
+    Z3_string Z3_API Z3_solver_get_reason_unknown(Z3_in Z3_context c, Z3_in Z3_solver s);
     
     /**
        \brief Return statistics for the given solver.
@@ -7232,14 +7232,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_solver_get_statistics', STATS, (_in(CONTEXT), _in(SOLVER)))
     */
-    Z3_stats Z3_API Z3_solver_get_statistics(__in Z3_context c, __in Z3_solver s);
+    Z3_stats Z3_API Z3_solver_get_statistics(Z3_in Z3_context c, Z3_in Z3_solver s);
     
     /**
        \brief Convert a solver into a string.
 
        def_API('Z3_solver_to_string', STRING, (_in(CONTEXT), _in(SOLVER)))
     */
-    Z3_string Z3_API Z3_solver_to_string(__in Z3_context c, __in Z3_solver s);
+    Z3_string Z3_API Z3_solver_to_string(Z3_in Z3_context c, Z3_in Z3_solver s);
 
     /*@}*/
 
@@ -7256,7 +7256,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_stats_to_string', STRING, (_in(CONTEXT), _in(STATS)))
     */
-    Z3_string Z3_API Z3_stats_to_string(__in Z3_context c, __in Z3_stats s);
+    Z3_string Z3_API Z3_stats_to_string(Z3_in Z3_context c, Z3_in Z3_stats s);
     
     /**
        \mlonly {4 {L Low-level API}} \endmlonly
@@ -7268,14 +7268,14 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_stats_inc_ref', VOID, (_in(CONTEXT), _in(STATS)))
     */
-    void Z3_API Z3_stats_inc_ref(__in Z3_context c, __in Z3_stats s);
+    void Z3_API Z3_stats_inc_ref(Z3_in Z3_context c, Z3_in Z3_stats s);
 
     /**
        \brief Decrement the reference counter of the given statistics object.
 
        def_API('Z3_stats_dec_ref', VOID, (_in(CONTEXT), _in(STATS)))
     */
-    void Z3_API Z3_stats_dec_ref(__in Z3_context c, __in Z3_stats s);
+    void Z3_API Z3_stats_dec_ref(Z3_in Z3_context c, Z3_in Z3_stats s);
 #endif
     
     /**
@@ -7283,7 +7283,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_stats_size', UINT, (_in(CONTEXT), _in(STATS)))
     */
-    unsigned Z3_API Z3_stats_size(__in Z3_context c, __in Z3_stats s);
+    unsigned Z3_API Z3_stats_size(Z3_in Z3_context c, Z3_in Z3_stats s);
 
     /**
        \brief Return the key (a string) for a particular statistical data.
@@ -7292,7 +7292,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_stats_get_key', STRING, (_in(CONTEXT), _in(STATS), _in(UINT)))
     */
-    Z3_string Z3_API Z3_stats_get_key(__in Z3_context c, __in Z3_stats s, __in unsigned idx);
+    Z3_string Z3_API Z3_stats_get_key(Z3_in Z3_context c, Z3_in Z3_stats s, Z3_in unsigned idx);
 
     /**
        \brief Return Z3_TRUE if the given statistical data is a unsigned integer.
@@ -7301,7 +7301,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_stats_is_uint', BOOL, (_in(CONTEXT), _in(STATS), _in(UINT)))
     */
-    Z3_bool Z3_API Z3_stats_is_uint(__in Z3_context c, __in Z3_stats s, __in unsigned idx);
+    Z3_bool Z3_API Z3_stats_is_uint(Z3_in Z3_context c, Z3_in Z3_stats s, Z3_in unsigned idx);
 
     /**
        \brief Return Z3_TRUE if the given statistical data is a double.
@@ -7310,7 +7310,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_stats_is_double', BOOL, (_in(CONTEXT), _in(STATS), _in(UINT)))
     */
-    Z3_bool Z3_API Z3_stats_is_double(__in Z3_context c, __in Z3_stats s, __in unsigned idx);
+    Z3_bool Z3_API Z3_stats_is_double(Z3_in Z3_context c, Z3_in Z3_stats s, Z3_in unsigned idx);
     
     /**
        \brief Return the unsigned value of the given statistical data.
@@ -7319,7 +7319,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_stats_get_uint_value', UINT, (_in(CONTEXT), _in(STATS), _in(UINT)))
     */
-    unsigned Z3_API Z3_stats_get_uint_value(__in Z3_context c, __in Z3_stats s, __in unsigned idx);
+    unsigned Z3_API Z3_stats_get_uint_value(Z3_in Z3_context c, Z3_in Z3_stats s, Z3_in unsigned idx);
 
     /**
        \brief Return the double value of the given statistical data.
@@ -7328,7 +7328,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_stats_get_double_value', DOUBLE, (_in(CONTEXT), _in(STATS), _in(UINT)))
     */
-    double Z3_API Z3_stats_get_double_value(__in Z3_context c, __in Z3_stats s, __in unsigned idx);
+    double Z3_API Z3_stats_get_double_value(Z3_in Z3_context c, Z3_in Z3_stats s, Z3_in unsigned idx);
     
     /*@}*/
 #endif
@@ -7351,10 +7351,10 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_injective_function', FUNC_DECL, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SORT), _in(SORT)))
     */
     Z3_func_decl Z3_API Z3_mk_injective_function(
-        __in Z3_context c, 
-        __in Z3_symbol s, 
-        unsigned domain_size, __in_ecount(domain_size) Z3_sort const domain[],
-        __in Z3_sort range
+        Z3_in Z3_context c, 
+        Z3_in Z3_symbol s, 
+        unsigned domain_size, Z3_in_ecount(domain_size) Z3_sort const domain[],
+        Z3_in Z3_sort range
         );
 
     /*@}*/
@@ -7377,7 +7377,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_set_logic', VOID, (_in(CONTEXT), _in(STRING)))
     */
-    Z3_bool Z3_API Z3_set_logic(__in Z3_context c, __in Z3_string logic);
+    Z3_bool Z3_API Z3_set_logic(Z3_in Z3_context c, Z3_in Z3_string logic);
     
     /**
         \brief Create a backtracking point.
@@ -7392,7 +7392,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_push', VOID, (_in(CONTEXT),))
     */
-    void Z3_API Z3_push(__in Z3_context c);
+    void Z3_API Z3_push(Z3_in Z3_context c);
     
     /**
        \brief Backtrack.
@@ -7409,7 +7409,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_pop', VOID, (_in(CONTEXT), _in(UINT)))
     */
-    void Z3_API Z3_pop(__in Z3_context c, __in unsigned num_scopes);
+    void Z3_API Z3_pop(Z3_in Z3_context c, Z3_in unsigned num_scopes);
 
     /**
        \brief Retrieve the current scope level.
@@ -7423,7 +7423,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_num_scopes', UINT, (_in(CONTEXT),))
     */
-    unsigned Z3_API Z3_get_num_scopes(__in Z3_context c);
+    unsigned Z3_API Z3_get_num_scopes(Z3_in Z3_context c);
     
     /**
        \conly \brief Persist AST through num_scopes pops.
@@ -7446,7 +7446,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_persist_ast', VOID, (_in(CONTEXT), _in(AST), _in(UINT)))
     */
-    void Z3_API Z3_persist_ast(__in Z3_context c, __in Z3_ast a, __in unsigned num_scopes);
+    void Z3_API Z3_persist_ast(Z3_in Z3_context c, Z3_in Z3_ast a, Z3_in unsigned num_scopes);
 
     /**
        \brief Assert a constraint into the logical context.
@@ -7464,7 +7464,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_assert_cnstr', VOID, (_in(CONTEXT), _in(AST)))
     */
-    void Z3_API Z3_assert_cnstr(__in Z3_context c, __in Z3_ast a);
+    void Z3_API Z3_assert_cnstr(Z3_in Z3_context c, Z3_in Z3_ast a);
     
     /**
        \brief Check whether the given logical context is consistent or not.
@@ -7489,7 +7489,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_check_and_get_model', INT, (_in(CONTEXT), _out(MODEL)))
     */
-    Z3_lbool Z3_API Z3_check_and_get_model(__in Z3_context c, __out Z3_model * m);
+    Z3_lbool Z3_API Z3_check_and_get_model(Z3_in Z3_context c, Z3_out Z3_model * m);
     
     /**
        \brief Check whether the given logical context is consistent or not.
@@ -7502,7 +7502,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_check', INT, (_in(CONTEXT),))
     */
-    Z3_lbool Z3_API Z3_check(__in Z3_context c);
+    Z3_lbool Z3_API Z3_check(Z3_in Z3_context c);
 
     /**
        \brief Check whether the given logical context and optional assumptions is consistent or not.
@@ -7543,10 +7543,10 @@ END_MLAPI_EXCLUDE
        def_API('Z3_check_assumptions', INT, (_in(CONTEXT), _in(UINT), _in_array(1, AST), _out(MODEL), _out(AST), _out(UINT), _out_array2(1, 5, AST)))
     */
     Z3_lbool Z3_API Z3_check_assumptions(
-        __in Z3_context c, 
-        __in unsigned num_assumptions, __in_ecount(num_assumptions) Z3_ast const assumptions[], 
-        __out Z3_model * m, __out Z3_ast* proof, 
-        __inout unsigned* core_size, __inout_ecount(num_assumptions) Z3_ast core[]
+        Z3_in Z3_context c, 
+        Z3_in unsigned num_assumptions, Z3_in_ecount(num_assumptions) Z3_ast const assumptions[], 
+        Z3_out Z3_model * m, Z3_out Z3_ast* proof, 
+        Z3_inout unsigned* core_size, Z3_inout_ecount(num_assumptions) Z3_ast core[]
         );
 #endif
 
@@ -7575,11 +7575,11 @@ END_MLAPI_EXCLUDE
        def_API('Z3_get_implied_equalities', UINT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
     */
     Z3_lbool Z3_API Z3_get_implied_equalities(
-        __in Z3_context c, 
-        __in Z3_solver  s, 
-        __in unsigned num_terms,
-        __in_ecount(num_terms) Z3_ast const terms[],
-        __out_ecount(num_terms) unsigned class_ids[]
+        Z3_in Z3_context c, 
+        Z3_in Z3_solver  s, 
+        Z3_in unsigned num_terms,
+        Z3_in_ecount(num_terms) Z3_ast const terms[],
+        Z3_out_ecount(num_terms) unsigned class_ids[]
         );
 #endif
 
@@ -7598,7 +7598,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_del_model', VOID, (_in(CONTEXT), _in(MODEL)))
     */
-    void Z3_API Z3_del_model(__in Z3_context c, __in Z3_model m);
+    void Z3_API Z3_del_model(Z3_in Z3_context c, Z3_in Z3_model m);
 
     /*@}*/
 
@@ -7618,7 +7618,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_soft_check_cancel', VOID, (_in(CONTEXT), ))
     */
-    void Z3_API Z3_soft_check_cancel(__in Z3_context c);
+    void Z3_API Z3_soft_check_cancel(Z3_in Z3_context c);
 
     /**
        \brief Retrieve reason for search failure.
@@ -7630,7 +7630,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_search_failure', UINT, (_in(CONTEXT), ))
     */
-    Z3_search_failure Z3_API Z3_get_search_failure(__in Z3_context c);
+    Z3_search_failure Z3_API Z3_get_search_failure(Z3_in Z3_context c);
 
     /*@}*/
 
@@ -7657,7 +7657,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_mk_label', AST, (_in(CONTEXT), _in(SYMBOL), _in(BOOL), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_label(__in Z3_context c, __in Z3_symbol s, Z3_bool is_pos, Z3_ast f);
+    Z3_ast Z3_API Z3_mk_label(Z3_in Z3_context c, Z3_in Z3_symbol s, Z3_bool is_pos, Z3_ast f);
 
     /**
         \brief Retrieve the set of labels that were relevant in
@@ -7672,7 +7672,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_get_relevant_labels', LITERALS, (_in(CONTEXT), ))
     */
-    Z3_literals Z3_API Z3_get_relevant_labels(__in Z3_context c);
+    Z3_literals Z3_API Z3_get_relevant_labels(Z3_in Z3_context c);
 
     /**
         \brief Retrieve the set of literals that satisfy the current context.
@@ -7686,7 +7686,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_get_relevant_literals', LITERALS, (_in(CONTEXT), ))
     */
-    Z3_literals Z3_API Z3_get_relevant_literals(__in Z3_context c);
+    Z3_literals Z3_API Z3_get_relevant_literals(Z3_in Z3_context c);
 
     /**
         \brief Retrieve the set of literals that whose assignment were 
@@ -7701,7 +7701,7 @@ END_MLAPI_EXCLUDE
         
         def_API('Z3_get_guessed_literals', LITERALS, (_in(CONTEXT), ))
     */
-    Z3_literals Z3_API Z3_get_guessed_literals(__in Z3_context c);
+    Z3_literals Z3_API Z3_get_guessed_literals(Z3_in Z3_context c);
 
     /**
        \brief Delete a labels context.
@@ -7712,7 +7712,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_del_literals', VOID, (_in(CONTEXT), _in(LITERALS)))
     */
-    void Z3_API Z3_del_literals(__in Z3_context c, __in Z3_literals lbls);
+    void Z3_API Z3_del_literals(Z3_in Z3_context c, Z3_in Z3_literals lbls);
 
     /**
        \brief Retrieve the number of label symbols that were returned.
@@ -7723,7 +7723,7 @@ END_MLAPI_EXCLUDE
 
         def_API('Z3_get_num_literals', UINT, (_in(CONTEXT), _in(LITERALS)))
     */
-    unsigned Z3_API Z3_get_num_literals(__in Z3_context c, __in Z3_literals lbls);
+    unsigned Z3_API Z3_get_num_literals(Z3_in Z3_context c, Z3_in Z3_literals lbls);
 
     /**
        \brief Retrieve label symbol at idx.
@@ -7732,7 +7732,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_label_symbol', SYMBOL, (_in(CONTEXT), _in(LITERALS), _in(UINT)))
     */
-    Z3_symbol Z3_API Z3_get_label_symbol(__in Z3_context c, __in Z3_literals lbls, __in unsigned idx);
+    Z3_symbol Z3_API Z3_get_label_symbol(Z3_in Z3_context c, Z3_in Z3_literals lbls, Z3_in unsigned idx);
 
     /**
        \brief Retrieve literal expression at idx.
@@ -7741,7 +7741,7 @@ END_MLAPI_EXCLUDE
        
        def_API('Z3_get_literal', AST, (_in(CONTEXT), _in(LITERALS), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_literal(__in Z3_context c, __in Z3_literals lbls, __in unsigned idx);
+    Z3_ast Z3_API Z3_get_literal(Z3_in Z3_context c, Z3_in Z3_literals lbls, Z3_in unsigned idx);
 
     /**
        \brief Disable label.
@@ -7754,7 +7754,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_disable_literal', VOID, (_in(CONTEXT), _in(LITERALS), _in(UINT)))
     */
-    void Z3_API Z3_disable_literal(__in Z3_context c, __in Z3_literals lbls, __in unsigned idx);
+    void Z3_API Z3_disable_literal(Z3_in Z3_context c, Z3_in Z3_literals lbls, Z3_in unsigned idx);
 
     /**
        \brief Block subsequent checks using the remaining enabled labels.
@@ -7763,7 +7763,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_block_literals', VOID, (_in(CONTEXT), _in(LITERALS)))
     */
-    void Z3_API Z3_block_literals(__in Z3_context c, __in Z3_literals lbls);
+    void Z3_API Z3_block_literals(Z3_in Z3_context c, Z3_in Z3_literals lbls);
 
     /*@}*/
 
@@ -7783,7 +7783,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_model_num_constants', UINT, (_in(CONTEXT), _in(MODEL)))
     */
-    unsigned Z3_API Z3_get_model_num_constants(__in Z3_context c, __in Z3_model m);
+    unsigned Z3_API Z3_get_model_num_constants(Z3_in Z3_context c, Z3_in Z3_model m);
 
     /**
        \brief \mlh get_model_constant c m i \endmlh
@@ -7797,7 +7797,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_model_constant', FUNC_DECL, (_in(CONTEXT), _in(MODEL), _in(UINT)))
     */
-    Z3_func_decl Z3_API Z3_get_model_constant(__in Z3_context c, __in Z3_model m, __in unsigned i);
+    Z3_func_decl Z3_API Z3_get_model_constant(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in unsigned i);
     
     /**
        \brief Return the number of function interpretations in the given model.
@@ -7809,7 +7809,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_model_num_funcs', UINT, (_in(CONTEXT), _in(MODEL)))
     */
-    unsigned Z3_API Z3_get_model_num_funcs(__in Z3_context c, __in Z3_model m);
+    unsigned Z3_API Z3_get_model_num_funcs(Z3_in Z3_context c, Z3_in Z3_model m);
     
     /**
        \brief \mlh get_model_func_decl c m i \endmlh
@@ -7823,7 +7823,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_model_func_decl', FUNC_DECL, (_in(CONTEXT), _in(MODEL), _in(UINT)))
     */
-    Z3_func_decl Z3_API Z3_get_model_func_decl(__in Z3_context c, __in Z3_model m, __in unsigned i);
+    Z3_func_decl Z3_API Z3_get_model_func_decl(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in unsigned i);
 
     /**
        \brief Return the value of the given constant or function 
@@ -7833,7 +7833,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_eval_func_decl', BOOL, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL), _out(AST)))
     */
-    Z3_bool Z3_API Z3_eval_func_decl(__in Z3_context c, __in Z3_model m, __in Z3_func_decl decl, __out Z3_ast* v);
+    Z3_bool Z3_API Z3_eval_func_decl(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in Z3_func_decl decl, Z3_out Z3_ast* v);
 
     /**
        \brief \mlh is_array_value c v \endmlh
@@ -7850,7 +7850,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_is_array_value', BOOL, (_in(CONTEXT), _in(MODEL), _in(AST), _out(UINT)))
     */
-    Z3_bool Z3_API Z3_is_array_value(__in Z3_context c, __in Z3_model m, __in Z3_ast v, __out unsigned* num_entries);
+    Z3_bool Z3_API Z3_is_array_value(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in Z3_ast v, Z3_out unsigned* num_entries);
 
     /**
        \brief \mlh get_array_value c v \endmlh
@@ -7863,13 +7863,13 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_array_value', VOID, (_in(CONTEXT), _in(MODEL), _in(AST), _in(UINT), _out_array(3, AST), _out_array(3, AST), _out (AST)))
     */
-    void Z3_API Z3_get_array_value(__in Z3_context c, 
-                                   __in Z3_model m,
-                                   __in Z3_ast v,
-                                   __in unsigned num_entries,
-                                   __inout_ecount(num_entries) Z3_ast indices[],
-                                   __inout_ecount(num_entries) Z3_ast values[],
-                                   __out Z3_ast* else_value
+    void Z3_API Z3_get_array_value(Z3_in Z3_context c, 
+                                   Z3_in Z3_model m,
+                                   Z3_in Z3_ast v,
+                                   Z3_in unsigned num_entries,
+                                   Z3_inout_ecount(num_entries) Z3_ast indices[],
+                                   Z3_inout_ecount(num_entries) Z3_ast values[],
+                                   Z3_out Z3_ast* else_value
                                    );
 
     /**
@@ -7891,7 +7891,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_model_func_else', AST, (_in(CONTEXT), _in(MODEL), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_model_func_else(__in Z3_context c, __in Z3_model m, __in unsigned i);
+    Z3_ast Z3_API Z3_get_model_func_else(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in unsigned i);
 
     /**
        \brief \mlh get_model_func_num_entries c m i \endmlh
@@ -7912,7 +7912,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_model_func_num_entries', UINT, (_in(CONTEXT), _in(MODEL), _in(UINT)))
     */
-    unsigned Z3_API Z3_get_model_func_num_entries(__in Z3_context c, __in Z3_model m, __in unsigned i);
+    unsigned Z3_API Z3_get_model_func_num_entries(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in unsigned i);
     
     /**
        \brief \mlh get_model_func_entry_num_args c m i j \endmlh
@@ -7938,10 +7938,10 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_model_func_entry_num_args', UINT, (_in(CONTEXT), _in(MODEL), _in(UINT), _in(UINT)))
     */
-    unsigned Z3_API Z3_get_model_func_entry_num_args(__in Z3_context c,
-                                                     __in Z3_model m,
-                                                     __in unsigned i,
-                                                     __in unsigned j);
+    unsigned Z3_API Z3_get_model_func_entry_num_args(Z3_in Z3_context c,
+                                                     Z3_in Z3_model m,
+                                                     Z3_in unsigned i,
+                                                     Z3_in unsigned j);
     
     /**
        \brief \mlh get_model_func_entry_arg c m i j k \endmlh
@@ -7968,11 +7968,11 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_model_func_entry_arg', AST, (_in(CONTEXT), _in(MODEL), _in(UINT), _in(UINT), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_model_func_entry_arg(__in Z3_context c,
-                                                __in Z3_model m,
-                                                __in unsigned i,
-                                                __in unsigned j,
-                                                __in unsigned k);
+    Z3_ast Z3_API Z3_get_model_func_entry_arg(Z3_in Z3_context c,
+                                                Z3_in Z3_model m,
+                                                Z3_in unsigned i,
+                                                Z3_in unsigned j,
+                                                Z3_in unsigned k);
     
     /**
        \brief \mlh get_model_func_entry_value c m i j \endmlh
@@ -7997,10 +7997,10 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_model_func_entry_value', AST, (_in(CONTEXT), _in(MODEL), _in(UINT), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_get_model_func_entry_value(__in Z3_context c,
-                                                  __in Z3_model m,
-                                                  __in unsigned i,
-                                                  __in unsigned j);
+    Z3_ast Z3_API Z3_get_model_func_entry_value(Z3_in Z3_context c,
+                                                  Z3_in Z3_model m,
+                                                  Z3_in unsigned i,
+                                                  Z3_in unsigned j);
     
     /**
        \brief \mlh eval c m t \endmlh
@@ -8021,7 +8021,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_eval', BOOL, (_in(CONTEXT), _in(MODEL), _in(AST), _out(AST)))
     */
-    Z3_bool Z3_API Z3_eval(__in Z3_context c, __in Z3_model m, __in Z3_ast t, __out Z3_ast * v);
+    Z3_bool Z3_API Z3_eval(Z3_in Z3_context c, Z3_in Z3_model m, Z3_in Z3_ast t, Z3_out Z3_ast * v);
 
     /**
        \brief Evaluate declaration given values.
@@ -8033,11 +8033,11 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_eval_decl', BOOL, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL), _in(UINT), _in_array(3, AST), _out(AST)))
     */
-    Z3_bool Z3_API Z3_eval_decl(__in Z3_context c, __in Z3_model m, 
-                                __in Z3_func_decl d, 
-                                __in unsigned num_args,
-                                __in_ecount(num_args) Z3_ast const args[],
-                                __out Z3_ast* v);
+    Z3_bool Z3_API Z3_eval_decl(Z3_in Z3_context c, Z3_in Z3_model m, 
+                                Z3_in Z3_func_decl d, 
+                                Z3_in unsigned num_args,
+                                Z3_in_ecount(num_args) Z3_ast const args[],
+                                Z3_out Z3_ast* v);
 
     /*@}*/
 
@@ -8061,7 +8061,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_context_to_string', STRING, (_in(CONTEXT),))
     */
-    Z3_string Z3_API Z3_context_to_string(__in Z3_context c);
+    Z3_string Z3_API Z3_context_to_string(Z3_in Z3_context c);
 
     /**
        \brief Return runtime statistics as a string.
@@ -8078,7 +8078,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_statistics_to_string', STRING, (_in(CONTEXT),))
     */
-    Z3_string Z3_API Z3_statistics_to_string(__in Z3_context c);
+    Z3_string Z3_API Z3_statistics_to_string(Z3_in Z3_context c);
 
     /**
        \brief Extract satisfying assignment from context as a conjunction.
@@ -8093,7 +8093,7 @@ END_MLAPI_EXCLUDE
     
        def_API('Z3_get_context_assignment', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_get_context_assignment(__in Z3_context c);
+    Z3_ast Z3_API Z3_get_context_assignment(Z3_in Z3_context c);
 
     /*@}*/
 #endif

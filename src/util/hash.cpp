@@ -52,38 +52,38 @@ unsigned string_hash(const char * str, unsigned length, unsigned init_value) {
     switch(len) {        /* all the case statements fall through */
     case 11: 
         c+=((unsigned)str[10]<<24);
-        __fallthrough;
+        Z3_fallthrough;
     case 10: 
         c+=((unsigned)str[9]<<16);
-        __fallthrough;
+        Z3_fallthrough;
     case 9 : 
         c+=((unsigned)str[8]<<8);
-        __fallthrough;
+        Z3_fallthrough;
         /* the first byte of c is reserved for the length */
     case 8 : 
         b+=((unsigned)str[7]<<24);
-        __fallthrough;
+        Z3_fallthrough;
     case 7 : 
         b+=((unsigned)str[6]<<16);
-        __fallthrough;
+        Z3_fallthrough;
     case 6 : 
         b+=((unsigned)str[5]<<8);
-        __fallthrough;
+        Z3_fallthrough;
     case 5 : 
         b+=str[4];
-        __fallthrough;
+        Z3_fallthrough;
     case 4 : 
         a+=((unsigned)str[3]<<24);
-        __fallthrough;
+        Z3_fallthrough;
     case 3 : 
         a+=((unsigned)str[2]<<16);
-        __fallthrough;
+        Z3_fallthrough;
     case 2 : 
         a+=((unsigned)str[1]<<8);
-        __fallthrough;
+        Z3_fallthrough;
     case 1 : 
         a+=str[0];
-        __fallthrough;
+        Z3_fallthrough;
         /* case 0: nothing left to add */
     }
     mix(a,b,c);

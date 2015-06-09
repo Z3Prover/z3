@@ -273,20 +273,16 @@ bool has_duplicates(const IT & begin, const IT & end) {
     return false;
 }
 
-#ifndef __out
-#define __out
-#endif
-
-#ifndef __in
-#define __in
-#endif
-
-#ifndef __inout
-#define __inout
-#endif
-
-#ifndef __fallthrough
-#define __fallthrough
+#ifdef __fallthrough
+# define Z3_fallthrough __fallthrough
+#elif defined(__has_cpp_attribute)
+# if __has_cpp_attribute(clang::fallthrough)
+#  define Z3_fallthrough [[clang::fallthrough]]
+# else
+#  define Z3_fallthrough
+# endif
+#else
+# define Z3_fallthrough
 #endif
 
 #ifndef _WINDOWS

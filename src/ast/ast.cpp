@@ -516,7 +516,7 @@ inline unsigned ast_array_hash(T * const * array, unsigned size, unsigned init_v
         switch (size) {
         case 2:
             b += array[1]->hash();
-            __fallthrough;
+            Z3_fallthrough;
         case 1:
             c += array[0]->hash();
         }
