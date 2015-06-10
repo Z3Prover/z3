@@ -1,4 +1,8 @@
+/*++
+Copyright (c) 2015 Microsoft Corporation
+--*/
 #if defined(_WINDOWS) || defined(_CYGWIN)
+
 #include "dl_context.h"
 #include "dl_table.h"
 #include "dl_register_engine.h"

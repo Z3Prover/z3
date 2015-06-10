@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "expr_rand.h"
 #include "ast_pp.h"
 #include "bv_decl_plugin.h"

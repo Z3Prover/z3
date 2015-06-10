@@ -1,4 +1,10 @@
 
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
+
 #include"smtlib.h"
 #include"ast_pp.h"
 #include"ast_smt2_pp.h"

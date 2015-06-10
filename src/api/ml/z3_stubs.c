@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 /* File generated from z3.idl */
 
 #include <stddef.h>

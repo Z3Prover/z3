@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include<iostream>
 #include<stdlib.h>
 #include<limits.h>

@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "z3.h"
 #include "trace.h"
 #include "debug.h"

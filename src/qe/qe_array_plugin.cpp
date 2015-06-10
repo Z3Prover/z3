@@ -1,4 +1,10 @@
 
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
+
 #include "qe.h"
 #include "array_decl_plugin.h"
 #include "expr_safe_replace.h"

@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "udoc_relation.h"
 #include "trace.h"
 #include "vector.h"

@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "model2expr.h"
 #include "ast_pp.h"
 #include "arith_decl_plugin.h"

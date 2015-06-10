@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft Corporation 2015
+
 import os
 import shutil
 import re
