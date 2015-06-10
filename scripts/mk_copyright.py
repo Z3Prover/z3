@@ -1,3 +1,5 @@
+# Copyright (c) 2015 Microsoft Corporation
+
 import os
 import re
 
@@ -42,13 +44,14 @@ def add_cr(file):
     ous.close()
     os.system("move %s %s" % (tmp, file))
     
-def add_missing_cr():
-    for root, dirs, files in os.walk('src'):
+def add_missing_cr(dir):
+    for root, dirs, files in os.walk(dir):
 	for f in files:
-	    if f.endswith('.cpp') or f.endswith('.h'):
+	    if f.endswith('.cpp') or f.endswith('.h') or f.endswith('.c'):
 		path = "%s\\%s" % (root, f)
 		if not has_cr(path):
 		    print "Missing CR for %s" % path
 		    add_cr(path)
 
-add_missing_cr()
+add_missing_cr('src')
+add_missing_cr('examples')
