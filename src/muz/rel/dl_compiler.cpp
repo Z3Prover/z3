@@ -597,7 +597,8 @@ namespace datalog {
         unsigned ft_len = r->get_tail_size(); // full tail
         ptr_vector<expr> tail;
         for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
-            tail.push_back(r->get_tail(tail_index));
+            if (!r->is_min_tail(tail_index))
+                tail.push_back(r->get_tail(tail_index));
         }
 
         expr_ref_vector binding(m);
