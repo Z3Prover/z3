@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 static char const g_pattern_database[] =
 "(benchmark patterns \n"
 " :status unknown \n"

@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "tbv.h"
 
 static void tst1(unsigned num_bits) {

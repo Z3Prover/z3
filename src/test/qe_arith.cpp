@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "qe_arith.h"
 #include "qe.h"
 #include "th_rewriter.h"

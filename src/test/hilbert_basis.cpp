@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "hilbert_basis.h"
 #include "ast_pp.h"
 #include "reg_decl_plugins.h"

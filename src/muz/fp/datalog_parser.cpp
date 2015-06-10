@@ -1,4 +1,10 @@
 
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
+
 #include"datalog_parser.h"
 #include"string_buffer.h"
 #include"str_hashtable.h"

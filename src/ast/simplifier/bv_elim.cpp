@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "bv_elim.h"
 #include "bv_decl_plugin.h"
 #include "var_subst.h"

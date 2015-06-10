@@ -1,4 +1,10 @@
 
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
+
 #include "timeout.h"
 #include "trace.h"
 
