@@ -28,6 +28,8 @@
 #include"sat_solver.h"
 #include"fpa_decl_plugin.h"
 #include"fpa2bv_converter_prec.h"
+#include"fpa2bv_model_converter.h"
+#include"fpa2bv_converter.h"
 #include"fpa2bv_rewriter_prec.h"
 #include"fpa2bv_approx_tactic.h"
 #include"const_intro_rewriter.h"
@@ -961,7 +963,8 @@ class fpa2bv_approx_tactic: public tactic {
 
             TRACE("sat_tactic", model_v2_pp(tout, *md););
             model_converter_ref bb_mc = mk_bit_blaster_model_converter(*m_temp_manager, bv2bool.const2bits());
-            model_converter_ref bv_mc = mk_fpa2bv_prec_model_converter(*m_temp_manager, fpa2bv.const2bv(), fpa2bv.rm_const2bv());
+
+            model_converter_ref bv_mc = mk_fpa2bv_model_converter(*m_temp_manager, fpa2bv.const2bv(), fpa2bv.rm_const2bv(), fpa2bv.uf2bvuf(), fpa2bv.uf23bvuf());
             bb_mc->operator()(md, 0);
             bv_mc->operator()(md, 0);
 
