@@ -2653,6 +2653,9 @@ sig
 
   (**  A string representation of the Goal. *)
   val to_string : goal -> string
+
+  (** Goal to BoolExpr conversion. *)
+  val as_expr : goal -> Expr.expr
 end
 
 (** Models
