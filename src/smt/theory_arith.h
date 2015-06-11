@@ -885,6 +885,7 @@ namespace smt {
         void add_tmp_row_entry(row & r, numeral const & coeff, theory_var v);
         enum max_min_t { UNBOUNDED, AT_BOUND, OPTIMIZED, BEST_EFFORT};
         max_min_t max_min(theory_var v, bool max, bool maintain_integrality, bool& has_shared);
+        bool has_interface_equality(theory_var v);
         bool max_min(svector<theory_var> const & vars);
 
         max_min_t max_min(row& r, bool max, bool maintain_integrality, bool& has_shared);

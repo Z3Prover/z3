@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "expr_delta.h"
 #include "ast_pp.h"
 

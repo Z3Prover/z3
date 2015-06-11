@@ -1767,11 +1767,19 @@ void fpa2bv_converter::mk_round_to_integral(func_decl * f, unsigned num, expr * 
     m_simp.mk_ite(c52, v52, res_sig, res_sig);
     m_simp.mk_ite(c51, v51, res_sig, res_sig);
     res_sig = m_bv_util.mk_concat(res_sig, m_bv_util.mk_numeral(0, 3)); // rounding bits are all 0.
-    res_exp = m_bv_util.mk_bv_add(m_bv_util.mk_zero_extend(2, res_exp), m_bv_util.mk_extract(ebits+1, 0, shift));
+    
+    SASSERT(m_bv_util.get_bv_size(res_exp) == ebits);
+    SASSERT(m_bv_util.get_bv_size(shift) == sbits + 1);
+
+    expr_ref e_shift(m);
+    e_shift = (ebits + 2 <= sbits + 1) ? m_bv_util.mk_extract(ebits + 1, 0, shift) :
+                                         m_bv_util.mk_sign_extend((ebits + 2) - (sbits + 1), shift);
+    SASSERT(m_bv_util.get_bv_size(e_shift) == ebits + 2);
+    res_exp = m_bv_util.mk_bv_add(m_bv_util.mk_zero_extend(2, res_exp), e_shift);
 
     SASSERT(m_bv_util.get_bv_size(res_sgn) == 1);
-    SASSERT(m_bv_util.get_bv_size(res_sig) == sbits+4);
-    SASSERT(m_bv_util.get_bv_size(res_exp) == ebits+2);
+    SASSERT(m_bv_util.get_bv_size(res_sig) == sbits + 4);
+    SASSERT(m_bv_util.get_bv_size(res_exp) == ebits + 2);
 
     // CMW: We use the rounder for normalization.
     round(f->get_range(), rm, res_sgn, res_sig, res_exp, v6); 

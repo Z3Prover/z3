@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<stdarg.h>

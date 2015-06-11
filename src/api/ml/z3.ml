@@ -2059,6 +2059,8 @@ struct
 	(Z3native.fpa_get_numeral_sign (context_gno ctx) (Expr.gno t))
   let get_numeral_significand_string ( ctx : context ) ( t : expr ) =
 	(Z3native.fpa_get_numeral_significand_string (context_gno ctx) (Expr.gno t))
+  let get_numeral_significand_uint ( ctx : context ) ( t : expr ) =
+	(Z3native.fpa_get_numeral_significand_uint64 (context_gno ctx) (Expr.gno t))
   let get_numeral_exponent_string ( ctx : context ) ( t : expr ) =
 	(Z3native.fpa_get_numeral_exponent_string (context_gno ctx) (Expr.gno t))
   let get_numeral_exponent_int ( ctx : context ) ( t : expr ) =
@@ -2197,6 +2199,15 @@ struct
     create ctx (Z3native.mk_goal (context_gno ctx) models unsat_cores proofs)
 
   let to_string ( x : goal ) = Z3native.goal_to_string (z3obj_gnc x) (z3obj_gno x)
+
+  let as_expr ( x : goal ) = 
+	let n = get_size x in
+	if n = 0 then 
+	  (Boolean.mk_true (z3obj_gc x)) 
+	else if n = 1 then
+	  (List.hd (get_formulas x))
+	else
+	  (Boolean.mk_and (z3obj_gc x) (get_formulas x))
 end  
 
 

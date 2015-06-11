@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 // This is to test the print-parse facilities over the API
 // for SMT-LIB2.
 

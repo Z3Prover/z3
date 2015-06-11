@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 /*
   Simple MAXSAT solver on top of the Z3 API.
 */

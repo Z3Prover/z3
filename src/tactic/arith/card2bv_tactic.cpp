@@ -485,7 +485,6 @@ public:
             return;
         }
                 
-        unsigned size = g->size();
         expr_ref new_f1(m), new_f2(m);
         proof_ref new_pr1(m), new_pr2(m);
         for (unsigned idx = 0; !g->inconsistent() && idx < g->size(); idx++) {

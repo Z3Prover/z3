@@ -208,6 +208,21 @@ namespace Microsoft.Z3
             return Native.Z3_goal_to_string(Context.nCtx, NativeObject);
         }
 
+        /// <summary>
+        /// Goal to BoolExpr conversion.
+        /// </summary>
+        /// <returns>A string representation of the Goal.</returns>
+        public BoolExpr AsBoolExpr() {
+            uint n = Size;
+            if (n == 0) 
+                return Context.MkTrue();
+            else if (n == 1)                
+                return Formulas[0];
+            else {
+                return Context.MkAnd(Formulas);
+            }
+        }
+
         #region Internal
         internal Goal(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 

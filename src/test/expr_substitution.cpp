@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "expr_substitution.h"
 #include "smt_params.h"
 #include "substitution.h"

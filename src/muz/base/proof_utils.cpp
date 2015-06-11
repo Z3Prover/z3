@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "dl_util.h"
 #include "proof_utils.h"
 #include "ast_smt2_pp.h"

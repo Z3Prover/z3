@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "sparse_matrix.h"
 #include "sparse_matrix_def.h"
 #include "simplex.h"

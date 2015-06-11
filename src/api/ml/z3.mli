@@ -2161,6 +2161,12 @@ sig
   (** Return the significand value of a floating-point numeral as a string. *)
   val get_numeral_significand_string : context -> Expr.expr -> string
 
+  (** Return the significand value of a floating-point numeral as a uint64. 
+	  Remark: This function extracts the significand bits, without the 
+      hidden bit or normalization. Throws an exception if the
+      significand does not fit into a uint64. *)
+  val get_numeral_significand_uint : context -> Expr.expr -> bool * int
+
   (** Return the exponent value of a floating-point numeral as a string *)
   val get_numeral_exponent_string : context -> Expr.expr -> string
 
@@ -2647,6 +2653,9 @@ sig
 
   (**  A string representation of the Goal. *)
   val to_string : goal -> string
+
+  (** Goal to BoolExpr conversion. *)
+  val as_expr : goal -> Expr.expr
 end
 
 (** Models

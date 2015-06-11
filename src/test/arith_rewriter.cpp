@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "arith_rewriter.h"
 #include "bv_decl_plugin.h"
 #include "ast_pp.h"

@@ -94,7 +94,8 @@ public:
     }
     
     void reset() {
-        memset(m_data, 0, m_capacity * sizeof(unsigned));
+        if (m_data)
+            memset(m_data, 0, m_capacity * sizeof(unsigned));
         m_num_bits = 0;
     }
 
