@@ -1,4 +1,10 @@
 
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
+
 
 #include"arith_bounds_tactic.h"
 #include"arith_decl_plugin.h"

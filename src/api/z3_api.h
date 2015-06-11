@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #ifndef _Z3_API_H_
 #define _Z3_API_H_
 

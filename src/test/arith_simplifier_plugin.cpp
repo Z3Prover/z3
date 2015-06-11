@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "arith_eq_solver.h"
 #include "smt_params.h"
 
