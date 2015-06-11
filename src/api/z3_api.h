@@ -6951,7 +6951,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_tactic_apply_ex', APPLY_RESULT, (_in(CONTEXT), _in(TACTIC), _in(GOAL), _in(PARAMS)))
     */
-    Z3_apply_result Z3_API Z3_tactic_apply_ex(Z3_context c, Z3_tactic t, Z3_goal g, Z3_params p);
+    Z3_apply_result Z3_API Z3_tactic_apply_ex(__in Z3_context c, __in Z3_tactic t, __in Z3_goal g, __in Z3_params p);
 
 #ifdef CorML3
     /**
