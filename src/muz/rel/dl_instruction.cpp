@@ -914,9 +914,8 @@ namespace datalog {
             relation_manager & r_manager = s.get_manager();
 
             const relation_signature & r_sig = s.get_signature();
-            table_min_fn * fn = r_manager.mk_min_fn(source_t, m_group_by_cols, m_min_col);
+            scoped_ptr<table_min_fn> fn = r_manager.mk_min_fn(source_t, m_group_by_cols, m_min_col);
             table_base * target_t = (*fn)(source_t);
-            dealloc(fn);
 
             TRACE("dl",
                 tout << "% ";

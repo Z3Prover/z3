@@ -516,9 +516,8 @@ namespace datalog {
         */
         virtual table_base * reference_implementation(const table_base & t) {
             relation_manager & manager = t.get_manager();
-            table_join_fn * join_fn = manager.mk_join_fn(t, t, m_group_by_cols, m_group_by_cols);
-            table_base * join_table = (*join_fn)(t, t);
-            dealloc(join_fn);
+            scoped_ptr<table_join_fn> join_fn = manager.mk_join_fn(t, t, m_group_by_cols, m_group_by_cols);
+            scoped_rel<table_base> join_table = (*join_fn)(t, t);
 
             table_base::iterator join_table_it = join_table->begin();
             table_base::iterator join_table_end = join_table->end();
@@ -544,10 +543,8 @@ namespace datalog {
                 SASSERT(cols[k] < join_table->num_columns());
             }
 
-            table_transformer_fn * project_fn = manager.mk_project_fn(*join_table, cols);
-            table_base * gt_table = (*project_fn)(*join_table);
-            dealloc(project_fn);
-            join_table->deallocate();
+            scoped_ptr<table_transformer_fn> project_fn = manager.mk_project_fn(*join_table, cols);
+            scoped_rel<table_base> gt_table = (*project_fn)(*join_table);
 
             for (unsigned k = 0; k < cols.size(); ++k) {
                 cols[k] = k;
@@ -556,10 +553,8 @@ namespace datalog {
             }
 
             table_base * result = t.clone();
-            table_intersection_filter_fn * diff_fn = manager.mk_filter_by_negation_fn(*result, *gt_table, cols, cols);
+            scoped_ptr<table_intersection_filter_fn> diff_fn = manager.mk_filter_by_negation_fn(*result, *gt_table, cols, cols);
             (*diff_fn)(*result, *gt_table);
-            dealloc(diff_fn);
-            gt_table->deallocate();
             return result;
         }
 
