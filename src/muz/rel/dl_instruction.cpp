@@ -553,7 +553,7 @@ namespace datalog {
             if (r.fast_empty()) {
                 ctx.make_empty(m_reg);
             }            
-            TRACE("dl_verbose", r.display(tout <<"post-filter-interpreted:\n"););
+            //TRACE("dl_verbose", r.display(tout <<"post-filter-interpreted:\n"););
 
             return true;
         }
@@ -610,7 +610,7 @@ namespace datalog {
             if (ctx.reg(m_res)->fast_empty()) {
                 ctx.make_empty(m_res);
             }
-            TRACE("dl_verbose", reg.display(tout << "post-filter-interpreted-and-project:\n"););
+            //TRACE("dl_verbose", reg.display(tout << "post-filter-interpreted-and-project:\n"););
             return true;
         }
 
