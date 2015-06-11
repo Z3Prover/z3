@@ -354,7 +354,9 @@ namespace datalog {
         return product_relation_plugin::get_plugin(*this).mk_empty(s);
     }
 
-
+    /**
+      The newly created object takes ownership of the \c table object.
+    */
     relation_base * relation_manager::mk_table_relation(const relation_signature & s, table_base * table) {
         SASSERT(s.size()==table->get_signature().size());
         return get_table_relation_plugin(table->get_plugin()).mk_from_table(s, table);
