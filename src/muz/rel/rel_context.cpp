@@ -290,6 +290,8 @@ namespace datalog {
         return res;
     }
 
+#define _MIN_DONE_ 1
+
     void rel_context::transform_rules() {
         rule_transformer transf(m_context);
 #ifdef _MIN_DONE_
