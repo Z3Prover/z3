@@ -121,19 +121,19 @@ namespace datalog {
         expr_free_vars                    m_free_vars;
 
         /**
-        \brief Finds all the min aggregation functions in the premise of a given rule.
+        \brief Finds all min aggregation function applications in the body of rule \c r.
         */
-        static void find_min_aggregates(const rule * r, ptr_vector<func_decl>& min_aggregates);
+        static void find_min_aggregates(const rule * r, ptr_vector<app>& min_aggregates);
 
         /**
-        \brief Decides whether a predicate is subject to a min aggregation function.
+        \brief Decides whether an atom \c a is subject to a min aggregation function.
 
         If \c decl is subject to a min aggregation function, the output parameters are written
         with the neccessary information.
 
         \returns true if the output paramaters have been written
         */
-        static bool prepare_min_aggregate(const func_decl * decl, const ptr_vector<func_decl>& min_aggregates,
+        bool prepare_min_aggregate(const app * a, const ptr_vector<app>& min_aggregates,
             unsigned_vector & group_by_cols, unsigned & min_col);
 
         /**
