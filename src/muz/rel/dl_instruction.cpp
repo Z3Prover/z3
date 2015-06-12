@@ -889,6 +889,17 @@ namespace datalog {
         reg_idx m_target_reg;
         unsigned_vector m_group_by_cols;
         unsigned m_min_col;
+
+        /**
+           \pre: r is not null
+        */
+        static void print_relation_info(relation_base const* r, std::ostream & out) {
+            SASSERT(r != 0);
+
+            out << " {number of columns: " << r->num_columns();
+            out << ", estimated number of rows: " << r->get_size_estimate_rows() << "}";
+        }
+
     public:
         instr_min(reg_idx source_reg, reg_idx target_reg, const unsigned_vector & group_by_cols, unsigned min_col)
             : m_source_reg(source_reg),
@@ -927,7 +938,19 @@ namespace datalog {
             return true;
         }
         virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
-            out << " MIN AGGR ";
+            relation_base const* source_relation = ctx.reg(m_source_reg);
+            relation_base const* target_relation = ctx.reg(m_target_reg);
+            out << "min [source: " << m_source_reg;
+            if (source_relation)
+                print_relation_info(source_relation, out);
+
+            out << "] [target: " << m_target_reg;
+            if (target_relation && source_relation != target_relation)
+                print_relation_info(target_relation, out);
+
+            out << "] [group by: ";
+            print_container(m_group_by_cols, out);
+            out << "] [minimize column: " << m_min_col << "]";
         }
         virtual void make_annotations(execution_context & ctx) {
         }
