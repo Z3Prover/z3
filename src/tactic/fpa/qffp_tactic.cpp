@@ -53,7 +53,7 @@ struct has_fp_to_real_predicate {
 class has_fp_to_real_probe : public probe {
 public:
     virtual result operator()(goal const & g) {
-        return !test<has_fp_to_real_predicate>(g);
+        return test<has_fp_to_real_predicate>(g);
     }
 
     virtual ~has_fp_to_real_probe() {}
