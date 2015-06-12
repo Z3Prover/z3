@@ -44,7 +44,8 @@ namespace datalog {
         m_num_sym("N"),
         m_lt_sym("<"),
         m_le_sym("<="),
-        m_rule_sym("R")
+        m_rule_sym("R"),
+        m_min_sym("min")
     {
     }
 
@@ -490,6 +491,66 @@ namespace datalog {
         return m_manager->mk_func_decl(m_clone_sym, 1, &s, s, info);
     }
 
+    /**
+      In SMT2 syntax, we can write \c ((_ min R N) v_0 v_1 ... v_k)) where 0 <= N <= k,
+      R is a relation of sort V_0 x V_1 x ... x V_k and each v_i is a zero-arity function
+      (also known as a "constant" in SMT2 parlance) whose range is of sort V_i.
+
+      Example:
+
+        (define-sort number_t () (_ BitVec 2))
+        (declare-rel numbers (number_t number_t))
+        (declare-rel is_min (number_t number_t))
+
+        (declare-var x number_t)
+        (declare-var y number_t)
+
+        (rule (numbers #b00 #b11))
+        (rule (numbers #b00 #b01))
+
+        (rule (=> (and (numbers x y) ((_ min numbers 1) x y)) (is_min x y)))
+
+      This says that we want to find the mininum y grouped by x.
+    */
+    func_decl * dl_decl_plugin::mk_min(decl_kind k, unsigned num_parameters, parameter const * parameters) {
+        if (num_parameters < 2) {
+            m_manager->raise_exception("invalid min aggregate definition due to missing parameters");
+            return 0;
+        }
+
+        parameter const & relation_parameter = parameters[0];
+        if (!relation_parameter.is_ast() || !is_func_decl(relation_parameter.get_ast())) {
+            m_manager->raise_exception("invalid min aggregate definition, first parameter is not a function declaration");
+            return 0;
+        }
+
+        func_decl* f = to_func_decl(relation_parameter.get_ast());
+        if (!m_manager->is_bool(f->get_range())) {
+            m_manager->raise_exception("invalid min aggregate definition, first paramater must be a predicate");
+            return 0;
+        }
+
+        parameter const & min_col_parameter = parameters[1];
+        if (!min_col_parameter.is_int()) {
+            m_manager->raise_exception("invalid min aggregate definition, second parameter must be an integer");
+            return 0;
+        }
+
+        if (min_col_parameter.get_int() < 0) {
+            m_manager->raise_exception("invalid min aggregate definition, second parameter must be non-negative");
+            return 0;
+        }
+
+        if ((unsigned)min_col_parameter.get_int() >= f->get_arity()) {
+            m_manager->raise_exception("invalid min aggregate definition, second parameter exceeds the arity of the relation");
+            return 0;
+        }
+
+        func_decl_info info(m_family_id, k, num_parameters, parameters);
+        SASSERT(f->get_info() == 0);
+        return m_manager->mk_func_decl(m_min_sym, f->get_arity(), f->get_domain(), f->get_range(), info);
+    }
+
     func_decl * dl_decl_plugin::mk_func_decl(
         decl_kind k, unsigned num_parameters, parameter const * parameters, 
         unsigned arity, sort * const * domain, sort * range) {
@@ -617,6 +678,9 @@ namespace datalog {
                 break;
             }
 
+            case OP_DL_MIN:
+                return mk_min(k, num_parameters, parameters);
+
             default:
                 m_manager->raise_exception("operator not recognized");
                 return 0;
@@ -627,7 +691,7 @@ namespace datalog {
     }
 
     void dl_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
-
+        op_names.push_back(builtin_name(m_min_sym.bare_str(), OP_DL_MIN));
     }
 
     void dl_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {

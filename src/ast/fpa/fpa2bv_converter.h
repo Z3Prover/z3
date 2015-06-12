@@ -80,6 +80,7 @@ public:
 
     void mk_eq(expr * a, expr * b, expr_ref & result);
     void mk_ite(expr * c, expr * t, expr * f, expr_ref & result);
+    void mk_distinct(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void mk_rounding_mode(func_decl * f, expr_ref & result);
     void mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);

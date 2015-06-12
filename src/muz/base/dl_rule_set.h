@@ -179,6 +179,7 @@ namespace datalog {
         void compute_deps();
         void compute_tc_deps();
         bool stratified_negation();
+        bool check_min();
     public:
         rule_set(context & ctx);
         rule_set(const rule_set & rs);

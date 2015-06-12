@@ -290,19 +290,27 @@ namespace datalog {
         return res;
     }
 
+#define _MIN_DONE_ 1
+
     void rel_context::transform_rules() {
         rule_transformer transf(m_context);
+#ifdef _MIN_DONE_
         transf.register_plugin(alloc(mk_coi_filter, m_context));
+#endif
         transf.register_plugin(alloc(mk_filter_rules, m_context));        
         transf.register_plugin(alloc(mk_simple_joins, m_context));
         if (m_context.unbound_compressor()) {
             transf.register_plugin(alloc(mk_unbound_compressor, m_context));
         }
+#ifdef _MIN_DONE_
         if (m_context.similarity_compressor()) {
             transf.register_plugin(alloc(mk_similarity_compressor, m_context)); 
         }
+#endif
         transf.register_plugin(alloc(mk_partial_equivalence_transformer, m_context));
+#ifdef _MIN_DONE_
         transf.register_plugin(alloc(mk_rule_inliner, m_context));
+#endif
         transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context));
         transf.register_plugin(alloc(mk_separate_negated_tails, m_context));
 

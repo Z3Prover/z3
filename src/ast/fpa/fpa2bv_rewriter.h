@@ -103,11 +103,18 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             }
             return BR_FAILED;
         }
-
-        if (m().is_ite(f)) {
+        else if (m().is_ite(f)) {
             SASSERT(num == 3);
             if (m_conv.is_float(args[1])) {
                 m_conv.mk_ite(args[0], args[1], args[2], result);
+                return BR_DONE;
+            }
+            return BR_FAILED;
+        }
+        else if (m().is_distinct(f)) {
+            sort * ds = f->get_domain()[0];
+            if (m_conv.is_float(ds) || m_conv.is_rm(ds)) {
+                m_conv.mk_distinct(f, num, args, result);
                 return BR_DONE;
             }
             return BR_FAILED;

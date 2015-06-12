@@ -621,6 +621,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
         register_plugin(symbol("pb"),     alloc(pb_decl_plugin), !has_logic());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
+        register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
     }
     else {
         // the manager was created by an external module
