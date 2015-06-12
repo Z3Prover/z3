@@ -384,6 +384,24 @@ class fpa2bv_approx_tactic: public tactic {
                 mpf_mngr.abs(est_arg_val[0], est_rhs_value);
                 break;
             }
+            case OP_FPA_MIN:
+            {
+                mpf_mngr.minimum( arg_val[1], arg_val[2], rhs_value);
+                mpf_mngr.minimum( est_arg_val[1], est_arg_val[2], est_rhs_value);
+                break;
+            }
+            case OP_FPA_MAX:
+            {
+                mpf_mngr.maximum( arg_val[1], arg_val[2], rhs_value);
+                mpf_mngr.maximum( est_arg_val[1], est_arg_val[2], est_rhs_value);
+                break;
+            }
+            case OP_FPA_ROUND_TO_INTEGRAL:
+            {
+                mpf_mngr.round_to_integral(rm,arg_val[1],rhs_value);
+                mpf_mngr.round_to_integral(rm,est_arg_val[1],est_rhs_value);
+                break;
+            }
             default:
                 NOT_IMPLEMENTED_YET();
                 break;
