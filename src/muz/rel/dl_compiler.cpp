@@ -73,6 +73,12 @@ namespace datalog {
             vars.get_cols2(), removed_cols.size(), removed_cols.c_ptr(), result));
     }
 
+    void compiler::make_min(reg_idx source, reg_idx & target, const unsigned_vector & group_by_cols,
+        const unsigned min_col, instruction_block & acc) {
+        target = get_register(m_reg_signatures[source], true, source);
+        acc.push_back(instruction::mk_min(source, target, group_by_cols, min_col));
+    }
+
     void compiler::make_filter_interpreted_and_project(reg_idx src, app_ref & cond,
             const unsigned_vector & removed_cols, reg_idx & result, bool reuse, instruction_block & acc) {
         SASSERT(!removed_cols.empty());
@@ -440,6 +446,30 @@ namespace datalog {
         get_local_indexes_for_projection(t2, counter, t1->get_num_args(), res);
     }
 
+    void compiler::find_min_aggregates(const rule * r, ptr_vector<func_decl>& min_aggregates) {
+        unsigned ut_len = r->get_uninterpreted_tail_size();
+        unsigned ft_len = r->get_tail_size(); // full tail
+        func_decl * aggregate;
+        for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
+            aggregate = r->get_tail(tail_index)->get_decl();
+            if (dl_decl_plugin::is_aggregate(aggregate)) {
+                min_aggregates.push_back(aggregate);
+            }
+        }
+    }
+
+    bool compiler::prepare_min_aggregate(const func_decl * decl, const ptr_vector<func_decl>& min_aggregates,
+        unsigned_vector & group_by_cols, unsigned & min_col) {
+        for (unsigned i = 0; i < min_aggregates.size(); ++i) {
+            if (dl_decl_plugin::min_func_decl(min_aggregates[i]) == decl) {
+                group_by_cols = dl_decl_plugin::group_by_cols(min_aggregates[i]);
+                min_col = dl_decl_plugin::min_col(min_aggregates[i]);
+                return true;
+            }
+        }
+        return false;
+    }
+
     void compiler::compile_rule_evaluation_run(rule * r, reg_idx head_reg, const reg_idx * tail_regs, 
             reg_idx delta_reg, bool use_widening, instruction_block & acc) {
         
@@ -465,6 +495,12 @@ namespace datalog {
         // whether to dealloc the previous result
         bool dealloc = true;
 
+        // setup information for min aggregation
+        ptr_vector<func_decl> min_aggregates;
+        find_min_aggregates(r, min_aggregates);
+        unsigned_vector group_by_cols;
+        unsigned min_col;
+
         if(pt_len == 2) {
             reg_idx t1_reg=tail_regs[0];
             reg_idx t2_reg=tail_regs[1];
@@ -472,6 +508,14 @@ namespace datalog {
             app * a2 = r->get_tail(1);
             SASSERT(m_reg_signatures[t1_reg].size()==a1->get_num_args());
             SASSERT(m_reg_signatures[t2_reg].size()==a2->get_num_args());
+
+            if (prepare_min_aggregate(a1->get_decl(), min_aggregates, group_by_cols, min_col)) {
+                make_min(t1_reg, single_res, group_by_cols, min_col, acc);
+            }
+
+            if (prepare_min_aggregate(a2->get_decl(), min_aggregates, group_by_cols, min_col)) {
+                make_min(t2_reg, single_res, group_by_cols, min_col, acc);
+            }
 
             variable_intersection a1a2(m_context.get_manager());
             a1a2.populate(a1,a2);
@@ -513,6 +557,10 @@ namespace datalog {
             app * a = r->get_tail(0);
             single_res = tail_regs[0];
             dealloc = false;
+
+            if (prepare_min_aggregate(a->get_decl(), min_aggregates, group_by_cols, min_col)) {
+                make_min(single_res, single_res, group_by_cols, min_col, acc);
+            }
 
             SASSERT(m_reg_signatures[single_res].size() == a->get_num_args());
 
@@ -597,7 +645,8 @@ namespace datalog {
         unsigned ft_len = r->get_tail_size(); // full tail
         ptr_vector<expr> tail;
         for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
-            tail.push_back(r->get_tail(tail_index));
+            if (!r->is_min_tail(tail_index))
+                tail.push_back(r->get_tail(tail_index));
         }
 
         expr_ref_vector binding(m);

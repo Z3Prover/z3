@@ -485,4 +485,125 @@ namespace datalog {
         brw.mk_or(disjs.size(), disjs.c_ptr(), fml);        
     }
 
+    class table_plugin::min_fn : public table_min_fn{
+        table_signature m_sig;
+        const unsigned_vector m_group_by_cols;
+        const unsigned m_col;
+    public:
+        min_fn(const table_signature & t_sig, const unsigned_vector& group_by_cols, const unsigned col)
+            : m_sig(t_sig),
+            m_group_by_cols(group_by_cols),
+            m_col(col) {}
+
+        virtual table_base* operator()(table_base const& t) {
+            //return reference_implementation(t);
+            return reference_implementation_with_hash(t);
+        }
+
+    private:
+
+        /**
+        Reference implementation with negation:
+
+        T1 = join(T, T) by group_cols
+        T2 = { (t1,t2) in T1 | t1[col] > t2[col] }
+        T3 = { t1 | (t1,t2) in T2 }
+        T4 = T \ T3
+
+        The point of this reference implementation is to show
+        that the minimum requires negation (set difference).
+        This is relevant for fixed point computations.
+        */
+        virtual table_base * reference_implementation(const table_base & t) {
+            relation_manager & manager = t.get_manager();
+            scoped_ptr<table_join_fn> join_fn = manager.mk_join_fn(t, t, m_group_by_cols, m_group_by_cols);
+            scoped_rel<table_base> join_table = (*join_fn)(t, t);
+
+            table_base::iterator join_table_it = join_table->begin();
+            table_base::iterator join_table_end = join_table->end();
+            table_fact row;
+
+            table_element i, j;
+
+            for (; join_table_it != join_table_end; ++join_table_it) {
+                join_table_it->get_fact(row);
+                i = row[m_col];
+                j = row[t.num_columns() + m_col];
+
+                if (i > j) {
+                    continue;
+                }
+
+                join_table->remove_fact(row);
+            }
+
+            unsigned_vector cols(t.num_columns());
+            for (unsigned k = 0; k < cols.size(); ++k) {
+                cols[k] = cols.size() + k;
+                SASSERT(cols[k] < join_table->num_columns());
+            }
+
+            scoped_ptr<table_transformer_fn> project_fn = manager.mk_project_fn(*join_table, cols);
+            scoped_rel<table_base> gt_table = (*project_fn)(*join_table);
+
+            for (unsigned k = 0; k < cols.size(); ++k) {
+                cols[k] = k;
+                SASSERT(cols[k] < t.num_columns());
+                SASSERT(cols[k] < gt_table->num_columns());
+            }
+
+            table_base * result = t.clone();
+            scoped_ptr<table_intersection_filter_fn> diff_fn = manager.mk_filter_by_negation_fn(*result, *gt_table, cols, cols);
+            (*diff_fn)(*result, *gt_table);
+            return result;
+        }
+
+        typedef map < table_fact, table_element, svector_hash_proc<table_element_hash>,
+            vector_eq_proc<table_fact> > group_map;
+
+        // Thanks to Nikolaj who kindly helped with the second reference implementation!
+        virtual table_base * reference_implementation_with_hash(const table_base & t) {
+            group_map group;
+            table_base::iterator it = t.begin();
+            table_base::iterator end = t.end();
+            table_fact row, row2;
+            table_element current_value, min_value;
+            for (; it != end; ++it) {
+                it->get_fact(row);
+                current_value = row[m_col];
+                group_by(row, row2);
+                group_map::entry* entry = group.find_core(row2);
+                if (!entry) {
+                    group.insert(row2, current_value);
+                }
+                else if (entry->get_data().m_value > current_value) {
+                    entry->get_data().m_value = current_value;
+                }
+            }
+            table_base* result = t.get_plugin().mk_empty(m_sig);
+            table_base::iterator it2 = t.begin();
+            for (; it2 != end; ++it2) {
+                it2->get_fact(row);
+                current_value = row[m_col];
+                group_by(row, row2);
+                VERIFY(group.find(row2, min_value));
+                if (min_value == current_value) {
+                    result->add_fact(row);
+                }
+            }
+            return result;
+        }
+
+        void group_by(table_fact const& in, table_fact& out) {
+            out.reset();
+            for (unsigned i = 0; i < m_group_by_cols.size(); ++i) {
+                out.push_back(in[m_group_by_cols[i]]);
+            }
+        }
+    };
+
+    table_min_fn * table_plugin::mk_min_fn(const table_base & t,
+        unsigned_vector & group_by_cols, const unsigned col) {
+        return alloc(table_plugin::min_fn, t.get_signature(), group_by_cols, col);
+    }
 }

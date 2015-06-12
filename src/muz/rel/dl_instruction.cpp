@@ -25,6 +25,7 @@ Revision History:
 #include"rel_context.h"
 #include"debug.h"
 #include"warning.h"
+#include"dl_table_relation.h"
 
 namespace datalog {
 
@@ -552,7 +553,7 @@ namespace datalog {
             if (r.fast_empty()) {
                 ctx.make_empty(m_reg);
             }            
-            TRACE("dl_verbose", r.display(tout <<"post-filter-interpreted:\n"););
+            //TRACE("dl_verbose", r.display(tout <<"post-filter-interpreted:\n"););
 
             return true;
         }
@@ -609,7 +610,7 @@ namespace datalog {
             if (ctx.reg(m_res)->fast_empty()) {
                 ctx.make_empty(m_res);
             }
-            TRACE("dl_verbose", reg.display(tout << "post-filter-interpreted-and-project:\n"););
+            //TRACE("dl_verbose", reg.display(tout << "post-filter-interpreted-and-project:\n"););
             return true;
         }
 
@@ -883,6 +884,59 @@ namespace datalog {
                 removed_cols, result);
     }
 
+    class instr_min : public instruction {
+        reg_idx m_source_reg;
+        reg_idx m_target_reg;
+        unsigned_vector m_group_by_cols;
+        unsigned m_min_col;
+    public:
+        instr_min(reg_idx source_reg, reg_idx target_reg, const unsigned_vector & group_by_cols, unsigned min_col)
+            : m_source_reg(source_reg),
+            m_target_reg(target_reg),
+            m_group_by_cols(group_by_cols),
+            m_min_col(min_col) {
+        }
+        virtual bool perform(execution_context & ctx) {
+            log_verbose(ctx);
+            if (!ctx.reg(m_source_reg)) {
+                ctx.make_empty(m_target_reg);
+                return true;
+            }
+
+            const relation_base & s = *ctx.reg(m_source_reg);
+            if (!s.from_table()) {
+                throw default_exception("relation is not a table %s",
+                    s.get_plugin().get_name().bare_str());
+            }
+            ++ctx.m_stats.m_min;
+            const table_relation & tr = static_cast<const table_relation &>(s);
+            const table_base & source_t = tr.get_table();
+            relation_manager & r_manager = s.get_manager();
+
+            const relation_signature & r_sig = s.get_signature();
+            scoped_ptr<table_min_fn> fn = r_manager.mk_min_fn(source_t, m_group_by_cols, m_min_col);
+            table_base * target_t = (*fn)(source_t);
+
+            TRACE("dl",
+                tout << "% ";
+                target_t->display(tout);
+                tout << "\n";);
+
+            relation_base * target_r = r_manager.mk_table_relation(r_sig, target_t);
+            ctx.set_reg(m_target_reg, target_r);
+            return true;
+        }
+        virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
+            out << " MIN AGGR ";
+        }
+        virtual void make_annotations(execution_context & ctx) {
+        }
+    };
+
+    instruction * instruction::mk_min(reg_idx source, reg_idx target, const unsigned_vector & group_by_cols,
+        const unsigned min_col) {
+        return alloc(instr_min, source, target, group_by_cols, min_col);
+    }
 
     class instr_select_equal_and_project : public instruction {
         reg_idx m_src;
