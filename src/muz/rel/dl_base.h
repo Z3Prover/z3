@@ -192,6 +192,29 @@ namespace datalog {
             virtual base_object * operator()(const base_object & t1, const base_object & t2) = 0;
         };
 
+        /**
+        \brief Aggregate minimum value
+
+        Informally, we want to group rows in a table \c t by \c group_by_cols and
+        return the minimum value in column \c col among each group.
+
+        Let \c t be a table with N columns.
+        Let \c group_by_cols be a set of column identifers for table \c t such that |group_by_cols| < N.
+        Let \c col be a column identifier for table \c t such that \c col is not in \c group_by_cols.
+
+        Let R_col be a set of rows in table \c t such that, for all rows r_i, r_j in R_col
+        and column identifiers k in \c group_by_cols, r_i[k] = r_j[k].
+
+        For each R_col, we want to restrict R_col to those rows whose value in column \c col is minimal.
+
+        min_fn(R, group_by_cols, col) =
+        { row in R | forall row' in R . row'[group_by_cols] = row[group_by_cols] => row'[col] >= row[col] }
+        */
+        class min_fn : public base_fn {
+        public:
+            virtual base_object * operator()(const base_object & t) = 0;
+        };
+
         class transformer_fn : public base_fn {
         public:
             virtual base_object * operator()(const base_object & t) = 0;
@@ -856,6 +879,7 @@ namespace datalog {
 
     typedef table_infrastructure::base_fn base_table_fn;
     typedef table_infrastructure::join_fn table_join_fn;
+    typedef table_infrastructure::min_fn table_min_fn;
     typedef table_infrastructure::transformer_fn table_transformer_fn;
     typedef table_infrastructure::union_fn table_union_fn;
     typedef table_infrastructure::mutator_fn table_mutator_fn;
@@ -1020,6 +1044,7 @@ namespace datalog {
 
     class table_plugin : public table_infrastructure::plugin_object {
         friend class relation_manager;
+        class min_fn;
     protected:
         table_plugin(symbol const& n, relation_manager & manager) : plugin_object(n, manager) {}
     public:
@@ -1027,6 +1052,9 @@ namespace datalog {
         virtual bool can_handle_signature(const table_signature & s) { return s.functional_columns()==0; }
 
     protected:
+        virtual  table_min_fn * mk_min_fn(const table_base & t,
+            unsigned_vector & group_by_cols, const unsigned col);
+
         /**
            If the returned value is non-zero, the returned object must take ownership of \c mapper.
            Otherwise \c mapper must remain unmodified.

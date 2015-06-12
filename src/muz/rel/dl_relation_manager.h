@@ -251,6 +251,9 @@ namespace datalog {
             return mk_join_fn(t1, t2, cols1.size(), cols1.c_ptr(), cols2.c_ptr(), allow_product_relation);
         }
 
+        table_min_fn * mk_min_fn(const table_base & t,
+            unsigned_vector & group_by_cols, const unsigned col);
+
         /**
             \brief Return functor that transforms a table into one that lacks columns listed in
             \c removed_cols array.

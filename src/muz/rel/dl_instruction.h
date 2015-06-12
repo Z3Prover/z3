@@ -93,6 +93,7 @@ namespace datalog {
             unsigned m_filter_interp_project;
             unsigned m_filter_id;
             unsigned m_filter_eq;
+            unsigned m_min;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -284,6 +285,8 @@ namespace datalog {
         static instruction * mk_join_project(reg_idx rel1, reg_idx rel2, unsigned joined_col_cnt,
             const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
             const unsigned * removed_cols, reg_idx result);
+        static instruction * mk_min(reg_idx source, reg_idx target, const unsigned_vector & group_by_cols,
+            const unsigned min_col);
         static instruction * mk_rename(reg_idx src, unsigned cycle_len, const unsigned * permutation_cycle, 
             reg_idx tgt);
         static instruction * mk_filter_by_negation(reg_idx tgt, reg_idx neg_rel, unsigned col_cnt,
