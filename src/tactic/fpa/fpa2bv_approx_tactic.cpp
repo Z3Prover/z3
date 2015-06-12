@@ -30,6 +30,7 @@
 #include"fpa2bv_converter_prec.h"
 #include"fpa2bv_model_converter.h"
 #include"fpa2bv_converter.h"
+#include"propagate_values_tactic.h"
 #include"fpa2bv_rewriter_prec.h"
 #include"fpa2bv_approx_tactic.h"
 #include"const_intro_rewriter.h"
@@ -402,6 +403,7 @@ class fpa2bv_approx_tactic: public tactic {
                 mpf_mngr.round_to_integral(rm,est_arg_val[1],est_rhs_value);
                 break;
             }
+
             default:
                 NOT_IMPLEMENTED_YET();
                 break;
@@ -879,6 +881,8 @@ class fpa2bv_approx_tactic: public tactic {
             std::cout.flush();
 
             SASSERT(g->is_well_sorted());
+
+            simplify(g);
 
             //fpa2bv
             fpa2bv_rewriter_prec fpa2bv_rw(*m_temp_manager, fpa2bv, m_params);
