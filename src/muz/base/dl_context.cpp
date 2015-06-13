@@ -567,7 +567,6 @@ namespace datalog {
             m_rule_properties.check_uninterpreted_free();
             break;
         case QPDR_ENGINE:
-            std::cout << "QD\n";
             m_rule_properties.collect(r);
             m_rule_properties.check_for_negated_predicates();
             m_rule_properties.check_uninterpreted_free();
