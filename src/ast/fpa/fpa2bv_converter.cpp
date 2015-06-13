@@ -93,6 +93,20 @@ void fpa2bv_converter::mk_ite(expr * c, expr * t, expr * f, expr_ref & result) {
     mk_fp(sgn, e, s, result);
 }
 
+void fpa2bv_converter::mk_distinct(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    // Note: in SMT there is only one NaN, so multiple of them are considered 
+    // equal, thus (distinct NaN NaN) is false, even if the two NaNs have 
+    // different bitwise representations (see also mk_eq).
+    result = m.mk_true();
+    for (unsigned i = 0; i < num; i++) {
+        for (unsigned j = i+1; j < num; j++) {
+            expr_ref eq(m);
+            mk_eq(args[i], args[j], eq);
+            m_simp.mk_and(result, m.mk_not(eq), result);
+        }
+    }    
+}
+
 void fpa2bv_converter::mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result) { 
     SASSERT(num == 0);
     SASSERT(f->get_num_parameters() == 1);
