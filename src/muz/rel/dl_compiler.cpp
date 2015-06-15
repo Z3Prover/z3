@@ -73,9 +73,15 @@ namespace datalog {
             vars.get_cols2(), removed_cols.size(), removed_cols.c_ptr(), result));
     }
 
+    /**
+      We allocate a new register \c r and store the result of the min aggregation function into \c r.
+
+      \post: \c r == \c target and \c acc ends with the newly created instruction for min aggregation
+    */
     void compiler::make_min(reg_idx source, reg_idx & target, const unsigned_vector & group_by_cols,
         const unsigned min_col, instruction_block & acc) {
-        target = get_register(m_reg_signatures[source], true, source);
+        relation_signature sig = m_reg_signatures[source];
+        target = get_register(sig, false, source);
         acc.push_back(instruction::mk_min(source, target, group_by_cols, min_col));
     }
 
@@ -526,10 +532,12 @@ namespace datalog {
 
             if (prepare_min_aggregate(a1, min_aggregates, group_by_cols, min_col)) {
                 make_min(t1_reg, single_res, group_by_cols, min_col, acc);
+                t1_reg = single_res;
             }
 
             if (prepare_min_aggregate(a2, min_aggregates, group_by_cols, min_col)) {
                 make_min(t2_reg, single_res, group_by_cols, min_col, acc);
+                t2_reg = single_res;
             }
 
             variable_intersection a1a2(m_context.get_manager());
