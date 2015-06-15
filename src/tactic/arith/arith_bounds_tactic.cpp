@@ -1,4 +1,10 @@
 
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
+
 
 #include"arith_bounds_tactic.h"
 #include"arith_decl_plugin.h"
@@ -34,8 +40,8 @@ struct arith_bounds_tactic : public tactic {
         bounds_arith_subsumption(in, result);
     }
     
-    virtual tactic* translate(ast_manager& m) {
-        return alloc(arith_bounds_tactic, m);
+    virtual tactic* translate(ast_manager & mgr) {
+        return alloc(arith_bounds_tactic, mgr);
     }
     
     void checkpoint() {

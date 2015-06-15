@@ -82,9 +82,11 @@ namespace datalog {
             
             relation_sort domain;           // domain of the column
             assembling_column_kind kind;    // "instruction" tag
-            unsigned source_column;         // for ACK_BOUND_VAR
-            unsigned var_index;             // for ACK_UNBOUND_VAR
-            relation_element constant;      // for ACK_CONSTANT
+            union {
+                unsigned source_column;         // for ACK_BOUND_VAR
+                unsigned var_index;             // for ACK_UNBOUND_VAR
+                relation_element constant;      // for ACK_CONSTANT
+            };
         };
 
         class instruction_observer : public instruction_block::instruction_observer {
@@ -111,12 +113,28 @@ namespace datalog {
          */
         instruction_block & m_top_level_code;
         pred2idx m_pred_regs;
-        reg_idx m_new_reg;
-        vector<relation_signature> m_reg_signatures;
-        obj_pair_map<sort, app, reg_idx> m_constant_registers;
+        vector<relation_signature>        m_reg_signatures;
+        obj_pair_map<sort, app, reg_idx>  m_constant_registers;
         obj_pair_map<sort, decl, reg_idx> m_total_registers;
-        obj_map<decl, reg_idx> m_empty_tables_registers;
-        instruction_observer m_instruction_observer;
+        obj_map<decl, reg_idx>            m_empty_tables_registers;
+        instruction_observer              m_instruction_observer;
+        expr_free_vars                    m_free_vars;
+
+        /**
+        \brief Finds all the min aggregation functions in the premise of a given rule.
+        */
+        static void find_min_aggregates(const rule * r, ptr_vector<func_decl>& min_aggregates);
+
+        /**
+        \brief Decides whether a predicate is subject to a min aggregation function.
+
+        If \c decl is subject to a min aggregation function, the output parameters are written
+        with the neccessary information.
+
+        \returns true if the output paramaters have been written
+        */
+        static bool prepare_min_aggregate(const func_decl * decl, const ptr_vector<func_decl>& min_aggregates,
+            unsigned_vector & group_by_cols, unsigned & min_col);
 
         /**
            If true, the union operation on the underlying structure only provides the information
@@ -132,7 +150,8 @@ namespace datalog {
         bool compile_with_widening() const { return m_context.compile_with_widening(); }
 
         reg_idx get_fresh_register(const relation_signature & sig);
-        reg_idx get_single_column_register(const relation_sort & s);
+        reg_idx get_register(const relation_signature & sig, bool reuse, reg_idx r);
+        reg_idx get_single_column_register(const relation_sort s);
 
         /**
            \brief Allocate registers for predicates in \c pred and add them into the \c regs map.
@@ -142,21 +161,23 @@ namespace datalog {
         void get_fresh_registers(const func_decl_set & preds,  pred2idx & regs);
 
         void make_join(reg_idx t1, reg_idx t2, const variable_intersection & vars, reg_idx & result, 
-            instruction_block & acc);
+            bool reuse_t1, instruction_block & acc);
+        void make_min(reg_idx source, reg_idx & target, const unsigned_vector & group_by_cols,
+            const unsigned min_col, instruction_block & acc);
         void make_join_project(reg_idx t1, reg_idx t2, const variable_intersection & vars, 
-            const unsigned_vector & removed_cols, reg_idx & result, instruction_block & acc);
+            const unsigned_vector & removed_cols, reg_idx & result, bool reuse_t1, instruction_block & acc);
         void make_filter_interpreted_and_project(reg_idx src, app_ref & cond,
-            const unsigned_vector & removed_cols, reg_idx & result, instruction_block & acc);
-        void make_select_equal_and_project(reg_idx src, const relation_element & val, unsigned col,
-            reg_idx & result, instruction_block & acc);
+            const unsigned_vector & removed_cols, reg_idx & result, bool reuse, instruction_block & acc);
+        void make_select_equal_and_project(reg_idx src, const relation_element val, unsigned col,
+            reg_idx & result, bool reuse, instruction_block & acc);
         /**
            \brief Create add an union or widen operation and put it into \c acc.
         */
         void make_union(reg_idx src, reg_idx tgt, reg_idx delta, bool widening, instruction_block & acc);
         void make_projection(reg_idx src, unsigned col_cnt, const unsigned * removed_cols, 
-            reg_idx & result, instruction_block & acc);
+            reg_idx & result, bool reuse, instruction_block & acc);
         void make_rename(reg_idx src, unsigned cycle_len, const unsigned * permutation_cycle, 
-            reg_idx & result, instruction_block & acc);
+            reg_idx & result, bool reuse, instruction_block & acc);
         void make_clone(reg_idx src, reg_idx & result, instruction_block & acc);
 
         /**
@@ -171,10 +192,10 @@ namespace datalog {
 
         void make_dealloc_non_void(reg_idx r, instruction_block & acc);
 
-        void make_add_constant_column(func_decl* pred, reg_idx src, const relation_sort & s, const relation_element & val,
+        void make_add_constant_column(func_decl* pred, reg_idx src, const relation_sort s, const relation_element val,
             reg_idx & result, bool & dealloc, instruction_block & acc);
 
-        void make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort & s, reg_idx & result, 
+        void make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort s, reg_idx & result,
             bool & dealloc, instruction_block & acc);
         void make_full_relation(func_decl* pred, const relation_signature & sig, reg_idx & result, 
             instruction_block & acc);
@@ -182,7 +203,7 @@ namespace datalog {
         void add_unbound_columns_for_negation(rule* compiled_rule, func_decl* pred, reg_idx& single_res, expr_ref_vector& single_res_expr,
                                               bool & dealloc, instruction_block& acc);
         
-        void make_duplicate_column(reg_idx src, unsigned col, reg_idx & result, instruction_block & acc);
+        void make_duplicate_column(reg_idx src, unsigned col, reg_idx & result, bool reuse, instruction_block & acc);
         
         void ensure_predicate_loaded(func_decl * pred, instruction_block & acc);
 

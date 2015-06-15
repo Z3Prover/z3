@@ -727,7 +727,7 @@ namespace Duality {
         if(!started){
             sw.start();
             started = true;
-	}
+        }
         return sw.get_current_seconds();
     }
 

@@ -18,12 +18,9 @@ Revision History:
 --*/
 
 #include "ast_counter.h"
-#include "var_subst.h"
 
 void counter::update(unsigned el, int delta) {
     int & counter = get(el);
-    SASSERT(!m_stay_non_negative || counter>=0);
-    SASSERT(!m_stay_non_negative || static_cast<int>(counter)>=-delta);
     counter += delta;
 }
 
@@ -89,19 +86,17 @@ int counter::get_max_counter_value() const {
     return res;
 }
 
-void var_counter::count_vars(ast_manager & m, const app * pred, int coef) {
+void var_counter::count_vars(const app * pred, int coef) {
     unsigned n = pred->get_num_args();
     for (unsigned i = 0; i < n; i++) {
-        m_sorts.reset();
-        m_todo.reset();
-        m_mark.reset();
-        ::get_free_vars(m_mark, m_todo, pred->get_arg(i), m_sorts);
-        for (unsigned j = 0; j < m_sorts.size(); ++j) {
-            if (m_sorts[j]) {
+        m_fv(pred->get_arg(i));
+        for (unsigned j = 0; j < m_fv.size(); ++j) {
+            if (m_fv[j]) {
                 update(j, coef);
             }
         }
     }
+    m_fv.reset();
 }
 
 

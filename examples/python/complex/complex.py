@@ -47,13 +47,13 @@ class ComplexExpr:
         return ComplexExpr(other.r*self.r - other.i*self.i, other.i*self.r + other.r*self.i)
 
     def __pow__(self, k):
-	if k == 0:
-	    return ComplexExpr(1, 0)
-	if k == 1:
-	    return self
-	if k < 0:
-	    return (self ** (-k)).inv()
-	return reduce(lambda x, y: x * y, [self for _ in xrange(k)], ComplexExpr(1, 0))
+        if k == 0:
+            return ComplexExpr(1, 0)
+        if k == 1:
+            return self
+        if k < 0:
+            return (self ** (-k)).inv()
+        return reduce(lambda x, y: x * y, [self for _ in xrange(k)], ComplexExpr(1, 0))
 
     def inv(self):
         den = self.r*self.r + self.i*self.i

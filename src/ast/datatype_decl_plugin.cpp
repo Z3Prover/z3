@@ -149,10 +149,10 @@ enum status {
 */
 static bool is_recursive_datatype(parameter const * parameters) {
     unsigned num_types          = parameters[0].get_int();
-    unsigned tid                = parameters[1].get_int();
+    unsigned top_tid            = parameters[1].get_int();
     buffer<status>    already_found(num_types, WHITE);
     buffer<unsigned>  todo;
-    todo.push_back(tid);
+    todo.push_back(top_tid);
     while (!todo.empty()) {
         unsigned tid = todo.back();
         if (already_found[tid] == BLACK) {
@@ -198,11 +198,11 @@ static bool is_recursive_datatype(parameter const * parameters) {
 */
 static sort_size get_datatype_size(parameter const * parameters) {
     unsigned num_types          = parameters[0].get_int();
-    unsigned tid                = parameters[1].get_int();
+    unsigned top_tid            = parameters[1].get_int();
     buffer<sort_size> szs(num_types, sort_size());
     buffer<status>    already_found(num_types, WHITE);
     buffer<unsigned>  todo;
-    todo.push_back(tid);
+    todo.push_back(top_tid);
     while (!todo.empty()) {
         unsigned tid  = todo.back();
         if (already_found[tid] == BLACK) {
@@ -280,7 +280,7 @@ static sort_size get_datatype_size(parameter const * parameters) {
             }
         }
     }
-    return szs[tid];
+    return szs[top_tid];
 }
 
 /**
@@ -422,8 +422,55 @@ static sort * get_type(ast_manager & m, family_id datatype_fid, sort * source_da
     }
 }
 
+func_decl * datatype_decl_plugin::mk_update_field(
+    unsigned num_parameters, parameter const * parameters, 
+    unsigned arity, sort * const * domain, sort * range) {
+    decl_kind k = OP_DT_UPDATE_FIELD;
+    ast_manager& m = *m_manager;
+
+    if (num_parameters != 1 || !parameters[0].is_ast()) {
+        m.raise_exception("invalid parameters for datatype field update");
+        return 0;
+    }
+    if (arity != 2) {
+        m.raise_exception("invalid number of arguments for datatype field update");
+        return 0;
+    }
+    func_decl* acc = 0;
+    if (is_func_decl(parameters[0].get_ast())) {
+        acc = to_func_decl(parameters[0].get_ast());
+    }
+    if (acc && !get_util().is_accessor(acc)) {
+        acc = 0;
+    }
+    if (!acc) {
+        m.raise_exception("datatype field update requires a datatype accessor as the second argument");
+        return 0;
+    }
+    sort* dom = acc->get_domain(0);
+    sort* rng = acc->get_range();
+    if (dom != domain[0]) {
+        m.raise_exception("first argument to field update should be a data-type");
+        return 0;
+    }
+    if (rng != domain[1]) {
+        std::ostringstream buffer;
+        buffer << "second argument to field update should be " << mk_ismt2_pp(rng, m) 
+               << " instead of " << mk_ismt2_pp(domain[1], m);
+        m.raise_exception(buffer.str().c_str());
+        return 0;
+    }
+    range = domain[0];
+    func_decl_info info(m_family_id, k, num_parameters, parameters);
+    return m.mk_func_decl(symbol("update_field"), arity, domain, range, info);
+}
+
 func_decl * datatype_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                              unsigned arity, sort * const * domain, sort * range) {
+
+    if (k == OP_DT_UPDATE_FIELD) {
+        return mk_update_field(num_parameters, parameters, arity, domain, range);
+    }
     if (num_parameters < 2 || !parameters[0].is_ast() || !is_sort(parameters[0].get_ast())) {
         m_manager->raise_exception("invalid parameters for datatype operator");
         return 0;
@@ -521,6 +568,9 @@ func_decl * datatype_decl_plugin::mk_func_decl(decl_kind k, unsigned num_paramet
             return m_manager->mk_func_decl(a_name, arity, domain, a_type, info);
         }
         break;
+    case OP_DT_UPDATE_FIELD: 
+        UNREACHABLE();
+        return 0;
     default:
         m_manager->raise_exception("invalid datatype operator kind");
         return 0;
@@ -607,8 +657,8 @@ bool datatype_decl_plugin::is_fully_interp(sort const * s) const {
     for (unsigned tid = 0; tid < num_types; tid++) {
         unsigned o                 = parameters[2 + 2*tid + 1].get_int(); // constructor offset
         unsigned num_constructors  = parameters[o].get_int();
-        for (unsigned s = 1; s <= num_constructors; s++) {
-            unsigned k_i           = parameters[o + s].get_int();
+        for (unsigned si = 1; si <= num_constructors; si++) {
+            unsigned k_i           = parameters[o + si].get_int();
             unsigned num_accessors = parameters[k_i + 2].get_int();
             unsigned r = 0;
             for (; r < num_accessors; r++) {
@@ -671,6 +721,13 @@ bool datatype_decl_plugin::is_value(app * e) const {
     }
     return true;
 }
+
+void datatype_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+    if (logic == symbol::null) {
+        op_names.push_back(builtin_name("update-field", OP_DT_UPDATE_FIELD));
+    }
+}
+
 
 datatype_util::datatype_util(ast_manager & m):
     m_manager(m),

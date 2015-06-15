@@ -332,6 +332,7 @@ lbool array_simplifier_plugin::eq_default(expr* def, unsigned arity, unsigned nu
     for (unsigned i = 0; i < num_st; ++i) {
         all_eq  &= (st[i][arity] == def);
         all_diseq &= m_manager.is_unique_value(st[i][arity]) && (st[i][arity] != def);
+        TRACE("array_simplifier", tout << m_manager.is_unique_value(st[i][arity]) << " " << mk_pp(st[i][arity], m_manager) << "\n";);
     }
     if (all_eq) {
         return l_true;
@@ -350,6 +351,12 @@ bool array_simplifier_plugin::insert_table(expr* def, unsigned arity, unsigned n
                 return false;
             }
         }
+        TRACE("array_simplifier", tout << "inserting: ";
+              for (unsigned j = 0; j < arity; ++j) {
+                  tout << mk_pp(st[i][j], m_manager) << " ";              
+              }
+            tout << " |-> " << mk_pp(def, m_manager) << "\n";
+            );
         args_entry e(arity, st[i]);
         table.insert_if_not_there(e);
     }
@@ -424,7 +431,8 @@ bool array_simplifier_plugin::reduce_eq(expr * lhs, expr * rhs, expr_ref & resul
             lbool eq = eq_stores(c1, arity2, st1.size(), st1.c_ptr(), st2.size(), st2.c_ptr());
             TRACE("array_simplifier", 
                   tout << mk_pp(lhs, m_manager) << " = " 
-                  << mk_pp(rhs, m_manager) << " := " << eq << "\n";);
+                  << mk_pp(rhs, m_manager) << " := " << eq << "\n";
+                  tout << "arity: " << arity1 << "\n";);
             switch(eq) {
             case l_false: 
                 result = m_manager.mk_false(); 

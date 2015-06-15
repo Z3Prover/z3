@@ -108,7 +108,7 @@ namespace datalog {
 
     void relation_manager::store_relation(func_decl * pred, relation_base * rel) {
         SASSERT(rel);
-        relation_map::entry * e = m_relations.insert_if_not_there2(pred, 0);
+        relation_map::obj_map_entry * e = m_relations.insert_if_not_there2(pred, 0);
         if (e->get_data().m_value) {
             e->get_data().m_value->deallocate();
         }
@@ -122,7 +122,7 @@ namespace datalog {
         relation_map::iterator it = m_relations.begin();
         relation_map::iterator end = m_relations.end();
         for(; it!=end; ++it) {
-            if(!it->m_value->empty()) {
+            if(!it->m_value->fast_empty()) {
                 res.insert(it->m_key);
             }
         }
@@ -206,6 +206,7 @@ namespace datalog {
     }
 
     void relation_manager::register_relation_plugin_impl(relation_plugin * plugin) {
+        TRACE("dl", tout << "register: " << plugin->get_name() << "\n";);
         m_relation_plugins.push_back(plugin);
         plugin->initialize(get_next_relation_fid(*plugin));
         if (plugin->get_name() == get_context().default_relation()) {
@@ -349,10 +350,13 @@ namespace datalog {
 
         //If there is no plugin to handle the signature, we just create an empty product relation and
         //stuff will be added to it by later operations.
+        TRACE("dl", s.output(get_context().get_manager(), tout << "empty product relation"); tout << "\n";);
         return product_relation_plugin::get_plugin(*this).mk_empty(s);
     }
 
-
+    /**
+      The newly created object takes ownership of the \c table object.
+    */
     relation_base * relation_manager::mk_table_relation(const relation_signature & s, table_base * table) {
         SASSERT(s.size()==table->get_signature().size());
         return get_table_relation_plugin(table->get_plugin()).mk_from_table(s, table);
@@ -537,7 +541,7 @@ namespace datalog {
         for(; it!=end; ++it) {
             func_decl * pred = *it;
             relation_base * rel = try_get_relation(pred);
-            if(!rel) {
+            if (!rel) {
                 out << "Tuples in " << pred->get_name() << ": \n";
                 continue;
             }
@@ -668,6 +672,27 @@ namespace datalog {
         return res;
     }
 
+    class relation_manager::default_relation_apply_sequential_fn : public relation_mutator_fn {
+        ptr_vector<relation_mutator_fn> m_mutators;
+    public:
+        default_relation_apply_sequential_fn(unsigned n, relation_mutator_fn ** mutators):
+            m_mutators(n, mutators) {            
+        }
+        virtual ~default_relation_apply_sequential_fn() {
+            std::for_each(m_mutators.begin(), m_mutators.end(), delete_proc<relation_mutator_fn>());
+        }
+        
+        virtual void operator()(relation_base& t) {
+            for (unsigned i = 0; i < m_mutators.size(); ++i) {
+                if (t.empty()) return;
+                (*(m_mutators[i]))(t);
+            }
+        }
+    };
+
+    relation_mutator_fn * relation_manager::mk_apply_sequential_fn(unsigned n, relation_mutator_fn ** mutators) {
+        return alloc(default_relation_apply_sequential_fn, n, mutators);
+    }
 
     class relation_manager::default_relation_join_project_fn : public relation_join_fn {
         scoped_ptr<relation_join_fn> m_join;
@@ -733,8 +758,7 @@ namespace datalog {
 
 
     relation_union_fn * relation_manager::mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta) { 
-        TRACE("dl", tout << src.get_plugin().get_name() << " " << tgt.get_plugin().get_name() << "\n";); 
+            const relation_base * delta) {         
         relation_union_fn * res = tgt.get_plugin().mk_union_fn(tgt, src, delta);
         if(!res && &tgt.get_plugin()!=&src.get_plugin()) {
             res = src.get_plugin().mk_union_fn(tgt, src, delta);
@@ -742,6 +766,7 @@ namespace datalog {
         if(!res && delta && &tgt.get_plugin()!=&delta->get_plugin() && &src.get_plugin()!=&delta->get_plugin()) {
             res = delta->get_plugin().mk_union_fn(tgt, src, delta);
         }
+        // TRACE("dl", tout << src.get_plugin().get_name() << " " << tgt.get_plugin().get_name() << " " << (res?"created":"not created") << "\n";); 
         return res;
     }
 
@@ -998,6 +1023,11 @@ namespace datalog {
         return res;
     }
 
+    table_min_fn * relation_manager::mk_min_fn(const table_base & t,
+        unsigned_vector & group_by_cols, const unsigned col)
+    {
+        return t.get_plugin().mk_min_fn(t, group_by_cols, col);
+    }
 
     class relation_manager::auxiliary_table_transformer_fn {
         table_fact m_row;
@@ -1385,7 +1415,7 @@ namespace datalog {
         dl_decl_util & m_decl_util;
         th_rewriter & m_simp;
         app_ref m_condition;
-        ptr_vector<sort> m_var_sorts;
+        expr_free_vars m_free_vars;
         expr_ref_vector m_args;
     public:
         default_table_filter_interpreted_fn(context & ctx, unsigned col_cnt,  app* condition) 
@@ -1395,8 +1425,7 @@ namespace datalog {
                   m_simp(ctx.get_rewriter()),
                   m_condition(condition, ctx.get_manager()),
                   m_args(ctx.get_manager()) {
-            m_var_sorts.resize(col_cnt);
-            get_free_vars(m_condition, m_var_sorts);
+            m_free_vars(m_condition);
         }
 
         virtual bool should_remove(const table_fact & f) const {
@@ -1406,14 +1435,13 @@ namespace datalog {
             //arguments need to be in reverse order for the substitution
             unsigned col_cnt = f.size();
             for(int i=col_cnt-1;i>=0;i--) {
-                sort * var_sort = m_var_sorts[i];
-                if(!var_sort) {
+                if(!m_free_vars.contains(i)) {
                     args.push_back(0);
                     continue; //this variable does not occur in the condition;
                 }
 
                 table_element el = f[i];
-                args.push_back(m_decl_util.mk_numeral(el, var_sort));
+                args.push_back(m_decl_util.mk_numeral(el, m_free_vars[i]));
             }
 
             expr_ref ground(m_ast_manager);

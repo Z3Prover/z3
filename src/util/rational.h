@@ -111,6 +111,11 @@ public:
         return INT_MIN <= v && v <= INT_MAX;
     }
 
+    int get_int32() const {
+        SASSERT(is_int32());
+        return (int)get_int64();
+    }
+
     double get_double() const { return m().get_double(m_val); }
 
     rational const & get_rational() const { return *this; }

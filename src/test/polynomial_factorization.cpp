@@ -24,7 +24,8 @@ Notes:
 #include"polynomial_factorization.h"
 #endif
 
-using namespace std;
+using std::cout;
+using std::endl;
 
 // some prime numbers
 unsigned primes[] = {

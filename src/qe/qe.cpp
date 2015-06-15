@@ -1451,7 +1451,7 @@ namespace qe {
             if (assumption) m_solver.assert_expr(assumption);
             bool is_sat = false;   
             lbool res = l_true;
-            while (true) {
+            while (res == l_true) {
                 res = m_solver.check();
                 if (res == l_true) {
                     is_sat = true;
@@ -2277,17 +2277,14 @@ namespace qe {
 
 
     void expr_quant_elim::instantiate_expr(expr_ref_vector& bound, expr_ref& fml) {
-        ptr_vector<sort> sorts;
-        get_free_vars(fml, sorts);
-        if (!sorts.empty()) {
+        expr_free_vars fv;
+        fv(fml);
+        fv.set_default_sort(m.mk_bool_sort());
+        if (!fv.empty()) {
             expr_ref tmp(m);
-            for (unsigned i = sorts.size(); i > 0;) {
+            for (unsigned i = fv.size(); i > 0;) {
                 --i;
-                sort* s = sorts[i];
-                if (!s) {
-                    s = m.mk_bool_sort();
-                }
-                bound.push_back(m.mk_fresh_const("bound", s));
+                bound.push_back(m.mk_fresh_const("bound", fv[i]));
             }
             var_subst subst(m);
             subst(fml, bound.size(), bound.c_ptr(), tmp);
@@ -2438,7 +2435,6 @@ namespace qe {
             cache_result(q, q, 0); 
             return;
         }
-        ast_manager& m = m_manager;
 
         quantifier_ref new_q(m);
         expr * new_body = 0;
@@ -2464,7 +2460,6 @@ namespace qe {
     }
 
     void expr_quant_elim_star1::reduce_with_assumption(expr* ctx, expr* fml, expr_ref& result) {
-        ast_manager& m = m_manager;
         proof_ref pr(m);
         m_assumption = ctx;
         (*this)(fml, result, pr);

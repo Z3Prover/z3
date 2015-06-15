@@ -221,6 +221,22 @@ public class Goal extends Z3Object
             return "Z3Exception: " + e.getMessage();
         }
     }
+    
+    /** 
+     * Goal to BoolExpr conversion.
+     *  
+     * Returns a string representation of the Goal.
+     **/
+    public BoolExpr AsBoolExpr() {
+        int n = size();
+        if (n == 0) 
+            return getContext().mkTrue();
+        else if (n == 1)                
+            return getFormulas()[0];
+        else {
+            return getContext().mkAnd(getFormulas());
+        }
+    }
 
     Goal(Context ctx, long obj)
     {

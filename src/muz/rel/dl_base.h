@@ -88,7 +88,7 @@ namespace datalog {
         typedef typename Traits::signature signature; //this must be a vector-like type
 
         /**
-           The client submits an initial class to be used as a base for signature. Then we excend it by
+           The client submits an initial class to be used as a base for signature. Then we extend it by
            the common signature methods into a signature_base class which then the client inherits from
            to obtain the actual signature class.
         */
@@ -192,6 +192,29 @@ namespace datalog {
             virtual base_object * operator()(const base_object & t1, const base_object & t2) = 0;
         };
 
+        /**
+        \brief Aggregate minimum value
+
+        Informally, we want to group rows in a table \c t by \c group_by_cols and
+        return the minimum value in column \c col among each group.
+
+        Let \c t be a table with N columns.
+        Let \c group_by_cols be a set of column identifers for table \c t such that |group_by_cols| < N.
+        Let \c col be a column identifier for table \c t such that \c col is not in \c group_by_cols.
+
+        Let R_col be a set of rows in table \c t such that, for all rows r_i, r_j in R_col
+        and column identifiers k in \c group_by_cols, r_i[k] = r_j[k].
+
+        For each R_col, we want to restrict R_col to those rows whose value in column \c col is minimal.
+
+        min_fn(R, group_by_cols, col) =
+        { row in R | forall row' in R . row'[group_by_cols] = row[group_by_cols] => row'[col] >= row[col] }
+        */
+        class min_fn : public base_fn {
+        public:
+            virtual base_object * operator()(const base_object & t) = 0;
+        };
+
         class transformer_fn : public base_fn {
         public:
             virtual base_object * operator()(const base_object & t) = 0;
@@ -248,6 +271,7 @@ namespace datalog {
         class plugin_object {
             friend class relation_manager;
             friend class check_table_plugin;
+            friend class check_relation_plugin;
 
             family_id m_kind;
             symbol    m_name;
@@ -465,6 +489,14 @@ namespace datalog {
             relation_manager & get_manager() const { return get_plugin().get_manager(); }
 
             virtual bool empty() const = 0;
+            /**
+               \brief fast emptiness check. This may be partial.
+               The requirement is that if fast_empty returns true 
+               then the table or relation is in fact empty.
+               It is allowed to return false even if the relation is empty.
+            */
+            virtual bool fast_empty() const { return empty(); }
+
             virtual void add_fact(const fact & f) = 0;
             /**
                \brief Like \c add_fact, only here the caller guarantees that the fact is not present in
@@ -497,6 +529,7 @@ namespace datalog {
             virtual unsigned get_size_estimate_rows() const { return UINT_MAX; }
             virtual unsigned get_size_estimate_bytes() const { return UINT_MAX; }
             virtual bool knows_exact_size() const { return false; }
+            unsigned num_columns() const { return get_signature().size(); }
 
             virtual void display(std::ostream & out) const = 0;
         };
@@ -846,6 +879,7 @@ namespace datalog {
 
     typedef table_infrastructure::base_fn base_table_fn;
     typedef table_infrastructure::join_fn table_join_fn;
+    typedef table_infrastructure::min_fn table_min_fn;
     typedef table_infrastructure::transformer_fn table_transformer_fn;
     typedef table_infrastructure::union_fn table_union_fn;
     typedef table_infrastructure::mutator_fn table_mutator_fn;
@@ -1010,6 +1044,7 @@ namespace datalog {
 
     class table_plugin : public table_infrastructure::plugin_object {
         friend class relation_manager;
+        class min_fn;
     protected:
         table_plugin(symbol const& n, relation_manager & manager) : plugin_object(n, manager) {}
     public:
@@ -1017,6 +1052,9 @@ namespace datalog {
         virtual bool can_handle_signature(const table_signature & s) { return s.functional_columns()==0; }
 
     protected:
+        virtual  table_min_fn * mk_min_fn(const table_base & t,
+            unsigned_vector & group_by_cols, const unsigned col);
+
         /**
            If the returned value is non-zero, the returned object must take ownership of \c mapper.
            Otherwise \c mapper must remain unmodified.

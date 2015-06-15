@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #ifdef _WINDOWS
 #include "dl_context.h"
 #include "dl_register_engine.h"

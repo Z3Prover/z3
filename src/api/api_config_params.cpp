@@ -37,9 +37,7 @@ extern "C" {
         catch (z3_exception & ex) {
             // The error handler is only available for contexts
             // Just throw a warning.
-            std::ostringstream buffer;
-            buffer << "Error setting " << param_id << ", " << ex.msg();
-            warning_msg(buffer.str().c_str());
+            warning_msg(ex.msg());
         }
     }
 
@@ -64,9 +62,7 @@ extern "C" {
         catch (z3_exception & ex) {
             // The error handler is only available for contexts
             // Just throw a warning.
-            std::ostringstream buffer;
-            buffer << "Error setting " << param_id << ": " << ex.msg();
-            warning_msg(buffer.str().c_str());
+            warning_msg(ex.msg());
             return Z3_FALSE;
         }
     }
@@ -92,9 +88,7 @@ extern "C" {
         catch (z3_exception & ex) {
             // The error handler is only available for contexts
             // Just throw a warning.
-            std::ostringstream buffer;
-            buffer << "Error setting " << param_id << ": " << ex.msg();
-            warning_msg(buffer.str().c_str());
+            warning_msg(ex.msg());
         }
     }
 

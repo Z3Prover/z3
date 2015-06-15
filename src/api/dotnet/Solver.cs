@@ -178,8 +178,8 @@ namespace Microsoft.Z3
         {
             get
             {
-                ASTVector ass = new ASTVector(Context, Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
-                return ass.Size;
+                ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
+                return assertions.Size;
             }
         }
 
@@ -192,12 +192,8 @@ namespace Microsoft.Z3
             {
                 Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
 
-                ASTVector ass = new ASTVector(Context, Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
-                uint n = ass.Size;
-                BoolExpr[] res = new BoolExpr[n];
-                for (uint i = 0; i < n; i++)
-                    res[i] = new BoolExpr(Context, ass[i].NativeObject);
-                return res;
+                ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
+                return assertions.ToBoolExprArray();
             }
         }
 
@@ -270,18 +266,14 @@ namespace Microsoft.Z3
         /// The result is empty if <c>Check</c> was not invoked before,
         /// if its results was not <c>UNSATISFIABLE</c>, or if core production is disabled.
         /// </remarks>
-        public Expr[] UnsatCore
+        public BoolExpr[] UnsatCore
         {
             get
             {
                 Contract.Ensures(Contract.Result<Expr[]>() != null);
 
-                ASTVector core = new ASTVector(Context, Native.Z3_solver_get_unsat_core(Context.nCtx, NativeObject));
-                uint n = core.Size;
-                Expr[] res = new Expr[n];
-                for (uint i = 0; i < n; i++)
-                    res[i] = Expr.Create(Context, core[i].NativeObject);
-                return res;
+                ASTVector core = new ASTVector(Context, Native.Z3_solver_get_unsat_core(Context.nCtx, NativeObject));                
+                return core.ToBoolExprArray();
             }
         }
 

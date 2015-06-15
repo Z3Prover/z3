@@ -108,6 +108,10 @@ public:
         m_table.insert(key_data(k, v));
     }
   
+    bool insert_if_not_there_core(key const & k, value const & v, entry *& et) {
+        return m_table.insert_if_not_there_core(key_data(k,v), et);
+    }
+
     key_data const & insert_if_not_there(key const & k, value const & v) {
         return m_table.insert_if_not_there(key_data(k, v));
     }

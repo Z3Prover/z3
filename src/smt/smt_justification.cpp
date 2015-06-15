@@ -308,7 +308,8 @@ namespace smt {
         simple_justification(r, num_lits, lits),
         m_num_eqs(num_eqs) {
         m_eqs = new (r) enode_pair[num_eqs];
-        memcpy(m_eqs, eqs, sizeof(enode_pair) * num_eqs);
+        if (num_eqs != 0)
+            memcpy(m_eqs, eqs, sizeof(enode_pair) * num_eqs);
         DEBUG_CODE({
             for (unsigned i = 0; i < num_eqs; i++) {
                 SASSERT(eqs[i].first->get_root() == eqs[i].second->get_root());

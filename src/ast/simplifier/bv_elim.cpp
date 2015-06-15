@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "bv_elim.h"
 #include "bv_decl_plugin.h"
 #include "var_subst.h"
@@ -100,11 +106,11 @@ bool bv_elim_star::visit_quantifier(quantifier* q) {
 }
 
 void bv_elim_star::reduce1_quantifier(quantifier* q) {
-    quantifier_ref r(m_manager);
-    proof_ref pr(m_manager);
+    quantifier_ref r(m);
+    proof_ref pr(m);
     m_bv_elim.elim(q, r);
-    if (m_manager.fine_grain_proofs()) {
-        pr = m_manager.mk_rewrite(q, r.get());
+    if (m.fine_grain_proofs()) {
+        pr = m.mk_rewrite(q, r.get());
     }
     else {
         pr = 0;

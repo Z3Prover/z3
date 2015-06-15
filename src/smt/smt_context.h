@@ -206,9 +206,9 @@ namespace smt {
         // Unsat core extraction
         //
         // -----------------------------------
-        typedef u_map<expr *>  bool_var2assumption;
-        bool_var_vector             m_assumptions;
-        bool_var2assumption         m_bool_var2assumption; // maps an expression associated with a literal to the original assumption
+        typedef u_map<expr *>  literal2assumption;
+        literal_vector             m_assumptions;
+        literal2assumption         m_literal2assumption; // maps an expression associated with a literal to the original assumption
         expr_ref_vector             m_unsat_core;
 
         // -----------------------------------
@@ -335,6 +335,10 @@ namespace smt {
 
         lbool get_assignment(bool_var v) const {
             return get_assignment(literal(v));
+        }
+
+        literal_vector const & assigned_literals() const { 
+            return m_assigned_literals; 
         }
 
         lbool get_assignment(expr * n) const;
@@ -1390,6 +1394,8 @@ namespace smt {
         }
         
         void get_model(model_ref & m) const;
+
+        bool update_model(bool refinalize);
 
         void get_proto_model(proto_model_ref & m) const;
         

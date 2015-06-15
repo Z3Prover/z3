@@ -28,6 +28,8 @@ Revision History:
 #include"ast_pp.h"
 #include"warning.h"
 #include"smt_model_generator.h"
+#include"model_implicant.h"
+
 
 using namespace smt;
 
@@ -69,12 +71,7 @@ void theory_diff_logic<Ext>::init(context * ctx) {
     zero = m_util.mk_numeral(rational(0), true);
     e = ctx->mk_enode(zero, false, false, true);
     SASSERT(!is_attached_to_var(e));
-    m_zero_int = mk_var(e);
-
-    zero = m_util.mk_numeral(rational(0), false);
-    e = ctx->mk_enode(zero, false, false, true);
-    SASSERT(!is_attached_to_var(e));
-    m_zero_real = mk_var(e);
+    m_zero = mk_var(e);
 }
 
 
@@ -82,8 +79,10 @@ template<typename Ext>
 bool theory_diff_logic<Ext>::internalize_term(app * term) {
     bool result = null_theory_var != mk_term(term);
     CTRACE("arith", !result, tout << "Did not internalize " << mk_pp(term, get_manager()) << "\n";);
-    TRACE("non_diff_logic", tout << "Terms may not be internalized\n";);
-    found_non_diff_logic_expr(term);
+    if (!result) {
+        TRACE("non_diff_logic", tout << "Terms may not be internalized\n";);
+        found_non_diff_logic_expr(term);
+    }
     return result;
 }
 
@@ -159,6 +158,7 @@ template<typename Ext>
 void theory_diff_logic<Ext>::found_non_diff_logic_expr(expr * n) {
     if (!m_non_diff_logic_exprs) {
         TRACE("non_diff_logic", tout << "found non diff logic expression:\n" << mk_pp(n, get_manager()) << "\n";);
+        IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, get_manager()) << ")\n";); 
         get_context().push_trail(value_trail<context, bool>(m_non_diff_logic_exprs));
         m_non_diff_logic_exprs = true;
     }
@@ -177,7 +177,6 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
     bool is_ge = m_util.is_ge(n);
     bool_var bv;
     rational kr;
-    app * x, *y, *z;
     theory_var source, target; // target - source <= k
     app * lhs = to_app(n->get_arg(0));
     app * rhs = to_app(n->get_arg(1));
@@ -191,25 +190,26 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
     }
     numeral k(kr);
 
-    bool is_add = m_util.is_add(lhs) && lhs->get_num_args() == 2;
-
-    if (is_add) {
-        x = to_app(lhs->get_arg(0));
-        y = to_app(lhs->get_arg(1));
+    m_terms.reset();
+    m_signs.reset();
+    m_terms.push_back(lhs);
+    m_signs.push_back(true);
+    if (!decompose_linear(m_terms, m_signs)) {
+        found_non_diff_logic_expr(n);        
+        return false;
     }
-
-    if (is_add && is_negative(x, z)) {  
-        target = mk_var(y);
-        source = mk_var(z);
-    }
-    else if (is_add && is_negative(y, z)) {
-        target = mk_var(x);
-        source = mk_var(z);
+    if (m_terms.size() == 2 && m_signs[0] != m_signs[1]) {
+        target = mk_var(m_terms[0].get());
+        source = mk_var(m_terms[1].get());
+        if (!m_signs[0]) {
+            std::swap(target, source);
+        }
     }
     else {
         target = mk_var(lhs);
-        source = get_zero(lhs);
+        source = get_zero();
     }
+
     if (is_ge) {
         std::swap(target, source);
         k.neg();
@@ -273,6 +273,8 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
 template<typename Ext>
 void theory_diff_logic<Ext>::internalize_eq_eh(app * atom, bool_var v) {
     context & ctx  = get_context();
+    ast_manager& m = get_manager();
+    TRACE("arith", tout << mk_pp(atom, m) << "\n";);
     app * lhs      = to_app(atom->get_arg(0));
     app * rhs      = to_app(atom->get_arg(1));
     app * s;
@@ -339,7 +341,13 @@ void theory_diff_logic<Ext>::pop_scope_eh(unsigned num_scopes) {
     m_asserted_atoms.shrink(s.m_asserted_atoms_lim);
     m_asserted_qhead = s.m_asserted_qhead_old;
     m_scopes.shrink(new_lvl);
+    unsigned num_edges = m_graph.get_num_edges();
     m_graph.pop(num_scopes);
+    if (num_edges != m_graph.get_num_edges() && m_num_simplex_edges > 0) {
+        m_S.reset();
+        m_num_simplex_edges = 0;
+        m_objective_rows.reset();
+    }
     theory::pop_scope_eh(num_scopes);
 }
 
@@ -353,7 +361,7 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
 
     TRACE("arith_final", display(tout); );
     // either will already be zero (as we don't do mixed constraints).
-    m_graph.set_to_zero(m_zero_int, m_zero_real);
+    m_graph.set_to_zero(m_zero);
     SASSERT(is_consistent());
     if (m_non_diff_logic_exprs) {
         return FC_GIVEUP; 
@@ -378,6 +386,70 @@ void theory_diff_logic<Ext>::del_atoms(unsigned old_size) {
 }
 
 
+template<typename Ext>
+bool theory_diff_logic<Ext>::decompose_linear(app_ref_vector& terms, svector<bool>& signs) {
+    for (unsigned i = 0; i < terms.size(); ++i) {
+        app* n = terms[i].get();
+        if (m_util.is_add(n)) {
+            expr* arg = n->get_arg(0);
+            if (!is_app(arg)) return false;
+            terms[i] = to_app(arg);
+            for (unsigned j = 1; j < n->get_num_args(); ++j) {
+                arg = n->get_arg(j);
+                if (!is_app(arg)) return false;
+                terms.push_back(to_app(arg));
+                signs.push_back(signs[i]);
+            }
+            --i;
+            continue;
+        }
+        expr* x, *y;
+        bool sign;
+        if (m_util.is_mul(n, x, y)) {
+            if (is_sign(x, sign) && is_app(y)) {
+                terms[i] = to_app(y);
+                signs[i] = (signs[i] == sign);
+                --i;
+            }
+            else if (is_sign(y, sign) && is_app(x)) {
+                terms[i] = to_app(x);
+                signs[i] = (signs[i] == sign);
+                --i;
+            }
+            continue;
+        }
+        if (m_util.is_uminus(n, x) && is_app(x)) {
+            terms[i] = to_app(x);
+            signs[i] = !signs[i];
+            --i;
+            continue;
+        }
+    }
+    return true;
+}
+
+template<typename Ext>
+bool theory_diff_logic<Ext>::is_sign(expr* n, bool& sign) {
+    rational r;
+    expr* x;
+    if (m_util.is_numeral(n, r)) {
+        if (r.is_one()) {
+            sign = true;
+            return true;
+        }
+        if (r.is_minus_one()) {
+            sign = false;
+            return true;
+        }
+    }
+    else if (m_util.is_uminus(n, x)) {
+        if (is_sign(x, sign)) {
+            sign = !sign;
+            return true;
+        }
+    }
+    return false;
+}
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::is_negative(app* n, app*& m) { 
@@ -474,7 +546,7 @@ void theory_diff_logic<Ext>::propagate_core() {
 template<typename Ext>
 bool theory_diff_logic<Ext>::propagate_atom(atom* a) {
     context& ctx = get_context();
-    TRACE("arith", a->display(*this, tout); );
+    TRACE("arith", a->display(*this, tout); tout << "\n";);
     if (ctx.inconsistent()) {
         return false;
     }
@@ -650,6 +722,7 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
     app* a, *offset;
     theory_var source, target;
     enode* e;
+    context& ctx = get_context();
 
     TRACE("arith", tout << mk_pp(n, get_manager()) << "\n";);
 
@@ -660,6 +733,13 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
     else if (is_offset(n, a, offset, r)) {
         // n = a + k
         source = mk_var(a);
+        for (unsigned i = 0; i < n->get_num_args(); ++i) {
+            expr* arg = n->get_arg(i);
+            std::cout << "internalize: " << mk_pp(arg, get_manager()) << " " << ctx.e_internalized(arg) << "\n";
+            if (!ctx.e_internalized(arg)) {
+                ctx.internalize(arg, false);
+            }
+        }
         e = get_context().mk_enode(n, false, false, true);
         target = mk_var(e);
         numeral k(r);
@@ -698,7 +778,7 @@ theory_var theory_diff_logic<Ext>::mk_num(app* n, rational const& r) {
     enode* e = 0;
     context& ctx = get_context();
     if (r.is_zero()) {
-        v = get_zero(n);
+        v = get_zero();
     }
     else if (ctx.e_internalized(n)) {
         e = ctx.get_enode(n);
@@ -706,7 +786,8 @@ theory_var theory_diff_logic<Ext>::mk_num(app* n, rational const& r) {
         SASSERT(v != null_theory_var);
     }
     else {
-        theory_var zero = get_zero(n);
+        theory_var zero = get_zero();
+        SASSERT(n->get_num_args() == 0);
         e = ctx.mk_enode(n, false, false, true);
         v = mk_var(e);
         // internalizer is marking enodes as interpreted whenever the associated ast is a value and a constant.
@@ -763,8 +844,7 @@ void theory_diff_logic<Ext>::reset_eh() {
         dealloc(m_atoms[i]);
     }
     m_graph            .reset();
-    m_zero_int          = null_theory_var;
-    m_zero_real         = null_theory_var;
+    m_zero              = null_theory_var;
     m_atoms            .reset();
     m_asserted_atoms   .reset();
     m_stats            .reset();
@@ -775,6 +855,9 @@ void theory_diff_logic<Ext>::reset_eh() {
     m_agility               = 0.5;
     m_is_lia                = true;
     m_non_diff_logic_exprs  = false;
+    m_objectives      .reset();
+    m_objective_consts.reset();
+    m_objective_assignments.reset();
     theory::reset_eh();
 }
 
@@ -991,6 +1074,314 @@ template<typename Ext>
 void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, edge_id subsumed_edge, conflict_resolution & cr) {
     imp_functor f(cr);
     m_graph.explain_subsumed_lazy(bridge_edge, subsumed_edge, f);
+}
+
+template<typename Ext>
+unsigned theory_diff_logic<Ext>::node2simplex(unsigned v) {
+    return m_objectives.size() + 2*v + 1;
+}
+template<typename Ext>
+unsigned theory_diff_logic<Ext>::edge2simplex(unsigned e) {
+    return m_objectives.size() + 2*e;
+}
+template<typename Ext>
+unsigned theory_diff_logic<Ext>::obj2simplex(unsigned e) {
+    return e;
+}
+
+template<typename Ext>
+unsigned theory_diff_logic<Ext>::num_simplex_vars() {
+    return m_objectives.size() + std::max(2*m_graph.get_num_edges(),2*m_graph.get_num_nodes()+1);
+}
+
+template<typename Ext>
+bool theory_diff_logic<Ext>::is_simplex_edge(unsigned e) {
+    if (e < m_objectives.size()) return false;
+    e -= m_objectives.size();
+    return (0 == (e & 0x1));
+}
+
+template<typename Ext> 
+unsigned theory_diff_logic<Ext>::simplex2edge(unsigned e) {
+    SASSERT(is_simplex_edge(e));
+    return (e - m_objectives.size())/2;
+}
+
+template<typename Ext> 
+void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
+    unsigned num_nodes = m_graph.get_num_nodes();
+    vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();
+    S.ensure_var(num_simplex_vars());
+    for (unsigned i = 0; i < num_nodes; ++i) {
+        numeral const& a = m_graph.get_assignment(i);
+        rational fin = a.get_rational().to_rational();
+        rational inf = a.get_infinitesimal().to_rational();
+        mpq_inf q(fin.to_mpq(), inf.to_mpq());
+        S.set_value(node2simplex(i), q);
+    }
+    S.set_lower(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
+    S.set_upper(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
+    svector<unsigned> vars;
+    unsynch_mpq_manager mgr;
+    scoped_mpq_vector coeffs(mgr);
+    coeffs.push_back(mpq(1));
+    coeffs.push_back(mpq(-1));
+    coeffs.push_back(mpq(-1));
+    vars.resize(3);
+    for (unsigned i = m_num_simplex_edges; i < es.size(); ++i) {
+        //    t - s <= w 
+        // =>
+        //    t - s - b = 0, b >= w
+        dl_edge<GExt> const& e = es[i];
+        unsigned base_var = edge2simplex(i);
+        vars[0] = node2simplex(e.get_target());
+        vars[1] = node2simplex(e.get_source());
+        vars[2] = base_var;
+        S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());        
+    }
+    m_num_simplex_edges = es.size();
+    for (unsigned i = 0; i < es.size(); ++i) {
+        dl_edge<GExt> const& e = es[i];
+        unsigned base_var = edge2simplex(i);
+        if (e.is_enabled()) {
+            numeral const& w = e.get_weight();
+            rational fin = w.get_rational().to_rational();
+            rational inf = w.get_infinitesimal().to_rational();
+            mpq_inf q(fin.to_mpq(),inf.to_mpq());
+            S.set_upper(base_var, q);
+        }
+        else {
+            S.unset_upper(base_var);
+        }
+    }
+    for (unsigned v = m_objective_rows.size(); v < m_objectives.size(); ++v) {
+        unsigned w = obj2simplex(v);
+        objective_term const& objective = m_objectives[v];
+
+        // add objective function as row.
+        coeffs.reset();
+        vars.reset();
+        for (unsigned i = 0; i < objective.size(); ++i) {
+            coeffs.push_back(objective[i].second.to_mpq());
+            vars.push_back(node2simplex(objective[i].first));
+        }
+        coeffs.push_back(mpq(1));
+        vars.push_back(w);
+        Simplex::row row = S.add_row(w, vars.size(), vars.c_ptr(), coeffs.c_ptr());
+        m_objective_rows.push_back(row);
+    }
+}
+
+template<typename Ext>
+typename theory_diff_logic<Ext>::inf_eps theory_diff_logic<Ext>::value(theory_var v) {
+     objective_term const& objective = m_objectives[v];   
+     inf_eps r = inf_eps(m_objective_consts[v]);
+     for (unsigned i = 0; i < objective.size(); ++i) {
+         numeral n = m_graph.get_assignment(v);
+         rational r1 = n.get_rational().to_rational();
+         rational r2 = n.get_infinitesimal().to_rational();
+         r += objective[i].second * inf_eps(rational(0), inf_rational(r1, r2));
+     }
+     return r;
+}
+
+template<typename Ext>
+typename theory_diff_logic<Ext>::inf_eps 
+theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
+    
+    has_shared = false;
+    Simplex& S = m_S;
+    ast_manager& m = get_manager();
+
+    update_simplex(S);
+    objective_term const& objective = m_objectives[v];
+
+    TRACE("arith",
+          for (unsigned i = 0; i < objective.size(); ++i) {
+              tout << "Coefficient " << objective[i].second 
+                   << " of theory_var " << objective[i].first << "\n";
+          }
+          tout << "Free coefficient " << m_objective_consts[v] << "\n";
+          );
+
+    TRACE("opt", S.display(tout); display(tout););
+    
+    // optimize    
+    lbool is_sat = S.make_feasible();
+    if (is_sat == l_undef) {
+        blocker = m.mk_false();
+        return inf_eps::infinity();        
+    }
+    TRACE("opt", S.display(tout); );    
+    SASSERT(is_sat != l_false);
+    unsigned w = obj2simplex(v);
+    lbool is_fin = S.minimize(w);
+    switch (is_fin) {
+    case l_true: {
+        simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
+        inf_rational r(-rational(val.first), -rational(val.second));
+        Simplex::row row = m_objective_rows[v];
+        TRACE("opt", tout << r << " " << "\n"; 
+              S.display_row(tout, row, true););
+        Simplex::row_iterator it = S.row_begin(row), end = S.row_end(row);
+        expr_ref_vector& core = m_objective_assignments[v];
+        expr_ref tmp(m);
+        core.reset();
+        for (; it != end; ++it) {
+            unsigned v = it->m_var;
+            if (is_simplex_edge(v)) {
+                unsigned edge_id = simplex2edge(v);
+                literal lit = m_graph.get_explanation(edge_id);
+                get_context().literal2expr(lit, tmp);
+                core.push_back(tmp);
+            }
+        }
+        compute_delta();
+        for (unsigned i = 0; i < m_graph.get_num_nodes(); ++i) {
+            unsigned w = node2simplex(i);
+            simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
+            rational r = rational(val.first) + m_delta*rational(val.second);
+            m_graph.set_assignment(i, numeral(r));
+        }
+        blocker = mk_gt(v, r);
+        return inf_eps(rational(0), r + m_objective_consts[v]);
+    }
+    default:
+        TRACE("opt", tout << "unbounded\n"; );        
+        blocker = m.mk_false();
+        return inf_eps::infinity();        
+    }
+}
+
+template<typename Ext>
+theory_var theory_diff_logic<Ext>::add_objective(app* term) {
+    objective_term objective;
+    theory_var result = m_objectives.size();
+    rational q(1), r(0);
+    expr_ref_vector vr(get_manager());
+    if (!is_linear(get_manager(), term)) {
+        result = null_theory_var;
+    }
+    else if (internalize_objective(term, q, r, objective)) {
+        m_objectives.push_back(objective);
+        m_objective_consts.push_back(r);
+        m_objective_assignments.push_back(vr);
+    }
+    else {
+        result = null_theory_var;
+    }
+    return result; 
+}
+
+template<typename Ext>
+expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, bool is_strict) {
+    ast_manager& m = get_manager();
+    objective_term const& t = m_objectives[v];
+    expr_ref e(m), f(m), f2(m);
+    if (t.size() == 1 && t[0].second.is_one()) {
+        f = get_enode(t[0].first)->get_owner();
+    }
+    else if (t.size() == 1 && t[0].second.is_minus_one()) {
+        f = m_util.mk_uminus(get_enode(t[0].first)->get_owner());
+    }
+    else if (t.size() == 2 && t[0].second.is_one() && t[1].second.is_minus_one()) {
+        f = get_enode(t[0].first)->get_owner();
+        f2 = get_enode(t[1].first)->get_owner();
+        f = m_util.mk_sub(f, f2); 
+    }
+    else if (t.size() == 2 && t[1].second.is_one() && t[0].second.is_minus_one()) {
+        f = get_enode(t[1].first)->get_owner();
+        f2 = get_enode(t[0].first)->get_owner();
+        f = m_util.mk_sub(f, f2);
+    }
+    else {
+        // 
+        expr_ref_vector const& core = m_objective_assignments[v];
+        f = m.mk_and(core.size(), core.c_ptr());
+        if (is_strict) {
+            f = m.mk_not(f);
+        }
+        TRACE("arith", tout << "block: " << f << "\n";);
+        return f;
+    }
+
+    inf_rational new_val = val; // - inf_rational(m_objective_consts[v]);
+    e = m_util.mk_numeral(new_val.get_rational(), m.get_sort(f));
+    
+    if (new_val.get_infinitesimal().is_neg()) {
+        if (is_strict) {
+            f = m_util.mk_ge(f, e);
+        }
+        else {
+            expr_ref_vector const& core = m_objective_assignments[v];
+            f = m.mk_and(core.size(), core.c_ptr());            
+        }
+    }
+    else {
+        if (is_strict) {
+            f = m_util.mk_gt(f, e);
+        }
+        else {
+            f = m_util.mk_ge(f, e);
+        }
+    }
+    return f;
+}
+
+template<typename Ext>
+expr_ref theory_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
+    return mk_ineq(v, val, true);
+}
+
+template<typename Ext>
+expr_ref theory_diff_logic<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val) {
+    return mk_ineq(v, val, false);
+}
+
+#if 0
+    context & ctx = get_context();
+    model_ref mdl;
+    ctx.get_model(mdl);
+    ptr_vector<expr> formulas(ctx.get_num_asserted_formulas(), ctx.get_asserted_formulas());
+    ast_manager& m = get_manager();
+    model_implicant impl_extractor(m);
+    expr_ref_vector implicants = impl_extractor.minimize_literals(formulas, mdl);
+    return m.mk_and(o, m.mk_not(m.mk_and(implicants.size(), implicants.c_ptr())));
+#endif
+
+template<typename Ext>
+bool theory_diff_logic<Ext>::internalize_objective(expr * n, rational const& m, rational& q, objective_term & objective) {
+
+    // Compile term into objective_term format
+    rational r;
+    expr* x, *y;
+    if (m_util.is_numeral(n, r)) {
+        q += r;
+    }
+    else if (m_util.is_add(n)) {
+        for (unsigned i = 0; i < to_app(n)->get_num_args(); ++i) {
+            if (!internalize_objective(to_app(n)->get_arg(i), m, q, objective)) {
+                return false;
+            }
+        }
+    }
+    else if (m_util.is_mul(n, x, y) && m_util.is_numeral(x, r)) {
+        return internalize_objective(y, m*r, q, objective);
+    }
+    else if (m_util.is_mul(n, y, x) && m_util.is_numeral(x, r)) {
+        return internalize_objective(y, m*r, q, objective);
+    }
+    else if (!is_app(n)) {
+        return false;
+    }
+    else if (to_app(n)->get_family_id() == m_util.get_family_id()) {
+        return false;
+    }
+    else {
+        theory_var v = mk_var(to_app(n));
+        objective.push_back(std::make_pair(v, m));
+    }
+    return true;
 }
 
 #endif /* _THEORY_DIFF_LOGIC_DEF_H_ */

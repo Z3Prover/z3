@@ -41,12 +41,13 @@ namespace datalog {
     class pentagon_relation;
     class relation_fact;
     class relation_signature;
+    class rule_manager;
 
     class verbose_action {
         unsigned  m_lvl;
         class stopwatch* m_sw;
     public:
-        verbose_action(char const* msg, unsigned lvl = 1);
+        verbose_action(char const* msg, unsigned lvl = 11);
         ~verbose_action();
     };
 
@@ -345,17 +346,19 @@ namespace datalog {
 
     class rule_counter : public var_counter {        
     public:
-        rule_counter(bool stay_non_negative = true): var_counter(stay_non_negative) {}
-        void count_rule_vars(ast_manager & m, const rule * r, int coef = 1);
+        rule_counter(){}
+        void count_rule_vars(const rule * r, int coef = 1);
         unsigned get_max_rule_var(const rule& r);
     };
 
     void del_rule(horn_subsume_model_converter* mc, rule& r);
 
-    void resolve_rule(replace_proof_converter* pc, rule const& r1, rule const& r2, unsigned idx, 
+    void resolve_rule(rule_manager& rm,
+                      replace_proof_converter* pc, rule const& r1, rule const& r2, unsigned idx, 
                       expr_ref_vector const& s1, expr_ref_vector const& s2, rule const& res);
 
-    void resolve_rule(rule const& r1, rule const& r2, unsigned idx, 
+    void resolve_rule(rule_manager& rm, 
+                      rule const& r1, rule const& r2, unsigned idx, 
                       expr_ref_vector const& s1, expr_ref_vector const& s2, rule& res);
 
     model_converter* mk_skip_model_converter();

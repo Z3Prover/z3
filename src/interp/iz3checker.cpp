@@ -144,7 +144,7 @@ struct iz3checker : iz3base {
                 hash_set<ast> tmemo;
                 for(unsigned j = 0; j < theory.size(); j++)
                     support(theory[j],common,tmemo);                // all theory symbols allowed in interps
-            }	
+            }
             hash_set<ast> memo;
             support(itp[i],Isup,memo);
             std::set_difference(Isup.begin(),Isup.end(),common.begin(),common.end(),std::inserter(bad,bad.begin()));
@@ -192,35 +192,35 @@ std::vector<T> to_std_vector(const ::vector<T> &v){
 
 
 bool iz3check(ast_manager &_m_manager,
-	      solver *s,
-	      std::ostream &err,
-	      const ptr_vector<ast> &cnsts,
-	      const ::vector<int> &parents,
-	      const ptr_vector<ast> &interps,
-	      const ptr_vector<ast> &theory)
+          solver *s,
+          std::ostream &err,
+          const ptr_vector<ast> &cnsts,
+          const ::vector<int> &parents,
+          const ptr_vector<ast> &interps,
+          const ptr_vector<ast> &theory)
 {
     iz3checker chk(_m_manager);
     return chk.check(s,err,chk.cook(cnsts),to_std_vector(parents),chk.cook(interps),chk.cook(theory));
 }
 
 bool iz3check(iz3mgr &mgr,
-	      solver *s,
-	      std::ostream &err,
-	      const std::vector<iz3mgr::ast> &cnsts,
-	      const std::vector<int> &parents,
-	      const std::vector<iz3mgr::ast> &interps,
-	      const std::vector<iz3mgr::ast> &theory)
+          solver *s,
+          std::ostream &err,
+          const std::vector<iz3mgr::ast> &cnsts,
+          const std::vector<int> &parents,
+          const std::vector<iz3mgr::ast> &interps,
+          const std::vector<iz3mgr::ast> &theory)
 {
     iz3checker chk(mgr);
     return chk.check(s,err,cnsts,parents,interps,theory);
 }
 
 bool iz3check(ast_manager &_m_manager,
-	      solver *s,
-	      std::ostream &err,
-	      const ptr_vector<ast> &_cnsts,
-	      ast *tree,
-	      const ptr_vector<ast> &interps)
+          solver *s,
+          std::ostream &err,
+          const ptr_vector<ast> &_cnsts,
+          ast *tree,
+          const ptr_vector<ast> &interps)
 {
     iz3checker chk(_m_manager);
     return chk.check(s,err,chk.cook(_cnsts),chk.cook(tree),chk.cook(interps));

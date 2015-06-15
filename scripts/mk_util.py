@@ -85,6 +85,10 @@ VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
 GIT_HASH=False
+OPTIMIZE=False
+
+FPMATH="Default"
+FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
 
 def check_output(cmd):
     return str(subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]).rstrip('\r\n')
@@ -227,9 +231,36 @@ def test_openmp(cc):
     t.add('#include<omp.h>\nint main() { return omp_in_parallel() ? 1 : 0; }\n')
     t.commit()
     if IS_WINDOWS:
-        return exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '/openmp']) == 0
+        r = exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '/openmp']) == 0
+        try:
+            rmf('tstomp.obj')
+            rmf('tstomp.exe')
+        except:
+            pass
+        return r
     else:
         return exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '-fopenmp']) == 0
+
+def test_fpmath(cc):
+    global FPMATH_FLAGS
+    if is_verbose():
+        print("Testing floating point support...")
+    t = TempFile('tstsse.cpp')
+    t.add('int main() { return 42; }\n')
+    t.commit()
+    if exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpmath=sse -msse -msse2']) == 0:
+        FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
+        return "SSE2-GCC"
+    elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-msse -msse2']) == 0:
+        FPMATH_FLAGS="-msse -msse2"
+        return "SSE2-CLANG"
+    elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpu=vfp -mfloat-abi=hard']) == 0:
+        FPMATH_FLAGS="-mfpu=vfp -mfloat-abi=hard"
+        return "ARM-VFP"
+    else:
+        FPMATH_FLAGS=""
+        return "UNKNOWN"
+
 
 def find_jni_h(path):
     for root, dirs, files in os.walk(path):
@@ -357,10 +388,14 @@ def check_ml():
     r = exec_cmd([OCAMLOPT, '-o', 'a.out', 'hello.ml'])
     if r != 0:
         raise MKException('Failed testing ocamlopt compiler. Set environment variable OCAMLOPT with the path to the Ocaml native compiler. Note that ocamlopt may require flexlink to be in your path.')
-    rmf('hello.cmi')
-    rmf('hello.cmo')
-    rmf('hello.cmx')
-    rmf('a.out')
+    try:
+        rmf('hello.cmi')
+        rmf('hello.cmo')
+        rmf('hello.cmx')
+        rmf('a.out')
+        rmf('hello.o')
+    except:
+        pass
     find_ml_lib()
     find_ocaml_find()
 
@@ -517,6 +552,8 @@ def display_help(exit_code):
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
     if IS_WINDOWS:
         print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
+    if IS_WINDOWS:
+        print("  --optimize                    generate optimized code during linking.")
     print("  -j, --java                    generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
     print("  --staticlib                   build Z3 static library.")    
@@ -543,13 +580,13 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
-    global LINUX_X64
+    global LINUX_X64, OPTIMIZE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'x86', 'ml'])
+                                                'githash=', 'x86', 'ml', 'optimize'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -584,6 +621,8 @@ def parse_options():
             DOTNET_ENABLED = False
         elif opt in ('--staticlib'):
             STATIC_LIB = True
+        elif opt in ('--optimize'):
+            OPTIMIZE = True
         elif not IS_WINDOWS and opt in ('-p', '--prefix'):
             PREFIX = arg
             PYTHON_PACKAGE_DIR = os.path.join(PREFIX, 'lib', 'python%s' % distutils.sysconfig.get_python_version(), 'dist-packages')
@@ -1712,7 +1751,6 @@ def mk_config():
             'OBJ_EXT=.obj\n'
             'LIB_EXT=.lib\n'
             'AR=lib\n'
-            'AR_FLAGS=/nologo /LTCG\n'
             'AR_OUTFLAG=/OUT:\n'
             'EXE_EXT=.exe\n'
             'LINK=cl\n'
@@ -1731,22 +1769,25 @@ def mk_config():
             extra_opt = ' %s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
         if DEBUG_MODE:
             config.write(
+                'AR_FLAGS=/nologo\n'
                 'LINK_FLAGS=/nologo /MDd\n'
                 'SLINK_FLAGS=/nologo /LDd\n')
             if not VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /GL /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link /LTCG /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
-                    'SLINK_EXTRA_FLAGS=/link /LTCG /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
+                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
+                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
             else:
                 config.write(
-                    'CXXFLAGS=/c /GL /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n' % extra_opt)
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n' % extra_opt)
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link /LTCG /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
-                    'SLINK_EXTRA_FLAGS=/link /LTCG /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
+                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
+                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
         else:
             # Windows Release mode
+            if OPTIMIZE:
+                config.write('AR_FLAGS=/nologo /LTCG\n')
             config.write(
                 'LINK_FLAGS=/nologo /MD\n'
                 'SLINK_FLAGS=/nologo /LD\n')
@@ -1777,7 +1818,7 @@ def mk_config():
                 print('OCaml Native:   %s' % OCAMLOPT)
                 print('OCaml Library:  %s' % OCAML_LIB)
     else:
-        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG
+        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS
         OS_DEFINES = ""
         ARITH = "internal"
         check_ar()
@@ -1806,9 +1847,11 @@ def mk_config():
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
+        FPMATH = test_fpmath(CXX)
+        CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
         HAS_OMP = test_openmp(CXX)
         if HAS_OMP:
-            CXXFLAGS = '%s -fopenmp -mfpmath=sse' % CXXFLAGS
+            CXXFLAGS = '%s -fopenmp' % CXXFLAGS
             LDFLAGS  = '%s -fopenmp' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -fopenmp' % SLIBEXTRAFLAGS
         else:
@@ -1849,7 +1892,8 @@ def mk_config():
         else:
             raise MKException('Unsupported platform: %s' % sysname)
         if is64():
-            CXXFLAGS     = '%s -fPIC' % CXXFLAGS
+            if sysname[:6] != 'CYGWIN':
+                CXXFLAGS     = '%s -fPIC' % CXXFLAGS
             CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
                 CPPFLAGS = '%s -D_USE_THREAD_LOCAL' % CPPFLAGS
@@ -1861,7 +1905,6 @@ def mk_config():
             CPPFLAGS     = '%s -DZ3DEBUG' % CPPFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
-        CXXFLAGS         = '%s -msse -msse2' % CXXFLAGS
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
@@ -1892,6 +1935,7 @@ def mk_config():
             print('OpenMP:         %s' % HAS_OMP)
             print('Prefix:         %s' % PREFIX)
             print('64-bit:         %s' % is64())
+            print('FP math:        %s' % FPMATH) 
             if GPROF:
                 print('gprof:          enabled')
             print('Python version: %s' % distutils.sysconfig.get_python_version())            

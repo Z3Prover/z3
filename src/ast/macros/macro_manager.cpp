@@ -255,9 +255,9 @@ bool macro_manager::macro_expander::get_subst(expr * _n, expr_ref & r, proof_ref
     app * n = to_app(_n);
     quantifier * q = 0;
     func_decl * d  = n->get_decl(); 
-    TRACE("macro_manager_bug", tout << "trying to expand:\n" << mk_pp(n, m_manager) << "\nd:\n" << d->get_name() << "\n";);
+    TRACE("macro_manager_bug", tout << "trying to expand:\n" << mk_pp(n, m) << "\nd:\n" << d->get_name() << "\n";);
     if (m_macro_manager.m_decl2macro.find(d, q)) {
-        TRACE("macro_manager", tout << "expanding: " << mk_pp(n, m_manager) << "\n";);
+        TRACE("macro_manager", tout << "expanding: " << mk_pp(n, m) << "\n";);
         app * head = 0;
         expr * def = 0;
         m_macro_manager.get_head_def(q, d, head, def);
@@ -272,17 +272,17 @@ bool macro_manager::macro_expander::get_subst(expr * _n, expr_ref & r, proof_ref
             SASSERT(subst_args[nidx] == 0);
             subst_args[nidx] = n->get_arg(i);
         }
-        var_subst s(m_manager);
+        var_subst s(m);
         s(def, num, subst_args.c_ptr(), r);
-        if (m_manager.proofs_enabled()) {
-            expr_ref instance(m_manager);
+        if (m.proofs_enabled()) {
+            expr_ref instance(m);
             s(q->get_expr(), num, subst_args.c_ptr(), instance);
-            proof * qi_pr = m_manager.mk_quant_inst(m_manager.mk_or(m_manager.mk_not(q), instance), num, subst_args.c_ptr());
+            proof * qi_pr = m.mk_quant_inst(m.mk_or(m.mk_not(q), instance), num, subst_args.c_ptr());
             proof * q_pr  = 0;
             m_macro_manager.m_decl2macro_pr.find(d, q_pr);
             SASSERT(q_pr != 0);
             proof * prs[2] = { qi_pr, q_pr };
-            p = m_manager.mk_unit_resolution(2, prs);
+            p = m.mk_unit_resolution(2, prs);
         }
         else {
             p = 0;

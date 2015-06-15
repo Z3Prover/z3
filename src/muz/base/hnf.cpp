@@ -58,6 +58,19 @@ Notes:
 #include"for_each_expr.h"
 
 class hnf::imp {
+
+    class contains_predicate_proc {
+        imp const& m;
+    public:
+        struct found {};
+        contains_predicate_proc(imp const& m): m(m) {}
+        void operator()(var * n) {}
+        void operator()(quantifier * n) {}
+        void operator()(app* n) {
+            if (m.is_predicate(n)) throw found();
+        }
+    };
+
     ast_manager&          m;
     bool                  m_produce_proofs;
     volatile bool         m_cancel;
@@ -73,6 +86,9 @@ class hnf::imp {
     func_decl_ref_vector  m_fresh_predicates;
     expr_ref_vector       m_body;
     proof_ref_vector      m_defs;
+    contains_predicate_proc m_proc;
+    expr_free_vars        m_free_vars;
+    ast_fast_mark1        m_mark1;
 
 
 public:
@@ -87,13 +103,41 @@ public:
         m_qh(m),
         m_fresh_predicates(m),
         m_body(m),
-        m_defs(m) {
+        m_defs(m),
+        m_proc(*this) {
+    }
+
+    bool is_horn(expr* n) {
+        expr* n1, *n2;
+        while (is_forall(n)) n = to_quantifier(n)->get_expr();
+        if (m.is_implies(n, n1, n2) && is_predicate(n2)) {
+            app* a1 = to_app(n1);
+            if (m.is_and(a1)) {
+                for (unsigned i = 0; i < a1->get_num_args(); ++i) {
+                    if (!is_predicate(a1->get_arg(i)) && 
+                        contains_predicate(a1->get_arg(i))) {                    
+                        return false;
+                    }
+                }
+            }
+            else if (!is_predicate(a1) && contains_predicate(a1)) {
+                return false;
+            }
+            return true;
+        }    
+        
+        return false;
     }
 
     void operator()(expr * n, 
                     proof* p,
                     expr_ref_vector& result, 
                     proof_ref_vector& ps) {
+        if (is_horn(n)) {
+            result.push_back(n);
+            ps.push_back(p);
+            return;
+        }
         expr_ref fml(m);
         proof_ref pr(m);
         m_todo.reset();
@@ -166,24 +210,13 @@ private:
         return m.is_bool(f->get_range()) && f->get_family_id() == null_family_id;
     }
 
-    class contains_predicate_proc {
-        imp const& m;
-    public:
-        struct found {};
-        contains_predicate_proc(imp const& m): m(m) {}
-        void operator()(var * n) {}
-        void operator()(quantifier * n) {}
-        void operator()(app* n) {
-            if (m.is_predicate(n)) throw found();
-        }
-    };
-
-    bool contains_predicate(expr* fml) const {
-        contains_predicate_proc proc(*this);
+    bool contains_predicate(expr* fml)  {
         try {
-            quick_for_each_expr(proc, fml);
+            quick_for_each_expr(m_proc, m_mark1, fml);
+            m_mark1.reset();
         }
         catch (contains_predicate_proc::found) {
+            m_mark1.reset();
             return true;
         }
         return false;
@@ -348,13 +381,13 @@ private:
     }
 
     app_ref mk_fresh_head(expr* e) {
-        ptr_vector<sort> sorts0, sorts1;
-        get_free_vars(e, sorts0);
+        ptr_vector<sort> sorts1;
+        m_free_vars(e);
         expr_ref_vector args(m);
-        for (unsigned i = 0; i < sorts0.size(); ++i) {
-            if (sorts0[i]) {
-                args.push_back(m.mk_var(i, sorts0[i]));
-                sorts1.push_back(sorts0[i]);
+        for (unsigned i = 0; i < m_free_vars.size(); ++i) {
+            if (m_free_vars[i]) {
+                args.push_back(m.mk_var(i, m_free_vars[i]));
+                sorts1.push_back(m_free_vars[i]);
             }
         }
         func_decl_ref f(m);

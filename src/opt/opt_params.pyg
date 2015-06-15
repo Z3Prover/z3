@@ -1,0 +1,28 @@
+def_module_params('opt', 
+                  description='optimization parameters',
+                  export=True,
+                  params=(('timeout', UINT, UINT_MAX, 'set timeout'),
+                          ('optsmt_engine', SYMBOL, 'basic', "select optimization engine: 'basic', 'farkas', 'symba'"),
+	                  ('maxsat_engine', SYMBOL, 'maxres', "select engine for maxsat: 'fu_malik', 'core_maxsat', 'wmax', 'pbmax', 'maxres', 'pd-maxres', 'bcd2', 'wpm2', 'sls', 'maxhs'"),
+                          ('priority', SYMBOL, 'lex', "select how to priortize objectives: 'lex' (lexicographic), 'pareto', or 'box'"),
+                          ('dump_benchmarks', BOOL, False, 'dump benchmarks for profiling'),
+                          ('print_model', BOOL, False, 'display model for satisfiable constraints'),
+                          ('enable_sls', BOOL, False, 'enable SLS tuning during weighted maxsast'),
+                          ('enable_sat', BOOL, True, 'enable the new SAT core for propositional constraints'),
+                          ('elim_01', BOOL, True, 'eliminate 01 variables'),
+                          ('pp.neat', BOOL, True, 'use neat (as opposed to less readable, but faster) pretty printer when displaying context'),
+                          ('pb.compile_equality', BOOL, False, 'compile arithmetical equalities into pseudo-Boolean equality (instead of two inequalites)'),
+                          ('maxres.hill_climb', BOOL, True, 'give preference for large weight cores'),
+                          ('maxres.add_upper_bound_block', BOOL, False, 'restict upper bound with constraint'),
+                          ('maxres.max_num_cores', UINT, UINT_MAX, 'maximal number of cores per round'),
+                          ('maxres.max_core_size', UINT, 3, 'break batch of generated cores if size reaches this number'),
+                          ('maxres.maximize_assignment', BOOL, False, 'find an MSS/MCS to improve current assignment'), 
+                          ('maxres.max_correction_set_size', UINT, 3, 'allow generating correction set constraints up to maximal size'),
+                          ('maxres.wmax', BOOL, False, 'use weighted theory solver to constrain upper bounds')
+
+                          ))
+
+
+
+
+

@@ -107,9 +107,9 @@ public:
 };
 
 void iz3pp(ast_manager &m,
-	   const ptr_vector<expr> &cnsts_vec,
-	   expr *tree,
-	   std::ostream& out) {
+       const ptr_vector<expr> &cnsts_vec,
+       expr *tree,
+       std::ostream& out) {
 
     unsigned sz = cnsts_vec.size();
     expr* const* cnsts = &cnsts_vec[0];

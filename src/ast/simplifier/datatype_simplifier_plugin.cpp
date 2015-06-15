@@ -81,6 +81,8 @@ bool datatype_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr *
         }
         UNREACHABLE();
     }
+    case OP_DT_UPDATE_FIELD:
+        return false;
     default:
         UNREACHABLE();
     }

@@ -859,6 +859,20 @@ extern "C" {
     Z3_string Z3_API Z3_fpa_get_numeral_significand_string(__in Z3_context c, __in Z3_ast t);
 
     /**
+        \brief Return the significand value of a floating-point numeral as a uint64.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        Remarks: This function extracts the significand bits in `t`, without the 
+        hidden bit or normalization. Sets the Z3_INVALID_ARG error code if the 
+        significand does not fit into a uint64.
+
+        def_API('Z3_fpa_get_numeral_significand_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
+    */
+    Z3_bool Z3_API Z3_fpa_get_numeral_significand_uint64(__in Z3_context c, __in Z3_ast t, __out __uint64 * n);
+
+    /**
         \brief Return the exponent value of a floating-point numeral as a string
 
 		\param c logical context

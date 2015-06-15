@@ -362,6 +362,23 @@ public class Context extends IDisposable
     }
 
     /**
+     * Update a datatype field at expression t with value v.
+     * The function performs a record update at t. The field
+     * that is passed in as argument is updated with value v,
+     * the remainig fields of t are unchanged.	
+     **/
+    public Expr MkUpdateField(FuncDecl field, Expr t, Expr v) 
+            throws Z3Exception
+    {
+	return Expr.create
+	    (this, 
+	     Native.datatypeUpdateField
+	     (nCtx(), field.getNativeObject(),
+	      t.getNativeObject(), v.getNativeObject()));		
+    }
+
+
+    /**
      * Creates a new function declaration.
      **/
     public FuncDecl mkFuncDecl(Symbol name, Sort[] domain, Sort range)

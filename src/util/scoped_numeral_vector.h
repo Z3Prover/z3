@@ -46,6 +46,10 @@ public:
         m_manager.set(this->back(), v);
     }
 
+    void pop_back() {
+        shrink(this->size()-1);
+    }
+
     void shrink(unsigned sz) {
         unsigned old_sz = this->size();
         if (old_sz == sz)

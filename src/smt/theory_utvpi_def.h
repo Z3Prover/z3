@@ -62,8 +62,7 @@ namespace smt {
             theory(m.mk_family_id("arith")),
             a(m),
             m_arith_eq_adapter(*this, m_params, a),
-            m_zero_int(null_theory_var),
-            m_zero_real(null_theory_var),
+            m_zero(null_theory_var),
             m_nc_functor(*this),
             m_asserted_qhead(0),
             m_agility(0.5),
@@ -134,8 +133,7 @@ namespace smt {
     template<typename Ext>
     void theory_utvpi<Ext>::reset_eh() {
         m_graph            .reset();
-        m_zero_int          = null_theory_var;
-        m_zero_real         = null_theory_var;
+        m_zero              = null_theory_var;
         m_atoms            .reset();
         m_asserted_atoms   .reset();
         m_stats            .reset();
@@ -261,8 +259,7 @@ namespace smt {
     template<typename Ext>
     void theory_utvpi<Ext>::init(context* ctx) {
         theory::init(ctx);
-        m_zero_int  = mk_var(ctx->mk_enode(a.mk_numeral(rational(0), true), false, false, true));
-        m_zero_real = mk_var(ctx->mk_enode(a.mk_numeral(rational(0), false), false, false, true));
+        m_zero  = mk_var(ctx->mk_enode(a.mk_numeral(rational(0), true), false, false, true));
     }
 
     /**
@@ -556,7 +553,7 @@ namespace smt {
         theory_var v = null_theory_var;
         context& ctx = get_context();
         if (r.is_zero()) {            
-            v = a.is_int(n)?m_zero_int:m_zero_real;
+            v = m_zero;
         }
         else if (ctx.e_internalized(n)) {
             enode* e = ctx.get_enode(n);
@@ -778,9 +775,7 @@ namespace smt {
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
         enforce_parity();
-        m_graph.set_to_zero(to_var(m_zero_int), to_var(m_zero_real));
-        m_graph.set_to_zero(neg(to_var(m_zero_int)), neg(to_var(m_zero_real)));
-        m_graph.set_to_zero(to_var(m_zero_int), neg(to_var(m_zero_int)));
+        m_graph.set_to_zero(to_var(m_zero), neg(to_var(m_zero)));
         compute_delta();   
         DEBUG_CODE(validate_model(););
     }

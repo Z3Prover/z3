@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "th_rewriter.h"
 #include "smt2parser.h"
 #include "arith_decl_plugin.h"

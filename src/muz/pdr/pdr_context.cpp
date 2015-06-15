@@ -47,6 +47,8 @@ Notes:
 #include "dl_boogie_proof.h"
 #include "qe_util.h"
 #include "scoped_proof.h"
+#include "blast_term_ite_tactic.h"
+#include "model_implicant.h"
 #include "expr_safe_replace.h"
 
 namespace pdr {
@@ -78,9 +80,9 @@ namespace pdr {
     pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head): 
         pm(pm), m(pm.get_manager()),
         ctx(ctx), m_head(head, m), 
-        m_sig(m), m_solver(pm, ctx.get_params(), head->get_name()),
+        m_sig(m), m_solver(pm, head->get_name()),
         m_invariants(m), m_transition(m), m_initial_state(m), 
-        m_reachable(pm, (datalog::PDR_CACHE_MODE)ctx.get_params().cache_mode()) {}
+        m_reachable(pm, (datalog::PDR_CACHE_MODE)ctx.get_params().pdr_cache_mode()) {}
 
     pred_transformer::~pred_transformer() {
         rule2inst::iterator it2 = m_rule2inst.begin(), end2 = m_rule2inst.end();
@@ -95,8 +97,9 @@ namespace pdr {
 
     std::ostream& pred_transformer::display(std::ostream& out) const {
         if (!rules().empty()) out << "rules\n";
+        datalog::rule_manager& rm = ctx.get_context().get_rule_manager();
         for (unsigned i = 0; i < rules().size(); ++i) {
-            rules()[i]->display_smt2(m, out) << "\n";
+            rm.display_smt2(*rules()[i], out) << "\n";
         }        
         out << "transition\n" << mk_pp(transition(), m) << "\n";
         return out;
@@ -149,10 +152,11 @@ namespace pdr {
     datalog::rule const& pred_transformer::find_rule(model_core const& model) const {
         obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
         TRACE("pdr_verbose",
+              datalog::rule_manager& rm = ctx.get_context().get_rule_manager();
               for (; it != end; ++it) {
                   expr* pred = it->m_key;
                   tout << mk_pp(pred, m) << ":\n";
-                  if (it->m_value) it->m_value->display_smt2(m, tout) << "\n";                  
+                  if (it->m_value) rm.display_smt2(*it->m_value, tout) << "\n";                  
               }
         );
         
@@ -602,7 +606,7 @@ namespace pdr {
         th_rewriter rw(m);
         rw(fml);
         if (ctx.is_dl() || ctx.is_utvpi()) {
-            hoist_non_bool_if(fml);
+            blast_term_ite(fml);
         }
         TRACE("pdr", tout << mk_pp(fml, m) << "\n";);
         SASSERT(is_ground(fml));
@@ -618,14 +622,14 @@ namespace pdr {
             m_rule2transition.insert(&rule, fml.get());
             rules.push_back(&rule);
         }
-        m_rule2inst.insert(&rule,&var_reprs);
+        m_rule2inst.insert(&rule, &var_reprs);
         m_rule2vars.insert(&rule, aux_vars);
         TRACE("pdr", 
               tout << rule.get_decl()->get_name() << "\n";
               for (unsigned i = 0; i < var_reprs.size(); ++i) {
                   tout << mk_pp(var_reprs[i].get(), m) << " ";
               }
-              tout << "\n";);
+              if (!var_reprs.empty()) tout << "\n";);
     }
 
     bool pred_transformer::check_filled(app_ref_vector const& v) const {
@@ -637,14 +641,14 @@ namespace pdr {
 
     // create constants for free variables in tail.
     void pred_transformer::ground_free_vars(expr* e, app_ref_vector& vars, ptr_vector<app>& aux_vars) {
-        ptr_vector<sort> sorts;
-        get_free_vars(e, sorts);
-        while (vars.size() < sorts.size()) {
+        expr_free_vars fv;
+        fv(e);
+        while (vars.size() < fv.size()) {
             vars.push_back(0);
         }
-        for (unsigned i = 0; i < sorts.size(); ++i) {
-            if (sorts[i] && !vars[i].get()) {
-                vars[i] = m.mk_fresh_const("aux", sorts[i]);
+        for (unsigned i = 0; i < fv.size(); ++i) {
+            if (fv[i] && !vars[i].get()) {
+                vars[i] = m.mk_fresh_const("aux", fv[i]);
                 aux_vars.push_back(vars[i].get());
             }
         }
@@ -725,6 +729,7 @@ namespace pdr {
         obj_map<expr, unsigned>::iterator it  = other.m_prop2level.begin();
         obj_map<expr, unsigned>::iterator end = other.m_prop2level.end();        
         for (; it != end; ++it) {
+            IF_VERBOSE(2, verbose_stream() << "(pdr-inherit: " << mk_pp(it->m_key, m) << ")\n";);
             add_property(it->m_key, it->m_value);
         }
     }
@@ -737,9 +742,26 @@ namespace pdr {
         m_closed = true; 
     }
 
-    void model_node::reopen() {
+    void model_node::set_open() {
         SASSERT(m_closed);
         m_closed = false;
+        model_node* p = parent();
+        while (p && p->is_closed()) {
+            p->m_closed = false;
+            p = p->parent();
+        }
+    }
+
+    void model_node::check_pre_closed() {
+        for (unsigned i = 0; i < children().size(); ++i) {
+            if (children()[i]->is_open()) return;
+        }
+        set_pre_closed();
+        model_node* p = parent();
+        while (p && p->is_1closed()) {
+            p->set_pre_closed();
+            p = p->parent();
+        }
     }
 
     static bool is_ini(datalog::rule const& r) {
@@ -847,22 +869,66 @@ namespace pdr {
     }
 
 
+    void model_node::dequeue(model_node*& root) {
+        TRACE("pdr", tout << this << " " << state() << "\n";);
+        if (!m_next && !m_prev) return;
+        SASSERT(m_next);
+        SASSERT(m_prev);
+        SASSERT(children().empty());
+        if (this == m_next) {
+            SASSERT(root == this);
+            root = 0;
+        }
+        else {
+            m_next->m_prev = m_prev;
+            m_prev->m_next = m_next;
+            if (this == root) {
+                root = m_next;
+            }
+        }
+        TRACE("pdr", tout << "new root: " << root << "\n";);
+        m_prev = 0;
+        m_next = 0;
+    }
+
+
+    void model_node::enqueue(model_node* n) {
+        TRACE("pdr", tout << n << " " << n->state() << "\n";);
+        SASSERT(!n->m_next);
+        SASSERT(!n->m_prev);
+        if (this == n) {
+            m_next = n;
+            m_prev = n;
+        }
+        else {
+            n->m_next = m_next;
+            m_next->m_prev = n;
+            m_next = n;
+            n->m_prev = this;
+        }
+    }
     // ----------------
     // model_search
 
+    /**
+       \brief Dequeue the next goal.
+     */
     model_node* model_search::next() {
-        if (m_leaves.empty()) {
+        if (!m_goal) {
             return 0;
         }
-        model_node* result = m_leaves.back();
-        m_leaves.pop_back();
-        return result;
+        else {
+            model_node* result = m_goal;
+            result->dequeue(m_goal);
+            return result;
+        }
     }
 
     bool model_search::is_repeated(model_node& n) const {
         model_node* p = n.parent();
         while (p) {
             if (p->state() == n.state()) {
+                TRACE("pdr", tout << "repeated\n";);
                 return true;
             }
             p = p->parent();
@@ -871,10 +937,15 @@ namespace pdr {
     }
 
     void model_search::add_leaf(model_node& n) {
+        SASSERT(n.children().empty());
         model_nodes ns;
         model_nodes& nodes = cache(n).insert_if_not_there2(n.state(), ns)->get_data().m_value;
+        if (nodes.contains(&n)) {
+            return;
+        }
         nodes.push_back(&n);
-        if (nodes.size() == 1 || is_repeated(n)) {
+        TRACE("pdr_verbose", tout << "add: " << n.level() << ": " << &n << " " << n.state() << "\n";);
+        if (nodes.size() == 1) {
             set_leaf(n);
         }
         else {
@@ -885,15 +956,21 @@ namespace pdr {
     void model_search::set_leaf(model_node& n) {
         erase_children(n, true);
         SASSERT(n.is_open());      
-        enqueue_leaf(n);
+        enqueue_leaf(&n);
     }
 
-    void model_search::enqueue_leaf(model_node& n) {
-        if (m_bfs) {
-            m_leaves.push_front(&n);
+    void model_search::enqueue_leaf(model_node* n) {
+        TRACE("pdr_verbose", tout << n << " " << n->state() << " goal: " << m_goal << "\n";);
+        SASSERT(n->is_open());        
+        if (!m_goal) {
+            m_goal = n;
+            m_goal->enqueue(n);
+        }
+        else if (m_bfs) {
+            m_goal->enqueue(n);
         }
         else {
-            m_leaves.push_back(&n);
+            m_goal->next()->enqueue(n);
         }
     }
 
@@ -916,56 +993,132 @@ namespace pdr {
     void model_search::erase_children(model_node& n, bool backtrack) {
         ptr_vector<model_node> todo, nodes;
         todo.append(n.children());
-        erase_leaf(n);
+        remove_goal(n);
         n.reset();
         while (!todo.empty()) {
             model_node* m = todo.back();
             todo.pop_back();
             nodes.push_back(m);
             todo.append(m->children());
-            erase_leaf(*m);
             remove_node(*m, backtrack);
         }
         std::for_each(nodes.begin(), nodes.end(), delete_proc<model_node>());
     }
 
     void model_search::remove_node(model_node& n, bool backtrack) {
+        TRACE("pdr_verbose", tout << "remove: " << n.level() << ": " << &n << " " << n.state() << "\n";);
         model_nodes& nodes = cache(n).find(n.state());
         nodes.erase(&n);
-        if (nodes.size() > 0 && n.is_open() && backtrack) {
-            for (unsigned i = 0; i < nodes.size(); ++i) {
-                nodes[i]->reopen();
-            }
+        bool is_goal = n.is_goal();
+        remove_goal(n);
+        if (!nodes.empty() && is_goal && backtrack) {
+            TRACE("pdr_verbose", for (unsigned i = 0; i < nodes.size(); ++i) n.display(tout << &n << "\n", 2););
+            model_node* n1 = nodes[0];
+            n1->set_open();
+            SASSERT(n1->children().empty());
+            enqueue_leaf(n1);
         }
         if (nodes.empty()) {            
             cache(n).remove(n.state());
         }
     }
 
-    void model_search::erase_leaf(model_node& n) {
-        if (n.children().empty() && n.is_open()) {
-            std::deque<model_node*>::iterator 
-                it  = m_leaves.begin(), 
-                end = m_leaves.end();
-            for (; it != end; ++it) {
-                if (*it == &n) {
-                    m_leaves.erase(it);
-                    break;
+    void model_search::remove_goal(model_node& n) {
+        n.dequeue(m_goal);        
+    }
+
+    void model_search::well_formed() {
+        // each open leaf is in the set of m_goal.
+        ptr_vector<model_node> nodes;
+        nodes.push_back(&get_root());
+        for (unsigned i = 0; i < nodes.size(); ++i) {
+            model_node* n = nodes[i];
+            if (!n->children().empty()) {
+                nodes.append(n->children());
+            }
+            else if (n->is_open() && !n->is_goal() && n->parent()) {
+                TRACE("pdr", n->display(tout << "node " << n << " not found among leaves\n", 0); display(tout););
+                UNREACHABLE();
+                return;
+            }
+        }
+        if (m_goal) {
+            model_node* n = m_goal;            
+            do {
+                if (!n->is_open() || !n->children().empty()) {
+                    TRACE("pdr", n->display(tout << "invalid leaf\n", 0); 
+                          display(tout););
+                    UNREACHABLE();
+                    return;
+                }                
+                n = n->next();
+            }
+            while (m_goal != n);
+        }
+
+        // each state appears in at most one goal per level.        
+        bool found = true;
+        for (unsigned l = 0; m_goal && found; ++l) {
+            found = false;
+            obj_hashtable<expr> open_states;            
+            model_node* n = m_goal;
+            do {
+                if (n->level() == l) {
+                    found = true;
+                    if (n->is_open()) {
+                        if (open_states.contains(n->state())) {
+                            TRACE("pdr", n->display(tout << "repeated leaf\n", 0); display(tout););
+                            UNREACHABLE();
+                        }
+                        open_states.insert(n->state());
+                    }
+                }
+                n = n->next();
+            }
+            while (m_goal != n);
+        }
+        // a node is open if and only if it contains an 
+        // open child which is a goal.
+        for (unsigned i = 0; i < nodes.size(); ++i) {
+            model_node* n = nodes[i];
+            if (!n->children().empty() && n->parent()) {
+                found = false;
+                for (unsigned j = 0; !found && j < n->children().size(); ++j) {
+                    found = n->children()[j]->is_open();
+                }
+                if (n->is_open() != found) {
+                    TRACE("pdr", n->display(tout << "node in inconsistent state\n", 0); display(tout););
+                    UNREACHABLE();
                 }
             }
         }
+    }
+
+    unsigned model_search::num_goals() const {
+        model_node* n = m_goal;
+        unsigned num = 0;
+        if (n) {
+            do {
+                ++num;
+                n = n->next();
+            }
+            while (n != m_goal);
+        }
+        return num;
     }
 
     std::ostream& model_search::display(std::ostream& out) const {
         if (m_root) {
             m_root->display(out, 0);
         }
-        out << "goals\n";
-        std::deque<model_node*>::const_iterator 
-            it  = m_leaves.begin(), 
-            end = m_leaves.end();
-        for (; it != end; ++it) {
-            (*it)->display(out, 1);
+        out << "goals " << num_goals() << "\n";
+        model_node* n = m_goal;
+        if (n) {
+            do {
+                n->display(out, 1);
+                n = n->next();
+            }
+            while (n != m_goal);
         }
         return out;
     }
@@ -994,12 +1147,18 @@ namespace pdr {
             model_node* n = todo.back();
             model* md = 0;
             ast_manager& m = n->pt().get_manager();
-            if (!n->get_model_ptr() && models.find(n->state(), md)) {
-                TRACE("pdr", tout << mk_pp(n->state(), m) << "\n";);
-                model_ref mr(md);
-                n->set_model(mr);
-                datalog::rule const* rule = rules.find(n->state());
-                n->set_rule(rule);
+            if (!n->get_model_ptr()) {
+                if (models.find(n->state(), md)) {
+                    TRACE("pdr", tout << mk_pp(n->state(), m) << "\n";);
+                    model_ref mr(md);
+                    n->set_model(mr);
+                    datalog::rule const* rule = rules.find(n->state());
+                    n->set_rule(rule);
+                }
+                else {
+                    IF_VERBOSE(1, n->display(verbose_stream() << "no model:\n", 0);
+                               verbose_stream() << mk_pp(n->state(), m) << "\n";);
+                }
             }
             todo.pop_back();
             todo.append(n->children().size(), n->children().c_ptr());
@@ -1086,7 +1245,6 @@ namespace pdr {
 
             children.append(n->children());
         }            
-
         expr_safe_replace repl(m);
         for (unsigned i = 0; i < constraints.size(); ++i) {
             expr* e = constraints[i].get(), *e1, *e2;
@@ -1216,7 +1374,7 @@ namespace pdr {
                 }
 
                 expr_ref fml_concl(m);
-                reduced_rule->to_formula(fml_concl);                    
+                rm.to_formula(*reduced_rule.get(), fml_concl);                    
                 p1 = m.mk_hyper_resolve(pfs.size(), pfs.c_ptr(), fml_concl, positions, substs);
 
             }
@@ -1240,8 +1398,8 @@ namespace pdr {
             remove_node(*m_root, false);
             dealloc(m_root);
             m_root = 0;
-            m_cache.reset();
         }
+        m_cache.reset();
     }
 
     void model_search::backtrack_level(bool uses_level, model_node& n) {
@@ -1249,7 +1407,7 @@ namespace pdr {
         if (uses_level && m_root->level() > n.level()) {
             IF_VERBOSE(2, verbose_stream() << "Increase level " << n.level() << "\n";);
             n.increase_level();
-            enqueue_leaf(n);
+            enqueue_leaf(&n);
         }
         else {
             model_node* p = n.parent();
@@ -1257,24 +1415,25 @@ namespace pdr {
                 set_leaf(*p);
             }               
         }     
+        DEBUG_CODE(well_formed(););
     }
 
     // ----------------
     // context
 
     context::context(
-        smt_params&     fparams,
-        fixedpoint_params const&     params,
-        ast_manager&          m
+        smt_params&               fparams,
+        fixedpoint_params const&  params,
+        ast_manager&              m
         )
         : m_fparams(fparams),
           m_params(params),
           m(m),
           m_context(0),
-          m_pm(m_fparams, params.max_num_contexts(), m),
+          m_pm(m_fparams, params.pdr_max_num_contexts(), m),
           m_query_pred(m),
           m_query(0),
-          m_search(m_params.bfs_model_search()),
+          m_search(m_params.pdr_bfs_model_search()),
           m_last_result(l_undef),
           m_inductive_lvl(0),
           m_expanded_lvl(0),
@@ -1502,93 +1661,106 @@ namespace pdr {
             }
         }
     };
-
-    void context::validate() {
-        if (!m_params.validate_result()) {
-            return;
-        }
+    
+    void context::validate_proof() {
         std::stringstream msg;
-
-        switch(m_last_result) {
-        case l_true: {
-            proof_ref pr = get_proof();
-            proof_checker checker(m);
-            expr_ref_vector side_conditions(m);
-            bool ok = checker.check(pr, side_conditions);
-            if (!ok) {
-                msg << "proof validation failed";
+        proof_ref pr = get_proof();
+        proof_checker checker(m);
+        expr_ref_vector side_conditions(m);
+        bool ok = checker.check(pr, side_conditions);
+        if (!ok) {
+            msg << "proof validation failed";
+            IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
+            throw default_exception(msg.str());
+        }
+        for (unsigned i = 0; i < side_conditions.size(); ++i) {
+            expr* cond = side_conditions[i].get();
+            expr_ref tmp(m);
+        
+            tmp = m.mk_not(cond);
+            IF_VERBOSE(2, verbose_stream() << "checking side-condition:\n" << mk_pp(cond, m) << "\n";);
+            smt::kernel solver(m, get_fparams());
+            solver.assert_expr(tmp);
+            lbool res = solver.check();
+            if (res != l_false) {
+                msg << "rule validation failed when checking: " << mk_pp(cond, m);
                 IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
                 throw default_exception(msg.str());
-            }
-            for (unsigned i = 0; i < side_conditions.size(); ++i) {
-                expr* cond = side_conditions[i].get();
-                expr_ref tmp(m);
-                tmp = m.mk_not(cond);
-                IF_VERBOSE(2, verbose_stream() << "checking side-condition:\n" << mk_pp(cond, m) << "\n";);
+            }                                
+        }
+    }
+
+    void context::validate_search() {
+        expr_ref tr = m_search.get_trace(*this);
+        // TBD: tr << "\n";
+    }
+
+    void context::validate_model() {
+        std::stringstream msg;
+        expr_ref_vector refs(m);
+        expr_ref tmp(m);
+        model_ref model;
+        vector<relation_info> rs;
+        model_converter_ref mc;
+        get_level_property(m_inductive_lvl, refs, rs);    
+        inductive_property ex(m, mc, rs);
+        ex.to_model(model);
+        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
+        var_subst vs(m, false);   
+        expr_free_vars fv;
+        for (; it != end; ++it) {
+            ptr_vector<datalog::rule> const& rules = it->m_value->rules();
+            for (unsigned i = 0; i < rules.size(); ++i) {
+                datalog::rule& r = *rules[i];
+                model->eval(r.get_head(), tmp);
+                expr_ref_vector fmls(m);
+                fmls.push_back(m.mk_not(tmp));
+                unsigned utsz = r.get_uninterpreted_tail_size();
+                unsigned tsz  = r.get_tail_size();
+                for (unsigned j = 0; j < utsz; ++j) {
+                    model->eval(r.get_tail(j), tmp);
+                    fmls.push_back(tmp);
+                }
+                for (unsigned j = utsz; j < tsz; ++j) {
+                    fmls.push_back(r.get_tail(j));
+                }
+                tmp = m.mk_and(fmls.size(), fmls.c_ptr()); 
+                svector<symbol> names;
+                fv(tmp);
+                fv.set_default_sort(m.mk_bool_sort());
+                for (unsigned i = 0; i < fv.size(); ++i) {
+                    names.push_back(symbol(i));
+                }
+                fv.reverse();
+                if (!fv.empty()) {
+                    tmp = m.mk_exists(fv.size(), fv.c_ptr(), names.c_ptr(), tmp);
+                }
                 smt::kernel solver(m, get_fparams());
                 solver.assert_expr(tmp);
                 lbool res = solver.check();
                 if (res != l_false) {
-                    msg << "rule validation failed when checking: " << mk_pp(cond, m);
+                    msg << "rule validation failed when checking: " << mk_pp(tmp, m);
                     IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
                     throw default_exception(msg.str());
-                }                                
-            }
-            break;
-        }            
-        case l_false: {
-            expr_ref_vector refs(m);
-            expr_ref tmp(m);
-            model_ref model;
-            vector<relation_info> rs;
-            model_converter_ref mc;
-            get_level_property(m_inductive_lvl, refs, rs);    
-            inductive_property ex(m, mc, rs);
-            ex.to_model(model);
-            decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-            var_subst vs(m, false);   
-            for (; it != end; ++it) {
-                ptr_vector<datalog::rule> const& rules = it->m_value->rules();
-                for (unsigned i = 0; i < rules.size(); ++i) {
-                    datalog::rule& r = *rules[i];
-                    model->eval(r.get_head(), tmp);
-                    expr_ref_vector fmls(m);
-                    fmls.push_back(m.mk_not(tmp));
-                    unsigned utsz = r.get_uninterpreted_tail_size();
-                    unsigned tsz  = r.get_tail_size();
-                    for (unsigned j = 0; j < utsz; ++j) {
-                        model->eval(r.get_tail(j), tmp);
-                        fmls.push_back(tmp);
-                    }
-                    for (unsigned j = utsz; j < tsz; ++j) {
-                        fmls.push_back(r.get_tail(j));
-                    }
-                    tmp = m.mk_and(fmls.size(), fmls.c_ptr()); 
-                    ptr_vector<sort> sorts;
-                    svector<symbol> names;
-                    get_free_vars(tmp, sorts);
-                    for (unsigned i = 0; i < sorts.size(); ++i) {
-                        if (!sorts[i]) {
-                            sorts[i] = m.mk_bool_sort();
-                        }
-                        names.push_back(symbol(i));
-                    }
-                    sorts.reverse();
-                    if (!sorts.empty()) {
-                        tmp = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), tmp);
-                    }
-                    smt::kernel solver(m, get_fparams());
-                    solver.assert_expr(tmp);
-                    lbool res = solver.check();
-                    if (res != l_false) {
-                        msg << "rule validation failed when checking: " << mk_pp(tmp, m);
-                        IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
-                        throw default_exception(msg.str());
-                    }
                 }
             }
-            break;
         }
+    }
+
+    void context::validate() {
+        if (!m_params.pdr_validate_result()) {
+            return;
+        }
+        switch(m_last_result) {
+        case l_true: 
+            if (m_params.generate_proof_trace()) {
+                validate_proof();
+            }
+            validate_search();
+            break;                    
+        case l_false: 
+            validate_model();            
+            break;
         default:
             break;
         }
@@ -1602,7 +1774,7 @@ namespace pdr {
     void context::init_core_generalizers(datalog::rule_set& rules) {
         reset_core_generalizers();
         classifier_proc classify(m, rules);
-        bool use_mc = m_params.use_multicore_generalizer();
+        bool use_mc = m_params.pdr_use_multicore_generalizer();
         if (use_mc) {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this, 0));
         }
@@ -1612,9 +1784,9 @@ namespace pdr {
             m_fparams.m_arith_auto_config_simplex = true;
             m_fparams.m_arith_propagate_eqs = false;
             m_fparams.m_arith_eager_eq_axioms = false;
-            if (m_params.use_utvpi() && 
-                !m_params.use_convex_closure_generalizer() &&
-                !m_params.use_convex_interior_generalizer()) {
+            if (m_params.pdr_utvpi() && 
+                !m_params.pdr_use_convex_closure_generalizer() &&
+                !m_params.pdr_use_convex_interior_generalizer()) {
                 if (classify.is_dl()) {
                     m_fparams.m_arith_mode = AS_DIFF_LOGIC;
                     m_fparams.m_arith_expand_eqs = true;
@@ -1626,19 +1798,19 @@ namespace pdr {
                 }
             }
         }
-        if (m_params.use_convex_closure_generalizer()) {
+        if (m_params.pdr_use_convex_closure_generalizer()) {
             m_core_generalizers.push_back(alloc(core_convex_hull_generalizer, *this, true));
         }
-        if (m_params.use_convex_interior_generalizer()) {
+        if (m_params.pdr_use_convex_interior_generalizer()) {
             m_core_generalizers.push_back(alloc(core_convex_hull_generalizer, *this, false));
         }
-        if (!use_mc && m_params.use_inductive_generalizer()) {
+        if (!use_mc && m_params.pdr_use_inductive_generalizer()) {
             m_core_generalizers.push_back(alloc(core_bool_inductive_generalizer, *this, 0));
         }
-        if (m_params.inductive_reachability_check()) {
+        if (m_params.pdr_inductive_reachability_check()) {
             m_core_generalizers.push_back(alloc(core_induction_generalizer, *this));
         }
-        if (m_params.use_arith_inductive_generalizer()) {
+        if (m_params.pdr_use_arith_inductive_generalizer()) {
             m_core_generalizers.push_back(alloc(core_arith_inductive_generalizer, *this));
         }
         
@@ -1836,17 +2008,6 @@ namespace pdr {
         }
     }
 
-    void context::check_pre_closed(model_node& n) {
-        for (unsigned i = 0; i < n.children().size(); ++i) {
-            if (!n.children()[i]->is_closed()) return;
-        }
-        n.set_pre_closed();
-        model_node* p = n.parent();
-        while (p && p->is_1closed()) {
-            p->set_pre_closed();
-            p = p->parent();
-        }
-    }
 
     void context::expand_node(model_node& n) {
         SASSERT(n.is_open());
@@ -1856,7 +2017,7 @@ namespace pdr {
             m_expanded_lvl = n.level();
         }
 
-        pred_transformer::scoped_farkas sf (n.pt(), m_params.use_farkas());
+        pred_transformer::scoped_farkas sf (n.pt(), m_params.pdr_farkas());
         if (n.pt().is_reachable(n.state())) {
             TRACE("pdr", tout << "reachable\n";);
             close_node(n);
@@ -1897,7 +2058,7 @@ namespace pdr {
                     n.pt().add_property(ncore, uses_level?n.level():infty_level);
                 }
                 CASSERT("pdr",n.level() == 0 || check_invariant(n.level()-1));
-                m_search.backtrack_level(!found_invariant && m_params.flexible_trace(), n);
+                m_search.backtrack_level(!found_invariant && m_params.pdr_flexible_trace(), n);
                 break;
             }
             case l_undef: {
@@ -1924,7 +2085,7 @@ namespace pdr {
     }
 
     void context::propagate(unsigned max_prop_lvl) {    
-        if (m_params.simplify_formulas_pre()) {
+        if (m_params.pdr_simplify_formulas_pre()) {
             simplify_formulas();
         }
         for (unsigned lvl = m_expanded_lvl; lvl <= max_prop_lvl; lvl++) {
@@ -1943,7 +2104,7 @@ namespace pdr {
                 throw inductive_exception();
             }
         }
-        if (m_params.simplify_formulas_post()) {            
+        if (m_params.pdr_simplify_formulas_post()) {            
             simplify_formulas();
         }
     }
@@ -1991,16 +2152,18 @@ namespace pdr {
     */
     void context::create_children(model_node& n) {        
         SASSERT(n.level() > 0);
-        bool use_model_generalizer = m_params.use_model_generalizer();
+        bool use_model_generalizer = m_params.pdr_use_model_generalizer();
         scoped_no_proof _sc(m);
  
         pred_transformer& pt = n.pt();
         model_ref M = n.get_model_ptr();
+        SASSERT(M.get());
         datalog::rule const& r = pt.find_rule(*M);
         expr* T   = pt.get_transition(r);
         expr* phi = n.state();
 
         n.set_rule(&r);
+        
 
         TRACE("pdr", 
               tout << "Model:\n";
@@ -2009,7 +2172,7 @@ namespace pdr {
               tout << "Transition:\n" << mk_pp(T, m) << "\n";
               tout << "Phi:\n" << mk_pp(phi, m) << "\n";);
                       
-        model_evaluator mev(m);
+        model_implicant mev(m);
         expr_ref_vector mdl(m), forms(m), Phi(m);
         forms.push_back(T);
         forms.push_back(phi);
@@ -2115,10 +2278,10 @@ namespace pdr {
             model_node* child = alloc(model_node, &n, n_cube, pt, n.level()-1);
             ++m_stats.m_num_nodes;
             m_search.add_leaf(*child); 
-            IF_VERBOSE(3, verbose_stream() << "Predecessor: " << mk_pp(o_cube, m) << "\n";);
+            IF_VERBOSE(2, verbose_stream() << "Predecessor: " << mk_pp(n_cube, m) << " " << (child->is_closed()?"closed":"open") << "\n";);
             m_stats.m_max_depth = std::max(m_stats.m_max_depth, child->depth());
         }
-        check_pre_closed(n);
+        n.check_pre_closed();
         TRACE("pdr", m_search.display(tout););
     }
 

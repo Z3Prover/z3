@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 // Test some bit hacks
 #include"util.h"
 #include"debug.h"

@@ -46,7 +46,7 @@ class mpf {
     mpz significand;
     mpf_exp_t exponent;
     mpf & operator=(mpf const & other) { UNREACHABLE(); return *this; }
-    void set(unsigned ebits, unsigned sbits);
+    void set(unsigned _ebits, unsigned _sbits);
 public:    
     mpf();
     mpf(unsigned ebits, unsigned sbits);
@@ -208,7 +208,9 @@ public:
 
     void to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o);
 
-protected:    
+protected:
+    void mk_one(unsigned ebits, unsigned sbits, bool sign, mpf & o) const;
+
     bool has_bot_exp(mpf const & x);
     bool has_top_exp(mpf const & x);
 

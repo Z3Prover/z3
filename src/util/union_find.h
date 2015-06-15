@@ -20,6 +20,7 @@ Revision History:
 #define _UNION_FIND_H_
 
 #include "trail.h"
+#include "trace.h"
 
 class union_find_default_ctx {
 public:
@@ -98,6 +99,7 @@ public:
 
     unsigned get_num_vars() const { return m_find.size(); }
 
+
     unsigned find(unsigned v) const {
         while (true) {
             unsigned new_v = m_find[v];
@@ -108,6 +110,8 @@ public:
     }
 
     unsigned next(unsigned v) const { return m_next[v]; }
+
+    unsigned size(unsigned v) const { return m_size[find(v)]; }
 
     bool is_root(unsigned v) const { return m_find[v] == v; }
 
@@ -128,10 +132,23 @@ public:
         CASSERT("union_find", check_invariant());
     }
 
+    // dissolve equivalence class of v
+    // this method cannot be used with backtracking.
+    void dissolve(unsigned v) {
+        unsigned w;
+        do {
+            w = next(v);                        
+            m_size[v] = 1;
+            m_find[v] = v;
+            m_next[v] = v;            
+        }
+        while (w != v);
+    }
+
     void display(std::ostream & out) const {
         unsigned num = get_num_vars(); 
         for (unsigned v = 0; v < num; v++) {
-            out << "v" << v << " --> v" << m_find[v] << "\n";
+            out << "v" << v << " --> v" << m_find[v] << " (" << size(v) << ")\n";
         }
     }
 
@@ -155,6 +172,72 @@ public:
     }
 #endif
 };
+
+
+class basic_union_find {
+    unsigned_vector   m_find;
+    unsigned_vector   m_size;
+    unsigned_vector   m_next;
+    
+    void ensure_size(unsigned v) {
+        while (v >= get_num_vars()) {
+            mk_var();
+        }
+    }
+ public:
+    unsigned mk_var() {
+        unsigned r = m_find.size();
+        m_find.push_back(r);
+        m_size.push_back(1);
+        m_next.push_back(r);
+        return r;
+    }
+    unsigned get_num_vars() const { return m_find.size(); }
+    
+    unsigned find(unsigned v) const {
+        if (v >= get_num_vars()) {
+            return v;
+        }
+        while (true) {
+            unsigned new_v = m_find[v];
+            if (new_v == v)
+                return v;
+            v = new_v;
+        }
+    }
+    
+    unsigned next(unsigned v) const { 
+        if (v >= get_num_vars()) {
+            return v;
+        }
+        return m_next[v]; 
+    }
+    
+    bool is_root(unsigned v) const { 
+        return v >= get_num_vars() || m_find[v] == v; 
+    }
+    
+    void merge(unsigned v1, unsigned v2) {
+        unsigned r1 = find(v1);
+        unsigned r2 = find(v2);
+        if (r1 == r2)
+            return;
+        ensure_size(v1);
+        ensure_size(v2);
+        if (m_size[r1] > m_size[r2])
+            std::swap(r1, r2);
+        m_find[r1] = r2;
+        m_size[r2] += m_size[r1];
+        std::swap(m_next[r1], m_next[r2]);
+    }
+    
+    void reset() {
+        m_find.reset();
+        m_next.reset();
+        m_size.reset();
+    }
+};
+
 
 #endif /* _UNION_FIND_H_ */
 

@@ -54,7 +54,7 @@ namespace smt {
             m_data(BOXTAGINT(void*, l.index(), BIN_CLAUSE)) {
         }
         
-        explicit b_justification(justification * js):
+        explicit b_justification(justification * js):            
             m_data(TAG(void*, js, JUSTIFICATION)) {
             SASSERT(js);
         }

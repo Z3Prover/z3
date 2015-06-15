@@ -854,7 +854,7 @@ private:
             m_temporary_ints(m),
             m_used_dependencies(m),
             m_rw(*this) {
-            updt_params(p);
+            updt_params(p);            
             m_b_rw.set_flat(false); // no flattening otherwise will blowup the memory
             m_b_rw.set_elim_and(true);
         }
@@ -871,12 +871,17 @@ private:
             m_max_memory   = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
             m_all_clauses_limit = p.get_uint("pb2bv_all_clauses_limit", 8);
             m_cardinality_limit = p.get_uint("pb2bv_cardinality_limit", UINT_MAX);
+            m_b_rw.updt_params(p);
         }
 
         void collect_param_descrs(param_descrs & r) {
-            insert_max_memory(r);
+            insert_max_memory(r);            
             r.insert("pb2bv_all_clauses_limit", CPK_UINT, "(default: 8) maximum number of literals for using equivalent CNF encoding of PB constraint.");
             r.insert("pb2bv_cardinality_limit", CPK_UINT, "(default: inf) limit for using arc-consistent cardinality constraint encoding.");
+
+            m_b_rw.get_param_descrs(r);        
+            r.erase("flat"); 
+            r.erase("elim_and");            
         }
         
         void set_cancel(bool f) {

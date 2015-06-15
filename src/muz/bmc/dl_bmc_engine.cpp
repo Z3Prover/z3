@@ -32,7 +32,6 @@ Revision History:
 #include "dl_transforms.h"
 #include "dl_mk_rule_inliner.h"
 #include "scoped_proof.h"
-#include"fixedpoint_params.hpp"
 
 namespace datalog {
 
@@ -297,7 +296,7 @@ namespace datalog {
                 vector<expr_ref_vector> substs;
                 expr_ref fml(m), concl(m);
                 
-                r->to_formula(fml);
+                rm.to_formula(*r, fml);
                 r2 = r;
                 rm.substitute(r2, sub.size(), sub.c_ptr());
                 proof_ref p(m);
@@ -307,7 +306,7 @@ namespace datalog {
                     expr_ref_vector sub2 = unifier.get_rule_subst(*r2.get(), false);
                     apply_subst(sub, sub2);
                     unifier.apply(*r0.get(), 0, *r2.get(), r1);
-                    r1->to_formula(concl);
+                    rm.to_formula(*r1.get(), concl);
                     scoped_proof _sp(m);
                     
                     p = r->get_proof();
@@ -324,7 +323,7 @@ namespace datalog {
                     r0 = r1;
                 }
                 else {
-                    r2->to_formula(concl);
+                    rm.to_formula(*r, concl);
                     scoped_proof _sp(m);
                     p = r->get_proof();
                     if (!p) {
@@ -488,7 +487,7 @@ namespace datalog {
                 return proof_ref(0, m);
             }
             TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
-
+            rule_manager& rm = b.m_ctx.get_rule_manager();
             expr_ref prop_r(m), prop_v(m), fml(m), prop_body(m), tmp(m), body(m);
             expr_ref_vector args(m);
             proof_ref_vector prs(m);
@@ -508,7 +507,7 @@ namespace datalog {
                 }
             }
             SASSERT(r);
-            r->to_formula(fml);
+            rm.to_formula(*r, fml);
             IF_VERBOSE(1, verbose_stream() << mk_pp(fml, m) << "\n";);
             prs.push_back(r->get_proof());
             unsigned sz = r->get_uninterpreted_tail_size();
@@ -624,11 +623,12 @@ namespace datalog {
         }
 
         expr_ref bind_vars(expr* e, expr* pat) {
-            ptr_vector<sort> vars, sorts;
+            ptr_vector<sort> sorts;
             svector<symbol> names;
             expr_ref_vector binding(m), patterns(m);
             expr_ref tmp(m), head(m);
-            get_free_vars(e, vars);
+            expr_free_vars vars;
+            vars(e);
             for (unsigned i = 0; i < vars.size(); ++i) {
                 if (vars[i]) {
                     binding.push_back(m.mk_var(sorts.size(), vars[i]));
@@ -1028,6 +1028,7 @@ namespace datalog {
         
         proof_ref get_proof(model_ref& md, app* trace, app* path) {
             datatype_util dtu(m);
+            rule_manager& rm = b.m_ctx.get_rule_manager();
             sort* trace_sort = m.get_sort(trace);
             func_decl* p = m_sort2pred.find(trace_sort);
             datalog::rule_vector const& rules = b.m_rules.get_predicate_rules(p);
@@ -1046,7 +1047,7 @@ namespace datalog {
                     
                     var_subst vs(m, false);
                     mk_subst(*rules[i], path, trace, sub);
-                    rules[i]->to_formula(fml);
+                    rm.to_formula(*rules[i], fml);
                     prs.push_back(rules[i]->get_proof());
                     unsigned sz = trace->get_num_args();
                     if (sub.empty() && sz == 0) {
@@ -1219,7 +1220,7 @@ namespace datalog {
                 vector<expr_ref_vector> substs;
                 expr_ref fml(m), concl(m);
                 
-                r->to_formula(fml);
+                rm.to_formula(*r, fml);
                 r2 = r;
                 rm.substitute(r2, sub.size(), sub.c_ptr());
                 proof_ref p(m);
@@ -1237,7 +1238,7 @@ namespace datalog {
                     expr_ref_vector sub2 = unifier.get_rule_subst(*r2.get(), false);
                     apply_subst(sub, sub2);
                     unifier.apply(*r0.get(), 0, *r2.get(), r1);
-                    r1->to_formula(concl);
+                    rm.to_formula(*r1.get(), concl);
                     
                     scoped_proof _sp(m);
                     proof* premises[2] = { pr, p };
@@ -1250,7 +1251,7 @@ namespace datalog {
                     r0 = r1;
                 }
                 else {
-                    r2->to_formula(concl);
+                    rm.to_formula(*r2.get(), concl);
                     scoped_proof _sp(m);
                     if (sub.empty()) {
                         pr = p;
@@ -1442,7 +1443,7 @@ namespace datalog {
         expr_ref bg_assertion = m_ctx.get_background_assertion();        
         apply_default_transformation(m_ctx);
         
-        if (m_ctx.get_params().slice()) {
+        if (m_ctx.xform_slice()) {
             datalog::rule_transformer transformer(m_ctx);
             datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
             transformer.register_plugin(slice);
@@ -1498,7 +1499,7 @@ namespace datalog {
             if (m_rules.get_rule(i)->get_uninterpreted_tail_size() > 1) {
                 return false;
             }
-            if (m_rules.get_rule(i)->has_quantifiers()) {
+            if (m_rules.get_rule_manager().has_quantifiers(*m_rules.get_rule(i))) {
                 return false;
             }
         }

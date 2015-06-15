@@ -1,6 +1,6 @@
 RELEASE NOTES
 
-Version 4.4
+Version 4.4.0
 =============
 
 - New feature: Support for the theory of floating-point numbers. This comes in the form of logics (QF_FP and QF_FPBV), tactics (qffp and qffpbv), as well as a theory plugin that allows theory combinations. Z3 supports the official SMT theory definition of FP (see http://smtlib.cs.uiowa.edu/theories/FloatingPoint.smt2) in SMT2 files, as well as all APIs.

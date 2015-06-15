@@ -42,7 +42,7 @@ namespace datalog {
         rule_manager& rm;
         context &     m_ctx;
         ptr_vector<expr> m_vars;
-        ptr_vector<sort> m_fv;
+        expr_free_vars   m_fv;
         
         bool has_private_vars(rule const& r, unsigned j);
         void get_private_vars(rule const& r, unsigned j);

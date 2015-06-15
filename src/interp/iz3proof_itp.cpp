@@ -778,7 +778,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
             sum_cond_ineq(ineq2,make_int("1"),yleqx,Aproves2,Bproves2);
             ast Bcond = my_implies(Bproves1,my_and(Aproves1,z3_simplify(ineq2)));
             //      if(!is_true(Aproves1) || !is_true(Bproves1))
-            //	std::cout << "foo!\n";;
+            //    std::cout << "foo!\n";;
             if(y == make_int(rational(0)) && op(x) == Plus && num_args(x) == 2){
                 if(get_term_type(arg(x,0)) == LitA){
                     ast iter = z3_simplify(make(Plus,arg(x,0),get_ineq_rhs(xleqy)));
@@ -915,7 +915,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
                 int ipos = pos.get_unsigned();
                 ast cond = mk_true();
                 ast equa = sep_cond(arg(pf,0),cond);
-#if 0	  
+#if 0      
                 if(op(equa) == Equal){
                     ast pe = mk_not(neg_equality);
                     ast lhs = subst_in_arg_pos(ipos,arg(equa,0),arg(pe,0));
@@ -2215,8 +2215,12 @@ class iz3proof_itp_impl : public iz3proof_itp {
         }
         else {
             if(get_term_type(p) == LitA){
-                if(get_term_type(q) == LitA)
-                    itp = mk_false();
+                if(get_term_type(q) == LitA){
+                    if(op(q) == Or)
+                        itp = make_assumption(rng.hi,args(q));
+                    else 
+                        itp = mk_false();
+                }
                 else {
                     if(get_term_type(p_eq_q) == LitA)
                         itp = q;
@@ -2784,7 +2788,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
                 }
                 else if(o == Plus || o == Times){ // don't want bound variables inside arith ops
                     // std::cout << "WARNING: non-local arithmetic\n";
-                    //	  frng = erng; // this term will be localized
+                    //      frng = erng; // this term will be localized
                 }
                 else if(o == Select){ // treat the array term like a function symbol
                     prover::range srng = pv->ast_scope(arg(e,0)); 
@@ -2805,7 +2809,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
                         pfs.push_back(argpf);
                     }
                 }
-	
+    
                 e = clone(e,largs);
                 if(pfs.size())
                     pf = make_congruence(eqs,make_equiv(e,orig_e),pfs);

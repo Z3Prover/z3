@@ -70,7 +70,7 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_MAX:       SASSERT(num_args == 2); st = mk_max(args[0], args[1], result); break;
     case OP_FPA_FMA:       SASSERT(num_args == 4); st = mk_fma(args[0], args[1], args[2], args[3], result); break;
     case OP_FPA_SQRT:      SASSERT(num_args == 2); st = mk_sqrt(args[0], args[1], result); break;
-    case OP_FPA_ROUND_TO_INTEGRAL: SASSERT(num_args == 2); st = mk_round(args[0], args[1], result); break;
+    case OP_FPA_ROUND_TO_INTEGRAL: SASSERT(num_args == 2); st = mk_round_to_integral(args[0], args[1], result); break;
 
     case OP_FPA_EQ:        SASSERT(num_args == 2); st = mk_float_eq(args[0], args[1], result); break; 
     case OP_FPA_LT:        SASSERT(num_args == 2); st = mk_lt(args[0], args[1], result); break;
@@ -143,9 +143,9 @@ br_status fpa_rewriter::mk_to_sbv_unspecified(func_decl * f, expr_ref & result) 
 
 br_status fpa_rewriter::mk_to_real_unspecified(expr_ref & result) {
     if (m_hi_fp_unspecified)
-        result = m_util.au().mk_numeral(0, false);
-    else
         // The "hardware interpretation" is 0.
+        result = m_util.au().mk_numeral(rational(0), false);
+    else
         result = m_util.mk_internal_to_real_unspecified();
 
     return BR_DONE;    
@@ -243,7 +243,7 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
                 !m_util.au().is_numeral(args[2], r2))
                 return BR_FAILED;
 
-            TRACE("fp_rewriter", tout << "r1: " << r1 << ", r2: " << r2 << "\n";);            
+            TRACE("fp_rewriter", tout << "r1: " << r1 << ", r2: " << r2 << "\n";);
             m_fm.set(v, ebits, sbits, rmv, r1.to_mpq(), r2.to_mpq().numerator());
             result = m_util.mk_value(v);
             return BR_DONE;
@@ -411,14 +411,24 @@ br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
         result = arg1;
         return BR_DONE;
     }
-    // expand as using ite's
-    result = m().mk_ite(m().mk_or(mk_eq_nan(arg1), m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2))),
+    if (m_util.is_zero(arg1) && m_util.is_zero(arg2)) {
+        result = arg2;
+        return BR_DONE;
+    }
+
+    result = m().mk_ite(mk_eq_nan(arg1),
                         arg2,
-                        m().mk_ite(mk_eq_nan(arg2), 
-                                   arg1,
-                                   m().mk_ite(m_util.mk_lt(arg1, arg2),
-                                           arg1,
-                                           arg2)));
+                        m().mk_ite(mk_eq_nan(arg2),
+                        arg1,
+                        // min(-0.0, +0.0) = min(+0.0, -0.0) = +0.0
+                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2),
+                                              m().mk_not(m().mk_eq(m_util.mk_is_positive(arg1), m_util.mk_is_positive(arg2)))),
+                        m_util.mk_pzero(m().get_sort(arg1)),
+                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2)),
+                        arg2,
+                        m().mk_ite(m_util.mk_lt(arg1, arg2),
+                        arg1,
+                        arg2)))));
     return BR_REWRITE_FULL;
 }
 
@@ -431,14 +441,24 @@ br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
         result = arg1;
         return BR_DONE;
     }
-    // expand as using ite's
-    result = m().mk_ite(m().mk_or(mk_eq_nan(arg1), m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2))),
+    if (m_util.is_zero(arg1) && m_util.is_zero(arg2)) {
+        result = arg2;
+        return BR_DONE;
+    }
+
+    result = m().mk_ite(mk_eq_nan(arg1),
                         arg2,
-                        m().mk_ite(mk_eq_nan(arg2), 
-                                   arg1,
-                                   m().mk_ite(m_util.mk_gt(arg1, arg2),
-                                              arg1,
-                                              arg2)));
+                        m().mk_ite(mk_eq_nan(arg2),
+                        arg1,                        
+                        // max(-0.0, +0.0) = max(+0.0, -0.0) = +0.0
+                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2), 
+                                              m().mk_not(m().mk_eq(m_util.mk_is_positive(arg1), m_util.mk_is_positive(arg2)))),
+                        m_util.mk_pzero(m().get_sort(arg1)),
+                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2)),
+                        arg2,
+                        m().mk_ite(m_util.mk_gt(arg1, arg2),
+                        arg1,
+                        arg2)))));
     return BR_REWRITE_FULL;
 }
 
@@ -472,7 +492,7 @@ br_status fpa_rewriter::mk_sqrt(expr * arg1, expr * arg2, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status fpa_rewriter::mk_round(expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_round_to_integral(expr * arg1, expr * arg2, expr_ref & result) {
     mpf_rounding_mode rm;
     if (m_util.is_rm_numeral(arg1, rm)) {
         scoped_mpf v2(m_fm);
@@ -571,6 +591,7 @@ br_status fpa_rewriter::mk_ge(expr * arg1, expr * arg2, expr_ref & result) {
 
 br_status fpa_rewriter::mk_is_zero(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_fm);
+
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_zero(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
@@ -581,6 +602,7 @@ br_status fpa_rewriter::mk_is_zero(expr * arg1, expr_ref & result) {
 
 br_status fpa_rewriter::mk_is_nzero(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_fm);
+
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_nzero(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
@@ -591,6 +613,7 @@ br_status fpa_rewriter::mk_is_nzero(expr * arg1, expr_ref & result) {
 
 br_status fpa_rewriter::mk_is_pzero(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_fm);
+
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_pzero(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;

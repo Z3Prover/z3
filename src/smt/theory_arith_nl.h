@@ -333,12 +333,15 @@ namespace smt {
     void theory_arith<Ext>::mul_bound_of(expr * var, unsigned power, interval & target) {
         theory_var v  = expr2var(var);
         interval i = mk_interval_for(v);
-        TRACE("non_linear", tout << "bound: " << i << "\n" << mk_pp(var, get_manager()) << "\n";
+        
+        TRACE("non_linear", 
+              display_interval(tout << "bound: ",i); tout << i << "\n";
+              tout << mk_pp(var, get_manager()) << "\n";
               tout << "power " << power << ": " << expt(i, power) << "\n";
-              tout << "target before: " << target << "\n";); 
+              display_interval(tout << "target before: ", target); tout << "\n";); 
         i.expt(power);
         target *= i;
-        TRACE("non_linear", tout << "target after: " << target << "\n";);
+        TRACE("non_linear", display_interval(tout << "target after: ", target); tout << "\n";);
     }
 
     /**
@@ -427,12 +430,12 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::mk_derived_nl_bound(theory_var v, inf_numeral const & coeff, bound_kind k, v_dependency * dep) {
         inf_numeral coeff_norm = normalize_bound(v, coeff, k);
-        TRACE("buggy_bound", tout << "v" << v << " " << coeff << " " << coeff_norm << " " << k << "\n";);
         derived_bound * new_bound = alloc(derived_bound, v, coeff_norm, k);
         m_bounds_to_delete.push_back(new_bound);
         m_asserted_bounds.push_back(new_bound);
         // copy justification to new bound
         dependency2new_bound(dep, *new_bound);
+        TRACE("buggy_bound", new_bound->display(*this, tout); tout << "\n";);
     }
 
     /**
@@ -449,7 +452,8 @@ namespace smt {
                 new_lower += get_epsilon(v);
             bound * old_lower = lower(v);
             if (old_lower == 0 || new_lower > old_lower->get_value()) {
-                TRACE("non_linear", tout << "NEW lower bound for v" << v << " " << new_lower << "\n";);
+                TRACE("non_linear", tout << "NEW lower bound for v" << v << " " << new_lower << "\n";
+                      display_interval(tout, i); tout << "\n";);
                 mk_derived_nl_bound(v, new_lower, B_LOWER, i.get_lower_dependencies());
                 r = true;
             }
@@ -460,7 +464,8 @@ namespace smt {
                 new_upper -= get_epsilon(v);
             bound * old_upper = upper(v);
             if (old_upper == 0 || new_upper < old_upper->get_value()) {
-                TRACE("non_linear", tout << "NEW upper bound for v" << v << " " << new_upper << "\n";);
+                TRACE("non_linear", tout << "NEW upper bound for v" << v << " " << new_upper << "\n";
+                      display_interval(tout, i); tout << "\n";);
                 mk_derived_nl_bound(v, new_upper, B_UPPER, i.get_upper_dependencies());
                 r = true;
             }
@@ -897,31 +902,54 @@ namespace smt {
         m_tmp_lit_set.reset();
         m_tmp_eq_set.reset();
 
-        bool found_zero = false;
         SASSERT(is_pure_monomial(m));
-        for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
-            expr * arg = to_app(m)->get_arg(i);
-            if (!found_zero) {                                                                  
-                theory_var _var = expr2var(arg);                                                
-                if (is_fixed(_var)) {                                                           
-                    bound * l  = lower(_var);                                                   
-                    bound * u  = upper(_var);                                                   
-                    if (l->get_value().is_zero()) {                                             
-                        /* if zero was found, then it is the explanation */                     
-                        SASSERT(k.is_zero());                                                   
-                        found_zero = true;                                                      
-                        m_tmp_lit_set.reset();                                                  
-                        m_tmp_eq_set.reset();                                                   
-                        new_lower->m_lits.reset();                                              
-                        new_lower->m_eqs.reset();                                               
-                    }                                                                           
-                    accumulate_justification(*l, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);      
-                    accumulate_justification(*u, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);      
-                }                                                                               
-            }                                                                                   
-        }
+        bool found_zero = false;
+        for (unsigned i = 0; !found_zero && i < to_app(m)->get_num_args(); i++) {            
+            expr * arg = to_app(m)->get_arg(i);            
+            theory_var _var = expr2var(arg);                                                
+            if (is_fixed(_var)) {                                                           
+                bound * l  = lower(_var);                                                   
+                bound * u  = upper(_var);                                                   
+                if (l->get_value().is_zero()) {                                             
+                    /* if zero was found, then it is the explanation */                     
+                    SASSERT(k.is_zero());                                                   
+                    found_zero = true;                                                      
+                    m_tmp_lit_set.reset();                                                  
+                    m_tmp_eq_set.reset();                                                   
+                    new_lower->m_lits.reset();                                              
+                    new_lower->m_eqs.reset();                                               
+                }                                                                           
+                accumulate_justification(*l, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);
+                
+                TRACE("non_linear", 
+                      for (unsigned j = 0; j < new_lower->m_lits.size(); ++j) {
+                          ctx.display_detailed_literal(tout, new_lower->m_lits[j]);
+                          tout << " ";
+                      }
+                      tout << "\n";);
+      
+                accumulate_justification(*u, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);
+      
+                TRACE("non_linear", 
+                      for (unsigned j = 0; j < new_lower->m_lits.size(); ++j) {
+                          ctx.display_detailed_literal(tout, new_lower->m_lits[j]);
+                          tout << " ";
+                      }
+                      tout << "\n";);
+                    
+            }                                                                               
+        } 
         new_upper->m_lits.append(new_lower->m_lits);
         new_upper->m_eqs.append(new_lower->m_eqs);
+
+        TRACE("non_linear", 
+              tout << "lower: " << new_lower << " upper: " << new_upper << "\n";
+              for (unsigned j = 0; j < new_upper->m_lits.size(); ++j) {
+                  ctx.display_detailed_literal(tout, new_upper->m_lits[j]);
+                  tout << " ";
+              }
+              tout << "\n";);
+
         return true;
     }
 
@@ -1887,6 +1915,10 @@ namespace smt {
         derived_bound  b(null_theory_var, inf_numeral(0), B_LOWER);
         dependency2new_bound(d, b);
         set_conflict(b.m_lits.size(), b.m_lits.c_ptr(), b.m_eqs.size(), b.m_eqs.c_ptr(), ante, is_lia, "arith_nl");
+        TRACE("non_linear", 
+              for (unsigned i = 0; i < b.m_lits.size(); ++i) {
+                  tout << b.m_lits[i] << " ";
+              });
     }
 
     /**
@@ -2339,7 +2371,7 @@ namespace smt {
             return FC_CONTINUE;
         }
         
-        if (!max_min_nl_vars())
+        if (!max_min_nl_vars()) 
             return FC_CONTINUE;
 
         if (check_monomial_assignments()) {

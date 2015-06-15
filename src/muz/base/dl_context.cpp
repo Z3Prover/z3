@@ -210,14 +210,12 @@ namespace datalog {
         m_rewriter(m),
         m_var_subst(m),
         m_rule_manager(*this),
-        m_elim_unused_vars(m),
-        m_abstractor(m),
         m_contains_p(*this),
-        m_check_pred(m_contains_p, m),
+        m_rule_properties(m, m_rule_manager, *this, m_contains_p),
         m_transf(*this),
         m_trail(*this),
         m_pinned(m),
-        m_vars(m),
+        m_bind_variables(m),
         m_rule_set(*this),
         m_transformed_rule_set(*this),
         m_rule_fmls_head(0),
@@ -228,11 +226,13 @@ namespace datalog {
         m_engine(0),
         m_closed(false),
         m_saturation_was_run(false),
+        m_enable_bind_variables(true),
         m_last_status(OK),
         m_last_answer(m),
         m_engine_type(LAST_ENGINE),
         m_cancel(false) {
         re.set_context(this);
+        updt_params(pa);
     }
 
     context::~context() {
@@ -272,35 +272,39 @@ namespace datalog {
     }
 
 
-    bool context::generate_proof_trace() const { return m_params->generate_proof_trace(); }
-    bool context::output_profile() const { return m_params->output_profile(); }
-    bool context::output_tuples() const { return m_params->output_tuples(); }
-    bool context::use_map_names() const { return m_params->use_map_names(); }
-    bool context::fix_unbound_vars() const { return m_params->fix_unbound_vars(); }
-    symbol context::default_table() const { return m_params->default_table(); }
-    symbol context::default_relation() const { return m_params->default_relation(); } // external_relation_plugin::get_name()); 
-    symbol context::default_table_checker() const { return m_params->default_table_checker(); }
-    bool context::default_table_checked() const { return m_params->default_table_checked(); }
-    bool context::dbg_fpr_nonempty_relation_signature() const { return m_params->dbg_fpr_nonempty_relation_signature(); }
-    unsigned context::dl_profile_milliseconds_threshold() const { return m_params->profile_timeout_milliseconds(); }
-    bool context::all_or_nothing_deltas() const { return m_params->all_or_nothing_deltas(); }
-    bool context::compile_with_widening() const { return m_params->compile_with_widening(); }
-    bool context::unbound_compressor() const { return m_params->unbound_compressor(); }
-    bool context::similarity_compressor() const { return m_params->similarity_compressor(); }
-    unsigned context::similarity_compressor_threshold() const { return m_params->similarity_compressor_threshold(); }
-    unsigned context::timeout() const { return m_fparams.m_timeout; }
-    unsigned context::initial_restart_timeout() const { return m_params->initial_restart_timeout(); } 
-    bool context::generate_explanations() const { return m_params->generate_explanations(); }
-    bool context::explanations_on_relation_level() const { return m_params->explanations_on_relation_level(); }
-    bool context::magic_sets_for_queries() const { return m_params->magic_sets_for_queries();  }
-    bool context::eager_emptiness_checking() const { return m_params->eager_emptiness_checking(); }
-
-    bool context::bit_blast() const { return m_params->bit_blast(); }
-    bool context::karr() const { return m_params->karr(); }
-    bool context::scale() const { return m_params->scale(); }
-    bool context::magic() const { return m_params->magic(); }
-    bool context::quantify_arrays() const { return m_params->quantify_arrays(); }
-    bool context::instantiate_quantifiers() const { return m_params->instantiate_quantifiers(); }
+    bool context::generate_proof_trace() const { return m_generate_proof_trace; }
+    bool context::output_profile() const { return m_params->datalog_output_profile(); }
+    bool context::output_tuples() const { return m_params->datalog_print_tuples(); }
+    bool context::use_map_names() const { return m_params->datalog_use_map_names(); }
+    bool context::fix_unbound_vars() const { return m_params->xform_fix_unbound_vars(); }
+    symbol context::default_table() const { return m_params->datalog_default_table(); }
+    symbol context::default_relation() const { return m_default_relation; }
+    void context::set_default_relation(symbol const& s) { m_default_relation = s; }
+    symbol context::print_aig() const { return m_params->print_aig(); }
+    symbol context::check_relation() const { return m_params->datalog_check_relation(); }
+    symbol context::default_table_checker() const { return m_params->datalog_default_table_checker(); }
+    bool context::default_table_checked() const { return m_params->datalog_default_table_checked(); }
+    bool context::dbg_fpr_nonempty_relation_signature() const { return m_params->datalog_dbg_fpr_nonempty_relation_signature(); }
+    unsigned context::dl_profile_milliseconds_threshold() const { return m_params->datalog_profile_timeout_milliseconds(); }
+    bool context::all_or_nothing_deltas() const { return m_params->datalog_all_or_nothing_deltas(); }
+    bool context::compile_with_widening() const { return m_params->datalog_compile_with_widening(); }
+    bool context::unbound_compressor() const { return m_unbound_compressor; }
+    void context::set_unbound_compressor(bool f) { m_unbound_compressor = f; }
+    bool context::similarity_compressor() const { return m_params->datalog_similarity_compressor(); }
+    unsigned context::similarity_compressor_threshold() const { return m_params->datalog_similarity_compressor_threshold(); }
+    unsigned context::soft_timeout() const { return m_fparams.m_timeout; }
+    unsigned context::initial_restart_timeout() const { return m_params->datalog_initial_restart_timeout(); } 
+    bool context::generate_explanations() const { return m_params->datalog_generate_explanations(); }
+    bool context::explanations_on_relation_level() const { return m_params->datalog_explanations_on_relation_level(); }
+    bool context::magic_sets_for_queries() const { return m_params->datalog_magic_sets_for_queries();  }
+    symbol context::tab_selection() const { return m_params->tab_selection(); }
+    bool context::xform_slice() const { return m_params->xform_slice(); }
+    bool context::xform_bit_blast() const { return m_params->xform_bit_blast(); }    
+    bool context::karr() const { return m_params->xform_karr(); }
+    bool context::scale() const { return m_params->xform_scale(); }
+    bool context::magic() const { return m_params->xform_magic(); }
+    bool context::quantify_arrays() const { return m_params->xform_quantify_arrays(); }
+    bool context::instantiate_quantifiers() const { return m_params->xform_instantiate_quantifiers(); }
 
 
     void context::register_finite_sort(sort * s, sort_kind k) {
@@ -321,54 +325,23 @@ namespace datalog {
     }
 
     void context::register_variable(func_decl* var) {
-        m_vars.push_back(m.mk_const(var));
+        m_bind_variables.add_var(m.mk_const(var));
     }
 
-    expr_ref context::bind_variables(expr* fml, bool is_forall) {
-        expr_ref result(m);
-        app_ref_vector const & vars = m_vars;
-        rule_manager& rm = get_rule_manager();
-        if (vars.empty()) {
-            result = fml;
+    expr_ref context::bind_vars(expr* fml, bool is_forall) {
+        if (m_enable_bind_variables) {
+            return m_bind_variables(fml, is_forall);
         }
         else {
-            m_names.reset();
-            m_abstractor(0, vars.size(), reinterpret_cast<expr*const*>(vars.c_ptr()), fml, result);
-            rm.collect_vars(result);
-            ptr_vector<sort>& sorts = rm.get_var_sorts();
-            if (sorts.empty()) {
-                result = fml;
-            }
-            else {
-                for (unsigned i = 0; i < sorts.size(); ++i) {
-                    if (!sorts[i]) {
-                        if (i < vars.size()) { 
-                            sorts[i] = vars[i]->get_decl()->get_range();
-                        }
-                        else {
-                            sorts[i] = m.mk_bool_sort();
-                        }
-                    }
-                    if (i < vars.size()) {
-                        m_names.push_back(vars[i]->get_decl()->get_name());
-                    }
-                    else {
-                        m_names.push_back(symbol(i));
-                    }
-                }
-                quantifier_ref q(m);
-                sorts.reverse();
-                q = m.mk_quantifier(is_forall, sorts.size(), sorts.c_ptr(), m_names.c_ptr(), result); 
-                m_elim_unused_vars(q, result);
-            }
+            return expr_ref(fml, m);
         }
-        return result;
     }
 
     void context::register_predicate(func_decl * decl, bool named) {
         if (!is_predicate(decl)) {
             m_pinned.push_back(decl);
             m_preds.insert(decl);
+            TRACE("dl", tout << mk_pp(decl, m) << "\n";);
             if (named) {
                 m_preds_by_name.insert(decl->get_name(), decl);
             }
@@ -379,6 +352,7 @@ namespace datalog {
         m_preds.reset();
         func_decl_set::iterator it = preds.begin(), end = preds.end();
         for (; it != end; ++it) {
+            TRACE("dl", tout << mk_pp(*it, m) << "\n";);
             m_preds.insert(*it);
         }
     }
@@ -490,12 +464,7 @@ namespace datalog {
             rm.mk_rule(fml, p, m_rule_set, m_rule_names[m_rule_fmls_head]);
             ++m_rule_fmls_head;
         }
-        rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-        rule_ref r(m_rule_manager);
-        for (; it != end; ++it) {
-            r = *it;
-            check_rule(r);
-        }
+        check_rules(m_rule_set);
     }
 
     //
@@ -581,146 +550,57 @@ namespace datalog {
         m_engine->add_cover(level, pred, property);
     }
 
-    void context::check_uninterpreted_free(rule_ref& r) {
-        func_decl* f = 0;
-        if (r->has_uninterpreted_non_predicates(m, f)) {
-            std::stringstream stm;
-            stm << "Uninterpreted '" 
-                << f->get_name() 
-                << "' in ";
-            r->display(*this, stm);
-            throw default_exception(stm.str());
-        }
-    }
-
-    void context::check_quantifier_free(rule_ref& r) {
-        if (r->has_quantifiers()) {
-            std::stringstream stm;
-            stm << "cannot process quantifiers in rule ";
-            r->display(*this, stm);
-            throw default_exception(stm.str());
-        }
-    }
-
-
-    void context::check_existential_tail(rule_ref& r) {
-        unsigned ut_size = r->get_uninterpreted_tail_size();
-        unsigned t_size  = r->get_tail_size();   
-        
-        TRACE("dl", r->display_smt2(get_manager(), tout); tout << "\n";);
-        for (unsigned i = ut_size; i < t_size; ++i) {
-            app* t = r->get_tail(i);
-            TRACE("dl", tout << "checking: " << mk_ismt2_pp(t, get_manager()) << "\n";);
-            if (m_check_pred(t)) {
-                std::ostringstream out;
-                out << "interpreted body " << mk_ismt2_pp(t, get_manager()) << " contains recursive predicate";
-                throw default_exception(out.str());
-            }
-        }
-    }
-
-    void context::check_positive_predicates(rule_ref& r) {
-        ast_mark visited;
-        ptr_vector<expr> todo, tocheck;
-        unsigned ut_size = r->get_uninterpreted_tail_size();
-        unsigned t_size  = r->get_tail_size();   
-        for (unsigned i = 0; i < ut_size; ++i) {
-            if (r->is_neg_tail(i)) {
-                tocheck.push_back(r->get_tail(i));
-            }
-        }
-        ast_manager& m = get_manager();
-        contains_pred contains_p(*this);
-        check_pred check_pred(contains_p, get_manager());
-
-        for (unsigned i = ut_size; i < t_size; ++i) {
-            todo.push_back(r->get_tail(i));
-        }
-        while (!todo.empty()) {
-            expr* e = todo.back(), *e1, *e2;
-            todo.pop_back();
-            if (visited.is_marked(e)) {
-                continue;
-            }
-            visited.mark(e, true);
-            if (is_predicate(e)) {
-            }
-            else if (m.is_and(e) || m.is_or(e)) {
-                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            }
-            else if (m.is_implies(e, e1, e2)) {
-                tocheck.push_back(e1);
-                todo.push_back(e2);
-            }
-            else if (is_quantifier(e)) {
-                todo.push_back(to_quantifier(e)->get_expr());
-            }
-            else if ((m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) && 
-                     m.is_true(e1)) {
-                todo.push_back(e2);
-            }
-            else if ((m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) &&
-                     m.is_true(e2)) {
-                todo.push_back(e1);
-            }
-            else {
-                tocheck.push_back(e);
-            }
-        }
-        for (unsigned i = 0; i < tocheck.size(); ++i) {
-            expr* e = tocheck[i];
-            if (check_pred(e)) {
-                std::ostringstream out;
-                out << "recursive predicate " << mk_ismt2_pp(e, get_manager()) << " occurs nested in body";
-                r->display(*this, out << "\n");
-                throw default_exception(out.str());
-
-            }
-        }
-    }
-
-    void context::check_rule(rule_ref& r) {
+    void context::check_rules(rule_set& r) {
+        m_rule_properties.set_generate_proof(generate_proof_trace());
         switch(get_engine()) {
-        case DATALOG_ENGINE:
-            check_quantifier_free(r);
-            check_uninterpreted_free(r);
-            check_existential_tail(r); 
+        case DATALOG_ENGINE:            
+            m_rule_properties.collect(r);
+            m_rule_properties.check_quantifier_free();
+            m_rule_properties.check_uninterpreted_free();
+            m_rule_properties.check_nested_free(); 
+            m_rule_properties.check_infinite_sorts();
             break;
         case PDR_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
-            check_uninterpreted_free(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_existential_tail();
+            m_rule_properties.check_for_negated_predicates();
+            m_rule_properties.check_uninterpreted_free();
             break;
         case QPDR_ENGINE:
-            check_positive_predicates(r);
-            check_uninterpreted_free(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_for_negated_predicates();
+            m_rule_properties.check_uninterpreted_free();
             break;
         case BMC_ENGINE:
-            check_positive_predicates(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_for_negated_predicates();
             break;            
         case QBMC_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_existential_tail();
+            m_rule_properties.check_for_negated_predicates();
             break;         
         case TAB_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_existential_tail();
+            m_rule_properties.check_for_negated_predicates();
             break;
         case DUALITY_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_existential_tail();
+            m_rule_properties.check_for_negated_predicates();
             break;
         case CLP_ENGINE:
-            check_existential_tail(r);
-            check_positive_predicates(r);
+            m_rule_properties.collect(r);
+            m_rule_properties.check_existential_tail();
+            m_rule_properties.check_for_negated_predicates();
+            break;
+        case DDNF_ENGINE:
             break;
         case LAST_ENGINE:
         default:
             UNREACHABLE();
             break;
-        }
-        if (generate_proof_trace() && !r->get_proof()) {
-            m_rule_manager.mk_rule_asserted_proof(*r.get());
         }
     }
 
@@ -807,6 +687,7 @@ namespace datalog {
     }
 
     void context::transform_rules(rule_transformer::plugin* plugin) {
+        flet<bool> _enable_bv(m_enable_bind_variables, false);
         rule_transformer transformer(*this);
         transformer.register_plugin(plugin);
         transform_rules(transformer);
@@ -847,6 +728,9 @@ namespace datalog {
     void context::updt_params(params_ref const& p) {
         m_params_ref.copy(p);
         if (m_engine.get()) m_engine->updt_params();
+        m_generate_proof_trace = m_params->generate_proof_trace();
+        m_unbound_compressor = m_params->datalog_unbound_compressor(); 
+        m_default_relation = m_params->datalog_default_relation(); 
     }
 
     expr_ref context::get_background_assertion() {
@@ -908,6 +792,9 @@ namespace datalog {
     };
 
     void context::configure_engine() {
+        if (m_engine_type != LAST_ENGINE) {
+            return;
+        }
         symbol e = m_params->engine();
         
         if (e == symbol("datalog")) {
@@ -934,6 +821,9 @@ namespace datalog {
         else if (e == symbol("duality")) {
             m_engine_type = DUALITY_ENGINE;
         }
+        else if (e == symbol("ddnf")) {
+            m_engine_type = DDNF_ENGINE;
+        }
 
         if (m_engine_type == LAST_ENGINE) {
             expr_fast_mark1 mark;
@@ -959,18 +849,6 @@ namespace datalog {
     }
 
     lbool context::query(expr* query) {
-#if 0
-        // TODO: what?
-        if(get_engine() != DUALITY_ENGINE) {
-          new_query();
-      rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-      rule_ref r(m_rule_manager);
-      for (; it != end; ++it) {
-            r = *it;
-            check_rule(r);
-      }     
-        }   
-#endif
         m_mc = mk_skip_model_converter();
         m_last_status = OK;
         m_last_answer = 0;
@@ -982,6 +860,7 @@ namespace datalog {
         case QBMC_ENGINE:
         case TAB_ENGINE:
         case CLP_ENGINE:
+        case DDNF_ENGINE:
             flush_add_rules();
             break;
         case DUALITY_ENGINE:
@@ -1009,6 +888,7 @@ namespace datalog {
     void context::ensure_engine() {
         if (!m_engine.get()) {
             m_engine = m_register_engine.mk_engine(get_engine());
+            m_engine->updt_params();
 
             // break abstraction.
             if (get_engine() == DATALOG_ENGINE) {
@@ -1065,6 +945,10 @@ namespace datalog {
         if (m_engine) {
             m_engine->collect_statistics(st);
         }
+        unsigned long long max_mem = memory::get_max_used_memory();
+        unsigned long long mem = memory::get_allocation_size();
+        st.update("max memory", static_cast<double>(max_mem)/(1024.0*1024.0));
+        st.update("memory", static_cast<double>(mem)/(1024.0*1024.0));        
     }
 
 
@@ -1107,25 +991,24 @@ namespace datalog {
         }
     }
    
-  void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names, vector<unsigned> &bounds){
+    void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names, vector<unsigned> &bounds) {
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
-            expr_ref r = bind_variables(m_rule_fmls[i].get(), true);
+            expr_ref r = bind_vars(m_rule_fmls[i].get(), true);
             rules.push_back(r.get());
-            //            rules.push_back(m_rule_fmls[i].get());
             names.push_back(m_rule_names[i]);
             bounds.push_back(m_rule_bounds[i]);
         }
     }
 
-    void context::get_rules_as_formulas(expr_ref_vector& rules, svector<symbol>& names) {
+    void context::get_rules_as_formulas(expr_ref_vector& rules, expr_ref_vector& queries, svector<symbol>& names) {
         expr_ref fml(m);
-        datalog::rule_manager& rm = get_rule_manager();
+        rule_manager& rm = get_rule_manager();
         
         // ensure that rules are all using bound variables.
         for (unsigned i = m_rule_fmls_head; i < m_rule_fmls.size(); ++i) {
             ptr_vector<sort> sorts;
-            get_free_vars(m_rule_fmls[i].get(), sorts);
-            if (!sorts.empty()) {
+            m_free_vars(m_rule_fmls[i].get());
+            if (!m_free_vars.empty()) {
                 rm.mk_rule(m_rule_fmls[i].get(), 0, m_rule_set, m_rule_names[i]);
                 m_rule_fmls[i] = m_rule_fmls.back();
                 m_rule_names[i] = m_rule_names.back();
@@ -1137,9 +1020,30 @@ namespace datalog {
         }
         rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
         for (; it != end; ++it) {
-            (*it)->to_formula(fml);
-            rules.push_back(fml);
-            names.push_back((*it)->name());
+            rule* r = *it;
+            rm.to_formula(*r, fml);
+            func_decl* h = r->get_decl();
+            if (m_rule_set.is_output_predicate(h)) {
+                expr* body = fml;
+                expr* e2;
+                if (is_quantifier(body)) {
+                    quantifier* q = to_quantifier(body);
+                    expr* e = q->get_expr();
+                    VERIFY(m.is_implies(e, body, e2));
+                    fml = m.mk_quantifier(false, q->get_num_decls(),
+                                          q->get_decl_sorts(), q->get_decl_names(),
+                                          body);
+                }
+                else {
+                    VERIFY(m.is_implies(body, body, e2));
+                    fml = body;
+                }
+                queries.push_back(fml);
+            }
+            else {
+                rules.push_back(fml);
+                names.push_back(r->name());
+            }
         }
         for (unsigned i = m_rule_fmls_head; i < m_rule_fmls.size(); ++i) {
             rules.push_back(m_rule_fmls[i].get());
@@ -1147,10 +1051,7 @@ namespace datalog {
         }
     }
  
-    void context::display_smt2(
-        unsigned num_queries, 
-        expr* const* queries, 
-        std::ostream& out) {
+    void context::display_smt2(unsigned num_queries, expr* const* qs, std::ostream& out) {
         ast_manager& m = get_manager();
         free_func_visitor visitor(m);
         expr_mark visited;
@@ -1158,21 +1059,22 @@ namespace datalog {
         unsigned num_axioms = m_background.size();
         expr* const* axioms = m_background.c_ptr();
         expr_ref fml(m);
-        expr_ref_vector rules(m);
+        expr_ref_vector rules(m), queries(m);
         svector<symbol> names;
-        bool use_fixedpoint_extensions = m_params->print_with_fixedpoint_extensions();
+        bool use_fixedpoint_extensions = m_params->print_fixedpoint_extensions();
         bool print_low_level = m_params->print_low_level_smt2();
         bool do_declare_vars = m_params->print_with_variable_declarations();
 
 #define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env);
 
-        get_rules_as_formulas(rules, names);
+        get_rules_as_formulas(rules, queries, names);
+        queries.append(num_queries, qs);
 
         smt2_pp_environment_dbg env(m);
         mk_fresh_name fresh_names;
         collect_free_funcs(num_axioms,  axioms,  visited, visitor, fresh_names);
         collect_free_funcs(rules.size(), rules.c_ptr(),   visited, visitor, fresh_names);
-        collect_free_funcs(num_queries, queries, visited, visitor, fresh_names);
+        collect_free_funcs(queries.size(), queries.c_ptr(), visited, visitor, fresh_names);
         func_decl_set funcs;
         func_decl_set::iterator it  = visitor.funcs().begin();
         func_decl_set::iterator end = visitor.funcs().end();
@@ -1258,22 +1160,22 @@ namespace datalog {
             out << ")\n";
         }
         if (use_fixedpoint_extensions) {
-            for (unsigned i = 0; i < num_queries; ++i) {
+            for (unsigned i = 0; i < queries.size(); ++i) {
                 out << "(query ";
-                PP(queries[i]);                
+                PP(queries[i].get());                
                 out << ")\n";
             }
         }
         else {
-            for (unsigned i = 0; i < num_queries; ++i) {
-                if (num_queries > 1) out << "(push)\n";
+            for (unsigned i = 0; i < queries.size(); ++i) {
+                if (queries.size() > 1) out << "(push)\n";
                 out << "(assert ";
                 expr_ref q(m);
-                q = m.mk_not(queries[i]);
+                q = m.mk_not(queries[i].get());
                 PP(q);
                 out << ")\n";
                 out << "(check-sat)\n";
-                if (num_queries > 1) out << "(pop)\n";
+                if (queries.size() > 1) out << "(pop)\n";
             }
         }
     }

@@ -316,7 +316,8 @@ func_decl::func_decl(symbol const & name, unsigned arity, sort * const * domain,
     decl(AST_FUNC_DECL, name, info),
     m_arity(arity),
     m_range(range) {
-    memcpy(const_cast<sort **>(get_domain()), domain, sizeof(sort *) * arity);
+    if (arity != 0)
+        memcpy(const_cast<sort **>(get_domain()), domain, sizeof(sort *) * arity);
 }
 
 // -----------------------------------
@@ -378,8 +379,10 @@ quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sort
 
     memcpy(const_cast<sort **>(get_decl_sorts()), decl_sorts, sizeof(sort *) * num_decls);
     memcpy(const_cast<symbol*>(get_decl_names()), decl_names, sizeof(symbol) * num_decls);
-    memcpy(const_cast<expr **>(get_patterns()), patterns, sizeof(expr *) * num_patterns);
-    memcpy(const_cast<expr **>(get_no_patterns()), no_patterns, sizeof(expr *) * num_no_patterns);
+    if (num_patterns != 0)
+        memcpy(const_cast<expr **>(get_patterns()), patterns, sizeof(expr *) * num_patterns);
+    if (num_no_patterns != 0)
+        memcpy(const_cast<expr **>(get_no_patterns()), no_patterns, sizeof(expr *) * num_no_patterns);
 }
 
 // -----------------------------------
@@ -1043,6 +1046,13 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_DISTINCT: {
         func_decl_info info(m_family_id, OP_DISTINCT);
         info.set_pairwise();
+        for (unsigned i = 1; i < arity; i++) {        
+            if (domain[i] != domain[0]) {
+                std::ostringstream buffer;
+                buffer << "Sort mismatch between first argument and argument " << (i+1);
+                throw ast_exception(buffer.str().c_str());
+            }
+        }
         return m_manager->mk_func_decl(symbol("distinct"), arity, domain, m_bool_sort, info);
     }
     default:
@@ -2036,7 +2046,13 @@ inline app * ast_manager::mk_app_core(func_decl * decl, expr * arg1, expr * arg2
 }
 
 app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * args) {
-    SASSERT(decl->get_arity() == num_args || decl->is_right_associative() || decl->is_left_associative() || decl->is_chainable());
+    if (decl->get_arity() != num_args && !decl->is_right_associative() && 
+        !decl->is_left_associative() && !decl->is_chainable()) {
+        std::ostringstream buffer;
+        buffer << "Wrong number of arguments (" << num_args 
+               << ") passed to function " << mk_pp(decl, *this);        
+        throw ast_exception(buffer.str().c_str());
+    }
     app * r = 0;
     if (num_args > 2 && !decl->is_flat_associative()) {
         if (decl->is_right_associative()) {
@@ -2070,6 +2086,8 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
     TRACE("app_ground", tout << "ground: " << r->is_ground() << "\n" << mk_ll_pp(r, *this) << "\n";);
     return r;
 }
+
+
 
 func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const & suffix, unsigned arity, 
                                             sort * const * domain, sort * range) {
@@ -2336,6 +2354,10 @@ quantifier * ast_manager::update_quantifier(quantifier * q, bool is_forall, unsi
                          patterns,
                          num_patterns == 0 ? q->get_num_no_patterns() : 0,
                          num_patterns == 0 ? q->get_no_patterns() : 0);
+}
+
+app * ast_manager::mk_distinct(unsigned num_args, expr * const * args) {
+    return mk_app(m_basic_family_id, OP_DISTINCT, num_args, args);
 }
 
 app * ast_manager::mk_distinct_expanded(unsigned num_args, expr * const * args) {

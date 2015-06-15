@@ -23,6 +23,8 @@ Revision History:
 #include"theory_dense_diff_logic.h"
 #include"ast_pp.h"
 #include"smt_model_generator.h"
+#include"simplex.h"
+#include"simplex_def.h"
 
 namespace smt {
 
@@ -120,6 +122,7 @@ namespace smt {
         if (!m_non_diff_logic_exprs) {
             TRACE("non_diff_logic", tout << "found non diff logic expression:\n" << mk_pp(n, get_manager()) << "\n";);
             get_context().push_trail(value_trail<context, bool>(m_non_diff_logic_exprs));
+        IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, get_manager()) << ")\n";); 
             m_non_diff_logic_exprs = true;
         }
     }
@@ -587,6 +590,11 @@ namespace smt {
             context & ctx = get_context();
             region & r    = ctx.get_region();
             ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), r, antecedents.size(), antecedents.c_ptr())));
+
+            if (dump_lemmas()) {
+                ctx.display_lemma_as_smt_problem(antecedents.size(), antecedents.c_ptr(), false_literal, "");
+            }
+
             return;
         }
         
@@ -816,6 +824,273 @@ namespace smt {
         numeral const & val = m_assignment[v];
         rational num = val.get_rational().to_rational() +  m_epsilon *  val.get_infinitesimal().to_rational();
         return alloc(expr_wrapper_proc, m_factory->mk_value(num, is_int(v)));
+    }
+
+    // TBD: code is common to both sparse and dense difference logic solvers.
+    template<typename Ext>
+    bool theory_dense_diff_logic<Ext>::internalize_objective(expr * n, rational const& m, rational& q, objective_term & objective) {
+
+        // Compile term into objective_term format
+        rational r;
+        expr* x, *y;
+        if (m_autil.is_numeral(n, r)) {
+            q += r;
+        }
+        else if (m_autil.is_add(n)) {
+            for (unsigned i = 0; i < to_app(n)->get_num_args(); ++i) {
+                if (!internalize_objective(to_app(n)->get_arg(i), m, q, objective)) {
+                    return false;
+                }
+            }
+        }
+        else if (m_autil.is_mul(n, x, y) && m_autil.is_numeral(x, r)) {
+            return internalize_objective(y, m*r, q, objective);
+        }
+        else if (m_autil.is_mul(n, y, x) && m_autil.is_numeral(x, r)) {
+            return internalize_objective(y, m*r, q, objective);
+        }
+        else if (!is_app(n)) {
+            return false;
+        }
+        else if (to_app(n)->get_family_id() == m_autil.get_family_id()) {
+            return false;
+        }
+        else {
+            context& ctx = get_context();
+            enode * e = 0;
+            theory_var v = 0;
+            if (ctx.e_internalized(n)) {
+                e = ctx.get_enode(to_app(n));                
+            }
+            else {
+                e = ctx.mk_enode(to_app(n), false, false, true);
+            }            
+            v = e->get_th_var(get_id());
+            if (v == null_theory_var) {
+                v = mk_var(e);                
+            }
+
+            objective.push_back(std::make_pair(v, m));
+        }
+        return true;
+    }
+
+    template<typename Ext>
+    inf_eps_rational<inf_rational> theory_dense_diff_logic<Ext>::value(theory_var v) {
+        objective_term const& objective = m_objectives[v];   
+        inf_eps r = inf_eps(m_objective_consts[v]);
+        for (unsigned i = 0; i < objective.size(); ++i) {
+            numeral n = m_assignment[v];
+            rational r1 = n.get_rational().to_rational();
+            rational r2 = n.get_infinitesimal().to_rational();
+            r += objective[i].second * inf_eps(rational(0), inf_rational(r1, r2));
+        }
+        return r;
+    }
+
+    template<typename Ext>
+    inf_eps_rational<inf_rational> theory_dense_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
+        typedef simplex::simplex<simplex::mpq_ext> Simplex;
+        Simplex S;
+        ast_manager& m = get_manager();
+        objective_term const& objective = m_objectives[v];
+        has_shared = false;
+        
+        IF_VERBOSE(1,
+                   for (unsigned i = 0; i < objective.size(); ++i) {
+                       verbose_stream() << objective[i].second 
+                                        << " * v" << objective[i].first << " ";
+                   }
+                   verbose_stream() << " + " << m_objective_consts[v] << "\n";);
+
+        unsigned num_nodes = get_num_vars();
+        unsigned num_edges = m_edges.size();
+        S.ensure_var(num_nodes + num_edges + m_objectives.size());
+        for (unsigned i = 0; i < num_nodes; ++i) {
+            numeral const& a = m_assignment[i];
+            rational fin = a.get_rational().to_rational();
+            rational inf = a.get_infinitesimal().to_rational();
+            mpq_inf q(fin.to_mpq(), inf.to_mpq());
+            S.set_value(i, q);
+        }
+        for (unsigned i = 0; i < num_nodes; ++i) {
+            enode * n = get_enode(i);
+            if (m_autil.is_zero(n->get_owner())) {
+                S.set_lower(v, mpq_inf(mpq(0), mpq(0)));
+                S.set_upper(v, mpq_inf(mpq(0), mpq(0)));
+                break;
+            }
+        }
+        svector<unsigned> vars;
+        unsynch_mpq_manager mgr;
+        scoped_mpq_vector coeffs(mgr);
+        coeffs.push_back(mpq(1));
+        coeffs.push_back(mpq(-1));
+        coeffs.push_back(mpq(-1));
+        vars.resize(3);
+        for (unsigned i = 0; i < num_edges; ++i) {
+            edge const& e = m_edges[i];
+            if (e.m_source == null_theory_var || e.m_target == null_theory_var) {
+                continue;
+            }
+            unsigned base_var = num_nodes + i;
+            vars[0] = e.m_target;
+            vars[1] = e.m_source;
+            vars[2] = base_var;
+            S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());
+            // t - s <= w
+            // t - s - b = 0, b >= w
+            numeral const& w = e.m_offset;
+            rational fin = w.get_rational().to_rational();
+            rational inf = w.get_infinitesimal().to_rational();
+            mpq_inf q(fin.to_mpq(),inf.to_mpq());
+            S.set_upper(base_var, q);            
+        }
+        unsigned w = num_nodes + num_edges + v;
+
+        // add objective function as row.
+        coeffs.reset();
+        vars.reset();
+        for (unsigned i = 0; i < objective.size(); ++i) {
+            coeffs.push_back(objective[i].second.to_mpq());
+            vars.push_back(objective[i].first);
+        }
+        coeffs.push_back(mpq(1));
+        vars.push_back(w);
+        Simplex::row row = S.add_row(w, vars.size(), vars.c_ptr(), coeffs.c_ptr());
+        
+        TRACE("opt", S.display(tout); display(tout););
+        
+        // optimize    
+        lbool is_sat = S.make_feasible();
+        if (is_sat == l_undef) {
+            blocker = m.mk_false();
+            return inf_eps::infinity();        
+        }
+        TRACE("opt", S.display(tout); );    
+        SASSERT(is_sat != l_false);
+        lbool is_fin = S.minimize(w);
+        
+        switch (is_fin) {
+        case l_true: {
+            simplex::mpq_ext::eps_numeral const& val = S.get_value(w);
+            inf_rational r(-rational(val.first), -rational(val.second));
+            TRACE("opt", tout << r << " " << "\n"; 
+                  S.display_row(tout, row, true););
+            Simplex::row_iterator it = S.row_begin(row), end = S.row_end(row);
+            expr_ref_vector& core = m_objective_assignments[v];
+            expr_ref tmp(m);
+            core.reset();
+            for (; it != end; ++it) {
+                unsigned v = it->m_var;
+                if (num_nodes <= v && v < num_nodes + num_edges) {
+                    unsigned edge_id = v - num_nodes;
+                    literal lit = m_edges[edge_id].m_justification;
+                    get_context().literal2expr(lit, tmp);
+                    core.push_back(tmp);
+                }
+            }
+            for (unsigned i = 0; i < num_nodes; ++i) {
+                mpq_inf const& val = S.get_value(i);
+                rational q(val.first), eps(val.second);
+                numeral  a(q);
+                m_assignment[i] = a;
+                // TBD: if epsilon is != 0, then adjust a by some small fraction.
+            }
+            blocker = mk_gt(v, r);
+            IF_VERBOSE(10, verbose_stream() << blocker << "\n";);
+            return inf_eps(rational(0), r);
+        }
+        default:
+            TRACE("opt", tout << "unbounded\n"; );        
+            blocker = m.mk_false();
+            return inf_eps::infinity();        
+        }
+    }
+
+    template<typename Ext>
+    theory_var theory_dense_diff_logic<Ext>::add_objective(app* term) {
+        objective_term objective;
+        theory_var result = m_objectives.size();
+        rational q(1), r(0);
+        expr_ref_vector vr(get_manager());
+        if (!is_linear(get_manager(), term)) {
+            result = null_theory_var;
+        }
+        else if (internalize_objective(term, q, r, objective)) {
+            m_objectives.push_back(objective);
+            m_objective_consts.push_back(r);
+            m_objective_assignments.push_back(vr);
+        }
+        else {
+            result = null_theory_var;
+        }
+        return result;
+    }
+
+    template<typename Ext>
+    expr_ref theory_dense_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
+        return mk_ineq(v, val, true);
+    }
+
+    template<typename Ext>
+    expr_ref theory_dense_diff_logic<Ext>::mk_ge(
+        filter_model_converter& fm, theory_var v, inf_rational const& val) {
+        return mk_ineq(v, val, false);
+    }
+
+    template<typename Ext>
+    expr_ref theory_dense_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, bool is_strict) {
+        ast_manager& m = get_manager();
+        objective_term const& t = m_objectives[v];
+        expr_ref e(m), f(m), f2(m);
+        if (t.size() == 1 && t[0].second.is_one()) {
+            f = get_enode(t[0].first)->get_owner();
+        }
+        else if (t.size() == 1 && t[0].second.is_minus_one()) {
+            f = m_autil.mk_uminus(get_enode(t[0].first)->get_owner());
+        }
+        else if (t.size() == 2 && t[0].second.is_one() && t[1].second.is_minus_one()) {
+            f = get_enode(t[0].first)->get_owner();
+            f2 = get_enode(t[1].first)->get_owner();
+            f = m_autil.mk_sub(f, f2); 
+        }
+        else if (t.size() == 2 && t[1].second.is_one() && t[0].second.is_minus_one()) {
+            f = get_enode(t[1].first)->get_owner();
+            f2 = get_enode(t[0].first)->get_owner();
+            f = m_autil.mk_sub(f, f2);
+        }
+        else {
+            // 
+            expr_ref_vector const& core = m_objective_assignments[v];
+            f = m.mk_and(core.size(), core.c_ptr());
+            if (is_strict) {
+                f = m.mk_not(f);
+            }
+            TRACE("arith", tout << "block: " << f << "\n";);
+            return f;
+        }
+        
+        e = m_autil.mk_numeral(val.get_rational(), m.get_sort(f));
+        
+        if (val.get_infinitesimal().is_neg()) {
+            if (is_strict) {
+                f = m_autil.mk_ge(f, e);
+            }
+            else {
+                expr_ref_vector const& core = m_objective_assignments[v];
+                f = m.mk_and(core.size(), core.c_ptr());
+            }
+        }
+        else {
+            if (is_strict) {
+                f = m_autil.mk_gt(f, e);
+            }
+            else {
+                f = m_autil.mk_ge(f, e);
+            }
+        }
+        return f;
     }
 
 };

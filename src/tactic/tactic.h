@@ -95,10 +95,11 @@ public:
 
     // translate tactic to the given manager
     virtual tactic * translate(ast_manager & m) = 0;
-private:
+protected:
     friend class nary_tactical;
     friend class binary_tactical;
     friend class unary_tactical;
+    friend class nl_purify_tactic;
 
     virtual void set_cancel(bool f) {}
 

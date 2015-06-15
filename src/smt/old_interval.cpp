@@ -72,7 +72,11 @@ ext_numeral & ext_numeral::operator-=(ext_numeral const & other) {
 }
 
 ext_numeral & ext_numeral::operator*=(ext_numeral const & other) {
-    if (is_zero() || other.is_zero()) {
+    if (is_zero()) {
+        m_kind = FINITE;
+        return *this;
+    }
+    if (other.is_zero()) {
         m_kind = FINITE;
         m_value.reset();
         return *this;

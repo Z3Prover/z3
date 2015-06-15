@@ -114,7 +114,7 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
 
                     ptr_vector<sort>  domain;
                     inv_vars.push_back(f);
-                    for (unsigned i = 0; i < inv_vars.size(); ++i) {						
+                    for (unsigned i = 0; i < inv_vars.size(); ++i) {
                         domain.push_back(m.get_sort(inv_vars[i]));
                     }
                     sort * d              = decl->get_domain(idx);

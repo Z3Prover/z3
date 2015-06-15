@@ -449,6 +449,19 @@ namespace Microsoft.Z3
             return MkDatatypeSorts(MkSymbols(names), c);
         }
 
+        /// <summary>
+        /// Update a datatype field at expression t with value v.
+	/// The function performs a record update at t. The field
+	/// that is passed in as argument is updated with value v,
+	/// the remainig fields of t are unchanged.	
+        /// </summary>
+	public Expr MkUpdateField(FuncDecl field, Expr t, Expr v) 
+	{
+	    return Expr.Create(this, Native.Z3_datatype_update_field(
+	                                  nCtx, field.NativeObject,
+                                          t.NativeObject, v.NativeObject));		
+	}
+
         #endregion
         #endregion
 
@@ -2251,6 +2264,36 @@ namespace Microsoft.Z3
         }
         #endregion
 
+        #region Pseudo-Boolean constraints
+
+        /// <summary>
+        /// Create an at-most-k constraint.
+        /// </summary>
+        public BoolExpr MkAtMost(BoolExpr[] args, uint k) 
+        {
+           Contract.Requires(args != null);
+           Contract.Requires(Contract.Result<BoolExpr[]>() != null);
+           CheckContextMatch(args);
+           return new BoolExpr(this, Native.Z3_mk_atmost(nCtx, (uint) args.Length, 
+                                                          AST.ArrayToNative(args), k));
+        }
+
+        /// <summary>
+        /// Create a pseudo-Boolean less-or-equal constraint.
+        /// </summary>
+        public BoolExpr MkPBLe(int[] coeffs, BoolExpr[] args, int k) 
+        {
+           Contract.Requires(args != null);
+           Contract.Requires(coeffs != null);
+           Contract.Requires(args.Length == coeffs.Length);
+           Contract.Requires(Contract.Result<BoolExpr[]>() != null);
+           CheckContextMatch(args);
+           return new BoolExpr(this, Native.Z3_mk_pble(nCtx, (uint) args.Length, 
+                                                          AST.ArrayToNative(args), 
+                                                          coeffs, k));
+        }
+        #endregion
+
         #region Numerals
 
         #region General Numerals
@@ -3438,6 +3481,18 @@ namespace Microsoft.Z3
         }
         #endregion
 
+        #region Optimization
+        /// <summary>
+        /// Create an Optimization context.
+        /// </summary>
+        public Optimize MkOptimize()
+        {
+            Contract.Ensures(Contract.Result<Optimize>() != null);
+
+            return new Optimize(this);
+        }
+        #endregion
+
         #region Floating-Point Arithmetic
 
         #region Rounding Modes
@@ -4383,6 +4438,7 @@ namespace Microsoft.Z3
             Contract.Invariant(m_Statistics_DRQ != null);
             Contract.Invariant(m_Tactic_DRQ != null);
             Contract.Invariant(m_Fixedpoint_DRQ != null);
+            Contract.Invariant(m_Optimize_DRQ != null);
         }
 
         readonly private AST.DecRefQueue m_AST_DRQ = new AST.DecRefQueue();
@@ -4400,6 +4456,7 @@ namespace Microsoft.Z3
         readonly private Statistics.DecRefQueue m_Statistics_DRQ = new Statistics.DecRefQueue(10);
         readonly private Tactic.DecRefQueue m_Tactic_DRQ = new Tactic.DecRefQueue(10);
         readonly private Fixedpoint.DecRefQueue m_Fixedpoint_DRQ = new Fixedpoint.DecRefQueue(10);
+	readonly private Optimize.DecRefQueue m_Optimize_DRQ = new Optimize.DecRefQueue(10);
 
         /// <summary>
         /// AST DRQ
@@ -4476,6 +4533,11 @@ namespace Microsoft.Z3
         /// </summary>
         public IDecRefQueue Fixedpoint_DRQ { get { Contract.Ensures(Contract.Result<Fixedpoint.DecRefQueue>() != null); return m_Fixedpoint_DRQ; } }
 
+        /// <summary>
+        /// Optimize DRQ
+        /// </summary>
+        public IDecRefQueue Optimize_DRQ { get { Contract.Ensures(Contract.Result<Optimize.DecRefQueue>() != null); return m_Fixedpoint_DRQ; } }
+
 
         internal long refCount = 0;
 
@@ -4518,6 +4580,7 @@ namespace Microsoft.Z3
             Statistics_DRQ.Clear(this);
             Tactic_DRQ.Clear(this);
             Fixedpoint_DRQ.Clear(this);
+            Optimize_DRQ.Clear(this);
 
             m_boolSort = null;
             m_intSort = null;

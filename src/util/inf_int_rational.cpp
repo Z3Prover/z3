@@ -19,9 +19,9 @@ Revision History:
 #include<sstream>
 #include"inf_int_rational.h"
 
-inf_int_rational inf_int_rational::m_zero(0);
-inf_int_rational inf_int_rational::m_one(1);
-inf_int_rational inf_int_rational::m_minus_one(-1);
+inf_int_rational inf_int_rational::m_zero;
+inf_int_rational inf_int_rational::m_one;
+inf_int_rational inf_int_rational::m_minus_one;
 
 std::string inf_int_rational::to_string() const {
     if (m_second == 0) {
@@ -39,3 +39,22 @@ std::string inf_int_rational::to_string() const {
     return s.str();
 }
 
+void initialize_inf_int_rational() {
+  inf_int_rational::init();
+}
+
+void inf_int_rational::init() {
+  m_zero.m_first = rational::zero();
+  m_one.m_first = rational::one();
+  m_minus_one.m_first = rational::minus_one();
+}
+
+void finalize_inf_int_rational() {
+  inf_int_rational::finalize();
+}
+
+void inf_int_rational::finalize() {
+  m_zero.~inf_int_rational();
+  m_one.~inf_int_rational();
+  m_minus_one.~inf_int_rational();
+}
