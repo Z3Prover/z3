@@ -74,14 +74,15 @@ namespace datalog {
     }
 
     /**
-      We allocate a new register \c r and store the result of the min aggregation function into \c r.
+      If \c reuse is false, then we allocate a new register \c r and store the result of
+      the min aggregation function into \c r; otherwise, we set \c r equals to \c source.
 
       \post: \c r == \c target and \c acc ends with the newly created instruction for min aggregation
     */
     void compiler::make_min(reg_idx source, reg_idx & target, const unsigned_vector & group_by_cols,
-        const unsigned min_col, instruction_block & acc) {
+        const unsigned min_col, instruction_block & acc, bool reuse) {
         relation_signature sig = m_reg_signatures[source];
-        target = get_register(sig, false, source);
+        target = get_register(sig, reuse, source);
         acc.push_back(instruction::mk_min(source, target, group_by_cols, min_col));
     }
 
@@ -582,7 +583,7 @@ namespace datalog {
             dealloc = false;
 
             if (prepare_min_aggregate(a, min_aggregates, group_by_cols, min_col)) {
-                make_min(single_res, single_res, group_by_cols, min_col, acc);
+                make_min(single_res, single_res, group_by_cols, min_col, acc, false);
             }
 
             SASSERT(m_reg_signatures[single_res].size() == a->get_num_args());
@@ -1102,7 +1103,6 @@ namespace datalog {
             for(; rit!=rend; ++rit) {
                 rule * r = *rit;
                 SASSERT(head_pred==r->get_decl());
-
                 compile_rule_evaluation(r, input_deltas, d_head_reg, widen_predicate_in_loop, acc);
             }
         }
@@ -1188,6 +1188,40 @@ namespace datalog {
             loop_control_regs.c_ptr(), loop_body));
     }
 
+    void compiler::compile_final_min(const func_decl_vector & head_preds, instruction_block & acc) {
+        func_decl_vector::const_iterator hp_it = head_preds.begin();
+        func_decl_vector::const_iterator hp_end = head_preds.end();
+
+        app * a;
+        rule * r;
+        unsigned min_col;
+        reg_idx head_reg;
+        func_decl * head_pred;
+        unsigned_vector group_by_cols;
+        ptr_vector<app> min_aggregates;
+
+        for (; hp_it != hp_end; ++hp_it) {
+            head_pred = *hp_it;
+            const rule_vector & pred_rules = m_rule_set.get_predicate_rules(head_pred);
+            if (pred_rules.size() != 1)
+                continue;
+
+            r = *(pred_rules.begin());
+            if (r->get_positive_tail_size() != 1)
+                continue;
+
+            a = r->get_tail(0);
+            min_aggregates.reset();
+            find_min_aggregates(r, min_aggregates);
+            if (!prepare_min_aggregate(a, min_aggregates, group_by_cols, min_col))
+                continue;
+
+            head_reg = m_pred_regs.find(r->get_decl());
+            make_min(head_reg, head_reg, group_by_cols, 2, acc, true);
+            TRACE("dl", tout << "Final min: " << head_reg << "\n";);
+        }
+    }
+
     void compiler::compile_dependent_rules(const func_decl_set & head_preds,
             const pred2idx * input_deltas, const pred2idx & output_deltas, 
             bool add_saturation_marks, instruction_block & acc) {
@@ -1244,6 +1278,7 @@ namespace datalog {
             compile_loop(preds_vector, empty_func_decl_set, d_global_tgt, d_global_src, d_local, acc);
         }
 
+        compile_final_min(preds_vector, acc);
 
         if(add_saturation_marks) {
             //after the loop finishes, all predicates in the group are saturated, 

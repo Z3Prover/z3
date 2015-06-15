@@ -163,7 +163,7 @@ namespace datalog {
         void make_join(reg_idx t1, reg_idx t2, const variable_intersection & vars, reg_idx & result, 
             bool reuse_t1, instruction_block & acc);
         void make_min(reg_idx source, reg_idx & target, const unsigned_vector & group_by_cols,
-            const unsigned min_col, instruction_block & acc);
+            const unsigned min_col, instruction_block & acc, bool reuse = false);
         void make_join_project(reg_idx t1, reg_idx t2, const variable_intersection & vars, 
             const unsigned_vector & removed_cols, reg_idx & result, bool reuse_t1, instruction_block & acc);
         void make_filter_interpreted_and_project(reg_idx src, app_ref & cond,
@@ -248,6 +248,15 @@ namespace datalog {
         void compile_dependent_rules(const func_decl_set & head_preds,
             const pred2idx * input_deltas, const pred2idx & output_deltas, 
             bool add_saturation_marks, instruction_block & acc);
+
+        /**
+           \brief Post-process recursive rules with min aggregation functions
+
+           We assume that all rules in \c head_preds are recursive. This function post-processes
+           these recursive rules such that any intermediate tuples produced during the fixed point
+           computation which are not minimal are disregarded.
+        */
+        void compile_final_min(const func_decl_vector & head_preds, instruction_block & acc);
 
         void detect_chains(const func_decl_set & preds, func_decl_vector & ordered_preds, 
             func_decl_set & global_deltas);
