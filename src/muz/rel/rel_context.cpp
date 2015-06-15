@@ -52,6 +52,7 @@ Revision History:
 #include"dl_mk_separate_negated_tails.h"
 #include"ast_util.h"
 
+#define _MIN_DONE_ 1
 
 namespace datalog {
 
