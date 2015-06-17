@@ -1,3 +1,11 @@
+############################################
+# Copyright (c) 2012 Microsoft Corporation
+# 
+# Z3 Python interface
+#
+# Author: Leonardo de Moura (leonardo)
+############################################
+
 import ctypes, z3core
 
 class Z3Exception(Exception):
