@@ -1065,7 +1065,7 @@ namespace datalog {
             t1.get_signature().size() == joined_col_cnt &&
             t2.get_signature().size() == joined_col_cnt) {
             for (unsigned i = 0; i < removed_col_cnt; ++i) {
-                if (removed_cols[i] != i)
+                if (removed_cols[i] != i || cols1[i] != cols2[i])
                     goto general_fn;
             }
             return alloc(join_project_and_fn);
