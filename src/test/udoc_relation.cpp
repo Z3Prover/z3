@@ -166,6 +166,7 @@ public:
 
         test_join_project();
         test_join_project2();
+        test_join_project3();
 
         test_filter_neg4(false);
         test_filter_neg4(true);
@@ -523,6 +524,55 @@ public:
         t->deallocate();
         t1->deallocate();
         t2->deallocate();
+    }
+
+    void test_join_project3()
+    {
+      datalog::relation_signature sig;
+      sig.push_back(bv.mk_sort(2));
+      sig.push_back(bv.mk_sort(2));
+
+      unsigned_vector jc1, jc2, pc;
+      jc1.push_back(0);
+      jc1.push_back(1);
+      jc2.push_back(1);
+      jc2.push_back(0);
+      pc.push_back(0);
+      pc.push_back(1);     
+
+      scoped_ptr<datalog::relation_join_fn> join_project_fn;
+
+      udoc_relation* t1 = mk_empty(sig);
+      {
+        datalog::relation_fact fact1(m);
+        fact1.push_back(bv.mk_numeral(rational(3), 2));
+        fact1.push_back(bv.mk_numeral(rational(1), 2));
+        t1->add_fact(fact1);
+      }
+
+      udoc_relation *t2 = mk_empty(sig);
+      {
+        datalog::relation_fact fact1(m);
+        fact1.push_back(bv.mk_numeral(rational(0), 2));
+        fact1.push_back(bv.mk_numeral(rational(3), 2));
+        t2->add_fact(fact1);
+        fact1.reset();
+        fact1.push_back(bv.mk_numeral(rational(1), 2));
+        fact1.push_back(bv.mk_numeral(rational(3), 2));
+        t2->add_fact(fact1);
+      }
+
+      t1->display(std::cout << "t1:");
+      t2->display(std::cout << "t2:");
+      join_project_fn = p.mk_join_project_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr(), pc.size(), pc.c_ptr());
+
+      relation_base* t;
+      t = (*join_project_fn)(*t1, *t2);
+      t->display(std::cout << "t:");
+      cr.verify_join_project(*t1, *t2, *t, jc1, jc2, pc);
+      t->deallocate();
+      t1->deallocate();
+      t2->deallocate();
     }
 
     void test_rename() {
