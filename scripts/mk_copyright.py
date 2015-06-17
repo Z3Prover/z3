@@ -47,7 +47,7 @@ def add_cr(file):
 def add_missing_cr(dir):
     for root, dirs, files in os.walk(dir):
 	for f in files:
-	    if f.endswith('.cpp') or f.endswith('.h') or f.endswith('.c'):
+	    if f.endswith('.cpp') or f.endswith('.h') or f.endswith('.c') or f.endswith('.cs'):
 		path = "%s\\%s" % (root, f)
 		if not has_cr(path):
 		    print "Missing CR for %s" % path
