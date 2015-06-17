@@ -1,3 +1,10 @@
+############################################
+# Copyright (c) 2012 Microsoft Corporation
+# 
+# Z3 Python interface
+#
+# Author: Leonardo de Moura (leonardo)
+############################################
 """
 Usage:  
 import common_z3 as CM_Z3
