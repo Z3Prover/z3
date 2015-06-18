@@ -290,8 +290,6 @@ namespace datalog {
         return res;
     }
 
-#define _MIN_WORK_IN_PROGRESS_
-
     void rel_context::transform_rules() {
         rule_transformer transf(m_context);
 
