@@ -64,7 +64,7 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
     ctx_q.updt_params(params);
     {
         parser* p = parser::create(ctx_q,m);
-        bool ok = p->parse_file(problem_file);
+        bool ok = p && p->parse_file(problem_file);
         dealloc(p);
         if (!ok) {
             std::cout << "Could not parse: " << problem_file << "\n";
