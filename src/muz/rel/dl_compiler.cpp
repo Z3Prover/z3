@@ -465,6 +465,20 @@ namespace datalog {
         }
     }
 
+    bool compiler::contains_min_aggregates(const rule * r) {
+        unsigned ut_len = r->get_uninterpreted_tail_size();
+        unsigned ft_len = r->get_tail_size(); // full tail
+        app * aggregate;
+        for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
+            aggregate = r->get_tail(tail_index);
+            if (dl_decl_plugin::is_aggregate(aggregate->get_decl())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     bool compiler::prepare_min_aggregate(const app * a, const ptr_vector<app>& min_aggregates,
         unsigned_vector & group_by_cols, unsigned & min_col) {
         func_decl * decl;
@@ -987,7 +1001,7 @@ namespace datalog {
             reg_idx tail_reg = m_pred_regs.find(tail_pred);
             tail_regs.push_back(tail_reg);
 
-            if(input_deltas && !all_or_nothing_deltas()) {
+            if(input_deltas && !all_or_nothing_deltas(r)) {
                 reg_idx tail_delta_idx;
                 if(input_deltas->find(tail_pred, tail_delta_idx)) {
                     tail_deltas.push_back(tail_delta_info(tail_delta_idx, j));
@@ -995,7 +1009,7 @@ namespace datalog {
             }
         }
 
-        if(!input_deltas || all_or_nothing_deltas()) {
+        if(!input_deltas || all_or_nothing_deltas(r)) {
             compile_rule_evaluation_run(r, head_reg, tail_regs.c_ptr(), output_delta, use_widening, acc);
         }
         else {

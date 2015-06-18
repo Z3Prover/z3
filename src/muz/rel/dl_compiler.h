@@ -126,6 +126,11 @@ namespace datalog {
         static void find_min_aggregates(const rule * r, ptr_vector<app>& min_aggregates);
 
         /**
+        \brief Does r contain any min aggregation function applications?
+        */
+        static bool contains_min_aggregates(const rule * r);
+
+        /**
         \brief Decides whether an atom \c a is subject to a min aggregation function.
 
         If \c decl is subject to a min aggregation function, the output parameters are written
@@ -133,16 +138,24 @@ namespace datalog {
 
         \returns true if the output paramaters have been written
         */
-        bool prepare_min_aggregate(const app * a, const ptr_vector<app>& min_aggregates,
+        static bool prepare_min_aggregate(const app * a, const ptr_vector<app>& min_aggregates,
             unsigned_vector & group_by_cols, unsigned & min_col);
 
         /**
+           If rule \c r contains any min aggregation function, we want to compute the min
+           on the entire relation and so return true.
+
            If true, the union operation on the underlying structure only provides the information
            whether the updated relation has changed or not. In this case we do not get anything
            from using delta relations at position of input relations in the saturation loop, so we
            would not do it.
         */
-        bool all_or_nothing_deltas() const { return m_context.all_or_nothing_deltas(); }
+        bool all_or_nothing_deltas(rule * r) const {
+            if (contains_min_aggregates(r))
+                return true;
+
+            return m_context.all_or_nothing_deltas();
+        }
 
         /**
            If true, we compile the saturation loops in a way that allows us to use widening.
