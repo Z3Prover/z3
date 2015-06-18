@@ -1231,7 +1231,7 @@ namespace datalog {
                 continue;
 
             head_reg = m_pred_regs.find(r->get_decl());
-            make_min(head_reg, head_reg, group_by_cols, 2, acc, true);
+            make_min(head_reg, head_reg, group_by_cols, min_col, acc, true);
             TRACE("dl", tout << "Final min: " << head_reg << "\n";);
         }
     }
