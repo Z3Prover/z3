@@ -482,6 +482,7 @@ namespace datalog {
     bool compiler::prepare_min_aggregate(const app * a, const ptr_vector<app>& min_aggregates,
         unsigned_vector & group_by_cols, unsigned & min_col) {
         func_decl * decl;
+        unsigned arg_num;
         for (unsigned i = 0; i < min_aggregates.size(); ++i) {
             // We make the following assumptions:
             //
@@ -490,10 +491,15 @@ namespace datalog {
             //
             // 2) The min aggregation function application and the predicate it is minimizing
             //    are always in the same rule, even after preprocessing.
-            //
-            // Based on these assumptions, we can rely on Z3's hash-consing to match predicates
-            // with the min aggregation function.
-            if (a->get_args() != a->get_args())
+            if (a->get_num_args() != min_aggregates[i]->get_num_args())
+                continue;
+
+            for (arg_num = 0; arg_num < arg_num; ++arg_num) {
+                if (a->get_arg(arg_num) != min_aggregates[i]->get_arg(arg_num))
+                    break;
+            }
+
+            if (arg_num != a->get_num_args())
                 continue;
 
             decl = min_aggregates[i]->get_decl();
