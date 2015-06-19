@@ -54,6 +54,7 @@ def_module_params('fixedpoint',
                            "if true, finite_product_relation will attempt to avoid creating " +
                            "inner relation with empty signature by putting in half of the " +
                            "table columns, if it would have been empty otherwise"),
+	                  ('datalog.transform_rules', BOOL, True, 'enable rule transformations'),
 	                  ('duality.full_expand', BOOL, False, 'Fully expand derivation trees'),
 	                  ('duality.no_conj', BOOL, False, 'No forced covering (conjectures)'),
 	                  ('duality.feasible_edges', BOOL, True, 
