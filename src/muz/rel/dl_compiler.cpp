@@ -494,7 +494,7 @@ namespace datalog {
             if (a->get_num_args() != min_aggregates[i]->get_num_args())
                 continue;
 
-            for (arg_num = 0; arg_num < arg_num; ++arg_num) {
+            for (arg_num = 0; arg_num < a->get_num_args(); ++arg_num) {
                 if (a->get_arg(arg_num) != min_aggregates[i]->get_arg(arg_num))
                     break;
             }
