@@ -256,6 +256,7 @@ namespace datalog {
         symbol check_relation() const;
         bool default_table_checked() const;
         bool dbg_fpr_nonempty_relation_signature() const;
+        bool transform_rules() const;
         unsigned dl_profile_milliseconds_threshold() const;
         bool all_or_nothing_deltas() const;
         bool compile_with_widening() const;

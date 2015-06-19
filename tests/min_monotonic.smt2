@@ -1,4 +1,5 @@
 (set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.datalog.transform_rules false)
 
 ; identifier for a router
 (define-sort router_t () (_ BitVec 2))

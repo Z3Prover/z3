@@ -1,4 +1,5 @@
 (set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.datalog.transform_rules false)
 
 (define-sort node_t () (_ BitVec 4))
 (define-sort cost_t () (_ BitVec 8))

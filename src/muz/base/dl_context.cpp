@@ -285,6 +285,7 @@ namespace datalog {
     symbol context::default_table_checker() const { return m_params->datalog_default_table_checker(); }
     bool context::default_table_checked() const { return m_params->datalog_default_table_checked(); }
     bool context::dbg_fpr_nonempty_relation_signature() const { return m_params->datalog_dbg_fpr_nonempty_relation_signature(); }
+    bool context::transform_rules() const { return m_params->datalog_transform_rules(); }
     unsigned context::dl_profile_milliseconds_threshold() const { return m_params->datalog_profile_timeout_milliseconds(); }
     bool context::all_or_nothing_deltas() const { return m_params->datalog_all_or_nothing_deltas(); }
     bool context::compile_with_widening() const { return m_params->datalog_compile_with_widening(); }

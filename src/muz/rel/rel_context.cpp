@@ -293,26 +293,26 @@ namespace datalog {
     void rel_context::transform_rules() {
         rule_transformer transf(m_context);
 
-        transf.register_plugin(alloc(mk_coi_filter, m_context));
-#if !defined(_MIN_WORK_IN_PROGRESS_)
-        transf.register_plugin(alloc(mk_filter_rules, m_context));        
-        transf.register_plugin(alloc(mk_simple_joins, m_context));
-        if (m_context.unbound_compressor()) {
-            transf.register_plugin(alloc(mk_unbound_compressor, m_context));
-        }
-        if (m_context.similarity_compressor()) {
-            transf.register_plugin(alloc(mk_similarity_compressor, m_context)); 
-        }
-        transf.register_plugin(alloc(mk_partial_equivalence_transformer, m_context));
-        transf.register_plugin(alloc(mk_rule_inliner, m_context));
-        transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context));
-        transf.register_plugin(alloc(mk_separate_negated_tails, m_context));
+        if (m_context.transform_rules()) {
+            transf.register_plugin(alloc(mk_coi_filter, m_context));
+            transf.register_plugin(alloc(mk_filter_rules, m_context));
+            transf.register_plugin(alloc(mk_simple_joins, m_context));
+            if (m_context.unbound_compressor()) {
+                transf.register_plugin(alloc(mk_unbound_compressor, m_context));
+            }
+            if (m_context.similarity_compressor()) {
+                transf.register_plugin(alloc(mk_similarity_compressor, m_context));
+            }
+            transf.register_plugin(alloc(mk_partial_equivalence_transformer, m_context));
+            transf.register_plugin(alloc(mk_rule_inliner, m_context));
+            transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context));
+            transf.register_plugin(alloc(mk_separate_negated_tails, m_context));
 
-        if (m_context.xform_bit_blast()) {
-            transf.register_plugin(alloc(mk_bit_blast, m_context, 22000));
-            transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context, 21000));
+            if (m_context.xform_bit_blast()) {
+                transf.register_plugin(alloc(mk_bit_blast, m_context, 22000));
+                transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context, 21000));
+            }
         }
-#endif
         m_context.transform_rules(transf);
     }
 
