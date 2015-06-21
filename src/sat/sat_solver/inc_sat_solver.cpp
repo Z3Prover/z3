@@ -427,7 +427,7 @@ private:
 };
 
 
-solver* mk_inc_sat_solver(ast_manager& m, params_ref& p) {
+solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p) {
     return alloc(inc_sat_solver, m, p);
 }
 
