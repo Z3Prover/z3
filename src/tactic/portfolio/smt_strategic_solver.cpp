@@ -112,8 +112,8 @@ public:
             l = logic;
         tactic * t = mk_tactic_for_logic(m, p, l);
         return mk_combined_solver(mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, l),
-                                  mk_solver_for_logic(m, p, l), 
-                                  //mk_smt_solver(m, p, l),
+                                  //mk_solver_for_logic(m, p, l), 
+                                  mk_smt_solver(m, p, l),
                                   p);
     }
 };
