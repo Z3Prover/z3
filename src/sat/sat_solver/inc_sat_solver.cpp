@@ -21,7 +21,6 @@ Notes:
 #include "tactical.h"
 #include "sat_solver.h"
 #include "tactic2solver.h"
-#include "nnf_tactic.h"
 #include "aig_tactic.h"
 #include "propagate_values_tactic.h"
 #include "max_bv_sharing_tactic.h"
