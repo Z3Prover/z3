@@ -69,14 +69,20 @@ expr * poly_simplifier_plugin::mk_mul(unsigned num_args, expr * const * args) {
 }
 
 expr * poly_simplifier_plugin::mk_mul(numeral const & c, expr * body) {
-    numeral c_prime;
+    numeral c_prime, d;
     c_prime = norm(c);
     if (c_prime.is_zero())
         return 0;
     if (body == 0)
         return mk_numeral(c_prime);
     if (c_prime.is_one())
-        return body;
+         return body;
+    if (is_numeral(body, d)) {
+        c_prime = norm(c_prime*d);
+        if (c_prime.is_zero())
+            return 0;
+        return mk_numeral(c_prime);
+    }
     set_curr_sort(body);
     expr * args[2] = { mk_numeral(c_prime), body };
     return mk_mul(2, args);
