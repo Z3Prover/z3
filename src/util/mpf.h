@@ -169,7 +169,7 @@ public:
     bool is_ninf(mpf const & x);
     bool is_normal(mpf const & x);
     bool is_denormal(mpf const & x);
-    bool is_regular(mpf const & x) { return x.sbits == 0 || is_normal(x) || is_denormal(x); }
+    bool is_regular(mpf const & x) { return x.sbits == 0 || is_zero(x) || is_normal(x) || is_denormal(x); }
 
     bool is_int(mpf const & x);
 

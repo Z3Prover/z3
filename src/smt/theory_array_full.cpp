@@ -785,7 +785,10 @@ namespace smt {
         else {
             m_eqs.insert(v1, v2, true);
             literal eq(mk_eq(v1, v2, true));
-            m_eqsv.push_back(eq);
+            get_context().mark_as_relevant(eq);            
+            assert_axiom(eq);
+
+            // m_eqsv.push_back(eq);
             return true;
         }
     }

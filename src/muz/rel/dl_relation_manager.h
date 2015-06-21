@@ -73,7 +73,7 @@ namespace datalog {
         typedef map<const relation_plugin *, finite_product_relation_plugin *, ptr_hash<const relation_plugin>, 
             ptr_eq<const relation_plugin> > rp2fprp_map;
 
-        typedef map<func_decl *, relation_base *, ptr_hash<func_decl>, ptr_eq<func_decl> > relation_map;
+        typedef obj_map<func_decl, relation_base *> relation_map;
         typedef ptr_vector<table_plugin> table_plugin_vector;
         typedef ptr_vector<relation_plugin> relation_plugin_vector;
 
@@ -250,6 +250,9 @@ namespace datalog {
             SASSERT(cols1.size()==cols2.size());
             return mk_join_fn(t1, t2, cols1.size(), cols1.c_ptr(), cols2.c_ptr(), allow_product_relation);
         }
+
+        table_min_fn * mk_min_fn(const table_base & t,
+            unsigned_vector & group_by_cols, const unsigned col);
 
         /**
             \brief Return functor that transforms a table into one that lacks columns listed in

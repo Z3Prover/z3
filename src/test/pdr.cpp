@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "pdr_context.h"
 #include "reg_decl_plugins.h"
 
@@ -21,7 +27,7 @@ struct test_model_search {
     };
 
     ast_manager       m;
-    smt_params        smt_params;
+    smt_params        m_smt_params;
     fixedpoint_params fp_params;
     context           ctx;
     manager           pm;
@@ -34,8 +40,8 @@ struct test_model_search {
 
 
     test_model_search():
-        ctx(smt_params, fp_params, m),
-        pm(smt_params, 10, m),
+        ctx(m_smt_params, fp_params, m),
+        pm(m_smt_params, 10, m),
         fn(m),
         initt(fn),
         pt(ctx, pm, fn),

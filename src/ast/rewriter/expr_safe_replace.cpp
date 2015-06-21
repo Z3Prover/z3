@@ -49,17 +49,23 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             app* c = to_app(a);
             unsigned n = c->get_num_args();
             m_args.reset();
+            bool arg_differs = false;
             for (unsigned i = 0; i < n; ++i) {
                 if (m_cache.find(c->get_arg(i), d)) {
                     m_args.push_back(d);
+                    arg_differs |= c->get_arg(i) != d;
                 }
                 else {
                     m_todo.push_back(c->get_arg(i));
                 }
             }
             if (m_args.size() == n) {
-                b = m.mk_app(c->get_decl(), m_args.size(), m_args.c_ptr());
-                m_refs.push_back(b);
+                if (arg_differs) {
+                    b = m.mk_app(c->get_decl(), m_args.size(), m_args.c_ptr());
+                    m_refs.push_back(b);
+                } else {
+                    b = a;
+                }
                 m_cache.insert(a, b);
                 m_todo.pop_back();
             }

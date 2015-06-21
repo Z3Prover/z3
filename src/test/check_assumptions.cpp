@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "memory_manager.h"
 #include "smt_params.h"
 #include "ast.h"

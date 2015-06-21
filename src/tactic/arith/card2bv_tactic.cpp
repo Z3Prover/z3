@@ -485,10 +485,9 @@ public:
             return;
         }
                 
-        unsigned size = g->size();
         expr_ref new_f1(m), new_f2(m);
         proof_ref new_pr1(m), new_pr2(m);
-        for (unsigned idx = 0; idx < size; idx++) {
+        for (unsigned idx = 0; !g->inconsistent() && idx < g->size(); idx++) {
             m_rw1(g->form(idx), new_f1, new_pr1);
             TRACE("card2bv", tout << "Rewriting " << mk_ismt2_pp(new_f1.get(), m) << std::endl;);
             m_rw2.rewrite(new_f1, new_f2);

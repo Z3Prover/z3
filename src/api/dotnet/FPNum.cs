@@ -60,6 +60,25 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// The significand value of a floating-point numeral as a UInt64
+        /// </summary>
+        /// <remarks>
+        /// This function extracts the significand bits, without the 
+        /// hidden bit or normalization. Throws an exception if the
+        /// significand does not fit into a UInt64.
+        /// </remarks>
+        public UInt64 SignificandUInt64
+        {
+            get
+            {
+                UInt64 result = 0;
+                if (Native.Z3_fpa_get_numeral_significand_uint64(Context.nCtx, NativeObject, ref result) == 0)
+                    throw new Z3Exception("Significand is not a 64 bit unsigned integer");                
+                return result;
+            }
+        }
+
+        /// <summary>
         /// Return the exponent value of a floating-point numeral as a string
         /// </summary>
         public string Exponent

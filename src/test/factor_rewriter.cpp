@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "factor_rewriter.h"
 #include "bv_decl_plugin.h"
 #include "ast_pp.h"

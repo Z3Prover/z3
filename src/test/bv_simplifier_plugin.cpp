@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "bv_simplifier_plugin.h"
 #include "arith_decl_plugin.h"
 #include "ast_pp.h"

@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "trace.h"
 #include "vector.h"
 #include "ast.h"

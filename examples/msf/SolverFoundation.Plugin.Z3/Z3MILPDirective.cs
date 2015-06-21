@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 ﻿using Microsoft.SolverFoundation.Services;
 using System;
 

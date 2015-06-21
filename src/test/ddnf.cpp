@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "ddnf.h"
 #include "tbv.h"
 #include <iostream>

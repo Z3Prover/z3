@@ -1,4 +1,10 @@
 
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
+
 #include"datalog_parser.h"
 #include"string_buffer.h"
 #include"str_hashtable.h"
@@ -95,9 +101,10 @@ public:
         resize_data(0);
 #if _WINDOWS
         errno_t err = fopen_s(&m_file, fname, "rb");
-        m_ok = err == 0;
+        m_ok = (m_file != NULL) && (err == 0);
 #else
         m_file = fopen(fname, "rb");
+        m_ok = (m_file != NULL);
 #endif
     }
     ~line_reader() {

@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "smt_context.h"
 #include "ast_pp.h"
 #include "model_v2_pp.h"

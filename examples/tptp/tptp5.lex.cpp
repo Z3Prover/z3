@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #line 2 "tptp5.lex.cpp"
 
 #line 4 "tptp5.lex.cpp"

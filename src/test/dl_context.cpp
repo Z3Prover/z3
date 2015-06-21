@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "datalog_parser.h"
 #include "ast_pp.h"
 #include "arith_decl_plugin.h"
@@ -56,8 +62,9 @@ void dl_context_saturate_file(params_ref & params, const char * f) {
     ctx.updt_params(params);
 
     datalog::parser * parser = datalog::parser::create(ctx, m);
-    if (!parser->parse_file(f)) {
+    if (!parser || !parser->parse_file(f)) {
         warning_msg("ERROR: failed to parse file");
+        dealloc(parser);
         return;
     }
     dealloc(parser);

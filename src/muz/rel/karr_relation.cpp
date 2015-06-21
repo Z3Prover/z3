@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "karr_relation.h"
 #include "bool_rewriter.h"
 

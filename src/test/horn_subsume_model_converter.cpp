@@ -1,4 +1,10 @@
 
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
+
 #include "horn_subsume_model_converter.h"
 #include "arith_decl_plugin.h"
 #include "model_smt2_pp.h"

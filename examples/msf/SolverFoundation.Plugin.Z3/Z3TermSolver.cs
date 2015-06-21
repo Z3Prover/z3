@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 ﻿using System;
 using System.Threading;
 using System.Globalization;

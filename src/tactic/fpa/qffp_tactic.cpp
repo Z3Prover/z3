@@ -45,7 +45,7 @@ struct has_fp_to_real_predicate {
     void operator()(app * n) {
         sort * s = get_sort(n);
         if (au.is_real(s) && n->get_family_id() == fu.get_family_id() &&
-            is_app(n) && to_app(n)->get_kind() == OP_FPA_TO_REAL)
+            is_app(n) && to_app(n)->get_decl_kind() == OP_FPA_TO_REAL)
             throw found();
     }
 };
@@ -53,7 +53,7 @@ struct has_fp_to_real_predicate {
 class has_fp_to_real_probe : public probe {
 public:
     virtual result operator()(goal const & g) {
-        return !test<has_fp_to_real_predicate>(g);
+        return test<has_fp_to_real_predicate>(g);
     }
 
     virtual ~has_fp_to_real_probe() {}
