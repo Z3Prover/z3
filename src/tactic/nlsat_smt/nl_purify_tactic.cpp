@@ -203,22 +203,32 @@ public:
             return BR_FAILED;            
         }
 
+        // (+ (f x) y)
+        // (f (+ x y))
+        // 
+        bool is_arith_op(expr* e) {
+            return is_app(e) && to_app(e)->get_family_id() == u().get_family_id();
+        }
         br_status reduce_app_real(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref & pr) {
             bool has_interface = false;
+            bool is_arith = false;
             if (f->get_family_id() == u().get_family_id()) {
                 switch (f->get_decl_kind()) {
                 case OP_NUM: case OP_IRRATIONAL_ALGEBRAIC_NUM:
-                case OP_ADD: case OP_MUL: case OP_SUB: 
-                case OP_UMINUS: case OP_ABS: case OP_POWER: 
                     return BR_FAILED;
                 default:
+                    is_arith = true;
                     break;
                 }
             }
             m_args.reset();
             for (unsigned i = 0; i < num; ++i) {
                 expr* arg = args[i];
-                if (u().is_real(arg)) {
+                if (is_arith && !is_arith_op(arg)) {
+                    has_interface = true;
+                    m_args.push_back(mk_interface_var(arg));
+                }
+                else if (!is_arith && u().is_real(arg)) {
                     has_interface = true;
                     m_args.push_back(mk_interface_var(arg));
                 }

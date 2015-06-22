@@ -32,6 +32,7 @@ Revision History:
 #define ERR_INTERNAL_FATAL      110
 #define ERR_TYPE_CHECK          111
 #define ERR_UNKNOWN_RESULT      112
+#define ERR_ALLOC_EXCEEDED      113
 
 #endif /* _ERROR_CODES_H_ */
 

@@ -42,4 +42,6 @@ public:
     double get_double_value(unsigned idx) const;
 };
 
+void get_memory_statistics(statistics& st);
+
 #endif
