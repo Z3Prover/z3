@@ -46,6 +46,11 @@ public:
     out_of_memory_error();
 };
 
+class exceeded_memory_allocations : public z3_error {
+public:
+    exceeded_memory_allocations();
+};
+
 class memory {
 public:
     static bool is_out_of_memory();
@@ -53,6 +58,7 @@ public:
     static void set_high_watermark(size_t watermak);
     static bool above_high_watermark();
     static void set_max_size(size_t max_size);
+    static void set_max_alloc_count(size_t max_count);
     static void finalize();
     static void display_max_usage(std::ostream& os);
     static void display_i_max_usage(std::ostream& os);
@@ -65,6 +71,7 @@ public:
 #endif
     static unsigned long long get_allocation_size();
     static unsigned long long get_max_used_memory();
+    static unsigned long long get_allocation_count();
     // temporary hack to avoid out-of-memory crash in z3.exe
     static void exit_when_out_of_memory(bool flag, char const * msg);
 };

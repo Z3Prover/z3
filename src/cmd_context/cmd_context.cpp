@@ -1624,11 +1624,10 @@ void cmd_context::set_solver_factory(solver_factory * f) {
 
 void cmd_context::display_statistics(bool show_total_time, double total_time) {
     statistics st;
-    unsigned long long mem = memory::get_max_used_memory();
     if (show_total_time)
         st.update("total time", total_time);
     st.update("time", get_seconds());
-    st.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
+    get_memory_statistics(st);
     if (m_check_sat_result) {
         m_check_sat_result->collect_statistics(st);
     }

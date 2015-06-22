@@ -338,12 +338,8 @@ private:
         if (m_dl_ctx->get_params().print_statistics()) {
             statistics st;
             datalog::context& dlctx = m_dl_ctx->dlctx();
-            unsigned long long max_mem = memory::get_max_used_memory();
-            unsigned long long mem = memory::get_allocation_size();
             dlctx.collect_statistics(st);
             st.update("time", ctx.get_seconds());            
-            st.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
-            st.update("max-memory", static_cast<double>(max_mem)/static_cast<double>(1024*1024));
             st.display_smt2(ctx.regular_stream());            
         }
     }

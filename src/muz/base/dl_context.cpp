@@ -945,10 +945,7 @@ namespace datalog {
         if (m_engine) {
             m_engine->collect_statistics(st);
         }
-        unsigned long long max_mem = memory::get_max_used_memory();
-        unsigned long long mem = memory::get_allocation_size();
-        st.update("max memory", static_cast<double>(max_mem)/(1024.0*1024.0));
-        st.update("memory", static_cast<double>(mem)/(1024.0*1024.0));        
+        get_memory_statistics(st);
     }
 
 
