@@ -676,6 +676,16 @@ public:
         m_cancel = f;
     }
 
+    virtual void collect_statistics(statistics & st) const {
+        m_nl_tac->collect_statistics(st);
+        m_solver->collect_statistics(st);                
+    }
+    
+    virtual void reset_statistics() {
+        m_nl_tac->reset_statistics();        
+    }
+
+
     virtual void cleanup() {
         m_solver = mk_smt_solver(m, m_params, symbol::null);
         m_nl_tac->cleanup();
