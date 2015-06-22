@@ -115,8 +115,6 @@ public:
 
         arith_util & u() { return m_owner.m_util; }
 
-        bool produce_proofs() const { return m_owner.m_produce_proofs; }
-
         expr * mk_interface_var(expr* arg) {
             expr* r;
             if (m_interface_cache.find(arg, r)) {
@@ -145,7 +143,7 @@ public:
             return is_app(e) && (to_app(e)->get_family_id() == u().get_family_id());
         }
 
-        void mk_interface_bool(func_decl * f, unsigned num, expr* const* args, expr_ref& result) {
+        void mk_interface_bool(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref& pr) {
             expr_ref old_pred(m.mk_app(f, num, args), m);
             polarity_t pol;
             VERIFY(m_polarities.find(old_pred, pol));
@@ -154,10 +152,13 @@ public:
             m_new_preds.push_back(to_app(result));
             m_owner.m_fmc->insert(to_app(result)->get_decl());
             if (pol != pol_neg) {
-                m_owner.m_nl_g->assert_expr(m.mk_or(m.mk_not(result), m.mk_app(f, num, args)));
+                m_owner.m_nl_g->assert_expr(m.mk_or(m.mk_not(result), old_pred));
             }
             if (pol != pol_pos) {
-                m_owner.m_nl_g->assert_expr(m.mk_or(result, m.mk_not(m.mk_app(f, num, args))));
+                m_owner.m_nl_g->assert_expr(m.mk_or(result, m.mk_not(old_pred)));
+            }
+            if (m_owner.m_produce_proofs) {
+                pr = m.mk_oeq(old_pred, result);
             }
             TRACE("nlsat_smt", tout << old_pred << " : " << result << "\n";);
         }
@@ -183,7 +184,7 @@ public:
         br_status reduce_app_bool(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref & pr) {
             if (f->get_family_id() == m.get_basic_family_id()) {
                 if (f->get_decl_kind() == OP_EQ && u().is_real(args[0])) {
-                    mk_interface_bool(f, num, args, result);
+                    mk_interface_bool(f, num, args, result, pr);
                     return BR_DONE;
                 }
                 else {
@@ -194,7 +195,7 @@ public:
                 switch (f->get_decl_kind()) {
                 case OP_LE: case OP_GE: case OP_LT: case OP_GT:
                     // these are the only real cases of non-linear atomic formulas besides equality.
-                    mk_interface_bool(f, num, args, result);
+                    mk_interface_bool(f, num, args, result, pr);
                     return BR_DONE;
                 default:
                     return BR_FAILED;
@@ -209,12 +210,14 @@ public:
         bool is_arith_op(expr* e) {
             return is_app(e) && to_app(e)->get_family_id() == u().get_family_id();
         }
+
         br_status reduce_app_real(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref & pr) {
             bool has_interface = false;
             bool is_arith = false;
             if (f->get_family_id() == u().get_family_id()) {
                 switch (f->get_decl_kind()) {
-                case OP_NUM: case OP_IRRATIONAL_ALGEBRAIC_NUM:
+                case OP_NUM: 
+                case OP_IRRATIONAL_ALGEBRAIC_NUM:
                     return BR_FAILED;
                 default:
                     is_arith = true;
@@ -238,6 +241,9 @@ public:
             }
             if (has_interface) {
                 result = m.mk_app(f, num, m_args.c_ptr());
+                if (m_owner.m_produce_proofs) {
+                    pr = m.mk_oeq(m.mk_app(f, num, args), result); // push proof object to mk_interface_var?
+                }
                 TRACE("nlsat_smt", tout << result << "\n";);
                 return BR_DONE;
             }
@@ -263,6 +269,7 @@ private:
             m_cfg.m_mode = rw_cfg::mode_interface_var;
         }
     };
+
 
     arith_util & u() { return m_util; }
 
@@ -727,7 +734,6 @@ public:
         r.set_bool_mode();
         rewrite_goal(r, g);        
 
-        g->inc_depth();
         for (unsigned i = 0; i < g->size(); ++i) {
             m_solver->assert_expr(g->form(i));
         }
@@ -740,3 +746,43 @@ public:
 tactic * mk_nl_purify_tactic(ast_manager& m, params_ref const& p) {
     return alloc(nl_purify_tactic, m, p);
 }
+
+#if 0
+    void mark_interface_vars(goal_ref const& g) {
+        expr_mark visited;
+        ptr_vector<expr> todo;
+        unsigned sz = g->size();
+        for (unsigned i = 0; i < sz; i++) {
+            todo.push_back(g->form(i));
+        }
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(e)) {
+                continue;
+            }
+            visited.mark(e);
+            if (is_quantifier(e)) {
+                todo.push_back(to_quantifier(e)->get_expr());
+                continue;
+            }
+            if (is_var(e)) {
+                continue;
+            }
+            app* ap = to_app(e);
+            sz = ap->get_num_args();
+            bool is_arith = is_arith_op(e);
+            for (unsigned i = 0; i < sz; ++i) {
+                expr* arg = ap->get_arg(i);
+                todo.push_back(arg);
+                if (is_arith && !is_arith_op(arg)) {
+                    m_interface_vars.mark(arg);
+                }
+                else if (!is_arith && is_arith_op(arg) && ap->get_family_id() != m.get_basic_family_id()) {
+                    m_interface_vars.mark(arg);
+                }
+            }
+        }
+
+    }
+#endif
