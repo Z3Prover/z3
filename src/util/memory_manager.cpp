@@ -69,6 +69,12 @@ static void throw_out_of_memory() {
 }
 
 static void throw_alloc_counts_exceeded() {
+    #pragma omp critical (z3_memory_manager) 
+    {
+        // reset the count to avoid re-throwing while
+        // the exception is being thrown.
+        g_memory_alloc_count = 0;
+    }
     throw exceeded_memory_allocations();
 }
 
