@@ -1498,6 +1498,7 @@ class MLComponent(Component):
                 t.close()
                 rmf('output')
                 out.write("-rpath %s " % os.path.join(ocamlfind_destdir, 'stublibs'))
+                out.write("-L%s" % os.path.join(ocamlfind_destdir, 'stublibs'))
 
             for m in modules:
                 out.write(' %s' % (os.path.join(sub_dir, m+'.ml')))
