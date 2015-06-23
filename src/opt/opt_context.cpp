@@ -225,12 +225,13 @@ namespace opt {
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
         lbool is_sat = s.check_sat(0,0);
         TRACE("opt", tout << "initial search result: " << is_sat << "\n";);
+        if (is_sat != l_false) {
+            s.get_model(m_model);
+        }
         if (is_sat != l_true) {
-            m_model = 0;
             return is_sat;
         }
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n";);
-        s.get_model(m_model);
         TRACE("opt", model_smt2_pp(tout, m, *m_model, 0););
         m_optsmt.setup(*m_opt_solver.get());
         update_lower();
