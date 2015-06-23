@@ -119,7 +119,7 @@ namespace pdr {
         if (core.empty()) return;
         expr_ref A(m), B(qe::mk_and(core)), C(m);
         expr_ref_vector Bs(m);
-        qe::flatten_or(B, Bs);
+        flatten_or(B, Bs);
         A = n.pt().get_propagation_formula(m_ctx.get_pred_transformers(), n.level());
 
         bool change = false;
@@ -138,7 +138,7 @@ namespace pdr {
             C = qe::mk_or(Bs);
             TRACE("pdr", tout << "prop:\n" << mk_pp(A,m) << "\ngen:" << mk_pp(B, m) << "\nto: " << mk_pp(C, m) << "\n";);
             core.reset();
-            qe::flatten_and(C, core);    
+            flatten_and(C, core);    
             uses_level = true;
         }    
     }
@@ -190,7 +190,7 @@ namespace pdr {
         expr_ref fml2 = n.pt().get_formulas(n.level(), false);
         fml1_2.push_back(fml1);
         fml1_2.push_back(0);
-        qe::flatten_and(fml2, fmls);
+        flatten_and(fml2, fmls);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             fml2 = m.mk_not(fmls[i].get());
             fml1_2[1] = fml2;

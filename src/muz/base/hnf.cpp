@@ -53,6 +53,7 @@ Notes:
 #include"cooperate.h"
 #include"ast_pp.h"
 #include"quant_hoist.h"
+#include"ast_util.h"
 #include"dl_util.h"
 #include"for_each_ast.h"
 #include"for_each_expr.h"
@@ -247,7 +248,7 @@ private:
             m_body.push_back(e1);
             head = e2;
         }
-        qe::flatten_and(m_body);
+        flatten_and(m_body);
         if (premise) {
             p = m.mk_rewrite(fml0, mk_implies(m_body, head));
         }

@@ -20,6 +20,7 @@ Revision History:
 
 #include "qe_arith.h"
 #include "qe_util.h"
+#include "ast_util.h"
 #include "arith_decl_plugin.h"
 #include "ast_pp.h"
 #include "th_rewriter.h"
@@ -299,7 +300,7 @@ namespace qe {
         ast_manager& m = vars.get_manager();
         arith_project_util ap(m);
         expr_ref_vector lits(m);
-        qe::flatten_and(fml, lits);
+        flatten_and(fml, lits);
         return ap(model, vars, lits);
     }
 

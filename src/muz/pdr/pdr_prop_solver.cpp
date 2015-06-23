@@ -76,7 +76,7 @@ namespace pdr {
         }
 
         void mk_safe(expr_ref_vector& conjs) {
-            qe::flatten_and(conjs);
+            flatten_and(conjs);
             expand_literals(conjs);
             for (unsigned i = 0; i < conjs.size(); ++i) {
                 expr * lit = conjs[i].get();

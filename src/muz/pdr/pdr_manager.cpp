@@ -56,7 +56,7 @@ namespace pdr {
 
     expr_ref inductive_property::fixup_clause(expr* fml) const {        
         expr_ref_vector disjs(m);
-        qe::flatten_or(fml, disjs);
+        flatten_or(fml, disjs);
         expr_ref result(m);
         bool_rewriter(m).mk_or(disjs.size(), disjs.c_ptr(), result);
         return result;
@@ -65,7 +65,7 @@ namespace pdr {
     expr_ref inductive_property::fixup_clauses(expr* fml) const {
         expr_ref_vector conjs(m);
         expr_ref result(m);
-        qe::flatten_and(fml, conjs);
+        flatten_and(fml, conjs);
         for (unsigned i = 0; i < conjs.size(); ++i) {
             conjs[i] = fixup_clause(conjs[i].get());
         }
@@ -237,7 +237,7 @@ namespace pdr {
     expr_ref manager::mk_not_and(expr_ref_vector const& conjs) {
         expr_ref result(m), e(m);
         expr_ref_vector es(conjs);
-        qe::flatten_and(es);
+        flatten_and(es);
         for (unsigned i = 0; i < es.size(); ++i) {
             m_brwr.mk_not(es[i].get(), e);
             es[i] = e;

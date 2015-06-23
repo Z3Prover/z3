@@ -6,6 +6,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "karr_relation.h"
 #include "bool_rewriter.h"
+#include "ast_util.h"
 
 namespace datalog {
     class karr_relation : public relation_base {              
@@ -114,7 +115,7 @@ namespace datalog {
             var* v, *w;
             rational n1, n2;
             expr_ref_vector conjs(m);
-            qe::flatten_and(cond, conjs);
+            flatten_and(cond, conjs);
             matrix& M = get_ineqs();
             unsigned num_columns = get_signature().size();
 
