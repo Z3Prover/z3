@@ -58,6 +58,7 @@ Revision History:
 #include "solver.h"
 #include "model_smt2_pp.h"
 #include "expr_safe_replace.h"
+#include "ast_util.h"
 
 class nl_purify_tactic : public tactic {
 
@@ -81,6 +82,10 @@ class nl_purify_tactic : public tactic {
     app_ref_vector  m_new_reals;    // interface real variables
     app_ref_vector  m_new_preds;    // abstraction predicates for smt_solver (hide real constraints)
     expr_ref_vector m_asms;         // assumptions to pass to SMT solver
+    ptr_vector<expr> m_ctx_asms;     // assumptions passed by context
+    obj_hashtable<expr>   m_ctx_asms_set; // assumptions passed by context
+    obj_hashtable<expr> m_used_asms;
+    obj_map<expr, expr*> m_bool2dep; 
     obj_pair_map<expr,expr,expr*> m_eq_pairs;  // map pairs of interface variables to auxiliary predicates
     obj_map<expr,expr*> m_interface_cache;     // map of compound real expression to interface variable.
     obj_map<expr, polarity_t> m_polarities;    // polarities of sub-expressions
@@ -98,6 +103,7 @@ public:
         obj_map<expr, polarity_t>& m_polarities;
         obj_map<expr,expr*>& m_interface_cache;
         expr_ref_vector      m_args;
+        proof_ref_vector     m_proofs;
         mode_t               m_mode;
 
         rw_cfg(nl_purify_tactic & o):
@@ -108,6 +114,7 @@ public:
             m_polarities(o.m_polarities),
             m_interface_cache(o.m_interface_cache),
             m_args(m),
+            m_proofs(m),
             m_mode(mode_interface_var) {
         }
 
@@ -115,8 +122,8 @@ public:
 
         arith_util & u() { return m_owner.m_util; }
 
-        expr * mk_interface_var(expr* arg) {
-            expr* r;
+        expr * mk_interface_var(expr* arg, proof_ref& arg_pr) {
+            expr* r;            
             if (m_interface_cache.find(arg, r)) {
                 return r;
             }
@@ -135,6 +142,9 @@ public:
             }
             else {
                 m_owner.m_solver->assert_expr(eq);
+            }
+            if (m_owner.m_produce_proofs) {
+                arg_pr = m.mk_oeq(arg, r);
             }
             return r;
         }
@@ -225,24 +235,29 @@ public:
                 }
             }
             m_args.reset();
+            m_proofs.reset();
             for (unsigned i = 0; i < num; ++i) {
                 expr* arg = args[i];
+                proof_ref arg_pr(m);
                 if (is_arith && !is_arith_op(arg)) {
                     has_interface = true;
-                    m_args.push_back(mk_interface_var(arg));
+                    m_args.push_back(mk_interface_var(arg, arg_pr));
                 }
                 else if (!is_arith && u().is_real(arg)) {
                     has_interface = true;
-                    m_args.push_back(mk_interface_var(arg));
+                    m_args.push_back(mk_interface_var(arg, arg_pr));
                 }
                 else {
                     m_args.push_back(arg);
+                }
+                if (arg_pr) {
+                    m_proofs.push_back(arg_pr);
                 }
             }
             if (has_interface) {
                 result = m.mk_app(f, num, m_args.c_ptr());
                 if (m_owner.m_produce_proofs) {
-                    pr = m.mk_oeq(m.mk_app(f, num, args), result); // push proof object to mk_interface_var?
+                    pr = m.mk_oeq_congruence(m.mk_app(f, num, args), to_app(result), m_proofs.size(), m_proofs.c_ptr());
                 }
                 TRACE("nlsat_smt", tout << result << "\n";);
                 return BR_DONE;
@@ -281,7 +296,7 @@ private:
 
     void display_result(std::ostream& out, goal_ref_buffer const& result) {
         for (unsigned i = 0; i < result.size(); ++i) {
-            result[i]->display(out << "goal\n");
+            result[i]->display_with_dependencies(out << "goal\n");
         }        
     }
 
@@ -301,8 +316,11 @@ private:
         }
     }
 
-    void solve(goal_ref_buffer&     result, 
-               model_converter_ref& mc) {        
+    void solve(
+        goal_ref const&       g,
+        goal_ref_buffer&      result, 
+        expr_dependency_ref&  core,
+        model_converter_ref&  mc) {        
 
         while (true) {
             check_point();
@@ -316,6 +334,7 @@ private:
             (*m_nl_tac)(tmp_nl, result, nl_mc, nl_pc, nl_core);
 
             if (is_decided_unsat(result)) {
+                core2result(core, g, result);
                 TRACE("nlsat_smt", tout << "unsat\n";);
                 break;
             }
@@ -328,7 +347,7 @@ private:
             // assert equalities between equal interface real variables.
 
             model_ref mdl_nl, mdl_smt;
-            if (mdl_nl.get()) {
+            if (nl_mc.get()) {
                 model_converter2model(m, nl_mc.get(), mdl_nl);
                 update_eq_values(mdl_nl);
                 enforce_equalities(mdl_nl, m_nl_g);
@@ -343,21 +362,28 @@ private:
             lbool r = m_solver->check_sat(m_asms.size(), m_asms.c_ptr());
             if (r == l_false) {
                 // extract the core from the result 
-                ptr_vector<expr> core;
-                m_solver->get_unsat_core(core);
-                if (core.empty()) {
-                    goal_ref g = alloc(goal, m);
-                    g->assert_expr(m.mk_false());
-                    result.push_back(g.get());
-                    break;
-                }
+                ptr_vector<expr> ecore, asms;
                 expr_ref_vector clause(m);
                 expr_ref fml(m);
-                expr* e;
-                for (unsigned i = 0; i < core.size(); ++i) {
-                    clause.push_back(m.is_not(core[i], e)?e:m.mk_not(core[i]));
+                get_unsat_core(ecore, asms);
+
+                //
+                // assumptions should also be used for the nlsat tactic,
+                // but since it does not support assumptions at this time
+                // we overapproximate the necessary core and accumulate 
+                // all assumptions that are ever used.
+                //
+                for (unsigned i = 0; i < asms.size(); ++i) {
+                    m_used_asms.insert(asms[i]);
                 }
-                fml = m.mk_or(clause.size(), clause.c_ptr());
+                if (ecore.empty()) {
+                    core2result(core, g, result);
+                    break;
+                }
+                for (unsigned i = 0; i < ecore.size(); ++i) {
+                    clause.push_back(mk_not(m, ecore[i]));
+                }
+                fml = mk_or(m, clause.size(), clause.c_ptr());
                 m_nl_g->assert_expr(fml);
                 continue;
             }
@@ -386,9 +412,35 @@ private:
         TRACE("nlsat_smt", display_result(tout, result););
     }
 
+    void get_unsat_core(ptr_vector<expr>& core, ptr_vector<expr>& asms) {
+        m_solver->get_unsat_core(core);
+        for (unsigned i = 0; i < core.size(); ++i) {
+            if (m_ctx_asms_set.contains(core[i])) {
+                asms.push_back(core[i]);
+                core[i] = core.back();
+                core.pop_back();
+                --i;
+            }
+        }
+    }
+
+    void core2result(expr_dependency_ref & lcore, goal_ref const& g, goal_ref_buffer& result) {
+        result.reset();
+        proof * pr = 0;
+        lcore = 0;
+        g->reset();
+        obj_hashtable<expr>::iterator it = m_used_asms.begin(), end = m_used_asms.end();
+        for (; it != end; ++it) {
+            lcore = m.mk_join(lcore, m.mk_leaf(m_bool2dep.find(*it)));
+        }
+        g->assert_expr(m.mk_false(), pr, lcore);
+        TRACE("nlsat_smt", g->display_with_dependencies(tout););
+        result.push_back(g.get());
+    }
 
     void setup_assumptions(model_ref& mdl) {
         m_asms.reset();
+        m_asms.append(m_ctx_asms.size(), m_ctx_asms.c_ptr());
         app_ref_vector const& fresh_preds = m_new_preds;
         expr_ref tmp(m);
         for (unsigned i = 0; i < fresh_preds.size(); ++i) {
@@ -419,10 +471,7 @@ private:
             }
         }
         TRACE("nlsat_smt", 
-              tout << "assumptions:\n";
-              for (unsigned i = 0; i < m_asms.size(); ++i) {
-                  tout << mk_pp(m_asms[i].get(), m) << "\n";
-              });
+              tout << "assumptions:\n" << m_asms << "\n";);
     }
 
     bool enforce_equalities(model_ref& mdl, goal_ref const& nl_g) {
@@ -602,7 +651,7 @@ private:
             expr * curr = g->form(i);
             if (is_pure_arithmetic(is_pure, curr)) {
                 m_nl_g->assert_expr(curr, g->pr(i), g->dep(i));
-                g->update(i, m.mk_true());
+                g->update(i, m.mk_true(), g->pr(i), g->dep(i));
             }
         }        
     }
@@ -702,6 +751,10 @@ public:
         m_new_preds.reset();
         m_eq_pairs.reset();
         m_polarities.reset();
+        m_ctx_asms.reset();
+        m_ctx_asms_set.reset();
+        m_used_asms.reset();
+        m_bool2dep.reset();
     }
     
     virtual void operator()(goal_ref const & g, 
@@ -717,8 +770,9 @@ public:
         mc = 0; pc = 0; core = 0;
 
         fail_if_proof_generation("qfufnra-purify", g);
-        fail_if_unsat_core_generation("qfufnra-purify", g);        
+        // fail_if_unsat_core_generation("qfufnra-purify", g);        
         rw r(*this);
+        expr_ref_vector clauses(m);
         m_nl_g = alloc(goal, m, true, false);
         m_fmc = alloc(filter_model_converter, m);                
 
@@ -728,17 +782,27 @@ public:
         // creating a place-holder predicate inside the
         // original goal and extracing pure nlsat clauses.
         r.set_interface_var_mode();
-        rewrite_goal(r, g);       
-        remove_pure_arith(g);
+        rewrite_goal(r, g); 
+        if (!g->unsat_core_enabled()) {
+            remove_pure_arith(g);
+        }
         get_polarities(*g.get());
         r.set_bool_mode();
         rewrite_goal(r, g);        
 
-        for (unsigned i = 0; i < g->size(); ++i) {
-            m_solver->assert_expr(g->form(i));
+        extract_clauses_and_dependencies(g, clauses, m_ctx_asms, m_bool2dep, m_fmc);
+
+        TRACE("nlsat_smt", tout << clauses << "\n";);
+
+        for (unsigned i = 0; i < m_ctx_asms.size(); ++i) {
+            m_ctx_asms_set.insert(m_ctx_asms[i]);
+        }
+
+        for (unsigned i = 0; i < clauses.size(); ++i) {
+            m_solver->assert_expr(clauses[i].get());
         }
         g->inc_depth();
-        solve(result, mc);        
+        solve(g, result, core, mc);
     }
 };
 
@@ -746,43 +810,3 @@ public:
 tactic * mk_nl_purify_tactic(ast_manager& m, params_ref const& p) {
     return alloc(nl_purify_tactic, m, p);
 }
-
-#if 0
-    void mark_interface_vars(goal_ref const& g) {
-        expr_mark visited;
-        ptr_vector<expr> todo;
-        unsigned sz = g->size();
-        for (unsigned i = 0; i < sz; i++) {
-            todo.push_back(g->form(i));
-        }
-        while (!todo.empty()) {
-            expr* e = todo.back();
-            todo.pop_back();
-            if (visited.is_marked(e)) {
-                continue;
-            }
-            visited.mark(e);
-            if (is_quantifier(e)) {
-                todo.push_back(to_quantifier(e)->get_expr());
-                continue;
-            }
-            if (is_var(e)) {
-                continue;
-            }
-            app* ap = to_app(e);
-            sz = ap->get_num_args();
-            bool is_arith = is_arith_op(e);
-            for (unsigned i = 0; i < sz; ++i) {
-                expr* arg = ap->get_arg(i);
-                todo.push_back(arg);
-                if (is_arith && !is_arith_op(arg)) {
-                    m_interface_vars.mark(arg);
-                }
-                else if (!is_arith && is_arith_op(arg) && ap->get_family_id() != m.get_basic_family_id()) {
-                    m_interface_vars.mark(arg);
-                }
-            }
-        }
-
-    }
-#endif
