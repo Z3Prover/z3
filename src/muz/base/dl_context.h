@@ -277,6 +277,7 @@ namespace datalog {
         bool instantiate_quantifiers() const;
         bool xform_bit_blast() const;        
         bool xform_slice() const;
+        bool xform_coi() const;
 
         void register_finite_sort(sort * s, sort_kind k);
 

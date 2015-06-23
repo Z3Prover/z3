@@ -142,6 +142,7 @@ def_module_params('fixedpoint',
 	                  ('xform.instantiate_quantifiers', BOOL, False, 
                            "instantiate quantified Horn clauses using E-matching heuristic"),
                           ('xform.coalesce_rules', BOOL, False, "coalesce rules"),
+                          ('xform.coi', BOOL, True, "use cone of influence simplificaiton"),
 			  ('duality.enable_restarts', BOOL, False, 'DUALITY: enable restarts'),
                           ))
 
