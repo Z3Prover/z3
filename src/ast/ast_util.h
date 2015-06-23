@@ -126,5 +126,18 @@ expr * mk_not(ast_manager & m, expr * arg);
 */
 expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args);
 
+/**
+   \brief Collect top-level conjunctions and disjunctions.
+*/
+
+void flatten_and(expr_ref_vector& result);
+
+void flatten_and(expr* fml, expr_ref_vector& result);
+
+void flatten_or(expr_ref_vector& result);
+
+void flatten_or(expr* fml, expr_ref_vector& result);
+
+
 #endif /* _AST_UTIL_H_ */
 

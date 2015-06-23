@@ -55,7 +55,7 @@ Example from Boogie:
 #include "model_pp.h"
 #include "proof_utils.h"
 #include "ast_pp.h"
-#include "qe_util.h"
+#include "ast_util.h"
 
 namespace datalog {
     
@@ -97,7 +97,7 @@ namespace datalog {
                 if (!m.is_implies(premise, l1, l2)) {
                     continue;
                 }
-                qe::flatten_and(l1, literals);
+                flatten_and(l1, literals);
                 positions2.reset();
                 premises2.reset();
                 premises2.push_back(premise);       

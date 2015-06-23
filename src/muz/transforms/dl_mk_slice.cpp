@@ -52,6 +52,7 @@ Revision History:
 
 #include "dl_mk_slice.h"
 #include "ast_pp.h"
+#include "ast_util.h"
 #include "expr_functors.h"
 #include "dl_mk_rule_inliner.h"
 #include "model_smt2_pp.h"
@@ -619,7 +620,7 @@ namespace datalog {
         for (unsigned j = r.get_uninterpreted_tail_size(); j < r.get_tail_size(); ++j) {
             conjs.push_back(r.get_tail(j));
         }
-        qe::flatten_and(conjs);
+        flatten_and(conjs);
         return conjs;
     }
 

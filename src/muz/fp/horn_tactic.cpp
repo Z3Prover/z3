@@ -28,6 +28,7 @@ Revision History:
 #include"filter_model_converter.h"
 #include"dl_transforms.h"
 #include"fixedpoint_params.hpp"
+#include"ast_util.h"
 
 class horn_tactic : public tactic {
     struct imp {
@@ -145,7 +146,7 @@ class horn_tactic : public tactic {
             expr_ref_vector args(m), body(m);
             expr_ref head(m);
             expr* a = 0, *a1 = 0;
-            qe::flatten_or(tmp, args);
+            flatten_or(tmp, args);
             for (unsigned i = 0; i < args.size(); ++i) {
                 a = args[i].get(); 
                 check_predicate(mark, a);

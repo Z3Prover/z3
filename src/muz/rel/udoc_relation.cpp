@@ -648,7 +648,7 @@ namespace datalog {
         ast_manager& m = get_plugin().get_ast_manager();
         expr_ref_vector conds(m), guards(m), rests(m);
         conds.push_back(cond);
-        qe::flatten_and(conds);
+        flatten_and(conds);
         for (unsigned i = 0; i < conds.size(); ++i) {
             expr* g = conds[i].get();
             if (is_guard(g)) {
@@ -667,7 +667,7 @@ namespace datalog {
         ast_manager& m = get_plugin().get_ast_manager();
         expr_ref_vector conds(m);
         conds.push_back(g);
-        qe::flatten_and(conds);
+        flatten_and(conds);
         expr* e1, *e2;
         for (unsigned i = 0; i < conds.size(); ++i) {
             expr* g = conds[i].get();

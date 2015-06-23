@@ -93,7 +93,7 @@ namespace pdr {
     void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml) {
         ast_manager& m = fml.get_manager();
         expr_ref_vector conjs(m);
-        qe::flatten_and(fml, conjs);
+        flatten_and(fml, conjs);
         obj_map<expr, unsigned> diseqs;
         expr* n, *lhs, *rhs;
         for (unsigned i = 0; i < conjs.size(); ++i) {
