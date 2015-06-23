@@ -212,8 +212,8 @@ namespace smt {
                 return;
             case l_undef:
                 SASSERT(eh);
-                push_trail(eh_trail(n, val));
                 set_watches(n, val, new (get_region()) relevancy_ehs(eh, get_watches(n, val)));
+                push_trail(eh_trail(n, val));
                 break;
             case l_true:
                 eh->operator()(*this, n, val);
