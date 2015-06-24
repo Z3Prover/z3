@@ -429,7 +429,7 @@ namespace datalog {
         if (res == l_false) {
             IF_VERBOSE(3, verbose_stream() << objective << " verified\n";);
         }
-        else {
+        else if (res == l_true) {
             IF_VERBOSE(3, verbose_stream() << "NOT verified " << res << "\n";
                        verbose_stream() << mk_pp(fml1, m) << "\n";
                        verbose_stream() << mk_pp(fml2, m) << "\n";
