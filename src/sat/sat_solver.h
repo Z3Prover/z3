@@ -210,7 +210,6 @@ namespace sat {
     public:
         bool inconsistent() const { return m_inconsistent; }
         unsigned num_vars() const { return m_level.size(); }
-        unsigned num_clauses() const;
         bool is_external(bool_var v) const { return m_external[v] != 0; }
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
         unsigned scope_lvl() const { return m_scope_lvl; }
@@ -448,6 +447,7 @@ namespace sat {
     protected:
         void display_binary(std::ostream & out) const;
         void display_units(std::ostream & out) const;
+        unsigned num_clauses() const;
         bool is_unit(clause const & c) const;
         bool is_empty(clause const & c) const;
         bool check_missed_propagation(clause_vector const & cs) const;
