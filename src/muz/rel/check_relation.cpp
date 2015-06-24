@@ -720,12 +720,12 @@ namespace datalog {
         relation_signature const& sig1 = dst.get_signature();
         relation_signature const& sig2 = neg.get_signature();
         expr_ref dstf(m), negf(m);
-        std::cout << mk_pp(dst0, m) << "\n";
+        //std::cout << mk_pp(dst0, m) << "\n";
         expr_ref_vector eqs(m);
         dst.to_formula(dstf);
-        std::cout << mk_pp(dstf, m) << "\n";
+        //std::cout << mk_pp(dstf, m) << "\n";
         neg.to_formula(negf);
-        std::cout << mk_pp(negf, m) << "\n";
+        //std::cout << mk_pp(negf, m) << "\n";
         eqs.push_back(negf);
         for (unsigned i = 0; i < cols1.size(); ++i) {
             var_ref v1(m), v2(m);
@@ -747,8 +747,8 @@ namespace datalog {
         negf = m.mk_and(dst0, m.mk_not(negf));
         negf = ground(dst, negf);
         dstf = ground(dst, dstf);
-        std::cout << negf << "\n";
-        std::cout << dstf << "\n";
+        //std::cout << negf << "\n";
+        //std::cout << dstf << "\n";
         check_equiv("filter by negation", dstf, negf);
     }
 
