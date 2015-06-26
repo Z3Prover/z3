@@ -72,7 +72,6 @@ namespace datalog {
         void extract_equalities(
             expr* e1, expr* e2, expr_ref_vector& conds, 
             subset_ints& equalities, unsigned_vector& roots) const;
-        void apply_guard(expr* g, udoc& result, bit_vector const& discard_cols) const;
         void apply_guard(expr* g, udoc& result, subset_ints const& equalities, bit_vector const& discard_cols) const;
         bool apply_ground_eq(doc_ref& d, unsigned v, unsigned hi, unsigned lo, expr* c) const;
         bool apply_bv_eq(expr* e1, expr* e2, bit_vector const& discard_cols, udoc& result) const;
