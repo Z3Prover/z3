@@ -664,12 +664,9 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_bool_value(c, a);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, Z3_L_UNDEF);
         ast_manager & m = mk_c(c)->m();
         ast * n         = to_ast(a);
-        if (!is_expr(n)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            return Z3_L_UNDEF;
-        }
         if (m.is_true(to_expr(n)))
             return Z3_L_TRUE;
         if (m.is_false(to_expr(n)))

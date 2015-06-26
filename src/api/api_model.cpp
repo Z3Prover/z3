@@ -153,6 +153,7 @@ extern "C" {
         if (v) *v = 0;
         RESET_ERROR_CODE();
         CHECK_NON_NULL(m, Z3_FALSE);
+        CHECK_IS_EXPR(t, Z3_FALSE);
         model * _m = to_model_ref(m);
         expr_ref result(mk_c(c)->m());
         _m->eval(to_expr(t), result, model_completion == Z3_TRUE);

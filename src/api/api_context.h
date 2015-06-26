@@ -244,6 +244,7 @@ inline api::context * mk_c(Z3_context c) { return reinterpret_cast<api::context*
 #define CHECK_VALID_AST(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
 #define CHECK_SEARCHING(c) mk_c(c)->check_searching();
 inline bool is_expr(Z3_ast a) { return is_expr(to_ast(a)); }
+#define CHECK_IS_EXPR(_p_, _ret_) { if (!is_expr(_p_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
 inline bool is_bool_expr(Z3_context c, Z3_ast a) { return is_expr(a) && mk_c(c)->m().is_bool(to_expr(a)); }
 #define CHECK_FORMULA(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_) || !is_bool_expr(c, _a_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
 inline void check_sorts(Z3_context c, ast * n) { mk_c(c)->check_sorts(n); }
