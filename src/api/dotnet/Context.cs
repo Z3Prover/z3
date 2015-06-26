@@ -2238,7 +2238,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Check for set membership.
         /// </summary>
-        public Expr MkSetMembership(Expr elem, Expr set)
+        public BoolExpr MkSetMembership(Expr elem, Expr set)
         {
             Contract.Requires(elem != null);
             Contract.Requires(set != null);
@@ -2246,13 +2246,13 @@ namespace Microsoft.Z3
 
             CheckContextMatch(elem);
             CheckContextMatch(set);
-            return Expr.Create(this, Native.Z3_mk_set_member(nCtx, elem.NativeObject, set.NativeObject));
+            return (BoolExpr) Expr.Create(this, Native.Z3_mk_set_member(nCtx, elem.NativeObject, set.NativeObject));
         }
 
         /// <summary>
         /// Check for subsetness of sets.
         /// </summary>
-        public Expr MkSetSubset(Expr arg1, Expr arg2)
+        public BoolExpr MkSetSubset(Expr arg1, Expr arg2)
         {
             Contract.Requires(arg1 != null);
             Contract.Requires(arg2 != null);
@@ -2260,7 +2260,7 @@ namespace Microsoft.Z3
 
             CheckContextMatch(arg1);
             CheckContextMatch(arg2);
-            return Expr.Create(this, Native.Z3_mk_set_subset(nCtx, arg1.NativeObject, arg2.NativeObject));
+            return (BoolExpr) Expr.Create(this, Native.Z3_mk_set_subset(nCtx, arg1.NativeObject, arg2.NativeObject));
         }
         #endregion
 

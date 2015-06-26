@@ -50,7 +50,7 @@ public class FuncDecl extends AST
         FuncDecl casted = (FuncDecl) o;
         if (casted == null)
             return false;
-        return this == casted;
+        return this.getNativeObject() == casted.getNativeObject();
     }
 
     /**

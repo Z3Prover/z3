@@ -2698,8 +2698,10 @@ namespace smt {
 #endif
 
     void context::register_plugin(theory * th) { 
-        if (m_theories.get_plugin(th->get_family_id()) != 0)
+        if (m_theories.get_plugin(th->get_family_id()) != 0) {
+            dealloc(th);
             return; // context already has a theory for the given family id.
+        }
         SASSERT(std::find(m_theory_set.begin(), m_theory_set.end(), th) == m_theory_set.end());
         SASSERT(!already_internalized_theory(th));
         th->init(this);
