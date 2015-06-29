@@ -37,11 +37,11 @@
   (path x z c3)))
 
 (rule (=>
-  (and (path x y c1) ((_ min path 2) x y c1))
+  (and (path x y c1) (min c1))
   (sh_path x y c1)))
 
 (rule (=>
-  (and (sh_path x y c1) ((_ min sh_path 2) x y c1))
+  (and (sh_path x y c1) (min c1))
   (shortest_path x y c1)))
 
 ; What are the computed costs from C to D?

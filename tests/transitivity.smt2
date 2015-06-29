@@ -13,7 +13,6 @@
 ; minimum cost between two routers
 (declare-rel sh_path (router_t router_t cost_t))
 (declare-rel path (router_t router_t cost_t))
-(declare-rel shortest_path (router_t router_t cost_t))
 
 (declare-var x router_t)
 (declare-var y router_t)
@@ -34,15 +33,11 @@
   (and (sh_path x y c1) (link y z c2) (= (bvadd c1 c2) c3))
   (path x z c3)))
 (rule (=>
-  (and (path x y c1) ((_ min path 2) x y c1))
+  (and (path x y c1) (min c1))
   (sh_path x y c1)))
 
-(rule (=>
-  (and (sh_path x y c1) ((_ min sh_path 2) x y c1))
-  (shortest_path x y c1)))
-
 ; What are the computed costs from C to D?
-(query (shortest_path x y c1) :print-answer true)
+(query (sh_path x y c1) :print-answer true)
 
 ; (or (and (= (:var 0) #b00) (= (:var 1) #b11) (= (:var 2) #b00011))
 ;    (and (= (:var 0) #b01) (= (:var 1) #b00) (= (:var 2) #b00001))

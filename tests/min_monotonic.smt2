@@ -44,11 +44,15 @@
 (rule (path x y #b01111111))
 
 (rule (=>
-  (and (path x y c1) ((_ min path 2) x y c1) (link y z c2) (= (bvadd c1 c2) c3))
+  (and (path x y c1) (min c1))
+  (sh_path x y c1)))
+
+(rule (=>
+  (and (sh_path x y c1) (link y z c2) (= (bvadd c1 c2) c3))
   (split_path x z c3)))
 
 (rule (=>
-  (and (split_path x y c1) ((_ min split_path 2) x y c1) (path x y c2) ((_ min path 2) x y c2)  (bvult c1 c2))
+  (and (split_path x y c1) (path x y c2) (bvult c1 c2))
   (path x y c1)))
 
 (query (path #b11 #b01 #b00000100) :print-answer true)

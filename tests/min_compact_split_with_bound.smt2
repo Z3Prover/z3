@@ -48,11 +48,11 @@
   (split_path x z c3)))
 
 (rule (=>
-  (and (split_path x y c1) (path x y c2) ((_ min path 2) x y c2) (bvult c1 c2))
+  (and (split_path x y c1) (sh_path x y c2) (bvult c1 c2))
   (path x y c1)))
 
 (rule (=>
-  (and (path x y c1) ((_ min path 2) x y c1))
+  (and (path x y c1) (min c1))
   (sh_path x y c1)))
 
 (query (sh_path x y c1) :print-answer true)

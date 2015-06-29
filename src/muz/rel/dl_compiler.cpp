@@ -453,63 +453,50 @@ namespace datalog {
         get_local_indexes_for_projection(t2, counter, t1->get_num_args(), res);
     }
 
-    void compiler::find_min_aggregates(const rule * r, ptr_vector<app>& min_aggregates) {
-        unsigned ut_len = r->get_uninterpreted_tail_size();
-        unsigned ft_len = r->get_tail_size(); // full tail
-        app * aggregate;
-        for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
-            aggregate = r->get_tail(tail_index);
-            if (dl_decl_plugin::is_aggregate(aggregate->get_decl())) {
-                min_aggregates.push_back(aggregate);
-            }
-        }
-    }
+    expr * compiler::min_aggregate(const rule * r) {
+        const unsigned ut_len = r->get_uninterpreted_tail_size();
+        const unsigned ft_len = r->get_tail_size();
 
-    bool compiler::contains_min_aggregates(const rule * r) {
-        unsigned ut_len = r->get_uninterpreted_tail_size();
-        unsigned ft_len = r->get_tail_size(); // full tail
-        app * aggregate;
+        expr * min_var = 0;
         for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
-            aggregate = r->get_tail(tail_index);
-            if (dl_decl_plugin::is_aggregate(aggregate->get_decl())) {
-                return true;
+            app * aggregate = r->get_tail(tail_index);
+            if (dl_decl_plugin::is_aggregate(aggregate)) {
+                min_var = aggregate->get_arg(0U);
+                SASSERT(is_var(min_var));
+                break;
             }
         }
 
-        return false;
+        return min_var;
     }
 
-    bool compiler::prepare_min_aggregate(const app * a, const ptr_vector<app>& min_aggregates,
+    bool compiler::prepare_min_aggregate(const rule * r,
         unsigned_vector & group_by_cols, unsigned & min_col) {
-        func_decl * decl;
-        unsigned arg_num;
-        for (unsigned i = 0; i < min_aggregates.size(); ++i) {
-            // We make the following assumptions:
-            //
-            // 1) The user provides exactly the same arguments in the min aggregation function
-            //    as in the predicate that is subject to the minimization.
-            //
-            // 2) The min aggregation function application and the predicate it is minimizing
-            //    are always in the same rule, even after preprocessing.
-            if (a->get_num_args() != min_aggregates[i]->get_num_args())
-                continue;
+        const app * head = r->get_head();
+        const expr * min_var = min_aggregate(r);
+        const func_decl * head_decl = head->get_decl();
+        if (!min_var)
+            return false;
 
-            for (arg_num = 0; arg_num < a->get_num_args(); ++arg_num) {
-                if (a->get_arg(arg_num) != min_aggregates[i]->get_arg(arg_num))
-                    break;
-            }
+        for (min_col = 0; min_col < head->get_num_args(); ++min_col) {
+            if (min_var == head->get_arg(min_col))
+                break;
+        }
 
-            if (arg_num != a->get_num_args())
-                continue;
+        SASSERT(min_col != head->get_num_args());
 
-            decl = min_aggregates[i]->get_decl();
-            if (dl_decl_plugin::min_func_decl(decl) == a->get_decl()) {
-                group_by_cols = dl_decl_plugin::group_by_cols(decl);
-                min_col = dl_decl_plugin::min_col(decl);
-                return true;
+        if (head_decl->get_arity()) {
+            group_by_cols.resize(head_decl->get_arity() - 1U);
+            for (unsigned i = 0, col_num = 0; i < group_by_cols.size(); ++i, ++col_num)
+            {
+                if (col_num == min_col)
+                    ++col_num;
+
+                group_by_cols[i] = col_num;
             }
         }
-        return false;
+
+        return true;
     }
 
     void compiler::compile_rule_evaluation_run(rule * r, reg_idx head_reg, const reg_idx * tail_regs, 
@@ -537,12 +524,6 @@ namespace datalog {
         // whether to dealloc the previous result
         bool dealloc = true;
 
-        // setup information for min aggregation
-        ptr_vector<app> min_aggregates;
-        find_min_aggregates(r, min_aggregates);
-        unsigned_vector group_by_cols;
-        unsigned min_col;
-
         if(pt_len == 2) {
             reg_idx t1_reg=tail_regs[0];
             reg_idx t2_reg=tail_regs[1];
@@ -550,16 +531,6 @@ namespace datalog {
             app * a2 = r->get_tail(1);
             SASSERT(m_reg_signatures[t1_reg].size()==a1->get_num_args());
             SASSERT(m_reg_signatures[t2_reg].size()==a2->get_num_args());
-
-            if (prepare_min_aggregate(a1, min_aggregates, group_by_cols, min_col)) {
-                make_min(t1_reg, single_res, group_by_cols, min_col, acc);
-                t1_reg = single_res;
-            }
-
-            if (prepare_min_aggregate(a2, min_aggregates, group_by_cols, min_col)) {
-                make_min(t2_reg, single_res, group_by_cols, min_col, acc);
-                t2_reg = single_res;
-            }
 
             variable_intersection a1a2(m_context.get_manager());
             a1a2.populate(a1,a2);
@@ -601,10 +572,6 @@ namespace datalog {
             app * a = r->get_tail(0);
             single_res = tail_regs[0];
             dealloc = false;
-
-            if (prepare_min_aggregate(a, min_aggregates, group_by_cols, min_col)) {
-                make_min(single_res, single_res, group_by_cols, min_col, acc, false);
-            }
 
             SASSERT(m_reg_signatures[single_res].size() == a->get_num_args());
 
@@ -938,6 +905,13 @@ namespace datalog {
             reg_idx new_head_reg;
             make_assembling_code(r, head_pred, filtered_res, head_acis, new_head_reg, dealloc, acc);
 
+            // setup information for min aggregation
+            unsigned_vector group_by_cols;
+            unsigned min_col;
+            if (prepare_min_aggregate(r, group_by_cols, min_col)) {
+                make_min(new_head_reg, new_head_reg, group_by_cols, min_col, acc, false);
+            }
+
             //update the head relation
             make_union(new_head_reg, head_reg, delta_reg, use_widening, acc);
             if (dealloc)
@@ -1212,13 +1186,11 @@ namespace datalog {
         func_decl_vector::const_iterator hp_it = head_preds.begin();
         func_decl_vector::const_iterator hp_end = head_preds.end();
 
-        app * a;
         rule * r;
         unsigned min_col;
         reg_idx head_reg;
         func_decl * head_pred;
         unsigned_vector group_by_cols;
-        ptr_vector<app> min_aggregates;
 
         for (; hp_it != hp_end; ++hp_it) {
             head_pred = *hp_it;
@@ -1230,10 +1202,7 @@ namespace datalog {
             if (r->get_positive_tail_size() != 1)
                 continue;
 
-            a = r->get_tail(0);
-            min_aggregates.reset();
-            find_min_aggregates(r, min_aggregates);
-            if (!prepare_min_aggregate(a, min_aggregates, group_by_cols, min_col))
+            if (!prepare_min_aggregate(r, group_by_cols, min_col))
                 continue;
 
             head_reg = m_pred_regs.find(r->get_decl());

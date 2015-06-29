@@ -492,63 +492,42 @@ namespace datalog {
     }
 
     /**
-      In SMT2 syntax, we can write \c ((_ min R N) v_0 v_1 ... v_k)) where 0 <= N <= k,
-      R is a relation of sort V_0 x V_1 x ... x V_k and each v_i is a zero-arity function
-      (also known as a "constant" in SMT2 parlance) whose range is of sort V_i.
+      In SMT2 syntax, we can write \c "(min v)" where \c v is a variable (also
+      known as a "constant" in SMT2 parlance). The minimization of \c v is determined
+      by the group-by clause, which is inferred from the head in a rule.
 
       Example:
 
-        (define-sort number_t () (_ BitVec 2))
-        (declare-rel numbers (number_t number_t))
-        (declare-rel is_min (number_t number_t))
+        (define-sort nibble_t () (_ BitVec 4))
+        (declare-rel triples (nibble_t nibble_t nibble_t))
+        (declare-rel pairs (nibble_t nibble_t))
 
-        (declare-var x number_t)
-        (declare-var y number_t)
+        (declare-var x nibble_t)
+        (declare-var y nibble_t)
+        (declare-var z nibble_t)
 
-        (rule (numbers #b00 #b11))
-        (rule (numbers #b00 #b01))
+        (rule (triples #x0 #x3 #x5))
+        (rule (triples #x0 #x1 #x4))
 
-        (rule (=> (and (numbers x y) ((_ min numbers 1) x y)) (is_min x y)))
+        (rule (=> (and (triples x y z) (min y)) (pairs x y)))
 
-      This says that we want to find the mininum y grouped by x.
+      This says that we want to find the minimum of \c y in \c pairs grouped by
+      \c x because \c y is syntactically different from \c x and \c y appears in the
+      head \c "(pairs x y)". Therefore the \c pairs relation will contain a single row
+      where \c "x = #x0" and \c "y = #x1".
+
+      Note that "min" refers to a family of functions where each function
+      has a different domain.
     */
-    func_decl * dl_decl_plugin::mk_min(decl_kind k, unsigned num_parameters, parameter const * parameters) {
-        if (num_parameters < 2) {
-            m_manager->raise_exception("invalid min aggregate definition due to missing parameters");
+    func_decl * dl_decl_plugin::mk_min(decl_kind k, unsigned num_parameters, parameter const * parameters,
+        sort * const * domain) {
+        if (num_parameters) {
+            m_manager->raise_exception("invalid min aggregate definition");
             return 0;
         }
 
-        parameter const & relation_parameter = parameters[0];
-        if (!relation_parameter.is_ast() || !is_func_decl(relation_parameter.get_ast())) {
-            m_manager->raise_exception("invalid min aggregate definition, first parameter is not a function declaration");
-            return 0;
-        }
-
-        func_decl* f = to_func_decl(relation_parameter.get_ast());
-        if (!m_manager->is_bool(f->get_range())) {
-            m_manager->raise_exception("invalid min aggregate definition, first paramater must be a predicate");
-            return 0;
-        }
-
-        parameter const & min_col_parameter = parameters[1];
-        if (!min_col_parameter.is_int()) {
-            m_manager->raise_exception("invalid min aggregate definition, second parameter must be an integer");
-            return 0;
-        }
-
-        if (min_col_parameter.get_int() < 0) {
-            m_manager->raise_exception("invalid min aggregate definition, second parameter must be non-negative");
-            return 0;
-        }
-
-        if ((unsigned)min_col_parameter.get_int() >= f->get_arity()) {
-            m_manager->raise_exception("invalid min aggregate definition, second parameter exceeds the arity of the relation");
-            return 0;
-        }
-
-        func_decl_info info(m_family_id, k, num_parameters, parameters);
-        SASSERT(f->get_info() == 0);
-        return m_manager->mk_func_decl(m_min_sym, f->get_arity(), f->get_domain(), f->get_range(), info);
+        func_decl_info info(m_family_id, k);
+        return m_manager->mk_func_decl(m_min_sym, domain[0], m_manager->mk_bool_sort(), info);
     }
 
     func_decl * dl_decl_plugin::mk_func_decl(
@@ -679,7 +658,7 @@ namespace datalog {
             }
 
             case OP_DL_MIN:
-                return mk_min(k, num_parameters, parameters);
+                return mk_min(k, num_parameters, parameters, domain);
 
             default:
                 m_manager->raise_exception("operator not recognized");

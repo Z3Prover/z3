@@ -9,6 +9,7 @@
 (declare-rel OspfIARoute (node_t cost_t))
 (declare-rel BestOspfIARoute (node_t cost_t))
 (declare-rel OspfCost (node_t cost_t))
+(declare-rel Split (node_t node_t cost_t cost_t))
 (declare-rel F (node_t cost_t))
 
 (declare-var node node_t)
@@ -50,7 +51,7 @@
 (rule (OspfNeighbors #x8 #x9 #x03))
 (rule (OspfNeighbors #x2 #xB #x08))
 
-(rule (=> (and (OspfIARoute node cost) ((_ min OspfIARoute 1) node cost))
+(rule (=> (and (OspfIARoute node cost) (min cost))
           (MinOspfIARouteCost node cost)))
 
 (rule (=>
@@ -69,8 +70,12 @@
 
 (rule (=>
   (and (OspfNeighbors source target nodeCost)
-       (OspfIARoute target targetCost)
-       ((_ min OspfIARoute 1) target targetCost)
+       (OspfIARoute target targetCost))
+  (Split source target targetCost nodeCost)))
+
+(rule (=>
+  (and (Split source target targetCost nodeCost)
+       (MinOspfIARouteCost target targetCost)
        (= cost (bvadd targetCost nodeCost))
        (bvult cost #x7f))
   (OspfIARoute source cost)))

@@ -50,7 +50,7 @@
   (path x y c1)))
 
 (rule (=>
-  (and (path x y c1) ((_ min path 2) x y c1))
+  (and (path x y c1) (min c1))
   (sh_path x y c1)))
 
 (query (sh_path x y c1) :print-answer true)

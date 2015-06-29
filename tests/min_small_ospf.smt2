@@ -42,15 +42,15 @@
           (BestOspfRoute node cost)))
 
 (rule (=> (and (OspfE1Route node cost)
-               ((_ min OspfE1Route 1) node cost))
+               (min cost))
           (MinOspfE1RouteCost node cost)))
 
 (rule (=> (and (OspfIARoute node cost)
-               ((_ min OspfIARoute 1) node cost))
+               (min cost))
           (MinOspfIARouteCost node cost)))
 
 (rule (=> (and (OspfRoute node cost)
-               ((_ min OspfRoute 1) node cost))
+               (min cost))
           (MinOspfRouteCost node cost)))
 
 (rule (=> (and (OspfNeighbors node nodeIntCost nextHop)

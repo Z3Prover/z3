@@ -351,7 +351,7 @@ namespace datalog {
            where N is the column number that should be used for the min aggregation function.
            Such an interpreted predicate is an example for which this function returns true.
         */
-        bool is_min_tail(unsigned i) const { return dl_decl_plugin::is_aggregate(get_tail(i)->get_decl()); }
+        bool is_min_tail(unsigned i) const { return dl_decl_plugin::is_aggregate(get_tail(i)); }
 
         /**
         Check whether predicate p is in the interpreted tail.

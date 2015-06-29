@@ -12,7 +12,7 @@
 (rule (Q #x05))
 
 (rule (=>
-  (and (Q x) ((_ min Q 0) x))
+  (and (Q x) (min x))
   (MIN_Q x)))
 
 (rule (=>

@@ -14,8 +14,6 @@
 (declare-rel path (router_t router_t cost_t))
 (declare-rel split_path (router_t router_t cost_t))
 
-(declare-rel shortest_path (router_t router_t cost_t))
-
 (declare-var x router_t)
 (declare-var y router_t)
 (declare-var z router_t)
@@ -41,12 +39,8 @@
   (path x y c1)))
 
 (rule (=>
-  (and (path x y c1) ((_ min path 2) x y c1))
+  (and (path x y c1) (min c1))
   (sh_path x y c1)))
-
-(rule (=>
-  (and (sh_path x y c1) ((_ min sh_path 2) x y c1))
-  (shortest_path x y c1)))
 
 (query (sh_path x y c1) :print-answer true)
 

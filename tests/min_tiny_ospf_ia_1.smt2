@@ -49,7 +49,7 @@
 (rule (OspfNeighbors #x8 #x9 #x03))
 (rule (OspfNeighbors #x2 #xB #x08))
 
-(rule (=> (and (OspfIARoute node cost) ((_ min OspfIARoute 1) node cost))
+(rule (=> (and (OspfIARoute node cost) (min cost))
           (MinOspfIARouteCost node cost)))
 
 (rule (=>

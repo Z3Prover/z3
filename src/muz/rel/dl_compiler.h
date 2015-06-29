@@ -121,25 +121,21 @@ namespace datalog {
         expr_free_vars                    m_free_vars;
 
         /**
-        \brief Finds all min aggregation function applications in the body of rule \c r.
+        \brief Returns min aggregation function application (if any) in given rule \c r.
+
+        We assume that there is at most one such min function in every rule.
         */
-        static void find_min_aggregates(const rule * r, ptr_vector<app>& min_aggregates);
+        static expr * min_aggregate(const rule * r);
 
         /**
-        \brief Does r contain any min aggregation function applications?
-        */
-        static bool contains_min_aggregates(const rule * r);
+        \brief Processes min aggregation function application (if any) in a given rule \c r.
 
-        /**
-        \brief Decides whether an atom \c a is subject to a min aggregation function.
-
-        If \c decl is subject to a min aggregation function, the output parameters are written
+        If rule \c r is subject to a min aggregation function, the output parameters are written
         with the neccessary information.
 
         \returns true if the output paramaters have been written
         */
-        static bool prepare_min_aggregate(const app * a, const ptr_vector<app>& min_aggregates,
-            unsigned_vector & group_by_cols, unsigned & min_col);
+        static bool prepare_min_aggregate(const rule * r, unsigned_vector & group_by_cols, unsigned & min_col);
 
         /**
            If rule \c r contains any min aggregation function, we want to compute the min
@@ -151,7 +147,7 @@ namespace datalog {
            would not do it.
         */
         bool all_or_nothing_deltas(rule * r) const {
-            if (contains_min_aggregates(r))
+            if (min_aggregate(r))
                 return true;
 
             return m_context.all_or_nothing_deltas();

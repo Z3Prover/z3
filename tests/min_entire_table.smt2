@@ -5,6 +5,7 @@
 (define-sort cost_t () (_ BitVec 4))
 
 (declare-rel length (router_t cost_t))
+(declare-rel min_length (router_t cost_t))
 
 (declare-var node router_t)
 
@@ -16,7 +17,11 @@
 (rule (length #b1 #x5))
 
 (rule (=>
-  (and (length node cost) ((_ min length 1) node cost) (= (bvadd cost #x1) new_cost))
+  (and (length node cost) (min cost))
+  (min_length node cost)))
+
+(rule (=>
+  (and (min_length node cost) (= (bvadd cost #x1) new_cost))
   (length node new_cost)))
 
 (query (length node cost) :print-answer true)
