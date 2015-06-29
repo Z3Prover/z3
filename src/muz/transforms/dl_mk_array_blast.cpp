@@ -18,8 +18,9 @@ Revision History:
 --*/
 
 #include "dl_mk_array_blast.h"
-#include "qe_util.h"
+#include "ast_util.h"
 #include "scoped_proof.h"
+
 
 namespace datalog {
 
@@ -115,7 +116,7 @@ namespace datalog {
     
     bool mk_array_blast::ackermanize(rule const& r, expr_ref& body, expr_ref& head) {
         expr_ref_vector conjs(m), trail(m);
-        qe::flatten_and(body, conjs);
+        flatten_and(body, conjs);
         m_defs.reset();
         m_next_var = 0;
         ptr_vector<expr> todo;
@@ -246,7 +247,7 @@ namespace datalog {
         for (unsigned i = utsz; i < tsz; ++i) {
             conjs.push_back(r.get_tail(i));
         }
-        qe::flatten_and(conjs);
+        flatten_and(conjs);
         for (unsigned i = 0; i < conjs.size(); ++i) {
             expr* x, *y, *e = conjs[i].get();
             

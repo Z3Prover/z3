@@ -225,12 +225,13 @@ namespace opt {
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
         lbool is_sat = s.check_sat(0,0);
         TRACE("opt", tout << "initial search result: " << is_sat << "\n";);
+        if (is_sat != l_false) {
+            s.get_model(m_model);
+        }
         if (is_sat != l_true) {
-            m_model = 0;
             return is_sat;
         }
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n";);
-        s.get_model(m_model);
         TRACE("opt", model_smt2_pp(tout, m, *m_model, 0););
         m_optsmt.setup(*m_opt_solver.get());
         update_lower();
@@ -1188,10 +1189,7 @@ namespace opt {
         for (; it != end; ++it) {
             it->m_value->collect_statistics(stats);
         }        
-        unsigned long long max_mem = memory::get_max_used_memory();
-        unsigned long long mem = memory::get_allocation_size();
-        stats.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
-        stats.update("max memory", static_cast<double>(max_mem)/static_cast<double>(1024*1024));
+        get_memory_statistics(stats);
     }
 
     void context::collect_param_descrs(param_descrs & r) {

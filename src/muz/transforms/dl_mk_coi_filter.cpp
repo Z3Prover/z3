@@ -36,6 +36,9 @@ namespace datalog {
     // -----------------------------------
 
     rule_set * mk_coi_filter::operator()(rule_set const & source) {
+        if (!m_context.xform_coi()) {
+            return 0;
+        }
         if (source.empty()) {
             return 0;
         }
@@ -70,6 +73,10 @@ namespace datalog {
                         e->get_data().m_value = alloc(ptr_vector<rule>);
                     }
                     e->get_data().m_value->push_back(r);
+                    if (r->is_neg_tail(i)) {
+                        // don't try COI on rule with negation.
+                        return 0;
+                    }
                 }
             }
         }

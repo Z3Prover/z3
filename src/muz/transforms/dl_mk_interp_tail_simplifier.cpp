@@ -25,6 +25,7 @@ Revision History:
 #include"rewriter_def.h"
 #include"dl_mk_rule_inliner.h"
 #include"dl_mk_interp_tail_simplifier.h"
+#include"ast_util.h"
 
 namespace datalog {
 
@@ -547,7 +548,7 @@ namespace datalog {
 
         if (modified) {
             m_conj.reset();
-            qe::flatten_and(simp_res, m_conj);
+            flatten_and(simp_res, m_conj);
             for (unsigned i = 0; i < m_conj.size(); ++i) {
                 expr* e = m_conj[i].get();
                 if (is_app(e)) {

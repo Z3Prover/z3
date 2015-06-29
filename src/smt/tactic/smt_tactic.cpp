@@ -23,6 +23,64 @@ Notes:
 #include"smt_params_helper.hpp"
 #include"rewriter_types.h"
 #include"filter_model_converter.h"
+#include"ast_util.h"
+
+typedef obj_map<expr, expr *> expr2expr_map;
+
+void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, ptr_vector<expr>& assumptions, expr2expr_map& bool2dep, ref<filter_model_converter>& fmc) {
+    expr2expr_map dep2bool;
+    ptr_vector<expr> deps;
+    ast_manager& m = g->m();
+    expr_ref_vector clause(m);
+    unsigned sz = g->size();
+    for (unsigned i = 0; i < sz; i++) {
+        expr * f            = g->form(i);
+        expr_dependency * d = g->dep(i);
+        if (d == 0 || !g->unsat_core_enabled()) {
+            clauses.push_back(f);
+        }
+        else {
+            // create clause (not d1 \/ ... \/ not dn \/ f) when the d's are the assumptions/dependencies of f.
+            clause.reset();
+            clause.push_back(f);
+            deps.reset();
+            m.linearize(d, deps);
+            SASSERT(!deps.empty()); // d != 0, then deps must not be empty
+            ptr_vector<expr>::iterator it  = deps.begin();
+            ptr_vector<expr>::iterator end = deps.end();
+            for (; it != end; ++it) {
+                expr * d = *it;
+                if (is_uninterp_const(d) && m.is_bool(d)) {
+                    // no need to create a fresh boolean variable for d
+                    if (!bool2dep.contains(d)) {
+                        assumptions.push_back(d);
+                        bool2dep.insert(d, d);
+                    }
+                    clause.push_back(m.mk_not(d));
+                }
+                else {
+                    // must normalize assumption 
+                    expr * b = 0;
+                    if (!dep2bool.find(d, b)) {
+                        b = m.mk_fresh_const(0, m.mk_bool_sort());
+                        dep2bool.insert(d, b);
+                        bool2dep.insert(b, d);
+                        assumptions.push_back(b);
+                        if (!fmc) {
+                            fmc = alloc(filter_model_converter, m);
+                        }
+                        fmc->insert(to_app(b)->get_decl());
+                    }
+                    clause.push_back(m.mk_not(b));
+                }
+            }
+            SASSERT(clause.size() > 1);
+            expr_ref cls(m);
+            cls = mk_or(m, clause.size(), clause.c_ptr());
+            clauses.push_back(cls);
+        }
+    }    
+}
 
 class smt_tactic : public tactic {
     smt_params                   m_params;
@@ -128,7 +186,6 @@ public:
         }
     };
 
-    typedef obj_map<expr, expr *> expr2expr_map;
 
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
@@ -147,65 +204,17 @@ public:
             TRACE("smt_tactic_memory", tout << "wasted_size: " << m.get_allocator().get_wasted_size() << "\n";);        
             scoped_init_ctx  init(*this, m);
             SASSERT(m_ctx != 0);
-            
-            scoped_ptr<expr2expr_map> dep2bool;
-            scoped_ptr<expr2expr_map> bool2dep; 
-            ptr_vector<expr>          assumptions;       
+
+            expr_ref_vector clauses(m);
+            expr2expr_map               bool2dep; 
+            ptr_vector<expr>            assumptions;       
             ref<filter_model_converter> fmc;
             if (in->unsat_core_enabled()) {
                 if (in->proofs_enabled())
                     throw tactic_exception("smt tactic does not support simultaneous generation of proofs and unsat cores");
-                dep2bool = alloc(expr2expr_map);
-                bool2dep = alloc(expr2expr_map);
-                ptr_vector<expr> deps;
-                ptr_vector<expr> clause;
-                unsigned sz = in->size();
-                for (unsigned i = 0; i < sz; i++) {
-                    expr * f            = in->form(i);
-                    expr_dependency * d = in->dep(i);
-                    if (d == 0) {
-                        m_ctx->assert_expr(f);
-                    }
-                    else {
-                        // create clause (not d1 \/ ... \/ not dn \/ f) when the d's are the assumptions/dependencies of f.
-                        clause.reset();
-                        clause.push_back(f);
-                        deps.reset();
-                        m.linearize(d, deps);
-                        SASSERT(!deps.empty()); // d != 0, then deps must not be empty
-                        ptr_vector<expr>::iterator it  = deps.begin();
-                        ptr_vector<expr>::iterator end = deps.end();
-                        for (; it != end; ++it) {
-                            expr * d = *it;
-                            if (is_uninterp_const(d) && m.is_bool(d)) {
-                                // no need to create a fresh boolean variable for d
-                                if (!bool2dep->contains(d)) {
-                                    assumptions.push_back(d);
-                                    bool2dep->insert(d, d);
-                                }
-                                clause.push_back(m.mk_not(d));
-                            }
-                            else {
-                                // must normalize assumption 
-                                expr * b = 0;
-                                if (!dep2bool->find(d, b)) {
-                                    b = m.mk_fresh_const(0, m.mk_bool_sort());
-                                    dep2bool->insert(d, b);
-                                    bool2dep->insert(b, d);
-                                    assumptions.push_back(b);
-                                    if (!fmc) {
-                                        fmc = alloc(filter_model_converter, m);
-                                    }
-                                    fmc->insert(to_app(b)->get_decl());
-                                }
-                                clause.push_back(m.mk_not(b));
-                            }
-                        }
-                        SASSERT(clause.size() > 1);
-                        expr_ref cls(m);
-                        cls = m.mk_or(clause.size(), clause.c_ptr());
-                        m_ctx->assert_expr(cls);
-                    }
+                extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
+                for (unsigned i = 0; i < clauses.size(); ++i) {
+                    m_ctx->assert_expr(clauses[i].get());
                 }
             }
             else if (in->proofs_enabled()) {
@@ -262,7 +271,7 @@ public:
                     for (unsigned i = 0; i < sz; i++) {
                         expr * b = m_ctx->get_unsat_core_expr(i);
                         SASSERT(is_uninterp_const(b) && m.is_bool(b));
-                        expr * d = bool2dep->find(b);
+                        expr * d = bool2dep.find(b);
                         lcore = m.mk_join(lcore, m.mk_leaf(d));
                     }
                 }

@@ -355,10 +355,7 @@ extern "C" {
         init_solver(c, s);
         Z3_stats_ref * st = alloc(Z3_stats_ref);
         to_solver_ref(s)->collect_statistics(st->m_stats);
-        unsigned long long max_mem = memory::get_max_used_memory();
-        unsigned long long mem = memory::get_allocation_size();
-        st->m_stats.update("max memory", static_cast<double>(max_mem)/(1024.0*1024.0));
-        st->m_stats.update("memory", static_cast<double>(mem)/(1024.0*1024.0));
+        get_memory_statistics(st->m_stats);
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);
         RETURN_Z3(r);

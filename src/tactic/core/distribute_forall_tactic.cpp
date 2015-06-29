@@ -30,6 +30,10 @@ class distribute_forall_tactic : public tactic {
                                expr * const * new_no_patterns,
                                expr_ref & result,
                                proof_ref & result_pr) {
+
+            if (!old_q->is_forall()) {
+                return false;
+            }
             
             if (m.is_not(new_body) && m.is_or(to_app(new_body)->get_arg(0))) {
                 // (forall X (not (or F1 ... Fn)))

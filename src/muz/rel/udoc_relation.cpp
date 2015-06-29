@@ -648,7 +648,7 @@ namespace datalog {
         ast_manager& m = get_plugin().get_ast_manager();
         expr_ref_vector conds(m), guards(m), rests(m);
         conds.push_back(cond);
-        qe::flatten_and(conds);
+        flatten_and(conds);
         for (unsigned i = 0; i < conds.size(); ++i) {
             expr* g = conds[i].get();
             if (is_guard(g)) {
@@ -667,7 +667,7 @@ namespace datalog {
         ast_manager& m = get_plugin().get_ast_manager();
         expr_ref_vector conds(m);
         conds.push_back(g);
-        qe::flatten_and(conds);
+        flatten_and(conds);
         expr* e1, *e2;
         for (unsigned i = 0; i < conds.size(); ++i) {
             expr* g = conds[i].get();
@@ -723,12 +723,9 @@ namespace datalog {
         conds.push_back(m.mk_eq(e1, e2));
     }
 
-    void udoc_relation::compile_guard(expr* g, udoc& d, bit_vector const& discard_cols) const {
-        d.reset(dm);
-        d.push_back(dm.allocateX()); 
-        apply_guard(g, d, discard_cols);
-    }
-    void udoc_relation::apply_guard(expr* g, udoc& result, bit_vector const& discard_cols) const {
+    void udoc_relation::compile_guard(expr* g, udoc& result, bit_vector const& discard_cols) const {
+        result.push_back(dm.allocateX());
+
         // datastructure to store equalities with columns that will be projected out
         union_find_default_ctx union_ctx;
         subset_ints equalities(union_ctx);
@@ -737,6 +734,7 @@ namespace datalog {
         }        
         apply_guard(g, result, equalities, discard_cols);
     }
+
     bool udoc_relation::apply_ground_eq(doc_ref& d, unsigned v, unsigned hi, unsigned lo, expr* c) const {
         udoc_plugin& p = get_plugin();
         unsigned num_bits;
@@ -752,9 +750,6 @@ namespace datalog {
         // other cases?
         return false;
     }
-
-
-
 
     bool udoc_relation::apply_bv_eq(
         expr* e1, expr* e2, bit_vector const& discard_cols, udoc& result) const {
@@ -926,9 +921,10 @@ namespace datalog {
             expr_ref guard(m);
             for (unsigned i = 0; i < num_bits; ++i) {
                 m_equalities.mk_var();
-            }        
-            t.extract_guard(condition, guard, m_reduced_condition);            
-            t.compile_guard(guard, m_udoc, m_empty_bv);
+            }
+            t.extract_guard(condition, guard, m_reduced_condition);
+            m_udoc.push_back(dm.allocateX());
+            t.apply_guard(guard, m_udoc, m_equalities, m_empty_bv);
 
             TRACE("doc", 
                   tout << "original condition: " << mk_pp(condition, m) << "\n";

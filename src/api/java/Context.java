@@ -1818,11 +1818,11 @@ public class Context extends IDisposable
     /**
      * Check for set membership.
      **/
-    public Expr mkSetMembership(Expr elem, Expr set)
+    public BoolExpr mkSetMembership(Expr elem, Expr set)
     {
         checkContextMatch(elem);
         checkContextMatch(set);
-        return Expr.create(
+        return (BoolExpr) Expr.create(
                 this,
                 Native.mkSetMember(nCtx(), elem.getNativeObject(),
                         set.getNativeObject()));
@@ -1831,11 +1831,11 @@ public class Context extends IDisposable
     /**
      * Check for subsetness of sets.
      **/
-    public Expr mkSetSubset(Expr arg1, Expr arg2)
+    public BoolExpr mkSetSubset(Expr arg1, Expr arg2)
     {
         checkContextMatch(arg1);
         checkContextMatch(arg2);
-        return Expr.create(
+        return (BoolExpr) Expr.create(
                 this,
                 Native.mkSetSubset(nCtx(), arg1.getNativeObject(),
                         arg2.getNativeObject()));

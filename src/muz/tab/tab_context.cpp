@@ -31,6 +31,7 @@ Revision History:
 #include "matcher.h"
 #include "scoped_proof.h"
 #include "fixedpoint_params.hpp"
+#include "ast_util.h"
 
 namespace tb {
 
@@ -210,7 +211,7 @@ namespace tb {
                 fmls.push_back(m_predicates[i]);
             }
             fmls.push_back(m_constraint);
-            qe::flatten_and(fmls);
+            flatten_and(fmls);
             bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(), fml);
             return fml;
         }
@@ -341,7 +342,7 @@ namespace tb {
             expr_ref tmp(m);
             substitution subst(m);
             subst.reserve(1, get_num_vars());
-            qe::flatten_and(m_constraint, fmls);
+            flatten_and(m_constraint, fmls);
             unsigned num_fmls = fmls.size();
             for (unsigned i = 0; i < num_fmls; ++i) {
                 if (get_subst(rw, subst, i, fmls)) {
@@ -668,7 +669,7 @@ namespace tb {
 
 
             m_qe(m_empty_set, false, fmls);
-            qe::flatten_and(fmls);
+            flatten_and(fmls);
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 expr_ref n = normalize(fmls[i].get());
                 if (m_sat_lits.contains(n)) {

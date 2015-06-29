@@ -226,3 +226,13 @@ double statistics::get_double_value(unsigned idx) const {
     SASSERT(!is_uint(idx));
     return m_d_stats[idx - m_stats.size()].second;
 }
+
+void get_memory_statistics(statistics& st) {
+    unsigned long long max_mem = memory::get_max_used_memory();
+    unsigned long long mem = memory::get_allocation_size();
+    max_mem = (100*max_mem)/(1024*1024);
+    mem = (100*mem)/(1024*1024);
+    st.update("max memory",  static_cast<double>(max_mem)/100.0);
+    st.update("memory",      static_cast<double>(mem)/100.0);
+    st.update("num allocs",  static_cast<double>(memory::get_allocation_count()));
+}

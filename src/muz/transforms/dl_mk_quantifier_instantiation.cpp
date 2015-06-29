@@ -49,7 +49,7 @@ namespace datalog {
         for (unsigned j = 0; j < tsz; ++j) {
             conjs.push_back(r.get_tail(j));            
         }
-        qe::flatten_and(conjs);
+        flatten_and(conjs);
         for (unsigned j = 0; j < conjs.size(); ++j) {
             expr* e = conjs[j].get();
             quantifier* q;

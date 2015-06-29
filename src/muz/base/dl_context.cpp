@@ -299,6 +299,7 @@ namespace datalog {
     bool context::explanations_on_relation_level() const { return m_params->datalog_explanations_on_relation_level(); }
     bool context::magic_sets_for_queries() const { return m_params->datalog_magic_sets_for_queries();  }
     symbol context::tab_selection() const { return m_params->tab_selection(); }
+    bool context::xform_coi() const { return m_params->xform_coi(); }
     bool context::xform_slice() const { return m_params->xform_slice(); }
     bool context::xform_bit_blast() const { return m_params->xform_bit_blast(); }    
     bool context::karr() const { return m_params->xform_karr(); }
@@ -946,10 +947,7 @@ namespace datalog {
         if (m_engine) {
             m_engine->collect_statistics(st);
         }
-        unsigned long long max_mem = memory::get_max_used_memory();
-        unsigned long long mem = memory::get_allocation_size();
-        st.update("max memory", static_cast<double>(max_mem)/(1024.0*1024.0));
-        st.update("memory", static_cast<double>(mem)/(1024.0*1024.0));        
+        get_memory_statistics(st);
     }
 
 

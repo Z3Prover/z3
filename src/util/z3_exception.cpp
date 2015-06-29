@@ -49,6 +49,7 @@ char const * z3_error::msg() const {
     case ERR_CMD_LINE: return "invalid command line";
     case ERR_INTERNAL_FATAL: return "internal error";
     case ERR_TYPE_CHECK: return "type error";
+    case ERR_ALLOC_EXCEEDED: return "number of configured allocations exceeded";
     default: return "unknown error";
     }
 }

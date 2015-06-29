@@ -85,7 +85,7 @@ VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
 GIT_HASH=False
-OPTIMIZE=False
+SLOW_OPTIMIZE=False
 
 FPMATH="Default"
 FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
@@ -580,7 +580,7 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
-    global LINUX_X64, OPTIMIZE
+    global LINUX_X64, SLOW_OPTIMIZE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
@@ -622,7 +622,7 @@ def parse_options():
         elif opt in ('--staticlib'):
             STATIC_LIB = True
         elif opt in ('--optimize'):
-            OPTIMIZE = True
+            SLOW_OPTIMIZE = True
         elif not IS_WINDOWS and opt in ('-p', '--prefix'):
             PREFIX = arg
             PYTHON_PACKAGE_DIR = os.path.join(PREFIX, 'lib', 'python%s' % distutils.sysconfig.get_python_version(), 'dist-packages')
@@ -1786,25 +1786,27 @@ def mk_config():
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
         else:
             # Windows Release mode
-            if OPTIMIZE:
-                config.write('AR_FLAGS=/nologo /LTCG\n')
+            LTCG=' /LTCG' if SLOW_OPTIMIZE else ''
+            GL = ' /GL' if SLOW_OPTIMIZE else ''
             config.write(
+                'AR_FLAGS=/nologo%s\n'
                 'LINK_FLAGS=/nologo /MD\n'
-                'SLINK_FLAGS=/nologo /LD\n')
+                'SLINK_FLAGS=/nologo /LD\n'
+                % LTCG)
             if TRACE:
                 extra_opt = '%s /D _TRACE ' % extra_opt
             if not VS_X64:
                 config.write(
-                    'CXXFLAGS=/nologo /c /GL /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
+                    'CXXFLAGS=/nologo /c%s /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % (GL, extra_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link /LTCG /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
-                    'SLINK_EXTRA_FLAGS=/link /LTCG /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
+                    'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
+                    'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n' % (LTCG, LTCG))
             else:
                 config.write(
-                    'CXXFLAGS=/c /GL /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP\n' % extra_opt)
+                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP\n' % (GL, extra_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link /LTCG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608\n'
-                    'SLINK_EXTRA_FLAGS=/link /LTCG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608\n')
+                    'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608\n'
+                    'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608\n' % (LTCG, LTCG))
 
         # End of Windows VS config.mk
         if is_verbose():
@@ -1872,7 +1874,7 @@ def mk_config():
             SLIBFLAGS = '-dynamiclib'
         elif sysname == 'Linux':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
-            OS_DEFINES     = '-D_LINUX'
+            OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'

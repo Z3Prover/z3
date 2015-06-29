@@ -21,7 +21,6 @@ Notes:
 #include "tactical.h"
 #include "sat_solver.h"
 #include "tactic2solver.h"
-#include "nnf_tactic.h"
 #include "aig_tactic.h"
 #include "propagate_values_tactic.h"
 #include "max_bv_sharing_tactic.h"
@@ -428,7 +427,7 @@ private:
 };
 
 
-solver* mk_inc_sat_solver(ast_manager& m, params_ref& p) {
+solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p) {
     return alloc(inc_sat_solver, m, p);
 }
 
