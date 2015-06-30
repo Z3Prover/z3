@@ -24,8 +24,6 @@ Author:
 #include "extension_model_converter.h"
 
 namespace datalog {
-    const reachability_info reachability_info::null_fact;
-
     rule_set * mk_coi_filter::operator()(rule_set const & source) {
         scoped_ptr<rule_set> result1 = top_down(source);
         scoped_ptr<rule_set> result2 = bottom_up(result1 ? *result1 : source);
@@ -44,7 +42,7 @@ namespace datalog {
             bool contained = true;
             for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
                 if (r->is_neg_tail(i)) {
-                    if (!engine.get_fact(r->get_tail(i)->get_decl()).is_reachable()) {
+                    if (!engine.get_fact(r->get_decl(i)).is_reachable()) {
                         if (!new_tail) {
                             for (unsigned j = 0; j < i; ++j) {
                                 m_new_tail.push_back(r->get_tail(j));
@@ -58,7 +56,7 @@ namespace datalog {
                     }
                 } else {
                     SASSERT(!new_tail);
-                    if (!engine.get_fact(r->get_tail(i)->get_decl()).is_reachable()) {
+                    if (!engine.get_fact(r->get_decl(i)).is_reachable()) {
                         contained = false;
                         break;
                     }

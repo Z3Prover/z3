@@ -65,7 +65,7 @@ namespace datalog {
             for (rule_set::iterator it = m_rules.begin(); it != m_rules.end(); ++it) {
                 rule* cur = *it;
                 for (unsigned i = 0; i < cur->get_uninterpreted_tail_size(); ++i) {
-                    func_decl *d = cur->get_tail(i)->get_decl();
+                    func_decl *d = cur->get_decl(i);
                     rule_set::decl2rules::obj_map_entry *e = m_body2rules.insert_if_not_there2(d, 0);
                     if (!e->get_data().m_value) {
                         e->get_data().m_value = alloc(ptr_vector<rule>);
@@ -73,7 +73,7 @@ namespace datalog {
                     e->get_data().m_value->push_back(cur);
                 }
                 if (cur->get_uninterpreted_tail_size() == 0) {
-                    func_decl* sym = cur->get_head()->get_decl();
+                    func_decl *sym = cur->get_head()->get_decl();
                     bool new_info = m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value.init_up(m_context, cur);
                     if (new_info) {
                         m_todo[m_todo_idx].insert(sym);
@@ -126,8 +126,7 @@ namespace datalog {
                 const rule_vector& deps = m_rules.get_predicate_rules(head_sym);
                 const unsigned deps_size = deps.size();
                 for (unsigned i = 0; i < deps_size; ++i) {
-                    rule* trg_rule = deps[i];
-                    const unsigned tail_size = trg_rule->get_uninterpreted_tail_size();
+                    rule *trg_rule = deps[i];
                     fact_writer<Fact> writer(m_facts, trg_rule, m_todo[!m_todo_idx]);
                     // Generate new facts
                     head_fact.propagate_down(m_context, trg_rule, writer);
@@ -143,7 +142,7 @@ namespace datalog {
         }
 
     public:
-        dataflow_engine(typename Fact::ctx_t& ctx, const rule_set& rules) : m_rules(rules), m_context(ctx), m_todo_idx(0) {}
+        dataflow_engine(typename Fact::ctx_t& ctx, const rule_set& rules) : m_rules(rules), m_todo_idx(0), m_context(ctx) {}
 
         ~dataflow_engine() {
             for (rule_set::decl2rules::iterator it = m_body2rules.begin(); it != m_body2rules.end(); ++it) {
@@ -165,7 +164,7 @@ namespace datalog {
                     outp << "\n";
                 }
                 for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
-                    func_decl* tail_decl = r->get_tail(i)->get_decl();
+                    func_decl *tail_decl = r->get_decl(i);
                     if (visited.insert_if_not_there_core(tail_decl, dummy)) {
                         const Fact& fact = m_facts.get(tail_decl, Fact::null_fact);
                         outp << tail_decl->get_name() << " -> ";
@@ -210,8 +209,7 @@ namespace datalog {
             for (typename fact_db::iterator I = m_facts.begin(),
                 E = m_facts.end(); I != E; ++I) {
                 
-                typename fact_db::entry* entry;
-                if (entry = oth.m_facts.find_core(I->m_key)) {
+                if (typename fact_db::entry *entry = oth.m_facts.find_core(I->m_key)) {
                     I->m_value.intersect(m_context, entry->get_data().m_value);
                 } else {
                      to_delete.push_back(I->m_key);
@@ -234,7 +232,7 @@ namespace datalog {
 
         }
         const Fact& get(unsigned idx) const {
-            return m_facts.get(m_rule->get_tail(idx)->get_decl(), Fact::null_fact);
+            return m_facts.get(m_rule->get_decl(idx), Fact::null_fact);
         }
         unsigned size() const {
             return m_rule->get_uninterpreted_tail_size();
@@ -252,12 +250,12 @@ namespace datalog {
             : m_facts(facts), m_rule(r), m_todo(todo) {}
 
         Fact& get(unsigned idx) {
-            func_decl* sym = m_rule->get_tail(idx)->get_decl();
+            func_decl *sym = m_rule->get_decl(idx);
             return m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value;
         }
 
         void set_changed(unsigned idx) {
-            m_todo.insert(m_rule->get_tail(idx)->get_decl());
+            m_todo.insert(m_rule->get_decl(idx));
         }
 
         unsigned size() const {

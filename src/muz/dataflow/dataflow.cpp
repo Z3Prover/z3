@@ -16,10 +16,9 @@ Author:
 --*/
 
 #include "dataflow.h"
+#include "reachability.h"
 
 namespace datalog {
 
-    void dummy_dataflow() {
-        
-    }
+    const reachability_info reachability_info::null_fact;
 }
