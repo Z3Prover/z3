@@ -68,8 +68,10 @@ public:
     bit_vector(unsigned reserve_num_bits) :
         m_num_bits(0),
         m_capacity(num_words(reserve_num_bits)),
-        m_data(alloc_svect(unsigned, m_capacity)) {
-        memset(m_data, 0, m_capacity * sizeof(unsigned));
+        m_data(m_capacity > 0 ? alloc_svect(unsigned, m_capacity) : 0) {
+        if (m_data) {
+            memset(m_data, 0, m_capacity * sizeof(unsigned));
+        }
     }
 
     bit_vector(bit_vector const & source):
@@ -85,8 +87,10 @@ public:
     bit_vector(unsigned const * source, int num_bits):
         m_num_bits(num_bits),
         m_capacity(num_words(num_bits)),
-        m_data(alloc_svect(unsigned, m_capacity)) {
-        memcpy(m_data, source, m_capacity * sizeof(unsigned));
+        m_data(m_capacity > 0 ? alloc_svect(unsigned, m_capacity) : 0) {
+        if (m_data) {
+            memcpy(m_data, source, m_capacity * sizeof(unsigned));
+        }
     }
 
     ~bit_vector() {
@@ -109,7 +113,9 @@ public:
     void shift_right(unsigned k);
 
     void fill0() {
-        memset(m_data, 0, m_capacity * sizeof(unsigned));
+        if (m_data) {
+            memset(m_data, 0, m_capacity * sizeof(unsigned));
+        }
     }
 
     unsigned size() const { 
