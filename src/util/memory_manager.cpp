@@ -279,8 +279,6 @@ void memory::deallocate(void * p) {
 }
 
 void * memory::allocate(size_t s) {
-    if (s == 0) 
-        return 0;
     s = s + sizeof(size_t); // we allocate an extra field!
     void * r = malloc(s);
     if (r == 0) 
@@ -333,8 +331,6 @@ void memory::deallocate(void * p) {
 }
 
 void * memory::allocate(size_t s) {
-    if (s == 0) 
-        return 0;
     s = s + sizeof(size_t); // we allocate an extra field!
     bool out_of_mem = false, counts_exceeded = false;
     #pragma omp critical (z3_memory_manager) 
