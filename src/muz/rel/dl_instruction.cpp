@@ -385,8 +385,9 @@ namespace datalog {
             if (!find_fn(r1, r2, fn)) {
                 fn = r1.get_manager().mk_join_fn(r1, r2, m_cols1, m_cols2);
                 if (!fn) {
-                    throw default_exception("trying to perform unsupported join operation on relations of kinds %s and %s",
-                        r1.get_plugin().get_name().bare_str(), r2.get_plugin().get_name().bare_str());
+                    throw default_exception(default_exception::fmt(), 
+                                            "trying to perform unsupported join operation on relations of kinds %s and %s",
+                                            r1.get_plugin().get_name().bare_str(), r2.get_plugin().get_name().bare_str());
                 }
                 store_fn(r1, r2, fn);
             }
@@ -447,7 +448,7 @@ namespace datalog {
             if (!find_fn(r, fn)) {
                 fn = r.get_manager().mk_filter_equal_fn(r, m_value, m_col);
                 if (!fn) {
-                    throw default_exception(
+                    throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported filter_equal operation on a relation of kind %s",
                         r.get_plugin().get_name().bare_str());
                 }
@@ -496,7 +497,7 @@ namespace datalog {
             if (!find_fn(r, fn)) {
                 fn = r.get_manager().mk_filter_identical_fn(r, m_cols.size(), m_cols.c_ptr());
                 if (!fn) {
-                    throw default_exception(
+                    throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported filter_identical operation on a relation of kind %s",
                         r.get_plugin().get_name().bare_str());
                 }
@@ -542,7 +543,7 @@ namespace datalog {
             if (!find_fn(r, fn)) {
                 fn = r.get_manager().mk_filter_interpreted_fn(r, m_cond);
                 if (!fn) {
-                    throw default_exception(
+                    throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported filter_interpreted operation on a relation of kind %s",
                         r.get_plugin().get_name().bare_str());
                 }
@@ -598,7 +599,7 @@ namespace datalog {
             if (!find_fn(reg, fn)) {
                 fn = reg.get_manager().mk_filter_interpreted_and_project_fn(reg, m_cond, m_cols.size(), m_cols.c_ptr());
                 if (!fn) {
-                    throw default_exception(
+                    throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported filter_interpreted_and_project operation on a relation of kind %s",
                         reg.get_plugin().get_name().bare_str());
                 }
@@ -838,7 +839,8 @@ namespace datalog {
             if (!find_fn(r1, r2, fn)) {
                 fn = r1.get_manager().mk_join_project_fn(r1, r2, m_cols1, m_cols2, m_removed_cols);
                 if (!fn) {
-                    throw default_exception("trying to perform unsupported join-project operation on relations of kinds %s and %s",
+                    throw default_exception(default_exception::fmt(), 
+                                            "trying to perform unsupported join-project operation on relations of kinds %s and %s",
                         r1.get_plugin().get_name().bare_str(), r2.get_plugin().get_name().bare_str());
                 }
                 store_fn(r1, r2, fn);
@@ -905,7 +907,7 @@ namespace datalog {
 
             const relation_base & s = *ctx.reg(m_source_reg);
             if (!s.from_table()) {
-                throw default_exception("relation is not a table %s",
+                throw default_exception(default_exception::fmt(), "relation is not a table %s",
                     s.get_plugin().get_name().bare_str());
             }
             ++ctx.m_stats.m_min;
@@ -963,7 +965,7 @@ namespace datalog {
             if (!find_fn(r, fn)) {
                 fn = r.get_manager().mk_select_equal_and_project_fn(r, m_value, m_col);
                 if (!fn) {
-                    throw default_exception(
+                    throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported select_equal_and_project operation on a relation of kind %s",
                         r.get_plugin().get_name().bare_str());
                 }

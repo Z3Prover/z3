@@ -40,8 +40,9 @@ public:
 class default_exception : public z3_exception {
     std::string m_msg;
 public:
+    struct fmt {};
     default_exception(std::string const& msg);
-    default_exception(char const* msg, ...);
+    default_exception(fmt, char const* msg, ...);
     virtual ~default_exception() {}
     virtual char const * msg() const;
 };
