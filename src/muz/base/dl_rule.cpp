@@ -957,6 +957,16 @@ namespace datalog {
         return false;
     }
 
+    bool rule::has_min() const {
+        const unsigned n = get_tail_size();
+        for (unsigned i = 0; i < n; i++) {
+            if (is_min_tail(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void rule::get_used_vars(used_vars& used) const {
         used.process(get_head());
         unsigned sz = get_tail_size();

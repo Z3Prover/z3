@@ -363,6 +363,11 @@ namespace datalog {
         bool has_negation() const;
 
         /**
+           \brief Is this rule subject to a min aggregation function?
+        */
+        bool has_min() const;
+
+        /**
            \brief Store in d the (direct) dependencies of the given rule.
         */
 

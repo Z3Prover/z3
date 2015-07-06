@@ -442,43 +442,75 @@ namespace datalog {
     }
 
     bool rule_set::check_min() {
-        // For now, we check the following:
+        // We check the following:
         //
-        // if a min aggregation function occurs in an SCC, is this SCC
-        // free of any other non-monotonic functions, e.g. negation?
+        // Define a "min-predicate" to be a predicate that is the head of a rule which
+        // contains a min aggregation function.
+        //
+        // 1) A min-predicate must not be the head of multiple rules.
+        // 2) An SCC must not mix non-monotonic functions such as negation and min.
+        // 3) Let S be an SCC that contains a min-predicate. Then any edge that leaves S
+        //    must directly originate at some min predicate.
         const unsigned NEG_BIT = 1U << 0;
         const unsigned MIN_BIT = 1U << 1;
 
-        ptr_vector<rule>::const_iterator it = m_rules.c_ptr();
-        ptr_vector<rule>::const_iterator end = m_rules.c_ptr() + m_rules.size();
+        rule * r;
+        unsigned head_strat;
+        func_decl * head_decl;
+        ptr_vector<rule>::const_iterator rule_it = m_rules.c_ptr();
+        ptr_vector<rule>::const_iterator rule_end = m_rules.c_ptr() + m_rules.size();
         unsigned_vector component_status(m_stratifier->get_strats().size());
-
-        for (; it != end; it++) {
-            rule * r = *it;
-            app * head = r->get_head();
-            func_decl * head_decl = head->get_decl();
-            unsigned head_strat = get_predicate_strat(head_decl);
-            unsigned n = r->get_tail_size();
-            for (unsigned i = 0; i < n; i++) {
-                func_decl * tail_decl = r->get_tail(i)->get_decl();
-                unsigned strat = get_predicate_strat(tail_decl);
-
-                if (r->is_neg_tail(i)) {
-                    SASSERT(strat < component_status.size());
-                    component_status[strat] |= NEG_BIT;
+        for (; rule_it != rule_end; ++rule_it) {
+            r = *rule_it;
+            head_decl = r->get_head()->get_decl();
+            head_strat = get_predicate_strat(head_decl);
+            if (r->has_min()) {
+                // check 1
+                const rule_vector & pred_rules = get_predicate_rules(head_decl);
+                if (pred_rules.size() != 1) {
+                    return false;
                 }
 
-                if (r->is_min_tail(i)) {
-                    SASSERT(strat < component_status.size());
-                    component_status[strat] |= MIN_BIT;
-                }
+                component_status[head_strat] |= MIN_BIT;
+            }
+
+            if (r->has_negation()) {
+                component_status[head_strat] |= NEG_BIT;
             }
         }
 
+        // check 2
         const unsigned CONFLICT = NEG_BIT | MIN_BIT;
         for (unsigned k = 0; k < component_status.size(); ++k) {
             if (component_status[k] == CONFLICT)
                 return false;
+        }
+
+        // check 3
+        rule *body_rule;
+        unsigned body_strat;
+        func_decl *body_decl;
+        for (rule_it = m_rules.c_ptr(); rule_it != rule_end; ++rule_it) {
+            r = *rule_it;
+            head_decl = r->get_head()->get_decl();
+            head_strat = get_predicate_strat(head_decl);
+            for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
+                body_decl = r->get_decl(i);
+                body_strat = get_predicate_strat(body_decl);
+
+                if (body_strat == head_strat || component_status[body_strat] != MIN_BIT)
+                    continue;
+
+                SASSERT(body_strat < head_strat);
+                SASSERT(component_status[body_strat] == MIN_BIT);
+                const rule_vector & pred_rules = get_predicate_rules(body_decl);
+                if (pred_rules.size() != 1U)
+                    return false;
+
+                body_rule = *(pred_rules.begin());
+                if (!body_rule->has_min())
+                    return false;
+            }
         }
 
         return true;

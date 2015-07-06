@@ -1199,9 +1199,6 @@ namespace datalog {
                 continue;
 
             r = *(pred_rules.begin());
-            if (r->get_positive_tail_size() != 1)
-                continue;
-
             if (!prepare_min_aggregate(r, group_by_cols, min_col))
                 continue;
 
