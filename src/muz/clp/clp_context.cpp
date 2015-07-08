@@ -70,11 +70,11 @@ namespace datalog {
             m_goals.reset();
             rm.mk_query(query, m_ctx.get_rules());
             apply_default_transformation(m_ctx);
-            if (m_ctx.get_rules().get_output_predicates().empty()) {
+            const rule_set& rules = m_ctx.get_rules();
+            if (rules.get_output_predicates().empty()) {
                 return l_false;
             }
-            func_decl* head_decl = m_ctx.get_rules().get_output_predicate();
-            rule_set& rules = m_ctx.get_rules();
+            func_decl *head_decl = rules.get_output_predicate();
             rule_vector const& rv = rules.get_predicate_rules(head_decl);
             if (rv.empty()) {
                 return l_false;

@@ -84,10 +84,11 @@ lbool dl_interface::query(expr * query) {
     m_pred2slice.reset();
     ast_manager& m =                      m_ctx.get_manager();
     datalog::rule_manager& rm = m_ctx.get_rule_manager();
+    datalog::rule_set& rules0 = m_ctx.get_rules();
 
-    datalog::rule_set        old_rules(m_ctx.get_rules());
+    datalog::rule_set        old_rules(rules0);
     func_decl_ref            query_pred(m);
-    rm.mk_query(query, m_ctx.get_rules());
+    rm.mk_query(query, rules0);
     expr_ref bg_assertion = m_ctx.get_background_assertion();
 
     check_reset();
@@ -136,15 +137,16 @@ lbool dl_interface::query(expr * query) {
         }
     }
 
-    if (m_ctx.get_rules().get_output_predicates().empty()) {
+    const datalog::rule_set& rules = m_ctx.get_rules();
+    if (rules.get_output_predicates().empty()) {
         m_context->set_unsat();
         return l_false;
     }
 
-    query_pred = m_ctx.get_rules().get_output_predicate();
+    query_pred = rules.get_output_predicate();
 
     IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););
-    m_pdr_rules.replace_rules(m_ctx.get_rules());
+    m_pdr_rules.replace_rules(rules);
     m_pdr_rules.close();
     m_ctx.record_transformed_rules();
     m_ctx.reopen();

@@ -241,12 +241,13 @@ namespace datalog {
 
         switch(res) {
         case l_true: {
+            const rule_set& rules = m_context.get_rules();
             expr_ref_vector ans(m);
             expr_ref e(m);
             bool some_non_empty = num_rels == 0;
             bool is_approx = false;
             for (unsigned i = 0; i < num_rels; ++i) {
-                func_decl* q = m_context.get_rules().get_pred(rels[i]);
+                func_decl* q = rules.get_pred(rels[i]);
                 relation_base& rel = get_relation(q);
                 if (!rel.empty()) {
                     some_non_empty = true;
@@ -383,7 +384,8 @@ namespace datalog {
     }
 
     void rel_context::reset_negated_tables() {
-        rule_set::pred_set_vector const & pred_sets = m_context.get_rules().get_strats();
+        const rule_set& all_rules = m_context.get_rules();
+        rule_set::pred_set_vector const & pred_sets = all_rules.get_strats();
         bool non_empty = false;
         for (unsigned i = 1; i < pred_sets.size(); ++i) {
             func_decl_set::iterator it = pred_sets[i]->begin(), end = pred_sets[i]->end();
@@ -411,7 +413,7 @@ namespace datalog {
                     if (depends_on_negation.contains(pred)) {
                         continue;
                     }
-                    rule_vector const& rules = m_context.get_rules().get_predicate_rules(pred);
+                    rule_vector const& rules = all_rules.get_predicate_rules(pred);
                     bool inserted = false;
                     for (unsigned j = 0; !inserted && j < rules.size(); ++j) {
                         rule* r = rules[j];

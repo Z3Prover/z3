@@ -1438,8 +1438,9 @@ namespace datalog {
         m_ctx.ensure_opened();
         m_rules.reset();
         datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
-        datalog::rule_set old_rules(m_ctx.get_rules());
-        rule_manager.mk_query(query, m_ctx.get_rules());
+        rule_set& rules0 = m_ctx.get_rules();
+        datalog::rule_set old_rules(rules0);
+        rule_manager.mk_query(query, rules0);
         expr_ref bg_assertion = m_ctx.get_background_assertion();        
         apply_default_transformation(m_ctx);
         
@@ -1449,12 +1450,14 @@ namespace datalog {
             transformer.register_plugin(slice);
             m_ctx.transform_rules(transformer);
         }
-        if (m_ctx.get_rules().get_output_predicates().empty()) {
+
+        const rule_set& rules = m_ctx.get_rules();
+        if (rules.get_output_predicates().empty()) {
             return l_false;
         }
 
-        m_query_pred = m_ctx.get_rules().get_output_predicate();
-        m_rules.replace_rules(m_ctx.get_rules());
+        m_query_pred = rules.get_output_predicate();
+        m_rules.replace_rules(rules);
         m_rules.close();
         m_ctx.reopen();
         m_ctx.replace_rules(old_rules);
