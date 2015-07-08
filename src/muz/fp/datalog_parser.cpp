@@ -665,7 +665,7 @@ protected:
 
     dtoken unexpected(dtoken tok, char const* msg) {
 #if 1
-        throw default_exception("%s at line %u '%s' found '%s'\n", msg, 
+        throw default_exception(default_exception::fmt(), "%s at line %u '%s' found '%s'\n", msg, 
             m_lexer->get_line(), m_lexer->get_token_data(), dtoken_strings[tok]);
 
         SASSERT(false);
@@ -958,7 +958,7 @@ protected:
                     m_vars.insert(data.bare_str(), v);
                 }
                 else if (s != m_manager.get_sort(v)) {
-                    throw default_exception("sort: %s expected, but got: %s\n",
+                    throw default_exception(default_exception::fmt(), "sort: %s expected, but got: %s\n",
                         s->get_name().bare_str(), m_manager.get_sort(v)->get_name().bare_str());
                 }
                 args.push_back(v);
@@ -1074,7 +1074,7 @@ protected:
 
     sort * register_finite_sort(symbol name, uint64 domain_size, context::sort_kind k) {
         if(m_sort_dict.contains(name.bare_str())) {
-            throw default_exception("sort %s already declared", name.bare_str());
+            throw default_exception(default_exception::fmt(), "sort %s already declared", name.bare_str());
         }
         sort * s = m_decl_util.mk_sort(name, domain_size);
         m_context.register_finite_sort(s, k);
@@ -1084,7 +1084,7 @@ protected:
 
     sort * register_int_sort(symbol name) {
         if(m_sort_dict.contains(name.bare_str())) {
-            throw default_exception("sort %s already declared", name.bare_str());
+            throw default_exception(default_exception::fmt(), "sort %s already declared", name.bare_str());
         }
         sort * s = m_arith.mk_int();
         m_sort_dict.insert(name.bare_str(), s);
@@ -1094,7 +1094,7 @@ protected:
     sort * get_sort(const char* str) {
         sort * res;
         if(!m_sort_dict.find(str, res)) {
-            throw default_exception("unknown sort \"%s\"", str);
+            throw default_exception(default_exception::fmt(), "unknown sort \"%s\"", str);
         }
         return res;
     }
@@ -1104,7 +1104,7 @@ protected:
         if(m_arith.is_int(s)) {
             uint64 val;
             if(!string_to_uint64(name.bare_str(), val)) {
-                throw default_exception("Invalid integer: \"&s\"", name.bare_str());
+                throw default_exception(default_exception::fmt(), "Invalid integer: \"%s\"", name.bare_str());
             }
             res = m_arith.mk_numeral(rational(val, rational::ui64()), s);
         }
@@ -1295,7 +1295,7 @@ private:
             if(num==0) {
                 const_name = symbol("<zero element>");
             } else if(!m_number_names.find(num, const_name)) {
-                throw default_exception("unknown symbol number %I64u on line %d in file %s", 
+                throw default_exception(default_exception::fmt(), "unknown symbol number %I64u on line %d in file %s", 
                     num, m_current_line, m_current_file.c_str());
             }
             res =  mk_table_const(const_name, s);
@@ -1334,12 +1334,13 @@ private:
             }
             uint64 num;
             if(!read_uint64(ptr, num)) {
-                throw default_exception("number expected on line %d in file %s", 
+                throw default_exception(default_exception::fmt(), "number expected on line %d in file %s", 
                     m_current_line, m_current_file.c_str());
             }
             if(*ptr!=' ' && *ptr!=0) {
-                throw default_exception("' ' expected to separate numbers on line %d in file %s, got '%s'", 
-                                m_current_line, m_current_file.c_str(), ptr);
+                throw default_exception(default_exception::fmt(), 
+                                        "' ' expected to separate numbers on line %d in file %s, got '%s'", 
+                                        m_current_line, m_current_file.c_str(), ptr);
             }
             args.push_back(num);
         } while(!last);
@@ -1359,7 +1360,7 @@ private:
 
         func_decl * pred = m_context.try_get_predicate_decl(predicate_name);
         if(!pred) {
-            throw default_exception("tuple file %s for undeclared predicate %s", 
+            throw default_exception(default_exception::fmt(), "tuple file %s for undeclared predicate %s", 
                 m_current_file.c_str(), predicate_name.bare_str());
         }
         unsigned pred_arity = pred->get_arity();
@@ -1381,7 +1382,7 @@ private:
                 continue;
             }
             if(args.size()!=pred_arity) {
-                throw default_exception("invalid number of arguments on line %d in file %s", 
+                throw default_exception(default_exception::fmt(), "invalid number of arguments on line %d in file %s", 
                     m_current_line, m_current_file.c_str());
             }
 
@@ -1450,10 +1451,12 @@ private:
 
         const char * ptr = full_line;
         if(!read_uint64(ptr, num)) {
-            throw default_exception("number expected at line %d in file %s", m_current_line, m_current_file.c_str());
+            throw default_exception(default_exception::fmt(), 
+                                    "number expected at line %d in file %s", m_current_line, m_current_file.c_str());
         }
         if(*ptr!=' ') {
-            throw default_exception("' ' expected after the number at line %d in file %s", m_current_line, m_current_file.c_str());
+            throw default_exception(default_exception::fmt(), 
+                                    "' ' expected after the number at line %d in file %s", m_current_line, m_current_file.c_str());
         }
         ptr++;
 

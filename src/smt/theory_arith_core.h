@@ -2154,6 +2154,7 @@ namespace smt {
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
         CASSERT("arith", valid_row_assignment());
+        CASSERT("arith", satisfy_bounds());
         return true;
     }
 

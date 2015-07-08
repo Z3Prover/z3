@@ -45,7 +45,9 @@ void context_params::set_bool(bool & opt, char const * param, char const * value
         opt = false;
     }
     else {
-        throw default_exception("invalid value '%s' for Boolean parameter '%s'", value, param);
+        std::stringstream strm;
+        strm << "invalid value '" << value << "' for Boolean parameter '" << param;
+        throw default_exception(strm.str());
     }
 }
 
