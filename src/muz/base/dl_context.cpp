@@ -457,15 +457,17 @@ namespace datalog {
     }
 
     void context::flush_add_rules() {
-        datalog::rule_manager& rm = get_rule_manager();
-        scoped_proof_mode _scp(m, generate_proof_trace()?PGM_FINE:PGM_DISABLED);
-        while (m_rule_fmls_head < m_rule_fmls.size()) {
-            expr* fml = m_rule_fmls[m_rule_fmls_head].get();
-            proof* p = generate_proof_trace()?m.mk_asserted(fml):0;
-            rm.mk_rule(fml, p, m_rule_set, m_rule_names[m_rule_fmls_head]);
-            ++m_rule_fmls_head;
+        if (m_rule_fmls_head < m_rule_fmls.size()) {
+            datalog::rule_manager& rm = get_rule_manager();
+            scoped_proof_mode _scp(m, generate_proof_trace() ? PGM_FINE : PGM_DISABLED);
+            do {
+                expr* fml = m_rule_fmls[m_rule_fmls_head].get();
+                proof* p = generate_proof_trace() ? m.mk_asserted(fml) : 0;
+                rm.mk_rule(fml, p, m_rule_set, m_rule_names[m_rule_fmls_head]);
+                ++m_rule_fmls_head;
+            } while (m_rule_fmls_head < m_rule_fmls.size());
+            check_rules(m_rule_set);
         }
-        check_rules(m_rule_set);
     }
 
     //
