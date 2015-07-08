@@ -1321,8 +1321,10 @@ namespace smt {
         typename svector<col_entry>::iterator end = c.end_entries();
         init_gains(x_j, inc, min_gain, max_gain);
         has_shared |= ctx.is_shared(get_enode(x_j));
+        bool empty_column = true;
         for (; it != end; ++it) {
             if (it->is_dead()) continue;
+            empty_column = false;
             row const & r = m_rows[it->m_row_id];
             theory_var s  = r.get_base_var();
             numeral const & coeff_ij = r[it->m_row_idx].m_coeff;
@@ -1333,7 +1335,6 @@ namespace smt {
             }
             has_shared |= ctx.is_shared(get_enode(s));
         }
-        bool empty_column = (c.begin_entries() == end);
         TRACE("opt", 
               tout << (safe_gain(min_gain, max_gain)?"safe":"unsafe") << "\n";
               tout << "min gain: " << min_gain;
@@ -1373,7 +1374,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::normalize_gain(numeral const& divisor, inf_numeral & max_gain) const {
         SASSERT(divisor.is_int());
-        if (!divisor.is_minus_one() && !divisor.is_one() && !max_gain.is_minus_one()) {
+        if (!divisor.is_minus_one() && !max_gain.is_minus_one()) {
             max_gain = floor(max_gain/divisor)*divisor;
         }
     }
@@ -1401,7 +1402,8 @@ namespace smt {
         TRACE("opt",
               tout << "v" << x << " := " << get_value(x) << " "
               << "min gain: " << min_gain << " " 
-              << "max gain: " << max_gain << "\n";);              
+              << "max gain: " << max_gain << "\n";);           
+                
 
         SASSERT(max_gain.is_minus_one() || !max_gain.is_neg());
         SASSERT(min_gain.is_minus_one() || min_gain.is_one());
@@ -1423,6 +1425,8 @@ namespace smt {
         // a_ij < 0, !inc -> decrement x_i
         // a_ij denominator
 
+        SASSERT(!a_ij.is_zero());
+
         if (!safe_gain(min_gain, max_gain)) return false;
 
         inf_numeral max_inc = inf_numeral::minus_one();
@@ -1438,8 +1442,13 @@ namespace smt {
         if (is_int(x_i)) den_aij = denominator(a_ij);
         SASSERT(den_aij.is_pos() && den_aij.is_int());
 
-        if (is_int(x_i) && !den_aij.is_one() && min_gain.is_pos()) {
-            min_gain = inf_numeral(lcm(min_gain.get_rational(), den_aij));
+        if (is_int(x_i) && !den_aij.is_one()) {
+            if (min_gain.is_neg()) {
+                min_gain = inf_numeral(den_aij);
+            }
+            else {
+                min_gain = inf_numeral(lcm(min_gain.get_rational(), den_aij));
+            }
             normalize_gain(min_gain.get_rational(), max_gain);
         }
 
@@ -1467,11 +1476,12 @@ namespace smt {
               << "min gain: " << min_gain << " " 
               << "max gain: " << max_gain << " tighter: "
               << (is_tighter?"true":"false") << "\n";);
+
         SASSERT(max_gain.is_minus_one() || !max_gain.is_neg());
         SASSERT(min_gain.is_minus_one() || !min_gain.is_neg());
-        //SASSERT(!is_int(x_i) || min_gain.is_pos());
-        //SASSERT(!is_int(x_i) || min_gain.is_int());
-        //SASSERT(!is_int(x_i) || max_gain.is_int());
+        SASSERT(!is_int(x_i) || min_gain.is_pos());
+        SASSERT(!is_int(x_i) || min_gain.is_int());
+        SASSERT(!is_int(x_i) || max_gain.is_int());
         return is_tighter;
     }
 
@@ -1510,6 +1520,7 @@ namespace smt {
         context& ctx = get_context();
 
         SASSERT(!maintain_integrality || valid_assignment());
+        SASSERT(satisfy_bounds());
 
         numeral a_ij, curr_a_ij, coeff, curr_coeff;
         inf_numeral min_gain, max_gain, curr_min_gain, curr_max_gain;
@@ -1538,15 +1549,17 @@ namespace smt {
                     // variable cannot be used for max/min.
                     continue; 
                 }
-                if (!pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, 
-                                       curr_min_gain, curr_max_gain, 
-                                       has_shared, curr_x_i)) {
+                bool picked_var = pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, 
+                                                    curr_min_gain, curr_max_gain, 
+                                                    has_shared, curr_x_i);
+
+
+                SASSERT(!picked_var || safe_gain(curr_min_gain, curr_max_gain));
+                
+                if (!picked_var) {
                     best_efforts++;
                 }
-                else {
-                    SASSERT(safe_gain(curr_min_gain, curr_max_gain));
-                }
-                if (curr_x_i == null_theory_var) {
+                else if (curr_x_i == null_theory_var) {
                     TRACE("opt", tout << "unbounded\n";);
                     // we can increase/decrease curr_x_j as much as we want.
                     x_i   = null_theory_var; // unbounded
@@ -1584,6 +1597,7 @@ namespace smt {
             if (x_j == null_theory_var) {
                 TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);
                 SASSERT(!maintain_integrality || valid_assignment());
+                SASSERT(satisfy_bounds());
                 result = OPTIMIZED;
                 break; 
             }
@@ -1599,14 +1613,17 @@ namespace smt {
                     update_value(x_j, max_gain);
                     TRACE("opt", tout << "moved v" << x_j << " to upper bound\n";);
                     SASSERT(!maintain_integrality || valid_assignment());
+                    SASSERT(satisfy_bounds());
                     continue;
                 }
                 if (!inc && lower(x_j)) {
                     SASSERT(!unbounded_gain(max_gain));
+                    SASSERT(max_gain.is_pos());
                     max_gain.neg();
                     update_value(x_j, max_gain);
                     TRACE("opt", tout << "moved v" << x_j << " to lower bound\n";);
                     SASSERT(!maintain_integrality || valid_assignment());
+                    SASSERT(satisfy_bounds());
                     continue;
                 }
 #if 0
@@ -1642,6 +1659,7 @@ namespace smt {
                 }
                 update_value(x_j, max_gain);
                 SASSERT(!maintain_integrality || valid_assignment());
+                SASSERT(satisfy_bounds());
                 continue;
             }
             
@@ -1670,6 +1688,7 @@ namespace smt {
             add_tmp_row(r, coeff, r2);
             SASSERT(r.get_idx_of(x_j) == -1);
             SASSERT(!maintain_integrality || valid_assignment());
+            SASSERT(satisfy_bounds());
         }
         TRACE("opt", display(tout););
         return (best_efforts>0)?BEST_EFFORT:result;
@@ -1749,6 +1768,7 @@ namespace smt {
         expr* e = get_enode(v)->get_owner();
 
         SASSERT(!maintain_integrality || valid_assignment());
+        SASSERT(satisfy_bounds());
         SASSERT(!is_quasi_base(v));
         if ((max && at_upper(v)) || (!max && at_lower(v))) {
             TRACE("opt", tout << "At bound: " << mk_pp(e, get_manager()) << "...\n";);

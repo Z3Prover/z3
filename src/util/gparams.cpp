@@ -205,12 +205,17 @@ public:
         if (mod_name == symbol::null) {
             char const * new_name = get_new_param_name(param_name);
             if (new_name) {
-                throw exception("the parameter '%s' was renamed to '%s', invoke 'z3 -p' to obtain the new parameter list, and 'z3 -pp:%s' for the full description of the parameter",
-                                param_name.bare_str(), new_name, new_name);
+                std::stringstream strm;
+                strm << "the parameter '" << param_name
+                     << "', invoke 'z3 -p' to obtain the new parameter list, and 'z3 -pp:" << new_name
+                     << "' for the full description of the parameter";
+                throw exception(strm.str());
             }
             else if (is_old_param_name(param_name)) {
-                throw exception("unknown parameter '%s', this is an old parameter name, invoke 'z3 -p' to obtain the new parameter list", 
-                                param_name.bare_str());
+                std::stringstream strm;
+                strm << "unknown parameter '" << param_name 
+                     << "', this is an old parameter name, invoke 'z3 -p' to obtain the new parameter list";
+                throw default_exception(strm.str());
             }
             else {
                 std::stringstream strm;
@@ -290,10 +295,12 @@ public:
                 ps.set_bool(param_name, false);
             }
             else {
-                if (mod_name == symbol::null)
-                    throw exception("invalid value '%s' for Boolean parameter '%s'", value, param_name.bare_str());
-                else
-                    throw exception("invalid value '%s' for Boolean parameter '%s' at module '%s'", value, param_name.bare_str(), mod_name.bare_str());
+                std::stringstream strm;
+                strm << "invalid value '" << value << "' for Boolean parameter '" << param_name << "'";                
+                if (mod_name == symbol::null) {
+                    strm << " at module '" << mod_name << "'";
+                }
+                throw default_exception(strm.str());
             }
         }
         else if (k == CPK_SYMBOL) {
@@ -312,10 +319,12 @@ public:
             ps.set_str(param_name, symbol(value).bare_str());
         }
         else {
-            if (mod_name == symbol::null)
-                throw exception("unsupported parameter type '%s'", param_name.bare_str());
-            else
-                throw exception("unsupported parameter type '%s' at module '%s'", param_name.bare_str(), mod_name.bare_str());
+            std::stringstream strm;
+            strm << "unsupported parameter type '" << param_name << "'";            
+            if (mod_name == symbol::null) {
+                strm << " at module '" << mod_name << "'";            
+            }
+            throw exception(strm.str());
         }
     }
 
@@ -338,7 +347,9 @@ public:
                         set(*d, p, value, m);
                     }
                     else {
-                        throw exception("invalid parameter, unknown module '%s'", m.bare_str());
+                        std::stringstream strm;
+                        strm << "invalid parameter, unknown module '" << m << "'";
+                        throw exception(strm.str());
                     }
                 }
             }
@@ -396,7 +407,9 @@ public:
                             r = get_default(*d, p, m);
                         }
                         else {
-                            throw exception("unknown module '%s'", m.bare_str());
+                            std::stringstream strm;
+                            strm << "unknown module '" << m << "'";
+                            throw exception(strm.str());
                         }
                     }
                 }
@@ -488,8 +501,11 @@ public:
         {
             try {
                 param_descrs * d = 0;
-                if (!get_module_param_descrs().find(module_name, d))
-                    throw exception("unknown module '%s'", module_name.bare_str());
+                if (!get_module_param_descrs().find(module_name, d)) {
+                    std::stringstream strm;
+                    strm << "unknown module '" << module_name << "'";                    
+                    throw exception(strm.str());
+                }
                 out << "[module] " << module_name;
                 char const * descr = 0;
                 if (get_module_descrs().find(module_name, descr)) {
@@ -522,8 +538,11 @@ public:
                     d = &get_param_descrs();
                 }
                 else {
-                    if (!get_module_param_descrs().find(m, d))
-                        throw exception("unknown module '%s'", m.bare_str());
+                    if (!get_module_param_descrs().find(m, d)) {
+                        std::stringstream strm;
+                        strm << "unknown module '" << m << "'";                    
+                        throw exception(strm.str());
+                    }
                 }
                 if (!d->contains(p))
                     throw_unknown_parameter(p, *d, m);

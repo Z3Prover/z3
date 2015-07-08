@@ -196,6 +196,7 @@ namespace smt {
             CTRACE("bound_bug", below_lower(v) || above_upper(v), display_var(tout, v); display(tout););
             SASSERT(!below_lower(v));
             SASSERT(!above_upper(v));
+            if (below_lower(v) || above_upper(v)) return false;
         }
         return true;
     }

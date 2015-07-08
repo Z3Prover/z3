@@ -58,7 +58,7 @@ unsigned z3_error::error_code() const {
     return m_error_code; 
 }
 
-default_exception::default_exception(char const* msg, ...) {
+default_exception::default_exception(fmt, char const* msg, ...) {
     std::stringstream out;
     va_list args;
     va_start(args, msg);
