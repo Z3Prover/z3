@@ -473,7 +473,6 @@ public:
                             expr_dependency_ref & core) {
         TRACE("card2bv-before", g->display(tout););
         SASSERT(g->is_well_sorted());
-        fail_if_proof_generation("card2bv", g);
         mc = 0; pc = 0; core = 0; result.reset();
         tactic_report report("card2bv", *g);
         m_rw1.reset(); 
