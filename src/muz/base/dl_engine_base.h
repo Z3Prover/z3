@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_ENGINE_BASE_H_
-#define _DL_ENGINE_BASE_H_
+#ifndef DL_ENGINE_BASE_H_
+#define DL_ENGINE_BASE_H_
 
 #include "model.h"
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _TOTAL_ORDER_H_
-#define _TOTAL_ORDER_H_
+#ifndef TOTAL_ORDER_H_
+#define TOTAL_ORDER_H_
 
 #include"util.h"
 #include"small_object_allocator.h"
@@ -411,5 +411,5 @@ std::ostream & operator<<(std::ostream & out, total_order<T, Map> const & to) {
 }
 
 
-#endif /* _TOTAL_ORDER_H_ */
+#endif /* TOTAL_ORDER_H_ */
 

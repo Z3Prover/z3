@@ -19,8 +19,8 @@ Author:
 Notes:
     
 --*/
-#ifndef _Z3_RCF_H_
-#define _Z3_RCF_H_
+#ifndef Z3_RCF_H_
+#define Z3_RCF_H_
 
 #ifdef __cplusplus
 extern "C" {

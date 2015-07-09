@@ -16,8 +16,8 @@ Author:
 Notes:
     
 --*/
-#ifndef _Z3_REPLAYER_H_
-#define _Z3_REPLAYER_H_
+#ifndef Z3_REPLAYER_H_
+#define Z3_REPLAYER_H_
 
 #include<iostream>
 #include"z3.h"

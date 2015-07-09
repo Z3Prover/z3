@@ -20,8 +20,8 @@ Revision History:
 
 --*/
 
-#ifndef _DOC_H_
-#define _DOC_H_
+#ifndef DOC_H_
+#define DOC_H_
 
 #include "tbv.h"
 #include "union_find.h"
@@ -389,5 +389,5 @@ public:
     operator bool() const { return d != 0; }
 };
 
-#endif /* _DOC_H_ */
+#endif /* DOC_H_ */
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NUMERAL_BUFFER_H_
-#define _NUMERAL_BUFFER_H_
+#ifndef NUMERAL_BUFFER_H_
+#define NUMERAL_BUFFER_H_
 
 #include"vector.h"
 

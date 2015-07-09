@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BACKTRACKABLE_SET_H_
-#define _BACKTRACKABLE_SET_H_
+#ifndef BACKTRACKABLE_SET_H_
+#define BACKTRACKABLE_SET_H_
 
 #include"vector.h"
 

@@ -15,8 +15,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _DBG_CMDS_H_
-#define _DBG_CMDS_H_
+#ifndef DBG_CMDS_H_
+#define DBG_CMDS_H_
 
 class cmd_context;
 

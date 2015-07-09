@@ -17,8 +17,8 @@ Notes:
 
 --*/
 
-#ifndef _THEORY_WMAXSAT_H_
-#define _THEORY_WMAXSAT_H_
+#ifndef THEORY_WMAXSAT_H_
+#define THEORY_WMAXSAT_H_
 
 #include "smt_theory.h"
 #include "smt_clause.h"

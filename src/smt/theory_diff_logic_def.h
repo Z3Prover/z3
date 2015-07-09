@@ -19,8 +19,8 @@ Revision History:
     2008-05-11 ported from v1.2. Add theory propagation.
 
 --*/
-#ifndef _THEORY_DIFF_LOGIC_DEF_H_
-#define _THEORY_DIFF_LOGIC_DEF_H_
+#ifndef THEORY_DIFF_LOGIC_DEF_H_
+#define THEORY_DIFF_LOGIC_DEF_H_
 
 #include"theory_diff_logic.h"
 #include"smt_context.h"
@@ -1384,5 +1384,5 @@ bool theory_diff_logic<Ext>::internalize_objective(expr * n, rational const& m, 
     return true;
 }
 
-#endif /* _THEORY_DIFF_LOGIC_DEF_H_ */
+#endif /* THEORY_DIFF_LOGIC_DEF_H_ */
 

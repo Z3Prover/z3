@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _RECURSE_EXPR_DEF_H_
-#define _RECURSE_EXPR_DEF_H_
+#ifndef RECURSE_EXPR_DEF_H_
+#define RECURSE_EXPR_DEF_H_
 
 #include"recurse_expr.h"
 
@@ -106,4 +106,4 @@ T recurse_expr<T, Visitor, IgnorePatterns, CallDestructors>::operator()(expr * r
     return get_cached(r);
 }
 
-#endif /* _RECURSE_EXPR_DEF_H_ */
+#endif /* RECURSE_EXPR_DEF_H_ */

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _OLD_INTERVAL_H_
-#define _OLD_INTERVAL_H_
+#ifndef OLD_INTERVAL_H_
+#define OLD_INTERVAL_H_
 
 #include"rational.h"
 #include"dependency.h"
@@ -134,5 +134,5 @@ inline std::ostream & operator<<(std::ostream & out, std::pair<old_interval, int
 // allow "customers" of this file to keep using interval
 #define interval old_interval
 
-#endif /* _OLD_INTERVAL_H_ */
+#endif /* OLD_INTERVAL_H_ */
 

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _DL_REWRITER_H_
-#define _DL_REWRITER_H_
+#ifndef DL_REWRITER_H_
+#define DL_REWRITER_H_
 
 #include"dl_decl_plugin.h"
 #include"rewriter_types.h"

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_MK_KARR_INVARIANTS_H_
-#define _DL_MK_KARR_INVARIANTS_H_
+#ifndef DL_MK_KARR_INVARIANTS_H_
+#define DL_MK_KARR_INVARIANTS_H_
 
 #include"dl_context.h"
 #include"dl_rule_set.h"
@@ -77,5 +77,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_MK_KARR_INVARIANTS_H_ */
+#endif /* DL_MK_KARR_INVARIANTS_H_ */
 

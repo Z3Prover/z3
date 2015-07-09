@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _FILTER_MODEL_CONVERTER_H_
-#define _FILTER_MODEL_CONVERTER_H_
+#ifndef FILTER_MODEL_CONVERTER_H_
+#define FILTER_MODEL_CONVERTER_H_
 
 #include"model_converter.h"
 

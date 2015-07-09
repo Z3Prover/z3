@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MPN_H_
-#define _MPN_H_
+#ifndef MPN_H_
+#define MPN_H_
 
 #include<ostream>
 #include"util.h"

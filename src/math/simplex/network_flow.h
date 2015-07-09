@@ -25,8 +25,8 @@ Notes:
     A naive approach is to run an algorithm on max flow in order to get a spanning tree.
    
 --*/
-#ifndef _NETWORK_FLOW_H_
-#define _NETWORK_FLOW_H_
+#ifndef NETWORK_FLOW_H_
+#define NETWORK_FLOW_H_
 
 #include"inf_rational.h"
 #include"diff_logic.h"

@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _DL_COSTS_H_
-#define _DL_COSTS_H_
+#ifndef DL_COSTS_H_
+#define DL_COSTS_H_
 
 #include<iosfwd>
 
@@ -111,5 +111,5 @@ namespace datalog {
     };
 };
 
-#endif /* _DL_COSTS_H_ */
+#endif /* DL_COSTS_H_ */
 

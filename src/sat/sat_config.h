@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_CONFIG_H_
-#define _SAT_CONFIG_H_
+#ifndef SAT_CONFIG_H_
+#define SAT_CONFIG_H_
 
 #include"params.h"
 

@@ -18,8 +18,8 @@ Revision History:
 
 --*/
 
-#ifndef _TBV_H_
-#define _TBV_H_
+#ifndef TBV_H_
+#define TBV_H_
 
 #include "fixed_bit_vector.h"
 #include "rational.h"
@@ -147,4 +147,4 @@ public:
 };
 
 
-#endif /* _TBV_H_ */
+#endif /* TBV_H_ */

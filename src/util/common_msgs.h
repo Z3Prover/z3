@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef __COMMON_MSGS_H_
-#define __COMMON_MSGS_H_
+#ifndef COMMON_MSGS_H_
+#define COMMON_MSGS_H_
 
 class common_msgs {
 public:

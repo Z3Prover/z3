@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_RULE_TRANSFORMER_H_
-#define _DL_RULE_TRANSFORMER_H_
+#ifndef DL_RULE_TRANSFORMER_H_
+#define DL_RULE_TRANSFORMER_H_
 
 #include"map.h"
 #include"vector.h"
@@ -113,5 +113,5 @@ namespace datalog {
     };
 };
 
-#endif /* _DL_RULE_TRANSFORMER_H_ */
+#endif /* DL_RULE_TRANSFORMER_H_ */
 

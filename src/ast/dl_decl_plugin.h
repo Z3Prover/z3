@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_DECL_PLUGIN_H_
-#define _DL_DECL_PLUGIN_H_
+#ifndef DL_DECL_PLUGIN_H_
+#define DL_DECL_PLUGIN_H_
 
 #include"ast.h"
 #include "arith_decl_plugin.h"
@@ -273,5 +273,5 @@ namespace datalog {
     };
     
 };
-#endif /* _DL_DECL_PLUGIN_H_ */
+#endif /* DL_DECL_PLUGIN_H_ */
 

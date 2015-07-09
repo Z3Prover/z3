@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PDECL_H_
-#define _PDECL_H_
+#ifndef PDECL_H_
+#define PDECL_H_
 
 #include"ast.h"
 #include"obj_hashtable.h" 

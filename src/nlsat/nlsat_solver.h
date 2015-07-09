@@ -18,8 +18,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NLSAT_SOLVER_H_
-#define _NLSAT_SOLVER_H_
+#ifndef NLSAT_SOLVER_H_
+#define NLSAT_SOLVER_H_
 
 #include"nlsat_types.h"
 #include"params.h"

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _AST_PRINTER_H_
-#define _AST_PRINTER_H_
+#ifndef AST_PRINTER_H_
+#define AST_PRINTER_H_
 
 #include"ast.h"
 #include"ast_smt2_pp.h"

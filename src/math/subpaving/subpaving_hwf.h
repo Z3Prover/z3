@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef __SUBPAVING_HWF_H_
-#define __SUBPAVING_HWF_H_
+#ifndef SUBPAVING_HWF_H_
+#define SUBPAVING_HWF_H_
 
 #include"subpaving_t.h"
 #include"f2n.h"

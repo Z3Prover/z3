@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _HEAP_H_
-#define _HEAP_H_
+#ifndef HEAP_H_
+#define HEAP_H_
 
 #include"vector.h"
 #include"debug.h"
@@ -275,5 +275,5 @@ public:
   
 };
 
-#endif /* _HEAP_H_ */
+#endif /* HEAP_H_ */
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMTLIB_SOLVER_H_
-#define _SMTLIB_SOLVER_H_
+#ifndef SMTLIB_SOLVER_H_
+#define SMTLIB_SOLVER_H_
 
 #include"smtparser.h"
 #include"context_params.h"

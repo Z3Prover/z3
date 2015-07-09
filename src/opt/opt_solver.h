@@ -18,8 +18,8 @@ Notes:
     Based directly on smt_solver.
    
 --*/
-#ifndef _OPT_SOLVER_H_
-#define _OPT_SOLVER_H_
+#ifndef OPT_SOLVER_H_
+#define OPT_SOLVER_H_
 
 #include"inf_rational.h"
 #include"inf_eps_rational.h"

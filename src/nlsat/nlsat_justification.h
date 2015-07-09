@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NLSAT_JUSTIFICATION_H_
-#define _NLSAT_JUSTIFICATION_H_
+#ifndef NLSAT_JUSTIFICATION_H_
+#define NLSAT_JUSTIFICATION_H_
 
 #include"nlsat_types.h"
 #include"tptr.h"

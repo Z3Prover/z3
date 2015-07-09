@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _UNION_FIND_H_
-#define _UNION_FIND_H_
+#ifndef UNION_FIND_H_
+#define UNION_FIND_H_
 
 #include "trail.h"
 #include "trace.h"
@@ -239,5 +239,5 @@ class basic_union_find {
 };
 
 
-#endif /* _UNION_FIND_H_ */
+#endif /* UNION_FIND_H_ */
 

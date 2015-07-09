@@ -15,8 +15,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _API_UTIL_H_
-#define _API_UTIL_H_
+#ifndef API_UTIL_H_
+#define API_UTIL_H_
 
 #include"params.h"
 #include"lbool.h"

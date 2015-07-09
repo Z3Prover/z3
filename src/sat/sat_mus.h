@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SAT_MUS_H_
-#define _SAT_MUS_H_
+#ifndef SAT_MUS_H_
+#define SAT_MUS_H_
 
 namespace sat {
     class mus {

@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _EXTENSION_MODEL_CONVERTER_H_
-#define _EXTENSION_MODEL_CONVERTER_H_
+#ifndef EXTENSION_MODEL_CONVERTER_H_
+#define EXTENSION_MODEL_CONVERTER_H_
 
 #include"ast.h"
 #include"model_converter.h"

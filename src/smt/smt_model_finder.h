@@ -43,8 +43,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_MODEL_FINDER_H_
-#define _SMT_MODEL_FINDER_H_
+#ifndef SMT_MODEL_FINDER_H_
+#define SMT_MODEL_FINDER_H_
 
 #include"ast.h"
 #include"func_decl_dependencies.h"

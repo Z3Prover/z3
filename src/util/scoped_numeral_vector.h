@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SCOPED_NUMERAL_VECTOR_H_
-#define _SCOPED_NUMERAL_VECTOR_H_
+#ifndef SCOPED_NUMERAL_VECTOR_H_
+#define SCOPED_NUMERAL_VECTOR_H_
 
 #include"vector.h"
 

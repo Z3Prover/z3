@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _UFBV_REWRITER_TACTIC_H_
-#define _UFBV_REWRITER_TACTIC_H_
+#ifndef UFBV_REWRITER_TACTIC_H_
+#define UFBV_REWRITER_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

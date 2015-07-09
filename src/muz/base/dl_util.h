@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_UTIL_H_
-#define _DL_UTIL_H_
+#ifndef DL_UTIL_H_
+#define DL_UTIL_H_
 
 #include"ast.h"
 #include"hashtable.h"
@@ -733,5 +733,5 @@ namespace datalog {
     bool read_uint64(const char * & s, uint64 & res);
 };
 
-#endif /* _DL_UTIL_H_ */
+#endif /* DL_UTIL_H_ */
 

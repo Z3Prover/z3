@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_QUANTIFIER_H_
-#define _SMT_QUANTIFIER_H_
+#ifndef SMT_QUANTIFIER_H_
+#define SMT_QUANTIFIER_H_
 
 #include"ast.h"
 #include"statistics.h"

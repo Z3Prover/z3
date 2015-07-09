@@ -21,8 +21,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PROBE_H_
-#define _PROBE_H_
+#ifndef PROBE_H_
+#define PROBE_H_
 
 #include"goal.h"
 

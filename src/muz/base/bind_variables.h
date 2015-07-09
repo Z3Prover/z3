@@ -18,8 +18,8 @@ Notes:
 
 --*/
 
-#ifndef _BIND_VARIABLES_H_
-#define _BIND_VARIABLES_H_
+#ifndef BIND_VARIABLES_H_
+#define BIND_VARIABLES_H_
 
 #include"ast.h"
 
@@ -48,4 +48,4 @@ public:
     void add_var(app* v);
 };
 
-#endif /* _BIND_VARIABLES_H_ */
+#endif /* BIND_VARIABLES_H_ */

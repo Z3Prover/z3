@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _DL_SPARSE_TABLE_H_
-#define _DL_SPARSE_TABLE_H_
+#ifndef DL_SPARSE_TABLE_H_
+#define DL_SPARSE_TABLE_H_
 
 #include<iostream>
 #include<list>
@@ -495,4 +495,4 @@ namespace datalog {
 
  };
 
- #endif /* _DL_SPARSE_TABLE_H_ */
+#endif /* DL_SPARSE_TABLE_H_ */

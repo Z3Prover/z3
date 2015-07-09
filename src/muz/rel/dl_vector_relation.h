@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_VECTOR_RELATION_H_
-#define _DL_VECTOR_RELATION_H_
+#ifndef DL_VECTOR_RELATION_H_
+#define DL_VECTOR_RELATION_H_
 
 #include "ast_pp.h"
 #include "dl_context.h"

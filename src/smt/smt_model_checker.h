@@ -18,8 +18,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_MODEL_CHECKER_H_
-#define _SMT_MODEL_CHECKER_H_
+#ifndef SMT_MODEL_CHECKER_H_
+#define SMT_MODEL_CHECKER_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

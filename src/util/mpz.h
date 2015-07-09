@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MPZ_H_
-#define _MPZ_H_
+#ifndef MPZ_H_
+#define MPZ_H_
 
 #include<limits.h>
 #include<string>
@@ -831,5 +831,5 @@ typedef _scoped_numeral<unsynch_mpz_manager> scoped_mpz;
 typedef _scoped_numeral<synch_mpz_manager> scoped_synch_mpz;
 typedef _scoped_numeral_vector<unsynch_mpz_manager> scoped_mpz_vector;
 
-#endif /* _MPZ_H_ */
+#endif /* MPZ_H_ */
 

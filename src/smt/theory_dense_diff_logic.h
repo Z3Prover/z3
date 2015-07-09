@@ -18,8 +18,8 @@ Revision History:
 TODO: eager equality propagation
 
 --*/
-#ifndef _THEORY_DENSE_DIFF_LOGIC_H_
-#define _THEORY_DENSE_DIFF_LOGIC_H_
+#ifndef THEORY_DENSE_DIFF_LOGIC_H_
+#define THEORY_DENSE_DIFF_LOGIC_H_
 
 #include"theory_arith.h"
 #include"theory_arith_params.h"
@@ -298,5 +298,5 @@ namespace smt {
     typedef theory_dense_diff_logic<si_ext>  theory_dense_si;
 };
 
-#endif /* _THEORY_DENSE_DIFF_LOGIC_H_ */
+#endif /* THEORY_DENSE_DIFF_LOGIC_H_ */
 

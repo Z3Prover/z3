@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PATTERN_INFERENCE_H_
-#define _PATTERN_INFERENCE_H_
+#ifndef PATTERN_INFERENCE_H_
+#define PATTERN_INFERENCE_H_
 
 #include"ast.h"
 #include"simplifier.h"
@@ -244,5 +244,5 @@ public:
     bool is_forbidden(app * n) const;
 };
 
-#endif /* _PATTERN_INFERENCE_H_ */
+#endif /* PATTERN_INFERENCE_H_ */
 

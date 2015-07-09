@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DATATYPE_DECL_PLUGIN_H_
-#define _DATATYPE_DECL_PLUGIN_H_
+#ifndef DATATYPE_DECL_PLUGIN_H_
+#define DATATYPE_DECL_PLUGIN_H_
 
 #include"ast.h"
 #include"tptr.h"
@@ -214,5 +214,5 @@ public:
 
 };
 
-#endif /* _DATATYPE_DECL_PLUGIN_H_ */
+#endif /* DATATYPE_DECL_PLUGIN_H_ */
 

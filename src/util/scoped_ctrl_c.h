@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SCOPED_CTRL_C_H_
-#define _SCOPED_CTRL_C_H_
+#ifndef SCOPED_CTRL_C_H_
+#define SCOPED_CTRL_C_H_
 
 #include"event_handler.h"
 

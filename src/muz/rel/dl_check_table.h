@@ -18,8 +18,8 @@ Revision History:
 
 --*/
 
-#ifndef _DL_CHECK_TABLE_H_
-#define _DL_CHECK_TABLE_H_
+#ifndef DL_CHECK_TABLE_H_
+#define DL_CHECK_TABLE_H_
 
 #include "dl_base.h"
 #include "dl_decl_plugin.h"
@@ -132,4 +132,4 @@ namespace datalog {
 
  };
 
- #endif /* _DL_CHECK_TABLE_H_ */
+#endif /* DL_CHECK_TABLE_H_ */

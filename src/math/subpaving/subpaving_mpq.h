@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef __SUBPAVING_MPQ_H_
-#define __SUBPAVING_MPQ_H_
+#ifndef SUBPAVING_MPQ_H_
+#define SUBPAVING_MPQ_H_
 
 #include"subpaving_t.h"
 #include"mpq.h"

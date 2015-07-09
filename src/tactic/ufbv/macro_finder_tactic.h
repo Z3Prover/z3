@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _MACRO_FINDER_TACTIC_H_
-#define _MACRO_FINDER_TACTIC_H_
+#ifndef MACRO_FINDER_TACTIC_H_
+#define MACRO_FINDER_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

@@ -15,8 +15,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _OPT_CMDS_H_
-#define _OPT_CMDS_H_
+#ifndef OPT_CMDS_H_
+#define OPT_CMDS_H_
 
 #include "ast.h"
 

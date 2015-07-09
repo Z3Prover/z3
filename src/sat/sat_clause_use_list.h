@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_CLAUSE_USE_LIST_H_
-#define _SAT_CLAUSE_USE_LIST_H_
+#ifndef SAT_CLAUSE_USE_LIST_H_
+#define SAT_CLAUSE_USE_LIST_H_
 
 #include"sat_types.h"
 #include"trace.h"

@@ -15,8 +15,8 @@ Author:
 
 --*/
 
-#ifndef __SIMPLIFIER_PLUGIN_H__
-#define __SIMPLIFIER_PLUGIN_H__
+#ifndef SIMPLIFIER_PLUGIN_H_
+#define SIMPLIFIER_PLUGIN_H_
 
 #include"ast.h"
 

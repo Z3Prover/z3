@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _ARRAY_FACTORY_H_
-#define _ARRAY_FACTORY_H_
+#ifndef ARRAY_FACTORY_H_
+#define ARRAY_FACTORY_H_
 
 #include"struct_factory.h"
 
@@ -41,5 +41,5 @@ public:
     virtual expr * get_fresh_value(sort * s);
 };
 
-#endif /* _ARRAY_FACTORY_H_ */
+#endif /* ARRAY_FACTORY_H_ */
 

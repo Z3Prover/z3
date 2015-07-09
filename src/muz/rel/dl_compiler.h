@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_COMPILER_H_
-#define _DL_COMPILER_H_
+#ifndef DL_COMPILER_H_
+#define DL_COMPILER_H_
 
 #include<iostream>
 #include<list>
@@ -299,5 +299,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_COMPILER_H_ */
+#endif /* DL_COMPILER_H_ */
 

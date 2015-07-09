@@ -17,8 +17,8 @@
 
 
   --*/
-#ifndef __DUALITY_WRAPPER_H_
-#define __DUALITY_WRAPPER_H_
+#ifndef DUALITY_WRAPPER_H_
+#define DUALITY_WRAPPER_H_
 
 #include<cassert>
 #include<iostream>

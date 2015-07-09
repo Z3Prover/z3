@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _API_DATALOG_H_
-#define _API_DATALOG_H_
+#ifndef API_DATALOG_H_
+#define API_DATALOG_H_
 
 #include"z3.h"
 #include"ast.h"

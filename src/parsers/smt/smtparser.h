@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_PARSER_H_
-#define _SMT_PARSER_H_
+#ifndef SMT_PARSER_H_
+#define SMT_PARSER_H_
 
 #include<iostream>
 #include"ast.h"

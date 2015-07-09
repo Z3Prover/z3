@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT2SCANNER_H_
-#define _SMT2SCANNER_H_
+#ifndef SMT2SCANNER_H_
+#define SMT2SCANNER_H_
 
 #include<iostream>
 #include"symbol.h"
@@ -105,5 +105,5 @@ namespace smt2 {
 
 };
 
-#endif /* _SCANNER_H_ */
+#endif /* SCANNER_H_ */
 

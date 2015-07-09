@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _MACHINE_H_
-#define _MACHINE_H_
+#ifndef MACHINE_H_
+#define MACHINE_H_
 
 #ifdef _AMD64_
 #define PTR_ALIGNMENT 3
@@ -26,5 +26,5 @@ Revision History:
 #define PTR_ALIGNMENT 2
 #endif
 
-#endif /* _MACHINE_H_ */
+#endif /* MACHINE_H_ */
 

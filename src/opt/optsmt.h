@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _OPTSMT_H_
-#define _OPTSMT_H_
+#ifndef OPTSMT_H_
+#define OPTSMT_H_
 
 #include "opt_solver.h"
 

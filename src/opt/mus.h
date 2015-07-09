@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _MUS_H_
-#define _MUS_H_
+#ifndef MUS_H_
+#define MUS_H_
 
 namespace opt {
     class mus {

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MAP_H_
-#define _MAP_H_
+#ifndef MAP_H_
+#define MAP_H_
 
 #include"hashtable.h"
 

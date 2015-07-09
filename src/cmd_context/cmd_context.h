@@ -18,8 +18,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _CMD_CONTEXT_H_
-#define _CMD_CONTEXT_H_
+#ifndef CMD_CONTEXT_H_
+#define CMD_CONTEXT_H_
 
 #include<sstream>
 #include"ast.h"

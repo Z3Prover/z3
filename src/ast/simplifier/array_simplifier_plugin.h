@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _ARRAY_SIMPLIFIER_PLUGIN_H_
-#define _ARRAY_SIMPLIFIER_PLUGIN_H_
+#ifndef ARRAY_SIMPLIFIER_PLUGIN_H_
+#define ARRAY_SIMPLIFIER_PLUGIN_H_
 
 #include"ast.h"
 #include"map.h"
@@ -150,5 +150,5 @@ private:
 };
 
 
-#endif /* _ARRAY_SIMPLIFIER_PLUGIN_H_ */
+#endif /* ARRAY_SIMPLIFIER_PLUGIN_H_ */
 

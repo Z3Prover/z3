@@ -21,8 +21,8 @@ Notes:
     It uses the smt_context for the solver.
 
 --*/
-#ifndef _UNIT_SUBSUMPTION_TACTIC_H_
-#define _UNIT_SUBSUMPTION_TACTIC_H_
+#ifndef UNIT_SUBSUMPTION_TACTIC_H_
+#define UNIT_SUBSUMPTION_TACTIC_H_
 #include "tactic.h"
 
 tactic * mk_unit_subsumption_tactic(ast_manager & m, params_ref const & p = params_ref());

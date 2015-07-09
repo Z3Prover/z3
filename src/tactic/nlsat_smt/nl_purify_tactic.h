@@ -18,8 +18,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NL_PURIFY_TACTIC_H_
-#define _NL_PURIFY_TACTIC_H_
+#ifndef NL_PURIFY_TACTIC_H_
+#define NL_PURIFY_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

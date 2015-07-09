@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NLSAT_CLAUSE_H_
-#define _NLSAT_CLAUSE_H_
+#ifndef NLSAT_CLAUSE_H_
+#define NLSAT_CLAUSE_H_
 
 #include"nlsat_types.h"
 #include"vector.h"

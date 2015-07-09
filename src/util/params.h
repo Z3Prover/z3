@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _PARAMS_H_
-#define _PARAMS_H_
+#ifndef PARAMS_H_
+#define PARAMS_H_
 
 #include"cmd_context_types.h"
 #include"vector.h"

@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _PDR_UTIL_H_
-#define _PDR_UTIL_H_
+#ifndef PDR_UTIL_H_
+#define PDR_UTIL_H_
 
 #include "ast.h"
 #include "ast_pp.h"

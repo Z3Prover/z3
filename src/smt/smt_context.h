@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_CONTEXT_H_
-#define _SMT_CONTEXT_H_
+#ifndef SMT_CONTEXT_H_
+#define SMT_CONTEXT_H_
 
 #include"smt_clause.h"
 #include"smt_setup.h"
@@ -1440,5 +1440,5 @@ namespace smt {
 
 };
 
-#endif /* _SMT_CONTEXT_H_ */
+#endif /* SMT_CONTEXT_H_ */
 

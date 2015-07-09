@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_INSTRUCTION_H_
-#define _DL_INSTRUCTION_H_
+#ifndef DL_INSTRUCTION_H_
+#define DL_INSTRUCTION_H_
 
 #include<iostream>
 #include<string>
@@ -368,5 +368,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_INSTRUCTION_H_ */
+#endif /* DL_INSTRUCTION_H_ */
 

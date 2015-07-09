@@ -20,8 +20,8 @@ Revision History:
 
 --*/
 
-#ifndef _REPLACE_PROOF_CONVERTER_H_
-#define _REPLACE_PROOF_CONVERTER_H_
+#ifndef REPLACE_PROOF_CONVERTER_H_
+#define REPLACE_PROOF_CONVERTER_H_
 
 #include "proof_converter.h"
 

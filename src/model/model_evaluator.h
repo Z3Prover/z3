@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MODEL_EVALUATOR_H_
-#define _MODEL_EVALUATOR_H_
+#ifndef MODEL_EVALUATOR_H_
+#define MODEL_EVALUATOR_H_
 
 #include"ast.h"
 #include"rewriter_types.h"

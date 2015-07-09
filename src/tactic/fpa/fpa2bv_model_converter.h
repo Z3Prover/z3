@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _FPA2BV_MODEL_CONVERTER_H_
-#define _FPA2BV_MODEL_CONVERTER_H_
+#ifndef FPA2BV_MODEL_CONVERTER_H_
+#define FPA2BV_MODEL_CONVERTER_H_
 
 #include"fpa2bv_converter.h"
 #include"model_converter.h"

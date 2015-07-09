@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SAT_SLS_H_
-#define _SAT_SLS_H_
+#ifndef SAT_SLS_H_
+#define SAT_SLS_H_
 
 #include "util.h"
 #include "sat_simplifier.h"

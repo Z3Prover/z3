@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _POLYNOMIAL_PRIMES_H_
-#define _POLYNOMIAL_PRIMES_H_
+#ifndef POLYNOMIAL_PRIMES_H_
+#define POLYNOMIAL_PRIMES_H_
 
 namespace polynomial {
 #define NUM_SMALL_PRIMES 11

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PROBE_ARITH_H_
-#define _PROBE_ARITH_H_
+#ifndef PROBE_ARITH_H_
+#define PROBE_ARITH_H_
 
 class probe;
 probe * mk_arith_avg_bw_probe();

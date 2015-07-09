@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _ARITH_REWRITER_H_
-#define _ARITH_REWRITER_H_
+#ifndef ARITH_REWRITER_H_
+#define ARITH_REWRITER_H_
 
 #include"poly_rewriter.h"
 #include"arith_decl_plugin.h"

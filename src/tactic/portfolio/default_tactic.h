@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _DEFAULT_TACTIC_
-#define _DEFAULT_TACTIC_
+#ifndef DEFAULT_TACTIC_H_
+#define DEFAULT_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

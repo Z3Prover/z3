@@ -18,8 +18,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _EXPR_MAP_H_
-#define _EXPR_MAP_H_
+#ifndef EXPR_MAP_H_
+#define EXPR_MAP_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

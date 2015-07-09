@@ -22,8 +22,8 @@ Notes:
    [3] Henri Cohen. A Course in Computational Algebraic Number Theory. Springer Verlag, 1993.
 
 --*/
-#ifndef _UPOLYNOMIAL_FACTORIZATION_H_
-#define _UPOLYNOMIAL_FACTORIZATION_H_
+#ifndef UPOLYNOMIAL_FACTORIZATION_H_
+#define UPOLYNOMIAL_FACTORIZATION_H_
 
 #include"upolynomial.h"
 #include"polynomial.h"

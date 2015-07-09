@@ -18,8 +18,8 @@ Revision History:
     2012-11-17 - ast_smt2_pp is the official pretty printer in Z3
 
 --*/
-#ifndef _AST_PP_H_
-#define _AST_PP_H_
+#ifndef AST_PP_H_
+#define AST_PP_H_
 
 #include"ast_smt2_pp.h"
 

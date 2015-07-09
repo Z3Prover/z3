@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _CONTEXT_PARAMS_H_
-#define _CONTEXT_PARAMS_H_
+#ifndef CONTEXT_PARAMS_H_
+#define CONTEXT_PARAMS_H_
 
 #include"params.h"
 class ast_manager;

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _CANCEL_EH_H_
-#define _CANCEL_EH_H_
+#ifndef CANCEL_EH_H_
+#define CANCEL_EH_H_
 
 #include"event_handler.h"
 

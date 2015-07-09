@@ -17,8 +17,8 @@ Notes:
 
    
 --*/
-#ifndef _OPT_PARETO_H_
-#define _OPT_PARETO_H_
+#ifndef OPT_PARETO_H_
+#define OPT_PARETO_H_
 
 #include "solver.h"
 #include "model.h"

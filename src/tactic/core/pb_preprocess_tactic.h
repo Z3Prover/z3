@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _PB_PREPROCESS_TACTIC_H_
-#define _PB_PREPROCESS_TACTIC_H_
+#ifndef PB_PREPROCESS_TACTIC_H_
+#define PB_PREPROCESS_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

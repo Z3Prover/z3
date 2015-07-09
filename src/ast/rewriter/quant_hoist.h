@@ -19,8 +19,8 @@ Revision History:
 
 --*/
 
-#ifndef __QUANTIFIER_HOISTER_H_
-#define __QUANTIFIER_HOISTER_H_
+#ifndef QUANTIFIER_HOISTER_H_
+#define QUANTIFIER_HOISTER_H_
 
 #include "ast.h"
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_CONTEXT_H_
-#define _DL_CONTEXT_H_
+#ifndef DL_CONTEXT_H_
+#define DL_CONTEXT_H_
 
 #ifdef _CYGWIN
 #undef min
@@ -586,5 +586,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_CONTEXT_H_ */
+#endif /* DL_CONTEXT_H_ */
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _RATIONAL_H_
-#define _RATIONAL_H_
+#ifndef RATIONAL_H_
+#define RATIONAL_H_
 
 #include"mpq.h"
 
@@ -457,5 +457,5 @@ inline rational gcd(rational const & r1, rational const & r2, rational & a, rati
 }
 
 
-#endif /* _RATIONAL_H_ */
+#endif /* RATIONAL_H_ */
 

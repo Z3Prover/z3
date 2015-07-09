@@ -14,8 +14,8 @@ Author:
     Leonardo de Moura (leonardo) 2012-02-18.
 
 --*/
-#ifndef _DISTRIBUTE_FORALL_TACTIC_H_
-#define _DISTRIBUTE_FORALL_TACTIC_H_
+#ifndef DISTRIBUTE_FORALL_TACTIC_H_
+#define DISTRIBUTE_FORALL_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

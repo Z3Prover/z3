@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _LIA2CARD_TACTIC_H_
-#define _LIA2CARD_TACTIC_H_
+#ifndef LIA2CARD_TACTIC_H_
+#define LIA2CARD_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

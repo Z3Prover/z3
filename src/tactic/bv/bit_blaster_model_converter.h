@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _BIT_BLASTER_MODEL_CONVERTER_H_
-#define _BIT_BLASTER_MODEL_CONVERTER_H_
+#ifndef BIT_BLASTER_MODEL_CONVERTER_H_
+#define BIT_BLASTER_MODEL_CONVERTER_H_
 
 #include"model_converter.h"
 

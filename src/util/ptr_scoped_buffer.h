@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PTR_SCOPED_BUFFER_H_
-#define _PTR_SCOPED_BUFFER_H_
+#ifndef PTR_SCOPED_BUFFER_H_
+#define PTR_SCOPED_BUFFER_H_
 
 #include"util.h"
 #include"debug.h"

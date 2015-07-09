@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MACRO_UTIL_H_
-#define _MACRO_UTIL_H_
+#ifndef MACRO_UTIL_H_
+#define MACRO_UTIL_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

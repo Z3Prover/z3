@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _REF_VECTOR_H_
-#define _REF_VECTOR_H_
+#ifndef REF_VECTOR_H_
+#define REF_VECTOR_H_
 
 #include"vector.h"
 #include"obj_ref.h"
@@ -351,4 +351,4 @@ struct ref_vector_ptr_eq {
 };
 
 
-#endif /* _REF_VECTOR_H_ */
+#endif /* REF_VECTOR_H_ */

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _NLSAT_TACTIC_H_
-#define _NLSAT_TACTIC_H_
+#ifndef NLSAT_TACTIC_H_
+#define NLSAT_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

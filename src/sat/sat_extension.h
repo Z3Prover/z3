@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_EXTENSION_H_
-#define _SAT_EXTENSION_H_
+#ifndef SAT_EXTENSION_H_
+#define SAT_EXTENSION_H_
 
 #include"sat_types.h"
 #include"params.h"

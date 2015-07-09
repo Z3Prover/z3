@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SEXPR2UPOLYNOMIAL_H_
-#define _SEXPR2UPOLYNOMIAL_H_
+#ifndef SEXPR2UPOLYNOMIAL_H_
+#define SEXPR2UPOLYNOMIAL_H_
 
 #include"upolynomial.h"
 #include"cmd_context_types.h"

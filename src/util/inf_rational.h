@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _INF_RATIONAL_H_
-#define _INF_RATIONAL_H_
+#ifndef INF_RATIONAL_H_
+#define INF_RATIONAL_H_
 #include<stdlib.h>
 #include<string>
 #include"debug.h"
@@ -471,4 +471,4 @@ inline inf_rational abs(const inf_rational & r) {
     return result;
 }
 
-#endif /* _INF_RATIONAL_H_ */
+#endif /* INF_RATIONAL_H_ */

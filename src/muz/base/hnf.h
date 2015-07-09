@@ -22,8 +22,8 @@ Copyright (c) 2015 Microsoft Corporation
  
 --*/
  
-#ifndef _HNF_H_
-#define _HNF_H_
+#ifndef HNF_H_
+#define HNF_H_
  
 #include"ast.h"
 #include"params.h"
@@ -51,4 +51,4 @@ class hnf {
     func_decl_ref_vector const& get_fresh_predicates();
 };
  
-#endif /* _HNF_H_ */
+#endif /* HNF_H_ */

@@ -24,8 +24,8 @@ Revision History:
         smt::solver     ---> smt::kernel
         default_solver  ---> smt::solver
 --*/
-#ifndef _SMT_KERNEL_H_
-#define _SMT_KERNEL_H_
+#ifndef SMT_KERNEL_H_
+#define SMT_KERNEL_H_
 
 #include"ast.h"
 #include"params.h"

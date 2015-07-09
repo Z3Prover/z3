@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _STATISTICS_H_
-#define _STATISTICS_H_
+#ifndef STATISTICS_H_
+#define STATISTICS_H_
 
 #include<iostream>
 #include"vector.h"

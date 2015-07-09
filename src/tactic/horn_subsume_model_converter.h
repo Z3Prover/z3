@@ -32,8 +32,8 @@ Subsumption transformation (remove Horn clause):
 
 --*/
 
-#ifndef _HORN_SUBSUME_MODEL_CONVERTER_H_
-#define _HORN_SUBSUME_MODEL_CONVERTER_H_
+#ifndef HORN_SUBSUME_MODEL_CONVERTER_H_
+#define HORN_SUBSUME_MODEL_CONVERTER_H_
 
 #include "model_converter.h"
 #include "th_rewriter.h"

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _BV2INT_REWRITER_H_
-#define _BV2INT_REWRITER_H_
+#ifndef BV2INT_REWRITER_H_
+#define BV2INT_REWRITER_H_
 
 #include"ast.h"
 #include"rewriter.h"

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MODEL_CORE_H
-#define _MODEL_CORE_H
+#ifndef MODEL_CORE_H_
+#define MODEL_CORE_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

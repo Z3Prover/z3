@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _IM_FLOAT_CONFIG_H_
-#define _IM_FLOAT_CONFIG_H_
+#ifndef IM_FLOAT_CONFIG_H_
+#define IM_FLOAT_CONFIG_H_
 
 #include"f2n.h"
 #include"mpf.h"

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DEPENDENCY_H_
-#define _DEPENDENCY_H_
+#ifndef DEPENDENCY_H_
+#define DEPENDENCY_H_
 
 #include"vector.h"
 #include"region.h"
@@ -322,5 +322,5 @@ public:
 typedef scoped_dependency_manager<void*>             v_dependency_manager;
 typedef scoped_dependency_manager<void*>::dependency v_dependency;
 
-#endif /* _DEPENDENCY_H_ */
+#endif /* DEPENDENCY_H_ */
 

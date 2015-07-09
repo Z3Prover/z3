@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BV_SIMPLIFIER_PARAMS_H_
-#define _BV_SIMPLIFIER_PARAMS_H_
+#ifndef BV_SIMPLIFIER_PARAMS_H_
+#define BV_SIMPLIFIER_PARAMS_H_
 
 #include"params.h"
 
@@ -32,5 +32,5 @@ struct bv_simplifier_params {
     void updt_params(params_ref const & _p);
 };
 
-#endif /* _BV_SIMPLIFIER_PARAMS_H_ */
+#endif /* BV_SIMPLIFIER_PARAMS_H_ */
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_ARRAY_FULL_H_
-#define _THEORY_ARRAY_FULL_H_
+#ifndef THEORY_ARRAY_FULL_H_
+#define THEORY_ARRAY_FULL_H_
 
 #include "theory_array.h"
 #include "simplifier.h"
@@ -107,5 +107,5 @@ namespace smt {
 
 };
 
-#endif /* _THEORY_ARRAY_H_ */
+#endif /* THEORY_ARRAY_H_ */
 

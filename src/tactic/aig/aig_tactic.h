@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _AIG_TACTIC_H_
-#define _AIG_TACTIC_H_
+#ifndef AIG_TACTIC_H_
+#define AIG_TACTIC_H_
 
 #include"params.h"
 class tactic;

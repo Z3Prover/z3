@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_BOUND_RELATION_H_
-#define _DL_BOUND_RELATION_H_
+#ifndef DL_BOUND_RELATION_H_
+#define DL_BOUND_RELATION_H_
 
 #include "dl_context.h"
 #include "dl_relation_manager.h"

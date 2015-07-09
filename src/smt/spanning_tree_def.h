@@ -16,8 +16,8 @@ Notes:
    
 --*/
 
-#ifndef _SPANNING_TREE_DEF_H_
-#define _SPANNING_TREE_DEF_H_
+#ifndef SPANNING_TREE_DEF_H_
+#define SPANNING_TREE_DEF_H_
 
 #include "spanning_tree.h"
 

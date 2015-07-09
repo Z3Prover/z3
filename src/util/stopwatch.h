@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _STOPWATCH_H_
-#define _STOPWATCH_H_
+#ifndef STOPWATCH_H_
+#define STOPWATCH_H_
 
 #if defined(_WINDOWS) || defined(_CYGWIN)
 

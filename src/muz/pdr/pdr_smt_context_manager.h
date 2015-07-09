@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _PDR_SMT_CONTEXT_MANAGER_H_
-#define _PDR_SMT_CONTEXT_MANAGER_H_
+#ifndef PDR_SMT_CONTEXT_MANAGER_H_
+#define PDR_SMT_CONTEXT_MANAGER_H_
 
 #include "smt_kernel.h"
 #include "func_decl_dependencies.h"

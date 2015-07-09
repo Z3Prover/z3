@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_WATCHED_H_
-#define _SAT_WATCHED_H_
+#ifndef SAT_WATCHED_H_
+#define SAT_WATCHED_H_
 
 #include"sat_types.h"
 #include"vector.h"

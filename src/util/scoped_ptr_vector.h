@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SCOPED_PTR_VECTOR_H_
-#define _SCOPED_PTR_VECTOR_H_
+#ifndef SCOPED_PTR_VECTOR_H_
+#define SCOPED_PTR_VECTOR_H_
 
 #include"vector.h"
 #include"util.h"

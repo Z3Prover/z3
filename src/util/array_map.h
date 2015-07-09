@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _ARRAY_MAP_H_
-#define _ARRAY_MAP_H_
+#ifndef ARRAY_MAP_H_
+#define ARRAY_MAP_H_
 
 #include"vector.h"
 #include"optional.h"
@@ -159,4 +159,4 @@ public:
 
 };
 
-#endif /* _ARRAY_MAP_H_ */
+#endif /* ARRAY_MAP_H_ */

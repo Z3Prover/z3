@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_SEQ_EMPTY_H_
-#define _THEORY_SEQ_EMPTY_H_
+#ifndef THEORY_SEQ_EMPTY_H_
+#define THEORY_SEQ_EMPTY_H_
 
 #include "smt_theory.h"
 
@@ -37,5 +37,5 @@ namespace smt {
 
 };
 
-#endif /* _THEORY_SEQ_EMPTY_H_ */
+#endif /* THEORY_SEQ_EMPTY_H_ */
 

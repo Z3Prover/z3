@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _S_INTEGER_H_
-#define _S_INTEGER_H_
+#ifndef S_INTEGER_H_
+#define S_INTEGER_H_
 
 #include"rational.h"
 
@@ -145,5 +145,5 @@ inline s_integer abs(const s_integer & r) {
     return result;
 }
 
-#endif /* _S_INTEGER_H_ */
+#endif /* S_INTEGER_H_ */
 

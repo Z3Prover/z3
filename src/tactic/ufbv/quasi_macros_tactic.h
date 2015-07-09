@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _QUASI_MACROS_TACTIC_H_
-#define _QUASI_MACROS_TACTIC_H_
+#ifndef QUASI_MACROS_TACTIC_H_
+#define QUASI_MACROS_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

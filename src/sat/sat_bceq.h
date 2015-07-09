@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_BCEQ_H_
-#define _SAT_BCEQ_H_
+#ifndef SAT_BCEQ_H_
+#define SAT_BCEQ_H_
 
 #include"sat_types.h"
 #include "union_find.h"

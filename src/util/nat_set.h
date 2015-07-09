@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NAT_SET_H_
-#define _NAT_SET_H_
+#ifndef NAT_SET_H_
+#define NAT_SET_H_
 
 #include<limits.h>
 #include"vector.h"
@@ -84,5 +84,5 @@ public:
     }
 };
 
-#endif /* _NAT_SET_H_ */
+#endif /* NAT_SET_H_ */
 

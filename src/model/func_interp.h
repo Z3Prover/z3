@@ -27,8 +27,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _FUNC_INTERP_H
-#define _FUNC_INTERP_H
+#ifndef FUNC_INTERP_H_
+#define FUNC_INTERP_H_
 
 #include"ast.h"
 #include"ast_translation.h"

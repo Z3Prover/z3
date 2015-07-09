@@ -15,8 +15,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _API_AST_VECTOR_H_
-#define _API_AST_VECTOR_H_
+#ifndef API_AST_VECTOR_H_
+#define API_AST_VECTOR_H_
 
 #include"api_util.h"
 

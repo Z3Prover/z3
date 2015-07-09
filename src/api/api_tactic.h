@@ -15,8 +15,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _API_TACTIC_H_
-#define _API_TACTIC_H_
+#ifndef API_TACTIC_H_
+#define API_TACTIC_H_
 
 #include"api_goal.h"
 #include"tactical.h"

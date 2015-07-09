@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _MODEL_IMPLICANT_H_
-#define _MODEL_IMPLICANT_H_
+#ifndef MODEL_IMPLICANT_H_
+#define MODEL_IMPLICANT_H_
 
 #include "ast.h"
 #include "ast_pp.h"

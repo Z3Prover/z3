@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_JUSTIFICATIONS_H_
-#define _SAT_JUSTIFICATIONS_H_
+#ifndef SAT_JUSTIFICATIONS_H_
+#define SAT_JUSTIFICATIONS_H_
 
 namespace sat {
     

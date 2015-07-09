@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _AST_UTIL_H_
-#define _AST_UTIL_H_
+#ifndef AST_UTIL_H_
+#define AST_UTIL_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -139,5 +139,5 @@ void flatten_or(expr_ref_vector& result);
 void flatten_or(expr* fml, expr_ref_vector& result);
 
 
-#endif /* _AST_UTIL_H_ */
+#endif /* AST_UTIL_H_ */
 

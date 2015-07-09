@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _CLP_CONTEXT_H_
-#define _CLP_CONTEXT_H_
+#ifndef CLP_CONTEXT_H_
+#define CLP_CONTEXT_H_
 
 #include "ast.h"
 #include "lbool.h"

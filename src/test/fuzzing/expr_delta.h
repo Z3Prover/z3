@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _EXPR_DELTA_H_
-#define _EXPR_DELTA_H_
+#ifndef EXPR_DELTA_H_
+#define EXPR_DELTA_H_
 
 #include "ast.h"
 

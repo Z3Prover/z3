@@ -15,8 +15,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _API_STATS_H_
-#define _API_STATS_H_
+#ifndef API_STATS_H_
+#define API_STATS_H_
 
 #include"api_util.h"
 #include"statistics.h"

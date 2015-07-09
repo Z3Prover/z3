@@ -15,8 +15,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _OPT_CONTEXT_H_
-#define _OPT_CONTEXT_H_
+#ifndef OPT_CONTEXT_H_
+#define OPT_CONTEXT_H_
 
 #include "ast.h"
 #include "opt_solver.h"

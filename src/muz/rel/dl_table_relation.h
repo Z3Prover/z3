@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_TABLE_RELATION_H_
-#define _DL_TABLE_RELATION_H_
+#ifndef DL_TABLE_RELATION_H_
+#define DL_TABLE_RELATION_H_
 
 
 #include "dl_base.h"
@@ -129,5 +129,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_TABLE_RELATION_H_ */
+#endif /* DL_TABLE_RELATION_H_ */
 

@@ -15,8 +15,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SIMPLIFY_CMD_H_
-#define _SIMPLIFY_CMD_H_
+#ifndef SIMPLIFY_CMD_H_
+#define SIMPLIFY_CMD_H_
 
 class cmd_context;
 

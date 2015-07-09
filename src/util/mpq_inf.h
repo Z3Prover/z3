@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MPQ_INF_H_
-#define _MPQ_INF_H_
+#ifndef MPQ_INF_H_
+#define MPQ_INF_H_
 
 #include"mpq.h"
 #include"hash.h"

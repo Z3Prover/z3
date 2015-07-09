@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DIFF_LOGIC_H_
-#define _DIFF_LOGIC_H_
+#ifndef DIFF_LOGIC_H_
+#define DIFF_LOGIC_H_
 
 #include"vector.h"
 #include"heap.h"
@@ -1832,5 +1832,5 @@ public:
     }
 };
 
-#endif /* _DIFF_LOGIC_H_ */
+#endif /* DIFF_LOGIC_H_ */
 

@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PP_H_
-#define _PP_H_
+#ifndef PP_H_
+#define PP_H_
 
 #include"format.h"
 #include"params.h"
 
 void pp(std::ostream & out, format_ns::format * f, ast_manager & m, params_ref const & p = params_ref());
 
-#endif /* _PP_H_ */
+#endif /* PP_H_ */
 

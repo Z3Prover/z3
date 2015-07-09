@@ -18,8 +18,8 @@ Notes:
     This file was called default_solver.h. It was a bad name.
 
 --*/
-#ifndef _SMT_SOLVER_H_
-#define _SMT_SOLVER_H_
+#ifndef SMT_SOLVER_H_
+#define SMT_SOLVER_H_
 
 #include"ast.h"
 #include"params.h"

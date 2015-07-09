@@ -25,8 +25,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _CHASHTABLE_H_
-#define _CHASHTABLE_H_
+#ifndef CHASHTABLE_H_
+#define CHASHTABLE_H_
 
 #include"memory_manager.h"
 #include"debug.h"

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_RULE_SET_H_
-#define _DL_RULE_SET_H_
+#ifndef DL_RULE_SET_H_
+#define DL_RULE_SET_H_
 
 #include"obj_hashtable.h"
 #include"dl_rule.h"
@@ -279,5 +279,5 @@ namespace datalog {
     
 };
 
-#endif /* _DL_RULE_SET_H_ */
+#endif /* DL_RULE_SET_H_ */
 

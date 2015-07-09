@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _DL_RULE_H_
-#define _DL_RULE_H_
+#ifndef DL_RULE_H_
+#define DL_RULE_H_
 
 #include"ast.h"
 #include"dl_costs.h"
@@ -387,5 +387,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_RULE_H_ */
+#endif /* DL_RULE_H_ */
 

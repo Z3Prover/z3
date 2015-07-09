@@ -47,8 +47,8 @@ Revision History:
 
 --*/
 
-#ifndef _THEORY_UTVPI_DEF_H_
-#define _THEORY_UTVPI_DEF_H_
+#ifndef THEORY_UTVPI_DEF_H_
+#define THEORY_UTVPI_DEF_H_
 #include "theory_utvpi.h"
 #include "heap.h"
 #include "ast_pp.h"

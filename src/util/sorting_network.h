@@ -21,8 +21,8 @@ Notes:
 
 #include "vector.h"
 
-#ifndef _SORTING_NETWORK_H_
-#define _SORTING_NETWORK_H_
+#ifndef SORTING_NETWORK_H_
+#define SORTING_NETWORK_H_
 
 
     template <typename Ext>

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _LIA2PB_TACTIC_H_
-#define _LIA2PB_TACTIC_H_
+#ifndef LIA2PB_TACTIC_H_
+#define LIA2PB_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

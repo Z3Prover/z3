@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _BV_REWRITER_H_
-#define _BV_REWRITER_H_
+#ifndef BV_REWRITER_H_
+#define BV_REWRITER_H_
 
 #include"poly_rewriter.h"
 #include"bv_decl_plugin.h"

@@ -15,8 +15,8 @@
   Notes:
 
   --*/
-#ifndef _INTERPOLANT_CMDS_H_
-#define _INTERPOLANT_CMDS_H_
+#ifndef INTERPOLANT_CMDS_H_
+#define INTERPOLANT_CMDS_H_
 
 class cmd_context;
 void install_interpolant_cmds(cmd_context & ctx);

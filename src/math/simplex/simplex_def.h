@@ -19,8 +19,8 @@ Notes:
 
 --*/
 
-#ifndef _SIMPLEX_DEF_H_
-#define _SIMPLEX_DEF_H_
+#ifndef SIMPLEX_DEF_H_
+#define SIMPLEX_DEF_H_
 
 
 namespace simplex {

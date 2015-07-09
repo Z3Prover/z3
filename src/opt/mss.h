@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _MSS_H_
-#define _MSS_H_
+#ifndef MSS_H_
+#define MSS_H_
 
 namespace opt {
     class mss {

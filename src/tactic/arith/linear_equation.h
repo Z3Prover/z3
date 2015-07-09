@@ -18,8 +18,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _LINEAR_EQUATION_H_
-#define _LINEAR_EQUATION_H_
+#ifndef LINEAR_EQUATION_H_
+#define LINEAR_EQUATION_H_
 
 #include"mpq.h"
 #include"small_object_allocator.h"

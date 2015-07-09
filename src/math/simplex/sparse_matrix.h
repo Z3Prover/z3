@@ -16,8 +16,8 @@ Notes:
 
 --*/
 
-#ifndef _SPARSE_MATRIX_H_
-#define _SPARSE_MATRIX_H_
+#ifndef SPARSE_MATRIX_H_
+#define SPARSE_MATRIX_H_
 
 #include "mpq_inf.h"
 #include "statistics.h"

@@ -15,8 +15,8 @@ Author:
 
 Revision History:
 --*/
-#ifndef _MODEL_V2_PP_H_
-#define _MODEL_V2_PP_H_
+#ifndef MODEL_V2_PP_H_
+#define MODEL_V2_PP_H_
 
 #include<iostream>
 class model_core;

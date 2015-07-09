@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef __DLIST_H_
-#define __DLIST_H_
+#ifndef DLIST_H_
+#define DLIST_H_
 
 /**
    Add element \c elem to the list headed by \c head.

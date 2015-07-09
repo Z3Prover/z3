@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_CASE_SPLIT_QUEUE_H_
-#define _SMT_CASE_SPLIT_QUEUE_H_
+#ifndef SMT_CASE_SPLIT_QUEUE_H_
+#define SMT_CASE_SPLIT_QUEUE_H_
 
 #include"smt_types.h"
 #include"heap.h"
@@ -51,5 +51,5 @@ namespace smt {
     case_split_queue * mk_case_split_queue(context & ctx, smt_params & p);
 };
 
-#endif /* _SMT_CASE_SPLIT_QUEUE_H_ */
+#endif /* SMT_CASE_SPLIT_QUEUE_H_ */
 

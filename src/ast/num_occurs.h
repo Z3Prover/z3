@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NUM_OCCURS_H_
-#define _NUM_OCCURS_H_
+#ifndef NUM_OCCURS_H_
+#define NUM_OCCURS_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -51,5 +51,5 @@ public:
     }
 };
 
-#endif /* _NUM_OCCURS_H_ */
+#endif /* NUM_OCCURS_H_ */
 

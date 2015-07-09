@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _ELIM_BOUNDS_H_
-#define _ELIM_BOUNDS_H_
+#ifndef ELIM_BOUNDS_H_
+#define ELIM_BOUNDS_H_
 
 #include"ast.h"
 #include"arith_decl_plugin.h"
@@ -65,5 +65,5 @@ public:
     virtual ~elim_bounds_star() {}
 };
 
-#endif /* _ELIM_BOUNDS_H_ */
+#endif /* ELIM_BOUNDS_H_ */
 

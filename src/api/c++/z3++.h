@@ -18,8 +18,8 @@ Author:
 Notes:
 
 --*/
-#ifndef __Z3PP_H_
-#define __Z3PP_H_
+#ifndef Z3PP_H_
+#define Z3PP_H_
 
 #include<cassert>
 #include<iostream>

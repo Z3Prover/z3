@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PULL_ITE_TREE_H_
-#define _PULL_ITE_TREE_H_
+#ifndef PULL_ITE_TREE_H_
+#define PULL_ITE_TREE_H_
 
 #include"ast.h"
 #include"simplifier.h"
@@ -97,5 +97,5 @@ public:
     virtual bool is_target(app * n) const;
 };
 
-#endif /* _PULL_ITE_TREE_H_ */
+#endif /* PULL_ITE_TREE_H_ */
 

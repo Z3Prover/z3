@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _ASSERTED_FORMULAS_H_
-#define _ASSERTED_FORMULAS_H_
+#ifndef ASSERTED_FORMULAS_H_
+#define ASSERTED_FORMULAS_H_
 
 #include"smt_params.h"
 #include"simplifier.h"
@@ -148,5 +148,5 @@ public:
 
 };
 
-#endif /* _ASSERTED_FORMULAS_H_ */
+#endif /* ASSERTED_FORMULAS_H_ */
 

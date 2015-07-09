@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _EXPR_SUBSTITUTION_H_
-#define _EXPR_SUBSTITUTION_H_
+#ifndef EXPR_SUBSTITUTION_H_
+#define EXPR_SUBSTITUTION_H_
 
 #include"ast.h"
 

@@ -18,8 +18,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_SIMPLIFIER_H_
-#define _SAT_SIMPLIFIER_H_
+#ifndef SAT_SIMPLIFIER_H_
+#define SAT_SIMPLIFIER_H_
 
 #include"sat_types.h"
 #include"sat_clause.h"

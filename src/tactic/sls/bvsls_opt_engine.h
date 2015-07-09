@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _BVSLS_OPT_ENGINE_H_
-#define _BVSLS_OPT_ENGINE_H_
+#ifndef BVSLS_OPT_ENGINE_H_
+#define BVSLS_OPT_ENGINE_H_
 
 #include "sls_engine.h"
 

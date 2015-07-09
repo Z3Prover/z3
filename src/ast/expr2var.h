@@ -20,8 +20,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _EXPR2VAR_H_
-#define _EXPR2VAR_H_
+#ifndef EXPR2VAR_H_
+#define EXPR2VAR_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

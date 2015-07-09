@@ -15,8 +15,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _API_GOAL_H_
-#define _API_GOAL_H_
+#ifndef API_GOAL_H_
+#define API_GOAL_H_
 
 #include"api_util.h"
 #include"goal.h"

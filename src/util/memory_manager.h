@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MEMORY_H_
-#define _MEMORY_H_
+#ifndef MEMORY_H_
+#define MEMORY_H_
 
 #include<cstdlib>
 #include<ostream>
@@ -132,5 +132,5 @@ void dealloc_svect(T * ptr) {
 }
 
 
-#endif /* _MEMORY_H_ */
+#endif /* MEMORY_H_ */
 

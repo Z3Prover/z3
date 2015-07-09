@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_TYPES_H_
-#define _SAT_TYPES_H_
+#ifndef SAT_TYPES_H_
+#define SAT_TYPES_H_
 
 #include"debug.h"
 #include"approx_set.h"

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _CARD2BV_TACTIC_
-#define _CARD2BV_TACTIC_
+#ifndef CARD2BV_TACTIC_H_
+#define CARD2BV_TACTIC_H_
 
 #include"params.h"
 #include"pb_decl_plugin.h"

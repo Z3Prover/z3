@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SLS_ENGINE_H_
-#define _SLS_ENGINE_H_
+#ifndef SLS_ENGINE_H_
+#define SLS_ENGINE_H_
 
 #include"stopwatch.h"
 #include"lbool.h"

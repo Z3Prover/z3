@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SMT2_UTIL_H_
-#define _SMT2_UTIL_H_
+#ifndef SMT2_UTIL_H_
+#define SMT2_UTIL_H_
 
 #include"symbol.h"
 

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SIMPLIFIER_H_
-#define _SIMPLIFIER_H_
+#ifndef SIMPLIFIER_H_
+#define SIMPLIFIER_H_
 
 #include"base_simplifier.h"
 #include"simplifier_plugin.h"

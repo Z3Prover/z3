@@ -29,8 +29,8 @@ Revision History:
 
 --*/
 
-#ifndef _DL_MK_SEPARAT_NEGATED_TAILS_H_
-#define _DL_MK_SEPARAT_NEGATED_TAILS_H_
+#ifndef DL_MK_SEPARAT_NEGATED_TAILS_H_
+#define DL_MK_SEPARAT_NEGATED_TAILS_H_
 
 #include "dl_rule_transformer.h"
 #include "dl_context.h"

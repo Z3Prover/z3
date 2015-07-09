@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_DATATYPE_PARAMS_H_
-#define _THEORY_DATATYPE_PARAMS_H_
+#ifndef THEORY_DATATYPE_PARAMS_H_
+#define THEORY_DATATYPE_PARAMS_H_
 
 struct theory_datatype_params {
     unsigned   m_dt_lazy_splits;
@@ -34,5 +34,5 @@ struct theory_datatype_params {
 };
 
 
-#endif /* _THEORY_DATATYPE_PARAMS_H_ */
+#endif /* THEORY_DATATYPE_PARAMS_H_ */
 

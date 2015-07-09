@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _AST_H_
-#define _AST_H_
+#ifndef AST_H_
+#define AST_H_
 
 #include"vector.h"
 #include"hashtable.h"
@@ -2450,6 +2450,6 @@ public:
     void operator()(AST * n) { m_manager.inc_ref(n); }
 };
 
-#endif /* _AST_H_ */
+#endif /* AST_H_ */
 
         

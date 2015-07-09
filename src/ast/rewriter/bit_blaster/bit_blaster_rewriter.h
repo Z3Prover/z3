@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _BIT_BLASTER_REWRITER_H_
-#define _BIT_BLASTER_REWRITER_H_
+#ifndef BIT_BLASTER_REWRITER_H_
+#define BIT_BLASTER_REWRITER_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

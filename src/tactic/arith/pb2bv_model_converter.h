@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _PB2BV_MODEL_CONVERTER_
-#define _PB2BV_MODEL_CONVERTER_
+#ifndef PB2BV_MODEL_CONVERTER_H_
+#define PB2BV_MODEL_CONVERTER_H_
 
 #include"model_converter.h"
 #include"bound_manager.h"

@@ -18,8 +18,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _COMBINED_SOLVER_H_
-#define _COMBINED_SOLVER_H_
+#ifndef COMBINED_SOLVER_H_
+#define COMBINED_SOLVER_H_
 
 #include"params.h"
 

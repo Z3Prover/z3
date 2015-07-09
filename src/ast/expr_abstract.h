@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _EXPR_ABSTRACT_H_
-#define _EXPR_ABSTRACT_H_
+#ifndef EXPR_ABSTRACT_H_
+#define EXPR_ABSTRACT_H_
 
 #include"ast.h"
 

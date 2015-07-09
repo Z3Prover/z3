@@ -19,8 +19,8 @@ Revision History:
 
 --*/
 
-#ifndef __FARKAS_UTIL_H_
-#define __FARKAS_UTIL_H_
+#ifndef FARKAS_UTIL_H_
+#define FARKAS_UTIL_H_
 
 #include "arith_decl_plugin.h"
 

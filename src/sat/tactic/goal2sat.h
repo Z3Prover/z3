@@ -26,8 +26,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _GOAL2SAT_H_
-#define _GOAL2SAT_H_
+#ifndef GOAL2SAT_H_
+#define GOAL2SAT_H_
 
 #include"goal.h"
 #include"sat_solver.h"

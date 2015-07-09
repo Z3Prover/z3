@@ -17,8 +17,8 @@ Notes:
 
 --*/
 
-#ifndef _FPA2BV_REWRITER_H_
-#define _FPA2BV_REWRITER_H_
+#ifndef FPA2BV_REWRITER_H_
+#define FPA2BV_REWRITER_H_
 
 #include"cooperate.h"
 #include"rewriter_def.h"

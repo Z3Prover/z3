@@ -18,8 +18,8 @@ Revision History:
 
 --*/
 
-#ifndef _PDR_MANAGER_H_
-#define _PDR_MANAGER_H_
+#ifndef PDR_MANAGER_H_
+#define PDR_MANAGER_H_
 
 #include <utility>
 #include <map>

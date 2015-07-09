@@ -21,8 +21,8 @@ Notes:
     that are still consistent with the solver state.
 
 --*/
-#ifndef _OPT_FU_MALIK_H_
-#define _OPT_FU_MALIK_H_
+#ifndef OPT_FU_MALIK_H_
+#define OPT_FU_MALIK_H_
 
 #include "opt_solver.h"
 #include "maxsmt.h"

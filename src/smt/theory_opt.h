@@ -22,8 +22,8 @@ Notes:
 #include "inf_eps_rational.h"
 #include "arith_decl_plugin.h"
 
-#ifndef _THEORY_OPT_H_
-#define _THEORY_OPT_H_
+#ifndef THEORY_OPT_H_
+#define THEORY_OPT_H_
 
 class filter_model_converter;
 namespace smt {

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _HWF_H_
-#define _HWF_H_
+#ifndef HWF_H_
+#define HWF_H_
 
 #include<string>
 #include"mpz.h"

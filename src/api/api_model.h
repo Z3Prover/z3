@@ -15,8 +15,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _API_MODEL_H_
-#define _API_MODEL_H_
+#ifndef API_MODEL_H_
+#define API_MODEL_H_
 
 #include"api_util.h"
 #include"model.h"

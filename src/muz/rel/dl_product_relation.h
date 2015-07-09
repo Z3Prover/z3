@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_PRODUCT_RELATION_H_
-#define _DL_PRODUCT_RELATION_H_
+#ifndef DL_PRODUCT_RELATION_H_
+#define DL_PRODUCT_RELATION_H_
 
 
 #include "dl_context.h"

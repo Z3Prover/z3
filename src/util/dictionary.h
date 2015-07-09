@@ -14,8 +14,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _DICTIONARY_H_
-#define _DICTIONARY_H_
+#ifndef DICTIONARY_H_
+#define DICTIONARY_H_
 
 #include"map.h"
 #include"symbol.h"

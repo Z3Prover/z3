@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _FACTOR_REWRITER_H_
-#define _FACTOR_REWRITER_H_
+#ifndef FACTOR_REWRITER_H_
+#define FACTOR_REWRITER_H_
 
 #include"ast.h"
 #include"rewriter.h"

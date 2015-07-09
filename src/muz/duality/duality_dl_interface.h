@@ -18,8 +18,8 @@
 
   --*/
 
-#ifndef _DUALITY_DL_INTERFACE_H_
-#define _DUALITY_DL_INTERFACE_H_
+#ifndef DUALITY_DL_INTERFACE_H_
+#define DUALITY_DL_INTERFACE_H_
 
 #include "lbool.h"
 #include "dl_rule.h"

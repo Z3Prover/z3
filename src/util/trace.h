@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _TRACE_H_
-#define _TRACE_H_
+#ifndef TRACE_H_
+#define TRACE_H_
 
 #ifdef _CYGWIN
 #undef max
@@ -54,5 +54,5 @@ void finalize_trace();
 
 #define CTRACE(TAG, COND, CODE) TRACE_CODE(if (is_trace_enabled(TAG) && (COND)) { tout << "-------- [" << TAG << "] " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"; CODE tout << "------------------------------------------------\n"; tout.flush(); })
 
-#endif /* _TRACE_H_ */
+#endif /* TRACE_H_ */
 

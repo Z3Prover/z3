@@ -17,8 +17,8 @@ Notes:
 
 --*/
 
-#ifndef _WMAX_H_
-#define _WMAX_H_
+#ifndef WMAX_H_
+#define WMAX_H_
 
 #include "maxsmt.h"
 

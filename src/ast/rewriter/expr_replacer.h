@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _EXPR_REPLACER_H_
-#define _EXPR_REPLACER_H_
+#ifndef EXPR_REPLACER_H_
+#define EXPR_REPLACER_H_
 
 #include"ast.h"
 #include"expr_substitution.h"

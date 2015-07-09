@@ -17,8 +17,8 @@ Notes:
     Ported to tactic framework on 2012-02-28
 
 --*/
-#ifndef _NLA2BV_TACTIC_H_
-#define _NLA2BV_TACTIC_H_
+#ifndef NLA2BV_TACTIC_H_
+#define NLA2BV_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

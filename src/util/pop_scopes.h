@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _POP_SCOPES_H_
-#define _POP_SCOPES_H_
+#ifndef POP_SCOPES_H_
+#define POP_SCOPES_H_
 
 #define POP_SCOPES(_num_scopes, _lim, _trail, _action)          \
     if (_num_scopes > 0)                                        \
@@ -33,5 +33,5 @@ Revision History:
         _lim.shrink(new_lvl);                                   \
     }
 
-#endif /* _POP_SCOPES_H_ */
+#endif /* POP_SCOPES_H_ */
 

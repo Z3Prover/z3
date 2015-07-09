@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _OPT_MAXSMT_H_
-#define _OPT_MAXSMT_H_
+#ifndef OPT_MAXSMT_H_
+#define OPT_MAXSMT_H_
 
 #include"ast.h"
 #include"params.h"

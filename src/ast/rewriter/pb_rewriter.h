@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _PB_REWRITER_H_
-#define _PB_REWRITER_H_
+#ifndef PB_REWRITER_H_
+#define PB_REWRITER_H_
 
 #include"pb_decl_plugin.h"
 #include"rewriter_types.h"

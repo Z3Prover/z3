@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_PB_PARAMS_H_
-#define _THEORY_PB_PARAMS_H_
+#ifndef THEORY_PB_PARAMS_H_
+#define THEORY_PB_PARAMS_H_
 
 #include"params.h"
 
@@ -37,5 +37,5 @@ struct theory_pb_params {
     void updt_params(params_ref const & p);
 };
 
-#endif /* _THEORY_PB_PARAMS_H_ */
+#endif /* THEORY_PB_PARAMS_H_ */
 

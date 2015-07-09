@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BV_ELIM_H_
-#define _BV_ELIM_H_
+#ifndef BV_ELIM_H_
+#define BV_ELIM_H_
 
 #include "ast.h"
 #include "simplifier.h"
@@ -41,5 +41,5 @@ public:
     virtual ~bv_elim_star() {}
 };
 
-#endif /* _BV_ELIM_H_ */
+#endif /* BV_ELIM_H_ */
 

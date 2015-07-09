@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _EUCLIDEAN_SOLVER_H_
-#define _EUCLIDEAN_SOLVER_H_
+#ifndef EUCLIDEAN_SOLVER_H_
+#define EUCLIDEAN_SOLVER_H_
 
 #include"mpq.h"
 #include"vector.h"

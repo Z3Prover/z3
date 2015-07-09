@@ -21,8 +21,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _UPOLYNOMIAL_H_
-#define _UPOLYNOMIAL_H_
+#ifndef UPOLYNOMIAL_H_
+#define UPOLYNOMIAL_H_
 
 #include"mpzzp.h"
 #include"rational.h"

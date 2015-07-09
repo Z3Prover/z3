@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef __SUBPAVING_TYPES_H_
-#define __SUBPAVING_TYPES_H_
+#ifndef SUBPAVING_TYPES_H_
+#define SUBPAVING_TYPES_H_
 
 namespace subpaving {
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_RELATION_MANAGER_H_
-#define _DL_RELATION_MANAGER_H_
+#ifndef DL_RELATION_MANAGER_H_
+#define DL_RELATION_MANAGER_H_
 
 
 #include"map.h"
@@ -706,5 +706,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_RELATION_MANAGER_H_ */
+#endif /* DL_RELATION_MANAGER_H_ */
 

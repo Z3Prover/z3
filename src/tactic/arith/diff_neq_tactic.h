@@ -20,8 +20,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DIFF_NEQ_TACTIC_H_
-#define _DIFF_NEQ_TACTIC_H_
+#ifndef DIFF_NEQ_TACTIC_H_
+#define DIFF_NEQ_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

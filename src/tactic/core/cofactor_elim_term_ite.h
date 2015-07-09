@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _COFACTOR_ELIM_TERM_ITE_H_
-#define _COFACTOR_ELIM_TERM_ITE_H_
+#ifndef COFACTOR_ELIM_TERM_ITE_H_
+#define COFACTOR_ELIM_TERM_ITE_H_
 
 #include"ast.h"
 #include"params.h"

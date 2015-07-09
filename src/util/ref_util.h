@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _REF_UTIL_H_
-#define _REF_UTIL_H_
+#ifndef REF_UTIL_H_
+#define REF_UTIL_H_
 
 /**
    \brief Decrement the reference counter of the keys and values stored in the map,

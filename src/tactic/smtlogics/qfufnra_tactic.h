@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _QFUFNRA_TACTIC_
-#define _QFUFNRA_TACTIC_
+#ifndef QFUFNRA_TACTIC_H_
+#define QFUFNRA_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

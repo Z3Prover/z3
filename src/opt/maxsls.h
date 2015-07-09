@@ -19,8 +19,8 @@ Notes:
     local maximum given a resource bound and returns.
 
 --*/
-#ifndef _OPT_SLS_MAX_SAT_H_
-#define _OPT_SLS_MAX_SAT_H_
+#ifndef OPT_SLS_MAX_SAT_H_
+#define OPT_SLS_MAX_SAT_H_
 
 #include "maxsmt.h"
 

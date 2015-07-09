@@ -18,8 +18,8 @@ Revision History:
     2011-05-26: New local translation class.
 
 --*/
-#ifndef _AST_TRANSLATION_H_
-#define _AST_TRANSLATION_H_
+#ifndef AST_TRANSLATION_H_
+#define AST_TRANSLATION_H_
 
 #include"ast.h"
 

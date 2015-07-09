@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_THEORY_VAR_LIST_H_
-#define _SMT_THEORY_VAR_LIST_H_
+#ifndef SMT_THEORY_VAR_LIST_H_
+#define SMT_THEORY_VAR_LIST_H_
 
 #include"smt_types.h"
 
@@ -72,5 +72,5 @@ namespace smt {
     COMPILE_TIME_ASSERT(sizeof(expr*) != 8 || sizeof(theory_var_list) == sizeof(theory_var_list *) + sizeof(int) + /* a structure must be aligned */ sizeof(int)); 
 };
 
-#endif /* _SMT_THEORY_VAR_LIST_H_ */
+#endif /* SMT_THEORY_VAR_LIST_H_ */
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _FACTOR_TACTIC_H_
-#define _FACTOR_TACTIC_H_
+#ifndef FACTOR_TACTIC_H_
+#define FACTOR_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

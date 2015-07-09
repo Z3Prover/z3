@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _MK_SIMPLIFIED_APP_H_
-#define _MK_SIMPLIFIED_APP_H_
+#ifndef MK_SIMPLIFIED_APP_H_
+#define MK_SIMPLIFIED_APP_H_
 
 #include"ast.h"
 #include"params.h"

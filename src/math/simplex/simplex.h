@@ -29,8 +29,8 @@ Notes:
 
 --*/
 
-#ifndef _SIMPLEX_H_
-#define _SIMPLEX_H_
+#ifndef SIMPLEX_H_
+#define SIMPLEX_H_
 
 #include "sparse_matrix.h"
 #include "mpq_inf.h"

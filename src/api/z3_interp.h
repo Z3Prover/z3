@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _Z3_INTERPOLATION_H_
-#define _Z3_INTERPOLATION_H_
+#ifndef Z3_INTERPOLATION_H_
+#define Z3_INTERPOLATION_H_
 
 #ifdef __cplusplus
 extern "C" {

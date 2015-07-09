@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_JUSTIFICATION_H_
-#define _SMT_JUSTIFICATION_H_
+#ifndef SMT_JUSTIFICATION_H_
+#define SMT_JUSTIFICATION_H_
 
 #include"ast.h"
 #include"smt_types.h"
@@ -410,5 +410,5 @@ namespace smt {
       
 };
 
-#endif /* _SMT_JUSTIFICATION_H_ */
+#endif /* SMT_JUSTIFICATION_H_ */
 

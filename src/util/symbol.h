@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SYMBOL_H_
-#define _SYMBOL_H_
+#ifndef SYMBOL_H_
+#define SYMBOL_H_
 #include<ostream>
 #include<limits.h>
 
@@ -152,5 +152,5 @@ void finalize_symbols();
 // two non-numerical symbols are compared using string comparison.
 bool lt(symbol const & s1, symbol const & s2);
 
-#endif /* _SYMBOL_H_ */
+#endif /* SYMBOL_H_ */
 

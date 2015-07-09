@@ -18,8 +18,8 @@ Revision History:
 
 --*/
 
-#ifndef _OPTIONAL_H_
-#define _OPTIONAL_H_
+#ifndef OPTIONAL_H_
+#define OPTIONAL_H_
 
 template<typename T>
 class optional {
@@ -161,5 +161,5 @@ public:
 };
 
 
-#endif /* _OPTIONAL_H_ */
+#endif /* OPTIONAL_H_ */
 

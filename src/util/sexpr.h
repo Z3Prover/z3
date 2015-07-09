@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SEXPR_H_
-#define _SEXPR_H_
+#ifndef SEXPR_H_
+#define SEXPR_H_
 
 #include"rational.h"
 #include"symbol.h"

@@ -17,8 +17,8 @@ Notes:
 
 --*/
 
-#ifndef _MAXRES_H_
-#define _MAXRES_H_
+#ifndef MAXRES_H_
+#define MAXRES_H_
 
 namespace opt {
 

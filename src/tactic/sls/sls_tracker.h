@@ -17,8 +17,8 @@ Notes:
 
 --*/
 
-#ifndef _SLS_TRACKER_H_
-#define _SLS_TRACKER_H_
+#ifndef SLS_TRACKER_H_
+#define SLS_TRACKER_H_
 
 #include<math.h>
 #include"for_each_expr.h"

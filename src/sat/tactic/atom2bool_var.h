@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _ATOM2BOOL_VAR_H_
-#define _ATOM2BOOL_VAR_H_
+#ifndef ATOM2BOOL_VAR_H_
+#define ATOM2BOOL_VAR_H_
 
 #include"expr2var.h"
 #include"sat_types.h"

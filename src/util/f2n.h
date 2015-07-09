@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef __F2N_H_
-#define __F2N_H_
+#ifndef F2N_H_
+#define F2N_H_
 
 #include"mpf.h"
 

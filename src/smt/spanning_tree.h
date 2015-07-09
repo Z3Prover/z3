@@ -16,8 +16,8 @@ Author:
 Notes:
    
 --*/
-#ifndef _SPANNING_TREE_H_
-#define _SPANNING_TREE_H_
+#ifndef SPANNING_TREE_H_
+#define SPANNING_TREE_H_
 
 #include "diff_logic.h"
 #include "spanning_tree_base.h"

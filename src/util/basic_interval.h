@@ -21,8 +21,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BASIC_INTERVAL_H_
-#define _BASIC_INTERVAL_H_
+#ifndef BASIC_INTERVAL_H_
+#define BASIC_INTERVAL_H_
 
 template<typename numeral_manager, bool closed>
 class basic_interval_manager {

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _FLOAT_REWRITER_H_
-#define _FLOAT_REWRITER_H_
+#ifndef FLOAT_REWRITER_H_
+#define FLOAT_REWRITER_H_
 
 #include"ast.h"
 #include"rewriter.h"

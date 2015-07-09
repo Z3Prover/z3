@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _DL_MK_INTERP_TAIL_SIMPLIFIER_H_
-#define _DL_MK_INTERP_TAIL_SIMPLIFIER_H_
+#ifndef DL_MK_INTERP_TAIL_SIMPLIFIER_H_
+#define DL_MK_INTERP_TAIL_SIMPLIFIER_H_
 
 #include "dl_context.h"
 #include "dl_rule_transformer.h"
@@ -105,5 +105,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_MK_INTERP_TAIL_SIMPLIFIER_H_ */
+#endif /* DL_MK_INTERP_TAIL_SIMPLIFIER_H_ */
 

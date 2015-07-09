@@ -21,8 +21,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _VECTOR_H_
-#define _VECTOR_H_
+#ifndef VECTOR_H_
+#define VECTOR_H_
 
 #include"debug.h"
 #include<algorithm>
@@ -456,5 +456,5 @@ template<typename Hash>
 struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data> > {};
 
 
-#endif /* _VECTOR_H_ */
+#endif /* VECTOR_H_ */
 

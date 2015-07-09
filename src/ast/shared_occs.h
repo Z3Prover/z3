@@ -16,8 +16,8 @@ Author:
 
 Revision History:
 --*/
-#ifndef _SHARED_OCCS_H_
-#define _SHARED_OCCS_H_
+#ifndef SHARED_OCCS_H_
+#define SHARED_OCCS_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

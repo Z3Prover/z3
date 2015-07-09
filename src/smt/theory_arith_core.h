@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_ARITH_CORE_H_
-#define _THEORY_ARITH_CORE_H_
+#ifndef THEORY_ARITH_CORE_H_
+#define THEORY_ARITH_CORE_H_
 
 #include"smt_context.h"
 #include"theory_arith.h"
@@ -3318,5 +3318,5 @@ namespace smt {
 
 };
 
-#endif /* _THEORY_ARITH_CORE_H_ */
+#endif /* THEORY_ARITH_CORE_H_ */
 

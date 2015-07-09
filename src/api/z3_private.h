@@ -22,8 +22,8 @@ Notes:
 #include"rational.h"
 #include"z3_macros.h"
 
-#ifndef _Z3_PRIVATE__H_
-#define _Z3_PRIVATE__H_
+#ifndef Z3_PRIVATE__H_
+#define Z3_PRIVATE__H_
 
 
 #ifndef CAMLIDL

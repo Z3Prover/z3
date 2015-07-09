@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _PB_SLS_H_
-#define _PB_SLS_H_
+#ifndef PB_SLS_H_
+#define PB_SLS_H_
 
 #include "pb_decl_plugin.h"
 #include "model.h"

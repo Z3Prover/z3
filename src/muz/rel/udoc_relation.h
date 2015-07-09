@@ -19,8 +19,8 @@ Revision History:
 
 --*/
 
-#ifndef _UDOC_RELATION_H_
-#define _UDOC_RELATION_H_
+#ifndef UDOC_RELATION_H_
+#define UDOC_RELATION_H_
 
 #include "doc.h"
 #include "dl_base.h"
@@ -149,5 +149,5 @@ namespace datalog {
     };
 };
        
-#endif /* _UDOC_RELATION_H_ */
+#endif /* UDOC_RELATION_H_ */
 

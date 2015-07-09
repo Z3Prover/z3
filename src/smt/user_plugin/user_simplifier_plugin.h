@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _USER_SIMPLIFIER_PLUGIN_H_
-#define _USER_SIMPLIFIER_PLUGIN_H_
+#ifndef USER_SIMPLIFIER_PLUGIN_H_
+#define USER_SIMPLIFIER_PLUGIN_H_
 
 #include"simplifier_plugin.h"
 
@@ -62,5 +62,5 @@ public:
     virtual void flush_caches();
 };
 
-#endif /* _USER_SIMPLIFIER_PLUGIN_H_ */
+#endif /* USER_SIMPLIFIER_PLUGIN_H_ */
 

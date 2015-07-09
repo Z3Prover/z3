@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _Z3_EXCEPTION_H_
-#define _Z3_EXCEPTION_H_
+#ifndef Z3_EXCEPTION_H_
+#define Z3_EXCEPTION_H_
 
 #include<string>
 

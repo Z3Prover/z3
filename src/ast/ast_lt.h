@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _AST_LT_H_
-#define _AST_LT_H_
+#ifndef AST_LT_H_
+#define AST_LT_H_
 
 class ast;
 

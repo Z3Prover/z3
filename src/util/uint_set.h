@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _UINT_SET_H_
-#define _UINT_SET_H_
+#ifndef UINT_SET_H_
+#define UINT_SET_H_
 
 #include"util.h"
 #include"vector.h"
@@ -239,5 +239,5 @@ inline std::ostream & operator<<(std::ostream & target, const uint_set & s) {
     return target;
 }
 
-#endif /* _UINT_SET_H_ */
+#endif /* UINT_SET_H_ */
 

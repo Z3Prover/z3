@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _REDUCE_ARGS_TACTIC_H_
-#define _REDUCE_ARGS_TACTIC_H_
+#ifndef REDUCE_ARGS_TACTIC_H_
+#define REDUCE_ARGS_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

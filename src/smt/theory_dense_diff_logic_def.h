@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_DENSE_DIFF_LOGIC_DEF_H_
-#define _THEORY_DENSE_DIFF_LOGIC_DEF_H_
+#ifndef THEORY_DENSE_DIFF_LOGIC_DEF_H_
+#define THEORY_DENSE_DIFF_LOGIC_DEF_H_
 
 #include"smt_context.h"
 #include"theory_dense_diff_logic.h"
@@ -1095,5 +1095,5 @@ namespace smt {
 
 };
 
-#endif /* _THEORY_DENSE_DIFF_LOGIC_DEF_H_ */
+#endif /* THEORY_DENSE_DIFF_LOGIC_DEF_H_ */
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BUFFER_H_
-#define _BUFFER_H_
+#ifndef BUFFER_H_
+#define BUFFER_H_
 
 #include<string.h>
 #include"memory_manager.h"
@@ -257,5 +257,5 @@ public:
     sbuffer(unsigned sz, const T& elem) : buffer<T, false, INITIAL_SIZE>(sz,elem) {}
 };
 
-#endif /* _BUFFER_H_ */
+#endif /* BUFFER_H_ */
 

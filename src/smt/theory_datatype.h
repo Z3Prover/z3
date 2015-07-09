@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_DATATYPE_H_
-#define _THEORY_DATATYPE_H_
+#ifndef THEORY_DATATYPE_H_
+#define THEORY_DATATYPE_H_
 
 #include"smt_theory.h"
 #include"union_find.h"
@@ -115,5 +115,5 @@ namespace smt {
 
 };
 
-#endif /* _THEORY_DATATYPE_H_ */
+#endif /* THEORY_DATATYPE_H_ */
 

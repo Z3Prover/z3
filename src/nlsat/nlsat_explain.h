@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NLSAT_EXPLAIN_H_
-#define _NLSAT_EXPLAIN_H_
+#ifndef NLSAT_EXPLAIN_H_
+#define NLSAT_EXPLAIN_H_
 
 #include"nlsat_solver.h"
 #include"nlsat_scoped_literal_vector.h"

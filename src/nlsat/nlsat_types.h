@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NLSAT_TYPES_H_
-#define _NLSAT_TYPES_H_
+#ifndef NLSAT_TYPES_H_
+#define NLSAT_TYPES_H_
 
 #include"polynomial.h"
 #include"buffer.h"

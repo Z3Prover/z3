@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _USER_SMT_THEORY_H_
-#define _USER_SMT_THEORY_H_
+#ifndef USER_SMT_THEORY_H_
+#define USER_SMT_THEORY_H_
 
 #include"user_decl_plugin.h"
 #include"user_simplifier_plugin.h"
@@ -320,5 +320,5 @@ namespace smt {
 };
 
 
-#endif /* _USER_SMT_THEORY_H_ */
+#endif /* USER_SMT_THEORY_H_ */
 

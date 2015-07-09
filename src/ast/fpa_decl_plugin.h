@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _fpa_decl_plugin_H_
-#define _fpa_decl_plugin_H_
+#ifndef fpa_decl_plugin_H_
+#define fpa_decl_plugin_H_
 
 #include"ast.h"
 #include"id_gen.h"

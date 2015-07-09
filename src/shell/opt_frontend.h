@@ -10,11 +10,11 @@ Author:
     Nikolaj Bjorner (nbjorner) 2014-10-10.
 
 --*/
-#ifndef _OPT_FRONTEND_H_
-#define _OPT_FRONTEND_H_
+#ifndef OPT_FRONTEND_H_
+#define OPT_FRONTEND_H_
 
 unsigned parse_opt(char const* file_name, bool is_wcnf);
 
-#endif /* _OPT_FRONTEND_H_ */
+#endif /* OPT_FRONTEND_H_ */
 
 

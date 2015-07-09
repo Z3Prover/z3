@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _BASE_SIMPLIFIER_H_
-#define _BASE_SIMPLIFIER_H_
+#ifndef BASE_SIMPLIFIER_H_
+#define BASE_SIMPLIFIER_H_
 
 #include"expr_map.h"
 #include"ast_pp.h"
@@ -73,4 +73,4 @@ public:
     }
 };
 
-#endif /* _BASE_SIMPLIFIER_H_ */
+#endif /* BASE_SIMPLIFIER_H_ */

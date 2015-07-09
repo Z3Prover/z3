@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _VAR_SUBST_H_
-#define _VAR_SUBST_H_
+#ifndef VAR_SUBST_H_
+#define VAR_SUBST_H_
 
 #include"rewriter.h"
 #include"used_vars.h"

@@ -4,8 +4,8 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#ifndef _Z3_API_H_
-#define _Z3_API_H_
+#ifndef Z3_API_H_
+#define Z3_API_H_
 
 #ifdef CAMLIDL
   #ifdef MLAPIV3

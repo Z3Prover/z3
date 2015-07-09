@@ -19,8 +19,8 @@ Revision History:
 
 --*/
 
-#ifndef _THEORY_DIFF_LOGIC_H_
-#define _THEORY_DIFF_LOGIC_H_
+#ifndef THEORY_DIFF_LOGIC_H_
+#define THEORY_DIFF_LOGIC_H_
 
 #include"rational.h"
 #include"inf_rational.h"
@@ -432,4 +432,4 @@ namespace smt {
 
 
 
-#endif /* _THEORY_DIFF_LOGIC_H_ */
+#endif /* THEORY_DIFF_LOGIC_H_ */

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_BV_PARAMS_H_
-#define _THEORY_BV_PARAMS_H_
+#ifndef THEORY_BV_PARAMS_H_
+#define THEORY_BV_PARAMS_H_
 
 #include"params.h"
 
@@ -46,5 +46,5 @@ struct theory_bv_params {
     void updt_params(params_ref const & p);
 };
 
-#endif /* _THEORY_BV_PARAMS_H_ */
+#endif /* THEORY_BV_PARAMS_H_ */
 

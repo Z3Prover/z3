@@ -18,8 +18,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _TACTIC_H_
-#define _TACTIC_H_
+#ifndef TACTIC_H_
+#define TACTIC_H_
 
 #include"goal.h"
 #include"params.h"

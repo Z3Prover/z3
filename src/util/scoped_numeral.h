@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SCOPED_NUMERAL_H_
-#define _SCOPED_NUMERAL_H_
+#ifndef SCOPED_NUMERAL_H_
+#define SCOPED_NUMERAL_H_
 
 template<typename Manager>
 class _scoped_numeral {

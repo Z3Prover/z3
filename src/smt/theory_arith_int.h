@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_ARITH_INT_H_
-#define _THEORY_ARITH_INT_H_
+#ifndef THEORY_ARITH_INT_H_
+#define THEORY_ARITH_INT_H_
 
 #include"ast_ll_pp.h"
 #include"arith_simplifier_plugin.h"
@@ -1424,5 +1424,5 @@ namespace smt {
 
 };
 
-#endif /* _THEORY_ARITH_INT_H_ */
+#endif /* THEORY_ARITH_INT_H_ */
 

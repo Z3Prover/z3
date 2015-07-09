@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DOUBLE_MANAGER_H_
-#define _DOUBLE_MANAGER_H_
+#ifndef DOUBLE_MANAGER_H_
+#define DOUBLE_MANAGER_H_
 
 #include<cmath>
 #include<string>
@@ -99,5 +99,5 @@ public:
 
 COMPILE_TIME_ASSERT(sizeof(uint64) == sizeof(double));
 
-#endif /* _DOUBLE_MANAGER_H_ */
+#endif /* DOUBLE_MANAGER_H_ */
 

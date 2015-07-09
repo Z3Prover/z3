@@ -18,8 +18,8 @@ Notes:
 
 --*/
 
-#ifndef _SPARSE_MATRIX_DEF_H_
-#define _SPARSE_MATRIX_DEF_H_
+#ifndef SPARSE_MATRIX_DEF_H_
+#define SPARSE_MATRIX_DEF_H_
 
 #include "sparse_matrix.h"
 #include "uint_set.h"

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _ALGEBRAIC_NUMBERS_H_
-#define _ALGEBRAIC_NUMBERS_H_
+#ifndef ALGEBRAIC_NUMBERS_H_
+#define ALGEBRAIC_NUMBERS_H_
 
 #include"rational.h"
 #include"mpq.h"

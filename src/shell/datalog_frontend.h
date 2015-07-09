@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DATALOG_FRONTEND_H_
-#define _DATALOG_FRONTEND_H_
+#ifndef DATALOG_FRONTEND_H_
+#define DATALOG_FRONTEND_H_
 
 
 unsigned read_datalog(char const * file);
 
 
-#endif /* _DATALOG_FRONTEND_H_ */
+#endif /* DATALOG_FRONTEND_H_ */
 

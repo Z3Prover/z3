@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SOLVER_H_
-#define _SOLVER_H_
+#ifndef SOLVER_H_
+#define SOLVER_H_
 
 #include"check_sat_result.h"
 #include"progress_callback.h"

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _CTX_SOLVER_SIMPLIFY_TACTIC_H_
-#define _CTX_SOLVER_SIMPLIFY_TACTIC_H_
+#ifndef CTX_SOLVER_SIMPLIFY_TACTIC_H_
+#define CTX_SOLVER_SIMPLIFY_TACTIC_H_
 
 #include"tactical.h"
 

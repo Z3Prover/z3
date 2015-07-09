@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_DECL_COLLECTOR_H_
-#define _SMT_DECL_COLLECTOR_H_
+#ifndef SMT_DECL_COLLECTOR_H_
+#define SMT_DECL_COLLECTOR_H_
 
 #include"ast.h"
 

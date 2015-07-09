@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_PARAMS_H_
-#define _SMT_PARAMS_H_
+#ifndef SMT_PARAMS_H_
+#define SMT_PARAMS_H_
 
 #include"ast.h"
 #include"dyn_ack_params.h"
@@ -287,5 +287,5 @@ struct smt_params : public preprocessor_params,
     void updt_params(context_params const & p);
 };
 
-#endif /* _SMT_PARAMS_H_ */
+#endif /* SMT_PARAMS_H_ */
 

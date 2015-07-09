@@ -11,8 +11,8 @@ Abstract:
 
 --*/
 
-#ifndef _AIG_EXPORTER_H_
-#define _AIG_EXPORTER_H_
+#ifndef AIG_EXPORTER_H_
+#define AIG_EXPORTER_H_
 
 #include "aig.h"
 #include "dl_rule_set.h"

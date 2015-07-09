@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_EXTERNAL_RELATION_H_
-#define _DL_EXTERNAL_RELATION_H_
+#ifndef DL_EXTERNAL_RELATION_H_
+#define DL_EXTERNAL_RELATION_H_
 
 #include "dl_base.h"
 

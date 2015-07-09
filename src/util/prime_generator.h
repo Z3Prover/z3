@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _PRIME_GENERATOR_H_
-#define _PRIME_GENERATOR_H_
+#ifndef PRIME_GENERATOR_H_
+#define PRIME_GENERATOR_H_
 
 #include"vector.h"
 #include"z3_exception.h"

@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_PROBING_H_
-#define _SAT_PROBING_H_
+#ifndef SAT_PROBING_H_
+#define SAT_PROBING_H_
 
 #include"sat_types.h"
 #include"params.h"

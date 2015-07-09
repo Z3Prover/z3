@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SMT_TACTIC_H_
-#define _SMT_TACTIC_H_
+#ifndef SMT_TACTIC_H_
+#define SMT_TACTIC_H_
 
 #include"params.h"
 #include"ast.h"

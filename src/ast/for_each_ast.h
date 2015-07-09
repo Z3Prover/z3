@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _FOR_EACH_AST_H_
-#define _FOR_EACH_AST_H_
+#ifndef FOR_EACH_AST_H_
+#define FOR_EACH_AST_H_
 
 #include"ast.h"
 #include"trace.h"
@@ -270,5 +270,5 @@ private:
     }        
 };
 
-#endif /* _FOR_EACH_AST_H_ */
+#endif /* FOR_EACH_AST_H_ */
 

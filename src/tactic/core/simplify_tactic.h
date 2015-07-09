@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SIMPLIFY_TACTIC_H_
-#define _SIMPLIFY_TACTIC_H_
+#ifndef SIMPLIFY_TACTIC_H_
+#define SIMPLIFY_TACTIC_H_
 
 #include"tactic.h"
 #include"tactical.h"

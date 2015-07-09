@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BV_DECL_PLUGIN_H_
-#define _BV_DECL_PLUGIN_H_
+#ifndef BV_DECL_PLUGIN_H_
+#define BV_DECL_PLUGIN_H_
 
 #include"ast.h"
 
@@ -389,5 +389,5 @@ public:
     app * mk_bv(unsigned n, expr* const* es) { return m_manager.mk_app(get_fid(), OP_MKBV, n, es); }
 };
     
-#endif /* _BV_DECL_PLUGIN_H_ */
+#endif /* BV_DECL_PLUGIN_H_ */
 

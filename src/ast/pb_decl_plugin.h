@@ -24,8 +24,8 @@ hence:
 
 
 --*/
-#ifndef _PB_DECL_PLUGIN_H_
-#define _PB_DECL_PLUGIN_H_
+#ifndef PB_DECL_PLUGIN_H_
+#define PB_DECL_PLUGIN_H_
 
 #include"ast.h"
  
@@ -119,5 +119,5 @@ private:
 
 
 
-#endif /* _PB_DECL_PLUGIN_H_ */
+#endif /* PB_DECL_PLUGIN_H_ */
 

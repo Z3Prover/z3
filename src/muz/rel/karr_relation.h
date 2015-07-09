@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _KARR_RELATION_H_
-#define _KARR_RELATION_H_
+#ifndef KARR_RELATION_H_
+#define KARR_RELATION_H_
 
 #include"dl_mk_karr_invariants.h"
 #include"dl_relation_manager.h"
@@ -84,5 +84,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_MK_KARR_INVARIANTS_H_ */
+#endif /* DL_MK_KARR_INVARIANTS_H_ */
 

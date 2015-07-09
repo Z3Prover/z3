@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PROOF_UTILS_H_
-#define _PROOF_UTILS_H_
+#ifndef PROOF_UTILS_H_
+#define PROOF_UTILS_H_
 
 class proof_utils {
 public:

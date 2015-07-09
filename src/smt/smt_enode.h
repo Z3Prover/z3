@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_ENODE_H_
-#define _SMT_ENODE_H_
+#ifndef SMT_ENODE_H_
+#define SMT_ENODE_H_
 
 #include"ast.h"
 #include"smt_types.h"
@@ -401,5 +401,5 @@ namespace smt {
 
 };
 
-#endif /* _SMT_ENODE_H_ */
+#endif /* SMT_ENODE_H_ */
 

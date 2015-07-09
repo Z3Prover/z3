@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _FUNC_DECL_DEPENDENCIES_H_
-#define _FUNC_DECL_DEPENDENCIES_H_
+#ifndef FUNC_DECL_DEPENDENCIES_H_
+#define FUNC_DECL_DEPENDENCIES_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

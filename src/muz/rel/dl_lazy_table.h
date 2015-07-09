@@ -18,8 +18,8 @@ Revision History:
 
 --*/
 
-#ifndef _DL_LAZY_TABLE_H_
-#define _DL_LAZY_TABLE_H_
+#ifndef DL_LAZY_TABLE_H_
+#define DL_LAZY_TABLE_H_
 
 #include "dl_base.h"
 #include "ref.h"

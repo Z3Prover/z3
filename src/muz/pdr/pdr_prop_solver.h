@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _PROP_SOLVER_H_
-#define _PROP_SOLVER_H_
+#ifndef PROP_SOLVER_H_
+#define PROP_SOLVER_H_
 
 #include <map>
 #include <string>

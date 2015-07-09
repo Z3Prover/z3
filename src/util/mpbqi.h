@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MPBQI_H_
-#define _MPBQI_H_
+#ifndef MPBQI_H_
+#define MPBQI_H_
 
 #include"mpbq.h"
 #include"basic_interval.h"

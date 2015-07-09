@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _API_CONTEXT_H_
-#define _API_CONTEXT_H_
+#ifndef API_CONTEXT_H_
+#define API_CONTEXT_H_
 
 #include"z3.h"
 #include"ast.h"

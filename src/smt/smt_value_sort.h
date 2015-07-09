@@ -19,8 +19,8 @@ Revision History:
 --*/
 
 
-#ifndef __SMT_VALUE_SORT_H__
-#define __SMT_VALUE_SORT_H__
+#ifndef SMT_VALUE_SORT_H_
+#define SMT_VALUE_SORT_H_
 
 #include "ast.h"
 

@@ -21,8 +21,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _FIX_DL_VAR_TACTIC_H_
-#define _FIX_DL_VAR_TACTIC_H_
+#ifndef FIX_DL_VAR_TACTIC_H_
+#define FIX_DL_VAR_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

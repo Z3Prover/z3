@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _HITTING_SETS_H_
-#define _HITTING_SETS_H_
+#ifndef HITTING_SETS_H_
+#define HITTING_SETS_H_
 
 #include "rational.h"
 #include "statistics.h"

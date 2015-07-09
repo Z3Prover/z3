@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_QUANTIFIER_STAT_H_
-#define _SMT_QUANTIFIER_STAT_H_
+#ifndef SMT_QUANTIFIER_STAT_H_
+#define SMT_QUANTIFIER_STAT_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -136,5 +136,5 @@ namespace smt {
 
 };
 
-#endif /* _SMT_QUANTIFIER_STAT_H_ */
+#endif /* SMT_QUANTIFIER_STAT_H_ */
 

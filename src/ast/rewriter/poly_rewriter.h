@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _POLY_REWRITER_H_
-#define _POLY_REWRITER_H_
+#ifndef POLY_REWRITER_H_
+#define POLY_REWRITER_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

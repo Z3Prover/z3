@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PROGRESS_CALLBACK_H_
-#define _PROGRESS_CALLBACK_H_
+#ifndef PROGRESS_CALLBACK_H_
+#define PROGRESS_CALLBACK_H_
 
 class progress_callback {
 public:

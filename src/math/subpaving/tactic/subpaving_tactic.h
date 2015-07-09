@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef __SUBPAVING_TACTIC_H_
-#define __SUBPAVING_TACTIC_H_
+#ifndef SUBPAVING_TACTIC_H_
+#define SUBPAVING_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_BASE_H_
-#define _DL_BASE_H_
+#ifndef DL_BASE_H_
+#define DL_BASE_H_
 
 #define DL_LEAK_HUNTING 0
 
@@ -1309,5 +1309,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_BASE_H_ */
+#endif /* DL_BASE_H_ */
 

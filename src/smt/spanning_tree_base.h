@@ -17,8 +17,8 @@ Notes:
    
 --*/
 
-#ifndef _SPANNING_TREE_BASE_H_
-#define _SPANNING_TREE_BASE_H_
+#ifndef SPANNING_TREE_BASE_H_
+#define SPANNING_TREE_BASE_H_
 
 #include "util.h"
 #include "vector.h"

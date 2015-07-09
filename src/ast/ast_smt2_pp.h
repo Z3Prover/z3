@@ -19,8 +19,8 @@ Revision History:
 
 
 --*/
-#ifndef _AST_SMT2_PP_H_
-#define _AST_SMT2_PP_H_
+#ifndef AST_SMT2_PP_H_
+#define AST_SMT2_PP_H_
 
 #include"format.h"
 #include"params.h"

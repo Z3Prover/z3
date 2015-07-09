@@ -17,8 +17,8 @@ Notes:
     
 --*/
 
-#ifndef _Z3_POLYNOMIAL_H_
-#define _Z3_POLYNOMIAL_H_
+#ifndef Z3_POLYNOMIAL_H_
+#define Z3_POLYNOMIAL_H_
 
 #ifdef __cplusplus
 extern "C" {

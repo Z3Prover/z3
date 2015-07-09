@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _PDR_CONTEXT_H_
-#define _PDR_CONTEXT_H_
+#ifndef PDR_CONTEXT_H_
+#define PDR_CONTEXT_H_
 
 #ifdef _CYGWIN
 #undef min

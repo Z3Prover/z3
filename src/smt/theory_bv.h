@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_BV_H_
-#define _THEORY_BV_H_
+#ifndef THEORY_BV_H_
+#define THEORY_BV_H_
 
 #include"smt_theory.h"
 #include"theory_bv_params.h"
@@ -278,5 +278,5 @@ namespace smt {
     };
 };
 
-#endif /* _THEORY_BV_H_ */
+#endif /* THEORY_BV_H_ */
 

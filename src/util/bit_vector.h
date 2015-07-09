@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BIT_VECTOR_H_
-#define _BIT_VECTOR_H_
+#ifndef BIT_VECTOR_H_
+#define BIT_VECTOR_H_
 
 #include<string.h>
 #include"debug.h"
@@ -251,5 +251,5 @@ public:
     }
 };
 
-#endif /* _BIT_VECTOR_H_ */
+#endif /* BIT_VECTOR_H_ */
 

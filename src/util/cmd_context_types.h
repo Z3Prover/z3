@@ -14,8 +14,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _CMD_CONTEXT_TYPES_H_
-#define _CMD_CONTEXT_TYPES_H_
+#ifndef CMD_CONTEXT_TYPES_H_
+#define CMD_CONTEXT_TYPES_H_
 
 #include"symbol.h"
 #include"z3_exception.h"

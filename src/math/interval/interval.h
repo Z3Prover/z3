@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _INTERVAL_H_
-#define _INTERVAL_H_
+#ifndef INTERVAL_H_
+#define INTERVAL_H_
 
 #include"mpq.h"
 #include"ext_numeral.h"

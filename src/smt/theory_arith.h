@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_ARITH_H_
-#define _THEORY_ARITH_H_
+#ifndef THEORY_ARITH_H_
+#define THEORY_ARITH_H_
 
 #include"smt_theory.h"
 #include"map.h"
@@ -1215,5 +1215,5 @@ namespace smt {
     
 };
 
-#endif /* _THEORY_ARITH_H_ */
+#endif /* THEORY_ARITH_H_ */
 

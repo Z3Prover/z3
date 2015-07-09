@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _COST_EVALUATOR_H_
-#define _COST_EVALUATOR_H_
+#ifndef COST_EVALUATOR_H_
+#define COST_EVALUATOR_H_
 
 #include"ast.h"
 #include"arith_decl_plugin.h"
@@ -39,5 +39,5 @@ public:
     float operator()(expr * f, unsigned num_args, float const * args);
 };
 
-#endif /* _COST_EVALUATOR_H_ */
+#endif /* COST_EVALUATOR_H_ */
 

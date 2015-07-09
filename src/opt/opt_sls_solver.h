@@ -17,8 +17,8 @@ Notes:
 
    
 --*/
-#ifndef _OPT_SLS_SOLVER_H_
-#define _OPT_SLS_SOLVER_H_
+#ifndef OPT_SLS_SOLVER_H_
+#define OPT_SLS_SOLVER_H_
 
 #include "solver_na2as.h"
 #include "card2bv_tactic.h"

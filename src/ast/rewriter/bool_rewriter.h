@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _BOOL_REWRITER_H_
-#define _BOOL_REWRITER_H_
+#ifndef BOOL_REWRITER_H_
+#define BOOL_REWRITER_H_
 
 #include"ast.h"
 #include"rewriter.h"

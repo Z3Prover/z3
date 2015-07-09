@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PUSH_APP_ITE_H_
-#define _PUSH_APP_ITE_H_
+#ifndef PUSH_APP_ITE_H_
+#define PUSH_APP_ITE_H_
 
 #include"ast.h"
 #include"simplifier.h"
@@ -59,5 +59,5 @@ public:
     virtual ~ng_push_app_ite() {}
 };
 
-#endif /* _PUSH_APP_ITE_H_ */
+#endif /* PUSH_APP_ITE_H_ */
 

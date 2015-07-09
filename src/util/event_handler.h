@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _EVENT_HANDLER_H_
-#define _EVENT_HANDLER_H_
+#ifndef EVENT_HANDLER_H_
+#define EVENT_HANDLER_H_
 
 class event_handler {
 public:

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _EXPR_CONTEXT_SIMPLIFIER_H_
-#define _EXPR_CONTEXT_SIMPLIFIER_H_
+#ifndef EXPR_CONTEXT_SIMPLIFIER_H_
+#define EXPR_CONTEXT_SIMPLIFIER_H_
 
 #include "ast.h"
 #include "obj_hashtable.h"
@@ -80,5 +80,5 @@ public:
     void set_cancel(bool f) { m_solver.set_cancel(f); }
 };
 
-#endif /* _EXPR_CONTEXT_SIMPLIFIER_H__ */
+#endif /* EXPR_CONTEXT_SIMPLIFIER_H_ */
 

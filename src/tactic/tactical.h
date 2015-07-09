@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _TACTICAL_H_
-#define _TACTICAL_H_
+#ifndef TACTICAL_H_
+#define TACTICAL_H_
 
 #include"tactic.h"
 #include"probe.h"

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _BIT_BLASTER_TACTIC_H_
-#define _BIT_BLASTER_TACTIC_H_
+#ifndef BIT_BLASTER_TACTIC_H_
+#define BIT_BLASTER_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

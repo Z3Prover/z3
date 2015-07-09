@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _EXPR2POLYNOMIAL_H_
-#define _EXPR2POLYNOMIAL_H_
+#ifndef EXPR2POLYNOMIAL_H_
+#define EXPR2POLYNOMIAL_H_
 
 #include"ast.h"
 #include"polynomial.h"

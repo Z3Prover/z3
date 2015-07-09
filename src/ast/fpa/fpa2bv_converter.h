@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _FPA2BV_CONVERTER_
-#define _FPA2BV_CONVERTER_
+#ifndef FPA2BV_CONVERTER_H_
+#define FPA2BV_CONVERTER_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

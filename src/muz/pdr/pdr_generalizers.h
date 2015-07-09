@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _PDR_GENERALIZERS_H_
-#define _PDR_GENERALIZERS_H_
+#ifndef PDR_GENERALIZERS_H_
+#define PDR_GENERALIZERS_H_
 
 #include "pdr_context.h"
 #include "pdr_closure.h"

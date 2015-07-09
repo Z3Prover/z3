@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _QE_UTIL_H_
-#define _QE_UTIL_H_
+#ifndef QE_UTIL_H_
+#define QE_UTIL_H_
 
 #include "ast.h"
 

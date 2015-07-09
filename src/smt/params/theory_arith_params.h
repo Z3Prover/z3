@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_ARITH_PARAMS_H_
-#define _THEORY_ARITH_PARAMS_H_
+#ifndef THEORY_ARITH_PARAMS_H_
+#define THEORY_ARITH_PARAMS_H_
 
 #include<limits.h>
 #include"params.h"
@@ -158,5 +158,5 @@ struct theory_arith_params {
     void updt_params(params_ref const & p);
 };
 
-#endif /* _THEORY_ARITH_PARAMS_H_ */
+#endif /* THEORY_ARITH_PARAMS_H_ */
 

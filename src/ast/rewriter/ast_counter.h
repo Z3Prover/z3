@@ -21,8 +21,8 @@ Revision History:
 --*/
 
 
-#ifndef _AST_COUNTER_H_
-#define _AST_COUNTER_H_
+#ifndef AST_COUNTER_H_
+#define AST_COUNTER_H_
 
 #include "ast.h"
 #include "map.h"

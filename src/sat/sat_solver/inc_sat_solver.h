@@ -17,8 +17,8 @@ Notes:
 
 --*/
 
-#ifndef _HS_INC_SAT_SOLVER_H_
-#define _HS_INC_SAT_SOLVER_H_
+#ifndef HS_INC_SAT_SOLVER_H_
+#define HS_INC_SAT_SOLVER_H_
 
 #include "solver.h"
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _POOL_H_
-#define _POOL_H_
+#ifndef POOL_H_
+#define POOL_H_
 
 #include"util.h"
 #include"vector.h"
@@ -46,5 +46,5 @@ public:
     }
 };
 
-#endif /* _POOL_H_ */
+#endif /* POOL_H_ */
 

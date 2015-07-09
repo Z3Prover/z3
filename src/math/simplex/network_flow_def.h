@@ -17,8 +17,8 @@ Notes:
    
 --*/
 
-#ifndef _NETWORK_FLOW_DEF_H_
-#define _NETWORK_FLOW_DEF_H_
+#ifndef NETWORK_FLOW_DEF_H_
+#define NETWORK_FLOW_DEF_H_
 
 #include"network_flow.h"
 #include"uint_set.h"

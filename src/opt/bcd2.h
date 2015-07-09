@@ -17,8 +17,8 @@ Notes:
 
 --*/
 
-#ifndef _BCD2_H_
-#define _BCD2_H_
+#ifndef BCD2_H_
+#define BCD2_H_
 
 #include "maxsmt.h"
 

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _TH_REWRITER_H_
-#define _TH_REWRITER_H_
+#ifndef TH_REWRITER_H_
+#define TH_REWRITER_H_
 
 #include"ast.h"
 #include"rewriter_types.h"
