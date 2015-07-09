@@ -18,8 +18,8 @@ Notes:
     
 --*/
 
-#ifndef Z3__H_
-#define Z3__H_
+#ifndef Z3_H_
+#define Z3_H_
 
 #include<stdio.h>
 #include"z3_macros.h"

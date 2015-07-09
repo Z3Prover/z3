@@ -3,9 +3,11 @@
 import os
 import re
 
-ifndef = re.compile("#ifndef \_(.*)\_H\_")
-defn   = re.compile("#define \_(.*)\_H\_")
-endif  = re.compile("#endif /\* \_(.*)\_H\_")
+ifndef  = re.compile("#ifndef \_(.*)\_H\_")
+doubleu = re.compile("#(.*) (.*)\_\_H\_")
+#doubleu2 = re.compile("#define (.*)\_\_H\_")
+defn    = re.compile("#define \_(.*)\_H\_")
+endif   = re.compile("#endif /\* \_(.*)\_H\_")
 
 
 def fix_hdr(file):
@@ -16,6 +18,16 @@ def fix_hdr(file):
     line = ins.readline()
     found = False
     while line:
+	m = doubleu.search(line)
+	if m:
+	    ous.write("#")
+	    ous.write(m.group(1))
+	    ous.write(" ")
+	    ous.write(m.group(2))
+	    ous.write("_H_\n")
+	    line = ins.readline()
+	    found = True
+	    continue	    
 	m = ifndef.search(line)
 	if m:
 	    print m.group(1)

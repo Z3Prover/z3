@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef SCOPED_PROOF__H_
-#define SCOPED_PROOF__H_
+#ifndef SCOPED_PROOF_H_
+#define SCOPED_PROOF_H_
 
 #include "ast.h"
 
