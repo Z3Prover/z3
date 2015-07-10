@@ -47,9 +47,14 @@ public class FuncDecl extends AST
      **/
     public boolean equals(Object o)
     {
-        FuncDecl casted = (FuncDecl) o;
-        if (casted == null)
+        FuncDecl casted = null;
+
+        try {
+            casted = FuncDecl.class.cast(o);
+        } catch (ClassCastException e) {
             return false;
+        }
+
         return this.getNativeObject() == casted.getNativeObject();
     }
 

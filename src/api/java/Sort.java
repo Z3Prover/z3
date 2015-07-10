@@ -36,13 +36,13 @@ public class Sort extends AST
     {
         Sort casted = null;
 
-    try {
-        casted = Sort.class.cast(o);
-    } catch (ClassCastException e) {
-        return false;
-    }
+        try {
+            casted = Sort.class.cast(o);
+        } catch (ClassCastException e) {
+            return false;
+        }
 
-    return this.getNativeObject() == casted.getNativeObject();
+        return this.getNativeObject() == casted.getNativeObject();
     }
 
     /**
