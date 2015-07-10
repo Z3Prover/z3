@@ -271,7 +271,18 @@ public:
 
         // translate into an interpolatable proof
         profiling::timer_start("Proof translation");
-        tr->translate(proof,pf);
+        try {
+            tr->translate(proof,pf);
+        }
+        catch (const char *msg) {
+            throw interpolation_failure(msg);
+        }
+        catch (const iz3translation::unsupported &) {
+            throw interpolation_error();
+        }
+        catch (const iz3proof::proof_error &) {
+            throw interpolation_error();
+        }
         profiling::timer_stop("Proof translation");
     
         // translate the proof into interpolants
@@ -309,7 +320,18 @@ public:
       
             // translate into an interpolatable proof
             profiling::timer_start("Proof translation");
-            tr->translate(proof,pf);
+            try {
+                tr->translate(proof,pf);
+            }
+            catch (const char *msg) {
+                throw interpolation_failure(msg);
+            }
+            catch (const iz3translation::unsupported &) {
+                throw interpolation_error();
+            }
+            catch (const iz3proof::proof_error &) {
+                throw interpolation_error();
+            }
             profiling::timer_stop("Proof translation");
       
             // translate the proof into interpolants

@@ -562,7 +562,14 @@ namespace Duality {
                 opts.set("weak","1"); 
       
             ::ast *proof = m_solver->get_proof();
-            iz3interpolate(m(),proof,_assumptions,_parents,_interpolants,_theory,&opts);
+            try {
+                iz3interpolate(m(),proof,_assumptions,_parents,_interpolants,_theory,&opts);
+            }
+            // If there's an interpolation bug, throw a char *
+            // exception so duality can catch it and restart. 
+            catch (const interpolation_failure &f) {
+                throw f.msg();
+            }
       
             std::vector<expr> linearized_interpolants(_interpolants.size());
             for(unsigned i = 0; i < _interpolants.size(); i++)

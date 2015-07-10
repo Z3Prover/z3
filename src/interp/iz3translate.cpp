@@ -2041,11 +2041,23 @@ public:
             locality.clear();
 #endif
             iproof = iz3proof_itp::create(this,range_downward(i),weak_mode());
-            Iproof::node ipf = translate_main(proof);
-            ast itp = iproof->interpolate(ipf);
-            itps.push_back(itp);
-            delete iproof;
-            clear_translation();
+            try {
+                Iproof::node ipf = translate_main(proof);
+                ast itp = iproof->interpolate(ipf);
+                itps.push_back(itp);
+                delete iproof;
+                clear_translation();
+            }
+            catch (const iz3proof_itp::proof_error &) {
+                delete iproof;
+                clear_translation();
+                throw iz3proof::proof_error();
+            }
+            catch (const unsupported &exc) {
+                delete iproof;
+                clear_translation();
+                throw exc;
+            }
         }
         // Very simple proof -- lemma of the empty clause with computed interpolation
         iz3proof::node Ipf = dst.make_lemma(std::vector<ast>(),itps);  // builds result in dst
