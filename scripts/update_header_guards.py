@@ -5,7 +5,6 @@ import re
 
 ifndef  = re.compile("#ifndef \_(.*)\_H\_")
 doubleu = re.compile("#(.*) (.*)\_\_H\_")
-#doubleu2 = re.compile("#define (.*)\_\_H\_")
 defn    = re.compile("#define \_(.*)\_H\_")
 endif   = re.compile("#endif /\* \_(.*)\_H\_")
 
