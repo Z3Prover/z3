@@ -2584,6 +2584,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
         if(pstrict && qstrict && round_off)
             Qrhs = make(Sub,Qrhs,make_int(rational(1)));
 #else
+        if (round_off && get_type(Qrhs) != int_type())
+            round_off = false;
         bool pstrict = op(P) == Lt;
         if(qstrict && round_off && (pstrict || !(c == make_int(rational(1))))){
             Qrhs = make(Sub,Qrhs,make_int(rational(1)));

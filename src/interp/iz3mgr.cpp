@@ -733,6 +733,8 @@ void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q, bool round_off){
         }
     }
     bool pstrict = op(P) == Lt;
+    if (round_off && get_type(Qrhs) != int_type())
+        round_off = false;
     if(qstrict && round_off && (pstrict || !(c == make_int(rational(1))))){
         Qrhs = make(Sub,Qrhs,make_int(rational(1)));
         qstrict = false;
