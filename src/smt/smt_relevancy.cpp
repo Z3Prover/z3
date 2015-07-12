@@ -148,8 +148,11 @@ namespace smt {
             unsigned m_trail_lim;
         };
         svector<scope>                 m_scopes;
+        bool                           m_propagating;
 
-        relevancy_propagator_imp(context & ctx):relevancy_propagator(ctx), m_qhead(0), m_relevant_exprs(ctx.get_manager()) {}
+        relevancy_propagator_imp(context & ctx):
+            relevancy_propagator(ctx), m_qhead(0), m_relevant_exprs(ctx.get_manager()),
+            m_propagating(false) {}
 
         virtual ~relevancy_propagator_imp() {
             undo_trail(0);
@@ -448,6 +451,11 @@ namespace smt {
            relevant expressions.
         */
         virtual void propagate() {
+            if (m_propagating) {  
+                return;  
+            }  
+            flet<bool> l_prop(m_propagating, true);  
+
             ast_manager & m = get_manager();
             while (m_qhead < m_relevant_exprs.size()) {
                 expr * n = m_relevant_exprs.get(m_qhead);
