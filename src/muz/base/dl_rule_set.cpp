@@ -442,17 +442,17 @@ namespace datalog {
     }
 
     bool rule_set::check_min() {
+        // Define a "min-predicate" to be a predicate that is the head of a rule which
+        // contains a min aggregation function. By stratified_negation(), negation is
+        // already stratified. This means that an SCC will not mix non-monotonic
+        // functions such as negation and min.
+        //
         // We check the following:
         //
-        // Define a "min-predicate" to be a predicate that is the head of a rule which
-        // contains a min aggregation function.
-        //
         // 1) A min-predicate must not be the head of multiple rules.
-        // 2) An SCC must not mix non-monotonic functions such as negation and min.
-        // 3) Let S be an SCC that contains a min-predicate. Then any edge that leaves S
+        // 2) Let S be an SCC that contains a min-predicate. Then any edge that leaves S
         //    must directly originate at some min predicate.
-        const unsigned NEG_BIT = 1U << 0;
-        const unsigned MIN_BIT = 1U << 1;
+        const unsigned MIN_BIT = 1U;
 
         rule * r;
         unsigned head_strat;
@@ -471,22 +471,11 @@ namespace datalog {
                     return false;
                 }
 
-                component_status[head_strat] |= MIN_BIT;
-            }
-
-            if (r->has_negation()) {
-                component_status[head_strat] |= NEG_BIT;
+                component_status[head_strat] = MIN_BIT;
             }
         }
 
         // check 2
-        const unsigned CONFLICT = NEG_BIT | MIN_BIT;
-        for (unsigned k = 0; k < component_status.size(); ++k) {
-            if (component_status[k] == CONFLICT)
-                return false;
-        }
-
-        // check 3
         rule *body_rule;
         unsigned body_strat;
         func_decl *body_decl;
