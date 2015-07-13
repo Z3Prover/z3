@@ -25,6 +25,7 @@ Author:
 
 namespace datalog {
     template <typename Fact> class fact_reader;
+    template <typename Fact> class fact_setter;
     template <typename Fact> class fact_writer;
     /* The structure of fact classes:
     class fact {
@@ -32,9 +33,9 @@ namespace datalog {
         typedef ... ctx_t;
         // Empty fact
         static fact null_fact;
-        fact(); -- bottom
+        fact(func_decl* symbol); -- bottom
         // Init (Top down)
-        void init_down(ctx_t& ctx, const rule* r);
+        static void init_down(ctx_t& m, const rule_set& rules, fact_setter<fact>& setter);
         // Init (Bottom up)
         bool init_up(ctx_t& ctx, const rule* r);
         // Step (Bottom up)
@@ -64,6 +65,7 @@ namespace datalog {
         void init_bottom_up() {
             for (rule_set::iterator it = m_rules.begin(); it != m_rules.end(); ++it) {
                 rule* cur = *it;
+                func_decl *sym = cur->get_decl();
                 for (unsigned i = 0; i < cur->get_uninterpreted_tail_size(); ++i) {
                     func_decl *d = cur->get_decl(i);
                     rule_set::decl2rules::obj_map_entry *e = m_body2rules.insert_if_not_there2(d, 0);
@@ -72,27 +74,16 @@ namespace datalog {
                     }
                     e->get_data().m_value->push_back(cur);
                 }
-                if (cur->get_uninterpreted_tail_size() == 0) {
-                    func_decl *sym = cur->get_head()->get_decl();
-                    bool new_info = m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value.init_up(m_context, cur);
-                    if (new_info) {
-                        m_todo[m_todo_idx].insert(sym);
-                    }
+                bool new_info = m_facts.insert_if_not_there2(sym, Fact(sym))->get_data().m_value.init_up(m_context, cur);
+                if (new_info) {
+                    m_todo[m_todo_idx].insert(sym);
                 }
             }
         }
 
         void init_top_down() {
-            const func_decl_set& output_preds = m_rules.get_output_predicates();
-            for (func_decl_set::iterator I = output_preds.begin(),
-                E = output_preds.end(); I != E; ++I) {
-                func_decl* sym = *I;
-                const rule_vector& output_rules = m_rules.get_predicate_rules(sym);
-                for (unsigned i = 0; i < output_rules.size(); ++i) {
-                    m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value.init_down(m_context, output_rules[i]);
-                    m_todo[m_todo_idx].insert(sym);
-                }
-            }
+            fact_setter<Fact> setter(m_facts, m_todo[m_todo_idx]);
+            Fact::init_down(m_context, m_rules, setter);
         }
 
         void step_bottom_up() {
@@ -101,12 +92,11 @@ namespace datalog {
                 ptr_vector<rule> * rules; 
                 if (!m_body2rules.find(*I, rules))
                     continue;
-
                 for (ptr_vector<rule>::iterator I2 = rules->begin(),
                     E2 = rules->end(); I2 != E2; ++I2) {
-                    func_decl* head_sym = (*I2)->get_head()->get_decl();
+                    func_decl* head_sym = (*I2)->get_decl();
                     fact_reader<Fact> tail_facts(m_facts, *I2);
-                    bool new_info = m_facts.insert_if_not_there2(head_sym, Fact())->get_data().m_value.propagate_up(m_context, *I2, tail_facts);
+                    bool new_info = m_facts.insert_if_not_there2(head_sym, Fact(head_sym))->get_data().m_value.propagate_up(m_context, *I2, tail_facts);
                     if (new_info) {
                         m_todo[!m_todo_idx].insert(head_sym);
                     }
@@ -120,7 +110,7 @@ namespace datalog {
         void step_top_down() {
             for(todo_set::iterator I = m_todo[m_todo_idx].begin(),
                 E = m_todo[m_todo_idx].end(); I!=E; ++I) {
-                func_decl* head_sym = *I;
+                func_decl *head_sym = *I;
                 // We can't use a reference here because we are changing the map while using the reference
                 const Fact head_fact = m_facts.get(head_sym, Fact::null_fact);
                 const rule_vector& deps = m_rules.get_predicate_rules(head_sym);
@@ -154,7 +144,7 @@ namespace datalog {
             obj_hashtable<func_decl> visited;
             for (rule_set::iterator I = m_rules.begin(),
                 E = m_rules.end(); I != E; ++I) {
-                const rule* r = *I;
+                const rule *r = *I;
                 func_decl* head_decl = r->get_decl();
                 obj_hashtable<func_decl>::entry *dummy;
                 if (visited.insert_if_not_there_core(head_decl, dummy)) {
@@ -189,6 +179,7 @@ namespace datalog {
             return m_facts.get(decl, Fact::null_fact);
         }
 
+        const fact_db& get_facts() const { return m_facts; }
         iterator begin() const { return m_facts.begin(); }
         iterator end() const { return m_facts.end(); }
 
@@ -238,24 +229,39 @@ namespace datalog {
             return m_rule->get_uninterpreted_tail_size();
         }
     };
-
-    template <typename Fact> class fact_writer {
+    
+    template <typename Fact> class fact_setter {
         friend class dataflow_engine<Fact>;
         typedef typename dataflow_engine<Fact>::fact_db fact_db;
+        typedef typename dataflow_engine<Fact>::todo_set todo_set;
         fact_db& m_facts;
-        const rule* m_rule;
-        typename dataflow_engine<Fact>::todo_set& m_todo;
+        todo_set& m_todo;
     public:
-        fact_writer(fact_db& facts, const rule* r, typename dataflow_engine<Fact>::todo_set& todo)
-            : m_facts(facts), m_rule(r), m_todo(todo) {}
+        fact_setter(fact_db& facts, todo_set& todo) : m_facts(facts), m_todo(todo) {}
+
+        Fact& get(func_decl* sym) {
+            return m_facts.insert_if_not_there2(sym, Fact(sym))->get_data().m_value;
+        }
+
+        void set_changed(func_decl* sym) {
+            m_todo.insert(sym);
+        }
+    };
+    
+    template <typename Fact> class fact_writer : public fact_setter<Fact> {
+        typedef typename dataflow_engine<Fact>::fact_db fact_db;
+        typedef typename dataflow_engine<Fact>::todo_set todo_set;
+        const rule* m_rule;
+    public:
+        fact_writer(fact_db& facts, const rule* r, todo_set& todo) : fact_setter<Fact>(facts,todo), m_rule(r) {}
 
         Fact& get(unsigned idx) {
-            func_decl *sym = m_rule->get_decl(idx);
-            return m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value;
+            func_decl *sym = m_rule->get_tail(idx)->get_decl();
+            return fact_setter<Fact>::get(sym);
         }
 
         void set_changed(unsigned idx) {
-            m_todo.insert(m_rule->get_decl(idx));
+            fact_setter<Fact>::set_changed(m_rule->get_decl(idx));
         }
 
         unsigned size() const {
