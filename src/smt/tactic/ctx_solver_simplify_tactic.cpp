@@ -125,7 +125,7 @@ protected:
             m_solver.assert_expr(fml1);
             lbool is_sat = m_solver.check();
             TRACE("ctx_solver_simplify_tactic", tout << "is non-equivalence sat?: " << is_sat << "\n";);
-            if (is_sat != l_false) {
+            if (is_sat == l_true) {
                 TRACE("ctx_solver_simplify_tactic", 
                       tout << "result is not equivalent to input\n";
                       tout << mk_pp(fml1, m) << "\n";);

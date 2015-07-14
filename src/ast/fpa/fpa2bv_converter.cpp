@@ -2975,7 +2975,7 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     exp_m_lz = m_bv_util.mk_bv_sub(m_bv_util.mk_sign_extend(2, exp),
                                    m_bv_util.mk_zero_extend(2, lz));
     shift = m_bv_util.mk_bv_sub(exp_m_lz,
-                                m_bv_util.mk_numeral(bv_sz - 1, ebits + 2));
+                                m_bv_util.mk_numeral(bv_sz, ebits + 2));
     shift_neg = m_bv_util.mk_bv_neg(shift);
     bv0_e2 = m_bv_util.mk_numeral(0, ebits + 2);
     shift_abs = m.mk_ite(m_bv_util.mk_sle(shift, bv0_e2), shift_neg, shift);
@@ -2987,8 +2987,8 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     // sig is of the form +- [1].[sig][r][g][s] ... and at least bv_sz + 3 long    
     //           [1][ ... sig ... ][r][g][ ... s ...]
     // [    ... ubv ...    ][r][g][  ... s ...      ]
-    expr_ref max_shift(m);
-    max_shift = m_bv_util.mk_numeral(sig_sz, sig_sz);
+    // expr_ref max_shift(m);
+    // max_shift = m_bv_util.mk_numeral(sig_sz, sig_sz);
     shift_abs = m_bv_util.mk_zero_extend(sig_sz - ebits - 2, shift_abs);
     SASSERT(m_bv_util.get_bv_size(shift_abs) == sig_sz);
     dbg_decouple("fpa2bv_to_sbv_shift_abs", shift_abs);
@@ -3440,7 +3440,7 @@ void fpa2bv_converter::mk_rounding_mode(func_decl * f, expr_ref & result)
 
 void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {    
     #ifdef Z3DEBUG
-    return;
+    // return;
     // CMW: This works only for quantifier-free formulas.
     expr_ref new_e(m);
     new_e = m.mk_fresh_const(prefix, m.get_sort(e));

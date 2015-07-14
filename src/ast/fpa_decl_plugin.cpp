@@ -629,7 +629,6 @@ func_decl * fpa_decl_plugin::mk_to_sbv(decl_kind k, unsigned num_parameters, par
     symbol name("fp.to_sbv");
     sort * bvs = m_bv_plugin->mk_sort(BV_SORT, 1, parameters);
     return m_manager->mk_func_decl(name, arity, domain, bvs, func_decl_info(m_family_id, k, num_parameters, parameters));
-
 }
 
 func_decl * fpa_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, parameter const * parameters,
