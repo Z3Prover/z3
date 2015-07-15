@@ -207,7 +207,7 @@ extern "C" {
         opts->map[name] = value;
     }
 
-    Z3_ast_vector Z3_API Z3_get_interpolant(__in Z3_context c, __in Z3_ast pf, __in Z3_ast pat, __in Z3_params p){
+    Z3_ast_vector Z3_API Z3_get_interpolant(Z3_context c, Z3_ast pf, Z3_ast pat, Z3_params p){
         Z3_TRY;
         LOG_Z3_get_interpolant(c, pf, pat, p);
         RESET_ERROR_CODE();
@@ -240,7 +240,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_lbool Z3_API Z3_compute_interpolant(__in Z3_context c, __in Z3_ast pat, __in Z3_params p, __out Z3_ast_vector *out_interp, __out Z3_model *model){
+    Z3_lbool Z3_API Z3_compute_interpolant(Z3_context c, Z3_ast pat, Z3_params p, Z3_ast_vector *out_interp, Z3_model *model){
         Z3_TRY;
         LOG_Z3_compute_interpolant(c, pat, p, out_interp, model);
         RESET_ERROR_CODE();
@@ -708,15 +708,15 @@ extern "C" {
     def_API('Z3_interpolate', BOOL, (_in(CONTEXT), _in(UINT), _in_array(1, AST), _in_array(1, UINT), _in(PARAMS), _out_array(1, AST), _out(MODEL), _out(LITERALS), _in(UINT), _in(UINT), _in_array(9, AST)))
 */
 
-Z3_lbool Z3_API Z3_interpolate(__in Z3_context ctx,
-                               __in unsigned num,
-                               __in_ecount(num) Z3_ast *cnsts,
-                               __in_ecount(num) unsigned *parents,
-                               __in Z3_params options,
-                               __out_ecount(num - 1) Z3_ast *interps,
-                               __out Z3_model *model,
-                               __out Z3_literals *labels,
-                               __in unsigned incremental,
-                               __in unsigned num_theory,
-                               __in_ecount(num_theory) Z3_ast *theory);
+Z3_lbool Z3_API Z3_interpolate(Z3_context ctx,
+                               unsigned num,
+                               Z3_ast *cnsts,
+                               unsigned *parents,
+                               Z3_params options,
+                               Z3_ast *interps,
+                               Z3_model *model,
+                               Z3_literals *labels,
+                               unsigned incremental,
+                               unsigned num_theory,
+                               Z3_ast *theory);
 #endif

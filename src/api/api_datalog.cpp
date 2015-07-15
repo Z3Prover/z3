@@ -304,8 +304,8 @@ extern "C" {
     }
 
     Z3_lbool Z3_API Z3_fixedpoint_query_relations(
-        __in Z3_context c,__in Z3_fixedpoint d, 
-        __in unsigned num_relations, Z3_func_decl const relations[]) {
+        Z3_context c,Z3_fixedpoint d, 
+        unsigned num_relations, Z3_func_decl const relations[]) {
         Z3_TRY;
         LOG_Z3_fixedpoint_query_relations(c, d, num_relations, relations);
         RESET_ERROR_CODE();
