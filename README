@@ -4,7 +4,16 @@ Z3 can be built using Visual Studio Command Prompt and make/g++.
 
 1) Building Z3 on Windows using Visual Studio Command Prompt
    
+32-bit builds, start with:
+
    python scripts/mk_make.py
+
+or instead, for a 64-bit build:
+
+   python scripts/mk_make.py -x
+
+then:
+
    cd build
    nmake
 
