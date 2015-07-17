@@ -43,7 +43,7 @@ extern "C" {
 
     def_API('Z3_mk_interpolant', AST, (_in(CONTEXT), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_interpolant(__in Z3_context c, __in Z3_ast a);
+    Z3_ast Z3_API Z3_mk_interpolant(Z3_context c, Z3_ast a);
 
 
     /** \brief This function generates a Z3 context suitable for generation of
@@ -62,7 +62,7 @@ extern "C" {
 
     */
 
-    Z3_context Z3_API Z3_mk_interpolation_context(__in Z3_config cfg);
+    Z3_context Z3_API Z3_mk_interpolation_context(Z3_config cfg);
 
     /** Compute an interpolant from a refutation. This takes a proof of
         "false" from a set of formulas C, and an interpolation
@@ -130,7 +130,7 @@ extern "C" {
         def_API('Z3_get_interpolant', AST_VECTOR, (_in(CONTEXT), _in(AST), _in(AST), _in(PARAMS)))
         */
 
-    Z3_ast_vector Z3_API Z3_get_interpolant(__in Z3_context c, __in Z3_ast pf, __in Z3_ast pat, __in Z3_params p);
+    Z3_ast_vector Z3_API Z3_get_interpolant(Z3_context c, Z3_ast pf, Z3_ast pat, Z3_params p);
 
     /* Compute an interpolant for an unsatisfiable conjunction of formulas.
 
@@ -164,11 +164,11 @@ extern "C" {
        def_API('Z3_compute_interpolant', INT, (_in(CONTEXT), _in(AST), _in(PARAMS), _out(AST_VECTOR), _out(MODEL)))
        */
 
-    Z3_lbool Z3_API Z3_compute_interpolant(__in Z3_context c, 
-                                           __in Z3_ast pat, 
-                                           __in Z3_params p, 
-                                           __out Z3_ast_vector *interp, 
-                                           __out Z3_model *model);
+    Z3_lbool Z3_API Z3_compute_interpolant(Z3_context c, 
+                                           Z3_ast pat, 
+                                           Z3_params p, 
+                                           Z3_ast_vector *interp, 
+                                           Z3_model *model);
 
     /** Return a string summarizing cumulative time used for
         interpolation.  This string is purely for entertainment purposes
@@ -180,7 +180,7 @@ extern "C" {
         def_API('Z3_interpolation_profile', STRING, (_in(CONTEXT),))
         */
 
-    Z3_string Z3_API Z3_interpolation_profile(__in Z3_context ctx);
+    Z3_string Z3_API Z3_interpolation_profile(Z3_context ctx);
 
     /**
        \brief Read an interpolation problem from file.
@@ -219,14 +219,14 @@ extern "C" {
 
        */
 
-    int Z3_API Z3_read_interpolation_problem(__in Z3_context ctx,
-                                             __out unsigned *num,
-                                             __out Z3_ast *cnsts[],
-                                             __out unsigned *parents[],
-                                             __in Z3_string filename,
-                                             __out_opt Z3_string_ptr error,
-                                             __out unsigned *num_theory,
-                                             __out Z3_ast *theory[]);
+    int Z3_API Z3_read_interpolation_problem(Z3_context ctx,
+                                             unsigned *num,
+                                             Z3_ast *cnsts[],
+                                             unsigned *parents[],
+                                             Z3_string filename,
+                                             Z3_string_ptr error,
+                                             unsigned *num_theory,
+                                             Z3_ast *theory[]);
 
 
 
@@ -250,14 +250,14 @@ extern "C" {
         def_API('Z3_check_interpolant', INT, (_in(CONTEXT), _in(UINT), _in_array(1, AST), _in_array(1, UINT), _in_array(1, AST), _out(STRING), _in(UINT), _in_array(6, AST)))
         */
 
-    int Z3_API Z3_check_interpolant(__in Z3_context ctx,
-                                    __in unsigned num,
-                                    __in_ecount(num) Z3_ast cnsts[],
-                                    __in_ecount(num) unsigned parents[],
-                                    __in_ecount(num - 1) Z3_ast *interps,
-                                    __out_opt Z3_string_ptr error,
-                                    __in unsigned num_theory,
-                                    __in_ecount(num_theory) Z3_ast theory[]);
+    int Z3_API Z3_check_interpolant(Z3_context ctx,
+                                    unsigned num,
+                                    Z3_ast cnsts[],
+                                    unsigned parents[],
+                                    Z3_ast *interps,
+                                    Z3_string_ptr error,
+                                    unsigned num_theory,
+                                    Z3_ast theory[]);
 
     /** Write an interpolation problem to file suitable for reading with
         Z3_read_interpolation_problem. The output file is a sequence
@@ -275,13 +275,13 @@ extern "C" {
         def_API('Z3_write_interpolation_problem', VOID, (_in(CONTEXT), _in(UINT), _in_array(1, AST), _in_array(1, UINT), _in(STRING), _in(UINT), _in_array(5, AST)))
         */
 
-    void Z3_API  Z3_write_interpolation_problem(__in Z3_context ctx,
-                                                __in unsigned num,
-                                                __in_ecount(num) Z3_ast cnsts[],
-                                                __in_ecount(num) unsigned parents[],
-                                                __in Z3_string filename,
-                                                __in unsigned num_theory,
-                                                __in_ecount(num_theory) Z3_ast theory[]);
+    void Z3_API  Z3_write_interpolation_problem(Z3_context ctx,
+                                                unsigned num,
+                                                Z3_ast cnsts[],
+                                                unsigned parents[],
+                                                Z3_string filename,
+                                                unsigned num_theory,
+                                                Z3_ast theory[]);
 
     /*@}*/
     /*@}*/

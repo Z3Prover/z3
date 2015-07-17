@@ -159,7 +159,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
        This function is a shorthand for <tt>shl(1, N-1)</tt>
        where <tt>N</tt> are the number of bits of \c s.
     */
-    Z3_ast Z3_API Z3_mk_bvmsb(__in Z3_context c, __in Z3_sort s) {
+    Z3_ast Z3_API Z3_mk_bvmsb(Z3_context c, Z3_sort s) {
         Z3_TRY;
         RESET_ERROR_CODE();
         // Not logging this one, since it is just syntax sugar.
@@ -179,19 +179,19 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_mk_bvsmin(__in Z3_context c, __in Z3_sort s) {
+    Z3_ast Z3_mk_bvsmin(Z3_context c, Z3_sort s) {
         return Z3_mk_bvmsb(c, s);
     }
 
-    Z3_ast Z3_mk_bvsmax(__in Z3_context c, __in Z3_sort s) {
+    Z3_ast Z3_mk_bvsmax(Z3_context c, Z3_sort s) {
         return Z3_mk_bvnot(c, Z3_mk_bvmsb(c, s));
     }
 
-    Z3_ast Z3_mk_bvumax(__in Z3_context c, __in Z3_sort s) {
+    Z3_ast Z3_mk_bvumax(Z3_context c, Z3_sort s) {
         return Z3_mk_int(c, -1, s);
     }
 
-    Z3_ast Z3_API Z3_mk_bvadd_no_overflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2, Z3_bool is_signed) {
+    Z3_ast Z3_API Z3_mk_bvadd_no_overflow(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_bool is_signed) {
         Z3_TRY;
         RESET_ERROR_CODE();
         if (is_signed) {
@@ -235,7 +235,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     }
 
     // only for signed machine integers
-    Z3_ast Z3_API Z3_mk_bvadd_no_underflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2) {
+    Z3_ast Z3_API Z3_mk_bvadd_no_underflow(Z3_context c, Z3_ast t1, Z3_ast t2) {
         Z3_TRY;
         RESET_ERROR_CODE();
         Z3_ast zero = Z3_mk_int(c, 0, Z3_get_sort(c, t1));
@@ -263,7 +263,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     }
 
     // only for signed machine integers
-    Z3_ast Z3_API Z3_mk_bvsub_no_overflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2) {
+    Z3_ast Z3_API Z3_mk_bvsub_no_overflow(Z3_context c, Z3_ast t1, Z3_ast t2) {
         Z3_TRY;
         RESET_ERROR_CODE();
         Z3_ast minus_t2 = Z3_mk_bvneg(c, t2);
@@ -291,7 +291,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_bvsub_no_underflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2, Z3_bool is_signed) {
+    Z3_ast Z3_API Z3_mk_bvsub_no_underflow(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_bool is_signed) {
         Z3_TRY;
         RESET_ERROR_CODE();
         if (is_signed) {
@@ -316,7 +316,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_bvmul_no_overflow(__in Z3_context c, __in Z3_ast n1, __in Z3_ast n2, Z3_bool is_signed) {
+    Z3_ast Z3_API Z3_mk_bvmul_no_overflow(Z3_context c, Z3_ast n1, Z3_ast n2, Z3_bool is_signed) {
         LOG_Z3_mk_bvmul_no_overflow(c, n1, n2, is_signed);
         RESET_ERROR_CODE();
         if (is_signed) {
@@ -328,13 +328,13 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     }
 
     // only for signed machine integers
-    Z3_ast Z3_API Z3_mk_bvmul_no_underflow(__in Z3_context c, __in Z3_ast n1, __in Z3_ast n2) {
+    Z3_ast Z3_API Z3_mk_bvmul_no_underflow(Z3_context c, Z3_ast n1, Z3_ast n2) {
         LOG_Z3_mk_bvmul_no_underflow(c, n1, n2);
         MK_BINARY_BODY(Z3_mk_bvmul_no_underflow, mk_c(c)->get_bv_fid(), OP_BSMUL_NO_UDFL, SKIP);
     }
 
     // only for signed machine integers
-    Z3_ast Z3_API Z3_mk_bvneg_no_overflow(__in Z3_context c, __in Z3_ast t) {
+    Z3_ast Z3_API Z3_mk_bvneg_no_overflow(Z3_context c, Z3_ast t) {
         Z3_TRY;
         RESET_ERROR_CODE();
         Z3_ast min = Z3_mk_bvsmin(c, Z3_get_sort(c, t));
@@ -346,7 +346,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     }
     
     // only for signed machine integers
-    Z3_ast Z3_API Z3_mk_bvsdiv_no_overflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2) {
+    Z3_ast Z3_API Z3_mk_bvsdiv_no_overflow(Z3_context c, Z3_ast t1, Z3_ast t2) {
         Z3_TRY;
         RESET_ERROR_CODE();
         Z3_sort s = Z3_get_sort(c, t1);
