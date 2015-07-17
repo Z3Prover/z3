@@ -3671,6 +3671,7 @@ public class Context extends IDisposable
     private StatisticsDecRefQueue m_Statistics_DRQ = new StatisticsDecRefQueue(10);
     private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue(10);
     private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue(10);
+    private OptimizeDecRefQueue m_Optimize_DRQ = new OptimizeDecRefQueue(10);
 
     public IDecRefQueue getASTDRQ()
     {
@@ -3745,6 +3746,11 @@ public class Context extends IDisposable
     public IDecRefQueue getFixedpointDRQ()
     {
         return m_Fixedpoint_DRQ;
+    }
+
+    public IDecRefQueue getOptimizeDRQ()
+    {
+        return m_Optimize_DRQ;
     }
 
     protected long m_refCount = 0;
