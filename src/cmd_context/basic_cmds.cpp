@@ -21,14 +21,12 @@ Notes:
 #include"ast_smt2_pp.h"
 #include"ast_pp.h"
 #include"model_smt2_pp.h"
-#include"model_v2_pp.h"
 #include"array_decl_plugin.h"
 #include"pp.h"
 #include"cmd_util.h"
 #include"simplify_cmd.h"
 #include"eval_cmd.h"
 #include"gparams.h"
-#include"model_params.hpp"
 #include"env_params.h"
 
 class help_cmd : public cmd {
@@ -105,17 +103,7 @@ ATOMIC_CMD(get_model_cmd, "get-model", "retrieve model for the last check-sat co
         throw cmd_exception("model is not available");
     model_ref m;
     ctx.get_check_sat_result()->get_model(m);
-    model_params p;
-    if (p.v1() || p.v2()) {
-        std::ostringstream buffer;
-        model_v2_pp(buffer, *m, p.partial());
-        ctx.regular_stream() << "\"" << escaped(buffer.str().c_str(), true) << "\"" << std::endl;
-    } else {
-        ctx.regular_stream() << "(model " << std::endl;
-        model_smt2_pp(ctx.regular_stream(), ctx, *(m.get()), 2);
-        // m->display(ctx.regular_stream());
-        ctx.regular_stream() << ")" << std::endl;
-    }
+    ctx.display_model(m);
 });
 
 ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {

@@ -41,6 +41,8 @@ Notes:
 #include"scoped_timer.h"
 #include"interpolant_cmds.h"
 #include"model_smt2_pp.h"
+#include"model_v2_pp.h"
+#include"model_params.hpp"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -1409,11 +1411,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
                 if (get_opt()->print_model()) {
                     model_ref mdl;
                     get_opt()->get_model(mdl);
-                    if (mdl) {
-                        regular_stream() << "(model " << std::endl;
-                        model_smt2_pp(regular_stream(), *this, *(mdl.get()), 2);
-                        regular_stream() << ")" << std::endl;                    
-                    }
+                    display_model(mdl);
                 }
                 r = get_opt()->optimize();
             }
@@ -1456,9 +1454,29 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     }
     display_sat_result(r);
     validate_check_sat_result(r);
-    if (r == l_true)
+    if (r == l_true) {
         validate_model();
+        if (m_params.m_dump_models) {
+            model_ref md;
+            get_check_sat_result()->get_model(md);
+            display_model(md);
+        }
+    }
+}
 
+void cmd_context::display_model(model_ref& mdl) {
+    if (mdl) {
+        model_params p;
+        if (p.v1() || p.v2()) {
+            std::ostringstream buffer;
+            model_v2_pp(buffer, *mdl, p.partial());
+            regular_stream() << "\"" << escaped(buffer.str().c_str(), true) << "\"" << std::endl;
+        } else {
+            regular_stream() << "(model " << std::endl;
+            model_smt2_pp(regular_stream(), *this, *mdl, 2);
+            regular_stream() << ")" << std::endl;
+        }
+    }
 }
 
 void cmd_context::display_sat_result(lbool r) {
