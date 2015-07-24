@@ -3906,6 +3906,12 @@ class ArrayRef(ExprRef):
         arg = self.domain().cast(arg)
         return _to_expr_ref(Z3_mk_select(self.ctx_ref(), self.as_ast(), arg.as_ast()), self.ctx)
 
+    def default(self):
+	return _to_expr_ref(Z3_mk_array_default(self.ctx_ref(), self.as_ast()), self.ctx)
+
+
+
+
 def is_array(a):
     """Return `True` if `a` is a Z3 array expression.
     
