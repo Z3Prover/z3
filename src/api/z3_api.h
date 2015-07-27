@@ -4237,7 +4237,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief Return Z3_L_TRUE if \c a is true, Z3_L_FALSE if it is false, and Z3_L_UNDEF otherwise.
 
-       def_API('Z3_get_bool_value', UINT, (_in(CONTEXT), _in(AST)))
+       def_API('Z3_get_bool_value', INT, (_in(CONTEXT), _in(AST)))
     */
     Z3_lbool Z3_API Z3_get_bool_value(Z3_context c, Z3_ast a);
 
@@ -7578,7 +7578,7 @@ END_MLAPI_EXCLUDE
     
        \deprecated To be moved outside of API.
 
-       def_API('Z3_get_implied_equalities', UINT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
+       def_API('Z3_get_implied_equalities', INT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
     */
     Z3_lbool Z3_API Z3_get_implied_equalities(
         Z3_context c, 
