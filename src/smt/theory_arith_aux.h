@@ -1479,9 +1479,9 @@ namespace smt {
 
         SASSERT(max_gain.is_minus_one() || !max_gain.is_neg());
         SASSERT(min_gain.is_minus_one() || !min_gain.is_neg());
-        SASSERT(!is_int(x_i) || min_gain.is_pos());
-        SASSERT(!is_int(x_i) || min_gain.is_int());
-        SASSERT(!is_int(x_i) || max_gain.is_int());
+        //SASSERT(!is_int(x_i) || min_gain.is_pos());
+        //SASSERT(!is_int(x_i) || min_gain.is_int());
+        //SASSERT(!is_int(x_i) || max_gain.is_int());
         return is_tighter;
     }
 

@@ -42,7 +42,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_rounding_mode_sort', SORT, (_in(CONTEXT),))
     */
-    Z3_sort Z3_API Z3_mk_fpa_rounding_mode_sort(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_fpa_rounding_mode_sort(Z3_context c);
 
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
@@ -51,7 +51,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_round_nearest_ties_to_even', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_mk_fpa_round_nearest_ties_to_even(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_fpa_round_nearest_ties_to_even(Z3_context c);
 
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode.
@@ -60,7 +60,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_rne', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_mk_fpa_rne(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_fpa_rne(Z3_context c);
 
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
@@ -69,7 +69,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_round_nearest_ties_to_away', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_mk_fpa_round_nearest_ties_to_away(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_fpa_round_nearest_ties_to_away(Z3_context c);
 
     /**
         \brief Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode.
@@ -78,7 +78,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_rna', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_mk_fpa_rna(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_fpa_rna(Z3_context c);
 
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode.
@@ -87,7 +87,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_round_toward_positive', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_mk_fpa_round_toward_positive(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_fpa_round_toward_positive(Z3_context c);
 
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode.
@@ -96,7 +96,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_rtp', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_mk_fpa_rtp(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_fpa_rtp(Z3_context c);
 
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode.
@@ -105,7 +105,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_round_toward_negative', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_mk_fpa_round_toward_negative(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_fpa_round_toward_negative(Z3_context c);
 
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode.
@@ -114,7 +114,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_rtn', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_mk_fpa_rtn(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_fpa_rtn(Z3_context c);
 
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardZero rounding mode.
@@ -123,7 +123,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_round_toward_zero', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_mk_fpa_round_toward_zero(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_fpa_round_toward_zero(Z3_context c);
 
     /**
         \brief Create a numeral of RoundingMode sort which represents the TowardZero rounding mode.
@@ -132,7 +132,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_rtz', AST, (_in(CONTEXT),))
     */
-    Z3_ast Z3_API Z3_mk_fpa_rtz(__in Z3_context c);
+    Z3_ast Z3_API Z3_mk_fpa_rtz(Z3_context c);
 
     /**
         \brief Create a FloatingPoint sort.
@@ -145,7 +145,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_sort', SORT, (_in(CONTEXT), _in(UINT), _in(UINT)))        
     */
-    Z3_sort Z3_API Z3_mk_fpa_sort(__in Z3_context c, __in unsigned ebits, __in unsigned sbits);
+    Z3_sort Z3_API Z3_mk_fpa_sort(Z3_context c, unsigned ebits, unsigned sbits);
 
     /**
         \brief Create the half-precision (16-bit) FloatingPoint sort.
@@ -154,7 +154,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_sort_half', SORT, (_in(CONTEXT),))
     */
-    Z3_sort Z3_API Z3_mk_fpa_sort_half(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_fpa_sort_half(Z3_context c);
 
     /**
         \brief Create the half-precision (16-bit) FloatingPoint sort.
@@ -163,7 +163,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_sort_16', SORT, (_in(CONTEXT),))
     */
-    Z3_sort Z3_API Z3_mk_fpa_sort_16(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_fpa_sort_16(Z3_context c);
 
     /**
         \brief Create the single-precision (32-bit) FloatingPoint sort.
@@ -172,7 +172,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_sort_single', SORT, (_in(CONTEXT),))
     */
-    Z3_sort Z3_API Z3_mk_fpa_sort_single(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_fpa_sort_single(Z3_context c);
 
     /**
         \brief Create the single-precision (32-bit) FloatingPoint sort.
@@ -181,7 +181,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_sort_32', SORT, (_in(CONTEXT),))
     */
-    Z3_sort Z3_API Z3_mk_fpa_sort_32(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_fpa_sort_32(Z3_context c);
 
     /**
         \brief Create the double-precision (64-bit) FloatingPoint sort.
@@ -190,7 +190,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_sort_double', SORT, (_in(CONTEXT),))
     */
-    Z3_sort Z3_API Z3_mk_fpa_sort_double(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_fpa_sort_double(Z3_context c);
 
     /**
         \brief Create the double-precision (64-bit) FloatingPoint sort.
@@ -199,7 +199,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_sort_64', SORT, (_in(CONTEXT),))
     */
-    Z3_sort Z3_API Z3_mk_fpa_sort_64(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_fpa_sort_64(Z3_context c);
 
     /**
         \brief Create the quadruple-precision (128-bit) FloatingPoint sort.
@@ -208,7 +208,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_sort_quadruple', SORT, (_in(CONTEXT),))
     */
-    Z3_sort Z3_API Z3_mk_fpa_sort_quadruple(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_fpa_sort_quadruple(Z3_context c);
 
     /**
         \brief Create the quadruple-precision (128-bit) FloatingPoint sort.
@@ -217,7 +217,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_sort_128', SORT, (_in(CONTEXT),))
     */
-    Z3_sort Z3_API Z3_mk_fpa_sort_128(__in Z3_context c);
+    Z3_sort Z3_API Z3_mk_fpa_sort_128(Z3_context c);
 
     /**
         \brief Create a floating-point NaN of sort s.
@@ -227,7 +227,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_nan', AST, (_in(CONTEXT),_in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_nan(__in Z3_context c, __in Z3_sort s);
+    Z3_ast Z3_API Z3_mk_fpa_nan(Z3_context c, Z3_sort s);
 
     /**
         \brief Create a floating-point infinity of sort s.
@@ -240,7 +240,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_inf', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_inf(__in Z3_context c, __in Z3_sort s, __in Z3_bool negative);
+    Z3_ast Z3_API Z3_mk_fpa_inf(Z3_context c, Z3_sort s, Z3_bool negative);
 
     /**
         \brief Create a floating-point zero of sort s.
@@ -253,7 +253,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_zero', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_zero(__in Z3_context c, __in Z3_sort s, __in Z3_bool negative);
+    Z3_ast Z3_API Z3_mk_fpa_zero(Z3_context c, Z3_sort s, Z3_bool negative);
 
     /**
         \brief Create an expression of FloatingPoint sort from three bit-vector expressions.
@@ -271,7 +271,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_fp', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_fp(__in Z3_context c, __in Z3_ast sgn, __in Z3_ast exp, __in Z3_ast sig);
+    Z3_ast Z3_API Z3_mk_fpa_fp(Z3_context c, Z3_ast sgn, Z3_ast exp, Z3_ast sig);
 
     /**
         \brief Create a numeral of FloatingPoint sort from a float.
@@ -289,7 +289,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_float', AST, (_in(CONTEXT), _in(FLOAT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_float(__in Z3_context c, __in float v, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_float(Z3_context c, float v, Z3_sort ty);
 
     /**
         \brief Create a numeral of FloatingPoint sort from a double. 
@@ -307,7 +307,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_double(__in Z3_context c, __in double v, __in Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_double(Z3_context c, double v, Z3_sort ty);
 
     /**
         \brief Create a numeral of FloatingPoint sort from a signed integer.
@@ -322,7 +322,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_int', AST, (_in(CONTEXT), _in(INT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_int(__in Z3_context c, __in signed v, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int(Z3_context c, signed v, Z3_sort ty);
 
     /**
         \brief Create a numeral of FloatingPoint sort from a sign bit and two integers.
@@ -339,7 +339,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_int_uint', AST, (_in(CONTEXT), _in(BOOL), _in(INT), _in(UINT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_int_uint(__in Z3_context c, __in Z3_bool sgn, __in signed exp, __in unsigned sig, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int_uint(Z3_context c, Z3_bool sgn, signed exp, unsigned sig, Z3_sort ty);
 
     /**
         \brief Create a numeral of FloatingPoint sort from a sign bit and two 64-bit integers.
@@ -356,7 +356,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_int64_uint64', AST, (_in(CONTEXT), _in(BOOL), _in(INT64), _in(UINT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(__in Z3_context c, __in Z3_bool sgn, __in __int64 exp, __in __uint64 sig, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, Z3_bool sgn, __int64 exp, __uint64 sig, Z3_sort ty);
 
     /**
         \brief Floating-point absolute value
@@ -366,7 +366,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_abs', AST, (_in(CONTEXT),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_abs(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_abs(Z3_context c, Z3_ast t);
    
     /**
         \brief Floating-point negation
@@ -376,7 +376,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_neg', AST, (_in(CONTEXT),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_neg(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_neg(Z3_context c, Z3_ast t);
    
     /**
         \brief Floating-point addition
@@ -390,7 +390,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_add', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_add(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_add(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2);
    
     /**
         \brief Floating-point subtraction
@@ -404,7 +404,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_sub', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_sub(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t1, __in Z3_ast t2);   
+    Z3_ast Z3_API Z3_mk_fpa_sub(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2);   
    
     /**
         \brief Floating-point multiplication
@@ -418,7 +418,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_mul', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_mul(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t1, __in Z3_ast t2);   
+    Z3_ast Z3_API Z3_mk_fpa_mul(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2);   
    
     /**
         \brief Floating-point division
@@ -432,7 +432,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_div', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_div(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t1, __in Z3_ast t2);    
+    Z3_ast Z3_API Z3_mk_fpa_div(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2);    
    
     /**
         \brief Floating-point fused multiply-add.
@@ -449,7 +449,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_fma', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_fma(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t1, __in Z3_ast t2, __in Z3_ast t3);
+    Z3_ast Z3_API Z3_mk_fpa_fma(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2, Z3_ast t3);
    
     /**
         \brief Floating-point square root
@@ -462,7 +462,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_sqrt', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_sqrt(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_sqrt(Z3_context c, Z3_ast rm, Z3_ast t);
    
     /**
         \brief Floating-point remainder
@@ -475,7 +475,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_rem', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_rem(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_rem(Z3_context c, Z3_ast t1, Z3_ast t2);
 
     /**
         \brief Floating-point roundToIntegral. Rounds a floating-point number to 
@@ -489,7 +489,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_round_to_integral', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_round_to_integral(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_round_to_integral(Z3_context c, Z3_ast rm, Z3_ast t);
 
     /**
         \brief Minimum of floating-point numbers.
@@ -502,7 +502,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_min', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_min(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_min(Z3_context c, Z3_ast t1, Z3_ast t2);
 
     /**
         \brief Maximum of floating-point numbers.
@@ -515,7 +515,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_max', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_max(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_max(Z3_context c, Z3_ast t1, Z3_ast t2);
    
      /**
         \brief Floating-point less than or equal.
@@ -528,7 +528,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_leq', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_leq(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_leq(Z3_context c, Z3_ast t1, Z3_ast t2);
 
      /**
         \brief Floating-point less than.
@@ -541,7 +541,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_lt', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_lt(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_lt(Z3_context c, Z3_ast t1, Z3_ast t2);
         
     /**
         \brief Floating-point greater than or equal.
@@ -554,7 +554,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_geq', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_geq(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_geq(Z3_context c, Z3_ast t1, Z3_ast t2);
 
     /**
         \brief Floating-point greater than.
@@ -567,7 +567,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_gt', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_gt(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_gt(Z3_context c, Z3_ast t1, Z3_ast t2);
 
     /**
         \brief Floating-point equality.
@@ -582,7 +582,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_eq', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_eq(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_eq(Z3_context c, Z3_ast t1, Z3_ast t2);
    
     /**
         \brief Predicate indicating whether t is a normal floating-point number.
@@ -594,7 +594,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_is_normal', AST, (_in(CONTEXT),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_is_normal(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_is_normal(Z3_context c, Z3_ast t);
 
     /**
         \brief Predicate indicating whether t is a subnormal floating-point number.
@@ -606,7 +606,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_is_subnormal', AST, (_in(CONTEXT),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_is_subnormal(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_is_subnormal(Z3_context c, Z3_ast t);
 
     /**
         \brief Predicate indicating whether t is a floating-point number with zero value, i.e., +zero or -zero.
@@ -618,7 +618,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_is_zero', AST, (_in(CONTEXT),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_is_zero(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_is_zero(Z3_context c, Z3_ast t);
 
    /**
         \brief Predicate indicating whether t is a floating-point number representing +oo or -oo.
@@ -630,7 +630,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_is_infinite', AST, (_in(CONTEXT),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_is_infinite(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_is_infinite(Z3_context c, Z3_ast t);
 
     /**
         \brief Predicate indicating whether t is a NaN.
@@ -642,7 +642,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_is_nan', AST, (_in(CONTEXT),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_is_nan(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_is_nan(Z3_context c, Z3_ast t);
 
     /**
         \brief Predicate indicating whether t is a negative floating-point number.
@@ -654,7 +654,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_is_negative', AST, (_in(CONTEXT),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_is_negative(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_is_negative(Z3_context c, Z3_ast t);
 
     /**
         \brief Predicate indicating whether t is a positive floating-point number.
@@ -666,7 +666,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_is_positive', AST, (_in(CONTEXT),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_is_positive(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_is_positive(Z3_context c, Z3_ast t);
 
     /**
         \brief Conversion of a single IEEE 754-2008 bit-vector into a floating-point number.
@@ -684,7 +684,7 @@ extern "C" {
      
         def_API('Z3_mk_fpa_to_fp_bv', AST, (_in(CONTEXT),_in(AST),_in(SORT)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_to_fp_bv(__in Z3_context c, __in Z3_ast bv, __in Z3_sort s);
+    Z3_ast Z3_API Z3_mk_fpa_to_fp_bv(Z3_context c, Z3_ast bv, Z3_sort s);
 
     /**
         \brief Conversion of a FloatingPoint term into another term of different FloatingPoint sort.
@@ -702,7 +702,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_to_fp_float', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_fp_float(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t, __in Z3_sort s);
+    Z3_ast Z3_API Z3_mk_fpa_to_fp_float(Z3_context c, Z3_ast rm, Z3_ast t, Z3_sort s);
 
     /**
         \brief Conversion of a term of real sort into a term of FloatingPoint sort.
@@ -720,7 +720,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_to_fp_real', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_fp_real(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t, __in Z3_sort s);
+    Z3_ast Z3_API Z3_mk_fpa_to_fp_real(Z3_context c, Z3_ast rm, Z3_ast t, Z3_sort s);
 
     /**
         \brief Conversion of a 2's complement signed bit-vector term into a term of FloatingPoint sort.
@@ -739,7 +739,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_to_fp_signed', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_fp_signed(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t, __in Z3_sort s);
+    Z3_ast Z3_API Z3_mk_fpa_to_fp_signed(Z3_context c, Z3_ast rm, Z3_ast t, Z3_sort s);
 
     /**
         \brief Conversion of a 2's complement unsigned bit-vector term into a term of FloatingPoint sort.
@@ -758,7 +758,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_to_fp_unsigned', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_fp_unsigned(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t, __in Z3_sort s);
+    Z3_ast Z3_API Z3_mk_fpa_to_fp_unsigned(Z3_context c, Z3_ast rm, Z3_ast t, Z3_sort s);
 
     /**
         \brief Conversion of a floating-point term into an unsigned bit-vector.
@@ -774,7 +774,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_to_ubv', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(UINT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_ubv(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t, __in unsigned sz);
+    Z3_ast Z3_API Z3_mk_fpa_to_ubv(Z3_context c, Z3_ast rm, Z3_ast t, unsigned sz);
 
     /**
         \brief Conversion of a floating-point term into a signed bit-vector.
@@ -790,7 +790,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_to_sbv', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(UINT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_sbv(__in Z3_context c, __in Z3_ast rm, __in Z3_ast t, __in unsigned sz);
+    Z3_ast Z3_API Z3_mk_fpa_to_sbv(Z3_context c, Z3_ast rm, Z3_ast t, unsigned sz);
 
     /**
         \brief Conversion of a floating-point term into a real-numbered term.
@@ -804,7 +804,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_to_real', AST, (_in(CONTEXT),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_real(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_to_real(Z3_context c, Z3_ast t);
 
 
     /**
@@ -820,7 +820,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_ebits', UINT, (_in(CONTEXT),_in(SORT)))
     */
-    unsigned Z3_API Z3_fpa_get_ebits(__in Z3_context c, __in Z3_sort s);
+    unsigned Z3_API Z3_fpa_get_ebits(Z3_context c, Z3_sort s);
 
     /**
         \brief Retrieves the number of bits reserved for the significand in a FloatingPoint sort.
@@ -830,7 +830,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_sbits', UINT, (_in(CONTEXT),_in(SORT)))
     */
-    unsigned Z3_API Z3_fpa_get_sbits(__in Z3_context c, __in Z3_sort s);
+    unsigned Z3_API Z3_fpa_get_sbits(Z3_context c, Z3_sort s);
 
     /**
         \brief Retrieves the sign of a floating-point literal.
@@ -843,7 +843,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_sign', BOOL, (_in(CONTEXT), _in(AST), _out(INT)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_sign(__in Z3_context c, __in Z3_ast t, __out int * sgn);
+    Z3_bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, int * sgn);
 
     /**
         \brief Return the significand value of a floating-point numeral as a string.
@@ -856,7 +856,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_significand_string', STRING, (_in(CONTEXT), _in(AST)))
     */
-    Z3_string Z3_API Z3_fpa_get_numeral_significand_string(__in Z3_context c, __in Z3_ast t);
+    Z3_string Z3_API Z3_fpa_get_numeral_significand_string(Z3_context c, Z3_ast t);
 
     /**
         \brief Return the significand value of a floating-point numeral as a uint64.
@@ -870,7 +870,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_significand_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_significand_uint64(__in Z3_context c, __in Z3_ast t, __out __uint64 * n);
+    Z3_bool Z3_API Z3_fpa_get_numeral_significand_uint64(Z3_context c, Z3_ast t, __uint64 * n);
 
     /**
         \brief Return the exponent value of a floating-point numeral as a string
@@ -880,7 +880,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_exponent_string', STRING, (_in(CONTEXT), _in(AST)))
     */
-    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(__in Z3_context c, __in Z3_ast t);
+    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(Z3_context c, Z3_ast t);
 
     /**
         \brief Return the exponent value of a floating-point numeral as a signed 64-bit integer
@@ -891,7 +891,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_exponent_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(__in Z3_context c, __in Z3_ast t, __out __int64 * n);
+    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, __int64 * n);
 
     /**
         \brief Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format.
@@ -908,7 +908,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_to_ieee_bv', AST, (_in(CONTEXT),_in(AST)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(__in Z3_context c, __in Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(Z3_context c, Z3_ast t);
 
     /**
         \brief Conversion of a real-sorted significand and an integer-sorted exponent into a term of FloatingPoint sort.
@@ -927,7 +927,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_to_fp_int_real', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST),_in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_to_fp_int_real(__in Z3_context c, __in Z3_ast rm, __in Z3_ast exp, __in Z3_ast sig, __in Z3_sort s);
+    Z3_ast Z3_API Z3_mk_fpa_to_fp_int_real(Z3_context c, Z3_ast rm, Z3_ast exp, Z3_ast sig, Z3_sort s);
 
     /*@}*/
 

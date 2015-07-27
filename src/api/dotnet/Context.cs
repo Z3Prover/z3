@@ -2134,31 +2134,31 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create an empty set.
         /// </summary>
-        public Expr MkEmptySet(Sort domain)
+        public ArrayExpr MkEmptySet(Sort domain)
         {
             Contract.Requires(domain != null);
             Contract.Ensures(Contract.Result<Expr>() != null);
 
             CheckContextMatch(domain);
-            return Expr.Create(this, Native.Z3_mk_empty_set(nCtx, domain.NativeObject));
+            return (ArrayExpr)Expr.Create(this, Native.Z3_mk_empty_set(nCtx, domain.NativeObject));
         }
 
         /// <summary>
         /// Create the full set.
         /// </summary>
-        public Expr MkFullSet(Sort domain)
+        public ArrayExpr MkFullSet(Sort domain)
         {
             Contract.Requires(domain != null);
             Contract.Ensures(Contract.Result<Expr>() != null);
 
             CheckContextMatch(domain);
-            return Expr.Create(this, Native.Z3_mk_full_set(nCtx, domain.NativeObject));
+            return (ArrayExpr)Expr.Create(this, Native.Z3_mk_full_set(nCtx, domain.NativeObject));
         }
 
         /// <summary>
         /// Add an element to the set.
         /// </summary>
-        public Expr MkSetAdd(Expr set, Expr element)
+        public ArrayExpr MkSetAdd(ArrayExpr set, Expr element)
         {
             Contract.Requires(set != null);
             Contract.Requires(element != null);
@@ -2166,14 +2166,14 @@ namespace Microsoft.Z3
 
             CheckContextMatch(set);
             CheckContextMatch(element);
-            return Expr.Create(this, Native.Z3_mk_set_add(nCtx, set.NativeObject, element.NativeObject));
+            return (ArrayExpr)Expr.Create(this, Native.Z3_mk_set_add(nCtx, set.NativeObject, element.NativeObject));
         }
 
 
         /// <summary>
         /// Remove an element from a set.
         /// </summary>
-        public Expr MkSetDel(Expr set, Expr element)
+        public ArrayExpr MkSetDel(ArrayExpr set, Expr element)
         {
             Contract.Requires(set != null);
             Contract.Requires(element != null);
@@ -2181,38 +2181,38 @@ namespace Microsoft.Z3
 
             CheckContextMatch(set);
             CheckContextMatch(element);
-            return Expr.Create(this, Native.Z3_mk_set_del(nCtx, set.NativeObject, element.NativeObject));
+            return (ArrayExpr)Expr.Create(this, Native.Z3_mk_set_del(nCtx, set.NativeObject, element.NativeObject));
         }
 
         /// <summary>
         /// Take the union of a list of sets.
         /// </summary>
-        public Expr MkSetUnion(params Expr[] args)
+        public ArrayExpr MkSetUnion(params ArrayExpr[] args)
         {
             Contract.Requires(args != null);
             Contract.Requires(Contract.ForAll(args, a => a != null));
 
             CheckContextMatch(args);
-            return Expr.Create(this, Native.Z3_mk_set_union(nCtx, (uint)args.Length, AST.ArrayToNative(args)));
+            return (ArrayExpr)Expr.Create(this, Native.Z3_mk_set_union(nCtx, (uint)args.Length, AST.ArrayToNative(args)));
         }
 
         /// <summary>
         /// Take the intersection of a list of sets.
         /// </summary>
-        public Expr MkSetIntersection(params Expr[] args)
+        public ArrayExpr MkSetIntersection(params ArrayExpr[] args)
         {
             Contract.Requires(args != null);
             Contract.Requires(Contract.ForAll(args, a => a != null));
             Contract.Ensures(Contract.Result<Expr>() != null);
 
             CheckContextMatch(args);
-            return Expr.Create(this, Native.Z3_mk_set_intersect(nCtx, (uint)args.Length, AST.ArrayToNative(args)));
+            return (ArrayExpr)Expr.Create(this, Native.Z3_mk_set_intersect(nCtx, (uint)args.Length, AST.ArrayToNative(args)));
         }
 
         /// <summary>
         /// Take the difference between two sets.
         /// </summary>
-        public Expr MkSetDifference(Expr arg1, Expr arg2)
+        public ArrayExpr MkSetDifference(ArrayExpr arg1, ArrayExpr arg2)
         {
             Contract.Requires(arg1 != null);
             Contract.Requires(arg2 != null);
@@ -2220,25 +2220,25 @@ namespace Microsoft.Z3
 
             CheckContextMatch(arg1);
             CheckContextMatch(arg2);
-            return Expr.Create(this, Native.Z3_mk_set_difference(nCtx, arg1.NativeObject, arg2.NativeObject));
+            return (ArrayExpr)Expr.Create(this, Native.Z3_mk_set_difference(nCtx, arg1.NativeObject, arg2.NativeObject));
         }
 
         /// <summary>
         /// Take the complement of a set.
         /// </summary>
-        public Expr MkSetComplement(Expr arg)
+        public ArrayExpr MkSetComplement(ArrayExpr arg)
         {
             Contract.Requires(arg != null);
             Contract.Ensures(Contract.Result<Expr>() != null);
 
             CheckContextMatch(arg);
-            return Expr.Create(this, Native.Z3_mk_set_complement(nCtx, arg.NativeObject));
+            return (ArrayExpr)Expr.Create(this, Native.Z3_mk_set_complement(nCtx, arg.NativeObject));
         }
 
         /// <summary>
         /// Check for set membership.
         /// </summary>
-        public BoolExpr MkSetMembership(Expr elem, Expr set)
+        public BoolExpr MkSetMembership(Expr elem, ArrayExpr set)
         {
             Contract.Requires(elem != null);
             Contract.Requires(set != null);
@@ -2252,7 +2252,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Check for subsetness of sets.
         /// </summary>
-        public BoolExpr MkSetSubset(Expr arg1, Expr arg2)
+        public BoolExpr MkSetSubset(ArrayExpr arg1, ArrayExpr arg2)
         {
             Contract.Requires(arg1 != null);
             Contract.Requires(arg2 != null);

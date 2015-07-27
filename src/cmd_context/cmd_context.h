@@ -325,6 +325,7 @@ public:
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;
     void validate_model();
+    void display_model(model_ref& mdl);
 
     void register_plugin(symbol const & name, decl_plugin * p, bool install_names);    
     bool is_func_decl(symbol const & s) const;

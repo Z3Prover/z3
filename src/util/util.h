@@ -273,18 +273,6 @@ bool has_duplicates(const IT & begin, const IT & end) {
     return false;
 }
 
-#ifndef __out
-#define __out
-#endif
-
-#ifndef __in
-#define __in
-#endif
-
-#ifndef __inout
-#define __inout
-#endif
-
 #ifndef __fallthrough
 #define __fallthrough
 #endif

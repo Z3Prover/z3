@@ -83,7 +83,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
   
-    Z3_ast Z3_API Z3_mk_map(__in Z3_context c, __in Z3_func_decl f, unsigned n, __in Z3_ast const* args) {
+    Z3_ast Z3_API Z3_mk_map(Z3_context c, Z3_func_decl f, unsigned n, Z3_ast const* args) {
         Z3_TRY;
         LOG_Z3_mk_map(c, f, n, args);
         RESET_ERROR_CODE();
@@ -108,7 +108,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_const_array(__in Z3_context c, __in Z3_sort domain, __in Z3_ast v) {
+    Z3_ast Z3_API Z3_mk_const_array(Z3_context c, Z3_sort domain, Z3_ast v) {
         Z3_TRY;
         LOG_Z3_mk_const_array(c, domain, v);
         RESET_ERROR_CODE(); 
@@ -127,7 +127,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_array_default(__in Z3_context c, __in Z3_ast array) {
+    Z3_ast Z3_API Z3_mk_array_default(Z3_context c, Z3_ast array) {
         Z3_TRY;
         LOG_Z3_mk_array_default(c, array);
         RESET_ERROR_CODE(); 
@@ -142,7 +142,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast mk_app_array_core(__in Z3_context c, __in Z3_sort domain, __in Z3_ast v) {
+    Z3_ast mk_app_array_core(Z3_context c, Z3_sort domain, Z3_ast v) {
         RESET_ERROR_CODE();   
         ast_manager & m = mk_c(c)->m();
         expr * _v        = to_expr(v);
@@ -158,13 +158,13 @@ extern "C" {
         return of_ast(r);
     }
 
-    Z3_sort Z3_API Z3_mk_set_sort(__in Z3_context c, __in Z3_sort ty) {
+    Z3_sort Z3_API Z3_mk_set_sort(Z3_context c, Z3_sort ty) {
         Z3_TRY;
         return Z3_mk_array_sort(c, ty, Z3_mk_bool_sort(c));
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_empty_set(__in Z3_context c, __in Z3_sort domain) {
+    Z3_ast Z3_API Z3_mk_empty_set(Z3_context c, Z3_sort domain) {
         Z3_TRY;
         LOG_Z3_mk_empty_set(c, domain);
         RESET_ERROR_CODE();
@@ -173,7 +173,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_full_set(__in Z3_context c, __in Z3_sort domain) {
+    Z3_ast Z3_API Z3_mk_full_set(Z3_context c, Z3_sort domain) {
         Z3_TRY;
         LOG_Z3_mk_full_set(c, domain);
         RESET_ERROR_CODE();
@@ -188,15 +188,15 @@ extern "C" {
     MK_UNARY(Z3_mk_set_complement, mk_c(c)->get_array_fid(), OP_SET_COMPLEMENT, SKIP);
     MK_BINARY(Z3_mk_set_subset, mk_c(c)->get_array_fid(), OP_SET_SUBSET, SKIP);
     
-    Z3_ast Z3_mk_set_member(__in Z3_context c, __in Z3_ast elem, __in Z3_ast set) {
+    Z3_ast Z3_mk_set_member(Z3_context c, Z3_ast elem, Z3_ast set) {
         return Z3_mk_select(c, set, elem);
     }
 
-    Z3_ast Z3_mk_set_add(__in Z3_context c, __in Z3_ast set, __in Z3_ast elem) {
+    Z3_ast Z3_mk_set_add(Z3_context c, Z3_ast set, Z3_ast elem) {
         return Z3_mk_store(c, set, elem, Z3_mk_true(c));
     }
 
-    Z3_ast Z3_mk_set_del(__in Z3_context c, __in Z3_ast set, __in Z3_ast elem) {
+    Z3_ast Z3_mk_set_del(Z3_context c, Z3_ast set, Z3_ast elem) {
         return Z3_mk_store(c, set, elem, Z3_mk_false(c));
     }
 

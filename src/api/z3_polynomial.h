@@ -48,7 +48,7 @@ extern "C" {
 
        def_API('Z3_polynomial_subresultants', AST_VECTOR, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
     */
-    Z3_ast_vector Z3_API Z3_polynomial_subresultants(__in Z3_context c, __in Z3_ast p, __in Z3_ast q, __in Z3_ast x);
+    Z3_ast_vector Z3_API Z3_polynomial_subresultants(Z3_context c, Z3_ast p, Z3_ast q, Z3_ast x);
 
 
     /*@}*/

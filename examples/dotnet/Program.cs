@@ -2159,6 +2159,7 @@ namespace test_mapi
                 Console.Write("Z3 Full Version: ");
                 Console.WriteLine(Microsoft.Z3.Version.ToString());
 
+
                 SimpleExample();
 
                 // These examples need model generation turned on.

@@ -4,38 +4,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#ifndef __in
-#define __in
-#endif
-
-#ifndef __out
-#define __out
-#endif
-
-#ifndef __out_opt
-#define __out_opt __out
-#endif
-
-#ifndef __ecount
-#define __ecount(num_args)
-#endif 
-
-#ifndef __in_ecount
-#define __in_ecount(num_args) __in __ecount(num_args)
-#endif 
-
-#ifndef __out_ecount
-#define __out_ecount(num_args) __out __ecount(num_args)
-#endif 
-
-#ifndef __inout_ecount
-#define __inout_ecount(num_args) __in __out __ecount(num_args)
-#endif 
-
-#ifndef __inout
-#define __inout __in __out
-#endif
-
 #ifndef Z3_bool_opt
 #define Z3_bool_opt Z3_bool
 #endif
