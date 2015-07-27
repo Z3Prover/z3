@@ -2005,6 +2005,7 @@ public:
                 res = make(commute,pf,comm_equiv);
                 break;
             }
+            case PR_NOT_OR_ELIM:
             case PR_AND_ELIM: {
                 std::vector<ast> rule_ax, res_conc;
                 ast piv = conc(prem(proof,0));
