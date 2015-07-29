@@ -3920,6 +3920,10 @@ class ArrayRef(ExprRef):
         arg = self.domain().cast(arg)
         return _to_expr_ref(Z3_mk_select(self.ctx_ref(), self.as_ast(), arg.as_ast()), self.ctx)
 
+    def mk_default(self):  
+        return _to_expr_ref(Z3_mk_array_default(self.ctx_ref(), self.as_ast()), self.ctx)  
+
+
 def is_array(a):
     """Return `True` if `a` is a Z3 array expression.
     
@@ -3971,6 +3975,14 @@ def is_map(a):
     False
     """
     return is_app_of(a, Z3_OP_ARRAY_MAP)
+
+def is_default(a):
+    """Return `True` if `a` is a Z3 default array expression.
+    >>> d = Default(K(IntSort(), 10))
+    >>> is_default(d)
+    True
+    """
+    return is_app_of(a, Z3_OP_ARRAY_DEFAULT)
 
 def get_map_func(a):
     """Return the function declaration associated with a Z3 map array expression.
@@ -4043,6 +4055,17 @@ def Update(a, i, v):
     v = a.range().cast(v)
     ctx = a.ctx
     return _to_expr_ref(Z3_mk_store(ctx.ref(), a.as_ast(), i.as_ast(), v.as_ast()), ctx)
+
+def Default(a):  
+    """ Return a default value for array expression.  
+    >>> b = K(IntSort(), 1)  
+    >>> prove(Default(b) == 1)  
+    proved
+    """  
+    if __debug__:  
+        _z3_assert(is_array(a), "First argument must be a Z3 array expression")  
+    return a.mk_default()  
+
 
 def Store(a, i, v):
     """Return a Z3 store array expression.
