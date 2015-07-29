@@ -2796,6 +2796,14 @@ public class Context extends IDisposable
         return new Fixedpoint(this);
     }
 
+    /**
+     * Create a Optimize context.
+     **/
+    public Optimize mkOptimize()
+    {
+        return new Optimize(this);
+    }
+
     
     /**
      * Create the floating-point RoundingMode sort.
