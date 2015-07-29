@@ -2464,7 +2464,7 @@ namespace smt {
 
             void set_cancel(bool f) { 
                 m_cancel = f; 
-                m_info->set_cancel(f);
+                if (m_info) m_info->set_cancel(f);
             }
 
         };
