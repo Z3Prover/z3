@@ -40,7 +40,8 @@ namespace smt {
         m_max_cexs(1),
         m_iteration_idx(0),
         m_curr_model(0),
-        m_new_instances_bindings(m) {
+        m_new_instances_bindings(m),
+        m_cancel(false) {
     }
 
     model_checker::~model_checker() {

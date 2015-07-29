@@ -51,6 +51,7 @@ namespace smt {
         unsigned                                    m_iteration_idx;
         proto_model *                               m_curr_model;
         obj_map<expr, expr *>                       m_value2expr;
+        bool                                        m_cancel;
         friend class instantiation_set;
 
         void init_aux_context();
@@ -92,6 +93,8 @@ namespace smt {
         void restart_eh();
 
         void reset();
+
+        void set_cancel(bool f) { m_cancel = f; }
     };
 };
 
