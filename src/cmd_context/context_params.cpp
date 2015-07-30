@@ -33,7 +33,7 @@ context_params::context_params() {
     m_trace          = false;
     m_debug_ref_count = false;
     m_smtlib2_compliant = false;
-    m_well_sorted_check = false;
+    m_well_sorted_check = true;
     m_timeout = UINT_MAX;
     updt_params();
 }
