@@ -109,6 +109,14 @@ public class Optimize extends Z3Object
 	{
 	    return getLower(); 
 	}
+
+	/**
+	 * Print a string representation of the handle.
+	 **/        	   	
+        public String toString() 
+        {
+            return getValue().toString();
+        }
     }
 
     /**        

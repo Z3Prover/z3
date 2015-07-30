@@ -2254,7 +2254,30 @@ class JavaExample
 
         System.out.println("OK, model: " + s.getModel().toString());        
     }
-    
+
+    public void optimizeExample(Context ctx) 
+    {
+        System.out.println("Opt");
+
+        Optimize opt = ctx.mkOptimize();
+
+        // Set constraints.
+        IntExpr xExp = ctx.mkIntConst("x");
+        IntExpr yExp = ctx.mkIntConst("y");
+
+        opt.Add(ctx.mkEq(ctx.mkAdd(xExp, yExp), ctx.mkInt(10)),
+                ctx.mkGe(xExp, ctx.mkInt(0)),
+                ctx.mkGe(yExp, ctx.mkInt(0)));
+
+        // Set objectives.
+        Optimize.Handle mx = opt.MkMaximize(xExp);
+        Optimize.Handle my = opt.MkMaximize(yExp);
+
+        System.out.println(opt.Check()); 
+        System.out.println(mx);
+        System.out.println(my);
+    }
+
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
@@ -2274,6 +2297,8 @@ class JavaExample
                 HashMap<String, String> cfg = new HashMap<String, String>();
                 cfg.put("model", "true");
                 Context ctx = new Context(cfg);
+		
+		p.optimizeExample(ctx);
                 p.basicTests(ctx);
                 p.castingTest(ctx);
                 p.sudokuExample(ctx);
