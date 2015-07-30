@@ -457,7 +457,7 @@ namespace datalog {
             rule * r = *it;
             app * head = r->get_head();
             func_decl * head_decl = head->get_decl();
-            unsigned head_strat = get_predicate_strat(head_decl);
+            // unsigned head_strat = get_predicate_strat(head_decl);
             unsigned n = r->get_tail_size();
             for (unsigned i = 0; i < n; i++) {
                 func_decl * tail_decl = r->get_tail(i)->get_decl();

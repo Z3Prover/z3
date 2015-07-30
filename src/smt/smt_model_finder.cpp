@@ -2431,8 +2431,8 @@ namespace smt {
                 m_array_util(m), 
                 m_arith_util(m),
                 m_bv_util(m),
-                m_info(0),
-                m_cancel(false) {
+                m_cancel(false),
+                m_info(0) {
             }
             
                 
@@ -3285,8 +3285,8 @@ namespace smt {
         m_sm_solver(alloc(simple_macro_solver, m, m_q2info)),
         m_hint_solver(alloc(hint_solver, m, m_q2info)),
         m_nm_solver(alloc(non_auf_macro_solver, m, m_q2info, m_dependencies)),
-        m_new_constraints(m),
-        m_cancel(false) {
+        m_cancel(false),
+        m_new_constraints(m) {
     }
     
     model_finder::~model_finder() {
