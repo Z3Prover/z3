@@ -593,6 +593,8 @@ namespace smt {
 
         virtual void set_cancel(bool f) {
             // TODO: interrupt MAM and MBQI
+            m_model_finder->set_cancel(f);
+            m_model_checker->set_cancel(f);
         }
 
         virtual final_check_status final_check_eh(bool full) {

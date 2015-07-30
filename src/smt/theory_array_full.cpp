@@ -778,7 +778,7 @@ namespace smt {
         TRACE("array", 
               tout << mk_bounded_pp(v1, get_manager()) << "\n==\n" 
               << mk_bounded_pp(v2, get_manager()) << "\n";);
-        context& ctx = get_context();
+        
         if (m_eqs.contains(v1, v2)) {
             return false;
         }

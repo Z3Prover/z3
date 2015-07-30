@@ -34,6 +34,8 @@ Revision History:
 #include"well_sorted.h"
 #include"model_pp.h"
 #include"ast_smt2_pp.h"
+#include"cooperate.h"
+#include"tactic_exception.h"
 
 namespace smt {
 
@@ -1714,14 +1716,22 @@ namespace smt {
             // when the quantifier is satisfied by a macro/hint, it may not be processed by the AUF solver.
             // in this case, the quantifier_info stores the instantiation sets.
             ptr_vector<instantiation_set>  * m_uvar_inst_sets;
+            bool                     m_cancel;
 
             friend class quantifier_analyzer;
+
+            void checkpoint() {
+                cooperate("quantifier_info");
+                if (m_cancel)
+                    throw tactic_exception(TACTIC_CANCELED_MSG);
+            }
 
             void insert_qinfo(qinfo * qi) {
                 // I'm assuming the number of qinfo's per quantifier is small. So, the linear search is not a big deal.
                 ptr_vector<qinfo>::iterator it  = m_qinfo_vect.begin();            
                 ptr_vector<qinfo>::iterator end = m_qinfo_vect.end();            
                 for (; it != end; ++it) {
+                    checkpoint();
                     if (qi->is_equal(*it)) {
                         dealloc(qi);
                         return;
@@ -1743,7 +1753,8 @@ namespace smt {
                 m_is_auf(true),
                 m_has_x_eq_y(false),
                 m_the_one(0),
-                m_uvar_inst_sets(0) {
+                m_uvar_inst_sets(0),
+                m_cancel(false) {
                 if (has_quantifiers(q->get_expr())) {
                     static bool displayed_flat_msg = false;
                     if (!displayed_flat_msg) {
@@ -1896,6 +1907,7 @@ namespace smt {
                 }
             }
 
+            void set_cancel(bool f) { m_cancel = f; }
         };
         
         /**
@@ -1908,6 +1920,7 @@ namespace smt {
             array_util           m_array_util;
             arith_util           m_arith_util;
             bv_util              m_bv_util;
+            bool                 m_cancel;
 
             quantifier_info *    m_info;
 
@@ -2318,9 +2331,16 @@ namespace smt {
                 visit_formula(n->get_arg(1), POS);
                 visit_formula(n->get_arg(1), NEG);
             }
+
+            void checkpoint() {
+                cooperate("quantifier_analyzer");
+                if (m_cancel)
+                    throw tactic_exception(TACTIC_CANCELED_MSG);
+            }
             
             void process_formulas_on_stack() {
                 while (!m_ftodo.empty()) {
+                    checkpoint();
                     entry & e = m_ftodo.back();
                     expr * curr  = e.first;
                     polarity pol = e.second;
@@ -2411,6 +2431,7 @@ namespace smt {
                 m_array_util(m), 
                 m_arith_util(m),
                 m_bv_util(m),
+                m_cancel(false),
                 m_info(0) {
             }
             
@@ -2439,6 +2460,11 @@ namespace smt {
                 collect_macro_candidates(q);
                 
                 m_info = 0;
+            }
+
+            void set_cancel(bool f) { 
+                m_cancel = f; 
+                if (m_info) m_info->set_cancel(f);
             }
 
         };
@@ -3259,6 +3285,7 @@ namespace smt {
         m_sm_solver(alloc(simple_macro_solver, m, m_q2info)),
         m_hint_solver(alloc(hint_solver, m, m_q2info)),
         m_nm_solver(alloc(non_auf_macro_solver, m, m_q2info, m_dependencies)),
+        m_cancel(false),
         m_new_constraints(m) {
     }
     
@@ -3533,6 +3560,11 @@ namespace smt {
             }
             m_new_constraints.reset();
         }
+    }
+
+    void model_finder::set_cancel(bool f) {
+        m_cancel = f;
+        m_analyzer->set_cancel(f);
     }
 
 };
