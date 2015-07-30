@@ -33,7 +33,7 @@ context_params::context_params() {
     m_trace          = false;
     m_debug_ref_count = false;
     m_smtlib2_compliant = false;
-    m_well_sorted_check = true;
+    m_well_sorted_check = false;
     m_timeout = UINT_MAX;
     updt_params();
 }
@@ -130,7 +130,7 @@ void context_params::updt_params(params_ref const & p) {
 
 void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("timeout", CPK_UINT, "default timeout (in milliseconds) used for solvers", "4294967295");
-    d.insert("well_sorted_check", CPK_BOOL, "type checker", "true");
+    d.insert("well_sorted_check", CPK_BOOL, "type checker", "false");
     d.insert("type_check", CPK_BOOL, "type checker (alias for well_sorted_check)", "true");
     d.insert("auto_config", CPK_BOOL, "use heuristics to automatically select solver and configure it", "true");
     d.insert("model_validate", CPK_BOOL, "validate models produced by solvers", "false");
