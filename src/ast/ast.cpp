@@ -1018,14 +1018,18 @@ func_decl * basic_decl_plugin::mk_ite_decl(sort * s) {
 
 sort* basic_decl_plugin::join(sort* s1, sort* s2) {
     if (s1 == s2) return s1;
-    if (s1->get_family_id() == m_manager->m_arith_family_id && 
+    if (s1->get_family_id() == m_manager->m_arith_family_id &&
         s2->get_family_id() == m_manager->m_arith_family_id) {
         if (s1->get_decl_kind() == REAL_SORT) {
             return s1;
         }
+        return s2;
     }
-    return s2;
+    std::ostringstream buffer;
+    buffer << "Sorts " << mk_pp(s1, *m_manager) << " and " << mk_pp(s2, *m_manager) << " are incompatible";
+    throw ast_exception(buffer.str().c_str());
 }
+
 
 func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                           unsigned arity, sort * const * domain, sort * range) {
