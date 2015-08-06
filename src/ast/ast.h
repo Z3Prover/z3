@@ -1101,6 +1101,8 @@ protected:
     func_decl * mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache);
     func_decl * mk_ite_decl(sort * s);
     sort* join(sort* s1, sort* s2);
+    sort* join(unsigned n, sort*const* srts);
+    sort* join(unsigned n, expr*const* es);
 public:
     basic_decl_plugin();
     
