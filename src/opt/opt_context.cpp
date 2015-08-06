@@ -31,7 +31,6 @@ Notes:
 #include "propagate_values_tactic.h"
 #include "solve_eqs_tactic.h"
 #include "elim_uncnstr_tactic.h"
-#include "elim_term_ite_tactic.h"
 #include "tactical.h"
 #include "model_smt2_pp.h"
 #include "card2bv_tactic.h"
@@ -652,7 +651,6 @@ namespace opt {
             and_then(mk_simplify_tactic(m), 
                      mk_propagate_values_tactic(m),
                      mk_solve_eqs_tactic(m),
-                     mk_elim_term_ite_tactic(m),
                      // NB: mk_elim_uncstr_tactic(m) is not sound with soft constraints
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
@@ -660,14 +658,16 @@ namespace opt {
         if (optp.elim_01()) {
             tac2 = mk_elim01_tactic(m);
             tac3 = mk_lia2card_tactic(m);
-            tac4 = mk_elim_term_ite_tactic(m);
             params_ref lia_p;
             lia_p.set_bool("compile_equality", optp.pb_compile_equality());
             tac3->updt_params(lia_p);
-            set_simplify(and_then(tac0.get(), tac2.get(), tac3.get(), tac4.get()));
+            set_simplify(and_then(tac0.get(), tac2.get(), tac3.get(), mk_simplify_tactic(m)));
         }
         else {
-            set_simplify(tac0.get());
+            tactic_ref tac1 = 
+                and_then(tac0.get(),
+                         mk_simplify_tactic(m));            
+            set_simplify(tac1.get());
         }
         proof_converter_ref pc;
         expr_dependency_ref core(m);
@@ -875,9 +875,11 @@ namespace opt {
                 TRACE("opt", tout << "maxsat: " << id << " offset:" << offset << "\n";);
             }
             else if (is_maximize(fml, tr, orig_term, index)) {
+                purify(tr);
                 m_objectives[index].m_term = tr;
             }
             else if (is_minimize(fml, tr, orig_term, index)) {
+                purify(tr);
                 m_objectives[index].m_term = tr;
                 m_objectives[index].m_adjust_value.set_negate(true);
             }
@@ -887,6 +889,50 @@ namespace opt {
         }
     }
 
+    void context::purify(app_ref& term) {
+        filter_model_converter_ref fm;
+        if (m_arith.is_add(term)) {
+            expr_ref_vector args(m);
+            unsigned sz = term->get_num_args();
+            for (unsigned i = 0; i < sz; ++i) {
+                expr* arg = term->get_arg(i);
+                if (is_mul_const(arg)) {
+                    args.push_back(arg);
+                }
+                else {
+                    args.push_back(purify(fm, arg));
+                }
+            }
+            term = m_arith.mk_add(args.size(), args.c_ptr());
+        }
+        else if (m_arith.is_arith_expr(term) && !is_mul_const(term)) {
+            TRACE("opt", tout << "Purifying " << term << "\n";);
+            term = purify(fm, term);
+        }
+        if (fm) {
+            m_model_converter = concat(m_model_converter.get(), fm.get());
+        }
+    }
+
+    bool context::is_mul_const(expr* e) {
+        expr* e1, *e2;
+        return 
+            is_uninterp_const(e) ||
+            m_arith.is_numeral(e) ||
+            (m_arith.is_mul(e, e1, e2) && m_arith.is_numeral(e1) && is_uninterp_const(e2)) ||
+            (m_arith.is_mul(e, e2, e1) && m_arith.is_numeral(e1) && is_uninterp_const(e2));
+    }
+
+    app* context::purify(filter_model_converter_ref& fm, expr* term) {
+       std::ostringstream out;
+       out << mk_pp(term, m);
+       app* q = m.mk_fresh_const(out.str().c_str(), m.get_sort(term));
+       if (!fm) fm = alloc(filter_model_converter, m);
+       m_hard_constraints.push_back(m.mk_eq(q, term));
+       fm->insert(q->get_decl());                
+       return q;
+    }
+
     /**
        To select the proper theory solver we have to ensure that all theory 
        symbols from soft constraints are reflected in the hard constraints.
@@ -894,7 +940,7 @@ namespace opt {
        - filter "obj" from generated model.
      */
     void context::mk_atomic(expr_ref_vector& terms) {
-        ref<filter_model_converter> fm;
+        filter_model_converter_ref fm;
         for (unsigned i = 0; i < terms.size(); ++i) {
             expr_ref p(terms[i].get(), m);
             app_ref q(m);
@@ -902,11 +948,7 @@ namespace opt {
                 terms[i] = p;
             }
             else {
-                q = m.mk_fresh_const("obj", m.mk_bool_sort()); 
-                terms[i] = q;
-                m_hard_constraints.push_back(m.mk_iff(p, q));
-                if (!fm) fm = alloc(filter_model_converter, m);
-                fm->insert(q->get_decl());
+                terms[i] = purify(fm, p);
             }
         }
         if (fm) {

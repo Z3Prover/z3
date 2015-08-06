@@ -1460,6 +1460,9 @@ protected:
 
     bool coercion_needed(func_decl * decl, unsigned num_args, expr * const * args);
 
+    void check_args(func_decl* f, unsigned n, expr* const* es);
+
+
 public:
     ast_manager(proof_gen_mode = PGM_DISABLED, char const * trace_file = 0, bool is_format_manager = false);
     ast_manager(proof_gen_mode, std::fstream * trace_stream, bool is_format_manager = false);

@@ -410,17 +410,23 @@ namespace smt {
     }
 
     bool theory_pb::internalize_atom(app * atom, bool gate_ctx) {
-        SASSERT(m_util.is_at_most_k(atom) || m_util.is_le(atom) || 
-                m_util.is_ge(atom) || m_util.is_at_least_k(atom) || 
-                m_util.is_eq(atom));
-
         context& ctx = get_context();
         if (ctx.b_internalized(atom)) {
             return false;
         }
-
         SASSERT(!ctx.b_internalized(atom));
         m_stats.m_num_predicates++;
+
+        if (m_util.is_aux_bool(atom)) {
+            bool_var abv = ctx.mk_bool_var(atom);
+            ctx.set_var_theory(abv, get_id());
+            return true;
+        }
+        SASSERT(m_util.is_at_most_k(atom) || m_util.is_le(atom) || 
+                m_util.is_ge(atom) || m_util.is_at_least_k(atom) || 
+                m_util.is_eq(atom));
+
+
 
         unsigned num_args = atom->get_num_args();
         bool_var abv = ctx.mk_bool_var(atom);
@@ -617,15 +623,15 @@ namespace smt {
         // function internalize, where enodes for each argument
         // is available. 
         if (!has_bv) {
-            expr_ref tmp(m), fml(m);
-            tmp = m.mk_fresh_const("pb_proxy",m.mk_bool_sort());
+            app_ref tmp(m), fml(m);
+            pb_util pb(m);
+            tmp = pb.mk_fresh_bool();
             fml = m.mk_iff(tmp, arg);
             TRACE("pb", tout << "create proxy " << fml << "\n";);
             ctx.internalize(fml, false);
             SASSERT(ctx.b_internalized(tmp));
             bv = ctx.get_bool_var(tmp);
-            SASSERT(null_theory_var == ctx.get_var_theory(bv));
-            ctx.set_var_theory(bv, get_id());
+            SASSERT(get_id() == ctx.get_var_theory(bv));
             literal lit(ctx.get_bool_var(fml));
             ctx.mk_th_axiom(get_id(), 1, &lit);
             ctx.mark_as_relevant(tmp.get());
@@ -1148,17 +1154,19 @@ namespace smt {
         context&     ctx;
         ast_manager& m;
         theory_pb&   th;
+        pb_util      pb;
         typedef smt::literal literal;
         typedef smt::literal_vector literal_vector;
       
         psort_expr(context& c, theory_pb& th):
             ctx(c), 
             m(c.get_manager()),
-            th(th) {}
+            th(th),
+            pb(m) {}
 
         literal fresh() {
             app_ref y(m);
-            y = m.mk_fresh_const("y", m.mk_bool_sort());
+            y = pb.mk_fresh_bool();
             return literal(ctx.mk_bool_var(y));
         }
         

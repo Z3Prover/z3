@@ -45,4 +45,6 @@ public:
     virtual model_converter * translate(ast_translation & translator);
 };
 
+typedef ref<filter_model_converter> filter_model_converter_ref;
+
 #endif

@@ -35,6 +35,7 @@ enum pb_op_kind {
     OP_PB_LE,      // pseudo-Boolean <= (generalizes at_most_k)
     OP_PB_GE,      // pseudo-Boolean >= 
     OP_PB_EQ,      // equality
+    OP_PB_AUX_BOOL, // auxiliary internal Boolean variable.
     LAST_PB_OP
 };
 
@@ -71,6 +72,7 @@ public:
     virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                      unsigned arity, sort * const * domain, sort * range);
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+
 };
 
 
@@ -101,6 +103,7 @@ public:
     bool is_ge(func_decl* a) const;
     bool is_ge(expr* a) const { return is_app(a) && is_ge(to_app(a)->get_decl()); }
     bool is_ge(expr* a, rational& k) const;
+    bool is_aux_bool(expr* e) const { return is_app_of(e, m_fid, OP_PB_AUX_BOOL); }
     rational get_coeff(expr* a, unsigned index) const { return get_coeff(to_app(a)->get_decl(), index); }
     rational get_coeff(func_decl* a, unsigned index) const; 
     bool has_unit_coefficients(func_decl* f) const;
@@ -110,6 +113,8 @@ public:
     bool is_eq(func_decl* f) const;
     bool is_eq(expr* e) const { return is_app(e) && is_eq(to_app(e)->get_decl()); }
     bool is_eq(expr* e, rational& k) const;
+
+    app* mk_fresh_bool();
 
 
 private:

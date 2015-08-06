@@ -2038,11 +2038,13 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
                 }
             }
         }
+        check_args(decl, num_args, new_args.c_ptr());
         SASSERT(new_args.size() == num_args);
         new_node = new (mem) app(decl, num_args, new_args.c_ptr());
         r = register_node(new_node);
     }
     else {
+        check_args(decl, num_args, args);
         new_node = new (mem) app(decl, num_args, args);
         r = register_node(new_node);
     }
@@ -2063,6 +2065,22 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
 
     return r;
 }
+
+void ast_manager::check_args(func_decl* f, unsigned n, expr* const* es) {
+    for (unsigned i = 0; i < n; i++) {
+        sort * actual_sort   = get_sort(es[i]);
+        sort * expected_sort = f->is_associative() ? f->get_domain(0) : f->get_domain(i);
+        if (expected_sort != actual_sort) {
+            std::ostringstream buffer;
+            buffer << "Sort mismatch at argument #" << (i+1) 
+                   << " for function " << mk_pp(f,*this) 
+                   << " supplied sort is " 
+                   << mk_pp(actual_sort, *this);
+            throw ast_exception(buffer.str().c_str());            
+        }
+    }
+}
+
 
 inline app * ast_manager::mk_app_core(func_decl * decl, expr * arg1, expr * arg2) {
     expr * args[2] = { arg1, arg2 };

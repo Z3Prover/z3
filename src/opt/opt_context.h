@@ -244,6 +244,9 @@ namespace opt {
         bool is_maxsat(expr* fml, expr_ref_vector& terms, 
                        vector<rational>& weights, rational& offset, bool& neg, 
                        symbol& id, unsigned& index);
+        void  purify(app_ref& term);
+        app* purify(filter_model_converter_ref& fm, expr* e);
+        bool is_mul_const(expr* e);
         expr* mk_maximize(unsigned index, app* t);
         expr* mk_minimize(unsigned index, app* t);
         expr* mk_maxsat(unsigned index, unsigned num_fmls, expr* const* fmls);
