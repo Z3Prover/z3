@@ -170,11 +170,9 @@ namespace smt {
                 if (sk_term != 0) {
                     sk_value = sk_term;
                 }
-                else {
-                    if (m_manager.is_model_value(sk_value))
-                        return false;
-                }
             }
+            if (m_manager.is_model_value(sk_value))
+                return false;
             bindings.set(num_decls - i - 1, sk_value);
         }
         

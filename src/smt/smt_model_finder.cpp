@@ -102,6 +102,7 @@ namespace smt {
                     return;
                 m_manager.inc_ref(n);
                 m_elems.insert(n, generation);
+                CTRACE("model_finder", m_manager.is_model_value(n), tout << mk_pp(n, m_manager) << "\n";);
                 SASSERT(!m_manager.is_model_value(n));
             }
 
