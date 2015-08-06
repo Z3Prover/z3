@@ -28,6 +28,7 @@ Revision History:
 #include"datatype_decl_plugin.h"
 #include"scoped_proof.h"
 #include"fixedpoint_params.hpp"
+#include"ast_pp_util.h"
 
 
 namespace datalog {
@@ -957,31 +958,13 @@ namespace datalog {
     }
     
     // NB: algebraic data-types declarations will not be printed.
-    class free_func_visitor {
-        ast_manager& m;
-        func_decl_set m_funcs;
-        obj_hashtable<sort> m_sorts;
-    public:        
-        free_func_visitor(ast_manager& m): m(m) {}
-        void operator()(var * n)        { }
-        void operator()(app * n)        { 
-            m_funcs.insert(n->get_decl()); 
-            sort* s = m.get_sort(n);
-            if (s->get_family_id() == null_family_id) {
-                m_sorts.insert(s);
-            }
-        }
-        void operator()(quantifier * n) { }
-        func_decl_set& funcs() { return m_funcs; }
-        obj_hashtable<sort>& sorts() { return m_sorts; }
-    };
 
     static void collect_free_funcs(unsigned sz, expr* const* exprs, 
-                                   expr_mark& visited, free_func_visitor& v,
+                                   ast_pp_util& v,
                                    mk_fresh_name& fresh_names) {
+        v.collect(sz, exprs);
         for (unsigned i = 0; i < sz; ++i) {
             expr* e = exprs[i];
-            for_each_expr(v, visited, e);
             while (is_quantifier(e)) {
                 e = to_quantifier(e)->get_expr();
             }
@@ -1051,8 +1034,7 @@ namespace datalog {
  
     void context::display_smt2(unsigned num_queries, expr* const* qs, std::ostream& out) {
         ast_manager& m = get_manager();
-        free_func_visitor visitor(m);
-        expr_mark visited;
+        ast_pp_util visitor(m);
         func_decl_set rels;
         unsigned num_axioms = m_background.size();
         expr* const* axioms = m_background.c_ptr();
@@ -1070,14 +1052,13 @@ namespace datalog {
 
         smt2_pp_environment_dbg env(m);
         mk_fresh_name fresh_names;
-        collect_free_funcs(num_axioms,  axioms,  visited, visitor, fresh_names);
-        collect_free_funcs(rules.size(), rules.c_ptr(),   visited, visitor, fresh_names);
-        collect_free_funcs(queries.size(), queries.c_ptr(), visited, visitor, fresh_names);
+        collect_free_funcs(num_axioms,  axioms,  visitor, fresh_names);
+        collect_free_funcs(rules.size(), rules.c_ptr(),   visitor, fresh_names);
+        collect_free_funcs(queries.size(), queries.c_ptr(), visitor, fresh_names);
         func_decl_set funcs;
-        func_decl_set::iterator it  = visitor.funcs().begin();
-        func_decl_set::iterator end = visitor.funcs().end();
-        for (; it != end; ++it) {
-            func_decl* f = *it;
+        unsigned sz = visitor.coll.get_num_decls();
+        for (unsigned i = 0; i < sz; ++i) {
+            func_decl* f = visitor.coll.get_func_decls()[i];
             if (f->get_family_id() != null_family_id) {
                 // 
             }
@@ -1092,20 +1073,9 @@ namespace datalog {
         if (!use_fixedpoint_extensions) {
             out << "(set-logic HORN)\n";
         }
-        
-        it = funcs.begin(), end = funcs.end();
-        
-        obj_hashtable<sort>& sorts = visitor.sorts();
-        obj_hashtable<sort>::iterator sit = sorts.begin(), send = sorts.end();
-        for (; sit != send; ++sit) {
-            PP(*sit);
-        }
-        for (; it != end; ++it) {
-            func_decl* f = *it;
-            PP(f);
-            out << "\n";
-        }
-        it = rels.begin(); end = rels.end();
+
+        visitor.display_decls(out);
+        func_decl_set::iterator it = rels.begin(), end = rels.end();
         for (; it != end; ++it) {
             func_decl* f = *it;
             out << "(declare-rel " << f->get_name() << " (";

@@ -22,6 +22,7 @@ Notes:
 #include"solver_na2as.h"
 #include"tactic.h"
 #include"ast_smt2_pp.h"
+#include"ast_pp_util.h"
 
 /**
    \brief Simulates the incremental solver interface using a tactic.
@@ -221,6 +222,11 @@ expr * tactic2solver::get_assertion(unsigned idx) const {
 }
 
 void tactic2solver::display(std::ostream & out) const {
+    ast_pp_util visitor(m_assertions.m());
+    visitor.collect(m_assertions);
+    visitor.display_decls(out);
+    visitor.display_asserts(out, m_assertions, true);
+#if 0
     ast_manager & m = m_assertions.m();
     unsigned num = m_assertions.size();
     out << "(solver";
@@ -228,6 +234,7 @@ void tactic2solver::display(std::ostream & out) const {
         out << "\n  " << mk_ismt2_pp(m_assertions.get(i), m, 2);
     }
     out << ")";
+#endif
 }
 
 solver * mk_tactic2solver(ast_manager & m, 

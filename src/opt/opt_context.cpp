@@ -40,6 +40,7 @@ Notes:
 #include "pb_decl_plugin.h"
 #include "ast_smt_pp.h"
 #include "filter_model_converter.h"
+#include "ast_pp_util.h"
 
 namespace opt {
 
@@ -1255,44 +1256,13 @@ namespace opt {
         m_pp_neat = _p.pp_neat();
     }
 
-    typedef obj_hashtable<func_decl> func_decl_set;
-
-    struct context::free_func_visitor {
-        ast_manager& m;
-        func_decl_set m_funcs;
-        obj_hashtable<sort> m_sorts;
-        expr_mark m_visited;
-    public:
-        free_func_visitor(ast_manager& m): m(m) {}
-        void operator()(var * n)        { }
-        void operator()(app * n)        { 
-            if (n->get_family_id() == null_family_id) {
-                m_funcs.insert(n->get_decl()); 
-            }
-            sort* s = m.get_sort(n);
-            if (s->get_family_id() == null_family_id) {
-                m_sorts.insert(s);
-            }
-        }
-        void operator()(quantifier * n) { }
-        func_decl_set& funcs() { return m_funcs; }
-        obj_hashtable<sort>& sorts() { return m_sorts; }
-
-        void collect(expr* e) {
-            for_each_expr(*this, m_visited, e);
-        }
-    };
-
     std::string context::to_string() const {
         smt2_pp_environment_dbg env(m);
-        ast_smt_pp ll_smt2_pp(m);
-        free_func_visitor visitor(m);
+        ast_pp_util visitor(m);
         std::ostringstream out;
 #define PP(_e_) ast_smt2_pp(out, _e_, env);
-#define PPE(_e_) if (m_pp_neat) ast_smt2_pp(out, _e_, env); else ll_smt2_pp.display_expr_smt2(out, _e_);
-        for (unsigned i = 0; i < m_scoped_state.m_hard.size(); ++i) {
-            visitor.collect(m_scoped_state.m_hard[i]);
-        }
+        visitor.collect(m_scoped_state.m_hard);
+                
         for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
             objective const& obj = m_scoped_state.m_objectives[i];
             switch(obj.m_type) {
@@ -1301,9 +1271,7 @@ namespace opt {
                 visitor.collect(obj.m_term);
                 break;
             case O_MAXSMT: 
-                for (unsigned j = 0; j < obj.m_terms.size(); ++j) {
-                    visitor.collect(obj.m_terms[j]);
-                }
+                visitor.collect(obj.m_terms);
                 break;
             default: 
                 UNREACHABLE();
@@ -1311,22 +1279,8 @@ namespace opt {
             }
         }
 
-        obj_hashtable<sort>::iterator sit = visitor.sorts().begin();
-        obj_hashtable<sort>::iterator send = visitor.sorts().end();
-        for (; sit != send; ++sit) {
-            PP(*sit);
-        }
-        func_decl_set::iterator it  = visitor.funcs().begin();
-        func_decl_set::iterator end = visitor.funcs().end();
-        for (; it != end; ++it) {
-            PP(*it);
-            out << "\n";
-        }
-        for (unsigned i = 0; i < m_scoped_state.m_hard.size(); ++i) {
-            out << "(assert ";
-            PPE(m_scoped_state.m_hard[i]);
-            out << ")\n";
-        }
+        visitor.display_decls(out);
+        visitor.display_asserts(out, m_scoped_state.m_hard, m_pp_neat);
         for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
             objective const& obj = m_scoped_state.m_objectives[i];
             switch(obj.m_type) {
