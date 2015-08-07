@@ -18,6 +18,8 @@ Revision History:
 --*/
 
 #include "ast_pp_util.h"
+#include "ast_smt2_pp.h"
+#include "ast_smt_pp.h"
 
 void ast_pp_util::collect(expr* e) {
     coll.visit(e);

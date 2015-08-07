@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    <abstract>
+    Utilities for printing SMT2 declarations and assertions.
 
 Author:
 
@@ -20,8 +20,6 @@ Revision History:
 #define AST_PP_UTIL_H_
 
 #include "decl_collector.h"
-#include "ast_smt2_pp.h"
-#include "ast_smt_pp.h"
 
 class ast_pp_util {
     ast_manager&        m;
