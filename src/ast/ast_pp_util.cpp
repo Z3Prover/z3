@@ -48,24 +48,20 @@ void ast_pp_util::display_decls(std::ostream& out) {
 }
 
 void ast_pp_util::display_asserts(std::ostream& out, expr_ref_vector const& fmls, bool neat) {
-    func_decl_ref asrt(m);
-    expr_ref e(m);
-    sort* b = m.mk_bool_sort();
-    asrt = m.mk_func_decl(symbol("assert"), 1, &b, b);
     if (neat) {
         smt2_pp_environment_dbg env(m);
         for (unsigned i = 0; i < fmls.size(); ++i) {
-            e = m.mk_app(asrt, fmls[i]);
-            ast_smt2_pp(out, e, env);
-            out << "\n";
+            out << "(assert ";
+            ast_smt2_pp(out, fmls[i], env);
+            out << ")\n";
         }
     }
     else {
         ast_smt_pp ll_smt2_pp(m);
         for (unsigned i = 0; i < fmls.size(); ++i) {
-            e = m.mk_app(asrt, fmls[i]);
-            ll_smt2_pp.display_expr_smt2(out, e);
-            out << "\n";
+            out << "(assert ";
+            ll_smt2_pp.display_expr_smt2(out, fmls[i]);
+            out << ")\n";
         }
     }
 }
