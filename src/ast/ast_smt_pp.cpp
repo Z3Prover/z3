@@ -913,9 +913,9 @@ public:
                     m_out << "(";
                 }
                 m_out << m_renaming.get_symbol(f->get_name());
-                // if (accs.size() > 0) {
+                if (!accs.empty() || !m_is_smt2) {
                     m_out << " ";
-                // }
+                }
                 for (unsigned j = 0; j < accs.size(); ++j) {                
                     func_decl* a = accs[j];
                     m_out << "(" << m_renaming.get_symbol(a->get_name()) << " ";

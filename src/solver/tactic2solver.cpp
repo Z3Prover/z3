@@ -21,7 +21,6 @@ Notes:
 --*/
 #include"solver_na2as.h"
 #include"tactic.h"
-#include"ast_smt2_pp.h"
 #include"ast_pp_util.h"
 
 /**
