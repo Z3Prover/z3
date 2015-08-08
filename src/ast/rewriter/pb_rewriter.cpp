@@ -20,6 +20,7 @@ Notes:
 #include "pb_rewriter.h"
 #include "pb_rewriter_def.h"
 #include "ast_pp.h"
+#include "ast_util.h"
 #include "ast_smt_pp.h"
 
 
@@ -245,20 +246,30 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     case l_false:
         result = m.mk_false();
         break;
-    default:
+    default: {
+        bool all_unit = true;
+        unsigned sz = vec.size();
         m_args.reset();
         m_coeffs.reset();
-        for (unsigned i = 0; i < vec.size(); ++i) {
+        for (unsigned i = 0; i < sz; ++i) {
             m_args.push_back(vec[i].first);
             m_coeffs.push_back(vec[i].second);
+            all_unit &= m_coeffs.back().is_one();
         }
         if (is_eq) {
-            result = m_util.mk_eq(vec.size(), m_coeffs.c_ptr(), m_args.c_ptr(), k);
+            result = m_util.mk_eq(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k);
+        }
+        else if (all_unit && k.is_one()) {
+            result = mk_or(m, sz, m_args.c_ptr());
+        }
+        else if (all_unit && k == rational(sz)) {
+            result = mk_and(m, sz, m_args.c_ptr());
         }
         else {
-            result = m_util.mk_ge(vec.size(), m_coeffs.c_ptr(), m_args.c_ptr(), k);
+            result = m_util.mk_ge(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k);
         }
         break;
+    }
     }
     TRACE("pb",
           expr_ref tmp(m);
