@@ -261,14 +261,8 @@ public:
 };
 
 
-
-static void display_statistics() {
-    if (g_display_statistics && g_opt) {
-        ::statistics stats;
-        g_opt->collect_statistics(stats);
-        stats.display(std::cout);
-        double end_time = static_cast<double>(clock());
-        std::cout << "time:                " << (end_time - g_start_time)/CLOCKS_PER_SEC << " secs\n";
+static void display_results() {
+    if (g_opt) {
         for (unsigned i = 0; i < g_handles.size(); ++i) {
             expr_ref lo = g_opt->get_lower(g_handles[i]);
             expr_ref hi = g_opt->get_upper(g_handles[i]);
@@ -279,7 +273,19 @@ static void display_statistics() {
                 std::cout << "  [" << lo << ":" << hi << "]\n";
             }
         }
+    }
+}
+
+static void display_statistics() {
+    if (g_display_statistics && g_opt) {
+        ::statistics stats;
+        g_opt->collect_statistics(stats);
+        stats.display(std::cout);
+        double end_time = static_cast<double>(clock());
+        std::cout << "time:                " << (end_time - g_start_time)/CLOCKS_PER_SEC << " secs\n";
     }    
+
+    display_results();
 }
 
 static void on_ctrl_c(int) {
