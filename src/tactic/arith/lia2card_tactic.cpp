@@ -34,35 +34,36 @@ class lia2card_tactic : public tactic {
         vector<rational> coeffs;
         rational         coeff;
 
+        bool is_le(expr* x, expr* y, expr_ref& result) {
+            if (t.get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
+                t.get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
+                result = t.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff);
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
         br_status mk_app_core(func_decl* f, unsigned sz, expr*const* es, expr_ref& result) {
             args.reset();
             coeffs.reset();
             coeff.reset();
-            if (is_decl_of(f, a.get_family_id(), OP_LE) &&
-                t.get_pb_sum(es[0], rational::one(), args, coeffs, coeff) &&
-                t.get_pb_sum(es[1], -rational::one(), args, coeffs, coeff)) {
-                result = t.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff);
+            if (is_decl_of(f, a.get_family_id(), OP_LE) && is_le(es[0], es[1], result)) {
                 return BR_DONE;
             }
-            if (is_decl_of(f, a.get_family_id(), OP_GE) &&
-                t.get_pb_sum(es[1], rational::one(), args, coeffs, coeff) &&
-                t.get_pb_sum(es[0], -rational::one(), args, coeffs, coeff)) {
-                result = t.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff);
+            if (is_decl_of(f, a.get_family_id(), OP_GE) && is_le(es[1], es[0], result)) {
                 return BR_DONE;
             }
-            if (is_decl_of(f, a.get_family_id(), OP_LT) &&
-                t.get_pb_sum(es[1], rational::one(), args, coeffs, coeff) &&
-                t.get_pb_sum(es[0], -rational::one(), args, coeffs, coeff)) {
-                result = m.mk_not(t.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
+            if (is_decl_of(f, a.get_family_id(), OP_LT) && is_le(es[1], es[0], result)) {
+                result = m.mk_not(result);
                 return BR_DONE;
             }
-            if (is_decl_of(f, a.get_family_id(), OP_GT) &&
-                t.get_pb_sum(es[0], rational::one(), args, coeffs, coeff) &&
-                t.get_pb_sum(es[1], -rational::one(), args, coeffs, coeff)) {
-                result = m.mk_not(t.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff));
+            if (is_decl_of(f, a.get_family_id(), OP_GT) && is_le(es[0], es[1], result)) {
+                result = m.mk_not(result);
                 return BR_DONE;
             }
-            if (m.is_eq(f) &&
+            if (m.is_eq(f) && 
                 t.get_pb_sum(es[0], rational::one(), args, coeffs, coeff) &&
                 t.get_pb_sum(es[1], -rational::one(), args, coeffs, coeff)) {
                 result = t.mk_eq(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff); 
