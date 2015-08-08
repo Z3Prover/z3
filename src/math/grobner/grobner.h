@@ -126,6 +126,8 @@ protected:
 
     void del_equations(unsigned old_size);
 
+    void del_monomials(ptr_vector<monomial>& monomials);
+
     void unfreeze_equations(unsigned old_size);
 
     void del_equation(equation * eq);
