@@ -3227,6 +3227,93 @@ sig
   val parse_file : fixedpoint -> string -> Expr.expr list
 end
 
+(** Optimization *) 
+module Optimize : 
+sig 
+  type opt  
+  type handle 
+ 
+ 
+  (** Create a Optimize context. *) 
+  val mk_opt : context -> opt 
+      
+  (** A string that describes all available optimize solver parameters. *) 
+  val get_help : opt -> string 
+ 
+ 
+  (** Sets the optimize solver parameters. *) 
+  val set_params : opt -> Params.params -> unit 
+ 
+ 
+  (** Retrieves parameter descriptions for Optimize solver. *) 
+  val get_param_descrs : opt -> Params.ParamDescrs.param_descrs 
+ 
+ 
+  (** Assert a constraints into the optimize solver. *)         
+  val add : opt -> Expr.expr list -> unit 
+ 
+ 
+  (** Asssert a soft constraint.  
+     Supply integer weight and string that identifies a group 
+      of soft constraints.  
+   *) 
+  val add_soft : opt -> Expr.expr -> int -> string -> handle 
+ 
+ 
+  (** Add maximization objective. 
+   *)  
+  val maximize : opt -> Expr.expr -> handle 
+ 
+ 
+  (** Add minimization objective. 
+   *)  
+  val minimize : opt -> Expr.expr -> handle 
+    
+  (** Checks whether the assertions in the context are satisfiable and solves objectives. 
+   *)         
+  val check : opt -> Solver.status 
+ 
+ 
+  (** Retrieve model from satisfiable context *) 
+  val get_model : opt -> Model.model 
+ 
+ 
+  (** Retrieve lower bound in current model for handle *) 
+  val get_lower : handle -> Expr.expr 
+ 
+ 
+  (** Retrieve upper bound in current model for handle *) 
+  val get_upper : handle -> Expr.expr 
+
+ 
+  (** Retrieve value in current model for handle *) 
+  val get_value : handle -> Expr.expr 
+
+ 
+  (** Creates a backtracking point. 
+      {!pop} *) 
+  val push : opt -> unit 
+
+
+  (** Backtrack one backtracking point. 
+      Note that an exception is thrown if Pop is called without a corresponding [Push] 
+      {!push} *) 
+  val pop : opt -> unit 
+
+ 
+  (** Retrieve explanation why optimize engine returned status Unknown. *)                 
+  val get_reason_unknown : opt -> string 
+
+ 
+  (** Retrieve SMT-LIB string representation of optimize object. *) 
+  val to_string : opt -> string 
+ 
+ 
+  (** Retrieve statistics information from the last call to check *) 
+  val get_statistics : opt -> Statistics.statistics 
+end 
+
+
 (** Functions for handling SMT and SMT2 expressions and files *)
 module SMT :
 sig

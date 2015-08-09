@@ -187,7 +187,7 @@ namespace opt {
         virtual proof* get_proof() { return 0; }
         virtual void get_labels(svector<symbol> & r) {}
         virtual void get_unsat_core(ptr_vector<expr> & r) {}
-        virtual std::string reason_unknown() const { return std::string("unknown"); }
+        virtual std::string reason_unknown() const;
 
         virtual void display_assignment(std::ostream& out);
         virtual bool is_pareto() { return m_pareto.get() != 0; }

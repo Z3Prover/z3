@@ -6241,6 +6241,15 @@ END_MLAPI_EXCLUDE
 
 
     /**
+       \brief Retrieve a string that describes the last status returned by #Z3_optimize_check.
+
+       Use this method when #Z3_optimize_check returns Z3_L_UNDEF.
+       
+       def_API('Z3_optimize_get_reason_unknown', STRING, (_in(CONTEXT), _in(OPTIMIZE) ))
+    */
+    Z3_string Z3_API Z3_optimize_get_reason_unknown(Z3_context c,Z3_optimize d);
+
+    /**
        \brief Retrieve the model for the last #Z3_optimize_check
 
        The error handler is invoked if a model is not available because 

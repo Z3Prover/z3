@@ -2866,6 +2866,92 @@ struct
 end
 
 
+module Optimize =  
+struct 
+  type opt = z3_native_object 
+  type handle = { opt : opt; h : int } 
+ 
+ 
+  let mk_handle (x : opt) h = { opt = x; h = h } 
+
+ 
+  let mk_opt (ctx : context) = 
+      let res : opt = { m_ctx = ctx;  
+                        m_n_obj = null ; 
+                        inc_ref = Z3native.optimzie_inc_ref ; 
+                        dec_ref = Z3native.optimzie_dec_ref } in 
+      (z3obj_sno res ctx (Z3native.mk_optimize (context_gno ctx))) ; 
+      (z3obj_create res) ; 
+      res 
+      
+  let get_help ( x : opt ) =  
+    Z3native.optimize_get_help (z3obj_gnc x) (z3obj_gno x) 
+ 
+ 
+  let set_params ( x : opt ) ( p : Params.params )= 
+    Z3native.optimize_set_params (z3obj_gnc x) (z3obj_gno x) (z3obj_gno p) 
+        
+  let get_param_descrs ( x : opt ) = 
+    Params.ParamDescrs.param_descrs_of_ptr (z3obj_gc x) (Z3native.optimize_get_param_descrs (z3obj_gnc x) (z3obj_gno x)) 
+        
+  let add ( x : opt ) ( constraints : expr list ) = 
+    let f e = (Z3native.optimize_add (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)) in 
+    List.iter f constraints  
+ 
+ 
+  let add_soft ( x : opt) ( e : Expr.expr) ( w : int) ( s : string ) = 
+    mk_handle x (Z3native.optimize_add_soft (z3obj_gnc x) (z3obj_gno x) (Expr.gno e) w s) 
+ 
+ 
+  let maximize ( x : opt) ( e :  Expr.expr ) =  
+    mk_handle x (Z3native.optimize_maximize (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)) 
+ 
+ 
+  let minimize ( x : opt) ( e :  Expr.expr ) =  
+    mk_handle x (Z3native.optimize_minimize (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)) 
+    
+  let check  ( x : opt ) =  
+     let r = lbool_of_int (Z3native.optimize_check_sat (z3obj_gnc x) (z3obj_gno x) in  
+     match r with 
+       | L_TRUE -> SATISFIABLE 
+       | L_FALSE -> UNSATISFIABLE 
+       | _ -> UNKNOWN 
+ 
+ 
+  let get_model ( x : opt ) =  
+     let q = Z3native.optimize_get_model (z3obj_gnc x) (z3obj_gno x) in 
+     if (Z3native.is_null q) then 
+       None 
+     else  
+       Some (Model.create (z3obj_gc x) q) 
+ 
+  let get_lower ( x : handle ) = 
+      expr_of_ptr (z3obj_gnc x.opt) (Z3native.optimize_get_lower (z3obj_gnc x) (z3obj_gno x) h.h)  
+ 
+  let get_upper ( x : handle ) =  
+      expr_of_ptr (z3obj_gnc x.opt) (Z3native.optimize_get_upper (z3obj_gnc x) (z3obj_gno x) h.h)  
+ 
+ 
+  let get_value ( x : handle ) =  
+      expr_of_ptr (z3obj_gnc x.opt) (Z3native.optimize_get_value (z3obj_gnc x) (z3obj_gno x) h.h)  
+ 
+  let push ( x : opt ) = Z3native.optimize_push (z3obj_gnc x) (z3obj_gno x) n 
+ 
+  let pop ( x : opt ) = Z3native.optimize_pop (z3obj_gnc x) (z3obj_gno x) 
+ 
+  let get_reason_unknown ( x : opt ) =
+    Z3native.optimize_get_reason_unknown (z3obj_gnc x) (z3obj_gno x)
+
+  let to_string ( x : opt ) = Z3native.optimize_to_string (z3obj_gnc x) (z3obj_gno x)  
+ 
+ 
+  let get_statistics ( x : opt ) = 
+     let s = Z3native.optimize_get_statistics (z3obj_gnc x) (z3obj_gno x) in 
+     (Statistics.create (z3obj_gc x) s) 
+ 
+ 
+end 
+
 module SMT =
 struct
   let benchmark_to_smtstring ( ctx : context ) ( name : string ) ( logic : string ) ( status : string ) ( attributes : string ) ( assumptions : expr list ) ( formula : expr ) =

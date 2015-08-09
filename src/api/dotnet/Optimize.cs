@@ -232,6 +232,15 @@ namespace Microsoft.Z3
             return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
         }
 
+	/// <summary>
+	/// Return a string the describes why the last to check returned unknown
+	/// </summary>	
+    	public String getReasonUnknown()
+    	{
+            Contract.Ensures(Contract.Result<string>() != null);
+            return Native.Z3_optimize_get_reason_unknown(Context.nCtx, NativeObject);
+    	}
+
 
         /// <summary>
         /// Print the context to a string (SMT-LIB parseable benchmark).

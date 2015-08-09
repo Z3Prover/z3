@@ -457,6 +457,13 @@ namespace opt {
         return is_sat;
     }
 
+    std::string context::reason_unknown() const { 
+        if (m_solver.get()) {
+            return m_solver->reason_unknown();
+        }
+        return std::string("unknown"); 
+    }
+
     void context::display_bounds(std::ostream& out, bounds_t const& b) const {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];

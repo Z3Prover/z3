@@ -213,7 +213,6 @@ public class Fixedpoint extends Z3Object
      **/
     public String getReasonUnknown()
     {
-
         return Native.fixedpointGetReasonUnknown(getContext().nCtx(),
                 getNativeObject());
     }

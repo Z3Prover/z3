@@ -142,6 +142,14 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
 
+    Z3_string Z3_API Z3_optimize_get_reason_unknown(Z3_context c, Z3_optimize o) {
+        Z3_TRY;
+        LOG_Z3_optimize_to_string(c, o);
+        RESET_ERROR_CODE();
+        return mk_c(c)->mk_external_string(to_optimize_ptr(o)->reason_unknown());
+        Z3_CATCH_RETURN("");
+    }
+
     Z3_model Z3_API Z3_optimize_get_model(Z3_context c, Z3_optimize o) {
         Z3_TRY;
         LOG_Z3_optimize_get_model(c, o);
