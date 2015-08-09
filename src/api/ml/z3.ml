@@ -2766,7 +2766,7 @@ struct
   let get_help ( x : fixedpoint ) =
     Z3native.fixedpoint_get_help (z3obj_gnc x) (z3obj_gno x)
       
-  let set_params ( x : fixedpoint ) ( p : Params.params )=
+  let set_parameters ( x : fixedpoint ) ( p : Params.params )=
     Z3native.fixedpoint_set_params (z3obj_gnc x) (z3obj_gno x) (z3obj_gno p)
       
   let get_param_descrs ( x : fixedpoint ) =
@@ -2868,7 +2868,8 @@ end
 
 module Optimize =  
 struct 
-  type opt = z3_native_object 
+  type optimize = z3_native_object 
+  type opt = optimize
   type handle = { opt : opt; h : int } 
  
  
@@ -2888,7 +2889,7 @@ struct
     Z3native.optimize_get_help (z3obj_gnc x) (z3obj_gno x) 
  
  
-  let set_params ( x : opt ) ( p : Params.params )= 
+  let set_parameters ( x : opt ) ( p : Params.params )= 
     Z3native.optimize_set_params (z3obj_gnc x) (z3obj_gno x) (z3obj_gno p) 
         
   let get_param_descrs ( x : opt ) = 
