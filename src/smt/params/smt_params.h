@@ -195,6 +195,7 @@ struct smt_params : public preprocessor_params,
     //
     // -----------------------------------
     bool             m_display_installed_theories;
+    bool             m_core_validate;
 
     // -----------------------------------
     //
@@ -269,6 +270,7 @@ struct smt_params : public preprocessor_params,
         m_model_on_final_check(false),
         m_progress_sampling_freq(0),
         m_display_installed_theories(false),
+        m_core_validate(false),
         m_preprocess(true), // temporary hack for disabling all preprocessing..
         m_user_theory_preprocess_axioms(false),
         m_user_theory_persist_axioms(false),

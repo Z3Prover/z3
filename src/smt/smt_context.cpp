@@ -2928,6 +2928,7 @@ namespace smt {
               for (unsigned i = 0; i < sz; i++) {
                   tout << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
               });
+        validate_unsat_core();        
     }
 
     /**

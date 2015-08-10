@@ -57,5 +57,6 @@ def_module_params(module_name='smt',
                           ('dack.factor', DOUBLE, 0.1, 'number of instance per conflict'),
                           ('dack.gc', UINT, 2000, 'Dynamic ackermannization garbage collection frequency (per conflict)'),
                           ('dack.gc_inv_decay', DOUBLE, 0.8, 'Dynamic ackermannization garbage collection decay'),
-                          ('dack.threshold', UINT, 10, ' number of times the congruence rule must be used before Leibniz\'s axiom is expanded')
+                          ('dack.threshold', UINT, 10, ' number of times the congruence rule must be used before Leibniz\'s axiom is expanded'),
+                          ('core.validate', BOOL, False, 'validate unsat core produced by SMT context')
                           ))

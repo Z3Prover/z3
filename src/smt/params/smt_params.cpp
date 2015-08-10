@@ -35,6 +35,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_delay_units_threshold = p.delay_units_threshold();
     m_preprocess = _p.get_bool("preprocess", true); // hidden parameter
     m_timeout = p.timeout();
+    m_core_validate = p.core_validate();
     model_params mp(_p);
     m_model_compact = mp.compact();
     if (_p.get_bool("arith.greatest_error_pivot", false))

@@ -1046,6 +1046,8 @@ namespace smt {
 
         void mk_unsat_core();
 
+        void validate_unsat_core();
+
         void init_search();
 
         void end_search();
