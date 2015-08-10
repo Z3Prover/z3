@@ -16,6 +16,24 @@ Author:
 Notes:
 
 --*/
+/*++
+Copyright (c) 2013 Microsoft Corporation
+
+Module Name:
+
+    lia2card_tactic.cpp
+
+Abstract:
+
+    Convert 0-1 integer variables cardinality constraints to built-in cardinality operator.
+
+Author:
+ 
+    Nikolaj Bjorner (nbjorner) 2013-11-5
+
+Notes:
+
+--*/
 #include"tactical.h"
 #include"cooperate.h"
 #include"bound_manager.h"
@@ -24,6 +42,7 @@ Notes:
 #include"arith_decl_plugin.h"
 #include"rewriter_def.h"
 #include"ast_util.h"
+#include"ast_pp_util.h"
 
 class lia2card_tactic : public tactic {
     struct lia_rewriter_cfg : public default_rewriter_cfg {
@@ -34,9 +53,17 @@ class lia2card_tactic : public tactic {
         vector<rational> coeffs;
         rational         coeff;
 
+        bool is_pb(expr* x, expr* y, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
+            args.reset();
+            coeffs.reset();
+            coeff.reset();
+            return 
+                t.get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
+                t.get_pb_sum(y, -rational::one(), args, coeffs, coeff);
+        }
+
         bool is_le(expr* x, expr* y, expr_ref& result) {
-            if (t.get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
-                t.get_pb_sum(y, -rational::one(), args, coeffs, coeff)) {
+            if (is_pb(x, y, args, coeffs, coeff)) {
                 result = t.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff);
                 return true;
             }
@@ -46,30 +73,40 @@ class lia2card_tactic : public tactic {
         }
 
         br_status mk_app_core(func_decl* f, unsigned sz, expr*const* es, expr_ref& result) {
-            args.reset();
-            coeffs.reset();
-            coeff.reset();
             if (is_decl_of(f, a.get_family_id(), OP_LE) && is_le(es[0], es[1], result)) {
-                return BR_DONE;
             }
-            if (is_decl_of(f, a.get_family_id(), OP_GE) && is_le(es[1], es[0], result)) {
-                return BR_DONE;
+            else if (is_decl_of(f, a.get_family_id(), OP_GE) && is_le(es[1], es[0], result)) {
             }
-            if (is_decl_of(f, a.get_family_id(), OP_LT) && is_le(es[1], es[0], result)) {
+            else if (is_decl_of(f, a.get_family_id(), OP_LT) && is_le(es[1], es[0], result)) {
                 result = m.mk_not(result);
-                return BR_DONE;
             }
-            if (is_decl_of(f, a.get_family_id(), OP_GT) && is_le(es[0], es[1], result)) {
+            else if (is_decl_of(f, a.get_family_id(), OP_GT) && is_le(es[0], es[1], result)) {
                 result = m.mk_not(result);
-                return BR_DONE;
             }
-            if (m.is_eq(f) && 
-                t.get_pb_sum(es[0], rational::one(), args, coeffs, coeff) &&
-                t.get_pb_sum(es[1], -rational::one(), args, coeffs, coeff)) {
+            else if (m.is_eq(f) && is_pb(es[0], es[1], args, coeffs, coeff)) {
                 result = t.mk_eq(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), -coeff); 
-                return BR_DONE;
-            }                
-            return BR_FAILED;
+            }    
+            else {
+                return BR_FAILED;
+            }
+            TRACE("pbsum", tout << expr_ref(m.mk_app(f, sz, es), m) << " ==>\n" <<  result << "\n";);
+
+#if 0
+            expr_ref vc(m);
+            vc = m.mk_not(m.mk_eq(m.mk_app(f, sz, es), result));
+            ast_pp_util pp(m);
+            pp.collect(vc);
+            std::cout 
+                << "(push)\n"
+                << "(echo \"" << result << "\")\n"
+                ;
+            pp.display_decls(std::cout);
+            std::cout
+                << "(assert " << vc << ")\n"
+                << "(check-sat)\n"
+                << "(pop)\n";
+#endif
+            return BR_DONE;
         }
 
         bool rewrite_patterns() const { return false; }
@@ -192,10 +229,18 @@ public:
         if (sz == 1 && weights[0].is_one() && w.is_zero()) {
             return m.mk_not(args[0]);
         }
+        if (w.is_neg()) {
+            DEBUG_CODE(for (unsigned i = 0; i < sz; ++i) SASSERT(weights[i].is_nonneg()); );
+            return m.mk_false();
+        }
         return m_pb.mk_le(sz, weights, args, w);
     }
 
     expr* mk_eq(unsigned sz, rational const* weights, expr* const* args, rational const& w) {
+        if (w.is_neg()) {
+            DEBUG_CODE(for (unsigned i = 0; i < sz; ++i) SASSERT(weights[i].is_nonneg()); );
+            return m.mk_false();
+        }
         if (m_compile_equality) {
             return m_pb.mk_eq(sz, weights, args, w);
         }
@@ -213,6 +258,10 @@ public:
         }
         if (sz == 1 && weights[0].is_one() && w.is_zero()) {
             return m.mk_not(args[0]);
+        }
+        if (w.is_neg()) {
+            DEBUG_CODE(for (unsigned i = 0; i < sz; ++i) SASSERT(weights[i].is_nonneg()); );
+            return m.mk_true();
         }
         return m_pb.mk_ge(sz, weights, args, w);
     }
@@ -248,12 +297,6 @@ public:
         else if (a.is_to_real(x, y)) {
             ok = get_sum(y, mul, conds, args, coeffs, coeff);
         }
-        else if (m.is_ite(x, y, z, u) && is_numeral(z, r) && is_numeral(u, q)) {
-            insert_arg(r*mul, add_conds(conds, y), args, coeffs, coeff);
-            // q*(1-y) = -q*y + q
-            coeff += q*mul;
-            insert_arg(-q*mul, add_conds(conds, y), args, coeffs, coeff);
-        }
         else if (m.is_ite(x, y, z, u)) {
             conds.push_back(y);
             ok = get_sum(z, mul, conds, args, coeffs, coeff);
@@ -261,12 +304,12 @@ public:
             conds.push_back(m.mk_not(y));
             ok &= get_sum(u, mul, conds, args, coeffs, coeff);
             conds.pop_back();            
-        }                 
+        }
         else if (is_01var(x)) {
-            insert_arg(mul, add_conds(conds, mk_01(x)), args, coeffs, coeff);
+            insert_arg(mul, conds, mk_01(x), args, coeffs, coeff);
         }
         else if (is_numeral(x, r)) {
-            insert_arg(mul*r, add_conds(conds, m.mk_true()), args, coeffs, coeff);
+            insert_arg(mul*r, conds, m.mk_true(), args, coeffs, coeff);
         }
         else {
             TRACE("pb", tout << "Can't handle " << mk_pp(x, m) << "\n";);
@@ -275,10 +318,15 @@ public:
         return ok;
     }
 
-    expr_ref add_conds(expr_ref_vector const& es, expr* e) {
-        if (es.empty()) return expr_ref(e, m);
-        expr_ref result = expr_ref(m.mk_and(es.size(), es.c_ptr()), m);
-        result = m.mk_and(e, result);
+    expr_ref add_conds(expr_ref_vector& es, expr* e) {
+        expr_ref result(m);
+        if (!m.is_true(e)) {
+            es.push_back(e);
+        }
+        result = mk_and(m, es.size(), es.c_ptr());
+        if (!m.is_true(e)) {
+            es.pop_back();
+        }
         return result;
     }
 
@@ -293,19 +341,23 @@ public:
         return a.is_numeral(e, r);
     }
     
-    void insert_arg(rational const& p, expr* x, 
-                    expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
-        if (m.is_true(x)) {
+    void insert_arg(
+        rational const& p, 
+        expr_ref_vector& conds,
+        expr* x, 
+        expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
+        expr_ref cond = add_conds(conds, x);
+        if (m.is_true(cond)) {
             coeff += p;
         }
         else if (p.is_neg()) {
-            // p*x = -p*(1-x) + p
-            args.push_back(m.mk_not(x));
+            // -p*x = p*(1-x) - p
+            args.push_back(m.mk_not(cond));
             coeffs.push_back(-p);
             coeff += p;
         }
         else if (p.is_pos()) {
-            args.push_back(x);
+            args.push_back(cond);
             coeffs.push_back(p);
         }
     }
