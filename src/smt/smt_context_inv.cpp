@@ -422,7 +422,6 @@ namespace smt {
         case l_false:
             break;
         default: 
-            UNREACHABLE();
             throw default_exception("Core could not be validated");
         }
     }
