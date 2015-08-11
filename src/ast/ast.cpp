@@ -2633,6 +2633,8 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
            tout << mk_pp(to_app(get_fact(p1))->get_decl(), *this) << "\n";
            tout << mk_pp(to_app(get_fact(p2))->get_decl(), *this) << "\n";);
     SASSERT(to_app(get_fact(p1))->get_decl() == to_app(get_fact(p2))->get_decl() ||
+            ((is_iff(get_fact(p1)) || is_eq(get_fact(p1))) && 
+             (is_iff(get_fact(p2)) || is_eq(get_fact(p2)))) ||
             ( (is_eq(get_fact(p1)) || is_oeq(get_fact(p1))) &&
               (is_eq(get_fact(p2)) || is_oeq(get_fact(p2)))));
     CTRACE("mk_transitivity", to_app(get_fact(p1))->get_arg(1) != to_app(get_fact(p2))->get_arg(0),       
