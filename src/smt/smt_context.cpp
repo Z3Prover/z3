@@ -2773,6 +2773,7 @@ namespace smt {
     }
 
     void context::assert_expr_core(expr * e, proof * pr) {
+        if (m_cancel_flag) return;
         SASSERT(is_well_sorted(m_manager, e));
         TRACE("begin_assert_expr", tout << mk_pp(e, m_manager) << "\n";);
         TRACE("begin_assert_expr_ll", tout << mk_ll_pp(e, m_manager) << "\n";);
@@ -2802,6 +2803,7 @@ namespace smt {
     }
 
     void context::internalize_assertions() {
+        if (m_cancel_flag) return;
         TRACE("internalize_assertions", tout << "internalize_assertions()...\n";);
         timeit tt(get_verbosity_level() >= 100, "smt.preprocessing");
         reduce_assertions();

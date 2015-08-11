@@ -229,6 +229,9 @@ public:
                     m_ctx->assert_expr(in->form(i));
                 }
             }
+            if (m_ctx->canceled()) {
+                throw tactic_exception("smt_tactic canceled");
+            }
             
             lbool r;
             if (assumptions.empty())
