@@ -1,0 +1,8 @@
+include configure
+include LICENSE.txt
+include README
+include RELEASE_NOTES
+recursive-include doc *
+recursive-include examples *
+recursive-include scripts *
+recursive-include src *
