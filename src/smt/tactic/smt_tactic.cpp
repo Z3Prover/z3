@@ -210,9 +210,9 @@ public:
             ptr_vector<expr>            assumptions;       
             ref<filter_model_converter> fmc;
             if (in->unsat_core_enabled()) {
-                if (in->proofs_enabled())
-                    throw tactic_exception("smt tactic does not support simultaneous generation of proofs and unsat cores");
                 extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
+                if (in->proofs_enabled() && !assumptions.empty())
+                    throw tactic_exception("smt tactic does not support simultaneous generation of proofs and unsat cores");
                 for (unsigned i = 0; i < clauses.size(); ++i) {
                     m_ctx->assert_expr(clauses[i].get());
                 }
