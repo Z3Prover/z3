@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 import multiprocessing
-from distutils.core import setup
+from setuptools import setup
 from distutils.errors import LibError
 from distutils.command.build import build as _build
 
