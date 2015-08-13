@@ -68,17 +68,10 @@ namespace smt {
 
     
     bool theory_opt::is_numeral(arith_util& a, expr* term) {
-        while (true) {
-            if (a.is_uminus(term) || a.is_to_real(term) || a.is_to_int(term)) {
-                term = to_app(term)->get_arg(0);
-            }
-            else if (a.is_numeral(term)) {
-                return true;
-            }
-            else {
-                return false;
-            }
+        while (a.is_uminus(term) || a.is_to_real(term) || a.is_to_int(term)) {
+            term = to_app(term)->get_arg(0);
         }
+        return a.is_numeral(term);
     }
 
 };

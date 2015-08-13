@@ -100,6 +100,7 @@ public:
     virtual void set_progress_callback(progress_callback * callback) {}
 
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {        
+
         m_solver.pop_to_base_level();
         dep2asm_t dep2asm;
         m_model = 0;
@@ -112,6 +113,7 @@ public:
         r = initialize_soft_constraints();
         if (r != l_true) return r;
 
+        m_solver.display_dimacs(std::cout);
         r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         switch (r) {
         case l_true:

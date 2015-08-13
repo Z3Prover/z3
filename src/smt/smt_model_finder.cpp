@@ -83,6 +83,7 @@ namespace smt {
             ast_manager &           m_manager;
             obj_map<expr, unsigned> m_elems; // and the associated generation
             obj_map<expr, expr *>   m_inv;
+            expr_mark               m_visited;
         public:
             instantiation_set(ast_manager & m):m_manager(m) {}
             
@@ -98,11 +99,11 @@ namespace smt {
             obj_map<expr, unsigned> const & get_elems() const { return m_elems; }
 
             void insert(expr * n, unsigned generation) {
-                if (m_elems.contains(n))
+                if (m_elems.contains(n) || contains_model_value(n))
                     return;
+                TRACE("model_finder", tout << mk_pp(n, m_manager) << "\n";);
                 m_manager.inc_ref(n);
                 m_elems.insert(n, generation);
-                CTRACE("model_finder", m_manager.is_model_value(n), tout << mk_pp(n, m_manager) << "\n";);
                 SASSERT(!m_manager.is_model_value(n));
             }
 
@@ -145,9 +146,10 @@ namespace smt {
                 obj_map<expr, unsigned>::iterator end = m_elems.end();
                 for (; it != end; ++it) {
                     expr *     t = (*it).m_key;
-                    SASSERT(!m_manager.is_model_value(t));
+                    SASSERT(!contains_model_value(t));
                     unsigned gen = (*it).m_value;
                     expr * t_val = ev.eval(t, true);
+                    TRACE("model_finder", tout << mk_pp(t, m_manager) << "\n";);
 
                     expr * old_t = 0;
                     if (m_inv.find(t_val, old_t)) {
@@ -166,6 +168,30 @@ namespace smt {
 
             obj_map<expr, expr *> const & get_inv_map() const {
                 return m_inv;
+            }
+
+            struct is_model_value {};
+            void operator()(expr *n) {
+                if (m_manager.is_model_value(n)) {
+                    throw is_model_value();
+                }
+            }
+
+            bool contains_model_value(expr* n) {
+                if (m_manager.is_model_value(n)) {
+                    return true;
+                }
+                if (is_app(n) && to_app(n)->get_num_args() == 0) {
+                    return false;
+                }
+                m_visited.reset();
+                try {
+                    for_each_expr(*this, m_visited, n);
+                }
+                catch (is_model_value) {
+                    return true;
+                }
+                return false;
             }
         };
 
@@ -286,7 +312,7 @@ namespace smt {
                 return get_root()->m_signed_proj;
             }
 
-            void mk_instatiation_set(ast_manager & m) {
+            void mk_instantiation_set(ast_manager & m) {
                 SASSERT(is_root());
                 m_set = alloc(instantiation_set, m);
             }
@@ -527,13 +553,13 @@ namespace smt {
                 return 0;
             }
             
-            void mk_instatiation_sets() {
+            void mk_instantiation_sets() {
                 ptr_vector<node>::const_iterator it  = m_nodes.begin();
                 ptr_vector<node>::const_iterator end = m_nodes.end();
                 for (; it != end; ++it) {
                     node * curr = *it;
                     if (curr->is_root()) {
-                        curr->mk_instatiation_set(m_manager);
+                        curr->mk_instantiation_set(m_manager);
                     }
                 }
             }
@@ -695,6 +721,7 @@ namespace smt {
                     return 0;
                 m_model->register_decl(k_decl, r);
                 SASSERT(m_model->get_const_interp(k_decl) == r);
+                TRACE("model_finder", tout << mk_pp(r, m_manager) << "\n";);
                 return r;
             }
 
@@ -1204,7 +1231,7 @@ namespace smt {
                         // a necessary instantiation.
                         enode * e_arg = n->get_arg(m_arg_i);
                         expr * arg    = e_arg->get_owner();
-                        A_f_i->insert(arg, e_arg->get_generation());
+                        A_f_i->insert(arg, e_arg->get_generation());                        
                     }
                 }
             }
@@ -1225,7 +1252,7 @@ namespace smt {
                     if (ctx->is_relevant(n)) {
                         enode * e_arg = n->get_arg(m_arg_i);
                         expr * arg    = e_arg->get_owner();
-                        s->insert(arg, e_arg->get_generation());
+                        s->insert(arg, e_arg->get_generation());                        
                     }
                 }
             }
@@ -3378,7 +3405,7 @@ namespace smt {
             quantifier_info * qi = get_quantifier_info(q);
             qi->process_auf(*(m_auf_solver.get()), m_context);
         }
-        m_auf_solver->mk_instatiation_sets();
+        m_auf_solver->mk_instantiation_sets();
         it  = qs.begin();
         for (; it != end; ++it) {
             quantifier * q       = *it;

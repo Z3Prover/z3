@@ -21,6 +21,7 @@ Revision History:
 
 #include"sat_types.h"
 #include "union_find.h"
+#include "sat_simplifier.h"
 
 
 namespace sat {
@@ -33,6 +34,7 @@ namespace sat {
         typedef svector<bin_clause> bin_clauses;        
         solver &          m_solver;
         use_list*         m_use_list;
+        use_list          m_bce_use_list;
         solver*           m_s;
         random_gen        m_rand;
         svector<clause*>  m_clauses;

@@ -80,6 +80,10 @@ namespace smt {
 
         quantifier * get_flat_quantifier(quantifier * q);
 
+        struct is_model_value {};
+        expr_mark m_visited;
+        bool contains_model_value(expr* e);
+
     public:
         model_checker(ast_manager & m, qi_params const & p, model_finder & mf);
         ~model_checker();
@@ -95,6 +99,9 @@ namespace smt {
         void reset();
 
         void set_cancel(bool f) { m_cancel = f; }
+
+        void operator()(expr* e);
+
     };
 };
 

@@ -45,6 +45,7 @@ namespace sat {
         m_R.reset();
         m_L_blits.reset();
         m_R_blits.reset();
+        m_bce_use_list.finalize();
         clause * const* it = m_solver.begin_clauses();
         clause * const* end = m_solver.end_clauses();
         for (; it != end; ++it) {
@@ -140,7 +141,6 @@ namespace sat {
         for (unsigned i = 0; i < m_L.size(); ++i) {
             ul.insert(*m_L[i]);
         }
-#define MOVE_R_TO_L                             \
 
         // cheap pass: add clauses from R in order
         // such that they are blocked with respect to
@@ -161,6 +161,10 @@ namespace sat {
         }
         // expensive pass: add clauses from R as long
         // as BCE produces the empty set of clauses.
+        m_bce_use_list.init(m_solver.num_vars());
+        for (unsigned i = 0; i < m_L.size(); ++i) {
+            m_bce_use_list.insert(*m_L[i]);
+        }
         for (unsigned i = 0; i < m_R.size(); ++i) {
             if (bce(*m_R[i])) {
                 m_R[i] = m_R.back();
@@ -173,29 +177,29 @@ namespace sat {
         m_use_list = save;
     }
 
-    bool bceq::bce(clause& cls) {
+    bool bceq::bce(clause& cls0) {
+        IF_VERBOSE(1, verbose_stream() << "bce " << m_L.size() << " " << m_R.size() << " " << cls0 << "\n";);
         svector<bool> live_clauses;
-        use_list ul;
-        m_use_list = &ul;
-        ul.init(m_solver.num_vars());
-        for (unsigned i = 0; i < m_L.size(); ++i) {
-            ul.insert(*m_L[i]);
-        }
-        ul.insert(cls);
+        m_use_list = &m_bce_use_list;
+        m_bce_use_list.insert(cls0);
         svector<clause*> clauses(m_L), new_clauses;
         literal_vector blits(m_L_blits), new_blits;
-        clauses.push_back(&cls);
+        clauses.push_back(&cls0);
         blits.push_back(null_literal);
         bool removed = false;
         m_removed.reset();
         do {
             removed = false;
             for (unsigned i = 0; i < clauses.size(); ++i) {
-                clause& cls = *clauses[i];
-                literal lit = find_blocked(cls);
-                if (lit != null_literal) {
-                    m_removed.setx(cls.id(), true, false);
-                    new_clauses.push_back(&cls);
+                clause& cls1 = *clauses[i];
+                literal lit = find_blocked(cls1);
+                if (lit == null_literal) {
+                    m_bce_use_list.erase(cls1);
+                }
+                else {
+                    IF_VERBOSE(2, verbose_stream() << "; remove " << cls1 << "\n";);
+                    m_removed.setx(cls1.id(), true, false);
+                    new_clauses.push_back(&cls1);
                     new_blits.push_back(lit);
                     removed = true;
                     clauses[i] = clauses.back();
@@ -215,7 +219,7 @@ namespace sat {
             m_L.append(new_clauses);
             m_L_blits.append(new_blits);
         }
-        if (!clauses.empty()) std::cout << "Number left after BCE: " << clauses.size() << "\n";
+        IF_VERBOSE(1, if (!clauses.empty()) verbose_stream() << "; clauses left after BCE: " << clauses.size() << "\n";);
         return clauses.empty();
     }
 
@@ -442,9 +446,10 @@ namespace sat {
         roots[l2.var()] = l1;
         vars.push_back(l2.var());
         elim_eqs elim(m_solver);
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            std::cout << "var: " << vars[i] << " root: " << roots[vars[i]] << "\n";
-        }
+        IF_VERBOSE(1, 
+                   for (unsigned i = 0; i < vars.size(); ++i) {
+                       verbose_stream() << "var: " << vars[i] << " root: " << roots[vars[i]] << "\n";
+                   });
         elim(roots, vars);
     }
 
@@ -473,7 +478,7 @@ namespace sat {
         init();
         pure_decompose();
         post_decompose();
-        std::cout << "Decomposed set " << m_L.size() << " rest: " << m_R.size() << "\n";
+        IF_VERBOSE(1, verbose_stream() << "Decomposed set " << m_L.size() << " rest: " << m_R.size() << "\n";);
 
         TRACE("sat",
               tout << "Decomposed set " << m_L.size() << "\n";
