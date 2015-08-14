@@ -387,6 +387,7 @@ namespace smt2 {
         void check_keyword(char const * msg) { if (!curr_is_keyword()) throw parser_exception(msg); }
         void check_string(char const * msg) { if (!curr_is_string()) throw parser_exception(msg); }
         void check_int(char const * msg) { if (!curr_is_int()) throw parser_exception(msg); }
+        void check_int_or_float(char const * msg) { if (!curr_is_int() || !curr_is_float()) throw parser_exception(msg); }
         void check_float(char const * msg) { if (!curr_is_float()) throw parser_exception(msg); }
 
         void error(unsigned line, unsigned pos, char const * msg) {

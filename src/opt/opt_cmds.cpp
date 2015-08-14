@@ -39,80 +39,6 @@ static opt::context& get_opt(cmd_context& cmd) {
     return dynamic_cast<opt::context&>(*cmd.get_opt());
 }
 
-class assert_weighted_cmd : public cmd {
-    unsigned     m_idx;
-    expr*        m_formula;
-    rational     m_weight;
-    symbol       m_id;
-
-public:
-    assert_weighted_cmd():
-        cmd("assert-weighted"),
-        m_idx(0),
-        m_formula(0),
-        m_weight(0)
-    {}
-
-    virtual ~assert_weighted_cmd() {
-    }
-
-    virtual void reset(cmd_context & ctx) { 
-        m_idx = 0; 
-        m_formula = 0;
-        m_id = symbol::null;
-    }
-
-    virtual char const * get_usage() const { return "<formula> <rational-weight>"; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "assert soft constraint with weight"; }
-    virtual unsigned get_arity() const { return VAR_ARITY; }
-
-    // command invocation
-    virtual void prepare(cmd_context & ctx) {}
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
-        switch(m_idx) {
-        case 0: return CPK_EXPR; 
-        case 1: return CPK_NUMERAL; 
-        default: return CPK_SYMBOL;
-        }
-    }
-    virtual void set_next_arg(cmd_context & ctx, rational const & val) { 
-        SASSERT(m_idx == 1);
-        if (!val.is_pos()) {
-            throw cmd_exception("Invalid weight. Weights must be positive.");
-        }
-        m_weight = val;
-        ++m_idx;
-    }
-
-    virtual void set_next_arg(cmd_context & ctx, expr * t) {
-        SASSERT(m_idx == 0);
-        if (!ctx.m().is_bool(t)) {
-            throw cmd_exception("Invalid type for expression. Expected Boolean type.");
-        }
-        m_formula = t;
-        ++m_idx;
-    }
-
-    virtual void set_next_arg(cmd_context & ctx, symbol const& s) {
-        SASSERT(m_idx > 1);
-        m_id = s;
-        ++m_idx;
-    }
-
-    virtual void failure_cleanup(cmd_context & ctx) {
-        reset(ctx);
-    }
-
-    virtual void execute(cmd_context & ctx) {
-        get_opt(ctx).add_soft_constraint(m_formula, m_weight, m_id);
-        reset(ctx);
-    }
-
-    virtual void finalize(cmd_context & ctx) { 
-    }
-
-};
-
 
 class assert_soft_cmd : public parametric_cmd {
     unsigned     m_idx;
@@ -148,7 +74,6 @@ public:
 
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
         p.insert("weight", CPK_NUMERAL, "(default: 1) penalty of not satisfying constraint.");
-        p.insert("dweight", CPK_DECIMAL, "(default: 1.0) penalty as double of not satisfying constraint.");
         p.insert("id", CPK_SYMBOL, "(default: null) partition identifier for soft constraints.");
     }
 
@@ -168,9 +93,6 @@ public:
     virtual void execute(cmd_context & ctx) {
         symbol w("weight");
         rational weight = ps().get_rat(symbol("weight"), rational(0));
-        if (weight.is_zero()) {
-            weight = ps().get_rat(symbol("dweight"), rational(0));
-        }
         if (weight.is_zero()) {
             weight = rational::one();
         }
@@ -216,6 +138,20 @@ public:
     virtual void execute(cmd_context & ctx) {
     }
 };
+
+
+
+void install_opt_cmds(cmd_context & ctx) {
+    ctx.insert(alloc(assert_soft_cmd));
+    ctx.insert(alloc(min_maximize_cmd, true));
+    ctx.insert(alloc(min_maximize_cmd, false));
+}
+
+
+#if 0
+    ctx.insert(alloc(optimize_cmd));
+    ctx.insert(alloc(assert_weighted_cmd));
+
 
 class optimize_cmd : public parametric_cmd {
 public:
@@ -329,13 +265,78 @@ private:
     }
 };
 
+class assert_weighted_cmd : public cmd {
+    unsigned     m_idx;
+    expr*        m_formula;
+    rational     m_weight;
+    symbol       m_id;
 
+public:
+    assert_weighted_cmd():
+        cmd("assert-weighted"),
+        m_idx(0),
+        m_formula(0),
+        m_weight(0)
+    {}
 
-void install_opt_cmds(cmd_context & ctx) {
-    ctx.insert(alloc(assert_weighted_cmd));
-    ctx.insert(alloc(assert_soft_cmd));
-    ctx.insert(alloc(min_maximize_cmd, true));
-    ctx.insert(alloc(min_maximize_cmd, false));
-    ctx.insert(alloc(optimize_cmd));
-}
+    virtual ~assert_weighted_cmd() {
+    }
 
+    virtual void reset(cmd_context & ctx) { 
+        m_idx = 0; 
+        m_formula = 0;
+        m_id = symbol::null;
+    }
+
+    virtual char const * get_usage() const { return "<formula> <rational-weight>"; }
+    virtual char const * get_descr(cmd_context & ctx) const { return "assert soft constraint with weight"; }
+    virtual unsigned get_arity() const { return VAR_ARITY; }
+
+    // command invocation
+    virtual void prepare(cmd_context & ctx) {}
+    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
+        switch(m_idx) {
+        case 0: return CPK_EXPR; 
+        case 1: return CPK_NUMERAL; 
+        default: return CPK_SYMBOL;
+        }
+    }
+    virtual void set_next_arg(cmd_context & ctx, rational const & val) { 
+        SASSERT(m_idx == 1);
+        if (!val.is_pos()) {
+            throw cmd_exception("Invalid weight. Weights must be positive.");
+        }
+        m_weight = val;
+        ++m_idx;
+    }
+
+    virtual void set_next_arg(cmd_context & ctx, expr * t) {
+        SASSERT(m_idx == 0);
+        if (!ctx.m().is_bool(t)) {
+            throw cmd_exception("Invalid type for expression. Expected Boolean type.");
+        }
+        m_formula = t;
+        ++m_idx;
+    }
+
+    virtual void set_next_arg(cmd_context & ctx, symbol const& s) {
+        SASSERT(m_idx > 1);
+        m_id = s;
+        ++m_idx;
+    }
+
+    virtual void failure_cleanup(cmd_context & ctx) {
+        reset(ctx);
+    }
+
+    virtual void execute(cmd_context & ctx) {
+        get_opt(ctx).add_soft_constraint(m_formula, m_weight, m_id);
+        reset(ctx);
+    }
+
+    virtual void finalize(cmd_context & ctx) { 
+    }
+
+};
+
+#endif

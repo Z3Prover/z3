@@ -1556,7 +1556,8 @@ namespace smt {
 
                 SASSERT(!picked_var || safe_gain(curr_min_gain, curr_max_gain));
                 
-                if (!picked_var) {
+                if (!picked_var && r.size() > 1) {
+                    TRACE("opt", tout << "no variable picked\n";);
                     best_efforts++;
                 }
                 else if (curr_x_i == null_theory_var) {

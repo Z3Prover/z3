@@ -113,7 +113,7 @@ public:
         r = initialize_soft_constraints();
         if (r != l_true) return r;
 
-        m_solver.display_dimacs(std::cout);
+        //m_solver.display_dimacs(std::cout);
         r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         switch (r) {
         case l_true:
