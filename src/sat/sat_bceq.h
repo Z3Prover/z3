@@ -20,16 +20,24 @@ Revision History:
 #define SAT_BCEQ_H_
 
 #include"sat_types.h"
-#include "union_find.h"
-#include "sat_simplifier.h"
+#include"union_find.h"
 
 
 namespace sat {
     class solver;
-    class use_list;
-    class clause_use_list;
 
     class bceq {
+        typedef ptr_vector<clause> clause_use_list;
+        class use_list {
+            vector<ptr_vector<clause> > m_clauses;
+        public:
+            use_list() {}
+            void init(unsigned num_vars);
+            void reset() { m_clauses.reset(); }
+            void erase(clause& c);
+            void insert(clause& c);
+            ptr_vector<clause>& get(literal lit);
+        };
         typedef std::pair<literal, literal> bin_clause;
         typedef svector<bin_clause> bin_clauses;        
         solver &          m_solver;
@@ -49,13 +57,14 @@ namespace sat {
         svector<bool>     m_marked;
         svector<bool>     m_removed; // set of clauses removed (not considered in clause set during BCE)
         union_find_default_ctx m_union_find_ctx;
+        unsigned_vector   m_live_clauses;
 
         void init();
         void register_clause(clause* cls);
         void unregister_clause(clause* cls);
         void pure_decompose();
         void pure_decompose(literal lit);
-        void pure_decompose(clause_use_list& uses, svector<clause*>& clauses);
+        void pure_decompose(ptr_vector<clause>& uses, svector<clause*>& clauses);
         void post_decompose();
         literal find_blocked(clause const& cls);
         bool bce(clause& cls);
