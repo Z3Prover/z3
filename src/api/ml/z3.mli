@@ -3257,7 +3257,7 @@ sig
      Supply integer weight and string that identifies a group 
       of soft constraints.  
    *) 
-  val add_soft : optimize -> Expr.expr -> int -> string -> handle 
+  val add_soft : optimize -> Expr.expr -> string -> Symbol.symbol -> handle 
  
  
   (** Add maximization objective. 
@@ -3275,19 +3275,15 @@ sig
  
  
   (** Retrieve model from satisfiable context *) 
-  val get_model : optimize -> Model.model 
+  val get_model : optimize -> Model.model option
  
  
   (** Retrieve lower bound in current model for handle *) 
-  val get_lower : handle -> Expr.expr 
+  val get_lower : handle -> int -> Expr.expr 
  
  
   (** Retrieve upper bound in current model for handle *) 
-  val get_upper : handle -> Expr.expr 
-
- 
-  (** Retrieve value in current model for handle *) 
-  val get_value : handle -> Expr.expr 
+  val get_upper : handle -> int -> Expr.expr 
 
  
   (** Creates a backtracking point. 

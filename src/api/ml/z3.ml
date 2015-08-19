@@ -2879,8 +2879,8 @@ struct
   let mk_opt (ctx : context) = 
       let res : opt = { m_ctx = ctx;  
                         m_n_obj = null ; 
-                        inc_ref = Z3native.optimzie_inc_ref ; 
-                        dec_ref = Z3native.optimzie_dec_ref } in 
+                        inc_ref = Z3native.optimize_inc_ref ; 
+                        dec_ref = Z3native.optimize_dec_ref } in 
       (z3obj_sno res ctx (Z3native.mk_optimize (context_gno ctx))) ; 
       (z3obj_create res) ; 
       res 
@@ -2896,27 +2896,27 @@ struct
     Params.ParamDescrs.param_descrs_of_ptr (z3obj_gc x) (Z3native.optimize_get_param_descrs (z3obj_gnc x) (z3obj_gno x)) 
         
   let add ( x : opt ) ( constraints : expr list ) = 
-    let f e = (Z3native.optimize_add (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)) in 
+    let f e = (Z3native.optimize_assert (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)) in 
     List.iter f constraints  
  
  
-  let add_soft ( x : opt) ( e : Expr.expr) ( w : int) ( s : string ) = 
-    mk_handle x (Z3native.optimize_add_soft (z3obj_gnc x) (z3obj_gno x) (Expr.gno e) w s) 
+  let add_soft ( x : opt ) ( e : Expr.expr) ( w : string ) ( s : Symbol.symbol ) = 
+    mk_handle x (Z3native.optimize_assert_soft (z3obj_gnc x) (z3obj_gno x) (Expr.gno e) w (Symbol.gno s)) 
  
  
-  let maximize ( x : opt) ( e :  Expr.expr ) =  
+  let maximize ( x : opt ) ( e :  Expr.expr ) =  
     mk_handle x (Z3native.optimize_maximize (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)) 
  
  
-  let minimize ( x : opt) ( e :  Expr.expr ) =  
+  let minimize ( x : opt ) ( e :  Expr.expr ) =  
     mk_handle x (Z3native.optimize_minimize (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)) 
     
   let check  ( x : opt ) =  
-     let r = lbool_of_int (Z3native.optimize_check_sat (z3obj_gnc x) (z3obj_gno x) in  
+     let r = lbool_of_int (Z3native.optimize_check (z3obj_gnc x) (z3obj_gno x)) in  
      match r with 
-       | L_TRUE -> SATISFIABLE 
-       | L_FALSE -> UNSATISFIABLE 
-       | _ -> UNKNOWN 
+       | L_TRUE -> Solver.SATISFIABLE 
+       | L_FALSE -> Solver.UNSATISFIABLE 
+       | _ -> Solver.UNKNOWN 
  
  
   let get_model ( x : opt ) =  
@@ -2926,17 +2926,13 @@ struct
      else  
        Some (Model.create (z3obj_gc x) q) 
  
-  let get_lower ( x : handle ) = 
-      expr_of_ptr (z3obj_gnc x.opt) (Z3native.optimize_get_lower (z3obj_gnc x) (z3obj_gno x) h.h)  
+  let get_lower ( x : handle ) ( idx : int )  = 
+      expr_of_ptr (z3obj_gc x.opt) (Z3native.optimize_get_lower (z3obj_gnc x.opt) (z3obj_gno x.opt) idx) 
  
-  let get_upper ( x : handle ) =  
-      expr_of_ptr (z3obj_gnc x.opt) (Z3native.optimize_get_upper (z3obj_gnc x) (z3obj_gno x) h.h)  
- 
- 
-  let get_value ( x : handle ) =  
-      expr_of_ptr (z3obj_gnc x.opt) (Z3native.optimize_get_value (z3obj_gnc x) (z3obj_gno x) h.h)  
- 
-  let push ( x : opt ) = Z3native.optimize_push (z3obj_gnc x) (z3obj_gno x) n 
+  let get_upper ( x : handle ) ( idx : int ) =  
+      expr_of_ptr (z3obj_gc x.opt) (Z3native.optimize_get_upper (z3obj_gnc x.opt) (z3obj_gno x.opt) idx)  
+  
+  let push ( x : opt ) = Z3native.optimize_push (z3obj_gnc x) (z3obj_gno x)
  
   let pop ( x : opt ) = Z3native.optimize_pop (z3obj_gnc x) (z3obj_gno x) 
  
