@@ -130,7 +130,6 @@ namespace opt {
         m_fm(m),
         m_objective_refs(m),
         m_enable_sat(false),
-        m_enable_sls(false),
         m_is_clausal(false),
         m_pp_neat(false)
     {
@@ -532,18 +531,11 @@ namespace opt {
     }
 
     void context::set_soft_assumptions() {
-        if (m_sat_solver.get()) {
-            m_params.set_bool("soft_assumptions", true);
-            m_sat_solver->updt_params(m_params);
-        }
+        // TBD no-op
     }
 
-    void context::enable_sls(expr_ref_vector const& soft, vector<rational> const& weights) {
-        SASSERT(soft.size() == weights.size());
-        if (m_sat_solver.get()) {
-            set_soft_inc_sat(m_sat_solver.get(), soft.size(), soft.c_ptr(), weights.c_ptr());
-        }
-        if (m_enable_sls && m_sat_solver.get()) {
+    void context::enable_sls(bool force) {
+        if ((force || m_enable_sls) && m_sat_solver.get()) {
             m_params.set_bool("optimize_model", true);
             m_sat_solver->updt_params(m_params);
         }

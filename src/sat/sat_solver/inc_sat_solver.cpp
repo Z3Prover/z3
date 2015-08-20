@@ -30,6 +30,7 @@ Notes:
 #include "goal2sat.h"
 #include "ast_pp.h"
 #include "model_smt2_pp.h"
+#include "filter_model_converter.h"
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
@@ -55,9 +56,6 @@ class inc_sat_solver : public solver {
     proof_converter_ref m_pc;   
     model_converter_ref m_mc2;   
     expr_dependency_ref m_dep_core;
-    expr_ref_vector     m_soft;
-    vector<rational>    m_weights;
-    bool                m_soft_assumptions;
 
 
     typedef obj_map<expr, sat::literal> dep2asm_t;
@@ -71,9 +69,7 @@ public:
         m_core(m), 
         m_map(m),
         m_num_scopes(0), 
-        m_dep_core(m),
-        m_soft(m),
-        m_soft_assumptions(false) {
+        m_dep_core(m) {
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
         params_ref simp2_p = p;
@@ -99,25 +95,25 @@ public:
     
     virtual void set_progress_callback(progress_callback * callback) {}
 
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {        
+    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) { 
+        return check_sat(num_assumptions, assumptions, 0, 0);
+    }
+ 
+    lbool check_sat(unsigned num_assumptions, expr * const * assumptions, double const* weights, double max_weight) {       
 
         m_solver.pop_to_base_level();
         dep2asm_t dep2asm;
         m_model = 0;
         lbool r = internalize_formulas();
         if (r != l_true) return r;
-        r = internalize_assumptions(num_assumptions, assumptions, dep2asm);
-        if (r != l_true) return r;
-        extract_assumptions(dep2asm, m_asms);
-
-        r = initialize_soft_constraints();
+        r = internalize_assumptions(num_assumptions, assumptions, weights, dep2asm);
         if (r != l_true) return r;
 
         //m_solver.display_dimacs(std::cout);
-        r = m_solver.check(m_asms.size(), m_asms.c_ptr());
+        r = m_solver.check(m_asms.size(), m_asms.c_ptr(), weights, max_weight);
         switch (r) {
         case l_true:
-            if (num_assumptions > 0) {
+            if (num_assumptions > 0 && !weights) {
                 check_assumptions(dep2asm);
             }
             break;
@@ -187,7 +183,6 @@ public:
         m_params = p;
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
-        m_soft_assumptions = m_params.get_bool("soft_assumptions", false);
         m_optimize_model = m_params.get_bool("optimize_model", false);
     }    
     virtual void collect_statistics(statistics & st) const {
@@ -226,58 +221,9 @@ public:
     virtual expr * get_assumption(unsigned idx) const {
         return m_asmsf[idx];
     }
-    void set_soft(unsigned sz, expr*const* soft, rational const* weights) {
-        m_soft.reset();
-        m_weights.reset();
-        m_soft.append(sz, soft);
-        m_weights.append(sz, weights);
-    }
 
 private:
 
-    lbool initialize_soft_constraints() {
-        dep2asm_t dep2asm;
-        if (m_soft.empty()) {
-            return l_true;
-        }
-        expr_ref_vector soft(m_soft);
-        for (unsigned i = 0; i < soft.size(); ++i) {
-            expr* e = soft[i].get(), *e1;
-            if (is_uninterp_const(e) || (m.is_not(e, e1) && is_uninterp_const(e1))) {
-                continue;
-            }
-            expr_ref asum(m), fml(m);
-            asum = m.mk_fresh_const("soft", m.mk_bool_sort());
-            fml = m.mk_iff(asum, e);
-            m_fmls.push_back(fml);
-            soft[i] = asum;
-        }
-        m_soft.reset();
-        lbool r = internalize_formulas();
-        if (r != l_true) return r;
-        r = internalize_assumptions(soft.size(), soft.c_ptr(), dep2asm);
-        if (r != l_true) return r;
-        sat::literal_vector lits;
-        svector<double> weights;
-        sat::literal lit;
-        for (unsigned i = 0; i < soft.size(); ++i) {
-            weights.push_back(m_weights[i].get_double());
-            expr* s = soft[i].get();
-            if (!dep2asm.find(s, lit)) {
-                IF_VERBOSE(0, 
-                           verbose_stream() << "not found: " << mk_pp(s, m) << "\n";
-                           dep2asm_t::iterator it = dep2asm.begin();
-                           dep2asm_t::iterator end = dep2asm.end();
-                           for (; it != end; ++it) {
-                               verbose_stream() << mk_pp(it->m_key, m) << " " << it->m_value << "\n";
-                           }
-                           UNREACHABLE(););
-            }
-            lits.push_back(lit);
-        }
-        m_solver.initialize_soft(lits.size(), lits.c_ptr(), weights.c_ptr());
-        return r;
-    }
 
     lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm) {
         m_mc2.reset();
@@ -305,15 +251,54 @@ private:
         return l_true;
     }
 
-    lbool internalize_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
+    lbool internalize_assumptions(unsigned sz, expr* const* asms, double const* weights, dep2asm_t& dep2asm) {
         if (sz == 0) {
             return l_true;
         }
+        if (weights) {
+            return internalize_weighted(sz, asms, weights, dep2asm);
+        }
+        return internalize_unweighted(sz, asms, dep2asm);
+    }
+
+    lbool internalize_unweighted(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
         goal_ref g = alloc(goal, m, true, true); // models and cores are enabled.
+        lbool res = l_undef;
         for (unsigned i = 0; i < sz; ++i) {
             g->assert_expr(asms[i], m.mk_leaf(asms[i]));
         }
-        return internalize_goal(g, dep2asm);
+        res = internalize_goal(g, dep2asm);
+        if (res == l_true) {
+            extract_assumptions(dep2asm);
+        }        
+        return res;
+    }
+
+    /*
+      \brief extract weighted assumption literals in the same order as the weights.
+      For this purpose we enforce tha assumptions are literals.
+     */
+    lbool internalize_weighted(unsigned sz, expr* const* asms, double const* weights, dep2asm_t& dep2asm) {
+        goal_ref g = alloc(goal, m, true, true); // models and cores are enabled.
+        lbool res = l_undef;
+        m_asms.reset();
+        expr_ref_vector lits(m);
+        filter_model_converter_ref fmc = alloc(filter_model_converter, m);
+        for (unsigned i = 0; i < sz; ++i) {
+            expr_ref lit = ensure_literal(g, asms[i], fmc.get());
+            lits.push_back(lit);
+            g->assert_expr(lit, m.mk_leaf(lit));
+        }
+        m_mc = concat(m_mc.get(), fmc.get());
+        res = internalize_goal(g, dep2asm);
+        if (res == l_true) {
+            for (unsigned i = 0; i < lits.size(); ++i) {
+                sat::literal l;
+                VERIFY (dep2asm.find(lits[i].get(), l));
+                m_asms.push_back(l);
+            }
+        }
+        return res;
     }
 
     lbool internalize_formulas() {
@@ -328,11 +313,27 @@ private:
         return internalize_goal(g, dep2asm);
     }
 
-    void extract_assumptions(dep2asm_t& dep2asm, sat::literal_vector& asms) {
-        asms.reset();
+    expr_ref ensure_literal(goal_ref& g, expr* e, filter_model_converter* fmc) {
+        expr_ref result(m), fml(m);
+        expr* e1;
+        if (is_uninterp_const(e) || (m.is_not(e, e1) && is_uninterp_const(e1))) {
+            result = e;
+        }
+        else {
+            // TBD: need a filter_model_converter to remove
+            result = m.mk_fresh_const("soft", m.mk_bool_sort());
+            fmc->insert(to_app(result)->get_decl());
+            fml = m.mk_implies(result, e);
+            g->assert_expr(fml);
+        }
+        return result;
+    }
+
+    void extract_assumptions(dep2asm_t& dep2asm) {
+        m_asms.reset();
         dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
         for (; it != end; ++it) {
-            asms.push_back(it->m_value);
+            m_asms.push_back(it->m_value);
         }
         //IF_VERBOSE(0, verbose_stream() << asms << "\n";);
     }
@@ -363,8 +364,6 @@ private:
             VERIFY(asm2dep.find(core[i].index(), e));
             m_core.push_back(e);
         }
-
-
     }
 
     void check_assumptions(dep2asm_t& dep2asm) {
@@ -372,7 +371,7 @@ private:
         dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
         for (; it != end; ++it) {
             sat::literal lit = it->m_value;
-            if (!m_soft_assumptions && sat::value_at(lit, ll_m) != l_true) {
+            if (sat::value_at(lit, ll_m) != l_true) {
                 IF_VERBOSE(0, verbose_stream() << mk_pp(it->m_key, m) << " does not evaluate to true\n";
                            verbose_stream() << m_asms << "\n";
                            m_solver.display_assignment(verbose_stream());
@@ -433,7 +432,12 @@ solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p) {
     return alloc(inc_sat_solver, m, p);
 }
 
-void set_soft_inc_sat(solver* _s, unsigned sz, expr*const* soft, rational const* weights) {
-    inc_sat_solver* s = dynamic_cast<inc_sat_solver*>(_s);
-    s->set_soft(sz, soft, weights);
+
+lbool inc_sat_check_sat(solver& _s, unsigned sz, expr*const* soft, rational const* _weights, rational const& max_weight) {
+    inc_sat_solver& s = dynamic_cast<inc_sat_solver&>(_s);
+    vector<double> weights;
+    for (unsigned i = 0; _weights && i < sz; ++i) {
+        weights.push_back(_weights[i].get_double());
+    }
+    return s.check_sat(sz, soft, weights.c_ptr(), max_weight.get_double());
 }

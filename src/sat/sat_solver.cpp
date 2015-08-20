@@ -534,10 +534,6 @@ namespace sat {
         return found_undef ? l_undef : l_false;
     }
 
-    void solver::initialize_soft(unsigned sz, literal const* lits, double const* weights) {
-        m_wsls.set_soft(sz, lits, weights);
-    }
-
     // -----------------------
     //
     // Propagation
@@ -714,7 +710,7 @@ namespace sat {
     // Search
     //
     // -----------------------
-    lbool solver::check(unsigned num_lits, literal const* lits) {
+    lbool solver::check(unsigned num_lits, literal const* lits, double const* weights, double max_weight) {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(scope_lvl() == 0);
@@ -729,7 +725,7 @@ namespace sat {
             init_search();
             propagate(false);
             if (inconsistent()) return l_false;
-            init_assumptions(num_lits, lits);
+            init_assumptions(num_lits, lits, weights, max_weight);
             propagate(false);
             if (check_inconsistent()) return l_false;
             cleanup();
@@ -892,10 +888,12 @@ namespace sat {
         }
     }
 
-    void solver::init_assumptions(unsigned num_lits, literal const* lits) {
+    void solver::init_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight) {
         if (num_lits == 0 && m_user_scope_literals.empty()) {
             return;
         }
+
+    retry_init_assumptions:
         m_assumptions.reset();
         m_assumption_set.reset();        
         push();
@@ -920,44 +918,74 @@ namespace sat {
             assign(nlit, justification());                   
         }
 
-        for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
-            literal lit = lits[i];
-            SASSERT(is_external((lit).var()));  
-            m_assumption_set.insert(lit);       
-
-            if (m_config.m_soft_assumptions) {
-                switch(value(lit)) {
-                case l_undef:
-                    m_assumptions.push_back(lit);       
-                    assign(lit, justification());
-                    break;
-                case l_false: {
-                    set_conflict(lit);
-                    flet<bool> _min1(m_config.m_minimize_core, false);
-                    flet<bool> _min2(m_config.m_minimize_core_partial, false);
-                    resolve_conflict_for_unsat_core();
-                    SASSERT(m_core.size() <= m_assumptions.size());
-                    if (m_core.size() <= 3 || 
-                        m_core.size() <= i - m_assumptions.size() + 1) {
-                        return;
-                    }
-                    else {
-                        m_inconsistent = false;
-                    }
-                    break;
-                }
-                case l_true:
-                    break;
-                }
-                propagate(false);         
+        if (weights) {
+            if (m_config.m_optimize_model) {
+                m_wsls.set_soft(num_lits, lits, weights);
             }
             else {
-                m_assumptions.push_back(lit);       
-                assign(lit, justification());       
-                //        propagate(false);         
+                svector<literal> blocker;
+                if (!init_weighted_assumptions(num_lits, lits, weights, max_weight, blocker)) {
+                    pop_to_base_level();
+                    mk_clause(blocker.size(), blocker.c_ptr());
+                    goto retry_init_assumptions;
+                }
             }
+            return;
+        }
+
+        for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
+            literal lit = lits[i];
+            SASSERT(is_external(lit.var()));  
+            m_assumption_set.insert(lit);       
+            m_assumptions.push_back(lit);       
+            assign(lit, justification());       
+            //        propagate(false);         
         }
     }
+
+    bool solver::init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight, 
+                                           svector<literal>& blocker) {
+        double weight = 0;
+        blocker.reset();
+        for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
+            literal lit = lits[i];
+            SASSERT(is_external(lit.var()));  
+            m_assumption_set.insert(lit);       
+
+            switch(value(lit)) {
+            case l_undef:
+                m_assumptions.push_back(lit);       
+                assign(lit, justification());
+                break;
+            case l_false: {
+                set_conflict(lit);
+                flet<bool> _min1(m_config.m_minimize_core, false);
+                flet<bool> _min2(m_config.m_minimize_core_partial, false);
+                resolve_conflict_for_unsat_core();
+                weight += weights[i];
+                blocker.push_back(~lit);
+                SASSERT(m_core.size() <= m_assumptions.size());
+                SASSERT(m_assumptions.size() <= i);
+                if (m_core.size() <= 3 || m_core.size() < blocker.size()) {
+                    TRACE("opt", tout << "found small core: " << m_core.size() << "\n";); 
+                    return true;
+                }
+                m_inconsistent = false;                
+                if (weight >= max_weight) {
+                    TRACE("opt", tout << "blocking soft correction set: " << blocker.size() << "\n";); 
+                    // block the current correction set candidate.
+                    return false;
+                }
+                break;
+            }
+            case l_true:
+                break;
+            }
+            propagate(false);         
+        }
+        return true;
+    }
+
 
     void solver::reinit_assumptions() {
         if (tracking_assumptions() && scope_lvl() == 0) {

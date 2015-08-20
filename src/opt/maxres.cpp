@@ -206,16 +206,10 @@ public:
         init_local();
         set_soft_assumptions();
         lbool is_sat = l_true;
-        trace_bounds("max_res");
+        trace_bounds("maxres");
         exprs cs;
         while (m_lower < m_upper) {
-#if 0
-            expr_ref_vector asms(m_asms);
-            sort_assumptions(asms);
-            is_sat = s().check_sat(asms.size(), asms.c_ptr());
-#else
             is_sat = check_sat_hill_climb(m_asms);
-#endif
             if (m_cancel) {
                 return l_undef;
             }
@@ -268,32 +262,44 @@ public:
                 first = false;
                 IF_VERBOSE(3, verbose_stream() << "weight: " << get_weight(asms[0].get()) << " " << get_weight(asms[index-1].get()) << " num soft: " << index << "\n";);
                 m_last_index = index;
-                is_sat = s().check_sat(index, asms.c_ptr());
+                is_sat = check_sat(index, asms.c_ptr());
             }            
         }
         else {
-            is_sat = s().check_sat(asms.size(), asms.c_ptr());            
+            is_sat = check_sat(asms.size(), asms.c_ptr());            
         }
         return is_sat;
+    }
+
+    lbool check_sat(unsigned sz, expr* const* asms) {
+        if (m_st == s_primal_dual && m_c.sat_enabled()) {
+            rational max_weight = m_upper;
+            vector<rational> weights;
+            for (unsigned i = 0; i < sz; ++i) {
+                weights.push_back(get_weight(asms[i]));
+            }
+            return inc_sat_check_sat(s(), sz, asms, weights.c_ptr(), max_weight);
+        }
+        else {
+            return s().check_sat(sz, asms);
+        }
     }
 
     void found_optimum() {
         IF_VERBOSE(1, verbose_stream() << "found optimum\n";);
         s().get_model(m_model);
-        DEBUG_CODE(
-            for (unsigned i = 0; i < m_asms.size(); ++i) {
-                SASSERT(is_true(m_asms[i].get()));
-            });
+        SASSERT(is_true(m_asms));
         rational upper(0);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i]);
-            if (!m_assignment[i]) upper += m_weights[i];
+            if (!m_assignment[i]) {
+                upper += m_weights[i];
+            }
         }
         SASSERT(upper == m_lower);
         m_upper = m_lower;
         m_found_feasible_optimum = true;
     }
-
 
     virtual lbool operator()() {
         m_defs.reset();
@@ -496,14 +502,6 @@ public:
         return m_asm2weight.find(e);
     }
 
-    void sls() {
-        vector<rational> ws;
-        for (unsigned i = 0; i < m_asms.size(); ++i) {
-            ws.push_back(get_weight(m_asms[i].get()));
-        }
-        enable_sls(m_asms, ws);
-    }
-
     rational split_core(exprs const& core) {
         if (core.empty()) return rational(0);
         // find the minimal weight:
@@ -685,6 +683,13 @@ public:
 
     bool is_true(expr* e) {
         return is_true(m_model.get(), e);
+    }
+
+    bool is_true(expr_ref_vector const& es) {
+        for (unsigned i = 0; i < es.size(); ++i) {
+            if (!is_true(es[i])) return false;
+        }
+        return true;
     }
 
     void remove_soft(exprs const& core, expr_ref_vector& asms) {

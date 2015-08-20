@@ -22,6 +22,5 @@ def_module_params('sat',
                           ('minimize_core', BOOL, False, 'minimize computed core'),
                           ('minimize_core_partial', BOOL, False, 'apply partial (cheap) core minimization'),
                           ('optimize_model', BOOL, False, 'enable optimization of soft constraints'),
-                          ('soft_assumptions', BOOL, False, 'disable assumptions that are forced during unit propagation'),
                           ('bcd', BOOL, False, 'enable blocked clause decomposition for equality extraction'),
                           ('dimacs.core', BOOL, False, 'extract core from DIMACS benchmarks')))

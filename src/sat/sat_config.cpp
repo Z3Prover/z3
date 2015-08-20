@@ -110,7 +110,6 @@ namespace sat {
         m_minimize_core   = p.minimize_core();
         m_minimize_core_partial   = p.minimize_core_partial();
         m_optimize_model  = p.optimize_model();
-        m_soft_assumptions = p.soft_assumptions();
         m_bcd             = p.bcd();
         m_dyn_sub_res     = p.dyn_sub_res();
     }
