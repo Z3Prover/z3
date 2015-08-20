@@ -34,7 +34,7 @@ Notes:
 #include "tactical.h"
 #include "model_smt2_pp.h"
 #include "card2bv_tactic.h"
-#include "nnf_tactic.h"
+#include "eq2bv_tactic.h"
 #include "inc_sat_solver.h"
 #include "bv_decl_plugin.h"
 #include "pb_decl_plugin.h"
@@ -667,10 +667,11 @@ namespace opt {
         if (optp.elim_01()) {
             tac2 = mk_elim01_tactic(m);
             tac3 = mk_lia2card_tactic(m);
+            tac4 = mk_eq2bv_tactic(m);
             params_ref lia_p;
             lia_p.set_bool("compile_equality", optp.pb_compile_equality());
             tac3->updt_params(lia_p);
-            set_simplify(and_then(tac0.get(), tac2.get(), tac3.get(), mk_simplify_tactic(m)));
+            set_simplify(and_then(tac0.get(), tac2.get(), tac3.get(), tac4.get(), mk_simplify_tactic(m)));
         }
         else {
             tactic_ref tac1 = 
