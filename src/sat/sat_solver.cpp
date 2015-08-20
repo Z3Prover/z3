@@ -925,6 +925,7 @@ namespace sat {
             else {
                 svector<literal> blocker;
                 if (!init_weighted_assumptions(num_lits, lits, weights, max_weight, blocker)) {
+                    ++m_stats.m_blocked_corr_sets;
                     pop_to_base_level();
                     mk_clause(blocker.size(), blocker.c_ptr());
                     goto retry_init_assumptions;
@@ -2811,6 +2812,7 @@ namespace sat {
         st.update("restarts", m_restart);
         st.update("minimized lits", m_minimized_lits);
         st.update("dyn subsumption resolution", m_dyn_sub_res);
+        st.update("blocked correction sets", m_blocked_corr_sets);
     }
 
     void stats::reset() {
@@ -2829,6 +2831,7 @@ namespace sat {
         m_minimized_lits = 0;
         m_dyn_sub_res = 0;
         m_non_learned_generation = 0;
+        m_blocked_corr_sets = 0;
     }
 
     void mk_stat::display(std::ostream & out) const {

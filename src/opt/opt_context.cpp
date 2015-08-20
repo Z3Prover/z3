@@ -530,10 +530,6 @@ namespace opt {
         }
     }
 
-    void context::set_soft_assumptions() {
-        // TBD no-op
-    }
-
     void context::enable_sls(bool force) {
         if ((force || m_enable_sls) && m_sat_solver.get()) {
             m_params.set_bool("optimize_model", true);

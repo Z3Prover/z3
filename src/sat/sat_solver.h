@@ -60,6 +60,7 @@ namespace sat {
         unsigned m_minimized_lits;
         unsigned m_dyn_sub_res;
         unsigned m_non_learned_generation;
+        unsigned m_blocked_corr_sets;
         stats() { reset(); }
         void reset();
         void collect_statistics(statistics & st) const;

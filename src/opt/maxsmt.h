@@ -101,7 +101,6 @@ namespace opt {
 
     protected:
         void enable_sls(bool force);
-        void set_soft_assumptions();
         void trace_bounds(char const* solver);
 
     };

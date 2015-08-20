@@ -104,6 +104,7 @@ private:
     bool             m_wmax;                   // Block upper bound using wmax
                                                // this option is disabled if SAT core is used.
 
+    std::string      m_trace_id;
     typedef ptr_vector<expr> exprs;
 
 public:
@@ -125,6 +126,14 @@ public:
         m_maximize_assignment(false),
         m_max_correction_set_size(3)
     {
+        switch(st) {
+        case s_primal:
+            m_trace_id = "maxres";
+            break;
+        case s_primal_dual:
+            m_trace_id = "pd-maxres";
+            break;
+        }        
     }
 
     virtual ~maxres() {}
@@ -168,10 +177,14 @@ public:
         m_trail.push_back(e);        
     }
 
+    void trace() {
+        trace_bounds(m_trace_id.c_str());
+    }
+
     lbool mus_solver() {
         init();
         init_local();
-        trace_bounds("maxres");
+        trace();
         while (m_lower < m_upper) {
             TRACE("opt", 
                   display_vec(tout, m_asms);
@@ -197,16 +210,15 @@ public:
                 break;
             }
         }
-        trace_bounds("maxres");
+        trace();
         return l_true;
     }
 
     lbool primal_dual_solver() {
         init();
         init_local();
-        set_soft_assumptions();
         lbool is_sat = l_true;
-        trace_bounds("maxres");
+        trace();
         exprs cs;
         while (m_lower < m_upper) {
             is_sat = check_sat_hill_climb(m_asms);
@@ -235,7 +247,7 @@ public:
                 break;
             }
         }
-        trace_bounds("maxres");
+        trace();
         return l_true;
     }
 
@@ -456,7 +468,7 @@ public:
         fml = mk_not(m, mk_and(m, m_B.size(), m_B.c_ptr()));
         s().assert_expr(fml);
         m_lower += w;
-        trace_bounds("maxres");
+        trace();
     }
 
     bool get_mus_model(model_ref& mdl) {
@@ -652,7 +664,7 @@ public:
         }
         m_upper = upper;
         DEBUG_CODE(verify_assignment(););
-        trace_bounds("maxres");
+        trace();
 
         add_upper_bound_block();
     }
