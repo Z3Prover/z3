@@ -30,9 +30,9 @@ namespace sat {
         justification(ext_justification_idx idx, kind k):m_val1(idx), m_val2(k) {}
     public:
         justification():m_val1(0), m_val2(NONE) {}
-        justification(literal l):m_val1(l.to_uint()), m_val2(BINARY) {}
+        explicit justification(literal l):m_val1(l.to_uint()), m_val2(BINARY) {}
         justification(literal l1, literal l2):m_val1(l1.to_uint()), m_val2(TERNARY + (l2.to_uint() << 3)) {}
-        justification(clause_offset cls_off):m_val1(cls_off), m_val2(CLAUSE) {}
+        explicit justification(clause_offset cls_off):m_val1(cls_off), m_val2(CLAUSE) {}
         justification mk_ext_justification(ext_justification_idx idx) { return justification(idx, EXT_JUSTIFICATION); }
         
         kind get_kind() const { return static_cast<kind>(m_val2 & 7); }

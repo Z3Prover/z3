@@ -925,7 +925,6 @@ namespace sat {
             else {
                 svector<literal> blocker;
                 if (!init_weighted_assumptions(num_lits, lits, weights, max_weight, blocker)) {
-                    ++m_stats.m_blocked_corr_sets;
                     pop_to_base_level();
                     mk_clause(blocker.size(), blocker.c_ptr());
                     goto retry_init_assumptions;
@@ -952,6 +951,7 @@ namespace sat {
             literal lit = lits[i];
             SASSERT(is_external(lit.var()));  
             m_assumption_set.insert(lit);       
+            TRACE("sat", tout << "propagate: " << lit << " " << value(lit) << "\n";);
 
             switch(value(lit)) {
             case l_undef:
@@ -959,13 +959,15 @@ namespace sat {
                 assign(lit, justification());
                 break;
             case l_false: {
-                set_conflict(lit);
+                SASSERT(!inconsistent());
+                set_conflict(justification(), ~lit);
                 flet<bool> _min1(m_config.m_minimize_core, false);
                 flet<bool> _min2(m_config.m_minimize_core_partial, false);
                 resolve_conflict_for_unsat_core();
                 weight += weights[i];
-                blocker.push_back(~lit);
-                SASSERT(m_core.size() <= m_assumptions.size());
+                blocker.push_back(lit);
+                TRACE("sat", tout << "core: " << m_core << "\nassumptions: " << m_assumptions << "\n";);
+                SASSERT(m_core.size() <= m_assumptions.size() + 1);
                 SASSERT(m_assumptions.size() <= i);
                 if (m_core.size() <= 3 || m_core.size() < blocker.size()) {
                     TRACE("opt", tout << "found small core: " << m_core.size() << "\n";); 
@@ -973,6 +975,7 @@ namespace sat {
                 }
                 m_inconsistent = false;                
                 if (weight >= max_weight) {
+                    ++m_stats.m_blocked_corr_sets;
                     TRACE("opt", tout << "blocking soft correction set: " << blocker.size() << "\n";); 
                     // block the current correction set candidate.
                     return false;
