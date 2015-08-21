@@ -103,6 +103,7 @@ private:
     unsigned         m_max_correction_set_size;// maximal set of correction set that is tolerated.
     bool             m_wmax;                   // Block upper bound using wmax
                                                // this option is disabled if SAT core is used.
+    bool             m_dump_benchmarks;        // display benchmarks (into wcnf format)
 
     std::string      m_trace_id;
     typedef ptr_vector<expr> exprs;
@@ -185,6 +186,7 @@ public:
         init();
         init_local();
         trace();
+        display();
         while (m_lower < m_upper) {
             TRACE("opt", 
                   display_vec(tout, m_asms);
@@ -217,11 +219,11 @@ public:
     lbool primal_dual_solver() {
         init();
         init_local();
-        lbool is_sat = l_true;
         trace();
+        display();
         exprs cs;
         while (m_lower < m_upper) {
-            is_sat = check_sat_hill_climb(m_asms);
+            lbool is_sat = check_sat_hill_climb(m_asms);
             if (m_cancel) {
                 return l_undef;
             }
@@ -249,6 +251,14 @@ public:
         }
         trace();
         return l_true;
+    }
+
+    void display() {
+        if (m_dump_benchmarks && m_c.sat_enabled()) {
+            unsigned sz = m_soft.size();
+            inc_sat_display(verbose_stream(), s(), sz, 
+                            m_soft.c_ptr(), m_weights.c_ptr());
+        }
     }
 
 
@@ -734,6 +744,7 @@ public:
         m_maximize_assignment = _p.maxres_maximize_assignment();
         m_max_correction_set_size = _p.maxres_max_correction_set_size();
         m_wmax = _p.maxres_wmax();
+        m_dump_benchmarks = _p.dump_benchmarks();
     }
 
     void init_local() {

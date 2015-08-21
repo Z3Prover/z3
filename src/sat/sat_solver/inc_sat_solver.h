@@ -26,4 +26,6 @@ solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p);
 
 lbool inc_sat_check_sat(solver& s, unsigned sz, expr*const* soft, rational const* weights, rational const& max_weight);
 
+void  inc_sat_display(std::ostream& out, solver& s, unsigned sz, expr*const* soft, rational const* _weights);
+
 #endif

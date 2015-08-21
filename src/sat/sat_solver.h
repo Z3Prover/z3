@@ -447,6 +447,7 @@ namespace sat {
         void display(std::ostream & out) const;
         void display_watches(std::ostream & out) const;
         void display_dimacs(std::ostream & out) const;
+        void display_wcnf(std::ostream & out, unsigned sz, literal const* lits, unsigned const* weights) const;
         void display_assignment(std::ostream & out) const;
         void display_justification(std::ostream & out, justification const& j) const;
 

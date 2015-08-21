@@ -98,28 +98,36 @@ public:
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) { 
         return check_sat(num_assumptions, assumptions, 0, 0);
     }
+
+    void display_weighted(std::ostream& out, unsigned sz, expr * const * assumptions, unsigned const* weights) {
+        m_solver.pop_to_base_level();
+        dep2asm_t dep2asm;
+        VERIFY(l_true == internalize_formulas());
+        VERIFY(l_true == internalize_assumptions(sz, assumptions, 0 != weights, dep2asm));
+        m_solver.display_wcnf(out, sz, m_asms.c_ptr(), weights);
+    }
  
-    lbool check_sat(unsigned num_assumptions, expr * const * assumptions, double const* weights, double max_weight) {       
+    lbool check_sat(unsigned sz, expr * const * assumptions, double const* weights, double max_weight) {       
 
         m_solver.pop_to_base_level();
         dep2asm_t dep2asm;
         m_model = 0;
         lbool r = internalize_formulas();
         if (r != l_true) return r;
-        r = internalize_assumptions(num_assumptions, assumptions, weights, dep2asm);
+        r = internalize_assumptions(sz, assumptions, 0 != weights, dep2asm);
         if (r != l_true) return r;
 
         //m_solver.display_dimacs(std::cout);
         r = m_solver.check(m_asms.size(), m_asms.c_ptr(), weights, max_weight);
         switch (r) {
         case l_true:
-            if (num_assumptions > 0 && !weights) {
+            if (sz > 0 && !weights) {
                 check_assumptions(dep2asm);
             }
             break;
         case l_false:
             // TBD: expr_dependency core is not accounted for.
-            if (num_assumptions > 0) {
+            if (sz > 0) {
                 extract_core(dep2asm);
             }
             break;
@@ -251,12 +259,12 @@ private:
         return l_true;
     }
 
-    lbool internalize_assumptions(unsigned sz, expr* const* asms, double const* weights, dep2asm_t& dep2asm) {
+    lbool internalize_assumptions(unsigned sz, expr* const* asms, bool is_weighted, dep2asm_t& dep2asm) {
         if (sz == 0) {
             return l_true;
         }
-        if (weights) {
-            return internalize_weighted(sz, asms, weights, dep2asm);
+        if (is_weighted) {
+            return internalize_weighted(sz, asms, dep2asm);
         }
         return internalize_unweighted(sz, asms, dep2asm);
     }
@@ -278,7 +286,7 @@ private:
       \brief extract weighted assumption literals in the same order as the weights.
       For this purpose we enforce tha assumptions are literals.
      */
-    lbool internalize_weighted(unsigned sz, expr* const* asms, double const* weights, dep2asm_t& dep2asm) {
+    lbool internalize_weighted(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
         goal_ref g = alloc(goal, m, true, true); // models and cores are enabled.
         lbool res = l_undef;
         m_asms.reset();
@@ -440,4 +448,16 @@ lbool inc_sat_check_sat(solver& _s, unsigned sz, expr*const* soft, rational cons
         weights.push_back(_weights[i].get_double());
     }
     return s.check_sat(sz, soft, weights.c_ptr(), max_weight.get_double());
+}
+
+void inc_sat_display(std::ostream& out, solver& _s, unsigned sz, expr*const* soft, rational const* _weights) {
+    inc_sat_solver& s = dynamic_cast<inc_sat_solver&>(_s);
+    vector<unsigned> weights;
+    for (unsigned i = 0; _weights && i < sz; ++i) {
+        if (!_weights[i].is_unsigned()) {
+            throw default_exception("Cannot display weights that are not integers");
+        }
+        weights.push_back(_weights[i].get_unsigned());
+    }
+    return s.display_weighted(out, sz, soft, weights.c_ptr());
 }

@@ -2616,6 +2616,50 @@ namespace sat {
         }
     }
 
+    void solver::display_wcnf(std::ostream & out, unsigned sz, literal const* lits, unsigned const* weights) const {
+        unsigned max_weight = 0;
+        for (unsigned i = 0; i < sz; ++i) {
+            max_weight = std::max(max_weight, weights[i]);
+        }
+        ++max_weight;
+
+        out << "p wcnf " << num_vars() << " " << num_clauses() + sz << " " << max_weight << "\n";
+
+        for (unsigned i = 0; i < m_trail.size(); i++) {
+            out << dimacs_lit(m_trail[i]) << " 0\n";
+        }
+        vector<watch_list>::const_iterator it  = m_watches.begin();
+        vector<watch_list>::const_iterator end = m_watches.end();
+        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
+            literal l = ~to_literal(l_idx);
+            watch_list const & wlist = *it;
+            watch_list::const_iterator it2  = wlist.begin();
+            watch_list::const_iterator end2 = wlist.end();
+            for (; it2 != end2; ++it2) {
+                if (it2->is_binary_clause() && l.index() < it2->get_literal().index())
+                    out << max_weight << " " << dimacs_lit(l) << " " << dimacs_lit(it2->get_literal()) << " 0\n";
+            }
+        }
+        clause_vector const * vs[2] = { &m_clauses, &m_learned };
+        for (unsigned i = 0; i < 2; i++) {
+            clause_vector const & cs = *(vs[i]);
+            clause_vector::const_iterator it  = cs.begin();
+            clause_vector::const_iterator end = cs.end();
+            for (; it != end; ++it) {
+                clause const & c = *(*it);
+                unsigned sz = c.size();
+                out << max_weight << " ";
+                for (unsigned j = 0; j < sz; j++)
+                    out << dimacs_lit(c[j]) << " ";
+                out << "0\n";
+            }
+        }
+        for (unsigned i = 0; i < sz; ++i) {
+            out << weights[i] << " " << lits[i] << " 0\n";
+        }
+    }
+
+
     void solver::display_watches(std::ostream & out) const {
         vector<watch_list>::const_iterator it  = m_watches.begin();
         vector<watch_list>::const_iterator end = m_watches.end();
