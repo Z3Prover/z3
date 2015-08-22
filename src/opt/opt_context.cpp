@@ -41,6 +41,7 @@ Notes:
 #include "ast_smt_pp.h"
 #include "filter_model_converter.h"
 #include "ast_pp_util.h"
+#include "inc_sat_solver.h"
 
 namespace opt {
 
@@ -220,7 +221,7 @@ namespace opt {
             TRACE("opt", tout << "Hard constraint: " << mk_ismt2_pp(m_hard_constraints[i].get(), m) << std::endl;);
             s.assert_expr(m_hard_constraints[i].get());
         }
-
+        display_benchmark();
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
         lbool is_sat = s.check_sat(0,0);
         TRACE("opt", tout << "initial search result: " << is_sat << "\n";);
@@ -1066,6 +1067,18 @@ namespace opt {
                 break;
             }
             }
+        }
+    }
+
+    void context::display_benchmark() {
+        if (opt_params(m_params).dump_benchmarks() && 
+            sat_enabled() && 
+            m_objectives.size() == 1 &&
+            m_objectives[0].m_type == O_MAXSMT
+            ) {
+            objective& o = m_objectives[0];
+            unsigned sz = o.m_terms.size();
+            inc_sat_display(verbose_stream(), get_solver(), sz, o.m_terms.c_ptr(), o.m_weights.c_ptr());
         }
     }
 

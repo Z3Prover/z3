@@ -186,7 +186,6 @@ public:
         init();
         init_local();
         trace();
-        display();
         while (m_lower < m_upper) {
             TRACE("opt", 
                   display_vec(tout, m_asms);
@@ -220,7 +219,6 @@ public:
         init();
         init_local();
         trace();
-        display();
         exprs cs;
         while (m_lower < m_upper) {
             lbool is_sat = check_sat_hill_climb(m_asms);
@@ -251,14 +249,6 @@ public:
         }
         trace();
         return l_true;
-    }
-
-    void display() {
-        if (m_dump_benchmarks && m_c.sat_enabled()) {
-            unsigned sz = m_soft.size();
-            inc_sat_display(verbose_stream(), s(), sz, 
-                            m_soft.c_ptr(), m_weights.c_ptr());
-        }
     }
 
 

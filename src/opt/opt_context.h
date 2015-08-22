@@ -280,6 +280,8 @@ namespace opt {
 
         void validate_lex();
 
+        void display_benchmark();
+
 
         // pareto
         void yield();
