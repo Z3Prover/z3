@@ -171,7 +171,7 @@ public:
     }
 
     void new_assumption(expr* e, rational const& w) {
-        IF_VERBOSE(3, verbose_stream() << "new assumption " << mk_pp(e, m) << " " << w << "\n";);
+        IF_VERBOSE(13, verbose_stream() << "new assumption " << mk_pp(e, m) << " " << w << "\n";);
         TRACE("opt", tout << "insert: " << mk_pp(e, m) << " : " << w << "\n";);
         m_asm2weight.insert(e, w);
         m_asms.push_back(e);

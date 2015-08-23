@@ -56,7 +56,7 @@ class inc_sat_solver : public solver {
     proof_converter_ref m_pc;   
     model_converter_ref m_mc2;   
     expr_dependency_ref m_dep_core;
-
+    svector<double>       m_weights;
 
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
@@ -82,8 +82,6 @@ public:
         simp2_p.set_bool("hoist_mul", false); // required by som
         m_preprocess = 
             and_then(mk_card2bv_tactic(m, m_params),
-                     //mk_simplify_tactic(m),
-                     //mk_propagate_values_tactic(m),
                      using_params(mk_simplify_tactic(m), simp2_p),
                      mk_max_bv_sharing_tactic(m),
                      mk_bit_blaster_tactic(m), 
@@ -100,25 +98,32 @@ public:
     }
 
     void display_weighted(std::ostream& out, unsigned sz, expr * const * assumptions, unsigned const* weights) {
+        m_weights.reset();
+        if (weights != 0) {
+            for (unsigned i = 0; i < sz; ++i) m_weights.push_back(weights[i]);
+        }
         m_solver.pop_to_base_level();
         dep2asm_t dep2asm;
         VERIFY(l_true == internalize_formulas());
-        VERIFY(l_true == internalize_assumptions(sz, assumptions, 0 != weights, dep2asm));
+        VERIFY(l_true == internalize_assumptions(sz, assumptions, dep2asm));
         m_solver.display_wcnf(out, sz, m_asms.c_ptr(), weights);
     }
  
     lbool check_sat(unsigned sz, expr * const * assumptions, double const* weights, double max_weight) {       
-
+        m_weights.reset();
+        if (weights != 0) {
+            m_weights.append(sz, weights);
+        }
+        SASSERT(m_weights.empty() == (m_weights.c_ptr() == 0));
         m_solver.pop_to_base_level();
         dep2asm_t dep2asm;
         m_model = 0;
         lbool r = internalize_formulas();
         if (r != l_true) return r;
-        r = internalize_assumptions(sz, assumptions, 0 != weights, dep2asm);
+        r = internalize_assumptions(sz, assumptions, dep2asm);
         if (r != l_true) return r;
 
-        //m_solver.display_dimacs(std::cout);
-        r = m_solver.check(m_asms.size(), m_asms.c_ptr(), weights, max_weight);
+        r = m_solver.check(m_asms.size(), m_asms.c_ptr(), m_weights.c_ptr(), max_weight);
         switch (r) {
         case l_true:
             if (sz > 0 && !weights) {
@@ -179,7 +184,7 @@ public:
         }
     }
     virtual void assert_expr(expr * t) {
-        TRACE("opt", tout << mk_pp(t, m) << "\n";);
+        TRACE("sat", tout << mk_pp(t, m) << "\n";);
         m_fmls.push_back(t);
     }
     virtual void set_produce_models(bool f) {}
@@ -238,9 +243,10 @@ private:
         m_pc.reset();
         m_dep_core.reset();
         m_subgoals.reset();
+        m_preprocess->reset();
         SASSERT(g->models_enabled());
         SASSERT(!g->proofs_enabled());
-        TRACE("opt", g->display(tout););
+        TRACE("sat", g->display(tout););        
         try {                   
             (*m_preprocess)(g, m_subgoals, m_mc2, m_pc, m_dep_core);
         }
@@ -254,58 +260,23 @@ private:
             return l_undef;
         }
         g = m_subgoals[0];
-        TRACE("opt", g->display_with_dependencies(tout););
+        TRACE("sat", g->display_with_dependencies(tout););
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
         return l_true;
     }
 
-    lbool internalize_assumptions(unsigned sz, expr* const* asms, bool is_weighted, dep2asm_t& dep2asm) {
+    lbool internalize_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
         if (sz == 0) {
             return l_true;
         }
-        if (is_weighted) {
-            return internalize_weighted(sz, asms, dep2asm);
-        }
-        return internalize_unweighted(sz, asms, dep2asm);
-    }
-
-    lbool internalize_unweighted(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
         goal_ref g = alloc(goal, m, true, true); // models and cores are enabled.
-        lbool res = l_undef;
         for (unsigned i = 0; i < sz; ++i) {
             g->assert_expr(asms[i], m.mk_leaf(asms[i]));
         }
-        res = internalize_goal(g, dep2asm);
+        lbool res = internalize_goal(g, dep2asm);
         if (res == l_true) {
-            extract_assumptions(dep2asm);
+            extract_assumptions(sz, asms, dep2asm);
         }        
-        return res;
-    }
-
-    /*
-      \brief extract weighted assumption literals in the same order as the weights.
-      For this purpose we enforce tha assumptions are literals.
-     */
-    lbool internalize_weighted(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
-        goal_ref g = alloc(goal, m, true, true); // models and cores are enabled.
-        lbool res = l_undef;
-        m_asms.reset();
-        expr_ref_vector lits(m);
-        filter_model_converter_ref fmc = alloc(filter_model_converter, m);
-        for (unsigned i = 0; i < sz; ++i) {
-            expr_ref lit = ensure_literal(g, asms[i], fmc.get());
-            lits.push_back(lit);
-            g->assert_expr(lit, m.mk_leaf(lit));
-        }
-        m_mc = concat(m_mc.get(), fmc.get());
-        res = internalize_goal(g, dep2asm);
-        if (res == l_true) {
-            for (unsigned i = 0; i < lits.size(); ++i) {
-                sat::literal l;
-                VERIFY (dep2asm.find(lits[i].get(), l));
-                m_asms.push_back(l);
-            }
-        }
         return res;
     }
 
@@ -321,39 +292,31 @@ private:
         return internalize_goal(g, dep2asm);
     }
 
-    expr_ref ensure_literal(goal_ref& g, expr* e, filter_model_converter* fmc) {
-        expr_ref result(m), fml(m);
-        expr* e1;
-        if (is_uninterp_const(e) || (m.is_not(e, e1) && is_uninterp_const(e1))) {
-            result = e;
-        }
-        else {
-            // TBD: need a filter_model_converter to remove
-            result = m.mk_fresh_const("soft", m.mk_bool_sort());
-            fmc->insert(to_app(result)->get_decl());
-            fml = m.mk_implies(result, e);
-            g->assert_expr(fml);
-        }
-        return result;
-    }
-
-    void extract_assumptions(dep2asm_t& dep2asm) {
+    void extract_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
         m_asms.reset();
-        dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
-        for (; it != end; ++it) {
-            m_asms.push_back(it->m_value);
+        unsigned j = 0;
+        sat::literal lit;
+        for (unsigned i = 0; i < sz; ++i) {
+            if (dep2asm.find(asms[i], lit)) {
+                m_asms.push_back(lit);
+                if (i != j && !m_weights.empty()) {
+                    m_weights[j] = m_weights[i];
+                }
+                ++j;
+            }
         }
-        //IF_VERBOSE(0, verbose_stream() << asms << "\n";);
+        SASSERT(dep2asm.size() == m_asms.size());
     }
 
     void extract_core(dep2asm_t& dep2asm) {
         u_map<expr*> asm2dep;
         dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
         for (; it != end; ++it) {
-            asm2dep.insert(it->m_value.index(), it->m_key);
+            expr* e = it->m_key;
+            asm2dep.insert(it->m_value.index(), e);
         }
         sat::literal_vector const& core = m_solver.get_core();
-        TRACE("opt",
+        TRACE("sat",
               dep2asm_t::iterator it2 = dep2asm.begin();
               dep2asm_t::iterator end2 = dep2asm.end();
               for (; it2 != end2; ++it2) {
@@ -426,7 +389,7 @@ private:
             for (unsigned i = 0; i < m_fmls.size(); ++i) {
                 expr_ref tmp(m);
                 VERIFY(m_model->eval(m_fmls[i].get(), tmp));                
-                CTRACE("opt", !m.is_true(tmp),
+                CTRACE("sat", !m.is_true(tmp),
                        tout << "Evaluation failed: " << mk_pp(m_fmls[i].get(), m) 
                        << " to " << tmp << "\n";
                        model_smt2_pp(tout, m, *(m_model.get()), 0););
@@ -461,3 +424,4 @@ void inc_sat_display(std::ostream& out, solver& _s, unsigned sz, expr*const* sof
     }
     return s.display_weighted(out, sz, soft, weights.c_ptr());
 }
+

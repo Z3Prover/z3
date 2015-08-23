@@ -280,6 +280,7 @@ namespace sat {
         bool model_is_current() const { return m_model_is_current; }
         literal_vector const& get_core() const { return m_core; }
         model_converter const & get_model_converter() const { return m_mc; }
+        void set_model(model const& mdl);
 
     protected:
         unsigned m_conflicts;

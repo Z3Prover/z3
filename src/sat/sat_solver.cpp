@@ -1105,6 +1105,12 @@ namespace sat {
         }
     }
 
+    void solver::set_model(model const& mdl) {
+        m_model.reset();
+        m_model.append(mdl);
+        m_model_is_current = !m_model.empty();
+    }
+
     void solver::mk_model() {
         m_model.reset();
         m_model_is_current = true;
@@ -1117,8 +1123,6 @@ namespace sat {
         TRACE("sat_mc_bug", m_mc.display(tout););
         if (m_config.m_optimize_model) {
             m_wsls.opt(0, 0, false);
-            m_model.reset();
-            m_model.append(m_wsls.get_model());
         }
         m_mc(m_model);
         TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
@@ -1808,9 +1812,7 @@ namespace sat {
             // apply optional clause minimization by detecting subsumed literals.
             // initial experiment suggests it has no effect.
             m_mus(); // ignore return value on cancelation.
-            m_model.reset();
-            m_model.append(m_mus.get_model());            
-            m_model_is_current = !m_model.empty();
+            set_model(m_mus.get_model());
         }
     }
 
