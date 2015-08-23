@@ -959,11 +959,13 @@ namespace sat {
                 assign(lit, justification());
                 break;
             case l_false: {
+                m_assumptions.push_back(lit);       
                 SASSERT(!inconsistent());
                 set_conflict(justification(), ~lit);
                 flet<bool> _min1(m_config.m_minimize_core, false);
                 flet<bool> _min2(m_config.m_minimize_core_partial, false);
                 resolve_conflict_for_unsat_core();
+                m_assumptions.pop_back();
                 weight += weights[i];
                 blocker.push_back(lit);
                 TRACE("sat", tout << "core: " << m_core << "\nassumptions: " << m_assumptions << "\n";);

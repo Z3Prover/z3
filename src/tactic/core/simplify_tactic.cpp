@@ -65,9 +65,6 @@ struct simplify_tactic::imp {
                 proof * pr = g.pr(idx);
                 new_pr     = m().mk_modus_ponens(pr, new_pr);
             }
-            if (m_manager.is_false(new_curr)) {
-                std::cout << mk_pp(curr, m_manager) << " => " << new_curr << "\n";
-            }
             g.update(idx, new_curr, new_pr, g.dep(idx));
         }
         TRACE("after_simplifier_bug", g.display(tout););

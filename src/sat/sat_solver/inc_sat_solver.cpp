@@ -106,7 +106,11 @@ public:
         dep2asm_t dep2asm;
         VERIFY(l_true == internalize_formulas());
         VERIFY(l_true == internalize_assumptions(sz, assumptions, dep2asm));
-        m_solver.display_wcnf(out, sz, m_asms.c_ptr(), weights);
+        svector<unsigned> nweights;
+        for (unsigned i = 0; i < m_asms.size(); ++i) {
+            nweights.push_back((unsigned) m_weights[i]);
+        }
+        m_solver.display_wcnf(out, m_asms.size(), m_asms.c_ptr(), nweights.c_ptr());
     }
  
     lbool check_sat(unsigned sz, expr * const * assumptions, double const* weights, double max_weight) {       
