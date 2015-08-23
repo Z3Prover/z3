@@ -158,7 +158,6 @@ public:
             else if (*in == 'p') {
                 ++in;
                 parse_spec(num_vars, num_clauses, max_weight);
-                std::cout << "v " << num_vars << " c " << num_clauses << " w " << max_weight << "\n";
             }
             else {
                 unsigned weight = 0;
