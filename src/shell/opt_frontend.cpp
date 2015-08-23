@@ -42,6 +42,11 @@ public:
             next(); 
         }
     }
+    void skip_space() {
+        while (ch() != 10 && ((ch() >= 9 && ch() <= 13) || ch() == 32)) {
+            next(); 
+        }
+    }
     void skip_line() {
         while(true) {
             if (eof()) {
@@ -88,6 +93,19 @@ public:
         }
         return neg ? -val : val; 
     }
+
+    unsigned parse_unsigned() {
+        skip_space();
+        if (ch() == '\n') {
+            return UINT_MAX;
+        }
+        unsigned val = 0;
+        while (ch() >= '0' && ch() <= '9') {
+            val = val*10 + (ch() - '0');
+            next();
+        }
+        return val;
+    }
 };
 
 class wcnf {
@@ -95,11 +113,10 @@ class wcnf {
     ast_manager&   m;
     stream_buffer& in;
 
-    app_ref read_clause(int& weight) {
+    app_ref read_clause(unsigned& weight) {
         int     parsed_lit;
         int     var;    
-        parsed_lit = in.parse_int();
-        weight = parsed_lit;
+        weight = in.parse_unsigned();
         app_ref result(m), p(m);
         expr_ref_vector ors(m);
         while (true) { 
@@ -115,11 +132,11 @@ class wcnf {
         return result;
     }
     
-    void parse_spec(int& num_vars, int& num_clauses, int& max_weight) {
+    void parse_spec(unsigned& num_vars, unsigned& num_clauses, unsigned& max_weight) {
         in.parse_token("wcnf");
-        num_vars = in.parse_int();
-        num_clauses = in.parse_int();
-        max_weight = in.parse_int();
+        num_vars = in.parse_unsigned();
+        num_clauses = in.parse_unsigned();
+        max_weight = in.parse_unsigned();
     }
 
 public:
@@ -129,7 +146,7 @@ public:
     }
     
     void parse() {
-        int num_vars = 0, num_clauses = 0, max_weight = 0;
+        unsigned num_vars = 0, num_clauses = 0, max_weight = 0;
         while (true) {
             in.skip_whitespace();
             if (in.eof()) {
@@ -143,9 +160,9 @@ public:
                 parse_spec(num_vars, num_clauses, max_weight);
             }
             else {
-                int weight = 0;
+                unsigned weight = 0;
                 app_ref cls = read_clause(weight);
-                if (weight == max_weight) {
+                if (weight >= max_weight) {
                     opt.add_hard_constraint(cls);
                 }
                 else {

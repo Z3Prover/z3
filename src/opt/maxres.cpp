@@ -239,7 +239,12 @@ public:
                 break;
             case l_false:
                 is_sat = process_unsat();
-                if (is_sat != l_true) return is_sat;                
+                if (is_sat == l_false) {
+                    m_lower = m_upper;
+                }
+                if (is_sat == l_undef) {
+                    return is_sat;                        
+                }
                 break;
             case l_undef:
                 return l_undef;
