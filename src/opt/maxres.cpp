@@ -247,6 +247,7 @@ public:
                 break;
             }
         }
+        m_lower = m_upper;
         trace();
         return l_true;
     }
@@ -468,6 +469,9 @@ public:
         fml = mk_not(m, mk_and(m, m_B.size(), m_B.c_ptr()));
         s().assert_expr(fml);
         m_lower += w;
+        if (m_st == s_primal_dual) {
+            m_lower = std::min(m_lower, m_upper);
+        }
         trace();
     }
 
