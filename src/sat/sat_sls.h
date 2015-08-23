@@ -97,7 +97,6 @@ namespace sat {
         void set_soft(unsigned sz, literal const* lits, double const* weights);        
         bool has_soft() const { return !m_soft.empty(); }
         void opt(unsigned sz, literal const* tabu, bool reuse_model);
-        model const& get_model() { return m_best_model; }
         virtual void display(std::ostream& out) const;
         double evaluate_model(model& mdl);
     private:        

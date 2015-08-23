@@ -18,7 +18,7 @@ Notes:
 --*/
 #include"simplify_tactic.h"
 #include"th_rewriter.h"
-#include"ast_smt2_pp.h"
+#include"ast_pp.h"
 
 struct simplify_tactic::imp {
     ast_manager &   m_manager;
@@ -64,6 +64,9 @@ struct simplify_tactic::imp {
             if (g.proofs_enabled()) {
                 proof * pr = g.pr(idx);
                 new_pr     = m().mk_modus_ponens(pr, new_pr);
+            }
+            if (m_manager.is_false(new_curr)) {
+                std::cout << mk_pp(curr, m_manager) << " => " << new_curr << "\n";
             }
             g.update(idx, new_curr, new_pr, g.dep(idx));
         }

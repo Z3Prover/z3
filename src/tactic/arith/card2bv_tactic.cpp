@@ -24,6 +24,7 @@ Notes:
 #include"card2bv_tactic.h"
 #include"pb_rewriter.h"
 #include"ast_util.h"
+#include"ast_pp.h"
 
 namespace pb {
     unsigned card2bv_rewriter::get_num_bits(func_decl* f) {

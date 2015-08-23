@@ -171,7 +171,7 @@ public:
     }
 
     void new_assumption(expr* e, rational const& w) {
-        IF_VERBOSE(3, verbose_stream() << "new assumption " << mk_pp(e, m) << " " << w << "\n";);
+        IF_VERBOSE(13, verbose_stream() << "new assumption " << mk_pp(e, m) << " " << w << "\n";);
         TRACE("opt", tout << "insert: " << mk_pp(e, m) << " : " << w << "\n";);
         m_asm2weight.insert(e, w);
         m_asms.push_back(e);
@@ -186,7 +186,6 @@ public:
         init();
         init_local();
         trace();
-        display();
         while (m_lower < m_upper) {
             TRACE("opt", 
                   display_vec(tout, m_asms);
@@ -220,7 +219,6 @@ public:
         init();
         init_local();
         trace();
-        display();
         exprs cs;
         while (m_lower < m_upper) {
             lbool is_sat = check_sat_hill_climb(m_asms);
@@ -251,14 +249,6 @@ public:
         }
         trace();
         return l_true;
-    }
-
-    void display() {
-        if (m_dump_benchmarks && m_c.sat_enabled()) {
-            unsigned sz = m_soft.size();
-            inc_sat_display(verbose_stream(), s(), sz, 
-                            m_soft.c_ptr(), m_weights.c_ptr());
-        }
     }
 
 
