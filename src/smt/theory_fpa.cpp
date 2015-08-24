@@ -479,11 +479,16 @@ namespace smt {
 
     void theory_fpa::apply_sort_cnstr(enode * n, sort * s) {
         TRACE("t_fpa", tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_owner(), get_manager()) << "\n";);
-        SASSERT(n->get_owner()->get_family_id() == get_family_id() ||
-                n->get_owner()->get_family_id() == null_theory_id);
         SASSERT(s->get_family_id() == get_family_id());
 
-        if (!is_attached_to_var(n)) {
+        if (n->get_decl()->get_family_id() != get_family_id()) {
+            for (unsigned i = 0; i < n->get_num_args(); i++)
+                apply_sort_cnstr(n->get_arg(i), s);
+        } 
+        
+        if ((m_fpa_util.is_float(n->get_owner()) ||
+             m_fpa_util.is_rm(n->get_owner())) &&
+            !is_attached_to_var(n)) {
             attach_new_th_var(n);
 
             ast_manager & m = get_manager();
@@ -512,34 +517,39 @@ namespace smt {
 
     void theory_fpa::new_eq_eh(theory_var x, theory_var y) {        
         ast_manager & m = get_manager();
+        enode * e_x = get_enode(x);
+        enode * e_y = get_enode(y);
 
         TRACE("t_fpa", tout << "new eq: " << x << " = " << y << std::endl;);
-        TRACE("t_fpa_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), m) << " = " <<
-                                      mk_ismt2_pp(get_enode(y)->get_owner(), m) << std::endl;);
+        TRACE("t_fpa_detail", tout << mk_ismt2_pp(e_x->get_owner(), m) << " = " <<
+                                      mk_ismt2_pp(e_y->get_owner(), m) << std::endl;);
         
         fpa_util & fu = m_fpa_util;
 
         expr_ref xe(m), ye(m);
-        xe = get_enode(x)->get_owner();
-        ye = get_enode(y)->get_owner();
+        xe = e_x->get_owner();
+        ye = e_y->get_owner();
 
         if ((m.is_bool(xe) && m.is_bool(ye)) || 
             (m_bv_util.is_bv(xe) && m_bv_util.is_bv(ye))) {
-            SASSERT(to_app(xe)->get_decl()->get_family_id() == get_family_id());
             return;
         }
-        
+        else if (e_x->get_decl()->get_family_id() != get_family_id() ||
+                 e_y->get_decl()->get_family_id() != get_family_id()) {
+            return;
+        }
+       
         expr_ref xc(m), yc(m);
         xc = convert(xe);
         yc = convert(ye);
-
-        TRACE("t_fpa_detail", tout << "xc=" << mk_ismt2_pp(xc, m) << std::endl;
-                              tout << "yc=" << mk_ismt2_pp(yc, m) << std::endl;);
 
         expr_ref c(m);
 
         if (fu.is_float(xe) && fu.is_float(ye))
         {
+            TRACE("t_fpa_detail", tout << "xc=" << mk_ismt2_pp(xc, m) << std::endl;
+            tout << "yc=" << mk_ismt2_pp(yc, m) << std::endl;);
+
             expr *x_sgn, *x_sig, *x_exp;
             m_converter.split_fp(xc, x_sgn, x_exp, x_sig);
             expr *y_sgn, *y_sig, *y_exp;
@@ -548,8 +558,10 @@ namespace smt {
             c = m.mk_eq(m_bv_util.mk_concat(m_bv_util.mk_concat(x_sgn, x_exp), x_sig),
                         m_bv_util.mk_concat(m_bv_util.mk_concat(y_sgn, y_exp), y_sig));            
         }
-        else
+        else {
+            SASSERT(fu.is_rm(xe) && fu.is_rm(ye));
             c = m.mk_eq(xc, yc);
+        }
         
         m_th_rw(c);        
         assert_cnstr(m.mk_iff(m.mk_eq(xe, ye), c));
