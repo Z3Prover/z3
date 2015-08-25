@@ -964,6 +964,7 @@ namespace sat {
                 set_conflict(justification(), ~lit);
                 flet<bool> _min1(m_config.m_minimize_core, false);
                 flet<bool> _min2(m_config.m_minimize_core_partial, false);
+                m_conflict_lvl = 1;
                 resolve_conflict_for_unsat_core();
                 m_assumptions.pop_back();
                 weight += weights[i];
@@ -2630,7 +2631,7 @@ namespace sat {
         out << "p wcnf " << num_vars() << " " << num_clauses() + sz << " " << max_weight << "\n";
 
         for (unsigned i = 0; i < m_trail.size(); i++) {
-            out << dimacs_lit(m_trail[i]) << " 0\n";
+            out << max_weight << " " << dimacs_lit(m_trail[i]) << " 0\n";
         }
         vector<watch_list>::const_iterator it  = m_watches.begin();
         vector<watch_list>::const_iterator end = m_watches.end();
