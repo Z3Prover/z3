@@ -115,8 +115,7 @@ namespace smt {
             break;
         case eq_justification::CONGRUENCE: {
             TRACE("conflict_detail", tout << "#" << lhs->get_owner_id() << " = " << rhs->get_owner_id() << " congruence\n";);
-            if (!lhs->is_eq())
-                TRACE("dyn_ack_target", tout << "dyn_ack_target2: " << lhs->get_owner_id() << " " << rhs->get_owner_id() << "\n";);
+            CTRACE("dyn_ack_target", !lhs->is_eq(), tout << "dyn_ack_target2: " << lhs->get_owner_id() << " " << rhs->get_owner_id() << "\n";);
             m_dyn_ack_manager.used_cg_eh(lhs->get_owner(), rhs->get_owner());
             unsigned num_args = lhs->get_num_args();
             SASSERT(num_args == rhs->get_num_args());
