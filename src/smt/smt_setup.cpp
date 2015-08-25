@@ -52,6 +52,7 @@ namespace smt {
         // }
         TRACE("setup", tout << "configuring logical context, logic: " << m_logic << "\n";);
         m_already_configured = true;
+        
         switch (cm) {
         case CFG_BASIC: setup_unknown(); break;
         case CFG_LOGIC: setup_default(); break;
