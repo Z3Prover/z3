@@ -964,6 +964,7 @@ namespace sat {
                 set_conflict(justification(), ~lit);
                 flet<bool> _min1(m_config.m_minimize_core, false);
                 flet<bool> _min2(m_config.m_minimize_core_partial, false);
+                m_conflict_lvl = 1;
                 resolve_conflict_for_unsat_core();
                 m_assumptions.pop_back();
                 weight += weights[i];
