@@ -228,6 +228,7 @@ namespace sat {
             return result;
         }
         void insert(literal l) { m_set.insert(l.index()); }
+        literal pop() { return to_literal(m_set.erase()); }
         bool contains(literal l) const { return m_set.contains(l.index()); }
         bool empty() const { return m_set.empty(); }
         unsigned size() const { return m_set.size(); }

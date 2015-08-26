@@ -297,7 +297,8 @@ namespace sat {
         lbool bounded_search();
         void init_search();
         void init_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
-        bool init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight, svector<literal>& blocker);
+        bool init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, 
+                                       double max_weight, svector<literal>& blocker);
         void resolve_weighted();
         void reinit_assumptions();
         bool tracking_assumptions() const;
