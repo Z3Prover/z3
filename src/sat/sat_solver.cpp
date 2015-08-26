@@ -943,6 +943,14 @@ namespace sat {
         }
     }
 
+    void solver::resolve_weighted() {
+        flet<bool> _min1(m_config.m_minimize_core, false);
+        flet<bool> _min2(m_config.m_minimize_core_partial, false);
+        m_conflict_lvl = m_scope_lvl;
+        resolve_conflict_for_unsat_core();
+        m_assumptions.pop_back();
+    }
+
     bool solver::init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight, 
                                            svector<literal>& blocker) {
         double weight = 0;
@@ -952,44 +960,56 @@ namespace sat {
             SASSERT(is_external(lit.var()));  
             m_assumption_set.insert(lit);       
             TRACE("sat", tout << "propagate: " << lit << " " << value(lit) << "\n";);
-
+            SASSERT(m_scope_lvl == 1);
             switch(value(lit)) {
             case l_undef:
                 m_assumptions.push_back(lit);       
                 assign(lit, justification());
+                propagate(false);
+                if (inconsistent()) {
+                    resolve_weighted();
+                    pop(1);
+                    push();
+                    for (unsigned j = 0; j < m_assumptions.size(); ++j) {
+                        assign(m_assumptions[j], justification());                        
+                    }
+                    propagate(false);
+                    goto post_process_false;
+                }
                 break;
+                
             case l_false: {
                 m_assumptions.push_back(lit);       
                 SASSERT(!inconsistent());
                 set_conflict(justification(), ~lit);
-                flet<bool> _min1(m_config.m_minimize_core, false);
-                flet<bool> _min2(m_config.m_minimize_core_partial, false);
-                m_conflict_lvl = 1;
-                resolve_conflict_for_unsat_core();
-                m_assumptions.pop_back();
-                weight += weights[i];
-                blocker.push_back(lit);
-                TRACE("sat", tout << "core: " << m_core << "\nassumptions: " << m_assumptions << "\n";);
-                SASSERT(m_core.size() <= m_assumptions.size() + 1);
-                SASSERT(m_assumptions.size() <= i);
-                if (m_core.size() <= 3 || m_core.size() < blocker.size()) {
-                    TRACE("opt", tout << "found small core: " << m_core.size() << "\n";); 
-                    return true;
-                }
-                m_inconsistent = false;                
-                if (weight >= max_weight) {
-                    ++m_stats.m_blocked_corr_sets;
-                    TRACE("opt", tout << "blocking soft correction set: " << blocker.size() << "\n";); 
-                    // block the current correction set candidate.
-                    return false;
-                }
-                break;
+                resolve_weighted();
+                goto post_process_false;
             }
             case l_true:
                 break;
             }
-            propagate(false);         
+            continue;
+
+        post_process_false:
+            weight += weights[i];
+            blocker.push_back(lit);
+            TRACE("sat", tout << "core: " << m_core << "\nassumptions: " << m_assumptions << "\n";);
+            SASSERT(m_core.size() <= m_assumptions.size() + 1);
+            SASSERT(m_assumptions.size() <= i);
+            if (m_core.size() <= 3) {
+                m_inconsistent = true;
+                TRACE("opt", tout << "found small core: " << m_core << "\n";); 
+                return true;
+            }
+            m_inconsistent = false;                
+            if (weight >= max_weight) {
+                ++m_stats.m_blocked_corr_sets;
+                TRACE("opt", tout << "blocking soft correction set: " << blocker.size() << "\n";); 
+                // block the current correction set candidate.
+                return false;
+            }
         }
+        TRACE("sat", tout << "initialized\n";);
         return true;
     }
 
