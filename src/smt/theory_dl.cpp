@@ -235,13 +235,14 @@ namespace smt {
         }
 
         app* mk_bv_constant(uint64 val, sort* s) {
-            return b().mk_numeral(rational(val,rational::ui64()),64);
+            return b().mk_numeral(rational(val, rational::ui64()), 64);
         }
 
         app* max_value(sort* s) {
             uint64 sz;
             VERIFY(u().try_get_size(s, sz));
-            return mk_bv_constant(sz, s);
+            SASSERT(sz > 0);
+            return mk_bv_constant(sz-1, s);
         }
 
         void mk_lt(app* x, app* y) {

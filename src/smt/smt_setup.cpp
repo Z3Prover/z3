@@ -52,6 +52,7 @@ namespace smt {
         // }
         TRACE("setup", tout << "configuring logical context, logic: " << m_logic << "\n";);
         m_already_configured = true;
+        
         switch (cm) {
         case CFG_BASIC: setup_unknown(); break;
         case CFG_LOGIC: setup_default(); break;
@@ -550,6 +551,7 @@ namespace smt {
         m_params.m_bv_cc               = false;
         m_params.m_bb_ext_gates        = true;
         m_params.m_nnf_cnf             = false;
+        m_params.m_propagate_booleans  = true;
         m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
         m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
     }

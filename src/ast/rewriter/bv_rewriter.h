@@ -168,6 +168,8 @@ public:
     }
 
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
+
+    bool hi_div0() const { return m_hi_div0; }
 };
 
 #endif

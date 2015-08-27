@@ -228,7 +228,6 @@ public:
             switch (is_sat) {
             case l_true: 
                 get_current_correction_set(cs);
-                IF_VERBOSE(2, display_vec(verbose_stream() << "correction set: ", cs););
                 if (cs.empty()) {
                     m_found_feasible_optimum = m_model.get() != 0;
                     m_lower = m_upper;
@@ -350,9 +349,11 @@ public:
             is_sat = minimize_core(core);
             ++m_stats.m_num_cores;
             if (is_sat != l_true) {
+                IF_VERBOSE(100, verbose_stream() << "(opt.maxres minimization failed)\n";);
                 break;
             }
             if (core.empty()) {
+                IF_VERBOSE(100, verbose_stream() << "(opt.maxres core is empty)\n";);
                 cores.reset();
                 m_lower = m_upper;
                 return l_true;
@@ -470,6 +471,7 @@ public:
         SASSERT(!core.empty());
         rational w = split_core(core);
         TRACE("opt", display_vec(tout << "minimized core: ", core););
+        IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););
         max_resolve(core, w);
         fml = mk_not(m, mk_and(m, m_B.size(), m_B.c_ptr()));
         s().assert_expr(fml);

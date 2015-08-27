@@ -252,6 +252,7 @@ void asserted_formulas::reduce() {
     TRACE("before_reduce", display(tout););
     CASSERT("well_sorted", check_well_sorted());
 
+
 #define INVOKE(COND, FUNC) if (COND) { FUNC; IF_VERBOSE(10000, verbose_stream() << "total size: " << get_total_size() << "\n";); }  TRACE("reduce_step_ll", ast_mark visited; display_ll(tout, visited);); TRACE("reduce_step", display(tout << #FUNC << " ");); CASSERT("well_sorted",check_well_sorted()); if (inconsistent() || canceled()) { TRACE("after_reduce", display(tout);); TRACE("after_reduce_ll", ast_mark visited; display_ll(tout, visited);); return;  }
     
     set_eliminate_and(false); // do not eliminate and before nnf.
