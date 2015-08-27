@@ -11,6 +11,12 @@ build_env['PYTHON'] = sys.executable
 
 build_dir = os.path.abspath(os.path.dirname(__file__))
 
+if sys.platform == 'darwin':
+    library_file = "libz3.dylib"
+else:
+    library_file = "libz3.so"
+
+
 class build(_build):
     @staticmethod
     def _configure():
@@ -47,7 +53,7 @@ setup(
     package_dir={'': 'build'},
     packages=[''],
     data_files=[
-        ('lib', (os.path.join(build_dir, 'build/libz3.so'),)),
+        ('lib', (os.path.join(build_dir, 'build', library_file),)),
         ('include', tuple(os.path.join(build_dir, f) for f in ('src/api/z3.h',
                      'src/api/z3_v1.h', 'src/api/z3_macros.h',
                      'src/api/z3_api.h', 'src/api/z3_algebraic.h',
