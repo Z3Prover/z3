@@ -176,7 +176,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             }
         }
 
-        if (f->get_family_id() == null_family_id)
+        if (f->get_family_id() != m_conv.fu().get_family_id())
         {
             bool is_float_uf = m_conv.is_float(f->get_range());
             unsigned i = 0;

@@ -86,7 +86,7 @@ public:
     void mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual void mk_const(func_decl * f, expr_ref & result);
     virtual void mk_rm_const(func_decl * f, expr_ref & result);
-    void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    virtual void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_var(unsigned base_inx, sort * srt, expr_ref & result);
 
     void mk_pinf(func_decl * f, expr_ref & result);
