@@ -110,7 +110,7 @@ namespace sat {
                 buffer.reset();
                 for (unsigned i = 0; i < c.size(); i++)
                     buffer.push_back(c[i]);
-                mk_clause(buffer.size(), buffer.c_ptr());
+                mk_clause(buffer);
             }
         }
     }
@@ -892,6 +892,7 @@ namespace sat {
         if (num_lits == 0 && m_user_scope_literals.empty()) {
             return;
         }
+        m_replay_lit = null_literal;        
 
     retry_init_assumptions:
         m_assumptions.reset();
@@ -922,13 +923,8 @@ namespace sat {
             if (m_config.m_optimize_model) {
                 m_wsls.set_soft(num_lits, lits, weights);
             }
-            else {
-                svector<literal> blocker;
-                if (!init_weighted_assumptions(num_lits, lits, weights, max_weight, blocker)) {
-                    pop_to_base_level();
-                    mk_clause(blocker.size(), blocker.c_ptr());                    
-                    goto retry_init_assumptions;
-                }
+            else if (!init_weighted_assumptions(num_lits, lits, weights, max_weight)) {
+                goto retry_init_assumptions;
             }
             return;
         }
@@ -939,7 +935,6 @@ namespace sat {
             m_assumption_set.insert(lit);       
             m_assumptions.push_back(lit);       
             assign(lit, justification());       
-            //        propagate(false);         
         }
     }
 
@@ -950,17 +945,36 @@ namespace sat {
         resolve_conflict_for_unsat_core();
     }
 
-    bool solver::init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight, 
-                                           svector<literal>& blocker) {
+    bool solver::init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight) {
         double weight = 0;
-        blocker.reset();
-        svector<literal> min_core;
+        literal_vector blocker;
+        literal_vector min_core;
         bool min_core_valid = false;
         for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
             literal lit = lits[i];
             SASSERT(is_external(lit.var()));  
             TRACE("sat", tout << "propagate: " << lit << " " << value(lit) << "\n";);
             SASSERT(m_scope_lvl == 1);
+
+            if (m_replay_lit == lit && value(lit) == l_undef) {
+                mk_clause(m_replay_clause);
+                propagate(false);
+                SASSERT(inconsistent() || value(lit) == l_false);
+                if (inconsistent()) {
+                    IF_VERBOSE(1, verbose_stream() << lit << " cannot be false either\n";);
+                    return true;
+                }
+                IF_VERBOSE(1, verbose_stream() << lit << " set to false\n";);
+                SASSERT(value(lit) == l_false);
+                if (m_replay_clause.size() < min_core.size() || !min_core_valid) {
+                    min_core.reset();
+                    min_core.append(m_replay_clause);
+                    min_core_valid = true;
+                }
+                m_replay_clause.reset();
+                m_replay_lit = null_literal;
+                continue;
+            }
             switch(value(lit)) {
             case l_undef:
                 m_assumption_set.insert(lit);       
@@ -969,15 +983,16 @@ namespace sat {
                 propagate(false);
                 if (inconsistent()) {
                     resolve_weighted();
-                    blocker.reset();
+                    m_replay_clause.reset();
+                    m_replay_lit = lit;
                     // next time around, the negation of the literal will be implied.
                     for (unsigned j = 0; j < m_core.size(); ++j) {
-                        blocker.push_back(~m_core[j]);
+                        m_replay_clause.push_back(~m_core[j]);
                     }
-                    IF_VERBOSE(1, 
-                               verbose_stream() << "undef: " << lit << " : " << blocker << "\n";
+                    pop_to_base_level();
+                    IF_VERBOSE(11, 
+                               verbose_stream() << "undef: " << lit << " : " << m_replay_clause << "\n";
                                verbose_stream() << m_assumptions << "\n";);
-                    // TBD: avoid redoing assignments, bail out for a full assignment.
                     return false;
                 }
                 blocker.push_back(~lit);
@@ -996,14 +1011,16 @@ namespace sat {
                 if (m_core.size() <= 3) {
                     m_inconsistent = true;
                     TRACE("opt", tout << "found small core: " << m_core << "\n";); 
-                    IF_VERBOSE(1, verbose_stream() << "small core: " << m_core << "\n";);
+                    IF_VERBOSE(11, verbose_stream() << "small core: " << m_core << "\n";);
                     return true;
                 }
                 if (weight >= max_weight) {
                     ++m_stats.m_blocked_corr_sets;
                     TRACE("opt", tout << "blocking soft correction set: " << blocker << "\n";); 
                     // block the current correction set candidate.
-                    IF_VERBOSE(1, verbose_stream() << "blocking " << blocker << "\n";);
+                    IF_VERBOSE(11, verbose_stream() << "blocking " << blocker << "\n";);
+                    pop_to_base_level();
+                    mk_clause(blocker);
                     return false;
                 }
                 VERIFY(m_assumptions.back() == m_assumption_set.pop());
@@ -1012,6 +1029,7 @@ namespace sat {
                 if (!min_core_valid || m_core.size() < min_core.size()) {
                     min_core.reset();
                     min_core.append(m_core);
+                    min_core_valid = true;
                 }
                 blocker.push_back(lit);
                 break;
@@ -1020,9 +1038,10 @@ namespace sat {
             }
         }
         TRACE("sat", tout << "initialized\n";);
-        IF_VERBOSE(1, verbose_stream() << blocker << " - " << min_core << "\n";);
+        IF_VERBOSE(11, verbose_stream() << "Blocker: " << blocker << " - " << min_core << "\n";);
         if (min_core_valid && blocker.size() > min_core.size()) {
             pop_to_base_level();
+            push();
             m_assumption_set.reset();
             m_assumptions.reset();
             for (unsigned i = 0; i < min_core.size(); ++i) {
