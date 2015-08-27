@@ -215,16 +215,16 @@ void fpa2bv_converter::mk_uninterpreted_function(func_decl * f, unsigned num, ex
     expr_ref_buffer new_args(m);
 
     for (unsigned i = 0; i < num ; i ++)
-    if (is_float(args[i]))
-    {
-        expr * sgn, * sig, * exp;
-        split_fp(args[i], sgn, exp, sig);
-        new_args.push_back(sgn);
-        new_args.push_back(sig);
-        new_args.push_back(exp);
-    }
-    else
-        new_args.push_back(args[i]);
+        if (is_float(args[i]))
+        {
+            expr * sgn, * sig, * exp;
+            split_fp(args[i], sgn, exp, sig);
+            new_args.push_back(sgn);
+            new_args.push_back(sig);
+            new_args.push_back(exp);
+        }
+        else
+            new_args.push_back(args[i]);
 
     func_decl * fd;    
     func_decl_triple fd3;
@@ -270,6 +270,7 @@ void fpa2bv_converter::mk_uninterpreted_function(func_decl * f, unsigned num, ex
             func_decl * f_sig = m.mk_func_decl(symbol(name_buffer.c_str()), new_domain.size(), new_domain.c_ptr(), m_bv_util.mk_sort(m_util.get_sbits(f->get_range())-1));
             name_buffer.reset(); name_buffer << f->get_name() << ".exp";
             func_decl * f_exp = m.mk_func_decl(symbol(name_buffer.c_str()), new_domain.size(), new_domain.c_ptr(), m_bv_util.mk_sort(m_util.get_ebits(f->get_range())));
+
             expr_ref a_sgn(m), a_sig(m), a_exp(m);
             a_sgn = m.mk_app(f_sgn, new_args.size(), new_args.c_ptr());
             a_sig = m.mk_app(f_sig, new_args.size(), new_args.c_ptr());
