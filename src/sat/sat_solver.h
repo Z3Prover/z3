@@ -298,10 +298,12 @@ namespace sat {
         lbool bounded_search();
         void init_search();
         
-        literal m_replay_lit;
-        literal_vector m_replay_clause;
+        literal_vector m_min_core;
+        bool           m_min_core_valid;
         void init_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
         bool init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
+        void reassert_min_core();
+        void update_min_core();
         void resolve_weighted();
         void reinit_assumptions();
         bool tracking_assumptions() const;
