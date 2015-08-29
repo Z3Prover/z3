@@ -1530,7 +1530,7 @@ namespace smt {
         max_min_t result = OPTIMIZED;
         has_shared = false;
         unsigned max_efforts = 10 + (ctx.get_random_value() % 20);
-        while (best_efforts < max_efforts) {
+        while (best_efforts < max_efforts && !ctx.get_cancel_flag()) {
             theory_var x_j = null_theory_var;
             theory_var x_i = null_theory_var;
             max_gain.reset();
@@ -1692,7 +1692,7 @@ namespace smt {
             SASSERT(satisfy_bounds());
         }
         TRACE("opt", display(tout););
-        return (best_efforts>0)?BEST_EFFORT:result;
+        return (best_efforts>0 || ctx.get_cancel_flag())?BEST_EFFORT:result;
     }
 
     /**
