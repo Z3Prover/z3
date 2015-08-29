@@ -581,22 +581,11 @@ namespace smt {
         expr_ref c(m);
 
         if (fu.is_float(xe) && fu.is_float(ye))
-        {
-            TRACE("t_fpa_detail", tout << "xc=" << mk_ismt2_pp(xc, m) << std::endl;
-                                  tout << "yc=" << mk_ismt2_pp(yc, m) << std::endl;);
-
-            expr *x_sgn, *x_sig, *x_exp;
-            m_converter.split_fp(xc, x_sgn, x_exp, x_sig);
-            expr *y_sgn, *y_sig, *y_exp;
-            m_converter.split_fp(yc, y_sgn, y_exp, y_sig);
-
-            c = m.mk_eq(m_bv_util.mk_concat(m_bv_util.mk_concat(x_sgn, x_exp), x_sig),
-                        m_bv_util.mk_concat(m_bv_util.mk_concat(y_sgn, y_exp), y_sig));            
-        }
-        else {
-            SASSERT(fu.is_rm(xe) && fu.is_rm(ye));
+            m_converter.mk_eq(xc, yc, c);
+        else if (fu.is_rm(xe) && fu.is_rm(ye))
             c = m.mk_eq(xc, yc);
-        }
+        else
+            UNREACHABLE();
         
         m_th_rw(c);
         assert_cnstr(m.mk_iff(m.mk_eq(xe, ye), c));
@@ -631,18 +620,14 @@ namespace smt {
 
         expr_ref c(m);
 
-        if (fu.is_float(xe) && fu.is_float(ye))
-        {
-            expr *x_sgn, *x_sig, *x_exp;
-            m_converter.split_fp(xc, x_sgn, x_exp, x_sig);
-            expr *y_sgn, *y_sig, *y_exp;
-            m_converter.split_fp(yc, y_sgn, y_exp, y_sig);
-
-            c = m.mk_not(m.mk_eq(m_bv_util.mk_concat(m_bv_util.mk_concat(x_sgn, x_exp), x_sig),
-                                 m_bv_util.mk_concat(m_bv_util.mk_concat(y_sgn, y_exp), y_sig)));            
+        if (fu.is_float(xe) && fu.is_float(ye)) {
+            m_converter.mk_eq(xc, yc, c);
+            c = m.mk_not(c);
         }
-        else
+        else if (fu.is_rm(xe) && fu.is_rm(ye))
             c = m.mk_not(m.mk_eq(xc, yc));
+        else
+            UNREACHABLE();
 
         m_th_rw(c);
         assert_cnstr(m.mk_iff(m.mk_not(m.mk_eq(xe, ye)), c));
