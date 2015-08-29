@@ -943,23 +943,25 @@ namespace sat {
         flet<bool> _min2(m_config.m_minimize_core_partial, false);
         m_weight = 0;
         m_blocker.reset();
-        m_min_core_valid = false;
-        m_min_core.reset();
+        svector<lbool> values;
+        unsigned num_cores = 0;
         for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
             literal lit = lits[i];
             SASSERT(is_external(lit.var()));  
             TRACE("sat", tout << "propagate: " << lit << " " << value(lit) << "\n";);
             SASSERT(m_scope_lvl == 1);
-
+            add_assumption(lit);  
             switch(value(lit)) {
             case l_undef:
-                add_assumption(lit);  
+                values.push_back(l_true);
                 assign(lit, justification());
-                propagate(false);
+                if (num_cores*2 >= num_lits) {
+                    break;
+                }
+                propagate(false);                
                 if (inconsistent()) {
-                    pop_assumption();
                     flet<bool> _init(m_initializing_preferred, true);
-                    while (inconsistent()) {
+                    while (inconsistent()) {                        
                         if (!resolve_conflict()) {
                             return true;
                         }
@@ -968,23 +970,33 @@ namespace sat {
                     if (m_scope_lvl == 0) {
                         return false;
                     }
-                    for (; i < num_lits; ++i) {
-                        literal lit = lits[i];
-                        if (value(lit) == l_undef) {
-                            assign(lit, justification());
-                            add_assumption(lit);  
+                    // backjump to last consistent assumption:
+                    unsigned j;
+                    for (j = 0; j < i && value(lits[j]) == values[j]; ++j);
+                    SASSERT(value(lits[j]) != values[j]);
+                    SASSERT(j <= i);
+                    SASSERT(j == 0 || value(lits[j-1]) == values[j-1]);
+                    for (unsigned k = i; k >= j; --k)  {
+                        if (is_assumption(lits[k])) {
+                            pop_assumption();
                         }                        
                     }
-                    return true;
+                    values.resize(j);
+                    TRACE("sat", tout << "backjump " << (i - j + 1) << " steps " << num_cores << "\n";);
+                    i = j - 1;
                 }
                 break;                
                 
             case l_false: 
-                add_assumption(lit);  
+                ++num_cores;
+                values.push_back(l_false);
                 SASSERT(!inconsistent());
                 set_conflict(justification(), ~lit);
-                m_conflict_lvl = m_scope_lvl;
+                m_conflict_lvl = scope_lvl();
                 resolve_conflict_for_unsat_core();
+                IF_VERBOSE(3, verbose_stream() << "core: " << m_core << "\n";);
+                update_min_core();
+                SASSERT(m_min_core_valid);
                 m_weight += weights[i];
                 if (m_weight <= max_weight) {
                     m_blocker.push_back(lit);
@@ -998,26 +1010,18 @@ namespace sat {
                     IF_VERBOSE(11, verbose_stream() << "small core: " << m_core << "\n";);
                     return true;
                 }
-                update_min_core();
-                SASSERT(m_min_core_valid);
                 pop_assumption();
                 m_inconsistent = false; 
                 break;
-            case l_true: {
-                justification j = m_justification[lit.var()];
-                if (j.get_kind() == justification::NONE) {
-                    add_assumption(lit);
-                }            
+            case l_true: 
+                values.push_back(l_true);
+                SASSERT(m_justification[lit.var()].get_kind() != justification::NONE || lvl(lit) == 0);
                 break;
-            }
             }
         }
         TRACE("sat", tout << "initialized\n";);
         IF_VERBOSE(11, verbose_stream() << "Blocker: " << m_blocker << "\nCore: " << m_min_core << "\n";);
-        if (m_min_core_valid && m_blocker.size() >= m_min_core.size()) {
-            reassert_min_core();
-        }
-        else if (m_weight >= max_weight) {
+        if (m_weight >= max_weight) {
             // block the current correction set candidate.
             ++m_stats.m_blocked_corr_sets;
             TRACE("opt", tout << "blocking soft correction set: " << m_blocker << "\n";); 
@@ -1103,6 +1107,8 @@ namespace sat {
         m_stopwatch.reset();
         m_stopwatch.start();
         m_core.reset();
+        m_min_core_valid = false;
+        m_min_core.reset();
         TRACE("sat", display(tout););
         
         if (m_config.m_bcd) {
@@ -2005,11 +2011,17 @@ namespace sat {
         }        
         reset_unmark(old_size);
         if (m_config.m_minimize_core || m_config.m_minimize_core_partial) {
+            if (m_min_core_valid && m_min_core.size() < m_core.size()) {
+                IF_VERBOSE(1, verbose_stream() << "(sat.updating core " << m_min_core.size() << " " << m_core.size() << ")\n";);
+                m_core.reset();
+                m_core.append(m_min_core);
+            }
             // TBD: 
             // apply optional clause minimization by detecting subsumed literals.
             // initial experiment suggests it has no effect.
             m_mus(); // ignore return value on cancelation.
             set_model(m_mus.get_model());
+            IF_VERBOSE(2, verbose_stream() << "(sat.core: " << m_core << ")\n";);
         }
     }
 

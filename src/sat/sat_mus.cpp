@@ -41,6 +41,7 @@ namespace sat {
         m_mus.append(m_core);
         s.m_core.reset();
         s.m_core.append(m_mus);
+        TRACE("sat", tout << "new core: " << s.m_core << "\n";);
     }
 
     void mus::update_model() {
@@ -61,7 +62,7 @@ namespace sat {
         flet<bool> _disable_min_partial(s.m_config.m_minimize_core_partial, false);
         flet<bool> _disable_opt(s.m_config.m_optimize_model, false);
         flet<bool> _is_active(m_is_active, true);
-        IF_VERBOSE(2, verbose_stream() << "(sat.mus " << s.get_core() << ")\n";);
+        IF_VERBOSE(3, verbose_stream() << "(sat.mus " << s.get_core() << ")\n";);
         reset();
         return mus1();
     }
@@ -77,7 +78,7 @@ namespace sat {
         unsigned delta_time  = 0;
         unsigned core_miss = 0;
         while (!core.empty()) {
-            IF_VERBOSE(2, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
+            IF_VERBOSE(3, verbose_stream() << "(opt.mus reducing core: " << core.size() << " mus: " << mus.size() << ")\n";);
             TRACE("sat", 
                   tout << "core: " << core << "\n";
                   tout << "mus:  " << mus  << "\n";);
@@ -121,12 +122,12 @@ namespace sat {
             case l_false:
                 literal_vector const& new_core = s.get_core();
                 if (new_core.contains(~lit)) {
-                    IF_VERBOSE(2, verbose_stream() << "miss core " << lit << "\n";);
+                    IF_VERBOSE(3, verbose_stream() << "miss core " << lit << "\n";);
                     ++core_miss;
                 }
                 else {
                     core_miss = 0;
-                    TRACE("sat", tout << "new core: " << new_core << "\n";);
+                    TRACE("sat", tout << "core: " << new_core << " mus: " << mus << "\n";);
                     core.reset();
                     for (unsigned i = 0; i < new_core.size(); ++i) {
                         literal lit = new_core[i];
@@ -146,9 +147,8 @@ namespace sat {
                 delta_time = 0;
             }
         }
-        TRACE("sat", tout << "new core: " << mus << "\n";);
         set_core();
-        IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << s.m_core << ")\n";);
+        IF_VERBOSE(3, verbose_stream() << "(sat.mus.new " << s.m_core << ")\n";);
         return l_true;
     }
     
@@ -160,7 +160,7 @@ namespace sat {
         lbool is_sat = qx(core, support, false);
         s.m_core.reset();
         s.m_core.append(core.to_vector());
-        IF_VERBOSE(2, verbose_stream() << "(sat.mus.new " << s.m_core << ")\n";);
+        IF_VERBOSE(3, verbose_stream() << "(sat.mus.new " << s.m_core << ")\n";);
         return is_sat;
     }
 
@@ -269,11 +269,11 @@ namespace sat {
             if (is_sat == l_true) {
                 m_mus.push_back(tabu[i]);
                 m_core.erase(tabu[i]);
-                IF_VERBOSE(2, verbose_stream() << "in core " << tabu[i] << "\n";);
+                IF_VERBOSE(3, verbose_stream() << "in core " << tabu[i] << "\n";);
                 reuse_model = true;
             }
             else {
-                IF_VERBOSE(2, verbose_stream() << "NOT in core " << tabu[i] << "\n";);
+                IF_VERBOSE(3, verbose_stream() << "NOT in core " << tabu[i] << "\n";);
                 reuse_model = false;
             }
         }
