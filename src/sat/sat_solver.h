@@ -300,11 +300,17 @@ namespace sat {
         
         literal_vector m_min_core;
         bool           m_min_core_valid;
+        literal_vector m_blocker;
+        double         m_weight;
+        bool           m_initializing_preferred;
         void init_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
         bool init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
         void reassert_min_core();
         void update_min_core();
         void resolve_weighted();
+        void reset_assumptions();
+        void add_assumption(literal lit);
+        void pop_assumption();
         void reinit_assumptions();
         bool tracking_assumptions() const;
         bool is_assumption(literal l) const;
@@ -353,11 +359,14 @@ namespace sat {
         literal_vector m_ext_antecedents;
         bool resolve_conflict();
         bool resolve_conflict_core();
-        void resolve_conflict_for_unsat_core();
         unsigned get_max_lvl(literal consequent, justification js);
         void process_antecedent(literal antecedent, unsigned & num_marks);
+        void resolve_conflict_for_unsat_core();
         void process_antecedent_for_unsat_core(literal antecedent);
         void process_consequent_for_unsat_core(literal consequent, justification const& js);
+        bool resolve_conflict_for_init();
+        void process_antecedent_for_init(literal antecedent);
+        bool process_consequent_for_init(literal consequent, justification const& js);
         void fill_ext_antecedents(literal consequent, justification js);
         unsigned skip_literals_above_conflict_level();
         void forget_phase_of_vars(unsigned from_lvl);
