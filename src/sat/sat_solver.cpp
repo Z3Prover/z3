@@ -972,7 +972,14 @@ namespace sat {
                     }
                     // backjump to last consistent assumption:
                     unsigned j;
-                    for (j = 0; j < i && value(lits[j]) == values[j]; ++j);
+                    m_weight = 0;
+                    m_blocker.reset();
+                    for (j = 0; j < i && value(lits[j]) == values[j]; ++j) {
+                        if (values[j] == l_false) {
+                            m_weight += weights[j];
+                            m_blocker.push_back(lits[j]);
+                        }
+                    }
                     SASSERT(value(lits[j]) != values[j]);
                     SASSERT(j <= i);
                     SASSERT(j == 0 || value(lits[j-1]) == values[j-1]);
