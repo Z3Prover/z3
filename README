@@ -2,6 +2,8 @@ Z3 is a theorem prover from Microsoft Research.
 Z3 is licensed under the MIT license. 
 Z3 can be built using Visual Studio Command Prompt and make/g++.
 
+This fork of Z3 adds support for solving equations in the theory of strings.
+
 1) Building Z3 on Windows using Visual Studio Command Prompt
    
 32-bit builds, start with:
