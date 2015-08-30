@@ -33,7 +33,7 @@ namespace sat {
         m_mus.reset();
         m_model.reset();
         m_best_value = 0;
-        m_max_restarts = 10;
+        m_max_restarts = (s.m_stats.m_restart - m_restart) + 10;
         m_restart = s.m_stats.m_restart;
     }
 
@@ -59,12 +59,13 @@ namespace sat {
 
     lbool mus::operator()() {
         flet<bool> _disable_min(s.m_config.m_minimize_core, false);
-        flet<bool> _disable_min_partial(s.m_config.m_minimize_core_partial, false);
         flet<bool> _disable_opt(s.m_config.m_optimize_model, false);
         flet<bool> _is_active(m_is_active, true);
         IF_VERBOSE(3, verbose_stream() << "(sat.mus " << s.get_core() << ")\n";);
         reset();
-        return mus1();
+        lbool r = mus1();
+        m_restart = s.m_stats.m_restart;
+        return r;
     }
 
     lbool mus::mus1() {
@@ -94,6 +95,11 @@ namespace sat {
             if (num_literals <= 2) {
                 // IF_VERBOSE(0, verbose_stream() << "num literals: " << core << " " << mus << "\n";);
                 break;
+            }
+            if (s.m_config.m_minimize_core_partial && s.m_stats.m_restart - m_restart > m_max_restarts) {
+                IF_VERBOSE(1, verbose_stream() << "restart budget exceeded\n";);
+                set_core();
+                return l_true;
             }
 
             literal lit = core.back();
@@ -166,7 +172,7 @@ namespace sat {
 
     lbool mus::qx(literal_set& assignment, literal_set& support, bool has_support) {
         lbool is_sat = l_true;
-        if (s.m_stats.m_restart - m_restart > m_max_restarts) {
+        if (s.m_config.m_minimize_core_partial && s.m_stats.m_restart - m_restart > m_max_restarts) {
             IF_VERBOSE(1, verbose_stream() << "restart budget exceeded\n";);
             return l_true;
         }

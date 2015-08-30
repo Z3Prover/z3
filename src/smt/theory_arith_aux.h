@@ -1592,11 +1592,11 @@ namespace smt {
             }
 
             TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << max_gain << "\n";
-                  tout << "best efforts: " << best_efforts << "\n";
-                  display(tout););
+                  tout << "best efforts: " << best_efforts << "\n";);
             
             if (x_j == null_theory_var) {
-                TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";);
+                TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";
+                      display_row(tout, r, true););
                 SASSERT(!maintain_integrality || valid_assignment());
                 SASSERT(satisfy_bounds());
                 result = OPTIMIZED;
@@ -1772,7 +1772,7 @@ namespace smt {
         SASSERT(satisfy_bounds());
         SASSERT(!is_quasi_base(v));
         if ((max && at_upper(v)) || (!max && at_lower(v))) {
-            TRACE("opt", tout << "At bound: " << mk_pp(e, get_manager()) << "...\n";);
+            TRACE("opt", display_var(tout << "At " << (max?"max: ":"min: ") << mk_pp(e, get_manager()) << " \n", v););
             return AT_BOUND; // nothing to be done...
         }
         m_tmp_row.reset();
@@ -1796,10 +1796,10 @@ namespace smt {
             mk_bound_from_row(v, get_value(v), max ? B_UPPER : B_LOWER, m_tmp_row);            
         }
         else if (r == UNBOUNDED) {
-            TRACE("opt", tout << "unbounded: " << mk_pp(e, get_manager()) << "...\n";);
+            TRACE("opt", display_var(tout << "unbounded: " << mk_pp(e, get_manager()) << "\n", v););
         }
         else {
-            TRACE("opt", tout << "not optimized: " << mk_pp(e, get_manager()) << "...\n";);
+            TRACE("opt", display_var(tout << "not optimized: " << mk_pp(e, get_manager()) << "\n", v););
         }
         return r;
     }

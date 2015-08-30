@@ -94,6 +94,7 @@ namespace opt {
     void maxsmt_solver_base::set_mus(bool f) {
         params_ref p;
         p.set_bool("minimize_core", f);
+        // p.set_bool("minimize_core_partial", f);
         s().updt_params(p);
     }
 

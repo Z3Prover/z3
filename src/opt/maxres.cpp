@@ -93,6 +93,8 @@ private:
     expr_ref_vector  m_trail;
     strategy_t       m_st;
     rational         m_max_upper;
+    model_ref        m_csmodel;
+    unsigned         m_correction_set_size;
     bool             m_found_feasible_optimum;
     bool             m_hill_climb;             // prefer large weight soft clauses for cores
     unsigned         m_last_index;             // last index used during hill-climbing
@@ -103,6 +105,7 @@ private:
     unsigned         m_max_correction_set_size;// maximal set of correction set that is tolerated.
     bool             m_wmax;                   // Block upper bound using wmax
                                                // this option is disabled if SAT core is used.
+    bool             m_pivot_on_cs;            // prefer smaller correction set to core.
     bool             m_dump_benchmarks;        // display benchmarks (into wcnf format)
 
     std::string      m_trace_id;
@@ -118,6 +121,7 @@ public:
         m_mss(c.get_solver(), m),
         m_trail(m),
         m_st(st),
+        m_correction_set_size(0),
         m_found_feasible_optimum(false),
         m_hill_climb(true),
         m_last_index(0),
@@ -125,7 +129,8 @@ public:
         m_max_num_cores(UINT_MAX),
         m_max_core_size(3),
         m_maximize_assignment(false),
-        m_max_correction_set_size(3)
+        m_max_correction_set_size(3),
+        m_pivot_on_cs(true)
     {
         switch(st) {
         case s_primal:
@@ -203,7 +208,12 @@ public:
                 return l_true;
             case l_false:
                 is_sat = process_unsat();
-                if (is_sat != l_true) return is_sat;
+                if (is_sat == l_false) {
+                    m_lower = m_upper;
+                }
+                if (is_sat == l_undef) {
+                    return is_sat;                        
+                }
                 break;
             case l_undef:
                 return l_undef;
@@ -386,7 +396,6 @@ public:
     }
 
     void get_current_correction_set(model* mdl, exprs& cs) {
-        ++m_stats.m_num_cs;
         cs.reset();
         if (!mdl) return;
         for (unsigned i = 0; i < m_asms.size(); ++i) {
@@ -428,12 +437,15 @@ public:
     }
 
     void process_sat(exprs const& corr_set) {
+        ++m_stats.m_num_cs;
         expr_ref fml(m), tmp(m);
         TRACE("opt", display_vec(tout << "corr_set: ", corr_set););
         remove_core(corr_set);
         rational w = split_core(corr_set);
         cs_max_resolve(corr_set, w);       
         IF_VERBOSE(2, verbose_stream() << "(opt.maxres.correction-set " << corr_set.size() << ")\n";);
+        m_csmodel = 0;
+        m_correction_set_size = 0;
     }
 
     lbool process_unsat() {
@@ -464,8 +476,19 @@ public:
             process_unsat(cores[i]);
         }
     }
+
+    void update_model(expr* def, expr* value) {
+        SASSERT(is_uninterp_const(def));        
+        if (m_csmodel) {
+            expr_ref val(m);
+            SASSERT(m_csmodel.get());
+            VERIFY(m_csmodel->eval(value, val));
+            m_csmodel->register_decl(to_app(def)->get_decl(), val);
+        }
+    }
     
     void process_unsat(exprs const& core) {
+        IF_VERBOSE(3, verbose_stream() << "(maxres cs model valid: " << (m_csmodel.get() != 0) << " cs size:" << m_correction_set_size << " core: " << core.size() << ")\n";);
         expr_ref fml(m);
         remove_core(core);
         SASSERT(!core.empty());
@@ -479,7 +502,20 @@ public:
         if (m_st == s_primal_dual) {
             m_lower = std::min(m_lower, m_upper);
         }
+        if (m_csmodel.get() && m_correction_set_size > 0) {
+            // this estimate can overshoot for weighted soft constraints. 
+            --m_correction_set_size;
+        }
         trace();
+        if (m_pivot_on_cs && m_csmodel.get() && m_correction_set_size < core.size()) {
+            exprs cs;
+            get_current_correction_set(m_csmodel.get(), cs);
+            m_correction_set_size = cs.size();
+            if (m_correction_set_size < core.size()) {
+                process_sat(cs);
+                return;
+            }
+        }
     }
 
     bool get_mus_model(model_ref& mdl) {
@@ -601,11 +637,14 @@ public:
                 fml = m.mk_implies(dd, b_i);
                 s().assert_expr(fml);
                 m_defs.push_back(fml);
+                fml = m.mk_and(d, b_i);
+                update_model(dd, fml);
                 d = dd;
             }
             asum = mk_fresh_bool("a");
             cls = m.mk_or(b_i1, d);
             fml = m.mk_implies(asum, cls);
+            update_model(asum, cls);
             new_assumption(asum, w);
             s().assert_expr(fml);
             m_defs.push_back(fml);
@@ -638,8 +677,10 @@ public:
             if (i > 2) {
                 d = mk_fresh_bool("d");
                 fml = m.mk_implies(d, cls);
+                update_model(d, cls);
                 s().assert_expr(fml);
                 m_defs.push_back(fml);
+                
             }
             else {
                 d = cls;
@@ -652,12 +693,25 @@ public:
             s().assert_expr(fml);
             m_defs.push_back(fml);
             new_assumption(asum, w);
+            fml = m.mk_and(b_i1, cls);
+            update_model(asum, fml);
         }
         fml = m.mk_or(m_B.size(), m_B.c_ptr());
         s().assert_expr(fml);
     }
 
     void update_assignment(model* mdl) {
+        unsigned correction_set_size = 0;
+        for (unsigned i = 0; i < m_asms.size(); ++i) {
+            if (is_false(mdl, m_asms[i].get())) {
+                ++correction_set_size;
+            }
+        }
+        if (!m_csmodel.get() || correction_set_size < m_correction_set_size) {
+            m_csmodel = mdl;
+            m_correction_set_size = correction_set_size;
+        }
+
         rational upper(0);
         expr_ref tmp(m);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -665,16 +719,18 @@ public:
                 upper += m_weights[i];
             }
         }
+
         if (upper >= m_upper) {
             return;
         }
         m_model = mdl;
-
+        
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i]);
         }
-        m_upper = upper;
         DEBUG_CODE(verify_assignment(););
+
+        m_upper = upper;
         trace();
 
         add_upper_bound_block();
@@ -744,6 +800,7 @@ public:
         m_max_core_size = _p.maxres_max_core_size();
         m_maximize_assignment = _p.maxres_maximize_assignment();
         m_max_correction_set_size = _p.maxres_max_correction_set_size();
+        m_pivot_on_cs = _p.maxres_pivot_on_correction_set();
         m_wmax = _p.maxres_wmax();
         m_dump_benchmarks = _p.dump_benchmarks();
     }
@@ -759,6 +816,8 @@ public:
         m_found_feasible_optimum = false;
         m_last_index = 0;
         add_upper_bound_block();
+        m_csmodel = 0;
+        m_correction_set_size = 0;
     }
 
     virtual void commit_assignment() {

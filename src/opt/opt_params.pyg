@@ -18,7 +18,8 @@ def_module_params('opt',
                           ('maxres.max_core_size', UINT, 3, 'break batch of generated cores if size reaches this number'),
                           ('maxres.maximize_assignment', BOOL, False, 'find an MSS/MCS to improve current assignment'), 
                           ('maxres.max_correction_set_size', UINT, 3, 'allow generating correction set constraints up to maximal size'),
-                          ('maxres.wmax', BOOL, False, 'use weighted theory solver to constrain upper bounds')
+                          ('maxres.wmax', BOOL, False, 'use weighted theory solver to constrain upper bounds'),
+                          ('maxres.pivot_on_correction_set', BOOL, True, 'prefer reducing soft constraints if the current correction set is smaller than current core')
 
                           ))
 
