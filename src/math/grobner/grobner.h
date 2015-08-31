@@ -110,6 +110,7 @@ protected:
     };
     svector<scope>          m_scopes;
     ptr_vector<monomial>    m_tmp_monomials;
+    ptr_vector<monomial>    m_del_monomials;
     ptr_vector<expr>        m_tmp_vars1;
     ptr_vector<expr>        m_tmp_vars2;
     unsigned                m_num_new_equations; // temporary variable
