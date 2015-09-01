@@ -60,6 +60,7 @@ public:
     void operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external = false);
 
     void set_cancel(bool f);
+
 };
 
 

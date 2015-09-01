@@ -39,6 +39,7 @@ protected:
     ast_manager &    m_manager;
     expr2var_mapping m_mapping;
     ptr_vector<expr> m_recent_exprs;
+    unsigned_vector  m_recent_lim;
     bool             m_interpreted_vars;
 public:
     expr2var(ast_manager & m);
@@ -62,7 +63,7 @@ public:
     iterator begin() const { return m_mapping.begin(); }
     iterator end() const { return m_mapping.end(); }
 
-    void reset_recent() { m_recent_exprs.reset(); }
+    void reset_recent() { SASSERT(m_recent_lim.empty()); m_recent_exprs.reset(); }
 
     // Iterators for traversing the recently registered expressions.
     // The set of recent registered expressions is reset by using reset_recent().
@@ -70,6 +71,9 @@ public:
     recent_iterator end_recent() const { return m_recent_exprs.end(); }
     
     void reset();
+
+    void push();
+    void pop(unsigned num_scopes);
 };
 
 #endif

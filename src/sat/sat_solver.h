@@ -183,6 +183,9 @@ namespace sat {
     protected:
         void del_clause(clause & c);
         clause * mk_clause_core(unsigned num_lits, literal * lits, bool learned);
+        void mk_clause_core(literal_vector const& lits) { mk_clause_core(lits.size(), lits.c_ptr()); }
+        void mk_clause_core(unsigned num_lits, literal * lits) { mk_clause_core(num_lits, lits, false); }
+        void mk_clause_core(literal l1, literal l2) { literal lits[2] = { l1, l2 }; mk_clause_core(2, lits); }
         void mk_bin_clause(literal l1, literal l2, bool learned);
         bool propagate_bin_clause(literal l1, literal l2);
         clause * mk_ter_clause(literal * lits, bool learned);
@@ -400,11 +403,14 @@ namespace sat {
         void reinit_clauses(unsigned old_sz);
 
         literal_vector m_user_scope_literals;
-        literal_vector m_user_scope_literal_pool;
         literal_vector m_aux_literals;
         svector<bin_clause> m_user_bin_clauses;
         void gc_lit(clause_vector& clauses, literal lit);
         void gc_bin(bool learned, literal nlit);
+        void gc_var(bool_var v);
+        bool_var max_var(clause_vector& clauses, bool_var v);
+        bool_var max_var(bool learned, bool_var v);
+
     public:
         void user_push();
         void user_pop(unsigned num_scopes);

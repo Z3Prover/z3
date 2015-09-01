@@ -36,6 +36,8 @@ public:
     void cleanup();
     obj_map<func_decl, expr*> const& const2bits() const; 
     void operator()(expr * e, expr_ref & result, proof_ref & result_proof);
+    void push();
+    void pop(unsigned num_scopes);
 };
 
 #endif

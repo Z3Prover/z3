@@ -31,6 +31,7 @@ Notes:
 #include "ast_pp.h"
 #include "model_smt2_pp.h"
 #include "filter_model_converter.h"
+#include "bit_blaster_model_converter.h"
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
@@ -48,7 +49,8 @@ class inc_sat_solver : public solver {
     expr_ref_vector     m_core;
     atom2bool_var       m_map;
     model_ref           m_model;
-    model_converter_ref m_mc;   
+    model_converter_ref m_mc;  
+    bit_blaster_rewriter m_bb_rewriter; 
     tactic_ref          m_preprocess;
     unsigned            m_num_scopes;
     sat::literal_vector m_asms;
@@ -67,6 +69,7 @@ public:
         m_asmsf(m),
         m_fmls_head(0),
         m_core(m), 
+        m_bb_rewriter(m, p),
         m_map(m),
         m_num_scopes(0), 
         m_dep_core(m) {
@@ -84,7 +87,7 @@ public:
             and_then(mk_card2bv_tactic(m, m_params),
                      using_params(mk_simplify_tactic(m), simp2_p),
                      mk_max_bv_sharing_tactic(m),
-                     mk_bit_blaster_tactic(m), 
+                     mk_bit_blaster_tactic(m, &m_bb_rewriter), 
                      mk_aig_tactic(),
                      using_params(mk_simplify_tactic(m), simp2_p));               
     }
@@ -157,11 +160,15 @@ public:
         m_fmls_lim.push_back(m_fmls.size());
         m_asms_lim.push_back(m_asmsf.size());
         m_fmls_head_lim.push_back(m_fmls_head);
+        m_bb_rewriter.push();
+        m_map.push();
     }
     virtual void pop(unsigned n) {
         if (n < m_num_scopes) {   // allow inc_sat_solver to 
             n = m_num_scopes;     // take over for another solver.
         }
+        m_bb_rewriter.pop(n);
+        m_map.pop(n);
         SASSERT(n >= m_num_scopes);
         m_solver.user_pop(n);        
         m_num_scopes -= n;
@@ -258,11 +265,11 @@ private:
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
             return l_undef;                    
         }
-        m_mc = concat(m_mc.get(), m_mc2.get());
         if (m_subgoals.size() != 1) {
             IF_VERBOSE(0, verbose_stream() << "size of subgoals is not 1, it is: " << m_subgoals.size() << "\n";);
             return l_undef;
         }
+        CTRACE("sat", m_mc.get(), m_mc->display(tout); );
         g = m_subgoals[0];
         TRACE("sat", g->display_with_dependencies(tout););
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
@@ -384,8 +391,12 @@ private:
             }
         }
         m_model = md;
-        if (m_mc) {
-            (*m_mc)(m_model);
+        if (m_mc || !m_bb_rewriter.const2bits().empty()) {
+            model_converter_ref mc = m_mc;
+            if (!m_bb_rewriter.const2bits().empty()) {
+                mc = concat(mc.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter.const2bits())); 
+            }
+            (*mc)(m_model);
         }
         SASSERT(m_model);
 

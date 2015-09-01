@@ -105,14 +105,14 @@ struct goal2sat::imp {
     }
 
     sat::bool_var mk_true() {
-        // create fake variable to represent true;
         if (m_true == sat::null_bool_var) {
+            // create fake variable to represent true;
             m_true = m_solver.mk_var();
             mk_clause(sat::literal(m_true, false)); // v is true
         }
         return m_true;
     }
-    
+
     void convert_atom(expr * t, bool root, bool sign) {
         SASSERT(m.is_bool(t));
         sat::literal  l;
@@ -514,6 +514,7 @@ void goal2sat::set_cancel(bool f) {
             m_imp->set_cancel(f);
     }
 }
+
 
 struct sat2goal::imp {
 

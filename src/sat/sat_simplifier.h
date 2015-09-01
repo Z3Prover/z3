@@ -173,6 +173,7 @@ namespace sat {
         ~simplifier();
 
         void insert_todo(bool_var v) { m_elim_todo.insert(v); }
+        void reset_todo() { m_elim_todo.reset(); }
 
         void operator()(bool learned);
 

@@ -25,13 +25,16 @@ Notes:
 
 class bit_blaster_tactic : public tactic {
 
-    struct imp {
-        bit_blaster_rewriter  m_rewriter;
-        unsigned              m_num_steps;
-        bool                  m_blast_quant;
 
-        imp(ast_manager & m, params_ref const & p):
-            m_rewriter(m, p) {
+    struct imp {
+        bit_blaster_rewriter   m_base_rewriter;
+        bit_blaster_rewriter*  m_rewriter;    
+        unsigned               m_num_steps;
+        bool                   m_blast_quant;
+
+        imp(ast_manager & m, bit_blaster_rewriter* rw, params_ref const & p):
+            m_base_rewriter(m, p),
+            m_rewriter(rw?rw:&m_base_rewriter) {
             updt_params(p);
         }
 
@@ -40,14 +43,14 @@ class bit_blaster_tactic : public tactic {
         }
 
         void updt_params(params_ref const & p) {
-            m_rewriter.updt_params(p);
+            m_rewriter->updt_params(p);
             updt_params_core(p);
         }
         
-        ast_manager & m() const { return m_rewriter.m(); }
+        ast_manager & m() const { return m_rewriter->m(); }
         
         void set_cancel(bool f) {
-            m_rewriter.set_cancel(f);
+            m_rewriter->set_cancel(f);
         }
 
         void operator()(goal_ref const & g, 
@@ -74,8 +77,8 @@ class bit_blaster_tactic : public tactic {
                 if (g->inconsistent())
                     break;
                 expr * curr = g->form(idx);
-                m_rewriter(curr, new_curr, new_pr);
-                m_num_steps += m_rewriter.get_num_steps();
+                (*m_rewriter)(curr, new_curr, new_pr);
+                m_num_steps += m_rewriter->get_num_steps();
                 if (proofs_enabled) {
                     proof * pr = g->pr(idx);
                     new_pr     = m().mk_modus_ponens(pr, new_pr);
@@ -88,29 +91,32 @@ class bit_blaster_tactic : public tactic {
             }
             
             if (change && g->models_enabled())  
-                mc = mk_bit_blaster_model_converter(m(), m_rewriter.const2bits());
+                mc = mk_bit_blaster_model_converter(m(), m_rewriter->const2bits());
             else
                 mc = 0;
             g->inc_depth();
             result.push_back(g.get());
             TRACE("after_bit_blaster", g->display(tout); if (mc) mc->display(tout); tout << "\n";);
-            m_rewriter.cleanup();
+            m_rewriter->cleanup();
         }
         
         unsigned get_num_steps() const { return m_num_steps; }
     };
-    
+
     imp *      m_imp;
+    bit_blaster_rewriter* m_rewriter;
     params_ref m_params;
 
 public:
-    bit_blaster_tactic(ast_manager & m, params_ref const & p):
-        m_params(p){
-        m_imp = alloc(imp, m, p);
+    bit_blaster_tactic(ast_manager & m, bit_blaster_rewriter* rw, params_ref const & p):
+        m_rewriter(rw),
+        m_params(p) {
+        m_imp = alloc(imp, m, m_rewriter, p);
     }
 
     virtual tactic * translate(ast_manager & m) {
-        return alloc(bit_blaster_tactic, m, m_params);
+        SASSERT(!m_rewriter); // assume translation isn't used where rewriter is external.
+        return alloc(bit_blaster_tactic, m, 0, m_params); 
     }
 
     virtual ~bit_blaster_tactic() {
@@ -145,7 +151,7 @@ public:
     }
 
     virtual void cleanup() {
-        imp * d = alloc(imp, m_imp->m(), m_params);
+        imp * d = alloc(imp, m_imp->m(), m_rewriter, m_params);
         #pragma omp critical (tactic_cancel)
         {
             std::swap(d, m_imp);
@@ -166,5 +172,9 @@ protected:
 
 
 tactic * mk_bit_blaster_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(bit_blaster_tactic, m, p));
+    return clean(alloc(bit_blaster_tactic, m, 0, p));
+}
+
+tactic * mk_bit_blaster_tactic(ast_manager & m, bit_blaster_rewriter* rw, params_ref const & p) {
+    return clean(alloc(bit_blaster_tactic, m, rw, p));
 }

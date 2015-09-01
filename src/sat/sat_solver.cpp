@@ -97,7 +97,7 @@ namespace sat {
                     if (!it2->is_binary_non_learned_clause())
                         continue;
                     literal l2 = it2->get_literal();
-                    mk_clause(l, l2);
+                    mk_clause_core(l, l2);
                 }
             }
         }
@@ -111,7 +111,7 @@ namespace sat {
                 buffer.reset();
                 for (unsigned i = 0; i < c.size(); i++)
                     buffer.push_back(c[i]);
-                mk_clause(buffer);
+                mk_clause_core(buffer);
             }
         }
     }
@@ -553,7 +553,7 @@ namespace sat {
             m_cleaner.dec();
             SASSERT(!m_inconsistent);
             l = m_trail[m_qhead];
-            TRACE("sat_propagate", tout << "propagating: " << l << "\n";);
+            TRACE("sat_propagate", tout << "propagating: " << l << " " << m_justification[l.var()] << "\n";);
             m_qhead++;
             not_l = ~l;
             SASSERT(value(l) == l_true);
@@ -881,7 +881,7 @@ namespace sat {
 
     bool solver::check_inconsistent() {
         if (inconsistent()) {
-            if (tracking_assumptions()) 
+            if (tracking_assumptions() || !m_user_scope_literals.empty()) 
                 resolve_conflict();
             return true;
         }
@@ -919,7 +919,7 @@ namespace sat {
             assign(nlit, justification());                   
         }
 
-        if (weights) {
+        if (weights && !inconsistent()) {
             if (m_config.m_optimize_model) {
                 m_wsls.set_soft(num_lits, lits, weights);
             }
@@ -1033,7 +1033,7 @@ namespace sat {
             TRACE("opt", tout << "blocking soft correction set: " << m_blocker << "\n";); 
             IF_VERBOSE(11, verbose_stream() << "blocking " << m_blocker << "\n";);
             pop_to_base_level();
-            mk_clause(m_blocker);
+            mk_clause_core(m_blocker);
             return false;
         }
         return true;
@@ -1094,7 +1094,7 @@ namespace sat {
     }
 
     bool solver::tracking_assumptions() const {
-        return !m_assumptions.empty();
+        return !m_assumptions.empty() || !m_user_scope_literals.empty();
     }
 
     bool solver::is_assumption(literal l) const {
@@ -1648,6 +1648,7 @@ namespace sat {
             resolve_conflict_for_unsat_core();
             return false;
         }
+        
         if (m_conflict_lvl == 0) {
             return false;
         }
@@ -2568,16 +2569,10 @@ namespace sat {
 
     void solver::user_push() {
         literal lit;
-        if (m_user_scope_literal_pool.empty()) {
-            bool_var new_v = mk_var(true, false);
-            lit = literal(new_v, false);
-        }
-        else {
-            lit = m_user_scope_literal_pool.back();
-            m_user_scope_literal_pool.pop_back();
-        }
-        TRACE("sat", tout << "user_push: " << lit << "\n";);
+        bool_var new_v = mk_var(true, false);
+        lit = literal(new_v, false);
         m_user_scope_literals.push_back(lit);
+        TRACE("sat", tout << "user_push: " << lit << "\n";);
     }
 
     void solver::gc_lit(clause_vector &clauses, literal lit) {
@@ -2608,11 +2603,69 @@ namespace sat {
         }
     }
 
+    bool_var solver::max_var(bool learned, bool_var v) {
+        m_user_bin_clauses.reset();
+        collect_bin_clauses(m_user_bin_clauses, learned);
+        for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
+            literal l1 = m_user_bin_clauses[i].first;
+            literal l2 = m_user_bin_clauses[i].second;
+            if (l1.var() > v) v = l1.var();
+            if (l2.var() > v) v = l2.var();
+        }
+        return v;
+    }
+
+    bool_var solver::max_var(clause_vector& clauses, bool_var v) {
+        for (unsigned i = 0; i < clauses.size(); ++i) {
+            clause & c = *(clauses[i]);
+            literal* it = c.begin();
+            literal * end = c.end();
+            for (; it != end; ++it) {
+                if (it->var() > v) {
+                    v = it->var();
+                }
+            }
+        }
+        return v;
+    }
+
+    void solver::gc_var(bool_var v) {
+        if (v > 0) {
+            bool_var w = max_var(m_learned, v-1);
+            w = max_var(m_clauses, w);
+            w = max_var(true, w);
+            w = max_var(false, w);
+            for (unsigned i = 0; i < m_trail.size(); ++i) {
+                if (m_trail[i].var() > w) w = m_trail[i].var();
+            }
+            v = std::max(v, w + 1);
+        }
+        // v is an index of a variable that does not occur in solver state.
+        if (v < m_level.size()) {
+            for (bool_var i = v; i < m_level.size(); ++i) {
+                m_case_split_queue.del_var_eh(i);
+            }
+            m_watches.shrink(2*v);
+            m_assignment.shrink(2*v);
+            m_justification.shrink(v);
+            m_decision.shrink(v);
+            m_eliminated.shrink(v);
+            m_external.shrink(v);
+            m_activity.shrink(v);
+            m_level.shrink(v);
+            m_mark.shrink(v);
+            m_lit_mark.shrink(2*v);
+            m_phase.shrink(v);
+            m_prev_phase.shrink(v);
+            m_assigned_since_gc.shrink(v);
+            m_simplifier.reset_todo();
+        }
+    }
+
     void solver::user_pop(unsigned num_scopes) {
         pop_to_base_level();
         while (num_scopes > 0) {
             literal lit = m_user_scope_literals.back();
-            m_user_scope_literal_pool.push_back(lit);   
             m_user_scope_literals.pop_back();
             gc_lit(m_learned, lit);
             gc_lit(m_clauses, lit);
@@ -2620,6 +2673,14 @@ namespace sat {
             gc_bin(false, lit);
             TRACE("sat", tout << "gc: " << lit << "\n"; display(tout););
             --num_scopes;
+            for (unsigned i = 0; i < m_trail.size(); ++i) {
+                if (m_trail[i] == lit) {
+                    TRACE("sat", tout << m_trail << "\n";);
+                    unassign_vars(i);
+                    break;
+                }
+            }            
+            gc_var(lit.var());
         }
     }
 
