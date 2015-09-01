@@ -881,7 +881,7 @@ namespace sat {
 
     bool solver::check_inconsistent() {
         if (inconsistent()) {
-            if (tracking_assumptions() || !m_user_scope_literals.empty()) 
+            if (tracking_assumptions())
                 resolve_conflict();
             return true;
         }
