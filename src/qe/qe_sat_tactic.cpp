@@ -67,6 +67,7 @@ namespace qe {
         bool                    m_ctx_simplify_local_param;
         vector<app_ref_vector>  m_vars;
         ptr_vector<smt::kernel> m_solvers;
+        vector<smt_params>      m_fparamv;
         smt::kernel             m_solver;
         expr_ref                m_fml;
         expr_ref_vector         m_Ms;
@@ -229,9 +230,7 @@ namespace qe {
         }
 
         virtual ~sat_tactic() {
-            for (unsigned i = 0; i < m_solvers.size(); ++i) {
-                dealloc(m_solvers[i]);
-            }
+            reset();
         }
 
         virtual void set_cancel(bool f) { 
@@ -323,12 +322,12 @@ namespace qe {
         unsigned num_alternations() const { return m_vars.size(); }
             
         void init_Ms() {
-            for (unsigned i = 0; i < num_alternations(); ++i) {
+            for (unsigned i = 0; i <= num_alternations(); ++i) {
                 m_Ms.push_back(m.mk_true());
-                m_solvers.push_back(alloc(smt::kernel, m, m_fparams, m_params));
+                m_fparamv.push_back(m_fparams);
+                m_solvers.push_back(alloc(smt::kernel, m, m_fparamv.back(), m_params));
             }
-            m_Ms.push_back(m_fml);
-            m_solvers.push_back(alloc(smt::kernel, m, m_fparams, m_params));   
+            m_Ms[m_Ms.size()-1] = m_fml;
             m_solvers.back()->assert_expr(m_fml);
         }
 
@@ -339,8 +338,13 @@ namespace qe {
         smt::kernel& solver(unsigned i) { return *m_solvers[i]; }
 
         void reset() {
+            for (unsigned i = 0; i < m_solvers.size(); ++i) {
+                dealloc(m_solvers[i]);
+            }
             m_fml = 0;
             m_Ms.reset();
+            m_fparamv.reset();
+            m_solvers.reset();
             m_vars.reset();
         }
 
@@ -359,7 +363,7 @@ namespace qe {
         void extract_alt_form(expr* fml) {
             quantifier_hoister hoist(m);
             expr_ref result(m);
-            bool is_fa;   
+            bool is_fa = false;   
             unsigned parity = 0;
             m_fml = fml;
             while (true) {
@@ -638,7 +642,8 @@ namespace qe {
                 TRACE("qe", tout << mk_pp(_fml, m) << "\n-- context simplify -->\n" << mk_pp(fml, m) << "\n";);
             }
             solver_context ctx(*this, idx);            
-            ctx.add_plugin(mk_arith_plugin(ctx, false, m_fparams));
+            smt_params fparams(m_fparams);            
+            ctx.add_plugin(mk_arith_plugin(ctx, false, fparams));
             ctx.add_plugin(mk_bool_plugin(ctx));
             ctx.add_plugin(mk_bv_plugin(ctx));
             ctx.init(fml, idx);
