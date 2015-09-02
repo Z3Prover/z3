@@ -33,8 +33,6 @@ void mem_finalize();
 out_of_memory_error::out_of_memory_error():z3_error(ERR_MEMOUT) {
 }
 
-exceeded_memory_allocations::exceeded_memory_allocations():z3_error(ERR_ALLOC_EXCEEDED) {
-}
 
 static volatile bool g_memory_out_of_memory  = false;
 static bool       g_memory_initialized       = false;
@@ -69,13 +67,8 @@ static void throw_out_of_memory() {
 }
 
 static void throw_alloc_counts_exceeded() {
-    #pragma omp critical (z3_memory_manager) 
-    {
-        // reset the count to avoid re-throwing while
-        // the exception is being thrown.
-        g_memory_alloc_count = 0;
-    }
-    throw exceeded_memory_allocations();
+    std::cout << "Maximal allocation counts " << g_memory_max_alloc_count << " have been exceeded\n";
+    exit(ERR_ALLOC_EXCEEDED);
 }
 
 

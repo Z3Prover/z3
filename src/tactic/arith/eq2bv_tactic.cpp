@@ -258,11 +258,21 @@ public:
         }
     }
 
+    bool is_var_const_pair(expr* e, expr* c, unsigned& k) {
+        rational r;
+        if (is_uninterp_const(e) && a.is_numeral(c, r) && r.is_unsigned() && !m_nonfd.is_marked(e)) {
+            k = r.get_unsigned();
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
     bool is_upper(expr* f) {
         expr* e1, *e2;
-        rational r;
-        if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && 
-            is_uninterp_const(e1) && a.is_numeral(e2, r) && r.is_unsigned() && !m_nonfd.is_marked(e1)) {
+        unsigned k;
+        if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && is_var_const_pair(e1, e2, k)) {
             SASSERT(m_bounds.has_upper(e1));
             return true;
         } 
@@ -271,9 +281,8 @@ public:
 
     bool is_lower(expr* f) {
         expr* e1, *e2;
-        rational r;
-        if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && 
-            is_uninterp_const(e2) && a.is_numeral(e1, r) && r.is_unsigned() && !m_nonfd.is_marked(e2)) {
+        unsigned k;
+        if ((a.is_le(f, e1, e2) || a.is_ge(f, e2, e1)) && is_var_const_pair(e2, e1, k)) {
             SASSERT(m_bounds.has_lower(e2));
             return true;
         } 
@@ -283,7 +292,6 @@ public:
     bool is_bound(expr* f) {
         return is_lower(f) || is_upper(f);
     }
-
 
     void collect_fd(expr* f) {
         if (is_bound(f)) return;
