@@ -98,6 +98,12 @@ void tst_smt2print_parse() {
 
     test_parseprint(spec5);
 
+    // Test strings
+    char const* spec6 =
+        "(assert (= \"abc\" \"abc\"))";
+
+    test_parseprint(spec6);
+
     // Test ?     
 
 }
