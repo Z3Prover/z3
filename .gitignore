@@ -74,3 +74,6 @@ src/api/ml/z3.mllib
 *.bak
 doc/api
 doc/code
+# reference code for z3str2
+Z3-str/**
+
