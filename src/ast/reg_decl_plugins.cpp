@@ -25,6 +25,7 @@ Revision History:
 #include"dl_decl_plugin.h"
 #include"seq_decl_plugin.h"
 #include"fpa_decl_plugin.h"
+#include"str_decl_plugin.h"
 
 void reg_decl_plugins(ast_manager & m) {
     if (!m.get_plugin(m.mk_family_id(symbol("arith")))) {
@@ -47,5 +48,8 @@ void reg_decl_plugins(ast_manager & m) {
     }
     if (!m.get_plugin(m.mk_family_id(symbol("fpa")))) {
         m.register_plugin(symbol("fpa"), alloc(fpa_decl_plugin));
+    }
+    if (!m.get_plugin(m.mk_family_id(symbol("str")))) {
+        m.register_plugin(symbol("str"), alloc(str_decl_plugin));
     }
 }

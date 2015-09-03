@@ -75,5 +75,6 @@ src/api/ml/z3.mllib
 doc/api
 doc/code
 # reference code for z3str2
+Z3-str
 Z3-str/**
 

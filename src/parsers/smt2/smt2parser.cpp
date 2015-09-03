@@ -22,6 +22,7 @@ Revision History:
 #include"datatype_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"arith_decl_plugin.h"
+#include"str_decl_plugin.h"
 #include"ast_pp.h"
 #include"well_sorted.h"
 #include"pattern_validation.h"
@@ -64,6 +65,7 @@ namespace smt2 {
 
         scoped_ptr<bv_util>               m_bv_util;
         scoped_ptr<arith_util>            m_arith_util;
+        scoped_ptr<str_util>              m_str_util;
         scoped_ptr<pattern_validator>     m_pattern_validator;
         scoped_ptr<var_shifter>           m_var_shifter;
 
@@ -270,6 +272,12 @@ namespace smt2 {
             if (m_bv_util.get() == 0)
                 m_bv_util = alloc(bv_util, m());
             return *(m_bv_util.get());
+        }
+
+        str_util & strutil() {
+            if (m_str_util.get() == 0)
+                m_str_util = alloc(str_util, m());
+            return *(m_str_util.get());
         }
 
         pattern_validator & pat_validator() {
@@ -1054,6 +1062,13 @@ namespace smt2 {
             next();
         }
 
+        void parse_string() {
+            SASSERT(curr() == scanner::STRING_TOKEN);
+            TRACE("parse_string", tout << "new string constant: " << m_scanner.get_string() << "\n";);
+            expr_stack().push_back(strutil().mk_string(m_scanner.get_string()));
+            next();
+        }
+
         void push_pattern_frame() {
             // TODO: It seems the only reliable way to parse patterns is:
             // Parse as an S-Expr, then try to convert it to an useful pattern.
@@ -1712,6 +1727,9 @@ namespace smt2 {
                             break;
                         case scanner::BV_TOKEN:
                             parse_bv_numeral();
+                            break;
+                        case scanner::STRING_TOKEN:
+                            parse_string();
                             break;
                         case scanner::LEFT_PAREN:
                             push_expr_frame(m_num_expr_frames == 0 ? 0 : static_cast<expr_frame*>(m_stack.top()));
