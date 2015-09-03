@@ -74,6 +74,11 @@ bool str_recognizers::is_string(expr const * n, const char ** val) const {
     return true;
 }
 
+bool str_recognizers::is_string(expr const * n) const {
+    const char * tmp = 0;
+    return is_string(n, & tmp);
+}
+
 str_util::str_util(ast_manager &m) :
     str_recognizers(m.mk_family_id(symbol("str"))),
     m_manager(m) {

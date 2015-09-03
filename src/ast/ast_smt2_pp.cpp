@@ -298,6 +298,18 @@ format * smt2_pp_environment::mk_float(rational const & val) const {
     return mk_string(get_manager(), s.c_str());
 }
 
+format * smt2_pp_environment::pp_str_literal(app * t) {
+    TRACE("parse_string", tout << "pp_str_literal\n";);
+    str_util & u = get_strutil();
+    SASSERT(u.is_string(t));
+    const char * val;
+    u.is_string(t, &val);
+    ast_manager & m = get_manager();
+    string_buffer<> buf;
+    buf << "\"" << val << "\"";
+    return mk_string(m, buf.c_str());
+}
+
 format * smt2_pp_environment::pp_arith_literal(app * t, bool decimal, unsigned decimal_prec) {
     arith_util & u = get_autil();
     SASSERT(u.is_numeral(t) || u.is_irrational_algebraic_numeral(t));
@@ -580,6 +592,9 @@ class smt2_printer {
         }
         else if (m_env.get_dlutil().is_numeral(c)) {
             f = m_env.pp_datalog_literal(c);
+        }
+        else if (m_env.get_strutil().is_string(c)) {
+            f = m_env.pp_str_literal(c);
         }
         else {
             buffer<symbol> names;

@@ -57,6 +57,7 @@ public:
     family_id get_family_id() const { return get_fid(); }
 
     bool is_string(expr const * n, const char ** val) const;
+    bool is_string(expr const * n) const;
     // TODO
 };
 
