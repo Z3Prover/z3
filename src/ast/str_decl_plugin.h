@@ -55,6 +55,8 @@ public:
     str_recognizers(family_id fid):m_afid(fid) {}
     family_id get_fid() const { return m_afid; }
     family_id get_family_id() const { return get_fid(); }
+
+    bool is_string(expr const * n, const char ** val) const;
     // TODO
 };
 

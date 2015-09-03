@@ -24,6 +24,7 @@ Revision History:
 #include"ast_smt_pp.h"
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
+#include"str_decl_plugin.h"
 #include"array_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"vector.h"
@@ -160,8 +161,10 @@ class smt_printer {
     unsigned         m_num_lets;
     arith_util       m_autil;
     bv_util          m_bvutil;
+    str_util         m_strutil;
     family_id        m_basic_fid;
     family_id        m_bv_fid;
+    family_id        m_str_fid;
     family_id        m_arith_fid;
     family_id        m_array_fid;
     family_id        m_dt_fid;
@@ -394,6 +397,7 @@ class smt_printer {
 
     void visit_app(app* n) {
         rational val;
+        const char *str;
         bool is_int, pos;
         buffer<symbol> names;
         unsigned bv_size;
@@ -435,6 +439,9 @@ class smt_printer {
                 pp_marked_expr(n->get_arg(0));
                 m_out << ") bv1[1])";
             }
+        }
+        else if (m_strutil.is_string(n, &str)) {
+            m_out << "\"" << str << "\"";
         }
         else if (m_manager.is_label(n, pos, names) && names.size() >= 1) {
             if (m_is_smt2) {
@@ -797,6 +804,7 @@ public:
         m_num_lets(0),
         m_autil(m),
         m_bvutil(m),
+        m_strutil(m),
         m_logic(logic),
         m_AUFLIRA("AUFLIRA"),
         // It's much easier to read those testcases with that.
@@ -809,6 +817,7 @@ public:
         m_bv_fid    = m.mk_family_id("bv");
         m_arith_fid = m.mk_family_id("arith");
         m_array_fid = m.mk_family_id("array");
+        m_str_fid   = m.mk_family_id("str");
         m_dt_fid    = m.mk_family_id("datatype");
     }
     

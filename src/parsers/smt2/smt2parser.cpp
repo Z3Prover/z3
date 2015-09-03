@@ -1064,8 +1064,13 @@ namespace smt2 {
 
         void parse_string() {
             SASSERT(curr() == scanner::STRING_TOKEN);
-            TRACE("parse_string", tout << "new string constant: " << m_scanner.get_string() << "\n";);
-            expr_stack().push_back(strutil().mk_string(m_scanner.get_string()));
+            char const *original_token = m_scanner.get_string();
+            size_t bufsize = strlen(original_token);
+            char * buf = alloc_svect(char, bufsize + 1);
+            strncpy(buf, original_token, bufsize);
+            buf[bufsize] = '\0';
+            TRACE("parse_string", tout << "new string constant: " << buf << " length=" << bufsize << "\n";);
+            expr_stack().push_back(strutil().mk_string(buf));
             next();
         }
 

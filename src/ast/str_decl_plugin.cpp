@@ -66,6 +66,14 @@ app * str_decl_plugin::mk_string(const char * val) {
     return m_manager->mk_const(d);
 }
 
+bool str_recognizers::is_string(expr const * n, const char ** val) const {
+    if (!is_app_of(n, m_afid, OP_STR))
+            return false;
+    func_decl * decl = to_app(n)->get_decl();
+    *val    = decl->get_parameter(0).get_string();
+    return true;
+}
+
 str_util::str_util(ast_manager &m) :
     str_recognizers(m.mk_family_id(symbol("str"))),
     m_manager(m) {

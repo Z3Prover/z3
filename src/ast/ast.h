@@ -118,7 +118,9 @@ public:
     explicit parameter(symbol const & s): m_kind(PARAM_SYMBOL) { new (m_symbol) symbol(s); }
     explicit parameter(rational const & r): m_kind(PARAM_RATIONAL) { new (m_rational) rational(r); }
     explicit parameter(double d):m_kind(PARAM_DOUBLE), m_dval(d) {}
-    explicit parameter(const char *s):m_kind(PARAM_STRING), m_string(s) {}
+    explicit parameter(const char *s):m_kind(PARAM_STRING), m_string(s) {
+        TRACE("parse_string", tout << "parameter(const char *): " << s << "\n";);
+    }
     explicit parameter(unsigned ext_id, bool):m_kind(PARAM_EXTERNAL), m_ext_id(ext_id) {}
     parameter(parameter const&);
 
