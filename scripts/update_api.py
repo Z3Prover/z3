@@ -70,6 +70,7 @@ def lib():
   global _lib
   if _lib == None:
     _dir = os.path.dirname(os.path.abspath(__file__))
+    _sitepath = os.path.abspath(sys.exec_prefix)
     for ext in ['dll', 'so', 'dylib']:
       try:
         init('libz3.%s' % ext)
@@ -78,6 +79,11 @@ def lib():
         pass
       try:
         init(os.path.join(_dir, 'libz3.%s' % ext))
+        break
+      except:
+        pass
+      try:
+        init(os.path.join(_sitepath, 'lib', 'libz3.%s' % ext))
         break
       except:
         pass
