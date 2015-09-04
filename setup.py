@@ -13,6 +13,8 @@ build_dir = os.path.abspath(os.path.dirname(__file__))
 
 if sys.platform == 'darwin':
     library_file = "libz3.dylib"
+elif sys.platform == 'win32':
+    library_file = "libz3.dll"
 else:
     library_file = "libz3.so"
 
@@ -20,16 +22,28 @@ else:
 class build(_build):
     @staticmethod
     def _configure():
-        if subprocess.call([ os.path.join(build_dir, 'configure') ],
-                     env=build_env, cwd=build_dir) != 0:
-            raise LibError('Unable to configure Z3.')
+        if sys.platform == 'win32':
+            if subprocess.call([sys.executable, os.path.join(build_dir,
+                                                             'scripts',
+                                                             'mk_make.py')],
+                               env=build_env, cwd=build_dir) != 0:
+                raise LibError("Unable to configure Z3.")
+        else:   # linux and osx
+            if subprocess.call([os.path.join(build_dir, 'configure')],
+                        env=build_env, cwd=build_dir) != 0:
+                raise LibError("Unable to configure Z3.")
 
     @staticmethod
     def _build():
-        if subprocess.call(['make', '-C', os.path.join(build_dir, 'build'),
-                      '-j', str(multiprocessing.cpu_count())],
-                     env=build_env, cwd=build_dir) != 0:
-            raise LibError('Unable to build Z3.')
+        if sys.platform == 'win32':
+            if subprocess.call(['nmake'], env=build_env,
+                               cwd=os.path.join(build_dir, 'build')) != 0:
+                raise LibError("Unable to build Z3.")
+        else:   # linux and osx
+            if subprocess.call(['make', '-C', os.path.join(build_dir, 'build'),
+                                '-j', str(multiprocessing.cpu_count())],
+                        env=build_env, cwd=build_dir) != 0:
+                raise LibError("Unable to build Z3.")
 
     def run(self):
         self.execute(self._configure, (), msg="Configuring Z3")
@@ -61,6 +75,6 @@ setup(
                      'src/api/z3_interp.h', 'src/api/z3_fpa.h',
                      'src/api/c++/z3++.h') )),
     ],
-    scripts=[ os.path.join(build_dir, 'build/z3') ] if sys.version_info[0] == 2 else [ ],
+    scripts=[os.path.join(build_dir, 'build', 'z3')] if sys.version_info[0] == 2 else [],
     cmdclass={'build': build},
 )
