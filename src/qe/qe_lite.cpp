@@ -1055,7 +1055,7 @@ namespace fm {
         arith_util               m_util;
         constraints              m_constraints;
         expr_ref_vector          m_bvar2expr;
-        char_vector              m_bvar2sign;
+        signed_char_vector       m_bvar2sign;
         obj_map<expr, bvar>      m_expr2bvar;
         char_vector              m_is_int;
         char_vector              m_forbidden;
@@ -2064,7 +2064,7 @@ namespace fm {
                 switch (m_bvar2sign[p]) {
                 case 0:
                     new_lits.push_back(lit);
-                break;
+                    break;
                 case -1:
                     if (!sign(lit))
                         tautology = true;

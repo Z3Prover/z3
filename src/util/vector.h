@@ -430,6 +430,7 @@ public:
 typedef svector<int> int_vector;
 typedef svector<unsigned> unsigned_vector;
 typedef svector<char> char_vector;
+typedef svector<signed char> signed_char_vector;
 typedef svector<double> double_vector;
 
 template<typename Hash, typename Vec>

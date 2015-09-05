@@ -295,7 +295,7 @@ namespace smt2 {
     
     scanner::token scanner::scan() {
         while (true) {
-            char c = curr();
+            signed char c = curr();
             m_pos = m_spos;
             switch (m_normalized[(unsigned char) c]) {
             case ' ':
