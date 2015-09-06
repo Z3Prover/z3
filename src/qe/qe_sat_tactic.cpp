@@ -323,9 +323,11 @@ namespace qe {
             
         void init_Ms() {
             for (unsigned i = 0; i <= num_alternations(); ++i) {
-                m_Ms.push_back(m.mk_true());
                 m_fparamv.push_back(m_fparams);
-                m_solvers.push_back(alloc(smt::kernel, m, m_fparamv.back(), m_params));
+            }
+            for (unsigned i = 0; i <= num_alternations(); ++i) {
+                m_Ms.push_back(m.mk_true());
+                m_solvers.push_back(alloc(smt::kernel, m, m_fparamv[i], m_params));
             }
             m_Ms[m_Ms.size()-1] = m_fml;
             m_solvers.back()->assert_expr(m_fml);
