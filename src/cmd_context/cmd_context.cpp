@@ -563,6 +563,10 @@ bool cmd_context::logic_has_fpa() const {
     return !has_logic() || m_logic == "QF_FP" || m_logic == "QF_FPBV";
 }
 
+bool cmd_context::logic_has_str() const {
+    return !has_logic() || m_logic == "QF_S";
+}
+
 bool cmd_context::logic_has_array_core(symbol const & s) const {
     return 
         s == "QF_AX" ||
@@ -605,6 +609,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
+        register_plugin(symbol("str"),      alloc(str_decl_plugin), logic_has_str());
     }
     else {
         // the manager was created by an external module
@@ -618,6 +623,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
+        load_plugin(symbol("str"),     logic_has_str(), fids);
         
         svector<family_id>::iterator it  = fids.begin();
         svector<family_id>::iterator end = fids.end();
@@ -671,7 +677,8 @@ bool cmd_context::supported_logic(symbol const & s) const {
         logic_has_arith_core(s) || logic_has_bv_core(s) || 
         logic_has_array_core(s) || logic_has_seq_core(s) ||
         logic_has_horn(s) ||
-        s == "QF_FP" || s == "QF_FPBV";
+        s == "QF_FP" || s == "QF_FPBV" ||
+        s == "QF_S";
 }
 
 bool cmd_context::set_logic(symbol const & s) {

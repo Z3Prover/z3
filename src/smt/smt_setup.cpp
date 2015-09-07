@@ -31,6 +31,7 @@ Revision History:
 #include"theory_dl.h"
 #include"theory_seq_empty.h"
 #include"theory_fpa.h"
+#include"theory_str.h"
 
 namespace smt {
 
@@ -117,6 +118,8 @@ namespace smt {
             setup_QF_FP();
         else if (m_logic == "QF_FPBV")
             setup_QF_FPBV();
+        else if (m_logic == "QF_S")
+            setup_QF_S();
         else
             setup_unknown();
     }
@@ -158,6 +161,8 @@ namespace smt {
                  setup_QF_BVRE();
             else if (m_logic == "QF_AUFLIA")
                 setup_QF_AUFLIA(st);
+            else if (m_logic == "QF_S")
+                setup_QF_S();
             else if (m_logic == "AUFLIA")
                 setup_AUFLIA(st);
             else if (m_logic == "AUFLIRA")
@@ -694,6 +699,11 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
     }
 
+    void setup::setup_QF_S() {
+        setup_QF_LIA();
+        m_context.register_plugin(alloc(smt::theory_str, m_manager));
+    }
+
     bool is_arith(static_features const & st) {
         return st.m_num_arith_ineqs > 0 || st.m_num_arith_terms > 0 || st.m_num_arith_eqs > 0;
     }
@@ -800,6 +810,11 @@ namespace smt {
         m_context.register_plugin(alloc(theory_fpa, m_manager));
     }
 
+    void setup::setup_str() {
+        setup_arith();
+        m_context.register_plugin(alloc(theory_str, m_manager));
+    }
+
     void setup::setup_unknown() {
         setup_arith();
         setup_arrays();
@@ -808,6 +823,7 @@ namespace smt {
         setup_dl();
         setup_seq();
         setup_fpa();
+        setup_str();
     }
 
     void setup::setup_unknown(static_features & st) {
@@ -905,6 +921,8 @@ namespace smt {
             setup_QF_AUFLIA();
             return;
         }
+
+        // TODO setup_str() by features
 
         setup_unknown();
     }

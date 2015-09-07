@@ -66,6 +66,16 @@ app * str_decl_plugin::mk_string(const char * val) {
     return m_manager->mk_const(d);
 }
 
+void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+    // TODO
+    // we would do something like:
+    // op_names.push_back(builtin_name("<=",OP_LE));
+}
+
+void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
+    sort_names.push_back(builtin_name("String", STRING_SORT));
+}
+
 bool str_recognizers::is_string(expr const * n, const char ** val) const {
     if (!is_app_of(n, m_afid, OP_STR))
             return false;

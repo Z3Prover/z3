@@ -46,6 +46,10 @@ public:
                                          unsigned arity, sort * const * domain, sort * range);
 
     app * mk_string(const char * val);
+
+    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+
+    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
     // TODO
 };
 
