@@ -34,6 +34,8 @@ namespace smt {
         // TODO
     protected:
         bool search_started;
+        arith_util m_autil;
+        str_util m_strutil;
     protected:
         virtual bool internalize_atom(app * atom, bool gate_ctx);
         virtual bool internalize_term(app * term);
@@ -61,7 +63,6 @@ namespace smt {
     public:
         theory_str(ast_manager & m);
         virtual ~theory_str();
-        arith_util m_autil;
     protected:
         void attach_new_th_var(enode * n);
     };

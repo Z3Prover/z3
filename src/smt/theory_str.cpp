@@ -26,7 +26,8 @@ namespace smt {
 theory_str::theory_str(ast_manager & m):
         theory(m.mk_family_id("str")),
         search_started(false),
-        m_autil(m)
+        m_autil(m),
+        m_strutil(m)
 {
 }
 
@@ -100,8 +101,15 @@ bool theory_str::internalize_term(app * term) {
 }
 
 app * theory_str::mk_strlen(app * e) {
-    expr * args[1] = {e};
-    return get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+    if (m_strutil.is_string(e)) {
+        const char * strval = 0;
+        m_strutil.is_string(e, &strval);
+        int len = strlen(strval);
+        return m_autil.mk_numeral(rational(len), true);
+    } else {
+        expr * args[1] = {e};
+        return get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+    }
 }
 
 /*
