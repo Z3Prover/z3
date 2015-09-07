@@ -25,7 +25,8 @@ enum str_sort_kind {
 
 enum str_op_kind {
     OP_STR, /* string constants */
-
+    //
+    OP_STRCAT,
     LAST_STR_OP
 };
 
@@ -33,6 +34,8 @@ class str_decl_plugin : public decl_plugin {
 protected:
     symbol m_strv_sym;
     sort * m_str_decl;
+
+    func_decl * m_concat_decl;
 
     virtual void set_manager(ast_manager * m, family_id id);
 public:

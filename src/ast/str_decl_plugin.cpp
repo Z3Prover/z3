@@ -23,7 +23,8 @@ Revision History:
 
 str_decl_plugin::str_decl_plugin():
     m_strv_sym("String"),
-    m_str_decl(0){
+    m_str_decl(0),
+    m_concat_decl(0){
 }
 
 str_decl_plugin::~str_decl_plugin(){
@@ -39,7 +40,17 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_str_decl = m->mk_sort(symbol("String"), sort_info(id, STRING_SORT));
     m->inc_ref(m_str_decl);
     sort * s = m_str_decl;
-    /* TODO mk_pred, etc. */
+
+#define MK_AC_OP(FIELD, NAME, KIND, SORT) {                             \
+        func_decl_info info(id, KIND);                                  \
+        info.set_associative();                                         \
+        info.set_flat_associative();                                    \
+        info.set_commutative();                                         \
+        FIELD = m->mk_func_decl(symbol(NAME), SORT, SORT, SORT, info);  \
+        m->inc_ref(FIELD);                                              \
+    }
+
+    MK_AC_OP(m_concat_decl, "Concat", OP_STRCAT, s);
 }
 
 decl_plugin * str_decl_plugin::mk_fresh() {
@@ -67,9 +78,7 @@ app * str_decl_plugin::mk_string(const char * val) {
 }
 
 void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
-    // TODO
-    // we would do something like:
-    // op_names.push_back(builtin_name("<=",OP_LE));
+    op_names.push_back(builtin_name("Concat", OP_STRCAT));
 }
 
 void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
