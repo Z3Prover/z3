@@ -18,6 +18,7 @@ Revision History:
 #define _STR_DECL_PLUGIN_H_
 
 #include"ast.h"
+#include"arith_decl_plugin.h"
 
 enum str_sort_kind {
    STRING_SORT,
@@ -27,6 +28,7 @@ enum str_op_kind {
     OP_STR, /* string constants */
     //
     OP_STRCAT,
+    OP_STRLEN,
     LAST_STR_OP
 };
 
@@ -35,7 +37,11 @@ protected:
     symbol m_strv_sym;
     sort * m_str_decl;
 
+    sort *              m_int_sort;
+    family_id           m_arith_fid;
+
     func_decl * m_concat_decl;
+    func_decl * m_length_decl;
 
     virtual void set_manager(ast_manager * m, family_id id);
 

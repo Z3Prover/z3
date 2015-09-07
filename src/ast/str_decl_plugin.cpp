@@ -33,6 +33,9 @@ str_decl_plugin::~str_decl_plugin(){
 void str_decl_plugin::finalize(void) {
     #define DEC_REF(decl) if (decl) { m_manager->dec_ref(decl); } ((void) 0)
     DEC_REF(m_str_decl);
+    DEC_REF(m_concat_decl);
+    DEC_REF(m_length_decl);
+    DEC_REF(m_int_sort);
 }
 
 void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
@@ -41,11 +44,19 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m->inc_ref(m_str_decl);
     sort * s = m_str_decl;
 
+    m_arith_fid = m_manager->mk_family_id("arith");
+    m_int_sort = m_manager->mk_sort(m_arith_fid, INT_SORT);
+    SASSERT(m_int_sort != 0); // arith_decl_plugin must be installed before str_decl_plugin.
+    m_manager->inc_ref(m_int_sort);
+    sort * i = m_int_sort;
+
 #define MK_OP(FIELD, NAME, KIND, SORT)                                                  \
     FIELD = m->mk_func_decl(symbol(NAME), SORT, SORT, SORT, func_decl_info(id, KIND));  \
     m->inc_ref(FIELD)
 
     MK_OP(m_concat_decl, "Concat", OP_STRCAT, s);
+
+    m_length_decl = m->mk_func_decl(symbol("Length"), s, i); m_manager->inc_ref(m_length_decl);
 }
 
 decl_plugin * str_decl_plugin::mk_fresh() {
@@ -62,6 +73,7 @@ sort * str_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
 func_decl * str_decl_plugin::mk_func_decl(decl_kind k) {
     switch(k) {
     case OP_STRCAT: return m_concat_decl;
+    case OP_STRLEN: return m_length_decl;
     default: return 0;
     }
 }
@@ -88,6 +100,7 @@ app * str_decl_plugin::mk_string(const char * val) {
 
 void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
     op_names.push_back(builtin_name("Concat", OP_STRCAT));
+    op_names.push_back(builtin_name("Length", OP_STRLEN));
 }
 
 void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {

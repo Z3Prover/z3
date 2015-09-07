@@ -38,6 +38,14 @@ namespace smt {
         virtual void new_eq_eh(theory_var, theory_var);
         virtual void new_diseq_eh(theory_var, theory_var);
         virtual theory* mk_fresh(context*) { return alloc(theory_str, get_manager()); }
+
+        virtual void init_search_eh();
+
+        virtual void relevant_eh(app * n);
+        virtual void assign_eh(bool_var v, bool is_true);
+        virtual void push_scope_eh();
+
+        virtual final_check_status final_check_eh();
     public:
         theory_str(ast_manager& m);
         virtual ~theory_str();
