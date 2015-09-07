@@ -22,6 +22,7 @@ Revision History:
 #include"th_rewriter.h"
 #include"value_factory.h"
 #include"smt_model_generator.h"
+#include"arith_decl_plugin.h"
 
 namespace smt {
 
@@ -31,6 +32,8 @@ namespace smt {
 
     class theory_str : public theory {
         // TODO
+    protected:
+        bool search_started;
     protected:
         virtual bool internalize_atom(app * atom, bool gate_ctx);
         virtual bool internalize_term(app * term);
@@ -46,9 +49,19 @@ namespace smt {
         virtual void push_scope_eh();
 
         virtual final_check_status final_check_eh();
+
+        void assert_axiom(unsigned num_lits, literal * lits);
+        void assert_axiom(literal l);
+
+        app * mk_strlen(app * e);
+
+        bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
+        bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
+        void instantiate_concat_axiom(enode * cat);
     public:
-        theory_str(ast_manager& m);
+        theory_str(ast_manager & m);
         virtual ~theory_str();
+        arith_util m_autil;
     protected:
         void attach_new_th_var(enode * n);
     };

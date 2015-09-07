@@ -18,15 +18,37 @@ Revision History:
 #include"smt_context.h"
 #include"theory_str.h"
 #include"smt_model_generator.h"
+#include"ast_pp.h"
+#include"ast_ll_pp.h"
 
 namespace smt {
 
-theory_str::theory_str(ast_manager &m):
-        theory(m.mk_family_id("str"))
+theory_str::theory_str(ast_manager & m):
+        theory(m.mk_family_id("str")),
+        search_started(false),
+        m_autil(m)
 {
 }
 
 theory_str::~theory_str() {
+}
+
+void theory_str::assert_axiom(unsigned num_lits, literal * lits) {
+    context & ctx = get_context();
+    TRACE("t_str_detail",
+          tout << "assert_axiom: literals:\n";
+          for (unsigned i = 0; i < num_lits; ++i) {
+              expr * e = ctx.bool_var2expr(lits[i].var());
+              if (lits[i].sign())
+                  tout << "not ";
+              tout << mk_pp(e, get_manager()) << " ";
+              tout << "\n";
+          });
+    ctx.mk_th_axiom(get_id(), num_lits, lits);
+}
+
+void theory_str::assert_axiom(literal l) {
+    assert_axiom(1, &l);
 }
 
 bool theory_str::internalize_atom(app * atom, bool gate_ctx) {
@@ -70,7 +92,60 @@ bool theory_str::internalize_term(app * term) {
 
     attach_new_th_var(e);
 
+    if (is_concat(term)) {
+        instantiate_concat_axiom(e);
+    }
+
     return true;
+}
+
+app * theory_str::mk_strlen(app * e) {
+    expr * args[1] = {e};
+    return get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+}
+
+/*
+ * Instantiate an axiom of the following form:
+ * Length(Concat(x, y)) = Length(x) + Length(y)
+ */
+void theory_str::instantiate_concat_axiom(enode * cat) {
+    SASSERT(is_concat(cat));
+    app * a_cat = cat->get_owner();
+
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    // build LHS
+    expr_ref len_xy(m);
+    // TODO re-use ASTs for length subexpressions, like in old Z3-str?
+    // TODO should we use str_util for these and other expressions?
+    len_xy = mk_strlen(a_cat);
+    SASSERT(len_xy);
+
+    // build RHS: start by extracting x and y from Concat(x, y)
+    unsigned nArgs = a_cat->get_num_args();
+    SASSERT(nArgs == 2);
+    app * a_x = to_app(a_cat->get_arg(0));
+    app * a_y = to_app(a_cat->get_arg(1));
+
+    expr_ref len_x(m);
+    len_x = mk_strlen(a_x);
+    SASSERT(len_x);
+
+    expr_ref len_y(m);
+    len_y = mk_strlen(a_y);
+    SASSERT(len_y);
+
+    // now build len_x + len_y
+    app * len_x_plus_len_y = m_autil.mk_add(len_x, len_y);
+    SASSERT(len_x_plus_len_y);
+
+    TRACE("t_str", tout << mk_bounded_pp(len_xy, m) << " = " << mk_bounded_pp(len_x_plus_len_y, m) << "\n";);
+
+    // finally assert equality between the two subexpressions
+    literal l(mk_eq(len_xy, len_x_plus_len_y, true));
+    ctx.mark_as_relevant(l);
+    assert_axiom(l);
 }
 
 void theory_str::attach_new_th_var(enode * n) {
@@ -92,6 +167,7 @@ void theory_str::init_search_eh() {
             tout << mk_ismt2_pp(ex, m) << std::endl;
         }
     );
+    search_started = true;
 }
 
 void theory_str::new_eq_eh(theory_var x, theory_var y) {

@@ -24,7 +24,8 @@ Revision History:
 str_decl_plugin::str_decl_plugin():
     m_strv_sym("String"),
     m_str_decl(0),
-    m_concat_decl(0){
+    m_concat_decl(0),
+    m_length_decl(0){
 }
 
 str_decl_plugin::~str_decl_plugin(){
