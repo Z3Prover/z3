@@ -41,16 +41,11 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m->inc_ref(m_str_decl);
     sort * s = m_str_decl;
 
-#define MK_AC_OP(FIELD, NAME, KIND, SORT) {                             \
-        func_decl_info info(id, KIND);                                  \
-        info.set_associative();                                         \
-        info.set_flat_associative();                                    \
-        info.set_commutative();                                         \
-        FIELD = m->mk_func_decl(symbol(NAME), SORT, SORT, SORT, info);  \
-        m->inc_ref(FIELD);                                              \
-    }
+#define MK_OP(FIELD, NAME, KIND, SORT)                                                  \
+    FIELD = m->mk_func_decl(symbol(NAME), SORT, SORT, SORT, func_decl_info(id, KIND));  \
+    m->inc_ref(FIELD)
 
-    MK_AC_OP(m_concat_decl, "Concat", OP_STRCAT, s);
+    MK_OP(m_concat_decl, "Concat", OP_STRCAT, s);
 }
 
 decl_plugin * str_decl_plugin::mk_fresh() {
@@ -64,10 +59,24 @@ sort * str_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
     }
 }
 
+func_decl * str_decl_plugin::mk_func_decl(decl_kind k) {
+    switch(k) {
+    case OP_STRCAT: return m_concat_decl;
+    default: return 0;
+    }
+}
+
 func_decl * str_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                          unsigned arity, sort * const * domain, sort * range) {
-    /* TODO */
-    m_manager->raise_exception("str_decl_plugin::mk_func_decl() not yet implemented"); return 0;
+    if (k == OP_STR) {
+        m_manager->raise_exception("OP_STR not yet implemented in mk_func_decl!");
+        return 0;
+    }
+    if (arity == 0) {
+        m_manager->raise_exception("no arguments supplied to string operator");
+        return 0;
+    }
+    return mk_func_decl(k);
 }
 
 app * str_decl_plugin::mk_string(const char * val) {

@@ -38,6 +38,8 @@ protected:
     func_decl * m_concat_decl;
 
     virtual void set_manager(ast_manager * m, family_id id);
+
+    func_decl * mk_func_decl(decl_kind k);
 public:
     str_decl_plugin();
     virtual ~str_decl_plugin();
