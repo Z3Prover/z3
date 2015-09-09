@@ -430,12 +430,12 @@ namespace datalog {
             IF_VERBOSE(3, verbose_stream() << objective << " verified\n";);
         }
         else if (res == l_true) {
-            IF_VERBOSE(3, verbose_stream() << "NOT verified " << res << "\n";
+            IF_VERBOSE(0, verbose_stream() << "NOT verified " << res << "\n";
                        verbose_stream() << mk_pp(fml1, m) << "\n";
                        verbose_stream() << mk_pp(fml2, m) << "\n";
                        verbose_stream().flush();
                        );
-            throw 0;
+            throw default_exception("operation was not verified");
         }
     }
 
