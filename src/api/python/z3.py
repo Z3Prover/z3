@@ -6495,7 +6495,7 @@ class Optimize(Z3PPObject):
         return CheckSatResult(Z3_optimize_check(self.ctx.ref(), self.optimize))
 
     def reason_unknown(self):
-	"""Return a string that describes why the last `check()` returned `unknown`."""
+        """Return a string that describes why the last `check()` returned `unknown`."""
         return Z3_optimize_get_reason_unknown(self.ctx.ref(), self.optimize)
 
     def model(self):

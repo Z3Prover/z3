@@ -157,7 +157,7 @@ namespace smt {
         u_map<bool_var>             m_expr2bool_var;
 #endif
         ptr_vector<expr>            m_bool_var2expr;         // bool_var -> expr
-        char_vector                 m_assignment;  //!< mapping literal id -> assignment lbool
+        signed_char_vector          m_assignment;  //!< mapping literal id -> assignment lbool
         vector<watch_list>          m_watches;     //!< per literal
         vector<clause_set>          m_lit_occs;    //!< index for backward subsumption
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
