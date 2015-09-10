@@ -468,7 +468,7 @@ br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg
         scoped_mpf v2(m_fm), v3(m_fm), v4(m_fm);
         if (m_util.is_numeral(arg2, v2) && m_util.is_numeral(arg3, v3) && m_util.is_numeral(arg4, v4)) {
             scoped_mpf t(m_fm);
-            m_fm.fused_mul_add(rm, v2, v3, v4, t);
+            m_fm.fma(rm, v2, v3, v4, t);
             result = m_util.mk_value(t);
             return BR_DONE;
         }

@@ -638,7 +638,11 @@ void mpf_manager::mul(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & 
 
         // Remove the extra bits, keeping a sticky bit.
         scoped_mpz sticky_rem(m_mpz_manager);
-        m_mpz_manager.machine_div_rem(o.significand, m_powers2(x.sbits-4), o.significand, sticky_rem);
+        if (o.sbits >= 4)
+            m_mpz_manager.machine_div_rem(o.significand, m_powers2(o.sbits - 4), o.significand, sticky_rem);
+        else
+            m_mpz_manager.mul2k(o.significand, 4-o.sbits, o.significand);
+
         if (!m_mpz_manager.is_zero(sticky_rem) && m_mpz_manager.is_even(o.significand))
             m_mpz_manager.inc(o.significand);
 
@@ -728,7 +732,7 @@ void mpf_manager::div(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & 
     }
 }
 
-void mpf_manager::fused_mul_add(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf const &z, mpf & o) {
+void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf const &z, mpf & o) {
     SASSERT(x.sbits == y.sbits && x.ebits == y.ebits &&
             x.sbits == y.sbits && z.ebits == z.ebits);
 
@@ -861,7 +865,7 @@ void mpf_manager::fused_mul_add(mpf_rounding_mode rm, mpf const & x, mpf const &
        
         o.exponent = mul_res.exponent();
         
-        unsigned extra = x.sbits-4;
+        unsigned extra = 0;
         // Result could overflow into 4.xxx ...
         SASSERT(m_mpz_manager.lt(o.significand, m_powers2(2 * x.sbits + 2)));
         if(m_mpz_manager.ge(o.significand, m_powers2(2 * x.sbits + 1))) 
@@ -871,8 +875,13 @@ void mpf_manager::fused_mul_add(mpf_rounding_mode rm, mpf const & x, mpf const &
             TRACE("mpf_dbg", tout << "Addition overflew!" << std::endl;);
         }        
 
-        // Get rid of the extra bits.
-        m_mpz_manager.machine_div_rem(o.significand, m_powers2(extra), o.significand, sticky_rem);
+        // Remove the extra bits, keeping a sticky bit. 
+        m_mpz_manager.set(sticky_rem, 0);
+        if (o.sbits >= (4+extra))
+            m_mpz_manager.machine_div_rem(o.significand, m_powers2(4+extra), o.significand, sticky_rem);
+        else
+            m_mpz_manager.mul2k(o.significand, (4+extra) - o.sbits, o.significand);
+        
         if (!m_mpz_manager.is_zero(sticky_rem) && m_mpz_manager.is_even(o.significand))
             m_mpz_manager.inc(o.significand);
             
