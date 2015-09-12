@@ -1407,6 +1407,7 @@ public:
 
         hash_map<ast,ast> dual_map;
         std::vector<ast> cvec, vars_seen;
+        m().enable_int_real_coercions(true);
         ast rhs = make_real(rational(0));
         for(unsigned i = 0; i < npcons.size(); i++){
             ast c= mk_fresh_constant("@c",real_type());
