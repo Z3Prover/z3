@@ -54,6 +54,7 @@ namespace opt {
         virtual symbol const& maxsat_engine() const = 0; // retrieve maxsat engine configuration parameter.
         virtual void get_base_model(model_ref& _m) = 0;  // retrieve model from initial satisfiability call.
         virtual smt::context& smt_context() = 0;    // access SMT context for SMT based MaxSMT solver (wmax requires SMT core)
+        virtual unsigned num_objectives() = 0;
     };
 
     /**
@@ -228,6 +229,7 @@ namespace opt {
         lbool execute_lex();
         lbool execute_box();
         lbool execute_pareto();
+        bool scoped_lex();
         expr_ref to_expr(inf_eps const& n);
 
         void reset_maxsmts();

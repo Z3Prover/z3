@@ -314,12 +314,27 @@ namespace opt {
         }
     }
     
+    /**
+       \brief there is no need to use push/pop when all objectives are maxsat and engine
+       is maxres.
+    */
+    bool context::scoped_lex() {
+        if (m_maxsat_engine == symbol("maxres")) {
+            for (unsigned i = 0; i < m_objectives.size(); ++i) {
+                if (m_objectives[i].m_type != O_MAXSMT) return true;
+            }
+            return false;
+        }
+        return true;
+    }
+
     lbool context::execute_lex() {
         lbool r = l_true;
+        bool sc = scoped_lex();
         IF_VERBOSE(1, verbose_stream() << "(optsmt:lex)\n";);
         for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
             bool is_last = i + 1 == m_objectives.size();
-            r = execute(m_objectives[i], i + 1 < m_objectives.size(), !is_last);
+            r = execute(m_objectives[i], i + 1 < m_objectives.size(), sc && !is_last);
             if (r == l_true && !get_lower_as_num(i).is_finite()) {
                 return r;
             }

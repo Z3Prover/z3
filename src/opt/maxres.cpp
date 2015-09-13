@@ -507,7 +507,7 @@ public:
             --m_correction_set_size;
         }
         trace();
-        if (m_pivot_on_cs && m_csmodel.get() && m_correction_set_size < core.size()) {
+        if (m_c.num_objectives() == 1 && m_pivot_on_cs && m_csmodel.get() && m_correction_set_size < core.size()) {
             exprs cs;
             get_current_correction_set(m_csmodel.get(), cs);
             m_correction_set_size = cs.size();
