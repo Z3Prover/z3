@@ -186,7 +186,9 @@ protected:
         expr_ref & c_sgn, expr_ref & c_sig, expr_ref & c_exp, expr_ref & d_sgn, expr_ref & d_sig, expr_ref & d_exp,
         expr_ref & res_sgn, expr_ref & res_sig, expr_ref & res_exp);
 
-    app * mk_fresh_const(char const * prefix, unsigned sz);    
+    app * mk_fresh_const(char const * prefix, unsigned sz);
+
+    void mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result);
 };
 
 #endif
