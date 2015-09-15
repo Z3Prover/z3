@@ -877,10 +877,11 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
 
         // Remove the extra bits, keeping a sticky bit. 
         m_mpz_manager.set(sticky_rem, 0);
-        if (o.sbits >= (4+extra))
-            m_mpz_manager.machine_div_rem(o.significand, m_powers2(4+extra), o.significand, sticky_rem);
+        unsigned minbits = (4 + extra);
+        if (o.sbits >= minbits)
+            m_mpz_manager.machine_div_rem(o.significand, m_powers2(o.sbits - minbits), o.significand, sticky_rem);
         else
-            m_mpz_manager.mul2k(o.significand, (4+extra) - o.sbits, o.significand);
+            m_mpz_manager.mul2k(o.significand, minbits - o.sbits, o.significand);
         
         if (!m_mpz_manager.is_zero(sticky_rem) && m_mpz_manager.is_even(o.significand))
             m_mpz_manager.inc(o.significand);

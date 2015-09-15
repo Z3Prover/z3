@@ -2972,14 +2972,15 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     sig_sz = m_bv_util.get_bv_size(sig);
     SASSERT(sig_sz >= (bv_sz + 3));
 
-    expr_ref exp_m_lz(m), shift(m), shift_neg(m), bv0_e2(m), shift_abs(m);
+    expr_ref exp_m_lz(m), shift(m), shift_neg(m), bv0_e2(m), shift_abs(m), shift_neg_dec(m);
     exp_m_lz = m_bv_util.mk_bv_sub(m_bv_util.mk_sign_extend(2, exp),
                                    m_bv_util.mk_zero_extend(2, lz));
     shift = m_bv_util.mk_bv_sub(exp_m_lz,
                                 m_bv_util.mk_numeral(bv_sz, ebits + 2));
     shift_neg = m_bv_util.mk_bv_neg(shift);
     bv0_e2 = m_bv_util.mk_numeral(0, ebits + 2);
-    shift_abs = m.mk_ite(m_bv_util.mk_sle(shift, bv0_e2), shift_neg, shift);
+    shift_neg_dec = m_bv_util.mk_sle(shift, bv0_e2);
+    shift_abs = m.mk_ite(shift_neg_dec, shift_neg, shift);
     SASSERT(m_bv_util.get_bv_size(shift) == ebits + 2);
     SASSERT(m_bv_util.get_bv_size(shift_neg) == ebits + 2);
     SASSERT(m_bv_util.get_bv_size(shift_abs) == ebits + 2);    
@@ -3001,7 +3002,9 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     expr_ref huge_sig(m), huge_shift(m), huge_shifted_sig(m);
     huge_sig = m_bv_util.mk_concat(sig, m_bv_util.mk_numeral(0, sig_sz));
     huge_shift = m_bv_util.mk_concat(m_bv_util.mk_numeral(0, sig_sz), shift_abs);
-    huge_shifted_sig = m_bv_util.mk_bv_lshr(huge_sig, huge_shift);
+    huge_shifted_sig = m.mk_ite(shift_neg_dec,
+                        m_bv_util.mk_bv_shl(huge_sig, huge_shift),
+                        m_bv_util.mk_bv_lshr(huge_sig, huge_shift));
     dbg_decouple("fpa2bv_to_sbv_huge_shifted_sig", huge_shifted_sig);
     SASSERT(m_bv_util.get_bv_size(huge_shifted_sig) == 2 * sig_sz);
 
