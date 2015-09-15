@@ -739,7 +739,7 @@ br_status fpa_rewriter::mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_
         m_util.is_numeral(arg2, v)) {        
 
         if (m_fm.is_nan(v) || m_fm.is_inf(v) || m_fm.is_neg(v)) {
-            result = m_util.mk_internal_to_ubv_unspecified(bv_sz);
+            mk_to_ubv_unspecified(f, result);
             return BR_REWRITE_FULL;
         } 
 
@@ -754,7 +754,7 @@ br_status fpa_rewriter::mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_
         if (r >= ll && r <= ul)
             result = bu.mk_numeral(r, bv_sz);
         else
-            result = m_util.mk_internal_to_ubv_unspecified(bv_sz);
+            mk_to_ubv_unspecified(f, result);
         return BR_DONE;
     }
 
@@ -772,7 +772,7 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
         m_util.is_numeral(arg2, v)) {
 
         if (m_fm.is_nan(v) || m_fm.is_inf(v)) {
-            result = m_util.mk_internal_to_sbv_unspecified(bv_sz);
+            mk_to_sbv_unspecified(f, result);
             return BR_REWRITE_FULL;
         }
 
@@ -787,7 +787,7 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
         if (r >= ll && r <= ul)
             result = bu.mk_numeral(r, bv_sz);
         else
-            result = m_util.mk_internal_to_sbv_unspecified(bv_sz);
+            mk_to_sbv_unspecified(f, result);
         return BR_DONE;
     }
 
