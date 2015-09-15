@@ -69,8 +69,8 @@ public:
         m_asmsf(m),
         m_fmls_head(0),
         m_core(m), 
-        m_bb_rewriter(m, p),
         m_map(m),
+        m_bb_rewriter(m, p),
         m_num_scopes(0), 
         m_dep_core(m) {
         m_params.set_bool("elim_vars", false);
