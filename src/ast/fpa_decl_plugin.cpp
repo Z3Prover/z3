@@ -642,7 +642,7 @@ func_decl * fpa_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, pa
     return m_manager->mk_func_decl(name, 1, domain, m_real_sort, func_decl_info(m_family_id, k));
 }
 
-func_decl * fpa_decl_plugin::mk_float_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+func_decl * fpa_decl_plugin::mk_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                    unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
         m_manager->raise_exception("invalid number of arguments to to_ieee_bv");
@@ -791,7 +791,7 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_TO_FP_UNSIGNED:
         return mk_to_fp_unsigned(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_IEEE_BV:
-        return mk_float_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
+        return mk_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_BVWRAP:
         return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_BVUNWRAP:
@@ -1008,6 +1008,12 @@ app * fpa_util::mk_internal_to_ubv_unspecified(unsigned width) {
 }
 
 app * fpa_util::mk_internal_to_sbv_unspecified(unsigned width) {
+    parameter ps[] = { parameter(width) };
+    sort * range = m_bv_util.mk_sort(width);
+    return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED, 1, ps, 0, 0, range);
+}
+
+app * fpa_util::mk_internal_to_ieee_bv_unspecified(unsigned width) {
     parameter ps[] = { parameter(width) };
     sort * range = m_bv_util.mk_sort(width);
     return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED, 1, ps, 0, 0, range);

@@ -207,6 +207,7 @@ public:
     unsigned prev_power_of_two(mpf const & a);
 
     void to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o);
+    void to_ieee_bv_mpz(const mpf & x, scoped_mpz & o);
 
 protected:
     void mk_one(unsigned ebits, unsigned sbits, bool sign, mpf & o) const;

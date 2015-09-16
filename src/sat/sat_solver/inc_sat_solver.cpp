@@ -58,7 +58,7 @@ class inc_sat_solver : public solver {
     proof_converter_ref m_pc;   
     model_converter_ref m_mc2;   
     expr_dependency_ref m_dep_core;
-    svector<double>       m_weights;
+    svector<double>     m_weights;
 
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:

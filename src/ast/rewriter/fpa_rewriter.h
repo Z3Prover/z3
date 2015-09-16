@@ -81,10 +81,12 @@ public:
     br_status mk_to_fp_unsigned(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & result);
     br_status mk_to_real(expr * arg, expr_ref & result);
 
     br_status mk_to_ubv_unspecified(func_decl * f, expr_ref & result);
     br_status mk_to_sbv_unspecified(func_decl * f, expr_ref & result);
+    br_status mk_to_ieee_bv_unspecified(func_decl * f, expr_ref & result);
     br_status mk_to_real_unspecified(expr_ref & result);
 };
 

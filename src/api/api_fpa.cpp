@@ -838,7 +838,7 @@ extern "C" {
         LOG_Z3_mk_fpa_to_ieee_bv(c, t);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
-        Z3_ast r = of_ast(ctx->fpautil().mk_float_to_ieee_bv(to_expr(t)));
+        Z3_ast r = of_ast(ctx->fpautil().mk_to_ieee_bv(to_expr(t)));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
