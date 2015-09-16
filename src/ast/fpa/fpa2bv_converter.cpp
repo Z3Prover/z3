@@ -2879,17 +2879,18 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
                                        m.mk_eq(sig, m_bv_util.mk_concat(bv1, m_bv_util.mk_numeral(0, sbits-1)))));
     dbg_decouple("fpa2bv_to_bv_in_limits", c_in_limits);
 
-    expr_ref shifted_sig(m);    
-    shifted_sig = m_bv_util.mk_bv_lshr(sig, shift_abs);
-    dbg_decouple("fpa2bv_to_bv_shifted_sig", shifted_sig);
+    expr_ref r_shifted_sig(m), l_shifted_sig(m);
+    r_shifted_sig = m_bv_util.mk_bv_lshr(sig, shift_abs);
+    l_shifted_sig = m_bv_util.mk_bv_shl(sig, m_bv_util.mk_bv_sub(
+                                                m_bv_util.mk_numeral(m_bv_util.get_bv_size(sig), m_bv_util.get_bv_size(sig)),
+                                                shift_abs));
+    dbg_decouple("fpa2bv_to_bv_r_shifted_sig", r_shifted_sig);
+    dbg_decouple("fpa2bv_to_bv_l_shifted_sig", l_shifted_sig);
 
     expr_ref last(m), round(m), sticky(m);
-    last   = m_bv_util.mk_extract(sig_sz - bv_sz - 0, sig_sz - bv_sz - 0, shifted_sig);
-    round  = m_bv_util.mk_extract(sig_sz - bv_sz - 1, sig_sz - bv_sz - 1, shifted_sig);
-    sticky = m.mk_ite(m.mk_eq(m_bv_util.mk_extract(sig_sz - bv_sz - 2, 0, shifted_sig),
-                                  m_bv_util.mk_numeral(0, sig_sz - (bv_sz + 3) + 2)),
-                          bv0,
-                          bv1);
+    last = m_bv_util.mk_extract(sig_sz - bv_sz - 0, sig_sz - bv_sz - 0, r_shifted_sig);
+    round = m_bv_util.mk_extract(sig_sz - bv_sz - 1, sig_sz - bv_sz - 1, r_shifted_sig);
+    sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, l_shifted_sig.get());
     dbg_decouple("fpa2bv_to_bv_last", last);
     dbg_decouple("fpa2bv_to_bv_round", round);    
     dbg_decouple("fpa2bv_to_bv_sticky", sticky);
@@ -2900,7 +2901,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     dbg_decouple("fpa2bv_to_bv_rounding_decision", rounding_decision);
 
     expr_ref unrounded_sig(m), pre_rounded(m), inc(m);
-    unrounded_sig = m_bv_util.mk_zero_extend(1, m_bv_util.mk_extract(sig_sz - 1, sig_sz - bv_sz, shifted_sig));
+    unrounded_sig = m_bv_util.mk_zero_extend(1, m_bv_util.mk_extract(sig_sz - 1, sig_sz - bv_sz, r_shifted_sig));
     inc = m_bv_util.mk_zero_extend(1, m_bv_util.mk_zero_extend(bv_sz - 1, rounding_decision));
     pre_rounded = m_bv_util.mk_bv_add(unrounded_sig, inc);
     dbg_decouple("fpa2bv_to_bv_inc", inc);
