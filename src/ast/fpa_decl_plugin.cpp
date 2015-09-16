@@ -645,7 +645,7 @@ func_decl * fpa_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, pa
 func_decl * fpa_decl_plugin::mk_float_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                    unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
-        m_manager->raise_exception("invalid number of arguments to asIEEEBV");
+        m_manager->raise_exception("invalid number of arguments to to_ieee_bv");
     if (!is_float_sort(domain[0]))
         m_manager->raise_exception("sort mismatch, expected argument of FloatingPoint sort");
 
