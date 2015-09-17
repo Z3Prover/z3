@@ -822,10 +822,10 @@ namespace smt2 {
             check_rparen("invalid datatype declaration");
             unsigned sz = new_dt_decls.size();
             if (sz == 0) {
-	        m_ctx.print_success();
-		next();
+            m_ctx.print_success();
+        next();
                 return;
-	    }
+        }
             else if (sz == 1) {
                 symbol missing;
                 if (new_dt_decls[0]->has_missing_refs(missing)) {
@@ -868,7 +868,7 @@ namespace smt2 {
             TRACE("declare_datatypes", tout << "i: " << i << " new_dt_decls.size(): " << sz << "\n";
                   for (unsigned i = 0; i < sz; i++) tout << new_dt_decls[i]->get_name() << "\n";);
             m_ctx.print_success();
-	    next();
+        next();
         }
 
         void name_expr(expr * n, symbol const & s) {
@@ -1789,9 +1789,9 @@ namespace smt2 {
                 m_ctx.insert(decl);
                 next();
                 check_rparen("invalid sort declaration, ')' expected");
-	    }
-	    m_ctx.print_success();
-	    next();
+            }
+            m_ctx.print_success();
+            next();
         }
 
         void parse_define_sort() {
@@ -1811,7 +1811,7 @@ namespace smt2 {
             m_ctx.insert(decl);
             check_rparen("invalid sort definition, ')' expected");
             m_ctx.print_success();
-	    next();
+            next();
         }
 
         void parse_define_fun() {
@@ -1840,7 +1840,7 @@ namespace smt2 {
             SASSERT(num_vars == m_num_bindings);
             m_num_bindings = 0;
             m_ctx.print_success();
-	    next();
+            next();
         }
 
         void parse_define_const() {
@@ -1860,7 +1860,7 @@ namespace smt2 {
             expr_stack().pop_back();
             sort_stack().pop_back();
             m_ctx.print_success();
-	    next();
+            next();
         }
 
         void parse_declare_fun() {
@@ -1879,7 +1879,7 @@ namespace smt2 {
             m_ctx.insert(f);
             check_rparen("invalid function declaration, ')' expected");
             m_ctx.print_success();
-	    next();
+            next();
         }
 
         void parse_declare_const() {
@@ -1899,7 +1899,7 @@ namespace smt2 {
             m_ctx.insert(c);
             check_rparen("invalid constant declaration, ')' expected");
             m_ctx.print_success();
-	    next();
+            next();
         }
 
         unsigned parse_opt_unsigned(unsigned def) {
@@ -1928,7 +1928,7 @@ namespace smt2 {
             m_ctx.push(num);
             check_rparen("invalid push command, ')' expected");
             m_ctx.print_success();
-	    next();
+            next();
         }
 
         void parse_pop() {
@@ -1939,7 +1939,7 @@ namespace smt2 {
             m_ctx.pop(num);
             check_rparen("invalid pop command, ')' expected");
             m_ctx.print_success();
-	    next();
+            next();
             TRACE("after_pop", tout << "expr_stack.size: " << expr_stack().size() << "\n"; m_ctx.dump_assertions(tout););
         }
 
@@ -1975,7 +1975,7 @@ namespace smt2 {
             expr_stack().pop_back();
             check_rparen("invalid assert command, ')' expected");
             m_ctx.print_success();
-	    next();
+            next();
         }
 
         void parse_check_sat() {
@@ -2062,7 +2062,7 @@ namespace smt2 {
             }
             m_ctx.regular_stream() << ")" << std::endl;
             expr_stack().shrink(spos);
-	    next();
+            next();
         }
 
         void parse_reset() {
@@ -2073,7 +2073,7 @@ namespace smt2 {
             m_ctx.reset(); 
             reset();
             m_ctx.print_success();
-	    next();
+            next();
         }
 
         void parse_option_value() {
