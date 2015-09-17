@@ -2002,65 +2002,74 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
 }
 
 app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const * args) {
-    unsigned sz       = app::get_obj_size(num_args);
-    void * mem        = allocate_node(sz);
-    app * new_node;
-    app * r;
-    if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
-        expr_ref_buffer new_args(*this);
-        if (decl->is_associative()) {
-            sort * d = decl->get_domain(0);
-            for (unsigned i = 0; i < num_args; i++) {
-                sort * s = get_sort(args[i]);
-                if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
-                    if (d->get_decl_kind() == REAL_SORT)
-                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
-                    else
-                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
-                }
-                else {
-                    new_args.push_back(args[i]);
+    app * r = 0;
+    app * new_node = 0;
+    unsigned sz = app::get_obj_size(num_args);
+    void * mem = allocate_node(sz);
+
+    try {                        
+        if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
+            expr_ref_buffer new_args(*this);
+            if (decl->is_associative()) {
+                sort * d = decl->get_domain(0);
+                for (unsigned i = 0; i < num_args; i++) {
+                    sort * s = get_sort(args[i]);
+                    if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
+                        if (d->get_decl_kind() == REAL_SORT)
+                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
+                        else
+                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
+                    }
+                    else {
+                        new_args.push_back(args[i]);
+                    }
                 }
             }
+            else {
+                for (unsigned i = 0; i < num_args; i++) {
+                    sort * d = decl->get_domain(i);
+                    sort * s = get_sort(args[i]);
+                    if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
+                        if (d->get_decl_kind() == REAL_SORT)
+                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
+                        else
+                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
+                    }
+                    else {
+                        new_args.push_back(args[i]);
+                    }
+                }
+            }
+            check_args(decl, num_args, new_args.c_ptr());
+            SASSERT(new_args.size() == num_args);
+            new_node = new (mem)app(decl, num_args, new_args.c_ptr());
+            r = register_node(new_node);
         }
         else {
-            for (unsigned i = 0; i < num_args; i++) {
-                sort * d = decl->get_domain(i);
-                sort * s = get_sort(args[i]);
-                if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
-                    if (d->get_decl_kind() == REAL_SORT)
-                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
-                    else
-                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
-                }
-                else {
-                    new_args.push_back(args[i]);
-                }
+            check_args(decl, num_args, args);
+            new_node = new (mem)app(decl, num_args, args);
+            r = register_node(new_node);
+        }
+
+        if (m_trace_stream && r == new_node) {
+            *m_trace_stream << "[mk-app] #" << r->get_id() << " ";
+            if (r->get_num_args() == 0 && r->get_decl()->get_name() == "int") {
+                ast_ll_pp(*m_trace_stream, *this, r);
+            }
+            else if (is_label_lit(r)) {
+                ast_ll_pp(*m_trace_stream, *this, r);
+            }
+            else {
+                *m_trace_stream << r->get_decl()->get_name();
+                for (unsigned i = 0; i < r->get_num_args(); i++)
+                    *m_trace_stream << " #" << r->get_arg(i)->get_id();
+                *m_trace_stream << "\n";
             }
         }
-        check_args(decl, num_args, new_args.c_ptr());
-        SASSERT(new_args.size() == num_args);
-        new_node = new (mem) app(decl, num_args, new_args.c_ptr());
-        r = register_node(new_node);
     }
-    else {
-        check_args(decl, num_args, args);
-        new_node = new (mem) app(decl, num_args, args);
-        r = register_node(new_node);
-    }
-
-    if (m_trace_stream && r == new_node) {
-        *m_trace_stream << "[mk-app] #" << r->get_id() << " ";        
-        if (r->get_num_args() == 0 && r->get_decl()->get_name() == "int") {
-            ast_ll_pp(*m_trace_stream, *this, r);
-        } else if (is_label_lit(r)) {
-            ast_ll_pp(*m_trace_stream, *this, r);
-        } else {
-            *m_trace_stream << r->get_decl()->get_name();
-            for (unsigned i = 0; i < r->get_num_args(); i++)
-                *m_trace_stream << " #" << r->get_arg(i)->get_id();
-            *m_trace_stream << "\n";
-        }
+    catch (...) {
+        deallocate_node(static_cast<ast*>(mem), sz);
+        throw;
     }
 
     return r;
