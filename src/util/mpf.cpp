@@ -961,20 +961,14 @@ void mpf_manager::sqrt(mpf_rounding_mode rm, mpf const & x, mpf & o) {
 
     TRACE("mpf_dbg", tout << "X = " << to_string(x) << std::endl;);
 
-    if (is_nan(x) || is_ninf(x))
+    if (is_nan(x))
         mk_nan(x.ebits, x.sbits, o);
     else if (is_pinf(x))
         set(o, x);
-    else if (x.sign) {
-        if (!m_mpz_manager.is_zero(x.significand))
-            mk_nan(x.ebits, x.sbits, o);
-        else
-            mk_nzero(x.ebits, x.sbits, o);
-    }
-    else if (is_pzero(x))
-        mk_pzero(x.ebits, x.sbits, o);
-    else if (is_nzero(x))
-        mk_nzero(x.ebits, x.sbits, o);
+    else if (is_zero(x))
+        set(o, x);
+    else if (x.sign)
+        mk_nan(x.ebits, x.sbits, o);
     else {
         o.ebits = x.ebits;
         o.sbits = x.sbits;
