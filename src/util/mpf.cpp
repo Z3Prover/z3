@@ -1181,7 +1181,7 @@ void mpf_manager::to_ieee_bv_mpz(const mpf & x, scoped_mpz & o) {
     unsigned ebits = x.get_ebits();
     m_mpz_manager.set(o, sgn(x));
     m_mpz_manager.mul2k(o, ebits);
-    m_mpz_manager.add(o, exp(x), o);
+    m_mpz_manager.add(o, (int)exp(x), o);
     m_mpz_manager.mul2k(o, sbits - 1);
     m_mpz_manager.add(o, sig(x), o);
 }
