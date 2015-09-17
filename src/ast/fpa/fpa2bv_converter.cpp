@@ -2876,7 +2876,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     else
         c_in_limits = m.mk_or(m_bv_util.mk_sle(m_bv_util.mk_numeral(1, ebits + 2), shift),
                               m.mk_and(m.mk_eq(m_bv_util.mk_numeral(0, ebits + 2), shift),
-                                       m.mk_eq(sig, m_bv_util.mk_concat(bv1, m_bv_util.mk_numeral(0, sbits-1)))));
+                                       m.mk_eq(sig, m_bv_util.mk_concat(bv1, m_bv_util.mk_numeral(0, sig_sz-1)))));
     dbg_decouple("fpa2bv_to_bv_in_limits", c_in_limits);
 
     expr_ref r_shifted_sig(m), l_shifted_sig(m);
