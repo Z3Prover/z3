@@ -60,7 +60,7 @@ struct mus::imp {
         m_expr2cls.insert(cls, idx);
         m_cls2expr.push_back(cls);
         TRACE("opt", tout << idx << ": " << mk_pp(cls, m) << "\n";
-	      display_vec(tout, m_cls2expr););
+        display_vec(tout, m_cls2expr););
         return idx;
     }
     
@@ -115,10 +115,10 @@ struct mus::imp {
                             core.push_back(cls_id);
                         }
                     }
-		    TRACE("opt", display_vec(tout << "core exprs:", core_exprs);
-			  display_vec(tout << "core:", core);
-			  display_vec(tout << "mus:", mus);
-			  );
+                    TRACE("opt", display_vec(tout << "core exprs:", core_exprs);
+                        display_vec(tout << "core:", core);
+                        display_vec(tout << "mus:", mus);
+                    );
 
                 }
                 break;
@@ -152,17 +152,15 @@ struct mus::imp {
     }
 
     void display_vec(std::ostream& out, expr_ref_vector const& v) const {
-        for (unsigned i = 0; i < v.size(); ++i) {
-	    out << mk_pp(v[i], m) << " ";
-        }
+        for (unsigned i = 0; i < v.size(); ++i)
+            out << mk_pp(v[i], m) << " ";
         out << "\n";
     }
 
 
     void display_vec(std::ostream& out, ptr_vector<expr> const& v) const {
-        for (unsigned i = 0; i < v.size(); ++i) {
-	    out << mk_pp(v[i], m) << " ";
-        }
+        for (unsigned i = 0; i < v.size(); ++i)
+            out << mk_pp(v[i], m) << " ";
         out << "\n";
     }
 

@@ -525,7 +525,7 @@ static void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>
     cache.insert(pr, prNew);
     refs.push_back(prNew);
     pr = prNew;
-}	
+}
 
 
 // permute unit resolution over Theory lemmas to track premises.

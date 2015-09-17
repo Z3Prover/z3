@@ -1653,12 +1653,12 @@ namespace polynomial {
     }
     
     void manager::factors::display(std::ostream & out) const {
-		out << m().m().to_string(get_constant());
-		for (unsigned i = 0; i < m_factors.size(); ++ i) {
-			out << " * (";
-			m_manager.display(out, m_factors[i]);
-			out << ")^" << m_degrees[i];
-		}
+        out << m().m().to_string(get_constant());
+        for (unsigned i = 0; i < m_factors.size(); ++ i) {
+            out << " * (";
+            m_manager.display(out, m_factors[i]);
+            out << ")^" << m_degrees[i];
+        }
     }
 
     void manager::factors::set_constant(numeral const & constant) { 

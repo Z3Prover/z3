@@ -172,8 +172,8 @@ void multivariate_factor_coefficient_bound(polynomial_ref const & f, var x, nume
 
 // check that A*S+B*T=C in zp mod ideal
 bool check_solve(zp_manager & zp_pm, var2degree const & ideal,
-	zp_polynomial_ref const & A, zp_polynomial_ref const & B, zp_polynomial_ref const & C,
-	zp_polynomial_ref const & S, zp_polynomial_ref const & T) {
+    zp_polynomial_ref const & A, zp_polynomial_ref const & B, zp_polynomial_ref const & C,
+    zp_polynomial_ref const & S, zp_polynomial_ref const & T) {
     zp_polynomial_ref AS(zp_pm), BT(zp_pm), sum(zp_pm);
     AS = zp_pm.mul(A, S); AS = zp_pm.mod_d(AS, ideal);
     BT = zp_pm.mul(B, T); BT = zp_pm.mod_d(BT, ideal);
@@ -266,7 +266,7 @@ void solve(zp_manager & zp_pm, var x, var2degree const & ideal,
    * all polynomials in Z_p[x, ..., y] mod (..., y^d)
 */
 void multivariate_hansel_lift_ideal(
-	zp_manager & zp_pm, var x,
+    zp_manager & zp_pm, var x,
         zp_polynomial_ref const & C, 
         zp_polynomial_ref & A, zp_polynomial_ref & U, zp_polynomial_ref & B, zp_polynomial_ref & V,
         var2degree & ideal, var y, unsigned d) {
@@ -333,7 +333,7 @@ void multivariate_hansel_lift_ideal(
               tout << "A = " << A << endl;
               tout << "B = " << B << endl;
               );
-	
+    
         // get the S, T, solution to A*S+B*T = f, with d(T, x) < d(A, x)
         // but we know that S = U*f + Bt, T = V*f - At, so we do division
         zp_polynomial_ref S(zp_pm), T(zp_pm);
@@ -415,9 +415,9 @@ void multivariate_hansel_lift_ideal(
 
 template<typename manager_to_check, typename manager_1, typename manager_2>
 bool are_equal_in(
-	manager_to_check pm, 
-	typename manager_1::polynomial_ref const & A, 
-	typename manager_2::polynomial_ref const & B) {
+    manager_to_check pm, 
+    typename manager_1::polynomial_ref const & A, 
+    typename manager_2::polynomial_ref const & B) {
     typename manager_to_check::polynomial_ref A_pm(pm), B_pm(pm);
     
     A_pm = convert(A.m(), A, pm);
@@ -436,16 +436,16 @@ bool are_equal_in(
    A_lifted*B_lifted = f mod x_i^d_i, p^e
 */
 void multivariate_hansel_lift_zp(
-	manager & pm, zp_manager & zp_pm, zp_manager & zpe_pm,
-	zp_polynomial_ref const & C_pe, var x, unsigned e,
+    manager & pm, zp_manager & zp_pm, zp_manager & zpe_pm,
+    zp_polynomial_ref const & C_pe, var x, unsigned e,
         zp_polynomial_ref const & A_p, zp_polynomial_ref const & U_p, 
         zp_polynomial_ref const & B_p, zp_polynomial_ref const & V_p,
-	var2degree const & ideal, 
-	zp_polynomial_ref & A_lifted, zp_polynomial_ref & B_lifted) {
+    var2degree const & ideal, 
+    zp_polynomial_ref & A_lifted, zp_polynomial_ref & B_lifted) {
     TRACE("polynomial::factorization::multivariate", 
           tout << "polynomial::multiratiate_hensel_lift_zp:" << endl;
           tout << "zp_pm = Z_" << zp_pm.m().m().to_string(zp_pm.m().p()) << endl;
-          tout << "zpe_pm = Z_" << zpe_pm.m().m().to_string(zpe_pm.m().p()) << endl;			
+          tout << "zpe_pm = Z_" << zpe_pm.m().m().to_string(zpe_pm.m().p()) << endl;            
           tout << "x = x" << x << endl;
           tout << "ideal = " << ideal << endl;
           tout << "C_pe = " << C_pe << "," << endl;
@@ -483,8 +483,8 @@ void multivariate_hansel_lift_zp(
     U_pk = convert(zp_pm, U_p, zpk_pm);
     V_pk = convert(zp_pm, V_p, zpk_pm);
     
-    TRACE("polynomial::factorization::multivariate", 			
-          tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;			
+    TRACE("polynomial::factorization::multivariate",             
+          tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;            
           tout << "A_pk = " << A_pk << endl;
           tout << "B_pk = " << B_pk << endl;
           tout << "U_pk = " << U_pk << endl;
@@ -509,8 +509,8 @@ void multivariate_hansel_lift_zp(
         f_in_Z = pm.mod_d(f_in_Z, ideal);
         f_pk = convert(pm, f_in_Z, zpk_pm);
         
-        TRACE("polynomial::factorization::multivariate", 			
-              tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;			
+        TRACE("polynomial::factorization::multivariate",             
+              tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;            
               tout << "f_pk = " << f_pk << endl;
               );
         
@@ -523,8 +523,8 @@ void multivariate_hansel_lift_zp(
         polynomial_ref S_in_Z(pm), T_in_Z(pm);
         solve<manager>(zpk_pm, x, ideal, A_pk, U_pk, B_pk, V_pk, f_pk, pm, T_in_Z, S_in_Z);
         
-        TRACE("polynomial::factorization::multivariate", 			
-              tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;			
+        TRACE("polynomial::factorization::multivariate",             
+              tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;            
               tout << "S_in_Z = " << S_in_Z << endl;
               tout << "T_in_Z = " << T_in_Z << endl;
               );
@@ -540,15 +540,15 @@ void multivariate_hansel_lift_zp(
         B_next_in_Z = convert(zpk_pm, B_pk, pm);
         B_next_in_Z = pm.add(B_next_in_Z, T_in_Z);
         
-        TRACE("polynomial::factorization::multivariate", 			
-              tout << "pk = " << nm.to_string(pk) << endl;			
-              tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;			
-              tout << "S_in_Z = " << S_in_Z << endl;			
-              tout << "T_in_Z = " << T_in_Z << endl;			
-              tout << "A_pk = " << A_pk << endl;			
-              tout << "B_pk = " << B_pk << endl;			
-              tout << "A_next_in_Z = " << A_next_in_Z << endl;			
-              tout << "B_next_in_Z = " << B_next_in_Z << endl;			
+        TRACE("polynomial::factorization::multivariate",             
+              tout << "pk = " << nm.to_string(pk) << endl;            
+              tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;            
+              tout << "S_in_Z = " << S_in_Z << endl;
+              tout << "T_in_Z = " << T_in_Z << endl;
+              tout << "A_pk = " << A_pk << endl;
+              tout << "B_pk = " << B_pk << endl;
+              tout << "A_next_in_Z = " << A_next_in_Z << endl;
+              tout << "B_next_in_Z = " << B_next_in_Z << endl;
               );
         
         bool eq1 = are_equal_in<zp_manager, manager, zp_manager>(zpk_pm, A_next_in_Z, A_pk);
@@ -574,9 +574,9 @@ void multivariate_hansel_lift_zp(
         f_in_Z = pm.sub(f_in_Z, UA_in_Z); 
         f_in_Z = pm.sub(f_in_Z, BV_in_Z);
         
-        TRACE("polynomial::factorization::multivariate", 			
-              tout << "pk = " << nm.to_string(pk) << endl;			
-              tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;			
+        TRACE("polynomial::factorization::multivariate",
+              tout << "pk = " << nm.to_string(pk) << endl;
+              tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;
               tout << "U_pk_in_Z = " << U_pk_in_Z << endl;
               tout << "V_pk_in_Z = " << V_pk_in_Z << endl;
               tout << "UA_in_Z = " << UA_in_Z << endl;
@@ -589,10 +589,10 @@ void multivariate_hansel_lift_zp(
         
         // get the S, T, solution to A*S+B*T = f, with d(T, x) < d(A, x)
         solve<manager>(zpk_pm, x, ideal, A_pk, U_pk, B_pk, V_pk, f_pk, pm, S_in_Z, T_in_Z);
-	
-        TRACE("polynomial::factorization::multivariate", 			
-              tout << "pk = " << nm.to_string(pk) << endl;			
-              tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;			
+
+        TRACE("polynomial::factorization::multivariate", 
+              tout << "pk = " << nm.to_string(pk) << endl;
+              tout << "zpk_pm = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;
               tout << "S_in_Z = " << S_in_Z << endl;
               tout << "T_in_Z = " << T_in_Z << endl;
               );
@@ -601,7 +601,7 @@ void multivariate_hansel_lift_zp(
         scoped_numeral next_pk(nm);
         nm.mul(pk, pk, next_pk);
         zpk_nm.set_p(next_pk);
-	
+
         TRACE("polynomial::factorization::multivariate", 
               tout << "zp_pk = Z_" << zpk_pm.m().m().to_string(zpk_pm.m().p()) << endl;
               );
@@ -618,7 +618,7 @@ void multivariate_hansel_lift_zp(
         U_pk = zpk_pm.add(U_pk, S_pk);
         // lift V
         zp_polynomial_ref T_pk(zpk_pm);
-        T_in_Z = pm.mul(pk, T_in_Z); 		
+        T_in_Z = pm.mul(pk, T_in_Z); 
         T_pk = convert(pm, T_in_Z, zpk_pm);
         
         TRACE("polynomial::factorization::multivariate", 
@@ -667,7 +667,7 @@ void multivariate_hansel_lift_zp(
    A_lifted*B_lifted = f mod x_i^d_i, p^e
 */
 void multivariate_hensel_lift(
-	manager & pm, zp_manager & zp_pm, zp_manager & zpe_pm,
+    manager & pm, zp_manager & zp_pm, zp_manager & zpe_pm,
         zp_polynomial_ref const & f, var x, unsigned e, var_vector const & all_vars,
         upolynomial::zp_manager & zp_upm, 
         upolynomial::numeral_vector const & U, upolynomial::numeral_vector const & A, 
@@ -746,7 +746,7 @@ void multivariate_hensel_lift(
     i.e. such that f congruent to the new factors. output goes to f_zpe factors.
 */
 void multivariate_hensel_lift(
-	manager & pm, zp_manager & zp_pm, zp_manager & zpe_pm,
+    manager & pm, zp_manager & zp_pm, zp_manager & zpe_pm,
         polynomial_ref const & f, var x, unsigned e, var_vector const & all_vars, 
         upolynomial::manager & upm, upolynomial::numeral_vector const & f_u, 
         upolynomial::zp_factors const & f_u_zp_factors, 
@@ -777,9 +777,9 @@ void multivariate_hensel_lift(
     f_target_zpe = convert(pm, f, zpe_pm);
     f_target_zpe = zpe_pm.mod_d(f_target_zpe, target_ideal);
     
-	TRACE("polynomial::factorization::multivariate", 
-		tout << "target_ideal = " << target_ideal << endl;
-		tout << "f_target_zpe = " << f_target_zpe << endl;
+    TRACE("polynomial::factorization::multivariate", 
+        tout << "target_ideal = " << target_ideal << endl;
+        tout << "f_target_zpe = " << f_target_zpe << endl;
     );
 
     // we do the product by doing individual lifting like in the univarate case
@@ -807,7 +807,7 @@ void multivariate_hensel_lift(
         // and get the U, V, such that A*U+B*V = 1
         zp_upm.ext_gcd(A_u, B_u, U, V, tmp_u);
         
-        TRACE("polynomial::factorization::multivariate", 			
+        TRACE("polynomial::factorization::multivariate",             
               tout << "U = "; upm.display(tout, U); tout << endl;
               tout << "V = "; upm.display(tout, V); tout << endl;
               tout << "gcd = "; upm.display(tout, tmp_u); tout << endl;
@@ -943,7 +943,7 @@ bool factor_square_free_primitive(polynomial_ref const & f, factors & f_factors)
     // to start with, maybe this should be part of input
     var x = pm.max_var(f);
     // get all the variables
-    var_vector vars, vars_no_x;	
+    var_vector vars, vars_no_x;    
     pm.vars(f, vars);       
     for(unsigned i = 0; i < vars.size(); ++ i) {
         if (vars[i] != x) {
@@ -969,7 +969,7 @@ bool factor_square_free_primitive(polynomial_ref const & f, factors & f_factors)
     unsigned size = 1;
     a.resize(vars_no_x.size());
     for (unsigned i = 0; i < a.size(); ++ i) { nm.reset(a[i]); }
-    generate_substitution_values(f, x, f_lc, vars_no_x, size, a, upm, f_u);	
+    generate_substitution_values(f, x, f_lc, vars_no_x, size, a, upm, f_u);    
 
     TRACE("polynomial::factorization::multivariate", 
           tout << "f_u = "; upm.display(tout, f_u); tout << endl;
@@ -1068,7 +1068,7 @@ bool factor_square_free_primitive(polynomial_ref const & f, factors & f_factors)
     multivariate_hensel_lift(pm, zp_pm, zpe_pm, f_t, x, e, vars, upm, f_u_pp_zp, factors_u_zp, target_ideal, factors_zpe);
 
     TRACE("polynomial::factorization::multivariate", 
-		tout << "factors_zpe = " << factors_zpe << endl;
+        tout << "factors_zpe = " << factors_zpe << endl;
           );
     
     // try the factors from the lifted combinations

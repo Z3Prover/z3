@@ -1874,7 +1874,7 @@ namespace pdr {
             decl2rel::iterator it = m_rels.begin (), end = m_rels.end ();
             for (; m_inductive_lvl > 0 && it != end; ++it) {
                 if (it->m_value->head() != m_query_pred) {
-                    it->m_value->propagate_to_infinity (m_inductive_lvl);	
+                    it->m_value->propagate_to_infinity (m_inductive_lvl);    
                 }
             }
             validate();
