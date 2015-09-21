@@ -980,8 +980,7 @@ void mpf_manager::sqrt(mpf_rounding_mode rm, mpf const & x, mpf & o) {
 
         TRACE("mpf_dbg", tout << "A = " << to_string(a) << std::endl;);
 
-        m_mpz_manager.mul2k(a.significand(), x.sbits + ((a.exponent() % 2)?6:5));        
-        // my_mpz_sqrt(m_mpz_manager, x.sbits, a.exponent % 2 ? true : false, a.significand, o.significand);
+        m_mpz_manager.mul2k(a.significand(), x.sbits + ((a.exponent() % 2)?6:7)); 
         if (!m_mpz_manager.root(a.significand(), 2, o.significand))
         {
             // If the result is inexact, it is 1 too large.
@@ -992,7 +991,7 @@ void mpf_manager::sqrt(mpf_rounding_mode rm, mpf const & x, mpf & o) {
         }
         o.exponent = a.exponent() >> 1;
 
-        round_sqrt(rm, o);        
+        round(rm, o);
     }
 
     TRACE("mpf_dbg", tout << "SQRT = " << to_string(o) << std::endl;);
@@ -1589,6 +1588,13 @@ void mpf_manager::mk_ninf(unsigned ebits, unsigned sbits, mpf & o) {
 }
 
 void mpf_manager::unpack(mpf & o, bool normalize) {
+    TRACE("mpf_dbg", tout << "unpack " << to_string(o) << ": ebits=" << 
+                             o.ebits << " sbits=" << o.sbits << 
+                             " normalize=" << normalize << 
+                             " has_top_exp=" << has_top_exp(o) << " (" << mk_top_exp(o.ebits) << ")" << 
+                             " has_bot_exp=" << has_bot_exp(o) << " (" << mk_bot_exp(o.ebits) << ")" <<
+                             " is_zero=" << is_zero(o) << std::endl;);
+
     // Insert the hidden bit or adjust the exponent of denormal numbers.    
     if (is_zero(o))
         return;
