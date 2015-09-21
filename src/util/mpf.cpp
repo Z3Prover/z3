@@ -990,6 +990,7 @@ void mpf_manager::sqrt(mpf_rounding_mode rm, mpf const & x, mpf & o) {
             TRACE("mpf_dbg", tout << "dec'ed " << m_mpz_manager.to_string(o.significand) << std::endl;);
         }
         o.exponent = a.exponent() >> 1;
+        if (a.exponent() % 2 == 0) o.exponent--;
 
         round(rm, o);
     }
