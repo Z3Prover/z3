@@ -66,12 +66,26 @@ public:
         {
             m_uf23bvuf.insert(it->m_key, it->m_value);
             m.inc_ref(it->m_key);
+            m.inc_ref(it->m_value.f_sgn);
+            m.inc_ref(it->m_value.f_sig);
+            m.inc_ref(it->m_value.f_exp);
         }
     }
 
     virtual ~fpa2bv_model_converter() {
         dec_ref_map_key_values(m, m_const2bv);
         dec_ref_map_key_values(m, m_rm_const2bv);
+        dec_ref_map_key_values(m, m_uf2bvuf);
+
+        obj_map<func_decl, func_decl_triple>::iterator it = m_uf23bvuf.begin();
+        obj_map<func_decl, func_decl_triple>::iterator end = m_uf23bvuf.end();
+        for (; it != end; ++it) {
+            m.dec_ref(it->m_key);
+            m.dec_ref(it->m_value.f_sgn);
+            m.dec_ref(it->m_value.f_sig);
+            m.dec_ref(it->m_value.f_exp);
+        }
+        m_uf23bvuf.reset();
     }
 
     virtual void operator()(model_ref & md, unsigned goal_idx) {

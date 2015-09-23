@@ -253,8 +253,10 @@ void fpa2bv_converter::mk_uninterpreted_function(func_decl * f, unsigned num, ex
                 new_domain.push_back(f->get_domain()[i]);
 
         if (!is_float(f->get_range()))
-        {
-            func_decl * fbv = m.mk_func_decl(f->get_name(), new_domain.size(), new_domain.c_ptr(), f->get_range(), *f->get_info());
+        {            
+            func_decl_ref fbv(m);
+            fbv = (f->get_info()) ? m.mk_func_decl(f->get_name(), new_domain.size(), new_domain.c_ptr(), f->get_range(), *f->get_info()) :
+                                    m.mk_func_decl(f->get_name(), new_domain.size(), new_domain.c_ptr(), f->get_range());
             TRACE("fpa2bv_dbg", tout << "New UF func_decl : " << mk_ismt2_pp(fbv, m) << std::endl; );
             m_uf2bvuf.insert(f, fbv);
             m.inc_ref(f);
