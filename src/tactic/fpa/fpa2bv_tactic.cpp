@@ -107,7 +107,7 @@ class fpa2bv_tactic : public tactic {
             }
 
             if (g->models_enabled())  
-                mc = mk_fpa2bv_model_converter(m, m_conv.const2bv(), m_conv.rm_const2bv(), m_conv.uf2bvuf(), m_conv.uf23bvuf());
+                mc = mk_fpa2bv_model_converter(m, m_conv.const2bv(), m_conv.rm_const2bv(), m_conv.uf2bvuf());
 
             g->inc_depth();
             result.push_back(g.get());

@@ -84,37 +84,69 @@ namespace smt {
     void theory_fpa::fpa2bv_converter_wrapped::mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
         SASSERT(f->get_family_id() != m_th.get_family_id());
         SASSERT(f->get_arity() == num);
-
+        
         expr_ref_buffer new_args(m);
 
         for (unsigned i = 0; i < num; i++)
             if (is_float(args[i]) || is_rm(args[i])) {
-                expr_ref unwrapped(m);
-                unwrapped = m_th.unwrap(m_th.wrap(args[i]), m.get_sort(args[i]));
-                new_args.push_back(unwrapped);
+                expr_ref wrapped(m);
+                wrapped = m_th.wrap(args[i]);
+                new_args.push_back(wrapped);
             }
             else
                 new_args.push_back(args[i]);
 
-        if (is_float(f->get_range())) {
-            sort * s = f->get_range();
-            unsigned ebits = m_th.m_fpa_util.get_ebits(s);
-            unsigned sbits = m_th.m_fpa_util.get_sbits(s);
-            unsigned bv_sz = ebits + sbits;
+        func_decl * fd;
+        func_decl_triple fd3;
+        if (m_uf2bvuf.find(f, fd)) {
+            result = m.mk_app(fd, new_args.size(), new_args.c_ptr());
+        }
+        else {
 
-            expr_ref bv(m);
-            bv = m_th.wrap(m.mk_app(f, num, new_args.c_ptr()));
-            m_th.m_converter.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
-                                   m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
-                                   m_bv_util.mk_extract(sbits - 2, 0, bv),
-                                   result);
+            sort_ref_buffer new_domain(m);
+
+            for (unsigned i = 0; i < f->get_arity(); i++) {
+                sort * di = f->get_domain()[i];
+                if (is_float(di)) {
+                    unsigned ebits = m_th.m_fpa_util.get_ebits(di);
+                    unsigned sbits = m_th.m_fpa_util.get_sbits(di);
+                    unsigned bv_sz = ebits + sbits;
+                    new_domain.push_back(m_bv_util.mk_sort(bv_sz));
+                }
+                else
+                    new_domain.push_back(di);
+            }
+
+
+            if (!is_float(f->get_range())) {
+                func_decl_ref fbv(m);
+                fbv = m.mk_fresh_func_decl(new_domain.size(), new_domain.c_ptr(), f->get_range());
+                TRACE("t_fpa_detail", tout << "New UF func_decl : " << mk_ismt2_pp(fbv, m) << std::endl;);
+                m_uf2bvuf.insert(f, fbv);
+                m.inc_ref(f);
+                result = m.mk_app(fbv, new_args.size(), new_args.c_ptr());
+            }
+            else {
+                sort * s = f->get_range();
+                unsigned ebits = m_th.m_fpa_util.get_ebits(s);
+                unsigned sbits = m_th.m_fpa_util.get_sbits(s);
+                unsigned bv_sz = ebits + sbits;
+
+                func_decl * f_sgn = m.mk_fresh_func_decl(new_domain.size(), new_domain.c_ptr(), m_bv_util.mk_sort(1));
+                func_decl * f_exp = m.mk_fresh_func_decl(new_domain.size(), new_domain.c_ptr(), m_bv_util.mk_sort(ebits));
+                func_decl * f_sig = m.mk_fresh_func_decl(new_domain.size(), new_domain.c_ptr(), m_bv_util.mk_sort(sbits-1));                
+
+                expr_ref a_sgn(m), a_sig(m), a_exp(m);
+                a_sgn = m.mk_app(f_sgn, new_args.size(), new_args.c_ptr());                
+                a_exp = m.mk_app(f_exp, new_args.size(), new_args.c_ptr());
+                a_sig = m.mk_app(f_sig, new_args.size(), new_args.c_ptr());
+
+
+                m_th.m_converter.mk_fp(a_sgn, a_exp, a_sig, result);
+            }
         }
-        else if (is_rm(f->get_range())) {
-            func_decl_ref bv_f(m);
-            result = m_th.wrap(m.mk_app(f, num, new_args.c_ptr()));
-        }
-        else
-            result = m.mk_app(f, num, new_args.c_ptr());
+
+        TRACE("t_fpa_detail", tout << "UF result: " << mk_ismt2_pp(result, m) << std::endl;);
     }
 
     theory_fpa::theory_fpa(ast_manager & m) :
@@ -315,8 +347,7 @@ namespace smt {
         m_rw(e, e_conv);
         
         if (is_app(e_conv) && to_app(e_conv)->get_family_id() != get_family_id()) {
-            app * a = to_app(e_conv);
-            m_converter.mk_uninterpreted_function(a->get_decl(), a->get_num_args(), a->get_args(), res);
+            m_th_rw(e_conv, res);
         }
         else if (m_fpa_util.is_rm(e)) {
             SASSERT(is_sort_of(m.get_sort(e_conv), m_bv_util.get_family_id(), BV_SORT));
@@ -577,6 +608,9 @@ namespace smt {
         expr_ref xc(m), yc(m);
         xc = convert(xe);
         yc = convert(ye);
+
+        TRACE("t_fpa_detail", tout << "xc = " << mk_ismt2_pp(xc, m) << std::endl <<
+                                      "yc = " << mk_ismt2_pp(yc, m) << std::endl;);
 
         expr_ref c(m);
 

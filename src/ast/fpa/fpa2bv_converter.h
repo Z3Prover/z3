@@ -55,8 +55,7 @@ protected:
 
     obj_map<func_decl, expr*>  m_const2bv;
     obj_map<func_decl, expr*>  m_rm_const2bv;
-    obj_map<func_decl, func_decl*>  m_uf2bvuf;        
-    obj_map<func_decl, func_decl_triple>  m_uf23bvuf;
+    obj_map<func_decl, func_decl*>  m_uf2bvuf;    
     
 public:
     fpa2bv_converter(ast_manager & m);    
@@ -143,8 +142,7 @@ public:
 
     obj_map<func_decl, expr*> const & const2bv() const { return m_const2bv; }
     obj_map<func_decl, expr*> const & rm_const2bv() const { return m_rm_const2bv; }
-    obj_map<func_decl, func_decl*> const & uf2bvuf() const { return m_uf2bvuf; }
-    obj_map<func_decl, func_decl_triple> const & uf23bvuf() const { return m_uf23bvuf; }
+    obj_map<func_decl, func_decl*> const & uf2bvuf() const { return m_uf2bvuf; }    
 
     void reset(void);
 
@@ -189,6 +187,8 @@ protected:
     app * mk_fresh_const(char const * prefix, unsigned sz);
 
     void mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result);
+
+    void mk_uninterpreted_output(sort * rng, func_decl * fbv, expr_ref_buffer & new_args, expr_ref & result);
 };
 
 #endif
