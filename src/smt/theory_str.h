@@ -37,6 +37,18 @@ namespace smt {
         arith_util m_autil;
         str_util m_strutil;
     protected:
+        void assert_axiom(ast * e);
+
+        app * mk_strlen(app * e);
+
+        bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
+        bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
+        void instantiate_concat_axiom(enode * cat);
+        void instantiate_basic_string_axioms(enode * str);
+    public:
+        theory_str(ast_manager & m);
+        virtual ~theory_str();
+    protected:
         virtual bool internalize_atom(app * atom, bool gate_ctx);
         virtual bool internalize_term(app * term);
 
@@ -51,19 +63,6 @@ namespace smt {
         virtual void push_scope_eh();
 
         virtual final_check_status final_check_eh();
-
-        void assert_axiom(unsigned num_lits, literal * lits);
-        void assert_axiom(literal l);
-
-        app * mk_strlen(app * e);
-
-        bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
-        bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
-        void instantiate_concat_axiom(enode * cat);
-    public:
-        theory_str(ast_manager & m);
-        virtual ~theory_str();
-    protected:
         void attach_new_th_var(enode * n);
     };
 

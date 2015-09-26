@@ -37,6 +37,7 @@ protected:
     symbol m_strv_sym;
     sort * m_str_decl;
 
+    arith_decl_plugin * m_arith_plugin;
     sort *              m_int_sort;
     family_id           m_arith_fid;
 

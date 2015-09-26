@@ -25,7 +25,10 @@ str_decl_plugin::str_decl_plugin():
     m_strv_sym("String"),
     m_str_decl(0),
     m_concat_decl(0),
-    m_length_decl(0){
+    m_length_decl(0),
+    m_arith_plugin(0),
+    m_arith_fid(0),
+    m_int_sort(0){
 }
 
 str_decl_plugin::~str_decl_plugin(){
@@ -45,7 +48,11 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m->inc_ref(m_str_decl);
     sort * s = m_str_decl;
 
+    SASSERT(m_manager->has_plugin(symbol("arith")));
     m_arith_fid = m_manager->mk_family_id("arith");
+    m_arith_plugin = static_cast<arith_decl_plugin*>(m_manager->get_plugin(m_arith_fid));
+    SASSERT(m_arith_plugin);
+
     m_int_sort = m_manager->mk_sort(m_arith_fid, INT_SORT);
     SASSERT(m_int_sort != 0); // arith_decl_plugin must be installed before str_decl_plugin.
     m_manager->inc_ref(m_int_sort);

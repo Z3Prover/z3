@@ -34,22 +34,25 @@ theory_str::theory_str(ast_manager & m):
 theory_str::~theory_str() {
 }
 
-void theory_str::assert_axiom(unsigned num_lits, literal * lits) {
+void theory_str::assert_axiom(ast * a) {
+    /*
+    if (search_started) {
+        // effectively Z3_theory_assert_axiom
+        NOT_IMPLEMENTED_YET();
+    } else {
+        // effectively Z3_assert_cnstr
+        context & ctx = get_context();
+        ctx.assert_expr(to_expr(a));
+    }
+    */
+    TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(a, get_manager()) << "\n";);
+    expr * e = to_expr(a);
     context & ctx = get_context();
-    TRACE("t_str_detail",
-          tout << "assert_axiom: literals:\n";
-          for (unsigned i = 0; i < num_lits; ++i) {
-              expr * e = ctx.bool_var2expr(lits[i].var());
-              if (lits[i].sign())
-                  tout << "not ";
-              tout << mk_pp(e, get_manager()) << " ";
-              tout << "\n";
-          });
-    ctx.mk_th_axiom(get_id(), num_lits, lits);
-}
-
-void theory_str::assert_axiom(literal l) {
-    assert_axiom(1, &l);
+    ctx.internalize(e, false);
+    literal lit(ctx.get_literal(e));
+    ctx.mark_as_relevant(lit);
+    ctx.mk_th_axiom(get_id(), 1, &lit);
+    TRACE("t_str_detail", tout << "done asserting " << mk_ismt2_pp(a, get_manager()) << "\n";);
 }
 
 bool theory_str::internalize_atom(app * atom, bool gate_ctx) {
@@ -93,15 +96,17 @@ bool theory_str::internalize_term(app * term) {
 
     attach_new_th_var(e);
 
+    /*
     if (is_concat(term)) {
         instantiate_concat_axiom(e);
     }
+    */
 
     return true;
 }
 
 app * theory_str::mk_strlen(app * e) {
-    if (m_strutil.is_string(e)) {
+    /*if (m_strutil.is_string(e)) {*/ if (false) {
         const char * strval = 0;
         m_strutil.is_string(e, &strval);
         int len = strlen(strval);
@@ -145,22 +150,90 @@ void theory_str::instantiate_concat_axiom(enode * cat) {
     SASSERT(len_y);
 
     // now build len_x + len_y
-    app * len_x_plus_len_y = m_autil.mk_add(len_x, len_y);
+    expr_ref len_x_plus_len_y(m);
+    len_x_plus_len_y = m_autil.mk_add(len_x, len_y);
     SASSERT(len_x_plus_len_y);
 
-    TRACE("t_str", tout << mk_bounded_pp(len_xy, m) << " = " << mk_bounded_pp(len_x_plus_len_y, m) << "\n";);
-
     // finally assert equality between the two subexpressions
-    literal l(mk_eq(len_xy, len_x_plus_len_y, true));
-    ctx.mark_as_relevant(l);
-    assert_axiom(l);
+    app * eq = m.mk_eq(len_xy, len_x_plus_len_y);
+    SASSERT(eq);
+    TRACE("t_str", tout << mk_bounded_pp(eq, m) << std::endl;);
+    assert_axiom(eq);
+}
+
+/*
+ * Add axioms that are true for any string variable:
+ * 1. Length(x) >= 0
+ * 2. Length(x) == 0 <=> x == ""
+ */
+void theory_str::instantiate_basic_string_axioms(enode * str) {
+    // generate a stronger axiom for constant strings
+    if (m_strutil.is_string(str->get_owner())) {
+        // TODO
+    } else {
+        // TODO keep track of which enodes we have added axioms for, so we don't add the same ones twice?
+        app * a_str = str->get_owner();
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+
+        // TODO find out why these are crashing the SMT solver
+
+        // build axiom 1: Length(a_str) >= 0
+        {
+            // build LHS
+            expr_ref len_str(m);
+            len_str = mk_strlen(a_str);
+            SASSERT(len_str);
+            // build RHS
+            expr_ref zero(m);
+            zero = m_autil.mk_numeral(rational(0), true);
+            SASSERT(zero);
+            // build LHS >= RHS and assert
+            app * lhs_ge_rhs = m_autil.mk_ge(len_str, zero);
+            SASSERT(lhs_ge_rhs);
+            // TODO verify that this works
+            TRACE("t_str_detail", tout << "string axiom 1: " << mk_bounded_pp(lhs_ge_rhs, m) << std::endl;);
+            assert_axiom(lhs_ge_rhs);
+        }
+
+        /*
+        // build axiom 2: Length(a_str) == 0 <=> a_str == ""
+        {
+            // build LHS of iff
+            expr_ref len_str(m);
+            len_str = mk_strlen(a_str);
+            SASSERT(len_str);
+            expr_ref zero(m);
+            zero = m_autil.mk_numeral(rational(0), true);
+            SASSERT(zero);
+            expr_ref lhs(m);
+            lhs = ctx.mk_eq_atom(len_str, zero);
+            SASSERT(lhs);
+            // build RHS of iff
+            expr_ref empty_str(m);
+            empty_str = m_strutil.mk_string("");
+            SASSERT(empty_str);
+            expr_ref rhs(m);
+            rhs = ctx.mk_eq_atom(a_str, empty_str);
+            SASSERT(rhs);
+            // build LHS <=> RHS and assert
+            TRACE("t_str_detail", tout << "string axiom 2: " << mk_bounded_pp(lhs, m) << " <=> " << mk_bounded_pp(rhs, m) << std::endl;);
+            // TODO this is kind of a hack, maybe just ctx.assert_expr() will be enough?
+            literal l(mk_eq(lhs, rhs, true));
+            ctx.mark_as_relevant(l);
+            assert_axiom(l);
+        }
+        */
+    }
 }
 
 void theory_str::attach_new_th_var(enode * n) {
     context & ctx = get_context();
     theory_var v = mk_var(n);
     ctx.attach_th_var(n, this, v);
-    TRACE("t_str_detail", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := " << v << "\n";);
+    TRACE("t_str_detail", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := v#" << v << std::endl;);
+    // probably okay...note however that this seems to miss constants and functions
+    //instantiate_basic_string_axioms(n);
 }
 
 void theory_str::init_search_eh() {
@@ -180,14 +253,14 @@ void theory_str::init_search_eh() {
 
 void theory_str::new_eq_eh(theory_var x, theory_var y) {
     // TODO
-    TRACE("t_str", tout << "new eq: " << x << " = " << y << std::endl;);
+    TRACE("t_str", tout << "new eq: v#" << x << " = v#" << y << std::endl;);
     TRACE("t_str_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
 }
 
 void theory_str::new_diseq_eh(theory_var x, theory_var y) {
     // TODO
-    TRACE("t_str", tout << "new diseq: " << x << " != " << y << std::endl;);
+    TRACE("t_str", tout << "new diseq: v#" << x << " != v#" << y << std::endl;);
     TRACE("t_str_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " != " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
 }
@@ -198,7 +271,7 @@ void theory_str::relevant_eh(app * n) {
 
 void theory_str::assign_eh(bool_var v, bool is_true) {
     context & ctx = get_context();
-    TRACE("t_str", tout << "assert: v" << v << " #" << ctx.bool_var2expr(v)->get_id() << " is_true: " << is_true << "\n";);
+    TRACE("t_str", tout << "assert: v" << v << " #" << ctx.bool_var2expr(v)->get_id() << " is_true: " << is_true << std::endl;);
 }
 
 void theory_str::push_scope_eh() {
