@@ -38,6 +38,7 @@ namespace smt {
         str_util m_strutil;
 
         ptr_vector<enode> m_basicstr_axiom_todo;
+        svector<std::pair<enode*,enode*> > m_str_eq_length_axiom_todo;
     protected:
         void assert_axiom(ast * e);
 
@@ -47,6 +48,7 @@ namespace smt {
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
+        void instantiate_str_eq_length_axiom(enode * lhs, enode * rhs);
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);

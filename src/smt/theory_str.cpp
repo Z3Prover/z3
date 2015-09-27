@@ -118,7 +118,7 @@ app * theory_str::mk_strlen(app * e) {
 }
 
 bool theory_str::can_propagate() {
-    return !m_basicstr_axiom_todo.empty();
+    return !m_basicstr_axiom_todo.empty() || !m_str_eq_length_axiom_todo.empty();
 }
 
 void theory_str::propagate() {
@@ -128,6 +128,14 @@ void theory_str::propagate() {
             instantiate_basic_string_axioms(m_basicstr_axiom_todo[i]);
         }
         m_basicstr_axiom_todo.reset();
+
+        for (unsigned i = 0; i < m_str_eq_length_axiom_todo.size(); ++i) {
+            std::pair<enode*,enode*> pair = m_str_eq_length_axiom_todo[i];
+            enode * lhs = pair.first;
+            enode * rhs = pair.second;
+            instantiate_str_eq_length_axiom(lhs, rhs);
+        }
+        m_str_eq_length_axiom_todo.reset();
     }
     TRACE("t_str_detail", tout << "done propagating" << std::endl;);
 }
@@ -253,6 +261,33 @@ void theory_str::instantiate_basic_string_axioms(enode * str) {
     }
 }
 
+/*
+ * Add an axiom of the form:
+ * (lhs == rhs) -> ( Length(lhs) == Length(rhs) )
+ */
+void theory_str::instantiate_str_eq_length_axiom(enode * lhs, enode * rhs) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * a_lhs = lhs->get_owner();
+    app * a_rhs = rhs->get_owner();
+
+    // build premise: (lhs == rhs)
+    expr_ref premise(ctx.mk_eq_atom(a_lhs, a_rhs), m);
+
+    // build conclusion: ( Length(lhs) == Length(rhs) )
+    expr_ref len_lhs(mk_strlen(a_lhs), m);
+    SASSERT(len_lhs);
+    expr_ref len_rhs(mk_strlen(a_rhs), m);
+    SASSERT(len_rhs);
+    expr_ref conclusion(ctx.mk_eq_atom(len_lhs, len_rhs), m);
+
+    // build (premise -> conclusion) and assert
+    expr_ref axiom(m.mk_implies(premise, conclusion), m);
+    TRACE("t_str_detail", tout << "string-eq length-eq axiom: " << mk_bounded_pp(axiom, m) << std::endl;);
+    assert_axiom(axiom);
+}
+
 void theory_str::attach_new_th_var(enode * n) {
     context & ctx = get_context();
     theory_var v = mk_var(n);
@@ -263,11 +298,40 @@ void theory_str::attach_new_th_var(enode * n) {
 void theory_str::reset_eh() {
     TRACE("t_str", tout << "resetting" << std::endl;);
     m_basicstr_axiom_todo.reset();
+    m_str_eq_length_axiom_todo.reset();
     pop_scope_eh(0);
 }
 
 void theory_str::handle_equality(expr * lhs, expr * rhs) {
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
+    // both terms must be of sort String
+    sort * lhs_sort = m.get_sort(lhs);
+    sort * rhs_sort = m.get_sort(rhs);
+    sort * str_sort = m.mk_sort(get_family_id(), STRING_SORT);
 
+    if (lhs_sort != str_sort || rhs_sort != str_sort) {
+        TRACE("t_str_detail", tout << "skip equality: not String sort" << std::endl;);
+        return;
+    }
+
+    // TODO freeVarAttempt()?
+
+    // TODO simplify concat?
+
+    // TODO newEqCheck()?
+
+    // BEGIN new_eq_handler() in strTheory
+
+    // TODO there's some setup with getLenValue() that I don't think is necessary
+    // because we should already be generating the string length axioms for all string terms
+
+    // set up string length axiom:
+    // (lhs == rhs) -> (Length(lhs) == Length(rhs))
+    enode * e_lhs = ctx.get_enode(lhs);
+    enode * e_rhs = ctx.get_enode(rhs);
+    std::pair<enode*,enode*> eq_pair(e_lhs, e_rhs);
+    m_str_eq_length_axiom_todo.push_back(eq_pair);
 }
 
 void theory_str::set_up_axioms(expr * ex) {
