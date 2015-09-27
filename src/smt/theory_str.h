@@ -49,6 +49,7 @@ namespace smt {
         void instantiate_basic_string_axioms(enode * str);
 
         void set_up_axioms(expr * ex);
+        void handle_equality(expr * lhs, expr * rhs);
     public:
         theory_str(ast_manager & m);
         virtual ~theory_str();
@@ -58,14 +59,12 @@ namespace smt {
 
         virtual void new_eq_eh(theory_var, theory_var);
         virtual void new_diseq_eh(theory_var, theory_var);
+
         virtual theory* mk_fresh(context*) { return alloc(theory_str, get_manager()); }
-
         virtual void init_search_eh();
-
         virtual void relevant_eh(app * n);
         virtual void assign_eh(bool_var v, bool is_true);
         virtual void push_scope_eh();
-
         virtual void reset_eh();
 
         virtual bool can_propagate();

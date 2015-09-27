@@ -266,6 +266,10 @@ void theory_str::reset_eh() {
     pop_scope_eh(0);
 }
 
+void theory_str::handle_equality(expr * lhs, expr * rhs) {
+
+}
+
 void theory_str::set_up_axioms(expr * ex) {
     // TODO check to make sure we don't set up axioms on the same term twice
     TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) << std::endl;);
@@ -308,11 +312,38 @@ void theory_str::init_search_eh() {
             tout << mk_ismt2_pp(ex, m) << std::endl;
         }
     );
-    // recursive descent through all asserted formulas to set up axioms
+    /*
+     * Recursive descent through all asserted formulas to set up axioms.
+     * Note that this is just the input structure and not necessarily things
+     * that we know to be true or false. We're just doing this to see
+     * which terms are explicitly mentioned.
+     */
     unsigned nFormulas = ctx.get_num_asserted_formulas();
     for (unsigned i = 0; i < nFormulas; ++i) {
         expr * ex = ctx.get_asserted_formula(i);
         set_up_axioms(ex);
+    }
+
+    /*
+     * Similar recursive descent, except over all initially assigned terms.
+     * This is done to find equalities between terms, etc. that we otherwise
+     * wouldn't get a chance to see.
+     */
+    expr_ref_vector assignments(m);
+    ctx.get_assignments(assignments);
+    for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
+        expr * ex = *i;
+        TRACE("t_str_detail", tout << "processing assignment " << mk_ismt2_pp(ex, m) << std::endl;);
+        if (m.is_eq(ex)) {
+            TRACE("t_str_detail", tout << "expr is equality" << std::endl;);
+            app * eq = (app*)ex;
+            SASSERT(eq->get_num_args() == 2);
+            expr * lhs = eq->get_arg(0);
+            expr * rhs = eq->get_arg(1);
+            handle_equality(lhs, rhs);
+        } else {
+            TRACE("t_str_detail", tout << "expr ignored" << std::endl;);
+        }
     }
 
     search_started = true;
@@ -323,6 +354,7 @@ void theory_str::new_eq_eh(theory_var x, theory_var y) {
     TRACE("t_str", tout << "new eq: v#" << x << " = v#" << y << std::endl;);
     TRACE("t_str_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
+    handle_equality(get_enode(x)->get_owner(), get_enode(y)->get_owner());
 }
 
 void theory_str::new_diseq_eh(theory_var x, theory_var y) {
