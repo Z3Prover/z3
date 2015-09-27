@@ -117,6 +117,20 @@ app * theory_str::mk_strlen(app * e) {
     }
 }
 
+bool theory_str::can_propagate() {
+    return !m_basicstr_axiom_todo.empty();
+}
+
+void theory_str::propagate() {
+    TRACE("t_str_detail", tout << "trying to propagate..." << std::endl;);
+    while (can_propagate()) {
+        for (unsigned i = 0; i < m_basicstr_axiom_todo.size(); ++i) {
+            instantiate_basic_string_axioms(m_basicstr_axiom_todo[i]);
+        }
+        m_basicstr_axiom_todo.reset();
+    }
+}
+
 /*
  * Instantiate an axiom of the following form:
  * Length(Concat(x, y)) = Length(x) + Length(y)
@@ -165,17 +179,32 @@ void theory_str::instantiate_concat_axiom(enode * cat) {
  * Add axioms that are true for any string variable:
  * 1. Length(x) >= 0
  * 2. Length(x) == 0 <=> x == ""
+ * If the term is a string constant, we can assert something stronger:
+ *    Length(x) == strlen(x)
  */
 void theory_str::instantiate_basic_string_axioms(enode * str) {
-    // generate a stronger axiom for constant strings
-    if (m_strutil.is_string(str->get_owner())) {
-        // TODO
-    } else {
-        // TODO keep track of which enodes we have added axioms for, so we don't add the same ones twice?
-        app * a_str = str->get_owner();
-        context & ctx = get_context();
-        ast_manager & m = get_manager();
+    // TODO keep track of which enodes we have added axioms for, so we don't add the same ones twice?
 
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    // generate a stronger axiom for constant strings
+    app * a_str = str->get_owner();
+    if (m_strutil.is_string(str->get_owner())) {
+        expr_ref len_str(m);
+        len_str = mk_strlen(a_str);
+        SASSERT(len_str);
+
+        const char * strconst = 0;
+        m_strutil.is_string(str->get_owner(), & strconst);
+        TRACE("t_str_detail", tout << "instantiating constant string axioms for \"" << strconst << "\"" << std::endl;);
+        int l = strlen(strconst);
+        expr_ref len(m_autil.mk_numeral(rational(l), true), m);
+
+        literal lit(mk_eq(len_str, len, false));
+        ctx.mark_as_relevant(lit);
+        ctx.mk_th_axiom(get_id(), 1, &lit);
+    } else {
         // TODO find out why these are crashing the SMT solver
 
         // build axiom 1: Length(a_str) >= 0
@@ -233,7 +262,13 @@ void theory_str::attach_new_th_var(enode * n) {
     ctx.attach_th_var(n, this, v);
     TRACE("t_str_detail", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := v#" << v << std::endl;);
     // probably okay...note however that this seems to miss constants and functions
-    //instantiate_basic_string_axioms(n);
+    m_basicstr_axiom_todo.push_back(n);
+}
+
+void theory_str::reset_eh() {
+    TRACE("t_str", tout << "resetting" << std::endl;);
+    m_basicstr_axiom_todo.reset();
+    pop_scope_eh(0);
 }
 
 void theory_str::init_search_eh() {

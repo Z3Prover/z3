@@ -36,6 +36,8 @@ namespace smt {
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
+
+        ptr_vector<enode> m_basicstr_axiom_todo;
     protected:
         void assert_axiom(ast * e);
 
@@ -61,6 +63,11 @@ namespace smt {
         virtual void relevant_eh(app * n);
         virtual void assign_eh(bool_var v, bool is_true);
         virtual void push_scope_eh();
+
+        virtual void reset_eh();
+
+        virtual bool can_propagate();
+        virtual void propagate();
 
         virtual final_check_status final_check_eh();
         void attach_new_th_var(enode * n);
