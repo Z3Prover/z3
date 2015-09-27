@@ -47,6 +47,8 @@ namespace smt {
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
+
+        void set_up_axioms(expr * ex);
     public:
         theory_str(ast_manager & m);
         virtual ~theory_str();

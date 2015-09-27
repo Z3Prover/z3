@@ -122,13 +122,14 @@ bool theory_str::can_propagate() {
 }
 
 void theory_str::propagate() {
-    TRACE("t_str_detail", tout << "trying to propagate..." << std::endl;);
     while (can_propagate()) {
+        TRACE("t_str_detail", tout << "propagating..." << std::endl;);
         for (unsigned i = 0; i < m_basicstr_axiom_todo.size(); ++i) {
             instantiate_basic_string_axioms(m_basicstr_axiom_todo[i]);
         }
         m_basicstr_axiom_todo.reset();
     }
+    TRACE("t_str_detail", tout << "done propagating" << std::endl;);
 }
 
 /*
@@ -205,8 +206,6 @@ void theory_str::instantiate_basic_string_axioms(enode * str) {
         ctx.mark_as_relevant(lit);
         ctx.mk_th_axiom(get_id(), 1, &lit);
     } else {
-        // TODO find out why these are crashing the SMT solver
-
         // build axiom 1: Length(a_str) >= 0
         {
             // build LHS
@@ -261,8 +260,6 @@ void theory_str::attach_new_th_var(enode * n) {
     theory_var v = mk_var(n);
     ctx.attach_th_var(n, this, v);
     TRACE("t_str_detail", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := v#" << v << std::endl;);
-    // probably okay...note however that this seems to miss constants and functions
-    m_basicstr_axiom_todo.push_back(n);
 }
 
 void theory_str::reset_eh() {
@@ -271,18 +268,55 @@ void theory_str::reset_eh() {
     pop_scope_eh(0);
 }
 
+void theory_str::set_up_axioms(expr * ex) {
+    // TODO check to make sure we don't set up axioms on the same term twice
+    TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) << std::endl;);
+
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
+
+    sort * ex_sort = m.get_sort(ex);
+    sort * str_sort = m.mk_sort(get_family_id(), STRING_SORT);
+
+    if (ex_sort == str_sort) {
+        TRACE("t_str_detail", tout << "expr is of sort String" << std::endl;);
+        // set up basic string axioms
+        enode * n = ctx.get_enode(ex);
+        SASSERT(n);
+        m_basicstr_axiom_todo.push_back(n);
+    } else {
+        TRACE("t_str_detail", tout << "expr is of wrong sort, ignoring" << std::endl;);
+    }
+
+    // if expr is an application, recursively inspect all arguments
+    if (is_app(ex)) {
+        app * term = (app*)ex;
+        unsigned num_args = term->get_num_args();
+        for (unsigned i = 0; i < num_args; i++) {
+            set_up_axioms(term->get_arg(i));
+        }
+    }
+}
+
 void theory_str::init_search_eh() {
     ast_manager & m = get_manager();
     context & ctx = get_context();
-    TRACE("t_str",
-        tout << "search started, assignments are:" << std::endl;
-        expr_ref_vector assignment(m);
-        ctx.get_assignments(assignment);
-        for (expr_ref_vector::iterator i = assignment.begin(); i != assignment.end(); ++i) {
-            expr * ex = *i;
+
+    TRACE("t_str_detail",
+        tout << "dumping all asserted formulas:" << std::endl;
+        unsigned nFormulas = ctx.get_num_asserted_formulas();
+        for (unsigned i = 0; i < nFormulas; ++i) {
+            expr * ex = ctx.get_asserted_formula(i);
             tout << mk_ismt2_pp(ex, m) << std::endl;
         }
     );
+    // recursive descent through all asserted formulas to set up axioms
+    unsigned nFormulas = ctx.get_num_asserted_formulas();
+    for (unsigned i = 0; i < nFormulas; ++i) {
+        expr * ex = ctx.get_asserted_formula(i);
+        set_up_axioms(ex);
+    }
+
     search_started = true;
 }
 
