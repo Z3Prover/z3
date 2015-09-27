@@ -224,7 +224,6 @@ void theory_str::instantiate_basic_string_axioms(enode * str) {
             assert_axiom(lhs_ge_rhs);
         }
 
-        /*
         // build axiom 2: Length(a_str) == 0 <=> a_str == ""
         {
             // build LHS of iff
@@ -246,12 +245,11 @@ void theory_str::instantiate_basic_string_axioms(enode * str) {
             SASSERT(rhs);
             // build LHS <=> RHS and assert
             TRACE("t_str_detail", tout << "string axiom 2: " << mk_bounded_pp(lhs, m) << " <=> " << mk_bounded_pp(rhs, m) << std::endl;);
-            // TODO this is kind of a hack, maybe just ctx.assert_expr() will be enough?
             literal l(mk_eq(lhs, rhs, true));
             ctx.mark_as_relevant(l);
-            assert_axiom(l);
+            ctx.mk_th_axiom(get_id(), 1, &l);
         }
-        */
+
     }
 }
 
