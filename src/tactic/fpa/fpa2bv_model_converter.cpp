@@ -215,7 +215,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
 #else        
         SASSERT(a->get_arg(0)->get_kind() == OP_EXTRACT);
         SASSERT(to_app(a->get_arg(0))->get_arg(0)->get_kind() == OP_EXTRACT);
-        seen.insert(to_app(to_app(a->get_arg(0))->get_arg(0))->get_decl());
+        seen.insert(to_app(to_app(val->get_arg(0))->get_arg(0))->get_decl());
 #endif
 
         if (!sgn && !sig && !exp)
