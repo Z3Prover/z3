@@ -115,6 +115,18 @@ void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
     sort_names.push_back(builtin_name("String", STRING_SORT));
 }
 
+bool str_decl_plugin::is_value(app * e) const {
+    if (e->get_family_id() != m_family_id) {
+        return false;
+    }
+    switch (e->get_decl_kind()) {
+    case OP_STR:
+        return true;
+    default:
+        return false;
+    }
+}
+
 bool str_recognizers::is_string(expr const * n, const char ** val) const {
     if (!is_app_of(n, m_afid, OP_STR))
             return false;
