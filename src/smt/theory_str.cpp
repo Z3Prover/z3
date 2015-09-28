@@ -118,7 +118,7 @@ app * theory_str::mk_strlen(app * e) {
 }
 
 bool theory_str::can_propagate() {
-    return !m_basicstr_axiom_todo.empty() || !m_str_eq_length_axiom_todo.empty();
+    return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty();
 }
 
 void theory_str::propagate() {
@@ -129,13 +129,13 @@ void theory_str::propagate() {
         }
         m_basicstr_axiom_todo.reset();
 
-        for (unsigned i = 0; i < m_str_eq_length_axiom_todo.size(); ++i) {
-            std::pair<enode*,enode*> pair = m_str_eq_length_axiom_todo[i];
+        for (unsigned i = 0; i < m_str_eq_todo.size(); ++i) {
+            std::pair<enode*,enode*> pair = m_str_eq_todo[i];
             enode * lhs = pair.first;
             enode * rhs = pair.second;
-            instantiate_str_eq_length_axiom(lhs, rhs);
+            handle_equality(lhs->get_owner(), rhs->get_owner());
         }
-        m_str_eq_length_axiom_todo.reset();
+        m_str_eq_todo.reset();
     }
     TRACE("t_str_detail", tout << "done propagating" << std::endl;);
 }
@@ -299,7 +299,7 @@ void theory_str::attach_new_th_var(enode * n) {
 void theory_str::reset_eh() {
     TRACE("t_str", tout << "resetting" << std::endl;);
     m_basicstr_axiom_todo.reset();
-    m_str_eq_length_axiom_todo.reset();
+    m_str_eq_todo.reset();
     pop_scope_eh(0);
 }
 
@@ -382,10 +382,10 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
             TRACE("t_str", tout << "quick path: concat == \"\"" << std::endl;);
             // assert the following axiom:
             // ( (Concat a1 a2) == str ) -> ( (a1 == "") AND (a2 == "") )
-            expr_ref premise(ctx.mk_eq_atom(concat, str), m);
+            expr_ref premise(m.mk_eq(concat, str), m);
             expr_ref empty_str(m_strutil.mk_string(""), m);
-            expr_ref c1(ctx.mk_eq_atom(a1, empty_str), m);
-            expr_ref c2(ctx.mk_eq_atom(a2, empty_str), m);
+            expr_ref c1(m.mk_eq(a1, empty_str), m);
+            expr_ref c2(m.mk_eq(a2, empty_str), m);
             expr_ref conclusion(m.mk_and(c1, c2), m);
             expr_ref axiom(m.mk_implies(premise, conclusion), m);
             TRACE("t_str_detail", tout << "learn " << mk_ismt2_pp(axiom, m) << std::endl;);
@@ -423,12 +423,7 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
     // TODO there's some setup with getLenValue() that I don't think is necessary
     // because we should already be generating the string length axioms for all string terms
 
-    // set up string length axiom:
-    // (lhs == rhs) -> (Length(lhs) == Length(rhs))
-    enode * e_lhs = ctx.get_enode(lhs);
-    enode * e_rhs = ctx.get_enode(rhs);
-    std::pair<enode*,enode*> eq_pair(e_lhs, e_rhs);
-    m_str_eq_length_axiom_todo.push_back(eq_pair);
+    instantiate_str_eq_length_axiom(ctx.get_enode(lhs), ctx.get_enode(rhs));
 
     // group terms by equivalence class (groupNodeInEqc())
     std::set<expr*> eqc_lhs_concat;
@@ -553,9 +548,6 @@ void theory_str::init_search_eh() {
     ast_manager & m = get_manager();
     context & ctx = get_context();
 
-    // TODO it would be better to refactor this function so that instead of deferring the axioms
-    // instead we defer the evaluation of the expression
-
     TRACE("t_str_detail",
         tout << "dumping all asserted formulas:" << std::endl;
         unsigned nFormulas = ctx.get_num_asserted_formulas();
@@ -592,7 +584,11 @@ void theory_str::init_search_eh() {
             SASSERT(eq->get_num_args() == 2);
             expr * lhs = eq->get_arg(0);
             expr * rhs = eq->get_arg(1);
-            handle_equality(lhs, rhs);
+
+            enode * e_lhs = ctx.get_enode(lhs);
+            enode * e_rhs = ctx.get_enode(rhs);
+            std::pair<enode*,enode*> eq_pair(e_lhs, e_rhs);
+            m_str_eq_todo.push_back(eq_pair);
         } else {
             TRACE("t_str_detail", tout << "expr ignored" << std::endl;);
         }

@@ -39,7 +39,7 @@ namespace smt {
         str_util m_strutil;
 
         ptr_vector<enode> m_basicstr_axiom_todo;
-        svector<std::pair<enode*,enode*> > m_str_eq_length_axiom_todo;
+        svector<std::pair<enode*,enode*> > m_str_eq_todo;
     protected:
         void assert_axiom(ast * e);
 
