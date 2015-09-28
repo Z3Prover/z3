@@ -238,5 +238,5 @@ void get_memory_statistics(statistics& st) {
 }
 
 void get_rlimit_statistics(reslimit& l, statistics& st) {
-    st.update("rlimit-count",     l.count());
+    st.update("rlimit count",     l.count());
 }
