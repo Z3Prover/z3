@@ -171,7 +171,7 @@ void theory_str::instantiate_concat_axiom(enode * cat) {
     // finally assert equality between the two subexpressions
     app * eq = m.mk_eq(len_xy, len_x_plus_len_y);
     SASSERT(eq);
-    TRACE("t_str", tout << mk_bounded_pp(eq, m) << std::endl;);
+    TRACE("t_str", tout << mk_ismt2_pp(eq, m) << std::endl;);
     assert_axiom(eq);
 }
 
@@ -219,7 +219,7 @@ void theory_str::instantiate_basic_string_axioms(enode * str) {
             app * lhs_ge_rhs = m_autil.mk_ge(len_str, zero);
             SASSERT(lhs_ge_rhs);
             // TODO verify that this works
-            TRACE("t_str_detail", tout << "string axiom 1: " << mk_bounded_pp(lhs_ge_rhs, m) << std::endl;);
+            TRACE("t_str_detail", tout << "string axiom 1: " << mk_ismt2_pp(lhs_ge_rhs, m) << std::endl;);
             assert_axiom(lhs_ge_rhs);
         }
 
@@ -243,7 +243,7 @@ void theory_str::instantiate_basic_string_axioms(enode * str) {
             rhs = ctx.mk_eq_atom(a_str, empty_str);
             SASSERT(rhs);
             // build LHS <=> RHS and assert
-            TRACE("t_str_detail", tout << "string axiom 2: " << mk_bounded_pp(lhs, m) << " <=> " << mk_bounded_pp(rhs, m) << std::endl;);
+            TRACE("t_str_detail", tout << "string axiom 2: " << mk_ismt2_pp(lhs, m) << " <=> " << mk_ismt2_pp(rhs, m) << std::endl;);
             literal l(mk_eq(lhs, rhs, true));
             ctx.mark_as_relevant(l);
             ctx.mk_th_axiom(get_id(), 1, &l);
@@ -275,7 +275,7 @@ void theory_str::instantiate_str_eq_length_axiom(enode * lhs, enode * rhs) {
 
     // build (premise -> conclusion) and assert
     expr_ref axiom(m.mk_implies(premise, conclusion), m);
-    TRACE("t_str_detail", tout << "string-eq length-eq axiom: " << mk_bounded_pp(axiom, m) << std::endl;);
+    TRACE("t_str_detail", tout << "string-eq length-eq axiom: " << mk_ismt2_pp(axiom, m) << std::endl;);
     assert_axiom(axiom);
 }
 
