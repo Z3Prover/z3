@@ -54,11 +54,9 @@ void theory_str::assert_implication(expr * premise, expr * conclusion) {
 }
 
 bool theory_str::internalize_atom(app * atom, bool gate_ctx) {
-    // TODO I have no idea if this is correct.
     TRACE("t_str", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << std::endl;);
     SASSERT(atom->get_family_id() == get_family_id());
 
-    ast_manager & m = get_manager();
     context & ctx = get_context();
 
     if (ctx.b_internalized(atom))
@@ -75,8 +73,6 @@ bool theory_str::internalize_atom(app * atom, bool gate_ctx) {
 }
 
 bool theory_str::internalize_term(app * term) {
-    // TODO I have no idea if this is correct either.
-    ast_manager & m = get_manager();
     context & ctx = get_context();
     TRACE("t_str", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << std::endl;);
     SASSERT(term->get_family_id() == get_family_id());
@@ -113,6 +109,16 @@ app * theory_str::mk_strlen(app * e) {
         expr * args[1] = {e};
         return get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
     }
+}
+
+app * theory_str::mk_concat(app * e1, app * e2) {
+	ast_manager & m = get_manager();
+	if (e1 == NULL || e2 == NULL) {
+		m.raise_exception("strings to be concatenated cannot be NULL");
+	}
+	// TODO there's a *TON* of missing code here from strTheory::mk_concat()
+	expr * args[2] = {e1, e2};
+	return get_manager().mk_app(get_id(), OP_STRCAT, 0, 0, 2, args);
 }
 
 bool theory_str::can_propagate() {
@@ -225,7 +231,6 @@ void theory_str::instantiate_basic_string_axioms(enode * str) {
             // build LHS >= RHS and assert
             app * lhs_ge_rhs = m_autil.mk_ge(len_str, zero);
             SASSERT(lhs_ge_rhs);
-            // TODO verify that this works
             TRACE("t_str_detail", tout << "string axiom 1: " << mk_ismt2_pp(lhs_ge_rhs, m) << std::endl;);
             assert_axiom(lhs_ge_rhs);
         }
@@ -315,7 +320,6 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
 }
 
 void theory_str::group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts) {
-    ast_manager & m = get_manager();
     context & ctx = get_context();
     enode * nNode = ctx.get_enode(n);
     enode * eqcNode = nNode;
@@ -351,6 +355,27 @@ void theory_str::group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::se
 
 void theory_str::simplify_concat_equality(expr * lhs, expr * rhs) {
     // TODO strArgmt::simplifyConcatEq()
+}
+/*
+ * Look through the equivalence class of n to find a string constant.
+ * Return that constant if it is found, and set hasEqcValue to true.
+ * Otherwise, return n, and set hasEqcValue to false.
+ */
+expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
+	context & ctx = get_context();
+	enode * nNode = ctx.get_enode(n);
+	enode * eqcNode = nNode;
+	do {
+		app * ast = eqcNode->get_owner();
+		if (is_string(eqcNode)) {
+			hasEqcValue = true;
+			return ast;
+		}
+		eqcNode = eqcNode->get_next();
+	} while (eqcNode != nNode);
+	// not found
+	hasEqcValue = false;
+	return n;
 }
 
 /*
@@ -388,7 +413,75 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
 
             return;
         }
-        // TODO the rest...
+        bool arg1_has_eqc_value = false;
+        bool arg2_has_eqc_value = false;
+        expr * arg1 = get_eqc_value(a1, arg1_has_eqc_value);
+        expr * arg2 = get_eqc_value(a2, arg2_has_eqc_value);
+        expr_ref newConcat(m);
+        if (arg1 != a1 || arg2 != a2) {
+        	TRACE("t_str", tout << "resolved concat argument(s) to eqc string constants" << std::endl;);
+        	int iPos = 0;
+        	app * item1[2];
+        	if (a1 != arg1) {
+        		item1[iPos++] = ctx.mk_eq_atom(a1, arg1);
+        	}
+        	if (a2 != arg2) {
+        		item1[iPos++] = ctx.mk_eq_atom(a2, arg2);
+        	}
+        	expr_ref implyL1(m);
+        	if (iPos == 1) {
+        		implyL1 = item1[0];
+        	} else {
+        		implyL1 = m.mk_and(item1[0], item1[1]);
+        	}
+        	newConcat = mk_concat(to_app(arg1), to_app(arg2));
+        	if (newConcat != str) {
+        		expr_ref implyR1(ctx.mk_eq_atom(concat, newConcat), m);
+        		assert_implication(implyL1, implyR1);
+        	}
+        } else {
+        	newConcat = concat;
+        }
+        if (newConcat == str) {
+        	return;
+        }
+        if (!is_concat(to_app(newConcat))) {
+        	return;
+        }
+        if (arg1_has_eqc_value && arg2_has_eqc_value) {
+        	// Case 1: Concat(const, const) == const
+        	TRACE("t_str", tout << "Case 1: Concat(const, const) == const" << std::endl;);
+        	const char * str1;
+        	m_strutil.is_string(arg1, & str1);
+        	std::string arg1_str(str1);
+
+        	const char * str2;
+        	m_strutil.is_string(arg2, & str2);
+        	std::string arg2_str(str2);
+
+        	std::string result_str = arg1_str + arg2_str;
+        	if (result_str != const_str) {
+        		// Inconsistency
+        		TRACE("t_str", tout << "inconsistency detected: \""
+        				<< arg1_str << "\" + \"" << arg2_str <<
+						"\" != \"" << const_str << "\"" << std::endl;);
+        		expr_ref equality(ctx.mk_eq_atom(concat, str), m);
+        		expr_ref diseq(m.mk_not(equality), m);
+        		assert_axiom(diseq);
+        	}
+        } else if (!arg1_has_eqc_value && arg2_has_eqc_value) {
+        	// Case 2: Concat(var, const) == const
+        	TRACE("t_str", tout << "Case 2: Concat(var, const) == const" << std::endl;);
+        	NOT_IMPLEMENTED_YET();
+        } else if (arg1_has_eqc_value && !arg2_has_eqc_value) {
+        	// Case 3: Concat(const, var) == const
+        	TRACE("t_str", tout << "Case 3: Concat(const, var) == const" << std::endl;);
+        	NOT_IMPLEMENTED_YET();
+        } else {
+        	// Case 4: Concat(var, var) == const
+        	TRACE("t_str", tout << "Case 4: Concat(var, var) == const" << std::endl;);
+        	NOT_IMPLEMENTED_YET();
+        }
     }
 }
 

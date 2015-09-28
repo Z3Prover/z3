@@ -62,6 +62,7 @@ namespace smt {
         void assert_implication(expr * premise, expr * conclusion);
 
         app * mk_strlen(app * e);
+        app * mk_concat(app * e1, app * e2);
 
         bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
@@ -73,6 +74,8 @@ namespace smt {
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);
+
+        expr * get_eqc_value(expr * n, bool & hasEqcValue);
 
         void simplify_concat_equality(expr * lhs, expr * rhs);
         void solve_concat_eq_str(expr * concat, expr * str);
