@@ -513,7 +513,43 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         } else if (arg1_has_eqc_value && !arg2_has_eqc_value) {
         	// Case 3: Concat(const, var) == const
         	TRACE("t_str", tout << "Case 3: Concat(const, var) == const" << std::endl;);
-        	NOT_IMPLEMENTED_YET();
+        	const char * str1;
+			m_strutil.is_string(arg1, & str1);
+			std::string arg1_str(str1);
+			int resultStrLen = const_str.length();
+			int arg1StrLen = arg1_str.length();
+			if (resultStrLen < arg1StrLen) {
+				// Inconsistency
+				TRACE("t_str", tout << "inconsistency detected: \""
+						 << arg1_str <<
+						"\" is longer than \"" << const_str << "\","
+						<< " so cannot be concatenated with anything to form it" << std::endl;);
+				expr_ref equality(ctx.mk_eq_atom(newConcat, str), m);
+				expr_ref diseq(m.mk_not(equality), m);
+				assert_axiom(diseq);
+				return;
+			} else {
+				int varStrLen = resultStrLen - arg1StrLen;
+				std::string firstPart = const_str.substr(0, arg1StrLen);
+				std::string secondPart = const_str.substr(arg1StrLen, varStrLen);
+				if (arg1_str != firstPart) {
+					// Inconsistency
+					TRACE("t_str", tout << "inconsistency detected: "
+							<< "prefix of concatenation result expected \"" << secondPart << "\", "
+							<< "actually \"" << arg1_str << "\""
+							<< std::endl;);
+					expr_ref equality(ctx.mk_eq_atom(newConcat, str), m);
+					expr_ref diseq(m.mk_not(equality), m);
+					assert_axiom(diseq);
+					return;
+				} else {
+					expr_ref tmpStrConst(m_strutil.mk_string(secondPart), m);
+					expr_ref premise(ctx.mk_eq_atom(newConcat, str), m);
+					expr_ref conclusion(ctx.mk_eq_atom(arg2, tmpStrConst), m);
+					assert_implication(premise, conclusion);
+					return;
+				}
+			}
         } else {
         	// Case 4: Concat(var, var) == const
         	TRACE("t_str", tout << "Case 4: Concat(var, var) == const" << std::endl;);
