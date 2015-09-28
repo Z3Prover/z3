@@ -23,22 +23,14 @@ static void dparse_string(char const* str) {
     context ctx(m, re, params);
     parser* p = parser::create(ctx,m);
 
-    bool res=p->parse_string(str);
+    bool res = p->parse_string(str);
 
-    if (!res) {
+    if (res) {
+        std::cout << "Parsed\n"<<str<<"\n";
+    }
+    else {
         std::cout << "Parser did not succeed on string\n"<<str<<"\n";
-        SASSERT(false);
     }
-#if 0
-    unsigned num_rules = p->get_num_rules();
-    for (unsigned j = 0; j < num_rules; ++j) {
-        rule* r = p->get_rules()[j];
-        std::cout << mk_pp(r->head(), m) << "\n";
-        for (unsigned i = 0; i < r->size(); ++i) {
-            std::cout << "body: " << mk_pp((*r)[i], m) << "\n";
-        }
-    }
-#endif
     dealloc(p);
 }
 
@@ -54,16 +46,6 @@ static void dparse_file(char const* file) {
     if (!p->parse_file(file)) {
         std::cout << "Failed to parse file\n";
     }
-#if 0
-    unsigned num_rules = p->get_num_rules();
-    for (unsigned j = 0; j < num_rules; ++j) {
-        rule* r = p->get_rules()[j];
-        std::cout << mk_pp(r->head(), m) << "\n";
-        for (unsigned i = 0; i < r->size(); ++i) {
-            std::cout << "body: " << mk_pp((*r)[i], m) << "\n";
-        }
-    }
-#endif
     dealloc(p);
 }
 
