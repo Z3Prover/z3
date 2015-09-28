@@ -35,18 +35,9 @@ theory_str::~theory_str() {
 }
 
 void theory_str::assert_axiom(ast * a) {
-    /*
-    if (search_started) {
-        // effectively Z3_theory_assert_axiom
-        NOT_IMPLEMENTED_YET();
-    } else {
-        // effectively Z3_assert_cnstr
-        context & ctx = get_context();
-        ctx.assert_expr(to_expr(a));
-    }
-    */
-    TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(a, get_manager()) << "\n";);
     expr * e = to_expr(a);
+    if (get_manager().is_true(e)) return;
+    TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(a, get_manager()) << "\n";);
     context & ctx = get_context();
     ctx.internalize(e, false);
     literal lit(ctx.get_literal(e));
@@ -381,11 +372,11 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         if (const_str == "") {
             TRACE("t_str", tout << "quick path: concat == \"\"" << std::endl;);
             // assert the following axiom:
-            // ( (Concat a1 a2) == str ) -> ( (a1 == "") AND (a2 == "") )
-            expr_ref premise(m.mk_eq(concat, str), m);
+            // ( (Concat a1 a2) == "" ) -> ( (a1 == "") AND (a2 == "") )
             expr_ref empty_str(m_strutil.mk_string(""), m);
-            expr_ref c1(m.mk_eq(a1, empty_str), m);
-            expr_ref c2(m.mk_eq(a2, empty_str), m);
+            expr_ref premise(ctx.mk_eq_atom(concat, empty_str), m);
+            expr_ref c1(ctx.mk_eq_atom(a1, empty_str), m);
+            expr_ref c2(ctx.mk_eq_atom(a2, empty_str), m);
             expr_ref conclusion(m.mk_and(c1, c2), m);
             expr_ref axiom(m.mk_implies(premise, conclusion), m);
             TRACE("t_str_detail", tout << "learn " << mk_ismt2_pp(axiom, m) << std::endl;);
@@ -642,5 +633,30 @@ final_check_status theory_str::final_check_eh() {
 
     return FC_DONE;
 }
+
+void theory_str::init_model(model_generator & mg) {
+    TRACE("t_str", tout << "initializing model" << std::endl; display(tout););
+    m_factory = alloc(str_value_factory, get_manager(), get_family_id());
+    mg.register_factory(m_factory);
+}
+
+model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
+    TRACE("t_str", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), get_manager()) <<
+                                " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")\n";);
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
+    app_ref owner(m);
+    owner = n->get_owner();
+
+    // If the owner is not internalized, it doesn't have an enode associated.
+    SASSERT(ctx.e_internalized(owner));
+
+    if (m_strutil.is_string(owner)) {
+        return alloc(expr_wrapper_proc, owner);
+    }
+    NOT_IMPLEMENTED_YET(); // TODO
+}
+
+void theory_str::finalize_model(model_generator & mg) {}
 
 }; /* namespace smt */

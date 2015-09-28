@@ -28,7 +28,22 @@ Revision History:
 namespace smt {
 
     class str_value_factory : public value_factory {
-        // TODO
+        str_util m_util;
+    public:
+        str_value_factory(ast_manager & m, family_id fid) :
+            value_factory(m, fid),
+            m_util(m) {}
+        virtual ~str_value_factory() {}
+        virtual expr * get_some_value(sort * s) {
+            return m_util.mk_string("some value");
+        }
+        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+            v1 = m_util.mk_string("value 1");
+            v2 = m_util.mk_string("value 2");
+            return true;
+        }
+        virtual expr * get_fresh_value(sort * s) { NOT_IMPLEMENTED_YET(); }
+        virtual void register_value(expr * n) { /* Ignore */ }
     };
 
     class theory_str : public theory {
@@ -37,6 +52,8 @@ namespace smt {
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
+
+        str_value_factory * m_factory;
 
         ptr_vector<enode> m_basicstr_axiom_todo;
         svector<std::pair<enode*,enode*> > m_str_eq_todo;
@@ -83,6 +100,10 @@ namespace smt {
 
         virtual final_check_status final_check_eh();
         void attach_new_th_var(enode * n);
+
+        virtual void init_model(model_generator & m);
+        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
+        virtual void finalize_model(model_generator & mg);
     };
 
 };
