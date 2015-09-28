@@ -39,7 +39,9 @@ void theory_str::assert_axiom(ast * a) {
     if (get_manager().is_true(e)) return;
     TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(a, get_manager()) << "\n";);
     context & ctx = get_context();
-    ctx.internalize(e, false);
+    if (!ctx.b_internalized(e)) {
+        ctx.internalize(e, true);
+    }
     literal lit(ctx.get_literal(e));
     ctx.mark_as_relevant(lit);
     ctx.mk_th_axiom(get_id(), 1, &lit);
@@ -372,14 +374,15 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
             TRACE("t_str", tout << "quick path: concat == \"\"" << std::endl;);
             // assert the following axiom:
             // ( (Concat a1 a2) == "" ) -> ( (a1 == "") AND (a2 == "") )
-            expr_ref empty_str(m_strutil.mk_string(""), m);
-            expr_ref premise(ctx.mk_eq_atom(concat, empty_str), m);
-            expr_ref c1(ctx.mk_eq_atom(a1, empty_str), m);
-            expr_ref c2(ctx.mk_eq_atom(a2, empty_str), m);
+
+
+            expr_ref premise(ctx.mk_eq_atom(concat, str), m);
+            expr_ref c1(ctx.mk_eq_atom(a1, str), m);
+            expr_ref c2(ctx.mk_eq_atom(a2, str), m);
             expr_ref conclusion(m.mk_and(c1, c2), m);
-            expr_ref axiom(m.mk_implies(premise, conclusion), m);
-            TRACE("t_str_detail", tout << "learn " << mk_ismt2_pp(axiom, m) << std::endl;);
+            expr_ref axiom(m.mk_or(m.mk_not(premise), conclusion), m);
             assert_axiom(axiom);
+
             return;
         }
         // TODO the rest...
@@ -561,7 +564,7 @@ void theory_str::init_search_eh() {
     /*
      * Similar recursive descent, except over all initially assigned terms.
      * This is done to find equalities between terms, etc. that we otherwise
-     * wouldn't get a chance to see.
+     * might not get a chance to see.
      */
     expr_ref_vector assignments(m);
     ctx.get_assignments(assignments);
@@ -613,6 +616,10 @@ void theory_str::assign_eh(bool_var v, bool is_true) {
 
 void theory_str::push_scope_eh() {
     TRACE("t_str", tout << "push" << std::endl;);
+}
+
+void theory_str::pop_scope_eh(unsigned num_scopes) {
+    TRACE("t_str", tout << "pop " << num_scopes << std::endl;);
 }
 
 final_check_status theory_str::final_check_eh() {

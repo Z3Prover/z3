@@ -93,6 +93,7 @@ namespace smt {
         virtual void relevant_eh(app * n);
         virtual void assign_eh(bool_var v, bool is_true);
         virtual void push_scope_eh();
+        virtual void pop_scope_eh(unsigned num_scopes);
         virtual void reset_eh();
 
         virtual bool can_propagate();
