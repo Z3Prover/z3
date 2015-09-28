@@ -58,7 +58,8 @@ namespace smt {
         ptr_vector<enode> m_basicstr_axiom_todo;
         svector<std::pair<enode*,enode*> > m_str_eq_todo;
     protected:
-        void assert_axiom(ast * e);
+        void assert_axiom(expr * e);
+        void assert_implication(expr * premise, expr * conclusion);
 
         app * mk_strlen(app * e);
 

@@ -34,10 +34,9 @@ theory_str::theory_str(ast_manager & m):
 theory_str::~theory_str() {
 }
 
-void theory_str::assert_axiom(ast * a) {
-    expr * e = to_expr(a);
+void theory_str::assert_axiom(expr * e) {
     if (get_manager().is_true(e)) return;
-    TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(a, get_manager()) << "\n";);
+    TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << "\n";);
     context & ctx = get_context();
     if (!ctx.b_internalized(e)) {
         ctx.internalize(e, true);
@@ -45,7 +44,13 @@ void theory_str::assert_axiom(ast * a) {
     literal lit(ctx.get_literal(e));
     ctx.mark_as_relevant(lit);
     ctx.mk_th_axiom(get_id(), 1, &lit);
-    TRACE("t_str_detail", tout << "done asserting " << mk_ismt2_pp(a, get_manager()) << "\n";);
+    TRACE("t_str_detail", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << "\n";);
+}
+
+void theory_str::assert_implication(expr * premise, expr * conclusion) {
+    ast_manager & m = get_manager();
+    expr_ref axiom(m.mk_or(m.mk_not(premise), conclusion), m);
+    assert_axiom(axiom);
 }
 
 bool theory_str::internalize_atom(app * atom, bool gate_ctx) {
@@ -275,10 +280,9 @@ void theory_str::instantiate_str_eq_length_axiom(enode * lhs, enode * rhs) {
     SASSERT(len_rhs);
     expr_ref conclusion(ctx.mk_eq_atom(len_lhs, len_rhs), m);
 
-    // build (premise -> conclusion) and assert
-    expr_ref axiom(m.mk_implies(premise, conclusion), m);
-    TRACE("t_str_detail", tout << "string-eq length-eq axiom: " << mk_ismt2_pp(axiom, m) << std::endl;);
-    assert_axiom(axiom);
+    TRACE("t_str_detail", tout << "string-eq length-eq axiom: "
+            << mk_ismt2_pp(premise, m) << " -> " << mk_ismt2_pp(conclusion, m) << std::endl;);
+    assert_implication(premise, conclusion);
 }
 
 void theory_str::attach_new_th_var(enode * n) {
@@ -380,8 +384,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
             expr_ref c1(ctx.mk_eq_atom(a1, str), m);
             expr_ref c2(ctx.mk_eq_atom(a2, str), m);
             expr_ref conclusion(m.mk_and(c1, c2), m);
-            expr_ref axiom(m.mk_or(m.mk_not(premise), conclusion), m);
-            assert_axiom(axiom);
+            assert_implication(premise, conclusion);
 
             return;
         }
