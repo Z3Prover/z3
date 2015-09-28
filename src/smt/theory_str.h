@@ -23,6 +23,7 @@ Revision History:
 #include"value_factory.h"
 #include"smt_model_generator.h"
 #include"arith_decl_plugin.h"
+#include<set>
 
 namespace smt {
 
@@ -46,12 +47,20 @@ namespace smt {
 
         bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
+        bool is_string(app const * a) const { return a->is_app_of(get_id(), OP_STR); }
+        bool is_string(enode const * n) const { return is_string(n->get_owner()); }
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
         void instantiate_str_eq_length_axiom(enode * lhs, enode * rhs);
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);
+
+        void simplify_concat_equality(expr * lhs, expr * rhs);
+        void solve_concat_eq_str(expr * concat, expr * str);
+
+        bool new_eq_check(expr * lhs, expr * rhs);
+        void group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts);
     public:
         theory_str(ast_manager & m);
         virtual ~theory_str();

@@ -144,6 +144,7 @@ void theory_str::propagate() {
  * Instantiate an axiom of the following form:
  * Length(Concat(x, y)) = Length(x) + Length(y)
  */
+// TODO this isn't used yet
 void theory_str::instantiate_concat_axiom(enode * cat) {
     SASSERT(is_concat(cat));
     app * a_cat = cat->get_owner();
@@ -302,6 +303,99 @@ void theory_str::reset_eh() {
     pop_scope_eh(0);
 }
 
+/*
+ * Check equality among equivalence class members of LHS and RHS
+ * to discover an incorrect LHS == RHS.
+ * For example, if we have y2 == "str3"
+ * and the equivalence classes are
+ * { y2, (Concat ce m2) }
+ * { "str3", (Concat abc x2) }
+ * then y2 can't be equal to "str3".
+ * Then add an assertion: (y2 == (Concat ce m2)) AND ("str3" == (Concat abc x2)) -> (y2 != "str3")
+ */
+bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
+    // TODO this involves messing around with enodes and equivalence classes
+    return true;
+}
+
+void theory_str::group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts) {
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
+    enode * nNode = ctx.get_enode(n);
+    enode * eqcNode = nNode;
+    do {
+        app * ast = eqcNode->get_owner();
+        if (is_concat(eqcNode)) {
+            // TODO simplify_concat
+            /*
+              Z3_ast simConcat = simplifyConcat(t, eqcNode);
+              if (simConcat != eqcNode) {
+                if (isConcatFunc(t, simConcat)) {
+                  concats.insert(simConcat);
+                } else {
+                  if (isConstStr(t, simConcat)) {
+                    constStrs.insert(simConcat);
+                  } else {
+                    vars.insert(simConcat);
+                  }
+                }
+              } else {
+                concats.insert(simConcat);
+              }
+             */
+            concats.insert(ast);
+        } else if (is_string(eqcNode)) {
+            consts.insert(ast);
+        } else {
+            vars.insert(ast);
+        }
+        eqcNode = eqcNode->get_next();
+    } while (eqcNode != nNode);
+}
+
+void theory_str::simplify_concat_equality(expr * lhs, expr * rhs) {
+    // TODO strArgmt::simplifyConcatEq()
+}
+
+/*
+ * strArgmt::solve_concat_eq_str()
+ * Solve concatenations of the form:
+ *   const == Concat(const, X)
+ *   const == Concat(X, const)
+ */
+void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
+
+    TRACE("t_str_detail", tout << mk_ismt2_pp(concat, m) << " == " << mk_ismt2_pp(str, m) << std::endl;);
+
+    if (is_concat(to_app(concat)) && is_string(to_app(str))) {
+        const char * tmp = 0;
+        m_strutil.is_string(str, & tmp);
+        std::string const_str(tmp);
+        app * a_concat = to_app(concat);
+        SASSERT(a_concat->get_num_args() == 2);
+        expr * a1 = a_concat->get_arg(0);
+        expr * a2 = a_concat->get_arg(1);
+
+        if (const_str == "") {
+            TRACE("t_str", tout << "quick path: concat == \"\"" << std::endl;);
+            // assert the following axiom:
+            // ( (Concat a1 a2) == str ) -> ( (a1 == "") AND (a2 == "") )
+            expr_ref premise(ctx.mk_eq_atom(concat, str), m);
+            expr_ref empty_str(m_strutil.mk_string(""), m);
+            expr_ref c1(ctx.mk_eq_atom(a1, empty_str), m);
+            expr_ref c2(ctx.mk_eq_atom(a2, empty_str), m);
+            expr_ref conclusion(m.mk_and(c1, c2), m);
+            expr_ref axiom(m.mk_implies(premise, conclusion), m);
+            TRACE("t_str_detail", tout << "learn " << mk_ismt2_pp(axiom, m) << std::endl;);
+            assert_axiom(axiom);
+            return;
+        }
+        // TODO the rest...
+    }
+}
+
 void theory_str::handle_equality(expr * lhs, expr * rhs) {
     ast_manager & m = get_manager();
     context & ctx = get_context();
@@ -319,7 +413,10 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
 
     // TODO simplify concat?
 
-    // TODO newEqCheck()?
+    // newEqCheck() -- check consistency wrt. existing equivalence classes
+    if (!new_eq_check(lhs, rhs)) {
+        return;
+    }
 
     // BEGIN new_eq_handler() in strTheory
 
@@ -332,6 +429,94 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
     enode * e_rhs = ctx.get_enode(rhs);
     std::pair<enode*,enode*> eq_pair(e_lhs, e_rhs);
     m_str_eq_length_axiom_todo.push_back(eq_pair);
+
+    // group terms by equivalence class (groupNodeInEqc())
+    std::set<expr*> eqc_lhs_concat;
+    std::set<expr*> eqc_lhs_var;
+    std::set<expr*> eqc_lhs_const;
+    group_terms_by_eqc(lhs, eqc_lhs_concat, eqc_lhs_var, eqc_lhs_const);
+
+    TRACE("t_str_detail",
+        tout << "eqc[lhs]:" << std::endl;
+        tout << "Concats:" << std::endl;
+        for (std::set<expr*>::iterator it = eqc_lhs_concat.begin(); it != eqc_lhs_concat.end(); ++it) {
+            expr * ex = *it;
+            tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
+        }
+        tout << "Variables:" << std::endl;
+        for (std::set<expr*>::iterator it = eqc_lhs_var.begin(); it != eqc_lhs_var.end(); ++it) {
+            expr * ex = *it;
+            tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
+        }
+        tout << "Constants:" << std::endl;
+        for (std::set<expr*>::iterator it = eqc_lhs_const.begin(); it != eqc_lhs_const.end(); ++it) {
+            expr * ex = *it;
+            tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
+        }
+        );
+
+    std::set<expr*> eqc_rhs_concat;
+    std::set<expr*> eqc_rhs_var;
+    std::set<expr*> eqc_rhs_const;
+    group_terms_by_eqc(rhs, eqc_rhs_concat, eqc_rhs_var, eqc_rhs_const);
+
+    TRACE("t_str_detail",
+        tout << "eqc[rhs]:" << std::endl;
+        tout << "Concats:" << std::endl;
+        for (std::set<expr*>::iterator it = eqc_rhs_concat.begin(); it != eqc_rhs_concat.end(); ++it) {
+            expr * ex = *it;
+            tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
+        }
+        tout << "Variables:" << std::endl;
+        for (std::set<expr*>::iterator it = eqc_rhs_var.begin(); it != eqc_rhs_var.end(); ++it) {
+            expr * ex = *it;
+            tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
+        }
+        tout << "Constants:" << std::endl;
+        for (std::set<expr*>::iterator it = eqc_rhs_const.begin(); it != eqc_rhs_const.end(); ++it) {
+            expr * ex = *it;
+            tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
+        }
+        );
+
+    // step 1: Concat == Concat
+    bool hasCommon = false;
+    if (eqc_lhs_concat.size() != 0 && eqc_rhs_concat.size() != 0) {
+        std::set<expr*>::iterator itor1 = eqc_lhs_concat.begin();
+        std::set<expr*>::iterator itor2 = eqc_rhs_concat.begin();
+        for (; itor1 != eqc_lhs_concat.end(); ++itor1) {
+            if (eqc_rhs_concat.find(*itor1) != eqc_rhs_concat.end()) {
+                hasCommon = true;
+                break;
+            }
+        }
+        for (; !hasCommon && itor2 != eqc_rhs_concat.end(); ++itor2) {
+            if (eqc_lhs_concat.find(*itor2) != eqc_lhs_concat.end()) {
+                hasCommon = true;
+                break;
+            }
+        }
+        if (!hasCommon) {
+            simplify_concat_equality(*(eqc_lhs_concat.begin()), *(eqc_rhs_concat.begin()));
+        }
+    }
+
+    // step 2: Concat == Constant
+    if (eqc_lhs_const.size() != 0) {
+        expr * conStr = *(eqc_lhs_const.begin());
+        std::set<expr*>::iterator itor2 = eqc_rhs_concat.begin();
+        for (; itor2 != eqc_rhs_concat.end(); ++itor2) {
+            solve_concat_eq_str(*itor2, conStr);
+        }
+    } else if (eqc_rhs_const.size() != 0) {
+        expr * conStr = *(eqc_rhs_const.begin());
+        std::set<expr*>::iterator itor1 = eqc_lhs_concat.begin();
+        for (; itor1 != eqc_lhs_concat.end(); ++itor1) {
+            solve_concat_eq_str(*itor1, conStr);
+        }
+    }
+
+    // TODO regex unroll? (much later)
 }
 
 void theory_str::set_up_axioms(expr * ex) {
@@ -367,6 +552,9 @@ void theory_str::set_up_axioms(expr * ex) {
 void theory_str::init_search_eh() {
     ast_manager & m = get_manager();
     context & ctx = get_context();
+
+    // TODO it would be better to refactor this function so that instead of deferring the axioms
+    // instead we defer the evaluation of the expression
 
     TRACE("t_str_detail",
         tout << "dumping all asserted formulas:" << std::endl;
@@ -410,11 +598,11 @@ void theory_str::init_search_eh() {
         }
     }
 
+    TRACE("t_str", tout << "search started" << std::endl;);
     search_started = true;
 }
 
 void theory_str::new_eq_eh(theory_var x, theory_var y) {
-    // TODO
     TRACE("t_str", tout << "new eq: v#" << x << " = v#" << y << std::endl;);
     TRACE("t_str_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
@@ -422,7 +610,6 @@ void theory_str::new_eq_eh(theory_var x, theory_var y) {
 }
 
 void theory_str::new_diseq_eh(theory_var x, theory_var y) {
-    // TODO
     TRACE("t_str", tout << "new diseq: v#" << x << " != v#" << y << std::endl;);
     TRACE("t_str_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " != " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
@@ -442,8 +629,21 @@ void theory_str::push_scope_eh() {
 }
 
 final_check_status theory_str::final_check_eh() {
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
     // TODO
     TRACE("t_str", tout << "final check" << std::endl;);
+
+    TRACE("t_str_detail",
+        tout << "dumping all assignments:" << std::endl;
+        expr_ref_vector assignments(m);
+        ctx.get_assignments(assignments);
+        for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
+            expr * ex = *i;
+            tout << mk_ismt2_pp(ex, m) << std::endl;
+        }
+    );
+
     return FC_DONE;
 }
 
