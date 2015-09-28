@@ -57,12 +57,17 @@ namespace smt {
 
         ptr_vector<enode> m_basicstr_axiom_todo;
         svector<std::pair<enode*,enode*> > m_str_eq_todo;
+
+        int tmpXorVarCount;
+        std::map<std::pair<expr*, expr*>, std::map<int, expr*> > varForBreakConcat;
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
 
         app * mk_strlen(app * e);
         app * mk_concat(app * e1, app * e2);
+
+        app * mk_internal_xor_var();
 
         bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }

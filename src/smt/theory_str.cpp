@@ -27,7 +27,8 @@ theory_str::theory_str(ast_manager & m):
         theory(m.mk_family_id("str")),
         search_started(false),
         m_autil(m),
-        m_strutil(m)
+        m_strutil(m),
+		tmpXorVarCount(0)
 {
 }
 
@@ -97,6 +98,31 @@ bool theory_str::internalize_term(app * term) {
     */
 
     return true;
+}
+
+Z3_ast mk_internal_xor_var(Z3_theory t) {
+  Z3_context ctx = Z3_theory_get_context(t);
+  std::stringstream ss;
+  ss << tmpXorVarCount;
+  tmpXorVarCount++;
+  std::string name = "$$_xor_" + ss.str();
+  return mk_int_var(ctx, name.c_str());
+}
+
+app * theory_str::mk_internal_xor_var() {
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+	std::stringstream ss;
+	ss << tmpXorVarCount;
+	tmpXorVarCount++;
+	std::string name = "$$_xor_" + ss.str();
+	// Z3_sort r = of_sort(mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), INT_SORT));
+	sort * int_sort = m.mk_sort(m_autil.get_family_id(), INT_SORT);
+	symbol sym(name);
+
+	app* a = m.mk_const(m.mk_const_decl(sym, int_sort));
+	// TODO ctx.save_ast_trail(a)?
+	return a;
 }
 
 app * theory_str::mk_strlen(app * e) {
@@ -553,7 +579,151 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         } else {
         	// Case 4: Concat(var, var) == const
         	TRACE("t_str", tout << "Case 4: Concat(var, var) == const" << std::endl;);
-        	NOT_IMPLEMENTED_YET();
+        	// TODO large additions required in this section
+        	if (true) { /* if (Concat(arg1, arg2) == NULL) { */
+        		int arg1Len = -1; /* = getLenValue(arg1); */
+        		int arg2Len = -1; /* = getLenValue(arg2); */
+        		if (arg1Len != -1 || arg2Len != -1) {
+        			NOT_IMPLEMENTED_YET(); // TODO
+        		} else {
+        			/*
+					  Z3_ast xorFlag = NULL;
+					  std::pair<Z3_ast, Z3_ast> key1(arg1, arg2);
+					  std::pair<Z3_ast, Z3_ast> key2(arg2, arg1);
+					  if (varForBreakConcat.find(key1) == varForBreakConcat.end() && varForBreakConcat.find(key2) == varForBreakConcat.end()) {
+						xorFlag = mk_internal_xor_var(t);
+						varForBreakConcat[key1][0] = xorFlag;
+					  } else {
+						if (varForBreakConcat.find(key1) != varForBreakConcat.end()) {
+						  xorFlag = varForBreakConcat[key1][0];
+						} else {
+						  xorFlag = varForBreakConcat[key2][0];
+						}
+					  }
+
+					  int concatStrLen = const_str.length();
+					  int xor_pos = 0;
+					  int and_count = 1;
+					  Z3_ast * xor_items = new Z3_ast[concatStrLen + 1];
+					  Z3_ast * and_items = new Z3_ast[4 * (concatStrLen + 1) + 1];
+					  Z3_ast arg1_eq = NULL;
+					  Z3_ast arg2_eq = NULL;
+					  for (int i = 0; i < concatStrLen + 1; i++) {
+						std::string prefixStr = const_str.substr(0, i);
+						std::string suffixStr = const_str.substr(i, concatStrLen - i);
+
+						// skip invalidate options
+						if (isConcatFunc(t, arg1) && canConcatEqStr(t, arg1, prefixStr) == 0) {
+						  continue;
+						}
+						if (isConcatFunc(t, arg2) && canConcatEqStr(t, arg2, suffixStr) == 0) {
+						  continue;
+						}
+
+						Z3_ast xorAst = Z3_mk_eq(ctx, xorFlag, mk_int(ctx, xor_pos));
+						xor_items[xor_pos++] = xorAst;
+
+						Z3_ast prefixAst = my_mk_str_value(t, prefixStr.c_str());
+						arg1_eq = Z3_mk_eq(ctx, arg1, prefixAst);
+						and_items[and_count++] = Z3_mk_eq(ctx, xorAst, arg1_eq);
+
+						Z3_ast suffixAst = my_mk_str_value(t, suffixStr.c_str());
+						arg2_eq = Z3_mk_eq(ctx, arg2, suffixAst);
+						and_items[and_count++] = Z3_mk_eq(ctx, xorAst, arg2_eq);
+					  }
+					  */
+        			expr_ref xorFlag(m);
+        			std::pair<expr*, expr*> key1(arg1, arg2);
+        			std::pair<expr*, expr*> key2(arg2, arg1);
+        			std::map<std::pair<expr*, expr*>, std::map<int, expr*> >::iterator varBreak_key1 =
+        					varForBreakConcat.find(key1);
+        			std::map<std::pair<expr*, expr*>, std::map<int, expr*> >::iterator varBreak_key2 =
+							varForBreakConcat.find(key2);
+        			if (varBreak_key1 == varForBreakConcat.end() && varBreak_key2 == varForBreakConcat.end()) {
+        				xorFlag = mk_internal_xor_var();
+        				varForBreakConcat[key1][0] = xorFlag;
+        			} else if (varBreak_key1 != varForBreakConcat.end()) {
+        				xorFlag = varForBreakConcat[key1][0];
+        			} else { // varBreak_key2 != varForBreakConcat.end()
+        				xorFlag = varForBreakConcat[key2][0];
+        			}
+
+        			int concatStrLen = const_str.length();
+        			int xor_pos = 0;
+        			int and_count = 1;
+        			expr * xor_items[] = new expr*[concatStrLen + 1];
+        			expr * and_items[] = new expr*[4 * (concatStrLen+1) + 1];
+
+        			expr_ref arg1_eq(m);
+        			expr_ref arg2_eq(m);
+
+        			for (int i = 0; i < concatStrLen + 1; ++i) {
+        				std::string prefixStr = const_str.substr(0, i);
+        				std::string suffixStr = const_str.substr(i, concatStrLen - i);
+        				// skip invalid options
+        				// TODO canConcatEqStr() checks:
+        				/*
+							if (isConcatFunc(t, arg1) && canConcatEqStr(t, arg1, prefixStr) == 0) {
+							  continue;
+							}
+							if (isConcatFunc(t, arg2) && canConcatEqStr(t, arg2, suffixStr) == 0) {
+							  continue;
+							}
+        				 */
+        				expr_ref xorAst(ctx.mk_eq_atom(xorFlag, mk_int(xor_pos)), m);
+        				xor_items[xor_pos++] = xorAst;
+
+        				expr_ref prefixAst(m_strutil.mk_string(prefixStr), m);
+        				arg1_eq = ctx.mk_eq_atom(arg1, prefixAst);
+        				and_items[and_count++] = ctx.mk_eq_atom(xorAst, arg1_eq);
+
+        				expr_ref suffixAst(m_strutil.mk_string(prefixStr), m);
+        				arg2_eq = ctx.mk_eq_atom(arg2, suffixAst);
+        				and_items[and_count++] = ctx.mk_eq_atom(xorAst, arg2_eq);
+        			}
+
+        			expr_ref implyL(ctx.mk_eq_atom(concat, str), m);
+        			expr_ref implyR(m);
+        			if (xor_pos == 0) {
+        				// negate
+        				expr_ref concat_eq_str(ctx.mk_eq_atom(concat, str), m);
+        				expr_ref negate_ast(m.mk_not(concat_eq_str), m);
+        				assert_axiom(negate_ast);
+        			} else {
+        				// TODO
+        				if (xor_pos == 1) {
+
+        				} else {
+
+        				}
+        			}
+        			delete[] xor_items;
+        			delete[] and_items;
+
+        			  /*
+
+					  Z3_ast implyL = Z3_mk_eq(ctx, concatAst, constStr);
+					  Z3_ast implyR1 = NULL;
+					  if (xor_pos == 0) {
+						// negate
+						Z3_ast negateAst = Z3_mk_not(ctx, Z3_mk_eq(ctx, concatAst, constStr));
+						addAxiom(t, negateAst, __LINE__);
+					  } else {
+						if (xor_pos == 1) {
+						  and_items[0] = xor_items[0];
+						  implyR1 = Z3_mk_and(ctx, and_count, and_items);
+						} else {
+						  and_items[0] = Z3_mk_or(ctx, xor_pos, xor_items);
+						  implyR1 = Z3_mk_and(ctx, and_count, and_items);
+						}
+						Z3_ast implyToAssert = Z3_mk_implies(ctx, implyL, implyR1);
+						addAxiom(t, implyToAssert, __LINE__);
+					  }
+					  delete[] xor_items;
+					  delete[] and_items;
+        			 */
+        		}
+        	}
         }
     }
 }
