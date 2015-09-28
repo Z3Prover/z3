@@ -99,11 +99,25 @@ func_decl * str_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     return mk_func_decl(k);
 }
 
+app * str_decl_plugin::mk_string(std::string & val) {
+	std::map<std::string, app*>::iterator it = string_cache.find(val);
+	if (it == string_cache.end()) {
+		char * new_buffer = alloc_svect(char, val.length() + 1);
+		strcpy(new_buffer, val.c_str());
+		parameter p[1] = {parameter(new_buffer)};
+		func_decl * d;
+		d = m_manager->mk_const_decl(m_strv_sym, m_str_decl, func_decl_info(m_family_id, OP_STR, 1, p));
+		app * str = m_manager->mk_const(d);
+		string_cache[val] = str;
+		return str;
+	} else {
+		return it->second;
+	}
+}
+
 app * str_decl_plugin::mk_string(const char * val) {
-    parameter p[1] = {parameter(val)};
-    func_decl * d;
-    d = m_manager->mk_const_decl(m_strv_sym, m_str_decl, func_decl_info(m_family_id, OP_STR, 1, p));
-    return m_manager->mk_const(d);
+	std::string key(val);
+	return mk_string(key);
 }
 
 void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {

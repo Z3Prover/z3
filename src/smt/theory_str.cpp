@@ -468,11 +468,48 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         		expr_ref equality(ctx.mk_eq_atom(concat, str), m);
         		expr_ref diseq(m.mk_not(equality), m);
         		assert_axiom(diseq);
+        		return;
         	}
         } else if (!arg1_has_eqc_value && arg2_has_eqc_value) {
         	// Case 2: Concat(var, const) == const
         	TRACE("t_str", tout << "Case 2: Concat(var, const) == const" << std::endl;);
-        	NOT_IMPLEMENTED_YET();
+        	const char * str2;
+			m_strutil.is_string(arg2, & str2);
+			std::string arg2_str(str2);
+			int resultStrLen = const_str.length();
+			int arg2StrLen = arg2_str.length();
+			if (resultStrLen < arg2StrLen) {
+				// Inconsistency
+				TRACE("t_str", tout << "inconsistency detected: \""
+						 << arg2_str <<
+						"\" is longer than \"" << const_str << "\","
+						<< " so cannot be concatenated with anything to form it" << std::endl;);
+				expr_ref equality(ctx.mk_eq_atom(newConcat, str), m);
+				expr_ref diseq(m.mk_not(equality), m);
+				assert_axiom(diseq);
+				return;
+			} else {
+				int varStrLen = resultStrLen - arg2StrLen;
+				std::string firstPart = const_str.substr(0, varStrLen);
+				std::string secondPart = const_str.substr(varStrLen, arg2StrLen);
+				if (arg2_str != secondPart) {
+					// Inconsistency
+					TRACE("t_str", tout << "inconsistency detected: "
+							<< "suffix of concatenation result expected \"" << secondPart << "\", "
+							<< "actually \"" << arg2_str << "\""
+							<< std::endl;);
+					expr_ref equality(ctx.mk_eq_atom(newConcat, str), m);
+					expr_ref diseq(m.mk_not(equality), m);
+					assert_axiom(diseq);
+					return;
+				} else {
+					expr_ref tmpStrConst(m_strutil.mk_string(firstPart), m);
+					expr_ref premise(ctx.mk_eq_atom(newConcat, str), m);
+					expr_ref conclusion(ctx.mk_eq_atom(arg1, tmpStrConst), m);
+					assert_implication(premise, conclusion);
+					return;
+				}
+			}
         } else if (arg1_has_eqc_value && !arg2_has_eqc_value) {
         	// Case 3: Concat(const, var) == const
         	TRACE("t_str", tout << "Case 3: Concat(const, var) == const" << std::endl;);

@@ -19,6 +19,7 @@ Revision History:
 
 #include"ast.h"
 #include"arith_decl_plugin.h"
+#include<map>
 
 enum str_sort_kind {
    STRING_SORT,
@@ -44,6 +45,8 @@ protected:
     func_decl * m_concat_decl;
     func_decl * m_length_decl;
 
+    std::map<std::string, app*> string_cache;
+
     virtual void set_manager(ast_manager * m, family_id id);
 
     func_decl * mk_func_decl(decl_kind k);
@@ -58,6 +61,7 @@ public:
                                          unsigned arity, sort * const * domain, sort * range);
 
     app * mk_string(const char * val);
+    app * mk_string(std::string & val);
 
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
@@ -89,6 +93,9 @@ public:
 
     app * mk_string(const char * val) {
         return m_plugin->mk_string(val);
+    }
+    app * mk_string(std::string & val) {
+    	return m_plugin->mk_string(val);
     }
     // TODO
 };
