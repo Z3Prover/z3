@@ -1258,6 +1258,7 @@ namespace opt {
             it->m_value->collect_statistics(stats);
         }        
         get_memory_statistics(stats);
+        get_rlimit_statistics(m.limit(), stats);
     }
 
     void context::collect_param_descrs(param_descrs & r) {

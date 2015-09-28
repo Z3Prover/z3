@@ -497,7 +497,7 @@ namespace sat {
         flet<unsigned> _bound_maxc(m_solver.m_config.m_max_conflicts, 1500);
 
         use_list     ul;        
-        solver       s(m_solver.m_params, 0);
+        solver       s(m_solver.m_params, m_solver.rlimit(), 0);
         s.m_config.m_bcd            = false;
         s.m_config.m_minimize_core  = false;
         s.m_config.m_optimize_model = false;

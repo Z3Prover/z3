@@ -31,8 +31,9 @@ Revision History:
 
 namespace sat {
 
-    solver::solver(params_ref const & p, extension * ext):
+    solver::solver(params_ref const & p, reslimit& l, extension * ext):
         m_cancel(false),
+        m_rlimit(l),
         m_config(p),
         m_ext(ext),
         m_cleaner(*this),

@@ -35,6 +35,7 @@ context_params::context_params() {
     m_smtlib2_compliant = false;
     m_well_sorted_check = false;
     m_timeout = UINT_MAX;
+    m_rlimit  = UINT_MAX;
     updt_params();
 }
 
@@ -64,6 +65,10 @@ void context_params::set(char const * param, char const * value) {
     if (p == "timeout") {
         long val = strtol(value, 0, 10);
         m_timeout = static_cast<unsigned>(val);
+    }
+    if (p == "rlimit") {
+        long val = strtol(value, 0, 10);
+        m_rlimit = static_cast<unsigned>(val);
     }
     else if (p == "type_check" || p == "well_sorted_check") {
         set_bool(m_well_sorted_check, param, value);
@@ -115,6 +120,7 @@ void context_params::updt_params() {
 
 void context_params::updt_params(params_ref const & p) {
     m_timeout           = p.get_uint("timeout", m_timeout);
+    m_rlimit            = p.get_uint("rlimit", m_rlimit);
     m_well_sorted_check = p.get_bool("type_check", p.get_bool("well_sorted_check", m_well_sorted_check));
     m_auto_config       = p.get_bool("auto_config", m_auto_config);
     m_proof             = p.get_bool("proof", m_proof);
@@ -130,6 +136,7 @@ void context_params::updt_params(params_ref const & p) {
 
 void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("timeout", CPK_UINT, "default timeout (in milliseconds) used for solvers", "4294967295");
+    d.insert("rlimit", CPK_UINT, "default resource limit used for solvers", "4294967295");
     d.insert("well_sorted_check", CPK_BOOL, "type checker", "false");
     d.insert("type_check", CPK_BOOL, "type checker (alias for well_sorted_check)", "true");
     d.insert("auto_config", CPK_BOOL, "use heuristics to automatically select solver and configure it", "true");

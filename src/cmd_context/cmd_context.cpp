@@ -1390,6 +1390,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     TRACE("before_check_sat", dump_assertions(tout););
     init_manager();
     unsigned timeout = m_params.m_timeout;
+    unsigned rlimit  = m_params.m_rlimit;
     scoped_watch sw(*this);
     lbool r;
 
@@ -1399,6 +1400,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         cancel_eh<opt_wrapper> eh(*get_opt());
         scoped_ctrl_c ctrlc(eh);
         scoped_timer timer(timeout, &eh);
+        scoped_rlimit _rlimit(m().limit(), rlimit);
         ptr_vector<expr> cnstr(m_assertions);
         cnstr.append(num_assumptions, assumptions);
         get_opt()->set_hard_constraints(cnstr);
@@ -1436,6 +1438,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         cancel_eh<solver> eh(*m_solver);
         scoped_ctrl_c ctrlc(eh);
         scoped_timer timer(timeout, &eh);
+        scoped_rlimit _rlimit(m().limit(), rlimit);
         try {
             r = m_solver->check_sat(num_assumptions, assumptions);
         }
@@ -1646,6 +1649,7 @@ void cmd_context::display_statistics(bool show_total_time, double total_time) {
         st.update("total time", total_time);
     st.update("time", get_seconds());
     get_memory_statistics(st);
+    get_rlimit_statistics(m().limit(), st);
     if (m_check_sat_result) {
         m_check_sat_result->collect_statistics(st);
     }

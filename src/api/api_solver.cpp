@@ -254,6 +254,7 @@ extern "C" {
         }
         expr * const * _assumptions = to_exprs(assumptions);
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
         bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
         cancel_eh<solver> eh(*to_solver_ref(s));
         api::context::set_interruptable si(*(mk_c(c)), eh);
@@ -261,6 +262,7 @@ extern "C" {
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
                 result = to_solver_ref(s)->check_sat(num_assumptions, _assumptions);
             }
@@ -356,6 +358,7 @@ extern "C" {
         Z3_stats_ref * st = alloc(Z3_stats_ref);
         to_solver_ref(s)->collect_statistics(st->m_stats);
         get_memory_statistics(st->m_stats);
+        get_rlimit_statistics(mk_c(c)->m().limit(), st->m_stats);
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);
         RETURN_Z3(r);

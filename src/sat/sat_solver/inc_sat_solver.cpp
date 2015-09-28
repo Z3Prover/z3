@@ -63,7 +63,7 @@ class inc_sat_solver : public solver {
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
-        m(m), m_solver(p,0), 
+        m(m), m_solver(p, m.limit(), 0), 
         m_params(p), m_optimize_model(false), 
         m_fmls(m), 
         m_asmsf(m),

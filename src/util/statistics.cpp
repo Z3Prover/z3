@@ -236,3 +236,7 @@ void get_memory_statistics(statistics& st) {
     st.update("memory",      static_cast<double>(mem)/100.0);
     st.update("num allocs",  static_cast<double>(memory::get_allocation_count()));
 }
+
+void get_rlimit_statistics(reslimit& l, statistics& st) {
+    st.update("rlimit-count",     l.count());
+}

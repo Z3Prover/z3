@@ -34,7 +34,7 @@ class sat_tactic : public tactic {
         
         imp(ast_manager & _m, params_ref const & p):
             m(_m),
-            m_solver(p, 0),
+            m_solver(p, m.limit(), 0),
             m_params(p) {
             SASSERT(!m.proofs_enabled());
         }

@@ -948,6 +948,7 @@ namespace datalog {
             m_engine->collect_statistics(st);
         }
         get_memory_statistics(st);
+        get_rlimit_statistics(m.limit(), st);
     }
 
 

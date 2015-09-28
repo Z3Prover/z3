@@ -38,6 +38,7 @@ Revision History:
 #include"statistics.h"
 #include"stopwatch.h"
 #include"trace.h"
+#include"rlimit.h"
 
 namespace sat {
 
@@ -71,6 +72,7 @@ namespace sat {
         struct abort_solver {};
     protected:
         volatile bool           m_cancel;
+        reslimit&               m_rlimit;
         config                  m_config;
         stats                   m_stats;
         extension *             m_ext;
@@ -145,7 +147,7 @@ namespace sat {
         friend class bceq;
         friend struct mk_stat;
     public:
-        solver(params_ref const & p, extension * ext);
+        solver(params_ref const & p, reslimit& l, extension * ext);
         ~solver();
 
         // -----------------------
@@ -238,6 +240,7 @@ namespace sat {
         clause_offset get_offset(clause const & c) const { return m_cls_allocator.get_offset(&c); }
         void checkpoint() {
             if (m_cancel) throw solver_exception(Z3_CANCELED_MSG);
+            if (!m_rlimit.inc()) { m_cancel = true; throw solver_exception(Z3_CANCELED_MSG); }
             ++m_num_checkpoints;
             if (m_num_checkpoints < 10) return;
             m_num_checkpoints = 0;
@@ -415,6 +418,7 @@ namespace sat {
         void user_push();
         void user_pop(unsigned num_scopes);
         void pop_to_base_level();
+        reslimit& rlimit() { return m_rlimit; }
         // -----------------------
         //
         // Simplification

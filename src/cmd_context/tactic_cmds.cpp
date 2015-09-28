@@ -158,6 +158,7 @@ public:
     void display_statistics(cmd_context & ctx, tactic * t) {
         statistics stats;
         get_memory_statistics(stats);
+        get_rlimit_statistics(ctx.m().limit(), stats);
         stats.update("time", ctx.get_seconds());
         t->collect_statistics(stats);
         stats.display_smt2(ctx.regular_stream());

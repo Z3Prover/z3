@@ -20,6 +20,7 @@ Revision History:
 #include<time.h>
 #include<signal.h>
 #include"timeout.h"
+#include"rlimit.h"
 #include"dimacs.h"
 #include"sat_solver.h"
 #include"gparams.h"
@@ -132,7 +133,8 @@ unsigned read_dimacs(char const * file_name) {
     signal(SIGINT, on_ctrl_c);
     params_ref p = gparams::get_module("sat");
     p.set_bool("produce_models", true);
-    sat::solver solver(p, 0);
+    reslimit limit;
+    sat::solver solver(p, limit, 0);
     g_solver = &solver;
 
     if (file_name) {
@@ -150,7 +152,7 @@ unsigned read_dimacs(char const * file_name) {
     
     lbool r;
     vector<sat::literal_vector> tracking_clauses;
-    sat::solver solver2(p, 0);
+    sat::solver solver2(p, limit, 0);
     if (p.get_bool("dimacs.core", false)) {
         g_solver = &solver2;        
         sat::literal_vector assumptions;

@@ -21,6 +21,7 @@ Notes:
 
 #include<iostream>
 #include"vector.h"
+#include"rlimit.h"
 
 class statistics {
     typedef std::pair<char const *, unsigned> key_val_pair;
@@ -43,5 +44,6 @@ public:
 };
 
 void get_memory_statistics(statistics& st);
+void get_rlimit_statistics(reslimit& l, statistics& st);
 
 #endif

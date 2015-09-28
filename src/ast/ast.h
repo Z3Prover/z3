@@ -44,6 +44,7 @@ Revision History:
 #include"chashtable.h"
 #include"z3_exception.h"
 #include"dependency.h"
+#include"rlimit.h"
 
 #define RECYCLE_FREE_AST_INDICES
 
@@ -1424,6 +1425,7 @@ public:
     void show_id_gen();
 
 protected:
+    reslimit                  m_limit;
     small_object_allocator    m_alloc;
     family_manager            m_family_manager;
     expr_array_manager        m_expr_array_manager;
@@ -1518,6 +1520,8 @@ public:
             fid == m_model_value_family_id ||
             fid == m_user_sort_family_id; 
     }
+
+    reslimit& limit() { return m_limit; }
 
     void register_plugin(symbol const & s, decl_plugin * plugin);
     

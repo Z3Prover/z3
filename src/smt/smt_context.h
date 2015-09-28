@@ -235,7 +235,7 @@ namespace smt {
 
         virtual void set_cancel_flag(bool f = true);
 
-        bool get_cancel_flag() { return m_cancel_flag; }
+        bool get_cancel_flag() { return m_cancel_flag || !m_manager.limit().inc(); }
 
         region & get_region() {
             return m_region;
