@@ -38,9 +38,9 @@ bool reslimit::inc(unsigned offset) {
 }
 
 void reslimit::push(unsigned delta_limit) {
-    unsigned new_limit = UINT_MAX;
-    if (delta_limit > 0 && delta_limit + m_count > m_count) {
-        new_limit = delta_limit + m_count;
+    unsigned new_limit = delta_limit + m_count;
+    if (new_limit <= m_count) {
+        new_limit = UINT_MAX;
     }
     m_limits.push_back(m_limit);
     m_limit = std::min(new_limit, m_limit);
