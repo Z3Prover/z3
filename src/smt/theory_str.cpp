@@ -128,7 +128,6 @@ void theory_str::propagate() {
         }
         m_str_eq_todo.reset();
     }
-    TRACE("t_str_detail", tout << "done propagating" << std::endl;);
 }
 
 /*
@@ -507,8 +506,6 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
 
 void theory_str::set_up_axioms(expr * ex) {
     // TODO check to make sure we don't set up axioms on the same term twice
-    TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) << std::endl;);
-
     ast_manager & m = get_manager();
     context & ctx = get_context();
 
@@ -516,13 +513,15 @@ void theory_str::set_up_axioms(expr * ex) {
     sort * str_sort = m.mk_sort(get_family_id(), STRING_SORT);
 
     if (ex_sort == str_sort) {
-        TRACE("t_str_detail", tout << "expr is of sort String" << std::endl;);
+        TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
+                ": expr is of sort String" << std::endl;);
         // set up basic string axioms
         enode * n = ctx.get_enode(ex);
         SASSERT(n);
         m_basicstr_axiom_todo.push_back(n);
     } else {
-        TRACE("t_str_detail", tout << "expr is of wrong sort, ignoring" << std::endl;);
+        TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
+                ": expr is of wrong sort, ignoring" << std::endl;);
     }
 
     // if expr is an application, recursively inspect all arguments
@@ -568,9 +567,9 @@ void theory_str::init_search_eh() {
     ctx.get_assignments(assignments);
     for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
         expr * ex = *i;
-        TRACE("t_str_detail", tout << "processing assignment " << mk_ismt2_pp(ex, m) << std::endl;);
         if (m.is_eq(ex)) {
-            TRACE("t_str_detail", tout << "expr is equality" << std::endl;);
+            TRACE("t_str_detail", tout << "processing assignment " << mk_ismt2_pp(ex, m) <<
+                    ": expr is equality" << std::endl;);
             app * eq = (app*)ex;
             SASSERT(eq->get_num_args() == 2);
             expr * lhs = eq->get_arg(0);
@@ -581,7 +580,8 @@ void theory_str::init_search_eh() {
             std::pair<enode*,enode*> eq_pair(e_lhs, e_rhs);
             m_str_eq_todo.push_back(eq_pair);
         } else {
-            TRACE("t_str_detail", tout << "expr ignored" << std::endl;);
+            TRACE("t_str_detail", tout << "processing assignment " << mk_ismt2_pp(ex, m)
+                    << ": expr ignored" << std::endl;);
         }
     }
 
@@ -590,15 +590,15 @@ void theory_str::init_search_eh() {
 }
 
 void theory_str::new_eq_eh(theory_var x, theory_var y) {
-    TRACE("t_str", tout << "new eq: v#" << x << " = v#" << y << std::endl;);
-    TRACE("t_str_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
+    //TRACE("t_str_detail", tout << "new eq: v#" << x << " = v#" << y << std::endl;);
+    TRACE("t_str", tout << "new eq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
     handle_equality(get_enode(x)->get_owner(), get_enode(y)->get_owner());
 }
 
 void theory_str::new_diseq_eh(theory_var x, theory_var y) {
-    TRACE("t_str", tout << "new diseq: v#" << x << " != v#" << y << std::endl;);
-    TRACE("t_str_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " != " <<
+    //TRACE("t_str_detail", tout << "new diseq: v#" << x << " != v#" << y << std::endl;);
+    TRACE("t_str", tout << "new diseq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " != " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
 }
 
