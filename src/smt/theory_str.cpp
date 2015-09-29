@@ -622,7 +622,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         				expr_ref arg1_eq (ctx.mk_eq_atom(arg1, prefixAst), m);
         				and_items[and_count++] = ctx.mk_eq_atom(xorAst, arg1_eq);
 
-        				expr_ref suffixAst(m_strutil.mk_string(prefixStr), m);
+        				expr_ref suffixAst(m_strutil.mk_string(suffixStr), m);
         				expr_ref arg2_eq (ctx.mk_eq_atom(arg2, suffixAst), m);
         				and_items[and_count++] = ctx.mk_eq_atom(xorAst, arg2_eq);
         			}
