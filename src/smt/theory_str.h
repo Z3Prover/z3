@@ -57,6 +57,7 @@ namespace smt {
 
         ptr_vector<enode> m_basicstr_axiom_todo;
         svector<std::pair<enode*,enode*> > m_str_eq_todo;
+        ptr_vector<enode> m_concat_axiom_todo;
 
         int tmpXorVarCount;
         std::map<std::pair<expr*, expr*>, std::map<int, expr*> > varForBreakConcat;

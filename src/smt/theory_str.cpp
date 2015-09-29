@@ -142,7 +142,7 @@ app * theory_str::mk_concat(app * e1, app * e2) {
 }
 
 bool theory_str::can_propagate() {
-    return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty();
+    return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty();
 }
 
 void theory_str::propagate() {
@@ -160,6 +160,11 @@ void theory_str::propagate() {
             handle_equality(lhs->get_owner(), rhs->get_owner());
         }
         m_str_eq_todo.reset();
+
+        for (unsigned i = 0; i < m_concat_axiom_todo.empty(); ++i) {
+            instantiate_concat_axiom(m_concat_axiom_todo[i]);
+        }
+        m_concat_axiom_todo.reset();
     }
 }
 
@@ -167,7 +172,6 @@ void theory_str::propagate() {
  * Instantiate an axiom of the following form:
  * Length(Concat(x, y)) = Length(x) + Length(y)
  */
-// TODO this isn't used yet
 void theory_str::instantiate_concat_axiom(enode * cat) {
     SASSERT(is_concat(cat));
     app * a_cat = cat->get_owner();
@@ -321,6 +325,7 @@ void theory_str::reset_eh() {
     TRACE("t_str", tout << "resetting" << std::endl;);
     m_basicstr_axiom_todo.reset();
     m_str_eq_todo.reset();
+    m_concat_axiom_todo.reset();
     pop_scope_eh(0);
 }
 
@@ -767,6 +772,8 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         }
     }
 
+    // TODO simplify_parent over eqc
+
     // TODO regex unroll? (much later)
 }
 
@@ -785,6 +792,11 @@ void theory_str::set_up_axioms(expr * ex) {
         enode * n = ctx.get_enode(ex);
         SASSERT(n);
         m_basicstr_axiom_todo.push_back(n);
+
+        // if additionally ex is a concatenation, set up concatenation axioms
+        if (is_app(ex) && is_concat(to_app(ex))) {
+            m_concat_axiom_todo.push_back(n);
+        }
     } else {
         TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
                 ": expr is of wrong sort, ignoring" << std::endl;);
