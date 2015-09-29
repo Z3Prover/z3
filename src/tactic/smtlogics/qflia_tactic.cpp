@@ -66,7 +66,7 @@ static tactic * mk_no_cut_smt_tactic(unsigned rs) {
     params_ref solver_p;
     solver_p.set_uint("arith.branch_cut_ratio", 10000000);
     solver_p.set_uint("random_seed", rs);
-    return using_params(mk_smt_tactic_using(false), solver_p);
+    return annotate_tactic("no-cut-smt-tactic", using_params(mk_smt_tactic_using(false), solver_p));
 }
 
 // Create SMT solver that does not use cuts
@@ -75,7 +75,7 @@ static tactic * mk_no_cut_no_relevancy_smt_tactic(unsigned rs) {
     solver_p.set_uint("arith.branch_cut_ratio", 10000000);
     solver_p.set_uint("random_seed", rs);
     solver_p.set_uint("relevancy", 0);
-    return using_params(mk_smt_tactic_using(false), solver_p);
+    return annotate_tactic("no-cut-relevancy-tactic", using_params(mk_smt_tactic_using(false), solver_p));
 }
 
 static tactic * mk_bv2sat_tactic(ast_manager & m) {
@@ -106,16 +106,18 @@ static tactic * mk_pb_tactic(ast_manager & m) {
     params_ref bv2sat_p;
     bv2sat_p.set_bool("ite_extra", true);
     
-    return and_then(fail_if_not(mk_is_pb_probe()),
-                    fail_if(mk_produce_proofs_probe()),
-                    fail_if(mk_produce_unsat_cores_probe()),
-                    or_else(and_then(fail_if(mk_ge(mk_num_exprs_probe(), mk_const_probe(SMALL_SIZE))),
-                                     fail_if_not(mk_is_ilp_probe()),
-                                     // try_for(mk_mip_tactic(m), 8000),
-                                     mk_fail_if_undecided_tactic()),
-                            and_then(using_params(mk_pb2bv_tactic(m), pb2bv_p),
-                                     fail_if_not(mk_is_qfbv_probe()),
-                                     using_params(mk_bv2sat_tactic(m), bv2sat_p))));
+    return annotate_tactic(
+        "pb-tactic",
+        and_then(fail_if_not(mk_is_pb_probe()),
+                 fail_if(mk_produce_proofs_probe()),
+                 fail_if(mk_produce_unsat_cores_probe()),
+                 or_else(and_then(fail_if(mk_ge(mk_num_exprs_probe(), mk_const_probe(SMALL_SIZE))),
+                                  fail_if_not(mk_is_ilp_probe()),
+                                  // try_for(mk_mip_tactic(m), 8000),
+                                  mk_fail_if_undecided_tactic()),
+                         and_then(using_params(mk_pb2bv_tactic(m), pb2bv_p),
+                                  fail_if_not(mk_is_qfbv_probe()),
+                                  using_params(mk_bv2sat_tactic(m), bv2sat_p)))));
 }
 
 
@@ -126,15 +128,17 @@ static tactic * mk_lia2sat_tactic(ast_manager & m) {
     params_ref bv2sat_p;
     bv2sat_p.set_bool("ite_extra", true);
     
-    return and_then(fail_if(mk_is_unbounded_probe()),
-                    fail_if(mk_produce_proofs_probe()),
-                    fail_if(mk_produce_unsat_cores_probe()),
-                    mk_propagate_ineqs_tactic(m),
-                    mk_normalize_bounds_tactic(m),
-                    mk_lia2pb_tactic(m),
-                    using_params(mk_pb2bv_tactic(m), pb2bv_p),
-                    fail_if_not(mk_is_qfbv_probe()),                    
-                    using_params(mk_bv2sat_tactic(m), bv2sat_p));
+    return annotate_tactic(
+        "lia2sat-tactic",
+        and_then(fail_if(mk_is_unbounded_probe()),
+                 fail_if(mk_produce_proofs_probe()),
+                 fail_if(mk_produce_unsat_cores_probe()),
+                 mk_propagate_ineqs_tactic(m),
+                 mk_normalize_bounds_tactic(m),
+                 mk_lia2pb_tactic(m),
+                 using_params(mk_pb2bv_tactic(m), pb2bv_p),
+                 fail_if_not(mk_is_qfbv_probe()),                    
+                 using_params(mk_bv2sat_tactic(m), bv2sat_p)));
 }
 
 // Try to find a model for an unbounded ILP problem.
@@ -147,29 +151,33 @@ static tactic * mk_ilp_model_finder_tactic(ast_manager & m) {
     add_bounds_p2.set_rat("add_bound_lower", rational(-32));
     add_bounds_p2.set_rat("add_bound_upper", rational(31));
 
-    return and_then(fail_if_not(mk_and(mk_is_ilp_probe(), mk_is_unbounded_probe())),
-                    fail_if(mk_produce_proofs_probe()),
-                    fail_if(mk_produce_unsat_cores_probe()),
-                    mk_propagate_ineqs_tactic(m),
-                    or_else(// try_for(mk_mip_tactic(m), 5000),
-                            try_for(mk_no_cut_smt_tactic(100), 2000),
-                            and_then(using_params(mk_add_bounds_tactic(m), add_bounds_p1),
-                                     try_for(mk_lia2sat_tactic(m), 5000)),
-                            try_for(mk_no_cut_smt_tactic(200), 5000),
-                            and_then(using_params(mk_add_bounds_tactic(m), add_bounds_p2),
-                                     try_for(mk_lia2sat_tactic(m), 10000))
-                            // , mk_mip_tactic(m)
-                            ),
-                    mk_fail_if_undecided_tactic());
+    return annotate_tactic(
+        "ilp-model-finder-tactic",
+        and_then(fail_if_not(mk_and(mk_is_ilp_probe(), mk_is_unbounded_probe())),
+                 fail_if(mk_produce_proofs_probe()),
+                 fail_if(mk_produce_unsat_cores_probe()),
+                 mk_propagate_ineqs_tactic(m),
+                 or_else(// try_for(mk_mip_tactic(m), 5000),
+                     try_for(mk_no_cut_smt_tactic(100), 2000),
+                     and_then(using_params(mk_add_bounds_tactic(m), add_bounds_p1),
+                              try_for(mk_lia2sat_tactic(m), 5000)),
+                     try_for(mk_no_cut_smt_tactic(200), 5000),
+                     and_then(using_params(mk_add_bounds_tactic(m), add_bounds_p2),
+                              try_for(mk_lia2sat_tactic(m), 10000))
+                     // , mk_mip_tactic(m)
+                         ),
+                 mk_fail_if_undecided_tactic()));
 }
 
 static tactic * mk_bounded_tactic(ast_manager & m) {
-    return and_then(fail_if(mk_is_unbounded_probe()),
-                    or_else(try_for(mk_no_cut_smt_tactic(100), 5000),
-                            try_for(mk_no_cut_no_relevancy_smt_tactic(200), 5000),
-                            try_for(mk_no_cut_smt_tactic(300), 15000)
-                            ),
-                    mk_fail_if_undecided_tactic());
+    return annotate_tactic(
+        "bounded-tactic",
+        and_then(fail_if(mk_is_unbounded_probe()),
+                 or_else(try_for(mk_no_cut_smt_tactic(100), 5000),
+                         try_for(mk_no_cut_no_relevancy_smt_tactic(200), 5000),
+                         try_for(mk_no_cut_smt_tactic(300), 15000)
+                         ),
+                 mk_fail_if_undecided_tactic()));
 }
 
 tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {

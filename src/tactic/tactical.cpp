@@ -1259,6 +1259,41 @@ tactic * using_params(tactic * t, params_ref const & p) {
     return alloc(using_params_tactical, t, p);
 }
 
+class annotate_tactical : public unary_tactical {
+    std::string m_name;
+    struct scope {
+        std::string m_name;
+        scope(std::string const& name) : m_name(name) {
+            IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << m_name << " start)\n";);
+        }
+        ~scope() {
+            IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << m_name << " done)\n";);
+        }
+    };
+public:
+    annotate_tactical(char const* name, tactic* t):
+        unary_tactical(t), m_name(name) {}
+    
+    virtual void operator()(goal_ref const & in, 
+                            goal_ref_buffer & result, 
+                            model_converter_ref & mc, 
+                            proof_converter_ref & pc, 
+                            expr_dependency_ref & core) {        
+        scope _scope(m_name);
+        m_t->operator()(in, result, mc, pc, core);
+    }
+
+    virtual tactic * translate(ast_manager & m) { 
+        tactic * new_t = m_t->translate(m);
+        return alloc(annotate_tactical, m_name.c_str(), new_t);
+    }
+    
+};
+
+tactic * annotate_tactic(char const* name, tactic * t) {
+    return alloc(annotate_tactical, name, t);
+}
+
 class cond_tactical : public binary_tactical {
     probe * m_p;
 public:

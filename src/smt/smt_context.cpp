@@ -2956,9 +2956,13 @@ namespace smt {
     /**
        \brief Execute some finalization code after performing the search.
     */
-    void context::check_finalize(lbool r) {
+    lbool context::check_finalize(lbool r) {
         TRACE("after_search", display(tout << "result: " << r << "\n"););
         display_profile(verbose_stream());
+        if (r == l_true && get_cancel_flag()) {
+            r = l_undef;
+        }
+        return r;
     }
 
     /**
@@ -2990,7 +2994,7 @@ namespace smt {
                 r = search();
             }
         }
-        check_finalize(r);
+        r = check_finalize(r);
         return r;
     }
 
@@ -3081,7 +3085,7 @@ namespace smt {
                 }
             }
         }
-        check_finalize(r);
+        r = check_finalize(r);
         return r;
     }
 
@@ -3191,6 +3195,7 @@ namespace smt {
                 if (status != l_false) {
                     // build candidate model before returning
                     mk_proto_model(status);
+                    // status = l_undef;
                 }
                 break;
             }
@@ -3312,7 +3317,7 @@ namespace smt {
                     if (resource_limits_exceeded())
                         return l_undef;
 
-                    if (!m_manager.limit().inc())
+                    if (get_cancel_flag())
                         return l_undef;
                     
                     if (m_num_conflicts_since_restart > m_restart_threshold && m_scope_lvl - m_base_lvl > 2) {
@@ -3340,7 +3345,7 @@ namespace smt {
                 return l_undef;
             }
 
-            if (!m_manager.limit().inc())
+            if (get_cancel_flag())
                 return l_undef;
 
             if (m_base_lvl == m_scope_lvl && m_fparams.m_simplify_clauses)

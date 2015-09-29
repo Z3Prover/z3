@@ -1315,7 +1315,7 @@ namespace smt {
         bool already_internalized_theory_core(theory * th, expr_ref_vector const & s) const;
 #endif
         bool check_preamble(bool reset_cancel);
-        void check_finalize(lbool r);
+        lbool check_finalize(lbool r);
 
         // -----------------------------------
         //
