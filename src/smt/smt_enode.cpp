@@ -216,7 +216,7 @@ namespace smt {
         // m_lbl_hash should be different from -1, if and only if,
         // there is a pattern that contains the enode. So,
         // I use a trail to restore the value of m_lbl_hash to -1.
-        ctx.push_trail(value_trail<context, char>(m_lbl_hash));
+        ctx.push_trail(value_trail<context, signed char>(m_lbl_hash));
         unsigned h = hash_u(get_owner_id());
         m_lbl_hash = h & (APPROX_SET_CAPACITY - 1);
         // propagate modification to the root m_lbls set.

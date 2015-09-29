@@ -52,11 +52,11 @@ namespace smt {
 #else
     class app2enode_t : public u_map<enode *> {
     public:
-      void setx(unsigned x, enode *val, enode *def){
-	if(val == 0)
-	  erase(x);
-	else
-	  insert(x,val);
+        void setx(unsigned x, enode *val, enode *def){
+            if (val == 0)
+                erase(x);
+            else
+                insert(x,val);
       }
     };
 #endif
@@ -105,7 +105,7 @@ namespace smt {
         enode_vector        m_parents;          //!< Parent enodes of the equivalence class.
         theory_var_list     m_th_var_list;      //!< List of theories that 'care' about this enode.
         trans_justification m_trans;            //!< A justification for the enode being equal to its root.
-        char                m_lbl_hash;         //!< It is different from -1, if enode is used in a pattern
+        signed char         m_lbl_hash;         //!< It is different from -1, if enode is used in a pattern
         approx_set          m_lbls;
         approx_set          m_plbls;
         enode *             m_args[0];          //!< Cached args

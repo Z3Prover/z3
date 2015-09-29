@@ -42,7 +42,7 @@ namespace smt2 {
         rational           m_number;
         unsigned           m_bv_size;
         // end of data
-        char               m_normalized[256];
+        signed char        m_normalized[256];
 #define SCANNER_BUFFER_SIZE 1024
         char               m_buffer[SCANNER_BUFFER_SIZE];
         unsigned           m_bpos;
