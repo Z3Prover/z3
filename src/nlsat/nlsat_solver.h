@@ -24,6 +24,7 @@ Revision History:
 #include"nlsat_types.h"
 #include"params.h"
 #include"statistics.h"
+#include"rlimit.h"
 
 namespace nlsat {
 
@@ -31,7 +32,7 @@ namespace nlsat {
         struct imp;
         imp * m_imp;
     public:
-        solver(params_ref const & p);
+        solver(reslimit& rlim, params_ref const & p);
         ~solver();
 
         /**
