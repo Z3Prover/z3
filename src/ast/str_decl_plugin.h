@@ -38,12 +38,12 @@ protected:
     symbol m_strv_sym;
     sort * m_str_decl;
 
-    arith_decl_plugin * m_arith_plugin;
-    sort *              m_int_sort;
-    family_id           m_arith_fid;
-
     func_decl * m_concat_decl;
     func_decl * m_length_decl;
+
+    arith_decl_plugin * m_arith_plugin;
+    family_id           m_arith_fid;
+    sort *              m_int_sort;
 
     std::map<std::string, app*> string_cache;
 

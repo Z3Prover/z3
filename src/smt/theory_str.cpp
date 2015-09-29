@@ -37,7 +37,7 @@ theory_str::~theory_str() {
 
 void theory_str::assert_axiom(expr * e) {
     if (get_manager().is_true(e)) return;
-    TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << "\n";);
+    TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
     context & ctx = get_context();
     if (!ctx.b_internalized(e)) {
         ctx.internalize(e, true);
@@ -45,11 +45,12 @@ void theory_str::assert_axiom(expr * e) {
     literal lit(ctx.get_literal(e));
     ctx.mark_as_relevant(lit);
     ctx.mk_th_axiom(get_id(), 1, &lit);
-    TRACE("t_str_detail", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << "\n";);
+    TRACE("t_str_detail", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
 }
 
 void theory_str::assert_implication(expr * premise, expr * conclusion) {
     ast_manager & m = get_manager();
+    TRACE("t_str_detail", tout << "asserting implication " << mk_ismt2_pp(premise, m) << " -> " << mk_ismt2_pp(conclusion, m) << std::endl;);
     expr_ref axiom(m.mk_or(m.mk_not(premise), conclusion), m);
     assert_axiom(axiom);
 }
@@ -100,15 +101,6 @@ bool theory_str::internalize_term(app * term) {
     return true;
 }
 
-Z3_ast mk_internal_xor_var(Z3_theory t) {
-  Z3_context ctx = Z3_theory_get_context(t);
-  std::stringstream ss;
-  ss << tmpXorVarCount;
-  tmpXorVarCount++;
-  std::string name = "$$_xor_" + ss.str();
-  return mk_int_var(ctx, name.c_str());
-}
-
 app * theory_str::mk_internal_xor_var() {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
@@ -118,7 +110,9 @@ app * theory_str::mk_internal_xor_var() {
 	std::string name = "$$_xor_" + ss.str();
 	// Z3_sort r = of_sort(mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), INT_SORT));
 	sort * int_sort = m.mk_sort(m_autil.get_family_id(), INT_SORT);
-	symbol sym(name);
+	char * new_buffer = alloc_svect(char, name.length() + 1);
+    strcpy(new_buffer, name.c_str());
+	symbol sym(new_buffer);
 
 	app* a = m.mk_const(m.mk_const_decl(sym, int_sort));
 	// TODO ctx.save_ast_trail(a)?
@@ -585,53 +579,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         		int arg2Len = -1; /* = getLenValue(arg2); */
         		if (arg1Len != -1 || arg2Len != -1) {
         			NOT_IMPLEMENTED_YET(); // TODO
-        		} else {
-        			/*
-					  Z3_ast xorFlag = NULL;
-					  std::pair<Z3_ast, Z3_ast> key1(arg1, arg2);
-					  std::pair<Z3_ast, Z3_ast> key2(arg2, arg1);
-					  if (varForBreakConcat.find(key1) == varForBreakConcat.end() && varForBreakConcat.find(key2) == varForBreakConcat.end()) {
-						xorFlag = mk_internal_xor_var(t);
-						varForBreakConcat[key1][0] = xorFlag;
-					  } else {
-						if (varForBreakConcat.find(key1) != varForBreakConcat.end()) {
-						  xorFlag = varForBreakConcat[key1][0];
-						} else {
-						  xorFlag = varForBreakConcat[key2][0];
-						}
-					  }
-
-					  int concatStrLen = const_str.length();
-					  int xor_pos = 0;
-					  int and_count = 1;
-					  Z3_ast * xor_items = new Z3_ast[concatStrLen + 1];
-					  Z3_ast * and_items = new Z3_ast[4 * (concatStrLen + 1) + 1];
-					  Z3_ast arg1_eq = NULL;
-					  Z3_ast arg2_eq = NULL;
-					  for (int i = 0; i < concatStrLen + 1; i++) {
-						std::string prefixStr = const_str.substr(0, i);
-						std::string suffixStr = const_str.substr(i, concatStrLen - i);
-
-						// skip invalidate options
-						if (isConcatFunc(t, arg1) && canConcatEqStr(t, arg1, prefixStr) == 0) {
-						  continue;
-						}
-						if (isConcatFunc(t, arg2) && canConcatEqStr(t, arg2, suffixStr) == 0) {
-						  continue;
-						}
-
-						Z3_ast xorAst = Z3_mk_eq(ctx, xorFlag, mk_int(ctx, xor_pos));
-						xor_items[xor_pos++] = xorAst;
-
-						Z3_ast prefixAst = my_mk_str_value(t, prefixStr.c_str());
-						arg1_eq = Z3_mk_eq(ctx, arg1, prefixAst);
-						and_items[and_count++] = Z3_mk_eq(ctx, xorAst, arg1_eq);
-
-						Z3_ast suffixAst = my_mk_str_value(t, suffixStr.c_str());
-						arg2_eq = Z3_mk_eq(ctx, arg2, suffixAst);
-						and_items[and_count++] = Z3_mk_eq(ctx, xorAst, arg2_eq);
-					  }
-					  */
+        		} else { /* ! (arg1Len != 1 || arg2Len != 1) */
         			expr_ref xorFlag(m);
         			std::pair<expr*, expr*> key1(arg1, arg2);
         			std::pair<expr*, expr*> key2(arg2, arg1);
@@ -651,11 +599,8 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         			int concatStrLen = const_str.length();
         			int xor_pos = 0;
         			int and_count = 1;
-        			expr * xor_items[] = new expr*[concatStrLen + 1];
-        			expr * and_items[] = new expr*[4 * (concatStrLen+1) + 1];
-
-        			expr_ref arg1_eq(m);
-        			expr_ref arg2_eq(m);
+        			expr ** xor_items = new expr*[concatStrLen + 1];
+        			expr ** and_items = new expr*[4 * (concatStrLen+1) + 1];
 
         			for (int i = 0; i < concatStrLen + 1; ++i) {
         				std::string prefixStr = const_str.substr(0, i);
@@ -670,60 +615,39 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
 							  continue;
 							}
         				 */
-        				expr_ref xorAst(ctx.mk_eq_atom(xorFlag, mk_int(xor_pos)), m);
+        				expr_ref xorAst(ctx.mk_eq_atom(xorFlag, m_autil.mk_numeral(rational(xor_pos), true)), m);
         				xor_items[xor_pos++] = xorAst;
 
         				expr_ref prefixAst(m_strutil.mk_string(prefixStr), m);
-        				arg1_eq = ctx.mk_eq_atom(arg1, prefixAst);
+        				expr_ref arg1_eq (ctx.mk_eq_atom(arg1, prefixAst), m);
         				and_items[and_count++] = ctx.mk_eq_atom(xorAst, arg1_eq);
 
         				expr_ref suffixAst(m_strutil.mk_string(prefixStr), m);
-        				arg2_eq = ctx.mk_eq_atom(arg2, suffixAst);
+        				expr_ref arg2_eq (ctx.mk_eq_atom(arg2, suffixAst), m);
         				and_items[and_count++] = ctx.mk_eq_atom(xorAst, arg2_eq);
         			}
 
         			expr_ref implyL(ctx.mk_eq_atom(concat, str), m);
-        			expr_ref implyR(m);
+        			expr_ref implyR1(m);
         			if (xor_pos == 0) {
         				// negate
         				expr_ref concat_eq_str(ctx.mk_eq_atom(concat, str), m);
         				expr_ref negate_ast(m.mk_not(concat_eq_str), m);
         				assert_axiom(negate_ast);
         			} else {
-        				// TODO
         				if (xor_pos == 1) {
-
+        				    and_items[0] = xor_items[0];
+        				    implyR1 = m.mk_and(and_count, and_items);
         				} else {
-
+        				    and_items[0] = m.mk_or(xor_pos, xor_items);
+        				    implyR1 = m.mk_and(and_count, and_items);
         				}
+        				assert_implication(implyL, implyR1);
         			}
         			delete[] xor_items;
         			delete[] and_items;
-
-        			  /*
-
-					  Z3_ast implyL = Z3_mk_eq(ctx, concatAst, constStr);
-					  Z3_ast implyR1 = NULL;
-					  if (xor_pos == 0) {
-						// negate
-						Z3_ast negateAst = Z3_mk_not(ctx, Z3_mk_eq(ctx, concatAst, constStr));
-						addAxiom(t, negateAst, __LINE__);
-					  } else {
-						if (xor_pos == 1) {
-						  and_items[0] = xor_items[0];
-						  implyR1 = Z3_mk_and(ctx, and_count, and_items);
-						} else {
-						  and_items[0] = Z3_mk_or(ctx, xor_pos, xor_items);
-						  implyR1 = Z3_mk_and(ctx, and_count, and_items);
-						}
-						Z3_ast implyToAssert = Z3_mk_implies(ctx, implyL, implyR1);
-						addAxiom(t, implyToAssert, __LINE__);
-					  }
-					  delete[] xor_items;
-					  delete[] and_items;
-        			 */
-        		}
-        	}
+        		} /* (arg1Len != 1 || arg2Len != 1) */
+        	} /* if (Concat(arg1, arg2) == NULL) */
         }
     }
 }
@@ -945,7 +869,7 @@ void theory_str::new_diseq_eh(theory_var x, theory_var y) {
 }
 
 void theory_str::relevant_eh(app * n) {
-    TRACE("t_str", tout << "relevant: " << mk_ismt2_pp(n, get_manager()) << "\n";);
+    TRACE("t_str", tout << "relevant: " << mk_ismt2_pp(n, get_manager()) << std::endl;);
 }
 
 void theory_str::assign_eh(bool_var v, bool is_true) {
@@ -988,7 +912,7 @@ void theory_str::init_model(model_generator & mg) {
 
 model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
     TRACE("t_str", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), get_manager()) <<
-                                " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")\n";);
+                                " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")" << std::endl;);
     ast_manager & m = get_manager();
     context & ctx = get_context();
     app_ref owner(m);
