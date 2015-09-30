@@ -65,7 +65,7 @@ namespace smt {
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
 
-        app * mk_strlen(app * e);
+        app * mk_strlen(expr * e);
         app * mk_concat(app * e1, app * e2);
 
         app * mk_internal_xor_var();
@@ -82,6 +82,16 @@ namespace smt {
         void handle_equality(expr * lhs, expr * rhs);
 
         expr * get_eqc_value(expr * n, bool & hasEqcValue);
+        bool in_same_eqc(expr * n1, expr * n2);
+
+        bool can_two_nodes_eq(expr * n1, expr * n2);
+        bool can_concat_eq_str(expr * concat, std::string str);
+        bool can_concat_eq_concat(expr * concat1, expr * concat2);
+
+        void get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList);
+        expr * simplify_concat(expr * node);
+
+        void simplify_parent(expr * nn, expr * eq_str);
 
         void simplify_concat_equality(expr * lhs, expr * rhs);
         void solve_concat_eq_str(expr * concat, expr * str);

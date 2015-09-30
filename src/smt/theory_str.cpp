@@ -119,7 +119,7 @@ app * theory_str::mk_internal_xor_var() {
 	return a;
 }
 
-app * theory_str::mk_strlen(app * e) {
+app * theory_str::mk_strlen(expr * e) {
     /*if (m_strutil.is_string(e)) {*/ if (false) {
         const char * strval = 0;
         m_strutil.is_string(e, &strval);
@@ -378,9 +378,258 @@ void theory_str::group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::se
     } while (eqcNode != nNode);
 }
 
-void theory_str::simplify_concat_equality(expr * lhs, expr * rhs) {
-    // TODO strArgmt::simplifyConcatEq()
+void theory_str::get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList) {
+    app * a_node = to_app(node);
+    if (!is_concat(a_node)) {
+        nodeList.push_back(node);
+        return;
+    } else {
+        SASSERT(a_node->get_num_args() == 2);
+        expr * leftArg = a_node->get_arg(0);
+        expr * rightArg = a_node->get_arg(1);
+        get_nodes_in_concat(leftArg, nodeList);
+        get_nodes_in_concat(rightArg, nodeList);
+    }
 }
+
+/*
+ * The inputs:
+ *    ~ nn: non const node
+ *    ~ eq_str: the equivalent constant string of nn
+ *  Iterate the parent of all eqc nodes of nn, looking for:
+ *    ~ concat node
+ *  to see whether some concat nodes can be simplified.
+ */
+
+void theory_str::simplify_parent(expr * nn, expr * eq_str) {
+    // TODO strTheory::simplifyParent()
+}
+
+expr * theory_str::simplify_concat(expr * node) {
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
+    std::map<expr*, expr*> resolvedMap;
+    ptr_vector<expr> argVec;
+    get_nodes_in_concat(node, argVec);
+
+    for (unsigned i = 0; i < argVec.size(); ++i) {
+        bool vArgHasEqcValue = false;
+        expr * vArg = get_eqc_value(argVec[i], vArgHasEqcValue);
+        if (vArg != argVec[i]) {
+            resolvedMap[argVec[i]] = vArg;
+        }
+    }
+
+    if (resolvedMap.size() == 0) {
+        // no simplification possible
+        return node;
+    } else {
+        app * resultAst = m_strutil.mk_string("");
+        for (unsigned i = 0; i < argVec.size(); ++i) {
+            bool vArgHasEqcValue = false;
+            expr * vArg = get_eqc_value(argVec[i], vArgHasEqcValue);
+            resultAst = mk_concat(to_app(resultAst), to_app(vArg));
+        }
+        TRACE("t_str_detail", tout << mk_ismt2_pp(node, m) << " is simplified to " << mk_ismt2_pp(resultAst, m) << std::endl;);
+
+        if (in_same_eqc(node, resultAst)) {
+            TRACE("t_str_detail", tout << "SKIP: both concats are already in the same equivalence class" << std::endl;);
+        } else {
+            expr ** items = alloc_svect(expr*, resolvedMap.size());
+            int pos = 0;
+            std::map<expr*, expr*>::iterator itor = resolvedMap.begin();
+            for (; itor != resolvedMap.end(); ++itor) {
+                items[pos++] = ctx.mk_eq_atom(itor->first, itor->second);
+            }
+            expr_ref premise(m);
+            if (pos == 1) {
+                premise = items[0];
+            } else {
+                premise = m.mk_and(pos, items);
+            }
+            expr_ref conclusion(ctx.mk_eq_atom(node, resultAst), m);
+            assert_implication(premise, conclusion);
+        }
+        return resultAst;
+    }
+
+}
+
+/*
+ * Handle two equivalent Concats.
+ */
+void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
+
+    app * a_nn1 = to_app(nn1);
+    SASSERT(a_nn1->get_num_args() == 2);
+    app * a_nn2 = to_app(nn2);
+    SASSERT(a_nn2->get_num_args() == 2);
+
+    expr * a1_arg0 = a_nn1->get_arg(0);
+    expr * a1_arg1 = a_nn1->get_arg(1);
+    expr * a2_arg0 = a_nn2->get_arg(0);
+    expr * a2_arg1 = a_nn2->get_arg(1);
+
+    // TODO
+    /*
+      int a1_arg0_len = getLenValue(t, a1_arg0);
+      int a1_arg1_len = getLenValue(t, a1_arg1);
+      int a2_arg0_len = getLenValue(t, a2_arg0);
+      int a2_arg1_len = getLenValue(t, a2_arg1);
+     */
+    int a1_arg0_len = -1;
+    int a1_arg1_len = -1;
+    int a2_arg0_len = -1;
+    int a2_arg1_len = -1;
+
+    TRACE("t_str", tout << "nn1 = " << mk_ismt2_pp(nn1, m) << std::endl
+            << "nn2 = " << mk_ismt2_pp(nn2, m) << std::endl;);
+
+    // TODO inferLenConcatEq(nn1, nn2);
+
+    if (a1_arg0 == a2_arg0) {
+        if (!in_same_eqc(a1_arg1, a2_arg1)) {
+            expr_ref premise(ctx.mk_eq_atom(nn1, nn2), m);
+            expr_ref eq1(ctx.mk_eq_atom(a1_arg1, a2_arg1), m);
+            expr_ref eq2(ctx.mk_eq_atom(mk_strlen(a1_arg1), mk_strlen(a2_arg1)), m);
+            expr_ref conclusion(m.mk_and(eq1, eq2), m);
+            assert_implication(premise, conclusion);
+        }
+        TRACE("t_str_detail", tout << "SKIP: a1_arg0 == a2_arg0" << std::endl;);
+        return;
+    }
+
+    if (a1_arg1 == a2_arg1) {
+        if (!in_same_eqc(a1_arg0, a2_arg0)) {
+            expr_ref premise(ctx.mk_eq_atom(nn1, nn2), m);
+            expr_ref eq1(ctx.mk_eq_atom(a1_arg0, a2_arg0), m);
+            expr_ref eq2(ctx.mk_eq_atom(mk_strlen(a1_arg0), mk_strlen(a2_arg0)), m);
+            expr_ref conclusion(m.mk_and(eq1, eq2), m);
+            assert_implication(premise, conclusion);
+        }
+        TRACE("t_str_detail", tout << "SKIP: a1_arg1 == a2_arg1" << std::endl;);
+        return;
+    }
+
+    // quick path
+
+    if (in_same_eqc(a1_arg0, a2_arg0)) {
+        if (in_same_eqc(a1_arg1, a2_arg1)) {
+            TRACE("t_str_detail", tout << "SKIP: a1_arg0 =~ a2_arg0 and a1_arg1 =~ a2_arg1" << std::endl;);
+            return;
+        } else {
+            TRACE("t_str_detail", tout << "quick path 1-1: a1_arg0 =~ a2_arg0" << std::endl;);
+            expr_ref premise(m.mk_and(ctx.mk_eq_atom(nn1, nn2), ctx.mk_eq_atom(a1_arg0, a2_arg0)), m);
+            expr_ref conclusion(m.mk_and(ctx.mk_eq_atom(a1_arg1, a2_arg1), ctx.mk_eq_atom(mk_strlen(a1_arg1), mk_strlen(a2_arg1))), m);
+            assert_implication(premise, conclusion);
+            return;
+        }
+    } else {
+        if (in_same_eqc(a1_arg1, a2_arg1)) {
+            TRACE("t_str_detail", tout << "quick path 1-2: a1_arg1 =~ a2_arg1" << std::endl;);
+            expr_ref premise(m.mk_and(ctx.mk_eq_atom(nn1, nn2), ctx.mk_eq_atom(a1_arg1, a2_arg1)), m);
+            expr_ref conclusion(m.mk_and(ctx.mk_eq_atom(a1_arg0, a2_arg0), ctx.mk_eq_atom(mk_strlen(a1_arg0), mk_strlen(a2_arg0))), m);
+            assert_implication(premise, conclusion);
+            return;
+        }
+    }
+
+    // TODO quick path 1-2
+    /*
+  if(a1_arg0_len != -1 && a2_arg0_len != -1 && a1_arg0_len == a2_arg0_len){
+    if (! inSameEqc(t, a1_arg0, a2_arg0)) {
+      __debugPrint(logFile, ">> [simplifyConcatEq] Quick Path 2-1: len(nn1.arg0) == len(nn2.arg0)\n");
+      Z3_ast ax_l1 = Z3_mk_eq(ctx, nn1, nn2);
+      Z3_ast ax_l2 = Z3_mk_eq(ctx, mk_length(t, a1_arg0), mk_length(t, a2_arg0));
+      Z3_ast ax_r1 = Z3_mk_eq(ctx, a1_arg0, a2_arg0);
+      Z3_ast ax_r2 = Z3_mk_eq(ctx, a1_arg1, a2_arg1);
+      Z3_ast toAdd = Z3_mk_implies(ctx, mk_2_and(t, ax_l1, ax_l2), mk_2_and(t, ax_r1, ax_r2));
+      addAxiom(t, toAdd, __LINE__);
+      return;
+    }
+  }
+
+  if (a1_arg1_len != -1 && a2_arg1_len != -1 && a1_arg1_len == a2_arg1_len)
+  {
+    if (!inSameEqc(t, a1_arg1, a2_arg1)) {
+      __debugPrint(logFile, ">> [simplifyConcatEq] Quick Path 2-2: len(nn1.arg1) == len(nn2.arg1)\n");
+      Z3_ast ax_l1 = Z3_mk_eq(ctx, nn1, nn2);
+      Z3_ast ax_l2 = Z3_mk_eq(ctx, mk_length(t, a1_arg1), mk_length(t, a2_arg1));
+      Z3_ast ax_r1 = Z3_mk_eq(ctx, a1_arg0, a2_arg0);
+      Z3_ast ax_r2 = Z3_mk_eq(ctx, a1_arg1, a2_arg1);
+      Z3_ast toAdd = Z3_mk_implies(ctx, mk_2_and(t, ax_l1, ax_l2), mk_2_and(t, ax_r1, ax_r2));
+      addAxiom(t, toAdd, __LINE__);
+      return;
+    }
+  }
+  */
+
+    expr * new_nn1 = simplify_concat(nn1);
+    expr * new_nn2 = simplify_concat(nn2);
+    app * a_new_nn1 = to_app(new_nn1);
+    app * a_new_nn2 = to_app(new_nn2);
+    expr * v1_arg0 = a_new_nn1->get_arg(0);
+    expr * v1_arg1 = a_new_nn1->get_arg(1);
+    expr * v2_arg0 = a_new_nn2->get_arg(0);
+    expr * v2_arg1 = a_new_nn2->get_arg(1);
+
+    TRACE("t_str_detail", tout << "new_nn1 = " << mk_ismt2_pp(new_nn1, m) << std::endl
+            << "new_nn2 = " << mk_ismt2_pp(new_nn2, m) << std::endl;);
+
+    if (new_nn1 == new_nn2) {
+        TRACE("t_str_detail", tout << "equal concats, return" << std::endl;);
+        return;
+    }
+
+    if (!can_two_nodes_eq(new_nn1, new_nn2)) {
+        expr_ref detected(m.mk_not(ctx.mk_eq_atom(new_nn1, new_nn2)), m);
+        TRACE("t_str_detail", tout << "inconsistency detected: " << mk_ismt2_pp(detected, m) << std::endl;);
+        assert_axiom(detected);
+        return;
+    }
+
+    // check whether new_nn1 and new_nn2 are still concats
+
+    bool n1IsConcat = is_concat(a_new_nn1);
+    bool n2IsConcat = is_concat(a_new_nn2);
+    if (!n1IsConcat && n2IsConcat) {
+        TRACE("t_str_detail", tout << "nn1_new is not a concat" << std::endl;);
+        if (is_string(a_new_nn1)) {
+            simplify_parent(new_nn2, new_nn1);
+        }
+        return;
+    } else if (n1IsConcat && !n2IsConcat) {
+        TRACE("t_str_detail", tout << "nn2_new is not a concat" << std::endl;);
+        if (is_string(a_new_nn2)) {
+            simplify_parent(new_nn1, new_nn2);
+        }
+        return;
+    }
+
+    if (!in_same_eqc(new_nn1, new_nn2) && (nn1 != new_nn1 || nn2 != new_nn2)) {
+        int ii4 = 0;
+        expr* item[3];
+        if (nn1 != new_nn1) {
+            item[ii4++] = ctx.mk_eq_atom(nn1, new_nn1);
+        }
+        if (nn2 != new_nn2) {
+            item[ii4++] = ctx.mk_eq_atom(nn2, new_nn2);
+        }
+        item[ii4++] = ctx.mk_eq_atom(nn1, nn2);
+        expr_ref premise(m.mk_and(ii4, item), m);
+        expr_ref conclusion(ctx.mk_eq_atom(new_nn1, new_nn2), m);
+        assert_implication(premise, conclusion);
+    }
+
+    // start to split both concats
+
+    // TODO
+    NOT_IMPLEMENTED_YET();
+
+}
+
 /*
  * Look through the equivalence class of n to find a string constant.
  * Return that constant if it is found, and set hasEqcValue to true.
@@ -401,6 +650,119 @@ expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
 	// not found
 	hasEqcValue = false;
 	return n;
+}
+
+/*
+ * Decide whether n1 and n2 are already in the same equivalence class.
+ * This only checks whether the core considers them to be equal;
+ * they may not actually be equal.
+ */
+bool theory_str::in_same_eqc(expr * n1, expr * n2) {
+    if (n1 == n2) return true;
+    context & ctx = get_context();
+    enode * n1Node = ctx.get_enode(n1);
+    enode * n2Node = ctx.get_enode(n2);
+
+    // here's what the old Z3str2 would have done; we can do something much better
+    /*
+    n1Node->get_root();
+    enode * curr = n1Node->get_next();
+    while (curr != n1Node) {
+        if (curr == n2Node) {
+            return true;
+        }
+        curr = curr->get_next();
+    }
+    return false;
+    */
+    return n1Node->get_root() == n2Node->get_root();
+}
+
+/*
+bool canTwoNodesEq(Z3_theory t, Z3_ast n1, Z3_ast n2) {
+  Z3_ast n1_curr = n1;
+  Z3_ast n2_curr = n2;
+
+  // case 0: n1_curr is const string, n2_curr is const string
+  if (isConstStr(t, n1_curr) && isConstStr(t, n2_curr)) {
+    if (n1_curr != n2_curr) {
+      return false;
+    }
+  }
+  // case 1: n1_curr is concat, n2_curr is const string
+  else if (isConcatFunc(t, n1_curr) && isConstStr(t, n2_curr)) {
+    std::string n2_curr_str = getConstStrValue(t, n2_curr);
+    if (canConcatEqStr(t, n1_curr, n2_curr_str) != 1) {
+      return false;
+    }
+  }
+  // case 2: n2_curr is concat, n1_curr is const string
+  else if (isConcatFunc(t, n2_curr) && isConstStr(t, n1_curr)) {
+    std::string n1_curr_str = getConstStrValue(t, n1_curr);
+    if (canConcatEqStr(t, n2_curr, n1_curr_str) != 1) {
+      return false;
+    }
+  } else if (isConcatFunc(t, n1_curr) && isConcatFunc(t, n2_curr)) {
+    if (canConcatEqConcat(t, n1_curr, n2_curr) != 1) {
+      return false;
+    }
+  }
+
+  return true;
+}
+*/
+
+bool theory_str::can_concat_eq_str(expr * concat, std::string str) {
+    // TODO
+    return true;
+}
+
+bool theory_str::can_concat_eq_concat(expr * concat1, expr * concat2) {
+    // TODO
+    return true;
+}
+
+/*
+ * Check whether n1 and n2 could be equal.
+ * Returns true if n1 could equal n2 (maybe),
+ * and false if n1 is definitely not equal to n2 (no).
+ */
+bool theory_str::can_two_nodes_eq(expr * n1, expr * n2) {
+    app * n1_curr = to_app(n1);
+    app * n2_curr = to_app(n2);
+
+    // case 0: n1_curr is const string, n2_curr is const string
+    if (is_string(n1_curr) && is_string(n2_curr)) {
+      if (n1_curr != n2_curr) {
+        return false;
+      }
+    }
+    // case 1: n1_curr is concat, n2_curr is const string
+    else if (is_concat(n1_curr) && is_string(n2_curr)) {
+        const char * tmp = 0;
+        m_strutil.is_string(n2_curr, & tmp);
+        std::string n2_curr_str(tmp);
+        if (!can_concat_eq_str(n1_curr, n2_curr_str)) {
+            return false;
+        }
+    }
+    // case 2: n2_curr is concat, n1_curr is const string
+    else if (is_concat(n2_curr) && is_string(n1_curr)) {
+        const char * tmp = 0;
+        m_strutil.is_string(n1_curr, & tmp);
+        std::string n1_curr_str(tmp);
+        if (!can_concat_eq_str(n2_curr, n1_curr_str)) {
+            return false;
+        }
+    }
+    // case 3: both are concats
+    else if (is_concat(n1_curr) && is_concat(n2_curr)) {
+      if (!can_concat_eq_concat(n1_curr, n2_curr)) {
+        return false;
+      }
+    }
+
+    return true;
 }
 
 /*
@@ -604,8 +966,12 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         			int concatStrLen = const_str.length();
         			int xor_pos = 0;
         			int and_count = 1;
+        			/*
         			expr ** xor_items = new expr*[concatStrLen + 1];
         			expr ** and_items = new expr*[4 * (concatStrLen+1) + 1];
+        			*/
+        			expr ** xor_items = alloc_svect(expr*, (concatStrLen+1));
+        			expr ** and_items = alloc_svect(expr*, (4 * (concatStrLen+1) + 1));
 
         			for (int i = 0; i < concatStrLen + 1; ++i) {
         				std::string prefixStr = const_str.substr(0, i);
@@ -736,6 +1102,11 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         );
 
     // step 1: Concat == Concat
+    // I'm disabling this entire code block for now. It may no longer be useful.
+    // Z3 seems to be putting LHS and RHS into the same equivalence class extremely early.
+    // As a result, simplify_concat_equality() is never getting called,
+    // and if it were called, it would probably get called with the same element on both sides.
+    /*
     bool hasCommon = false;
     if (eqc_lhs_concat.size() != 0 && eqc_rhs_concat.size() != 0) {
         std::set<expr*>::iterator itor1 = eqc_lhs_concat.begin();
@@ -754,6 +1125,21 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         }
         if (!hasCommon) {
             simplify_concat_equality(*(eqc_lhs_concat.begin()), *(eqc_rhs_concat.begin()));
+        }
+    }
+    */
+    if (eqc_lhs_concat.size() != 0 && eqc_rhs_concat.size() != 0) {
+        // let's pick the first concat in the LHS's eqc
+        // and find some concat in the RHS's eqc that is
+        // distinct from the first one we picked
+        expr * lhs = *eqc_lhs_concat.begin();
+        std::set<expr*>::iterator itor2 = eqc_rhs_concat.begin();
+        for (; itor2 != eqc_rhs_concat.end(); ++itor2) {
+            expr * rhs = *itor2;
+            if (lhs != rhs) {
+                simplify_concat_equality(lhs, rhs);
+                break;
+            }
         }
     }
 
