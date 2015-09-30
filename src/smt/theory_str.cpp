@@ -1503,8 +1503,6 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         				}
         				assert_implication(implyL, implyR1);
         			}
-        			delete[] xor_items;
-        			delete[] and_items;
         		} /* (arg1Len != 1 || arg2Len != 1) */
         	} /* if (Concat(arg1, arg2) == NULL) */
         }
