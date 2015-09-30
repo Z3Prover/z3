@@ -274,7 +274,8 @@ app * theory_str::mk_nonempty_str_var() {
         zero = m_autil.mk_numeral(rational(0), true);
         SASSERT(zero);
         // build LHS > RHS and assert
-        app * lhs_gt_rhs = m_autil.mk_gt(len_str, zero);
+        // we have to build !(LHS <= RHS) instead
+        app * lhs_gt_rhs = m.mk_not(m_autil.mk_le(len_str, zero));
         SASSERT(lhs_gt_rhs);
         assert_axiom(lhs_gt_rhs);
     }
@@ -1008,8 +1009,18 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
             expr_ref x_plus_t1(m_autil.mk_add(mk_strlen(x), mk_strlen(t1)), mgr);
             and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(m), x_plus_t1));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], m_autil.mk_gt(mk_strlen(m), mk_strlen(x)));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], m_autil.mk_gt(mk_strlen(y), mk_strlen(n)));
+            // TODO these are crashing the solvers because the integer theory
+            // expects a constant on the right-hand side.
+            // The things we want to assert here are len(m) > len(x) and len(y) > len(n).
+            // We rewrite A > B as A-B > 0 and then as not(A-B <= 0),
+            // and then, *because we aren't allowed to use subtraction*,
+            // as not(A + -1*B <= 0)
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option],
+                    mgr.mk_not(m_autil.mk_le(m_autil.mk_add(mk_strlen(m),
+                            m_autil.mk_mul(mk_int(-1), mk_strlen(x))), mk_int(0))) );
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option],
+                    mgr.mk_not(m_autil.mk_le(m_autil.mk_add(mk_strlen(y),
+                            m_autil.mk_mul(mk_int(-1), mk_strlen(n))), mk_int(0))) );
 
             option++;
 
