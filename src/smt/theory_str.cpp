@@ -903,8 +903,8 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     ast_manager & mgr = get_manager();
     context & ctx = get_context();
     TRACE("t_str_detail", tout << "process_concat_eq TYPE 1" << std::endl
-            << "concatAst1 = " << mk_ismt2_pp(concatAst1, m) << std::endl
-            << "concatAst2 = " << mk_ismt2_pp(concatAst2, m) << std::endl;
+            << "concatAst1 = " << mk_ismt2_pp(concatAst1, mgr) << std::endl
+            << "concatAst2 = " << mk_ismt2_pp(concatAst2, mgr) << std::endl;
     );
 
     if (!is_concat(to_app(concatAst1))) {
@@ -1041,8 +1041,8 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
             option++;
 
-            add_cut_info_merge(t2, sLevel, x);
-            add_cut_info_merge(t2, sLevel, n);
+            add_cut_info_merge(t2, ctx.get_scope_level(), x);
+            add_cut_info_merge(t2, ctx.get_scope_level(), n);
         } else {
             loopDetected = true;
             TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
@@ -1064,8 +1064,8 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             } else {
                 and_item[0] = mgr.mk_or(option, or_item);
             }
-            expr_ref premise(ctx.mk_eq_atom(concatAst1, concatAst2), m);
-            expr_ref conclusion(mgr.mk_and(pos, and_item), m);
+            expr_ref premise(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
+            expr_ref conclusion(mgr.mk_and(pos, and_item), mgr);
             assert_implication(premise, conclusion);
         } else {
             TRACE("t_str", tout << "STOP: no split option found for two EQ concats." << std::endl;);
@@ -1078,7 +1078,7 @@ bool theory_str::is_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
     return false;
 }
 
-void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 
 }
 
@@ -1087,7 +1087,7 @@ bool theory_str::is_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
     return false;
 }
 
-void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
 }
 
@@ -1096,7 +1096,7 @@ bool theory_str::is_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
     return false;
 }
 
-void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+void theory_str::process_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
 
 }
 
@@ -1105,7 +1105,7 @@ bool theory_str::is_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
     return false;
 }
 
-void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+void theory_str::process_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
 
 }
 
@@ -1114,7 +1114,7 @@ bool theory_str::is_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
     return false;
 }
 
-void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
 
 }
 

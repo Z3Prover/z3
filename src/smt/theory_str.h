@@ -24,6 +24,7 @@ Revision History:
 #include"smt_model_generator.h"
 #include"arith_decl_plugin.h"
 #include<set>
+#include<stack>
 
 namespace smt {
 
@@ -71,8 +72,8 @@ namespace smt {
         int tmpXorVarCount;
         std::map<std::pair<expr*, expr*>, std::map<int, expr*> > varForBreakConcat;
 
-        bool avoidLoopCut = true;
-        bool loopDetected = false;
+        bool avoidLoopCut;
+        bool loopDetected;
         std::map<expr*, std::stack<T_cut *> > cut_var_map;
     protected:
         void assert_axiom(expr * e);
