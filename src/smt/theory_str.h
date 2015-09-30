@@ -66,7 +66,8 @@ namespace smt {
         void assert_implication(expr * premise, expr * conclusion);
 
         app * mk_strlen(expr * e);
-        app * mk_concat(app * e1, app * e2);
+        expr * mk_concat(expr * n1, expr * n2);
+        expr * mk_concat_const_str(expr * n1, expr * n2);
 
         app * mk_internal_xor_var();
 
@@ -81,6 +82,7 @@ namespace smt {
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);
 
+        app * mk_value_helper(app * n);
         expr * get_eqc_value(expr * n, bool & hasEqcValue);
         bool in_same_eqc(expr * n1, expr * n2);
 

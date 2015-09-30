@@ -131,14 +131,60 @@ app * theory_str::mk_strlen(expr * e) {
     }
 }
 
-app * theory_str::mk_concat(app * e1, app * e2) {
+/*
+ * Returns the simplified concatenation of two expressions,
+ * where either both expressions are constant strings
+ * or one expression is the empty string.
+ * If this precondition does not hold, the function returns NULL.
+ * (note: this function was strTheory::Concat())
+ */
+expr * theory_str::mk_concat_const_str(expr * n1, expr * n2) {
+    bool n1HasEqcValue = false;
+    bool n2HasEqcValue = false;
+    expr * v1 = get_eqc_value(n1, n1HasEqcValue);
+    expr * v2 = get_eqc_value(n2, n2HasEqcValue);
+    if (n1HasEqcValue && n2HasEqcValue) {
+        const char * n1_str_tmp;
+        m_strutil.is_string(v1, & n1_str_tmp);
+        std::string n1_str(n1_str_tmp);
+        const char * n2_str_tmp;
+        m_strutil.is_string(v2, & n2_str_tmp);
+        std::string n2_str(n2_str_tmp);
+        std::string result = n1_str + n2_str;
+        return m_strutil.mk_string(result);
+    } else if (n1HasEqcValue && !n2HasEqcValue) {
+        const char * n1_str_tmp;
+        m_strutil.is_string(v1, & n1_str_tmp);
+        if (strcmp(n1_str_tmp, "") == 0) {
+            return n2;
+        }
+    } else if (!n1HasEqcValue && n2HasEqcValue) {
+        const char * n2_str_tmp;
+        m_strutil.is_string(v2, & n2_str_tmp);
+        if (strcmp(n2_str_tmp, "") == 0) {
+            return n1;
+        }
+    }
+    return NULL;
+}
+
+expr * theory_str::mk_concat(expr * n1, expr * n2) {
 	ast_manager & m = get_manager();
-	if (e1 == NULL || e2 == NULL) {
+	if (n1 == NULL || n2 == NULL) {
 		m.raise_exception("strings to be concatenated cannot be NULL");
 	}
-	// TODO there's a *TON* of missing code here from strTheory::mk_concat()
-	expr * args[2] = {e1, e2};
-	return get_manager().mk_app(get_id(), OP_STRCAT, 0, 0, 2, args);
+	bool n1HasEqcValue = false;
+	bool n2HasEqcValue = false;
+	n1 = get_eqc_value(n1, n1HasEqcValue);
+	n2 = get_eqc_value(n2, n2HasEqcValue);
+	if (n1HasEqcValue && n2HasEqcValue) {
+	    return mk_concat_const_str(n1, n2);
+	} else {
+        // TODO there's a *TON* of missing code here from strTheory::mk_concat()
+        // if all else fails, just build the application AST
+        expr * args[2] = {n1, n2};
+        return get_manager().mk_app(get_id(), OP_STRCAT, 0, 0, 2, args);
+	}
 }
 
 bool theory_str::can_propagate() {
@@ -424,11 +470,11 @@ expr * theory_str::simplify_concat(expr * node) {
         // no simplification possible
         return node;
     } else {
-        app * resultAst = m_strutil.mk_string("");
+        expr * resultAst = m_strutil.mk_string("");
         for (unsigned i = 0; i < argVec.size(); ++i) {
             bool vArgHasEqcValue = false;
             expr * vArg = get_eqc_value(argVec[i], vArgHasEqcValue);
-            resultAst = mk_concat(to_app(resultAst), to_app(vArg));
+            resultAst = mk_concat(resultAst, vArg);
         }
         TRACE("t_str_detail", tout << mk_ismt2_pp(node, m) << " is simplified to " << mk_ismt2_pp(resultAst, m) << std::endl;);
 
@@ -821,7 +867,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         	} else {
         		implyL1 = m.mk_and(item1[0], item1[1]);
         	}
-        	newConcat = mk_concat(to_app(arg1), to_app(arg2));
+        	newConcat = mk_concat(arg1, arg2);
         	if (newConcat != str) {
         		expr_ref implyR1(ctx.mk_eq_atom(concat, newConcat), m);
         		assert_implication(implyL1, implyR1);
@@ -1308,6 +1354,52 @@ void theory_str::init_model(model_generator & mg) {
     mg.register_factory(m_factory);
 }
 
+/*
+ * Helper function for mk_value().
+ * Attempts to resolve the expression 'n' to a string constant.
+ * Stronger than get_eqc_value() in that it will perform recursive descent
+ * through every subexpression and attempt to resolve those to concrete values as well.
+ * Returns the concrete value obtained from this process,
+ * guaranteed to satisfy m_strutil.is_string(),
+ * if one could be obtained,
+ * or else returns NULL if no concrete value was derived.
+ */
+app * theory_str::mk_value_helper(app * n) {
+    if (m_strutil.is_string(n)) {
+        return n;
+    } else if (is_concat(n)) {
+        // recursively call this function on each argument
+        SASSERT(n->get_num_args() == 2);
+        expr * a0 = n->get_arg(0);
+        expr * a1 = n->get_arg(1);
+
+        app * a0_conststr = mk_value_helper(to_app(a0));
+        app * a1_conststr = mk_value_helper(to_app(a1));
+
+        if (a0_conststr != NULL && a1_conststr != NULL) {
+            const char * a0_str = 0;
+            m_strutil.is_string(a0_conststr, &a0_str);
+
+            const char * a1_str = 0;
+            m_strutil.is_string(a1_conststr, &a1_str);
+
+            std::string a0_s(a0_str);
+            std::string a1_s(a1_str);
+            std::string result = a0_s + a1_s;
+            return m_strutil.mk_string(result);
+        }
+    }
+    // fallback path
+    // try to find some constant string, anything, in the equivalence class of n
+    bool hasEqc = false;
+    expr * n_eqc = get_eqc_value(n, hasEqc);
+    if (hasEqc) {
+        return to_app(n_eqc);
+    } else {
+        return NULL;
+    }
+}
+
 model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
     TRACE("t_str", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), get_manager()) <<
                                 " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")" << std::endl;);
@@ -1319,10 +1411,12 @@ model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
     // If the owner is not internalized, it doesn't have an enode associated.
     SASSERT(ctx.e_internalized(owner));
 
-    if (m_strutil.is_string(owner)) {
-        return alloc(expr_wrapper_proc, owner);
+    app * val = mk_value_helper(owner);
+    if (val != NULL) {
+        return alloc(expr_wrapper_proc, val);
+    } else {
+        m.raise_exception("failed to find concrete value"); return NULL;
     }
-    NOT_IMPLEMENTED_YET(); // TODO
 }
 
 void theory_str::finalize_model(model_generator & mg) {}
