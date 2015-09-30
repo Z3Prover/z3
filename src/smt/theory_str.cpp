@@ -28,7 +28,10 @@ theory_str::theory_str(ast_manager & m):
         search_started(false),
         m_autil(m),
         m_strutil(m),
-		tmpXorVarCount(0)
+        tmpStringVarCount(0),
+		tmpXorVarCount(0),
+		avoidLoopCut(true),
+		loopDetected(false)
 {
 }
 
@@ -101,6 +104,122 @@ bool theory_str::internalize_term(app * term) {
     return true;
 }
 
+static void cut_vars_map_copy(std::map<expr*, int> & dest, std::map<expr*, int> & src) {
+    std::map<expr*, int>::iterator itor = src.begin();
+    for (; itor != src.end(); itor++) {
+        dest[itor->first] = 1;
+    }
+}
+
+/*
+bool hasSelfCut(Z3_ast n1, Z3_ast n2) {
+  if (cut_VARMap.find(n1) == cut_VARMap.end())
+    return false;
+
+  if (cut_VARMap.find(n2) == cut_VARMap.end())
+    return false;
+
+  if (cut_VARMap[n1].empty() || cut_VARMap[n2].empty())
+    return false;
+
+  std::map<Z3_ast, int>::iterator itor = cut_VARMap[n1].top()->vars.begin();
+  for (; itor != cut_VARMap[n1].top()->vars.end(); itor++) {
+    if (cut_VARMap[n2].top()->vars.find(itor->first) != cut_VARMap[n2].top()->vars.end())
+      return true;
+  }
+  return false;
+}
+*/
+
+bool theory_str::has_self_cut(expr * n1, expr * n2) {
+    if (cut_var_map.find(n1) == cut_var_map.end()) {
+        return false;
+    }
+    if (cut_var_map.find(n2) == cut_var_map.end()) {
+        return false;
+    }
+    if (cut_var_map[n1].empty() || cut_var_map[n2].empty()) {
+        return false;
+    }
+
+    std::map<expr*, int>::iterator itor = cut_var_map[n1].top()->vars.begin();
+    for (; itor != cut_var_map[n1].top()->vars.end(); ++itor) {
+        if (cut_var_map[n2].top()->vars.find(itor->first) != cut_var_map[n2].top()->vars.end()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void theory_str::add_cut_info_one_node(expr * baseNode, int slevel, expr * node) {
+    if (cut_var_map.find(baseNode) == cut_var_map.end()) {
+        T_cut * varInfo = alloc(T_cut);
+        varInfo->level = slevel;
+        varInfo->vars[node] = 1;
+        cut_var_map[baseNode].push(varInfo);
+    } else {
+        if (cut_var_map[baseNode].empty()) {
+            T_cut * varInfo = alloc(T_cut);
+            varInfo->level = slevel;
+            varInfo->vars[node] = 1;
+            cut_var_map[baseNode].push(varInfo);
+        } else {
+            if (cut_var_map[baseNode].top()->level < slevel) {
+                T_cut * varInfo = alloc(T_cut);
+                varInfo->level = slevel;
+                cut_vars_map_copy(varInfo->vars, cut_var_map[baseNode].top()->vars);
+                varInfo->vars[node] = 1;
+                cut_var_map[baseNode].push(varInfo);
+            } else if (cut_var_map[baseNode].top()->level == slevel) {
+                cut_var_map[baseNode].top()->vars[node] = 1;
+            } else {
+                get_manager().raise_exception("entered illegal state during add_cut_info_one_node()");
+            }
+        }
+    }
+}
+
+void theory_str::add_cut_info_merge(expr * destNode, int slevel, expr * srcNode) {
+    if (cut_var_map.find(srcNode) == cut_var_map.end()) {
+        get_manager().raise_exception("illegal state in add_cut_info_merge(): cut_var_map doesn't contain srcNode");
+    }
+
+    if (cut_var_map[srcNode].empty()) {
+        get_manager().raise_exception("illegal state in add_cut_info_merge(): cut_var_map[srcNode] is empty");
+    }
+
+    if (cut_var_map.find(destNode) == cut_var_map.end()) {
+        T_cut * varInfo = alloc(T_cut);
+        varInfo->level = slevel;
+        cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
+        cut_var_map[destNode].push(varInfo);
+    } else {
+        if (cut_var_map[destNode].empty() || cut_var_map[destNode].top()->level < slevel) {
+            T_cut * varInfo = alloc(T_cut);
+            varInfo->level = slevel;
+            cut_vars_map_copy(varInfo->vars, cut_var_map[destNode].top()->vars);
+            cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
+            cut_var_map[destNode].push(varInfo);
+        } else if (cut_var_map[destNode].top()->level == slevel) {
+            cut_vars_map_copy(cut_var_map[destNode].top()->vars, cut_var_map[srcNode].top()->vars);
+        } else {
+            get_manager().raise_exception("illegal state in add_cut_info_merge(): inconsistent slevels");
+        }
+    }
+}
+
+void theory_str::check_and_init_cut_var(expr * node) {
+    if (cut_var_map.find(node) != cut_var_map.end()) {
+        return;
+    } else if (!m_strutil.is_string(node)) {
+        add_cut_info_one_node(node, -1, node);
+    }
+}
+
+app * theory_str::mk_int(int n) {
+    return m_autil.mk_numeral(rational(n), true);
+}
+
 app * theory_str::mk_internal_xor_var() {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
@@ -117,6 +236,49 @@ app * theory_str::mk_internal_xor_var() {
 	app* a = m.mk_const(m.mk_const_decl(sym, int_sort));
 	// TODO ctx.save_ast_trail(a)?
 	return a;
+}
+
+/*
+  Z3_context ctx = Z3_theory_get_context(t);
+  PATheoryData * td = (PATheoryData *) Z3_theory_get_ext_data(t);
+  std::stringstream ss;
+  ss << tmpStringVarCount;
+  tmpStringVarCount++;
+  std::string name = "$$_str" + ss.str();
+  Z3_ast varAst = mk_var(ctx, name.c_str(), td->String);
+  nonEmptyStrVarAxiom(t, varAst, __LINE__);
+  return varAst;
+*/
+
+app * theory_str::mk_nonempty_str_var() {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+    std::stringstream ss;
+    ss << tmpStringVarCount;
+    tmpStringVarCount++;
+    std::string name = "$$_str" + ss.str();
+    sort * string_sort = m.mk_sort(m_strutil.get_family_id(), STRING_SORT);
+    char * new_buffer = alloc_svect(char, name.length() + 1);
+    strcpy(new_buffer, name.c_str());
+    symbol sym(new_buffer);
+
+    app* a = m.mk_const(m.mk_const_decl(sym, string_sort));
+    // assert a variation of the basic string axioms that ensures this string is nonempty
+    {
+        // build LHS
+        expr_ref len_str(m);
+        len_str = mk_strlen(a);
+        SASSERT(len_str);
+        // build RHS
+        expr_ref zero(m);
+        zero = m_autil.mk_numeral(rational(0), true);
+        SASSERT(zero);
+        // build LHS > RHS and assert
+        app * lhs_gt_rhs = m_autil.mk_gt(len_str, zero);
+        SASSERT(lhs_gt_rhs);
+        assert_axiom(lhs_gt_rhs);
+    }
+    return a;
 }
 
 app * theory_str::mk_strlen(expr * e) {
@@ -372,7 +534,7 @@ void theory_str::reset_eh() {
     m_basicstr_axiom_todo.reset();
     m_str_eq_todo.reset();
     m_concat_axiom_todo.reset();
-    pop_scope_eh(0);
+    pop_scope_eh(get_context().get_scope_level());
 }
 
 /*
@@ -670,9 +832,289 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
     }
 
     // start to split both concats
+    check_and_init_cut_var(v1_arg0);
+    check_and_init_cut_var(v1_arg1);
+    check_and_init_cut_var(v2_arg0);
+    check_and_init_cut_var(v2_arg1);
 
+    //*************************************************************
+    // case 1: concat(x, y) = concat(m, n)
+    //*************************************************************
+    if (is_concat_eq_type1(new_nn1, new_nn2)) {
+        process_concat_eq_type1(new_nn1, new_nn2);
+        return;
+    }
+
+    //*************************************************************
+    // case 2: concat(x, y) = concat(m, "str")
+    //*************************************************************
+    if (is_concat_eq_type2(new_nn1, new_nn2)) {
+        process_concat_eq_type2(new_nn1, new_nn2);
+        return;
+    }
+
+    //*************************************************************
+    // case 3: concat(x, y) = concat("str", n)
+    //*************************************************************
+    if (is_concat_eq_type3(new_nn1, new_nn2)) {
+        process_concat_eq_type3(new_nn1, new_nn2);
+        return;
+    }
+
+    //*************************************************************
+    //  case 4: concat("str1", y) = concat("str2", n)
+    //*************************************************************
+    if (is_concat_eq_type4(new_nn1, new_nn2)) {
+        process_concat_eq_type4(new_nn1, new_nn2);
+        return;
+    }
+
+    //*************************************************************
+    //  case 5: concat(x, "str1") = concat(m, "str2")
+    //*************************************************************
+    if (is_concat_eq_type5(new_nn1, new_nn2)) {
+        process_concat_eq_type5(new_nn1, new_nn2);
+        return;
+    }
+    //*************************************************************
+    //  case 6: concat("str1", y) = concat(m, "str2")
+    //*************************************************************
+    if (is_concat_eq_type6(new_nn1, new_nn2)) {
+        process_concat_eq_type6(new_nn1, new_nn2);
+        return;
+    }
+
+}
+
+bool theory_str::is_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+    expr * x = to_app(concatAst1)->get_arg(0);
+    expr * y = to_app(concatAst1)->get_arg(1);
+    expr * m = to_app(concatAst2)->get_arg(0);
+    expr * n = to_app(concatAst2)->get_arg(1);
+
+    if (!m_strutil.is_string(x) && !m_strutil.is_string(y) && !m_strutil.is_string(m) && !m_strutil.is_string(n)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+    ast_manager & mgr = get_manager();
+    context & ctx = get_context();
+    TRACE("t_str_detail", tout << "process_concat_eq TYPE 1" << std::endl
+            << "concatAst1 = " << mk_ismt2_pp(concatAst1, m) << std::endl
+            << "concatAst2 = " << mk_ismt2_pp(concatAst2, m) << std::endl;
+    );
+
+    if (!is_concat(to_app(concatAst1))) {
+        TRACE("t_str_detail", tout << "concatAst1 is not a concat function" << std::endl;);
+        return;
+    }
+    if (!is_concat(to_app(concatAst2))) {
+        TRACE("t_str_detail", tout << "concatAst2 is not a concat function" << std::endl;);
+        return;
+    }
+    expr * x = to_app(concatAst1)->get_arg(0);
+    expr * y = to_app(concatAst1)->get_arg(1);
+    expr * m = to_app(concatAst2)->get_arg(0);
+    expr * n = to_app(concatAst2)->get_arg(1);
+
+    /* TODO query the integer theory:
+  int x_len = getLenValue(t, x);
+  int y_len = getLenValue(t, y);
+  int m_len = getLenValue(t, m);
+  int n_len = getLenValue(t, n);
+     */
+    int x_len = -1;
+    int y_len = -1;
+    int m_len = -1;
+    int n_len = -1;
+
+    int splitType = -1;
+    if (x_len != -1 && m_len != -1) {
+        if (x_len < m_len)
+            splitType = 0;
+        else if (x_len == m_len)
+            splitType = 1;
+        else
+            splitType = 2;
+    }
+
+    if (splitType == -1 && y_len != -1 && n_len != -1) {
+        if (y_len > n_len)
+            splitType = 0;
+        else if (y_len == n_len)
+            splitType = 1;
+        else
+            splitType = 2;
+    }
+
+    TRACE("t_str_detail", tout << "split type " << splitType << std::endl;);
+
+    expr * t1 = NULL;
+    expr * t2 = NULL;
+    expr * xorFlag = NULL;
+
+    std::pair<expr*, expr*> key1(concatAst1, concatAst2);
+    std::pair<expr*, expr*> key2(concatAst2, concatAst1);
+
+    if (varForBreakConcat.find(key1) == varForBreakConcat.end() && varForBreakConcat.find(key2) == varForBreakConcat.end()) {
+        t1 = mk_nonempty_str_var();
+        t2 = mk_nonempty_str_var();
+        xorFlag = mk_internal_xor_var();
+        check_and_init_cut_var(t1);
+        check_and_init_cut_var(t2);
+        varForBreakConcat[key1][0] = t1;
+        varForBreakConcat[key1][1] = t2;
+        varForBreakConcat[key1][2] = xorFlag;
+    } else {
+        // match found
+        if (varForBreakConcat.find(key1) != varForBreakConcat.end()) {
+            t1 = varForBreakConcat[key1][0];
+            t2 = varForBreakConcat[key1][1];
+            xorFlag = varForBreakConcat[key1][2];
+        } else {
+            t1 = varForBreakConcat[key2][0];
+            t2 = varForBreakConcat[key2][1];
+            xorFlag = varForBreakConcat[key2][2];
+        }
+    }
+
+    // For split types 0 through 2, we can get away with providing
+    // fewer split options since more length information is available.
+    if (splitType == 0) {
+        NOT_IMPLEMENTED_YET(); // TODO
+    } else if (splitType == 1) {
+        NOT_IMPLEMENTED_YET(); // TODO
+    } else if (splitType == 2) {
+        NOT_IMPLEMENTED_YET(); // TODO
+    } else if (splitType == -1) {
+        // Here we don't really have a choice. We have no length information at all...
+        expr ** or_item = alloc_svect(expr*, 3);
+        expr ** and_item = alloc_svect(expr*, 20);
+        int option = 0;
+        int pos = 1;
+
+        // break option 1: m cuts y
+        // len(x) < len(m) || len(y) > len(n)
+        if (!avoidLoopCut || !has_self_cut(m, y)) {
+            // break down option 1-1
+            expr * x_t1 = mk_concat(x, t1);
+            expr * t1_n = mk_concat(t1, n);
+            or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(m, x_t1));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(y, t1_n));
+
+            expr_ref x_plus_t1(m_autil.mk_add(mk_strlen(x), mk_strlen(t1)), mgr);
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(m), x_plus_t1));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], m_autil.mk_gt(mk_strlen(m), mk_strlen(x)));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], m_autil.mk_gt(mk_strlen(y), mk_strlen(n)));
+
+            option++;
+
+            add_cut_info_merge(t1, ctx.get_scope_level(), m);
+            add_cut_info_merge(t1, ctx.get_scope_level(), y);
+        } else {
+            loopDetected = true;
+            TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+            // TODO printCutVar(m, y);
+        }
+
+        // break option 2:
+        // x = m || y = n
+        if (!avoidLoopCut || !has_self_cut(x, n)) {
+            // break down option 1-2
+            expr * m_t2 = mk_concat(m, t2);
+            expr * t2_y = mk_concat(t2, y);
+            or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(x, m_t2));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(n, t2_y));
+
+
+            expr_ref m_plus_t2(m_autil.mk_add(mk_strlen(m), mk_strlen(t2)), mgr);
+
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(x), m_plus_t2));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(x), mk_strlen(m)));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(n), mk_strlen(y)));
+
+
+            option++;
+
+            add_cut_info_merge(t2, sLevel, x);
+            add_cut_info_merge(t2, sLevel, n);
+        } else {
+            loopDetected = true;
+            TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+            // TODO printCutVar(x, n);
+        }
+
+        if (can_two_nodes_eq(x, m) && can_two_nodes_eq(y, n)) {
+            or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(x, m));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(y, n));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(x), mk_strlen(m)));
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(y), mk_strlen(n)));
+            ++option;
+        }
+
+        if (option > 0) {
+            if (option == 1) {
+                and_item[0] = or_item[0];
+            } else {
+                and_item[0] = mgr.mk_or(option, or_item);
+            }
+            expr_ref premise(ctx.mk_eq_atom(concatAst1, concatAst2), m);
+            expr_ref conclusion(mgr.mk_and(pos, and_item), m);
+            assert_implication(premise, conclusion);
+        } else {
+            TRACE("t_str", tout << "STOP: no split option found for two EQ concats." << std::endl;);
+        }
+    } // (splitType == -1)
+}
+
+bool theory_str::is_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
     // TODO
-    NOT_IMPLEMENTED_YET();
+    return false;
+}
+
+void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+
+}
+
+bool theory_str::is_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
+    // TODO
+    return false;
+}
+
+void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+
+}
+
+bool theory_str::is_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
+    // TODO
+    return false;
+}
+
+void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+
+}
+
+bool theory_str::is_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
+    // TODO
+    return false;
+}
+
+void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
+
+}
+
+bool theory_str::is_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
+    // TODO
+    return false;
+}
+
+void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
 }
 
@@ -1327,6 +1769,20 @@ void theory_str::push_scope_eh() {
 
 void theory_str::pop_scope_eh(unsigned num_scopes) {
     TRACE("t_str", tout << "pop " << num_scopes << std::endl;);
+    context & ctx = get_context();
+    unsigned sLevel = ctx.get_scope_level();
+    std::map<expr*, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
+    while (varItor != cut_var_map.end()) {
+        while ((varItor->second.size() > 0) && (varItor->second.top()->level != 0) && (varItor->second.top()->level >= sLevel)) {
+            T_cut * aCut = varItor->second.top();
+            varItor->second.pop();
+            dealloc(aCut);
+        }
+        if (varItor->second.size() == 0) {
+            cut_var_map.erase(varItor);
+        }
+        ++varItor;
+    }
 }
 
 final_check_status theory_str::final_check_eh() {

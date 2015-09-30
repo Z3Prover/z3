@@ -47,7 +47,15 @@ namespace smt {
     };
 
     class theory_str : public theory {
-        // TODO
+        struct T_cut
+        {
+            int level;
+            std::map<expr*, int> vars;
+
+            T_cut() {
+              level = -100;
+            }
+        };
     protected:
         bool search_started;
         arith_util m_autil;
@@ -59,8 +67,13 @@ namespace smt {
         svector<std::pair<enode*,enode*> > m_str_eq_todo;
         ptr_vector<enode> m_concat_axiom_todo;
 
+        int tmpStringVarCount;
         int tmpXorVarCount;
         std::map<std::pair<expr*, expr*>, std::map<int, expr*> > varForBreakConcat;
+
+        bool avoidLoopCut = true;
+        bool loopDetected = false;
+        std::map<expr*, std::stack<T_cut *> > cut_var_map;
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
@@ -69,6 +82,14 @@ namespace smt {
         expr * mk_concat(expr * n1, expr * n2);
         expr * mk_concat_const_str(expr * n1, expr * n2);
 
+        app * mk_int(int n);
+
+        void check_and_init_cut_var(expr * node);
+        void add_cut_info_one_node(expr * baseNode, int slevel, expr * node);
+        void add_cut_info_merge(expr * destNode, int slevel, expr * srcNode);
+        bool has_self_cut(expr * n1, expr * n2);
+
+        app * mk_nonempty_str_var();
         app * mk_internal_xor_var();
 
         bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
@@ -97,6 +118,20 @@ namespace smt {
 
         void simplify_concat_equality(expr * lhs, expr * rhs);
         void solve_concat_eq_str(expr * concat, expr * str);
+
+        bool is_concat_eq_type1(expr * concatAst1, expr * concatAst2);
+        bool is_concat_eq_type2(expr * concatAst1, expr * concatAst2);
+        bool is_concat_eq_type3(expr * concatAst1, expr * concatAst2);
+        bool is_concat_eq_type4(expr * concatAst1, expr * concatAst2);
+        bool is_concat_eq_type5(expr * concatAst1, expr * concatAst2);
+        bool is_concat_eq_type6(expr * concatAst1, expr * concatAst2);
+
+        void process_concat_eq_type1(expr * concatAst1, expr * concatAst2);
+        void process_concat_eq_type2(expr * concatAst1, expr * concatAst2);
+        void process_concat_eq_type3(expr * concatAst1, expr * concatAst2);
+        void process_concat_eq_type4(expr * concatAst1, expr * concatAst2);
+        void process_concat_eq_type5(expr * concatAst1, expr * concatAst2);
+        void process_concat_eq_type6(expr * concatAst1, expr * concatAst2);
 
         bool new_eq_check(expr * lhs, expr * rhs);
         void group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts);
