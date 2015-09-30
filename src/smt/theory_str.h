@@ -136,6 +136,8 @@ namespace smt {
 
         bool new_eq_check(expr * lhs, expr * rhs);
         void group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts);
+
+        void dump_assignments();
     public:
         theory_str(ast_manager & m);
         virtual ~theory_str();
