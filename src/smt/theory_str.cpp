@@ -1016,11 +1016,13 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             // and then, *because we aren't allowed to use subtraction*,
             // as not(A + -1*B <= 0)
             and_item[pos++] = ctx.mk_eq_atom(or_item[option],
-                    mgr.mk_not(m_autil.mk_le(m_autil.mk_add(mk_strlen(m),
-                            m_autil.mk_mul(mk_int(-1), mk_strlen(x))), mk_int(0))) );
+                    mgr.mk_not(m_autil.mk_le(
+                    		m_autil.mk_add(mk_strlen(m), m_autil.mk_mul(mk_int(-1), mk_strlen(x))),
+							mk_int(0))) );
             and_item[pos++] = ctx.mk_eq_atom(or_item[option],
-                    mgr.mk_not(m_autil.mk_le(m_autil.mk_add(mk_strlen(y),
-                            m_autil.mk_mul(mk_int(-1), mk_strlen(n))), mk_int(0))) );
+                    mgr.mk_not(m_autil.mk_le(
+                    		m_autil.mk_add(mk_strlen(y),m_autil.mk_mul(mk_int(-1), mk_strlen(n))),
+							mk_int(0))) );
 
             option++;
 
@@ -1045,10 +1047,16 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
             expr_ref m_plus_t2(m_autil.mk_add(mk_strlen(m), mk_strlen(t2)), mgr);
 
-            // TODO here is the bug: these EQs should be GTs
             and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(x), m_plus_t2));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(x), mk_strlen(m)));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(n), mk_strlen(y)));
+            // want len(x) > len(m) and len(n) > len(y)
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option],
+            		mgr.mk_not(m_autil.mk_le(
+            				m_autil.mk_add(mk_strlen(x), m_autil.mk_mul(mk_int(-1), mk_strlen(m))),
+							mk_int(0))) );
+            and_item[pos++] = ctx.mk_eq_atom(or_item[option],
+            		mgr.mk_not(m_autil.mk_le(
+            				m_autil.mk_add(mk_strlen(n), m_autil.mk_mul(mk_int(-1), mk_strlen(y))),
+							mk_int(0))) );
 
 
             option++;
@@ -1759,7 +1767,7 @@ void theory_str::new_eq_eh(theory_var x, theory_var y) {
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
     handle_equality(get_enode(x)->get_owner(), get_enode(y)->get_owner());
 
-    TRACE("t_str_detail", dump_assignments(););
+    TRACE("t_str_dump_assign", dump_assignments(););
 }
 
 void theory_str::new_diseq_eh(theory_var x, theory_var y) {
@@ -1767,7 +1775,7 @@ void theory_str::new_diseq_eh(theory_var x, theory_var y) {
     TRACE("t_str", tout << "new diseq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " != " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
 
-    TRACE("t_str_detail", dump_assignments(););
+    TRACE("t_str_dump_assign", dump_assignments(););
 }
 
 void theory_str::relevant_eh(app * n) {
