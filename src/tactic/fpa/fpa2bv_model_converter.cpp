@@ -113,6 +113,7 @@ expr_ref fpa2bv_model_converter::convert_bv2fp(sort * s, expr * sgn, expr * exp,
                                " " << mk_ismt2_pp(exp, m) << 
                                " " << mk_ismt2_pp(sig, m) << "] == " << 
                                mk_ismt2_pp(res, m) << std::endl;);
+    fu.fm().del(fp_val);
 
     return res;
 }
