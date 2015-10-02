@@ -2,8 +2,9 @@
 from z3 import *
 
 def vset(seq, idfun=None, as_list=True):
+    # This functions preserves the order of arguments while removing duplicates. 
     # This function is from https://code.google.com/p/common-python-vu/source/browse/vu_common.py
-    # It preserves the order of arguments while removing duplicates. 
+    # (Thanhu's personal code). It has been copied here to avoid a dependency on vu_common.py.
     """
     order preserving
 
