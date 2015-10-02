@@ -1,10 +1,38 @@
-"""
-Usage:  
-import common_z3 as CM_Z3
-"""
 
-import common as CM
 from z3 import *
+
+def vset(seq, idfun=None, as_list=True):
+    # This function is from https://code.google.com/p/common-python-vu/source/browse/vu_common.py
+    # It preserves the order of arguments while removing duplicates. 
+    """
+    order preserving
+
+    >>> vset([[11,2],1, [10,['9',1]],2, 1, [11,2],[3,3],[10,99],1,[10,['9',1]]],idfun=repr)
+    [[11, 2], 1, [10, ['9', 1]], 2, [3, 3], [10, 99]]
+    """
+ 
+    def _uniq_normal(seq):
+        d_ = {}
+        for s in seq:
+            if s not in d_:
+                d_[s] = None
+                yield s
+ 
+    def _uniq_idfun(seq,idfun):
+        d_ = {}
+        for s in seq:
+            h_ = idfun(s)
+            if h_ not in d_:
+                d_[h_] = None
+                yield s
+ 
+    if idfun is None:
+        res = _uniq_normal(seq)
+    else: 
+        res = _uniq_idfun(seq,idfun)
+ 
+    return list(res) if as_list else res 
+
 
 def get_z3_version(as_str=False):
     major = ctypes.c_uint(0)
@@ -17,9 +45,6 @@ def get_z3_version(as_str=False):
         return "{}.{}.{}.{}".format(*rs)
     else:
         return rs
-        
-    
-
 
 
 def ehash(v):
@@ -28,6 +53,8 @@ def ehash(v):
     The result from hash() is not enough to distinguish between 2 
     z3 expressions in some cases.
     
+    Note: the following doctests will fail with Python 2.x as the
+    default formatting doesn't match that of 3.x.
     >>> x1 = Bool('x'); x2 = Bool('x'); x3 = Int('x')
     >>> print(x1.hash(),x2.hash(),x3.hash()) #BAD: all same hash values
     783810685 783810685 783810685
@@ -42,7 +69,7 @@ def ehash(v):
 
 
 """
-In Z3, variables are caleld *uninterpreted* consts and 
+In Z3, variables are called *uninterpreted* consts and 
 variables are *interpreted* consts.
 """
 
@@ -115,13 +142,13 @@ def get_vars(f,rs=[]):
         if is_expr_val(f):
             return rs
         else:  #variable
-            return CM.vset(rs + [f],str)
+            return vset(rs + [f],str)
 
     else:
         for f_ in f.children():
             rs = get_vars(f_,rs)
 
-        return CM.vset(rs,str)
+        return vset(rs,str)
 
 
 
