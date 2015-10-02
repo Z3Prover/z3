@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _FINGERPRINTS_H_
-#define _FINGERPRINTS_H_
+#ifndef FINGERPRINTS_H_
+#define FINGERPRINTS_H_
 
 #include"smt_enode.h"
 
@@ -81,5 +81,5 @@ namespace smt {
     };
 };
 
-#endif /* _FINGERPRINTS_H_ */
+#endif /* FINGERPRINTS_H_ */
 

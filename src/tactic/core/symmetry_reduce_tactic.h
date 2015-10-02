@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SYMMETRY_REDUCE_TACTIC_H_
-#define _SYMMETRY_REDUCE_TACTIC_H_
+#ifndef SYMMETRY_REDUCE_TACTIC_H_
+#define SYMMETRY_REDUCE_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

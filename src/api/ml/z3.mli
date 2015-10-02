@@ -123,7 +123,7 @@ sig
 end
 
 (** The abstract syntax tree (AST) module *)
-module AST :
+module rec AST :
 sig
   type ast 
 
@@ -155,6 +155,12 @@ sig
     (** Translates all ASTs in the vector to another context.
 		@return A new ASTVector *)
     val translate : ast_vector -> context -> ast_vector
+
+    (** Translates the ASTVector into an (Ast.ast list) *)
+    val to_list : ast_vector -> ast list
+
+    (** Translates the ASTVector into an (Expr.expr list) *)
+    val to_expr_list : ast_vector -> Expr.expr list
 
     (** Retrieves a string representation of the vector. *)
     val to_string : ast_vector -> string
@@ -260,7 +266,7 @@ sig
 end
 
 (** The Sort module implements type information for ASTs *)
-module Sort :
+and Sort :
 sig
   type sort = Sort of AST.ast
 
@@ -291,7 +297,7 @@ sig
 end
 
 (** Function declarations *)
-module rec FuncDecl :
+and FuncDecl :
 sig
   type func_decl = FuncDecl of AST.ast
 
@@ -2155,6 +2161,12 @@ sig
   (** Return the significand value of a floating-point numeral as a string. *)
   val get_numeral_significand_string : context -> Expr.expr -> string
 
+  (** Return the significand value of a floating-point numeral as a uint64. 
+	  Remark: This function extracts the significand bits, without the 
+      hidden bit or normalization. Throws an exception if the
+      significand does not fit into a uint64. *)
+  val get_numeral_significand_uint : context -> Expr.expr -> bool * int
+
   (** Return the exponent value of a floating-point numeral as a string *)
   val get_numeral_exponent_string : context -> Expr.expr -> string
 
@@ -2641,6 +2653,9 @@ sig
 
   (**  A string representation of the Goal. *)
   val to_string : goal -> string
+
+  (** Goal to BoolExpr conversion. *)
+  val as_expr : goal -> Expr.expr
 end
 
 (** Models
@@ -2751,7 +2766,7 @@ sig
   (** The finite set of distinct values that represent the interpretation of a sort. 
       {!get_sorts}
       @return A list of expressions, where each is an element of the universe of the sort *)
-  val sort_universe : model -> Sort.sort -> AST.ast list
+  val sort_universe : model -> Sort.sort -> Expr.expr list
     
   (** Conversion of models to strings. 
       @return A string representation of the model. *)
@@ -2938,6 +2953,55 @@ sig
   val interrupt : context -> unit
 end
 
+(** Objects that track statistical information. *)
+module Statistics :
+sig
+  type statistics 
+	
+  (** Statistical data is organized into pairs of \[Key, Entry\], where every
+	  Entry is either a floating point or integer value. *)
+  module Entry :
+  sig
+    type statistics_entry
+	  
+    (** The key of the entry. *)
+    val get_key : statistics_entry -> string
+	  
+    (** The int-value of the entry. *)
+    val get_int : statistics_entry -> int
+	  
+    (** The float-value of the entry. *)
+    val get_float : statistics_entry -> float
+	  
+    (** True if the entry is uint-valued. *)
+    val is_int : statistics_entry -> bool
+	  
+    (** True if the entry is float-valued. *)
+    val is_float : statistics_entry -> bool
+	  
+    (** The string representation of the the entry's value. *)
+    val to_string_value : statistics_entry -> string
+	  
+    (** The string representation of the entry (key and value) *)
+    val to_string : statistics_entry -> string
+  end
+
+  (** A string representation of the statistical data. *)    
+  val to_string : statistics -> string
+
+  (** The number of statistical data. *)
+  val get_size : statistics -> int
+
+  (** The data entries. *)
+  val get_entries : statistics -> Entry.statistics_entry list
+
+  (**   The statistical counters. *)
+  val get_keys : statistics -> string list
+
+  (** The value of a particular statistical counter. *)        
+  val get : statistics -> string -> Entry.statistics_entry option
+end
+
 (** Solvers *)
 module Solver :
 sig
@@ -2945,56 +3009,6 @@ sig
   type status = UNSATISFIABLE | UNKNOWN | SATISFIABLE
       
   val string_of_status : status -> string
-
-  (** Objects that track statistical information about solvers. *)
-  module Statistics :
-  sig
-    type statistics 
-
-    (**   Statistical data is organized into pairs of \[Key, Entry\], where every
-		  Entry is either a floating point or integer value.
-    *)
-    module Entry :
-    sig
-      type statistics_entry
-
-      (** The key of the entry. *)
-      val get_key : statistics_entry -> string
-
-      (** The int-value of the entry. *)
-      val get_int : statistics_entry -> int
-
-      (** The float-value of the entry. *)
-      val get_float : statistics_entry -> float
-		
-      (** True if the entry is uint-valued. *)
-      val is_int : statistics_entry -> bool
-		
-      (** True if the entry is float-valued. *)
-      val is_float : statistics_entry -> bool
-		
-      (** The string representation of the the entry's value. *)
-      val to_string_value : statistics_entry -> string
-		
-      (** The string representation of the entry (key and value) *)
-      val to_string : statistics_entry -> string
-    end
-
-    (** A string representation of the statistical data. *)    
-    val to_string : statistics -> string
-
-    (** The number of statistical data. *)
-    val get_size : statistics -> int
-
-    (** The data entries. *)
-    val get_entries : statistics -> Entry.statistics_entry list
-
-    (**   The statistical counters. *)
-    val get_keys : statistics -> string list
-
-    (** The value of a particular statistical counter. *)        
-    val get : statistics -> string -> Entry.statistics_entry option
-  end
 
   (** A string that describes all available solver parameters. *)
   val get_help : solver -> string
@@ -3081,7 +3095,7 @@ sig
       The unsat core is a subset of [Assertions]
       The result is empty if [Check] was not invoked before,
       if its results was not [UNSATISFIABLE], or if core production is disabled. *)
-  val get_unsat_core : solver -> AST.ast list
+  val get_unsat_core : solver -> Expr.expr list
 
   (** A brief justification of why the last call to [Check] returned [UNKNOWN]. *)
   val get_reason_unknown : solver -> string
@@ -3122,7 +3136,7 @@ sig
   val get_help : fixedpoint -> string
 
   (** Sets the fixedpoint solver parameters. *)
-  val set_params : fixedpoint -> Params.params -> unit
+  val set_parameters : fixedpoint -> Params.params -> unit
 
   (** Retrieves parameter descriptions for Fixedpoint solver. *)
   val get_param_descrs : fixedpoint -> Params.ParamDescrs.param_descrs
@@ -3198,7 +3212,103 @@ sig
 
   (** Create a Fixedpoint context. *)
   val mk_fixedpoint : context -> fixedpoint
+
+  (** Retrieve statistics information from the last call to #Z3_fixedpoint_query. *)
+  val get_statistics : fixedpoint -> Statistics.statistics
+
+  (** Parse an SMT-LIB2 string with fixedpoint rules. 
+      Add the rules to the current fixedpoint context. 
+      Return the set of queries in the string. *)
+  val parse_string : fixedpoint -> string -> Expr.expr list
+
+  (** Parse an SMT-LIB2 file with fixedpoint rules. 
+      Add the rules to the current fixedpoint context. 
+      Return the set of queries in the file. *)
+  val parse_file : fixedpoint -> string -> Expr.expr list
 end
+
+(** Optimization *) 
+module Optimize : 
+sig 
+  type optimize  
+  type handle 
+ 
+ 
+  (** Create a Optimize context. *) 
+  val mk_opt : context -> optimize 
+      
+  (** A string that describes all available optimize solver parameters. *) 
+  val get_help : optimize -> string 
+ 
+ 
+  (** Sets the optimize solver parameters. *) 
+  val set_parameters : optimize -> Params.params -> unit 
+ 
+ 
+  (** Retrieves parameter descriptions for Optimize solver. *) 
+  val get_param_descrs : optimize -> Params.ParamDescrs.param_descrs 
+ 
+ 
+  (** Assert a constraints into the optimize solver. *)         
+  val add : optimize -> Expr.expr list -> unit 
+ 
+ 
+  (** Asssert a soft constraint.  
+     Supply integer weight and string that identifies a group 
+      of soft constraints.  
+   *) 
+  val add_soft : optimize -> Expr.expr -> string -> Symbol.symbol -> handle 
+ 
+ 
+  (** Add maximization objective. 
+   *)  
+  val maximize : optimize -> Expr.expr -> handle 
+ 
+ 
+  (** Add minimization objective. 
+   *)  
+  val minimize : optimize -> Expr.expr -> handle 
+    
+  (** Checks whether the assertions in the context are satisfiable and solves objectives. 
+   *)         
+  val check : optimize -> Solver.status 
+ 
+ 
+  (** Retrieve model from satisfiable context *) 
+  val get_model : optimize -> Model.model option
+ 
+ 
+  (** Retrieve lower bound in current model for handle *) 
+  val get_lower : handle -> int -> Expr.expr 
+ 
+ 
+  (** Retrieve upper bound in current model for handle *) 
+  val get_upper : handle -> int -> Expr.expr 
+
+ 
+  (** Creates a backtracking point. 
+      {!pop} *) 
+  val push : optimize -> unit 
+
+
+  (** Backtrack one backtracking point. 
+      Note that an exception is thrown if Pop is called without a corresponding [Push] 
+      {!push} *) 
+  val pop : optimize -> unit 
+
+ 
+  (** Retrieve explanation why optimize engine returned status Unknown. *)                 
+  val get_reason_unknown : optimize -> string 
+
+ 
+  (** Retrieve SMT-LIB string representation of optimize object. *) 
+  val to_string : optimize -> string 
+ 
+ 
+  (** Retrieve statistics information from the last call to check *) 
+  val get_statistics : optimize -> Statistics.statistics 
+end 
+
 
 (** Functions for handling SMT and SMT2 expressions and files *)
 module SMT :
@@ -3272,12 +3382,12 @@ sig
   (** Gets an interpolant.
       For more information on interpolation please refer
       too the C/C++ API, which is well documented. *)
-  val get_interpolant : context -> Expr.expr -> Expr.expr -> Params.params -> AST.ASTVector.ast_vector
+  val get_interpolant : context -> Expr.expr -> Expr.expr -> Params.params -> Expr.expr list
 
   (** Computes an interpolant.
       For more information on interpolation please refer
       too the C/C++ API, which is well documented. *)
-  val compute_interpolant : context -> Expr.expr -> Params.params -> (AST.ASTVector.ast_vector * Model.model)
+  val compute_interpolant : context -> Expr.expr -> Params.params -> (Z3enums.lbool * Expr.expr list option * Model.model option)
 
   (** Retrieves an interpolation profile.
       For more information on interpolation please refer
@@ -3354,4 +3464,6 @@ val enable_trace : string -> unit
    Remarks: It is a NOOP otherwise.
 *)
 val disable_trace : string -> unit
+
+
 

@@ -36,11 +36,11 @@
 #include"scoped_proof.h"
 
 static void show_interpolant_and_maybe_check(cmd_context & ctx,
-					     ptr_vector<ast> &cnsts,
-					     expr *t, 
-					     ptr_vector<ast> &interps,
-					     params_ref &m_params,
-					     bool check)
+                                             ptr_vector<ast> &cnsts,
+                                             expr *t, 
+                                             ptr_vector<ast> &interps,
+                                             params_ref &m_params,
+                                             bool check)
 {
   
     if (m_params.get_bool("som", false))
@@ -206,17 +206,13 @@ static expr *make_tree(cmd_context & ctx, const ptr_vector<expr> &exprs){
 }
 
 static void get_interpolant(cmd_context & ctx, const ptr_vector<expr> &exprs, params_ref &m_params) {
-    expr *foo = make_tree(ctx,exprs);
-    ctx.m().inc_ref(foo);
-    get_interpolant(ctx,foo,m_params);
-    ctx.m().dec_ref(foo);
+    expr_ref foo(make_tree(ctx, exprs),ctx.m());
+    get_interpolant(ctx,foo.get(),m_params);
 }
 
 static void compute_interpolant(cmd_context & ctx, const ptr_vector<expr> &exprs, params_ref &m_params) {
-    expr *foo = make_tree(ctx, exprs);
-    ctx.m().inc_ref(foo);
-    compute_interpolant_and_maybe_check(ctx,foo,m_params,false);
-    ctx.m().dec_ref(foo);
+    expr_ref foo(make_tree(ctx, exprs),ctx.m());
+    compute_interpolant_and_maybe_check(ctx,foo.get(),m_params,false);
 }
 
 

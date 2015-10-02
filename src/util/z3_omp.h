@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _Z3_OMP_H
-#define _Z3_OMP_H
+#ifndef Z3_OMP_H_
+#define Z3_OMP_H_
 
 #ifndef _NO_OMP_
 #include<omp.h>

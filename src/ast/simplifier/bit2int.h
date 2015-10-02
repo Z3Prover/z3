@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BIT2INT_H_
-#define _BIT2INT_H_
+#ifndef BIT2INT_H_
+#define BIT2INT_H_
 
 #include"bv_decl_plugin.h"
 #include"arith_decl_plugin.h"
@@ -92,5 +92,5 @@ public:
     void operator()(expr * m, expr_ref & result, proof_ref& p);
 };
 
-#endif /* _BIT2INT_H_ */
+#endif /* BIT2INT_H_ */
 

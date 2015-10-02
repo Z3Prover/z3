@@ -16,22 +16,12 @@ Author:
 Revision History:
 
 --*/
-#ifndef _QE_UTIL_H_
-#define _QE_UTIL_H_
+#ifndef QE_UTIL_H_
+#define QE_UTIL_H_
 
 #include "ast.h"
 
 namespace qe {
-    /**
-       \brief Collect top-level conjunctions and disjunctions.
-    */
-    void flatten_and(expr_ref_vector& result);
-
-    void flatten_and(expr* fml, expr_ref_vector& result);
-
-    void flatten_or(expr_ref_vector& result);
-
-    void flatten_or(expr* fml, expr_ref_vector& result);
 
     expr_ref mk_and(expr_ref_vector const& fmls);
 

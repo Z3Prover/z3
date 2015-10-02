@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _PROOF_CONVERTER_H_
-#define _PROOF_CONVERTER_H_
+#ifndef PROOF_CONVERTER_H_
+#define PROOF_CONVERTER_H_
 
 #include"ast.h"
 #include"converter.h"

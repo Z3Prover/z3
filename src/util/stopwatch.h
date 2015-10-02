@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _STOPWATCH_H_
-#define _STOPWATCH_H_
+#ifndef STOPWATCH_H_
+#define STOPWATCH_H_
 
 #if defined(_WINDOWS) || defined(_CYGWIN)
 
@@ -69,6 +69,7 @@ public:
 #undef ARRAYSIZE
 #define ARRAYSIZE ARRAYSIZE_TEMP
 #undef max
+#undef min
 
 
 #elif defined(__APPLE__) && defined (__MACH__) // Mac OS X

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _FPA2BV_CONVERTER_
-#define _FPA2BV_CONVERTER_
+#ifndef FPA2BV_CONVERTER_H_
+#define FPA2BV_CONVERTER_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -55,8 +55,7 @@ protected:
 
     obj_map<func_decl, expr*>  m_const2bv;
     obj_map<func_decl, expr*>  m_rm_const2bv;
-    obj_map<func_decl, func_decl*>  m_uf2bvuf;        
-    obj_map<func_decl, func_decl_triple>  m_uf23bvuf;
+    obj_map<func_decl, func_decl*>  m_uf2bvuf;    
     
 public:
     fpa2bv_converter(ast_manager & m);    
@@ -80,19 +79,20 @@ public:
 
     void mk_eq(expr * a, expr * b, expr_ref & result);
     void mk_ite(expr * c, expr * t, expr * f, expr_ref & result);
+    void mk_distinct(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void mk_rounding_mode(func_decl * f, expr_ref & result);
     void mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual void mk_const(func_decl * f, expr_ref & result);
     virtual void mk_rm_const(func_decl * f, expr_ref & result);
-    void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    virtual void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_var(unsigned base_inx, sort * srt, expr_ref & result);
 
     void mk_pinf(func_decl * f, expr_ref & result);
     void mk_ninf(func_decl * f, expr_ref & result);
     void mk_nan(func_decl * f, expr_ref & result);
     void mk_nzero(func_decl *f, expr_ref & result);
-    void mk_pzero(func_decl *f, expr_ref & result);
+    void mk_pzero(func_decl *f, expr_ref & result);    
 
     void mk_add(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_sub(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -142,8 +142,7 @@ public:
 
     obj_map<func_decl, expr*> const & const2bv() const { return m_const2bv; }
     obj_map<func_decl, expr*> const & rm_const2bv() const { return m_rm_const2bv; }
-    obj_map<func_decl, func_decl*> const & uf2bvuf() const { return m_uf2bvuf; }
-    obj_map<func_decl, func_decl_triple> const & uf23bvuf() const { return m_uf23bvuf; }
+    obj_map<func_decl, func_decl*> const & uf2bvuf() const { return m_uf2bvuf; }    
 
     void reset(void);
 
@@ -151,6 +150,8 @@ public:
     expr_ref_vector m_extra_assertions;
 
 protected:
+    void mk_one(func_decl *f, expr_ref sign, expr_ref & result);
+
     void mk_is_nan(expr * e, expr_ref & result);
     void mk_is_inf(expr * e, expr_ref & result);
     void mk_is_pinf(expr * e, expr_ref & result);
@@ -183,7 +184,11 @@ protected:
         expr_ref & c_sgn, expr_ref & c_sig, expr_ref & c_exp, expr_ref & d_sgn, expr_ref & d_sig, expr_ref & d_exp,
         expr_ref & res_sgn, expr_ref & res_sig, expr_ref & res_exp);
 
-    app * mk_fresh_const(char const * prefix, unsigned sz);    
+    app * mk_fresh_const(char const * prefix, unsigned sz);
+
+    void mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result);
+
+    void mk_uninterpreted_output(sort * rng, func_decl * fbv, expr_ref_buffer & new_args, expr_ref & result);
 };
 
 #endif

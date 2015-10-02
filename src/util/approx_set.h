@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _APPROX_SET_H_
-#define _APPROX_SET_H_
+#ifndef APPROX_SET_H_
+#define APPROX_SET_H_
 #include<iostream>
 #include"debug.h"
 
@@ -232,5 +232,5 @@ inline std::ostream & operator<<(std::ostream & out, approx_set const & s) {
     return out;
 }
 
-#endif /* _APPROX_SET_H_ */
+#endif /* APPROX_SET_H_ */
 

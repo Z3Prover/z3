@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SMT_STRATEGIC_SOLVER_H_
-#define _SMT_STRATEGIC_SOLVER_H_
+#ifndef SMT_STRATEGIC_SOLVER_H_
+#define SMT_STRATEGIC_SOLVER_H_
 
 class solver_factory;
 

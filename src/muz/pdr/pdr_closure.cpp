@@ -143,7 +143,7 @@ namespace pdr {
 
     expr_ref closure::close_conjunction(expr* fml) {
         expr_ref_vector fmls(m);
-        qe::flatten_and(fml, fmls);
+        flatten_and(fml, fmls);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             fmls[i] = close_fml(fmls[i].get());            
         }

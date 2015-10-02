@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _TAB_CONTEXT_H_
-#define _TAB_CONTEXT_H_
+#ifndef TAB_CONTEXT_H_
+#define TAB_CONTEXT_H_
 
 #include "ast.h"
 #include "lbool.h"

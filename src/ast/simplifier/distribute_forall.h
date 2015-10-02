@@ -18,8 +18,8 @@ Revision History:
     Christoph Wintersteiger 2010-04-06: Added implementation
 
 --*/
-#ifndef _DISTRIBUTE_FORALL_H_
-#define _DISTRIBUTE_FORALL_H_
+#ifndef DISTRIBUTE_FORALL_H_
+#define DISTRIBUTE_FORALL_H_
 
 #include"ast.h"
 #include"basic_simplifier_plugin.h"
@@ -79,4 +79,4 @@ protected:
     void flush_cache() { m_cache.cleanup(); }
 };
 
-#endif /* _DISTRIBUTE_FORALL_H_ */
+#endif /* DISTRIBUTE_FORALL_H_ */

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _TACTIC_EXCEPTION_H_
-#define _TACTIC_EXCEPTION_H_
+#ifndef TACTIC_EXCEPTION_H_
+#define TACTIC_EXCEPTION_H_
 
 #include"z3_exception.h"
 #include"common_msgs.h"

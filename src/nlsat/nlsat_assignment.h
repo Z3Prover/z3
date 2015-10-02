@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NLSAT_ASSIGNMENT_H_
-#define _NLSAT_ASSIGNMENT_H_
+#ifndef NLSAT_ASSIGNMENT_H_
+#define NLSAT_ASSIGNMENT_H_
 
 #include"nlsat_types.h"
 #include"algebraic_numbers.h"

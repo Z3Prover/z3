@@ -24,6 +24,7 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"array_decl_plugin.h"
+#include"pb_decl_plugin.h"
 #include"ast_translation.h"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
@@ -663,12 +664,9 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_bool_value(c, a);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, Z3_L_UNDEF);
         ast_manager & m = mk_c(c)->m();
         ast * n         = to_ast(a);
-        if (!is_expr(n)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            return Z3_L_UNDEF;
-        }
         if (m.is_true(to_expr(n)))
             return Z3_L_TRUE;
         if (m.is_false(to_expr(n)))
@@ -1081,7 +1079,6 @@ extern "C" {
             case OP_BSREM_I:
             case OP_BUREM_I:
             case OP_BSMOD_I:
-
                 return Z3_OP_UNINTERPRETED;
             default:
                 UNREACHABLE();
@@ -1090,9 +1087,10 @@ extern "C" {
         }
         if (mk_c(c)->get_dt_fid() == _d->get_family_id()) {
             switch(_d->get_decl_kind()) {
-            case OP_DT_CONSTRUCTOR: return Z3_OP_DT_CONSTRUCTOR;
-            case OP_DT_RECOGNISER:  return Z3_OP_DT_RECOGNISER;
-            case OP_DT_ACCESSOR:    return Z3_OP_DT_ACCESSOR;
+            case OP_DT_CONSTRUCTOR:  return Z3_OP_DT_CONSTRUCTOR;
+            case OP_DT_RECOGNISER:   return Z3_OP_DT_RECOGNISER;
+            case OP_DT_ACCESSOR:     return Z3_OP_DT_ACCESSOR;
+            case OP_DT_UPDATE_FIELD: return Z3_OP_DT_UPDATE_FIELD;
             default:
                 UNREACHABLE();
                 return Z3_OP_UNINTERPRETED;
@@ -1183,6 +1181,15 @@ extern "C" {
             default:
                 UNREACHABLE();
                 return Z3_OP_UNINTERPRETED;                
+            }
+        }
+
+        if (mk_c(c)->get_pb_fid() == _d->get_family_id()) {
+            switch(_d->get_decl_kind()) {
+            case OP_PB_LE: return Z3_OP_PB_LE;
+            case OP_PB_GE: return Z3_OP_PB_GE;
+            case OP_AT_MOST_K: return Z3_OP_PB_AT_MOST;
+            default: UNREACHABLE();
             }
         }
 

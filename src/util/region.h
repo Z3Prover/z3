@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _REGION_H_
-#define _REGION_H_
+#ifndef REGION_H_
+#define REGION_H_
 #include<cstdlib>
 #include<iostream>
 
@@ -52,6 +52,7 @@ public:
     void push_scope() {
         m_scopes.push_back(m_chuncks.size());
     }
+
 
     void pop_scope() {
         unsigned old_size = m_scopes.back();
@@ -117,5 +118,5 @@ inline void operator delete(void *, region & ) { /* do nothing */ }
 
 inline void operator delete[](void *, region & ) { /* do nothing */ }
 
-#endif /* _REGION_H_ */
+#endif /* REGION_H_ */
 

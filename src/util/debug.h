@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DEBUG_H_
-#define _DEBUG_H_
+#ifndef DEBUG_H_
+#define DEBUG_H_
 
 void enable_assertions(bool f);
 bool assertions_enabled();
@@ -96,5 +96,5 @@ void finalize_debug();
   ADD_FINALIZER('finalize_debug();')
 */
 
-#endif /* _DEBUG_H_ */
+#endif /* DEBUG_H_ */
 

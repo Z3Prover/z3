@@ -362,6 +362,23 @@ public class Context extends IDisposable
     }
 
     /**
+     * Update a datatype field at expression t with value v.
+     * The function performs a record update at t. The field
+     * that is passed in as argument is updated with value v,
+     * the remainig fields of t are unchanged.	
+     **/
+    public Expr MkUpdateField(FuncDecl field, Expr t, Expr v) 
+            throws Z3Exception
+    {
+	return Expr.create
+	    (this, 
+	     Native.datatypeUpdateField
+	     (nCtx(), field.getNativeObject(),
+	      t.getNativeObject(), v.getNativeObject()));		
+    }
+
+
+    /**
      * Creates a new function declaration.
      **/
     public FuncDecl mkFuncDecl(Symbol name, Sort[] domain, Sort range)
@@ -1708,32 +1725,31 @@ public class Context extends IDisposable
     /**
      * Create an empty set.
      **/
-    public Expr mkEmptySet(Sort domain)
+    public ArrayExpr mkEmptySet(Sort domain)
     {
         checkContextMatch(domain);
-        return Expr.create(this,
+        return (ArrayExpr)Expr.create(this,
                 Native.mkEmptySet(nCtx(), domain.getNativeObject()));
     }
 
     /**
      * Create the full set.
      **/
-    public Expr mkFullSet(Sort domain)
+    public ArrayExpr mkFullSet(Sort domain)
     {
         checkContextMatch(domain);
-        return Expr.create(this,
+        return (ArrayExpr)Expr.create(this,
                 Native.mkFullSet(nCtx(), domain.getNativeObject()));
     }
 
     /**
      * Add an element to the set.
      **/
-    public Expr mkSetAdd(Expr set, Expr element)
+    public ArrayExpr mkSetAdd(ArrayExpr set, Expr element)
     {
         checkContextMatch(set);
         checkContextMatch(element);
-        return Expr.create(
-                this,
+        return (ArrayExpr)Expr.create(this,
                 Native.mkSetAdd(nCtx(), set.getNativeObject(),
                         element.getNativeObject()));
     }
@@ -1741,12 +1757,11 @@ public class Context extends IDisposable
     /**
      * Remove an element from a set.
      **/
-    public Expr mkSetDel(Expr set, Expr element)
+    public ArrayExpr mkSetDel(ArrayExpr set, Expr element)
     {
         checkContextMatch(set);
         checkContextMatch(element);
-        return Expr.create(
-                this,
+        return (ArrayExpr)Expr.create(this,
                 Native.mkSetDel(nCtx(), set.getNativeObject(),
                         element.getNativeObject()));
     }
@@ -1754,11 +1769,10 @@ public class Context extends IDisposable
     /**
      * Take the union of a list of sets.
      **/
-    public Expr mkSetUnion(Expr... args)
+    public ArrayExpr mkSetUnion(ArrayExpr... args)
     {
         checkContextMatch(args);
-        return Expr.create(
-                this,
+        return (ArrayExpr)Expr.create(this,
                 Native.mkSetUnion(nCtx(), (int) args.length,
                         AST.arrayToNative(args)));
     }
@@ -1766,11 +1780,10 @@ public class Context extends IDisposable
     /**
      * Take the intersection of a list of sets.
      **/
-    public Expr mkSetIntersection(Expr... args)
+    public ArrayExpr mkSetIntersection(ArrayExpr... args)
     {
         checkContextMatch(args);
-        return Expr.create(
-                this,
+        return (ArrayExpr)Expr.create(this,
                 Native.mkSetIntersect(nCtx(), (int) args.length,
                         AST.arrayToNative(args)));
     }
@@ -1778,12 +1791,11 @@ public class Context extends IDisposable
     /**
      * Take the difference between two sets.
      **/
-    public Expr mkSetDifference(Expr arg1, Expr arg2)
+    public ArrayExpr mkSetDifference(ArrayExpr arg1, ArrayExpr arg2)
     {
         checkContextMatch(arg1);
         checkContextMatch(arg2);
-        return Expr.create(
-                this,
+        return (ArrayExpr)Expr.create(this,
                 Native.mkSetDifference(nCtx(), arg1.getNativeObject(),
                         arg2.getNativeObject()));
     }
@@ -1791,22 +1803,21 @@ public class Context extends IDisposable
     /**
      * Take the complement of a set.
      **/
-    public Expr mkSetComplement(Expr arg)
+    public ArrayExpr mkSetComplement(ArrayExpr arg)
     {
         checkContextMatch(arg);
-        return Expr.create(this,
+        return (ArrayExpr)Expr.create(this,
                 Native.mkSetComplement(nCtx(), arg.getNativeObject()));
     }
 
     /**
      * Check for set membership.
      **/
-    public Expr mkSetMembership(Expr elem, Expr set)
+    public BoolExpr mkSetMembership(Expr elem, ArrayExpr set)
     {
         checkContextMatch(elem);
         checkContextMatch(set);
-        return Expr.create(
-                this,
+        return (BoolExpr) Expr.create(this,
                 Native.mkSetMember(nCtx(), elem.getNativeObject(),
                         set.getNativeObject()));
     }
@@ -1814,12 +1825,11 @@ public class Context extends IDisposable
     /**
      * Check for subsetness of sets.
      **/
-    public Expr mkSetSubset(Expr arg1, Expr arg2)
+    public BoolExpr mkSetSubset(ArrayExpr arg1, ArrayExpr arg2)
     {
         checkContextMatch(arg1);
         checkContextMatch(arg2);
-        return Expr.create(
-                this,
+        return (BoolExpr) Expr.create(this,
                 Native.mkSetSubset(nCtx(), arg1.getNativeObject(),
                         arg2.getNativeObject()));
     }
@@ -2786,6 +2796,14 @@ public class Context extends IDisposable
         return new Fixedpoint(this);
     }
 
+    /**
+     * Create a Optimize context.
+     **/
+    public Optimize mkOptimize()
+    {
+        return new Optimize(this);
+    }
+
     
     /**
      * Create the floating-point RoundingMode sort.
@@ -3661,6 +3679,7 @@ public class Context extends IDisposable
     private StatisticsDecRefQueue m_Statistics_DRQ = new StatisticsDecRefQueue(10);
     private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue(10);
     private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue(10);
+    private OptimizeDecRefQueue m_Optimize_DRQ = new OptimizeDecRefQueue(10);
 
     public IDecRefQueue getASTDRQ()
     {
@@ -3735,6 +3754,11 @@ public class Context extends IDisposable
     public IDecRefQueue getFixedpointDRQ()
     {
         return m_Fixedpoint_DRQ;
+    }
+
+    public IDecRefQueue getOptimizeDRQ()
+    {
+        return m_Optimize_DRQ;
     }
 
     protected long m_refCount = 0;

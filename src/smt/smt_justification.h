@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_JUSTIFICATION_H_
-#define _SMT_JUSTIFICATION_H_
+#ifndef SMT_JUSTIFICATION_H_
+#define SMT_JUSTIFICATION_H_
 
 #include"ast.h"
 #include"smt_types.h"
@@ -225,6 +225,7 @@ namespace smt {
         virtual proof * mk_proof(conflict_resolution & cr) = 0;
 
         virtual char const * get_name() const { return "simple"; }
+
     };
 
     class simple_theory_justification : public simple_justification {
@@ -274,6 +275,7 @@ namespace smt {
 
 
         virtual char const * get_name() const { return "theory-propagation"; }
+        
     };
      
     class theory_conflict_justification : public simple_theory_justification {
@@ -408,5 +410,5 @@ namespace smt {
       
 };
 
-#endif /* _SMT_JUSTIFICATION_H_ */
+#endif /* SMT_JUSTIFICATION_H_ */
 

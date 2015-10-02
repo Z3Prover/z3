@@ -27,30 +27,24 @@ import com.microsoft.z3.enumerations.Z3_parameter_kind;
 public class FuncDecl extends AST
 {
     /**
-     * Comparison operator.
-     * 
-     * @return True if {@code a"/> and <paramref name="b} share the
-     *         same context and are equal, false otherwise.
-     **/
-    /* Overloaded operators are not translated. */
-
-    /**
-     * Comparison operator.
-     * 
-     * @return True if {@code a"/> and <paramref name="b} do not
-     *         share the same context or are not equal, false otherwise.
-     **/
-    /* Overloaded operators are not translated. */
-
-    /**
      * Object comparison.
      **/
     public boolean equals(Object o)
     {
-        FuncDecl casted = (FuncDecl) o;
-        if (casted == null)
+        FuncDecl casted = null;
+
+        try {
+            casted = FuncDecl.class.cast(o);
+        } catch (ClassCastException e) {
             return false;
-        return this == casted;
+        }
+
+	return  
+	    (this == casted) || 
+	    (this != null) &&
+	    (casted != null) &&
+	    (getContext().nCtx() == casted.getContext().nCtx()) &&
+	    (Native.isEqFuncDecl(getContext().nCtx(), getNativeObject(), casted.getNativeObject()));
     }
 
     /**

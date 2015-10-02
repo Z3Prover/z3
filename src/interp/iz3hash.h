@@ -44,6 +44,7 @@ namespace hash_space {
 
     template <typename T> class hash {};
 
+
     template <>
         class hash<int> {
     public:

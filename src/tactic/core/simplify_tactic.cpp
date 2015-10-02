@@ -18,7 +18,7 @@ Notes:
 --*/
 #include"simplify_tactic.h"
 #include"th_rewriter.h"
-#include"ast_smt2_pp.h"
+#include"ast_pp.h"
 
 struct simplify_tactic::imp {
     ast_manager &   m_manager;
@@ -29,6 +29,9 @@ struct simplify_tactic::imp {
         m_manager(m),
         m_r(m, p),
         m_num_steps(0) {
+    }
+
+    ~imp() {
     }
 
     ast_manager & m() const { return m_manager; }

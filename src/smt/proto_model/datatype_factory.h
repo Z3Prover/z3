@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DATATYPE_FACTORY_H_
-#define _DATATYPE_FACTORY_H_
+#ifndef DATATYPE_FACTORY_H_
+#define DATATYPE_FACTORY_H_
 
 #include"struct_factory.h"
 #include"datatype_decl_plugin.h"
@@ -38,5 +38,5 @@ public:
     virtual expr * get_fresh_value(sort * s);
 };
 
-#endif /* _DATATYPE_FACTORY_H_ */
+#endif /* DATATYPE_FACTORY_H_ */
 

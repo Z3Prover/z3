@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MATCHER_H_
-#define _MATCHER_H_
+#ifndef MATCHER_H_
+#define MATCHER_H_
 
 #include"substitution.h"
 #include"hashtable.h"
@@ -59,5 +59,5 @@ public:
     bool operator()(expr * e1, expr * e2, substitution & s);
 };
 
-#endif /* _MATCHER_H_ */
+#endif /* MATCHER_H_ */
 

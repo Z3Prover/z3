@@ -29,8 +29,8 @@ Revision History:
 
 --*/
 
-#ifndef _DL_MK_SEPARAT_NEGATED_TAILS_H_
-#define _DL_MK_SEPARAT_NEGATED_TAILS_H_
+#ifndef DL_MK_SEPARAT_NEGATED_TAILS_H_
+#define DL_MK_SEPARAT_NEGATED_TAILS_H_
 
 #include "dl_rule_transformer.h"
 #include "dl_context.h"
@@ -42,7 +42,7 @@ namespace datalog {
         rule_manager& rm;
         context &     m_ctx;
         ptr_vector<expr> m_vars;
-        ptr_vector<sort> m_fv;
+        expr_free_vars   m_fv;
         
         bool has_private_vars(rule const& r, unsigned j);
         void get_private_vars(rule const& r, unsigned j);

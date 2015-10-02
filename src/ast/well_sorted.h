@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#ifndef _WELL_SORTED_H_
-#define _WELL_SORTED_H_
+#ifndef WELL_SORTED_H_
+#define WELL_SORTED_H_
 
 class ast_manager;
 class expr;
 
 bool is_well_sorted(ast_manager const & m, expr * n);
 
-#endif /* _WELL_SORTED_H_ */
+#endif /* WELL_SORTED_H_ */
 

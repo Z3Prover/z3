@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SEQ_DECL_PLUGIN_H_
-#define _SEQ_DECL_PLUGIN_H_
+#ifndef SEQ_DECL_PLUGIN_H_
+#define SEQ_DECL_PLUGIN_H_
 
 #include "ast.h"
 
@@ -119,5 +119,5 @@ public:
     
 };
 
-#endif /* _SEQ_DECL_PLUGIN_H_ */
+#endif /* SEQ_DECL_PLUGIN_H_ */
 

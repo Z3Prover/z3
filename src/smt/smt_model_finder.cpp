@@ -34,6 +34,8 @@ Revision History:
 #include"well_sorted.h"
 #include"model_pp.h"
 #include"ast_smt2_pp.h"
+#include"cooperate.h"
+#include"tactic_exception.h"
 
 namespace smt {
 
@@ -81,6 +83,7 @@ namespace smt {
             ast_manager &           m_manager;
             obj_map<expr, unsigned> m_elems; // and the associated generation
             obj_map<expr, expr *>   m_inv;
+            expr_mark               m_visited;
         public:
             instantiation_set(ast_manager & m):m_manager(m) {}
             
@@ -96,8 +99,9 @@ namespace smt {
             obj_map<expr, unsigned> const & get_elems() const { return m_elems; }
 
             void insert(expr * n, unsigned generation) {
-                if (m_elems.contains(n))
+                if (m_elems.contains(n) || contains_model_value(n))
                     return;
+                TRACE("model_finder", tout << mk_pp(n, m_manager) << "\n";);
                 m_manager.inc_ref(n);
                 m_elems.insert(n, generation);
                 SASSERT(!m_manager.is_model_value(n));
@@ -142,9 +146,10 @@ namespace smt {
                 obj_map<expr, unsigned>::iterator end = m_elems.end();
                 for (; it != end; ++it) {
                     expr *     t = (*it).m_key;
-                    SASSERT(!m_manager.is_model_value(t));
+                    SASSERT(!contains_model_value(t));
                     unsigned gen = (*it).m_value;
                     expr * t_val = ev.eval(t, true);
+                    TRACE("model_finder", tout << mk_pp(t, m_manager) << "\n";);
 
                     expr * old_t = 0;
                     if (m_inv.find(t_val, old_t)) {
@@ -163,6 +168,30 @@ namespace smt {
 
             obj_map<expr, expr *> const & get_inv_map() const {
                 return m_inv;
+            }
+
+            struct is_model_value {};
+            void operator()(expr *n) {
+                if (m_manager.is_model_value(n)) {
+                    throw is_model_value();
+                }
+            }
+
+            bool contains_model_value(expr* n) {
+                if (m_manager.is_model_value(n)) {
+                    return true;
+                }
+                if (is_app(n) && to_app(n)->get_num_args() == 0) {
+                    return false;
+                }
+                m_visited.reset();
+                try {
+                    for_each_expr(*this, m_visited, n);
+                }
+                catch (is_model_value) {
+                    return true;
+                }
+                return false;
             }
         };
 
@@ -283,7 +312,7 @@ namespace smt {
                 return get_root()->m_signed_proj;
             }
 
-            void mk_instatiation_set(ast_manager & m) {
+            void mk_instantiation_set(ast_manager & m) {
                 SASSERT(is_root());
                 m_set = alloc(instantiation_set, m);
             }
@@ -524,13 +553,13 @@ namespace smt {
                 return 0;
             }
             
-            void mk_instatiation_sets() {
+            void mk_instantiation_sets() {
                 ptr_vector<node>::const_iterator it  = m_nodes.begin();
                 ptr_vector<node>::const_iterator end = m_nodes.end();
                 for (; it != end; ++it) {
                     node * curr = *it;
                     if (curr->is_root()) {
-                        curr->mk_instatiation_set(m_manager);
+                        curr->mk_instantiation_set(m_manager);
                     }
                 }
             }
@@ -692,6 +721,7 @@ namespace smt {
                     return 0;
                 m_model->register_decl(k_decl, r);
                 SASSERT(m_model->get_const_interp(k_decl) == r);
+                TRACE("model_finder", tout << mk_pp(r, m_manager) << "\n";);
                 return r;
             }
 
@@ -1201,7 +1231,7 @@ namespace smt {
                         // a necessary instantiation.
                         enode * e_arg = n->get_arg(m_arg_i);
                         expr * arg    = e_arg->get_owner();
-                        A_f_i->insert(arg, e_arg->get_generation());
+                        A_f_i->insert(arg, e_arg->get_generation());                        
                     }
                 }
             }
@@ -1222,7 +1252,7 @@ namespace smt {
                     if (ctx->is_relevant(n)) {
                         enode * e_arg = n->get_arg(m_arg_i);
                         expr * arg    = e_arg->get_owner();
-                        s->insert(arg, e_arg->get_generation());
+                        s->insert(arg, e_arg->get_generation());                        
                     }
                 }
             }
@@ -1714,14 +1744,22 @@ namespace smt {
             // when the quantifier is satisfied by a macro/hint, it may not be processed by the AUF solver.
             // in this case, the quantifier_info stores the instantiation sets.
             ptr_vector<instantiation_set>  * m_uvar_inst_sets;
+            bool                     m_cancel;
 
             friend class quantifier_analyzer;
+
+            void checkpoint() {
+                cooperate("quantifier_info");
+                if (m_cancel)
+                    throw tactic_exception(TACTIC_CANCELED_MSG);
+            }
 
             void insert_qinfo(qinfo * qi) {
                 // I'm assuming the number of qinfo's per quantifier is small. So, the linear search is not a big deal.
                 ptr_vector<qinfo>::iterator it  = m_qinfo_vect.begin();            
                 ptr_vector<qinfo>::iterator end = m_qinfo_vect.end();            
                 for (; it != end; ++it) {
+                    checkpoint();
                     if (qi->is_equal(*it)) {
                         dealloc(qi);
                         return;
@@ -1743,7 +1781,8 @@ namespace smt {
                 m_is_auf(true),
                 m_has_x_eq_y(false),
                 m_the_one(0),
-                m_uvar_inst_sets(0) {
+                m_uvar_inst_sets(0),
+                m_cancel(false) {
                 if (has_quantifiers(q->get_expr())) {
                     static bool displayed_flat_msg = false;
                     if (!displayed_flat_msg) {
@@ -1896,6 +1935,7 @@ namespace smt {
                 }
             }
 
+            void set_cancel(bool f) { m_cancel = f; }
         };
         
         /**
@@ -1908,6 +1948,7 @@ namespace smt {
             array_util           m_array_util;
             arith_util           m_arith_util;
             bv_util              m_bv_util;
+            bool                 m_cancel;
 
             quantifier_info *    m_info;
 
@@ -2318,9 +2359,16 @@ namespace smt {
                 visit_formula(n->get_arg(1), POS);
                 visit_formula(n->get_arg(1), NEG);
             }
+
+            void checkpoint() {
+                cooperate("quantifier_analyzer");
+                if (m_cancel)
+                    throw tactic_exception(TACTIC_CANCELED_MSG);
+            }
             
             void process_formulas_on_stack() {
                 while (!m_ftodo.empty()) {
+                    checkpoint();
                     entry & e = m_ftodo.back();
                     expr * curr  = e.first;
                     polarity pol = e.second;
@@ -2411,6 +2459,7 @@ namespace smt {
                 m_array_util(m), 
                 m_arith_util(m),
                 m_bv_util(m),
+                m_cancel(false),
                 m_info(0) {
             }
             
@@ -2439,6 +2488,11 @@ namespace smt {
                 collect_macro_candidates(q);
                 
                 m_info = 0;
+            }
+
+            void set_cancel(bool f) { 
+                m_cancel = f; 
+                if (m_info) m_info->set_cancel(f);
             }
 
         };
@@ -3259,6 +3313,7 @@ namespace smt {
         m_sm_solver(alloc(simple_macro_solver, m, m_q2info)),
         m_hint_solver(alloc(hint_solver, m, m_q2info)),
         m_nm_solver(alloc(non_auf_macro_solver, m, m_q2info, m_dependencies)),
+        m_cancel(false),
         m_new_constraints(m) {
     }
     
@@ -3350,7 +3405,7 @@ namespace smt {
             quantifier_info * qi = get_quantifier_info(q);
             qi->process_auf(*(m_auf_solver.get()), m_context);
         }
-        m_auf_solver->mk_instatiation_sets();
+        m_auf_solver->mk_instantiation_sets();
         it  = qs.begin();
         for (; it != end; ++it) {
             quantifier * q       = *it;
@@ -3533,6 +3588,11 @@ namespace smt {
             }
             m_new_constraints.reset();
         }
+    }
+
+    void model_finder::set_cancel(bool f) {
+        m_cancel = f;
+        m_analyzer->set_cancel(f);
     }
 
 };

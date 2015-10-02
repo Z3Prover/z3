@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_TYPES_H_
-#define _SMT_TYPES_H_
+#ifndef SMT_TYPES_H_
+#define SMT_TYPES_H_
 
 #include"list.h"
 #include"vector.h"
@@ -74,5 +74,5 @@ namespace smt {
 
 };
 
-#endif /* _SMT_TYPES_H_ */
+#endif /* SMT_TYPES_H_ */
 

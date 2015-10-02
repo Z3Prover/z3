@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MPN_H_
-#define _MPN_H_
+#ifndef MPN_H_
+#define MPN_H_
 
 #include<ostream>
 #include"util.h"
@@ -27,7 +27,9 @@ Revision History:
 typedef unsigned int mpn_digit;
 
 class mpn_manager {
+#ifndef _NO_OMP_
     omp_nest_lock_t m_lock;
+#endif
 #define MPN_BEGIN_CRITICAL() omp_set_nest_lock(&m_lock);
 #define MPN_END_CRITICAL() omp_unset_nest_lock(&m_lock);
 

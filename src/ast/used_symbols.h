@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _USED_SYMBOLS_H_
-#define _USED_SYMBOLS_H_
+#ifndef USED_SYMBOLS_H_
+#define USED_SYMBOLS_H_
 
 #include"ast.h"
 #include"hashtable.h"
@@ -102,4 +102,4 @@ public:
     void erase_core(symbol const & s) { m_used.erase(s); }
 };
 
-#endif /* _USED_SYMBOLS_H_ */
+#endif /* USED_SYMBOLS_H_ */

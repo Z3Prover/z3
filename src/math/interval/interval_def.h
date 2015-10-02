@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _INTERVAL_DEF_H_
-#define _INTERVAL_DEF_H_
+#ifndef INTERVAL_DEF_H_
+#define INTERVAL_DEF_H_
 
 #include"interval.h"
 #include"debug.h"

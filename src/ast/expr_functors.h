@@ -19,8 +19,8 @@ Revision History:
 
 --*/
 
-#ifndef __EXPR_FUNCTORS_H__
-#define __EXPR_FUNCTORS_H__
+#ifndef EXPR_FUNCTORS_H_
+#define EXPR_FUNCTORS_H_
 
 #include "ast.h"
 #include "expr_map.h"

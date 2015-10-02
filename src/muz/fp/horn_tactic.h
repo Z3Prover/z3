@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _HORN_TACTIC_H_
-#define _HORN_TACTIC_H_
+#ifndef HORN_TACTIC_H_
+#define HORN_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

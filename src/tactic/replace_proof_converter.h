@@ -20,8 +20,8 @@ Revision History:
 
 --*/
 
-#ifndef _REPLACE_PROOF_CONVERTER_H_
-#define _REPLACE_PROOF_CONVERTER_H_
+#ifndef REPLACE_PROOF_CONVERTER_H_
+#define REPLACE_PROOF_CONVERTER_H_
 
 #include "proof_converter.h"
 
@@ -30,11 +30,11 @@ class replace_proof_converter : public proof_converter {
     proof_ref_vector m_proofs;
 public:
 
-    replace_proof_converter(ast_manager& m): m(m), m_proofs(m) {}
+    replace_proof_converter(ast_manager& _m): m(_m), m_proofs(m) {}
 
     virtual ~replace_proof_converter() {}
 
-    virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result);
+    virtual void operator()(ast_manager & _m, unsigned num_source, proof * const * source, proof_ref & result);
 
     virtual proof_converter * translate(ast_translation & translator);
 

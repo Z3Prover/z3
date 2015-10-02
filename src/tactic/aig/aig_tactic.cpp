@@ -78,13 +78,13 @@ public:
 
         mk_aig_manager mk(*this, g->m());
         if (m_aig_per_assertion) {
-            unsigned size = g->size();
-            for (unsigned i = 0; i < size; i++) {
+            for (unsigned i = 0; i < g->size(); i++) {
                 aig_ref r = m_aig_manager->mk_aig(g->form(i));
                 m_aig_manager->max_sharing(r);
                 expr_ref new_f(g->m());
                 m_aig_manager->to_formula(r, new_f);
-                g->update(i, new_f, 0, g->dep(i));
+                expr_dependency * ed = g->dep(i);
+                g->update(i, new_f, 0, ed);
             }
         }
         else {

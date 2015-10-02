@@ -20,8 +20,8 @@ Revision History:
 --*/
 
 
-#ifndef __SMT_IMPLIED_EQUALITIES_H__
-#define __SMT_IMPLIED_EQUALITIES_H__
+#ifndef SMT_IMPLIED_EQUALITIES_H_
+#define SMT_IMPLIED_EQUALITIES_H_
 
 #include"smt_solver.h"
 #include"lbool.h"

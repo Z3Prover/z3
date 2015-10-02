@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _OBJ_REF_H_
-#define _OBJ_REF_H_
+#ifndef OBJ_REF_H_
+#define OBJ_REF_H_
 
 /**
    Smart pointer for T objects.
@@ -136,4 +136,4 @@ inline void dec_range_ref(IT const & begin, IT const & end, TManager & m) {
     }
 }
 
-#endif /* _OBJ_REF_H_ */
+#endif /* OBJ_REF_H_ */

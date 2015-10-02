@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_FAILURE_H_
-#define _SMT_FAILURE_H_
+#ifndef SMT_FAILURE_H_
+#define SMT_FAILURE_H_
 
 namespace smt {
 

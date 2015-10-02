@@ -283,6 +283,10 @@ tactic * and_then(tactic * t1, tactic * t2, tactic * t3, tactic * t4, tactic * t
     return and_then(t1, and_then(t2, t3, t4, t5, t6, t7, t8, t9, t10));
 }
 
+tactic * and_then(tactic * t1, tactic * t2, tactic * t3, tactic * t4, tactic * t5, tactic * t6, tactic * t7, tactic * t8, tactic * t9, tactic * t10, tactic * t11) {
+    return and_then(t1, and_then(t2, t3, t4, t5, t6, t7, t8, t9, t10, t11));
+}
+
 tactic * and_then(unsigned num, tactic * const * ts) {
     SASSERT(num > 0);
     unsigned i = num - 1;
@@ -704,8 +708,6 @@ public:
             scoped_ptr_vector<ast_manager> managers;
             tactic_ref_vector              ts2;
             goal_ref_vector                g_copies;
-
-            ast_manager & m = in->m();
 
             for (unsigned i = 0; i < r1_size; i++) {
                 ast_manager * new_m = alloc(ast_manager, m, !m.proof_mode());
@@ -1255,6 +1257,41 @@ public:
 
 tactic * using_params(tactic * t, params_ref const & p) {
     return alloc(using_params_tactical, t, p);
+}
+
+class annotate_tactical : public unary_tactical {
+    std::string m_name;
+    struct scope {
+        std::string m_name;
+        scope(std::string const& name) : m_name(name) {
+            IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << m_name << " start)\n";);
+        }
+        ~scope() {
+            IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << m_name << " done)\n";);
+        }
+    };
+public:
+    annotate_tactical(char const* name, tactic* t):
+        unary_tactical(t), m_name(name) {}
+    
+    virtual void operator()(goal_ref const & in, 
+                            goal_ref_buffer & result, 
+                            model_converter_ref & mc, 
+                            proof_converter_ref & pc, 
+                            expr_dependency_ref & core) {        
+        scope _scope(m_name);
+        m_t->operator()(in, result, mc, pc, core);
+    }
+
+    virtual tactic * translate(ast_manager & m) { 
+        tactic * new_t = m_t->translate(m);
+        return alloc(annotate_tactical, m_name.c_str(), new_t);
+    }
+    
+};
+
+tactic * annotate_tactic(char const* name, tactic * t) {
+    return alloc(annotate_tactical, name, t);
 }
 
 class cond_tactical : public binary_tactical {

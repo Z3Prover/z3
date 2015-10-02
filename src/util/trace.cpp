@@ -23,8 +23,8 @@ Revision History:
 std::ofstream tout(".z3-trace"); 
 #endif
 
-bool g_enable_all_trace_tags = false;
-str_hashtable* g_enabled_trace_tags = 0;
+static bool g_enable_all_trace_tags = false;
+static str_hashtable* g_enabled_trace_tags = 0;
 
 static str_hashtable& get_enabled_trace_tags() {
     if (!g_enabled_trace_tags) {

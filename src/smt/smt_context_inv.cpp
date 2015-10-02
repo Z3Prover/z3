@@ -399,5 +399,32 @@ namespace smt {
 
 #endif
 
+    /**
+       \brief validate unsat core returned by 
+     */
+    void context::validate_unsat_core() {
+        if (!get_fparams().m_core_validate) {
+            return;
+        }
+        context ctx(get_manager(), get_fparams(), get_params());
+        ptr_vector<expr> assertions;
+        get_assertions(assertions);
+        unsigned sz = assertions.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            ctx.assert_expr(assertions[i]);
+        }
+        sz = m_unsat_core.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            ctx.assert_expr(m_unsat_core.get(i));
+        }
+        lbool res = ctx.check();
+        switch (res) {
+        case l_false:
+            break;
+        default: 
+            throw default_exception("Core could not be validated");
+        }
+    }
+
 };
 

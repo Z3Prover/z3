@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SUBSTITUTION_TREE_H_
-#define _SUBSTITUTION_TREE_H_
+#ifndef SUBSTITUTION_TREE_H_
+#define SUBSTITUTION_TREE_H_
 
 #include"ast.h"
 #include"substitution.h"
@@ -123,6 +123,8 @@ class substitution_tree {
     template<st_visit_mode Mode>
     void visit(expr * e, st_visitor & st, unsigned in_offset, unsigned st_offset, unsigned reg_offset);
 
+    void clear_stack();
+
 public:
     substitution_tree(ast_manager & m);
     ~substitution_tree();
@@ -144,5 +146,5 @@ public:
     void display(std::ostream & out) const;
 };
 
-#endif /* _SUBSTITUTION_TREE_H_ */
+#endif /* SUBSTITUTION_TREE_H_ */
 

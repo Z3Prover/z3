@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _TPTR_H_
-#define _TPTR_H_
+#ifndef TPTR_H_
+#define TPTR_H_
 
 #include"machine.h"
 
@@ -42,5 +42,5 @@ Revision History:
 
 #define UNBOXINT(PTR) static_cast<int>(reinterpret_cast<size_t>(PTR) >> PTR_ALIGNMENT)
 
-#endif /* _TPTR_H_ */
+#endif /* TPTR_H_ */
 

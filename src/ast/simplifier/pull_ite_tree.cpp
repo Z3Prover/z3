@@ -187,7 +187,7 @@ pull_ite_tree_star::pull_ite_tree_star(ast_manager & m, simplifier & s):
 
 bool pull_ite_tree_star::get_subst(expr * n, expr_ref & r, proof_ref & p) {
     if (is_app(n) && is_target(to_app(n))) {
-        app_ref tmp(m_manager);
+        app_ref tmp(m);
         m_proc(to_app(n), tmp, p);
         r = tmp;
         return true;
@@ -199,10 +199,10 @@ bool pull_cheap_ite_tree_star::is_target(app * n) const {
     bool r = 
         n->get_num_args() == 2 &&
         n->get_family_id() != null_family_id &&
-        m_manager.is_bool(n) &&
-        (m_manager.is_value(n->get_arg(0)) || m_manager.is_value(n->get_arg(1))) &&
-        (m_manager.is_term_ite(n->get_arg(0)) || m_manager.is_term_ite(n->get_arg(1)));
-    TRACE("pull_ite_target", tout << mk_pp(n, m_manager) << "\nresult: " << r << "\n";);
+        m.is_bool(n) &&
+        (m.is_value(n->get_arg(0)) || m.is_value(n->get_arg(1))) &&
+        (m.is_term_ite(n->get_arg(0)) || m.is_term_ite(n->get_arg(1)));
+    TRACE("pull_ite_target", tout << mk_pp(n, m) << "\nresult: " << r << "\n";);
     return r;
 }
 

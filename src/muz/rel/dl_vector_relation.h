@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_VECTOR_RELATION_H_
-#define _DL_VECTOR_RELATION_H_
+#ifndef DL_VECTOR_RELATION_H_
+#define DL_VECTOR_RELATION_H_
 
 #include "ast_pp.h"
 #include "dl_context.h"
@@ -41,8 +41,6 @@ namespace datalog {
         bool               m_empty;
         union_find_default_ctx m_ctx;
         union_find<>*      m_eqs;
-
-        friend class vector_relation_plugin;
 
     public:
         vector_relation(relation_plugin& p, relation_signature const& s, bool is_empty, T const& t = T()):
@@ -105,9 +103,10 @@ namespace datalog {
                     display_index(i, (*m_elems)[i], out);
                 }
                 else {
-                    out << i << " = " << find(i) << "\n";
+                    out << i << " = " << find(i) << " ";
                 }
             }
+            out << "\n";
         }
 
 

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _DATATYPE_REWRITER_H_
-#define _DATATYPE_REWRITER_H_
+#ifndef DATATYPE_REWRITER_H_
+#define DATATYPE_REWRITER_H_
 
 #include"datatype_decl_plugin.h"
 #include"rewriter_types.h"

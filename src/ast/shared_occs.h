@@ -16,8 +16,8 @@ Author:
 
 Revision History:
 --*/
-#ifndef _SHARED_OCCS_H_
-#define _SHARED_OCCS_H_
+#ifndef SHARED_OCCS_H_
+#define SHARED_OCCS_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -75,7 +75,7 @@ public:
     iterator end_shared() const { return m_shared.end(); }
     void reset();
     void cleanup();
-    void display(std::ostream & out, ast_manager & m) const;
+    void display(std::ostream & out, ast_manager & mgr) const;
 };
 
 #endif

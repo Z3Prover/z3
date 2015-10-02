@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _OBJ_MARK_H_
-#define _OBJ_MARK_H_
+#ifndef OBJ_MARK_H_
+#define OBJ_MARK_H_
 
 #include"bit_vector.h"
 
@@ -50,4 +50,4 @@ public:
     void reset() { m_marks.reset(); }
 };
 
-#endif /* _OBJ_MARK_H_ */
+#endif /* OBJ_MARK_H_ */

@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _REG_DECL_PLUGINS_H_
-#define _REG_DECL_PLUGINS_H_
+#ifndef REG_DECL_PLUGINS_H_
+#define REG_DECL_PLUGINS_H_
 
 class ast_manager;
 

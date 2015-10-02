@@ -26,6 +26,7 @@ Revision History:
 #include"smt2parser.h"
 #include"dl_cmds.h"
 #include"dbg_cmds.h"
+#include"opt_cmds.h"
 #include"polynomial_cmds.h"
 #include"subpaving_cmds.h"
 #include"smt_strategic_solver.h"
@@ -112,6 +113,7 @@ unsigned read_smtlib2_commands(char const * file_name) {
     install_dbg_cmds(ctx);
     install_polynomial_cmds(ctx);
     install_subpaving_cmds(ctx);
+    install_opt_cmds(ctx);
 
     g_cmd_context = &ctx;
     signal(SIGINT, on_ctrl_c);

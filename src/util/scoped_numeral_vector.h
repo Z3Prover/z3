@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SCOPED_NUMERAL_VECTOR_H_
-#define _SCOPED_NUMERAL_VECTOR_H_
+#ifndef SCOPED_NUMERAL_VECTOR_H_
+#define SCOPED_NUMERAL_VECTOR_H_
 
 #include"vector.h"
 
@@ -44,6 +44,10 @@ public:
     void push_back(typename Manager::numeral const & v) {
         svector<typename Manager::numeral>::push_back(typename Manager::numeral());
         m_manager.set(this->back(), v);
+    }
+
+    void pop_back() {
+        shrink(this->size()-1);
     }
 
     void shrink(unsigned sz) {

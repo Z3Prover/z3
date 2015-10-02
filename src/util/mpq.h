@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MPQ_H_
-#define _MPQ_H_
+#ifndef MPQ_H_
+#define MPQ_H_
 
 #include"mpz.h"
 #include"trace.h"
@@ -845,5 +845,5 @@ typedef _scoped_numeral<unsynch_mpq_manager> scoped_mpq;
 typedef _scoped_numeral<synch_mpq_manager> scoped_synch_mpq;
 typedef _scoped_numeral_vector<unsynch_mpq_manager> scoped_mpq_vector;
 
-#endif /* _MPQ_H_ */
+#endif /* MPQ_H_ */
 

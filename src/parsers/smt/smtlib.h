@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMTLIB_H_
-#define _SMTLIB_H_
+#ifndef SMTLIB_H_
+#define SMTLIB_H_
 
 #include "ast.h"
 #include "symbol_table.h"

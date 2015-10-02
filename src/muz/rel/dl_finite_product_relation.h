@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_FINITE_PRODUCT_RELATION_H_
-#define _DL_FINITE_PRODUCT_RELATION_H_
+#ifndef DL_FINITE_PRODUCT_RELATION_H_
+#define DL_FINITE_PRODUCT_RELATION_H_
 
 
 #include "dl_base.h"
@@ -362,5 +362,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_FINITE_PRODUCT_RELATION_H_ */
+#endif /* DL_FINITE_PRODUCT_RELATION_H_ */
 

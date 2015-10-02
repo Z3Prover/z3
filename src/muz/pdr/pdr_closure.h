@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _PDR_CLOSURE_H_
-#define _PDR_CLOSURE_H_
+#ifndef PDR_CLOSURE_H_
+#define PDR_CLOSURE_H_
 
 #include "arith_decl_plugin.h"
 

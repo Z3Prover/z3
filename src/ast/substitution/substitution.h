@@ -30,8 +30,8 @@ Revision History:
         of the current substitution by the number of quantified variables.
 
 --*/
-#ifndef _SUBSTITUTION_H_
-#define _SUBSTITUTION_H_
+#ifndef SUBSTITUTION_H_
+#define SUBSTITUTION_H_
 
 #include"expr_offset_map.h"
 #include"var_offset_map.h"

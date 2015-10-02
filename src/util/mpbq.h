@@ -24,8 +24,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MPBQ_H_
-#define _MPBQ_H_
+#ifndef MPBQ_H_
+#define MPBQ_H_
 
 #include"mpq.h"
 #include"rational.h"

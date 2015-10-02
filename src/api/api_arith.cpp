@@ -47,7 +47,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_real(__in Z3_context c, int num, int den) {
+    Z3_ast Z3_API Z3_mk_real(Z3_context c, int num, int den) {
         Z3_TRY;
         LOG_Z3_mk_real(c, num, den);
         RESET_ERROR_CODE();          

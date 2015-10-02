@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _FLOAT_REWRITER_H_
-#define _FLOAT_REWRITER_H_
+#ifndef FLOAT_REWRITER_H_
+#define FLOAT_REWRITER_H_
 
 #include"ast.h"
 #include"rewriter.h"
@@ -57,7 +57,7 @@ public:
     br_status mk_max(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result);
     br_status mk_sqrt(expr * arg1, expr * arg2, expr_ref & result);
-    br_status mk_round(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_round_to_integral(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_float_eq(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_lt(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_gt(expr * arg1, expr * arg2, expr_ref & result);
@@ -81,10 +81,12 @@ public:
     br_status mk_to_fp_unsigned(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & result);
     br_status mk_to_real(expr * arg, expr_ref & result);
 
     br_status mk_to_ubv_unspecified(func_decl * f, expr_ref & result);
     br_status mk_to_sbv_unspecified(func_decl * f, expr_ref & result);
+    br_status mk_to_ieee_bv_unspecified(func_decl * f, expr_ref & result);
     br_status mk_to_real_unspecified(expr_ref & result);
 };
 

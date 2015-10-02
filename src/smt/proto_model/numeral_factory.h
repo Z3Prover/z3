@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NUMERAL_FACTORY_H_
-#define _NUMERAL_FACTORY_H_
+#ifndef NUMERAL_FACTORY_H_
+#define NUMERAL_FACTORY_H_
 
 #include"value_factory.h"
 #include"arith_decl_plugin.h"
@@ -53,5 +53,5 @@ public:
     app * mk_value(rational const & val, unsigned bv_size);
 };
 
-#endif /* _NUMERAL_FACTORY_H_ */
+#endif /* NUMERAL_FACTORY_H_ */
 

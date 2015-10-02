@@ -15,8 +15,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _API_SOLVER_H_
-#define _API_SOLVER_H_
+#ifndef API_SOLVER_H_
+#define API_SOLVER_H_
 
 #include"api_util.h"
 #include"solver.h"

@@ -17,8 +17,8 @@ Notes:
 
 --*/
 
-#ifndef _SLS_EVALUATOR_H_
-#define _SLS_EVALUATOR_H_
+#ifndef SLS_EVALUATOR_H_
+#define SLS_EVALUATOR_H_
 
 #include"model_evaluator.h"
 
@@ -118,6 +118,14 @@ public:
                             m_mpz_manager.set(result, m_zero);
                     }
                 }
+                break;
+            }
+            case OP_ITE: {
+                SASSERT(n_args = 3);
+                if (m_mpz_manager.is_one(m_tracker.get_value(args[0])))
+                    m_mpz_manager.set(result, m_tracker.get_value(args[1]));
+                else
+                    m_mpz_manager.set(result, m_tracker.get_value(args[2]));
                 break;
             }
             default:

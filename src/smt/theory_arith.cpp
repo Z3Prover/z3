@@ -25,5 +25,6 @@ namespace smt {
     template class theory_arith<i_ext>;
     // template class theory_arith<si_ext>;
     // template class theory_arith<smi_ext>;
-    
+
+    template class smt::theory_arith<inf_ext>;    
 };

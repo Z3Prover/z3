@@ -67,6 +67,7 @@ namespace nlsat {
         typedef ptr_vector<interval_set> interval_set_vector;
 
         solver &               m_solver;
+        reslimit&              m_rlimit;
         small_object_allocator m_allocator;
         unsynch_mpq_manager    m_qm;
         pmanager               m_pm;
@@ -159,8 +160,9 @@ namespace nlsat {
         unsigned               m_stages;
         unsigned               m_irrational_assignments; // number of irrational witnesses
 
-        imp(solver & s, params_ref const & p):
+        imp(solver & s, reslimit& rlim, params_ref const & p):
             m_solver(s),
+            m_rlimit(rlim),
             m_allocator("nlsat"),
             m_pm(m_qm, &m_allocator),
             m_cache(m_pm),
@@ -224,6 +226,7 @@ namespace nlsat {
 
         void checkpoint() {
             if (m_cancel) throw solver_exception(Z3_CANCELED_MSG);
+            if (!m_rlimit.inc()) throw solver_exception(Z3_MAX_RESOURCE_MSG);
             if (memory::get_allocation_size() > m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
 
@@ -2556,8 +2559,8 @@ namespace nlsat {
         }
     };
     
-    solver::solver(params_ref const & p) {
-        m_imp = alloc(imp, *this, p);
+    solver::solver(reslimit& rlim, params_ref const & p) {
+        m_imp = alloc(imp, *this, rlim, p);
     }
         
     solver::~solver() {

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _QI_PARAMS_H_
-#define _QI_PARAMS_H_
+#ifndef QI_PARAMS_H_
+#define QI_PARAMS_H_
 
 #include"util.h"
 #include"params.h"
@@ -107,5 +107,5 @@ struct qi_params {
     void updt_params(params_ref const & p);
 };
 
-#endif /* _QI_PARAMS_H_ */
+#endif /* QI_PARAMS_H_ */
 

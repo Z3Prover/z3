@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _ARITH_SIMPLIFIER_PARAMS_H_
-#define _ARITH_SIMPLIFIER_PARAMS_H_
+#ifndef ARITH_SIMPLIFIER_PARAMS_H_
+#define ARITH_SIMPLIFIER_PARAMS_H_
 
 #include"params.h"
 
@@ -32,5 +32,5 @@ struct arith_simplifier_params {
     void updt_params(params_ref const & _p);
 };
     
-#endif /* _ARITH_SIMPLIFIER_PARAMS_H_ */
+#endif /* ARITH_SIMPLIFIER_PARAMS_H_ */
 

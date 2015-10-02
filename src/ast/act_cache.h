@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _ACT_CACHE_H_
-#define _ACT_CACHE_H_
+#ifndef ACT_CACHE_H_
+#define ACT_CACHE_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

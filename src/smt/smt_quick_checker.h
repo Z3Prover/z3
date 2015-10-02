@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_QUICK_CHECKER_H_
-#define _SMT_QUICK_CHECKER_H_
+#ifndef SMT_QUICK_CHECKER_H_
+#define SMT_QUICK_CHECKER_H_
 
 #include"ast.h"
 #include"simplifier.h"
@@ -102,5 +102,5 @@ namespace smt {
     };
 };
 
-#endif /* _SMT_QUICK_CHECKER_H_ */
+#endif /* SMT_QUICK_CHECKER_H_ */
 

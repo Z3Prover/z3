@@ -97,7 +97,7 @@ namespace std {
 
 template <> inline
 size_t stdext::hash_value<scopes::range_lo >(const scopes::range_lo& p)
-{	
+{    
     std::hash<scopes::range_lo> h;
     return h(p);
 }
@@ -133,7 +133,7 @@ namespace std {
 
 template <> inline
 size_t stdext::hash_value<range_op >(const range_op& p)
-{	
+{    
     std::hash<range_op> h;
     return h(p);
 }

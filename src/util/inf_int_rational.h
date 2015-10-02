@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _INF_INT_RATIONAL_H_
-#define _INF_INT_RATIONAL_H_
+#ifndef INF_INT_RATIONAL_H_
+#define INF_INT_RATIONAL_H_
 #include<stdlib.h>
 #include<string>
 #include"debug.h"
@@ -33,6 +33,8 @@ class inf_int_rational {
     rational m_first;
     int      m_second;
  public:
+    static void init(); // called from rational::initialize() only
+    static void finalize();  // called from rational::finalize() only
 
     unsigned hash() const { 
         return m_first.hash() ^ (static_cast<unsigned>(m_second) + 1);
@@ -155,6 +157,17 @@ class inf_int_rational {
 	return *this; 
     }
 
+    inf_int_rational & operator*=(const rational & r) { 
+        if (!r.is_int32()) {
+            throw default_exception("multiplication with large rational is not possible");
+        }
+        m_first  *= r;
+        m_second *= r.get_int32();
+	return *this; 
+    }
+
+
+
     inf_int_rational & operator-=(const inf_int_rational & r) { 
         m_first  -= r.m_first;
         m_second -= r.m_second;
@@ -261,7 +274,7 @@ class inf_int_rational {
             if (r.m_second >= 0) {
                 return r.m_first;
             }
-            return r.m_first - rational(1);
+            return r.m_first - rational::one();
         }
         
         return floor(r.m_first);
@@ -272,7 +285,7 @@ class inf_int_rational {
             if (r.m_second <= 0) {
                 return r.m_first;
             }
-            return r.m_first + rational(1);
+            return r.m_first + rational::one();
         }
         
         return ceil(r.m_first);
@@ -344,6 +357,10 @@ inline inf_int_rational operator+(const inf_int_rational & r1, const inf_int_rat
     return inf_int_rational(r1) += r2; 
 }
 
+inline inf_int_rational operator*(const rational & r1, const inf_int_rational & r2) { 
+    return inf_int_rational(r2) *= r1;
+}
+
 inline inf_int_rational operator-(const inf_int_rational & r1, const inf_int_rational & r2) { 
     return inf_int_rational(r1) -= r2; 
 }
@@ -369,4 +386,4 @@ inline inf_int_rational abs(const inf_int_rational & r) {
     return result;
 }
 
-#endif /* _INF_INT_RATIONAL_H_ */
+#endif /* INF_INT_RATIONAL_H_ */

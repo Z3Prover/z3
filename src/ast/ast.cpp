@@ -316,7 +316,8 @@ func_decl::func_decl(symbol const & name, unsigned arity, sort * const * domain,
     decl(AST_FUNC_DECL, name, info),
     m_arity(arity),
     m_range(range) {
-    memcpy(const_cast<sort **>(get_domain()), domain, sizeof(sort *) * arity);
+    if (arity != 0)
+        memcpy(const_cast<sort **>(get_domain()), domain, sizeof(sort *) * arity);
 }
 
 // -----------------------------------
@@ -378,8 +379,10 @@ quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sort
 
     memcpy(const_cast<sort **>(get_decl_sorts()), decl_sorts, sizeof(sort *) * num_decls);
     memcpy(const_cast<symbol*>(get_decl_names()), decl_names, sizeof(symbol) * num_decls);
-    memcpy(const_cast<expr **>(get_patterns()), patterns, sizeof(expr *) * num_patterns);
-    memcpy(const_cast<expr **>(get_no_patterns()), no_patterns, sizeof(expr *) * num_no_patterns);
+    if (num_patterns != 0)
+        memcpy(const_cast<expr **>(get_patterns()), patterns, sizeof(expr *) * num_patterns);
+    if (num_no_patterns != 0)
+        memcpy(const_cast<expr **>(get_no_patterns()), no_patterns, sizeof(expr *) * num_no_patterns);
 }
 
 // -----------------------------------
@@ -1013,16 +1016,42 @@ func_decl * basic_decl_plugin::mk_ite_decl(sort * s) {
     return m_ite_decls[id];
 }
 
+sort* basic_decl_plugin::join(unsigned n, sort* const* srts) {
+    SASSERT(n > 0);
+    sort* s = srts[0];
+    while (n > 1) {
+        ++srts;
+        --n;
+        s = join(s, *srts);
+    }
+    return s;
+}
+
+sort* basic_decl_plugin::join(unsigned n, expr* const* es) {
+    SASSERT(n > 0);
+    sort* s = m_manager->get_sort(*es);
+    while (n > 1) {
+        ++es;
+        --n;
+        s = join(s, m_manager->get_sort(*es));
+    }
+    return s;
+}
+
 sort* basic_decl_plugin::join(sort* s1, sort* s2) {
     if (s1 == s2) return s1;
-    if (s1->get_family_id() == m_manager->m_arith_family_id && 
+    if (s1->get_family_id() == m_manager->m_arith_family_id &&
         s2->get_family_id() == m_manager->m_arith_family_id) {
         if (s1->get_decl_kind() == REAL_SORT) {
             return s1;
         }
+        return s2;
     }
-    return s2;
+    std::ostringstream buffer;
+    buffer << "Sorts " << mk_pp(s1, *m_manager) << " and " << mk_pp(s2, *m_manager) << " are incompatible";
+    throw ast_exception(buffer.str().c_str());
 }
+
 
 func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                           unsigned arity, sort * const * domain, sort * range) {
@@ -1038,8 +1067,8 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_XOR:     return m_xor_decl;
     case OP_ITE:     return arity == 3 ? mk_ite_decl(join(domain[1], domain[2])) : 0;
         // eq and oeq must have at least two arguments, they can have more since they are chainable
-    case OP_EQ:      return arity >= 2 ? mk_eq_decl_core("=", OP_EQ, join(domain[0],domain[1]), m_eq_decls) : 0;
-    case OP_OEQ:     return arity >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(domain[0],domain[1]), m_oeq_decls) : 0;
+    case OP_EQ:      return arity >= 2 ? mk_eq_decl_core("=", OP_EQ, join(arity, domain), m_eq_decls) : 0;
+    case OP_OEQ:     return arity >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(arity, domain), m_oeq_decls) : 0;
     case OP_DISTINCT: {
         func_decl_info info(m_family_id, OP_DISTINCT);
         info.set_pairwise();
@@ -1081,10 +1110,8 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_XOR:     return m_xor_decl;
     case OP_ITE:     return num_args == 3 ? mk_ite_decl(join(m_manager->get_sort(args[1]), m_manager->get_sort(args[2]))): 0;
         // eq and oeq must have at least two arguments, they can have more since they are chainable
-    case OP_EQ:      return num_args >= 2 ? mk_eq_decl_core("=", OP_EQ, join(m_manager->get_sort(args[0]),
-                                                                             m_manager->get_sort(args[1])), m_eq_decls) : 0;
-    case OP_OEQ:     return num_args >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(m_manager->get_sort(args[0]),
-                                                                              m_manager->get_sort(args[1])), m_oeq_decls) : 0;
+    case OP_EQ:      return num_args >= 2 ? mk_eq_decl_core("=", OP_EQ, join(num_args, args), m_eq_decls) : 0;
+    case OP_OEQ:     return num_args >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(num_args, args), m_oeq_decls) : 0;
     case OP_DISTINCT:
         return decl_plugin::mk_func_decl(k, num_parameters, parameters, num_args, args, range);
     default:
@@ -1975,67 +2002,94 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
 }
 
 app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const * args) {
-    unsigned sz       = app::get_obj_size(num_args);
-    void * mem        = allocate_node(sz);
-    app * new_node;
-    app * r;
-    if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
-        expr_ref_buffer new_args(*this);
-        if (decl->is_associative()) {
-            sort * d = decl->get_domain(0);
-            for (unsigned i = 0; i < num_args; i++) {
-                sort * s = get_sort(args[i]);
-                if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
-                    if (d->get_decl_kind() == REAL_SORT)
-                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
-                    else
-                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
-                }
-                else {
-                    new_args.push_back(args[i]);
+    app * r = 0;
+    app * new_node = 0;
+    unsigned sz = app::get_obj_size(num_args);
+    void * mem = allocate_node(sz);
+
+    try {                        
+        if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
+            expr_ref_buffer new_args(*this);
+            if (decl->is_associative()) {
+                sort * d = decl->get_domain(0);
+                for (unsigned i = 0; i < num_args; i++) {
+                    sort * s = get_sort(args[i]);
+                    if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
+                        if (d->get_decl_kind() == REAL_SORT)
+                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
+                        else
+                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
+                    }
+                    else {
+                        new_args.push_back(args[i]);
+                    }
                 }
             }
+            else {
+                for (unsigned i = 0; i < num_args; i++) {
+                    sort * d = decl->get_domain(i);
+                    sort * s = get_sort(args[i]);
+                    if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
+                        if (d->get_decl_kind() == REAL_SORT)
+                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
+                        else
+                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
+                    }
+                    else {
+                        new_args.push_back(args[i]);
+                    }
+                }
+            }
+            check_args(decl, num_args, new_args.c_ptr());
+            SASSERT(new_args.size() == num_args);
+            new_node = new (mem)app(decl, num_args, new_args.c_ptr());
+            r = register_node(new_node);
         }
         else {
-            for (unsigned i = 0; i < num_args; i++) {
-                sort * d = decl->get_domain(i);
-                sort * s = get_sort(args[i]);
-                if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
-                    if (d->get_decl_kind() == REAL_SORT)
-                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
-                    else
-                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
-                }
-                else {
-                    new_args.push_back(args[i]);
-                }
+            check_args(decl, num_args, args);
+            new_node = new (mem)app(decl, num_args, args);
+            r = register_node(new_node);
+        }
+
+        if (m_trace_stream && r == new_node) {
+            *m_trace_stream << "[mk-app] #" << r->get_id() << " ";
+            if (r->get_num_args() == 0 && r->get_decl()->get_name() == "int") {
+                ast_ll_pp(*m_trace_stream, *this, r);
+            }
+            else if (is_label_lit(r)) {
+                ast_ll_pp(*m_trace_stream, *this, r);
+            }
+            else {
+                *m_trace_stream << r->get_decl()->get_name();
+                for (unsigned i = 0; i < r->get_num_args(); i++)
+                    *m_trace_stream << " #" << r->get_arg(i)->get_id();
+                *m_trace_stream << "\n";
             }
         }
-        SASSERT(new_args.size() == num_args);
-        new_node = new (mem) app(decl, num_args, new_args.c_ptr());
-        r = register_node(new_node);
     }
-    else {
-        new_node = new (mem) app(decl, num_args, args);
-        r = register_node(new_node);
-    }
-
-    if (m_trace_stream && r == new_node) {
-        *m_trace_stream << "[mk-app] #" << r->get_id() << " ";        
-        if (r->get_num_args() == 0 && r->get_decl()->get_name() == "int") {
-            ast_ll_pp(*m_trace_stream, *this, r);
-        } else if (is_label_lit(r)) {
-            ast_ll_pp(*m_trace_stream, *this, r);
-        } else {
-            *m_trace_stream << r->get_decl()->get_name();
-            for (unsigned i = 0; i < r->get_num_args(); i++)
-                *m_trace_stream << " #" << r->get_arg(i)->get_id();
-            *m_trace_stream << "\n";
-        }
+    catch (...) {
+        deallocate_node(static_cast<ast*>(mem), sz);
+        throw;
     }
 
     return r;
 }
+
+void ast_manager::check_args(func_decl* f, unsigned n, expr* const* es) {
+    for (unsigned i = 0; i < n; i++) {
+        sort * actual_sort   = get_sort(es[i]);
+        sort * expected_sort = f->is_associative() ? f->get_domain(0) : f->get_domain(i);
+        if (expected_sort != actual_sort) {
+            std::ostringstream buffer;
+            buffer << "Sort mismatch at argument #" << (i+1) 
+                   << " for function " << mk_pp(f,*this) 
+                   << " supplied sort is " 
+                   << mk_pp(actual_sort, *this);
+            throw ast_exception(buffer.str().c_str());            
+        }
+    }
+}
+
 
 inline app * ast_manager::mk_app_core(func_decl * decl, expr * arg1, expr * arg2) {
     expr * args[2] = { arg1, arg2 };
@@ -2043,7 +2097,19 @@ inline app * ast_manager::mk_app_core(func_decl * decl, expr * arg1, expr * arg2
 }
 
 app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * args) {
-    SASSERT(decl->get_arity() == num_args || decl->is_right_associative() || decl->is_left_associative() || decl->is_chainable());
+    bool type_error = 
+        decl->get_arity() != num_args && !decl->is_right_associative() && 
+        !decl->is_left_associative() && !decl->is_chainable();
+
+    type_error |= (decl->get_arity() != num_args && num_args < 2 && 
+                   decl->get_family_id() == m_basic_family_id && !decl->is_associative());
+
+    if (type_error) {
+        std::ostringstream buffer;
+        buffer << "Wrong number of arguments (" << num_args 
+               << ") passed to function " << mk_pp(decl, *this);        
+        throw ast_exception(buffer.str().c_str());
+    }
     app * r = 0;
     if (num_args > 2 && !decl->is_flat_associative()) {
         if (decl->is_right_associative()) {
@@ -2077,6 +2143,8 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
     TRACE("app_ground", tout << "ground: " << r->is_ground() << "\n" << mk_ll_pp(r, *this) << "\n";);
     return r;
 }
+
+
 
 func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const & suffix, unsigned arity, 
                                             sort * const * domain, sort * range) {
@@ -2574,6 +2642,8 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
            tout << mk_pp(to_app(get_fact(p1))->get_decl(), *this) << "\n";
            tout << mk_pp(to_app(get_fact(p2))->get_decl(), *this) << "\n";);
     SASSERT(to_app(get_fact(p1))->get_decl() == to_app(get_fact(p2))->get_decl() ||
+            ((is_iff(get_fact(p1)) || is_eq(get_fact(p1))) && 
+             (is_iff(get_fact(p2)) || is_eq(get_fact(p2)))) ||
             ( (is_eq(get_fact(p1)) || is_oeq(get_fact(p1))) &&
               (is_eq(get_fact(p2)) || is_oeq(get_fact(p2)))));
     CTRACE("mk_transitivity", to_app(get_fact(p1))->get_arg(1) != to_app(get_fact(p2))->get_arg(0),       

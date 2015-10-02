@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _HASHTABLE_H_
-#define _HASHTABLE_H_
+#ifndef HASHTABLE_H_
+#define HASHTABLE_H_
 #include"debug.h"
 #include<ostream>
 #include"util.h"
@@ -640,4 +640,4 @@ public:
         core_hashtable<int_hash_entry<INT_MIN, INT_MIN + 1>, HashProc, EqProc>(initial_capacity, h, e) {}
 };
 
-#endif /* _HASHTABLE_H_ */
+#endif /* HASHTABLE_H_ */

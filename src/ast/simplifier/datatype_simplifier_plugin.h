@@ -14,8 +14,8 @@ Author:
     nbjorner 2008-11-6
     
 --*/
-#ifndef _DATATYPE_SIMPLIFIER_PLUGIN_H_
-#define _DATATYPE_SIMPLIFIER_PLUGIN_H_
+#ifndef DATATYPE_SIMPLIFIER_PLUGIN_H_
+#define DATATYPE_SIMPLIFIER_PLUGIN_H_
 
 #include"basic_simplifier_plugin.h"
 #include"datatype_decl_plugin.h"
@@ -39,4 +39,4 @@ public:
 
 };
 
-#endif /* _DATATYPE_SIMPLIFIER_PLUGIN_H_ */
+#endif /* DATATYPE_SIMPLIFIER_PLUGIN_H_ */

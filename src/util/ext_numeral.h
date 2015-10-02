@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _EXT_NUMERAL_H_
-#define _EXT_NUMERAL_H_
+#ifndef EXT_NUMERAL_H_
+#define EXT_NUMERAL_H_
 
 #include<iostream>
 #include"debug.h"

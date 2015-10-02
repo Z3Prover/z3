@@ -50,7 +50,7 @@ class nlsat_tactic : public tactic {
             m(_m),
             m_params(p),
             m_display_var(_m),
-            m_solver(p) {
+            m_solver(m.limit(), p) {
         }
         
         void updt_params(params_ref const & p) {

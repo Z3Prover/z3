@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_B_JUSTIFICATION_H_
-#define _SMT_B_JUSTIFICATION_H_
+#ifndef SMT_B_JUSTIFICATION_H_
+#define SMT_B_JUSTIFICATION_H_
 
 #include"smt_literal.h"
 #include"smt_clause.h"
@@ -54,7 +54,7 @@ namespace smt {
             m_data(BOXTAGINT(void*, l.index(), BIN_CLAUSE)) {
         }
         
-        explicit b_justification(justification * js):
+        explicit b_justification(justification * js):            
             m_data(TAG(void*, js, JUSTIFICATION)) {
             SASSERT(js);
         }
@@ -96,5 +96,5 @@ namespace smt {
     typedef std::pair<literal, b_justification> justified_literal;
 };
 
-#endif /* _SMT_B_JUSTIFICATION_H_ */
+#endif /* SMT_B_JUSTIFICATION_H_ */
 

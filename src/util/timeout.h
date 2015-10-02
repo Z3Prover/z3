@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _TIMEOUT_H_
-#define _TIMEOUT_H_
+#ifndef TIMEOUT_H_
+#define TIMEOUT_H_
 
 void register_on_timeout_proc(void (*proc)());
 

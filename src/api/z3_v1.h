@@ -18,8 +18,8 @@ Author:
 Notes:
     
 --*/
-#ifndef _Z3_V1_H_
-#define _Z3_V1_H_
+#ifndef Z3_V1_H_
+#define Z3_V1_H_
 
 #include"z3.h"
 

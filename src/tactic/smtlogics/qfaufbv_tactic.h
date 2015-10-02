@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _QFAUFBV_TACTIC_H_
-#define _QFAUFBV_TACTIC_H_
+#ifndef QFAUFBV_TACTIC_H_
+#define QFAUFBV_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _RPOLYNOMIAL_H_
-#define _RPOLYNOMIAL_H_
+#ifndef RPOLYNOMIAL_H_
+#define RPOLYNOMIAL_H_
 
 #include"mpz.h"
 #include"rational.h"

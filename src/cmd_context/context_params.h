@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _CONTEXT_PARAMS_H_
-#define _CONTEXT_PARAMS_H_
+#ifndef CONTEXT_PARAMS_H_
+#define CONTEXT_PARAMS_H_
 
 #include"params.h"
 class ast_manager;
@@ -36,9 +36,11 @@ public:
     bool        m_well_sorted_check;
     bool        m_model;
     bool        m_model_validate;
+    bool        m_dump_models;
     bool        m_unsat_core;
     bool        m_smtlib2_compliant; // it must be here because it enable/disable the use of coercions in the ast_manager.
     unsigned    m_timeout;
+    unsigned    m_rlimit;
 
     context_params();
     void set(char const * param, char const * value);

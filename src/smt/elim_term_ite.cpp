@@ -33,16 +33,16 @@ void elim_term_ite::operator()(expr * n,
     proof * pr2;
     get_cached(n, r2, pr2);
     r = r2;
-    switch (m_manager.proof_mode()) {
+    switch (m.proof_mode()) {
     case PGM_DISABLED:
-        pr = m_manager.mk_undef_proof();
+        pr = m.mk_undef_proof();
         break;
     case PGM_COARSE:
         remove_duplicates(m_coarse_proofs);
-        pr = n == r2 ? m_manager.mk_oeq_reflexivity(n) : m_manager.mk_apply_defs(n, r, m_coarse_proofs.size(), m_coarse_proofs.c_ptr());
+        pr = n == r2 ? m.mk_oeq_reflexivity(n) : m.mk_apply_defs(n, r, m_coarse_proofs.size(), m_coarse_proofs.c_ptr());
         break;
     case PGM_FINE:
-        pr = pr2 == 0 ? m_manager.mk_oeq_reflexivity(n) : pr2;
+        pr = pr2 == 0 ? m.mk_oeq_reflexivity(n) : pr2;
         break;
     }
     m_coarse_proofs.reset();
@@ -107,36 +107,36 @@ void elim_term_ite::reduce1_app(app * n) {
     m_args.reset();
     
     func_decl * decl = n->get_decl();
-    proof_ref p1(m_manager);
+    proof_ref p1(m);
     get_args(n, m_args, p1);
-    if (!m_manager.fine_grain_proofs())
+    if (!m.fine_grain_proofs())
         p1 = 0;
 
-    expr_ref r(m_manager);
-    r = m_manager.mk_app(decl, m_args.size(), m_args.c_ptr());
-    if (m_manager.is_term_ite(r)) {
-        expr_ref   new_def(m_manager);
-        proof_ref  new_def_pr(m_manager);
-        app_ref   new_r(m_manager);
-        proof_ref  new_pr(m_manager);
+    expr_ref r(m);
+    r = m.mk_app(decl, m_args.size(), m_args.c_ptr());
+    if (m.is_term_ite(r)) {
+        expr_ref   new_def(m);
+        proof_ref  new_def_pr(m);
+        app_ref   new_r(m);
+        proof_ref  new_pr(m);
         if (m_defined_names.mk_name(r, new_def, new_def_pr, new_r, new_pr)) {
-            CTRACE("elim_term_ite_bug", new_def.get() == 0, tout << mk_ismt2_pp(r, m_manager) << "\n";);
+            CTRACE("elim_term_ite_bug", new_def.get() == 0, tout << mk_ismt2_pp(r, m) << "\n";);
             SASSERT(new_def.get() != 0);
             m_new_defs->push_back(new_def);
-            if (m_manager.fine_grain_proofs()) {
+            if (m.fine_grain_proofs()) {
                 m_new_def_proofs->push_back(new_def_pr);
-                new_pr = m_manager.mk_transitivity(p1, new_pr);
+                new_pr = m.mk_transitivity(p1, new_pr);
             }
             else {
                 // [Leo] This looks fishy... why do we add 0 into m_coarse_proofs when fine_grain_proofs are disabled? 
                 new_pr = 0;
-                if (m_manager.proofs_enabled())
+                if (m.proofs_enabled())
                     m_coarse_proofs.push_back(new_pr);
             }
         }
         else {
             SASSERT(new_def.get() == 0);
-            if (!m_manager.fine_grain_proofs())
+            if (!m.fine_grain_proofs())
                 new_pr = 0;
         }
         cache_result(n, new_r, new_pr);
@@ -151,8 +151,8 @@ void elim_term_ite::reduce1_quantifier(quantifier * q) {
     proof * new_body_pr;
     get_cached(q->get_expr(), new_body, new_body_pr);
     
-    quantifier * new_q = m_manager.update_quantifier(q, new_body);
-    proof *      p     = q == new_q ? 0 : m_manager.mk_oeq_quant_intro(q, new_q, new_body_pr);   
+    quantifier * new_q = m.update_quantifier(q, new_body);
+    proof *      p     = q == new_q ? 0 : m.mk_oeq_quant_intro(q, new_q, new_body_pr);   
     cache_result(q, new_q, p);
 }
 

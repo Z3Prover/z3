@@ -609,6 +609,7 @@ struct euclidean_solver::imp {
             // neg coeffs... to make sure that m_next_x is -1
             neg_coeffs(eq.m_as);
             neg_coeffs(eq.m_bs);
+            m().neg(eq.m_c);
         }
         unsigned sz = eq.size();
         for (unsigned i = 0; i < sz; i++) {
@@ -717,7 +718,7 @@ struct euclidean_solver::imp {
                 elim_unit();
             else
                 decompose_and_elim();
-            TRACE("euclidean_solver_step", display(tout);); 
+            TRACE("euclidean_solver", display(tout);); 
             if (inconsistent()) return false;
         }
         return true;

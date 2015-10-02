@@ -120,13 +120,13 @@ struct scoped_timer::imp {
         m_eh(eh) {
 #if defined(_WINDOWS) || defined(_CYGWIN)
         m_first = true;
-        CreateTimerQueueTimer(&m_timer,			
-                              NULL,				
+        CreateTimerQueueTimer(&m_timer,
+                              NULL,
                               abort_proc,
                               this,
-                              0,				
-                              ms,				
-                              WT_EXECUTEINTIMERTHREAD);	
+                              0,
+                              ms,
+                              WT_EXECUTEINTIMERTHREAD);
 #elif defined(__APPLE__) && defined(__MACH__)
         // Mac OS X
         m_interval = ms?ms:0xFFFFFFFF;
@@ -151,26 +151,26 @@ struct scoped_timer::imp {
         if (pthread_create(&m_thread_id, &m_attributes, &thread_func, this) != 0)
             throw default_exception("failed to start timer thread");
 #elif defined(_LINUX_) || defined(_FREEBSD_)
-	// Linux & FreeBSD
-	struct sigevent sev;
+        // Linux & FreeBSD
+        struct sigevent sev;
         memset(&sev, 0, sizeof(sigevent));
-	sev.sigev_notify = SIGEV_THREAD;
+        sev.sigev_notify = SIGEV_THREAD;
         sev.sigev_value.sival_ptr = this;
         sev.sigev_notify_function = sig_handler;
-	if (timer_create(CLOCKID, &sev, &m_timerid) == -1)
-	    throw default_exception("failed to create timer");
+        if (timer_create(CLOCKID, &sev, &m_timerid) == -1)
+            throw default_exception("failed to create timer");
 
-	unsigned long long nano = static_cast<unsigned long long>(ms) * 1000000ull;
-	struct itimerspec its;
-	its.it_value.tv_sec  = nano / 1000000000ull;
-	its.it_value.tv_nsec = nano % 1000000000ull;
-	its.it_interval.tv_sec  = 0; // timer experies once
-	its.it_interval.tv_nsec = 0;
+        unsigned long long nano = static_cast<unsigned long long>(ms) * 1000000ull;
+        struct itimerspec its;
+        its.it_value.tv_sec  = nano / 1000000000ull;
+        its.it_value.tv_nsec = nano % 1000000000ull;
+        its.it_interval.tv_sec  = 0; // timer experies once
+        its.it_interval.tv_nsec = 0;
         
-	if (timer_settime(m_timerid, 0, &its, NULL) == -1)
-	    throw default_exception("failed to set timer");
+        if (timer_settime(m_timerid, 0, &its, NULL) == -1)
+            throw default_exception("failed to set timer");
 #else
-	// Other platforms
+    // Other platforms
 #endif
     }
 
@@ -203,10 +203,10 @@ struct scoped_timer::imp {
         if (pthread_attr_destroy(&m_attributes) != 0)
             throw default_exception("failed to destroy pthread attributes object");
 #elif defined(_LINUX_) || defined(_FREEBSD_)
-	// Linux & FreeBSD
-	timer_delete(m_timerid);
+    // Linux & FreeBSD
+    timer_delete(m_timerid);
 #else
-	// Other Platforms
+    // Other Platforms
 #endif
     }
 

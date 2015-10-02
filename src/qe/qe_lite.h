@@ -18,8 +18,8 @@ Revision History:
 
 --*/
 
-#ifndef __QE_LITE_H__
-#define __QE_LITE_H__
+#ifndef QE_LITE_H_
+#define QE_LITE_H_
 
 #include "ast.h"
 #include "uint_set.h"

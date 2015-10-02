@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _COOPERATE_H_
-#define _COOPERATE_H_
+#ifndef COOPERATE_H_
+#define COOPERATE_H_
 
 class cooperation_section;
 

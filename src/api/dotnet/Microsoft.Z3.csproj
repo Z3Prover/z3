@@ -365,6 +365,7 @@
     <Compile Include="IntSymbol.cs" />
     <Compile Include="ListSort.cs" />
     <Compile Include="Model.cs" />
+    <Compile Include="Optimize.cs" />
     <Compile Include="Params.cs" />
     <Compile Include="ParamDescrs.cs" />
     <Compile Include="Pattern.cs" />

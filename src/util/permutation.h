@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PERMUTATION_H_
-#define _PERMUTATION_H_
+#ifndef PERMUTATION_H_
+#define PERMUTATION_H_
 
 #include<iostream>
 #include"vector.h"

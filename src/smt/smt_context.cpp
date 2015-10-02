@@ -199,6 +199,9 @@ namespace smt {
     bool context::bcp() {
         SASSERT(!inconsistent());
         while (m_qhead < m_assigned_literals.size()) {
+            if (get_cancel_flag()) {
+                return true;
+            }
             literal l      = m_assigned_literals[m_qhead];
             SASSERT(get_assignment(l) == l_true);
             m_qhead++;
@@ -224,9 +227,6 @@ namespace smt {
                         break;
                     case l_true:
                         break;
-                    }
-                    if (m_cancel_flag) {
-                        return true;
                     }
                 }
             }
@@ -1334,6 +1334,7 @@ namespace smt {
         TRACE("propagate_bool_var_enode_bug", tout << "var: " << v << " #" << bool_var2expr(v)->get_id() << "\n";);
         SASSERT(v < static_cast<int>(m_b_internalized_stack.size()));
         enode * n  = bool_var2enode(v);
+        CTRACE("mk_bool_var", !n, tout << "No enode for " << v << "\n";);
         bool sign  = val == l_false;
         if (n->merge_tf())
             add_eq(n, sign ? m_false_enode : m_true_enode, eq_justification(literal(v, sign)));
@@ -1615,7 +1616,7 @@ namespace smt {
             unsigned qhead = m_qhead;
             if (!bcp())
                 return false;
-            if (m_cancel_flag) 
+            if (get_cancel_flag()) 
                 return true;
             SASSERT(!inconsistent());
             propagate_relevancy(qhead);
@@ -2697,8 +2698,10 @@ namespace smt {
 #endif
 
     void context::register_plugin(theory * th) { 
-        if (m_theories.get_plugin(th->get_family_id()) != 0)
+        if (m_theories.get_plugin(th->get_family_id()) != 0) {
+            dealloc(th);
             return; // context already has a theory for the given family id.
+        }
         SASSERT(std::find(m_theory_set.begin(), m_theory_set.end(), th) == m_theory_set.end());
         SASSERT(!already_internalized_theory(th));
         th->init(this);
@@ -2770,6 +2773,7 @@ namespace smt {
     }
 
     void context::assert_expr_core(expr * e, proof * pr) {
+        if (get_cancel_flag()) return;
         SASSERT(is_well_sorted(m_manager, e));
         TRACE("begin_assert_expr", tout << mk_pp(e, m_manager) << "\n";);
         TRACE("begin_assert_expr_ll", tout << mk_ll_pp(e, m_manager) << "\n";);
@@ -2799,6 +2803,7 @@ namespace smt {
     }
 
     void context::internalize_assertions() {
+        if (get_cancel_flag()) return;
         TRACE("internalize_assertions", tout << "internalize_assertions()...\n";);
         timeit tt(get_verbosity_level() >= 100, "smt.preprocessing");
         reduce_assertions();
@@ -2853,7 +2858,7 @@ namespace smt {
 
     void context::init_assumptions(unsigned num_assumptions, expr * const * assumptions) {
         reset_assumptions();
-        m_bool_var2assumption.reset();
+        m_literal2assumption.reset();
         m_unsat_core.reset();
         if (num_assumptions > 0) {
             // We must give a chance to the theories to propagate before we create a new scope...
@@ -2869,16 +2874,16 @@ namespace smt {
                 proof * pr = m_manager.mk_asserted(curr_assumption);
                 internalize_assertion(curr_assumption, pr, 0);
                 literal l = get_literal(curr_assumption);
-                m_bool_var2assumption.insert(l.var(), curr_assumption);
+                m_literal2assumption.insert(l.index(), curr_assumption);
                 // mark_as_relevant(l); <<< not needed
                 // internalize_assertion marked l as relevant.
                 SASSERT(is_relevant(l));
-                TRACE("assumptions", tout << mk_pp(curr_assumption, m_manager) << "\n";);
+                TRACE("assumptions", tout << l << ":" << mk_pp(curr_assumption, m_manager) << "\n";);
                 if (m_manager.proofs_enabled())
                     assign(l, mk_justification(justification_proof_wrapper(*this, pr)));
                 else
                     assign(l, b_justification::mk_axiom());
-                m_assumptions.push_back(l.var());
+                m_assumptions.push_back(l);
                 get_bdata(l.var()).m_assumption = true;
             }
         }
@@ -2888,10 +2893,10 @@ namespace smt {
     }
 
     void context::reset_assumptions() {
-        bool_var_vector::iterator it  = m_assumptions.begin();
-        bool_var_vector::iterator end = m_assumptions.end();
+        literal_vector::iterator it  = m_assumptions.begin();
+        literal_vector::iterator end = m_assumptions.end();
         for (; it != end; ++it)
-            get_bdata(*it).m_assumption = false;
+            get_bdata(it->var()).m_assumption = false;
         m_assumptions.reset();
     }
 
@@ -2908,10 +2913,9 @@ namespace smt {
             literal l = *it;
             TRACE("unsat_core_bug", tout << "answer literal: " << l << "\n";);
             SASSERT(get_bdata(l.var()).m_assumption);
-            SASSERT(m_bool_var2assumption.contains(l.var()));
-            expr * a = 0;
-            m_bool_var2assumption.find(l.var(), a);
-            SASSERT(a);
+            if (!m_literal2assumption.contains(l.index())) l.neg();
+            SASSERT(m_literal2assumption.contains(l.index()));
+            expr * a = m_literal2assumption[l.index()];
             if (!already_found_assumptions.contains(a)) {
                 already_found_assumptions.insert(a);
                 m_unsat_core.push_back(a);
@@ -2926,6 +2930,7 @@ namespace smt {
               for (unsigned i = 0; i < sz; i++) {
                   tout << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
               });
+        validate_unsat_core();        
     }
 
     /**
@@ -2951,9 +2956,13 @@ namespace smt {
     /**
        \brief Execute some finalization code after performing the search.
     */
-    void context::check_finalize(lbool r) {
-        TRACE("after_search", display(tout););
+    lbool context::check_finalize(lbool r) {
+        TRACE("after_search", display(tout << "result: " << r << "\n"););
         display_profile(verbose_stream());
+        if (r == l_true && get_cancel_flag()) {
+            r = l_undef;
+        }
+        return r;
     }
 
     /**
@@ -2985,7 +2994,7 @@ namespace smt {
                 r = search();
             }
         }
-        check_finalize(r);
+        r = check_finalize(r);
         return r;
     }
 
@@ -3076,7 +3085,7 @@ namespace smt {
                 }
             }
         }
-        check_finalize(r);
+        r = check_finalize(r);
         return r;
     }
 
@@ -3186,6 +3195,7 @@ namespace smt {
                 if (status != l_false) {
                     // build candidate model before returning
                     mk_proto_model(status);
+                    // status = l_undef;
                 }
                 break;
             }
@@ -3236,10 +3246,17 @@ namespace smt {
                 }
                 ptr_vector<theory>::iterator it  = m_theory_set.begin();
                 ptr_vector<theory>::iterator end = m_theory_set.end();
-                for (; it != end; ++it)
+                for (; it != end && !inconsistent(); ++it)
                     (*it)->restart_eh();
                 TRACE("mbqi_bug_detail", tout << "before instantiating quantifiers...\n";); 
-                m_qmanager->restart_eh();
+                if (!inconsistent()) {
+                    m_qmanager->restart_eh();                
+                }
+                if (inconsistent()) {
+                    VERIFY(!resolve_conflict());
+                    status = l_false;      
+                    break;
+                }
             }
             if (m_fparams.m_simplify_clauses)
                 simplify_clauses();
@@ -3299,6 +3316,9 @@ namespace smt {
                 if (!inconsistent()) {
                     if (resource_limits_exceeded())
                         return l_undef;
+
+                    if (get_cancel_flag())
+                        return l_undef;
                     
                     if (m_num_conflicts_since_restart > m_restart_threshold && m_scope_lvl - m_base_lvl > 2) {
                         TRACE("search_bug", tout << "bounded-search return undef, inconsistent: " << inconsistent() << "\n";);
@@ -3325,9 +3345,11 @@ namespace smt {
                 return l_undef;
             }
 
+            if (get_cancel_flag())
+                return l_undef;
+
             if (m_base_lvl == m_scope_lvl && m_fparams.m_simplify_clauses)
                 simplify_clauses();
-
             
             if (!decide()) {
                 final_check_status fcs = final_check();
@@ -3369,7 +3391,7 @@ namespace smt {
             }
         }
             
-        if (m_cancel_flag) {
+        if (get_cancel_flag()) {
             m_last_search_failure = CANCELED;
             return true;
         }
@@ -3872,9 +3894,13 @@ namespace smt {
     bool context::is_shared(enode * n) const {
         n = n->get_root();
         unsigned num_th_vars = n->get_num_th_vars();
+        if (m_manager.is_ite(n->get_owner())) {
+            return true;
+        }
         switch (num_th_vars) {
-        case 0:
+        case 0: {
             return false;
+        }
         case 1: {
             if (m_qmanager->is_shared(n))
                 return true;
@@ -3938,6 +3964,20 @@ namespace smt {
         return th->get_value(n, value);
     }
 
+    bool context::update_model(bool refinalize) {
+        final_check_status fcs = FC_DONE;
+        if (refinalize) {
+            fcs = final_check();
+        }
+        TRACE("opt", tout << (refinalize?"refinalize":"no-op") << " " << fcs << "\n";);
+        if (fcs == FC_DONE) {
+            mk_proto_model(l_true);
+            m_model = m_proto_model->mk_model();
+        }
+            
+        return fcs == FC_DONE;
+    }
+
     void context::mk_proto_model(lbool r) {
         TRACE("get_model", 
               display(tout); 
@@ -3989,6 +4029,7 @@ namespace smt {
     void context::set_cancel_flag(bool f) {
         m_cancel_flag = f;
         m_asserted_formulas.set_cancel_flag(f);
+        m_qmanager->set_cancel(f);
     }
 
 };

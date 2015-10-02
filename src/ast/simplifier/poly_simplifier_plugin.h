@@ -14,8 +14,8 @@ Author:
     Leonardo (leonardo) 2008-01-08
     
 --*/
-#ifndef _POLY_SIMPLIFIER_PLUGIN_H_
-#define _POLY_SIMPLIFIER_PLUGIN_H_
+#ifndef POLY_SIMPLIFIER_PLUGIN_H_
+#define POLY_SIMPLIFIER_PLUGIN_H_
 
 #include "simplifier_plugin.h"
 
@@ -152,4 +152,4 @@ public:
 #endif
 };
 
-#endif /* _POLY_SIMPLIFIER_PLUGIN_H_ */
+#endif /* POLY_SIMPLIFIER_PLUGIN_H_ */

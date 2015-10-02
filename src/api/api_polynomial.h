@@ -16,8 +16,8 @@ Author:
 Notes:
     
 --*/
-#ifndef _API_POLYNOMIAL_H_
-#define _API_POLYNOMIAL_H_
+#ifndef API_POLYNOMIAL_H_
+#define API_POLYNOMIAL_H_
 
 #include"polynomial.h"
 

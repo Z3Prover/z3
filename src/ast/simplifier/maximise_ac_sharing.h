@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MAXIMISE_AC_SHARING_H_
-#define _MAXIMISE_AC_SHARING_H_
+#ifndef MAXIMISE_AC_SHARING_H_
+#define MAXIMISE_AC_SHARING_H_
 
 #include"simplifier.h"
 #include"hashtable.h"
@@ -120,5 +120,5 @@ public:
     maximise_bv_sharing(ast_manager & m);
 };
 
-#endif /* _MAXIMISE_AC_SHARING_H_ */
+#endif /* MAXIMISE_AC_SHARING_H_ */
 

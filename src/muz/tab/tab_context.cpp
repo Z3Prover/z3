@@ -31,6 +31,7 @@ Revision History:
 #include "matcher.h"
 #include "scoped_proof.h"
 #include "fixedpoint_params.hpp"
+#include "ast_util.h"
 
 namespace tb {
 
@@ -210,17 +211,19 @@ namespace tb {
                 fmls.push_back(m_predicates[i]);
             }
             fmls.push_back(m_constraint);
-            qe::flatten_and(fmls);
+            flatten_and(fmls);
             bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(), fml);
             return fml;
         }
 
         void get_free_vars(ptr_vector<sort>& vars) const {
-            ::get_free_vars(m_head, vars);
+            expr_free_vars fv;
+            fv(m_head);
             for (unsigned i = 0; i < m_predicates.size(); ++i) {
-                ::get_free_vars(m_predicates[i], vars);
+                fv.accumulate(m_predicates[i]);
             }
-            ::get_free_vars(m_constraint, vars);
+            fv.accumulate(m_constraint);
+            vars.append(fv.size(), fv.c_ptr());
         }
 
         expr_ref to_formula() const {
@@ -339,7 +342,7 @@ namespace tb {
             expr_ref tmp(m);
             substitution subst(m);
             subst.reserve(1, get_num_vars());
-            qe::flatten_and(m_constraint, fmls);
+            flatten_and(m_constraint, fmls);
             unsigned num_fmls = fmls.size();
             for (unsigned i = 0; i < num_fmls; ++i) {
                 if (get_subst(rw, subst, i, fmls)) {
@@ -666,7 +669,7 @@ namespace tb {
 
 
             m_qe(m_empty_set, false, fmls);
-            qe::flatten_and(fmls);
+            flatten_and(fmls);
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 expr_ref n = normalize(fmls[i].get());
                 if (m_sat_lits.contains(n)) {
@@ -763,7 +766,7 @@ namespace tb {
             m_weight_multiply(1.0),
             m_update_frequency(20),
             m_next_update(20) {
-            set_strategy(ctx.get_params().tab_selection());
+            set_strategy(ctx.tab_selection());
         }
 
         void init(rules const& rs) {
@@ -1107,16 +1110,16 @@ namespace tb {
             m_S1.apply(2, delta, expr_offset(tgt.get_constraint(), 0), tmp);
             m_S1.apply(2, delta, expr_offset(src.get_constraint(), 1), tmp2);
             constraint = m.mk_and(tmp, tmp2);            
-            ptr_vector<sort> vars;
 
             // perform trival quantifier-elimination:
             uint_set index_set;
-            get_free_vars(head, vars);
+            expr_free_vars fv;
+            fv(head);
             for (unsigned i = 0; i < predicates.size(); ++i) {
-                get_free_vars(predicates[i].get(), vars);
+                fv.accumulate(predicates[i].get());
             }
-            for (unsigned i = 0; i < vars.size(); ++i) {
-                if (vars[i]) {
+            for (unsigned i = 0; i < fv.size(); ++i) {
+                if (fv[i]) {
                     index_set.insert(i);
                 }
             }
@@ -1127,7 +1130,7 @@ namespace tb {
             
             // initialize rule.
             result->init(head, predicates, constraint);
-            vars.reset();
+            ptr_vector<sort> vars;
             result->get_free_vars(vars);
             bool change = false;
             var_ref w(m);

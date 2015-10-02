@@ -43,7 +43,7 @@ public class FPSort extends Sort
      * The number of significand bits.
      */
     public int getSBits() {
-        return Native.fpaGetEbits(getContext().nCtx(), getNativeObject());        
+        return Native.fpaGetSbits(getContext().nCtx(), getNativeObject());        
     }
     
 }

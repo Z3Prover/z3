@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _ARRAY_REWRITER_H_
-#define _ARRAY_REWRITER_H_
+#ifndef ARRAY_REWRITER_H_
+#define ARRAY_REWRITER_H_
 
 #include"array_decl_plugin.h"
 #include"rewriter_types.h"

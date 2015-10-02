@@ -15,5 +15,6 @@ def_module_params(module_name='sat',
                           ('resolution.lit_cutoff_range3', UINT, 300, 'second cutoff (total number of literals) for Boolean variable elimination, for problems containing more than res_cls_cutoff2'),
                           ('resolution.cls_cutoff1', UINT, 100000000, 'limit1 - total number of problems clauses for the second cutoff of Boolean variable elimination'),
                           ('resolution.cls_cutoff2', UINT, 700000000, 'limit2 - total number of problems clauses for the second cutoff of Boolean variable elimination'),
+                          ('elim_vars', BOOL, True, 'enable variable elimination during simplification'),
                           ('subsumption', BOOL, True, 'eliminate subsumed clauses'),
                           ('subsumption.limit', UINT, 100000000, 'approx. maximum number of literals visited during subsumption (and subsumption resolution)')))

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_PRODUCT_RELATION_H_
-#define _DL_PRODUCT_RELATION_H_
+#ifndef DL_PRODUCT_RELATION_H_
+#define DL_PRODUCT_RELATION_H_
 
 
 #include "dl_context.h"
@@ -27,10 +27,12 @@ namespace datalog {
 
     class product_relation;
 
+    struct rel_spec : public svector<family_id> {        
+        bool well_formed() const { return true; }
+    };
+
     class product_relation_plugin : public relation_plugin {
         friend class product_relation;
-    public:
-        typedef svector<family_id> rel_spec;
     private:
         class join_fn;
         class transform_fn;
@@ -119,8 +121,6 @@ namespace datalog {
         friend class product_relation_plugin::filter_interpreted_fn;
 
 
-
-        typedef product_relation_plugin::rel_spec rel_spec;
 
         /**
            If m_relations is empty, value of this determines whether the relation is empty or full.

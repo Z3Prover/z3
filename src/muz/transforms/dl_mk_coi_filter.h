@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2006 Microsoft Corporation
+Copyright (c) 2006-2015 Microsoft Corporation
 
 Module Name:
 
@@ -7,22 +7,21 @@ Module Name:
 
 Abstract:
 
-    Rule transformer which removes relations which are out of the cone of 
+    Rule transformer which removes relations which are out of the cone of
     influence of output relations
 
 Author:
-
-    Krystof Hoder (t-khoder) 2011-10-01.
-
-Revision History:
+    Krystof Hoder (t-khoder)
+    Andrey Rybalchenko (rybal)
+    Henning Guenther (t-hennig)
 
 --*/
 
-#ifndef _DL_MK_COI_FILTER_H_
-#define _DL_MK_COI_FILTER_H_
+#ifndef DL_MK_COI_FILTER_H_
+#define DL_MK_COI_FILTER_H_
 
-#include "dl_context.h"
 #include "dl_rule_transformer.h"
+#include "dl_context.h"
 
 namespace datalog {
 
@@ -32,20 +31,19 @@ namespace datalog {
 
         ast_manager & m;
         context & m_context;
-
+        vector<app*> m_new_tail;
+        svector<bool> m_new_tail_neg;
         rule_set * bottom_up(rule_set const & source);
         rule_set * top_down(rule_set const & source);
 
     public:
-        mk_coi_filter(context & ctx, unsigned priority=45000)
+        mk_coi_filter(context & ctx, unsigned priority = 45000)
             : plugin(priority),
             m(ctx.get_manager()),
             m_context(ctx) {}
 
         rule_set * operator()(rule_set const & source);
     };
+}
 
-};
-
-#endif /* _DL_MK_COI_FILTER_H_ */
-
+#endif

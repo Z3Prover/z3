@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _BOUND_MANAGER_H_
-#define _BOUND_MANAGER_H_
+#ifndef BOUND_MANAGER_H_
+#define BOUND_MANAGER_H_
 
 #include"ast.h"
 #include"arith_decl_plugin.h"

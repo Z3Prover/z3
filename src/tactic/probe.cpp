@@ -23,6 +23,7 @@ Revision History:
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"goal_util.h"
+#include"bv_rewriter.h"
 
 class memory_probe : public probe {
 public:
@@ -283,13 +284,12 @@ struct is_non_qfbv_predicate {
         if (!m.is_bool(n) && !u.is_bv(n))
             throw found();
         family_id fid = n->get_family_id();
-        if (fid == m.get_basic_family_id())
+        if (fid == m.get_basic_family_id()) 
             return; 
         if (fid == u.get_family_id())
             return;
         if (is_uninterp_const(n))
             return;
-
         throw found();
     }
 };
@@ -304,6 +304,8 @@ public:
 class is_qfbv_probe : public probe {
 public:
     virtual result operator()(goal const & g) {
+        bv_rewriter rw(g.m());
+        if (!rw.hi_div0()) return false;
         return !test<is_non_qfbv_predicate>(g);
     }
 };

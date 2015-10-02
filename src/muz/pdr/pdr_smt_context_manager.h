@@ -17,11 +17,10 @@ Revision History:
 
 --*/
 
-#ifndef _PDR_SMT_CONTEXT_MANAGER_H_
-#define _PDR_SMT_CONTEXT_MANAGER_H_
+#ifndef PDR_SMT_CONTEXT_MANAGER_H_
+#define PDR_SMT_CONTEXT_MANAGER_H_
 
 #include "smt_kernel.h"
-#include "sat_solver.h"
 #include "func_decl_dependencies.h"
 #include "dl_util.h"
 
@@ -69,23 +68,6 @@ namespace pdr {
         virtual void pop() { m_context.pop(1); }
         virtual unsigned get_unsat_core_size() { return m_context.get_unsat_core_size(); }
         virtual expr* get_unsat_core_expr(unsigned i) { return m_context.get_unsat_core_expr(i); }
-    };
-
-    // TBD: 
-    class sat_context : public smt_context {
-        sat::solver m_solver;
-    public:
-        sat_context(smt::kernel & ctx, smt_context_manager& p, app* pred); 
-        virtual ~sat_context() {}
-        virtual void assert_expr(expr* e);
-        virtual lbool check(expr_ref_vector& assumptions);
-        virtual void get_model(model_ref& model);
-        virtual proof* get_proof();
-        virtual void pop() { m_solver.pop(1); }
-        virtual void push() { m_solver.push(); }
-        // TBD: add unsat core extraction with sat::solver.
-        virtual unsigned get_unsat_core_size();
-        virtual expr* get_unsat_core_expr(unsigned i);
     };
 
     class smt_context_manager {

@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "smt_context.h"
 #include "dl_decl_plugin.h"
 #include "ast_pp.h"

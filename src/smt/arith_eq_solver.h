@@ -14,8 +14,8 @@ Author:
     Nikolaj Bjorner (nbjorner) 2012-02-25
     
 --*/
-#ifndef _ARITH_EQ_SOLVER_H_
-#define _ARITH_EQ_SOLVER_H_
+#ifndef ARITH_EQ_SOLVER_H_
+#define ARITH_EQ_SOLVER_H_
 
 #include"arith_decl_plugin.h"
 #include"arith_rewriter.h"
@@ -105,4 +105,4 @@ public:
 
 };
 
-#endif /* _ARITH_EQ_SOLVER_H_ */
+#endif /* ARITH_EQ_SOLVER_H_ */

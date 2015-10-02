@@ -19,8 +19,8 @@ Revision History:
 
 
 --*/
-#ifndef _AST_SMT2_PP_H_
-#define _AST_SMT2_PP_H_
+#ifndef AST_SMT2_PP_H_
+#define AST_SMT2_PP_H_
 
 #include"format.h"
 #include"params.h"
@@ -109,5 +109,11 @@ struct mk_ismt2_pp {
 };
 
 std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p);
+
+std::ostream& operator<<(std::ostream& out, expr_ref const& e);
+std::ostream& operator<<(std::ostream& out, app_ref const& e);
+
+std::ostream& operator<<(std::ostream& out, expr_ref_vector const& e);
+std::ostream& operator<<(std::ostream& out, app_ref_vector const& e);
 
 #endif

@@ -25,8 +25,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PROTO_MODEL_H_
-#define _PROTO_MODEL_H_
+#ifndef PROTO_MODEL_H_
+#define PROTO_MODEL_H_
 
 #include"model_core.h"
 #include"value_factory.h"
@@ -114,5 +114,5 @@ public:
 
 typedef ref<proto_model> proto_model_ref;
 
-#endif /* _PROTO_MODEL_H_ */
+#endif /* PROTO_MODEL_H_ */
 

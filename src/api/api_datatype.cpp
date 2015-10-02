@@ -476,7 +476,7 @@ extern "C" {
             return 0;
         }
         ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
-        if (idx >= decls->size()) {
+        if (!decls || idx >= decls->size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
@@ -506,9 +506,9 @@ extern "C" {
             RETURN_Z3(0);
         }
         ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
-        if (idx >= decls->size()) {
+        if (!decls || idx >= decls->size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            RETURN_Z3(0);
         }
         func_decl* decl = (*decls)[idx];
         decl = dt_util.get_constructor_recognizer(decl);
@@ -529,7 +529,7 @@ extern "C" {
             RETURN_Z3(0);            
         }
         ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
-        if (idx_c >= decls->size()) {
+        if (!decls || idx_c >= decls->size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
@@ -617,5 +617,26 @@ extern "C" {
         RETURN_Z3(of_func_decl(acc));
         Z3_CATCH_RETURN(0);
     }
+
+    Z3_ast Z3_datatype_update_field(
+        Z3_context c,  Z3_func_decl f, Z3_ast t, Z3_ast v) {        
+        Z3_TRY;
+        LOG_Z3_datatype_update_field(c, f, t, v);
+        RESET_ERROR_CODE();
+        ast_manager & m = mk_c(c)->m();
+        func_decl* _f      = to_func_decl(f);
+        expr* _t = to_expr(t);
+        expr* _v = to_expr(v);  
+        expr* args[2] = { _t, _v };
+        sort* domain[2] = { m.get_sort(_t), m.get_sort(_v) };
+        parameter param(_f);
+        func_decl * d = m.mk_func_decl(mk_c(c)->get_array_fid(), OP_DT_UPDATE_FIELD, 1, &param, 2, domain);
+        app* r = m.mk_app(d, 2, args);
+        mk_c(c)->save_ast_trail(r);
+        check_sorts(c, r);
+        RETURN_Z3(of_ast(r));
+        Z3_CATCH_RETURN(0);
+    }
+
 
 };

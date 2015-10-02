@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _FPA2BV_MODEL_CONVERTER_H_
-#define _FPA2BV_MODEL_CONVERTER_H_
+#ifndef FPA2BV_MODEL_CONVERTER_H_
+#define FPA2BV_MODEL_CONVERTER_H_
 
 #include"fpa2bv_converter.h"
 #include"model_converter.h"
@@ -27,13 +27,11 @@ class fpa2bv_model_converter : public model_converter {
     obj_map<func_decl, expr*>   m_const2bv;
     obj_map<func_decl, expr*>   m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
-    obj_map<func_decl, func_decl_triple>  m_uf23bvuf;
 
 public:
     fpa2bv_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bv,
                            obj_map<func_decl, expr*> const & rm_const2bv,
-                           obj_map<func_decl, func_decl*> const & uf2bvuf,
-                           obj_map<func_decl, func_decl_triple> const & uf23bvuf) :
+                           obj_map<func_decl, func_decl*> const & uf2bvuf) :
                            m(m) {
         // Just create a copy?
         for (obj_map<func_decl, expr*>::iterator it = const2bv.begin();
@@ -60,18 +58,12 @@ public:
             m.inc_ref(it->m_key);
             m.inc_ref(it->m_value);
         }
-        for (obj_map<func_decl, func_decl_triple>::iterator it = uf23bvuf.begin();
-             it != uf23bvuf.end();
-             it++)
-        {
-            m_uf23bvuf.insert(it->m_key, it->m_value);
-            m.inc_ref(it->m_key);
-        }
     }
 
     virtual ~fpa2bv_model_converter() {
         dec_ref_map_key_values(m, m_const2bv);
         dec_ref_map_key_values(m, m_rm_const2bv);
+        dec_ref_map_key_values(m, m_uf2bvuf);
     }
 
     virtual void operator()(model_ref & md, unsigned goal_idx) {
@@ -94,13 +86,16 @@ protected:
     fpa2bv_model_converter(ast_manager & m) : m(m) { }
 
     void convert(model * bv_mdl, model * float_mdl);
+    expr_ref convert_bv2fp(sort * s, expr * sgn, expr * exp, expr * sig) const;
+    expr_ref convert_bv2fp(model * bv_mdl, sort * s, expr * bv) const;
+    expr_ref convert_bv2rm(expr * eval_v) const;
+    expr_ref convert_bv2rm(model * bv_mdl, func_decl * var, expr * val) const;
 };
 
 
 model_converter * mk_fpa2bv_model_converter(ast_manager & m,
                                             obj_map<func_decl, expr*> const & const2bv,
                                             obj_map<func_decl, expr*> const & rm_const2bv,
-                                            obj_map<func_decl, func_decl*> const & uf2bvuf,
-                                            obj_map<func_decl, func_decl_triple> const & uf23bvuf);
+                                            obj_map<func_decl, func_decl*> const & uf2bvuf);
 
 #endif

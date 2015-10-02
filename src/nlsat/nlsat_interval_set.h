@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NLSAT_INTERVAL_SET_H_
-#define _NLSAT_INTERVAL_SET_H_
+#ifndef NLSAT_INTERVAL_SET_H_
+#define NLSAT_INTERVAL_SET_H_
 
 #include"nlsat_types.h"
 

@@ -16,8 +16,8 @@
   Revision History:
 
   --*/
-#ifndef _STRING_BUFFER_H_
-#define _STRING_BUFFER_H_
+#ifndef STRING_BUFFER_H_
+#define STRING_BUFFER_H_
 
 #include<cstdio>
 #include<string>

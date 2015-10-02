@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_BOOL_VAR_DATA_H_
-#define _SMT_BOOL_VAR_DATA_H_
+#ifndef SMT_BOOL_VAR_DATA_H_
+#define SMT_BOOL_VAR_DATA_H_
 
 #include"smt_b_justification.h"
 
@@ -124,5 +124,5 @@ namespace smt {
     };
 };
 
-#endif /* _SMT_BOOL_VAR_DATA_H_ */
+#endif /* SMT_BOOL_VAR_DATA_H_ */
 

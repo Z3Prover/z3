@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PAGE_H_
-#define _PAGE_H_
+#ifndef PAGE_H_
+#define PAGE_H_
 
 #include"memory_manager.h"
 

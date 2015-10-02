@@ -17,8 +17,8 @@ Notes:
 
 --*/
 
-#ifndef _FPA2BV_REWRITER_H_
-#define _FPA2BV_REWRITER_H_
+#ifndef FPA2BV_REWRITER_H_
+#define FPA2BV_REWRITER_H_
 
 #include"cooperate.h"
 #include"rewriter_def.h"
@@ -91,7 +91,9 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 
         if (m().is_eq(f)) {
             SASSERT(num == 2);
-            SASSERT(m().get_sort(args[0]) == m().get_sort(args[1]));
+            TRACE("fpa2bv_rw", tout << "(= " << mk_ismt2_pp(args[0], m()) << " " << 
+                                                mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
+            SASSERT(m().get_sort(args[0]) == m().get_sort(args[1]));            
             sort * ds = f->get_domain()[0];
             if (m_conv.is_float(ds)) {
                 m_conv.mk_eq(args[0], args[1], result);
@@ -103,11 +105,18 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             }
             return BR_FAILED;
         }
-
-        if (m().is_ite(f)) {
+        else if (m().is_ite(f)) {
             SASSERT(num == 3);
             if (m_conv.is_float(args[1])) {
                 m_conv.mk_ite(args[0], args[1], args[2], result);
+                return BR_DONE;
+            }
+            return BR_FAILED;
+        }
+        else if (m().is_distinct(f)) {
+            sort * ds = f->get_domain()[0];
+            if (m_conv.is_float(ds) || m_conv.is_rm(ds)) {
+                m_conv.mk_distinct(f, num, args, result);
                 return BR_DONE;
             }
             return BR_FAILED;
@@ -169,15 +178,12 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             }
         }
 
-        if (f->get_family_id() == null_family_id)
+        if (f->get_family_id() != 0 && f->get_family_id() != m_conv.fu().get_family_id())
         {
-            bool is_float_uf = m_conv.is_float(f->get_range());
-            unsigned i = 0;
-            while (!is_float_uf && i < num)
-            {
-                is_float_uf = m_conv.is_float(f->get_domain()[i]);
-                i++;
-            }
+            bool is_float_uf = m_conv.is_float(f->get_range()) || m_conv.is_rm(f->get_range());
+            
+            for (unsigned i = 0; i < num; i++)
+                is_float_uf |= m_conv.is_float(f->get_domain()[i]) || m_conv.is_rm(f->get_domain()[i]);
 
             if (is_float_uf)
             {

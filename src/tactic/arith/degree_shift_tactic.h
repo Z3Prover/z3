@@ -19,8 +19,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DEGREE_SHIFT_TACTIC_H_
-#define _DEGREE_SHIFT_TACTIC_H_
+#ifndef DEGREE_SHIFT_TACTIC_H_
+#define DEGREE_SHIFT_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

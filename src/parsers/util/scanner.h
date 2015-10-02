@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SCANNER_H_
-#define _SCANNER_H_
+#ifndef SCANNER_H_
+#define SCANNER_H_
 
 #include"ast.h"
 
@@ -88,5 +88,5 @@ private:
     bool state_ok();
 };
 
-#endif /* _SCANNER_H_ */
+#endif /* SCANNER_H_ */
 

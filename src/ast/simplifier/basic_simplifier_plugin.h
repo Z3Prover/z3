@@ -14,8 +14,8 @@ Author:
     Leonardo (leonardo) 2008-01-07
     
 --*/
-#ifndef _BASIC_SIMPLIFIER_PLUGIN_H_
-#define _BASIC_SIMPLIFIER_PLUGIN_H_
+#ifndef BASIC_SIMPLIFIER_PLUGIN_H_
+#define BASIC_SIMPLIFIER_PLUGIN_H_
 
 #include"simplifier_plugin.h"
 
@@ -75,4 +75,4 @@ struct expr_lt_proc {
     }
 };
 
-#endif /* _BASIC_SIMPLIFIER_PLUGIN_H_ */
+#endif /* BASIC_SIMPLIFIER_PLUGIN_H_ */

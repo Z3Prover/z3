@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _VAR_SUBST_H_
-#define _VAR_SUBST_H_
+#ifndef VAR_SUBST_H_
+#define VAR_SUBST_H_
 
 #include"rewriter.h"
 #include"used_vars.h"
@@ -81,9 +81,23 @@ void instantiate(ast_manager & m, quantifier * q, expr * const * exprs, expr_ref
 
    Return the sorts of the free variables.
 */
-void get_free_vars(expr* e, ptr_vector<sort>& sorts);
 
-void get_free_vars(ast_mark& mark, ptr_vector<expr>& todo, expr* e, ptr_vector<sort>& sorts);
+class expr_free_vars {
+    expr_sparse_mark m_mark;
+    ptr_vector<sort> m_sorts;
+    ptr_vector<expr> m_todo;
+public:    
+    void reset();
+    void operator()(expr* e);
+    void accumulate(expr* e);
+    bool empty() const { return m_sorts.empty(); }
+    unsigned size() const { return m_sorts.size(); }
+    sort* operator[](unsigned idx) const { return m_sorts[idx]; }
+    bool contains(unsigned idx) const { return idx < m_sorts.size() && m_sorts[idx] != 0; }
+    void set_default_sort(sort* s);
+    void reverse() { m_sorts.reverse(); }
+    sort*const* c_ptr() const { return m_sorts.c_ptr(); }  
+};
 
 #endif
 

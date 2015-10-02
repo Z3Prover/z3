@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _EVAL_CMD_H_
-#define _EVAL_CMD_H_
+#ifndef EVAL_CMD_H_
+#define EVAL_CMD_H_
 
 class cmd_context;
 

@@ -18,8 +18,8 @@ Revision History:
 
 --*/
 
-#ifndef __QE_H__
-#define __QE_H__
+#ifndef QE_H_
+#define QE_H_
 
 #include "ast.h"
 #include "smt_params.h"

@@ -25,8 +25,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_MODEL_GENERATOR_H_
-#define _SMT_MODEL_GENERATOR_H_
+#ifndef SMT_MODEL_GENERATOR_H_
+#define SMT_MODEL_GENERATOR_H_
 
 #include"ast.h"
 #include"smt_types.h"
@@ -223,6 +223,6 @@ namespace smt {
     };
 };
 
-#endif /* _SMT_MODEL_GENERATOR_H_ */
+#endif /* SMT_MODEL_GENERATOR_H_ */
 
 

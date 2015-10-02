@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _API_CONTEXT_H_
-#define _API_CONTEXT_H_
+#ifndef API_CONTEXT_H_
+#define API_CONTEXT_H_
 
 #include"z3.h"
 #include"ast.h"
@@ -78,6 +78,7 @@ namespace api {
         family_id                  m_bv_fid;
         family_id                  m_dt_fid;
         family_id                  m_datalog_fid;
+        family_id                  m_pb_fid;
         family_id                  m_fpa_fid;
         datatype_decl_plugin *     m_dt_plugin;
         
@@ -116,6 +117,7 @@ namespace api {
         bool produce_unsat_cores() const { return m_params.m_unsat_core; }
         bool use_auto_config() const { return m_params.m_auto_config; }
         unsigned get_timeout() const { return m_params.m_timeout; }
+        unsigned get_rlimit() const { return m_params.m_rlimit; }
         arith_util & autil() { return m_arith_util; }
         bv_util & bvutil() { return m_bv_util; }
         datalog::dl_decl_util & datalog_util() { return m_datalog_util; }
@@ -127,6 +129,7 @@ namespace api {
         family_id get_bv_fid() const { return m_bv_fid; }
         family_id get_dt_fid() const { return m_dt_fid; }
         family_id get_datalog_fid() const { return m_datalog_fid; }
+        family_id get_pb_fid() const { return m_pb_fid; }
         family_id get_fpa_fid() const { return m_fpa_fid; }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
 
@@ -242,6 +245,7 @@ inline api::context * mk_c(Z3_context c) { return reinterpret_cast<api::context*
 #define CHECK_VALID_AST(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
 #define CHECK_SEARCHING(c) mk_c(c)->check_searching();
 inline bool is_expr(Z3_ast a) { return is_expr(to_ast(a)); }
+#define CHECK_IS_EXPR(_p_, _ret_) { if (!is_expr(_p_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
 inline bool is_bool_expr(Z3_context c, Z3_ast a) { return is_expr(a) && mk_c(c)->m().is_bool(to_expr(a)); }
 #define CHECK_FORMULA(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_) || !is_bool_expr(c, _a_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
 inline void check_sorts(Z3_context c, ast * n) { mk_c(c)->check_sorts(n); }

@@ -89,7 +89,7 @@ namespace api {
         m_bv_util(m()),
         m_datalog_util(m()),
         m_fpa_util(m()),
-	m_dtutil(m()),
+        m_dtutil(m()),
         m_last_result(m()),
         m_ast_trail(m()),
         m_replay_stack() {
@@ -111,6 +111,7 @@ namespace api {
         m_basic_fid = m().get_basic_family_id();
         m_arith_fid = m().mk_family_id("arith");
         m_bv_fid    = m().mk_family_id("bv");
+        m_pb_fid    = m().mk_family_id("pb");
         m_array_fid = m().mk_family_id("array");
         m_dt_fid    = m().mk_family_id("datatype");
         m_datalog_fid = m().mk_family_id("datalog_relation");
@@ -515,6 +516,11 @@ extern "C" {
         memory::initialize(0);
     }
 
+    void Z3_API Z3_finalize_memory(void) {
+        LOG_Z3_finalize_memory();
+        memory::finalize();
+    }
+
     Z3_error_code Z3_API Z3_get_error_code(Z3_context c) {
         LOG_Z3_get_error_code(c);
         return mk_c(c)->get_error_code();
@@ -526,7 +532,7 @@ extern "C" {
         // [Leo]: using exception handling, we don't need global error handlers anymore
     }
 
-    void Z3_API Z3_set_error(__in Z3_context c, __in Z3_error_code e) {
+    void Z3_API Z3_set_error(Z3_context c, Z3_error_code e) {
         SET_ERROR_CODE(e);
     }
 
@@ -578,7 +584,7 @@ extern "C" {
     
 };
 
-Z3_API ast_manager& Z3_get_manager(__in Z3_context c) {
+Z3_API ast_manager& Z3_get_manager(Z3_context c) {
     return mk_c(c)->m();
 }
 

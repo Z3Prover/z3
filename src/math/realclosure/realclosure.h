@@ -19,8 +19,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _REALCLOSURE_H_
-#define _REALCLOSURE_H_
+#ifndef REALCLOSURE_H_
+#define REALCLOSURE_H_
 
 #include"mpq.h"
 #include"params.h"

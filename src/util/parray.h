@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PARRAY_H_
-#define _PARRAY_H_
+#ifndef PARRAY_H_
+#define PARRAY_H_
 
 #include"vector.h"
 #include"trace.h"

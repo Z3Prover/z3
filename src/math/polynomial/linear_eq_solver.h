@@ -19,8 +19,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _LINEAR_EQ_SOLVER_H_
-#define _LINEAR_EQ_SOLVER_H_
+#ifndef LINEAR_EQ_SOLVER_H_
+#define LINEAR_EQ_SOLVER_H_
 
 template<typename numeral_manager> 
 class linear_eq_solver {

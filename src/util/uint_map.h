@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _UINT_MAP_H_
-#define _UINT_MAP_H_
+#ifndef UINT_MAP_H_
+#define UINT_MAP_H_
 
 #include"vector.h"
 
@@ -56,5 +56,5 @@ public:
 };
 
 
-#endif /* _UINT_MAP_H_ */
+#endif /* UINT_MAP_H_ */
 

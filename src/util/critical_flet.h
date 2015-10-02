@@ -18,8 +18,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _CRITICAL_FLET_H_
-#define _CRITICAL_FLET_H_
+#ifndef CRITICAL_FLET_H_
+#define CRITICAL_FLET_H_
 
 template<typename T>
 class critical_flet {

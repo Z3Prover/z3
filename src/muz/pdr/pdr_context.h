@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _PDR_CONTEXT_H_
-#define _PDR_CONTEXT_H_
+#ifndef PDR_CONTEXT_H_
+#define PDR_CONTEXT_H_
 
 #ifdef _CYGWIN
 #undef min
@@ -124,6 +124,7 @@ namespace pdr {
         unsigned get_num_levels() { return m_levels.size(); }
         expr_ref get_cover_delta(func_decl* p_orig, int level);
         void     add_cover(unsigned level, expr* property);
+        context& get_context() { return ctx; }
 
         std::ostream& display(std::ostream& strm) const;
 
@@ -185,6 +186,8 @@ namespace pdr {
     // structure for counter-example search.
     class model_node {
         model_node*            m_parent;
+        model_node*            m_next;
+        model_node*            m_prev;
         pred_transformer&      m_pt;
         expr_ref               m_state;
         model_ref              m_model;
@@ -196,13 +199,17 @@ namespace pdr {
         datalog::rule const*   m_rule;
     public:
         model_node(model_node* parent, expr_ref& state, pred_transformer& pt, unsigned level):
-            m_parent(parent), m_pt(pt), m_state(state), m_model(0), 
-                m_level(level), m_orig_level(level), m_depth(0), m_closed(false), m_rule(0) {
-            if (m_parent) {
-                m_parent->m_children.push_back(this);
-                SASSERT(m_parent->m_level == level+1);
-                SASSERT(m_parent->m_level > 0);
-                m_depth = m_parent->m_depth+1;
+            m_parent(parent), m_next(0), m_prev(0), m_pt(pt), m_state(state), m_model(0), 
+            m_level(level), m_orig_level(level), m_depth(0), m_closed(false), m_rule(0) {
+            model_node* p = m_parent;
+            if (p) {
+                p->m_children.push_back(this);
+                SASSERT(p->m_level == level+1);
+                SASSERT(p->m_level > 0);
+                m_depth = p->m_depth+1;
+                if (p && p->is_closed()) {
+                    p->set_open();
+                }
             }
         }
         void set_model(model_ref& m) { m_model = m; }
@@ -210,7 +217,7 @@ namespace pdr {
         unsigned orig_level() const { return m_orig_level; }
         unsigned depth() const { return m_depth; }
         void     increase_level() { ++m_level; }
-        expr*    state() const { return m_state; }
+        expr_ref const& state() const { return m_state; }
         ptr_vector<model_node> const& children() { return m_children; }
         pred_transformer& pt() const { return m_pt; }
         model_node* parent() const { return m_parent; }
@@ -230,8 +237,9 @@ namespace pdr {
             return true;
         }
 
+        void check_pre_closed();
         void set_closed();     
-        void reopen();
+        void set_open();
         void set_pre_closed() { m_closed = true; }
         void reset() { m_children.reset(); }
 
@@ -241,37 +249,45 @@ namespace pdr {
         void mk_instantiate(datalog::rule_ref& r0, datalog::rule_ref& r1, expr_ref_vector& binding);
 
         std::ostream& display(std::ostream& out, unsigned indent);
+
+        void dequeue(model_node*& root);
+        void enqueue(model_node* n);
+        model_node* next() const { return m_next; }
+        bool is_goal() const { return 0 != next(); }
     };
 
     class model_search {
         typedef ptr_vector<model_node> model_nodes;
         bool               m_bfs;
         model_node*        m_root;
-        std::deque<model_node*> m_leaves;
+        model_node*        m_goal;
         vector<obj_map<expr, model_nodes > > m_cache;
-        
         obj_map<expr, model_nodes>& cache(model_node const& n);
         void erase_children(model_node& n, bool backtrack);
-        void erase_leaf(model_node& n);
         void remove_node(model_node& n, bool backtrack);
-        void enqueue_leaf(model_node& n); // add leaf to priority queue.
+        void enqueue_leaf(model_node* n); // add leaf to priority queue.
         void update_models();
+        void set_leaf(model_node& n); // Set node as leaf, remove children.
+        bool is_repeated(model_node& n) const;
+        unsigned num_goals() const; 
+
     public:
-        model_search(bool bfs): m_bfs(bfs), m_root(0) {}
+        model_search(bool bfs): m_bfs(bfs), m_root(0), m_goal(0) {}
         ~model_search();
 
         void reset();
         model_node* next();
-        bool is_repeated(model_node& n) const;
         void add_leaf(model_node& n); // add fresh node.
-        void set_leaf(model_node& n); // Set node as leaf, remove children.
-
+        
         void set_root(model_node* n);
         model_node& get_root() const { return *m_root; }
         std::ostream& display(std::ostream& out) const; 
-        expr_ref get_trace(context const& ctx);
+        expr_ref get_trace(context const& ctx);        
         proof_ref get_proof_trace(context const& ctx);
         void backtrack_level(bool uses_level, model_node& n);
+        void remove_goal(model_node& n);
+
+        void well_formed();
     };
 
     struct model_exception { };
@@ -357,6 +373,9 @@ namespace pdr {
         void reset_core_generalizers();
 
         void validate();
+        void validate_proof();
+        void validate_search();
+        void validate_model();
 
     public:       
         

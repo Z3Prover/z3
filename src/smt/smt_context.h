@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_CONTEXT_H_
-#define _SMT_CONTEXT_H_
+#ifndef SMT_CONTEXT_H_
+#define SMT_CONTEXT_H_
 
 #include"smt_clause.h"
 #include"smt_setup.h"
@@ -157,7 +157,7 @@ namespace smt {
         u_map<bool_var>             m_expr2bool_var;
 #endif
         ptr_vector<expr>            m_bool_var2expr;         // bool_var -> expr
-        char_vector                 m_assignment;  //!< mapping literal id -> assignment lbool
+        signed_char_vector          m_assignment;  //!< mapping literal id -> assignment lbool
         vector<watch_list>          m_watches;     //!< per literal
         vector<clause_set>          m_lit_occs;    //!< index for backward subsumption
         svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
@@ -206,9 +206,9 @@ namespace smt {
         // Unsat core extraction
         //
         // -----------------------------------
-        typedef u_map<expr *>  bool_var2assumption;
-        bool_var_vector             m_assumptions;
-        bool_var2assumption         m_bool_var2assumption; // maps an expression associated with a literal to the original assumption
+        typedef u_map<expr *>  literal2assumption;
+        literal_vector             m_assumptions;
+        literal2assumption         m_literal2assumption; // maps an expression associated with a literal to the original assumption
         expr_ref_vector             m_unsat_core;
 
         // -----------------------------------
@@ -235,7 +235,7 @@ namespace smt {
 
         virtual void set_cancel_flag(bool f = true);
 
-        bool get_cancel_flag() { return m_cancel_flag; }
+        bool get_cancel_flag() { return m_cancel_flag || !m_manager.limit().inc(); }
 
         region & get_region() {
             return m_region;
@@ -335,6 +335,10 @@ namespace smt {
 
         lbool get_assignment(bool_var v) const {
             return get_assignment(literal(v));
+        }
+
+        literal_vector const & assigned_literals() const { 
+            return m_assigned_literals; 
         }
 
         lbool get_assignment(expr * n) const;
@@ -1042,6 +1046,8 @@ namespace smt {
 
         void mk_unsat_core();
 
+        void validate_unsat_core();
+
         void init_search();
 
         void end_search();
@@ -1309,7 +1315,7 @@ namespace smt {
         bool already_internalized_theory_core(theory * th, expr_ref_vector const & s) const;
 #endif
         bool check_preamble(bool reset_cancel);
-        void check_finalize(lbool r);
+        lbool check_finalize(lbool r);
 
         // -----------------------------------
         //
@@ -1391,6 +1397,8 @@ namespace smt {
         
         void get_model(model_ref & m) const;
 
+        bool update_model(bool refinalize);
+
         void get_proto_model(proto_model_ref & m) const;
         
         unsigned get_num_asserted_formulas() const { return m_asserted_formulas.get_num_formulas(); }
@@ -1434,5 +1442,5 @@ namespace smt {
 
 };
 
-#endif /* _SMT_CONTEXT_H_ */
+#endif /* SMT_CONTEXT_H_ */
 

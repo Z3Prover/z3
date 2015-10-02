@@ -24,6 +24,7 @@ Notes:
 #include"array_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"seq_decl_plugin.h"
+#include"pb_decl_plugin.h"
 #include"fpa_decl_plugin.h"
 #include"ast_pp.h"
 #include"var_subst.h"
@@ -39,6 +40,9 @@ Notes:
 #include"for_each_expr.h"
 #include"scoped_timer.h"
 #include"interpolant_cmds.h"
+#include"model_smt2_pp.h"
+#include"model_v2_pp.h"
+#include"model_params.hpp"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -336,10 +340,10 @@ cmd_context::~cmd_context() {
     if (m_main_ctx) {
         set_verbose_stream(std::cerr);
     }
-    reset(true); 
     finalize_cmds();
     finalize_tactic_cmds();
     finalize_probes();
+    reset(true); 
     m_solver = 0;
     m_check_sat_result = 0;
 }
@@ -355,6 +359,18 @@ void cmd_context::set_cancel(bool f) {
     }
     if (has_manager())
         m().set_cancel(f);
+}
+
+opt_wrapper* cmd_context::get_opt() {
+    return m_opt.get();
+}
+
+void cmd_context::set_opt(opt_wrapper* opt) {
+    m_opt = opt;
+    for (unsigned i = 0; i < m_scopes.size(); ++i) {
+        m_opt->push();
+    }
+    m_opt->set_logic(m_logic);
 }
 
 void cmd_context::global_params_updated() {
@@ -487,6 +503,7 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "QF_RDL" ||
         s == "QF_IDL" ||
         s == "QF_AUFLIA" ||
+        s == "QF_ALIA" ||
         s == "QF_AUFLIRA" ||
         s == "QF_AUFNIA" ||
         s == "QF_AUFNIRA" ||
@@ -514,6 +531,7 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "LRA" || 
         s == "QF_FP" ||
         s == "QF_FPBV" ||
+        s == "QF_BVFP" ||
         s == "HORN";
 }
 
@@ -533,13 +551,12 @@ bool cmd_context::logic_has_bv_core(symbol const & s) const {
         s == "QF_AUFBV" ||
         s == "QF_BVRE" ||
         s == "QF_FPBV" ||
+        s == "QF_BVFP" ||
         s == "HORN";
 }
 
 bool cmd_context::logic_has_horn(symbol const& s) const {
-    return
-        s == "HORN";
-
+    return s == "HORN";
 }
 
 bool cmd_context::logic_has_bv() const {
@@ -547,23 +564,26 @@ bool cmd_context::logic_has_bv() const {
 }
 
 bool cmd_context::logic_has_seq_core(symbol const& s) const {
-    return 
-        s == "QF_BVRE";
-        
+    return s == "QF_BVRE";
 }
 
 bool cmd_context::logic_has_seq() const {
     return !has_logic() || logic_has_seq_core(m_logic);        
 }
 
+bool cmd_context::logic_has_fpa_core(symbol const& s) const {
+    return s == "QF_FP" || s == "QF_FPBV" || s == "QF_BVFP";
+}
+
 bool cmd_context::logic_has_fpa() const {
-    return !has_logic() || m_logic == "QF_FP" || m_logic == "QF_FPBV";
+    return !has_logic() || logic_has_fpa_core(m_logic);
 }
 
 bool cmd_context::logic_has_array_core(symbol const & s) const {
     return 
         s == "QF_AX" ||
         s == "QF_AUFLIA" ||
+        s == "QF_ALIA" ||
         s == "QF_AUFLIRA" ||
         s == "QF_AUFNIA" ||
         s == "QF_AUFNIRA" ||
@@ -601,7 +621,9 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
+        register_plugin(symbol("pb"),     alloc(pb_decl_plugin), !has_logic());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
+        register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
     }
     else {
         // the manager was created by an external module
@@ -667,8 +689,7 @@ bool cmd_context::supported_logic(symbol const & s) const {
     return s == "QF_UF" || s == "UF" || 
         logic_has_arith_core(s) || logic_has_bv_core(s) || 
         logic_has_array_core(s) || logic_has_seq_core(s) ||
-        logic_has_horn(s) ||
-        s == "QF_FP" || s == "QF_FPBV";
+        logic_has_horn(s) || logic_has_fpa_core(s);
 }
 
 bool cmd_context::set_logic(symbol const & s) {
@@ -736,7 +757,7 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
     if (!m_global_decls) {
         m_func_decls_stack.push_back(sf_pair(s, f));
     }
-    TRACE("cmd_context", tout << "new sort decl\n" << mk_pp(f, m()) << "\n";);
+    TRACE("cmd_context", tout << "new function decl\n" << mk_pp(f, m()) << "\n";);
 }
 
 void cmd_context::insert(symbol const & s, psort_decl * p) {
@@ -1169,7 +1190,6 @@ void cmd_context::insert_aux_pdecl(pdecl * p) {
 }
 
 void cmd_context::reset(bool finalize) {
-    m_check_sat_result = 0;
     m_logic = symbol::null;
     m_check_sat_result = 0;
     m_numeral_as_real = false;
@@ -1186,6 +1206,7 @@ void cmd_context::reset(bool finalize) {
     if (m_solver)
         m_solver = 0;
     m_scopes.reset();
+    m_opt = 0;
     m_pp_env = 0;
     m_dt_eh  = 0;
     if (m_manager) {
@@ -1253,6 +1274,8 @@ void cmd_context::push() {
     s.m_assertions_lim         = m_assertions.size();
     if (m_solver) 
         m_solver->push();
+    if (m_opt) 
+        m_opt->push();
 }
 
 void cmd_context::push(unsigned n) {
@@ -1348,6 +1371,8 @@ void cmd_context::pop(unsigned n) {
     if (m_solver) {
         m_solver->pop(n);
     }
+    if (m_opt) 
+        m_opt->pop(n);
     unsigned new_lvl = lvl - n;
     scope & s        = m_scopes[new_lvl];
     restore_func_decls(s.m_func_decls_stack_lim);
@@ -1364,15 +1389,56 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     IF_VERBOSE(100, verbose_stream() << "(started \"check-sat\")" << std::endl;);
     TRACE("before_check_sat", dump_assertions(tout););
     init_manager();
-    if (m_solver) {
+    unsigned timeout = m_params.m_timeout;
+    unsigned rlimit  = m_params.m_rlimit;
+    scoped_watch sw(*this);
+    lbool r;
+
+    if (m_opt && !m_opt->empty()) {
+        bool was_pareto = false;
+        m_check_sat_result = get_opt();
+        cancel_eh<opt_wrapper> eh(*get_opt());
+        scoped_ctrl_c ctrlc(eh);
+        scoped_timer timer(timeout, &eh);
+        scoped_rlimit _rlimit(m().limit(), rlimit);
+        ptr_vector<expr> cnstr(m_assertions);
+        cnstr.append(num_assumptions, assumptions);
+        get_opt()->set_hard_constraints(cnstr);
+        try {
+            r = get_opt()->optimize();
+            while (r == l_true && get_opt()->is_pareto()) {
+                was_pareto = true;
+                get_opt()->display_assignment(regular_stream());
+                regular_stream() << "\n";
+                if (get_opt()->print_model()) {
+                    model_ref mdl;
+                    get_opt()->get_model(mdl);
+                    display_model(mdl);
+                }
+                r = get_opt()->optimize();
+            }
+        }
+        catch (z3_error & ex) {
+            throw ex;
+        }
+        catch (z3_exception & ex) {
+            throw cmd_exception(ex.msg());
+        }
+        if (was_pareto && r == l_false) {
+            r = l_true;
+        }
+        get_opt()->set_status(r);
+        if (r != l_false && !was_pareto) {
+            get_opt()->display_assignment(regular_stream());
+        }
+    }
+    else if (m_solver) {
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
         m_solver->set_progress_callback(this);
-        unsigned timeout     = m_params.m_timeout;
-        scoped_watch sw(*this);
         cancel_eh<solver> eh(*m_solver);
         scoped_ctrl_c ctrlc(eh);
         scoped_timer timer(timeout, &eh);
-        lbool r;
+        scoped_rlimit _rlimit(m().limit(), rlimit);
         try {
             r = m_solver->check_sat(num_assumptions, assumptions);
         }
@@ -1383,14 +1449,36 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
             throw cmd_exception(ex.msg());
         }
         m_solver->set_status(r);
-        display_sat_result(r);
-        validate_check_sat_result(r);
-        if (r == l_true)
-            validate_model();
     }
     else {
         // There is no solver installed in the command context.
         regular_stream() << "unknown" << std::endl;
+        return;
+    }
+    display_sat_result(r);
+    validate_check_sat_result(r);
+    if (r == l_true) {
+        validate_model();
+        if (m_params.m_dump_models) {
+            model_ref md;
+            get_check_sat_result()->get_model(md);
+            display_model(md);
+        }
+    }
+}
+
+void cmd_context::display_model(model_ref& mdl) {
+    if (mdl) {
+        model_params p;
+        if (p.v1() || p.v2()) {
+            std::ostringstream buffer;
+            model_v2_pp(buffer, *mdl, p.partial());
+            regular_stream() << "\"" << escaped(buffer.str().c_str(), true) << "\"" << std::endl;
+        } else {
+            regular_stream() << "(model " << std::endl;
+            model_smt2_pp(regular_stream(), *this, *mdl, 2);
+            regular_stream() << ")" << std::endl;
+        }
     }
 }
 
@@ -1557,16 +1645,19 @@ void cmd_context::set_solver_factory(solver_factory * f) {
 
 void cmd_context::display_statistics(bool show_total_time, double total_time) {
     statistics st;
-    unsigned long long mem = memory::get_max_used_memory();
     if (show_total_time)
         st.update("total time", total_time);
     st.update("time", get_seconds());
-    st.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
+    get_memory_statistics(st);
+    get_rlimit_statistics(m().limit(), st);
     if (m_check_sat_result) {
         m_check_sat_result->collect_statistics(st);
     }
     else if (m_solver) {
         m_solver->collect_statistics(st);
+    }
+    else if (m_opt) {
+        m_opt->collect_statistics(st);
     }
     st.display_smt2(regular_stream());
 }

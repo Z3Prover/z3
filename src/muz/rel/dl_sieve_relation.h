@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _DL_SIEVE_RELATION_H_
-#define _DL_SIEVE_RELATION_H_
+#ifndef DL_SIEVE_RELATION_H_
+#define DL_SIEVE_RELATION_H_
 
 #include "dl_context.h"
 #include "dl_relation_manager.h"
@@ -194,5 +194,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_SIEVE_RELATION_H_ */
+#endif /* DL_SIEVE_RELATION_H_ */
 

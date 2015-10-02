@@ -21,8 +21,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _GOAL2NLSAT_H_
-#define _GOAL2NLSAT_H_
+#ifndef GOAL2NLSAT_H_
+#define GOAL2NLSAT_H_
 
 #include"nlsat_types.h"
 #include"model_converter.h"

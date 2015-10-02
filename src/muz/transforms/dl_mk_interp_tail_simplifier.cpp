@@ -25,6 +25,7 @@ Revision History:
 #include"rewriter_def.h"
 #include"dl_mk_rule_inliner.h"
 #include"dl_mk_interp_tail_simplifier.h"
+#include"ast_util.h"
 
 namespace datalog {
 
@@ -491,9 +492,10 @@ namespace datalog {
 
     bool mk_interp_tail_simplifier::transform_rule(rule * r0, rule_ref & res)
     {
-        rule_ref r(r0, m_context.get_rule_manager());
+        rule_manager& rm = m_context.get_rule_manager();
+        rule_ref r(r0, rm);
 
-        if (r->has_quantifiers()) {
+        if (rm.has_quantifiers(*r)) {
             res = r;
             return true;
         }
@@ -546,7 +548,7 @@ namespace datalog {
 
         if (modified) {
             m_conj.reset();
-            qe::flatten_and(simp_res, m_conj);
+            flatten_and(simp_res, m_conj);
             for (unsigned i = 0; i < m_conj.size(); ++i) {
                 expr* e = m_conj[i].get();
                 if (is_app(e)) {

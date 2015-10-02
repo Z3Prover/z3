@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _QUANT_TACTICS_H_
-#define _QUANT_TACTICS_H_
+#ifndef QUANT_TACTICS_H_
+#define QUANT_TACTICS_H_
 
 #include"params.h"
 class ast_manager;

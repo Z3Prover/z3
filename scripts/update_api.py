@@ -568,10 +568,12 @@ def mk_java():
     java_native.write('  public static class ObjArrayPtr { public long[] value; }\n')
     java_native.write('  public static class UIntArrayPtr { public int[] value; }\n')
     java_native.write('  public static native void setInternalErrorHandler(long ctx);\n\n')
-    if IS_WINDOWS or os.uname()[0]=="CYGWIN":
-        java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name)
-    else:
-        java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name[3:]) # We need 3: to extract the prexi 'lib' form the dll_name
+
+    java_native.write('  static {\n')
+    java_native.write('    try { System.loadLibrary("z3java"); }\n')
+    java_native.write('    catch (UnsatisfiedLinkError ex) { System.loadLibrary("libz3java"); }\n')
+    java_native.write('  }\n')
+
     java_native.write('\n')
     for name, result, params in _dotnet_decls:
         java_native.write('  protected static native %s INTERNAL%s(' % (type2java(result), java_method_name(name)))
@@ -1010,6 +1012,11 @@ def def_API(name, result, params):
                 log_c.write(" }\n")
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_uint_array(%s)" % i)
+            elif ty == INT:
+                log_c.write("U(a%s[i]);" % i)
+                log_c.write(" }\n")
+                log_c.write("  Au(a%s);\n" % sz)
+                exe_c.write("in.get_int_array(%s)" % i)
             else:
                 error ("unsupported parameter for %s, %s" % (ty, name, p))
         elif kind == OUT_ARRAY:

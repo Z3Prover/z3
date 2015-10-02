@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SCOPED_TIMER_H_
-#define _SCOPED_TIMER_H_
+#ifndef SCOPED_TIMER_H_
+#define SCOPED_TIMER_H_
 
 #include"event_handler.h"
 

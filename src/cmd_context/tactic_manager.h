@@ -15,8 +15,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _TACTIC_MANAGER_H_
-#define _TACTIC_MANAGER_H_
+#ifndef TACTIC_MANAGER_H_
+#define TACTIC_MANAGER_H_
 
 #include"tactic_cmds.h"
 #include"dictionary.h"

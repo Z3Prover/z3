@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _QUASI_MACROS_H_
-#define _QUASI_MACROS_H_
+#ifndef QUASI_MACROS_H_
+#define QUASI_MACROS_H_
 
 #include<sstream>
 #include"macro_manager.h"

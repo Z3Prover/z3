@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PATTERN_INFERENCE_H_
-#define _PATTERN_INFERENCE_H_
+#ifndef PATTERN_INFERENCE_H_
+#define PATTERN_INFERENCE_H_
 
 #include"ast.h"
 #include"simplifier.h"
@@ -38,7 +38,7 @@ Revision History:
    every instance of f(g(X)) is also an instance of f(X).
 */
 class smaller_pattern {
-    ast_manager &    m_manager;
+    ast_manager &    m;
     ptr_vector<expr> m_bindings;
 
     typedef std::pair<expr *, expr *> expr_pair;
@@ -54,7 +54,7 @@ class smaller_pattern {
 public:
 
     smaller_pattern(ast_manager & m):
-        m_manager(m) {
+        m(m) {
     }
 
     bool operator()(unsigned num_bindings, expr * p1, expr * p2);
@@ -135,7 +135,7 @@ class pattern_inference : public simplifier {
                 m_node(n, m), m_free_vars(vars), m_size(sz) {}
         };
         
-        ast_manager &            m_manager;
+        ast_manager &            m;
         pattern_inference &      m_owner;
         family_id                m_afid;
         unsigned                 m_num_bindings;
@@ -150,7 +150,7 @@ class pattern_inference : public simplifier {
         void save_candidate(expr * n, unsigned delta);
         void reset();
     public:
-        collect(ast_manager & m, pattern_inference & o):m_manager(m), m_owner(o), m_afid(m.mk_family_id("arith")) {}
+        collect(ast_manager & m, pattern_inference & o):m(m), m_owner(o), m_afid(m.mk_family_id("arith")) {}
         void operator()(expr * n, unsigned num_bindings);
     };
 
@@ -244,5 +244,5 @@ public:
     bool is_forbidden(app * n) const;
 };
 
-#endif /* _PATTERN_INFERENCE_H_ */
+#endif /* PATTERN_INFERENCE_H_ */
 

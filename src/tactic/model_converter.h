@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _MODEL_CONVERTER_H_
-#define _MODEL_CONVERTER_H_
+#ifndef MODEL_CONVERTER_H_
+#define MODEL_CONVERTER_H_
 
 #include"model.h"
 #include"converter.h"

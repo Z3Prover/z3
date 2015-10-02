@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _DL_BMC_ENGINE_H_
-#define _DL_BMC_ENGINE_H_
+#ifndef DL_BMC_ENGINE_H_
+#define DL_BMC_ENGINE_H_
 
 #include "params.h"
 #include "statistics.h"

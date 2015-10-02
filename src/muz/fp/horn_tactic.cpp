@@ -28,6 +28,7 @@ Revision History:
 #include"filter_model_converter.h"
 #include"dl_transforms.h"
 #include"fixedpoint_params.hpp"
+#include"ast_util.h"
 
 class horn_tactic : public tactic {
     struct imp {
@@ -145,7 +146,7 @@ class horn_tactic : public tactic {
             expr_ref_vector args(m), body(m);
             expr_ref head(m);
             expr* a = 0, *a1 = 0;
-            qe::flatten_or(tmp, args);
+            flatten_or(tmp, args);
             for (unsigned i = 0; i < args.size(); ++i) {
                 a = args[i].get(); 
                 check_predicate(mark, a);
@@ -190,7 +191,7 @@ class horn_tactic : public tactic {
             bool produce_proofs = g->proofs_enabled();
 
             if (produce_proofs) {                
-                if (!m_ctx.get_params().generate_proof_trace()) {
+                if (!m_ctx.generate_proof_trace()) {
                     params_ref params = m_ctx.get_params().p;
                     params.set_bool("generate_proof_trace", true);
                     updt_params(params);
@@ -316,7 +317,7 @@ class horn_tactic : public tactic {
             m_ctx.get_rules(); // flush adding rules.
             apply_default_transformation(m_ctx);
             
-            if (m_ctx.get_params().slice()) {
+            if (m_ctx.xform_slice()) {
                 datalog::rule_transformer transformer(m_ctx);
                 datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
                 transformer.register_plugin(slice);
@@ -334,7 +335,7 @@ class horn_tactic : public tactic {
             datalog::rule_set::iterator it = rules.begin(), end = rules.end();
             for (; it != end; ++it) {
                 datalog::rule* r = *it;
-                r->to_formula(fml);
+                m_ctx.get_rule_manager().to_formula(*r, fml);
                 (*rep)(fml);
                 g->assert_expr(fml);
             }

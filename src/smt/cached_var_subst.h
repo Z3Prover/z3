@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _CACHED_VAR_SUBST_H_
-#define _CACHED_VAR_SUBST_H_
+#ifndef CACHED_VAR_SUBST_H_
+#define CACHED_VAR_SUBST_H_
 
 #include"var_subst.h"
 #include"map.h"
@@ -49,5 +49,5 @@ public:
     void reset();
 };
 
-#endif /* _CACHED_VAR_SUBST_H_ */
+#endif /* CACHED_VAR_SUBST_H_ */
 

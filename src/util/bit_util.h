@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BIT_UTIL_H_
-#define _BIT_UTIL_H_
+#ifndef BIT_UTIL_H_
+#define BIT_UTIL_H_
 
 /**
    \brief Return the position of the most significant (set) bit of a

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MODEL2EXPR_H_
-#define _MODEL2EXPR_H_
+#ifndef MODEL2EXPR_H_
+#define MODEL2EXPR_H_
 
 #include"model.h"
 
@@ -41,5 +41,5 @@ public:
 };
 
 
-#endif /* _MODEL2EXPR_H_ */
+#endif /* MODEL2EXPR_H_ */
 

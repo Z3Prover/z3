@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MODEL_H_
-#define _MODEL_H_
+#ifndef MODEL_H_
+#define MODEL_H_
 
 #include"model_core.h"
 #include"ref.h"
@@ -65,5 +65,5 @@ public:
 
 typedef ref<model> model_ref;
 
-#endif /* _MODEL_H_ */
+#endif /* MODEL_H_ */
 

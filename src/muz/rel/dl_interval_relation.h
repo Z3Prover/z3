@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_INTERVAL_RELATION_H_
-#define _DL_INTERVAL_RELATION_H_
+#ifndef DL_INTERVAL_RELATION_H_
+#define DL_INTERVAL_RELATION_H_
 
 
 #include "dl_context.h"

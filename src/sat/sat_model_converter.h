@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_MODEL_CONVERTER_H_
-#define _SAT_MODEL_CONVERTER_H_
+#ifndef SAT_MODEL_CONVERTER_H_
+#define SAT_MODEL_CONVERTER_H_
 
 #include"sat_types.h"
 

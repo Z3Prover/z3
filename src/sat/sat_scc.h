@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_SCC_H_
-#define _SAT_SCC_H_
+#ifndef SAT_SCC_H_
+#define SAT_SCC_H_
 
 #include"sat_types.h"
 #include"statistics.h"

@@ -66,6 +66,47 @@ namespace Microsoft.Z3
                 throw new Z3Exception("Unknown symbol kind encountered");
         }
 
+
+        /// <summary>
+        /// Equality overloading.
+        /// </summary>
+        public static bool operator ==(Symbol s1, Symbol s2)
+        {
+            
+            return Object.ReferenceEquals(s1, s2) ||
+                   (!Object.ReferenceEquals(s1, null) &&
+                    !Object.ReferenceEquals(s2, null) &&
+                    s1.NativeObject == s2.NativeObject);
+        }
+
+        /// <summary>
+        /// Equality overloading.
+        /// </summary>
+        public static bool operator !=(Symbol s1, Symbol s2)
+        {
+            return !(s1.NativeObject == s2.NativeObject);
+        }
+
+        /// <summary>
+        /// Object comparison.
+        /// </summary>
+        public override bool Equals(object o)
+        {
+            Symbol casted = o as Symbol;
+            if (casted == null) return false;
+            return this == casted;
+        }
+
+        /// <summary>
+        /// The Symbols's hash code.
+        /// </summary>
+        /// <returns>A hash code</returns>
+        public override int GetHashCode()
+        {
+            return (int)NativeObject;
+        }
+
+
         #region Internal
         /// <summary>
         /// Symbol constructor

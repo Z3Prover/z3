@@ -16,7 +16,9 @@ Author:
 Revision History:
 
 --*/
+#include<math.h>
 #include<float.h>
+#include<sstream>
 
 #ifdef _WINDOWS
 #pragma float_control( except, on )   // exception semantics; this does _not_ mean that exceptions are enabled (we want them off!)
@@ -24,18 +26,12 @@ Revision History:
 #pragma fp_contract(off)              // contractions off (`contraction' means x*y+z is turned into a fused-mul-add).
 #pragma fenv_access(on)               // fpu environment sensitivity (needed to be allowed to make FPU mode changes).
 #else
-#ifdef _WINDOWS
-#pragma STDC FENV_ACCESS ON
-#endif
-#include <math.h>
-#include <fenv.h>
+#include<fenv.h>
 #endif
 
 #ifndef _M_IA64
 #define USE_INTRINSICS
 #endif
-
-#include<sstream>
 
 #include"hwf.h"
 
@@ -57,7 +53,7 @@ Revision History:
 
 hwf_manager::hwf_manager() :
     m_mpz_manager(m_mpq_manager)
-{
+{    
 #ifdef _WINDOWS
 #if defined(_AMD64_) || defined(_M_IA64)
     // Precision control is not supported on x64. 
@@ -306,20 +302,31 @@ void hwf_manager::div(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf & 
 #pragma fp_contract(on)
 #endif
 
-void hwf_manager::fused_mul_add(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf const &z, hwf & o) {
+void hwf_manager::fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf const &z, hwf & o) {
     // CMW: fused_mul_add is not available on most CPUs. As of 2012, only Itanium, 
     // Intel Sandybridge and AMD Bulldozers support that (via AVX).
 
-#ifdef _M_IA64
-    // IA64 (Itanium) will do it, if contractions are on.
     set_rounding_mode(rm);
+
+#ifdef _M_IA64
+    // IA64 (Itanium) will do it, if contractions are on.    
     o.value = x.value * y.value + z.value;
 #else
-    // NOT_IMPLEMENTED_YET();
-    // Just a dummy for now:
-    hwf t;
-    mul(rm, x, y, t);
-    add(rm, t, z, o);
+#if defined(_WINDOWS)    
+#if _MSC_VER >= 1800
+    o.value = ::fma(x.value, y.value, z.value);    
+#else // Windows, older than VS 2013
+  #ifdef USE_INTRINSICS
+      _mm_store_sd(&o.value, _mm_fmadd_sd(_mm_set_sd(x.value), _mm_set_sd(y.value), _mm_set_sd(z.value)));
+  #else
+      // If all else fails, we are imprecise.
+      o.value = (x.value * y.value) + z;
+  #endif
+#endif
+#else
+    // Linux, OSX
+    o.value = ::fma(x.value, y.value, z.value);
+#endif
 #endif
 }
 
@@ -338,8 +345,38 @@ void hwf_manager::sqrt(mpf_rounding_mode rm, hwf const & x, hwf & o) {
 
 void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o) {
     set_rounding_mode(rm);
-    modf(x.value, &o.value);
-    // Note: on x64, this sometimes produces an SNAN instead of a QNAN?
+    // CMW: modf is not the right function here.
+    // modf(x.value, &o.value);
+
+    // According to the Intel Architecture manual, the x87-instrunction FRNDINT is the 
+    // same in 32-bit and 64-bit mode. The _mm_round_* intrinsics are SSE4 extensions.
+#ifdef _WINDOWS
+#ifdef USE_INTRINSICS
+    switch (rm) {
+    case 0: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_NEAREST_INT)); break;
+    case 2: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_POS_INF)); break;
+    case 3: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_NEG_INF)); break;
+    case 4: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_ZERO)); break;
+    case 1:
+        UNREACHABLE(); // Note: MPF_ROUND_NEAREST_TAWAY is not supported by the hardware!
+        break;
+    default:
+        UNREACHABLE(); // Unknown rounding mode.
+    }
+#else
+    double xv = x.value;
+    double & ov = o.value;
+
+    __asm {
+        fld     xv
+        frndint
+        fstp    ov // Store result away.
+    }
+#endif
+#else
+    // Linux, OSX.
+    o.value = nearbyint(x.value);
+#endif
 }
 
 void hwf_manager::rem(hwf const & x, hwf const & y, hwf & o) {

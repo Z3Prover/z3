@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _RESOURCE_LIMIT_H_
-#define _RESOURCE_LIMIT_H_
+#ifndef RESOURCE_LIMIT_H_
+#define RESOURCE_LIMIT_H_
 
 //
 // This object is used to limit the availability of "resources" during a search.
@@ -164,5 +164,5 @@ public:
 };
     
 
-#endif /* _RESOURCE_LIMIT_H_ */
+#endif /* RESOURCE_LIMIT_H_ */
 

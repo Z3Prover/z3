@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BOUND_PROPAGATOR_H_
-#define _BOUND_PROPAGATOR_H_
+#ifndef BOUND_PROPAGATOR_H_
+#define BOUND_PROPAGATOR_H_
 
 #include"mpq.h"
 #include"vector.h"

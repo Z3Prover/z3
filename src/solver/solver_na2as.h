@@ -19,8 +19,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SOLVER_NA2AS_H_
-#define _SOLVER_NA2AS_H_
+#ifndef SOLVER_NA2AS_H_
+#define SOLVER_NA2AS_H_
 
 #include"solver.h"
 

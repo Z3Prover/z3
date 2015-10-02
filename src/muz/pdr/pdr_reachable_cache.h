@@ -18,8 +18,8 @@ Revision History:
 --*/
 
 
-#ifndef _REACHABLE_CACHE_H_
-#define _REACHABLE_CACHE_H_
+#ifndef REACHABLE_CACHE_H_
+#define REACHABLE_CACHE_H_
 #include "ast.h"
 #include "ref_vector.h"
 #include "pdr_manager.h"

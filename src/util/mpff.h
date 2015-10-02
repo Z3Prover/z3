@@ -20,8 +20,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MPFF_H_
-#define _MPFF_H_
+#ifndef MPFF_H_
+#define MPFF_H_
 
 #include"id_gen.h"
 #include"util.h"

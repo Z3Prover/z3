@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include "qe_arith.h"
 #include "qe.h"
 #include "th_rewriter.h"
@@ -56,7 +62,7 @@ static void test(char const *ex) {
     app_ref_vector vars(m);
     expr_ref_vector lits(m);
     vars.push_back(m.mk_const(symbol("x"), a.mk_real()));
-    qe::flatten_and(fml, lits);
+    flatten_and(fml, lits);
 
     smt::context ctx(m, params);
     ctx.assert_expr(fml);
@@ -83,7 +89,7 @@ static void test2(char const *ex) {
     vars.push_back(m.mk_const(symbol("x"), a.mk_real()));
     vars.push_back(m.mk_const(symbol("y"), a.mk_real()));
     vars.push_back(m.mk_const(symbol("z"), a.mk_real()));
-    qe::flatten_and(fml, lits);
+    flatten_and(fml, lits);
 
     smt::context ctx(m, params);
     ctx.push();

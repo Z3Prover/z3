@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _NLSAT_EVALUATOR_H_
-#define _NLSAT_EVALUATOR_H_
+#ifndef NLSAT_EVALUATOR_H_
+#define NLSAT_EVALUATOR_H_
 
 #include"nlsat_types.h"
 #include"nlsat_assignment.h"

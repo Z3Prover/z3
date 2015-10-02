@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PATTERN_VALIDATION_H_
-#define _PATTERN_VALIDATION_H_
+#ifndef PATTERN_VALIDATION_H_
+#define PATTERN_VALIDATION_H_
 
 #include"ast.h"
 #include"uint_set.h"
@@ -39,5 +39,5 @@ public:
     bool operator()(unsigned num_new_bindings, expr * n) { return operator()(UINT_MAX, num_new_bindings, n); }
 };
 
-#endif /* _PATTERN_VALIDATION_H_ */
+#endif /* PATTERN_VALIDATION_H_ */
 

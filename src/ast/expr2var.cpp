@@ -73,5 +73,22 @@ void expr2var::reset() {
     dec_ref_map_keys(m(), m_mapping);
     SASSERT(m_mapping.empty());
     m_recent_exprs.reset();
+    m_recent_lim.reset();
     m_interpreted_vars = false;
+}
+
+void expr2var::push() {
+    m_recent_lim.push_back(m_recent_exprs.size());
+}
+
+void expr2var::pop(unsigned num_scopes) {
+    if (num_scopes > 0) {
+        unsigned sz = m_recent_lim[m_recent_lim.size() - num_scopes];
+        for (unsigned i = sz; i < m_recent_exprs.size(); ++i) {
+            m_mapping.erase(m_recent_exprs[i]);
+            m().dec_ref(m_recent_exprs[i]);
+        }
+        m_recent_exprs.shrink(sz);
+        m_recent_lim.shrink(m_recent_lim.size() - num_scopes);
+    }
 }

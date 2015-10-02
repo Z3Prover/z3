@@ -18,8 +18,8 @@ Revision History:
 
 --*/
 
-#ifndef _PDR_MANAGER_H_
-#define _PDR_MANAGER_H_
+#ifndef PDR_MANAGER_H_
+#define PDR_MANAGER_H_
 
 #include <utility>
 #include <map>
@@ -70,8 +70,8 @@ namespace pdr {
         expr_ref to_expr() const;
 
         void to_model(model_ref& md) const;
-
-        void display(ptr_vector<datalog::rule> const& rules, std::ostream& out) const;
+        
+        void display(datalog::rule_manager& rm, ptr_vector<datalog::rule> const& rules, std::ostream& out) const;
     };
 
     class manager

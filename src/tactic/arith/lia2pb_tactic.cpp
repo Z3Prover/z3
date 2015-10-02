@@ -293,9 +293,12 @@ class lia2pb_tactic : public tactic {
                 m_rw(curr, new_curr, new_pr);
                 if (m_produce_unsat_cores) {
                     dep = m.mk_join(m_rw.get_used_dependencies(), g->dep(idx));
-                    m_rw.reset_used_dependencies();
+                    m_rw.reset_used_dependencies();                    
                 }
-                g->update(idx, new_curr, 0, dep);
+                if (m.proofs_enabled()) {
+                    new_pr  = m.mk_modus_ponens(g->pr(idx), new_pr);
+                }
+                g->update(idx, new_curr, new_pr, dep);
             }
             g->inc_depth();
             result.push_back(g.get());

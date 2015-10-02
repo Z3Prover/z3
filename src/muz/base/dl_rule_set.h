@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_RULE_SET_H_
-#define _DL_RULE_SET_H_
+#ifndef DL_RULE_SET_H_
+#define DL_RULE_SET_H_
 
 #include"obj_hashtable.h"
 #include"dl_rule.h"
@@ -39,10 +39,10 @@ namespace datalog {
            Each master object is also present as a key of the map, even if its master set
            is empty.
         */
-        deps_type m_data;
-        context & m_context;
+        deps_type        m_data;
+        context &        m_context;
         ptr_vector<expr> m_todo;
-        ast_mark         m_visited;
+        expr_sparse_mark m_visited;
 
 
         //we need to take care with removing to avoid memory leaks
@@ -179,6 +179,7 @@ namespace datalog {
         void compute_deps();
         void compute_tc_deps();
         bool stratified_negation();
+        bool check_min();
     public:
         rule_set(context & ctx);
         rule_set(const rule_set & rs);
@@ -278,5 +279,5 @@ namespace datalog {
     
 };
 
-#endif /* _DL_RULE_SET_H_ */
+#endif /* DL_RULE_SET_H_ */
 

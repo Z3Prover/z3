@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_ARITH_INV_H_
-#define _THEORY_ARITH_INV_H_
+#ifndef THEORY_ARITH_INV_H_
+#define THEORY_ARITH_INV_H_
 
 #include"theory_arith.h"
 #include"ast_pp.h"
@@ -196,12 +196,37 @@ namespace smt {
             CTRACE("bound_bug", below_lower(v) || above_upper(v), display_var(tout, v); display(tout););
             SASSERT(!below_lower(v));
             SASSERT(!above_upper(v));
+            if (below_lower(v) || above_upper(v)) return false;
         }
         return true;
     }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::satisfy_integrality() const {
+        int num = get_num_vars();
+        for (theory_var v = 0; v < num; v++) {
+            if (is_int(v) && !get_value(v).is_int()) {
+                TRACE("bound_bug", display_var(tout, v); display(tout););
+                return false;
+            }
+        }
+        return true;
+    }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::valid_assignment() const {
+        if (valid_row_assignment() &&
+            satisfy_bounds() &&
+            satisfy_integrality()) {
+            return true;
+        }
+        TRACE("arith", display(tout););
+        return false;
+    }
+
 #endif
 
 };
 
-#endif /* _THEORY_ARITH_INV_H_ */
+#endif /* THEORY_ARITH_INV_H_ */
 

@@ -52,6 +52,7 @@ Revision History:
 
 #include "dl_mk_slice.h"
 #include "ast_pp.h"
+#include "ast_util.h"
 #include "expr_functors.h"
 #include "dl_mk_rule_inliner.h"
 #include "model_smt2_pp.h"
@@ -120,7 +121,7 @@ namespace datalog {
             obj_map<rule, rule*>::iterator end = m_rule2slice.end();
             expr_ref fml(m);
             for (; it != end; ++it) {
-                it->m_value->to_formula(fml);
+                rm.to_formula(*it->m_value, fml);
                 m_pinned_exprs.push_back(fml);
                 TRACE("dl", 
                       tout << "orig: " << mk_pp(fml, m) << "\n";
@@ -238,7 +239,7 @@ namespace datalog {
                     r3->display(m_ctx, tout << "res:"););
                 r1 = r3;
             }
-            r1->to_formula(concl);
+            rm.to_formula(*r1.get(), concl);
             proof* new_p = m.mk_hyper_resolve(premises.size(), premises.c_ptr(), concl, positions, substs);
             m_pinned_exprs.push_back(new_p);
             m_pinned_rules.push_back(r1.get());
@@ -619,7 +620,7 @@ namespace datalog {
         for (unsigned j = r.get_uninterpreted_tail_size(); j < r.get_tail_size(); ++j) {
             conjs.push_back(r.get_tail(j));
         }
-        qe::flatten_and(conjs);
+        flatten_and(conjs);
         return conjs;
     }
 
@@ -676,10 +677,10 @@ namespace datalog {
     }
 
     void mk_slice::add_free_vars(uint_set& result, expr* e) {
-        ptr_vector<sort> sorts;
-        get_free_vars(e, sorts);
-        for (unsigned i = 0; i < sorts.size(); ++i) {
-            if (sorts[i]) {
+        expr_free_vars fv;
+        fv(e);
+        for (unsigned i = 0; i < fv.size(); ++i) {
+            if (fv[i]) {
                 result.insert(i);
             }
         }
@@ -773,14 +774,11 @@ namespace datalog {
             init_vars(r);
             app_ref_vector tail(m);
             app_ref head(m);
-            ptr_vector<sort> sorts;
             update_predicate(r.get_head(), head);
-            get_free_vars(head.get(), sorts);
             for (unsigned i = 0; i < r.get_uninterpreted_tail_size(); ++i) {
                 app_ref t(m);
                 update_predicate(r.get_tail(i), t);
                 tail.push_back(t);
-                get_free_vars(t, sorts);
             }
             expr_ref_vector conjs = get_tail_conjs(r);
             
@@ -816,9 +814,10 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_slice::operator()(rule_set const & src) {        
+    rule_set * mk_slice::operator()(rule_set const & src) { 
+        rule_manager& rm = m_ctx.get_rule_manager();       
         for (unsigned i = 0; i < src.get_num_rules(); ++i) {
-            if (src.get_rule(i)->has_quantifiers()) {
+            if (rm.has_quantifiers(*src.get_rule(i))) {
                 return 0;
             }
         }

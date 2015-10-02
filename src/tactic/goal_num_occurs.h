@@ -15,8 +15,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _GOAL_NUM_OCCURS_H_
-#define _GOAL_NUM_OCCURS_H_
+#ifndef GOAL_NUM_OCCURS_H_
+#define GOAL_NUM_OCCURS_H_
 
 #include"num_occurs.h"
 

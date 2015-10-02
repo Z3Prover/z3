@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _OBJ_PAIR_SET_H_
-#define _OBJ_PAIR_SET_H_
+#ifndef OBJ_PAIR_SET_H_
+#define OBJ_PAIR_SET_H_
 
 #include"chashtable.h"
 

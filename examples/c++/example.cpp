@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #include<vector>
 #include"z3++.h"
 
@@ -205,6 +211,9 @@ void bitvector_example1() {
 
     // using unsigned <=
     prove(ule(x - 10, 0) == ule(x, 10));
+
+    expr y = c.bv_const("y", 32);
+    prove(implies(concat(x, y) == concat(y, x), x == y));
 }
 
 /**
@@ -977,6 +986,30 @@ void substitute_example() {
     std::cout << new_f << std::endl;
 }
 
+void opt_example() {
+    context c;
+    optimize opt(c);
+    params p(c);
+    p.set("priority",c.str_symbol("pareto"));
+    opt.set(p);
+    expr x = c.int_const("x");
+    expr y = c.int_const("y");
+    opt.add(10 >= x && x >= 0);
+    opt.add(10 >= y && y >= 0);
+    opt.add(x + y <= 11);
+    optimize::handle h1 = opt.maximize(x);
+    optimize::handle h2 = opt.maximize(y);
+    check_result r = sat;
+    while (true) {
+        if (sat == opt.check()) {
+            std::cout << x << ": " << opt.lower(h1) << " " << y << ": " << opt.lower(h2) << "\n";
+        }
+        else {
+            break;
+        }
+    }
+}
+
 void extract_example() {
     std::cout << "extract example\n";
     context c;
@@ -1025,6 +1058,7 @@ int main() {
         expr_vector_example(); std::cout << "\n";
         exists_expr_vector_example(); std::cout << "\n";
         substitute_example(); std::cout << "\n";
+        opt_example(); std::cout << "\n";
         extract_example(); std::cout << "\n";
         std::cout << "done\n";
     }

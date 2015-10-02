@@ -99,8 +99,17 @@ namespace polynomial {
         void set_var(var x) { first = x; }
         
         struct lt_var {
-            bool operator()(power const & p1, power const & p2) {
-                SASSERT(p1.get_var() != p2.get_var());
+            bool operator()(power const & p1, power const & p2) {                
+                // CMW: The assertion below does not hold on OSX, because 
+                // their implementation of std::sort will try to compare
+                // two items at the same index instead of comparing
+                // the indices directly. I suspect that the purpose of
+                // this assertion was to make sure that there are 
+                // no duplicates, so I replaced it with a new assertion at
+                // the end of var_degrees(...).
+
+                // SASSERT(p1.get_var() != p2.get_var());
+
                 return p1.get_var() < p2.get_var();
             }
         };
@@ -542,6 +551,7 @@ namespace polynomial {
                 increase_capacity(sz * 2);
             SASSERT(sz < m_capacity);
             m_ptr->m_size = sz;
+            if (sz == 0) return;
             memcpy(m_ptr->m_powers, pws, sizeof(power) * sz);
         }
         
@@ -1652,12 +1662,12 @@ namespace polynomial {
     }
     
     void manager::factors::display(std::ostream & out) const {
-		out << m().m().to_string(get_constant());
-		for (unsigned i = 0; i < m_factors.size(); ++ i) {
-			out << " * (";
-			m_manager.display(out, m_factors[i]);
-			out << ")^" << m_degrees[i];
-		}
+        out << m().m().to_string(get_constant());
+        for (unsigned i = 0; i < m_factors.size(); ++ i) {
+            out << " * (";
+            m_manager.display(out, m_factors[i]);
+            out << ")^" << m_degrees[i];
+        }
     }
 
     void manager::factors::set_constant(numeral const & constant) { 
@@ -3241,6 +3251,13 @@ namespace polynomial {
                 SASSERT(var2pos[pws[i].get_var()] != UINT_MAX);
                 var2pos[pws[i].get_var()] = UINT_MAX;
             }
+
+            DEBUG_CODE({
+                for (unsigned i = 0; i < pws.size(); i++) {
+                    for (unsigned j = i + 1; j < pws.size(); j++)
+                        SASSERT(pws[i].first != pws[j].first);
+                }
+            });
         }
 
         void var_max_degrees(polynomial const * p, power_buffer & pws) {

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_MK_BACKWARDS_H_
-#define _DL_MK_BACKWARDS_H_
+#ifndef DL_MK_BACKWARDS_H_
+#define DL_MK_BACKWARDS_H_
 
 #include"dl_rule_transformer.h"
 
@@ -34,5 +34,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_MK_BACKWARDS_H_ */
+#endif /* DL_MK_BACKWARDS_H_ */
 

@@ -26,8 +26,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _GOAL2SAT_H_
-#define _GOAL2SAT_H_
+#ifndef GOAL2SAT_H_
+#define GOAL2SAT_H_
 
 #include"goal.h"
 #include"sat_solver.h"
@@ -40,6 +40,8 @@ class goal2sat {
     struct scoped_set_imp;
 public:
     goal2sat();
+
+    typedef obj_map<expr, sat::literal> dep2asm_map;
 
     static void collect_param_descrs(param_descrs & r);
 
@@ -55,9 +57,10 @@ public:
        \warning conversion throws a tactic_exception, if it is interrupted (by set_cancel),
        an unsupported operator is found, or memory consumption limit is reached (set with param :max-memory).
     */
-    void operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m);
+    void operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external = false);
 
     void set_cancel(bool f);
+
 };
 
 

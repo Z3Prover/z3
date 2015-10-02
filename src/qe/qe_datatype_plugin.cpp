@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 // ---------------------
 // datatypes
 // Quantifier elimination routine for recursive data-types.

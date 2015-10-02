@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _AST_SMT_PP_H_
-#define _AST_SMT_PP_H_
+#ifndef AST_SMT_PP_H_
+#define AST_SMT_PP_H_
 
 #include"ast.h"
 #include<string>

@@ -793,8 +793,10 @@ bool substitution_tree::visit(expr * e, st_visitor & st, node * r) {
                 }
                 else {
                     TRACE("st_bug", tout << "found match:\n"; m_subst->display(tout); tout << "m_subst: " << m_subst << "\n";);
-                    if (!st(n->m_expr))
+                    if (!st(n->m_expr)) {
+                        clear_stack();
                         return false;
+                    }
                     if (!backtrack())
                         break;
                 }
@@ -806,12 +808,16 @@ bool substitution_tree::visit(expr * e, st_visitor & st, node * r) {
         else if (!backtrack())
             break;
     }
+    clear_stack();
+    return true;
+}
+
+void substitution_tree::clear_stack() {
     while (!m_bstack.empty()) {
         m_subst->pop_scope();
         m_bstack.pop_back();
     }
     m_subst->pop_scope();
-    return true;
 }
 
 template<substitution_tree::st_visit_mode Mode>

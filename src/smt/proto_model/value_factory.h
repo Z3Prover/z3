@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _VALUE_FACTORY_H_
-#define _VALUE_FACTORY_H_
+#ifndef VALUE_FACTORY_H_
+#define VALUE_FACTORY_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -266,5 +266,5 @@ public:
     virtual void register_value(expr * n);
 };
 
-#endif /* _VALUE_FACTORY_H_ */
+#endif /* VALUE_FACTORY_H_ */
 

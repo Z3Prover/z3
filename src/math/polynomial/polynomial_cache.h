@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _POLYNOMIAL_CACHE_H_
-#define _POLYNOMIAL_CACHE_H_
+#ifndef POLYNOMIAL_CACHE_H_
+#define POLYNOMIAL_CACHE_H_
 
 #include"polynomial.h"
 

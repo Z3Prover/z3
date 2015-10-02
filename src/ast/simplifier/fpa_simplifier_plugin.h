@@ -14,8 +14,8 @@ Author:
     Christoph (cwinter) 2015-01-14
 
 --*/
-#ifndef _FPA_SIMPLIFIER_PLUGIN_H_
-#define _FPA_SIMPLIFIER_PLUGIN_H_
+#ifndef FPA_SIMPLIFIER_PLUGIN_H_
+#define FPA_SIMPLIFIER_PLUGIN_H_
 
 #include"basic_simplifier_plugin.h"
 #include"fpa_decl_plugin.h"
@@ -36,4 +36,4 @@ public:
 
 };
 
-#endif /* _FPA_SIMPLIFIER_PLUGIN_H_ */
+#endif /* FPA_SIMPLIFIER_PLUGIN_H_ */

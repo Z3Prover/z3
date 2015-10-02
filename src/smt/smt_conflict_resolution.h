@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_CONFLICT_RESOLUTION_H_
-#define _SMT_CONFLICT_RESOLUTION_H_
+#ifndef SMT_CONFLICT_RESOLUTION_H_
+#define SMT_CONFLICT_RESOLUTION_H_
 
 #include"smt_literal.h"
 #include"smt_bool_var_data.h"
@@ -274,5 +274,5 @@ namespace smt {
 
 };
 
-#endif /* _SMT_CONFLICT_RESOLUTION_H_ */
+#endif /* SMT_CONFLICT_RESOLUTION_H_ */
 

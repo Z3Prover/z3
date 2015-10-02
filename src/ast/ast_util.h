@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _AST_UTIL_H_
-#define _AST_UTIL_H_
+#ifndef AST_UTIL_H_
+#define AST_UTIL_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -126,5 +126,18 @@ expr * mk_not(ast_manager & m, expr * arg);
 */
 expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args);
 
-#endif /* _AST_UTIL_H_ */
+/**
+   \brief Collect top-level conjunctions and disjunctions.
+*/
+
+void flatten_and(expr_ref_vector& result);
+
+void flatten_and(expr* fml, expr_ref_vector& result);
+
+void flatten_or(expr_ref_vector& result);
+
+void flatten_or(expr* fml, expr_ref_vector& result);
+
+
+#endif /* AST_UTIL_H_ */
 

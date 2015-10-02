@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _INF_RATIONAL_H_
-#define _INF_RATIONAL_H_
+#ifndef INF_RATIONAL_H_
+#define INF_RATIONAL_H_
 #include<stdlib.h>
 #include<string>
 #include"debug.h"
@@ -33,6 +33,8 @@ class inf_rational {
     rational m_first;
     rational m_second;
  public:
+    static void init(); // called from rational::initialize() only
+    static void finalize();  // called from rational::finalize() only
 
     unsigned hash() const { 
         return m_first.hash() ^ (m_second.hash()+1);
@@ -40,7 +42,7 @@ class inf_rational {
 
     struct hash_proc {  unsigned operator()(inf_rational const& r) const { return r.hash(); }  };
 
-	struct eq_proc { bool operator()(inf_rational const& r1, inf_rational const& r2) const { return r1 == r2; } };
+    struct eq_proc { bool operator()(inf_rational const& r1, inf_rational const& r2) const { return r1 == r2; } };
 
     void swap(inf_rational & n) { 
         m_first.swap(n.m_first);
@@ -63,10 +65,7 @@ class inf_rational {
         return s;
     }
 
-    inf_rational():
-        m_first(rational()),
-        m_second(rational())
-     {}
+    inf_rational() {}
 
     inf_rational(const inf_rational & r): 
         m_first(r.m_first),
@@ -85,10 +84,10 @@ class inf_rational {
 
     explicit inf_rational(rational const& r, bool pos_inf):
         m_first(r),
-        m_second(pos_inf?rational(1):rational(-1))
+        m_second(pos_inf ? rational::one() : rational::minus_one())
     {}
 
-    explicit inf_rational(rational const& r):
+    inf_rational(rational const& r):
         m_first(r)
     {
         m_second.reset();
@@ -316,7 +315,7 @@ class inf_rational {
             if (r.m_second.is_nonneg()) {
                 return r.m_first;
             }
-            return r.m_first - rational(1);
+            return r.m_first - rational::one();
         }
         
         return floor(r.m_first);
@@ -327,7 +326,7 @@ class inf_rational {
             if (r.m_second.is_nonpos()) {
                 return r.m_first;
             }
-            return r.m_first + rational(1);
+            return r.m_first + rational::one();
         }
         
         return ceil(r.m_first);
@@ -472,4 +471,4 @@ inline inf_rational abs(const inf_rational & r) {
     return result;
 }
 
-#endif /* _INF_RATIONAL_H_ */
+#endif /* INF_RATIONAL_H_ */

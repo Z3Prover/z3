@@ -18,8 +18,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _EXPR_MAP_H_
-#define _EXPR_MAP_H_
+#ifndef EXPR_MAP_H_
+#define EXPR_MAP_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -44,6 +44,10 @@ public:
     void erase(expr * k);
     void reset();
     void flush();
+    void set_store_proofs(bool f) { 
+        if (m_store_proofs != f) flush();
+        m_store_proofs = f; 
+    }
 };
 
 #endif

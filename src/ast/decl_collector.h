@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_DECL_COLLECTOR_H_
-#define _SMT_DECL_COLLECTOR_H_
+#ifndef SMT_DECL_COLLECTOR_H_
+#define SMT_DECL_COLLECTOR_H_
 
 #include"ast.h"
 
@@ -43,6 +43,8 @@ public:
     ast_manager & m() { return m_manager; }
 
     void visit(ast * n);
+    void visit(unsigned n, expr* const* es);
+    void visit(expr_ref_vector const& es);
 
     unsigned get_num_sorts() const { return m_sorts.size(); }
     unsigned get_num_decls() const { return m_decls.size(); }

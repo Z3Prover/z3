@@ -25,6 +25,7 @@ Notes:
 #include"array_rewriter.h"
 #include"fpa_rewriter.h"
 #include"dl_rewriter.h"
+#include"pb_rewriter.h"
 #include"rewriter_def.h"
 #include"expr_substitution.h"
 #include"ast_smt2_pp.h"
@@ -41,6 +42,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     datatype_rewriter   m_dt_rw;
     fpa_rewriter        m_f_rw;
     dl_rewriter         m_dl_rw;
+    pb_rewriter         m_pb_rw;
     arith_util          m_a_util;
     bv_util             m_bv_util;
     unsigned long long  m_max_memory; // in bytes
@@ -196,6 +198,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             return m_f_rw.mk_app_core(f, num, args, result);
         if (fid == m_dl_rw.get_fid())
             return m_dl_rw.mk_app_core(f, num, args, result);
+        if (fid == m_pb_rw.get_fid())
+            return m_pb_rw.mk_app_core(f, num, args, result);
         return BR_FAILED;
     }
 
@@ -645,6 +649,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_dt_rw(m),
         m_f_rw(m, p),
         m_dl_rw(m),
+        m_pb_rw(m),
         m_a_util(m),
         m_bv_util(m),
         m_used_dependencies(m),

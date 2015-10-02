@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _PDR_FARKAS_LEARNER_H_
-#define _PDR_FARKAS_LEARNER_H_
+#ifndef PDR_FARKAS_LEARNER_H_
+#define PDR_FARKAS_LEARNER_H_
 
 #include "arith_decl_plugin.h"
 #include "ast_translation.h"

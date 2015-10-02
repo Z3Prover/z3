@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SIMPLIFIER_H_
-#define _SIMPLIFIER_H_
+#ifndef SIMPLIFIER_H_
+#define SIMPLIFIER_H_
 
 #include"base_simplifier.h"
 #include"simplifier_plugin.h"
@@ -210,7 +210,7 @@ public:
 
     plugin * get_plugin(family_id fid) const { return m_plugins.get_plugin(fid); }
 
-    ast_manager & get_manager() { return m_manager; }
+    ast_manager & get_manager() { return m; }
 
     void borrow_plugins(simplifier const & s);
     void release_plugins();

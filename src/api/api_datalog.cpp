@@ -125,7 +125,7 @@ namespace api {
                 return "unknown";
             }
         }
-        std::string to_string(unsigned num_queries, expr*const* queries) {
+        std::string to_string(unsigned num_queries, expr* const* queries) {
             std::stringstream str;
             m_context.display_smt2(num_queries, queries, str);
             return str.str();
@@ -287,9 +287,11 @@ extern "C" {
         lbool r = l_undef;
         cancel_eh<api::fixedpoint_context> eh(*to_fixedpoint_ref(d));
         unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned rlimit  = to_fixedpoint(d)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
         api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
             scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
                 r = to_fixedpoint_ref(d)->ctx().query(to_expr(q));
             }
@@ -304,8 +306,8 @@ extern "C" {
     }
 
     Z3_lbool Z3_API Z3_fixedpoint_query_relations(
-        __in Z3_context c,__in Z3_fixedpoint d, 
-        __in unsigned num_relations, Z3_func_decl const relations[]) {
+        Z3_context c,Z3_fixedpoint d, 
+        unsigned num_relations, Z3_func_decl const relations[]) {
         Z3_TRY;
         LOG_Z3_fixedpoint_query_relations(c, d, num_relations, relations);
         RESET_ERROR_CODE();
@@ -466,12 +468,15 @@ extern "C" {
         ast_manager& m = mk_c(c)->m();
         Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, m);
         mk_c(c)->save_object(v);
-        expr_ref_vector rules(m);
+        expr_ref_vector rules(m), queries(m);
         svector<symbol> names;
         
-        to_fixedpoint_ref(d)->ctx().get_rules_as_formulas(rules, names);
+        to_fixedpoint_ref(d)->ctx().get_rules_as_formulas(rules, queries, names);
         for (unsigned i = 0; i < rules.size(); ++i) {
             v->m_ast_vector.push_back(rules[i].get());
+        }
+        for (unsigned i = 0; i < queries.size(); ++i) {
+            v->m_ast_vector.push_back(m.mk_not(queries[i].get()));
         }
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);

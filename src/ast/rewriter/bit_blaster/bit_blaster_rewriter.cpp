@@ -92,6 +92,9 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
     expr_ref_vector                          m_out;
     obj_map<func_decl, expr*>                m_const2bits;
     expr_ref_vector                          m_bindings;
+    func_decl_ref_vector                     m_keys;
+    expr_ref_vector                          m_values;
+    unsigned_vector                          m_keyval_lim;
 
     bool                                     m_blast_mul;
     bool                                     m_blast_add;
@@ -116,12 +119,13 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         m_in1(m),
         m_in2(m),
         m_out(m),
-        m_bindings(m) {
+        m_bindings(m),
+        m_keys(m), 
+        m_values(m) {
         updt_params(p);
     }
 
     ~blaster_rewriter_cfg() {
-        dec_ref_map_key_values(m_manager, m_const2bits);
     }
 
     void updt_params(params_ref const & p) {
@@ -157,6 +161,24 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         }
     }
 
+    void push() {
+        m_keyval_lim.push_back(m_keys.size());
+    }
+
+    void pop(unsigned num_scopes) {
+        if (num_scopes > 0) {
+            unsigned new_sz = m_keyval_lim.size() - num_scopes;
+            unsigned lim = m_keyval_lim[new_sz];
+            for (unsigned i = m_keys.size(); i > lim; ) {
+                --i;
+                m_const2bits.remove(m_keys[i].get());
+            }
+            m_keys.resize(lim);
+            m_values.resize(lim);
+            m_keyval_lim.resize(new_sz);
+        }
+    }
+
     template<typename V>
     app * mk_mkbv(V const & bits) {
         return m().mk_app(butil().get_family_id(), OP_MKBV, bits.size(), bits.c_ptr());
@@ -180,8 +202,8 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         }
         r = mk_mkbv(m_out);
         m_const2bits.insert(f, r);
-        m_manager.inc_ref(f);
-        m_manager.inc_ref(r);
+        m_keys.push_back(f);
+        m_values.push_back(r);
         result = r;
     }
 
@@ -611,6 +633,8 @@ struct bit_blaster_rewriter::imp : public rewriter_tpl<blaster_rewriter_cfg> {
         m_cfg(m, m_blaster, p) {
         SASSERT(m_blaster.butil().get_family_id() == m.get_family_id("bv"));
     }
+    void push() { m_cfg.push(); }
+    void pop(unsigned s) { m_cfg.pop(s); }
 };
 
 bit_blaster_rewriter::bit_blaster_rewriter(ast_manager & m, params_ref const & p):
@@ -628,6 +652,14 @@ void bit_blaster_rewriter::updt_params(params_ref const& p) {
 void bit_blaster_rewriter::set_cancel(bool f) {
     m_imp->set_cancel(f);
     m_imp->m_blaster.set_cancel(f);
+}
+
+void bit_blaster_rewriter::push() {
+    m_imp->push();
+}
+
+void bit_blaster_rewriter::pop(unsigned num_scopes) {
+    m_imp->pop(num_scopes);
 }
 
 ast_manager & bit_blaster_rewriter::m() const {

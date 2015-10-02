@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_SETUP_H_
-#define _SMT_SETUP_H_
+#ifndef SMT_SETUP_H_
+#define SMT_SETUP_H_
 
 #include"ast.h"
 #include"smt_params.h"
@@ -42,7 +42,7 @@ namespace smt {
     class setup {
         context &          m_context;
         ast_manager &      m_manager;
-        smt_params & m_params;
+        smt_params &       m_params;
         symbol             m_logic;
         bool               m_already_configured;
         void setup_auto_config();
@@ -93,8 +93,8 @@ namespace smt {
         void setup_bv();
         void setup_arith();
         void setup_dl();
-        void setup_seq();        
-        void setup_instgen();
+        void setup_seq();
+        void setup_card();
         void setup_i_arith();
         void setup_mi_arith();
         void setup_fpa();
@@ -114,5 +114,5 @@ namespace smt {
     };
 };
 
-#endif /* _SMT_SETUP_H_ */
+#endif /* SMT_SETUP_H_ */
 

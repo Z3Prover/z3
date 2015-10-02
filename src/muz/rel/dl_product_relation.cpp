@@ -77,6 +77,7 @@ namespace datalog {
     }
 
     family_id product_relation_plugin::get_relation_kind(const relation_signature & sig, const rel_spec & spec) {
+        SASSERT(spec.well_formed());
         return m_spec_store.get_relation_kind(sig, spec);
     }
 
@@ -132,14 +133,11 @@ namespace datalog {
         ptr_vector<const product_relation>::const_iterator rend = rels.end();
         for(; rit!=rend; ++rit) {
             specs.push_back((*rit)->m_spec);
+            SASSERT(specs.back().well_formed());
+            std::sort(specs.back().begin(), specs.back().end());
         }
 
-        vector<rel_spec>::iterator sit = specs.begin();
-        vector<rel_spec>::iterator send = specs.end();
-        for(; sit!=send; ++sit) {
-            rel_spec & s = *sit;
-            std::sort(s.begin(), s.end());
-        }
+        vector<rel_spec>::iterator sit = specs.begin(), send = specs.end();
 
         res.reset();
         for(;;) {
@@ -160,7 +158,7 @@ namespace datalog {
             sit = specs.begin();
             for(; sit!=send; ++sit) {
                 rel_spec & s = *sit;
-                if(!s.empty() && s.back()==next) {
+                while (!s.empty() && s.back()==next) {
                     s.pop_back();
                 }
             }
@@ -184,11 +182,14 @@ namespace datalog {
     }
 
     relation_base * product_relation_plugin::mk_full(func_decl* p, const relation_signature & s, family_id kind) {
-        if (kind == null_family_id) {
-            return alloc(product_relation, *this, s);
+        if (kind == null_family_id || !m_spec_store.contains_signature(s)) {
+            product_relation* result = alloc(product_relation, *this, s);
+            result->m_default_empty = false;
+            return result;
         }
         rel_spec spec;
         m_spec_store.get_relation_spec(s, kind, spec);
+        SASSERT(spec.well_formed());
         relation_vector inner_rels;
         unsigned rel_cnt = spec.size();
         for(unsigned i=0; i<rel_cnt; i++) {
@@ -538,6 +539,7 @@ namespace datalog {
      
     class product_relation_plugin::aligned_union_fn : public relation_union_fn {
         relation_manager & m_rmgr;
+        product_relation_plugin& m_plugin;
         bool m_is_widen;
 
         //m_union[i][j] is union between i-th and j-th relation.
@@ -554,6 +556,7 @@ namespace datalog {
             else {
                 u = rmgr.mk_union_fn(r1, r2, delta);
             }
+            TRACE("dl_verbose", tout << r1.get_plugin().get_name() << " " << r2.get_plugin().get_name() << " " << (u?"found":"not found") << "\n";); 
             m_unions.back().push_back(u);
         }
 
@@ -572,7 +575,7 @@ namespace datalog {
         }
 
         bool can_do_inner_union(unsigned tgt_idx, unsigned src_idx) {
-            return m_unions[tgt_idx][src_idx]!=0;
+            return m_unions[tgt_idx][src_idx] != 0;
         }
 
         void do_inner_union(unsigned tgt_idx, unsigned src_idx, relation_base& tgt, 
@@ -599,7 +602,8 @@ namespace datalog {
         void do_intersection(relation_base& tgt, relation_base& src) {
             scoped_ptr<relation_intersection_filter_fn> intersect_fun = 
                 m_rmgr.mk_filter_by_intersection_fn(tgt, src);
-            if(!intersect_fun) {
+            if (!intersect_fun) {
+                TRACE("dl", tgt.display(tout << "tgt\n"); src.display(tout << "src\n");); 
                 warning_msg("intersection does not exist");
                 return;
             }
@@ -611,9 +615,13 @@ namespace datalog {
             (*union_fun)(tgt, src);
         }
     public:
-        aligned_union_fn(product_relation const& tgt, product_relation const& src, product_relation const* delta, 
-                    bool is_widen) :
+        aligned_union_fn(
+            product_relation const& tgt, 
+            product_relation const& src, 
+            product_relation const* delta, 
+            bool is_widen) :
                 m_rmgr(tgt.get_manager()),
+                m_plugin(tgt.get_plugin()),
                 m_is_widen(is_widen) {
             SASSERT(vectors_equal(tgt.m_spec, src.m_spec));
             SASSERT(!delta || vectors_equal(tgt.m_spec, delta->m_spec));
@@ -629,6 +637,9 @@ namespace datalog {
 
         virtual void operator()(relation_base& _tgt, const relation_base& _src, relation_base* _delta) {
             TRACE("dl", _tgt.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
+            SASSERT(m_plugin.check_kind(_tgt));
+            SASSERT(m_plugin.check_kind(_src));
+            SASSERT(!_delta || m_plugin.check_kind(*_delta));
             product_relation& tgt = get(_tgt);
             product_relation const& src = get(_src);
             product_relation* delta = get(_delta);
@@ -650,7 +661,7 @@ namespace datalog {
                     if (i == j) {
                         continue; //this is the basic union which we will perform later
                     }
-                    if (can_do_inner_union(i, j)) {
+                    if (can_do_inner_union(i, j) && can_do_inner_union(j, i)) {
                         TRACE("dl", itgt.display(tout << "tgt:\n"); src[j].display(tout << "src:\n"););
                         // union[i][j]
                         scoped_rel<relation_base> one_side_union = itgt.clone();
@@ -738,7 +749,7 @@ namespace datalog {
 
 
         virtual void operator()(relation_base& _tgt, const relation_base& _src, relation_base* _delta) {
-            TRACE("dl", _tgt.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
+            TRACE("dl_verbose", _tgt.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             product_relation& tgt = get(_tgt);
             product_relation const& src0 = get(_src);
             product_relation* delta = _delta ? get(_delta) : 0;
@@ -773,6 +784,7 @@ namespace datalog {
                 m_inner_union_fun(inner_union_fun) {}
 
         virtual void operator()(relation_base& tgt, const relation_base& _src, relation_base* delta) {
+            TRACE("dl", tgt.display(tout); _src.display(tout); );
             product_relation const& src = get(_src);
             (*m_inner_union_fun)(tgt, src[m_single_rel_idx], delta);
         }
@@ -786,7 +798,8 @@ namespace datalog {
             }
             return alloc(unaligned_union_fn, get(tgt), get(src), get(delta), is_widen);
         }
-        if(check_kind(src)) {
+        if (check_kind(src)) {
+            TRACE("dl", tgt.display(tout << "different kinds"); src.display(tout););
             const product_relation & p_src = get(src);
             unsigned single_idx;
             if(p_src.try_get_single_non_transparent(single_idx)) {
@@ -797,7 +810,7 @@ namespace datalog {
                 else {
                     inner = get_manager().mk_union_fn(tgt, p_src[single_idx], delta);
                 }
-                if(inner) {
+                if (inner) {
                     return alloc(single_non_transparent_src_union_fn, single_idx, inner);
                 }
             }
@@ -954,20 +967,17 @@ namespace datalog {
     void product_relation::ensure_correct_kind() {
         unsigned rel_cnt = m_relations.size();
         //the rel_cnt==0 part makes us to update the kind also when the relation is newly created
-        bool spec_changed = rel_cnt!=m_spec.size() || rel_cnt==0;
-        if(spec_changed) {
+        bool spec_changed = rel_cnt != m_spec.size() || rel_cnt==0;
+        if (spec_changed) {
             m_spec.resize(rel_cnt);
         }
-        for(unsigned i=0;i<rel_cnt; i++) {
-            family_id rkind=m_relations[i]->get_kind();
-            if(spec_changed || m_spec[i]!=rkind) {
-                spec_changed = true;
-                m_spec[i]=rkind;
-            }
+        for (unsigned i = 0; i < rel_cnt; i++) {
+            family_id rkind = m_relations[i]->get_kind();
+            spec_changed |= (m_spec[i] != rkind);
+            m_spec[i] = rkind;
         }
-        if(spec_changed) {
-            family_id new_kind = get_plugin().get_relation_kind(*this);
-            set_kind(new_kind);
+        if (spec_changed) {
+            set_kind(get_plugin().get_relation_kind(*this));
         }
     }
 
@@ -976,9 +986,19 @@ namespace datalog {
         func_decl* p = 0;
         const relation_signature & sig = get_signature();
         family_id new_kind = get_plugin().get_relation_kind(sig, spec);
-        if(new_kind==get_kind()) {
+        if (new_kind == get_kind()) {
             return;
         }
+
+        TRACE("dl", {
+                ast_manager& m = get_ast_manager_from_rel_manager(get_manager());
+                sig.output(m, tout); tout << "\n";
+                for (unsigned i = 0; i < spec.size(); ++i) {
+                    tout << spec[i] << " ";
+                }
+                tout << "\n";
+            }
+            );
 
         unsigned old_sz = size();
         unsigned new_sz = spec.size();
@@ -999,13 +1019,13 @@ namespace datalog {
                 }
             }
             if(!irel) {
-                if(old_sz==0 && m_default_empty) {
+                if(old_sz == 0 && m_default_empty) {
                     //The relation didn't contain any inner relations but it was empty,
                     //so we make the newly added relations empty as well.
-                    irel = get_manager().mk_empty_relation(sig, new_kind);
+                    irel = get_manager().mk_empty_relation(sig, ikind);
                 }
                 else {
-                    irel = get_manager().mk_full_relation(sig, p, new_kind);
+                    irel = get_manager().mk_full_relation(sig, p, ikind);
                 }
             }
             new_rels.push_back(irel);
@@ -1014,10 +1034,8 @@ namespace datalog {
         m_relations = new_rels;
 
         set_kind(new_kind);
-        DEBUG_CODE(
-            ensure_correct_kind();
-            SASSERT(get_kind()==new_kind);
-            );
+        m_spec = spec;
+        SASSERT(get_kind() == new_kind);        
     }
 
     bool product_relation::try_get_single_non_transparent(unsigned & idx) const {
@@ -1105,7 +1123,11 @@ namespace datalog {
     }
 
     void product_relation::display(std::ostream & out) const {
-        out<<"Product of the following relations:\n";
+        if (m_relations.empty()) {
+            out << "{}\n";
+            return;
+        }
+        out << "Product of the following relations:\n";
         for (unsigned i = 0; i < m_relations.size(); ++i) {
             m_relations[i]->display(out);
         }

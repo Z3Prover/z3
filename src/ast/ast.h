@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _AST_H_
-#define _AST_H_
+#ifndef AST_H_
+#define AST_H_
 
 #include"vector.h"
 #include"hashtable.h"
@@ -44,6 +44,7 @@ Revision History:
 #include"chashtable.h"
 #include"z3_exception.h"
 #include"dependency.h"
+#include"rlimit.h"
 
 #define RECYCLE_FREE_AST_INDICES
 
@@ -1101,6 +1102,8 @@ protected:
     func_decl * mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache);
     func_decl * mk_ite_decl(sort * s);
     sort* join(sort* s1, sort* s2);
+    sort* join(unsigned n, sort*const* srts);
+    sort* join(unsigned n, expr*const* es);
 public:
     basic_decl_plugin();
     
@@ -1422,6 +1425,7 @@ public:
     void show_id_gen();
 
 protected:
+    reslimit                  m_limit;
     small_object_allocator    m_alloc;
     family_manager            m_family_manager;
     expr_array_manager        m_expr_array_manager;
@@ -1457,6 +1461,9 @@ protected:
     void init();
 
     bool coercion_needed(func_decl * decl, unsigned num_args, expr * const * args);
+
+    void check_args(func_decl* f, unsigned n, expr* const* es);
+
 
 public:
     ast_manager(proof_gen_mode = PGM_DISABLED, char const * trace_file = 0, bool is_format_manager = false);
@@ -1513,6 +1520,8 @@ public:
             fid == m_model_value_family_id ||
             fid == m_user_sort_family_id; 
     }
+
+    reslimit& limit() { return m_limit; }
 
     void register_plugin(symbol const & s, decl_plugin * plugin);
     
@@ -2006,6 +2015,7 @@ public:
     app * mk_false() { return m_false; }
     app * mk_interp(expr * arg) { return mk_app(m_basic_family_id, OP_INTERP, arg); }
 
+
     func_decl* mk_and_decl() { 
         sort* domain[2] = { m_bool_sort, m_bool_sort };
         return mk_func_decl(m_basic_family_id, OP_AND, 0, 0, 2, domain); 
@@ -2449,6 +2459,6 @@ public:
     void operator()(AST * n) { m_manager.inc_ref(n); }
 };
 
-#endif /* _AST_H_ */
+#endif /* AST_H_ */
 
         

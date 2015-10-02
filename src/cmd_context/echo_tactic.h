@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _ECHO_TACTICS_H_
-#define _ECHO_TACTICS_H_
+#ifndef ECHO_TACTICS_H_
+#define ECHO_TACTICS_H_
 
 class cmd_context;
 class tactic;

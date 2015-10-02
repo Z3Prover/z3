@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DEPENDENCY_H_
-#define _DEPENDENCY_H_
+#ifndef DEPENDENCY_H_
+#define DEPENDENCY_H_
 
 #include"vector.h"
 #include"region.h"
@@ -171,7 +171,7 @@ public:
             m_todo.push_back(d);
             unsigned qhead = 0;
             while (qhead < m_todo.size()) {
-                dependency * d = m_todo[qhead];
+                d = m_todo[qhead];
                 qhead++;
                 if (d->is_leaf()) {
                     if (to_leaf(d)->m_value == v) {
@@ -201,7 +201,7 @@ public:
             m_todo.push_back(d);
             unsigned qhead = 0;
             while (qhead < m_todo.size()) {
-                dependency * d = m_todo[qhead];
+	        d = m_todo[qhead];
                 qhead++;
                 if (d->is_leaf()) {
                     vs.push_back(to_leaf(d)->m_value);
@@ -322,5 +322,5 @@ public:
 typedef scoped_dependency_manager<void*>             v_dependency_manager;
 typedef scoped_dependency_manager<void*>::dependency v_dependency;
 
-#endif /* _DEPENDENCY_H_ */
+#endif /* DEPENDENCY_H_ */
 

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BIT_VECTOR_H_
-#define _BIT_VECTOR_H_
+#ifndef BIT_VECTOR_H_
+#define BIT_VECTOR_H_
 
 #include<string.h>
 #include"debug.h"
@@ -75,8 +75,11 @@ public:
     bit_vector(bit_vector const & source):
         m_num_bits(source.m_num_bits),
         m_capacity(source.m_capacity),
-        m_data(alloc_svect(unsigned, source.m_capacity)) {
-        memcpy(m_data, source.m_data, source.m_capacity * sizeof(unsigned));
+        m_data(0) {
+        if (source.m_data) {
+            m_data = alloc_svect(unsigned, m_capacity);
+            memcpy(m_data, source.m_data, m_capacity * sizeof(unsigned));
+        }
     }
     
     bit_vector(unsigned const * source, int num_bits):
@@ -91,7 +94,8 @@ public:
     }
     
     void reset() {
-        memset(m_data, 0, m_capacity * sizeof(unsigned));
+        if (m_data)
+            memset(m_data, 0, m_capacity * sizeof(unsigned));
         m_num_bits = 0;
     }
 
@@ -123,6 +127,8 @@ public:
     unsigned get_word(unsigned word_idx) const {
         return m_data[word_idx];
     }
+
+    unsigned get_hash() const;
     
     bool get(unsigned bit_idx) const {
         SASSERT(bit_idx < size());
@@ -184,6 +190,9 @@ public:
 
     bit_vector & operator=(bit_vector const & source) {
         m_num_bits = source.m_num_bits;
+        if (!source.m_data)
+            return *this;
+
         if (m_capacity < source.m_capacity) {
             dealloc_svect(m_data);
             m_data     = alloc_svect(unsigned, source.m_capacity);
@@ -196,8 +205,13 @@ public:
     bit_vector & operator|=(bit_vector const & source);
 
     bit_vector & operator&=(bit_vector const & source);
+
+    bit_vector & neg();
     
     void display(std::ostream & out) const;
+
+    bool contains(const bit_vector & other) const;
+
 };
 
 inline std::ostream & operator<<(std::ostream & out, bit_vector const & b) {
@@ -237,5 +251,5 @@ public:
     }
 };
 
-#endif /* _BIT_VECTOR_H_ */
+#endif /* BIT_VECTOR_H_ */
 

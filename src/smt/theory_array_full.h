@@ -16,11 +16,12 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_ARRAY_FULL_H_
-#define _THEORY_ARRAY_FULL_H_
+#ifndef THEORY_ARRAY_FULL_H_
+#define THEORY_ARRAY_FULL_H_
 
-#include"theory_array.h"
+#include "theory_array.h"
 #include "simplifier.h"
+#include "ast_trail.h"
 
 namespace smt {
 
@@ -37,12 +38,12 @@ namespace smt {
 
         ast2ast_trailmap<sort,app> m_sort2epsilon;
         simplifier*                m_simp;
+        obj_pair_map<expr,expr,bool> m_eqs;
+        svector<literal>             m_eqsv;
 
     protected:
 
-#if 0
-        virtual final_check_status final_check_eh();
-#endif
+        //virtual final_check_status final_check_eh();
         virtual void reset_eh();
 
         virtual void set_prop_upward(theory_var v);
@@ -83,6 +84,7 @@ namespace smt {
 
 
         bool try_assign_eq(expr* n1, expr* n2);
+        void assign_eqs();
 
         
     public:
@@ -105,5 +107,5 @@ namespace smt {
 
 };
 
-#endif /* _THEORY_ARRAY_H_ */
+#endif /* THEORY_ARRAY_H_ */
 

@@ -17,8 +17,8 @@ Notes:
 
 
 --*/
-#ifndef _VSUBST_TACTIC_H_
-#define _VSUBST_TACTIC_H_
+#ifndef VSUBST_TACTIC_H_
+#define VSUBST_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

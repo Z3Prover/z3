@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef __SUBPAVING_T_H_
-#define __SUBPAVING_T_H_
+#ifndef SUBPAVING_T_H_
+#define SUBPAVING_T_H_
 
 #include<iostream>
 #include"tptr.h"

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _VAR_OFFSET_MAP_H_
-#define _VAR_OFFSET_MAP_H_
+#ifndef VAR_OFFSET_MAP_H_
+#define VAR_OFFSET_MAP_H_
 
 #include"ast.h"
 #include"vector.h"
@@ -111,4 +111,4 @@ public:
 
 };
 
-#endif /* _VAR_OFFSET_MAP_H_ */
+#endif /* VAR_OFFSET_MAP_H_ */

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _ERROR_CODES_H_
-#define _ERROR_CODES_H_
+#ifndef ERROR_CODES_H_
+#define ERROR_CODES_H_
 
 #define ERR_OK                  0
 #define ERR_MEMOUT              101
@@ -32,6 +32,7 @@ Revision History:
 #define ERR_INTERNAL_FATAL      110
 #define ERR_TYPE_CHECK          111
 #define ERR_UNKNOWN_RESULT      112
+#define ERR_ALLOC_EXCEEDED      113
 
-#endif /* _ERROR_CODES_H_ */
+#endif /* ERROR_CODES_H_ */
 

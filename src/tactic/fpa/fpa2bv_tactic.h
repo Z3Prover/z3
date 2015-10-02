@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _FPA2BV_TACTIC_
-#define _FPA2BV_TACTIC_
+#ifndef FPA2BV_TACTIC_H_
+#define FPA2BV_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

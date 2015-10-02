@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_ENGINE_BASE_H_
-#define _DL_ENGINE_BASE_H_
+#ifndef DL_ENGINE_BASE_H_
+#define DL_ENGINE_BASE_H_
 
 #include "model.h"
 
@@ -30,8 +30,9 @@ namespace datalog {
         QBMC_ENGINE,
         TAB_ENGINE,
         CLP_ENGINE,
-        LAST_ENGINE,
-	DUALITY_ENGINE
+	DUALITY_ENGINE,
+        DDNF_ENGINE,
+        LAST_ENGINE
     };
 
     class engine_base {

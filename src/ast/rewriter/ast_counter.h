@@ -21,22 +21,22 @@ Revision History:
 --*/
 
 
-#ifndef _AST_COUNTER_H_
-#define _AST_COUNTER_H_
+#ifndef AST_COUNTER_H_
+#define AST_COUNTER_H_
 
 #include "ast.h"
 #include "map.h"
 #include "uint_set.h"
+#include "var_subst.h"
 
 class counter {
 protected:
     typedef u_map<int> map_impl;
     map_impl m_data;
-    const bool m_stay_non_negative;
 public:
     typedef map_impl::iterator iterator;
     
-    counter(bool stay_non_negative = true) : m_stay_non_negative(stay_non_negative) {}
+    counter() {}
     
     void reset() { m_data.reset(); }
     iterator begin() const { return m_data.begin(); }
@@ -69,15 +69,14 @@ public:
 
 class var_counter : public counter {
 protected:
-    ptr_vector<sort> m_sorts;
     expr_fast_mark1  m_visited;
+    expr_free_vars   m_fv;
     ptr_vector<expr> m_todo;
-    ast_mark         m_mark;
     unsigned_vector  m_scopes;
     unsigned get_max_var(bool & has_var);    
 public:
-    var_counter(bool stay_non_negative = true): counter(stay_non_negative) {}
-    void count_vars(ast_manager & m, const app * t, int coef = 1);
+    var_counter() {}
+    void count_vars(const app * t, int coef = 1);
     unsigned get_max_var(expr* e);
     unsigned get_next_var(expr* e);
 };
@@ -85,11 +84,10 @@ public:
 class ast_counter {
     typedef obj_map<ast, int> map_impl;
     map_impl m_data;
-    bool     m_stay_non_negative;
  public:
     typedef map_impl::iterator iterator;
     
-    ast_counter(bool stay_non_negative = true) : m_stay_non_negative(stay_non_negative) {}
+    ast_counter() {}
     
     iterator begin() const { return m_data.begin(); }
     iterator end() const { return m_data.end(); }
@@ -99,7 +97,6 @@ class ast_counter {
     }
     void update(ast * el, int delta){
         get(el) += delta;
-        SASSERT(!m_stay_non_negative || get(el) >= 0);
     }
     
     void inc(ast * el) { update(el, 1); }

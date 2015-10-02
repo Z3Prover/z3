@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _STATIC_FEATURES_H_
-#define _STATIC_FEATURES_H_
+#ifndef STATIC_FEATURES_H_
+#define STATIC_FEATURES_H_
 
 #include"ast.h"
 #include"arith_decl_plugin.h"
@@ -142,6 +142,8 @@ struct static_features {
         }
     }
 
+    bool arith_k_sum_is_small() const { return m_arith_k_sum < rational(INT_MAX / 8); }
+
     void inc_num_apps(func_decl const * d) { unsigned id = d->get_decl_id(); m_num_apps.reserve(id+1, 0); m_num_apps[id]++; }
     void inc_theory_terms(family_id fid) { m_num_theory_terms.reserve(fid+1, 0); m_num_theory_terms[fid]++; }
     void inc_theory_atoms(family_id fid) { m_num_theory_atoms.reserve(fid+1, 0); m_num_theory_atoms[fid]++; }
@@ -176,5 +178,5 @@ struct static_features {
 
 };
 
-#endif /* _STATIC_FEATURES_H_ */
+#endif /* STATIC_FEATURES_H_ */
 

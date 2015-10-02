@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _FOR_EACH_EXPR_H_
-#define _FOR_EACH_EXPR_H_
+#ifndef FOR_EACH_EXPR_H_
+#define FOR_EACH_EXPR_H_
 
 #include"ast.h"
 #include"trace.h"
@@ -153,5 +153,5 @@ unsigned get_num_exprs(expr * n, expr_fast_mark1 & visited);
 
 bool has_skolem_functions(expr * n);
 
-#endif /* _FOR_EACH_EXPR_H_ */
+#endif /* FOR_EACH_EXPR_H_ */
 

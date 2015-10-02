@@ -15,8 +15,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _DL_CMDS_H_
-#define _DL_CMDS_H_
+#ifndef DL_CMDS_H_
+#define DL_CMDS_H_
 
 #include "ast.h"
 

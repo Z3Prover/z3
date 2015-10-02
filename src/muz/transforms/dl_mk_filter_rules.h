@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_MK_FILTER_RULES_H_
-#define _DL_MK_FILTER_RULES_H_
+#ifndef DL_MK_FILTER_RULES_H_
+#define DL_MK_FILTER_RULES_H_
 
 #include"map.h"
 
@@ -83,5 +83,5 @@ namespace datalog {
 };
 
 
-#endif /* _DL_MK_FILTER_RULES_H_ */
+#endif /* DL_MK_FILTER_RULES_H_ */
 

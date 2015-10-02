@@ -88,10 +88,26 @@ class fpa2bv_tactic : public tactic {
                     new_pr     = m.mk_modus_ponens(pr, new_pr);
                 }
                 g->update(idx, new_curr, new_pr, g->dep(idx));
+
+                if (is_app(new_curr)) {
+                    const app * a = to_app(new_curr.get());
+                    if (a->get_family_id() == m_conv.fu().get_family_id() &&
+                        a->get_decl_kind() == OP_FPA_IS_NAN) {
+                        // Inject auxiliary lemmas that fix e to the one and only NaN value, 
+                        // that is (= e (fp #b0 #b1...1 #b0...01)), so that the value propagation
+                        // has a value to propagate.
+                        expr * sgn, *sig, *exp;
+                        expr_ref top_exp(m);
+                        m_conv.split_fp(new_curr, sgn, exp, sig);
+                        m.mk_eq(sgn, m_conv.bu().mk_numeral(0, 1));
+                        m.mk_eq(exp, m_conv.bu().mk_numeral(-1, m_conv.bu().get_bv_size(exp)));
+                        m.mk_eq(sig, m_conv.bu().mk_numeral(1, m_conv.bu().get_bv_size(sig)));
+                    }
+                }
             }
 
             if (g->models_enabled())  
-                mc = mk_fpa2bv_model_converter(m, m_conv.const2bv(), m_conv.rm_const2bv(), m_conv.uf2bvuf(), m_conv.uf23bvuf());
+                mc = mk_fpa2bv_model_converter(m, m_conv.const2bv(), m_conv.rm_const2bv(), m_conv.uf2bvuf());
 
             g->inc_depth();
             result.push_back(g.get());

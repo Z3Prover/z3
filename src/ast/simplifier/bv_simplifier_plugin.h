@@ -14,8 +14,8 @@ Author:
     Leonardo (leonardo) 2008-01-08
     
 --*/
-#ifndef _BV_SIMPLIFIER_PLUGIN_H_
-#define _BV_SIMPLIFIER_PLUGIN_H_
+#ifndef BV_SIMPLIFIER_PLUGIN_H_
+#define BV_SIMPLIFIER_PLUGIN_H_
 
 #include"basic_simplifier_plugin.h"
 #include"poly_simplifier_plugin.h"
@@ -184,4 +184,4 @@ public:
 
 };
 
-#endif /* _BV_SIMPLIFIER_PLUGIN_H_ */
+#endif /* BV_SIMPLIFIER_PLUGIN_H_ */

@@ -19,8 +19,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _TACTIC2SOLVER_H_
-#define _TACTIC2SOLVER_H_
+#ifndef TACTIC2SOLVER_H_
+#define TACTIC2SOLVER_H_
 
 #include"params.h"
 class ast_manager;

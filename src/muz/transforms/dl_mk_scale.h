@@ -18,8 +18,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _DL_MK_SCALE_H_
-#define _DL_MK_SCALE_H_
+#ifndef DL_MK_SCALE_H_
+#define DL_MK_SCALE_H_
 
 #include"dl_rule_transformer.h"
 #include"arith_decl_plugin.h"
@@ -49,5 +49,5 @@ namespace datalog {
 
 };
 
-#endif /* _DL_MK_SCALE_H_ */
+#endif /* DL_MK_SCALE_H_ */
 

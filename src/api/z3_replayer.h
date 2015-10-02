@@ -16,8 +16,8 @@ Author:
 Notes:
     
 --*/
-#ifndef _Z3_REPLAYER_H_
-#define _Z3_REPLAYER_H_
+#ifndef Z3_REPLAYER_H_
+#define Z3_REPLAYER_H_
 
 #include<iostream>
 #include"z3.h"
@@ -50,6 +50,7 @@ public:
     void * get_obj(unsigned pos) const;
 
     unsigned * get_uint_array(unsigned pos) const;
+    int * get_int_array(unsigned pos) const;
     Z3_symbol * get_symbol_array(unsigned pos) const;
     void ** get_obj_array(unsigned pos) const;
 

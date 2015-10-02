@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _CHECK_SAT_RESULT_H_
-#define _CHECK_SAT_RESULT_H_
+#ifndef CHECK_SAT_RESULT_H_
+#define CHECK_SAT_RESULT_H_
 
 #include"model.h"
 #include"lbool.h"

@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#ifndef _SYM_MUX_H_
-#define _SYM_MUX_H_
+#ifndef SYM_MUX_H_
+#define SYM_MUX_H_
 
 #include "ast.h"
 #include "map.h"

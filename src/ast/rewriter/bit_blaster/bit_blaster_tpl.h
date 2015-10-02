@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BIT_BLASTER_TPL_H_
-#define _BIT_BLASTER_TPL_H_
+#ifndef BIT_BLASTER_TPL_H_
+#define BIT_BLASTER_TPL_H_
 
 #include"rational.h"
 

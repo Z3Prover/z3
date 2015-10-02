@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _EXPR_RAND_H_
-#define _EXPR_RAND_H_
+#ifndef EXPR_RAND_H_
+#define EXPR_RAND_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"

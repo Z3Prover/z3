@@ -103,7 +103,7 @@ struct dl_context {
     void add_rule(expr * rule, symbol const& name, unsigned bound) {
         init();
         if (m_collected_cmds) {
-            expr_ref rl = m_context->bind_variables(rule, true);
+            expr_ref rl = m_context->bind_vars(rule, true);
             m_collected_cmds->m_rules.push_back(rl);
             m_collected_cmds->m_names.push_back(name);
             m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_rules));
@@ -116,7 +116,7 @@ struct dl_context {
 
     bool collect_query(expr* q) {
         if (m_collected_cmds) {
-            expr_ref qr = m_context->bind_variables(q, false);
+            expr_ref qr = m_context->bind_vars(q, false);
             m_collected_cmds->m_queries.push_back(qr);
             m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_queries));
             return true;
@@ -234,6 +234,7 @@ public:
         bool query_exn = false;
         lbool status = l_undef;
         {
+            IF_VERBOSE(10, verbose_stream() << "(query)\n";);
             scoped_ctrl_c ctrlc(eh);
             scoped_timer timer(timeout, &eh);
             cmd_context::scoped_watch sw(ctx);
@@ -337,12 +338,8 @@ private:
         if (m_dl_ctx->get_params().print_statistics()) {
             statistics st;
             datalog::context& dlctx = m_dl_ctx->dlctx();
-            unsigned long long max_mem = memory::get_max_used_memory();
-            unsigned long long mem = memory::get_allocation_size();
             dlctx.collect_statistics(st);
             st.update("time", ctx.get_seconds());            
-            st.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
-            st.update("max-memory", static_cast<double>(max_mem)/static_cast<double>(1024*1024));
             st.display_smt2(ctx.regular_stream());            
         }
     }

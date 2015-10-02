@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _USER_DECL_PLUGIN_H_
-#define _USER_DECL_PLUGIN_H_
+#ifndef USER_DECL_PLUGIN_H_
+#define USER_DECL_PLUGIN_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -58,5 +58,5 @@ public:
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
 };
 
-#endif /* _USER_DECL_PLUGIN_H_ */
+#endif /* USER_DECL_PLUGIN_H_ */
 

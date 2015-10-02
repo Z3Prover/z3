@@ -18,8 +18,8 @@ Revision History:
     Extracted from dl_context
 
 --*/
-#ifndef _REL_CONTEXT_H_
-#define _REL_CONTEXT_H_
+#ifndef REL_CONTEXT_H_
+#define REL_CONTEXT_H_
 #include "ast.h"
 #include "dl_relation_manager.h"
 #include "dl_instruction.h"
@@ -41,6 +41,7 @@ namespace datalog {
         fact_vector        m_table_facts;
         execution_context  m_ectx;
         instruction_block  m_code;
+        double             m_sw;
 
         class scoped_query;
 
@@ -48,11 +49,11 @@ namespace datalog {
         
         relation_plugin & get_ordinary_relation_plugin(symbol relation_name);
         
-        void reset_tables();
-
         lbool saturate(scoped_query& sq);
 
         void set_cancel(bool f);
+
+        void setup_default_relation();
 
     public:
         rel_context(context& ctx);
@@ -79,9 +80,11 @@ namespace datalog {
         
         virtual void inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred);
 
+        virtual void collect_statistics(statistics& st) const;
 
         virtual void cancel() { set_cancel(true); }
         virtual void cleanup() { set_cancel(false);}
+        virtual void updt_params();
 
         /**
            \brief Restrict the set of used predicates to \c res.
@@ -127,4 +130,4 @@ namespace datalog {
     };
 };
 
-#endif /* _REL_CONTEXT_H_ */
+#endif /* REL_CONTEXT_H_ */

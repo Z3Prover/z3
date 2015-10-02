@@ -34,8 +34,8 @@ Notes:
 
 --*/
 
-#ifndef _HEAP_TRIE_H_
-#define _HEAP_TRIE_H_
+#ifndef HEAP_TRIE_H_
+#define HEAP_TRIE_H_
 
 #include "map.h"
 #include "vector.h"

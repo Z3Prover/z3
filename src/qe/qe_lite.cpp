@@ -30,6 +30,7 @@ Revision History:
 #include "bool_rewriter.h"
 #include "var_subst.h"
 #include "uint_set.h"
+#include "ast_util.h"
 #include "qe_util.h"
 #include "th_rewriter.h"
 #include "for_each_expr.h"
@@ -238,67 +239,95 @@ namespace eq {
             }
         }
 
-        bool solve_arith_core(app * lhs, expr * rhs, expr * eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
-            SASSERT(a.is_add(lhs));
-            bool is_int  = a.is_int(lhs);
-            expr * a1, *v;
-            expr_ref def(m);
-            rational a_val;
-            unsigned num = lhs->get_num_args();
-            unsigned i;
-            for (i = 0; i < num; i++) {
-                expr * arg = lhs->get_arg(i);
-                if (is_variable(arg)) {
-                    a_val = rational(1); 
-                    v     = arg;
-                    break;
-                }
-                else if (a.is_mul(arg, a1, v) && 
-                         is_variable(v) && 
-                         a.is_numeral(a1, a_val) &&
-                         !a_val.is_zero() &&
-                         (!is_int || a_val.is_minus_one())) {
-                    break;
+        bool is_invertible_const(bool is_int, expr* x, rational& a_val) {
+            expr* y;
+            if (a.is_uminus(x, y) && is_invertible_const(is_int, y, a_val)) {
+                a_val.neg();
+                return true;
+            }
+            else if (a.is_numeral(x, a_val) && !a_val.is_zero()) {
+                if (!is_int || a_val.is_one() || a_val.is_minus_one()) {
+                    return true;
                 }
             }
-            if (i == num)
-                return false;
-            vs.push_back(to_var(v));
-            expr_ref inv_a(m);
-            if (!a_val.is_one()) {
-                inv_a = a.mk_numeral(rational(1)/a_val, is_int);
-                rhs   = a.mk_mul(inv_a, rhs);
-            }
-            
-            ptr_buffer<expr> other_args;
-            for (unsigned j = 0; j < num; j++) {
-                if (i != j) {
-                    if (inv_a)
-                        other_args.push_back(a.mk_mul(inv_a, lhs->get_arg(j)));
-                    else
-                        other_args.push_back(lhs->get_arg(j));
-                }
-            }
-            switch (other_args.size()) {
-            case 0:
-                def = rhs;
-                break;
-            case 1:
-                def = a.mk_sub(rhs, other_args[0]);
-                break;
-            default:
-                def = a.mk_sub(rhs, a.mk_add(other_args.size(), other_args.c_ptr()));
-                break;
-            }
-            ts.push_back(def);
-            return true;
+            return false;
         }
 
+        bool is_invertible_mul(bool is_int, expr*& arg, rational& a_val) {
+            if (is_variable(arg)) {
+                a_val = rational(1);
+                return true;
+            }
+            expr* x, *y;
+            if (a.is_mul(arg, x, y)) {
+                if (is_variable(x) && is_invertible_const(is_int, y, a_val)) {
+                    arg = x;
+                    return true;
+                }
+                if (is_variable(y) && is_invertible_const(is_int, x, a_val)) {
+                    arg = y;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        typedef std::pair<bool,expr*> signed_expr;
+
+        expr_ref solve_arith(bool is_int, rational const& r, bool sign, svector<signed_expr> const& exprs) {
+            expr_ref_vector result(m);
+            for (unsigned i = 0; i < exprs.size(); ++i) {
+                bool sign2 = exprs[i].first;
+                expr* e    = exprs[i].second;
+                rational r2(r);
+                if (sign == sign2) {
+                    r2.neg();
+                }
+                if (!r2.is_one()) {
+                    result.push_back(a.mk_mul(a.mk_numeral(r2, is_int), e));
+                }
+                else {
+                    result.push_back(e);
+                }
+            }
+            return expr_ref(a.mk_add(result.size(), result.c_ptr()), m);
+        }
+
+        bool solve_arith(expr* lhs, expr* rhs, ptr_vector<var>& vs, expr_ref_vector& ts) {
+            if (!a.is_int(lhs) && !a.is_real(rhs)) {
+                return false;
+            }
+            rational a_val;
+            bool is_int = a.is_int(lhs);
+            svector<signed_expr> todo, done;
+            todo.push_back(std::make_pair(true,  lhs));
+            todo.push_back(std::make_pair(false, rhs));
+            while (!todo.empty()) {
+                expr* e = todo.back().second;
+                bool sign = todo.back().first;
+                todo.pop_back();
+                if (a.is_add(e)) {
+                    for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
+                        todo.push_back(std::make_pair(sign, to_app(e)->get_arg(i)));                        
+                    }
+                }
+                else if (is_invertible_mul(is_int, e, a_val)) {
+                    done.append(todo);
+                    vs.push_back(to_var(e));
+                    a_val = rational(1)/a_val;
+                    ts.push_back(solve_arith(is_int, a_val, sign, done));
+                    TRACE("qe_lite", tout << mk_pp(lhs, m) << " " << mk_pp(rhs, m) << " " << mk_pp(e, m) << " := " << mk_pp(ts.back(), m) << "\n";);
+                    return true;
+                }
+                else {
+                    done.push_back(std::make_pair(sign, e));
+                }
+            }
+            return false;
+        }
         
         bool arith_solve(expr * lhs, expr * rhs, expr * eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
-            return 
-                (a.is_add(lhs) && solve_arith_core(to_app(lhs), rhs, eq, vs, ts)) ||
-                (a.is_add(rhs) && solve_arith_core(to_app(rhs), lhs, eq, vs, ts));
+            return solve_arith(lhs, rhs, vs, ts);
         }
 
         bool trivial_solve(expr* lhs, expr* rhs, expr* eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
@@ -695,7 +724,7 @@ namespace eq {
                     m_subst(r, m_subst_map.size(), m_subst_map.c_ptr(), new_r);
                     m_rewriter(new_r);
                     conjs.reset();
-                    qe::flatten_and(new_r, conjs);
+                    flatten_and(new_r, conjs);
                     reduced = true;
                 }
             }
@@ -1026,7 +1055,7 @@ namespace fm {
         arith_util               m_util;
         constraints              m_constraints;
         expr_ref_vector          m_bvar2expr;
-        char_vector              m_bvar2sign;
+        signed_char_vector       m_bvar2sign;
         obj_map<expr, bvar>      m_expr2bvar;
         char_vector              m_is_int;
         char_vector              m_forbidden;
@@ -2035,7 +2064,7 @@ namespace fm {
                 switch (m_bvar2sign[p]) {
                 case 0:
                     new_lits.push_back(lit);
-                break;
+                    break;
                 case -1:
                     if (!sign(lit))
                         tautology = true;
@@ -2386,7 +2415,7 @@ public:
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml) {
         expr_ref_vector disjs(m);
-        qe::flatten_or(fml, disjs);
+        flatten_or(fml, disjs);
         for (unsigned i = 0; i < disjs.size(); ++i) {
             expr_ref_vector conjs(m);
             conjs.push_back(disjs[i].get());
@@ -2399,7 +2428,7 @@ public:
 
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref_vector& fmls) {
-        qe::flatten_and(fmls);
+        flatten_and(fmls);
         unsigned index;
         if (has_unique_non_ground(fmls, index)) {
             expr_ref fml(m);

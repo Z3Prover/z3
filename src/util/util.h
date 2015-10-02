@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _UTIL_H_
-#define _UTIL_H_
+#ifndef UTIL_H_
+#define UTIL_H_
 
 #include"debug.h"
 #include"memory_manager.h"
@@ -273,18 +273,6 @@ bool has_duplicates(const IT & begin, const IT & end) {
     return false;
 }
 
-#ifndef __out
-#define __out
-#endif
-
-#ifndef __in
-#define __in
-#endif
-
-#ifndef __inout
-#define __inout
-#endif
-
 #ifndef __fallthrough
 #define __fallthrough
 #endif
@@ -406,5 +394,5 @@ inline size_t megabytes_to_bytes(unsigned mb) {
 
 void z3_bound_num_procs();
 
-#endif /* _UTIL_H_ */
+#endif /* UTIL_H_ */
 

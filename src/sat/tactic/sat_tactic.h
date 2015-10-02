@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _SAT_TACTIC_H_
-#define _SAT_TACTIC_H_
+#ifndef SAT_TACTIC_H_
+#define SAT_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

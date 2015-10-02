@@ -19,8 +19,8 @@ Revision History:
     Rewrote using stopwatches, added support for tracking memory
 
 --*/
-#ifndef _TIMEIT_H_
-#define _TIMEIT_H_
+#ifndef TIMEIT_H_
+#define TIMEIT_H_
 
 class timeit {
     struct imp;

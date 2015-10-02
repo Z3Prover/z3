@@ -18,8 +18,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _STREAM_BUFFER_H_
-#define _STREAM_BUFFER_H_
+#ifndef STREAM_BUFFER_H_
+#define STREAM_BUFFER_H_
 
 #include<iostream>
 
@@ -42,5 +42,5 @@ public:
     }
 };
 
-#endif /* _STREAM_BUFFER_H_ */
+#endif /* STREAM_BUFFER_H_ */
 

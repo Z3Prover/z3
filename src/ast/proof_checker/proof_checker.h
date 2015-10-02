@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PROOF_CHECKER_H_
-#define _PROOF_CHECKER_H_
+#ifndef PROOF_CHECKER_H_
+#define PROOF_CHECKER_H_
 
 #include "ast.h"
 #include "map.h"

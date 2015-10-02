@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,7 +53,7 @@ namespace Microsoft.Z3
         /// <remarks>For more information on interpolation please refer
         /// too the function Z3_get_interpolant in the C/C++ API, which is 
         /// well documented.</remarks>
-        public Expr[] GetInterpolant(Expr pf, Expr pat, Params p)
+        public BoolExpr[] GetInterpolant(Expr pf, Expr pat, Params p)
         {
             Contract.Requires(pf != null);
             Contract.Requires(pat != null);
@@ -59,11 +65,7 @@ namespace Microsoft.Z3
             CheckContextMatch(p);
 
             ASTVector seq = new ASTVector(this, Native.Z3_get_interpolant(nCtx, pf.NativeObject, pat.NativeObject, p.NativeObject));
-            uint n = seq.Size;
-            Expr[] res = new Expr[n];
-            for (uint i = 0; i < n; i++)
-                res[i] = Expr.Create(this, seq[i].NativeObject);
-            return res;
+            return seq.ToBoolExprArray();
         }
 
         /// <summary> 
@@ -72,7 +74,7 @@ namespace Microsoft.Z3
         /// <remarks>For more information on interpolation please refer
         /// too the function Z3_compute_interpolant in the C/C++ API, which is 
         /// well documented.</remarks>
-        public Z3_lbool ComputeInterpolant(Expr pat, Params p, out ASTVector interp, out Model model)
+        public Z3_lbool ComputeInterpolant(Expr pat, Params p, out BoolExpr[] interp, out Model model)
         {
             Contract.Requires(pat != null);
             Contract.Requires(p != null);
@@ -84,7 +86,7 @@ namespace Microsoft.Z3
 
             IntPtr i = IntPtr.Zero, m = IntPtr.Zero;
             int r = Native.Z3_compute_interpolant(nCtx, pat.NativeObject, p.NativeObject, ref i, ref m);
-            interp = new ASTVector(this, i);
+            interp = new ASTVector(this, i).ToBoolExprArray();
             model = new Model(this, m);
             return (Z3_lbool)r;
         }
@@ -106,7 +108,7 @@ namespace Microsoft.Z3
         /// <remarks>For more information on interpolation please refer
         /// too the function Z3_check_interpolant in the C/C++ API, which is 
         /// well documented.</remarks>
-        public int CheckInterpolant(Expr[] cnsts, uint[] parents, Expr[] interps, out string error, Expr[] theory)
+        public int CheckInterpolant(Expr[] cnsts, uint[] parents, BoolExpr[] interps, out string error, Expr[] theory)
         {
             Contract.Requires(cnsts.Length == parents.Length);
             Contract.Requires(cnsts.Length == interps.Length + 1);

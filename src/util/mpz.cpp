@@ -336,17 +336,17 @@ void mpz_manager<SYNCH>::set(mpz & target, unsigned sz, digit_t const * digits) 
             }
         }
 #else
-	mk_big(target);
-	// reset
-	mpz_set_ui(*target.m_ptr, digits[sz - 1]);
-	SASSERT(sz > 0);
-	unsigned i = sz - 1;
-	while (i > 0) {
-	  --i;
-	  mpz_mul_2exp(*target.m_ptr, *target.m_ptr, 32);
-	  mpz_set_ui(m_tmp, digits[i]);
-	  mpz_add(*target.m_ptr, *target.m_ptr, m_tmp);
-	}
+    mk_big(target);
+    // reset
+    mpz_set_ui(*target.m_ptr, digits[sz - 1]);
+    SASSERT(sz > 0);
+    unsigned i = sz - 1;
+    while (i > 0) {
+      --i;
+      mpz_mul_2exp(*target.m_ptr, *target.m_ptr, 32);
+      mpz_set_ui(m_tmp, digits[i]);
+      mpz_add(*target.m_ptr, *target.m_ptr, m_tmp);
+    }
 #endif        
     }
 }
@@ -2037,16 +2037,16 @@ bool mpz_manager<SYNCH>::decompose(mpz const & a, svector<digit_t> & digits) {
         }
         return a.m_val < 0;
 #else
-	bool r = is_neg(a);
-	mpz_set(m_tmp, *a.m_ptr);
-	mpz_abs(m_tmp, m_tmp);
-	while (mpz_sgn(m_tmp) != 0) {
-	  mpz_tdiv_r_2exp(m_tmp2, m_tmp, 32);
-	  unsigned v = mpz_get_ui(m_tmp2);
-	  digits.push_back(v);
-	  mpz_tdiv_q_2exp(m_tmp, m_tmp, 32);
-	}
-	return r;
+    bool r = is_neg(a);
+    mpz_set(m_tmp, *a.m_ptr);
+    mpz_abs(m_tmp, m_tmp);
+    while (mpz_sgn(m_tmp) != 0) {
+      mpz_tdiv_r_2exp(m_tmp2, m_tmp, 32);
+      unsigned v = mpz_get_ui(m_tmp2);
+      digits.push_back(v);
+      mpz_tdiv_q_2exp(m_tmp, m_tmp, 32);
+    }
+    return r;
 #endif
     }
 }

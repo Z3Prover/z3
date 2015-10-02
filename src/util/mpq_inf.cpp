@@ -19,7 +19,7 @@ Revision History:
 #include"mpq_inf.h"
 
 template<bool SYNCH>
-std::string mpq_inf_manager<SYNCH>::to_string(mpq_inf const & a) const {
+std::string mpq_inf_manager<SYNCH>::to_string(mpq_inf const & a) {
     if (m.is_zero(a.second))
         return m.to_string(a.first);
     
@@ -37,6 +37,7 @@ std::string mpq_inf_manager<SYNCH>::to_string(mpq_inf const & a) const {
     s += ")";
     return s;
 }
+
 
 template class mpq_inf_manager<true>;
 template class mpq_inf_manager<false>;

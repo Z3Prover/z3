@@ -25,8 +25,6 @@ import com.microsoft.z3.enumerations.Z3_sort_kind;
  **/
 public class Sort extends AST
 {
-    /* Overloaded operators are not translated. */
-
     /**
      * Equality operator for objects of type Sort. 
      * @param o
@@ -36,13 +34,18 @@ public class Sort extends AST
     {
         Sort casted = null;
 
-    try {
-        casted = Sort.class.cast(o);
-    } catch (ClassCastException e) {
-        return false;
-    }
+        try {
+            casted = Sort.class.cast(o);
+        } catch (ClassCastException e) {
+            return false;
+        }
 
-    return this.getNativeObject() == casted.getNativeObject();
+	return  
+	    (this == casted) || 
+	    (this != null) &&
+	    (casted != null) &&
+	    (getContext().nCtx() == casted.getContext().nCtx()) &&
+	    (Native.isEqSort(getContext().nCtx(), getNativeObject(), casted.getNativeObject()));
     }
 
     /**

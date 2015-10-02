@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _OBJECT_ALLOCATOR_H_
-#define _OBJECT_ALLOCATOR_H_
+#ifndef OBJECT_ALLOCATOR_H_
+#define OBJECT_ALLOCATOR_H_
 
 #include"util.h"
 #include"vector.h"
@@ -285,5 +285,5 @@ public:
 
 };
 
-#endif /* _OBJECT_ALLOCATOR_H_ */
+#endif /* OBJECT_ALLOCATOR_H_ */
 

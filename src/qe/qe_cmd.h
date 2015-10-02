@@ -15,8 +15,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _QE_CMD_H_
-#define _QE_CMD_H_
+#ifndef QE_CMD_H_
+#define QE_CMD_H_
 
 class cmd_context;
 

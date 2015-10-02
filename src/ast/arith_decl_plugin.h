@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _ARITH_DECL_PLUGIN_H_
-#define _ARITH_DECL_PLUGIN_H_
+#ifndef ARITH_DECL_PLUGIN_H_
+#define ARITH_DECL_PLUGIN_H_
 
 #include"ast.h"
 class sexpr;
@@ -399,5 +399,5 @@ public:
     }
 };
 
-#endif /* _ARITH_DECL_PLUGIN_H_ */
+#endif /* ARITH_DECL_PLUGIN_H_ */
 

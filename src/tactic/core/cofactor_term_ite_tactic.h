@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _COFACTOR_TERM_ITE_TACTIC_H_
-#define _COFACTOR_TERM_ITE_TACTIC_H_
+#ifndef COFACTOR_TERM_ITE_TACTIC_H_
+#define COFACTOR_TERM_ITE_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _AIG_H_
-#define _AIG_H_
+#ifndef AIG_H_
+#define AIG_H_
 
 #include"ast.h"
 #include"tactic_exception.h"

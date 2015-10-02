@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _OCCURS_H_
-#define _OCCURS_H_
+#ifndef OCCURS_H_
+#define OCCURS_H_
 
 class expr; 
 class func_decl;
@@ -32,5 +32,5 @@ bool occurs(expr * n1, expr * n2);
 */
 bool occurs(func_decl * d, expr * n);
 
-#endif /* _OCCURS_H_ */
+#endif /* OCCURS_H_ */
 

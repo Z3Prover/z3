@@ -17,8 +17,8 @@ Revision History:
 
 
 --*/
-#ifndef _MODEL_SMT2_PP_H_
-#define _MODEL_SMT2_PP_H_
+#ifndef MODEL_SMT2_PP_H_
+#define MODEL_SMT2_PP_H_
 
 #include"ast_printer.h"
 #include"model_core.h"

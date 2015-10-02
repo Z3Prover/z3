@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _ENV_PARAMS_H_
-#define _ENV_PARAMS_H_
+#ifndef ENV_PARAMS_H_
+#define ENV_PARAMS_H_
 
 class param_descrs;
 

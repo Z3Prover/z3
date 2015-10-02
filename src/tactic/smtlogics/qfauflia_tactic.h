@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _QFAUFLIA_TACTIC_H_
-#define _QFAUFLIA_TACTIC_H_
+#ifndef QFAUFLIA_TACTIC_H_
+#define QFAUFLIA_TACTIC_H_
 
 #include"params.h"
 class ast_manager;

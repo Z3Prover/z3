@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMTLIB_FRONTEND_H_
-#define _SMTLIB_FRONTEND_H_
+#ifndef SMTLIB_FRONTEND_H_
+#define SMTLIB_FRONTEND_H_
 
 unsigned read_smtlib_file(char const * benchmark_file);
 unsigned read_smtlib2_commands(char const * command_file);
 
-#endif /* _SMTLIB_FRONTEND_H_ */
+#endif /* SMTLIB_FRONTEND_H_ */
 
 

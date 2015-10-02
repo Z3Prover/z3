@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BIT_BLASTER_PARAMS_H_
-#define _BIT_BLASTER_PARAMS_H_
+#ifndef BIT_BLASTER_PARAMS_H_
+#define BIT_BLASTER_PARAMS_H_
 
 struct bit_blaster_params {
     bool  m_bb_ext_gates;
@@ -34,5 +34,5 @@ struct bit_blaster_params {
 #endif
 };
 
-#endif /* _BIT_BLASTER_PARAMS_H_ */
+#endif /* BIT_BLASTER_PARAMS_H_ */
 

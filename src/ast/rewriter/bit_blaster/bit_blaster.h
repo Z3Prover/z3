@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _BIT_BLASTER_H_
-#define _BIT_BLASTER_H_
+#ifndef BIT_BLASTER_H_
+#define BIT_BLASTER_H_
 
 #include"basic_simplifier_plugin.h"
 #include"bit_blaster_params.h"
@@ -61,5 +61,5 @@ public:
     bit_blaster_params const & get_params() const { return this->m_params; }
 };
 
-#endif /* _BIT_BLASTER_H_ */
+#endif /* BIT_BLASTER_H_ */
 

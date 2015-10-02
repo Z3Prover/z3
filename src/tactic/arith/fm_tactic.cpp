@@ -382,7 +382,7 @@ class fm_tactic : public tactic {
         arith_util               m_util;
         constraints              m_constraints;
         expr_ref_vector          m_bvar2expr;
-        char_vector              m_bvar2sign;
+        signed_char_vector       m_bvar2sign;
         obj_map<expr, bvar>      m_expr2bvar;
         char_vector              m_is_int;
         char_vector              m_forbidden;

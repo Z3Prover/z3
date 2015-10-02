@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _ARRAY_DECL_PLUGIN_H_
-#define _ARRAY_DECL_PLUGIN_H_
+#ifndef ARRAY_DECL_PLUGIN_H_
+#define ARRAY_DECL_PLUGIN_H_
 
 #include"ast.h"
 
@@ -187,5 +187,5 @@ public:
 };
 
 
-#endif /* _ARRAY_DECL_PLUGIN_H_ */
+#endif /* ARRAY_DECL_PLUGIN_H_ */
 

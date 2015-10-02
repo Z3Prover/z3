@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _EXPR2SUBPAVING_H_
-#define _EXPR2SUBPAVING_H_
+#ifndef EXPR2SUBPAVING_H_
+#define EXPR2SUBPAVING_H_
 
 #include"ast.h"
 #include"subpaving.h"

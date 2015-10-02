@@ -25,8 +25,8 @@ Revision History:
 
 --*/
 
-#ifndef _HILBERT_BASIS_H_
-#define _HILBERT_BASIS_H_
+#ifndef HILBERT_BASIS_H_
+#define HILBERT_BASIS_H_
 
 #include "rational.h"
 #include "lbool.h"

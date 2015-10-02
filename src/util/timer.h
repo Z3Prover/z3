@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _TIMER_H_
-#define _TIMER_H_
+#ifndef TIMER_H_
+#define TIMER_H_
 
 class stopwatch;
 
@@ -35,5 +35,5 @@ public:
     bool ms_timeout(unsigned ms) { return ms > 0 && get_seconds() * 1000 > ms; }
 };
 
-#endif /* _TIMER_H_ */
+#endif /* TIMER_H_ */
 

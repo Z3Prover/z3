@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_LITERAL_H_
-#define _SMT_LITERAL_H_
+#ifndef SMT_LITERAL_H_
+#define SMT_LITERAL_H_
 
 #include"ast.h"
 #include"smt_types.h"
@@ -118,5 +118,5 @@ namespace smt {
     bool backward_subsumption(unsigned num_lits1, literal const * lits1, unsigned num_lits2, literal const * lits2);
 };
 
-#endif /* _SMT_LITERAL_H_ */
+#endif /* SMT_LITERAL_H_ */
 

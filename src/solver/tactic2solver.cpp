@@ -21,7 +21,7 @@ Notes:
 --*/
 #include"solver_na2as.h"
 #include"tactic.h"
-#include"ast_smt2_pp.h"
+#include"ast_pp_util.h"
 
 /**
    \brief Simulates the incremental solver interface using a tactic.
@@ -40,6 +40,7 @@ class tactic2solver : public solver_na2as {
     bool                         m_produce_models;
     bool                         m_produce_proofs;
     bool                         m_produce_unsat_cores;
+    statistics                   m_stats;
 public:
     tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic);
     virtual ~tactic2solver();
@@ -161,6 +162,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
         m_result->m_unknown = ex.msg();
     }
     m_tactic->collect_statistics(m_result->m_stats);
+    m_tactic->collect_statistics(m_stats);
     m_result->m_model = md;
     m_result->m_proof = pr;
     if (m_produce_unsat_cores) {
@@ -181,9 +183,9 @@ void tactic2solver::set_cancel(bool f) {
     }
 }
 
-void tactic2solver::collect_statistics(statistics & st) const {
-    if (m_result.get())
-        m_result->collect_statistics(st);
+void tactic2solver::collect_statistics(statistics & st) const {    
+    st.copy(m_stats);
+    //SASSERT(m_stats.size() > 0);
 }
 
 void tactic2solver::get_unsat_core(ptr_vector<expr> & r) {
@@ -219,6 +221,11 @@ expr * tactic2solver::get_assertion(unsigned idx) const {
 }
 
 void tactic2solver::display(std::ostream & out) const {
+    ast_pp_util visitor(m_assertions.m());
+    visitor.collect(m_assertions);
+    visitor.display_decls(out);
+    visitor.display_asserts(out, m_assertions, true);
+#if 0
     ast_manager & m = m_assertions.m();
     unsigned num = m_assertions.size();
     out << "(solver";
@@ -226,6 +233,7 @@ void tactic2solver::display(std::ostream & out) const {
         out << "\n  " << mk_ismt2_pp(m_assertions.get(i), m, 2);
     }
     out << ")";
+#endif
 }
 
 solver * mk_tactic2solver(ast_manager & m, 

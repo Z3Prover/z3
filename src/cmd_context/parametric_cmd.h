@@ -15,8 +15,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _PARAMETRIC_CMD_H_
-#define _PARAMETRIC_CMD_H_
+#ifndef PARAMETRIC_CMD_H_
+#define PARAMETRIC_CMD_H_
 
 #include"params.h"
 #include"symbol.h"

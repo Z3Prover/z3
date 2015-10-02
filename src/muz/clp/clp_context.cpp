@@ -70,11 +70,11 @@ namespace datalog {
             m_goals.reset();
             rm.mk_query(query, m_ctx.get_rules());
             apply_default_transformation(m_ctx);
-            if (m_ctx.get_rules().get_output_predicates().empty()) {
+            const rule_set& rules = m_ctx.get_rules();
+            if (rules.get_output_predicates().empty()) {
                 return l_false;
             }
-            func_decl* head_decl = m_ctx.get_rules().get_output_predicate();
-            rule_set& rules = m_ctx.get_rules();
+            func_decl *head_decl = rules.get_output_predicate();
             rule_vector const& rv = rules.get_predicate_rules(head_decl);
             if (rv.empty()) {
                 return l_false;
@@ -123,14 +123,14 @@ namespace datalog {
         }
         
         void ground(expr_ref& e) {
-            ptr_vector<sort> sorts;
-            get_free_vars(e, sorts);
-            if (m_ground.size() < sorts.size()) {
-                m_ground.resize(sorts.size());
+            expr_free_vars fv;
+            fv(e);
+            if (m_ground.size() < fv.size()) {
+                m_ground.resize(fv.size());
             }
-            for (unsigned i = 0; i < sorts.size(); ++i) {
-                if (sorts[i] && !m_ground[i].get()) {
-                    m_ground[i] = m.mk_fresh_const("c",sorts[i]);
+            for (unsigned i = 0; i < fv.size(); ++i) {
+                if (fv[i] && !m_ground[i].get()) {
+                    m_ground[i] = m.mk_fresh_const("c", fv[i]);
                 }
             }
             m_var_subst(e, m_ground.size(), m_ground.c_ptr(), e);

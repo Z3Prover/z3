@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_FPA_H_
-#define _THEORY_FPA_H_
+#ifndef THEORY_FPA_H_
+#define THEORY_FPA_H_
 
 #include"smt_theory.h"
 #include"trail.h"
@@ -83,6 +83,7 @@ namespace smt {
             virtual ~fpa2bv_converter_wrapped() {}
             virtual void mk_const(func_decl * f, expr_ref & result);
             virtual void mk_rm_const(func_decl * f, expr_ref & result);
+            virtual void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
         };
         
         class fpa_value_proc : public model_value_proc {
@@ -189,4 +190,4 @@ namespace smt {
 
 };
 
-#endif /* _THEORY_FPA_H_ */
+#endif /* THEORY_FPA_H_ */

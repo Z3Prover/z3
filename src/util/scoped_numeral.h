@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SCOPED_NUMERAL_H_
-#define _SCOPED_NUMERAL_H_
+#ifndef SCOPED_NUMERAL_H_
+#define SCOPED_NUMERAL_H_
 
 template<typename Manager>
 class _scoped_numeral {
@@ -39,7 +39,7 @@ public:
     numeral const & get() const { return m_num; }
     numeral & get() { return m_num; }
     
-    _scoped_numeral & operator=(_scoped_numeral & n) {
+    _scoped_numeral & operator=(_scoped_numeral const & n) {
         if (this == &n)
             return *this;
         m().set(m_num, n.m_num);
@@ -97,6 +97,10 @@ public:
         return a.m().eq(a, b);
     }
 
+    friend bool operator!=(_scoped_numeral const & a, numeral const & b) {
+        return !a.m().eq(a, b);
+    }
+
     friend bool operator<(_scoped_numeral const & a, numeral const & b) {
         return a.m().lt(a, b);
     }
@@ -111,6 +115,26 @@ public:
 
     friend bool operator>=(_scoped_numeral const & a, numeral const & b) {
         return a.m().ge(a, b);
+    }
+
+    bool is_zero() const {
+        return m().is_zero(*this);
+    }
+
+    bool is_pos() const {
+        return m().is_pos(*this);
+    }
+
+    bool is_neg() const {
+        return m().is_neg(*this);
+    }
+
+    bool is_nonpos() const {
+        return m().is_nonpos(*this);
+    }
+
+    bool is_nonneg() const {
+        return m().is_nonneg(*this);
     }
 
     friend bool is_zero(_scoped_numeral const & a) {
@@ -131,6 +155,12 @@ public:
 
     friend bool is_nonpos(_scoped_numeral const & a) {
         return a.m().is_nonpos(a);
+    }
+
+    friend _scoped_numeral abs(_scoped_numeral const& a) {
+        _scoped_numeral res(a);
+        a.m().abs(res);
+        return res;
     }
 
     void neg() {

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _MPFX_H_
-#define _MPFX_H_
+#ifndef MPFX_H_
+#define MPFX_H_
 
 #include"id_gen.h"
 #include"util.h"

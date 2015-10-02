@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_PARAMS_H_
-#define _SMT_PARAMS_H_
+#ifndef SMT_PARAMS_H_
+#define SMT_PARAMS_H_
 
 #include"ast.h"
 #include"dyn_ack_params.h"
@@ -25,6 +25,7 @@ Revision History:
 #include"theory_arith_params.h"
 #include"theory_array_params.h"
 #include"theory_bv_params.h"
+#include"theory_pb_params.h"
 #include"theory_datatype_params.h"
 #include"preprocessor_params.h"
 #include"context_params.h"
@@ -73,7 +74,8 @@ struct smt_params : public preprocessor_params,
                     public qi_params, 
                     public theory_arith_params, 
                     public theory_array_params, 
-                    public theory_bv_params, 
+                    public theory_bv_params,
+                    public theory_pb_params,
                     public theory_datatype_params {
     bool             m_display_proof;
     bool             m_display_dot_proof;
@@ -193,6 +195,7 @@ struct smt_params : public preprocessor_params,
     //
     // -----------------------------------
     bool             m_display_installed_theories;
+    bool             m_core_validate;
 
     // -----------------------------------
     //
@@ -203,6 +206,7 @@ struct smt_params : public preprocessor_params,
     bool                m_user_theory_preprocess_axioms;
     bool                m_user_theory_persist_axioms;
     unsigned            m_timeout;
+    unsigned            m_rlimit;
     bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
     bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.    
     bool                m_dump_goal_as_smt;
@@ -267,10 +271,12 @@ struct smt_params : public preprocessor_params,
         m_model_on_final_check(false),
         m_progress_sampling_freq(0),
         m_display_installed_theories(false),
+        m_core_validate(false),
         m_preprocess(true), // temporary hack for disabling all preprocessing..
         m_user_theory_preprocess_axioms(false),
         m_user_theory_persist_axioms(false),
         m_timeout(0),
+        m_rlimit(0),
         m_at_labels_cex(false),
         m_check_at_labels(false),
         m_dump_goal_as_smt(false),
@@ -285,5 +291,5 @@ struct smt_params : public preprocessor_params,
     void updt_params(context_params const & p);
 };
 
-#endif /* _SMT_PARAMS_H_ */
+#endif /* SMT_PARAMS_H_ */
 

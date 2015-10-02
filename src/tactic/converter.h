@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _CONVERTER_H_
-#define _CONVERTER_H_
+#ifndef CONVERTER_H_
+#define CONVERTER_H_
 
 #include"vector.h"
 #include"ref.h"

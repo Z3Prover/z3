@@ -1,0 +1,31 @@
+/*++
+Copyright (c) 2014 Microsoft Corporation
+
+Module Name:
+
+    inc_sat_solver.h
+
+Abstract:
+
+    incremental solver based on SAT core.
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2014-7-30
+
+Notes:
+
+--*/
+
+#ifndef HS_INC_SAT_SOLVER_H_
+#define HS_INC_SAT_SOLVER_H_
+
+#include "solver.h"
+
+solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p);
+
+lbool inc_sat_check_sat(solver& s, unsigned sz, expr*const* soft, rational const* weights, rational const& max_weight);
+
+void  inc_sat_display(std::ostream& out, solver& s, unsigned sz, expr*const* soft, rational const* _weights);
+
+#endif

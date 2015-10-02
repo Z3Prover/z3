@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _RATIONAL_H_
-#define _RATIONAL_H_
+#ifndef RATIONAL_H_
+#define RATIONAL_H_
 
 #include"mpq.h"
 
@@ -109,6 +109,11 @@ public:
         if (!is_int64()) return false;
         int64 v = get_int64();
         return INT_MIN <= v && v <= INT_MAX;
+    }
+
+    int get_int32() const {
+        SASSERT(is_int32());
+        return (int)get_int64();
     }
 
     double get_double() const { return m().get_double(m_val); }
@@ -452,5 +457,5 @@ inline rational gcd(rational const & r1, rational const & r2, rational & a, rati
 }
 
 
-#endif /* _RATIONAL_H_ */
+#endif /* RATIONAL_H_ */
 

@@ -18,8 +18,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_MODEL_CHECKER_H_
-#define _SMT_MODEL_CHECKER_H_
+#ifndef SMT_MODEL_CHECKER_H_
+#define SMT_MODEL_CHECKER_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -51,6 +51,7 @@ namespace smt {
         unsigned                                    m_iteration_idx;
         proto_model *                               m_curr_model;
         obj_map<expr, expr *>                       m_value2expr;
+        bool                                        m_cancel;
         friend class instantiation_set;
 
         void init_aux_context();
@@ -79,6 +80,10 @@ namespace smt {
 
         quantifier * get_flat_quantifier(quantifier * q);
 
+        struct is_model_value {};
+        expr_mark m_visited;
+        bool contains_model_value(expr* e);
+
     public:
         model_checker(ast_manager & m, qi_params const & p, model_finder & mf);
         ~model_checker();
@@ -92,6 +97,11 @@ namespace smt {
         void restart_eh();
 
         void reset();
+
+        void set_cancel(bool f) { m_cancel = f; }
+
+        void operator()(expr* e);
+
     };
 };
 

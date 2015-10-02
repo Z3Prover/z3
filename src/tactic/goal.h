@@ -25,8 +25,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _GOAL_H_
-#define _GOAL_H_
+#ifndef GOAL_H_
+#define GOAL_H_
 
 #include"ast.h"
 #include"ast_translation.h"

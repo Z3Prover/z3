@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _WARNING_H_
-#define _WARNING_H_
+#ifndef WARNING_H_
+#define WARNING_H_
 #include<iostream>
 #include<stdarg.h>
 
@@ -56,5 +56,5 @@ public:
     }
 };
 
-#endif /* _WARNING_H_ */
+#endif /* WARNING_H_ */
 

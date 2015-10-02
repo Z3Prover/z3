@@ -33,7 +33,6 @@ namespace datalog {
 
     void compiler::reset() {
         m_pred_regs.reset();
-        m_new_reg = 0;
     }
 
     void compiler::ensure_predicate_loaded(func_decl * pred, instruction_block & acc) {
@@ -51,16 +50,16 @@ namespace datalog {
     }
 
     void compiler::make_join(reg_idx t1, reg_idx t2, const variable_intersection & vars, reg_idx & result, 
-            instruction_block & acc) {
+            bool reuse_t1, instruction_block & acc) {
         relation_signature res_sig;
         relation_signature::from_join(m_reg_signatures[t1], m_reg_signatures[t2], vars.size(), 
             vars.get_cols1(), vars.get_cols2(), res_sig);
-        result = get_fresh_register(res_sig);
+        result = get_register(res_sig, reuse_t1, t1);
         acc.push_back(instruction::mk_join(t1, t2, vars.size(), vars.get_cols1(), vars.get_cols2(), result));
     }
 
     void compiler::make_join_project(reg_idx t1, reg_idx t2, const variable_intersection & vars, 
-            const unsigned_vector & removed_cols, reg_idx & result, instruction_block & acc) {
+            const unsigned_vector & removed_cols, reg_idx & result, bool reuse_t1, instruction_block & acc) {
         relation_signature aux_sig;
         relation_signature sig1 = m_reg_signatures[t1];
         relation_signature sig2 = m_reg_signatures[t2];
@@ -68,29 +67,35 @@ namespace datalog {
         relation_signature res_sig;
         relation_signature::from_project(aux_sig, removed_cols.size(), removed_cols.c_ptr(), 
             res_sig);
-        result = get_fresh_register(res_sig);
+        result = get_register(res_sig, reuse_t1, t1);
 
         acc.push_back(instruction::mk_join_project(t1, t2, vars.size(), vars.get_cols1(), 
             vars.get_cols2(), removed_cols.size(), removed_cols.c_ptr(), result));
     }
 
+    void compiler::make_min(reg_idx source, reg_idx & target, const unsigned_vector & group_by_cols,
+        const unsigned min_col, instruction_block & acc) {
+        target = get_register(m_reg_signatures[source], true, source);
+        acc.push_back(instruction::mk_min(source, target, group_by_cols, min_col));
+    }
+
     void compiler::make_filter_interpreted_and_project(reg_idx src, app_ref & cond,
-            const unsigned_vector & removed_cols, reg_idx & result, instruction_block & acc) {
+            const unsigned_vector & removed_cols, reg_idx & result, bool reuse, instruction_block & acc) {
         SASSERT(!removed_cols.empty());
         relation_signature res_sig;
         relation_signature::from_project(m_reg_signatures[src], removed_cols.size(),
             removed_cols.c_ptr(), res_sig);
-        result = get_fresh_register(res_sig);
+        result = get_register(res_sig, reuse, src);
 
         acc.push_back(instruction::mk_filter_interpreted_and_project(src, cond,
             removed_cols.size(), removed_cols.c_ptr(), result));
     }
 
-    void compiler::make_select_equal_and_project(reg_idx src, const relation_element & val, unsigned col,
-            reg_idx & result, instruction_block & acc) {
+    void compiler::make_select_equal_and_project(reg_idx src, const relation_element val, unsigned col,
+            reg_idx & result, bool reuse, instruction_block & acc) {
         relation_signature res_sig;
         relation_signature::from_project(m_reg_signatures[src], 1, &col, res_sig);
-        result = get_fresh_register(res_sig);
+        result = get_register(res_sig, reuse, src);
         acc.push_back(instruction::mk_select_equal_and_project(m_context.get_manager(),
             src, val, col, result));
     }
@@ -115,12 +120,12 @@ namespace datalog {
     }
 
     void compiler::make_projection(reg_idx src, unsigned col_cnt, const unsigned * removed_cols, 
-            reg_idx & result, instruction_block & acc) {
+            reg_idx & result, bool reuse, instruction_block & acc) {
         SASSERT(col_cnt>0);
 
         relation_signature res_sig;
         relation_signature::from_project(m_reg_signatures[src], col_cnt, removed_cols, res_sig);
-        result = get_fresh_register(res_sig);
+        result = get_register(res_sig, reuse, src);
         acc.push_back(instruction::mk_projection(src, col_cnt, removed_cols, result));
     }
 
@@ -132,7 +137,15 @@ namespace datalog {
         return result;
     }
 
-    compiler::reg_idx compiler::get_single_column_register(const relation_sort & s) {
+    compiler::reg_idx compiler::get_register(const relation_signature & sig, bool reuse, compiler::reg_idx r) {
+        if (!reuse)
+            return get_fresh_register(sig);
+        SASSERT(r != execution_context::void_register);
+        m_reg_signatures[r] = sig;
+        return r;
+    }
+
+    compiler::reg_idx compiler::get_single_column_register(const relation_sort s) {
         relation_signature singl_sig;
         singl_sig.push_back(s);
         return get_fresh_register(singl_sig);
@@ -158,7 +171,7 @@ namespace datalog {
         }
     }
 
-    void compiler::make_add_constant_column(func_decl* head_pred, reg_idx src, const relation_sort & s, const relation_element & val,
+    void compiler::make_add_constant_column(func_decl* head_pred, reg_idx src, const relation_sort s, const relation_element val,
             reg_idx & result, bool & dealloc, instruction_block & acc) {
         reg_idx singleton_table;
         if(!m_constant_registers.find(s, val, singleton_table)) {
@@ -169,22 +182,22 @@ namespace datalog {
         }
         if(src==execution_context::void_register) {
             result = singleton_table;
-            dealloc = false;
+            SASSERT(dealloc == false);
         }
         else {
             variable_intersection empty_vars(m_context.get_manager());
-            make_join(src, singleton_table, empty_vars, result, acc);
+            make_join(src, singleton_table, empty_vars, result, dealloc, acc);
             dealloc = true;
         }
     }
 
-    void compiler::make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort & s, reg_idx & result, 
+    void compiler::make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort s, reg_idx & result,
             bool & dealloc, instruction_block & acc) {
         
         TRACE("dl", tout << "Adding unbound column " << mk_pp(pred, m_context.get_manager()) << "\n";);
             IF_VERBOSE(3, { 
                     expr_ref e(m_context.get_manager()); 
-                    compiled_rule->to_formula(e); 
+                    m_context.get_rule_manager().to_formula(*compiled_rule, e); 
                     verbose_stream() << "Compiling unsafe rule column " << col_idx << "\n" 
                                      << mk_ismt2_pp(e, m_context.get_manager()) << "\n"; 
                 });
@@ -198,11 +211,11 @@ namespace datalog {
         }       
         if(src == execution_context::void_register) {
             result = total_table;
-            dealloc = false;
+            SASSERT(dealloc == false);
         }
         else {
             variable_intersection empty_vars(m_context.get_manager());
-            make_join(src, total_table, empty_vars, result, acc);
+            make_join(src, total_table, empty_vars, result, dealloc, acc);
             dealloc = true;
         }
     }
@@ -221,7 +234,7 @@ namespace datalog {
 
 
     void compiler::make_duplicate_column(reg_idx src, unsigned col, reg_idx & result, 
-            instruction_block & acc) {
+            bool reuse, instruction_block & acc) {
 
         relation_signature & src_sig = m_reg_signatures[src];
         reg_idx single_col_reg;
@@ -236,19 +249,20 @@ namespace datalog {
                     removed_cols.push_back(i);
                 }
             }
-            make_projection(src, removed_cols.size(), removed_cols.c_ptr(), single_col_reg, acc);
+            make_projection(src, removed_cols.size(), removed_cols.c_ptr(), single_col_reg, false, acc);
         }
         variable_intersection vi(m_context.get_manager());
         vi.add_pair(col, 0);
-        make_join(src, single_col_reg, vi, result, acc);
-        make_dealloc_non_void(single_col_reg, acc);
+        make_join(src, single_col_reg, vi, result, reuse, acc);
+        if (src_col_cnt != 1)
+            make_dealloc_non_void(single_col_reg, acc);
     }
 
     void compiler::make_rename(reg_idx src, unsigned cycle_len, const unsigned * permutation_cycle, 
-            reg_idx & result, instruction_block & acc) {
+            reg_idx & result, bool reuse, instruction_block & acc) {
         relation_signature res_sig;
         relation_signature::from_rename(m_reg_signatures[src], cycle_len, permutation_cycle, res_sig);
-        result = get_fresh_register(res_sig);
+        result = get_register(res_sig, reuse, src);
         acc.push_back(instruction::mk_rename(src, cycle_len, permutation_cycle, result));
     }
 
@@ -301,12 +315,8 @@ namespace datalog {
             new_src_col_offset.push_back(src_cols_to_remove.size());
         }
         if(!src_cols_to_remove.empty()) {
-            reg_idx new_curr;
-            make_projection(curr, src_cols_to_remove.size(), src_cols_to_remove.c_ptr(), new_curr, acc);
-            if (dealloc)
-                make_dealloc_non_void(curr, acc);
+            make_projection(curr, src_cols_to_remove.size(), src_cols_to_remove.c_ptr(), curr, dealloc, acc);
             dealloc = true;
-            curr=new_curr;
             curr_sig = & m_reg_signatures[curr];
 
             //update ACK_BOUND_VAR references
@@ -325,21 +335,15 @@ namespace datalog {
             }
             unsigned bound_column_index;
             if(acis[i].kind!=ACK_UNBOUND_VAR || !handled_unbound.find(acis[i].var_index,bound_column_index)) {
-                reg_idx new_curr;
-                bool new_dealloc;
                 bound_column_index=curr_sig->size();
                 if(acis[i].kind==ACK_CONSTANT) {
-                    make_add_constant_column(head_pred, curr, acis[i].domain, acis[i].constant, new_curr, new_dealloc, acc);
+                    make_add_constant_column(head_pred, curr, acis[i].domain, acis[i].constant, curr, dealloc, acc);
                 }
                 else {
                     SASSERT(acis[i].kind==ACK_UNBOUND_VAR);
-                    make_add_unbound_column(compiled_rule, i, head_pred, curr, acis[i].domain, new_curr, new_dealloc, acc);
+                    make_add_unbound_column(compiled_rule, i, head_pred, curr, acis[i].domain, curr, dealloc, acc);
                     handled_unbound.insert(acis[i].var_index,bound_column_index);
                 }
-                if (dealloc)
-                    make_dealloc_non_void(curr, acc);
-                dealloc = new_dealloc;
-                curr=new_curr;
                 curr_sig = & m_reg_signatures[curr];
                 SASSERT(bound_column_index==curr_sig->size()-1);
             }
@@ -357,12 +361,8 @@ namespace datalog {
                 used_cols.insert(col);
                 continue;
             }
-            reg_idx new_curr;
-            make_duplicate_column(curr, col, new_curr, acc);
-            if (dealloc)
-                make_dealloc_non_void(curr, acc);
+            make_duplicate_column(curr, col, curr, dealloc, acc);
             dealloc = true;
-            curr=new_curr;
             curr_sig = & m_reg_signatures[curr];
             unsigned bound_column_index=curr_sig->size()-1;
             SASSERT((*curr_sig)[bound_column_index]==acis[i].domain);
@@ -387,12 +387,8 @@ namespace datalog {
                 SASSERT(permutation.size()<=col_cnt); //this should not be an infinite loop
             } while(next!=i);
 
-            reg_idx new_curr;
-            make_rename(curr, permutation.size(), permutation.c_ptr(), new_curr, acc);
-            if (dealloc)
-                make_dealloc_non_void(curr, acc);
+            make_rename(curr, permutation.size(), permutation.c_ptr(), curr, dealloc, acc);
             dealloc = true;
-            curr=new_curr;
             curr_sig = & m_reg_signatures[curr];
         }
 
@@ -408,27 +404,70 @@ namespace datalog {
 
     void compiler::get_local_indexes_for_projection(app * t, var_counter & globals, unsigned ofs, 
             unsigned_vector & res) {
+        // TODO: this can be optimized to avoid renames in some cases
         unsigned n = t->get_num_args();
         for(unsigned i = 0; i<n; i++) {
             expr * e = t->get_arg(i);
-            if(!is_var(e) || globals.get(to_var(e)->get_idx())!=0) {
-                continue;
+            if (is_var(e) && globals.get(to_var(e)->get_idx()) > 0) {
+              globals.update(to_var(e)->get_idx(), -1);
+              res.push_back(i + ofs);
             }
-            res.push_back(i+ofs);
         }
     }
 
     void compiler::get_local_indexes_for_projection(rule * r, unsigned_vector & res) {
         SASSERT(r->get_positive_tail_size()==2);
-        ast_manager & m = m_context.get_manager();
         rule_counter counter;
-        counter.count_rule_vars(m, r);
+        // leave one column copy per var in the head (avoids later duplication)
+        counter.count_vars(r->get_head(), -1);
+
+        // take interp & neg preds into account (at least 1 column copy if referenced)
+        unsigned n = r->get_tail_size();
+        if (n > 2) {
+          rule_counter counter_tail;
+          for (unsigned i = 2; i < n; ++i) {
+            counter_tail.count_vars(r->get_tail(i));
+          }
+
+          rule_counter::iterator I = counter_tail.begin(), E = counter_tail.end();
+          for (; I != E; ++I) {
+            int& n = counter.get(I->m_key);
+            if (n == 0)
+              n = -1;
+          }
+        }
+
         app * t1 = r->get_tail(0);
         app * t2 = r->get_tail(1);
-        counter.count_vars(m, t1, -1);
-        counter.count_vars(m, t2, -1);
+        counter.count_vars(t1);
+        counter.count_vars(t2);
+
         get_local_indexes_for_projection(t1, counter, 0, res);
         get_local_indexes_for_projection(t2, counter, t1->get_num_args(), res);
+    }
+
+    void compiler::find_min_aggregates(const rule * r, ptr_vector<func_decl>& min_aggregates) {
+        unsigned ut_len = r->get_uninterpreted_tail_size();
+        unsigned ft_len = r->get_tail_size(); // full tail
+        func_decl * aggregate;
+        for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
+            aggregate = r->get_tail(tail_index)->get_decl();
+            if (dl_decl_plugin::is_aggregate(aggregate)) {
+                min_aggregates.push_back(aggregate);
+            }
+        }
+    }
+
+    bool compiler::prepare_min_aggregate(const func_decl * decl, const ptr_vector<func_decl>& min_aggregates,
+        unsigned_vector & group_by_cols, unsigned & min_col) {
+        for (unsigned i = 0; i < min_aggregates.size(); ++i) {
+            if (dl_decl_plugin::min_func_decl(min_aggregates[i]) == decl) {
+                group_by_cols = dl_decl_plugin::group_by_cols(min_aggregates[i]);
+                min_col = dl_decl_plugin::min_col(min_aggregates[i]);
+                return true;
+            }
+        }
+        return false;
     }
 
     void compiler::compile_rule_evaluation_run(rule * r, reg_idx head_reg, const reg_idx * tail_regs, 
@@ -456,6 +495,12 @@ namespace datalog {
         // whether to dealloc the previous result
         bool dealloc = true;
 
+        // setup information for min aggregation
+        ptr_vector<func_decl> min_aggregates;
+        find_min_aggregates(r, min_aggregates);
+        unsigned_vector group_by_cols;
+        unsigned min_col;
+
         if(pt_len == 2) {
             reg_idx t1_reg=tail_regs[0];
             reg_idx t2_reg=tail_regs[1];
@@ -464,6 +509,14 @@ namespace datalog {
             SASSERT(m_reg_signatures[t1_reg].size()==a1->get_num_args());
             SASSERT(m_reg_signatures[t2_reg].size()==a2->get_num_args());
 
+            if (prepare_min_aggregate(a1->get_decl(), min_aggregates, group_by_cols, min_col)) {
+                make_min(t1_reg, single_res, group_by_cols, min_col, acc);
+            }
+
+            if (prepare_min_aggregate(a2->get_decl(), min_aggregates, group_by_cols, min_col)) {
+                make_min(t2_reg, single_res, group_by_cols, min_col, acc);
+            }
+
             variable_intersection a1a2(m_context.get_manager());
             a1a2.populate(a1,a2);
 
@@ -471,10 +524,10 @@ namespace datalog {
             get_local_indexes_for_projection(r, removed_cols);
 
             if(removed_cols.empty()) {
-                make_join(t1_reg, t2_reg, a1a2, single_res, acc);
+                make_join(t1_reg, t2_reg, a1a2, single_res, false, acc);
             }
             else {
-                make_join_project(t1_reg, t2_reg, a1a2, removed_cols, single_res, acc);
+                make_join_project(t1_reg, t2_reg, a1a2, removed_cols, single_res, false, acc);
             }
 
             unsigned rem_index = 0;
@@ -501,11 +554,15 @@ namespace datalog {
             SASSERT(rem_index==rem_sz);
         }
         else if(pt_len==1) {
-            reg_idx t_reg=tail_regs[0];
             app * a = r->get_tail(0);
-            SASSERT(m_reg_signatures[t_reg].size()==a->get_num_args());
+            single_res = tail_regs[0];
+            dealloc = false;
 
-            single_res = t_reg;
+            if (prepare_min_aggregate(a->get_decl(), min_aggregates, group_by_cols, min_col)) {
+                make_min(single_res, single_res, group_by_cols, min_col, acc);
+            }
+
+            SASSERT(m_reg_signatures[single_res].size() == a->get_num_args());
 
             unsigned n=a->get_num_args();
             for(unsigned i=0; i<n; i++) {
@@ -513,21 +570,13 @@ namespace datalog {
                 if(is_app(arg)) {
                     app * c = to_app(arg); //argument is a constant
                     SASSERT(m.is_value(c));
-                    reg_idx new_reg;
-                    make_select_equal_and_project(single_res, c, single_res_expr.size(), new_reg, acc);
-                    if(single_res!=t_reg) {
-                        //since single_res is a local register, we deallocate it
-                        make_dealloc_non_void(single_res, acc);
-                    }
-                    single_res = new_reg;
+                    make_select_equal_and_project(single_res, c, single_res_expr.size(), single_res, dealloc, acc);
+                    dealloc = true;
                 }
                 else {
                     SASSERT(is_var(arg));
                     single_res_expr.push_back(arg);
                 }
-            }
-            if(single_res==t_reg) {
-                dealloc = false;
             }
 
         }
@@ -536,6 +585,7 @@ namespace datalog {
 
             //single_res register should never be used in this case
             single_res=execution_context::void_register;
+            dealloc = false;
         }
 
         add_unbound_columns_for_negation(r, head_pred, single_res, single_res_expr, dealloc, acc);
@@ -589,25 +639,24 @@ namespace datalog {
             dealloc = true;
         }
 
-        // enforce interpreted tail predicates
+
+        // add unbounded columns for interpreted filter
         unsigned ut_len = r->get_uninterpreted_tail_size();
         unsigned ft_len = r->get_tail_size(); // full tail
         ptr_vector<expr> tail;
         for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
-            tail.push_back(r->get_tail(tail_index));
+            if (!r->is_min_tail(tail_index))
+                tail.push_back(r->get_tail(tail_index));
         }
 
+        expr_ref_vector binding(m);
         if (!tail.empty()) {
             app_ref filter_cond(tail.size() == 1 ? to_app(tail.back()) : m.mk_and(tail.size(), tail.c_ptr()), m);
-            ptr_vector<sort> filter_vars;
-            get_free_vars(filter_cond, filter_vars);
-
+            m_free_vars(filter_cond);
             // create binding
-            expr_ref_vector binding(m);
-            binding.resize(filter_vars.size()+1);
-            
-            for (unsigned v = 0; v < filter_vars.size(); ++v) {
-                if (!filter_vars[v])
+            binding.resize(m_free_vars.size()+1);
+            for (unsigned v = 0; v < m_free_vars.size(); ++v) {
+                if (!m_free_vars[v])
                     continue;
 
                 int2ints::entry * entry = var_indexes.find_core(v);
@@ -616,15 +665,8 @@ namespace datalog {
                     src_col = entry->get_data().m_value.back();
                 } else {
                     // we have an unbound variable, so we add an unbound column for it
-                    relation_sort unbound_sort = filter_vars[v];
-
-                    reg_idx new_reg;
-                    bool new_dealloc;
-                    make_add_unbound_column(r, 0, head_pred, filtered_res, unbound_sort, new_reg, new_dealloc, acc);
-                    if (dealloc)
-                        make_dealloc_non_void(filtered_res, acc);
-                    dealloc = new_dealloc;
-                    filtered_res = new_reg;
+                    relation_sort unbound_sort = m_free_vars[v];
+                    make_add_unbound_column(r, 0, head_pred, filtered_res, unbound_sort, filtered_res, dealloc, acc);
 
                     src_col = single_res_expr.size();
                     single_res_expr.push_back(m.mk_var(v, unbound_sort));
@@ -633,19 +675,63 @@ namespace datalog {
                     entry->get_data().m_value.push_back(src_col);
                 }
                 relation_sort var_sort = m_reg_signatures[filtered_res][src_col];
-                binding[filter_vars.size()-v] = m.mk_var(src_col, var_sort);
+                binding[m_free_vars.size()-v] = m.mk_var(src_col, var_sort);
             }
+        }
+
+        // add at least one column for the negative filter
+        if (pt_len != ut_len && filtered_res == execution_context::void_register) {
+            relation_signature empty_signature;
+            make_full_relation(head_pred, empty_signature, filtered_res, acc);
+        }
+
+        //enforce negative predicates
+        for (unsigned i = pt_len; i<ut_len; i++) {
+            app * neg_tail = r->get_tail(i);
+            func_decl * neg_pred = neg_tail->get_decl();
+            variable_intersection neg_intersection(m_context.get_manager());
+            neg_intersection.populate(single_res_expr, neg_tail);
+            unsigned_vector t_cols(neg_intersection.size(), neg_intersection.get_cols1());
+            unsigned_vector neg_cols(neg_intersection.size(), neg_intersection.get_cols2());
+
+            unsigned neg_len = neg_tail->get_num_args();
+            for (unsigned i = 0; i<neg_len; i++) {
+                expr * e = neg_tail->get_arg(i);
+                if (is_var(e)) {
+                    continue;
+                }
+                SASSERT(is_app(e));
+                relation_sort arg_sort;
+                m_context.get_rel_context()->get_rmanager().from_predicate(neg_pred, i, arg_sort);
+                make_add_constant_column(head_pred, filtered_res, arg_sort, to_app(e), filtered_res, dealloc, acc);
+
+                t_cols.push_back(single_res_expr.size());
+                neg_cols.push_back(i);
+                single_res_expr.push_back(e);
+            }
+            SASSERT(t_cols.size() == neg_cols.size());
+
+            reg_idx neg_reg = m_pred_regs.find(neg_pred);
+            if (!dealloc)
+                make_clone(filtered_res, filtered_res, acc);
+            acc.push_back(instruction::mk_filter_by_negation(filtered_res, neg_reg, t_cols.size(),
+                t_cols.c_ptr(), neg_cols.c_ptr()));
+            dealloc = true;
+        }
+
+        // enforce interpreted tail predicates
+        if (!tail.empty()) {
+            app_ref filter_cond(tail.size() == 1 ? to_app(tail.back()) : m.mk_and(tail.size(), tail.c_ptr()), m);
 
             // check if there are any columns to remove
             unsigned_vector remove_columns;
             {
                 unsigned_vector var_idx_to_remove;
-                ptr_vector<sort> vars;
-                get_free_vars(r->get_head(), vars);
+                m_free_vars(r->get_head());
                 for (int2ints::iterator I = var_indexes.begin(), E = var_indexes.end();
                     I != E; ++I) {
                     unsigned var_idx = I->m_key;
-                    if (!vars.get(var_idx, 0)) {
+                    if (!m_free_vars.contains(var_idx)) {
                         unsigned_vector & cols = I->m_value;
                         for (unsigned i = 0; i < cols.size(); ++i) {
                             remove_columns.push_back(cols[i]);
@@ -687,54 +773,9 @@ namespace datalog {
                     make_clone(filtered_res, filtered_res, acc);
                 acc.push_back(instruction::mk_filter_interpreted(filtered_res, app_renamed));
             } else {
-                reg_idx new_reg;
                 std::sort(remove_columns.begin(), remove_columns.end());
-                make_filter_interpreted_and_project(filtered_res, app_renamed, remove_columns, new_reg, acc);
-                if (dealloc)
-                    make_dealloc_non_void(filtered_res, acc);
-                filtered_res = new_reg;
+                make_filter_interpreted_and_project(filtered_res, app_renamed, remove_columns, filtered_res, dealloc, acc);
             }
-            dealloc = true;
-        }
-
-        //enforce negative predicates
-        for (unsigned i = pt_len; i<ut_len; i++) {
-            app * neg_tail = r->get_tail(i);
-            func_decl * neg_pred = neg_tail->get_decl();
-            variable_intersection neg_intersection(m_context.get_manager());
-            neg_intersection.populate(single_res_expr, neg_tail);
-            unsigned_vector t_cols(neg_intersection.size(), neg_intersection.get_cols1());
-            unsigned_vector neg_cols(neg_intersection.size(), neg_intersection.get_cols2());
-
-            unsigned neg_len = neg_tail->get_num_args();
-            for (unsigned i = 0; i<neg_len; i++) {
-                expr * e = neg_tail->get_arg(i);
-                if (is_var(e)) {
-                    continue;
-                }
-                SASSERT(is_app(e));
-                relation_sort arg_sort;
-                m_context.get_rel_context()->get_rmanager().from_predicate(neg_pred, i, arg_sort);
-                reg_idx new_reg;
-                bool new_dealloc;
-                make_add_constant_column(head_pred, filtered_res, arg_sort, to_app(e), new_reg, new_dealloc, acc);
-
-                if (dealloc)
-                    make_dealloc_non_void(filtered_res, acc);
-                dealloc = new_dealloc;
-                filtered_res = new_reg;                // here filtered_res value gets changed !!
-
-                t_cols.push_back(single_res_expr.size());
-                neg_cols.push_back(i);
-                single_res_expr.push_back(e);
-            }
-            SASSERT(t_cols.size() == neg_cols.size());
-
-            reg_idx neg_reg = m_pred_regs.find(neg_pred);
-            if (!dealloc)
-                make_clone(filtered_res, filtered_res, acc);
-            acc.push_back(instruction::mk_filter_by_negation(filtered_res, neg_reg, t_cols.size(),
-                t_cols.c_ptr(), neg_cols.c_ptr()));
             dealloc = true;
         }
 
@@ -745,10 +786,9 @@ namespace datalog {
         unsigned ft_len=r->get_tail_size(); //full tail
         for(unsigned tail_index=ut_len; tail_index<ft_len; tail_index++) {
             app * t = r->get_tail(tail_index);
-            ptr_vector<sort> t_vars;
-            ::get_free_vars(t, t_vars);
+            m_free_vars(t);
             
-            if(t_vars.empty()) {
+            if (m_free_vars.empty()) {
                 expr_ref simplified(m);
                 m_context.get_rewriter()(t, simplified);
                 if(m.is_true(simplified)) {
@@ -761,23 +801,22 @@ namespace datalog {
             }
 
             //determine binding size
-            while (!t_vars.back()) {
-                t_vars.pop_back();
-            }
-            unsigned max_var = t_vars.size();
+            
+            unsigned max_var = m_free_vars.size();
+            while (max_var > 0 && !m_free_vars[max_var-1]) --max_var;
 
             //create binding
             expr_ref_vector binding(m);
-            binding.resize(max_var+1);
+            binding.resize(max_var);
             
-            for(unsigned v = 0; v < t_vars.size(); ++v) {
-                if (!t_vars[v]) {
+            for(unsigned v = 0; v < max_var; ++v) {
+                if (!m_free_vars[v]) {
                     continue;
                 }
                 int2ints::entry * e = var_indexes.find_core(v);
                 if(!e) {
                     //we have an unbound variable, so we add an unbound column for it
-                    relation_sort unbound_sort = t_vars[v];
+                    relation_sort unbound_sort = m_free_vars[v];
 
                     reg_idx new_reg;
                     TRACE("dl", tout << mk_pp(head_pred, m_context.get_manager()) << "\n";);
@@ -872,9 +911,11 @@ namespace datalog {
         ast_manager& m = m_context.get_manager();
         unsigned pt_len = r->get_positive_tail_size();
         unsigned ut_len = r->get_uninterpreted_tail_size();
-        if (pt_len == ut_len || pt_len == 0) {
+
+        // no negated predicates
+        if (pt_len == ut_len)
             return;
-        }
+
         // populate negative variables:
         for (unsigned i = pt_len; i < ut_len; ++i) {
             app * neg_tail = r->get_tail(i);
@@ -901,13 +942,7 @@ namespace datalog {
             expr* e = it->m_value;
             if (!pos_vars.contains(v)) {
                 single_res_expr.push_back(e);
-                reg_idx new_single_res;
-                bool new_dealloc;
-                make_add_unbound_column(r, v, pred, single_res, m.get_sort(e), new_single_res, new_dealloc, acc);
-                if (dealloc)
-                    make_dealloc_non_void(single_res, acc);
-                dealloc = new_dealloc;
-                single_res = new_single_res;
+                make_add_unbound_column(r, v, pred, single_res, m.get_sort(e), single_res, dealloc, acc);
                 TRACE("dl", tout << "Adding unbound column: " << mk_pp(e, m) << "\n";);
             }
         }
@@ -1338,7 +1373,7 @@ namespace datalog {
 
         acc.set_observer(0);
 
-        TRACE("dl", execution_code.display(*m_context.get_rel_context(), tout););
+        TRACE("dl", execution_code.display(execution_context(m_context), tout););
     }
 
 

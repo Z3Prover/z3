@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _ELIM_TERM_ITE_H_
-#define _ELIM_TERM_ITE_H_
+#ifndef ELIM_TERM_ITE_H_
+#define ELIM_TERM_ITE_H_
 
 #include"simplifier.h"
 #include"defined_names.h"
@@ -46,5 +46,5 @@ public:
                     );
 };
 
-#endif /* _ELIM_TERM_ITE_H_ */
+#endif /* ELIM_TERM_ITE_H_ */
 

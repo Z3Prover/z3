@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT_CHECKER_H_
-#define _SMT_CHECKER_H_
+#ifndef SMT_CHECKER_H_
+#define SMT_CHECKER_H_
 
 #include"ast.h"
 #include"obj_hashtable.h"
@@ -53,5 +53,5 @@ namespace smt {
 
 };
 
-#endif /* _SMT_CHECKER_H_ */
+#endif /* SMT_CHECKER_H_ */
 

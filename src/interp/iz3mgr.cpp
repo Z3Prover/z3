@@ -556,6 +556,20 @@ void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<rational>& rats){
     extract_lcd(rats);
 }
 
+void iz3mgr::get_broken_gcd_test_coeffs(const ast &proof, std::vector<rational>& rats){
+    symb s = sym(proof);
+    int numps = s->get_num_parameters();
+    rats.resize(numps-2);
+    for(int i = 2; i < numps; i++){
+        rational r;
+        bool ok = s->get_parameter(i).is_rational(r);
+        if(!ok)
+            throw "Bad Farkas coefficient";
+        rats[i-2] = r;
+    }
+    extract_lcd(rats);
+}
+
 void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<ast>& coeffs){
     std::vector<rational> rats;
     get_assign_bounds_coeffs(proof,rats);
@@ -598,6 +612,30 @@ void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<rational>& r
         }
     }
 #endif
+    abs_rat(rats);
+    extract_lcd(rats);
+}
+
+void iz3mgr::get_gomory_cut_coeffs(const ast &proof, std::vector<ast>& coeffs){
+    std::vector<rational> rats;
+    get_gomory_cut_coeffs(proof,rats);
+    coeffs.resize(rats.size());
+    for(unsigned i = 0; i < rats.size(); i++){
+        coeffs[i] = make_int(rats[i]);
+    }
+}
+
+void iz3mgr::get_gomory_cut_coeffs(const ast &proof, std::vector<rational>& rats){
+    symb s = sym(proof);
+    int numps = s->get_num_parameters();
+    rats.resize(numps-2);
+    for(int i = 2; i < numps; i++){
+        rational r;
+        bool ok = s->get_parameter(i).is_rational(r);
+        if(!ok)
+            throw "Bad Farkas coefficient";
+        rats[i-2] = r;
+    }
     abs_rat(rats);
     extract_lcd(rats);
 }
@@ -695,6 +733,8 @@ void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q, bool round_off){
         }
     }
     bool pstrict = op(P) == Lt;
+    if (round_off && get_type(Qrhs) != int_type())
+        round_off = false;
     if(qstrict && round_off && (pstrict || !(c == make_int(rational(1))))){
         Qrhs = make(Sub,Qrhs,make_int(rational(1)));
         qstrict = false;

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _NAME_EXPRS_H_
-#define _NAME_EXPRS_H_
+#ifndef NAME_EXPRS_H_
+#define NAME_EXPRS_H_
 
 #include"ast.h"
 #include"defined_names.h"

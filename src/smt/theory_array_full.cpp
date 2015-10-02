@@ -208,6 +208,8 @@ namespace smt {
         theory_array::reset_eh();
         std::for_each(m_var_data_full.begin(), m_var_data_full.end(), delete_proc<var_data_full>());
         m_var_data_full.reset();
+        m_eqs.reset();
+        m_eqsv.reset();
     }
 
     void theory_array_full::display_var(std::ostream & out, theory_var v) const {
@@ -223,7 +225,6 @@ namespace smt {
     }
     
     theory_var theory_array_full::mk_var(enode * n) {
-
         theory_var r = theory_array::mk_var(n);
         SASSERT(r == static_cast<int>(m_var_data_full.size()));
         m_var_data_full.push_back(alloc(var_data_full));
@@ -512,7 +513,7 @@ namespace smt {
         
         TRACE("array_map_bug",
               tout << "select-map axiom\n" << mk_ismt2_pp(sel1, m) << "\n=\n" << mk_ismt2_pp(sel2,m) << "\n";);
-        
+
         return try_assign_eq(sel1, sel2);
     }
 
@@ -760,37 +761,36 @@ namespace smt {
                     r = FC_CONTINUE;
             }
         }
+        while (!m_eqsv.empty()) {
+            literal eq = m_eqsv.back();
+            m_eqsv.pop_back();
+            get_context().mark_as_relevant(eq);            
+            assert_axiom(eq);
+            r = FC_CONTINUE;
+        }
         if (r == FC_DONE && m_found_unsupported_op)
             r = FC_GIVEUP;
         return r;
     }
 
+
     bool theory_array_full::try_assign_eq(expr* v1, expr* v2) {
-        context& ctx = get_context();
-        enode* n1 = ctx.get_enode(v1);
-        enode* n2 = ctx.get_enode(v2);
-        if (n1->get_root() == n2->get_root()) {
-            return false;
-        }
         TRACE("array", 
               tout << mk_bounded_pp(v1, get_manager()) << "\n==\n" 
               << mk_bounded_pp(v2, get_manager()) << "\n";);
-
-#if 0
-        if (m.proofs_enabled()) {
-#endif
-            literal eq(mk_eq(v1,v2,true));
-            ctx.mark_as_relevant(eq);
-            assert_axiom(eq);
-#if 0
+        
+        if (m_eqs.contains(v1, v2)) {
+            return false;
         }
         else {
-            ctx.mark_as_relevant(n1);
-            ctx.mark_as_relevant(n2);
-            ctx.assign_eq(n1, n2, eq_justification::mk_axiom());
+            m_eqs.insert(v1, v2, true);
+            literal eq(mk_eq(v1, v2, true));
+            get_context().mark_as_relevant(eq);            
+            assert_axiom(eq);
+
+            // m_eqsv.push_back(eq);
+            return true;
         }
-#endif
-        return true;
     }
 
     void theory_array_full::pop_scope_eh(unsigned num_scopes) {
@@ -798,6 +798,8 @@ namespace smt {
         theory_array::pop_scope_eh(num_scopes);
         std::for_each(m_var_data_full.begin() + num_old_vars, m_var_data_full.end(), delete_proc<var_data_full>());
         m_var_data_full.shrink(num_old_vars);        
+        m_eqs.reset();
+        m_eqsv.reset();
     }
 
     void theory_array_full::collect_statistics(::statistics & st) const {

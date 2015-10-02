@@ -394,7 +394,7 @@ namespace smt {
                 }
                 if ((is_or && val == l_true) || (is_and && val == l_false)) {
                     expr * undef_child = 0;
-                    if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {					
+                    if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {
                         if (m_manager.has_trace_stream()) {
                             m_manager.trace_stream() << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
                         }
@@ -850,7 +850,7 @@ namespace smt {
             }
             if ((is_or && val == l_true) || (is_and && val == l_false)) {
                 expr * undef_child = 0;
-                if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {					
+                if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {
                     if (m_manager.has_trace_stream()) {
                         m_manager.trace_stream() << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
                     }

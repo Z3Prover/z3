@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SMT2_PARSER_H_
-#define _SMT2_PARSER_H_
+#ifndef SMT2_PARSER_H_
+#define SMT2_PARSER_H_
 
 #include"cmd_context.h"
 

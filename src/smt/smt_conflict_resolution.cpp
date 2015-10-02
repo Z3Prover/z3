@@ -115,8 +115,7 @@ namespace smt {
             break;
         case eq_justification::CONGRUENCE: {
             TRACE("conflict_detail", tout << "#" << lhs->get_owner_id() << " = " << rhs->get_owner_id() << " congruence\n";);
-            if (!lhs->is_eq())
-                TRACE("dyn_ack_target", tout << "dyn_ack_target2: " << lhs->get_owner_id() << " " << rhs->get_owner_id() << "\n";);
+            CTRACE("dyn_ack_target", !lhs->is_eq(), tout << "dyn_ack_target2: " << lhs->get_owner_id() << " " << rhs->get_owner_id() << "\n";);
             m_dyn_ack_manager.used_cg_eh(lhs->get_owner(), rhs->get_owner());
             unsigned num_args = lhs->get_num_args();
             SASSERT(num_args == rhs->get_num_args());
@@ -370,7 +369,12 @@ namespace smt {
               tout << "conflict_lvl: " << m_conflict_lvl << " scope_lvl: " << m_ctx.get_scope_level() << " base_lvl: " << m_ctx.get_base_level() 
               << " search_lvl: " << m_ctx.get_search_level() << "\n";
               tout << "js.kind: " << js.get_kind() << "\n";
-              m_ctx.display_literal(tout, consequent); tout << "\n";);
+              tout << "consequent: " << consequent << "\n";
+	      for (unsigned i = 0; i < m_assigned_literals.size(); ++i) {
+                  tout << m_assigned_literals[i] << " ";
+	      }
+	      tout << "\n";
+	      );
 
         // m_conflict_lvl can be smaller than m_ctx.get_search_level() when:
         // there are user level scopes created using the Z3 API, and
@@ -1310,8 +1314,11 @@ namespace smt {
     }
 
     void conflict_resolution::process_antecedent_for_unsat_core(literal antecedent) {
-        TRACE("conflict", tout << "processing antecedent: "; m_ctx.display_literal(tout, antecedent); tout << "\n";);
         bool_var var = antecedent.var();
+        TRACE("conflict", tout << "processing antecedent: "; 
+	      m_ctx.display_literal_info(tout << antecedent << " ", antecedent);
+	      tout << (m_ctx.is_marked(var)?"marked":"not marked");
+	      tout << "\n";);
         
         if (!m_ctx.is_marked(var)) {
             m_ctx.set_mark(var);
@@ -1341,13 +1348,14 @@ namespace smt {
 
         b_justification js  = conflict;
         literal consequent  = false_literal;
-        if (not_l != null_literal)
+        if (not_l != null_literal) {
             consequent      = ~not_l;
+	}
         
         int idx = skip_literals_above_conflict_level();
         
         if (not_l != null_literal)
-            process_antecedent_for_unsat_core(not_l);
+            process_antecedent_for_unsat_core(consequent);
         
         if (m_assigned_literals.empty()) {
             goto end_unsat_core;

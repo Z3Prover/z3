@@ -40,6 +40,7 @@ namespace smt {
         m_max_cexs(1),
         m_iteration_idx(0),
         m_curr_model(0),
+        m_cancel(false),
         m_new_instances_bindings(m) {
     }
 
@@ -169,11 +170,9 @@ namespace smt {
                 if (sk_term != 0) {
                     sk_value = sk_term;
                 }
-                else {
-                    if (m_manager.is_model_value(sk_value))
-                        return false;
-                }
             }
+            if (contains_model_value(sk_value))
+                return false;
             bindings.set(num_decls - i - 1, sk_value);
         }
         
@@ -190,6 +189,30 @@ namespace smt {
 
         return true;
     }
+
+    void model_checker::operator()(expr *n) {
+        if (m_manager.is_model_value(n)) {
+            throw is_model_value();
+        }
+    }
+
+    bool model_checker::contains_model_value(expr* n) {
+        if (m_manager.is_model_value(n)) {
+            return true;
+        }
+        if (is_app(n) && to_app(n)->get_num_args() == 0) {
+            return false;
+        }
+        m_visited.reset();
+        try {
+            for_each_expr(*this, m_visited, n);
+        }
+        catch (is_model_value) {
+            return true;
+        }
+        return false;
+    }
+
 
     bool model_checker::add_blocking_clause(model * cex, expr_ref_vector & sks) {
         SASSERT(cex != 0);

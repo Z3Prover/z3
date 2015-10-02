@@ -1,6 +1,12 @@
 
-#ifndef __QE_ARITH_H_
-#define __QE_ARITH_H_
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
+
+#ifndef QE_ARITH_H_
+#define QE_ARITH_H_
 
 #include "model.h"
 

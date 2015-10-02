@@ -1,3 +1,9 @@
+
+/*++
+Copyright (c) 2015 Microsoft Corporation
+
+--*/
+
 #ifdef _WINDOWS
 #include "z3.h"
 #include "z3_private.h"

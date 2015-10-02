@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _THEORY_ARRAY_PARAMS_H_
-#define _THEORY_ARRAY_PARAMS_H_
+#ifndef THEORY_ARRAY_PARAMS_H_
+#define THEORY_ARRAY_PARAMS_H_
 
 #include"array_simplifier_params.h"
 
@@ -74,5 +74,5 @@ struct theory_array_params : public array_simplifier_params {
 };
 
 
-#endif /* _THEORY_ARRAY_PARAMS_H_ */
+#endif /* THEORY_ARRAY_PARAMS_H_ */
 

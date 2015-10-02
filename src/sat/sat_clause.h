@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef _SAT_CLAUSE_H_
-#define _SAT_CLAUSE_H_
+#ifndef SAT_CLAUSE_H_
+#define SAT_CLAUSE_H_
 
 #include"sat_types.h"
 #include"small_object_allocator.h"

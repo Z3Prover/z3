@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _PULL_QUANT_H_
-#define _PULL_QUANT_H_
+#ifndef PULL_QUANT_H_
+#define PULL_QUANT_H_
 
 #include"ast.h"
 
@@ -56,4 +56,4 @@ public:
     void reset();
 };
 
-#endif /* _PULL_QUANT_H_ */
+#endif /* PULL_QUANT_H_ */

@@ -14,8 +14,8 @@ Author:
     Leonardo (leonardo) 2008-01-08
     
 --*/
-#ifndef _ARITH_SIMPLIFIER_PLUGIN_H_
-#define _ARITH_SIMPLIFIER_PLUGIN_H_
+#ifndef ARITH_SIMPLIFIER_PLUGIN_H_
+#define ARITH_SIMPLIFIER_PLUGIN_H_
 
 #include"basic_simplifier_plugin.h"
 #include"poly_simplifier_plugin.h"
@@ -93,4 +93,4 @@ public:
 
 };
 
-#endif /* _ARITH_SIMPLIFIER_PLUGIN_H_ */
+#endif /* ARITH_SIMPLIFIER_PLUGIN_H_ */

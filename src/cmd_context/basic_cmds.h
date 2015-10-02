@@ -15,8 +15,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _BASIC_CMDS_H_
-#define _BASIC_CMDS_H_
+#ifndef BASIC_CMDS_H_
+#define BASIC_CMDS_H_
 
 class cmd_context;
 
