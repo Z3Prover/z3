@@ -1,5 +1,5 @@
 ############################################
-# Copyright (c) 2012 Ganesh Gopalakrishnan ganesh@cs.utah.edu
+# Copyright (c) Microsoft Corporation. All Rights Reserved. 
 # 
 # Check if the given graph has a Hamiltonian cycle.
 #
