@@ -86,6 +86,7 @@ VS_PAR_NUM=8
 GPROF=False
 GIT_HASH=False
 SLOW_OPTIMIZE=False
+USE_OMP=True
 
 FPMATH="Default"
 FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
@@ -225,6 +226,8 @@ def test_foci2(cc,foci2lib):
     return exec_compiler_cmd([cc, CPPFLAGS, '-Isrc/interp', 'tstfoci2.cpp', LDFLAGS, foci2lib]) == 0
 
 def test_openmp(cc):
+    if not USE_OMP:
+        return False
     if is_verbose():
         print("Testing OpenMP...")
     t = TempFile('tstomp.cpp')
@@ -561,6 +564,7 @@ def display_help(exit_code):
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
     print("  -f <path> --foci2=<path>          use foci2 library at path")
+    print("  --noomp                           disable OpenMP and all features that require it.")
     print("")
     print("Some influential environment variables:")
     if not IS_WINDOWS:
@@ -580,13 +584,13 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
-    global LINUX_X64, SLOW_OPTIMIZE
+    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'x86', 'ml', 'optimize'])
+                                                'githash=', 'x86', 'ml', 'optimize', 'noomp'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -645,6 +649,8 @@ def parse_options():
             GIT_HASH=arg
         elif opt in ('', '--ml'):
             ML_ENABLED = True
+        elif opt in ('', '--noomp'):
+            USE_OMP = False
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
