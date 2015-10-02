@@ -1,5 +1,13 @@
 RELEASE NOTES
 
+Version 4.4.1
+=============
+
+- This release marks the transition to the new GitHub fork & pull model; the unstable and contrib branches will be retired with all new contributions going into the master branch directly.
+
+- A multitude of bugs has been fixed.
+
+
 Version 4.4.0
 =============
 
