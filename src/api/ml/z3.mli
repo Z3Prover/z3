@@ -195,7 +195,7 @@ sig
     val get_size : ast_map -> int
 
     (** The keys stored in the map. *)
-    val get_keys : ast_map -> Expr.expr list
+    val get_keys : ast_map -> ast list
 
     (** Retrieves a string representation of the map.*)
     val to_string : ast_map -> string

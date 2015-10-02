@@ -225,7 +225,7 @@ sig
     val erase : ast_map -> ast -> unit
     val reset : ast_map -> unit
     val get_size : ast_map -> int
-    val get_keys : ast_map -> Expr.expr list
+    val get_keys : ast_map -> ast list
     val to_string : ast_map -> string
   end
   val hash : ast -> int
@@ -352,7 +352,7 @@ end = struct
 	
     let get_keys ( x : ast_map ) =
       let av = ASTVector.create (z3obj_gc x) (Z3native.ast_map_keys (z3obj_gnc x) (z3obj_gno x)) in
-      (ASTVector.to_expr_list av)
+      (ASTVector.to_list av)
 
     let to_string ( x : ast_map ) =
       Z3native.ast_map_to_string (z3obj_gnc x) (z3obj_gno x)
