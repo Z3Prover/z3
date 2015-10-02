@@ -43,7 +43,11 @@ namespace smt {
             v2 = m_util.mk_string("value 2");
             return true;
         }
-        virtual expr * get_fresh_value(sort * s) { NOT_IMPLEMENTED_YET(); }
+        virtual expr * get_fresh_value(sort * s) {
+            // TODO this may be causing crashes in model gen? investigate
+            //return m_util.mk_fresh_string();
+            NOT_IMPLEMENTED_YET();
+        }
         virtual void register_value(expr * n) { /* Ignore */ }
     };
 
@@ -75,6 +79,9 @@ namespace smt {
         bool avoidLoopCut;
         bool loopDetected;
         std::map<expr*, std::stack<T_cut *> > cut_var_map;
+
+        std::set<expr*> variable_set;
+        std::set<expr*> internal_variable_set;
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);

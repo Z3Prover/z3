@@ -279,6 +279,11 @@ app * theory_str::mk_nonempty_str_var() {
         SASSERT(lhs_gt_rhs);
         assert_axiom(lhs_gt_rhs);
     }
+
+    // add 'a' to variable sets, so we can keep track of it
+    variable_set.insert(a);
+    internal_variable_set.insert(a);
+
     return a;
 }
 
@@ -1685,9 +1690,17 @@ void theory_str::set_up_axioms(expr * ex) {
         SASSERT(n);
         m_basicstr_axiom_todo.push_back(n);
 
-        // if additionally ex is a concatenation, set up concatenation axioms
-        if (is_app(ex) && is_concat(to_app(ex))) {
-            m_concat_axiom_todo.push_back(n);
+
+        if (is_app(ex)) {
+            app * ap = to_app(ex);
+            if (is_concat(ap)) {
+                // if ex is a concat, set up concat axioms later
+                m_concat_axiom_todo.push_back(n);
+            } else if (ap->get_num_args() == 0 && !is_string(ap)) {
+                // if ex is a variable, add it to our list of variables
+                TRACE("t_str_detail", tout << "tracking variable" << std::endl;);
+                variable_set.insert(ex);
+            }
         }
     } else {
         TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
@@ -1824,12 +1837,41 @@ void theory_str::dump_assignments() {
 }
 
 final_check_status theory_str::final_check_eh() {
-    // TODO
-    TRACE("t_str", tout << "final check" << std::endl;);
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
 
+    TRACE("t_str", tout << "final check" << std::endl;);
     TRACE("t_str_detail", dump_assignments(););
 
-    return FC_DONE;
+    // Check every variable to see if it's eq. to some string constant.
+    // If not, mark it as free.
+    bool needToAssignFreeVars = false;
+    std::set<expr*> free_variables;
+    for (std::set<expr*>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
+        bool has_eqc_value = false;
+        get_eqc_value(*it, has_eqc_value);
+        if (!has_eqc_value) {
+            needToAssignFreeVars = true;
+            free_variables.insert(*it);
+        }
+    }
+
+    if (!needToAssignFreeVars) {
+        TRACE("t_str", tout << "All variables are assigned. Done!" << std::endl;);
+        return FC_DONE;
+    }
+
+    for (std::set<expr*>::iterator it = free_variables.begin(); it != free_variables.end(); ++it) {
+        expr * var = *it;
+        if (internal_variable_set.find(var) != internal_variable_set.end()) {
+            TRACE("t_str", tout << "assigning arbitrary string to internal variable " << mk_ismt2_pp(var, m) << std::endl;);
+            app * val = m_strutil.mk_string("**unused**");
+            assert_axiom(ctx.mk_eq_atom(var, val));
+        } else {
+            NOT_IMPLEMENTED_YET(); // TODO free variable assignment from strTheory::cb_final_check()
+        }
+    }
+    return FC_CONTINUE;
 }
 
 void theory_str::init_model(model_generator & mg) {
@@ -1899,7 +1941,11 @@ model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
     if (val != NULL) {
         return alloc(expr_wrapper_proc, val);
     } else {
-        m.raise_exception("failed to find concrete value"); return NULL;
+        TRACE("t_str", tout << "WARNING: failed to find a concrete value, falling back" << std::endl;);
+        // TODO make absolutely sure the reason we can't find a concrete value is because of an unassigned temporary
+        // e.g. for an expression like (Concat X $$_str0)
+        //return alloc(expr_wrapper_proc, m_strutil.mk_string(""));
+        NOT_IMPLEMENTED_YET();
     }
 }
 

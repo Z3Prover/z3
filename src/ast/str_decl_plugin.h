@@ -62,6 +62,7 @@ public:
 
     app * mk_string(const char * val);
     app * mk_string(std::string & val);
+    app * mk_fresh_string();
 
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
@@ -96,6 +97,9 @@ public:
     }
     app * mk_string(std::string & val) {
     	return m_plugin->mk_string(val);
+    }
+    app * mk_fresh_string() {
+        return m_plugin->mk_fresh_string();
     }
     // TODO
 };

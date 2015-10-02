@@ -64,7 +64,7 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
 
     MK_OP(m_concat_decl, "Concat", OP_STRCAT, s);
 
-    m_length_decl = m->mk_func_decl(symbol("Length"), s, i); m_manager->inc_ref(m_length_decl);
+    m_length_decl = m->mk_func_decl(symbol("Length"), s, i, func_decl_info(id, OP_STRLEN)); m_manager->inc_ref(m_length_decl);
 }
 
 decl_plugin * str_decl_plugin::mk_fresh() {
@@ -118,6 +118,20 @@ app * str_decl_plugin::mk_string(std::string & val) {
 app * str_decl_plugin::mk_string(const char * val) {
 	std::string key(val);
 	return mk_string(key);
+}
+
+app * str_decl_plugin::mk_fresh_string() {
+    // cheating.
+    // take the longest string in the cache, append the letter "A", and call it fresh.
+    std::string longestString = "";
+    std::map<std::string, app*>::iterator it = string_cache.begin();
+    for (; it != string_cache.end(); ++it) {
+        if (it->first.length() > longestString.length()) {
+            longestString = it->first;
+        }
+    }
+    longestString += "A";
+    return mk_string(longestString);
 }
 
 void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
