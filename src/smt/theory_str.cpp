@@ -1491,13 +1491,91 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
 }
 
+/*************************************************************
+ * Type 4: concat("str1", y) = concat("str2", n)
+ *************************************************************/
 bool theory_str::is_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
-    // TODO
-    return false;
+    expr * v1_arg0 = to_app(concatAst1)->get_arg(0);
+    expr * v1_arg1 = to_app(concatAst1)->get_arg(1);
+    expr * v2_arg0 = to_app(concatAst2)->get_arg(0);
+    expr * v2_arg1 = to_app(concatAst2)->get_arg(1);
+
+    if (m_strutil.is_string(v1_arg0) && (!m_strutil.is_string(v1_arg1))
+            && m_strutil.is_string(v2_arg0) && (!m_strutil.is_string(v2_arg1))) {
+      return true;
+    } else {
+      return false;
+    }
 }
 
 void theory_str::process_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
+    ast_manager & mgr = get_manager();
+    context & ctx = get_context();
+    TRACE("t_str_detail", tout << "process_concat_eq TYPE 4" << std::endl
+            << "concatAst1 = " << mk_ismt2_pp(concatAst1, mgr) << std::endl
+            << "concatAst2 = " << mk_ismt2_pp(concatAst2, mgr) << std::endl;
+    );
 
+    if (!is_concat(to_app(concatAst1))) {
+        TRACE("t_str_detail", tout << "concatAst1 is not a concat function" << std::endl;);
+        return;
+    }
+    if (!is_concat(to_app(concatAst2))) {
+        TRACE("t_str_detail", tout << "concatAst2 is not a concat function" << std::endl;);
+        return;
+    }
+
+    expr * v1_arg0 = to_app(concatAst1)->get_arg(0);
+    expr * v1_arg1 = to_app(concatAst1)->get_arg(1);
+    expr * v2_arg0 = to_app(concatAst2)->get_arg(0);
+    expr * v2_arg1 = to_app(concatAst2)->get_arg(1);
+
+    expr * str1Ast = v1_arg0;
+    expr * y = v1_arg1;
+    expr * str2Ast = v2_arg0;
+    expr * n = v2_arg1;
+
+    const char *tmp = 0;
+    m_strutil.is_string(str1Ast, &tmp);
+    std::string str1Value(tmp);
+    m_strutil.is_string(str2Ast, &tmp);
+    std::string str2Value(tmp);
+
+    int str1Len = str1Value.length();
+    int str2Len = str2Value.length();
+
+    int commonLen = (str1Len > str2Len) ? str2Len : str1Len;
+    if (str1Value.substr(0, commonLen) != str2Value.substr(0, commonLen)) {
+        TRACE("t_str_detail", tout << "Conflict: " << mk_ismt2_pp(concatAst1, mgr)
+                << " has no common prefix with " << mk_ismt2_pp(concatAst2, mgr) << std::endl;);
+        expr_ref toNegate(mgr.mk_not(ctx.mk_eq_atom(concatAst1, concatAst2)), mgr);
+        assert_axiom(toNegate);
+        return;
+    } else {
+        if (str1Len > str2Len) {
+            std::string deltaStr = str1Value.substr(str2Len, str1Len - str2Len);
+            expr_ref tmpAst(mk_concat(m_strutil.mk_string(deltaStr), y), mgr);
+            if (!in_same_eqc(tmpAst, n)) {
+                // break down option 4-1
+                expr_ref implyR(ctx.mk_eq_atom(n, tmpAst), mgr);
+                assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+            }
+        } else if (str1Len == str2Len) {
+            if (!in_same_eqc(n, y)) {
+                //break down option 4-2
+                expr_ref implyR(ctx.mk_eq_atom(n, y), mgr);
+                assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+            }
+        } else {
+            std::string deltaStr = str2Value.substr(str1Len, str2Len - str1Len);
+            expr_ref tmpAst(mk_concat(m_strutil.mk_string(deltaStr), n), mgr);
+            if (!in_same_eqc(y, tmpAst)) {
+                //break down option 4-3
+                expr_ref implyR(ctx.mk_eq_atom(y, tmpAst), mgr);
+                assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+            }
+        }
+    }
 }
 
 bool theory_str::is_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
