@@ -20,6 +20,7 @@ Revision History:
 #include"smt_model_generator.h"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
+#include<list>
 
 namespace smt {
 
@@ -1663,13 +1664,170 @@ void theory_str::process_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
     }
 }
 
+/*************************************************************
+ *  case 6: concat("str1", y) = concat(m, "str2")
+ *************************************************************/
 bool theory_str::is_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
-    // TODO
-    return false;
+    expr * v1_arg0 = to_app(concatAst1)->get_arg(0);
+    expr * v1_arg1 = to_app(concatAst1)->get_arg(1);
+    expr * v2_arg0 = to_app(concatAst2)->get_arg(0);
+    expr * v2_arg1 = to_app(concatAst2)->get_arg(1);
+
+    if (m_strutil.is_string(v1_arg0) && (!m_strutil.is_string(v1_arg1))
+            && (!m_strutil.is_string(v2_arg0)) && m_strutil.is_string(v2_arg1)) {
+        return true;
+    } else if (m_strutil.is_string(v2_arg0) && (!m_strutil.is_string(v2_arg1))
+            && (!m_strutil.is_string(v1_arg0)) && m_strutil.is_string(v1_arg1)) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
+    ast_manager & mgr = get_manager();
+    context & ctx = get_context();
+    TRACE("t_str_detail", tout << "process_concat_eq TYPE 6" << std::endl
+            << "concatAst1 = " << mk_ismt2_pp(concatAst1, mgr) << std::endl
+            << "concatAst2 = " << mk_ismt2_pp(concatAst2, mgr) << std::endl;
+    );
 
+    if (!is_concat(to_app(concatAst1))) {
+        TRACE("t_str_detail", tout << "concatAst1 is not a concat function" << std::endl;);
+        return;
+    }
+    if (!is_concat(to_app(concatAst2))) {
+        TRACE("t_str_detail", tout << "concatAst2 is not a concat function" << std::endl;);
+        return;
+    }
+
+    expr * v1_arg0 = to_app(concatAst1)->get_arg(0);
+    expr * v1_arg1 = to_app(concatAst1)->get_arg(1);
+    expr * v2_arg0 = to_app(concatAst2)->get_arg(0);
+    expr * v2_arg1 = to_app(concatAst2)->get_arg(1);
+
+
+    expr * str1Ast = NULL;
+    expr * y = NULL;
+    expr * m = NULL;
+    expr * str2Ast = NULL;
+
+    if (m_strutil.is_string(v1_arg0)) {
+        str1Ast = v1_arg0;
+        y = v1_arg1;
+        m = v2_arg0;
+        str2Ast = v2_arg1;
+    } else {
+        str1Ast = v2_arg0;
+        y = v2_arg1;
+        m = v1_arg0;
+        str2Ast = v1_arg1;
+    }
+
+    const char *tmp = 0;
+    m_strutil.is_string(str1Ast, &tmp);
+    std::string str1Value(tmp);
+    m_strutil.is_string(str2Ast, &tmp);
+    std::string str2Value(tmp);
+
+    int str1Len = str1Value.length();
+    int str2Len = str2Value.length();
+
+    //----------------------------------------
+    //(a)  |---str1---|----y----|
+    //     |--m--|-----str2-----|
+    //
+    //(b)  |---str1---|----y----|
+    //     |-----m----|--str2---|
+    //
+    //(c)  |---str1---|----y----|
+    //     |------m------|-str2-|
+    //----------------------------------------
+
+    std::list<int> overlapLen;
+    overlapLen.push_back(0);
+
+    for (int i = 1; i <= str1Len && i <= str2Len; i++) {
+        if (str1Value.substr(str1Len - i, i) == str2Value.substr(0, i))
+            overlapLen.push_back(i);
+    }
+
+    //----------------------------------------------------------------
+    expr * commonVar = NULL;
+    expr * xorFlag = NULL;
+    std::pair<expr*, expr*> key1(concatAst1, concatAst2);
+    std::pair<expr*, expr*> key2(concatAst2, concatAst1);
+    if (varForBreakConcat.find(key1) == varForBreakConcat.end() && varForBreakConcat.find(key2) == varForBreakConcat.end()) {
+        commonVar = mk_nonempty_str_var();
+        xorFlag = mk_internal_xor_var();
+        varForBreakConcat[key1][0] = commonVar;
+        varForBreakConcat[key1][1] = xorFlag;
+    } else {
+        if (varForBreakConcat.find(key1) != varForBreakConcat.end()) {
+            commonVar = varForBreakConcat[key1][0];
+            xorFlag = varForBreakConcat[key1][1];
+        } else {
+            commonVar = varForBreakConcat[key2][0];
+            xorFlag = varForBreakConcat[key2][1];
+        }
+    }
+
+    expr ** or_item = alloc_svect(expr*, (overlapLen.size() + 1));
+    int option = 0;
+    expr ** and_item = alloc_svect(expr*, (1 + 4 * (overlapLen.size() + 1)));
+    int pos = 1;
+
+    if (!avoidLoopCut || !has_self_cut(m, y)) {
+        or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
+
+        expr_ref str1_commonVar(mk_concat(str1Ast, commonVar), mgr);
+        and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(m, str1_commonVar));
+
+        expr_ref commonVar_str2(mk_concat(commonVar, str2Ast), mgr);
+        and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(y, commonVar_str2));
+
+        and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(m),
+                m_autil.mk_add(mk_strlen(str1Ast), mk_strlen(commonVar)) ));
+
+        //    addItems[0] = mk_length(t, commonVar);
+        //    addItems[1] = mk_length(t, str2Ast);
+        //    and_item[pos++] = Z3_mk_eq(ctx, or_item[option], Z3_mk_eq(ctx, mk_length(t, y), Z3_mk_add(ctx, 2, addItems)));
+
+        option++;
+    } else {
+        loopDetected = true;
+        TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
+        // TODO printCutVAR(m, y)
+    }
+
+    for (std::list<int>::iterator itor = overlapLen.begin(); itor != overlapLen.end(); itor++) {
+        int overLen = *itor;
+        std::string prefix = str1Value.substr(0, str1Len - overLen);
+        std::string suffix = str2Value.substr(overLen, str2Len - overLen);
+        or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
+
+        expr_ref prefixAst(m_strutil.mk_string(prefix), mgr);
+        expr_ref x_eq_prefix(ctx.mk_eq_atom(m, prefixAst), mgr);
+        and_item[pos++] = ctx.mk_eq_atom(or_item[option], x_eq_prefix);
+
+        and_item[pos++] = ctx.mk_eq_atom(or_item[option],
+                ctx.mk_eq_atom(mk_strlen(m), mk_strlen(prefixAst)));
+
+        // adding length constraint for _ = constStr seems slowing things down.
+
+        expr_ref suffixAst(m_strutil.mk_string(suffix), mgr);
+        expr_ref y_eq_suffix(ctx.mk_eq_atom(y, suffixAst), mgr);
+        and_item[pos++] = ctx.mk_eq_atom(or_item[option], y_eq_suffix);
+
+        and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(y), mk_strlen(suffixAst)));
+
+        option++;
+    }
+
+    //  case 6: concat("str1", y) = concat(m, "str2")
+    and_item[0] = mgr.mk_or(option, or_item);
+    expr_ref implyR(mgr.mk_and(pos, and_item), mgr);
+    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
 }
 
 /*
