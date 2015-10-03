@@ -563,8 +563,8 @@ def display_help(exit_code):
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
-    print("  -f <path> --foci2=<path>          use foci2 library at path")
-    print("  --noomp                           disable OpenMP and all features that require it.")
+    print("  -f <path> --foci2=<path>      use foci2 library at path")
+    print("  --noomp                       disable OpenMP and all features that require it.")
     print("")
     print("Some influential environment variables:")
     if not IS_WINDOWS:
