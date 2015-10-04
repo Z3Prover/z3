@@ -179,8 +179,6 @@ expr_ref fpa2bv_model_converter::convert_bv2rm(model * bv_mdl, func_decl * var, 
 void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
     fpa_util fu(m);
     bv_util bu(m);
-    unsynch_mpz_manager & mpzm = fu.fm().mpz_manager();
-    unsynch_mpq_manager & mpqm = fu.fm().mpq_manager();
 
     TRACE("fpa2bv_mc", tout << "BV Model: " << std::endl;
     for (unsigned i = 0; i < bv_mdl->get_num_constants(); i++)

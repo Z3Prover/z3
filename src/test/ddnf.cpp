@@ -123,7 +123,7 @@ datalog::ddnf_core* populate_ddnf(char const* file, ptr_vector<tbv>& tbvs) {
 
 
 static void read_args(char ** argv, int argc, int& i) {
-    if (argc = i + 2) {
+    if (argc == i + 2) {
         g_file = argv[i + 1];
         ++i;
         return;

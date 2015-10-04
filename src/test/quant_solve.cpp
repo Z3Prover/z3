@@ -238,6 +238,7 @@ static void test_quant_solve1() {
     test_quant_solver(m, "(exists ((c Cell)) (= (cell c c) c1))", false);
     test_quant_solver(m, "(exists ((c Cell)) (= (cell c (cdr c1)) c1))", false);
 
+
     test_quant_solver(m, "(exists ((t Tuple)) (= (tuple a P r1) t))");
     test_quant_solver(m, "(exists ((t Tuple)) (= a (first t)))");
     test_quant_solver(m, "(exists ((t Tuple)) (= P (second t)))");
@@ -253,11 +254,13 @@ void tst_quant_solve() {
 
     test_quant_solve1();   
 
+#if 0
     memory::finalize();
 #ifdef _WINDOWS
     _CrtDumpMemoryLeaks();
 #endif
     exit(0);
+#endif
 }
 
 

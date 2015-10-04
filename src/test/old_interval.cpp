@@ -172,7 +172,6 @@ public:
 
 static void tst2() {
     typedef basic_interval_manager<unsynch_mpz_manager, false> mpzi_manager;
-    typedef mpzi_manager::interval mpzi;
     typedef mpzi_manager::scoped_interval scoped_mpzi;
 
     unsynch_mpz_manager nm;

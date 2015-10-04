@@ -212,6 +212,7 @@ void tst_dl_query() {
     //params.m_dl_default_relation = symbol("tr_hashtable");
 
     //dl_query_test_wpa(params);
+    return;
 
 
     ast_manager m;

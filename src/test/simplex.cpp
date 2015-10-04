@@ -24,35 +24,35 @@ static vector<R> vec(int i, int j) {
     return nv;
 }
 
-static vector<R> vec(int i, int j, int k) {
-    vector<R> nv = vec(i, j);
-    nv.push_back(R(k));
-    return nv;
-}
+// static vector<R> vec(int i, int j, int k) {
+//     vector<R> nv = vec(i, j);
+//     nv.push_back(R(k));
+//     return nv;
+// }
 
-static vector<R> vec(int i, int j, int k, int l) {
-    vector<R> nv = vec(i, j, k);
-    nv.push_back(R(l));
-    return nv;
-}
+// static vector<R> vec(int i, int j, int k, int l) {
+//     vector<R> nv = vec(i, j, k);
+//     nv.push_back(R(l));
+//     return nv;
+// }
 
-static vector<R> vec(int i, int j, int k, int l, int x) {
-    vector<R> nv = vec(i, j, k, l);
-    nv.push_back(R(x));
-    return nv;
-}
+/// static vector<R> vec(int i, int j, int k, int l, int x) {
+///     vector<R> nv = vec(i, j, k, l);
+///     nv.push_back(R(x));
+///     return nv;
+/// }
 
-static vector<R> vec(int i, int j, int k, int l, int x, int y) {
-    vector<R> nv = vec(i, j, k, l, x);
-    nv.push_back(R(y));
-    return nv;
-}
+// static vector<R> vec(int i, int j, int k, int l, int x, int y) {
+//     vector<R> nv = vec(i, j, k, l, x);
+//     nv.push_back(R(y));
+//     return nv;
+// }
 
-static vector<R> vec(int i, int j, int k, int l, int x, int y, int z) {
-    vector<R> nv = vec(i, j, k, l, x, y);
-    nv.push_back(R(z));
-    return nv;
-}
+// static vector<R> vec(int i, int j, int k, int l, int x, int y, int z) {
+//     vector<R> nv = vec(i, j, k, l, x, y);
+//     nv.push_back(R(z));
+//     return nv;
+// }
 
 
 
@@ -148,7 +148,7 @@ void tst_simplex() {
         coeffs.push_back(mpz(i+1));
     }
 
-    Simplex::row r = S.add_row(1, coeffs.size(), vars.c_ptr(), coeffs.c_ptr());
+    // Simplex::row r = S.add_row(1, coeffs.size(), vars.c_ptr(), coeffs.c_ptr());
     is_sat = S.make_feasible();
     std::cout << "feasible: " << is_sat << "\n";
     S.display(std::cout);

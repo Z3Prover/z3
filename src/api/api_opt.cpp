@@ -126,9 +126,11 @@ extern "C" {
         lbool r = l_undef;
         cancel_eh<opt::context> eh(*to_optimize_ptr(o));
         unsigned timeout = to_optimize_ptr(o)->get_params().get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned rlimit = mk_c(c)->get_rlimit();
         api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
             scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
                 r = to_optimize_ptr(o)->optimize();
             }
