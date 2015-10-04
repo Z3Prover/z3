@@ -181,7 +181,6 @@ class test_doc_cls {
         expr_ref result(m);
         expr_ref_vector conjs(m);
         unsigned n = m2.num_tbits();
-        tbv_manager& tm = m2.tbvm();
         SASSERT(n <= m_vars.size());
         for (unsigned i = 0; i < n; ++i) {
             switch (t[i]) {

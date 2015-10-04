@@ -199,8 +199,10 @@ void mpfx_manager::set(mpfx & n, uint64 v) {
     else {
         allocate_if_needed(n);
         n.m_sign              = 0;
-        unsigned * _v         = reinterpret_cast<unsigned*>(&v);
         unsigned * w          = words(n);
+        uint64 * _vp          = &v;
+        unsigned * _v         = 0;
+        memcpy(&_v, &_vp, sizeof(unsigned*));
         for (unsigned i = 0; i < m_total_sz; i++) 
             w[i] = 0;
         w[m_frac_part_sz]     = _v[0];
@@ -679,7 +681,8 @@ int64 mpfx_manager::get_int64(mpfx const & n) const {
     SASSERT(is_int64(n));
     unsigned * w = words(n);
     w += m_frac_part_sz;
-    uint64 r = *reinterpret_cast<uint64*>(w);
+    uint64 r = 0;
+    memcpy(&r, w, sizeof(uint64));
     if (r == 0x8000000000000000ull) {
         SASSERT(is_neg(n));
         return INT64_MIN;
@@ -693,7 +696,9 @@ uint64 mpfx_manager::get_uint64(mpfx const & n) const {
     SASSERT(is_uint64(n));
     unsigned * w = words(n);
     w += m_frac_part_sz;
-    return *reinterpret_cast<uint64*>(w);
+    uint64 r = 0;
+    memcpy(&r, w, sizeof(uint64));
+    return r;
 }
 
 template<bool SYNCH>

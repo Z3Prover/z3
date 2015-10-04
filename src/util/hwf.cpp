@@ -85,8 +85,8 @@ hwf_manager::~hwf_manager()
 {
 }
 
-#define RAW(X) (*reinterpret_cast<const uint64*>(&(X)))
-#define DBL(X) (*reinterpret_cast<const double*>(&(X)))
+uint64 RAW(double X) { uint64 tmp; memcpy(&tmp, &(X), sizeof(uint64)); return tmp; }
+double DBL(uint64 X) { double tmp; memcpy(&tmp, &(X), sizeof(double)); return tmp; }
 
 void hwf_manager::set(hwf & o, int value) {
     o.value = (double) value;
@@ -166,7 +166,7 @@ void hwf_manager::set(hwf & o, bool sign, uint64 significand, int exponent) {
     uint64 raw = (sign?0x8000000000000000ull:0);
     raw |= (((uint64)exponent) + 1023) << 52;
     raw |= significand;
-    o.value = *reinterpret_cast<double*>(&raw);
+    memcpy(&o.value, &raw, sizeof(double));
 }
 
 void hwf_manager::set(hwf & o, hwf const & x) {
