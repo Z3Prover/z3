@@ -77,6 +77,8 @@ void tst_dl_context() {
     symbol relations[] = { symbol("tr_skip"), symbol("tr_sparse"), symbol("tr_hashtable"), symbol("smt_relation2")  };
     const unsigned rel_cnt = sizeof(relations)/sizeof(symbol);
 
+    return;
+#if 0
     const char * test_file = "c:\\tvm\\src\\benchmarks\\datalog\\t0.datalog";
 
     params_ref params;
@@ -91,7 +93,7 @@ void tst_dl_context() {
             dl_context_saturate_file(params, test_file);
         }
     }
-
+#endif
 }
 
 
