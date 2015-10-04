@@ -85,9 +85,8 @@ hwf_manager::~hwf_manager()
 {
 }
 
-// #define RAW(X) (*reinterpret_cast<const uint64*>(&(X)))
-#define RAW(X) ({ uint64 tmp; memcpy(&tmp, &(X), sizeof(uint64)); tmp; })
-#define DBL(X) ({ double tmp; memcpy(&tmp, &(X), sizeof(double)); tmp; })
+uint64 RAW(double X) { uint64 tmp; memcpy(&tmp, &(X), sizeof(uint64)); return tmp; }
+double DBL(uint64 X) { double tmp; memcpy(&tmp, &(X), sizeof(double)); return tmp; }
 
 void hwf_manager::set(hwf & o, int value) {
     o.value = (double) value;

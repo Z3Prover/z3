@@ -200,8 +200,9 @@ void mpfx_manager::set(mpfx & n, uint64 v) {
         allocate_if_needed(n);
         n.m_sign              = 0;
         unsigned * w          = words(n);
+        uint64 * _vp          = &v;
         unsigned * _v         = 0;
-        memcpy(_v, &v, sizeof(unsigned*));
+        memcpy(&_v, &_vp, sizeof(unsigned*));
         for (unsigned i = 0; i < m_total_sz; i++) 
             w[i] = 0;
         w[m_frac_part_sz]     = _v[0];
