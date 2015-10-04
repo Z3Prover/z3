@@ -1497,8 +1497,13 @@ class MLComponent(Component):
                     print ('ocamlfind destdir=%s' % ocamlfind_destdir)
                 t.close()
                 rmf('output')
-                out.write("-rpath %s " % os.path.join(ocamlfind_destdir, 'stublibs'))
-                out.write("-L%s" % os.path.join(ocamlfind_destdir, 'stublibs'))
+                # DLLs are installed into stublibs if it exists, Z3 if not
+                if os.path.exists(os.path.join(ocamlfind_destdir, 'stublibs')):
+                    dll_path = os.path.join(ocamlfind_destdir, 'stublibs')
+                else:
+                    dll_path = os.path.join(ocamlfind_destdir, 'Z3')
+                out.write("-rpath %s " % dll_path)
+                out.write("-L%s" % dll_path)
 
             for m in modules:
                 out.write(' %s' % (os.path.join(sub_dir, m+'.ml')))
