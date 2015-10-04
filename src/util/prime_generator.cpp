@@ -71,7 +71,6 @@ void prime_generator::process_next_k_numbers(uint64 k) {
                 break;
             }
         }
-        std::cout << "TODO:" << k1 << "\n";
         unsigned k2 = 0;
         for (; k1 < todo_sz; k1++, k2++) {
             todo[k2] = todo[k1];
