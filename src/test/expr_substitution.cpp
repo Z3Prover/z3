@@ -47,16 +47,23 @@ void tst_expr_substitution() {
     expr_substitution subst(m);
     th_rewriter   rw(m);
 
+    std::cout << mk_pp(c, m) << "\n";
+
     // normalizing c does not help.
     rw(c, d, pr);
-    subst.insert(b, d);
 
-    rw.set_substitution(&subst);
+    std::cout << mk_pp(d, m) << "\n";
+
+
+// This portion diverges. It attempts to replace x by (bvadd #xfc x), which contains x.
+//    subst.insert(b, d);
+
+//    std::cout << mk_pp(a, m) << "\n";
+//    rw.set_substitution(&subst);
    
+//    enable_trace("th_rewriter_step");
+//    rw(a, new_a, pr);
 
-    enable_trace("th_rewriter_step");
-    rw(a, new_a, pr);
-
-    std::cout << mk_pp(new_a, m) << "\n";
+//    std::cout << mk_pp(new_a, m) << "\n";
     
 }
