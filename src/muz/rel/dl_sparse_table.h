@@ -350,7 +350,7 @@ namespace datalog {
                 *ptr&=m_write_mask;
                 *ptr|=val<<m_small_offset;
             }
-            unsigned const next_ofs() const { return m_offset+m_length; }
+            unsigned next_ofs() const { return m_offset+m_length; }
         };
         class column_layout : public svector<column_info> {
 

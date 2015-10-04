@@ -19,7 +19,6 @@
 
 #include <sstream>
 #include <iostream>
-#include <assert.h>
 
 #include "iz3hash.h"
 #include "foci2.h"
@@ -197,7 +196,7 @@ public:
                 std::cerr << "iZ3: unsupported Z3 operator in expression\n ";
                 print_expr(std::cerr,t);
                 std::cerr << "\n";
-                assert(0 && "iZ3: unsupported Z3 operator");
+                SASSERT(0 && "iZ3: unsupported Z3 operator");
             }
         }
         return res;
@@ -272,7 +271,7 @@ public:
                 }
                 break;
             default:
-                assert("unknown built-in op");
+                SASSERT(false && "unknown built-in op");
             }
         }
         else if(foci->get_int(i,nval)){
@@ -280,15 +279,15 @@ public:
         }
         else if(foci->get_func(i,f)){
             if(f == select_op){
-                assert(n == 2);
+                SASSERT(n == 2);
                 res = make(Select,args[0],args[1]);
             }
             else if(f == store_op){
-                assert(n == 3);
+                SASSERT(n == 3);
                 res = make(Store,args[0],args[1],args[2]);
             }
             else if(f == mod_op){
-                assert(n == 2);
+                SASSERT(n == 2);
                 res = make(Mod,args[0],args[1]);
             }
             else {
@@ -298,20 +297,20 @@ public:
                 if(bar.second){
                     std::cout << "unknown function symbol:\n";
                     foci->show_ast(i);
-                    assert(0);
+                    SASSERT(0);
                 }
                 res = make(func_decl,args);
             }
         }
         else {
             std::cerr << "iZ3: unknown FOCI expression kind\n";
-            assert(0 && "iZ3: unknown FOCI expression kind");
+            SASSERT(0 && "iZ3: unknown FOCI expression kind");
         }
         return res;
     }
 
     int interpolate(const std::vector<ast> &cnsts, std::vector<ast> &itps){
-        assert((int)cnsts.size() == frames);
+        SASSERT((int)cnsts.size() == frames);
         std::string lia("lia");
 #ifdef _FOCI2
         foci = foci2::create(lia);
@@ -320,7 +319,7 @@ public:
 #endif
         if(!foci){
             std::cerr << "iZ3: cannot find foci lia solver.\n";
-            assert(0);
+            SASSERT(0);
         }
         select_op = foci->mk_func("select");
         store_op = foci->mk_func("store");
@@ -335,7 +334,7 @@ public:
         }
         int res = foci->interpolate(foci_cnsts, foci_itps, foci_parents);
         if(res == 0){
-            assert((int)foci_itps.size() == frames-1);
+            SASSERT((int)foci_itps.size() == frames-1);
             itps.resize(frames-1);
             for(int i = 0; i < frames-1; i++){
                 // foci->show_ast(foci_itps[i]);
