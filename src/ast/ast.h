@@ -523,7 +523,7 @@ public:
 /**
    The ids of expressions and declarations are in different ranges. 
 */
-const unsigned c_first_decl_id = (1 << 31);
+const unsigned c_first_decl_id = (1u << 31u);
 
 /**
    \brief Superclass for function declarations and sorts.
