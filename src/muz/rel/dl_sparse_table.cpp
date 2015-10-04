@@ -293,7 +293,7 @@ namespace datalog {
 
         void key_to_reserve(const key_value & key) const {
             m_keys.ensure_reserve();
-            m_keys.write_into_reserve(reinterpret_cast<char *>(key.c_ptr()));
+            m_keys.write_into_reserve((char *)(key.c_ptr()));
         }
 
         offset_vector & get_matching_offset_vector(const key_value & key) {

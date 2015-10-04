@@ -131,11 +131,11 @@ public:
         return (x.get_raw() & 0x8000000000000000ull) != 0; 
     }
 
-    const uint64 sig(hwf const & x) const { 
+    uint64 sig(hwf const & x) const { 
         return x.get_raw() & 0x000FFFFFFFFFFFFFull;
     }
 
-    const int exp(hwf const & x) const {         
+    int exp(hwf const & x) const {         
         return ((x.get_raw() & 0x7FF0000000000000ull) >> 52) - 1023;
     }
 

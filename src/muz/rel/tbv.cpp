@@ -43,7 +43,7 @@ void tbv_manager::reset() {
     m.reset();
 }
 tbv* tbv_manager::allocate() {
-    tbv* r = reinterpret_cast<tbv*>(m.allocate());
+    tbv* r = static_cast<tbv*>(m.allocate());
     DEBUG_CODE(
         if (s_debug_alloc) {
             TRACE("doc", tout << allocated_tbvs.size() << " " << r << "\n";);
