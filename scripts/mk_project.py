@@ -9,7 +9,7 @@ from mk_util import *
 
 # Z3 Project definition
 def init_project_def():
-    set_version(4, 4, 1, 0)
+    set_version(4, 4, 2, 0)
     add_lib('util', [])
     add_lib('polynomial', ['util'], 'math/polynomial')
     add_lib('sat', ['util'])
