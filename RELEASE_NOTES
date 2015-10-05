@@ -7,6 +7,14 @@ Version 4.4.1
 
 - A multitude of bugs has been fixed.
 
+- New Feature: Support for optimization queries. The SMT-LIB2 command language
+  is augmented by three commands (maximize <expr>), (minimize <expr) 
+  and (assert-soft <expr> [:weight <numeral>] [:id <identifier>]). 
+  The programmatic API also contains a dedicated context for solving 
+  optimization queries. The TACAS 2015 tool paper by Bjorner, Dung and 
+  Fleckenstein describes additional details and the online tutorial on 
+  http://rise4fun.com/z3opt illustrates some uses.
+
 
 Version 4.4.0
 =============
