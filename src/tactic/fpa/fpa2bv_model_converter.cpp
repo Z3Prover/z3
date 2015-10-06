@@ -44,7 +44,12 @@ void fpa2bv_model_converter::display(std::ostream & out) {
         out << "\n  (" << n << " ";
         unsigned indent = n.size() + 4;
         out << mk_ismt2_pp(it->m_value, m, indent) << ")";
-    }    
+    }
+    for (obj_hashtable<func_decl>::iterator it = m_decls_to_hide.begin();
+         it != m_decls_to_hide.end();
+         it++) {
+        out << "\n  to hide: " << mk_ismt2_pp(*it, m);
+    }
     out << ")" << std::endl;
 }
 
@@ -69,6 +74,22 @@ model_converter * fpa2bv_model_converter::translate(ast_translation & translator
         res->m_rm_const2bv.insert(k, v);
         translator.to().inc_ref(k);
         translator.to().inc_ref(v);
+    }
+    for (obj_map<func_decl, func_decl*>::iterator it = m_uf2bvuf.begin();
+         it != m_uf2bvuf.end();
+         it++) {
+        func_decl * k = translator(it->m_key);
+        func_decl * v = translator(it->m_value);
+        res->m_uf2bvuf.insert(k, v);
+        translator.to().inc_ref(k);
+        translator.to().inc_ref(v);
+    }
+    for (obj_hashtable<func_decl>::iterator it = m_decls_to_hide.begin();
+         it != m_decls_to_hide.end();
+         it++) {
+        func_decl * k = translator(*it);
+        res->m_decls_to_hide.insert(k);
+        translator.to().inc_ref(k);
     }
     return res;
 }
@@ -187,6 +208,11 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
     );
 
     obj_hashtable<func_decl> seen;
+
+    for (obj_hashtable<func_decl>::iterator it = m_decls_to_hide.begin();
+         it != m_decls_to_hide.end();
+         it++)
+         seen.insert(*it);
 
     for (obj_map<func_decl, expr*>::iterator it = m_const2bv.begin();
          it != m_const2bv.end();
@@ -329,6 +355,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
 model_converter * mk_fpa2bv_model_converter(ast_manager & m,
                                             obj_map<func_decl, expr*> const & const2bv,
                                             obj_map<func_decl, expr*> const & rm_const2bv,
-                                            obj_map<func_decl, func_decl*> const & uf2bvuf) {
-    return alloc(fpa2bv_model_converter, m, const2bv, rm_const2bv, uf2bvuf);
+                                            obj_map<func_decl, func_decl*> const & uf2bvuf,
+                                            obj_hashtable<func_decl> const & decls_to_hide) {
+    return alloc(fpa2bv_model_converter, m, const2bv, rm_const2bv, uf2bvuf, decls_to_hide);
 }

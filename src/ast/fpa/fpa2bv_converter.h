@@ -55,7 +55,8 @@ protected:
 
     obj_map<func_decl, expr*>  m_const2bv;
     obj_map<func_decl, expr*>  m_rm_const2bv;
-    obj_map<func_decl, func_decl*>  m_uf2bvuf;    
+    obj_map<func_decl, func_decl*>  m_uf2bvuf;
+    obj_hashtable<func_decl>   m_decls_to_hide;
     
 public:
     fpa2bv_converter(ast_manager & m);    
@@ -136,13 +137,16 @@ public:
     void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
 
     void set_unspecified_fp_hi(bool v) { m_hi_fp_unspecified = v; }
+    expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
+    expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
     expr_ref mk_to_ubv_unspecified(unsigned width);
     expr_ref mk_to_sbv_unspecified(unsigned width);
     expr_ref mk_to_real_unspecified();
 
     obj_map<func_decl, expr*> const & const2bv() const { return m_const2bv; }
     obj_map<func_decl, expr*> const & rm_const2bv() const { return m_rm_const2bv; }
-    obj_map<func_decl, func_decl*> const & uf2bvuf() const { return m_uf2bvuf; }    
+    obj_map<func_decl, func_decl*> const & uf2bvuf() const { return m_uf2bvuf; }
+    obj_hashtable<func_decl> const & decls_to_hide() const { return m_decls_to_hide; }
 
     void reset(void);
 
