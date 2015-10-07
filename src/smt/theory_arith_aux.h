@@ -1593,6 +1593,13 @@ namespace smt {
             TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << max_gain << "\n";
                   tout << "best efforts: " << best_efforts << " has shared: " << has_shared << "\n";);
             
+            if (x_j == null_theory_var && x_i == null_theory_var) {
+                has_shared = false;
+                best_efforts = 0;
+                result = UNBOUNDED;
+                break;
+            }
+
             if (x_j == null_theory_var) {
                 TRACE("opt", tout << "row is " << (max ? "maximized" : "minimized") << "\n";
                       display_row(tout, r, true););
