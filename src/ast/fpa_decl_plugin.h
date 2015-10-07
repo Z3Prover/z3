@@ -338,8 +338,8 @@ public:
 
     app * mk_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_FPA_TO_IEEE_BV, arg1); }
 
-    app * mk_internal_min_unspecified(unsigned ebits, unsigned sbits);
-    app * mk_internal_max_unspecified(unsigned ebits, unsigned sbits);
+    app * mk_internal_min_unspecified(expr * x, expr * y);
+    app * mk_internal_max_unspecified(expr * x, expr * y);
     app * mk_internal_to_ubv_unspecified(unsigned width);
     app * mk_internal_to_sbv_unspecified(unsigned width);
     app * mk_internal_to_ieee_bv_unspecified(unsigned width);

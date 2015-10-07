@@ -137,8 +137,10 @@ public:
     void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
 
     void set_unspecified_fp_hi(bool v) { m_hi_fp_unspecified = v; }
-    expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
-    expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
+
+    virtual expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
+    virtual expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
+
     expr_ref mk_to_ubv_unspecified(unsigned width);
     expr_ref mk_to_sbv_unspecified(unsigned width);
     expr_ref mk_to_real_unspecified();

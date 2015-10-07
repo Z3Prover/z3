@@ -95,7 +95,7 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
 
     case OP_FPA_INTERNAL_MIN_UNSPECIFIED:        
     case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
-        SASSERT(num_args == 0); st = BR_FAILED; break;
+        SASSERT(num_args == 2); st = BR_FAILED; break;
 
     case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED: 
         SASSERT(num_args == 0); st = mk_to_ubv_unspecified(f, result); break;
@@ -433,8 +433,11 @@ br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
     
     scoped_mpf v1(m_fm), v2(m_fm);
     if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
-        if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2))
-            return BR_FAILED; // Result could be +zero or -zero.
+        if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2)) {
+            // Result could be +zero or -zero.
+            result = m_util.mk_internal_min_unspecified(arg1, arg2);
+            return BR_DONE;
+        }
         else {            
             scoped_mpf r(m_fm);
             m_fm.minimum(v1, v2, r);
@@ -458,8 +461,11 @@ br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
 
     scoped_mpf v1(m_fm), v2(m_fm);
     if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
-        if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2))
-            return BR_FAILED; // Result could be +zero or -zero.
+        if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2)) {
+            // Result could be +zero or -zero.
+            result = m_util.mk_internal_max_unspecified(arg1, arg2);
+            return BR_REWRITE_FULL;
+        }
         else {
             scoped_mpf r(m_fm);
             m_fm.maximum(v1, v2, r);
