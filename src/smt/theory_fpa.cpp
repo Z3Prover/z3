@@ -82,7 +82,56 @@ namespace smt {
     }
 
     void theory_fpa::fpa2bv_converter_wrapped::mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-        fpa2bv_converter::mk_uninterpreted_function(f, num, args, result);
+        // TODO: This introduces temporary variables/func_decls that should be filtered in the end.
+        return fpa2bv_converter::mk_uninterpreted_function(f, num, args, result);
+    }
+
+    expr_ref theory_fpa::fpa2bv_converter_wrapped::mk_min_unspecified(func_decl * f, expr * x, expr * y) {
+        // The only cases in which min is unspecified for is when the arguments are +0.0 and -0.0.        
+        unsigned ebits = m_util.get_ebits(f->get_range());
+        unsigned sbits = m_util.get_sbits(f->get_range());
+        unsigned bv_sz = ebits + sbits;
+        expr_ref res(m);
+        
+        expr * args[] = { x, y };
+        func_decl * w = m.mk_func_decl(m_th.get_family_id(), OP_FPA_INTERNAL_MIN_UNSPECIFIED, 0, 0, 2, args, f->get_range());
+        expr_ref a(m), wrapped(m);
+        a = m.mk_app(w, x, y);
+        wrapped = m_th.wrap(a);
+        m_th.m_converter.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, wrapped),
+                               m_bv_util.mk_extract(bv_sz - 2, sbits - 1, wrapped),
+                               m_bv_util.mk_extract(sbits - 2, 0, wrapped),
+                               res);
+
+        expr_ref sc(m);
+        m_th.m_converter.mk_is_zero(res, sc);
+        m_extra_assertions.push_back(sc);
+        //m_extra_assertions.push_back(m.mk_eq(m_th.unwrap(wrapped, f->get_range()), a));
+        return res;
+    }
+    
+    expr_ref theory_fpa::fpa2bv_converter_wrapped::mk_max_unspecified(func_decl * f, expr * x, expr * y) {
+        // The only cases in which max is unspecified for is when the arguments are +0.0 and -0.0.
+        unsigned ebits = m_util.get_ebits(f->get_range());
+        unsigned sbits = m_util.get_sbits(f->get_range());
+        unsigned bv_sz = ebits + sbits;
+        expr_ref res(m);
+
+        expr * args[] = { x, y };        
+        func_decl * w = m.mk_func_decl(m_th.get_family_id(), OP_FPA_INTERNAL_MAX_UNSPECIFIED, 0, 0, 2, args, f->get_range());
+        expr_ref a(m), wrapped(m);
+        a = m.mk_app(w, x, y);
+        wrapped = m_th.wrap(a);
+        m_th.m_converter.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, wrapped),
+                               m_bv_util.mk_extract(bv_sz - 2, sbits - 1, wrapped),
+                               m_bv_util.mk_extract(sbits - 2, 0, wrapped),
+                               res);
+
+        expr_ref sc(m);
+        m_th.m_converter.mk_is_zero(res, sc);
+        m_extra_assertions.push_back(sc);
+        //m_extra_assertions.push_back(m.mk_eq(m_th.unwrap(wrapped, f->get_range()), a));
+        return res;
     }
 
     theory_fpa::theory_fpa(ast_manager & m) :

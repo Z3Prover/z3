@@ -27,11 +27,13 @@ class fpa2bv_model_converter : public model_converter {
     obj_map<func_decl, expr*>   m_const2bv;
     obj_map<func_decl, expr*>   m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
+    obj_hashtable<func_decl>    m_decls_to_hide;
 
 public:
     fpa2bv_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bv,
                            obj_map<func_decl, expr*> const & rm_const2bv,
-                           obj_map<func_decl, func_decl*> const & uf2bvuf) :
+                           obj_map<func_decl, func_decl*> const & uf2bvuf,
+                           obj_hashtable<func_decl> const & decls_to_hide) :
                            m(m) {
         // Just create a copy?
         for (obj_map<func_decl, expr*>::iterator it = const2bv.begin();
@@ -58,12 +60,19 @@ public:
             m.inc_ref(it->m_key);
             m.inc_ref(it->m_value);
         }
+        for (obj_hashtable<func_decl>::iterator it = decls_to_hide.begin();
+             it != decls_to_hide.end();
+             it++) {
+            m_decls_to_hide.insert(*it);
+            m.inc_ref(*it);
+        }
     }
 
     virtual ~fpa2bv_model_converter() {
         dec_ref_map_key_values(m, m_const2bv);
         dec_ref_map_key_values(m, m_rm_const2bv);
         dec_ref_map_key_values(m, m_uf2bvuf);
+        dec_ref_collection_values(m, m_decls_to_hide);
     }
 
     virtual void operator()(model_ref & md, unsigned goal_idx) {
@@ -96,6 +105,7 @@ protected:
 model_converter * mk_fpa2bv_model_converter(ast_manager & m,
                                             obj_map<func_decl, expr*> const & const2bv,
                                             obj_map<func_decl, expr*> const & rm_const2bv,
-                                            obj_map<func_decl, func_decl*> const & uf2bvuf);
+                                            obj_map<func_decl, func_decl*> const & uf2bvuf,
+                                            obj_hashtable<func_decl> const & m_decls_to_hide);
 
 #endif

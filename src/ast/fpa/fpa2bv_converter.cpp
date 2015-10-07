@@ -1088,14 +1088,53 @@ void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, 
     expr_ref lt(m);
     mk_float_lt(f, num, args, lt);
     
+    expr_ref zz(m);
+    zz = mk_min_unspecified(f, x, y);
+    TRACE("fpa2bv", tout << "min = " << mk_ismt2_pp(zz, m) << std::endl;);
+
     result = y;
     mk_ite(lt, x, result, result);
     mk_ite(both_zero, y, result, result);
-    mk_ite(m.mk_and(both_zero, sgn_diff), pzero, result, result); // min(-0.0, +0.0) = min(+0.0, -0.0) = +0.0
+    mk_ite(m.mk_and(both_zero, sgn_diff), zz, result, result);
     mk_ite(y_is_nan, x, result, result);
     mk_ite(x_is_nan, y, result, result);
 
     SASSERT(is_well_sorted(m, result));
+}
+
+expr_ref fpa2bv_converter::mk_min_unspecified(func_decl * f, expr * x, expr * y) {    
+    unsigned ebits = m_util.get_ebits(f->get_range());
+    unsigned sbits = m_util.get_sbits(f->get_range());
+    expr_ref res(m);
+
+    // The only cases in which min is unspecified for is when the arguments are +0.0 and -0.0.
+    
+    if (m_hi_fp_unspecified)
+        // The hardware interpretation is -0.0.
+        mk_nzero(f, res);        
+    else {
+        app_ref pn_nondet(m), np_nondet(m);
+        pn_nondet = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        np_nondet = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        m_decls_to_hide.insert(pn_nondet->get_decl());
+        m_decls_to_hide.insert(np_nondet->get_decl());
+
+        expr_ref pn(m), np(m);
+        mk_fp(pn_nondet,
+              m_bv_util.mk_numeral(0, ebits),
+              m_bv_util.mk_numeral(0, sbits - 1),
+              pn);
+        mk_fp(np_nondet,
+              m_bv_util.mk_numeral(0, ebits),
+              m_bv_util.mk_numeral(0, sbits - 1),
+              np);
+        expr_ref x_is_pzero(m), x_is_nzero(m);
+        mk_is_pzero(x, x_is_pzero);
+        mk_is_nzero(y, x_is_nzero);
+        mk_ite(m.mk_and(x_is_pzero, x_is_nzero), pn, np, res);
+    }
+
+    return res;
 }
 
 void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -1121,15 +1160,53 @@ void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, 
 
     expr_ref gt(m);
     mk_float_gt(f, num, args, gt);
+    
+    expr_ref zz(m);
+    zz = mk_max_unspecified(f, x, y);
 
     result = y;
     mk_ite(gt, x, result, result);
     mk_ite(both_zero, y, result, result);    
-    mk_ite(m.mk_and(both_zero, sgn_diff), pzero, result, result); // max(-0.0, +0.0) = max(+0.0, -0.0) = +0.0
+    mk_ite(m.mk_and(both_zero, sgn_diff), zz, result, result); 
     mk_ite(y_is_nan, x, result, result);
     mk_ite(x_is_nan, y, result, result);
 
     SASSERT(is_well_sorted(m, result));
+}
+
+expr_ref fpa2bv_converter::mk_max_unspecified(func_decl * f, expr * x, expr * y) {
+    unsigned ebits = m_util.get_ebits(f->get_range());
+    unsigned sbits = m_util.get_sbits(f->get_range());
+    expr_ref res(m);
+
+    // The only cases in which max is unspecified for is when the arguments are +0.0 and -0.0.
+
+    if (m_hi_fp_unspecified)
+        // The hardware interpretation is +0.0.        
+        mk_pzero(f, res);
+    else {
+        app_ref pn_nondet(m), np_nondet(m);
+        pn_nondet = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        np_nondet = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        m_decls_to_hide.insert(pn_nondet->get_decl());
+        m_decls_to_hide.insert(np_nondet->get_decl());
+
+        expr_ref pn(m), np(m);
+        mk_fp(pn_nondet,
+              m_bv_util.mk_numeral(0, ebits),
+              m_bv_util.mk_numeral(0, sbits - 1),
+              pn);
+        mk_fp(np_nondet,
+              m_bv_util.mk_numeral(0, ebits),
+              m_bv_util.mk_numeral(0, sbits - 1),
+              np);
+        expr_ref x_is_pzero(m), x_is_nzero(m);
+        mk_is_pzero(x, x_is_pzero);
+        mk_is_nzero(y, x_is_nzero);
+        mk_ite(m.mk_and(x_is_pzero, x_is_nzero), pn, np, res);
+    }
+    
+    return res;
 }
 
 void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {

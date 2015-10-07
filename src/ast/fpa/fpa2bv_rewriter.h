@@ -166,8 +166,10 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FPA_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
             case OP_FPA_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
             case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
+            case OP_FPA_INTERNAL_MIN_UNSPECIFIED: result = m_conv.mk_min_unspecified(f, args[0], args[1]); return BR_DONE;
+            case OP_FPA_INTERNAL_MAX_UNSPECIFIED: result = m_conv.mk_max_unspecified(f, args[0], args[1]); return BR_DONE;
             case OP_FPA_INTERNAL_BVWRAP: 
-            case OP_FPA_INTERNAL_BVUNWRAP:
+            case OP_FPA_INTERNAL_BVUNWRAP:                
             case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
             case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED: 
             case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED: return BR_FAILED;

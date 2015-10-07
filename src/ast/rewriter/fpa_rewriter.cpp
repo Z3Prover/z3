@@ -93,6 +93,10 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_TO_IEEE_BV: SASSERT(num_args == 1); st = mk_to_ieee_bv(f, args[0], result); break;
     case OP_FPA_TO_REAL:   SASSERT(num_args == 1); st = mk_to_real(args[0], result); break;    
 
+    case OP_FPA_INTERNAL_MIN_UNSPECIFIED:        
+    case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
+        SASSERT(num_args == 2); st = BR_FAILED; break;
+
     case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED: 
         SASSERT(num_args == 0); st = mk_to_ubv_unspecified(f, result); break;
     case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
@@ -422,29 +426,27 @@ br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
         result = arg2;
         return BR_DONE;
     }
-    if (m_util.is_nan(arg2)) {
+    else if (m_util.is_nan(arg2)) {
         result = arg1;
         return BR_DONE;
     }
-    if (m_util.is_zero(arg1) && m_util.is_zero(arg2)) {
-        result = arg2;
-        return BR_DONE;
+    
+    scoped_mpf v1(m_fm), v2(m_fm);
+    if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
+        if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2)) {
+            // Result could be +zero or -zero.
+            result = m_util.mk_internal_min_unspecified(arg1, arg2);
+            return BR_DONE;
+        }
+        else {            
+            scoped_mpf r(m_fm);
+            m_fm.minimum(v1, v2, r);
+            result = m_util.mk_value(r);
+            return BR_DONE;
+        }
     }
 
-    result = m().mk_ite(mk_eq_nan(arg1),
-                        arg2,
-                        m().mk_ite(mk_eq_nan(arg2),
-                        arg1,
-                        // min(-0.0, +0.0) = min(+0.0, -0.0) = +0.0
-                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2),
-                                              m().mk_not(m().mk_eq(m_util.mk_is_positive(arg1), m_util.mk_is_positive(arg2)))),
-                        m_util.mk_pzero(m().get_sort(arg1)),
-                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2)),
-                        arg2,
-                        m().mk_ite(m_util.mk_lt(arg1, arg2),
-                        arg1,
-                        arg2)))));
-    return BR_REWRITE_FULL;
+    return BR_FAILED;
 }
 
 br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
@@ -452,29 +454,27 @@ br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
         result = arg2;
         return BR_DONE;
     }
-    if (m_util.is_nan(arg2)) {
+    else if (m_util.is_nan(arg2)) {
         result = arg1;
         return BR_DONE;
     }
-    if (m_util.is_zero(arg1) && m_util.is_zero(arg2)) {
-        result = arg2;
-        return BR_DONE;
+
+    scoped_mpf v1(m_fm), v2(m_fm);
+    if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
+        if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2)) {
+            // Result could be +zero or -zero.
+            result = m_util.mk_internal_max_unspecified(arg1, arg2);
+            return BR_REWRITE_FULL;
+        }
+        else {
+            scoped_mpf r(m_fm);
+            m_fm.maximum(v1, v2, r);
+            result = m_util.mk_value(r);
+            return BR_DONE;
+        }
     }
 
-    result = m().mk_ite(mk_eq_nan(arg1),
-                        arg2,
-                        m().mk_ite(mk_eq_nan(arg2),
-                        arg1,                        
-                        // max(-0.0, +0.0) = max(+0.0, -0.0) = +0.0
-                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2), 
-                                              m().mk_not(m().mk_eq(m_util.mk_is_positive(arg1), m_util.mk_is_positive(arg2)))),
-                        m_util.mk_pzero(m().get_sort(arg1)),
-                        m().mk_ite(m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2)),
-                        arg2,
-                        m().mk_ite(m_util.mk_gt(arg1, arg2),
-                        arg1,
-                        arg2)))));
-    return BR_REWRITE_FULL;
+    return BR_FAILED;
 }
 
 br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result) {

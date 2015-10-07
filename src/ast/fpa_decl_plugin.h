@@ -87,6 +87,8 @@ enum fpa_op_kind {
     /* Internal use only */
     OP_FPA_INTERNAL_BVWRAP,
     OP_FPA_INTERNAL_BVUNWRAP,
+    OP_FPA_INTERNAL_MIN_UNSPECIFIED,
+    OP_FPA_INTERNAL_MAX_UNSPECIFIED,
     OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED,
     OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED,    
     OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED,
@@ -160,6 +162,10 @@ class fpa_decl_plugin : public decl_plugin {
                                     unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_bv_unwrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                       unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_internal_min_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                            unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_internal_max_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                            unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_to_ubv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_to_sbv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -332,6 +338,8 @@ public:
 
     app * mk_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_FPA_TO_IEEE_BV, arg1); }
 
+    app * mk_internal_min_unspecified(expr * x, expr * y);
+    app * mk_internal_max_unspecified(expr * x, expr * y);
     app * mk_internal_to_ubv_unspecified(unsigned width);
     app * mk_internal_to_sbv_unspecified(unsigned width);
     app * mk_internal_to_ieee_bv_unspecified(unsigned width);
