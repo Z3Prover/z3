@@ -197,6 +197,7 @@ public:
     mpf_exp_t mk_max_exp(unsigned ebits);
     mpf_exp_t mk_min_exp(unsigned ebits);
 
+    mpf_exp_t bias_exp(unsigned ebits, mpf_exp_t unbiased_exponent);
     mpf_exp_t unbias_exp(unsigned ebits, mpf_exp_t biased_exponent);
 
     /**
