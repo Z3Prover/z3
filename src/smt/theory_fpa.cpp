@@ -331,8 +331,21 @@ namespace smt {
         proof_ref pr(m);
         m_rw(e, e_conv);
         
-        if (is_app(e_conv) && to_app(e_conv)->get_family_id() != get_family_id()) {
-            m_th_rw(e_conv, res);
+        if (is_app(e_conv) && to_app(e_conv)->get_family_id() != get_family_id()) {            
+            if (!m_fpa_util.is_float(e_conv))
+                m_th_rw(e_conv, res);
+            else {
+                expr_ref bv(m);            
+                bv = wrap(e_conv);
+                unsigned bv_sz = m_bv_util.get_bv_size(bv);
+                unsigned ebits = m_fpa_util.get_ebits(m.get_sort(e_conv));
+                unsigned sbits = m_fpa_util.get_sbits(m.get_sort(e_conv));
+                SASSERT(bv_sz == ebits + sbits);
+                m_converter.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
+                    m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
+                    m_bv_util.mk_extract(sbits - 2, 0, bv),
+                    res);
+            }
         }
         else if (m_fpa_util.is_rm(e)) {
             SASSERT(is_sort_of(m.get_sort(e_conv), m_bv_util.get_family_id(), BV_SORT));
@@ -464,7 +477,7 @@ namespace smt {
             else if (m_fpa_util.is_float(e) || m_fpa_util.is_rm(e))
                 res = convert_term(e);
             else if (m_arith_util.is_real(e) || m_bv_util.is_bv(e))
-                res = convert_conversion_term(e);
+                res = convert_conversion_term(e);            
             else
                 UNREACHABLE();
 
@@ -643,13 +656,12 @@ namespace smt {
         expr_ref xc(m), yc(m);
         xc = convert(xe);
         yc = convert(ye);
-        
 
         TRACE("t_fpa_detail", tout << "xc = " << mk_ismt2_pp(xc, m) << std::endl <<
                                       "yc = " << mk_ismt2_pp(yc, m) << std::endl;);
 
         expr_ref c(m);
-               
+        
         if (fu.is_float(xe) && fu.is_float(ye))
             m_converter.mk_eq(xc, yc, c);
         else 
