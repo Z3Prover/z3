@@ -68,7 +68,7 @@ public:
 
     bool is_float(sort * s) { return m_util.is_float(s); }
     bool is_float(expr * e) { return is_app(e) && m_util.is_float(to_app(e)->get_decl()->get_range()); }
-    bool is_rm(expr * e) { return m_util.is_rm(e); }
+    bool is_rm(expr * e) { return is_app(e) && m_util.is_rm(e); }
     bool is_rm(sort * s) { return m_util.is_rm(s); }
     bool is_float_family(func_decl * f) { return f->get_family_id() == m_util.get_family_id(); }
 

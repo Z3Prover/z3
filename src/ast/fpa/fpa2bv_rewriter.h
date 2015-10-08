@@ -79,16 +79,29 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         TRACE("fpa2bv_rw", tout << "APP: " << f->get_name() << std::endl; );
 
-        if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_float(f->get_range())) {
-            m_conv.mk_const(f, result);
-            return BR_DONE;
+        if (f->get_family_id() == null_family_id) {
+            if (num == 0) {
+                if (m_conv.is_float(f->get_range()))
+                    m_conv.mk_const(f, result);
+                else if (m_conv.is_rm(f->get_range()))
+                    m_conv.mk_rm_const(f, result);
+                return BR_DONE;
+            }
+            else {
+                bool is_float_uf = m_conv.is_float(f->get_range()) || m_conv.is_rm(f->get_range());
+                
+                for (unsigned i = 0; i < f->get_arity(); i++) {
+                    sort * di = f->get_domain()[i];
+                    is_float_uf |= m_conv.is_float(di) || m_conv.is_rm(di);
+                }
+                
+                if (is_float_uf)
+                    m_conv.mk_uninterpreted_function(f, num, args, result);
+                
+                return BR_DONE;
+            }
         }
-
-        if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_rm(f->get_range())) {
-            m_conv.mk_rm_const(f, result);
-            return BR_DONE;
-        }
-
+        
         if (m().is_eq(f)) {
             SASSERT(num == 2);
             TRACE("fpa2bv_rw", tout << "(= " << mk_ismt2_pp(args[0], m()) << " " << 
@@ -180,20 +193,6 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             }
         }
 
-        if (f->get_family_id() != 0 && f->get_family_id() != m_conv.fu().get_family_id())
-        {
-            bool is_float_uf = m_conv.is_float(f->get_range()) || m_conv.is_rm(f->get_range());
-            
-            for (unsigned i = 0; i < num; i++)
-                is_float_uf |= m_conv.is_float(args[i]) || m_conv.is_rm(args[i]);
-
-            if (is_float_uf)
-            {
-                m_conv.mk_uninterpreted_function(f, num, args, result);
-                return BR_DONE;
-            }
-        }
-        
         return BR_FAILED;
     }
 
