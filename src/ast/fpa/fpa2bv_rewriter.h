@@ -185,7 +185,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             bool is_float_uf = m_conv.is_float(f->get_range()) || m_conv.is_rm(f->get_range());
             
             for (unsigned i = 0; i < num; i++)
-                is_float_uf |= m_conv.is_float(f->get_domain()[i]) || m_conv.is_rm(f->get_domain()[i]);
+                is_float_uf |= m_conv.is_float(args[i]) || m_conv.is_rm(args[i]);
 
             if (is_float_uf)
             {

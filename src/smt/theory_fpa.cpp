@@ -652,10 +652,8 @@ namespace smt {
                
         if (fu.is_float(xe) && fu.is_float(ye))
             m_converter.mk_eq(xc, yc, c);
-        else if (fu.is_rm(xe) && fu.is_rm(ye))
+        else 
             c = m.mk_eq(xc, yc);
-        else
-            UNREACHABLE();
         
         m_th_rw(c);
         assert_cnstr(m.mk_iff(m.mk_eq(xe, ye), c));
@@ -692,10 +690,8 @@ namespace smt {
             m_converter.mk_eq(xc, yc, c);
             c = m.mk_not(c);
         }
-        else if (fu.is_rm(xe) && fu.is_rm(ye))
-            c = m.mk_not(m.mk_eq(xc, yc));
         else
-            UNREACHABLE();
+            c = m.mk_not(m.mk_eq(xc, yc));
 
         m_th_rw(c);
         assert_cnstr(m.mk_iff(m.mk_not(m.mk_eq(xe, ye)), c));
