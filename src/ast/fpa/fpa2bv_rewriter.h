@@ -81,11 +81,16 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 
         if (f->get_family_id() == null_family_id) {
             if (num == 0) {
-                if (m_conv.is_float(f->get_range()))
+                if (m_conv.is_float(f->get_range())) {
                     m_conv.mk_const(f, result);
-                else if (m_conv.is_rm(f->get_range()))
+                    return BR_DONE;
+                }
+                else if (m_conv.is_rm(f->get_range())) {
                     m_conv.mk_rm_const(f, result);
-                return BR_DONE;
+                    return BR_DONE;
+                }
+                else
+                    return BR_FAILED;
             }
             else {
                 bool is_float_uf = m_conv.is_float(f->get_range()) || m_conv.is_rm(f->get_range());
@@ -95,11 +100,13 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
                     is_float_uf |= m_conv.is_float(di) || m_conv.is_rm(di);
                 }
                 
-                if (is_float_uf)
+                if (is_float_uf) {
                     m_conv.mk_uninterpreted_function(f, num, args, result);
-                
-                return BR_DONE;
-            }
+                    return BR_DONE;
+                }
+                else
+                    return BR_FAILED;
+            }            
         }
         
         if (m().is_eq(f)) {
