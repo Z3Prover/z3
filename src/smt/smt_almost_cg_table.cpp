@@ -67,7 +67,7 @@ namespace smt {
             switch (num_args) {
             case 2:
                 b += arg_hash(n, 1);
-                __fallthrough;
+                Z3_fallthrough;
             case 1:
                 c += arg_hash(n, 0);
             }

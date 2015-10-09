@@ -127,7 +127,7 @@ namespace smt {
         switch (i) {
         case 2:
             b += n->get_arg(1)->get_root()->hash();
-            __fallthrough;
+            Z3_fallthrough;
         case 1:
             c += n->get_arg(0)->get_root()->hash();
         }
