@@ -68,6 +68,18 @@ COMPILE_TIME_ASSERT(sizeof(int64) == 8);
 #define THREAD_LOCAL 
 #endif
 
+#ifdef __fallthrough
+# define Z3_fallthrough __fallthrough
+#elif defined(__has_cpp_attribute)
+# if __has_cpp_attribute(clang::fallthrough)
+#  define Z3_fallthrough [[clang::fallthrough]]
+# else
+#  define Z3_fallthrough
+# endif
+#else
+# define Z3_fallthrough
+#endif
+
 inline bool is_power_of_two(unsigned v) { return !(v & (v - 1)) && v; }
 
 /**
@@ -272,10 +284,6 @@ bool has_duplicates(const IT & begin, const IT & end) {
     }
     return false;
 }
-
-#ifndef __fallthrough
-#define __fallthrough
-#endif
 
 #ifndef _WINDOWS
 #ifndef __declspec

@@ -22,10 +22,6 @@ Revision History:
 #include<algorithm>
 #include"util.h"
 
-#ifndef __fallthrough
-#define __fallthrough
-#endif
-
 #define mix(a,b,c)              \
 {                               \
   a -= b; a -= c; a ^= (c>>13); \
@@ -116,7 +112,7 @@ unsigned get_composite_hash(Composite app, unsigned n, GetKindHashProc const & k
         switch (n) {
         case 2:
             b += chasher(app, 1);
-            __fallthrough;
+            Z3_fallthrough;
         case 1:
             c += chasher(app, 0);
         }

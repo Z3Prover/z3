@@ -1500,7 +1500,7 @@ br_status bv_rewriter::mk_bv_xor(unsigned num, expr * const * args, expr_ref & r
             result = m_util.mk_bv_not(new_args[1]);
             return BR_DONE;
         }
-        __fallthrough;
+        Z3_fallthrough;
     default:
         if (m_bv_sort_ac)
             std::sort(new_args.begin(), new_args.end(), ast_to_lt());
