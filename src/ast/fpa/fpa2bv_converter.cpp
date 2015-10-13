@@ -35,7 +35,11 @@ fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
     m_arith_util(m),
     m_mpf_manager(m_util.fm()),
     m_mpz_manager(m_mpf_manager.mpz_manager()),    
-    m_hi_fp_unspecified(true),
+    m_hi_fp_unspecified(true),    
+    m_min_pn_zeros(0, m),
+    m_min_np_zeros(0, m),
+    m_max_pn_zeros(0, m),
+    m_max_np_zeros(0, m),
     m_extra_assertions(m) {
     m_plugin = static_cast<fpa_decl_plugin*>(m.get_plugin(m.mk_family_id("fpa")));
 }
@@ -1064,7 +1068,7 @@ void fpa2bv_converter::mk_abs(func_decl * f, unsigned num, expr * const * args, 
     mk_fp(m_bv_util.mk_numeral(0, 1), e, s, result);
 }
 
-void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+void fpa2bv_converter::mk_min_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
     
     expr * x = args[0], * y = args[1];
@@ -1086,16 +1090,11 @@ void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, 
     sgn_diff = m.mk_not(m.mk_eq(x_sgn, y_sgn));
 
     expr_ref lt(m);
-    mk_float_lt(f, num, args, lt);
-    
-    expr_ref zz(m);
-    zz = mk_min_unspecified(f, x, y);
-    TRACE("fpa2bv", tout << "min = " << mk_ismt2_pp(zz, m) << std::endl;);
+    mk_float_lt(f, num, args, lt);    
 
     result = y;
     mk_ite(lt, x, result, result);
     mk_ite(both_zero, y, result, result);
-    mk_ite(m.mk_and(both_zero, sgn_diff), zz, result, result);
     mk_ite(y_is_nan, x, result, result);
     mk_ite(x_is_nan, y, result, result);
 
@@ -1111,33 +1110,40 @@ expr_ref fpa2bv_converter::mk_min_unspecified(func_decl * f, expr * x, expr * y)
     
     if (m_hi_fp_unspecified)
         // The hardware interpretation is -0.0.
-        mk_nzero(f, res);        
+        mk_nzero(f, res);
     else {
-        app_ref pn_nondet(m), np_nondet(m);
-        pn_nondet = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-        np_nondet = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-        m_decls_to_hide.insert(pn_nondet->get_decl());
-        m_decls_to_hide.insert(np_nondet->get_decl());
+        if (m_min_pn_zeros.get() == 0) m_min_pn_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        if (m_min_np_zeros.get() == 0) m_min_np_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));        
 
         expr_ref pn(m), np(m);
-        mk_fp(pn_nondet,
+        mk_fp(m_min_pn_zeros,
               m_bv_util.mk_numeral(0, ebits),
               m_bv_util.mk_numeral(0, sbits - 1),
               pn);
-        mk_fp(np_nondet,
+        mk_fp(m_min_np_zeros,
               m_bv_util.mk_numeral(0, ebits),
               m_bv_util.mk_numeral(0, sbits - 1),
               np);
-        expr_ref x_is_pzero(m), x_is_nzero(m);
+
+        expr_ref x_is_pzero(m), x_is_nzero(m), ite(m);
         mk_is_pzero(x, x_is_pzero);
         mk_is_nzero(y, x_is_nzero);
-        mk_ite(m.mk_and(x_is_pzero, x_is_nzero), pn, np, res);
+        mk_ite(m.mk_and(x_is_pzero, x_is_nzero), pn, np, ite);
+
+        expr * args[] = { x, y };
+        mk_uninterpreted_function(f, 2, args, res);
+
+        expr_ref pzero(m), nzero(m), extra(m);
+        mk_pzero(f, pzero);
+        mk_nzero(f, nzero);
+        extra = m.mk_or(m.mk_eq(ite, pzero), m.mk_eq(ite, nzero));
+        m_extra_assertions.push_back(extra);
     }
 
     return res;
 }
 
-void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+void fpa2bv_converter::mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
 
     expr * x = args[0], *y = args[1];
@@ -1160,14 +1166,10 @@ void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, 
 
     expr_ref gt(m);
     mk_float_gt(f, num, args, gt);
-    
-    expr_ref zz(m);
-    zz = mk_max_unspecified(f, x, y);
-
+   
     result = y;
     mk_ite(gt, x, result, result);
-    mk_ite(both_zero, y, result, result);    
-    mk_ite(m.mk_and(both_zero, sgn_diff), zz, result, result); 
+    mk_ite(both_zero, y, result, result);        
     mk_ite(y_is_nan, x, result, result);
     mk_ite(x_is_nan, y, result, result);
 
@@ -1185,21 +1187,19 @@ expr_ref fpa2bv_converter::mk_max_unspecified(func_decl * f, expr * x, expr * y)
         // The hardware interpretation is +0.0.        
         mk_pzero(f, res);
     else {
-        app_ref pn_nondet(m), np_nondet(m);
-        pn_nondet = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-        np_nondet = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-        m_decls_to_hide.insert(pn_nondet->get_decl());
-        m_decls_to_hide.insert(np_nondet->get_decl());
+        if (m_max_pn_zeros.get() == 0) m_max_pn_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        if (m_max_np_zeros.get() == 0) m_max_np_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
 
         expr_ref pn(m), np(m);
-        mk_fp(pn_nondet,
+        mk_fp(m_max_pn_zeros,
               m_bv_util.mk_numeral(0, ebits),
               m_bv_util.mk_numeral(0, sbits - 1),
               pn);
-        mk_fp(np_nondet,
+        mk_fp(m_max_np_zeros,
               m_bv_util.mk_numeral(0, ebits),
               m_bv_util.mk_numeral(0, sbits - 1),
               np);
+
         expr_ref x_is_pzero(m), x_is_nzero(m);
         mk_is_pzero(x, x_is_pzero);
         mk_is_nzero(y, x_is_nzero);

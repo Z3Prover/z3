@@ -57,6 +57,11 @@ protected:
     obj_map<func_decl, expr*>  m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
     obj_hashtable<func_decl>   m_decls_to_hide;
+
+    app_ref                    m_min_pn_zeros;
+    app_ref                    m_min_np_zeros;
+    app_ref                    m_max_pn_zeros;
+    app_ref                    m_max_np_zeros;
     
 public:
     fpa2bv_converter(ast_manager & m);    
@@ -102,8 +107,8 @@ public:
     void mk_div(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_rem(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_abs(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_min(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_min_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_sqrt(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_round_to_integral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
