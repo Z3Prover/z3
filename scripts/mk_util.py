@@ -983,11 +983,11 @@ class LibComponent(Component):
 
     def mk_install(self, out):
         for include in self.includes2install:
-            out.write('\t@cp %s %s\n' % (os.path.join(self.to_src_dir, include), os.path.join('$(PREFIX)', 'include', include)))
+            out.write('\t@cp %s $(DESTDIR)%s\n' % (os.path.join(self.to_src_dir, include), os.path.join('$(PREFIX)', 'include', include)))
 
     def mk_uninstall(self, out):
         for include in self.includes2install:
-            out.write('\t@rm -f %s\n' % os.path.join('$(PREFIX)', 'include', include))
+            out.write('\t@rm -f $(DESTDIR)%s\n' % os.path.join('$(PREFIX)', 'include', include))
 
     def mk_win_dist(self, build_path, dist_path):
         mk_dir(os.path.join(dist_path, 'include'))
@@ -1069,11 +1069,11 @@ class ExeComponent(Component):
     def mk_install(self, out):
         if self.install:
             exefile = '%s$(EXE_EXT)' % self.exe_name
-            out.write('\t@cp %s %s\n' % (exefile, os.path.join('$(PREFIX)', 'bin', exefile)))
+            out.write('\t@cp %s $(DESTDIR)%s\n' % (exefile, os.path.join('$(PREFIX)', 'bin', exefile)))
 
     def mk_uninstall(self, out):
         exefile = '%s$(EXE_EXT)' % self.exe_name
-        out.write('\t@rm -f %s\n' % os.path.join('$(PREFIX)', 'bin', exefile))
+        out.write('\t@rm -f $(DESTDIR)%s\n' % os.path.join('$(PREFIX)', 'bin', exefile))
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
@@ -1215,19 +1215,19 @@ class DLLComponent(Component):
     def mk_install(self, out):
         if self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@cp %s %s\n' % (dllfile, os.path.join('$(PREFIX)', 'lib', dllfile)))
-            out.write('\t@cp %s %s\n' % (dllfile, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
+            out.write('\t@cp %s $(DESTDIR)%s\n' % (dllfile, os.path.join('$(PREFIX)', 'lib', dllfile)))
+            out.write('\t@cp %s $(DESTDIR)%s\n' % (dllfile, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
-                out.write('\t@cp %s %s\n' % (libfile, os.path.join('$(PREFIX)', 'lib', libfile)))
+                out.write('\t@cp %s $(DESTDIR)%s\n' % (libfile, os.path.join('$(PREFIX)', 'lib', libfile)))
 
 
     def mk_uninstall(self, out):
         dllfile = '%s$(SO_EXT)' % self.dll_name
-        out.write('\t@rm -f %s\n' % os.path.join('$(PREFIX)', 'lib', dllfile))
-        out.write('\t@rm -f %s\n' % os.path.join(PYTHON_PACKAGE_DIR, dllfile))
+        out.write('\t@rm -f $(DESTDIR)%s\n' % os.path.join('$(PREFIX)', 'lib', dllfile))
+        out.write('\t@rm -f $(DESTDIR)%s\n' % os.path.join(PYTHON_PACKAGE_DIR, dllfile))
         libfile = '%s$(LIB_EXT)' % self.dll_name
-        out.write('\t@rm -f %s\n' % os.path.join('$(PREFIX)', 'lib', libfile))
+        out.write('\t@rm -f $(DESTDIR)%s\n' % os.path.join('$(PREFIX)', 'lib', libfile))
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
@@ -1394,14 +1394,14 @@ class JavaDLLComponent(Component):
     def mk_install(self, out):
         if is_java_enabled() and self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@cp %s %s\n' % (dllfile, os.path.join('$(PREFIX)', 'lib', dllfile)))
-            out.write('\t@cp %s.jar %s.jar\n' % (self.package_name, os.path.join('$(PREFIX)', 'lib', self.package_name)))
+            out.write('\t@cp %s $(DESTDIR)%s\n' % (dllfile, os.path.join('$(PREFIX)', 'lib', dllfile)))
+            out.write('\t@cp %s.jar $(DESTDIR)%s.jar\n' % (self.package_name, os.path.join('$(PREFIX)', 'lib', self.package_name)))
 
     def mk_uninstall(self, out):
         if is_java_enabled() and self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@rm %s\n' % (os.path.join('$(PREFIX)', 'lib', dllfile)))
-            out.write('\t@rm %s.jar\n' % (os.path.join('$(PREFIX)', 'lib', self.package_name)))
+            out.write('\t@rm $(DESTDIR)%s\n' % (os.path.join('$(PREFIX)', 'lib', dllfile)))
+            out.write('\t@rm $(DESTDIR)%s.jar\n' % (os.path.join('$(PREFIX)', 'lib', self.package_name)))
 
 class MLComponent(Component):
     def __init__(self, name, lib_name, path, deps):
@@ -1963,17 +1963,17 @@ def mk_install(out):
     if is_ml_enabled() and OCAMLFIND != '':
         out.write('ocamlfind_install')
     out.write('\n')
-    out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'bin'))
-    out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'include'))
-    out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'lib'))
+    out.write('\t@mkdir -p $(DESTDIR)%s\n' % os.path.join('$(PREFIX)', 'bin'))
+    out.write('\t@mkdir -p $(DESTDIR)%s\n' % os.path.join('$(PREFIX)', 'include'))
+    out.write('\t@mkdir -p $(DESTDIR)%s\n' % os.path.join('$(PREFIX)', 'lib'))
     for c in get_components():
         c.mk_install(out)
-    out.write('\t@cp z3*.py %s\n' % PYTHON_PACKAGE_DIR)
+    out.write('\t@cp z3*.py $(DESTDIR)%s\n' % PYTHON_PACKAGE_DIR)
     if sys.version >= "3":
-        out.write('\t@cp %s*.pyc %s\n' % (os.path.join('__pycache__', 'z3'),
+        out.write('\t@cp %s*.pyc $(DESTDIR)%s\n' % (os.path.join('__pycache__', 'z3'),
                                           os.path.join(PYTHON_PACKAGE_DIR, '__pycache__')))
     else:
-        out.write('\t@cp z3*.pyc %s\n' % PYTHON_PACKAGE_DIR)
+        out.write('\t@cp z3*.pyc $(DESTDIR)%s\n' % PYTHON_PACKAGE_DIR)
     out.write('\t@echo Z3 was successfully installed.\n')
     if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
         if os.uname()[0] == 'Darwin':
@@ -1989,9 +1989,9 @@ def mk_uninstall(out):
     out.write('uninstall:\n')
     for c in get_components():
         c.mk_uninstall(out)
-    out.write('\t@rm -f %s*.py\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
-    out.write('\t@rm -f %s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
-    out.write('\t@rm -f %s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__', 'z3'))
+    out.write('\t@rm -f $(DESTDIR)%s*.py\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
+    out.write('\t@rm -f $(DESTDIR)%s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
+    out.write('\t@rm -f $(DESTDIR)%s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__', 'z3'))
     out.write('\t@echo Z3 was successfully uninstalled.\n')
     out.write('\n')
 
