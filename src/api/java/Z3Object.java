@@ -43,8 +43,8 @@ public class Z3Object extends IDisposable
         }
 
         if (m_ctx != null)
-        {
-            m_ctx.m_refCount--;
+        {            
+            m_ctx.m_refCount.decrementAndGet();
             m_ctx = null;
         }
     }
@@ -54,13 +54,13 @@ public class Z3Object extends IDisposable
 
     Z3Object(Context ctx)
     {
-        ctx.m_refCount++;
+        ctx.m_refCount.incrementAndGet();
         m_ctx = ctx;
     }
 
     Z3Object(Context ctx, long obj)
     {
-        ctx.m_refCount++;
+        ctx.m_refCount.incrementAndGet();
         m_ctx = ctx;
         incRef(obj);
         m_n_obj = obj;

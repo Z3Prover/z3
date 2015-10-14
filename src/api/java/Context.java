@@ -18,6 +18,7 @@ Notes:
 package com.microsoft.z3;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
@@ -3761,29 +3762,42 @@ public class Context extends IDisposable
         return m_Optimize_DRQ;
     }
 
-    protected long m_refCount = 0;
+    protected AtomicInteger m_refCount = new AtomicInteger(0);
 
     /**
      * Finalizer.
+     * @throws Throwable 
      **/
-    protected void finalize()
+    protected void finalize() throws Throwable
     {
-        dispose();
-
-        if (m_refCount == 0)
-        {
-            try
+        try {            
+            dispose();
+    
+            if (m_refCount.get() == 0)
             {
-                Native.delContext(m_ctx);
-            } catch (Z3Exception e)
+                try
+                {
+                    Native.delContext(m_ctx);
+                } catch (Z3Exception e)
+                {
+                    // OK.
+                }
+                m_ctx = 0;
+                System.out.println("> disposed OK.");
+            } 
+            else if (m_refCount.get() < 0)
+                System.out.println("XXX negative ref count");
+            else
             {
-                // OK.
+                System.out.println("XXX context not disposed");
             }
-            m_ctx = 0;
-        } 
-        /*
-        else
-            CMW: re-queue the finalizer? */
+        }
+        catch (Throwable t) {
+            throw t;
+        }
+        finally {
+            super.finalize();
+        }
     }
 
     /**
@@ -3791,6 +3805,7 @@ public class Context extends IDisposable
      **/
     public void dispose()
     {
+        System.out.println("> context disposing.");
         m_AST_DRQ.clear(this);
         m_ASTMap_DRQ.clear(this);
         m_ASTVector_DRQ.clear(this);
