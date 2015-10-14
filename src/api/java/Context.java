@@ -3783,14 +3783,7 @@ public class Context extends IDisposable
                     // OK.
                 }
                 m_ctx = 0;
-                System.out.println("> disposed OK.");
             } 
-            else if (m_refCount.get() < 0)
-                System.out.println("XXX negative ref count");
-            else
-            {
-                System.out.println("XXX context not disposed");
-            }
         }
         catch (Throwable t) {
             throw t;
