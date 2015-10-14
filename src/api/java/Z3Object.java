@@ -25,10 +25,19 @@ public class Z3Object extends IDisposable
 {
     /**
      * Finalizer.
+     * @throws Throwable 
      **/
-    protected void finalize()
+    protected void finalize() throws Throwable
     {
-        dispose();
+        try {
+            dispose();            
+        }
+        catch (Throwable t) {
+            throw t;
+        }
+        finally {
+            super.finalize();
+        }
     }
 
     /**
