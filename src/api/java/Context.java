@@ -3809,7 +3809,7 @@ public class Context extends IDisposable
         m_intSort = null;
         m_realSort = null;
 
-        if (m_refCount.get() == 0) {
+        if (m_refCount.get() == 0 && m_ctx != 0) {
             try {
                 Native.delContext(m_ctx);
             } catch (Z3Exception e) {
