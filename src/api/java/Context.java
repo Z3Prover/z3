@@ -3809,14 +3809,16 @@ public class Context extends IDisposable
         m_intSort = null;
         m_realSort = null;
 
-        if (m_refCount.get() == 0 && m_ctx != 0) {
-            try {
-                Native.delContext(m_ctx);
-            } catch (Z3Exception e) {
-                // OK?
-                System.out.println("Context deletion failed; memory leak possible.");
+        synchronized (creation_lock) {
+            if (m_refCount.get() == 0 && m_ctx != 0) {
+                try {
+                    Native.delContext(m_ctx);
+                } catch (Z3Exception e) {
+                    // OK?
+                    System.out.println("Context deletion failed; memory leak possible.");
+                }
+                m_ctx = 0;
             }
-            m_ctx = 0;
         }
     }
 }
