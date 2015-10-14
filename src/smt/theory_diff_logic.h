@@ -399,7 +399,6 @@ namespace smt {
     };
 
     struct sidl_ext {
-        // TODO: It doesn't need to be a rational, but a bignum integer.
         static const bool m_int_theory = true;
         typedef s_integer numeral;
         typedef s_integer fin_numeral;
@@ -415,13 +414,11 @@ namespace smt {
         rdl_ext() : m_epsilon(rational(), true) {}
     };
 
-    struct srdl_ext {
-        static const bool m_int_theory = false;
-        typedef inf_s_integer numeral;
-        typedef s_integer fin_numeral;
-        numeral m_epsilon;
-        srdl_ext() : m_epsilon(s_integer(0),true) {}
-    };
+    //
+    // there is no s_rational class, so 
+    // instead we use multi-precision rationals.
+    //
+    struct srdl_ext : public rdl_ext {};
 
     typedef theory_diff_logic<idl_ext>  theory_idl;
     typedef theory_diff_logic<sidl_ext> theory_fidl;
