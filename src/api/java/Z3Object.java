@@ -53,7 +53,8 @@ public class Z3Object extends IDisposable
 
         if (m_ctx != null)
         {            
-            m_ctx.m_refCount.decrementAndGet();
+            if (m_ctx.m_refCount.decrementAndGet() == 0)
+                m_ctx.dispose();
             m_ctx = null;
         }
     }
