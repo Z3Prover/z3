@@ -33,7 +33,7 @@ public class AST extends Z3Object implements Comparable
     {
         AST casted = null;
 
-	try
+        try
         {
             casted = AST.class.cast(o);
         } catch (ClassCastException e)
@@ -41,13 +41,12 @@ public class AST extends Z3Object implements Comparable
             return false;
         }
 
-	return  
-	    (this == casted) || 
-	    (this != null) &&
-	    (casted != null) &&
-	    (getContext().nCtx() == casted.getContext().nCtx()) &&
-	    (Native.isEqAst(getContext().nCtx(), getNativeObject(), casted.getNativeObject()));
-}
+        return  (this == casted) ||
+                (this != null) &&
+                (casted != null) &&
+                (getContext().nCtx() == casted.getContext().nCtx()) &&
+                (Native.isEqAst(getContext().nCtx(), getNativeObject(), casted.getNativeObject()));
+    }
 
     /**
      * Object Comparison. 
