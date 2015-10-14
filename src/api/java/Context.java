@@ -30,10 +30,12 @@ public class Context extends IDisposable
      * Constructor.
      **/
     public Context()
-    {
+    {        
         super();
-        m_ctx = Native.mkContextRc(0);
-        initContext();
+        synchronized (creation_lock) {            
+            m_ctx = Native.mkContextRc(0);
+            initContext();
+        }
     }
 
     /**
@@ -56,12 +58,14 @@ public class Context extends IDisposable
     public Context(Map<String, String> settings)
     {
         super();
-        long cfg = Native.mkConfig();
-        for (Map.Entry<String, String> kv : settings.entrySet())
-            Native.setParamValue(cfg, kv.getKey(), kv.getValue());
-        m_ctx = Native.mkContextRc(cfg);
-        Native.delConfig(cfg);
-        initContext();
+        synchronized (creation_lock) {            
+            long cfg = Native.mkConfig();
+            for (Map.Entry<String, String> kv : settings.entrySet())
+                Native.setParamValue(cfg, kv.getKey(), kv.getValue());
+            m_ctx = Native.mkContextRc(cfg);
+            Native.delConfig(cfg);
+            initContext();
+        }
     }
 
     /**
@@ -3638,7 +3642,8 @@ public class Context extends IDisposable
         Native.updateParamValue(nCtx(), id, value);
     }
 
-    long m_ctx = 0;
+    protected long m_ctx = 0;
+    protected static Object creation_lock = new Object();
 
     long nCtx()
     {

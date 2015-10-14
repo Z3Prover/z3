@@ -35,8 +35,11 @@ public class InterpolationContext extends Context
      **/
     public InterpolationContext()
     {
-        m_ctx = Native.mkInterpolationContext(0);
-        initContext(); 
+        super();
+        synchronized(creation_lock) {
+            m_ctx = Native.mkInterpolationContext(0);
+            initContext(); 
+        }
     }
 
     /** 
@@ -48,12 +51,15 @@ public class InterpolationContext extends Context
      **/
     public InterpolationContext(Map<String, String> settings)
     { 
-        long cfg = Native.mkConfig();
-        for (Map.Entry<String, String> kv : settings.entrySet())
-            Native.setParamValue(cfg, kv.getKey(), kv.getValue());
-        m_ctx = Native.mkInterpolationContext(cfg);
-        Native.delConfig(cfg);
-        initContext();
+        super();
+        synchronized(creation_lock) {
+            long cfg = Native.mkConfig();
+            for (Map.Entry<String, String> kv : settings.entrySet())
+                Native.setParamValue(cfg, kv.getKey(), kv.getValue());
+            m_ctx = Native.mkInterpolationContext(cfg);
+            Native.delConfig(cfg);
+            initContext();
+        }
     }
 
     /** 
