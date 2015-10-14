@@ -3798,7 +3798,6 @@ public class Context extends IDisposable
      **/
     public void dispose()
     {
-        System.out.println("> context disposing.");
         m_AST_DRQ.clear(this);
         m_ASTMap_DRQ.clear(this);
         m_ASTVector_DRQ.clear(this);
