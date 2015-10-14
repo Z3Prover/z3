@@ -80,11 +80,20 @@ public class Constructor extends Z3Object
 
     /**
      * Destructor.
+     * @throws Throwable 
      * @throws Z3Exception on error
      **/
-    protected void finalize()
+    protected void finalize() throws Throwable
     {
-        Native.delConstructor(getContext().nCtx(), getNativeObject());
+        try {
+            Native.delConstructor(getContext().nCtx(), getNativeObject());
+        }
+        catch (Throwable t) {
+            throw t;
+        }
+        finally {
+            super.finalize();
+        }
     }
 
     private int n = 0;
