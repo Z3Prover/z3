@@ -144,6 +144,8 @@ def get_os_name():
             return basic
         else:
             return 'freebsd-%s' % ver[(idx1+1):idx2]
+    elif basic == 'openbsd':
+        return 'openbsd-%s' % os.uname()[2]
     else:
         return basic
 

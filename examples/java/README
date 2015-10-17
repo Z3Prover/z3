@@ -8,7 +8,7 @@ It will create JavaExample.class in the build directory,
 which can be run on Windows via 
    java -cp com.microsoft.z3.jar;. JavaExample
 
-On Linux and FreeBSD, we must use
+On Linux, FreeBSD and OpenBSD, we must use
    LD_LIBRARY_PATH=. java -cp com.microsoft.z3.jar:. JavaExample
 On OSX, the corresponding option is DYLD_LIBRARY_PATH:   
    DYLD_LIBRARY_PATH=. java -cp com.microsoft.z3.jar:. JavaExample  
