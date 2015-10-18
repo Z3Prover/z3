@@ -376,7 +376,7 @@ void theory_str::propagate() {
         }
         m_str_eq_todo.reset();
 
-        for (unsigned i = 0; i < m_concat_axiom_todo.empty(); ++i) {
+        for (unsigned i = 0; i < m_concat_axiom_todo.size(); ++i) {
             instantiate_concat_axiom(m_concat_axiom_todo[i]);
         }
         m_concat_axiom_todo.reset();
