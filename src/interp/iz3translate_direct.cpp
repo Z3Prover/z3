@@ -595,7 +595,9 @@ public:
     }
 
 
-    struct invalid_lemma {};
+    struct invalid_lemma: public iz3_exception {
+        invalid_lemma(): iz3_exception("invalid_lemma") {}
+    };
 
 
 
@@ -846,7 +848,9 @@ public:
             return 1;
     }
 
-    struct non_lit_local_ante {};
+    struct non_lit_local_ante: public iz3_exception {
+        non_lit_local_ante(): iz3_exception("non_lit_local_ante") {}
+    };
 
     bool local_antes_simple;
 

@@ -117,7 +117,7 @@ class iz3base : public iz3mgr, public scopes {
 
     /** Interpolator for clauses, to be implemented */
     virtual void interpolate_clause(std::vector<ast> &lits, std::vector<ast> &itps){
-        throw "no interpolator";
+        throw iz3_exception("no interpolator");
     }
 
     ast get_proof_check_assump(range &rng){
@@ -129,7 +129,7 @@ class iz3base : public iz3mgr, public scopes {
     int frame_of_assertion(const ast &ass){
         stl_ext::hash_map<ast,int>::iterator it = frame_map.find(ass);
         if(it == frame_map.end())
-            throw "unknown assertion";
+            throw iz3_exception("unknown assertion");
         return it->second;
     }
   
