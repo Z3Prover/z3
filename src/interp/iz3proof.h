@@ -57,7 +57,9 @@ class iz3proof {
     typedef prover::ast ast;
 
     /** Object thrown in case of a proof error. */
-    struct proof_error {};
+    struct proof_error: public iz3_exception {
+        proof_error(): iz3_exception("proof_error") {}
+    };
 
     /* Null proof node */
     static const node null = -1;
