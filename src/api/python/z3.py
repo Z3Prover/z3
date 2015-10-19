@@ -4064,7 +4064,7 @@ def Default(a):
     """  
     if __debug__:  
         _z3_assert(is_array(a), "First argument must be a Z3 array expression")  
-    return a.mk_default()  
+    return a.default()  
 
 
 def Store(a, i, v):
