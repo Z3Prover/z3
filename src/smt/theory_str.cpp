@@ -1837,6 +1837,8 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
  */
 expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
 	context & ctx = get_context();
+	// I hope this works
+	ctx.internalize(n, false);
 	enode * nNode = ctx.get_enode(n);
 	enode * eqcNode = nNode;
 	do {
