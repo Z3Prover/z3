@@ -1017,6 +1017,7 @@ void extract_example() {
     x = c.constant("x", c.bv_sort(32));
     expr y = x.extract(21, 10);
     std::cout << y << " " << y.hi() << " " << y.lo() << "\n";
+}
 
 void sudoku_example() {
     std::cout << "sudoku example\n";
@@ -1059,7 +1060,7 @@ void sudoku_example() {
 
     // each 3x3 square contains a digit at most once
     for (unsigned i0 = 0; i0 < 3; i0++) {
-        for (uint j0 = 0; j0 < 3; j0++) {
+        for (unsigned j0 = 0; j0 < 3; j0++) {
             expr_vector t(c);
             for (unsigned i = 0; i < 3; i++)
                 for (unsigned j = 0; j < 3; j++)
