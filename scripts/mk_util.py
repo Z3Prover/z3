@@ -1484,6 +1484,33 @@ class MLComponent(Component):
                     get_component(Z3_DLL_COMPONENT).dll_name))
             out.write(' %s\n' % (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)')))
             out.write('\tocamlmklib -o %s -I %s -ldopt \"-L. -lz3\" ' % (os.path.join(sub_dir, 'z3ml'), sub_dir))
+
+            # Add ocamlfind destdir to rpath
+            if OCAMLFIND != '':
+                if is_verbose():
+                    print ("Finding ocamlfind destdir")
+                t = TempFile('output')
+                null = open(os.devnull, 'wb')
+                try:
+                    subprocess.call([OCAMLFIND, 'printconf', 'destdir'], stdout=t.fname, stderr=null)
+                    t.commit()
+                except:
+                    raise MKException('Failed to find Ocamlfind destdir')
+                t = open('output', 'r')
+                for line in t:
+                    ocamlfind_destdir = line[:-1]
+                if is_verbose():
+                    print ('ocamlfind destdir=%s' % ocamlfind_destdir)
+                t.close()
+                rmf('output')
+                # DLLs are installed into stublibs if it exists, Z3 if not
+                if os.path.exists(os.path.join(ocamlfind_destdir, 'stublibs')):
+                    dll_path = os.path.join(ocamlfind_destdir, 'stublibs')
+                else:
+                    dll_path = os.path.join(ocamlfind_destdir, 'Z3')
+                out.write("-rpath %s " % dll_path)
+                out.write("-L%s" % dll_path)
+
             for m in modules:
                 out.write(' %s' % (os.path.join(sub_dir, m+'.ml')))
             out.write(' %s\n' % (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)')))
