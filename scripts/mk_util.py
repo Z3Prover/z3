@@ -8,7 +8,6 @@
 ############################################
 import sys
 import os
-import glob
 import re
 import getopt
 import shutil
@@ -17,7 +16,6 @@ from fnmatch import fnmatch
 import distutils.sysconfig
 import compileall
 import subprocess
-import string
 
 def getenv(name, default):
     try:
@@ -416,7 +414,7 @@ def find_ml_lib():
         print ('Finding OCAML_LIB...')
     t = TempFile('output')
     null = open(os.devnull, 'wb')
-    try: 
+    try:
         subprocess.call([OCAMLC, '-where'], stdout=t.fname, stderr=null)
         t.commit()
     except:
@@ -559,7 +557,7 @@ def display_help(exit_code):
         print("  --optimize                    generate optimized code during linking.")
     print("  -j, --java                    generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
-    print("  --staticlib                   build Z3 static library.")    
+    print("  --staticlib                   build Z3 static library.")
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
@@ -1426,7 +1424,7 @@ class MLComponent(Component):
         fout.close()
         if VERBOSE:
             print("Updated '%s'" % ml_meta_out)
-                        
+
 
     def mk_makefile(self, out):
         if is_ml_enabled():
@@ -1470,16 +1468,16 @@ class MLComponent(Component):
                 archives = archives + ' ' + os.path.join(sub_dir,m) + '.cma'
                 mls = mls + ' ' + os.path.join(sub_dir, m) + '.ml'
 
-            out.write('%s: %s %s\n' % 
-                      (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)'), 
-                       os.path.join(sub_dir, 'z3native_stubs.c'), 
+            out.write('%s: %s %s\n' %
+                      (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)'),
+                       os.path.join(sub_dir, 'z3native_stubs.c'),
                        get_component(Z3_DLL_COMPONENT).dll_name+'$(SO_EXT)'))
-            out.write('\t$(CC) $(CXXFLAGS_OCAML) -I %s -I %s %s $(CXX_OUT_FLAG)%s$(OBJ_EXT)\n' % 
+            out.write('\t$(CC) $(CXXFLAGS_OCAML) -I %s -I %s %s $(CXX_OUT_FLAG)%s$(OBJ_EXT)\n' %
                       (OCAML_LIB, api_src, os.path.join(sub_dir, 'z3native_stubs.c'), os.path.join(sub_dir, 'z3native_stubs')))
 
             out.write('%s: %s %s %s$(SO_EXT)' % (
-                    os.path.join(sub_dir, "z3ml.cmxa"), 
-                    cmis, 
+                    os.path.join(sub_dir, "z3ml.cmxa"),
+                    cmis,
                     archives,
                     get_component(Z3_DLL_COMPONENT).dll_name))
             out.write(' %s\n' % (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)')))
@@ -1518,7 +1516,7 @@ class MLComponent(Component):
                     out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name + '$(LIB_EXT)')
                 out.write('\n\n')
 
-    
+
     def main_component(self):
         return is_ml_enabled()
 
@@ -1642,7 +1640,7 @@ class MLExampleComponent(ExampleComponent):
         if ML_ENABLED:
             out.write('ml_example.byte: api/ml/z3ml.cmxa ')
             for mlfile in get_ml_files(self.ex_dir):
-                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
+                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
             out.write('\n')
             out.write('\t%s ' % OCAMLC)
             if DEBUG_MODE:
@@ -1653,7 +1651,7 @@ class MLExampleComponent(ExampleComponent):
             out.write('\n')
             out.write('ml_example$(EXE_EXT): api/ml/z3ml.cmxa ml_example.byte')
             for mlfile in get_ml_files(self.ex_dir):
-                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
+                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
             out.write('\n')
             out.write('\t%s ' % OCAMLOPT)
             if DEBUG_MODE:
@@ -1818,7 +1816,7 @@ def mk_config():
         if is_verbose():
             print('64-bit:         %s' % is64())
             print('OpenMP:         %s' % HAS_OMP)
-            if is_java_enabled():                
+            if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
             if is_ml_enabled():
@@ -1948,10 +1946,10 @@ def mk_config():
             print('OpenMP:         %s' % HAS_OMP)
             print('Prefix:         %s' % PREFIX)
             print('64-bit:         %s' % is64())
-            print('FP math:        %s' % FPMATH) 
+            print('FP math:        %s' % FPMATH)
             if GPROF:
                 print('gprof:          enabled')
-            print('Python version: %s' % distutils.sysconfig.get_python_version())            
+            print('Python version: %s' % distutils.sysconfig.get_python_version())
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
@@ -2840,7 +2838,7 @@ def mk_z3consts_ml(api_files):
             m2 = comment_pat.match(line)
             if m1 or m2:
                 # skip blank lines and comments
-                linenum = linenum + 1 
+                linenum = linenum + 1
             elif mode == SEARCHING:
                 m = typedef_pat.match(line)
                 if m:
@@ -2918,7 +2916,7 @@ def mk_z3consts_ml(api_files):
             m2 = comment_pat.match(line)
             if m1 or m2:
                 # skip blank lines and comments
-                linenum = linenum + 1 
+                linenum = linenum + 1
             elif mode == SEARCHING:
                 m = typedef_pat.match(line)
                 if m:
