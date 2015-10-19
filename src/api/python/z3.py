@@ -2637,7 +2637,7 @@ def _py2expr(a, ctx=None):
         _z3_assert(False, "Python bool, int, long or float expected")
 
 def IntSort(ctx=None):
-    """Return the interger sort in the given context. If `ctx=None`, then the global context is used.
+    """Return the integer sort in the given context. If `ctx=None`, then the global context is used.
     
     >>> IntSort()
     Int
