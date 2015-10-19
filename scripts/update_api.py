@@ -217,16 +217,16 @@ def type2ml(ty):
     return Type2ML[ty]
 
 def _in(ty):
-    return (IN, ty);
+    return (IN, ty)
 
 def _in_array(sz, ty):
-    return (IN_ARRAY, ty, sz);
+    return (IN_ARRAY, ty, sz)
 
 def _out(ty):
-    return (OUT, ty);
+    return (OUT, ty)
 
 def _out_array(sz, ty):
-    return (OUT_ARRAY, ty, sz, sz);
+    return (OUT_ARRAY, ty, sz, sz)
 
 # cap contains the position of the argument that stores the capacity of the array
 # sz  contains the position of the output argument that stores the (real) size of the array
@@ -234,7 +234,7 @@ def _out_array2(cap, sz, ty):
     return (OUT_ARRAY, ty, cap, sz)
 
 def _inout_array(sz, ty):
-    return (INOUT_ARRAY, ty, sz, sz);
+    return (INOUT_ARRAY, ty, sz, sz)
 
 def _out_managed_array(sz,ty):
     return (OUT_MANAGED_ARRAY, ty, 0, sz)
@@ -314,7 +314,7 @@ def param2javaw(p):
         else:
             return "jlongArray"
     elif k == OUT_MANAGED_ARRAY:
-        return "jlong";
+        return "jlong"
     else:
         return type2javaw(param_type(p))
 
@@ -336,7 +336,7 @@ def param2ml(p):
     elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
         return "%s array" % type2ml(param_type(p))
     elif k == OUT_MANAGED_ARRAY:
-        return "%s array" % type2ml(param_type(p));
+        return "%s array" % type2ml(param_type(p))
     else:
         return type2ml(param_type(p))
 
@@ -422,14 +422,14 @@ def mk_dotnet():
     dotnet.write('using System.Collections.Generic;\n')
     dotnet.write('using System.Text;\n')
     dotnet.write('using System.Runtime.InteropServices;\n\n')
-    dotnet.write('#pragma warning disable 1591\n\n');
+    dotnet.write('#pragma warning disable 1591\n\n')
     dotnet.write('namespace Microsoft.Z3\n')
     dotnet.write('{\n')
     for k in Type2Str:
         v = Type2Str[k]
         if is_obj(k):
             dotnet.write('    using %s = System.IntPtr;\n' % v)
-    dotnet.write('\n');
+    dotnet.write('\n')
     dotnet.write('    public class Native\n')
     dotnet.write('    {\n\n')
     dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
@@ -437,7 +437,7 @@ def mk_dotnet():
     dotnet.write('        public unsafe class LIB\n')
     dotnet.write('        {\n')
     dotnet.write('            const string Z3_DLL_NAME = \"libz3.dll\";\n'
-                 '            \n');
+                 '            \n')
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
     dotnet.write('            public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);\n\n')
     for name, result, params in _dotnet_decls:
@@ -448,7 +448,7 @@ def mk_dotnet():
         else:
             dotnet.write('public extern static %s %s(' % (type2dotnet(result), name))
         first = True
-        i = 0;
+        i = 0
         for param in params:
             if first:
                 first = False
@@ -480,7 +480,7 @@ def mk_dotnet_wrappers():
         else:
             dotnet.write('        public static %s %s(' % (type2dotnet(result), name))
         first = True
-        i = 0;
+        i = 0
         for param in params:
             if first:
                 first = False
@@ -491,9 +491,9 @@ def mk_dotnet_wrappers():
         dotnet.write(') {\n')
         dotnet.write('            ')
         if result == STRING:
-            dotnet.write('IntPtr r = ');
+            dotnet.write('IntPtr r = ')
         elif result != VOID:
-            dotnet.write('%s r = ' % type2dotnet(result));
+            dotnet.write('%s r = ' % type2dotnet(result))
         dotnet.write('LIB.%s(' % (name))
         first = True
         i = 0
@@ -504,14 +504,14 @@ def mk_dotnet_wrappers():
                 dotnet.write(', ')
             if param_kind(param) == OUT:
                 if param_type(param) == STRING:
-                    dotnet.write('out ');
+                    dotnet.write('out ')
                 else:
                     dotnet.write('ref ')
             elif param_kind(param) == OUT_MANAGED_ARRAY:
-                dotnet.write('out ');
+                dotnet.write('out ')
             dotnet.write('a%d' % i)
             i = i + 1
-        dotnet.write(');\n');
+        dotnet.write(');\n')
         if name not in Unwrapped:
             if name in NULLWrapped:
                 dotnet.write("            if (r == IntPtr.Zero)\n")
@@ -578,7 +578,7 @@ def mk_java():
     for name, result, params in _dotnet_decls:
         java_native.write('  protected static native %s INTERNAL%s(' % (type2java(result), java_method_name(name)))
         first = True
-        i = 0;
+        i = 0
         for param in params:
             if first:
                 first = False
@@ -592,7 +592,7 @@ def mk_java():
     for name, result, params in _dotnet_decls:
         java_native.write('  public static %s %s(' % (type2java(result), java_method_name(name)))
         first = True
-        i = 0;
+        i = 0
         for param in params:
             if first:
                 first = False
@@ -610,7 +610,7 @@ def mk_java():
             java_native.write('%s res = ' % type2java(result))
         java_native.write('INTERNAL%s(' % (java_method_name(name)))
         first = True
-        i = 0;
+        i = 0
         for param in params:
             if first:
                 first = False
@@ -698,7 +698,7 @@ def mk_java():
     java_wrapper.write('')
     for name, result, params in _dotnet_decls:
         java_wrapper.write('DLL_VIS JNIEXPORT %s JNICALL Java_%s_Native_INTERNAL%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), pkg_str, java_method_name(name)))
-        i = 0;
+        i = 0
         for param in params:
             java_wrapper.write(', ')
             java_wrapper.write('%s a%d' % (param2javaw(param), i))
@@ -804,10 +804,10 @@ def mk_log_header(file, name, params):
     i = 0
     for p in params:
         if i > 0:
-            file.write(", ");
+            file.write(", ")
         file.write("%s a%s" % (param2str(p), i))
         i = i + 1
-    file.write(")");
+    file.write(")")
 
 def log_param(p):
     kind = param_kind(p)
@@ -964,7 +964,7 @@ def def_API(name, result, params):
                 log_c.write("  I(a%s);\n" % i)
                 exe_c.write("in.get_bool(%s)" % i)
             elif ty == PRINT_MODE or ty == ERROR_CODE:
-                log_c.write("  U(static_cast<unsigned>(a%s));\n" % i);
+                log_c.write("  U(static_cast<unsigned>(a%s));\n" % i)
                 exe_c.write("static_cast<%s>(in.get_uint(%s))" % (type2str(ty), i))
             else:
                 error("unsupported parameter for %s, %s" % (name, p))
@@ -1081,10 +1081,10 @@ def ml_method_name(name):
     return name[3:] # Remove Z3_
 
 def is_out_param(p):
-     if param_kind(p) == OUT or param_kind(p) == INOUT or param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY or param_kind(p) == OUT_MANAGED_ARRAY:
-         return True
-     else:
-         return False
+    if param_kind(p) == OUT or param_kind(p) == INOUT or param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY or param_kind(p) == OUT_MANAGED_ARRAY:
+        return True
+    else:
+        return False
 
 def outparams(params):
     op = []
@@ -1169,7 +1169,7 @@ def mk_ml():
     ml_native.write('(** The native (raw) interface to the dynamic Z3 library. *)\n\n')
     ml_i.write('(* Automatically generated file *)\n\n')
     ml_i.write('(** The native (raw) interface to the dynamic Z3 library. *)\n\n')
-    ml_i.write('(**/**)\n\n');
+    ml_i.write('(**/**)\n\n')
     ml_native.write('open Z3enums\n\n')
     ml_native.write('(**/**)\n')
     ml_native.write('type ptr\n')
@@ -1232,7 +1232,7 @@ def mk_ml():
             ml_native.write('      = "n_%s"\n' % ml_method_name(name))
         ml_native.write('\n')
     ml_native.write('  end\n\n')
-    ml_i.write('\n(**/**)\n');
+    ml_i.write('\n(**/**)\n')
 
     # Exception wrappers
     for name, result, params in _dotnet_decls:
@@ -1241,11 +1241,11 @@ def mk_ml():
         ml_native.write('  let %s ' % ml_method_name(name))
 
         first = True
-        i = 0;
+        i = 0
         for p in params:
             if is_in_param(p):
                 if first:
-                    first = False;
+                    first = False
                 else:
                     ml_native.write(' ')
                 ml_native.write('a%d' % i)
@@ -1262,7 +1262,7 @@ def mk_ml():
         if len(ip) == 0:
             ml_native.write(' ()')
         first = True
-        i = 0;
+        i = 0
         for p in params:
             if is_in_param(p):
                 ml_native.write(' a%d' % i)
@@ -1476,7 +1476,7 @@ def mk_ml():
         if len(op) > 0:
             if result != VOID:
                 ml_wrapper.write('  %s\n' % ml_set_wrap(result, "res_val", "z3_result"))
-            i = 0;
+            i = 0
             for p in params:
                 if param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY:
                     ml_wrapper.write('  _a%s_val = caml_alloc(_a%s, 0);\n' % (i, param_array_capacity_pos(p)))
@@ -1499,7 +1499,7 @@ def mk_ml():
             for p in params:
                 if is_out_param(p):
                     ml_wrapper.write('  Store_field(result, %s, _a%s_val);\n' % (j, i))
-                    j = j + 1;
+                    j = j + 1
                 i = i + 1
 
         # local array cleanup
