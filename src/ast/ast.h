@@ -1146,7 +1146,7 @@ typedef app proof; /* a proof is just an applicaton */
 
 enum label_op_kind {
     OP_LABEL,
-    OP_LABEL_LIT,
+    OP_LABEL_LIT
 };
 
 /**
