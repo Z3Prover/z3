@@ -250,7 +250,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 #if 0
         rational r;
         if(!is_integer(coeff,r))
-            throw "ack!";
+            throw iz3_exception("ack!");
         ast n = make_int(r.numerator());
         ast res = make(Times,n,t);
         if(!r.is_int()) {
@@ -433,7 +433,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
         if(op(foo) == Uninterpreted && sym(foo) == contra){
             ast neg_lit = arg(foo,1);
             if(!is_false(neg_lit) && neg_lits.find(neg_lit) == neg_lits.end())
-                throw "lost a literal";
+                throw iz3_exception("lost a literal");
             return;
         }
         else {
@@ -506,7 +506,9 @@ class iz3proof_itp_impl : public iz3proof_itp {
     /* This is where the real work happens. Here, we simplify the
        proof obtained by cut elimination, obtaining an interpolant. */
 
-    struct cannot_simplify {};
+    struct cannot_simplify: public iz3_exception {
+        cannot_simplify(): iz3_exception("cannot_simplify") {}
+    };
     hash_map<ast,ast> simplify_memo;
 
     ast simplify(const ast &t){
@@ -582,7 +584,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
             // if(g == symm) return simplify_rotate_symm(pl,args[0],pf);
         }
         if(op(pf) == Leq)
-            throw "foo!";
+            throw iz3_exception("foo!");
         throw cannot_simplify();
     }
 
@@ -831,7 +833,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
             return my_implies(cond,ineqs);
         if(op(ineqs) != And)
             return my_and(Bconds,my_implies(cond,ineqs));
-        throw "help!";
+        throw iz3_exception("help!");
     }
 
     ast add_mixed_eq2ineq(const ast &lhs, const ast &rhs, const ast &equa, const ast &itp){
@@ -871,7 +873,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
                 }
             }
         }
-        throw "help!";
+        throw iz3_exception("help!");
     }
 
     void reverse_modpon(std::vector<ast> &args){
@@ -980,7 +982,9 @@ class iz3proof_itp_impl : public iz3proof_itp {
         return chain;
     }
 
-    struct subterm_normals_failed {};
+    struct subterm_normals_failed: public iz3_exception {
+        subterm_normals_failed(): iz3_exception("subterm_normals_failed") {}
+    };
 
     void get_subterm_normals(const ast &ineq1, const ast &ineq2, const ast &chain, ast &normals,
                              const ast &pos, hash_set<ast> &memo, ast &Aproves, ast &Bproves){
@@ -989,7 +993,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
         if(o1 == Not || o1 == Leq || o1 == Lt || o1 == Geq || o1 == Gt || o1 == Plus || o1 == Times){
             int n = num_args(ineq1);
             if(o2 != o1 || num_args(ineq2) != n)
-                throw "bad inequality rewriting";
+                throw iz3_exception("bad inequality rewriting");
             for(int i = 0; i < n; i++){
                 ast new_pos = add_pos_to_end(pos,i);
                 get_subterm_normals(arg(ineq1,i), arg(ineq2,i), chain, normals, new_pos, memo, Aproves, Bproves);
@@ -1000,7 +1004,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
                 memo.insert(ineq2);
                 ast sub_chain = extract_rewrites(chain,pos);
                 if(is_true(sub_chain))
-                    throw "bad inequality rewriting";
+                    throw iz3_exception("bad inequality rewriting");
                 ast new_normal = make_normal_step(ineq2,ineq1,reverse_chain(sub_chain));
                 normals = merge_normal_chains(normals,cons_normal(new_normal,mk_true()), Aproves, Bproves);
             }
@@ -1149,7 +1153,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
             ast interp = contra_chain(Q2,chain);
             return my_and(Aproves,my_implies(Bproves,interp));
         }
-        throw "bad exmid";
+        throw iz3_exception("bad exmid");
     }
 
     ast simplify_cong(const std::vector<ast> &args){
@@ -1163,7 +1167,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
             ast interp = contra_chain(Q2,chain);
             return my_and(Aproves,my_implies(Bproves,interp));
         }
-        throw "bad cong";
+        throw iz3_exception("bad cong");
     }
 
     bool is_equivrel(const ast &p){
@@ -1171,7 +1175,9 @@ class iz3proof_itp_impl : public iz3proof_itp {
         return o == Equal || o == Iff;
     }
   
-    struct rewrites_failed{};
+    struct rewrites_failed: public iz3_exception {
+        rewrites_failed(): iz3_exception("rewrites_failed") {}
+    };
 
     /* Suppose p in Lang(B) and A |- p -> q and B |- q -> r. Return a z in Lang(B) such that
        B |- p -> z and A |- z -> q. Collect any side conditions in "rules". */
@@ -1414,7 +1420,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
         rational r;
         if(is_numeral(arg(pos,0),r))
             return r.get_unsigned();
-        throw "bad position!";
+        throw iz3_exception("bad position!");
     }
 
     /* substitute y into position pos in x */
@@ -1429,7 +1435,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
                 args[i] = i == p ? subst_in_pos(arg(x,i),arg(pos,1),y) : arg(x,i);
             return clone(x,args);
         }
-        throw "bad term position!";
+        throw iz3_exception("bad term position!");
     }
 
     ast diff_chain(LitType t, const ast &pos, const ast &x, const ast &y, const ast &prefix){
@@ -1448,10 +1454,10 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast make_rewrite(LitType t, const ast &pos, const ast &cond, const ast &equality){
 #if 0
         if(pos == top_pos && op(equality) == Iff && !is_true(arg(equality,0)))
-            throw "bad rewrite";
+            throw iz3_exception("bad rewrite");
 #endif
         if(!is_equivrel(equality))
-            throw "bad rewrite";
+            throw iz3_exception("bad rewrite");
         return make(t == LitA ? rewrite_A : rewrite_B, pos, cond, equality);
     }
 
@@ -1662,25 +1668,25 @@ class iz3proof_itp_impl : public iz3proof_itp {
         if(is_true(rest)){
             ast old = rewrite_rhs(last);
             if(!(op(old) == Not))
-                throw "bad negative equality chain";
+                throw iz3_exception("bad negative equality chain");
             ast equ = arg(old,0);
             if(!is_equivrel(equ))
-                throw "bad negative equality chain";
+                throw iz3_exception("bad negative equality chain");
             last = rewrite_update_rhs(last,top_pos,make(Not,make(op(equ),arg(equ,1),arg(equ,0))),make(True));
             return chain_cons(rest,last);
         }
         ast pos = rewrite_pos(last);
         if(pos == top_pos)
-            throw "bad negative equality chain";
+            throw iz3_exception("bad negative equality chain");
         int idx = pos_arg(pos);
         if(idx != 0)
-            throw "bad negative equality chain";
+            throw iz3_exception("bad negative equality chain");
         pos = arg(pos,1);
         if(pos == top_pos){
             ast lhs = rewrite_lhs(last);
             ast rhs = rewrite_rhs(last);
             if(op(lhs) != Equal || op(rhs) != Equal)
-                throw "bad negative equality chain";
+                throw iz3_exception("bad negative equality chain");
             last = make_rewrite(rewrite_side(last),rewrite_pos(last),rewrite_cond(last),
                                 make(Iff,make(Equal,arg(lhs,1),arg(lhs,0)),make(Equal,arg(rhs,1),arg(rhs,0))));
         }
@@ -1691,7 +1697,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
             else if(idx == 1)
                 idx = 0;
             else
-                throw "bad negative equality chain";
+                throw iz3_exception("bad negative equality chain");
             pos = pos_add(0,pos_add(idx,arg(pos,1)));
             last = make_rewrite(rewrite_side(last),pos,rewrite_cond(last),rewrite_equ(last));
         }
@@ -1708,7 +1714,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
             return chain;
         }
         if(is_true(rest))
-            throw "bad rewrite chain";
+            throw iz3_exception("bad rewrite chain");
         ast head = get_head_chain(rest,tail,is_not);
         tail = chain_cons(tail,last);
         return head;
@@ -1766,7 +1772,9 @@ class iz3proof_itp_impl : public iz3proof_itp {
     }
 
 
-    struct cannot_split {};
+    struct cannot_split: public iz3_exception {
+        cannot_split(): iz3_exception("cannot_split") {}
+    };
 
     /** Split a chain of rewrites two chains, operating on positions 0 and 1.
         Fail if any rewrite in the chain operates on top position. */
@@ -1808,7 +1816,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
         }
         case 1:
             if(rewrite_lhs(last) != rewrite_rhs(last))
-                throw "bad rewrite chain";
+                throw iz3_exception("bad rewrite chain");
             break;
         default:;
         }
@@ -1853,7 +1861,9 @@ class iz3proof_itp_impl : public iz3proof_itp {
         return rewrites_from_to(rest,lhs,mid);
     }
 
-    struct bad_ineq_inference {};
+    struct bad_ineq_inference: public iz3_exception {
+        bad_ineq_inference(): iz3_exception("bad_ineq_inference") {}
+    };
 
     ast chain_ineqs(opr comp_op, LitType t, const ast &chain, const ast &lhs, const ast &rhs){
         if(is_true(chain)){
@@ -1907,7 +1917,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
             rhs = arg(ineq,1);
             return;
         }
-        throw "bad ineq";
+        throw iz3_exception("bad ineq");
     }
 
     ast chain_pos_add(int arg, const ast &chain){
@@ -1974,7 +1984,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
     ast make_normal(const ast &ineq, const ast &nrml){
         if(!is_ineq(ineq))
-            throw "what?";
+            throw iz3_exception("what?");
         return make(normal,ineq,nrml);
     }
 
@@ -1985,7 +1995,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
             return make_normal_step(lhs,rhs,proof);
         if(rhst == LitMixed && (lhst != LitMixed || ast_id(rhs) < ast_id(lhs)))
             return make_normal_step(rhs,lhs,reverse_chain(proof));
-        throw "help!";
+        throw iz3_exception("help!");
     }
 
     ast chain_side_proves(LitType side, const ast &chain){

@@ -132,7 +132,7 @@ public:
             // if(range_is_empty(r))
             range r = ast_scope(quanted);
             if(range_is_empty(r))
-                throw "can't skolemize";
+                throw iz3_exception("can't skolemize");
             if(frame == INT_MAX || !in_range(frame,r))
                 frame = range_max(r); // this is desperation -- may fail
             if(frame >= frames) frame = frames - 1;
@@ -1092,10 +1092,10 @@ public:
         rational xcoeff = get_first_coefficient(arg(x,0),xvar);
         rational ycoeff = get_first_coefficient(arg(y,0),yvar);
         if(xcoeff == rational(0) || ycoeff == rational(0) || xvar != yvar)
-            throw "bad assign-bounds lemma";
+            throw iz3_exception("bad assign-bounds lemma");
         rational ratio = xcoeff/ycoeff;
         if(denominator(ratio) != rational(1))
-            throw "bad assign-bounds lemma";
+            throw iz3_exception("bad assign-bounds lemma");
         return make_int(ratio); // better be integer!
     }
 
@@ -1104,7 +1104,7 @@ public:
         get_assign_bounds_coeffs(proof,farkas_coeffs);
         int nargs = num_args(con);
         if(nargs != (int)(farkas_coeffs.size()))
-            throw "bad assign-bounds theory lemma";
+            throw iz3_exception("bad assign-bounds theory lemma");
 #if 0
         if(farkas_coeffs[0] != make_int(rational(1)))
             farkas_coeffs[0] = make_int(rational(1));
@@ -1145,7 +1145,7 @@ public:
         get_assign_bounds_rule_coeffs(proof,farkas_coeffs);
         int nargs = num_prems(proof)+1;
         if(nargs != (int)(farkas_coeffs.size()))
-            throw "bad assign-bounds theory lemma";
+            throw iz3_exception("bad assign-bounds theory lemma");
 #if 0
         if(farkas_coeffs[0] != make_int(rational(1)))
             farkas_coeffs[0] = make_int(rational(1));
@@ -1447,7 +1447,7 @@ public:
 
         std::vector<ast> vals = cvec;
         if(!is_sat(cnstrs,new_proof,vals))
-            throw "Proof error!";
+            throw iz3_exception("Proof error!");
         std::vector<rational> rat_farkas_coeffs;
         for(unsigned i = 0; i < cvec.size(); i++){
             ast bar = vals[i];
@@ -1455,7 +1455,7 @@ public:
             if(is_numeral(bar,r))
                 rat_farkas_coeffs.push_back(r);
             else
-                throw "Proof error!";
+                throw iz3_exception("Proof error!");
         }
         rational the_lcd = lcd(rat_farkas_coeffs);
         std::vector<ast> farkas_coeffs;
@@ -1503,7 +1503,7 @@ public:
         ast new_proof;
         std::vector<ast> dummy;
         if(is_sat(npcons,new_proof,dummy))
-            throw "Proof error!";
+            throw iz3_exception("Proof error!");
         pfrule dk = pr(new_proof);
         int nnp = num_prems(new_proof);
         std::vector<Iproof::node> my_prems;
@@ -1564,7 +1564,7 @@ public:
         ast new_proof;
         std::vector<ast> dummy;
         if(is_sat(npcons,new_proof,dummy))
-            throw "Proof error!";
+            throw iz3_exception("Proof error!");
         pfrule dk = pr(new_proof);
         int nnp = num_prems(new_proof);
         std::vector<Iproof::node> my_prems;

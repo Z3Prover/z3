@@ -21,6 +21,7 @@
 #define IZ3_INTERP_H
 
 #include "iz3hash.h"
+#include "iz3exception.h"
 #include "solver.h"
 
 class iz3base;
@@ -35,12 +36,14 @@ public:
 };
 
 /** This object is thrown if a tree interpolation problem is mal-formed */
-struct iz3_bad_tree {
+struct iz3_bad_tree: public iz3_exception {
+    iz3_bad_tree(): iz3_exception("iz3_bad_tree") {}
 };
 
 /** This object is thrown when iz3 fails due to an incompleteness in
     the secondary solver. */
-struct iz3_incompleteness {
+struct iz3_incompleteness: public iz3_exception {
+    iz3_incompleteness(): iz3_exception("iz3_incompleteness") {}
 };
 
 // This is thrown if there is some bug in the
