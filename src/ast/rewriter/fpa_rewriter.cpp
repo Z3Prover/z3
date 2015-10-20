@@ -99,6 +99,8 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
         SASSERT(num_args == 2); st = BR_FAILED; break;
 
+    case OP_FPA_INTERNAL_RM:
+        SASSERT(num_args == 1); st = mk_rm(args[0], result); break;
     case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED: 
         SASSERT(num_args == 0); st = mk_to_ubv_unspecified(f, result); break;
     case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
@@ -713,6 +715,27 @@ br_status fpa_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) 
                  (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1)!=m_fm.sgn(v2)) ? m().mk_false() :
                  (v1 == v2) ? m().mk_true() :
                  m().mk_false();
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_rm(expr * arg, expr_ref & result) {
+    bv_util bu(m());
+    rational bv_val;
+    unsigned sz = 0;
+    if (bu.is_numeral(arg, bv_val, sz)) {
+        SASSERT(bv_val.is_uint64());
+        switch (bv_val.get_uint64()) {
+        case BV_RM_TIES_TO_AWAY: result = m_util.mk_round_nearest_ties_to_away(); break;
+        case BV_RM_TIES_TO_EVEN: result = m_util.mk_round_nearest_ties_to_even(); break;
+        case BV_RM_TO_NEGATIVE: result = m_util.mk_round_toward_negative(); break;
+        case BV_RM_TO_POSITIVE: result = m_util.mk_round_toward_positive(); break;
+        case BV_RM_TO_ZERO:
+        default: result = m_util.mk_round_toward_zero();
+        }
+        
         return BR_DONE;
     }
 

@@ -34,6 +34,8 @@ enum fpa_sort_kind {
     FLOAT128_SORT
 };
 
+typedef enum { BV_RM_TIES_TO_EVEN, BV_RM_TIES_TO_AWAY, BV_RM_TO_POSITIVE, BV_RM_TO_NEGATIVE, BV_RM_TO_ZERO = 4 } BV_RM_VAL;
+
 enum fpa_op_kind {
     OP_FPA_RM_NEAREST_TIES_TO_EVEN,
     OP_FPA_RM_NEAREST_TIES_TO_AWAY,
@@ -85,6 +87,7 @@ enum fpa_op_kind {
     OP_FPA_TO_IEEE_BV,
 
     /* Internal use only */
+    OP_FPA_INTERNAL_RM, // Internal conversion from (_ BitVec 3) to RoundingMode
     OP_FPA_INTERNAL_BVWRAP,
     OP_FPA_INTERNAL_BVUNWRAP,    
     
@@ -128,6 +131,7 @@ class fpa_decl_plugin : public decl_plugin {
 
     sort * mk_float_sort(unsigned ebits, unsigned sbits);
     sort * mk_rm_sort();
+
     func_decl * mk_rm_const_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                  unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_float_const_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -161,6 +165,8 @@ class fpa_decl_plugin : public decl_plugin {
     func_decl * mk_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                               unsigned arity, sort * const * domain, sort * range);
 
+    func_decl * mk_internal_rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                               unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                     unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_bv_unwrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -175,6 +181,7 @@ class fpa_decl_plugin : public decl_plugin {
     virtual void set_manager(ast_manager * m, family_id id);
     unsigned mk_id(mpf const & v);
     void recycled_id(unsigned id);
+
 public:
     fpa_decl_plugin();
     

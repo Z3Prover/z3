@@ -314,6 +314,7 @@ namespace smt {
     
     expr_ref theory_fpa::convert_atom(expr * e) {
         ast_manager & m = get_manager();
+        TRACE("t_fpa_detail", tout << "converting atom: " << mk_ismt2_pp(e, get_manager()) << "\n";);
         expr_ref res(m);
         proof_ref pr(m);
         m_rw(e, res);

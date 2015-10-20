@@ -26,8 +26,6 @@ Notes:
 #include"bv_decl_plugin.h"
 #include"basic_simplifier_plugin.h"
 
-typedef enum { BV_RM_TIES_TO_EVEN, BV_RM_TIES_TO_AWAY, BV_RM_TO_POSITIVE, BV_RM_TO_NEGATIVE, BV_RM_TO_ZERO = 4 } BV_RM_VAL;
-
 struct func_decl_triple {
         func_decl_triple () { f_sgn = 0; f_sig = 0; f_exp = 0; }
         func_decl_triple (func_decl * sgn, func_decl * sig, func_decl * exp)
@@ -76,6 +74,8 @@ public:
     bool is_rm(expr * e) { return is_app(e) && m_util.is_rm(e); }
     bool is_rm(sort * s) { return m_util.is_rm(s); }
     bool is_float_family(func_decl * f) { return f->get_family_id() == m_util.get_family_id(); }
+
+    void mk_rm(expr * bv3, expr_ref & result);
 
     void mk_fp(expr * sign, expr * exponent, expr * significand, expr_ref & result);
     void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -191,7 +191,7 @@ protected:
     void round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & result);        
     expr_ref mk_rounding_decision(expr * rm, expr * sgn, expr * last, expr * round, expr * sticky);
 
-    void add_core(unsigned sbits, unsigned ebits, expr_ref & rm,
+    void add_core(unsigned sbits, unsigned ebits,
         expr_ref & c_sgn, expr_ref & c_sig, expr_ref & c_exp, expr_ref & d_sgn, expr_ref & d_sig, expr_ref & d_exp,
         expr_ref & res_sgn, expr_ref & res_sig, expr_ref & res_exp);
 

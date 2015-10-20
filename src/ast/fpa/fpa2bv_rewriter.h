@@ -123,7 +123,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
         }
         
         if (m_conv.is_float_family(f)) {
-            switch (f->get_decl_kind()) {            
+            switch (f->get_decl_kind()) {
             case OP_FPA_RM_NEAREST_TIES_TO_AWAY:
             case OP_FPA_RM_NEAREST_TIES_TO_EVEN:
             case OP_FPA_RM_TOWARD_NEGATIVE:
