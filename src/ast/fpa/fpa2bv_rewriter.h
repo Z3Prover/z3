@@ -165,15 +165,15 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FPA_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
             case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
             
-            case OP_FPA_MIN: 
-            case OP_FPA_MAX:
-                throw rewriter_exception("operator is not supported, you must simplify the goal before applying fpa2bv");
+            case OP_FPA_MIN: m_conv.mk_min(f, num, args, result); return BR_REWRITE_FULL;
+            case OP_FPA_MAX: m_conv.mk_max(f, num, args, result); return BR_REWRITE_FULL;
 
             case OP_FPA_INTERNAL_MIN_UNSPECIFIED: result = m_conv.mk_min_unspecified(f, args[0], args[1]); return BR_DONE;
             case OP_FPA_INTERNAL_MAX_UNSPECIFIED: result = m_conv.mk_max_unspecified(f, args[0], args[1]); return BR_DONE;
             case OP_FPA_INTERNAL_MIN_I: m_conv.mk_min_i(f, num, args, result); return BR_DONE;
             case OP_FPA_INTERNAL_MAX_I: m_conv.mk_max_i(f, num, args, result); return BR_DONE;
 
+            case OP_FPA_INTERNAL_RM:
             case OP_FPA_INTERNAL_BVWRAP: 
             case OP_FPA_INTERNAL_BVUNWRAP:                
             case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:

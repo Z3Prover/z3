@@ -83,7 +83,7 @@ public:
     void split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const;
     void split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const;
 
-    void mk_eq(expr * a, expr * b, expr_ref & result);
+    void mk_eq(expr * a, expr * b, expr_ref & result);    
     void mk_ite(expr * c, expr * t, expr * f, expr_ref & result);
     void mk_distinct(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
@@ -106,9 +106,7 @@ public:
     void mk_mul(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_div(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_rem(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_abs(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_min_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_abs(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
     void mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_sqrt(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_round_to_integral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -143,7 +141,12 @@ public:
 
     void set_unspecified_fp_hi(bool v) { m_hi_fp_unspecified = v; }
 
+    void mk_min(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_min_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
+
+    void mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
+    void mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
 
     expr_ref mk_to_ubv_unspecified(unsigned width);

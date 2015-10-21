@@ -107,7 +107,7 @@ class fpa2bv_tactic : public tactic {
             }
 
             if (g->models_enabled())  
-                mc = mk_fpa2bv_model_converter(m, m_conv.const2bv(), m_conv.rm_const2bv(), m_conv.uf2bvuf());
+                mc = mk_fpa2bv_model_converter(m, m_conv.const2bv(), m_conv.rm_const2bv(), m_conv.uf2bvuf(), m_conv.decls_to_hide());
 
             g->inc_depth();
             result.push_back(g.get());
@@ -151,7 +151,12 @@ public:
                             model_converter_ref & mc, 
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+        try {
+            (*m_imp)(in, result, mc, pc, core);
+        }
+        catch (rewriter_exception & ex) {
+            throw tactic_exception(ex.msg());
+        }
     }
     
     virtual void cleanup() {        
