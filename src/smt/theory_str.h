@@ -144,6 +144,11 @@ namespace smt {
         bool new_eq_check(expr * lhs, expr * rhs);
         void group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts);
 
+        int ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
+        		std::map<expr*, std::set<expr*> > & unrollGroupMap);
+        void classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
+        		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap)
+
         void dump_assignments();
     public:
         theory_str(ast_manager & m);

@@ -2525,6 +2525,88 @@ void theory_str::dump_assignments() {
 	);
 }
 
+// NOTE: this function used to take an argument `Z3_ast node`;
+// it was not used and so was removed from the signature
+void theory_str::classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
+		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap) {
+
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+	expr_ref_vector assignments(m);
+	ctx.get_assignments(assignments);
+
+	for (expr_ref_vector::iterator it = assignments.begin(); it != assignments.end(); ++it) {
+		expr * argAst = *it;
+		// TODO
+		NOT_IMPLEMENTED_YET();
+		/*
+		 * according to getNodeType(), the following things are considered "functions":
+		 * Contains, StartsWith, EndsWith, RegexIn
+		 * Length, Indexof, Indexof2, LastIndexof
+		 * Concat, SubString, Replace, Unroll, CharAt
+		 * RegexConcat, RegexStar, RegexPlus, RegexCharRange, RegexUnion, Str2Reg
+		 * something about Z3_ARRAY_SORT?
+		 * Z3 native functions that aren't considered "uninterpreted"
+		 * "real" uninterpreted functions declared in the input (domainSize != 0)
+		 */
+
+		/*
+		if (getNodeType(t, argAst) == my_Z3_Func) {
+			Z3_app func_app = Z3_to_app(ctx, argAst);
+			Z3_decl_kind func_decl = Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, func_app));
+
+			if (isInterestingFuncKind(func_decl)) {
+				classifyAstByType(t, argAst, varMap, concatMap, unrollMap);
+			}
+		}
+		*/
+	}
+}
+
+/*
+ * Dependence analysis from current context assignment
+ * - "freeVarMap" contains a set of variables that doesn't constrained by Concats.
+ *    But it's possible that it's bounded by unrolls
+ *    For the case of
+ *    (1) var1 = unroll(r1, t1)
+ *        var1 is in the freeVarMap
+ *        > should unroll r1 for var1
+ *    (2) var1 = unroll(r1, t1) /\ var1 = Concat(var2, var3)
+ *        var2, var3 are all in freeVar
+ *        > should split the unroll function so that var2 and var3 are bounded by new unrolls
+ */
+int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
+		std::map<expr*, std::set<expr*> > & unrollGroupMap) {
+	std::map<expr*, int> concatMap;
+	std::map<expr*, int> unrollMap;
+	std::map<expr*, expr*> aliasIndexMap;
+	std::map<expr*, expr*> var_eq_constStr_map;
+	std::map<expr*, expr*> concat_eq_constStr_map;
+	std::map<expr*, std::map<expr*, int> > var_eq_concat_map;
+	std::map<expr*, std::map<expr*, int> > var_eq_unroll_map;
+	std::map<expr*, std::map<expr*, int> > concat_eq_concat_map;
+	std::map<expr*, std::map<expr*, int> > depMap;
+
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	// note that the old API concatenated these assignments into
+	// a massive conjunction; we may have the opportunity to avoid that here
+	expr_ref_vector assignments(m);
+	ctx.get_assignments(assignments);
+
+	// Step 1: get variables / concat AST appearing in the context
+	// TODO build this map; see strTheory::checkInputVar()
+	// it should just be variable_set - internal_variable_set?
+	for(std::map<expr*, int>::iterator it = inputVarMap.begin(); it != inputVarMap.end(); ++it) {
+		strVarMap[it->first] = 1;
+	}
+	classify_ast_by_type_in_positive_context(assignments, strVarMap, concatMap, unrollMap);
+
+	// TODO the rest
+	NOT_IMPLEMENTED_YET();
+}
+
 final_check_status theory_str::final_check_eh() {
     ast_manager & m = get_manager();
     context & ctx = get_context();
@@ -2532,6 +2614,20 @@ final_check_status theory_str::final_check_eh() {
     TRACE("t_str", tout << "final check" << std::endl;);
     TRACE("t_str_detail", dump_assignments(););
 
+    // run dependence analysis to find free string variables
+    std::map<expr*, int> varAppearInAssign;
+    std::map<expr*, int> freeVar_map;
+    std::map<expr*, std::set<expr*> > unrollGroup_map;
+    int conflictInDep = ctx_dep_analysis(varAppearInAssign, freeVar_map, unrollGroup_map);
+    if (conflictInDep == -1) {
+    	// return Z3_TRUE;
+    	return FC_DONE;
+    }
+
+    // TODO the rest...
+    NOT_IMPLEMENTED_YET();
+
+    /*
     // Check every variable to see if it's eq. to some string constant.
     // If not, mark it as free.
     bool needToAssignFreeVars = false;
@@ -2561,6 +2657,7 @@ final_check_status theory_str::final_check_eh() {
         }
     }
     return FC_CONTINUE;
+    */
 }
 
 void theory_str::init_model(model_generator & mg) {
