@@ -1561,6 +1561,7 @@ namespace smt {
                 
                 if (!safe_gain(curr_min_gain, curr_max_gain)) {
                     TRACE("opt", tout << "no variable picked\n";);
+                    has_bound = true;
                     best_efforts++;
                 }
                 else if (curr_x_i == null_theory_var) {
