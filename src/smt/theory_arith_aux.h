@@ -1530,7 +1530,7 @@ namespace smt {
         while (best_efforts < max_efforts && !ctx.get_cancel_flag()) {
             theory_var x_j = null_theory_var;
             theory_var x_i = null_theory_var;
-            unsigned has_bound = false;
+            bool has_bound = false;
             max_gain.reset();
             min_gain.reset();
             ++round;
@@ -1544,10 +1544,12 @@ namespace smt {
                 theory_var curr_x_i = null_theory_var;
                 SASSERT(is_non_base(curr_x_j));
                 curr_coeff    = it->m_coeff;
-                bool curr_inc = curr_coeff.is_pos() ? max : !max;                 
+                bool curr_inc = curr_coeff.is_pos() ? max : !max;  
+                if ((curr_inc && upper(curr_x_j)) || (!curr_inc && lower(curr_x_j))) {
+                    has_bound = true;
+                }
                 if ((curr_inc && at_upper(curr_x_j)) || (!curr_inc && at_lower(curr_x_j))) {
                     // variable cannot be used for max/min.
-                    has_bound = true;
                     continue; 
                 }
                 bool picked_var = pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, 
@@ -1557,7 +1559,7 @@ namespace smt {
 
                 SASSERT(!picked_var || safe_gain(curr_min_gain, curr_max_gain));
                 
-                if (!picked_var) { //  && (r.size() > 1 || !safe_gain(curr_min_gain, curr_max_gain))
+                if (!safe_gain(curr_min_gain, curr_max_gain)) {
                     TRACE("opt", tout << "no variable picked\n";);
                     best_efforts++;
                 }
