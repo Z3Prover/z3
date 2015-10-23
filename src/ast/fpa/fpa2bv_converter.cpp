@@ -51,7 +51,7 @@ fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
     m_max_pn_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
     m_max_np_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
     m_decls_to_hide.insert_if_not_there(m_max_pn_zeros->get_decl());
-    m_decls_to_hide.insert_if_not_there(m_min_np_zeros->get_decl());
+    m_decls_to_hide.insert_if_not_there(m_max_np_zeros->get_decl());
 }
 
 fpa2bv_converter::~fpa2bv_converter() {

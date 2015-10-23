@@ -79,6 +79,13 @@ model_converter * fpa2bv_model_converter::translate(ast_translation & translator
         translator.to().inc_ref(k);
         translator.to().inc_ref(v);
     }
+    for (obj_hashtable<func_decl>::iterator it = m_decls_to_hide.begin();
+         it != m_decls_to_hide.end();
+         it++) {
+        func_decl * k = translator(*it);
+        res->m_decls_to_hide.insert(*it);
+        translator.to().inc_ref(*it);
+    }
     return res;
 }
 
