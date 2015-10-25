@@ -1530,6 +1530,7 @@ namespace smt {
         while (best_efforts < max_efforts && !ctx.get_cancel_flag()) {
             theory_var x_j = null_theory_var;
             theory_var x_i = null_theory_var;
+            bool has_bound = false;
             max_gain.reset();
             min_gain.reset();
             ++round;
@@ -1538,12 +1539,15 @@ namespace smt {
             typename vector<row_entry>::const_iterator it  = r.begin_entries();
             typename vector<row_entry>::const_iterator end = r.end_entries();
             for (; it != end; ++it) {  
-                if (it->is_dead()) continue;                                                  
+                if (it->is_dead()) continue;  
                 theory_var curr_x_j = it->m_var;
                 theory_var curr_x_i = null_theory_var;
                 SASSERT(is_non_base(curr_x_j));
                 curr_coeff    = it->m_coeff;
-                bool curr_inc = curr_coeff.is_pos() ? max : !max;                 
+                bool curr_inc = curr_coeff.is_pos() ? max : !max;  
+                if ((curr_inc && upper(curr_x_j)) || (!curr_inc && lower(curr_x_j))) {
+                    has_bound = true;
+                }
                 if ((curr_inc && at_upper(curr_x_j)) || (!curr_inc && at_lower(curr_x_j))) {
                     // variable cannot be used for max/min.
                     continue; 
@@ -1555,8 +1559,9 @@ namespace smt {
 
                 SASSERT(!picked_var || safe_gain(curr_min_gain, curr_max_gain));
                 
-                if (!picked_var) { //  && (r.size() > 1 || !safe_gain(curr_min_gain, curr_max_gain))
+                if (!safe_gain(curr_min_gain, curr_max_gain)) {
                     TRACE("opt", tout << "no variable picked\n";);
+                    has_bound = true;
                     best_efforts++;
                 }
                 else if (curr_x_i == null_theory_var) {
@@ -1593,10 +1598,10 @@ namespace smt {
             TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << max_gain << "\n";
                   tout << "best efforts: " << best_efforts << " has shared: " << has_shared << "\n";);
             
-            if (x_j == null_theory_var && x_i == null_theory_var) {
+            if (!has_bound && x_i == null_theory_var && x_j == null_theory_var) {
                 has_shared = false;
                 best_efforts = 0;
-                result = UNBOUNDED;
+                result = UNBOUNDED;                                
                 break;
             }
 
