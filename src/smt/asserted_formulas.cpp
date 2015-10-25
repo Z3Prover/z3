@@ -593,7 +593,7 @@ void asserted_formulas::propagate_values() {
     bool found = false;
     // Separate the formulas in two sets: C and R
     // C is a set which contains formulas of the form
-    // { x = n }, where x is a variable and n a numberal.
+    // { x = n }, where x is a variable and n a numeral.
     // R contains the rest.
     // 
     // - new_exprs1 is the set C
@@ -613,15 +613,18 @@ void asserted_formulas::propagate_values() {
             expr * lhs = to_app(n)->get_arg(0);
             expr * rhs = to_app(n)->get_arg(1);
             if (m_manager.is_value(lhs) || m_manager.is_value(rhs)) {
-                if (m_manager.is_value(lhs))
+                if (m_manager.is_value(lhs)) {
                     std::swap(lhs, rhs);
+                    n = m_manager.mk_eq(lhs, rhs);
+                    pr = m_manager.mk_symmetry(pr);
+                }
                 if (!m_manager.is_value(lhs) && !m_simplifier.is_cached(lhs)) {
                     if (i >= m_asserted_qhead) {
                         new_exprs1.push_back(n);
                         if (m_manager.proofs_enabled())
                             new_prs1.push_back(pr);
                     }
-                    TRACE("propagate_values", tout << "found:\n" << mk_pp(lhs, m_manager) << "\n->\n" << mk_pp(rhs, m_manager) << "\n";);
+                    TRACE("propagate_values", tout << "found:\n" << mk_pp(lhs, m_manager) << "\n->\n" << mk_pp(rhs, m_manager) << "\nproof: " << mk_pp(pr, m_manager) << "\n";);
                     m_simplifier.cache_result(lhs, rhs, pr);
                     found = true;
                     continue;
