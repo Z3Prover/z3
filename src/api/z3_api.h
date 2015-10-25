@@ -6650,7 +6650,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief Return a tactic associated with the given name.
        The complete list of tactics may be obtained using the procedures #Z3_get_num_tactics and #Z3_get_tactic_name.
-       It may also be obtained using the command <tt>(help-tactics)</tt> in the SMT 2.0 front-end.
+       It may also be obtained using the command <tt>(help-tactic)</tt> in the SMT 2.0 front-end.
     
        Tactics are the basic building block for creating custom solvers for specific problem domains.
 
@@ -6677,7 +6677,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief Return a probe associated with the given name.
        The complete list of probes may be obtained using the procedures #Z3_get_num_probes and #Z3_get_probe_name.
-       It may also be obtained using the command <tt>(help-tactics)</tt> in the SMT 2.0 front-end.
+       It may also be obtained using the command <tt>(help-tactic)</tt> in the SMT 2.0 front-end.
 
        Probes are used to inspect a goal (aka problem) and collect information that may be used to decide
        which solver and/or preprocessing step will be used.

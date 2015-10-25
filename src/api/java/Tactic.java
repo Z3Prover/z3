@@ -21,7 +21,7 @@ package com.microsoft.z3;
  * Tactics are the basic building block for creating custom solvers for specific
  * problem domains. The complete list of tactics may be obtained using
  * {@code Context.NumTactics} and {@code Context.TacticNames}. It may
- * also be obtained using the command {@code (help-tactics)} in the SMT 2.0
+ * also be obtained using the command {@code (help-tactic)} in the SMT 2.0
  * front-end.
  **/
 public class Tactic extends Z3Object
