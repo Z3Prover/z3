@@ -26,7 +26,7 @@ namespace Microsoft.Z3
     /// Tactics are the basic building block for creating custom solvers for specific problem domains.
     /// The complete list of tactics may be obtained using <c>Context.NumTactics</c> 
     /// and <c>Context.TacticNames</c>.
-    /// It may also be obtained using the command <c>(help-tactics)</c> in the SMT 2.0 front-end.
+    /// It may also be obtained using the command <c>(help-tactic)</c> in the SMT 2.0 front-end.
     /// </summary>
     [ContractVerification(true)]
     public class Tactic : Z3Object
