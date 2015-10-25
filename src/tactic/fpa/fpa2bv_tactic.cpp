@@ -56,8 +56,6 @@ class fpa2bv_tactic : public tactic {
                                 proof_converter_ref & pc,
                                 expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            fail_if_proof_generation("fpa2bv", g);
-            fail_if_unsat_core_generation("fpa2bv", g);
             m_proofs_enabled      = g->proofs_enabled();
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
