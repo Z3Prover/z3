@@ -42,16 +42,6 @@ fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
     m_max_np_zeros(0, m),
     m_extra_assertions(m) {
     m_plugin = static_cast<fpa_decl_plugin*>(m.get_plugin(m.mk_family_id("fpa")));
-
-    m_min_pn_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-    m_min_np_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-    m_decls_to_hide.insert_if_not_there(m_min_pn_zeros->get_decl());
-    m_decls_to_hide.insert_if_not_there(m_min_np_zeros->get_decl());
-
-    m_max_pn_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-    m_max_np_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-    m_decls_to_hide.insert_if_not_there(m_max_pn_zeros->get_decl());
-    m_decls_to_hide.insert_if_not_there(m_max_np_zeros->get_decl());
 }
 
 fpa2bv_converter::~fpa2bv_converter() {
@@ -1164,6 +1154,16 @@ expr_ref fpa2bv_converter::mk_min_unspecified(func_decl * f, expr * x, expr * y)
         // The hardware interpretation is -0.0.
         mk_nzero(f, res);
     else {
+        if (m_min_pn_zeros == 0) {
+            m_min_pn_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+            m_decls_to_hide.insert_if_not_there(m_min_pn_zeros->get_decl());
+        }
+
+        if (m_min_np_zeros == 0) {
+            m_min_np_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+            m_decls_to_hide.insert_if_not_there(m_min_np_zeros->get_decl());
+        }
+
         expr_ref pn(m), np(m);
         mk_fp(m_min_pn_zeros,
               m_bv_util.mk_numeral(0, ebits),
@@ -1243,6 +1243,16 @@ expr_ref fpa2bv_converter::mk_max_unspecified(func_decl * f, expr * x, expr * y)
         // The hardware interpretation is +0.0.
         mk_pzero(f, res);
     else {
+        if (m_max_pn_zeros == 0) {
+            m_max_pn_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+            m_decls_to_hide.insert_if_not_there(m_max_pn_zeros->get_decl());
+        }
+
+        if (m_max_np_zeros == 0) {
+            m_max_np_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+            m_decls_to_hide.insert_if_not_there(m_max_np_zeros->get_decl());
+        }
+
         expr_ref pn(m), np(m);
         mk_fp(m_max_pn_zeros,
               m_bv_util.mk_numeral(0, ebits),
@@ -3834,6 +3844,9 @@ void fpa2bv_converter::reset(void) {
     dec_ref_map_key_values(m, m_const2bv);
     dec_ref_map_key_values(m, m_rm_const2bv);
     dec_ref_map_key_values(m, m_uf2bvuf);
-
+    m_min_np_zeros = 0;
+    m_min_pn_zeros = 0;
+    m_max_np_zeros = 0;
+    m_max_pn_zeros = 0;
     m_extra_assertions.reset();
 }
