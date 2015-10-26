@@ -2525,6 +2525,57 @@ void theory_str::dump_assignments() {
 	);
 }
 
+void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
+		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap) {
+
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	// check whether the node is a non-internal string variable;
+	// testing set membership here bypasses several expensive checks
+	if (variable_set.find(node) != variable_set.end()
+			&& internal_variable_set.find(node) == internal_variable_set.end()) {
+		varMap[node] = 1;
+	}
+	// check whether the node is a function that we want to inspect
+	else if (is_app(node)) { // TODO
+		app * aNode = to_app(node);
+		if (is_strlen(aNode)) {
+			// Length
+			return;
+		} else if (is_concat(aNode)) {
+			expr * arg0 = aNode->get_arg(0);
+			expr * arg1 = aNode->get_arg(1);
+			bool arg0HasEq = false;
+			bool arg1HasEq = false;
+			expr * arg0Val = get_eqc_value(arg0, arg0HasEq);
+			expr * arg1Val = get_eqc_value(arg1, arg1HasEq);
+
+			int canskip = 0;
+			if (arg0HasEq && arg0Val == m_strutil.mk_string("")) {
+				canskip = 1;
+			}
+			if (canskip == 0 && arg1HasEq && arg1Val == m_strutil.mk_string("")) {
+				canskip = 1;
+			}
+			if (canskip == 0 && concatMap.find(node) == concatMap.end()) {
+				concatMap[node] = 1;
+			}
+		} else if (false) { // TODO is_unroll()
+			// Unroll
+			if (unrollMap.find(node) == unrollMap.end()) {
+				unrollMap[node] = 1;
+			}
+		}
+		// recursively visit all arguments
+		app * aNode = to_app(node);
+		for (unsigned i = 0; i < aNode->get_num_args(); ++i) {
+			expr * arg = aNode->get_arg(i);
+			classify_ast_by_type(arg, varMap, concatMap, unrollMap);
+		}
+	}
+}
+
 // NOTE: this function used to take an argument `Z3_ast node`;
 // it was not used and so was removed from the signature
 void theory_str::classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
@@ -2537,29 +2588,14 @@ void theory_str::classify_ast_by_type_in_positive_context(std::map<expr*, int> &
 
 	for (expr_ref_vector::iterator it = assignments.begin(); it != assignments.end(); ++it) {
 		expr * argAst = *it;
-		// TODO
-		NOT_IMPLEMENTED_YET();
-		/*
-		 * according to getNodeType(), the following things are considered "functions":
-		 * Contains, StartsWith, EndsWith, RegexIn
-		 * Length, Indexof, Indexof2, LastIndexof
-		 * Concat, SubString, Replace, Unroll, CharAt
-		 * RegexConcat, RegexStar, RegexPlus, RegexCharRange, RegexUnion, Str2Reg
-		 * something about Z3_ARRAY_SORT?
-		 * Z3 native functions that aren't considered "uninterpreted"
-		 * "real" uninterpreted functions declared in the input (domainSize != 0)
-		 */
+		// the original code jumped through some hoops to check whether the AST node
+		// is a function, then checked whether that function is "interesting".
+		// however, the only thing that's considered "interesting" is an equality predicate.
+		// so we bypass a huge amount of work by doing the following...
 
-		/*
-		if (getNodeType(t, argAst) == my_Z3_Func) {
-			Z3_app func_app = Z3_to_app(ctx, argAst);
-			Z3_decl_kind func_decl = Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, func_app));
-
-			if (isInterestingFuncKind(func_decl)) {
-				classifyAstByType(t, argAst, varMap, concatMap, unrollMap);
-			}
+		if (m.is_eq(argAst)) {
+			classify_ast_by_type(argAst, varMap, concatMap, unrollMap);
 		}
-		*/
 	}
 }
 
@@ -2598,10 +2634,10 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	// Step 1: get variables / concat AST appearing in the context
 	// TODO build this map; see strTheory::checkInputVar()
 	// it should just be variable_set - internal_variable_set?
-	for(std::map<expr*, int>::iterator it = inputVarMap.begin(); it != inputVarMap.end(); ++it) {
+	for(std::map<expr*, int>::iterator it = input_var_map.begin(); it != input_var_map.end(); ++it) {
 		strVarMap[it->first] = 1;
 	}
-	classify_ast_by_type_in_positive_context(assignments, strVarMap, concatMap, unrollMap);
+	classify_ast_by_type_in_positive_context(strVarMap, concatMap, unrollMap);
 
 	// TODO the rest
 	NOT_IMPLEMENTED_YET();

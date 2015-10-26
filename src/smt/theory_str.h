@@ -104,6 +104,8 @@ namespace smt {
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
         bool is_string(app const * a) const { return a->is_app_of(get_id(), OP_STR); }
         bool is_string(enode const * n) const { return is_string(n->get_owner()); }
+        bool is_strlen(app const * a) const { return a->is_app_of(get_id(), OP_STRLEN); }
+        bool is_strlen(enode const * n) const { return is_strlen(n->get_owner()); }
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
         void instantiate_str_eq_length_axiom(enode * lhs, enode * rhs);
@@ -146,8 +148,10 @@ namespace smt {
 
         int ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
         		std::map<expr*, std::set<expr*> > & unrollGroupMap);
+        void classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
+        		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
         void classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
-        		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap)
+        		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
 
         void dump_assignments();
     public:
