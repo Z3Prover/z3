@@ -1451,6 +1451,11 @@ namespace smt {
             normalize_gain(min_gain.get_rational(), max_gain);
         }
 
+        if (is_int(x_i) && !max_gain.is_rational()) {
+            max_gain = inf_numeral(floor(max_gain));
+            normalize_gain(min_gain.get_rational(), max_gain);
+        }
+
         if (!max_inc.is_minus_one()) {
             if (is_int(x_i)) {
                 TRACE("opt",
