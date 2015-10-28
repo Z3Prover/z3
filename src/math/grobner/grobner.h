@@ -252,6 +252,15 @@ public:
     bool compute_basis(unsigned threshold);
 
     /**
+       \brief Compute one step Grobner basis.
+       Return true if there is no new equation to take.
+    */
+    void compute_basis_init();
+    bool compute_basis_step();
+    unsigned get_num_new_equations() { return m_num_new_equations; }
+
+
+    /**
        \brief Return true if an inconsistency was detected.
     */
     bool inconsistent() const { return m_unsat != 0; }

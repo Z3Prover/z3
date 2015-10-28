@@ -2227,7 +2227,15 @@ namespace smt {
         
         while (true) {
             TRACE("non_linear_gb", tout << "before:\n"; gb.display(tout););
-            bool r = gb.compute_basis(m_params.m_nl_arith_gb_threshold);
+            bool r = false;
+            gb.compute_basis_init();
+            while (!r && gb.get_num_new_equations() < m_params.m_nl_arith_gb_threshold) {
+                if (get_context().get_cancel_flag()) {
+                    warn = true;
+                    break;
+                }
+                r = gb.compute_basis_step();
+            }
             m_stats.m_gb_simplify      += gb.m_stats.m_simplify;
             m_stats.m_gb_superpose     += gb.m_stats.m_superpose;
             m_stats.m_gb_num_processed += gb.m_stats.m_num_processed;

@@ -923,30 +923,39 @@ void grobner::superpose(equation * eq) {
     }
 }
 
-bool grobner::compute_basis(unsigned threshold) {
+void grobner::compute_basis_init() {
     m_stats.m_compute_basis++;
     m_num_new_equations = 0;
-    while (m_num_new_equations < threshold) {
-        equation * eq = pick_next();
-        if (!eq)
-            return true;
-        m_stats.m_num_processed++;
+}
+
+bool grobner::compute_basis_step() {
+    equation * eq = pick_next();
+    if (!eq)
+        return true;
+    m_stats.m_num_processed++;
 #ifdef PROFILE_GB
-        if (m_stats.m_num_processed % 100 == 0) {
-            verbose_stream() << "[grobner] " << m_processed.size() << " " << m_to_process.size() << "\n";
-        }
+    if (m_stats.m_num_processed % 100 == 0) {
+        verbose_stream() << "[grobner] " << m_processed.size() << " " << m_to_process.size() << "\n";
+    }
 #endif
-        equation * new_eq = simplify_using_processed(eq);
-        if (new_eq != 0 && eq != new_eq) {
-            // equation was updated using non destructive updates
-            m_equations_to_unfreeze.push_back(eq);
-            eq = new_eq;
-        }
-        simplify_processed(eq);
-        superpose(eq);
-        m_processed.insert(eq);
-        simplify_to_process(eq);
-        TRACE("grobner", tout << "end of iteration:\n"; display(tout););
+    equation * new_eq = simplify_using_processed(eq);
+    if (new_eq != 0 && eq != new_eq) {
+        // equation was updated using non destructive updates
+        m_equations_to_unfreeze.push_back(eq);
+        eq = new_eq;
+    }
+    simplify_processed(eq);
+    superpose(eq);
+    m_processed.insert(eq);
+    simplify_to_process(eq);
+    TRACE("grobner", tout << "end of iteration:\n"; display(tout););
+    return false;
+}
+
+bool grobner::compute_basis(unsigned threshold) {
+    compute_basis_init();
+    while (m_num_new_equations < threshold) {
+        if (compute_basis_step()) return true;
     }
     return false;
 }
