@@ -149,7 +149,7 @@ namespace smt {
                     SASSERT(!contains_model_value(t));
                     unsigned gen = (*it).m_value;
                     expr * t_val = ev.eval(t, true);
-                    TRACE("model_finder", tout << mk_pp(t, m_manager) << "\n";);
+                    TRACE("model_finder", tout << mk_pp(t, m_manager) << " " << mk_pp(t_val, m_manager) << "\n";);
 
                     expr * old_t = 0;
                     if (m_inv.find(t_val, old_t)) {
