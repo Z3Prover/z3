@@ -18,6 +18,7 @@ Notes:
 package com.microsoft.z3;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
@@ -30,10 +31,12 @@ public class Context extends IDisposable
      * Constructor.
      **/
     public Context()
-    {
+    {        
         super();
-        m_ctx = Native.mkContextRc(0);
-        initContext();
+        synchronized (creation_lock) {            
+            m_ctx = Native.mkContextRc(0);
+            initContext();
+        }
     }
 
     /**
@@ -56,12 +59,14 @@ public class Context extends IDisposable
     public Context(Map<String, String> settings)
     {
         super();
-        long cfg = Native.mkConfig();
-        for (Map.Entry<String, String> kv : settings.entrySet())
-            Native.setParamValue(cfg, kv.getKey(), kv.getValue());
-        m_ctx = Native.mkContextRc(cfg);
-        Native.delConfig(cfg);
-        initContext();
+        synchronized (creation_lock) {            
+            long cfg = Native.mkConfig();
+            for (Map.Entry<String, String> kv : settings.entrySet())
+                Native.setParamValue(cfg, kv.getKey(), kv.getValue());
+            m_ctx = Native.mkContextRc(cfg);
+            Native.delConfig(cfg);
+            initContext();
+        }
     }
 
     /**
@@ -365,16 +370,15 @@ public class Context extends IDisposable
      * Update a datatype field at expression t with value v.
      * The function performs a record update at t. The field
      * that is passed in as argument is updated with value v,
-     * the remainig fields of t are unchanged.	
+     * the remainig fields of t are unchanged.    
      **/
     public Expr MkUpdateField(FuncDecl field, Expr t, Expr v) 
-            throws Z3Exception
+        throws Z3Exception
     {
-	return Expr.create
-	    (this, 
-	     Native.datatypeUpdateField
-	     (nCtx(), field.getNativeObject(),
-	      t.getNativeObject(), v.getNativeObject()));		
+        return Expr.create (this, 
+                            Native.datatypeUpdateField
+                            (nCtx(), field.getNativeObject(),
+                             t.getNativeObject(), v.getNativeObject()));        
     }
 
 
@@ -3638,7 +3642,8 @@ public class Context extends IDisposable
         Native.updateParamValue(nCtx(), id, value);
     }
 
-    long m_ctx = 0;
+    protected long m_ctx = 0;
+    protected static Object creation_lock = new Object();
 
     long nCtx()
     {
@@ -3761,29 +3766,23 @@ public class Context extends IDisposable
         return m_Optimize_DRQ;
     }
 
-    protected long m_refCount = 0;
+    protected AtomicInteger m_refCount = new AtomicInteger(0);
 
     /**
      * Finalizer.
+     * @throws Throwable 
      **/
-    protected void finalize()
+    protected void finalize() throws Throwable
     {
-        dispose();
-
-        if (m_refCount == 0)
-        {
-            try
-            {
-                Native.delContext(m_ctx);
-            } catch (Z3Exception e)
-            {
-                // OK.
-            }
-            m_ctx = 0;
-        } 
-        /*
-        else
-            CMW: re-queue the finalizer? */
+        try {            
+            dispose();
+        }
+        catch (Throwable t) {
+            throw t;
+        }
+        finally {
+            super.finalize();
+        }
     }
 
     /**
@@ -3809,5 +3808,17 @@ public class Context extends IDisposable
         m_boolSort = null;
         m_intSort = null;
         m_realSort = null;
+
+        synchronized (creation_lock) {
+            if (m_refCount.get() == 0 && m_ctx != 0) {
+                try {
+                    Native.delContext(m_ctx);
+                } catch (Z3Exception e) {
+                    // OK?
+                    System.out.println("Context deletion failed; memory leak possible.");
+                }
+                m_ctx = 0;
+            }
+        }
     }
 }

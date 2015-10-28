@@ -647,13 +647,7 @@ namespace z3 {
         */
         friend expr operator||(bool a, expr const & b) { return b.ctx().bool_val(a) || b; }
         
-        friend expr implies(expr const & a, expr const & b) {
-            check_context(a, b);
-            assert(a.is_bool() && b.is_bool());
-            Z3_ast r = Z3_mk_implies(a.ctx(), a, b);
-            a.check_error();
-            return expr(a.ctx(), r);
-        }
+        friend expr implies(expr const & a, expr const & b);
         friend expr implies(expr const & a, bool b);
         friend expr implies(bool a, expr const & b);
 
@@ -897,6 +891,13 @@ namespace z3 {
 
    };
 
+    inline expr implies(expr const & a, expr const & b) {
+        check_context(a, b);
+        assert(a.is_bool() && b.is_bool());
+        Z3_ast r = Z3_mk_implies(a.ctx(), a, b);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
     inline expr implies(expr const & a, bool b) { return implies(a, a.ctx().bool_val(b)); }
     inline expr implies(bool a, expr const & b) { return implies(b.ctx().bool_val(a), b); }
 
@@ -1911,7 +1912,7 @@ namespace z3 {
 
     
 
-};
+}
 
 /*@}*/
 /*@}*/

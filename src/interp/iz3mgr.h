@@ -26,6 +26,7 @@
 #include <functional>
 
 #include "iz3hash.h"
+#include "iz3exception.h"
 
 #include"well_sorted.h"
 #include"arith_decl_plugin.h"

@@ -8,7 +8,6 @@
 ############################################
 import sys
 import os
-import glob
 import re
 import getopt
 import shutil
@@ -17,7 +16,6 @@ from fnmatch import fnmatch
 import distutils.sysconfig
 import compileall
 import subprocess
-import string
 
 def getenv(name, default):
     try:
@@ -182,6 +180,8 @@ def exec_cmd(cmd):
     except:
         # Failed to create process
         return 1
+    finally:
+        null.close()
 
 # rm -f fname
 def rmf(fname):
@@ -282,7 +282,7 @@ def check_java():
     if is_verbose():
         print("Finding javac ...")
 
-    if JDK_HOME != None:
+    if JDK_HOME is not None:
         if IS_WINDOWS:
             JAVAC = os.path.join(JDK_HOME, 'bin', 'javac.exe')
         else:
@@ -292,7 +292,7 @@ def check_java():
             raise MKException("Failed to detect javac at '%s/bin'; the environment variable JDK_HOME is probably set to the wrong path." % os.path.join(JDK_HOME))
     else:
         # Search for javac in the path.
-        ind = 'javac';
+        ind = 'javac'
         if IS_WINDOWS:
             ind = ind + '.exe'
         paths = os.getenv('PATH', None)
@@ -304,7 +304,7 @@ def check_java():
                     JAVAC = cmb
                     break
 
-    if JAVAC == None:
+    if JAVAC is None:
         raise MKException('No java compiler in the path, please adjust your PATH or set JDK_HOME to the location of the JDK.')
 
     if is_verbose():
@@ -339,7 +339,7 @@ def check_java():
     if is_verbose():
         print("Finding jni.h...")
 
-    if JNI_HOME != None:
+    if JNI_HOME is not None:
         if not os.path.exists(os.path.join(JNI_HOME, 'jni.h')):
             raise MKException("Failed to detect jni.h '%s'; the environment variable JNI_HOME is probably set to the wrong path." % os.path.join(JNI_HOME))
     else:
@@ -355,6 +355,7 @@ def check_java():
                     q = os.path.dirname(libdir)
                     if cdirs.count(q) == 0:
                         cdirs.append(q)
+        t.close()
 
         # ... plus some heuristic ones.
         extra_dirs = []
@@ -371,10 +372,10 @@ def check_java():
 
         for dir in cdirs:
             q = find_jni_h(dir)
-            if q != False:
+            if q is not False:
                 JNI_HOME = q
 
-        if JNI_HOME == None:
+        if JNI_HOME is None:
             raise MKException("Failed to detect jni.h. Possible solution: set JNI_HOME with the path to JDK.")
 
 def check_ml():
@@ -416,11 +417,14 @@ def find_ml_lib():
         print ('Finding OCAML_LIB...')
     t = TempFile('output')
     null = open(os.devnull, 'wb')
-    try: 
+    try:
         subprocess.call([OCAMLC, '-where'], stdout=t.fname, stderr=null)
         t.commit()
     except:
         raise MKException('Failed to find Ocaml library; please set OCAML_LIB')
+    finally:
+        null.close()
+
     t = open('output', 'r')
     for line in t:
         OCAML_LIB = line[:-1]
@@ -437,12 +441,12 @@ def is64():
 def check_ar():
     if is_verbose():
         print("Testing ar...")
-    if which('ar')== None:
+    if which('ar') is None:
         raise MKException('ar (archive tool) was not found')
 
 def find_cxx_compiler():
     global CXX, CXX_COMPILERS
-    if CXX != None:
+    if CXX is not None:
         if test_cxx_compiler(CXX):
             return CXX
     for cxx in CXX_COMPILERS:
@@ -453,7 +457,7 @@ def find_cxx_compiler():
 
 def find_c_compiler():
     global CC, C_COMPILERS
-    if CC != None:
+    if CC is not None:
         if test_c_compiler(CC):
             return CC
     for c in C_COMPILERS:
@@ -479,6 +483,7 @@ def is_cr_lf(fname):
     # Check whether text files use cr/lf
     f = open(fname, 'r')
     line = f.readline()
+    f.close()
     sz = len(line)
     return sz >= 2 and line[sz-2] == '\r' and line[sz-1] == '\n'
 
@@ -559,7 +564,7 @@ def display_help(exit_code):
         print("  --optimize                    generate optimized code during linking.")
     print("  -j, --java                    generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
-    print("  --staticlib                   build Z3 static library.")    
+    print("  --staticlib                   build Z3 static library.")
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
@@ -674,6 +679,7 @@ def extract_c_includes(fname):
         elif not system_inc_pat.match(line) and non_std_inc_pat.match(line):
             raise MKException("Invalid #include directive at '%s':%s" % (fname, line))
         linenum = linenum + 1
+    f.close()
     return result
 
 
@@ -805,7 +811,7 @@ class Component:
         global BUILD_DIR, SRC_DIR, REV_BUILD_DIR
         if name in _ComponentNames:
             raise MKException("Component '%s' was already defined." % name)
-        if path == None:
+        if path is None:
             path = name
         self.name = name
         path = norm_path(path)
@@ -1019,7 +1025,7 @@ def sort_components(cnames):
 class ExeComponent(Component):
     def __init__(self, name, exe_name, path, deps, install):
         Component.__init__(self, name, path, deps)
-        if exe_name == None:
+        if exe_name is None:
             exe_name = name
         self.exe_name = exe_name
         self.install = install
@@ -1113,7 +1119,7 @@ def get_so_ext():
 class DLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, export_files, reexports, install, static):
         Component.__init__(self, name, path, deps)
-        if dll_name == None:
+        if dll_name is None:
             dll_name = name
         self.dll_name = dll_name
         self.export_files = export_files
@@ -1147,7 +1153,7 @@ class DLLComponent(Component):
             out.write(' ')
             out.write(obj)
         for dep in deps:
-            if not dep in self.reexports:
+            if dep not in self.reexports:
                 c_dep = get_component(dep)
                 out.write(' ' + c_dep.get_link_name())
         out.write('\n')
@@ -1156,7 +1162,7 @@ class DLLComponent(Component):
             out.write(' ')
             out.write(obj)
         for dep in deps:
-            if not dep in self.reexports:
+            if dep not in self.reexports:
                 c_dep = get_component(dep)
                 out.write(' ' + c_dep.get_link_name())
         out.write(' ' + FOCI2LIB)
@@ -1249,9 +1255,9 @@ class DLLComponent(Component):
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
         Component.__init__(self, name, path, deps)
-        if dll_name == None:
+        if dll_name is None:
             dll_name = name
-        if assembly_info_dir == None:
+        if assembly_info_dir is None:
             assembly_info_dir = "."
         self.dll_name          = dll_name
         self.assembly_info_dir = assembly_info_dir
@@ -1315,7 +1321,7 @@ class DotNetDLLComponent(Component):
 class JavaDLLComponent(Component):
     def __init__(self, name, dll_name, package_name, manifest_file, path, deps):
         Component.__init__(self, name, path, deps)
-        if dll_name == None:
+        if dll_name is None:
             dll_name = name
         self.dll_name     = dll_name
         self.package_name = package_name
@@ -1406,7 +1412,7 @@ class JavaDLLComponent(Component):
 class MLComponent(Component):
     def __init__(self, name, lib_name, path, deps):
         Component.__init__(self, name, path, deps)
-        if lib_name == None:
+        if lib_name is None:
             lib_name = name
         self.lib_name = lib_name
 
@@ -1426,7 +1432,7 @@ class MLComponent(Component):
         fout.close()
         if VERBOSE:
             print("Updated '%s'" % ml_meta_out)
-                        
+
 
     def mk_makefile(self, out):
         if is_ml_enabled():
@@ -1470,20 +1476,47 @@ class MLComponent(Component):
                 archives = archives + ' ' + os.path.join(sub_dir,m) + '.cma'
                 mls = mls + ' ' + os.path.join(sub_dir, m) + '.ml'
 
-            out.write('%s: %s %s\n' % 
-                      (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)'), 
-                       os.path.join(sub_dir, 'z3native_stubs.c'), 
-                       get_component(Z3_DLL_COMPONENT).dll_name+'$(SO_EXT)'));
-            out.write('\t$(CC) $(CXXFLAGS_OCAML) -I %s -I %s %s $(CXX_OUT_FLAG)%s$(OBJ_EXT)\n' % 
+            out.write('%s: %s %s\n' %
+                      (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)'),
+                       os.path.join(sub_dir, 'z3native_stubs.c'),
+                       get_component(Z3_DLL_COMPONENT).dll_name+'$(SO_EXT)'))
+            out.write('\t$(CC) $(CXXFLAGS_OCAML) -I %s -I %s %s $(CXX_OUT_FLAG)%s$(OBJ_EXT)\n' %
                       (OCAML_LIB, api_src, os.path.join(sub_dir, 'z3native_stubs.c'), os.path.join(sub_dir, 'z3native_stubs')))
 
             out.write('%s: %s %s %s$(SO_EXT)' % (
-                    os.path.join(sub_dir, "z3ml.cmxa"), 
-                    cmis, 
+                    os.path.join(sub_dir, "z3ml.cmxa"),
+                    cmis,
                     archives,
                     get_component(Z3_DLL_COMPONENT).dll_name))
             out.write(' %s\n' % (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)')))
             out.write('\tocamlmklib -o %s -I %s -ldopt \"-L. -lz3\" ' % (os.path.join(sub_dir, 'z3ml'), sub_dir))
+
+            # Add ocamlfind destdir to rpath
+            if OCAMLFIND != '':
+                if is_verbose():
+                    print ("Finding ocamlfind destdir")
+                t = TempFile('output')
+                null = open(os.devnull, 'wb')
+                try:
+                    subprocess.call([OCAMLFIND, 'printconf', 'destdir'], stdout=t.fname, stderr=null)
+                    t.commit()
+                except:
+                    raise MKException('Failed to find Ocamlfind destdir')
+                t = open('output', 'r')
+                for line in t:
+                    ocamlfind_destdir = line[:-1]
+                if is_verbose():
+                    print ('ocamlfind destdir=%s' % ocamlfind_destdir)
+                t.close()
+                rmf('output')
+                # DLLs are installed into stublibs if it exists, Z3 if not
+                if os.path.exists(os.path.join(ocamlfind_destdir, 'stublibs')):
+                    dll_path = os.path.join(ocamlfind_destdir, 'stublibs')
+                else:
+                    dll_path = os.path.join(ocamlfind_destdir, 'Z3')
+                out.write("-rpath %s " % dll_path)
+                out.write("-L%s" % dll_path)
+
             for m in modules:
                 out.write(' %s' % (os.path.join(sub_dir, m+'.ml')))
             out.write(' %s\n' % (os.path.join(sub_dir, 'z3native_stubs$(OBJ_EXT)')))
@@ -1518,7 +1551,7 @@ class MLComponent(Component):
                     out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name + '$(LIB_EXT)')
                 out.write('\n\n')
 
-    
+
     def main_component(self):
         return is_ml_enabled()
 
@@ -1642,7 +1675,7 @@ class MLExampleComponent(ExampleComponent):
         if ML_ENABLED:
             out.write('ml_example.byte: api/ml/z3ml.cmxa ')
             for mlfile in get_ml_files(self.ex_dir):
-                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
+                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
             out.write('\n')
             out.write('\t%s ' % OCAMLC)
             if DEBUG_MODE:
@@ -1653,7 +1686,7 @@ class MLExampleComponent(ExampleComponent):
             out.write('\n')
             out.write('ml_example$(EXE_EXT): api/ml/z3ml.cmxa ml_example.byte')
             for mlfile in get_ml_files(self.ex_dir):
-                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
+                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
             out.write('\n')
             out.write('\t%s ' % OCAMLOPT)
             if DEBUG_MODE:
@@ -1818,7 +1851,7 @@ def mk_config():
         if is_verbose():
             print('64-bit:         %s' % is64())
             print('OpenMP:         %s' % HAS_OMP)
-            if is_java_enabled():                
+            if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
             if is_ml_enabled():
@@ -1892,6 +1925,11 @@ def mk_config():
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
+        elif sysname == 'OpenBSD':
+            CXXFLAGS       = '%s -fno-strict-aliasing -D_OPENBSD_' % CXXFLAGS
+            OS_DEFINES     = '-D_OPENBSD_'
+            SO_EXT         = '.so'
+            SLIBFLAGS      = '-shared'
         elif sysname[:6] ==  'CYGWIN':
             CXXFLAGS    = '%s -D_CYGWIN -fno-strict-aliasing' % CXXFLAGS
             OS_DEFINES     = '-D_CYGWIN'
@@ -1943,10 +1981,10 @@ def mk_config():
             print('OpenMP:         %s' % HAS_OMP)
             print('Prefix:         %s' % PREFIX)
             print('64-bit:         %s' % is64())
-            print('FP math:        %s' % FPMATH) 
+            print('FP math:        %s' % FPMATH)
             if GPROF:
                 print('gprof:          enabled')
-            print('Python version: %s' % distutils.sysconfig.get_python_version())            
+            print('Python version: %s' % distutils.sysconfig.get_python_version())
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
@@ -1954,6 +1992,8 @@ def mk_config():
                 print('OCaml Compiler: %s' % OCAMLC)
                 print('OCaml Native:   %s' % OCAMLOPT)
                 print('OCaml Library:  %s' % OCAML_LIB)
+
+    config.close()
 
 def mk_install(out):
     out.write('install: ')
@@ -2028,6 +2068,7 @@ def mk_makefile():
     if not IS_WINDOWS:
         mk_install(out)
         mk_uninstall(out)
+    out.close()
     # Finalize
     if VERBOSE:
         print("Makefile was successfully generated.")
@@ -2102,7 +2143,7 @@ def to_c_method(s):
 def def_module_params(module_name, export, params, class_name=None, description=None):
     pyg = get_curr_pyg()
     dirname = os.path.split(get_curr_pyg())[0]
-    if class_name == None:
+    if class_name is None:
         class_name = '%s_params' % module_name
     hpp = os.path.join(dirname, '%s.hpp' % class_name)
     out = open(hpp, 'w')
@@ -2128,7 +2169,7 @@ def def_module_params(module_name, export, params, class_name=None, description=
     if export:
         out.write('  /*\n')
         out.write("     REG_MODULE_PARAMS('%s', '%s::collect_param_descrs')\n" % (module_name, class_name))
-        if description != None:
+        if description is not None:
             out.write("     REG_MODULE_DESCRIPTION('%s', '%s')\n" % (module_name, description))
         out.write('  */\n')
     # Generated accessors
@@ -2141,6 +2182,7 @@ def def_module_params(module_name, export, params, class_name=None, description=
                       (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
     out.write('};\n')
     out.write('#endif\n')
+    out.close()
     if is_verbose():
         print("Generated '%s'" % hpp)
 
@@ -2183,6 +2225,8 @@ def mk_pat_db():
     for line in fin:
         fout.write('"%s\\n"\n' % line.strip('\n'))
     fout.write(';\n')
+    fin.close()
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % os.path.join(c.src_dir, 'database.h'))
 
@@ -2192,7 +2236,7 @@ def update_version():
     minor = VER_MINOR
     build = VER_BUILD
     revision = VER_REVISION
-    if major == None or minor == None or build == None or revision == None:
+    if major is None or minor is None or build is None or revision is None:
         raise MKException("set_version(major, minor, build, revision) must be used before invoking update_version()")
     if not ONLY_MAKEFILES:
         mk_version_dot_h(major, minor, build, revision)
@@ -2208,6 +2252,7 @@ def mk_version_dot_h(major, minor, build, revision):
     fout.write('#define Z3_MINOR_VERSION   %s\n' % minor)
     fout.write('#define Z3_BUILD_NUMBER    %s\n' % build)
     fout.write('#define Z3_REVISION_NUMBER %s\n' % revision)
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % os.path.join(c.src_dir, 'version.h'))
 
@@ -2299,6 +2344,7 @@ def mk_install_tactic_cpp(cnames, path):
                         exec(line.strip('\n '), globals())
                     except:
                         raise MKException("Failed processing ADD_PROBE command at '%s'\n%s" % (fullname, line))
+            fin.close()
     # First pass will just generate the tactic factories
     idx = 0
     for data in ADD_TACTIC_DATA:
@@ -2314,6 +2360,7 @@ def mk_install_tactic_cpp(cnames, path):
     for data in ADD_PROBE_DATA:
         fout.write('  ADD_PROBE("%s", "%s", %s);\n' % data)
     fout.write('}\n')
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % fullname)
 
@@ -2366,6 +2413,7 @@ def mk_mem_initializer_cpp(cnames, path):
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
                     finalizer_cmds.append(m.group(1))
+            fin.close()
     initializer_cmds.sort(key=lambda tup: tup[1])
     fout.write('void mem_initialize() {\n')
     for (cmd, prio) in initializer_cmds:
@@ -2377,6 +2425,7 @@ def mk_mem_initializer_cpp(cnames, path):
         fout.write(cmd)
         fout.write('\n')
     fout.write('}\n')
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % fullname)
 
@@ -2426,6 +2475,7 @@ def mk_gparams_register_modules(cnames, path):
                 m = reg_mod_descr_pat.match(line)
                 if m:
                     mod_descrs.append((m.group(1), m.group(2)))
+            fin.close()
     fout.write('void gparams_register_modules() {\n')
     for code in cmds:
         fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
@@ -2434,6 +2484,7 @@ def mk_gparams_register_modules(cnames, path):
     for (mod, descr) in mod_descrs:
         fout.write('gparams::register_module_descr("%s", "%s");\n' % (mod, descr))
     fout.write('}\n')
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % fullname)
 
@@ -2467,6 +2518,8 @@ def mk_def_file(c):
                         fout.write('\t%s @%s\n' % (f, num))
                     i = i + 1
                 num = num + 1
+        api.close()
+    fout.close()
     if VERBOSE:
         print("Generated '%s'" % defname)
 
@@ -2528,7 +2581,7 @@ def mk_bindings(api_files):
 
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
-    if Z3PY_SRC_DIR == None:
+    if Z3PY_SRC_DIR is None:
         raise MKException("You must invoke set_z3py_dir(path):")
 
     blank_pat      = re.compile("^ *$")
@@ -2601,6 +2654,8 @@ def mk_z3consts_py(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+        api.close()
+    z3consts.close()
     if VERBOSE:
         print("Generated '%s'" % os.path.join(Z3PY_SRC_DIR, 'z3consts.py'))
 
@@ -2622,7 +2677,7 @@ def mk_z3consts_dotnet(api_files):
     z3consts.write('using System;\n\n'
                    '#pragma warning disable 1591\n\n'
                    'namespace Microsoft.Z3\n'
-                   '{\n');
+                   '{\n')
 
     for api_file in api_files:
         api_file_c = dotnet.find_file(api_file, dotnet.name)
@@ -2686,7 +2741,9 @@ def mk_z3consts_dotnet(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+        api.close()
     z3consts.write('}\n');
+    z3consts.close()
     if VERBOSE:
         print("Generated '%s'" % os.path.join(dotnet.src_dir, 'Enumerations.cs'))
 
@@ -2754,7 +2811,7 @@ def mk_z3consts_java(api_files):
                     if name not in DeprecatedEnums:
                         efile  = open('%s.java' % os.path.join(gendir, name), 'w')
                         efile.write('/**\n *  Automatically generated file\n **/\n\n')
-                        efile.write('package %s.enumerations;\n\n' % java.package_name);
+                        efile.write('package %s.enumerations;\n\n' % java.package_name)
 
                         efile.write('/**\n')
                         efile.write(' * %s\n' % name)
@@ -2765,7 +2822,7 @@ def mk_z3consts_java(api_files):
                         for k in decls:
                             i = decls[k]
                             if first:
-                               first = False
+                                first = False
                             else:
                                 efile.write(',\n')
                             efile.write('    %s (%s)' % (k, i))
@@ -2793,6 +2850,7 @@ def mk_z3consts_java(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+        api.close()
     if VERBOSE:
         print("Generated '%s'" % ('%s' % gendir))
 
@@ -2835,7 +2893,7 @@ def mk_z3consts_ml(api_files):
             m2 = comment_pat.match(line)
             if m1 or m2:
                 # skip blank lines and comments
-                linenum = linenum + 1 
+                linenum = linenum + 1
             elif mode == SEARCHING:
                 m = typedef_pat.match(line)
                 if m:
@@ -2888,6 +2946,8 @@ def mk_z3consts_ml(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+        api.close()
+    efile.close()
     if VERBOSE:
         print ('Generated "%s/z3enums.ml"' % ('%s' % gendir))
     efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
@@ -2913,7 +2973,7 @@ def mk_z3consts_ml(api_files):
             m2 = comment_pat.match(line)
             if m1 or m2:
                 # skip blank lines and comments
-                linenum = linenum + 1 
+                linenum = linenum + 1
             elif mode == SEARCHING:
                 m = typedef_pat.match(line)
                 if m:
@@ -2958,6 +3018,8 @@ def mk_z3consts_ml(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+        api.close()
+    efile.close()
     if VERBOSE:
         print ('Generated "%s/z3enums.mli"' % ('%s' % gendir))
 
@@ -3094,6 +3156,7 @@ def mk_vs_proj(name, components):
     f.write('  <ImportGroup Label="ExtensionTargets">\n')
     f.write('  </ImportGroup>\n')
     f.write('</Project>\n')
+    f.close()
     if is_verbose():
         print("Generated '%s'" % proj_name)
 

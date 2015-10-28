@@ -35,7 +35,6 @@ public:
                            obj_map<func_decl, func_decl*> const & uf2bvuf,
                            obj_hashtable<func_decl> const & decls_to_hide) :
                            m(m) {
-        // Just create a copy?
         for (obj_map<func_decl, expr*>::iterator it = const2bv.begin();
              it != const2bv.end();
              it++)
@@ -62,7 +61,8 @@ public:
         }
         for (obj_hashtable<func_decl>::iterator it = decls_to_hide.begin();
              it != decls_to_hide.end();
-             it++) {
+             it++) 
+        {
             m_decls_to_hide.insert(*it);
             m.inc_ref(*it);
         }
@@ -106,6 +106,6 @@ model_converter * mk_fpa2bv_model_converter(ast_manager & m,
                                             obj_map<func_decl, expr*> const & const2bv,
                                             obj_map<func_decl, expr*> const & rm_const2bv,
                                             obj_map<func_decl, func_decl*> const & uf2bvuf,
-                                            obj_hashtable<func_decl> const & m_decls_to_hide);
+                                            obj_hashtable<func_decl> const & decls_to_hide);
 
 #endif

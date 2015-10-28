@@ -26,8 +26,6 @@ Notes:
 #include"bv_decl_plugin.h"
 #include"basic_simplifier_plugin.h"
 
-typedef enum { BV_RM_TIES_TO_EVEN, BV_RM_TIES_TO_AWAY, BV_RM_TO_POSITIVE, BV_RM_TO_NEGATIVE, BV_RM_TO_ZERO = 4 } BV_RM_VAL;
-
 struct func_decl_triple {
         func_decl_triple () { f_sgn = 0; f_sig = 0; f_exp = 0; }
         func_decl_triple (func_decl * sgn, func_decl * sig, func_decl * exp)
@@ -57,6 +55,11 @@ protected:
     obj_map<func_decl, expr*>  m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
     obj_hashtable<func_decl>   m_decls_to_hide;
+
+    app_ref                    m_min_pn_zeros;
+    app_ref                    m_min_np_zeros;
+    app_ref                    m_max_pn_zeros;
+    app_ref                    m_max_np_zeros;
     
 public:
     fpa2bv_converter(ast_manager & m);    
@@ -68,9 +71,11 @@ public:
 
     bool is_float(sort * s) { return m_util.is_float(s); }
     bool is_float(expr * e) { return is_app(e) && m_util.is_float(to_app(e)->get_decl()->get_range()); }
-    bool is_rm(expr * e) { return m_util.is_rm(e); }
+    bool is_rm(expr * e) { return is_app(e) && m_util.is_rm(e); }
     bool is_rm(sort * s) { return m_util.is_rm(s); }
     bool is_float_family(func_decl * f) { return f->get_family_id() == m_util.get_family_id(); }
+
+    void mk_rm(expr * bv3, expr_ref & result);
 
     void mk_fp(expr * sign, expr * exponent, expr * significand, expr_ref & result);
     void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -78,7 +83,7 @@ public:
     void split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const;
     void split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const;
 
-    void mk_eq(expr * a, expr * b, expr_ref & result);
+    void mk_eq(expr * a, expr * b, expr_ref & result);    
     void mk_ite(expr * c, expr * t, expr * f, expr_ref & result);
     void mk_distinct(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
@@ -101,9 +106,7 @@ public:
     void mk_mul(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_div(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_rem(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_abs(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_min(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_abs(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
     void mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_sqrt(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_round_to_integral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -138,7 +141,12 @@ public:
 
     void set_unspecified_fp_hi(bool v) { m_hi_fp_unspecified = v; }
 
+    void mk_min(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_min_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
+
+    void mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
+    void mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
 
     expr_ref mk_to_ubv_unspecified(unsigned width);
@@ -186,7 +194,7 @@ protected:
     void round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & result);        
     expr_ref mk_rounding_decision(expr * rm, expr * sgn, expr * last, expr * round, expr * sticky);
 
-    void add_core(unsigned sbits, unsigned ebits, expr_ref & rm,
+    void add_core(unsigned sbits, unsigned ebits,
         expr_ref & c_sgn, expr_ref & c_sig, expr_ref & c_exp, expr_ref & d_sgn, expr_ref & d_sig, expr_ref & d_exp,
         expr_ref & res_sgn, expr_ref & res_sig, expr_ref & res_exp);
 

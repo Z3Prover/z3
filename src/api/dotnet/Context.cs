@@ -37,8 +37,11 @@ namespace Microsoft.Z3
         public Context()
             : base()
         {
-            m_ctx = Native.Z3_mk_context_rc(IntPtr.Zero);
-            InitContext();
+            lock (creation_lock)
+            {
+                m_ctx = Native.Z3_mk_context_rc(IntPtr.Zero);
+                InitContext();
+            }
         }
 
         /// <summary>
@@ -64,12 +67,15 @@ namespace Microsoft.Z3
         {
             Contract.Requires(settings != null);
 
-            IntPtr cfg = Native.Z3_mk_config();
-            foreach (KeyValuePair<string, string> kv in settings)
-                Native.Z3_set_param_value(cfg, kv.Key, kv.Value);
-            m_ctx = Native.Z3_mk_context_rc(cfg);
-            Native.Z3_del_config(cfg);
-            InitContext();
+            lock (creation_lock)
+            {
+                IntPtr cfg = Native.Z3_mk_config();
+                foreach (KeyValuePair<string, string> kv in settings)
+                    Native.Z3_set_param_value(cfg, kv.Key, kv.Value);
+                m_ctx = Native.Z3_mk_context_rc(cfg);
+                Native.Z3_del_config(cfg);
+                InitContext();
+            }
         }
         #endregion
 
@@ -4381,6 +4387,7 @@ namespace Microsoft.Z3
         #region Internal
         internal IntPtr m_ctx = IntPtr.Zero;
         internal Native.Z3_error_handler m_n_err_handler = null;
+        internal static Object creation_lock = new Object();
         internal IntPtr nCtx { get { return m_ctx; } }
 
         internal void NativeErrorHandler(IntPtr ctx, Z3_error_code errorCode)

@@ -74,7 +74,9 @@ namespace smt {
         }
         else {
             SASSERT(is_rm(f->get_range()));
-            result = m_th.wrap(m.mk_const(f));
+            expr_ref bv(m);
+            bv = m_th.wrap(m.mk_const(f));
+            mk_rm(bv, result);
             m_rm_const2bv.insert(f, result);
             m.inc_ref(f);
             m.inc_ref(result);
@@ -83,7 +85,7 @@ namespace smt {
 
     void theory_fpa::fpa2bv_converter_wrapped::mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
         // TODO: This introduces temporary variables/func_decls that should be filtered in the end.
-        return fpa2bv_converter::mk_uninterpreted_function(f, num, args, result);
+        fpa2bv_converter::mk_uninterpreted_function(f, num, args, result);
     }
 
     expr_ref theory_fpa::fpa2bv_converter_wrapped::mk_min_unspecified(func_decl * f, expr * x, expr * y) {
@@ -106,7 +108,6 @@ namespace smt {
         expr_ref sc(m);
         m_th.m_converter.mk_is_zero(res, sc);
         m_extra_assertions.push_back(sc);
-        //m_extra_assertions.push_back(m.mk_eq(m_th.unwrap(wrapped, f->get_range()), a));
         return res;
     }
     
@@ -130,7 +131,6 @@ namespace smt {
         expr_ref sc(m);
         m_th.m_converter.mk_is_zero(res, sc);
         m_extra_assertions.push_back(sc);
-        //m_extra_assertions.push_back(m.mk_eq(m_th.unwrap(wrapped, f->get_range()), a));
         return res;
     }
 
@@ -314,6 +314,7 @@ namespace smt {
     
     expr_ref theory_fpa::convert_atom(expr * e) {
         ast_manager & m = get_manager();
+        TRACE("t_fpa_detail", tout << "converting atom: " << mk_ismt2_pp(e, get_manager()) << "\n";);
         expr_ref res(m);
         proof_ref pr(m);
         m_rw(e, res);
@@ -331,15 +332,31 @@ namespace smt {
         proof_ref pr(m);
         m_rw(e, e_conv);
         
-        if (is_app(e_conv) && to_app(e_conv)->get_family_id() != get_family_id()) {
-            m_th_rw(e_conv, res);
+        if (is_app(e_conv) && to_app(e_conv)->get_family_id() != get_family_id()) {            
+            if (!m_fpa_util.is_float(e_conv))
+                m_th_rw(e_conv, res);
+            else {
+                expr_ref bv(m);            
+                bv = wrap(e_conv);
+                unsigned bv_sz = m_bv_util.get_bv_size(bv);
+                unsigned ebits = m_fpa_util.get_ebits(m.get_sort(e_conv));
+                unsigned sbits = m_fpa_util.get_sbits(m.get_sort(e_conv));
+                SASSERT(bv_sz == ebits + sbits);
+                m_converter.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
+                    m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
+                    m_bv_util.mk_extract(sbits - 2, 0, bv),
+                    res);
+            }
         }
         else if (m_fpa_util.is_rm(e)) {
-            SASSERT(is_sort_of(m.get_sort(e_conv), m_bv_util.get_family_id(), BV_SORT));
-            SASSERT(m_bv_util.get_bv_size(e_conv) == 3);
-            m_th_rw(e_conv, res);
+            SASSERT(is_app_of(e_conv, get_family_id(), OP_FPA_INTERNAL_RM));
+            expr_ref bv_rm(m);
+            bv_rm = to_app(e_conv)->get_arg(0);
+            m_th_rw(bv_rm);
+            m_converter.mk_rm(bv_rm, res);
         }
-        else if (m_fpa_util.is_float(e)) {            
+        else if (m_fpa_util.is_float(e)) {
+            SASSERT(is_app_of(e_conv, get_family_id(), OP_FPA_FP));
             expr_ref sgn(m), sig(m), exp(m);
             m_converter.split_fp(e_conv, sgn, exp, sig);
             m_th_rw(sgn);
@@ -426,7 +443,7 @@ namespace smt {
         sort * srt = m.get_sort(e);
         expr_ref res(m);
         if (m_fpa_util.is_rm(srt)) {
-            res = to_app(e)->get_arg(0);
+            m_converter.mk_rm(to_app(e)->get_arg(0), res);
         }
         else {
             SASSERT(m_fpa_util.is_float(srt));
@@ -454,7 +471,6 @@ namespace smt {
             TRACE("t_fpa_detail", tout << "cached:" << std::endl;
             tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
                 mk_ismt2_pp(res, m) << std::endl;);
-            return res;
         }
         else {
             if (m_fpa_util.is_unwrap(e))
@@ -464,7 +480,7 @@ namespace smt {
             else if (m_fpa_util.is_float(e) || m_fpa_util.is_rm(e))
                 res = convert_term(e);
             else if (m_arith_util.is_real(e) || m_bv_util.is_bv(e))
-                res = convert_conversion_term(e);
+                res = convert_conversion_term(e);            
             else
                 UNREACHABLE();
 
@@ -476,7 +492,7 @@ namespace smt {
             m.inc_ref(res);
             m_trail_stack.push(fpa2bv_conversion_trail_elem(m, m_conversions, e));
         }
-
+        
         return res;
     }
 
@@ -643,19 +659,17 @@ namespace smt {
         expr_ref xc(m), yc(m);
         xc = convert(xe);
         yc = convert(ye);
-        
 
         TRACE("t_fpa_detail", tout << "xc = " << mk_ismt2_pp(xc, m) << std::endl <<
                                       "yc = " << mk_ismt2_pp(yc, m) << std::endl;);
 
         expr_ref c(m);
-               
-        if (fu.is_float(xe) && fu.is_float(ye))
+        
+        if ((fu.is_float(xe) && fu.is_float(ye)) ||
+            (fu.is_rm(xe) && fu.is_rm(ye)))
             m_converter.mk_eq(xc, yc, c);
-        else if (fu.is_rm(xe) && fu.is_rm(ye))
+        else 
             c = m.mk_eq(xc, yc);
-        else
-            UNREACHABLE();
         
         m_th_rw(c);
         assert_cnstr(m.mk_iff(m.mk_eq(xe, ye), c));
@@ -671,7 +685,7 @@ namespace smt {
 
         TRACE("t_fpa", tout << "new diseq: " << x << " != " << y << std::endl;);
         TRACE("t_fpa_detail", tout << mk_ismt2_pp(get_enode(x)->get_owner(), m) << " != " <<
-                                      mk_ismt2_pp(get_enode(y)->get_owner(), m) << std::endl;);
+            mk_ismt2_pp(get_enode(y)->get_owner(), m) << std::endl;);
 
         fpa_util & fu = m_fpa_util;
 
@@ -688,14 +702,13 @@ namespace smt {
 
         expr_ref c(m);
 
-        if (fu.is_float(xe) && fu.is_float(ye)) {
+        if ((fu.is_float(xe) && fu.is_float(ye))||
+            (fu.is_rm(xe) && fu.is_rm(ye))) {
             m_converter.mk_eq(xc, yc, c);
             c = m.mk_not(c);
         }
-        else if (fu.is_rm(xe) && fu.is_rm(ye))
-            c = m.mk_not(m.mk_eq(xc, yc));
         else
-            UNREACHABLE();
+            c = m.mk_not(m.mk_eq(xc, yc));
 
         m_th_rw(c);
         assert_cnstr(m.mk_iff(m.mk_not(m.mk_eq(xe, ye)), c));

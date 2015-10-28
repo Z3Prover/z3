@@ -515,7 +515,7 @@ bool iz3mgr::is_farkas_coefficient_negative(const ast &proof, int n){
     symb s = sym(proof);
     bool ok = s->get_parameter(n+2).is_rational(r);
     if(!ok)
-        throw "Bad Farkas coefficient";
+        throw iz3_exception("Bad Farkas coefficient");
     return r.is_neg();
 }
 
@@ -532,7 +532,7 @@ void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<rational>& rats){
         rational r;
         bool ok = s->get_parameter(i).is_rational(r);
         if(!ok)
-            throw "Bad Farkas coefficient";
+            throw iz3_exception("Bad Farkas coefficient");
 #if 0 
         {
             ast con = conc(prem(proof,i-2));
@@ -591,7 +591,7 @@ void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<rational>& r
         rational r;
         bool ok = s->get_parameter(i).is_rational(r);
         if(!ok)
-            throw "Bad Farkas coefficient";
+            throw iz3_exception("Bad Farkas coefficient");
         {
             ast con = arg(conc(proof),i-1);
             ast temp = make_real(r); // for debugging
@@ -607,7 +607,7 @@ void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<rational>& r
     if(rats[1].is_neg()){ // work around bug -- if all coeffs negative, negate them
         for(unsigned i = 1; i < rats.size(); i++){
             if(!rats[i].is_neg())
-                throw "Bad Farkas coefficients";
+                throw iz3_exception("Bad Farkas coefficients");
             rats[i] = -rats[i];
         }
     }
@@ -661,7 +661,7 @@ void iz3mgr::get_assign_bounds_rule_coeffs(const ast &proof, std::vector<rationa
         rational r;
         bool ok = s->get_parameter(i).is_rational(r);
         if(!ok)
-            throw "Bad Farkas coefficient";
+            throw iz3_exception("Bad Farkas coefficient");
         {
             ast con = conc(prem(proof,i-2));
             ast temp = make_real(r); // for debugging
@@ -677,7 +677,7 @@ void iz3mgr::get_assign_bounds_rule_coeffs(const ast &proof, std::vector<rationa
     if(rats[1].is_neg()){ // work around bug -- if all coeffs negative, negate them
         for(unsigned i = 1; i < rats.size(); i++){
             if(!rats[i].is_neg())
-                throw "Bad Farkas coefficients";
+                throw iz3_exception("Bad Farkas coefficients");
             rats[i] = -rats[i];
         }
     }
@@ -709,7 +709,7 @@ void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q, bool round_off){
             qstrict = true;
             break;
         default:
-            throw "not an inequality";
+            throw iz3_exception("not an inequality");
         }
     }
     else {
@@ -729,7 +729,7 @@ void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q, bool round_off){
             qstrict = true;
             break;
         default:
-            throw "not an inequality";
+            throw iz3_exception("not an inequality");
         }
     }
     bool pstrict = op(P) == Lt;
