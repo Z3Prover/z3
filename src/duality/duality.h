@@ -782,6 +782,9 @@ namespace Duality {
         struct ReallyBad {
         };
 
+        // throw when greedy reduction fails
+        struct greedy_reduce_failed {};
+
         /** Pop a scope (see Push). Note, you cannot pop axioms. */
       
         void Pop(int num_scopes);
