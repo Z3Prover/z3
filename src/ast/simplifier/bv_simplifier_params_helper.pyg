@@ -1,6 +1,4 @@
 def_module_params(class_name='bv_simplifier_params_helper',
                   module_name="old_simplify", # Parameters will be in the old_simplify module
                   export=True,
-                  params=(
-                          ('bv.hi_div0', BOOL, True, 'if true, then Z3 uses the usual hardware interpretation for division (rem, mod) by zero; otherwise, these operations are considered uninterpreted'),
-                          ('bv.bv2int_distribute', BOOL, True, 'if true, then int2bv is distributed over arithmetical operators')))
+                  params=(('bv.bv2int_distribute', BOOL, True, 'if true, then int2bv is distributed over arithmetical operators'),))
