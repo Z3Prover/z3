@@ -2870,10 +2870,10 @@ namespace Duality {
             lits = assumps; 
             std::copy(core.begin(),core.end(),std::inserter(lits,lits.end()));
       
-            for(int k = 0; k < 100; k++) // keep trying, maybe MBQI will do something!
+            for(int k = 0; k < 4; k++) // keep trying, maybe MBQI will do something!
                 if((res = CheckCore(lits,full_core)) == unsat)
                     goto is_unsat;
-            throw "should be unsat";
+            throw greedy_reduce_failed();
         }
     is_unsat:
         FilterCore(core,full_core);
@@ -3084,8 +3084,18 @@ namespace Duality {
                     }
                 }
                 // AddToProofCore(*core);
-                SolveSingleNode(root,node);
-
+                
+                try {
+                    SolveSingleNode(root,node);
+                }
+                catch (char const *msg){
+                    // This happens if interpolation fails
+                    Pop(1);
+                    is.pop(1);
+                    delete core;
+                    timer_stop("InterpolateByCases");
+                    throw msg;
+                }
                 {
                     expr itp = GetAnnotation(node);
                     dualModel = is.get_model(); // TODO: what does this mean?
