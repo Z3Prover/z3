@@ -1602,6 +1602,7 @@ namespace smt {
 
             TRACE("opt", tout << "after traversing row:\nx_i: v" << x_i << ", x_j: v" << x_j << ", gain: " << max_gain << "\n";
                   tout << "best efforts: " << best_efforts << " has shared: " << has_shared << "\n";);
+
             
             if (!has_bound && x_i == null_theory_var && x_j == null_theory_var) {
                 has_shared = false;
