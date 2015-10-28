@@ -1201,9 +1201,12 @@ public:
         ast t = arg(my_con,0);
         ast c = arg(my_con,1);
         ast d = gcd_of_coefficients(t);
+        /*
         t = z3_simplify(mk_idiv(t,d));
         c = z3_simplify(mk_idiv(c,d));
         ast cut_con = make(op(my_con),t,c);
+        */
+        ast cut_con = con;
         return iproof->make_cut_rule(my_con,d,cut_con,res);
     }
 
