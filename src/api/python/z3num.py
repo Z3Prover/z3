@@ -165,11 +165,12 @@ class Numeral:
     def as_long(self):
         """ Return a numeral (that is an integer) as a Python long.
 
-        >>> (Numeral(10)**20).as_long()
-        100000000000000000000L
         """
         assert(self.is_integer())
-        return long(Z3_get_numeral_string(self.ctx_ref(), self.as_ast()))
+        if sys.version_info[0] >= 3:
+            return int(Z3_get_numeral_string(self.ctx_ref(), self.as_ast()))
+        else:
+            return long(Z3_get_numeral_string(self.ctx_ref(), self.as_ast()))
 
     def as_fraction(self):
         """ Return a numeral (that is a rational) as a Python Fraction.
@@ -345,6 +346,9 @@ class Numeral:
         """
         return Numeral(Z3_algebraic_div(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast), self.ctx)
 
+    def __truediv__(self, other):
+        return self.__div__(other)
+
     def __rdiv__(self, other):
         """ Return the numeral `other / self`.
         >>> 3 / Numeral(2) 
@@ -353,6 +357,9 @@ class Numeral:
         2.1213203435?
         """
         return Numeral(Z3_algebraic_div(self.ctx_ref(), _to_numeral(other, self.ctx).ast, self.ast), self.ctx)
+
+    def __rtruediv__(self, other):
+        return self.__rdiv__(other)
 
     def root(self, k):
         """ Return the numeral `self^(1/k)`.
