@@ -66,7 +66,7 @@ enum case_split_strategy {
     CS_ACTIVITY_WITH_CACHE, // case split based on activity and cache the activity
     CS_RELEVANCY, // case split based on relevancy
     CS_RELEVANCY_ACTIVITY, // case split based on relevancy and activity
-    CS_RELEVANCY_GOAL, // based on relevancy and the current goal
+    CS_RELEVANCY_GOAL // based on relevancy and the current goal
 };
 
 struct smt_params : public preprocessor_params, 

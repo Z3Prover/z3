@@ -721,22 +721,22 @@ namespace smt {
         IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
         st.collect(m_context.get_num_asserted_formulas(), m_context.get_asserted_formulas());
         IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
-        m_params.m_arith_fixnum = st.arith_k_sum_is_small();
-        m_params.m_arith_int_only = !st.m_has_rational && !st.m_has_real;
+        bool fixnum = st.arith_k_sum_is_small();
+        bool int_only = !st.m_has_rational && !st.m_has_real;
         switch(m_params.m_arith_mode) {
         case AS_NO_ARITH:
             m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("arith"), "no arithmetic"));
             break;
         case AS_DIFF_LOGIC:
             m_params.m_arith_expand_eqs  = true;
-            if (m_params.m_arith_fixnum) {
-                if (m_params.m_arith_int_only)
+            if (fixnum) {
+                if (int_only)
                     m_context.register_plugin(alloc(smt::theory_fidl, m_manager, m_params));
                 else
                     m_context.register_plugin(alloc(smt::theory_frdl, m_manager, m_params));
             }
             else {
-                if (m_params.m_arith_int_only)
+                if (int_only)
                     m_context.register_plugin(alloc(smt::theory_idl, m_manager, m_params));
                 else
                     m_context.register_plugin(alloc(smt::theory_rdl, m_manager, m_params));
@@ -744,14 +744,14 @@ namespace smt {
             break;
         case AS_DENSE_DIFF_LOGIC:
             m_params.m_arith_expand_eqs  = true;
-            if (m_params.m_arith_fixnum) {
-                if (m_params.m_arith_int_only)
+            if (fixnum) {
+                if (int_only)
                     m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
                 else
                     m_context.register_plugin(alloc(smt::theory_dense_smi, m_manager, m_params));
             }
             else {
-                if (m_params.m_arith_int_only)
+                if (int_only)
                     m_context.register_plugin(alloc(smt::theory_dense_i, m_manager, m_params));
                 else
                     m_context.register_plugin(alloc(smt::theory_dense_mi, m_manager, m_params));
@@ -759,7 +759,7 @@ namespace smt {
             break;
         case AS_UTVPI:
             m_params.m_arith_expand_eqs  = true;
-            if (m_params.m_arith_int_only)
+            if (int_only)
                 m_context.register_plugin(alloc(smt::theory_iutvpi, m_manager));
             else
                 m_context.register_plugin(alloc(smt::theory_rutvpi, m_manager));          
@@ -768,7 +768,7 @@ namespace smt {
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
             break;
         default:
-            if (m_params.m_arith_int_only)
+            if (m_params.m_arith_int_only && int_only)
                 m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
             else
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));

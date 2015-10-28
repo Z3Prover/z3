@@ -2779,7 +2779,7 @@ end
     which solver and/or preprocessing step will be used.
     The complete list of probes may be obtained using the procedures [Context.NumProbes]
     and [Context.ProbeNames].
-    It may also be obtained using the command [(help-tactics)] in the SMT 2.0 front-end.
+    It may also be obtained using the command [(help-tactic)] in the SMT 2.0 front-end.
 *)
 module Probe :
 sig
@@ -2841,7 +2841,7 @@ end
     Tactics are the basic building block for creating custom solvers for specific problem domains.
     The complete list of tactics may be obtained using [Context.get_num_tactics] 
     and [Context.get_tactic_names].
-    It may also be obtained using the command [(help-tactics)] in the SMT 2.0 front-end.
+    It may also be obtained using the command [(help-tactic)] in the SMT 2.0 front-end.
 *)
 module Tactic :
 sig
@@ -2941,7 +2941,7 @@ sig
       Alias for [UsingParams]*)
   val with_ : context -> tactic -> Params.params -> tactic
 
-  (** Create a tactic that applies the given tactics in parallel. *)
+  (** Create a tactic that applies the given tactics in parallel until one of them succeeds (i.e., the first that doesn't fail). *)
   val par_or : context -> tactic list -> tactic
 
   (** Create a tactic that applies a tactic to a given goal and then another tactic

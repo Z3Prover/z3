@@ -42,16 +42,16 @@ def set_build_dir(path):
     mk_dir(BUILD_DIR)
 
 def display_help():
-    print "mk_unix_dist.py: Z3 Linux/OSX/BSD distribution generator\n"
-    print "This script generates the zip files containing executables, shared objects, header files for Linux/OSX/BSD."
-    print "It must be executed from the Z3 root directory."
-    print "\nOptions:"
-    print "  -h, --help                    display this message."
-    print "  -s, --silent                  do not print verbose messages."
-    print "  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist)."
-    print "  -f, --force                   force script to regenerate Makefiles."
-    print "  --nojava                      do not include Java bindings in the binary distribution files."
-    print "  --githash                     include git hash in the Zip file."
+    print("mk_unix_dist.py: Z3 Linux/OSX/BSD distribution generator\n")
+    print("This script generates the zip files containing executables, shared objects, header files for Linux/OSX/BSD.")
+    print("It must be executed from the Z3 root directory.")
+    print("\nOptions:")
+    print("  -h, --help                    display this message.")
+    print("  -s, --silent                  do not print verbose messages.")
+    print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
+    print("  -f, --force                   force script to regenerate Makefiles.")
+    print("  --nojava                      do not include Java bindings in the binary distribution files.")
+    print("  --githash                     include git hash in the Zip file.")
     exit(0)
 
 # Parse configuration option for mk_make script
@@ -171,7 +171,7 @@ def mk_dist_dir():
         mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_unix_dist(build_path, dist_path)
     if is_verbose():
-        print "Generated distribution folder at '%s'" % dist_path
+        print("Generated distribution folder at '%s'" % dist_path)
 
 ZIPOUT = None
 
@@ -195,7 +195,7 @@ def mk_zip():
         ZIPOUT = zipfile.ZipFile(zfname, 'w', zipfile.ZIP_DEFLATED)
         os.path.walk(dist_path, mk_zip_visitor, '*')
         if is_verbose():
-            print "Generated '%s'" % zfname
+            print("Generated '%s'" % zfname)
     except:
         pass
     ZIPOUT = None

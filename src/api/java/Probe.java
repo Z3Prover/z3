@@ -22,7 +22,7 @@ package com.microsoft.z3;
  * may be used to decide which solver and/or preprocessing step will be used.
  * The complete list of probes may be obtained using the procedures
  * {@code Context.NumProbes} and {@code Context.ProbeNames}. It may
- * also be obtained using the command {@code (help-tactics)} in the SMT 2.0
+ * also be obtained using the command {@code (help-tactic)} in the SMT 2.0
  * front-end.
  **/
 public class Probe extends Z3Object

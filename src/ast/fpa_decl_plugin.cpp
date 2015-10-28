@@ -359,6 +359,10 @@ func_decl * fpa_decl_plugin::mk_binary_decl(decl_kind k, unsigned num_parameters
     case OP_FPA_REM: name = "fp.rem"; break;
     case OP_FPA_MIN: name = "fp.min"; break;
     case OP_FPA_MAX: name = "fp.max"; break;
+    case OP_FPA_INTERNAL_MIN_I: name = "fp.min_i"; break;
+    case OP_FPA_INTERNAL_MAX_I: name = "fp.max_i"; break;
+    case OP_FPA_INTERNAL_MIN_UNSPECIFIED: name = "fp.min_unspecified"; break;
+    case OP_FPA_INTERNAL_MAX_UNSPECIFIED: name = "fp.max_unspecified"; break;
     default:
         UNREACHABLE();
         break;
@@ -643,7 +647,7 @@ func_decl * fpa_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, pa
 }
 
 func_decl * fpa_decl_plugin::mk_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                                   unsigned arity, sort * const * domain, sort * range) {
+                                           unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
         m_manager->raise_exception("invalid number of arguments to to_ieee_bv");
     if (!is_float_sort(domain[0]))
@@ -654,6 +658,20 @@ func_decl * fpa_decl_plugin::mk_to_ieee_bv(decl_kind k, unsigned num_parameters,
     sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
     symbol name("to_ieee_bv");
     return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
+}
+
+func_decl * fpa_decl_plugin::mk_internal_rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                            unsigned arity, sort * const * domain, sort * range) {
+    if (arity != 1)
+        m_manager->raise_exception("invalid number of arguments to internal_rm");
+    if (!is_sort_of(domain[0], m_bv_fid, BV_SORT) || domain[0]->get_parameter(0).get_int() != 3)
+        m_manager->raise_exception("sort mismatch, expected argument of sort bitvector, size 3");
+    if (!is_rm_sort(range))
+        m_manager->raise_exception("sort mismatch, expected range of RoundingMode sort");
+    
+    parameter ps[] = { parameter(3) };
+    sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
+    return m_manager->mk_func_decl(symbol("rm"), 1, &bv_srt, range, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
 func_decl * fpa_decl_plugin::mk_internal_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -684,35 +702,9 @@ func_decl * fpa_decl_plugin::mk_internal_bv_unwrap(decl_kind k, unsigned num_par
     if (!is_sort_of(domain[0], m_bv_fid, BV_SORT))
         m_manager->raise_exception("sort mismatch, expected argument of bitvector sort");
     if (!is_float_sort(range) && !is_rm_sort(range))
-        m_manager->raise_exception("sort mismatch, expected range of FloatingPoint sort");
+        m_manager->raise_exception("sort mismatch, expected range of FloatingPoint or RoundingMode sort");
     
     return m_manager->mk_func_decl(symbol("bv_unwrap"), 1, domain, range, func_decl_info(m_family_id, k, num_parameters, parameters));
-}
-
-func_decl * fpa_decl_plugin::mk_internal_min_unspecified(
-    decl_kind k, unsigned num_parameters, parameter const * parameters,
-    unsigned arity, sort * const * domain, sort * range) {
-    if (arity != 2)
-        m_manager->raise_exception("invalid number of arguments to fp.min_unspecified");
-    if (domain[0] != domain[1] || !is_float_sort(domain[0]))
-        m_manager->raise_exception("sort mismatch, expected arguments of equal FloatingPoint sorts");
-    if (!is_float_sort(range))
-        m_manager->raise_exception("sort mismatch, expected range of FloatingPoint sort");    
-
-    return m_manager->mk_func_decl(symbol("fp.min_unspecified"), 2, domain, range, func_decl_info(m_family_id, k, num_parameters, parameters));
-}
-
-func_decl * fpa_decl_plugin::mk_internal_max_unspecified(
-    decl_kind k, unsigned num_parameters, parameter const * parameters,
-    unsigned arity, sort * const * domain, sort * range) {
-    if (arity != 2)
-        m_manager->raise_exception("invalid number of arguments to fp.max_unspecified");
-    if (domain[0] != domain[1] || !is_float_sort(domain[0]))
-        m_manager->raise_exception("sort mismatch, expected arguments of equal FloatingPoint sorts");
-    if (!is_float_sort(range))
-        m_manager->raise_exception("sort mismatch, expected range of FloatingPoint sort");
-
-    return m_manager->mk_func_decl(symbol("fp.max_unspecified"), 2, domain, range, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
 func_decl * fpa_decl_plugin::mk_internal_to_ubv_unspecified(
@@ -818,14 +810,20 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return mk_to_fp_unsigned(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_IEEE_BV:
         return mk_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
+
+    case OP_FPA_INTERNAL_RM:
+        return mk_internal_rm(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_BVWRAP:
         return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_BVUNWRAP:
         return mk_internal_bv_unwrap(k, num_parameters, parameters, arity, domain, range);
+    
+    case OP_FPA_INTERNAL_MIN_I:
+    case OP_FPA_INTERNAL_MAX_I:
     case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
-        return mk_internal_min_unspecified(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
-        return mk_internal_max_unspecified(k, num_parameters, parameters, arity, domain, range);
+        return mk_binary_decl(k, num_parameters, parameters, arity, domain, range);
+    
     case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
         return mk_internal_to_ubv_unspecified(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
@@ -1029,18 +1027,6 @@ app * fpa_util::mk_nzero(unsigned ebits, unsigned sbits) {
     scoped_mpf v(fm());
     fm().mk_nzero(ebits, sbits, v);
     return mk_value(v);
-}
-
-app * fpa_util::mk_internal_min_unspecified(expr * x, expr * y) {    
-    SASSERT(m().get_sort(x) == m().get_sort(y));
-    expr * args[] = { x, y };
-    return m().mk_app(get_family_id(), OP_FPA_INTERNAL_MIN_UNSPECIFIED, 0, 0, 2, args, m().get_sort(x));
-}
-
-app * fpa_util::mk_internal_max_unspecified(expr * x, expr * y) {
-    SASSERT(m().get_sort(x) == m().get_sort(y));
-    expr * args[] = { x, y };
-    return m().mk_app(get_family_id(), OP_FPA_INTERNAL_MAX_UNSPECIFIED, 0, 0, 2, args, m().get_sort(x));
 }
 
 app * fpa_util::mk_internal_to_ubv_unspecified(unsigned width) {    

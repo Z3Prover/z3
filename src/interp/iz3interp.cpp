@@ -218,7 +218,7 @@ public:
         iz3secondary *sp = iz3foci::create(this,num,(int *)(parents.empty()?0:&parents[0]));
         int res = sp->interpolate(cnsts, interps);
         if(res != 0)
-            throw "secondary failed";
+            throw iz3_exception("secondary failed");
     }                         
 
     void proof_to_interpolant(z3pf proof,

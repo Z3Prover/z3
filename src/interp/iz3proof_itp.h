@@ -50,7 +50,9 @@ class iz3proof_itp : public iz3mgr {
     typedef ast node;
 
     /** Object thrown in case of a proof error. */
-    struct proof_error {};
+    struct proof_error: public iz3_exception {
+        proof_error(): iz3_exception("proof_error") {}
+    };
 
 
     /** Make a resolution node with given pivot literal and premises.

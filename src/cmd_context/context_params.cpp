@@ -66,7 +66,7 @@ void context_params::set(char const * param, char const * value) {
         long val = strtol(value, 0, 10);
         m_timeout = static_cast<unsigned>(val);
     }
-    if (p == "rlimit") {
+    else if (p == "rlimit") {
         long val = strtol(value, 0, 10);
         m_rlimit = static_cast<unsigned>(val);
     }

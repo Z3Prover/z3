@@ -127,15 +127,15 @@ public:
     void to_rational(hwf const & x, scoped_mpq & o) { to_rational(x, o.m(), o); }
     
     
-    bool sgn(hwf const & x) const { 
+    bool sgn(hwf const & x) const {
         return (x.get_raw() & 0x8000000000000000ull) != 0; 
     }
 
-    uint64 sig(hwf const & x) const { 
+    uint64 sig(hwf const & x) const {
         return x.get_raw() & 0x000FFFFFFFFFFFFFull;
     }
 
-    int exp(hwf const & x) const {         
+    int exp(hwf const & x) const {
         return ((x.get_raw() & 0x7FF0000000000000ull) >> 52) - 1023;
     }
 

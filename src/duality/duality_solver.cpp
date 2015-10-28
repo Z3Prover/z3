@@ -2295,6 +2295,10 @@ namespace Duality {
                                         reporter->Message(std::string("interpolation failure:") + msg);
                                         throw DoRestart();
                                     }
+                                    catch(const RPFP::greedy_reduce_failed &){
+                                        // if we couldn't reduce, just continue (maybe should restart?)
+                                        reporter->Message("interpolant verification failed");
+                                    }
                                     if(RecordUpdate(node)){
                                         update_count++;
                                         total_updates++;

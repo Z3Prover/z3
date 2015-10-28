@@ -28,7 +28,7 @@ namespace Microsoft.Z3
     /// which solver and/or preprocessing step will be used.
     /// The complete list of probes may be obtained using the procedures <c>Context.NumProbes</c>
     /// and <c>Context.ProbeNames</c>.
-    /// It may also be obtained using the command <c>(help-tactics)</c> in the SMT 2.0 front-end.
+    /// It may also be obtained using the command <c>(help-tactic)</c> in the SMT 2.0 front-end.
     /// </summary>
     [ContractVerification(true)]
     public class Probe : Z3Object

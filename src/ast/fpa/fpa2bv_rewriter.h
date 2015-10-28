@@ -123,7 +123,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
         }
         
         if (m_conv.is_float_family(f)) {
-            switch (f->get_decl_kind()) {            
+            switch (f->get_decl_kind()) {
             case OP_FPA_RM_NEAREST_TIES_TO_AWAY:
             case OP_FPA_RM_NEAREST_TIES_TO_EVEN:
             case OP_FPA_RM_TOWARD_NEGATIVE:
@@ -141,9 +141,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FPA_MUL: m_conv.mk_mul(f, num, args, result); return BR_DONE;
             case OP_FPA_DIV: m_conv.mk_div(f, num, args, result); return BR_DONE;
             case OP_FPA_REM: m_conv.mk_rem(f, num, args, result); return BR_DONE;
-            case OP_FPA_ABS: m_conv.mk_abs(f, num, args, result); return BR_DONE;
-            case OP_FPA_MIN: m_conv.mk_min(f, num, args, result); return BR_DONE;
-            case OP_FPA_MAX: m_conv.mk_max(f, num, args, result); return BR_DONE;
+            case OP_FPA_ABS: m_conv.mk_abs(f, num, args, result); return BR_DONE;            
             case OP_FPA_FMA: m_conv.mk_fma(f, num, args, result); return BR_DONE;
             case OP_FPA_SQRT: m_conv.mk_sqrt(f, num, args, result); return BR_DONE;
             case OP_FPA_ROUND_TO_INTEGRAL: m_conv.mk_round_to_integral(f, num, args, result); return BR_DONE;
@@ -166,8 +164,16 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FPA_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
             case OP_FPA_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
             case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
+            
+            case OP_FPA_MIN: m_conv.mk_min(f, num, args, result); return BR_REWRITE_FULL;
+            case OP_FPA_MAX: m_conv.mk_max(f, num, args, result); return BR_REWRITE_FULL;
+
             case OP_FPA_INTERNAL_MIN_UNSPECIFIED: result = m_conv.mk_min_unspecified(f, args[0], args[1]); return BR_DONE;
             case OP_FPA_INTERNAL_MAX_UNSPECIFIED: result = m_conv.mk_max_unspecified(f, args[0], args[1]); return BR_DONE;
+            case OP_FPA_INTERNAL_MIN_I: m_conv.mk_min_i(f, num, args, result); return BR_DONE;
+            case OP_FPA_INTERNAL_MAX_I: m_conv.mk_max_i(f, num, args, result); return BR_DONE;
+
+            case OP_FPA_INTERNAL_RM:
             case OP_FPA_INTERNAL_BVWRAP: 
             case OP_FPA_INTERNAL_BVUNWRAP:                
             case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
