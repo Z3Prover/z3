@@ -10,7 +10,7 @@ endif   = re.compile("#endif /\* \_(.*)\_H\_")
 
 
 def fix_hdr(file):
-    print file
+    print(file)
     tmp = "%s.tmp" % file
     ins = open(file)
     ous = open(tmp,'w')
@@ -29,7 +29,7 @@ def fix_hdr(file):
 	    continue	    
 	m = ifndef.search(line)
 	if m:
-	    print m.group(1)
+	    print(m.group(1))
 	    ous.write("#ifndef ")
 	    ous.write(m.group(1))
 	    ous.write("_H_\n")

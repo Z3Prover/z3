@@ -2941,7 +2941,7 @@ sig
       Alias for [UsingParams]*)
   val with_ : context -> tactic -> Params.params -> tactic
 
-  (** Create a tactic that applies the given tactics in parallel. *)
+  (** Create a tactic that applies the given tactics in parallel until one of them succeeds (i.e., the first that doesn't fail). *)
   val par_or : context -> tactic list -> tactic
 
   (** Create a tactic that applies a tactic to a given goal and then another tactic

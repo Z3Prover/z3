@@ -2563,7 +2563,7 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create a tactic that applies the given tactics in parallel.
+     * Create a tactic that applies the given tactics in parallel until one of them succeeds (i.e., the first that doesn't fail).
      **/
     public Tactic parOr(Tactic... t)
     {
