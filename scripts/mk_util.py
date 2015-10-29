@@ -1588,7 +1588,7 @@ class CppExampleComponent(ExampleComponent):
             # Add include dir components
             out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
             out.write(' -I%s' % get_component(CPP_COMPONENT).to_src_dir)
-            out.write(' %s' % cppfile)
+            out.write(' %s' % os.path.join(self.to_ex_dir, cppfile))
             out.write('\n')            
         
         exefile = '%s$(EXE_EXT)' % self.name
