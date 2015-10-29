@@ -2610,7 +2610,7 @@ void fpa_example() {
     Z3_context ctx;
     Z3_sort double_sort, rm_sort;
     Z3_symbol s_rm, s_x, s_y, s_x_plus_y;
-    Z3_ast rm, x, y, n, x_plus_y, c1, c2, c3, c4, c5, c6;
+    Z3_ast rm, x, y, n, x_plus_y, c1, c2, c3, c4, c5;
 	Z3_ast args[2], args2[2], and_args[3], args3[3];
 
     printf("\nFPA-example\n");
