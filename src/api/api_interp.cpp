@@ -255,6 +255,14 @@ extern "C" {
         scoped_ptr<solver> m_solver((*sf)(mk_c(c)->m(), _p, true, true, true, ::symbol::null));
         m_solver.get()->updt_params(_p); // why do we have to do this?
 
+
+        // some boilerplate stolen from Z3_solver_check
+        unsigned timeout     =  to_params(p)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned rlimit      =  to_params(p)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
+        bool     use_ctrl_c  =  to_params(p)->m_params.get_bool("ctrl_c", false);
+        cancel_eh<solver> eh(*m_solver.get());
+        api::context::set_interruptable si(*(mk_c(c)), eh);
+
         ast *_pat = to_ast(pat);
 
         ptr_vector<ast> interp;
@@ -263,14 +271,27 @@ extern "C" {
         ast_manager &_m = mk_c(c)->m();
 
         model_ref m;
-        lbool _status = iz3interpolate(_m,
-                                       *(m_solver.get()),
-                                       _pat,
-                                       cnsts,
-                                       interp,
-                                       m,
-                                       0 // ignore params for now
-                                       );
+        lbool _status;
+
+        {
+            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
+            try {
+                _status = iz3interpolate(_m,
+                                         *(m_solver.get()),
+                                         _pat,
+                                         cnsts,
+                                         interp,
+                                         m,
+                                         0 // ignore params for now
+                                         );
+            }
+            catch (z3_exception & ex) {
+                mk_c(c)->handle_exception(ex);
+                return Z3_L_UNDEF;
+            }
+        }
 
         for (unsigned i = 0; i < cnsts.size(); i++)
             _m.dec_ref(cnsts[i]);
@@ -292,10 +313,12 @@ extern "C" {
         else {
             model_ref mr;
             m_solver.get()->get_model(mr);
-            Z3_model_ref *tmp_val = alloc(Z3_model_ref);
-            tmp_val->m_model = mr.get();
-            mk_c(c)->save_object(tmp_val);
-            *model = of_model(tmp_val);
+            if(mr.get()){
+                Z3_model_ref *tmp_val = alloc(Z3_model_ref);
+                tmp_val->m_model = mr.get();
+                mk_c(c)->save_object(tmp_val);
+                *model = of_model(tmp_val);
+            }
         }
 
         *out_interp = of_ast_vector(v);
