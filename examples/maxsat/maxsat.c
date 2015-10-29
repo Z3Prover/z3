@@ -598,7 +598,7 @@ int smtlib_maxsat(char * file_name, int approach)
     Z3_context ctx;
     unsigned num_hard_cnstrs, num_soft_cnstrs;
     Z3_ast * hard_cnstrs, * soft_cnstrs;
-    unsigned result;
+    unsigned result = 0;
     ctx = mk_context();
     Z3_parse_smtlib_file(ctx, file_name, 0, 0, 0, 0, 0, 0);
     hard_cnstrs = get_hard_constraints(ctx, &num_hard_cnstrs);

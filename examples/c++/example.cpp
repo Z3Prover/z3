@@ -294,7 +294,7 @@ void error_example() {
 
     // Error using the C API can be detected using Z3_get_error_code.
     // The next call fails because x is a constant.
-    Z3_ast arg = Z3_get_app_arg(c, x, 0);
+    //Z3_ast arg = Z3_get_app_arg(c, x, 0);
     if (Z3_get_error_code(c) != Z3_OK) {
         std::cout << "last call failed.\n";
     }
@@ -999,7 +999,6 @@ void opt_example() {
     opt.add(x + y <= 11);
     optimize::handle h1 = opt.maximize(x);
     optimize::handle h2 = opt.maximize(y);
-    check_result r = sat;
     while (true) {
         if (sat == opt.check()) {
             std::cout << x << ": " << opt.lower(h1) << " " << y << ": " << opt.lower(h2) << "\n";

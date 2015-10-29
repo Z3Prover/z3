@@ -42,7 +42,7 @@ int main(int argc, const char **argv) {
 
   Z3_config cfg = Z3_mk_config();
   // Z3_interpolation_options options = Z3_mk_interpolation_options();
-  Z3_params options = 0;
+  // Z3_params options = 0;
 
   /* Parse the command line */
   int argn = 1;
