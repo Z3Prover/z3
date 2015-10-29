@@ -7337,7 +7337,7 @@ def PbLe(args, k):
     _args, sz = _to_ast_array(args)
     _coeffs = (ctypes.c_int * len(coeffs))()
     for i in range(len(coeffs)):
-	_coeffs[i] = coeffs[i]
+        _coeffs[i] = coeffs[i]
     return BoolRef(Z3_mk_pble(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
 
