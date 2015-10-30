@@ -249,9 +249,20 @@ namespace smt {
             sort* s = m().get_sort(x);
             func_decl* r, *v;
             get_rep(s, r, v);
-            app* lt1 = u().mk_lt(x,y);
-            app* lt2 = m().mk_not(b().mk_ule(m().mk_app(r,y),m().mk_app(r,x))); 
-            assert_cnstr(m().mk_iff(lt1, lt2));
+            app_ref lt(m()), le(m());
+            lt = u().mk_lt(x,y);
+            le = b().mk_ule(m().mk_app(r,y),m().mk_app(r,x)); 
+            context& ctx = get_context();
+            ctx.internalize(lt, false);
+            ctx.internalize(le, false);
+            literal lit1(ctx.get_literal(lt));
+            literal lit2(ctx.get_literal(le));
+            ctx.mark_as_relevant(lit1);
+            ctx.mark_as_relevant(lit2);
+            literal lits1[2] = { lit1, lit2 };
+            literal lits2[2] = { ~lit1, ~lit2 };
+            ctx.mk_th_axiom(get_id(), 2, lits1);
+            ctx.mk_th_axiom(get_id(), 2, lits2);
         }
 
         void assert_cnstr(expr* e) {
