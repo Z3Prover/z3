@@ -137,6 +137,7 @@ namespace opt {
         params_ref p;
         p.set_bool("model", true);
         p.set_bool("unsat_core", true);
+        p.set_bool("elim_to_real", true);
         updt_params(p);
     }
 
@@ -661,7 +662,7 @@ namespace opt {
             g->assert_expr(fmls[i].get());
         }
         tactic_ref tac0 = 
-            and_then(mk_simplify_tactic(m), 
+            and_then(mk_simplify_tactic(m, m_params), 
                      mk_propagate_values_tactic(m),
                      mk_solve_eqs_tactic(m),
                      // NB: mk_elim_uncstr_tactic(m) is not sound with soft constraints

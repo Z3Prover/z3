@@ -323,7 +323,6 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
     if ((is_zero(arg1) && is_reduce_power_target(arg2, kind == EQ)) ||
         (is_zero(arg2) && is_reduce_power_target(arg1, kind == EQ)))
         return reduce_power(arg1, arg2, kind, result);
-    CTRACE("elim_to_real", m_elim_to_real, tout << "after_elim_to_real\n" << mk_ismt2_pp(arg1, m()) << "\n" << mk_ismt2_pp(arg2, m()) << "\n";);
     br_status st = cancel_monomials(arg1, arg2, m_arith_lhs, new_arg1, new_arg2);
     TRACE("mk_le_bug", tout << "st: " << st << "\n";);
     if (st != BR_FAILED) {
@@ -335,6 +334,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
     if (m_elim_to_real && elim_to_real(arg1, arg2, new_new_arg1, new_new_arg2)) {
         arg1 = new_new_arg1;
         arg2 = new_new_arg2;
+        CTRACE("elim_to_real", m_elim_to_real, tout << "after_elim_to_real\n" << mk_ismt2_pp(arg1, m()) << "\n" << mk_ismt2_pp(arg2, m()) << "\n";);
         if (st == BR_FAILED)
             st = BR_DONE;
     }
