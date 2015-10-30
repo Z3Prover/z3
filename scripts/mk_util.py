@@ -512,7 +512,7 @@ def dos2unix_tree_core(pattern, dir, files):
                 dos2unix(fname)
 
 def dos2unix_tree():
-    os.path.walk('src', dos2unix_tree_core, '*')
+    os.walk('src', dos2unix_tree_core, '*')
 
 def check_eol():
     if not IS_WINDOWS:
