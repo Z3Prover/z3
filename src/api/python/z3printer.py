@@ -31,7 +31,8 @@ _z3_op_to_str = {
     Z3_OP_BASHR : '>>', Z3_OP_BSHL : '<<', Z3_OP_BLSHR : 'LShR', 
     Z3_OP_CONCAT : 'Concat', Z3_OP_EXTRACT : 'Extract', Z3_OP_BV2INT : 'BV2Int',
     Z3_OP_ARRAY_MAP : 'Map', Z3_OP_SELECT : 'Select', Z3_OP_STORE : 'Store', 
-    Z3_OP_CONST_ARRAY : 'K'
+    Z3_OP_CONST_ARRAY : 'K',
+    Z3_OP_PB_AT_MOST : 'AtMost', Z3_OP_PB_LE : 'PbLe', Z3_OP_PB_GE : 'PbGe'
     }
 
 # List of infix operators
@@ -841,6 +842,19 @@ class Formatter:
     def pp_K(self, a, d, xs):
         return seq1(self.pp_name(a), [ self.pp_sort(a.domain()), self.pp_expr(a.arg(0), d+1, xs) ])
 
+    def pp_atmost(self, a, d, f, xs):
+        k   = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
+        return seq1(self.pp_name(a), [seq3([ self.pp_expr(ch, d+1, xs) for ch in a.children()]), to_format(k)])
+
+    def pp_pbcmp(self, a, d, f, xs):
+        chs = a.children()
+        rchs = range(len(chs))
+        k   = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
+        ks = [Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, i+1) for i in rchs]
+        ls = [ seq3([self.pp_expr(chs[i], d+1,xs), to_format(ks[i])]) for i in rchs]
+        return seq1(self.pp_name(a), [seq3(ls), to_format(k)])
+
+
     def pp_app(self, a, d, xs):
         if z3.is_int_value(a):
             return self.pp_int(a)
@@ -875,6 +889,12 @@ class Formatter:
                 return self.pp_map(a, d, xs)
             elif k == Z3_OP_CONST_ARRAY:
                 return self.pp_K(a, d, xs)
+            elif k == Z3_OP_PB_AT_MOST:
+                return self.pp_atmost(a, d, f, xs)
+            elif k == Z3_OP_PB_LE:
+                return self.pp_pbcmp(a, d, f, xs)
+            elif k == Z3_OP_PB_GE:
+                return self.pp_pbcmp(a, d, f, xs)
             elif z3.is_pattern(a):
                 return self.pp_pattern(a, d, xs)
             elif self.is_infix(k):
