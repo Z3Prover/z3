@@ -84,13 +84,13 @@ namespace smt {
             virtual void mk_const(func_decl * f, expr_ref & result);
             virtual void mk_rm_const(func_decl * f, expr_ref & result);
             virtual void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-            
+
             virtual expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
             virtual expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
         };
-        
+
         class fpa_value_proc : public model_value_proc {
-        protected:            
+        protected:
             theory_fpa  & m_th;
             ast_manager & m;
             fpa_util    & m_fu;
@@ -100,10 +100,10 @@ namespace smt {
             unsigned m_sbits;
 
         public:
-            fpa_value_proc(theory_fpa * th, unsigned ebits, unsigned sbits) : 
+            fpa_value_proc(theory_fpa * th, unsigned ebits, unsigned sbits) :
                 m_th(*th), m(th->get_manager()), m_fu(th->m_fpa_util), m_bu(th->m_bv_util),
                 m_ebits(ebits), m_sbits(sbits) {}
-            
+
             virtual ~fpa_value_proc() {}
 
             void add_dependency(enode * e) { m_deps.push_back(model_value_dependency(e)); }
@@ -123,7 +123,7 @@ namespace smt {
             buffer<model_value_dependency> m_deps;
 
         public:
-            fpa_rm_value_proc(theory_fpa * th) : 
+            fpa_rm_value_proc(theory_fpa * th) :
                 m_th(*th), m(th->get_manager()), m_fu(th->m_fpa_util), m_bu(th->m_bv_util) {}
 
             void add_dependency(enode * e) { m_deps.push_back(model_value_dependency(e)); }
@@ -135,7 +135,7 @@ namespace smt {
             virtual ~fpa_rm_value_proc() {}
             virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
         };
-    
+
     protected:
         fpa2bv_converter_wrapped  m_converter;
         fpa2bv_rewriter           m_rw;
@@ -159,10 +159,10 @@ namespace smt {
         virtual void pop_scope_eh(unsigned num_scopes);
         virtual void reset_eh();
         virtual theory* mk_fresh(context*) { return alloc(theory_fpa, get_manager()); }
-        virtual char const * get_name() const { return "fpa"; }        
+        virtual char const * get_name() const { return "fpa"; }
 
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
-        
+
         void assign_eh(bool_var v, bool is_true);
         virtual void relevant_eh(app * n);
         virtual void init_model(model_generator & m);
@@ -181,14 +181,14 @@ namespace smt {
         expr_ref convert_term(expr * e);
         expr_ref convert_conversion_term(expr * e);
         expr_ref convert_unwrap(expr * e);
-        
+
         void add_trail(ast * a);
 
         void attach_new_th_var(enode * n);
         void assert_cnstr(expr * e);
 
         app_ref wrap(expr * e);
-        app_ref unwrap(expr * e, sort * s);        
+        app_ref unwrap(expr * e, sort * s);
     };
 
 };
