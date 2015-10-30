@@ -2265,6 +2265,7 @@ namespace smt2 {
                 consume_sexpr();
             }
             m_ctx.print_unsupported(s);
+            IF_VERBOSE(1, error("unsupported symbol"););
             next();
             return;
         }
