@@ -42,7 +42,7 @@ int main(int argc, const char **argv) {
 
   Z3_config cfg = Z3_mk_config();
   // Z3_interpolation_options options = Z3_mk_interpolation_options();
-  Z3_params options = 0;
+  // Z3_params options = 0;
 
   /* Parse the command line */
   int argn = 1;
@@ -104,7 +104,7 @@ int main(int argc, const char **argv) {
   unsigned num_theory;
   Z3_ast *theory;
 
-  ok = Z3_read_interpolation_problem(ctx, &num, &constraints, tree_mode ? &parents : 0, filename, &error, &num_theory, &theory);
+  ok = Z3_read_interpolation_problem(ctx, &num, &constraints, tree_mode ? &parents : 0, filename, &error, &num_theory, &theory) != 0;
 
   /* If parse failed, print the error message */
 
@@ -124,7 +124,7 @@ int main(int argc, const char **argv) {
 	std::cout << "Splitting formula into " << nconjs << " conjuncts...\n";
 	num = nconjs;
 	constraints = new Z3_ast[num];
-	for(int k = 0; k < num; k++)
+	for(unsigned k = 0; k < num; k++)
 	  constraints[k] = Z3_get_app_arg(ctx,app,k);
       }
     }
@@ -163,12 +163,12 @@ int main(int argc, const char **argv) {
     std::vector<Z3_ast> asserted(num);
 
     /* We start with nothing asserted. */
-    for(int i = 0; i < num; i++)
+    for(unsigned i = 0; i < num; i++)
       asserted[i] = Z3_mk_true(ctx);
 
     /* Now we assert the constrints one at a time until UNSAT. */
 
-    for(int i = 0; i < num; i++){
+    for(unsigned i = 0; i < num; i++){
       asserted[i] = constraints[i];
       Z3_assert_cnstr(ctx,constraints[i]);  // assert one constraint
       result = Z3_L_UNDEF; // FIXME: Z3_interpolate(ctx, num, &asserted[0], parents,  options, interpolants, &model, 0, true, 0, 0);
@@ -190,7 +190,7 @@ int main(int argc, const char **argv) {
     printf("unsat\n");
     if(output_file.empty()){
       printf("interpolant:\n");
-      for(int i = 0; i < num-1; i++)
+      for(unsigned i = 0; i < num-1; i++)
         printf("%s\n", Z3_ast_to_string(ctx, interpolants[i]));
     }
     else {
@@ -203,7 +203,7 @@ int main(int argc, const char **argv) {
     if(check_mode){
       std::cout << "Checking interpolant...\n";
       bool chk;
-      chk = Z3_check_interpolant(ctx,num,constraints,parents,interpolants,&error,num_theory,theory);  
+      chk = Z3_check_interpolant(ctx,num,constraints,parents,interpolants,&error,num_theory,theory) != 0;
       if(chk)
 	std::cout << "Interpolant is correct\n";
       else {

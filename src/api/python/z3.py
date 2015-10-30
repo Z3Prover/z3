@@ -7598,6 +7598,10 @@ def tree_interpolant(pat,p=None,ctx=None):
     If pat is satisfiable, raises an object of class ModelRef
     that represents a model of pat.
 
+    If neither a proof of unsatisfiability nor a model is obtained
+    (for example, because of a timeout, or because models are disabled)
+    then None is returned.
+
     If parameters p are supplied, these are used in creating the
     solver that determines satisfiability.
 
@@ -7623,7 +7627,9 @@ def tree_interpolant(pat,p=None,ctx=None):
     res = Z3_compute_interpolant(ctx.ref(),f.as_ast(),p.params,ptr,mptr)
     if res == Z3_L_FALSE:
         return AstVector(ptr[0],ctx)
-    raise ModelRef(mptr[0], ctx)
+    if mptr[0]:
+        raise ModelRef(mptr[0], ctx)
+    return None
 
 def binary_interpolant(a,b,p=None,ctx=None):
     """Compute an interpolant for a binary conjunction.
@@ -7638,6 +7644,10 @@ def binary_interpolant(a,b,p=None,ctx=None):
     If a & b is satisfiable, raises an object of class ModelRef
     that represents a model of a &b.
 
+    If neither a proof of unsatisfiability nor a model is obtained
+    (for example, because of a timeout, or because models are disabled)
+    then None is returned.
+
     If parameters p are supplied, these are used in creating the
     solver that determines satisfiability.
 
@@ -7646,7 +7656,8 @@ def binary_interpolant(a,b,p=None,ctx=None):
     Not(x >= 0)
     """
     f = And(Interpolant(a),b)
-    return tree_interpolant(f,p,ctx)[0]
+    ti = tree_interpolant(f,p,ctx)
+    return ti[0] if ti != None else None
 
 def sequence_interpolant(v,p=None,ctx=None):
     """Compute interpolant for a sequence of formulas.
@@ -7663,6 +7674,10 @@ def sequence_interpolant(v,p=None,ctx=None):
 
     If a & b is satisfiable, raises an object of class ModelRef
     that represents a model of a & b.
+
+    If neither a proof of unsatisfiability nor a model is obtained
+    (for example, because of a timeout, or because models are disabled)
+    then None is returned.
 
     If parameters p are supplied, these are used in creating the
     solver that determines satisfiability.

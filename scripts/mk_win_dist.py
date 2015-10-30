@@ -206,7 +206,7 @@ def mk_zip_core(x64):
         os.chdir(DIST_DIR)
         zfname = '%s.zip' % dist_path
         ZIPOUT = zipfile.ZipFile(zfname, 'w', zipfile.ZIP_DEFLATED)
-        os.path.walk(dist_path, mk_zip_visitor, '*')
+        os.walk(dist_path, mk_zip_visitor, '*')
         if is_verbose():
             print("Generated '%s'" % zfname)
     except:
@@ -245,10 +245,10 @@ def cp_vs_runtime_core(x64):
         
     else:
         platform = "x86"
-    vcdir = subprocess.check_output(['echo', '%VCINSTALLDIR%'], shell=True).rstrip('\r\n')
+    vcdir = os.environ['VCINSTALLDIR']
     path  = '%sredist\\%s' % (vcdir, platform)
     VS_RUNTIME_FILES = []
-    os.path.walk(path, cp_vs_runtime_visitor, '*.dll')
+    os.walk(path, cp_vs_runtime_visitor, '*.dll')
     bin_dist_path = os.path.join(DIST_DIR, get_dist_path(x64), 'bin')
     for f in VS_RUNTIME_FILES:
         shutil.copy(f, bin_dist_path)

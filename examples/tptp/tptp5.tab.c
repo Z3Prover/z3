@@ -139,7 +139,7 @@ pTree pToken(char* token, int symbolIndex) {
 
     //char pTokenBuf[8240];
     pTree ss;
-    char* symbol = tptp_lval[symbolIndex];
+    //char* symbol = tptp_lval[symbolIndex];
     char* safeSym = 0;
 
     //strncpy(pTokenBuf, token, 39);
