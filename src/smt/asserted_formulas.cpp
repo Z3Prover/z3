@@ -624,7 +624,8 @@ void asserted_formulas::propagate_values() {
                         if (m_manager.proofs_enabled())
                             new_prs1.push_back(pr);
                     }
-                    TRACE("propagate_values", tout << "found:\n" << mk_pp(lhs, m_manager) << "\n->\n" << mk_pp(rhs, m_manager) << "\nproof: " << mk_pp(pr, m_manager) << "\n";);
+                    TRACE("propagate_values", tout << "found:\n" << mk_pp(lhs, m_manager) << "\n->\n" << mk_pp(rhs, m_manager) << "\n";
+                          if (pr) tout << "proof: " << mk_pp(pr, m_manager) << "\n";);
                     m_simplifier.cache_result(lhs, rhs, pr);
                     found = true;
                     continue;

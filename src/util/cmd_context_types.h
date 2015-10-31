@@ -82,8 +82,11 @@ typedef std::pair<symbol, sort*> sorted_var;
 */
 class cmd {
     symbol m_name;
+protected:
+    int    m_line;
+    int    m_pos;
 public:
-    cmd(char const * n):m_name(n) {}
+    cmd(char const * n):m_name(n), m_line(0), m_pos(0) {}
     virtual ~cmd() {}
     virtual void reset(cmd_context & ctx) {}
     virtual void finalize(cmd_context & ctx) {}
@@ -93,6 +96,7 @@ public:
     virtual unsigned get_arity() const { return 0; }
 
     // command invocation
+    void set_line_pos(int line, int pos) { m_line = line; m_pos = pos; }
     virtual void prepare(cmd_context & ctx) {}
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { UNREACHABLE(); return CPK_UINT; }
     virtual void set_next_arg(cmd_context & ctx, unsigned val) { UNREACHABLE(); }

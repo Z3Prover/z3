@@ -262,7 +262,7 @@ protected:
     bool supported_logic(symbol const & s) const;
 
     void print_unsupported_msg() { regular_stream() << "unsupported" << std::endl; }
-    void print_unsupported_info(symbol const& s) { if (s != symbol::null) diagnostic_stream() << "; " << s << std::endl;}
+    void print_unsupported_info(symbol const& s, int line, int pos) { if (s != symbol::null) diagnostic_stream() << "; " << s << " line: " << line << " position: " << pos << std::endl;}
 
     void mk_solver();
 
@@ -292,7 +292,7 @@ public:
     void set_print_success(bool flag) { m_print_success = flag; }
     bool print_success_enabled() const { return m_print_success; }
     void print_success() { if (print_success_enabled())  regular_stream() << "success" << std::endl; }
-    void print_unsupported(symbol const & s) { print_unsupported_msg(); print_unsupported_info(s); }
+    void print_unsupported(symbol const & s, int line, int pos) { print_unsupported_msg(); print_unsupported_info(s, line, pos); }
     bool global_decls() const { return m_global_decls; }
     void set_global_decls(bool flag) { SASSERT(!has_manager()); m_global_decls = flag; }
     unsigned random_seed() const { return m_random_seed; }
