@@ -1324,6 +1324,10 @@ namespace smt {
         // -----------------------------------
         void assert_expr_core(expr * e, proof * pr);
 
+        // copy plugins into a fresh context.
+        void copy_plugins(context& src, context& dst);
+        expr_ref translate(literal lit, context& dst);
+
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
 

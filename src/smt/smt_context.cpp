@@ -36,6 +36,7 @@ Revision History:
 #include"smt_model_finder.h"
 #include"model_pp.h"
 #include"ast_smt2_pp.h"
+#include"ast_translation.h"
 
 namespace smt {
 
@@ -102,33 +103,118 @@ namespace smt {
         flush();
     }
 
-    context * context::mk_fresh(symbol const * l, smt_params * p) {
-        context * new_ctx = alloc(context, m_manager, p == 0 ? m_fparams : *p);
-        new_ctx->set_logic(l == 0 ? m_setup.get_logic() : *l);
+    void context::copy_plugins(context& src, context& dst) {
+
         // copy missing simplifier_plugins
         // remark: some simplifier_plugins are automatically created by the asserted_formulas class.
-        simplifier & s     = get_simplifier();
-        simplifier & new_s = new_ctx->get_simplifier(); 
-        ptr_vector<simplifier_plugin>::const_iterator it1  = s.begin_plugins();
-        ptr_vector<simplifier_plugin>::const_iterator end1 = s.end_plugins();
+        simplifier & src_s = src.get_simplifier();
+        simplifier & dst_s = dst.get_simplifier(); 
+        ptr_vector<simplifier_plugin>::const_iterator it1  = src_s.begin_plugins();
+        ptr_vector<simplifier_plugin>::const_iterator end1 = src_s.end_plugins();
         for (; it1 != end1; ++it1) {
             simplifier_plugin * p = *it1;
-            if (new_s.get_plugin(p->get_family_id()) == 0) {
-                new_ctx->register_plugin(p->mk_fresh());
+            if (dst_s.get_plugin(p->get_family_id()) == 0) {
+                dst.register_plugin(p->mk_fresh());
             }
-            SASSERT(new_s.get_plugin(p->get_family_id()) != 0);
+            SASSERT(dst_s.get_plugin(p->get_family_id()) != 0);
         }
 
         // copy theory plugins
-        ptr_vector<theory>::iterator it2  = m_theory_set.begin();
-        ptr_vector<theory>::iterator end2 = m_theory_set.end();
+        ptr_vector<theory>::iterator it2  = src.m_theory_set.begin();
+        ptr_vector<theory>::iterator end2 = src.m_theory_set.end();
         for (; it2 != end2; ++it2) {
-            theory * new_th = (*it2)->mk_fresh(new_ctx);
-            new_ctx->register_plugin(new_th);
+            theory * new_th = (*it2)->mk_fresh(&dst);
+            dst.register_plugin(new_th);
         }
-        new_ctx->m_setup.mark_already_configured();
+        dst.m_setup.mark_already_configured();
+    }
+
+    context * context::mk_fresh(symbol const * l, smt_params * p) {
+        context * new_ctx = alloc(context, m_manager, p == 0 ? m_fparams : *p);
+        new_ctx->set_logic(l == 0 ? m_setup.get_logic() : *l);
+        copy_plugins(*this, *new_ctx);        
         return new_ctx;
     }
+
+    context* context::translate(ast_manager& m) {
+        pop_to_base_lvl();
+        
+        if (m_base_lvl > 0) {
+            throw default_exception("Cloning contexts within a user-scope is not allowed");
+        }
+        reduce_assertions();
+
+        context * new_ctx = alloc(context, m, m_fparams);
+        ast_manager& dst_m = new_ctx->get_manager();
+        new_ctx->set_logic(m_setup.get_logic());
+        copy_plugins(*this, *new_ctx);
+
+        asserted_formulas& src_af = m_asserted_formulas;
+        asserted_formulas& dst_af = new_ctx->m_asserted_formulas;
+
+        SASSERT(m_base_lvl == 0); // please don't clone me 
+        SASSERT(src_af.get_qhead() == src_af.get_num_formulas()); // should be the same.
+
+        // Copy asserted formulas.        
+        for (unsigned i = 0; i < src_af.get_num_formulas(); ++i) {
+            expr_ref fml(dst_m), pr(dst_m);
+            fml = ::translate(src_af.get_formula(i), get_manager(), dst_m);
+            pr = ::translate(src_af.get_formula_proof(i), get_manager(), dst_m);
+            dst_af.assert_expr(fml, to_app(pr));            
+        }
+        dst_af.reduce();
+        for (unsigned i = 0; i < dst_af.get_num_formulas(); ++i) {
+            expr* f = dst_af.get_formula(i);
+            proof* pr = dst_af.get_formula_proof(i);
+            new_ctx->internalize_assertion(f, pr, 0);
+        }        
+        
+        // Copy learned lemmas, but internalize them as axioms.
+        // ignore jusification. 
+        for (unsigned i = 0; i < m_lemmas.size(); ++i) {
+            expr_ref_vector new_clause(dst_m);
+            clause& src_cls = *m_lemmas[i];
+            unsigned sz = src_cls.get_num_literals();
+            bool internalized = true;
+            for (unsigned j = 0; internalized && j < sz; ++j) {
+                literal src_lit = src_cls.get_literal(j);
+                expr_ref r = translate(src_lit, *new_ctx);
+                internalized = r != 0;                
+                new_clause.push_back(r);
+            }
+            if (internalized) {
+                app_ref cls(dst_m);
+                cls = dst_m.mk_or(new_clause.size(), new_clause.c_ptr());
+                new_ctx->internalize_assertion(cls, 0, 0);
+            }
+            else {
+                TRACE("smt_context", display_clause_detail(tout << "Clause not interalized\n", &src_cls););
+            }
+        }
+
+        return new_ctx;
+    }
+
+        
+    expr_ref context::translate(literal lit, context& dst) {
+        ast_manager& m = dst.get_manager();
+        expr_ref result(m);
+        expr * e;
+        if (lit == true_literal) {
+            result = m.mk_true();
+        }
+        else if (lit == false_literal) {
+            result = m.mk_false();
+        }
+        else if (e = m_bool_var2expr.get(lit.var(), 0)) {
+            result = ::translate(e, m_manager, m);
+            if (lit.sign()) {
+                result = dst.get_manager().mk_not(result);
+            }
+        }
+        return result;
+    }
+
 
     void context::init() {
         app * t       = m_manager.mk_true();
