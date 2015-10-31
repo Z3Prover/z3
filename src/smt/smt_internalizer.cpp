@@ -618,6 +618,7 @@ namespace smt {
                 add_ite_rel_watches(to_app(n));
                 break;
             case OP_DISTINCT:
+            case OP_IMPLIES:
                 UNREACHABLE();
             default:
                 break;
