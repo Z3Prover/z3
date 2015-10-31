@@ -152,7 +152,7 @@ namespace smt {
         asserted_formulas& src_af = m_asserted_formulas;
         asserted_formulas& dst_af = new_ctx->m_asserted_formulas;
 
-        SASSERT(m_base_lvl == 0); // please don't clone me 
+        SASSERT(m_base_lvl == 0);
         SASSERT(src_af.get_qhead() == src_af.get_num_formulas()); // should be the same.
 
         // Copy asserted formulas.        
@@ -209,7 +209,7 @@ namespace smt {
         else if (e = m_bool_var2expr.get(lit.var(), 0)) {
             result = ::translate(e, m_manager, m);
             if (lit.sign()) {
-                result = dst.get_manager().mk_not(result);
+                result = m.mk_not(result);
             }
         }
         return result;
