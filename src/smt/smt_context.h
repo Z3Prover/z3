@@ -1338,6 +1338,11 @@ namespace smt {
         */
         context * mk_fresh(symbol const * l = 0,  smt_params * p = 0);
 
+        /**
+           \brief Translate context to use new manager m.
+         */
+        context * translate(ast_manager& m);
+
         app * mk_eq_atom(expr * lhs, expr * rhs);
 
         bool set_logic(symbol logic) { return m_setup.set_logic(logic); }
