@@ -558,9 +558,10 @@ namespace smt {
         expr_ref bv_atom(m);
         bv_atom = convert_atom(atom);
         SASSERT(is_app(bv_atom) && m.is_bool(bv_atom));
-        bv_atom = m.mk_and(bv_atom, mk_side_conditions());
-
-        assert_cnstr(m.mk_iff(atom, bv_atom));
+        expr_ref constr(m);
+        constr = m.mk_iff(atom, m.mk_and(bv_atom, mk_side_conditions()));
+        m_th_rw(constr);
+        assert_cnstr(constr);
         return true;
     }
 
