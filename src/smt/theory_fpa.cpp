@@ -560,7 +560,21 @@ namespace smt {
         SASSERT(is_app(bv_atom) && m.is_bool(bv_atom));
         bv_atom = m.mk_and(bv_atom, mk_side_conditions());
 
-        assert_cnstr(m.mk_iff(atom, bv_atom));
+        // CMW: Do not use assert_cnstr here; the internalizer expects normalized expressions.
+        // See GitHub issue #227
+        // assert_cnstr(m.mk_iff(atom, bv_atom));
+
+        ctx.internalize(atom, false);
+        ctx.internalize(bv_atom, false);
+        literal lit1(ctx.get_literal(atom));
+        literal lit2(ctx.get_literal(bv_atom));
+        ctx.mark_as_relevant(lit1);
+        ctx.mark_as_relevant(lit2);
+        literal lits1[2] = { lit1, ~lit2 };
+        literal lits2[2] = { ~lit1, lit2 };
+        ctx.mk_th_axiom(get_id(), 2, lits1);
+        ctx.mk_th_axiom(get_id(), 2, lits2);
+
         return true;
     }
 
