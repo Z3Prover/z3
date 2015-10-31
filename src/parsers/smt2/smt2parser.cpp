@@ -2264,12 +2264,12 @@ namespace smt2 {
             while (!curr_is_rparen()) {
                 consume_sexpr();
             }
-            m_ctx.print_unsupported(s);
+            m_ctx.print_unsupported(s, m_scanner.get_line(), m_scanner.get_pos());
             next();
             return;
         }
 
-        void parse_ext_cmd() {
+        void parse_ext_cmd(int line, int pos) {
             symbol s = curr_id();
             m_curr_cmd = m_ctx.find_cmd(s);
             if (m_curr_cmd == 0) {
@@ -2283,6 +2283,7 @@ namespace smt2 {
             unsigned expr_spos  = size(m_expr_stack);
             unsigned sexpr_spos = size(m_sexpr_stack);
             unsigned sym_spos   = m_symbol_stack.size();
+            m_curr_cmd->set_line_pos(line, pos);
             m_curr_cmd->prepare(m_ctx);
             while (true) {
                 if (curr_is_rparen()) {
@@ -2313,6 +2314,8 @@ namespace smt2 {
         
         void parse_cmd() {
             SASSERT(curr_is_lparen());
+            int line = m_scanner.get_line();
+            int pos  = m_scanner.get_pos();
             next();
             check_identifier("invalid command, symbol expected");
             symbol s = curr_id();
@@ -2368,7 +2371,7 @@ namespace smt2 {
                 parse_reset();
                 return;
             }
-            parse_ext_cmd();
+            parse_ext_cmd(line, pos);
         }
 
     public:
