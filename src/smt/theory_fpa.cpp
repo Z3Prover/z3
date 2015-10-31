@@ -555,13 +555,11 @@ namespace smt {
         literal l(ctx.mk_bool_var(atom));
         ctx.set_var_theory(l.var(), get_id());
 
-        expr_ref bv_atom(m);
-        bv_atom = convert_atom(atom);
-        SASSERT(is_app(bv_atom) && m.is_bool(bv_atom));
-        expr_ref constr(m);
-        constr = m.mk_iff(atom, m.mk_and(bv_atom, mk_side_conditions()));
-        m_th_rw(constr);
-        assert_cnstr(constr);
+        expr_ref bv_atom(convert_atom(atom));
+        expr_ref bv_atom_w_side_c(m);
+        bv_atom_w_side_c = m.mk_and(bv_atom, mk_side_conditions());
+        m_th_rw(bv_atom_w_side_c);
+        assert_cnstr(m.mk_eq(atom, bv_atom_w_side_c));
         return true;
     }
 
