@@ -1346,7 +1346,7 @@ namespace smt {
                 empty_column ||
                 (unbounded_gain(max_gain) == (x_i == null_theory_var)));
         
-        return !empty_column && safe_gain(min_gain, max_gain);
+        return safe_gain(min_gain, max_gain);
     }
 
     template<typename Ext>
@@ -1557,14 +1557,12 @@ namespace smt {
                     // variable cannot be used for max/min.
                     continue; 
                 }
-                bool picked_var = pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, 
+                bool safe_to_leave = pick_var_to_leave(curr_x_j, curr_inc, curr_a_ij, 
                                                     curr_min_gain, curr_max_gain, 
                                                     has_shared, curr_x_i);
 
-
-                SASSERT(!picked_var || safe_gain(curr_min_gain, curr_max_gain));
                 
-                if (!safe_gain(curr_min_gain, curr_max_gain)) {
+                if (!safe_to_leave) {
                     TRACE("opt", tout << "no variable picked\n";);
                     has_bound = true;
                     best_efforts++;
