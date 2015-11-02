@@ -154,7 +154,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             st = m_f_rw.mk_app_core(f, num, args, result);
 
         // allow for model evaluation to work on result of rewriting.
-        if (st == BR_DONE) {
+        if (st == BR_DONE && is_app(result) && to_app(result)->get_num_args() > 0) {
             return BR_REWRITE1;
         }
 
