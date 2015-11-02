@@ -617,7 +617,15 @@ namespace smt {
                 mk_ite_cnstr(to_app(n));
                 add_ite_rel_watches(to_app(n));
                 break;
+            case OP_TRUE:
+            case OP_FALSE:
+                break;
             case OP_DISTINCT:
+            case OP_IMPLIES:
+            case OP_XOR:
+                UNREACHABLE();
+            case OP_OEQ:
+            case OP_INTERP:            
                 UNREACHABLE();
             default:
                 break;
