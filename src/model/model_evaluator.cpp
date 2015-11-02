@@ -118,13 +118,14 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return BR_FAILED;
         }
 
+        br_status st = BR_FAILED;
+
         if (fid == m_b_rw.get_fid()) {
             decl_kind k = f->get_decl_kind();
             if (k == OP_EQ) {
                 // theory dispatch for =
                 SASSERT(num == 2);
                 family_id s_fid = m().get_sort(args[0])->get_family_id();
-                br_status st = BR_FAILED;
                 if (s_fid == m_a_rw.get_fid())
                     st = m_a_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_bv_rw.get_fid())
@@ -138,29 +139,37 @@ struct evaluator_cfg : public default_rewriter_cfg {
             }
             return m_b_rw.mk_app_core(f, num, args, result);
         }
+
         if (fid == m_a_rw.get_fid())
-            return m_a_rw.mk_app_core(f, num, args, result);
-        if (fid == m_bv_rw.get_fid())
-            return m_bv_rw.mk_app_core(f, num, args, result);
-        if (fid == m_ar_rw.get_fid()) 
-            return m_ar_rw.mk_app_core(f, num, args, result);
-        if (fid == m_dt_rw.get_fid())
-            return m_dt_rw.mk_app_core(f, num, args, result);
-        if (fid == m_pb_rw.get_fid())
-            return m_pb_rw.mk_app_core(f, num, args, result);
-        if (fid == m_f_rw.get_fid())
-            return m_f_rw.mk_app_core(f, num, args, result);
+            st = m_a_rw.mk_app_core(f, num, args, result);
+        else if (fid == m_bv_rw.get_fid())
+            st = m_bv_rw.mk_app_core(f, num, args, result);
+        else if (fid == m_ar_rw.get_fid()) 
+            st = m_ar_rw.mk_app_core(f, num, args, result);
+        else if (fid == m_dt_rw.get_fid())
+            st = m_dt_rw.mk_app_core(f, num, args, result);
+        else if (fid == m_pb_rw.get_fid())
+            st = m_pb_rw.mk_app_core(f, num, args, result);
+        else if (fid == m_f_rw.get_fid())
+            st = m_f_rw.mk_app_core(f, num, args, result);
 
-        func_interp * fi = m_model.get_func_interp(f);
-        if (fi != 0 && eval_fi(fi, num, args, result)) {
-            TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
-                  for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
-                  tout << "---->\n" << mk_ismt2_pp(result, m()) << "\n";);
-            return BR_DONE;
+        // allow for model evaluation to work on result of rewriting.
+        if (st == BR_DONE) {
+            return BR_REWRITE1;
         }
-        TRACE("model_evaluator", tout << f->get_name() << "\n";);
 
-        return BR_FAILED;
+        if (st == BR_FAILED) {
+            func_interp * fi = m_model.get_func_interp(f);
+            if (fi != 0 && eval_fi(fi, num, args, result)) {
+                TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
+                      for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
+                      tout << "---->\n" << mk_ismt2_pp(result, m()) << "\n";);
+                return BR_DONE;
+            }
+            TRACE("model_evaluator", tout << f->get_name() << "\n";);
+        }
+
+        return st;
     }
 
     bool get_macro(func_decl * f, expr * & def, quantifier * & q, proof * & def_pr) { 
