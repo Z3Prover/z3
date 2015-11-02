@@ -737,10 +737,11 @@ namespace smt {
 
         expr_ref converted(m);
         converted = m.mk_and(convert(e), mk_side_conditions());
-        if (is_true)
-            assert_cnstr(m.mk_implies(e, converted));
-        else
-            assert_cnstr(m.mk_implies(m.mk_not(e), m.mk_not(converted)));
+
+        expr_ref cnstr(m);
+        cnstr = (is_true) ? m.mk_implies(e, converted) : m.mk_implies(m.mk_not(e), m.mk_not(converted));
+        m_th_rw(cnstr);
+        assert_cnstr(cnstr);
     }
 
     void theory_fpa::relevant_eh(app * n) {
