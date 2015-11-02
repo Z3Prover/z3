@@ -27,44 +27,41 @@ class fpa2bv_model_converter : public model_converter {
     obj_map<func_decl, expr*>   m_const2bv;
     obj_map<func_decl, expr*>   m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
-    obj_hashtable<func_decl>    m_decls_to_hide;
+    obj_map<func_decl, std::pair<app*, app*> > m_specials;
 
 public:
-    fpa2bv_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bv,
-                           obj_map<func_decl, expr*> const & rm_const2bv,
-                           obj_map<func_decl, func_decl*> const & uf2bvuf,
-                           obj_hashtable<func_decl> const & decls_to_hide) :
-                           m(m) {
-        for (obj_map<func_decl, expr*>::iterator it = const2bv.begin();
-             it != const2bv.end();
+    fpa2bv_model_converter(ast_manager & m, fpa2bv_converter const & conv) : m(m) {
+        for (obj_map<func_decl, expr*>::iterator it = conv.m_const2bv.begin();
+             it != conv.m_const2bv.end();
              it++)
         {
             m_const2bv.insert(it->m_key, it->m_value);
             m.inc_ref(it->m_key);
             m.inc_ref(it->m_value);
         }
-        for (obj_map<func_decl, expr*>::iterator it = rm_const2bv.begin();
-             it != rm_const2bv.end();
+        for (obj_map<func_decl, expr*>::iterator it = conv.m_rm_const2bv.begin();
+             it != conv.m_rm_const2bv.end();
              it++)
         {
             m_rm_const2bv.insert(it->m_key, it->m_value);
             m.inc_ref(it->m_key);
             m.inc_ref(it->m_value);
         }
-        for (obj_map<func_decl, func_decl*>::iterator it = uf2bvuf.begin();
-             it != uf2bvuf.end();
+        for (obj_map<func_decl, func_decl*>::iterator it = conv.m_uf2bvuf.begin();
+             it != conv.m_uf2bvuf.end();
              it++)
         {
             m_uf2bvuf.insert(it->m_key, it->m_value);
             m.inc_ref(it->m_key);
             m.inc_ref(it->m_value);
         }
-        for (obj_hashtable<func_decl>::iterator it = decls_to_hide.begin();
-             it != decls_to_hide.end();
-             it++) 
-        {
-            m_decls_to_hide.insert(*it);
-            m.inc_ref(*it);
+        for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_specials.begin();
+             it != conv.m_specials.end();
+             it++) {
+            m_specials.insert(it->m_key, it->m_value);
+            m.inc_ref(it->m_key);
+            m.inc_ref(it->m_value.first);
+            m.inc_ref(it->m_value.second);
         }
     }
 
@@ -72,7 +69,13 @@ public:
         dec_ref_map_key_values(m, m_const2bv);
         dec_ref_map_key_values(m, m_rm_const2bv);
         dec_ref_map_key_values(m, m_uf2bvuf);
-        dec_ref_collection_values(m, m_decls_to_hide);
+        for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_specials.begin();
+             it != m_specials.end();
+             it++) {
+            m.dec_ref(it->m_key);
+            m.dec_ref(it->m_value.first);
+            m.dec_ref(it->m_value.second);
+        }
     }
 
     virtual void operator()(model_ref & md, unsigned goal_idx) {
@@ -92,7 +95,7 @@ public:
     virtual model_converter * translate(ast_translation & translator);
 
 protected:
-    fpa2bv_model_converter(ast_manager & m) : m(m) { }
+    fpa2bv_model_converter(ast_manager & m) : m(m){ }
 
     void convert(model * bv_mdl, model * float_mdl);
     expr_ref convert_bv2fp(sort * s, expr * sgn, expr * exp, expr * sig) const;
@@ -102,10 +105,6 @@ protected:
 };
 
 
-model_converter * mk_fpa2bv_model_converter(ast_manager & m,
-                                            obj_map<func_decl, expr*> const & const2bv,
-                                            obj_map<func_decl, expr*> const & rm_const2bv,
-                                            obj_map<func_decl, func_decl*> const & uf2bvuf,
-                                            obj_hashtable<func_decl> const & decls_to_hide);
+model_converter * mk_fpa2bv_model_converter(ast_manager & m, fpa2bv_converter const & conv);
 
 #endif

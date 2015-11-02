@@ -36,10 +36,6 @@ fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
     m_mpf_manager(m_util.fm()),
     m_mpz_manager(m_mpf_manager.mpz_manager()),
     m_hi_fp_unspecified(true),
-    m_min_pn_zeros(0, m),
-    m_min_np_zeros(0, m),
-    m_max_pn_zeros(0, m),
-    m_max_np_zeros(0, m),
     m_extra_assertions(m) {
     m_plugin = static_cast<fpa_decl_plugin*>(m.get_plugin(m.mk_family_id("fpa")));
 }
@@ -1154,22 +1150,22 @@ expr_ref fpa2bv_converter::mk_min_unspecified(func_decl * f, expr * x, expr * y)
         // The hardware interpretation is -0.0.
         mk_nzero(f, res);
     else {
-        if (m_min_pn_zeros == 0) {
-            m_min_pn_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-            m_decls_to_hide.insert_if_not_there(m_min_pn_zeros->get_decl());
-        }
-
-        if (m_min_np_zeros == 0) {
-            m_min_np_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-            m_decls_to_hide.insert_if_not_there(m_min_np_zeros->get_decl());
+        std::pair<app*, app*> decls(0, 0);
+        if (!m_specials.find(f, decls)) {
+            decls.first = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+            decls.second = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+            m_specials.insert(f, decls);
+            m.inc_ref(f);
+            m.inc_ref(decls.first);
+            m.inc_ref(decls.second);
         }
 
         expr_ref pn(m), np(m);
-        mk_fp(m_min_pn_zeros,
+        mk_fp(decls.first,
               m_bv_util.mk_numeral(0, ebits),
               m_bv_util.mk_numeral(0, sbits - 1),
               pn);
-        mk_fp(m_min_np_zeros,
+        mk_fp(decls.second,
               m_bv_util.mk_numeral(0, ebits),
               m_bv_util.mk_numeral(0, sbits - 1),
               np);
@@ -1243,22 +1239,22 @@ expr_ref fpa2bv_converter::mk_max_unspecified(func_decl * f, expr * x, expr * y)
         // The hardware interpretation is +0.0.
         mk_pzero(f, res);
     else {
-        if (m_max_pn_zeros == 0) {
-            m_max_pn_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-            m_decls_to_hide.insert_if_not_there(m_max_pn_zeros->get_decl());
-        }
-
-        if (m_max_np_zeros == 0) {
-            m_max_np_zeros = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-            m_decls_to_hide.insert_if_not_there(m_max_np_zeros->get_decl());
+        std::pair<app*, app*> decls(0, 0);
+        if (!m_specials.find(f, decls)) {
+            decls.first = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+            decls.second = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+            m_specials.insert(f, decls);
+            m.inc_ref(f);
+            m.inc_ref(decls.first);
+            m.inc_ref(decls.second);
         }
 
         expr_ref pn(m), np(m);
-        mk_fp(m_max_pn_zeros,
+        mk_fp(decls.first,
               m_bv_util.mk_numeral(0, ebits),
               m_bv_util.mk_numeral(0, sbits - 1),
               pn);
-        mk_fp(m_max_np_zeros,
+        mk_fp(decls.second,
               m_bv_util.mk_numeral(0, ebits),
               m_bv_util.mk_numeral(0, sbits - 1),
               np);
@@ -3839,14 +3835,16 @@ void fpa2bv_converter::round(sort * s, expr_ref & bv_rm, expr_ref & sgn, expr_re
     TRACE("fpa2bv_round", tout << "ROUND = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
-
 void fpa2bv_converter::reset(void) {
     dec_ref_map_key_values(m, m_const2bv);
     dec_ref_map_key_values(m, m_rm_const2bv);
     dec_ref_map_key_values(m, m_uf2bvuf);
-    m_min_np_zeros = 0;
-    m_min_pn_zeros = 0;
-    m_max_np_zeros = 0;
-    m_max_pn_zeros = 0;
+    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_specials.begin();
+         it != m_specials.end();
+         it++) {
+        m.dec_ref(it->m_key);
+        m.dec_ref(it->m_value.first);
+        m.dec_ref(it->m_value.second);
+    }
     m_extra_assertions.reset();
 }
