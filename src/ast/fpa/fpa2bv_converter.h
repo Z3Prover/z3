@@ -35,8 +35,8 @@ struct func_decl_triple {
             f_exp = exp;
         }
         func_decl * f_sgn;
-        func_decl * f_sig;        
-        func_decl * f_exp;        
+        func_decl * f_sig;
+        func_decl * f_exp;
     };
 
 class fpa2bv_converter {
@@ -47,22 +47,20 @@ protected:
     bv_util                    m_bv_util;
     arith_util                 m_arith_util;
     mpf_manager              & m_mpf_manager;
-    unsynch_mpz_manager      & m_mpz_manager;    
+    unsynch_mpz_manager      & m_mpz_manager;
     fpa_decl_plugin          * m_plugin;
     bool                       m_hi_fp_unspecified;
 
     obj_map<func_decl, expr*>  m_const2bv;
     obj_map<func_decl, expr*>  m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
-    obj_hashtable<func_decl>   m_decls_to_hide;
 
-    app_ref                    m_min_pn_zeros;
-    app_ref                    m_min_np_zeros;
-    app_ref                    m_max_pn_zeros;
-    app_ref                    m_max_np_zeros;
-    
+    obj_map<func_decl, std::pair<app *, app *> > m_specials;
+
+    friend class fpa2bv_model_converter;
+
 public:
-    fpa2bv_converter(ast_manager & m);    
+    fpa2bv_converter(ast_manager & m);
     ~fpa2bv_converter();
 
     fpa_util & fu() { return m_util; }
@@ -83,7 +81,7 @@ public:
     void split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const;
     void split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const;
 
-    void mk_eq(expr * a, expr * b, expr_ref & result);    
+    void mk_eq(expr * a, expr * b, expr_ref & result);
     void mk_ite(expr * c, expr * t, expr * f, expr_ref & result);
     void mk_distinct(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
@@ -98,7 +96,7 @@ public:
     void mk_ninf(func_decl * f, expr_ref & result);
     void mk_nan(func_decl * f, expr_ref & result);
     void mk_nzero(func_decl *f, expr_ref & result);
-    void mk_pzero(func_decl *f, expr_ref & result);    
+    void mk_pzero(func_decl *f, expr_ref & result);
 
     void mk_add(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_sub(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -106,7 +104,7 @@ public:
     void mk_mul(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_div(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_rem(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_abs(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
+    void mk_abs(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_sqrt(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_round_to_integral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -125,10 +123,10 @@ public:
     void mk_is_nan(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_is_inf(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_is_normal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_is_subnormal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
+    void mk_is_subnormal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
-    void mk_to_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
-    void mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);    
+    void mk_to_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);
     void mk_to_fp_signed(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -137,7 +135,7 @@ public:
 
     void mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
+    void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void set_unspecified_fp_hi(bool v) { m_hi_fp_unspecified = v; }
 
@@ -145,18 +143,13 @@ public:
     void mk_min_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
 
-    void mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
+    void mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
 
     expr_ref mk_to_ubv_unspecified(unsigned width);
     expr_ref mk_to_sbv_unspecified(unsigned width);
     expr_ref mk_to_real_unspecified();
-
-    obj_map<func_decl, expr*> const & const2bv() const { return m_const2bv; }
-    obj_map<func_decl, expr*> const & rm_const2bv() const { return m_rm_const2bv; }
-    obj_map<func_decl, func_decl*> const & uf2bvuf() const { return m_uf2bvuf; }
-    obj_hashtable<func_decl> const & decls_to_hide() const { return m_decls_to_hide; }
 
     void reset(void);
 
@@ -191,7 +184,7 @@ protected:
     void mk_unbias(expr * e, expr_ref & result);
 
     void unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & lz, bool normalize);
-    void round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & result);        
+    void round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & result);
     expr_ref mk_rounding_decision(expr * rm, expr * sgn, expr * last, expr * round, expr * sticky);
 
     void add_core(unsigned sbits, unsigned ebits,
