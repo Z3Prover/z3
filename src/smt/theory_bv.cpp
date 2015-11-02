@@ -1283,6 +1283,21 @@ namespace smt {
         theory::reset_eh();
     }
 
+    bool theory_bv::include_func_interp(func_decl* f) {
+        SASSERT(f->get_family_id() == get_family_id());
+        switch (f->get_decl_kind()) {
+        case OP_BSDIV0:
+        case OP_BUDIV0:
+        case OP_BSREM0:
+        case OP_BUREM0:       
+        case OP_BSMOD0:        
+            return true;
+        default:
+            return false;
+        }
+        return false;
+    }
+
     theory_bv::theory_bv(ast_manager & m, theory_bv_params const & params, bit_blaster_params const & bb_params):
         theory(m.mk_family_id("bv")),
         m_params(params),

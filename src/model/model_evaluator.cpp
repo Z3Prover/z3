@@ -101,31 +101,21 @@ struct evaluator_cfg : public default_rewriter_cfg {
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = 0;
         family_id fid = f->get_family_id();
-        if (fid == null_family_id) {
-            if (num == 0) {
-                expr * val = m_model.get_const_interp(f);
-                if (val != 0) {
-                    result = val;
-                    return BR_DONE;
-                }
-                
-                if (m_model_completion) {
-                    sort * s   = f->get_range();
-                    expr * val = m_model.get_some_value(s);
-                    m_model.register_decl(f, val);
-                    result = val;
-                    return BR_DONE;
-                }
-                return BR_FAILED;
-            }
-            SASSERT(num > 0);
-            func_interp * fi = m_model.get_func_interp(f);
-            if (fi != 0 && eval_fi(fi, num, args, result)) {
-                TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
-                      for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
-                      tout << "---->\n" << mk_ismt2_pp(result, m()) << "\n";);
+        if (fid == null_family_id && num == 0) {
+            expr * val = m_model.get_const_interp(f);
+            if (val != 0) {
+                result = val;
                 return BR_DONE;
             }
+            
+            if (m_model_completion) {
+                sort * s   = f->get_range();
+                expr * val = m_model.get_some_value(s);
+                m_model.register_decl(f, val);
+                result = val;
+                return BR_DONE;
+            }
+            return BR_FAILED;
         }
 
         if (fid == m_b_rw.get_fid()) {
@@ -160,42 +150,50 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return m_pb_rw.mk_app_core(f, num, args, result);
         if (fid == m_f_rw.get_fid())
             return m_f_rw.mk_app_core(f, num, args, result);
+
+        func_interp * fi = m_model.get_func_interp(f);
+        if (fi != 0 && eval_fi(fi, num, args, result)) {
+            TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
+                  for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
+                  tout << "---->\n" << mk_ismt2_pp(result, m()) << "\n";);
+            return BR_DONE;
+        }
+        TRACE("model_evaluator", tout << f->get_name() << "\n";);
+
         return BR_FAILED;
     }
 
     bool get_macro(func_decl * f, expr * & def, quantifier * & q, proof * & def_pr) { 
-        if (f->get_family_id() == null_family_id) {
-            func_interp * fi = m_model.get_func_interp(f);
-            
-            if (fi != 0) {
-                if (fi->is_partial()) {
-                    if (m_model_completion) {
-                        sort * s   = f->get_range();
-                        expr * val = m_model.get_some_value(s);
-                        fi->set_else(val);
-                    }
-                    else {
-                        return false;
-                    }
+
+        func_interp * fi = m_model.get_func_interp(f);        
+        if (fi != 0) {
+            if (fi->is_partial()) {
+                if (m_model_completion) {
+                    sort * s   = f->get_range();
+                    expr * val = m_model.get_some_value(s);
+                    fi->set_else(val);
                 }
-                
-                def    = fi->get_interp();
-                SASSERT(def != 0);
-                return true;
-            }
-            
-            if (m_model_completion) {
-                sort * s   = f->get_range();
-                expr * val = m_model.get_some_value(s);
-                func_interp * new_fi = alloc(func_interp, m(), f->get_arity());
-                new_fi->set_else(val);
-                m_model.register_decl(f, new_fi);
-                def = val;
-                return true;
-            }
+                else {
+                    return false;
+                }
+            }            
+            def    = fi->get_interp();
+            SASSERT(def != 0);
+            return true;
+        }
+
+        if (f->get_family_id() == null_family_id && m_model_completion) {
+            sort * s   = f->get_range();
+            expr * val = m_model.get_some_value(s);
+            func_interp * new_fi = alloc(func_interp, m(), f->get_arity());
+            new_fi->set_else(val);
+            m_model.register_decl(f, new_fi);
+            def = val;
+            return true;
         }
         return false;
     }
+
     
     bool max_steps_exceeded(unsigned num_steps) const { 
         cooperate("model evaluator");

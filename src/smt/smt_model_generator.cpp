@@ -400,7 +400,12 @@ namespace smt {
        \brief Return true if the interpretation of the function should be included in the model.
     */
     bool model_generator::include_func_interp(func_decl * f) const {
-        return f->get_family_id() == null_family_id;
+        family_id fid = f->get_family_id();
+        if (fid == null_family_id) return true;
+        if (fid == m_manager.get_basic_family_id()) return false;
+        theory * th   = m_context->get_theory(fid);
+        if (!th) return true;
+        return th->include_func_interp(f);
     }
     
     /**
