@@ -739,7 +739,7 @@ namespace smt {
         converted = m.mk_and(convert(e), mk_side_conditions());
 
         expr_ref cnstr(m);
-        cnstr = (is_true) ? m.mk_implies(e, converted) : m.mk_implies(m.mk_not(e), m.mk_not(converted));
+        cnstr = (is_true) ? m.mk_implies(e, converted) : m.mk_implies(converted, e);
         m_th_rw(cnstr);
         assert_cnstr(cnstr);
     }
