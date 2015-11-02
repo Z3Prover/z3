@@ -244,10 +244,15 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         seen.insert(it->m_value.first->get_decl());
         seen.insert(it->m_value.second->get_decl());
 
+        rational pn_num, np_num;
+        unsigned bv_sz;
+        bu.is_numeral(pn, pn_num, bv_sz);
+        bu.is_numeral(np, np_num, bv_sz);
+
         func_interp * flt_fi = alloc(func_interp, m, f->get_arity());
         expr * pn_args[2] = { pzero, nzero };
-        if (pn != np) flt_fi->insert_new_entry(pn_args, (m.is_true(pn) ? nzero : pzero));
-        flt_fi->set_else(m.is_true(np) ? nzero : pzero);
+        if (pn != np) flt_fi->insert_new_entry(pn_args, (pn_num.is_one() ? nzero : pzero));
+        flt_fi->set_else(np_num.is_one() ? nzero : pzero);
 
         float_mdl->register_decl(f, flt_fi);
         TRACE("fpa2bv_mc", tout << "fp.min/fp.max special: " << std::endl <<
