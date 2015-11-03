@@ -27,7 +27,7 @@ Notes:
 template<typename Config>
 class poly_rewriter : public Config {
 protected:
-    typedef typename Config::numeral numeral; 
+    typedef typename Config::numeral numeral;
     sort *   m_curr_sort;
     obj_map<expr, unsigned> m_expr2pos;
     bool                    m_flat;
@@ -36,7 +36,7 @@ protected:
     bool                    m_sort_sums;
     bool                    m_hoist_mul;
     bool                    m_hoist_cmul;
-    
+
     bool is_numeral(expr * n) const { return Config::is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return Config::is_numeral(n, r); }
     bool is_zero(expr * n) const { return Config::is_zero(n); }
@@ -85,10 +85,10 @@ protected:
     struct hoist_cmul_lt;
     bool is_mul(expr * t, numeral & c, expr * & pp);
     void hoist_cmul(expr_ref_buffer & args);
-    
+
 public:
     poly_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        Config(m), 
+        Config(m),
         m_curr_sort(0),
         m_sort_sums(false) {
         updt_params(p);
@@ -154,7 +154,7 @@ public:
     // The result of the following functions is never BR_FAILED
     br_status mk_uminus(expr * arg, expr_ref & result);
     br_status mk_sub(unsigned num_args, expr * const * args, expr_ref & result);
-    
+
     void mk_sub(expr* a1, expr* a2, expr_ref& result) {
         expr* args[2] = { a1, a2 };
         mk_sub(2, args, result);
