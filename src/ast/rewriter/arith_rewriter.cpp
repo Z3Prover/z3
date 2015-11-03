@@ -318,6 +318,7 @@ br_status arith_rewriter::reduce_power(expr * arg1, expr * arg2, op_kind kind, e
 }
 
 br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kind, expr_ref & result) {
+    expr *orig_arg1 = arg1, *orig_arg2 = arg2;
     expr_ref new_arg1(m());
     expr_ref new_arg2(m());
     if ((is_zero(arg1) && is_reduce_power_target(arg2, kind == EQ)) ||
@@ -407,7 +408,11 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
             st = BR_DONE;
         }
     }
-    if (st != BR_FAILED) {
+    if (st == BR_DONE && arg1 == orig_arg1 && arg2 == orig_arg2) {
+        // Nothing new; return BR_FAILED to avoid rewriting loops.
+        return BR_FAILED;
+    }
+    else if (st != BR_FAILED) {
         switch (kind) {
         case LE: result = m_util.mk_le(arg1, arg2); return BR_DONE;
         case GE: result = m_util.mk_ge(arg1, arg2); return BR_DONE;
