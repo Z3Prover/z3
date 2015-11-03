@@ -1604,8 +1604,7 @@ void cmd_context::mk_solver() {
     bool proofs_enabled, models_enabled, unsat_core_enabled;
     params_ref p;
     m_params.get_solver_params(m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
-    if(produce_interpolants()){
-        SASSERT(m_interpolating_solver_factory);
+    if (produce_interpolants() && m_interpolating_solver_factory) {
         m_solver = (*m_interpolating_solver_factory)(m(), p, true /* must have proofs */, models_enabled, unsat_core_enabled, m_logic);
     }
     else
