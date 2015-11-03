@@ -75,7 +75,7 @@ VER_MAJOR=None
 VER_MINOR=None
 VER_BUILD=None
 VER_REVISION=None
-PREFIX=os.path.split(os.path.split(os.path.split(PYTHON_PACKAGE_DIR)[0])[0])[0]
+PREFIX=sys.prefix
 GMP=False
 FOCI2=False
 FOCI2LIB=''
@@ -531,6 +531,7 @@ if os.name == 'nt':
 elif os.name == 'posix':
     if os.uname()[0] == 'Darwin':
         IS_OSX=True
+        PREFIX="/usr/local"
     elif os.uname()[0] == 'Linux':
         IS_LINUX=True
     elif os.uname()[0] == 'FreeBSD':
@@ -1984,6 +1985,7 @@ def mk_config():
             print('Prefix:         %s' % PREFIX)
             print('64-bit:         %s' % is64())
             print('FP math:        %s' % FPMATH)
+            print("Python pkg dir: %s" % PYTHON_PACKAGE_DIR)
             if GPROF:
                 print('gprof:          enabled')
             print('Python version: %s' % distutils.sysconfig.get_python_version())
@@ -2074,8 +2076,6 @@ def mk_makefile():
     # Finalize
     if VERBOSE:
         print("Makefile was successfully generated.")
-        if not IS_WINDOWS:
-            print("  python packages dir: %s" % PYTHON_PACKAGE_DIR)
         if DEBUG_MODE:
             print("  compilation mode: Debug")
         else:
