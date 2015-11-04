@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Tactic for QF_UFBV 
+    Tactic for QF_UFBV
 
 Author:
 
@@ -24,5 +24,9 @@ class ast_manager;
 class tactic;
 
 tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p = params_ref());
+
+/*
+  ADD_TACTIC("qfufbv", "builtin strategy for solving QF_UFBV problems.", "mk_qfufbv_tactic(m, p)")
+*/
 
 #endif
