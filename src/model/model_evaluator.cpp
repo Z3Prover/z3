@@ -73,6 +73,11 @@ struct evaluator_cfg : public default_rewriter_cfg {
         
     ast_manager & m() const { return m_model.get_manager(); }
 
+    bool evaluate(func_decl* f, unsigned num, expr * const * args, expr_ref & result) {
+        func_interp* fi = m_model.get_func_interp(f);
+        return (fi != 0) && eval_fi(fi, num, args, result);
+    }
+
     // Try to use the entries to quickly evaluate the fi
     bool eval_fi(func_interp * fi, unsigned num, expr * const * args, expr_ref & result) {
         if (fi->num_entries() == 0)
@@ -152,23 +157,19 @@ struct evaluator_cfg : public default_rewriter_cfg {
             st = m_pb_rw.mk_app_core(f, num, args, result);
         else if (fid == m_f_rw.get_fid())
             st = m_f_rw.mk_app_core(f, num, args, result);
-
-        // allow for model evaluation to work on result of rewriting.
-        if (st == BR_DONE && is_app(result) && to_app(result)->get_num_args() > 0) {
-            return BR_REWRITE1;
+        else if (evaluate(f, num, args, result)) {
+            TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
+                  for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
+                  tout << "---->\n" << mk_ismt2_pp(result, m()) << "\n";);
+            return BR_DONE;
         }
-
-        if (st == BR_FAILED) {
-            func_interp * fi = m_model.get_func_interp(f);
-            if (fi != 0 && eval_fi(fi, num, args, result)) {
-                TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
-                      for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
-                      tout << "---->\n" << mk_ismt2_pp(result, m()) << "\n";);
+        if (st == BR_DONE && is_app(result)) {
+            app* a = to_app(result);
+            if (evaluate(a->get_decl(), a->get_num_args(), a->get_args(), result)) {
                 return BR_DONE;
             }
-            TRACE("model_evaluator", tout << f->get_name() << "\n";);
         }
-
+        TRACE("model_evaluator", tout << f->get_name() << "\n";);
         return st;
     }
 
