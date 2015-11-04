@@ -2632,12 +2632,207 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	ctx.get_assignments(assignments);
 
 	// Step 1: get variables / concat AST appearing in the context
-	// TODO build this map; see strTheory::checkInputVar()
-	// it should just be variable_set - internal_variable_set?
-	for(std::map<expr*, int>::iterator it = input_var_map.begin(); it != input_var_map.end(); ++it) {
-		strVarMap[it->first] = 1;
+	// the thing we iterate over should just be variable_set - internal_variable_set
+	// so we avoid computing the set difference (but this might be slower)
+	for(std::set<expr*>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
+		expr* var = *it;
+		if (internal_variable_set.find(var) == internal_variable_set.end()) {
+		    strVarMap[*it] = 1;
+		}
 	}
 	classify_ast_by_type_in_positive_context(strVarMap, concatMap, unrollMap);
+
+	// TODO unroll()
+	/*
+	std::map<Z3_ast, Z3_ast> aliasUnrollSet;
+	std::map<Z3_ast, int>::iterator unrollItor = unrollMap.begin();
+	for (; unrollItor != unrollMap.end(); unrollItor++) {
+	    if (aliasUnrollSet.find(unrollItor->first) != aliasUnrollSet.end())
+	        continue;
+	    Z3_ast aRoot = NULL;
+	    Z3_ast curr = unrollItor->first;
+	    do {
+	        if (isUnrollFunc(t, curr)) {
+	            if (aRoot == NULL) {
+	                aRoot = curr;
+	            }
+	            aliasUnrollSet[curr] = aRoot;
+	        }
+	        curr = Z3_theory_get_eqc_next(t, curr);
+	    } while (curr != unrollItor->first);
+	}
+
+	for (unrollItor = unrollMap.begin(); unrollItor != unrollMap.end(); unrollItor++) {
+	    Z3_ast unrFunc = unrollItor->first;
+	    Z3_ast urKey = aliasUnrollSet[unrFunc];
+	    unrollGroupMap[urKey].insert(unrFunc);
+	}
+	*/
+
+	// Step 2: collect alias relation
+	// e.g. suppose we have the equivalence class {x, y, z};
+	// then we set aliasIndexMap[y] = x
+	// and aliasIndexMap[z] = x
+
+	std::map<expr*, int>::iterator varItor = strVarMap.begin();
+	for (; varItor != strVarMap.end(); ++varItor) {
+	    if (aliasIndexMap.find(varItor->first) != aliasIndexMap.end()) {
+	        continue;
+	    }
+	    expr * aRoot = NULL;
+	    expr * curr = varItor->first;
+	    do {
+	        if (variable_set.find(curr) != variable_set.end()) { // TODO internal_variable_set?
+	            if (aRoot == NULL) {
+	                aRoot = curr;
+	            } else {
+	                aliasIndexMap[curr] = aRoot;
+	            }
+	        }
+	        // curr = get_eqc_next(curr);
+	        enode * eqcNode = ctx.get_enode(curr);
+	        eqcNode = eqcNode->get_next();
+	        curr = eqcNode->get_owner();
+	    } while (curr != varItor->first);
+	}
+
+	// Step 3: Collect interested cases
+
+	varItor = strVarMap.begin();
+	for (; varItor != strVarMap.end(); ++varItor) {
+	    expr * deAliasNode = get_alias_index_ast(aliasIndexMap, varItor->first);
+	    // Case 1: variable = string constant
+	    // e.g. z = "str1" ::= var_eq_constStr_map[z] = "str1"
+
+	    if (var_eq_constStr_map.find(deAliasNode) == var_eq_constStr_map.end()) {
+	        bool nodeHasEqcValue = false;
+	        expr * nodeValue = get_eqc_value(deAliasNode, nodeHasEqcValue);
+	        if (nodeHasEqcValue) {
+	            var_eq_constStr_map[deAliasNode] = nodeValue;
+	        }
+	    }
+
+	    // Case 2: var_eq_concat
+	    // e.g. z = concat("str1", b) ::= var_eq_concat[z][concat(c, "str2")] = 1
+	    // var_eq_unroll
+	    // e.g. z = unroll(...) ::= var_eq_unroll[z][unroll(...)] = 1
+
+	    if (var_eq_concat_map.find(deAliasNode) == var_eq_concat_map.end()) {
+	        enode * e_curr = ctx.get_enode(deAliasNode);
+	        expr * curr = e_curr->get_next()->get_owner();
+	        while (curr != deAliasNode) {
+	            app * aCurr = to_app(curr);
+	            // collect concat
+	            if (is_concat(aCurr)) {
+	                expr * arg0 = aCurr->get_arg(0);
+	                expr * arg1 = aCurr->get_arg(1);
+	                bool arg0HasEqcValue = false;
+	                bool arg1HasEqcValue = false;
+	                expr * arg0_value = get_eqc_value(arg0, arg0HasEqcValue);
+	                expr * arg1_value = get_eqc_value(arg1, arg1HasEqcValue);
+
+	                bool is_arg0_emptyStr = false;
+	                if (arg0HasEqcValue) {
+	                    const char * strval = 0;
+	                    m_strutil.is_string(arg0_value, &strval);
+	                    if (strcmp(strval, "") == 0) {
+	                        is_arg0_emptyStr = true;
+	                    }
+	                }
+
+	                bool is_arg1_emptyStr = false;
+	                if (arg1HasEqcValue) {
+	                    const char * strval = 0;
+	                    m_strutil.is_string(arg1_value, &strval);
+	                    if (strcmp(strval, "") == 0) {
+	                        is_arg1_emptyStr = true;
+	                    }
+	                }
+
+	                if (!is_arg0_emptyStr && !is_arg1_emptyStr) {
+	                    var_eq_concat_map[deAliasNode][curr] = 1;
+	                }
+	            }
+	            // TODO: collect unroll functions
+	            /*
+	            else if (isUnrollFunc(t, curr)) {
+	                var_eq_unroll_map[deAliasNode][curr] = 1;
+	            }
+	            */
+
+	            // curr = get_eqc_next(curr)
+	            e_curr = ctx.get_enode(curr);
+	            curr = e_curr->get_next()->get_owner();
+	        }
+	    }
+
+	} // for(varItor in strVarMap)
+
+	// --------------------------------------------------
+	// * collect aliasing relation among eq concats
+	//   e.g EQC={concat1, concat2, concat3}
+	//       concats_eq_Index_map[concat2] = concat1
+	//       concats_eq_Index_map[concat3] = concat1
+	// --------------------------------------------------
+
+	/*
+	std::map<Z3_ast, Z3_ast> concats_eq_Index_map;
+	std::map<Z3_ast, int>::iterator concatItor = concatMap.begin();
+	for (; concatItor != concatMap.end(); concatItor++) {
+	    // simplifyConcatToConst(t, concatItor->first);
+
+	    if (concats_eq_Index_map.find(concatItor->first) != concats_eq_Index_map.end())
+	        continue;
+
+	    Z3_ast aRoot = NULL;
+	    Z3_ast curr = concatItor->first;
+	    do {
+	        if (isConcatFunc(t, curr)) {
+	            if (aRoot == NULL)
+	                aRoot = curr;
+	            else
+	                concats_eq_Index_map[curr] = aRoot;
+	        }
+	        curr = Z3_theory_get_eqc_next(t, curr);
+	    } while (curr != concatItor->first);
+	}
+
+	concatItor = concatMap.begin();
+	for (; concatItor != concatMap.end(); concatItor++) {
+	    Z3_ast deAliasConcat = NULL;
+	    if (concats_eq_Index_map.find(concatItor->first) != concats_eq_Index_map.end())
+	        deAliasConcat = concats_eq_Index_map[concatItor->first];
+	    else
+	        deAliasConcat = concatItor->first;
+
+	    // --------------------------------------------------
+	    // (3) concat_eq_constStr:
+	    //     e.g,  concat(a,b) = "str1"
+	    // --------------------------------------------------
+	    if (concat_eq_constStr_map.find(deAliasConcat) == concat_eq_constStr_map.end()) {
+	        bool nodeHasEqcValue = false;
+	        Z3_ast nodeValue = get_eqc_value(t, deAliasConcat, nodeHasEqcValue);
+	        if (nodeHasEqcValue)
+	            concat_eq_constStr_map[deAliasConcat] = nodeValue;
+	    }
+	    // --------------------------------------------------
+	    // (4) concat_eq_concat:
+	    //     e.g,  concat(a,b) = concat("str1", c) /\ z = concat(a, b) /\ z = concat(e, f)
+	    // --------------------------------------------------
+	    if (concat_eq_concat_map.find(deAliasConcat) == concat_eq_concat_map.end()) {
+	        Z3_ast curr = deAliasConcat;
+	        do {
+	            if (isConcatFunc(t, curr)) {
+	                // curr is not a concat that can be reduced
+	                if (concatMap.find(curr) != concatMap.end()) {
+	                    concat_eq_concat_map[deAliasConcat][curr] = 1;
+	                }
+	            }
+	            curr = Z3_theory_get_eqc_next(t, curr);
+	        } while (curr != deAliasConcat);
+	    }
+	}
+	*/
 
 	// TODO the rest
 	NOT_IMPLEMENTED_YET();
