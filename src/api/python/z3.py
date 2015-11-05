@@ -284,6 +284,9 @@ class AstRef(Z3PPObject):
     def __repr__(self):
         return obj_to_string(self)
 
+    def __hash__(self):
+        return self.hash()
+
     def sexpr(self):
         """Return an string representing the AST node in s-expression notation.
         
