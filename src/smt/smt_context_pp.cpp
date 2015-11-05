@@ -97,7 +97,7 @@ namespace smt {
     }
 
     void context::display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const {
-        display_verbose(out, m_manager, num_lits, lits, m_bool_var2expr.c_ptr());
+        display_verbose(out, m_manager, num_lits, lits, m_bool_var2expr.c_ptr(), "\n");
     }
 
     void context::display_literal_info(std::ostream & out, literal l) const {
@@ -204,9 +204,10 @@ namespace smt {
             literal_vector::const_iterator end = m_assigned_literals.end();        
             for (; it != end; ++it) {
                 display_literal(out, *it);
-                out << " ";
+                out << ": ";
+                display_verbose(tout, m_manager, 1, &*it, m_bool_var2expr.c_ptr());
+                out << "\n";
             }
-            out << "\n";
         }
     }
 
@@ -581,15 +582,8 @@ namespace smt {
             }
         }
     }
-    
-    void context::trace_assign(literal l, b_justification j, bool decision) const {
-        SASSERT(m_manager.has_trace_stream());
-        std::ostream & out = m_manager.trace_stream();
-        out << "[assign] ";
-        display_literal(out, l);
-        if (decision)
-            out << " decision";
-        out << " ";
+   
+    void context::display(std::ostream& out, b_justification j) const {
         switch (j.get_kind()) {
         case b_justification::AXIOM:
             out << "axiom";
@@ -597,8 +591,6 @@ namespace smt {
         case b_justification::BIN_CLAUSE: {
             literal l2 = j.get_literal();
             out << "bin-clause ";
-            display_literal(out, l);
-            out << " ";
             display_literal(out, l2);
             break;
         }
@@ -616,6 +608,17 @@ namespace smt {
             break;
         }
         out << "\n";
+    }
+
+    void context::trace_assign(literal l, b_justification j, bool decision) const {
+        SASSERT(m_manager.has_trace_stream());
+        std::ostream & out = m_manager.trace_stream();
+        out << "[assign] ";
+        display_literal(out, l);
+        if (decision)
+            out << " decision";
+        out << " ";
+        display(out, j);
     }
 
 };

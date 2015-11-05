@@ -288,11 +288,13 @@ namespace smt {
     }
 
     void conflict_resolution::process_antecedent(literal antecedent, unsigned & num_marks) {
-        TRACE("conflict", tout << "processing antecedent: "; m_ctx.display_literal(tout, antecedent); tout << "\n";);
         bool_var var = antecedent.var();
         unsigned lvl = m_ctx.get_assign_level(var);
         SASSERT(var < static_cast<int>(m_ctx.get_num_bool_vars()));
-        
+        TRACE("conflict", tout << "processing antecedent (level " << lvl << "):"; 
+              m_ctx.display_literal(tout, antecedent); 
+              m_ctx.display_detailed_literal(tout << " ", antecedent); tout << "\n";);
+
         if (!m_ctx.is_marked(var) && lvl > m_ctx.get_base_level()) {
             m_ctx.set_mark(var);
             m_ctx.inc_bvar_activity(var);
