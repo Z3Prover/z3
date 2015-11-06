@@ -507,6 +507,8 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "QF_AUFLIRA" ||
         s == "QF_AUFNIA" ||
         s == "QF_AUFNIRA" ||
+        s == "QF_ANIA" ||
+        s == "QF_LIRA" ||
         s == "QF_UFLIA" ||
         s == "QF_UFLRA" ||
         s == "QF_UFIDL" ||
@@ -518,6 +520,7 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "QF_UFNIA" ||
         s == "QF_UFNIRA" ||
         s == "QF_BVRE" ||
+        s == "ALIA" ||
         s == "AUFLIA" ||
         s == "AUFLIRA" ||
         s == "AUFNIA" ||
@@ -526,9 +529,12 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "UFLRA" ||
         s == "UFNRA" ||
         s == "UFNIRA" ||
+        s == "NIA" ||
+        s == "NRA" ||
         s == "UFNIA" ||
         s == "LIA" ||
         s == "LRA" ||
+        s == "UFIDL" ||
         s == "QF_FP" ||
         s == "QF_FPBV" ||
         s == "QF_BVFP" ||
@@ -583,10 +589,12 @@ bool cmd_context::logic_has_array_core(symbol const & s) const {
     return
         s == "QF_AX" ||
         s == "QF_AUFLIA" ||
+        s == "QF_ANIA" ||
         s == "QF_ALIA" ||
         s == "QF_AUFLIRA" ||
         s == "QF_AUFNIA" ||
         s == "QF_AUFNIRA" ||
+        s == "ALIA" ||
         s == "AUFLIA" ||
         s == "AUFLIRA" ||
         s == "AUFNIA" ||
