@@ -2599,6 +2599,33 @@ void theory_str::classify_ast_by_type_in_positive_context(std::map<expr*, int> &
 	}
 }
 
+inline expr * theory_str::get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node) {
+  if (aliasIndexMap.find(node) != aliasIndexMap.end())
+    return aliasIndexMap[node];
+  else
+    return node;
+}
+
+inline expr * theory_str::getMostLeftNodeInConcat(expr * node) {
+	app * aNode = to_app(node);
+	if (!is_concat(aNode)) {
+		return node;
+	} else {
+		expr * concatArgL = aNode->get_arg(0);
+		return getMostLeftNodeInConcat(concatArgL);
+	}
+}
+
+inline expr * theory_str::getMostRightNodeInConcat(expr * node) {
+	app * aNode = to_app(node);
+	if (!is_concat(aNode)) {
+		return node;
+	} else {
+		expr * concatArgR = aNode->get_arg(1);
+		return getMostRightNodeInConcat(concatArgR);
+	}
+}
+
 /*
  * Dependence analysis from current context assignment
  * - "freeVarMap" contains a set of variables that doesn't constrained by Concats.
@@ -2775,67 +2802,429 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	//       concats_eq_Index_map[concat3] = concat1
 	// --------------------------------------------------
 
-	/*
-	std::map<Z3_ast, Z3_ast> concats_eq_Index_map;
-	std::map<Z3_ast, int>::iterator concatItor = concatMap.begin();
-	for (; concatItor != concatMap.end(); concatItor++) {
-	    // simplifyConcatToConst(t, concatItor->first);
-
-	    if (concats_eq_Index_map.find(concatItor->first) != concats_eq_Index_map.end())
-	        continue;
-
-	    Z3_ast aRoot = NULL;
-	    Z3_ast curr = concatItor->first;
-	    do {
-	        if (isConcatFunc(t, curr)) {
-	            if (aRoot == NULL)
-	                aRoot = curr;
-	            else
-	                concats_eq_Index_map[curr] = aRoot;
-	        }
-	        curr = Z3_theory_get_eqc_next(t, curr);
-	    } while (curr != concatItor->first);
+	std::map<expr*, expr*> concats_eq_index_map;
+	std::map<expr*, int>::iterator concatItor = concatMap.begin();
+	for(; concatItor != concatMap.end(); ++concatItor) {
+		if (concats_eq_index_map.find(concatItor->first) != concats_eq_index_map.end()) {
+			continue;
+		}
+		expr * aRoot = NULL;
+		expr * curr = concatItor->first;
+		do {
+			if (is_concat(to_app(curr))) {
+				if (aRoot == NULL) {
+					aRoot = curr;
+				} else {
+					concats_eq_index_map[curr] = aRoot;
+				}
+			}
+			// curr = get_eqc_next(curr);
+			enode * e_curr = ctx.get_enode(curr);
+			curr = e_curr->get_next()->get_owner();
+		} while (curr != concatItor->first);
 	}
 
 	concatItor = concatMap.begin();
-	for (; concatItor != concatMap.end(); concatItor++) {
-	    Z3_ast deAliasConcat = NULL;
-	    if (concats_eq_Index_map.find(concatItor->first) != concats_eq_Index_map.end())
-	        deAliasConcat = concats_eq_Index_map[concatItor->first];
-	    else
-	        deAliasConcat = concatItor->first;
+	for(; concatItor != concatMap.end(); ++concatItor) {
+		expr * deAliasConcat = NULL;
+		if (concats_eq_index_map.find(concatItor->first) != concats_eq_index_map.end()) {
+			deAliasConcat = concats_eq_index_map[concatItor->first];
+		} else {
+			deAliasConcat = concatItor->first;
+		}
 
-	    // --------------------------------------------------
-	    // (3) concat_eq_constStr:
-	    //     e.g,  concat(a,b) = "str1"
-	    // --------------------------------------------------
-	    if (concat_eq_constStr_map.find(deAliasConcat) == concat_eq_constStr_map.end()) {
-	        bool nodeHasEqcValue = false;
-	        Z3_ast nodeValue = get_eqc_value(t, deAliasConcat, nodeHasEqcValue);
-	        if (nodeHasEqcValue)
-	            concat_eq_constStr_map[deAliasConcat] = nodeValue;
-	    }
-	    // --------------------------------------------------
-	    // (4) concat_eq_concat:
-	    //     e.g,  concat(a,b) = concat("str1", c) /\ z = concat(a, b) /\ z = concat(e, f)
-	    // --------------------------------------------------
-	    if (concat_eq_concat_map.find(deAliasConcat) == concat_eq_concat_map.end()) {
-	        Z3_ast curr = deAliasConcat;
-	        do {
-	            if (isConcatFunc(t, curr)) {
-	                // curr is not a concat that can be reduced
-	                if (concatMap.find(curr) != concatMap.end()) {
-	                    concat_eq_concat_map[deAliasConcat][curr] = 1;
-	                }
-	            }
-	            curr = Z3_theory_get_eqc_next(t, curr);
-	        } while (curr != deAliasConcat);
-	    }
+		// (3) concat_eq_conststr, e.g. concat(a,b) = "str1"
+		if (concat_eq_constStr_map.find(deAliasConcat) == concat_eq_constStr_map.end()) {
+			bool nodeHasEqcValue = false;
+			expr * nodeValue = get_eqc_value(deAliasConcat, nodeHasEqcValue);
+			if (nodeHasEqcValue) {
+				concat_eq_constStr_map[deAliasConcat] = nodeValue;
+			}
+		}
+
+		// (4) concat_eq_concat, e.g.
+		// concat(a,b) = concat("str1", c) AND z = concat(a,b) AND z = concat(e,f)
+		if (concat_eq_concat_map.find(deAliasConcat) == concat_eq_concat_map.end()) {
+			expr * curr = deAliasConcat;
+			do {
+				if (is_concat(to_app(curr))) {
+					// curr cannot be reduced
+					if (concatMap.find(curr) != concatMap.end()) {
+						concat_eq_concat_map[deAliasConcat][curr] = 1;
+					}
+				}
+				// curr = get_eqc_next(curr);
+				enode * e_curr = ctx.get_enode(curr);
+				curr = e_curr->get_next()->get_owner();
+			} while (curr != deAliasConcat);
+		}
+	}
+
+	// TODO this would be a great place to print some debugging information
+
+	// TODO compute Contains
+	/*
+	if (containPairBoolMap.size() > 0) {
+		computeContains(t, aliasIndexMap, concats_eq_Index_map, var_eq_constStr_map, concat_eq_constStr_map, var_eq_concat_map);
 	}
 	*/
 
-	// TODO the rest
-	NOT_IMPLEMENTED_YET();
+	// step 4: dependence analysis
+
+	// (1) var = string constant
+	for (std::map<expr*, expr*>::iterator itor = var_eq_constStr_map.begin();
+			itor != var_eq_constStr_map.end(); ++itor) {
+		expr * var = get_alias_index_ast(aliasIndexMap, itor->first);
+		expr * strAst = itor->second;
+		depMap[var][strAst] = 1;
+	}
+
+	// (2) var = concat
+	for (std::map<expr*, std::map<expr*, int> >::iterator itor = var_eq_concat_map.begin();
+			itor != var_eq_concat_map.end(); ++itor) {
+		expr * var = get_alias_index_ast(aliasIndexMap, itor->first);
+		for (std::map<expr*, int>::iterator itor1 = itor->second.begin(); itor1 != itor->second.end(); ++itor1) {
+			expr * concat = itor1->first;
+			std::map<expr*, int> inVarMap;
+			std::map<expr*, int> inConcatMap;
+			std::map<expr*, int> inUnrollMap;
+			classify_ast_by_type(concat, inVarMap, inConcatMap, inUnrollMap);
+			for (std::map<expr*, int>::iterator itor2 = inVarMap.begin(); itor2 != inVarMap.end(); ++itor2) {
+				expr * varInConcat = get_alias_index_ast(aliasIndexMap, itor2->first);
+				if (!(depMap[var].find(varInConcat) != depMap[var].end() && depMap[var][varInConcat] == 1)) {
+					depMap[var][varInConcat] = 2;
+				}
+			}
+		}
+	}
+
+	for (std::map<expr*, std::map<expr*, int> >::iterator itor = var_eq_unroll_map.begin();
+		itor != var_eq_unroll_map.end(); itor++) {
+		expr * var = get_alias_index_ast(aliasIndexMap, itor->first);
+		for (std::map<expr*, int>::iterator itor1 = itor->second.begin(); itor1 != itor->second.end(); itor1++) {
+			expr * unrollFunc = itor1->first;
+			std::map<expr*, int> inVarMap;
+			std::map<expr*, int> inConcatMap;
+			std::map<expr*, int> inUnrollMap;
+			classify_ast_by_type(unrollFunc, inVarMap, inConcatMap, inUnrollMap);
+			for (std::map<expr*, int>::iterator itor2 = inVarMap.begin(); itor2 != inVarMap.end(); itor2++) {
+				expr * varInFunc = get_alias_index_ast(aliasIndexMap, itor2->first);
+
+				STRACE("t_str_detail", tout << "var in unroll = " <<
+						mk_ismt2_pp(itor2->first, m) << std::endl
+						<< "dealiased var = " << mk_ismt2_pp(varInFunc) << std::endl;);
+
+				// it's possible that we have both (Unroll $$_regVar_0 $$_unr_0) /\ (Unroll abcd $$_unr_0),
+				// while $$_regVar_0 = "abcd"
+				// have to exclude such cases
+				bool varHasValue = false;
+				get_eqc_value(varInFunc, varHasValue);
+				if (varHasValue)
+					continue;
+
+				if (depMap[var].find(varInFunc) == depMap[var].end()) {
+					depMap[var][varInFunc] = 6;
+				}
+			}
+		}
+	}
+
+	// (3) concat = string constant
+	for (std::map<expr*, expr*>::iterator itor = concat_eq_constStr_map.begin();
+			itor != concat_eq_constStr_map.end(); itor++) {
+		expr * concatAst = itor->first;
+		expr * constStr = itor->second;
+		std::map<expr*, int> inVarMap;
+		std::map<expr*, int> inConcatMap;
+		std::map<expr*, int> inUnrollMap;
+		classify_ast_by_type(concatAst, inVarMap, inConcatMap, inUnrollMap);
+		for (std::map<expr*, int>::iterator itor2 = inVarMap.begin(); itor2 != inVarMap.end(); itor2++) {
+			expr * varInConcat = get_alias_index_ast(aliasIndexMap, itor2->first);
+			if (!(depMap[varInConcat].find(constStr) != depMap[varInConcat].end() && depMap[varInConcat][constStr] == 1))
+				depMap[varInConcat][constStr] = 3;
+		}
+	}
+
+	// (4) equivalent concats
+	//     - possibility 1 : concat("str", v1) = concat(concat(v2, v3), v4) = concat(v5, v6)
+	//         ==> v2, v5 are constrained by "str"
+	//     - possibliity 2 : concat(v1, "str") = concat(v2, v3) = concat(v4, v5)
+	//         ==> v2, v4 are constrained by "str"
+	//--------------------------------------------------------------
+
+	std::map<expr*, expr*> mostLeftNodes;
+	std::map<expr*, expr*> mostRightNodes;
+
+	std::map<expr*, int> mLIdxMap;
+	std::map<int, std::set<expr*> > mLMap;
+	std::map<expr*, int> mRIdxMap;
+	std::map<int, std::set<expr*> > mRMap;
+	std::set<expr*> nSet;
+
+	for (std::map<expr*, std::map<expr*, int> >::iterator itor = concat_eq_concat_map.begin();
+			itor != concat_eq_concat_map.end(); itor++) {
+		mostLeftNodes.clear();
+		mostRightNodes.clear();
+
+		expr * mLConst = NULL;
+		expr * mRConst = NULL;
+
+		for (std::map<expr*, int>::iterator itor1 = itor->second.begin(); itor1 != itor->second.end(); itor1++) {
+			expr * concatNode = itor1->first;
+			expr * mLNode = getMostLeftNodeInConcat(concatNode);
+			const char * strval;
+			if (m_strutil.is_string(to_app(mLNode), & strval)) {
+				if (mLConst == NULL && strcmp(strval, "") != 0) {
+					mLConst = mLNode;
+				}
+			} else {
+				mostLeftNodes[mLNode] = concatNode;
+			}
+
+			expr * mRNode = getMostRightNodeInConcat(concatNode);
+			if (m_strutil.is_string(to_app(mRNode), & strval)) {
+				if (mRConst == NULL && strcmp(strval, "") != 0) {
+					mRConst = mRNode;
+				}
+			} else {
+				mostRightNodes[mRNode] = concatNode;
+			}
+		}
+
+		if (mLConst != NULL) {
+			// -------------------------------------------------------------------------------------
+			// The left most variable in a concat is constrained by a constant string in eqc concat
+			// -------------------------------------------------------------------------------------
+			// e.g. Concat(x, ...) = Concat("abc", ...)
+			// -------------------------------------------------------------------------------------
+			for (std::map<expr*, expr*>::iterator itor1 = mostLeftNodes.begin();
+					itor1 != mostLeftNodes.end(); itor1++) {
+				expr * deVar = get_alias_index_ast(aliasIndexMap, itor1->first);
+				if (depMap[deVar].find(mLConst) == depMap[deVar].end() || depMap[deVar][mLConst] != 1) {
+					depMap[deVar][mLConst] = 4;
+				}
+			}
+		}
+
+		{
+			// -------------------------------------------------------------------------------------
+			// The left most variables in eqc concats are constrained by each other
+			// -------------------------------------------------------------------------------------
+			// e.g. concat(x, ...) = concat(u, ...) = ...
+			//      x and u are constrained by each other
+			// -------------------------------------------------------------------------------------
+			nSet.clear();
+			std::map<expr*, expr*>::iterator itl = mostLeftNodes.begin();
+			for (; itl != mostLeftNodes.end(); itl++) {
+				bool lfHasEqcValue = false;
+				get_eqc_value(itl->first, lfHasEqcValue);
+				if (lfHasEqcValue)
+					continue;
+				expr * deVar = get_alias_index_ast(aliasIndexMap, itl->first);
+				nSet.insert(deVar);
+			}
+
+			if (nSet.size() > 1) {
+				int lId = -1;
+				for (std::set<expr*>::iterator itor2 = nSet.begin(); itor2 != nSet.end(); itor2++) {
+					if (mLIdxMap.find(*itor2) != mLIdxMap.end()) {
+						lId = mLIdxMap[*itor2];
+						break;
+					}
+				}
+				if (lId == -1)
+					lId = mLMap.size();
+				for (std::set<expr*>::iterator itor2 = nSet.begin(); itor2 != nSet.end(); itor2++) {
+					bool itorHasEqcValue = false;
+					get_eqc_value(*itor2, itorHasEqcValue);
+					if (itorHasEqcValue)
+						continue;
+					mLIdxMap[*itor2] = lId;
+					mLMap[lId].insert(*itor2);
+				}
+			}
+		}
+
+		if (mRConst != NULL) {
+			for (std::map<expr*, expr*>::iterator itor1 = mostRightNodes.begin();
+					itor1 != mostRightNodes.end(); itor1++) {
+				expr * deVar = get_alias_index_ast(aliasIndexMap, itor1->first);
+				if (depMap[deVar].find(mRConst) == depMap[deVar].end() || depMap[deVar][mRConst] != 1) {
+					depMap[deVar][mRConst] = 5;
+				}
+			}
+		}
+
+		{
+			nSet.clear();
+			std::map<expr*, expr*>::iterator itr = mostRightNodes.begin();
+			for (; itr != mostRightNodes.end(); itr++) {
+				expr * deVar = get_alias_index_ast(aliasIndexMap, itr->first);
+				nSet.insert(deVar);
+			}
+			if (nSet.size() > 1) {
+				int rId = -1;
+				std::set<expr*>::iterator itor2 = nSet.begin();
+				for (; itor2 != nSet.end(); itor2++) {
+					if (mRIdxMap.find(*itor2) != mRIdxMap.end()) {
+						rId = mRIdxMap[*itor2];
+						break;
+					}
+				}
+				if (rId == -1)
+					rId = mRMap.size();
+				for (itor2 = nSet.begin(); itor2 != nSet.end(); itor2++) {
+					bool rHasEqcValue = false;
+					get_eqc_value(*itor2, rHasEqcValue);
+					if (rHasEqcValue)
+						continue;
+					mRIdxMap[*itor2] = rId;
+					mRMap[rId].insert(*itor2);
+				}
+			}
+		}
+	}
+
+	// TODO this would be a great place to print the dependence map
+
+	// step, errr, 5: compute free variables based on the dependence map
+
+	// the case dependence map is empty, every var in VarMap is free
+	//---------------------------------------------------------------
+	// remove L/R most var in eq concat since they are constrained with each other
+	std::map<expr*, std::map<expr*, int> > lrConstrainedMap;
+	for (std::map<int, std::set<expr*> >::iterator itor = mLMap.begin(); itor != mLMap.end(); itor++) {
+		for (std::set<expr*>::iterator it1 = itor->second.begin(); it1 != itor->second.end(); it1++) {
+			std::set<expr*>::iterator it2 = it1;
+			it2++;
+			for (; it2 != itor->second.end(); it2++) {
+				expr * n1 = *it1;
+				expr * n2 = *it2;
+				lrConstrainedMap[n1][n2] = 1;
+				lrConstrainedMap[n2][n1] = 1;
+			}
+		}
+	}
+	for (std::map<int, std::set<expr*> >::iterator itor = mRMap.begin(); itor != mRMap.end(); itor++) {
+		for (std::set<expr*>::iterator it1 = itor->second.begin(); it1 != itor->second.end(); it1++) {
+			std::set<expr*>::iterator it2 = it1;
+			it2++;
+			for (; it2 != itor->second.end(); it2++) {
+				expr * n1 = *it1;
+				expr * n2 = *it2;
+				lrConstrainedMap[n1][n2] = 1;
+				lrConstrainedMap[n2][n1] = 1;
+			}
+		}
+	}
+
+	if (depMap.size() == 0) {
+		std::map<expr*, int>::iterator itor = strVarMap.begin();
+		for (; itor != strVarMap.end(); itor++) {
+			expr * var = get_alias_index_ast(aliasIndexMap, itor->first);
+			if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
+				freeVarMap[var] = 1;
+			} else {
+				int lrConstainted = 0;
+				std::map<expr*, int>::iterator lrit = freeVarMap.begin();
+				for (; lrit != freeVarMap.end(); lrit++) {
+					if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
+						lrConstainted = 1;
+						break;
+					}
+				}
+				if (lrConstainted == 0) {
+					freeVarMap[var] = 1;
+				}
+			}
+		}
+	} else {
+		// if the keys in aliasIndexMap are not contained in keys in depMap, they are free
+		// e.g.,  x= y /\ x = z /\ t = "abc"
+		//        aliasIndexMap[y]= x, aliasIndexMap[z] = x
+		//        depMap        t ~ "abc"(1)
+		//        x should be free
+		std::map<expr*, int>::iterator itor2 = strVarMap.begin();
+		for (; itor2 != strVarMap.end(); itor2++) {
+			if (aliasIndexMap.find(itor2->first) != aliasIndexMap.end()) {
+				expr * var = aliasIndexMap[itor2->first];
+				if (depMap.find(var) == depMap.end()) {
+					if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
+						freeVarMap[var] = 1;
+					} else {
+						int lrConstainted = 0;
+						std::map<expr*, int>::iterator lrit = freeVarMap.begin();
+						for (; lrit != freeVarMap.end(); lrit++) {
+							if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
+								lrConstainted = 1;
+								break;
+							}
+						}
+						if (lrConstainted == 0) {
+							freeVarMap[var] = 1;
+						}
+					}
+				}
+			} else if (aliasIndexMap.find(itor2->first) == aliasIndexMap.end()) {
+				// if a variable is not in aliasIndexMap and not in depMap, it's free
+				if (depMap.find(itor2->first) == depMap.end()) {
+					expr * var = itor2->first;
+					if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
+						freeVarMap[var] = 1;
+					} else {
+						int lrConstainted = 0;
+						std::map<expr*, int>::iterator lrit = freeVarMap.begin();
+						for (; lrit != freeVarMap.end(); lrit++) {
+							if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
+								lrConstainted = 1;
+								break;
+							}
+						}
+						if (lrConstainted == 0) {
+							freeVarMap[var] = 1;
+						}
+					}
+				}
+			}
+		}
+
+		std::map<expr*, std::map<expr*, int> >::iterator itor = depMap.begin();
+		for (; itor != depMap.end(); itor++) {
+			for (std::map<expr*, int>::iterator itor1 = itor->second.begin(); itor1 != itor->second.end(); itor1++) {
+				if (variable_set.find(itor1->first) != variable_set.end()) { // expr type = var
+					expr * var = get_alias_index_ast(aliasIndexMap, itor1->first);
+					// if a var is dep on itself and all dependence are type 2, it's a free variable
+					// e.g {y --> x(2), y(2), m --> m(2), n(2)} y,m are free
+					{
+						if (depMap.find(var) == depMap.end()) {
+							if (freeVarMap.find(var) == freeVarMap.end()) {
+								if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
+									freeVarMap[var] = 1;
+								} else {
+									int lrConstainted = 0;
+									std::map<expr*, int>::iterator lrit = freeVarMap.begin();
+									for (; lrit != freeVarMap.end(); lrit++) {
+										if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
+											lrConstainted = 1;
+											break;
+										}
+									}
+									if (lrConstainted == 0) {
+										freeVarMap[var] = 1;
+									}
+								}
+
+							} else {
+								freeVarMap[var] = freeVarMap[var] + 1;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return 0;
 }
 
 final_check_status theory_str::final_check_eh() {
@@ -2855,10 +3244,6 @@ final_check_status theory_str::final_check_eh() {
     	return FC_DONE;
     }
 
-    // TODO the rest...
-    NOT_IMPLEMENTED_YET();
-
-    /*
     // Check every variable to see if it's eq. to some string constant.
     // If not, mark it as free.
     bool needToAssignFreeVars = false;
@@ -2877,18 +3262,10 @@ final_check_status theory_str::final_check_eh() {
         return FC_DONE;
     }
 
-    for (std::set<expr*>::iterator it = free_variables.begin(); it != free_variables.end(); ++it) {
-        expr * var = *it;
-        if (internal_variable_set.find(var) != internal_variable_set.end()) {
-            TRACE("t_str", tout << "assigning arbitrary string to internal variable " << mk_ismt2_pp(var, m) << std::endl;);
-            app * val = m_strutil.mk_string("**unused**");
-            assert_axiom(ctx.mk_eq_atom(var, val));
-        } else {
-            NOT_IMPLEMENTED_YET(); // TODO free variable assignment from strTheory::cb_final_check()
-        }
-    }
-    return FC_CONTINUE;
-    */
+
+
+    // TODO the rest...
+    NOT_IMPLEMENTED_YET();
 }
 
 void theory_str::init_model(model_generator & mg) {

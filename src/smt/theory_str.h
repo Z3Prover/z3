@@ -153,6 +153,10 @@ namespace smt {
         void classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
         		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
 
+        expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
+        expr * getMostLeftNodeInConcat(expr * node);
+        expr * getMostRightNodeInConcat(expr * node);
+
         void dump_assignments();
     public:
         theory_str(ast_manager & m);
