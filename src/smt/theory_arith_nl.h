@@ -1910,11 +1910,10 @@ namespace smt {
     */
     template<typename Ext>
     void theory_arith<Ext>::set_conflict(v_dependency * d) {
-        bool is_lia = false; // TODO: fix it, but this is only used for debugging.
-        antecedents& ante = get_antecedents();
+        antecedents ante(*this);
         derived_bound  b(null_theory_var, inf_numeral(0), B_LOWER);
         dependency2new_bound(d, b);
-        set_conflict(b.m_lits.size(), b.m_lits.c_ptr(), b.m_eqs.size(), b.m_eqs.c_ptr(), ante, is_lia, "arith_nl");
+        set_conflict(b, ante, "arith_nl");
         TRACE("non_linear", 
               for (unsigned i = 0; i < b.m_lits.size(); ++i) {
                   tout << b.m_lits[i] << " ";
