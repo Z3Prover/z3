@@ -3262,10 +3262,166 @@ final_check_status theory_str::final_check_eh() {
         return FC_DONE;
     }
 
+    // -----------------------------------------------------------
+    // variables in freeVar are those not bouned by Concats
+    // classify variables in freeVarMap:
+    // (1) freeVar = unroll(r1, t1)
+    // (2) vars are not bounded by either concat or unroll
+    // -----------------------------------------------------------
+    std::map<expr*, std::set<expr*> > fv_unrolls_map;
+    std::set<expr*> tmpSet;
+    expr * constValue = NULL;
+    for (std::map<expr*, int>::iterator fvIt2 = freeVar_map.begin(); fvIt2 != freeVar_map.end(); fvIt2++) {
+    	expr * var = fvIt2->first;
+    	tmpSet.clear();
+    	get_eqc_allUnroll(var, constValue, tmpSet);
+    	if (tmpSet.size() > 0) {
+    		fv_unrolls_map[var] = tmpSet;
+    	}
+    }
+    // erase var bounded by an unroll function from freeVar_map
+    for (std::map<expr*, std::set<expr*> >::iterator fvIt3 = fv_unrolls_map.begin();
+    		fvIt3 != fv_unrolls_map.end(); fvIt3++) {
+    	expr * var = fvIt3->first;
+    	freeVar_map.erase(var);
+    }
 
+    // collect the case:
+    //   * Concat(X, Y) = unroll(r1, t1) /\ Concat(X, Y) = unroll(r2, t2)
+    //     concatEqUnrollsMap[Concat(X, Y)] = {unroll(r1, t1), unroll(r2, t2)}
 
-    // TODO the rest...
-    NOT_IMPLEMENTED_YET();
+    std::map<expr*, std::set<expr*> > concatEqUnrollsMap;
+    for (std::map<expr*, std::set<expr*> >::iterator urItor = unrollGroup_map.begin();
+    		urItor != unrollGroup_map.end(); urItor++) {
+    	expr * unroll = urItor->first;
+    	expr * curr = unroll;
+    	do {
+    		if (is_concat(to_app(curr))) {
+    			concatEqUnrollsMap[curr].insert(unroll);
+    			concatEqUnrollsMap[curr].insert(unrollGroup_map[unroll].begin(), unrollGroup_map[unroll].end());
+    		}
+    		enode * e_curr = ctx.get_enode(curr);
+    		curr = e_curr->get_next()->get_owner();
+    		// curr = get_eqc_next(curr);
+    	} while (curr != unroll);
+    }
+
+    std::map<expr*, std::set<expr*> > concatFreeArgsEqUnrollsMap;
+    std::set<expr*> fvUnrollSet;
+    for (std::map<expr*, std::set<expr*> >::iterator concatItor = concatEqUnrollsMap.begin();
+    		concatItor != concatEqUnrollsMap.end(); concatItor++) {
+    	expr * concat = concatItor->first;
+    	expr * concatArg1 = to_app(concat)->get_arg(0);
+    	expr * concatArg2 = to_app(concat)->get_arg(1);
+    	bool arg1Bounded = false;
+    	bool arg2Bounded = false;
+    	// arg1
+		if (variable_set.find(concatArg1) != variable_set.end()) {
+			if (freeVar_map.find(concatArg1) == freeVar_map.end()) {
+				arg1Bounded = true;
+			} else {
+				fvUnrollSet.insert(concatArg1);
+			}
+		} else if (is_concat(to_app(concatArg1))) {
+			if (concatEqUnrollsMap.find(concatArg1) == concatEqUnrollsMap.end()) {
+				arg1Bounded = true;
+			}
+		}
+		// arg2
+		if (variable_set.find(concatArg2) != variable_set.end()) {
+			if (freeVar_map.find(concatArg2) == freeVar_map.end()) {
+				arg2Bounded = true;
+			} else {
+				fvUnrollSet.insert(concatArg2);
+			}
+		} else if (is_concat(to_app(concatArg2))) {
+			if (concatEqUnrollsMap.find(concatArg2) == concatEqUnrollsMap.end()) {
+				arg2Bounded = true;
+			}
+		}
+		if (!arg1Bounded && !arg2Bounded) {
+			concatFreeArgsEqUnrollsMap[concat].insert(
+					concatEqUnrollsMap[concat].begin(),
+					concatEqUnrollsMap[concat].end());
+		}
+    }
+    for (std::set<expr*>::iterator vItor = fvUnrollSet.begin(); vItor != fvUnrollSet.end(); vItor++) {
+    	freeVar_map.erase(*vItor);
+    }
+
+    // Assign free variables
+    std::set<expr*> fSimpUnroll;
+
+    constValue = NULL;
+
+    // TODO this would be a great place to print debugging information
+
+    // TODO process_concat_eq_unroll()
+    /*
+    for (std::map<expr*, std::set<expr*> >::iterator fvIt2 = concatFreeArgsEqUnrollsMap.begin();
+    		fvIt2 != concatFreeArgsEqUnrollsMap.end(); fvIt2++) {
+    	expr * concat = fvIt2->first;
+    	for (std::set<expr*>::iterator urItor = fvIt2->second.begin(); urItor != fvIt2->second.end(); urItor++) {
+    		Z3_ast unroll = *urItor;
+    		processConcatEqUnroll(concat, unroll);
+    	}
+    }
+    */
+
+    // --------
+    // experimental free variable assignment - begin
+    //   * special handling for variables that are not used in concat
+    // --------
+    bool testAssign = true;
+    if (!testAssign) {
+    	for (std::map<expr*, int>::iterator fvIt = freeVar_map.begin(); fvIt != freeVar_map.end(); fvIt++) {
+    		expr * freeVar = fvIt->first;
+    		/*
+    		std::string vName = std::string(Z3_ast_to_string(ctx, freeVar));
+    		if (vName.length() >= 9 && vName.substr(0, 9) == "$$_regVar") {
+    			continue;
+    		}
+    		*/
+    		// TODO if this variable represents a regular expression, continue
+    		expr * toAssert = gen_len_val_options_for_free_var(freeVar, NULL, "");
+    		if (toAssert != NULL) {
+    			assert_axiom(toAssert);
+    		}
+    	}
+    } else {
+    	process_free_var(freeVar_map);
+    }
+    // experimental free variable assignment - end
+
+    // TODO more unroll stuff
+    /*
+    for (std::map<expr*, std::set<expr*> >::iterator fvIt1 = fv_unrolls_map.begin();
+    		fvIt1 != fv_unrolls_map.end(); fvIt1++) {
+    	Z3_ast var = fvIt1->first;
+    	fSimpUnroll.clear();
+    	get_eqc_simpleUnroll(t, var, constValue, fSimpUnroll);
+    	if (fSimpUnroll.size() == 0) {
+    		genAssignUnrollReg(t, fv_unrolls_map[var]);
+    	} else {
+    		Z3_ast toAssert = genAssignUnrollStr2Reg(t, var, fSimpUnroll);
+    		if (toAssert != NULL) {
+    			addAxiom(t, toAssert, __LINE__);
+    		}
+    	}
+    }
+    */
+
+    return FC_CONTINUE; // since by this point we've added axioms
+}
+
+expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, std::string lenTesterValue) {
+	// TODO
+	NOT_IMPLEMENTED_YET();
+}
+
+void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
+	// TODO this one first
+	NOT_IMPLEMENTED_YET();
 }
 
 void theory_str::init_model(model_generator & mg) {

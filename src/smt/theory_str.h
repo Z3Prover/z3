@@ -153,6 +153,9 @@ namespace smt {
         void classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
         		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
 
+        expr * gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, std::string lenTesterValue);
+        void process_free_var(std::map<expr*, int> & freeVar_map);
+
         expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
         expr * getMostLeftNodeInConcat(expr * node);
         expr * getMostRightNodeInConcat(expr * node);
