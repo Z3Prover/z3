@@ -160,6 +160,10 @@ namespace smt {
         expr * getMostLeftNodeInConcat(expr * node);
         expr * getMostRightNodeInConcat(expr * node);
 
+        // strRegex
+
+        void get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet);
+
         void dump_assignments();
     public:
         theory_str(ast_manager & m);

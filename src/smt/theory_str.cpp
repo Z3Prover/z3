@@ -3263,7 +3263,7 @@ final_check_status theory_str::final_check_eh() {
     }
 
     // -----------------------------------------------------------
-    // variables in freeVar are those not bouned by Concats
+    // variables in freeVar are those not bounded by Concats
     // classify variables in freeVarMap:
     // (1) freeVar = unroll(r1, t1)
     // (2) vars are not bounded by either concat or unroll
@@ -3422,6 +3422,30 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 	// TODO this one first
 	NOT_IMPLEMENTED_YET();
+}
+
+/*
+ * Collect all unroll functions
+ * and constant string in eqc of node n
+ */
+void theory_str::get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet) {
+  constStr = NULL;
+  unrollFuncSet.clear();
+  context & ctx = get_context();
+
+  expr * curr = n;
+  do {
+    if (is_string(to_app(curr))) {
+      constStr = curr;
+    } else if (false) /*(td->Unroll == Z3_get_app_decl(ctx, Z3_to_app(ctx, curr)))*/ { // TODO
+      if (unrollFuncSet.find(curr) == unrollFuncSet.end()) {
+        unrollFuncSet.insert(curr);
+      }
+    }
+    enode * e_curr = ctx.get_enode(curr);
+    curr = e_curr->get_next()->get_owner();
+    // curr = get_eqc_next(t, curr);
+  } while (curr != n);
 }
 
 void theory_str::init_model(model_generator & mg) {
