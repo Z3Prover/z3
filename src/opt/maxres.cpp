@@ -188,6 +188,7 @@ public:
     }
 
     lbool mus_solver() {
+        lbool is_sat = l_true;
         init();
         init_local();
         trace();
@@ -198,7 +199,7 @@ public:
                   tout << "\n";
                   display(tout);
                   );
-            lbool is_sat = check_sat_hill_climb(m_asms);
+            is_sat = check_sat_hill_climb(m_asms);
             if (m_cancel) {
                 return l_undef;
             }
@@ -833,9 +834,7 @@ public:
                 s().assert_expr(m_asms[i].get());
             }
         }
-        else {
-            maxsmt_solver_base::commit_assignment();
-        }
+        // else: there is only a single assignment to these soft constraints.
     }
 
     void verify_core(exprs const& core) {

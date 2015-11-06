@@ -555,26 +555,11 @@ namespace smt {
         literal l(ctx.mk_bool_var(atom));
         ctx.set_var_theory(l.var(), get_id());
 
-        expr_ref bv_atom(m);
-        bv_atom = convert_atom(atom);
-        SASSERT(is_app(bv_atom) && m.is_bool(bv_atom));
-        bv_atom = m.mk_and(bv_atom, mk_side_conditions());
-
-        // CMW: Do not use assert_cnstr here; the internalizer expects normalized expressions.
-        // See GitHub issue #227
-        // assert_cnstr(m.mk_iff(atom, bv_atom));
-
-        ctx.internalize(atom, false);
-        ctx.internalize(bv_atom, false);
-        literal lit1(ctx.get_literal(atom));
-        literal lit2(ctx.get_literal(bv_atom));
-        ctx.mark_as_relevant(lit1);
-        ctx.mark_as_relevant(lit2);
-        literal lits1[2] = { lit1, ~lit2 };
-        literal lits2[2] = { ~lit1, lit2 };
-        ctx.mk_th_axiom(get_id(), 2, lits1);
-        ctx.mk_th_axiom(get_id(), 2, lits2);
-
+        expr_ref bv_atom(convert_atom(atom));
+        expr_ref bv_atom_w_side_c(m);
+        bv_atom_w_side_c = m.mk_and(bv_atom, mk_side_conditions());
+        m_th_rw(bv_atom_w_side_c);
+        assert_cnstr(m.mk_eq(atom, bv_atom_w_side_c));
         return true;
     }
 
@@ -752,10 +737,11 @@ namespace smt {
 
         expr_ref converted(m);
         converted = m.mk_and(convert(e), mk_side_conditions());
-        if (is_true)
-            assert_cnstr(m.mk_implies(e, converted));
-        else
-            assert_cnstr(m.mk_implies(m.mk_not(e), m.mk_not(converted)));
+
+        expr_ref cnstr(m);
+        cnstr = (is_true) ? m.mk_implies(e, converted) : m.mk_implies(converted, e);
+        m_th_rw(cnstr);
+        assert_cnstr(cnstr);
     }
 
     void theory_fpa::relevant_eh(app * n) {

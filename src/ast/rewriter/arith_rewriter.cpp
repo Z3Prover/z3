@@ -120,7 +120,7 @@ bool arith_rewriter::div_polynomial(expr * t, numeral const & g, const_treatment
     SASSERT(!g.is_one());
     unsigned sz;
     expr * const * ms = get_monomials(t, sz);
-    expr_ref_buffer new_args(m()); 
+    expr_ref_buffer new_args(m());
     numeral a;
     for (unsigned i = 0; i < sz; i++) {
         expr * arg = ms[i];
@@ -318,6 +318,7 @@ br_status arith_rewriter::reduce_power(expr * arg1, expr * arg2, op_kind kind, e
 }
 
 br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kind, expr_ref & result) {
+    expr *orig_arg1 = arg1, *orig_arg2 = arg2;
     expr_ref new_arg1(m());
     expr_ref new_arg2(m());
     if ((is_zero(arg1) && is_reduce_power_target(arg2, kind == EQ)) ||
@@ -357,21 +358,21 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
 
     if (m_anum_simp) {
         if (is_numeral(arg1, a1) && m_util.is_irrational_algebraic_numeral(arg2)) {
-            anum_manager & am = m_util.am();                              
+            anum_manager & am = m_util.am();
             scoped_anum v1(am);
             am.set(v1, a1.to_mpq());
             anum const & v2 = m_util.to_irrational_algebraic_numeral(arg2);
             ANUM_LE_GE_EQ();
         }
         if (m_util.is_irrational_algebraic_numeral(arg1) && is_numeral(arg2, a2)) {
-            anum_manager & am = m_util.am();                              
+            anum_manager & am = m_util.am();
             anum const & v1 = m_util.to_irrational_algebraic_numeral(arg1);
             scoped_anum v2(am);
             am.set(v2, a2.to_mpq());
             ANUM_LE_GE_EQ();
         }
         if (m_util.is_irrational_algebraic_numeral(arg1) && m_util.is_irrational_algebraic_numeral(arg2)) {
-            anum_manager & am = m_util.am();                              
+            anum_manager & am = m_util.am();
             anum const & v1 = m_util.to_irrational_algebraic_numeral(arg1);
             anum const & v2 = m_util.to_irrational_algebraic_numeral(arg2);
             ANUM_LE_GE_EQ();
@@ -384,7 +385,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
     bool is_int = m_util.is_int(arg1);
     if (is_int && m_gcd_rounding) {
         bool first = true;
-        numeral g; 
+        numeral g;
         unsigned num_consts = 0;
         get_coeffs_gcd(arg1, g, first, num_consts);
         TRACE("arith_rewriter_gcd", tout << "[step1] g: " << g << ", num_consts: " << num_consts << "\n";);
@@ -407,7 +408,11 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
             st = BR_DONE;
         }
     }
-    if (st != BR_FAILED) {
+    if (st == BR_DONE && arg1 == orig_arg1 && arg2 == orig_arg2) {
+        // Nothing new; return BR_FAILED to avoid rewriting loops.
+        return BR_FAILED;
+    }
+    else if (st != BR_FAILED) {
         switch (kind) {
         case LE: result = m_util.mk_le(arg1, arg2); return BR_DONE;
         case GE: result = m_util.mk_ge(arg1, arg2); return BR_DONE;
@@ -454,7 +459,7 @@ bool arith_rewriter::is_anum_simp_target(unsigned num_args, expr * const * args)
             if (num_irrat > 0)
                 return true;
         }
-        if (m_util.is_irrational_algebraic_numeral(args[i]) && 
+        if (m_util.is_irrational_algebraic_numeral(args[i]) &&
             m_util.am().degree(m_util.to_irrational_algebraic_numeral(args[i])) <= m_max_degree) {
             num_irrat++;
             if (num_irrat > 1 || num_rat > 0)
@@ -466,9 +471,9 @@ bool arith_rewriter::is_anum_simp_target(unsigned num_args, expr * const * args)
 
 br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, expr_ref & result) {
     if (is_anum_simp_target(num_args, args)) {
-        expr_ref_buffer new_args(m()); 
-        anum_manager & am = m_util.am();                              
-        scoped_anum r(am);     
+        expr_ref_buffer new_args(m());
+        anum_manager & am = m_util.am();
+        scoped_anum r(am);
         scoped_anum arg(am);
         rational rarg;
         am.set(r, 0);
@@ -478,13 +483,13 @@ br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, ex
                 new_args.push_back(m_util.mk_numeral(r, false));
                 am.set(r, 0);
             }
-            
+
             if (m_util.is_numeral(args[i], rarg)) {
                 am.set(arg, rarg.to_mpq());
                 am.add(r, arg, r);
                 continue;
             }
-            
+
             if (m_util.is_irrational_algebraic_numeral(args[i])) {
                 anum const & irarg = m_util.to_irrational_algebraic_numeral(args[i]);
                 if (am.degree(irarg) <= m_max_degree) {
@@ -516,9 +521,9 @@ br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, ex
 
 br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, expr_ref & result) {
     if (is_anum_simp_target(num_args, args)) {
-        expr_ref_buffer new_args(m()); 
-        anum_manager & am = m_util.am();                              
-        scoped_anum r(am);     
+        expr_ref_buffer new_args(m());
+        anum_manager & am = m_util.am();
+        scoped_anum r(am);
         scoped_anum arg(am);
         rational rarg;
         am.set(r, 1);
@@ -537,7 +542,7 @@ br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, ex
             if (m_util.is_irrational_algebraic_numeral(args[i])) {
                 anum const & irarg = m_util.to_irrational_algebraic_numeral(args[i]);
                 if (am.degree(irarg) <= m_max_degree) {
-                    am.mul(r, irarg, r);                    
+                    am.mul(r, irarg, r);
                     continue;
                 }
             }
@@ -550,7 +555,7 @@ br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, ex
             return BR_DONE;
         }
         new_args.push_back(m_util.mk_numeral(r, false));
-        
+
         br_status st = poly_rewriter<arith_rewriter_core>::mk_mul_core(new_args.size(), new_args.c_ptr(), result);
         if (st == BR_FAILED) {
             result = m().mk_app(get_fid(), OP_MUL, new_args.size(), new_args.c_ptr());
@@ -563,55 +568,55 @@ br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, ex
     }
 }
 
-br_status arith_rewriter::mk_div_irrat_rat(expr * arg1, expr * arg2, expr_ref & result) { 
-    SASSERT(m_util.is_real(arg1));                                              
-    SASSERT(m_util.is_irrational_algebraic_numeral(arg1));                      
-    SASSERT(m_util.is_numeral(arg2));                                           
-    anum_manager & am = m_util.am();                                            
-    anum const & val1  = m_util.to_irrational_algebraic_numeral(arg1);          
-    rational rval2;                                                             
+br_status arith_rewriter::mk_div_irrat_rat(expr * arg1, expr * arg2, expr_ref & result) {
+    SASSERT(m_util.is_real(arg1));
+    SASSERT(m_util.is_irrational_algebraic_numeral(arg1));
+    SASSERT(m_util.is_numeral(arg2));
+    anum_manager & am = m_util.am();
+    anum const & val1  = m_util.to_irrational_algebraic_numeral(arg1);
+    rational rval2;
     VERIFY(m_util.is_numeral(arg2, rval2));
     if (rval2.is_zero())
         return BR_FAILED;
-    scoped_anum val2(am);                                                       
-    am.set(val2, rval2.to_mpq());                                                        
-    scoped_anum r(am);                                                          
-    am.div(val1, val2, r);                                                       
-    result = m_util.mk_numeral(r, false);                                       
-    return BR_DONE;                                                             
-}
-
-br_status arith_rewriter::mk_div_rat_irrat(expr * arg1, expr * arg2, expr_ref & result) { 
-    SASSERT(m_util.is_real(arg1));                                              
-    SASSERT(m_util.is_numeral(arg1));                                           
-    SASSERT(m_util.is_irrational_algebraic_numeral(arg2));                      
-    anum_manager & am = m_util.am();                                            
-    rational rval1;                                                             
-    VERIFY(m_util.is_numeral(arg1, rval1));
-    scoped_anum val1(am);                                                       
-    am.set(val1, rval1.to_mpq());
-    anum const & val2  = m_util.to_irrational_algebraic_numeral(arg2);          
-    scoped_anum r(am);                                                          
-    am.div(val1, val2, r);                                                       
-    result = m_util.mk_numeral(r, false);                                       
-    return BR_DONE;                                                             
-}
-
-br_status arith_rewriter::mk_div_irrat_irrat(expr * arg1, expr * arg2, expr_ref & result) {  
-    SASSERT(m_util.is_real(arg1));                                              
-    SASSERT(m_util.is_irrational_algebraic_numeral(arg1));                      
-    SASSERT(m_util.is_irrational_algebraic_numeral(arg2));                      
-    anum_manager & am = m_util.am();                                            
-    anum const & val1  = m_util.to_irrational_algebraic_numeral(arg1);          
-    if (am.degree(val1) > m_max_degree)                                    
-        return BR_FAILED;                                                       
-    anum const & val2  = m_util.to_irrational_algebraic_numeral(arg2);          
-    if (am.degree(val2) > m_max_degree)                                    
-        return BR_FAILED;                                                       
+    scoped_anum val2(am);
+    am.set(val2, rval2.to_mpq());
     scoped_anum r(am);
     am.div(val1, val2, r);
     result = m_util.mk_numeral(r, false);
-    return BR_DONE;                                       
+    return BR_DONE;
+}
+
+br_status arith_rewriter::mk_div_rat_irrat(expr * arg1, expr * arg2, expr_ref & result) {
+    SASSERT(m_util.is_real(arg1));
+    SASSERT(m_util.is_numeral(arg1));
+    SASSERT(m_util.is_irrational_algebraic_numeral(arg2));
+    anum_manager & am = m_util.am();
+    rational rval1;
+    VERIFY(m_util.is_numeral(arg1, rval1));
+    scoped_anum val1(am);
+    am.set(val1, rval1.to_mpq());
+    anum const & val2  = m_util.to_irrational_algebraic_numeral(arg2);
+    scoped_anum r(am);
+    am.div(val1, val2, r);
+    result = m_util.mk_numeral(r, false);
+    return BR_DONE;
+}
+
+br_status arith_rewriter::mk_div_irrat_irrat(expr * arg1, expr * arg2, expr_ref & result) {
+    SASSERT(m_util.is_real(arg1));
+    SASSERT(m_util.is_irrational_algebraic_numeral(arg1));
+    SASSERT(m_util.is_irrational_algebraic_numeral(arg2));
+    anum_manager & am = m_util.am();
+    anum const & val1  = m_util.to_irrational_algebraic_numeral(arg1);
+    if (am.degree(val1) > m_max_degree)
+        return BR_FAILED;
+    anum const & val2  = m_util.to_irrational_algebraic_numeral(arg2);
+    if (am.degree(val2) > m_max_degree)
+        return BR_FAILED;
+    scoped_anum r(am);
+    am.div(val1, val2, r);
+    result = m_util.mk_numeral(r, false);
+    return BR_DONE;
 }
 
 br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & result) {
@@ -681,7 +686,7 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
     }
     return BR_FAILED;
 }
- 
+
 br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(m().get_sort(arg1));
     numeral v1, v2;
@@ -690,7 +695,7 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         result = m_util.mk_numeral(mod(v1, v2), is_int);
         return BR_DONE;
     }
-    
+
     if (m_util.is_numeral(arg2, v2, is_int) && is_int && v2.is_one()) {
         result = m_util.mk_numeral(numeral(0), true);
         return BR_DONE;
@@ -728,7 +733,7 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         TRACE("mod_bug", tout << "mk_mod result: " << mk_ismt2_pp(result, m()) << "\n";);
         return BR_REWRITE3;
     }
-  
+
     return BR_FAILED;
 }
 
@@ -782,8 +787,8 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     bool is_num_x    = m_util.is_numeral(arg1, x);
     bool is_num_y    = m_util.is_numeral(arg2, y);
     bool is_int_sort = m_util.is_int(arg1);
-    
-    if ((is_num_x && x.is_one()) || 
+
+    if ((is_num_x && x.is_one()) ||
         (is_num_y && y.is_one())) {
         result = arg1;
         return BR_DONE;
@@ -792,8 +797,8 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     if (is_num_x && is_num_y) {
         if (x.is_zero() && y.is_zero())
             return BR_FAILED;
-        
-        if (y.is_zero()) { 
+
+        if (y.is_zero()) {
             result = m_util.mk_numeral(rational(1), m().get_sort(arg1));
             return BR_DONE;
         }
@@ -803,12 +808,12 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
             return BR_DONE;
         }
 
-        if (y.is_unsigned() && y.get_unsigned() <= m_max_degree) { 
+        if (y.is_unsigned() && y.get_unsigned() <= m_max_degree) {
             x = power(x, y.get_unsigned());
             result = m_util.mk_numeral(x, m().get_sort(arg1));
             return BR_DONE;
         }
-        
+
         if (!is_int_sort && (-y).is_unsigned() && (-y).get_unsigned() <= m_max_degree) {
             x = power(rational(1)/x, (-y).get_unsigned());
             result = m_util.mk_numeral(x, m().get_sort(arg1));
@@ -854,10 +859,10 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         return BR_FAILED;
 
     bool is_irrat_x = m_util.is_irrational_algebraic_numeral(arg1);
-    
-    if (!is_num_x && !is_irrat_x) 
+
+    if (!is_num_x && !is_irrat_x)
         return BR_FAILED;
-    
+
     rational num_y = numerator(y);
     rational den_y = denominator(y);
     bool is_neg_y  = false;
@@ -867,7 +872,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     }
     SASSERT(num_y.is_pos());
     SASSERT(den_y.is_pos());
-    
+
     if (is_neg_y && is_int_sort)
         return BR_FAILED;
 
@@ -876,10 +881,10 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 
     unsigned u_num_y = num_y.get_unsigned();
     unsigned u_den_y = den_y.get_unsigned();
-    
+
     if (u_num_y > m_max_degree || u_den_y > m_max_degree)
         return BR_FAILED;
-    
+
     if (is_num_x) {
         rational xk, r;
         xk = power(x, u_num_y);
@@ -984,7 +989,7 @@ br_status arith_rewriter::mk_to_real_core(expr * arg, expr_ref & result) {
             for (unsigned i = 0; i < num; i++) {
                 new_args.push_back(m_util.mk_to_real(to_app(arg)->get_arg(i)));
             }
-            if (m_util.is_add(arg)) 
+            if (m_util.is_add(arg))
                 result = m().mk_app(get_fid(), OP_ADD, new_args.size(), new_args.c_ptr());
             else
                 result = m().mk_app(get_fid(), OP_MUL, new_args.size(), new_args.c_ptr());
@@ -1052,9 +1057,9 @@ bool arith_rewriter::is_pi_offset(expr * t, rational & k, expr * & m) {
 bool arith_rewriter::is_2_pi_integer(expr * t) {
     expr * a, * m, * b, * c;
     rational k;
-    return 
-        m_util.is_mul(t, a, m) && 
-        m_util.is_numeral(a, k) && 
+    return
+        m_util.is_mul(t, a, m) &&
+        m_util.is_numeral(a, k) &&
         k.is_int() &&
         mod(k, rational(2)).is_zero() &&
         m_util.is_mul(m, b, c) &&
@@ -1094,7 +1099,7 @@ bool arith_rewriter::is_pi_integer(expr * t) {
         TRACE("tan", tout << "is_pi_integer " << mk_ismt2_pp(t, m()) << "\n";
               tout << "a: " << mk_ismt2_pp(a, m()) << "\n";
               tout << "b: " << mk_ismt2_pp(b, m()) << "\n";);
-        return 
+        return
             (m_util.is_pi(a) && m_util.is_to_real(b)) ||
             (m_util.is_to_real(a) && m_util.is_pi(b));
     }
@@ -1130,7 +1135,7 @@ expr * arith_rewriter::mk_sin_value(rational const & k) {
     bool     neg = false;
     if (k_prime >= rational(1)) {
         neg     = true;
-        k_prime = k_prime - rational(1); 
+        k_prime = k_prime - rational(1);
     }
     SASSERT(k_prime >= rational(0) && k_prime < rational(1));
     if (k_prime.is_zero() || k_prime.is_one()) {
@@ -1342,7 +1347,7 @@ br_status arith_rewriter::mk_tan_core(expr * arg, expr_ref & result) {
 }
 
 br_status arith_rewriter::mk_asin_core(expr * arg, expr_ref & result) {
-    // Remark: we assume that ForAll x : asin(-x) == asin(x). 
+    // Remark: we assume that ForAll x : asin(-x) == asin(x).
     // Mathematica uses this as an axiom. Although asin is an underspecified function for x < -1 or x > 1.
     // Actually, in Mathematica, asin(x) is a total function that returns a complex number fo x < -1 or x > 1.
     rational k;
@@ -1355,13 +1360,13 @@ br_status arith_rewriter::mk_asin_core(expr * arg, expr_ref & result) {
             // asin(-2) == -asin(2)
             // asin(-3) == -asin(3)
             k.neg();
-            result = m_util.mk_uminus(m_util.mk_asin(m_util.mk_numeral(k, false)));            
+            result = m_util.mk_uminus(m_util.mk_asin(m_util.mk_numeral(k, false)));
             return BR_REWRITE2;
         }
 
         if (k > rational(1))
             return BR_FAILED;
-        
+
         bool neg = false;
         if (k.is_neg()) {
             neg = true;
@@ -1450,7 +1455,7 @@ br_status arith_rewriter::mk_atan_core(expr * arg, expr_ref & result) {
             // atan(-2) == -tan(2)
             // atan(-3) == -tan(3)
             k.neg();
-            result = m_util.mk_uminus(m_util.mk_atan(m_util.mk_numeral(k, false)));            
+            result = m_util.mk_uminus(m_util.mk_atan(m_util.mk_numeral(k, false)));
             return BR_REWRITE2;
         }
         return BR_FAILED;

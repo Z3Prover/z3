@@ -412,6 +412,10 @@ namespace smt {
             return 0;
         }
 
+        virtual bool include_func_interp(func_decl* f) {
+            return false;
+        }
+
         // -----------------------------------
         //
         // Model checker

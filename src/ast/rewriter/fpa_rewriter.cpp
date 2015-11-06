@@ -439,7 +439,7 @@ br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
     if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
         if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2)) {
             result = m().mk_app(get_fid(), OP_FPA_INTERNAL_MIN_UNSPECIFIED, arg1, arg2);
-            return BR_DONE;
+            return BR_REWRITE1;
         }
         else {
             scoped_mpf r(m_fm);
@@ -474,7 +474,7 @@ br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
     if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
         if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2)) {
             result = m().mk_app(get_fid(), OP_FPA_INTERNAL_MAX_UNSPECIFIED, arg1, arg2);
-            return BR_DONE;
+            return BR_REWRITE1;
         }
         else {
             scoped_mpf r(m_fm);
