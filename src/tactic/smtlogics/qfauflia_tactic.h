@@ -25,4 +25,8 @@ class tactic;
 
 tactic * mk_qfauflia_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("qfauflia",  "builtin strategy for solving QF_AUFLIA problems.", "mk_qfauflia_tactic(m, p)")
+*/
+
 #endif
