@@ -205,7 +205,7 @@ namespace smt {
             for (; it != end; ++it) {
                 display_literal(out, *it);
                 out << ": ";
-                display_verbose(tout, m_manager, 1, &*it, m_bool_var2expr.c_ptr());
+                display_verbose(out, m_manager, 1, &*it, m_bool_var2expr.c_ptr());
                 out << "\n";
             }
         }
