@@ -204,7 +204,7 @@ struct scoped_timer::imp {
             throw default_exception("failed to destroy pthread attributes object");
 #elif defined(_LINUX_) || defined(_FREEBSD_)
     // Linux & FreeBSD
-    timer_delete(m_timerid);
+        timer_delete(m_timerid);
 #else
     // Other Platforms
 #endif

@@ -52,7 +52,7 @@ namespace smt {
                 // contain invalid (key -> value) pairs. So, we must check whether v2 is really equal to val (previous test) AND it has
                 // the same sort of v. The following test was missing in a previous version of Z3. 
                 if (!is_equal(v, v2) && is_int(v) == is_int(v2)) {
-                    antecedents& ante = get_antecedents();
+                    antecedents ante(*this);
 
                     //
                     // v <= k <= v2  => v <= v2
@@ -241,7 +241,7 @@ namespace smt {
                     is_int(x) == is_int(x2) &&
                     !is_equal(x, x2)) {
 
-                    antecedents& ante = get_antecedents(); 
+                    antecedents ante(*this);
                     collect_fixed_var_justifications(r, ante);
 
                     //
@@ -256,7 +256,7 @@ namespace smt {
 
             if (k.is_zero() && y != null_theory_var && !is_equal(x, y) && is_int(x) == is_int(y)) {
                 // found equality x = y
-                antecedents& ante = get_antecedents(); 
+                antecedents ante(*this);
                 collect_fixed_var_justifications(r, ante);
                 TRACE("propagate_cheap_eq", tout << "propagate eq using x-y=0 row:\n"; display_row_info(tout, r););
                 m_stats.m_offset_eqs++;
@@ -296,7 +296,7 @@ namespace smt {
                     if (new_eq) {
                         if (!is_equal(x, x2) && is_int(x) == is_int(x2)) {
                             SASSERT(y == y2 && k == k2);
-                            antecedents& ante = get_antecedents();                             
+                            antecedents ante(*this);
                             collect_fixed_var_justifications(r, ante);
                             collect_fixed_var_justifications(r2, ante);
                             TRACE("propagate_cheap_eq", tout << "propagate eq two rows:\n"; 

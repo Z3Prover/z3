@@ -201,12 +201,13 @@ namespace smt {
         SASSERT(is_int(v));
         SASSERT(!get_value(v).is_int());
         m_stats.m_branches++;
-        TRACE("arith_branching", tout << "branching v" << v << " = " << get_value(v) << "\n";
+        TRACE("arith_int", tout << "branching v" << v << " = " << get_value(v) << "\n";
               display_var(tout, v););
         numeral k     = ceil(get_value(v));
         rational _k   = k.to_rational();
-        expr * bound  = m_util.mk_ge(get_enode(v)->get_owner(), m_util.mk_numeral(_k, true));
-        TRACE("arith_branching", tout << mk_bounded_pp(bound, get_manager()) << "\n";);
+        expr_ref bound(get_manager());
+        bound  = m_util.mk_ge(get_enode(v)->get_owner(), m_util.mk_numeral(_k, true));
+        TRACE("arith_int", tout << mk_bounded_pp(bound, get_manager()) << "\n";);
         context & ctx = get_context();
         ctx.internalize(bound, true);
         ctx.mark_as_relevant(bound);
@@ -452,11 +453,11 @@ namespace smt {
         expr_ref pol(m);
         pol = m_util.mk_add(_args.size(), _args.c_ptr());
         result = m_util.mk_ge(pol, m_util.mk_numeral(k, all_int));
-        TRACE("arith_mk_polynomial", tout << "before simplification:\n" << mk_pp(pol, m) << "\n";);
+        TRACE("arith_mk_polynomial", tout << "before simplification:\n" << result << "\n";);
         simplifier & s = get_context().get_simplifier();
         proof_ref pr(m);
         s(result, result, pr);
-        TRACE("arith_mk_polynomial", tout << "after simplification:\n" << mk_pp(pol, m) << "\n";);
+        TRACE("arith_mk_polynomial", tout << "after simplification:\n" << result << "\n";);
         SASSERT(is_well_sorted(get_manager(), result));
     }
 
@@ -498,7 +499,7 @@ namespace smt {
 
         TRACE("gomory_cut", tout << "applying cut at:\n"; display_row_info(tout, r););
         
-        antecedents& ante = get_antecedents();
+        antecedents ante(*this);
 
         m_stats.m_gomory_cuts++;
 
@@ -508,6 +509,8 @@ namespace smt {
         
         numeral f_0  = Ext::fractional_part(m_value[x_i]);
         numeral one_minus_f_0 = numeral(1) - f_0; 
+        SASSERT(!f_0.is_zero());
+        SASSERT(!one_minus_f_0.is_zero());
         
         numeral lcm_den(1);
         unsigned num_ints = 0;
@@ -521,36 +524,30 @@ namespace smt {
                 a_ij.neg();  // make the used format compatible with the format used in: Integrating Simplex with DPLL(T)
                 if (is_real(x_j)) {
                     numeral new_a_ij;
-                    TRACE("gomory_cut_detail", tout << a_ij << "*v" << x_j << "\n";);
                     if (at_lower(x_j)) {
                         if (a_ij.is_pos()) {
                             new_a_ij  =  a_ij / one_minus_f_0;
                         }
                         else {
-                            TRUSTME(!f_0.is_zero());
                             new_a_ij  =  a_ij / f_0;
                             new_a_ij.neg();
                         }
-                        // k += new_a_ij * lower_bound(x_j).get_rational();
                         k.addmul(new_a_ij, lower_bound(x_j).get_rational());
                         lower(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
                     }
                     else {
                         SASSERT(at_upper(x_j));
                         if (a_ij.is_pos()) {
-                            TRUSTME(!f_0.is_zero());
                             new_a_ij =   a_ij / f_0; 
                             new_a_ij.neg(); // the upper terms are inverted.
                         }
                         else {
-                            // new_a_ij = - a_ij / one_minus_f_0
-                            // new_a_ij.neg() // the upper terms are inverted
-                            new_a_ij =   a_ij / one_minus_f_0;  
+                            new_a_ij =   a_ij / one_minus_f_0; 
                         }
-                        // k += new_a_ij * upper_bound(x_j).get_rational();
                         k.addmul(new_a_ij, upper_bound(x_j).get_rational());
                         upper(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
                     }
+                    TRACE("gomory_cut_detail", tout << a_ij << "*v" << x_j << " k: " << k << "\n";);
                     pol.push_back(row_entry(new_a_ij, x_j));
                 }
                 else {
@@ -572,7 +569,6 @@ namespace smt {
                             else {
                                 new_a_ij = (numeral(1) - f_j) / f_0;
                             }
-                            // k += new_a_ij * lower_bound(x_j).get_rational();
                             k.addmul(new_a_ij, lower_bound(x_j).get_rational());
                             lower(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
                         }
@@ -585,11 +581,10 @@ namespace smt {
                                 new_a_ij = (numeral(1) - f_j) / one_minus_f_0;
                             }
                             new_a_ij.neg(); // the upper terms are inverted
-                            // k += new_a_ij * upper_bound(x_j).get_rational();
                             k.addmul(new_a_ij, upper_bound(x_j).get_rational());
                             upper(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
                         }
-                        TRACE("gomory_cut_detail", tout << "new_a_ij: " << new_a_ij << "\n";);
+                        TRACE("gomory_cut_detail", tout << "new_a_ij: " << new_a_ij << " k: " << k << "\n";);
                         pol.push_back(row_entry(new_a_ij, x_j));
                         lcm_den = lcm(lcm_den, denominator(new_a_ij));
                     }
@@ -603,7 +598,7 @@ namespace smt {
         if (pol.empty()) {
             SASSERT(k.is_pos());
             // conflict 0 >= k where k is positive
-            set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), ante, true, "gomory-cut");
+            set_conflict(ante, ante, "gomory-cut");
             return true;
         }
         else if (pol.size() == 1) {
@@ -639,18 +634,19 @@ namespace smt {
                 }
                 TRACE("gomory_cut_detail", tout << "after *lcm\n";
                       for (unsigned i = 0; i < pol.size(); i++) {
-                          tout << pol[i].m_coeff << " " << pol[i].m_var << "\n";
+                          tout << pol[i].m_coeff << " * v" << pol[i].m_var << "\n";
                       }
                       tout << "k: " << k << "\n";);
             }
             mk_polynomial_ge(pol.size(), pol.c_ptr(), k.to_rational(), bound);            
         }
-        TRACE("gomory_cut", tout << "new cut:\n" << mk_pp(bound, get_manager()) << "\n";);
+        TRACE("gomory_cut", tout << "new cut:\n" << bound << "\n"; ante.display(tout););
         literal l     = null_literal;
         context & ctx = get_context();
         ctx.internalize(bound, true);
         l = ctx.get_literal(bound);
         ctx.mark_as_relevant(l);
+        dump_lemmas(l, ante);
         ctx.assign(l, ctx.mk_justification(
                        gomory_cut_justification(
                            get_id(), ctx.get_region(), 
@@ -721,7 +717,7 @@ namespace smt {
 
         if (!(consts / gcds).is_int()) {
             TRACE("gcd_test", tout << "row failed the GCD test:\n"; display_row_info(tout, r););
-            antecedents& ante = get_antecedents();
+            antecedents ante(*this);
             collect_fixed_var_justifications(r, ante);
             context & ctx         = get_context();
             ctx.set_conflict(
@@ -754,7 +750,7 @@ namespace smt {
         numeral l(consts);
         numeral u(consts);
 
-        antecedents& ante = get_antecedents();
+        antecedents ante(*this);
 
 
         typename vector<row_entry>::const_iterator it  = r.begin_entries();
