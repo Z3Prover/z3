@@ -27,19 +27,19 @@ namespace smt {
 
     std::ostream& context::display_last_failure(std::ostream& out) const {
         switch(m_last_search_failure) {
-        case OK: 
+        case OK:
             return out << "OK";
-        case UNKNOWN: 
+        case UNKNOWN:
             return out << "UNKNOWN";
         case TIMEOUT:
             return out << "TIMEOUT";
-        case MEMOUT: 
+        case MEMOUT:
             return out << "MEMOUT";
-        case CANCELED: 
+        case CANCELED:
             return out << "CANCELED";
-        case NUM_CONFLICTS: 
+        case NUM_CONFLICTS:
             return out << "NUM_CONFLICTS";
-        case THEORY: 
+        case THEORY:
             if (!m_incomplete_theories.empty()) {
                 ptr_vector<theory>::const_iterator it  = m_incomplete_theories.begin();
                 ptr_vector<theory>::const_iterator end = m_incomplete_theories.end();
@@ -52,7 +52,7 @@ namespace smt {
                 out << "THEORY";
             }
             return out;
-        case QUANTIFIERS: 
+        case QUANTIFIERS:
             return out << "QUANTIFIERS";
         }
         UNREACHABLE();
@@ -78,18 +78,18 @@ namespace smt {
             r += "))";
             break;
         }
-        case QUANTIFIERS: r = "(incomplete quantifiers)"; break;    
+        case QUANTIFIERS: r = "(incomplete quantifiers)"; break;
         case UNKNOWN: r = "incomplete"; break;
         }
         return r;
     }
-    
+
     void context::display_asserted_formulas(std::ostream & out) const {
         m_asserted_formulas.display_ll(out, get_pp_visited());
     }
 
     void context::display_literal(std::ostream & out, literal l) const {
-        l.display_compact(out, m_bool_var2expr.c_ptr());      
+        l.display_compact(out, m_bool_var2expr.c_ptr());
     }
 
     void context::display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const {
@@ -151,16 +151,16 @@ namespace smt {
         for (unsigned i = 0; i < num_lits; i++) {
             literal l = cls->get_literal(i);
             display_literal(out, l);
-            out << ", val: " << get_assignment(l) << ", lvl: " << get_assign_level(l) 
-                << ", ilvl: " << get_intern_level(l.var()) << ", var: " << l.var() << "\n" 
+            out << ", val: " << get_assignment(l) << ", lvl: " << get_assign_level(l)
+                << ", ilvl: " << get_intern_level(l.var()) << ", var: " << l.var() << "\n"
                 << mk_pp(bool_var2expr(l.var()), m_manager) << "\n\n";
         }
     }
-    
+
     void context::display_clause(std::ostream & out, clause const * cls) const {
         cls->display_compact(out, m_manager, m_bool_var2expr.c_ptr());
     }
-    
+
     void context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
         ptr_vector<clause>::const_iterator it  = v.begin();
         ptr_vector<clause>::const_iterator end = v.end();
@@ -201,11 +201,11 @@ namespace smt {
         if (!m_assigned_literals.empty()) {
             out << "current assignment:\n";
             literal_vector::const_iterator it  = m_assigned_literals.begin();
-            literal_vector::const_iterator end = m_assigned_literals.end();        
+            literal_vector::const_iterator end = m_assigned_literals.end();
             for (; it != end; ++it) {
                 display_literal(out, *it);
                 out << ": ";
-                display_verbose(tout, m_manager, 1, &*it, m_bool_var2expr.c_ptr());
+                DEBUG_CODE({ display_verbose(tout, m_manager, 1, &*it, m_bool_var2expr.c_ptr()); });
                 out << "\n";
             }
         }
@@ -217,7 +217,7 @@ namespace smt {
         pp.set_status("unknown");
         pp.set_logic(logic);
         literal_vector::const_iterator it  = m_assigned_literals.begin();
-        literal_vector::const_iterator end = m_assigned_literals.end(); 
+        literal_vector::const_iterator end = m_assigned_literals.end();
         for (; it != end; ++it) {
             expr_ref n(m_manager);
             literal2expr(*it, n);
@@ -302,7 +302,7 @@ namespace smt {
             th->display(out);
         }
     }
-    
+
     void context::display(std::ostream & out) const {
         get_pp_visited().reset();
         out << "Logical context:\n";
@@ -337,16 +337,16 @@ namespace smt {
 
     void context::display_eq_detail(std::ostream & out, enode * n) const {
         SASSERT(n->is_eq());
-        out << "#" << n->get_owner_id() 
-            << ", root: #" << n->get_root()->get_owner_id() 
+        out << "#" << n->get_owner_id()
+            << ", root: #" << n->get_root()->get_owner_id()
             << ", cg: #" << n->m_cg->get_owner_id()
-            << ", val: " << get_assignment(enode2bool_var(n)) 
-            << ", lhs: #" << n->get_arg(0)->get_owner_id() 
-            << ", rhs: #" << n->get_arg(1)->get_owner_id() 
-            << ", lhs->root: #" << n->get_arg(0)->get_root()->get_owner_id() 
-            << ", rhs->root: #" << n->get_arg(1)->get_root()->get_owner_id() 
+            << ", val: " << get_assignment(enode2bool_var(n))
+            << ", lhs: #" << n->get_arg(0)->get_owner_id()
+            << ", rhs: #" << n->get_arg(1)->get_owner_id()
+            << ", lhs->root: #" << n->get_arg(0)->get_root()->get_owner_id()
+            << ", rhs->root: #" << n->get_arg(1)->get_root()->get_owner_id()
             << ", is_marked: " << n->is_marked()
-            << ", is_relevant: " << is_relevant(n) 
+            << ", is_relevant: " << is_relevant(n)
             << ", iscope_lvl: " << n->get_iscope_lvl() << "\n";
     }
 
@@ -355,7 +355,7 @@ namespace smt {
         enode_vector::iterator end = n->end_parents();
         for (; it != end; ++it) {
             enode * parent = *it;
-            if (parent->is_eq()) 
+            if (parent->is_eq())
                 display_eq_detail(out, parent);
         }
     }
@@ -448,7 +448,7 @@ namespace smt {
         g_lemma_id++;
     }
 
-    void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents, 
+    void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
                                                literal consequent, const char * logic) const {
         ast_smt_pp pp(m_manager);
@@ -472,7 +472,7 @@ namespace smt {
         pp.display_smt2(out, n);
     }
 
-    void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, 
+    void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
                                                literal consequent, const char * logic) const {
         char buffer[BUFFER_SZ];
@@ -534,7 +534,7 @@ namespace smt {
             n->display_lbls(out);
         }
     }
-    
+
     void context::display_decl2enodes(std::ostream & out) const {
         out << "decl2enodes:\n";
         vector<enode_vector>::const_iterator it1  = m_decl2enodes.begin();
@@ -545,7 +545,7 @@ namespace smt {
                 out << "id " << id << " ->";
                 enode_vector::const_iterator it2  = v.begin();
                 enode_vector::const_iterator end2 = v.end();
-                for (; it2 != end2; ++it2) 
+                for (; it2 != end2; ++it2)
                     out << " #" << (*it2)->get_owner_id();
                 out << "\n";
             }
@@ -568,7 +568,7 @@ namespace smt {
                 out << std::right;
                 if (lit_internalized(n))
                     out << get_assignment(n);
-                else 
+                else
                     out << "l_undef";
             }
             if (e_internalized(n)) {
@@ -577,12 +577,12 @@ namespace smt {
             }
             out << "\n";
             if (is_app(n)) {
-                for (unsigned i = 0; i < to_app(n)->get_num_args(); i++) 
+                for (unsigned i = 0; i < to_app(n)->get_num_args(); i++)
                     todo.push_back(to_app(n)->get_arg(i));
             }
         }
     }
-   
+
     void context::display(std::ostream& out, b_justification j) const {
         switch (j.get_kind()) {
         case b_justification::AXIOM:
