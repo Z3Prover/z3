@@ -291,6 +291,17 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create a clone of the current solver with respect to <c>ctx</c>.
+        /// </summary>
+        public Solver Translate(Context ctx) 
+        {
+	     Contract.Requires(ctx != null);
+             Contract.Ensures(Contract.Result<Solver>() != null);
+             return new Solver(ctx, Native.Z3_solver_translate(Context.nCtx, NativeObject, ctx.nCtx));
+        }
+
+
+        /// <summary>
         /// Solver statistics.
         /// </summary>
         public Statistics Statistics

@@ -37,6 +37,12 @@ namespace smt {
             if (m_logic != symbol::null)
                 m_context.set_logic(m_logic);
         }
+
+        virtual solver* translate(ast_manager& m, params_ref const& p) {            
+            solver* result = alloc(solver, m, p, m_logic);
+            smt::kernel::copy(m_context, result->m_context);
+            return result;
+        }
         
         virtual ~solver() {
         }

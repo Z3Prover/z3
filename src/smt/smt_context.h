@@ -1326,8 +1326,17 @@ namespace smt {
         // -----------------------------------
         void assert_expr_core(expr * e, proof * pr);
 
+        // copy plugins into a fresh context.
+        void copy_plugins(context& src, context& dst);
+
+        static literal translate_literal(
+            literal lit, context& src_ctx, context& dst_ctx,
+            vector<bool_var> b2v, ast_translation& tr);
+
+
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
+
 
         virtual ~context();
 
@@ -1339,6 +1348,12 @@ namespace smt {
            If p == 0, then this->m_params is used
         */
         context * mk_fresh(symbol const * l = 0,  smt_params * p = 0);
+
+        static void copy(context& src, context& dst);
+
+        /**
+           \brief Translate context to use new manager m.
+         */
 
         app * mk_eq_atom(expr * lhs, expr * rhs);
 

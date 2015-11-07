@@ -1359,9 +1359,13 @@ namespace z3 {
             Z3_solver_inc_ref(ctx(), s);
         }
     public:
+        struct simple {};
+        struct translate {};
         solver(context & c):object(c) { init(Z3_mk_solver(c)); }
+        solver(context & c, simple):object(c) { init(Z3_mk_simple_solver(c)); }
         solver(context & c, Z3_solver s):object(c) { init(s); }
         solver(context & c, char const * logic):object(c) { init(Z3_mk_solver_for_logic(c, c.str_symbol(logic))); }
+        solver(context & c, solver const& src, translate): object(c) { init(Z3_solver_translate(src.ctx(), src, c)); }
         solver(solver const & s):object(s) { init(s.m_solver); }
         ~solver() { Z3_solver_dec_ref(ctx(), m_solver); }
         operator Z3_solver() const { return m_solver; }

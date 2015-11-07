@@ -58,9 +58,9 @@ public:
 
     template<typename T>
     T * operator()(T const * n) { 
-        SASSERT(from().contains(const_cast<T*>(n)));
+        SASSERT(!n || from().contains(const_cast<T*>(n)));
         ast * r = process(n);
-        SASSERT(to().contains(const_cast<ast*>(r)));
+        SASSERT((!n && !r) || to().contains(const_cast<ast*>(r)));
         return static_cast<T*>(r);
     }
 

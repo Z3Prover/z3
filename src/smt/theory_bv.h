@@ -253,7 +253,7 @@ namespace smt {
         theory_bv(ast_manager & m, theory_bv_params const & params, bit_blaster_params const & bb_params);
         virtual ~theory_bv();
         
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_bv, get_manager(), m_params, m_bb.get_params()); }
+        virtual theory * mk_fresh(context * new_ctx);
 
         virtual char const * get_name() const { return "bit-vector"; }
 

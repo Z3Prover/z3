@@ -50,6 +50,8 @@ namespace smt {
 
         ~kernel();
 
+        static void copy(kernel& src, kernel& dst);
+
         ast_manager & m() const;
         
         /**

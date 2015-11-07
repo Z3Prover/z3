@@ -519,6 +519,7 @@ void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("complement",OP_SET_COMPLEMENT));
         op_names.push_back(builtin_name("subset",OP_SET_SUBSET));
         op_names.push_back(builtin_name("as-array", OP_AS_ARRAY));
+        //op_names.push_back(builtin_name("array-ext", OP_ARRAY_EXT_SKOLEM));
     }
 }
 
