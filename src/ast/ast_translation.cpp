@@ -184,6 +184,7 @@ void ast_translation::mk_func_decl(func_decl * f, frame & fr) {
 }
 
 ast * ast_translation::process(ast const * _n) {
+    if (!_n) return 0;
     SASSERT(m_result_stack.empty());
     SASSERT(m_frame_stack.empty());
     SASSERT(m_extra_children_stack.empty());

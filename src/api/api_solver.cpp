@@ -97,6 +97,19 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    Z3_solver Z3_API Z3_solver_translate(Z3_context c, Z3_solver s, Z3_context target) {
+        Z3_TRY;
+        LOG_Z3_solver_translate(c, s, target);
+        RESET_ERROR_CODE();
+        params_ref const& p = to_solver(s)->m_params; 
+        Z3_solver_ref * sr = alloc(Z3_solver_ref, 0);
+        sr->m_solver = to_solver(s)->m_solver->translate(mk_c(target)->m(), p);
+        mk_c(target)->save_object(sr);
+        Z3_solver r = of_solver(sr);
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(0);
+    }
+
     Z3_string Z3_API Z3_solver_get_help(Z3_context c, Z3_solver s) {
         Z3_TRY;
         LOG_Z3_solver_get_help(c, s);

@@ -93,7 +93,12 @@ public:
     }
     
     virtual ~inc_sat_solver() {}
-    
+   
+    virtual solver* translate(ast_manager& m, params_ref const& p) {
+        UNREACHABLE();
+        return 0;
+    }
+
     virtual void set_progress_callback(progress_callback * callback) {}
 
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) { 

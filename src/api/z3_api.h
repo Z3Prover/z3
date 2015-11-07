@@ -7063,6 +7063,14 @@ END_MLAPI_EXCLUDE
     Z3_solver Z3_API Z3_mk_solver_from_tactic(Z3_context c, Z3_tactic t);
 
     /**
+       \brief Copy a solver \c s from the context \c source to a the context \c target.
+
+       def_API('Z3_solver_translate', SOLVER, (_in(CONTEXT), _in(SOLVER), _in(CONTEXT)))
+    */
+    Z3_solver Z3_API Z3_solver_translate(Z3_context source, Z3_solver s, Z3_context target);
+    
+
+    /**
        \brief Return a string describing all solver available parameters.
 
        def_API('Z3_solver_get_help', STRING, (_in(CONTEXT), _in(SOLVER)))

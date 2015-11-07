@@ -1000,7 +1000,7 @@ namespace smt {
         theory_arith(ast_manager & m, theory_arith_params & params);
         virtual ~theory_arith();
         
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_arith, get_manager(), m_params); }
+        virtual theory * mk_fresh(context * new_ctx);
 
         virtual void setup();
 

@@ -1545,6 +1545,11 @@ namespace smt {
     }
 
     template<typename Ext>
+    theory* theory_arith<Ext>::mk_fresh(context* new_ctx) { 
+        return alloc(theory_arith<Ext>, new_ctx->get_manager(), m_params); 
+    }
+
+    template<typename Ext>
     void theory_arith<Ext>::setup() {
         m_random.set_seed(m_params.m_arith_random_seed);
         theory::setup();

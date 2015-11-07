@@ -127,6 +127,17 @@ public:
         m_use_solver1_results = true;
     }
 
+    solver* translate(ast_manager& m, params_ref const& p) {
+        solver* s1 = m_solver1->translate(m, p);
+        solver* s2 = m_solver2->translate(m, p);
+        combined_solver* r = alloc(combined_solver, s1, s2, p);
+        r->m_solver2_initialized = m_solver2_initialized;
+        r->m_inc_mode = m_inc_mode;
+        r->m_check_sat_executed = m_check_sat_executed;
+        r->m_use_solver1_results = m_use_solver1_results;
+        return r;
+    }
+
     virtual void updt_params(params_ref const & p) {
         m_solver1->updt_params(p);
         m_solver2->updt_params(p);

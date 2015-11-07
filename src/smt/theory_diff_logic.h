@@ -243,7 +243,7 @@ namespace smt {
             reset_eh();
         }
 
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_diff_logic, get_manager(), m_params); }
+        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_diff_logic, new_ctx->get_manager(), m_params); }
 
         virtual char const * get_name() const { return "difference-logic"; }
 

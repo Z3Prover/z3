@@ -99,6 +99,112 @@ namespace smt {
         m_model_generator->set_context(this);
     }
 
+    void context::copy(context& src_ctx, context& dst_ctx) {
+        ast_manager& dst_m = dst_ctx.get_manager();
+        ast_manager& src_m = src_ctx.get_manager();
+        src_ctx.pop_to_base_lvl();
+        
+        if (src_ctx.m_base_lvl > 0) {
+            throw default_exception("Cloning contexts within a user-scope is not allowed");
+        }
+        SASSERT(src_ctx.m_base_lvl == 0);
+        
+        ast_translation tr(src_m, dst_m, false);
+
+        dst_ctx.set_logic(src_ctx.m_setup.get_logic());
+        dst_ctx.copy_plugins(src_ctx, dst_ctx);
+
+        asserted_formulas& src_af = src_ctx.m_asserted_formulas;
+        asserted_formulas& dst_af = dst_ctx.m_asserted_formulas;
+
+        // Copy asserted formulas.        
+        for (unsigned i = 0; i < src_af.get_num_formulas(); ++i) {
+            expr_ref fml(dst_m);
+            proof_ref pr(dst_m);
+            proof* pr_src = src_af.get_formula_proof(i);
+            fml = tr(src_af.get_formula(i));
+            if (pr_src) {
+                pr = tr(pr_src);
+            }
+            dst_af.assert_expr(fml, pr);            
+        }
+
+        if (!src_ctx.m_setup.already_configured()) {
+            return;
+        }
+        dst_ctx.setup_context(dst_ctx.m_fparams.m_auto_config);
+        dst_ctx.internalize_assertions();
+
+        vector<bool_var> b2v;
+        expr_ref dst_f(dst_m);
+
+#define TRANSLATE(_lin, _lout)  {                                       \
+            SASSERT(_lin != false_literal && _lin != true_literal);     \
+            bool_var v = b2v.get(_lin.var(), null_bool_var);            \
+            if (v == null_bool_var) {                                   \
+                expr* e = src_ctx.m_bool_var2expr.get(_lin.var(), 0);   \
+                SASSERT(e);                                             \
+                dst_f = tr(e);                                          \
+                v = dst_ctx.get_bool_var_of_id_option(dst_f->get_id()); \
+                if (v != null_bool_var) {                               \
+                }                                                       \
+                else if (src_m.is_not(e) || src_m.is_and(e) || src_m.is_or(e) || \
+                         src_m.is_iff(e) || src_m.is_ite(e)) {          \
+                    v = dst_ctx.mk_bool_var(dst_f);                     \
+                }                                                       \
+                else {                                                  \
+                    dst_ctx.internalize_formula(dst_f, false);          \
+                    v = dst_ctx.get_bool_var(dst_f);                    \
+                }                                                       \
+                b2v.setx(_lin.var(), v, null_bool_var);                 \
+            }                                                           \
+            _lout = literal(v, _lin.sign());                            \
+        }                                                               \
+
+        for (unsigned i = 0; i < src_ctx.m_assigned_literals.size(); ++i) {
+            literal lit;
+            TRANSLATE(src_ctx.m_assigned_literals[i], lit);
+            dst_ctx.mk_clause(1, &lit, 0, CLS_AUX, 0);
+        }
+        literal_vector lits;
+        expr_ref_vector cls(src_m);
+        for (unsigned i = 0; i < src_ctx.m_lemmas.size(); ++i) {
+            lits.reset();
+            cls.reset();
+            clause& src_cls = *src_ctx.m_lemmas[i];
+            unsigned sz = src_cls.get_num_literals();
+            for (unsigned j = 0; j < sz; ++j) {
+                literal lit = src_cls.get_literal(j), lout;
+                TRANSLATE(lit, lout);
+                lits.push_back(lout);
+            }
+            dst_ctx.mk_clause(lits.size(), lits.c_ptr(), 0, src_cls.get_kind(), 0);
+        }        
+        vector<watch_list>::const_iterator it  = src_ctx.m_watches.begin();
+        vector<watch_list>::const_iterator end = src_ctx.m_watches.end();
+        literal ls[2];
+        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
+            literal l1 = to_literal(l_idx);
+            literal neg_l1 = ~l1;
+            watch_list const & wl = *it;
+            literal const * it2  = wl.begin_literals();
+            literal const * end2 = wl.end_literals();
+            for (; it2 != end2; ++it2) {
+                literal l2 = *it2;
+                if (l1.index() < l2.index()) {
+                    TRANSLATE(neg_l1, ls[0]);
+                    TRANSLATE(l2, ls[1]);
+                    dst_ctx.mk_clause(2, ls, 0, CLS_AUX, 0);
+                }                
+            }
+        }
+        
+        TRACE("smt_context", 
+              src_ctx.display(tout);
+              dst_ctx.display(tout););
+    }
+
+
     context::~context() {
         flush();
     }
@@ -126,7 +232,6 @@ namespace smt {
             theory * new_th = (*it2)->mk_fresh(&dst);
             dst.register_plugin(new_th);
         }
-        dst.m_setup.mark_already_configured();
     }
 
     context * context::mk_fresh(symbol const * l, smt_params * p) {
@@ -136,85 +241,7 @@ namespace smt {
         return new_ctx;
     }
 
-    context* context::translate(ast_manager& m) {
-        pop_to_base_lvl();
-        
-        if (m_base_lvl > 0) {
-            throw default_exception("Cloning contexts within a user-scope is not allowed");
-        }
-        reduce_assertions();
-
-        context * new_ctx = alloc(context, m, m_fparams);
-        ast_manager& dst_m = new_ctx->get_manager();
-        new_ctx->set_logic(m_setup.get_logic());
-        copy_plugins(*this, *new_ctx);
-
-        asserted_formulas& src_af = m_asserted_formulas;
-        asserted_formulas& dst_af = new_ctx->m_asserted_formulas;
-
-        SASSERT(m_base_lvl == 0);
-        SASSERT(src_af.get_qhead() == src_af.get_num_formulas()); // should be the same.
-
-        // Copy asserted formulas.        
-        for (unsigned i = 0; i < src_af.get_num_formulas(); ++i) {
-            expr_ref fml(dst_m), pr(dst_m);
-            fml = ::translate(src_af.get_formula(i), get_manager(), dst_m);
-            pr = ::translate(src_af.get_formula_proof(i), get_manager(), dst_m);
-            dst_af.assert_expr(fml, to_app(pr));            
-        }
-        dst_af.reduce();
-        for (unsigned i = 0; i < dst_af.get_num_formulas(); ++i) {
-            expr* f = dst_af.get_formula(i);
-            proof* pr = dst_af.get_formula_proof(i);
-            new_ctx->internalize_assertion(f, pr, 0);
-        }        
-        
-        // Copy learned lemmas, but internalize them as axioms.
-        // ignore jusification. 
-        for (unsigned i = 0; i < m_lemmas.size(); ++i) {
-            expr_ref_vector new_clause(dst_m);
-            clause& src_cls = *m_lemmas[i];
-            unsigned sz = src_cls.get_num_literals();
-            bool internalized = true;
-            for (unsigned j = 0; internalized && j < sz; ++j) {
-                literal src_lit = src_cls.get_literal(j);
-                expr_ref r = translate(src_lit, *new_ctx);
-                internalized = r != 0;                
-                new_clause.push_back(r);
-            }
-            if (internalized) {
-                app_ref cls(dst_m);
-                cls = dst_m.mk_or(new_clause.size(), new_clause.c_ptr());
-                new_ctx->internalize_assertion(cls, 0, 0);
-            }
-            else {
-                TRACE("smt_context", display_clause_detail(tout << "Clause not interalized\n", &src_cls););
-            }
-        }
-
-        return new_ctx;
-    }
-
-        
-    expr_ref context::translate(literal lit, context& dst) {
-        ast_manager& m = dst.get_manager();
-        expr_ref result(m);
-        expr * e;
-        if (lit == true_literal) {
-            result = m.mk_true();
-        }
-        else if (lit == false_literal) {
-            result = m.mk_false();
-        }
-        else if (e = m_bool_var2expr.get(lit.var(), 0)) {
-            result = ::translate(e, m_manager, m);
-            if (lit.sign()) {
-                result = m.mk_not(result);
-            }
-        }
-        return result;
-    }
-
+       
 
     void context::init() {
         app * t       = m_manager.mk_true();

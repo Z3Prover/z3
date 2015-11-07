@@ -1326,10 +1326,10 @@ namespace smt {
 
         // copy plugins into a fresh context.
         void copy_plugins(context& src, context& dst);
-        expr_ref translate(literal lit, context& dst);
 
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
+
 
         virtual ~context();
 
@@ -1342,10 +1342,11 @@ namespace smt {
         */
         context * mk_fresh(symbol const * l = 0,  smt_params * p = 0);
 
+        static void copy(context& src, context& dst);
+
         /**
            \brief Translate context to use new manager m.
          */
-        context * translate(ast_manager& m);
 
         app * mk_eq_atom(expr * lhs, expr * rhs);
 

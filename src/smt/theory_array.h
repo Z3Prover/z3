@@ -98,7 +98,7 @@ namespace smt {
         theory_array(ast_manager & m, theory_array_params & params);
         virtual ~theory_array();
 
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_array, get_manager(), m_params); }
+        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_array, new_ctx->get_manager(), m_params); }
 
         virtual char const * get_name() const { return "array"; }
 

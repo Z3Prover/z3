@@ -1312,6 +1312,11 @@ namespace smt {
 
     theory_bv::~theory_bv() {
     }
+
+    theory* theory_bv::mk_fresh(context* new_ctx) {
+        return alloc(theory_bv, new_ctx->get_manager(), m_params, m_bb.get_params()); 
+    }
+
     
     void theory_bv::merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {
         TRACE("bv", tout << "merging: #" << get_enode(v1)->get_owner_id() << " #" << get_enode(v2)->get_owner_id() << "\n";);
