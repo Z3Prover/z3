@@ -1329,6 +1329,11 @@ namespace smt {
         // copy plugins into a fresh context.
         void copy_plugins(context& src, context& dst);
 
+        static literal translate_literal(
+            literal lit, context& src_ctx, context& dst_ctx,
+            vector<bool_var> b2v, ast_translation& tr);
+
+
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
 

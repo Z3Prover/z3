@@ -99,6 +99,36 @@ namespace smt {
         m_model_generator->set_context(this);
     }
 
+    literal context::translate_literal(
+        literal lit, context& src_ctx, context& dst_ctx,
+        vector<bool_var> b2v, ast_translation& tr) {
+        ast_manager& dst_m = dst_ctx.get_manager();
+        ast_manager& src_m = src_ctx.get_manager();
+        expr_ref dst_f(dst_m);
+
+        SASSERT(lit != false_literal && lit != true_literal);    
+        bool_var v = b2v.get(lit.var(), null_bool_var);           
+        if (v == null_bool_var) {                                  
+            expr* e = src_ctx.m_bool_var2expr.get(lit.var(), 0);  
+            SASSERT(e);                                            
+            dst_f = tr(e);                                         
+            v = dst_ctx.get_bool_var_of_id_option(dst_f->get_id());
+            if (v != null_bool_var) {                              
+            }                                                      
+            else if (src_m.is_not(e) || src_m.is_and(e) || src_m.is_or(e) ||
+                     src_m.is_iff(e) || src_m.is_ite(e)) {         
+                v = dst_ctx.mk_bool_var(dst_f);                    
+            }                                                      
+            else {                                                 
+                dst_ctx.internalize_formula(dst_f, false);         
+                v = dst_ctx.get_bool_var(dst_f);                   
+            }                                                      
+            b2v.setx(lit.var(), v, null_bool_var);                
+        }                                                          
+        return literal(v, lit.sign());                                   
+    }
+
+
     void context::copy(context& src_ctx, context& dst_ctx) {
         ast_manager& dst_m = dst_ctx.get_manager();
         ast_manager& src_m = src_ctx.get_manager();
@@ -136,36 +166,15 @@ namespace smt {
         dst_ctx.internalize_assertions();
 
         vector<bool_var> b2v;
-        expr_ref dst_f(dst_m);
 
-#define TRANSLATE(_lin, _lout)  {                                       \
-            SASSERT(_lin != false_literal && _lin != true_literal);     \
-            bool_var v = b2v.get(_lin.var(), null_bool_var);            \
-            if (v == null_bool_var) {                                   \
-                expr* e = src_ctx.m_bool_var2expr.get(_lin.var(), 0);   \
-                SASSERT(e);                                             \
-                dst_f = tr(e);                                          \
-                v = dst_ctx.get_bool_var_of_id_option(dst_f->get_id()); \
-                if (v != null_bool_var) {                               \
-                }                                                       \
-                else if (src_m.is_not(e) || src_m.is_and(e) || src_m.is_or(e) || \
-                         src_m.is_iff(e) || src_m.is_ite(e)) {          \
-                    v = dst_ctx.mk_bool_var(dst_f);                     \
-                }                                                       \
-                else {                                                  \
-                    dst_ctx.internalize_formula(dst_f, false);          \
-                    v = dst_ctx.get_bool_var(dst_f);                    \
-                }                                                       \
-                b2v.setx(_lin.var(), v, null_bool_var);                 \
-            }                                                           \
-            _lout = literal(v, _lin.sign());                            \
-        }                                                               \
+#define TRANSLATE(_lit) translate_literal(_lit, src_ctx, dst_ctx, b2v, tr)
 
         for (unsigned i = 0; i < src_ctx.m_assigned_literals.size(); ++i) {
             literal lit;
-            TRANSLATE(src_ctx.m_assigned_literals[i], lit);
+            lit = TRANSLATE(src_ctx.m_assigned_literals[i]);
             dst_ctx.mk_clause(1, &lit, 0, CLS_AUX, 0);
         }
+#if 0
         literal_vector lits;
         expr_ref_vector cls(src_m);
         for (unsigned i = 0; i < src_ctx.m_lemmas.size(); ++i) {
@@ -174,9 +183,8 @@ namespace smt {
             clause& src_cls = *src_ctx.m_lemmas[i];
             unsigned sz = src_cls.get_num_literals();
             for (unsigned j = 0; j < sz; ++j) {
-                literal lit = src_cls.get_literal(j), lout;
-                TRANSLATE(lit, lout);
-                lits.push_back(lout);
+                literal lit = TRANSLATE(src_cls.get_literal(j));
+                lits.push_back(lit);
             }
             dst_ctx.mk_clause(lits.size(), lits.c_ptr(), 0, src_cls.get_kind(), 0);
         }        
@@ -192,12 +200,13 @@ namespace smt {
             for (; it2 != end2; ++it2) {
                 literal l2 = *it2;
                 if (l1.index() < l2.index()) {
-                    TRANSLATE(neg_l1, ls[0]);
-                    TRANSLATE(l2, ls[1]);
+                    ls[0] = TRANSLATE(neg_l1);
+                    ls[1] = TRANSLATE(l2);
                     dst_ctx.mk_clause(2, ls, 0, CLS_AUX, 0);
                 }                
             }
         }
+#endif
         
         TRACE("smt_context", 
               src_ctx.display(tout);

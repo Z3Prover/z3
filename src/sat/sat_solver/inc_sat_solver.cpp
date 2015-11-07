@@ -32,6 +32,7 @@ Notes:
 #include "model_smt2_pp.h"
 #include "filter_model_converter.h"
 #include "bit_blaster_model_converter.h"
+#include "ast_translation.h"
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
@@ -94,9 +95,22 @@ public:
     
     virtual ~inc_sat_solver() {}
    
-    virtual solver* translate(ast_manager& m, params_ref const& p) {
-        UNREACHABLE();
-        return 0;
+    virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
+        ast_translation tr(m, dst_m);
+        if (m_num_scopes > 0) {
+            throw default_exception("Cannot translate sat solver at non-base level");
+        }
+        inc_sat_solver* result = alloc(inc_sat_solver, dst_m, p);
+        expr_ref fml(dst_m);
+        for (unsigned i = 0; i < m_fmls.size(); ++i) {
+            fml = tr(m_fmls[i].get());
+            result->m_fmls.push_back(fml);
+        }
+        for (unsigned i = 0; i < m_asmsf.size(); ++i) {
+            fml = tr(m_asmsf[i].get());
+            result->m_asmsf.push_back(fml);
+        }
+        return result;
     }
 
     virtual void set_progress_callback(progress_callback * callback) {}

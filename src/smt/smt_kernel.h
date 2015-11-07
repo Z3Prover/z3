@@ -45,7 +45,6 @@ namespace smt {
     class kernel {
         struct imp;
         imp *  m_imp;
-        kernel(): m_imp(0) {}
     public:
         kernel(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
 
