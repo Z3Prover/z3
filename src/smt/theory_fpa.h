@@ -158,7 +158,7 @@ namespace smt {
         virtual void push_scope_eh();
         virtual void pop_scope_eh(unsigned num_scopes);
         virtual void reset_eh();
-        virtual theory* mk_fresh(context* new_ctx) { return alloc(theory_fpa, new_ctx->get_manager()); }
+        virtual theory* mk_fresh(context* new_ctx);
         virtual char const * get_name() const { return "fpa"; }
 
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);

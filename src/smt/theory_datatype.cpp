@@ -36,6 +36,11 @@ namespace smt {
         virtual theory_id get_from_theory() const { return null_theory_id; } 
     };
 
+
+    theory* theory_datatype::mk_fresh(context* new_ctx) { 
+        return alloc(theory_datatype, new_ctx->get_manager(), m_params); 
+    }
+
     /**
        \brief Assert the axiom (antecedent => lhs = rhs)
        antecedent may be null_literal

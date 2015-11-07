@@ -716,6 +716,10 @@ namespace smt {
         return;
     }
 
+    theory* theory_fpa::mk_fresh(context* new_ctx) { 
+        return alloc(theory_fpa, new_ctx->get_manager()); 
+    }
+
     void theory_fpa::push_scope_eh() {
         theory::push_scope_eh();
         m_trail_stack.push_scope();

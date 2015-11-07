@@ -35,6 +35,10 @@ namespace smt {
         m_var_data_full.reset();
     }
 
+    theory* theory_array_full::mk_fresh(context* new_ctx) { 
+        return alloc(theory_array_full, new_ctx->get_manager(), m_params); 
+    }
+
     void theory_array_full::add_map(theory_var v, enode* s) {
         if (m_params.m_array_cg && !s->is_cgr()) {
             return;
