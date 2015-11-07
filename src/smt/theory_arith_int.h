@@ -210,7 +210,7 @@ namespace smt {
         TRACE("arith_int", tout << mk_bounded_pp(bound, get_manager()) << "\n";);
         context & ctx = get_context();
         ctx.internalize(bound, true);
-        ctx.mark_as_relevant(bound);
+        ctx.mark_as_relevant(bound.get());
     }
 
     
