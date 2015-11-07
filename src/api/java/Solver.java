@@ -294,6 +294,14 @@ public class Solver extends Z3Object
     }
 
     /**
+     * Create a clone of the current solver with respect to <c>ctx</c>.
+     */
+    public Solver translate(Context ctx) 
+    {
+	return new Solver(ctx, Native.solverTranslate(getContext().nCtx(), getNativeObject(), ctx.nCtx()));
+    }
+
+    /**
      * Solver statistics.
      * 
      * @throws Z3Exception
