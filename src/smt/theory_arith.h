@@ -218,7 +218,7 @@ namespace smt {
         typedef svector<enode_pair> eq_vector;
 
         // keep track of coefficients used for bounds for proof generation.
-        class antecedents {
+        class antecedents_t {
             literal_vector    m_lits;
             eq_vector         m_eqs;
             vector<numeral>   m_lit_coeffs;
@@ -233,16 +233,38 @@ namespace smt {
             void init();
 
         public:
-            antecedents(): m_init(false) {}
+            antecedents_t(): m_init(false) {}
             void reset();
-            literal_vector& lits() { return m_lits; }
-            eq_vector& eqs() { return m_eqs; }
+            literal_vector const& lits() const { return m_lits; }
+            eq_vector const& eqs() const { return m_eqs; }
             void push_lit(literal l, numeral const& r, bool proofs_enabled);
             void push_eq(enode_pair const& p, numeral const& r, bool proofs_enabled);
+            void append(unsigned sz, literal const* ls) { m_lits.append(sz, ls); }
+            void append(unsigned sz, enode_pair const* ps) { m_eqs.append(sz, ps); }
             unsigned num_params() const { return empty()?0:m_eq_coeffs.size() + m_lit_coeffs.size() + 1; }
             numeral const* lit_coeffs() const { return m_lit_coeffs.c_ptr(); }
             numeral const* eq_coeffs() const { return m_eq_coeffs.c_ptr(); }
             parameter* params(char const* name);
+            std::ostream& display(theory_arith& th, std::ostream& out) const;
+        };
+
+        class antecedents {
+            theory_arith& th;
+            antecedents_t&  a;
+        public:
+            antecedents(theory_arith& th);
+            ~antecedents();  
+            literal_vector const& lits() const { return a.lits(); }
+            eq_vector const& eqs() const { return a.eqs(); }
+            void push_lit(literal l, numeral const& r, bool e) { a.push_lit(l, r, e); }
+            void push_eq(enode_pair const& p, numeral const& r, bool e) { a.push_eq(p, r, e); }
+            void append(unsigned sz, literal const* ls) { a.append(sz, ls); }
+            void append(unsigned sz, enode_pair const* ps) { a.append(sz, ps); }
+            unsigned num_params() const { return a.num_params(); }
+            numeral const* lit_coeffs() const { return a.lit_coeffs(); }
+            numeral const* eq_coeffs() const { return a.eq_coeffs(); }
+            parameter* params(char const* name) { return a.params(name); }
+            std::ostream& display(std::ostream& out) const { return a.display(th, out); }
         };
 
         class gomory_cut_justification;
@@ -324,11 +346,14 @@ namespace smt {
         public:
             derived_bound(theory_var v, inf_numeral const & val, bound_kind k):bound(v, val, k, false) {}
             virtual ~derived_bound() {}
+            literal_vector const& lits() const { return m_lits; }
+            eq_vector const& eqs() const { return m_eqs; }
             virtual bool has_justification() const { return true; }
             virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled); 
             virtual void push_lit(literal l, numeral const&) { m_lits.push_back(l); }
             virtual void push_eq(enode_pair const& p, numeral const&) { m_eqs.push_back(p); }
             virtual void display(theory_arith const& th, std::ostream& out) const;
+            
         };
     
         class justified_derived_bound : public derived_bound {
@@ -460,8 +485,8 @@ namespace smt {
 
         svector<scope>          m_scopes;
         literal_vector          m_tmp_literal_vector2;
-        antecedents             m_tmp_antecedents;
-        antecedents             m_tmp_antecedents2;
+        antecedents_t           m_antecedents[3];
+        unsigned                m_antecedents_index;
 
         struct var_value_hash;
         friend struct var_value_hash;
@@ -506,6 +531,8 @@ namespace smt {
         bool relax_bounds() const { return m_params.m_arith_stronger_lemmas; }
         bool skip_big_coeffs() const { return m_params.m_arith_skip_rows_with_big_coeffs; }
         bool dump_lemmas() const { return m_params.m_arith_dump_lemmas; }
+        void dump_lemmas(literal l, antecedents const& ante);
+        void dump_lemmas(literal l, derived_bound const& ante);
         bool process_atoms() const;
         unsigned get_num_conflicts() const { return m_num_conflicts; }
         var_kind get_var_kind(theory_var v) const { return m_data[v].kind(); }
@@ -750,7 +777,7 @@ namespace smt {
         void explain_bound(row const & r, int idx, bool lower, inf_numeral & delta, 
                            antecedents & antecedents);
         void mk_implied_bound(row const & r, unsigned idx, bool lower, theory_var v, bound_kind kind, inf_numeral const & k);
-        void assign_bound_literal(literal l, row const & r, unsigned idx, bool lower, inf_numeral & delta, antecedents& antecedents);
+        void assign_bound_literal(literal l, row const & r, unsigned idx, bool lower, inf_numeral & delta);
         void propagate_bounds();
 
         // -----------------------------------
@@ -836,7 +863,9 @@ namespace smt {
         // Justification
         //
         // -----------------------------------
-        void set_conflict(unsigned num_literals, literal const * lits, unsigned num_eqs, enode_pair const * eqs, antecedents& antecedents, bool is_lia, char const* proof_rule);
+        void set_conflict(unsigned num_literals, literal const * lits, unsigned num_eqs, enode_pair const * eqs, antecedents& antecedents, char const* proof_rule);
+        void set_conflict(antecedents const& ante, antecedents& bounds, char const* proof_rule);
+        void set_conflict(derived_bound const& ante, antecedents& bounds, char const* proof_rule);
         void collect_fixed_var_justifications(row const & r, antecedents& antecedents) const;
         
         // -----------------------------------
@@ -989,7 +1018,7 @@ namespace smt {
         gb_result compute_grobner(svector<theory_var> const & nl_cluster);
         bool max_min_nl_vars();
         final_check_status process_non_linear();
-        antecedents&            get_antecedents();
+        
 
         // -----------------------------------
         //

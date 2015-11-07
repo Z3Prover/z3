@@ -285,7 +285,9 @@ namespace smt {
     }
     
     void context::assign_core(literal l, b_justification j, bool decision) {
-        TRACE("assign_core", tout << "assigning: " << l << " "; display_literal(tout, l); tout << "\n";);
+        TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";              
+              display_literal(tout, l); tout << " level: " << m_scope_lvl << "\n";
+              display(tout, j););
         SASSERT(l.var() < static_cast<int>(m_b_internalized_stack.size()));
         m_assigned_literals.push_back(l);
         m_assignment[l.index()]    = l_true;
@@ -1722,7 +1724,7 @@ namespace smt {
     }
 
     bool context::propagate() {
-        TRACE("propagate", tout << "propagating...\n";);
+        TRACE("propagate", tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n";);
         while (true) {
             if (inconsistent())
                 return false;

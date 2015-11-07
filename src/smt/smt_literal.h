@@ -103,7 +103,7 @@ namespace smt {
 
     void display_compact(std::ostream & out, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map);
 
-    void display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map);
+    void display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map, char const* sep = " ");
 
     template<typename T>
     void neg_literals(unsigned num_lits, literal const * lits, T & result) {

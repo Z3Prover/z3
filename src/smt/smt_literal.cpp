@@ -69,10 +69,10 @@ namespace smt {
         }
     }
 
-    void display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map) {
+    void display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map, char const* sep) {
         for (unsigned i = 0; i < num_lits; i++) {
             if (i > 0)
-                out << " ";
+                out << sep;
             lits[i].display(out, m, bool_var2expr_map);
         }
     }

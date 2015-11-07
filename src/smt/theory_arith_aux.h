@@ -316,7 +316,7 @@ namespace smt {
     // -----------------------------------
 
     template<typename Ext>
-    void theory_arith<Ext>::antecedents::init() {
+    void theory_arith<Ext>::antecedents_t::init() {
         if (!m_init && !empty()) {
             m_params.push_back(parameter(symbol("unknown-arith")));
             for (unsigned i = 0; i < m_lits.size(); i++) {
@@ -330,7 +330,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::antecedents::reset() { 
+    void theory_arith<Ext>::antecedents_t::reset() { 
         m_init = false; 
         m_eq_coeffs.reset();
         m_lit_coeffs.reset();
@@ -340,7 +340,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::antecedents::push_lit(literal l, numeral const& r, bool proofs_enabled) { 
+    void theory_arith<Ext>::antecedents_t::push_lit(literal l, numeral const& r, bool proofs_enabled) { 
         m_lits.push_back(l);
         if (proofs_enabled) {
             m_lit_coeffs.push_back(r); 
@@ -348,7 +348,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::antecedents::push_eq(enode_pair const& p, numeral const& r, bool proofs_enabled) { 
+    void theory_arith<Ext>::antecedents_t::push_eq(enode_pair const& p, numeral const& r, bool proofs_enabled) { 
         m_eqs.push_back(p);
         if (proofs_enabled) {
             m_eq_coeffs.push_back(r); 
@@ -356,7 +356,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    parameter * theory_arith<Ext>::antecedents::params(char const* name) {
+    parameter * theory_arith<Ext>::antecedents_t::params(char const* name) {
         if (empty()) return 0;
         init();
         m_params[0] = parameter(symbol(name));
@@ -740,8 +740,8 @@ namespace smt {
             }
         }
         else {
-            a.lits().append(m_lits.size(), m_lits.c_ptr());
-            a.eqs().append(m_eqs.size(), m_eqs.c_ptr());
+            a.append(m_lits.size(), m_lits.c_ptr());
+            a.append(m_eqs.size(), m_eqs.c_ptr());
         }
     }
 
@@ -804,8 +804,7 @@ namespace smt {
     */
     template<typename Ext>
     void theory_arith<Ext>::accumulate_justification(bound & b, derived_bound& new_bound, numeral const& coeff, literal_idx_set & lits, eq_set & eqs) {
-        antecedents& ante = m_tmp_antecedents;
-        ante.reset();
+        antecedents ante(*this);
         b.push_justification(ante, coeff, proofs_enabled());
         unsigned num_lits = ante.lits().size();
         for (unsigned i = 0; i < num_lits; ++i) {
