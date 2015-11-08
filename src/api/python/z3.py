@@ -1,3 +1,4 @@
+
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
 # 
@@ -4147,7 +4148,7 @@ def Ext(a, b):
     """Return extensionality index for arrays.
     """
     if __debug__:
-	_z3_assert(is_array(a) and is_array(b))
+        _z3_assert(is_array(a) and is_array(b))
     return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()));
 
 def is_select(a):
@@ -6096,12 +6097,12 @@ class Solver(Z3PPObject):
         
         >>> c1 = Context()
         >>> c2 = Context()
-	>>> s1 = Solver(ctx=c1)
-	>>> s2 = s1.translate(c2)
+        >>> s1 = Solver(ctx=c1)
+        >>> s2 = s1.translate(c2)
         """
         if __debug__:
             _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
-	solver = Z3_solver_translate(self.ctx.ref(), self.solver, target.ref())
+        solver = Z3_solver_translate(self.ctx.ref(), self.solver, target.ref())
         return Solver(solver, target)
     
     def sexpr(self):
