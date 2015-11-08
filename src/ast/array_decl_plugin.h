@@ -42,7 +42,7 @@ enum array_op_kind {
     OP_STORE,
     OP_SELECT,
     OP_CONST_ARRAY,
-    OP_ARRAY_EXT_SKOLEM,
+    OP_ARRAY_EXT,
     OP_ARRAY_DEFAULT,
     OP_ARRAY_MAP,
     OP_SET_UNION,
@@ -80,7 +80,7 @@ class array_decl_plugin : public decl_plugin {
 
     func_decl * mk_store(unsigned arity, sort * const * domain);
 
-    func_decl * mk_array_ext_skolem(unsigned arity, sort * const * domain, unsigned i);
+    func_decl * mk_array_ext(unsigned arity, sort * const * domain, unsigned i);
 
     func_decl * mk_set_union(unsigned arity, sort * const * domain);
 

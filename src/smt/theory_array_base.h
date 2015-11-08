@@ -36,7 +36,7 @@ namespace smt {
         bool is_select(app const* n) const { return n->is_app_of(get_id(), OP_SELECT); }
         bool is_default(app const* n) const { return n->is_app_of(get_id(), OP_ARRAY_DEFAULT); }
         bool is_const(app const* n) const { return n->is_app_of(get_id(), OP_CONST_ARRAY); }
-        bool is_array_ext(app const * n) const { return n->is_app_of(get_id(), OP_ARRAY_EXT_SKOLEM); }
+        bool is_array_ext(app const * n) const { return n->is_app_of(get_id(), OP_ARRAY_EXT); }
         bool is_as_array(app const * n) const { return n->is_app_of(get_id(), OP_AS_ARRAY); }
         bool is_array_sort(sort const* s) const { return s->is_sort_of(get_id(), ARRAY_SORT); }
         bool is_array_sort(app const* n) const { return is_array_sort(get_manager().get_sort(n)); }

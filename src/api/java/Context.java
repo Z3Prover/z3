@@ -1718,6 +1718,17 @@ public class Context extends IDisposable
     }
 
     /**
+     * Create Extentionality index. Two arrays are equal if and only if they are equal on the index returned by MkArrayExt.
+     **/
+    public Expr mkArrayExt(ArrayExpr arg1, ArrayExpr arg2)
+    {
+	checkContextMatch(arg1);
+	checkContextMatch(arg2);
+	return Expr.create(this, Native.mkArrayExt(nCtx(), arg1.getNativeObject(), arg2.getNativeObject()));
+    }
+
+
+    /**
      * Create a set type.
      **/
     public SetSort mkSetSort(Sort ty)

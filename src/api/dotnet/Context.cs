@@ -2122,6 +2122,21 @@ namespace Microsoft.Z3
             CheckContextMatch(array);
             return Expr.Create(this, Native.Z3_mk_array_default(nCtx, array.NativeObject));
         }
+
+        /// <summary>
+        /// Create Extentionality index. Two arrays are equal if and only if they are equal on the index returned by MkArrayExt.
+        /// </summary>
+        public Expr MkArrayExt(ArrayExpr arg1, ArrayExpr arg2)
+        {
+            Contract.Requires(arg1 != null);
+            Contract.Requires(arg2 != null);
+            Contract.Ensures(Contract.Result<Expr>() != null);
+
+            CheckContextMatch(arg1);
+            CheckContextMatch(arg2);
+            return Expr.Create(this, Native.Z3_mk_array_ext(nCtx, arg1.NativeObject, arg2.NativeObject));
+        }
+
         #endregion
 
         #region Sets
@@ -2268,6 +2283,7 @@ namespace Microsoft.Z3
             CheckContextMatch(arg2);
             return (BoolExpr) Expr.Create(this, Native.Z3_mk_set_subset(nCtx, arg1.NativeObject, arg2.NativeObject));
         }
+
         #endregion
 
         #region Pseudo-Boolean constraints

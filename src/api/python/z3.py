@@ -4143,6 +4143,13 @@ def K(dom, v):
         v = _py2expr(v, ctx)
     return ArrayRef(Z3_mk_const_array(ctx.ref(), dom.ast, v.as_ast()), ctx)
 
+def Ext(a, b):
+    """Return extensionality index for arrays.
+    """
+    if __debug__:
+	_z3_assert(is_array(a) and is_array(b))
+    return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()));
+
 def is_select(a):
     """Return `True` if `a` is a Z3 array select application.
     

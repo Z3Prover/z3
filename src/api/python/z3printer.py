@@ -31,7 +31,7 @@ _z3_op_to_str = {
     Z3_OP_BASHR : '>>', Z3_OP_BSHL : '<<', Z3_OP_BLSHR : 'LShR', 
     Z3_OP_CONCAT : 'Concat', Z3_OP_EXTRACT : 'Extract', Z3_OP_BV2INT : 'BV2Int',
     Z3_OP_ARRAY_MAP : 'Map', Z3_OP_SELECT : 'Select', Z3_OP_STORE : 'Store', 
-    Z3_OP_CONST_ARRAY : 'K',
+    Z3_OP_CONST_ARRAY : 'K', Z3_OP_ARRAY_EXT : 'Ext', 
     Z3_OP_PB_AT_MOST : 'AtMost', Z3_OP_PB_LE : 'PbLe', Z3_OP_PB_GE : 'PbGe'
     }
 

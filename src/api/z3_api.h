@@ -322,6 +322,9 @@ typedef enum
    - Z3_OP_AS_ARRAY An array value that behaves as the function graph of the
                     function passed as parameter.
 
+   - Z3_OP_ARRAY_EXT Array extensionality function. It takes two arrays as arguments and produces an index, such that the arrays
+                    are different if they are different on the index.
+
    - Z3_OP_BNUM Bit-vector numeral.
 
    - Z3_OP_BIT1 One bit bit-vector.
@@ -1033,6 +1036,7 @@ typedef enum {
     Z3_OP_SET_COMPLEMENT,
     Z3_OP_SET_SUBSET,
     Z3_OP_AS_ARRAY,
+    Z3_OP_ARRAY_EXT,
 
     // Bit-vectors
     Z3_OP_BNUM = 0x400,
@@ -3258,6 +3262,17 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_set_subset', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_set_subset(Z3_context c, Z3_ast arg1, Z3_ast arg2);
+    /*@}*/
+
+    /**
+       \brief Create array extensionality index given two arrays with the same sort. 
+              The meaning is given by the axiom:
+              (=> (= (select A (array-ext A B)) (select B (array-ext A B))) (= A B))
+
+       def_API('Z3_mk_array_ext', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+
+    Z3_ast Z3_API Z3_mk_array_ext(Z3_context c, Z3_ast arg1, Z3_ast arg2);
     /*@}*/
 
     /**
