@@ -3122,6 +3122,9 @@ sig
       The solver supports the commands [Push] and [Pop], but it
       will always solve each check from scratch. *)
   val mk_solver_t : context -> Tactic.tactic -> solver
+        
+  (** Create a clone of the current solver with respect to a context. *)
+  val translate : solver -> context -> solver
 
   (** A string representation of the solver. *)
   val to_string : solver -> string

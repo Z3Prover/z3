@@ -2740,10 +2740,13 @@ struct
     mk_solver ctx (Some (Symbol.mk_string ctx logic))
 
   let mk_simple_solver ( ctx : context ) =
-    (create ctx (Z3native.mk_simple_solver (context_gno ctx)))
+    create ctx (Z3native.mk_simple_solver (context_gno ctx))
 
   let mk_solver_t ( ctx : context ) ( t : Tactic.tactic ) = 
-    (create ctx (Z3native.mk_solver_from_tactic (context_gno ctx) (z3obj_gno t)))
+    create ctx (Z3native.mk_solver_from_tactic (context_gno ctx) (z3obj_gno t))
+
+  let translate  ( x : solver ) ( to_ctx : context ) =
+	create to_ctx (Z3native.solver_translate (z3obj_gnc x) (z3obj_gno x) (context_gno to_ctx))
 
   let to_string ( x : solver ) = Z3native.solver_to_string (z3obj_gnc x) (z3obj_gno x)
 end
