@@ -716,8 +716,8 @@ namespace smt {
         return;
     }
 
-    theory* theory_fpa::mk_fresh(context* new_ctx) { 
-        return alloc(theory_fpa, new_ctx->get_manager()); 
+    theory* theory_fpa::mk_fresh(context* new_ctx) {
+        return alloc(theory_fpa, new_ctx->get_manager());
     }
 
     void theory_fpa::push_scope_eh() {
@@ -861,6 +861,16 @@ namespace smt {
                   mk_ismt2_pp(a0, m) << " eq. cls. #" << get_enode(a0)->get_root()->get_owner()->get_id() << std::endl <<
                   mk_ismt2_pp(a1, m) << " eq. cls. #" << get_enode(a1)->get_root()->get_owner()->get_id() << std::endl <<
                   mk_ismt2_pp(a2, m) << " eq. cls. #" << get_enode(a2)->get_root()->get_owner()->get_id() << std::endl;);
+            res = vp;
+        }
+        else if (is_app_of(owner, get_family_id(), OP_FPA_INTERNAL_RM)) {
+            SASSERT(to_app(owner)->get_num_args() == 1);
+            app_ref a0(m);
+            a0 = to_app(owner->get_arg(0));
+            fpa_rm_value_proc * vp = alloc(fpa_rm_value_proc, this);
+            vp->add_dependency(ctx.get_enode(a0));
+            TRACE("t_fpa_detail", tout << "Depends on: " <<
+                mk_ismt2_pp(a0, m) << " eq. cls. #" << get_enode(a0)->get_root()->get_owner()->get_id() << std::endl;);
             res = vp;
         }
         else if (ctx.e_internalized(wrapped)) {
