@@ -866,6 +866,13 @@ sig
       Produces the default range value, for arrays that can be represented as 
       finite maps with a default range value. *)
   val mk_term_array : context -> Expr.expr -> Expr.expr
+
+  (** Create array extensionality index given two arrays with the same sort. 
+
+      The meaning is given by the axiom:
+          (=> (= (select A (array-ext A B)) (select B (array-ext A B))) (= A B)) *)
+  val mk_array_ext : context -> Expr.expr -> Expr.expr -> Expr.expr
+
 end
 
 (** Functions to manipulate Set expressions *)

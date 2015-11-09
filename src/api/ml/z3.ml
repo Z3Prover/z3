@@ -1217,6 +1217,9 @@ struct
 
   let mk_term_array  ( ctx : context ) ( arg : expr ) =
     expr_of_ptr ctx (Z3native.mk_array_default (context_gno ctx) (Expr.gno arg))
+
+  let mk_array_ext ( ctx : context) ( arg1 : expr ) ( arg2 : expr ) =
+	expr_of_ptr ctx (Z3native.mk_array_ext (context_gno ctx) (Expr.gno arg1) (Expr.gno arg2))
 end
 
 
