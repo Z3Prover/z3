@@ -82,6 +82,8 @@ namespace smt {
 
         std::set<expr*> variable_set;
         std::set<expr*> internal_variable_set;
+
+        std::set<expr*> input_var_in_len;
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
@@ -159,6 +161,7 @@ namespace smt {
         expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
         expr * getMostLeftNodeInConcat(expr * node);
         expr * getMostRightNodeInConcat(expr * node);
+        void get_var_in_eqc(expr * n, std::set<expr*> & varSet);
 
         // strRegex
 

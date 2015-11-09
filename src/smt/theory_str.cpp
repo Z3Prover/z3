@@ -2385,6 +2385,14 @@ void theory_str::set_up_axioms(expr * ex) {
             if (is_concat(ap)) {
                 // if ex is a concat, set up concat axioms later
                 m_concat_axiom_todo.push_back(n);
+            } else if (is_strlen(ap)) {
+            	// if the argument is a variable,
+            	// keep track of this for later, we'll need it during model gen
+            	expr * var = ap->get_arg(0);
+            	app * aVar = to_app(var);
+            	if (aVar->get_num_args() == 0 && !is_string(aVar)) {
+            		input_var_in_len.insert(var);
+            	}
             } else if (ap->get_num_args() == 0 && !is_string(ap)) {
                 // if ex is a variable, add it to our list of variables
                 TRACE("t_str_detail", tout << "tracking variable" << std::endl;);
@@ -3419,6 +3427,20 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 	NOT_IMPLEMENTED_YET();
 }
 
+void theory_str::get_var_in_eqc(expr * n, std::set<expr*> & varSet) {
+	context & ctx = get_context();
+
+	expr * eqcNode = n;
+	do {
+		if (variable_set.find(eqcNode) != variable_set.end()) {
+			varSet.insert(eqcNode);
+		}
+		enode * e_eqc = ctx.get_enode(eqcNode);
+		eqcNode = e_eqc->get_next()->get_owner();
+		// eqcNode = Z3_theory_get_eqc_next(t, eqcNode);
+	} while (eqcNode != n);
+}
+
 void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
@@ -3494,8 +3516,22 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 		}
 	}
 
-	// TODO the rest
-	NOT_IMPLEMENTED_YET();
+	// TODO here's a great place for debugging info
+
+	for(std::set<expr*>::iterator itor1 = leafVarSet.begin();
+			itor1 != leafVarSet.end(); ++itor1) {
+		expr * toAssert = gen_len_val_options_for_free_var(*itor1, NULL, "");
+		assert_axiom(toAssert);
+	}
+
+	for (std::map<int, std::set<expr*> >::iterator mItor = aloneVars.begin();
+			mItor != aloneVars.end(); ++mItor) {
+		std::set<expr*>::iterator itor2 = mItor->second.begin();
+		for(; itor2 != mItor->second.end(); ++itor2) {
+			expr * toAssert = gen_len_val_options_for_free_var(*itor2, NULL, "");
+			assert_axiom(toAssert);
+		}
+	}
 }
 
 /*
