@@ -142,7 +142,8 @@ namespace smt {
         m_trail_stack(*this),
         m_fpa_util(m_converter.fu()),
         m_bv_util(m_converter.bu()),
-        m_arith_util(m_converter.au())
+        m_arith_util(m_converter.au()),
+        m_is_initialized(false)
     {
         params_ref p;
         p.set_bool("arith_lhs", true);
@@ -151,10 +152,24 @@ namespace smt {
 
     theory_fpa::~theory_fpa()
     {
-        ast_manager & m = get_manager();
-        dec_ref_map_values(m, m_conversions);
-        dec_ref_map_values(m, m_wraps);
-        dec_ref_map_values(m, m_unwraps);
+        if (m_is_initialized) {
+            ast_manager & m = get_manager();
+            dec_ref_map_values(m, m_conversions);
+            dec_ref_map_values(m, m_wraps);
+            dec_ref_map_values(m, m_unwraps);
+        }
+        else {
+            SASSERT(m_conversions.empty());
+            SASSERT(m_wraps.empty());
+            SASSERT(m_unwraps.empty());
+        }
+
+        m_is_initialized = false;
+    }
+
+    void theory_fpa::init(context * ctx) {
+        smt::theory::init(ctx);
+        m_is_initialized = true;
     }
 
     app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
