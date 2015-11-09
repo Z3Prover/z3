@@ -221,6 +221,24 @@ app * theory_str::mk_int(int n) {
     return m_autil.mk_numeral(rational(n), true);
 }
 
+expr * theory_str::mk_internal_lenTest_var(expr * node, int lTries) {
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	std::stringstream ss;
+	ss << "$$_len_" << mk_ismt2_pp(node, m) << "_" << lTries;
+	std::string name = ss.str();
+	return mk_str_var(name);
+
+	/*
+  Z3_context ctx = Z3_theory_get_context(t);
+  std::stringstream ss;
+  ss << "$$_len_" << Z3_ast_to_string(ctx, node) << "_" << lTries;
+  std::string name = ss.str();
+  return my_mk_str_var(t, name.c_str());
+  */
+}
+
 app * theory_str::mk_internal_xor_var() {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
@@ -239,17 +257,26 @@ app * theory_str::mk_internal_xor_var() {
 	return a;
 }
 
-/*
-  Z3_context ctx = Z3_theory_get_context(t);
-  PATheoryData * td = (PATheoryData *) Z3_theory_get_ext_data(t);
-  std::stringstream ss;
-  ss << tmpStringVarCount;
-  tmpStringVarCount++;
-  std::string name = "$$_str" + ss.str();
-  Z3_ast varAst = mk_var(ctx, name.c_str(), td->String);
-  nonEmptyStrVarAxiom(t, varAst, __LINE__);
-  return varAst;
-*/
+app * theory_str::mk_str_var(std::string name) {
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	sort * string_sort = m.mk_sort(m_strutil.get_family_id(), STRING_SORT);
+	char * new_buffer = alloc_svect(char, name.length() + 1);
+	strcpy(new_buffer, name.c_str());
+	symbol sym(new_buffer);
+
+	app * a = m.mk_const(m.mk_const_decl(sym, string_sort));
+
+	// I have a hunch that this may not get internalized for free...
+	SASSERT(ctx.get_enode(a) != NULL);
+	m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
+
+	variable_set.insert(a);
+	internal_variable_set.insert(a);
+
+	return a;
+}
 
 app * theory_str::mk_nonempty_str_var() {
     context & ctx = get_context();
@@ -3422,9 +3449,180 @@ final_check_status theory_str::final_check_eh() {
     return FC_CONTINUE; // since by this point we've added axioms
 }
 
+inline std::string int_to_string(int i) {
+	std::stringstream ss;
+	ss << i;
+	return ss.str();
+}
+
+expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tries) {
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	expr * freeVarLen = mk_strlen(freeVar);
+
+	ptr_vector<expr> orList;
+	ptr_vector<expr> andList;
+
+	int distance = 3;
+	int l = (tries - 1) * distance;
+	int h = tries * distance;
+
+	for (int i = l; i < h; ++i) {
+		orList.push_back(m.mk_eq(indicator, m_strutil.mk_string(int_to_string(i).c_str())));
+		andList.push_back(m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVarLen, mk_int(i))));
+	}
+
+	orList.push_back(m.mk_eq(indicator, m_strutil.mk_string("more")));
+	andList.push_back(m.mk_eq(orList[orList.size() - 1], m_autil.mk_ge(freeVarLen, mk_int(h))));
+
+	expr ** or_items = alloc_svect(expr*, orList.size());
+	expr ** and_items = alloc_svect(expr*, andList.size() + 1);
+
+	for (int i = 0; i < orList.size(); ++i) {
+		or_items[i] = orList[i];
+	}
+
+	and_items[0] = m.mk_or(orList.size(), or_items);
+	for(int i = 0; i < andList.size(); ++i) {
+		and_items[i+1] = andList[i];
+	}
+	expr * lenTestAssert = m.mk_and(andList.size() + 1, and_items);
+
+	expr * assertL = NULL;
+	int testerCount = tries - 1;
+	if (testerCount > 0) {
+		expr ** and_items_LHS = alloc_svect(expr*, testerCount);
+		expr * moreAst = m_strutil.mk_string("more");
+		for (int i = 0; i < testerCount; ++i) {
+			and_items_LHS[i] = m.mk_eq(fvar_lenTester_map[freeVar][i], moreAst);
+		}
+		if (testerCount == 1) {
+			assertL = and_items_LHS[0];
+		} else {
+			assertL = m.mk_and(testerCount, and_items_LHS);
+		}
+	}
+
+	if (assertL != NULL) {
+		// return the axiom (assertL -> lenTestAssert)
+		// would like to use mk_implies() here but...
+		expr_ref lenTestAssert(m.mk_or(m.mk_not(assertL), lenTestAssert), m);
+	}
+
+	return lenTestAssert;
+
+}
+
+// -----------------------------------------------------------------------------------------------------
+// True branch will be taken in final_check:
+//   - When we discover a variable is "free" for the first time
+//     lenTesterInCbEq = NULL
+//     lenTesterValue = ""
+// False branch will be taken when invoked by new_eq_eh().
+//   - After we set up length tester for a "free" var in final_check,
+//     when the tester is assigned to some value (e.g. "more" or "4"),
+//     lenTesterInCbEq != NULL, and its value will be passed by lenTesterValue
+// The difference is that in new_eq_eh(), lenTesterInCbEq and its value have NOT been put into a same eqc
+// -----------------------------------------------------------------------------------------------------
 expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, std::string lenTesterValue) {
-	// TODO
-	NOT_IMPLEMENTED_YET();
+
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	STRACE("t_str_detail", tout << "gen for free var " << mk_ismt2_pp(freeVar, m) << std::endl;);
+	// no length assertions for this free variable have ever been added.
+	if (fvar_len_count_map.find(freeVar) == fvar_len_count_map.end()) {
+		fvar_len_count_map[freeVar] = 1;
+		unsigned int testNum = fvar_len_count_map[freeVar];
+		expr * indicator = mk_internal_lenTest_var(freeVar, testNum);
+		fvar_lenTester_map[freeVar].push_back(indicator);
+		lenTester_fvar_map[indicator] = freeVar;
+
+		expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
+		return lenTestAssert;
+	} else {
+		/*
+		Z3_ast effectiveLenInd = NULL;
+		std::string effectiveLenIndiStr = "";
+		int lenTesterCount = (int) fvarLenTesterMap[freeVar].size();
+
+		int i = 0;
+		for (; i < lenTesterCount; i++) {
+			Z3_ast len_indicator_pre = fvarLenTesterMap[freeVar][i];
+			bool indicatorHasEqcValue = false;
+			Z3_ast len_indicator_value = get_eqc_value(t, len_indicator_pre, indicatorHasEqcValue);
+#ifdef DEBUGLOG
+			__debugPrint(logFile, "* length indicator ");
+			printZ3Node(t, len_indicator_pre);
+			__debugPrint(logFile, " = ");
+			printZ3Node(t, len_indicator_value);
+			__debugPrint(logFile, "\n");
+#endif
+			if (indicatorHasEqcValue) {
+				std::string len_pIndiStr = getConstStrValue(t, len_indicator_value);
+				if (len_pIndiStr != "more") {
+					effectiveLenInd = len_indicator_pre;
+					effectiveLenIndiStr = len_pIndiStr;
+					break;
+				}
+			} else {
+				if (lenTesterInCbEq != len_indicator_pre) {
+#ifdef DEBUGLOG
+					__debugPrint(logFile, "\n>> *Warning*: length indicator: ");
+					printZ3Node(t, len_indicator_pre);
+					__debugPrint(logFile, " doesn't have an EQC value. i = %d, lenTesterCount = %d\n", i , lenTesterCount);
+#endif
+					if (i > 0) {
+						effectiveLenInd = fvarLenTesterMap[freeVar][i - 1];
+						if (effectiveLenInd == lenTesterInCbEq) {
+							effectiveLenIndiStr = lenTesterValue;
+						} else {
+							bool effectiveHasEqcValue = false;
+							effectiveLenIndiStr = getConstStrValue(t, get_eqc_value(t, effectiveLenInd, effectiveHasEqcValue));
+						}
+					}
+					break;
+				}
+				// lenTesterInCbEq == len_indicator_pre
+				else {
+					if (lenTesterValue != "more") {
+						effectiveLenInd = len_indicator_pre;
+						effectiveLenIndiStr = lenTesterValue;
+						break;
+					}
+				}
+			}
+		}
+
+		if (effectiveLenIndiStr == "more" || effectiveLenIndiStr == "") {
+			Z3_ast indicator = NULL;
+			unsigned int testNum = 0;
+
+			__debugPrint(logFile, "\n>> effectiveLenIndiStr = %s, i = %d, lenTesterCount = %d\n", effectiveLenIndiStr.c_str(), i, lenTesterCount);
+
+			if (i == lenTesterCount) {
+				fvarLenCountMap[freeVar] = fvarLenCountMap[freeVar] + 1;
+				testNum = fvarLenCountMap[freeVar];
+				indicator = my_mk_internal_lenTest_var(t, freeVar, testNum);
+				fvarLenTesterMap[freeVar].push_back(indicator);
+				lenTesterFvarMap[indicator] = freeVar;
+			} else {
+				indicator = fvarLenTesterMap[freeVar][i];
+				testNum = i + 1;
+			}
+			Z3_ast lenTestAssert = genLenTestOptions(t, freeVar, indicator, testNum);
+			return lenTestAssert;
+		} else {
+			// length is fixed
+			Z3_ast valueAssert = genFreeVarOptions(t, freeVar, effectiveLenInd, effectiveLenIndiStr, NULL, "");
+			return valueAssert;
+		}
+		*/
+
+		// TODO
+		NOT_IMPLEMENTED_YET();
+	} // fVarLenCountMap.find(...)
 }
 
 void theory_str::get_var_in_eqc(expr * n, std::set<expr*> & varSet) {

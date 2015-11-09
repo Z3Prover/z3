@@ -84,6 +84,11 @@ namespace smt {
         std::set<expr*> internal_variable_set;
 
         std::set<expr*> input_var_in_len;
+
+        std::map<expr*, unsigned int> fvar_len_count_map;
+        std::map<expr*, ptr_vector<expr> > fvar_lenTester_map;
+        std::map<expr*, expr*> lenTester_fvar_map;
+
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
@@ -99,6 +104,7 @@ namespace smt {
         void add_cut_info_merge(expr * destNode, int slevel, expr * srcNode);
         bool has_self_cut(expr * n1, expr * n2);
 
+        app * mk_str_var(std::string name);
         app * mk_nonempty_str_var();
         app * mk_internal_xor_var();
 
@@ -155,8 +161,10 @@ namespace smt {
         void classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
         		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
 
+        expr * mk_internal_lenTest_var(expr * node, int lTries);
         expr * gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, std::string lenTesterValue);
         void process_free_var(std::map<expr*, int> & freeVar_map);
+        expr * gen_len_test_options(expr * freeVar, expr * indicator, int tries);
 
         expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
         expr * getMostLeftNodeInConcat(expr * node);
