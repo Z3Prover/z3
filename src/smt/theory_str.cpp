@@ -3420,7 +3420,81 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 }
 
 void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
-	// TODO this one first
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	std::set<expr*> eqcRepSet;
+	std::set<expr*> leafVarSet;
+	std::map<int, std::set<expr*> > aloneVars;
+
+	for (std::map<expr*, int>::iterator fvIt = freeVar_map.begin(); fvIt != freeVar_map.end(); fvIt++) {
+		expr * freeVar = fvIt->first;
+		/*
+		std::string vName = std::string(Z3_ast_to_string(ctx, freeVar));
+		if (vName.length() >= 9 && vName.substr(0, 9) == "$$_regVar") {
+			continue;
+		}
+		*/
+		// TODO skip all regular expression vars
+
+		// Iterate the EQC of freeVar, its eqc variable should not be in the eqcRepSet.
+		// If found, have to filter it out
+		std::set<expr*> eqVarSet;
+		get_var_in_eqc(freeVar, eqVarSet);
+		bool duplicated = false;
+		expr * dupVar = NULL;
+		for (std::set<expr*>::iterator itorEqv = eqVarSet.begin(); itorEqv != eqVarSet.end(); itorEqv++) {
+			if (eqcRepSet.find(*itorEqv) != eqcRepSet.end()) {
+				duplicated = true;
+				dupVar = *itorEqv;
+				break;
+			}
+		}
+		if (duplicated && dupVar != NULL) {
+			STRACE("t_str_detail", tout << "Duplicated free variable found:" << mk_ismt2_pp(freeVar, m)
+					<< " = " << mk_ismt2_pp(dupVar, m) << " (SKIP)" << std::endl;);
+			continue;
+		} else {
+			eqcRepSet.insert(freeVar);
+		}
+	}
+
+	for (std::set<expr*>::iterator fvIt = eqcRepSet.begin(); fvIt != eqcRepSet.end(); fvIt++) {
+		bool standAlone = true;
+		expr * freeVar = *fvIt;
+		// has length constraint initially
+		if (input_var_in_len.find(freeVar) != input_var_in_len.end()) {
+			standAlone = false;
+		}
+		// iterate parents
+		if (standAlone) {
+			// I hope this works!
+			enode * e_freeVar = ctx.get_enode(freeVar);
+			enode_vector::iterator it = e_freeVar->begin_parents();
+			for (; it != e_freeVar->end_parents(); ++it) {
+				expr * parentAst = (*it)->get_owner();
+				if (is_concat(to_app(parentAst))) {
+					standAlone = false;
+					break;
+				}
+			}
+		}
+
+		if (standAlone) {
+			// TODO
+			// int lenValue = getLenValue(freeVar);
+			int lenValue = -1;
+			if (lenValue != -1) {
+				leafVarSet.insert(freeVar);
+			} else {
+				aloneVars[lenValue].insert(freeVar);
+			}
+		} else {
+			leafVarSet.insert(freeVar);
+		}
+	}
+
+	// TODO the rest
 	NOT_IMPLEMENTED_YET();
 }
 
