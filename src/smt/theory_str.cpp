@@ -3455,6 +3455,65 @@ inline std::string int_to_string(int i) {
 	return ss.str();
 }
 
+expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
+		std::string len_valueStr, expr * valTesterInCbEq, std::string valTesterValueStr) {
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	int len = atoi(len_valueStr.c_str());
+
+	if (fvar_valueTester_map[freeVar].find(len) == fvar_valueTester_map[freeVar].end()) {
+		int tries = 0;
+		expr * val_indicator = mk_internal_valTest_var(freeVar, len, tries);
+		valueTester_fvar_map[val_indicator] = freeVar;
+		fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, val_indicator));
+		print_value_tester_list(fvar_valueTester_map[freeVar][len]);
+		return gen_val_options(freeVar, len_indicator, val_indicator, len_valueStr, tries);
+	} else {
+		// go through all previous value testers
+		// If some doesn't have an eqc value, add its assertion again.
+		int testerTotal = fvar_valueTester_map[freeVar][len].size();
+		int i = 0;
+		for (; i < testerTotal; i++) {
+			expr * aTester = fvarValueTesterMap[freeVar][len][i].second;
+
+			if (aTester == valTesterInCbEq) {
+				break;
+			}
+
+			bool anEqcHasValue = false;
+			// Z3_ast anEqc = get_eqc_value(t, aTester, anEqcHasValue);
+			get_eqc_value(aTester, anEqcHasValue);
+			if (!anEqcHasValue) {
+				STRACE("t_str_detail", "value tester " << mk_ismt2_pp(aTester, m)
+						<< "doesn't have an equivalence class value." << std::endl;);
+
+				expr_ref makeupAssert(gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i), m);
+
+				STRACE("t_str_detail", "var: " << mk_ismt2_pp(freeVar, m) << std::endl
+						<< mk_ismt2_pp(makeupAssert, m) << std::endl;);
+				assert_axiom(makeupAssert);
+			}
+		}
+
+		if (valTesterValueStr == "more") {
+			expr * valTester = NULL;
+			if (i + 1 < testerTotal) {
+				valTester = fvar_valueTester_map[freeVar][len][i + 1].second;
+			} else {
+				valTester = mk_internal_valTest_var(freeVar, len, i + 1);
+				valueTester_fvar_map[valTester] = freeVar;
+				fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, valTester));
+				print_value_tester_list(fvar_valueTester_map[freeVar][len]);
+			}
+			expr_ref nextAssert(gen_val_options(freeVar, len_indicator, valTester, len_valueStr, i + 1), m);
+			return nextAssert;
+		}
+
+		return NULL;
+	}
+}
+
 expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tries) {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
@@ -3542,25 +3601,22 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 		expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
 		return lenTestAssert;
 	} else {
-		/*
-		Z3_ast effectiveLenInd = NULL;
+
+		expr * effectiveLenInd = NULL;
 		std::string effectiveLenIndiStr = "";
-		int lenTesterCount = (int) fvarLenTesterMap[freeVar].size();
+		int lenTesterCount = (int) fvar_lenTester_map[freeVar].size();
 
 		int i = 0;
-		for (; i < lenTesterCount; i++) {
-			Z3_ast len_indicator_pre = fvarLenTesterMap[freeVar][i];
+		for (; i < lenTesterCount; ++i) {
+			expr * len_indicator_pre = fvar_lenTester_map[freeVar][i];
 			bool indicatorHasEqcValue = false;
-			Z3_ast len_indicator_value = get_eqc_value(t, len_indicator_pre, indicatorHasEqcValue);
-#ifdef DEBUGLOG
-			__debugPrint(logFile, "* length indicator ");
-			printZ3Node(t, len_indicator_pre);
-			__debugPrint(logFile, " = ");
-			printZ3Node(t, len_indicator_value);
-			__debugPrint(logFile, "\n");
-#endif
+			expr * len_indicator_value = get_eqc_value(len_indicator_pre, indicatorHasEqcValue);
+			STRACE("t_str_detail", tout << "length indicator " << mk_ismt2_pp(len_indicator_pre, m) <<
+					" = " << mk_ismt2_pp(len_indicator_value, m) << std::endl;);
 			if (indicatorHasEqcValue) {
-				std::string len_pIndiStr = getConstStrValue(t, len_indicator_value);
+				const char * val = 0;
+				m_strutil.is_string(len_indicator_value, & val);
+				std::string len_pIndiStr(val);
 				if (len_pIndiStr != "more") {
 					effectiveLenInd = len_indicator_pre;
 					effectiveLenIndiStr = len_pIndiStr;
@@ -3568,18 +3624,18 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 				}
 			} else {
 				if (lenTesterInCbEq != len_indicator_pre) {
-#ifdef DEBUGLOG
-					__debugPrint(logFile, "\n>> *Warning*: length indicator: ");
-					printZ3Node(t, len_indicator_pre);
-					__debugPrint(logFile, " doesn't have an EQC value. i = %d, lenTesterCount = %d\n", i , lenTesterCount);
-#endif
+					STRACE("t_str", tout << "WARNING: length indicator " << mk_ismt2_pp(len_indicator_pre, m)
+							<< " does not have an equivalence class value."
+							<< " i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
 					if (i > 0) {
 						effectiveLenInd = fvarLenTesterMap[freeVar][i - 1];
 						if (effectiveLenInd == lenTesterInCbEq) {
 							effectiveLenIndiStr = lenTesterValue;
 						} else {
 							bool effectiveHasEqcValue = false;
-							effectiveLenIndiStr = getConstStrValue(t, get_eqc_value(t, effectiveLenInd, effectiveHasEqcValue));
+							const char * val = 0;
+							m_strutil.is_string(get_eqc_value(effectiveLenInd, effectiveHasEqcValue), & val);
+							effectiveLenIndiStr = val;
 						}
 					}
 					break;
@@ -3592,36 +3648,32 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 						break;
 					}
 				}
-			}
-		}
-
+			} // !indicatorHasEqcValue
+		} // for (i : [0..lenTesterCount-1])
 		if (effectiveLenIndiStr == "more" || effectiveLenIndiStr == "") {
-			Z3_ast indicator = NULL;
+			expr * indicator = NULL;
 			unsigned int testNum = 0;
 
-			__debugPrint(logFile, "\n>> effectiveLenIndiStr = %s, i = %d, lenTesterCount = %d\n", effectiveLenIndiStr.c_str(), i, lenTesterCount);
+			STRACE("t_str", tout << "effectiveLenIndiStr = " << effectiveLenIndiStr
+					<< ", i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
 
 			if (i == lenTesterCount) {
-				fvarLenCountMap[freeVar] = fvarLenCountMap[freeVar] + 1;
-				testNum = fvarLenCountMap[freeVar];
-				indicator = my_mk_internal_lenTest_var(t, freeVar, testNum);
-				fvarLenTesterMap[freeVar].push_back(indicator);
-				lenTesterFvarMap[indicator] = freeVar;
+				fvar_len_count_map[freeVar] = fvar_len_count_map[freeVar] + 1;
+				testNum = fvar_len_count_map[freeVar];
+				indicator = mk_internal_lenTest_var(freeVar, testNum);
+				fvar_lenTester_map[freeVar].push_back(indicator);
+				lenTester_fvar_map[indicator] = freeVar;
 			} else {
 				indicator = fvarLenTesterMap[freeVar][i];
 				testNum = i + 1;
 			}
-			Z3_ast lenTestAssert = genLenTestOptions(t, freeVar, indicator, testNum);
+			expr_ref lenTestAssert(gen_len_test_options(freeVar, indicator, testNum), m);
 			return lenTestAssert;
 		} else {
 			// length is fixed
-			Z3_ast valueAssert = genFreeVarOptions(t, freeVar, effectiveLenInd, effectiveLenIndiStr, NULL, "");
+			expr_ref valueAssert(gen_free_var_options(freeVar, effectiveLenInd, effectiveLenIndiStr, NULL, ""), m);
 			return valueAssert;
 		}
-		*/
-
-		// TODO
-		NOT_IMPLEMENTED_YET();
 	} // fVarLenCountMap.find(...)
 }
 

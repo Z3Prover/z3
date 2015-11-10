@@ -165,6 +165,8 @@ namespace smt {
         expr * gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, std::string lenTesterValue);
         void process_free_var(std::map<expr*, int> & freeVar_map);
         expr * gen_len_test_options(expr * freeVar, expr * indicator, int tries);
+        expr * gen_free_var_options(expr * freeVar, expr * len_indicator,
+        		std::string len_valueStr, expr * valTesterInCbEq, std::string valTesterValueStr);
 
         expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
         expr * getMostLeftNodeInConcat(expr * node);
