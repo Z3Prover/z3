@@ -89,6 +89,9 @@ namespace smt {
         std::map<expr*, ptr_vector<expr> > fvar_lenTester_map;
         std::map<expr*, expr*> lenTester_fvar_map;
 
+        std::map<expr*, std::map<int, std::vector<std::pair<int, expr*> > > > fvar_valueTester_map;
+        std::map<expr*, expr*> valueTester_fvar_map;
+
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
@@ -107,6 +110,7 @@ namespace smt {
         app * mk_str_var(std::string name);
         app * mk_nonempty_str_var();
         app * mk_internal_xor_var();
+        expr * mk_internal_valTest_var(expr * node, int len, int vTries);
 
         bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
@@ -167,6 +171,9 @@ namespace smt {
         expr * gen_len_test_options(expr * freeVar, expr * indicator, int tries);
         expr * gen_free_var_options(expr * freeVar, expr * len_indicator,
         		std::string len_valueStr, expr * valTesterInCbEq, std::string valTesterValueStr);
+        expr * gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
+        		std::string lenStr, int tries);
+        void print_value_tester_list(std::vector<std::pair<int, expr*> > & testerList);
 
         expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
         expr * getMostLeftNodeInConcat(expr * node);
