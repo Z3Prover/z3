@@ -708,6 +708,19 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             result = m().mk_eq(lhs, rhs);
             return BR_DONE;
         }
+
+        expr *la, *lb, *ra, *rb;
+        // fold (iff (iff a b) (iff (not a) b)) to false
+        if (m().is_iff(lhs, la, lb) && m().is_iff(rhs, ra, rb)) {
+            expr *n;
+            if ((la == ra && ((m().is_not(rb, n) && n == lb) ||
+                (m().is_not(lb, n) && n == rb))) ||
+                (lb == rb && ((m().is_not(ra, n) && n == la) ||
+                    (m().is_not(la, n) && n == ra)))) {
+                result = m().mk_false();
+                return BR_DONE;
+            }
+        }
     }
     return BR_FAILED;
 }
