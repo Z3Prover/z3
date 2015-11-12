@@ -25,6 +25,7 @@ Notes:
 #include"max_bv_sharing_tactic.h"
 #include"bv_size_reduction_tactic.h"
 #include"reduce_args_tactic.h"
+#include"qfbv_tactic.h"
 
 tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p;
@@ -41,13 +42,11 @@ tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {
                                     );
 
     tactic * st = using_params(and_then(preamble_st,
-                                        mk_smt_tactic()),
+                                        cond(mk_is_qfbv_probe(),
+                                            mk_qfbv_tactic(m),
+                                            mk_smt_tactic())),
                                main_p);
 
-    //cond(is_qfbv(), 
-    // and_then(mk_bit_blaster(m),
-    //          mk_sat_solver(m)),
-    //  mk_smt_solver())
     st->updt_params(p);
     return st;
 }
