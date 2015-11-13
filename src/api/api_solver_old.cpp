@@ -34,7 +34,7 @@ extern "C" {
         mk_c(c)->push();
         Z3_CATCH;
     }
-        
+
     void Z3_API Z3_pop(Z3_context c, unsigned num_scopes) {
         Z3_TRY;
         LOG_Z3_pop(c, num_scopes);
@@ -62,7 +62,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_assert_cnstr(c, a);
         RESET_ERROR_CODE();
-        CHECK_FORMULA(a,);        
+        CHECK_FORMULA(a,);
         mk_c(c)->assert_cnstr(to_expr(a));
         Z3_CATCH;
     }
@@ -81,11 +81,11 @@ extern "C" {
             result = mk_c(c)->check(_m);
             if (m) {
                 if (_m) {
-                    Z3_model_ref * m_ref = alloc(Z3_model_ref); 
+                    Z3_model_ref * m_ref = alloc(Z3_model_ref);
                     m_ref->m_model = _m;
                     // Must bump reference counter for backward compatibility reasons.
                     // Don't need to invoke save_object, since the counter was bumped
-                    m_ref->inc_ref(); 
+                    m_ref->inc_ref();
                     *m = of_model(m_ref);
                 }
                 else {
@@ -100,21 +100,21 @@ extern "C" {
         RETURN_Z3_check_and_get_model static_cast<Z3_lbool>(result);
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
-    
+
     Z3_lbool Z3_API Z3_check(Z3_context c) {
         Z3_TRY;
-        // This is just syntax sugar... 
-        RESET_ERROR_CODE();   
+        // This is just syntax sugar...
+        RESET_ERROR_CODE();
         CHECK_SEARCHING(c);
         Z3_lbool r = Z3_check_and_get_model(c, 0);
         return r;
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
 
-    
-    Z3_lbool Z3_API Z3_check_assumptions(Z3_context c, 
-                                         unsigned num_assumptions, Z3_ast const assumptions[], 
-                                         Z3_model * m, Z3_ast* proof, 
+
+    Z3_lbool Z3_API Z3_check_assumptions(Z3_context c,
+                                         unsigned num_assumptions, Z3_ast const assumptions[],
+                                         Z3_model * m, Z3_ast* proof,
                                          unsigned* core_size, Z3_ast core[]) {
         Z3_TRY;
         LOG_Z3_check_assumptions(c, num_assumptions, assumptions, m, proof, core_size, core);
@@ -130,11 +130,11 @@ extern "C" {
             model_ref _m;
             mk_c(c)->get_smt_kernel().get_model(_m);
             if (_m) {
-                Z3_model_ref * m_ref = alloc(Z3_model_ref); 
+                Z3_model_ref * m_ref = alloc(Z3_model_ref);
                 m_ref->m_model = _m;
                 // Must bump reference counter for backward compatibility reasons.
                 // Don't need to invoke save_object, since the counter was bumped
-                m_ref->inc_ref(); 
+                m_ref->inc_ref();
                 *m = of_model(m_ref);
             }
             else {
@@ -159,7 +159,7 @@ extern "C" {
         else if (proof) {
             *proof = 0; // breaks abstraction.
         }
-        RETURN_Z3_check_assumptions static_cast<Z3_lbool>(result);         
+        RETURN_Z3_check_assumptions static_cast<Z3_lbool>(result);
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
 
@@ -185,7 +185,7 @@ extern "C" {
         symbol const& get_label() const { return m_label; }
         expr* get_literal() { return m_literal.get(); }
     };
-    
+
     typedef vector<labeled_literal> labels;
 
     Z3_literals Z3_API Z3_get_relevant_labels(Z3_context c) {
@@ -196,7 +196,7 @@ extern "C" {
         ast_manager& m = mk_c(c)->m();
         expr_ref_vector lits(m);
         mk_c(c)->get_smt_kernel().get_relevant_labels(0, labl_syms);
-        mk_c(c)->get_smt_kernel().get_relevant_labeled_literals(mk_c(c)->fparams().m_at_labels_cex, lits);        
+        mk_c(c)->get_smt_kernel().get_relevant_labeled_literals(mk_c(c)->fparams().m_at_labels_cex, lits);
         labels* lbls = alloc(labels);
         SASSERT(labl_syms.size() == lits.size());
         for (unsigned i = 0; i < lits.size(); ++i) {
@@ -212,12 +212,12 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager& m = mk_c(c)->m();
         expr_ref_vector lits(m);
-        mk_c(c)->get_smt_kernel().get_relevant_literals(lits);        
+        mk_c(c)->get_smt_kernel().get_relevant_literals(lits);
         labels* lbls = alloc(labels);
         for (unsigned i = 0; i < lits.size(); ++i) {
             lbls->push_back(labeled_literal(m,lits[i].get()));
         }
-        RETURN_Z3(reinterpret_cast<Z3_literals>(lbls));        
+        RETURN_Z3(reinterpret_cast<Z3_literals>(lbls));
         Z3_CATCH_RETURN(0);
     }
 
@@ -227,12 +227,12 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager& m = mk_c(c)->m();
         expr_ref_vector lits(m);
-        mk_c(c)->get_smt_kernel().get_guessed_literals(lits);        
+        mk_c(c)->get_smt_kernel().get_guessed_literals(lits);
         labels* lbls = alloc(labels);
         for (unsigned i = 0; i < lits.size(); ++i) {
             lbls->push_back(labeled_literal(m,lits[i].get()));
         }
-        RETURN_Z3(reinterpret_cast<Z3_literals>(lbls));        
+        RETURN_Z3(reinterpret_cast<Z3_literals>(lbls));
         Z3_CATCH_RETURN(0);
     }
 
@@ -248,7 +248,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_num_literals(c, lbls);
         RESET_ERROR_CODE();
-        return reinterpret_cast<labels*>(lbls)->size();   
+        return reinterpret_cast<labels*>(lbls)->size();
         Z3_CATCH_RETURN(0);
     }
 
@@ -256,7 +256,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_label_symbol(c, lbls, idx);
         RESET_ERROR_CODE();
-        return of_symbol((*reinterpret_cast<labels*>(lbls))[idx].get_label());        
+        return of_symbol((*reinterpret_cast<labels*>(lbls))[idx].get_label());
         Z3_CATCH_RETURN(0);
     }
 
@@ -274,7 +274,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_disable_literal(c, lbls, idx);
         RESET_ERROR_CODE();
-        (*reinterpret_cast<labels*>(lbls))[idx].disable(); 
+        (*reinterpret_cast<labels*>(lbls))[idx].disable();
         Z3_CATCH;
     }
 
@@ -348,4 +348,4 @@ void Z3_display_statistics(Z3_context c, std::ostream& s) {
 void Z3_display_istatistics(Z3_context c, std::ostream& s) {
     mk_c(c)->get_smt_kernel().display_istatistics(s);
 }
-    
+
