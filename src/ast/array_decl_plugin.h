@@ -22,7 +22,7 @@ Revision History:
 #include"ast.h"
 
 
-inline sort* get_array_range(sort const * s) { 
+inline sort* get_array_range(sort const * s) {
     return to_sort(s->get_parameter(s->get_num_parameters() - 1).get_ast());
 }
 
@@ -104,20 +104,20 @@ class array_decl_plugin : public decl_plugin {
     }
 
     //
-    // Contract for sort: 
-    //   parameters[0]     - 1st dimension 
+    // Contract for sort:
+    //   parameters[0]     - 1st dimension
     //   ...
     //   parameters[n-1]   - nth dimension
     //   parameters[n]     - range
     //
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
-    
+
     //
     // Contract for func_decl:
     //   parameters[0]     - array sort
     // Contract for others:
     //   no parameters
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned arity, sort * const * domain, sort * range);
 
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
@@ -184,6 +184,11 @@ public:
     sort * mk_array_sort(sort* dom, sort* range) { return mk_array_sort(1, &dom, range); }
 
     sort * mk_array_sort(unsigned arity, sort* const* domain, sort* range);
+
+    app * mk_as_array(sort * s, func_decl * f) {
+        parameter param(f);
+        return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, 0, s);
+    }
 };
 
 

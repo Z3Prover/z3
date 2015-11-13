@@ -2648,9 +2648,8 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
 
     SASSERT(num == 2);
     SASSERT(m_util.is_float(f->get_range()));
-    SASSERT(m_bv_util.is_bv(args[0]));
-    SASSERT(m_bv_util.is_bv(args[1]));
     SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_bv_util.is_bv(args[1]));
 
     expr_ref bv_rm(m), x(m);
     bv_rm = to_app(args[0])->get_arg(0);
