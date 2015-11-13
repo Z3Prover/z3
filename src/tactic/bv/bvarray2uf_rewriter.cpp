@@ -361,7 +361,7 @@ bool bvarray2uf_rewriter_cfg::reduce_quantifier(quantifier * old_q,
     return true;
 }
 
-bool bvarray2uf_rewriter_cfg::bvarray2uf_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & result_pr) {
+bool bvarray2uf_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & result_pr) {
     if (t->get_idx() >= m_bindings.size())
         return false;
 
