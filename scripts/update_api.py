@@ -96,7 +96,7 @@ if sys.version < '3':
      return s
 else:
   def _to_pystr(s):
-     return s.decode('utf-8')
+     return s.decode(sys.stdout.encoding)
 
 def init(PATH):
   global _lib
