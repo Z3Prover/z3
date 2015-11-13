@@ -23,6 +23,8 @@ Revision History:
 #include"api_context.h"
 #include"api_model.h"
 #include"cancel_eh.h"
+#include"scoped_timer.h"
+#include"rlimit.h"
 
 extern "C" {
 
@@ -75,8 +77,13 @@ extern "C" {
         cancel_eh<smt::kernel> eh(mk_c(c)->get_smt_kernel());
         api::context::set_interruptable si(*(mk_c(c)), eh);
         flet<bool> _model(mk_c(c)->fparams().m_model, true);
+        unsigned timeout = mk_c(c)->params().m_timeout;
+        unsigned rlimit = mk_c(c)->params().m_rlimit;
         lbool result;
         try {
+            scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
+
             model_ref _m;
             result = mk_c(c)->check(_m);
             if (m) {
