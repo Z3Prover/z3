@@ -770,7 +770,7 @@ namespace opt {
                   tout << "offset: " << offset << "\n";
                   );
             std::ostringstream out;
-            out << mk_pp(orig_term, m);
+            out << mk_pp(orig_term, m) << ":" << index;
             id = symbol(out.str().c_str());
             return true;
         }
@@ -793,7 +793,7 @@ namespace opt {
             }
             neg = true;
             std::ostringstream out;
-            out << mk_pp(orig_term, m);
+            out << mk_pp(orig_term, m) << ":" << index;
             id = symbol(out.str().c_str());
             return true;
         }
@@ -812,7 +812,7 @@ namespace opt {
             }
             neg = is_max;
             std::ostringstream out;
-            out << mk_pp(orig_term, m);
+            out << mk_pp(orig_term, m) << ":" << index;
             id = symbol(out.str().c_str());
             return true;            
         }
