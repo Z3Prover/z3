@@ -88,7 +88,7 @@ bool pattern_validator::process(uint_set & found_vars, unsigned num_bindings, un
     if (!f.m_result)
         return false;
     if (!f.m_found_a_var) {
-        warning_msg("pattern does contain any variable.");
+        warning_msg("pattern does not contain any variable.");
         return false;
     }
     return true;
