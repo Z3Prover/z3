@@ -96,7 +96,11 @@ if sys.version < '3':
      return s
 else:
   def _to_pystr(s):
-     return s.decode(sys.stdout.encoding)
+     if s != None:
+        enc = sys.stdout.encoding
+        if enc != None: s.decode(enc)
+        else: s
+     else: ""
 
 def init(PATH):
   global _lib
