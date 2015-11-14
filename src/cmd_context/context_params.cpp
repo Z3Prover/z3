@@ -48,7 +48,26 @@ void context_params::set_bool(bool & opt, char const * param, char const * value
     }
     else {
         std::stringstream strm;
-        strm << "invalid value '" << value << "' for Boolean parameter '" << param;
+        strm << "invalid value '" << value << "' for Boolean parameter '" << param << "'";
+        throw default_exception(strm.str());
+    }
+}
+
+void context_params::set_uint(unsigned & opt, char const * param, char const * value) {
+    bool is_uint = true;
+    size_t sz = strlen(value);
+    for (unsigned i = 0; i < sz; i++) {
+        if (!(value[i] >= '0' && value[i] <= '9'))
+            is_uint = false;
+    }
+
+    if (is_uint) {
+        long val = strtol(value, 0, 10);
+        opt = static_cast<unsigned>(val);
+    }
+    else {
+        std::stringstream strm;
+        strm << "invalid value '" << value << "' for unsigned int parameter '" << param << "'";
         throw default_exception(strm.str());
     }
 }
@@ -63,12 +82,10 @@ void context_params::set(char const * param, char const * value) {
             p[i] = '_';
     }
     if (p == "timeout") {
-        long val = strtol(value, 0, 10);
-        m_timeout = static_cast<unsigned>(val);
+        set_uint(m_timeout, param, value);
     }
     else if (p == "rlimit") {
-        long val = strtol(value, 0, 10);
-        m_rlimit = static_cast<unsigned>(val);
+        set_uint(m_rlimit, param, value);
     }
     else if (p == "type_check" || p == "well_sorted_check") {
         set_bool(m_well_sorted_check, param, value);
@@ -110,7 +127,7 @@ void context_params::set(char const * param, char const * value) {
         strm << "unknown parameter '" << p << "'\n";
         strm << "Legal parameters are:\n";
         d.display(strm, 2, false, false);
-        throw default_exception(strm.str());        
+        throw default_exception(strm.str());
     }
 }
 
@@ -174,8 +191,8 @@ void context_params::get_solver_params(ast_manager const & m, params_ref & p, bo
 }
 
 ast_manager * context_params::mk_ast_manager() {
-    ast_manager * r = alloc(ast_manager, 
-                            m_proof ? PGM_FINE : PGM_DISABLED, 
+    ast_manager * r = alloc(ast_manager,
+                            m_proof ? PGM_FINE : PGM_DISABLED,
                             m_trace ? m_trace_file_name.c_str() : 0);
     if (m_smtlib2_compliant)
         r->enable_int_real_coercions(false);
