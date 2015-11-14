@@ -98,9 +98,10 @@ else:
   def _to_pystr(s):
      if s != None:
         enc = sys.stdout.encoding
-        if enc != None: s.decode(enc)
-        else: s
-     else: ""
+        if enc != None: return s.decode(enc)
+        else: return s
+     else:
+        return ""
 
 def init(PATH):
   global _lib

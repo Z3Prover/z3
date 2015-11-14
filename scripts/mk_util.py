@@ -93,9 +93,10 @@ def check_output(cmd):
     out = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
     if out != None:
         enc = sys.stdout.encoding
-        if enc != None: out.decode(enc).rstrip('\r\n')
-        else: out.rstrip('\r\n')
-    else: ""
+        if enc != None: return out.decode(enc).rstrip('\r\n')
+        else: return out.rstrip('\r\n')
+    else:
+        return ""
 
 def git_hash():
     try:
