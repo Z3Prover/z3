@@ -154,7 +154,7 @@ namespace opt {
         m_soft_constraints(m), m_answer(m) {}
 
     lbool maxsmt::operator()() {
-        lbool is_sat;
+        lbool is_sat = l_undef;
         m_msolver = 0;
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
