@@ -140,7 +140,7 @@ extern "C" {
     
     Z3_func_decl Z3_API Z3_model_get_func_decl(Z3_context c, Z3_model m, unsigned i) {
         Z3_TRY;
-        LOG_Z3_get_model_func_decl(c, m, i);
+        LOG_Z3_model_get_func_decl(c, m, i);
         RESET_ERROR_CODE();
         Z3_func_decl r = get_model_func_decl_core(c, m, i);
         RETURN_Z3(r);
@@ -368,26 +368,6 @@ extern "C" {
         return Z3_model_get_func_decl(c, m, i);
     }
     
-    Z3_ast Z3_API Z3_get_model_func_else(Z3_context c, Z3_model m, unsigned i) {
-        Z3_TRY;
-        LOG_Z3_get_model_func_else(c, m, i);
-        RESET_ERROR_CODE();
-        CHECK_NON_NULL(m, 0);
-        Z3_func_decl d = get_model_func_decl_core(c, m, i);
-        if (d) {
-            model * _m = to_model_ref(m);            
-            func_interp * g = _m->get_func_interp(to_func_decl(d));
-            if (g) {
-                expr * e = g->get_else();
-                mk_c(c)->save_ast_trail(e);
-                RETURN_Z3(of_ast(e));
-            }
-            SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
-        }
-        RETURN_Z3(0);
-        Z3_CATCH_RETURN(0);
-    }
 
     unsigned get_model_func_num_entries_core(Z3_context c, Z3_model m, unsigned i) {
         RESET_ERROR_CODE();
@@ -405,12 +385,6 @@ extern "C" {
         return 0;
     }
     
-    unsigned Z3_API Z3_get_model_func_num_entries(Z3_context c, Z3_model m, unsigned i) {
-        Z3_TRY;
-        LOG_Z3_get_model_func_num_entries(c, m, i);
-        return get_model_func_num_entries_core(c, m, i);
-        Z3_CATCH_RETURN(0);
-    }
 
     unsigned get_model_func_entry_num_args_core(Z3_context c,
                                                 Z3_model m,
@@ -431,238 +405,6 @@ extern "C" {
         return 0;
     }
     
-    unsigned Z3_API Z3_get_model_func_entry_num_args(Z3_context c,
-                                                     Z3_model m,
-                                                     unsigned i,
-                                                     unsigned j) {
-        Z3_TRY;
-        LOG_Z3_get_model_func_entry_num_args(c, m, i, j);
-        return get_model_func_entry_num_args_core(c, m, i, j);
-        Z3_CATCH_RETURN(0);
-    }
-
-    Z3_ast Z3_API Z3_get_model_func_entry_arg(Z3_context c,
-                                                Z3_model m,
-                                                unsigned i,
-                                                unsigned j,
-                                                unsigned k) {
-        Z3_TRY;
-        LOG_Z3_get_model_func_entry_arg(c, m, i, j, k);
-        RESET_ERROR_CODE();
-        CHECK_NON_NULL(m, 0);
-        if (j >= get_model_func_num_entries_core(c, m, i) || k >= get_model_func_entry_num_args_core(c, m, i, j)) {
-            SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
-        }
-        Z3_func_decl d = get_model_func_decl_core(c, m, i);
-        if (d) {
-            model * _m = to_model_ref(m);            
-            func_interp * g = _m->get_func_interp(to_func_decl(d));
-            if (g && j < g->num_entries()) {
-                func_entry const * e = g->get_entry(j);
-                if (k < g->get_arity()) {
-                    expr * a = e->get_arg(k);
-                    mk_c(c)->save_ast_trail(a);
-                    RETURN_Z3(of_ast(a));
-                }
-            }
-            SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
-        }
-        RETURN_Z3(0);
-        Z3_CATCH_RETURN(0);
-    }
-
-    Z3_ast Z3_API Z3_get_model_func_entry_value(Z3_context c,
-                                                Z3_model m,
-                                                unsigned i,
-                                                unsigned j) {
-        Z3_TRY;
-        LOG_Z3_get_model_func_entry_value(c, m, i, j);
-        RESET_ERROR_CODE();
-        CHECK_NON_NULL(m, 0);
-        if (j >= get_model_func_num_entries_core(c, m, i)) {
-            SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
-        }
-        Z3_func_decl d = get_model_func_decl_core(c, m, i);
-        if (d) {
-            model * _m = to_model_ref(m);            
-            func_interp * g = _m->get_func_interp(to_func_decl(d));
-            if (g && j < g->num_entries()) {
-                func_entry const* e = g->get_entry(j);
-                expr* a = e->get_result();
-                mk_c(c)->save_ast_trail(a);
-                RETURN_Z3(of_ast(a));
-            }
-            SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
-        }
-        RETURN_Z3(0);
-        Z3_CATCH_RETURN(0);
-    }
-    
-    Z3_bool Z3_API Z3_eval(Z3_context c,
-                           Z3_model m,
-                           Z3_ast t,
-                           Z3_ast * v) {
-        model_evaluator_params p;
-        return Z3_model_eval(c, m, t, p.completion(), v);
-    }
-
-    Z3_bool Z3_API Z3_eval_func_decl(Z3_context c, 
-                                     Z3_model m, 
-                                     Z3_func_decl decl,
-                                     Z3_ast* v) {
-        Z3_TRY;
-        LOG_Z3_eval_func_decl(c, m, decl, v);
-        RESET_ERROR_CODE();
-        CHECK_NON_NULL(m, Z3_FALSE);
-        ast_manager & mgr = mk_c(c)->m();
-        model * _m = to_model_ref(m);
-        expr_ref result(mgr);
-        if( _m->eval(to_func_decl(decl), result)) {
-            mk_c(c)->save_ast_trail(result.get());
-            *v = of_ast(result.get());
-            RETURN_Z3_eval_func_decl Z3_TRUE;
-        }
-        else {
-            return Z3_FALSE;
-        }      
-        Z3_CATCH_RETURN(Z3_FALSE);
-    }
-
-
-    Z3_bool Z3_API Z3_is_array_value(Z3_context c, Z3_model _m, Z3_ast _v, unsigned* size) {
-        Z3_TRY;
-        LOG_Z3_is_array_value(c, _m, _v, size);
-        RESET_ERROR_CODE();
-        CHECK_NON_NULL(_v, Z3_FALSE);
-        CHECK_NON_NULL(_m, Z3_FALSE);
-        model * m = to_model_ref(_m);
-        expr * v = to_expr(_v);
-        ast_manager& mgr = mk_c(c)->m();
-        family_id afid = mk_c(c)->get_array_fid();
-        unsigned sz = 0;
-        array_util pl(mgr);
-        if (pl.is_as_array(v)) {
-            func_decl* f = pl.get_as_array_func_decl(to_app(v));
-            func_interp* g = m->get_func_interp(f);
-            sz = g->num_entries();
-            if (sz > 0 && g->get_arity() != 1) {
-                return Z3_FALSE;
-            }
-        }
-        else {
-            while (pl.is_store(v)) {
-                if (to_app(v)->get_num_args() != 3) {
-                    return Z3_FALSE;
-                }
-                v = to_app(v)->get_arg(0);
-                ++sz;
-            }
-            if (!is_app_of(v, afid, OP_CONST_ARRAY)) {
-                return Z3_FALSE;
-            }
-        }
-        if (size) {
-            *size = sz;
-        }
-        return Z3_TRUE;
-        Z3_CATCH_RETURN(Z3_FALSE);
-    }
-
-
-    void Z3_API Z3_get_array_value(Z3_context c, 
-                                   Z3_model _m,
-                                   Z3_ast _v,
-                                   unsigned num_entries,
-                                   Z3_ast indices[],
-                                   Z3_ast values[],
-                                   Z3_ast* else_value) {
-        Z3_TRY;
-        LOG_Z3_get_array_value(c, _m, _v, num_entries, indices, values, else_value);
-        RESET_ERROR_CODE();
-        CHECK_NON_NULL(_m, );
-        model * m = to_model_ref(_m);
-
-        expr* v = to_expr(_v);
-        family_id afid = mk_c(c)->get_array_fid();
-        ast_manager& mgr = mk_c(c)->m();
-        array_util pl(mgr);
-
-        //
-        // note: _v is already reference counted.
-        // saving the trail for the returned values 
-        // is redundant.
-        //
-        unsigned sz = 0;
-        if (pl.is_as_array(v)) {
-            func_decl* f = pl.get_as_array_func_decl(to_app(v));
-            func_interp* g = m->get_func_interp(f);
-            sz = g->num_entries();
-            if (g->get_arity() != 1) {
-                SET_ERROR_CODE(Z3_INVALID_ARG);
-                return;
-            }
-            for (unsigned i = 0; i < sz && i < num_entries; ++i) {
-                indices[i] = of_ast(g->get_entry(i)->get_arg(0));
-                values[i] = of_ast(g->get_entry(i)->get_result());                
-            }
-            if (else_value) {
-                *else_value = of_ast(g->get_else());
-            }                       
-        }
-        else {
-            while (sz <= num_entries && is_app_of(v, afid, OP_STORE)) {
-                app* a = to_app(v);
-                if (a->get_num_args() != 3) {
-                    SET_ERROR_CODE(Z3_INVALID_ARG);
-                    return;
-                }
-                expr* idx = a->get_arg(1);
-                expr* val = a->get_arg(2);
-                indices[sz] = of_ast(idx);
-                values[sz] = of_ast(val);
-                v = to_app(v)->get_arg(0);   
-                ++sz;
-            }
-        
-            if (is_app_of(v, afid, OP_CONST_ARRAY)) {
-                if (else_value) {
-                    *else_value = of_ast(to_app(v)->get_arg(0));
-                }
-            }
-            else {
-                SET_ERROR_CODE(Z3_INVALID_ARG);
-                return;
-            }
-        }
-        RETURN_Z3_get_array_value;
-        Z3_CATCH;
-    }
-
-    Z3_bool Z3_API Z3_eval_decl(Z3_context c, 
-                                Z3_model m, 
-                                Z3_func_decl d, 
-                                unsigned num_args,
-                                Z3_ast const args[],
-                                Z3_ast* v) {
-        Z3_TRY;
-        LOG_Z3_eval_decl(c, m, d, num_args, args, v);
-        RESET_ERROR_CODE();
-        CHECK_NON_NULL(m, Z3_FALSE);
-        ast_manager & mgr = mk_c(c)->m();
-        model * _m = to_model_ref(m);
-        app_ref app(mgr);
-        app = mgr.mk_app(to_func_decl(d), num_args, to_exprs(args));
-        expr_ref result(mgr);
-        _m->eval(app.get(), result);
-        mk_c(c)->save_ast_trail(result.get());
-        *v = of_ast(result.get());
-        RETURN_Z3_eval_decl Z3_TRUE;
-        Z3_CATCH_RETURN(Z3_FALSE);
-    }
 
     Z3_API char const * Z3_model_to_string(Z3_context c, Z3_model m) {
         Z3_TRY;

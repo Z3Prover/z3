@@ -32,8 +32,8 @@ void install_tactics(tactic_manager & ctx);
 
 namespace api {
 
-    static void default_error_handler(Z3_context, Z3_error_code c) {
-        printf("Error: %s\n", Z3_get_error_msg(c));
+    static void default_error_handler(Z3_context ctx, Z3_error_code c) {
+        printf("Error: %s\n", Z3_get_error_msg_ex(ctx, c));
         exit(1);
     }
 
@@ -209,6 +209,7 @@ namespace api {
         } }
     }
 
+#if 0
     void context::persist_ast(ast * n, unsigned num_scopes) {
         // persist_ast is irrelevant when m_user_ref_count == true
         if (m_user_ref_count)
@@ -223,6 +224,7 @@ namespace api {
         }
         m_replay_stack[j]->push_back(n);
     }
+#endif
 
     void context::save_ast_trail(ast * n) {
         SASSERT(m().contains(n));
@@ -478,13 +480,6 @@ extern "C" {
         Z3_CATCH;
     }
 
-    Z3_bool Z3_API Z3_set_logic(Z3_context c, Z3_string logic) {
-        Z3_TRY;
-        LOG_Z3_set_logic(c, logic);
-        RESET_ERROR_CODE();
-        return mk_c(c)->get_smt_kernel().set_logic(symbol(logic));
-        Z3_CATCH_RETURN(Z3_FALSE);
-    }
 
     void Z3_API Z3_get_version(unsigned * major, 
                                unsigned * minor, 
@@ -555,24 +550,12 @@ extern "C" {
         }
     }
 
-    Z3_API char const * Z3_get_error_msg(Z3_error_code err) {
-        LOG_Z3_get_error_msg(err);
-        return _get_error_msg_ex(0, err);
-    }
 
     Z3_API char const * Z3_get_error_msg_ex(Z3_context c, Z3_error_code err) {
         LOG_Z3_get_error_msg_ex(c, err);
         return _get_error_msg_ex(c, err);
     }
 
-    void Z3_API Z3_persist_ast(Z3_context c, Z3_ast n, unsigned num_scopes) {
-        Z3_TRY;
-        LOG_Z3_persist_ast(c, n, num_scopes);
-        RESET_ERROR_CODE();
-        CHECK_VALID_AST(to_ast(n), );
-        mk_c(c)->persist_ast(to_ast(n), num_scopes);
-        Z3_CATCH;
-    }
 
     void Z3_API Z3_set_ast_print_mode(Z3_context c, Z3_ast_print_mode mode) {
         Z3_TRY;

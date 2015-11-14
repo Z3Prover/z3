@@ -163,11 +163,11 @@ void free_cnstr_array(Z3_ast * cnstrs)
 /**
    \brief Assert hard constraints stored in the given array.
 */
-void assert_hard_constraints(Z3_context ctx, unsigned num_cnstrs, Z3_ast * cnstrs) 
+void assert_hard_constraints(Z3_context ctx, Z3_solver s, unsigned num_cnstrs, Z3_ast * cnstrs) 
 {
     unsigned i;
     for (i = 0; i < num_cnstrs; i++) {
-        Z3_assert_cnstr(ctx, cnstrs[i]);
+        Z3_solver_assert(ctx, s, cnstrs[i]);
     }
 }
 
@@ -176,14 +176,14 @@ void assert_hard_constraints(Z3_context ctx, unsigned num_cnstrs, Z3_ast * cnstr
    This funtion will assert each soft-constraint C_i as (C_i or k_i) where k_i is a fresh boolean variable.
    It will also return an array containing these fresh variables.
 */
-Z3_ast * assert_soft_constraints(Z3_context ctx, unsigned num_cnstrs, Z3_ast * cnstrs) 
+Z3_ast * assert_soft_constraints(Z3_context ctx, Z3_solver s, unsigned num_cnstrs, Z3_ast * cnstrs) 
 {
     unsigned i;
     Z3_ast * aux_vars;
     aux_vars = mk_fresh_bool_var_array(ctx, num_cnstrs);
     for (i = 0; i < num_cnstrs; i++) {
         Z3_ast assumption = cnstrs[i];
-        Z3_assert_cnstr(ctx, mk_binary_or(ctx, assumption, aux_vars[i]));
+        Z3_solver_assert(ctx, s, mk_binary_or(ctx, assumption, aux_vars[i]));
     }
     return aux_vars;
 }
@@ -299,7 +299,7 @@ int get_bit(unsigned val, unsigned idx)
 /**
    \brief Given an integer val encoded in n bits (boolean variables), assert the constraint that val <= k.
 */
-void assert_le_k(Z3_context ctx, unsigned n, Z3_ast * val, unsigned k) 
+void assert_le_k(Z3_context ctx, Z3_solver s, unsigned n, Z3_ast * val, unsigned k) 
 {
     Z3_ast i1, i2, not_val, out;
     unsigned idx;
@@ -321,7 +321,7 @@ void assert_le_k(Z3_context ctx, unsigned n, Z3_ast * val, unsigned k)
         out = mk_ternary_or(ctx, i1, i2, mk_binary_and(ctx, not_val, out));
     }
     // printf("at-most-k:\n%s\n", Z3_ast_to_string(ctx, out));
-    Z3_assert_cnstr(ctx, out);
+    Z3_solver_assert(ctx, s, out);
 }
 
 /**
@@ -331,14 +331,14 @@ void assert_le_k(Z3_context ctx, unsigned n, Z3_ast * val, unsigned k)
    We use a simple encoding using an adder (counter). 
    An interesting exercise consists in implementing more sophisticated encodings.
 */
-void assert_at_most_k(Z3_context ctx, unsigned n, Z3_ast * lits, unsigned k)
+void assert_at_most_k(Z3_context ctx, Z3_solver s, unsigned n, Z3_ast * lits, unsigned k)
 {
     Z3_ast * counter_bits;
     unsigned counter_bits_sz;
     if (k >= n || n <= 1)
         return; /* nothing to be done */
     counter_bits = mk_counter_circuit(ctx, n, lits, &counter_bits_sz);
-    assert_le_k(ctx, counter_bits_sz, counter_bits, k);
+    assert_le_k(ctx, s, counter_bits_sz, counter_bits, k);
     del_bool_var_array(counter_bits);
 }
 
@@ -346,9 +346,9 @@ void assert_at_most_k(Z3_context ctx, unsigned n, Z3_ast * lits, unsigned k)
    \brief Assert that at most one literal in \c lits can be true,
    where \c n is the number of literals in lits.
 */
-void assert_at_most_one(Z3_context ctx, unsigned n, Z3_ast * lits) 
+void assert_at_most_one(Z3_context ctx, Z3_solver s, unsigned n, Z3_ast * lits) 
 {
-    assert_at_most_k(ctx, n, lits, 1);
+  assert_at_most_k(ctx, s, n, lits, 1);
 }
 
 /**
@@ -357,6 +357,7 @@ void assert_at_most_one(Z3_context ctx, unsigned n, Z3_ast * lits)
 void tst_at_most_one() 
 {
     Z3_context ctx = mk_context();
+    Z3_solver s = Z3_mk_solver(ctx);
     Z3_ast k1      = mk_bool_var(ctx, "k1");
     Z3_ast k2      = mk_bool_var(ctx, "k2");
     Z3_ast k3      = mk_bool_var(ctx, "k3");
@@ -368,29 +369,25 @@ void tst_at_most_one()
     Z3_model m      = 0;
     Z3_lbool result;
     printf("testing at-most-one constraint\n");
-    assert_at_most_one(ctx, 5, args1);
-    assert_at_most_one(ctx, 3, args2);
+    assert_at_most_one(ctx, s, 5, args1);
+    assert_at_most_one(ctx, s, 3, args2);
     printf("it must be sat...\n");
-    result = Z3_check_and_get_model(ctx, &m);
+    result = Z3_solver_check(ctx, s);
     if (result != Z3_L_TRUE)
         error("BUG");
+    m = Z3_solver_get_model(ctx, s);
     printf("model:\n%s\n", Z3_model_to_string(ctx, m));
-    if (m) {
-        Z3_del_model(ctx, m);
-    }
-    Z3_assert_cnstr(ctx, mk_binary_or(ctx, k2, k3));
-    Z3_assert_cnstr(ctx, mk_binary_or(ctx, k1, k6));
+    Z3_solver_assert(ctx, s, mk_binary_or(ctx, k2, k3));
+    Z3_solver_assert(ctx, s, mk_binary_or(ctx, k1, k6));
     printf("it must be sat...\n");
-    result = Z3_check_and_get_model(ctx, &m);
+    result = Z3_solver_check(ctx, s);
     if (result != Z3_L_TRUE)
         error("BUG");
+    m = Z3_solver_get_model(ctx, s);
     printf("model:\n%s\n", Z3_model_to_string(ctx, m));
-    if (m) {
-        Z3_del_model(ctx, m);
-    }
-    Z3_assert_cnstr(ctx, mk_binary_or(ctx, k4, k5));
+    Z3_solver_assert(ctx, s, mk_binary_or(ctx, k4, k5));
     printf("it must be unsat...\n");
-    result = Z3_check_and_get_model(ctx, &m);
+    result = Z3_solver_check(ctx, s);
     if (result != Z3_L_FALSE)
         error("BUG");
     Z3_del_context(ctx);
@@ -407,7 +404,7 @@ unsigned get_num_disabled_soft_constraints(Z3_context ctx, Z3_model m, unsigned 
     Z3_ast t = Z3_mk_true(ctx);
     for (i = 0; i < num_soft_cnstrs; i++) {
         Z3_ast val;
-        if (Z3_eval(ctx, m, aux_vars[i], &val) == Z3_TRUE) {
+        if (Z3_model_eval(ctx, m, aux_vars[i], 1, &val) == Z3_TRUE) {
             // printf("%s", Z3_ast_to_string(ctx, aux_vars[i]));
             // printf(" -> %s\n", Z3_ast_to_string(ctx, val));
             if (Z3_is_eq_ast(ctx, val, t)) {
@@ -428,21 +425,21 @@ unsigned get_num_disabled_soft_constraints(Z3_context ctx, Z3_model m, unsigned 
    Exercise: use binary search to implement MaxSAT.
    Hint: you will need to use an answer literal to retract the at-most-k constraint.
 */
-int naive_maxsat(Z3_context ctx, unsigned num_hard_cnstrs, Z3_ast * hard_cnstrs, unsigned num_soft_cnstrs, Z3_ast * soft_cnstrs) 
+int naive_maxsat(Z3_context ctx, Z3_solver s, unsigned num_hard_cnstrs, Z3_ast * hard_cnstrs, unsigned num_soft_cnstrs, Z3_ast * soft_cnstrs) 
 {
     Z3_ast * aux_vars;
     Z3_lbool is_sat;
     unsigned r, k;
-    assert_hard_constraints(ctx, num_hard_cnstrs, hard_cnstrs);
+    assert_hard_constraints(ctx, s, num_hard_cnstrs, hard_cnstrs);
     printf("checking whether hard constraints are satisfiable...\n");
-    is_sat = Z3_check(ctx);
+    is_sat = Z3_solver_check(ctx, s);
     if (is_sat == Z3_L_FALSE) {
         // It is not possible to make the formula satisfiable even when ignoring all soft constraints.
         return -1; 
     }
     if (num_soft_cnstrs == 0)
         return 0; // nothing to be done...
-    aux_vars = assert_soft_constraints(ctx, num_soft_cnstrs, soft_cnstrs);
+    aux_vars = assert_soft_constraints(ctx, s, num_soft_cnstrs, soft_cnstrs);
     // Perform linear search.
     r = 0;
     k = num_soft_cnstrs - 1;
@@ -451,18 +448,16 @@ int naive_maxsat(Z3_context ctx, unsigned num_hard_cnstrs, Z3_ast * hard_cnstrs,
         unsigned num_disabled;
         // at most k soft-constraints can be ignored.
         printf("checking whether at-most %d soft-constraints can be ignored.\n", k);
-        assert_at_most_k(ctx, num_soft_cnstrs, aux_vars, k);
-        is_sat = Z3_check_and_get_model(ctx, &m);
+        assert_at_most_k(ctx, s, num_soft_cnstrs, aux_vars, k);
+        is_sat = Z3_solver_check(ctx, s);
         if (is_sat == Z3_L_FALSE) {
             printf("unsat\n");
             return num_soft_cnstrs - k - 1;
         }
+	m = Z3_solver_get_model(ctx, s);
         num_disabled = get_num_disabled_soft_constraints(ctx, m, num_soft_cnstrs, aux_vars);
         if (num_disabled > k) {
             error("BUG");
-        }
-        if (m) {
-            Z3_del_model(ctx, m);
         }
         printf("sat\n");
         k = num_disabled;
@@ -489,28 +484,27 @@ int naive_maxsat(Z3_context ctx, unsigned num_hard_cnstrs, Z3_ast * hard_cnstrs,
          - replace aux-var with a new one
      * add at-most-one constraint with blocking 
 */
-int fu_malik_maxsat_step(Z3_context ctx, unsigned num_soft_cnstrs, Z3_ast * soft_cnstrs, Z3_ast * aux_vars) 
+int fu_malik_maxsat_step(Z3_context ctx, Z3_solver s, unsigned num_soft_cnstrs, Z3_ast * soft_cnstrs, Z3_ast * aux_vars) 
 {
     // create assumptions
     Z3_ast * assumptions = (Z3_ast*) malloc(sizeof(Z3_ast) * num_soft_cnstrs);
-    Z3_ast * core        = (Z3_ast*) malloc(sizeof(Z3_ast) * num_soft_cnstrs);
-    unsigned core_size;
-    Z3_ast dummy_proof; // we don't care about proofs in this example
-    Z3_model m;
     Z3_lbool is_sat;
+    Z3_ast_vector core;
+    unsigned core_size;
     unsigned i = 0;
     for (i = 0; i < num_soft_cnstrs; i++) {
         // Recall that we asserted (soft_cnstrs[i] \/ aux_vars[i])
         // So using (NOT aux_vars[i]) as an assumption we are actually forcing the soft_cnstrs[i] to be considered.
         assumptions[i] = Z3_mk_not(ctx, aux_vars[i]);
-        core[i]        = 0;
     }
     
-    is_sat = Z3_check_assumptions(ctx, num_soft_cnstrs, assumptions, &m, &dummy_proof, &core_size, core);
+    is_sat = Z3_solver_check_assumptions(ctx, s, num_soft_cnstrs, assumptions);
     if (is_sat != Z3_L_FALSE) {
         return 1; // done
     }
     else {
+        core = Z3_solver_get_unsat_core(ctx, s);
+	core_size = Z3_ast_vector_size(ctx, core);
         Z3_ast * block_vars = (Z3_ast*) malloc(sizeof(Z3_ast) * core_size);
         unsigned k = 0;
         // update soft-constraints and aux_vars
@@ -518,7 +512,7 @@ int fu_malik_maxsat_step(Z3_context ctx, unsigned num_soft_cnstrs, Z3_ast * soft
             unsigned j;
             // check whether assumption[i] is in the core or not
             for (j = 0; j < core_size; j++) {
-                if (assumptions[i] == core[j])
+  	        if (assumptions[i] == Z3_ast_vector_get(ctx, core, j))
                     break;
             }
             if (j < core_size) {
@@ -531,10 +525,10 @@ int fu_malik_maxsat_step(Z3_context ctx, unsigned num_soft_cnstrs, Z3_ast * soft
                 k++;
                 // Add new constraint containing the block variable.
                 // Note that we are using the new auxiliary variable to be able to use it as an assumption.
-                Z3_assert_cnstr(ctx, mk_binary_or(ctx, soft_cnstrs[i], new_aux_var));
+                Z3_solver_assert(ctx, s, mk_binary_or(ctx, soft_cnstrs[i], new_aux_var));
             }
         }
-        assert_at_most_one(ctx, k, block_vars);
+        assert_at_most_one(ctx, s, k, block_vars);
         return 0; // not done.
     }
 }
@@ -553,14 +547,14 @@ int fu_malik_maxsat_step(Z3_context ctx, unsigned num_soft_cnstrs, Z3_ast * soft
    Z. Fu and S. Malik, On solving the partial MAX-SAT problem, in International
    Conference on Theory and Applications of Satisfiability Testing, 2006.
 */
-int fu_malik_maxsat(Z3_context ctx, unsigned num_hard_cnstrs, Z3_ast * hard_cnstrs, unsigned num_soft_cnstrs, Z3_ast * soft_cnstrs) 
+int fu_malik_maxsat(Z3_context ctx, Z3_solver s, unsigned num_hard_cnstrs, Z3_ast * hard_cnstrs, unsigned num_soft_cnstrs, Z3_ast * soft_cnstrs) 
 {
     Z3_ast * aux_vars;
     Z3_lbool is_sat;
     unsigned k;
-    assert_hard_constraints(ctx, num_hard_cnstrs, hard_cnstrs);
+    assert_hard_constraints(ctx, s, num_hard_cnstrs, hard_cnstrs);
     printf("checking whether hard constraints are satisfiable...\n");
-    is_sat = Z3_check(ctx);
+    is_sat = Z3_solver_check(ctx, s);
     if (is_sat == Z3_L_FALSE) {
         // It is not possible to make the formula satisfiable even when ignoring all soft constraints.
         return -1; 
@@ -571,11 +565,11 @@ int fu_malik_maxsat(Z3_context ctx, unsigned num_hard_cnstrs, Z3_ast * hard_cnst
       Fu&Malik algorithm is based on UNSAT-core extraction.
       We accomplish that using auxiliary variables (aka answer literals).
     */
-    aux_vars = assert_soft_constraints(ctx, num_soft_cnstrs, soft_cnstrs);
+    aux_vars = assert_soft_constraints(ctx, s, num_soft_cnstrs, soft_cnstrs);
     k = 0;
     for (;;) {
         printf("iteration %d\n", k);
-        if (fu_malik_maxsat_step(ctx, num_soft_cnstrs, soft_cnstrs, aux_vars)) {
+        if (fu_malik_maxsat_step(ctx, s, num_soft_cnstrs, soft_cnstrs, aux_vars)) {
             return num_soft_cnstrs - k;
         }
         k++;
@@ -596,19 +590,21 @@ int fu_malik_maxsat(Z3_context ctx, unsigned num_hard_cnstrs, Z3_ast * hard_cnst
 int smtlib_maxsat(char * file_name, int approach) 
 {
     Z3_context ctx;
+    Z3_solver s;
     unsigned num_hard_cnstrs, num_soft_cnstrs;
     Z3_ast * hard_cnstrs, * soft_cnstrs;
     unsigned result = 0;
     ctx = mk_context();
+    s = Z3_mk_solver(ctx);
     Z3_parse_smtlib_file(ctx, file_name, 0, 0, 0, 0, 0, 0);
     hard_cnstrs = get_hard_constraints(ctx, &num_hard_cnstrs);
     soft_cnstrs = get_soft_constraints(ctx, &num_soft_cnstrs);
     switch (approach) {
     case NAIVE_MAXSAT: 
-        result = naive_maxsat(ctx, num_hard_cnstrs, hard_cnstrs, num_soft_cnstrs, soft_cnstrs);
+        result = naive_maxsat(ctx, s, num_hard_cnstrs, hard_cnstrs, num_soft_cnstrs, soft_cnstrs);
         break;
     case FU_MALIK_MAXSAT:
-        result = fu_malik_maxsat(ctx, num_hard_cnstrs, hard_cnstrs, num_soft_cnstrs, soft_cnstrs);
+        result = fu_malik_maxsat(ctx, s, num_hard_cnstrs, hard_cnstrs, num_soft_cnstrs, soft_cnstrs);
         break;
     default:
         /* Exercise: implement your own MaxSAT algorithm.*/

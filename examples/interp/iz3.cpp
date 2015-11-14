@@ -9,7 +9,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include <iostream>
 #include <string>
 #include <vector>
-#include "z3.h"
+#include "z3++.h"
 
 
 
@@ -40,7 +40,7 @@ int main(int argc, const char **argv) {
   bool anonymize = false;
   bool write = false;
 
-  Z3_config cfg = Z3_mk_config();
+  z3::config cfg;
   // Z3_interpolation_options options = Z3_mk_interpolation_options();
   // Z3_params options = 0;
 
@@ -87,7 +87,7 @@ int main(int argc, const char **argv) {
 
 
   /* Create a Z3 context to contain formulas */
-  Z3_context ctx = Z3_mk_interpolation_context(cfg);
+  z3::context ctx(cfg, z3::context::interpolation());
 
   if(write || anonymize)
     Z3_set_ast_print_mode(ctx,Z3_PRINT_SMTLIB2_COMPLIANT);
@@ -145,12 +145,12 @@ int main(int argc, const char **argv) {
   /* Compute an interpolant, or get a model. */
 
   Z3_ast *interpolants = (Z3_ast *)malloc((num-1) * sizeof(Z3_ast));
-  Z3_model model = 0;
+  Z3_model z3model = 0;
   Z3_lbool result;
 
   if(!incremental_mode){
     /* In non-incremental mode, we just pass the constraints. */
-      result = Z3_L_UNDEF; // FIXME: Z3_interpolate(ctx, num, constraints, parents,  options, interpolants, &model, 0, false, num_theory, theory);
+      result = Z3_L_UNDEF; // FIXME: Z3_interpolate(ctx, num, constraints, parents,  options, interpolants, &z3model, 0, false, num_theory, theory);
   }
   else {
 
@@ -159,28 +159,26 @@ int main(int argc, const char **argv) {
       iZ3 in an array, so iZ3 knows the sequence. Note it's safe to pass
       "true", even though we haven't techically asserted if. */
 
-    Z3_push(ctx);
-    std::vector<Z3_ast> asserted(num);
+    z3::solver s(ctx);
+    z3::expr_vector asserted(ctx), saved_interpolants(ctx);
 
     /* We start with nothing asserted. */
-    for(unsigned i = 0; i < num; i++)
-      asserted[i] = Z3_mk_true(ctx);
+    for(unsigned i = 0; i < num; i++) asserted.push_back(ctx.bool_val(true));
 
     /* Now we assert the constrints one at a time until UNSAT. */
 
     for(unsigned i = 0; i < num; i++){
-      asserted[i] = constraints[i];
-      Z3_assert_cnstr(ctx,constraints[i]);  // assert one constraint
-      result = Z3_L_UNDEF; // FIXME: Z3_interpolate(ctx, num, &asserted[0], parents,  options, interpolants, &model, 0, true, 0, 0);
+      asserted[i] = z3::expr(ctx, constraints[i]);
+      s.add(asserted[i]);
+      result = Z3_L_UNDEF; // FIXME: Z3_interpolate(ctx, num, &asserted[0], parents,  options, interpolants, &z3model, 0, true, 0, 0);
       if(result == Z3_L_FALSE){
 	for(unsigned j = 0; j < num-1; j++)
           /* Since we want the interpolant formulas to survive a "pop", we
             "persist" them here. */
-          Z3_persist_ast(ctx,interpolants[j],1);
+          saved_interpolants.push_back(z3::expr(ctx, interpolants[j]));
         break;
       }
     }
-    Z3_pop(ctx,1);
   }
   
   switch (result) {
@@ -219,21 +217,14 @@ int main(int argc, const char **argv) {
     break;
   case Z3_L_TRUE:
     printf("sat\n");
-    printf("model:\n%s\n", Z3_model_to_string(ctx, model));
+    printf("model:\n%s\n", Z3_model_to_string(ctx, z3model));
     break;
   }
 
   if(profile_mode)
     std::cout << Z3_interpolation_profile(ctx);
 
-  /* Delete the model if there is one */
   
-  if (model)
-    Z3_del_model(ctx, model);
-  
-  /* Delete logical context. */
-
-  Z3_del_context(ctx);
   free(interpolants);
 
   return 0;
