@@ -57,7 +57,7 @@ log_h.write('inline void SetR(void * obj) { *g_z3_log << "= " << obj << "\\n"; }
 log_h.write('#define RETURN_Z3(Z3RES) if (_LOG_CTX.enabled()) { SetR(Z3RES); } return Z3RES\n')
 log_h.write('void _Z3_append_log(char const * msg);\n')
 ##
-exe_c.write('void Z3_replacer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg_ex(ctx, c)); }\n')
+exe_c.write('void Z3_replacer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg(ctx, c)); }\n')
 ##
 core_py.write('# Automatically generated file\n')
 core_py.write('import sys, os\n')
@@ -404,7 +404,7 @@ def mk_py_wrappers():
         if len(params) > 0 and param_type(params[0]) == CONTEXT:
             core_py.write("  err = lib().Z3_get_error_code(a0)\n")
             core_py.write("  if err != Z3_OK:\n")
-            core_py.write("    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))\n")
+            core_py.write("    raise Z3Exception(lib().Z3_get_error_msg(a0, err))\n")
         if result == STRING:
             core_py.write("  return _to_pystr(r)\n")
         elif result != VOID:
@@ -477,7 +477,7 @@ def mk_dotnet_wrappers():
     dotnet.write("            LIB.Z3_set_error_handler(a0, a1);\n")
     dotnet.write("            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);\n")
     dotnet.write("            if (err != Z3_error_code.Z3_OK)\n")
-    dotnet.write("                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));\n")
+    dotnet.write("                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg(a0, (uint)err)));\n")
     dotnet.write("        }\n\n")
     for name, result, params in _dotnet_decls:
         if result == STRING:
@@ -525,7 +525,7 @@ def mk_dotnet_wrappers():
                 if len(params) > 0 and param_type(params[0]) == CONTEXT:
                     dotnet.write("            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);\n")
                     dotnet.write("            if (err != Z3_error_code.Z3_OK)\n")
-                    dotnet.write("                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));\n")
+                    dotnet.write("                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg(a0, (uint)err)));\n")
         if result == STRING:
             dotnet.write("            return Marshal.PtrToStringAnsi(r);\n")
         elif result != VOID:
@@ -1276,7 +1276,7 @@ def mk_ml():
         if name not in Unwrapped and len(params) > 0 and param_type(params[0]) == CONTEXT:
             ml_native.write('    let err = (error_code_of_int (ML2C.n_get_error_code a0)) in \n')
             ml_native.write('      if err <> OK then\n')
-            ml_native.write('        raise (Exception (ML2C.n_get_error_msg_ex a0 (int_of_error_code err)))\n')
+            ml_native.write('        raise (Exception (ML2C.n_get_error_msg a0 (int_of_error_code err)))\n')
             ml_native.write('      else\n')
         if result == VOID and len(op) == 0:
             ml_native.write('        ()\n')

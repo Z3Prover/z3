@@ -33,7 +33,7 @@ void install_tactics(tactic_manager & ctx);
 namespace api {
 
     static void default_error_handler(Z3_context ctx, Z3_error_code c) {
-        printf("Error: %s\n", Z3_get_error_msg_ex(ctx, c));
+        printf("Error: %s\n", Z3_get_error_msg(ctx, c));
         exit(1);
     }
 
@@ -531,7 +531,7 @@ extern "C" {
         SET_ERROR_CODE(e);
     }
 
-    static char const * _get_error_msg_ex(Z3_context c, Z3_error_code err) {
+    static char const * _get_error_msg(Z3_context c, Z3_error_code err) {
         switch(err) {
         case Z3_OK:                return "ok";
         case Z3_SORT_ERROR:        return "type error";
@@ -551,9 +551,9 @@ extern "C" {
     }
 
 
-    Z3_API char const * Z3_get_error_msg_ex(Z3_context c, Z3_error_code err) {
-        LOG_Z3_get_error_msg_ex(c, err);
-        return _get_error_msg_ex(c, err);
+    Z3_API char const * Z3_get_error_msg(Z3_context c, Z3_error_code err) {
+        LOG_Z3_get_error_msg(c, err);
+        return _get_error_msg(c, err);
     }
 
 

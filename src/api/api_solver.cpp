@@ -391,7 +391,6 @@ extern "C" {
     }
 
 
-#if 0
     Z3_lbool Z3_API Z3_get_implied_equalities(Z3_context c, 
                                               Z3_solver s,
                                               unsigned num_terms,
@@ -407,6 +406,5 @@ extern "C" {
         return static_cast<Z3_lbool>(result); 
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
-#endif
 
 };

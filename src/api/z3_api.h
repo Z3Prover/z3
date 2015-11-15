@@ -5323,9 +5323,9 @@ BEGIN_MLAPI_EXCLUDE
     /**
        \brief Return a string describing the given error code.
 
-       def_API('Z3_get_error_msg_ex', STRING, (_in(CONTEXT), _in(ERROR_CODE)))
+       def_API('Z3_get_error_msg', STRING, (_in(CONTEXT), _in(ERROR_CODE)))
     */
-    Z3_string Z3_API Z3_get_error_msg_ex(Z3_context c, Z3_error_code err);
+    Z3_string Z3_API Z3_get_error_msg(Z3_context c, Z3_error_code err);
 END_MLAPI_EXCLUDE
 #ifdef ML4only
 #include <mlx_get_error_msg.idl>
@@ -7216,6 +7216,37 @@ END_MLAPI_EXCLUDE
     Z3_lbool Z3_API Z3_solver_check_assumptions(Z3_context c, Z3_solver s, 
                                                 unsigned num_assumptions, Z3_ast const assumptions[]);
 
+
+
+#ifdef CorML4
+    /**
+       \brief Retrieve congruence class representatives for terms.
+
+       The function can be used for relying on Z3 to identify equal terms under the current
+       set of assumptions. The array of terms and array of class identifiers should have
+       the same length. The class identifiers are numerals that are assigned to the same
+       value for their corresponding terms if the current context forces the terms to be
+       equal. You cannot deduce that terms corresponding to different numerals must be all different, 
+       (especially when using non-convex theories).
+       All implied equalities are returned by this call.
+       This means that two terms map to the same class identifier if and only if
+       the current context implies that they are equal.
+
+       A side-effect of the function is a satisfiability check on the assertions on the solver that is passed in.
+       The function return Z3_L_FALSE if the current assertions are not satisfiable.
+
+    
+
+       def_API('Z3_get_implied_equalities', INT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
+    */
+    Z3_lbool Z3_API Z3_get_implied_equalities(
+        Z3_context c, 
+        Z3_solver  s, 
+        unsigned num_terms,
+        Z3_ast const terms[],
+        unsigned class_ids[]
+        );
+#endif
     /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions
 
