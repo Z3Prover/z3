@@ -738,6 +738,7 @@ namespace pdr {
     // model_node
 
     void model_node::set_closed() {
+        TRACE("pdr", tout << state() << "\n";);
         pt().close(state());
         m_closed = true; 
     }
@@ -928,7 +929,7 @@ namespace pdr {
         model_node* p = n.parent();
         while (p) {
             if (p->state() == n.state()) {
-                TRACE("pdr", tout << "repeated\n";);
+                TRACE("pdr", tout << n.state() << "repeated\n";);
                 return true;
             }
             p = p->parent();
@@ -1017,6 +1018,11 @@ namespace pdr {
             n1->set_open();
             SASSERT(n1->children().empty());
             enqueue_leaf(n1);
+        }
+
+        if (!nodes.empty() && n.get_model_ptr() && backtrack) {
+            model_ref mr(n.get_model_ptr());
+            nodes[0]->set_model(mr);
         }
         if (nodes.empty()) {            
             cache(n).remove(n.state());
@@ -1149,17 +1155,21 @@ namespace pdr {
             ast_manager& m = n->pt().get_manager();
             if (!n->get_model_ptr()) {
                 if (models.find(n->state(), md)) {
-                    TRACE("pdr", tout << mk_pp(n->state(), m) << "\n";);
+                    TRACE("pdr", tout << n->state() << "\n";);
                     model_ref mr(md);
                     n->set_model(mr);
                     datalog::rule const* rule = rules.find(n->state());
                     n->set_rule(rule);
                 }
                 else {
+  		    TRACE("pdr", tout << "no model for " << n->state() << "\n";);
                     IF_VERBOSE(1, n->display(verbose_stream() << "no model:\n", 0);
-                               verbose_stream() << mk_pp(n->state(), m) << "\n";);
+                               verbose_stream() << n->state() << "\n";);
                 }
             }
+	    else {
+	         TRACE("pdr", tout << n->state() << "\n";);
+	    }
             todo.pop_back();
             todo.append(n->children().size(), n->children().c_ptr());
         }        
@@ -2027,11 +2037,11 @@ namespace pdr {
             switch (expand_state(n, cube, uses_level)) {
             case l_true:
                 if (n.level() == 0) {
-                    TRACE("pdr", tout << "reachable at level 0\n";);
+  		    TRACE("pdr", n.display(tout << "reachable at level 0\n", 0););
                     close_node(n);
                 }
                 else {
-                    TRACE("pdr", tout << "node: " << &n << "\n";); 
+ 	 	    TRACE("pdr", n.display(tout, 0);); 
                     create_children(n);
                 }
                 break;
