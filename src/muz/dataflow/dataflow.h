@@ -87,6 +87,7 @@ namespace datalog {
             for (func_decl_set::iterator I = output_preds.begin(),
                 E = output_preds.end(); I != E; ++I) {
                 func_decl* sym = *I;
+                TRACE("dl", tout << sym->get_name() << "\n";);
                 const rule_vector& output_rules = m_rules.get_predicate_rules(sym);
                 for (unsigned i = 0; i < output_rules.size(); ++i) {
                     m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value.init_down(m_context, output_rules[i]);

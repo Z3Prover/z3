@@ -41,6 +41,9 @@ namespace datalog {
             bool new_tail = false;
             bool contained = true;
             for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
+                if (m_context.has_facts(r->get_decl(i))) {
+                    return 0;
+                }
                 if (r->is_neg_tail(i)) {
                     if (!engine.get_fact(r->get_decl(i)).is_reachable()) {
                         if (!new_tail) {
