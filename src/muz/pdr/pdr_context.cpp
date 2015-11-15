@@ -929,7 +929,7 @@ namespace pdr {
         model_node* p = n.parent();
         while (p) {
             if (p->state() == n.state()) {
-                TRACE("pdr", tout << "repeated\n";);
+                TRACE("pdr", tout << n.state() << "repeated\n";);
                 return true;
             }
             p = p->parent();
@@ -1018,6 +1018,11 @@ namespace pdr {
             n1->set_open();
             SASSERT(n1->children().empty());
             enqueue_leaf(n1);
+        }
+
+        if (!nodes.empty() && n.get_model_ptr() && backtrack) {
+            model_ref mr(n.get_model_ptr());
+            nodes[0]->set_model(mr);
         }
         if (nodes.empty()) {            
             cache(n).remove(n.state());
