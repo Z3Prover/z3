@@ -1162,14 +1162,14 @@ namespace pdr {
                     n->set_rule(rule);
                 }
                 else {
-  		    TRACE("pdr", tout << "no model for " << n->state() << "\n";);
+                    TRACE("pdr", tout << "no model for " << n->state() << "\n";);
                     IF_VERBOSE(1, n->display(verbose_stream() << "no model:\n", 0);
                                verbose_stream() << n->state() << "\n";);
                 }
             }
-	    else {
-	         TRACE("pdr", tout << n->state() << "\n";);
-	    }
+            else {
+                TRACE("pdr", tout << n->state() << "\n";);
+            }
             todo.pop_back();
             todo.append(n->children().size(), n->children().c_ptr());
         }        
@@ -2037,11 +2037,11 @@ namespace pdr {
             switch (expand_state(n, cube, uses_level)) {
             case l_true:
                 if (n.level() == 0) {
-  		    TRACE("pdr", n.display(tout << "reachable at level 0\n", 0););
+                    TRACE("pdr", n.display(tout << "reachable at level 0\n", 0););
                     close_node(n);
                 }
                 else {
- 	 	    TRACE("pdr", n.display(tout, 0);); 
+                    TRACE("pdr", n.display(tout, 0);); 
                     create_children(n);
                 }
                 break;
