@@ -92,6 +92,10 @@ namespace smt {
         std::map<expr*, std::map<int, std::vector<std::pair<int, expr*> > > > fvar_valueTester_map;
         std::map<expr*, expr*> valueTester_fvar_map;
 
+        std::map<expr*, std::vector<int> > val_range_map;
+
+        int charSetSize = 0;
+
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
@@ -174,6 +178,8 @@ namespace smt {
         expr * gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
         		std::string lenStr, int tries);
         void print_value_tester_list(std::vector<std::pair<int, expr*> > & testerList);
+        bool get_next_val_encode(std::vector<int> & base, std::vector<int> & next);
+        std::string gen_val_string(int len, std::vector<int> & encoding);
 
         expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
         expr * getMostLeftNodeInConcat(expr * node);

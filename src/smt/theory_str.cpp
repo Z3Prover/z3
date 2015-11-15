@@ -3495,6 +3495,48 @@ void theory_str::print_value_tester_list(std::vector<std::pair<int, expr*> > & t
 	);
 }
 
+std::string theory_str::gen_val_string(int len, std::vector<int> & encoding) {
+    SASSERT(charSetSize > 0);
+
+    std::string re = std::string(len, charSet[0]);
+    for (int i = 0; i < (int) encoding.size() - 1; i++) {
+        int idx = encoding[i];
+        re[len - 1 - i] = charSet[idx];
+    }
+    return re;
+}
+
+/*
+ * The return value indicates whether we covered the search space.
+ *   - If the next encoding is valid, return false
+ *   - Otherwise, return true
+ */
+bool theory_str::get_next_val_encode(std::vector<int> & base, std::vector<int> & next) {
+    int s = 0;
+    int carry = 0;
+    next.clear();
+
+    for (int i = 0; i < (int) base.size(); i++) {
+        if (i == 0) {
+            s = base[i] + 1;
+            carry = s / charSetSize;
+            s = s % charSetSize;
+            next.push_back(s);
+        } else {
+            s = base[i] + carry;
+            carry = s / charSetSize;
+            s = s % charSetSize;
+            next.push_back(s);
+        }
+    }
+    if (next[next.size() - 1] > 0) {
+        next.clear();
+        return true;
+    } else {
+        return false;
+    }
+}
+
 expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
 		std::string lenStr, int tries) {
 	context & ctx = get_context();
@@ -3525,7 +3567,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	} else {
 		expr * lastestValIndi = fvar_valueTester_map[freeVar][len][tries - 1].second;
 		STRACE("t_str_detail", tout << "last value tester = " << mk_ismt2_pp(lastestValIndi, m) << std::endl;);
-		coverAll = get_next_val_encode(valRangeMap[lastestValIndi], base);
+		coverAll = get_next_val_encode(val_range_map[lastestValIndi], base);
 	}
 
 	long long l = (tries) * distance;
@@ -3535,9 +3577,9 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 			break;
 		options.push_back(base);
 		h++;
-		coverAll = getNextValEncode(options[options.size() - 1], base);
+		coverAll = get_next_val_encode(options[options.size() - 1], base);
 	}
-	valRangeMap[val_indicator] = options[options.size() - 1];
+	val_range_map[val_indicator] = options[options.size() - 1];
 
 	STRACE("t_str_detail", tout << "value tester encoding " << printVectorInt(valRangeMap[val_indicator]) << std::endl;);
 
@@ -3556,46 +3598,46 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string("more")));
 	}
 
-	Z3_ast * or_items = new Z3_ast[orList.size()];
-	Z3_ast * and_items = new Z3_ast[andList.size() + 1];
+	expr ** or_items = alloc_svect(expr*, orList.size());
+	expr ** and_items = alloc_svect(expr*, andList.size() + 1);
+
 	for (int i = 0; i < (int) orList.size(); i++) {
 		or_items[i] = orList[i];
 	}
 	if (orList.size() > 1)
-		and_items[0] = Z3_mk_or(ctx, orList.size(), or_items);
+		and_items[0] = m.mk_or(orList.size(), or_items);
 	else
 		and_items[0] = or_items[0];
 
 	for (int i = 0; i < (int) andList.size(); i++) {
 		and_items[i + 1] = andList[i];
 	}
-	Z3_ast valTestAssert = Z3_mk_and(ctx, andList.size() + 1, and_items);
-	delete[] or_items;
-	delete[] and_items;
+	expr * valTestAssert = m.mk_and(andList.size() + 1, and_items);
 
 	// ---------------------------------------
-	// IF the new value tester is $$_val_x_16_i
+	// If the new value tester is $$_val_x_16_i
 	// Should add ($$_len_x_j = 16) /\ ($$_val_x_16_i = "more")
 	// ---------------------------------------
 	andList.clear();
-	andList.push_back(Z3_mk_eq(ctx, len_indicator, my_mk_str_value(t, lenStr.c_str())));
+	andList.push_back(m.mk_eq(len_indicator, m_strutil.mk_string(lenStr.c_str())));
 	for (int i = 0; i < tries; i++) {
-		Z3_ast vTester = fvarValueTesterMap[freeVar][len][i].second;
+		expr * vTester = fvar_valueTester_map[freeVar][len][i].second;
 		if (vTester != val_indicator)
-			andList.push_back(Z3_mk_eq(ctx, vTester, my_mk_str_value(t, "more")));
+			andList.push_back(m.mk_eq(vTester, m_strutil.mk_string("more")));
 	}
-	Z3_ast assertL = NULL;
+	expr * assertL = NULL;
 	if (andList.size() == 1) {
 		assertL = andList[0];
 	} else {
-		Z3_ast * and_items = new Z3_ast[andList.size()];
+		expr ** and_items = alloc_svect(expr*, andList.size());
 		for (int i = 0; i < (int) andList.size(); i++) {
 			and_items[i] = andList[i];
 		}
-		assertL = Z3_mk_and(ctx, andList.size(), and_items);
+		assertL = m.mk_and(andList.size(), and_items);
 	}
 
-	valTestAssert = Z3_mk_implies(ctx, assertL, valTestAssert);
+	// (assertL => valTestAssert) <=> (!assertL OR valTestAssert)
+	valTestAssert = m.mk_or(m.mk_not(assertL), valTestAssert);
 	return valTestAssert;
 }
 
