@@ -1552,8 +1552,6 @@ extern "C" {
 
        \conly \sa Z3_del_context
 
-       \conly \deprecated Use #Z3_mk_context_rc
-
        def_API('Z3_mk_context', CONTEXT, (_in(CONFIG),))
     */
 #ifdef CorML3

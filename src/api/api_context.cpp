@@ -209,22 +209,6 @@ namespace api {
         } }
     }
 
-#if 0
-    void context::persist_ast(ast * n, unsigned num_scopes) {
-        // persist_ast is irrelevant when m_user_ref_count == true
-        if (m_user_ref_count)
-            return;
-        if (num_scopes > m_ast_lim.size()) {
-            num_scopes = m_ast_lim.size();
-        }
-        SASSERT(m_replay_stack.size() > num_scopes);
-        unsigned j = m_replay_stack.size() - num_scopes - 1;
-        if (!m_replay_stack[j]) {
-            m_replay_stack[j] = alloc(ast_ref_vector, m());
-        }
-        m_replay_stack[j]->push_back(n);
-    }
-#endif
 
     void context::save_ast_trail(ast * n) {
         SASSERT(m().contains(n));
