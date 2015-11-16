@@ -4862,7 +4862,7 @@ class Goal(Z3PPObject):
         elif sz == 1:
             return self.get(0)
         else:
-            return And([ self.get(i) for i in range(len(self)) ])
+            return And([ self.get(i) for i in range(len(self)) ], self.ctx)
 
 #########################################
 #
