@@ -2653,6 +2653,8 @@ def mk_z3consts_py(api_files):
                         z3consts.write('%s = %s\n' % (k, i))
                     z3consts.write('\n')
                     mode = SEARCHING
+                elif len(words) <= 2:
+                    pass
                 else:
                     if words[2] != '':
                         if len(words[2]) > 1 and words[2][1] == 'x':
