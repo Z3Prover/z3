@@ -268,7 +268,6 @@ namespace pdr {
         void enqueue_leaf(model_node* n); // add leaf to priority queue.
         void update_models();
         void set_leaf(model_node& n); // Set node as leaf, remove children.
-        bool is_repeated(model_node& n) const;
         unsigned num_goals() const; 
 
     public:
