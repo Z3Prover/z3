@@ -99,7 +99,7 @@ else:
      if s != None:
         enc = sys.stdout.encoding
         if enc != None: return s.decode(enc)
-        else: return s
+        else: return s.decode('ascii')
      else:
         return ""
 
