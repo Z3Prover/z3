@@ -168,9 +168,7 @@ namespace opt {
     }
 
     void context::get_labels(svector<symbol> & r) {
-        if (m_solver) {
-            m_solver->get_labels(r);
-        }
+        r.append(m_labels);
     }
 
     void context::set_hard_constraints(ptr_vector<expr>& fmls) {
@@ -234,6 +232,7 @@ namespace opt {
         TRACE("opt", tout << "initial search result: " << is_sat << "\n";);
         if (is_sat != l_false) {
             s.get_model(m_model);
+            s.get_labels(m_labels);
         }
         if (is_sat != l_true) {
             return is_sat;
@@ -282,11 +281,6 @@ namespace opt {
         }
     }
 
-    void context::set_model(model_ref& mdl) {
-        m_model = mdl;
-        fix_model(mdl);
-    }
-
     void context::get_model(model_ref& mdl) {
         mdl = m_model;
         fix_model(mdl);
@@ -295,7 +289,7 @@ namespace opt {
     lbool context::execute_min_max(unsigned index, bool committed, bool scoped, bool is_max) {
         if (scoped) get_solver().push();            
         lbool result = m_optsmt.lex(index, is_max);
-        if (result == l_true) m_optsmt.get_model(m_model);
+        if (result == l_true) m_optsmt.get_model(m_model, m_labels);
         if (scoped) get_solver().pop(1);        
         if (result == l_true && committed) m_optsmt.commit_assignment(index);
         return result;
@@ -306,7 +300,7 @@ namespace opt {
         maxsmt& ms = *m_maxsmts.find(id);
         if (scoped) get_solver().push();            
         lbool result = ms();
-        if (result != l_false && (ms.get_model(tmp), tmp.get())) ms.get_model(m_model);
+        if (result != l_false && (ms.get_model(tmp, m_labels), tmp.get())) ms.get_model(m_model, m_labels);
         if (scoped) get_solver().pop(1);
         if (result == l_true && committed) ms.commit_assignment();
         return result;
@@ -459,7 +453,7 @@ namespace opt {
     }
 
     void context::yield() {
-        m_pareto->get_model(m_model);
+        m_pareto->get_model(m_model, m_labels);
         update_bound(true);
         update_bound(false);
     }

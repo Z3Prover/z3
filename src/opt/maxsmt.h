@@ -46,7 +46,7 @@ namespace opt {
         virtual bool get_assignment(unsigned index) const = 0;
         virtual void set_cancel(bool f) = 0;
         virtual void collect_statistics(statistics& st) const = 0;
-        virtual void get_model(model_ref& mdl) = 0;
+        virtual void get_model(model_ref& mdl, svector<symbol>& labels) = 0;
         virtual void updt_params(params_ref& p) = 0;
         void set_adjust_value(adjust_value& adj) { m_adjust_value = adj; }
 
@@ -67,6 +67,7 @@ namespace opt {
         rational         m_lower;
         rational         m_upper;
         model_ref        m_model;
+        svector<symbol>  m_labels;
         svector<bool>    m_assignment;       // truth assignment to soft constraints
         params_ref       m_params;           // config
 
@@ -79,9 +80,9 @@ namespace opt {
         virtual bool get_assignment(unsigned index) const { return m_assignment[index]; }
         virtual void set_cancel(bool f) { m_cancel = f; if (f) s().cancel(); else s().reset_cancel(); }
         virtual void collect_statistics(statistics& st) const { }
-        virtual void get_model(model_ref& mdl) { mdl = m_model.get(); }
+        virtual void get_model(model_ref& mdl, svector<symbol>& labels) { mdl = m_model.get(); labels = m_labels;}
         virtual void commit_assignment();
-        void set_model() { s().get_model(m_model); }
+        void set_model() { s().get_model(m_model); s().get_labels(m_labels); }
         virtual void updt_params(params_ref& p);
         solver& s();
         void init();
@@ -122,6 +123,7 @@ namespace opt {
         rational         m_upper;
         adjust_value     m_adjust_value;
         model_ref        m_model;
+        svector<symbol>  m_labels;
         params_ref       m_params;
     public:
         maxsmt(maxsat_context& c);
@@ -139,7 +141,7 @@ namespace opt {
         rational get_upper() const;        
         void update_lower(rational const& r);
         void update_upper(rational const& r);
-        void get_model(model_ref& mdl);
+        void get_model(model_ref& mdl, svector<symbol>& labels);
         bool get_assignment(unsigned index) const;
         void display_answer(std::ostream& out) const;        
         void collect_statistics(statistics& st) const;

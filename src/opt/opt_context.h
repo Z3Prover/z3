@@ -162,6 +162,7 @@ namespace opt {
         bool                         m_pp_neat;
         symbol                       m_maxsat_engine;
         symbol                       m_logic;
+        svector<symbol>              m_labels;
     public:
         context(ast_manager& m);
         virtual ~context();
@@ -180,7 +181,6 @@ namespace opt {
         virtual lbool optimize();
         virtual bool print_model() const;
         virtual void get_model(model_ref& _m);
-        virtual void set_model(model_ref& _m);
         virtual void fix_model(model_ref& _m);
         virtual void collect_statistics(statistics& stats) const;
         virtual proof* get_proof() { return 0; }
