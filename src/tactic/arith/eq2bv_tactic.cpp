@@ -305,14 +305,16 @@ public:
             m_nonfd.mark(f, true);
             expr* e1, *e2;
             if (m.is_eq(f, e1, e2)) {
-                if (is_fd(e1, e2)) {
+				if (is_fd(e1, e2) || is_fd(e2, e1)) {
                     continue;
-                }
-                if (is_fd(e2, e1)) {
-                    continue;
-                }
+                }            
             }
-            m_todo.append(to_app(f)->get_num_args(), to_app(f)->get_args());
+			if (is_app(f)) {
+				m_todo.append(to_app(f)->get_num_args(), to_app(f)->get_args());
+			}
+			else if (is_quantifier(f)) {
+				m_todo.push_back(to_quantifier(f)->get_expr());
+			}
         }
     }
 
