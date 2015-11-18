@@ -167,6 +167,12 @@ namespace opt {
         m_hard_constraints.reset();
     }
 
+    void context::get_labels(svector<symbol> & r) {
+        if (m_solver) {
+            m_solver->get_labels(r);
+        }
+    }
+
     void context::set_hard_constraints(ptr_vector<expr>& fmls) {
         if (m_scoped_state.set(fmls)) {
             clear_state();
@@ -1121,16 +1127,20 @@ namespace opt {
     }
 
     void context::display_assignment(std::ostream& out) {
+        out << "(objectives\n";
         for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
             objective const& obj = m_scoped_state.m_objectives[i];
+            out << " (";
             display_objective(out, obj);
             if (get_lower_as_num(i) != get_upper_as_num(i)) {
-                out << " |-> [" << get_lower(i) << ":" << get_upper(i) << "]\n";
+                out << "  (" << get_lower(i) << " " << get_upper(i) << ")";
             }
             else {
-                out << " |-> " << get_lower(i) << "\n";
+                out << " " << get_lower(i);
             }
+            out << ")\n";
         }
+        out << ")\n";
     }
 
     void context::display_objective(std::ostream& out, objective const& obj) const {

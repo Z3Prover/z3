@@ -184,7 +184,7 @@ namespace opt {
         virtual void fix_model(model_ref& _m);
         virtual void collect_statistics(statistics& stats) const;
         virtual proof* get_proof() { return 0; }
-        virtual void get_labels(svector<symbol> & r) {}
+        virtual void get_labels(svector<symbol> & r);
         virtual void get_unsat_core(ptr_vector<expr> & r) {}
         virtual std::string reason_unknown() const;
 
