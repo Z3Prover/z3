@@ -103,9 +103,7 @@ namespace api {
 
         m_smtlib_parser           = 0;
         m_smtlib_parser_has_decls = false;
-        
-        z3_bound_num_procs();
-        
+                
         m_error_handler = &default_error_handler;
 
         m_basic_fid = m().get_basic_family_id();
