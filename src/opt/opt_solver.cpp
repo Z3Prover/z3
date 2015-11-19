@@ -44,7 +44,8 @@ namespace opt {
         m_fm(fm),
         m_objective_terms(m),
         m_dump_benchmarks(false),
-        m_first(true) {
+        m_first(true),
+        m_was_unknown(false) {
         m_params.updt_params(p);
         if (m_params.m_case_split_strategy == CS_ACTIVITY_DELAY_NEW) {
             m_params.m_relevancy_lvl = 0;
@@ -173,6 +174,7 @@ namespace opt {
         else {
             r = m_context.check(num_assumptions, assumptions);
         }
+        r = adjust_result(r);
         m_first = false;
         if (dump_benchmarks()) {
             w.stop();
@@ -242,6 +244,7 @@ namespace opt {
         TRACE("opt", tout << ge << "\n";);
         assert_expr(ge);
         lbool is_sat = m_context.check(0, 0);
+        is_sat = adjust_result(is_sat);
         if (is_sat == l_true) {
             set_model(i);
         }
@@ -261,6 +264,13 @@ namespace opt {
 
     }
 
+    lbool opt_solver::adjust_result(lbool r) {
+        if (r == l_undef && m_context.last_failure() == smt::QUANTIFIERS) {
+            r = l_true;
+            m_was_unknown = true;
+        }
+        return r;
+    }
     
     void opt_solver::get_unsat_core(ptr_vector<expr> & r) {
         unsigned sz = m_context.get_unsat_core_size();

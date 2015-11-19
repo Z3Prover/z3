@@ -229,6 +229,7 @@ namespace opt {
         lbool execute_lex();
         lbool execute_box();
         lbool execute_pareto();
+        lbool adjust_unknown(lbool r);
         bool scoped_lex();
         expr_ref to_expr(inf_eps const& n);
 
