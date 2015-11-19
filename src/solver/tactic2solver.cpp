@@ -22,6 +22,7 @@ Notes:
 #include"solver_na2as.h"
 #include"tactic.h"
 #include"ast_pp_util.h"
+#include"ast_translation.h"
 
 /**
    \brief Simulates the incremental solver interface using a tactic.
@@ -44,6 +45,8 @@ class tactic2solver : public solver_na2as {
 public:
     tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic);
     virtual ~tactic2solver();
+
+    virtual solver* translate(ast_manager& m, params_ref const& p);
 
     virtual void updt_params(params_ref const & p);
     virtual void collect_param_descrs(param_descrs & r);
@@ -182,6 +185,22 @@ void tactic2solver::set_cancel(bool f) {
             m_tactic->reset_cancel();
     }
 }
+
+solver* tactic2solver::translate(ast_manager& m, params_ref const& p) {
+    tactic* t = m_tactic->translate(m);
+    tactic2solver* r = alloc(tactic2solver, m, t, p, m_produce_proofs, m_produce_models, m_produce_unsat_cores, m_logic);
+    r->m_result = 0;
+    if (!m_scopes.empty()) {
+        throw default_exception("translation of contexts is only supported at base level");
+    }
+    ast_translation tr(m_assertions.get_manager(), m, false);
+    
+    for (unsigned i = 0; i < get_num_assertions(); ++i) {
+        r->m_assertions.push_back(tr(get_assertion(i)));
+    }
+    return r;
+}
+
 
 void tactic2solver::collect_statistics(statistics & st) const {    
     st.copy(m_stats);

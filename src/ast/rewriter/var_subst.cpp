@@ -27,7 +27,7 @@ void var_subst::operator()(expr * n, unsigned num_args, expr * const * args, exp
     SASSERT(is_well_sorted(result.m(), n));
     m_reducer.reset();
     if (m_std_order)
-	m_reducer.set_inv_bindings(num_args, args);
+        m_reducer.set_inv_bindings(num_args, args);
     else
         m_reducer.set_bindings(num_args, args);
     m_reducer(n, result);
@@ -66,7 +66,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
         return;
     }
 
-    ptr_buffer<sort>  used_decl_sorts; 
+    ptr_buffer<sort>  used_decl_sorts;
     buffer<symbol>    used_decl_names;
     for (unsigned i = 0; i < num_decls; ++i) {
         if (m_used.contains(num_decls - i - 1)) {
@@ -74,7 +74,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
             used_decl_names.push_back(q->get_decl_name(i));
         }
     }
-    
+
     unsigned         num_removed = 0;
     expr_ref_buffer  var_mapping(m);
     int              next_idx = 0;
@@ -100,18 +100,18 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
         else
             var_mapping.push_back(0);
     }
-    
-    
-    // Remark: 
+
+
+    // Remark:
     // (VAR 0) should be in the last position of var_mapping.
     // ...
     // (VAR (var_mapping.size() - 1)) should be in the first position.
     std::reverse(var_mapping.c_ptr(), var_mapping.c_ptr() + var_mapping.size());
 
     expr_ref  new_expr(m);
-    
+
     m_subst(q->get_expr(), var_mapping.size(), var_mapping.c_ptr(), new_expr);
-    
+
     if (num_removed == num_decls) {
         result = new_expr;
         return;
@@ -120,7 +120,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
     expr_ref tmp(m);
     expr_ref_buffer new_patterns(m);
     expr_ref_buffer new_no_patterns(m);
-    
+
     for (unsigned i = 0; i < num_patterns; i++) {
         m_subst(q->get_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
         new_patterns.push_back(tmp);
@@ -129,7 +129,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
         m_subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
         new_no_patterns.push_back(tmp);
     }
-    
+
     result = m.mk_quantifier(q->is_forall(),
                              used_decl_sorts.size(),
                              used_decl_sorts.c_ptr(),
@@ -143,7 +143,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
                              num_no_patterns,
                              new_no_patterns.c_ptr());
     to_quantifier(result)->set_no_unused_vars();
-    SASSERT(is_well_sorted(m, result));    
+    SASSERT(is_well_sorted(m, result));
 }
 
 void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {

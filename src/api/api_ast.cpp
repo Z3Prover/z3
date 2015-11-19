@@ -1012,6 +1012,7 @@ extern "C" {
             case OP_SET_COMPLEMENT: return Z3_OP_SET_COMPLEMENT;
             case OP_SET_SUBSET: return Z3_OP_SET_SUBSET;
             case OP_AS_ARRAY: return Z3_OP_AS_ARRAY;
+            case OP_ARRAY_EXT: return Z3_OP_ARRAY_EXT;
             default:
                 UNREACHABLE();
                 return Z3_OP_UNINTERPRETED;

@@ -293,7 +293,7 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
                                    func_decl_info(m_family_id, OP_STORE));
 }
 
-func_decl * array_decl_plugin::mk_array_ext_skolem(unsigned arity, sort * const * domain, unsigned i) {
+func_decl * array_decl_plugin::mk_array_ext(unsigned arity, sort * const * domain, unsigned i) {
     if (arity != 2 || domain[0] != domain[1]) {
         UNREACHABLE();
         return 0;
@@ -306,7 +306,7 @@ func_decl * array_decl_plugin::mk_array_ext_skolem(unsigned arity, sort * const 
     }
     sort * r = to_sort(s->get_parameter(i).get_ast());
     parameter param(s);
-    return m_manager->mk_func_decl(m_array_ext_sym, arity, domain, r, func_decl_info(m_family_id, OP_ARRAY_EXT_SKOLEM, 1, &param));
+    return m_manager->mk_func_decl(m_array_ext_sym, arity, domain, r, func_decl_info(m_family_id, OP_ARRAY_EXT, 1, &param));
 }
 
 
@@ -463,12 +463,15 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         func_decl * f = to_func_decl(parameters[0].get_ast());
         return mk_map(f, arity, domain);        
     }
-    case OP_ARRAY_EXT_SKOLEM:
+    case OP_ARRAY_EXT:
+        if (num_parameters == 0) {
+            return mk_array_ext(arity, domain, 0);
+        }
         if (num_parameters != 1 || !parameters[0].is_int()) {
             UNREACHABLE();
             return 0;
         }
-        return mk_array_ext_skolem(arity, domain, parameters[0].get_int());
+        return mk_array_ext(arity, domain, parameters[0].get_int());
     case OP_ARRAY_DEFAULT:
         return mk_default(arity, domain);
     case OP_SET_UNION:
@@ -519,6 +522,7 @@ void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("complement",OP_SET_COMPLEMENT));
         op_names.push_back(builtin_name("subset",OP_SET_SUBSET));
         op_names.push_back(builtin_name("as-array", OP_AS_ARRAY));
+        op_names.push_back(builtin_name("array-ext", OP_ARRAY_EXT));
     }
 }
 

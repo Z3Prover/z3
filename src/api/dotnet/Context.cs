@@ -2122,6 +2122,21 @@ namespace Microsoft.Z3
             CheckContextMatch(array);
             return Expr.Create(this, Native.Z3_mk_array_default(nCtx, array.NativeObject));
         }
+
+        /// <summary>
+        /// Create Extentionality index. Two arrays are equal if and only if they are equal on the index returned by MkArrayExt.
+        /// </summary>
+        public Expr MkArrayExt(ArrayExpr arg1, ArrayExpr arg2)
+        {
+            Contract.Requires(arg1 != null);
+            Contract.Requires(arg2 != null);
+            Contract.Ensures(Contract.Result<Expr>() != null);
+
+            CheckContextMatch(arg1);
+            CheckContextMatch(arg2);
+            return Expr.Create(this, Native.Z3_mk_array_ext(nCtx, arg1.NativeObject, arg2.NativeObject));
+        }
+
         #endregion
 
         #region Sets
@@ -2268,6 +2283,7 @@ namespace Microsoft.Z3
             CheckContextMatch(arg2);
             return (BoolExpr) Expr.Create(this, Native.Z3_mk_set_subset(nCtx, arg1.NativeObject, arg2.NativeObject));
         }
+
         #endregion
 
         #region Pseudo-Boolean constraints
@@ -2597,8 +2613,13 @@ namespace Microsoft.Z3
         /// <paramref name="patterns"/> is an array of patterns, <paramref name="sorts"/> is an array
         /// with the sorts of the bound variables, <paramref name="names"/> is an array with the
         /// 'names' of the bound variables, and <paramref name="body"/> is the body of the
-        /// quantifier. Quantifiers are associated with weights indicating
-        /// the importance of using the quantifier during instantiation.
+        /// quantifier. Quantifiers are associated with weights indicating the importance of 
+        /// using the quantifier during instantiation.
+        /// Note that the bound variables are de-Bruijn indices created using <see cref="MkBound"/>. 
+        /// Z3 applies the convention that the last element in <paramref name="names"/> and 
+        /// <paramref name="sorts"/> refers to the variable with index 0, the second to last element 
+        /// of <paramref name="names"/> and <paramref name="sorts"/> refers to the variable 
+        /// with index 1, etc. 
         /// </remarks>
         /// <param name="sorts">the sorts of the bound variables.</param>
         /// <param name="names">names of the bound variables</param>
@@ -2628,6 +2649,11 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a universal Quantifier.
         /// </summary>
+        /// <remarks>
+        /// Creates a universal quantifier using a list of constants that will 
+        /// form the set of bound variables. 
+        /// <seealso cref="MkForall(Sort[], Symbol[], Expr, uint, Pattern[], Expr[], Symbol, Symbol)"/>
+        /// </remarks>
         public Quantifier MkForall(Expr[] boundConstants, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
         {
             Contract.Requires(body != null);
@@ -2643,7 +2669,10 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create an existential Quantifier.
         /// </summary>
-        /// <seealso cref="MkForall(Sort[],Symbol[],Expr,uint,Pattern[],Expr[],Symbol,Symbol)"/>
+        /// <remarks>
+        /// Creates an existential quantifier using de-Brujin indexed variables. 
+        /// (<see cref="MkForall(Sort[], Symbol[], Expr, uint, Pattern[], Expr[], Symbol, Symbol)"/>).
+        /// </remarks>
         public Quantifier MkExists(Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
         {
             Contract.Requires(sorts != null);
@@ -2662,6 +2691,11 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create an existential Quantifier.
         /// </summary>
+        /// <remarks>
+        /// Creates an existential quantifier using a list of constants that will 
+        /// form the set of bound variables. 
+        /// <seealso cref="MkForall(Sort[], Symbol[], Expr, uint, Pattern[], Expr[], Symbol, Symbol)"/>
+        /// </remarks>
         public Quantifier MkExists(Expr[] boundConstants, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
         {
             Contract.Requires(body != null);
@@ -2677,6 +2711,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a Quantifier.
         /// </summary>
+        /// <see cref="MkForall(Sort[], Symbol[], Expr, uint, Pattern[], Expr[], Symbol, Symbol)"/>
         public Quantifier MkQuantifier(bool universal, Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
         {
             Contract.Requires(body != null);
@@ -2700,6 +2735,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a Quantifier.
         /// </summary>
+        /// <see cref="MkForall(Sort[], Symbol[], Expr, uint, Pattern[], Expr[], Symbol, Symbol)"/>
         public Quantifier MkQuantifier(bool universal, Expr[] boundConstants, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
         {
             Contract.Requires(body != null);

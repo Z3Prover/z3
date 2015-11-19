@@ -39,7 +39,7 @@ struct theory_bv_params {
         m_bv_lazy_le(false),
         m_bv_cc(false),
         m_bv_blast_max_size(INT_MAX),
-        m_bv_enable_int2bv2int(false) {
+        m_bv_enable_int2bv2int(true) {
         updt_params(p);
     }
     

@@ -400,7 +400,6 @@ inline size_t megabytes_to_bytes(unsigned mb) {
     return r;
 }
 
-void z3_bound_num_procs();
 
 #endif /* UTIL_H_ */
 

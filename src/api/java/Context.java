@@ -433,8 +433,8 @@ public class Context extends IDisposable
     /**
      * Creates a fresh function declaration with a name prefixed with
      * {@code prefix}. 
-     * @see mkFuncDecl(String,Sort,Sort)
-     * @see mkFuncDecl(String,Sort[],Sort)
+     * @see #mkFuncDecl(String,Sort,Sort)
+     * @see #mkFuncDecl(String,Sort[],Sort)
      **/
     public FuncDecl mkFreshFuncDecl(String prefix, Sort[] domain, Sort range)
            
@@ -1718,6 +1718,17 @@ public class Context extends IDisposable
     }
 
     /**
+     * Create Extentionality index. Two arrays are equal if and only if they are equal on the index returned by MkArrayExt.
+     **/
+    public Expr mkArrayExt(ArrayExpr arg1, ArrayExpr arg2)
+    {
+    checkContextMatch(arg1);
+    checkContextMatch(arg2);
+    return Expr.create(this, Native.mkArrayExt(nCtx(), arg1.getNativeObject(), arg2.getNativeObject()));
+    }
+
+
+    /**
      * Create a set type.
      **/
     public SetSort mkSetSort(Sort ty)
@@ -2014,6 +2025,7 @@ public class Context extends IDisposable
 
     /**
      * Create a universal Quantifier.
+     *
      * @param sorts the sorts of the bound variables. 
      * @param names names of the bound variables 
      * @param body the body of the quantifier. 
@@ -2023,17 +2035,22 @@ public class Context extends IDisposable
      * @param quantifierID optional symbol to track quantifier. 
      * @param skolemID optional symbol to track skolem constants.
      * 
-     * Remarks:  Creates a forall formula, where
-     * {@code weight"/> is the weight, <paramref name="patterns} is
+     * @return Creates a forall formula, where
+     * {@code weight} is the weight, {@code patterns} is
      * an array of patterns, {@code sorts} is an array with the sorts
      * of the bound variables, {@code names} is an array with the
      * 'names' of the bound variables, and {@code body} is the body
      * of the quantifier. Quantifiers are associated with weights indicating the
      * importance of using the quantifier during instantiation.
+     * Note that the bound variables are de-Bruijn indices created using {@link mkBound}.
+     * Z3 applies the convention that the last element in {@code names} and 
+     * {@code sorts} refers to the variable with index 0, the second to last element 
+     * of {@code names} and {@code sorts} refers to the variable 
+     * with index 1, etc. 
      **/
     public Quantifier mkForall(Sort[] sorts, Symbol[] names, Expr body,
-            int weight, Pattern[] patterns, Expr[] noPatterns,
-            Symbol quantifierID, Symbol skolemID)
+                               int weight, Pattern[] patterns, Expr[] noPatterns,
+                               Symbol quantifierID, Symbol skolemID)
     {
 
         return new Quantifier(this, true, sorts, names, body, weight, patterns,
@@ -2041,11 +2058,12 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create a universal Quantifier.
+     * Creates a universal quantifier using a list of constants that will form the set of bound variables. 
+     * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
      **/
     public Quantifier mkForall(Expr[] boundConstants, Expr body, int weight,
-            Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID,
-            Symbol skolemID)
+                               Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID,
+                               Symbol skolemID)
     {
 
         return new Quantifier(this, true, boundConstants, body, weight,
@@ -2053,12 +2071,12 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create an existential Quantifier. 
+     * Creates an existential quantifier using de-Brujin indexed variables. 
      * @see mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
      **/
     public Quantifier mkExists(Sort[] sorts, Symbol[] names, Expr body,
-            int weight, Pattern[] patterns, Expr[] noPatterns,
-            Symbol quantifierID, Symbol skolemID)
+                               int weight, Pattern[] patterns, Expr[] noPatterns,
+                               Symbol quantifierID, Symbol skolemID)
     {
 
         return new Quantifier(this, false, sorts, names, body, weight,
@@ -2066,11 +2084,12 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create an existential Quantifier.
+     * Creates an existential quantifier using a list of constants that will form the set of bound variables. 
+     * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
      **/
     public Quantifier mkExists(Expr[] boundConstants, Expr body, int weight,
-            Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID,
-            Symbol skolemID)
+                               Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID,
+                               Symbol skolemID)
     {
 
         return new Quantifier(this, false, boundConstants, body, weight,
@@ -2079,11 +2098,12 @@ public class Context extends IDisposable
 
     /**
      * Create a Quantifier.
+     * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
      **/
     public Quantifier mkQuantifier(boolean universal, Sort[] sorts,
-            Symbol[] names, Expr body, int weight, Pattern[] patterns,
-            Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
-           
+                                   Symbol[] names, Expr body, int weight, Pattern[] patterns,
+                                   Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        
     {
 
         if (universal)
@@ -2095,11 +2115,12 @@ public class Context extends IDisposable
     }
 
     /**
-     * Create a Quantifier.
+     * Create a Quantifier
+     * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
      **/
     public Quantifier mkQuantifier(boolean universal, Expr[] boundConstants,
-            Expr body, int weight, Pattern[] patterns, Expr[] noPatterns,
-            Symbol quantifierID, Symbol skolemID)
+                                   Expr body, int weight, Pattern[] patterns, Expr[] noPatterns,
+                                   Symbol quantifierID, Symbol skolemID)
     {
 
         if (universal)

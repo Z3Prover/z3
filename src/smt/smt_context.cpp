@@ -36,6 +36,7 @@ Revision History:
 #include"smt_model_finder.h"
 #include"model_pp.h"
 #include"ast_smt2_pp.h"
+#include"ast_translation.h"
 
 namespace smt {
 
@@ -98,37 +99,158 @@ namespace smt {
         m_model_generator->set_context(this);
     }
 
+    literal context::translate_literal(
+        literal lit, context& src_ctx, context& dst_ctx,
+        vector<bool_var> b2v, ast_translation& tr) {
+        ast_manager& dst_m = dst_ctx.get_manager();
+        ast_manager& src_m = src_ctx.get_manager();
+        expr_ref dst_f(dst_m);
+
+        SASSERT(lit != false_literal && lit != true_literal);    
+        bool_var v = b2v.get(lit.var(), null_bool_var);           
+        if (v == null_bool_var) {                                  
+            expr* e = src_ctx.m_bool_var2expr.get(lit.var(), 0);  
+            SASSERT(e);                                            
+            dst_f = tr(e);                                         
+            v = dst_ctx.get_bool_var_of_id_option(dst_f->get_id());
+            if (v != null_bool_var) {                              
+            }                                                      
+            else if (src_m.is_not(e) || src_m.is_and(e) || src_m.is_or(e) ||
+                     src_m.is_iff(e) || src_m.is_ite(e)) {         
+                v = dst_ctx.mk_bool_var(dst_f);                    
+            }                                                      
+            else {                                                 
+                dst_ctx.internalize_formula(dst_f, false);         
+                v = dst_ctx.get_bool_var(dst_f);                   
+            }                                                      
+            b2v.setx(lit.var(), v, null_bool_var);                
+        }                                                          
+        return literal(v, lit.sign());                                   
+    }
+
+
+    void context::copy(context& src_ctx, context& dst_ctx) {
+        ast_manager& dst_m = dst_ctx.get_manager();
+        ast_manager& src_m = src_ctx.get_manager();
+        src_ctx.pop_to_base_lvl();
+        
+        if (src_ctx.m_base_lvl > 0) {
+            throw default_exception("Cloning contexts within a user-scope is not allowed");
+        }
+        SASSERT(src_ctx.m_base_lvl == 0);
+        
+        ast_translation tr(src_m, dst_m, false);
+
+        dst_ctx.set_logic(src_ctx.m_setup.get_logic());
+        dst_ctx.copy_plugins(src_ctx, dst_ctx);
+
+        asserted_formulas& src_af = src_ctx.m_asserted_formulas;
+        asserted_formulas& dst_af = dst_ctx.m_asserted_formulas;
+
+        // Copy asserted formulas.        
+        for (unsigned i = 0; i < src_af.get_num_formulas(); ++i) {
+            expr_ref fml(dst_m);
+            proof_ref pr(dst_m);
+            proof* pr_src = src_af.get_formula_proof(i);
+            fml = tr(src_af.get_formula(i));
+            if (pr_src) {
+                pr = tr(pr_src);
+            }
+            dst_af.assert_expr(fml, pr);            
+        }
+
+        if (!src_ctx.m_setup.already_configured()) {
+            return;
+        }
+        dst_ctx.setup_context(dst_ctx.m_fparams.m_auto_config);
+        dst_ctx.internalize_assertions();
+
+        vector<bool_var> b2v;
+
+#define TRANSLATE(_lit) translate_literal(_lit, src_ctx, dst_ctx, b2v, tr)
+
+        for (unsigned i = 0; i < src_ctx.m_assigned_literals.size(); ++i) {
+            literal lit;
+            lit = TRANSLATE(src_ctx.m_assigned_literals[i]);
+            dst_ctx.mk_clause(1, &lit, 0, CLS_AUX, 0);
+        }
+#if 0
+        literal_vector lits;
+        expr_ref_vector cls(src_m);
+        for (unsigned i = 0; i < src_ctx.m_lemmas.size(); ++i) {
+            lits.reset();
+            cls.reset();
+            clause& src_cls = *src_ctx.m_lemmas[i];
+            unsigned sz = src_cls.get_num_literals();
+            for (unsigned j = 0; j < sz; ++j) {
+                literal lit = TRANSLATE(src_cls.get_literal(j));
+                lits.push_back(lit);
+            }
+            dst_ctx.mk_clause(lits.size(), lits.c_ptr(), 0, src_cls.get_kind(), 0);
+        }        
+        vector<watch_list>::const_iterator it  = src_ctx.m_watches.begin();
+        vector<watch_list>::const_iterator end = src_ctx.m_watches.end();
+        literal ls[2];
+        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
+            literal l1 = to_literal(l_idx);
+            literal neg_l1 = ~l1;
+            watch_list const & wl = *it;
+            literal const * it2  = wl.begin_literals();
+            literal const * end2 = wl.end_literals();
+            for (; it2 != end2; ++it2) {
+                literal l2 = *it2;
+                if (l1.index() < l2.index()) {
+                    ls[0] = TRANSLATE(neg_l1);
+                    ls[1] = TRANSLATE(l2);
+                    dst_ctx.mk_clause(2, ls, 0, CLS_AUX, 0);
+                }                
+            }
+        }
+#endif
+        
+        TRACE("smt_context", 
+              src_ctx.display(tout);
+              dst_ctx.display(tout););
+    }
+
+
     context::~context() {
         flush();
+    }
+
+    void context::copy_plugins(context& src, context& dst) {
+
+        // copy missing simplifier_plugins
+        // remark: some simplifier_plugins are automatically created by the asserted_formulas class.
+        simplifier & src_s = src.get_simplifier();
+        simplifier & dst_s = dst.get_simplifier(); 
+        ptr_vector<simplifier_plugin>::const_iterator it1  = src_s.begin_plugins();
+        ptr_vector<simplifier_plugin>::const_iterator end1 = src_s.end_plugins();
+        for (; it1 != end1; ++it1) {
+            simplifier_plugin * p = *it1;
+            if (dst_s.get_plugin(p->get_family_id()) == 0) {
+                dst.register_plugin(p->mk_fresh());
+            }
+            SASSERT(dst_s.get_plugin(p->get_family_id()) != 0);
+        }
+
+        // copy theory plugins
+        ptr_vector<theory>::iterator it2  = src.m_theory_set.begin();
+        ptr_vector<theory>::iterator end2 = src.m_theory_set.end();
+        for (; it2 != end2; ++it2) {
+            theory * new_th = (*it2)->mk_fresh(&dst);
+            dst.register_plugin(new_th);
+        }
     }
 
     context * context::mk_fresh(symbol const * l, smt_params * p) {
         context * new_ctx = alloc(context, m_manager, p == 0 ? m_fparams : *p);
         new_ctx->set_logic(l == 0 ? m_setup.get_logic() : *l);
-        // copy missing simplifier_plugins
-        // remark: some simplifier_plugins are automatically created by the asserted_formulas class.
-        simplifier & s     = get_simplifier();
-        simplifier & new_s = new_ctx->get_simplifier(); 
-        ptr_vector<simplifier_plugin>::const_iterator it1  = s.begin_plugins();
-        ptr_vector<simplifier_plugin>::const_iterator end1 = s.end_plugins();
-        for (; it1 != end1; ++it1) {
-            simplifier_plugin * p = *it1;
-            if (new_s.get_plugin(p->get_family_id()) == 0) {
-                new_ctx->register_plugin(p->mk_fresh());
-            }
-            SASSERT(new_s.get_plugin(p->get_family_id()) != 0);
-        }
-
-        // copy theory plugins
-        ptr_vector<theory>::iterator it2  = m_theory_set.begin();
-        ptr_vector<theory>::iterator end2 = m_theory_set.end();
-        for (; it2 != end2; ++it2) {
-            theory * new_th = (*it2)->mk_fresh(new_ctx);
-            new_ctx->register_plugin(new_th);
-        }
-        new_ctx->m_setup.mark_already_configured();
+        copy_plugins(*this, *new_ctx);        
         return new_ctx;
     }
+
+       
 
     void context::init() {
         app * t       = m_manager.mk_true();

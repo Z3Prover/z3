@@ -240,7 +240,7 @@ namespace pdr {
         void check_pre_closed();
         void set_closed();     
         void set_open();
-        void set_pre_closed() { m_closed = true; }
+        void set_pre_closed() { TRACE("pdr", tout << state() << "\n";); m_closed = true; }
         void reset() { m_children.reset(); }
 
         void set_rule(datalog::rule const* r) { m_rule = r; }
@@ -268,7 +268,6 @@ namespace pdr {
         void enqueue_leaf(model_node* n); // add leaf to priority queue.
         void update_models();
         void set_leaf(model_node& n); // Set node as leaf, remove children.
-        bool is_repeated(model_node& n) const;
         unsigned num_goals() const; 
 
     public:

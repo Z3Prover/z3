@@ -942,6 +942,10 @@ namespace smt {
         }
     }
 
+    template<typename Ext>
+    theory* theory_utvpi<Ext>::mk_fresh(context* new_ctx) { 
+        return alloc(theory_utvpi<Ext>, new_ctx->get_manager()); 
+    }
 
 
 };

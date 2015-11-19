@@ -101,7 +101,7 @@ namespace smt {
     public:
         theory_datatype(ast_manager & m, theory_datatype_params & p);
         virtual ~theory_datatype();
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_datatype, get_manager(), m_params); }
+        virtual theory * mk_fresh(context * new_ctx);
         virtual void display(std::ostream & out) const;
         virtual void collect_statistics(::statistics & st) const;        
         virtual void init_model(model_generator & m);

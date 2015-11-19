@@ -40,6 +40,11 @@ namespace smt {
     }
 
     template<typename Ext>
+    theory* theory_dense_diff_logic<Ext>::mk_fresh(context * new_ctx) { 
+        return alloc(theory_dense_diff_logic<Ext>, new_ctx->get_manager(), m_params); 
+    }
+
+    template<typename Ext>
     inline app * theory_dense_diff_logic<Ext>::mk_zero_for(expr * n) {
         return m_autil.mk_numeral(rational(0), get_manager().get_sort(n));
     }

@@ -154,7 +154,7 @@ namespace opt {
         m_soft_constraints(m), m_answer(m) {}
 
     lbool maxsmt::operator()() {
-        lbool is_sat;
+        lbool is_sat = l_undef;
         m_msolver = 0;
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
@@ -191,7 +191,7 @@ namespace opt {
             m_msolver->set_adjust_value(m_adjust_value);
             is_sat = (*m_msolver)();
             if (is_sat != l_false) {
-                m_msolver->get_model(m_model);
+                m_msolver->get_model(m_model, m_labels);
             }
         }
 
@@ -247,8 +247,9 @@ namespace opt {
         m_upper = r;
     }    
 
-    void maxsmt::get_model(model_ref& mdl) {
+    void maxsmt::get_model(model_ref& mdl, svector<symbol>& labels) {
         mdl = m_model.get();
+        labels = m_labels;
     }
 
     void maxsmt::commit_assignment() {

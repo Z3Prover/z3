@@ -864,8 +864,15 @@ sig
   (** Access the array default value.
       
       Produces the default range value, for arrays that can be represented as 
-      finite maps with a default range value.     *)
+      finite maps with a default range value. *)
   val mk_term_array : context -> Expr.expr -> Expr.expr
+
+  (** Create array extensionality index given two arrays with the same sort. 
+
+      The meaning is given by the axiom:
+          (=> (= (select A (array-ext A B)) (select B (array-ext A B))) (= A B)) *)
+  val mk_array_ext : context -> Expr.expr -> Expr.expr -> Expr.expr
+
 end
 
 (** Functions to manipulate Set expressions *)
@@ -1185,36 +1192,36 @@ sig
     val mk_const_s : context -> string -> Expr.expr
 
     (** Create an expression representing [t1 mod t2].
-		The arguments must have int type. *)
+        The arguments must have int type. *)
     val mk_mod : context -> Expr.expr -> Expr.expr -> Expr.expr
 
     (** Create an expression representing [t1 rem t2].
-		The arguments must have int type. *)
+        The arguments must have int type. *)
     val mk_rem : context -> Expr.expr -> Expr.expr -> Expr.expr
 
     (** Create an integer numeral. *)
     val mk_numeral_s : context -> string -> Expr.expr
 
     (** Create an integer numeral.
-		@return A Term with the given value and sort Integer *)
+        @return A Term with the given value and sort Integer *)
     val mk_numeral_i : context -> int -> Expr.expr
 
-    (** Coerce an integer to a real.	
-		
-		There is also a converse operation exposed. It follows the semantics prescribed by the SMT-LIB standard.
-		
-		You can take the floor of a real by creating an auxiliary integer Term [k] and
-		and asserting [MakeInt2Real(k) <= t1 < MkInt2Real(k)+1].
-		The argument must be of integer sort. *)
+    (** Coerce an integer to a real.    
+        
+        There is also a converse operation exposed. It follows the semantics prescribed by the SMT-LIB standard.
+        
+        You can take the floor of a real by creating an auxiliary integer Term [k] and
+        and asserting [MakeInt2Real(k) <= t1 < MkInt2Real(k)+1].
+        The argument must be of integer sort. *)
     val mk_int2real : context -> Expr.expr -> Expr.expr
 
     (**   Create an n-bit bit-vector from an integer argument.  
-		  
-		  NB. This function is essentially treated as uninterpreted. 
-		  So you cannot expect Z3 to precisely reflect the semantics of this function
-		  when solving constraints with this function.
-		  
-		  The argument must be of integer sort. *)
+          
+          NB. This function is essentially treated as uninterpreted. 
+          So you cannot expect Z3 to precisely reflect the semantics of this function
+          when solving constraints with this function.
+          
+          The argument must be of integer sort. *)
     val mk_int2bv : context -> int -> Expr.expr -> Expr.expr
   end
 
@@ -1234,7 +1241,7 @@ sig
     val get_ratio : Expr.expr -> Ratio.ratio
 
     (** Returns a string representation in decimal notation. 
-		The result has at most as many decimal places as indicated by the int argument.*)
+        The result has at most as many decimal places as indicated by the int argument.*)
     val to_decimal_string : Expr.expr-> int -> string
 
     (** Returns a string representation of a numeral. *)
@@ -1247,16 +1254,16 @@ sig
     val mk_const_s : context -> string -> Expr.expr
 
     (** Create a real numeral from a fraction.       
-		@return A Term with rational value and sort Real
-		{!mk_numeral_s} *)
+        @return A Term with rational value and sort Real
+        {!mk_numeral_s} *)
     val mk_numeral_nd : context -> int -> int -> Expr.expr
 
     (** Create a real numeral.
-		@return A Term with the given value and sort Real *)
+        @return A Term with the given value and sort Real *)
     val mk_numeral_s : context -> string -> Expr.expr
 
     (** Create a real numeral.
-		@return A Term with the given value and sort Real *)
+        @return A Term with the given value and sort Real *)
     val mk_numeral_i : context -> int -> Expr.expr
 
     (** Creates an expression that checks whether a real number is an integer. *)
@@ -1264,29 +1271,29 @@ sig
 
     (** Coerce a real to an integer.
 
-		The semantics of this function follows the SMT-LIB standard for the function to_int.
-		The argument must be of real sort. *)
+        The semantics of this function follows the SMT-LIB standard for the function to_int.
+        The argument must be of real sort. *)
     val mk_real2int : context -> Expr.expr -> Expr.expr
       
     (** Algebraic Numbers *)
     module AlgebraicNumber :
     sig
       (** Return a upper bound for a given real algebraic number. 
-		  The interval isolating the number is smaller than 1/10^precision.
-		  {!is_algebraic_number}   
-		  @return A numeral Expr of sort Real *)
+          The interval isolating the number is smaller than 1/10^precision.
+          {!is_algebraic_number}   
+          @return A numeral Expr of sort Real *)
       val to_upper : Expr.expr -> int -> Expr.expr
-		
+        
       (** Return a lower bound for the given real algebraic number. 
-		  The interval isolating the number is smaller than 1/10^precision.
-		  {!is_algebraic_number}
-		  @return A numeral Expr of sort Real *)
+          The interval isolating the number is smaller than 1/10^precision.
+          {!is_algebraic_number}
+          @return A numeral Expr of sort Real *)
       val to_lower : Expr.expr -> int -> Expr.expr
-		
+        
       (** Returns a string representation in decimal notation. 
-		  The result has at most as many decimal places as the int argument provided.*)
+          The result has at most as many decimal places as the int argument provided.*)
       val to_decimal_string : Expr.expr -> int -> string
-		
+        
       (** Returns a string representation of a numeral. *)
       val numeral_to_string : Expr.expr -> string
     end
@@ -1846,52 +1853,52 @@ end
 module FloatingPoint :
 sig
 
-  (** Rounding Modes *)	
+  (** Rounding Modes *)    
   module RoundingMode :
   sig
-	(** Create the RoundingMode sort. *)
+    (** Create the RoundingMode sort. *)
     val mk_sort : context -> Sort.sort
 
-	(** Indicates whether the terms is of floating-point rounding mode sort. *)
+    (** Indicates whether the terms is of floating-point rounding mode sort. *)
     val is_fprm : Expr.expr -> bool
 
-	(** Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode. *)
+    (** Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode. *)
     val mk_round_nearest_ties_to_even : context -> Expr.expr
-	  
-	(** Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode. *)
+      
+    (** Create a numeral of RoundingMode sort which represents the NearestTiesToEven rounding mode. *)
     val mk_rne : context -> Expr.expr
 
-	(** Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode. *)
+    (** Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode. *)
     val mk_round_nearest_ties_to_away : context -> Expr.expr
-	  
-	(** Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode. *)
+      
+    (** Create a numeral of RoundingMode sort which represents the NearestTiesToAway rounding mode. *)
     val mk_rna : context -> Expr.expr
-	  
-	(** Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode. *)
+      
+    (** Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode. *)
     val mk_round_toward_positive : context -> Expr.expr
-	  
-	(** Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode. *)
-	val mk_rtp : context -> Expr.expr
-	  
-	(** Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode. *)
+      
+    (** Create a numeral of RoundingMode sort which represents the TowardPositive rounding mode. *)
+    val mk_rtp : context -> Expr.expr
+      
+    (** Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode. *)
     val mk_round_toward_negative : context -> Expr.expr
-	  
-	(** Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode. *)
+      
+    (** Create a numeral of RoundingMode sort which represents the TowardNegative rounding mode. *)
     val mk_rtn : context -> Expr.expr
-	  
-	(** Create a numeral of RoundingMode sort which represents the TowardZero rounding mode. *)
+      
+    (** Create a numeral of RoundingMode sort which represents the TowardZero rounding mode. *)
     val mk_round_toward_zero : context -> Expr.expr
-	  
-	(** Create a numeral of RoundingMode sort which represents the TowardZero rounding mode. *)
+      
+    (** Create a numeral of RoundingMode sort which represents the TowardZero rounding mode. *)
     val mk_rtz : context -> Expr.expr
   end
 
   (** Create a FloatingPoint sort. *)
   val mk_sort : context -> int -> int -> Sort.sort
-	
+    
   (** Create the half-precision (16-bit) FloatingPoint sort.*) 
   val mk_sort_half : context -> Sort.sort
-	
+    
   (** Create the half-precision (16-bit) FloatingPoint sort. *)
   val mk_sort_16 : context -> Sort.sort
 
@@ -1906,7 +1913,7 @@ sig
 
   (** Create the double-precision (64-bit) FloatingPoint sort. *)
   val mk_sort_64 : context -> Sort.sort
-	
+    
   (** Create the quadruple-precision (128-bit) FloatingPoint sort. *)
   val mk_sort_quadruple : context -> Sort.sort
 
@@ -1924,7 +1931,7 @@ sig
 
   (** Create an expression of FloatingPoint sort from three bit-vector expressions. 
 
-	  This is the operator named `fp' in the SMT FP theory definition.
+      This is the operator named `fp' in the SMT FP theory definition.
       Note that \c sign is required to be a bit-vector of size 1. Significand and exponent 
       are required to be greater than 1 and 2 respectively. The FloatingPoint sort 
       of the resulting expression is automatically determined from the bit-vector sizes
@@ -1939,16 +1946,16 @@ sig
 
   (** Create a numeral of FloatingPoint sort from a signed integer. *)
   val mk_numeral_i : context -> int -> Sort.sort -> Expr.expr
-	
+    
   (** Create a numeral of FloatingPoint sort from a sign bit and two integers. *)
   val mk_numeral_i_u : context -> bool -> int -> int -> Sort.sort -> Expr.expr
 
   (** Create a numeral of FloatingPoint sort from a string *)
   val mk_numeral_s : context -> string -> Sort.sort -> Expr.expr
-	
+    
   (** Indicates whether the terms is of floating-point sort. *)
   val is_fp : Expr.expr -> bool
-	
+    
 
   (** Indicates whether an expression is a floating-point abs expression *)
   val is_abs : Expr.expr -> bool
@@ -1958,7 +1965,7 @@ sig
 
   (** Indicates whether an expression is a floating-point add expression *)
   val is_add : Expr.expr -> bool
-	
+    
   (** Indicates whether an expression is a floating-point sub expression *)
   val is_sub : Expr.expr -> bool
 
@@ -2015,7 +2022,7 @@ sig
 
   (** Indicates whether an expression is a floating-point is_nan expression *)
   val is_is_nan : Expr.expr -> bool
-	
+    
   (** Indicates whether an expression is a floating-point is_negative expression *)
   val is_is_negative : Expr.expr -> bool
 
@@ -2070,17 +2077,17 @@ sig
 
   (** Floating-point fused multiply-add. *)
   val mk_fma : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
-	
+    
   (** Floating-point square root *)
   val mk_sqrt : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Floating-point remainder *)
   val mk_rem : context -> Expr.expr -> Expr.expr -> Expr.expr
-	
+    
   (** Floating-point roundToIntegral. 
 
-	  Rounds a floating-point number to the closest integer, 
-	  again represented as a floating-point number. *)
+      Rounds a floating-point number to the closest integer, 
+      again represented as a floating-point number. *)
   val mk_round_to_integral : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Minimum of floating-point numbers. *)
@@ -2088,16 +2095,16 @@ sig
 
   (** Maximum of floating-point numbers. *)
   val mk_max : context -> Expr.expr -> Expr.expr -> Expr.expr
-	
+    
   (** Floating-point less than or equal. *)
   val mk_leq : context -> Expr.expr -> Expr.expr -> Expr.expr
-	
+    
   (** Floating-point less than. *)
   val mk_lt : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Floating-point greater than or equal. *)
   val mk_geq : context -> Expr.expr -> Expr.expr -> Expr.expr
-	
+    
   (** Floating-point greater than. *)
   val mk_gt : context -> Expr.expr -> Expr.expr -> Expr.expr
 
@@ -2142,19 +2149,19 @@ sig
 
   (** C1onversion of a floating-point term into an unsigned bit-vector. *)
   val mk_to_ubv : context -> Expr.expr -> Expr.expr -> int -> Expr.expr
-	
+    
   (** Conversion of a floating-point term into a signed bit-vector. *)
   val mk_to_sbv : context -> Expr.expr -> Expr.expr -> int -> Expr.expr
 
   (** Conversion of a floating-point term into a real-numbered term. *)
   val mk_to_real : context -> Expr.expr -> Expr.expr
-	
+    
   (** Retrieves the number of bits reserved for the exponent in a FloatingPoint sort. *)
   val get_ebits : context -> Sort.sort -> int
 
   (** Retrieves the number of bits reserved for the significand in a FloatingPoint sort. *)
   val get_sbits : context -> Sort.sort -> int
-	
+    
   (** Retrieves the sign of a floating-point literal. *)
   val get_numeral_sign : context -> Expr.expr -> bool * int
 
@@ -2162,7 +2169,7 @@ sig
   val get_numeral_significand_string : context -> Expr.expr -> string
 
   (** Return the significand value of a floating-point numeral as a uint64. 
-	  Remark: This function extracts the significand bits, without the 
+      Remark: This function extracts the significand bits, without the 
       hidden bit or normalization. Throws an exception if the
       significand does not fit into a uint64. *)
   val get_numeral_significand_uint : context -> Expr.expr -> bool * int
@@ -2172,7 +2179,7 @@ sig
 
   (** Return the exponent value of a floating-point numeral as a signed integer *)
   val get_numeral_exponent_int : context -> Expr.expr -> bool * int
-	
+    
   (** Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format. *)
   val mk_to_ieee_bv : context -> Expr.expr -> Expr.expr
 
@@ -2675,13 +2682,13 @@ sig
       
     (** Function interpretations entries 
 
-		An Entry object represents an element in the finite map used to a function interpretation. *)  
+        An Entry object represents an element in the finite map used to a function interpretation. *)  
     module FuncEntry :
     sig
       type func_entry 
 
       (** Return the (symbolic) value of this entry.
-      *)	
+      *)    
       val get_value : func_entry -> Expr.expr
 
       (** The number of arguments of the entry.
@@ -2865,8 +2872,8 @@ sig
     val get_subgoal : apply_result -> int -> Goal.goal
 
     (** Convert a model for a subgoal into a model for the original 
-		goal [g], that the ApplyResult was obtained from. 
-		#return A model for [g] *)
+        goal [g], that the ApplyResult was obtained from. 
+        #return A model for [g] *)
     val convert_model : apply_result -> int -> Model.model -> Model.model
 
     (** A string representation of the ApplyResult. *)
@@ -2957,31 +2964,31 @@ end
 module Statistics :
 sig
   type statistics 
-	
+    
   (** Statistical data is organized into pairs of \[Key, Entry\], where every
-	  Entry is either a floating point or integer value. *)
+      Entry is either a floating point or integer value. *)
   module Entry :
   sig
     type statistics_entry
-	  
+      
     (** The key of the entry. *)
     val get_key : statistics_entry -> string
-	  
+      
     (** The int-value of the entry. *)
     val get_int : statistics_entry -> int
-	  
+      
     (** The float-value of the entry. *)
     val get_float : statistics_entry -> float
-	  
+      
     (** True if the entry is uint-valued. *)
     val is_int : statistics_entry -> bool
-	  
+      
     (** True if the entry is float-valued. *)
     val is_float : statistics_entry -> bool
-	  
+      
     (** The string representation of the the entry's value. *)
     val to_string_value : statistics_entry -> string
-	  
+      
     (** The string representation of the entry (key and value) *)
     val to_string : statistics_entry -> string
   end
@@ -3122,6 +3129,9 @@ sig
       The solver supports the commands [Push] and [Pop], but it
       will always solve each check from scratch. *)
   val mk_solver_t : context -> Tactic.tactic -> solver
+        
+  (** Create a clone of the current solver with respect to a context. *)
+  val translate : solver -> context -> solver
 
   (** A string representation of the solver. *)
   val to_string : solver -> string

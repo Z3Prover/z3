@@ -63,6 +63,11 @@ namespace opt {
         m_context.updt_params(_p);
     }
 
+    solver* opt_solver::translate(ast_manager& m, params_ref const& p) {
+        UNREACHABLE();
+        return 0;
+    }
+
     void opt_solver::collect_param_descrs(param_descrs & r) {
         m_context.collect_param_descrs(r);
     }
@@ -277,6 +282,7 @@ namespace opt {
     }
     
     void opt_solver::get_labels(svector<symbol> & r) {
+        r.reset();
         buffer<symbol> tmp;
         m_context.get_relevant_labels(0, tmp);
         r.append(tmp.size(), tmp.c_ptr());

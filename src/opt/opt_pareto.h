@@ -31,7 +31,6 @@ namespace opt {
         virtual expr_ref mk_gt(unsigned i, model_ref& model) = 0;
         virtual expr_ref mk_ge(unsigned i, model_ref& model) = 0;
         virtual expr_ref mk_le(unsigned i, model_ref& model) = 0;
-        virtual void set_model(model_ref& m) = 0;
         virtual void fix_model(model_ref& m) = 0;
     };
     class pareto_base {
@@ -42,6 +41,7 @@ namespace opt {
         ref<solver>      m_solver;
         params_ref       m_params;
         model_ref        m_model;
+        svector<symbol>  m_labels;
     public:
         pareto_base(
             ast_manager & m, 
@@ -77,8 +77,9 @@ namespace opt {
         }
         virtual lbool operator()() = 0;
 
-        virtual void get_model(model_ref& mdl) {
+        virtual void get_model(model_ref& mdl, svector<symbol>& labels) {
             mdl = m_model;
+            labels = m_labels;
         }
 
     protected:

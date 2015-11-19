@@ -177,7 +177,6 @@ expr_ref fpa2bv_model_converter::convert_bv2rm(expr * eval_v) const {
     rational bv_val(0);
     unsigned sz = 0;
 
-
     if (bu.is_numeral(eval_v, bv_val, sz)) {
         SASSERT(bv_val.is_uint64());
         switch (bv_val.get_uint64()) {
@@ -309,9 +308,9 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         expr * bvval = to_app(val)->get_arg(0);
         expr_ref fv(m);
         fv = convert_bv2rm(bv_mdl, var, bvval);
-        TRACE("fpa2bv_mc", tout << var->get_name() << " == " << mk_ismt2_pp(fv, m) << std::endl;);
+        TRACE("fpa2bv_mc", tout << var->get_name() << " == " << mk_ismt2_pp(fv, m) << ")" << std::endl;);
         float_mdl->register_decl(var, fv);
-        seen.insert(to_app(val)->get_decl());
+        seen.insert(to_app(bvval)->get_decl());
     }
 
     for (obj_map<func_decl, func_decl*>::iterator it = m_uf2bvuf.begin();

@@ -46,6 +46,12 @@ public:
 class solver : public check_sat_result {
 public:
     virtual ~solver() {}
+
+    /**
+    \brief Creates a clone of the solver.
+    */
+    virtual solver* translate(ast_manager& m, params_ref const& p) = 0;
+
     /**
        \brief Update the solver internal settings. 
     */
@@ -134,6 +140,8 @@ public:
     \brief Retrieves the idx'th tracked assumption (see assert_expr(t, a)).
     */
     virtual expr * get_assumption(unsigned idx) const = 0;
+
+
 
     /**
        \brief Display the content of this solver.

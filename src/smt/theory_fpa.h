@@ -148,6 +148,7 @@ namespace smt {
         obj_map<sort, func_decl*> m_wraps;
         obj_map<sort, func_decl*> m_unwraps;
         obj_map<expr, expr*>      m_conversions;
+        bool                      m_is_initialized;
 
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app * atom, bool gate_ctx);
@@ -158,7 +159,7 @@ namespace smt {
         virtual void push_scope_eh();
         virtual void pop_scope_eh(unsigned num_scopes);
         virtual void reset_eh();
-        virtual theory* mk_fresh(context*) { return alloc(theory_fpa, get_manager()); }
+        virtual theory* mk_fresh(context* new_ctx);
         virtual char const * get_name() const { return "fpa"; }
 
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
@@ -169,8 +170,10 @@ namespace smt {
         virtual void finalize_model(model_generator & mg);
 
     public:
-        theory_fpa(ast_manager& m);
+        theory_fpa(ast_manager & m);
         virtual ~theory_fpa();
+
+        virtual void init(context * ctx);
 
         virtual void display(std::ostream & out) const;
 

@@ -282,7 +282,7 @@ namespace smt {
         theory_dense_diff_logic(ast_manager & m, theory_arith_params & p);
         virtual ~theory_dense_diff_logic() { reset_eh(); }
         
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_dense_diff_logic, get_manager(), m_params); }
+        virtual theory * mk_fresh(context * new_ctx);
 
         virtual char const * get_name() const { return "difference-logic"; }
 

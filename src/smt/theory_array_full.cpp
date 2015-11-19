@@ -35,6 +35,10 @@ namespace smt {
         m_var_data_full.reset();
     }
 
+    theory* theory_array_full::mk_fresh(context* new_ctx) { 
+        return alloc(theory_array_full, new_ctx->get_manager(), m_params); 
+    }
+
     void theory_array_full::add_map(theory_var v, enode* s) {
         if (m_params.m_array_cg && !s->is_cgr()) {
             return;
@@ -269,7 +273,7 @@ namespace smt {
         }
         context & ctx = get_context();
 
-        if (is_map(n)) {
+        if (is_map(n) || is_array_ext(n)) {
             for (unsigned i = 0; i < n->get_num_args(); ++i) {
                 enode* arg = ctx.get_enode(n->get_arg(i));
                 if (!is_attached_to_var(arg)) {
@@ -315,6 +319,10 @@ namespace smt {
             // The instantiation operations are still sound to include.
             found_unsupported_op(n);
             instantiate_default_as_array_axiom(node);
+        }
+        else if (is_array_ext(n)) {
+            SASSERT(n->get_num_args() == 2);
+            instantiate_extensionality(ctx.get_enode(n->get_arg(0)), ctx.get_enode(n->get_arg(1)));
         }
         return true;
     }

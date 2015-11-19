@@ -183,7 +183,7 @@ namespace smt {
 
         virtual ~theory_utvpi();
 
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_utvpi, get_manager()); }
+        virtual theory * mk_fresh(context * new_ctx);
 
         virtual char const * get_name() const { return "utvpi-logic"; }
 

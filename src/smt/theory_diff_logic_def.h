@@ -1384,5 +1384,11 @@ bool theory_diff_logic<Ext>::internalize_objective(expr * n, rational const& m, 
     return true;
 }
 
+template<typename Ext>
+theory* theory_diff_logic<Ext>::mk_fresh(context* new_ctx) {
+    return alloc(theory_diff_logic<Ext>, new_ctx->get_manager(), m_params); 
+}
+
+
 #endif /* THEORY_DIFF_LOGIC_DEF_H_ */
 

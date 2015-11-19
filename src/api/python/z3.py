@@ -1,3 +1,4 @@
+
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
 # 
@@ -4143,6 +4144,13 @@ def K(dom, v):
         v = _py2expr(v, ctx)
     return ArrayRef(Z3_mk_const_array(ctx.ref(), dom.ast, v.as_ast()), ctx)
 
+def Ext(a, b):
+    """Return extensionality index for arrays.
+    """
+    if __debug__:
+        _z3_assert(is_array(a) and is_array(b))
+    return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()));
+
 def is_select(a):
     """Return `True` if `a` is a Z3 array select application.
     
@@ -4854,7 +4862,7 @@ class Goal(Z3PPObject):
         elif sz == 1:
             return self.get(0)
         else:
-            return And([ self.get(i) for i in range(len(self)) ])
+            return And([ self.get(i) for i in range(len(self)) ], self.ctx)
 
 #########################################
 #
@@ -6084,6 +6092,19 @@ class Solver(Z3PPObject):
         """Return a formatted string with all added constraints."""
         return obj_to_string(self)
 
+    def translate(self, target):
+        """Translate `self` to the context `target`. That is, return a copy of `self` in the context `target`. 
+        
+        >>> c1 = Context()
+        >>> c2 = Context()
+        >>> s1 = Solver(ctx=c1)
+        >>> s2 = s1.translate(c2)
+        """
+        if __debug__:
+            _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
+        solver = Z3_solver_translate(self.ctx.ref(), self.solver, target.ref())
+        return Solver(solver, target)
+    
     def sexpr(self):
         """Return a formatted string (in Lisp-like format) with all added constraints. We say the string is in s-expression format.
         

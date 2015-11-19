@@ -220,7 +220,7 @@ namespace smt {
             for (unsigned i = 0; i < dimension; ++i) {
                 sort * ext_sk_domain[2] = { s_array, s_array };
                 parameter p(i);
-                func_decl * ext_sk_decl = m.mk_func_decl(get_id(), OP_ARRAY_EXT_SKOLEM, 1, &p, 2, ext_sk_domain);
+                func_decl * ext_sk_decl = m.mk_func_decl(get_id(), OP_ARRAY_EXT, 1, &p, 2, ext_sk_domain);
                 ext_skolems->push_back(ext_sk_decl);
             }
             m_sort2skolem.insert(s_array, ext_skolems);
@@ -310,10 +310,7 @@ namespace smt {
         func_decl_ref_vector * funcs = 0;
         sort *                     s = m.get_sort(e1);
 
-        if (!m_sort2skolem.find(s, funcs)) {
-            UNREACHABLE();
-            return;
-        }
+        VERIFY(m_sort2skolem.find(s, funcs));
 
         unsigned dimension = funcs->size();
 

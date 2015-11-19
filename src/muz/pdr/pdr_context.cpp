@@ -50,6 +50,7 @@ Notes:
 #include "blast_term_ite_tactic.h"
 #include "model_implicant.h"
 #include "expr_safe_replace.h"
+#include "ast_util.h"
 
 namespace pdr {
 
@@ -448,6 +449,7 @@ namespace pdr {
         else if (is_sat == l_false) {
             uses_level = m_solver.assumes_level();
         }
+        m_solver.set_model(0);
         return is_sat;
     }
 
@@ -481,6 +483,7 @@ namespace pdr {
         prop_solver::scoped_level _sl(m_solver, level);
         m_solver.set_core(&core);
         m_solver.set_subset_based_core(true);
+        m_solver.set_model(0);
         lbool res = m_solver.check_assumptions_and_formula(lits, fml);
         if (res == l_false) {
             lits.reset();
@@ -738,6 +741,7 @@ namespace pdr {
     // model_node
 
     void model_node::set_closed() {
+        TRACE("pdr", tout << state() << "\n";);
         pt().close(state());
         m_closed = true; 
     }
@@ -774,6 +778,13 @@ namespace pdr {
         }
         // only initial states are not set by the PDR search.
         SASSERT(m_model.get());
+        if (!m_model.get()) {
+            std::stringstream msg;
+            msg << "no model for node " << state();
+            IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
+            throw default_exception(msg.str());
+        }
+
         datalog::rule const& rl1 = pt().find_rule(*m_model);
         if (is_ini(rl1)) {
             set_rule(&rl1);
@@ -792,15 +803,23 @@ namespace pdr {
             }
         }
         SASSERT(!tags.empty());
-        ini_tags = m.mk_or(tags.size(), tags.c_ptr());
+        ini_tags = ::mk_or(tags);
         ini_state = m.mk_and(ini_tags, pt().initial_state(), state());
         model_ref mdl;
         pt().get_solver().set_model(&mdl);
-        TRACE("pdr", tout << mk_pp(ini_state, m) << "\n";);
-        VERIFY(l_true == pt().get_solver().check_conjunction_as_assumptions(ini_state));
+        TRACE("pdr", tout << ini_state << "\n";);
+        if (l_true != pt().get_solver().check_conjunction_as_assumptions(ini_state)) {
+            std::stringstream msg;
+            msg << "Unsatisfiable initial state: " << ini_state << "\n";
+            display(msg, 2);
+            IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
+            throw default_exception(msg.str());
+        }
+        SASSERT(mdl.get());
         datalog::rule const& rl2 = pt().find_rule(*mdl);
         SASSERT(is_ini(rl2));
         set_rule(&rl2);
+        pt().get_solver().set_model(0);
         return const_cast<datalog::rule*>(m_rule);                        
     }
 
@@ -829,7 +848,7 @@ namespace pdr {
         }
         r0 = get_rule();
         app_ref_vector& inst = pt().get_inst(r0);
-        TRACE("pdr", tout << mk_pp(state(), m) << " instance: " << inst.size() << "\n";);
+        TRACE("pdr", tout << state() << " instance: " << inst.size() << "\n";);
         for (unsigned i = 0; i < inst.size(); ++i) {
             expr* v;
             if (model.find(inst[i].get(), v)) {
@@ -851,7 +870,7 @@ namespace pdr {
         for (unsigned i = 0; i < indent; ++i) out << " ";
         out << m_level << " " << m_pt.head()->get_name() << " " << (m_closed?"closed":"open") << "\n";
         for (unsigned i = 0; i < indent; ++i) out << " ";
-        out << "  " << mk_pp(m_state, m_state.get_manager(), indent) << "\n";
+        out << "  " << mk_pp(m_state, m_state.get_manager(), indent) << " " << m_state->get_id() << "\n";
         for (unsigned i = 0; i < children().size(); ++i) {
             children()[i]->display(out, indent + 1);
         }
@@ -924,17 +943,6 @@ namespace pdr {
         }
     }
 
-    bool model_search::is_repeated(model_node& n) const {
-        model_node* p = n.parent();
-        while (p) {
-            if (p->state() == n.state()) {
-                TRACE("pdr", tout << "repeated\n";);
-                return true;
-            }
-            p = p->parent();
-        }
-        return false;
-    }
 
     void model_search::add_leaf(model_node& n) {
         SASSERT(n.children().empty());
@@ -1011,12 +1019,17 @@ namespace pdr {
         nodes.erase(&n);
         bool is_goal = n.is_goal();
         remove_goal(n);
-        if (!nodes.empty() && is_goal && backtrack) {
+        // TBD: siblings would also fail if n is not a goal.
+        if (!nodes.empty() && backtrack && nodes[0]->children().empty() && nodes[0]->is_closed()) {
             TRACE("pdr_verbose", for (unsigned i = 0; i < nodes.size(); ++i) n.display(tout << &n << "\n", 2););
             model_node* n1 = nodes[0];
-            n1->set_open();
-            SASSERT(n1->children().empty());
+            n1->set_open();            
             enqueue_leaf(n1);
+        }
+
+        if (!nodes.empty() && n.get_model_ptr() && backtrack) {
+            model_ref mr(n.get_model_ptr());
+            nodes[0]->set_model(mr);
         }
         if (nodes.empty()) {            
             cache(n).remove(n.state());
@@ -1149,16 +1162,20 @@ namespace pdr {
             ast_manager& m = n->pt().get_manager();
             if (!n->get_model_ptr()) {
                 if (models.find(n->state(), md)) {
-                    TRACE("pdr", tout << mk_pp(n->state(), m) << "\n";);
+                    TRACE("pdr", tout << n->state() << "\n";);
                     model_ref mr(md);
                     n->set_model(mr);
                     datalog::rule const* rule = rules.find(n->state());
                     n->set_rule(rule);
                 }
                 else {
+                    TRACE("pdr", tout << "no model for " << n->state() << "\n";);
                     IF_VERBOSE(1, n->display(verbose_stream() << "no model:\n", 0);
-                               verbose_stream() << mk_pp(n->state(), m) << "\n";);
+                               verbose_stream() << n->state() << "\n";);
                 }
+            }
+            else {
+                TRACE("pdr", tout << n->state() << "\n";);
             }
             todo.pop_back();
             todo.append(n->children().size(), n->children().c_ptr());
@@ -1692,7 +1709,15 @@ namespace pdr {
 
     void context::validate_search() {
         expr_ref tr = m_search.get_trace(*this);
-        // TBD: tr << "\n";
+        smt::kernel solver(m, get_fparams());
+        solver.assert_expr(tr);
+        lbool res = solver.check();
+        if (res != l_true) {
+            std::stringstream msg;
+            msg << "rule validation failed when checking: " << tr;
+            IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
+            throw default_exception(msg.str());
+        }                                
     }
 
     void context::validate_model() {
@@ -1928,11 +1953,11 @@ namespace pdr {
         proof_ref proof(m);
         SASSERT(m_last_result == l_true);
         proof = m_search.get_proof_trace(*this);
-        TRACE("pdr", tout << "PDR trace: " << mk_pp(proof, m) << "\n";);
+        TRACE("pdr", tout << "PDR trace: " << proof << "\n";);
         apply(m, m_pc.get(), proof);
-        TRACE("pdr", tout << "PDR trace: " << mk_pp(proof, m) << "\n";);
+        TRACE("pdr", tout << "PDR trace: " << proof << "\n";);
         // proof_utils::push_instantiations_up(proof);
-        // TRACE("pdr", tout << "PDR up: " << mk_pp(proof, m) << "\n";);
+        // TRACE("pdr", tout << "PDR up: " << proof << "\n";);
         return proof;
     }
 
@@ -2027,11 +2052,11 @@ namespace pdr {
             switch (expand_state(n, cube, uses_level)) {
             case l_true:
                 if (n.level() == 0) {
-                    TRACE("pdr", tout << "reachable at level 0\n";);
+                    TRACE("pdr", n.display(tout << "reachable at level 0\n", 0););
                     close_node(n);
                 }
                 else {
-                    TRACE("pdr", tout << "node: " << &n << "\n";); 
+                    TRACE("pdr", n.display(tout, 0);); 
                     create_children(n);
                 }
                 break;
