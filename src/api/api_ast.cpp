@@ -136,20 +136,6 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
     
-    Z3_ast Z3_API Z3_mk_label(Z3_context c, Z3_symbol s, Z3_bool is_pos, Z3_ast f) {
-        Z3_TRY;
-        LOG_Z3_mk_label(c, s, is_pos, f);
-        RESET_ERROR_CODE(); 
-        expr* _f = to_expr(f);
-        if (!mk_c(c)->m().is_bool(_f)) {
-            SET_ERROR_CODE(Z3_SORT_ERROR);
-            return f;
-        }
-        expr* a = mk_c(c)->m().mk_label(is_pos != 0, to_symbol(s), _f);
-        mk_c(c)->save_ast_trail(a);
-        RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
-    }
 
     Z3_func_decl Z3_API Z3_mk_fresh_func_decl(Z3_context c, const char * prefix, unsigned domain_size,
                                               Z3_sort const domain[], Z3_sort range) {

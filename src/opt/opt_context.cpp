@@ -241,27 +241,37 @@ namespace opt {
         TRACE("opt", model_smt2_pp(tout, m, *m_model, 0););
         m_optsmt.setup(*m_opt_solver.get());
         update_lower();
+        
         switch (m_objectives.size()) {
         case 0:
-            return is_sat;
+            break;
         case 1:
-            return execute(m_objectives[0], true, false);
+            is_sat = execute(m_objectives[0], true, false);
+            break;
         default: {
             opt_params optp(m_params);
             symbol pri = optp.priority();
             if (pri == symbol("pareto")) {
-                return execute_pareto();
+                is_sat = execute_pareto();
             }
             else if (pri == symbol("box")) {
-                return execute_box();
+                is_sat = execute_box();
             }
             else {
-                return execute_lex();
+                is_sat = execute_lex();
             }
+            break;
         }
         }
+        return adjust_unknown(is_sat);
     }
 
+    lbool context::adjust_unknown(lbool r) {
+        if (r == l_true && m_opt_solver.get() && m_opt_solver->was_unknown()) {
+            r = l_undef;
+        }
+        return r;
+    }
 
     bool context::print_model() const {
         opt_params optp(m_params);
