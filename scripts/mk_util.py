@@ -510,15 +510,11 @@ def dos2unix(fname):
         if is_verbose():
             print("dos2unix '%s'" % fname)
 
-def dos2unix_tree_core(pattern, dir, files):
-    for filename in files:
-        if fnmatch(filename, pattern):
-            fname = os.path.join(dir, filename)
-            if not os.path.isdir(fname):
-                dos2unix(fname)
-
 def dos2unix_tree():
-    os.walk('src', dos2unix_tree_core, '*')
+    for root, dirs, files in os.walk('src'):
+        for f in files:
+            dos2unix(os.path.join(root, f))
+                
 
 def check_eol():
     if not IS_WINDOWS:
