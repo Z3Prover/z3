@@ -282,6 +282,7 @@ namespace opt {
     }
     
     void opt_solver::get_labels(svector<symbol> & r) {
+        r.reset();
         buffer<symbol> tmp;
         m_context.get_relevant_labels(0, tmp);
         r.append(tmp.size(), tmp.c_ptr());
