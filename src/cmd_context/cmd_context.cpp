@@ -1401,9 +1401,10 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     unsigned rlimit  = m_params.m_rlimit;
     scoped_watch sw(*this);
     lbool r;
+    bool was_pareto = false, was_opt = false;
 
     if (m_opt && !m_opt->empty()) {
-        bool was_pareto = false;
+        was_opt = true;
         m_check_sat_result = get_opt();
         cancel_eh<opt_wrapper> eh(*get_opt());
         scoped_ctrl_c ctrlc(eh);
@@ -1436,9 +1437,6 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
             r = l_true;
         }
         get_opt()->set_status(r);
-        if (r != l_false && !was_pareto) {
-            get_opt()->display_assignment(regular_stream());
-        }
     }
     else if (m_solver) {
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
@@ -1465,6 +1463,10 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     }
     display_sat_result(r);
     validate_check_sat_result(r);
+    if (was_opt && r != l_false && !was_pareto) {
+        get_opt()->display_assignment(regular_stream());
+    }
+
     if (r == l_true) {
         validate_model();
         if (m_params.m_dump_models) {

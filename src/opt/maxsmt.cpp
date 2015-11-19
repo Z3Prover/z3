@@ -191,7 +191,7 @@ namespace opt {
             m_msolver->set_adjust_value(m_adjust_value);
             is_sat = (*m_msolver)();
             if (is_sat != l_false) {
-                m_msolver->get_model(m_model);
+                m_msolver->get_model(m_model, m_labels);
             }
         }
 
@@ -247,8 +247,9 @@ namespace opt {
         m_upper = r;
     }    
 
-    void maxsmt::get_model(model_ref& mdl) {
+    void maxsmt::get_model(model_ref& mdl, svector<symbol>& labels) {
         mdl = m_model.get();
+        labels = m_labels;
     }
 
     void maxsmt::commit_assignment() {

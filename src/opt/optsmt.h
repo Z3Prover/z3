@@ -38,6 +38,7 @@ namespace opt {
         svector<smt::theory_var> m_vars;
         symbol           m_optsmt_engine;
         model_ref        m_model;
+        svector<symbol>  m_labels;
         sref_vector<model> m_models;
     public:
         optsmt(ast_manager& m): 
@@ -60,7 +61,7 @@ namespace opt {
         inf_eps get_lower(unsigned index) const;
         inf_eps get_upper(unsigned index) const;
         bool objective_is_model_valid(unsigned index) const;
-        void    get_model(model_ref& mdl);
+        void    get_model(model_ref& mdl, svector<symbol>& labels);
         model*  get_model(unsigned index) const { return m_models[index]; }
 
         void update_lower(unsigned idx, inf_eps const& r);

@@ -151,24 +151,3 @@ void escaped::display(std::ostream & out) const {
     }
 }
 
-#ifdef _WINDOWS
-#ifdef ARRAYSIZE
-#undef ARRAYSIZE
-#endif
-#include <windows.h>
-#endif
-
-void z3_bound_num_procs() {
-
-#ifdef _Z3_COMMERCIAL
-#define Z3_COMMERCIAL_MAX_CORES 4
-#ifdef _WINDOWS
-    DWORD_PTR numProcs = (1 << Z3_COMMERCIAL_MAX_CORES) - 1;
-    SetProcessAffinityMask(GetCurrentProcess(), numProcs);
-#endif
-#else
-    // Not bounded: Research evaluations are 
-    // not reasonable if run with artificial 
-    // or hidden throttles.
-#endif
-}

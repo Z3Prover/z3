@@ -721,8 +721,8 @@ namespace smt {
         IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
         st.collect(m_context.get_num_asserted_formulas(), m_context.get_asserted_formulas());
         IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
-        bool fixnum = st.arith_k_sum_is_small();
-        bool int_only = !st.m_has_rational && !st.m_has_real;
+        bool fixnum = st.arith_k_sum_is_small() && m_params.m_arith_fixnum;
+        bool int_only = !st.m_has_rational && !st.m_has_real && m_params.m_arith_int_only;
         switch(m_params.m_arith_mode) {
         case AS_NO_ARITH:
             m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("arith"), "no arithmetic"));

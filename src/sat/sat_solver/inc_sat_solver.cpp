@@ -250,7 +250,6 @@ public:
         return "no reason given";
     }
     virtual void get_labels(svector<symbol> & r) {
-        UNREACHABLE();
     }
     virtual unsigned get_num_assertions() const {
         return m_fmls.size();

@@ -3646,6 +3646,9 @@ namespace smt {
                 approx_set::iterator it1  = plbls1.begin();
                 approx_set::iterator end1 = plbls1.end();
                 for (; it1 != end1; ++it1) {
+                    if (m_context.get_cancel_flag()) {
+                        break;
+                    }
                     unsigned plbl1 = *it1;
                     SASSERT(plbls1.may_contain(plbl1));
                     approx_set::iterator it2  = plbls2.begin();
@@ -3687,6 +3690,9 @@ namespace smt {
                 approx_set::iterator it1  = plbls.begin();
                 approx_set::iterator end1 = plbls.end();
                 for (; it1 != end1; ++it1) {
+                    if (m_context.get_cancel_flag()) {
+                        break;
+                    }
                     unsigned plbl1 = *it1;
                     SASSERT(plbls.may_contain(plbl1));
                     approx_set::iterator it2  = clbls.begin();
@@ -3706,6 +3712,9 @@ namespace smt {
             svector<qp_pair>::iterator it1  = m_new_patterns.begin();
             svector<qp_pair>::iterator end1 = m_new_patterns.end();
             for (; it1 != end1; ++it1) {
+                if (m_context.get_cancel_flag()) {
+                    break;
+                }
                 quantifier * qa    = it1->first;
                 app *        mp    = it1->second;
                 SASSERT(m_ast_manager.is_pattern(mp));

@@ -51,6 +51,7 @@ namespace opt {
             if (src[i] >= dst[i]) {
                 dst[i] = src[i];
                 m_models.set(i, m_s->get_model(i));
+                m_s->get_labels(m_labels);
                 m_lower_fmls[i] = fmls[i].get();
                 if (dst[i].is_pos() && !dst[i].is_finite()) { // review: likely done already.
                     m_lower_fmls[i] = m.mk_false();
@@ -156,7 +157,8 @@ namespace opt {
                 if (is_sat == l_true) {
                     disj.reset();
                     m_s->maximize_objectives(disj);
-                    m_s->get_model(m_model);                   
+                    m_s->get_model(m_model);       
+                    m_s->get_labels(m_labels);            
                     for (unsigned i = 0; i < ors.size(); ++i) {
                         expr_ref tmp(m);
                         m_model->eval(ors[i].get(), tmp);
@@ -203,6 +205,7 @@ namespace opt {
     expr_ref optsmt::update_lower() {
         expr_ref_vector disj(m);
         m_s->get_model(m_model);
+        m_s->get_labels(m_labels);
         m_s->maximize_objectives(disj);
         set_max(m_lower, m_s->get_objective_values(), disj);
         TRACE("opt",
@@ -331,6 +334,7 @@ namespace opt {
             
             m_s->maximize_objective(obj_index, block);
             m_s->get_model(m_model);
+            m_s->get_labels(m_labels);
             inf_eps obj = m_s->saved_objective_value(obj_index);
             if (obj > m_lower[obj_index]) {
                 m_lower[obj_index] = obj;                
@@ -405,8 +409,9 @@ namespace opt {
         return m_upper[i];
     }
 
-    void optsmt::get_model(model_ref& mdl) {
+    void optsmt::get_model(model_ref& mdl, svector<symbol> & labels) {
         mdl = m_model.get();
+        labels = m_labels;
     }
 
     // force lower_bound(i) <= objective_value(i)    

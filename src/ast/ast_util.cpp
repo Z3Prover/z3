@@ -166,6 +166,11 @@ expr * mk_and(ast_manager & m, unsigned num_args, expr * const * args) {
         return m.mk_and(num_args, args);
 }
 
+app* mk_and(ast_manager & m, unsigned num_args, app * const * args) {
+    return to_app(mk_and(m, num_args, (expr* const*) args));
+}
+
+
 expr * mk_or(ast_manager & m, unsigned num_args, expr * const * args) {
     if (num_args == 0)
         return m.mk_false();
@@ -173,6 +178,10 @@ expr * mk_or(ast_manager & m, unsigned num_args, expr * const * args) {
         return args[0];
     else
         return m.mk_or(num_args, args);
+}
+
+app* mk_or(ast_manager & m, unsigned num_args, app * const * args) {
+    return to_app(mk_or(m, num_args, (expr* const*) args));
 }
 
 expr * mk_not(ast_manager & m, expr * arg) {
