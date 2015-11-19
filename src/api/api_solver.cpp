@@ -6,7 +6,8 @@ Module Name:
     api_solver.cpp
 
 Abstract:
-    New solver API
+
+    Solver API
 
 Author:
 
