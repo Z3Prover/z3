@@ -632,7 +632,7 @@ def mk_java():
                 if len(params) > 0 and param_type(params[0]) == CONTEXT:
                     java_native.write('      Z3_error_code err = Z3_error_code.fromInt(INTERNALgetErrorCode(a0));\n')
                     java_native.write('      if (err != Z3_error_code.Z3_OK)\n')
-                    java_native.write('          throw new Z3Exception(INTERNALgetErrorMsgEx(a0, err.toInt()));\n')
+                    java_native.write('          throw new Z3Exception(INTERNALgetErrorMsg(a0, err.toInt()));\n')
         if result != VOID:
             java_native.write('      return res;\n')
         java_native.write('  }\n\n')
