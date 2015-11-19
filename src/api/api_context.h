@@ -155,7 +155,7 @@ namespace api {
         expr * mk_and(unsigned num_exprs, expr * const * exprs);
 
         // Hack for preventing an AST for being GC when ref-count is not used
-        void persist_ast(ast * n, unsigned num_scopes);
+        // void persist_ast(ast * n, unsigned num_scopes);
 
         // "Save" an AST that will exposed to the "external" world.
         void save_ast_trail(ast * n);

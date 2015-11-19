@@ -466,42 +466,6 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_func_decl Z3_API Z3_mk_injective_function(Z3_context c, 
-                                                 Z3_symbol s, 
-                                                 unsigned domain_size, 
-                                                 Z3_sort const domain[],
-                                                 Z3_sort range) {
-        Z3_TRY;
-        LOG_Z3_mk_injective_function(c, s, domain_size, domain, range);
-        RESET_ERROR_CODE(); 
-        ast_manager & m = mk_c(c)->m();
-        mk_c(c)->reset_last_result();
-        sort* range_ = to_sort(range);
-        func_decl* d = m.mk_func_decl(to_symbol(s), domain_size, to_sorts(domain), range_);
-        expr_ref_vector args(m);
-        expr_ref fn(m), body(m);
-        vector<symbol> names;
-        for (unsigned i = 0; i < domain_size; ++i) {
-            unsigned idx = domain_size-i-1;
-            args.push_back(m.mk_var(idx, to_sort(domain[i])));
-            names.push_back(symbol(idx));
-        }
-        fn = m.mk_app(d, args.size(), args.c_ptr());
-
-        for (unsigned i = 0; i < domain_size; ++i) {
-            expr* arg = args[i].get();
-            sort* dom = m.get_sort(arg);
-            func_decl* inv = m.mk_fresh_func_decl(symbol("inv"), to_symbol(s), 1, &range_, dom);
-            body = m.mk_eq(m.mk_app(inv, fn.get()), arg);
-            body = m.mk_forall(args.size(), to_sorts(domain), names.c_ptr(), body.get());
-            mk_c(c)->save_multiple_ast_trail(body.get());
-            mk_c(c)->assert_cnstr(body.get());
-        }
-        mk_c(c)->save_multiple_ast_trail(d);       
-        RETURN_Z3(of_func_decl(d));
-        Z3_CATCH_RETURN(0);
-    }
-
     Z3_ast Z3_API Z3_pattern_to_ast(Z3_context c, Z3_pattern p) { 
         RESET_ERROR_CODE();
         return (Z3_ast)(p); 
