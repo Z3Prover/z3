@@ -32,7 +32,9 @@ theory_str::theory_str(ast_manager & m):
         tmpStringVarCount(0),
 		tmpXorVarCount(0),
 		avoidLoopCut(true),
-		loopDetected(false)
+		loopDetected(false),
+		char_set(NULL),
+		charSetSize(0)
 {
 }
 
@@ -222,7 +224,6 @@ app * theory_str::mk_int(int n) {
 }
 
 expr * theory_str::mk_internal_lenTest_var(expr * node, int lTries) {
-	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
 	std::stringstream ss;
@@ -240,7 +241,6 @@ expr * theory_str::mk_internal_lenTest_var(expr * node, int lTries) {
 }
 
 expr * theory_str::mk_internal_valTest_var(expr * node, int len, int vTries) {
-	context & ctx = get_context();
 	ast_manager & m = get_manager();
 	std::stringstream ss;
 	ss << "$$_val_" << mk_ismt2_pp(node, m) << "_" << len << "_" << vTries;
@@ -257,7 +257,6 @@ expr * theory_str::mk_internal_valTest_var(expr * node, int len, int vTries) {
 }
 
 app * theory_str::mk_internal_xor_var() {
-	context & ctx = get_context();
 	ast_manager & m = get_manager();
 	std::stringstream ss;
 	ss << tmpXorVarCount;
@@ -296,7 +295,6 @@ app * theory_str::mk_str_var(std::string name) {
 }
 
 app * theory_str::mk_nonempty_str_var() {
-    context & ctx = get_context();
     ast_manager & m = get_manager();
     std::stringstream ss;
     ss << tmpStringVarCount;
@@ -435,12 +433,10 @@ void theory_str::instantiate_concat_axiom(enode * cat) {
     SASSERT(is_concat(cat));
     app * a_cat = cat->get_owner();
 
-    context & ctx = get_context();
     ast_manager & m = get_manager();
 
     // build LHS
     expr_ref len_xy(m);
-    // TODO re-use ASTs for length subexpressions, like in old Z3-str?
     // TODO should we use str_util for these and other expressions?
     len_xy = mk_strlen(a_cat);
     SASSERT(len_xy);
@@ -2580,9 +2576,6 @@ void theory_str::dump_assignments() {
 void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
 		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap) {
 
-	context & ctx = get_context();
-	ast_manager & m = get_manager();
-
 	// check whether the node is a non-internal string variable;
 	// testing set membership here bypasses several expensive checks
 	if (variable_set.find(node) != variable_set.end()
@@ -2620,7 +2613,6 @@ void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap
 			}
 		}
 		// recursively visit all arguments
-		app * aNode = to_app(node);
 		for (unsigned i = 0; i < aNode->get_num_args(); ++i) {
 			expr * arg = aNode->get_arg(i);
 			classify_ast_by_type(arg, varMap, concatMap, unrollMap);
@@ -2964,7 +2956,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 
 				STRACE("t_str_detail", tout << "var in unroll = " <<
 						mk_ismt2_pp(itor2->first, m) << std::endl
-						<< "dealiased var = " << mk_ismt2_pp(varInFunc) << std::endl;);
+						<< "dealiased var = " << mk_ismt2_pp(varInFunc, m) << std::endl;);
 
 				// it's possible that we have both (Unroll $$_regVar_0 $$_unr_0) /\ (Unroll abcd $$_unr_0),
 				// while $$_regVar_0 = "abcd"
@@ -3280,7 +3272,6 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 }
 
 final_check_status theory_str::final_check_eh() {
-    ast_manager & m = get_manager();
     context & ctx = get_context();
 
     TRACE("t_str", tout << "final check" << std::endl;);
@@ -3478,7 +3469,7 @@ inline std::string longlong_to_string(long long i) {
   return ss.str();
 }
 
-void theory_str::print_value_tester_list(std::vector<std::pair<int, expr*> > & testerList) {
+void theory_str::print_value_tester_list(svector<std::pair<int, expr*> > & testerList) {
 	ast_manager & m = get_manager();
 	STRACE("t_str_detail",
 		int ss = testerList.size();
@@ -3495,13 +3486,14 @@ void theory_str::print_value_tester_list(std::vector<std::pair<int, expr*> > & t
 	);
 }
 
-std::string theory_str::gen_val_string(int len, std::vector<int> & encoding) {
+std::string theory_str::gen_val_string(int len, int_vector & encoding) {
     SASSERT(charSetSize > 0);
+    SASSERT(char_set != NULL);
 
-    std::string re = std::string(len, charSet[0]);
+    std::string re = std::string(len, char_set[0]);
     for (int i = 0; i < (int) encoding.size() - 1; i++) {
         int idx = encoding[i];
-        re[len - 1 - i] = charSet[idx];
+        re[len - 1 - i] = char_set[idx];
     }
     return re;
 }
@@ -3511,10 +3503,10 @@ std::string theory_str::gen_val_string(int len, std::vector<int> & encoding) {
  *   - If the next encoding is valid, return false
  *   - Otherwise, return true
  */
-bool theory_str::get_next_val_encode(std::vector<int> & base, std::vector<int> & next) {
+bool theory_str::get_next_val_encode(int_vector & base, int_vector & next) {
     int s = 0;
     int carry = 0;
-    next.clear();
+    next.reset();
 
     for (int i = 0; i < (int) base.size(); i++) {
         if (i == 0) {
@@ -3530,7 +3522,7 @@ bool theory_str::get_next_val_encode(std::vector<int> & base, std::vector<int> &
         }
     }
     if (next[next.size() - 1] > 0) {
-        next.clear();
+        next.reset();
         return true;
     } else {
         return false;
@@ -3539,7 +3531,6 @@ bool theory_str::get_next_val_encode(std::vector<int> & base, std::vector<int> &
 
 expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
 		std::string lenStr, int tries) {
-	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
 	int distance = 32;
@@ -3558,11 +3549,11 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	// ----------------------------------------------------------------------------------------
 	int len = atoi(lenStr.c_str());
 	bool coverAll = false;
-	std::vector<std::vector<int> > options;
-	std::vector<int> base;
+	svector<int_vector> options;
+	int_vector base;
 
 	if (tries == 0) {
-		base = std::vector<int>(len + 1, 0);
+		base = int_vector(len + 1, 0);
 		coverAll = false;
 	} else {
 		expr * lastestValIndi = fvar_valueTester_map[freeVar][len][tries - 1].second;
@@ -3581,12 +3572,20 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	}
 	val_range_map[val_indicator] = options[options.size() - 1];
 
-	STRACE("t_str_detail", tout << "value tester encoding " << printVectorInt(valRangeMap[val_indicator]) << std::endl;);
+	STRACE("t_str_detail",
+			tout << "value tester encoding " << "{" << std::endl;
+		    int_vector vec = val_range_map[val_indicator];
+
+		    for (int_vector::iterator it = vec.begin(); it != vec.end(); ++it) {
+		    	tout << *it << std::endl;
+		    }
+			tout << "}" << std::endl;
+	);
 
 	// ----------------------------------------------------------------------------------------
 
-	std::vector<expr*> orList;
-	std::vector<expr*> andList;
+	ptr_vector<expr> orList;
+	ptr_vector<expr> andList;
 
 	for (long long i = l; i < h; i++) {
 		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()) ));
@@ -3618,7 +3617,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	// If the new value tester is $$_val_x_16_i
 	// Should add ($$_len_x_j = 16) /\ ($$_val_x_16_i = "more")
 	// ---------------------------------------
-	andList.clear();
+	andList.reset();
 	andList.push_back(m.mk_eq(len_indicator, m_strutil.mk_string(lenStr.c_str())));
 	for (int i = 0; i < tries; i++) {
 		expr * vTester = fvar_valueTester_map[freeVar][len][i].second;
@@ -3646,6 +3645,8 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
+	int sLevel = ctx.get_scope_level();
+
 	int len = atoi(len_valueStr.c_str());
 
 	if (fvar_valueTester_map[freeVar].find(len) == fvar_valueTester_map[freeVar].end()) {
@@ -3671,12 +3672,12 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 			// Z3_ast anEqc = get_eqc_value(t, aTester, anEqcHasValue);
 			get_eqc_value(aTester, anEqcHasValue);
 			if (!anEqcHasValue) {
-				STRACE("t_str_detail", "value tester " << mk_ismt2_pp(aTester, m)
+				STRACE("t_str_detail", tout << "value tester " << mk_ismt2_pp(aTester, m)
 						<< "doesn't have an equivalence class value." << std::endl;);
 
 				expr_ref makeupAssert(gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i), m);
 
-				STRACE("t_str_detail", "var: " << mk_ismt2_pp(freeVar, m) << std::endl
+				STRACE("t_str_detail", tout << "var: " << mk_ismt2_pp(freeVar, m) << std::endl
 						<< mk_ismt2_pp(makeupAssert, m) << std::endl;);
 				assert_axiom(makeupAssert);
 			}
@@ -3701,7 +3702,6 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 }
 
 expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tries) {
-	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
 	expr * freeVarLen = mk_strlen(freeVar);
@@ -3724,12 +3724,12 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	expr ** or_items = alloc_svect(expr*, orList.size());
 	expr ** and_items = alloc_svect(expr*, andList.size() + 1);
 
-	for (int i = 0; i < orList.size(); ++i) {
+	for (unsigned i = 0; i < orList.size(); ++i) {
 		or_items[i] = orList[i];
 	}
 
 	and_items[0] = m.mk_or(orList.size(), or_items);
-	for(int i = 0; i < andList.size(); ++i) {
+	for(unsigned i = 0; i < andList.size(); ++i) {
 		and_items[i+1] = andList[i];
 	}
 	expr * lenTestAssert = m.mk_and(andList.size() + 1, and_items);
@@ -3772,7 +3772,6 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 // -----------------------------------------------------------------------------------------------------
 expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, std::string lenTesterValue) {
 
-	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
 	STRACE("t_str_detail", tout << "gen for free var " << mk_ismt2_pp(freeVar, m) << std::endl;);
@@ -3814,7 +3813,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 							<< " does not have an equivalence class value."
 							<< " i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
 					if (i > 0) {
-						effectiveLenInd = fvarLenTesterMap[freeVar][i - 1];
+						effectiveLenInd = fvar_lenTester_map[freeVar][i - 1];
 						if (effectiveLenInd == lenTesterInCbEq) {
 							effectiveLenIndiStr = lenTesterValue;
 						} else {
@@ -3850,7 +3849,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 				fvar_lenTester_map[freeVar].push_back(indicator);
 				lenTester_fvar_map[indicator] = freeVar;
 			} else {
-				indicator = fvarLenTesterMap[freeVar][i];
+				indicator = fvar_lenTester_map[freeVar][i];
 				testNum = i + 1;
 			}
 			expr_ref lenTestAssert(gen_len_test_options(freeVar, indicator, testNum), m);

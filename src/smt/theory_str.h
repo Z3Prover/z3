@@ -89,12 +89,13 @@ namespace smt {
         std::map<expr*, ptr_vector<expr> > fvar_lenTester_map;
         std::map<expr*, expr*> lenTester_fvar_map;
 
-        std::map<expr*, std::map<int, std::vector<std::pair<int, expr*> > > > fvar_valueTester_map;
+        std::map<expr*, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
         std::map<expr*, expr*> valueTester_fvar_map;
 
-        std::map<expr*, std::vector<int> > val_range_map;
+        std::map<expr*, int_vector> val_range_map;
 
-        int charSetSize = 0;
+        char * char_set;
+        int charSetSize;
 
     protected:
         void assert_axiom(expr * e);
@@ -177,9 +178,9 @@ namespace smt {
         		std::string len_valueStr, expr * valTesterInCbEq, std::string valTesterValueStr);
         expr * gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
         		std::string lenStr, int tries);
-        void print_value_tester_list(std::vector<std::pair<int, expr*> > & testerList);
-        bool get_next_val_encode(std::vector<int> & base, std::vector<int> & next);
-        std::string gen_val_string(int len, std::vector<int> & encoding);
+        void print_value_tester_list(svector<std::pair<int, expr*> > & testerList);
+        bool get_next_val_encode(int_vector & base, int_vector & next);
+        std::string gen_val_string(int len, int_vector & encoding);
 
         expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
         expr * getMostLeftNodeInConcat(expr * node);
