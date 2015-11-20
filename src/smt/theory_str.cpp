@@ -2954,7 +2954,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 			for (std::map<expr*, int>::iterator itor2 = inVarMap.begin(); itor2 != inVarMap.end(); itor2++) {
 				expr * varInFunc = get_alias_index_ast(aliasIndexMap, itor2->first);
 
-				STRACE("t_str_detail", tout << "var in unroll = " <<
+				TRACE("t_str_detail", tout << "var in unroll = " <<
 						mk_ismt2_pp(itor2->first, m) << std::endl
 						<< "dealiased var = " << mk_ismt2_pp(varInFunc, m) << std::endl;);
 
@@ -3471,7 +3471,7 @@ inline std::string longlong_to_string(long long i) {
 
 void theory_str::print_value_tester_list(svector<std::pair<int, expr*> > & testerList) {
 	ast_manager & m = get_manager();
-	STRACE("t_str_detail",
+	TRACE("t_str_detail",
 		int ss = testerList.size();
 		tout << "valueTesterList = {";
 		for (int i = 0; i < ss; ++i) {
@@ -3557,7 +3557,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 		coverAll = false;
 	} else {
 		expr * lastestValIndi = fvar_valueTester_map[freeVar][len][tries - 1].second;
-		STRACE("t_str_detail", tout << "last value tester = " << mk_ismt2_pp(lastestValIndi, m) << std::endl;);
+		TRACE("t_str_detail", tout << "last value tester = " << mk_ismt2_pp(lastestValIndi, m) << std::endl;);
 		coverAll = get_next_val_encode(val_range_map[lastestValIndi], base);
 	}
 
@@ -3572,7 +3572,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	}
 	val_range_map[val_indicator] = options[options.size() - 1];
 
-	STRACE("t_str_detail",
+	TRACE("t_str_detail",
 			tout << "value tester encoding " << "{" << std::endl;
 		    int_vector vec = val_range_map[val_indicator];
 
@@ -3672,12 +3672,12 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 			// Z3_ast anEqc = get_eqc_value(t, aTester, anEqcHasValue);
 			get_eqc_value(aTester, anEqcHasValue);
 			if (!anEqcHasValue) {
-				STRACE("t_str_detail", tout << "value tester " << mk_ismt2_pp(aTester, m)
+				TRACE("t_str_detail", tout << "value tester " << mk_ismt2_pp(aTester, m)
 						<< "doesn't have an equivalence class value." << std::endl;);
 
 				expr_ref makeupAssert(gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i), m);
 
-				STRACE("t_str_detail", tout << "var: " << mk_ismt2_pp(freeVar, m) << std::endl
+				TRACE("t_str_detail", tout << "var: " << mk_ismt2_pp(freeVar, m) << std::endl
 						<< mk_ismt2_pp(makeupAssert, m) << std::endl;);
 				assert_axiom(makeupAssert);
 			}
@@ -3774,7 +3774,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 
 	ast_manager & m = get_manager();
 
-	STRACE("t_str_detail", tout << "gen for free var " << mk_ismt2_pp(freeVar, m) << std::endl;);
+	TRACE("t_str_detail", tout << "gen for free var " << mk_ismt2_pp(freeVar, m) << std::endl;);
 	// no length assertions for this free variable have ever been added.
 	if (fvar_len_count_map.find(freeVar) == fvar_len_count_map.end()) {
 		fvar_len_count_map[freeVar] = 1;
@@ -3796,7 +3796,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 			expr * len_indicator_pre = fvar_lenTester_map[freeVar][i];
 			bool indicatorHasEqcValue = false;
 			expr * len_indicator_value = get_eqc_value(len_indicator_pre, indicatorHasEqcValue);
-			STRACE("t_str_detail", tout << "length indicator " << mk_ismt2_pp(len_indicator_pre, m) <<
+			TRACE("t_str_detail", tout << "length indicator " << mk_ismt2_pp(len_indicator_pre, m) <<
 					" = " << mk_ismt2_pp(len_indicator_value, m) << std::endl;);
 			if (indicatorHasEqcValue) {
 				const char * val = 0;
@@ -3809,7 +3809,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 				}
 			} else {
 				if (lenTesterInCbEq != len_indicator_pre) {
-					STRACE("t_str", tout << "WARNING: length indicator " << mk_ismt2_pp(len_indicator_pre, m)
+					TRACE("t_str", tout << "WARNING: length indicator " << mk_ismt2_pp(len_indicator_pre, m)
 							<< " does not have an equivalence class value."
 							<< " i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
 					if (i > 0) {
@@ -3839,7 +3839,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 			expr * indicator = NULL;
 			unsigned int testNum = 0;
 
-			STRACE("t_str", tout << "effectiveLenIndiStr = " << effectiveLenIndiStr
+			TRACE("t_str", tout << "effectiveLenIndiStr = " << effectiveLenIndiStr
 					<< ", i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
 
 			if (i == lenTesterCount) {
@@ -3908,7 +3908,7 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 			}
 		}
 		if (duplicated && dupVar != NULL) {
-			STRACE("t_str_detail", tout << "Duplicated free variable found:" << mk_ismt2_pp(freeVar, m)
+			TRACE("t_str_detail", tout << "Duplicated free variable found:" << mk_ismt2_pp(freeVar, m)
 					<< " = " << mk_ismt2_pp(dupVar, m) << " (SKIP)" << std::endl;);
 			continue;
 		} else {
