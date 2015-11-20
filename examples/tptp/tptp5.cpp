@@ -2209,7 +2209,7 @@ static bool is_smt2_file(char const* filename) {
 static void check_error(z3::context& ctx) {
     Z3_error_code e = Z3_get_error_code(ctx);
     if (e != Z3_OK) {
-        std::cout << Z3_get_error_msg_ex(ctx, e) << "\n";
+        std::cout << Z3_get_error_msg(ctx, e) << "\n";
         exit(1);
     }
 }

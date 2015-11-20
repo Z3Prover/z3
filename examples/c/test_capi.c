@@ -1615,7 +1615,7 @@ void error_code_example2() {
         Z3_del_context(ctx);
     }
     else {
-      printf("Z3 error: %s.\n", Z3_get_error_msg_ex(ctx, (Z3_error_code)r));
+      printf("Z3 error: %s.\n", Z3_get_error_msg(ctx, (Z3_error_code)r));
         if (ctx != NULL) {
             Z3_del_context(ctx);
         }
@@ -1803,7 +1803,7 @@ void parser_example5() {
         Z3_del_context(ctx);
     }
     else {
-      printf("Z3 error: %s.\n", Z3_get_error_msg_ex(ctx, (Z3_error_code)r));
+      printf("Z3 error: %s.\n", Z3_get_error_msg(ctx, (Z3_error_code)r));
         if (ctx != NULL) {
             printf("Error message: '%s'.\n",Z3_get_smtlib_error(ctx));
 	    del_solver(ctx, s);
