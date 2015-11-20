@@ -95,6 +95,7 @@ namespace smt {
         std::map<expr*, int_vector> val_range_map;
 
         char * char_set;
+        std::map<char, int> charSetLookupTable;
         int charSetSize;
 
     protected:
@@ -192,6 +193,7 @@ namespace smt {
         void get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet);
 
         void dump_assignments();
+        void initialize_charset();
     public:
         theory_str(ast_manager & m);
         virtual ~theory_str();

@@ -32,13 +32,86 @@ theory_str::theory_str(ast_manager & m):
         tmpStringVarCount(0),
 		tmpXorVarCount(0),
 		avoidLoopCut(true),
-		loopDetected(false),
-		char_set(NULL),
-		charSetSize(0)
+		loopDetected(false)
 {
+		initialize_charset();
 }
 
 theory_str::~theory_str() {
+}
+
+void theory_str::initialize_charset() {
+	bool defaultCharset = true;
+	if (defaultCharset) {
+		// valid C strings can't contain the null byte ('\0')
+		charSetSize = 255;
+		char_set = alloc_svect(char, charSetSize);
+		int idx = 0;
+		// small letters
+		for (int i = 97; i < 123; i++) {
+			char_set[idx] = (char) i;
+			charSetLookupTable[char_set[idx]] = idx;
+			idx++;
+		}
+		// caps
+		for (int i = 65; i < 91; i++) {
+			char_set[idx] = (char) i;
+			charSetLookupTable[char_set[idx]] = idx;
+			idx++;
+		}
+		// numbers
+		for (int i = 48; i < 58; i++) {
+			char_set[idx] = (char) i;
+			charSetLookupTable[char_set[idx]] = idx;
+			idx++;
+		}
+		// printable marks - 1
+		for (int i = 32; i < 48; i++) {
+			char_set[idx] = (char) i;
+			charSetLookupTable[char_set[idx]] = idx;
+			idx++;
+		}
+		// printable marks - 2
+		for (int i = 58; i < 65; i++) {
+			char_set[idx] = (char) i;
+			charSetLookupTable[char_set[idx]] = idx;
+			idx++;
+		}
+		// printable marks - 3
+		for (int i = 91; i < 97; i++) {
+			char_set[idx] = (char) i;
+			charSetLookupTable[char_set[idx]] = idx;
+			idx++;
+		}
+		// printable marks - 4
+		for (int i = 123; i < 127; i++) {
+			char_set[idx] = (char) i;
+			charSetLookupTable[char_set[idx]] = idx;
+			idx++;
+		}
+		// non-printable - 1
+		for (int i = 1; i < 32; i++) {
+			char_set[idx] = (char) i;
+			charSetLookupTable[char_set[idx]] = idx;
+			idx++;
+		}
+		// non-printable - 2
+		for (int i = 127; i < 256; i++) {
+			char_set[idx] = (char) i;
+			charSetLookupTable[char_set[idx]] = idx;
+			idx++;
+		}
+	} else {
+		const char setset[] = { 'a', 'b', 'c' };
+		int fSize = sizeof(setset) / sizeof(char);
+
+		char_set = alloc_svect(char, fSize);
+		charSetSize = fSize;
+		for (int i = 0; i < charSetSize; i++) {
+			char_set[i] = setset[i];
+			charSetLookupTable[setset[i]] = i;
+		}
+	}
 }
 
 void theory_str::assert_axiom(expr * e) {
