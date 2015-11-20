@@ -44,7 +44,6 @@ namespace realclosure {
 };
 
 namespace api {
-    Z3_search_failure mk_Z3_search_failure(smt::failure f);
        
 
     class context : public tactic_manager {
@@ -62,7 +61,6 @@ namespace api {
 
         // Support for old solver API
         smt_params                 m_fparams;
-        smt::kernel *              m_solver;     // General purpose solver for backward compatibility
         // -------------------------------
 
         ast_ref_vector             m_last_result; //!< used when m_user_ref_count == true
@@ -210,13 +208,6 @@ namespace api {
         //
         // ------------------------
         smt_params & fparams() { return m_fparams; }
-        bool has_solver() const { return m_solver != 0; }
-        smt::kernel & get_smt_kernel();
-        void assert_cnstr(expr * a);
-        lbool check(model_ref & m);
-        void push();
-        void pop(unsigned num_scopes);
-        unsigned get_num_scopes() const { return m_ast_lim.size(); }
 
         // ------------------------
         //
