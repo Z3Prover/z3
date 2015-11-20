@@ -383,6 +383,9 @@ void cmd_context::global_params_updated() {
             p.set_bool("auto_config", false);
         m_solver->updt_params(p);
     }
+    if (m_opt) {
+        get_opt()->updt_params(gparams::get_module("opt"));
+    }
 }
 
 void cmd_context::set_produce_models(bool f) {

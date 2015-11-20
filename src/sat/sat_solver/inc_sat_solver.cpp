@@ -84,12 +84,14 @@ public:
         simp2_p.set_uint("local_ctx_limit", 10000000);
         simp2_p.set_bool("flat", true); // required by som
         simp2_p.set_bool("hoist_mul", false); // required by som
+        simp2_p.set_bool("elim_and", true);
+
         m_preprocess = 
             and_then(mk_card2bv_tactic(m, m_params),
                      using_params(mk_simplify_tactic(m), simp2_p),
                      mk_max_bv_sharing_tactic(m),
                      mk_bit_blaster_tactic(m, &m_bb_rewriter), 
-                     mk_aig_tactic(),
+                     //mk_aig_tactic(),
                      using_params(mk_simplify_tactic(m), simp2_p));               
     }
     
