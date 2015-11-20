@@ -37,23 +37,6 @@ namespace api {
         exit(1);
     }
 
-    Z3_search_failure mk_Z3_search_failure(smt::failure f) {
-        switch(f) {
-        case smt::OK: return Z3_NO_FAILURE;
-        case smt::UNKNOWN: return Z3_UNKNOWN;
-        case smt::TIMEOUT: return Z3_TIMEOUT;
-        case smt::MEMOUT: return Z3_MEMOUT_WATERMARK;
-        case smt::CANCELED: return Z3_CANCELED;
-        case smt::NUM_CONFLICTS: return Z3_NUM_CONFLICTS;
-        case smt::THEORY: return Z3_THEORY;
-        case smt::QUANTIFIERS: return Z3_QUANTIFIERS;
-        default:
-            UNREACHABLE();
-            break;
-        }
-        return static_cast<Z3_search_failure>(f);
-    }
-
     context::add_plugins::add_plugins(ast_manager & m) {
         reg_decl_plugins(m);
     }
@@ -94,7 +77,6 @@ namespace api {
         m_ast_trail(m()),
         m_replay_stack() {
 
-        m_solver     = 0;
         m_error_code = Z3_OK;
         m_print_mode = Z3_PRINT_SMTLIB_FULL;
         m_searching  = false;
@@ -133,7 +115,6 @@ namespace api {
             m_ast_trail.reset();
         }
         reset_parser();
-        dealloc(m_solver);
     }
 
     void context::interrupt() {
@@ -302,52 +283,6 @@ namespace api {
         }
     }
 
-    // ------------------------
-    //
-    // Solver interface for backward compatibility 
-    //
-    // ------------------------
-
-    smt::kernel & context::get_smt_kernel() {
-        if (!m_solver) {
-            m_fparams.updt_params(m_params);
-            m_solver = alloc(smt::kernel, m(), m_fparams);
-        }
-        return *m_solver;
-    }
-        
-    void context::assert_cnstr(expr * a) {
-        get_smt_kernel().assert_expr(a);
-    }
-    
-    lbool context::check(model_ref & m) {
-        flet<bool> searching(m_searching, true);
-        lbool r;
-        r = get_smt_kernel().check();
-        if (r != l_false)
-            get_smt_kernel().get_model(m);
-        return r;
-    }
-    
-    void context::push() {
-        get_smt_kernel().push();
-        m_ast_lim.push_back(m_ast_trail.size());
-        m_replay_stack.push_back(0);        
-    }
-    
-    void context::pop(unsigned num_scopes) {
-        for (unsigned i = 0; i < num_scopes; ++i) {
-            unsigned sz = m_ast_lim.back();
-            m_ast_lim.pop_back();
-            dealloc(m_replay_stack.back());
-            m_replay_stack.pop_back();
-            while (m_ast_trail.size() > sz) {
-                m_ast_trail.pop_back();
-            }
-        }
-        SASSERT(num_scopes <= get_smt_kernel().get_scope_level());
-        get_smt_kernel().pop(num_scopes);
-    }
 
     // ------------------------
     //
