@@ -26,15 +26,15 @@ Revision History:
     do { \
         if (TEST_NAME != NULL) \
         { \
-            Z3_push(ctx); \
-            Z3_assert_cnstr(ctx, TEST_NAME); \
-            SASSERT(Z3_check(ctx) == TEST_OUTCOME); \
-            Z3_pop(ctx, 1); \
+            Z3_solver_push(ctx, s);            \
+            Z3_solver_assert(ctx, s, TEST_NAME);     \
+            SASSERT(Z3_solver_check(ctx, s) == TEST_OUTCOME);     \
+            Z3_solver_pop(ctx, s, 1);                              \
             \
-            Z3_push(ctx); \
-            Z3_assert_cnstr(ctx, Z3_mk_not(ctx, TEST_NAME)); \
-            SASSERT(Z3_check(ctx) == NEG_TEST_OUTCOME); \
-            Z3_pop(ctx, 1); \
+            Z3_solver_push(ctx, s);                            \
+            Z3_solver_assert(ctx, s, Z3_mk_not(ctx, TEST_NAME)); \
+            SASSERT(Z3_solver_check(ctx, s) == NEG_TEST_OUTCOME);  \
+            Z3_solver_pop(ctx, s, 1);                               \
         } \
     } while (0)
 
@@ -66,10 +66,10 @@ Revision History:
 
 #define TEST_ANY(TEST_NAME) \
     do { \
-        Z3_push(ctx); \
-        Z3_assert_cnstr(ctx, TEST_NAME); \
-        Z3_check(ctx); /* ignore result of check */ \
-        Z3_pop(ctx, 1); \
+        Z3_solver_push(ctx, s);            \
+        Z3_solver_assert(ctx, s, TEST_NAME);          \
+        Z3_solver_check(ctx, s); /* ignore result of check */     \
+        Z3_solver_pop(ctx, s, 1);                                         \
     } while (0)
 
 #define TEST_ANY_OVERFLOW  TEST_ANY(test_ovfl)
@@ -98,6 +98,8 @@ void test_add(unsigned bvsize, bool is_signed) {
 
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
     Z3_sort bv = Z3_mk_bv_sort(ctx, bvsize);
 
     Z3_ast min = mk_min(ctx, bv, is_signed);
@@ -112,64 +114,65 @@ void test_add(unsigned bvsize, bool is_signed) {
     test_ovfl = Z3_mk_bvadd_no_overflow(ctx, t1, t2, is_signed);
     test_udfl = is_signed ? Z3_mk_bvadd_no_underflow(ctx, t1, t2) : NULL;
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW_IFF(bvsize == 1 && is_signed);
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW_IFF(! (bvsize == 1 && is_signed));
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
     if (is_signed) {
-        Z3_push(ctx); 
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+        Z3_solver_push(ctx, s); 
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
         TEST_NO_OVERFLOW;
         TEST_UNDERFLOW;
-        Z3_pop(ctx, 1);
+        Z3_solver_pop(ctx, s, 1);
     }
 
-    Z3_push(ctx); 
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+    Z3_solver_push(ctx, s); 
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW_IFF(! is_signed);
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, max));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, max));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW_IFF(bvsize == 1 && is_signed);
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
+    Z3_solver_dec_ref(ctx, s);
     Z3_del_config(cfg);
     Z3_del_context(ctx);
 }
@@ -181,6 +184,9 @@ void test_sub(unsigned bvsize, bool is_signed) {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_sort bv = Z3_mk_bv_sort(ctx, bvsize);
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
+
 
     Z3_ast min = mk_min(ctx, bv, is_signed);
     Z3_ast max = mk_max(ctx, bv, is_signed);
@@ -194,92 +200,93 @@ void test_sub(unsigned bvsize, bool is_signed) {
     test_ovfl = is_signed ? Z3_mk_bvsub_no_overflow(ctx, t1, t2) : NULL;
     test_udfl = Z3_mk_bvsub_no_underflow(ctx, t1, t2, is_signed);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
     TEST_NO_OVERFLOW_IFF(! (bvsize == 1 && is_signed));
     TEST_NO_UNDERFLOW_IFF(is_signed);
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW_IFF(is_signed);
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW_IFF(bvsize == 1 || is_signed);
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, max));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, max));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
     TEST_NO_OVERFLOW_IFF(! (bvsize == 1 && is_signed));
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
     TEST_NO_OVERFLOW_IFF(! (bvsize != 1 && is_signed));
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW_IFF(bvsize == 1 && is_signed);
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
     if (is_signed) {
-        Z3_push(ctx); 
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+        Z3_solver_push(ctx, s); 
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
         TEST_NO_OVERFLOW;
         TEST_NO_UNDERFLOW;
-        Z3_pop(ctx, 1);
+        Z3_solver_pop(ctx, s, 1);
         
-        Z3_push(ctx); 
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "-1", bv)));
+        Z3_solver_push(ctx, s); 
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "-1", bv)));
         TEST_NO_OVERFLOW;
         TEST_NO_UNDERFLOW;
-        Z3_pop(ctx, 1);
+        Z3_solver_pop(ctx, s, 1);
     }
 
-    Z3_push(ctx); 
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+    Z3_solver_push(ctx, s); 
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW; 
     TEST_NO_UNDERFLOW_IFF(bvsize == 1 && is_signed); 
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, max));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, max));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
     TEST_NO_OVERFLOW_IFF(! is_signed);
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, max));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, max));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
+    Z3_solver_dec_ref(ctx, s);
     Z3_del_config(cfg);
     Z3_del_context(ctx);
 }
@@ -291,6 +298,8 @@ void test_neg(unsigned bvsize) {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_sort bv = Z3_mk_bv_sort(ctx, bvsize);
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
 
     Z3_ast min = mk_min(ctx, bv, /* is_signed = */ true);
     Z3_ast max = mk_max(ctx, bv, /* is_signed = */ true);
@@ -300,31 +309,32 @@ void test_neg(unsigned bvsize) {
     t1 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"x"), bv);
     test_ovfl = Z3_mk_bvneg_no_overflow(ctx, t1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
     TEST_NO_OVERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
     TEST_NO_OVERFLOW_IFF(bvsize != 1);
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
     TEST_NO_OVERFLOW_IFF(bvsize != 1);
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, max));
     TEST_NO_OVERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
     TEST_OVERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
+    Z3_solver_dec_ref(ctx, s);
     Z3_del_config(cfg);
     Z3_del_context(ctx);
 }
@@ -336,6 +346,8 @@ void test_mul(unsigned bvsize, bool is_signed) {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_sort bv = Z3_mk_bv_sort(ctx, bvsize);
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
 
     Z3_ast min = mk_min(ctx, bv, is_signed);
     Z3_ast max = mk_max(ctx, bv, is_signed);
@@ -349,85 +361,86 @@ void test_mul(unsigned bvsize, bool is_signed) {
     test_ovfl = Z3_mk_bvmul_no_overflow(ctx, t1, t2, is_signed);
     test_udfl = is_signed ? Z3_mk_bvmul_no_underflow(ctx, t1, t2) : NULL;
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
     TEST_NO_OVERFLOW_IFF(! (bvsize == 1 && is_signed));
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "0", bv)));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, max));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, max));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
     
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
     TEST_NO_OVERFLOW_IFF(! (bvsize == 1 && is_signed));
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
     if (is_signed) {
-        Z3_push(ctx); 
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+        Z3_solver_push(ctx, s); 
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
         TEST_OVERFLOW;
         TEST_NO_UNDERFLOW;
-        Z3_pop(ctx, 1);
+        Z3_solver_pop(ctx, s, 1);
         
-        Z3_push(ctx); 
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "-1", bv)));
+        Z3_solver_push(ctx, s); 
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "-1", bv)));
         TEST_OVERFLOW;
         TEST_NO_UNDERFLOW;
-        Z3_pop(ctx, 1);
+        Z3_solver_pop(ctx, s, 1);
         
-        Z3_push(ctx); 
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+        Z3_solver_push(ctx, s); 
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
+        Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
         TEST_NO_OVERFLOW;
         TEST_NO_UNDERFLOW;
-        Z3_pop(ctx, 1);
+        Z3_solver_pop(ctx, s, 1);
     }
 
-    Z3_push(ctx); 
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+    Z3_solver_push(ctx, s); 
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
     TEST_NO_OVERFLOW_IFF(! is_signed);
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW;
     TEST_NO_UNDERFLOW_IFF(! (bvsize != 1 && is_signed));
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, max));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, max));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, max));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, max));
     TEST_NO_OVERFLOW_IFF(bvsize == 1);
     TEST_NO_UNDERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
+    Z3_solver_dec_ref(ctx, s);
     Z3_del_config(cfg);
     Z3_del_context(ctx);
 }
@@ -439,6 +452,8 @@ void test_div(unsigned bvsize) {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_sort bv = Z3_mk_bv_sort(ctx, bvsize);
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
 
     Z3_ast min = mk_min(ctx, bv, /* is_signed = */ true);
     Z3_ast max = mk_max(ctx, bv, /* is_signed = */ true);
@@ -450,66 +465,67 @@ void test_div(unsigned bvsize) {
     t2 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"y"), bv);
     test_ovfl = Z3_mk_bvsdiv_no_overflow(ctx, t1, t2);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
     TEST_NO_OVERFLOW_IFF(bvsize != 1);
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
     TEST_NO_OVERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "-1", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "-1", bv)));
     TEST_NO_OVERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "0", bv)));
     TEST_ANY_OVERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "-1", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "0", bv)));
     TEST_ANY_OVERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx);
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_push(ctx, s);
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "0", bv)));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "0", bv)));
     TEST_ANY_OVERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx); 
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "-1", bv)));
+    Z3_solver_push(ctx, s); 
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "-1", bv)));
     TEST_OVERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
     
-    Z3_push(ctx); 
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
+    Z3_solver_push(ctx, s); 
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
     TEST_NO_OVERFLOW_IFF(bvsize != 1);
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx); 
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, min));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+    Z3_solver_push(ctx, s); 
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, min));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
     TEST_NO_OVERFLOW_IFF(bvsize != 1);
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
-    Z3_push(ctx); 
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, max));
-    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, min));
+    Z3_solver_push(ctx, s); 
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, max));
+    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, min));
     TEST_NO_OVERFLOW;
-    Z3_pop(ctx, 1);
+    Z3_solver_pop(ctx, s, 1);
 
+    Z3_solver_dec_ref(ctx, s);
     Z3_del_config(cfg);
     Z3_del_context(ctx);
 }
@@ -561,6 +577,8 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_sort bv = Z3_mk_bv_sort(ctx, bvsize);
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
 
     Z3_ast min = mk_min(ctx, bv, is_signed);
     Z3_ast max = mk_max(ctx, bv, is_signed);
@@ -605,16 +623,17 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
         }
     }
     
-    Z3_push(ctx);
+    Z3_solver_push(ctx, s);
     Z3_ast equiv = Z3_mk_iff(ctx, real_test, check);
     if (cond != NULL)
     {
         equiv = Z3_mk_implies(ctx, cond, equiv);
     }
-    Z3_assert_cnstr(ctx, Z3_mk_not(ctx, equiv));
-    SASSERT(Z3_check(ctx) == Z3_L_FALSE);
-    Z3_pop(ctx, 1);
+    Z3_solver_assert(ctx, s, Z3_mk_not(ctx, equiv));
+    SASSERT(Z3_solver_check(ctx, s) == Z3_L_FALSE);
+    Z3_solver_pop(ctx, s, 1);
 
+    Z3_solver_dec_ref(ctx, s);
     Z3_del_config(cfg);
     Z3_del_context(ctx);
 }
@@ -638,13 +657,13 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
 //    t2 = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx,"y"), bv);
 //    test_udfl = Z3_mk_bvmul_no_underflow(ctx, t1, t2);
 //    
-//    Z3_push(ctx);
-//    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
-//    Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
+//    Z3_solver_push(ctx, s);
+//    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t1, Z3_mk_numeral(ctx, "1", bv)));
+//    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
 //    //TEST_NO_UNDERFLOW;
-//    Z3_assert_cnstr(ctx, test_udfl);
+//    Z3_solver_assert(ctx, s, test_udfl);
 //    SASSERT(Z3_check(ctx) == Z3_TRUE);
-//    Z3_pop(ctx, 1);
+//    Z3_solver_pop(ctx, s, 1);
 //
 //    Z3_del_config(cfg);
 //    Z3_del_context(ctx);

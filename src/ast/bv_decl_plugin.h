@@ -296,11 +296,25 @@ public:
     bool is_bv_sub(expr const * e) const { return is_app_of(e, get_fid(), OP_BSUB); }
     bool is_bv_mul(expr const * e) const { return is_app_of(e, get_fid(), OP_BMUL); }
     bool is_bv_neg(expr const * e) const { return is_app_of(e, get_fid(), OP_BNEG); }
+
     bool is_bv_sdiv(expr const * e) const { return is_app_of(e, get_fid(), OP_BSDIV); }
     bool is_bv_udiv(expr const * e) const { return is_app_of(e, get_fid(), OP_BUDIV); }
     bool is_bv_srem(expr const * e) const { return is_app_of(e, get_fid(), OP_BSREM); }
     bool is_bv_urem(expr const * e) const { return is_app_of(e, get_fid(), OP_BUREM); }
     bool is_bv_smod(expr const * e) const { return is_app_of(e, get_fid(), OP_BSMOD); }
+
+    bool is_bv_sdiv0(expr const * e) const { return is_app_of(e, get_fid(), OP_BSDIV0); }
+    bool is_bv_udiv0(expr const * e) const { return is_app_of(e, get_fid(), OP_BUDIV0); }
+    bool is_bv_srem0(expr const * e) const { return is_app_of(e, get_fid(), OP_BSREM0); }
+    bool is_bv_urem0(expr const * e) const { return is_app_of(e, get_fid(), OP_BUREM0); }
+    bool is_bv_smod0(expr const * e) const { return is_app_of(e, get_fid(), OP_BSMOD0); }
+
+    bool is_bv_sdivi(expr const * e) const { return is_app_of(e, get_fid(), OP_BSDIV_I); }
+    bool is_bv_udivi(expr const * e) const { return is_app_of(e, get_fid(), OP_BUDIV_I); }
+    bool is_bv_sremi(expr const * e) const { return is_app_of(e, get_fid(), OP_BSREM_I); }
+    bool is_bv_uremi(expr const * e) const { return is_app_of(e, get_fid(), OP_BUREM_I); }
+    bool is_bv_smodi(expr const * e) const { return is_app_of(e, get_fid(), OP_BSMOD_I); }
+
     bool is_bv_and(expr const * e) const { return is_app_of(e, get_fid(), OP_BAND); }
     bool is_bv_or(expr const * e) const { return is_app_of(e, get_fid(), OP_BOR); }
     bool is_bv_xor(expr const * e) const { return is_app_of(e, get_fid(), OP_BXOR); }
@@ -323,6 +337,17 @@ public:
     MATCH_BINARY(is_bv_sle);
     MATCH_BINARY(is_bv_ule);
     MATCH_BINARY(is_bv_shl);
+    MATCH_BINARY(is_bv_urem);
+    MATCH_BINARY(is_bv_srem);
+    MATCH_BINARY(is_bv_sdiv);
+    MATCH_BINARY(is_bv_udiv);
+    MATCH_BINARY(is_bv_smod);
+
+    MATCH_BINARY(is_bv_uremi);
+    MATCH_BINARY(is_bv_sremi);
+    MATCH_BINARY(is_bv_sdivi);
+    MATCH_BINARY(is_bv_udivi);
+    MATCH_BINARY(is_bv_smodi);
 
     rational norm(rational const & val, unsigned bv_size, bool is_signed) const ;
     rational norm(rational const & val, unsigned bv_size) const { return norm(val, bv_size, false); }

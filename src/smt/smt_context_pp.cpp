@@ -381,15 +381,16 @@ namespace smt {
         st.update("max generation", m_stats.m_max_generation);
         st.update("minimized lits", m_stats.m_num_minimized_lits);
         st.update("num checks", m_stats.m_num_checks);
+        st.update("mk bool var", m_stats.m_num_mk_bool_var);
+
 #if 0
         // missing?
+        st.update("mk lit", m_stats.m_num_mk_lits);
         st.update("sat conflicts", m_stats.m_num_sat_conflicts);
-        st.update("mk bool var", m_stats.m_num_mk_bool_var);
         st.update("del bool var", m_stats.m_num_del_bool_var);
         st.update("mk enode", m_stats.m_num_mk_enode);
         st.update("del enode", m_stats.m_num_del_enode);
         st.update("mk bin clause", m_stats.m_num_mk_bin_clause);
-        st.update("mk lit", m_stats.m_num_mk_lits);
         st.update("backwd subs", m_stats.m_num_bs);
         st.update("backwd subs res", m_stats.m_num_bsr);
         st.update("frwrd subs res", m_stats.m_num_fsr);

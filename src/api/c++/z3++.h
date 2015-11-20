@@ -151,7 +151,7 @@ namespace z3 {
         void check_error() const {
             Z3_error_code e = Z3_get_error_code(m_ctx);
             if (e != Z3_OK)
-                throw exception(Z3_get_error_msg_ex(m_ctx, e));
+                throw exception(Z3_get_error_msg(m_ctx, e));
         }
 
         /**
