@@ -186,32 +186,23 @@ def mk_dist_dir():
     mk_dist_dir_core(False)
     mk_dist_dir_core(True)
 
-ZIPOUT = None
-
-def mk_zip_visitor(pattern, dir, files):
-    for filename in files:
-        if fnmatch(filename, pattern):
-            fname = os.path.join(dir, filename)
-            if not os.path.isdir(fname):
-                ZIPOUT.write(fname)
-
 def get_dist_path(x64):
     return get_z3_name(x64)
 
 def mk_zip_core(x64):
-    global ZIPOUT
     dist_path = get_dist_path(x64)
     old = os.getcwd()
     try:
         os.chdir(DIST_DIR)
         zfname = '%s.zip' % dist_path
-        ZIPOUT = zipfile.ZipFile(zfname, 'w', zipfile.ZIP_DEFLATED)
-        os.walk(dist_path, mk_zip_visitor, '*')
+        zipout = zipfile.ZipFile(zfname, 'w', zipfile.ZIP_DEFLATED)
+        for root, dirs, files in os.walk(dist_path):
+            for f in files:
+                zipout.write(os.path.join(root, f))
         if is_verbose():
             print("Generated '%s'" % zfname)
     except:
         pass
-    ZIPOUT = None
     os.chdir(old)
 
 # Create a zip file for each platform

@@ -171,32 +171,23 @@ def mk_dist_dir():
     if is_verbose():
         print("Generated distribution folder at '%s'" % dist_path)
 
-ZIPOUT = None
-
-def mk_zip_visitor(pattern, dir, files):
-    for filename in files:
-        if fnmatch(filename, pattern):
-            fname = os.path.join(dir, filename)
-            if not os.path.isdir(fname):
-                ZIPOUT.write(fname)
-
 def get_dist_path():
     return get_z3_name()
 
 def mk_zip():
-    global ZIPOUT
     dist_path = get_dist_path()
     old = os.getcwd()
     try:
         os.chdir(DIST_DIR)
         zfname = '%s.zip' % dist_path
-        ZIPOUT = zipfile.ZipFile(zfname, 'w', zipfile.ZIP_DEFLATED)
-        os.walk(dist_path, mk_zip_visitor, '*')
+        zipout = zipfile.ZipFile(zfname, 'w', zipfile.ZIP_DEFLATED)
+        for root, dirs, files in os.walk(dist_path):
+            for f in files:
+                zipout.write(os.path.join(root, f))
         if is_verbose():
             print("Generated '%s'" % zfname)
     except:
         pass
-    ZIPOUT = None
     os.chdir(old)
 
 def cp_license():
