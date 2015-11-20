@@ -189,7 +189,7 @@ def mk_dist_dir():
 def get_dist_path(x64):
     return get_z3_name(x64)
 
-def mk_zip(x64):
+def mk_zip_core(x64):
     dist_path = get_dist_path(x64)
     old = os.getcwd()
     try:
