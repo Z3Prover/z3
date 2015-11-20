@@ -285,6 +285,7 @@ app * theory_str::mk_str_var(std::string name) {
 	app * a = m.mk_const(m.mk_const_decl(sym, string_sort));
 
 	// I have a hunch that this may not get internalized for free...
+	ctx.internalize(a, false);
 	SASSERT(ctx.get_enode(a) != NULL);
 	m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
 
@@ -3504,6 +3505,8 @@ std::string theory_str::gen_val_string(int len, int_vector & encoding) {
  *   - Otherwise, return true
  */
 bool theory_str::get_next_val_encode(int_vector & base, int_vector & next) {
+	SASSERT(charSetSize > 0);
+
     int s = 0;
     int carry = 0;
     next.reset();
@@ -3551,6 +3554,14 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	bool coverAll = false;
 	svector<int_vector> options;
 	int_vector base;
+
+	TRACE("t_str_detail", tout
+			<< "freeVar = " << mk_ismt2_pp(freeVar, m) << std::endl
+			<< "len_indicator = " << mk_ismt2_pp(len_indicator, m) << std::endl
+			<< "val_indicator = " << mk_ismt2_pp(val_indicator, m) << std::endl
+			<< "lenstr = " << lenStr << std::endl
+			<< "tries = " << tries << std::endl
+			;);
 
 	if (tries == 0) {
 		base = int_vector(len + 1, 0);
@@ -3650,6 +3661,7 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 	int len = atoi(len_valueStr.c_str());
 
 	if (fvar_valueTester_map[freeVar].find(len) == fvar_valueTester_map[freeVar].end()) {
+		TRACE("t_str_detail", tout << "no previous value testers" << std::endl;);
 		int tries = 0;
 		expr * val_indicator = mk_internal_valTest_var(freeVar, len, tries);
 		valueTester_fvar_map[val_indicator] = freeVar;
@@ -3657,6 +3669,7 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 		print_value_tester_list(fvar_valueTester_map[freeVar][len]);
 		return gen_val_options(freeVar, len_indicator, val_indicator, len_valueStr, tries);
 	} else {
+		TRACE("t_str_detail", tout << "checking previous value testers" << std::endl;);
 		// go through all previous value testers
 		// If some doesn't have an eqc value, add its assertion again.
 		int testerTotal = fvar_valueTester_map[freeVar][len].size();
@@ -3704,7 +3717,10 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tries) {
 	ast_manager & m = get_manager();
 
-	expr * freeVarLen = mk_strlen(freeVar);
+	TRACE("t_str_detail", tout << "entry" << std::endl;);
+
+	expr_ref freeVarLen(mk_strlen(freeVar), m);
+	SASSERT(freeVarLen);
 
 	ptr_vector<expr> orList;
 	ptr_vector<expr> andList;
@@ -3713,9 +3729,16 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	int l = (tries - 1) * distance;
 	int h = tries * distance;
 
+	TRACE("t_str_detail", tout << "building andList and orList" << std::endl;);
+
 	for (int i = l; i < h; ++i) {
-		orList.push_back(m.mk_eq(indicator, m_strutil.mk_string(int_to_string(i).c_str())));
-		andList.push_back(m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVarLen, mk_int(i))));
+		expr * or_expr = m.mk_eq(indicator, m_strutil.mk_string(int_to_string(i).c_str()));
+		TRACE("t_str_detail", tout << "or_expr = " << mk_ismt2_pp(or_expr, m) << std::endl;);
+		orList.push_back(or_expr);
+
+		expr * and_expr = m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVarLen, mk_int(i)));
+		TRACE("t_str_detail", tout << "and_expr = " << mk_ismt2_pp(and_expr, m) << std::endl;);
+		andList.push_back(and_expr);
 	}
 
 	orList.push_back(m.mk_eq(indicator, m_strutil.mk_string("more")));
@@ -3725,14 +3748,20 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	expr ** and_items = alloc_svect(expr*, andList.size() + 1);
 
 	for (unsigned i = 0; i < orList.size(); ++i) {
+		SASSERT(orList[i] != NULL);
 		or_items[i] = orList[i];
 	}
 
 	and_items[0] = m.mk_or(orList.size(), or_items);
+	SASSERT(and_items[0] != NULL);
 	for(unsigned i = 0; i < andList.size(); ++i) {
+		SASSERT(andList[i] != NULL);
 		and_items[i+1] = andList[i];
 	}
 	expr * lenTestAssert = m.mk_and(andList.size() + 1, and_items);
+	SASSERT(lenTestAssert != NULL);
+
+	TRACE("t_str_detail", tout << "lenTestAssert = " << mk_ismt2_pp(lenTestAssert, m) << std::endl;);
 
 	expr * assertL = NULL;
 	int testerCount = tries - 1;
@@ -3750,10 +3779,13 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	}
 
 	if (assertL != NULL) {
+		TRACE("t_str_detail", tout << "assertL = " << mk_ismt2_pp(assertL, m) << std::endl;);
 		// return the axiom (assertL -> lenTestAssert)
 		// would like to use mk_implies() here but...
 		expr_ref lenTestAssert(m.mk_or(m.mk_not(assertL), lenTestAssert), m);
 	}
+
+	TRACE("t_str_detail", tout << "exit" << std::endl;);
 
 	return lenTestAssert;
 
@@ -3777,16 +3809,23 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 	TRACE("t_str_detail", tout << "gen for free var " << mk_ismt2_pp(freeVar, m) << std::endl;);
 	// no length assertions for this free variable have ever been added.
 	if (fvar_len_count_map.find(freeVar) == fvar_len_count_map.end()) {
+
+		TRACE("t_str_detail", tout << "no length assertions yet" << std::endl;);
+
 		fvar_len_count_map[freeVar] = 1;
 		unsigned int testNum = fvar_len_count_map[freeVar];
+
 		expr * indicator = mk_internal_lenTest_var(freeVar, testNum);
+		SASSERT(indicator != NULL);
+
 		fvar_lenTester_map[freeVar].push_back(indicator);
 		lenTester_fvar_map[indicator] = freeVar;
 
 		expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
+		SASSERT(lenTestAssert != NULL);
 		return lenTestAssert;
 	} else {
-
+		TRACE("t_str_detail", tout << "found previous length assertions" << std::endl;);
 		expr * effectiveLenInd = NULL;
 		std::string effectiveLenIndiStr = "";
 		int lenTesterCount = (int) fvar_lenTester_map[freeVar].size();
@@ -3836,6 +3875,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 			} // !indicatorHasEqcValue
 		} // for (i : [0..lenTesterCount-1])
 		if (effectiveLenIndiStr == "more" || effectiveLenIndiStr == "") {
+			TRACE("t_str", tout << "length is not fixed; generating length tester options for free var" << std::endl;);
 			expr * indicator = NULL;
 			unsigned int testNum = 0;
 
@@ -3852,11 +3892,12 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 				indicator = fvar_lenTester_map[freeVar][i];
 				testNum = i + 1;
 			}
-			expr_ref lenTestAssert(gen_len_test_options(freeVar, indicator, testNum), m);
+			expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
 			return lenTestAssert;
 		} else {
+			TRACE("t_str", tout << "length is fixed; generating models for free var" << std::endl;);
 			// length is fixed
-			expr_ref valueAssert(gen_free_var_options(freeVar, effectiveLenInd, effectiveLenIndiStr, NULL, ""), m);
+			expr * valueAssert = gen_free_var_options(freeVar, effectiveLenInd, effectiveLenIndiStr, NULL, "");
 			return valueAssert;
 		}
 	} // fVarLenCountMap.find(...)
@@ -3956,6 +3997,7 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 	for(std::set<expr*>::iterator itor1 = leafVarSet.begin();
 			itor1 != leafVarSet.end(); ++itor1) {
 		expr * toAssert = gen_len_val_options_for_free_var(*itor1, NULL, "");
+		SASSERT(toAssert != NULL);
 		assert_axiom(toAssert);
 	}
 
@@ -3964,6 +4006,7 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 		std::set<expr*>::iterator itor2 = mItor->second.begin();
 		for(; itor2 != mItor->second.end(); ++itor2) {
 			expr * toAssert = gen_len_val_options_for_free_var(*itor2, NULL, "");
+			SASSERT(toAssert != NULL);
 			assert_axiom(toAssert);
 		}
 	}
