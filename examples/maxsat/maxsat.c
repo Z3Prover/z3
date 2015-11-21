@@ -492,6 +492,7 @@ int fu_malik_maxsat_step(Z3_context ctx, Z3_solver s, unsigned num_soft_cnstrs, 
     Z3_ast_vector core;
     unsigned core_size;
     unsigned i = 0;
+    Z3_ast * block_vars;
     for (i = 0; i < num_soft_cnstrs; i++) {
         // Recall that we asserted (soft_cnstrs[i] \/ aux_vars[i])
         // So using (NOT aux_vars[i]) as an assumption we are actually forcing the soft_cnstrs[i] to be considered.
@@ -505,7 +506,7 @@ int fu_malik_maxsat_step(Z3_context ctx, Z3_solver s, unsigned num_soft_cnstrs, 
     else {
         core = Z3_solver_get_unsat_core(ctx, s);
 	core_size = Z3_ast_vector_size(ctx, core);
-        Z3_ast * block_vars = (Z3_ast*) malloc(sizeof(Z3_ast) * core_size);
+        block_vars = (Z3_ast*) malloc(sizeof(Z3_ast) * core_size);
         unsigned k = 0;
         // update soft-constraints and aux_vars
         for (i = 0; i < num_soft_cnstrs; i++) {
