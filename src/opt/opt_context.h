@@ -195,7 +195,7 @@ namespace opt {
 
         void display(std::ostream& out);
         static void collect_param_descrs(param_descrs & r);
-        virtual void updt_params(params_ref& p);
+        virtual void updt_params(params_ref const& p);
         params_ref& get_params() { return m_params; }
 
         expr_ref get_lower(unsigned idx);
