@@ -19,6 +19,8 @@ Revision History:
 #ifndef DEBUG_H_
 #define DEBUG_H_
 
+#include <stdlib.h>
+
 void enable_assertions(bool f);
 bool assertions_enabled();
 
@@ -81,6 +83,12 @@ bool is_debug_enabled(const char * tag);
 #else
 #define VERIFY(_x_) (void)(_x_)
 #endif
+
+#define ENSURE(_x_)                                         \
+    if (!(_x_)) {                                           \
+        std::cerr << "Failed to verify: " << #_x_ << "\n";  \
+        exit(-1);                                           \
+    }
 
 #define MAKE_NAME2(LINE) zofty_ ## LINE 
 #define MAKE_NAME(LINE) MAKE_NAME2(LINE)

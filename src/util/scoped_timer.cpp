@@ -35,17 +35,10 @@ Revision History:
 #include<pthread.h>
 #elif defined(_LINUX_) || defined(_FREEBSD_)
 // Linux
-#include<csignal>
-#include<ctime>
-#include<memory.h>
-#include"warning.h"
-   #ifdef _LINUX_
-   #define CLOCKID CLOCK_PROCESS_CPUTIME_ID
-   #else
-   // FreeBSD does not support CLOCK_PROCESS_CPUTIME_ID 
-   #define CLOCKID CLOCK_MONOTONIC
-   #endif
-#define SIG     SIGRTMIN
+#include<errno.h>
+#include<pthread.h>
+#include<sched.h>
+#include<time.h>
 // ---------
 #else
 // Other platforms
@@ -75,7 +68,11 @@ struct scoped_timer::imp {
     struct timespec  m_end_time;
 #elif defined(_LINUX_) || defined(_FREEBSD_)
     // Linux & FreeBSD
-    timer_t         m_timerid;
+    pthread_t       m_thread_id;
+    pthread_mutex_t m_mutex;
+    pthread_cond_t  m_cond;
+    unsigned        m_ms;
+    bool            m_initialized;
 #else
     // Other
 #endif
@@ -107,9 +104,28 @@ struct scoped_timer::imp {
         return st;
     }
 #elif defined(_LINUX_) || defined(_FREEBSD_)
-    static void sig_handler(union sigval s) {
-        void * ptr = s.sival_ptr;
-        static_cast<imp*>(ptr)->m_eh->operator()();
+    static void* thread_func(void *arg) {
+        scoped_timer::imp *st = static_cast<scoped_timer::imp*>(arg);
+
+        struct timespec end_time;
+        clock_gettime(CLOCK_REALTIME, &end_time);
+        end_time.tv_sec  += st->m_ms / 1000u;
+        end_time.tv_nsec += (st->m_ms % 1000u) * 1000000ull;
+        // check for overflow
+        if (end_time.tv_nsec >= 1000000000ull) {
+            ++end_time.tv_sec;
+            end_time.tv_nsec -= 1000000000ull;
+        }
+
+        pthread_mutex_lock(&st->m_mutex);
+        st->m_initialized = true;
+        int e = pthread_cond_timedwait(&st->m_cond, &st->m_mutex, &end_time);
+        ENSURE(e == 0 || e == ETIMEDOUT);
+
+        pthread_mutex_unlock(&st->m_mutex);
+        if (e == ETIMEDOUT)
+            st->m_eh->operator()();
+        return 0;
     }
 #else
     // Other
@@ -152,23 +168,11 @@ struct scoped_timer::imp {
             throw default_exception("failed to start timer thread");
 #elif defined(_LINUX_) || defined(_FREEBSD_)
         // Linux & FreeBSD
-        struct sigevent sev;
-        memset(&sev, 0, sizeof(sigevent));
-        sev.sigev_notify = SIGEV_THREAD;
-        sev.sigev_value.sival_ptr = this;
-        sev.sigev_notify_function = sig_handler;
-        if (timer_create(CLOCKID, &sev, &m_timerid) == -1)
-            throw default_exception("failed to create timer");
-
-        unsigned long long nano = static_cast<unsigned long long>(ms) * 1000000ull;
-        struct itimerspec its;
-        its.it_value.tv_sec  = nano / 1000000000ull;
-        its.it_value.tv_nsec = nano % 1000000000ull;
-        its.it_interval.tv_sec  = 0; // timer experies once
-        its.it_interval.tv_nsec = 0;
-        
-        if (timer_settime(m_timerid, 0, &its, NULL) == -1)
-            throw default_exception("failed to set timer");
+        m_ms = ms;
+        m_initialized = false;
+        ENSURE(pthread_mutex_init(&m_mutex, NULL) == 0);
+        ENSURE(pthread_cond_init(&m_cond, NULL) == 0);
+        ENSURE(pthread_create(&m_thread_id, NULL, &thread_func, this) == 0);
 #else
     // Other platforms
 #endif
@@ -203,8 +207,22 @@ struct scoped_timer::imp {
         if (pthread_attr_destroy(&m_attributes) != 0)
             throw default_exception("failed to destroy pthread attributes object");
 #elif defined(_LINUX_) || defined(_FREEBSD_)
-    // Linux & FreeBSD
-        timer_delete(m_timerid);
+        // Linux & FreeBSD
+        bool init = false;
+
+        // spin until timer thread has been created
+        while (!init) {
+            pthread_mutex_lock(&m_mutex);
+            init = m_initialized;
+            pthread_mutex_unlock(&m_mutex);
+            if (!init)
+                sched_yield();
+        }
+        pthread_cond_signal(&m_cond);
+
+        pthread_join(m_thread_id, NULL);
+        pthread_cond_destroy(&m_cond);
+        pthread_mutex_destroy(&m_mutex);
 #else
     // Other Platforms
 #endif
