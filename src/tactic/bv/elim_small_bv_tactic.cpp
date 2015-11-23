@@ -90,10 +90,8 @@ class elim_small_bv_tactic : public tactic {
 
             // (VAR 0) is in the first position of substitution; (VAR num_decls-1) is in the last position.
 
-            for (unsigned i = 0; i < max_var_idx_p1; i++) {
-                sort * s = uv.get(i);
+            for (unsigned i = 0; i < max_var_idx_p1; i++)
                 substitution.push_back(0);
-            }
 
             // (VAR num_decls) ... (VAR num_decls+sz-1); are in positions num_decls .. num_decls+sz-1
 

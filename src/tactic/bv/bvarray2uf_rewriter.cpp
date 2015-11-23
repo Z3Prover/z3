@@ -335,43 +335,13 @@ bool bvarray2uf_rewriter_cfg::reduce_quantifier(quantifier * old_q,
     expr * const * new_no_patterns,
     expr_ref & result,
     proof_ref & result_pr) {
-    unsigned curr_sz = m_bindings.size();
-    SASSERT(old_q->get_num_decls() <= curr_sz);
-    unsigned num_decls = old_q->get_num_decls();
-    unsigned old_sz = curr_sz - num_decls;
-    string_buffer<> name_buffer;
-    ptr_buffer<sort> new_decl_sorts;
-    sbuffer<symbol>  new_decl_names;
-    for (unsigned i = 0; i < num_decls; i++) {
-        symbol const & n = old_q->get_decl_name(i);
-        sort * s = old_q->get_decl_sort(i);
-
-        NOT_IMPLEMENTED_YET();
-
-    }
-    result = m().mk_quantifier(old_q->is_forall(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
-        new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
-        old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
-    result_pr = 0;
-    m_bindings.shrink(old_sz);
-    TRACE("bvarray2uf_rw_q", tout << "reduce_quantifier[" << old_q->get_depth() << "]: " <<
-        mk_ismt2_pp(old_q->get_expr(), m()) << std::endl <<
-        " new body: " << mk_ismt2_pp(new_body, m()) << std::endl;
-    tout << "result = " << mk_ismt2_pp(result, m()) << std::endl;);
+    NOT_IMPLEMENTED_YET();
     return true;
 }
 
 bool bvarray2uf_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & result_pr) {
     if (t->get_idx() >= m_bindings.size())
         return false;
-
-    expr_ref new_exp(m());
-    sort * s = t->get_sort();
-
     NOT_IMPLEMENTED_YET();
-
-    result = new_exp;
-    result_pr = 0;
-    TRACE("bvarray2uf_rw_q", tout << "reduce_var: " << mk_ismt2_pp(t, m()) << " -> " << mk_ismt2_pp(result, m()) << std::endl;);
     return true;
 }
