@@ -1157,13 +1157,7 @@ def set_pp_option(k, v):
 def obj_to_string(a):
     out = io.StringIO()
     _PP(out, _Formatter(a))
-    r = out.getvalue()
-    if sys.version < '3':
-        return r
-    else:
-        enc = sys.stdout.encoding
-        if enc != None: return r.decode(enc)
-        return r
+    return out.getvalue()
 
 _html_out = None
 
