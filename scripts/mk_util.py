@@ -637,10 +637,7 @@ def parse_options():
             SLOW_OPTIMIZE = True
         elif not IS_WINDOWS and opt in ('-p', '--prefix'):
             PREFIX = arg
-            PYTHON_PACKAGE_DIR = os.path.join(PREFIX, 'lib', 'python%s' % distutils.sysconfig.get_python_version(), 'dist-packages')
-            mk_dir(PYTHON_PACKAGE_DIR)
-            if sys.version >= "3":
-                mk_dir(os.path.join(PYTHON_PACKAGE_DIR, '__pycache__'))
+            PYTHON_PACKAGE_DIR = os.path.join('$(PREFIX)', 'lib', 'python%s' % distutils.sysconfig.get_python_version(), 'dist-packages')
         elif IS_WINDOWS and opt == '--parallel':
             VS_PAR = True
             VS_PAR_NUM = int(arg)
@@ -1225,7 +1222,7 @@ class DLLComponent(Component):
         if self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
             out.write('\t@cp %s %s\n' % (dllfile, os.path.join('$(DESTDIR)$(PREFIX)', 'lib', dllfile)))
-            out.write('\t@cp %s %s\n' % (dllfile, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
+            out.write('\t@cp %s $(DESTDIR)%s\n' % (dllfile, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
                 out.write('\t@cp %s %s\n' % (libfile, os.path.join('$(DESTDIR)$(PREFIX)', 'lib', libfile)))
@@ -1234,7 +1231,7 @@ class DLLComponent(Component):
     def mk_uninstall(self, out):
         dllfile = '%s$(SO_EXT)' % self.dll_name
         out.write('\t@rm -f %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'lib', dllfile))
-        out.write('\t@rm -f %s\n' % os.path.join(PYTHON_PACKAGE_DIR, dllfile))
+        out.write('\t@rm -f $(DESTDIR)%s\n' % os.path.join(PYTHON_PACKAGE_DIR, dllfile))
         libfile = '%s$(LIB_EXT)' % self.dll_name
         out.write('\t@rm -f %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'lib', libfile))
 
@@ -2012,14 +2009,16 @@ def mk_install(out):
     out.write('\t@mkdir -p %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'bin'))
     out.write('\t@mkdir -p %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'include'))
     out.write('\t@mkdir -p %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'lib'))
+    out.write('\t@mkdir -p $(DESTDIR)%s\n' % PYTHON_PACKAGE_DIR)
     for c in get_components():
         c.mk_install(out)
-    out.write('\t@cp z3*.py %s\n' % PYTHON_PACKAGE_DIR)
+    out.write('\t@cp z3*.py $(DESTDIR)%s\n' % PYTHON_PACKAGE_DIR)
     if sys.version >= "3":
-        out.write('\t@cp %s*.pyc %s\n' % (os.path.join('__pycache__', 'z3'),
+        out.write('\t@mkdir -p $(DESTDIR)%s\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__'))
+        out.write('\t@cp %s*.pyc $(DESTDIR)%s\n' % (os.path.join('__pycache__', 'z3'),
                                           os.path.join(PYTHON_PACKAGE_DIR, '__pycache__')))
     else:
-        out.write('\t@cp z3*.pyc %s\n' % PYTHON_PACKAGE_DIR)
+        out.write('\t@cp z3*.pyc $(DESTDIR)%s\n' % PYTHON_PACKAGE_DIR)
     out.write('\t@echo Z3 was successfully installed.\n')
     if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
         if os.uname()[0] == 'Darwin':
@@ -2035,9 +2034,9 @@ def mk_uninstall(out):
     out.write('uninstall:\n')
     for c in get_components():
         c.mk_uninstall(out)
-    out.write('\t@rm -f %s*.py\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
-    out.write('\t@rm -f %s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
-    out.write('\t@rm -f %s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__', 'z3'))
+    out.write('\t@rm -f $(DESTDIR)%s*.py\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
+    out.write('\t@rm -f $(DESTDIR)%s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
+    out.write('\t@rm -f $(DESTDIR)%s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__', 'z3'))
     out.write('\t@echo Z3 was successfully uninstalled.\n')
     out.write('\n')
 
