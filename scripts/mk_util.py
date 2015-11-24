@@ -2087,7 +2087,9 @@ def mk_makefile():
     out.write("\t@echo \"Z3Py scripts stored in arbitrary directories can be also executed if \'%s\' directory is added to the PYTHONPATH environment variable.\"\n" % BUILD_DIR)
     if not IS_WINDOWS:
         out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
-        out.write('\t@echo "    sudo make install"\n')
+        out.write('\t@echo "    sudo make install"\n\n')
+        out.write("\t@echo If you are doing a staged install you can use DESTDIR.\n")
+        out.write('\t@echo "    make DESTDIR=/some/temp/directory install"\n')
     # Generate :examples rule
     out.write('examples:')
     for c in get_components():
