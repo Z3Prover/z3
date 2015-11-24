@@ -550,6 +550,7 @@ def display_help(exit_code):
         print("  -p <dir>, --prefix=<dir>      installation prefix (default: %s)." % PREFIX)
     else:
         print("  --parallel=num                use cl option /MP with 'num' parallel processes")
+    print("  --pypkgdir=<dir>              Force a particular Python package directory (default %s)" % PYTHON_PACKAGE_DIR)
     print("  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build).")
     print("  --githash=hash                include the given hash in the binaries.")
     print("  -d, --debug                   compile Z3 in debug mode.")
@@ -593,12 +594,13 @@ def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
+    pythonPkgDir=None
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'x86', 'ml', 'optimize', 'noomp'])
+                                                'githash=', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir='])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -637,7 +639,8 @@ def parse_options():
             SLOW_OPTIMIZE = True
         elif not IS_WINDOWS and opt in ('-p', '--prefix'):
             PREFIX = arg
-            PYTHON_PACKAGE_DIR = os.path.join('$(PREFIX)', 'lib', 'python%s' % distutils.sysconfig.get_python_version(), 'dist-packages')
+        elif opt in ('--pypkgdir'):
+            pythonPkgDir = arg
         elif IS_WINDOWS and opt == '--parallel':
             VS_PAR = True
             VS_PAR_NUM = int(arg)
@@ -659,6 +662,31 @@ def parse_options():
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
+    # Handle the Python package directory
+    def printPythonPackageMessage(errorType):
+        msg = (("%s: The detected Python package directory (%s)"
+               " does not live under the installation prefix (%s)"
+               ". This will most likely lead to a broken installation.") %
+               (errorType, PYTHON_PACKAGE_DIR, PREFIX))
+        if errorType == "ERROR":
+            msg += (" However if you are confident you want to use that"
+                   " Python package directory use --pypkgdir=%s to force"
+                   " it.") % PYTHON_PACKAGE_DIR
+        print(msg)
+    if pythonPkgDir == None:
+        if not IS_WINDOWS:
+            # Try to use the default if it makes sense
+            if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
+                printPythonPackageMessage("ERROR")
+                sys.exit(1)
+            # Do replacement to use $(PREFIX) in the Makefile
+            PYTHON_PACKAGE_DIR = PYTHON_PACKAGE_DIR.replace(PREFIX, "$(PREFIX)", 1)
+    else:
+        PYTHON_PACKAGE_DIR = pythonPkgDir
+        if not os.path.exists(PYTHON_PACKAGE_DIR):
+            print("WARNING: PYTHON_PACKAGE_DIR (%s) does not exist." % PYTHON_PACKAGE_DIR)
+        if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
+            printPythonPackageMessage("WARNING")
 
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
