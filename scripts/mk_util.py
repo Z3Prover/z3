@@ -1246,11 +1246,57 @@ class DLLComponent(Component):
         if self.static:
             out.write(' %s$(LIB_EXT)' % self.dll_name)
 
+    def _compute_relative_path(self, link_dir, target):
+        """
+        Compute the relative path to ``target`` from a directory
+        ``link_dir``.
+
+        e.g.
+        ```
+        self._compute_relative_path("/usr/lib/python3.5/site-packages",
+                                         "/usr/lib/libz3.so")
+
+             ==
+
+             "../../libz3.so"
+        ```
+        """
+        assert os.path.isabs(link_dir)
+        assert os.path.isabs(target)
+        relative_path =""
+
+        temp_path = link_dir
+        # Keep walking up the directory tree until temp_path
+        # is a prefix of target.
+        while not target.startswith(temp_path):
+            assert temp_path != '/'
+            temp_path = os.path.dirname(temp_path)
+            relative_path += '../'
+
+        # Now get the path from the common prefix to the target
+        target_from_prefix = target.replace(temp_path,'',1)
+        relative_path += target_from_prefix
+        # Remove any double slashes
+        relativePath = relative_path.replace('//','/')
+        return relativePath
+
     def mk_install(self, out):
         if self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@cp %s %s\n' % (dllfile, os.path.join('$(DESTDIR)$(PREFIX)', 'lib', dllfile)))
-            out.write('\t@cp %s $(DESTDIR)%s\n' % (dllfile, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
+            dllInstallPath = os.path.join('$(PREFIX)', 'lib', dllfile)
+            pythonPkgDirSubst = PYTHON_PACKAGE_DIR.replace('$(PREFIX)', PREFIX, 1)
+            out.write('\t@cp %s $(DESTDIR)%s\n' % (dllfile, dllInstallPath))
+            if IS_WINDOWS or not pythonPkgDirSubst.startswith(PREFIX):
+                out.write('\t@cp %s $(DESTDIR)%s\n' % (dllfile, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
+            else:
+                # Create symbolic link to save space.
+                # Compute the relative path from the python package directory
+                # to libz3. It's important that this symlink be relative
+                # (rather than absolute) so that the install is relocatable.
+                dllInstallPathSubst = dllInstallPath.replace('$(PREFIX)', PREFIX,1)
+                relativePath = self._compute_relative_path(pythonPkgDirSubst,
+                                                           dllInstallPathSubst)
+                out.write('\t@ln -s %s $(DESTDIR)%s\n' % (relativePath, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
                 out.write('\t@cp %s %s\n' % (libfile, os.path.join('$(DESTDIR)$(PREFIX)', 'lib', libfile)))
