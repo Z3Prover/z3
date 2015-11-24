@@ -1017,11 +1017,15 @@ class LibComponent(Component):
 
     def mk_install(self, out):
         for include in self.includes2install:
-            out.write('\t@cp %s %s\n' % (os.path.join(self.to_src_dir, include), os.path.join('$(DESTDIR)$(PREFIX)', 'include', include)))
+            MakeRuleCmd.install_files(
+                out,
+                os.path.join(self.to_src_dir, include),
+                os.path.join('include', include)
+            )
 
     def mk_uninstall(self, out):
         for include in self.includes2install:
-            out.write('\t@rm -f %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'include', include))
+            MakeRuleCmd.remove_installed_files(out, os.path.join('include', include))
 
     def mk_win_dist(self, build_path, dist_path):
         mk_dir(os.path.join(dist_path, 'include'))
@@ -1103,11 +1107,11 @@ class ExeComponent(Component):
     def mk_install(self, out):
         if self.install:
             exefile = '%s$(EXE_EXT)' % self.exe_name
-            out.write('\t@cp %s %s\n' % (exefile, os.path.join('$(DESTDIR)$(PREFIX)', 'bin', exefile)))
+            MakeRuleCmd.install_files(out, exefile, os.path.join('bin', exefile))
 
     def mk_uninstall(self, out):
         exefile = '%s$(EXE_EXT)' % self.exe_name
-        out.write('\t@rm -f %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'bin', exefile))
+        MakeRuleCmd.remove_installed_files(out, os.path.join('bin', exefile))
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
@@ -1283,9 +1287,11 @@ class DLLComponent(Component):
     def mk_install(self, out):
         if self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
+            MakeRuleCmd.install_files(out, dllfile, os.path.join('lib', dllfile))
+            # FIXME: All this stuff to do with the Python bindings needs to
+            # be refactored to use MakeRuleCmd.
             dllInstallPath = os.path.join('$(PREFIX)', 'lib', dllfile)
             pythonPkgDirSubst = PYTHON_PACKAGE_DIR.replace('$(PREFIX)', PREFIX, 1)
-            out.write('\t@cp %s $(DESTDIR)%s\n' % (dllfile, dllInstallPath))
             if IS_WINDOWS or not pythonPkgDirSubst.startswith(PREFIX):
                 out.write('\t@cp %s $(DESTDIR)%s\n' % (dllfile, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
             else:
@@ -1299,15 +1305,15 @@ class DLLComponent(Component):
                 out.write('\t@ln -s %s $(DESTDIR)%s\n' % (relativePath, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
-                out.write('\t@cp %s %s\n' % (libfile, os.path.join('$(DESTDIR)$(PREFIX)', 'lib', libfile)))
-
+                MakeRuleCmd.install_files(out, libfile, os.path.join('lib', libfile))
 
     def mk_uninstall(self, out):
         dllfile = '%s$(SO_EXT)' % self.dll_name
-        out.write('\t@rm -f %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'lib', dllfile))
+        MakeRuleCmd.remove_installed_files(out, os.path.join('lib', dllfile))
+        # FIXME: Use MakeRuleCmd
         out.write('\t@rm -f $(DESTDIR)%s\n' % os.path.join(PYTHON_PACKAGE_DIR, dllfile))
         libfile = '%s$(LIB_EXT)' % self.dll_name
-        out.write('\t@rm -f %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'lib', libfile))
+        MakeRuleCmd.remove_installed_files(out, os.path.join('lib', libfile))
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
@@ -1474,14 +1480,16 @@ class JavaDLLComponent(Component):
     def mk_install(self, out):
         if is_java_enabled() and self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@cp %s %s\n' % (dllfile, os.path.join('$(PREFIX)', 'lib', dllfile)))
-            out.write('\t@cp %s.jar %s.jar\n' % (self.package_name, os.path.join('$(PREFIX)', 'lib', self.package_name)))
+            MakeRuleCmd.install_files(out, dllfile, os.path.join('lib', dllfile))
+            jarfile = '{}.jar'.format(self.package_name)
+            MakeRuleCmd.install_files(out, jarfile, os.path.join('lib', jarfile))
 
     def mk_uninstall(self, out):
         if is_java_enabled() and self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@rm %s\n' % (os.path.join('$(PREFIX)', 'lib', dllfile)))
-            out.write('\t@rm %s.jar\n' % (os.path.join('$(PREFIX)', 'lib', self.package_name)))
+            MakeRuleCmd.remove_installed_files(out, os.path.join('lib', dllfile))
+            jarfile = '{}.jar'.format(self.package_name)
+            MakeRuleCmd.remove_installed_files(out, os.path.join('lib', jarfile))
 
 class MLComponent(Component):
     def __init__(self, name, lib_name, path, deps):
@@ -2080,9 +2088,10 @@ def mk_install(out):
     if is_ml_enabled() and OCAMLFIND != '':
         out.write('ocamlfind_install')
     out.write('\n')
-    out.write('\t@mkdir -p %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'bin'))
-    out.write('\t@mkdir -p %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'include'))
-    out.write('\t@mkdir -p %s\n' % os.path.join('$(DESTDIR)$(PREFIX)', 'lib'))
+    MakeRuleCmd.make_install_directory(out, 'bin')
+    MakeRuleCmd.make_install_directory(out, 'include')
+    MakeRuleCmd.make_install_directory(out, 'lib')
+    # FIXME: use MakeRuleCmd for the Python stuff
     out.write('\t@mkdir -p $(DESTDIR)%s\n' % PYTHON_PACKAGE_DIR)
     for c in get_components():
         c.mk_install(out)
@@ -2108,6 +2117,7 @@ def mk_uninstall(out):
     out.write('uninstall:\n')
     for c in get_components():
         c.mk_uninstall(out)
+    # FIXME: use MakeRuleCmd for the Python stuff
     out.write('\t@rm -f $(DESTDIR)%s*.py\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
     out.write('\t@rm -f $(DESTDIR)%s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
     out.write('\t@rm -f $(DESTDIR)%s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__', 'z3'))
@@ -3259,6 +3269,52 @@ def mk_unix_dist(build_path, dist_path):
     for pyc in filter(lambda f: f.endswith('.pyc') or f.endswith('.py'), os.listdir(build_path)):
         shutil.copy(os.path.join(build_path, pyc),
                     os.path.join(dist_path, 'bin', pyc))
+
+class MakeRuleCmd(object):
+    """
+        These class methods provide a convenient way to emit frequently
+        needed commands used in Makefile rules
+
+        Note that several of the method are meant for use during ``make
+        install`` and ``make uninstall``.  These methods correctly use
+        ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferrable
+        to writing commands manually which can be error prone.
+    """
+    @classmethod
+    def install_files(cls, out, srcPattern, dest):
+        assert len(dest) > 0
+        assert isinstance(srcPattern, str)
+        assert not ' ' in srcPattern
+        assert isinstance(dest, str)
+        assert not ' ' in dest
+        assert not os.path.isabs(srcPattern)
+        assert not os.path.isabs(dest)
+        cls.write_cmd(out, "cp {} $(DESTDIR)$(PREFIX)/{}".format(srcPattern, dest))
+
+    @classmethod
+    def remove_installed_files(cls, out, pattern):
+        assert len(pattern) > 0
+        assert isinstance(pattern, str)
+        assert not ' ' in pattern
+        assert not os.path.isabs(pattern)
+        cls.write_cmd(out, "rm -f $(DESTDIR)$(PREFIX)/{}".format(pattern))
+
+    @classmethod
+    def make_install_directory(cls, out, dir):
+        assert len(dir) > 0
+        assert isinstance(dir, str)
+        assert not ' ' in dir
+        assert not os.path.isabs(dir)
+        cls.write_cmd(out, "mkdir -p $(DESTDIR)$(PREFIX)/{}".format(dir))
+
+    # TODO: Refactor all of the build system to emit commands using this
+    # helper to simplify code. This will also let us replace ``@`` with
+    # ``$(Verb)`` and have it set to ``@`` or empty at build time depending on
+    # a variable (e.g. ``VERBOSE``) passed to the ``make`` invocation. This
+    # would be very helpful for debugging.
+    @classmethod
+    def write_cmd(cls, out, line):
+        out.write("\t@{}\n".format(line))
 
 
 if __name__ == '__main__':
