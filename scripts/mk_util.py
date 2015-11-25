@@ -1242,7 +1242,7 @@ class DLLComponent(Component):
             MakeRuleCmd.install_files(out, dllfile, dllInstallPath)
             pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
             if IS_WINDOWS:
-                MakeRuleCmd.install_files(dllfile, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
+                MakeRuleCmd.install_files(out, dllfile, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
             else:
                 # Create symbolic link to save space.
                 # Compute the relative path from the python package directory
