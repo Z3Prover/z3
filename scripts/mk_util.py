@@ -1245,9 +1245,9 @@ class DLLComponent(Component):
                 MakeRuleCmd.install_files(out, dllfile, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
             else:
                 # Create symbolic link to save space.
-                # Compute the relative path from the python package directory
-                # to libz3. It's important that this symlink be relative
-                # (rather than absolute) so that the install is relocatable.
+                # It's important that this symbolic link be relative (rather
+                # than absolute) so that the install is relocatable (needed for
+                # staged installs that use DESTDIR).
                 MakeRuleCmd.create_relative_symbolic_link(out, dllInstallPath, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
