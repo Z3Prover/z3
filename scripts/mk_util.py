@@ -594,7 +594,6 @@ def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
-    pythonPkgDir=None
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
@@ -640,7 +639,7 @@ def parse_options():
         elif not IS_WINDOWS and opt in ('-p', '--prefix'):
             PREFIX = arg
         elif opt in ('--pypkgdir'):
-            pythonPkgDir = arg
+            PYTHON_PACKAGE_DIR = arg
         elif IS_WINDOWS and opt == '--parallel':
             VS_PAR = True
             VS_PAR_NUM = int(arg)
@@ -663,30 +662,15 @@ def parse_options():
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
     # Handle the Python package directory
-    def printPythonPackageMessage(errorType):
-        msg = (("%s: The detected Python package directory (%s)"
-               " does not live under the installation prefix (%s)"
-               ". This will most likely lead to a broken installation.") %
-               (errorType, PYTHON_PACKAGE_DIR, PREFIX))
-        if errorType == "ERROR":
-            msg += (" However if you are confident you want to use that"
-                   " Python package directory use --pypkgdir=%s to force"
-                   " it.") % PYTHON_PACKAGE_DIR
-        print(msg)
-    if pythonPkgDir == None:
-        if not IS_WINDOWS:
-            # Try to use the default if it makes sense
-            if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
-                printPythonPackageMessage("ERROR")
-                sys.exit(1)
-            # Do replacement to use $(PREFIX) in the Makefile
-            PYTHON_PACKAGE_DIR = PYTHON_PACKAGE_DIR.replace(PREFIX, "$(PREFIX)", 1)
-    else:
-        PYTHON_PACKAGE_DIR = pythonPkgDir
-        if not os.path.exists(PYTHON_PACKAGE_DIR):
-            print("WARNING: PYTHON_PACKAGE_DIR (%s) does not exist." % PYTHON_PACKAGE_DIR)
+    if not IS_WINDOWS:
         if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
-            printPythonPackageMessage("WARNING")
+            printPythonPackageMessage("ERROR")
+            print(("ERROR: The detected Python package directory (%s)"
+                   " does not live under the installation prefix (%s)"
+                   ". This would lead to a broken installation."
+                   "Use --pypkgdir= to change the Python package directory") %
+                  (errorType, PYTHON_PACKAGE_DIR, PREFIX))
+            sys.exit(1)
 
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
@@ -1250,59 +1234,21 @@ class DLLComponent(Component):
         if self.static:
             out.write(' %s$(LIB_EXT)' % self.dll_name)
 
-    def _compute_relative_path(self, link_dir, target):
-        """
-        Compute the relative path to ``target`` from a directory
-        ``link_dir``.
-
-        e.g.
-        ```
-        self._compute_relative_path("/usr/lib/python3.5/site-packages",
-                                         "/usr/lib/libz3.so")
-
-             ==
-
-             "../../libz3.so"
-        ```
-        """
-        assert os.path.isabs(link_dir)
-        assert os.path.isabs(target)
-        relative_path =""
-
-        temp_path = link_dir
-        # Keep walking up the directory tree until temp_path
-        # is a prefix of target.
-        while not target.startswith(temp_path):
-            assert temp_path != '/'
-            temp_path = os.path.dirname(temp_path)
-            relative_path += '../'
-
-        # Now get the path from the common prefix to the target
-        target_from_prefix = target.replace(temp_path,'',1)
-        relative_path += target_from_prefix
-        # Remove any double slashes
-        relativePath = relative_path.replace('//','/')
-        return relativePath
-
     def mk_install(self, out):
         if self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            MakeRuleCmd.install_files(out, dllfile, os.path.join('lib', dllfile))
-            # FIXME: All this stuff to do with the Python bindings needs to
-            # be refactored to use MakeRuleCmd.
-            dllInstallPath = os.path.join('$(PREFIX)', 'lib', dllfile)
-            pythonPkgDirSubst = PYTHON_PACKAGE_DIR.replace('$(PREFIX)', PREFIX, 1)
-            if IS_WINDOWS or not pythonPkgDirSubst.startswith(PREFIX):
-                out.write('\t@cp %s $(DESTDIR)%s\n' % (dllfile, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
+            dllInstallPath = os.path.join('lib', dllfile)
+            MakeRuleCmd.install_files(out, dllfile, dllInstallPath)
+            pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+            if IS_WINDOWS:
+                MakeRuleCmd.install_files(dllfile, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
             else:
                 # Create symbolic link to save space.
                 # Compute the relative path from the python package directory
                 # to libz3. It's important that this symlink be relative
                 # (rather than absolute) so that the install is relocatable.
-                dllInstallPathSubst = dllInstallPath.replace('$(PREFIX)', PREFIX,1)
-                relativePath = self._compute_relative_path(pythonPkgDirSubst,
-                                                           dllInstallPathSubst)
-                out.write('\t@ln -s %s $(DESTDIR)%s\n' % (relativePath, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
+                dllInstallPathAbs = os.path.join(PREFIX, dllInstallPath)
+                MakeRuleCmd.create_relative_symbolic_link(out, dllInstallPath, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
                 MakeRuleCmd.install_files(out, libfile, os.path.join('lib', libfile))
@@ -1310,8 +1256,8 @@ class DLLComponent(Component):
     def mk_uninstall(self, out):
         dllfile = '%s$(SO_EXT)' % self.dll_name
         MakeRuleCmd.remove_installed_files(out, os.path.join('lib', dllfile))
-        # FIXME: Use MakeRuleCmd
-        out.write('\t@rm -f $(DESTDIR)%s\n' % os.path.join(PYTHON_PACKAGE_DIR, dllfile))
+        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+        MakeRuleCmd.remove_installed_files(out, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
         libfile = '%s$(LIB_EXT)' % self.dll_name
         MakeRuleCmd.remove_installed_files(out, os.path.join('lib', libfile))
 
@@ -2091,17 +2037,17 @@ def mk_install(out):
     MakeRuleCmd.make_install_directory(out, 'bin')
     MakeRuleCmd.make_install_directory(out, 'include')
     MakeRuleCmd.make_install_directory(out, 'lib')
-    # FIXME: use MakeRuleCmd for the Python stuff
-    out.write('\t@mkdir -p $(DESTDIR)%s\n' % PYTHON_PACKAGE_DIR)
+    pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+    MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
     for c in get_components():
         c.mk_install(out)
-    out.write('\t@cp z3*.py $(DESTDIR)%s\n' % PYTHON_PACKAGE_DIR)
+    MakeRuleCmd.install_files(out, 'z3*.py', pythonPkgDirWithoutPrefix)
     if sys.version >= "3":
-        out.write('\t@mkdir -p $(DESTDIR)%s\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__'))
-        out.write('\t@cp %s*.pyc $(DESTDIR)%s\n' % (os.path.join('__pycache__', 'z3'),
-                                          os.path.join(PYTHON_PACKAGE_DIR, '__pycache__')))
+        pythonPycacheDir = os.path.join(pythonPkgDirWithoutPrefix, '__pycache__')
+        MakeRuleCmd.make_install_directory(out, pythonPycacheDir)
+        MakeRuleCmd.install_files(out, '{}*.pyc'.format(os.path.join('__pycache__', 'z3')), pythonPycacheDir)
     else:
-        out.write('\t@cp z3*.pyc $(DESTDIR)%s\n' % PYTHON_PACKAGE_DIR)
+        MakeRuleCmd.install_files(out, 'z3*.pyc', pythonPkgDirWithoutPrefix)
     out.write('\t@echo Z3 was successfully installed.\n')
     if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
         if os.uname()[0] == 'Darwin':
@@ -2117,10 +2063,10 @@ def mk_uninstall(out):
     out.write('uninstall:\n')
     for c in get_components():
         c.mk_uninstall(out)
-    # FIXME: use MakeRuleCmd for the Python stuff
-    out.write('\t@rm -f $(DESTDIR)%s*.py\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
-    out.write('\t@rm -f $(DESTDIR)%s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
-    out.write('\t@rm -f $(DESTDIR)%s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__', 'z3'))
+    pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+    MakeRuleCmd.remove_installed_files(out, '{}*.py'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
+    MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
+    MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, '__pycache__', 'z3')))
     out.write('\t@echo Z3 was successfully uninstalled.\n')
     out.write('\n')
 
@@ -3307,6 +3253,51 @@ class MakeRuleCmd(object):
         assert not os.path.isabs(dir)
         cls.write_cmd(out, "mkdir -p $(DESTDIR)$(PREFIX)/{}".format(dir))
 
+    @classmethod
+    def create_relative_symbolic_link(cls, out, target, link_name):
+        assert isinstance(target, str)
+        assert isinstance(link_name, str)
+        assert len(target) > 0
+        assert len(link_name) > 0
+        assert not os.path.isabs(target)
+        assert not os.path.isabs(link_name)
+
+        # We can't test to see if link_name is a file or directory
+        # because it may not exist yet. Instead follow the convention
+        # that if there is a leading slash target is a directory otherwise
+        # it's a file
+        if link_name[-1] != '/':
+            # link_name is a file
+            temp_path = '/' + os.path.dirname(link_name)
+        else:
+            # link_name is a directory
+            temp_path = '/' + link_name[:-1]
+        relative_path = ""
+        targetAsAbs = '/' + target
+        assert os.path.isabs(targetAsAbs)
+        assert os.path.isabs(temp_path)
+        # Keep walking up the directory tree until temp_path
+        # is a prefix of targetAsAbs
+        while not targetAsAbs.startswith(temp_path):
+            assert temp_path != '/'
+            temp_path = os.path.dirname(temp_path)
+            relative_path += '../'
+
+        # Now get the path from the common prefix directory to the target
+        target_from_prefix = targetAsAbs[len(temp_path):]
+        relative_path += target_from_prefix
+        # Remove any double slashes
+        relative_path = relative_path.replace('//','/')
+        cls.create_symbolic_link(out, relative_path, link_name)
+
+    @classmethod
+    def create_symbolic_link(cls, out, target, link_name):
+        assert isinstance(target, str)
+        assert isinstance(link_name, str)
+        assert not os.path.isabs(target)
+        assert not os.path.isabs(link_name)
+        cls.write_cmd(out, 'ln -s {} $(DESTDIR)$(PREFIX)/{}'.format(target, link_name))
+
     # TODO: Refactor all of the build system to emit commands using this
     # helper to simplify code. This will also let us replace ``@`` with
     # ``$(Verb)`` and have it set to ``@`` or empty at build time depending on
@@ -3316,6 +3307,15 @@ class MakeRuleCmd(object):
     def write_cmd(cls, out, line):
         out.write("\t@{}\n".format(line))
 
+def strip_path_prefix(path, prefix):
+    assert path.startswith(prefix)
+    stripped_path = path[len(prefix):]
+    stripped_path.replace('//','/')
+    if stripped_path[0] == '/':
+        stripped_path = stripped_path[1:]
+
+    assert not os.path.isabs(stripped_path)
+    return stripped_path
 
 if __name__ == '__main__':
     import doctest
