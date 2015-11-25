@@ -3227,15 +3227,27 @@ class MakeRuleCmd(object):
         to writing commands manually which can be error prone.
     """
     @classmethod
-    def install_files(cls, out, srcPattern, dest):
+    def install_root(cls):
+        """
+            Returns a string that will expand to the
+            install location when used in a makefile rule.
+        """
+        # Note: DESTDIR is to support staged installs
+        return "$(DESTDIR)$(PREFIX)/"
+
+    @classmethod
+    def install_files(cls, out, src_pattern, dest):
         assert len(dest) > 0
-        assert isinstance(srcPattern, str)
-        assert not ' ' in srcPattern
+        assert isinstance(src_pattern, str)
+        assert not ' ' in src_pattern
         assert isinstance(dest, str)
         assert not ' ' in dest
-        assert not os.path.isabs(srcPattern)
+        assert not os.path.isabs(src_pattern)
         assert not os.path.isabs(dest)
-        cls.write_cmd(out, "cp {} $(DESTDIR)$(PREFIX)/{}".format(srcPattern, dest))
+        cls.write_cmd(out, "cp {src_pattern} {install_root}{dest}".format(
+            src_pattern=src_pattern,
+            install_root=cls.install_root(),
+            dest=dest))
 
     @classmethod
     def remove_installed_files(cls, out, pattern):
@@ -3243,7 +3255,9 @@ class MakeRuleCmd(object):
         assert isinstance(pattern, str)
         assert not ' ' in pattern
         assert not os.path.isabs(pattern)
-        cls.write_cmd(out, "rm -f $(DESTDIR)$(PREFIX)/{}".format(pattern))
+        cls.write_cmd(out, "rm -f {install_root}{pattern}".format(
+            install_root=cls.install_root(),
+            pattern=pattern))
 
     @classmethod
     def make_install_directory(cls, out, dir):
@@ -3251,7 +3265,9 @@ class MakeRuleCmd(object):
         assert isinstance(dir, str)
         assert not ' ' in dir
         assert not os.path.isabs(dir)
-        cls.write_cmd(out, "mkdir -p $(DESTDIR)$(PREFIX)/{}".format(dir))
+        cls.write_cmd(out, "mkdir -p {install_root}{dir}".format(
+            install_root=cls.install_root(),
+            dir=dir))
 
     @classmethod
     def create_relative_symbolic_link(cls, out, target, link_name):
@@ -3296,7 +3312,10 @@ class MakeRuleCmd(object):
         assert isinstance(link_name, str)
         assert not os.path.isabs(target)
         assert not os.path.isabs(link_name)
-        cls.write_cmd(out, 'ln -s {} $(DESTDIR)$(PREFIX)/{}'.format(target, link_name))
+        cls.write_cmd(out, 'ln -s {target} {install_root}{link_name}'.format(
+            target=target,
+            install_root=cls.install_root(),
+            link_name=link_name))
 
     # TODO: Refactor all of the build system to emit commands using this
     # helper to simplify code. This will also let us replace ``@`` with
