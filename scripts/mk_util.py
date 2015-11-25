@@ -34,6 +34,8 @@ OCAMLC=getenv("OCAMLC", "ocamlc")
 OCAMLOPT=getenv("OCAMLOPT", "ocamlopt")
 OCAML_LIB=getenv("OCAML_LIB", None)
 OCAMLFIND=getenv("OCAMLFIND", "ocamlfind")
+CSC=getenv("CSC", None)
+GACUTIL=getenv("GACUTIL", None)
 # Standard install directories relative to PREFIX
 INSTALL_BIN_DIR=getenv("Z3_INSTALL_BIN_DIR", "bin")
 INSTALL_LIB_DIR=getenv("Z3_INSTALL_LIB_DIR", "lib")
@@ -71,7 +73,7 @@ ONLY_MAKEFILES = False
 Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
-DOTNET_ENABLED=False
+DOTNET_ENABLED=True
 JAVA_ENABLED=False
 ML_ENABLED=False
 STATIC_LIB=False
@@ -143,6 +145,7 @@ def which(program):
             exe_file = os.path.join(path, program)
             if is_exe(exe_file):
                 return exe_file
+    return None
 
 class TempFile:
     def __init__(self, name):
@@ -388,6 +391,43 @@ def check_java():
         if JNI_HOME is None:
             raise MKException("Failed to detect jni.h. Possible solution: set JNI_HOME with the path to JDK.")
 
+def check_dotnet():
+    global CSC, GACUTIL
+    if IS_WINDOWS:
+        # Apparently building the dotnet bindings worked fine before
+        # so don't bother to try to detect anything
+        # FIXME: Shouldn't we be checking the supported version of .NET
+        # or something!?
+        if CSC == None:
+            CSC='csc.exe'
+        return
+
+    # Check for the mono compiler
+    if CSC == None:
+        monoCompilerExecutable = 'mcs'
+    else:
+        monoCompilerExecutable = CSC
+    monoCompilerPath = which(monoCompilerExecutable)
+    if monoCompilerPath == None:
+        print(("ERROR: Could not find mono compiler ({}) in your PATH. "
+              "Either install it or disable building the dotnet bindings.").format(
+              monoCompilerExecutable))
+        sys.exit(1)
+    CSC = monoCompilerPath
+
+    # Check for gacutil (needed to install the dotnet bindings)
+    if GACUTIL == None:
+        gacutilExecutable = 'gacutil'
+    else:
+        gacutilExecutable = GACUTIL
+    gacutilPath = which(gacutilExecutable)
+    if gacutilPath == None:
+        print(("ERROR: Could not find the gacutil ({}) in your PATH. "
+               "Either install it or disable building the dotnet bindings.").format(
+               gacutilExecutable))
+        sys.exit(1)
+    GACUTIL = gacutilPath
+
 def check_ml():
     t = TempFile('hello.ml')
     t.add('print_string "Hello world!\n";;')
@@ -532,8 +572,6 @@ if os.name == 'nt':
     IS_WINDOWS=True
     # Visual Studio already displays the files being compiled
     SHOW_CPPS=False
-    # Enable .Net bindings by default on windows
-    DOTNET_ENABLED=True
 elif os.name == 'posix':
     if os.uname()[0] == 'Darwin':
         IS_OSX=True
@@ -566,8 +604,7 @@ def display_help(exit_code):
     print("  -m, --makefiles               generate only makefiles.")
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
-    if IS_WINDOWS:
-        print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
+    print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
     if IS_WINDOWS:
         print("  --optimize                    generate optimized code during linking.")
     print("  -j, --java                    generate Java bindings.")
@@ -591,6 +628,8 @@ def display_help(exit_code):
     print("  OCAMLC     Ocaml byte-code compiler (only relevant with --ml)")
     print("  OCAMLOPT   Ocaml native compiler (only relevant with --ml)")
     print("  OCAML_LIB  Ocaml library directory (only relevant with --ml)")
+    print("  CSC        C# Compiler (only relevant if dotnet bindings are enabled)")
+    print("  GACUTIL    GAC Utility (only relevant if dotnet bindings are enabled)")
     print("  Z3_INSTALL_BIN_DIR Install directory for binaries relative to install prefix")
     print("  Z3_INSTALL_LIB_DIR Install directory for libraries relative to install prefix")
     print("  Z3_INSTALL_INCLUDE_DIR Install directory for header files relative to install prefix")
@@ -763,6 +802,9 @@ def is_java_enabled():
 
 def is_ml_enabled():
     return ML_ENABLED
+
+def is_dotnet_enabled():
+    return DOTNET_ENABLED
 
 def is_compiler(given, expected):
     """
@@ -1295,36 +1337,86 @@ class DotNetDLLComponent(Component):
         self.assembly_info_dir = assembly_info_dir
 
     def mk_makefile(self, out):
-        if DOTNET_ENABLED:
-            cs_fp_files = []
-            cs_files    = []
-            for cs_file in get_cs_files(self.src_dir):
-                cs_fp_files.append(os.path.join(self.to_src_dir, cs_file))
-                cs_files.append(cs_file)
-            if self.assembly_info_dir != '.':
-                for cs_file in get_cs_files(os.path.join(self.src_dir, self.assembly_info_dir)):
-                    cs_fp_files.append(os.path.join(self.to_src_dir, self.assembly_info_dir, cs_file))
-                    cs_files.append(os.path.join(self.assembly_info_dir, cs_file))
-            dllfile = '%s.dll' % self.dll_name
-            out.write('%s: %s$(SO_EXT)' % (dllfile, get_component(Z3_DLL_COMPONENT).dll_name))
-            for cs_file in cs_fp_files:
-                out.write(' ')
-                out.write(cs_file)
-            out.write('\n')
-            out.write('  csc /noconfig /unsafe+ /nowarn:1701,1702 /nostdlib+ /errorreport:prompt /warn:4 /reference:mscorlib.dll /reference:System.Core.dll /reference:System.dll /reference:System.Numerics.dll /filealign:512 /linkresource:%s.dll /out:%s.dll /target:library /doc:%s.xml' % (get_component(Z3_DLL_COMPONENT).dll_name, self.dll_name, self.dll_name))
-            if DEBUG_MODE:
-                out.write(' /define:DEBUG;TRACE /debug+ /debug:full /optimize-')
-            else:
-                out.write(' /optimize+')
-            if VS_X64:
-                out.write(' /platform:x64')
-            else:
-                out.write(' /platform:x86')
-            for cs_file in cs_files:
-                out.write(' %s' % os.path.join(self.to_src_dir, cs_file))
-            out.write('\n')
-            out.write('%s: %s\n\n' % (self.name, dllfile))
+        if not DOTNET_ENABLED:
             return
+        cs_fp_files = []
+        cs_files    = []
+        for cs_file in get_cs_files(self.src_dir):
+            cs_fp_files.append(os.path.join(self.to_src_dir, cs_file))
+            cs_files.append(cs_file)
+        if self.assembly_info_dir != '.':
+            for cs_file in get_cs_files(os.path.join(self.src_dir, self.assembly_info_dir)):
+                cs_fp_files.append(os.path.join(self.to_src_dir, self.assembly_info_dir, cs_file))
+                cs_files.append(os.path.join(self.assembly_info_dir, cs_file))
+        dllfile = '%s.dll' % self.dll_name
+        out.write('%s: %s$(SO_EXT)' % (dllfile, get_component(Z3_DLL_COMPONENT).dll_name))
+        for cs_file in cs_fp_files:
+            out.write(' ')
+            out.write(cs_file)
+        out.write('\n')
+
+        cscCmdLine = [CSC]
+        if IS_WINDOWS:
+            # Using these flags under the mono compiler results in build errors.
+            cscCmdLine.extend( [# What is the motivation for this?
+                                '/noconfig+',
+                                '/nostdlib+',
+                                '/reference:mscorlib.dll',
+                                # Under mono this isn't neccessary as mono will search the system
+                                # library paths for libz3.so
+                                '/linkresource:{}.dll'.format(get_component(Z3_DLL_COMPONENT).dll_name),
+                               ]
+                             )
+        else:
+            # We need to give the assembly a strong name so that it
+            # can be installed into the GAC with ``make install``
+            pathToSnk = os.path.join(self.to_src_dir, 'Microsoft.Z3.mono.snk')
+            cscCmdLine.append('/keyfile:{}'.format(pathToSnk))
+
+        cscCmdLine.extend( ['/unsafe+',
+                            '/nowarn:1701,1702',
+                            '/errorreport:prompt',
+                            '/warn:4',
+                            '/reference:System.Core.dll',
+                            '/reference:System.dll',
+                            '/reference:System.Numerics.dll',
+                            '/filealign:512', # Why!?
+                            '/out:{}.dll'.format(self.dll_name),
+                            '/target:library',
+                            '/doc:{}.xml'.format(self.dll_name),
+                           ]
+                         )
+        if DEBUG_MODE:
+            cscCmdLine.extend( ['/define:DEBUG;TRACE',
+                                '/debug+',
+                                '/debug:full',
+                                '/optimize-'
+                               ]
+                             )
+        else:
+            cscCmdLine.extend(['/optimize+'])
+        if IS_WINDOWS:
+            if VS_X64:
+                cscCmdLine.extend(['/platform:x64'])
+            else:
+                cscCmdLine.extend(['/platform:x86'])
+        else:
+            # Just use default platform for now.
+            # If the dlls are run using mono then it
+            # ignores what the platform is set to anyway.
+            pass
+
+        for cs_file in cs_files:
+            cscCmdLine.append('{}'.format(os.path.join(self.to_src_dir, cs_file)))
+
+        # Now emit the command line
+        MakeRuleCmd.write_cmd(out, ' '.join(cscCmdLine))
+
+        # State that the high-level "dotnet" target depends on the .NET bindings
+        # dll we just created the build rule for
+        out.write('\n')
+        out.write('%s: %s\n\n' % (self.name, dllfile))
+        return
 
     def main_component(self):
         return DOTNET_ENABLED
@@ -1349,6 +1441,40 @@ class DotNetDLLComponent(Component):
     def mk_unix_dist(self, build_path, dist_path):
         # Do nothing
         return
+
+    def mk_install_deps(self, out):
+        if not DOTNET_ENABLED:
+            return
+        out.write('%s' % self.name)
+
+    def _install_or_uninstall_to_gac(self, out, install):
+        gacUtilFlags = ['/package {}'.format(self.dll_name),
+                        '/root',
+                        '{}{}'.format(MakeRuleCmd.install_root(), INSTALL_LIB_DIR)
+                       ]
+        if install:
+            install_or_uninstall_flag = '-i'
+        else:
+            # Note need use ``-us`` here which takes an assembly file name
+            # rather than ``-u`` which takes an assembly display name (e.g.
+            #  )
+            install_or_uninstall_flag = '-us'
+        MakeRuleCmd.write_cmd(out, '{gacutil} {install_or_uninstall_flag} {assembly_name}.dll -f {flags}'.format(
+            gacutil=GACUTIL,
+            install_or_uninstall_flag=install_or_uninstall_flag,
+            assembly_name=self.dll_name,
+            flags=' '.join(gacUtilFlags)))
+
+    def mk_install(self, out):
+        if not DOTNET_ENABLED or IS_WINDOWS:
+            return
+        self._install_or_uninstall_to_gac(out, install=True)
+
+
+    def mk_uninstall(self, out):
+        if not DOTNET_ENABLED or IS_WINDOWS:
+            return
+        self._install_or_uninstall_to_gac(out, install=False)
 
 class JavaDLLComponent(Component):
     def __init__(self, name, dll_name, package_name, manifest_file, path, deps):
@@ -1662,7 +1788,7 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write(' ')
                 out.write(os.path.join(self.to_ex_dir, csfile))
             out.write('\n')
-            out.write('\tcsc /out:%s /reference:%s /debug:full /reference:System.Numerics.dll' % (exefile, dll))
+            out.write('\t%s /out:%s /reference:%s /debug:full /reference:System.Numerics.dll' % (CSC, exefile, dll))
             if VS_X64:
                 out.write(' /platform:x64')
             else:
@@ -2029,6 +2155,9 @@ def mk_config():
                 print('OCaml Compiler: %s' % OCAMLC)
                 print('OCaml Native:   %s' % OCAMLOPT)
                 print('OCaml Library:  %s' % OCAML_LIB)
+            if is_dotnet_enabled():
+                print('C# Compiler:    %s' % CSC)
+                print('GAC utility:    %s' % GACUTIL)
 
     config.close()
 
@@ -2603,7 +2732,6 @@ def cp_z3py_to_build():
 def mk_bindings(api_files):
     if not ONLY_MAKEFILES:
         mk_z3consts_py(api_files)
-        mk_z3consts_dotnet(api_files)
         new_api_files = []
         api = get_component(API_COMPONENT)
         for api_file in api_files:
@@ -2619,6 +2747,9 @@ def mk_bindings(api_files):
         if is_ml_enabled():
             check_ml()
             mk_z3consts_ml(api_files)
+        if is_dotnet_enabled():
+            check_dotnet()
+            mk_z3consts_dotnet(api_files)
 
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
