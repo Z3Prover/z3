@@ -1094,8 +1094,9 @@ class ExeComponent(Component):
             MakeRuleCmd.install_files(out, exefile, os.path.join('bin', exefile))
 
     def mk_uninstall(self, out):
-        exefile = '%s$(EXE_EXT)' % self.exe_name
-        MakeRuleCmd.remove_installed_files(out, os.path.join('bin', exefile))
+        if self.install:
+            exefile = '%s$(EXE_EXT)' % self.exe_name
+            MakeRuleCmd.remove_installed_files(out, os.path.join('bin', exefile))
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
