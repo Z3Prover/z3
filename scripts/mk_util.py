@@ -40,6 +40,7 @@ GACUTIL=getenv("GACUTIL", None)
 INSTALL_BIN_DIR=getenv("Z3_INSTALL_BIN_DIR", "bin")
 INSTALL_LIB_DIR=getenv("Z3_INSTALL_LIB_DIR", "lib")
 INSTALL_INCLUDE_DIR=getenv("Z3_INSTALL_INCLUDE_DIR", "include")
+INSTALL_PKGCONFIG_DIR=getenv("Z3_INSTALL_PKGCONFIG_DIR", os.path.join(INSTALL_LIB_DIR, 'pkgconfig'))
 
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
@@ -633,6 +634,7 @@ def display_help(exit_code):
     print("  Z3_INSTALL_BIN_DIR Install directory for binaries relative to install prefix")
     print("  Z3_INSTALL_LIB_DIR Install directory for libraries relative to install prefix")
     print("  Z3_INSTALL_INCLUDE_DIR Install directory for header files relative to install prefix")
+    print("  Z3_INSTALL_PKGCONFIG_DIR Install directory for pkgconfig files relative to install prefix")
     exit(exit_code)
 
 # Parse configuration option for mk_make script
@@ -1336,6 +1338,29 @@ class DotNetDLLComponent(Component):
         self.dll_name          = dll_name
         self.assembly_info_dir = assembly_info_dir
 
+    def mk_pkg_config_file(self):
+        """
+            Create pkgconfig file for the dot net bindings. These
+            are needed by Monodevelop.
+        """
+        pkg_config_template = os.path.join(self.src_dir, '{}.pc.in'.format(self.gac_pkg_name()))
+        substitutions = { 'PREFIX': PREFIX,
+                          'GAC_PKG_NAME': self.gac_pkg_name(),
+                          'VERSION': "{}.{}.{}.{}".format(
+                              VER_MAJOR,
+                              VER_MINOR,
+                              VER_BUILD,
+                              VER_REVISION)
+                        }
+        pkg_config_output = os.path.join(BUILD_DIR,
+                                       self.build_dir,
+                                       '{}.pc'.format(self.gac_pkg_name()))
+
+        # FIXME: Why isn't the build directory available?
+        mk_dir(os.path.dirname(pkg_config_output))
+        # Configure file that will be installed by ``make install``.
+        configure_file(pkg_config_template, pkg_config_output, substitutions)
+
     def mk_makefile(self, out):
         if not DOTNET_ENABLED:
             return
@@ -1416,6 +1441,9 @@ class DotNetDLLComponent(Component):
         # dll we just created the build rule for
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, dllfile))
+
+        # Create pkg-config file
+        self.mk_pkg_config_file()
         return
 
     def main_component(self):
@@ -1447,8 +1475,11 @@ class DotNetDLLComponent(Component):
             return
         out.write('%s' % self.name)
 
+    def gac_pkg_name(self):
+        return "{}.Sharp".format(self.dll_name)
+
     def _install_or_uninstall_to_gac(self, out, install):
-        gacUtilFlags = ['/package {}'.format(self.dll_name),
+        gacUtilFlags = ['/package {}'.format(self.gac_pkg_name()),
                         '/root',
                         '{}{}'.format(MakeRuleCmd.install_root(), INSTALL_LIB_DIR)
                        ]
@@ -1470,11 +1501,18 @@ class DotNetDLLComponent(Component):
             return
         self._install_or_uninstall_to_gac(out, install=True)
 
+        # Install pkg-config file. Monodevelop needs this to find Z3
+        pkg_config_output = os.path.join(self.build_dir,
+                                         '{}.pc'.format(self.gac_pkg_name()))
+        MakeRuleCmd.make_install_directory(out, INSTALL_PKGCONFIG_DIR)
+        MakeRuleCmd.install_files(out, pkg_config_output, INSTALL_PKGCONFIG_DIR)
 
     def mk_uninstall(self, out):
         if not DOTNET_ENABLED or IS_WINDOWS:
             return
         self._install_or_uninstall_to_gac(out, install=False)
+        pkg_config_file = os.path.join('lib','pkgconfig','{}.pc'.format(self.gac_pkg_name()))
+        MakeRuleCmd.remove_installed_files(out, pkg_config_file)
 
 class JavaDLLComponent(Component):
     def __init__(self, name, dll_name, package_name, manifest_file, path, deps):
@@ -3493,6 +3531,41 @@ def strip_path_prefix(path, prefix):
 
     assert not os.path.isabs(stripped_path)
     return stripped_path
+
+def configure_file(template_file_path, output_file_path, substitutions):
+    """
+        Read a template file ``template_file_path``, perform substitutions
+        found in the ``substitutions`` dictionary and write the result to
+        the output file ``output_file_path``.
+
+        The template file should contain zero or more template strings of the
+        form ``@NAME@``.
+
+        The substitutions dictionary maps old strings (without the ``@``
+        symbols) to their replacements.
+    """
+    assert isinstance(template_file_path, str)
+    assert isinstance(output_file_path, str)
+    assert isinstance(substitutions, dict)
+    assert len(template_file_path) > 0
+    assert len(output_file_path) > 0
+    print("Generating {} from {}".format(output_file_path, template_file_path))
+
+    if not os.path.exists(template_file_path):
+        raise MKException('Could not find template file "{}"'.format(template_file_path))
+
+    # Read whole template file into string
+    template_string = None
+    with open(template_file_path, 'r') as f:
+        template_string = f.read()
+
+    # Do replacements
+    for (old_string, replacement) in substitutions.items():
+        template_string = template_string.replace('@{}@'.format(old_string), replacement)
+
+    # Write the string to the file
+    with open(output_file_path, 'w') as f:
+        f.write(template_string)
 
 if __name__ == '__main__':
     import doctest
