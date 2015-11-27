@@ -42,9 +42,9 @@ class bvarray2uf_tactic : public tactic {
         imp(ast_manager & m, params_ref const & p) :
             m_manager(m),
             m_produce_models(false),
-            m_cancel(false),
             m_produce_proofs(false),
             m_produce_cores(false),
+            m_cancel(false),
             m_rw(m, p) {
             updt_params(p);
         }
