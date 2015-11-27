@@ -134,7 +134,7 @@ mpz_manager<SYNCH>::mpz_manager():
 #endif
     
     mpz one(1);
-    set(m_two64, UINT64_MAX);
+    set(m_two64, (uint64)UINT64_MAX);
     add(m_two64, one, m_two64);
 }
 
