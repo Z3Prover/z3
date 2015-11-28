@@ -34,6 +34,10 @@ OCAMLC=getenv("OCAMLC", "ocamlc")
 OCAMLOPT=getenv("OCAMLOPT", "ocamlopt")
 OCAML_LIB=getenv("OCAML_LIB", None)
 OCAMLFIND=getenv("OCAMLFIND", "ocamlfind")
+# Standard install directories relative to PREFIX
+INSTALL_BIN_DIR=getenv("Z3_INSTALL_BIN_DIR", "bin")
+INSTALL_LIB_DIR=getenv("Z3_INSTALL_LIB_DIR", "lib")
+INSTALL_INCLUDE_DIR=getenv("Z3_INSTALL_INCLUDE_DIR", "include")
 
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
@@ -587,6 +591,9 @@ def display_help(exit_code):
     print("  OCAMLC     Ocaml byte-code compiler (only relevant with --ml)")
     print("  OCAMLOPT   Ocaml native compiler (only relevant with --ml)")
     print("  OCAML_LIB  Ocaml library directory (only relevant with --ml)")
+    print("  Z3_INSTALL_BIN_DIR Install directory for binaries relative to install prefix")
+    print("  Z3_INSTALL_LIB_DIR Install directory for libraries relative to install prefix")
+    print("  Z3_INSTALL_INCLUDE_DIR Install directory for header files relative to install prefix")
     exit(exit_code)
 
 # Parse configuration option for mk_make script
@@ -1004,18 +1011,18 @@ class LibComponent(Component):
             MakeRuleCmd.install_files(
                 out,
                 os.path.join(self.to_src_dir, include),
-                os.path.join('include', include)
+                os.path.join(INSTALL_INCLUDE_DIR, include)
             )
 
     def mk_uninstall(self, out):
         for include in self.includes2install:
-            MakeRuleCmd.remove_installed_files(out, os.path.join('include', include))
+            MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_INCLUDE_DIR, include))
 
     def mk_win_dist(self, build_path, dist_path):
-        mk_dir(os.path.join(dist_path, 'include'))
+        mk_dir(os.path.join(dist_path, INSTALL_INCLUDE_DIR))
         for include in self.includes2install:
             shutil.copy(os.path.join(self.src_dir, include),
-                        os.path.join(dist_path, 'include', include))
+                        os.path.join(dist_path, INSTALL_INCLUDE_DIR, include))
 
     def mk_unix_dist(self, build_path, dist_path):
         self.mk_win_dist(build_path, dist_path)
@@ -1091,24 +1098,24 @@ class ExeComponent(Component):
     def mk_install(self, out):
         if self.install:
             exefile = '%s$(EXE_EXT)' % self.exe_name
-            MakeRuleCmd.install_files(out, exefile, os.path.join('bin', exefile))
+            MakeRuleCmd.install_files(out, exefile, os.path.join(INSTALL_BIN_DIR, exefile))
 
     def mk_uninstall(self, out):
         if self.install:
             exefile = '%s$(EXE_EXT)' % self.exe_name
-            MakeRuleCmd.remove_installed_files(out, os.path.join('bin', exefile))
+            MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_BIN_DIR, exefile))
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.exe' % os.path.join(build_path, self.exe_name),
-                        '%s.exe' % os.path.join(dist_path, 'bin', self.exe_name))
+                        '%s.exe' % os.path.join(dist_path, INSTALL_BIN_DIR, self.exe_name))
 
     def mk_unix_dist(self, build_path, dist_path):
         if self.install:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy(os.path.join(build_path, self.exe_name),
-                        os.path.join(dist_path, 'bin', self.exe_name))
+                        os.path.join(dist_path, INSTALL_BIN_DIR, self.exe_name))
 
 
 class ExtraExeComponent(ExeComponent):
@@ -1238,7 +1245,7 @@ class DLLComponent(Component):
     def mk_install(self, out):
         if self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            dllInstallPath = os.path.join('lib', dllfile)
+            dllInstallPath = os.path.join(INSTALL_LIB_DIR, dllfile)
             MakeRuleCmd.install_files(out, dllfile, dllInstallPath)
             pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
             if IS_WINDOWS:
@@ -1251,32 +1258,32 @@ class DLLComponent(Component):
                 MakeRuleCmd.create_relative_symbolic_link(out, dllInstallPath, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
-                MakeRuleCmd.install_files(out, libfile, os.path.join('lib', libfile))
+                MakeRuleCmd.install_files(out, libfile, os.path.join(INSTALL_LIB_DIR, libfile))
 
     def mk_uninstall(self, out):
         dllfile = '%s$(SO_EXT)' % self.dll_name
-        MakeRuleCmd.remove_installed_files(out, os.path.join('lib', dllfile))
+        MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, dllfile))
         pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
         MakeRuleCmd.remove_installed_files(out, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
         libfile = '%s$(LIB_EXT)' % self.dll_name
-        MakeRuleCmd.remove_installed_files(out, os.path.join('lib', libfile))
+        MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, libfile))
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
-                        '%s.dll' % os.path.join(dist_path, 'bin', self.dll_name))
+                        '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             shutil.copy('%s.lib' % os.path.join(build_path, self.dll_name),
-                        '%s.lib' % os.path.join(dist_path, 'bin', self.dll_name))
+                        '%s.lib' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
     def mk_unix_dist(self, build_path, dist_path):
         if self.install:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             so = get_so_ext()
             shutil.copy('%s.%s' % (os.path.join(build_path, self.dll_name), so),
-                        '%s.%s' % (os.path.join(dist_path, 'bin', self.dll_name), so))
+                        '%s.%s' % (os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name), so))
             shutil.copy('%s.a' % os.path.join(build_path, self.dll_name),
-                        '%s.a' % os.path.join(dist_path, 'bin', self.dll_name))
+                        '%s.a' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
@@ -1329,14 +1336,14 @@ class DotNetDLLComponent(Component):
     def mk_win_dist(self, build_path, dist_path):
         if DOTNET_ENABLED:
             # Assuming all DotNET dll should be in the distribution
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
-                        '%s.dll' % os.path.join(dist_path, 'bin', self.dll_name))
+                        '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             shutil.copy('%s.xml' % os.path.join(build_path, self.dll_name),
-                        '%s.xml' % os.path.join(dist_path, 'bin', self.dll_name))
+                        '%s.xml' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             if DEBUG_MODE:
                 shutil.copy('%s.pdb' % os.path.join(build_path, self.dll_name),
-                            '%s.pdb' % os.path.join(dist_path, 'bin', self.dll_name))
+                            '%s.pdb' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
 
 
@@ -1406,36 +1413,36 @@ class JavaDLLComponent(Component):
 
     def mk_win_dist(self, build_path, dist_path):
         if JAVA_ENABLED:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.jar' % os.path.join(build_path, self.package_name),
-                        '%s.jar' % os.path.join(dist_path, 'bin', self.package_name))
+                        '%s.jar' % os.path.join(dist_path, INSTALL_BIN_DIR, self.package_name))
             shutil.copy(os.path.join(build_path, 'libz3java.dll'),
-                        os.path.join(dist_path, 'bin', 'libz3java.dll'))
+                        os.path.join(dist_path, INSTALL_BIN_DIR, 'libz3java.dll'))
             shutil.copy(os.path.join(build_path, 'libz3java.lib'),
-                        os.path.join(dist_path, 'bin', 'libz3java.lib'))
+                        os.path.join(dist_path, INSTALL_BIN_DIR, 'libz3java.lib'))
 
     def mk_unix_dist(self, build_path, dist_path):
         if JAVA_ENABLED:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.jar' % os.path.join(build_path, self.package_name),
-                        '%s.jar' % os.path.join(dist_path, 'bin', self.package_name))
+                        '%s.jar' % os.path.join(dist_path, INSTALL_BIN_DIR, self.package_name))
             so = get_so_ext()
             shutil.copy(os.path.join(build_path, 'libz3java.%s' % so),
-                        os.path.join(dist_path, 'bin', 'libz3java.%s' % so))
+                        os.path.join(dist_path, INSTALL_BIN_DIR, 'libz3java.%s' % so))
 
     def mk_install(self, out):
         if is_java_enabled() and self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            MakeRuleCmd.install_files(out, dllfile, os.path.join('lib', dllfile))
+            MakeRuleCmd.install_files(out, dllfile, os.path.join(INSTALL_LIB_DIR, dllfile))
             jarfile = '{}.jar'.format(self.package_name)
-            MakeRuleCmd.install_files(out, jarfile, os.path.join('lib', jarfile))
+            MakeRuleCmd.install_files(out, jarfile, os.path.join(INSTALL_LIB_DIR, jarfile))
 
     def mk_uninstall(self, out):
         if is_java_enabled() and self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            MakeRuleCmd.remove_installed_files(out, os.path.join('lib', dllfile))
+            MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, dllfile))
             jarfile = '{}.jar'.format(self.package_name)
-            MakeRuleCmd.remove_installed_files(out, os.path.join('lib', jarfile))
+            MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, jarfile))
 
 class MLComponent(Component):
     def __init__(self, name, lib_name, path, deps):
@@ -2034,9 +2041,9 @@ def mk_install(out):
     if is_ml_enabled() and OCAMLFIND != '':
         out.write('ocamlfind_install')
     out.write('\n')
-    MakeRuleCmd.make_install_directory(out, 'bin')
-    MakeRuleCmd.make_install_directory(out, 'include')
-    MakeRuleCmd.make_install_directory(out, 'lib')
+    MakeRuleCmd.make_install_directory(out, INSTALL_BIN_DIR)
+    MakeRuleCmd.make_install_directory(out, INSTALL_INCLUDE_DIR)
+    MakeRuleCmd.make_install_directory(out, INSTALL_LIB_DIR)
     pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
     MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
     for c in get_components():
@@ -2055,7 +2062,7 @@ def mk_install(out):
         else:
             LD_LIBRARY_PATH = "LD_LIBRARY_PATH"
         out.write('\t@echo Z3 shared libraries were installed at \'%s\', make sure this directory is in your %s environment variable.\n' %
-                  (os.path.join(PREFIX, 'lib'), LD_LIBRARY_PATH))
+                  (os.path.join(PREFIX, INSTALL_LIB_DIR), LD_LIBRARY_PATH))
         out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
     out.write('\n')
 
@@ -3206,7 +3213,7 @@ def mk_win_dist(build_path, dist_path):
     print("Adding to %s\n" % dist_path)
     for pyc in filter(lambda f: f.endswith('.pyc') or f.endswith('.py'), os.listdir(build_path)):
         shutil.copy(os.path.join(build_path, pyc),
-                    os.path.join(dist_path, 'bin', pyc))
+                    os.path.join(dist_path, INSTALL_BIN_DIR, pyc))
 
 def mk_unix_dist(build_path, dist_path):
     for c in get_components():
@@ -3214,7 +3221,7 @@ def mk_unix_dist(build_path, dist_path):
     # Add Z3Py to bin directory
     for pyc in filter(lambda f: f.endswith('.pyc') or f.endswith('.py'), os.listdir(build_path)):
         shutil.copy(os.path.join(build_path, pyc),
-                    os.path.join(dist_path, 'bin', pyc))
+                    os.path.join(dist_path, INSTALL_BIN_DIR, pyc))
 
 class MakeRuleCmd(object):
     """
