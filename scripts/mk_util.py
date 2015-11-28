@@ -3270,6 +3270,27 @@ class MakeRuleCmd(object):
             dir=dir))
 
     @classmethod
+    def _is_path_prefix_of(cls, temp_path, target_as_abs):
+        """
+            Returns True iff ``temp_path`` is a path prefix
+            of ``target_as_abs``
+        """
+        assert isinstance(temp_path, str)
+        assert isinstance(target_as_abs, str)
+        assert len(temp_path) > 0
+        assert len(target_as_abs) > 0
+        assert os.path.isabs(temp_path)
+        assert os.path.isabs(target_as_abs)
+
+        # Need to stick extra slash in front otherwise we might think that
+        # ``/lib`` is a prefix of ``/lib64``.  Of course if ``temp_path ==
+        # '/'`` then we shouldn't else we would check if ``//`` (rather than
+        # ``/``) is a prefix of ``/lib64``, which would fail.
+        if len(temp_path) > 1:
+            temp_path += os.sep
+        return target_as_abs.startswith(temp_path)
+
+    @classmethod
     def create_relative_symbolic_link(cls, out, target, link_name):
         assert isinstance(target, str)
         assert isinstance(link_name, str)
@@ -3294,7 +3315,7 @@ class MakeRuleCmd(object):
         assert os.path.isabs(temp_path)
         # Keep walking up the directory tree until temp_path
         # is a prefix of targetAsAbs
-        while not targetAsAbs.startswith(temp_path):
+        while not cls._is_path_prefix_of(temp_path, targetAsAbs):
             assert temp_path != '/'
             temp_path = os.path.dirname(temp_path)
             relative_path += '../'
