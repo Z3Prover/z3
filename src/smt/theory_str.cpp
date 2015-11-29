@@ -350,6 +350,8 @@ app * theory_str::mk_str_var(std::string name) {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
+	TRACE("t_str_detail", tout << "creating string variable " << name << std::endl;);
+
 	sort * string_sort = m.mk_sort(m_strutil.get_family_id(), STRING_SORT);
 	char * new_buffer = alloc_svect(char, name.length() + 1);
 	strcpy(new_buffer, name.c_str());
@@ -360,6 +362,7 @@ app * theory_str::mk_str_var(std::string name) {
 	// I have a hunch that this may not get internalized for free...
 	ctx.internalize(a, false);
 	SASSERT(ctx.get_enode(a) != NULL);
+	SASSERT(ctx.e_internalized(a));
 	m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
 
 	variable_set.insert(a);
@@ -369,26 +372,31 @@ app * theory_str::mk_str_var(std::string name) {
 }
 
 app * theory_str::mk_nonempty_str_var() {
+    context & ctx = get_context();
     ast_manager & m = get_manager();
+
     std::stringstream ss;
     ss << tmpStringVarCount;
     tmpStringVarCount++;
     std::string name = "$$_str" + ss.str();
+
+    TRACE("t_str_detail", tout << "creating nonempty string variable " << name << std::endl;);
+
     sort * string_sort = m.mk_sort(m_strutil.get_family_id(), STRING_SORT);
     char * new_buffer = alloc_svect(char, name.length() + 1);
     strcpy(new_buffer, name.c_str());
     symbol sym(new_buffer);
 
     app* a = m.mk_const(m.mk_const_decl(sym, string_sort));
+    ctx.internalize(a, false);
+    SASSERT(ctx.get_enode(a) != NULL);
     // assert a variation of the basic string axioms that ensures this string is nonempty
     {
         // build LHS
-        expr_ref len_str(m);
-        len_str = mk_strlen(a);
+        expr * len_str = mk_strlen(a);
         SASSERT(len_str);
         // build RHS
-        expr_ref zero(m);
-        zero = m_autil.mk_numeral(rational(0), true);
+        expr * zero = m_autil.mk_numeral(rational(0), true);
         SASSERT(zero);
         // build LHS > RHS and assert
         // we have to build !(LHS <= RHS) instead
@@ -2509,7 +2517,7 @@ void theory_str::set_up_axioms(expr * ex) {
             	}
             } else if (ap->get_num_args() == 0 && !is_string(ap)) {
                 // if ex is a variable, add it to our list of variables
-                TRACE("t_str_detail", tout << "tracking variable" << std::endl;);
+                TRACE("t_str_detail", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
                 variable_set.insert(ex);
             }
         }
@@ -3347,6 +3355,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 
 final_check_status theory_str::final_check_eh() {
     context & ctx = get_context();
+    ast_manager & m = get_manager();
 
     TRACE("t_str", tout << "final check" << std::endl;);
     TRACE("t_str_detail", dump_assignments(););
@@ -3365,7 +3374,9 @@ final_check_status theory_str::final_check_eh() {
     // If not, mark it as free.
     bool needToAssignFreeVars = false;
     std::set<expr*> free_variables;
+    TRACE("t_str_detail", tout << variable_set.size() << " variables in variable_set" << std::endl;);
     for (std::set<expr*>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
+        TRACE("t_str_detail", tout << "checking eqc of variable " << mk_ismt2_pp(*it, m) << std::endl;);
         bool has_eqc_value = false;
         get_eqc_value(*it, has_eqc_value);
         if (!has_eqc_value) {
@@ -3674,7 +3685,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	for (long long i = l; i < h; i++) {
 		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()) ));
 		std::string aStr = gen_val_string(len, options[i - l]);
-		expr_ref strAst(m_strutil.mk_string(aStr), m);
+		expr * strAst = m_strutil.mk_string(aStr);
 		andList.push_back(m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVar, strAst)));
 	}
 	if (!coverAll) {
@@ -3761,7 +3772,7 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 				TRACE("t_str_detail", tout << "value tester " << mk_ismt2_pp(aTester, m)
 						<< "doesn't have an equivalence class value." << std::endl;);
 
-				expr_ref makeupAssert(gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i), m);
+				expr * makeupAssert = gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i);
 
 				TRACE("t_str_detail", tout << "var: " << mk_ismt2_pp(freeVar, m) << std::endl
 						<< mk_ismt2_pp(makeupAssert, m) << std::endl;);
@@ -3779,7 +3790,7 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 				fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, valTester));
 				print_value_tester_list(fvar_valueTester_map[freeVar][len]);
 			}
-			expr_ref nextAssert(gen_val_options(freeVar, len_indicator, valTester, len_valueStr, i + 1), m);
+			expr * nextAssert = gen_val_options(freeVar, len_indicator, valTester, len_valueStr, i + 1);
 			return nextAssert;
 		}
 
@@ -3792,7 +3803,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 
 	TRACE("t_str_detail", tout << "entry" << std::endl;);
 
-	expr_ref freeVarLen(mk_strlen(freeVar), m);
+	expr * freeVarLen = mk_strlen(freeVar);
 	SASSERT(freeVarLen);
 
 	ptr_vector<expr> orList;
@@ -3855,7 +3866,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		TRACE("t_str_detail", tout << "assertL = " << mk_ismt2_pp(assertL, m) << std::endl;);
 		// return the axiom (assertL -> lenTestAssert)
 		// would like to use mk_implies() here but...
-		expr_ref lenTestAssert(m.mk_or(m.mk_not(assertL), lenTestAssert), m);
+		lenTestAssert = m.mk_or(m.mk_not(assertL), lenTestAssert);
 	}
 
 	TRACE("t_str_detail", tout << "exit" << std::endl;);
