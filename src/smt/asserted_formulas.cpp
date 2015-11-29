@@ -606,8 +606,8 @@ void asserted_formulas::propagate_values() {
     proof_ref_vector new_prs2(m_manager);
     unsigned sz = m_asserted_formulas.size();
     for (unsigned i = 0; i < sz; i++) {
-        expr_ref n(m_asserted_formulas.get(i), m_manager);
-        proof * pr  = m_asserted_formula_prs.get(i, 0);
+        expr_ref   n(m_asserted_formulas.get(i), m_manager);
+        proof_ref pr(m_asserted_formula_prs.get(i, 0), m_manager);
         TRACE("simplifier", tout << mk_pp(n, m_manager) << "\n";);
         if (m_manager.is_eq(n)) {
             expr * lhs = to_app(n)->get_arg(0);
