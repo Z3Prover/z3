@@ -29,6 +29,7 @@ theory_str::theory_str(ast_manager & m):
         search_started(false),
         m_autil(m),
         m_strutil(m),
+        sLevel(0),
         tmpStringVarCount(0),
 		tmpXorVarCount(0),
 		avoidLoopCut(true),
@@ -331,7 +332,6 @@ expr * theory_str::mk_internal_valTest_var(expr * node, int len, int vTries) {
 
 void theory_str::track_variable_scope(expr * var) {
     context & ctx = get_context();
-    int sLevel = ctx.get_scope_level();
     if (internal_variable_scope_levels.find(sLevel) == internal_variable_scope_levels.end()) {
         internal_variable_scope_levels[sLevel] = std::set<expr*>();
     }
@@ -361,7 +361,6 @@ app * theory_str::mk_str_var(std::string name) {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
-	int sLevel = ctx.get_scope_level();
 	TRACE("t_str_detail", tout << "creating string variable " << name << " at scope level " << sLevel << std::endl;);
 
 	sort * string_sort = m.mk_sort(m_strutil.get_family_id(), STRING_SORT);
@@ -392,8 +391,6 @@ app * theory_str::mk_nonempty_str_var() {
     ss << tmpStringVarCount;
     tmpStringVarCount++;
     std::string name = "$$_str" + ss.str();
-
-    int sLevel = ctx.get_scope_level();
 
     TRACE("t_str_detail", tout << "creating nonempty string variable " << name << " at scope level " << sLevel << std::endl;);
 
@@ -2637,13 +2634,13 @@ void theory_str::assign_eh(bool_var v, bool is_true) {
 
 void theory_str::push_scope_eh() {
     context & ctx = get_context();
-    int sLevel = ctx.get_scope_level();
+    sLevel += 1;
     TRACE("t_str", tout << "push to " << sLevel << std::endl;);
 }
 
 void theory_str::pop_scope_eh(unsigned num_scopes) {
     context & ctx = get_context();
-    int sLevel = ctx.get_scope_level();
+    sLevel -= num_scopes;
     TRACE("t_str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
 
     std::map<expr*, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
@@ -3776,8 +3773,6 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 		std::string len_valueStr, expr * valTesterInCbEq, std::string valTesterValueStr) {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
-
-	int sLevel = ctx.get_scope_level();
 
 	int len = atoi(len_valueStr.c_str());
 

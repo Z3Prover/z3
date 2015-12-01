@@ -63,6 +63,7 @@ namespace smt {
         };
     protected:
         bool search_started;
+        int sLevel;
         arith_util m_autil;
         str_util m_strutil;
 
