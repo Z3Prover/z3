@@ -329,8 +329,18 @@ expr * theory_str::mk_internal_valTest_var(expr * node, int len, int vTries) {
   */
 }
 
+void theory_str::track_variable_scope(expr * var) {
+    context & ctx = get_context();
+    int sLevel = ctx.get_scope_level();
+    if (internal_variable_scope_levels.find(sLevel) == internal_variable_scope_levels.end()) {
+        internal_variable_scope_levels[sLevel] = std::set<expr*>();
+    }
+    internal_variable_scope_levels[sLevel].insert(var);
+}
+
 app * theory_str::mk_internal_xor_var() {
 	ast_manager & m = get_manager();
+	context & ctx = get_context();
 	std::stringstream ss;
 	ss << tmpXorVarCount;
 	tmpXorVarCount++;
@@ -342,6 +352,7 @@ app * theory_str::mk_internal_xor_var() {
 	symbol sym(new_buffer);
 
 	app* a = m.mk_const(m.mk_const_decl(sym, int_sort));
+
 	// TODO ctx.save_ast_trail(a)?
 	return a;
 }
@@ -350,7 +361,8 @@ app * theory_str::mk_str_var(std::string name) {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
-	TRACE("t_str_detail", tout << "creating string variable " << name << std::endl;);
+	int sLevel = ctx.get_scope_level();
+	TRACE("t_str_detail", tout << "creating string variable " << name << " at scope level " << sLevel << std::endl;);
 
 	sort * string_sort = m.mk_sort(m_strutil.get_family_id(), STRING_SORT);
 	char * new_buffer = alloc_svect(char, name.length() + 1);
@@ -367,6 +379,7 @@ app * theory_str::mk_str_var(std::string name) {
 
 	variable_set.insert(a);
 	internal_variable_set.insert(a);
+	track_variable_scope(a);
 
 	return a;
 }
@@ -380,7 +393,9 @@ app * theory_str::mk_nonempty_str_var() {
     tmpStringVarCount++;
     std::string name = "$$_str" + ss.str();
 
-    TRACE("t_str_detail", tout << "creating nonempty string variable " << name << std::endl;);
+    int sLevel = ctx.get_scope_level();
+
+    TRACE("t_str_detail", tout << "creating nonempty string variable " << name << " at scope level " << sLevel << std::endl;);
 
     sort * string_sort = m.mk_sort(m_strutil.get_family_id(), STRING_SORT);
     char * new_buffer = alloc_svect(char, name.length() + 1);
@@ -408,6 +423,7 @@ app * theory_str::mk_nonempty_str_var() {
     // add 'a' to variable sets, so we can keep track of it
     variable_set.insert(a);
     internal_variable_set.insert(a);
+    track_variable_scope(a);
 
     return a;
 }
@@ -2620,13 +2636,16 @@ void theory_str::assign_eh(bool_var v, bool is_true) {
 }
 
 void theory_str::push_scope_eh() {
-    TRACE("t_str", tout << "push" << std::endl;);
+    context & ctx = get_context();
+    int sLevel = ctx.get_scope_level();
+    TRACE("t_str", tout << "push to " << sLevel << std::endl;);
 }
 
 void theory_str::pop_scope_eh(unsigned num_scopes) {
-    TRACE("t_str", tout << "pop " << num_scopes << std::endl;);
     context & ctx = get_context();
     int sLevel = ctx.get_scope_level();
+    TRACE("t_str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
+
     std::map<expr*, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
     while (varItor != cut_var_map.end()) {
         while ((varItor->second.size() > 0) && (varItor->second.top()->level != 0) && (varItor->second.top()->level >= sLevel)) {
@@ -2639,6 +2658,24 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
         }
         ++varItor;
     }
+
+    // see if any internal variables went out of scope
+    for (int check_level = sLevel + num_scopes ; check_level > sLevel; --check_level) {
+        TRACE("t_str_detail", tout << "cleaning up internal variables at scope level " << check_level << std::endl;);
+        std::map<int, std::set<expr*> >::iterator it = internal_variable_scope_levels.find(check_level);
+        if (it != internal_variable_scope_levels.end()) {
+            unsigned count = 0;
+            std::set<expr*> vars = it->second;
+            for (std::set<expr*>::iterator var_it = vars.begin(); var_it != vars.end(); ++var_it) {
+                variable_set.erase(*var_it);
+                internal_variable_set.erase(*var_it);
+                count += 1;
+            }
+            TRACE("t_str_detail", tout << "cleaned up " << count << " variables" << std::endl;);
+            vars.clear();
+        }
+    }
+
 }
 
 void theory_str::dump_assignments() {

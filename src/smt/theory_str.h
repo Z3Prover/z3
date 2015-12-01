@@ -82,6 +82,7 @@ namespace smt {
 
         std::set<expr*> variable_set;
         std::set<expr*> internal_variable_set;
+        std::map<int, std::set<expr*> > internal_variable_scope_levels;
 
         std::set<expr*> input_var_in_len;
 
@@ -113,6 +114,7 @@ namespace smt {
         void add_cut_info_merge(expr * destNode, int slevel, expr * srcNode);
         bool has_self_cut(expr * n1, expr * n2);
 
+        void track_variable_scope(expr * var);
         app * mk_str_var(std::string name);
         app * mk_nonempty_str_var();
         app * mk_internal_xor_var();
