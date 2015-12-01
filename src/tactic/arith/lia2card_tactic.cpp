@@ -189,6 +189,7 @@ public:
                 TRACE("pb", tout << "add bound " << mk_pp(x, m) << "\n";);
             }
         }
+        expr_mark subfmls;
         for (unsigned i = 0; i < g->size(); i++) {            
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);        
@@ -198,6 +199,15 @@ public:
                 new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
             }
             g->update(i, new_curr, new_pr, g->dep(i));
+            mark_rec(subfmls, new_curr);
+        }
+        expr_set::iterator it = m_01s->begin(), end = m_01s->end();
+        for (; it != end; ++it) {
+            expr* v = *it;
+            if (subfmls.is_marked(v)) {
+                g->assert_expr(a.mk_le(v, a.mk_numeral(rational(1), true)));
+                g->assert_expr(a.mk_le(a.mk_numeral(rational(0), true), v));
+            }
         }
         g->inc_depth();
         result.push_back(g.get());
@@ -206,6 +216,26 @@ public:
         
         // TBD: convert models for 0-1 variables.
         // TBD: support proof conversion (or not..)
+    }
+    
+    void mark_rec(expr_mark& mark, expr* e) {
+        ptr_vector<expr> todo;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            e = todo.back();
+            todo.pop_back();
+            if (!mark.is_marked(e)) {
+                mark.mark(e);
+                if (is_app(e)) {
+                    for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
+                        todo.push_back(to_app(e)->get_arg(i));
+                    }
+                }
+                else if (is_quantifier(e)) {
+                    todo.push_back(to_quantifier(e)->get_expr());
+                }
+            }
+        }
     }
 
 
