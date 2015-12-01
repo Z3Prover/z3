@@ -189,7 +189,6 @@ public:
                 TRACE("pb", tout << "add bound " << mk_pp(x, m) << "\n";);
             }
         }
-        expr_ref_vector fmls(m);
         expr_mark subfmls;
         for (unsigned i = 0; i < g->size(); i++) {            
             expr_ref   new_curr(m);
