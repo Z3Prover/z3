@@ -973,7 +973,7 @@ namespace datalog {
         }
     }
    
-    void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names, vector<unsigned> &bounds) {
+    void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names, unsigned_vector &bounds) {
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
             expr_ref r = bind_vars(m_rule_fmls[i].get(), true);
             rules.push_back(r.get());
@@ -988,7 +988,6 @@ namespace datalog {
         
         // ensure that rules are all using bound variables.
         for (unsigned i = m_rule_fmls_head; i < m_rule_fmls.size(); ++i) {
-            ptr_vector<sort> sorts;
             m_free_vars(m_rule_fmls[i].get());
             if (!m_free_vars.empty()) {
                 rm.mk_rule(m_rule_fmls[i].get(), 0, m_rule_set, m_rule_names[i]);

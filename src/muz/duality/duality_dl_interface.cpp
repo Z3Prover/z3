@@ -156,7 +156,7 @@ namespace Duality {
 
         expr_ref_vector rules(m_ctx.get_manager());
         svector< ::symbol> names;  
-        vector<unsigned> bounds;
+        unsigned_vector bounds;
         // m_ctx.get_rules_as_formulas(rules, names);
 
 

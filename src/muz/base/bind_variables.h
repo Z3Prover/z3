@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Utility to find constants that are declard as varaibles.
+    Utility to find constants that are declard as variables.
 
 Author:
 
