@@ -72,7 +72,7 @@ DEFINE_TYPE(Z3_rcf_num);
 
 /**
    @name Types
-   
+
    \conly Most of the types in the C API are opaque pointers.
    \mlonly Most of the types in the API are abstract. \endmlonly
 
@@ -120,7 +120,7 @@ typedef Z3_string * Z3_string_ptr;
 typedef [string] const char * Z3_string;
 #define Z3_string_ptr Z3_string *
 #endif
-    
+
 #ifdef Conly
 /**
    \brief True value. It is just an alias for \c 1.
@@ -138,7 +138,7 @@ typedef [string] const char * Z3_string;
    \mlonly {!lbool} \endmlonly \conly \brief
    Lifted Boolean type: \c false, \c undefined, \c true.
 */
-typedef enum 
+typedef enum
 {
     Z3_L_FALSE = -1,
     Z3_L_UNDEF,
@@ -153,10 +153,10 @@ typedef enum
    \sa Z3_mk_int_symbol
    \sa Z3_mk_string_symbol
 */
-typedef enum 
+typedef enum
 {
     Z3_INT_SYMBOL,
-    Z3_STRING_SYMBOL 
+    Z3_STRING_SYMBOL
 } Z3_symbol_kind;
 
 
@@ -174,7 +174,7 @@ typedef enum
    - Z3_PARAMETER_AST is used for expression parameters.
    - Z3_PARAMETER_FUNC_DECL is used for function declaration parameters.
 */
-typedef enum 
+typedef enum
 {
     Z3_PARAMETER_INT,
     Z3_PARAMETER_DOUBLE,
@@ -189,7 +189,7 @@ typedef enum
    \mlonly {!sort_kind} \endmlonly \conly \brief
    The different kinds of Z3 types (See #Z3_get_sort_kind).
 */
-typedef enum 
+typedef enum
 {
     Z3_UNINTERPRETED_SORT,
     Z3_BOOL_SORT,
@@ -217,15 +217,15 @@ typedef enum
    - Z3_FUNC_DECL_AST:      function declaration
    - Z3_UNKNOWN_AST:        internal
 */
-typedef enum 
+typedef enum
 {
     Z3_NUMERAL_AST,
-    Z3_APP_AST,         
-    Z3_VAR_AST,          
-    Z3_QUANTIFIER_AST,    
+    Z3_APP_AST,
+    Z3_VAR_AST,
+    Z3_QUANTIFIER_AST,
     Z3_SORT_AST,
     Z3_FUNC_DECL_AST,
-    Z3_UNKNOWN_AST = 1000 
+    Z3_UNKNOWN_AST = 1000
 } Z3_ast_kind;
 
 /**
@@ -296,9 +296,9 @@ typedef enum
    - Z3_OP_POWER Power operator x^y.
 
    - Z3_OP_STORE Array store. It satisfies select(store(a,i,v),j) = if i = j then v else select(a,j).
-        Array store takes at least 3 arguments. 
+        Array store takes at least 3 arguments.
 
-   - Z3_OP_SELECT Array select. 
+   - Z3_OP_SELECT Array select.
 
    - Z3_OP_CONST_ARRAY The constant array. For example, select(const(v),i) = v holds for every v and i. The function is unary.
 
@@ -336,7 +336,7 @@ typedef enum
    - Z3_OP_BSUB Binary subtraction.
 
    - Z3_OP_BMUL Binary multiplication.
-    
+
    - Z3_OP_BSDIV Binary signed division.
 
    - Z3_OP_BUDIV Binary unsigned division.
@@ -356,7 +356,7 @@ typedef enum
    - Z3_OP_BUREM0 Unary function. burem(x,0) is congruent to burem0(x).
 
    - Z3_OP_BSMOD0 Unary function. bsmod(x,0) is congruent to bsmod0(x).
-    
+
    - Z3_OP_ULEQ Unsigned bit-vector <= - Binary relation.
 
    - Z3_OP_SLEQ Signed bit-vector  <= - Binary relation.
@@ -425,7 +425,7 @@ typedef enum
        is not supported by the decision procedures. Only the most
        rudimentary simplification rules are applied to this function.
 
-   - Z3_OP_CARRY Compute the carry bit in a full-adder. 
+   - Z3_OP_CARRY Compute the carry bit in a full-adder.
        The meaning is given by the equivalence
        (carry l1 l2 l3) <=> (or (and l1 l2) (and l1 l3) (and l2 l3)))
 
@@ -438,7 +438,7 @@ typedef enum
    - Z3_OP_PR_TRUE: Proof for the expression 'true'.
 
    - Z3_OP_PR_ASSERTED: Proof for a fact asserted by the user.
-   
+
    - Z3_OP_PR_GOAL: Proof for a fact (tagged as goal) asserted by the user.
 
    - Z3_OP_PR_MODUS_PONENS: Given a proof for p and a proof for (implies p q), produces a proof for q.
@@ -450,7 +450,7 @@ typedef enum
           The second antecedents may also be a proof for (iff p q).
 
    - Z3_OP_PR_REFLEXIVITY: A proof for (R t t), where R is a reflexive relation. This proof object has no antecedents.
-        The only reflexive relations that are used are 
+        The only reflexive relations that are used are
         equivalence modulo namings, equality and equivalence.
         That is, R is either '~', '=' or 'iff'.
 
@@ -470,7 +470,7 @@ typedef enum
        }
 
    - Z3_OP_PR_TRANSITIVITY_STAR: Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
-     It combines several symmetry and transitivity proofs. 
+     It combines several symmetry and transitivity proofs.
 
           Example:
           \nicebox{
@@ -483,7 +483,7 @@ typedef enum
 
           Assuming that this proof object is a proof for (R s t), then
           a proof checker must check if it is possible to prove (R s t)
-          using the antecedents, symmetry and transitivity.  That is, 
+          using the antecedents, symmetry and transitivity.  That is,
           if there is a path from s to t, if we view every
           antecedent (R a b) as an edge between a and b.
 
@@ -501,8 +501,8 @@ typedef enum
 
        T1: (~ p q)
        [quant-intro T1]: (~ (forall (x) p) (forall (x) q))
-   
-   - Z3_OP_PR_DISTRIBUTIVITY: Distributivity proof object. 
+
+   - Z3_OP_PR_DISTRIBUTIVITY: Distributivity proof object.
           Given that f (= or) distributes over g (= and), produces a proof for
 
           (= (f a (g c d))
@@ -516,11 +516,11 @@ typedef enum
           where each f and g can have arbitrary number of arguments.
 
           This proof object has no antecedents.
-          Remark. This rule is used by the CNF conversion pass and 
+          Remark. This rule is used by the CNF conversion pass and
           instantiated by f = or, and g = and.
-    
+
    - Z3_OP_PR_AND_ELIM: Given a proof for (and l_1 ... l_n), produces a proof for l_i
-        
+
        \nicebox{
        T1: (and l_1 ... l_n)
        [and-elim T1]: l_i
@@ -536,10 +536,10 @@ typedef enum
           The head function symbol of t is interpreted.
 
           This proof object has no antecedents.
-          The conclusion of a rewrite rule is either an equality (= t s), 
+          The conclusion of a rewrite rule is either an equality (= t s),
           an equivalence (iff t s), or equi-satisfiability (~ t s).
           Remark: if f is bool, then = is iff.
-          
+
 
           Examples:
           \nicebox{
@@ -561,22 +561,22 @@ typedef enum
    - Z3_OP_PR_PULL_QUANT: A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents.
 
    - Z3_OP_PR_PULL_QUANT_STAR: A proof for (iff P Q) where Q is in prenex normal form.
-       This proof object is only used if the parameter PROOF_MODE is 1.       
+       This proof object is only used if the parameter PROOF_MODE is 1.
        This proof object has no antecedents.
-  
+
    - Z3_OP_PR_PUSH_QUANT: A proof for:
 
        \nicebox{
           (iff (forall (x_1 ... x_m) (and p_1[x_1 ... x_m] ... p_n[x_1 ... x_m]))
                (and (forall (x_1 ... x_m) p_1[x_1 ... x_m])
-                 ... 
+                 ...
                (forall (x_1 ... x_m) p_n[x_1 ... x_m])))
                }
          This proof object has no antecedents.
 
-   - Z3_OP_PR_ELIM_UNUSED_VARS:  
+   - Z3_OP_PR_ELIM_UNUSED_VARS:
           A proof for (iff (forall (x_1 ... x_n y_1 ... y_m) p[x_1 ... x_n])
-                           (forall (x_1 ... x_n) p[x_1 ... x_n])) 
+                           (forall (x_1 ... x_n) p[x_1 ... x_n]))
 
           It is used to justify the elimination of unused variables.
           This proof object has no antecedents.
@@ -586,14 +586,14 @@ typedef enum
           if x does not occur in t.
 
           This proof object has no antecedents.
-          
+
           Several variables can be eliminated simultaneously.
 
    - Z3_OP_PR_QUANT_INST: A proof of (or (not (forall (x) (P x))) (P a))
 
    - Z3_OP_PR_HYPOTHESIS: Mark a hypothesis in a natural deduction style proof.
 
-   - Z3_OP_PR_LEMMA: 
+   - Z3_OP_PR_LEMMA:
 
        \nicebox{
           T1: false
@@ -606,7 +606,7 @@ typedef enum
           Furthermore, there are no other open hypotheses in the subtree covered by
           the lemma.
 
-   - Z3_OP_PR_UNIT_RESOLUTION: 
+   - Z3_OP_PR_UNIT_RESOLUTION:
        \nicebox{
           T1:      (or l_1 ... l_n l_1' ... l_m')
           T2:      (not l_1)
@@ -615,7 +615,7 @@ typedef enum
           [unit-resolution T1 ... T(n+1)]: (or l_1' ... l_m')
           }
 
-   - Z3_OP_PR_IFF_TRUE: 
+   - Z3_OP_PR_IFF_TRUE:
       \nicebox{
        T1: p
        [iff-true T1]: (iff p true)
@@ -630,14 +630,14 @@ typedef enum
    - Z3_OP_PR_COMMUTATIVITY:
 
           [comm]: (= (f a b) (f b a))
-          
+
           f is a commutative operator.
 
           This proof object has no antecedents.
           Remark: if f is bool, then = is iff.
-   
+
    - Z3_OP_PR_DEF_AXIOM: Proof object used to justify Tseitin's like axioms:
-       
+
           \nicebox{
           (or (not (and p q)) p)
           (or (not (and p q)) q)
@@ -666,7 +666,7 @@ typedef enum
           You can recover the propositional tautologies by
           unfolding the Boolean connectives in the axioms a small
           bounded number of steps (=3).
-    
+
    - Z3_OP_PR_DEF_INTRO: Introduces a name for a formula/term.
        Suppose e is an expression with free variables x, and def-intro
        introduces the name n(x). The possible cases are:
@@ -682,17 +682,17 @@ typedef enum
        [def-intro]: (and (or (not cond) (= n th)) (or cond (= n el)))
 
        Otherwise:
-       [def-intro]: (= n e)       
+       [def-intro]: (= n e)
 
-   - Z3_OP_PR_APPLY_DEF: 
+   - Z3_OP_PR_APPLY_DEF:
        [apply-def T1]: F ~ n
        F is 'equivalent' to n, given that T1 is a proof that
        n is a name for F.
-   
+
    - Z3_OP_PR_IFF_OEQ:
        T1: (iff p q)
        [iff~ T1]: (~ p q)
- 
+
    - Z3_OP_PR_NNF_POS: Proof for a (positive) NNF step. Example:
        \nicebox{
           T1: (not s_1) ~ r_1
@@ -707,7 +707,7 @@ typedef enum
         The quantifier is retained (unless the bound variables are eliminated).
         Example
         \nicebox{
-           T1: q ~ q_new 
+           T1: q ~ q_new
            [nnf-pos T1]: (~ (forall (x T) q) (forall (x T) q_new))
         }
        (b) When recursively creating NNF over Boolean formulas, where the top-level
@@ -716,7 +716,7 @@ typedef enum
        NNF_NEG furthermore handles the case where negation is pushed
        over Boolean connectives 'and' and 'or'.
 
-    
+
    - Z3_OP_PR_NNF_NEG: Proof for a (negative) NNF step. Examples:
           \nicebox{
           T1: (not s_1) ~ r_1
@@ -737,24 +737,24 @@ typedef enum
                                    (and (or r_1 r_2) (or r_1' r_2')))
        }
    - Z3_OP_PR_NNF_STAR: A proof for (~ P Q) where Q is in negation normal form.
-       
-       This proof object is only used if the parameter PROOF_MODE is 1.       
-              
+
+       This proof object is only used if the parameter PROOF_MODE is 1.
+
        This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
 
    - Z3_OP_PR_CNF_STAR: A proof for (~ P Q) where Q is in conjunctive normal form.
-       This proof object is only used if the parameter PROOF_MODE is 1.       
-       This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.          
+       This proof object is only used if the parameter PROOF_MODE is 1.
+       This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
 
-   - Z3_OP_PR_SKOLEMIZE: Proof for:  
-       
+   - Z3_OP_PR_SKOLEMIZE: Proof for:
+
           \nicebox{
           [sk]: (~ (not (forall x (p x y))) (not (p (sk y) y)))
           [sk]: (~ (exists x (p x y)) (p (sk y) y))
           }
 
           This proof object has no antecedents.
-   
+
    - Z3_OP_PR_MODUS_PONENS_OEQ: Modus ponens style rule for equi-satisfiability.
        \nicebox{
           T1: p
@@ -767,9 +767,9 @@ typedef enum
          The theory lemma function comes with one or more parameters.
          The first parameter indicates the name of the theory.
          For the theory of arithmetic, additional parameters provide hints for
-         checking the theory lemma. 
+         checking the theory lemma.
          The hints for arithmetic are:
-         
+
          - farkas - followed by rational coefficients. Multiply the coefficients to the
            inequalities in the lemma, add the (negated) inequalities and obtain a contradiction.
 
@@ -799,7 +799,7 @@ typedef enum
         \nicebox{
              (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln))
         }
-        In other words we use the following (Prolog style) convention for Horn 
+        In other words we use the following (Prolog style) convention for Horn
         implications:
         The head of a Horn implication is position 0,
         the first conjunct in the body of an implication is position 1
@@ -822,16 +822,16 @@ typedef enum
 
 
       - Z3_OP_RA_STORE: Insert a record into a relation.
-        The function takes \c n+1 arguments, where the first argument is the relation and the remaining \c n elements 
+        The function takes \c n+1 arguments, where the first argument is the relation and the remaining \c n elements
         correspond to the \c n columns of the relation.
 
-      - Z3_OP_RA_EMPTY: Creates the empty relation. 
-        
+      - Z3_OP_RA_EMPTY: Creates the empty relation.
+
       - Z3_OP_RA_IS_EMPTY: Tests if the relation is empty.
 
       - Z3_OP_RA_JOIN: Create the relational join.
 
-      - Z3_OP_RA_UNION: Create the union or convex hull of two relations. 
+      - Z3_OP_RA_UNION: Create the union or convex hull of two relations.
         The function takes two arguments.
 
       - Z3_OP_RA_WIDEN: Widen two relations.
@@ -841,7 +841,7 @@ typedef enum
         The function takes one argument.
 
       - Z3_OP_RA_FILTER: Filter (restrict) a relation with respect to a predicate.
-        The first argument is a relation. 
+        The first argument is a relation.
         The second argument is a predicate with free de-Brujin indices
         corresponding to the columns of the relation.
         So the first column in the relation has index 0.
@@ -856,23 +856,23 @@ typedef enum
         target are elements in x in pos, such that there is no y in neg that agrees with
         x on the columns c1, d1, .., cN, dN.
 
-    
-      - Z3_OP_RA_RENAME: rename columns in the relation. 
+
+      - Z3_OP_RA_RENAME: rename columns in the relation.
         The function takes one argument.
         The parameters contain the renaming as a cycle.
-         
+
       - Z3_OP_RA_COMPLEMENT: Complement the relation.
 
       - Z3_OP_RA_SELECT: Check if a record is an element of the relation.
         The function takes \c n+1 arguments, where the first argument is a relation,
         and the remaining \c n arguments correspond to a record.
 
-      - Z3_OP_RA_CLONE: Create a fresh copy (clone) of a relation. 
+      - Z3_OP_RA_CLONE: Create a fresh copy (clone) of a relation.
         The function is logically the identity, but
         in the context of a register machine allows
         for \mlonly [OP_RA_UNION] \endmlonly \conly #Z3_OP_RA_UNION
         to perform destructive updates to the first argument.
-        
+
 
       - Z3_OP_FD_LT: A less than predicate over the finite domain Z3_FINITE_DOMAIN_SORT.
 
@@ -891,9 +891,9 @@ typedef enum
 
       - Z3_OP_DT_UPDATE_FIELD: datatype field update.
 
-      - Z3_OP_PB_AT_MOST: Cardinality constraint. 
+      - Z3_OP_PB_AT_MOST: Cardinality constraint.
               E.g., x + y + z <= 2
-      
+
       - Z3_OP_PB_LE: Generalized Pseudo-Boolean cardinality constraint.
               Example  2*x + 3*y <= 4
 
@@ -901,70 +901,70 @@ typedef enum
               Example  2*x + 3*y + 2*z >= 4
 
       - Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: Floating-point rounding mode RNE
-      
+
       - Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: Floating-point rounding mode RNA
-      
+
       - Z3_OP_FPA_RM_TOWARD_POSITIVE: Floating-point rounding mode RTP
-      
+
       - Z3_OP_FPA_RM_TOWARD_NEGATIVE: Floating-point rounding mode RTN
-      
+
       - Z3_OP_FPA_RM_TOWARD_ZERO: Floating-point rounding mode RTZ
 
       - Z3_OP_FPA_NUM: Floating-point value
-      
+
       - Z3_OP_FPA_PLUS_INF: Floating-point +oo
-      
+
       - Z3_OP_FPA_MINUS_INF: Floating-point -oo
-      
+
       - Z3_OP_FPA_NAN: Floating-point NaN
-      
+
       - Z3_OP_FPA_PLUS_ZERO: Floating-point +zero
-      
+
       - Z3_OP_FPA_MINUS_ZERO: Floating-point -zero
 
       - Z3_OP_FPA_ADD: Floating-point addition
-      
+
       - Z3_OP_FPA_SUB: Floating-point subtraction
-      
+
       - Z3_OP_FPA_NEG: Floating-point negation
 
       - Z3_OP_FPA_MUL: Floating-point multiplication
-      
+
       - Z3_OP_FPA_DIV: Floating-point division
-      
+
       - Z3_OP_FPA_REM: Floating-point remainder
-      
+
       - Z3_OP_FPA_ABS: Floating-point absolute value
-      
+
       - Z3_OP_FPA_MIN: Floating-point minimum
 
       - Z3_OP_FPA_MAX: Floating-point maximum
 
       - Z3_OP_FPA_FMA: Floating-point fused multiply-add
-      
+
       - Z3_OP_FPA_SQRT: Floating-point square root
-      
+
       - Z3_OP_FPA_ROUND_TO_INTEGRAL: Floating-point round to integral
 
-      - Z3_OP_FPA_EQ: Floating-point equality 
+      - Z3_OP_FPA_EQ: Floating-point equality
 
       - Z3_OP_FPA_LT: Floating-point less than
-      
+
       - Z3_OP_FPA_GT: Floating-point greater than
-      
+
       - Z3_OP_FPA_LE: Floating-point less than or equal
-      
+
       - Z3_OP_FPA_GE: Floating-point greater than or equal
 
       - Z3_OP_FPA_IS_NAN: Floating-point isNaN
-      
+
       - Z3_OP_FPA_IS_INF: Floating-point isInfinite
 
       - Z3_OP_FPA_IS_ZERO: Floating-point isZero
 
       - Z3_OP_FPA_IS_NORMAL: Floating-point isNormal
 
-      - Z3_OP_FPA_IS_SUBNORMAL: Floating-point isSubnormal      
+      - Z3_OP_FPA_IS_SUBNORMAL: Floating-point isSubnormal
 
       - Z3_OP_FPA_IS_NEGATIVE: Floating-point isNegative
 
@@ -975,15 +975,15 @@ typedef enum
       - Z3_OP_FPA_TO_FP: Floating-point conversion (various)
 
       - Z3_OP_FPA_TO_FP_UNSIGNED: Floating-point conversion from unsigend bit-vector
-      
+
       - Z3_OP_FPA_TO_UBV: Floating-point conversion to unsigned bit-vector
 
       - Z3_OP_FPA_TO_SBV: Floating-point conversion to signed bit-vector
-      
+
       - Z3_OP_FPA_TO_REAL: Floating-point conversion to real number
 
       - Z3_OP_FPA_TO_IEEE_BV: Floating-point conversion to IEEE-754 bit-vector
-      
+
       - Z3_OP_UNINTERPRETED: kind used for uninterpreted symbols.
 */
 typedef enum {
@@ -1004,7 +1004,7 @@ typedef enum {
 
     // Arithmetic
     Z3_OP_ANUM = 0x200,
-    Z3_OP_AGNUM,                
+    Z3_OP_AGNUM,
     Z3_OP_LE,
     Z3_OP_GE,
     Z3_OP_LT,
@@ -1020,7 +1020,7 @@ typedef enum {
     Z3_OP_TO_REAL,
     Z3_OP_TO_INT,
     Z3_OP_IS_INT,
-    Z3_OP_POWER,                
+    Z3_OP_POWER,
 
     // Arrays & Sets
     Z3_OP_STORE = 0x300,
@@ -1044,7 +1044,7 @@ typedef enum {
     Z3_OP_BADD,
     Z3_OP_BSUB,
     Z3_OP_BMUL,
-    
+
     Z3_OP_BSDIV,
     Z3_OP_BUDIV,
     Z3_OP_BSREM,
@@ -1052,13 +1052,13 @@ typedef enum {
     Z3_OP_BSMOD,
 
     // special functions to record the division by 0 cases
-    // these are internal functions 
-    Z3_OP_BSDIV0, 
+    // these are internal functions
+    Z3_OP_BSDIV0,
     Z3_OP_BUDIV0,
     Z3_OP_BSREM0,
     Z3_OP_BUREM0,
     Z3_OP_BSMOD0,
-    
+
     Z3_OP_ULEQ,
     Z3_OP_SLEQ,
     Z3_OP_UGEQ,
@@ -1098,47 +1098,47 @@ typedef enum {
     Z3_OP_BV2INT,
     Z3_OP_CARRY,
     Z3_OP_XOR3,
-    
+
     // Proofs
-    Z3_OP_PR_UNDEF = 0x500,     
+    Z3_OP_PR_UNDEF = 0x500,
     Z3_OP_PR_TRUE,
-    Z3_OP_PR_ASSERTED, 
-    Z3_OP_PR_GOAL, 
-    Z3_OP_PR_MODUS_PONENS, 
-    Z3_OP_PR_REFLEXIVITY, 
-    Z3_OP_PR_SYMMETRY, 
-    Z3_OP_PR_TRANSITIVITY, 
-    Z3_OP_PR_TRANSITIVITY_STAR, 
-    Z3_OP_PR_MONOTONICITY, 
+    Z3_OP_PR_ASSERTED,
+    Z3_OP_PR_GOAL,
+    Z3_OP_PR_MODUS_PONENS,
+    Z3_OP_PR_REFLEXIVITY,
+    Z3_OP_PR_SYMMETRY,
+    Z3_OP_PR_TRANSITIVITY,
+    Z3_OP_PR_TRANSITIVITY_STAR,
+    Z3_OP_PR_MONOTONICITY,
     Z3_OP_PR_QUANT_INTRO,
-    Z3_OP_PR_DISTRIBUTIVITY, 
-    Z3_OP_PR_AND_ELIM, 
-    Z3_OP_PR_NOT_OR_ELIM, 
-    Z3_OP_PR_REWRITE, 
-    Z3_OP_PR_REWRITE_STAR, 
-    Z3_OP_PR_PULL_QUANT, 
-    Z3_OP_PR_PULL_QUANT_STAR, 
-    Z3_OP_PR_PUSH_QUANT, 
-    Z3_OP_PR_ELIM_UNUSED_VARS, 
-    Z3_OP_PR_DER, 
+    Z3_OP_PR_DISTRIBUTIVITY,
+    Z3_OP_PR_AND_ELIM,
+    Z3_OP_PR_NOT_OR_ELIM,
+    Z3_OP_PR_REWRITE,
+    Z3_OP_PR_REWRITE_STAR,
+    Z3_OP_PR_PULL_QUANT,
+    Z3_OP_PR_PULL_QUANT_STAR,
+    Z3_OP_PR_PUSH_QUANT,
+    Z3_OP_PR_ELIM_UNUSED_VARS,
+    Z3_OP_PR_DER,
     Z3_OP_PR_QUANT_INST,
-    Z3_OP_PR_HYPOTHESIS, 
-    Z3_OP_PR_LEMMA, 
-    Z3_OP_PR_UNIT_RESOLUTION, 
-    Z3_OP_PR_IFF_TRUE, 
-    Z3_OP_PR_IFF_FALSE, 
-    Z3_OP_PR_COMMUTATIVITY, 
+    Z3_OP_PR_HYPOTHESIS,
+    Z3_OP_PR_LEMMA,
+    Z3_OP_PR_UNIT_RESOLUTION,
+    Z3_OP_PR_IFF_TRUE,
+    Z3_OP_PR_IFF_FALSE,
+    Z3_OP_PR_COMMUTATIVITY,
     Z3_OP_PR_DEF_AXIOM,
-    Z3_OP_PR_DEF_INTRO, 
-    Z3_OP_PR_APPLY_DEF, 
-    Z3_OP_PR_IFF_OEQ, 
-    Z3_OP_PR_NNF_POS, 
-    Z3_OP_PR_NNF_NEG, 
-    Z3_OP_PR_NNF_STAR, 
-    Z3_OP_PR_CNF_STAR, 
+    Z3_OP_PR_DEF_INTRO,
+    Z3_OP_PR_APPLY_DEF,
+    Z3_OP_PR_IFF_OEQ,
+    Z3_OP_PR_NNF_POS,
+    Z3_OP_PR_NNF_NEG,
+    Z3_OP_PR_NNF_STAR,
+    Z3_OP_PR_CNF_STAR,
     Z3_OP_PR_SKOLEMIZE,
-    Z3_OP_PR_MODUS_PONENS_OEQ, 
-    Z3_OP_PR_TH_LEMMA, 
+    Z3_OP_PR_MODUS_PONENS_OEQ,
+    Z3_OP_PR_TH_LEMMA,
     Z3_OP_PR_HYPER_RESOLVE,
 
     // Sequences
@@ -1221,14 +1221,14 @@ typedef enum {
 
     Z3_OP_FPA_TO_IEEE_BV,
 
-    Z3_OP_UNINTERPRETED         
+    Z3_OP_UNINTERPRETED
 } Z3_decl_kind;
 
 /**
    \mlonly {!param_kind} \endmlonly \conly \brief
 
    The different kinds of parameters that can be associated with parameter sets.
-   (see #Z3_mk_params). 
+   (see #Z3_mk_params).
 
     - Z3_PK_UINT integer parameters.
     - Z3_PK_BOOL boolean parameters.
@@ -1266,10 +1266,10 @@ typedef enum {
     Z3_NO_FAILURE,
     Z3_UNKNOWN,
     Z3_TIMEOUT,
-    Z3_MEMOUT_WATERMARK,     
-    Z3_CANCELED,      
-    Z3_NUM_CONFLICTS, 
-    Z3_THEORY,        
+    Z3_MEMOUT_WATERMARK,
+    Z3_CANCELED,
+    Z3_NUM_CONFLICTS,
+    Z3_THEORY,
     Z3_QUANTIFIERS
 } Z3_search_failure;
 #endif
@@ -1295,7 +1295,7 @@ typedef enum {
 /**
    \mlonly {!error_code} \endmlonly \conly \brief
    Z3 error codes \conly (See #Z3_get_error_code).
-   
+
    - Z3_OK:            No error.
    - Z3_SORT_ERROR:    User tried to build an invalid (type incorrect) AST.
    - Z3_IOB:           Index out of bounds.
@@ -1312,11 +1312,11 @@ typedef enum {
 */
 typedef enum
 {
-    Z3_OK,            
-    Z3_SORT_ERROR,    
-    Z3_IOB,           
-    Z3_INVALID_ARG,   
-    Z3_PARSER_ERROR,  
+    Z3_OK,
+    Z3_SORT_ERROR,
+    Z3_IOB,
+    Z3_INVALID_ARG,
+    Z3_PARSER_ERROR,
     Z3_NO_PARSER,
     Z3_INVALID_PATTERN,
     Z3_MEMOUT_FAIL,
@@ -1324,14 +1324,14 @@ typedef enum
     Z3_INTERNAL_FATAL,
     Z3_INVALID_USAGE,
     Z3_DEC_REF_ERROR,
-    Z3_EXCEPTION                
+    Z3_EXCEPTION
 } Z3_error_code;
 
 #endif
 
 /**
   Definitions for update_api.py
-  
+
   def_Type('CONFIG',           'Z3_config',           'Config')
   def_Type('CONTEXT',          'Z3_context',          'ContextObj')
   def_Type('AST',              'Z3_ast',              'Ast')
@@ -1376,18 +1376,18 @@ typedef void Z3_error_handler(Z3_context c, Z3_error_code e);
 /**
    \mlonly {!goal_prec} \endmlonly \conly \brief
    A Goal is essentially a set of formulas. Z3 provide APIs for building strategies/tactics for solving and transforming Goals. Some of these transformations apply under/over approximations.
-   
+
    - Z3_GOAL_PRECISE:    Approximations/Relaxations were not applied on the goal (sat and unsat answers were preserved).
    - Z3_GOAL_UNDER:      Goal is the product of a under-approximation (sat answers are preserved).
    - Z3_GOAL_OVER:       Goal is the product of an over-approximation (unsat answers are preserved).
    - Z3_GOAL_UNDER_OVER: Goal is garbage (it is the product of over- and under-approximations, sat and unsat answers are not preserved).
 */
-typedef enum 
+typedef enum
 {
-    Z3_GOAL_PRECISE,    
-    Z3_GOAL_UNDER,      
-    Z3_GOAL_OVER,       
-    Z3_GOAL_UNDER_OVER  
+    Z3_GOAL_PRECISE,
+    Z3_GOAL_UNDER,
+    Z3_GOAL_OVER,
+    Z3_GOAL_UNDER_OVER
 } Z3_goal_prec;
 
 #endif
@@ -1401,7 +1401,7 @@ extern "C" {
 #else
 [pointer_default(ref)] interface Z3 {
 #endif // CAMLIDL
-    
+
 #ifdef CorML3
     /**
         @name Configuration
@@ -1411,16 +1411,16 @@ extern "C" {
     /**
        \brief Set a global (or module) parameter.
        This setting is shared by all Z3 contexts.
-       
+
        When a Z3 module is initialized it will use the value of these parameters
        when Z3_params objects are not provided.
 
-       The name of parameter can be composed of characters [a-z][A-Z], digits [0-9], '-' and '_'. 
+       The name of parameter can be composed of characters [a-z][A-Z], digits [0-9], '-' and '_'.
        The character '.' is a delimiter (more later).
-       
+
        The parameter names are case-insensitive. The character '-' should be viewed as an "alias" for '_'.
        Thus, the following parameter names are considered equivalent: "pp.decimal-precision"  and "PP.DECIMAL_PRECISION".
-       
+
        This function can be used to set parameters for a specific Z3 module.
        This can be done by using <module-name>.<parameter-name>.
        For example:
@@ -1441,10 +1441,10 @@ extern "C" {
        def_API('Z3_global_param_reset_all', VOID, ())
     */
     void Z3_API Z3_global_param_reset_all(void);
-    
+
     /**
        \brief Get a global (or module) parameter.
-       
+
        Returns \mlonly \c None \endmlonly \conly \c Z3_FALSE
        if the parameter value does not exist.
 
@@ -1467,7 +1467,7 @@ extern "C" {
     /**
        \brief Create a configuration object for the Z3 context object.
 
-       Configurations are created in order to assign parameters prior to creating 
+       Configurations are created in order to assign parameters prior to creating
        contexts for Z3 interaction. For example, if the users wishes to use proof
        generation, then call:
 
@@ -1482,9 +1482,9 @@ extern "C" {
        global and module configurations. Now, we should use \c Z3_global_param_set.
 
        The following parameters can be set:
-        
+
           - proof  (Boolean)           Enable proof generation
-          - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting 
+          - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting
           - trace  (Boolean)           Tracing support for VCC
           - trace_file_name (String)   Trace out file for VCC traces
           - timeout (unsigned)         default timeout (in milliseconds) used for solvers
@@ -1513,14 +1513,14 @@ extern "C" {
     /**
        \brief Set a configuration parameter.
 
-       The following parameters can be set for 
+       The following parameters can be set for
 
        \sa Z3_mk_config
 
        def_API('Z3_set_param_value', VOID, (_in(CONFIG), _in(STRING), _in(STRING)))
     */
     void Z3_API Z3_set_param_value(Z3_config c, Z3_string param_id, Z3_string param_value);
-    
+
     /*@}*/
 #endif
 
@@ -1530,21 +1530,21 @@ extern "C" {
     /*@{*/
 
     /**
-       \brief Create a context using the given configuration. 
-    
+       \brief Create a context using the given configuration.
+
        After a context is created, the configuration cannot be changed,
        although some parameters can be changed using #Z3_update_param_value.
        All main interaction with Z3 happens in the context of a \c Z3_context.
 
        In contrast to #Z3_mk_context_rc, the life time of Z3_ast objects
        are determined by the scope level of #Z3_push and #Z3_pop.
-       In other words, a Z3_ast object remains valid until there is a 
-       call to Z3_pop that takes the current scope below the level where 
+       In other words, a Z3_ast object remains valid until there is a
+       call to Z3_pop that takes the current scope below the level where
        the object was created.
 
        Note that all other reference counted objects, including Z3_model,
-       Z3_solver, Z3_func_interp have to be managed by the caller. 
-       Their reference counts are not handled by the context.       
+       Z3_solver, Z3_func_interp have to be managed by the caller.
+       Their reference counts are not handled by the context.
 
        \conly \sa Z3_del_context
 
@@ -1564,7 +1564,7 @@ extern "C" {
        in the context returned by this function, the user
        is responsible for managing Z3_ast reference counters.
        Managing reference counters is a burden and error-prone,
-       but allows the user to use the memory more efficiently. 
+       but allows the user to use the memory more efficiently.
        The user must invoke #Z3_inc_ref for any Z3_ast returned
        by Z3, and #Z3_dec_ref whenever the Z3_ast is not needed
        anymore. This idiom is similar to the one used in
@@ -1572,15 +1572,15 @@ extern "C" {
 
        Remark: Z3_sort, Z3_func_decl, Z3_app, Z3_pattern are
        Z3_ast's.
- 
+
        After a context is created, the configuration cannot be changed.
        All main interaction with Z3 happens in the context of a \c Z3_context.
-       
+
        def_API('Z3_mk_context_rc', CONTEXT, (_in(CONFIG),))
     */
     Z3_context Z3_API Z3_mk_context_rc(Z3_config c);
 #endif
-    
+
 #ifdef CorML3
     /**
        \brief Delete the given logical context.
@@ -1591,7 +1591,7 @@ extern "C" {
     */
     void Z3_API Z3_del_context(Z3_context c);
 #endif
-    
+
 #ifdef Conly
     /**
        \brief Increment the reference counter of the given AST.
@@ -1639,7 +1639,7 @@ extern "C" {
        @name Parameters
     */
     /*@{*/
-    
+
     /**
        \brief Create a Z3 (empty) parameter set.
        Starting at Z3 4.0, parameter sets are used to configure many components such as:
@@ -1651,7 +1651,7 @@ extern "C" {
        def_API('Z3_mk_params', PARAMS, (_in(CONTEXT),))
     */
     Z3_params Z3_API Z3_mk_params(Z3_context c);
-    
+
 #ifdef Conly
     /**
        \brief Increment the reference counter of the given parameter set.
@@ -1677,7 +1677,7 @@ extern "C" {
 
     /**
        \brief Add a unsigned parameter \c k with value \c v to the parameter set \c p.
-       
+
        def_API('Z3_params_set_uint', VOID, (_in(CONTEXT), _in(PARAMS), _in(SYMBOL), _in(UINT)))
     */
     void Z3_API Z3_params_set_uint(Z3_context c, Z3_params p, Z3_symbol k, unsigned v);
@@ -1695,7 +1695,7 @@ extern "C" {
        def_API('Z3_params_set_symbol', VOID, (_in(CONTEXT), _in(PARAMS), _in(SYMBOL), _in(SYMBOL)))
     */
     void Z3_API Z3_params_set_symbol(Z3_context c, Z3_params p, Z3_symbol k, Z3_symbol v);
-    
+
     /**
        \brief Convert a parameter set into a string. This function is mainly used for printing the
        contents of a parameter set.
@@ -1712,7 +1712,7 @@ extern "C" {
        def_API('Z3_params_validate', VOID, (_in(CONTEXT), _in(PARAMS), _in(PARAM_DESCRS)))
     */
     void Z3_API Z3_params_validate(Z3_context c, Z3_params p, Z3_param_descrs d);
-    
+
 #endif
 
     /*@}*/
@@ -1738,24 +1738,24 @@ extern "C" {
     */
     void Z3_API Z3_param_descrs_dec_ref(Z3_context c, Z3_param_descrs p);
 #endif
-    
+
     /**
        \brief Return the kind associated with the given parameter name \c n.
 
        def_API('Z3_param_descrs_get_kind', UINT, (_in(CONTEXT), _in(PARAM_DESCRS), _in(SYMBOL)))
     */
     Z3_param_kind Z3_API Z3_param_descrs_get_kind(Z3_context c, Z3_param_descrs p, Z3_symbol n);
-    
+
     /**
        \brief Return the number of parameters in the given parameter description set.
-       
+
        def_API('Z3_param_descrs_size', UINT, (_in(CONTEXT), _in(PARAM_DESCRS)))
     */
     unsigned Z3_API Z3_param_descrs_size(Z3_context c, Z3_param_descrs p);
 
     /**
        \brief Return the number of parameters in the given parameter description set.
-       
+
        \pre i < Z3_param_descrs_size(c, p)
 
        def_API('Z3_param_descrs_get_name', SYMBOL, (_in(CONTEXT), _in(PARAM_DESCRS), _in(UINT)))
@@ -1812,7 +1812,7 @@ extern "C" {
     Z3_symbol Z3_API Z3_mk_string_symbol(Z3_context c, Z3_string s);
 
     /*@}*/
-    
+
     /**
        @name Sorts
     */
@@ -1828,7 +1828,7 @@ extern "C" {
 
     /**
        \brief Create a free (uninterpreted) type using the given name (symbol).
-       
+
        Two free types are considered the same iff the have the same name.
 
        def_API('Z3_mk_uninterpreted_sort', SORT, (_in(CONTEXT), _in(SYMBOL)))
@@ -1836,14 +1836,14 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_uninterpreted_sort(Z3_context c, Z3_symbol s);
 
     /**
-       \brief Create the Boolean type. 
+       \brief Create the Boolean type.
 
        This type is used to create propositional variables and predicates.
 
        def_API('Z3_mk_bool_sort', SORT, (_in(CONTEXT), ))
     */
     Z3_sort Z3_API Z3_mk_bool_sort(Z3_context c);
-    
+
     /**
        \brief Create the integer type.
 
@@ -1856,9 +1856,9 @@ extern "C" {
        def_API('Z3_mk_int_sort', SORT, (_in(CONTEXT), ))
     */
     Z3_sort Z3_API Z3_mk_int_sort(Z3_context c);
-    
+
     /**
-       \brief Create the real type. 
+       \brief Create the real type.
 
        Note that this type is not a floating point number.
 
@@ -1868,7 +1868,7 @@ extern "C" {
 
     /**
        \brief Create a bit-vector type of the given size.
-    
+
        This type can also be seen as a machine integer.
 
        \remark The size of the bitvector type must be greater than zero.
@@ -1880,10 +1880,10 @@ extern "C" {
     /**
        \brief Create a named finite domain sort.
 
-       To create constants that belong to the finite domain, 
+       To create constants that belong to the finite domain,
        use the APIs for creating numerals and pass a numeric
        constant together with the sort returned by this call.
-       The numeric constant should be between 0 and the less 
+       The numeric constant should be between 0 and the less
        than the size of the domain.
 
        \sa Z3_get_finite_domain_sort_size
@@ -1893,8 +1893,8 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, unsigned __int64 size);
 
     /**
-       \brief Create an array type. 
-       
+       \brief Create an array type.
+
        We usually represent the array type as: <tt>[domain -> range]</tt>.
        Arrays are usually used to model the heap/memory in software verification.
 
@@ -1907,7 +1907,7 @@ extern "C" {
 
     /**
        \brief Create a tuple type.
-       
+
        \mlonly [mk_tuple_sort c name field_names field_sorts] creates a tuple with a constructor named [name],
        a [n] fields, where [n] is the size of the arrays [field_names] and [field_sorts].
        \endmlonly
@@ -1925,9 +1925,9 @@ extern "C" {
 
        def_API('Z3_mk_tuple_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _out(FUNC_DECL), _out_array(2, FUNC_DECL)))
     */
-    Z3_sort Z3_API Z3_mk_tuple_sort(Z3_context c, 
-                                        Z3_symbol mk_tuple_name, 
-                                        unsigned num_fields, 
+    Z3_sort Z3_API Z3_mk_tuple_sort(Z3_context c,
+                                        Z3_symbol mk_tuple_name,
+                                        unsigned num_fields,
                                         Z3_symbol const field_names[],
                                         Z3_sort const field_sorts[],
                                         Z3_func_decl * mk_tuple_decl,
@@ -1935,15 +1935,15 @@ extern "C" {
 
     /**
        \brief Create a enumeration sort.
-       
-       \mlonly [mk_enumeration_sort c enums] creates an enumeration sort with enumeration names [enums], 
+
+       \mlonly [mk_enumeration_sort c enums] creates an enumeration sort with enumeration names [enums],
                it also returns [n] predicates, where [n] is the number of [enums] corresponding
                to testing whether an element is one of the enumerants.
        \endmlonly
 
        \conly An enumeration sort with \c n elements.
        \conly This function will also declare the functions corresponding to the enumerations.
-       
+
        \param c logical context
        \param name name of the enumeration sort.
        \param n number of elemenets in enumeration sort.
@@ -1951,15 +1951,15 @@ extern "C" {
        \param enum_consts constants corresponding to the enumerated elements.
        \param enum_testers predicates testing if terms of the enumeration sort correspond to an enumeration.
 
-       For example, if this function is called with three symbols A, B, C and the name S, then 
-       \c s is a sort whose name is S, and the function returns three terms corresponding to A, B, C in 
+       For example, if this function is called with three symbols A, B, C and the name S, then
+       \c s is a sort whose name is S, and the function returns three terms corresponding to A, B, C in
        \c enum_consts. The array \c enum_testers has three predicates of type <tt>(s -> Bool)</tt>.
        The first predicate (corresponding to A) is true when applied to A, and false otherwise.
        Similarly for the other predicates.
 
        def_API('Z3_mk_enumeration_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SYMBOL), _out_array(2, FUNC_DECL), _out_array(2, FUNC_DECL)))
     */
-    Z3_sort Z3_API Z3_mk_enumeration_sort(Z3_context c, 
+    Z3_sort Z3_API Z3_mk_enumeration_sort(Z3_context c,
                                           Z3_symbol name,
                                           unsigned n,
                                           Z3_symbol  const enum_names[],
@@ -1968,11 +1968,11 @@ extern "C" {
 
     /**
        \brief Create a list sort
-       
+
        \mlonly [mk_list_sort c name elem_sort] creates a list sort of [name], over elements of sort [elem_sort].
        \endmlonly
 
-       \conly A list sort over \c elem_sort 
+       \conly A list sort over \c elem_sort
        \conly This function declares the corresponding constructors and testers for lists.
 
        \param c logical context
@@ -2001,7 +2001,7 @@ extern "C" {
 BEGIN_MLAPI_EXCLUDE
     /**
        \brief Create a constructor.
-       
+
        \param c logical context.
        \param name constructor name.
        \param recognizer name of recognizer function.
@@ -2011,8 +2011,8 @@ BEGIN_MLAPI_EXCLUDE
                     if the field sort refers to a recursive sort.
        \param sort_refs reference to datatype sort that is an argument to the constructor; if the corresponding
                         sort reference is \mlonly [None], \endmlonly \conly 0,
-                        then the value in sort_refs should be an index referring to 
-                        one of the recursive datatypes that is declared.                        
+                        then the value in sort_refs should be an index referring to
+                        one of the recursive datatypes that is declared.
 
        def_API('Z3_mk_constructor', CONSTRUCTOR, (_in(CONTEXT), _in(SYMBOL), _in(SYMBOL), _in(UINT), _in_array(3, SYMBOL), _in_array(3, SORT), _in_array(3, UINT)))
     */
@@ -2024,7 +2024,7 @@ BEGIN_MLAPI_EXCLUDE
                                             Z3_sort_opt const sorts[],
                                             unsigned sort_refs[]
                                             );
-    
+
     /**
        \brief Reclaim memory allocated to constructor.
 
@@ -2036,7 +2036,7 @@ BEGIN_MLAPI_EXCLUDE
     void Z3_API Z3_del_constructor(Z3_context c, Z3_constructor constr);
 
     /**
-       \brief Create datatype, such as lists, trees, records, enumerations or unions of records. 
+       \brief Create datatype, such as lists, trees, records, enumerations or unions of records.
        The datatype may be recursive. Return the datatype sort.
 
        \param c logical context.
@@ -2076,7 +2076,7 @@ BEGIN_MLAPI_EXCLUDE
        def_API('Z3_del_constructor_list', VOID, (_in(CONTEXT), _in(CONSTRUCTOR_LIST)))
     */
     void Z3_API Z3_del_constructor_list(Z3_context c, Z3_constructor_list clist);
-                                        
+
     /**
        \brief Create mutually recursive datatypes.
 
@@ -2095,8 +2095,8 @@ BEGIN_MLAPI_EXCLUDE
                                 Z3_constructor_list constructor_lists[]);
 
     /**
-       \brief Query constructor for declared functions. 
-      
+       \brief Query constructor for declared functions.
+
        \param c logical context.
        \param constr constructor container. The container must have been passed in to a #Z3_mk_datatype call.
        \param num_fields number of accessor fields in the constructor.
@@ -2145,7 +2145,7 @@ END_MLAPI_EXCLUDE
                                         unsigned domain_size, Z3_sort const domain[],
                                         Z3_sort range);
 
-    
+
     /**
        \brief Create a constant or function application.
 
@@ -2154,20 +2154,20 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_app', AST, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT), _in_array(2, AST)))
     */
     Z3_ast Z3_API Z3_mk_app(
-        Z3_context c, 
+        Z3_context c,
         Z3_func_decl d,
-        unsigned num_args, 
+        unsigned num_args,
         Z3_ast const args[]);
 
     /**
        \brief Declare and create a constant.
-       
+
        \conly This function is a shorthand for:
        \conly \code
        \conly Z3_func_decl d = Z3_mk_func_decl(c, s, 0, 0, ty);
        \conly Z3_ast n            = Z3_mk_app(c, d, 0, 0);
        \conly \endcode
-       
+
        \mlonly [mk_const c s t] is a shorthand for [mk_app c (mk_func_decl c s [||] t) [||]] \endmlonly
 
        \sa Z3_mk_func_decl
@@ -2182,7 +2182,7 @@ END_MLAPI_EXCLUDE
 
        Z3 will generate an unique name for this function declaration.
        \conly If prefix is different from \c NULL, then the name generate by Z3 will start with \c prefix.
-       
+
        \conly \remark If \c prefix is \c NULL, then it is assumed to be the empty string.
 
        \sa Z3_mk_func_decl
@@ -2192,20 +2192,20 @@ END_MLAPI_EXCLUDE
     Z3_func_decl Z3_API Z3_mk_fresh_func_decl(Z3_context c, Z3_string prefix,
                                                    unsigned domain_size, Z3_sort const domain[],
                                                    Z3_sort range);
-    
+
     /**
        \brief Declare and create a fresh constant.
-       
+
        \conly This function is a shorthand for:
        \conly \code Z3_func_decl d = Z3_mk_fresh_func_decl(c, prefix, 0, 0, ty); Z3_ast n = Z3_mk_app(c, d, 0, 0); \endcode
 
        \mlonly [mk_fresh_const c p t] is a shorthand for [mk_app c (mk_fresh_func_decl c p [||] t) [||]]. \endmlonly
 
        \conly \remark If \c prefix is \c NULL, then it is assumed to be the empty string.
-       
+
        \sa Z3_mk_func_decl
        \sa Z3_mk_app
-       
+
        def_API('Z3_mk_fresh_const', AST, (_in(CONTEXT), _in(STRING), _in(SORT)))
     */
     Z3_ast Z3_API Z3_mk_fresh_const(Z3_context c, Z3_string prefix, Z3_sort ty);
@@ -2217,7 +2217,7 @@ END_MLAPI_EXCLUDE
     /*@{*/
     /**
         \brief Create an AST node representing \c true.
-        
+
         def_API('Z3_mk_true', AST, (_in(CONTEXT), ))
     */
     Z3_ast Z3_API Z3_mk_true(Z3_context c);
@@ -2228,17 +2228,17 @@ END_MLAPI_EXCLUDE
         def_API('Z3_mk_false', AST, (_in(CONTEXT), ))
     */
     Z3_ast Z3_API Z3_mk_false(Z3_context c);
-    
+
     /**
         \brief \mlh mk_eq c l r \endmlh
         Create an AST node representing <tt>l = r</tt>.
-        
-        The nodes \c l and \c r must have the same type. 
+
+        The nodes \c l and \c r must have the same type.
 
         def_API('Z3_mk_eq', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_eq(Z3_context c, Z3_ast l, Z3_ast r);
-    
+
     /**
        \conly \brief Create an AST node representing <tt>distinct(args[0], ..., args[num_args-1])</tt>.
        \mlonly \brief \[ [mk_distinct c [| t_1; ...; t_n |]] \] Create an AST
@@ -2247,7 +2247,7 @@ END_MLAPI_EXCLUDE
 
        The \c distinct construct is used for declaring the arguments pairwise distinct.
        That is, <tt>Forall 0 <= i < j < num_args. not args[i] = args[j]</tt>.
-       
+
        All arguments must have the same sort.
 
        \remark The number of arguments of a distinct construct must be greater than one.
@@ -2257,17 +2257,17 @@ END_MLAPI_EXCLUDE
     Z3_ast Z3_API Z3_mk_distinct(Z3_context c, unsigned num_args, Z3_ast const args[]);
 
     /**
-        \brief \mlh mk_not c a \endmlh 
+        \brief \mlh mk_not c a \endmlh
         Create an AST node representing <tt>not(a)</tt>.
-        
+
         The node \c a must have Boolean sort.
 
         def_API('Z3_mk_not', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_not(Z3_context c, Z3_ast a);
-        
+
     /**
-       \brief \mlh mk_ite c t1 t2 t2 \endmlh 
+       \brief \mlh mk_ite c t1 t2 t2 \endmlh
        Create an AST node representing an if-then-else: <tt>ite(t1, t2,
        t3)</tt>.
 
@@ -2297,7 +2297,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_implies', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_implies(Z3_context c, Z3_ast t1, Z3_ast t2);
-    
+
     /**
        \brief \mlh mk_xor c t1 t2 \endmlh
        Create an AST node representing <tt>t1 xor t2</tt>.
@@ -2307,25 +2307,25 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_xor', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_xor(Z3_context c, Z3_ast t1, Z3_ast t2);
-    
+
     /**
        \conly \brief Create an AST node representing <tt>args[0] and ... and args[num_args-1]</tt>.
        \mlonly \brief \[ [mk_and c [| t_1; ...; t_n |]] \] Create the conjunction: {e t_1 and ... and t_n}. \endmlonly
 
-       \conly The array \c args must have \c num_args elements. 
+       \conly The array \c args must have \c num_args elements.
        All arguments must have Boolean sort.
-       
+
        \remark The number of arguments must be greater than zero.
 
        def_API('Z3_mk_and', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
     Z3_ast Z3_API Z3_mk_and(Z3_context c, unsigned num_args, Z3_ast const args[]);
-    
+
     /**
        \conly \brief Create an AST node representing <tt>args[0] or ... or args[num_args-1]</tt>.
        \mlonly \brief \[ [mk_or c [| t_1; ...; t_n |]] \] Create the disjunction: {e t_1 or ... or t_n}. \endmlonly
 
-       \conly The array \c args must have \c num_args elements. 
+       \conly The array \c args must have \c num_args elements.
        All arguments must have Boolean sort.
 
        \remark The number of arguments must be greater than zero.
@@ -2343,7 +2343,7 @@ END_MLAPI_EXCLUDE
        \conly \brief Create an AST node representing <tt>args[0] + ... + args[num_args-1]</tt>.
        \mlonly \brief \[ [mk_add c [| t_1; ...; t_n |]] \] Create the term: {e t_1 + ... + t_n}. \endmlonly
 
-       \conly The array \c args must have \c num_args elements. 
+       \conly The array \c args must have \c num_args elements.
        All arguments must have int or real sort.
 
        \remark The number of arguments must be greater than zero.
@@ -2351,30 +2351,30 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_add', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
     Z3_ast Z3_API Z3_mk_add(Z3_context c, unsigned num_args, Z3_ast const args[]);
-    
+
     /**
        \conly \brief Create an AST node representing <tt>args[0] * ... * args[num_args-1]</tt>.
        \mlonly \brief \[ [mk_mul c [| t_1; ...; t_n |]] \] Create the term: {e t_1 * ... * t_n}. \endmlonly
 
-       \conly The array \c args must have \c num_args elements. 
+       \conly The array \c args must have \c num_args elements.
        All arguments must have int or real sort.
-       
+
        \remark Z3 has limited support for non-linear arithmetic.
        \remark The number of arguments must be greater than zero.
 
        def_API('Z3_mk_mul', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
     Z3_ast Z3_API Z3_mk_mul(Z3_context c, unsigned num_args, Z3_ast const args[]);
-    
+
     /**
        \conly \brief Create an AST node representing <tt>args[0] - ... - args[num_args - 1]</tt>.
        \mlonly \brief \[ [mk_sub c [| t_1; ...; t_n |]] \] Create the term: {e t_1 - ... - t_n}. \endmlonly
 
-       \conly The array \c args must have \c num_args elements. 
+       \conly The array \c args must have \c num_args elements.
        All arguments must have int or real sort.
 
        \remark The number of arguments must be greater than zero.
-       
+
        def_API('Z3_mk_sub', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
     */
     Z3_ast Z3_API Z3_mk_sub(Z3_context c, unsigned num_args, Z3_ast const args[]);
@@ -2431,7 +2431,7 @@ END_MLAPI_EXCLUDE
     Z3_ast Z3_API Z3_mk_power(Z3_context c, Z3_ast arg1, Z3_ast arg2);
 
     /**
-        \brief \mlh mk_lt c t1 t2 \endmlh 
+        \brief \mlh mk_lt c t1 t2 \endmlh
         Create less than.
 
         The nodes \c t1 and \c t2 must have the same sort, and must be int or real.
@@ -2443,7 +2443,7 @@ END_MLAPI_EXCLUDE
     /**
         \brief \mlh mk_le c t1 t2 \endmlh
         Create less than or equal to.
-        
+
         The nodes \c t1 and \c t2 must have the same sort, and must be int or real.
 
         def_API('Z3_mk_le', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -2453,7 +2453,7 @@ END_MLAPI_EXCLUDE
     /**
         \brief \mlh mk_gt c t1 t2 \endmlh
         Create greater than.
-        
+
         The nodes \c t1 and \c t2 must have the same sort, and must be int or real.
 
         def_API('Z3_mk_gt', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -2463,7 +2463,7 @@ END_MLAPI_EXCLUDE
     /**
         \brief \mlh mk_ge c t1 t2 \endmlh
         Create greater than or equal to.
-        
+
         The nodes \c t1 and \c t2 must have the same sort, and must be int or real.
 
         def_API('Z3_mk_ge', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -2477,10 +2477,10 @@ END_MLAPI_EXCLUDE
         There is also a converse operation exposed.
         It follows the semantics prescribed by the SMT-LIB standard.
 
-        You can take the floor of a real by 
+        You can take the floor of a real by
         creating an auxiliary integer constant \c k and
         and asserting <tt> mk_int2real(k) <= t1 < mk_int2real(k)+1</tt>.
-        
+
         The node \c t1 must have sort integer.
 
         \sa Z3_mk_real2int
@@ -2499,7 +2499,7 @@ END_MLAPI_EXCLUDE
 
         \sa Z3_mk_int2real
         \sa Z3_mk_is_int
-        
+
         def_API('Z3_mk_real2int', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_real2int(Z3_context c, Z3_ast t1);
@@ -2510,7 +2510,7 @@ END_MLAPI_EXCLUDE
 
         \sa Z3_mk_int2real
         \sa Z3_mk_real2int
-        
+
         def_API('Z3_mk_is_int', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_is_int(Z3_context c, Z3_ast t1);
@@ -2545,7 +2545,7 @@ END_MLAPI_EXCLUDE
        Take disjunction of bits in vector, return vector of length 1.
 
        The node \c t1 must have a bit-vector sort.
-       
+
        def_API('Z3_mk_bvredor', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvredor(Z3_context c, Z3_ast t1);
@@ -2555,7 +2555,7 @@ END_MLAPI_EXCLUDE
        Bitwise and.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-       
+
        def_API('Z3_mk_bvand', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvand(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -2575,14 +2575,14 @@ END_MLAPI_EXCLUDE
        Bitwise exclusive-or.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-       
+
        def_API('Z3_mk_bvxor', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvxor(Z3_context c, Z3_ast t1, Z3_ast t2);
 
     /**
        \brief \mlh mk_bvnand c t1 t2 \endmlh
-       Bitwise nand. 
+       Bitwise nand.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
@@ -2592,18 +2592,18 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief \mlh mk_bvnor c t1 t2 \endmlh
-       Bitwise nor. 
+       Bitwise nor.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-    
+
        def_API('Z3_mk_bvnor', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvnor(Z3_context c, Z3_ast t1, Z3_ast t2);
 
     /**
        \brief \mlh mk_bvxnor c t1 t2 \endmlh
-       Bitwise xnor. 
-       
+       Bitwise xnor.
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
        def_API('Z3_mk_bvxnor', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -2612,18 +2612,18 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief \mlh mk_bvneg c t1 \endmlh
-       Standard two's complement unary minus. 
+       Standard two's complement unary minus.
 
        The node \c t1 must have bit-vector sort.
 
        def_API('Z3_mk_bvneg', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvneg(Z3_context c, Z3_ast t1);
-    
+
     /**
         \brief \mlh mk_bvadd c t1 t2 \endmlh
         Standard two's complement addition.
-        
+
         The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
         def_API('Z3_mk_bvadd', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -2633,17 +2633,17 @@ END_MLAPI_EXCLUDE
     /**
         \brief \mlh mk_bvsub c t1 t2 \endmlh
         Standard two's complement subtraction.
-        
+
         The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
         def_API('Z3_mk_bvsub', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvsub(Z3_context c, Z3_ast t1, Z3_ast t2);
-    
+
     /**
         \brief \mlh mk_bvmul c t1 t2 \endmlh
         Standard two's complement multiplication.
-        
+
         The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
         def_API('Z3_mk_bvmul', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -2652,32 +2652,32 @@ END_MLAPI_EXCLUDE
 
     /**
         \brief \mlh mk_bvudiv c t1 t2 \endmlh
-        Unsigned division. 
+        Unsigned division.
 
         It is defined as the \c floor of <tt>t1/t2</tt> if \c t2 is
         different from zero. If <tt>t2</tt> is zero, then the result
         is undefined.
-        
+
         The nodes \c t1 and \c t2 must have the same bit-vector sort.
-        
+
         def_API('Z3_mk_bvudiv', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvudiv(Z3_context c, Z3_ast t1, Z3_ast t2);
 
     /**
         \brief \mlh mk_bvsdiv c t1 t2 \endmlh
-        Two's complement signed division. 
+        Two's complement signed division.
 
         It is defined in the following way:
 
         - The \c floor of <tt>t1/t2</tt> if \c t2 is different from zero, and <tt>t1*t2 >= 0</tt>.
 
         - The \c ceiling of <tt>t1/t2</tt> if \c t2 is different from zero, and <tt>t1*t2 < 0</tt>.
-        
+
         If <tt>t2</tt> is zero, then the result is undefined.
-        
+
         The nodes \c t1 and \c t2 must have the same bit-vector sort.
-    
+
         def_API('Z3_mk_bvsdiv', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvsdiv(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -2687,9 +2687,9 @@ END_MLAPI_EXCLUDE
        Unsigned remainder.
 
        It is defined as <tt>t1 - (t1 /u t2) * t2</tt>, where <tt>/u</tt> represents unsigned division.
-       
+
        If <tt>t2</tt> is zero, then the result is undefined.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
        def_API('Z3_mk_bvurem', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -2704,7 +2704,7 @@ END_MLAPI_EXCLUDE
        The most significant bit (sign) of the result is equal to the most significant bit of \c t1.
 
        If <tt>t2</tt> is zero, then the result is undefined.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
        \sa Z3_mk_bvsmod
@@ -2716,9 +2716,9 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh mk_bvsmod c t1 t2 \endmlh
        Two's complement signed remainder (sign follows divisor).
-       
+
        If <tt>t2</tt> is zero, then the result is undefined.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
        \sa Z3_mk_bvsrem
@@ -2732,15 +2732,15 @@ END_MLAPI_EXCLUDE
        Unsigned less than.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-       
+
        def_API('Z3_mk_bvult', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvult(Z3_context c, Z3_ast t1, Z3_ast t2);
-    
+
     /**
        \brief \mlh mk_bvslt c t1 t2 \endmlh
        Two's complement signed less than.
-       
+
        It abbreviates:
        \code
       (or (and (= (extract[|m-1|:|m-1|] t1) bit1)
@@ -2770,7 +2770,7 @@ END_MLAPI_EXCLUDE
        Two's complement signed less than or equal to.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-    
+
        def_API('Z3_mk_bvsle', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvsle(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -2780,7 +2780,7 @@ END_MLAPI_EXCLUDE
        Unsigned greater than or equal to.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-    
+
        def_API('Z3_mk_bvuge', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvuge(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -2790,7 +2790,7 @@ END_MLAPI_EXCLUDE
        Two's complement signed greater than or equal to.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-    
+
        def_API('Z3_mk_bvsge', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvsge(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -2810,7 +2810,7 @@ END_MLAPI_EXCLUDE
        Two's complement signed greater than.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-       
+
        def_API('Z3_mk_bvsgt', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvsgt(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -2818,7 +2818,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh mk_concat c t1 t2 \endmlh
        Concatenate the given bit-vectors.
-       
+
        The nodes \c t1 and \c t2 must have (possibly different) bit-vector sorts
 
        The result is a bit-vector of size <tt>n1+n2</tt>, where \c n1 (\c n2) is the size
@@ -2827,7 +2827,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_concat', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_concat(Z3_context c, Z3_ast t1, Z3_ast t2);
-    
+
     /**
        \brief \mlh mk_extract c high low t1 \endmlh
        Extract the bits \c high down to \c low from a bitvector of
@@ -2847,7 +2847,7 @@ END_MLAPI_EXCLUDE
        bit-vector.
 
        The node \c t1 must have a bit-vector sort.
-       
+
        def_API('Z3_mk_sign_ext', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_sign_ext(Z3_context c, unsigned i, Z3_ast t1);
@@ -2857,8 +2857,8 @@ END_MLAPI_EXCLUDE
        Extend the given bit-vector with zeros to the (unsigned) equivalent
        bitvector of size <tt>m+i</tt>, where \c m is the size of the
        given bit-vector.
-       
-       The node \c t1 must have a bit-vector sort. 
+
+       The node \c t1 must have a bit-vector sort.
 
        def_API('Z3_mk_zero_ext', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
@@ -2867,9 +2867,9 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh mk_repeat c i t1 \endmlh
        Repeat the given bit-vector up length <tt>i</tt>.
-       
-       The node \c t1 must have a bit-vector sort. 
-    
+
+       The node \c t1 must have a bit-vector sort.
+
        def_API('Z3_mk_repeat', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_repeat(Z3_context c, unsigned i, Z3_ast t1);
@@ -2881,8 +2881,8 @@ END_MLAPI_EXCLUDE
        It is equivalent to multiplication by <tt>2^x</tt> where \c x is the value of the
        third argument.
 
-       NB. The semantics of shift operations varies between environments. This 
-       definition does not necessarily capture directly the semantics of the 
+       NB. The semantics of shift operations varies between environments. This
+       definition does not necessarily capture directly the semantics of the
        programming language or assembly architecture you are modeling.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
@@ -2898,8 +2898,8 @@ END_MLAPI_EXCLUDE
        It is equivalent to unsigned division by <tt>2^x</tt> where \c x is the
        value of the third argument.
 
-       NB. The semantics of shift operations varies between environments. This 
-       definition does not necessarily capture directly the semantics of the 
+       NB. The semantics of shift operations varies between environments. This
+       definition does not necessarily capture directly the semantics of the
        programming language or assembly architecture you are modeling.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
@@ -2911,37 +2911,37 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh mk_bvashr c t1 t2 \endmlh
        Arithmetic shift right.
-       
+
        It is like logical shift right except that the most significant
        bits of the result always copy the most significant bit of the
        second argument.
 
-       The semantics of shift operations varies between environments. This 
-       definition does not necessarily capture directly the semantics of the 
+       The semantics of shift operations varies between environments. This
+       definition does not necessarily capture directly the semantics of the
        programming language or assembly architecture you are modeling.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
        def_API('Z3_mk_bvashr', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvashr(Z3_context c, Z3_ast t1, Z3_ast t2);
-    
+
     /**
        \brief \mlh mk_rotate_left c i t1 \endmlh
        Rotate bits of \c t1 to the left \c i times.
-       
-       The node \c t1 must have a bit-vector sort. 
+
+       The node \c t1 must have a bit-vector sort.
 
        def_API('Z3_mk_rotate_left', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_rotate_left(Z3_context c, unsigned i, Z3_ast t1);
-    
+
     /**
        \brief \mlh mk_rotate_right c i t1 \endmlh
        Rotate bits of \c t1 to the right \c i times.
-       
-       The node \c t1 must have a bit-vector sort. 
-       
+
+       The node \c t1 must have a bit-vector sort.
+
        def_API('Z3_mk_rotate_right', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_rotate_right(Z3_context c, unsigned i, Z3_ast t1);
@@ -2949,7 +2949,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh mk_ext_rotate_left c t1 t2 \endmlh
        Rotate bits of \c t1 to the left \c t2 times.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
        def_API('Z3_mk_ext_rotate_left', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -2959,23 +2959,23 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh mk_ext_rotate_right c t1 t2 \endmlh
        Rotate bits of \c t1 to the right \c t2 times.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-       
+
        def_API('Z3_mk_ext_rotate_right', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_ext_rotate_right(Z3_context c, Z3_ast t1, Z3_ast t2);
-    
+
     /**
        \brief \mlh mk_int2bv c n t1 \endmlh
        Create an \c n bit bit-vector from the integer argument \c t1.
 
-       NB. This function is essentially treated as uninterpreted. 
+       NB. This function is essentially treated as uninterpreted.
        So you cannot expect Z3 to precisely reflect the semantics of this function
        when solving constraints with this function.
-       
-       The node \c t1 must have integer sort. 
-       
+
+       The node \c t1 must have integer sort.
+
        def_API('Z3_mk_int2bv', AST, (_in(CONTEXT), _in(UINT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_int2bv(Z3_context c, unsigned n, Z3_ast t1);
@@ -2983,16 +2983,16 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh mk_bv2int c t1 is_signed \endmlh
        Create an integer from the bit-vector argument \c t1.
-       If \c is_signed is false, then the bit-vector \c t1 is treated as unsigned. 
+       If \c is_signed is false, then the bit-vector \c t1 is treated as unsigned.
        So the result is non-negative
        and in the range <tt>[0..2^N-1]</tt>, where N are the number of bits in \c t1.
        If \c is_signed is true, \c t1 is treated as a signed bit-vector.
 
-       This function is essentially treated as uninterpreted. 
+       This function is essentially treated as uninterpreted.
        So you cannot expect Z3 to precisely reflect the semantics of this function
        when solving constraints with this function.
 
-       The node \c t1 must have a bit-vector sort. 
+       The node \c t1 must have a bit-vector sort.
 
        def_API('Z3_mk_bv2int', AST, (_in(CONTEXT), _in(AST), _in(BOOL)))
     */
@@ -3002,7 +3002,7 @@ END_MLAPI_EXCLUDE
        \brief \mlh mk_bvadd_no_overflow c t1 t2 is_signed \endmlh
        Create a predicate that checks that the bit-wise addition
        of \c t1 and \c t2 does not overflow.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
        def_API('Z3_mk_bvadd_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(BOOL)))
@@ -3013,9 +3013,9 @@ END_MLAPI_EXCLUDE
        \brief \mlh mk_bvadd_no_underflow c t1 t2 \endmlh
        Create a predicate that checks that the bit-wise signed addition
        of \c t1 and \c t2 does not underflow.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-    
+
        def_API('Z3_mk_bvadd_no_underflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvadd_no_underflow(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -3024,9 +3024,9 @@ END_MLAPI_EXCLUDE
        \brief \mlh mk_bvsub_no_overflow c t1 t2 \endmlh
        Create a predicate that checks that the bit-wise signed subtraction
        of \c t1 and \c t2 does not overflow.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-       
+
        def_API('Z3_mk_bvsub_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvsub_no_overflow(Z3_context c, Z3_ast t1, Z3_ast t2);
@@ -3035,7 +3035,7 @@ END_MLAPI_EXCLUDE
        \brief \mlh mk_bvsub_no_underflow c t1 t2 is_signed \endmlh
        Create a predicate that checks that the bit-wise subtraction
        of \c t1 and \c t2 does not underflow.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
        def_API('Z3_mk_bvsub_no_underflow', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(BOOL)))
@@ -3044,20 +3044,20 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief \mlh mk_bvsdiv_no_overflow c t1 t2 \endmlh
-       Create a predicate that checks that the bit-wise signed division 
+       Create a predicate that checks that the bit-wise signed division
        of \c t1 and \c t2 does not overflow.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-       
+
        def_API('Z3_mk_bvsdiv_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_bvsdiv_no_overflow(Z3_context c, Z3_ast t1, Z3_ast t2);
 
     /**
        \brief \mlh mk_bvneg_no_overflow c t1 \endmlh
-       Check that bit-wise negation does not overflow when 
+       Check that bit-wise negation does not overflow when
        \c t1 is interpreted as a signed bit-vector.
-       
+
        The node \c t1 must have bit-vector sort.
 
        def_API('Z3_mk_bvneg_no_overflow', AST, (_in(CONTEXT), _in(AST)))
@@ -3068,9 +3068,9 @@ END_MLAPI_EXCLUDE
        \brief \mlh mk_bvmul_no_overflow c t1 t2 is_signed \endmlh
        Create a predicate that checks that the bit-wise multiplication
        of \c t1 and \c t2 does not overflow.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
-       
+
        def_API('Z3_mk_bvmul_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(BOOL)))
     */
     Z3_ast Z3_API Z3_mk_bvmul_no_overflow(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_bool is_signed);
@@ -3079,7 +3079,7 @@ END_MLAPI_EXCLUDE
        \brief \mlh mk_bvmul_no_underflow c t1 t2 \endmlh
        Create a predicate that checks that the bit-wise signed multiplication
        of \c t1 and \c t2 does not underflow.
-       
+
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
 
        def_API('Z3_mk_bvmul_no_underflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -3095,9 +3095,9 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh mk_select c a i \endmlh
        Array read.
-       The argument \c a is the array and \c i is the index of the array that gets read.      
- 
-       The node \c a must have an array sort <tt>[domain -> range]</tt>, 
+       The argument \c a is the array and \c i is the index of the array that gets read.
+
+       The node \c a must have an array sort <tt>[domain -> range]</tt>,
        and \c i must have the sort \c domain.
        The sort of the result is \c range.
 
@@ -3107,19 +3107,19 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_select', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_select(Z3_context c, Z3_ast a, Z3_ast i);
-    
+
     /**
        \brief \mlh mk_store c a i v \endmlh
        Array update.
-       
+
        The node \c a must have an array sort <tt>[domain -> range]</tt>, \c i must have sort \c domain,
        \c v must have sort range. The sort of the result is <tt>[domain -> range]</tt>.
        The semantics of this function is given by the theory of arrays described in the SMT-LIB
        standard. See http://smtlib.org for more details.
        The result of this function is an array that is equal to \c a (with respect to \c select)
-       on all indices except for \c i, where it maps to \c v (and the \c select of \c a with 
+       on all indices except for \c i, where it maps to \c v (and the \c select of \c a with
        respect to \c i may be a different value).
-       
+
        \sa Z3_mk_array_sort
        \sa Z3_mk_select
 
@@ -3129,8 +3129,8 @@ END_MLAPI_EXCLUDE
 
     /**
         \brief Create the constant array.
-         
-        The resulting term is an array, such that a \c select on an arbitrary index 
+
+        The resulting term is an array, such that a \c select on an arbitrary index
         produces the value \c v.
 
         \param c logical context.
@@ -3144,11 +3144,11 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh mk_map f n args \endmlh
        map f on the the argument arrays.
-       
+
        The \c n nodes \c args must be of array sorts <tt>[domain_i -> range_i]</tt>.
        The function declaration \c f must have type <tt> range_1 .. range_n -> range</tt>.
        \c v must have sort range. The sort of the result is <tt>[domain_i -> range]</tt>.
-       
+
        \sa Z3_mk_array_sort
        \sa Z3_mk_store
        \sa Z3_mk_select
@@ -3159,7 +3159,7 @@ END_MLAPI_EXCLUDE
 
     /**
         \brief Access the array default value.
-        Produces the default range value, for arrays that can be represented as 
+        Produces the default range value, for arrays that can be represented as
         finite maps with a default range value.
 
         \param c logical context.
@@ -3197,7 +3197,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Add an element to a set.
-       
+
        The first argument must be a set, the second an element.
 
        def_API('Z3_mk_set_add', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -3206,7 +3206,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Remove an element to a set.
-       
+
        The first argument must be a set, the second an element.
 
        def_API('Z3_mk_set_del', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -3243,7 +3243,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Check for set membership.
-       
+
        The first argument should be an element type of the set.
 
        def_API('Z3_mk_set_member', AST, (_in(CONTEXT), _in(AST), _in(AST)))
@@ -3259,7 +3259,7 @@ END_MLAPI_EXCLUDE
     /*@}*/
 
     /**
-       \brief Create array extensionality index given two arrays with the same sort. 
+       \brief Create array extensionality index given two arrays with the same sort.
               The meaning is given by the axiom:
               (=> (= (select A (array-ext A B)) (select B (array-ext A B))) (= A B))
 
@@ -3283,12 +3283,12 @@ END_MLAPI_EXCLUDE
     */
 
     /**
-       \brief Create a numeral of a given sort. 
+       \brief Create a numeral of a given sort.
 
        \param c logical context.
        \param numeral A string representing the numeral value in decimal notation. If the given sort is a real, then the numeral can be a rational, that is, a string of the form <tt>[num]* / [num]*</tt>.
-       \param ty The sort of the numeral. In the current implementation, the given sort can be an int, real, finite-domain, or bit-vectors of arbitrary size. 
-       
+       \param ty The sort of the numeral. In the current implementation, the given sort can be an int, real, finite-domain, or bit-vectors of arbitrary size.
+
        \sa Z3_mk_int
        \conly \sa Z3_mk_unsigned_int
 
@@ -3312,10 +3312,10 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_real', AST, (_in(CONTEXT), _in(INT), _in(INT)))
     */
     Z3_ast Z3_API Z3_mk_real(Z3_context c, int num, int den);
-    
+
     /**
-       \brief Create a numeral of an int, bit-vector, or finite-domain sort. 
-       
+       \brief Create a numeral of an int, bit-vector, or finite-domain sort.
+
        This function can be use to create numerals that fit in a machine integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
@@ -3324,11 +3324,11 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_int', AST, (_in(CONTEXT), _in(INT), _in(SORT)))
     */
     Z3_ast Z3_API Z3_mk_int(Z3_context c, int v, Z3_sort ty);
-    
+
 #ifdef Conly
     /**
-       \brief Create a numeral of a int, bit-vector, or finite-domain sort. 
-       
+       \brief Create a numeral of a int, bit-vector, or finite-domain sort.
+
        This function can be use to create numerals that fit in a machine unsinged integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
@@ -3340,8 +3340,8 @@ END_MLAPI_EXCLUDE
 #endif
 
     /**
-       \brief Create a numeral of a int, bit-vector, or finite-domain sort. 
-       
+       \brief Create a numeral of a int, bit-vector, or finite-domain sort.
+
        This function can be use to create numerals that fit in a machine __int64 integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
@@ -3353,8 +3353,8 @@ END_MLAPI_EXCLUDE
 
 #ifdef Conly
     /**
-       \brief Create a numeral of a int, bit-vector, or finite-domain sort. 
-       
+       \brief Create a numeral of a int, bit-vector, or finite-domain sort.
+
        This function can be use to create numerals that fit in a machine unsigned __int64 integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
@@ -3383,7 +3383,7 @@ END_MLAPI_EXCLUDE
        Patterns comprise a list of terms. The list should be
        non-empty.  If the list comprises of more than one term, it is
        a called a multi-pattern.
-       
+
        In general, one can pass in a list of (multi-)patterns in the
        quantifier constructor.
 
@@ -3403,7 +3403,7 @@ END_MLAPI_EXCLUDE
        the meaning of de-Bruijn indices by indicating the compilation process from
        non-de-Bruijn formulas to de-Bruijn format.
 
-       \verbatim 
+       \verbatim
        abs(forall (x1) phi) = forall (x1) abs1(phi, x1, 0)
        abs(forall (x1, x2) phi) = abs(forall (x1) abs(forall (x2) phi))
        abs1(x, x, n) = b_n
@@ -3415,7 +3415,7 @@ END_MLAPI_EXCLUDE
        The last line is significant: the index of a bound variable is different depending
        on the scope in which it appears. The deeper x appears, the higher is its
        index.
-       
+
        \param c logical context
        \param index de-Bruijn index
        \param ty sort of the bound variable
@@ -3426,15 +3426,15 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_bound', AST, (_in(CONTEXT), _in(UINT), _in(SORT)))
     */
     Z3_ast Z3_API Z3_mk_bound(Z3_context c, unsigned index, Z3_sort ty);
-    
+
     /**
        \brief Create a forall formula. It takes an expression \c body that contains bound variables
        of the same sorts as the sorts listed in the array \c sorts. The bound variables are de-Bruijn indices created
-       using #Z3_mk_bound. The array \c decl_names contains the names that the quantified formula uses for the 
+       using #Z3_mk_bound. The array \c decl_names contains the names that the quantified formula uses for the
        bound variables. Z3 applies the convention that the last element in the \c decl_names and \c sorts array
        refers to the variable with index 0, the second to last element of \c decl_names and \c sorts refers
        to the variable with index 1, etc.
-       
+
 
        \mlonly [mk_forall c w p t n b] creates a forall formula, where
        [w] is the weight, [p] is an array of patterns, [t] is an array
@@ -3443,8 +3443,8 @@ END_MLAPI_EXCLUDE
        quantifier. Quantifiers are associated with weights indicating
        the importance of using the quantifier during
        instantiation. \endmlonly
-       
-       
+
+
        \param c logical context.
        \param weight quantifiers are associated with weights indicating the importance of using the quantifier during instantiation. By default, pass the weight 0.
        \param num_patterns number of patterns.
@@ -3453,7 +3453,7 @@ END_MLAPI_EXCLUDE
        \param sorts the sorts of the bound variables.
        \param decl_names names of the bound variables
        \param body the body of the quantifier.
-       
+
        \sa Z3_mk_pattern
        \sa Z3_mk_bound
        \sa Z3_mk_exists
@@ -3468,7 +3468,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Create an exists formula. Similar to #Z3_mk_forall.
-       
+
        \sa Z3_mk_pattern
        \sa Z3_mk_bound
        \sa Z3_mk_forall
@@ -3483,9 +3483,9 @@ END_MLAPI_EXCLUDE
                                Z3_ast body);
 
     /**
-       \brief Create a quantifier - universal or existential, with pattern hints. 
+       \brief Create a quantifier - universal or existential, with pattern hints.
        See the documentation for #Z3_mk_forall for an explanation of the parameters.
-       
+
        \param c logical context.
        \param is_forall flag to indicate if this is a universal or existential quantifier.
        \param weight quantifiers are associated with weights indicating the importance of using the quantifier during instantiation. By default, pass the weight 0.
@@ -3495,7 +3495,7 @@ END_MLAPI_EXCLUDE
        \param sorts array of sorts of the bound variables.
        \param decl_names names of the bound variables.
        \param body the body of the quantifier.
-       
+
        \sa Z3_mk_pattern
        \sa Z3_mk_bound
        \sa Z3_mk_forall
@@ -3504,18 +3504,18 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_quantifier', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(UINT), _in_array(3, PATTERN), _in(UINT), _in_array(5, SORT), _in_array(5, SYMBOL), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_quantifier(
-        Z3_context c, 
-        Z3_bool is_forall, 
-        unsigned weight, 
-        unsigned num_patterns, Z3_pattern const patterns[], 
-        unsigned num_decls, Z3_sort const sorts[], 
-        Z3_symbol const decl_names[], 
+        Z3_context c,
+        Z3_bool is_forall,
+        unsigned weight,
+        unsigned num_patterns, Z3_pattern const patterns[],
+        unsigned num_decls, Z3_sort const sorts[],
+        Z3_symbol const decl_names[],
         Z3_ast body);
 
 
     /**
        \brief Create a quantifier - universal or existential, with pattern hints, no patterns, and attributes
-       
+
        \param c logical context.
        \param is_forall flag to indicate if this is a universal or existential quantifier.
        \param quantifier_id identifier to identify quantifier
@@ -3529,7 +3529,7 @@ END_MLAPI_EXCLUDE
        \param sorts array of sorts of the bound variables.
        \param decl_names names of the bound variables.
        \param body the body of the quantifier.
-       
+
        \sa Z3_mk_pattern
        \sa Z3_mk_bound
        \sa Z3_mk_forall
@@ -3538,15 +3538,15 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_quantifier_ex', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(SYMBOL), _in(SYMBOL), _in(UINT), _in_array(5, PATTERN), _in(UINT), _in_array(7, AST), _in(UINT), _in_array(9, SORT), _in_array(9, SYMBOL), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_quantifier_ex(
-        Z3_context c, 
-        Z3_bool is_forall, 
-        unsigned weight, 
+        Z3_context c,
+        Z3_bool is_forall,
+        unsigned weight,
         Z3_symbol quantifier_id,
         Z3_symbol skolem_id,
-        unsigned num_patterns, Z3_pattern const patterns[], 
-        unsigned num_no_patterns, Z3_ast const no_patterns[], 
-        unsigned num_decls, Z3_sort const sorts[], 
-        Z3_symbol const decl_names[], 
+        unsigned num_patterns, Z3_pattern const patterns[],
+        unsigned num_no_patterns, Z3_ast const no_patterns[],
+        unsigned num_decls, Z3_sort const sorts[],
+        Z3_symbol const decl_names[],
         Z3_ast body);
 
     /**
@@ -3554,21 +3554,21 @@ END_MLAPI_EXCLUDE
        will form the set of bound variables.
 
        \param c logical context.
-       \param weight quantifiers are associated with weights indicating the importance of using 
+       \param weight quantifiers are associated with weights indicating the importance of using
               the quantifier during instantiation. By default, pass the weight 0.
        \param num_bound number of constants to be abstracted into bound variables.
        \param bound array of constants to be abstracted into bound variables.
        \param num_patterns number of patterns.
        \param patterns array containing the patterns created using #Z3_mk_pattern.
        \param body the body of the quantifier.
-       
+
        \sa Z3_mk_pattern
        \sa Z3_mk_exists_const
 
        def_API('Z3_mk_forall_const', AST, (_in(CONTEXT), _in(UINT), _in(UINT), _in_array(2, APP), _in(UINT), _in_array(4, PATTERN), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_forall_const(
-        Z3_context c, 
+        Z3_context c,
         unsigned weight,
         unsigned num_bound,
         Z3_app const bound[],
@@ -3584,21 +3584,21 @@ END_MLAPI_EXCLUDE
        will form the set of bound variables.
 
        \param c logical context.
-       \param weight quantifiers are associated with weights indicating the importance of using 
+       \param weight quantifiers are associated with weights indicating the importance of using
               the quantifier during instantiation. By default, pass the weight 0.
        \param num_bound number of constants to be abstracted into bound variables.
        \param bound array of constants to be abstracted into bound variables.
        \param num_patterns number of patterns.
        \param patterns array containing the patterns created using #Z3_mk_pattern.
        \param body the body of the quantifier.
-       
+
        \sa Z3_mk_pattern
        \sa Z3_mk_forall_const
 
        def_API('Z3_mk_exists_const', AST, (_in(CONTEXT), _in(UINT), _in(UINT), _in_array(2, APP), _in(UINT), _in_array(4, PATTERN), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_exists_const(
-        Z3_context c, 
+        Z3_context c,
         unsigned weight,
         unsigned num_bound,
         Z3_app const bound[],
@@ -3608,14 +3608,14 @@ END_MLAPI_EXCLUDE
         );
 
     /**
-       \brief Create a universal or existential 
+       \brief Create a universal or existential
        quantifier using a list of constants that
        will form the set of bound variables.
 
        def_API('Z3_mk_quantifier_const', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(UINT), _in_array(3, APP), _in(UINT), _in_array(5, PATTERN), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_quantifier_const(
-        Z3_context c, 
+        Z3_context c,
         Z3_bool is_forall,
         unsigned weight,
         unsigned num_bound,  Z3_app const bound[],
@@ -3626,14 +3626,14 @@ END_MLAPI_EXCLUDE
 
 
     /**
-       \brief Create a universal or existential 
+       \brief Create a universal or existential
        quantifier using a list of constants that
        will form the set of bound variables.
 
        def_API('Z3_mk_quantifier_const_ex', AST, (_in(CONTEXT), _in(BOOL), _in(UINT), _in(SYMBOL), _in(SYMBOL), _in(UINT), _in_array(5, APP), _in(UINT), _in_array(7, PATTERN), _in(UINT), _in_array(9, AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_quantifier_const_ex(
-        Z3_context c, 
+        Z3_context c,
         Z3_bool is_forall,
         unsigned weight,
         Z3_symbol quantifier_id,
@@ -3674,8 +3674,8 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief \mlh get_symbol_int c s \endmlh
-       Return the symbol int value. 
-       
+       Return the symbol int value.
+
        \pre Z3_get_symbol_kind(s) == Z3_INT_SYMBOL
 
        \sa Z3_mk_int_symbol
@@ -3683,10 +3683,10 @@ END_MLAPI_EXCLUDE
        def_API('Z3_get_symbol_int', INT, (_in(CONTEXT), _in(SYMBOL)))
     */
     int Z3_API Z3_get_symbol_int(Z3_context c, Z3_symbol s);
-    
+
     /**
        \brief \mlh get_symbol_string c s \endmlh
-       Return the symbol name. 
+       Return the symbol name.
 
        \pre Z3_get_symbol_string(s) == Z3_STRING_SYMBOL
 
@@ -3695,7 +3695,7 @@ END_MLAPI_EXCLUDE
        \conly So, the buffer is invalidated in the next call to \c Z3_get_symbol_string.
 
        \sa Z3_mk_string_symbol
-    
+
        def_API('Z3_get_symbol_string', STRING, (_in(CONTEXT), _in(SYMBOL)))
     */
     Z3_string Z3_API Z3_get_symbol_string(Z3_context c, Z3_symbol s);
@@ -3710,7 +3710,7 @@ END_MLAPI_EXCLUDE
 #endif
 
     /**
-       \brief Return the sort name as a symbol. 
+       \brief Return the sort name as a symbol.
 
        def_API('Z3_get_sort_name', SYMBOL, (_in(CONTEXT), _in(SORT)))
     */
@@ -3735,7 +3735,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_sort_to_ast', AST, (_in(CONTEXT), _in(SORT)))
     */
     Z3_ast Z3_API Z3_sort_to_ast(Z3_context c, Z3_sort s);
-    
+
     /**
        \brief compare sorts.
        \mlonly \remark [Pervasives.( = )] or [Pervasives.compare] can also be used. \endmlonly
@@ -3756,7 +3756,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief \mlh get_bv_sort_size c t \endmlh
-       Return the size of the given bit-vector sort. 
+       Return the size of the given bit-vector sort.
 
        \pre Z3_get_sort_kind(c, t) == Z3_BV_SORT
 
@@ -3780,7 +3780,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh get_array_sort_domain c t \endmlh
        Return the domain of the given array sort.
-       
+
        \pre Z3_get_sort_kind(c, t) == Z3_ARRAY_SORT
 
        \sa Z3_mk_array_sort
@@ -3791,8 +3791,8 @@ END_MLAPI_EXCLUDE
     Z3_sort Z3_API Z3_get_array_sort_domain(Z3_context c, Z3_sort t);
 
     /**
-       \brief \mlh get_array_sort_range c t \endmlh 
-       Return the range of the given array sort. 
+       \brief \mlh get_array_sort_range c t \endmlh
+       Return the range of the given array sort.
 
        \pre Z3_get_sort_kind(c, t) == Z3_ARRAY_SORT
 
@@ -3807,20 +3807,20 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh get_tuple_sort_mk_decl c t \endmlh
        Return the constructor declaration of the given tuple
-       sort. 
+       sort.
 
        \pre Z3_get_sort_kind(c, t) == Z3_DATATYPE_SORT
 
        \sa Z3_mk_tuple_sort
        \sa Z3_get_sort_kind
-       
+
        def_API('Z3_get_tuple_sort_mk_decl', FUNC_DECL, (_in(CONTEXT), _in(SORT)))
     */
     Z3_func_decl Z3_API Z3_get_tuple_sort_mk_decl(Z3_context c, Z3_sort t);
-    
+
     /**
        \brief \mlh get_tuple_sort_num_fields c t \endmlh
-       Return the number of fields of the given tuple sort. 
+       Return the number of fields of the given tuple sort.
 
        \pre Z3_get_sort_kind(c, t) == Z3_DATATYPE_SORT
 
@@ -3834,14 +3834,14 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh get_tuple_sort_field_decl c t i \endmlh
        Return the i-th field declaration (i.e., projection function declaration)
-       of the given tuple sort. 
+       of the given tuple sort.
 
        \pre Z3_get_sort_kind(t) == Z3_DATATYPE_SORT
        \pre i < Z3_get_tuple_sort_num_fields(c, t)
-       
+
        \sa Z3_mk_tuple_sort
        \sa Z3_get_sort_kind
-       
+
        def_API('Z3_get_tuple_sort_field_decl', FUNC_DECL, (_in(CONTEXT), _in(SORT), _in(UINT)))
     */
     Z3_func_decl Z3_API Z3_get_tuple_sort_field_decl(Z3_context c, Z3_sort t, unsigned i);
@@ -3909,13 +3909,13 @@ END_MLAPI_EXCLUDE
     /**
        \brief Update record field with a value.
 
-       This corresponds to the 'with' construct in OCaml. 
+       This corresponds to the 'with' construct in OCaml.
        It has the effect of updating a record field with a given value.
        The remaining fields are left unchanged. It is the record
        equivalent of an array store (see \sa Z3_mk_store).
        If the datatype has more than one constructor, then the update function
        behaves as identity if there is a miss-match between the accessor and
-       constructor. For example ((_ update-field car) nil 1) is nil, 
+       constructor. For example ((_ update-field car) nil 1) is nil,
        while ((_ update-field car) (cons 2 nil) 1) is (cons 1 nil).
 
 
@@ -3926,7 +3926,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_datatype_update_field', AST, (_in(CONTEXT), _in(FUNC_DECL), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_datatype_update_field(
-        Z3_context c,  Z3_func_decl field_access, 
+        Z3_context c,  Z3_func_decl field_access,
         Z3_ast t, Z3_ast value);
 
     /**
@@ -3947,7 +3947,7 @@ END_MLAPI_EXCLUDE
         \pre col < Z3_get_relation_arity(c, s)
 
         \sa Z3_get_relation_arity
-        
+
         def_API('Z3_get_relation_column', SORT, (_in(CONTEXT), _in(SORT), _in(UINT)))
     */
     Z3_sort Z3_API Z3_get_relation_column(Z3_context c, Z3_sort s, unsigned col);
@@ -3961,7 +3961,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_atmost', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in(UINT)))
     */
 
-    Z3_ast Z3_API Z3_mk_atmost(Z3_context c, unsigned num_args, 
+    Z3_ast Z3_API Z3_mk_atmost(Z3_context c, unsigned num_args,
                                Z3_ast const args[], unsigned k);
 
     /**
@@ -3972,14 +3972,14 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_pble', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
     */
 
-    Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args, 
+    Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args,
                              Z3_ast const args[], int coeffs[],
                              int k);
 
     /**
        \mlonly {3 {L Function Declarations}} \endmlonly
     */
-    
+
     /**
        \brief Convert a \c Z3_func_decl into \c Z3_ast. \conly This is just type casting.
        \mlonly \remark [func_decl_to_ast c f]  can be replaced by [(f :> ast)]. \endmlonly
@@ -3999,14 +3999,14 @@ END_MLAPI_EXCLUDE
     /**
         \brief Return a unique identifier for \c f.
         \mlonly \remark Implicitly used by [Pervasives.( = )] and [Pervasives.compare]. \endmlonly
-    
+
         def_API('Z3_get_func_decl_id', UINT, (_in(CONTEXT), _in(FUNC_DECL)))
     */
     unsigned Z3_API Z3_get_func_decl_id(Z3_context c, Z3_func_decl f);
 
     /**
-       \brief Return the constant declaration name as a symbol. 
-    
+       \brief Return the constant declaration name as a symbol.
+
        def_API('Z3_get_decl_name', SYMBOL, (_in(CONTEXT), _in(FUNC_DECL)))
     */
     Z3_symbol Z3_API Z3_get_decl_name(Z3_context c, Z3_func_decl d);
@@ -4039,11 +4039,11 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh get_domain c d i \endmlh
        Return the sort of the i-th parameter of the given function declaration.
-       
+
        \pre i < Z3_get_domain_size(d)
 
        \sa Z3_get_domain_size
-       
+
        def_API('Z3_get_domain', SORT, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
     Z3_sort Z3_API Z3_get_domain(Z3_context c, Z3_func_decl d, unsigned i);
@@ -4054,7 +4054,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief \mlh get_range c d \endmlh
-       Return the range of the given declaration. 
+       Return the range of the given declaration.
 
        If \c d is a constant (i.e., has zero arguments), then this
        function returns the sort of the constant.
@@ -4072,11 +4072,11 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return the parameter type associated with a declaration.
-       
+
        \param c the context
        \param d the function declaration
        \param idx is the index of the named parameter it should be between 0 and the number of parameters.
-    
+
        def_API('Z3_get_decl_parameter_kind', UINT, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT)))
     */
     Z3_parameter_kind Z3_API Z3_get_decl_parameter_kind(Z3_context c, Z3_func_decl d, unsigned idx);
@@ -4151,7 +4151,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief Convert a \c Z3_app into \c Z3_ast. \conly This is just type casting.
        \mlonly \remark [app_to_ast c a] can be replaced by [(a :> ast)]. \endmlonly
-       
+
        def_API('Z3_app_to_ast', AST, (_in(CONTEXT), _in(APP)))
     */
     Z3_ast Z3_API Z3_app_to_ast(Z3_context c, Z3_app a);
@@ -4175,7 +4175,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief \mlh get_app_arg c a i \endmlh
        Return the i-th argument of the given application.
-       
+
        \pre i < Z3_get_num_args(c, a)
 
        def_API('Z3_get_app_arg', AST, (_in(CONTEXT), _in(APP), _in(UINT)))
@@ -4210,7 +4210,7 @@ END_MLAPI_EXCLUDE
         have the same identifiers. Ast nodes created in the same context, but having
         different children or different functions have different identifiers.
         Variables and quantifiers are also assigned different identifiers according to
-        their structure.        
+        their structure.
         \mlonly \remark Implicitly used by [Pervasives.compare] for values of type [ast], [app], [sort], [func_decl], and [pattern]. \endmlonly
 
         def_API('Z3_get_ast_id', UINT, (_in(CONTEXT), _in(AST)))
@@ -4219,7 +4219,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return a hash code for the given AST.
-       The hash code is structural. You can use Z3_get_ast_id interchangably with 
+       The hash code is structural. You can use Z3_get_ast_id interchangably with
        this function.
        \mlonly \remark Implicitly used by [Hashtbl.hash] for values of type [ast], [app], [sort], [func_decl], and [pattern]. \endmlonly
 
@@ -4229,16 +4229,16 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return the sort of an AST node.
-       
+
        The AST node must be a constant, application, numeral, bound variable, or quantifier.
-       
+
        def_API('Z3_get_sort', SORT, (_in(CONTEXT), _in(AST)))
     */
     Z3_sort Z3_API Z3_get_sort(Z3_context c, Z3_ast a);
 
     /**
        \brief Return true if the given expression \c t is well sorted.
-       
+
        def_API('Z3_is_well_sorted', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_is_well_sorted(Z3_context c, Z3_ast t);
@@ -4258,7 +4258,7 @@ END_MLAPI_EXCLUDE
     Z3_ast_kind Z3_API Z3_get_ast_kind(Z3_context c, Z3_ast a);
 
     /**
-      def_API('Z3_is_app', BOOL, (_in(CONTEXT), _in(AST)))      
+      def_API('Z3_is_app', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_is_app(Z3_context c, Z3_ast a);
 
@@ -4269,14 +4269,14 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return true if the give AST is a real algebraic number.
-    
+
        def_API('Z3_is_algebraic_number', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_is_algebraic_number(Z3_context c, Z3_ast a);
 
     /**
        \brief Convert an \c ast into an \c APP_AST. \conly This is just type casting.
-       
+
        \pre \code Z3_get_ast_kind(c, a) == \c Z3_APP_AST \endcode
 
        def_API('Z3_to_app', APP, (_in(CONTEXT), _in(AST)))
@@ -4285,7 +4285,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Convert an AST into a FUNC_DECL_AST. This is just type casting.
-       
+
        \pre \code Z3_get_ast_kind(c, a) == Z3_FUNC_DECL_AST \endcode
 
        def_API('Z3_to_func_decl', FUNC_DECL, (_in(CONTEXT), _in(AST)))
@@ -4319,8 +4319,8 @@ END_MLAPI_EXCLUDE
        The result has at most \c precision decimal places.
 
        \pre Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST || Z3_is_algebraic_number(c, a)
-    
-       def_API('Z3_get_numeral_decimal_string', STRING, (_in(CONTEXT), _in(AST), _in(UINT)))       
+
+       def_API('Z3_get_numeral_decimal_string', STRING, (_in(CONTEXT), _in(AST), _in(UINT)))
     */
     Z3_string Z3_API Z3_get_numeral_decimal_string(Z3_context c, Z3_ast a, unsigned precision);
 
@@ -4349,7 +4349,7 @@ END_MLAPI_EXCLUDE
        \param a term.
        \param num numerator.
        \param den denominator.
-       
+
        Return \c Z3_TRUE if the numeral value fits in 64 bit numerals, \c Z3_FALSE otherwise.
 
        \pre Z3_get_ast_kind(a) == Z3_NUMERAL_AST
@@ -4364,7 +4364,7 @@ END_MLAPI_EXCLUDE
        the value can fit in a machine int. Return Z3_TRUE if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
-      
+
        \sa Z3_get_numeral_string
 
        def_API('Z3_get_numeral_int', BOOL, (_in(CONTEXT), _in(AST), _out(INT)))
@@ -4378,7 +4378,7 @@ END_MLAPI_EXCLUDE
        the value can fit in a machine unsigned int. Return Z3_TRUE if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
-      
+
        \sa Z3_get_numeral_string
 
        def_API('Z3_get_numeral_uint', BOOL, (_in(CONTEXT), _in(AST), _out(UINT)))
@@ -4393,7 +4393,7 @@ END_MLAPI_EXCLUDE
        the value can fit in a machine unsigned __int64 int. Return Z3_TRUE if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
-      
+
        \sa Z3_get_numeral_string
 
        def_API('Z3_get_numeral_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
@@ -4426,9 +4426,9 @@ END_MLAPI_EXCLUDE
        def_API('Z3_get_numeral_rational_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _out(INT64)))
     */
     Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_context c, Z3_ast v, __int64* num, __int64* den);
-    
+
     /**
-       \brief Return a lower bound for the given real algebraic number. 
+       \brief Return a lower bound for the given real algebraic number.
        The interval isolating the number is smaller than 1/10^precision.
        The result is a numeral AST of sort Real.
 
@@ -4439,7 +4439,7 @@ END_MLAPI_EXCLUDE
     Z3_ast Z3_API Z3_get_algebraic_number_lower(Z3_context c, Z3_ast a, unsigned precision);
 
     /**
-       \brief Return a upper bound for the given real algebraic number. 
+       \brief Return a upper bound for the given real algebraic number.
        The interval isolating the number is smaller than 1/10^precision.
        The result is a numeral AST of sort Real.
 
@@ -4453,7 +4453,7 @@ END_MLAPI_EXCLUDE
     /**
        \mlonly {4 {L Patterns}} \endmlonly
     */
-    
+
     /**
        \brief Convert a Z3_pattern into Z3_ast. \conly This is just type casting.
        \mlonly \remark [pattern_to_ast c p]  can be replaced by [(p :> ast)]. \endmlonly
@@ -4472,7 +4472,7 @@ END_MLAPI_EXCLUDE
         def_API('Z3_get_pattern_num_terms', UINT, (_in(CONTEXT), _in(PATTERN)))
     */
     unsigned Z3_API Z3_get_pattern_num_terms(Z3_context c, Z3_pattern p);
-    
+
     /**
        \brief Return i'th ast in pattern.
 
@@ -4489,32 +4489,32 @@ END_MLAPI_EXCLUDE
        \brief Return index of de-Brujin bound variable.
 
        \pre Z3_get_ast_kind(a) == Z3_VAR_AST
-    
+
        def_API('Z3_get_index_value', UINT, (_in(CONTEXT), _in(AST)))
     */
     unsigned Z3_API Z3_get_index_value(Z3_context c, Z3_ast a);
 
     /**
        \brief Determine if quantifier is universal.
-       
+
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
-       
-       def_API('Z3_is_quantifier_forall', BOOL, (_in(CONTEXT), _in(AST)))       
+
+       def_API('Z3_is_quantifier_forall', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_is_quantifier_forall(Z3_context c, Z3_ast a);
 
     /**
        \brief Obtain weight of quantifier.
-       
+
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
 
-       def_API('Z3_get_quantifier_weight', UINT, (_in(CONTEXT), _in(AST)))       
+       def_API('Z3_get_quantifier_weight', UINT, (_in(CONTEXT), _in(AST)))
     */
     unsigned Z3_API Z3_get_quantifier_weight(Z3_context c, Z3_ast a);
 
     /**
        \brief Return number of patterns used in quantifier.
-       
+
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
 
        def_API('Z3_get_quantifier_num_patterns', UINT, (_in(CONTEXT), _in(AST)))
@@ -4523,7 +4523,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return i'th pattern.
-       
+
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
 
        def_API('Z3_get_quantifier_pattern_ast', PATTERN, (_in(CONTEXT), _in(AST), _in(UINT)))
@@ -4532,7 +4532,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return number of no_patterns used in quantifier.
-       
+
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
 
        def_API('Z3_get_quantifier_num_no_patterns', UINT, (_in(CONTEXT), _in(AST)))
@@ -4541,7 +4541,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return i'th no_pattern.
-       
+
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
 
        def_API('Z3_get_quantifier_no_pattern_ast', AST, (_in(CONTEXT), _in(AST), _in(UINT)))
@@ -4550,7 +4550,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return number of bound variables of quantifier.
-       
+
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
 
        def_API('Z3_get_quantifier_num_bound', UINT, (_in(CONTEXT), _in(AST)))
@@ -4559,7 +4559,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return symbol of the i'th bound variable.
-       
+
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
 
        def_API('Z3_get_quantifier_bound_name', SYMBOL, (_in(CONTEXT), _in(AST), _in(UINT)))
@@ -4568,18 +4568,18 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return sort of the i'th bound variable.
-       
+
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
-       
+
        def_API('Z3_get_quantifier_bound_sort', SORT, (_in(CONTEXT), _in(AST), _in(UINT)))
     */
     Z3_sort Z3_API Z3_get_quantifier_bound_sort(Z3_context c, Z3_ast a, unsigned i);
 
     /**
        \brief Return body of quantifier.
-       
+
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
-       
+
        def_API('Z3_get_quantifier_body', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_get_quantifier_body(Z3_context c, Z3_ast a);
@@ -4601,9 +4601,9 @@ END_MLAPI_EXCLUDE
 #ifdef CorML4
     /**
         \brief Interface to simplifier.
-        
+
         Provides an interface to the AST simplifier used by Z3.
-        This procedure is similar to #Z3_simplify, but the behavior of the simplifier 
+        This procedure is similar to #Z3_simplify, but the behavior of the simplifier
         can be configured using the given parameter set.
 
         def_API('Z3_simplify_ex', AST, (_in(CONTEXT), _in(AST), _in(PARAMS)))
@@ -4612,7 +4612,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return a string describing all available parameters.
-    
+
        def_API('Z3_simplify_get_help', STRING, (_in(CONTEXT),))
     */
     Z3_string Z3_API Z3_simplify_get_help(Z3_context c);
@@ -4624,7 +4624,7 @@ END_MLAPI_EXCLUDE
     */
     Z3_param_descrs Z3_API Z3_simplify_get_param_descrs(Z3_context c);
 #endif
-    
+
     /*@}*/
 
     /**
@@ -4634,7 +4634,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Update the arguments of term \c a using the arguments \c args.
-       The number of arguments \c num_args should coincide 
+       The number of arguments \c num_args should coincide
        with the number of arguments to \c a.
        If \c a is a quantifier, then num_args has to be 1.
 
@@ -4649,10 +4649,10 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_substitute', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST), _in_array(2, AST)))
     */
-    Z3_ast Z3_API Z3_substitute(Z3_context c, 
-                                Z3_ast a, 
-                                unsigned num_exprs, 
-                                Z3_ast const from[], 
+    Z3_ast Z3_API Z3_substitute(Z3_context c,
+                                Z3_ast a,
+                                unsigned num_exprs,
+                                Z3_ast const from[],
                                 Z3_ast const to[]);
 
     /**
@@ -4661,9 +4661,9 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_substitute_vars', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST)))
     */
-    Z3_ast Z3_API Z3_substitute_vars(Z3_context c, 
-                                     Z3_ast a, 
-                                     unsigned num_exprs, 
+    Z3_ast Z3_API Z3_substitute_vars(Z3_context c,
+                                     Z3_ast a,
+                                     unsigned num_exprs,
                                      Z3_ast const to[]);
 
 #ifdef CorML4
@@ -4676,7 +4676,7 @@ END_MLAPI_EXCLUDE
     */
     Z3_ast Z3_API Z3_translate(Z3_context source, Z3_ast a, Z3_context target);
 #endif
-    
+
     /*@}*/
 
 #ifdef CorML4
@@ -4684,14 +4684,14 @@ END_MLAPI_EXCLUDE
        @name Models
      */
     /*@{*/
-    
+
 #ifdef ML4only
 #include <mlx_model.idl>
 #endif
 #ifdef Conly
     /**
        \brief Increment the reference counter of the given model.
-    
+
        def_API('Z3_model_inc_ref', VOID, (_in(CONTEXT), _in(MODEL)))
     */
     void Z3_API Z3_model_inc_ref(Z3_context c, Z3_model m);
@@ -4703,23 +4703,23 @@ END_MLAPI_EXCLUDE
     */
     void Z3_API Z3_model_dec_ref(Z3_context c, Z3_model m);
 #endif
-    
+
     /**
        \brief \mlh model_eval c m t \endmlh
-       Evaluate the AST node \c t in the given model. 
+       Evaluate the AST node \c t in the given model.
        \conly Return \c Z3_TRUE if succeeded, and store the result in \c v.
        \mlonly Return \c None if the term was not successfully evaluated. \endmlonly
-       
+
        If \c model_completion is Z3_TRUE, then Z3 will assign an interpretation for any constant or function that does
        not have an interpretation in \c m. These constants and functions were essentially don't cares.
 
        The evaluation may fail for the following reasons:
-       
+
        - \c t contains a quantifier.
-       
-       - the model \c m is partial, that is, it doesn't have a complete interpretation for uninterpreted functions. 
+
+       - the model \c m is partial, that is, it doesn't have a complete interpretation for uninterpreted functions.
        That is, the option <tt>MODEL_PARTIAL=true</tt> was used.
-       
+
        - \c t is type incorrect.
 
        def_API('Z3_model_eval', BOOL, (_in(CONTEXT), _in(MODEL), _in(AST), _in(BOOL), _out(AST)))
@@ -4733,7 +4733,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief Return the interpretation (i.e., assignment) of constant \c a in the model \c m.
        Return \mlonly [None], \endmlonly \conly \c NULL,
-       if the model does not assign an interpretation for \c a. 
+       if the model does not assign an interpretation for \c a.
        That should be interpreted as: the value of \c a does not matter.
 
        \pre Z3_get_arity(c, a) == 0
@@ -4752,9 +4752,9 @@ END_MLAPI_EXCLUDE
     /**
        \brief Return the interpretation of the function \c f in the model \c m.
        Return \mlonly [None], \endmlonly \conly \c NULL,
-       if the model does not assign an interpretation for \c f. 
+       if the model does not assign an interpretation for \c f.
        That should be interpreted as: the \c f does not matter.
-       
+
        \pre Z3_get_arity(c, f) > 0
 
        \conly \remark Reference counting must be used to manage Z3_func_interp objects, even when the Z3_context was
@@ -4766,7 +4766,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return the number of constants assigned by the given model.
-       
+
        \sa Z3_model_get_const_decl
 
        def_API('Z3_model_get_num_consts', UINT, (_in(CONTEXT), _in(MODEL)))
@@ -4775,26 +4775,26 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief \mlh model_get_const_decl c m i \endmlh
-       Return the i-th constant in the given model. 
+       Return the i-th constant in the given model.
 
        \pre i < Z3_model_get_num_consts(c, m)
 
        \sa Z3_model_eval
-       
+
        def_API('Z3_model_get_const_decl', FUNC_DECL, (_in(CONTEXT), _in(MODEL), _in(UINT)))
     */
     Z3_func_decl Z3_API Z3_model_get_const_decl(Z3_context c, Z3_model m, unsigned i);
-    
+
     /**
        \brief Return the number of function interpretations in the given model.
-       
+
        A function interpretation is represented as a finite map and an 'else' value.
        Each entry in the finite map represents the value of a function given a set of arguments.
 
        def_API('Z3_model_get_num_funcs', UINT, (_in(CONTEXT), _in(MODEL)))
     */
     unsigned Z3_API Z3_model_get_num_funcs(Z3_context c, Z3_model m);
-    
+
     /**
        \brief \mlh model_get_func_decl c m i \endmlh
        Return the declaration of the i-th function in the given model.
@@ -4806,14 +4806,14 @@ END_MLAPI_EXCLUDE
        def_API('Z3_model_get_func_decl', FUNC_DECL, (_in(CONTEXT), _in(MODEL), _in(UINT)))
     */
     Z3_func_decl Z3_API Z3_model_get_func_decl(Z3_context c, Z3_model m, unsigned i);
-    
+
     /**
        \brief Return the number of uninterpreted sorts that \c m assigs an interpretation to.
-       
+
        Z3 also provides an intepretation for uninterpreted sorts used in a formua.
        The interpretation for a sort \c s is a finite set of distinct values. We say this finite set is
        the "universe" of \c s.
-       
+
        \sa Z3_model_get_sort
        \sa Z3_model_get_sort_universe
 
@@ -4823,9 +4823,9 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return a uninterpreted sort that \c m assigns an interpretation.
-       
+
        \pre i < Z3_model_get_num_sorts(c, m)
-    
+
        \sa Z3_model_get_num_sorts
        \sa Z3_model_get_sort_universe
 
@@ -4835,30 +4835,30 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return the finite set of distinct values that represent the interpretation for sort \c s.
-       
+
        \sa Z3_model_get_num_sorts
        \sa Z3_model_get_sort
 
        def_API('Z3_model_get_sort_universe', AST_VECTOR, (_in(CONTEXT), _in(MODEL), _in(SORT)))
     */
     Z3_ast_vector Z3_API Z3_model_get_sort_universe(Z3_context c, Z3_model m, Z3_sort s);
-    
+
     /**
        \brief The <tt>(_ as-array f)</tt> AST node is a construct for assigning interpretations for arrays in Z3.
        It is the array such that forall indices \c i we have that <tt>(select (_ as-array f) i)</tt> is equal to <tt>(f i)</tt>.
        This procedure returns Z3_TRUE if the \c a is an \c as-array AST node.
 
-       Z3 current solvers have minimal support for \c as_array nodes. 
+       Z3 current solvers have minimal support for \c as_array nodes.
 
        \sa Z3_get_as_array_func_decl
 
        def_API('Z3_is_as_array', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_is_as_array(Z3_context c, Z3_ast a);
-    
+
     /**
        \brief Return the function declaration \c f associated with a <tt>(_ as_array f)</tt> node.
-    
+
        \sa Z3_is_as_array
 
        def_API('Z3_get_as_array_func_decl', FUNC_DECL, (_in(CONTEXT), _in(AST)))
@@ -4897,13 +4897,13 @@ END_MLAPI_EXCLUDE
        value of \c f in a particular point.
 
        \pre i < Z3_func_interp_get_num_entries(c, f)
-       
+
        \sa Z3_func_interp_get_num_entries
 
        def_API('Z3_func_interp_get_entry', FUNC_ENTRY, (_in(CONTEXT), _in(FUNC_INTERP), _in(UINT)))
     */
     Z3_func_entry Z3_API Z3_func_interp_get_entry(Z3_context c, Z3_func_interp f, unsigned i);
-    
+
     /**
        \brief Return the 'else' value of the given function interpretation.
 
@@ -4913,7 +4913,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_func_interp_get_else', AST, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
     Z3_ast Z3_API Z3_func_interp_get_else(Z3_context c, Z3_func_interp f);
-    
+
     /**
        \brief Return the arity (number of arguments) of the given function interpretation.
 
@@ -4936,13 +4936,13 @@ END_MLAPI_EXCLUDE
     */
     void Z3_API Z3_func_entry_dec_ref(Z3_context c, Z3_func_entry e);
 #endif
-    
+
     /**
-       \brief Return the value of this point. 
-       
+       \brief Return the value of this point.
+
        A Z3_func_entry object represents an element in the finite map used to encode
        a function interpretation.
-       
+
        \sa Z3_func_interp_get_entry
 
        def_API('Z3_func_entry_get_value', AST, (_in(CONTEXT), _in(FUNC_ENTRY)))
@@ -4951,20 +4951,20 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return the number of arguments in a Z3_func_entry object.
-       
+
        \sa Z3_func_interp_get_entry
 
        def_API('Z3_func_entry_get_num_args', UINT, (_in(CONTEXT), _in(FUNC_ENTRY)))
     */
     unsigned Z3_API Z3_func_entry_get_num_args(Z3_context c, Z3_func_entry e);
-    
+
     /**
        \brief Return an argument of a Z3_func_entry object.
 
        \pre i < Z3_func_entry_get_num_args(c, e)
 
        \sa Z3_func_interp_get_entry
-       
+
        def_API('Z3_func_entry_get_arg', AST, (_in(CONTEXT), _in(FUNC_ENTRY), _in(UINT)))
     */
     Z3_ast Z3_API Z3_func_entry_get_arg(Z3_context c, Z3_func_entry e, unsigned i);
@@ -4976,17 +4976,17 @@ END_MLAPI_EXCLUDE
        @name Interaction logging.
     */
     /*@{*/
-    
+
     /**
        \brief Log interaction to a file.
-       
+
        extra_API('Z3_open_log', INT, (_in(STRING),))
     */
     Z3_bool Z3_API Z3_open_log(Z3_string filename);
 
     /**
        \brief Append user-defined string to interaction log.
-       
+
        The interaction log is opened using Z3_open_log.
        It contains the formulas that are checked using Z3.
        You can use this command to append comments, for instance.
@@ -5006,7 +5006,7 @@ END_MLAPI_EXCLUDE
        \brief Enable/disable printing warning messages to the console.
 
        Warnings are printed after passing \c true, warning messages are
-       suppressed after calling this method with \c false.       
+       suppressed after calling this method with \c false.
 
        def_API('Z3_toggle_warning_messages', VOID, (_in(BOOL),))
     */
@@ -5023,9 +5023,9 @@ END_MLAPI_EXCLUDE
        \brief Select mode for the format used for pretty-printing AST nodes.
 
        The default mode for pretty printing AST nodes is to produce
-       SMT-LIB style output where common subexpressions are printed 
+       SMT-LIB style output where common subexpressions are printed
        at each occurrence. The mode is called Z3_PRINT_SMTLIB_FULL.
-       To print shared common subexpressions only once, 
+       To print shared common subexpressions only once,
        use the Z3_PRINT_LOW_LEVEL mode.
        To print in way that conforms to SMT-LIB standards and uses let
        expressions to share common sub-expressions use Z3_PRINT_SMTLIB_COMPLIANT.
@@ -5060,7 +5060,7 @@ END_MLAPI_EXCLUDE
       def_API('Z3_sort_to_string', STRING, (_in(CONTEXT), _in(SORT)))
     */
     Z3_string Z3_API Z3_sort_to_string(Z3_context c, Z3_sort s);
-    
+
     /**
       def_API('Z3_func_decl_to_string', STRING, (_in(CONTEXT), _in(FUNC_DECL)))
     */
@@ -5086,7 +5086,7 @@ END_MLAPI_EXCLUDE
 
        \param c - context.
        \param name - name of benchmark. The argument is optional.
-       \param logic - the benchmark logic. 
+       \param logic - the benchmark logic.
        \param status - the status string (sat, unsat, or unknown)
        \param attributes - other attributes, such as source, difficulty or category.
        \param num_assumptions - number of assumptions.
@@ -5095,7 +5095,7 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_benchmark_to_smtlib_string', STRING, (_in(CONTEXT), _in(STRING), _in(STRING), _in(STRING), _in(STRING), _in(UINT), _in_array(5, AST), _in(AST)))
     */
-    Z3_string Z3_API Z3_benchmark_to_smtlib_string(Z3_context c, 
+    Z3_string Z3_API Z3_benchmark_to_smtlib_string(Z3_context c,
                                                    Z3_string name,
                                                    Z3_string logic,
                                                    Z3_string status,
@@ -5113,14 +5113,14 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief \mlh parse_smtlib2_string c str \endmlh
-       Parse the given string using the SMT-LIB2 parser. 
-              
+       Parse the given string using the SMT-LIB2 parser.
+
        It returns a formula comprising of the conjunction of assertions in the scope
        (up to push/pop) at the end of the string.
 
        def_API('Z3_parse_smtlib2_string', AST, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    Z3_ast Z3_API Z3_parse_smtlib2_string(Z3_context c, 
+    Z3_ast Z3_API Z3_parse_smtlib2_string(Z3_context c,
                                           Z3_string str,
                                           unsigned num_sorts,
                                           Z3_symbol const sort_names[],
@@ -5128,13 +5128,13 @@ END_MLAPI_EXCLUDE
                                           unsigned num_decls,
                                           Z3_symbol const decl_names[],
                                           Z3_func_decl const decls[]);
-    
+
     /**
        \brief Similar to #Z3_parse_smtlib2_string, but reads the benchmark from a file.
 
        def_API('Z3_parse_smtlib2_file', AST, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    Z3_ast Z3_API Z3_parse_smtlib2_file(Z3_context c, 
+    Z3_ast Z3_API Z3_parse_smtlib2_file(Z3_context c,
                                         Z3_string file_name,
                                         unsigned num_sorts,
                                         Z3_symbol const sort_names[],
@@ -5153,27 +5153,27 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief \mlh parse_smtlib_string c str sort_names sorts decl_names decls \endmlh
-       Parse the given string using the SMT-LIB parser. 
-              
-       The symbol table of the parser can be initialized using the given sorts and declarations. 
+       Parse the given string using the SMT-LIB parser.
+
+       The symbol table of the parser can be initialized using the given sorts and declarations.
        The symbols in the arrays \c sort_names and \c decl_names don't need to match the names
        of the sorts and declarations in the arrays \c sorts and \c decls. This is an useful feature
        since we can use arbitrary names to reference sorts and declarations defined using the C API.
 
        The formulas, assumptions and declarations defined in \c str can be extracted using the functions:
-       #Z3_get_smtlib_num_formulas, #Z3_get_smtlib_formula, #Z3_get_smtlib_num_assumptions, #Z3_get_smtlib_assumption, 
+       #Z3_get_smtlib_num_formulas, #Z3_get_smtlib_formula, #Z3_get_smtlib_num_assumptions, #Z3_get_smtlib_assumption,
        #Z3_get_smtlib_num_decls, and #Z3_get_smtlib_decl.
 
        def_API('Z3_parse_smtlib_string', VOID, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    void Z3_API Z3_parse_smtlib_string(Z3_context c, 
+    void Z3_API Z3_parse_smtlib_string(Z3_context c,
                                        Z3_string str,
                                        unsigned num_sorts,
                                        Z3_symbol const sort_names[],
                                        Z3_sort const sorts[],
                                        unsigned num_decls,
                                        Z3_symbol const decl_names[],
-                                       Z3_func_decl const decls[]                     
+                                       Z3_func_decl const decls[]
                                        );
 
     /**
@@ -5181,14 +5181,14 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_parse_smtlib_file', VOID, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    void Z3_API Z3_parse_smtlib_file(Z3_context c, 
+    void Z3_API Z3_parse_smtlib_file(Z3_context c,
                                      Z3_string file_name,
                                      unsigned num_sorts,
                                      Z3_symbol const sort_names[],
                                      Z3_sort const sorts[],
                                      unsigned num_decls,
                                      Z3_symbol const decl_names[],
-                                     Z3_func_decl const decls[]  
+                                     Z3_func_decl const decls[]
                                      );
 
     /**
@@ -5280,7 +5280,7 @@ END_MLAPI_EXCLUDE
 #ifndef SAFE_ERRORS
     /**
        \brief Return the error code for the last API call.
-       
+
        A call to a Z3 function may return a non Z3_OK error code,
        when it is not used correctly.
 
@@ -5292,7 +5292,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Register a Z3 error handler.
-       
+
        A call to a Z3 function may return a non Z3_OK error code, when
        it is not used correctly.  An error handler can be registered
        and will be called in this case.  \conly To disable the use of the
@@ -5304,7 +5304,7 @@ END_MLAPI_EXCLUDE
     */
     void Z3_API Z3_set_error_handler(Z3_context c, Z3_error_handler h);
 #endif
-    
+
     /**
        \brief Set an error.
 
@@ -5312,7 +5312,7 @@ END_MLAPI_EXCLUDE
     */
     void Z3_API Z3_set_error(Z3_context c, Z3_error_code e);
 
-    
+
 BEGIN_MLAPI_EXCLUDE
     /**
        \brief Return a string describing the given error code.
@@ -5333,14 +5333,14 @@ END_MLAPI_EXCLUDE
        @name Miscellaneous
     */
     /*@{*/
-    
+
     /**
        \brief Return Z3 version number information.
 
        def_API('Z3_get_version', VOID, (_out(UINT), _out(UINT), _out(UINT), _out(UINT)))
     */
     void Z3_API Z3_get_version(unsigned * major, unsigned * minor, unsigned * build_number, unsigned * revision_number);
- 
+
     /**
        \brief Enable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
        It is a NOOP otherwise
@@ -5356,12 +5356,12 @@ END_MLAPI_EXCLUDE
        def_API('Z3_disable_trace', VOID, (_in(STRING),))
     */
     void Z3_API Z3_disable_trace(Z3_string tag);
- 
+
 #ifdef CorML3
     /**
-       \brief Reset all allocated resources. 
+       \brief Reset all allocated resources.
 
-       Use this facility on out-of memory errors. 
+       Use this facility on out-of memory errors.
        It allows discharging the previous state and resuming afresh.
        Any pointers previously returned by the API
        become invalid.
@@ -5392,8 +5392,8 @@ END_MLAPI_EXCLUDE
     /*@{*/
 
     /**
-       \brief Create a new fixedpoint context. 
-       
+       \brief Create a new fixedpoint context.
+
        \conly \remark User must use #Z3_fixedpoint_inc_ref and #Z3_fixedpoint_dec_ref to manage fixedpoint objects.
        \conly Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
 
@@ -5404,7 +5404,7 @@ END_MLAPI_EXCLUDE
 #ifdef Conly
     /**
        \brief Increment the reference counter of the given fixedpoint context
-       
+
        def_API('Z3_fixedpoint_inc_ref', VOID, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
     void Z3_API Z3_fixedpoint_inc_ref(Z3_context c,Z3_fixedpoint d);
@@ -5420,7 +5420,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief Add a universal Horn clause as a named rule.
        The \c horn_rule should be of the form:
- 
+
        \code
            horn_rule ::= (forall (bound-vars) horn_rule)
                       |  (=> atoms horn_rule)
@@ -5432,15 +5432,15 @@ END_MLAPI_EXCLUDE
     void Z3_API Z3_fixedpoint_add_rule(Z3_context c,Z3_fixedpoint d, Z3_ast rule, Z3_symbol name);
 
     /**
-       \brief Add a Database fact. 
-             
+       \brief Add a Database fact.
+
        \param c - context
        \param d - fixed point context
        \param r - relation signature for the row.
-       \param num_args - number of columns for the given row. 
+       \param num_args - number of columns for the given row.
        \param args - array of the row elements.
 
-       The number of arguments \c num_args should be equal to the number 
+       The number of arguments \c num_args should be equal to the number
        of sorts in the domain of \c r. Each sort in the domain should be an integral
       (bit-vector, Boolean or or finite domain sort).
 
@@ -5448,8 +5448,8 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_fixedpoint_add_fact', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(FUNC_DECL), _in(UINT), _in_array(3, UINT)))
     */
-    void Z3_API Z3_fixedpoint_add_fact(Z3_context c,Z3_fixedpoint d, 
-                                       Z3_func_decl r, 
+    void Z3_API Z3_fixedpoint_add_fact(Z3_context c,Z3_fixedpoint d,
+                                       Z3_func_decl r,
                                        unsigned num_args, unsigned args[]);
 
     /**
@@ -5467,10 +5467,10 @@ END_MLAPI_EXCLUDE
 
         \code
            query ::= (exists (bound-vars) query)
-                 |  literals 
+                 |  literals
         \endcode
 
-        query returns 
+        query returns
         - Z3_L_FALSE if the query is unsatisfiable.
         - Z3_L_TRUE if the query is satisfiable. Obtain the answer by calling #Z3_fixedpoint_get_answer.
         - Z3_L_UNDEF if the query was interrupted, timed out or otherwise failed.
@@ -5483,8 +5483,8 @@ END_MLAPI_EXCLUDE
         \brief Pose multiple queries against the asserted rules.
 
         The queries are encoded as relations (function declarations).
-         
-        query returns 
+
+        query returns
         - Z3_L_FALSE if the query is unsatisfiable.
         - Z3_L_TRUE if the query is satisfiable. Obtain the answer by calling #Z3_fixedpoint_get_answer.
         - Z3_L_UNDEF if the query was interrupted, timed out or otherwise failed.
@@ -5492,13 +5492,13 @@ END_MLAPI_EXCLUDE
         def_API('Z3_fixedpoint_query_relations', INT, (_in(CONTEXT), _in(FIXEDPOINT), _in(UINT), _in_array(2, FUNC_DECL)))
     */
     Z3_lbool Z3_API Z3_fixedpoint_query_relations(
-        Z3_context c,Z3_fixedpoint d, 
+        Z3_context c,Z3_fixedpoint d,
         unsigned num_relations, Z3_func_decl const relations[]);
 
     /**
        \brief Retrieve a formula that encodes satisfying answers to the query.
 
-       
+
        When used in Datalog mode, the returned answer is a disjunction of conjuncts.
        Each conjunct encodes values of the bound variables of the query that are satisfied.
        In PDR mode, the returned answer is a single conjunction.
@@ -5507,33 +5507,33 @@ END_MLAPI_EXCLUDE
        When used with the PDR engine, the previous call must have been either Z3_L_TRUE or Z3_L_FALSE.
 
        def_API('Z3_fixedpoint_get_answer', AST, (_in(CONTEXT), _in(FIXEDPOINT)))
-    */    
+    */
     Z3_ast Z3_API Z3_fixedpoint_get_answer(Z3_context c,Z3_fixedpoint d);
 
     /**
        \brief Retrieve a string that describes the last status returned by #Z3_fixedpoint_query.
 
        Use this method when #Z3_fixedpoint_query returns Z3_L_UNDEF.
-       
+
        def_API('Z3_fixedpoint_get_reason_unknown', STRING, (_in(CONTEXT), _in(FIXEDPOINT) ))
     */
     Z3_string Z3_API Z3_fixedpoint_get_reason_unknown(Z3_context c,Z3_fixedpoint d);
 
     /**
-       \brief Update a named rule. 
+       \brief Update a named rule.
        A rule with the same name must have been previously created.
 
        def_API('Z3_fixedpoint_update_rule', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(AST), _in(SYMBOL)))
     */
     void Z3_API Z3_fixedpoint_update_rule(Z3_context c, Z3_fixedpoint d, Z3_ast a, Z3_symbol name);
-    
+
     /**
        \brief Query the PDR engine for the maximal levels properties are known about predicate.
 
-       This call retrieves the maximal number of relevant unfoldings 
+       This call retrieves the maximal number of relevant unfoldings
        of \c pred with respect to the current exploration state.
        Note: this functionality is PDR specific.
-    
+
        def_API('Z3_fixedpoint_get_num_levels', UINT, (_in(CONTEXT), _in(FIXEDPOINT), _in(FUNC_DECL)))
     */
     unsigned Z3_API Z3_fixedpoint_get_num_levels(Z3_context c, Z3_fixedpoint d, Z3_func_decl pred);
@@ -5547,12 +5547,12 @@ END_MLAPI_EXCLUDE
        Note: this functionality is PDR specific.
 
        def_API('Z3_fixedpoint_get_cover_delta', AST, (_in(CONTEXT), _in(FIXEDPOINT), _in(INT), _in(FUNC_DECL)))
-     */    
+     */
     Z3_ast Z3_API Z3_fixedpoint_get_cover_delta(Z3_context c, Z3_fixedpoint d, int level, Z3_func_decl pred);
 
     /**
        \brief Add property about the predicate \c pred.
-       Add a property of predicate \c pred at \c level. 
+       Add a property of predicate \c pred at \c level.
        It gets pushed forward when possible.
 
        Note: level = -1 is treated as the fixedpoint. So passing -1 for the \c level
@@ -5576,7 +5576,7 @@ END_MLAPI_EXCLUDE
        Fixedpoint defined relations have least-fixedpoint semantics.
        For example, the relation is empty if it does not occur
        in a head or a fact.
-       
+
        def_API('Z3_fixedpoint_register_relation', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(FUNC_DECL)))
     */
     void Z3_API Z3_fixedpoint_register_relation(Z3_context c,Z3_fixedpoint d, Z3_func_decl f);
@@ -5592,11 +5592,11 @@ END_MLAPI_EXCLUDE
     */
     void Z3_API Z3_fixedpoint_set_predicate_representation(
         Z3_context c,
-        Z3_fixedpoint d, 
-        Z3_func_decl f, 
-        unsigned num_relations, 
+        Z3_fixedpoint d,
+        Z3_func_decl f,
+        unsigned num_relations,
         Z3_symbol const relation_kinds[]);
-                
+
     /**
        \brief Retrieve set of rules from fixedpoint context.
 
@@ -5616,7 +5616,7 @@ END_MLAPI_EXCLUDE
         Z3_fixedpoint f);
 
     /**
-       \brief Set parameters on fixedpoint context.       
+       \brief Set parameters on fixedpoint context.
 
        def_API('Z3_fixedpoint_set_params', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(PARAMS)))
     */
@@ -5624,7 +5624,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return a string describing all fixedpoint available parameters.
-       
+
        def_API('Z3_fixedpoint_get_help', STRING, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
     Z3_string Z3_API Z3_fixedpoint_get_help(Z3_context c, Z3_fixedpoint f);
@@ -5646,46 +5646,46 @@ END_MLAPI_EXCLUDE
        def_API('Z3_fixedpoint_to_string', STRING, (_in(CONTEXT), _in(FIXEDPOINT), _in(UINT), _in_array(2, AST)))
     */
     Z3_string Z3_API Z3_fixedpoint_to_string(
-        Z3_context c, 
+        Z3_context c,
         Z3_fixedpoint f,
         unsigned num_queries,
         Z3_ast queries[]);
 
     /**
-       \brief Parse an SMT-LIB2 string with fixedpoint rules. 
-       Add the rules to the current fixedpoint context. 
+       \brief Parse an SMT-LIB2 string with fixedpoint rules.
+       Add the rules to the current fixedpoint context.
        Return the set of queries in the string.
 
        \param c - context.
        \param f - fixedpoint context.
-       \param s - string containing SMT2 specification.       
+       \param s - string containing SMT2 specification.
 
        def_API('Z3_fixedpoint_from_string', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
     */
     Z3_ast_vector Z3_API Z3_fixedpoint_from_string(
-        Z3_context c, 
+        Z3_context c,
         Z3_fixedpoint f,
         Z3_string s);
 
     /**
-       \brief Parse an SMT-LIB2 file with fixedpoint rules. 
-       Add the rules to the current fixedpoint context. 
+       \brief Parse an SMT-LIB2 file with fixedpoint rules.
+       Add the rules to the current fixedpoint context.
        Return the set of queries in the file.
 
        \param c - context.
        \param f - fixedpoint context.
-       \param s - string containing SMT2 specification.       
+       \param s - string containing SMT2 specification.
 
        def_API('Z3_fixedpoint_from_file', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
     */
     Z3_ast_vector Z3_API Z3_fixedpoint_from_file(
-        Z3_context c, 
+        Z3_context c,
         Z3_fixedpoint f,
         Z3_string s);
 
     /**
        \brief Create a backtracking point.
-       
+
        The fixedpoint solver contains a set of rules, added facts and assertions.
        The set of rules, facts and assertions are restored upon calling #Z3_fixedpoint_pop.
 
@@ -5697,7 +5697,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Backtrack one backtracking point.
-       
+
        \sa Z3_fixedpoint_push
 
        \pre The number of calls to pop cannot exceed calls to push.
@@ -5713,36 +5713,36 @@ END_MLAPI_EXCLUDE
     */
 
     typedef void Z3_fixedpoint_reduce_assign_callback_fptr(
-        void*, Z3_func_decl, 
-        unsigned, Z3_ast const [], 
-        unsigned, Z3_ast const []); 
+        void*, Z3_func_decl,
+        unsigned, Z3_ast const [],
+        unsigned, Z3_ast const []);
 
     typedef void Z3_fixedpoint_reduce_app_callback_fptr(
-        void*, Z3_func_decl, 
-        unsigned, Z3_ast const [], 
+        void*, Z3_func_decl,
+        unsigned, Z3_ast const [],
         Z3_ast*);
-        
+
 
     /**
-       \brief Initialize the context with a user-defined state.   
+       \brief Initialize the context with a user-defined state.
     */
     void Z3_API Z3_fixedpoint_init(Z3_context c,Z3_fixedpoint d, void* state);
 
     /**
        \brief Register a callback to destructive updates.
-       
-       Registers are identified with terms encoded as fresh constants,          
+
+       Registers are identified with terms encoded as fresh constants,
     */
     void Z3_API Z3_fixedpoint_set_reduce_assign_callback(
         Z3_context c,Z3_fixedpoint d, Z3_fixedpoint_reduce_assign_callback_fptr cb);
-    
+
     /**
-       \brief Register a callback for buildling terms based on 
+       \brief Register a callback for buildling terms based on
        the relational operators.
     */
     void Z3_API Z3_fixedpoint_set_reduce_app_callback(
         Z3_context c,Z3_fixedpoint d, Z3_fixedpoint_reduce_app_callback_fptr cb);
-        
+
 #endif
 #endif
 
@@ -5755,8 +5755,8 @@ END_MLAPI_EXCLUDE
     /*@{*/
 
     /**
-       \brief Create a new optimize context. 
-       
+       \brief Create a new optimize context.
+
        \conly \remark User must use #Z3_optimize_inc_ref and #Z3_optimize_dec_ref to manage optimize objects.
        \conly Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
 
@@ -5767,7 +5767,7 @@ END_MLAPI_EXCLUDE
 #ifdef Conly
     /**
        \brief Increment the reference counter of the given optimize context
-       
+
        def_API('Z3_optimize_inc_ref', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
     */
     void Z3_API Z3_optimize_inc_ref(Z3_context c,Z3_optimize d);
@@ -5782,7 +5782,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Assert hard constraint to the optimization context.
-       
+
        def_API('Z3_optimize_assert', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
     void Z3_API Z3_optimize_assert(Z3_context c, Z3_optimize o, Z3_ast a);
@@ -5805,7 +5805,7 @@ END_MLAPI_EXCLUDE
        \brief Add a maximization constraint.
        \param c - context
        \param o - optimization context
-       \param a - arithmetical term       
+       \param a - arithmetical term
        def_API('Z3_optimize_maximize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
     unsigned Z3_API Z3_optimize_maximize(Z3_context c, Z3_optimize o, Z3_ast t);
@@ -5814,8 +5814,8 @@ END_MLAPI_EXCLUDE
        \brief Add a minimization constraint.
        \param c - context
        \param o - optimization context
-       \param a - arithmetical term   
-    
+       \param a - arithmetical term
+
        def_API('Z3_optimize_minimize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
     unsigned Z3_API Z3_optimize_minimize(Z3_context c, Z3_optimize o, Z3_ast t);
@@ -5823,7 +5823,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Create a backtracking point.
-       
+
        The optimize solver contains a set of rules, added facts and assertions.
        The set of rules, facts and assertions are restored upon calling #Z3_optimize_pop.
 
@@ -5835,7 +5835,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Backtrack one level.
-       
+
        \sa Z3_optimize_push
 
        \pre The number of calls to pop cannot exceed calls to push.
@@ -5848,7 +5848,7 @@ END_MLAPI_EXCLUDE
        \brief Check consistency and produce optimal values.
        \param c - context
        \param o - optimization context
-       
+
        def_API('Z3_optimize_check', INT, (_in(CONTEXT), _in(OPTIMIZE)))
     */
     Z3_lbool Z3_API Z3_optimize_check(Z3_context c, Z3_optimize o);
@@ -5858,7 +5858,7 @@ END_MLAPI_EXCLUDE
        \brief Retrieve a string that describes the last status returned by #Z3_optimize_check.
 
        Use this method when #Z3_optimize_check returns Z3_L_UNDEF.
-       
+
        def_API('Z3_optimize_get_reason_unknown', STRING, (_in(CONTEXT), _in(OPTIMIZE) ))
     */
     Z3_string Z3_API Z3_optimize_get_reason_unknown(Z3_context c,Z3_optimize d);
@@ -5866,16 +5866,16 @@ END_MLAPI_EXCLUDE
     /**
        \brief Retrieve the model for the last #Z3_optimize_check
 
-       The error handler is invoked if a model is not available because 
-       the commands above were not invoked for the given optimization 
+       The error handler is invoked if a model is not available because
+       the commands above were not invoked for the given optimization
        solver, or if the result was \c Z3_L_FALSE.
-       
+
        def_API('Z3_optimize_get_model', MODEL, (_in(CONTEXT), _in(OPTIMIZE)))
     */
     Z3_model Z3_API Z3_optimize_get_model(Z3_context c, Z3_optimize o);
 
     /**
-       \brief Set parameters on optimization context.       
+       \brief Set parameters on optimization context.
 
        \param c - context
        \param o - optimization context
@@ -5892,7 +5892,7 @@ END_MLAPI_EXCLUDE
        \param o - optimization context
 
        def_API('Z3_optimize_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT), _in(OPTIMIZE)))
-    */    
+    */
     Z3_param_descrs Z3_API Z3_optimize_get_param_descrs(Z3_context c, Z3_optimize o);
 
     /**
@@ -5925,7 +5925,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_optimize_to_string', STRING, (_in(CONTEXT), _in(OPTIMIZE)))
     */
     Z3_string Z3_API Z3_optimize_to_string(
-        Z3_context c, 
+        Z3_context c,
         Z3_optimize o);
 
 
@@ -5948,12 +5948,12 @@ END_MLAPI_EXCLUDE
 
 #ifdef CorML4
     /*@}*/
-    
+
     /**
         @name AST vectors
     */
     /*@{*/
-    
+
     /**
        \brief Return an empty AST vector.
 
@@ -5963,15 +5963,15 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_ast_vector', AST_VECTOR, (_in(CONTEXT),))
     */
     Z3_ast_vector Z3_API Z3_mk_ast_vector(Z3_context c);
-    
+
 #ifdef Conly
     /**
        \brief Increment the reference counter of the given AST vector.
-    
+
        def_API('Z3_ast_vector_inc_ref', VOID, (_in(CONTEXT), _in(AST_VECTOR)))
     */
     void Z3_API Z3_ast_vector_inc_ref(Z3_context c, Z3_ast_vector v);
-    
+
     /**
        \brief Decrement the reference counter of the given AST vector.
 
@@ -5979,7 +5979,7 @@ END_MLAPI_EXCLUDE
     */
     void Z3_API Z3_ast_vector_dec_ref(Z3_context c, Z3_ast_vector v);
 #endif
-    
+
     /**
        \brief Return the size of the given AST vector.
 
@@ -5989,24 +5989,24 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return the AST at position \c i in the AST vector \c v.
-       
+
        \pre i < Z3_ast_vector_size(c, v)
 
        def_API('Z3_ast_vector_get', AST, (_in(CONTEXT), _in(AST_VECTOR), _in(UINT)))
     */
-    Z3_ast Z3_API Z3_ast_vector_get(Z3_context c, Z3_ast_vector v, unsigned i);    
+    Z3_ast Z3_API Z3_ast_vector_get(Z3_context c, Z3_ast_vector v, unsigned i);
 
     /**
-       \brief Update position \c i of the AST vector \c v with the AST \c a. 
+       \brief Update position \c i of the AST vector \c v with the AST \c a.
 
        \pre i < Z3_ast_vector_size(c, v)
-    
+
        def_API('Z3_ast_vector_set', VOID, (_in(CONTEXT), _in(AST_VECTOR), _in(UINT), _in(AST)))
     */
-    void Z3_API Z3_ast_vector_set(Z3_context c, Z3_ast_vector v, unsigned i, Z3_ast a);    
+    void Z3_API Z3_ast_vector_set(Z3_context c, Z3_ast_vector v, unsigned i, Z3_ast a);
 
     /**
-       \brief Resize the AST vector \c v. 
+       \brief Resize the AST vector \c v.
 
        def_API('Z3_ast_vector_resize', VOID, (_in(CONTEXT), _in(AST_VECTOR), _in(UINT)))
     */
@@ -6017,18 +6017,18 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_ast_vector_push', VOID, (_in(CONTEXT), _in(AST_VECTOR), _in(AST)))
     */
-    void Z3_API Z3_ast_vector_push(Z3_context c, Z3_ast_vector v, Z3_ast a);        
+    void Z3_API Z3_ast_vector_push(Z3_context c, Z3_ast_vector v, Z3_ast a);
 
     /**
        \brief Translate the AST vector \c v from context \c s into an AST vector in context \c t.
 
        def_API('Z3_ast_vector_translate', AST_VECTOR, (_in(CONTEXT), _in(AST_VECTOR), _in(CONTEXT)))
     */
-    Z3_ast_vector Z3_API Z3_ast_vector_translate(Z3_context s, Z3_ast_vector v, Z3_context t);        
+    Z3_ast_vector Z3_API Z3_ast_vector_translate(Z3_context s, Z3_ast_vector v, Z3_context t);
 
     /**
        \brief Convert AST vector into a string.
-    
+
        def_API('Z3_ast_vector_to_string', STRING, (_in(CONTEXT), _in(AST_VECTOR)))
     */
     Z3_string Z3_API Z3_ast_vector_to_string(Z3_context c, Z3_ast_vector v);
@@ -6039,7 +6039,7 @@ END_MLAPI_EXCLUDE
         @name AST maps
     */
     /*@{*/
-    
+
     /**
        \brief Return an empty mapping from AST to AST
 
@@ -6057,15 +6057,15 @@ END_MLAPI_EXCLUDE
        def_API('Z3_ast_map_inc_ref', VOID, (_in(CONTEXT), _in(AST_MAP)))
     */
     void Z3_API Z3_ast_map_inc_ref(Z3_context c, Z3_ast_map m);
-    
+
     /**
        \brief Decrement the reference counter of the given AST map.
-       
+
        def_API('Z3_ast_map_dec_ref', VOID, (_in(CONTEXT), _in(AST_MAP)))
     */
     void Z3_API Z3_ast_map_dec_ref(Z3_context c, Z3_ast_map m);
 #endif
-    
+
     /**
        \brief Return true if the map \c m contains the AST key \c k.
 
@@ -6075,7 +6075,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return the value associated with the key \c k.
-       
+
        The procedure invokes the error handler if \c k is not in the map.
 
        def_API('Z3_ast_map_find', AST, (_in(CONTEXT), _in(AST_MAP), _in(AST)))
@@ -6102,7 +6102,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_ast_map_reset', VOID, (_in(CONTEXT), _in(AST_MAP)))
     */
     void Z3_API Z3_ast_map_reset(Z3_context c, Z3_ast_map m);
-    
+
     /**
        \brief Return the size of the given map.
 
@@ -6112,7 +6112,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return the keys stored in the given map.
-       
+
        def_API('Z3_ast_map_keys', AST_VECTOR, (_in(CONTEXT), _in(AST_MAP)))
     */
     Z3_ast_vector Z3_API Z3_ast_map_keys(Z3_context c, Z3_ast_map m);
@@ -6125,7 +6125,7 @@ END_MLAPI_EXCLUDE
     Z3_string Z3_API Z3_ast_map_to_string(Z3_context c, Z3_ast_map m);
 
     /*@}*/
-    
+
     /**
         @name Goals
     */
@@ -6135,12 +6135,12 @@ END_MLAPI_EXCLUDE
        \brief Create a goal (aka problem). A goal is essentially a set
        of formulas, that can be solved and/or transformed using
        tactics and solvers.
-       
+
        If models == true, then model generation is enabled for the new goal.
 
        If unsat_cores == true, then unsat core generation is enabled for the new goal.
 
-       If proofs == true, then proof generation is enabled for the new goal. Remark, the 
+       If proofs == true, then proof generation is enabled for the new goal. Remark, the
        Z3 context c must have been created with proof generation support.
 
        \conly \remark Reference counting must be used to manage goals, even when the Z3_context was
@@ -6149,11 +6149,11 @@ END_MLAPI_EXCLUDE
        def_API('Z3_mk_goal', GOAL, (_in(CONTEXT), _in(BOOL), _in(BOOL), _in(BOOL)))
     */
     Z3_goal Z3_API Z3_mk_goal(Z3_context c, Z3_bool models, Z3_bool unsat_cores, Z3_bool proofs);
-    
+
 #ifdef Conly
     /**
        \brief Increment the reference counter of the given goal.
-       
+
        def_API('Z3_goal_inc_ref', VOID, (_in(CONTEXT), _in(GOAL)))
     */
     void Z3_API Z3_goal_inc_ref(Z3_context c, Z3_goal g);
@@ -6176,12 +6176,12 @@ END_MLAPI_EXCLUDE
     Z3_goal_prec Z3_API Z3_goal_precision(Z3_context c, Z3_goal g);
 
     /**
-       \brief Add a new formula \c a to the given goal. 
-       
+       \brief Add a new formula \c a to the given goal.
+
        def_API('Z3_goal_assert', VOID, (_in(CONTEXT), _in(GOAL), _in(AST)))
     */
     void Z3_API Z3_goal_assert(Z3_context c, Z3_goal g, Z3_ast a);
-    
+
     /**
        \brief Return true if the given goal contains the formula \c false.
 
@@ -6198,7 +6198,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Erase all formulas from the given goal.
-       
+
        def_API('Z3_goal_reset', VOID, (_in(CONTEXT), _in(GOAL)))
     */
     void Z3_API Z3_goal_reset(Z3_context c, Z3_goal g);
@@ -6209,7 +6209,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_goal_size', UINT, (_in(CONTEXT), _in(GOAL)))
     */
     unsigned Z3_API Z3_goal_size(Z3_context c, Z3_goal g);
-    
+
     /**
        \brief Return a formula from the given goal.
 
@@ -6218,21 +6218,21 @@ END_MLAPI_EXCLUDE
        def_API('Z3_goal_formula', AST, (_in(CONTEXT), _in(GOAL), _in(UINT)))
     */
     Z3_ast Z3_API Z3_goal_formula(Z3_context c, Z3_goal g, unsigned idx);
-    
+
     /**
        \brief Return the number of formulas, subformulas and terms in the given goal.
 
        def_API('Z3_goal_num_exprs', UINT, (_in(CONTEXT), _in(GOAL)))
     */
     unsigned Z3_API Z3_goal_num_exprs(Z3_context c, Z3_goal g);
-    
+
     /**
        \brief Return true if the goal is empty, and it is precise or the product of a under approximation.
 
        def_API('Z3_goal_is_decided_sat', BOOL, (_in(CONTEXT), _in(GOAL)))
     */
     Z3_bool Z3_API Z3_goal_is_decided_sat(Z3_context c, Z3_goal g);
-    
+
     /**
        \brief Return true if the goal contains false, and it is precise or the product of an over approximation.
 
@@ -6246,7 +6246,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_goal_translate', GOAL, (_in(CONTEXT), _in(GOAL), _in(CONTEXT)))
     */
     Z3_goal Z3_API Z3_goal_translate(Z3_context source, Z3_goal g, Z3_context target);
-    
+
     /**
        \brief Convert a goal into a string.
 
@@ -6265,7 +6265,7 @@ END_MLAPI_EXCLUDE
        \brief Return a tactic associated with the given name.
        The complete list of tactics may be obtained using the procedures #Z3_get_num_tactics and #Z3_get_tactic_name.
        It may also be obtained using the command <tt>(help-tactic)</tt> in the SMT 2.0 front-end.
-    
+
        Tactics are the basic building block for creating custom solvers for specific problem domains.
 
        def_API('Z3_mk_tactic', TACTIC, (_in(CONTEXT), _in(STRING)))
@@ -6282,12 +6282,12 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Decrement the reference counter of the given tactic.
-       
+
        def_API('Z3_tactic_dec_ref', VOID, (_in(CONTEXT), _in(TACTIC)))
     */
     void Z3_API Z3_tactic_dec_ref(Z3_context c, Z3_tactic g);
 #endif
-    
+
     /**
        \brief Return a probe associated with the given name.
        The complete list of probes may be obtained using the procedures #Z3_get_num_probes and #Z3_get_probe_name.
@@ -6346,7 +6346,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_tactic_par_and_then', TACTIC, (_in(CONTEXT), _in(TACTIC), _in(TACTIC)))
     */
     Z3_tactic Z3_API Z3_tactic_par_and_then(Z3_context c, Z3_tactic t1, Z3_tactic t2);
-    
+
     /**
        \brief Return a tactic that applies \c t to a given goal for \c ms milliseconds.
        If \c t does not terminate in \c ms milliseconds, then it fails.
@@ -6362,7 +6362,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_tactic_when', TACTIC, (_in(CONTEXT), _in(PROBE), _in(TACTIC)))
     */
     Z3_tactic Z3_API Z3_tactic_when(Z3_context c, Z3_probe p, Z3_tactic t);
-    
+
     /**
        \brief Return a tactic that applies \c t1 to a given goal if the probe \c p evaluates to true,
        and \c t2 if \c p evaluates to false.
@@ -6370,7 +6370,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_tactic_cond', TACTIC, (_in(CONTEXT), _in(PROBE), _in(TACTIC), _in(TACTIC)))
      */
     Z3_tactic Z3_API Z3_tactic_cond(Z3_context c, Z3_probe p, Z3_tactic t1, Z3_tactic t2);
-    
+
     /**
        \brief Return a tactic that keeps applying \c t until the goal is not modified anymore or the maximum
        number of iterations \c max is reached.
@@ -6453,8 +6453,8 @@ END_MLAPI_EXCLUDE
        \brief Return a probe that evaluates to "true" when the value returned by \c p1 is greater than or equal to the value returned by \c p2.
 
        \remark For probes, "true" is any value different from 0.0.
-       
-       def_API('Z3_probe_ge', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE))) 
+
+       def_API('Z3_probe_ge', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE)))
     */
     Z3_probe Z3_API Z3_probe_ge(Z3_context x, Z3_probe p1, Z3_probe p2);
 
@@ -6462,7 +6462,7 @@ END_MLAPI_EXCLUDE
        \brief Return a probe that evaluates to "true" when the value returned by \c p1 is equal to the value returned by \c p2.
 
        \remark For probes, "true" is any value different from 0.0.
-    
+
        def_API('Z3_probe_eq', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE)))
     */
     Z3_probe Z3_API Z3_probe_eq(Z3_context x, Z3_probe p1, Z3_probe p2);
@@ -6475,7 +6475,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_probe_and', PROBE, (_in(CONTEXT), _in(PROBE), _in(PROBE)))
     */
     Z3_probe Z3_API Z3_probe_and(Z3_context x, Z3_probe p1, Z3_probe p2);
- 
+
     /**
        \brief Return a probe that evaluates to "true" when \c p1 or \c p2 evaluates to true.
 
@@ -6521,7 +6521,7 @@ END_MLAPI_EXCLUDE
        \brief Return the name of the i probe.
 
        \pre i < Z3_get_num_probes(c)
-       
+
        def_API('Z3_get_probe_name', STRING, (_in(CONTEXT), _in(UINT)))
     */
     Z3_string Z3_API Z3_get_probe_name(Z3_context c, unsigned i);
@@ -6546,7 +6546,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_tactic_get_descr', STRING, (_in(CONTEXT), _in(STRING)))
     */
     Z3_string Z3_API Z3_tactic_get_descr(Z3_context c, Z3_string name);
-    
+
     /**
        \brief Return a string containing a description of the probe with the given name.
 
@@ -6564,7 +6564,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Apply tactic \c t to the goal \c g.
-       
+
        def_API('Z3_tactic_apply', APPLY_RESULT, (_in(CONTEXT), _in(TACTIC), _in(GOAL)))
     */
     Z3_apply_result Z3_API Z3_tactic_apply(Z3_context c, Z3_tactic t, Z3_goal g);
@@ -6591,14 +6591,14 @@ END_MLAPI_EXCLUDE
     */
     void Z3_API Z3_apply_result_dec_ref(Z3_context c, Z3_apply_result r);
 #endif
-    
+
     /**
        \brief Convert the \c Z3_apply_result object returned by #Z3_tactic_apply into a string.
 
        def_API('Z3_apply_result_to_string', STRING, (_in(CONTEXT), _in(APPLY_RESULT)))
     */
     Z3_string Z3_API Z3_apply_result_to_string(Z3_context c, Z3_apply_result r);
-    
+
     /**
        \brief Return the number of subgoals in the \c Z3_apply_result object returned by #Z3_tactic_apply.
 
@@ -6608,13 +6608,13 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return one of the subgoals in the \c Z3_apply_result object returned by #Z3_tactic_apply.
-       
+
        \pre i < Z3_apply_result_get_num_subgoals(c, r)
 
        def_API('Z3_apply_result_get_subgoal', GOAL, (_in(CONTEXT), _in(APPLY_RESULT), _in(UINT)))
-    */ 
+    */
     Z3_goal Z3_API Z3_apply_result_get_subgoal(Z3_context c, Z3_apply_result r, unsigned i);
-    
+
     /**
        \brief Convert a model for the subgoal \c Z3_apply_result_get_subgoal(c, r, i) into a model for the original goal \c g.
        Where \c g is the goal used to create \c r using \c Z3_tactic_apply(c, t, g).
@@ -6633,8 +6633,8 @@ END_MLAPI_EXCLUDE
     /**
        \brief Create a new (incremental) solver. This solver also uses a
        set of builtin tactics for handling the first check-sat command, and
-       check-sat commands that take more than a given number of milliseconds to be solved. 
-       
+       check-sat commands that take more than a given number of milliseconds to be solved.
+
        \conly \remark User must use #Z3_solver_inc_ref and #Z3_solver_dec_ref to manage solver objects.
        \conly Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
 
@@ -6659,7 +6659,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief Create a new solver customized for the given logic.
        It behaves like #Z3_mk_solver if the logic is unknown or unsupported.
-       
+
        \conly \remark User must use #Z3_solver_inc_ref and #Z3_solver_dec_ref to manage solver objects.
        \conly Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
 
@@ -6682,7 +6682,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_solver_translate', SOLVER, (_in(CONTEXT), _in(SOLVER), _in(CONTEXT)))
     */
     Z3_solver Z3_API Z3_solver_translate(Z3_context source, Z3_solver s, Z3_context target);
-    
+
 
     /**
        \brief Return a string describing all solver available parameters.
@@ -6704,11 +6704,11 @@ END_MLAPI_EXCLUDE
        def_API('Z3_solver_set_params', VOID, (_in(CONTEXT), _in(SOLVER), _in(PARAMS)))
     */
     void Z3_API Z3_solver_set_params(Z3_context c, Z3_solver s, Z3_params p);
-    
+
 #ifdef Conly
     /**
        \brief Increment the reference counter of the given solver.
-       
+
        def_API('Z3_solver_inc_ref', VOID, (_in(CONTEXT), _in(SOLVER)))
     */
     void Z3_API Z3_solver_inc_ref(Z3_context c, Z3_solver s);
@@ -6720,11 +6720,11 @@ END_MLAPI_EXCLUDE
     */
     void Z3_API Z3_solver_dec_ref(Z3_context c, Z3_solver s);
 #endif
-    
+
     /**
        \brief Create a backtracking point.
-       
-       The solver contains a stack of assertions. 
+
+       The solver contains a stack of assertions.
 
        \sa Z3_solver_pop
 
@@ -6734,7 +6734,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Backtrack \c n backtracking points.
-       
+
        \sa Z3_solver_push
 
        \pre n <= Z3_solver_get_num_scopes(c, s)
@@ -6749,20 +6749,20 @@ END_MLAPI_EXCLUDE
        def_API('Z3_solver_reset', VOID, (_in(CONTEXT), _in(SOLVER)))
     */
     void Z3_API Z3_solver_reset(Z3_context c, Z3_solver s);
-    
+
     /**
        \brief Return the number of backtracking points.
-       
+
        \sa Z3_solver_push
        \sa Z3_solver_pop
-       
+
        def_API('Z3_solver_get_num_scopes', UINT, (_in(CONTEXT), _in(SOLVER)))
     */
     unsigned Z3_API Z3_solver_get_num_scopes(Z3_context c, Z3_solver s);
-    
+
     /**
        \brief Assert a constraint into the solver.
-       
+
        The functions #Z3_solver_check and #Z3_solver_check_assumptions should be
        used to check whether the logical context is consistent or not.
 
@@ -6772,8 +6772,8 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Assert a constraint \c a into the solver, and track it (in the unsat) core using
-       the Boolean constant \c p. 
-       
+       the Boolean constant \c p.
+
        This API is an alternative to #Z3_solver_check_assumptions for extracting unsat cores.
        Both APIs can be used in the same solver. The unsat core will contain a combination
        of the Boolean variables provided using Z3_solver_assert_and_track and the Boolean literals
@@ -6781,18 +6781,18 @@ END_MLAPI_EXCLUDE
 
        \pre \c a must be a Boolean expression
        \pre \c p must be a Boolean constant (aka variable).
-       
+
        def_API('Z3_solver_assert_and_track', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST), _in(AST)))
     */
     void Z3_API Z3_solver_assert_and_track(Z3_context c, Z3_solver s, Z3_ast a, Z3_ast p);
-    
+
     /**
        \brief Return the set of asserted formulas as a goal object.
-    
-       def_API('Z3_solver_get_assertions', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))       
+
+       def_API('Z3_solver_get_assertions', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_ast_vector Z3_API Z3_solver_get_assertions(Z3_context c, Z3_solver s);
-    
+
     /**
        \brief Check whether the assertions in a given solver are consistent or not.
 
@@ -6804,7 +6804,7 @@ END_MLAPI_EXCLUDE
        produced in this case are not guaranteed to satisfy the assertions.
 
        The function #Z3_solver_get_proof retrieves a proof if proof
-       generation was enabled when the context was created, and the 
+       generation was enabled when the context was created, and the
        assertions are unsatisfiable (i.e., the result is \c Z3_L_FALSE).
 
        def_API('Z3_solver_check', INT, (_in(CONTEXT), _in(SOLVER)))
@@ -6815,14 +6815,14 @@ END_MLAPI_EXCLUDE
        \brief Check whether the assertions in the given solver and
        optional assumptions are consistent or not.
 
-       The function #Z3_solver_get_unsat_core retrieves the subset of the 
+       The function #Z3_solver_get_unsat_core retrieves the subset of the
        assumptions used in the unsatisfiability proof produced by Z3.
-      
+
        \sa Z3_solver_check
 
        def_API('Z3_solver_check_assumptions', INT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST)))
     */
-    Z3_lbool Z3_API Z3_solver_check_assumptions(Z3_context c, Z3_solver s, 
+    Z3_lbool Z3_API Z3_solver_check_assumptions(Z3_context c, Z3_solver s,
                                                 unsigned num_assumptions, Z3_ast const assumptions[]);
 
 
@@ -6835,7 +6835,7 @@ END_MLAPI_EXCLUDE
        set of assumptions. The array of terms and array of class identifiers should have
        the same length. The class identifiers are numerals that are assigned to the same
        value for their corresponding terms if the current context forces the terms to be
-       equal. You cannot deduce that terms corresponding to different numerals must be all different, 
+       equal. You cannot deduce that terms corresponding to different numerals must be all different,
        (especially when using non-convex theories).
        All implied equalities are returned by this call.
        This means that two terms map to the same class identifier if and only if
@@ -6844,13 +6844,13 @@ END_MLAPI_EXCLUDE
        A side-effect of the function is a satisfiability check on the assertions on the solver that is passed in.
        The function return Z3_L_FALSE if the current assertions are not satisfiable.
 
-    
+
 
        def_API('Z3_get_implied_equalities', INT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
     */
     Z3_lbool Z3_API Z3_get_implied_equalities(
-        Z3_context c, 
-        Z3_solver  s, 
+        Z3_context c,
+        Z3_solver  s,
         unsigned num_terms,
         Z3_ast const terms[],
         unsigned class_ids[]
@@ -6859,9 +6859,9 @@ END_MLAPI_EXCLUDE
     /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions
 
-       The error handler is invoked if a model is not available because 
+       The error handler is invoked if a model is not available because
        the commands above were not invoked for the given solver, or if the result was \c Z3_L_FALSE.
-       
+
        def_API('Z3_solver_get_model', MODEL, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_model Z3_API Z3_solver_get_model(Z3_context c, Z3_solver s);
@@ -6884,7 +6884,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_solver_get_unsat_core', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_ast_vector Z3_API Z3_solver_get_unsat_core(Z3_context c, Z3_solver s);
-    
+
     /**
        \brief Return a brief justification for an "unknown" result (i.e., Z3_L_UNDEF) for
        the commands #Z3_solver_check and #Z3_solver_check_assumptions
@@ -6892,7 +6892,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_solver_get_reason_unknown', STRING, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_string Z3_API Z3_solver_get_reason_unknown(Z3_context c, Z3_solver s);
-    
+
     /**
        \brief Return statistics for the given solver.
 
@@ -6901,7 +6901,7 @@ END_MLAPI_EXCLUDE
        def_API('Z3_solver_get_statistics', STATS, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_stats Z3_API Z3_solver_get_statistics(Z3_context c, Z3_solver s);
-    
+
     /**
        \brief Convert a solver into a string.
 
@@ -6921,11 +6921,11 @@ END_MLAPI_EXCLUDE
 #endif
     /**
        \brief Convert a statistics into a string.
-       
+
        def_API('Z3_stats_to_string', STRING, (_in(CONTEXT), _in(STATS)))
     */
     Z3_string Z3_API Z3_stats_to_string(Z3_context c, Z3_stats s);
-    
+
     /**
        \mlonly {4 {L Low-level API}} \endmlonly
     */
@@ -6933,7 +6933,7 @@ END_MLAPI_EXCLUDE
 #ifdef Conly
     /**
        \brief Increment the reference counter of the given statistics object.
-       
+
        def_API('Z3_stats_inc_ref', VOID, (_in(CONTEXT), _in(STATS)))
     */
     void Z3_API Z3_stats_inc_ref(Z3_context c, Z3_stats s);
@@ -6945,7 +6945,7 @@ END_MLAPI_EXCLUDE
     */
     void Z3_API Z3_stats_dec_ref(Z3_context c, Z3_stats s);
 #endif
-    
+
     /**
        \brief Return the number of statistical data in \c s.
 
@@ -6964,7 +6964,7 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return Z3_TRUE if the given statistical data is a unsigned integer.
-       
+
        \pre idx < Z3_stats_size(c, s)
 
        def_API('Z3_stats_is_uint', BOOL, (_in(CONTEXT), _in(STATS), _in(UINT)))
@@ -6973,16 +6973,16 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return Z3_TRUE if the given statistical data is a double.
-       
+
        \pre idx < Z3_stats_size(c, s)
 
        def_API('Z3_stats_is_double', BOOL, (_in(CONTEXT), _in(STATS), _in(UINT)))
     */
     Z3_bool Z3_API Z3_stats_is_double(Z3_context c, Z3_stats s, unsigned idx);
-    
+
     /**
        \brief Return the unsigned value of the given statistical data.
-       
+
        \pre idx < Z3_stats_size(c, s) && Z3_stats_is_uint(c, s)
 
        def_API('Z3_stats_get_uint_value', UINT, (_in(CONTEXT), _in(STATS), _in(UINT)))
@@ -6991,13 +6991,13 @@ END_MLAPI_EXCLUDE
 
     /**
        \brief Return the double value of the given statistical data.
-       
+
        \pre idx < Z3_stats_size(c, s) && Z3_stats_is_double(c, s)
 
        def_API('Z3_stats_get_double_value', DOUBLE, (_in(CONTEXT), _in(STATS), _in(UINT)))
     */
     double Z3_API Z3_stats_get_double_value(Z3_context c, Z3_stats s, unsigned idx);
-    
+
     /*@}*/
 #endif
 
