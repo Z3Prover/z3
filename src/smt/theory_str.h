@@ -63,9 +63,9 @@ namespace smt {
         };
     protected:
         bool search_started;
-        int sLevel;
         arith_util m_autil;
         str_util m_strutil;
+        int sLevel;
 
         str_value_factory * m_factory;
 
@@ -75,6 +75,8 @@ namespace smt {
 
         int tmpStringVarCount;
         int tmpXorVarCount;
+        int tmpLenTestVarCount;
+        int tmpValTestVarCount;
         std::map<std::pair<expr*, expr*>, std::map<int, expr*> > varForBreakConcat;
 
         bool avoidLoopCut;

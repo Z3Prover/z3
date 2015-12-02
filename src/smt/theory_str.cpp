@@ -32,6 +32,8 @@ theory_str::theory_str(ast_manager & m):
         sLevel(0),
         tmpStringVarCount(0),
 		tmpXorVarCount(0),
+		tmpLenTestVarCount(0),
+		tmpValTestVarCount(0),
 		avoidLoopCut(true),
 		loopDetected(false)
 {
@@ -297,11 +299,14 @@ app * theory_str::mk_int(int n) {
     return m_autil.mk_numeral(rational(n), true);
 }
 
+// We have to work a little bit harder to ensure that all variables we create here are always fresh.
+
 expr * theory_str::mk_internal_lenTest_var(expr * node, int lTries) {
 	ast_manager & m = get_manager();
 
 	std::stringstream ss;
-	ss << "$$_len_" << mk_ismt2_pp(node, m) << "_" << lTries;
+	ss << "$$_len_" << mk_ismt2_pp(node, m) << "_" << lTries << "_" << tmpLenTestVarCount;
+	tmpLenTestVarCount += 1;
 	std::string name = ss.str();
 	return mk_str_var(name);
 
@@ -317,7 +322,8 @@ expr * theory_str::mk_internal_lenTest_var(expr * node, int lTries) {
 expr * theory_str::mk_internal_valTest_var(expr * node, int len, int vTries) {
 	ast_manager & m = get_manager();
 	std::stringstream ss;
-	ss << "$$_val_" << mk_ismt2_pp(node, m) << "_" << len << "_" << vTries;
+	ss << "$$_val_" << mk_ismt2_pp(node, m) << "_" << len << "_" << vTries << "_" << tmpValTestVarCount;
+	tmpValTestVarCount += 1;
 	std::string name = ss.str();
 	return mk_str_var(name);
 
@@ -3923,9 +3929,35 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 	ast_manager & m = get_manager();
 
 	TRACE("t_str_detail", tout << "gen for free var " << mk_ismt2_pp(freeVar, m) << std::endl;);
-	// no length assertions for this free variable have ever been added.
-	if (fvar_len_count_map.find(freeVar) == fvar_len_count_map.end()) {
 
+	bool map_effectively_empty = false;
+	if (fvar_len_count_map.find(freeVar) == fvar_len_count_map.end()) {
+	    TRACE("t_str_detail", tout << "fvar_len_count_map is empty" << std::endl;);
+	    map_effectively_empty = true;
+	}
+
+	if (!map_effectively_empty) {
+	    // check whether any entries correspond to variables that went out of scope;
+	    // if every entry is out of scope then the map counts as being empty
+	    // TODO: maybe remove them from the map instead? either here or in pop_scope_eh()
+
+	    // assume empty and find a counterexample
+	    map_effectively_empty = true;
+        ptr_vector<expr> indicator_set = fvar_lenTester_map[freeVar];
+        for (ptr_vector<expr>::iterator it = indicator_set.begin(); it != indicator_set.end(); ++it) {
+            expr * indicator = *it;
+            if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
+                TRACE("t_str_detail", tout <<"found active internal variable " << mk_ismt2_pp(indicator, m)
+                        << " in fvar_lenTester_map[freeVar]" << std::endl;);
+                map_effectively_empty = false;
+                break;
+            }
+        }
+        CTRACE("t_str_detail", map_effectively_empty, tout << "all variables in fvar_lenTester_map[freeVar] out of scope" << std::endl;);
+	}
+
+	if (map_effectively_empty) {
+	    // no length assertions for this free variable have ever been added.
 		TRACE("t_str_detail", tout << "no length assertions yet" << std::endl;);
 
 		fvar_len_count_map[freeVar] = 1;
@@ -3934,6 +3966,8 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 		expr * indicator = mk_internal_lenTest_var(freeVar, testNum);
 		SASSERT(indicator != NULL);
 
+		// since the map is "effectively empty", we can remove those variables that have left scope...
+		fvar_lenTester_map[freeVar].shrink(0);
 		fvar_lenTester_map[freeVar].push_back(indicator);
 		lenTester_fvar_map[indicator] = freeVar;
 
@@ -3941,7 +3975,8 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 		SASSERT(lenTestAssert != NULL);
 		return lenTestAssert;
 	} else {
-		TRACE("t_str_detail", tout << "found previous length assertions" << std::endl;);
+		TRACE("t_str_detail", tout << "found previous in-scope length assertions" << std::endl;);
+
 		expr * effectiveLenInd = NULL;
 		std::string effectiveLenIndiStr = "";
 		int lenTesterCount = (int) fvar_lenTester_map[freeVar].size();
@@ -3949,6 +3984,11 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 		int i = 0;
 		for (; i < lenTesterCount; ++i) {
 			expr * len_indicator_pre = fvar_lenTester_map[freeVar][i];
+			// check whether this is in scope as well
+			if (internal_variable_set.find(len_indicator_pre) == internal_variable_set.end()) {
+			    continue;
+			}
+
 			bool indicatorHasEqcValue = false;
 			expr * len_indicator_value = get_eqc_value(len_indicator_pre, indicatorHasEqcValue);
 			TRACE("t_str_detail", tout << "length indicator " << mk_ismt2_pp(len_indicator_pre, m) <<
