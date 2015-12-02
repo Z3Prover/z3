@@ -149,7 +149,8 @@ extern "C" {
             mk_c(c)->autil().is_numeral(e) ||
             mk_c(c)->bvutil().is_numeral(e) ||
             mk_c(c)->fpautil().is_numeral(e) ||
-            mk_c(c)->fpautil().is_rm_numeral(e);
+            mk_c(c)->fpautil().is_rm_numeral(e) ||
+            mk_c(c)->datalog_util().is_numeral_ext(e);
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
