@@ -891,7 +891,7 @@ namespace Duality {
                 _assumptions[i] = to_expr(assumptions[i]);
             }
             the_model = 0;
-            lbool r = m_solver->check_sat(n,&_assumptions[0]);
+            lbool r = m_solver->check_sat(n, VEC2PTR(_assumptions));
 	  
             if(core_size && core){
                 ptr_vector< ::expr> _core;
@@ -1182,7 +1182,7 @@ namespace Duality {
         std::vector< ::sort *> sv(arity);
         for(unsigned i = 0; i < arity; i++)
             sv[i] = domain[i];
-        ::func_decl* d = m().mk_func_decl(name,arity,&sv[0],range);
+        ::func_decl* d = m().mk_func_decl(name,arity, VEC2PTR(sv),range);
         return func_decl(*this,d);
     }
 
@@ -1227,7 +1227,7 @@ namespace Duality {
     inline expr context::bv_const(char const * name, unsigned sz) { return constant(name, bv_sort(sz)); }
 
     inline expr func_decl::operator()(const std::vector<expr> &args) const {
-        return operator()(args.size(),&args[0]);
+        return operator()(args.size(), VEC2PTR(args));
     }
     inline expr func_decl::operator()() const {
         return operator()(0,0);

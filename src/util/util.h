@@ -59,6 +59,7 @@ COMPILE_TIME_ASSERT(sizeof(int64) == 8);
 #define SPRINTF sprintf
 #endif
 
+#define VEC2PTR(_x_) ((_x_).size() ? &(_x_)[0] : 0)
 
 #ifdef _WINDOWS
 // Disable thread local declspec as it seems to not work downlevel.
