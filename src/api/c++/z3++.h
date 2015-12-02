@@ -117,6 +117,10 @@ namespace z3 {
         }
     };
 
+    enum check_result {
+        unsat, sat, unknown
+    };
+
     /**
        \brief A Context manages all other Z3 objects, global configuration options, etc.
     */
@@ -258,6 +262,13 @@ namespace z3 {
         expr bv_val(char const * n, unsigned sz);
 
         expr num_val(int n, sort const & s);
+
+        /**
+           \brief Interpolation support
+        */
+        check_result compute_interpolant(expr const& pat, params const& p, expr_vector& interp, model& m);
+        expr_vector  get_interpolant(expr const& proof, expr const& pat, params const& p);
+
     };
 
     template<typename T>
@@ -1344,9 +1355,6 @@ namespace z3 {
     };
     inline std::ostream & operator<<(std::ostream & out, stats const & s) { out << Z3_stats_to_string(s.ctx(), s); return out; }
 
-    enum check_result {
-        unsat, sat, unknown
-    };
 
     inline std::ostream & operator<<(std::ostream & out, check_result r) { 
         if (r == unsat) out << "unsat";
@@ -2008,6 +2016,30 @@ namespace z3 {
         Z3_ast r = Z3_mk_const_array(d.ctx(), d, v);
         d.check_error();
         return expr(d.ctx(), r);
+    }
+    inline expr interpolant(expr const& a) {
+        return expr(a.ctx(), Z3_mk_interpolant(a.ctx(), a));
+    }
+    
+    check_result context::compute_interpolant(expr const& pat, params const& p, expr_vector& i, model& m) {
+        Z3_ast_vector interp = 0;
+        Z3_model mdl = 0;
+        Z3_lbool r = Z3_compute_interpolant(*this, pat, p, &interp, &mdl);
+        switch (r) {
+        case Z3_L_FALSE:
+            i = expr_vector(*this, interp);
+            break;
+        case Z3_L_TRUE:
+            m = model(*this, mdl);
+            break;
+        case Z3_L_UNDEF:
+            break;
+        }
+        return to_check_result(r);
+    }
+
+    expr_vector context::get_interpolant(expr const& proof, expr const& pat, params const& p) {
+        return expr_vector(*this, Z3_get_interpolant(*this, proof, pat, p));
     }
 
     inline expr expr::substitute(expr_vector const& src, expr_vector const& dst) {
