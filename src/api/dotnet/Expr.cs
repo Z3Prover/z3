@@ -1815,6 +1815,7 @@ namespace Microsoft.Z3
                     case Z3_sort_kind.Z3_BV_SORT: return new BitVecNum(ctx, obj);
                     case Z3_sort_kind.Z3_FLOATING_POINT_SORT: return new FPNum(ctx, obj);
                     case Z3_sort_kind.Z3_ROUNDING_MODE_SORT: return new FPRMNum(ctx, obj);
+                    case Z3_sort_kind.Z3_FINITE_DOMAIN_SORT: return new FiniteDomainNum(ctx, obj);
                 }
             }
 
@@ -1828,6 +1829,7 @@ namespace Microsoft.Z3
                 case Z3_sort_kind.Z3_DATATYPE_SORT: return new DatatypeExpr(ctx, obj);
                 case Z3_sort_kind.Z3_FLOATING_POINT_SORT: return new FPExpr(ctx, obj);
                 case Z3_sort_kind.Z3_ROUNDING_MODE_SORT: return new FPRMExpr(ctx, obj);
+                case Z3_sort_kind.Z3_FINITE_DOMAIN_SORT: return new FiniteDomainExpr(ctx, obj);
             }
 
             return new Expr(ctx, obj);

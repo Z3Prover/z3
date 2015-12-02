@@ -912,6 +912,11 @@ def _to_expr_ref(a, ctx):
             return FPNumRef(a, ctx)
         else:
             return FPRef(a, ctx)
+    if sk == Z3_FINITE_DOMAIN_SORT:
+        if k == Z3_NUMERAL_AST:
+            return FiniteDomainNumRef(a, ctx)
+        else:
+            return FiniteDomainRef(a, ctx)
     if sk == Z3_ROUNDING_MODE_SORT:
         return FPRMRef(a, ctx)
     return ExprRef(a, ctx)
@@ -6395,7 +6400,7 @@ class Fixedpoint(Z3PPObject):
 
 #########################################
 #
-# Finite domain sorts
+# Finite domains
 #
 #########################################
 
@@ -6414,6 +6419,97 @@ def FiniteDomainSort(name, sz, ctx=None):
     """Create a named finite domain sort of a given size sz"""
     ctx = _get_ctx(ctx)
     return FiniteDomainSortRef(Z3_mk_finite_domain_sort(ctx.ref(), name, sz), ctx)
+
+def is_finite_domain_sort(s):
+    """Return True if `s` is a Z3 finite-domain sort.
+
+    >>> is_finite_domain_sort(FiniteDomainSort("S", 100))
+    True
+    >>> is_finite_domain_sort(IntSort())
+    False
+    """
+    return isinstance(s, FiniteDomainSortRef)
+
+
+class FiniteDomainRef(ExprRef):
+    """Finite-domain expressions."""
+        
+    def sort(self):
+        """Return the sort of the finite-domain expression `self`."""
+        return FiniteDomainSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def as_string(self):
+        """Return a Z3 floating point expression as a Python string."""
+        return Z3_ast_to_string(self.ctx_ref(), self.as_ast())    
+
+def is_finite_domain(a):
+    """Return `True` if `a` is a Z3 finite-domain expression.
+    
+    >>> s = FiniteDomainSort("S", 100)
+    >>> b = Const('b', s)
+    >>> is_finite_domain(b)
+    True
+    >>> is_finite_domain(Int('x'))
+    False
+    """
+    return isinstance(a, FiniteDomainRef)
+
+    
+class FiniteDomainNumRef(FiniteDomainRef):
+    """Integer values."""
+
+    def as_long(self):
+        """Return a Z3 finite-domain numeral as a Python long (bignum) numeral. 
+        
+        >>> s = FiniteDomainSort("S", 100)
+        >>> v = FiniteDomainVal(3, s)
+        >>> v
+        3
+        >>> v.as_long() + 1
+        4
+        """
+        return int(self.as_string())
+
+    def as_string(self):
+        """Return a Z3 finite-domain numeral as a Python string.
+
+        >>> s = FiniteDomainSort("S", 100)
+        >>> v = FiniteDomainVal(42, s)
+        >>> v.as_string()
+        '42'
+        """
+        return Z3_get_numeral_string(self.ctx_ref(), self.as_ast())
+
+    
+def FiniteDomainVal(val, sort, ctx=None):
+    """Return a Z3 finite-domain value. If `ctx=None`, then the global context is used.
+    
+    >>> s = FiniteDomainSort("S", 256)
+    >>> FiniteDomainVal(255, s)
+    255
+    >>> FiniteDomainVal("100", s)
+    100
+    """
+    if __debug__:
+        _z3_assert(is_finite_domain_sort(sort), "Expected finite-domain sort" )
+    ctx = sort.ctx
+    return FiniteDomainNumRef(Z3_mk_numeral(ctx.ref(), _to_int_str(val), sort.ast), ctx)
+    
+def is_finite_domain_value(a):
+    """Return `True` if `a` is a Z3 finite-domain value.
+
+    >>> s = FiniteDomainSort("S", 100)
+    >>> b = Const('b', s)
+    >>> is_finite_domain_value(b)
+    False
+    >>> b = FiniteDomainVal(10, s)
+    >>> b
+    10
+    >>> is_finite_domain_value(b)
+    True
+    """
+    return is_finite_domain(a) and _is_numeral(a.ctx, a.as_ast())
+
 
 #########################################
 #

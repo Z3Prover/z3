@@ -2163,13 +2163,14 @@ class JavaExample
 
         FiniteDomainSort s = ctx.mkFiniteDomainSort("S", 10);
         FiniteDomainSort t = ctx.mkFiniteDomainSort("T", 10);
-        Expr s1 = ctx.mkNumeral(1, s);
-        Expr t1 = ctx.mkNumeral(1, t);
+        FiniteDomainNum s1 = (FiniteDomainNum)ctx.mkNumeral(1, s);
+        FiniteDomainNum t1 = (FiniteDomainNum)ctx.mkNumeral(1, t);
         System.out.println(s);
         System.out.println(t);
-        System.out.println(s1);
-        System.out.println(ctx.mkNumeral(2, s));
+        System.out.println(s1);        
         System.out.println(t1);
+        System.out.println(s1.getInt());
+        System.out.println(t1.getInt());
         // But you cannot mix numerals of different sorts
         // even if the size of their domains are the same:
         // System.out.println(ctx.mkEq(s1, t1));

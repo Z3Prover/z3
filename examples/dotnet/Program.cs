@@ -2055,15 +2055,16 @@ namespace test_mapi
         {
             Console.WriteLine("FiniteDomainExample");
 
-            var s = ctx.MkFiniteDomainSort("S", 10);
-            var t = ctx.MkFiniteDomainSort("T", 10);
-            var s1 = ctx.MkNumeral(1, s);
-            var t1 = ctx.MkNumeral(1, t);
-            Console.WriteLine("{0}", s);
-            Console.WriteLine("{0}", t);
+            FiniteDomainSort s = ctx.MkFiniteDomainSort("S", 10);
+            FiniteDomainSort t = ctx.MkFiniteDomainSort("T", 10);
+            FiniteDomainNum s1 = (FiniteDomainNum)ctx.MkNumeral(1, s);
+            FiniteDomainNum t1 = (FiniteDomainNum)ctx.MkNumeral(1, t);
+            Console.WriteLine("{0} of size {1}", s, s.Size);
+            Console.WriteLine("{0} of size {1}", t, t.Size);
             Console.WriteLine("{0}", s1);
-            Console.WriteLine("{0}", ctx.MkNumeral(2, s));
             Console.WriteLine("{0}", t1);
+            Console.WriteLine("{0}", s1.Int);
+            Console.WriteLine("{0}", t1.Int);
             // But you cannot mix numerals of different sorts
             // even if the size of their domains are the same:
             // Console.WriteLine("{0}", ctx.MkEq(s1, t1));
