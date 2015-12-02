@@ -206,12 +206,12 @@ namespace Duality {
                                          0,
                                          0,
                                          num_pats,
-                                         &pats[0],
+                                         VEC2PTR(pats),
                                          num_no_pats,
-                                         &no_pats[0],
+                                         VEC2PTR(no_pats),
                                          bound,
-                                         &sorts[0],
-                                         &names[0],
+                                         VEC2PTR(sorts),
+                                         VEC2PTR(names),
                                          new_body);
         return expr(ctx,foo);
 #endif
@@ -244,7 +244,7 @@ namespace Duality {
                     res = HideVariable(t, e->number);
                 }
                 else {
-                    res = f(args.size(), &args[0]);
+                    res = f(args.size(), VEC2PTR(args));
                 }
             }
         }
@@ -354,7 +354,7 @@ namespace Duality {
             int nargs = t.num_args();
             for (int i = 0; i < nargs; i++)
                 args.push_back(SubstRec(memo, t.arg(i)));
-            res = f(args.size(), &args[0]);
+            res = f(args.size(), VEC2PTR(args));
         }
         else if (t.is_quantifier()) {
             std::vector<expr> pats;
@@ -384,7 +384,7 @@ namespace Duality {
             hash_map<func_decl, func_decl>::iterator it = map.find(f);
             if (it != map.end())
                 f = it->second;
-            res = f(args.size(), &args[0]);
+            res = f(args.size(), VEC2PTR(args));
         }
         else if (t.is_quantifier()) {
             std::vector<expr> pats;
@@ -411,7 +411,7 @@ namespace Duality {
             int nargs = t.num_args();
             for (int i = 0; i < nargs; i++)
                 args.push_back(ExtractStores(memo, t.arg(i), cnstrs, renaming));
-            res = f(args.size(), &args[0]);
+            res = f(args.size(), VEC2PTR(args));
             if (f.get_decl_kind() == Store) {
                 func_decl fresh = ctx.fresh_func_decl("@arr", res.get_sort());
                 expr y = fresh();
@@ -720,7 +720,7 @@ namespace Duality {
                         }
                 }
             }
-            res = f(args.size(), &args[0]);
+            res = f(args.size(), VEC2PTR(args));
         }
         else if (t.is_quantifier()) {
             Term body = IneqToEqRec(memo, t.body());
@@ -751,7 +751,7 @@ namespace Duality {
             }
             for (int i = 0; i < nargs; i++)
                 args.push_back(SubstRec(memo, t.arg(i)));
-            res = f(args.size(), &args[0]);
+            res = f(args.size(), VEC2PTR(args));
         }
         else if (t.is_quantifier())
             res = CloneQuantifier(t, SubstRec(memo, t.body()));
@@ -1064,7 +1064,7 @@ namespace Duality {
         if (core_size && core) {
             std::vector<expr> full_core(alit_stack.size()), core1(n);
             std::copy(assumptions, assumptions + n, core1.begin());
-            res = slvr().check(alit_stack.size(), &alit_stack[0], core_size, &full_core[0]);
+            res = slvr().check(alit_stack.size(), VEC2PTR(alit_stack), core_size, VEC2PTR(full_core));
             full_core.resize(*core_size);
             if (res == unsat) {
                 FilterCore(core1, full_core);
@@ -1073,7 +1073,7 @@ namespace Duality {
             }
         }
         else 
-            res = slvr().check(alit_stack.size(), &alit_stack[0]);
+            res = slvr().check(alit_stack.size(), VEC2PTR(alit_stack));
         alit_stack.resize(oldsiz);
         return res;
     }
@@ -1241,7 +1241,7 @@ namespace Duality {
     check_result RPFP_caching::CheckCore(const std::vector<Term> &assumps, std::vector<Term> &core){
         core.resize(assumps.size());
         unsigned core_size;
-        check_result res = slvr().check(assumps.size(),(expr *)&assumps[0],&core_size,&core[0]);
+        check_result res = slvr().check(assumps.size(),(expr *)VEC2PTR(assumps),&core_size, VEC2PTR(core));
         if(res == unsat)
             core.resize(core_size);
         else
@@ -1451,13 +1451,13 @@ namespace Duality {
             if (underapprox_core) {
                 std::vector<expr> unsat_core(us.size());
                 unsigned core_size = 0;
-                res = slvr_check(us.size(), &us[0], &core_size, &unsat_core[0]);
+                res = slvr_check(us.size(), VEC2PTR(us), &core_size, VEC2PTR(unsat_core));
                 underapprox_core->resize(core_size);
                 for (unsigned i = 0; i < core_size; i++)
                     (*underapprox_core)[i] = UnderapproxFlagRev(unsat_core[i]);
             }
             else {
-                res = slvr_check(us.size(), &us[0]);
+                res = slvr_check(us.size(), VEC2PTR(us));
                 bool dump = false;
                 if (dump) {
                     std::vector<expr> cnsts;
@@ -1477,7 +1477,7 @@ namespace Duality {
     check_result RPFP::CheckUpdateModel(Node *root, std::vector<expr> assumps){
         // check_result temp1 = slvr_check(); // no idea why I need to do this
         ClearProofCore();
-        check_result res = slvr_check(assumps.size(),&assumps[0]);
+        check_result res = slvr_check(assumps.size(), VEC2PTR(assumps));
         model mod = slvr().get_model();
         if(!mod.null())
             dualModel = mod;;
@@ -1939,7 +1939,7 @@ namespace Duality {
             else {
                 for (int i = 0; i < nargs; i++)
                     args.push_back(ResolveIte(memo, t.arg(i), lits, done, dont_cares));
-                res = f(args.size(), &args[0]);
+                res = f(args.size(), VEC2PTR(args));
             }
         }
         else res = t;
@@ -1975,7 +1975,7 @@ namespace Duality {
                 else {
                     for (int i = 0; i < nargs; i++)
                         args.push_back(ElimIteRec(memo, t.arg(i), cnsts));
-                    res = t.decl()(args.size(), &args[0]);
+                    res = t.decl()(args.size(), VEC2PTR(args));
                 }
             }
             else if (t.is_quantifier())
@@ -2762,14 +2762,14 @@ namespace Duality {
         }
     
         // verify
-        check_result res = s.check(lits.size(),&lits[0]);
+        check_result res = s.check(lits.size(), VEC2PTR(lits));
         if(res != unsat){
             // add the axioms in the off chance they are useful
             const std::vector<expr> &theory = ls->get_axioms();
             for(unsigned i = 0; i < theory.size(); i++)
                 s.add(theory[i]);
             for(int k = 0; k < 100; k++) // keep trying, maybe MBQI will do something!
-                if(s.check(lits.size(),&lits[0]) == unsat)
+                if(s.check(lits.size(), VEC2PTR(lits)) == unsat)
                     goto is_unsat;
             throw "should be unsat";
         }
@@ -2777,7 +2777,7 @@ namespace Duality {
         for(unsigned i = 0; i < conjuncts.size(); ){
             std::swap(conjuncts[i],conjuncts.back());
             std::swap(lits[i],lits.back());
-            check_result res = s.check(lits.size()-1,&lits[0]);
+            check_result res = s.check(lits.size()-1, VEC2PTR(lits));
             if(res != unsat){
                 std::swap(conjuncts[i],conjuncts.back());
                 std::swap(lits[i],lits.back());
@@ -2801,7 +2801,7 @@ namespace Duality {
             lits.push_back(!b);
             expr bv = dualModel.eval(b);
             if(eq(bv,ctx.bool_val(true))){
-                check_result  res = slvr_check(lits.size(),&lits[0]);
+                check_result  res = slvr_check(lits.size(), VEC2PTR(lits));
                 if(res == unsat)
                     lits.pop_back();
                 else
@@ -2823,10 +2823,10 @@ namespace Duality {
             RedVars(negnodes[i], b, v);
             lits.push_back(!b);
         }
-        check_result res = slvr_check(lits.size(),&lits[0]);
+        check_result res = slvr_check(lits.size(), VEC2PTR(lits));
         if(res == unsat && posnodes.size()){
             lits.resize(posnodes.size());
-            res = slvr_check(lits.size(),&lits[0]);
+            res = slvr_check(lits.size(), VEC2PTR(lits));
         }
         dualModel = slvr().get_model();
 #if 0
@@ -3379,7 +3379,7 @@ namespace Duality {
         int nargs = t.num_args();
         for(int i = 0; i < nargs; i++)
             sorts.push_back(t.arg(i).get_sort());
-        return ctx.function(name.c_str(), nargs, &sorts[0], t.get_sort());
+        return ctx.function(name.c_str(), nargs, VEC2PTR(sorts), t.get_sort());
     }
 
     Z3User::FuncDecl Z3User::RenumberPred(const FuncDecl &f, int n)
@@ -3390,7 +3390,7 @@ namespace Duality {
         std::vector<sort> domain;
         for(int i = 0; i < arity; i++)
         domain.push_back(f.domain(i));
-        return ctx.function(name.c_str(), arity, &domain[0], f.range());
+        return ctx.function(name.c_str(), arity, VEC2PTR(domain), f.range());
     }
 
     Z3User::FuncDecl Z3User::NumberPred(const FuncDecl &f, int n)
@@ -3401,7 +3401,7 @@ namespace Duality {
         std::vector<sort> domain;
         for(int i = 0; i < arity; i++)
         domain.push_back(f.domain(i));
-        return ctx.function(name.c_str(), arity, &domain[0], f.range());
+        return ctx.function(name.c_str(), arity, VEC2PTR(domain), f.range());
     }
 
     // Scan the clause body for occurrences of the predicate unknowns
@@ -3426,7 +3426,7 @@ namespace Duality {
             std::vector<Term> args;
             for(int i = 0; i < nargs; i++)
                 args.push_back(ScanBody(memo,t.arg(i),pmap,parms,nodes));
-            res = f(nargs,&args[0]);
+            res = f(nargs, VEC2PTR(args));
         }
         else if (t.is_quantifier())
             res = CloneQuantifier(t,ScanBody(memo,t.body(),pmap,parms,nodes));
@@ -3474,7 +3474,7 @@ namespace Duality {
                 std::vector<Term> args;
                 for(int i = 0; i < nargs; i++)
                     args.push_back(RemoveLabelsRec(memo,t.arg(i),lbls));
-                res = f(nargs,&args[0]);
+                res = f(nargs, VEC2PTR(args));
             }
         }
         else if (t.is_quantifier())
@@ -3505,7 +3505,7 @@ namespace Duality {
                     ls->declare_constant(f);  // keep track of background constants
                 for(int i = 0; i < nargs; i++)
                     args.push_back(SubstBoundRec(memo, subst, level, t.arg(i)));
-                res = f(args.size(),&args[0]);
+                res = f(args.size(), VEC2PTR(args));
             }
         else if (t.is_quantifier()){
             int bound = t.get_quantifier_num_bound();
@@ -3545,7 +3545,7 @@ namespace Duality {
                 int nargs = t.num_args();
                 for(int i = 0; i < nargs; i++)
                     args.push_back(DeleteBoundRec(memo, level, num, t.arg(i)));
-                res = f(args.size(),&args[0]);
+                res = f(args.size(), VEC2PTR(args));
             }
         else if (t.is_quantifier()){
             int bound = t.get_quantifier_num_bound();
@@ -3729,7 +3729,7 @@ namespace Duality {
                         Indparams[j] = SubstBoundRec(sb_memo, substs[i], 0, Indparams[j]);
                 }
 #endif
-                Node *node = CreateNode(R(Indparams.size(),&Indparams[0]));
+                Node *node = CreateNode(R(Indparams.size(),VEC2PTR(Indparams)));
                 //nodes.push_back(node);
                 pmap[R] = node;
                 if (is_query)
@@ -4007,7 +4007,7 @@ namespace Duality {
                     std::vector<Term> args;
                     for(int k = 0; k < nargs; k++)
                         args.push_back(new_lit.arg(k));
-                    new_lit = fd(nargs,&args[0]);
+                    new_lit = fd(nargs, VEC2PTR(args));
                     in_edge->F.RelParams[j] = fd;
                     hash_map<ast,expr> map;
                     map[lit] = new_lit;
@@ -4201,10 +4201,10 @@ namespace Duality {
                 if(rit != e->relMap.end()){
                     Node* child = e->Children[rit->second];
                     FuncDecl op = child->Name;
-                    res = op(args.size(),&args[0]);
+                    res = op(args.size(), VEC2PTR(args));
                 }
                 else {
-                    res = f(args.size(),&args[0]);
+                    res = f(args.size(), VEC2PTR(args));
                     if(nargs == 0 && t.decl().get_decl_kind() == Uninterpreted)
                         quants.push_back(t);
                 }
