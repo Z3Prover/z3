@@ -1155,6 +1155,7 @@ typedef enum {
     Z3_OP_RA_COMPLEMENT,
     Z3_OP_RA_SELECT,
     Z3_OP_RA_CLONE,
+    Z3_OP_FD_CONSTANT,
     Z3_OP_FD_LT,
 
     // Auxiliary

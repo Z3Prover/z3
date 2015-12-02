@@ -1098,6 +1098,7 @@ extern "C" {
             case datalog::OP_RA_COMPLEMENT: return Z3_OP_RA_COMPLEMENT;
             case datalog::OP_RA_SELECT: return Z3_OP_RA_SELECT;
             case datalog::OP_RA_CLONE:  return Z3_OP_RA_CLONE;
+            case datalog::OP_DL_CONSTANT: return Z3_OP_FD_CONSTANT;
             case datalog::OP_DL_LT: return Z3_OP_FD_LT;
             default:
                 UNREACHABLE();
