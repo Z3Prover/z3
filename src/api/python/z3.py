@@ -6417,13 +6417,15 @@ class FiniteDomainSortRef(SortRef):
 
 def FiniteDomainSort(name, sz, ctx=None):
     """Create a named finite domain sort of a given size sz"""
+    if not isinstance(name, Symbol):
+        name = to_symbol(name)
     ctx = _get_ctx(ctx)
     return FiniteDomainSortRef(Z3_mk_finite_domain_sort(ctx.ref(), name, sz), ctx)
 
 def is_finite_domain_sort(s):
     """Return True if `s` is a Z3 finite-domain sort.
 
-    >>> is_finite_domain_sort(FiniteDomainSort("S", 100))
+    >>> is_finite_domain_sort(FiniteDomainSort('S', 100))
     True
     >>> is_finite_domain_sort(IntSort())
     False
@@ -6445,7 +6447,7 @@ class FiniteDomainRef(ExprRef):
 def is_finite_domain(a):
     """Return `True` if `a` is a Z3 finite-domain expression.
     
-    >>> s = FiniteDomainSort("S", 100)
+    >>> s = FiniteDomainSort('S', 100)
     >>> b = Const('b', s)
     >>> is_finite_domain(b)
     True
@@ -6461,7 +6463,7 @@ class FiniteDomainNumRef(FiniteDomainRef):
     def as_long(self):
         """Return a Z3 finite-domain numeral as a Python long (bignum) numeral. 
         
-        >>> s = FiniteDomainSort("S", 100)
+        >>> s = FiniteDomainSort('S', 100)
         >>> v = FiniteDomainVal(3, s)
         >>> v
         3
@@ -6473,7 +6475,7 @@ class FiniteDomainNumRef(FiniteDomainRef):
     def as_string(self):
         """Return a Z3 finite-domain numeral as a Python string.
 
-        >>> s = FiniteDomainSort("S", 100)
+        >>> s = FiniteDomainSort('S', 100)
         >>> v = FiniteDomainVal(42, s)
         >>> v.as_string()
         '42'
@@ -6484,10 +6486,10 @@ class FiniteDomainNumRef(FiniteDomainRef):
 def FiniteDomainVal(val, sort, ctx=None):
     """Return a Z3 finite-domain value. If `ctx=None`, then the global context is used.
     
-    >>> s = FiniteDomainSort("S", 256)
+    >>> s = FiniteDomainSort('S', 256)
     >>> FiniteDomainVal(255, s)
     255
-    >>> FiniteDomainVal("100", s)
+    >>> FiniteDomainVal('100', s)
     100
     """
     if __debug__:
@@ -6498,7 +6500,7 @@ def FiniteDomainVal(val, sort, ctx=None):
 def is_finite_domain_value(a):
     """Return `True` if `a` is a Z3 finite-domain value.
 
-    >>> s = FiniteDomainSort("S", 100)
+    >>> s = FiniteDomainSort('S', 100)
     >>> b = Const('b', s)
     >>> is_finite_domain_value(b)
     False
