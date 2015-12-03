@@ -28,7 +28,7 @@ Revision History:
 bool is_numeral_sort(Z3_context c, Z3_sort ty) {
     sort * _ty = to_sort(ty);
     family_id fid  = _ty->get_family_id();
-    if (fid != mk_c(c)->get_arith_fid() && 
+    if (fid != mk_c(c)->get_arith_fid() &&
         fid != mk_c(c)->get_bv_fid() &&
         fid != mk_c(c)->get_datalog_fid() &&
         fid != mk_c(c)->get_fpa_fid()) {
@@ -149,7 +149,8 @@ extern "C" {
             mk_c(c)->autil().is_numeral(e) ||
             mk_c(c)->bvutil().is_numeral(e) ||
             mk_c(c)->fpautil().is_numeral(e) ||
-            mk_c(c)->fpautil().is_rm_numeral(e);
+            mk_c(c)->fpautil().is_rm_numeral(e) ||
+            mk_c(c)->datalog_util().is_numeral_ext(e);
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
@@ -160,7 +161,7 @@ extern "C" {
         expr* e = to_expr(a);
         if (!e) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return Z3_FALSE;            
+            return Z3_FALSE;
         }
         if (mk_c(c)->autil().is_numeral(e, r)) {
             return Z3_TRUE;
@@ -174,11 +175,11 @@ extern "C" {
             r = rational(v, rational::ui64());
             return Z3_TRUE;
         }
-        return Z3_FALSE;            
+        return Z3_FALSE;
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
-    
+
     Z3_string Z3_API Z3_get_numeral_string(Z3_context c, Z3_ast a) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
@@ -196,11 +197,11 @@ extern "C" {
             mpf_rounding_mode rm;
             if (mk_c(c)->fpautil().is_rm_numeral(to_expr(a), rm)) {
                 switch (rm) {
-                case OP_FPA_RM_NEAREST_TIES_TO_EVEN: 
-                    return mk_c(c)->mk_external_string("roundNearestTiesToEven"); 
+                case OP_FPA_RM_NEAREST_TIES_TO_EVEN:
+                    return mk_c(c)->mk_external_string("roundNearestTiesToEven");
                     break;
                 case OP_FPA_RM_NEAREST_TIES_TO_AWAY:
-                    return mk_c(c)->mk_external_string("roundNearestTiesToAway"); 
+                    return mk_c(c)->mk_external_string("roundNearestTiesToAway");
                     break;
                 case OP_FPA_RM_TOWARD_POSITIVE:
                     return mk_c(c)->mk_external_string("roundTowardPositive");
@@ -212,7 +213,7 @@ extern "C" {
                 default:
                     return mk_c(c)->mk_external_string("roundTowardZero");
                     break;
-                }                
+                }
             }
             else if (mk_c(c)->fpautil().is_numeral(to_expr(a), tmp)) {
                 return mk_c(c)->mk_external_string(fu.fm().to_string(tmp));
@@ -261,7 +262,7 @@ extern "C" {
 
     Z3_bool Z3_API Z3_get_numeral_small(Z3_context c, Z3_ast a, long long* num, long long* den) {
         Z3_TRY;
-        // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object. 
+        // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_small(c, a, num, den);
         RESET_ERROR_CODE();
         rational r;
@@ -289,8 +290,8 @@ extern "C" {
         // This function invokes Z3_get_numeral_int64, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_int(c, v, i);
         RESET_ERROR_CODE();
-        if (!i) { 
-            SET_ERROR_CODE(Z3_INVALID_ARG);          
+        if (!i) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
             return Z3_FALSE;
         }
         long long l;
@@ -301,17 +302,17 @@ extern "C" {
         return Z3_FALSE;
         Z3_CATCH_RETURN(Z3_FALSE);
     }
-    
+
     Z3_bool Z3_API Z3_get_numeral_uint(Z3_context c, Z3_ast v, unsigned* u) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_uint64, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_uint(c, v, u);
         RESET_ERROR_CODE();
-        if (!u) { 
-            SET_ERROR_CODE(Z3_INVALID_ARG);          
+        if (!u) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
             return Z3_FALSE;
         }
-        unsigned long long l;        
+        unsigned long long l;
         if (Z3_get_numeral_uint64(c, v, &l) && (l <= 0xFFFFFFFF)) {
             *u = static_cast<unsigned>(l);
             return Z3_TRUE;
@@ -319,7 +320,7 @@ extern "C" {
         return Z3_FALSE;
         Z3_CATCH_RETURN(Z3_FALSE);
     }
-    
+
     Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, unsigned long long* u) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
@@ -339,7 +340,7 @@ extern "C" {
         return Z3_FALSE;
         Z3_CATCH_RETURN(Z3_FALSE);
     }
-    
+
     Z3_bool Z3_API Z3_get_numeral_int64(Z3_context c, Z3_ast v, long long* i) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.

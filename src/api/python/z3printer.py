@@ -573,6 +573,9 @@ class Formatter:
     def pp_bv(self, a):
         return to_format(a.as_string())
 
+    def pp_fd(self, a):
+        return to_format(a.as_string())
+
     def pp_fprm_value(self, a):
         z3._z3_assert(z3.is_fprm_value(a), 'expected FPRMNumRef')
         if self.fpa_pretty and (a.decl().kind() in _z3_op_to_fpa_pretty_str):
@@ -864,6 +867,8 @@ class Formatter:
             return self.pp_algebraic(a)        
         elif z3.is_bv_value(a):
             return self.pp_bv(a)
+        elif z3.is_finite_domain_value(a):
+            return self.pp_fd(a)
         elif z3.is_fprm_value(a):
             return self.pp_fprm_value(a)
         elif z3.is_fp_value(a):

@@ -14,7 +14,7 @@ Author:
     Christoph Wintersteiger (cwinter) 2012-03-20
 
 Notes:
-    
+
 --*/
 
 using System;
@@ -23,7 +23,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// Expressions are terms.     
+    /// Expressions are terms.
     /// </summary>
     [ContractVerification(true)]
     public class Expr : AST
@@ -74,7 +74,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// The arguments of the expression.
-        /// </summary>        
+        /// </summary>
         public Expr[] Args
         {
             get
@@ -109,9 +109,9 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// The result is the new expression. The arrays <c>from</c> and <c>to</c> must have size <c>num_exprs</c>.
-        /// For every <c>i</c> smaller than <c>num_exprs</c>, we must have that 
+        /// For every <c>i</c> smaller than <c>num_exprs</c>, we must have that
         /// sort of <c>from[i]</c> must be equal to sort of <c>to[i]</c>.
-        /// </remarks>    
+        /// </remarks>
         public Expr Substitute(Expr[] from, Expr[] to)
         {
             Contract.Requires(from != null);
@@ -174,7 +174,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Returns a string representation of the expression.
-        /// </summary>    
+        /// </summary>
         public override string ToString()
         {
             return base.ToString();
@@ -442,15 +442,15 @@ namespace Microsoft.Z3
             get
             {
                 return (Native.Z3_is_app(Context.nCtx, NativeObject) != 0 &&
-                        (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) 
+                        (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject))
                         == Z3_sort_kind.Z3_ARRAY_SORT);
             }
         }
 
         /// <summary>
-        /// Indicates whether the term is an array store. 
+        /// Indicates whether the term is an array store.
         /// </summary>
-        /// <remarks>It satisfies select(store(a,i,v),j) = if i = j then v else select(a,j). 
+        /// <remarks>It satisfies select(store(a,i,v),j) = if i = j then v else select(a,j).
         /// Array store takes at least 3 arguments. </remarks>
         public bool IsStore { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_STORE; } }
 
@@ -480,7 +480,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is an as-array term.
         /// </summary>
-        /// <remarks>An as-array term is n array value that behaves as the function graph of the 
+        /// <remarks>An as-array term is n array value that behaves as the function graph of the
         /// function passed as parameter.</remarks>
         public bool IsAsArray { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_AS_ARRAY; } }
         #endregion
@@ -761,21 +761,21 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is a coercion from integer to bit-vector
         /// </summary>
-        /// <remarks>This function is not supported by the decision procedures. Only the most 
+        /// <remarks>This function is not supported by the decision procedures. Only the most
         /// rudimentary simplification rules are applied to this function.</remarks>
         public bool IsIntToBV { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_INT2BV; } }
 
         /// <summary>
         /// Indicates whether the term is a coercion from bit-vector to integer
         /// </summary>
-        /// <remarks>This function is not supported by the decision procedures. Only the most 
+        /// <remarks>This function is not supported by the decision procedures. Only the most
         /// rudimentary simplification rules are applied to this function.</remarks>
         public bool IsBVToInt { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BV2INT; } }
 
         /// <summary>
         /// Indicates whether the term is a bit-vector carry
         /// </summary>
-        /// <remarks>Compute the carry bit in a full-adder.  The meaning is given by the 
+        /// <remarks>Compute the carry bit in a full-adder.  The meaning is given by the
         /// equivalence (carry l1 l2 l3) &lt;=&gt; (or (and l1 l2) (and l1 l3) (and l2 l3)))</remarks>
         public bool IsBVCarry { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_CARRY; } }
 
@@ -795,15 +795,15 @@ namespace Microsoft.Z3
         public bool IsLabel { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL; } }
 
         /// <summary>
-        /// Indicates whether the term is a label literal (used by the Boogie Verification condition generator).                     
+        /// Indicates whether the term is a label literal (used by the Boogie Verification condition generator).
         /// </summary>
         /// <remarks>A label literal has a set of string parameters. It takes no arguments.</remarks>
         public bool IsLabelLit { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL_LIT; } }
-        #endregion        
+        #endregion
 
         #region Proof Terms
         /// <summary>
-        /// Indicates whether the term is a binary equivalence modulo namings. 
+        /// Indicates whether the term is a binary equivalence modulo namings.
         /// </summary>
         /// <remarks>This binary predicate is used in proof terms.
         /// It captures equisatisfiability and equivalence modulo renamings.</remarks>
@@ -838,8 +838,8 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is a proof for (R t t), where R is a reflexive relation.
         /// </summary>
-        /// <remarks>This proof object has no antecedents. 
-        /// The only reflexive relations that are used are 
+        /// <remarks>This proof object has no antecedents.
+        /// The only reflexive relations that are used are
         /// equivalence modulo namings, equality and equivalence.
         /// That is, R is either '~', '=' or 'iff'.</remarks>
         public bool IsProofReflexivity { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REFLEXIVITY; } }
@@ -859,8 +859,8 @@ namespace Microsoft.Z3
         /// Indicates whether the term is a proof by transitivity of a relation
         /// </summary>
         /// <remarks>
-        /// Given a transitive relation R, and proofs for (R t s) and (R s u), produces a proof 
-        /// for (R t u). 
+        /// Given a transitive relation R, and proofs for (R t s) and (R s u), produces a proof
+        /// for (R t u).
         /// T1: (R t s)
         /// T2: (R s u)
         /// [trans T1 T2]: (R t u)
@@ -872,17 +872,17 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
-        /// It combines several symmetry and transitivity proofs. 
+        /// It combines several symmetry and transitivity proofs.
         /// Example:
         /// T1: (R a b)
         /// T2: (R c b)
         /// T3: (R c d)
-        /// [trans* T1 T2 T3]: (R a d)          
+        /// [trans* T1 T2 T3]: (R a d)
         /// R must be a symmetric and transitive relation.
-        /// 
+        ///
         /// Assuming that this proof object is a proof for (R s t), then
         /// a proof checker must check if it is possible to prove (R s t)
-        /// using the antecedents, symmetry and transitivity.  That is, 
+        /// using the antecedents, symmetry and transitivity.  That is,
         /// if there is a path from s to t, if we view every
         /// antecedent (R a b) as an edge between a and b.
         /// </remarks>
@@ -896,14 +896,14 @@ namespace Microsoft.Z3
         /// T1: (R t_1 s_1)
         /// ...
         /// Tn: (R t_n s_n)
-        /// [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))          
+        /// [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))
         /// Remark: if t_i == s_i, then the antecedent Ti is suppressed.
         /// That is, reflexivity proofs are supressed to save space.
         /// </remarks>
         public bool IsProofMonotonicity { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MONOTONICITY; } }
 
         /// <summary>
-        /// Indicates whether the term is a quant-intro proof 
+        /// Indicates whether the term is a quant-intro proof
         /// </summary>
         /// <remarks>
         /// Given a proof for (~ p q), produces a proof for (~ (forall (x) p) (forall (x) q)).
@@ -913,7 +913,7 @@ namespace Microsoft.Z3
         public bool IsProofQuantIntro { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_QUANT_INTRO; } }
 
         /// <summary>
-        /// Indicates whether the term is a distributivity proof object.  
+        /// Indicates whether the term is a distributivity proof object.
         /// </summary>
         /// <remarks>
         /// Given that f (= or) distributes over g (= and), produces a proof for
@@ -923,9 +923,9 @@ namespace Microsoft.Z3
         /// (= (f (g a b) (g c d))
         /// (g (f a c) (f a d) (f b c) (f b d)))
         /// where each f and g can have arbitrary number of arguments.
-        /// 
+        ///
         /// This proof object has no antecedents.
-        /// Remark. This rule is used by the CNF conversion pass and 
+        /// Remark. This rule is used by the CNF conversion pass and
         /// instantiated by f = or, and g = and.
         /// </remarks>
         public bool IsProofDistributivity { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DISTRIBUTIVITY; } }
@@ -946,7 +946,7 @@ namespace Microsoft.Z3
         /// <remarks>
         /// Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i).
         /// T1: (not (or l_1 ... l_n))
-        /// [not-or-elim T1]: (not l_i)       
+        /// [not-or-elim T1]: (not l_i)
         /// </remarks>
         public bool IsProofOrElimination { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NOT_OR_ELIM; } }
 
@@ -956,16 +956,16 @@ namespace Microsoft.Z3
         /// <remarks>
         /// A proof for a local rewriting step (= t s).
         /// The head function symbol of t is interpreted.
-        /// 
+        ///
         /// This proof object has no antecedents.
-        /// The conclusion of a rewrite rule is either an equality (= t s), 
+        /// The conclusion of a rewrite rule is either an equality (= t s),
         /// an equivalence (iff t s), or equi-satisfiability (~ t s).
         /// Remark: if f is bool, then = is iff.
-        /// 
+        ///
         /// Examples:
         /// (= (+ x 0) x)
         /// (= (+ x 1 2) (+ 3 x))
-        /// (iff (or x false) x)          
+        /// (iff (or x false) x)
         /// </remarks>
         public bool IsProofRewrite { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REWRITE; } }
 
@@ -997,8 +997,8 @@ namespace Microsoft.Z3
         /// Indicates whether the term is a proof for pulling quantifiers out.
         /// </summary>
         /// <remarks>
-        /// A proof for (iff P Q) where Q is in prenex normal form. 
-        /// This proof object is only used if the parameter PROOF_MODE is 1.       
+        /// A proof for (iff P Q) where Q is in prenex normal form.
+        /// This proof object is only used if the parameter PROOF_MODE is 1.
         /// This proof object has no antecedents
         /// </remarks>
         public bool IsProofPullQuantStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR; } }
@@ -1010,8 +1010,8 @@ namespace Microsoft.Z3
         /// A proof for:
         /// (iff (forall (x_1 ... x_m) (and p_1[x_1 ... x_m] ... p_n[x_1 ... x_m]))
         ///         (and (forall (x_1 ... x_m) p_1[x_1 ... x_m])
-        ///          ... 
-        ///      (forall (x_1 ... x_m) p_n[x_1 ... x_m])))               
+        ///          ...
+        ///      (forall (x_1 ... x_m) p_n[x_1 ... x_m])))
         ///  This proof object has no antecedents
         /// </remarks>
         public bool IsProofPushQuant { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PUSH_QUANT; } }
@@ -1021,8 +1021,8 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// A proof for (iff (forall (x_1 ... x_n y_1 ... y_m) p[x_1 ... x_n])
-        ///                  (forall (x_1 ... x_n) p[x_1 ... x_n])) 
-        ///                  
+        ///                  (forall (x_1 ... x_n) p[x_1 ... x_n]))
+        ///
         /// It is used to justify the elimination of unused variables.
         /// This proof object has no antecedents.
         /// </remarks>
@@ -1035,9 +1035,9 @@ namespace Microsoft.Z3
         /// A proof for destructive equality resolution:
         /// (iff (forall (x) (or (not (= x t)) P[x])) P[t])
         /// if x does not occur in t.
-        /// 
+        ///
         /// This proof object has no antecedents.
-        /// 
+        ///
         /// Several variables can be eliminated simultaneously.
         /// </remarks>
         public bool IsProofDER { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DER; } }
@@ -1062,7 +1062,7 @@ namespace Microsoft.Z3
         /// <remarks>
         /// T1: false
         /// [lemma T1]: (or (not l_1) ... (not l_n))
-        /// 
+        ///
         /// This proof object has one antecedent: a hypothetical proof for false.
         /// It converts the proof in a proof for (or (not l_1) ... (not l_n)),
         /// when T1 contains the hypotheses: l_1, ..., l_n.
@@ -1104,9 +1104,9 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// [comm]: (= (f a b) (f b a))
-        /// 
+        ///
         /// f is a commutative operator.
-        /// 
+        ///
         /// This proof object has no antecedents.
         /// Remark: if f is bool, then = is iff.
         /// </remarks>
@@ -1117,7 +1117,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// Proof object used to justify Tseitin's like axioms:
-        /// 
+        ///
         /// (or (not (and p q)) p)
         /// (or (not (and p q)) q)
         /// (or (not (and p q r)) p)
@@ -1138,7 +1138,7 @@ namespace Microsoft.Z3
         /// (or (ite a b c) a (not c))
         /// (or (not (not a)) (not a))
         /// (or (not a) a)
-        /// 
+        ///
         /// This proof object has no antecedents.
         /// Note: all axioms are propositional tautologies.
         /// Note also that 'and' and 'or' can take multiple arguments.
@@ -1155,19 +1155,19 @@ namespace Microsoft.Z3
         /// Introduces a name for a formula/term.
         /// Suppose e is an expression with free variables x, and def-intro
         /// introduces the name n(x). The possible cases are:
-        /// 
+        ///
         /// When e is of Boolean type:
         /// [def-intro]: (and (or n (not e)) (or (not n) e))
-        /// 
+        ///
         /// or:
         /// [def-intro]: (or (not n) e)
         /// when e only occurs positively.
-        /// 
+        ///
         /// When e is of the form (ite cond th el):
         /// [def-intro]: (and (or (not cond) (= n th)) (or cond (= n el)))
-        /// 
+        ///
         /// Otherwise:
-        /// [def-intro]: (= n e)       
+        /// [def-intro]: (= n e)
         /// </remarks>
         public bool IsProofDefIntro { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DEF_INTRO; } }
 
@@ -1195,7 +1195,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// Proof for a (positive) NNF step. Example:
-        /// 
+        ///
         /// T1: (not s_1) ~ r_1
         /// T2: (not s_2) ~ r_2
         /// T3: s_1 ~ r_1'
@@ -1207,9 +1207,9 @@ namespace Microsoft.Z3
         /// (a) When creating the NNF of a positive force quantifier.
         /// The quantifier is retained (unless the bound variables are eliminated).
         /// Example
-        ///    T1: q ~ q_new 
+        ///    T1: q ~ q_new
         ///    [nnf-pos T1]: (~ (forall (x T) q) (forall (x T) q_new))
-        /// 
+        ///
         /// (b) When recursively creating NNF over Boolean formulas, where the top-level
         /// connective is changed during NNF conversion. The relevant Boolean connectives
         /// for NNF_POS are 'implies', 'iff', 'xor', 'ite'.
@@ -1223,7 +1223,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// Proof for a (negative) NNF step. Examples:
-        /// 
+        ///
         ///   T1: (not s_1) ~ r_1
         ///   ...
         ///   Tn: (not s_n) ~ r_n
@@ -1248,9 +1248,9 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// A proof for (~ P Q) where Q is in negation normal form.
-        /// 
-        /// This proof object is only used if the parameter PROOF_MODE is 1.       
-        /// 
+        ///
+        /// This proof object is only used if the parameter PROOF_MODE is 1.
+        ///
         /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
         /// </remarks>
         public bool IsProofNNFStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_STAR; } }
@@ -1260,8 +1260,8 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// A proof for (~ P Q) where Q is in conjunctive normal form.
-        /// This proof object is only used if the parameter PROOF_MODE is 1.       
-        /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.          
+        /// This proof object is only used if the parameter PROOF_MODE is 1.
+        /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
         /// </remarks>
         public bool IsProofCNFStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_CNF_STAR; } }
 
@@ -1269,11 +1269,11 @@ namespace Microsoft.Z3
         /// Indicates whether the term is a proof for a Skolemization step
         /// </summary>
         /// <remarks>
-        /// Proof for: 
-        /// 
+        /// Proof for:
+        ///
         ///   [sk]: (~ (not (forall x (p x y))) (not (p (sk y) y)))
         ///   [sk]: (~ (exists x (p x y)) (p (sk y) y))
-        ///   
+        ///
         /// This proof object has no antecedents.
         /// </remarks>
         public bool IsProofSkolemize { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_SKOLEMIZE; } }
@@ -1285,7 +1285,7 @@ namespace Microsoft.Z3
         /// Modus ponens style rule for equi-satisfiability.
         /// T1: p
         /// T2: (~ p q)
-        /// [mp~ T1 T2]: q  
+        /// [mp~ T1 T2]: q
         /// </remarks>
         public bool IsProofModusPonensOEQ { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS_OEQ; } }
 
@@ -1294,15 +1294,15 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// Generic proof for theory lemmas.
-        /// 
+        ///
         /// The theory lemma function comes with one or more parameters.
         /// The first parameter indicates the name of the theory.
         /// For the theory of arithmetic, additional parameters provide hints for
-        /// checking the theory lemma. 
+        /// checking the theory lemma.
         /// The hints for arithmetic are:
         /// - farkas - followed by rational coefficients. Multiply the coefficients to the
         ///   inequalities in the lemma, add the (negated) inequalities and obtain a contradiction.
-        /// - triangle-eq - Indicates a lemma related to the equivalence:        
+        /// - triangle-eq - Indicates a lemma related to the equivalence:
         ///   (iff (= t1 t2) (and (&lt;= t1 t2) (&lt;= t2 t1)))
         /// - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test.
         /// </remarks>
@@ -1318,7 +1318,7 @@ namespace Microsoft.Z3
             get
             {
                 return (Native.Z3_is_app(Context.nCtx, NativeObject) != 0 &&
-                        Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) 
+                        Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject))
                         == (uint)Z3_sort_kind.Z3_RELATION_SORT);
             }
         }
@@ -1328,7 +1328,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// Insert a record into a relation.
-        /// The function takes <c>n+1</c> arguments, where the first argument is the relation and the remaining <c>n</c> elements 
+        /// The function takes <c>n+1</c> arguments, where the first argument is the relation and the remaining <c>n</c> elements
         /// correspond to the <c>n</c> columns of the relation.
         /// </remarks>
         public bool IsRelationStore { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_STORE; } }
@@ -1349,7 +1349,7 @@ namespace Microsoft.Z3
         public bool IsRelationalJoin { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_JOIN; } }
 
         /// <summary>
-        /// Indicates whether the term is the union or convex hull of two relations. 
+        /// Indicates whether the term is the union or convex hull of two relations.
         /// </summary>
         /// <remarks>The function takes two arguments.</remarks>
         public bool IsRelationUnion { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_UNION; } }
@@ -1371,7 +1371,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// Filter (restrict) a relation with respect to a predicate.
-        /// The first argument is a relation. 
+        /// The first argument is a relation.
         /// The second argument is a predicate with free de-Brujin indices
         /// corresponding to the columns of the relation.
         /// So the first column in the relation has index 0.
@@ -1385,9 +1385,9 @@ namespace Microsoft.Z3
         /// Intersect the first relation with respect to negation
         /// of the second relation (the function takes two arguments).
         /// Logically, the specification can be described by a function
-        /// 
+        ///
         ///   target = filter_by_negation(pos, neg, columns)
-        ///   
+        ///
         /// where columns are pairs c1, d1, .., cN, dN of columns from pos and neg, such that
         /// target are elements in x in pos, such that there is no y in neg that agrees with
         /// x on the columns c1, d1, .., cN, dN.
@@ -1397,7 +1397,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is the renaming of a column in a relation
         /// </summary>
-        /// <remarks>    
+        /// <remarks>
         /// The function takes one argument.
         /// The parameters contain the renaming as a cycle.
         /// </remarks>
@@ -1422,10 +1422,10 @@ namespace Microsoft.Z3
         /// Indicates whether the term is a relational clone (copy)
         /// </summary>
         /// <remarks>
-        /// Create a fresh copy (clone) of a relation. 
+        /// Create a fresh copy (clone) of a relation.
         /// The function is logically the identity, but
-        /// in the context of a register machine allows 
-        /// for terms of kind <seealso cref="IsRelationUnion"/> 
+        /// in the context of a register machine allows
+        /// for terms of kind <seealso cref="IsRelationUnion"/>
         /// to perform destructive updates to the first argument.
         /// </remarks>
         public bool IsRelationClone { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_CLONE; } }
@@ -1481,11 +1481,11 @@ namespace Microsoft.Z3
         /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToEven
         /// </summary>
         public bool IsFPRMRoundNearestTiesToEven{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN; } }
-        
+
         /// <summary>
         /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToAway
         /// </summary>
-        public bool IsFPRMRoundNearestTiesToAway{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY; } }        
+        public bool IsFPRMRoundNearestTiesToAway{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY; } }
 
         /// <summary>
         /// Indicates whether the term is the floating-point rounding numeral roundTowardNegative
@@ -1506,11 +1506,11 @@ namespace Microsoft.Z3
         /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToEven
         /// </summary>
         public bool IsFPRMExprRNE{ get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN; } }
-        
+
         /// <summary>
         /// Indicates whether the term is the floating-point rounding numeral roundNearestTiesToAway
         /// </summary>
-        public bool IsFPRMExprRNA { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY; } }        
+        public bool IsFPRMExprRNA { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY; } }
 
         /// <summary>
         /// Indicates whether the term is the floating-point rounding numeral roundTowardNegative
@@ -1530,9 +1530,9 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is a floating-point rounding mode numeral
         /// </summary>
-        public bool IsFPRMExpr { 
-            get { 
-                return IsApp && 
+        public bool IsFPRMExpr {
+            get {
+                return IsApp &&
                        (FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY||
                        FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN ||
                        FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_POSITIVE ||
@@ -1540,7 +1540,7 @@ namespace Microsoft.Z3
                        FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_RM_TOWARD_ZERO);
             }
         }
-        
+
         /// <summary>
         /// Indicates whether the term is a floating-point +oo
         /// </summary>
@@ -1586,7 +1586,7 @@ namespace Microsoft.Z3
         /// Indicates whether the term is a floating-point multiplication term
         /// </summary>
         public bool IsFPMul { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_MUL; } }
-                    
+
         /// <summary>
         /// Indicates whether the term is a floating-point divison term
         /// </summary>
@@ -1680,12 +1680,12 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is a floating-point isNegative predicate term
         /// </summary>
-        public bool IsFPisNegative { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_NEGATIVE; } }    
+        public bool IsFPisNegative { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_NEGATIVE; } }
 
         /// <summary>
         /// Indicates whether the term is a floating-point isPositive predicate term
         /// </summary>
-        public bool IsFPisPositive { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_POSITIVE; } }    
+        public bool IsFPisPositive { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_IS_POSITIVE; } }
 
         /// <summary>
         /// Indicates whether the term is a floating-point constructor term
@@ -1715,7 +1715,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Indicates whether the term is a floating-point conversion to real term
         /// </summary>
-        public bool IsFPToReal { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_TO_REAL; } }    
+        public bool IsFPToReal { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_TO_REAL; } }
 
 
         /// <summary>
@@ -1761,8 +1761,8 @@ namespace Microsoft.Z3
         #endregion
 
         #region Internal
-        /// <summary> 
-        /// Constructor for Expr 
+        /// <summary>
+        /// Constructor for Expr
         /// </summary>
         internal protected Expr(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 
@@ -1815,6 +1815,7 @@ namespace Microsoft.Z3
                     case Z3_sort_kind.Z3_BV_SORT: return new BitVecNum(ctx, obj);
                     case Z3_sort_kind.Z3_FLOATING_POINT_SORT: return new FPNum(ctx, obj);
                     case Z3_sort_kind.Z3_ROUNDING_MODE_SORT: return new FPRMNum(ctx, obj);
+                    case Z3_sort_kind.Z3_FINITE_DOMAIN_SORT: return new FiniteDomainNum(ctx, obj);
                 }
             }
 
@@ -1828,6 +1829,7 @@ namespace Microsoft.Z3
                 case Z3_sort_kind.Z3_DATATYPE_SORT: return new DatatypeExpr(ctx, obj);
                 case Z3_sort_kind.Z3_FLOATING_POINT_SORT: return new FPExpr(ctx, obj);
                 case Z3_sort_kind.Z3_ROUNDING_MODE_SORT: return new FPRMExpr(ctx, obj);
+                case Z3_sort_kind.Z3_FINITE_DOMAIN_SORT: return new FiniteDomainExpr(ctx, obj);
             }
 
             return new Expr(ctx, obj);

@@ -14,7 +14,7 @@ Author:
     Christoph Wintersteiger (cwinter) 2012-03-16
 
 Notes:
-    
+
 --*/
 
 using System;
@@ -41,7 +41,7 @@ namespace test_mapi
         /// forall (x_0, ..., x_n) finv(f(x_0, ..., x_i, ..., x_{n-1})) = x_i
         /// </c>
         /// Where, <code>finv</code>is a fresh function declaration.
-        /// </summary>        
+        /// </summary>
         public static BoolExpr InjAxiom(Context ctx, FuncDecl f, int i)
         {
             Sort[] domain = f.Domain;
@@ -155,11 +155,11 @@ namespace test_mapi
         }
 
         /// <summary>
-        /// Assert the axiom: function f is commutative. 
+        /// Assert the axiom: function f is commutative.
         /// </summary>
         /// <remarks>
         /// This example uses the SMT-LIB parser to simplify the axiom construction.
-        /// </remarks>        
+        /// </remarks>
         private static BoolExpr CommAxiom(Context ctx, FuncDecl f)
         {
             Sort t = f.Range;
@@ -453,7 +453,7 @@ namespace test_mapi
 
         /// <summary>
         /// Sudoku solving example.
-        /// </summary>        
+        /// </summary>
         static void SudokuExample(Context ctx)
         {
             Console.WriteLine("SudokuExample");
@@ -649,7 +649,7 @@ namespace test_mapi
         }
 
         /// <summary>
-        /// Prove that <tt>f(x, y) = f(w, v) implies y = v</tt> when 
+        /// Prove that <tt>f(x, y) = f(w, v) implies y = v</tt> when
         /// <code>f</code> is injective in the second argument. <seealso cref="inj_axiom"/>
         /// </summary>
         public static void QuantifierExample3(Context ctx)
@@ -687,7 +687,7 @@ namespace test_mapi
         }
 
         /// <summary>
-        /// Prove that <tt>f(x, y) = f(w, v) implies y = v</tt> when 
+        /// Prove that <tt>f(x, y) = f(w, v) implies y = v</tt> when
         /// <code>f</code> is injective in the second argument. <seealso cref="inj_axiom"/>
         /// </summary>
         public static void QuantifierExample4(Context ctx)
@@ -726,7 +726,7 @@ namespace test_mapi
 
         /// <summary>
         /// Some basic tests.
-        /// </summary>        
+        /// </summary>
         static void BasicTests(Context ctx)
         {
             Console.WriteLine("BasicTests");
@@ -759,7 +759,7 @@ namespace test_mapi
             foreach (BoolExpr a in g.Formulas)
                 solver.Assert(a);
 
-            if (solver.Check() != Status.SATISFIABLE) 
+            if (solver.Check() != Status.SATISFIABLE)
                 throw new TestFailedException();
 
             ApplyResult ar = ApplyTactic(ctx, ctx.MkTactic("simplify"), g);
@@ -965,7 +965,7 @@ namespace test_mapi
 
         /// <summary>
         /// Shows how to read an SMT1 file.
-        /// </summary>        
+        /// </summary>
         static void SMT1FileTest(string filename)
         {
             Console.Write("SMT File test ");
@@ -1020,7 +1020,7 @@ namespace test_mapi
                     //        break;
                     //    case Z3_ast_kind.Z3_QUANTIFIER_AST:
                     //        q.Enqueue(((Quantifier)cur).Args[0]);
-                    //        break;  
+                    //        break;
                     //    case Z3_ast_kind.Z3_VAR_AST: break;
                     //    case Z3_ast_kind.Z3_NUMERAL_AST: break;
                     //    case Z3_ast_kind.Z3_FUNC_DECL_AST: break;
@@ -1158,7 +1158,7 @@ namespace test_mapi
         /// Prove <tt>x = y implies g(x) = g(y)</tt>, and
         /// disprove <tt>x = y implies g(g(x)) = g(y)</tt>.
         /// </summary>
-        /// <remarks>This function demonstrates how to create uninterpreted 
+        /// <remarks>This function demonstrates how to create uninterpreted
         /// types and functions.</remarks>
         public static void ProveExample1(Context ctx)
         {
@@ -1203,8 +1203,8 @@ namespace test_mapi
         /// Prove <tt>not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < 0 </tt>.
         /// Then, show that <tt>z < -1</tt> is not implied.
         /// </summary>
-        /// <remarks>This example demonstrates how to combine uninterpreted functions 
-        /// and arithmetic.</remarks>        
+        /// <remarks>This example demonstrates how to combine uninterpreted functions
+        /// and arithmetic.</remarks>
         public static void ProveExample2(Context ctx)
         {
             Console.WriteLine("ProveExample2");
@@ -1255,7 +1255,7 @@ namespace test_mapi
         /// <summary>
         /// Show how push & pop can be used to create "backtracking" points.
         /// </summary>
-        /// <remarks>This example also demonstrates how big numbers can be 
+        /// <remarks>This example also demonstrates how big numbers can be
         /// created in ctx.</remarks>
         public static void PushPopExample1(Context ctx)
         {
@@ -1318,7 +1318,7 @@ namespace test_mapi
         /// <summary>
         /// Tuples.
         /// </summary>
-        /// <remarks>Check that the projection of a tuple 
+        /// <remarks>Check that the projection of a tuple
         /// returns the corresponding element.</remarks>
         public static void TupleExample(Context ctx)
         {
@@ -1328,7 +1328,7 @@ namespace test_mapi
             TupleSort tuple = ctx.MkTupleSort(
              ctx.MkSymbol("mk_tuple"),         // name of tuple constructor
              new Symbol[] { ctx.MkSymbol("first"), ctx.MkSymbol("second") },  // names of projection operators
-             new Sort[] { int_type, int_type } // types of projection operators         
+             new Sort[] { int_type, int_type } // types of projection operators
                 );
             FuncDecl first = tuple.FieldDecls[0];  // declarations are for projections
             FuncDecl second = tuple.FieldDecls[1];
@@ -1342,7 +1342,7 @@ namespace test_mapi
         }
 
         /// <summary>
-        /// Simple bit-vector example. 
+        /// Simple bit-vector example.
         /// </summary>
         /// <remarks>
         /// This example disproves that x - 10 &lt;= 0 IFF x &lt;= 10 for (32-bit) machine integers
@@ -1366,7 +1366,7 @@ namespace test_mapi
 
         /// <summary>
         /// Find x and y such that: x ^ y - 103 == x * y
-        /// </summary>        
+        /// </summary>
         public static void BitvectorExample2(Context ctx)
         {
             Console.WriteLine("BitvectorExample2");
@@ -1446,7 +1446,7 @@ namespace test_mapi
 
         /// <summary>
         /// Display the declarations, assumptions and formulas in a SMT-LIB string.
-        /// </summary>        
+        /// </summary>
         public static void ParserExample4(Context ctx)
         {
             Console.WriteLine("ParserExample4");
@@ -1504,7 +1504,7 @@ namespace test_mapi
 
         /// <summary>
         /// Create an enumeration data type.
-        /// </summary>        
+        /// </summary>
         public static void EnumExample(Context ctx)
         {
             Console.WriteLine("EnumExample");
@@ -1603,7 +1603,7 @@ namespace test_mapi
 
         /// <summary>
         /// Create a binary tree datatype.
-        /// </summary>        
+        /// </summary>
         public static void TreeExample(Context ctx)
         {
             Console.WriteLine("TreeExample");
@@ -1681,14 +1681,14 @@ namespace test_mapi
 
             //
             // Declare the names of the accessors for cons.
-            // Then declare the sorts of the accessors. 
+            // Then declare the sorts of the accessors.
             // For this example, all sorts refer to the new types 'forest' and 'tree'
             // being declared, so we pass in null for both sorts1 and sorts2.
             // On the other hand, the sort_refs arrays contain the indices of the
             // two new sorts being declared. The first element in sort1_refs
             // points to 'tree', which has index 1, the second element in sort1_refs array
             // points to 'forest', which has index 0.
-            // 
+            //
             Symbol[] head_tail1 = new Symbol[] { ctx.MkSymbol("head"), ctx.MkSymbol("tail") };
             Sort[] sorts1 = new Sort[] { null, null };
             uint[] sort1_refs = new uint[] { 1, 0 }; // the first item points to a tree, the second to a forest
@@ -1860,7 +1860,7 @@ namespace test_mapi
         }
 
         /// <summary>
-        /// Demonstrate how to use <code>Push</code>and <code>Pop</code>to 
+        /// Demonstrate how to use <code>Push</code>and <code>Pop</code>to
         /// control the size of models.
         /// </summary>
         /// <remarks>Note: this test is specialized to 32-bit bitvectors.</remarks>
@@ -1954,7 +1954,7 @@ namespace test_mapi
 
         /// <summary>
         /// Simplifier example.
-        /// </summary>        
+        /// </summary>
         public static void SimplifierExample(Context ctx)
         {
             Console.WriteLine("SimplifierExample");
@@ -1970,7 +1970,7 @@ namespace test_mapi
         }
 
         /// <summary>
-        /// Extract unsatisfiable core example 
+        /// Extract unsatisfiable core example
         /// </summary>
         public static void UnsatCoreAndProofExample(Context ctx)
         {
@@ -2023,7 +2023,7 @@ namespace test_mapi
             BoolExpr pb = ctx.MkBoolConst("PredB");
             BoolExpr pc = ctx.MkBoolConst("PredC");
             BoolExpr pd = ctx.MkBoolConst("PredD");
-            
+
             BoolExpr f1 = ctx.MkAnd(new BoolExpr[] { pa, pb, pc });
             BoolExpr f2 = ctx.MkAnd(new BoolExpr[] { pa, ctx.MkNot(pb), pc });
             BoolExpr f3 = ctx.MkOr(ctx.MkNot(pa), ctx.MkNot(pc));
@@ -2042,7 +2042,7 @@ namespace test_mapi
 
             if (result == Status.UNSATISFIABLE)
             {
-                Console.WriteLine("unsat");                
+                Console.WriteLine("unsat");
                 Console.WriteLine("core: ");
                 foreach (Expr c in solver.UnsatCore)
                 {
@@ -2055,18 +2055,19 @@ namespace test_mapi
         {
             Console.WriteLine("FiniteDomainExample");
 
-            var s = ctx.MkFiniteDomainSort("S", 10);
-            var t = ctx.MkFiniteDomainSort("T", 10);
-            var s1 = ctx.MkNumeral(1, s);
-            var t1 = ctx.MkNumeral(1, t);
-            Console.WriteLine("{0}", s);
-            Console.WriteLine("{0}", t);
+            FiniteDomainSort s = ctx.MkFiniteDomainSort("S", 10);
+            FiniteDomainSort t = ctx.MkFiniteDomainSort("T", 10);
+            FiniteDomainNum s1 = (FiniteDomainNum)ctx.MkNumeral(1, s);
+            FiniteDomainNum t1 = (FiniteDomainNum)ctx.MkNumeral(1, t);
+            Console.WriteLine("{0} of size {1}", s, s.Size);
+            Console.WriteLine("{0} of size {1}", t, t.Size);
             Console.WriteLine("{0}", s1);
-            Console.WriteLine("{0}", ctx.MkNumeral(2, s));
             Console.WriteLine("{0}", t1);
+            Console.WriteLine("{0}", s1.Int);
+            Console.WriteLine("{0}", t1.Int);
             // But you cannot mix numerals of different sorts
             // even if the size of their domains are the same:
-            // Console.WriteLine("{0}", ctx.MkEq(s1, t1));	    
+            // Console.WriteLine("{0}", ctx.MkEq(s1, t1));
         }
 
         public static void FloatingPointExample1(Context ctx)
@@ -2084,7 +2085,7 @@ namespace test_mapi
             BoolExpr a = ctx.MkAnd(ctx.MkFPEq(x, y), ctx.MkFPEq(y, z));
             Check(ctx, ctx.MkNot(a), Status.UNSATISFIABLE);
 
-            /* nothing is equal to NaN according to floating-point 
+            /* nothing is equal to NaN according to floating-point
              * equality, so NaN == k should be unsatisfiable. */
             FPExpr k = (FPExpr)ctx.MkConst("x", s);
             FPExpr nan = ctx.MkFPNaN(s);
@@ -2125,7 +2126,7 @@ namespace test_mapi
 
             FPRMExpr rm = (FPRMExpr)ctx.MkConst(ctx.MkSymbol("rm"), rm_sort);
             BitVecExpr x = (BitVecExpr)ctx.MkConst(ctx.MkSymbol("x"), ctx.MkBitVecSort(64));
-            FPExpr y = (FPExpr)ctx.MkConst(ctx.MkSymbol("y"), double_sort);            
+            FPExpr y = (FPExpr)ctx.MkConst(ctx.MkSymbol("y"), double_sort);
             FPExpr fp_val = ctx.MkFP(42, double_sort);
 
             BoolExpr c1 = ctx.MkEq(y, fp_val);
@@ -2138,7 +2139,7 @@ namespace test_mapi
             /* Generic solver */
             Solver s = ctx.MkSolver();
             s.Assert(c5);
-            
+
             Console.WriteLine(s);
 
             if (s.Check() != Status.SATISFIABLE)
@@ -2210,8 +2211,8 @@ namespace test_mapi
                 }
 
                 // These examples need proof generation turned on and auto-config set to false.
-                using (Context ctx = new Context(new Dictionary<string, string>() 
-                    { {"proof", "true" }, 
+                using (Context ctx = new Context(new Dictionary<string, string>()
+                    { {"proof", "true" },
                       {"auto-config", "false" } }))
                 {
                     QuantifierExample3(ctx);

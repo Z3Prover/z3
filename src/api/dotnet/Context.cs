@@ -309,7 +309,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create a new finite domain sort.
-	    /// <returns>The result is a sort</returns>
+        /// <returns>The result is a sort</returns>
         /// </summary>
         /// <param name="name">The name used to identify the sort</param>
         /// <param name="size">The size of the sort</param>
@@ -324,9 +324,9 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create a new finite domain sort.
-	    /// <returns>The result is a sort</returns>
-	    /// Elements of the sort are created using <seealso cref="MkNumeral(ulong, Sort)"/>,
-	    /// and the elements range from 0 to <tt>size-1</tt>.
+        /// <returns>The result is a sort</returns>
+        /// Elements of the sort are created using <seealso cref="MkNumeral(ulong, Sort)"/>,
+        /// and the elements range from 0 to <tt>size-1</tt>.
         /// </summary>
         /// <param name="name">The name used to identify the sort</param>
         /// <param name="size">The size of the sort</param>
@@ -457,16 +457,16 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Update a datatype field at expression t with value v.
-	/// The function performs a record update at t. The field
-	/// that is passed in as argument is updated with value v,
-	/// the remainig fields of t are unchanged.
-        /// </summary>
-	public Expr MkUpdateField(FuncDecl field, Expr t, Expr v)
-	{
-	    return Expr.Create(this, Native.Z3_datatype_update_field(
-	                                  nCtx, field.NativeObject,
-                                          t.NativeObject, v.NativeObject));
-	}
+        /// The function performs a record update at t. The field
+        /// that is passed in as argument is updated with value v,
+        /// the remainig fields of t are unchanged.
+            /// </summary>
+        public Expr MkUpdateField(FuncDecl field, Expr t, Expr v)
+        {
+            return Expr.Create(this, Native.Z3_datatype_update_field(
+                                        nCtx, field.NativeObject,
+                                        t.NativeObject, v.NativeObject));
+        }
 
         #endregion
         #endregion
@@ -2613,13 +2613,13 @@ namespace Microsoft.Z3
         /// <paramref name="patterns"/> is an array of patterns, <paramref name="sorts"/> is an array
         /// with the sorts of the bound variables, <paramref name="names"/> is an array with the
         /// 'names' of the bound variables, and <paramref name="body"/> is the body of the
-        /// quantifier. Quantifiers are associated with weights indicating the importance of 
+        /// quantifier. Quantifiers are associated with weights indicating the importance of
         /// using the quantifier during instantiation.
-        /// Note that the bound variables are de-Bruijn indices created using <see cref="MkBound"/>. 
-        /// Z3 applies the convention that the last element in <paramref name="names"/> and 
-        /// <paramref name="sorts"/> refers to the variable with index 0, the second to last element 
-        /// of <paramref name="names"/> and <paramref name="sorts"/> refers to the variable 
-        /// with index 1, etc. 
+        /// Note that the bound variables are de-Bruijn indices created using <see cref="MkBound"/>.
+        /// Z3 applies the convention that the last element in <paramref name="names"/> and
+        /// <paramref name="sorts"/> refers to the variable with index 0, the second to last element
+        /// of <paramref name="names"/> and <paramref name="sorts"/> refers to the variable
+        /// with index 1, etc.
         /// </remarks>
         /// <param name="sorts">the sorts of the bound variables.</param>
         /// <param name="names">names of the bound variables</param>
@@ -2650,8 +2650,8 @@ namespace Microsoft.Z3
         /// Create a universal Quantifier.
         /// </summary>
         /// <remarks>
-        /// Creates a universal quantifier using a list of constants that will 
-        /// form the set of bound variables. 
+        /// Creates a universal quantifier using a list of constants that will
+        /// form the set of bound variables.
         /// <seealso cref="MkForall(Sort[], Symbol[], Expr, uint, Pattern[], Expr[], Symbol, Symbol)"/>
         /// </remarks>
         public Quantifier MkForall(Expr[] boundConstants, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
@@ -2670,7 +2670,7 @@ namespace Microsoft.Z3
         /// Create an existential Quantifier.
         /// </summary>
         /// <remarks>
-        /// Creates an existential quantifier using de-Brujin indexed variables. 
+        /// Creates an existential quantifier using de-Brujin indexed variables.
         /// (<see cref="MkForall(Sort[], Symbol[], Expr, uint, Pattern[], Expr[], Symbol, Symbol)"/>).
         /// </remarks>
         public Quantifier MkExists(Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
@@ -2692,8 +2692,8 @@ namespace Microsoft.Z3
         /// Create an existential Quantifier.
         /// </summary>
         /// <remarks>
-        /// Creates an existential quantifier using a list of constants that will 
-        /// form the set of bound variables. 
+        /// Creates an existential quantifier using a list of constants that will
+        /// form the set of bound variables.
         /// <seealso cref="MkForall(Sort[], Symbol[], Expr, uint, Pattern[], Expr[], Symbol, Symbol)"/>
         /// </remarks>
         public Quantifier MkExists(Expr[] boundConstants, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
@@ -4499,7 +4499,7 @@ namespace Microsoft.Z3
         readonly private Statistics.DecRefQueue m_Statistics_DRQ = new Statistics.DecRefQueue(10);
         readonly private Tactic.DecRefQueue m_Tactic_DRQ = new Tactic.DecRefQueue(10);
         readonly private Fixedpoint.DecRefQueue m_Fixedpoint_DRQ = new Fixedpoint.DecRefQueue(10);
-	readonly private Optimize.DecRefQueue m_Optimize_DRQ = new Optimize.DecRefQueue(10);
+        readonly private Optimize.DecRefQueue m_Optimize_DRQ = new Optimize.DecRefQueue(10);
 
         /// <summary>
         /// AST DRQ

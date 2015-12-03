@@ -342,6 +342,8 @@
     <Compile Include="ConstructorList.cs" />
     <Compile Include="DatatypeExpr.cs" />
     <Compile Include="DatatypeSort.cs" />
+    <Compile Include="FiniteDomainExpr.cs" />
+    <Compile Include="FiniteDomainNum.cs" />
     <Compile Include="FPExpr.cs" />
     <Compile Include="FPNum.cs" />
     <Compile Include="FPRMExpr.cs" />

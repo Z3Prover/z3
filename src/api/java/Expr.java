@@ -2165,6 +2165,8 @@ public class Expr extends AST
                 return new FPNum(ctx, obj);
             case Z3_ROUNDING_MODE_SORT:
                 return new FPRMNum(ctx, obj);
+            case Z3_FINITE_DOMAIN_SORT:
+                return new FiniteDomainNum(ctx, obj);
             default: ;
             }
         }
@@ -2187,6 +2189,8 @@ public class Expr extends AST
             return new FPExpr(ctx, obj);
         case Z3_ROUNDING_MODE_SORT:
             return new FPRMExpr(ctx, obj);
+        case Z3_FINITE_DOMAIN_SORT:
+            return new FiniteDomainExpr(ctx, obj);
         default: ;
         }
 

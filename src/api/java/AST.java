@@ -22,7 +22,7 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
 /**
  * The abstract syntax tree (AST) class.
  **/
-public class AST extends Z3Object implements Comparable
+public class AST extends Z3Object implements Comparable<AST>
 {
     /**
      * Object comparison.
@@ -56,23 +56,14 @@ public class AST extends Z3Object implements Comparable
      * positive if after else zero.
      * @throws Z3Exception on error
      **/
-    public int compareTo(Object other)
+    public int compareTo(AST other)
     {
         if (other == null)
             return 1;
 
-        AST oAST = null;
-        try
-        {
-            oAST = AST.class.cast(other);
-        } catch (ClassCastException e)
-        {
-            return 1;
-        }
-
-        if (getId() < oAST.getId())
+        if (getId() < other.getId())
             return -1;
-        else if (getId() > oAST.getId())
+        else if (getId() > other.getId())
             return +1;
         else
             return 0;
