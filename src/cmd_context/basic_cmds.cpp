@@ -165,26 +165,39 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
     ctx.regular_stream() << std::endl;
 });
 
+#define PRINT_CORE()                                            \
+    ptr_vector<expr> core;                                      \
+    ctx.get_check_sat_result()->get_unsat_core(core);           \
+    ctx.regular_stream() << "(";                                \
+    ptr_vector<expr>::const_iterator it  = core.begin();        \
+    ptr_vector<expr>::const_iterator end = core.end();          \
+    for (bool first = true; it != end; ++it) {                  \
+    if (first)                                                  \
+        first = false;                                          \
+    else                                                        \
+        ctx.regular_stream() << " ";                            \
+    ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());          \
+    }                                                           \
+    ctx.regular_stream() << ")" << std::endl;                   \
+
 ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
-    if (!ctx.produce_unsat_cores())
-        throw cmd_exception("unsat core construction is not enabled, use command (set-option :produce-unsat-cores true)");
-    if (!ctx.has_manager() ||
-        ctx.cs_state() != cmd_context::css_unsat)
-        throw cmd_exception("unsat core is not available");
-    ptr_vector<expr> core;
-    ctx.get_check_sat_result()->get_unsat_core(core);
-    ctx.regular_stream() << "(";
-    ptr_vector<expr>::const_iterator it  = core.begin();
-    ptr_vector<expr>::const_iterator end = core.end();
-    for (bool first = true; it != end; ++it) {
-        if (first)
-            first = false;
-        else
-            ctx.regular_stream() << " ";
-        ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());
-    }
-    ctx.regular_stream() << ")" << std::endl;
-});
+        if (!ctx.produce_unsat_cores())
+            throw cmd_exception("unsat core construction is not enabled, use command (set-option :produce-unsat-cores true)");
+        if (!ctx.has_manager() ||
+            ctx.cs_state() != cmd_context::css_unsat)
+            throw cmd_exception("unsat core is not available");
+        PRINT_CORE();
+    });
+
+ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset of assumptions sufficient for unsatisfiability", {
+        if (!ctx.produce_unsat_assumptions())
+            throw cmd_exception("unsat assumptions construction is not enabled, use command (set-option :produce-unsat-assumptions true)");
+        if (!ctx.has_manager() || ctx.cs_state() != cmd_context::css_unsat) {
+            throw cmd_exception("unsat assumptions is not available");
+        }
+        PRINT_CORE();
+    });
+
 
 ATOMIC_CMD(labels_cmd, "labels", "retrieve Simplify-like labels", {
     if (!ctx.has_manager() ||
@@ -201,6 +214,11 @@ ATOMIC_CMD(labels_cmd, "labels", "retrieve Simplify-like labels", {
 
 ATOMIC_CMD(get_assertions_cmd, "get-assertions", "retrieve asserted terms when in interactive mode", ctx.display_assertions(););
 
+
+
+
+ATOMIC_CMD(reset_assertions_cmd, "reset-assertions", "reset all asserted formulas (but retain definitions and declarations)", ctx.reset_assertions(););
+
 UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", CPK_SYMBOL, symbol const &, 
           if (ctx.set_logic(arg))
               ctx.print_success();
@@ -215,6 +233,7 @@ UNARY_CMD(pp_cmd, "display", "<term>", "display the given term.", CPK_EXPR, expr
 
 UNARY_CMD(echo_cmd, "echo", "<string>", "display the given string", CPK_STRING, char const *, ctx.regular_stream() << arg << std::endl;);
 
+
 class set_get_option_cmd : public cmd {
 protected:
     symbol      m_true;
@@ -223,28 +242,33 @@ protected:
     symbol      m_print_success;
     symbol      m_print_warning;
     symbol      m_expand_definitions;
-    symbol      m_interactive_mode;
+    symbol      m_interactive_mode;    // deprecated by produce-assertions
     symbol      m_produce_proofs;
     symbol      m_produce_unsat_cores;
+    symbol      m_produce_unsat_assumptions;
     symbol      m_produce_models;
     symbol      m_produce_assignments;
     symbol      m_produce_interpolants;
+    symbol      m_produce_assertions;
     symbol      m_regular_output_channel;
     symbol      m_diagnostic_output_channel;
     symbol      m_random_seed;
     symbol      m_verbosity;
     symbol      m_global_decls;
+    symbol      m_global_declarations;
     symbol      m_numeral_as_real;
     symbol      m_error_behavior;
     symbol      m_int_real_coercions;
+    symbol      m_reproducible_resource_limit;
 
     bool is_builtin_option(symbol const & s) const {
         return 
             s == m_print_success || s == m_print_warning || s == m_expand_definitions || 
-            s == m_interactive_mode || s == m_produce_proofs || s == m_produce_unsat_cores ||
+            s == m_interactive_mode || s == m_produce_proofs || s == m_produce_unsat_cores || s == m_produce_unsat_assumptions ||
             s == m_produce_models || s == m_produce_assignments || s == m_produce_interpolants ||
-        s == m_regular_output_channel || s == m_diagnostic_output_channel || 
-            s == m_random_seed || s == m_verbosity || s == m_global_decls;
+            s == m_regular_output_channel || s == m_diagnostic_output_channel || 
+            s == m_random_seed || s == m_verbosity || s == m_global_decls || s == m_global_declarations ||
+            s == m_produce_assertions || s == m_reproducible_resource_limit;
     }
 
 public:
@@ -258,17 +282,21 @@ public:
         m_interactive_mode(":interactive-mode"),
         m_produce_proofs(":produce-proofs"),
         m_produce_unsat_cores(":produce-unsat-cores"),
+        m_produce_unsat_assumptions(":produce-unsat-assumptions"),
         m_produce_models(":produce-models"),
         m_produce_assignments(":produce-assignments"),
         m_produce_interpolants(":produce-interpolants"),
+        m_produce_assertions(":produce-assertions"),
         m_regular_output_channel(":regular-output-channel"),
         m_diagnostic_output_channel(":diagnostic-output-channel"),
         m_random_seed(":random-seed"),
         m_verbosity(":verbosity"),
         m_global_decls(":global-decls"),
+        m_global_declarations(":global-declarations"),
         m_numeral_as_real(":numeral-as-real"),
         m_error_behavior(":error-behavior"),
-        m_int_real_coercions(":int-real-coercions") {
+        m_int_real_coercions(":int-real-coercions"),
+        m_reproducible_resource_limit(":reproducible-resource-limit") {
     }
     virtual ~set_get_option_cmd() {}
 
@@ -320,8 +348,9 @@ class set_option_cmd : public set_get_option_cmd {
         else if (m_option == m_expand_definitions) {
             m_unsupported = true;
         }
-        else if (m_option == m_interactive_mode) {
-            check_not_initialized(ctx, m_interactive_mode);
+        else if (m_option == m_interactive_mode ||
+                 m_option == m_produce_assertions) {
+            check_not_initialized(ctx, m_produce_assertions);
             ctx.set_interactive_mode(to_bool(value));
         }
         else if (m_option == m_produce_proofs) {
@@ -336,13 +365,17 @@ class set_option_cmd : public set_get_option_cmd {
             check_not_initialized(ctx, m_produce_unsat_cores);
             ctx.set_produce_unsat_cores(to_bool(value));
         }
+        else if (m_option == m_produce_unsat_assumptions) {
+            check_not_initialized(ctx, m_produce_unsat_assumptions);
+            ctx.set_produce_unsat_assumptions(to_bool(value));
+        }
         else if (m_option == m_produce_models) {
             ctx.set_produce_models(to_bool(value));
         }
         else if (m_option == m_produce_assignments) {
             ctx.set_produce_assignments(to_bool(value));
         }
-        else if (m_option == m_global_decls) {
+        else if (m_option == m_global_decls || m_option == m_global_declarations) {
             check_not_initialized(ctx, m_global_decls);
             ctx.set_global_decls(to_bool(value));
         }
@@ -406,6 +439,9 @@ public:
     virtual void set_next_arg(cmd_context & ctx, rational const & val) {
         if (m_option == m_random_seed) {
             ctx.set_random_seed(to_unsigned(val));
+        }
+        else if (m_option == m_reproducible_resource_limit) {
+            ctx.params().m_rlimit = to_unsigned(val);
         }
         else if (m_option == m_verbosity) {
             set_verbosity_level(to_unsigned(val));
@@ -474,7 +510,7 @@ public:
         else if (opt == m_expand_definitions) {
             ctx.print_unsupported(m_expand_definitions, m_line, m_pos);
         }
-        else if (opt == m_interactive_mode) {
+        else if (opt == m_interactive_mode || opt == m_produce_assertions) {
             print_bool(ctx, ctx.interactive_mode());
         }
         else if (opt == m_produce_proofs) {
@@ -492,7 +528,7 @@ public:
         else if (opt == m_produce_assignments) {
             print_bool(ctx, ctx.produce_assignments());
         }
-        else if (opt == m_global_decls) {
+        else if (opt == m_global_decls || opt == m_global_declarations) {
             print_bool(ctx, ctx.global_decls());
         }
         else if (opt == m_random_seed) {
@@ -540,6 +576,7 @@ class get_info_cmd : public cmd {
     symbol   m_status;
     symbol   m_reason_unknown;
     symbol   m_all_statistics;
+    symbol   m_assertion_stack_levels;
 public:
     get_info_cmd():
         cmd("get-info"),
@@ -549,7 +586,8 @@ public:
         m_version(":version"),
         m_status(":status"),
         m_reason_unknown(":reason-unknown"),
-        m_all_statistics(":all-statistics") {
+        m_all_statistics(":all-statistics"),
+        m_assertion_stack_levels("assertion-stack-levels") {
     }
     virtual char const * get_usage() const { return "<keyword>"; }
     virtual char const * get_descr(cmd_context & ctx) const { return "get information."; }
@@ -566,7 +604,7 @@ public:
             ctx.regular_stream() << "(:name \"Z3\")" << std::endl;
         }
         else if (opt == m_authors) {
-            ctx.regular_stream() << "(:authors \"Leonardo de Moura and Nikolaj Bjorner\")" << std::endl;
+            ctx.regular_stream() << "(:authors \"Leonardo de Moura, Nikolaj Bjorner and Christoph Wintersteiger\")" << std::endl;
         }
         else if (opt == m_version) {
             ctx.regular_stream() << "(:version \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER
@@ -583,6 +621,9 @@ public:
         }
         else if (opt == m_all_statistics) {
             ctx.display_statistics();
+        }
+        else if (opt == m_assertion_stack_levels) {
+            ctx.regular_stream() << "(:assertion-stack-levels " << ctx.num_scopes() << ")" << std::endl;
         }
         else {
             ctx.print_unsupported(opt, m_line, m_pos);
@@ -737,7 +778,14 @@ void install_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(builtin_cmd, "declare-fun", "<symbol> (<sort>*) <sort>", "declare a new function/constant."));
     ctx.insert(alloc(builtin_cmd, "declare-const", "<symbol> <sort>", "declare a new constant."));
     ctx.insert(alloc(builtin_cmd, "declare-datatypes", "(<symbol>*) (<datatype-declaration>+)", "declare mutually recursive datatypes.\n<datatype-declaration> ::= (<symbol> <constructor-decl>+)\n<constructor-decl> ::= (<symbol> <accessor-decl>*)\n<accessor-decl> ::= (<symbol> <sort>)\nexample: (declare-datatypes (T) ((BinTree (leaf (value T)) (node (left BinTree) (right BinTree)))))"));
+    ctx.insert(alloc(builtin_cmd, "check-sat-asuming", "( hprop_literali* )", "check sat assuming a collection of literals"));
+
+    // ctx.insert(alloc(builtin_cmd, "define-fun-rec", "hfun-defi", "define a function satisfying recursive equations"));
+    // ctx.insert(alloc(builtin_cmd, "define-funs-rec", "( hfun_decin+1 ) ( htermin+1 )", "define multiple mutually recursive functions"));
+    // ctx.insert(alloc(get_unsat_assumptions_cmd));
+    ctx.insert(alloc(reset_assertions_cmd));
 }
+
 
 void install_ext_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(help_cmd));

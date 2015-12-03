@@ -29,6 +29,7 @@ Revision History:
 #include"has_free_vars.h"
 #include"ast_smt2_pp.h"
 #include"parser_params.hpp"
+#include<sstream>
 
 namespace smt2 {
     typedef cmd_exception parser_exception;
@@ -98,6 +99,9 @@ namespace smt2 {
         symbol               m_pop;
         symbol               m_get_value;
         symbol               m_reset;
+        symbol               m_check_sat_assuming;
+        symbol               m_define_fun_rec;
+        symbol               m_define_funs_rec;
         symbol               m_underscore;
 
         typedef std::pair<symbol, expr*> named_expr;
@@ -1843,6 +1847,132 @@ namespace smt2 {
             next();
         }
 
+        void parse_define_fun_rec() {
+            // ( define-fun-rec hfun_defi ) 
+            SASSERT(curr_is_identifier());
+            SASSERT(curr_id() == m_define_fun_rec);
+            SASSERT(m_num_bindings == 0);
+            next();
+            
+            expr_ref_vector binding(m());
+            svector<symbol> ids;
+            func_decl_ref f(m());
+            parse_rec_fun_decl(f, binding, ids);
+            m_ctx.insert(f);
+            parse_rec_fun_body(f, binding, ids);
+            check_rparen("invalid function/constant definition, ')' expected");
+            m_ctx.print_success();
+            next();
+        }
+
+        void parse_define_funs_rec() {
+            // ( define-funs-rec ( hfun_decin+1 ) ( htermin+1 ) ) 
+            SASSERT(curr_is_identifier());
+            SASSERT(curr_id() == m_define_funs_rec);
+            SASSERT(m_num_bindings == 0);
+            next();
+            func_decl_ref_vector decls(m());
+            vector<expr_ref_vector> bindings;
+            vector<svector<symbol> > ids;
+            expr_ref_vector bodies(m());
+            parse_rec_fun_decls(decls, bindings, ids);
+            for (unsigned i = 0; i < decls.size(); ++i) {
+                m_ctx.insert(decls[i].get());
+            }
+            parse_rec_fun_bodies(decls, bindings, ids);
+
+            check_rparen("invalid function/constant definition, ')' expected");
+            m_ctx.print_success();
+            next();
+        }
+
+        void parse_rec_fun_decls(func_decl_ref_vector& decls, vector<expr_ref_vector>& bindings, vector<svector<symbol> >& ids) {
+            check_lparen("invalid recursive function definition, '(' expected");
+            next();
+            while (!curr_is_rparen()) {
+                expr_ref_vector binding(m());
+                svector<symbol> id;
+                func_decl_ref f(m());
+
+                check_lparen("invalid recursive function definition, '(' expected");
+                next();
+            
+                parse_rec_fun_decl(f, binding, id);
+                decls.push_back(f);
+                bindings.push_back(binding);
+                ids.push_back(id);
+
+                check_rparen("invalid recursive function definition, ')' expected");
+                next();                
+            }
+            next();
+        }
+
+        void parse_rec_fun_decl(func_decl_ref& f, expr_ref_vector& bindings, svector<symbol>& ids) {
+            SASSERT(m_num_bindings == 0);
+            check_identifier("invalid function/constant definition, symbol expected");
+            symbol id = curr_id();
+            next();
+            unsigned sym_spos  = symbol_stack().size();
+            unsigned sort_spos = sort_stack().size();
+            unsigned expr_spos = expr_stack().size();
+            unsigned num_vars  = parse_sorted_vars();
+            SASSERT(num_vars == m_num_bindings);
+            parse_sort();
+            f = m().mk_func_decl(id, num_vars, sort_stack().c_ptr() + sort_spos, sort_stack().back());
+            bindings.append(num_vars, expr_stack().c_ptr() + expr_spos);
+            ids.append(num_vars, symbol_stack().c_ptr() + sym_spos);
+            symbol_stack().shrink(sym_spos);
+            sort_stack().shrink(sort_spos);
+            expr_stack().shrink(expr_spos);
+            m_env.end_scope();
+            m_num_bindings = 0;            
+        }
+
+        void parse_rec_fun_bodies(func_decl_ref_vector const& decls, vector<expr_ref_vector> const& bindings, vector<svector<symbol> >const & ids) {
+            unsigned i = 0;
+            check_lparen("invalid recursive function definition, '(' expected");
+            next();
+            while (!curr_is_rparen() && i < decls.size()) {
+                parse_rec_fun_body(decls[i], bindings[i], ids[i]);
+                ++i;
+            }
+
+            if (i != decls.size()) {
+                throw parser_exception("the number of declarations does not match number of supplied definitions");                    
+            }
+            check_rparen("invalid recursive function definition, ')' expected");
+            next();                
+        }
+
+        void parse_rec_fun_body(func_decl* f, expr_ref_vector const& bindings, svector<symbol> const& ids) {
+            SASSERT(m_num_bindings == 0);
+            expr_ref body(m());
+            unsigned sym_spos  = symbol_stack().size();
+            unsigned num_vars  = bindings.size();
+            m_env.begin_scope();
+            m_symbol_stack.append(ids.size(), ids.c_ptr());
+            m_num_bindings = num_vars;
+            for (unsigned i = 0; i < num_vars; ++i) {
+                m_env.insert(ids[i], local(bindings[i], num_vars));
+            }
+            parse_expr();            
+            body = expr_stack().back();
+            expr_stack().pop_back();
+            symbol_stack().shrink(sym_spos);
+            m_env.end_scope();
+            m_num_bindings = 0;            
+            if (m().get_sort(body) != f->get_range()) {
+                std::ostringstream buffer;
+                buffer << "invalid function definition, sort mismatch. Expcected "
+                       << mk_pp(f->get_range(), m()) << " but function body has sort " 
+                       << mk_pp(m().get_sort(body), m());
+                throw parser_exception(buffer.str().c_str());
+            } 
+            m_ctx.insert_rec_fun(f, bindings, ids, body);
+        }
+
+
         void parse_define_const() {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id() == m_define_const);
@@ -1978,11 +2108,7 @@ namespace smt2 {
             next();
         }
 
-        void parse_check_sat() {
-            SASSERT(curr_is_identifier());
-            SASSERT(curr_id() == m_check_sat);
-            next();
-            unsigned spos = expr_stack().size();
+        void parse_assumptions() {
             while (!curr_is_rparen()) {
                 bool sign;
                 expr_ref t_ref(m());
@@ -2015,6 +2141,27 @@ namespace smt2 {
                 if (sign)
                     check_rparen_next("invalid check-sat command, ')' expected");
             }
+        }
+
+        void parse_check_sat() {
+            SASSERT(curr_is_identifier());
+            SASSERT(curr_id() == m_check_sat);
+            next();
+            unsigned spos = expr_stack().size();
+            parse_assumptions();
+            m_ctx.check_sat(expr_stack().size() - spos, expr_stack().c_ptr() + spos);
+            next();
+            expr_stack().shrink(spos);
+        }
+
+        void parse_check_sat_assuming() {
+            SASSERT(curr_is_identifier());
+            SASSERT(curr_id() == m_check_sat_assuming);
+            next();
+            unsigned spos = expr_stack().size();
+            check_rparen_next("invalid check-sat-assuming command, '(', expected");
+            parse_assumptions();
+            check_rparen_next("invalid check-sat-assuming command, ')', expected");            
             m_ctx.check_sat(expr_stack().size() - spos, expr_stack().c_ptr() + spos);
             next();
             expr_stack().shrink(spos);
@@ -2371,6 +2518,18 @@ namespace smt2 {
                 parse_reset();
                 return;
             }
+            if (s == m_check_sat_assuming) {
+                parse_check_sat_assuming();
+                return;
+            }
+            if (s == m_define_fun_rec) {
+                parse_define_fun_rec();
+                return;
+            }
+            if (s == m_define_funs_rec) {
+                parse_define_funs_rec();
+                return;
+            }
             parse_ext_cmd(line, pos);
         }
 
@@ -2411,7 +2570,10 @@ namespace smt2 {
             m_pop("pop"),
             m_get_value("get-value"),
             m_reset("reset"),
-            m_underscore("_"),
+            m_check_sat_assuming("check-sat-assuming"),
+            m_define_fun_rec("define-fun-rec"),
+            m_define_funs_rec("define-funs-rec"),
+            m_underscore("_"),            
             m_num_open_paren(0) {
             // the following assertion does not hold if ctx was already attached to an AST manager before the parser object is created.
             // SASSERT(!m_ctx.has_manager());
