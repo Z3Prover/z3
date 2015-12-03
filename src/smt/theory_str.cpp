@@ -1999,6 +1999,20 @@ expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
 bool theory_str::in_same_eqc(expr * n1, expr * n2) {
     if (n1 == n2) return true;
     context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    // similar to get_eqc_value(), make absolutely sure
+    // that we've set this up properly for the context
+
+    if (!ctx.e_internalized(n1)) {
+        TRACE("t_str_detail", tout << "WARNING: expression " << mk_ismt2_pp(n1, m) << " was not internalized" << std::endl;);
+        ctx.internalize(n1, false);
+    }
+    if (!ctx.e_internalized(n2)) {
+        TRACE("t_str_detail", tout << "WARNING: expression " << mk_ismt2_pp(n2, m) << " was not internalized" << std::endl;);
+        ctx.internalize(n2, false);
+    }
+
     enode * n1Node = ctx.get_enode(n1);
     enode * n2Node = ctx.get_enode(n2);
 
