@@ -922,10 +922,6 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
     expr * new_nn2 = simplify_concat(nn2);
     app * a_new_nn1 = to_app(new_nn1);
     app * a_new_nn2 = to_app(new_nn2);
-    expr * v1_arg0 = a_new_nn1->get_arg(0);
-    expr * v1_arg1 = a_new_nn1->get_arg(1);
-    expr * v2_arg0 = a_new_nn2->get_arg(0);
-    expr * v2_arg1 = a_new_nn2->get_arg(1);
 
     TRACE("t_str_detail", tout << "new_nn1 = " << mk_ismt2_pp(new_nn1, m) << std::endl
             << "new_nn2 = " << mk_ismt2_pp(new_nn2, m) << std::endl;);
@@ -959,6 +955,13 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
         }
         return;
     }
+
+    // TODO what happens if BOTH of these are simplified into non-concat terms?
+
+    expr * v1_arg0 = a_new_nn1->get_arg(0);
+    expr * v1_arg1 = a_new_nn1->get_arg(1);
+    expr * v2_arg0 = a_new_nn2->get_arg(0);
+    expr * v2_arg1 = a_new_nn2->get_arg(1);
 
     if (!in_same_eqc(new_nn1, new_nn2) && (nn1 != new_nn1 || nn2 != new_nn2)) {
         int ii4 = 0;
