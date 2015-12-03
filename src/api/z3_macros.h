@@ -14,7 +14,7 @@ Copyright (c) 2015 Microsoft Corporation
 # else
 #  define Z3_API
 # endif
-#endif 
+#endif
 
 #ifndef DEFINE_TYPE
 #define DEFINE_TYPE(T) typedef struct _ ## T *T
@@ -22,11 +22,4 @@ Copyright (c) 2015 Microsoft Corporation
 
 #ifndef DEFINE_VOID
 #define DEFINE_VOID(T) typedef void* T
-#endif
-
-#ifndef BEGIN_MLAPI_EXCLUDE
-#define BEGIN_MLAPI_EXCLUDE
-#endif
-#ifndef END_MLAPI_EXCLUDE
-#define END_MLAPI_EXCLUDE
 #endif

@@ -17,7 +17,7 @@ Author:
     Leonardo de Moura (leonardo) 2012-01-05
 
 Notes:
-    
+
 --*/
 #ifndef Z3_RCF_H_
 #define Z3_RCF_H_
@@ -25,19 +25,12 @@ Notes:
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
-    
-    /**
-    \defgroup capi C API
 
-    */
-
+    /** \defgroup capi C API */
     /*@{*/
 
-    /**
-    @name Real Closed Fields API
-    */
+    /** @name Real Closed Fields */
     /*@{*/
-
     /**
        \brief Delete a RCF numeral created using the RCF API.
 
@@ -82,43 +75,43 @@ extern "C" {
 
     /**
        \brief Store in roots the roots of the polynomial <tt>a[n-1]*x^{n-1} + ... + a[0]</tt>.
-       The output vector \c roots must have size \c n. 
+       The output vector \c roots must have size \c n.
        It returns the number of roots of the polynomial.
 
-       \pre The input polynomial is not the zero polynomial. 
+       \pre The input polynomial is not the zero polynomial.
 
        def_API('Z3_rcf_mk_roots', UINT, (_in(CONTEXT), _in(UINT), _in_array(1, RCF_NUM), _out_array(1, RCF_NUM)))
     */
     unsigned Z3_API Z3_rcf_mk_roots(Z3_context c, unsigned n, Z3_rcf_num const a[], Z3_rcf_num roots[]);
 
     /**
-       \brief Return the value a + b. 
+       \brief Return the value a + b.
 
        def_API('Z3_rcf_add', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_rcf_num Z3_API Z3_rcf_add(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return the value a - b. 
+       \brief Return the value a - b.
 
        def_API('Z3_rcf_sub', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_rcf_num Z3_API Z3_rcf_sub(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return the value a * b. 
+       \brief Return the value a * b.
 
        def_API('Z3_rcf_mul', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_rcf_num Z3_API Z3_rcf_mul(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return the value a / b. 
+       \brief Return the value a / b.
 
        def_API('Z3_rcf_div', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_rcf_num Z3_API Z3_rcf_div(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
-    
+
     /**
        \brief Return the value -a
 
