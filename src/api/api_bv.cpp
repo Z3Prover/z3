@@ -151,8 +151,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     }
 
     /**
-       \brief \mlh mk_bvmsb c s \endmlh
-       Create a bit-vector of sort \s with 1 in the most significant bit position.
+       \brief Create a bit-vector of sort \s with 1 in the most significant bit position.
        
        The sort \s must be a bit-vector sort.
 

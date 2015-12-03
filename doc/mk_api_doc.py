@@ -84,47 +84,55 @@ try:
     os.remove('website-adj.dox')
     shutil.copyfile('../src/api/python/z3.py', 'tmp/z3py.py')
     cleanup_API('../src/api/z3_api.h', 'tmp/z3_api.h')
+    cleanup_API('../src/api/z3_ast_containers.h', 'tmp/z3_ast_containers.h')
     cleanup_API('../src/api/z3_algebraic.h', 'tmp/z3_algebraic.h')
     cleanup_API('../src/api/z3_polynomial.h', 'tmp/z3_polynomial.h')
     cleanup_API('../src/api/z3_rcf.h', 'tmp/z3_rcf.h')
-    cleanup_API('../src/api/z3_interp.h', 'tmp/z3_interp.h')
+    cleanup_API('../src/api/z3_fixedpoint.h', 'tmp/z3_fixedpoint.h')
+    cleanup_API('../src/api/z3_optimization.h', 'tmp/z3_optimization.h')
+    cleanup_API('../src/api/z3_interp.h', 'tmp/z3_interp.h')    
     cleanup_API('../src/api/z3_fpa.h', 'tmp/z3_fpa.h')
     
-    print "Removed annotations from z3_api.h."
+    print("Removed annotations from z3_api.h.")
     try:
         if subprocess.call(['doxygen', 'z3api.dox']) != 0:
-            print "ERROR: doxygen returned nonzero return code"
+            print("ERROR: doxygen returned nonzero return code")
             exit(1)
     except:
-        print "ERROR: failed to execute 'doxygen', make sure doxygen (http://www.doxygen.org) is available in your system."
+        print("ERROR: failed to execute 'doxygen', make sure doxygen (http://www.doxygen.org) is available in your system.")
         exit(1)
-    print "Generated C and .NET API documentation."
+    print("Generated C and .NET API documentation.")
     os.remove('tmp/z3_api.h')
+    os.remove('tmp/z3_ast_containers.h')
     os.remove('tmp/z3_algebraic.h')
     os.remove('tmp/z3_polynomial.h')
     os.remove('tmp/z3_rcf.h')
+    os.remove('tmp/z3_fixedpoint.h')
+    os.remove('tmp/z3_optimization.h')
     os.remove('tmp/z3_interp.h')
     os.remove('tmp/z3_fpa.h')
-    print "Removed temporary file z3_api.h."
-    os.remove('tmp/website.dox')	
-    print "Removed temporary file website.dox"
-    os.remove('tmp/z3py.py')	
-    print "Removed temporary file z3py.py"
+    print("Removed temporary file header files.")
+    
+    os.remove('tmp/website.dox')
+    print("Removed temporary file website.dox")
+    os.remove('tmp/z3py.py')
+    print("Removed temporary file z3py.py")
     os.removedirs('tmp')
-    print "Removed temporary directory tmp."
+    print("Removed temporary directory tmp.")
     sys.path.append('../src/api/python')
     pydoc.writedoc('z3')
     shutil.move('z3.html', 'api/html/z3.html')
-    print "Generated Python documentation."
+    print("Generated Python documentation.")
 
     if ML_ENABLED:
         mk_dir('api/html/ml')
         if subprocess.call(['ocamldoc', '-html', '-d', 'api\html\ml', '-sort', '-hide', 'Z3', '-I', '%s/api/ml' % BUILD_DIR, '../src/api/ml/z3enums.mli', '../src/api/ml/z3.mli']) != 0:
-            print "ERROR: ocamldoc failed."
+            print("ERROR: ocamldoc failed.")
             exit(1)
-        print "Generated ML/OCaml documentation."
+        print("Generated ML/OCaml documentation.")
         
-    print "Documentation was successfully generated at subdirectory './api/html'."
+    print("Documentation was successfully generated at subdirectory './api/html'.")
 except:
-    print "ERROR: failed to generate documentation"
+    exctype, value = sys.exc_info()[:2]
+    print("ERROR: failed to generate documentation: %s" % value)
     exit(1)

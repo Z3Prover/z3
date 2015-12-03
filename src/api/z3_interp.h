@@ -23,21 +23,13 @@ Notes:
 extern "C" {
 #endif // __cplusplus
 
-    /**
-    \defgroup capi C API
-
-    */
-
+    /** \defgroup capi C API */
     /*@{*/
 
-    /**
-        @name Interpolation API
-        */
+    /** @name Interpolation facilities */
     /*@{*/
-
     /**
-    \brief \mlh mk_interp c a \endmlh
-    Create an AST node marking a formula position for interpolation.
+    \brief Create an AST node marking a formula position for interpolation.
 
     The node \c a must have Boolean sort.
 
@@ -112,7 +104,7 @@ extern "C" {
 
         Currently, the only SMT solver that is supported is the legacy
         SMT solver. Such a solver is available as the default solver in
-        #Z3_context objects produced by #Z3_mk_interpolation_context.
+        \c Z3_context objects produced by #Z3_mk_interpolation_context.
         Currently, the theories supported are equality with
         uninterpreted functions, linear integer arithmetic, and the
         theory of arrays (in SMT-LIB terms, this is AUFLIA).
@@ -164,10 +156,10 @@ extern "C" {
        def_API('Z3_compute_interpolant', INT, (_in(CONTEXT), _in(AST), _in(PARAMS), _out(AST_VECTOR), _out(MODEL)))
        */
 
-    Z3_lbool Z3_API Z3_compute_interpolant(Z3_context c, 
-                                           Z3_ast pat, 
-                                           Z3_params p, 
-                                           Z3_ast_vector *interp, 
+    Z3_lbool Z3_API Z3_compute_interpolant(Z3_context c,
+                                           Z3_ast pat,
+                                           Z3_params p,
+                                           Z3_ast_vector *interp,
                                            Z3_model *model);
 
     /** Return a string summarizing cumulative time used for
@@ -282,7 +274,6 @@ extern "C" {
                                                 Z3_string filename,
                                                 unsigned num_theory,
                                                 Z3_ast theory[]);
-
     /*@}*/
     /*@}*/
 

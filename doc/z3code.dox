@@ -64,11 +64,6 @@ ALIASES                = "beginfaq=<ul>" \
                          "emph{1}=<em>\1</em>" \
                          "extdoc{2}=<a class=\"el\" href=\"\1\">\2</a>" \
                          "nicebox{1}=<div class=\"fragment\"><pre class=\"fragment\">\1</pre></div>" \
-                         "mlonly=\if Ocaml" \
-                         "endmlonly=\endif" \
-                         "mlh=\if Ocaml" \
-                         "endmlh=\endif" \
-                         "conly=" \
                          "ccode{1}=<tt>\1</tt>" \
                          "zframe=<iframe allowtransparency=\"true\" frameborder=\"0\" style=\"width:600px;height:600px\" src=\"http://rise4fun.com/z3?frame=1&menu=0\"> </iframe>"
 
