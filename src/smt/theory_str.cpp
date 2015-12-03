@@ -30,6 +30,7 @@ theory_str::theory_str(ast_manager & m):
         m_autil(m),
         m_strutil(m),
         sLevel(0),
+        m_trail(m),
         tmpStringVarCount(0),
 		tmpXorVarCount(0),
 		tmpLenTestVarCount(0),
@@ -357,9 +358,8 @@ app * theory_str::mk_internal_xor_var() {
     strcpy(new_buffer, name.c_str());
 	symbol sym(new_buffer);
 
-	app* a = m.mk_const(m.mk_const_decl(sym, int_sort));
-
-	// TODO ctx.save_ast_trail(a)?
+	app * a = m.mk_const(m.mk_const_decl(sym, int_sort));
+	m_trail.push_back(a);
 	return a;
 }
 
@@ -382,6 +382,7 @@ app * theory_str::mk_str_var(std::string name) {
 	SASSERT(ctx.e_internalized(a));
 	m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
 
+	m_trail.push_back(a);
 	variable_set.insert(a);
 	internal_variable_set.insert(a);
 	track_variable_scope(a);
@@ -424,6 +425,7 @@ app * theory_str::mk_nonempty_str_var() {
     }
 
     // add 'a' to variable sets, so we can keep track of it
+    m_trail.push_back(a);
     variable_set.insert(a);
     internal_variable_set.insert(a);
     track_variable_scope(a);

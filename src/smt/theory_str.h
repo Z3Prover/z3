@@ -67,6 +67,9 @@ namespace smt {
         str_util m_strutil;
         int sLevel;
 
+        // TODO make sure that all generated expressions are saved into the trail
+        expr_ref_vector m_trail; // trail for generated terms
+
         str_value_factory * m_factory;
 
         ptr_vector<enode> m_basicstr_axiom_todo;
