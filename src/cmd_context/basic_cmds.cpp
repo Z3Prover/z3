@@ -165,26 +165,39 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
     ctx.regular_stream() << std::endl;
 });
 
+#define PRINT_CORE()                                            \
+    ptr_vector<expr> core;                                      \
+    ctx.get_check_sat_result()->get_unsat_core(core);           \
+    ctx.regular_stream() << "(";                                \
+    ptr_vector<expr>::const_iterator it  = core.begin();        \
+    ptr_vector<expr>::const_iterator end = core.end();          \
+    for (bool first = true; it != end; ++it) {                  \
+    if (first)                                                  \
+        first = false;                                          \
+    else                                                        \
+        ctx.regular_stream() << " ";                            \
+    ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());          \
+    }                                                           \
+    ctx.regular_stream() << ")" << std::endl;                   \
+
 ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
-    if (!ctx.produce_unsat_cores())
-        throw cmd_exception("unsat core construction is not enabled, use command (set-option :produce-unsat-cores true)");
-    if (!ctx.has_manager() ||
-        ctx.cs_state() != cmd_context::css_unsat)
-        throw cmd_exception("unsat core is not available");
-    ptr_vector<expr> core;
-    ctx.get_check_sat_result()->get_unsat_core(core);
-    ctx.regular_stream() << "(";
-    ptr_vector<expr>::const_iterator it  = core.begin();
-    ptr_vector<expr>::const_iterator end = core.end();
-    for (bool first = true; it != end; ++it) {
-        if (first)
-            first = false;
-        else
-            ctx.regular_stream() << " ";
-        ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());
-    }
-    ctx.regular_stream() << ")" << std::endl;
-});
+        if (!ctx.produce_unsat_cores())
+            throw cmd_exception("unsat core construction is not enabled, use command (set-option :produce-unsat-cores true)");
+        if (!ctx.has_manager() ||
+            ctx.cs_state() != cmd_context::css_unsat)
+            throw cmd_exception("unsat core is not available");
+        PRINT_CORE();
+    });
+
+ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset of assumptions sufficient for unsatisfiability", {
+        if (!ctx.produce_unsat_assumptions())
+            throw cmd_exception("unsat assumptions construction is not enabled, use command (set-option :produce-unsat-assumptions true)");
+        if (!ctx.has_manager() || ctx.cs_state() != cmd_context::css_unsat) {
+            throw cmd_exception("unsat assumptions is not available");
+        }
+        PRINT_CORE();
+    });
+
 
 ATOMIC_CMD(labels_cmd, "labels", "retrieve Simplify-like labels", {
     if (!ctx.has_manager() ||
@@ -200,6 +213,11 @@ ATOMIC_CMD(labels_cmd, "labels", "retrieve Simplify-like labels", {
 });
 
 ATOMIC_CMD(get_assertions_cmd, "get-assertions", "retrieve asserted terms when in interactive mode", ctx.display_assertions(););
+
+
+
+
+ATOMIC_CMD(reset_assertions_cmd, "reset-assertions", "reset all asserted formulas (but retain definitions and declarations)", ctx.reset_assertions(););
 
 UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", CPK_SYMBOL, symbol const &, 
           if (ctx.set_logic(arg))
@@ -226,6 +244,7 @@ protected:
     symbol      m_interactive_mode;
     symbol      m_produce_proofs;
     symbol      m_produce_unsat_cores;
+    symbol      m_produce_unsat_assumptions;
     symbol      m_produce_models;
     symbol      m_produce_assignments;
     symbol      m_produce_interpolants;
@@ -241,9 +260,9 @@ protected:
     bool is_builtin_option(symbol const & s) const {
         return 
             s == m_print_success || s == m_print_warning || s == m_expand_definitions || 
-            s == m_interactive_mode || s == m_produce_proofs || s == m_produce_unsat_cores ||
+            s == m_interactive_mode || s == m_produce_proofs || s == m_produce_unsat_cores || s == m_produce_unsat_assumptions ||
             s == m_produce_models || s == m_produce_assignments || s == m_produce_interpolants ||
-        s == m_regular_output_channel || s == m_diagnostic_output_channel || 
+            s == m_regular_output_channel || s == m_diagnostic_output_channel || 
             s == m_random_seed || s == m_verbosity || s == m_global_decls;
     }
 
@@ -258,6 +277,7 @@ public:
         m_interactive_mode(":interactive-mode"),
         m_produce_proofs(":produce-proofs"),
         m_produce_unsat_cores(":produce-unsat-cores"),
+        m_produce_unsat_assumptions(":produce-unsat-assumptions"),
         m_produce_models(":produce-models"),
         m_produce_assignments(":produce-assignments"),
         m_produce_interpolants(":produce-interpolants"),
@@ -335,6 +355,10 @@ class set_option_cmd : public set_get_option_cmd {
         else if (m_option == m_produce_unsat_cores) {
             check_not_initialized(ctx, m_produce_unsat_cores);
             ctx.set_produce_unsat_cores(to_bool(value));
+        }
+        else if (m_option == m_produce_unsat_assumptions) {
+            check_not_initialized(ctx, m_produce_unsat_assumptions);
+            ctx.set_produce_unsat_assumptions(to_bool(value));
         }
         else if (m_option == m_produce_models) {
             ctx.set_produce_models(to_bool(value));
@@ -737,7 +761,14 @@ void install_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(builtin_cmd, "declare-fun", "<symbol> (<sort>*) <sort>", "declare a new function/constant."));
     ctx.insert(alloc(builtin_cmd, "declare-const", "<symbol> <sort>", "declare a new constant."));
     ctx.insert(alloc(builtin_cmd, "declare-datatypes", "(<symbol>*) (<datatype-declaration>+)", "declare mutually recursive datatypes.\n<datatype-declaration> ::= (<symbol> <constructor-decl>+)\n<constructor-decl> ::= (<symbol> <accessor-decl>*)\n<accessor-decl> ::= (<symbol> <sort>)\nexample: (declare-datatypes (T) ((BinTree (leaf (value T)) (node (left BinTree) (right BinTree)))))"));
+    ctx.insert(alloc(builtin_cmd, "check-sat-asuming", "( hprop_literali* )", "check sat assuming a collection of literals"));
+
+    // ctx.insert(alloc(builtin_cmd, "define-fun-rec", "hfun-defi", "define a function satisfying recursive equations"));
+    // ctx.insert(alloc(builtin_cmd, "define-funs-rec", "( hfun_decin+1 ) ( htermin+1 )", "define multiple mutually recursive functions"));
+    // ctx.insert(alloc(get_unsat_assumptions_cmd));
+    ctx.insert(alloc(reset_assertions_cmd));
 }
+
 
 void install_ext_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(help_cmd));

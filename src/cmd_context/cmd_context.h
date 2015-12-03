@@ -156,6 +156,7 @@ protected:
     bool                         m_print_success;
     unsigned                     m_random_seed;
     bool                         m_produce_unsat_cores;
+    bool                         m_produce_unsat_assumptions;
     bool                         m_produce_assignments;
     status                       m_status;
     bool                         m_numeral_as_real;
@@ -308,7 +309,9 @@ public:
     void set_produce_unsat_cores(bool flag);
     void set_produce_proofs(bool flag);
     void set_produce_interpolants(bool flag);
+    void set_produce_unsat_assumptions(bool flag) { m_produce_unsat_assumptions = flag; }
     bool produce_assignments() const { return m_produce_assignments; }
+    bool produce_unsat_assumptions() const { return m_produce_unsat_assumptions; }
     void set_produce_assignments(bool flag) { m_produce_assignments = flag; }
     void set_status(status st) { m_status = st; }
     status get_status() const { return m_status; }
@@ -342,6 +345,7 @@ public:
     void insert(probe_info * p) { tactic_manager::insert(p); } 
     void insert_user_tactic(symbol const & s, sexpr * d); 
     void insert_aux_pdecl(pdecl * p);
+    void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
     func_decl * find_func_decl(symbol const & s) const;
     func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices, 
                                unsigned arity, sort * const * domain, sort * range) const;
@@ -390,6 +394,7 @@ public:
     void push(unsigned n);
     void pop(unsigned n);
     void check_sat(unsigned num_assumptions, expr * const * assumptions);
+    void reset_assertions();
     // display the result produced by a check-sat or check-sat-using commands in the regular stream
     void display_sat_result(lbool r);
     // check if result produced by check-sat or check-sat-using matches the known status

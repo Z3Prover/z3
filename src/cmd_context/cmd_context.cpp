@@ -313,6 +313,7 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_print_success(m_params.m_smtlib2_compliant),
     m_random_seed(0),
     m_produce_unsat_cores(false),
+    m_produce_unsat_assumptions(false),
     m_produce_assignments(false),
     m_status(UNKNOWN),
     m_numeral_as_real(false),
@@ -831,6 +832,17 @@ void cmd_context::insert(symbol const & s, object_ref * r) {
     m_object_refs.insert(s, r);
 }
 
+void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e) {
+    expr_ref eq(m()), lhs(m());
+    lhs = m().mk_app(f, binding.size(), binding.c_ptr());
+    eq  = m().mk_eq(lhs, e);
+    if (!ids.empty()) {
+        eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq);
+    }
+    warning_msg("recursive functions are currently only partially supported: they are translated into recursive equations without special handling");
+    // TBD: basic implementation asserts axiom. Life-time of recursive equation follows scopes (unlikely to be what SMT-LIB 2.5 wants).
+    assert_expr(eq);
+}
 
 func_decl * cmd_context::find_func_decl(symbol const & s) const {
     builtin_decl d;
@@ -1480,6 +1492,24 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     }
 }
 
+void cmd_context::reset_assertions() {
+    if (m_opt) {
+        m_opt = 0;
+    }
+    if (m_solver) {
+        m_solver = 0;
+        mk_solver();
+    }
+    restore_assertions(0);
+    svector<scope>::iterator it  = m_scopes.begin();
+    svector<scope>::iterator end = m_scopes.end();
+    for (; it != end; ++it) {
+        it->m_assertions_lim = 0;
+        if (m_solver) m_solver->push();
+    }
+}
+    
+
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
         model_params p;
@@ -1671,6 +1701,7 @@ void cmd_context::display_statistics(bool show_total_time, double total_time) {
     }
     st.display_smt2(regular_stream());
 }
+
 
 void cmd_context::display_assertions() {
     if (!m_interactive_mode)
