@@ -532,6 +532,8 @@ void theory_str::instantiate_concat_axiom(enode * cat) {
 
     ast_manager & m = get_manager();
 
+    TRACE("t_str_detail", tout << "instantiating concat axiom for " << mk_ismt2_pp(a_cat, m) << std::endl;);
+
     // build LHS
     expr_ref len_xy(m);
     // TODO should we use str_util for these and other expressions?
@@ -560,7 +562,6 @@ void theory_str::instantiate_concat_axiom(enode * cat) {
     // finally assert equality between the two subexpressions
     app * eq = m.mk_eq(len_xy, len_x_plus_len_y);
     SASSERT(eq);
-    TRACE("t_str", tout << mk_ismt2_pp(eq, m) << std::endl;);
     assert_axiom(eq);
 }
 
@@ -3442,6 +3443,13 @@ final_check_status theory_str::final_check_eh() {
         TRACE("t_str", tout << "All variables are assigned. Done!" << std::endl;);
         return FC_DONE;
     }
+
+    CTRACE("t_str", needToAssignFreeVars,
+        tout << "Need to assign values to the following free variables:" << std::endl;
+        for (std::set<expr*>::iterator itx = free_variables.begin(); itx != free_variables.end(); ++itx) {
+            tout << mk_ismt2_pp(*itx, m) << std::endl;
+        }
+    );
 
     // -----------------------------------------------------------
     // variables in freeVar are those not bounded by Concats
