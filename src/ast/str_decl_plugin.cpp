@@ -101,7 +101,8 @@ func_decl * str_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
 
 app * str_decl_plugin::mk_string(std::string & val) {
 	std::map<std::string, app*>::iterator it = string_cache.find(val);
-	if (it == string_cache.end()) {
+	//if (it == string_cache.end()) {
+	if (true) {
 		char * new_buffer = alloc_svect(char, (val.length() + 1));
 		strcpy(new_buffer, val.c_str());
 		parameter p[1] = {parameter(new_buffer)};

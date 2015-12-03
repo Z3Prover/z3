@@ -300,7 +300,8 @@ app * theory_str::mk_int(int n) {
     return m_autil.mk_numeral(rational(n), true);
 }
 
-// We have to work a little bit harder to ensure that all variables we create here are always fresh.
+
+// TODO refactor all of these so that they don't use variable counters, but use ast_manager::mk_fresh_const instead
 
 expr * theory_str::mk_internal_lenTest_var(expr * node, int lTries) {
 	ast_manager & m = get_manager();
@@ -369,12 +370,8 @@ app * theory_str::mk_str_var(std::string name) {
 
 	TRACE("t_str_detail", tout << "creating string variable " << name << " at scope level " << sLevel << std::endl;);
 
-	sort * string_sort = m.mk_sort(m_strutil.get_family_id(), STRING_SORT);
-	char * new_buffer = alloc_svect(char, name.length() + 1);
-	strcpy(new_buffer, name.c_str());
-	symbol sym(new_buffer);
-
-	app * a = m.mk_const(m.mk_const_decl(sym, string_sort));
+	sort * string_sort = m.mk_sort(get_family_id(), STRING_SORT);
+	app * a = m.mk_fresh_const(name.c_str(), string_sort);
 
 	// I have a hunch that this may not get internalized for free...
 	ctx.internalize(a, false);
@@ -401,12 +398,9 @@ app * theory_str::mk_nonempty_str_var() {
 
     TRACE("t_str_detail", tout << "creating nonempty string variable " << name << " at scope level " << sLevel << std::endl;);
 
-    sort * string_sort = m.mk_sort(m_strutil.get_family_id(), STRING_SORT);
-    char * new_buffer = alloc_svect(char, name.length() + 1);
-    strcpy(new_buffer, name.c_str());
-    symbol sym(new_buffer);
+    sort * string_sort = m.mk_sort(get_family_id(), STRING_SORT);
+    app * a = m.mk_fresh_const(name.c_str(), string_sort);
 
-    app* a = m.mk_const(m.mk_const_decl(sym, string_sort));
     ctx.internalize(a, false);
     SASSERT(ctx.get_enode(a) != NULL);
     // assert a variation of the basic string axioms that ensures this string is nonempty
@@ -3843,7 +3837,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 
 	TRACE("t_str_detail", tout << "entry" << std::endl;);
 
-	expr * freeVarLen = mk_strlen(freeVar);
+	expr_ref freeVarLen(mk_strlen(freeVar), m);
 	SASSERT(freeVarLen);
 
 	ptr_vector<expr> orList;
@@ -3856,7 +3850,10 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	TRACE("t_str_detail", tout << "building andList and orList" << std::endl;);
 
 	for (int i = l; i < h; ++i) {
-		expr * or_expr = m.mk_eq(indicator, m_strutil.mk_string(int_to_string(i).c_str()));
+	    std::string i_str = int_to_string(i);
+	    expr_ref str_indicator(m_strutil.mk_string(i_str), m);
+	    TRACE("t_str_detail", tout << "just created a string term: " << mk_ismt2_pp(str_indicator, m) << std::endl;);
+		expr * or_expr = m.mk_eq(indicator, str_indicator); // ARGUMENT 2 IS BOGUS! WRONG SORT
 		TRACE("t_str_detail", tout << "or_expr = " << mk_ismt2_pp(or_expr, m) << std::endl;);
 		orList.push_back(or_expr);
 
@@ -3868,6 +3865,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	orList.push_back(m.mk_eq(indicator, m_strutil.mk_string("more")));
 	andList.push_back(m.mk_eq(orList[orList.size() - 1], m_autil.mk_ge(freeVarLen, mk_int(h))));
 
+	// TODO refactor this to use expr_ref_vector/svector/buffer instead
 	expr ** or_items = alloc_svect(expr*, orList.size());
 	expr ** and_items = alloc_svect(expr*, andList.size() + 1);
 
@@ -3965,8 +3963,8 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 		fvar_len_count_map[freeVar] = 1;
 		unsigned int testNum = fvar_len_count_map[freeVar];
 
-		expr * indicator = mk_internal_lenTest_var(freeVar, testNum);
-		SASSERT(indicator != NULL);
+		expr_ref indicator(mk_internal_lenTest_var(freeVar, testNum), m);
+		SASSERT(indicator);
 
 		// since the map is "effectively empty", we can remove those variables that have left scope...
 		fvar_lenTester_map[freeVar].shrink(0);
