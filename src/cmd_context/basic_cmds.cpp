@@ -233,6 +233,7 @@ UNARY_CMD(pp_cmd, "display", "<term>", "display the given term.", CPK_EXPR, expr
 
 UNARY_CMD(echo_cmd, "echo", "<string>", "display the given string", CPK_STRING, char const *, ctx.regular_stream() << arg << std::endl;);
 
+
 class set_get_option_cmd : public cmd {
 protected:
     symbol      m_true;
@@ -241,21 +242,24 @@ protected:
     symbol      m_print_success;
     symbol      m_print_warning;
     symbol      m_expand_definitions;
-    symbol      m_interactive_mode;
+    symbol      m_interactive_mode;    // deprecated by produce-assertions
     symbol      m_produce_proofs;
     symbol      m_produce_unsat_cores;
     symbol      m_produce_unsat_assumptions;
     symbol      m_produce_models;
     symbol      m_produce_assignments;
     symbol      m_produce_interpolants;
+    symbol      m_produce_assertions;
     symbol      m_regular_output_channel;
     symbol      m_diagnostic_output_channel;
     symbol      m_random_seed;
     symbol      m_verbosity;
     symbol      m_global_decls;
+    symbol      m_global_declarations;
     symbol      m_numeral_as_real;
     symbol      m_error_behavior;
     symbol      m_int_real_coercions;
+    symbol      m_reproducible_resource_limit;
 
     bool is_builtin_option(symbol const & s) const {
         return 
@@ -263,7 +267,8 @@ protected:
             s == m_interactive_mode || s == m_produce_proofs || s == m_produce_unsat_cores || s == m_produce_unsat_assumptions ||
             s == m_produce_models || s == m_produce_assignments || s == m_produce_interpolants ||
             s == m_regular_output_channel || s == m_diagnostic_output_channel || 
-            s == m_random_seed || s == m_verbosity || s == m_global_decls;
+            s == m_random_seed || s == m_verbosity || s == m_global_decls || s == m_global_declarations ||
+            s == m_produce_assertions || s == m_reproducible_resource_limit;
     }
 
 public:
@@ -281,14 +286,17 @@ public:
         m_produce_models(":produce-models"),
         m_produce_assignments(":produce-assignments"),
         m_produce_interpolants(":produce-interpolants"),
+        m_produce_assertions(":produce-assertions"),
         m_regular_output_channel(":regular-output-channel"),
         m_diagnostic_output_channel(":diagnostic-output-channel"),
         m_random_seed(":random-seed"),
         m_verbosity(":verbosity"),
         m_global_decls(":global-decls"),
+        m_global_declarations(":global-declarations"),
         m_numeral_as_real(":numeral-as-real"),
         m_error_behavior(":error-behavior"),
-        m_int_real_coercions(":int-real-coercions") {
+        m_int_real_coercions(":int-real-coercions"),
+        m_reproducible_resource_limit(":reproducible-resource-limit") {
     }
     virtual ~set_get_option_cmd() {}
 
@@ -340,8 +348,9 @@ class set_option_cmd : public set_get_option_cmd {
         else if (m_option == m_expand_definitions) {
             m_unsupported = true;
         }
-        else if (m_option == m_interactive_mode) {
-            check_not_initialized(ctx, m_interactive_mode);
+        else if (m_option == m_interactive_mode ||
+                 m_option == m_produce_assertions) {
+            check_not_initialized(ctx, m_produce_assertions);
             ctx.set_interactive_mode(to_bool(value));
         }
         else if (m_option == m_produce_proofs) {
@@ -366,7 +375,7 @@ class set_option_cmd : public set_get_option_cmd {
         else if (m_option == m_produce_assignments) {
             ctx.set_produce_assignments(to_bool(value));
         }
-        else if (m_option == m_global_decls) {
+        else if (m_option == m_global_decls || m_option == m_global_declarations) {
             check_not_initialized(ctx, m_global_decls);
             ctx.set_global_decls(to_bool(value));
         }
@@ -430,6 +439,9 @@ public:
     virtual void set_next_arg(cmd_context & ctx, rational const & val) {
         if (m_option == m_random_seed) {
             ctx.set_random_seed(to_unsigned(val));
+        }
+        else if (m_option == m_reproducible_resource_limit) {
+            ctx.params().m_rlimit = to_unsigned(val);
         }
         else if (m_option == m_verbosity) {
             set_verbosity_level(to_unsigned(val));
@@ -498,7 +510,7 @@ public:
         else if (opt == m_expand_definitions) {
             ctx.print_unsupported(m_expand_definitions, m_line, m_pos);
         }
-        else if (opt == m_interactive_mode) {
+        else if (opt == m_interactive_mode || opt == m_produce_assertions) {
             print_bool(ctx, ctx.interactive_mode());
         }
         else if (opt == m_produce_proofs) {
@@ -516,7 +528,7 @@ public:
         else if (opt == m_produce_assignments) {
             print_bool(ctx, ctx.produce_assignments());
         }
-        else if (opt == m_global_decls) {
+        else if (opt == m_global_decls || opt == m_global_declarations) {
             print_bool(ctx, ctx.global_decls());
         }
         else if (opt == m_random_seed) {
@@ -564,6 +576,7 @@ class get_info_cmd : public cmd {
     symbol   m_status;
     symbol   m_reason_unknown;
     symbol   m_all_statistics;
+    symbol   m_assertion_stack_levels;
 public:
     get_info_cmd():
         cmd("get-info"),
@@ -573,7 +586,8 @@ public:
         m_version(":version"),
         m_status(":status"),
         m_reason_unknown(":reason-unknown"),
-        m_all_statistics(":all-statistics") {
+        m_all_statistics(":all-statistics"),
+        m_assertion_stack_levels("assertion-stack-levels") {
     }
     virtual char const * get_usage() const { return "<keyword>"; }
     virtual char const * get_descr(cmd_context & ctx) const { return "get information."; }
@@ -590,7 +604,7 @@ public:
             ctx.regular_stream() << "(:name \"Z3\")" << std::endl;
         }
         else if (opt == m_authors) {
-            ctx.regular_stream() << "(:authors \"Leonardo de Moura and Nikolaj Bjorner\")" << std::endl;
+            ctx.regular_stream() << "(:authors \"Leonardo de Moura, Nikolaj Bjorner and Christoph Wintersteiger\")" << std::endl;
         }
         else if (opt == m_version) {
             ctx.regular_stream() << "(:version \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER
@@ -607,6 +621,9 @@ public:
         }
         else if (opt == m_all_statistics) {
             ctx.display_statistics();
+        }
+        else if (opt == m_assertion_stack_levels) {
+            ctx.regular_stream() << "(:assertion-stack-levels " << ctx.num_scopes() << ")" << std::endl;
         }
         else {
             ctx.print_unsupported(opt, m_line, m_pos);
