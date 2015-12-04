@@ -352,6 +352,6 @@ bool seq_decl_plugin::is_value(app* e) const {
     return false;
 }
 
-app* seq_util::mk_string(symbol const& s) {
-    return seq.mk_string(s);
+app* seq_util::str::mk_string(symbol const& s) {
+    return u.seq.mk_string(s);
 }
