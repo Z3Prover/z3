@@ -3428,20 +3428,37 @@ final_check_status theory_str::final_check_eh() {
     // If not, mark it as free.
     bool needToAssignFreeVars = false;
     std::set<expr*> free_variables;
+    std::set<expr*> unused_internal_variables;
     TRACE("t_str_detail", tout << variable_set.size() << " variables in variable_set" << std::endl;);
     for (std::set<expr*>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
         TRACE("t_str_detail", tout << "checking eqc of variable " << mk_ismt2_pp(*it, m) << std::endl;);
         bool has_eqc_value = false;
         get_eqc_value(*it, has_eqc_value);
         if (!has_eqc_value) {
-            needToAssignFreeVars = true;
-            free_variables.insert(*it);
+            // if this is an internal variable, it can be ignored...I think
+            if (internal_variable_set.find(*it) != internal_variable_set.end()) {
+                TRACE("t_str_detail", tout << "WARNING: free internal variable " << mk_ismt2_pp(*it, m) << std::endl;);
+                unused_internal_variables.insert(*it);
+            } else {
+                needToAssignFreeVars = true;
+                free_variables.insert(*it);
+            }
         }
     }
 
     if (!needToAssignFreeVars) {
-        TRACE("t_str", tout << "All variables are assigned. Done!" << std::endl;);
-        return FC_DONE;
+        if (unused_internal_variables.empty()) {
+            TRACE("t_str", tout << "All variables are assigned. Done!" << std::endl;);
+            return FC_DONE;
+        } else {
+            TRACE("t_str", tout << "Assigning decoy values to free internal variables." << std::endl;);
+            for (std::set<expr*>::iterator it = unused_internal_variables.begin(); it != unused_internal_variables.end(); ++it) {
+                expr * var = *it;
+                expr_ref assignment(m.mk_eq(var, m_strutil.mk_string("**unused**")), m);
+                assert_axiom(assignment);
+            }
+            return FC_CONTINUE;
+        }
     }
 
     CTRACE("t_str", needToAssignFreeVars,
@@ -4218,7 +4235,7 @@ void theory_str::get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> &
 }
 
 void theory_str::init_model(model_generator & mg) {
-    TRACE("t_str", tout << "initializing model" << std::endl; display(tout););
+    //TRACE("t_str", tout << "initializing model" << std::endl; display(tout););
     m_factory = alloc(str_value_factory, get_manager(), get_family_id());
     mg.register_factory(m_factory);
 }
@@ -4287,7 +4304,7 @@ model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
         TRACE("t_str", tout << "WARNING: failed to find a concrete value, falling back" << std::endl;);
         // TODO make absolutely sure the reason we can't find a concrete value is because of an unassigned temporary
         // e.g. for an expression like (Concat X $$_str0)
-        //return alloc(expr_wrapper_proc, m_strutil.mk_string(""));
+        //return alloc(expr_wrapper_proc, m_strutil.mk_string("**UNUSED**"));
         NOT_IMPLEMENTED_YET();
     }
 }
