@@ -400,7 +400,7 @@ namespace datalog {
         SASSERT(!is_closed()); //the rule_set is not already closed        
         m_deps.populate(*this);
         m_stratifier = alloc(rule_stratifier, m_deps);
-        if (!stratified_negation() || !check_min()) {
+        if (!stratified_negation()) {
             m_stratifier = 0;
             m_deps.reset();
             return false;
@@ -441,48 +441,6 @@ namespace datalog {
         return true;
     }
 
-    bool rule_set::check_min() {
-        // For now, we check the following:
-        //
-        // if a min aggregation function occurs in an SCC, is this SCC
-        // free of any other non-monotonic functions, e.g. negation?
-        const unsigned NEG_BIT = 1U << 0;
-        const unsigned MIN_BIT = 1U << 1;
-
-        ptr_vector<rule>::const_iterator it = m_rules.c_ptr();
-        ptr_vector<rule>::const_iterator end = m_rules.c_ptr() + m_rules.size();
-        unsigned_vector component_status(m_stratifier->get_strats().size());
-
-        for (; it != end; it++) {
-            rule * r = *it;
-            // app * head = r->get_head();
-            // func_decl * head_decl = head->get_decl();
-            // unsigned head_strat = get_predicate_strat(head_decl);
-            unsigned n = r->get_tail_size();
-            for (unsigned i = 0; i < n; i++) {
-                func_decl * tail_decl = r->get_tail(i)->get_decl();
-                unsigned strat = get_predicate_strat(tail_decl);
-
-                if (r->is_neg_tail(i)) {
-                    SASSERT(strat < component_status.size());
-                    component_status[strat] |= NEG_BIT;
-                }
-
-                if (r->is_min_tail(i)) {
-                    SASSERT(strat < component_status.size());
-                    component_status[strat] |= MIN_BIT;
-                }
-            }
-        }
-
-        const unsigned CONFLICT = NEG_BIT | MIN_BIT;
-        for (unsigned k = 0; k < component_status.size(); ++k) {
-            if (component_status[k] == CONFLICT)
-                return false;
-        }
-
-        return true;
-    }
 
     void rule_set::replace_rules(const rule_set & src) {
         if (this != &src) {
