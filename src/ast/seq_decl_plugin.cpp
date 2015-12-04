@@ -348,8 +348,7 @@ app* seq_decl_plugin::mk_string(symbol const& s) {
 }
 
 bool seq_decl_plugin::is_value(app* e) const {
-    // TBD: empty sequence is a value.
-    return false;
+    return is_app_of(e, m_family_id, OP_STRING_CONST);
 }
 
 app* seq_util::str::mk_string(symbol const& s) {
